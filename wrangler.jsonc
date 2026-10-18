@@ -1,0 +1,10 @@
+{
+  // Static-only Worker: no main script, Cloudflare serves the files from the repo root.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "computercooked-site",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./",
+    "not_found_handling": "404-page"
+  }
+}
