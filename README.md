@@ -10,6 +10,8 @@ index.html        the page
 styles.css        all styles (brand colors are CSS variables at the top)
 assets/           logo.svg (also the favicon), og.png, apple-touch-icon.png, fonts/
 robots.txt, sitemap.xml, _headers
+wrangler.jsonc    Cloudflare Worker config (static assets only)
+.assetsignore     files kept off the live site
 scripts/          optional: regenerates og.png and the touch icon
 ```
 
@@ -23,15 +25,18 @@ The rotating "system status" lines are in the small `<script>` at the bottom of 
 
 Any static server from the repo root works, for example `npx serve .` or `python3 -m http.server`, then open http://localhost:3000 (or :8000).
 
-## Deploy (Cloudflare Pages)
+## Deploy (Cloudflare Workers, static assets)
 
-Connected straight to this GitHub repo.
+Deployed as a static-assets-only Worker through Workers Builds, connected to this GitHub repo.
 
-- Framework preset: None
-- Build command: (leave empty)
-- Build output directory: `/` (the repo root)
+- Production branch: `main`
+- Root directory: `/`
+- Build command: (none)
+- Deploy command: `npx wrangler deploy`
 
-Every push to the production branch deploys. Pull requests get preview URLs. Cloudflare Pages automatically serves `404.html` for unknown paths and applies the headers in `_headers`.
+`wrangler.jsonc` points the Worker's assets at the repo root and has no `main` script, so Cloudflare just serves the files. Unknown paths get `404.html` (`not_found_handling: "404-page"`), and the headers in `_headers` are applied. `.assetsignore` keeps repo-only files (README, scripts/, docs/, wrangler.jsonc, .git and so on) off the live site; add to it if you put anything else at the root that shouldn't be public.
+
+Every push to `main` deploys.
 
 ## Regenerating the share image
 

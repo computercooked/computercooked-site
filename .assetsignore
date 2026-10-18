@@ -1,0 +1,11 @@
+# Files that stay in the repo but are not uploaded to the live site.
+.git
+.github
+.gitignore
+scripts/
+docs/
+README.md
+wrangler.jsonc
+node_modules
+.DS_Store
+.wrangler
