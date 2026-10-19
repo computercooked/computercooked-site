@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="CRASH, a tired beige CRT computer, dodging falling popups">
+  <style>
+    .fall1 { animation: fall 2.6s linear infinite; }
+    .fall2 { animation: fall 2.6s linear infinite 1.1s; }
+    .fall3 { animation: fall 2.6s linear infinite 1.9s; }
+    .bob { animation: bob 1.3s ease-in-out infinite; transform-origin: 200px 250px; }
+    .steam path { animation: steam 1.6s ease-in-out infinite; }
+    .steam path:nth-child(2) { animation-delay: .3s; }
+    .steam path:nth-child(3) { animation-delay: .6s; }
+    .blink { animation: blink 3.2s steps(1) infinite; }
+    @keyframes fall { from { transform: translateY(-90px); } to { transform: translateY(330px); } }
+    @keyframes bob { 0%,100% { transform: translateX(-28px) rotate(-3deg); } 50% { transform: translateX(28px) rotate(3deg); } }
+    @keyframes steam { 0%,100% { opacity: 1; transform: translateY(0); } 50% { opacity: .2; transform: translateY(-10px); } }
+    @keyframes blink { 0%, 92% { opacity: 1; } 93%, 100% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <rect width="400" height="300" fill="#101114"/>
+  <g opacity=".06" fill="#F5F3ED"><rect y="0" width="400" height="1"/><rect y="4" width="400" height="1"/><rect y="8" width="400" height="1"/></g>
+  <g class="fall1"><rect x="40" y="0" width="92" height="52" rx="6" fill="#F5F3ED"/><rect x="40" y="0" width="92" height="13" rx="6" fill="#B59AFF"/><text x="86" y="38" font-family="monospace" font-weight="800" font-size="12" text-anchor="middle" fill="#101114">47 tabs</text></g>
+  <g class="fall2"><rect x="262" y="0" width="104" height="52" rx="6" fill="#F5F3ED"/><rect x="262" y="0" width="104" height="13" rx="6" fill="#ff6b5b"/><text x="314" y="38" font-family="monospace" font-weight="800" font-size="11" text-anchor="middle" fill="#101114">quick question?</text></g>
+  <g class="fall3"><circle cx="196" cy="20" r="16" fill="#C5FF49"/><path d="M188 14h16v14h-16z" fill="#101114"/><path d="M204 17h4v7h-4" fill="none" stroke="#101114" stroke-width="2"/></g>
+  <g class="bob">
+    <g class="steam" stroke="#B59AFF" stroke-width="7" stroke-linecap="square"><path d="M168 132v-16"/><path d="M200 128v-24"/><path d="M232 132v-16"/></g>
+    <rect x="138" y="140" width="124" height="96" rx="14" fill="#d8ccab"/>
+    <rect x="252" y="150" width="18" height="76" rx="6" fill="#bfb18c"/>
+    <rect x="152" y="152" width="96" height="66" rx="10" fill="#1a2b1a"/>
+    <g class="blink" fill="#C5FF49"><rect x="172" y="176" width="16" height="6"/><rect x="212" y="176" width="16" height="6"/></g>
+    <path d="M182 202q18-8 36 0" fill="none" stroke="#C5FF49" stroke-width="4"/>
+    <rect x="166" y="236" width="68" height="12" rx="3" fill="#bfb18c"/>
+    <rect x="160" y="226" width="14" height="5" fill="#ff6b5b"/>
+  </g>
+  <text x="200" y="290" font-family="monospace" font-weight="800" font-size="20" text-anchor="middle" fill="#C5FF49" letter-spacing="2">CRASH</text>
+</svg>
