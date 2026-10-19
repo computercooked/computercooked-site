@@ -268,6 +268,7 @@
       if (!(noun in CARRYABLE_NOUNS) || (obj && obj.fixed) || (obj && obj.heldBy === "hand") || c.holding != null) mask[V.pickup] = false;
       if (!(noun in CUDDLY_NOUNS)) mask[V.cuddle] = false;
       if (target.type === "hand") mask[V.pickup] = false;
+      if (c.species === "grump" && noun === "egg") mask[V.pickup] = false; // eggs are off limits, even for grumps
     }
     mask[V.sleep] = ch.sleepy > 0.2 || ch.tired > 0.35;
     if (c.species === "grump") { mask[V.cuddle] = false; mask[V.sleep] = false; }
@@ -278,6 +279,8 @@
     var useBias = false;
     for (v = 0; v < NV; v++) bias[v] = 0;
     if (heardV >= 0 && mask[heardV]) { bias[heardV] = gene(c.genome, "obedience", 0.5) * 0.18 + (c.heard.name ? 0.05 : 0); useBias = true; }
+    // smitten adults seek out another smol to cuddle
+    if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
 
     var any = false;
     for (v = 0; v < NV; v++) if (mask[v]) { any = true; break; }
@@ -563,7 +566,7 @@
     if (pop >= 16) { say(a, "too many smols", game); return; }
     SB.Game.layEgg(game, a, b, (a.x + b.x) / 2);
     a.chem.love = 0; b.chem.love = 0;
-    a.eggCooldown = b.eggCooldown = 600;
+    a.eggCooldown = b.eggCooldown = 400;
     a.stats.kids++; b.stats.kids++;
   }
 
@@ -747,7 +750,7 @@
     if (st !== c.stage) {
       c.stage = st;
       if (c.species === "smol") {
-        SB.Game.note(game, c.name + " is now " + (st === 3 ? "an " : "a ") + SB.STAGES[st].name + "!");
+        SB.Game.note(game, c.name + " is now " + (st === 3 || st === 4 ? "an " : "a ") + SB.STAGES[st].name + "!");
         emote(c, "idea", 2);
         SB.bus.emit("grow", { c: c });
       }
@@ -782,6 +785,8 @@
       if (!c.wasSick && ch.sick > 0.5) { c.wasSick = true; SB.Game.note(game, c.name + " is feeling sick 🤢 medicine helps: Healroot (woods) or the Medbot (lab)"); SB.bus.emit("sick", { c: c }); }
       else if (c.wasSick && ch.sick < 0.15) { c.wasSick = false; game.stats.cured++; SB.Game.unlock(game, "cure"); SB.bus.emit("cured", { c: c }); }
     }
+
+    if (c.species === "smol" && ch.love > 0.8 && c.stage === 3 && !an.emote && Math.random() < dt * 0.15) emote(c, "love", 1.5); // 💕 so players can see who's smitten
 
     // anim timers
     an.blinkT -= dt;

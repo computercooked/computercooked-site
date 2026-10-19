@@ -727,8 +727,8 @@
       if (inInc) warmth = 0.5;
       d.hintT = (d.hintT || 0) + dt;
       if (d.hintT > 3.5) { d.hintT = 0; if (d.wobble < 0.45) d.wobble = 0.45; }
-    } else if (!o.heldBy) {
-      if (inInc) { rate = 1 / 75; warmth = 1; }
+    } else {
+      if (o.heldBy) { /* carried: base rate only */ } else if (inInc) { rate = 1 / 75; warmth = 1; }
       else {
         for (i = 0; i < world._heat.length; i++) if (Math.abs(o.x - world._heat[i].x) < 170) { rate = 1 / 200; warmth = 0.6; break; }
         if (!rate) {
@@ -737,6 +737,7 @@
         }
       }
     }
+    if (!d.starter && rate < 1 / 900) rate = 1 / 900; // every egg hatches eventually
     d.progress = Math.min(1, d.progress + rate * dt);
     d.warmth = (d.warmth || 0) + (warmth - (d.warmth || 0)) * Math.min(1, dt * 2);
     d.wobble = (d.wobble || 0) * Math.max(0, 1 - 1.5 * dt);
@@ -781,7 +782,7 @@
       o.age += dt;
       decayTimers(d, dt);
       if (def.rots) {
-        if (o.age > def.rots * 2 && o.heldBy == null) {
+        if (o.age > def.rots * 1.5 && o.heldBy == null) {
           World.remove(world, o);
           if (isFood(o.kind)) world._food--;
           else if (o.kind === "herb") world._herb--;
@@ -913,11 +914,13 @@
         } else if (d.rotten) {
           addTo(res.deltas, def.food, 0.4);
           addTo(res.chem, def.chem, 0.5);
-          res.chem.antigen = (res.chem.antigen || 0) + 0.4;
+          res.chem.antigen = (res.chem.antigen || 0) + 0.25;
+          res.deltas.pain = (res.deltas.pain || 0) + 0.2; // yuck right away, so the lesson lands on the meal
           res.msg = "yuck";
         } else {
           addTo(res.deltas, def.food);
           addTo(res.chem, def.chem);
+          if (def.chem && def.chem.toxin) { res.deltas.pain = (res.deltas.pain || 0) + 0.3; res.msg = "yuck"; } // red shrooms taste awful
         }
         res.consumed = true;
         releaseFrom(game, obj);

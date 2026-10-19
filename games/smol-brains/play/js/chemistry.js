@@ -83,8 +83,8 @@
     // illness: toxins decay; germs multiply until antibodies catch them; medicine helps both
     var imm = 0.4 + gene(genome, "immunity", 0.5) * 1.2;
     c.toxin -= dt * (0.006 + c.medicine * 0.03);
-    c.antigen += dt * c.antigen * 0.012;
-    c.antibody += dt * c.antigen * 0.01 * imm;
+    c.antigen += dt * c.antigen * 0.008;
+    c.antibody += dt * c.antigen * 0.015 * imm;
     var kill = Math.min(c.antigen, dt * (c.antibody * 0.03 + c.medicine * 0.06));
     c.antigen -= kill;
     c.antibody -= dt * 0.002;
@@ -94,7 +94,8 @@
 
     // love only in adults who are doing fine
     if (stage >= 3 && stage < 4 && !grump && c.hunger < 0.6 && c.health > 0.55 && c.sick < 0.3) c.love += dt * 0.003 * (0.5 + gene(genome, "fertility", 0.5));
-    else c.love -= dt * 0.01;
+    else if (stage !== 3 || grump) c.love -= dt * 0.01;
+    else c.love -= dt * 0.0015; // a rough patch slows romance, it doesn't end it
 
     // health: starve, poison, germs, pain and extremes hurt; a calm, fed body heals
     var dmg = 0;

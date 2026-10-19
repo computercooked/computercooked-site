@@ -146,6 +146,18 @@
     if (smols.length >= 5) Game.unlock(game, "pop5");
     if (smols.length >= 10) Game.unlock(game, "pop10");
     if (game.time / SB.DAY_LENGTH >= 6) Game.unlock(game, "day7");
+    // extinction is not a dead end: after a minute with no smols and no eggs, the incubator finds a wild egg
+    var eggs = game.world.objects.some(function (o) { return o.kind === "egg"; });
+    if (!smols.length && !eggs && game.stats.hatched > 0) {
+      game.emptyT = (game.emptyT || 0) + 1;
+      if (game.emptyT >= 60) {
+        game.emptyT = 0;
+        var inc = SB.World.byKind(game.world, "incubator")[0];
+        var ex = inc ? inc.x : SB.HOME_X;
+        SB.World.add(game.world, game, "egg", ex, SB.World.groundY(game.world, ex) - 30, { genome: SB.Genome.random(game.rng, { species: "smol" }), parents: [], gen: 1, warmth: 0, progress: 0.3 });
+        Game.note(game, "the valley is quiet... a wild egg turned up in the incubator 🥚");
+      }
+    } else game.emptyT = 0;
     for (var i = 0; i < smols.length; i++) {
       var c = smols[i];
       var iq = SB.Creature.iq(c);
@@ -181,8 +193,8 @@
     if (!paused) {
       acc += dtReal * game.speed;
       var steps = 0;
-      while (acc >= SB.TICK && steps < 8) { step(SB.TICK); acc -= SB.TICK; steps++; }
-      if (steps >= 8) acc = 0; // can't keep up: drop time rather than spiral
+      while (acc >= SB.TICK && steps < 16) { step(SB.TICK); acc -= SB.TICK; steps++; }
+      if (steps >= 16) acc = 0; // can't keep up: drop time rather than spiral
     }
     SB.Render.frame(game, dtReal);
     if (SB.UI && SB.UI.frame) SB.UI.frame(game, dtReal);

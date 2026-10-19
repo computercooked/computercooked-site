@@ -696,7 +696,7 @@
       if (G.selectedId === d.c.id) panelChatDirty = true;
     });
     on("death", function (d) {
-      if (d.c && d.c.id === G.selectedId) { toast({ icon: "🕊", title: (d.c.name || "a smol") + " has passed on", desc: d.cause ? "cause: " + d.cause : "a full life." }); }
+      if (d.c && d.c.species === "smol") { toast({ icon: "🕊", title: (d.c.name || "a smol") + " has passed on", desc: d.cause === "old" ? "a full life." : d.cause ? "cause: " + d.cause : "", ms: 5000 }); }
     });
     on("grumpArrive", function (d) {
       var t = now();
@@ -1197,6 +1197,8 @@
     var traits = (c.genome && call("Genome", "traits", c.genome)) || [];
     chips(traits.slice(0, 4), 995, "transparent", "#b59aff", 4);
     var kw = knownWords(c);
+    var learning = Object.keys(c.vocab || {}).filter(function (w) { return c.vocab[w] >= 0.25 && c.vocab[w] < 1; }).map(function (w) { return w + "?"; });
+    if (!kw.length && learning.length) kw = learning.slice(0, 8);
     var used = chips(kw.length ? kw : ["no words yet"], 1065, kw.length ? "#c5ff49" : "rgba(245,243,237,0.12)", kw.length ? "#101114" : "rgba(245,243,237,0.6)", 12);
     // mini brain
     var by = used > 1 ? 1190 : 1140;
