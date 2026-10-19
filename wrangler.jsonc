@@ -16,7 +16,7 @@
   // D1 is added once the database exists (scripts/setup-cloudflare.ps1 fills in the id).
   // Until then the API answers "database not configured" and the site hides accounts,
   // leaderboards and feedback instead of erroring.
-  // "d1_databases": [{ "binding": "DB", "database_name": "computercooked", "database_id": "<id>", "migrations_dir": "migrations" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "computercooked", "database_id": "5d407ec0-06ff-49dc-952c-2a3c77905ab0", "migrations_dir": "migrations" }],
   "observability": { "enabled": true }
   // Secret (not in this file): ADMIN_TOKEN, set with `npx wrangler secret put ADMIN_TOKEN`.
 }
