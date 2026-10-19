@@ -15,7 +15,7 @@
   const CRASH_TOP = CRASH_W - 13 * (CRASH_W / 128); // monitor top edge in world y
   const RANGE = 175;                       // slider travels +-RANGE around center
   const PERFECT = 5;                       // world units of forgiveness that snap to perfect
-  const BEST_KEY = 'cc-tab-hoarder-best';
+  const BEST_KEY = 'cc-tab-hoarder-best-pts'; // v2: best is points, not tabs
 
   const TITLES = [
     'how to stop procrastinating', 'quick question', 'untitled spreadsheet (14)',
@@ -121,18 +121,37 @@
   }
   const sfx = {
     place() { tone(170, 0.09, 'square', 0.12, 90); hiss(0.05, 0.08, 2000); },
-    perfect(n) { const b = 520 * Math.pow(1.122, Math.min(n, 12)); tone(b, 0.12, 'square', 0.08); tone(b * 1.5, 0.16, 'triangle', 0.08, null, 0.05); },
+    perfect(n) { const b = 520 * Math.pow(1.09, Math.min(n, 24)); tone(b, 0.12, 'square', 0.08); tone(b * 1.5, 0.16, 'triangle', 0.08, null, 0.05); },
     slice() { hiss(0.14, 0.18, 1200, 'bandpass'); tone(300, 0.08, 'sawtooth', 0.05, 120); },
     milestone() { [0, 0.07, 0.14].forEach((d, i) => tone(440 * [1, 1.26, 1.5][i], 0.12, 'square', 0.06, null, d)); },
     cooked() { tone(330, 0.9, 'sawtooth', 0.12, 40); hiss(0.9, 0.25, 500, 'lowpass'); tone(90, 0.5, 'square', 0.1, 30, 0.15); },
     collapse() { hiss(0.6, 0.12, 3000); },
-    start() { tone(260, 0.08, 'square', 0.08); tone(390, 0.1, 'square', 0.08, null, 0.07); }
+    start() { tone(260, 0.08, 'square', 0.08); tone(390, 0.1, 'square', 0.08, null, 0.07); },
+    powerup() { [0, 0.05, 0.1, 0.15].forEach((d, i) => tone(600 * [1, 1.25, 1.5, 2][i], 0.09, 'triangle', 0.07, null, d)); }
   };
 
   // ---------- game state ----------
   let state = 'menu';             // menu | play | over
   let tabs = [], cur = null, debris = [], parts = [], toasts = [];
   let score = 0, best = loadBest(), combo = 0, newBest = false, lastTitle = '';
+  let tabsN = 0, bestCombo = 0, slowLeft = 0, nextPower = 6, powersUsed = 0, paused = false, runStart = 0, lastScoreSent = 0;
+  const mult = () => Math.min(5, 1 + Math.floor(combo / 3));
+  // ---------- power-up tabs ----------
+  const POWERS = {
+    pin:    { glyph: 'pin', title: 'pinned tab: lands perfect', color: COL.lime },
+    reopen: { glyph: 'reopen', title: 'reopen closed tab (ctrl+shift+t)', color: COL.lilac },
+    slow:   { glyph: 'slow', title: 'low power mode', color: '#7fd8ff' },
+    star:   { glyph: 'star', title: 'bookmark: +10 points', color: '#ffd84a' },
+    virus:  { glyph: 'virus', title: 'free_ram_download.exe', color: '#ff5a5a' }
+  };
+  function rollPower() {
+    const pool = ['pin', 'reopen', 'slow', 'star'];
+    if (tabsN >= 12) pool.push('virus', 'virus');
+    if (topTab().w < BASE_W * 0.45) pool.push('reopen');
+    return pool[(Math.random() * pool.length) | 0];
+  }
+  const cc = (fn, ...a) => { try { if (window.cc && typeof window.cc[fn] === 'function') window.cc[fn](...a); } catch (e) { /* sdk optional */ } };
+
   let camY = -30, shake = 0, crashHit = 0, overT = 0, t = 0, side = 1;
   let bag = [];
   let titleCache = new Map();
@@ -141,7 +160,7 @@
     if (!bag.length) { bag = TITLES.slice(); for (let i = bag.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; } }
     return bag.pop();
   }
-  function heat() { return Math.min(1, score / 55); }
+  function heat() { return Math.min(1, tabsN / 55); }
   // speed curve (world units / sec): gentle start, ramps, caps.
   function speedFor(n) { return Math.min(400, 115 + n * 7.5 + (n > 25 ? (n - 25) * 3 : 0)); }
 
@@ -154,21 +173,42 @@
     tabs = [makeTab(0, BASE_W, CRASH_TOP, 'new tab')];
     tabs[0].fav = COL.lime;
     debris = []; parts = []; toasts = [];
-    score = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
+    score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
     state = toState;
     spawn();
     updateFan();
   }
   function spawn() {
     const top = topTab();
-    cur = makeTab(side * RANGE, top.w, top.y + TAB_H);
+    cur = makeTab(top.x + side * sweep(top.w), top.w, top.y + TAB_H);
     cur.dir = -side;
+    if (state === 'play' && tabsN >= 28 && Math.random() < 0.22) cur.lag = { at: top.x + (Math.random() - 0.5) * 120, left: 0.32 }; // lag spike
+    if (state === 'play' && --nextPower <= 0) {
+      cur.power = rollPower();
+      cur.joke = cur.title; cur.title = POWERS[cur.power].title;
+      nextPower = 6 + ((Math.random() * 4) | 0);
+    }
     side = -side;
   }
+  // how far the slider travels either side of the stack, limited so it never leaves the screen
+  function sweep(w) { const half = (W && S ? W / S : WORLD_W) / 2; return Math.max(60, Math.min(RANGE, half - w / 2 - 8)); }
   function startGame() {
     initAudio();
     reset('play');
     sfx.start();
+    paused = false; runStart = performance.now();
+    cc('start');
+  }
+  function curSpeed() {
+    let sp = speedFor(tabsN);
+    if (slowLeft > 0) sp *= 0.6;
+    if (cur && cur.power === 'virus') sp *= 1.45;
+    return sp;
+  }
+  function addPoints(n) {
+    score += n;
+    const now = performance.now();
+    if (now - lastScoreSent > 400) { lastScoreSent = now; cc('score', score); }
   }
 
   function drop() {
@@ -178,23 +218,28 @@
     const l = Math.max(cur.x - cur.w / 2, top.x - top.w / 2);
     const r = Math.min(cur.x + cur.w / 2, top.x + top.w / 2);
     const ov = r - l;
-    if (ov <= 0.5) { // missed completely
-      lastTitle = cur.title;
-      debris.push(Object.assign(cur, { vx: cur.dir * speedFor(score) * 0.4, vy: 40, rot: 0, vr: cur.dir * 2.5 }));
+    const pw = cur.power;
+    if (ov <= 0.5 && !(Math.abs(off) <= PERFECT)) { // missed completely
+      lastTitle = cur.joke || cur.title;
+      debris.push(Object.assign(cur, { vx: cur.dir * curSpeed() * 0.4, vy: 40, rot: 0, vr: cur.dir * 2.5 }));
       cur = null;
       gameOver();
       return;
     }
     let placed;
-    if (Math.abs(off) <= PERFECT) {
+    if (Math.abs(off) <= PERFECT || pw === 'pin') {
       combo++;
+      bestCombo = Math.max(bestCombo, combo);
       let w = cur.w;
-      if (combo >= 3 && w < BASE_W) w = Math.min(BASE_W, w + 6 + combo);  // perfect streaks regrow the tab
+      if (combo >= 2 && w < BASE_W) w = Math.min(BASE_W, w + 6 + combo * 2);  // perfect streaks regrow the tab
+      if (combo === 5 || combo === 10 || combo === 15) { toast(combo === 5 ? 'on fire. x2 → x' + mult() : combo === 10 ? 'ten perfect. crash is crying.' : 'are you a robot', COL.lilac, 1.4, false); sfx.milestone(); shake = Math.max(shake, 4); }
       placed = makeTab(top.x, w, cur.y, cur.title); placed.fav = cur.fav; placed.perfect = true;
       sfx.perfect(combo);
-      toast(combo > 1 ? 'perfect x' + combo : 'perfect', COL.lime, 0.8, true);
-      burst(top.x, cur.y + TAB_H / 2, w, COL.lime, 14);
+      toast(combo > 1 ? 'perfect x' + combo + (mult() > 1 ? '  ·  ' + mult() + 'x pts' : '') : 'perfect', COL.lime, 0.8, true);
+      burst(top.x, cur.y + TAB_H / 2, w, COL.lime, 14 + Math.min(combo, 10) * 3);
+      if (combo >= 2 && w > cur.w + 0.5) { placed.grow = 1; toast('+' + Math.round(w - cur.w) + ' width', COL.lime, 0.6, true); }
     } else {
+      if (Math.abs(off) <= 14 && combo >= 2) toast('so close. streak gone.', COL.paper, 0.9, true);
       combo = 0;
       placed = makeTab((l + r) / 2, ov, cur.y, cur.title); placed.fav = cur.fav;
       const cutW = cur.w - ov;
@@ -204,14 +249,24 @@
       piece.vx = Math.sign(off) * (40 + Math.random() * 40); piece.vy = 60; piece.rot = 0; piece.vr = Math.sign(off) * (1.5 + Math.random() * 2);
       debris.push(piece);
       sfx.slice(); sfx.place();
-      crashHit = 0.3;
+      if (cutW > cur.w * 0.4) crashHit = 0.3;
       shake = Math.max(shake, 3);
       burst(off > 0 ? r : l, cur.y + TAB_H / 2, 4, COL.paper, 6);
     }
     placed.flash = 1;
+    if (pw) { placed.power = pw; powersUsed++; }
+    const dbl = pw && pw !== 'pin' && Math.abs(off) <= PERFECT ? 2 : 1;
+    if (dbl > 1) toast('perfect power-up: double', COL.lime, 1, true);
+    if (pw === 'reopen') { const nw = Math.min(BASE_W, placed.w + 70 * dbl); toast('tab restored. +' + Math.round(nw - placed.w) + ' width', COL.lilac, 1.2, true); placed.w = nw; burst(placed.x, cur.y + TAB_H / 2, nw, COL.lilac, 18); sfx.powerup(); }
+    if (pw === 'slow') { slowLeft = 6 * dbl; toast('low power mode: ' + slowLeft + ' slow tabs', '#7fd8ff', 1.2, true); sfx.powerup(); }
+    if (pw === 'star') { addPoints(10 * dbl); toast('bookmarked. +' + 10 * dbl, '#ffd84a', 1.2, true); burst(placed.x, cur.y + TAB_H / 2, placed.w, '#ffd84a', 18); sfx.powerup(); }
+    if (pw === 'virus') { addPoints(5 * dbl); toast('survived the download. +' + 5 * dbl, '#ff5a5a', 1.2, true); shake = Math.max(shake, 6); sfx.powerup(); }
+    if (pw === 'pin') toast('pinned.', COL.lime, 0.8, true);
+    if (slowLeft > 0 && pw !== 'slow') slowLeft--;
     tabs.push(placed);
-    score++;
-    const m = MILESTONES[score];
+    tabsN++;
+    addPoints(mult());
+    const m = MILESTONES[tabsN];
     if (m) { toast(m, COL.lilac, 1.8, false); sfx.milestone(); }
     updateFan();
     spawn();
@@ -224,6 +279,8 @@
     shake = 10;
     if (score > best) { best = score; newBest = score > 0; saveBest(best); }
     sfx.cooked();
+    cc('end', { score, durationMs: Math.round(performance.now() - runStart) });
+    cc('event', 'run_over', { tabs: tabsN, bestCombo, powersUsed });
     updateFan();
   }
   function collapse() {
@@ -248,25 +305,78 @@
 
   // ---------- input ----------
   let lastPress = 0;
-  function press() {
+  let btns = {}; // screen rects of drawn buttons: mute, share, again
+  const inRect = (r, x, y) => r && x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
+  function press(x, y) {
     const now = performance.now();
     if (now - lastPress < 60) return; // debounce
     lastPress = now;
     initAudio();
+    if (x !== undefined && inRect(btns.mute, x, y)) { userMuted = !userMuted; applyMute(); return; }
+    if (paused) { setPause(false); return; }
     if (state === 'menu') startGame();
     else if (state === 'play') drop();
-    else if (state === 'over' && overT > 0.75) startGame();
+    else if (state === 'over' && overT > 1.1) {
+      if (x !== undefined && inRect(btns.share, x, y)) { share(); return; }
+      startGame();
+    }
   }
-  cv.addEventListener('pointerdown', (e) => { e.preventDefault(); cv.focus({ preventScroll: true }); press(); });
+  let userMuted = false, hostMuted = false;
+  try { userMuted = localStorage.getItem('cc-tab-hoarder-muted') === '1'; } catch (e) { /* ignore */ }
+  function applyMute() { setMuted(userMuted || hostMuted); try { localStorage.setItem('cc-tab-hoarder-muted', userMuted ? '1' : '0'); } catch (e) { /* ignore */ } }
+  function setPause(p) { if (state !== 'play') p = false; paused = p; if (ac) { if (p) ac.suspend(); else ac.resume(); } }
+  cv.addEventListener('pointerdown', (e) => { e.preventDefault(); cv.focus({ preventScroll: true }); const r = cv.getBoundingClientRect(); press(e.clientX - r.left, e.clientY - r.top); });
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.code === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) press(); }
+    else if (e.key === 'm' || e.key === 'M') { userMuted = !userMuted; initAudio(); applyMute(); }
+    else if (e.key === 'p' || e.key === 'Escape') setPause(!paused);
+    else if ((e.key === 's' || e.key === 'S') && state === 'over') share();
   });
   window.addEventListener('message', (e) => {
     const d = e.data;
     if (!d || typeof d !== 'object') return;
-    if (d.type === 'cc-mute') setMuted(d.muted);
+    if (d.type === 'cc-mute') { hostMuted = !!d.muted; applyMute(); }
     else if (d.type === 'cc-restart') startGame();
+    else if (d.type === 'cc-pause') setPause(d.paused === undefined ? true : !!d.paused);
   });
+
+  // ---------- share card ----------
+  let shareMsg = '', shareMsgT = 0;
+  function shareText() { return `tab hoarder: ${score} pts · ${tabsN} tabs · best streak ${bestCombo}\ncause of death: "${lastTitle}"\ncomputercooked.com/games/tab-hoarder`; }
+  function card() {
+    const c = document.createElement('canvas'); c.width = 1200; c.height = 630;
+    const g = c.getContext('2d');
+    g.fillStyle = COL.carbon; g.fillRect(0, 0, 1200, 630);
+    for (let i = 0; i < Math.min(14, tabsN); i++) { // a little tower
+      const w = 260 - i * 6 + Math.sin(i * 1.7) * 20, y = 560 - i * 34, x = 900 + Math.sin(i * 2.3) * 18;
+      g.fillStyle = i % 2 ? COL.paper : COL.paper2; g.fillRect(x - w / 2, y - 30, w, 30); g.strokeStyle = COL.carbon; g.lineWidth = 3; g.strokeRect(x - w / 2, y - 30, w, 30);
+    }
+    if (crashReady) { g.imageSmoothingEnabled = false; g.drawImage(crashImg, 256, 0, 128, 128, 780, 560 - 0, 240, 70); }
+    g.font = '900 88px ' + FONT; g.fillStyle = '#5e4a9e'; g.fillText('tab hoarder', 66, 146); g.fillStyle = COL.lime; g.fillText('tab hoarder', 60, 140);
+    g.font = '900 150px ' + FONT; g.fillStyle = COL.paper; g.fillText(String(score), 60, 320);
+    g.font = '800 34px ' + FONT; g.fillStyle = COL.lilac; g.fillText(`${tabsN} tabs · best streak ${bestCombo}`, 60, 390);
+    g.font = '700 26px ' + FONT; g.fillStyle = 'rgba(245,243,237,.6)'; g.fillText(('cause of death: "' + lastTitle + '"').slice(0, 52), 60, 450);
+    g.font = '800 28px ' + FONT; g.fillStyle = '#77756e'; g.fillText('computercooked.com/games/tab-hoarder', 60, 570);
+    return c;
+  }
+  async function share() {
+    cc('event', 'share_clicked', { score });
+    const text = shareText();
+    try {
+      if (navigator.share) {
+        const blob = await new Promise((r) => card().toBlob(r, 'image/png'));
+        const file = blob && new File([blob], 'tab-hoarder.png', { type: 'image/png' });
+        if (file && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+        await navigator.share({ text }); return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    let ok = false;
+    try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); ok = true; } } catch (e) { ok = false; }
+    let saved = false;
+    try { const a = document.createElement('a'); a.href = card().toDataURL('image/png'); a.download = 'tab-hoarder-' + score + '.png'; document.body.appendChild(a); a.click(); a.remove(); saved = true; } catch (e) { saved = false; }
+    shareMsg = saved ? (ok ? 'image saved + text copied' : 'image saved') : ok ? 'text copied' : 'screenshot it'; shareMsgT = 2.5;
+  }
+  window.TH = { state: () => state, score: () => score, tabs: () => tabsN, combo: () => combo, cur: () => cur && { x: cur.x, power: cur.power || null }, top: () => ({ x: topTab().x, w: topTab().w }), card: () => card().toDataURL(), drop: () => press() };
   document.addEventListener('visibilitychange', () => {
     if (!ac) return;
     if (document.hidden) ac.suspend(); else ac.resume();
@@ -275,11 +385,17 @@
   // ---------- update ----------
   function update(dt) {
     t += dt;
+    if (shareMsgT > 0) shareMsgT -= dt;
+    if (paused) return;
     if (cur) {
-      const sp = state === 'menu' ? 110 : speedFor(score);
-      cur.x += cur.dir * sp * dt;
-      if (cur.x > RANGE) { cur.x = RANGE; cur.dir = -1; }
-      if (cur.x < -RANGE) { cur.x = -RANGE; cur.dir = 1; }
+      const sp = state === 'menu' ? 110 : curSpeed();
+      const cx0 = state === 'menu' ? 0 : topTab().x, R = sweep(cur.w);
+      if (cur.lag && cur.lag.left > 0 && Math.abs(cur.x - cur.lag.at) < 6) { cur.lag.left -= dt; if (!cur.lag.shown) { cur.lag.shown = true; toast('lag spike', '#7fd8ff', 0.6, true); } }
+      else cur.x += cur.dir * sp * dt;
+      if (cur.x > cx0 + R) { cur.x = cx0 + R; cur.dir = -1; }
+      if (cur.x < cx0 - R) { cur.x = cx0 - R; cur.dir = 1; }
+      const edge = (W && S ? W / S : WORLD_W) / 2 - cur.w / 2 - 6;
+      if (state === 'play' && edge > 20) { if (cur.x > edge) { cur.x = edge; cur.dir = -1; } if (cur.x < -edge) { cur.x = -edge; cur.dir = 1; } }
       if (state === 'menu' && Math.abs(cur.x) < 1 && Math.random() < 0.02) { /* demo idles */ }
     }
     if (state === 'over') {
@@ -352,6 +468,7 @@
   function drawTab(tb, active, idx) {
     const l = -tb.w / 2, top = -TAB_H, w = tb.w;
     let fill = active ? COL.lime : (idx % 2 ? COL.paper : COL.paper2);
+    if (tb.power) fill = active ? POWERS[tb.power].color : (idx % 2 ? '#e9e2ff' : '#ddd3ff');
     tabPath(l, top, w, TAB_H - 2, tb.cut);
     ctx.fillStyle = fill; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = COL.carbon; ctx.stroke();
@@ -360,8 +477,16 @@
       ctx.fillStyle = tb.perfect ? COL.lime : '#ffffff'; ctx.fill();
       ctx.globalAlpha = 1;
     }
-    // favicon
-    if (w > 22) {
+    // favicon (power tabs get a glyph)
+    if (tb.power && w > 22) {
+      const gx = l + 14, gy = top + 14, k = tb.power;
+      ctx.fillStyle = COL.carbon; ctx.strokeStyle = COL.carbon; ctx.lineWidth = 2;
+      if (k === 'pin') { ctx.beginPath(); ctx.arc(gx, gy - 2, 4, 0, 7); ctx.fill(); ctx.fillRect(gx - 1, gy, 2, 7); }
+      else if (k === 'reopen') { ctx.beginPath(); ctx.arc(gx, gy, 5, 0.6, 5.6); ctx.stroke(); ctx.fillRect(gx + 2, gy - 7, 4, 4); }
+      else if (k === 'slow') { ctx.fillRect(gx - 5, gy - 6, 10, 2); ctx.fillRect(gx - 5, gy + 4, 10, 2); ctx.beginPath(); ctx.moveTo(gx - 4, gy - 4); ctx.lineTo(gx + 4, gy - 4); ctx.lineTo(gx - 4, gy + 4); ctx.lineTo(gx + 4, gy + 4); ctx.fill(); }
+      else if (k === 'star') { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 2.6 : 6.5; ctx.lineTo(gx + Math.cos(a) * rr, gy + Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(gx, gy, 4.5, 0, 7); ctx.fill(); for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; ctx.fillRect(gx + Math.cos(a) * 6 - 1, gy + Math.sin(a) * 6 - 1, 2.5, 2.5); } }
+    } else if (w > 22) {
       ctx.fillStyle = active && tb.fav === COL.lime ? COL.carbon : tb.fav;
       ctx.fillRect(l + 8, top + 8, 12, 12);
       if (tb.fav !== COL.carbon && !(active && tb.fav === COL.lime)) { ctx.strokeStyle = COL.carbon; ctx.lineWidth = 1.5; ctx.strokeRect(l + 8, top + 8, 12, 12); }
@@ -492,16 +617,32 @@
     const u = Math.max(0.8, Math.min(1.4, S * 1.1)); // ui scale
     if (state === 'play') {
       text(String(score), pad, pad + 40 * u, Math.round(44 * u), COL.lime);
-      text(score === 1 ? 'tab open' : 'tabs open', pad + 2, pad + 58 * u, Math.round(12 * u), COL.paper);
+      text('pts · ' + tabsN + (tabsN === 1 ? ' tab open' : ' tabs open'), pad + 2, pad + 58 * u, Math.round(12 * u), COL.paper);
+      if (mult() > 1 || combo >= 2) {
+        const pulse = 1 + Math.sin(t * 10) * 0.06;
+        text('streak ' + combo + (mult() > 1 ? '  ' + mult() + 'x' : ''), pad, pad + 118 * u, Math.round(18 * u * pulse), mult() > 1 ? COL.lilac : COL.lime, 'left');
+      }
+      if (slowLeft > 0) text('low power: ' + slowLeft, pad, pad + 138 * u, Math.round(12 * u), '#7fd8ff', 'left', 'normal');
       // temp meter
       const h = heat();
       const bw = 110 * u, by = pad + 68 * u;
       ctx.fillStyle = 'rgba(245,243,237,0.12)'; ctx.fillRect(pad, by, bw, 6 * u);
       ctx.fillStyle = h > 0.7 ? COL.lilac : COL.lime; ctx.fillRect(pad, by, bw * Math.max(0.04, h), 6 * u);
-      const temp = Math.round(41 + score * 1.3);
-      const rpm = (1200 + score * 95).toLocaleString('en-US');
+      const temp = Math.round(41 + tabsN * 1.3);
+      const rpm = (1200 + tabsN * 95).toLocaleString('en-US');
       text('cpu ' + temp + '°c · fan ' + rpm + ' rpm', pad, by + 20 * u, Math.round(10 * u), 'rgba(245,243,237,0.6)', 'left', 'normal');
-      text('best ' + best, W - pad, pad + 18 * u, Math.round(13 * u), COL.paper, 'right');
+      text('best ' + best, W - pad - 44, pad + 18 * u, Math.round(13 * u), COL.paper, 'right');
+    }
+    // mute button (top right)
+    const mb = { x: W - 44, y: 10, w: 34, h: 34 };
+    btns.mute = mb;
+    ctx.fillStyle = 'rgba(245,243,237,0.08)'; ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
+    ctx.strokeStyle = 'rgba(245,243,237,0.25)'; ctx.lineWidth = 1.5; ctx.strokeRect(mb.x + 0.5, mb.y + 0.5, mb.w - 1, mb.h - 1);
+    text(userMuted || hostMuted ? 'x' : '♪', mb.x + mb.w / 2, mb.y + 23, 16, userMuted || hostMuted ? 'rgba(245,243,237,0.4)' : COL.paper, 'center');
+    if (paused) {
+      ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(0, 0, W, H);
+      text('paused', W / 2, H / 2, 32, COL.lime, 'center');
+      text('tap to resume', W / 2, H / 2 + 28, 14, COL.paper, 'center', 'normal');
     }
     // toasts
     let ty = H * 0.30;
@@ -533,12 +674,12 @@
     text('computer cooked games presents', cx, y - 34 * u, Math.round(10 * u), 'rgba(245,243,237,0.55)', 'center', 'normal');
     text('tab hoarder', cx, y + 10 * u, Math.round(46 * u), COL.lime, 'center');
     y += 44 * u;
-    const lines = wrap('drop browser tabs onto crash. overhang gets cut. miss once and you\'re cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
+    const lines = wrap('drop browser tabs onto crash. overhang gets cut. perfect drops grow the tab back and stack a multiplier. colored tabs are power-ups. miss once and you\'re cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
     for (const ln of lines) { text(ln, cx, y, Math.round(13 * u), COL.paper, 'center', 'normal'); y += 19 * u; }
     y += 18 * u;
     const blink = Math.sin(t * 5) > -0.3;
     if (blink) text('tap / click / space to start', cx, y, Math.round(14 * u), COL.lilac, 'center');
-    if (best > 0) text('best: ' + best + ' tabs', cx, y + 26 * u, Math.round(12 * u), 'rgba(245,243,237,0.7)', 'center', 'normal');
+    if (best > 0) text('best: ' + best + ' pts', cx, y + 26 * u, Math.round(12 * u), 'rgba(245,243,237,0.7)', 'center', 'normal');
   }
 
   function roundRect(x, y, w, h, r) {
@@ -575,7 +716,7 @@
     let y = cy + 30 * u;
     text(String(score), mid, y + 96 * u, Math.round(96 * u), COL.lime, 'center');
     y += 122 * u;
-    const msg = 'i hoarded ' + score + (score === 1 ? ' tab' : ' tabs') + ' before getting cooked.';
+    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + ' pts, best streak ' + bestCombo + ') before getting cooked.';
     const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
     for (const ln of lines) { text(ln, mid, y, Math.round(16 * u), COL.paper, 'center'); y += 22 * u; }
     y += 4 * u;
@@ -586,8 +727,13 @@
     y = cy + ch - 24 * u;
     ctx.fillStyle = 'rgba(245,243,237,0.15)'; ctx.fillRect(cx + 18 * u, y - 20 * u, cw - 36 * u, 1);
     text('computercooked.com/games', mid, y, Math.round(13 * u), COL.lilac, 'center');
-    if (overT > 0.75 && Math.sin(t * 5) > -0.3) {
-      text('tap / space to reopen closed tabs', mid, cy + ch - 56 * u, Math.round(12 * u), COL.lime, 'center');
+    // share button
+    const sb = { w: 200 * u, h: 30 * u }; sb.x = mid - sb.w / 2; sb.y = cy + ch + 12 * u;
+    btns.share = sb;
+    ctx.fillStyle = COL.lilac; ctx.fillRect(sb.x, sb.y, sb.w, sb.h);
+    text(shareMsgT > 0 ? shareMsg : 'share (s)', mid, sb.y + sb.h * 0.68, Math.round(13 * u), COL.carbon, 'center');
+    if (overT > 1.1 && Math.sin(t * 5) > -0.3) {
+      text('tap anywhere else / space to go again', mid, cy + ch - 56 * u, Math.round(12 * u), COL.lime, 'center');
     }
     ctx.globalAlpha = 1;
   }

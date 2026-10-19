@@ -4,7 +4,15 @@
   "pitch": "every key is +1 speed. esc is further than you think.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. p pause, r restart, m mute.",
-  "size_kb": 42,
-  "tags": ["+1 speed", "runner", "obby", "one-thumb", "platformer", "halloween"]
+  "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. land dead centre for perfect bonuses. p pause, r back to boot (keeps speed), m mute.",
+  "size_kb": 46,
+  "tags": [
+    "+1 speed",
+    "runner",
+    "obby",
+    "one-thumb",
+    "platformer",
+    "halloween"
+  ],
+  "version": "1.1"
 }

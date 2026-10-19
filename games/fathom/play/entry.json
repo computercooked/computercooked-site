@@ -1,9 +1,22 @@
 {
   "slug": "fathom",
   "title": "fathom",
-  "pitch": "submarine duel where every miss tells you how close you were. decoys lie. so will you.",
+  "pitch": "submarine duel against a computer with opinions. every miss tells you how close you were. decoys lie.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
-  "size_kb": 115
+  "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate. modes: classic or salvo.",
+  "size_kb": 122,
+  "version": 2,
+  "tags": [
+    "strategy",
+    "deduction",
+    "battleship-like",
+    "daily",
+    "vs computer"
+  ],
+  "changelog": "v2: three rivals with voices (dial-up, screensaver, root), salvo mode (one shot per surviving sub), spoiler-free daily share, forfeit counts as a loss (with confirm), enter-key and card fixes.",
+  "playtest": {
+    "before": 6.1,
+    "after": 6.9
+  }
 }

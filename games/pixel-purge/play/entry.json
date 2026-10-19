@@ -1,0 +1,11 @@
+{
+  "slug": "pixel-purge",
+  "title": "pixel purge",
+  "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart",
+  "size_kb": 92,
+  "tags": ["puzzle", "color-sort", "shooter", "daily", "casual", "halloween"],
+  "max_score_per_sec": 200
+}

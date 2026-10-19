@@ -1,10 +1,13 @@
 {
   "slug": "desktop-jam",
   "title": "desktop jam",
+  "version": 2,
   "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
-  "size_kb": 46,
-  "tags": ["puzzle", "arrow puzzle", "daily", "casual", "mobile", "halloween"]
+  "size_kb": 61,
+  "tags": ["puzzle", "arrow puzzle", "daily", "casual", "mobile", "halloween"],
+  "changelog": "v2: 50 levels in 5 worlds (system files, 2-cell windows, locks + admin.key, spinning .exe that can jam you), solver-checked levels, harder one-shot daily, restart/pause end-delay fixes.",
+  "playtest": { "before": 5.1, "after": 6.4, "notes": "after score is from the v2 replay, before the small v2.1 fixes (spinners in worlds 2-4, next-direction ghost arrow, daily one-shot + versioned save, toast/focus fixes)" }
 }
