@@ -14,6 +14,16 @@
       "controls": "drag / arrows / A D"
     },
     {
+      "slug": "tab-hoarder",
+      "title": "tab hoarder",
+      "pitch": "stack browser tabs on a tired computer. overhang gets cut. miss once and you're cooked.",
+      "thumbnail": "/games/tab-hoarder/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [],
+      "controls": "tap / click / space",
+      "size_kb": 95
+    },
+    {
       "slug": "bellchain",
       "title": "bellchain",
       "pitch": "hit one bell, it hits the next one. you are now a bell manager.",
@@ -31,6 +41,16 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "wasd / arrows or drag anywhere to steer. 1 2 3 to pick upgrades. r restart, p pause, m mute.",
+      "size_kb": 115
+    },
+    {
+      "slug": "fathom",
+      "title": "fathom",
+      "pitch": "submarine duel where every miss tells you how close you were. decoys lie. so will you.",
+      "thumbnail": "/games/fathom/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [],
+      "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
       "size_kb": 115
     }
   ]

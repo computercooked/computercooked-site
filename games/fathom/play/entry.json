@@ -1,0 +1,9 @@
+{
+  "slug": "fathom",
+  "title": "fathom",
+  "pitch": "submarine duel where every miss tells you how close you were. decoys lie. so will you.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
+  "size_kb": 115
+}
