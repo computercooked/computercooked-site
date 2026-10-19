@@ -2208,6 +2208,13 @@
     }
     if (handHideAt && t > handHideAt && !gesture) { G.hand.visible = false; handHideAt = 0; }
 
+    // carrying something to the screen edge scrolls the world, so you can haul things between rooms
+    if (gesture && gesture.mode === "carry" && handScreen) {
+      var vw = view.clientWidth, edge = Math.min(60, vw * 0.12);
+      if (handScreen.x < edge) call("Render", "panBy", 600 * dt * (1 - handScreen.x / edge), 0);
+      else if (handScreen.x > vw - edge) call("Render", "panBy", -600 * dt * (1 - (vw - handScreen.x) / edge), 0);
+    }
+
     // carried thing sticks to the hand
     if (G.hand.heldId != null) {
       var held = byId(G.hand.heldId);
