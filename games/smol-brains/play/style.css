@@ -308,6 +308,7 @@ a { color: var(--lime); }
 }
 #ui > .toasts { pointer-events: none; }
 .modal-on .toasts { bottom: auto; top: calc(8px + var(--sat)); left: 50% !important; }
+@media (max-width: 699px) { .brain-on .toasts { bottom: auto; top: calc(8px + var(--sat)); } }
 @media (min-width: 700px) { .has-panel .toasts { left: calc((100% - var(--panelW) - 16px) / 2); } }
 .toast {
   pointer-events: auto;
@@ -556,7 +557,7 @@ a { color: var(--lime); }
   padding: 4px 16px;
   border-radius: 18px;
 }
-.celebrate .who { color: var(--paper); font-weight: 700; margin-top: 6px; text-shadow: 0 2px 4px #000; }
+.celebrate .who { display: inline-block; color: var(--paper); font-weight: 700; margin-top: 8px; padding: 4px 12px; border-radius: 12px; background: rgba(16, 17, 20, 0.75); }
 .confetti { position: absolute; left: 50%; top: 50%; font-size: 26px; animation: fly 1.6s ease-out forwards; }
 @keyframes fly { from { transform: translate(-50%, -50%) scale(0.4); opacity: 1; } to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1); opacity: 0; } }
 @keyframes pop {

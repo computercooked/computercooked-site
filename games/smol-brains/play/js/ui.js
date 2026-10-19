@@ -69,7 +69,6 @@
     for (var i = 0; i < G.creatures.length; i++) if (G.creatures[i].id === id) return G.creatures[i];
     return null;
   }
-  function isCreature(x) { return !!(x && x.species && x.brain !== undefined || x && (x.species === "smol" || x.species === "grump")); }
   function smols() { return G ? G.creatures.filter(function (c) { return c.alive && c.species === "smol"; }) : []; }
   function grumps() { return G ? G.creatures.filter(function (c) { return c.alive && c.species === "grump"; }) : []; }
   function selected() { var c = G && creatureById(G.selectedId); return c && c.alive ? c : null; }
@@ -2111,6 +2110,9 @@
       var vr = view.getBoundingClientRect();
       x = SB.clamp(p.x + vr.left, 30, window.innerWidth - 30);
       y = SB.clamp(p.y + vr.top, 70, window.innerHeight - 40);
+      // the target is hidden behind a panel or sheet: don't point through the UI
+      var under = document.elementFromPoint(x, Math.min(window.innerHeight - 1, y + 8));
+      if (under && under !== view && !E.arrow.contains(under)) { E.arrow.classList.remove("open"); return; }
     }
     E.arrow.classList.toggle("up", up);
     E.arrow.classList.toggle("side", side);
