@@ -1,0 +1,10 @@
+{
+  "slug": "keyboard-escape",
+  "title": "+1 Speed Keyboard Escape",
+  "pitch": "every key is +1 speed. esc is further than you think.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. p pause, r restart, m mute.",
+  "size_kb": 42,
+  "tags": ["+1 speed", "runner", "obby", "one-thumb", "platformer", "halloween"]
+}

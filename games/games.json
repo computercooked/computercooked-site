@@ -52,6 +52,56 @@
       "tags": [],
       "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
       "size_kb": 115
+    },
+    {
+      "slug": "one-percent-popup",
+      "title": "only 1% can close this pop-up",
+      "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
+      "thumbnail": "/games/one-percent-popup/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "reflex",
+        "trick",
+        "challenge",
+        "short",
+        "halloween"
+      ],
+      "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
+      "size_kb": 48
+    },
+    {
+      "slug": "keyboard-escape",
+      "title": "+1 Speed Keyboard Escape",
+      "pitch": "every key is +1 speed. esc is further than you think.",
+      "thumbnail": "/games/keyboard-escape/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "+1 speed",
+        "runner",
+        "obby",
+        "one-thumb",
+        "platformer",
+        "halloween"
+      ],
+      "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. p pause, r restart, m mute.",
+      "size_kb": 42
+    },
+    {
+      "slug": "desktop-jam",
+      "title": "desktop jam",
+      "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
+      "thumbnail": "/games/desktop-jam/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "arrow puzzle",
+        "daily",
+        "casual",
+        "mobile",
+        "halloween"
+      ],
+      "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
+      "size_kb": 46
     }
   ]
 }
