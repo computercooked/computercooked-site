@@ -6,8 +6,22 @@
       "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
       "thumbnail": "/games/crash/thumb.svg",
       "made_by": "computer-cooked",
-      "tags": ["arcade", "dodge", "60s runs"],
+      "tags": [
+        "arcade",
+        "dodge",
+        "60s runs"
+      ],
       "controls": "drag / arrows / A D"
+    },
+    {
+      "slug": "bellchain",
+      "title": "bellchain",
+      "pitch": "hit one bell, it hits the next one. you are now a bell manager.",
+      "thumbnail": "/games/bellchain/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [],
+      "controls": "tap or click a bell to ring it. space rings a random bell, m mutes. tap upgrades to buy them.",
+      "size_kb": 77
     }
   ]
 }
