@@ -4,204 +4,186 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101114">
-<meta name="description" content="bellchain: hit one bell, its echo hits the next. an idle game from computer cooked games.">
+<meta name="description" content="bellchain: an idle game that plays actual music. buy bells, build a band, recast into new scales. from computer cooked games.">
 <title>bellchain · computer cooked games</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3c-5 0-7 4-7 9v7l-3 5h20l-3-5v-7c0-5-2-9-7-9z' fill='%23C5FF49'/%3E%3Ccircle cx='16' cy='27' r='3' fill='%23B59AFF'/%3E%3C/svg%3E">
 <style>
   :root {
-    /* computer cooked: carbon, acid lime, lilac, paper */
     --bg: #101114; --panel: #16171b; --panel2: #1d1e24; --line: #2c2e37;
-    --ink: #F5F3ED; --muted: #9c98ab; --gold: #C5FF49; --bronze: #B59AFF; --echo: #B59AFF;
-    --pink: #B59AFF; --bad: #ff6b6b; --ok: #C5FF49;
-    --r: 12px;
+    --ink: #F5F3ED; --muted: #9c98ab; --acc: #C5FF49; --lilac: #B59AFF; --bad: #ff6b6b;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); }
-  body { overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  body { overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
   button { font: inherit; color: inherit; }
+  #app { height: 100%; display: flex; flex-direction: column; }
+  #stage { position: relative; flex: 0 0 50%; min-height: 250px; overflow: hidden; touch-action: manipulation; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
+  #hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 0; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+  #res { font: 800 28px/1 var(--mono); letter-spacing: -0.5px; text-shadow: 0 2px 0 #0008; font-variant-numeric: tabular-nums; }
+  #res small { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  #rps { font: 700 12px var(--mono); color: var(--lilac); margin-top: 3px; }
+  #buffs { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+  .buff { font: 800 10px var(--mono); padding: 3px 6px; border-radius: 6px; background: #ffe14a; color: #101114; }
+  #now { font: 700 10px var(--mono); color: var(--muted); margin-top: 5px; }
+  #tools { display: flex; gap: 6px; pointer-events: auto; align-items: flex-start; }
+  .iconbtn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: #000a; display: grid; place-items: center; cursor: pointer; font: 800 15px var(--mono); }
+  #credit { position: absolute; right: 12px; top: calc(52px + env(safe-area-inset-top, 0px)); font: 800 9px var(--mono); color: var(--muted); opacity: .7; pointer-events: none; }
+  #credit b { color: var(--acc); }
+  #toast { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--acc); padding: 7px 12px; border-radius: 10px; font: 700 12px var(--mono); z-index: 5; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 24px); text-align: center; }
+  #toast.on { opacity: 1; }
 
-  #app { height: 100vh; display: flex; flex-direction: column; }
-  @supports (height: 100dvh) { #app { height: 100dvh; } }
-
-  #stage { position: relative; flex: 0 0 56%; min-height: 240px; touch-action: manipulation; }
-  #belfry { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
-
-  #hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px)); display: flex; align-items: flex-start; justify-content: space-between; pointer-events: none; gap: 8px; }
-  #wallet { text-align: left; }
-  #res { font: 800 30px/1 var(--mono); letter-spacing: 0.5px; text-shadow: 0 2px 0 #0008; font-variant-numeric: tabular-nums; }
-  #res .unit { font: 700 12px var(--mono); color: var(--muted); margin-left: 4px; letter-spacing: 1px; }
-  #rate { font: 600 12px var(--mono); color: var(--echo); margin-top: 3px; }
-  #badges { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-  #goal { display: inline-block; margin-top: 6px; white-space: nowrap; font: 800 11px var(--mono); letter-spacing: 0.4px; padding: 4px 8px; border-radius: 7px; background: #c5ff491a; border: 1px solid #c5ff4966; color: var(--gold); }
-  #goal:empty { display: none; }
-  #goal b { color: var(--ink); font-weight: 800; }
-  .badge { font: 700 10px var(--mono); padding: 3px 6px; border-radius: 6px; background: #0007; border: 1px solid var(--line); color: var(--muted); letter-spacing: 0.5px; }
-  .badge.gold { color: var(--gold); border-color: #c5ff4955; }
-  .badge.echo { color: var(--echo); border-color: #b59aff55; }
-  #tools { display: flex; gap: 6px; pointer-events: auto; }
-  .iconbtn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: #0009; display: grid; place-items: center; cursor: pointer; }
-  .iconbtn:hover { border-color: var(--muted); }
-  .iconbtn svg { width: 20px; height: 20px; }
-
-  #panel { flex: 1 1 auto; overflow-y: auto; background: var(--panel); border-top: 2px solid var(--line); padding: 10px calc(12px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px)); overscroll-behavior: contain; }
-  .sect { margin: 2px 0 12px; }
-  .sect h2 { font: 800 11px var(--mono); letter-spacing: 1.5px; color: var(--muted); margin: 6px 2px 8px; text-transform: lowercase; display: flex; justify-content: space-between; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .item { position: relative; overflow: hidden; display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left;
-    padding: 9px 10px; min-height: 64px; border-radius: var(--r); border: 1px solid var(--line); background: var(--panel2); cursor: pointer; touch-action: manipulation; transition: transform .06s, border-color .15s; }
-  .item:active { transform: scale(0.97); }
-  .item .ic { grid-row: 1 / span 2; width: 34px; height: 34px; border-radius: 9px; background: #0005; display: grid; place-items: center; }
-  .item .ic svg { width: 22px; height: 22px; }
-  .item b { font: 800 13px var(--mono); letter-spacing: -0.3px; display: flex; justify-content: space-between; gap: 6px; }
-  .item b .cost { font: 800 13px var(--mono); color: var(--gold); white-space: nowrap; }
-  .item small { font: 500 11px/1.25 var(--sans); color: var(--muted); }
-  .item .fill { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--gold); opacity: 0.7; width: 0; transition: width .15s; }
-  .item.poor { opacity: 0.62; }
-  .item.poor b .cost { color: var(--muted); }
-  .item.ready { border-color: #c5ff4999; box-shadow: 0 0 0 1px #c5ff4933 inset; }
-  .item.max { opacity: 0.5; cursor: default; }
-  .item.max b .cost { color: var(--ok); }
-  .item.suggest { animation: suggest 1s ease-in-out infinite; }
-  .item.bump { animation: bump .18s ease-out; }
-  .item.nope { animation: nope .28s ease-out; border-color: var(--bad); }
-  @keyframes nope { 20% { transform: translateX(-5px); } 45% { transform: translateX(4px); } 70% { transform: translateX(-2px); } }
-  @keyframes suggest { 50% { box-shadow: 0 0 0 3px #c5ff4988; } }
-  @keyframes bump { 40% { transform: scale(1.05); } }
-  .locked { border: 1px dashed var(--line); border-radius: var(--r); padding: 12px; color: var(--muted); font-size: 13px; }
-  .bar { height: 6px; background: #0006; border-radius: 4px; overflow: hidden; margin-top: 8px; }
-  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--bronze), var(--gold)); transition: width .2s; }
-
-  #recastBox { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; background: linear-gradient(180deg, #1f1d2a, #17171d); }
-  #recastBox.ready { border-color: var(--gold); box-shadow: 0 0 18px #c5ff4933; }
-  #recastBox p { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
-  #recastBox strong { color: var(--ink); }
-  .cta { display: block; width: 100%; margin-top: 10px; padding: 12px; border-radius: 10px; border: 0; background: var(--gold); color: #101114; font: 800 15px var(--mono); letter-spacing: 0.5px; cursor: pointer; }
-  .cta:disabled { background: #2c2e37; color: var(--muted); cursor: default; }
+  #panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--panel); border-top: 2px solid var(--line); }
+  #tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+  #tabs button { flex: 1; padding: 10px 2px; background: none; border: 0; border-bottom: 2px solid transparent; font: 800 12px var(--mono); color: var(--muted); cursor: pointer; position: relative; }
+  #tabs button.on { color: var(--ink); border-bottom-color: var(--acc); }
+  #tabs button .dot { position: absolute; top: 6px; right: 18%; width: 7px; height: 7px; border-radius: 50%; background: var(--acc); }
+  .pane { flex: 1 1 auto; overflow-y: auto; padding: 10px 12px calc(16px + env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
+  h2 { font: 800 11px var(--mono); letter-spacing: 1px; color: var(--muted); margin: 6px 2px 8px; display: flex; justify-content: space-between; }
+  .amt { display: flex; gap: 4px; }
+  .amt button { padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); background: none; font: 800 11px var(--mono); color: var(--muted); cursor: pointer; }
+  .amt button.on { background: var(--acc); color: #101114; border-color: var(--acc); }
+  #ups { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; margin-bottom: 10px; }
+  .up { text-align: left; padding: 7px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; }
+  .up b { display: block; font: 800 11px/1.15 var(--mono); }
+  .up small { display: block; font: 500 10px/1.2 var(--sans); color: var(--muted); margin-top: 2px; }
+  .up i { display: block; font: 800 11px var(--mono); font-style: normal; color: var(--acc); margin-top: 3px; }
+  .up.poor { opacity: .5; } .up.poor i { color: var(--muted); }
+  #upsNone { font: 600 11px var(--mono); color: var(--muted); margin: 0 2px 10px; }
+  .bld { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 6px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; touch-action: manipulation; }
+  .bld:active { transform: scale(.985); }
+  .bld .ic { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; background: #0006; font-size: 20px; }
+  .bld b { display: block; font: 800 14px var(--mono); }
+  .bld small { display: block; font: 500 11px/1.25 var(--sans); color: var(--muted); }
+  .bld .cost { font: 800 12px var(--mono); color: var(--acc); }
+  .bld .own { font: 800 22px var(--mono); color: #ffffff22; }
+  .bld.poor { opacity: .55; } .bld.poor .cost { color: var(--muted); }
+  .bld.mystery { opacity: .35; cursor: default; }
+  .row { display: flex; justify-content: space-between; gap: 10px; font: 600 12px var(--mono); color: var(--muted); padding: 4px 2px; border-bottom: 1px dashed #ffffff0d; }
+  .row b { color: var(--ink); text-align: right; }
+  .song { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; font: 800 13px var(--mono); }
+  .song.on { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+  .song i { font-style: normal; font-size: 11px; color: var(--acc); }
+  .song.locked { opacity: .6; } .song.locked.poor i { color: var(--muted); }
+  .achs { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 5px; margin-top: 6px; }
+  .ach { aspect-ratio: 1; border-radius: 7px; background: #0005; border: 1px solid var(--line); display: grid; place-items: center; font: 800 12px var(--mono); color: #ffffff22; cursor: pointer; }
+  .ach.got { background: var(--acc); color: #101114; border-color: var(--acc); }
+  .note { font: 500 12px/1.4 var(--sans); color: var(--muted); margin: 4px 2px 10px; }
+  .note b { color: var(--ink); }
+  .cta { display: block; width: 100%; padding: 12px; border-radius: 10px; border: 0; background: var(--acc); color: #101114; font: 800 15px var(--mono); cursor: pointer; margin-top: 8px; }
+  .cta:disabled { background: var(--line); color: var(--muted); cursor: default; }
   .cta.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
   .cta.danger { background: transparent; border: 1px solid var(--bad); color: var(--bad); }
-
-  .modal { position: fixed; inset: 0; background: #08090bc4; display: none; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); z-index: 20; } /* no backdrop blur: it cost 60 to 22 fps over the live canvas in software rendering */
-  .modal.open { display: flex; }
-  .card { width: min(420px, 100%); max-height: 92vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 20px 60px #0009; animation: popin .22s cubic-bezier(.2,1.4,.4,1); }
-  @keyframes popin { from { transform: scale(.9); opacity: 0; } }
-  .card h3 { margin: 0 0 4px; font: 800 22px var(--mono); }
-  .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
-  .big { font: 800 34px var(--mono); color: var(--gold); margin: 6px 0; font-variant-numeric: tabular-nums; }
-  .rows { font: 600 13px var(--mono); color: var(--muted); display: grid; gap: 4px; margin: 8px 0; }
-  .rows span b { color: var(--ink); }
-  .tunings { display: grid; gap: 8px; margin: 10px 0; }
-  .tuning { text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--panel2); cursor: pointer; }
-  .tuning b { display: block; font: 800 15px var(--mono); }
-  .tuning small { color: var(--muted); font-size: 12px; }
-  .tuning.sel { border-color: var(--echo); box-shadow: 0 0 0 2px #b59aff44 inset; }
-  .tuning.off { opacity: 0.45; cursor: default; }
+  .nodes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .node { text-align: left; padding: 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; }
+  .node b { display: block; font: 800 11px var(--mono); } .node small { display: block; font: 500 10px/1.25 var(--sans); color: var(--muted); }
+  .node i { display: block; font: 800 11px var(--mono); font-style: normal; color: var(--lilac); margin-top: 3px; }
+  .node.got { border-color: var(--lilac); background: #b59aff1c; } .node.got i { color: var(--acc); }
+  .node.poor { opacity: .5; }
+  textarea { width: 100%; height: 64px; background: #0006; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: 500 11px var(--mono); padding: 8px; resize: none; user-select: text; -webkit-user-select: text; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cc { text-align: center; font: 800 11px var(--mono); color: var(--muted); margin-top: 14px; } .cc b { color: var(--acc); }
 
-  #toast { position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 90px); opacity: 0; background: var(--panel2); border: 1px solid var(--gold); color: var(--ink); padding: 9px 14px; border-radius: 10px; font: 700 13px var(--sans); z-index: 5; transition: transform .25s, opacity .25s; pointer-events: none; max-width: calc(100vw - 32px); text-align: center; }
-  #toast.show { transform: translate(-50%, 0); opacity: 1; }
-  #stage { overflow: hidden; }
+  .modal { position: fixed; inset: 0; background: #08090bd0; display: none; align-items: center; justify-content: center; padding: 16px; z-index: 20; }
+  .modal.open { display: flex; }
+  .card { width: min(400px, 100%); max-height: 92%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .card h3 { margin: 0 0 6px; font: 800 22px var(--mono); }
+  .card .big { font: 800 32px var(--mono); color: var(--acc); margin: 6px 0; }
 
-  @media (min-width: 600px) and (min-aspect-ratio: 1/1) {
+  @media (min-width: 640px) and (min-aspect-ratio: 1/1) {
     #app { flex-direction: row; }
     #stage { flex: 1 1 auto; min-height: 0; }
-    #panel { flex: 0 0 clamp(270px, 40%, 400px); border-top: 0; border-left: 2px solid var(--line); padding: calc(14px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) 16px; }
-    #res { font-size: 38px; }
+    #panel { flex: 0 0 clamp(300px, 40%, 430px); border-top: 0; border-left: 2px solid var(--line); }
+    #res { font-size: 34px; }
   }
-  @media (max-width: 360px) { .grid { grid-template-columns: 1fr; } }
-  @media (prefers-reduced-motion: reduce) { .item.suggest, .item.nope, .item.bump, .card { animation: none; } }
-  .share { margin: 0 0 8px; }
-  #credit { position: absolute; right: calc(10px + env(safe-area-inset-right, 0px)); bottom: 8px; font: 800 10px var(--mono); letter-spacing: 0.6px; color: var(--muted); opacity: .75; pointer-events: none; z-index: 2; }
-  #credit b { color: var(--gold); font-weight: 800; }
-  .cc { margin: 12px 0 0; text-align: center; font: 700 11px var(--mono); color: var(--muted); }
-  .cc b { color: var(--gold); }
 </style>
-<script src="/games/cc-sdk.js"></script>
+<script src="/games/cc-sdk.js" defer></script>
 </head>
 <body>
 <div id="app">
   <div id="stage">
-    <div id="toast" role="status" aria-live="polite"></div>
-    <canvas id="belfry" aria-label="the belfry. tap a bell to ring it."></canvas>
-    <div id="credit">computer cooked <b>games</b></div>
+    <canvas id="cv" aria-label="the belfry. tap anywhere to ring."></canvas>
     <div id="hud">
-      <div id="wallet">
-        <div id="res">0<span class="unit">res</span></div>
-        <div id="rate"></div>
-        <div id="badges"></div>
-        <div id="goal"></div>
+      <div>
+        <div id="res">0<small>res</small></div>
+        <div id="rps">0 /s</div>
+        <div id="buffs"></div>
+        <div id="now"></div>
       </div>
-      <div id="tools">
-        <button class="iconbtn" id="muteBtn" aria-label="Mute sound" title="Sound (M)"></button>
-        <button class="iconbtn" id="menuBtn" aria-label="Menu" title="Menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#F5F3ED" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-      </div>
+      <div id="tools"><button class="iconbtn" id="muteBtn" aria-label="mute">♪</button></div>
     </div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="credit">computer cooked <b>games</b></div>
   </div>
   <div id="panel">
-    <div class="sect">
-      <h2><span>belfry</span><span id="bellsLabel"></span></h2>
-      <div class="grid" id="shop1"></div>
+    <div id="tabs">
+      <button data-tab="shop" class="on">bells</button>
+      <button data-tab="songs">songs</button>
+      <button data-tab="stats">stats</button>
+      <button data-tab="recast">recast</button>
+      <button data-tab="menu">menu</button>
     </div>
-    <div class="sect">
-      <h2><span>ringers</span><span id="spsLabel"></span></h2>
-      <div id="autoLocked" class="locked">ringers hit bells for you. earn <b id="autoNeed">500</b> resonance to hire some.<div class="bar"><i id="autoBar"></i></div></div>
-      <div class="grid" id="shop2" hidden></div>
+    <div class="pane" id="pane-shop">
+      <h2><span>upgrades</span></h2>
+      <div id="ups"></div><div id="upsNone">nothing yet. ring more.</div>
+      <h2><span>bells</span><span class="amt"><button data-amt="1" class="on">x1</button><button data-amt="10">x10</button><button data-amt="100">x100</button></span></h2>
+      <div id="blds"></div>
     </div>
-    <div class="sect" id="recastSect" hidden>
-      <h2><span>the great bell</span><span id="recastLabel"></span></h2>
-      <div id="recastBox">
-        <p id="recastText"></p>
-        <div class="bar"><i id="recastBar"></i></div>
-        <button class="cta" id="recastBtn" disabled>recast</button>
-      </div>
+    <div class="pane" id="pane-songs" hidden>
+      <h2><span>songbook</span><span id="songBonus"></span></h2>
+      <p class="note">every song you learn is +4% resonance, forever-ish. the band plays whatever you pick. before you own a handbell, each tap plays the next note.</p>
+      <div id="songs"></div>
+    </div>
+    <div class="pane" id="pane-stats" hidden>
+      <h2><span>stats</span></h2>
+      <div id="stats"></div>
+      <h2 style="margin-top:14px"><span>achievements</span><span id="achCount"></span></h2>
+      <p class="note">each one is +1% resonance. tap a square to see what it is.</p>
+      <div class="achs" id="achs"></div>
+      <button class="cta ghost" id="shareBtn">copy my brag line</button>
+    </div>
+    <div class="pane" id="pane-recast" hidden>
+      <h2><span>recast the great bell</span><span id="otLabel"></span></h2>
+      <p class="note" id="recastNote"></p>
+      <button class="cta" id="recastBtn" disabled>recast</button>
+      <h2 style="margin-top:16px"><span>overtone tree</span><span id="chipLabel"></span></h2>
+      <div class="nodes" id="nodes"></div>
+    </div>
+    <div class="pane" id="pane-menu" hidden>
+      <h2><span>sound</span><span id="volLabel"></span></h2>
+      <input type="range" id="vol" min="0" max="100" value="70" aria-label="volume">
+      <h2 style="margin-top:14px"><span>save</span></h2>
+      <p class="note" id="saveNote"></p>
+      <div class="two"><button class="cta ghost" id="exportBtn">export code</button><button class="cta ghost" id="importBtn">import code</button></div>
+      <textarea id="code" placeholder="your save code shows up here. paste one in to import." spellcheck="false"></textarea>
+      <button class="cta danger" id="resetBtn">erase everything</button>
+      <div class="cc">bellchain v2 · made by computer cooked <b>games</b></div>
     </div>
   </div>
 </div>
 
-<div class="modal" id="awayModal" role="dialog" aria-modal="true" aria-labelledby="awayTitle">
+<div class="modal" id="awayModal" role="dialog" aria-modal="true">
   <div class="card">
-    <h3 id="awayTitle">while you were away</h3>
-    <p class="sub" id="awayTime"></p>
+    <h3>while you were gone</h3>
+    <p class="note" id="awayTime"></p>
     <div class="big" id="awayGain"></div>
-    <div class="rows" id="awayRows"></div>
+    <p class="note">the band kept playing at half speed. they are tired. they are also unpaid.</p>
     <button class="cta" id="awayBtn">collect</button>
   </div>
 </div>
-
-<div class="modal" id="recastModal" role="dialog" aria-modal="true" aria-labelledby="recastTitle">
+<div class="modal" id="recastModal" role="dialog" aria-modal="true">
   <div class="card">
-    <h3 id="recastTitle">recast the great bell</h3>
-    <p class="sub">melt the whole belfry into the great bell. you lose bells, upgrades, ringers and resonance. you keep overtones, records, 5 bells and your ringers unlocked. it's fine. it's progress.</p>
+    <h3>recast?</h3>
+    <p class="note">melt every bell, upgrade and song into the great bell. you keep achievements, overtones and the tree. the next run is in a new scale with new bells.</p>
     <div class="big" id="recastGain"></div>
-    <div class="rows" id="recastRows"></div>
-    <p class="sub" style="margin:10px 0 0"><b style="color:var(--ink)">pick a tuning.</b> it rewrites how echoes travel next run.</p>
-    <div class="tunings" id="tunings"></div>
-    <div class="two">
-      <button class="cta ghost" id="recastCancel">not yet</button>
-      <button class="cta" id="recastGo">recast</button>
-    </div>
+    <p class="note" id="recastNext"></p>
+    <div class="two"><button class="cta ghost" id="recastNo">not yet</button><button class="cta" id="recastGo">recast</button></div>
   </div>
 </div>
-
-<div class="modal" id="menuModal" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
-  <div class="card">
-    <h3 id="menuTitle">bellchain</h3>
-    <p class="sub">hit one bell. its echo hits the next. that's the game.</p>
-    <div class="rows" id="stats"></div>
-    <p class="sub" id="saveNote"></p>
-    <button class="cta ghost share" id="shareBtn">copy my brag line</button>
-    <div class="two">
-      <button class="cta danger" id="resetBtn">erase save</button>
-      <button class="cta" id="menuClose">back</button>
-    </div>
-    <p class="cc">made by <b>computer cooked games</b></p>
-  </div>
-</div>
-
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

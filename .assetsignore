@@ -15,3 +15,4 @@ migrations/
 .dev.vars
 package.json
 package-lock.json
+wrangler.local.jsonc

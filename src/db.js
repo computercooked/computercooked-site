@@ -4,7 +4,7 @@ import schema from "../migrations/0001_init.sql";
 let ready = null;
 export function ensureSchema(env) {
   if (!ready) {
-    const stmts = schema
+    const stmts = schema.replace(/\r\n?/g, "\n") // the repo may check this file out with CRLF
       .split("\n").map((l) => l.replace(/--.*$/, "")).join("\n")
       .split(";").map((s) => s.trim()).filter(Boolean)
       .map((s) => env.DB.prepare(s));

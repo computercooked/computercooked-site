@@ -4,3 +4,4 @@ node_modules/
 .claude/
 .dev.vars
 .wrangler/
+wrangler.local.jsonc

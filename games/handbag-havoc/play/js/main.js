@@ -136,7 +136,7 @@
     if (!game || game.moved || game.t > 12 || save.runs > 3 || game.state !== 'play') return;
     const s = Math.max(0.8, Math.min(1.3, Math.min(vw, vh) / 600));
     const y = vh - safe.b - 120 * s, a = 0.75 + 0.25 * Math.sin(now / 180);
-    const txt = coarse ? 'drag anywhere to steer' : 'wasd / arrows to steer';
+    const txt = coarse ? 'drag in circles. turning powers the purse' : 'steer in circles. turning powers the purse';
     ctx.save(); ctx.globalAlpha = a;
     ctx.font = `900 ${Math.round(20 * s)}px ${HH.FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(txt).width + 36 * s, h = 44 * s;
@@ -186,6 +186,7 @@
     game = new HH.Game({ seed, daily: m === 'daily' ? dailyNo() : 0, sfx: HH.SFX });
     // debug: ?wave=N starts at wave N with sensible upgrades already picked
     const skip = Math.min(5, +params.get('wave') || 1);
+    game.debug = skip > 1;   // test jumps never write bests
     for (let i = 1; i < skip; i++) { game.state = 'upgrade'; game.offers = game.makeOffers(); game.choose(HH.Bots.skilled.pick(game)); }
     window.__hh.botMem = {};
     acc = 0; overT = 0; joy.active = false; joy.id = null;
@@ -255,14 +256,14 @@
     portal((p) => p.gameplayStop());
     track('level_end', runProps(g, g.win ? 'win' : 'lose'));
     if (g.win) portal((p) => p.happytime());
-    const B = save.best, nb = {};
+    const B = g.debug ? JSON.parse(JSON.stringify(save.best)) : save.best, nb = {};
     const reached = g.win ? 6 : g.wave + 1;
     if (reached > B.wave) { nb.wave = 1; B.wave = reached; }
     if (s.time > B.time) { nb.time = 1; B.time = s.time; }
     if (s.yeets > B.yeets) { nb.yeets = 1; B.yeets = s.yeets; }
     if (s.bestChain > B.chain) { nb.chain = 1; B.chain = s.bestChain; }
     if (mph > B.mph) { nb.mph = 1; B.mph = mph; }
-    if (g.win) save.wins++;
+    if (g.win && !g.debug) save.wins++;
     if (g.daily) { const d = save.daily[g.daily] || { yeets: 0 }; if (s.yeets > d.yeets) save.daily[g.daily] = { yeets: s.yeets, win: g.win }; }
     persist();
     const first = save.runs <= 1;
