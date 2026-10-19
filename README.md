@@ -45,6 +45,16 @@ Every page has a floating CRT-style dock at the bottom (`<nav class="deck">`, co
 
 `made_by` is `"computer-cooked"` (top shelf) or `"community"` (community shelf). To add a game: make `games/<slug>/index.html` (copy `games/crash/index.html` for the player shell: fullscreen, mute, restart, share), add an entry to `games.json`, and add the URL to `sitemap.xml`. The hub HTML also has a static CRASH card so it works without JS; update it if you reorder.
 
+### Adding a ported / self-contained game
+
+Games built elsewhere (a folder with `index.html`, relative paths, `thumb.png` and an `entry.json` with slug, title, pitch, thumbnail, made_by, controls, size_kb) are added with one command:
+
+```
+pwsh scripts/add-game.ps1 "C:\Bush Growth\ventures\computer-cooked-games\site-ports\bellchain"
+```
+
+It copies the folder to `games/<slug>/play/`, generates the player page `games/<slug>/index.html` from `scripts/player-template.html`, and adds the entry to `games.json` (CRASH stays first) and `sitemap.xml`. The player page frames the game in an iframe and drives it with `postMessage`: `{type:"cc-mute", muted}`, `{type:"cc-restart"}`, and `{type:"cc-pause"}` when the command bar opens. `_headers` allows same-origin framing for `/games/:slug/play/*` only. Re-run the script to update a game.
+
 ### CRASH
 
 Vanilla JS + canvas, no build step. Touch (drag anywhere), arrows / A D, P or Esc to pause, M to mute. Heat rises on its own and with every task that hits; coffee and fans cool down; 100° = cooked. High score is in `localStorage` (wrapped in try/catch).
