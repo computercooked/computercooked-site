@@ -31,13 +31,18 @@
 </head>
 <body>
   <main class="player-page">
-    <p class="crumbs"><a href="/games/">games</a> / desktop-jam</p>
+    <nav class="crumbs" aria-label="breadcrumb"><span class="crumb-prompt" aria-hidden="true">~/</span><a href="/games/">games</a><span aria-hidden="true">/</span><span aria-current="page">desktop-jam</span></nav>
 
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
     <div class="player-layout">
       <section class="player" id="player" aria-label="desktop jam game" data-title="desktop jam" data-url="https://computercooked.com/games/desktop-jam/">
         <div class="player-stage">
+          <div class="stage-boot" aria-hidden="true">
+            <span class="boot-logo"></span>
+            <span class="boot-text">booting desktop jam<span class="boot-dots"></span></span>
+            <span class="boot-bar"><span></span></span>
+          </div>
           <iframe id="game-frame" src="/games/desktop-jam/play/" title="desktop jam" allow="fullscreen; autoplay" loading="eager"></iframe>
         </div>
 
@@ -75,6 +80,11 @@
         </div>
       </aside>
     </div>
+
+    <section class="more-games" data-more-games="desktop-jam" aria-labelledby="more-heading" hidden>
+      <h2 class="shelf-head" id="more-heading">play next <a class="shelf-link" href="/games/">all games ▶</a></h2>
+      <ul class="card-grid"></ul>
+    </section>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -104,6 +114,7 @@
       </a>
     </div>
   </nav>
+  <script src="/assets/fx.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
 </html>
