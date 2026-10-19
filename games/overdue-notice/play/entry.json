@@ -1,11 +1,25 @@
 {
   "slug": "overdue-notice",
   "title": "overdue notice",
+  "version": 2,
   "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tap / click popups and bills · space smashes · p pays all · 1–4 tabs",
-  "size_kb": 155,
-  "tags": ["incremental", "idle", "clicker", "funny", "money", "1 player", "halloween"],
-  "max_score_per_sec": 0.02
+  "controls": "tap / click popups and bills · space smashes (fast taps build a combo) · p pays all · g takes a gig · 1–4 tabs · 1/2 pick the daily situation",
+  "size_kb": 164,
+  "tags": [
+    "incremental",
+    "idle",
+    "clicker",
+    "funny",
+    "money",
+    "1 player",
+    "halloween"
+  ],
+  "max_score_per_sec": 0.02,
+  "changelog": "v2: lifestyle creep (bills track what you earned yesterday), taps scale with income plus x3 combo, daily situation cards with tradeoffs, autopay fee, space never skips summaries, offline capped at 1h, honest late-fee stats, perks no longer a trap, repo never cheaper than paying, css/jitter/reflow fixes.",
+  "playtest": {
+    "before": 5.3,
+    "after": 6.5
+  }
 }

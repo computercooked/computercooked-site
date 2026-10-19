@@ -25,7 +25,7 @@ function fmtTime(ms) { const s = Math.round(ms / 1000); return Math.floor(s / 60
 function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
 // ---------- save ----------
-let save = { unlocked: 1, last: 1, best: {}, done: {}, daily: {}, hw: null, muted: false };
+let save = { unlocked: 1, last: 1, best: {}, done: {}, daily: {}, stars: {}, dailyTry: {}, hw: null, muted: false };
 try { const s = JSON.parse(localStorage.getItem('cc-pixel-purge') || 'null'); if (s && typeof s === 'object') save = Object.assign(save, s); } catch (e) {}
 function persist() { try { localStorage.setItem('cc-pixel-purge', JSON.stringify(save)); } catch (e) {} }
 const NOW = new Date();
@@ -290,13 +290,13 @@ function loadLevel(cfg) {
     grid: Int8Array.from(b.col), vis: new Uint8Array(n * n).fill(1), ex: new Uint8Array(n * n), exList: [], dirty: true,
     bench: new Array(BENCH).fill(null), gone: [], bullets: [], total: n * n, left: n * n, cleared: 0,
     undo: 1, undoUsed: 0, pid: 0, placed: 0, stuck: 0, revealT: 0, startMs: performance.now(), endMs: 0,
-    runOpen: false, won: false, warned: false, idleWarned: false, glitchT: 2, glitchOn: 0, rowOff: new Int8Array(n), scoreT: 0, maxBench: 0,
+    runOpen: false, won: false, warned: false, chain: 0, chainBest: 0, chainPts: 0, lastWake: -9, floats: [], stars: 0, practice: false, idleWarned: false, glitchT: 2, glitchOn: 0, rowOff: new Int8Array(n), scoreT: 0, maxBench: 0,
   });
   mode = 'play'; paused = false; parts = []; eventsSent = 0;
   if (cfg.daily) say('daily picture #' + dailyNum() + '. same one for everybody. no pressure.', 4);
   else if (cfg.hard) say('hard level. crash recommends prayer and ctrl+z.', 4, 1);
-  else if (cfg.lv === 1) say('tap a floppy. it shoots its color from below. that is the whole job.', 6);
-  else if (cfg.lv === 2) say('disks only hit the lowest pixel in each column. dig from the bottom.', 5);
+  else if (cfg.lv === 1) say('tap a floppy with a number badge. it shoots its color.', 6);
+  else if (cfg.lv === 2) say('disks hit the bottom pixel of a column. dig up.', 5);
   else if (cfg.lv === 4) say('3 lanes now. plan ahead. or panic. both work sometimes.', 4);
   else if (cfg.k >= 6 && cfg.lv === 19) say('six colors. my gpu is sweating.', 4);
   else say(['restoring ' + b.im.def.file + '...', 'another corrupted file. great.', 'pixels go brrr.', 'do not let the bench fill up. i mean it.'][cfg.lv % 4], 3);
@@ -308,12 +308,14 @@ function closeRun(won, quit) {
   if (!S || !S.runOpen) return;
   S.runOpen = false;
   const bonus = won ? (S.cfg.daily ? 300 : Math.min(600, 25 * S.cfg.lv)) : 0;
-  const score = S.cleared + bonus;
+  const clean = won ? (S.undoUsed ? 0 : 100) + (S.maxBench <= lowBench() ? 100 : 0) : 0;
+  const score = S.cleared + S.chainPts + bonus + clean;
   S.score = score;
   const durationMs = Math.round((S.endMs || performance.now()) - S.startMs);
   ccCall('end', { score, durationMs, completed: !quit });
 }
 
+function lowBench() { return Math.max(3, Math.min(4, S.cfg.ref)); }
 function slotCenter(i) { return { x: L.slotX[i], y: L.slotCY }; }
 function laneGeom(li) {
   const nL = S.lanes.length, inner = L.cw - 2 * L.pad, lw = inner / nL;
@@ -340,13 +342,17 @@ function pickLane(li) {
   const lane = S.lanes[li]; if (!lane || !lane.length) return;
   const slot = S.bench.indexOf(null);
   if (slot < 0) { sfx('full'); shake = 0.25; say('bench full. that is literally how you lose.', 2.4, 1); return; }
-  if (!S.runOpen && !S.won && S.placed === 0) { S.runOpen = true; S.startMs = performance.now(); ccCall('start'); }
+  if (!S.runOpen && !S.won && S.placed === 0) {
+    S.runOpen = true; S.startMs = performance.now(); ccCall('start');
+    if (S.cfg.daily) { const k = dateKey(NOW); save.dailyTry[k] = (save.dailyTry[k] || 0) + 1; S.practice = save.dailyTry[k] > 1; persist(); if (S.practice) say('practice run. only your first daily try counts.', 3); }
+  }
   const d = lane.shift(); const g = laneGeom(li);
   S.bench[slot] = { c: d.c, a: d.a, lane: li, fx: g.x, fy: g.y, fs: g.s, at: 0, cd: 0.04, kick: 0, idle: false, id: ++S.pid, combo: 0 };
   S.placed++;
   const cnt = S.bench.filter(Boolean).length; S.maxBench = Math.max(S.maxBench, cnt);
   sfx('place');
   if (cnt === 4 && !S.warned) { S.warned = true; say('4 of 5 slots. this is how it starts.', 2.6, 1); }
+  if (cnt <= 2) S.warned = false;
 }
 
 function doUndo() {
@@ -388,8 +394,9 @@ function win() {
   closeRun(true, false);
   sfx('win');
   const d = S.cfg;
-  if (d.daily) { const k = dateKey(NOW); const prev = save.daily[k]; const ms = S.endMs - S.startMs; if (!prev || ms < prev.t) save.daily[k] = { t: Math.round(ms), u: S.undoUsed }; ccEvent('daily_clear', { n: dailyNum() }); }
-  else { save.unlocked = Math.max(save.unlocked, d.lv + 1); save.done[d.lv] = 1; if (!save.best[d.lv] || S.score > save.best[d.lv]) save.best[d.lv] = S.score; ccEvent('level_clear', { lv: d.lv }); }
+  S.stars = 1 + (S.undoUsed ? 0 : 1) + (S.maxBench <= lowBench() ? 1 : 0);
+  if (d.daily) { const k = dateKey(NOW); const ms = S.endMs - S.startMs; if (!S.practice && !save.daily[k]) save.daily[k] = { t: Math.round(ms), u: S.undoUsed, s: S.score, st: S.stars }; ccEvent('daily_clear', { n: dailyNum() }); }
+  else { save.unlocked = Math.max(save.unlocked, d.lv + 1); save.done[d.lv] = 1; save.stars[d.lv] = Math.max(save.stars[d.lv] || 0, S.stars); if (!save.best[d.lv] || S.score > save.best[d.lv]) save.best[d.lv] = S.score; ccEvent('level_clear', { lv: d.lv, stars: S.stars }); }
   persist();
   const lines = ['picture restored. i feel 4% less corrupted.', 'restored. nobody tell IT.', 'every pixel back where it belongs. unlike my life.', 'file recovered. crash is proud. briefly.'];
   say(lines[(d.lv || dailyNum()) % lines.length], 99, 0);
@@ -405,6 +412,7 @@ function update(dt) {
   if (toastT > 0) toastT -= dt;
   if (shake > 0) shake -= dt;
   for (const p of parts) { p.life -= dt; p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+  if (S && S.floats.length) { for (const f of S.floats) { f.life -= dt; f.y -= 40 * dt; } S.floats = S.floats.filter((f) => f.life > 0); }
   if (parts.length) parts = parts.filter(p => p.life > 0);
   if (!S || mode === 'menu') return;
 
@@ -440,7 +448,13 @@ function update(dt) {
       while (t.cd <= 0 && guard++ < 6) {
         const tg = findTarget(t, i);
         if (tg < 0) { if (!t.idle) t.combo = 0; t.idle = true; t.cd = 0; break; }
-        t.idle = false; fire(t, i, tg); t.cd += FIRE;
+        if (t.idle) { // a sleeping disk just got a clear shot: that's a chain
+          S.chain = T - S.lastWake < 3 ? S.chain + 1 : 1; S.lastWake = T; S.chainBest = Math.max(S.chainBest, S.chain);
+          const pts = Math.max(0, Math.min(10 * Math.min(S.chain, 4), Math.round(S.total * 0.25) - S.chainPts)); S.chainPts += pts; // capped: chains are a bonus, not the score
+          const sc = slotCenter(i); S.floats.push({ text: (S.chain > 1 ? 'chain x' + S.chain : 'wake up') + ' +' + pts, x: sc.x, y: sc.y - L.slot * 0.7, life: 1.2, col: S.chain > 2 ? '#FF4FA0' : LIME });
+          sfx('chain', 0, S.chain); if (S.chain >= 3) { shake = Math.max(shake, 0.18); say(['chain reaction. i felt that in my fans.', 'that is called strategy. i think.', 'combo. crash is impressed. quietly.'][S.chain % 3], 2.2, 0); }
+        }
+        t.idle = false; t.fired = (t.fired || 0) + 1; fire(t, i, tg); t.cd += FIRE;
         if (t.a <= 0) { leave(i); break; }
       }
       if (S.bench[i] && !S.bench[i].idle) allIdle = false;
@@ -470,6 +484,7 @@ function tone(f, dur, type, vol, f2, delay) {
   o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.02);
 }
 function sfx(kind, c, note) {
+  if (kind === 'chain') { const b = 440 * Math.pow(2, Math.min(note, 8) / 6); tone(b, 0.09, 'square', 0.07); tone(b * 1.5, 0.12, 'triangle', 0.07, null, 0.06); return; }
   if (!AC || muted) return;
   if (kind === 'pop') {
     const now = AC.currentTime; if (now - lastPop < 0.028) return; lastPop = now;
@@ -549,6 +564,7 @@ function drawPicture(g, x, y, cs, o) {
   g.fillStyle = '#0a0b0d'; g.fillRect(x, y, size, size);
   g.imageSmoothingEnabled = false;
   g.globalAlpha = o.cleanA !== undefined ? o.cleanA : 0.9; g.drawImage(S.im.canvas, x, y, size, size); g.globalAlpha = 1;
+  if (o.dim) { g.fillStyle = 'rgba(16,17,20,0.62)'; g.fillRect(x, y, size, size); }
   if (o.cells !== false) {
     const off = o.off;
     for (let c = 0; c < S.k; c++) {
@@ -591,7 +607,7 @@ function draw() {
   ctx.fillStyle = 'rgba(181,154,255,0.18)'; rr(ctx, L.gx - 5, L.gy - 5, size + 10, size + 10, 8); ctx.fill();
   const revealing = mode === 'reveal' || mode === 'win';
   refreshExposure();
-  drawPicture(ctx, L.gx, L.gy, L.cs, { cleanA: revealing ? 1 : 0.88, off: S.glitchOn > 0 ? S.rowOff : null });
+  drawPicture(ctx, L.gx, L.gy, L.cs, { cleanA: revealing ? 1 : 0.88, dim: !revealing, off: S.glitchOn > 0 ? S.rowOff : null });
   if (mode === 'reveal') { const t = clamp(S.revealT / 0.8, 0, 1); const yy = L.gy + size * t; ctx.fillStyle = 'rgba(197,255,73,0.7)'; ctx.fillRect(L.gx, yy - 2, size, 4); ctx.fillStyle = 'rgba(255,255,255,' + (0.5 * (1 - t)) + ')'; ctx.fillRect(L.gx, L.gy, size, size); }
   // scanlines
   ctx.fillStyle = 'rgba(0,0,0,0.10)'; for (let yy = L.gy; yy < L.gy + size; yy += 3) ctx.fillRect(L.gx, yy, size, 1);
@@ -610,6 +626,9 @@ function draw() {
   // particles
   for (const p of parts) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col; const s = p.flash ? p.s * (1 + (1 - p.life / p.max)) : p.s; ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s); }
   ctx.globalAlpha = 1;
+  for (const f of S.floats) { ctx.globalAlpha = clamp(f.life / 0.4, 0, 1); ctx.font = 'bold 14px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = CARBON; ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y); }
+  ctx.globalAlpha = 1;
+  if (mode === 'play' && S.chainPts) { ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = LIME; ctx.fillText('chains +' + S.chainPts, L.cx + L.cw - L.pad, L.benchY - 2); }
   ctx.restore();
 
   // side hints on wide screens
@@ -714,19 +733,27 @@ function drawLanes() {
     for (let k = peeks; k >= 1; k--) { const d = lane[k]; drawDisk(ctx, g.x, g.y + g.s / 2 + ps / 2 - ps * 0.25 + step * (k - 1) + 4, ps, S.hex[d.c], d.a, { alpha: 0.82 }); }
     const d = lane[0]; const bob = mode === 'play' ? Math.sin(T * 4 + li) * 1.2 : 0;
     drawDisk(ctx, g.x, g.y + bob, g.s, S.hex[d.c], d.a);
+    if (mode === 'play') { // how many pixels it could hit right now (0 = it will nap on the bench)
+      let open = 0; for (const id of S.exList) if (S.grid[id] === d.c) open++;
+      const br = Math.max(9, g.s * 0.2), bx2 = g.x - g.s / 2 + br * 0.6, by2 = g.y + bob - g.s / 2 + br * 0.6;
+      ctx.beginPath(); ctx.arc(bx2, by2, br, 0, Math.PI * 2); ctx.fillStyle = open ? LIME : '#3a3c44'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = CARBON; ctx.stroke();
+      ctx.fillStyle = open ? CARBON : LILAC; ctx.font = 'bold ' + Math.round(br * (open > 99 ? 0.8 : 1.05)) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(open ? String(open) : 'zz', bx2, by2 + 1);
+    }
     if (lane.length > peeks + 1) { ctx.fillStyle = 'rgba(245,243,237,0.45)'; ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('+' + (lane.length - 1 - peeks), g.x0 + g.lw - 8, L.laneY + L.laneH - 4); }
     if (W > 600 && nL <= 4) { ctx.fillStyle = 'rgba(245,243,237,0.3)'; ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(String(li + 1), g.x0 + 9, L.laneY + 5); }
   }
   // first-level hint
   if (S.cfg.lv === 1 && S.placed < 2 && mode === 'play') {
-    const g = laneGeom(0); const b = Math.sin(T * 6) * 5;
+    let hl = 0; for (let q = 0; q < S.lanes.length; q++) { const fd = S.lanes[q][0]; if (fd && S.exList.some((id) => S.grid[id] === fd.c)) { hl = q; break; } }
+    const g = laneGeom(hl); const b = Math.sin(T * 6) * 5;
     ctx.fillStyle = LIME; ctx.beginPath(); const ax = g.x + g.s * 0.35, ay = g.y + g.s * 0.2 + b;
     ctx.moveTo(ax, ay); ctx.lineTo(ax + 14, ay + 26); ctx.lineTo(ax + 6, ay + 24); ctx.lineTo(ax + 3, ay + 34); ctx.lineTo(ax - 2, ay + 33); ctx.lineTo(ax + 1, ay + 23); ctx.lineTo(ax - 7, ay + 25); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = CARBON; ctx.lineWidth = 1.5; ctx.stroke();
   }
 }
 
-function cardRect() { const x = L.cx + L.pad, y = Math.max(L.benchY - 4, H * 0.42), w = L.cw - 2 * L.pad, h = H - y - 16; return { x, y, w, h }; }
+function cardRect() { const x = L.cx + L.pad, w = L.cw - 2 * L.pad; if (mode === 'lose') { const y = Math.max(8, L.gy - 4), h = L.benchY - 10 - y; if (h >= 190) return { x, y, w, h }; } const y = Math.max(L.benchY - 4, H * 0.42), h = H - y - 16; return { x, y, w, h }; }
 function drawCard(title, lines, btns) {
   const r = cardRect();
   ctx.fillStyle = 'rgba(16,17,20,0.94)'; rr(ctx, r.x, r.y, r.w, r.h, 14); ctx.fill();
@@ -749,9 +776,11 @@ function drawCard(title, lines, btns) {
 }
 function drawWin() {
   const d = S.cfg, ms = S.endMs - S.startMs;
-  const lines = [{ t: S.im.def.cap }, { t: S.score + ' pts · ' + fmtTime(ms) + (S.undoUsed ? ' · used ctrl+z' : ' · no ctrl+z'), c: PAPER }];
+  const lines = [{ t: '★'.repeat(S.stars) + '☆'.repeat(3 - S.stars) + '  ' + S.score + ' pts · ' + fmtTime(ms), c: LIME },
+    { t: (S.undoUsed ? '☆ used ctrl+z' : '★ no ctrl+z') + ' · ' + (S.maxBench <= lowBench() ? '★' : '☆') + ' bench peak ' + S.maxBench + '/' + lowBench() + (S.chainBest ? ' · best chain x' + S.chainBest : ''), c: PAPER }];
+  if (d.daily && S.practice) lines.push({ t: 'practice run: your first try is the one that counts.', c: 'rgba(245,243,237,0.5)' });
   if (!d.daily && save.best[d.lv]) lines.push({ t: 'best ' + save.best[d.lv], c: 'rgba(245,243,237,0.5)' });
-  drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.last, f: () => loadLevel(levelCfg(save.last)) }] : [{ l: 'next ▸', f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
+  drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.unlocked, f: () => loadLevel(levelCfg(save.unlocked)) }] : [{ l: 'next ▸', f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
 }
 function drawLose() {
   const pct = Math.floor(100 * S.cleared / S.total);
@@ -778,7 +807,7 @@ function drawMenu() {
     const lv = i + 1, r = Math.floor((i - start) / cols), c = (i - start) % cols;
     const bx = x0 + c * (bw + gap), by = y + r * (bh + gap);
     const open = lv <= save.unlocked;
-    if (open) btn(bx, by, bw, bh, save.done[lv] ? lv + '✓' : String(lv), () => loadLevel(levelCfg(lv)), { fs: 13, color: save.done[lv] ? LIME : PAPER });
+    if (open) btn(bx, by, bw, bh, save.done[lv] ? lv + (save.stars[lv] ? '★'.repeat(save.stars[lv]) : '✓') : String(lv), () => loadLevel(levelCfg(lv)), { fs: 13, color: save.done[lv] ? LIME : PAPER });
     else drawBtn(bx, by, bw, bh, String(lv), { fs: 13, color: 'rgba(245,243,237,0.25)', fill: 'rgba(245,243,237,0.03)' });
   }
   y += rowsFit * (bh + gap) + 6;
@@ -813,7 +842,7 @@ function makeCard() {
 function shareText() {
   const ms = (S.endMs || performance.now()) - S.startMs;
   if (S.cfg.daily) return S.won ? 'pixel purge daily #' + dailyNum() + ': restored ' + S.im.def.file + ' in ' + fmtTime(ms) + (S.undoUsed ? ' (needed ctrl+z)' : ' (no ctrl+z)') + '. ' + URL_TXT : 'pixel purge daily #' + dailyNum() + ': out of slots at ' + Math.floor(100 * S.cleared / S.total) + '%. classic. ' + URL_TXT;
-  return S.won ? 'i restored ' + S.im.def.file + ' in pixel purge (lvl ' + S.cfg.lv + ', ' + S.score + ' pts). ' + URL_TXT : 'out of slots on lvl ' + S.cfg.lv + ' of pixel purge with ' + Math.floor(100 * S.cleared / S.total) + '% restored. classic. ' + URL_TXT;
+  return S.won ? 'i restored ' + S.im.def.file + ' in pixel purge (lvl ' + S.cfg.lv + ', ' + '★'.repeat(S.stars) + ' ' + S.score + ' pts' + (S.chainBest > 1 ? ', chain x' + S.chainBest : '') + '). ' + URL_TXT : 'out of slots on lvl ' + S.cfg.lv + ' of pixel purge with ' + Math.floor(100 * S.cleared / S.total) + '% restored. classic. ' + URL_TXT;
 }
 function toast(m) { toastMsg = m; toastT = 2.2; }
 async function share() {
@@ -889,6 +918,7 @@ window.addEventListener('resize', layout);
 // ---------- loop ----------
 let last = performance.now(), speed = 1;
 function frame(now) {
+  if ((paused || mode === 'menu') && S && S.runOpen && !S.won) S.startMs += now - last; // the clock stops with you
   const dt = Math.min(0.05, (now - last) / 1000) * speed; last = now;
   if (!paused) { if (speed > 1) { for (let i = 0; i < speed; i++) update(dt / speed); } else update(dt); }
   draw();
