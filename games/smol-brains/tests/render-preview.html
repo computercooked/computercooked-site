@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>smol brains render preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #101114; overflow: hidden; font: 600 12px system-ui, sans-serif; color: #f5f3ed; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: none; }
+  #bar { position: fixed; left: 8px; right: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 2; }
+  #bar button { background: rgba(23,24,29,.85); color: #f5f3ed; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 5px 8px; font: inherit; cursor: pointer; }
+  #bar button.on { color: #c5ff49; border-color: #c5ff49; }
+  #stats { position: fixed; top: 8px; left: 8px; background: rgba(23,24,29,.85); padding: 4px 8px; border-radius: 8px; z-index: 2; font-family: ui-monospace, monospace; }
+  #mini { position: fixed; top: 8px; right: 8px; width: 240px; height: 34px; border-radius: 8px; z-index: 2; border: 1px solid rgba(255,255,255,.2); }
+  #cards { position: fixed; top: 50px; right: 8px; z-index: 2; background: rgba(23,24,29,.85); border-radius: 8px; }
+  body.clean #bar, body.clean #stats { display: none; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<canvas id="mini"></canvas>
+<canvas id="cards" width="240" height="64"></canvas>
+<div id="stats">…</div>
+<div id="bar"></div>
+<script src="../play/js/core.js"></script>
+<script src="../play/js/render.js"></script>
+<script src="../play/js/audio.js"></script>
+<script>
+(function () {
+  "use strict";
+  var SB = window.SB, Q = new URLSearchParams(location.search);
+  if (Q.get("clean")) document.body.classList.add("clean");
+  var r = SB.rng(Number(Q.get("seed")) || 42);
+  var RW = SB.ROOM_W, W = SB.WORLD_W;
+
+  // ---------- fake world ----------
+  var BASE = [474, 462, 452, 470, 464, 440];
+  var ground = new Float32Array(Math.floor(W / 10) + 1);
+  for (var k = 0; k < ground.length; k++) {
+    var x = k * 10, i = Math.min(5, Math.floor(x / RW)), f = x / RW - i;
+    var b = BASE[i], nb = BASE[Math.min(5, i + 1)];
+    if (f > 0.85) b = b + (nb - b) * ((f - 0.85) / 0.3); else if (f < 0.15 && i > 0) b = BASE[i - 1] + (b - BASE[i - 1]) * ((f + 0.15) / 0.3);
+    var amp = [16, 12, 10, 0, 5, 14][i];
+    ground[k] = b + amp * (0.6 * Math.sin(x / 190) + 0.4 * Math.sin(x / 67 + 1));
+  }
+  var P0 = 4 * RW + 400, P1 = 4 * RW + 660, surf = 0;
+  for (k = Math.ceil(P0 / 10); k <= Math.floor(P1 / 10); k++) { var u = (k * 10 - P0) / (P1 - P0); ground[k] = 466 + 26 * Math.pow(Math.sin(Math.PI * u), 0.7); }
+  surf = 469;
+  function gy(x) { var f = Math.max(0, Math.min(W, x)) / 10, j = f | 0; if (j >= ground.length - 1) return ground[ground.length - 1]; return ground[j] + (ground[j + 1] - ground[j]) * (f - j); }
+  SB.World = SB.World || { groundY: function (w, x) { return gy(x); } };
+
+  var decor = [];
+  function D(type, rx, room, s, layer, v, y, extra) { var x = room * RW + rx, o = { type: type, x: x, y: y == null ? gy(x) : y, s: s || 1, room: room, layer: layer || "back", v: v || 0 }; if (extra) for (var q in extra) o[q] = extra[q]; decor.push(o); }
+  for (i = 0; i < 6; i++) D("sign", 45, i, 1, "back", i);
+  // hollow
+  D("cave_mouth", 380, 0, 1.2); D("tree", 120, 0, 1, "back", 2); D("tree", 600, 0, 0.9, "back", 2); D("rock", 520, 0, 1.6, "back", 1); D("rock", 760, 0, 1.2, "back", 0);
+  D("crystal", 250, 0, 1); D("crystal", 820, 0, 0.8); D("bones", 700, 0, 1, "front", 1); D("bones", 300, 0, 0.8, "front", 0); D("grass", 160, 0, 1, "front", 2); D("grass", 480, 0, 1, "front", 2);
+  // woods
+  [80, 250, 480, 700, 860].forEach(function (x, j) { D("tree", x, 1, 1.1 + (j % 2) * 0.3, "back", 1); });
+  D("pine", 360, 1, 1.2); D("mushroom_big", 140, 1, 1.2, "back", 0); D("mushroom_big", 560, 1, 1.0, "back", 2); D("mushroom_big", 770, 1, 0.8, "back", 1); D("rock", 640, 1, 0.9);
+  [100, 220, 330, 450, 600, 720, 840].forEach(function (x) { D("grass", x, 1, 1, "front", 1); }); D("flower", 300, 1, 0.8, "front", 5); D("flower", 520, 1, 0.8, "front", 5);
+  // meadow
+  D("tree", 300, 2, 1.2, "back", 0); D("tree", 600, 2, 1.0, "back", 0); D("bush", 200, 2, 1); D("bush", 470, 2, 1.2, "back", 1); D("bush", 820, 2, 0.9); D("nest", 330, 2, 1);
+  D("lamp", 440, 2, 1, "back", 1); D("lamp", 700, 2, 1, "back", 1); D("rock", 900 - 160, 2, 0.7);
+  for (i = 0; i < 22; i++) D("flower", 30 + i * 39 + r() * 20, 2, 0.6 + r() * 0.5, "front", r.int(5));
+  for (i = 0; i < 16; i++) D("grass", 20 + i * 55 + r() * 20, 2, 0.7 + r() * 0.5, "front", 0);
+  // lab
+  var lg = gy(3 * RW + 450);
+  D("lab_wall", 450, 3, 1, "back", 0, lg, { w: RW - 20, h: 330 });
+  for (i = 0; i < 3; i++) D("window", 150 + i * 300, 3, 1, "back", i, lg - 235);
+  D("screen", 225, 3, 1.2, "back", 0, lg - 150); D("screen", 560, 3, 0.8, "back", 1, lg - 165); D("screen", 770, 3, 0.8, "back", 2, lg - 160);
+  for (i = 0; i < 4; i++) D("pipe", 80 + i * 230, 3, 1, "back", i % 2, lg - 300);
+  for (i = 0; i < 4; i++) D("lamp", 120 + i * 220, 3, 1, "back", 0, lg - 320);
+  for (i = 0; i < 4; i++) D("cable", 140 + i * 200, 3, 1, "front", i % 3, lg);
+  // pond
+  D("dock", 390, 4, 1, "back", 0, surf, { w: 120 }); D("tree", 120, 4, 1.2, "back", 3); D("tree", 800, 4, 1.3, "back", 3); D("rock", 330, 4, 0.8); D("rock", 720, 4, 0.7);
+  [380, 410, 640, 670, 700].forEach(function (x, j) { D("reeds", x, 4, 1, j % 2 ? "front" : "back", j % 2); });
+  for (i = 0; i < 4; i++) D("lily", 450 + i * 50, 4, 0.9, "front", i % 2, surf);
+  for (i = 0; i < 6; i++) D("grass", 60 + i * 50, 4, 0.8, "front", 3);
+  D("flower", 250, 4, 0.8, "front", 4); D("bogus_type", 860, 4, 1);
+  // peak
+  [80, 200, 380, 560, 650, 820].forEach(function (x, j) { D("pine", x, 5, 1 + (j % 3) * 0.25, "back", 1); });
+  D("tree", 470, 5, 1); D("crystal", 280, 5, 0.9, "back", 1); D("rock", 740, 5, 1, "back", 2);
+  [150, 330, 520, 700, 860].forEach(function (x) { D("snowdrift", x, 5, 1, "front", 0); });
+
+  // ---------- objects ----------
+  var nextId = 1, objects = [];
+  function O(kind, room, rx, data, y) {
+    var K = SB.KINDS[kind], x = room * RW + rx;
+    var o = { id: nextId++, kind: kind, noun: K.noun, x: x, y: y == null ? gy(x) - K.r : y, vx: 0, vy: 0, r: K.r, fixed: !!K.fixed, heldBy: null, age: 0, data: data || {} };
+    objects.push(o); return o;
+  }
+  O("grumpcave", 0, 230); O("shroomring", 0, 640); O("beetle", 0, 520);
+  O("shroomring", 1, 190); O("herbpatch", 1, 420, { stock: 2 }); O("berrybush", 1, 610, { stock: 3 }); O("teleporter", 1, 800, { pad: "A" }); O("shroom_red", 1, 260); O("shroom_blue", 1, 300); O("herb", 1, 460); O("beetle", 1, 520);
+  O("appletree", 2, 110, { stock: 3 }); O("incubator", 2, 330); var egg = O("egg", 2, 330, { progress: 0.7, wobble: 0.6, warmth: 0.8 }, gy(2 * RW + 330) - 34);
+  O("bed", 2, 540); O("berrybush", 2, 650, { stock: 4 }); O("appletree", 2, 760, { stock: 1 }); O("carrotpatch", 2, 855, { stock: 2 });
+  O("plush", 2, 250); O("musicbox", 2, 400, { playing: 999 }); O("ball", 2, 600); O("apple", 2, 395); O("apple", 2, 505, { rotten: true }); O("berry", 2, 470); O("carrot", 2, 590); O("cake", 2, 440); O("egg", 2, 200, { progress: 0.2 });
+  O("butterfly", 2, 300, {}, gy(2 * RW + 300) - 120); O("butterfly", 2, 700, {}, gy(2 * RW + 700) - 90);
+  O("warpgate", 3, 95); O("computer", 3, 225); O("snackbox", 3, 360); O("top", 3, 425, { spin: 999 }); O("medbot", 3, 490); O("bed", 3, 620); O("bed", 3, 715); O("fan", 3, 830, { on: 999 }); O("medkit", 3, 540);
+  O("trampoline", 4, 150, { boing: 0 }); O("appletree", 4, 290, { stock: 2 }); O("ball", 4, 730); O("fish", 4, 360);
+  O("heater", 5, 300, { on: 999 }); O("teleporter", 5, 720, { pad: "B" }); O("plush", 5, 460);
+
+  // ---------- creatures ----------
+  var LOOKS = [
+    { hue: 150, hue2: 330, sat: 70, light: 66, pattern: 3, ears: 0, eyes: 1.1, tail: 3, body: 1.05, size: 1.0, spotsSeed: 11, cheeks: true, antenna: false },
+    { hue: 330, hue2: 50, sat: 80, light: 72, pattern: 1, ears: 3, eyes: 1.3, tail: 1, body: 0.9, size: 1.1, spotsSeed: 222, cheeks: true, antenna: false },
+    { hue: 200, hue2: 280, sat: 75, light: 64, pattern: 2, ears: 1, eyes: 0.9, tail: 2, body: 1.2, size: 1.0, spotsSeed: 3, cheeks: false, antenna: true },
+    { hue: 45, hue2: 15, sat: 85, light: 66, pattern: 0, ears: 2, eyes: 1.2, tail: 0, body: 1.0, size: 0.95, spotsSeed: 9, cheeks: true, antenna: false },
+    { hue: 270, hue2: 170, sat: 60, light: 70, pattern: 1, ears: 4, eyes: 1.4, tail: 3, body: 0.85, size: 1.15, spotsSeed: 77, cheeks: true, antenna: true },
+    { hue: 100, hue2: 200, sat: 55, light: 62, pattern: 3, ears: 0, eyes: 0.7, tail: 1, body: 1.25, size: 1.2, spotsSeed: 5, cheeks: false, antenna: false }
+  ];
+  var NAMES = ["Bobo", "Pippy", "Zuzle", "Mori", "Kiki", "Lulo", "Fibbo", "Nana", "Wiri", "Tazz", "Rubo", "Jimi", "Suko", "Kopi", "Neni"];
+  var EMOTES = ["happy", "love", "sad", "angry", "scared", "sick", "zzz", "huh", "yum", "ouch", "idea", "music"];
+  var SAYS = [["food!", "say"], ["bobo hungry", "say"], ["ba ba bu?", "babble"], ["want ball", "say"], ["fff..fuud?", "babble"], ["grump scared", "think"], ["hug", "say"], ["?", "think"]];
+  var creatures = [];
+  function smol(n, x, stage, extra) {
+    var L = Object.assign({ species: "smol" }, LOOKS[n % LOOKS.length]);
+    if (n >= LOOKS.length) { L.hue = (L.hue + n * 47) % 360; L.hue2 = (L.hue2 + n * 31) % 360; L.ears = n % 5; L.pattern = n % 4; L.tail = n % 4; }
+    var c = { id: nextId++, species: "smol", name: NAMES[n % NAMES.length], x: x, y: gy(x), vx: 0, facing: n % 2 ? -1 : 1, stage: stage, look: L, alive: true, asleep: false, heldBy: null, holding: null,
+      onGround: true, moving: false, chem: { health: 1, sick: 0, fear: 0 }, anim: { walk: 0, blink: 0, squash: 0, emote: null, emoteT: 0, bob: 0, lookX: 0, mouth: "smile" }, speech: null,
+      _home: x, _dir: n % 2 ? -1 : 1, _spd: 30 + (n % 3) * 15, _n: n };
+    if (extra) Object.assign(c, extra);
+    creatures.push(c); return c;
+  }
+  function grump(x) {
+    var c = { id: nextId++, species: "grump", name: "grump", x: x, y: gy(x), facing: -1, stage: 3, look: { species: "grump", hue: 275, hue2: 110, sat: 50, light: 34, size: 1, eyes: 1 }, alive: true, onGround: true, moving: true,
+      chem: { health: 1 }, anim: { walk: 0, blink: 0, squash: 0, emote: "angry", emoteT: 99, bob: 0, lookX: 0, mouth: "smile" }, speech: null, _home: x, _dir: -1, _spd: 40, _n: 99 };
+    creatures.push(c); return c;
+  }
+  function seedCreatures(perf) {
+    creatures.length = 0;
+    var home = 2 * RW + 450;
+    smol(0, home - 200, 3); smol(1, home - 90, 0); smol(2, home + 20, 1); smol(3, home + 130, 2); smol(4, home + 240, 4); smol(5, home + 330, 3);
+    creatures[0].holding = null;
+    creatures[3].chem.sick = 0.8; creatures[5].asleep = true; creatures[5].moving = false;
+    creatures[1].speech = { text: "ba ba bu?", t: 99, kind: "babble" };
+    creatures[0].speech = { text: "bobo hungry", t: 99, kind: "say" };
+    creatures[4].speech = { text: "grump scared", t: 99, kind: "think" };
+    grump(home - 330); grump(0 * RW + 520);
+    // a smol in each other room
+    smol(6, 1 * RW + 360, 2); smol(7, 3 * RW + 300, 3); smol(8, 4 * RW + 200, 1); smol(9, 5 * RW + 420, 3); smol(10, 0 * RW + 700, 2);
+    // held ball
+    var ball = objects.filter(function (o) { return o.kind === "ball"; })[0];
+    if (ball) { ball.heldBy = creatures[2].id; creatures[2].holding = ball.id; }
+    if (perf) { for (var j = 11; j < 15; j++) smol(j, home - 300 + j * 40, j % 5); for (j = 0; j < 4; j++) smol(20 + j, home - 400 + j * 30, j % 5); }
+  }
+
+  var world = { ground: ground, objects: objects, decor: decor, water: [{ x0: P0, x1: P1, y: surf }], weather: { kind: "sun", intensity: 0.8, flash: 0 }, light: 1, daylight: 1, night: false, hour: 11, wind: 0.1 };
+  var game = { time: 0, world: world, creatures: creatures, selectedId: null, hand: { x: 2 * RW + 450, y: 380, visible: true, tool: "grab", heldId: null, saying: null } };
+  seedCreatures(!!Q.get("perf"));
+  game.selectedId = creatures[0].id;
+  SB.Game = { current: game, byId: function (g, id) { for (var a = 0; a < g.creatures.length; a++) if (g.creatures[a].id === id) return g.creatures[a]; for (a = 0; a < g.world.objects.length; a++) if (g.world.objects[a].id === id) return g.world.objects[a]; return null; } };
+
+  // ---------- params ----------
+  var cv = document.getElementById("view");
+  SB.Render.init(cv, game);
+  SB.Audio.init();
+  var room = Q.get("room") != null ? +Q.get("room") : 2;
+  SB.Render.centerOn(room * RW + 450); SB.Render.camera.x = room * RW + 450;
+  var hour = Q.get("hour") != null ? +Q.get("hour") : Q.get("night") ? 23 : 11;
+  var weather = Q.get("weather") || "sun";
+  world.weather.kind = weather; world.weather.intensity = 0.85;
+  if (Q.get("zoom")) SB.Render.zoomAt(innerWidth / 2, innerHeight / 2, +Q.get("zoom"));
+  if (Q.get("tool")) game.hand.tool = Q.get("tool");
+  if (Q.get("say")) { game.hand.saying = Q.get("say"); }
+  var paused = !!Q.get("freeze");
+
+  function setHour(h) {
+    hour = (h + 24) % 24;
+    var dl = hour >= 7.5 && hour <= 18.5 ? 1 : hour >= 5 && hour < 7.5 ? (hour - 5) / 2.5 : hour > 18.5 && hour <= 21 ? 1 - (hour - 18.5) / 2.5 : 0;
+    world.hour = hour; world.daylight = dl; world.light = (0.12 + 0.88 * dl) * ({ sun: 1, cloudy: 0.88, rain: 0.78, storm: 0.62, snow: 0.86 }[world.weather.kind] || 1); world.night = hour < 6 || hour >= 20;
+  }
+  setHour(hour);
+
+  // ---------- controls ----------
+  var bar = document.getElementById("bar");
+  function btn(label, fn) { var b = document.createElement("button"); b.textContent = label; b.onclick = function (e) { e.stopPropagation(); fn(b); }; bar.appendChild(b); return b; }
+  btn("day", function () { setHour(11); }); btn("dusk", function () { setHour(19.3); }); btn("night", function () { setHour(23); }); btn("dawn", function () { setHour(6.2); });
+  ["sun", "cloudy", "rain", "storm", "snow"].forEach(function (k) { btn(k, function () { world.weather.kind = k; setHour(hour); }); });
+  SB.ROOMS.forEach(function (rm, j) { btn(rm.name, function () { SB.Render.centerOn(j * RW + 450); }); });
+  ["grab", "tickle", "tap", "talk"].forEach(function (t) { btn("✋" + t, function () { game.hand.tool = t; }); });
+  btn("say food!", function () { game.hand.saying = "food!"; setTimeout(function () { game.hand.saying = null; }, 2000); });
+  btn("follow sel", function () { SB.Render.camera.follow = game.selectedId; });
+  btn("fx", function () { var c = creatures[0]; ["hearts", "stars", "sparkle", "confetti", "notes", "zap", "splash", "bonk", "crumbs", "puff", "angry", "drops"].forEach(function (f, j) { setTimeout(function () { SB.Render.fx(f, c.x, c.y - 50); }, j * 150); }); });
+  btn("sfx", function () { ["pop", "hatch", "eat", "tickle", "tap", "learn", "achievement", "egg", "grump", "boing", "zap", "music"].forEach(function (s, j) { setTimeout(function () { SB.Audio.play(s); }, j * 700); }); });
+  btn("voice", function () { SB.Audio.voice("bobo hungry", 0.5); setTimeout(function () { SB.Audio.voice("want ball?", 0.9); }, 900); setTimeout(function () { SB.Audio.voice("grr mine", -0.5); }, 1800); });
+  btn("zoom+", function () { SB.Render.zoomAt(innerWidth / 2, innerHeight / 2, 1.25); }); btn("zoom-", function () { SB.Render.zoomAt(innerWidth / 2, innerHeight / 2, 0.8); });
+  btn("15 smols", function () { seedCreatures(true); });
+
+  // pointer: hand + drag pan + click select / tickle
+  var drag = null;
+  cv.addEventListener("pointerdown", function (e) {
+    drag = { x: e.clientX, y: e.clientY, moved: false };
+    var p = SB.Render.pick(game, e.clientX, e.clientY);
+    if (p && p.type === "creature") {
+      game.selectedId = p.ref.id;
+      if (game.hand.tool === "tickle") SB.bus.emit("tickle", { c: p.ref });
+      if (game.hand.tool === "tap") SB.bus.emit("tap", { c: p.ref });
+    }
+  });
+  addEventListener("pointermove", function (e) {
+    var w = SB.Render.toWorld(e.clientX, e.clientY); game.hand.x = w.x; game.hand.y = w.y; game.hand.visible = true;
+    if (drag && (Math.abs(e.clientX - drag.x) > 4 || drag.moved)) { SB.Render.panBy(e.clientX - drag.x, 0); drag.x = e.clientX; drag.y = e.clientY; drag.moved = true; }
+  });
+  addEventListener("pointerup", function () { drag = null; });
+  cv.addEventListener("wheel", function (e) { e.preventDefault(); SB.Render.zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 0.9); }, { passive: false });
+
+  // ---------- fake sim ----------
+  var stats = document.getElementById("stats"), mini = document.getElementById("mini"), mctx = mini.getContext("2d");
+  var cards = document.getElementById("cards"), cctx = cards.getContext("2d");
+  mini.width = 480; mini.height = 68;
+  var last = performance.now(), T = 0, emoteT = 0;
+  function sim(dt) {
+    T += dt; game.time += dt;
+    for (var j = 0; j < creatures.length; j++) {
+      var c = creatures[j], an = c.anim;
+      an.bob += dt * 3;
+      an.blink = Math.max(0, an.blink - dt * 8); if (Math.random() < dt * 0.4) an.blink = 1;
+      if (an.emoteT > 0 && an.emoteT < 90) { an.emoteT -= dt; if (an.emoteT <= 0) an.emote = null; }
+      if (c.asleep || c._n === 4 && (T % 8) > 4) { c.moving = false; continue; }
+      var walk = (T + j * 1.3) % 7 < 4.5;
+      c.moving = walk;
+      if (walk) {
+        c.x += c._dir * c._spd * dt; c.facing = c._dir; an.walk += c._spd * dt * 0.12;
+        if (Math.abs(c.x - c._home) > 120) c._dir = -c._dir;
+      }
+      c.y = gy(c.x);
+      an.lookX = Math.sin(T * 0.7 + j);
+    }
+    emoteT -= dt;
+    if (emoteT <= 0) {
+      emoteT = 1.2;
+      var cc = creatures[Math.floor(Math.random() * creatures.length)];
+      if (cc.species === "smol" && !cc.asleep) { cc.anim.emote = EMOTES[Math.floor(Math.random() * EMOTES.length)]; cc.anim.emoteT = 2; }
+      var cs = creatures[6 + Math.floor(Math.random() * 5)];
+      if (cs && cs.species === "smol") { var s = SAYS[Math.floor(Math.random() * SAYS.length)]; cs.speech = { text: s[0], t: 2.5, kind: s[1] }; }
+    }
+    for (j = 0; j < creatures.length; j++) { var sp = creatures[j].speech; if (sp && sp.t < 90) { sp.t -= dt; if (sp.t <= 0) creatures[j].speech = null; } }
+    // egg wobble + ball held position
+    egg.data.wobble = 0.3 + 0.3 * Math.sin(T);
+    for (j = 0; j < objects.length; j++) {
+      var o = objects[j];
+      if (typeof o.heldBy === "number") { var h = SB.Game.byId(game, o.heldBy); if (h) { var rr = SB.Render.radius(h); o.x = h.x + h.facing * rr * 0.9; o.y = h.y - rr * 0.9; } }
+      if (o.kind === "butterfly") { o.x += Math.sin(T * 0.5 + o.id) * 30 * dt; o.y = gy(o.x) - 100 + Math.sin(T * 2 + o.id) * 20; }
+      if (o.kind === "beetle") { o.vx = Math.sin(T * 0.3 + o.id) * 20; o.x += o.vx * dt; o.y = gy(o.x) - o.r; }
+      if (o.kind === "trampoline" && (T % 3) < dt) o.data.boing = 0.5;
+      if (o.data.boing > 0) o.data.boing -= dt;
+    }
+    if (world.weather.kind === "storm" && Math.random() < dt * 0.3) world.weather.flash = 1;
+    if (world.weather.flash > 0) world.weather.flash = Math.max(0, world.weather.flash - dt * 2.5);
+  }
+  var statT = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!paused) sim(dt);
+    SB.Render.frame(game, dt);
+    statT -= dt;
+    if (statT <= 0) {
+      statT = 0.5;
+      var s = SB.Render.stats;
+      stats.textContent = "fps " + s.fps + "  draw " + s.drawMs.toFixed(2) + "ms  creatures " + creatures.length + "  sprites " + s.sprites + "  particles " + s.particles;
+      window.__stats = { fps: s.fps, drawMs: s.drawMs, creatures: creatures.length, sprites: s.sprites };
+      mctx.setTransform(2, 0, 0, 2, 0, 0); SB.Render.minimap(mctx, 240, 34, game);
+      cctx.clearRect(0, 0, 240, 64);
+      for (var j = 0; j < 4; j++) SB.Render.portrait(cctx, j === 3 ? creatures[6 + 0 * 0].look && { species: "grump", hue: 275, sat: 50, light: 34 } : LOOKS[j], 30 + j * 60, 32, 56, { mood: ["happy", "sad", null, null][j], stage: [3, 0, 4, 3][j] });
+    }
+  }
+  if (Q.get("portraits")) {
+    // a grid of portraits: ears x patterns, stages, moods, grumps
+    var pc = document.createElement("canvas"), PW = innerWidth, PH = innerHeight, dp = devicePixelRatio || 1;
+    pc.width = PW * dp; pc.height = PH * dp; pc.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:5;background:#f5f3ed";
+    document.body.appendChild(pc);
+    var g = pc.getContext("2d"); g.scale(dp, dp);
+    var cell = Math.min(PW / 8, PH / 5), moods = ["happy", "sad", "angry", "scared", "sick", "love", "sleepy", null];
+    for (var row = 0; row < 5; row++) for (var col = 0; col < 8; col++) {
+      var L = Object.assign({}, LOOKS[(row * 8 + col) % 6]);
+      if (row === 0) { L.ears = col % 5; L.pattern = col % 4; L.tail = (col + 1) % 4; L.hue = col * 45; L.antenna = col > 5; }
+      if (row === 4 && col >= 5) L = { species: "grump", hue: 260 + col * 10, hue2: 100, sat: 50, light: 32, size: 1 };
+      var opts = { stage: row === 1 ? col % 5 : 3, mood: row === 2 || row === 3 ? moods[col] : null, eyesClosed: row === 3 && col === 6, dead: row === 3 && col === 7 };
+      g.fillStyle = (row + col) % 2 ? "#ece8dc" : "#f5f3ed"; g.fillRect(col * cell, row * cell, cell, cell);
+      SB.Render.portrait(g, L, col * cell + cell / 2, row * cell + cell / 2, cell * 0.9, opts);
+    }
+  }
+  requestAnimationFrame(frame);
+  window.__game = game;
+})();
+</script>
+</body>
+</html>
