@@ -1,0 +1,11 @@
+{
+  "slug": "crash-test-daily",
+  "title": "crash test (daily)",
+  "pitch": "a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your 🟩🟨🟥 grid.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "drag parts · tab + arrows · u undo · r restart",
+  "size_kb": 95,
+  "tags": ["daily", "puzzle", "sliding puzzle", "brain", "1 player", "halloween"],
+  "max_score_per_sec": 20
+}

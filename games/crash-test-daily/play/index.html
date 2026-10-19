@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>crash test (daily) · computer cooked games</title>
+<meta name="description" content="a daily sliding puzzle. get the hot air out of crash in as few moves as possible. same puzzle for everyone.">
+<link rel="stylesheet" href="style.css">
+<script src="/games/cc-sdk.js"></script>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><b>crash test</b> <span id="pno">#–</span></div>
+    <div class="icons">
+      <button id="bHelp" title="how to play" aria-label="how to play">?</button>
+      <button id="bArchive" title="practice / archive" aria-label="practice and archive">🗂</button>
+      <button id="bStats" title="stats" aria-label="stats">📊</button>
+      <button id="bSpooky" title="halloween mode" aria-label="halloween mode">🎃</button>
+    </div>
+  </header>
+  <nav id="modes">
+    <button data-mode="normal" class="on">daily</button>
+    <button data-mode="hard">daily hard</button>
+    <button data-mode="practice">practice</button>
+  </nav>
+  <section id="crashRow">
+    <canvas id="face" width="64" height="64"></canvas>
+    <div id="say">crash is overheating. slide the parts. get the hot air out the vent →</div>
+  </section>
+  <main id="boardWrap">
+    <canvas id="board" tabindex="0" aria-label="puzzle board. drag parts along their direction. keyboard: tab picks a part, arrows slide it."></canvas>
+    <div id="loading">building today's meltdown…</div>
+  </main>
+  <footer>
+    <div class="counts"><span>moves <b id="moves">0</b></span><span>par <b id="par">?</b></span></div>
+    <div class="btns">
+      <button id="bHint" class="ghost" hidden>hint</button>
+      <button id="bUndo" class="ghost">undo</button>
+      <button id="bReset" class="ghost">restart</button>
+    </div>
+  </footer>
+  <div id="credit">computer cooked games</div>
+</div>
+<div id="modal" hidden><div class="box" id="box"></div></div>
+<div id="toast" hidden></div>
+<script src="core.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
