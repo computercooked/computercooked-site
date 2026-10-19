@@ -217,6 +217,43 @@
       "version": "2.0",
       "added": "2026-10-19",
       "max_score_per_sec": 100.0
+    },
+    {
+      "slug": "level-devil-exe",
+      "title": "level devil.exe",
+      "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 31 levels, a blue screen every death, infinite retries.",
+      "thumbnail": "/games/level-devil-exe/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "platformer",
+        "troll",
+        "rage",
+        "speedrun",
+        "1 player",
+        "halloween"
+      ],
+      "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
+      "size_kb": 54,
+      "version": "1",
+      "added": "2026-10-19",
+      "max_score_per_sec": 50.0
+    },
+    {
+      "slug": "plus-one-ram",
+      "title": "+1 ram every second",
+      "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
+      "thumbnail": "/games/plus-one-ram/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "io",
+        "grow",
+        "arena",
+        "casual"
+      ],
+      "controls": "drag anywhere to steer (mouse or wasd/arrows on desktop). p pauses, m mutes.",
+      "size_kb": 53,
+      "version": "1",
+      "added": "2026-10-19"
     }
   ]
 }
