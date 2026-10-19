@@ -33,7 +33,7 @@
     <header class="games-hero">
       <div class="hero-floor" aria-hidden="true"></div>
       <div class="hero-copy">
-        <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> arcade online · computercooked.com/games</p>
+        <p class="eyebrow hub-top"><span class="live-dot" aria-hidden="true"></span> arcade online · computercooked.com/games <a class="cc-chip" id="hub-chip" href="/me/">log in</a></p>
         <h1 class="games-title">computer cooked <span>games</span></h1>
         <p class="games-sub">free little browser games. no downloads, no accounts, no ads (yet). works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
         <div class="hero-ctas">
@@ -64,6 +64,16 @@
     </div>
 
     <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
+
+    <section class="shelf" id="shelf-trending" hidden>
+      <h2 class="shelf-head">trending this week</h2>
+      <ul class="card-grid"></ul>
+    </section>
+
+    <section class="shelf" id="shelf-popular" hidden>
+      <h2 class="shelf-head">most played</h2>
+      <ul class="card-grid"></ul>
+    </section>
 
     <section class="shelf" aria-labelledby="ours-heading">
       <h2 class="shelf-head" id="ours-heading">made by computer cooked <small data-count></small></h2>
@@ -102,7 +112,7 @@
 
   <footer class="footer">
     <p>© 2026 Computer Cooked</p>
-    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a></p>
+    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/privacy/">privacy</a></p>
   </footer>
 
   <script src="/games/hub.js" defer></script>

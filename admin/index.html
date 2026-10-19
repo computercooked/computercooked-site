@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>admin — Computer Cooked Games</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#101114">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/games/games.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <main class="games-page admin">
+    <h1 class="games-title" style="font-size:2.2rem">admin <span>dashboard</span></h1>
+
+    <form id="login" class="about-card adm-row">
+      <label>admin token <input id="token" type="password" autocomplete="off" required></label>
+      <label>since <input id="since" type="date"></label>
+      <button class="cc-send" type="submit">load</button>
+      <span class="cc-msg" id="msg" role="status"></span>
+    </form>
+
+    <section id="dash" hidden>
+      <div class="adm-totals" id="totals"></div>
+
+      <h2 class="shelf-head">games</h2>
+      <div class="adm-scroll"><table id="games-table"></table></div>
+
+      <h2 class="shelf-head">latest feedback</h2>
+      <div class="adm-scroll"><table id="fb-table"></table></div>
+
+      <h2 class="shelf-head">uploads awaiting review</h2>
+      <div id="uploads"></div>
+
+      <h2 class="shelf-head">open reports</h2>
+      <div class="adm-scroll"><table id="reports-table"></table></div>
+
+      <h2 class="shelf-head">moderate</h2>
+      <form id="mod" class="about-card adm-row">
+        <label>action
+          <select id="mod-action">
+            <option value="hide-score">hide score (score id)</option>
+            <option value="show-score">show score (score id)</option>
+            <option value="ban-user">ban user (username)</option>
+            <option value="restore-user">restore user (username)</option>
+            <option value="resolve-report">resolve report (report id)</option>
+          </select>
+        </label>
+        <label>id / username <input id="mod-id" required></label>
+        <button class="cc-send" type="submit">do it</button>
+      </form>
+    </section>
+  </main>
+  <script src="/admin/admin.js" defer></script>
+</body>
+</html>

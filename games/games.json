@@ -11,7 +11,10 @@
         "dodge",
         "60s runs"
       ],
-      "controls": "drag / arrows / A D"
+      "controls": "drag / arrows / A D",
+      "version": "1",
+      "added": "2026-10-19",
+      "max_score_per_sec": 60
     },
     {
       "slug": "tab-hoarder",
@@ -21,7 +24,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "tap / click / space",
-      "size_kb": 95
+      "size_kb": 95,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "bellchain",
@@ -31,7 +36,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "tap or click a bell to ring it. space rings a random bell, m mutes. tap upgrades to buy them.",
-      "size_kb": 77
+      "size_kb": 77,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "handbag-havoc",
@@ -40,8 +47,10 @@
       "thumbnail": "/games/handbag-havoc/play/thumb.png",
       "made_by": "computer-cooked",
       "tags": [],
-      "controls": "wasd / arrows or drag anywhere to steer. 1 2 3 to pick upgrades. r restart, p pause, m mute.",
-      "size_kb": 115
+      "controls": "wasd / arrows or drag anywhere to steer. turn hard to power up the purse. 1 2 3 picks upgrades. r restart, p pause, m mute.",
+      "size_kb": 119,
+      "version": "1.1",
+      "added": "2026-10-19"
     },
     {
       "slug": "fathom",
@@ -51,7 +60,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
-      "size_kb": 115
+      "size_kb": 115,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "keyboard-escape",
@@ -68,7 +79,9 @@
         "halloween"
       ],
       "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. p pause, r restart, m mute.",
-      "size_kb": 42
+      "size_kb": 42,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "desktop-jam",
@@ -85,7 +98,9 @@
         "halloween"
       ],
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
-      "size_kb": 46
+      "size_kb": 46,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "one-percent-popup",
@@ -101,7 +116,9 @@
         "halloween"
       ],
       "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
-      "size_kb": 49
+      "size_kb": 49,
+      "version": "1.1",
+      "added": "2026-10-19"
     },
     {
       "slug": "crash-cheats",
@@ -118,7 +135,9 @@
         "halloween"
       ],
       "controls": "tap / click a square · keys 1–9 or arrows + space",
-      "size_kb": 107
+      "size_kb": 107,
+      "version": "1",
+      "added": "2026-10-19"
     }
   ]
 }

@@ -36,7 +36,7 @@
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
     <div class="player-layout">
-      <section class="player" id="player" aria-label="desktop jam game" data-title="desktop jam" data-url="https://computercooked.com/games/desktop-jam/">
+      <section class="player" id="player" aria-label="desktop jam game" data-title="desktop jam" data-url="https://computercooked.com/games/desktop-jam/" data-version="1">
         <div class="player-stage">
           <div class="stage-boot" aria-hidden="true">
             <span class="boot-logo"></span>
@@ -69,6 +69,7 @@
 
       <aside class="player-side">
         <div class="ad-slot" data-slot="player-side" aria-hidden="true"></div>
+        <div class="player-panel" id="cc-panel" data-game="desktop-jam"></div>
         <div class="about-card">
           <h2>// desktop jam</h2>
           <p>tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.</p>
@@ -89,7 +90,9 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="/games/cc-sdk.js" defer></script>
   <script src="/games/player.js" defer></script>
+  <script src="/games/platform.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
       <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">

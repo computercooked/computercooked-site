@@ -24,13 +24,13 @@
   const ENRAGE = 25;                    // seconds into the boss fight before the King enrages               // + per wave index
   const TUNE = {
     playerSpeed: 225, playerR: 17, hearts: 5, invuln: 1.4,
-    strap: 90, bagR: 15, bagDmg: 12, spin: 4.8, spinAccel: 950,
+    strap: 90, bagR: 15, bagDmg: 12, spin: 2.3, whipSpin: 4.2, spinAccel: 1100,
     launchSpeed: 230, hitCd: 0.22,
     bowlBase: 7, bowlPerSpeed: 0.02, flyTime: 0.8,
     biscuit: 0.02, nibble: 0.38, bump: 380,
   };
   const WAVES = [
-    { name: 'Garden Variety', sub: 'They came from the flowerbeds', dur: 20, rate: [1.2, 2.4], mix: { basic: 1 } },
+    { name: 'Garden Variety', sub: 'They came from the flowerbeds', dur: 20, rate: [2.2, 3.2], mix: { basic: 1 } },
     { name: 'The Sprinters', sub: 'Blue hats. Bad attitudes.', dur: 20, rate: [2.2, 3.4], mix: { basic: 0.68, sprinter: 0.32 } },
     { name: 'Chonk Season', sub: 'Big gnomes make big bowling balls', dur: 20, rate: [3.2, 4.6], mix: { basic: 0.55, sprinter: 0.25, chonk: 0.13, flamingo: 0.07 } },
     { name: 'Flamingo Front', sub: 'Pink. Plastic. Furious.', dur: 20, rate: [4.4, 6.2], mix: { basic: 0.45, sprinter: 0.25, chonk: 0.14, flamingo: 0.16 }, bursts: 6 },
@@ -58,6 +58,8 @@
     { id: 'brooch', name: 'Lucky Brooch', desc: '15% chance a smack deals triple', max: 3, w: 7, col: '#cfa43a' },
     { id: 'tin', name: 'Biscuit Tin', desc: 'More biscuit drops; biscuits give a speed burst', max: 2, w: 5, col: '#b98a45' },
     { id: 'ceramic', name: 'Garden Ceramics', desc: 'Flung gnomes are 70% bigger', max: 2, w: 6, col: '#6f8a4e' },
+    { id: 'strike', name: 'STRIKE! (combo)', desc: 'Explosions launch every gnome they touch. Needs League Bowler 2 + Fireworks', max: 1, w: 30, col: '#ff5a3c', sig: true, needs: { bowl: 2, kaboom: 1 } },
+    { id: 'wizard', name: 'Pinball Wizard (combo)', desc: 'Fence bounces speed gnomes up 30% and +2 bounces. Needs Rubber Fence + Ceramics', max: 1, w: 30, col: '#24a86b', sig: true, needs: { pinball: 1, ceramic: 1 } },
   ];
   const UP_BY_ID = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
   const MILESTONES = [5, 10, 20, 30, 50, 75, 100, 150, 200, 300, 500];
@@ -70,6 +72,7 @@
     constructor(o = {}) {
       this.seed = (o.seed >>> 0) || ((Math.random() * 4294967296) >>> 0);
       this.rng = mulberry32(this.seed);
+      this.orng = mulberry32((this.seed ^ 0x9e3779b9) >>> 0);   // upgrade offers get their own stream, so a daily garden deals the same cards to everyone
       this.headless = !!o.headless;
       this.daily = o.daily || 0;
       this.demo = !!o.demo;
@@ -120,22 +123,25 @@
     bagDamage() { return TUNE.bagDmg * (1 + 0.35 * this.up.heavy); }
 
     makeOffers() {
-      const pool = UPGRADES.filter((u) => this.up[u.id] < u.max);
+      const pool = UPGRADES.filter((u) => this.up[u.id] < u.max && (!u.needs || Object.keys(u.needs).every((k) => this.up[k] >= u.needs[k])));
+      const combo = pool.find((u) => u.needs);   // a ready combo is always offered
+      const rr = () => this.orng();
       const picks = [];
+      if (combo) picks.push(combo);
       if (this.firstOffer) {
-        const sig = pool.filter((u) => u.sig);
-        if (sig.length) picks.push(sig[Math.floor(this.r() * sig.length)]);
+        const sig = pool.filter((u) => u.sig && !u.needs);
+        if (sig.length) picks.push(sig[Math.floor(rr() * sig.length)]);
         this.firstOffer = false;
       }
       let guard = 0;
       while (picks.length < 3 && guard++ < 200) {
         const cand = pool.filter((u) => !picks.includes(u));
         if (!cand.length) break;
-        let tot = cand.reduce((s, u) => s + u.w, 0), x = this.r() * tot;
+        let tot = cand.reduce((s, u) => s + u.w, 0), x = rr() * tot;
         for (const u of cand) { x -= u.w; if (x <= 0) { picks.push(u); break; } }
       }
       // shuffle so the signature card is not always first
-      for (let i = picks.length - 1; i > 0; i--) { const j = Math.floor(this.r() * (i + 1)); [picks[i], picks[j]] = [picks[j], picks[i]]; }
+      for (let i = picks.length - 1; i > 0; i--) { const j = Math.floor(rr() * (i + 1)); [picks[i], picks[j]] = [picks[j], picks[i]]; }
       return picks.map((u) => u.id);
     }
     choose(id) {
@@ -167,6 +173,9 @@
       if (i === 0 && !this.demo) {
         const p = this.player, a0 = this.r() * TAU;
         for (let k = 0; k < 3; k++) { const a = a0 + k * TAU / 3, d = 215 + this.r() * 30; this.spawnEnemy('basic', p.x + Math.cos(a) * d, p.y + Math.sin(a) * d); }
+        // and a neat queue of eight, lined up like pins
+        const la = a0 + TAU / 6, lx = p.x + Math.cos(la) * 300, ly = p.y + Math.sin(la) * 300;
+        for (let k = 0; k < 8; k++) this.spawnEnemy('basic', clamp(lx + Math.cos(la) * k * 34, FENCE + 30, ARENA_W - FENCE - 30), clamp(ly + Math.sin(la) * k * 34, FENCE + 30, ARENA_H - FENCE - 30), 0.6 + k * 0.05);
       }
       this.sfx.waveStart();
     }
@@ -295,6 +304,15 @@
       p.tilt = lerp(p.tilt, clamp(p.vx / 600, -0.25, 0.25), Math.min(1, dt * 8));
       if (p.inv > 0) p.inv -= dt;
       if (p.boost > 0) p.boost -= dt;
+      // whip meter: turning while moving charges it, it bleeds off when you drive straight or stop. it powers the purse.
+      const pv = Math.hypot(p.vx, p.vy);
+      if (pv > 70) {
+        const a = Math.atan2(p.vy, p.vx);
+        if (p.lastA != null) { let da = a - p.lastA; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU; p.whip = (p.whip || 0) + Math.min(4, Math.abs(da) / dt) * dt * 0.42 * Math.min(1, pv / 200); }
+        p.lastA = a;
+      } else p.lastA = null;
+      p.whip = clamp((p.whip || 0) - dt * 0.38, 0, 1);
+      if (this.demo || this.botWhip) p.whip = Math.max(p.whip, 0.55);
 
       if (this.state === 'play') this.spawnTick(dt);
       this.updateBags(dt);
@@ -335,7 +353,7 @@
 
     updateBags(dt) {
       const p = this.player;
-      const minW = TUNE.spin * (1 + 0.3 * this.up.windmill);
+      const minW = (TUNE.spin + TUNE.whipSpin * (p.whip || 0)) * (1 + 0.3 * this.up.windmill);
       for (const b of this.bags) {
         let rx = b.x - p.x, ry = b.y - p.y;
         let d = Math.hypot(rx, ry) || 0.001;
@@ -458,7 +476,7 @@
           }
           const power = s / 400;
           const crit = this.up.brooch && this.r() < 0.15 * this.up.brooch;
-          let dmg = dmgBase * Math.pow(power, 1.15) * (crit ? 3 : 1) * (e.type === 'king' ? 0.5 : 1);
+          let dmg = dmgBase * Math.pow(power, 1.15) * (crit ? 3 : 1) * (e.type === 'king' ? 0.5 : 1) * (1 + 0.5 * (this.player.whip || 0));
           this.damage(e, dmg, crit);
           const ux = b.vx / (s || 1), uy = b.vy / (s || 1);
           b.vx *= 0.93; b.vy *= 0.93;
@@ -501,7 +519,7 @@
       e.flying = true; e.fvx = vx; e.fvy = vy;
       e.fly = TUNE.flyTime * (1 + 0.25 * this.up.bowl) * (e.type === 'chonk' ? 1.2 : 1);
       e.spin = (this.r() < 0.5 ? -1 : 1) * (10 + this.r() * 14);
-      e.chain = chainId; e.bounces = this.up.pinball; e.hitIds = [];
+      e.chain = chainId; e.bounces = this.up.pinball + 2 * this.up.wizard; e.hitIds = [];
       e.big = 1 + 0.7 * this.up.ceramic;
       this.stats.kills++; this.stats.yeets++;
       this.juice('reward', 0.2);   // the GNOMES YEETED counter ticks up: the run's score
@@ -564,7 +582,8 @@
         if (e.hp <= 0) {
           if (e.type === 'king') { this.killKing(e, dx / dl, dy / dl); continue; }
           this.launch(e, (dx / dl) * 520, (dy / dl) * 520, chainId);
-        } else { e.kvx += (dx / dl) * 300 / e.mass; e.kvy += (dy / dl) * 300 / e.mass; }
+        } else if (this.up.strike && e.type !== 'king') { this.launch(e, (dx / dl) * 480, (dy / dl) * 480, chainId); }
+        else { e.kvx += (dx / dl) * 300 / e.mass; e.kvy += (dy / dl) * 300 / e.mass; }
       }
     }
 
@@ -582,7 +601,7 @@
         if (f.y < FENCE + f.r) { f.y = FENCE + f.r; f.fvy = Math.abs(f.fvy); wall = true; }
         if (f.y > ARENA_H - FENCE - f.r) { f.y = ARENA_H - FENCE - f.r; f.fvy = -Math.abs(f.fvy); wall = true; }
         if (wall) {
-          if (f.bounces > 0) { f.bounces--; f.fly = Math.max(f.fly, 0.45); f.fvx *= 1.05; f.fvy *= 1.05; f.hitIds.length = 0; this.sfx.bonk(0.5); this.addShake(0.04); }
+          if (f.bounces > 0) { f.bounces--; f.fly = Math.max(f.fly, 0.45); f.fvx *= this.up.wizard ? 1.3 : 1.05; f.fvy *= this.up.wizard ? 1.3 : 1.05; f.hitIds.length = 0; this.sfx.bonk(0.5); this.addShake(0.04); }
           else { this.shatter(f, true); this.addShake(0.08); continue; }
         }
         if (f.fly <= 0 || s < 110) { this.shatter(f, true); continue; }
@@ -989,7 +1008,7 @@
     // per-run lawn: settled ceramic shards are baked in for good, so the garden fills up with carnage
     if (!this.lawn) { this.lawn = document.createElement('canvas'); this.lawn.width = ARENA_W; this.lawn.height = ARENA_H; this.lawnCtx = this.lawn.getContext('2d'); this.lawnCtx.drawImage(SPR.bg, 0, 0); }
     if (this.decals.length) {
-      const g = this.lawnCtx; g.globalAlpha = 0.8;
+      const g = this.lawnCtx; g.globalAlpha = 0.28;
       for (const d of this.decals) { g.fillStyle = d.col; quad(g, d.x, d.y, d.s, d.rot); }
       g.globalAlpha = 1; this.decals.length = 0;
     }
@@ -1055,6 +1074,15 @@
     for (const b of this.bags) if (b.y < p.y) drawBag(ctx, b, p);
     if (this.state !== 'over' || !this.win) drawGranny(ctx, p, this.t, hurtBlink);
     for (const b of this.bags) if (b.y >= p.y) drawBag(ctx, b, p);
+    if (this.state === 'play' && p.nibble > 0.02) {   // gnomes are chewing: show how close the next lost heart is
+      const f = clamp(p.nibble / TUNE.nibble, 0, 1);
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(p.x, p.y - 5, 34, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = '#ff3b3b'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(p.x, p.y - 5, 34, -Math.PI / 2, -Math.PI / 2 + f * TAU); ctx.stroke();
+    }
+    if (this.state === 'play' && (p.whip || 0) > 0.05 && !this.demo) {   // whip meter: lime arc under the scooter
+      ctx.strokeStyle = p.whip > 0.8 ? '#C5FF49' : 'rgba(197,255,73,0.6)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(p.x, p.y + 4, 26, Math.PI * 0.15, Math.PI * 0.15 + p.whip * Math.PI * 0.7); ctx.stroke();
+    }
     if (p.boost > 0) { ctx.strokeStyle = 'rgba(255,220,120,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y - 5, 30, 0, TAU); ctx.stroke(); }
     // flyers on top
     for (const e of vis) {
@@ -1124,6 +1152,7 @@
       const x = pad + 14 * s + i * 30 * s, y = pad + 14 * s;
       heart(ctx, x, y, 11 * s, i < p.hp ? '#ff4d6d' : 'rgba(0,0,0,0.35)', i < p.hp);
     }
+    if (p.hp === 1 && this.state === 'play') { const a = 0.25 + 0.2 * Math.sin(this.realT * 8); const gr = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75); gr.addColorStop(0, 'rgba(255,40,40,0)'); gr.addColorStop(1, `rgba(255,40,40,${a})`); ctx.fillStyle = gr; ctx.fillRect(-sl, -st, vw + sl + sr, vh + st + 40); }
     // wave + timer
     const W = WAVES[this.wave];
     ctx.textAlign = 'center';
@@ -1230,6 +1259,8 @@
       case 'brooch': x.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * TAU - Math.PI / 2, r = i % 2 ? 7 * k : 17 * k; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); } x.closePath(); x.fill(); break;
       case 'tin': x.fillRect(-15 * k, -6 * k, 30 * k, 18 * k); x.fillStyle = u.col; x.fillRect(-15 * k, -2 * k, 30 * k, 3 * k); x.fillStyle = '#fff'; x.fillRect(-17 * k, -10 * k, 34 * k, 5 * k); break;
       case 'ceramic': x.beginPath(); x.moveTo(-12 * k, 14 * k); x.lineTo(12 * k, 14 * k); x.lineTo(4 * k, -18 * k); x.closePath(); x.fill(); x.fillStyle = u.col; x.beginPath(); x.arc(0, 6 * k, 6 * k, 0, TAU); x.fill(); break;
+      case 'strike': for (let i = 0; i < 3; i++) { x.beginPath(); x.arc((i - 1) * 11 * k, -6 * k + Math.abs(i - 1) * 6 * k, 6 * k, 0, TAU); x.fill(); } for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; x.beginPath(); x.moveTo(Math.cos(a) * 12 * k, 10 * k + Math.sin(a) * 4 * k); x.lineTo(Math.cos(a) * 20 * k, 10 * k + Math.sin(a) * 8 * k); x.stroke(); } break;
+      case 'wizard': x.beginPath(); x.moveTo(-16 * k, 16 * k); x.lineTo(0, -20 * k); x.lineTo(16 * k, 16 * k); x.closePath(); x.fill(); x.fillStyle = '#ffd23f'; x.beginPath(); x.arc(0, 4 * k, 5 * k, 0, TAU); x.fill(); break;
     }
     x.restore();
     return c.toDataURL();

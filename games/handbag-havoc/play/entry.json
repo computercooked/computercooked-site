@@ -4,6 +4,7 @@
   "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "wasd / arrows or drag anywhere to steer. 1 2 3 to pick upgrades. r restart, p pause, m mute.",
-  "size_kb": 115
+  "controls": "wasd / arrows or drag anywhere to steer. turn hard to power up the purse. 1 2 3 picks upgrades. r restart, p pause, m mute.",
+  "size_kb": 119,
+  "version": "1.1"
 }

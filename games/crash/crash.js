@@ -239,6 +239,7 @@
     stopMusic();
     startMusic();
     last = performance.now();
+    if (window.cc) cc.start();
   }
 
   function pause() {
@@ -758,6 +759,18 @@
     document.getElementById("go-share-text").textContent = "i lasted " + secs + "s before getting cooked. computercooked.com/games";
     setState("over");
     document.getElementById("btn-again").focus({ preventScroll: true });
+
+    var rankEl = document.getElementById("go-rank");
+    rankEl.hidden = true;
+    if (window.cc) {
+      cc.event("cooked", { hits: hits, pickups: pickups });
+      cc.end({ score: final, durationMs: Math.round(t * 1000), completed: true }).then(function (r) {
+        if (r && r.accepted && state === "over") {
+          rankEl.textContent = "#" + r.rank + " on the all-time board as " + r.name;
+          rankEl.hidden = false;
+        }
+      });
+    }
   }
 
   /* ---------- loop ---------- */
@@ -838,6 +851,7 @@
     clearTimeout(toast.t);
     toast.t = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
   }
+  window.ccToast = toast;
 
   var GAME_URL = "https://computercooked.com/games/crash/";
   function share(text) {

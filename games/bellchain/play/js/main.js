@@ -1,614 +1,405 @@
-// Bellchain: game controller. Wires the economy, the renderer, sound, UI, save and offline progress.
+// bellchain v2: game controller. economy + music + renderer + ui + save + offline + golden bells + recast.
 import * as E from './economy.js';
-import { Sound } from './audio.js';
-import { Belfry } from './render.js';
+import { Music, themeFor } from './music.js';
+import { Stage } from './render.js';
 
-const SAVE_KEY = 'bellchain.save.v1';
+const SAVE_KEY = 'bellchain.save.v2';
 const $ = (id) => document.getElementById(id);
-// no telemetry, no portal SDKs: these stay as no-ops so the call sites read the same
-const track = () => {};
-const portal = () => null;
-const J = () => {};
-const highlight = () => {};
-let extMuted = false; // set by the computer cooked player page via postMessage
-let runStarted = false;
-let hitStop = 0;
-const buzz = (p) => { try { if (!S.muted && navigator.vibrate) navigator.vibrate(p); } catch (e) { /* not supported */ } };
+const ICON = { handbell: '🔔', cowbell: '🐮', glock: '🎹', church: '⛪', tubular: '🎐', steel: '🥁', gamelan: '🪘', crystal: '💎', chip: '👾', choir: '🎤', carillon: '🗼', cosmic: '🪐' };
+const sdk = (fn) => { try { if (window.cc) fn(window.cc); } catch (e) { /* the platform is optional */ } };
 
-// ---------- storage (never throws: private mode or blocked storage still plays) ----------
+// ---------- storage ----------
 const store = {
   ok: true,
-  get() { try { return window.localStorage.getItem(SAVE_KEY); } catch (e) { this.ok = false; return null; } },
-  set(v) { try { window.localStorage.setItem(SAVE_KEY, v); this.ok = true; return true; } catch (e) { this.ok = false; return false; } },
-  del() { try { window.localStorage.removeItem(SAVE_KEY); } catch (e) { this.ok = false; } },
+  get(k) { try { return localStorage.getItem(k); } catch (e) { this.ok = false; return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); this.ok = true; } catch (e) { this.ok = false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* blocked */ } },
 };
+let S = E.deserialize(store.get(SAVE_KEY) || '') || E.newState();
+const firstVisit = !store.get(SAVE_KEY);
+if (firstVisit && store.get('bellchain.save.v1')) { S.veteran = true; E.earn(S, 500); }
+let buffs = [];
+let pendingAway = null;
+let paused = false, extMuted = false;
 
-function load() {
-  const raw = store.get();
-  return raw ? E.deserialize(raw) : E.newState();
+const music = new Music();
+const stage = new Stage($('cv'));
+const pending = []; // [t, fn] visual events waiting for their note to sound
+music.onNote = (e) => pending.push([e.t, () => stage.ring(e.deg, e.instr, e.vel, e.instr === 'tap' || e.instr === 'handbell')]);
+music.onStep = (st, t) => pending.push([t, () => { stage.seq.step = st; if (st % 4 === 0) stage.great.pulse = Math.max(stage.great.pulse, 0.35); }]);
+
+function applyTheme() {
+  const th = themeFor(S.ascensions);
+  stage.theme = th; music.setTheme(th);
+  document.documentElement.style.setProperty('--acc', th.acc);
+  $('now').textContent = `${th.name} · ${th.mode} · ${E.SONGS.find((x) => x.id === S.song).name}`;
 }
-
-let S = load();
-let pendingAway = null; // offline gain shown on the away card, paid on Collect
-const firstVisit = !store.get();
-const snd = new Sound();
-snd.muted = !!S.muted;
-const fx = new Belfry($('belfry'));
+function applySong() { music.setSong(S.song, S.ascensions * 31 + 7); stage.seq.song = music.song; applyTheme(); }
+function applyVolume() { music.setVolume(S.volume); music.setMuted(S.muted); music.setExt(extMuted); $('muteBtn').textContent = S.muted || extMuted ? '×' : '♪'; $('muteBtn').setAttribute('aria-label', S.muted || extMuted ? 'unmute' : 'mute'); $('vol').value = Math.round(S.volume * 100); $('volLabel').textContent = Math.round(S.volume * 100) + '%'; }
+applySong(); applyVolume();
 
 function save() {
   S.lastSeen = Date.now();
-  if (pendingAway) {
-    // an uncollected "away" card is still the player's money: save it as if collected
-    const t = JSON.parse(E.serialize(S));
-    E.earn(t, pendingAway.gain);
-    store.set(E.serialize(t));
-  } else store.set(E.serialize(S));
+  if (pendingAway) { const t = E.deserialize(E.serialize(S)); E.earn(t, pendingAway.gain); store.set(SAVE_KEY, E.serialize(t)); }
+  else store.set(SAVE_KEY, E.serialize(S));
 }
 
-// ---------- cascades ----------
-const live = [];          // animated cascades in flight
-const MAX_LIVE_RINGER = 5;
-let frameEma = 1 / 60;
-const MAX_LIVE_HAND = 10;
-let recent = [];          // [time, amount] for the rolling rate
-let lastHandChain = -9;
-let clock = 0;
-
-function hopTimes(rings) {
-  // time offset for each ring: hops speed up as a chain gets longer
-  const at = [];
-  for (const r of rings) {
-    let t = 0;
-    for (let j = 1; j <= r.hop; j++) t += Math.max(0.045, 0.13 - j * 0.0045);
-    at.push(t);
-  }
-  return at;
-}
-
-function strike(bell, hand) {
-  const c = E.cascade(S, bell, Math.random, hand);
-  const liveCount = live.filter((x) => x.hand === hand).length;
-  if ((hand && liveCount >= MAX_LIVE_HAND) || (!hand && liveCount >= (fx.lite ? 2 : MAX_LIVE_RINGER))) {
-    // too busy to animate: pay instantly, light swing only
-    gain(c.total);
-    E.recordChain(S, c);
-    fx.ring(bell, { light: true, quiet: !hand });
-    if (hand) fx.pop(bell, '+' + E.fmt(c.total), { hand: true });
-    return;
-  }
-  // play rings in time order (Twin Peal runs two arms at once)
-  const times = hopTimes(c.rings);
-  const idx = c.rings.map((_, i) => i).sort((x, y) => times[x] - times[y]);
-  const rings = idx.map((i) => c.rings[i]);
-  const at = idx.map((i) => times[i]);
-  live.push({ c, rings, at, i: 0, t: 0, hand, bell, root: bell % 5 });
-}
-
-function stepCascades(dt) {
-  for (let k = live.length - 1; k >= 0; k--) {
-    const L = live[k];
-    L.t += dt;
-    while (L.i < L.rings.length && L.at[L.i] <= L.t) {
-      const r = L.rings[L.i];
-      const golden = S.tuning === 'choir' && r.hop % 4 === 3;
-      gain(r.value);
-      fx.ring(r.bell, { hand: L.hand, golden, dir: r.arm || 1, light: !L.hand && L.rings.length < 4 });
-      const pan = (fx.bells[r.bell] ? (fx.bells[r.bell].x / fx.w) * 2 - 1 : 0) * 0.7;
-      const vel = L.hand ? 0.75 : Math.max(0.12, 0.34 - S.lv.ringer * 0.006);
-      snd.bell(L.root + r.hop, vel, pan, golden, L.hand);
-      if (L.hand) fx.pop(r.bell, '+' + E.fmt(r.value), { hand: true, color: golden ? '#c5ff49' : undefined });
-      // echo comets toward the next ring(s): hop 0 feeds every arm
-      for (let j = L.i + 1; j < L.rings.length; j++) {
-        const q = L.rings[j];
-        if (q.hop === r.hop + 1 && (r.hop === 0 || q.arm === r.arm)) {
-          fx.comet(r.bell, q.bell, q.arm || 1, Math.max(0.04, L.at[j] - L.at[L.i]), L.hand);
-          if (r.hop !== 0) break;
-        }
-      }
-      L.i++;
-      // the big chain counter belongs to your own taps; long ringer chains show only when you are not tapping
-      if (L.hand) { lastHandChain = clock; fx.setChain(L.i, L.i > S.bestChain); }
-      else if (L.c.length >= 8 && clock - lastHandChain > 1.5) fx.setChain(L.i, L.i > S.bestChain);
-    }
-    if (L.i >= L.rings.length) {
-      const wasBest = S.bestChain;
-      E.recordChain(S, L.c);
-      if (L.hand && L.c.length >= 2) J('combo', Math.min(1, L.c.length / 24));
-      if (L.hand && L.c.length >= 10 && L.c.length > wasBest) highlight(`chain x${L.c.length}`);
-      if (L.c.perfect && L.c.length >= 3) {
-        const last = L.rings[L.rings.length - 1].bell;
-        if (L.hand) {
-          // full fanfare for big peals and the very first one; small ones stay modest so they never spam
-          if (S.bells >= 6 || S.perfects <= 1) { fx.perfectPeal(); hitStop = 0.09; buzz([12, 40, 18]); J('shake', 0.6); } else fx.chain.perfect = 1;
-          J('reward', Math.min(1, 0.4 + S.bells / 40));
-          if (S.bells >= 12) highlight('perfect peal');
-          if (S.bells >= 12 && portal()) portal().happytime();
-          snd.perfect(L.root + L.c.length);
-          fx.pop(last, 'perfect x3', { big: S.bells >= 6, color: '#b59aff' });
-        } else if (L.c.length >= 6) {
-          fx.pop(last, 'peal x3', { color: '#b59aff' });
-        }
-      }
-      if (!L.hand && L.c.length >= 6) fx.pop(L.rings[L.rings.length - 1].bell, '+' + E.fmt(L.c.total), { color: '#b59aff' });
-      live.splice(k, 1);
-    }
+// ---------- tapping ----------
+const now = () => performance.now() / 1000;
+function band() { return (S.owned.handbell || 0) > 0; }
+function tapAt(x, y) {
+  music.unlock();
+  if (stage.hitGolden(x, y)) return catchGolden();
+  const ch = E.rollChain(S, buffs);
+  E.earn(S, ch.total);
+  S.taps++; S.tapEarned += ch.total;
+  S.bestChain = Math.max(S.bestChain, ch.rings.length);
+  const degs = music.tapDegrees(ch.rings.length, band());
+  const t0 = now(), gap = music.stepDur() * (band() ? 1 : 1.5);
+  stage.tapGreat(x, y, '+' + E.fmt(ch.rings[0].value), ch.perfect);
+  ch.rings.forEach((r, i) => {
+    music.play('tap', degs[i], t0 + i * gap + 0.005, i ? 0.75 : 1);
+    if (i) pending.push([t0 + i * gap, () => stage.hop(degs[i], E.fmt(r.value), i + 1)]);
+  });
+  if (ch.perfect) {
+    S.perfects++;
+    pending.push([t0 + 7 * gap, () => { stage.showBanner('perfect peal', 'x3, the whole chain', null, 1.6); stage.flash = 0.35; stage.shake = 0.4; buzz(30); }]);
   }
 }
-
-function gain(v) {
-  const wasAuto = S.autoUnlocked;
-  const wasReady = E.canRecast(S);
-  E.earn(S, v);
-  recent.push([clock, v]);
-  if (!wasAuto && S.autoUnlocked) {
-    fx.showBanner('ringers for hire', 'they hit bells so you dont have to');
-    snd.unlockChime();
-    J('levelup', 0.7);
-    buildShop();
-  }
-  if (!wasReady && E.canRecast(S)) {
-    fx.showBanner('the great bell is full', 'tap it to recast', '#c5ff49', 3);
-    snd.unlockChime();
-    J('levelup', 0.9);
-  }
-}
-
-// ---------- input ----------
-const canvas = $('belfry');
-let tapped = S.strikes > 0;
-canvas.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  snd.unlock();
-  const r = canvas.getBoundingClientRect();
-  const h = fx.hit(e.clientX - r.left, e.clientY - r.top);
-  if (h.great) {
-    if (E.canRecast(S)) return openRecast();
-    // tapping the Great Bell strikes the nearest bell to the top, so a tap is never wasted
-    strike(0, true);
-  } else strike(h.bell, true);
-  J('hit', 0.5);
-  if (!tapped) { tapped = true; fx.hint = null; }
-  startRun();
+const buzz = (ms) => { try { if (!S.muted && navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(ms); } catch (e) { /* no */ } };
+$('cv').addEventListener('pointerdown', (e) => {
+  if (paused) return;
+  const r = $('cv').getBoundingClientRect();
+  tapAt(e.clientX - r.left, e.clientY - r.top);
 });
-
-function startRun() {
-  if (runStarted) return;
-  runStarted = true;
-  track('level_start', { level: S.recasts + 1, recasts: S.recasts, tuning: S.tuning });
-  if (portal()) portal().gameplayStart();
-}
-
 window.addEventListener('keydown', (e) => {
-  if (document.querySelector('.modal.open')) {
-    if (e.key === 'Escape') closeModals();
-    return;
-  }
-  if (e.code === 'Space' && e.target === document.body) {
-    e.preventDefault();
-    snd.unlock();
-    strike(Math.floor(Math.random() * S.bells), true);
-    J('hit', 0.5);
-    tapped = true; fx.hint = null;
-    startRun();
+  if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  if (e.code === 'Space' || e.key === 'Enter') {
+    if (document.querySelector('.modal.open') || (e.target && e.target.tagName === 'BUTTON')) return;
+    e.preventDefault(); if (!paused) tapAt(stage.cx + (Math.random() - 0.5) * 40, stage.cy);
   }
   if (e.key === 'm' || e.key === 'M') toggleMute();
+  if (e.key === 'Escape') closeModals();
 });
 
-function applyMute() { snd.setMuted(S.muted || extMuted); }
-function toggleMute() {
-  snd.unlock();
-  if (extMuted) { extMuted = false; S.muted = false; } else S.muted = !S.muted;
-  applyMute();
-  drawMuteIcon();
-  save();
+// ---------- golden bells ----------
+let goldenIn = Math.min(40, E.goldenDelay(S));
+function spawnGolden() {
+  const m = stage.bs * 1.6;
+  stage.golden = { x: m + Math.random() * (stage.w - 2 * m), y: 70 + Math.random() * Math.max(10, stage.h - 140), t: 0, life: E.CFG.goldenLife };
 }
-function drawMuteIcon() {
-  const off = S.muted || extMuted;
-  $('muteBtn').innerHTML = off
-    ? '<svg viewBox="0 0 24 24" fill="none" stroke="#9c98ab" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="none" stroke="#f5f3ed" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
-  $('muteBtn').setAttribute('aria-label', off ? 'Unmute sound' : 'Mute sound');
+function catchGolden() {
+  stage.golden = null;
+  S.goldenClicks++;
+  const ef = E.goldenEffect(S);
+  if (ef.kind === 'lucky') E.earn(S, ef.gain);
+  else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); }
+  [0, 2, 4, 7, 9].forEach((d, i) => music.play('glock', d + 7, now() + i * 0.06, 0.9));
+  stage.showBanner(ef.label, 'golden bell', '#ffe14a', 2.4); stage.flash = 0.3;
+  sdk((c) => c.event && c.event('golden', { kind: ef.kind }));
+  buzz(25);
 }
-$('muteBtn').addEventListener('click', toggleMute);
 
-// ---------- shop UI ----------
-const ICONS = {
-  bell: '<path d="M12 3c-3.5 0-5 2.8-5 6v4.5L5 17h14l-2-3.5V9c0-3.2-1.5-6-5-6z" fill="#e2a24f"/><circle cx="12" cy="19.5" r="1.8" fill="#c98a3e"/>',
-  echo: '<path d="M5 12a7 7 0 0 1 7-7M9 12a3 3 0 0 1 3-3" stroke="#b59aff" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M19 12a7 7 0 0 1-7 7" stroke="#b59aff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".5"/><circle cx="12" cy="12" r="1.8" fill="#fff"/>',
-  bronze: '<path d="M4 16l3-7h10l3 7z" fill="#c98a3e"/><path d="M7 9h10l-1-3H8z" fill="#f2c16b"/>',
-  cresc: '<path d="M4 18l16-5M4 18l16-11" stroke="#c5ff49" stroke-width="2.2" fill="none" stroke-linecap="round"/>',
-  ringer: '<circle cx="12" cy="6.5" r="3" fill="#f5f3ed"/><path d="M6 20c0-4 2.5-7 6-7s6 3 6 7z" fill="#9c98ab"/>',
-  tempo: '<circle cx="12" cy="13" r="7" stroke="#b59aff" stroke-width="2" fill="none"/><path d="M12 13V9M12 13l3 2M10 3h4" stroke="#b59aff" stroke-width="2" stroke-linecap="round"/>',
-  wright: '<path d="M5 19l8-8M14 4l6 6-3 3-6-6z" stroke="#c5ff49" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-};
+// ---------- ui: tabs ----------
+let tab = 'shop';
+document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.pane').forEach((p) => { p.hidden = p.id !== 'pane-' + tab; });
+  renderTab(true);
+}));
+document.querySelectorAll('.amt button').forEach((b) => b.addEventListener('click', () => { S.buyAmt = +b.dataset.amt; document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on', x === b)); refreshShop(true); }));
+document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on', +x.dataset.amt === S.buyAmt));
 
-const itemEls = {};
-function buildShop() {
-  for (const [boxId, layer] of [['shop1', 1], ['shop2', 2]]) {
-    const box = $(boxId);
-    box.innerHTML = '';
-    for (const it of E.SHOP.filter((x) => x.layer === layer)) {
-      const b = document.createElement('button');
-      b.className = 'item';
-      b.dataset.id = it.id;
-      b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${ICONS[it.icon]}</svg></span><b><span>${it.name}</span><span class="cost"></span></b><small></small><i class="fill"></i>`;
-      bindHold(b, it.id);
-      box.appendChild(b);
-      itemEls[it.id] = b;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
+
+// shop
+let upKey = '';
+const bldEls = {};
+for (const b of E.BUILDINGS) {
+  const el = document.createElement('button');
+  el.className = 'bld';
+  el.innerHTML = `<span class="ic">${ICON[b.id]}</span><span><b></b><small></small><span class="cost"></span></span><span class="own"></span>`;
+  el.addEventListener('click', () => {
+    if (el.classList.contains('mystery')) return;
+    music.unlock();
+    if (E.buyBld(S, b.id, S.buyAmt)) {
+      const first = S.owned[b.id] === S.buyAmt;
+      music.play(b.id === 'cowbell' ? 'cowbell' : b.id in { choir: 1 } ? 'choir' : 'tap', 4 + Math.floor(Math.random() * 3), now(), 0.7, 4);
+      if (first) stage.showBanner(`${b.name} joined the band`, b.desc, null, 2.6);
+      refreshShop(true);
+    } else { el.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'none' }], 160); }
+  });
+  $('blds').appendChild(el); bldEls[b.id] = el;
+}
+function refreshShop(force) {
+  const av = E.availableUpgrades(S).slice(0, 18), key = av.map((u) => u.id).join();
+  if (force || key !== upKey) {
+    upKey = key;
+    $('ups').innerHTML = '';
+    for (const u of av) {
+      const el = document.createElement('button'); el.className = 'up'; el.dataset.id = u.id;
+      el.innerHTML = `<b>${u.name}</b><small>${u.desc}</small><i>${E.fmt(u.cost)}</i>`;
+      el.addEventListener('click', () => { music.unlock(); if (E.buyUpgrade(S, u.id)) { music.play('glock', 7, now(), 0.8); music.play('glock', 9, now() + 0.07, 0.8); refreshShop(true); } else toast(`need ${E.fmt(u.cost - S.res)} more.`); });
+      $('ups').appendChild(el);
+    }
+    $('upsNone').hidden = av.length > 0;
+  }
+  $('ups').querySelectorAll('.up').forEach((el) => el.classList.toggle('poor', S.res < E.UP_BY_ID[el.dataset.id].cost));
+  let shownNext = false;
+  for (const b of E.BUILDINGS) {
+    const el = bldEls[b.id], own = S.owned[b.id] || 0;
+    const seen = own > 0 || S.earnedRun >= b.cost * 0.4 || S.ascensions > 0 && b.cost <= 1.4e6;
+    el.hidden = !seen && shownNext; if (!seen) shownNext = true;
+    el.classList.toggle('mystery', !seen);
+    const cost = E.costOf(S, b.id, S.buyAmt);
+    el.querySelector('b').textContent = seen ? b.name : '???';
+    el.querySelector('small').textContent = seen ? `${own ? E.fmt(E.bldRate(S, b.id) * own) + '/s total · ' : ''}${E.fmt(E.bldRate(S, b.id))}/s each` : 'keep ringing to find out';
+    el.querySelector('.cost').textContent = (S.buyAmt > 1 ? `x${S.buyAmt} ` : '') + E.fmt(cost);
+    el.querySelector('.own').textContent = own || '';
+    el.classList.toggle('poor', S.res < cost);
+  }
+}
+
+// songs
+function renderSongs() {
+  $('songs').innerHTML = '';
+  $('songBonus').textContent = `+${Math.round(E.CFG.songBonus * 100 * (S.songs.length - 1))}%`;
+  for (const so of E.SONGS) {
+    const have = S.songs.includes(so.id), el = document.createElement('button');
+    el.className = 'song' + (S.song === so.id ? ' on' : '') + (have ? '' : ' locked') + (!have && S.res < so.cost ? ' poor' : '');
+    el.innerHTML = `<span>${so.name}</span><i>${S.song === so.id ? 'playing' : have ? 'play' : E.fmt(so.cost)}</i>`;
+    el.addEventListener('click', () => {
+      music.unlock();
+      if (have) { S.song = so.id; applySong(); }
+      else if (E.buySong(S, so.id)) { applySong(); stage.showBanner('new song', so.name, null, 2.2); sdk((c) => c.event && c.event('song', { id: so.id })); }
+      else return toast(`need ${E.fmt(so.cost - S.res)} more.`);
+      renderSongs();
+    });
+    $('songs').appendChild(el);
+  }
+}
+
+// stats + achievements
+function renderStats() {
+  const th = themeFor(S.ascensions);
+  $('stats').innerHTML = [
+    ['resonance this run', E.fmt(S.earnedRun)], ['resonance all time', E.fmt(S.earnedAll)], ['per second', E.fmt(E.rps(S, buffs))],
+    ['per tap', E.fmt(E.tapValue(S, buffs))], ['echo chance', Math.round(E.echoChance(S, buffs) * 100) + '%'], ['taps', E.fmt(S.taps)],
+    ['from taps', E.fmt(S.tapEarned)], ['best chain', S.bestChain], ['perfect peals', E.fmt(S.perfects)], ['golden bells', S.goldenClicks],
+    ['bells owned', Object.values(S.owned).reduce((a, b) => a + b, 0)], ['recasts', S.ascensions], ['scale', `${th.name} · ${th.mode}`],
+    ['production bonus', '+' + Math.round((E.globalMult(S) - 1) * 100) + '%'], ['time played', E.fmtTime(S.playSec)], ['this run', E.fmtTime(S.runSec)],
+  ].map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('');
+  const got = Object.keys(S.ach).length;
+  $('achCount').textContent = `${got}/${E.ACH.length}`;
+  if ($('achs').children.length !== E.ACH.length || renderStats.got !== got) {
+    renderStats.got = got;
+    $('achs').innerHTML = '';
+    for (const a of E.ACH) {
+      const el = document.createElement('div'); el.className = 'ach' + (S.ach[a.id] ? ' got' : ''); el.textContent = S.ach[a.id] ? '✓' : '?';
+      el.addEventListener('click', () => toast(S.ach[a.id] ? `${a.name}: ${a.desc}` : `locked: ${a.desc}`));
+      $('achs').appendChild(el);
     }
   }
-  $('shop2').hidden = !S.autoUnlocked;
-  $('autoLocked').hidden = S.autoUnlocked;
-  refreshUI(true);
 }
 
-function buy(id) {
-  snd.unlock();
-  const it = E.shopItem(id);
-  if (!it.can(S)) return false;
-  const lvlBefore = id === 'bell' ? S.bells : S.lv[id] || 0;
-  if (E.tryBuy(S, id)) {
-    snd.buy(lvlBefore);
-    J('reward', 0.3);
-    const el = itemEls[id];
-    if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); setTimeout(() => el.classList.remove('bump'), 250); }
-    if (id === 'bellwright') fx.showBanner('bellwright hired', 'bells now appear. dont ask.');
-    S.buys = (S.buys || 0) + 1;
-    refreshUI(true);
-    return true;
-  }
-  snd.deny();
-  // a buy you cannot afford still answers: the button shakes and says how far off you are
-  const el = itemEls[id];
-  if (el) { el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope'); clearTimeout(el.nopeT); el.nopeT = setTimeout(() => el.classList.remove('nope'), 320); }
-  toast(`need ${E.fmt(it.cost(S) - S.res)} more resonance. keep hitting.`);
-  return false;
-}
-
-function bindHold(el, id) {
-  let t1 = null, t2 = null, lastDown = -1e9;
-  const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
-  el.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    lastDown = performance.now();
-    if (!buy(id)) return;
-    t1 = setTimeout(() => { t2 = setInterval(() => { if (!buy(id)) stop(); }, 90); }, 380);
-  });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => el.addEventListener(ev, stop));
-  el.addEventListener('click', (e) => { if (e.detail === 0 && performance.now() - lastDown > 700) buy(id); }); // keyboard only, never a tap's echo
-}
-
-let uiAcc = 0;
-function refreshUI(force = false) {
-  if (!force && uiAcc < 0.12) return;
-  uiAcc = 0;
-  $('res').firstChild.nodeValue = E.fmt(S.res);
-  // rolling 5 s rate, includes taps
-  recent = recent.filter((r) => clock - r[0] < 5);
-  const measured = recent.reduce((a, r) => a + r[1], 0) / Math.min(5, Math.max(1, clock));
-  const idle = E.incomePerSec(S);
-  $('rate').textContent = S.strikes === 0 ? '' : `+${E.fmt(Math.max(measured, idle))}/s`;
-  const badges = [];
-  if (S.overtones) badges.push(`<span class="badge gold">${S.overtones} overtones +${Math.round(S.overtones * E.CFG.overtoneValue * 100)}%</span>`);
-  if (S.tuning !== 'none') badges.push(`<span class="badge echo">${E.TUNINGS[S.tuning].name.toLowerCase()}</span>`);
-  if (S.bestChain) badges.push(`<span class="badge">best chain ${S.bestChain}</span>`);
-  const bh = badges.join('');
-  if ($('badges').innerHTML !== bh) $('badges').innerHTML = bh;
-  $('bellsLabel').textContent = `${S.bells} bells · echo ${E.pct(E.echoChance(S))}`;
-  // one clear goal at a time, so a new player always knows what the next step is
-  let goal;
-  const bellCost = E.shopItem('bell').cost(S);
-  if (S.strikes === 0) goal = 'goal <b>tap a bell</b>';
-  else if ((S.buys || 0) === 0) goal = S.res >= bellCost ? 'goal <b>buy a bell</b>' : `goal <b>a bell</b> · ${E.fmt(bellCost)}`;
-  else if (!S.autoUnlocked) goal = `goal <b>ringers</b> · ${Math.floor(Math.min(1, S.runEarned / E.CFG.automationUnlockAt) * 100)}%`;
-  else if (!E.canRecast(S)) goal = `goal <b>great bell</b> · ${Math.floor(Math.min(1, S.runEarned / E.recastReq(S)) * 100)}%`;
-  else goal = 'goal <b>recast. do it.</b>';
-  if ($('goal').innerHTML !== goal) $('goal').innerHTML = goal;
-  $('spsLabel').textContent = S.autoUnlocked ? `${(E.strikesPerSec(S)).toFixed(1)} strikes/s` : '';
-
-  let suggested = false;
-  for (const it of E.SHOP) {
-    const el = itemEls[it.id];
-    if (!el) continue;
-    const can = it.can(S);
-    const cost = can ? it.cost(S) : 0;
-    el.querySelector('.cost').textContent = can ? E.fmt(cost) : 'max';
-    el.querySelector('small').textContent = it.desc(S);
-    el.classList.toggle('max', !can);
-    el.classList.toggle('poor', can && S.res < cost);
-    el.classList.toggle('ready', can && S.res >= cost);
-    el.querySelector('.fill').style.width = can ? Math.min(100, (S.res / cost) * 100) + '%' : '0';
-    // first-time nudge: point at the Bell button when it is first affordable
-    const sug = !suggested && (S.buys || 0) === 0 && it.id === 'bell' && can && S.res >= cost;
-    el.classList.toggle('suggest', sug);
-    if (sug) suggested = true;
-  }
-  $('shop2').hidden = !S.autoUnlocked;
-  $('autoLocked').hidden = S.autoUnlocked;
-  $('autoBar').style.width = Math.min(100, (S.runEarned / E.CFG.automationUnlockAt) * 100) + '%';
-  $('autoNeed').textContent = E.fmt(E.CFG.automationUnlockAt);
-
-  // recast panel shows once ringers exist (or after the first recast)
-  const showRecast = S.autoUnlocked || S.recasts > 0;
-  $('recastSect').hidden = !showRecast;
-  if (showRecast) {
-    const req = E.recastReq(S), p = Math.min(1, S.runEarned / req), ready = E.canRecast(S);
-    $('recastBar').style.width = p * 100 + '%';
-    $('recastBox').classList.toggle('ready', ready);
-    $('recastLabel').textContent = Math.floor(p * 100) + '%';
-    $('recastText').innerHTML = ready
-      ? `recast now for <strong>+${E.overtoneGain(S)} overtones</strong> (+${Math.round(E.CFG.overtoneValue * 100)}% each, forever) and a new tuning. waiting longer gives more. patience is a resource.`
-      : `fill the great bell with <strong>${E.fmt(req)}</strong> resonance in one run (${E.fmt(S.runEarned)} so far) to recast: overtones forever, plus a tuning that rewrites the rules.`;
-    $('recastBtn').disabled = !ready;
+// recast
+function renderRecast() {
+  const g = E.otGain(S), nextTh = themeFor(S.ascensions + 1);
+  $('otLabel').textContent = `${S.otLevel} overtones · +${Math.round(S.otLevel * (S.nodes.choir ? 3 : 2))}%`;
+  $('chipLabel').textContent = `${S.otChips} to spend`;
+  $('recastNote').innerHTML = g > 0
+    ? `recasting now gives <b>+${g} overtones</b> (+${S.nodes.choir ? 3 : 2}% resonance each, forever) and turns your bells to <b>${nextTh.name}</b> in <b>${nextTh.mode}</b>. waiting longer gives more.`
+    : `the great bell needs more. next overtone at <b>${E.fmt(E.nextOtAt(S))}</b> resonance all time (you have ${E.fmt(S.earnedAll)}). the next recast turns everything <b>${nextTh.name}</b>, in <b>${nextTh.mode}</b>.`;
+  $('recastBtn').disabled = g < 1;
+  $('recastBtn').textContent = g > 0 ? `recast for +${g}` : 'recast';
+  $('nodes').innerHTML = '';
+  for (const n of E.NODES) {
+    const got = !!S.nodes[n.id], el = document.createElement('button');
+    el.className = 'node' + (got ? ' got' : S.otChips < n.cost ? ' poor' : '');
+    el.innerHTML = `<b>${n.name}</b><small>${n.desc}</small><i>${got ? 'owned' : n.cost + ' overtones'}</i>`;
+    el.addEventListener('click', () => { if (E.buyNode(S, n.id)) { music.play('crystal', 7, now(), 1); renderRecast(); save(); } else if (!got) toast(`costs ${n.cost} overtones.`); });
+    $('nodes').appendChild(el);
   }
 }
+$('recastBtn').addEventListener('click', () => {
+  const g = E.otGain(S); if (g < 1) return;
+  const th = themeFor(S.ascensions + 1);
+  $('recastGain').textContent = `+${g} overtones`;
+  $('recastNext').textContent = `next run: ${th.name} bells, ${th.mode} scale.`;
+  $('recastModal').classList.add('open');
+});
+$('recastNo').addEventListener('click', closeModals);
+$('recastGo').addEventListener('click', () => {
+  const g = E.ascend(S); closeModals();
+  if (!g) return;
+  buffs = []; stage.golden = null; goldenIn = 30;
+  applySong();
+  const th = themeFor(S.ascensions);
+  [-7, -5, -3, 0].forEach((d, i) => music.play('church', d, now() + i * 0.25, 1));
+  stage.showBanner(`recast · +${g} overtones`, `${th.name} bells · ${th.mode}`, th.acc, 3.5); stage.flash = 0.6; stage.shake = 0.6;
+  sdk((c) => c.event && c.event('recast', { n: S.ascensions, overtones: S.otLevel }));
+  refreshShop(true); renderTab(true); save();
+});
 
-// ---------- modals ----------
-function openModal(id) { $(id).classList.add('open'); }
+// menu
+$('vol').addEventListener('input', () => { S.volume = $('vol').value / 100; if (S.volume > 0 && S.muted) S.muted = false; music.unlock(); applyVolume(); });
+function toggleMute() { music.unlock(); if (extMuted) { extMuted = false; S.muted = false; } else S.muted = !S.muted; applyVolume(); }
+$('muteBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
+$('exportBtn').addEventListener('click', () => {
+  save(); const code = E.exportCode(S); $('code').value = code; $('code').select();
+  try { navigator.clipboard.writeText(code).then(() => toast('save code copied. keep it somewhere safe-ish.'), () => toast('code is in the box. copy it.')); } catch (e) { toast('code is in the box. copy it.'); }
+  sdk((c) => c.event && c.event('export', {}));
+});
+$('importBtn').addEventListener('click', () => {
+  const s = E.importCode($('code').value);
+  if (!s) return toast('that code is cooked. paste the whole thing.');
+  S = s; buffs = []; applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); toast('save loaded. welcome back.');
+});
+let resetArm = 0;
+$('resetBtn').addEventListener('click', () => {
+  if (Date.now() - resetArm > 3000) { resetArm = Date.now(); $('resetBtn').textContent = 'tap again. it is all gone forever.'; setTimeout(() => { $('resetBtn').textContent = 'erase everything'; }, 3000); return; }
+  resetArm = 0; store.del(SAVE_KEY); S = E.newState(); buffs = []; applySong(); applyVolume(); refreshShop(true); renderTab(true); save();
+  $('resetBtn').textContent = 'erase everything'; toast('fresh start. the silence is deafening.');
+});
+$('shareBtn').addEventListener('click', () => {
+  const th = themeFor(S.ascensions);
+  const txt = `my bellchain band makes ${E.fmt(E.baseRps(S))} resonance/s in ${th.mode}. ${S.otLevel} overtones, best chain ${S.bestChain}. computercooked.com/games/bellchain`;
+  sdk((c) => c.event && c.event('share_clicked', {}));
+  const copy = () => { try { navigator.clipboard.writeText(txt).then(() => toast('copied. go brag.'), () => toast(txt)); } catch (e) { toast(txt); } };
+  if (navigator.share) navigator.share({ text: txt }).catch((err) => { if (!err || err.name !== 'AbortError') copy(); }); else copy();
+});
+
+function renderTab(force) {
+  if (tab === 'shop') refreshShop(force);
+  else if (tab === 'songs') renderSongs();
+  else if (tab === 'stats') renderStats();
+  else if (tab === 'recast') renderRecast();
+  else if (tab === 'menu') $('saveNote').textContent = store.ok ? 'autosaves every 10 seconds on this device. export a code to move it somewhere else.' : 'saving is blocked in this browser. export a code before you leave.';
+  const g = E.otGain(S);
+  document.querySelector('[data-tab=recast]').innerHTML = 'recast' + (g > 0 ? '<span class="dot"></span>' : '');
+}
+
+// ---------- modals / away ----------
 function closeModals() {
-  for (const m of document.querySelectorAll('.modal.open')) {
-    if (m.id === 'awayModal') collectAway();
-    m.classList.remove('open');
-  }
-}
-
-function showAway(sec) {
-  if (pendingAway) collectAway(); // never drop an uncollected card
-  const g = E.offlineGain(S, sec);
-  if (g.gain <= 0) return;
-  pendingAway = g;
-  $('awayTime').textContent = `you were gone ${E.fmtTime(g.sec)}${g.capped ? ' (ringers rest after 8 hours)' : ''}.`;
-  $('awayGain').textContent = '+' + E.fmt(g.gain);
-  $('awayRows').innerHTML =
-    `<span>ringers on duty <b>${S.lv.ringer}</b></span>` +
-    `<span>strikes while away <b>${E.fmt(g.strikes)}</b></span>` +
-    `<span>night shift pay <b>${Math.round(E.CFG.offlineEfficiency * 100)}%</b></span>`;
-  openModal('awayModal');
+  if ($('awayModal').classList.contains('open')) collectAway();
+  document.querySelectorAll('.modal').forEach((m) => m.classList.remove('open'));
 }
 function collectAway() {
   if (!pendingAway) return;
-  const g = pendingAway;
-  pendingAway = null;
-  gain(g.gain);
-  S.strikes += g.strikes;
-  for (let i = 0; i < Math.min(S.bells, 8); i++) setTimeout(() => { fx.ring(i, { hand: true }); snd.bell(i, 0.5, 0, true, true); }, i * 70);
-  fx.showBanner('+' + E.fmt(g.gain), 'collected', '#c5ff49', 1.8);
-  J('reward', 0.8);
-  save();
-  refreshUI(true);
+  E.earn(S, pendingAway.gain); stage.showBanner('+' + E.fmt(pendingAway.gain), 'collected', null, 2); pendingAway = null;
+  $('awayModal').classList.remove('open'); save();
 }
-$('awayBtn').addEventListener('click', () => { snd.unlock(); $('awayModal').classList.remove('open'); collectAway(); });
-
-let chosenTuning = null;
-function openRecast() {
-  if (!E.canRecast(S)) return;
-  const next = E.unlockedTunings(S, S.recasts + 1);
-  chosenTuning = chosenTuning && next.includes(chosenTuning) ? chosenTuning : next[0];
-  $('recastGain').textContent = `+${E.overtoneGain(S)} overtones`;
-  const nextOT = S.overtones + E.overtoneGain(S);
-  $('recastRows').innerHTML =
-    `<span>all resonance <b>x${(1 + nextOT * E.CFG.overtoneValue).toFixed(2)}</b> next run</span>` +
-    `<span>this run <b>${E.fmtTime(S.runSec)}</b>, best chain <b>${S.bestChain}</b></span>`;
-  const box = $('tunings');
-  box.innerHTML = '';
-  for (const [k, t] of Object.entries(E.TUNINGS)) {
-    if (k === 'none') continue;
-    const open = next.includes(k);
-    const b = document.createElement('button');
-    b.className = 'tuning' + (open ? '' : ' off') + (k === chosenTuning ? ' sel' : '');
-    b.innerHTML = `<b>${t.name}${open ? '' : ' · locked'}</b><small>${open ? t.desc : `unlocks on recast #${t.unlockRecasts}.`}</small>`;
-    if (open) b.addEventListener('click', () => { chosenTuning = k; snd.unlock(); snd.buy(2); openRecast(); });
-    box.appendChild(b);
-  }
-  openModal('recastModal');
-}
-$('recastBtn').addEventListener('click', () => { snd.unlock(); openRecast(); });
-$('recastCancel').addEventListener('click', () => $('recastModal').classList.remove('open'));
-$('recastGo').addEventListener('click', () => {
-  const runMsBefore = S.runSec * 1000;
-  const g = E.recast(S, chosenTuning);
-  $('recastModal').classList.remove('open');
-  if (!g) return;
-  track('level_end', { level: S.recasts, result: 'win', score: g, ms: Math.round(runMsBefore), recasts: S.recasts, overtones: S.overtones, tuning: S.tuning });
-  runStarted = false;
-  startRun();
-  hitStop = 0.16;
-  live.length = 0;
-  recent = [];
-  snd.gong();
-  if (portal()) portal().happytime();
-  fx.recastFx();
-  J('levelup', 1); J('shake', 1); highlight('recast');
-  fx.layout(S.bells);
-  fx.showBanner(`recast · +${g} overtones`, `tuning: ${E.TUNINGS[S.tuning].name}`, '#c5ff49', 3);
-  buildShop();
-  save();
-});
-
-$('menuBtn').addEventListener('click', () => {
-  snd.unlock();
-  $('stats').innerHTML = [
-    ['best chain', S.bestChain], ['perfect peals', E.fmt(S.perfects)], ['strikes', E.fmt(S.strikes)],
-    ['lifetime resonance', E.fmt(S.totalEarned)], ['recasts', S.recasts], ['overtones', S.overtones],
-    ['time spent hitting bells', E.fmtTime(S.playSec)],
-  ].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
-  $('saveNote').textContent = store.ok ? 'saves on this device. no account, no cloud.' : 'saving is blocked in this browser. progress dies with the tab.';
-  openModal('menuModal');
-});
-$('menuClose').addEventListener('click', () => $('menuModal').classList.remove('open'));
-
-// ---------- share (copy a brag line; native share where the portal allows it) ----------
-function bragLine() {
-  const bits = [`best chain ${S.bestChain}`, `${E.fmt(S.perfects)} perfect peals`, `${S.bells} bells`];
-  if (S.recasts) bits.push(`${S.recasts} recast${S.recasts > 1 ? 's' : ''}`);
-  return `bellchain · ${bits.join(' · ')}\none tap. a hundred bells. computercooked.com/games/bellchain`;
-}
-function copyText(txt) {
-  const fallback = () => {
-    const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); toast('copied. paste it somewhere people will judge you.'); } catch (e) { toast(txt); }
-    ta.remove();
-  };
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => toast('copied. paste it somewhere people will judge you.'), fallback);
-    else fallback();
-  } catch (e) { fallback(); }
-}
-$('shareBtn').addEventListener('click', () => {
-  snd.unlock();
-  const txt = bragLine();
-  copyText(txt);
-});
-let resetArm = false, resetArmT = 0;
-$('resetBtn').addEventListener('click', () => {
-  if (!resetArm) { resetArm = true; $('resetBtn').textContent = 'tap again. it is gone forever.'; clearTimeout(resetArmT); resetArmT = setTimeout(() => { resetArm = false; $('resetBtn').textContent = 'erase save'; }, 2500); return; }
-  store.del();
-  track('retry', { level: 1, reason: 'erase_save' });
-  S = E.newState();
-  live.length = 0;
-  recent = [];
-  fx.layout(S.bells);
-  tapped = false;
-  fx.hint = { bell: 1, text: 'tap a bell' };
-  $('menuModal').classList.remove('open');
-  resetArm = false; $('resetBtn').textContent = 'erase save';
-  buildShop();
-  save();
-});
-
-function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toast.h);
-  toast.h = setTimeout(() => t.classList.remove('show'), 2400);
-}
-
-// ---------- main loop ----------
-let last = performance.now();
-let ringAcc = 0, wrightAcc = 0, saveAcc = 0;
-function frame(now) {
-  const raw = (now - last) / 1000;
-  last = now;
-  const dt = Math.min(0.25, Math.max(0, raw));
-  // adaptive quality: slow devices drop background effects, fast ones get them back
-  if (raw < 0.25) frameEma += (raw - frameEma) * 0.05;
-  if (!fx.lite && frameEma > 0.03) fx.lite = true;
-  else if (fx.lite && frameEma < 0.02) fx.lite = false;
-  clock += dt;
-  S.playSec += dt;
-  S.runSec += dt;
-  uiAcc += dt;
-
-  // ringers
-  ringAcc += E.strikesPerSec(S) * dt;
-  let guard = 0;
-  while (ringAcc >= 1 && guard++ < 200) {
-    ringAcc -= 1;
-    strike(Math.floor(Math.random() * S.bells), false);
-  }
-  // hit-stop: big moments freeze the visuals for a beat (economy time keeps running)
-  let vdt = dt;
-  if (hitStop > 0) { hitStop -= dt; vdt = dt * 0.1; }
-  stepCascades(vdt);
-
-  // bellwright
-  wrightAcc += dt;
-  if (wrightAcc > 0.6) {
-    wrightAcc = 0;
-    if (E.autoBuy(S)) { snd.buy(S.bells); refreshUI(true); }
-  }
-
-  saveAcc += dt;
-  if (saveAcc > 10) { saveAcc = 0; save(); }
-
-  fx.draw(vdt, {
-    bells: S.bells, tuning: S.tuning,
-    progress: S.runEarned / E.recastReq(S), ready: E.canRecast(S), showGreat: S.autoUnlocked || S.recasts > 0,
-  });
-  refreshUI();
-  requestAnimationFrame(frame);
-}
-
-// ---------- away / visibility ----------
+$('awayBtn').addEventListener('click', () => { music.unlock(); collectAway(); });
 function handleReturn() {
-  if (!S.lastSeen) return;
   const away = (Date.now() - S.lastSeen) / 1000;
-  if (away >= 60) showAway(away);
-  else if (away > 2) gain(E.offlineGain(S, away).gain);
+  if (away < 30 || E.baseRps(S) <= 0) return;
+  const g = E.offlineGain(S, away);
+  if (g.gain < 1) return;
+  pendingAway = g;
+  $('awayTime').textContent = `you were gone ${E.fmtTime(g.sec)}${g.capped ? ' (that is the cap)' : ''}.`;
+  $('awayGain').textContent = '+' + E.fmt(g.gain);
+  $('awayModal').classList.add('open');
 }
-// pay out chains still in flight, so closing the tab mid-peal never loses Resonance
-function flushLive() {
-  for (const L of live) {
-    for (let j = L.i; j < L.rings.length; j++) gain(L.rings[j].value);
-    E.recordChain(S, L.c);
-  }
-  live.length = 0;
-}
-// portal gameplay state follows what the player can do: a modal or a hidden tab is a pause
-function syncGameplay() {
-  const p = portal();
-  if (!p || !runStarted) return;
-  if (document.hidden || document.querySelector('.modal.open')) p.gameplayStop(); else p.gameplayStart();
-}
-if (window.MutationObserver) {
-  const mo = new MutationObserver(syncGameplay);
-  for (const m of document.querySelectorAll('.modal')) mo.observe(m, { attributes: true, attributeFilter: ['class'] });
-}
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { flushLive(); save(); }
-  else { handleReturn(); save(); last = performance.now(); }
-  syncGameplay();
-});
-window.addEventListener('pagehide', () => { flushLive(); save(); });
-window.addEventListener('resize', () => fx.resize());
-if (window.ResizeObserver) new ResizeObserver(() => fx.resize()).observe($('stage'));
 
-// QA persona hint (games/_templates/web/web-game/README.md): Space strikes a bell, M mutes; taps do the rest
-// ---------- computer cooked player page: mute and restart from the frame around us ----------
+// ---------- player page messages ----------
+function pause() { if (paused) return; paused = true; music.setExt(true); save(); }
+function resume() { if (!paused) return; paused = false; music.setExt(extMuted); last = performance.now(); music.nextT = 0; }
 window.addEventListener('message', (e) => {
   const d = e.data;
   if (!d || typeof d !== 'object') return;
-  if (d.type === 'cc-mute') { extMuted = !!d.muted; applyMute(); drawMuteIcon(); }
+  if (d.type === 'cc-mute') { extMuted = !!d.muted; applyVolume(); }
+  else if (d.type === 'cc-pause') { if (d.paused === false) resume(); else if (d.paused === true) pause(); else if (paused) resume(); else pause(); }
   else if (d.type === 'cc-restart') {
-    // an idle game's progress is the whole point, so restart asks before it erases anything
-    closeModals();
-    $('menuBtn').click();
-    resetArm = true;
-    $('resetBtn').textContent = 'tap to erase everything';
-    clearTimeout(resetArmT);
-    resetArmT = setTimeout(() => { resetArm = false; $('resetBtn').textContent = 'erase save'; }, 6000);
-    toast('restart = start from zero. tap erase to confirm.');
+    // an idle game's save is the whole point: restart asks first
+    tab = 'menu'; document.querySelector('[data-tab=menu]').click();
+    resetArm = Date.now(); $('resetBtn').textContent = 'tap to erase everything and restart';
+    setTimeout(() => { $('resetBtn').textContent = 'erase everything'; }, 6000);
+    toast('restart = erase your save. tap the red button to confirm.');
   }
 });
 
+// ---------- site score: monotonic, never faster than 100 points a second ----------
+let sentScore = 0, scoreAcc = 0;
+function pushScore(dt) {
+  scoreAcc += dt;
+  if (scoreAcc < 2) return;
+  const target = E.siteScore(S), next = Math.min(target, sentScore + Math.ceil(100 * scoreAcc));
+  scoreAcc = 0;
+  if (next > sentScore) { sentScore = next; sdk((c) => c.score && c.score(sentScore)); }
+}
+const sessionStart = performance.now();
+let ended = false;
+const endSession = () => { if (ended) return; ended = true; sdk((c) => c.end && c.end({ score: sentScore, durationMs: Math.round(performance.now() - sessionStart) })); };
+
+// ---------- main loop ----------
+let last = performance.now(), uiAcc = 0, achAcc = 0, saveAcc = 0;
+function frame(tms) {
+  const raw = (tms - last) / 1000; last = tms;
+  const dt = Math.min(0.25, Math.max(0, raw));
+  if (!paused) {
+    S.playSec += dt; S.runSec += dt;
+    E.earn(S, E.rps(S, buffs) * dt);
+    if (buffs.length) {
+      buffs = buffs.filter((b) => b.until > S.playSec);
+      music.tempoMult = buffs.some((b) => b.kind === 'frenzy') ? 1.25 : buffs.some((b) => b.kind === 'encore') ? 1.12 : 1;
+    } else music.tempoMult = 1;
+    // golden bell
+    if (stage.golden) { if (stage.golden.t > stage.golden.life) stage.golden = null; }
+    else if ((goldenIn -= dt) <= 0) { spawnGolden(); goldenIn = E.goldenDelay(S); }
+    // the band
+    music.update(now(), S.owned);
+    stage.bandIds = E.BUILDINGS.filter((b) => S.owned[b.id]).map((b) => b.id);
+    achAcc += dt;
+    if (achAcc > 0.5) {
+      achAcc = 0;
+      for (const a of E.checkAch(S, buffs)) { toast(`achievement: ${a.name} (+1%)`); music.play('crystal', 9, now(), 0.7); }
+    }
+    saveAcc += dt; if (saveAcc > 10) { saveAcc = 0; save(); }
+    pushScore(dt);
+  }
+  // fire visuals whose notes are sounding now
+  const tn = now();
+  for (let i = pending.length - 1; i >= 0; i--) if (pending[i][0] <= tn) { const f = pending[i][1]; pending.splice(i, 1); f(); }
+  if (pending.length > 400) pending.splice(0, pending.length - 400);
+  // adaptive quality
+  if (raw > 0.034) stage.slow = (stage.slow || 0) + 1; else stage.slow = Math.max(0, (stage.slow || 0) - 1);
+  stage.lite = stage.slow > 30;
+  stage.draw(paused ? 0 : dt);
+  uiAcc += dt;
+  if (uiAcc > 0.2) {
+    uiAcc = 0;
+    $('res').innerHTML = `${E.fmt(S.res)}<small>res</small>`;
+    $('rps').textContent = `${E.fmt(E.rps(S, buffs))} /s · tap ${E.fmt(E.tapValue(S, buffs))}`;
+    $('buffs').innerHTML = buffs.map((b) => `<span class="buff">${b.label} ${Math.ceil(b.until - S.playSec)}s</span>`).join('');
+    if (tab === 'shop') refreshShop(); else if (tab === 'songs' || tab === 'recast') { if ((renderTab.n = (renderTab.n || 0) + 1) % 5 === 0) renderTab(); } else if (tab === 'stats' && (renderTab.n = (renderTab.n || 0) + 1) % 5 === 0) renderStats();
+    const g = E.otGain(S), rb = document.querySelector('[data-tab=recast]');
+    if (!!rb.querySelector('.dot') !== g > 0) renderTab();
+  }
+  requestAnimationFrame(frame);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) save();
+  else { handleReturn(); last = performance.now(); }
+});
+window.addEventListener('pagehide', () => { save(); endSession(); });
+window.addEventListener('resize', () => stage.resize());
+if (window.ResizeObserver) new ResizeObserver(() => stage.resize()).observe($('stage'));
+
 // ---------- boot ----------
-track('session_start', { returning: !firstVisit, recasts: S.recasts });
-drawMuteIcon();
-buildShop();
-if (S.strikes === 0) fx.hint = { bell: 1, text: 'tap a bell' };
+sdk((c) => c.start && c.start());
+window.addEventListener('load', () => sdk((c) => c.start && !sentScore && c.score && c.score(0)), { once: true });
 handleReturn();
-if (!store.ok) toast('saving is blocked here. play anyway, live in the moment.');
-else if (firstVisit) toast('every hop pays more. more bells, longer chains.');
+refreshShop(true); renderTab(true);
+if (firstVisit) {
+  if (S.veteran) toast('welcome back, v1 veteran. here is 500 resonance for your trouble.');
+  else toast('tap anywhere. every tap plays the next note.');
+  stage.showBanner('tap to play', 'the tune is in there somewhere', null, 4);
+}
+if (!store.ok) toast('saving is blocked here. export a code before you leave.');
 save();
 requestAnimationFrame((t) => { last = t; frame(t); });
 
-// small debug/test surface (used by qa.mjs; harmless for players)
-window.bellchain = {
-  get state() { return S; },
-  E,
-  strike: (i) => strike(i, true),
-  buy,
-  save,
-  live: () => live.length,
-  fx,
-  bellPos: () => {
-    const r = canvas.getBoundingClientRect();
-    return fx.bells.map((b) => ({ x: r.left + b.x, y: r.top + b.y }));
-  },
-  greatPos: () => {
-    const r = canvas.getBoundingClientRect();
-    return { x: r.left + fx.cx, y: r.top + fx.cy };
-  },
-};
+// tiny test surface (qa + balance checks; harmless for players)
+window.bellchain = { get state() { return S; }, E, music, stage, tapAt, get buffs() { return buffs; }, catchGolden, spawnGolden, save };

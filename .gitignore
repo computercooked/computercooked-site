@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 .wrangler/
 .claude/
+.dev.vars
+.wrangler/
+wrangler.local.jsonc
