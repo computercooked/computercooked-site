@@ -1,0 +1,10 @@
+{
+  "slug": "desktop-jam",
+  "title": "desktop jam",
+  "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
+  "size_kb": 46,
+  "tags": ["puzzle", "arrow puzzle", "daily", "casual", "mobile", "halloween"]
+}
