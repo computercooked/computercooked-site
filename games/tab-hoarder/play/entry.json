@@ -1,9 +1,22 @@
 {
   "slug": "tab-hoarder",
   "title": "tab hoarder",
-  "pitch": "stack browser tabs on a tired computer. overhang gets cut. miss once and you're cooked.",
+  "pitch": "stack browser tabs on a tired computer. perfect drops stack a multiplier. free_ram_download.exe is a trap.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tap / click / space",
-  "size_kb": 95
+  "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
+  "size_kb": 40,
+  "version": 2,
+  "tags": [
+    "arcade",
+    "stacking",
+    "one-tap",
+    "high score",
+    "casual"
+  ],
+  "changelog": "v2: points with a perfect-streak multiplier (up to 5x), width regrow, 5 power-up tabs (perfect = double), lag spikes late, share card, mute/pause/cc hooks, slider kept on screen, thin-tab and restart fixes.",
+  "playtest": {
+    "before": 5.5,
+    "after": 6.4
+  }
 }

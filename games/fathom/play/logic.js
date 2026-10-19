@@ -314,6 +314,13 @@
     }
 
     s.t++;
+    if (s.rules.salvo) {
+      // salvo: a turn is one shot per sub you still have afloat
+      if (s.shotsLeft == null) s.shotsLeft = s.rules.fleet.length - them.sunk.length;
+      s.shotsLeft--;
+      if (s.shotsLeft > 0) { events.push({ type: 'salvo', p, left: s.shotsLeft }); return { ok: true, state: s, events }; }
+      s.shotsLeft = null;
+    }
     s.turn = 1 - p;
     events.push({ type: 'turn', turn: s.turn });
     return { ok: true, state: s, events };

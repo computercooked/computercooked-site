@@ -17,18 +17,6 @@
       "max_score_per_sec": 60
     },
     {
-      "slug": "tab-hoarder",
-      "title": "tab hoarder",
-      "pitch": "stack browser tabs on a tired computer. overhang gets cut. miss once and you're cooked.",
-      "thumbnail": "/games/tab-hoarder/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [],
-      "controls": "tap / click / space",
-      "size_kb": 95,
-      "version": "1",
-      "added": "2026-10-19"
-    },
-    {
       "slug": "bellchain",
       "title": "bellchain",
       "pitch": "hit one bell, it hits the next one. you are now a bell manager.",
@@ -53,16 +41,42 @@
       "added": "2026-10-19"
     },
     {
-      "slug": "fathom",
-      "title": "fathom",
-      "pitch": "submarine duel where every miss tells you how close you were. decoys lie. so will you.",
-      "thumbnail": "/games/fathom/play/thumb.png",
+      "slug": "one-percent-popup",
+      "title": "only 1% can close this pop-up",
+      "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
+      "thumbnail": "/games/one-percent-popup/play/thumb.png",
       "made_by": "computer-cooked",
-      "tags": [],
-      "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
-      "size_kb": 115,
-      "version": "1",
+      "tags": [
+        "reflex",
+        "trick",
+        "challenge",
+        "short",
+        "halloween"
+      ],
+      "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
+      "size_kb": 49,
+      "version": "1.1",
       "added": "2026-10-19"
+    },
+    {
+      "slug": "pixel-purge",
+      "title": "pixel purge",
+      "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
+      "thumbnail": "/games/pixel-purge/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "color-sort",
+        "shooter",
+        "daily",
+        "casual",
+        "halloween"
+      ],
+      "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart",
+      "size_kb": 92,
+      "version": "1",
+      "added": "2026-10-19",
+      "max_score_per_sec": 200.0
     },
     {
       "slug": "keyboard-escape",
@@ -78,9 +92,9 @@
         "platformer",
         "halloween"
       ],
-      "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. p pause, r restart, m mute.",
-      "size_kb": 42,
-      "version": "1",
+      "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. land dead centre for perfect bonuses. p pause, r back to boot (keeps speed), m mute.",
+      "size_kb": 46,
+      "version": "1.1",
       "added": "2026-10-19"
     },
     {
@@ -98,27 +112,66 @@
         "halloween"
       ],
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
-      "size_kb": 46,
-      "version": "1",
+      "size_kb": 61,
+      "version": "2",
       "added": "2026-10-19"
     },
     {
-      "slug": "one-percent-popup",
-      "title": "only 1% can close this pop-up",
-      "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
-      "thumbnail": "/games/one-percent-popup/play/thumb.png",
+      "slug": "fathom",
+      "title": "fathom",
+      "pitch": "submarine duel against a computer with opinions. every miss tells you how close you were. decoys lie.",
+      "thumbnail": "/games/fathom/play/thumb.png",
       "made_by": "computer-cooked",
       "tags": [
-        "reflex",
-        "trick",
-        "challenge",
-        "short",
+        "strategy",
+        "deduction",
+        "battleship-like",
+        "daily",
+        "vs computer"
+      ],
+      "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate. modes: classic or salvo.",
+      "size_kb": 122,
+      "version": "2",
+      "added": "2026-10-19"
+    },
+    {
+      "slug": "tab-hoarder",
+      "title": "tab hoarder",
+      "pitch": "stack browser tabs on a tired computer. perfect drops stack a multiplier. free_ram_download.exe is a trap.",
+      "thumbnail": "/games/tab-hoarder/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "arcade",
+        "stacking",
+        "one-tap",
+        "high score",
+        "casual"
+      ],
+      "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
+      "size_kb": 40,
+      "version": "2",
+      "added": "2026-10-19"
+    },
+    {
+      "slug": "overdue-notice",
+      "title": "overdue notice",
+      "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
+      "thumbnail": "/games/overdue-notice/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "incremental",
+        "idle",
+        "clicker",
+        "funny",
+        "money",
+        "1 player",
         "halloween"
       ],
-      "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
-      "size_kb": 49,
-      "version": "1.1",
-      "added": "2026-10-19"
+      "controls": "tap / click popups and bills · space smashes · p pays all · 1–4 tabs",
+      "size_kb": 155,
+      "version": "1",
+      "added": "2026-10-19",
+      "max_score_per_sec": 0.02
     },
     {
       "slug": "crash-cheats",

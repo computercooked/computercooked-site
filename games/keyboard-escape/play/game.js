@@ -11,9 +11,10 @@
   const C = { carbon: '#101114', lime: '#C5FF49', lilac: '#B59AFF', paper: '#F5F3ED' };
 
   // ------------------------------------------------------------------ physics constants (world units, y down)
-  const G = 2700, VJ = 930, CUT = 270, SPACE_VJ = 1380, PW = 44, PH = 50, KH = 64, VOID = 760;
-  const vxOf = (s) => 220 + 560 * (1 - Math.exp(-s / 85));      // speed number -> run velocity, soft-capped so huge numbers stay playable
+  const G = 2700, VJ = 930, CUT = 270, SPACE_VJ = 1380, PW = 44, PH = 50, KH = 64, VOID = 480;
+  const vxOf = (s) => 220 + 720 * (1 - Math.exp(-s / 190));     // speed number -> run velocity: climbs to ~940 so big numbers still feel big
   const AIR = 2 * VJ / G;                                          // flat-jump airtime
+  const TIERS = [25, 50, 100, 250, 500, 1000, 2500, 5000];
 
   // ------------------------------------------------------------------ save (per-viewer convenience only)
   const SKEY = 'cc-keyboard-escape.v1';
@@ -68,11 +69,17 @@
   const SPOOK = ['boo', '🎃', 'rip', '👻', 'eek', '🦇'];
 
   function buildCourse(loop, mult) {
+    // two passes: the first finds what this keyboard's gates demand, the second sizes every key for the speed limiter
+    const probe = genCourse(loop, mult, 0);
+    const cap = Math.round(Math.max(probe.maxNeed, probe.exp) * 1.25 + 30 * mult);
+    const c = genCourse(loop, mult, cap); c.cap = cap; return c;
+  }
+  function genCourse(loop, mult, cap) {
     const rnd = mulberry32(loop * 7919 + 13);
     const keys = [];
     keys.push({ x: -420, y: 0, by: 0, w: 640, type: 'boot', label: 'boot' });
-    let x = 220, y = 0, exp = 0, sinceGate = 0, lastType = 'boot';
-    const N = 34 + loop * 8;
+    let x = 220, y = 0, exp = 0, sinceGate = 0, lastType = 'boot', banked = 0, prevNeed = 0, lastGateI = 0, maxNeed = 0;
+    const N = 24 + loop * 10;
     const firstGate = 9;
     for (let i = 0; i < N; i++) {
       const t = i / N;
@@ -87,14 +94,17 @@
       let type = 'key';
       const r = rnd();
       sinceGate++;
-      const gateDue = i >= firstGate && sinceGate >= 9 + Math.floor(rnd() * 4) && i < N - 2;
+      const gateDue = i >= firstGate && sinceGate >= 10 + Math.floor(rnd() * 4) && i < N - 2 && lastType === 'key';   // gates only take off from a plain key
       if (lastType === 'caps') gap *= 0.5;
       const afterSpace = lastType === 'space';
-      if (afterSpace) { gap = 0.45 * vxOf(exp * 0.9) * 1.02; dy = 0; }
+      if (afterSpace) { gap = 50; dy = 0; }   // the pad sits right after the trampoline: wherever the bounce lands, it's enter
       else if (gateDue) {
         // a speed gate: this gap needs more speed than a clean first run gives you. fall, re-run, come back faster.
         type = 'gate';
-        const need = Math.round(exp + (i === firstGate && loop === 1 ? 6 : 8 + loop * 3) * mult);
+        // you arrive with the last gate's speed plus ~60% of the keys since (fast runs skip keys); one more lap banks ~60% of the keys before this gate
+        const arrive = prevNeed + 0.6 * mult * (i - lastGateI);
+        const need = Math.round(prevNeed === 0 ? exp + 8 * mult : arrive + 0.6 * mult * i * 0.75);
+        prevNeed = need; lastGateI = i; maxNeed = need; banked = need - exp;
         gap = vxOf(need) * AIR * 0.9 - PW * 0.3; dy = 0; sinceGate = 0;
         keys[keys.length - 1].gateNeed = need;
       } else if (t > 0.12 && r < 0.11) type = 'space';
@@ -102,11 +112,11 @@
       else if (t > 0.3 && r < 0.38) type = 'move';
       else if (t > 0.45 && r < 0.46) type = 'del';
       x += Math.max(36, gap); y += dy;
-      const vxW = vxOf(exp * 0.9 + 40 * mult);              // keys sized for a player who has fallen a few times and is now too fast
+      const vxW = vxOf(cap ? Math.max(cap * 0.8, exp + banked) : exp * 0.9 + 40 * mult);   // keys sized for a player at the limiter
       let w = Math.max(100, vxW * 0.36) * (0.9 + rnd() * 0.5);
       if (type === 'space') w = Math.max(260, w * 1.6);
-      if (afterSpace) { type = 'key'; w = Math.max(w, vxOf(exp + 60 * mult) * 1.05 - gap + 60); }   // wide landing pad: the trampoline doesn't care how fast you are
-      if (type === 'caps') w = Math.max(w, vx * 0.75 + 120);
+      if (afterSpace) { type = 'key'; w = Math.max(w, vxOf(cap || exp + 60 * mult) * 1.1 + 80); }   // wide landing pad: the trampoline doesn't care how fast you are
+      if (type === 'caps') w = Math.max(w, vxW * 0.75 + 120);
       const label = afterSpace ? 'enter' : type === 'space' ? 'space' : type === 'caps' ? 'caps' : type === 'del' ? 'del' : rnd() < 0.18 ? JOKES[(rnd() * JOKES.length) | 0] : LETTERS[(rnd() * LETTERS.length) | 0];
       const k = { x, y, w, type: type === 'gate' ? 'key' : type, label, by: y };
       if (type === 'move') { k.amp = 40 + 50 * rnd(); k.per = 1.6 + rnd() * 1.2; k.ph = rnd() * 6.28; }
@@ -118,7 +128,8 @@
     const reach = vxOf(exp * 0.9) * AIR;
     x += reach * 0.5;
     keys.push({ x, y, w: 520, type: 'esc', label: 'esc', by: y });
-    return { keys, len: x, loop };
+    for (const k of keys) { k.press = 0; k.hit = 0; k.gone = 0; k.crumble = 0; k.dy = 0; }
+    return { keys, len: x, loop, banked, exp, maxNeed };
   }
 
   // ------------------------------------------------------------------ state
@@ -127,21 +138,23 @@
     dpr = Math.min(2, window.devicePixelRatio || 1);
     vw = window.innerWidth; vh = window.innerHeight;
     canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
-    scale = Math.min(vh / 520, vw / 720);
+    scale = Math.min(vh / 520, vw / 560);
   }
   window.addEventListener('resize', resize); resize();
 
   let screen = 'title';    // title | play | pause | win
   let course = null, p = null, cam = { x: 0, y: 0 }, runT = 0, speed = 0, topSpeed = 0, falls = 0, keysHit = 0;
   let booting = 0, shake = 0, flash = 0, popups = [], parts = [], lastScoreSent = 0, scoreDirty = false, idleT = 0;
-  let jumpBuf = 0, holding = false, title = { t: 0 };
+  let jumpBuf = 0, holding = false, title = { t: 0 }, tierIdx = 0, perfect = 0, banner = null, wz = 1;
 
   function newPlayer() { return { x: -60, y: -PH, vx: 0, vy: 0, ground: null, coyote: 0, knock: 0, face: 'idle', faceT: 0, spin: 0 }; }
+  let carry = 0;
   function startRun(keepSpeed) {
     audioInit();
     course = buildCourse(save.loop, save.mult);
     p = newPlayer(); runT = 0; falls = 0; keysHit = 0; popups = []; parts = [];
-    if (!keepSpeed) { speed = 0; topSpeed = 0; }
+    if (!keepSpeed) { speed = carry; topSpeed = carry; carry = 0; }
+    tierIdx = TIERS.filter((t) => speed >= t).length; perfect = 0;
     booting = 0.6; cam.x = p.x; cam.y = p.y;
     screen = 'play'; show('title', false); show('win', false); show('pause', false); $('pauseBtn').style.display = 'block';
     SFX.boot();
@@ -150,10 +163,12 @@
   }
   function backToBoot() {
     falls++;
-    for (const k of course.keys) { k.hit = 0; k.gone = 0; k.press = 0; k.crumble = 0; }
-    p = newPlayer(); booting = 0.75; flash = 0.6;
+    for (const k of course.keys) { k.hit = 0; k.gone = 0; k.press = 0; k.crumble = 0; k.passed = 0; }
+    p = newPlayer(); booting = 0.4; flash = 0.5;
     if (screen === 'play') toast(['back to boot. speed kept. dignity not.', 'have you tried turning it off and on again', 'rebooting… your speed survived', 'that gap was a feature'][falls % 4]);
   }
+  function manualBoot() { if (screen !== 'play' || !course) return; SFX.fall(); backToBoot(); falls--; }   // a voluntary reboot doesn't count as a fall
+  let winLock = 0;
   function show(id, on) { $(id).classList.toggle('show', on); }
   let toastH = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastH); toastH = setTimeout(() => t.classList.remove('show'), 1500); }
@@ -173,12 +188,12 @@
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Enter') {
-      if (screen === 'win' && e.code !== 'Space') return;
+      if (screen === 'win') { if (performance.now() > winLock) reboot(); return; }
       if (screen === 'pause') { setPause(false); return; }
       press();
     }
     if (e.code === 'KeyP' || (e.code === 'Escape' && screen !== 'title')) setPause(screen === 'play');
-    if (e.code === 'KeyR' && (screen === 'play' || screen === 'pause' || screen === 'win')) startRun(false);
+    if (e.code === 'KeyR' && (screen === 'play' || screen === 'pause')) { setPause(false); manualBoot(); }
     if (e.code === 'KeyM') toggleSound();
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden && screen === 'play') setPause(true); });
@@ -206,7 +221,14 @@
     k.press = 1;
     if (!k.hit) {
       k.hit = 1; addSpeed();
+      const off = Math.abs(p.x + PW / 2 - (k.x + k.w / 2)) / (k.w / 2);
+      if (k.type === 'key' && off < 0.28) {   // stuck the landing near the middle: bonus + streak
+        perfect++; addSpeed(); if (perfect % 5 === 0) addSpeed();   // +1 per perfect, +1 more every 5 in a row
+        popups.push({ x: p.x + PW / 2, y: p.y - 40, t: 0.9, txt: 'perfect x' + perfect, big: 1 });
+      } else if (k.type === 'key') perfect = 0;
       popups.push({ x: p.x + PW / 2, y: p.y - 10, t: 0.8, txt: '+' + save.mult });
+      const ti = TIERS.filter((t) => speed >= t).length;
+      if (ti > tierIdx && screen === 'play') { tierIdx = ti; banner = { t: 1.6, txt: 'speed tier ' + ti + ': ' + ['warm', 'brisk', 'zoomy', 'illegal', 'ludicrous', 'plaid', 'cosmic', 'heat death'][ti - 1] }; flash = 0.7; SFX.esc(); cc((c) => c.event && c.event('speed_tier', { tier: ti, speed })); }
       SFX.land(speed);
     } else SFX.land(speed * 0.5);
     if (vxOf(speed) > 520) shake = Math.max(shake, 0.12);
@@ -225,7 +247,7 @@
     if (booting > 0) { booting -= dt; p.x = -60; p.y = -PH; p.vx = 0; if (booting > 0) return; }
     runT += dt;
     // horizontal
-    const target = vxOf(speed);
+    const target = vxOf(Math.min(speed, course.cap || speed));   // past the limiter the number still climbs, crash doesn't
     if (p.knock > 0) { p.knock -= dt; p.vx = -260; }
     else p.vx += (target - p.vx) * Math.min(1, dt * 6);
     // jump
@@ -257,15 +279,24 @@
       if (!k.wall || k.gone) continue;
       const wx = k.wall.x, wt = k.y - k.wall.h;
       if (p.x + PW > wx && px + PW <= wx + 2 && p.y + PH > wt + 6 && p.y < k.y) {
-        p.x = wx - PW; p.knock = 0.28; speed = Math.max(0, Math.floor(speed * 0.85)); scoreDirty = true;
+        p.x = wx - PW; p.knock = 0.28; speed = Math.max(0, speed - 4 * save.mult); scoreDirty = true;
         shake = 0.3; p.face = 'cooked'; p.faceT = 0.6; SFX.bonk();
-        popups.push({ x: wx, y: wt - 20, t: 1, txt: 'caps lock’d -15%', big: 1 });
+        popups.push({ x: wx, y: wt - 20, t: 1, txt: 'caps lock’d -' + 4 * save.mult, big: 1 });
       }
       // standing on top of the wall
       if (!p.ground && p.vy >= 0 && p.x + PW > wx && p.x < wx + k.wall.w && py + PH <= wt + 2 && p.y + PH >= wt) { p.y = wt - PH; p.vy = 0; p.ground = { x: wx, w: k.wall.w, y: wt, type: 'wall', by: wt }; }
     }
     // fell into the void
-    if (p.y > lowestNear(p.x) + VOID) { SFX.fall(); backToBoot(); }
+    if (p.y > lowestNear(p.x) + VOID) { SFX.fall(); perfect = 0; backToBoot(); }
+    // gate break-through: crossing a gate edge fast enough gets a moment
+    for (const k of course.keys) {
+      if (!k.gateNeed || k.passed) continue;
+      const gx = k.x + k.w + 62;   // the firewall stands just past the takeoff key
+      if (px + PW <= gx && p.x + PW > gx) {
+        if (speed >= k.gateNeed) { k.passed = 1; banner = { t: 1.2, txt: 'access granted' }; shake = 0.25; }
+        else { p.x = k.x + k.w + 6; p.vx = 0; p.knock = 0; p.vy = Math.max(p.vy, 250); p.ground = null; jumpBuf = 0; p.coyote = 0; p.face = 'cooked'; p.faceT = 0.8; SFX.bonk(); popups.push({ x: gx, y: p.y - 30, t: 1.1, txt: 'firewall: need ' + k.gateNeed, big: 1 }); }
+      }
+    }
     if (p.faceT > 0) { p.faceT -= dt; if (p.faceT <= 0) p.face = 'idle'; }
     if (!p.ground && p.vy > 200 && p.face === 'idle') p.face = 'hit';
     if (p.ground && p.face === 'hit') p.face = 'idle';
@@ -299,13 +330,15 @@
     $('stats').innerHTML = st(Math.round(topSpeed), 'top speed') + st(fmt(ms), 'time to esc') + st(falls, falls === 1 ? 'fall' : 'falls') + st('x' + save.mult, 'reboot multiplier');
     $('rebootBtn').textContent = 'reboot (x' + (save.mult + 1) + ')';
     try { $('card').src = drawCard(lastResult).toDataURL('image/png'); } catch (e) { /* ignore */ }
+    winLock = performance.now() + 600;
     show('win', true);
   }
   function reboot() {
     save.mult += 1; save.loop += 1; persist();
     cc((c) => c.event && c.event('reboot', { mult: save.mult }));
+    carry = Math.floor(topSpeed * 0.1);
     startRun(false);
-    toast('rebooted. multiplier x' + save.mult + '. new keyboard, same problems.');
+    toast('rebooted. x' + save.mult + ' forever. kept ' + speed + ' speed. new keyboard, same problems.');
   }
 
   // ------------------------------------------------------------------ share card
@@ -315,6 +348,7 @@
     g.fillStyle = C.carbon; g.fillRect(0, 0, 1080, 1080);
     // keyboard strip
     for (let i = 0; i < 9; i++) { drawKeycap(g, 60 + i * 110, 880, 96, 70, i === 8 ? 'esc' : 'QWERTYUI'[i], i === 8 ? 2 : 1, 1); }
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     g.imageSmoothingEnabled = false;
     if (sprite.complete && sprite.naturalWidth) g.drawImage(sprite, 0, 0, 128, 128, 760, 230, 256, 256);
     g.fillStyle = C.lilac; g.font = `800 44px ${MONO}`; g.fillText('+1 speed keyboard escape', 60, 120);
@@ -323,6 +357,7 @@
     g.fillStyle = 'rgba(245,243,237,0.6)'; g.font = `700 40px ${MONO}`; g.fillText('top speed', 66, 540);
     g.fillStyle = C.paper; g.font = `700 46px ${MONO}`;
     g.fillText(`${fmt(r.ms)} to esc · ${r.falls} fall${r.falls === 1 ? '' : 's'} · x${r.mult}`, 60, 680);
+    g.fillStyle = C.lilac; g.font = `700 40px ${MONO}`; g.fillText('keyboard ' + r.loop + ' escaped', 60, 760);
     g.fillStyle = C.lime; g.font = `700 38px ${MONO}`; g.fillText(URL_TXT, 60, 1030);
     return cv;
   }
@@ -371,7 +406,10 @@
     const grd = ctx.createLinearGradient(0, 0, 0, vh); grd.addColorStop(0, P.bg2); grd.addColorStop(1, P.bg1);
     ctx.fillStyle = grd; ctx.fillRect(0, 0, vw, vh);
     // camera
-    const lookX = vw / scale * 0.22;
+    const vnow = p ? Math.max(0, p.vx) : 0;
+    wz += (Math.max(0.6, Math.min(1, 1 - (vnow - 380) / 1500)) - wz) * Math.min(1, dt * 2);
+    const ws = scale * wz;
+    const lookX = vw / ws * 0.2;
     let sx = 0, sy = 0;
     if (shake > 0) { shake -= dt; sx = (Math.random() - 0.5) * 12 * shake * 10; sy = (Math.random() - 0.5) * 12 * shake * 10; }
     // distant parallax keyboard rows
@@ -388,9 +426,9 @@
 
     ctx.save();
     ctx.translate(sx, sy);
-    ctx.scale(scale, scale);
-    ctx.translate(-cam.x + lookX, -cam.y + vh / scale * 0.55);
-    const L = cam.x - lookX - 100, R = cam.x - lookX + vw / scale + 100;
+    ctx.scale(ws, ws);
+    ctx.translate(-cam.x + lookX, -cam.y + vh / ws * 0.55);
+    const L = cam.x - lookX - 100, R = cam.x - lookX + vw / ws + 100;
     if (course) {
       // the void glow
       for (const k of course.keys) {
@@ -402,7 +440,9 @@
         let label = k.label;
         if (spooky && k.type === 'key' && (k.x | 0) % 5 === 0) label = SPOOK[(k.x | 0) % SPOOK.length];
         if (k.type === 'space') { ctx.fillStyle = 'rgba(197,255,73,0.18)'; ctx.fillRect(k.x + 10, y + KH - 6, k.w - 20, 600); }
+        if (k.type === 'del') { ctx.fillStyle = 'rgba(255,70,70,0.35)'; ctx.fillRect(k.x + 6, y + KH - 8, k.w - 12, 14); }
         drawKeycap(ctx, k.x, y, k.w, h, label, kind, 1, P);
+        if (k.type === 'del') { ctx.strokeStyle = 'rgba(16,17,20,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(k.x + k.w * 0.55, y); ctx.lineTo(k.x + k.w * 0.48, y + 18); ctx.lineTo(k.x + k.w * 0.62, y + 30); ctx.lineTo(k.x + k.w * 0.56, y + 44); ctx.stroke(); }
         if (k.type === 'move') { ctx.fillStyle = C.lilac; ctx.fillRect(k.x + k.w / 2 - 3, y + KH - 10, 6, 20 + k.amp); }
         if (k.crumble > 0) ctx.restore();
         if (k.wall) {
@@ -418,6 +458,7 @@
           ctx.fillStyle = ok ? C.lime : C.lilac; ctx.font = `800 20px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
           ctx.fillText((ok ? 'fast enough ✓ ' : 'need ') + k.gateNeed + ' spd →', gx, k.y - 70);
           ctx.fillRect(gx - 2, k.y - 66, 4, 66);
+          if (!k.passed) { const fx = k.x + k.w + 62; ctx.globalAlpha = 0.35 + 0.2 * Math.sin(runT * 12); ctx.fillStyle = ok ? C.lime : '#ff5a5a'; ctx.fillRect(fx - 3, k.y - 420, 6, 520); ctx.globalAlpha = 1; }
         }
         if (k.type === 'esc') { ctx.fillStyle = C.lime; ctx.font = `800 22px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('↖ the exit. allegedly.', k.x + 8, k.y - 18); }
       }
@@ -439,6 +480,11 @@
     }
     ctx.restore();
     if (flash > 0) { flash -= dt * 2; ctx.fillStyle = `rgba(197,255,73,${Math.max(0, flash) * 0.25})`; ctx.fillRect(0, 0, vw, vh); }
+    if (banner && screen === 'play') {
+      banner.t -= dt;
+      if (banner.t <= 0) banner = null;
+      else { ctx.globalAlpha = Math.min(1, banner.t * 3); ctx.fillStyle = 'rgba(16,17,20,0.7)'; ctx.fillRect(0, vh * 0.3 - 30, vw, 60); ctx.fillStyle = C.lime; ctx.font = `800 ${Math.round(Math.min(34, vw / 14))}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(banner.txt, vw / 2, vh * 0.3); ctx.globalAlpha = 1; }
+    }
     if (screen !== 'title') drawHud();
     if (booting > 0 && screen === 'play') drawBoot();
   }
@@ -471,7 +517,7 @@
     ctx.font = `800 ${Math.round(54 * s)}px ${MONO}`; ctx.fillStyle = C.carbon; ctx.fillText(spd, 3, 3);
     ctx.fillStyle = C.lime; ctx.fillText(spd, 0, 0);
     ctx.restore();
-    ctx.font = `800 ${Math.round(12 * s)}px ${MONO}`; ctx.fillStyle = C.paper; ctx.fillText('speed · x' + save.mult, vw / 2, top + 56 * s);
+    ctx.font = `800 ${Math.round(12 * s)}px ${MONO}`; ctx.fillStyle = C.paper; ctx.fillText(course && course.cap && speed > course.cap && screen === 'play' ? 'limiter: ' + course.cap + ' · reboot to go faster' : 'speed · x' + save.mult, vw / 2, top + 56 * s);
     // progress bar to esc
     if (course && p) {
       const bw = Math.min(vw - 120 * s, 360 * s), bx = vw / 2 - bw / 2, by = top + 76 * s;
@@ -495,14 +541,14 @@
   }
 
   // ------------------------------------------------------------------ bot (title attract + QA): jumps at edges, lets go when it'll land on the next key
-  let botTarget = null;
+  let botTarget = null, botWall = null;
   function botThink(err) {
     const k = p.ground, vx = Math.max(p.vx, 150);
     if (k && k.type !== 'wall') {
       const ks = course.keys, i = ks.indexOf(k);
       const edge = k.wall ? k.wall.x - vx * (0.16 + err) : k.x + k.w - PW * 0.5 - vx * (0.02 + err);
-      if (p.x + PW > edge && i >= 0 && ks[i + 1]) { jumpBuf = 0.1; holding = true; botTarget = ks[i + 1]; }
-    } else if (!k && holding && botTarget && !p.bounce) {
+      if (p.x + PW > edge && i >= 0 && ks[i + 1]) { jumpBuf = 0.1; holding = true; botTarget = ks[i + 1]; botWall = k.wall || null; }
+    } else if (!k && holding && botTarget && !p.bounce && !(botWall && p.x < botWall.x + botWall.w + 10)) {
       const vy = Math.max(p.vy, -CUT), dy = botTarget.y - (p.y + PH);
       const disc = vy * vy + 2 * G * dy;
       if (disc > 0) {
@@ -515,11 +561,11 @@
 
   // ------------------------------------------------------------------ title attract: crash runs a demo keyboard
   function titleScene(dt) {
-    if (!course || !p) { course = buildCourse(1, 1); p = newPlayer(); }
+    if (!course || !p) { course = buildCourse(1, 1); p = newPlayer(); speed = 120; }
     title.t += dt;
     botThink(0);
     step(dt);
-    if (p.x > course.len - 200 || falls > 0) { course = buildCourse(1 + ((Math.random() * 5) | 0), 1); p = newPlayer(); falls = 0; booting = 0; speed = 0; }
+    if (p.x > course.len - 200 || falls > 0) { course = buildCourse(1 + ((Math.random() * 5) | 0), 1); p = newPlayer(); falls = 0; booting = 0; speed = 120; }
   }
 
   // ------------------------------------------------------------------ loop
@@ -558,7 +604,7 @@
   $('spookBtn').addEventListener('click', () => { spooky = !spooky; save.spooky = spooky; persist(); syncToggles(); });
   $('pauseBtn').addEventListener('click', () => setPause(true));
   $('resumeBtn').addEventListener('click', () => setPause(false));
-  $('restartBtn').addEventListener('click', () => startRun(false));
+  $('restartBtn').addEventListener('click', () => { setPause(false); manualBoot(); });
   $('rebootBtn').addEventListener('click', reboot);
   $('againBtn').addEventListener('click', () => startRun(false));
   $('shareBtn').addEventListener('click', share);

@@ -110,6 +110,13 @@
   #grid { font-size: 17px; line-height: 1.1; letter-spacing: 1px; margin: 0; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
   .sub { color: var(--muted); font-size: 12px; }
   .hide { display: none !important; }
+  #taunt { position: fixed; z-index: 9; left: 50%; top: calc(env(safe-area-inset-top) + 50px); transform: translate(-50%, -6px); opacity: 0; pointer-events: none;
+    background: var(--panel); box-shadow: inset 0 0 0 2px var(--lilac), 0 4px 0 #050507; padding: 6px 12px; font-size: 12px; max-width: min(92vw, 460px); width: max-content;
+    text-align: center; line-height: 1.4; transition: opacity .18s, transform .18s; }
+  #taunt.on { opacity: 1; transform: translate(-50%, 0); }
+  #taunt b { color: var(--lilac); }
+  .rival { font-size: 12px; color: var(--muted); max-width: 420px; line-height: 1.5; min-height: 18px; }
+  .rival b { color: var(--lilac); }
 
   @media (max-height: 640px) { .big { padding: 12px 36px; min-height: 52px; } #title { gap: 10px; } }
 </style>
@@ -118,6 +125,7 @@
 <body>
 <canvas id="bg" class="px"></canvas>
 <div id="vignette"></div>
+<div id="taunt" aria-live="polite"></div>
 <div id="toast"></div>
 <div id="app">
   <section id="title" class="screen on">
@@ -126,6 +134,10 @@
     <button id="btnDive" class="btn go big pulse">dive</button>
     <div class="seg" id="diff" role="group" aria-label="Difficulty">
       <button data-l="easy">easy</button><button data-l="normal">normal</button><button data-l="hard">hard</button>
+    </div>
+    <div class="rival" id="rival"></div>
+    <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+      <button data-m="classic">classic</button><button data-m="salvo">salvo</button>
     </div>
     <div class="row">
       <button id="btnDaily" class="btn">daily dive</button>
@@ -218,6 +230,57 @@
     set(k, v) { try { localStorage.setItem('fathom.' + k, JSON.stringify(v)); } catch (e) { /* private mode: fine */ } },
   };
   const NAMES = { L: 'Leviathan', H: 'Hunter', S: 'Scout' };
+  // ---------------------------------------------------------------- rivals: each difficulty is a computer with opinions
+  const RIVALS = {
+    easy: { name: 'dial-up', blurb: 'slow. polite. apologizes to the water.', lines: {
+      start: ['hello. connecting. please hold.', 'i will try my best. my best is not great.'],
+      hitYou: ['oh! sorry. that was your sub.', 'i hit something. i feel bad about it.'],
+      sinkYou: ['i sank it. should i send flowers', 'that one is gone. my condolences, sincerely.'],
+      near: ['warm. i think. my modem says warm.', 'close? that sounded close.'],
+      fooled: ['i shot a buoy. it was very convincing.', 'that was a decoy. i respect it.'],
+      ouch: ['ow. that is fair.', 'you found me. the screeching was me.'],
+      lost: ['my sub has disconnected.', 'goodbye, little sub. you were 56k of joy.'],
+      gotDecoy: ['ha. that was a balloon. sorry. ha.', 'you shot my decoy. it was my best work.'],
+      win: ['i won? please do not tell anyone.', 'gg. that took me a while to load.'],
+      lose: ['you win. i expected this.', 'connection lost. it was me. i lost.'] } },
+    normal: { name: 'screensaver', blurb: 'smug. bored. bounces around until it finds you.', lines: {
+      start: ['oh good. something to do.', 'i was literally just bouncing. let’s go.'],
+      hitYou: ['found you. it was not hard.', 'bonk. that’s a sub.', 'i didn’t even look.'],
+      sinkYou: ['one less thing on your screen.', 'sunk. i’ll be idling if you need me.'],
+      near: ['getting warmer. for me. not you.', 'close. i can smell the diesel.'],
+      fooled: ['a buoy. cute. i’m not mad.', 'that was a decoy. i meant to do that.'],
+      ouch: ['lucky.', 'ok, that one counted.', 'rude.'],
+      lost: ['that was my least favorite sub anyway.', 'fine. i have more. i have fewer.'],
+      gotDecoy: ['that was a balloon. enjoy your balloon.', 'decoy. i bounced it there myself.'],
+      win: ['cooked. as advertised.', 'gg. back to bouncing.'],
+      lose: ['i was buffering.', 'whatever. the dvd logo never hits the corner either.'] } },
+    hard: { name: 'root', blurb: 'no small talk. reads every echo. has admin.', lines: {
+      start: ['permissions granted. begin.', 'i have already calculated your fleet. mostly.'],
+      hitYou: ['confirmed.', 'as predicted.', 'contact.'],
+      sinkYou: ['process terminated.', 'sudo sink.'],
+      near: ['ring narrowed.', 'one tile. i see you.'],
+      fooled: ['decoy logged. it will not happen twice.', 'a buoy. noted. adjusting.'],
+      ouch: ['unexpected.', 'that should not have worked.'],
+      lost: ['a sub was lost. it was a test.', 'critical process ended. irrelevant.'],
+      gotDecoy: ['decoy. your shot was wasted, as planned.', 'you hit the buoy. i put it there for you.'],
+      win: ['exit code 0.', 'you were never root.'],
+      lose: ['access denied. to me. noted.', 'this will be in the logs.'] } },
+  };
+  const DAILY_RIVAL = { name: 'the daily', blurb: '', lines: RIVALS.normal.lines };
+  const lastLine = {};
+  let tauntT = 0;
+  function rival() { return G && G.daily ? DAILY_RIVAL : RIVALS[G ? G.level : level] || RIVALS.normal; }
+  function say(kind, force) {
+    const r = rival(), arr = r.lines[kind];
+    if (!arr || (!force && Math.random() < 0.35)) return; // it doesn't comment on everything
+    const el = $('taunt');
+    let i = Math.floor(Math.random() * arr.length);
+    if (arr.length > 1 && arr[i] === lastLine[kind]) i = (i + 1) % arr.length;
+    lastLine[kind] = arr[i];
+    el.innerHTML = '<b>' + r.name + ':</b> ' + arr[i];
+    el.classList.add('on');
+    clearTimeout(tauntT); tauntT = setTimeout(() => el.classList.remove('on'), 2400);
+  }
   const HEATWORD = { 1: 'HOT!', 2: 'WARM', 3: 'COOL', 0: 'COLD' };
   const STREAK = { 2: 'DOUBLE!', 3: 'TRIPLE!', 4: 'RAMPAGE!' };
   const rules = L.DEFAULT_RULES;
@@ -232,6 +295,7 @@
   let ui = 'title';
   let G = null;
   let level = store.get('level', 'normal');
+  let gameMode = store.get('mode', 'classic') === 'salvo' ? 'salvo' : 'classic';
   if (!AI.LEVELS.includes(level)) level = 'normal';
 
   // ---------------------------------------------------------------- layout
@@ -381,6 +445,8 @@
 
   function renderTitle() {
     document.querySelectorAll('#diff button').forEach((b) => b.classList.toggle('on', b.dataset.l === level));
+    document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.m === gameMode));
+    $('rival').innerHTML = 'opponent: <b>' + RIVALS[level].name + '</b>. ' + RIVALS[level].blurb + (gameMode === 'salvo' ? '<br>salvo: one shot per sub you still have. lose subs, lose firepower.' : '');
     const rec = store.get('record', {});
     const r = rec[level] || { w: 0, l: 0 };
     const streak = store.get('streak', 0);
@@ -400,7 +466,8 @@
   // ---------------------------------------------------------------- game setup
   function newSession(daily) {
     const seed = Q.has('seed') ? (+Q.get('seed') >>> 0) : ((Math.random() * 4294967296) >>> 0);
-    let state = L.newGame({ seed, first: 0 });
+    const salvo = !daily && gameMode === 'salvo';
+    let state = L.newGame({ seed, first: 0, rules: salvo ? Object.assign({}, L.DEFAULT_RULES, { salvo: true }) : undefined });
     const enemySeed = daily ? L.hashSeed('fathom-daily-' + dayKey()) : (seed ^ 0xa5a5a5a5) >>> 0;
     const lv = daily ? 'hard' : level;
     state = L.place(state, 1, AI.chooseLayout(rules, lv, enemySeed)).state;
@@ -450,8 +517,9 @@
     show('battle');
     renderPips();
     G.startedAt = performance.now();
-    $('enemyLbl').textContent = 'enemy sea \u00b7 ' + (G.daily ? 'daily' : G.level);
-    status('your turn');
+    $('enemyLbl').textContent = (G.daily ? 'enemy sea \u00b7 daily' : RIVALS[G.level].name + '\'s sea') + (G.state.rules.salvo ? ' \u00b7 salvo' : '');
+    setTimeout(() => say('start', true), 900);
+    status(G.state.rules.salvo ? 'your salvo: ' + rules.fleet.length + ' shots' : 'your turn');
     $('hint').innerHTML = '';
     attack.banner('DIVE!', '#e9fbff', 2, 900);
     SFX.sonar();
@@ -590,6 +658,11 @@
     }
     renderPips();
     if (G.state.phase === 'over') return endGame();
+    if (G.state.turn === 0) { // salvo: more shots this turn
+      G.busy = false;
+      status('salvo: ' + G.state.shotsLeft + ' more');
+      return;
+    }
     await wait(260);
     await enemyTurn();
   }
@@ -627,8 +700,9 @@
         R.vibrate([40, 30, 90]);
         const left = rules.fleet.length - G.state.players[0].sunk.length;
         toast(`<b>${NAMES[ev.sunk.id].toLowerCase()} sunk.</b> ${left ? left + ' to go.' : ''}`, 1800);
+        if (left) say('lost', true);
         await wait(380);
-      } else if (!coach('hit', '<b>hit.</b> finish it: shoot along the line. hit tiles stop echoing.', 3200)) { /* seen */ }
+      } else if (!coach('hit', '<b>hit.</b> finish it: shoot along the line. hit tiles stop echoing.', 3200)) { say('ouch'); }
       await wait(240);
     } else if (ev.r === 'd') {
       SFX.decoy();
@@ -637,6 +711,7 @@
       attack.popup(c, 'DECOY!', '#d9a6ff', 1);
       screenShake(3);
       coach('decoy', '<span class="d">a decoy.</span> buoys echo like subs. this one is gone now.', 3200) || toast('<span class="d">decoy.</span> that shot was a donation.', 1400);
+      say('gotDecoy', true);
       await wait(420);
     } else {
       SFX.splash(ev.e);
@@ -683,7 +758,8 @@
     if (!r.ok) { console.warn('AI made an illegal move', r.error); G.busy = false; return; }
     await playEnemyEvents(r.state, r.events);
     if (G.state.phase === 'over') return endGame();
-    status('your turn');
+    if (G.state.turn === 1) { await wait(160); return enemyTurn(); } // salvo: it keeps shooting
+    status(G.state.rules.salvo ? 'your salvo: ' + (rules.fleet.length - G.state.players[1].sunk.length) + ' shots' : 'your turn');
     SFX.yourTurn();
     G.busy = false;
     saveDaily();
@@ -742,7 +818,8 @@
         SFX.sunk();
         home.banner('LOST', '#ff7b7b', 2, 1000);
         toast(`<span class="h1">your ${NAMES[ev.sunk.id].toLowerCase()} is down.</span>`, 1800);
-      } else toast(`they hit your <span class="h1">${(NAMES[victim] || 'sub').toLowerCase()}</span>.`, 1500);
+        say('sinkYou', true);
+      } else { toast(`they hit your <span class="h1">${(NAMES[victim] || 'sub').toLowerCase()}</span>.`, 1500); say('hitYou'); }
       await wait(520);
     } else if (ev.r === 'd') {
       SFX.decoy();
@@ -750,11 +827,12 @@
       J('reward', 0.5);
       home.popup(c, 'FOOLED!', '#d9a6ff', 1);
       toast('<span class="d">your decoy fooled them. cooked.</span>', 1700);
+      say('fooled', true);
       await wait(480);
     } else {
       SFX.splash(ev.e);
       home.splash(c, ev.e);
-      if (ev.e === 1) { home.popup(c, 'CLOSE!', R.PAL.heat[1], 1, 800); SFX.alarm(); }
+      if (ev.e === 1) { home.popup(c, 'CLOSE!', R.PAL.heat[1], 1, 800); SFX.alarm(); say('near'); }
       await wait(320);
     }
   }
@@ -773,7 +851,8 @@
     const mode = G.online ? 'online' : G.daily ? 'daily' : 'quick';
     const acc = me.stats.shots ? Math.round((me.stats.hits / me.stats.shots) * 100) : 0;
     const label = G.online ? 'Duel' : G.daily ? 'Daily #' + dayNo() : cap(G.level);
-    shareText = `fathom \u2693 ${label.toLowerCase()} \u00b7 computercooked.com/games/fathom\n${won ? 'win' : 'cooked'} \u00b7 ${me.stats.shots + me.stats.sonar} turns \u00b7 ${acc}% hits \u00b7 ${fmtTime(time)}\n` + L.shareGrid(G.state, 0);
+    const trail = G.state.log.filter((l) => l.p === 0).map((l) => (l.a === 'sonar' ? '\ud83d\udce1' : l.r === 'h' ? '\ud83d\udca5' : l.r === 'd' ? '\ud83c\udf88' : '\ud83c\udf0a')).join('');
+    shareText = `fathom \u2693 ${G.daily ? label.toLowerCase() : RIVALS[G.level].name + (G.state.rules.salvo ? ' \u00b7 salvo' : '')} \u00b7 computercooked.com/games/fathom\n${won ? 'win' : 'cooked'} \u00b7 ${me.stats.shots + me.stats.sonar} shots \u00b7 ${acc}% hits \u00b7 ${fmtTime(time)}\n` + (G.daily ? trail : L.shareGrid(G.state, 0));
     window.__fathomShare = shareText;
     if (G.daily) {
       // lock today's dive before any animation, so closing the tab now cannot earn a retry
@@ -793,6 +872,7 @@
     if (!G.online) store.set('streak', won ? store.get('streak', 0) + 1 : 0);
     await wait(300);
     G.revealed = true;
+    say(won ? 'lose' : 'win', true);
     if (won) { SFX.win(); J('levelup', 1); HL('victory'); attack.banner('VICTORY', '#C5FF49', 2, 1600); screenShake(6); }
     else { SFX.lose(); J('fail', 1); home.banner('COOKED', '#B59AFF', 2, 1600); }
 
@@ -803,11 +883,11 @@
       : reason === 'timeout' ? (won ? `${oppName} lost connection. The win is yours.` : 'You were away too long.')
       : won
         ? (them.stats.decoys ? `your decoys fooled the computer ${them.stats.decoys}×. it's embarrassed.` : 'clean hunt. no notes.') + (!G.online && store.get('streak', 0) > 1 ? ` win streak: ${store.get('streak', 0)}.` : '')
-        : `the computer found you in ${them.stats.shots + them.stats.sonar} turns. its fleet is shown, for closure.`;
+        : `${rival().name} found you in ${them.stats.shots + them.stats.sonar} shots. its fleet is shown, for closure.`;
     $('overStats').innerHTML = [
-      [fmtTime(time), 'time'], [me.stats.shots + me.stats.sonar, 'turns'], [acc + '%', 'hits'], [me.stats.bestStreak, 'streak'],
+      [fmtTime(time), 'time'], [me.stats.shots + me.stats.sonar, 'shots'], [acc + '%', 'hits'], [me.stats.bestStreak, 'streak'],
     ].map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
-    $('grid').textContent = L.shareGrid(G.state, 0);
+    $('grid').textContent = G.daily ? trail : L.shareGrid(G.state, 0);
     $('btnShare').textContent = 'copy result';
     $('btnShare').classList.toggle('hide', !P.allowShare);
     $('btnSeeBoard').classList.remove('hide');
@@ -848,6 +928,7 @@
   on($('btnDive'), 'click', () => startFlow(false));
   on($('btnDaily'), 'click', () => startFlow(true));
   on($('btnHow'), 'click', () => { $('how').classList.toggle('on'); SFX.unlock(); SFX.click(); });
+  document.querySelectorAll('#modeSeg button').forEach((b) => on(b, 'click', () => { gameMode = b.dataset.m; store.set('mode', gameMode); SFX.unlock(); SFX.click(); renderTitle(); }));
   document.querySelectorAll('#diff button').forEach((b) => on(b, 'click', () => { level = b.dataset.l; store.set('level', level); SFX.unlock(); SFX.click(); renderTitle(); }));
   on($('btnShuffle'), 'click', () => { G.draft = L.randomLayout(rules, L.makeRng((Math.random() * 4294967296) >>> 0)); G.selected = null; SFX.rotate(); home.flash('#8fd8ff', 120); });
   on($('btnReady'), 'click', () => { SFX.click(); beginBattle(false); });
@@ -860,7 +941,13 @@
   on($('btnAgain2'), 'click', rematch);
   on($('btnAgain'), 'click', rematch);
   on($('btnOverMenu'), 'click', () => { $('over').classList.remove('on'); toTitle(); });
-  on($('btnMenu'), 'click', () => { SFX.click(); toTitle(); });
+  let menuArmed = 0;
+  on($('btnMenu'), 'click', () => {
+    SFX.click();
+    const live = G && !G.daily && !G.endedAt && G.state && G.state.phase === 'battle' && G.state.players[0].stats.shots + G.state.players[1].stats.shots > 0;
+    if (live && performance.now() - menuArmed > 2200) { menuArmed = performance.now(); toast('tap menu again to forfeit. it counts as a loss.', 2000); return; }
+    toTitle();
+  });
   function rematch() {
     $('over').classList.remove('on');
     if (overMode === 'daily-done' || !G) { startFlow(false); return; }
@@ -886,6 +973,10 @@
   }
   function toTitle() {
     if (G && !G.endedAt && ui !== 'title') P.gameplayStop();
+    if (G && !G.daily && !G.endedAt && G.state && G.state.phase === 'battle' && G.state.players[0].stats.shots + G.state.players[1].stats.shots > 0) {
+      const rec = store.get('record', {}); const k = G.level; rec[k] = rec[k] || { w: 0, l: 0 }; rec[k].l++; store.set('record', rec); store.set('streak', 0);
+      setTimeout(() => toast('forfeit counted as a loss. ' + RIVALS[k].name + ' will bring it up.', 2400), 50);
+    }
     leaveOnline();
     G = null; overMode = 'game'; clearToasts(); show('title'); renderTitle();
   }
@@ -905,7 +996,7 @@
   on(window, 'contextmenu', (e) => { if (e.target.tagName === 'CANVAS') e.preventDefault(); });
 
   on(window, 'keydown', (e) => {
-    if (ui === 'title' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startFlow(false); return; }
+    if (ui === 'title' && (e.key === 'Enter' || e.key === ' ')) { if (e.target && e.target.tagName === 'BUTTON') return; e.preventDefault(); startFlow(false); return; }
     if (ui === 'placing' && e.key === 'Enter') { beginBattle(false); return; }
     if (ui !== 'battle' || !G) return;
     const mv = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];

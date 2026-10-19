@@ -3,7 +3,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
-  const LEVELS = 30;
+  const LEVELS = 50;
   const LIVES = 3;
   const DAY0 = Date.UTC(2026, 9, 19); // daily desktop #1
   const SLUG_URL = 'computercooked.com/games/desktop-jam';
@@ -31,6 +31,9 @@
   const NAMES = ['final_FINAL_v3.docx', 'New folder (7)', 'homework', 'taxes_2019.pdf', 'untitled.png', 'do_not_open.exe', 'memes', 'resume_REAL.pdf',
     'Recycle Bin', 'screenshot (412).png', 'passwords.txt', 'setup(2).exe', 'stuff.zip', 'new new folder', 'IMG_0031.jpg', 'notes.txt', 'bangers.mp3',
     'minecraft_backup.zip', 'essay_draft_9.docx', 'free_ram.exe', 'readme.txt', 'tax stuff', 'meme_template.png', 'invoice_OLD.pdf', 'Shortcut to Shortcut.exe'];
+  const SYS = ['system32', 'DO_NOT_DELETE.sys', 'boot.ini', 'pagefile.sys', 'kernel.dll', 'hiberfil.sys', 'ntldr', 'registry.dat'];
+  const SPIN = ['spinner.exe', 'loading_wheel.exe', 'fidget.exe', 'washing_machine.exe', 'beachball.exe', 'roomba.exe'];
+  const WINS = ['zoom (not responding)', 'YOU WON A PRIZE!!', 'update available', 'excel.exe', 'chrome: 87 tabs', 'are you still watching?', 'save changes?', 'printer error'];
   const SPOOKY = ['ghost_v2.exe', 'spells.txt', 'candy_stash.zip', 'costume_FINAL.png', 'haunted folder', 'boo.mp3', 'pumpkin_recipes.pdf', 'not_a_vampire.docx',
     'graveyard', 'skeleton.jpg', 'Recycle Bin (haunted)', 'cursed_final_v2.docx', 'bats', 'witch_taxes.pdf', 'scream.mp3'];
   function kindOf(name) {
@@ -41,78 +44,186 @@
   }
 
   // ---------------------------------------------------------------- level generation (always solvable)
-  // Icons are inserted one by one; each new icon's path to the edge must be clear of icons already placed.
-  // Removing in reverse insertion order always works, and removing an icon only ever frees paths, so no dead ends.
-  function pathBlock(grid, cols, rows, c, d) {
-    let x = c % cols, y = Math.floor(c / cols), k = 0;
-    for (;;) {
-      x += DX[d]; y += DY[d]; k++;
-      if (x < 0 || y < 0 || x >= cols || y >= rows) return 0;
-      if (grid[y * cols + x]) return k;
+  // A piece covers 1 or 2 cells (grid cells point at the same piece object). Pieces are inserted one by one and each
+  // new piece's lanes to the edge must be clear of pieces already placed, so removing in reverse insertion order always
+  // works. Removing a piece only ever frees lanes, walls never move, and the key is inserted after every locked piece
+  // (so it comes off first): there are no dead ends.
+  const WORLDS = [
+    { name: 'desktop', intro: '' },
+    { name: 'system32', intro: 'new: system files. they never move and never leave. route around them.' },
+    { name: 'big windows', intro: 'new: windows take two spaces. both lanes have to be clear.' },
+    { name: 'admin rights', intro: 'new: locked icons won\'t budge until admin.key is off the desktop.' },
+    { name: 'spin cycle', intro: 'new: spinning .exe files turn 90° every time anything leaves. order matters now. you can jam yourself.' },
+  ];
+  // current direction of a piece: spinners turn a quarter clockwise each time any piece leaves
+  function dirOf(pc, removed) { return pc.spin ? (pc.d + removed) % 4 : pc.d; }
+  // exact search (with a node cap) for a full clear; also counts dead ends met on the way (= how much order matters)
+  function solve(grid, cols, rows, cap) {
+    const pieces = piecesOf(grid).filter((pc) => !pc.wall);
+    const g = grid.slice(), seen = new Set();
+    let nodes = 0, dead = 0;
+    const keyOf = () => pieces.map((pc) => (g[pc.cells[0]] === pc ? 1 : 0)).join('');
+    function rec(removed, keyGone) {
+      if (removed === pieces.length) return true;
+      if (++nodes > cap) return false;
+      const k = keyOf(); if (seen.has(k)) return false; seen.add(k);
+      const free = pieces.filter((pc) => g[pc.cells[0]] === pc && movable(pc, keyGone) && !block(g, cols, rows, pc, dirOf(pc, removed)).k);
+      if (!free.length) { dead++; return false; }
+      free.sort((a, b) => (a.spin ? 1 : 0) - (b.spin ? 1 : 0));
+      for (const pc of free) {
+        for (const c of pc.cells) g[c] = null;
+        const ok = rec(removed + 1, keyGone || !!pc.key);
+        for (const c of pc.cells) g[c] = pc;
+        if (ok) return true;
+      }
+      return false;
     }
+    const ok = rec(0, !pieces.some((pc) => pc.key));
+    return { ok, nodes, dead };
   }
-  // bias 0..1: how often an icon points the long way across the board (long lanes get blocked more = harder)
+  // share of random (but legal) playthroughs that jam: how much order matters
+  function jamRate(grid, cols, rows, seed, n) {
+    const r = rngOf(seed); let jams = 0;
+    for (let t = 0; t < n; t++) {
+      const g = grid.slice(); let removed = 0, keyGone = !g.some((pc) => pc && pc.key);
+      for (;;) {
+        const live = piecesOf(g).filter((pc) => !pc.wall);
+        if (!live.length) break;
+        const free = live.filter((pc) => movable(pc, keyGone) && !block(g, cols, rows, pc, dirOf(pc, removed)).k);
+        if (!free.length) { jams++; break; }
+        const pc = free[Math.floor(r() * free.length)];
+        for (const c of pc.cells) g[c] = null; removed++; if (pc.key) keyGone = true;
+      }
+    }
+    return jams / n;
+  }
+  // turns some pieces into spinners; keeps a solvable variant whose random-play jam rate is closest to the target
+  function spinLevel(cols, rows, density, baseSeed, bias, o, spinners, target) {
+    let best = null;
+    for (let k = 0; k < 18; k++) {
+      const g = generate(cols, rows, density, baseSeed + k * 7919, bias, o);
+      const r = rngOf(baseSeed + k);
+      const cand = shuffle(piecesOf(g).filter((pc) => !pc.wall && !pc.key && !pc.locked && !pc.win), r);
+      cand.slice(0, spinners).forEach((pc) => { pc.spin = true; pc.d = Math.floor(r() * 4); });
+      const res = solve(g, cols, rows, 4000);
+      if (!res.ok) continue;
+      const jr = jamRate(g, cols, rows, baseSeed, 30), score = Math.abs(jr - target);
+      if (!best || score < best.score) best = { g, score, jr };
+    }
+    return best ? best.g : generate(cols, rows, density, baseSeed, bias, o);
+  }
+  function block(grid, cols, rows, pc, d) {
+    let best = 0, blocker = null;
+    for (const c of pc.cells) {
+      let x = c % cols, y = Math.floor(c / cols), k = 0;
+      for (;;) {
+        x += DX[d]; y += DY[d]; k++;
+        if (x < 0 || y < 0 || x >= cols || y >= rows) break;
+        const o = grid[y * cols + x];
+        if (o && o !== pc) { if (!best || k < best) { best = k; blocker = o; } break; }
+      }
+    }
+    return { k: best, blocker };
+  }
   function edgeDist(cols, rows, c, d) { const x = c % cols, y = Math.floor(c / cols); return [y, cols - 1 - x, rows - 1 - y, x][d]; }
-  function generate(cols, rows, density, seed, bias) {
+  // bias 0..1: how often a piece points the long way across the board (long lanes get blocked more = harder)
+  function generate(cols, rows, density, seed, bias, o) {
+    o = o || {};
     const r = rngOf(seed);
     const grid = new Array(cols * rows).fill(null);
+    const order = [];
+    for (let i = 0; i < (o.walls || 0); i++) {
+      const c = Math.floor(r() * cols * rows);
+      if (!grid[c]) grid[c] = { cells: [c], w: 1, h: 1, d: -1, wall: true };
+    }
     const cells = shuffle([...Array(cols * rows).keys()], r);
     const target = Math.round(density * cols * rows);
     let n = 0;
     for (const c of cells) {
       if (n >= target) break;
-      const dirs = shuffle([0, 1, 2, 3], r).filter((d) => !pathBlock(grid, cols, rows, c, d));
+      if (grid[c]) continue;
+      let pc = null;
+      if (o.win && r() < o.win) {
+        const horiz = r() < 0.5, x = c % cols, y = Math.floor(c / cols);
+        const c2 = horiz ? (x + 1 < cols ? c + 1 : -1) : (y + 1 < rows ? c + cols : -1);
+        if (c2 >= 0 && !grid[c2]) pc = { cells: [c, c2], w: horiz ? 2 : 1, h: horiz ? 1 : 2, win: true };
+      }
+      if (!pc) pc = { cells: [c], w: 1, h: 1 };
+      const dirs = shuffle([0, 1, 2, 3], r).filter((dd) => !block(grid, cols, rows, pc, dd).k);
       if (!dirs.length) continue;
       if (r() < bias) dirs.sort((a, b) => edgeDist(cols, rows, c, b) - edgeDist(cols, rows, c, a));
-      grid[c] = { d: dirs[0] }; n++;
+      pc.d = dirs[0];
+      for (const cc of pc.cells) grid[cc] = pc;
+      order.push(pc); n += pc.cells.length;
+    }
+    if (o.locks && order.length > 4) {
+      const key = order[order.length - 1 - Math.floor(r() * Math.max(1, order.length * 0.3))];
+      key.key = true;
+      const early = shuffle(order.slice(0, Math.floor(order.length * 0.55)).filter((pc) => !pc.key && !pc.win), r);
+      early.slice(0, o.locks).forEach((pc) => { pc.locked = true; });
     }
     return grid;
   }
-  // average share of icons that are free to go, over a random clean playthrough (lower = harder)
+  function piecesOf(grid) { return [...new Set(grid.filter(Boolean))]; }
+  function movable(pc, keyGone) { return !pc.wall && !(pc.locked && !keyGone); }
+  // average share of pieces that are free to go, over a random clean playthrough (lower = harder)
   function easiness(grid, cols, rows, seed) {
     const g = grid.slice(), r = rngOf(seed);
-    let sum = 0, steps = 0;
-    for (;;) {
-      const live = [];
-      for (let c = 0; c < g.length; c++) if (g[c]) live.push(c);
+    let sum = 0, steps = 0, keyGone = !g.some((pc) => pc && pc.key);
+    for (let guard = 0; guard < 200; guard++) {
+      const live = piecesOf(g).filter((pc) => !pc.wall);
       if (!live.length) break;
-      const free = live.filter((c) => !pathBlock(g, cols, rows, c, g[c].d));
+      const free = live.filter((pc) => movable(pc, keyGone) && !block(g, cols, rows, pc, dirOf(pc, steps)).k);
+      if (!free.length) return 1; // should not happen: treat as broken so it is never picked
       sum += free.length / live.length; steps++;
-      g[free[Math.floor(r() * free.length)]] = null;
+      const pick = free[Math.floor(r() * free.length)];
+      if (pick.key) keyGone = true;
+      for (const c of pick.cells) g[c] = null;
     }
     return steps ? sum / steps : 1;
   }
-  function pickLevel(cols, rows, density, baseSeed, target, bias) {
+  function pickLevel(cols, rows, density, baseSeed, target, bias, o) {
     const cands = [];
     for (let k = 0; k < 16; k++) {
-      const g = generate(cols, rows, density, baseSeed + k * 7919, bias);
+      const g = generate(cols, rows, density, baseSeed + k * 7919, bias, o);
       cands.push({ g, e: easiness(g, cols, rows, baseSeed) });
     }
     // the candidate whose easiness is closest to the target (0 = hardest possible)
     cands.sort((a, b) => Math.abs(a.e - target) - Math.abs(b.e - target));
     return cands[0].g;
   }
+  function singles(arr, cols) { return arr.map((v, c) => (v ? { cells: [c], w: 1, h: 1, d: v.d } : null)); }
   function levelSpec(i) {
     if (i === 0) { // hand-made: teaches "clear the blocker first"
       const g = new Array(9).fill(null);
       g[3] = { d: 0 }; g[4] = { d: 3 }; g[5] = { d: 3 }; g[1] = { d: 1 };
-      return { cols: 3, rows: 3, grid: g };
+      return { cols: 3, rows: 3, grid: singles(g, 3) };
     }
     if (i === 1) {
       const g = new Array(16).fill(null);
       g[5] = { d: 1 }; g[6] = { d: 0 }; g[2] = { d: 0 }; g[9] = { d: 2 }; g[10] = { d: 3 }; g[13] = { d: 3 }; g[0] = { d: 2 };
-      return { cols: 4, rows: 4, grid: g };
+      return { cols: 4, rows: 4, grid: singles(g, 4) };
     }
-    const t = (i - 2) / (LEVELS - 3);
-    const cols = Math.min(7, 4 + Math.floor((i + 1) / 6));
-    const rows = Math.min(9, 4 + Math.floor((i + 2) / 4));
-    const density = 0.55 + 0.4 * t;
-    return { cols, rows, grid: pickLevel(cols, rows, density, hash('desktop-jam-level-' + i), 0.74 - 0.4 * t, 0.15 + 0.8 * t) };
+    const w = Math.floor(i / 10), j = i % 10, t = j / 9, seed = hash('desktop-jam-level-' + i);
+    if (w === 0) {
+      const cols = 4 + Math.floor(j / 4), rows = 5 + Math.floor(j / 3);
+      return { cols, rows, grid: pickLevel(cols, rows, 0.55 + 0.35 * t, seed, 0.74 - 0.3 * t, 0.15 + 0.6 * t) };
+    }
+    if (w === 4) { // spin cycle: smaller boards, real decisions
+      const cols = 4 + Math.floor(j / 4), rows = 5 + Math.floor(j / 3);
+      return { cols, rows, grid: spinLevel(cols, rows, 0.6 + 0.25 * t, seed, 0.5, { walls: 1 + Math.floor(j / 3) }, 3 + Math.floor(j / 2), 0.25 + 0.5 * t) };
+    }
+    const cols = Math.min(7, (w === 3 ? 6 : 5) + Math.floor(j / 4)), rows = Math.min(9, (w === 3 ? 7 : 6) + Math.floor(j / 3));
+    const o = w === 1 ? { walls: 3 + Math.floor(j / 2) }
+      : w === 2 ? { walls: Math.floor(j / 4), win: 0.3 + 0.15 * t }
+      : { walls: 2, win: 0.2, locks: 2 + Math.floor(j / 2) };
+    if (j >= 5) return { cols, rows, grid: spinLevel(cols, rows, 0.62 + 0.28 * t, seed, 0.3 + 0.6 * t, o, 1 + Math.floor((j - 5) / 2), 0.1 + 0.25 * t) };
+    return { cols, rows, grid: pickLevel(cols, rows, 0.62 + 0.28 * t, seed, 0.66 - 0.3 * t, 0.3 + 0.6 * t, o) };
   }
   function dayNo() { const d = new Date(); return Math.max(1, Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - DAY0) / 86400000) + 1); }
   function dailySpec() {
     const n = dayNo();
-    return { cols: 7, rows: 9, grid: pickLevel(7, 9, 0.9, hash('desktop-jam-daily-' + n), 0.3, 0.9) };
+    return { cols: 6, rows: 8, grid: spinLevel(6, 8, 0.8, hash('desktop-jam-daily-' + n), 0.7, { walls: 3, win: 0.15, locks: 2 }, 5, 0.5) };
   }
 
   // ---------------------------------------------------------------- audio (synth only)
@@ -146,6 +257,8 @@
   }
   const sfx = {
     tap() { tone('square', 660, 520, 0.04, 0.05); },
+    nope() { tone('square', 220, 180, 0.08, 0.08); },
+    unlock() { [784, 988, 1175, 1568].forEach((f, i) => tone('triangle', f, f, 0.1, 0.08, i * 0.05)); },
     whoosh,
     bonk() { tone('square', 140, 60, 0.18, 0.28); tone('sine', 90, 50, 0.25, 0.35); },
     win() { [523, 659, 784, 1047].forEach((f, i) => tone('square', f, f, 0.12, 0.09, i * 0.08)); },
@@ -168,12 +281,23 @@
     const r = rngOf(hash(mode + idx + dayNo()));
     const names = shuffle((spooky ? SPOOKY.concat(NAMES.slice(0, 8)) : NAMES).slice(), r);
     let k = 0, total = 0;
-    spec.grid.forEach((ic, c) => { if (ic) { ic.name = names[k++ % names.length]; ic.kind = kindOf(ic.name); ic.born = c; total++; ic.wob = 0; } });
-    L = { mode, idx, cols: spec.cols, rows: spec.rows, grid: spec.grid, lives: mode === 'daily' ? Infinity : LIVES, bonks: 0, start: performance.now(), total, done: false };
+    const pieces = piecesOf(spec.grid);
+    pieces.forEach((pc, i) => {
+      pc.wob = 0; pc.x = pc.cells[0] % spec.cols; pc.y = Math.floor(pc.cells[0] / spec.cols);
+      if (pc.wall) { pc.name = SYS[i % SYS.length]; pc.kind = 'sys'; return; }
+      if (pc.key) { pc.name = 'admin.key'; pc.kind = 'key'; }
+      else if (pc.win) { pc.name = WINS[i % WINS.length]; pc.kind = 'win'; }
+      else if (pc.spin) { pc.name = SPIN[i % SPIN.length]; pc.kind = 'exe'; }
+      else { pc.name = names[k++ % names.length]; pc.kind = kindOf(pc.name); }
+      total++;
+    });
+    L = { mode, idx, removed: 0, cols: spec.cols, rows: spec.rows, grid: spec.grid, pieces, keyGone: !pieces.some((pc) => pc.key), lives: mode === 'daily' ? Infinity : LIVES, bonks: 0, start: performance.now(), total, done: false };
     anims = []; parts = []; combo = 0; cursor = -1; L.bornAt = performance.now();
     hideAll(); ui = 'play';
     layout(); hud();
-    caption(mode === 'daily' ? `daily desktop #${dayNo()}. same mess for everyone. no lives, just shame.` : idx === 0 ? 'tap an icon. it leaves in its <b>arrow</b> direction. start with the one that\'s free.' : pickLine(LINES.start));
+    const world = WORLDS[Math.floor(idx / 10)];
+    if (mode === 'level' && idx % 10 === 0 && world && world.intro) { caption('<b>' + world.intro + '</b>'); toast('world ' + (Math.floor(idx / 10) + 1) + ': ' + world.name); }
+    else caption(mode === 'daily' ? `daily desktop #${dayNo()}. same mess for everyone. no lives, just shame.` : idx === 0 ? 'tap an icon. it leaves in its <b>arrow</b> direction. start with the one that\'s free.' : pickLine(LINES.start));
     cc.call('start'); cc.call('event', 'level_start', { mode, level: idx + 1 });
   }
 
@@ -203,10 +327,10 @@
   function pickLine(arr, n) { return arr[Math.floor(Math.random() * arr.length)].replace('{n}', '<em>' + esc(n || '') + '</em>'); }
   function esc(t) { return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
   function caption(html) { $('cap').innerHTML = html; }
-  function remaining() { return L ? L.grid.filter(Boolean).length : 0; }
+  function remaining() { return L ? L.pieces.filter((pc) => !pc.gone && !pc.wall).length : 0; }
   function hud() {
     if (!L) return;
-    $('lvl').textContent = L.mode === 'daily' ? `daily desktop #${dayNo()}` : `level ${L.idx + 1}/${LEVELS}`;
+    $('lvl').textContent = L.mode === 'daily' ? `daily desktop #${dayNo()}` : `level ${L.idx + 1}/${LEVELS} · ${WORLDS[Math.floor(L.idx / 10)].name}`;
     $('lives').innerHTML = L.mode === 'daily' ? `<span style="color:var(--lilac)">bonks ${L.bonks}</span>` : Array.from({ length: LIVES }, (_, i) => `<i class="${i < L.lives ? '' : 'gone'}"></i>`).join('');
     $('left').textContent = remaining() + ' icons left';
   }
@@ -220,17 +344,20 @@
   function updateMute() { const m = muted || hostMuted; $('bMute').innerHTML = m ? '&#215;' : '&#9834;'; $('bMute').style.color = m ? 'var(--dim)' : ''; }
 
   // ---------------------------------------------------------------- moves
+  function center(pc) { return [pc.x + (pc.w - 1) / 2, pc.y + (pc.h - 1) / 2]; }
   function tap(c) {
     if (!L || L.done || paused) return;
-    const ic = L.grid[c];
-    if (!ic || anims.some((a) => a.ic === ic)) return;
+    const pc = L.grid[c];
+    if (!pc || anims.some((a) => a.ic === pc)) return;
     audio();
-    const k = pathBlock(L.grid, L.cols, L.rows, c, ic.d);
-    const x = c % L.cols, y = Math.floor(c / L.cols);
+    if (pc.wall) { pc.wob = 1; sfx.nope(); caption(`<em>${esc(pc.name)}</em> is a system file. it lives here now.`); return; }
+    if (pc.locked && !L.keyGone) { pc.wob = 1; sfx.nope(); caption('locked. get <em>admin.key</em> off the desktop first.'); return; }
+    const dir = dirOf(pc, L.removed);
+    const { k, blocker } = block(L.grid, L.cols, L.rows, pc, dir);
+    const [x, y] = center(pc);
     if (k) {
       // bonk: lurch up to the blocker and spring back
-      const blocker = L.grid[(y + DY[ic.d] * k) * L.cols + (x + DX[ic.d] * k)];
-      anims.push({ type: 'bonk', ic, x, y, d: ic.d, reach: k - 1 + 0.32, t: 0, blocker });
+      anims.push({ type: 'bonk', ic: pc, x, y, d: dir, reach: k - 1 + 0.32, ext: (dir % 2 ? pc.w : pc.h) / 2, t: 0, blocker });
       L.bonks++; combo = 0;
       if (L.mode !== 'daily') L.lives--;
       sfx.bonk(); shake = 9; flash = 1; vibrate(60);
@@ -238,18 +365,32 @@
       caption(pickLine(LINES.bonk, blocker ? blocker.name : ''));
       hud();
       cc.call('event', 'bonk', { mode: L.mode, level: L.idx + 1 });
-      if (L.lives <= 0) { L.done = true; setTimeout(() => endLevel(false), 700); }
+      if (L.lives <= 0) { L.done = true; const LL = L; setTimeout(() => { if (L === LL) endLevel(false); }, 700); }
       return;
     }
-    L.grid[c] = null;
+    for (const cc2 of pc.cells) L.grid[cc2] = null;
+    pc.gone = true;
     const now = performance.now();
     combo = now - lastClearAt < 1300 ? combo + 1 : 0; lastClearAt = now;
-    anims.push({ type: 'exit', ic, x, y, d: ic.d, t: 0, dist: 0, v: 7 });
+    anims.push({ type: 'exit', ic: pc, x, y, d: dir, t: 0, dist: 0, v: 7 });
+    L.removed++;
+    for (const q of L.pieces) if (q.spin && !q.gone) q.turn = 1;
     sfx.whoosh(1 + Math.min(combo, 8) * 0.07); vibrate(12);
-    caption(combo >= 3 ? `<b>x${combo + 1}</b> clean streak. ` + pickLine(LINES.exit, ic.name) : pickLine(LINES.exit, ic.name));
+    if (pc.key) {
+      L.keyGone = true; sfx.unlock();
+      for (const q of L.pieces) if (q.locked && !q.gone) { q.wob = 1; const [qx, qy] = cellXY(...center(q)); spark(qx, qy, '#ffd84a', 10); }
+      caption('<b>admin rights granted.</b> the locks are off.');
+    } else caption(combo >= 3 ? `<b>x${combo + 1}</b> clean streak. ` + pickLine(LINES.exit, pc.name) : pickLine(LINES.exit, pc.name));
     hud();
     cc.score(L.mode === 'daily' ? L.total - remaining() : L.idx * 100 + (L.total - remaining()));
-    if (!remaining()) { L.done = true; setTimeout(() => endLevel(true), 650); }
+    const LL = L;
+    if (!remaining()) { L.done = true; setTimeout(() => { if (L === LL) endLevel(true); }, 650); }
+    else if (!L.pieces.some((q) => !q.gone && movable(q, L.keyGone) && !block(L.grid, L.cols, L.rows, q, dirOf(q, L.removed)).k)) {
+      // jammed: nothing can leave any more (only possible with spinners)
+      L.done = true; L.jammed = true; setCrash('cooked');
+      setTimeout(() => { if (L === LL) { caption('<b>jammed.</b> nothing can move. the spinners got you.'); sfx.bonk(); shake = 10; } }, 350);
+      setTimeout(() => { if (L === LL) endLevel(false); }, 1300);
+    }
   }
   function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* no */ } }
 
@@ -261,7 +402,7 @@
     if (!L) return;
     const ms = performance.now() - L.start;
     const st = won ? starsFor(L.bonks) : 0;
-    lastResult = { mode: L.mode, idx: L.idx, won, ms, bonks: L.bonks, total: L.total, stars: st, day: dayNo() };
+    lastResult = { mode: L.mode, idx: L.idx, won, ms, bonks: L.bonks, total: L.total, stars: st, day: dayNo(), jammed: !!L.jammed };
     cc.call('end', { score: L.mode === 'daily' ? L.total : (won ? L.idx + 1 : L.idx) * 100 + (L.total - remaining()), durationMs: Math.round(ms) });
     if (won) { sfx.win(); burstConfetti(); } else sfx.lose();
     if (L.mode === 'level' && won) {
@@ -270,20 +411,20 @@
       if (L.idx + 1 >= LEVELS) store.set('level', LEVELS - 1);
       cc.call('event', 'level_reached', { level: L.idx + 2 });
     }
-    if (L.mode === 'daily') { store.set('daily-' + dayNo(), lastResult); cc.call('event', 'daily_done', { day: dayNo(), bonks: L.bonks, ms: Math.round(ms) }); }
+    if (L.mode === 'daily') { store.set('daily2-' + dayNo(), lastResult); cc.call('event', 'daily_done', { day: dayNo(), bonks: L.bonks, ms: Math.round(ms) }); }
     setTimeout(() => showEnd(lastResult), won ? 500 : 200);
   }
   function showEnd(r) {
     ui = 'end';
     const allDone = r.mode === 'level' && r.won && r.idx + 1 >= LEVELS;
     $('endCrash').className = 'bigcrash ' + (r.won ? '' : 'cooked');
-    $('endTitle').textContent = r.won ? (r.mode === 'daily' ? 'daily: cleared' : allDone ? 'all 30 cleared' : 'desktop cleared') : 'cooked';
+    $('endTitle').textContent = r.won ? (r.mode === 'daily' ? 'daily: cleared' : allDone ? 'all ' + LEVELS + ' cleared' : 'desktop cleared') : (r.jammed ? 'jammed' : 'cooked');
     $('endTitle').className = r.won ? '' : 'bad';
     $('endStars').innerHTML = r.mode === 'level' && r.won ? [1, 2, 3].map((i) => `<span class="${i <= r.stars ? '' : 'off'}">&#9733;</span>`).join('') : '';
-    $('endMsg').innerHTML = allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose);
+    $('endMsg').innerHTML = !r.won && r.jammed ? 'jammed. every spinner was pointing at something. order matters here.' : allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose);
     $('endStats').innerHTML = [[fmt(r.ms), 'time'], [r.bonks, 'bonks'], [r.mode === 'daily' ? '#' + r.day : (r.idx + 1) + '/' + LEVELS, r.mode === 'daily' ? 'daily' : 'level']]
       .map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
-    $('bNext').textContent = r.mode === 'daily' ? 'play levels' : r.won ? (allDone ? 'replay 30' : 'next') : 'retry';
+    $('bNext').textContent = r.mode === 'daily' ? 'play levels' : r.won ? (allDone ? 'replay all' : 'next') : 'retry';
     $('end').classList.add('on');
     setTimeout(() => $('bNext').focus(), 50);
   }
@@ -366,13 +507,20 @@
       for (let i = 0; i < 4; i++) R(7, 6 + i * 2, 2, 1, '#F5F3ED'); R(7, 13, 2, 1, '#101114');
     } else if (kind === 'mp3') {
       R(3, 1, 10, 14, '#F5F3ED'); R(8, 4, 1, 7, '#101114'); R(8, 4, 3, 1, '#101114'); R(6, 10, 3, 2, '#101114'); R(3, 1, 10, 2, '#C5FF49');
+    } else if (kind === 'sys') {
+      R(1, 1, 14, 14, '#3a3c44'); R(2, 2, 12, 12, '#2a2c33');
+      R(5, 4, 6, 7, '#77756e'); R(6, 11, 4, 1, '#77756e'); R(7, 12, 2, 1, '#77756e'); R(7, 5, 2, 4, '#2a2c33');
+    } else if (kind === 'key') {
+      R(2, 5, 6, 6, '#ffd84a'); R(4, 7, 2, 2, '#101114'); R(8, 7, 7, 2, '#ffd84a'); R(12, 9, 1, 3, '#ffd84a'); R(14, 9, 1, 2, '#ffd84a'); R(2, 5, 6, 1, '#fff2a8');
     } else { // bin
       R(3, 3, 10, 2, '#cfd3da'); R(6, 2, 4, 1, '#cfd3da'); R(4, 5, 8, 10, spk ? '#6b4b2a' : '#a9afb9');
       for (let i = 0; i < 3; i++) R(5 + i * 2.5, 6, 1, 8, spk ? '#3f2a14' : '#7d838d');
     }
-    // the arrow: a chunky lime tab sticking out of the icon in its direction
+    drawArrow(g, cx, cy, s * 0.44, s * 0.3, d, u);
+  }
+  function drawArrow(g, cx, cy, ext, a, d, u) {
     if (d >= 0) {
-      const ax = cx + DX[d] * s * 0.44, ay = cy + DY[d] * s * 0.44, a = s * 0.3;
+      const ax = cx + DX[d] * ext, ay = cy + DY[d] * ext;
       const px = -DY[d], py = DX[d];
       g.beginPath();
       g.moveTo(ax + DX[d] * a, ay + DY[d] * a);
@@ -382,6 +530,40 @@
       g.lineWidth = Math.max(2, u * 1.2); g.strokeStyle = '#101114'; g.lineJoin = 'round'; g.stroke();
       g.fillStyle = '#C5FF49'; g.fill();
     }
+  }
+  function drawWindow(g, cx, cy, ww, hh, d, name, s) {
+    const x0 = cx - ww / 2, y0 = cy - hh / 2, bar = Math.max(8, s * 0.22);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x0 + 4, y0 + 5, ww, hh);
+    g.fillStyle = '#F5F3ED'; g.fillRect(x0, y0, ww, hh);
+    g.fillStyle = '#B59AFF'; g.fillRect(x0, y0, ww, bar);
+    g.fillStyle = '#101114'; g.fillRect(x0 + ww - bar * 0.9, y0 + bar * 0.25, bar * 0.5, bar * 0.5);
+    g.strokeStyle = '#101114'; g.lineWidth = 2; g.strokeRect(x0, y0, ww, hh);
+    g.fillStyle = '#101114'; g.font = `800 ${Math.max(8, Math.round(s * 0.16))}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const words = name.split(' '), maxW = ww - 8; let lines = [], line = '';
+    for (const wd of words) { const t = line ? line + ' ' + wd : wd; if (g.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t; }
+    lines.push(line); lines = lines.slice(0, hh > ww ? 4 : 2);
+    const lh = Math.max(9, s * 0.2), ty = y0 + bar + (hh - bar) / 2 - (lines.length - 1) * lh / 2;
+    lines.forEach((ln, i) => g.fillText(ln.length > 14 ? ln.slice(0, 13) + '…' : ln, cx, ty + i * lh));
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    drawArrow(g, cx, cy, (d % 2 ? ww : hh) / 2 + s * 0.02, s * 0.3, d, s / 16);
+  }
+  function drawSpinBadge(g, s) {
+    const r = s * 0.17, x = -s * 0.3, y = -s * 0.3;
+    g.fillStyle = '#101114'; g.beginPath(); g.arc(x, y, r + 2, 0, 7); g.fill();
+    g.strokeStyle = '#ffd84a'; g.lineWidth = Math.max(2, s * 0.06); g.beginPath(); g.arc(x, y, r * 0.65, 0.3, 5.3); g.stroke();
+    g.fillStyle = '#ffd84a'; g.beginPath(); g.moveTo(x + r * 0.9, y - r * 0.2); g.lineTo(x + r * 0.35, y + r * 0.35); g.lineTo(x + r * 1.15, y + r * 0.5); g.fill();
+  }
+  function drawLock(g, cx, cy, s) {
+    const u = s / 16;
+    g.fillStyle = '#101114'; g.fillRect(cx - 5 * u, cy - 1 * u, 10 * u, 8 * u);
+    g.fillStyle = '#ffd84a'; g.fillRect(cx - 4 * u, cy, 8 * u, 6 * u);
+    g.strokeStyle = '#ffd84a'; g.lineWidth = 2 * u; g.beginPath(); g.arc(cx, cy - 1 * u, 3 * u, Math.PI, 0); g.stroke();
+    g.fillStyle = '#101114'; g.fillRect(cx - 0.75 * u, cy + 2 * u, 1.5 * u, 2.5 * u);
+  }
+  function drawPiece(g, pc, cx, cy, s, d, ghost) {
+    if (pc.kind === 'win') return drawWindow(g, cx, cy, pc.w * cs - cs * 0.16, pc.h * cs - cs * 0.16, ghost ? -1 : d, pc.name, s);
+    drawIcon(g, pc.kind, cx, cy, s, ghost || pc.wall ? -1 : d, spooky);
+    if (pc.locked && !L.keyGone && !ghost) { g.globalAlpha = 0.55; g.fillStyle = '#101114'; g.fillRect(cx - s / 2, cy - s / 2, s, s); g.globalAlpha = 1; drawLock(g, cx, cy, s * 0.9); }
   }
   function drawWallpaper(now) {
     const g = ctx;
@@ -429,23 +611,20 @@
       g.strokeStyle = '#B59AFF'; g.lineWidth = 2; g.setLineDash([5, 4]); g.strokeRect(cx - cs / 2 + 2, cy - cs / 2 + 2, cs - 4, cs - 4); g.setLineDash([]);
     }
     const animOf = new Map(anims.map((a) => [a.ic, a]));
-    for (let c = 0; c < L.grid.length; c++) {
-      const ic = L.grid[c]; if (!ic) continue;
-      const x = c % L.cols, y = Math.floor(c / L.cols);
-      let [cx, cy] = cellXY(x, y);
-      const a = animOf.get(ic);
+    for (const pc of L.pieces) {
+      if (pc.gone) continue;
+      const [px, py] = center(pc);
+      let [cx, cy] = cellXY(px, py);
+      const a = animOf.get(pc);
       if (a && a.type === 'bonk') { const p = bonkCurve(a.t); cx += DX[a.d] * a.reach * cs * p; cy += DY[a.d] * a.reach * cs * p; }
-      if (ic.wob > 0) { cx += Math.sin(now / 18) * ic.wob * 4; ic.wob = Math.max(0, ic.wob - dt / 400); }
-      const born = Math.min(1, Math.max(0, (now - L.bornAt - ((x + y) * 35)) / 260));
+      if (pc.wob > 0) { cx += Math.sin(now / 18) * pc.wob * 4; pc.wob = Math.max(0, pc.wob - dt / 400); }
+      const born = Math.min(1, Math.max(0, (now - L.bornAt - ((pc.x + pc.y) * 35)) / 260));
       const sc = born < 1 ? easeBack(born) : 1;
       if (sc <= 0) continue;
       g.save(); g.translate(cx, cy); g.scale(sc, sc);
-      drawIcon(g, ic.kind, 0, -(labels ? cs * 0.06 : 0), s, ic.d, spooky);
-      if (labels) {
-        const t = ic.name.length > 12 ? ic.name.slice(0, 11) + '…' : ic.name;
-        g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(t, 1, s * 0.46 + 1);
-        g.fillStyle = '#F5F3ED'; g.fillText(t, 0, s * 0.46);
-      }
+      if (pc.spin) { if (pc.turn > 0) { g.rotate(-pc.turn * Math.PI / 2); pc.turn = Math.max(0, pc.turn - dt / 260); } }
+      drawPiece(g, pc, 0, 0, s, dirOf(pc, L.removed), false);
+      if (pc.spin) { drawSpinBadge(g, s); g.globalAlpha = 0.28; drawArrow(g, 0, 0, s * 0.44, s * 0.24, dirOf(pc, L.removed + 1), s / 16); g.globalAlpha = 1; }
       g.restore();
     }
     // exiting icons: accelerate off the screen with a smear
@@ -455,7 +634,7 @@
       for (let k = 3; k >= 0; k--) {
         const dd = a.dist - k * 0.18 * Math.min(1, a.v / 10);
         g.globalAlpha = k ? 0.12 * (4 - k) : 1;
-        drawIcon(g, a.ic.kind, cx + DX[a.d] * dd * cs, cy + DY[a.d] * dd * cs, s, k ? -1 : a.d, spooky);
+        drawPiece(g, a.ic, cx + DX[a.d] * dd * cs, cy + DY[a.d] * dd * cs, s, a.d, !!k);
       }
       g.globalAlpha = 1;
     }
@@ -474,7 +653,7 @@
       if (a.type === 'bonk') {
         const before = a.t;
         a.t += dt / 380;
-        if (before < 0.35 && a.t >= 0.35 && a.blocker) { a.blocker.wob = 1; const [bx, by] = cellXY(a.x + DX[a.d] * (a.reach + 0.7), a.y + DY[a.d] * (a.reach + 0.7)); spark(bx, by, '#B59AFF', 8); }
+        if (before < 0.35 && a.t >= 0.35 && a.blocker) { a.blocker.wob = 1; const [bx, by] = cellXY(a.x + DX[a.d] * (a.reach + a.ext + 0.2), a.y + DY[a.d] * (a.reach + a.ext + 0.2)); spark(bx, by, '#B59AFF', 8); }
         if (a.t >= 1) a.dead = true;
       } else {
         a.v += dt * 0.07; a.dist += a.v * dt / 1000;
@@ -518,7 +697,7 @@
     hoverC = c;
     const ic = c >= 0 && L.grid[c];
     cv.style.cursor = ic ? 'pointer' : 'default';
-    if (ic) caption(`<em>${esc(ic.name)}</em> · points ${['up', 'right', 'down', 'left'][ic.d]}`);
+    if (ic) caption(ic.wall ? `<em>${esc(ic.name)}</em> · system file, never moves` : ic.locked && !L.keyGone ? `<em>${esc(ic.name)}</em> · locked until admin.key leaves` : `<em>${esc(ic.name)}</em> · points ${['up', 'right', 'down', 'left'][dirOf(ic, L.removed)]}${ic.spin ? ' (for now)' : ''}`);
   });
   cv.addEventListener('pointerdown', (e) => { e.preventDefault(); if (ui !== 'play') return; const c = cellAt(e); cursor = -1; if (c >= 0) tap(c); });
   window.addEventListener('keydown', (e) => {
@@ -543,15 +722,15 @@
     hideAll(); ui = 'title'; L = null; paused = false; setGain();
     $('title').classList.add('on');
     $('bPlay').textContent = level > 0 ? `play · level ${level + 1}` : 'play';
-    const done = store.get('daily-' + dayNo(), null);
+    const done = store.get('daily2-' + dayNo(), null);
     $('bDaily').textContent = done ? `daily #${dayNo()} ✓` : `daily desktop #${dayNo()}`;
     $('bSpooky').classList.toggle('on', spooky);
     $('bSpooky').textContent = spooky ? '🎃 spooky mode: on' : 'spooky mode: off';
     caption('');
   }
-  function restart() { if (!L) return; startLevel(L.mode, L.idx); sfx.tap(); }
+  function restart() { if (!L) return; if (L.mode === 'daily') { toast('no take-backs on the daily.'); return; } startLevel(L.mode, L.idx); sfx.tap(); }
   function setPause(p) {
-    if (ui !== 'play' && p) return;
+    if ((ui !== 'play' || (L && L.done)) && p) return;
     if (p === paused) return;
     paused = p; setGain();
     if (p) { L && (L.pausedAt = performance.now()); $('pause').classList.add('on'); }
@@ -561,7 +740,8 @@
     hideAll(); ui = 'levels';
     $('lvGrid').innerHTML = Array.from({ length: LEVELS }, (_, i) => {
       const open = i <= level, st = stars[i] || 0;
-      return `<button data-i="${i}" class="${open ? '' : 'lock'} ${i === level ? 'cur' : ''}">${i + 1}<small>${open ? '★'.repeat(st) + '·'.repeat(3 - st) : ''}</small></button>`;
+      const head = i % 10 === 0 ? `<div class="wh">world ${i / 10 + 1} · ${WORLDS[i / 10].name}</div>` : '';
+      return head + `<button data-i="${i}" class="${open ? '' : 'lock'} ${i === level ? 'cur' : ''}">${i + 1}<small>${open ? '★'.repeat(st) + '·'.repeat(3 - st) : ''}</small></button>`;
     }).join('');
     $('levels').classList.add('on');
   }
@@ -569,9 +749,14 @@
   on('bPlay', () => { audio(); sfx.tap(); startLevel('level', level); });
   on('bDaily', () => {
     audio(); sfx.tap();
-    const done = store.get('daily-' + dayNo(), null);
+    const done = store.get('daily2-' + dayNo(), null);
     if (done) { lastResult = done; hideAll(); showEnd(done); $('endMsg').innerHTML = 'you already did today\'s desktop. it\'s still clean. come back tomorrow.'; return; }
+    if (store.get('daily2-started-' + dayNo(), 0)) { // left mid-attempt: the daily is one shot
+      const r = { mode: 'daily', idx: 0, won: false, ms: 0, bonks: 0, total: 0, stars: 0, day: dayNo(), jammed: false };
+      store.set('daily2-' + dayNo(), r); lastResult = r; hideAll(); showEnd(r); $('endMsg').innerHTML = 'you left today\'s desktop mid-clean. the daily is one shot. tomorrow.'; return;
+    }
     startLevel('daily', 0);
+    store.set('daily2-started-' + dayNo(), 1);
   });
   on('bLevels', () => { sfx.tap(); openLevels(); });
   on('bLvBack', () => { sfx.tap(); toTitle(); });
@@ -586,10 +771,10 @@
   });
   on('bShare', share);
   on('bEndMenu', () => { sfx.tap(); toTitle(); });
-  on('bRestart', () => { if (ui === 'play') restart(); });
-  on('bMenu', () => { sfx.tap(); toTitle(); });
+  on('bRestart', () => { $('bRestart').blur(); if (ui === 'play') restart(); });
+  on('bMenu', () => { $('bMenu').blur(); sfx.tap(); toTitle(); });
   on('bResume', () => setPause(false));
-  on('bMute', () => { muted = !muted; store.set('muted', muted); audio(); setGain(); updateMute(); });
+  on('bMute', () => { $('bMute').blur(); muted = !muted; store.set('muted', muted); audio(); setGain(); updateMute(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && ui === 'play') setPause(true); });
 
   // player page hooks
@@ -603,11 +788,15 @@
   // test hooks (read-only + a solver for automated playtests)
   window.DJ = {
     ui: () => ui, level: () => (L ? { mode: L.mode, idx: L.idx, cols: L.cols, rows: L.rows, left: remaining(), lives: L.lives, bonks: L.bonks } : null),
-    free: () => (L ? L.grid.map((ic, c) => (ic && !pathBlock(L.grid, L.cols, L.rows, c, ic.d) ? c : -1)).filter((c) => c >= 0) : []),
-    blocked: () => (L ? L.grid.map((ic, c) => (ic && pathBlock(L.grid, L.cols, L.rows, c, ic.d) ? c : -1)).filter((c) => c >= 0) : []),
+    free: () => (L ? L.pieces.filter((pc) => !pc.gone && movable(pc, L.keyGone) && !block(L.grid, L.cols, L.rows, pc, dirOf(pc, L.removed)).k).map((pc) => pc.cells[0]) : []),
+    blocked: () => (L ? L.pieces.filter((pc) => !pc.gone && movable(pc, L.keyGone) && block(L.grid, L.cols, L.rows, pc, dirOf(pc, L.removed)).k).map((pc) => pc.cells[0]) : []),
+    // a move that keeps the level solvable (for automated tests)
+    safe: () => { if (!L) return -1; for (const pc of L.pieces) { if (pc.gone || !movable(pc, L.keyGone) || block(L.grid, L.cols, L.rows, pc, dirOf(pc, L.removed)).k) continue; const g = L.grid.slice(); for (const c of pc.cells) g[c] = null; const rest = piecesOf(g).filter((q) => !q.wall); if (!rest.length) return pc.cells[0]; const sp = rest.map((q) => q.spin ? Object.assign(Object.create(q), { d: dirOf(q, L.removed + 1) }) : q); const g2 = g.map((q) => (q && q.spin ? sp[rest.indexOf(q)] : q)); if (solve(g2, L.cols, L.rows, 3000).ok) return pc.cells[0]; } return -1; },
+    check: (i) => { const sp = i < 0 ? dailySpec() : levelSpec(i); return Object.assign(solve(sp.grid, sp.cols, sp.rows, 20000), { jam: jamRate(sp.grid, sp.cols, sp.rows, 7, 40) }); },
+    kinds: () => (L ? L.pieces.reduce((m, pc) => { const k = pc.wall ? 'wall' : pc.win ? 'win' : pc.key ? 'key' : pc.locked ? 'locked' : 'icon'; m[k] = (m[k] || 0) + 1; return m; }, {}) : null),
     point: (c) => { const r = cv.getBoundingClientRect(); return { x: r.left + ox + (c % L.cols + 0.5) * cs, y: r.top + oy + (Math.floor(c / L.cols) + 0.5) * cs }; },
     card: () => (lastResult ? drawCard(lastResult).toDataURL('image/png') : null),
-    spec: (i) => { const s = levelSpec(i); return { cols: s.cols, rows: s.rows, n: s.grid.filter(Boolean).length, e: +easiness(s.grid, s.cols, s.rows, 1).toFixed(3) }; },
+    spec: (i) => { const s = levelSpec(i); return { cols: s.cols, rows: s.rows, n: piecesOf(s.grid).filter((pc) => !pc.wall).length, e: +easiness(s.grid, s.cols, s.rows, 1).toFixed(3) }; },
   };
 
   updateMute();
