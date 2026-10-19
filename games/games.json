@@ -52,6 +52,20 @@
       "tags": [],
       "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
       "size_kb": 115
+    },
+    {
+      "slug": "smol-brains",
+      "title": "smol brains",
+      "pitch": "raise tiny creatures with real neural-network brains. teach them words. they will learn the wrong ones.",
+      "thumbnail": "/games/smol-brains/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "sim",
+        "pets",
+        "ai"
+      ],
+      "controls": "tools: grab, tickle (reward), tap (scold), talk (1-4). drag to carry or throw, drag empty ground to pan, pinch or wheel to zoom. space pauses, [ ] speed, t talk, b brain viewer.",
+      "size_kb": 602
     }
   ]
 }

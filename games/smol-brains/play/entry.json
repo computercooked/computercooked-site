@@ -1,0 +1,14 @@
+{
+  "slug": "smol-brains",
+  "title": "smol brains",
+  "pitch": "raise tiny creatures with real neural-network brains. teach them words. they will learn the wrong ones.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tools: grab, tickle (reward), tap (scold), talk (1-4). drag to carry or throw, drag empty ground to pan, pinch or wheel to zoom. space pauses, [ ] speed, t talk, b brain viewer.",
+  "size_kb": 602,
+  "tags": [
+    "sim",
+    "pets",
+    "ai"
+  ]
+}

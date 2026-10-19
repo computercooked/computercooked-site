@@ -10,3 +10,5 @@ node_modules
 .DS_Store
 .wrangler
 .claude
+games/smol-brains/tests/
+games/smol-brains/DESIGN.md
