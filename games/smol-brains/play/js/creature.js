@@ -522,7 +522,7 @@
       SB.Chem.apply(oc, { pain: hard, fear: 0.18, anger: 0.15 });
       o.anim.squash = 0.35; emote(o, "ouch", 1.5);
       if (o.species === "smol") say(o, knows(o, "ouch") ? "ouch!" : "eek!", game);
-      if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.3)) { oc.antigen = Math.min(1, oc.antigen + 0.25); }
+      if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2)) { oc.antigen = Math.min(1, oc.antigen + 0.25); }
       if (o.asleep) { o.asleep = false; o.inBed = false; o.action = null; }
       o.vx = c.facing * 120; o.vy = -160; o.onGround = false;
       SB.bus.emit("hit", { c: c, target: o });
@@ -531,7 +531,7 @@
     } else if (verb === V.cuddle && o.species === "smol") {
       SB.Chem.apply(oc, { lonely: -0.2 });
       emote(c, "love", 1.8); emote(o, "love", 1.8);
-      tryBreed(c, o, game);
+      tryBreed(c, o, game, c.action ? c.action.start[D.love] : c.chem.love);
     } else if (verb === V.play && o.species === "smol") {
       SB.Chem.apply(oc, { bored: -0.15 });
     }
@@ -542,9 +542,10 @@
     if (verb === V.hit) { emote(c, c.species === "grump" ? "angry" : "huh", 1.2); SB.Render && SB.Render.fx && SB.Render.fx("bonk", game.hand.x, game.hand.y); }
   }
 
-  function tryBreed(a, b, game) {
+  // aLove: the actor's love before this cuddle relieved it
+  function tryBreed(a, b, game, aLove) {
     if (a.stage !== 3 || b.stage !== 3) return;
-    if (a.chem.love < 0.5 || b.chem.love < 0.5) return;
+    if (aLove < 0.5 || b.chem.love < 0.4) return;
     if (a.eggCooldown > 0 || b.eggCooldown > 0) return;
     var pop = SB.Game.smols(game).length + game.world.objects.filter(function (o) { return o.kind === "egg"; }).length;
     if (pop >= 16) { say(a, "too many smols", game); return; }

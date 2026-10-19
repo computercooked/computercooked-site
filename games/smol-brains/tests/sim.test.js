@@ -32,6 +32,9 @@ const seed = +(process.argv[3] || 12345);
 const player = process.argv[4] !== "afk"; // a lazy scripted player that feeds and teaches
 
 const game = SB.Game.create(seed);
+const verbCount = {};
+const origDecide = SB.Brain.decide;
+SB.Brain.decide = function (b, rng, mask, bias) { const a = origDecide(b, rng, mask, bias); const k = SB.VERBS[a]; verbCount[k] = (verbCount[k] || 0) + 1; return a; };
 game.tutorial.done = true;
 const events = {};
 for (const ev of ["hatch", "death", "learnWord", "egg", "eat", "obey", "sick", "cured", "grumpArrive", "achievement", "say", "hit"]) {
@@ -69,11 +72,12 @@ for (let s = 0; s < steps; s++) {
   }
   if (s % Math.round(600 / SB.TICK) === 0) {
     const smols = SB.Game.smols(game);
-    const line = smols.map((c) => `${c.name}[${["B", "K", "T", "A", "E"][c.stage]} iq${SB.Creature.iq(c, true)} w${SB.Creature.knownCount(c)} h${c.chem.health.toFixed(2)} hu${c.chem.hunger.toFixed(2)}]`).join(" ");
+    const line = smols.map((c) => `${c.name}[${["B", "K", "T", "A", "E"][c.stage]} iq${SB.Creature.iq(c, true)} w${SB.Creature.knownCount(c)} h${c.chem.health.toFixed(2)} hu${c.chem.hunger.toFixed(2)} lv${c.chem.love.toFixed(2)} lo${c.chem.lonely.toFixed(2)} bo${c.chem.bored.toFixed(2)}]`).join(" ");
     console.log(`t=${(game.time / 60).toFixed(0)}m day ${SB.World.clock(game).day} smols=${smols.length} grumps=${SB.Game.grumps(game).length} objs=${game.world.objects.length} | ${line}`);
   }
 }
 const ms = performance.now() - t0;
+console.log("\nverbs:", JSON.stringify(verbCount));
 console.log("\nevents:", JSON.stringify(events));
 console.log("stats:", JSON.stringify(game.stats));
 console.log("achievements:", Object.keys(game.achievements).join(", "));
