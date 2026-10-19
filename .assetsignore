@@ -12,3 +12,4 @@ node_modules
 .claude
 games/smol-brains/tests/
 games/smol-brains/DESIGN.md
+games/smol-brains/screenshots/

@@ -76,6 +76,8 @@ The player was a floating **hand**. You could pick things up, push them, and **t
    - Decision: hidden layer (6–24 tanh neurons, size from the genome) → 12 verb outputs (expected reward of doing that verb to that thing). Softmax choice with a genome-set temperature (curiosity).
    - Learning: an online, reward-modulated update (a contextual-bandit / one-step actor-critic flavour). After each action the reward is how much the drives went down (weighted by genes) plus the tickle/tap chemicals. The error between predicted and actual reward is backpropagated through the hidden layer for the chosen verb. **Eligibility traces** keep the last few decisions "susceptible" (exactly like Creatures' dendrite susceptibility) so a tickle a second later still credits the right action.
    - Instincts: genes list (drive, noun, verb, strength). At hatching the brain "dreams" these as training examples, so babies start with weak, imperfect hunches. Mutated instincts make weird babies.
+   - Lesson memories: the player's tickles, taps and "good"/"bad" go mostly into two small tables that sit on top of the net's output, the modern version of Creatures' concept lobe: **noun → verb** ("not THAT mushroom", so lessons stay specific and don't spill onto all food) and **heard word → verb** (what "come" or "eat" means). A lesson lands on the action being done, or the one that finished in the last 2.5 s, because players react a beat late.
+   - After-taste: feeling sick or hurt within 45 s of a rotten or poisonous meal is a lesson about that meal, so smols can learn to avoid red shrooms even without a player.
    - Imitation: watching another creature act nudges the watcher's brain toward that action. Good smols teach each other; grumps teach hitting.
    - Brain viewer: click a smol and see every neuron's activation, the weights as coloured lines, flashes where learning just changed a weight, and a plain-English readout ("hungry + sees food → eat (0.71)").
 2. **Biochemistry** (`chemistry.js`)
@@ -230,3 +232,31 @@ SB.Audio.init(); SB.Audio.play(name, opts); SB.Audio.voice(text, pitch); SB.Audi
 
 ## 5. Performance budget
 Brains are 45→≤24→12 dense nets (≈1.4k weights): a forward pass is microseconds. Decisions happen every 1–3 s, not every frame. Rendering is canvas 2D with procedural shapes, cached background layers per biome, and no per-frame allocations in the hot loop. Target: 15 creatures at 60 fps on a laptop, 30 fps on a mid phone. The sim runs at a fixed 30 Hz step, scaled by the time speed (max 8 steps per frame).
+
+---
+
+## 6. Playtest results and tuning
+
+Three playtest agents played the integrated build (desktop 1280×720 and phone 390×844 with touch, plus long headless simulations and controlled teaching experiments). Their honest ratings before the fix pass:
+
+| Area | Rating |
+|---|---|
+| First 5 minutes delight | 8/10 |
+| Cuteness / art | 9/10 |
+| Phone UI / desktop UI | 7/10 · 6/10 |
+| Depth | 8/10 |
+| Stability / persistence | 8/10 |
+| Balance | 4/10 |
+| Teaching feels real | 5/10 |
+| Brain viewer | 7/10 |
+
+What they flagged, and what changed:
+- **Lessons only worked with perfect timing; taps on a hit made hitting more likely; lessons about poison spilled onto all food; commands were mostly genetics.** → lesson crediting within 2.5 s, noun→verb and word→verb lesson tables, tap = −1. Measured now (`tests/teach.test.js`): 4 late taps take "eat red shroom" from 14–60% to 0% while real food barely moves; "come" goes from ~20% to 93–100% obedience after ~5–10 rewarded obeys, versus 13–50% without the word.
+- **Smols learned to eat poison** (the sickness came too late to link to the meal) → instant "yuck" pain for rotten/poison food and the after-taste lesson; glowcaps (safe) moved to the "food" category so "shroom" means the bad one.
+- **Sickness killed 56% of smols; colonies went extinct** → slower germs, stronger antibodies, rotten food clears sooner and is less germy; after a minute with no smols the incubator finds a wild egg. 3-hour AFK sims now end mostly in old-age deaths.
+- **Breeding rare and invisible** → adults in love seek a partner to cuddle and show 💕; shorter egg cooldown; eggs hatch slowly anywhere; grumps can't steal eggs.
+- **Grumps stayed off-screen** → grumps now raid toward the smols; the alert toast jumps the camera to them; "Shoo!" always unlocks.
+- **Speech spammy, "eat bed"** → chatter rate cut by ~60%, "want X" names something that fixes the current feeling, "eat" masked to edible things; smols share the word for what the listener is looking at (cultural transmission works now).
+- **Phone layout** → the renderer keeps the ground in the gap between HUD and dock; talk bar replaces the smol sheet; toasts float at the top; carrying something to the screen edge scrolls the world.
+
+Tests: `node tests/brain.test.js`, `node tests/world.test.js`, `node tests/teach.test.js`, `node tests/sim.test.js <minutes> <seed> [afk]`.
