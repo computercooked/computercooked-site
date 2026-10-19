@@ -10,6 +10,7 @@ index.html        the page
 styles.css        all styles (brand colors are CSS variables at the top)
 assets/           logo.svg (also the favicon), og.png, apple-touch-icon.png, fonts/
 assets/deck.*     the "control deck" nav + "/" command bar, shared by every page
+assets/fx.js      presentation-only polish for /games pages: card tilt, ticker, player boot screen, "play next" strip
 games/            Computer Cooked Games: hub (index.html), games.json, games.css, hub.js
 games/crash/      CRASH, our first game (index.html player page, crash.js, thumb.svg)
 robots.txt, sitemap.xml, _headers

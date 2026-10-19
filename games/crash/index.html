@@ -30,7 +30,7 @@
 </head>
 <body>
   <main class="player-page">
-    <p class="crumbs"><a href="/games/">games</a> / crash</p>
+    <nav class="crumbs" aria-label="breadcrumb"><span class="crumb-prompt" aria-hidden="true">~/</span><a href="/games/">games</a><span aria-hidden="true">/</span><span aria-current="page">crash</span></nav>
 
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
@@ -112,6 +112,11 @@
         </div>
       </aside>
     </div>
+
+    <section class="more-games" data-more-games="crash" aria-labelledby="more-heading" hidden>
+      <h2 class="shelf-head" id="more-heading">play next <a class="shelf-link" href="/games/">all games ▶</a></h2>
+      <ul class="card-grid"></ul>
+    </section>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -141,6 +146,7 @@
       </a>
     </div>
   </nav>
+  <script src="/assets/fx.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
 </html>
