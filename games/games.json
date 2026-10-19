@@ -237,6 +237,23 @@
       "version": "1",
       "added": "2026-10-19",
       "max_score_per_sec": 50.0
+    },
+    {
+      "slug": "plus-one-ram",
+      "title": "+1 ram every second",
+      "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
+      "thumbnail": "/games/plus-one-ram/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "io",
+        "grow",
+        "arena",
+        "casual"
+      ],
+      "controls": "drag anywhere to steer (mouse or wasd/arrows on desktop). p pauses, m mutes.",
+      "size_kb": 53,
+      "version": "1",
+      "added": "2026-10-19"
     }
   ]
 }
