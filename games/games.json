@@ -54,22 +54,6 @@
       "size_kb": 115
     },
     {
-      "slug": "one-percent-popup",
-      "title": "only 1% can close this pop-up",
-      "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
-      "thumbnail": "/games/one-percent-popup/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [
-        "reflex",
-        "trick",
-        "challenge",
-        "short",
-        "halloween"
-      ],
-      "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
-      "size_kb": 48
-    },
-    {
       "slug": "keyboard-escape",
       "title": "+1 Speed Keyboard Escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
@@ -102,6 +86,39 @@
       ],
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
       "size_kb": 46
+    },
+    {
+      "slug": "one-percent-popup",
+      "title": "only 1% can close this pop-up",
+      "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
+      "thumbnail": "/games/one-percent-popup/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "reflex",
+        "trick",
+        "challenge",
+        "short",
+        "halloween"
+      ],
+      "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
+      "size_kb": 49
+    },
+    {
+      "slug": "crash-cheats",
+      "title": "crash cheats at tic tac toe",
+      "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
+      "thumbnail": "/games/crash-cheats/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "rage",
+        "tic tac toe",
+        "funny",
+        "1 player",
+        "halloween"
+      ],
+      "controls": "tap / click a square · keys 1–9 or arrows + space",
+      "size_kb": 107
     }
   ]
 }

@@ -49,6 +49,9 @@
   #credit b { color: var(--lime); }
 
   /* fake pop-ups */
+  .pop { animation: popin .2s cubic-bezier(.2,1.5,.4,1); }
+  @keyframes popin { from { scale: .55; opacity: 0; } }
+  .spark { position: absolute; width: 9px; height: 9px; border-radius: 2px; background: var(--acc); pointer-events: none; z-index: 41; }
   .pop { position: absolute; background: var(--paper); color: var(--carbon); border-radius: 10px; box-shadow: 0 14px 40px #000a, 0 0 0 2px #0006; overflow: hidden; z-index: 10; }
   .pop .bar { display: flex; align-items: center; gap: 8px; background: var(--acc); padding: 6px 6px 6px 10px; min-height: 38px; }
   .pop .ttl { flex: 1; font: 800 13px/1.1 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

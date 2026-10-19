@@ -93,8 +93,18 @@
     e.addEventListener('pointerdown', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       if (state !== 'play') return;
-      sfx.tap(); fn(ev);
+      sfx.tap(); lastTap.x = ev.clientX; lastTap.y = ev.clientY; fn(ev);
     });
+  }
+  const lastTap = { x: 0, y: 0 };
+  function poof() {
+    const r = stage.getBoundingClientRect();
+    for (let i = 0; i < 10; i++) {
+      const d = el('i', 'spark'), a = i / 10 * 6.283, dist = 40 + Math.random() * 40;
+      d.style.left = (lastTap.x - r.left) + 'px'; d.style.top = (lastTap.y - r.top) + 'px';
+      stage.appendChild(d);
+      d.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(a) * dist}px), calc(-50% + ${Math.sin(a) * dist}px)) scale(.3)`, opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => d.remove();
+    }
   }
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 1600); }
 
@@ -150,7 +160,7 @@
       p.x.style.cssText = 'width:16px;height:16px;font-size:11px;border-radius:4px';
       tap(p.x, L.win);
     } },
-    { say: 'close it. carefully.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'one quick survey', x: false, body: '<h4>how was your experience?</h4>pick a button. only one is honest.<div class="row"></div>' });
       const row = p.querySelector('.row');
       shuffle([['close', true], ['c1ose', false], ['clsoe', false]]).forEach(([t, ok]) => {
@@ -178,9 +188,9 @@
         ['are you sure?', 'yes', 'no', true],
         ['are you SURE sure?', 'no', 'yes', false],
         ['last chance. close it?', 'keep it open', 'close it', false],
-      ], L.win, () => L.fail('you said keep it. it lives here now.')); });
+      ], L.win, () => L.fail('wrong answer. read the buttons, not the vibes. it lives here now.')); });
     } },
-    { say: 'close it. no x? look harder.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'MEGA SALE', x: false, w: 300, body: '' });
       p.querySelector('.body').outerHTML = '<div class="ad">e<span>x</span>tra deals!!<br>90% off bo<span>x</span>es<br>ma<span>x</span> savings<br><span class="real">×</span> limited time</div>';
       tap(p.querySelector('.real'), L.win);
@@ -192,7 +202,7 @@
       tap(p.querySelector('.btn'), () => L.fail('it said don\'t touch anything. in small text. classic.'));
       L.stageTap(() => L.fail('you touched it. it said not to. in small text.'));
     } },
-    { say: 'close it. it moves.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'dvd screensaver ad', w: 220, at: 'random', body: 'will it hit the corner? buy premium to find out.' });
       let vx = pick([-1, 1]) * Math.max(140, W() * 0.35), vy = pick([-1, 1]) * Math.max(120, H() * 0.3), x = p.offsetLeft, y = p.offsetTop;
       L.tick((dt) => {
@@ -203,7 +213,7 @@
       });
       tap(p.x, L.win);
     } },
-    { say: 'close it. ignore the ad.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'your pc is slow', body: '<h4>14,882 viruses found</h4>download our cleaner (also a virus).' });
       const bar = p.querySelector('.bar');
       const real = el('b', 'x', '×'); bar.insertBefore(real, bar.firstChild);
@@ -244,7 +254,7 @@
       const up = () => { if (!drag) return; drag = false; kx = 0; k.style.left = '4px'; };
       k.addEventListener('pointerup', up); k.addEventListener('pointercancel', up);
     } },
-    { say: 'close it. buttons lie now.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'opposite day', x: false, body: '<h4>everything is backwards today</h4>sorry. management decision.<div class="row"></div>' });
       const row = p.querySelector('.row');
       shuffle([['close', false], ['open', true]]).forEach(([t, ok]) => { const b = el('div', 'btn' + (t === 'close' ? ' big' : ''), t); row.appendChild(b); tap(b, () => (ok ? L.win() : L.fail('told you. the buttons lie. "open" closes.'))); });
@@ -263,28 +273,30 @@
         });
       });
     } },
-    { say: 'close it. fast.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'flash sale', body: '<h4>the x is shrinking</h4>much like your attention span.' });
       let s = 40;
       L.tick((dt) => { s -= dt * 16; if (s <= 3) return L.fail('the x shrank into nothing. like your chances.'); p.x.style.width = p.x.style.height = s + 'px'; p.x.style.fontSize = s * 0.6 + 'px'; });
       tap(p.x, L.win);
     } },
     { say: 'close it.', setup(L) {
-      const p = pop({ title: 'australian mode', body: '<h4>g\'day</h4>this pop-up is upside down. you are not. adapt.' });
+      const p = pop({ title: 'australian mode', w: 250, body: '<h4>g\'day</h4>this pop-up is upside down. and shy.' });
       p.style.transform = 'rotate(180deg)';
-      tap(p.x, L.win);
+      runaway(p, 2, L.win);
     } },
-    { say: 'close it. lights are off.', setup(L) {
-      const p = pop({ title: 'dark mode', cls: 'dark', body: '<h4>dark mode enabled</h4>for your eyes. and our x.' });
+    { say: 'close it.', setup(L) {
+      const p = pop({ title: 'dark mode', cls: 'dark', w: 230, at: 'random', body: '<h4>dark mode enabled</h4>for your eyes. and our x. it also drifts.' });
       p.x.style.boxShadow = '0 0 0 1px #2a2b33';
+      let vx = pick([-1, 1]) * Math.max(90, W() * 0.2), vy = pick([-1, 1]) * Math.max(80, H() * 0.18), x = p.offsetLeft, y = p.offsetTop;
+      L.tick((dt) => { x += vx * dt; y += vy * dt; if (x < 4 || x > W() - p.offsetWidth - 4) vx *= -1; if (y < 4 || y > H() - p.offsetHeight - 4) vy *= -1; place(p, x, y); });
       tap(p.x, L.win);
     } },
-    { say: 'close it. it\'s stubborn.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'are you still watching?', body: '<h4>autoplay is on</h4>the x needs convincing.' });
       let n = 8; p.x.innerHTML = '<span class="stub">8</span>'; p.x.style.width = '44px'; p.x.style.height = '44px';
       tap(p.x, () => { n--; p.x.innerHTML = n ? `<span class="stub">${n}</span>` : '×'; p.x.animate([{ transform: 'scale(.8)' }, { transform: 'none' }], 90); if (!n) L.win(); });
     } },
-    { say: 'close it. the calm one.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'too many options', x: false, w: 300, body: '<div class="xgrid"></div>' });
       const g = p.querySelector('.xgrid'), real = Math.floor(rnd(0, 16));
       for (let i = 0; i < 16; i++) { const b = el('div', 'xbtn' + (i === real ? '' : ' wob'), '×'); g.appendChild(b); tap(b, i === real ? L.win : () => L.fail('that one was panicking. you wanted the calm one.')); }
@@ -311,7 +323,7 @@
       };
       make(1);
     } },
-    { say: 'close it. think outside the box.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'fullscreen ad', x: false, body: '<h4>this ad has no x</h4>it is the whole screen now. this is your life.' });
       p.style.width = (W() - 40) + 'px'; p.style.height = (H() - 40) + 'px'; place(p, 20, 20);
       tap(p, () => L.fail('you clicked the ad. it has no x. we told you.'));
@@ -335,7 +347,7 @@
       const up = () => { drag = false; };
       p.addEventListener('pointerup', up); p.addEventListener('pointercancel', up);
     } },
-    { say: 'close it. when it lets you.', setup(L) {
+    { say: 'close it.', setup(L) {
       const p = pop({ title: 'please wait', body: '<h4>loading close button…</h4>the x only works when it is lime.' });
       let t = 0, on = false;
       p.x.style.width = '44px'; p.x.style.height = '44px';
@@ -348,7 +360,7 @@
       tap(p.x, () => { p.remove(); if (--n === 0) L.win(); });
       cookieBanner({}, () => { if (--n === 0) L.win(); }, () => L.fail('you accepted the cookies. in front of everyone.'));
     } },
-    { say: 'close it. it moves.', time: 6, setup(L) {
+    { say: 'close it.', time: 6, setup(L) {
       const p = pop({ title: 'unsaved changes', w: 220, at: 'random', body: 'are you sure you want to leave? (it will ask again)' });
       let vx = pick([-1, 1]) * Math.max(120, W() * 0.3), vy = pick([-1, 1]) * Math.max(110, H() * 0.25), x = p.offsetLeft, y = p.offsetTop, moving = true;
       L.tick((dt) => {
@@ -373,6 +385,13 @@
   ];
 
   // ---------- run state ----------
+  let order = LEVELS.map((_, i) => i);
+  function shuffleOrder() {
+    const seg = (a, b) => shuffle(order.slice(a, b));
+    order = LEVELS.map((_, i) => i);
+    order = [0, ...seg(1, 10), ...seg(10, 20), ...seg(20, 29), 29];   // same difficulty tiers, new order every run
+  }
+  const DEF = (l) => LEVELS[order[l]];
   let state = 'title'; // title | play | between | over | paused
   let level = 0, tLeft = 0, tMax = 5, L = null, runStart = 0, pausedFrom = null, lastTick = 0;
   const ticks = [];
@@ -382,21 +401,21 @@
   function setCrash(s) { $('crash').className = s || ''; }
   function hud() {
     $('lvl').innerHTML = `lvl ${level + 1}<small>/30</small>`;
-    $('pct').textContent = level === 0 ? 'everyone sees level 1' : `only ${fmtPct(level + 1)} reach this`;
-    $('say').textContent = LEVELS[level].say;
+    $('pct').textContent = level === 0 ? 'everyone sees level 1' : `only ~${fmtPct(level + 1)} reach this (est.)`;
+    $('say').textContent = DEF(level).say;
   }
   function clearLevel() { layer.innerHTML = ''; ticks.length = 0; stageHandler = null; }
 
   function startRun() {
     closeOverlay();
-    level = 0; runStart = performance.now();
+    level = 0; runStart = performance.now(); shuffleOrder();
     sdk((c) => c.start && c.start());
     startLevel();
   }
   function startLevel() {
     clearLevel(); setCrash('');
-    const def = LEVELS[level];
-    tMax = tLeft = def.time || 5;
+    const def = DEF(level);
+    tMax = tLeft = (def.time || 5) * (level >= 20 && level < 29 ? 0.85 : 1);
     $('timer').className = def.timeoutWins ? 'wait' : '';
     L = {
       timeoutWins: !!def.timeoutWins,
@@ -421,10 +440,10 @@
     best = Math.max(best, level); store.set(BEST_KEY, String(best));
     sdkScore(level);
     if (level >= LEVELS.length) { sfx.big(); return gameOver(true); }
-    sfx.win();
+    sfx.win(); poof();
     const f = $('flash'); f.textContent = pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
     f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
-    setTimeout(() => { if (state === 'between') startLevel(); }, 420);
+    setTimeout(() => { if (state === 'between') startLevel(); }, 300);
   }
   function fail(why) {
     if (state !== 'play') return;
@@ -469,6 +488,7 @@
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`
       : `<div class="bigc"></div><h1>cooked on <em>level ${reached}</em></h1><p>only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
          <p class="why">${why || 'too slow. the pop-up outlasted you.'}</p>
+         <p>lasted ${(dur / 1000).toFixed(1)}s. new pop-up order every run.</p>
          <p>best: level ${Math.min(best + 1, 30)}</p>
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
     o.querySelector('#again').addEventListener('click', () => { audio(); startRun(); });
@@ -542,6 +562,8 @@
     closeOverlay(); state = pausedFrom === 'between' ? 'play' : pausedFrom; pausedFrom = null;
     if (!layer.children.length && state === 'play') startLevel();
   }
+  // rotating a phone or resizing mid-level must never strand a pop-up off-screen
+  window.addEventListener('resize', () => { layer.querySelectorAll('.pop').forEach((p) => { if (p.offsetWidth > W() - 8) p.style.width = (W() - 24) + 'px'; place(p, p.offsetLeft, p.offsetTop); }); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
   // ---------- player page messages ----------
@@ -557,8 +579,9 @@
   window.addEventListener('keydown', (e) => {
     if (e.key === 'm' || e.key === 'M') { $('muteBtn').click(); return; }
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (state === 'over') { e.preventDefault(); audio(); startRun(); return; }   // enter always retries, even with share focused
     if (e.target && e.target.tagName === 'BUTTON') return; // the focused button's own click handles it
-    if (state === 'title' || state === 'over') { e.preventDefault(); audio(); startRun(); }
+    if (state === 'title') { e.preventDefault(); audio(); startRun(); }
     else if (state === 'paused') { e.preventDefault(); resume(); }
   });
 
