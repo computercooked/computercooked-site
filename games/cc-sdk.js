@@ -102,7 +102,24 @@
     return JSON.stringify({ anon: anon, tester: tester || null, ref: ref, name: ls("cc-guest-name") || null, events: evts });
   }
 
+  // The platform API may not be live yet; ask once and stay quiet if it is not.
+  var apiUp = null;
+  function apiReady() {
+    if (apiUp) return apiUp;
+    apiUp = fetch("/api/health", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return !!(j && j.db); })
+      .catch(function () { return false; });
+    return apiUp;
+  }
+
   function flush(beacon) {
+    return apiReady().then(function (up) {
+      if (!up) { queue.length = 0; return null; }
+      return send(beacon);
+    });
+  }
+  function send(beacon) {
     clearTimeout(timer); timer = null;
     if (!queue.length) return Promise.resolve(null);
     var evts = queue.splice(0, 50);
@@ -148,9 +165,12 @@
   }
   var lastPlayId = null;
 
+  var known = false;
+  apiReady().then(function (up) { known = up; });
   window.addEventListener("pagehide", function () {
-    if (play) end({ completed: false }, true);
-    else flush(true);
+    if (!known) return;
+    if (play) { end({ completed: false }, true); }
+    send(true);
   });
 
   window.cc = {
@@ -163,6 +183,7 @@
     _version: function () { return version; },
     _active: function () { return !!play; },
     _anon: anon,
+    _apiReady: apiReady,
     _tester: function () { return tester; },
     _lastPlay: function () { return play ? play.id : lastPlayId; },
     guestName: function (n) { if (n === undefined) return ls("cc-guest-name"); ls("cc-guest-name", String(n).slice(0, 16)); }

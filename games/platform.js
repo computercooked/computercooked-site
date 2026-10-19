@@ -6,6 +6,8 @@
   var cc = window.cc;
   if (!panel || !cc) return;
   var game = panel.dataset.game || cc._game();
+  cc._apiReady().then(function (up) { if (up) mount(); });
+  function mount() {
   var me = null, info = null, period = "day";
 
   function el(html) { var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
@@ -142,4 +144,5 @@
     var r = e.detail && e.detail.result;
     if (r && r.accepted && window.ccToast) window.ccToast("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
   });
+  }
 })();

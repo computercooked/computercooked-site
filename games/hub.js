@@ -42,10 +42,12 @@
     sec.hidden = false;
   }
 
+  var live = fetch("/api/health").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return !!(j && j.db); }).catch(function () { return false; });
+  var off = function () { return Promise.resolve(null); };
   Promise.all([
     fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }),
-    api("/api/stats"),
-    api("/api/me")
+    live.then(function (up) { return up ? api("/api/stats") : null; }),
+    live.then(function (up) { return up ? api("/api/me") : null; })
   ]).then(function (res) {
     var data = res[0], st = res[1], who = res[2];
     if (st && st.ok) st.games.forEach(function (g) { stats[g.game] = g; });
@@ -76,7 +78,7 @@
 
     var cshelf = document.getElementById("shelf-community");
     if (cshelf && community.length) cshelf.insertAdjacentHTML("afterbegin", community.map(card).join(""));
-    api("/api/community").then(function (c) {
+    live.then(function (up) { return up ? api("/api/community") : null; }).then(function (c) {
       if (!c || !c.ok || !c.games.length || !cshelf) return;
       cshelf.insertAdjacentHTML("afterbegin", c.games.map(function (u) {
         return card({ slug: "community/" + u.slug, title: u.title, pitch: u.pitch || "", thumbnail: "/assets/logo.svg", tags: ["community"] })

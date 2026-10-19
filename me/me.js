@@ -108,8 +108,12 @@
 
   fetch("/games/games.json").then(function (r) { return r.json(); }).catch(function () { return { games: [] }; }).then(function (d) {
     (d.games || []).forEach(function (g) { catalog[g.slug] = g; });
+    return fetch("/api/health").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }).then(function (h) {
+    if (!h || !h.db) { $("#auth").hidden = true; $("#soon").hidden = false; return null; }
     return api("/api/me");
   }).then(function (r) {
+    if (r === null) return;
     if (r && r.user) showProfile(r.user);
     else {
       $("#auth").hidden = false;
