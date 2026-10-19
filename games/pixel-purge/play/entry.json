@@ -1,11 +1,24 @@
 {
   "slug": "pixel-purge",
   "title": "pixel purge",
+  "version": 2,
   "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart",
-  "size_kb": 92,
-  "tags": ["puzzle", "color-sort", "shooter", "daily", "casual", "halloween"],
-  "max_score_per_sec": 200
+  "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart. badges show how many pixels each front disk can hit.",
+  "size_kb": 96,
+  "tags": [
+    "puzzle",
+    "color-sort",
+    "shooter",
+    "daily",
+    "casual",
+    "halloween"
+  ],
+  "max_score_per_sec": 200,
+  "changelog": "v2: wake chains (idle disks firing again within 3s build a combo), per-lane hit-count badges, 3 stars per level (clear, no undo, low bench), daily counts first try only, bench stays visible on the lose card, timer pauses in menus, warning re-arms, shorter tutorial.",
+  "playtest": {
+    "before": 5.0,
+    "after": 6.5
+  }
 }

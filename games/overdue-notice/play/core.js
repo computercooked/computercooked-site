@@ -51,7 +51,7 @@
     { id: 'magnet', icon: '🧲', unlock: 2, max: 10, cost: 90, mult: 2.6, names: ['no magnet', 'piggy magnet'], desc: () => 'piggies come more often, hold more' },
     { id: 'budget', icon: '📊', unlock: 2, max: 1, cost: 250, mult: 1, names: ['no budget', 'budgeting app'], desc: () => 'all bills −10%. it\'s a subscription.' },
     { id: 'headphones', icon: '🎧', unlock: 3, max: 8, cost: 300, mult: 3, names: ['no headphones', 'noise-cancelling headphones'], desc: () => 'debt collector −13% speed (can\'t hear him)' },
-    { id: 'autopay', icon: '🤖', unlock: 4, max: 1, cost: 1500, mult: 1, names: ['manual', 'autopay'], desc: () => 'pays bills for you when it can' }
+    { id: 'autopay', icon: '🤖', unlock: 4, max: 1, cost: 1500, mult: 1, names: ['manual', 'autopay'], desc: () => 'pays bills for you when it can (+10% convenience fee)' }
   ];
   const UP = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
   const PERKS = [
@@ -72,6 +72,17 @@
     ['newsletter', 'subscribe for weekly regret'], ['limited offer', 'ends in 00:00:03 (forever)'],
     ['you\'ve been selected', 'for a timeshare presentation'], ['login expired', 'please log in to log out'],
     ['are you still there?', 'click if you are alive'], ['download ram', 'free, legal, totally real']
+  ];
+  // daily situation cards (from day 3): pick one of two. effects last until the day ends.
+  const EVENTS = [
+    { id: 'heat', icon: '🥵', title: 'heatwave', body: 'it is 104°f. the hustles are melting.', a: ['buy a fan', 'costs 10% of your cash (or of half of yesterday’s pay)', { cashPct: 0.1 }], b: ['suffer', 'hustles ×0.7 today', { inc: 0.7 }] },
+    { id: 'boom', icon: '📈', title: 'side gig boom', body: 'everyone needs a guy. you are a guy.', a: ['grind', 'hustles ×1.6, collector ×1.5 speed', { inc: 1.6, col: 1.5 }], b: ['rest', 'nothing happens. lovely.', {}] },
+    { id: 'inspect', icon: '🔍', title: 'landlord inspection', body: 'he wants to "look at the walls".', a: ['bribe him', 'costs 15% of your cash (or of half of yesterday’s pay)', { cashPct: 0.15 }], b: ['let him in', 'debt collector starts 35ft closer', { colStart: 35 }] },
+    { id: 'viral', icon: '🔥', title: 'you went viral', body: 'a video of you smashing popups has 2m views.', a: ['stream it', 'tap cash ×3 today', { tap: 3 }], b: ['sell merch', 'hustles ×1.3 today', { inc: 1.3 }] },
+    { id: 'coupon', icon: '✂️', title: 'coupon day', body: 'grandma mailed you a coupon book. most are expired.', a: ['clip them all', 'today\'s bills −25%, popups slower', { bills: 0.75, pop: 0.6 }], b: ['recycle it', 'popups ×1.5 faster', { pop: 1.5 }] },
+    { id: 'sick', icon: '🤒', title: 'sick day', body: 'you have a cold. or the flu. or vibes.', a: ['power through', 'tap cash ×0.5, hustles ×1.2', { tap: 0.5, inc: 1.2 }], b: ['sleep', 'hustles ×0.75, collector ×0.5 speed', { inc: 0.75, col: 0.5 }] },
+    { id: 'overtime', icon: '⏰', title: 'overtime offered', body: 'your boss says "we\'re a family". families don\'t pay overtime.', a: ['take it', 'hustles ×1.4, bills due 15% sooner', { inc: 1.4, due: 0.85 }], b: ['decline', 'tap cash ×1.5 today', { tap: 1.5 }] },
+    { id: 'tip', icon: '🪙', title: 'cousin\'s crypto tip', body: '"trust me bro." he has never been right.', a: ['trust him', 'crashcoin price ×2 or ×0.3 (coin flip)', { crypto: 1 }], b: ['block him', 'tap cash ×1.25 today', { tap: 1.25 }] }
   ];
   const SPOOKY_POPUPS = [['boo-nus cash', 'a ghost owes you money'], ['haunted coupon', '10% off one (1) curse'], ['trick or treat', 'click for treat. we have no tricks.']];
 
@@ -112,7 +123,9 @@
   // ---------- derived ----------
   const lvl = (S, id) => S.up[id] || 0;
   const perk = (S, id) => S.meta.perks[id] || 0;
-  function globalMult(S) { return Math.pow(1.12, S.meta.cp); }
+  // every point you ever earned counts, so spending on perks is never a trap
+  function globalMult(S) { return Math.pow(1.08, S.meta.cpTotal || 0); }
+  const mod = (S, k) => (S.mods && S.mods[k] !== undefined ? S.mods[k] : 1);
   function utilOk(S, u) { return !S.bills.some((b) => b.late && BILL[b.type] && BILL[b.type].util === u); }
   function clickPower(S) { return Math.pow(1.5, lvl(S, 'mouse')) * (1 + 0.3 * perk(S, 'clicky')) * globalMult(S); }
   function hustleMult(S, h, n) {
@@ -126,18 +139,18 @@
     let r = h.rate * n * hustleMult(S, h, n) * (1 + 0.2 * perk(S, 'grind')) * globalMult(S);
     if (!utilOk(S, 'power')) r *= 0.5;
     if (h.exposure) r *= 1 - h.exposure;
-    return r;
+    return r * mod(S, 'inc');
   }
   function incomeRate(S) { let r = 0; for (const h of HUSTLES) r += hustleRate(S, h.id); return r; }
   function hustleCost(S, h) { return Math.ceil(h.cost * Math.pow(1.15, S.hustles[h.id] || 0)); }
   function upCost(S, u) { return Math.ceil(u.cost * Math.pow(u.mult, lvl(S, u.id))); }
   function billMult(S) { return (1 - 0.05 * perk(S, 'frugal')) * (lvl(S, 'budget') ? 0.9 : 1); }
-  function popInterval(S) { return 1.45 / (1 + 0.22 * lvl(S, 'coffee')) * (utilOk(S, 'wifi') ? 1 : 3); }
+  function popInterval(S) { return 1.45 / (1 + 0.22 * lvl(S, 'coffee')) * (utilOk(S, 'wifi') ? 1 : 3) / mod(S, 'pop'); }
   function maxPops(S) { return 5 + (lvl(S, 'monitor') ? 3 : 0); }
   function collectorSpeed(S) {
     let s = 0;
     for (const b of S.bills) if (b.late) s += (BILL[b.type] ? BILL[b.type].w : 0.7);
-    return 0.65 * s * Math.pow(0.87, lvl(S, 'headphones')) * (1 - 0.1 * perk(S, 'lawyer'));
+    return 0.65 * s * Math.pow(0.87, lvl(S, 'headphones')) * (1 - 0.1 * perk(S, 'lawyer')) * mod(S, 'col');
   }
   function freshGain(S, bankrupt) { const g = Math.max(0, S.day - 3); return bankrupt ? Math.floor(g / 2) : g; } // one point per day survived past day 3
 
@@ -154,9 +167,16 @@
   // bills grow on a fixed curve. your income has to outrun it; prestige perks help you do that.
   // growth speeds up a little every day (1.82x, then 1.85x, ...) so there's always a wall ahead.
   function billScale(d) { let m = 1; for (let k = 1; k < d; k++) m *= 1.79 + 0.03 * k; return m; }
+  // lifestyle creep: a bill is the curve, or its share of what you earned yesterday, whichever is bigger.
+  // so bills always keep up with you, and there's no stretch where autopay plays the game.
+  const CREEP = 0.6;
+  function billCurve(S, def) {
+    if (def.unlock >= 99) return def.base * Math.pow(1.35, S.day - 1); // add-on subs (budget app, costume) grow gently
+    return def.base * billScale(S.day) / billScale(Math.min(def.unlock, S.day));
+  }
   function billAmount(S, def) {
-    const from = def.unlock >= 99 ? 1 : def.unlock;
-    return Math.max(1, Math.round(def.base * billScale(S.day) / billScale(Math.min(from, S.day)) * billMult(S)));
+    const amt = Math.max(billCurve(S, def), CREEP * S.prevDayEarned * def.share);
+    return Math.max(1, Math.round(amt * billMult(S) * mod(S, 'bills')));
   }
   function addBill(S, def, dueIn, name, icon, amount) {
     const b = { uid: S.uid++, type: def ? def.id : 'surprise', name: name || def.name, icon: icon || def.icon, amount, orig: amount, due: S.t + dueIn, late: false, shown: S.t };
@@ -172,22 +192,28 @@
       if (d.id === 'costume') return S.spooky && S.day >= 2;
       return S.day >= d.unlock && (S.day - d.unlock) % d.period === 0;
     });
+    S.mods = {};
+    let crept = null;
     for (const d of active) {
       if (S.bills.some((b) => b.type === d.id)) continue; // still owe the last one
       const jitter = (rnd() - 0.5) * 0.08;
-      addBill(S, d, clamp(d.due + jitter, 0.18, 0.95) * S.dayLen, null, null, billAmount(S, d));
+      const b = addBill(S, d, clamp(d.due + jitter, 0.18, 0.95) * S.dayLen, null, null, billAmount(S, d));
+      if (S.day > 1 && CREEP * S.prevDayEarned * d.share > billCurve(S, d) && (!crept || d.share > BILL[crept].share)) crept = d.id;
+      void b;
     }
+    if (crept) emit(S, 'creep', { name: BILL[crept].name });
     S.windfallDone = S.day < 2;
     S.dayStats = { earned: 0, late: 0, paid: 0 };
   }
-  function payBill(S, uid) {
+  function payBill(S, uid, autoFee) {
     const b = S.bills.find((x) => x.uid === uid);
-    if (!b || !spend(S, b.amount)) return false;
+    const extra = autoFee ? Math.ceil(b ? b.amount * autoFee : 0) : 0;
+    if (!b || !spend(S, b.amount + extra)) return false;
     S.bills.splice(S.bills.indexOf(b), 1);
     S.billsPaid++;
+    if (extra) S.autoFees = (S.autoFees || 0) + extra;
     const fee = b.amount - b.orig;
-    if (fee > 0) S.lateFees += fee;
-    emit(S, 'paid', { b, fee });
+    emit(S, 'paid', { b, fee, auto: !!autoFee });
     return true;
   }
   function payAll(S) { // most urgent first
@@ -199,7 +225,7 @@
     const def = BILL[type]; if (!def || !def.sub) return 0;
     S.canceled[type] = true;
     let fee = 0;
-    for (const b of S.bills.slice()) if (b.type === type) { fee += Math.ceil(b.orig * 0.5); S.bills.splice(S.bills.indexOf(b), 1); }
+    for (const b of S.bills.slice()) if (b.type === type) { fee += Math.ceil(b.amount * 0.5); S.bills.splice(S.bills.indexOf(b), 1); }
     S.cash -= fee; // cancellation fee can push you negative. that's the joke.
     emit(S, 'canceled', { def, fee });
     return fee;
@@ -211,35 +237,44 @@
     const list = S.spooky && rnd() < 0.35 ? SPOOKY_POPUPS : POPUPS;
     const [title, body] = list[(rnd() * list.length) | 0];
     const r = rnd();
-    let kind = 'norm', hp = 1, reward = clickPower(S) * (0.8 + rnd() * 1.2);
+    let kind = 'norm', hp = 1, reward = 0.8 + rnd() * 1.2; // a multiplier on tapValue, applied when it's closed
     if (r < 0.025 && S.day >= 2) { kind = 'gold'; reward *= 15; }
     else if (r < 0.15) { kind = 'tough'; hp = 3; reward *= 3.6; }
     if (lvl(S, 'monitor')) reward *= 1.25;
     const p = { id: popId++, kind, hp, max: hp, reward, title: kind === 'gold' ? 'you are the 1,000,000th visitor' : title, body: kind === 'gold' ? 'this one actually pays' : body, born: S.t };
     S.pops.push(p); emit(S, 'pop', { p });
   }
+  // a tap is worth your click power, or 0.15s of hustle income, whichever is bigger. fast taps build a combo up to x3.
+  const TAP_INCOME = 0.15;
+  function tapValue(S) { return Math.max(clickPower(S), incomeRate(S) * TAP_INCOME) * mod(S, 'tap'); }
+  function bumpCombo(S) {
+    S.combo = S.t - (S.lastTap || -9) < 1.1 ? Math.min(3, (S.combo || 1) + 0.1) : 1;
+    S.lastTap = S.t; if (S.combo > (S.comboBest || 1)) S.comboBest = S.combo;
+  }
   function hitPop(S, id, auto) {
     const p = S.pops.find((x) => x.id === id); if (!p) return 0;
+    if (!auto) bumpCombo(S);
     p.hp--;
     if (p.hp > 0) { emit(S, 'popHit', { p }); return 0; }
     S.pops.splice(S.pops.indexOf(p), 1);
     S.popsClosed++;
-    const amt = earn(S, p.reward);
-    emit(S, 'popDie', { p, amt, auto });
+    const amt = earn(S, p.reward * tapValue(S) * (auto ? 1 : S.combo));
+    emit(S, 'popDie', { p, amt, auto, combo: auto ? 1 : S.combo });
     return amt;
   }
   function spawnPig(S) {
     const hp = 8 + S.day * 2;
-    const reward = (clickPower(S) * 10 + incomeRate(S) * 2) * (1 + 0.25 * lvl(S, 'magnet'));
+    const reward = (tapValue(S) * 6 + incomeRate(S) * 2) * (1 + 0.25 * lvl(S, 'magnet'));
     S.pig = { id: popId++, hp, max: hp, reward, born: S.t, life: 11 };
     emit(S, 'pig', { pig: S.pig });
   }
   function hitPig(S, auto) {
     const g = S.pig; if (!g) return 0;
+    if (!auto) bumpCombo(S);
     g.hp--;
     if (g.hp > 0) { emit(S, 'pigHit', { pig: g }); return 0; }
     S.pig = null; S.pigsSmashed++; S.nextPig = Math.max(S.nextPig - (g.life - (S.t - g.born)), 6);
-    const amt = earn(S, g.reward);
+    const amt = earn(S, g.reward * (auto ? 1 : S.combo || 1));
     emit(S, 'pigDie', { pig: g, amt });
     return amt;
   }
@@ -288,6 +323,7 @@
     return v;
   }
 
+  const AUTO_FEE = 0.1; // autopay's "convenience fee". paying by hand is cheaper.
   // ---------- tick ----------
   function tick(S, dt) {
     if (S.over || S.dayDone) return;
@@ -347,6 +383,7 @@
     // bills
     const grace = 4 * perk(S, 'grace');
     for (const b of S.bills) {
+      const before = b.amount;
       if (!b.late && S.t > b.due + grace) {
         b.late = true; b.amount = Math.ceil(b.amount * 1.15);
         S.dayStats.late++;
@@ -354,6 +391,7 @@
       } else if (b.late && b.amount < b.orig * 3) {
         b.amount = Math.min(b.orig * 3, b.amount * Math.pow(1.012, dt));
       }
+      if (b.amount > before) S.lateFees += b.amount - before;
     }
     // surprises + windfalls
     if (S.day >= 2) {
@@ -374,7 +412,7 @@
     // autopay
     if (lvl(S, 'autopay')) {
       const order = S.bills.slice().sort((a, b) => (b.late - a.late) || a.due - b.due);
-      for (const b of order) if (S.cash >= b.amount && (b.late || b.due - S.t < 12)) payBill(S, b.uid);
+      for (const b of order) if (S.cash >= b.amount * (1 + AUTO_FEE) && (b.late || b.due - S.t < 12)) payBill(S, b.uid, AUTO_FEE);
     }
     // debt collector
     const sp = collectorSpeed(S);
@@ -401,10 +439,11 @@
       const n = S.hustles[h.id] || 0; if (!n) continue;
       const k = Math.ceil(n * 0.3); S.hustles[h.id] = n - k; took.push(k + ' ' + h.name);
     }
-    const cashTaken = Math.max(0, Math.floor(S.cash * 0.5));
-    S.cash -= cashTaken;
     let settled = 0;
     for (const b of S.bills.slice()) if (b.late) { settled += b.amount; S.bills.splice(S.bills.indexOf(b), 1); }
+    // half your cash, or everything the late bills were worth, whichever hurts more. it can put you below zero.
+    const cashTaken = Math.max(Math.floor(Math.max(0, S.cash) * 0.5), Math.ceil(settled));
+    S.cash -= cashTaken;
     S.collector = 0; S.warned = 0; S.repoLost += cashTaken;
     emit(S, 'repo', { strike: S.strikes, took, cashTaken, settled });
   }
@@ -414,6 +453,26 @@
     if (S.day > S.meta.bestDay) S.meta.bestDay = S.day;
     scheduleDay(S);
     emit(S, 'dayStart', { day: S.day });
+  }
+  function rollEvent(S) {
+    if (S.day < 3) return null;
+    const pool = EVENTS.filter((e) => e.id !== S.lastEvent);
+    const e = pool[(rnd() * pool.length) | 0]; S.lastEvent = e.id;
+    return e;
+  }
+  function applyEvent(S, id, side) {
+    const e = EVENTS.find((x) => x.id === id); if (!e) return '';
+    const fx = (side === 'a' ? e.a : e.b)[2];
+    S.mods = S.mods || {};
+    let note = '';
+    for (const k of ['inc', 'col', 'tap', 'pop', 'bills']) if (fx[k] !== undefined) S.mods[k] = fx[k];
+    if (fx.cashPct) { const c = Math.max(10, Math.floor(Math.max(S.cash, S.prevDayEarned * 0.5) * fx.cashPct)); S.cash -= c; note = 'paid ' + fmt(c); } // broke? it's still not free
+    if (fx.colStart) S.collector = Math.max(S.collector, fx.colStart);
+    if (fx.bills) for (const b of S.bills) if (!b.late) { b.amount = Math.max(1, Math.round(b.amount * fx.bills)); b.orig = Math.min(b.orig, b.amount); }
+    if (fx.due) for (const b of S.bills) if (!b.late) b.due = S.t + (b.due - S.t) * fx.due;
+    if (fx.crypto) { const up = rnd() < 0.5; S.crypto.price = clamp(S.crypto.price * (up ? 2 : 0.3), 0.0001, 1e9); S.crypto.hist.push(S.crypto.price); if (S.crypto.hist.length > 60) S.crypto.hist.shift(); note = up ? 'he was right?? price ×2' : 'he was wrong. price ×0.3'; }
+    emit(S, 'event', { id, side });
+    return note;
   }
   function endRun(S, why) {
     if (S.over) return;
@@ -429,14 +488,15 @@
     meta.cp -= l + 1; meta.perks[id] = l + 1; return true;
   }
   function offline(S, secs) {
-    const s = Math.min(secs, 4 * 3600);
-    const amt = incomeRate(S) * s * 0.4;
-    if (amt > 0) earn(S, amt);
+    const s = Math.min(secs, 3600);
+    const amt = Math.min(incomeRate(S) * s * 0.25, incomeRate(S) * S.dayLen * 1.5); // never worth more than a day and a half
+    if (amt > 0) { S.cash += amt; S.runEarned += amt; S.meta.lifetime += amt; }
     return { secs: s, amt };
   }
 
   const api = {
     BILLS, BILL, HUSTLES, UPGRADES, UP, PERKS, fmt, newMeta, newRun, tick, nextDay, endRun,
+    EVENTS, rollEvent, applyEvent, tapValue,
     payBill, payAll, cancelSub, hitPop, hitPig, tapAny, acceptGig, declineGig, buyHustle, buyUp, buyPerk,
     cryptoBuy, cryptoSell, offline, clickPower, incomeRate, hustleRate, hustleCost, upCost, utilOk, collectorSpeed,
     freshGain, lvl, globalMult

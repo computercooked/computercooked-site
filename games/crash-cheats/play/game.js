@@ -13,7 +13,10 @@
   const URL_TEXT = 'computercooked.com/games/' + SLUG;
   const REC_KEY = 'cc-crash-cheats-record';
   const SPOOKY_KEY = 'cc-crash-cheats-spooky';
-  const CRASH_TO_WIN = 3;
+  const CRASH_TO_WIN = 3, YOU_TO_WIN = 3, MAX_TOKENS = 3;
+  // suspicion each cheat adds. at 100 the anticheat catches him and the round is yours.
+  const SUS = { delete: 22, swap: 26, lag: 22, coffee: 18, rules: 28, bsod: 34 };
+  const VERB = { delete: 'delete your x', swap: 'recolor your x', lag: 'lag-move twice', coffee: 'spill coffee', rules: 'rewrite the rules', bsod: 'blue-screen the board' };
   const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 
   // per-round difficulty: crash blunders less and his cheats fail less
@@ -37,7 +40,14 @@
     block: ['nice try.', 'saw that coming.', 'no.'],
     idle: ['take your time. i\'m only aging.', 'any day now.', 'i could run a full scan in this time.'],
     meltdown: ['no. no no no. this is fine.', 'this never happened.', 'i demand a recount.'],
-    spooky: ['boo. also i cheat.', 'happy halloween. your x is a ghost now.']
+    spooky: ['boo. also i cheat.', 'happy halloween. your x is a ghost now.'],
+    caught: ['that wasn’t me. that was a different crash.', 'i was framed. by me.', 'the anticheat is biased against computers.'],
+    blocked: ['firewall?? who taught you that.', 'rude. very rude.', 'access denied? to ME?'],
+    missed: ['wait. there were two lines??', 'i only deleted one. you made two. unfair.', 'two lines is cheating.'],
+    undone: ['you can’t ctrl+z ME.', 'hey. that was my cheat.', 'reverting my hard work. wow.'],
+    reported: ['reported?? for what.', 'the mods love me. probably.', 'ok but have you considered: no.'],
+    fwUp: ['what’s that wall for.', 'a firewall. cute.', 'i can see through walls. (i can’t.)'],
+    roundLost: ['that round didn’t count. i was buffering.', 'fine. one round. enjoy it.', 'i let you have that one.']
   };
   const pick = (k) => { const a = LINES_TXT[k]; return a[(Math.random() * a.length) | 0].replace('{r}', round); };
 
@@ -57,18 +67,18 @@
   window.addEventListener('resize', resize);
 
   function layout() {
-    const pad = 16, top = 72 * u;
+    const pad = 16, top = 72 * u, chipH = 50 * u;
     const land = W > H * 1.15 && W > 560;
     if (!land) {
       let cs = Math.min(W * 0.34, H * 0.2, 170);
-      let bs = Math.min(W - pad * 2, H - top - cs - 26 - 34);
-      if (bs < 230) { cs = Math.max(70, cs - (230 - bs)); bs = Math.min(W - pad * 2, H - top - cs - 26 - 34); }
-      const free = Math.max(0, H - top - 34 - cs - 22 - bs), oy = top + free * 0.35;
+      let bs = Math.min(W - pad * 2, H - top - cs - 26 - 34 - chipH);
+      if (bs < 230) { cs = Math.max(70, cs - (230 - bs)); bs = Math.min(W - pad * 2, H - top - cs - 26 - 34 - chipH); }
+      const free = Math.max(0, H - top - 34 - cs - 22 - bs - chipH), oy = top + free * 0.35;
       const bx = (W - bs) / 2, by = oy + cs + 22;
       lay = { land, board: { x: bx, y: by, s: bs }, crash: { x: pad, y: oy, s: cs }, bubble: { x: pad + cs + 10, y: oy + 4, w: W - pad * 2 - cs - 10 } };
     } else {
-      const bs = Math.min(H - top - 50, W * 0.52);
-      const bx = W - pad * 2 - bs - Math.max(0, (W - bs - 520) * 0.25), by = top + (H - top - 30 - bs) / 2;
+      const bs = Math.min(H - top - 50 - chipH, W * 0.52);
+      const bx = W - pad * 2 - bs - Math.max(0, (W - bs - 520) * 0.25), by = top + (H - top - 30 - bs - chipH) / 2;
       const col = bx - pad * 2;
       const cs = Math.min(col * 0.55, H * 0.36, 220);
       const cx = pad + (col - cs) / 2;
@@ -157,17 +167,19 @@
   let t = 0, overT = 0, idleT = 0, idleSaid = false, matchStart = 0;
   let crashFace = 0, crashFaceT = 0;
   let toast = { text: '', life: 0 };
+  let sus = 0, susFlash = 0, tokens = 1, firewall = false, undoSnap = null, caughtN = 0;
   let buttons = [];
 
   function resetBoard() {
     cells = Array(9).fill(''); blocked = Array(9).fill(false); anims = Array(9).fill(null);
-    diagBan = false; proUsed = 0; crashTurns = 0; fx.winLine = null;
+    diagBan = false; proUsed = 0; crashTurns = 0; fx.winLine = null; undoSnap = null;
   }
   function newMatch() {
     gen++; timers = [];
     round = 1; youPts = 0; crashPts = 0; draws = 0; cheats = 0; result = null; overT = 0;
     confetti = []; floaters = []; fx.melt = 0; fx.bsod = 0; fx.boot = 0; fx.popup = null; fx.lag = 0;
     crashFace = 0; idleT = 0; idleSaid = false;
+    sus = 0; tokens = 1; firewall = false; caughtN = 0;
     resetBoard();
     phase = 'player';
     matchStart = performance.now();
@@ -227,7 +239,7 @@
     }
     const g = gen;
     idleT = 0; idleSaid = false;
-    place(i, 'X');
+    place(i, 'X'); undoSnap = null;
     phase = 'busy';
     const line = lineFor('X');
     if (line) {
@@ -239,9 +251,62 @@
   }
 
   // crash tries to stop a completed line. usually works.
+  // every cheat goes through here: snapshot for ctrl+z, suspicion, firewall.
+  async function cheatGate(kind, g, evidence) {
+    undoSnap = { cells: cells.slice(), blocked: blocked.slice(), diagBan };
+    cheats++;
+    sus = Math.min(100, sus + (SUS[kind] || 20) + (evidence || 0)); susFlash = 1;
+    if (sus >= 100) return 'caught';
+    if (firewall) {
+      firewall = false; undoSnap = null;
+      fx.popup = { title: 'firewall.exe', body: 'blocked: crash.exe tried to ' + VERB[kind] + '. connection refused.', t: 0 };
+      sfx.popup(); fx.shake = Math.max(fx.shake, 5); crashFace = 2; crashFaceT = 1.4; say(pick('blocked'));
+      sdk('event', 'blocked', { kind, round });
+      await wait(1400); if (g !== gen) return 'gone';
+      fx.popup = null;
+      return 'blocked';
+    }
+    return 'ok';
+  }
+  async function caught(g) {
+    phase = 'busy';
+    fx.popup = { title: 'anticheat.exe', body: 'violation detected: crash.exe (' + cheats + ' cheats logged). round awarded to the human.', t: 0 };
+    sfx.error(); fx.shake = 12; fx.flash = 0.5; fx.flashCol = COL.lilac; crashFace = 2; crashFaceT = 2.5; say(pick('caught'));
+    caughtN++; sus = 0; firewall = false;
+    sdk('event', 'caught', { round });
+    await wait(1900); if (g !== gen) return;
+    fx.popup = null; fx.winLine = null;
+    await endRound('win', g);
+  }
+
+  // player counter-cheats. each costs one token.
+  function useTool(k) {
+    if (phase !== 'player') { sfx.error(); return; }
+    if (tokens < 1) { sfx.error(); showToast('no tokens. draws and lost rounds earn them.'); return; }
+    if (k === 'firewall') {
+      if (firewall) { showToast('firewall already up.'); return; }
+      tokens--; firewall = true; sfx.popup(); say(pick('fwUp'), 1.6);
+    } else if (k === 'undo') {
+      if (!undoSnap) { sfx.error(); showToast('nothing to undo. ctrl+z his next cheat.'); return; }
+      tokens--;
+      cells = undoSnap.cells; blocked = undoSnap.blocked; diagBan = undoSnap.diagBan; anims = Array(9).fill(null); undoSnap = null;
+      sfx.glitch(); fx.shake = 8; crashFace = 1; crashFaceT = 1.2; say(pick('undone'));
+      for (let i = 0; i < 9; i++) if (cells[i]) anims[i] = { kind: 'in', t: 0.15 };
+      const ln = lineFor('X');
+      if (ln) { phase = 'busy'; fx.winLine = ln; fx.winT = 0; const g = gen; wait(700).then(() => { if (g === gen) endRound('win', g); }); return; }
+      if (!empties().length) { phase = 'busy'; endRound('draw', gen); }
+    } else if (k === 'report') {
+      tokens--; sus = Math.min(100, sus + 34); susFlash = 1; sfx.popup();
+      if (sus >= 100) { caught(gen); return; }
+      say(pick('reported'));
+    }
+    sdk('event', 'tool', { kind: k, round });
+  }
+
   async function reactiveCheat(line, g) {
-    await wait(260); if (g !== gen) return;
+    fx.winLine = line; fx.winT = 0; // the "you had it" beat
     crashFace = 1; crashFaceT = 1.2;
+    await wait(500); if (g !== gen) return;
     if (Math.random() < diff(CHEAT_FAIL)) {
       fx.popup = { title: 'cheat.exe', body: 'cheat.exe has stopped responding.', t: 0 };
       sfx.error(); say('wait. no. hold on.');
@@ -252,7 +317,6 @@
       await endRound('win', g);
       return;
     }
-    cheats++;
     const diag = LINES.indexOf(line) >= 6;
     const opts = ['delete', 'delete'];
     if (round >= 2) opts.push('swap');
@@ -260,6 +324,11 @@
     if (round >= 3 || crashPts === CRASH_TO_WIN - 1) opts.push('bsod');
     if (round >= 4) opts.push('bsod');
     const kind = opts[(Math.random() * opts.length) | 0];
+    const gate = await cheatGate(kind, g, 12); // +evidence: you had a line
+    if (gate === 'gone' || g !== gen) return;
+    if (gate === 'caught') { await caught(g); return; }
+    if (gate === 'blocked') { await wait(200); if (g !== gen) return; await endRound('win', g); return; }
+    fx.winLine = null;
     sdk('event', 'cheat', { kind, round, reactive: true });
     if (kind === 'bsod') { await bsodWin(g); return; }
     if (kind === 'rules') {
@@ -274,9 +343,19 @@
       say(pick('swap'));
       if (lineFor('O')) { await wait(500); if (g !== gen) return; await endRound('loss', g); return; }
     } else {
-      const j = line[(Math.random() * 3) | 0];
+      // delete the cell shared by every finished line if there is one
+      const all = LINES.filter((k) => k.every((i) => cells[i] === 'X'));
+      const shared = line.filter((i) => all.every((k) => k.includes(i)));
+      const j = shared.length ? shared[(Math.random() * shared.length) | 0] : line[(Math.random() * 3) | 0];
       await deleteCell(j, g); if (g !== gen) return;
       say(pick('delete'));
+    }
+    // a second line survived the cheat: it counts
+    const still = lineFor('X');
+    if (still) {
+      fx.winLine = still; fx.winT = 0; say(pick('missed'));
+      await wait(800); if (g !== gen) return;
+      await endRound('win', g); return;
     }
     await wait(500); if (g !== gen) return;
     await crashTurn(g, true);
@@ -328,8 +407,13 @@
       if (empties().length < 2) { const k = opts.indexOf('coffee'); if (k >= 0) opts.splice(k, 1); }
       if (opts.length) {
         const kind = opts[(Math.random() * opts.length) | 0];
-        proUsed++; cheats++;
+        proUsed++;
         crashFace = 1; crashFaceT = 1;
+        const gate = await cheatGate(kind, g);
+        if (gate === 'gone' || g !== gen) return;
+        if (gate === 'caught') { await caught(g); return; }
+        if (gate === 'blocked') { await wait(200); if (g !== gen) return; }
+        else {
         sdk('event', 'cheat', { kind, round, reactive: false });
         if (kind === 'lag') {
           fx.lag = 0.001; sfx.lag(); say(pick('lag'));
@@ -337,7 +421,7 @@
           fx.lag = 0;
           for (let k = 0; k < 2; k++) {
             const m = aiMove(); if (m < 0) break;
-            place(m, 'O');
+            place(m, 'O'); float(String(k + 1), m, COL.paper);
             if (lineFor('O')) break;
             await wait(180); if (g !== gen) return;
           }
@@ -366,6 +450,7 @@
           if (lineFor('O')) return afterCrashMove(g);
           await wait(300); if (g !== gen) return;
         }
+        }
       }
     }
     const m = aiMove();
@@ -388,20 +473,22 @@
     phase = 'busy';
     if (kind === 'win') {
       youPts++;
-      await victory(g);
-      return;
-    }
-    if (kind === 'loss') {
-      crashPts++;
+      if (youPts >= YOU_TO_WIN) { await victory(g); return; }
+      fx.flash = 0.5; fx.flashCol = COL.lime; fx.shake = 8; crashFace = 2; crashFaceT = 1.6;
+      sfx.boot(); burstConfetti(70);
+      say(pick('roundLost'));
+      sdk('event', 'roundwin', { round });
+    } else if (kind === 'loss') {
+      crashPts++; tokens = Math.min(MAX_TOKENS, tokens + 1);
       if (!fx.winLine) fx.winLine = lineFor('O');
       fx.winT = 0;
       sfx.crashWin();
       if (!bubble.text || bubble.life < 1 || !/backup|logs/.test(bubble.text)) say(pick('crashWin'));
     } else {
-      draws++;
+      draws++; tokens = Math.min(MAX_TOKENS, tokens + 1);
       sfx.draw(); say(pick('draw'));
     }
-    sdk('score', round);
+    sdk('score', score());
     if (crashPts >= CRASH_TO_WIN) {
       await wait(1300); if (g !== gen) return;
       finishMatch('loss');
@@ -435,8 +522,8 @@
     sdk('score', score());
     sdk('end', { score: score(), durationMs: Math.round(performance.now() - matchStart) });
   }
-  // leaderboard score: rounds survived, a real win is worth a lot
-  function score() { return (result === 'win' ? 100 : 0) + round; }
+  // leaderboard score: rounds you took, how often you got him caught, a match win is worth a lot. stalling scores nothing.
+  function score() { return youPts * 100 + caughtN * 50 + (result === 'win' ? 500 : 0); }
 
   function burstConfetti(n) {
     const cols = spooky ? [COL.lime, COL.lilac, COL.paper, COL.pumpkin] : [COL.lime, COL.lilac, COL.paper, COL.beige];
@@ -449,24 +536,32 @@
 
   // ---------- share ----------
   function shareText() {
+    const ct = caughtN ? ' got him caught ' + caughtN + (caughtN === 1 ? ' time.' : ' times.') : '';
     return result === 'win'
-      ? 'i beat crash at tic tac toe. he cheated ' + cheats + (cheats === 1 ? ' time.' : ' times.') + ' it wasn\'t enough. ' + URL_TEXT
-      : 'crash cheated ' + cheats + (cheats === 1 ? ' time' : ' times') + ' and beat me ' + crashPts + '–' + youPts + ' at tic tac toe. ' + URL_TEXT;
+      ? 'i beat crash ' + youPts + '–' + crashPts + ' at tic tac toe. he cheated ' + cheats + (cheats === 1 ? ' time.' : ' times.') + ct + ' ' + URL_TEXT
+      : 'crash cheated ' + cheats + (cheats === 1 ? ' time' : ' times') + ' and beat me ' + crashPts + '–' + youPts + ' at tic tac toe.' + ct + ' ' + URL_TEXT;
   }
   async function share() {
     sdk('event', 'share', { result });
     const text = shareText();
+    let blobUrl = null;
     try {
       const c = document.createElement('canvas'); c.width = 1080; c.height = 1080;
       const x = c.getContext('2d');
       drawCard(x, 0, 0, 1080, 1080, 2.6, true);
       const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
       const file = blob && new File([blob], 'crash-cheats.png', { type: 'image/png' });
+      if (blob) blobUrl = URL.createObjectURL(blob);
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
       if (navigator.share) { await navigator.share({ text }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(text); showToast('copied. go post it.'); }
-    catch (e) { showToast('couldn\'t copy. screenshot it.'); }
+    let copied = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch (e) { /* ignore */ }
+    if (blobUrl) {
+      try { const a = document.createElement('a'); a.href = blobUrl; a.download = 'crash-cheats.png'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { /* ignore */ }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+      showToast(copied ? 'text copied + card saved. go post it.' : 'card saved. go post it.');
+    } else showToast(copied ? 'copied. go post it.' : 'couldn\'t copy. screenshot it.');
   }
   function showToast(s) { toast = { text: s, life: 2 }; }
 
@@ -520,7 +615,9 @@
       if (nc >= 0 && nc < 9 && !(Math.abs(mv) === 1 && ((nc / 3) | 0) !== ((cursor / 3) | 0))) cursor = nc;
       return;
     }
-    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); showCursor = true; playerMove(cursor); }
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (!showCursor) { showCursor = true; return; } playerMove(cursor); return; }
+    const tk = { q: 'firewall', f: 'firewall', w: 'undo', z: 'undo', e: 'report', r: 'report' }[e.key.toLowerCase()];
+    if (tk && !e.ctrlKey && !e.metaKey) { useTool(tk); return; }
     if (e.key === 'p') setPaused(true);
   });
   window.addEventListener('message', (e) => {
@@ -562,6 +659,7 @@
     }
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].life -= dt; floaters[i].y -= 30 * dt; if (floaters[i].life <= 0) floaters.splice(i, 1); }
     if (toast.life > 0) toast.life -= dt;
+    susFlash = Math.max(0, susFlash - dt * 2);
     if (spooky) {
       if (ghosts.length < 4 && Math.random() < dt * 0.5) ghosts.push({ x: Math.random() * W, y: H + 40, s: 18 + Math.random() * 16, vy: 14 + Math.random() * 18, ph: Math.random() * 6 });
       for (let i = ghosts.length - 1; i >= 0; i--) { const gh = ghosts[i]; gh.y -= gh.vy * dt; if (gh.y < -60) ghosts.splice(i, 1); }
@@ -637,7 +735,7 @@
 
   function drawHUD() {
     const pad = 16;
-    text('round ' + round, pad, 26 * u, Math.round(13 * u), COL.dim, 'left', 'normal');
+    text('round ' + round + (draws ? ' · draws ' + draws : ''), pad, 26 * u, Math.round(13 * u), COL.dim, 'left', 'normal');
     // score pips: crash needs 3
     const sz = Math.round(16 * u);
     text('you ' + youPts, pad, 48 * u, sz, COL.lime);
@@ -647,7 +745,7 @@
     ctx.font = 'bold ' + sz + 'px ' + FONT;
     const wC = ctx.measureText(' · ' + crashPts + ' crash').width;
     text('(first to 3)', pad + wYou + wC + 8, 48 * u, Math.round(10 * u), COL.dim, 'left', 'normal');
-    text('lifetime ' + record.w + 'w – ' + record.l + 'l', W - pad, 26 * u, Math.round(11 * u), COL.dim, 'right', 'normal');
+    text(recText(), W - pad, 26 * u, Math.round(12 * u), 'rgba(245,243,237,0.7)', 'right', 'normal');
     // spooky toggle
     const label = spooky ? 'spooky: on' : 'spooky: off';
     ctx.font = 'bold ' + Math.round(11 * u) + 'px ' + FONT;
@@ -656,6 +754,53 @@
     text(label, lx + lw / 2, ly + lh * 0.68, Math.round(11 * u), spooky ? COL.pumpkin : COL.dim, 'center');
     buttons.push({ x: lx, y: ly, w: lw, h: lh, fn: () => { spooky = !spooky; saveSpooky(); } });
     text('computer cooked games', pad, H - 10, Math.round(10 * u), 'rgba(245,243,237,0.4)', 'left', 'normal');
+  }
+
+  function recText() { return record.w + (record.w === 1 ? ' win' : ' wins') + ' · ' + record.l + (record.l === 1 ? ' loss' : ' losses'); }
+
+  // suspicion meter under crash
+  function drawSus() {
+    const c = lay.crash, w = c.s * 0.62, h = 7 * u, x = c.x, y = c.y + c.s + 3 * u;
+    const k = sus / 100, hot = sus >= 70;
+    rr(x, y, w, h, h / 2); ctx.fillStyle = 'rgba(245,243,237,0.1)'; ctx.fill();
+    if (k > 0) { rr(x, y, Math.max(h, w * k), h, h / 2); ctx.fillStyle = hot ? (Math.sin(t * 12) > 0 ? COL.pumpkin : '#ff5a5a') : COL.lilac; ctx.fill(); }
+    if (susFlash > 0) { ctx.globalAlpha = susFlash; rr(x - 2, y - 2, w + 4, h + 4, h); ctx.strokeStyle = COL.paper; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1; }
+    text('sus ' + Math.round(sus) + '%', x + w + 6, y + h, Math.round(10 * u), hot ? COL.pumpkin : COL.dim, 'left', 'normal');
+  }
+
+  // counter-cheat chips under the board
+  const TOOLS = [
+    { k: 'firewall', label: 'firewall', key: 'q', tip: 'block 1 cheat' },
+    { k: 'undo', label: 'ctrl+z', key: 'w', tip: 'undo cheat' },
+    { k: 'report', label: 'report', key: 'e', tip: '+34% sus' }
+  ];
+  function drawTools() {
+    const b = lay.board, gap = 8, y = b.y + b.s + 10 * u, h = 36 * u;
+    // token pips
+    const pipW = 54 * u;
+    for (let i = 0; i < MAX_TOKENS; i++) {
+      const px = b.x + 6 + i * 16 * u, py = y + h / 2 - 8 * u;
+      ctx.fillStyle = i < tokens ? COL.lime : 'rgba(245,243,237,0.15)';
+      ctx.save(); ctx.translate(px + 6 * u, py + 6 * u); ctx.rotate(Math.PI / 4); ctx.fillRect(-4.5 * u, -4.5 * u, 9 * u, 9 * u); ctx.restore();
+    }
+    text('tokens', b.x + 4, y + h / 2 + 16 * u, Math.round(9 * u), COL.dim, 'left', 'normal');
+    const x0 = b.x + pipW, cw = (b.s - pipW - gap * 2) / 3;
+    TOOLS.forEach((tl, i) => {
+      const x = x0 + i * (cw + gap);
+      const armed = tl.k === 'firewall' && firewall;
+      const ok = phase === 'player' && tokens > 0 && !armed && (tl.k !== 'undo' || !!undoSnap);
+      const glow = tl.k === 'undo' && undoSnap && tokens > 0 && phase === 'player';
+      rr(x, y, cw, h, 8);
+      ctx.fillStyle = armed ? 'rgba(197,255,73,0.25)' : ok ? (glow ? 'rgba(181,154,255,' + (0.25 + 0.15 * Math.sin(t * 8)) + ')' : 'rgba(245,243,237,0.1)') : 'rgba(245,243,237,0.04)';
+      ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = armed ? COL.lime : ok ? 'rgba(245,243,237,0.35)' : 'rgba(245,243,237,0.1)'; ctx.stroke();
+      const fg = armed ? COL.lime : ok ? COL.paper : 'rgba(245,243,237,0.3)';
+      text(armed ? 'firewall: up' : tl.label, x + cw / 2, y + h * 0.45, Math.round(12 * u), fg, 'center');
+      text(armed ? 'armed' : '[' + tl.key + '] ' + tl.tip, x + cw / 2, y + h * 0.8, Math.round(8.5 * u), armed ? COL.lime : 'rgba(245,243,237,' + (ok ? 0.55 : 0.25) + ')', 'center', 'normal');
+      buttons.push({ x, y, w: cw, h, fn: () => useTool(tl.k) });
+    });
+    if (record.w + record.l < 3 && round <= 2) {
+      text('+1 token per draw or lost round · fill his sus · first to 3', b.x + b.s / 2, y + h + 15 * u, Math.round(9.5 * u), 'rgba(245,243,237,0.5)', 'center', 'normal');
+    }
   }
 
   function drawCrash() {
@@ -770,7 +915,7 @@
       const a = cellRect(fx.winLine[0]), z = cellRect(fx.winLine[2]);
       const k = Math.min(1, fx.winT * 3);
       const x1 = a.x + s / 2, y1 = a.y + s / 2, x2 = z.x + s / 2, y2 = z.y + s / 2;
-      ctx.strokeStyle = cells[fx.winLine[0]] === 'X' ? COL.paper : COL.lilac; ctx.lineWidth = s * 0.07; ctx.lineCap = 'round';
+      ctx.strokeStyle = cells[fx.winLine[0]] === 'X' ? COL.lime : COL.lilac; ctx.lineWidth = s * 0.07; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k); ctx.stroke();
     }
     // lag spinner
@@ -810,6 +955,7 @@
     rr(w / 2 - bw - 14, h / 2 - bh - 12, bw, bh, 4); ctx.fillStyle = COL.carbon; ctx.fill();
     text('ok', w / 2 - bw / 2 - 14, h / 2 - 12 - bh * 0.32, Math.round(12 * u), COL.paper, 'center');
     ctx.restore();
+    if (k >= 1) buttons.push({ x: x - w / 2, y: y - h / 2, w, h, fn: () => { fx.popup = null; } });
   }
 
   function drawBsod() {
@@ -864,7 +1010,7 @@
       c.drawImage(crashImg, (win ? 2 : 0) * 128, 0, 128, 128, mid - cs / 2, yy, cs, cs);
       yy += cs + 8 * k;
     }
-    const big = win ? 'i won.' : youPts + ' – ' + crashPts;
+    const big = win ? youPts + ' – ' + crashPts : youPts + ' – ' + crashPts;
     text(big, mid, yy + 52 * k, Math.round(58 * k), win ? COL.lime : COL.lilac, 'center', 'bold', c);
     yy += 84 * k;
     const msg = win ? 'i beat crash at tic tac toe.' : 'crash beat me at tic tac toe.';
@@ -872,7 +1018,8 @@
     const sub = win ? 'he cheated ' + cheats + (cheats === 1 ? ' time' : ' times') + '. it wasn\'t enough.' : 'he cheated ' + cheats + (cheats === 1 ? ' time.' : ' times.') + ' he says he didn\'t.';
     for (const ln of wrap(sub, Math.round(13 * k), w - 40 * k, 'normal', c)) { text(ln, mid, yy, Math.round(13 * k), COL.dim, 'center', 'normal', c); yy += 18 * k; }
     yy += 6 * k;
-    text('lifetime record: ' + record.w + 'w – ' + record.l + 'l', mid, yy, Math.round(12 * k), win ? COL.lime : 'rgba(245,243,237,0.75)', 'center', 'normal', c);
+    if (caughtN) { text('got him caught by anticheat ' + caughtN + (caughtN === 1 ? ' time' : ' times'), mid, yy, Math.round(12 * k), COL.pumpkin, 'center', 'normal', c); yy += 18 * k; }
+    text('lifetime: ' + recText(), mid, yy, Math.round(12 * k), win ? COL.lime : 'rgba(245,243,237,0.75)', 'center', 'normal', c);
     text(URL_TEXT, mid, y + h - 16 * k, Math.round(13 * k), win ? COL.lime : COL.lilac, 'center', 'bold', c);
     return yy;
   }
@@ -913,7 +1060,7 @@
     if (toast.life <= 0) return;
     ctx.globalAlpha = Math.min(1, toast.life * 3);
     const size = Math.round(13 * u); ctx.font = 'bold ' + size + 'px ' + FONT;
-    const w = ctx.measureText(toast.text).width + 28, h = size + 20, x = (W - w) / 2, y = H - h - 30;
+    const w = ctx.measureText(toast.text).width + 28, h = size + 20, x = (W - w) / 2, y = lay.board.y + 36 * u;
     rr(x, y, w, h, 8); ctx.fillStyle = COL.paper; ctx.fill();
     text(toast.text, W / 2, y + h * 0.66, size, COL.carbon, 'center');
     ctx.globalAlpha = 1;
@@ -940,7 +1087,9 @@
     drawBackground();
     drawHUD();
     drawBoard();
+    if (phase !== 'over') drawTools();
     drawCrash();
+    drawSus();
     drawBubble();
     drawPopup();
     drawMelt();
@@ -951,7 +1100,7 @@
     drawPause();
   }
 
-  if (/[?&]debug/.test(location.search)) window.__ccDebug = { get cells() { return cells; }, get blocked() { return blocked; }, get phase() { return phase; }, get round() { return round; }, get score() { return [youPts, crashPts, draws, cheats]; }, get result() { return result; }, move: playerMove, newMatch, set timeScale(v) { timeScale = v; }, step(sec) { for (let k = 0; k < sec * 60; k++) update(1 / 60); render(); } };
+  if (/[?&]debug/.test(location.search) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__ccDebug = { get cells() { return cells; }, get blocked() { return blocked; }, get phase() { return phase; }, get round() { return round; }, get score() { return [youPts, crashPts, draws, cheats]; }, get result() { return result; }, get sus() { return sus; }, get tokens() { return tokens; }, get canUndo() { return !!undoSnap; }, get undoWins() { if (!undoSnap) return false; const c = cells, d = diagBan; cells = undoSnap.cells; diagBan = undoSnap.diagBan; const w = !!lineFor('X'); cells = c; diagBan = d; return w; }, get firewall() { return firewall; }, get caught() { return caughtN; }, useTool, move: playerMove, newMatch, set timeScale(v) { timeScale = v; }, step(sec) { for (let k = 0; k < sec * 60; k++) update(1 / 60); render(); } };
   resize();
   newMatch();
   requestAnimationFrame(frame);

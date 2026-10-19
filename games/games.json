@@ -47,26 +47,6 @@
       "added": "2026-10-19"
     },
     {
-      "slug": "pixel-purge",
-      "title": "pixel purge",
-      "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
-      "thumbnail": "/games/pixel-purge/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [
-        "puzzle",
-        "color-sort",
-        "shooter",
-        "daily",
-        "casual",
-        "halloween"
-      ],
-      "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart",
-      "size_kb": 92,
-      "version": "1",
-      "added": "2026-10-19",
-      "max_score_per_sec": 200.0
-    },
-    {
       "slug": "keyboard-escape",
       "title": "+1 Speed Keyboard Escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
@@ -138,46 +118,6 @@
       "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
       "size_kb": 40,
       "version": "2",
-      "added": "2026-10-19"
-    },
-    {
-      "slug": "overdue-notice",
-      "title": "overdue notice",
-      "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
-      "thumbnail": "/games/overdue-notice/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [
-        "incremental",
-        "idle",
-        "clicker",
-        "funny",
-        "money",
-        "1 player",
-        "halloween"
-      ],
-      "controls": "tap / click popups and bills · space smashes · p pays all · 1–4 tabs",
-      "size_kb": 155,
-      "version": "1",
-      "added": "2026-10-19",
-      "max_score_per_sec": 0.02
-    },
-    {
-      "slug": "crash-cheats",
-      "title": "crash cheats at tic tac toe",
-      "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
-      "thumbnail": "/games/crash-cheats/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [
-        "puzzle",
-        "rage",
-        "tic tac toe",
-        "funny",
-        "1 player",
-        "halloween"
-      ],
-      "controls": "tap / click a square · keys 1–9 or arrows + space",
-      "size_kb": 107,
-      "version": "1",
       "added": "2026-10-19"
     },
     {
@@ -254,6 +194,66 @@
       "size_kb": 53,
       "version": "1",
       "added": "2026-10-19"
+    },
+    {
+      "slug": "pixel-purge",
+      "title": "pixel purge",
+      "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
+      "thumbnail": "/games/pixel-purge/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "color-sort",
+        "shooter",
+        "daily",
+        "casual",
+        "halloween"
+      ],
+      "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart. badges show how many pixels each front disk can hit.",
+      "size_kb": 96,
+      "version": "2",
+      "added": "2026-10-19",
+      "max_score_per_sec": 200.0
+    },
+    {
+      "slug": "crash-cheats",
+      "title": "crash cheats at tic tac toe",
+      "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
+      "thumbnail": "/games/crash-cheats/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "rage",
+        "tic tac toe",
+        "funny",
+        "1 player",
+        "halloween"
+      ],
+      "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
+      "size_kb": 116,
+      "version": "2",
+      "added": "2026-10-19"
+    },
+    {
+      "slug": "overdue-notice",
+      "title": "overdue notice",
+      "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
+      "thumbnail": "/games/overdue-notice/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "incremental",
+        "idle",
+        "clicker",
+        "funny",
+        "money",
+        "1 player",
+        "halloween"
+      ],
+      "controls": "tap / click popups and bills · space smashes (fast taps build a combo) · p pays all · g takes a gig · 1–4 tabs · 1/2 pick the daily situation",
+      "size_kb": 164,
+      "version": "2",
+      "added": "2026-10-19",
+      "max_score_per_sec": 0.02
     }
   ]
 }

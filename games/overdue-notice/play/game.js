@@ -165,7 +165,7 @@
         case 'popHit': { const n = nodes.get(e.p.id); if (n) { n.classList.remove('hit'); void n.offsetWidth; n.classList.add('hit'); } sfx.thud(); break; }
         case 'popDie': {
           const n = nodes.get(e.p.id);
-          if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt), e.p.kind === 'gold' ? 'var(--gold)' : null); if (e.p.kind === 'gold') coins(c.x, c.y, 14); }
+          if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt) + (e.combo >= 1.2 ? ' ×' + e.combo.toFixed(1) : ''), e.p.kind === 'gold' || e.combo >= 2.5 ? 'var(--gold)' : null); if (e.p.kind === 'gold') coins(c.x, c.y, 14); else if (e.combo >= 2) coins(c.x, c.y, 4); }
           removeNode(e.p.id, true); e.auto ? null : sfx.pop(); sfx.coin(); bumpCash();
           if (e.p.kind === 'gold') toast('the 1,000,000th visitor thing was real?? +' + fmt(e.amt));
           hideHint(); break;
@@ -185,7 +185,8 @@
           if (e.exposure) toast('gig paid in exposure. +' + fmt(e.exposure).slice(1) + ' exposure points.', true);
           else if (e.amt) { toast('gig done. +' + fmt(e.amt)); sfx.coin(); bumpCash(); }
           break;
-        case 'bill': if (S.t > 1 && !e.b.type.startsWith('surprise') && e.b.type !== 'surprise') { /* daily bills arrive quietly */ } break;
+        case 'bill': break;
+        case 'creep': crept = true; toast(e.name + ' went up. you can afford it now, apparently.', true); break;
         case 'surprise': toast('surprise bill: ' + e.name, true); sfx.late(); break;
         case 'windfall': toast(e.name + '! +' + fmt(e.amt)); sfx.coin(); break;
         case 'late': toast(e.b.name + ' is late. +15% late fee.', true); sfx.late(); break;
@@ -196,11 +197,12 @@
         case 'bought': sfx.buy(); break;
         case 'dayEnd': showDayEnd(e); break;
         case 'repo': showRepo(e); break;
-        case 'dayStart': sfx.day(); if (e.day <= 15) ccEvent('day', { day: e.day }); cc('score', e.day); break;
+        case 'dayStart': sfx.day(); if (!crept) toast('day ' + e.day + '. ' + S.bills.length + (S.bills.length === 1 ? ' bill' : ' bills') + ' arrived.'); crept = false; if (e.day <= 15) ccEvent('day', { day: e.day }); cc('score', e.day); break;
         case 'over': showOver(); break;
       }
     }
   }
+  let crept = false;
   let bumpT = 0;
   function bumpCash() { const n = performance.now(); if (n - bumpT < 90) return; bumpT = n; el.cash.classList.add('bump'); setTimeout(() => el.cash.classList.remove('bump'), 80); }
   let hintHidden = false;
@@ -208,7 +210,11 @@
 
   // ---------- top bar ----------
   let lastStatus = '';
+  const comboEl = $('combo');
   function renderTop() {
+    const live = S.combo > 1.15 && S.t - (S.lastTap || -9) < 1.1;
+    comboEl.classList.toggle('on', !!live);
+    if (live) comboEl.textContent = 'combo ×' + S.combo.toFixed(1);
     el.cash.textContent = fmt(S.cash);
     el.cash.classList.toggle('neg', S.cash < 0);
     el.day.textContent = 'day ' + S.day;
@@ -351,7 +357,7 @@
     let shownLocked = 0;
     for (const h of ON.HUSTLES) {
       const n = S.hustles[h.id] || 0, cost = ON.hustleCost(S, h);
-      if (!n && S.cash < cost * 0.35 && shownLocked >= 1) continue;
+      if (!n && shownLocked >= 1) continue;
       if (!n) shownLocked++;
       const hr = ON.hustleRate(S, h.id);
       const down = n && h.needs && !ON.utilOk(S, h.needs);
@@ -373,7 +379,7 @@
       const l = ON.lvl(S, u.id);
       if (S.day < u.unlock) { items.push({ key: 'u' + u.id, icon: '🔒', name: '???', sub: 'unlocks on day ' + u.unlock, cls: 'locked' }); continue; }
       const maxed = l >= u.max, cost = ON.upCost(S, u);
-      const nm = u.max === 1 ? u.names[1] : (u.names[Math.min(u.names.length - 1, l)] + (l >= u.names.length - 1 && l ? ' +' + (l - u.names.length + 1) : ''));
+      const nm = u.max === 1 ? u.names[1] + (maxed ? '' : ' (not owned)') : (u.names[Math.min(u.names.length - 1, l)] + (l >= u.names.length - 1 && l ? ' +' + (l - u.names.length + 1) : ''));
       items.push({ key: 'u' + u.id, icon: u.icon, name: nm + (u.max > 1 ? ' (lv ' + l + ')' : maxed ? ' ✓' : ''), sub: u.desc(l), btn: maxed ? { label: 'owned', act: 'x', dis: true } : { label: fmt(cost), act: 'up:' + u.id, dis: S.cash < cost } });
     }
     return items;
@@ -381,7 +387,7 @@
   function freshItems() {
     const items = [];
     const gain = ON.freshGain(S, false);
-    items.push({ key: 'fx', big: `filing for a fresh start ends this run and turns what you earned into <b>credit points</b>. each unspent point = <b>+12% income</b> (it compounds), or spend them on perks. you earn 1 point per day survived past day 3.<br><br>you have <b>${meta.cp} cp</b>. filing now: <b>+${gain} cp</b>.<br><span style="color:var(--dim);font-size:11px">getting bankrupted by the collector only gives half.</span>` });
+    items.push({ key: 'fx', big: `filing for a fresh start ends this run and turns what you earned into <b>credit points</b>. every point you've ever earned = <b>+8% income</b> (it compounds), and spending them on perks doesn't take that away. you earn 1 point per day survived past day 3.<br><br>you have <b>${meta.cp} cp</b>. filing now: <b>+${gain} cp</b>.<br><span style="color:var(--dim);font-size:11px">getting bankrupted by the collector only gives half.</span>` });
     items.push({ key: 'fbtn', icon: '📝', name: 'file for a fresh start', sub: S.day < 3 ? 'available from day 3' : 'ends the run · +' + gain + ' cp', btn: { label: 'file', act: 'fresh', dis: S.day < 3 || gain < 1, cls: 'alt' } });
     items.push({ key: 'ps', sect: 'perks (permanent)' });
     for (const p of ON.PERKS) {
@@ -419,10 +425,10 @@
   // ---------- modals ----------
   function openModal(html, cls, onPrimary) {
     el.box.className = 'box ' + (cls || ''); el.box.innerHTML = html; el.modal.hidden = false; modalOpen = true;
-    modalPrimary = onPrimary || null;
+    modalPrimary = onPrimary || null; modalKeys = {}; modalAt = performance.now();
   }
   function closeModal() { el.modal.hidden = true; modalOpen = false; modalPrimary = null; }
-  let modalPrimary = null;
+  let modalPrimary = null, modalKeys = {}, modalAt = 0;
   el.box.addEventListener('click', (e) => {
     initAudio();
     const b = e.target.closest('[data-m]'); if (!b) return;
@@ -437,11 +443,20 @@
     const lines = ['you survived. barely. probably.', 'another day, another overdraft.', 'the landlord says hi. and also pay.', 'you\'re doing great (financially, no).', 'sleep is free. for now.'];
     openModal(`<div class="tb"><span>day ${e.day} complete</span><span>☑</span></div><div class="in">
       <h2>day ${e.day} survived</h2>${lines[(Math.random() * lines.length) | 0]}
-      <div class="stats"><span>earned today</span><b>${fmt(e.earned)}</b><span>hustle income</span><b>${fmt(ON.incomeRate(S))}/s</b><span>still owed</span><b>${fmt(owed)}</b><span>late fees so far</span><b>${fmt(S.lateFees)}</b></div>
+      <div class="stats"><span>earned today</span><b>${fmt(e.earned)}${S.prevDayEarned > 0 ? ' <small style="color:' + (e.earned >= S.prevDayEarned ? 'var(--lime)' : 'var(--red)') + '">' + (e.earned >= S.prevDayEarned ? '+' : '') + Math.round(100 * (e.earned / S.prevDayEarned - 1)) + '%</small>' : ''}</b><span>hustle income</span><b>${fmt(ON.incomeRate(S))}/s</b><span>still owed</span><b>${fmt(owed)}</b><span>late fees so far</span><b>${fmt(S.lateFees)}</b>${S.autoFees ? '<span>autopay fees</span><b>' + fmt(S.autoFees) + '</b>' : ''}</div>
       ${next.length ? '<div style="color:var(--lilac)">new tomorrow: ' + esc(next.join(', ')) + '</div>' : ''}
-      <div style="color:var(--dim);font-size:11px;margin-top:4px">bills grow every day. so should you.</div>
+      <div style="color:var(--dim);font-size:11px;margin-top:4px">bills grow every day, and with whatever you earned today. lifestyle creep.</div>
       <div class="acts"><button class="btn" data-m="next">start day ${e.day + 1}</button></div></div>`, '', () => modalHandlers.next());
-    modalHandlers.next = () => { closeModal(); ON.nextDay(S); clearFieldForDay(); save(); };
+    modalHandlers.next = () => { closeModal(); ON.nextDay(S); clearFieldForDay(); save(); const ev = ON.rollEvent(S); if (ev) showEvent(ev); };
+  }
+  function showEvent(ev) {
+    const opt = (k, o) => `<button class="btn ${k === 'b' ? 'alt' : ''}" data-m="e${k}">${k === 'a' ? '1' : '2'} · ${esc(o[0])}<small>${esc(o[1])}</small></button>`;
+    openModal(`<div class="tb"><span>today's situation</span><span>${ev.icon}</span></div><div class="in">
+      <h2>${esc(ev.title)}</h2>${esc(ev.body)}
+      <div class="evt">${opt('a', ev.a)}${opt('b', ev.b)}</div></div>`, 'lilac', null);
+    const pickSide = (side) => { closeModal(); const note = ON.applyEvent(S, ev.id, side); sfx.buy(); toast((side === 'a' ? ev.a[0] : ev.b[0]) + (note ? ': ' + note : '') + '. good luck.'); ccEvent('situation', { id: ev.id, side }); renderPanel(); };
+    modalHandlers.ea = () => pickSide('a'); modalHandlers.eb = () => pickSide('b');
+    modalKeys = { 1: modalHandlers.ea, 2: modalHandlers.eb };
   }
   function clearFieldForDay() { /* keep popups between days: it's the same messy desktop */ }
 
@@ -487,9 +502,9 @@
     save();
     shareCanvas = drawCard();
     openModal(`<div class="tb"><span>${bank ? 'final notice' : 'fresh start filed'}</span><span>${bank ? '🕴️' : '📝'}</span></div><div class="in">
-      <h2>${bank ? 'repossessed.' : 'clean slate.'}</h2>${bank ? 'the debt collector took the couch, the router and the lemonade stand.' : 'the paperwork was 40 pages. you signed all of them.'}
+      <h2>${bank ? 'repossessed.' : 'clean slate.'}</h2>${bank ? 'the debt collector took the couch' + (S.hustles.lemon ? ', the lemonade stand' : '') + (S.hustles.video ? ', the ring light' : '') + ' and your dignity.' : 'the paperwork was 40 pages. you signed all of them.'}
       <div id="cardSlot"></div>
-      <div class="stats"><span>days survived</span><b>${S.day}</b><span>earned this run</span><b>${fmt(S.runEarned)}</b><span>late fees paid</span><b>${fmt(S.lateFees)}</b><span>popups closed</span><b>${S.popsClosed}</b><span>credit points</span><b>+${o.gain}</b></div>
+      <div class="stats"><span>days survived</span><b>${S.day}</b><span>earned this run</span><b>${fmt(S.runEarned)}</b><span>late fees</span><b>${fmt(S.lateFees)}</b><span>best combo</span><b>×${(S.comboBest || 1).toFixed(1)}</b><span>popups closed</span><b>${S.popsClosed}</b><span>credit points</span><b>+${o.gain}</b></div>
       <div class="acts"><button class="btn alt" data-m="share">share</button><button class="btn" data-m="again">new run</button></div></div>`, bank ? 'bad' : 'lilac', () => modalHandlers.again());
     $('cardSlot').appendChild(shareCanvas);
     modalHandlers.share = share;
@@ -529,7 +544,13 @@
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
       if (navigator.share) { await navigator.share({ text }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(text); toast('copied. go post it.'); } catch (e) { toast('couldn\'t copy. screenshot it.', true); }
+    let copied = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch (e) { /* ignore */ }
+    try {
+      const a = document.createElement('a'); a.href = shareCanvas.toDataURL('image/png'); a.download = 'overdue-notice.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast(copied ? 'text copied + card saved. go post it.' : 'card saved. go post it.');
+    } catch (e) { toast(copied ? 'copied. go post it.' : 'couldn\'t copy. screenshot it.', !copied); }
   }
 
   // ---------- run lifecycle ----------
@@ -552,7 +573,14 @@
   window.addEventListener('keydown', (e) => {
     initAudio();
     if (paused) return;
-    if (modalOpen) { if ((e.code === 'Enter' || e.code === 'Space') && modalPrimary) { e.preventDefault(); modalPrimary(); } return; }
+    // space is the smash key, so it never confirms a modal. enter does, after a short lock so a held key can't skip the summary.
+    if (modalOpen) {
+      if (e.code === 'Space') { e.preventDefault(); return; }
+      if (performance.now() - modalAt < 450 || e.repeat) return;
+      if (modalKeys[e.key]) { e.preventDefault(); modalKeys[e.key](); return; }
+      if (e.code === 'Enter' && modalPrimary) { e.preventDefault(); modalPrimary(); }
+      return;
+    }
     if (!S || S.over) return;
     if (e.code === 'Space') { e.preventDefault(); ON.tapAny(S); }
     else if (e.key === 'p' || e.key === 'P') { ON.payAll(S); renderPanel(); }
@@ -596,13 +624,14 @@
   const resumed = load();
   if (!resumed) { S = ON.newRun(meta); }
   applySpooky();
+  if (resumed) hideHint();
   if (resumed) {
     const away = meta.lastSeen ? (Date.now() - meta.lastSeen) / 1000 : 0;
     if (S.over) { newRun(); }
     else if (S.dayDone) showDayEnd({ day: S.day, earned: S.dayEarned });
     else if (away > 60) {
       const r = ON.offline(S, away);
-      if (r.amt >= 1) openModal(`<div class="tb"><span>welcome back</span><span>💤</span></div><div class="in"><h2>+${fmt(r.amt)}</h2>your hustles kept going for ${secs(r.secs)} while you were gone (at 40%, they slack off without you). the bills waited. how polite.<div class="acts"><button class="btn" data-m="ok">nice</button></div></div>`, '', () => modalHandlers.ok());
+      if (r.amt >= 1) openModal(`<div class="tb"><span>welcome back</span><span>💤</span></div><div class="in"><h2>+${fmt(r.amt)}</h2>your hustles kept going for ${secs(r.secs)} while you were gone (at 25%, capped at a day and a half of pay. they slack off without you). the bills waited. how polite.<div class="acts"><button class="btn" data-m="ok">nice</button></div></div>`, '', () => modalHandlers.ok());
       modalHandlers.ok = closeModal;
     }
   }

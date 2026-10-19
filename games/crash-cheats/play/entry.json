@@ -1,10 +1,23 @@
 {
   "slug": "crash-cheats",
   "title": "crash cheats at tic tac toe",
+  "version": 2,
   "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tap / click a square · keys 1–9 or arrows + space",
-  "size_kb": 107,
-  "tags": ["puzzle", "rage", "tic tac toe", "funny", "1 player", "halloween"]
+  "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
+  "size_kb": 116,
+  "tags": [
+    "puzzle",
+    "rage",
+    "tic tac toe",
+    "funny",
+    "1 player",
+    "halloween"
+  ],
+  "changelog": "v2: first to 3 for both sides, suspicion meter (100% = anticheat catches him and you take the round), counter-cheat tokens (firewall, ctrl+z, report), double-line bug fixed, \"you had it\" beat, numbered lag moves, share downloads the card, score rewards wins not stalling.",
+  "playtest": {
+    "before": 5.0,
+    "after": 6.9
+  }
 }
