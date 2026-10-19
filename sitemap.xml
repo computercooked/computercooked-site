@@ -2,6 +2,14 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://computercooked.com/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-10-19</lastmod>
+  </url>
+  <url>
+    <loc>https://computercooked.com/games/</loc>
+    <lastmod>2026-10-19</lastmod>
+  </url>
+  <url>
+    <loc>https://computercooked.com/games/crash/</loc>
+    <lastmod>2026-10-19</lastmod>
   </url>
 </urlset>

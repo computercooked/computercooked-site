@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Computer Cooked Games — free browser games, mildly overheating</title>
+  <meta name="description" content="computer cooked games: free little browser games made by Computer Cooked. play CRASH, the tired beige computer who just wants one quiet afternoon.">
+  <link rel="canonical" href="https://computercooked.com/games/">
+  <meta name="theme-color" content="#101114">
+  <meta name="color-scheme" content="dark">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Computer Cooked">
+  <meta property="og:title" content="Computer Cooked Games">
+  <meta property="og:description" content="free browser games from a computer that is not handling it well.">
+  <meta property="og:url" content="https://computercooked.com/games/">
+  <meta property="og:image" content="https://computercooked.com/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@computercooked">
+  <meta name="twitter:title" content="Computer Cooked Games">
+  <meta name="twitter:description" content="free browser games from a computer that is not handling it well.">
+  <meta name="twitter:image" content="https://computercooked.com/assets/og.png">
+
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/assets/deck.css">
+  <link rel="stylesheet" href="/games/games.css">
+</head>
+<body>
+  <main class="games-page">
+    <header class="games-hero">
+      <p class="eyebrow">computercooked.com/games</p>
+      <h1 class="games-title">computer cooked <span>games</span></h1>
+      <p class="games-sub">free little browser games. no downloads, no accounts, no ads (yet). works on your phone. press <kbd>/</kbd> to go anywhere.</p>
+    </header>
+
+    <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
+
+    <section class="shelf" aria-labelledby="ours-heading">
+      <h2 class="shelf-head" id="ours-heading">made by computer cooked <small data-count></small></h2>
+      <ul class="card-grid" id="shelf-computer-cooked">
+        <li class="game-card">
+          <div class="game-card-inner">
+            <img class="game-thumb" src="/games/crash/thumb.svg" alt="" width="400" height="300">
+            <div class="game-body">
+              <h3 class="game-name">CRASH</h3>
+              <p class="game-pitch">dodge the tasks, drink the coffee, don't get cooked.</p>
+              <a class="play-btn" href="/games/crash/" aria-label="play CRASH">play ▶</a>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="shelf" aria-labelledby="community-heading">
+      <h2 class="shelf-head" id="community-heading">community</h2>
+      <ul class="card-grid" id="shelf-community">
+        <li class="soon-card">
+          <span class="soon-badge">coming soon</span>
+          <h3>upload your own game</h3>
+          <p>made a little html5 game? soon you'll be able to post it here. get on the list and we'll tell you when the doors open.</p>
+          <!-- TODO(v2): real waitlist form once Workers + D1 exist. No backend yet, so this is a mailto. -->
+          <div class="waitlist">
+            <a class="btn" href="mailto:hello@computercooked.com?subject=game%20upload%20waitlist&amp;body=put%20me%20on%20the%20list.%20my%20game%20is%3A%20">join the waitlist ✉</a>
+            <a class="btn" href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">pitch us on tiktok ↗</a>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <div class="ad-slot" data-slot="games-hub-bottom" aria-hidden="true"></div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Computer Cooked</p>
+    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a></p>
+  </footer>
+
+  <script src="/games/hub.js" defer></script>
+  <nav class="deck" aria-label="main">
+    <div class="deck-inner">
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
+      </button>
+      <a class="deck-link" href="/" data-key="h">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
+      </a>
+      <a class="deck-link" href="/games/" data-key="g">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
+        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
+      </a>
+      <a class="deck-link" href="/#follow" data-key="f">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
+      </a>
+      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
+        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
+      </a>
+    </div>
+  </nav>
+  <script src="/assets/deck.js" defer></script>
+</body>
+</html>

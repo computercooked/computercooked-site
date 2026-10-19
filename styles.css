@@ -303,6 +303,41 @@ a {
   border-color: var(--lime);
 }
 
+/* ---------- games promo ---------- */
+
+.games-promo {
+  margin-top: 10px;
+  min-height: 66px;
+  border-color: var(--lilac);
+  border-style: dashed;
+}
+
+.promo-tag {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--lilac);
+  color: var(--carbon);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.promo-sub {
+  display: block;
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+}
+
+@media (min-width: 720px) {
+  .games-promo {
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
 /* ---------- terminal ---------- */
 
 .terminal {
