@@ -12,7 +12,7 @@
   var IN = SB.IN;
   var NTR = 4; // eligibility traces kept
   var WMAX = 4, AMAX = 3;
-  // w1 starts as fairly strong random features so each situation looks different to the output layer;
+  // w1 starts as modest random features so each situation looks a bit different to the output layer;
   // the per-verb bias learns slowly (BSTEP) so lessons stay tied to the situation, not the verb in general
   var W1INIT = 0.3, BSTEP = 0.05;
   var exp = Math.exp, abs = Math.abs;
@@ -112,8 +112,10 @@
 
   /* ---------------- decision ---------------- */
 
-  B.decide = function (b, rng, mask) {
+  // bias (optional, length 12): added to q before sampling, e.g. a genetic urge to obey a spoken command
+  B.decide = function (b, rng, mask, bias) {
     fwd(b, b.x, b.h, b.q);
+    if (bias) for (var k = 0; k < NO; k++) b.q[k] += bias[k];
     var a = sample(b, b.q, NO, b.temp, mask, rng);
     if (a < 0) a = 0;
     // older decisions become less susceptible; newest one goes into the ring buffer

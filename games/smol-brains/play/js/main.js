@@ -205,6 +205,10 @@
       genome: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, warmth: 0, progress: 0, starter: true
     });
     egg.data.genome.gen = 1;
+    // the tutorial smol is born knowing that food is for eating (everything else it has to learn)
+    var ins = egg.data.genome.instincts, hasEat = false;
+    for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
+    if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
     return g;
   };
 

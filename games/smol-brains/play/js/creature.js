@@ -182,6 +182,7 @@
   var nearestD = new Float32Array(SB.N_NOUNS);
   var drv = new Float32Array(SB.N_DRIVES);
   var mask = new Array(NV);
+  var bias = new Float32Array(NV);
 
   function perceive(c, game) {
     var R = VIEW_R + gene(c.genome, "curiosity", 0.5) * 80;
@@ -249,7 +250,6 @@
       holding: c.holding != null,
       dark: isNight(game)
     });
-    var q = SB.Brain.forward(c.brain);
 
     // what's physically possible
     var noun = cand ? SB.NOUNS[cand.noun] : null;
@@ -268,11 +268,13 @@
 
     // a genetic nudge to go along with a spoken command (the net learns the rest from tickles)
     var heardV = recent ? c.heard.verb : -1;
-    if (heardV >= 0 && mask[heardV]) q[heardV] += gene(c.genome, "obedience", 0.5) * 0.18 + (c.heard.name ? 0.05 : 0);
+    var useBias = false;
+    for (v = 0; v < NV; v++) bias[v] = 0;
+    if (heardV >= 0 && mask[heardV]) { bias[heardV] = gene(c.genome, "obedience", 0.5) * 0.18 + (c.heard.name ? 0.05 : 0); useBias = true; }
 
     var any = false;
     for (v = 0; v < NV; v++) if (mask[v]) { any = true; break; }
-    var verb = any ? SB.Brain.decide(c.brain, rng, mask) : V.idle;
+    var verb = any ? SB.Brain.decide(c.brain, rng, mask, useBias ? bias : null) : V.idle;
 
     startAction(c, game, verb, tgt, target, noun);
 
