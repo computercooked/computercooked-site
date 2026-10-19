@@ -14,6 +14,7 @@
     { name: "home", hint: "the main page", href: "/" },
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
+    { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
     { name: "follow", hint: "all the socials", href: "/#follow" },
     { name: "ideas", hint: "dm us what we should cook next", href: TIKTOK, ext: true },
     { name: "tiktok", hint: "@computercooked", href: TIKTOK, ext: true },
@@ -24,6 +25,26 @@
     { name: "bluesky", hint: "computercooked.bsky.social", href: "https://bsky.app/profile/computercooked.bsky.social", ext: true },
     { name: "help", hint: "list everything", say: "type a page name. tab completes, enter goes, esc leaves." }
   ];
+  /* every game in games.json becomes a "play <title>" command (tags are searchable too) */
+  var gamesLoaded = false;
+  var GAMES = [];
+  function loadGames() {
+    if (gamesLoaded) return;
+    gamesLoaded = true;
+    fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.games) return;
+      GAMES = d.games.filter(function (g) { return g.slug && g.made_by !== "community"; });
+      var at = 3; // after home, games, play crash
+      GAMES.forEach(function (g) {
+        var name = "play " + String(g.title).toLowerCase();
+        if (COMMANDS.some(function (c) { return c.name === name; })) return;
+        COMMANDS.splice(at++, 0, { name: name, hint: String(g.pitch || "").toLowerCase(), href: "/games/" + g.slug + "/",
+          keys: (g.tags || []).join(" ").toLowerCase() });
+      });
+      if (dialog.open) render();
+    }).catch(function () { gamesLoaded = false; });
+  }
+
   var JOKES = {
     "sudo": "nice try. you are not in the sudoers file. this incident will be reported.",
     "rm -rf": "already did that. that's why we're like this.",
@@ -82,7 +103,7 @@
   function render() {
     var q = input.value.trim().toLowerCase();
     matches = COMMANDS.filter(function (c) {
-      return !q || c.name.indexOf(q) >= 0 || c.hint.indexOf(q) >= 0;
+      return !q || c.name.indexOf(q) >= 0 || c.hint.indexOf(q) >= 0 || (c.keys && c.keys.indexOf(q) >= 0);
     }).sort(function (a, b) {
       return (b.name.indexOf(q) === 0) - (a.name.indexOf(q) === 0);
     });
@@ -108,6 +129,11 @@
       return;
     }
     if (c.say) { say.textContent = c.say; return; }
+    if (c.random) {
+      var pool = GAMES.filter(function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") !== 0; });
+      if (!pool.length) { say.textContent = "still loading the games. try again in a sec."; loadGames(); return; }
+      c = { href: "/games/" + pool[Math.floor(Math.random() * pool.length)].slug + "/" };
+    }
     dialog.close();
     if (c.ext) window.open(c.href, "_blank", "noopener");
     else location.href = c.href;
@@ -115,6 +141,7 @@
 
   function open() {
     if (dialog.open) return;
+    loadGames();
     input.value = "";
     say.textContent = "";
     sel = 0;

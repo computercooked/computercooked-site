@@ -11,6 +11,16 @@
   var RECENT_KEY = "cc-fx-recent";
   var DAILY = { fathom: "daily dive", "handbag-havoc": "daily garden", "desktop-jam": "daily desktop" };
   var NEW_COUNT = 4; // newest N games (end of games.json, never CRASH) get a "new" badge
+  /* hub filter chips. A game lands in a vibe if any of its tags match; games without tags
+     use FALLBACK until they get tags in games.json. */
+  var VIBES = [
+    { id: "arcade", label: "arcade", tags: ["arcade", "dodge", "runner", "obby", "platformer", "reflex", "action", "shooter"] },
+    { id: "puzzle", label: "puzzle", tags: ["puzzle", "arrow puzzle", "tic tac toe", "strategy", "logic", "word"] },
+    { id: "chill", label: "chill", tags: ["casual", "idle", "clicker", "cozy", "chill", "relaxing"] },
+    { id: "quick", label: "60s or less", tags: ["short", "60s runs", "challenge", "one-thumb", "quick"] },
+    { id: "rage", label: "rage", tags: ["rage", "trick", "hard", "funny"] }
+  ];
+  var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"] };
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -90,6 +100,9 @@
         spotlight(games, newest);
         hubStrip(games, bySlug);
         badges(isNew);
+        filters(games, isNew);
+        previews();
+        cup(games);
       }
       if (here) {
         moreGames(games, here);
@@ -112,12 +125,14 @@
     var shelves = document.querySelectorAll(".card-grid");
     function apply() {
       document.querySelectorAll(".game-card").forEach(function (card) {
-        var a = card.querySelector(".play-btn");
-        var m = a && (a.getAttribute("href") || "").match(/^\/games\/([a-z0-9-]+)\/$/);
-        if (!m) return;
-        card.dataset.slug = m[1];
+        var slug = slugOfCard(card);
+        if (!slug) return;
         var body = card.querySelector(".game-body");
-        if (isNew[m[1]] && body && !card.querySelector(".game-new")) {
+        var badge = card.querySelector(".game-new");
+        // hub.js badges by "added" date; when a whole batch shares a date that tags everything,
+        // so the badge stays on the newest few only
+        if (badge && !isNew[slug]) badge.remove();
+        if (isNew[slug] && body && !card.querySelector(".game-new")) {
           body.insertAdjacentHTML("afterbegin", '<span class="game-new">new</span>');
         }
       });
@@ -230,6 +245,165 @@
         "</div></div></li>";
     }).join("");
     more.hidden = false;
+  }
+
+  /* ---------- hub filters + search (scales the grid past 15-20 games) ---------- */
+  function vibesOf(g) {
+    var tags = (g.tags || []).map(function (t) { return String(t).toLowerCase(); });
+    var out = VIBES.filter(function (v) { return v.tags.some(function (t) { return tags.indexOf(t) >= 0; }); })
+      .map(function (v) { return v.id; });
+    if (!out.length && FALLBACK[g.slug]) out = FALLBACK[g.slug].slice();
+    if (DAILY[g.slug] || tags.indexOf("daily") >= 0) out.push("daily");
+    return out;
+  }
+
+  function slugOfCard(card) {
+    var a = card.querySelector(".play-btn");
+    var m = a && (a.getAttribute("href") || "").match(/^\/games\/([a-z0-9-]+)\/$/);
+    return m ? m[1] : null;
+  }
+
+  function filters(games, isNew) {
+    var grid = document.getElementById("shelf-computer-cooked");
+    if (!grid || games.length < 6) return;
+    var meta = {};
+    games.forEach(function (g) {
+      meta[g.slug] = {
+        vibes: vibesOf(g).concat(isNew[g.slug] ? ["new"] : []),
+        text: [g.title, g.pitch, (g.tags || []).join(" ")].join(" ").toLowerCase()
+      };
+    });
+    var chips = [{ id: "all", label: "all" }, { id: "new", label: "new" }].concat(VIBES, [{ id: "daily", label: "daily" }])
+      .filter(function (c) {
+        return c.id === "all" || games.some(function (g) { return meta[g.slug].vibes.indexOf(c.id) >= 0; });
+      });
+
+    var bar = el('<div class="hub-filters">' +
+      '<label class="hub-search"><span class="visually-hidden">search games</span>' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.4"/></svg>' +
+      '<input type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>' +
+      '<div class="chip-row" role="group" aria-label="filter by vibe"></div>' +
+      '<p class="hub-empty" hidden>nothing matches. the computer looked everywhere. <button type="button" class="hub-reset">show all</button></p>' +
+      '<p class="visually-hidden" role="status" aria-live="polite"></p></div>');
+    var q = bar.querySelector("input");
+    q.placeholder = "search " + games.length + " games";
+    var row = bar.querySelector(".chip-row");
+    chips.forEach(function (c) {
+      var b = el('<button type="button" class="chip"></button>');
+      b.textContent = c.label;
+      b.dataset.vibe = c.id;
+      b.setAttribute("aria-pressed", String(c.id === "all"));
+      row.appendChild(b);
+    });
+    var section = grid.closest(".shelf");
+    section.querySelector(".shelf-head").insertAdjacentElement("afterend", bar);
+
+    var empty = bar.querySelector(".hub-empty");
+    var live = bar.querySelector('[role="status"]');
+    var vibe = "all";
+
+    function apply() {
+      var term = q.value.trim().toLowerCase();
+      var shown = 0;
+      grid.querySelectorAll(".game-card").forEach(function (card) {
+        var slug = slugOfCard(card);
+        var info = slug && meta[slug];
+        var ok = !info || ((vibe === "all" || info.vibes.indexOf(vibe) >= 0) && (!term || info.text.indexOf(term) >= 0));
+        card.hidden = !ok;
+        if (ok) shown++;
+      });
+      empty.hidden = shown > 0;
+      live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
+    }
+    row.addEventListener("click", function (e) {
+      var b = e.target.closest(".chip");
+      if (!b) return;
+      vibe = b.dataset.vibe;
+      row.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      apply();
+    });
+    q.addEventListener("input", apply);
+    bar.querySelector(".hub-reset").addEventListener("click", function () {
+      q.value = ""; vibe = "all";
+      row.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.vibe === "all")); });
+      apply(); q.focus();
+    });
+    new MutationObserver(apply).observe(grid, { childList: true });
+    apply();
+  }
+
+  /* ---------- live previews: hover a card (desktop) and the game's attract screen plays in it ----------
+     Fine pointers only, after a short dwell, one at a time, muted, no input, removed on leave.
+     Inside the hub the SDK has no player page to relay to, so previews never count as plays. */
+  function previews() {
+    if (!finePointer || reduceMotion || (navigator.connection && navigator.connection.saveData)) return;
+    var timer = null, current = null;
+    function stop() {
+      clearTimeout(timer);
+      if (current) {
+        var f = current.querySelector(".card-preview");
+        if (f) f.remove();
+        current.classList.remove("is-previewing");
+        current = null;
+      }
+    }
+    document.addEventListener("pointerover", function (e) {
+      var card = e.target.closest && e.target.closest(".game-card");
+      if (card === current) return;
+      stop();
+      if (!card) return;
+      var slug = slugOfCard(card);
+      var thumb = card.querySelector(".game-thumb");
+      if (!slug || !thumb || slug === "crash") return; // CRASH runs inline on its page, its svg thumb is already animated
+      current = card;
+      timer = setTimeout(function () {
+        var box = el('<div class="card-preview" aria-hidden="true"><iframe tabindex="-1" title="" loading="eager"></iframe><span class="preview-tag">live preview</span></div>');
+        var f = box.querySelector("iframe");
+        f.src = "/games/" + slug + "/play/";
+        f.addEventListener("load", function () {
+          try { f.contentWindow.postMessage({ type: "cc-mute", muted: true }, location.origin); } catch (err) {}
+          box.classList.add("is-live");
+        });
+        thumb.insertAdjacentElement("afterend", box);
+        card.classList.add("is-previewing");
+      }, 700);
+    });
+    document.addEventListener("pointerout", function (e) {
+      if (current && !current.contains(e.relatedTarget)) stop();
+    });
+    window.addEventListener("blur", stop);
+  }
+
+  /* ---------- cooked cup: one game per week, top 5 from the weekly leaderboard ----------
+     Only shows when the platform database is live and a game has a board. */
+  function cup(games) {
+    var boards = games.filter(function (g) { return g.max_score_per_sec || g.max_score; });
+    if (!boards.length) return;
+    fetch("/api/health").then(function (r) { return r.ok ? r.json() : null; }).then(function (h) {
+      if (!h || !h.db) return;
+      var week = Math.floor((Date.now() / 86400000 + 3) / 7); // weeks since 1970, monday to sunday
+      var g = boards[week % boards.length];
+      return fetch("/api/leaderboard?game=" + encodeURIComponent(g.slug) + "&period=week", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (lb) { if (lb && lb.ok) renderCup(g, lb.rows || []); });
+    }).catch(function () {});
+  }
+
+  function renderCup(g, rows) {
+    var anchor = document.querySelector(".hub-strip") || document.querySelector(".ticker");
+    if (!anchor) return;
+    var top = rows.slice(0, 5);
+    var html = '<section class="cup" aria-labelledby="cup-heading">' +
+      '<div class="cup-copy"><p class="cup-eyebrow">this week</p>' +
+      '<h2 class="cup-title" id="cup-heading">the cooked cup</h2>' +
+      '<p class="cup-game">game: <b>' + esc(g.title) + '</b>. best score by sunday night gets the crown and a shoutout on <a href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">tiktok</a>.</p>' +
+      '<a class="play-btn cup-play" href="/games/' + encodeURIComponent(g.slug) + '/">enter the cup ▶</a></div>' +
+      '<ol class="cup-board">' + (top.length ? top.map(function (r) {
+        return '<li class="' + (r.rank === 1 ? "is-king" : "") + (r.me ? " is-me" : "") + '">' +
+          '<span class="cup-rank">' + (r.rank === 1 ? '<span aria-hidden="true">👑</span><span class="visually-hidden">1</span>' : esc(r.rank)) + "</span>" +
+          '<span class="cup-name">' + esc(r.name) + (r.me ? " (you)" : "") + '</span><span class="cup-score">' + esc(r.score) + "</span></li>";
+      }).join("") : '<li class="cup-empty">no scores yet this week. the crown is just sitting there.</li>') + "</ol></section>";
+    anchor.insertAdjacentHTML("afterend", html);
   }
 
   /* ---------- challenge links: ?beat=47s shows a dare above the game ---------- */
