@@ -53,6 +53,7 @@
     if (st && st.ok) st.games.forEach(function (g) { stats[g.game] = g; });
     me = who && who.user;
     var chip = document.getElementById("hub-chip");
+    live.then(function (up) { if (chip) chip.hidden = !up; });
     if (chip && me) { chip.textContent = me.username; chip.classList.add("is-in"); }
     return (me ? api("/api/me/summary") : Promise.resolve(null)).then(function (sum) {
       if (sum && sum.ok) favs = sum.favorites;
