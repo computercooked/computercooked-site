@@ -4,15 +4,28 @@
 (function () {
   "use strict";
 
-  /* ---------- swappable art ----------
-     Every sprite is drawn in code by default. To use real art, drop a PNG/SVG in
-     /games/crash/assets/ and put its path here (e.g. crash: "/games/crash/assets/crash.png").
-     Images are drawn centred in the same box the code-drawn version uses. */
+  /* ---------- swappable art + audio ----------
+     Pixel art and sounds live in /games/crash/assets/ (from the ccgames pack).
+     Swap a file, or point a path somewhere else. Set any path to "" and the
+     game falls back to its code-drawn sprite / WebAudio blip for that slot. */
+  var A = "/games/crash/assets/";
   var SPRITES = {
-    crash: "",   // ~64x56 box, CRASH facing the player
-    coffee: "",  // ~30x30
-    fan: ""      // ~30x30
+    crash: A + "crash-spritesheet.png", // 3 frames of 128x128: idle, hit, cooked
+    popup: A + "popup.png",             // task icons, 128x128
+    update: A + "update.png",
+    tabs: A + "tabs.png",
+    email: A + "email.png",
+    coffee: A + "coffee.png",           // pickups, 128x128
+    fan: A + "fan.png"
   };
+  var CRASH_FRAMES = { idle: 0, hit: 1, cooked: 2 }; // frame index in the sheet
+  var SOUNDS = {
+    music: A + "crash-loop.mp3",  // 62s seamless loop, loaded after the first tap
+    hit: A + "hit.mp3",
+    pickup: A + "pickup.mp3",
+    cooked: A + "game-over.mp3"
+  };
+  var MUSIC_LOOP_SECONDS = 62;
 
   var W = 360, H = 560;           // logical playfield; scaled to fit the stage
   var FLOOR = H - 26;
@@ -100,6 +113,51 @@
     master = ac.createGain();
     master.gain.value = muted ? 0 : 0.5;
     master.connect(ac.destination);
+    musicGain = ac.createGain();
+    musicGain.gain.value = 0.55;
+    musicGain.connect(master);
+    Object.keys(SOUNDS).forEach(function (k) {
+      if (!SOUNDS[k]) return;
+      fetch(SOUNDS[k])
+        .then(function (r) { return r.ok ? r.arrayBuffer() : Promise.reject(r.status); })
+        .then(function (b) { return new Promise(function (ok, no) { ac.decodeAudioData(b, ok, no); }); })
+        .then(function (buf) { bufs[k] = buf; if (k === "music" && state === "play") startMusic(); })
+        .catch(function () { /* keep the procedural fallback */ });
+    });
+  }
+  var musicGain = null, bufs = {}, musicSrc = null;
+  function playBuf(k, vol) {
+    if (!ac || muted || !bufs[k]) return false;
+    var s = ac.createBufferSource(), g = ac.createGain();
+    s.buffer = bufs[k];
+    g.gain.value = vol || 0.8;
+    s.connect(g); g.connect(master);
+    s.start();
+    return true;
+  }
+  function startMusic() {
+    if (!ac || !bufs.music || musicSrc) return;
+    var b = bufs.music;
+    musicSrc = ac.createBufferSource();
+    musicSrc.buffer = b;
+    musicSrc.loop = true;
+    // loop exactly the 62s body; skips any encoder padding at either end
+    var pad = Math.max(0, (b.duration - MUSIC_LOOP_SECONDS) / 2);
+    musicSrc.loopStart = pad;
+    musicSrc.loopEnd = Math.min(b.duration, pad + MUSIC_LOOP_SECONDS);
+    musicGain.gain.cancelScheduledValues(ac.currentTime);
+    musicGain.gain.setValueAtTime(0.55, ac.currentTime);
+    musicSrc.connect(musicGain);
+    musicSrc.start(0, pad);
+  }
+  function stopMusic(fade) {
+    if (!musicSrc) return;
+    var s = musicSrc;
+    musicSrc = null;
+    var end = ac.currentTime + (fade || 0.05);
+    musicGain.gain.setValueAtTime(musicGain.gain.value, ac.currentTime);
+    musicGain.gain.linearRampToValueAtTime(0.0001, end);
+    s.stop(end + 0.02);
   }
   function tone(f1, f2, dur, type, vol, delay) {
     if (!ac || muted) return;
@@ -131,11 +189,11 @@
   }
   var sfx = {
     start: function () { tone(220, 880, 0.18, "square", 0.15); tone(440, 1320, 0.2, "square", 0.1, 0.12); },
-    hit: function () { noise(0.25, 0.35); tone(160, 50, 0.25, "sawtooth", 0.25); },
-    coffee: function () { tone(520, 1040, 0.09, "square", 0.14); tone(780, 1560, 0.1, "square", 0.1, 0.07); },
-    fan: function () { tone(300, 1200, 0.25, "triangle", 0.2); noise(0.2, 0.08); },
+    hit: function () { if (!playBuf("hit", 0.9)) { noise(0.25, 0.35); tone(160, 50, 0.25, "sawtooth", 0.25); } },
+    coffee: function () { if (!playBuf("pickup", 0.7)) { tone(520, 1040, 0.09, "square", 0.14); tone(780, 1560, 0.1, "square", 0.1, 0.07); } },
+    fan: function () { if (!playBuf("pickup", 0.7)) { tone(300, 1200, 0.25, "triangle", 0.2); noise(0.2, 0.08); } else tone(300, 900, 0.2, "triangle", 0.08); },
     warn: function () { tone(880, 880, 0.06, "square", 0.08); },
-    cooked: function () { noise(0.6, 0.4); tone(400, 40, 1.1, "sawtooth", 0.3); tone(300, 30, 1.2, "square", 0.15, 0.1); }
+    cooked: function () { stopMusic(0.4); if (!playBuf("cooked", 0.9)) { noise(0.6, 0.4); tone(400, 40, 1.1, "sawtooth", 0.3); tone(300, 30, 1.2, "square", 0.15, 0.1); } }
   };
   function setMuted(m) {
     muted = m;
@@ -178,10 +236,16 @@
     reset();
     setState("play");
     sfx.start();
+    stopMusic();
+    startMusic();
     last = performance.now();
   }
 
-  function pause() { if (state === "play") setState("paused"); }
+  function pause() {
+    if (state !== "play") return;
+    setState("paused");
+    if (ac && ac.state === "running") ac.suspend();
+  }
   function resume() { if (state === "paused") { audio(); setState("play"); last = performance.now(); } }
 
   /* ---------- spawning ---------- */
@@ -193,13 +257,26 @@
     var big = Math.random() < Math.min(0.25, t / 240);
     if (big) w = Math.min(190, w * 1.3);
     var h = big ? 50 : 40;
+    var icon = iconFor(label);
+    if (img[icon]) {
+      // pixel icon on top, label pill underneath
+      w = Math.max(big ? 60 : 48, Math.min(big ? 190 : 150, ctx.measureText(label).width + 14));
+      h = big ? 66 : 56;
+    }
     tasks.push({
+      icon: icon, big: big,
       x: 8 + Math.random() * (W - w - 16), y: -h - 4, w: w, h: h,
       vy: 120 + t * 2.6 + Math.random() * 70,
       vx: Math.random() < 0.18 ? (Math.random() - 0.5) * 70 : 0,
       label: label, color: TASK_COLORS[(Math.random() * TASK_COLORS.length) | 0],
       rot: (Math.random() - 0.5) * 0.12
     });
+  }
+  function iconFor(label) {
+    if (/update|restart|expired|battery|offline/.test(label)) return "update";
+    if (/tab|watching|feature/.test(label)) return "tabs";
+    if (/re:|reply|question|msg|meeting|circling/.test(label)) return "email";
+    return "popup";
   }
   function spawnItem() {
     var fan = Math.random() < 0.3;
@@ -270,7 +347,7 @@
       k.x += k.vx * dt;
       if (k.x < 4 || k.x + k.w > W - 4) k.vx = -k.vx;
       if (crash.hurt <= 0 && overlap(hb, { x: k.x + 3, y: k.y + 3, w: k.w - 6, h: k.h - 6 })) {
-        heat += k.h > 45 ? 22 : 15;
+        heat += k.big ? 22 : 15;
         hits++;
         crash.hurt = 0.45;
         crash.squash = 1;
@@ -278,7 +355,7 @@
         glitch = 0.32;
         flash = 0.25;
         puff(k.x + k.w / 2, k.y + k.h, 14, k.color, 160, 0.5);
-        floatText(crash.x, crash.y - crash.h - 10, "+" + (k.h > 45 ? 22 : 15) + "°", "#ff6b5b");
+        floatText(crash.x, crash.y - crash.h - 10, "+" + (k.big ? 22 : 15) + "°", "#ff6b5b");
         sfx.hit();
         if (navigator.vibrate && !reduceMotion) { try { navigator.vibrate(40); } catch (e) {} }
         tasks.splice(i, 1);
@@ -383,6 +460,22 @@
     ctx.translate(k.x + k.w / 2, k.y + k.h / 2);
     ctx.rotate(k.rot);
     var x = -k.w / 2, y = -k.h / 2;
+    var ic = img[k.icon];
+    if (ic) {
+      var is = k.h - 16;
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(-is / 2 + 4, y + 4, is, is);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(ic, -is / 2, y, is, is);
+      ctx.fillStyle = k.color;
+      rr(x, y + is - 2, k.w, 17, 5); ctx.fill();
+      ctx.fillStyle = "#101114";
+      ctx.font = "800 11px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(k.label, 0, y + is + 6.5);
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     rr(x + 4, y + 4, k.w, k.h, 6); ctx.fill();
     ctx.fillStyle = "#F5F3ED";
@@ -411,7 +504,9 @@
     ctx.fillStyle = it.kind === "fan" ? "rgba(181,154,255,0.18)" : "rgba(197,255,73,0.18)";
     ctx.beginPath(); ctx.arc(0, 0, 21, 0, Math.PI * 2); ctx.fill();
     if (s) {
-      ctx.drawImage(s, -15, -15, 30, 30);
+      ctx.imageSmoothingEnabled = false;
+      if (it.kind === "fan") ctx.rotate(Math.sin(it.spin * 0.5) * 0.25);
+      ctx.drawImage(s, -19, -19, 38, 38);
     } else if (it.kind === "coffee") {
       ctx.fillStyle = "#C5FF49";
       rr(-10, -8, 18, 20, 3); ctx.fill();
@@ -454,7 +549,20 @@
     ctx.beginPath(); ctx.ellipse(0, 1, w * 0.48, 5, 0, 0, Math.PI * 2); ctx.fill();
 
     if (img.crash) {
-      ctx.drawImage(img.crash, x, y, w, bh);
+      var fr = (state === "cooking" || state === "over") ? CRASH_FRAMES.cooked : crash.hurt > 0 ? CRASH_FRAMES.hit : CRASH_FRAMES.idle;
+      var fsz = img.crash.height, S = 84;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img.crash, fr * fsz, 0, fsz, fsz, -S / 2, -S + S * 0.1, S, S);
+      // heat glow on the screen as it warms up
+      if (h > 0.45) {
+        ctx.fillStyle = "rgba(255,80,50," + ((h - 0.45) * 0.55).toFixed(3) + ")";
+        ctx.fillRect(-S * 0.33, -S * 0.78, S * 0.62, S * 0.42);
+      }
+      if (h > 0.4) {
+        var sy2 = (t * 60) % 18;
+        ctx.fillStyle = "#5bc8ff";
+        ctx.beginPath(); ctx.arc(-S * 0.42, -S * 0.7 + sy2, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
     } else {
       // feet
       var fs = Math.sin(crash.step * 2) * 3 * (1 - melt);

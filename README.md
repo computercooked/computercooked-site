@@ -47,9 +47,11 @@ Every page has a floating CRT-style dock at the bottom (`<nav class="deck">`, co
 
 ### CRASH
 
-Vanilla JS + canvas, no build step, ~65 KB total. Touch (drag anywhere), arrows / A D, P or Esc to pause, M to mute. Heat rises on its own and with every task that hits; coffee and fans cool down; 100° = cooked. High score is in `localStorage` (wrapped in try/catch). Sound effects are generated with WebAudio, so there are no audio files.
+Vanilla JS + canvas, no build step. Touch (drag anywhere), arrows / A D, P or Esc to pause, M to mute. Heat rises on its own and with every task that hits; coffee and fans cool down; 100° = cooked. High score is in `localStorage` (wrapped in try/catch).
 
-**Swapping in real art:** everything is drawn in code by default. Drop images in `games/crash/assets/` (the ccgames bot's output from `computer-cooked-games\assets\crash\`) and set their paths in the `SPRITES` object at the top of `games/crash/crash.js` (`crash` ~64×56, `coffee` and `fan` ~30×30). Task labels and game-over one-liners are arrays near the top of the same file. Music is not wired in yet; when `music\crash\` exists, add an `<audio loop>` that respects the mute button.
+**Art and audio** live in `games/crash/assets/` and come from the ccgames pack (`computer-cooked-games\assets\crash\` and `music\crash\`). Paths are in the `SPRITES` and `SOUNDS` objects at the top of `games/crash/crash.js`; swap a file to restyle, or set a path to `""` to fall back to the code-drawn sprite / WebAudio blip for that slot. The CRASH sheet is three 128×128 frames (idle, hit, cooked), drawn with nearest-neighbour scaling. The page loads only the small sprites and SFX (~80 KB); the music loop (62 s, mp3) is fetched after the first tap, and loops via WebAudio `loopStart`/`loopEnd` so there is no gap. Task labels and game-over one-liners are arrays near the top of `crash.js`.
+
+**Music licence:** the music and SFX were generated with ElevenLabs on a Creator plan. Its terms allow indie games only under revenue limits (see `computer-cooked-games\music\crash\README.md` and `operations/owner-asks.md`); confirm eligibility before this goes live.
 
 ### Ads (later, not live)
 
