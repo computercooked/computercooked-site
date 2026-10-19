@@ -160,7 +160,7 @@
     game.time += dt;
     SB.World.tick(game.world, dt, game);
     var cs = game.creatures;
-    for (var i = 0; i < cs.length; i++) if (cs[i].alive) SB.Creature.tick(cs[i], dt, game);
+    for (var i = 0; i < cs.length; i++) if (cs[i].alive || cs[i].dying) SB.Creature.tick(cs[i], dt, game);
     // remove the dead after their fade-out (creature.js sets c.gone = true when the body should vanish)
     for (var j = cs.length - 1; j >= 0; j--) if (cs[j].gone) cs.splice(j, 1);
     if (game.hand.sayT > 0) { game.hand.sayT -= dt; if (game.hand.sayT <= 0) game.hand.saying = null; }
