@@ -138,7 +138,7 @@
       "size_kb": 95,
       "version": "1",
       "added": "2026-10-19",
-      "max_score_per_sec": 20.0
+      "max_score_per_sec": 20
     },
     {
       "slug": "bellchain",
@@ -156,7 +156,7 @@
       "size_kb": 79,
       "version": "2.0",
       "added": "2026-10-19",
-      "max_score_per_sec": 100.0
+      "max_score_per_sec": 100
     },
     {
       "slug": "level-devil-exe",
@@ -176,24 +176,7 @@
       "size_kb": 54,
       "version": "1",
       "added": "2026-10-19",
-      "max_score_per_sec": 50.0
-    },
-    {
-      "slug": "plus-one-ram",
-      "title": "+1 ram every second",
-      "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
-      "thumbnail": "/games/plus-one-ram/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [
-        "io",
-        "grow",
-        "arena",
-        "casual"
-      ],
-      "controls": "drag anywhere to steer (mouse or wasd/arrows on desktop). p pauses, m mutes.",
-      "size_kb": 53,
-      "version": "1",
-      "added": "2026-10-19"
+      "max_score_per_sec": 50
     },
     {
       "slug": "pixel-purge",
@@ -213,7 +196,7 @@
       "size_kb": 96,
       "version": "2",
       "added": "2026-10-19",
-      "max_score_per_sec": 200.0
+      "max_score_per_sec": 200
     },
     {
       "slug": "crash-cheats",
@@ -254,6 +237,24 @@
       "version": "2",
       "added": "2026-10-19",
       "max_score_per_sec": 0.02
+    },
+    {
+      "slug": "plus-one-ram",
+      "title": "+1 ram every second",
+      "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
+      "thumbnail": "/games/plus-one-ram/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "io",
+        "grow",
+        "arena",
+        "casual"
+      ],
+      "controls": "drag anywhere to steer (mouse or wasd/arrows on desktop). p pauses, m mutes.",
+      "size_kb": 53,
+      "version": "1",
+      "added": "2026-10-19",
+      "max_score_per_sec": 1000000
     }
   ]
 }

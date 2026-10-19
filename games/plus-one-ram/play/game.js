@@ -142,8 +142,11 @@
     const names = spooky ? SPOOK_NAMES.concat(RIVAL_NAMES) : RIVAL_NAMES;
     const zi = Math.min(zoneAt(pos.x), unlockedFor(v));
     const z = ZONES[zi];
+    v = Math.min(v, Math.round(z.max * 1.5)); // rivals respect their zone, so growth can't run away
     return { rival: true, name: names[(rivalSeq++) % names.length], v, r: rOf(v), x: clamp(pos.x, z.x0 + 40, z.x1 - 40), y: pos.y, vx: 0, vy: 0, rate: rnd(0.8, 2.2) * (1 + p.v / 400), col: RIVAL_COLS[rivalSeq % RIVAL_COLS.length], think: 0, tx: 0, ty: 0, mode: 'wander', inv: 1, dead: 0 };
   }
+  const RIVAL_CAP = ZONES[ZONES.length - 1].max * 2;
+  const SOFT_CAP = ZONES[ZONES.length - 1].max;
   const unlockedFor = (v) => { let u = 0; for (let i = 1; i < ZONES.length; i++) if (v >= ZONES[i].need) u = i; return u; };
 
   // ------------------------------------------------------------------ input
@@ -234,7 +237,7 @@
     const xmax = ZONES[zMax].x1 - e.r;
     e.x = clamp(e.x, e.r, Math.min(xmax, ZONES[ZONES.length - 1].x1 - e.r));
   }
-  function grow(R, e, add) { e.v += add; e.r = rOf(e.v); }
+  function grow(R, e, add) { e.v = e.rival ? Math.min(RIVAL_CAP, e.v + add) : e.v + add; e.r = rOf(e.v); }
   function step(R, dt, input) {
     R.t += dt;
     const p = R.p;
@@ -358,7 +361,9 @@
   function eat(R, a, b) {
     if (b.me) { bitten(R, a); return; } // the player is never marked eaten here: bitten() decides (safe mode / restore / death)
     b.dead = b.rival ? 3 : 1;
-    const gain = b.v * (a.me ? 0.5 * (1 + 0.15 * (R.demo ? 1 : lvl('digest'))) : 0.32) + 1;
+    let gain = b.v * (a.me ? 0.5 * (1 + 0.15 * (R.demo ? 1 : lvl('digest'))) : 0.32) + 1;
+    // past the kernel, ram gets expensive: eating pays (cap/size)^2 so the endgame can't run away
+    if (a.me && a.v > SOFT_CAP) gain *= Math.pow(SOFT_CAP / a.v, 2);
     grow(R, a, gain);
     if (a.me) {
       R.kills++;
