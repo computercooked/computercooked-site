@@ -17,18 +17,6 @@
       "max_score_per_sec": 60
     },
     {
-      "slug": "bellchain",
-      "title": "bellchain",
-      "pitch": "hit one bell, it hits the next one. you are now a bell manager.",
-      "thumbnail": "/games/bellchain/play/thumb.png",
-      "made_by": "computer-cooked",
-      "tags": [],
-      "controls": "tap or click a bell to ring it. space rings a random bell, m mutes. tap upgrades to buy them.",
-      "size_kb": 77,
-      "version": "1",
-      "added": "2026-10-19"
-    },
-    {
       "slug": "handbag-havoc",
       "title": "Handbag Havoc",
       "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
@@ -211,6 +199,24 @@
       "version": "1",
       "added": "2026-10-19",
       "max_score_per_sec": 20.0
+    },
+    {
+      "slug": "bellchain",
+      "title": "bellchain",
+      "pitch": "an idle game that plays actual music. buy a cowbell. then 200 more.",
+      "thumbnail": "/games/bellchain/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "idle",
+        "clicker",
+        "incremental",
+        "music"
+      ],
+      "controls": "tap or click anywhere to ring (space works too). buy bells and upgrades in the panel. m mutes.",
+      "size_kb": 79,
+      "version": "2.0",
+      "added": "2026-10-19",
+      "max_score_per_sec": 100.0
     }
   ]
 }

@@ -133,7 +133,7 @@ for (const b of E.BUILDINGS) {
   $('blds').appendChild(el); bldEls[b.id] = el;
 }
 function refreshShop(force) {
-  const av = E.availableUpgrades(S).slice(0, 18), key = av.map((u) => u.id).join();
+  const av = E.availableUpgrades(S).slice(0, 8), key = av.map((u) => u.id).join();
   if (force || key !== upKey) {
     upKey = key;
     $('ups').innerHTML = '';
@@ -206,10 +206,10 @@ function renderStats() {
 // recast
 function renderRecast() {
   const g = E.otGain(S), nextTh = themeFor(S.ascensions + 1);
-  $('otLabel').textContent = `${S.otLevel} overtones · +${Math.round(S.otLevel * (S.nodes.choir ? 3 : 2))}%`;
+  $('otLabel').textContent = `${S.otLevel} overtones · +${Math.round(S.otLevel * E.otPer(S) * 100)}%`;
   $('chipLabel').textContent = `${S.otChips} to spend`;
   $('recastNote').innerHTML = g > 0
-    ? `recasting now gives <b>+${g} overtones</b> (+${S.nodes.choir ? 3 : 2}% resonance each, forever) and turns your bells to <b>${nextTh.name}</b> in <b>${nextTh.mode}</b>. waiting longer gives more.`
+    ? `recasting now gives <b>+${g} overtones</b> (+${Math.round(E.otPer(S) * 100)}% resonance each, forever) and turns your bells to <b>${nextTh.name}</b> in <b>${nextTh.mode}</b>. waiting longer gives more.`
     : `the great bell needs more. next overtone at <b>${E.fmt(E.nextOtAt(S))}</b> resonance all time (you have ${E.fmt(S.earnedAll)}). the next recast turns everything <b>${nextTh.name}</b>, in <b>${nextTh.mode}</b>.`;
   $('recastBtn').disabled = g < 1;
   $('recastBtn').textContent = g > 0 ? `recast for +${g}` : 'recast';
