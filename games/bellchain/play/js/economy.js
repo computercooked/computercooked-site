@@ -9,8 +9,8 @@ export const CFG = {
   crescBase: 0.25, crescStep: 0.15,
   chainMax: 8,            // a full octave run is a perfect peal
   perfectMult: 3,
-  prestigeBase: 1e8,      // overtones = floor(cbrt(lifetime / prestigeBase))
-  overtoneBonus: 0.02,    // +2% production per overtone level
+  prestigeBase: 3e6,      // overtones = floor(cbrt(lifetime / prestigeBase))
+  overtoneBonus: 0.1,     // +10% production per overtone level
   achBonus: 0.01,         // +1% production per achievement
   songBonus: 0.04,        // +4% per song in the songbook
   offlineEff: 0.5, offlineCapH: 8,
@@ -23,33 +23,33 @@ export const BUILDINGS = [
   { id: 'cowbell', name: 'cowbell', cost: 100, rate: 1, role: 'beat', desc: 'more cowbell. the people demanded it.' },
   { id: 'glock', name: 'glockenspiel', cost: 1100, rate: 8, role: 'sparkle', desc: 'tiny metal bars. big feelings.' },
   { id: 'church', name: 'church bell', cost: 12000, rate: 47, role: 'bass', desc: 'one note. every bar. very serious.' },
-  { id: 'tubular', name: 'tubular bell', plural: 'tubular bells', cost: 130000, rate: 260, role: 'chords', desc: 'chords now. you are basically a band.' },
-  { id: 'steel', name: 'steel drum', cost: 1.4e6, rate: 1400, role: 'arp', desc: 'arpeggios with a vacation attitude.' },
-  { id: 'gamelan', name: 'gamelan', cost: 2e7, rate: 7800, role: 'counter', desc: 'a counter-melody that shimmers on purpose.' },
-  { id: 'crystal', name: 'crystal bell', cost: 3.3e8, rate: 44000, role: 'shimmer', desc: 'glass that sings. do not drop it.' },
-  { id: 'chip', name: '8-bit bell', cost: 5.1e9, rate: 260000, role: 'chip', desc: 'bleeps from a cartridge you blew into.' },
-  { id: 'choir', name: 'choir', cost: 7.5e10, rate: 1.6e6, role: 'pad', desc: 'forty people going "aaah" in your browser.' },
-  { id: 'carillon', name: 'carillon tower', cost: 1e12, rate: 1e7, role: 'carillon', desc: 'an entire tower. zoning was a nightmare.' },
-  { id: 'cosmic', name: 'cosmic bell', cost: 1.4e13, rate: 6.5e7, role: 'cosmic', desc: 'rings once and the universe hears it in 4 billion years.' },
+  { id: 'tubular', name: 'tubular bell', plural: 'tubular bells', cost: 2e5, rate: 260, role: 'chords', desc: 'chords now. you are basically a band.' },
+  { id: 'steel', name: 'steel drum', cost: 2.1e6, rate: 1400, role: 'arp', desc: 'arpeggios with a vacation attitude.' },
+  { id: 'gamelan', name: 'gamelan', cost: 3e7, rate: 7800, role: 'counter', desc: 'a counter-melody that shimmers on purpose.' },
+  { id: 'crystal', name: 'crystal bell', cost: 5e8, rate: 44000, role: 'shimmer', desc: 'glass that sings. do not drop it.' },
+  { id: 'chip', name: '8-bit bell', cost: 7.7e9, rate: 260000, role: 'chip', desc: 'bleeps from a cartridge you blew into.' },
+  { id: 'choir', name: 'choir', cost: 1.1e11, rate: 1.6e6, role: 'pad', desc: 'forty people going "aaah" in your browser.' },
+  { id: 'carillon', name: 'carillon tower', cost: 1.5e12, rate: 1e7, role: 'carillon', desc: 'an entire tower. zoning was a nightmare.' },
+  { id: 'cosmic', name: 'cosmic bell', cost: 2.1e13, rate: 6.5e7, role: 'cosmic', desc: 'rings once and the universe hears it in 4 billion years.' },
 ];
 for (const b of BUILDINGS) b.plural = b.plural || b.name + 's';
 export const BY_ID = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const SONGS = [
   { id: 'twinkle', name: 'twinkle twinkle', cost: 0 },
-  { id: 'mary', name: 'mary had a little lamb', cost: 400 },
-  { id: 'frere', name: 'frère jacques', cost: 6000 },
-  { id: 'ode', name: 'ode to joy', cost: 9e4 },
-  { id: 'jingle', name: 'jingle bells', cost: 1.5e6 },
-  { id: 'westminster', name: 'westminster chimes', cost: 2.5e7 },
-  { id: 'canon', name: 'canon in d (ish)', cost: 4e8 },
-  { id: 'improv', name: 'improv.exe', cost: 7e9 },
+  { id: 'mary', name: 'mary had a little lamb', cost: 150 },
+  { id: 'frere', name: 'frère jacques', cost: 2500 },
+  { id: 'ode', name: 'ode to joy', cost: 2.5e4 },
+  { id: 'jingle', name: 'jingle bells', cost: 2.5e5 },
+  { id: 'westminster', name: 'westminster chimes', cost: 4e6 },
+  { id: 'canon', name: 'canon in d (ish)', cost: 8e7 },
+  { id: 'improv', name: 'improv.exe', cost: 2e9 },
 ];
 
 // ---------- upgrades ----------
-const TIER_WORDS = ['polished', 'tuned', 'resonant', 'harmonic', 'legendary', 'transcendent', 'illegal'];
-const TIER_AT = [1, 5, 25, 50, 100, 150, 200];
-const TIER_COST = [10, 50, 500, 5e4, 5e6, 5e8, 5e10];
+const TIER_WORDS = ['polished', 'tuned', 'resonant', 'harmonic', 'legendary', 'transcendent', 'illegal', 'bright'];
+const TIER_AT = [1, 5, 25, 50, 100, 150, 200, 10];
+const TIER_COST = [10, 50, 500, 5e4, 5e6, 5e8, 5e10, 120];
 
 export const UPGRADES = [];
 for (const b of BUILDINGS) {
@@ -73,6 +73,14 @@ for (const b of BUILDINGS) {
   UPGRADES.push({ id: `cresc_${i}`, name: ['crescendo', 'fortissimo', 'sforzando', 'too loud'][i], cost,
     desc: `each echo hop +${Math.round(CFG.crescStep * 100)}%`, req: (s) => s.earnedRun >= cost * 0.3, kind: 'cresc' });
 });
+[50, 250, 1200, 6000, 3e4].forEach((cost, i) => {
+  UPGRADES.push({ id: `mallet_${i}`, name: ['foam mallet', 'wooden mallet', 'rubber mallet', 'brass mallet', 'sledgehammer'][i], cost,
+    desc: 'taps +1 base resonance', req: (s) => s.earnedRun >= cost * 0.3, kind: 'mallet' });
+});
+[150, 900, 5000, 2.5e4, 1.2e5].forEach((cost, i) => {
+  UPGRADES.push({ id: `practice_${i}`, name: ['band practice', 'metronome', 'sheet music', 'rehearsal room', 'a real manager'][i], cost,
+    desc: 'everything +5%', req: (s) => s.earnedRun >= cost * 0.3, kind: 'global', mult: 1.05 });
+});
 [[1e6, 1e5], [1e8, 1e7], [1e10, 1e9], [1e12, 1e11], [1e14, 1e13], [1e16, 1e15]].forEach(([cost, need], i) => {
   UPGRADES.push({ id: `hall_${i}`, name: ['carpet removal', 'vaulted roof', 'concert hall', 'stadium', 'mountain range', 'a whole moon'][i], cost,
     desc: 'everything +15%', req: (s) => s.earnedRun >= need, kind: 'global', mult: 1.15 });
@@ -84,8 +92,8 @@ export const UP_BY_ID = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 // ---------- prestige tree (bought with overtone chips) ----------
 export const NODES = [
   { id: 'pitch', name: 'perfect pitch', cost: 1, desc: 'taps x3' },
-  { id: 'night', name: 'night shift', cost: 3, desc: 'offline earnings 50% → 100%, cap 24h' },
-  { id: 'start', name: 'head start', cost: 5, desc: 'every run starts with 10 handbells and 5 cowbells' },
+  { id: 'night', name: 'night shift', cost: 10, desc: 'offline earnings 50% → 100%, cap 24h' },
+  { id: 'start', name: 'head start', cost: 2, desc: 'every run starts with 10 handbells and 5 cowbells' },
   { id: 'ear', name: 'golden ear', cost: 8, desc: 'golden bells twice as often (stacks)' },
   { id: 'twin', name: 'twin echo', cost: 12, desc: 'echo chance +15%' },
   { id: 'bargain', name: 'bargain bronze', cost: 20, desc: 'all bells 10% cheaper' },
@@ -94,20 +102,23 @@ export const NODES = [
   { id: 'sustain', name: 'sustain pedal', cost: 80, desc: 'all production x2' },
   { id: 'setlist', name: 'setlist', cost: 120, desc: 'keep your songbook through recasts' },
   { id: 'encore', name: 'standing ovation', cost: 200, desc: 'all production x3' },
-  { id: 'choir', name: 'eternal choir', cost: 400, desc: 'each overtone level +3% instead of +2%' },
+  { id: 'choir', name: 'eternal choir', cost: 400, desc: 'each overtone level +15% instead of +10%' },
 ];
 
 // ---------- achievements: each one is +1% production ----------
 export const ACH = [];
 const A = (id, name, desc, test) => ACH.push({ id, name, desc, test });
-[[100, 'first ding'], [1e3, 'tinnitus'], [1e4, 'noise complaint'], [1e5, 'the neighbors know'], [1e6, 'millionaire mallet'], [1e7, 'local legend'],
+[[100, 'first ding'], [400, 'humming along'], [1e3, 'tinnitus'], [4e3, 'earworm'], [1e4, 'noise complaint'], [4e4, 'hoa letter'], [1e5, 'the neighbors know'], [4e5, 'police were called'], [1e6, 'millionaire mallet'], [1e7, 'local legend'],
   [1e8, 'bell to the chief'], [1e9, 'billion bongs'], [1e11, 'seismic'], [1e13, 'audible from orbit'], [1e15, 'the sun complains'], [1e18, 'heat death soundtrack']]
   .forEach(([n, name]) => A('earn_' + n, name, `ring up ${fmt(n)} resonance, ever`, (s) => s.earnedAll >= n));
-[[1, 'hobby'], [10, 'side hustle'], [100, 'full time'], [1e3, 'franchise'], [1e4, 'conglomerate'], [1e5, 'monopoly'], [1e6, 'too big to toll'], [1e8, 'post-scarcity']]
+[[1, 'hobby'], [5, 'busking'], [10, 'side hustle'], [50, 'wedding gigs'], [100, 'full time'], [500, 'touring'], [1e3, 'franchise'], [5e3, 'arena tour'], [1e4, 'conglomerate'], [1e5, 'monopoly'], [1e6, 'too big to toll'], [1e8, 'post-scarcity']]
   .forEach(([n, name]) => A('rps_' + n, name, `make ${fmt(n)} resonance per second`, (s, rps) => rps >= n));
 [[100, 'warm hands'], [1000, 'carpal tunnel'], [5000, 'the clicker']].forEach(([n, name]) => A('tap_' + n, name, `tap ${fmt(n)} times`, (s) => s.taps >= n));
 for (const b of BUILDINGS) {
   A(`own1_${b.id}`, `first ${b.name}`, `own a ${b.name}`, (s) => (s.owned[b.id] || 0) >= 1);
+  A(`own5_${b.id}`, `${b.name} duet`, `own 5 ${b.plural}`, (s) => (s.owned[b.id] || 0) >= 5);
+  A(`own10_${b.id}`, `${b.name} ensemble`, `own 10 ${b.plural}`, (s) => (s.owned[b.id] || 0) >= 10);
+  A(`own25_${b.id}`, `${b.name} choir practice`, `own 25 ${b.plural}`, (s) => (s.owned[b.id] || 0) >= 25);
   A(`own50_${b.id}`, `${b.name} section`, `own 50 ${b.plural}`, (s) => (s.owned[b.id] || 0) >= 50);
   A(`own100_${b.id}`, `${b.name} orchestra`, `own 100 ${b.plural}`, (s) => (s.owned[b.id] || 0) >= 100);
 }
@@ -138,6 +149,7 @@ const has = (s, id) => !!s.ups[id];
 const node = (s, id) => !!s.nodes[id];
 const count = (s, kind) => UPGRADES.reduce((n, u) => n + (u.kind === kind && s.ups[u.id] ? 1 : 0), 0);
 
+export const otPer = (s) => (node(s, 'choir') ? 0.15 : CFG.overtoneBonus);
 export function bldMult(s, id) {
   let m = 1;
   for (let i = 0; i < TIER_AT.length; i++) if (has(s, `${id}_${i}`)) m *= 2;
@@ -145,7 +157,7 @@ export function bldMult(s, id) {
 }
 export function globalMult(s) {
   let m = 1 + CFG.achBonus * Object.keys(s.ach).length;
-  m *= 1 + (node(s, 'choir') ? 0.03 : CFG.overtoneBonus) * s.otLevel;
+  m *= 1 + otPer(s) * s.otLevel;
   m *= 1 + CFG.songBonus * (s.songs.length - 1);
   for (const u of UPGRADES) if (u.kind === 'global' && s.ups[u.id]) m *= u.mult;
   if (node(s, 'sustain')) m *= 2;
@@ -161,17 +173,17 @@ export function baseRps(s) {
 // buffs: [{kind, mult, until}] in seconds of s.playSec
 export function rps(s, buffs) {
   let r = baseRps(s);
-  for (const b of buffs || []) if (b.kind === 'frenzy') r *= b.mult;
+  r *= Math.max(1, ...(buffs || []).filter((b) => b.kind === 'frenzy').map((b) => b.mult));
   return r;
 }
 export function tapValue(s, buffs) {
-  let v = CFG.tapBase;
+  let v = CFG.tapBase + count(s, 'mallet');
   for (const u of UPGRADES) if (u.tapX2 && s.ups[u.id]) v *= 2;
   if (node(s, 'pitch')) v *= 3;
   v *= 1 + CFG.achBonus * Object.keys(s.ach).length;
   const frac = 0.01 * count(s, 'baton') + (node(s, 'conductor') ? 0.03 : 0);
   v += baseRps(s) * frac;
-  for (const b of buffs || []) if (b.kind === 'clickfrenzy') v *= b.mult;
+  v *= Math.max(1, ...(buffs || []).filter((b) => b.kind === 'clickfrenzy').map((b) => b.mult));
   return v;
 }
 export const echoChance = (s, buffs) => ((buffs || []).some((b) => b.kind === 'encore') ? 0.97 : Math.min(CFG.echoMax, CFG.echoBase + CFG.echoStep * count(s, 'echo') + (node(s, 'twin') ? 0.15 : 0)));
@@ -239,7 +251,7 @@ export function goldenEffect(s, rand) {
     const gain = Math.min(s.res * 0.15, baseRps(s) * 900) + 13;
     return { kind: 'lucky', gain, label: 'lucky · +' + fmt(gain) };
   }
-  if (r < 0.95 && s.earnedRun > 1e4) return { kind: 'clickfrenzy', mult: 777, dur: 13 * len, label: 'tap frenzy · taps x777' };
+  if (r < 0.95 && s.earnedRun > 1e4) return { kind: 'clickfrenzy', mult: 77, dur: 13 * len, label: 'tap frenzy · taps x77' };
   return { kind: 'encore', mult: 1, dur: 30 * len, label: 'encore · every tap chains' };
 }
 
