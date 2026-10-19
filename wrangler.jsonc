@@ -1,10 +1,26 @@
 {
-  // Static-only Worker: no main script, Cloudflare serves the files from the repo root.
+  // Static site + a small API Worker. Files are served from the repo root by the assets binding;
+  // only /api/* runs src/worker.js. Deploys on merge to main via Workers Builds (`npx wrangler deploy`).
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "computercooked-site",
+  "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./",
-    "not_found_handling": "404-page"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
+  },
+  // the schema file is bundled into the Worker so it can create tables on first use
+  "rules": [{ "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "computercooked",
+      "database_id": "D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": { "enabled": true }
+  // Secret (not in this file): ADMIN_TOKEN, set with `npx wrangler secret put ADMIN_TOKEN`.
 }

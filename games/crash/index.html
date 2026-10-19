@@ -65,6 +65,7 @@
               <p class="go-time" id="go-time">0s</p>
               <p class="go-meta"><span>score <b id="go-score">0</b></span><span id="go-best"></span></p>
               <p class="go-stats" id="go-stats"></p>
+              <p class="go-rank" id="go-rank" hidden></p>
               <p class="go-share" id="go-share-text">i lasted 0s before getting cooked. computercooked.com/games</p>
               <div class="ov-actions">
                 <button class="ov-btn" id="btn-again" type="button">try again ↻</button>
@@ -97,6 +98,7 @@
 
       <aside class="player-side">
         <div class="ad-slot" data-slot="player-side" aria-hidden="true"></div>
+        <div class="player-panel" id="cc-panel" data-game="crash"></div>
         <div class="about-card">
           <h2>// how to not get cooked</h2>
           <ul>
@@ -121,7 +123,9 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="/games/cc-sdk.js" defer></script>
   <script src="/games/crash/crash.js" defer></script>
+  <script src="/games/platform.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
       <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">

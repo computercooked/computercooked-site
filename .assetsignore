@@ -10,3 +10,8 @@ node_modules
 .DS_Store
 .wrangler
 .claude
+src/
+migrations/
+.dev.vars
+package.json
+package-lock.json

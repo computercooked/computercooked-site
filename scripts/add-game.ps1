@@ -22,6 +22,15 @@ if (Test-Path $play) { Remove-Item -Recurse -Force $play }
 New-Item -ItemType Directory -Force $play | Out-Null
 Copy-Item -Recurse -Force (Join-Path $Source "*") $play
 
+# the SDK goes into the game page so it can report plays/scores to the player page
+$gameHtml = Join-Path $play "index.html"
+$gh = [IO.File]::ReadAllText($gameHtml)
+if ($gh -notmatch "/games/cc-sdk.js") {
+  $tag = "<script src=`"/games/cc-sdk.js`"></script>"
+  $gh = if ($gh -match "</head>") { $gh -replace "</head>", "$tag`n</head>" } else { "$tag`n$gh" }
+  [IO.File]::WriteAllText($gameHtml, $gh)
+}
+
 $thumb = "$($entry.thumbnail)"
 if (-not $thumb) { $thumb = "thumb.png" }
 if (-not $thumb.StartsWith("/")) { $thumb = "/games/$slug/play/" + $thumb.TrimStart(".", "/") }
@@ -29,17 +38,23 @@ if (-not $thumb.StartsWith("/")) { $thumb = "/games/$slug/play/" + $thumb.TrimSt
 # player page
 function Enc([string]$s) { [System.Net.WebUtility]::HtmlEncode($s) }
 $html = Get-Content -Raw (Join-Path $repo "scripts\player-template.html")
-$html = $html.Replace("{{SLUG}}", $slug).Replace("{{TITLE}}", (Enc $entry.title)).Replace("{{PITCH}}", (Enc $entry.pitch)).Replace("{{CONTROLS}}", (Enc "$($entry.controls)")).Replace("{{THUMB}}", $thumb)
+$html = $html.Replace("{{SLUG}}", $slug).Replace("{{TITLE}}", (Enc $entry.title)).Replace("{{PITCH}}", (Enc $entry.pitch)).Replace("{{CONTROLS}}", (Enc "$($entry.controls)")).Replace("{{THUMB}}", $thumb).Replace("{{VERSION}}", (Enc $(if ($entry.version) { "$($entry.version)" } else { "1" })))
 [IO.File]::WriteAllText((Join-Path $dest "index.html"), $html)
 
 # games.json
 $manifestPath = Join-Path $repo "games\games.json"
 $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
+$old = @($manifest.games | Where-Object { $_.slug -eq $slug })[0]
+$added = if ($entry.added) { "$($entry.added)" } elseif ($old -and $old.added) { "$($old.added)" } else { Get-Date -Format yyyy-MM-dd }
 $item = [ordered]@{
   slug = $slug; title = "$($entry.title)"; pitch = "$($entry.pitch)"; thumbnail = $thumb
   made_by = $(if ($entry.made_by) { "$($entry.made_by)" } else { "computer-cooked" })
   tags = @($entry.tags | Where-Object { $_ }); controls = "$($entry.controls)"; size_kb = $entry.size_kb
+  version = $(if ($entry.version) { "$($entry.version)" } else { "1" }); added = $added
 }
+if ($entry.max_score_per_sec) { $item.max_score_per_sec = [double]$entry.max_score_per_sec }
+if ($entry.max_score) { $item.max_score = [double]$entry.max_score }
+if ($entry.score_slack) { $item.score_slack = [double]$entry.score_slack }
 $games = @($manifest.games | Where-Object { $_.slug -ne $slug }) + @([pscustomobject]$item)
 $games = @($games | Where-Object { $_.slug -eq "crash" }) + @($games | Where-Object { $_.slug -ne "crash" })
 [IO.File]::WriteAllText($manifestPath, ([ordered]@{ games = $games } | ConvertTo-Json -Depth 6) + "`n")

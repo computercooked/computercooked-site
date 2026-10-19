@@ -11,7 +11,10 @@
         "dodge",
         "60s runs"
       ],
-      "controls": "drag / arrows / A D"
+      "controls": "drag / arrows / A D",
+      "version": "1",
+      "added": "2026-10-19",
+      "max_score_per_sec": 60
     },
     {
       "slug": "tab-hoarder",
@@ -21,7 +24,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "tap / click / space",
-      "size_kb": 95
+      "size_kb": 95,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "bellchain",
@@ -31,7 +36,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "tap or click a bell to ring it. space rings a random bell, m mutes. tap upgrades to buy them.",
-      "size_kb": 77
+      "size_kb": 77,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "handbag-havoc",
@@ -41,7 +48,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "wasd / arrows or drag anywhere to steer. 1 2 3 to pick upgrades. r restart, p pause, m mute.",
-      "size_kb": 115
+      "size_kb": 115,
+      "version": "1",
+      "added": "2026-10-19"
     },
     {
       "slug": "fathom",
@@ -51,7 +60,9 @@
       "made_by": "computer-cooked",
       "tags": [],
       "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate.",
-      "size_kb": 115
+      "size_kb": 115,
+      "version": "1",
+      "added": "2026-10-19"
     }
   ]
 }

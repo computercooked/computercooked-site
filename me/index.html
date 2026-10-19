@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>me — Computer Cooked Games</title>
+  <meta name="description" content="your computer cooked games profile: favorites, recently played, best scores and your daily streak. playing never needs an account.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#101114">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/assets/deck.css">
+  <link rel="stylesheet" href="/games/games.css">
+  <link rel="stylesheet" href="/me/me.css">
+</head>
+<body>
+  <main class="games-page me-page">
+    <header class="games-hero">
+      <p class="eyebrow">computercooked.com/me</p>
+      <h1 class="games-title" id="me-title">your <span>profile</span></h1>
+      <p class="games-sub" id="me-sub">playing never needs an account. an account just keeps your scores, favorites and streak across devices.</p>
+    </header>
+
+    <!-- logged out -->
+    <section id="auth" class="me-auth" hidden>
+      <div class="me-tabs" role="tablist" aria-label="account">
+        <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="form-login">log in</button>
+        <button type="button" role="tab" id="tab-signup" aria-selected="false" aria-controls="form-signup">make an account</button>
+      </div>
+
+      <form id="form-login" class="me-form about-card" role="tabpanel" aria-labelledby="tab-login">
+        <label>username <input name="username" autocomplete="username" required maxlength="16" spellcheck="false" autocapitalize="off"></label>
+        <label>password <input name="password" type="password" autocomplete="current-password" required maxlength="200"></label>
+        <button class="play-btn" type="submit">log in</button>
+        <p class="me-msg" role="alert"></p>
+      </form>
+
+      <form id="form-signup" class="me-form about-card" role="tabpanel" aria-labelledby="tab-signup" hidden>
+        <fieldset class="me-step" id="step-age">
+          <legend>when were you born?</legend>
+          <div class="me-two">
+            <label>month
+              <select name="birth_month" required>
+                <option value="" selected disabled>month</option>
+                <option value="1">january</option><option value="2">february</option><option value="3">march</option>
+                <option value="4">april</option><option value="5">may</option><option value="6">june</option>
+                <option value="7">july</option><option value="8">august</option><option value="9">september</option>
+                <option value="10">october</option><option value="11">november</option><option value="12">december</option>
+              </select>
+            </label>
+            <label>year
+              <select name="birth_year" required id="year-select">
+                <option value="" selected disabled>year</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+        <label>username <input name="username" autocomplete="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" spellcheck="false" autocapitalize="off">
+          <small>3-16 letters, numbers or _. don't use your real name.</small></label>
+        <label>password <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200">
+          <small>8+ characters. no email needed.</small></label>
+        <fieldset>
+          <legend>pick a face</legend>
+          <div class="avatar-pick" id="avatar-pick"></div>
+        </fieldset>
+        <button class="play-btn" type="submit">make my account</button>
+        <p class="me-msg" role="alert"></p>
+        <p class="me-fine">by making an account you agree we store your username, a scrambled (hashed) password, and your plays. that's it. <a href="/privacy/">privacy</a>.</p>
+      </form>
+
+      <div id="no-account" class="about-card me-kid" hidden>
+        <h2>// no account needed</h2>
+        <p>you don't need an account to play anything here. every game works without one. go have fun.</p>
+        <a class="play-btn" href="/games/">play games ▶</a>
+      </div>
+    </section>
+
+    <!-- logged in -->
+    <section id="profile" hidden>
+      <div class="me-card about-card">
+        <div class="me-avatar" id="me-avatar"></div>
+        <div class="me-id">
+          <p class="me-name" id="me-name"></p>
+          <p class="me-streak"><b id="me-streak">0</b> day streak · <span id="me-days">0</span> days played</p>
+        </div>
+        <button class="tool" id="btn-logout" type="button">log out</button>
+      </div>
+      <details class="about-card me-change">
+        <summary>change face</summary>
+        <div class="avatar-pick" id="avatar-change"></div>
+      </details>
+
+      <section class="shelf" aria-labelledby="fav-h">
+        <h2 class="shelf-head" id="fav-h">favorites</h2>
+        <ul class="card-grid me-grid" id="favs"></ul>
+      </section>
+      <section class="shelf" aria-labelledby="recent-h">
+        <h2 class="shelf-head" id="recent-h">recently played</h2>
+        <ul class="card-grid me-grid" id="recent"></ul>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Computer Cooked · <a href="/privacy/">privacy</a></p>
+  </footer>
+
+  <script src="/assets/avatars.js" defer></script>
+  <script src="/me/me.js" defer></script>
+  <nav class="deck" aria-label="main">
+    <div class="deck-inner">
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
+      </button>
+      <a class="deck-link" href="/" data-key="h">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
+      </a>
+      <a class="deck-link" href="/games/" data-key="g">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
+        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
+      </a>
+      <a class="deck-link" href="/#follow" data-key="f">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
+      </a>
+      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
+        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
+      </a>
+    </div>
+  </nav>
+  <script src="/assets/deck.js" defer></script>
+</body>
+</html>

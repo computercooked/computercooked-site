@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>privacy — Computer Cooked</title>
+  <meta name="description" content="what computercooked.com stores about you (not much), and what it never does.">
+  <link rel="canonical" href="https://computercooked.com/privacy/">
+  <meta name="theme-color" content="#101114">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/assets/deck.css">
+  <link rel="stylesheet" href="/games/games.css">
+</head>
+<body>
+  <main class="games-page" style="max-width:720px">
+    <header class="games-hero">
+      <p class="eyebrow">last updated 2026-10-19</p>
+      <h1 class="games-title">privacy <span>(the short version)</span></h1>
+    </header>
+    <div class="about-card legal">
+      <h2>// playing</h2>
+      <p>you never need an account to play. when you play, your browser keeps a random id (in localStorage, not a cookie) so we can count plays and keep your guest scores together. we record which game, when, how long, your score, whether you finished, what kind of device (phone / tablet / desktop) and roughly where you came from (e.g. "tiktok" or "direct").</p>
+      <p>we don't store your ip address, don't fingerprint your device, don't use third-party trackers, analytics companies or ad scripts, and don't sell anything to anyone.</p>
+      <h2>// accounts (13+)</h2>
+      <p>accounts are for people 13 and older. we ask your birth month and year only to check that, and we don't keep it. an account stores your username, a scrambled (hashed) password, your face pick, favorites and plays. no email, no real name. one cookie keeps you logged in; it's only used for that.</p>
+      <h2>// feedback and leaderboards</h2>
+      <p>feedback you send and names on leaderboards are stored with the game. don't put personal info in them. leaderboard names are filtered and can be reported; we hide anything nasty.</p>
+      <h2>// uploads</h2>
+      <p>games you upload are checked by a person before anyone else can see them, and run in a locked-down sandbox on a separate site.</p>
+      <h2>// deleting stuff</h2>
+      <p>want your account or data gone? email <a href="mailto:hello@computercooked.com">hello@computercooked.com</a> from anywhere with your username and we'll delete it. clearing your browser's site data removes your guest id.</p>
+      <h2>// ads</h2>
+      <p>there are no ads yet. if that changes, this page changes first, and any ads will use child-safe settings.</p>
+    </div>
+  </main>
+  <footer class="footer"><p>© 2026 Computer Cooked</p></footer>
+  <nav class="deck" aria-label="main">
+    <div class="deck-inner">
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
+      </button>
+      <a class="deck-link" href="/" data-key="h">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
+      </a>
+      <a class="deck-link" href="/games/" data-key="g">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
+        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
+      </a>
+      <a class="deck-link" href="/#follow" data-key="f">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
+      </a>
+      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
+        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
+      </a>
+    </div>
+  </nav>
+  <script src="/assets/deck.js" defer></script>
+</body>
+</html>

@@ -36,7 +36,7 @@
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
     <div class="player-layout">
-      <section class="player" id="player" aria-label="bellchain game" data-title="bellchain" data-url="https://computercooked.com/games/bellchain/">
+      <section class="player" id="player" aria-label="bellchain game" data-title="bellchain" data-url="https://computercooked.com/games/bellchain/" data-version="1">
         <div class="player-stage">
           <div class="stage-boot" aria-hidden="true">
             <span class="boot-logo"></span>
@@ -69,6 +69,7 @@
 
       <aside class="player-side">
         <div class="ad-slot" data-slot="player-side" aria-hidden="true"></div>
+        <div class="player-panel" id="cc-panel" data-game="bellchain"></div>
         <div class="about-card">
           <h2>// bellchain</h2>
           <p>hit one bell, it hits the next one. you are now a bell manager.</p>
@@ -89,7 +90,9 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="/games/cc-sdk.js" defer></script>
   <script src="/games/player.js" defer></script>
+  <script src="/games/platform.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
       <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">

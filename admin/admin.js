@@ -1,0 +1,105 @@
+/* /admin: reads /api/admin/* with the bearer token (kept in sessionStorage only for this tab). */
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var token = "";
+  try { token = sessionStorage.getItem("cc-admin") || ""; } catch (e) {}
+  $("#token").value = token;
+  $("#since").value = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function pct(x) { return x == null ? "–" : Math.round(x * 100) + "%"; }
+  function api(path, body) {
+    return fetch(path, {
+      method: body ? "POST" : "GET",
+      headers: Object.assign({ authorization: "Bearer " + token }, body ? { "content-type": "application/json" } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json(); });
+  }
+  function table(el, cols, rows) {
+    el.innerHTML = "<thead><tr>" + cols.map(function (c) { return "<th>" + c[0] + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      (rows.length ? rows.map(function (r) { return "<tr>" + cols.map(function (c) { var v = c[1](r); return '<td class="' + (c[2] || "") + '">' + v + "</td>"; }).join("") + "</tr>"; }).join("")
+        : '<tr><td colspan="' + cols.length + '">nothing here</td></tr>') + "</tbody>";
+  }
+
+  function load() {
+    $("#msg").textContent = "loading…";
+    api("/api/admin/metrics?since=" + $("#since").value).then(function (m) {
+      if (!m.ok) { $("#msg").textContent = "token rejected"; $("#dash").hidden = true; return; }
+      $("#msg").textContent = "updated " + new Date(m.generated_at).toLocaleTimeString();
+      $("#dash").hidden = false;
+      var t = m.totals;
+      $("#totals").innerHTML = [["plays", t.plays], ["accounts", t.accounts], ["new accounts", t.new_accounts], ["uploads pending", t.uploads_pending], ["open reports", t.open_reports]]
+        .map(function (x) { return "<div><b>" + x[1] + "</b><span>" + x[0] + "</span></div>"; }).join("");
+      table($("#games-table"), [
+        ["game", function (g) { return esc(g.title); }],
+        ["plays", function (g) { return g.plays; }, "n"],
+        ["players", function (g) { return g.unique_players; }, "n"],
+        ["avg secs", function (g) { return g.avg_session_seconds == null ? "–" : g.avg_session_seconds; }, "n"],
+        ["completion", function (g) { return pct(g.completion_rate); }, "n"],
+        ["D1", function (g) { return pct(g.d1_return_rate) + " <small>(" + g.d1_cohort + ")</small>"; }, "n"],
+        ["D7", function (g) { return pct(g.d7_return_rate) + " <small>(" + g.d7_cohort + ")</small>"; }, "n"],
+        ["👍/👎", function (g) { return g.thumbs_up + " / " + g.thumbs_down; }, "n"],
+        ["feedback", function (g) { return g.feedback_count; }, "n"],
+        ["top refs", function (g) { return g.top_referrers.map(function (r) { return esc(r.referrer) + " " + r.plays; }).join(", "); }],
+        ["testers", function (g) { return g.testers.map(function (r) { return esc(r.tester) + " " + r.plays; }).join(", ") || "–"; }],
+        ["devices", function (g) { return Object.keys(g.devices).map(function (k) { return k + " " + g.devices[k]; }).join(", "); }]
+      ], m.games);
+      var fb = [];
+      m.games.forEach(function (g) { g.latest_feedback.forEach(function (f) { fb.push(Object.assign({ game: g.title }, f)); }); });
+      fb.sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+      table($("#fb-table"), [
+        ["when", function (f) { return esc(f.at.slice(0, 16).replace("T", " ")); }],
+        ["game", function (f) { return esc(f.game); }],
+        ["", function (f) { return f.rating > 0 ? "👍" : f.rating < 0 ? "👎" : ""; }],
+        ["tester", function (f) { return esc(f.tester || ""); }],
+        ["text", function (f) { return esc(f.text); }, "wrap"]
+      ], fb.slice(0, 50));
+    }).catch(function () { $("#msg").textContent = "couldn't reach the api"; });
+
+    api("/api/admin/reports").then(function (r) {
+      if (!r.ok) return;
+      table($("#reports-table"), [
+        ["id", function (x) { return x.id; }], ["kind", function (x) { return esc(x.kind); }], ["target", function (x) { return esc(x.target); }],
+        ["reason", function (x) { return esc(x.reason); }, "wrap"], ["when", function (x) { return new Date(x.ts).toISOString().slice(0, 16).replace("T", " "); }]
+      ], r.reports);
+    });
+
+    api("/api/admin/uploads").then(function (r) {
+      var box = $("#uploads");
+      if (!r.ok) { box.textContent = "uploads unavailable"; return; }
+      var pending = r.uploads.filter(function (u) { return u.status === "pending"; });
+      if (!pending.length) { box.innerHTML = "<p>nothing waiting.</p>"; return; }
+      box.innerHTML = pending.map(function (u) {
+        return '<div class="adm-up" data-id="' + esc(u.id) + '"><b>' + esc(u.title) + "</b> <small>" + esc(u.slug) + " · " + Math.round(u.size / 1024) + " KB · " + u.files + " files</small>" +
+          "<p>" + esc(u.pitch || "") + "</p>" +
+          (r.preview_base ? '<iframe sandbox="allow-scripts" src="' + esc(r.preview_base + "/" + u.id + "/index.html") + '" title="preview"></iframe>' : "") +
+          '<div class="adm-row"><input placeholder="note to uploader (optional)" class="adm-note"><button class="cc-send" data-act="approve">approve</button><button class="tool" data-act="reject">reject</button></div></div>';
+      }).join("");
+    });
+  }
+
+  $("#uploads").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-act]");
+    if (!b) return;
+    var card = b.closest(".adm-up");
+    api("/api/admin/uploads", { id: card.dataset.id, action: b.dataset.act, note: card.querySelector(".adm-note").value }).then(function (r) {
+      card.outerHTML = "<p>" + (r.ok ? b.dataset.act + "d." : esc(r.error || "failed")) + "</p>";
+    });
+  });
+
+  $("#login").addEventListener("submit", function (e) {
+    e.preventDefault();
+    token = $("#token").value.trim();
+    try { sessionStorage.setItem("cc-admin", token); } catch (err) {}
+    load();
+  });
+  $("#mod").addEventListener("submit", function (e) {
+    e.preventDefault();
+    api("/api/admin/moderate", { action: $("#mod-action").value, id: $("#mod-id").value.trim() }).then(function (r) {
+      alert(r.ok ? "done" : r.error || "failed");
+      load();
+    });
+  });
+  if (token) load();
+})();

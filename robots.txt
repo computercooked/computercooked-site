@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /me/
 
 Sitemap: https://computercooked.com/sitemap.xml
