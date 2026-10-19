@@ -176,7 +176,7 @@
 .spot-screen {
   position: relative;
   display: block;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
   border-radius: 16px;
   overflow: hidden;
   background: radial-gradient(ellipse at 50% 45%, #1a1d22, #07080a 75%);
@@ -1258,4 +1258,401 @@
   .player-stage.is-ready .stage-boot {
     display: none;
   }
+}
+
+/* ---------- spotlight rotation ---------- */
+
+.spot-screen img,
+.spot-meta {
+  transition: opacity 0.22s ease, filter 0.22s ease;
+}
+
+.spotlight.is-swapping .spot-screen img,
+.spotlight.is-swapping .spot-meta {
+  opacity: 0;
+  filter: brightness(2.5) blur(2px);
+}
+
+.spot-screen img[src$=".png"],
+.spot-screen img[src$=".jpg"],
+.spot-screen img[src$=".webp"] {
+  object-fit: cover;
+}
+
+.spot-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: calc(var(--s-3) * -1);
+}
+
+.spot-dot {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.spot-dot::before {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: auto;
+  border-radius: 99px;
+  background: var(--line-2);
+  transition: width 0.25s var(--ease-out), background-color 0.2s ease;
+}
+
+.spot-dot[aria-pressed="true"]::before {
+  width: 22px;
+  background: var(--lime);
+}
+
+@media (min-width: 860px) {
+  .spot-dots {
+    grid-column: 2;
+    margin-top: calc(var(--s-6) * -1);
+  }
+}
+
+/* ---------- new badge (also styles the platform's hub.js badge) ---------- */
+
+.game-card .game-new {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 52px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--lilac);
+  color: var(--carbon);
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(181, 154, 255, 0.55);
+  animation: new-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes new-glow {
+  50% { box-shadow: 0 0 4px rgba(181, 154, 255, 0.2); }
+}
+
+/* hearts from the platform must sit above the whole-card link */
+.game-card .game-heart {
+  z-index: 4;
+}
+
+.ticker-track span.is-new::after {
+  content: "new";
+  margin-left: var(--s-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--lilac);
+  color: var(--carbon);
+  font-size: 0.65rem;
+}
+
+/* ---------- today's dailies + continue playing ---------- */
+
+.hub-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--s-4);
+  margin-top: var(--s-6);
+}
+
+.strip-box {
+  padding: var(--s-4);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse 80% 120% at 0% 0%, rgba(197, 255, 73, 0.07), transparent 60%),
+    var(--carbon-2);
+}
+
+.strip-box.continue {
+  background:
+    radial-gradient(ellipse 80% 120% at 0% 0%, rgba(181, 154, 255, 0.09), transparent 60%),
+    var(--carbon-2);
+}
+
+.strip-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-3);
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.strip-head::before {
+  content: "//";
+  content: "//" / "";
+  color: var(--lilac);
+}
+
+.strip-head small {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--lime);
+}
+
+.daily-list {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daily {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: var(--s-3);
+  align-items: center;
+  min-height: 52px;
+  padding: 6px var(--s-3) 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--carbon);
+  color: var(--paper);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s var(--ease-out);
+}
+
+.daily:hover {
+  border-color: var(--lime);
+  transform: translateX(3px);
+}
+
+.daily img {
+  grid-row: span 2;
+  width: 64px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #07080a;
+}
+
+.daily-name {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  color: var(--lime);
+}
+
+.daily-mode {
+  grid-column: 2;
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+}
+
+.daily-go {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  color: var(--lime);
+}
+
+.strip-note {
+  margin: var(--s-3) 0 0;
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+}
+
+/* ---------- challenge banner (player) ---------- */
+
+.dare {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-3);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border: 2px solid var(--lime);
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(197, 255, 73, 0.14), rgba(181, 154, 255, 0.1));
+  box-shadow: 0 0 30px -8px rgba(197, 255, 73, 0.5);
+  animation: dare-in 0.5s var(--ease-spring) both;
+}
+
+@keyframes dare-in {
+  from { transform: translateY(-8px) scale(0.98); opacity: 0; }
+}
+
+.dare-tag {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--lime);
+  color: var(--carbon);
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.dare-text {
+  flex: 1;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.dare-text b {
+  color: var(--lime);
+  font-size: 1.1em;
+}
+
+.dare-x {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--paper-dim);
+  cursor: pointer;
+}
+
+/* ---------- brag card dialog ---------- */
+
+.tool-brag {
+  border-color: rgba(197, 255, 73, 0.45);
+  color: var(--lime);
+}
+
+.brag {
+  width: min(calc(100% - 24px), 420px);
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  border: 2px solid var(--lime);
+  border-radius: 18px;
+  background: #0b0c0f;
+  color: var(--paper);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(197, 255, 73, 0.15);
+}
+
+.brag::backdrop {
+  background: rgba(8, 9, 11, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.brag[open] {
+  animation: cmd-in 0.22s var(--ease-out);
+}
+
+.brag-inner {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+}
+
+.brag-head {
+  display: flex;
+  align-items: center;
+}
+
+.brag-head h2 {
+  margin: 0 auto 0 0;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--lime);
+}
+
+.brag-x {
+  min-height: 32px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-dim);
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.brag-label {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.brag-label small {
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--paper-dim);
+}
+
+.brag-input {
+  min-height: 48px;
+  padding: 0 var(--s-3);
+  border: 2px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--carbon);
+  color: var(--lime);
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.brag-input:focus {
+  outline: none;
+  border-color: var(--lime);
+}
+
+.brag-preview {
+  display: grid;
+  place-items: center;
+}
+
+.brag-preview canvas {
+  width: auto;
+  height: min(42dvh, 380px);
+  aspect-ratio: 9 / 16;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--line-2);
+}
+
+.brag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.brag-actions .ov-btn {
+  flex: 1 1 140px;
+  margin-top: 0;
+  font-size: 0.92rem;
+}
+
+.brag-say {
+  margin: 0;
+  min-height: 1.2em;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: var(--lilac);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card .game-new,
+  .dare,
+  .brag[open] {
+    animation: none;
+  }
+}
+
+/* keep cards calm: show the first three tags only */
+.game-card .game-tags li:nth-child(n + 4) {
+  display: none;
 }
