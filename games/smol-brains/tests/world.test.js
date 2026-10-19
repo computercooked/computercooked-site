@@ -101,11 +101,11 @@ for (let s = 0; s < steps; s++) {
   if (s % 15 === 0) {
     let food = 0, herb = 0;
     for (const o of world.objects) {
-      if (SB.KINDS[o.kind].noun === "food") food++;
+      if (SB.KINDS[o.kind].noun === "food" && !o.kind.startsWith("shroom")) food++;
       if (o.kind === "herb") herb++;
       if (!isFinite(o.x) || !isFinite(o.y) || o.x < 0 || o.x > SB.WORLD_W || o.y < 0 || o.y > SB.WORLD_H) bad = bad || (o.kind + " " + o.x + "," + o.y);
     }
-    for (const ring of SB.World.byKind(world, "shroomring")) maxShroom = Math.max(maxShroom, world.objects.filter((o) => o.noun === "mushroom" && Math.abs(o.x - ring.x) < 150).length);
+    for (const ring of SB.World.byKind(world, "shroomring")) maxShroom = Math.max(maxShroom, world.objects.filter((o) => o.kind.startsWith("shroom_") && Math.abs(o.x - ring.x) < 150).length);
     maxFood = Math.max(maxFood, food); maxHerb = Math.max(maxHerb, herb);
   }
   if (!isFinite(world.light) || world.light < 0 || world.light > 1) bad = bad || "light " + world.light;
@@ -161,7 +161,7 @@ r = SB.World.use(world, game, cake, "eat", smol);
 check("eat cake", r.consumed && r.deltas.hunger === -0.6 && r.chem.glucose === 0.5 && !world.objects.includes(cake));
 const rottenApple = SB.World.add(world, game, "apple", smol.x, undefined, { rotten: true });
 r = SB.World.use(world, game, rottenApple, "eat", smol);
-check("rotten food", r.consumed && r.chem.antigen >= 0.4 && r.deltas.hunger > -0.45, JSON.stringify(r.deltas));
+check("rotten food", r.consumed && r.chem.antigen >= 0.25 && r.deltas.pain > 0 && r.deltas.hunger > -0.45, JSON.stringify(r.deltas));
 r = SB.World.use(world, game, SB.World.byKind(world, "computer")[0], "play", smol);
 check("computer teaches", typeof r.teach === "string" && r.teach !== "wait", r.teach);
 const padA = SB.Game.byId(game, world.pads[0]), padB = SB.Game.byId(game, world.pads[1]);

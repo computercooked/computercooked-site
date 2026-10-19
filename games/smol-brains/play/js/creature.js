@@ -18,6 +18,7 @@
   var TARGET_VERBS = SB.VERB_NEEDS_TARGET;
   var CARRYABLE_NOUNS = { food: 1, mushroom: 1, toy: 1, ball: 1, music: 1, medicine: 1, egg: 1, bug: 1 };
   var CUDDLY_NOUNS = { smol: 1, hand: 1, toy: 1, egg: 1 };
+  var EDIBLE = { food: 1, mushroom: 1, bug: 1, medicine: 1, plant: 1 };
   var DO_DUR = [0, 0.5, 1.6, 2.2, 0.8, 0.6, 0.3, 0, 2.5, 1.8, 2.2, 0];
 
   var BABBLE = ["ba", "goo", "bababa", "mmm", "da?", "eep", "boo", "ga ga", "mama?", "pff", "wa"];
@@ -268,7 +269,8 @@
       if (!(noun in CARRYABLE_NOUNS) || (obj && obj.fixed) || (obj && obj.heldBy === "hand") || c.holding != null) mask[V.pickup] = false;
       if (!(noun in CUDDLY_NOUNS)) mask[V.cuddle] = false;
       if (target.type === "hand") mask[V.pickup] = false;
-      if (c.species === "grump" && noun === "egg") mask[V.pickup] = false; // eggs are off limits, even for grumps
+      if (c.species === "grump" && noun === "egg") mask[V.pickup] = false;
+      if (!(noun in EDIBLE)) mask[V.eat] = false; // eggs are off limits, even for grumps
     }
     mask[V.sleep] = ch.sleepy > 0.2 || ch.tired > 0.35;
     if (c.species === "grump") { mask[V.cuddle] = false; mask[V.sleep] = false; }
@@ -303,7 +305,7 @@
 
   function startAction(c, game, verb, tgt, target, noun) {
     var rng = game.rng;
-    var a = { verb: verb, target: tgt, noun: noun, t: 0, phase: "go", doT: 0, dur: 0, start: SB.Chem.drives(c.chem, new Float32Array(SB.N_DRIVES)), tx: c.x };
+    var a = { verb: verb, target: tgt, noun: noun, t: 0, phase: "go", doT: 0, dur: 0, start: SB.Chem.drives(c.chem, new Float32Array(SB.N_DRIVES)), tx: c.x, x: new Float32Array(c.brain.x) };
     switch (verb) {
       case V.idle: a.phase = "do"; a.dur = rng.range(1.2, 2.6); break;
       case V.wander: {
@@ -344,7 +346,7 @@
     if (c.speech && c.speech.t > 0.5) return;
     var rng = game.rng;
     if (c.species === "grump") { if (rng.chance(0.25)) say(c, rng.pick(GRUMP_LINES), game, "say"); return; }
-    var chat = 0.12 + gene(c.genome, "chattiness", 0.5) * 0.3;
+    var chat = 0.05 + gene(c.genome, "chattiness", 0.5) * 0.15;
     if (!rng.chance(chat)) return;
     if (c.stage === 0 && C.knownCount(c) === 0) { say(c, rng.pick(BABBLE), game, "babble"); return; }
     var top = SB.Chem.top(c.chem);
@@ -358,8 +360,15 @@
       var nw = SB.NOUN_WORDS[N[noun]], vw = SB.VERB_WORDS[verb];
       var ns = c.vocab[nw] || 0, vs = c.vocab[vw] || 0;
       if (vs >= 0.5 && ns >= 0.5 && verb !== V.idle && verb !== V.wander) parts.push(garble(vw, vs), garble(nw, ns));
-      else if (ns >= 0.4 && top.v > 0.5) parts.push("want", garble(nw, ns));
-      else if (ns >= 0.4 && rng.chance(0.4)) parts.push(garble(nw, ns));
+      else if (ns >= 0.4 && rng.chance(0.4) && top.v <= 0.5) parts.push(garble(nw, ns));
+    }
+    if (top.v > 0.5 && parts.length < 3) { // "want food": name a thing that fixes the feeling, if it knows the word
+      for (var gi = 0; gi < SB.GOOD.length; gi++) {
+        var gr = SB.GOOD[gi];
+        if (gr.drive !== SB.DRIVES[top.i]) continue;
+        var gw = SB.NOUN_WORDS[N[gr.noun]], gs = c.vocab[gw] || 0;
+        if (gs >= 0.5) { parts.push("want", garble(gw, gs)); break; }
+      }
     }
     if (!parts.length) {
       if (c.stage === 0 && rng.chance(0.6)) say(c, rng.pick(BABBLE), game, "babble");
@@ -455,9 +464,13 @@
     for (var w in c.vocab) if (c.vocab[w] >= 1) known.push(w);
     if (c.species === "grump") { say(c, rng.pick(GRUMP_LINES), game); return; }
     if (!known.length) { say(c, rng.pick(BABBLE), game, "babble"); return; }
-    var word = rng.pick(known);
+    var word = rng.pick(known), rate = 0.2;
+    if (listener && listener.attn) {
+      var focus = SB.NOUN_WORDS[N[listener.attn.noun]];
+      if (focus && knows(c, focus)) { word = focus; rate = 0.32; } // naming what you're both looking at sticks best
+    }
     say(c, word, game);
-    if (listener && listener.species === "smol" && listener.alive && !listener.asleep) learnWord(listener, word, 0.12, game);
+    if (listener && listener.species === "smol" && listener.alive && !listener.asleep) learnWord(listener, word, rate, game);
   }
 
   function complete(c, game, a, tgt) {
@@ -509,6 +522,8 @@
     else if (r < -0.2) emote(c, "sad", 1.2);
 
     observe(c, a.verb, noun, r, game);
+    c.lastDone = { x: a.x, a: a.verb, t: game.time };
+    if (a.verb === V.eat && obj && (obj.data && obj.data.rotten || (SB.KINDS[obj.kind] && SB.KINDS[obj.kind].chem && SB.KINDS[obj.kind].chem.toxin))) c.badMeal = { x: a.x, a: a.verb, t: game.time };
     c.action = null;
     c.thinkT = 0.15 + game.rng() * 0.35;
   }
@@ -596,12 +611,23 @@
 
   /* ---------------- the hand ---------------- */
 
+  // Which decision does a tickle/tap/"good" refer to? The one being done right now, else the one that
+  // finished in the last 2.5 s. Players react a beat late; the lesson should still land on the right thing.
+  function lesson(c, game, delta) {
+    var a = c.action, t = null;
+    if (a && a.x && (a.phase === "do" || a.verb === V.approach)) t = { x: a.x, a: a.verb };
+    else if (c.lastDone && game.time - c.lastDone.t < 2.5) t = c.lastDone;
+    if (t) SB.Brain.teach(c.brain, t.x, t.a, delta, 2);
+    else SB.Brain.reinforce(c.brain, SB.clamp(delta * 0.7, -1, 1));
+    c.lastReward = SB.clamp(delta, -1, 1);
+    c.stats.lessons = (c.stats.lessons || 0) + 1;
+  }
+
   C.tickle = function (c, game) {
     if (!c.alive) return;
     c.chem.reward = Math.min(1, c.chem.reward + 0.5);
     SB.Chem.apply(c.chem, { lonely: -0.05, bored: -0.03 });
-    SB.Brain.reinforce(c.brain, 0.7);
-    c.lastReward = 0.7;
+    lesson(c, game, 1);
     c.stats.tickles++;
     game.stats.tickles++;
     emote(c, c.species === "grump" ? "huh" : "happy", 1.4);
@@ -615,8 +641,7 @@
     if (!c.alive) return;
     c.chem.punish = Math.min(1, c.chem.punish + 0.5);
     SB.Chem.apply(c.chem, { pain: 0.06, fear: c.species === "grump" ? 0.25 : 0.05 });
-    SB.Brain.reinforce(c.brain, -0.7);
-    c.lastReward = -0.7;
+    lesson(c, game, -1);
     c.stats.taps++;
     game.stats.taps++;
     emote(c, "ouch", 1.2);
@@ -654,9 +679,7 @@
     var now = game.time;
 
     if (word === "good" || word === "bad") {
-      var r = (word === "good" ? 0.35 : -0.35) * (0.5 + gene(c.genome, "obedience", 0.5));
-      SB.Brain.reinforce(c.brain, r);
-      c.lastReward = r;
+      lesson(c, game, (word === "good" ? 0.5 : -0.5) * (0.5 + gene(c.genome, "obedience", 0.5)));
       emote(c, word === "good" ? "happy" : "sad", 1.2);
       return;
     }
@@ -780,6 +803,17 @@
     }, c.genome);
     if (ch.health <= 0) { die(c, game, causeOfDeath(ch)); return; }
 
+    // after-taste: feeling sick soon after a bad meal is a lesson about that meal
+    if (c.badMeal) {
+      if (game.time - c.badMeal.t > 45) c.badMeal = null;
+      else if (ch.sick > 0.2 || ch.pain > 0.35) {
+        SB.Brain.teach(c.brain, c.badMeal.x, c.badMeal.a, -0.9, 1.5);
+        c.badMeal = null;
+        emote(c, "sick", 1.6);
+        if (c.species === "smol" && !c.speech) say(c, "bleh", game);
+      }
+    }
+
     // illness bookkeeping
     if (c.species === "smol") {
       if (!c.wasSick && ch.sick > 0.5) { c.wasSick = true; SB.Game.note(game, c.name + " is feeling sick 🤢 medicine helps: Healroot (woods) or the Medbot (lab)"); SB.bus.emit("sick", { c: c }); }
@@ -902,7 +936,8 @@
     var t = SB.Brain.iqTest(c.brain);
     var words = C.knownCount(c);
     var exp = Math.min(10, (c.brain.updates || 0) / 60);
-    return Math.round(30 + 50 * t.good + 15 * t.bad + 3 * words + exp);
+    var taught = Math.min(15, (c.stats && c.stats.lessons || 0) * 0.15);
+    return Math.round(25 + 70 * t.good + 20 * t.bad + 1.5 * words + exp * 0.5 + taught);
   };
 
   /* ---------------- explain (for the UI) ---------------- */

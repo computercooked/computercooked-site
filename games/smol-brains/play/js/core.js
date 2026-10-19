@@ -87,7 +87,7 @@
     cake: { noun: "food", label: "Snack Cake", emoji: "🧁", r: 11, food: { hunger: -0.6, bored: -0.1 }, chem: { glucose: 0.5, fat: 0.25 }, rots: 600, desc: "From the Snackbox. Delicious. Do not tell the dentist." },
     fish: { noun: "food", label: "Pond Fish", emoji: "🐟", r: 11, food: { hunger: -0.55 }, chem: { glucose: 0.2, fat: 0.3 }, rots: 200, desc: "Jumps out of Sunny Pond sometimes." },
     shroom_red: { noun: "mushroom", label: "Red Shroom", emoji: "🍄", r: 10, food: { hunger: -0.2 }, chem: { toxin: 0.45 }, rots: 500, desc: "Pretty. Poisonous. A smol that eats one gets sick." },
-    shroom_blue: { noun: "mushroom", label: "Glowcap", emoji: "🔵", r: 10, food: { hunger: -0.25, sleepy: -0.15 }, chem: { glucose: 0.15 }, rots: 500, desc: "Glows at night. Safe and a little perky." },
+    shroom_blue: { noun: "food", label: "Glowcap", emoji: "🔵", r: 10, food: { hunger: -0.25, sleepy: -0.15 }, chem: { glucose: 0.15 }, rots: 500, desc: "Glows at night. Safe and a little perky." },
     ball: { noun: "ball", label: "Ball", emoji: "⚽", r: 13, bouncy: true, desc: "Kick it, chase it, throw it at a grump." },
     plush: { noun: "toy", label: "Plush", emoji: "🧸", r: 13, desc: "A tiny stuffed smol. Very huggable." },
     top: { noun: "toy", label: "Spinning Top", emoji: "🪀", r: 11, desc: "Spins when played with. Endlessly fascinating to small brains." },

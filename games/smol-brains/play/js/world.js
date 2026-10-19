@@ -107,7 +107,7 @@
   function ss(t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }
   function sign(v) { return v < 0 ? -1 : 1; }
   function emit(ev, data) { SB.bus.emit(ev, data); }
-  function isFood(kind) { var k = K[kind]; return !!(k && k.noun === "food"); }
+  function isFood(kind) { var k = K[kind]; return !!(k && k.noun === "food" && kind.indexOf("shroom") !== 0); } // glowcaps count as shrooms for caps
   function rng(game) { return game.rng; }
 
   function groundAt(g, x) {
@@ -497,7 +497,7 @@
 
   function countShrooms(world, ring) {
     var n = 0, os = world.objects;
-    for (var i = 0; i < os.length; i++) if (os[i].noun === "mushroom" && Math.abs(os[i].x - ring.x) < 150) n++;
+    for (var i = 0; i < os.length; i++) if (os[i].kind.indexOf("shroom_") === 0 && Math.abs(os[i].x - ring.x) < 150) n++;
     return n;
   }
 

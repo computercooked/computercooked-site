@@ -23,6 +23,8 @@
       w1: new Float32Array(nHid * NI), b1: new Float32Array(nHid),
       w2: new Float32Array(NO * nHid), b2: new Float32Array(NO),
       att: new Float32Array(NN * NA),
+      cmd: new Float32Array(NO * NO), // heard verb -> chosen verb: what spoken commands mean, learned from praise
+      nv: new Float32Array(NN * NO),  // seen noun -> verb: specific lessons ("not THAT mushroom"), like a concept lobe
       x: new Float32Array(NI), h: new Float32Array(nHid), q: new Float32Array(NO),
       dw1: new Float32Array(nHid * NI), dw2: new Float32Array(NO * nHid),
       lr: 0.2, temp: 0.2, attnLr: 0.05,
@@ -43,6 +45,7 @@
     b.lr = 0.1 + 0.3 * v("learnRate", 0.5);
     b.temp = 0.08 + 0.27 * v("curiosity", 0.5);
     b.attnLr = 0.02 + 0.1 * v("attnLearn", 0.5);
+    b.instinct = v("instinctStrength", 0.5);
   }
 
   B.create = function (genome, rng) {
@@ -95,7 +98,16 @@
     return q;
   }
 
-  B.forward = function (b) { return fwd(b, b.x, b.h, b.q); };
+  B.forward = function (b) { fwd(b, b.x, b.h, b.q); tables(b, b.x, b.q); return b.q; };
+
+  // The two lesson tables sit on top of the net's output: specific memories of what the player taught.
+  function tables(b, x, q) {
+    var n = -1, hv = -1, i;
+    for (i = 0; i < NN; i++) if (x[IN.NOUN0 + i] > 0.5) { n = i; break; }
+    for (i = 0; i < NO; i++) if (x[IN.HEARD0 + i] > 0.5) { hv = i; break; }
+    if (n >= 0) for (i = 0; i < NO; i++) q[i] += b.nv[n * NO + i];
+    if (hv >= 0) for (i = 0; i < NO; i++) q[i] += b.cmd[hv * NO + i];
+  }
 
   // softmax sample from vals[0..n) / temp, honouring mask (null = all allowed). Uses b._p scratch.
   function sample(b, vals, n, temp, mask, rng) {
@@ -116,6 +128,7 @@
   B.decide = function (b, rng, mask, bias) {
     fwd(b, b.x, b.h, b.q);
     if (bias) for (var k = 0; k < NO; k++) b.q[k] += bias[k];
+    tables(b, b.x, b.q);
     var a = sample(b, b.q, NO, b.temp, mask, rng);
     if (a < 0) a = 0;
     // older decisions become less susceptible; newest one goes into the ring buffer
@@ -224,6 +237,31 @@
     b.updates++;
   };
 
+  function heardVerb(x) {
+    for (var i = 0; i < NO; i++) if (x[IN.HEARD0 + i] > 0.5) return i;
+    return -1;
+  }
+
+  // A direct lesson from the player (tickle, tap, "good", "bad") about one specific past decision:
+  // input x, verb a, and how much better (+) or worse (-) than expected it was. Also teaches what a
+  // spoken command means when one was heard. boost scales the learning rate (hand lessons are vivid).
+  B.teach = function (b, x, a, delta, boost) {
+    fwd(b, x, b._h, b._q);
+    var target = b._q[a] + delta;
+    target = target > 1.5 ? 1.5 : target < -1.5 ? -1.5 : target;
+    var hv = heardVerb(x), n = -1, i;
+    for (i = 0; i < NN; i++) if (x[IN.NOUN0 + i] > 0.5) { n = i; break; }
+    // most of a lesson goes into a specific memory: "what that word means" when a command was heard,
+    // otherwise "doing this to THAT thing". The net (habits in general) gets a smaller share.
+    var step = delta * (0.25 + b.lr * 1.2);
+    var tab = hv >= 0 ? b.cmd : n >= 0 ? b.nv : null, row = hv >= 0 ? hv : n;
+    if (tab) { var k = row * NO + a, v = tab[k] + step; tab[k] = v > 1.5 ? 1.5 : v < -1.5 ? -1.5 : v; }
+    var rate = Math.min(0.9, b.lr * (boost || 1)) * (tab ? 0.03 : 1);
+    b.lastErr = train(b, x, a, target, rate, true);
+    b.lastReward = delta > 1 ? 1 : delta < -1 ? -1 : delta;
+    b.updates++;
+  };
+
   // Supervised nudge toward `verb` for input x (watching someone else do it). rate ~0.05..0.3.
   B.imitate = function (b, x, verb, rate) {
     fwd(b, x, b._h, b._q);
@@ -255,9 +293,10 @@
       x[IN.NEAR] = rng() < 0.5 ? 1 : 0;
       x[IN.DARK] = rng() < 0.3 ? 1 : 0;
       x[IN.BIAS] = 1;
-      train(b, x, it.verb, it.s * 0.8, 0.12, false);
+      var dr = 0.05 + 0.14 * (b.instinct == null ? 0.5 : b.instinct); // the instinctStrength gene
+      train(b, x, it.verb, it.s * 0.8, dr, false);
       var other = rng.int(NO);
-      if (other !== it.verb) train(b, x, other, -0.05 * rng(), 0.12, false);
+      if (other !== it.verb) train(b, x, other, -0.05 * rng(), dr, false);
       // attention: notice that noun when the drive is high
       var o = it.noun * NA + it.drive, v = b.att[o] + 0.004 * it.s;
       b.att[o] = v > AMAX ? AMAX : v;
@@ -286,6 +325,7 @@
     x[IN.NEAR] = 1;
     x[IN.BIAS] = 1;
     fwd(b, x, b._h, b._q);
+    tables(b, x, b._q);
     var bi = 1, bv = -1e9;
     for (i = 1; i < NO; i++) if (b._q[i] > bv) { bv = b._q[i]; bi = i; } // skip idle
     return bi;
@@ -311,6 +351,7 @@
     fwd(b, x, b._h, b._q);
     for (var i = 0; i < NI; i++) {
       if (x[i] === 0 || i === IN.BIAS) continue;
+      if (i < IN.DRIVE0 + ND && x[i] < 0.3) continue; // mild feelings don't explain much
       var s = 0;
       for (var j = 0; j < nH; j++) {
         var hj = b._h[j];
@@ -319,6 +360,9 @@
       var v = s * x[i];
       if (v > 0) out.push({ i: i, label: SB.INPUT_LABELS[i], v: v });
     }
+    // specific lessons count too ("you taught it: ball → play", "heard 'come'")
+    for (i = 0; i < NN; i++) if (x[IN.NOUN0 + i] > 0.5 && b.nv[i * NO + verb] > 0.1) out.push({ i: IN.NOUN0 + i, label: "a lesson about " + SB.NOUNS[i], v: b.nv[i * NO + verb] });
+    for (i = 0; i < NO; i++) if (x[IN.HEARD0 + i] > 0.5 && b.cmd[i * NO + verb] > 0.1) out.push({ i: IN.HEARD0 + i, label: 'heard "' + SB.VERB_WORDS[i] + '"', v: b.cmd[i * NO + verb] });
     out.sort(function (a, c) { return c.v - a.v; });
     return out.slice(0, 3);
   };
@@ -344,7 +388,7 @@
   B.serialize = function (b) {
     return {
       v: 1, nHid: b.nHid, lr: b.lr, temp: b.temp, attnLr: b.attnLr, updates: b.updates,
-      w1: packArr(b.w1), b1: packArr(b.b1), w2: packArr(b.w2), b2: packArr(b.b2), att: packArr(b.att)
+      w1: packArr(b.w1), b1: packArr(b.b1), w2: packArr(b.w2), b2: packArr(b.b2), att: packArr(b.att), cmd: packArr(b.cmd), nv: packArr(b.nv)
     };
   };
 
@@ -356,13 +400,13 @@
     if (o.temp != null) b.temp = o.temp;
     if (o.attnLr != null) b.attnLr = o.attnLr;
     b.updates = o.updates || 0;
-    unpackArr(o.w1, b.w1); unpackArr(o.b1, b.b1); unpackArr(o.w2, b.w2); unpackArr(o.b2, b.b2); unpackArr(o.att, b.att);
+    unpackArr(o.w1, b.w1); unpackArr(o.b1, b.b1); unpackArr(o.w2, b.w2); unpackArr(o.b2, b.b2); unpackArr(o.att, b.att); unpackArr(o.cmd, b.cmd); unpackArr(o.nv, b.nv);
     return b;
   };
 
   B.clone = function (b) {
     var c = alloc(b.nHid);
-    ["w1", "b1", "w2", "b2", "att", "x", "h", "q"].forEach(function (k) { c[k].set(b[k]); });
+    ["w1", "b1", "w2", "b2", "att", "cmd", "nv", "x", "h", "q"].forEach(function (k) { c[k].set(b[k]); });
     c.lr = b.lr; c.temp = b.temp; c.attnLr = b.attnLr; c.updates = b.updates;
     return c;
   };
