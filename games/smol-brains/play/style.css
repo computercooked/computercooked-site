@@ -530,7 +530,7 @@ a { color: var(--lime); }
 .celebrate {
   position: absolute;
   left: 50%;
-  top: 34%;
+  top: 52%;
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none !important;
@@ -772,3 +772,6 @@ a { color: var(--lime); }
   .toasts { bottom: auto; top: calc(6px + var(--sat)); }
   .toast { padding: 7px 12px; }
 }
+
+/* the chip row scrolls sideways: fade the right edge so it reads as "there's more" */
+.chips { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 28px; }

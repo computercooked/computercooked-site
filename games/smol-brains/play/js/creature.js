@@ -230,6 +230,12 @@
   function think(c, game) {
     var ch = c.chem, rng = game.rng;
     perceive(c, game);
+    // a grump with nothing to bother walks toward the smols (raids should reach you, not idle in the Hollow)
+    if (c.species === "grump") {
+      var prey = false;
+      for (var pi = 0; pi < cands.length; pi++) if (cands[pi].noun === N.smol || cands[pi].noun === N.food) prey = true;
+      if (!prey) { c.attn = null; startAction(c, game, V.wander, null, null, null); return; }
+    }
     SB.Chem.drives(ch, drv);
     var pick = -1;
     if (cands.length) pick = SB.Brain.attend(c.brain, drv, cands, rng);
@@ -307,6 +313,11 @@
             if (room + k < SB.ROOMS.length && !c.visited[SB.ROOMS[room + k].id]) { dir = 1; break; }
             if (room - k >= 0 && !c.visited[SB.ROOMS[room - k].id]) { dir = -1; break; }
           }
+        }
+        if (c.species === "grump") { // grumps go raiding: head for the nearest smol
+          var prey = null, pd = 1e9;
+          game.creatures.forEach(function (o) { if (o.alive && o.species === "smol" && Math.abs(o.x - c.x) < pd) { pd = Math.abs(o.x - c.x); prey = o; } });
+          if (prey) dir = prey.x > c.x ? 1 : -1;
         }
         a.tx = SB.clamp(c.x + dir * rng.range(150, 420), 40, SB.WORLD_W - 40);
         break;
@@ -614,9 +625,9 @@
       if (game.time - c.tapT > 10) c.tapCount = 0;
       c.tapT = game.time;
       c.tapCount++;
-      if (c.tapCount >= 3 && !c.goingHome) {
+      if (c.tapCount >= 3) {
+        if (!c.goingHome) say(c, "fine! FINE!", game);
         c.goingHome = true;
-        say(c, "fine! FINE!", game);
         SB.Game.unlock(game, "scare");
       }
     } else SB.Game.unlock(game, "tap");
@@ -768,7 +779,7 @@
 
     // illness bookkeeping
     if (c.species === "smol") {
-      if (!c.wasSick && ch.sick > 0.5) { c.wasSick = true; SB.Game.note(game, c.name + " is feeling sick 🤢"); SB.bus.emit("sick", { c: c }); }
+      if (!c.wasSick && ch.sick > 0.5) { c.wasSick = true; SB.Game.note(game, c.name + " is feeling sick 🤢 medicine helps: Healroot (woods) or the Medbot (lab)"); SB.bus.emit("sick", { c: c }); }
       else if (c.wasSick && ch.sick < 0.15) { c.wasSick = false; game.stats.cured++; SB.Game.unlock(game, "cure"); SB.bus.emit("cured", { c: c }); }
     }
 

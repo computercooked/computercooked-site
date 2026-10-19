@@ -567,14 +567,13 @@
     insetT = t;
     var vr = view.getBoundingClientRect();
     var top = 0, bot = vr.bottom;
-    if (vr.height > vr.width) { // portrait phones only; landscape and desktop panels sit at the sides
-      var hr = E.hud.getBoundingClientRect();
-      top = Math.max(0, hr.bottom - vr.top);
-      Array.prototype.forEach.call(E.dock.children, function (ch) {
-        var r = ch.getBoundingClientRect();
-        if (r.height > 0 && getComputedStyle(ch).display !== "none" && r.top < bot) bot = r.top;
-      });
-    }
+    var cx = vr.left + vr.width / 2;
+    if (vr.height > vr.width) top = Math.max(0, E.hud.getBoundingClientRect().bottom - vr.top);
+    // dock pieces over the middle of the screen (talk bar, phone sheet, toolbar); side panels don't count
+    Array.prototype.forEach.call(E.dock.children, function (ch) {
+      var r = ch.getBoundingClientRect();
+      if (r.height > 0 && r.left < cx && r.right > cx && getComputedStyle(ch).display !== "none" && r.top < bot) bot = r.top;
+    });
     var key = Math.round(top) + "," + Math.round(vr.bottom - bot);
     if (key === lastIns) return;
     lastIns = key;
@@ -699,9 +698,13 @@
     on("death", function (d) {
       if (d.c && d.c.id === G.selectedId) { toast({ icon: "🕊", title: (d.c.name || "a smol") + " has passed on", desc: d.cause ? "cause: " + d.cause : "a full life." }); }
     });
-    on("grumpArrive", function () {
+    on("grumpArrive", function (d) {
       var t = now();
-      if (t - lastGrumpToast > 90000) { lastGrumpToast = t; toast({ icon: "👺", title: "grumps are out", desc: "tap them with 👆 until they run home." }); }
+      if (t - lastGrumpToast > 90000) {
+        lastGrumpToast = t;
+        toast({ icon: "👺", title: "grumps are out", desc: "they're heading for your smols. tap here to look, then 👆 tap them till they run home.", ms: 6000,
+          onClick: function () { var g = d && d.c; if (g && g.alive) call("Render", "centerOn", g.x); } });
+      }
     });
     bound = true;
   }
@@ -794,7 +797,7 @@
     while (E.toasts.children.length > 3) E.toasts.removeChild(E.toasts.firstChild);
     var dead = false;
     function kill() { if (dead) return; dead = true; n.classList.add("out"); setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 450); }
-    setTimeout(kill, o.ms || 3200);
+    setTimeout(kill, o.ms || (isPhone() ? 2400 : 3200));
     return n;
   }
   UI.toast = toast;
@@ -1685,6 +1688,7 @@
     }
     E.brain.classList.add("open");
     root.classList.add("brain-on");
+    closeTalk();
     if (isPhone()) { panelCollapsed = true; userToggledPanel = false; refreshPanel(true); }
     unlock("brain");
     tutEvent("brainOpen", {});
@@ -2036,7 +2040,7 @@
       target: function () { var f = tutFood(); return f ? { w: f, dy: -(f.r || 11) - 6 } : null; } },
     { text: "it ate! now <em>tickle it</em> with the feather 🪶 to say good job", on: "tickle",
       target: function () { if (G.hand.tool !== "tickle") return { el: E.toolBtns.tickle }; var c = tutSmol(); return c ? { w: c, dy: -38 } : null; } },
-    { text: "teach it a word: pick <em>💬 talk</em> and tap the food (or the ball) a few times", on: "learnWord", enter: function () { ensureFood(); },
+    { text: "teach it a word: pick <em>💬 talk</em> and tap the food (or the ball) a few times", on: "learnWord", enter: function () { ensureFood(); var cam = SB.Render && SB.Render.camera; if (cam) cam.follow = null; },
       target: function () { if (G.hand.tool !== "talk") return { el: E.toolBtns.talk }; var f = tutFood() || tutBall(); return f ? { w: f, dy: -(f.r || 11) - 6 } : null; } },
     { text: "peek inside its head 🧠", on: "brainOpen", enter: function () { var c = tutSmol(); if (c && !selected()) selectC(c, true); },
       target: function () { return E.panel.classList.contains("open") ? { el: E.pBrain } : null; } },
