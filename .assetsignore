@@ -16,3 +16,6 @@ migrations/
 package.json
 package-lock.json
 wrangler.local.jsonc
+games/smol-brains/tests/
+games/smol-brains/DESIGN.md
+games/smol-brains/screenshots/
