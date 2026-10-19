@@ -20,7 +20,7 @@ $dest = Join-Path $repo "games\$slug"
 $play = Join-Path $dest "play"
 if (Test-Path $play) { Remove-Item -Recurse -Force $play }
 New-Item -ItemType Directory -Force $play | Out-Null
-Copy-Item -Recurse -Force (Join-Path $Source "*") $play
+Copy-Item -Recurse -Force (Join-Path $Source "*") $play -Exclude "PLAYTEST.md", "screenshot-*"
 
 $thumb = "$($entry.thumbnail)"
 if (-not $thumb) { $thumb = "thumb.png" }
