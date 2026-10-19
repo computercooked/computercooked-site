@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101114">
+<title>handbag havoc · computer cooked games</title>
+<meta name="description" content="granny on a mobility scooter swings her handbag and bowls garden gnomes into each other. 100 seconds. no mercy.">
+<style>
+  :root {
+    --carbon: #101114; --lime: #C5FF49; --lilac: #B59AFF; --paper: #F5F3ED;
+    --ink: #101114; --cream: #F5F3ED; --pink: #B59AFF; --gold: #C5FF49; --grass: #2f5e2a; --panel: rgba(16, 17, 20, 0.9);
+    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100%; height: 100%; background: var(--carbon); overflow: hidden; overscroll-behavior: none; }
+  body { font-family: var(--font); color: var(--cream); user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); z-index: 5; }
+  .overlay.show { display: flex; }
+  .panel { background: var(--panel); border: 2px solid rgba(197, 255, 73, 0.25); border-radius: 14px; padding: 22px 20px 16px; width: min(540px, 100%); max-height: 100%; overflow-y: auto; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5); text-align: center; }
+  h1.logo { margin: 0; font-family: var(--mono); font-size: clamp(36px, 10vw, 64px); line-height: 0.95; font-weight: 800; letter-spacing: -2px; color: var(--lime); text-transform: lowercase; }
+  h1.logo span { display: block; color: var(--lilac); }
+  .tag { margin: 14px 0 4px; font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--paper); }
+  .how { font-size: 14px; line-height: 1.5; color: rgba(245, 243, 237, 0.75); margin: 8px auto 14px; max-width: 420px; }
+  .how b { color: var(--lime); font-weight: 700; }
+  .btn { font-family: var(--mono); font-weight: 800; font-size: 20px; border: 0; border-radius: 10px; padding: 13px 22px; margin: 6px 4px; cursor: pointer; color: var(--carbon); background: var(--lime); box-shadow: 0 4px 0 #7fa82a; transition: transform 0.06s; min-height: 50px; text-transform: lowercase; }
+  .btn:active, .btn.pressed { transform: translateY(3px); box-shadow: 0 1px 0 #7fa82a; }
+  .btn.big { font-size: 24px; padding: 15px 30px; width: min(320px, 100%); }
+  .btn.pink { background: var(--lilac); box-shadow: 0 4px 0 #6f58c4; }
+  .btn.pink:active { box-shadow: 0 1px 0 #6f58c4; }
+  .btn.ghost { background: rgba(245, 243, 237, 0.1); color: var(--paper); box-shadow: none; font-size: 15px; padding: 10px 14px; min-height: 44px; font-weight: 700; }
+  .btn:focus-visible { outline: 3px solid var(--paper); outline-offset: 3px; }
+  .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+  .toggles { margin-top: 8px; }
+  .bests { font-family: var(--mono); font-size: 12px; color: rgba(245, 243, 237, 0.6); margin-top: 10px; min-height: 16px; }
+  .kbd { display: inline-block; background: rgba(16, 17, 20, 0.18); border-radius: 5px; padding: 1px 6px; font-size: 11px; font-weight: 800; margin-left: 8px; vertical-align: middle; }
+  .credit { margin-top: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: rgba(245, 243, 237, 0.45); }
+  .credit b { color: var(--lime); font-weight: 700; }
+  @media (hover: none) and (pointer: coarse) { .kbd, .desk { display: none; } }
+  /* upgrade */
+  #upgrade .panel { width: min(760px, 100%); }
+  .up-head { font-family: var(--mono); font-size: 13px; font-weight: 800; color: var(--lime); letter-spacing: 2px; }
+  .up-title { font-family: var(--mono); font-size: clamp(24px, 6vw, 34px); font-weight: 800; margin: 2px 0 14px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { font-family: var(--font); background: var(--paper); color: var(--carbon); border: 0; border-radius: 12px; padding: 16px 12px 14px; cursor: pointer; box-shadow: 0 5px 0 #c9c4b5, 0 10px 22px rgba(0, 0, 0, 0.35); text-align: center; transition: transform 0.08s; position: relative; animation: deal 0.32s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .card:nth-child(2) { animation-delay: 0.06s; } .card:nth-child(3) { animation-delay: 0.12s; }
+  @keyframes deal { from { transform: translateY(40px) scale(0.85) rotate(-4deg); opacity: 0; } }
+  .card:hover, .card.sel { transform: translateY(-6px); box-shadow: 0 8px 0 #c9c4b5, 0 0 0 4px var(--lime), 0 14px 26px rgba(0, 0, 0, 0.35); }
+  .card img { width: 64px; height: 64px; display: block; margin: 0 auto 8px; }
+  .card .nm { font-family: var(--mono); font-weight: 800; font-size: 16px; line-height: 1.15; text-transform: lowercase; }
+  .card .ds { font-size: 13px; line-height: 1.3; margin-top: 6px; color: #4a4a52; text-transform: lowercase; }
+  .card .pips { margin-top: 8px; display: flex; gap: 4px; justify-content: center; }
+  .card .pip { width: 10px; height: 10px; border-radius: 50%; background: #dcd8cc; }
+  .card .pip.on { background: var(--lilac); }
+  .card .pip.new { background: var(--lime); box-shadow: 0 0 0 2px #7fa82a; }
+  .card .key { position: absolute; top: 8px; left: 10px; font-family: var(--mono); font-size: 12px; font-weight: 800; color: #9a978c; }
+  .card.sig::after { content: "bowling"; position: absolute; top: 8px; right: 8px; font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: 1px; background: var(--carbon); color: var(--lime); padding: 2px 6px; border-radius: 5px; }
+  @media (max-width: 560px) {
+    .cards { grid-template-columns: 1fr; gap: 10px; }
+    .card { display: grid; grid-template-columns: 56px 1fr; text-align: left; align-items: center; column-gap: 12px; padding: 12px; }
+    .card img { width: 52px; height: 52px; margin: 0; grid-row: span 3; }
+    .card .pips { justify-content: flex-start; margin-top: 4px; }
+    .card .key { display: none; }
+    .card.sig::after { top: 6px; right: 6px; }
+  }
+  /* summary */
+  .sum-title { font-family: var(--mono); font-size: clamp(24px, 6.4vw, 38px); line-height: 1.05; font-weight: 800; margin: 0; color: var(--lime); letter-spacing: -1px; }
+  .sum-title.win { color: var(--lilac); }
+  .sum-sub { color: rgba(245, 243, 237, 0.8); margin: 6px 0 12px; font-size: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+  .stat { background: rgba(245, 243, 237, 0.07); border-radius: 10px; padding: 10px 8px; position: relative; }
+  .stat .v { font-family: var(--mono); font-size: 24px; font-weight: 800; line-height: 1; }
+  .stat .l { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 1px; color: rgba(245, 243, 237, 0.55); margin-top: 4px; }
+  .stat .nb { position: absolute; top: -8px; right: -4px; background: var(--lime); color: var(--carbon); font-family: var(--mono); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; transform: rotate(6deg); animation: pop 0.4s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes pop { from { transform: scale(0) rotate(0); } }
+  .stat.wide { grid-column: span 2; }
+  .squares { display: flex; gap: 6px; justify-content: center; margin: 4px 0 8px; }
+  .sq { width: 24px; height: 24px; border-radius: 5px; background: #2a2b31; }
+  .sq.ok { background: var(--lime); } .sq.dead { background: #ff5a5a; } .sq.crown { background: var(--lilac); }
+  .share { background: rgba(0, 0, 0, 0.35); border-radius: 10px; padding: 8px 12px; font-size: 12px; text-align: left; white-space: pre-wrap; font-family: var(--mono); color: var(--paper); margin: 8px 0; user-select: text; -webkit-user-select: text; }
+  .build { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 6px 0; }
+  .build img { width: 30px; height: 30px; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 52%, rgba(16, 17, 20, 0.5) 100%); }
+  #pauseBtn { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 4; width: 46px; height: 46px; border-radius: 10px; border: 2px solid rgba(197, 255, 73, 0.5); background: rgba(16, 17, 20, 0.6); color: var(--lime); font-weight: 800; font-size: 15px; display: none; font-family: var(--mono); }
+  #toast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--carbon); border: 1px solid var(--lime); color: var(--lime); font-family: var(--mono); padding: 10px 16px; border-radius: 10px; font-weight: 700; z-index: 9; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+  #safe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  @media (max-height: 560px) { .panel { padding: 14px 16px 12px; } .how { margin: 4px auto 8px; } .tag { margin-top: 8px; } }
+  @media (prefers-reduced-motion: reduce) { .card, .stat .nb { animation: none; } .btn, .card { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="handbag havoc game"></canvas>
+<div id="vignette"></div>
+<button id="pauseBtn" aria-label="Pause">II</button>
+
+<div id="title" class="overlay show">
+  <div class="panel">
+    <h1 class="logo">handbag<span>havoc</span></h1>
+    <div class="tag">granny vs. the gnome uprising.</div>
+    <div class="how">steer the scooter. the purse swings itself, and <b>turning hard whips it faster</b>. smacked gnomes become <b>bowling balls</b>. survive 5 waves, topple the gnome king, go home.</div>
+    <div class="row">
+      <button class="btn big" id="playBtn">play<span class="kbd">enter</span></button>
+    </div>
+    <div class="row">
+      <button class="btn pink" id="dailyBtn">daily garden</button>
+    </div>
+    <div class="row toggles">
+      <button class="btn ghost" id="sndBtn">sound: on</button>
+      <button class="btn ghost" id="shakeBtn">shake: on</button>
+    </div>
+    <div class="how" style="margin:10px auto 0;font-size:12.5px">move: <span class="desk"><b>wasd</b> / <b>arrows</b> / </span><b>drag anywhere</b><span class="desk"> · upgrades: <b>1 2 3</b> · restart: <b>r</b> · mute: <b>m</b></span></div>
+    <div class="bests" id="bests"></div>
+    <div class="credit"><b>computer cooked</b> games</div>
+  </div>
+</div>
+
+<div id="upgrade" class="overlay">
+  <div class="panel">
+    <div class="up-head" id="upHead">wave 1 cleared</div>
+    <div class="up-title">pick one.</div>
+    <div class="cards" id="cards"></div>
+  </div>
+</div>
+
+<div id="summary" class="overlay">
+  <div class="panel">
+    <h2 class="sum-title" id="sumTitle">run over.</h2>
+    <div class="sum-sub" id="sumSub"></div>
+    <div class="squares" id="squares"></div>
+    <div class="stats" id="stats"></div>
+    <div class="build" id="build"></div>
+    <div class="share" id="shareText"></div>
+    <div class="row">
+      <button class="btn big" id="againBtn">one more run<span class="kbd">r</span></button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="copyBtn">copy stat line</button>
+      <button class="btn ghost" id="shareBtn" style="display:none">share</button>
+      <button class="btn ghost" id="menuBtn">menu</button>
+    </div>
+    <div class="credit"><b>computer cooked</b> games</div>
+  </div>
+</div>
+
+<div id="pause" class="overlay">
+  <div class="panel" style="width:min(360px,100%)">
+    <h2 class="sum-title" style="font-size:36px">paused.</h2>
+    <div class="row" style="margin-top:12px"><button class="btn big" id="resumeBtn">resume</button></div>
+    <div class="row toggles"><button class="btn ghost" id="pSndBtn">sound: on</button><button class="btn ghost" id="pShakeBtn">shake: on</button></div>
+    <div class="row"><button class="btn ghost" id="quitBtn">quit to menu</button></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="safe" aria-hidden="true"></div>
+
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/bots.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

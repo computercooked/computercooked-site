@@ -22,6 +22,16 @@
       "tags": [],
       "controls": "tap or click a bell to ring it. space rings a random bell, m mutes. tap upgrades to buy them.",
       "size_kb": 77
+    },
+    {
+      "slug": "handbag-havoc",
+      "title": "Handbag Havoc",
+      "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
+      "thumbnail": "/games/handbag-havoc/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [],
+      "controls": "wasd / arrows or drag anywhere to steer. 1 2 3 to pick upgrades. r restart, p pause, m mute.",
+      "size_kb": 115
     }
   ]
 }
