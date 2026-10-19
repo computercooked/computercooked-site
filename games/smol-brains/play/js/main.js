@@ -87,6 +87,11 @@
     var d = egg.data || {};
     var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, gen: d.gen || 1, parents: d.parents || [], name: d.name });
     c.y = egg.y;
+    if (d.starter) {
+      // the tutorial wants a hungry baby that knows what an apple is for
+      c.chem.hunger = 0.78; c.chem.bored = 0.15;
+      SB.Brain.dream(c.brain, [{ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 1 }], 250, game.rng);
+    }
     SB.World.remove(game.world, egg);
     game.stats.hatched++;
     if (c.gen > game.stats.maxGen) game.stats.maxGen = c.gen;

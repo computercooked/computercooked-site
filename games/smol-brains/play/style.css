@@ -761,3 +761,14 @@ a { color: var(--lime); }
   .arrow .a-in, .arrow .ring { animation: none !important; }
   .celebrate.open { animation: none !important; opacity: 1; }
 }
+
+/* phones: while talking, the talk bar takes the smol sheet's place */
+@media (max-width: 700px) {
+  .dock.talking .panel { display: none !important; }
+}
+
+/* phones: toasts float at the very top (over the HUD) so they never hide the smol on the ground */
+@media (max-width: 699px) {
+  .toasts { bottom: auto; top: calc(6px + var(--sat)); }
+  .toast { padding: 7px 12px; }
+}

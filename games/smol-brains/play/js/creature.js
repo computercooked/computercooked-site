@@ -221,6 +221,7 @@
       if (i === N.bug) sal += 0.1;
       if (i === N.grump) sal += 0.25 * (1 - gene(c.genome, "bravery", 0.5));
       if (c.attn && c.attn.noun === SB.NOUNS[i]) sal += 0.08; // a little focus
+      if (nearestD[i] < 70) sal += 0.5; // right under my nose
       cands.push({ noun: i, sal: sal, t: nearestOf[i], d: nearestD[i] });
     }
     return cands;
@@ -676,7 +677,7 @@
         }
       } else if (c.attn && c.attn.noun === SB.NOUNS[lex.i]) looking = true;
       var correct = opts.aboutNoun == null || opts.aboutNoun === SB.NOUNS[lex.i] || opts.aboutNoun === lex.i;
-      if (correct) learnWord(c, word, looking ? 0.36 : 0.12, game);
+      if (correct) learnWord(c, word, looking ? 0.42 : 0.16, game);
       if (c.action && (c.action.verb === V.idle || c.action.verb === V.wander)) { c.action = null; c.thinkT = 0.3; }
       echo(c, word, game);
       return;
@@ -833,6 +834,13 @@
 
     // fear interrupts: a grump close by
     if (c.species === "smol" && c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
+
+    // food dropped right in front of a hungry smol gets noticed now, not after it finishes wandering
+    if (c.species === "smol" && ch.hunger > 0.45 && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
+      c.foodT = 0.4;
+      var snack = SB.World.near(world, c.x, c.y - 10, 70, function (o) { return o.noun === "food" && o.heldBy !== "hand" && (!c.action.noun || c.action.noun !== "food"); });
+      if (snack.length) { c.action = null; c.thinkT = 0; }
+    }
 
     // think and act
     if (!c.action) {

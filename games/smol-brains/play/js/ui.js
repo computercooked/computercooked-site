@@ -551,12 +551,35 @@
     setHTML(E.talkTo, sel && sel.species === "smol" ? "talking to <b>" + esc(sel.name) + "</b> (and anyone nearby)" : "talking to smols near the hand · tip: tap a thing with 💬 to say its name");
   }
 
+  var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   function openTalk(focus) {
     E.talkbar.classList.add("open");
+    E.dock.classList.add("talking"); // phones: the talk bar replaces the smol sheet so the world stays visible
     rebuildChips();
-    if (focus) setTimeout(function () { try { E.talkInput.focus(); } catch (e) {} }, 30);
+    if (focus && !coarse) setTimeout(function () { try { E.talkInput.focus(); } catch (e) {} }, 30);
   }
-  function closeTalk() { E.talkbar.classList.remove("open"); try { E.talkInput.blur(); } catch (e) {} }
+  function closeTalk() { E.talkbar.classList.remove("open"); E.dock.classList.remove("talking"); try { E.talkInput.blur(); } catch (e) {} }
+
+  // Tell the renderer how much of the screen the HUD and dock cover, so the ground sits in the visible gap.
+  var insetT = 0, lastIns = "";
+  function updateInsets(t) {
+    if (t - insetT < 250) return;
+    insetT = t;
+    var vr = view.getBoundingClientRect();
+    var top = 0, bot = vr.bottom;
+    if (vr.height > vr.width) { // portrait phones only; landscape and desktop panels sit at the sides
+      var hr = E.hud.getBoundingClientRect();
+      top = Math.max(0, hr.bottom - vr.top);
+      Array.prototype.forEach.call(E.dock.children, function (ch) {
+        var r = ch.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(ch).display !== "none" && r.top < bot) bot = r.top;
+      });
+    }
+    var key = Math.round(top) + "," + Math.round(vr.bottom - bot);
+    if (key === lastIns) return;
+    lastIns = key;
+    call("Render", "setInsets", top, vr.bottom - bot);
+  }
 
   /* =====================================================================
      tools, speed, selection
@@ -2046,9 +2069,15 @@
     var s = TUT[step];
     if (s && s.enter) try { s.enter(); } catch (e) { console.warn(e); }
     renderCoach();
+    if (s && s.on && s.on !== "named" && G.tutorial.seen && G.tutorial.seen[s.on]) {
+      setTimeout(function () { if (tutActive() && G.tutorial.step === step) tutGo(step + 1); }, 1400);
+    }
   }
   function tutEvent(name, d) {
     if (!tutActive()) return;
+    // remember it, so doing things out of order (tickling before feeding) never stalls the tutorial
+    if (!G.tutorial.seen) G.tutorial.seen = {};
+    G.tutorial.seen[name] = true;
     var s = TUT[G.tutorial.step];
     if (!s || s.on !== name) return;
     var nextStep = G.tutorial.step + 1;
@@ -2158,6 +2187,8 @@
     if (!G) return;
     dt = dt || 0;
     var t = now();
+
+    updateInsets(t);
 
     // keyboard panning
     var kx = (keys.arrowleft || keys.a ? -1 : 0) + (keys.arrowright || keys.d ? 1 : 0);
