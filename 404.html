@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
 </head>
-<body>
+<body class="is-404">
   <main class="page">
     <header class="hero">
       <svg class="logo" viewBox="0 0 512 512" width="96" height="96" aria-hidden="true" focusable="false">
@@ -49,6 +49,15 @@
     <a class="btn btn-primary home-link" href="/">
       <span>take me home ↩</span>
     </a>
+
+    <nav class="lost-links" aria-labelledby="lost-heading">
+      <h2 id="lost-heading" class="section-label">or lose more time here</h2>
+      <ul class="link-grid">
+        <li class="wide"><a class="btn" href="/games/"><span class="btn-label">all games</span><span class="btn-meta" aria-hidden="true">/games ▶</span></a></li>
+        <li><a class="btn" href="/games/crash/"><span class="btn-label">CRASH</span><span class="btn-meta" aria-hidden="true">▶</span></a></li>
+        <li><a class="btn" href="/games/tab-hoarder/"><span class="btn-label">tab hoarder</span><span class="btn-meta" aria-hidden="true">▶</span></a></li>
+      </ul>
+    </nav>
   </main>
 
   <footer class="footer">

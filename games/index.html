@@ -31,10 +31,37 @@
 <body>
   <main class="games-page">
     <header class="games-hero">
-      <p class="eyebrow">computercooked.com/games</p>
-      <h1 class="games-title">computer cooked <span>games</span></h1>
-      <p class="games-sub">free little browser games. no downloads, no accounts, no ads (yet). works on your phone. press <kbd>/</kbd> to go anywhere.</p>
+      <div class="hero-floor" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> arcade online · computercooked.com/games</p>
+        <h1 class="games-title">computer cooked <span>games</span></h1>
+        <p class="games-sub">free little browser games. no downloads, no accounts, no ads (yet). works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
+        <div class="hero-ctas">
+          <a class="play-btn hero-play" href="/games/crash/">play CRASH ▶</a>
+          <a class="ghost-btn" href="#ours-heading">browse games ↓</a>
+        </div>
+      </div>
+
+      <a class="spotlight" href="/games/crash/" aria-label="featured game: CRASH. dodge the tasks, drink the coffee, don't get cooked.">
+        <span class="spot-bezel">
+          <span class="spot-screen">
+            <img src="/games/crash/thumb.svg" alt="" width="400" height="300" fetchpriority="high">
+          </span>
+        </span>
+        <span class="spot-meta" aria-hidden="true">
+          <span class="spot-tag">featured</span>
+          <span class="spot-name">CRASH</span>
+          <span class="spot-pitch">dodge the tasks, drink the coffee, don't get cooked.</span>
+        </span>
+      </a>
     </header>
+
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <span>CRASH</span><span>tab hoarder</span><span>bellchain</span><span>handbag havoc</span><span>fathom</span><span>more cooking</span>
+        <span>CRASH</span><span>tab hoarder</span><span>bellchain</span><span>handbag havoc</span><span>fathom</span><span>more cooking</span>
+      </div>
+    </div>
 
     <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
 
@@ -79,6 +106,7 @@
   </footer>
 
   <script src="/games/hub.js" defer></script>
+  <script src="/assets/fx.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
       <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
