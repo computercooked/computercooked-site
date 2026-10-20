@@ -1,6 +1,6 @@
 // Profiles and account settings (slice C).
 //   GET  /api/me/profile            your profile + private settings (email)
-//   POST /api/me/profile            {display_name, bio, fav_game, badges[], theme, public}  (any subset)
+//   POST /api/me/profile            {display_name, bio, fav_game, badges[], theme, frame, public}  (any subset)
 //   POST /api/me/email              {email, news}   stored unverified; "" removes it
 //   GET  /api/me/export             everything stored about you, as a JSON download
 //   GET  /api/u/:username           public profile (or {private:true})
@@ -8,7 +8,7 @@ import { json, bad, readJson, now, slugOk, nameClean, textClean, dayOf } from ".
 import { games } from "./db.js";
 import { levelOf, totalXp, SITE_ACH } from "./xp.js";
 import { relation } from "./friends.js";
-import { needLevel, cosmeticsFor } from "./cosmetics.js";
+import { needLevel, cosmeticsFor, FRAMES } from "./cosmetics.js";
 import { eventDef } from "./social.js";
 
 export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper", "mint", "pink", "gold", "chrome"];
@@ -16,6 +16,10 @@ const BADGE_RE = /^[a-z0-9-]{1,40}:[a-z0-9_-]{1,40}$/;
 
 async function row(env, userId) {
   return env.DB.prepare("SELECT * FROM profiles WHERE user_id = ?").bind(userId).first();
+}
+// the avatar frame lives in its own table (migration 0011); "none" when never picked
+async function frameOf(env, userId) {
+  return (await env.DB.prepare("SELECT frame FROM frames WHERE user_id = ?").bind(userId).first("frame")) || "none";
 }
 function shape(p) {
   let badges = [];
@@ -29,7 +33,7 @@ function shape(p) {
 export async function getMyProfile(env, user) {
   const p = await row(env, user.id);
   const level = levelOf(await totalXp(env, user.id)).level;
-  return json({ ok: true, avatar: user.avatar, level, cosmetics: cosmeticsFor(level), profile: shape(p), email: p?.email || null, email_verified: !!p?.email_verified, news_optin: !!p?.news_optin });
+  return json({ ok: true, avatar: user.avatar, level, cosmetics: cosmeticsFor(level), profile: { ...shape(p), frame: await frameOf(env, user.id) }, email: p?.email || null, email_verified: !!p?.email_verified, news_optin: !!p?.news_optin });
 }
 
 export async function saveMyProfile(req, env, user, origin) {
@@ -69,13 +73,23 @@ export async function saveMyProfile(req, env, user, origin) {
     next.theme = b.theme;
   }
   if ("public" in b) next.public = !!b.public;
+  let frame = null;
+  if ("frame" in b) {
+    frame = b.frame || "none";
+    if (!FRAMES.includes(frame)) return bad("unknown frame");
+    const need = needLevel("frame", frame);
+    if (need > 1 && levelOf(await totalXp(env, user.id)).level < need) return bad(`reach level ${need} to use that frame.`, 403);
+  }
 
   await env.DB.prepare(
     "INSERT INTO profiles (user_id, display_name, bio, fav_game, badges, theme, public, updated_at) VALUES (?,?,?,?,?,?,?,?) " +
     "ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name, bio = excluded.bio, fav_game = excluded.fav_game, " +
     "badges = excluded.badges, theme = excluded.theme, public = excluded.public, updated_at = excluded.updated_at"
   ).bind(user.id, next.display_name, next.bio, next.fav_game, JSON.stringify(next.badges), next.theme, next.public ? 1 : 0, now()).run();
-  return json({ ok: true, profile: next });
+  if (frame === "none") await env.DB.prepare("DELETE FROM frames WHERE user_id = ?").bind(user.id).run();
+  else if (frame) await env.DB.prepare("INSERT INTO frames (user_id, frame, updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET frame = excluded.frame, updated_at = excluded.updated_at")
+    .bind(user.id, frame, now()).run();
+  return json({ ok: true, profile: { ...next, frame: frame || await frameOf(env, user.id) } });
 }
 
 export async function setEmail(req, env, user) {
@@ -98,6 +112,7 @@ export async function exportData(env, user) {
     exported_at: new Date().toISOString(),
     account: u,
     profile: await row(env, user.id),
+    frame: await env.DB.prepare("SELECT frame, updated_at FROM frames WHERE user_id = ?").bind(user.id).first(),
     sessions: (await env.DB.prepare("SELECT COUNT(*) n FROM sessions WHERE user_id = ?").bind(user.id).first("n")) + " active (tokens not included)",
     plays: await q("SELECT id, game, version, started_at, ended_at, duration_ms, score, completed, referrer, device, day FROM plays WHERE user_id = ? ORDER BY started_at"),
     scores: await q("SELECT game, name, score, day, ts, hidden FROM scores WHERE user_id = ? ORDER BY ts"),
@@ -126,7 +141,7 @@ export async function publicProfile(env, username, origin, viewer) {
   if (!u || u.status !== "active") return bad("no such player", 404);
   const p = shape(await row(env, u.id));
   const xp = levelOf(await totalXp(env, u.id));
-  const base = { ok: true, username: u.username, avatar: u.avatar, level: xp.level, title: xp.title, theme: p.theme, relation: await relation(env, viewer, u.id) };
+  const base = { ok: true, username: u.username, avatar: u.avatar, level: xp.level, title: xp.title, theme: p.theme, frame: await frameOf(env, u.id), relation: await relation(env, viewer, u.id) };
   if (!p.public) return json({ ...base, private: true });
   const catalog = await games(env, origin);
   const badges = p.badges.map((k) => {

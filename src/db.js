@@ -9,8 +9,9 @@ import challenges from "../migrations/0007_challenges.sql";
 import dares from "../migrations/0008_dares.sql";
 import dareFunnel from "../migrations/0009_dare_funnel.sql";
 import referrals from "../migrations/0010_referrals.sql";
+import frames from "../migrations/0011_frames.sql";
 
-const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals].join("\n;\n");
+const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals, frames].join("\n;\n");
 
 let ready = null;
 export function ensureSchema(env) {

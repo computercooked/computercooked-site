@@ -209,3 +209,13 @@
 .me-recap-line a { color: var(--lilac); font-family: var(--mono); font-weight: 800; text-decoration: none; }
 .me-recap .me-feed { padding: 0; }
 .me-recap .me-feed li { margin: 0; }
+
+/* profile frames (level unlocks): a border around the avatar box, set with data-frame (also used by /u/) */
+[data-frame] { box-sizing: border-box; border-radius: 18px; }
+[data-frame="pixel"] { border: 3px dashed var(--lime); padding: 3px; border-radius: 6px; }
+[data-frame="neon"] { border: 2px solid #B59AFF; padding: 4px; box-shadow: 0 0 10px #B59AFF, inset 0 0 8px rgba(181, 154, 255, 0.55); }
+[data-frame="circuit"] { border: 4px double #7dffb0; padding: 3px; border-radius: 10px; box-shadow: 0 0 0 2px #10291d, 0 0 0 4px rgba(125, 255, 176, 0.35); }
+[data-frame="molten"], [data-frame="holo"], [data-frame="golden"] { border: 4px solid transparent; padding: 3px; background: linear-gradient(var(--carbon-2), var(--carbon-2)) padding-box, var(--frame-g) border-box; }
+[data-frame="molten"] { --frame-g: linear-gradient(135deg, #ff8a7d, #ffb84d 45%, #ff3d2e); box-shadow: 0 0 12px rgba(255, 138, 77, 0.5); }
+[data-frame="holo"] { --frame-g: conic-gradient(#5bc8ff, #ff6bd6, #C5FF49, #B59AFF, #5bc8ff); box-shadow: 0 0 12px rgba(91, 200, 255, 0.4); }
+[data-frame="golden"] { --frame-g: linear-gradient(135deg, #fff2a8, #ffd84d 40%, #b8860b 70%, #ffd84d); box-shadow: 0 0 14px rgba(255, 216, 77, 0.55); }

@@ -136,7 +136,7 @@
     });
   }
   function showUnlocks(r) {
-    var locked = { acc: {}, theme: {} }, next = null;
+    var locked = { acc: {}, theme: {}, frame: {} }, next = null;
     (r.cosmetics || []).forEach(function (u) {
       if (u.unlocked) return;
       locked[u.kind][u.id] = u.level;
@@ -144,8 +144,12 @@
     });
     lockRow($("#b-acc"), window.ccAvatarParts.accs, locked.acc);
     lockRow($("#theme-pick"), Object.keys(THEMES), locked.theme);
+    lockRow($("#frame-pick"), frameKeys(r), locked.frame);
     $("#lvl-unlock").textContent = next ? "next unlock: " + next.name + " at level " + next.level : "every level unlock earned. show it off.";
   }
+  // profile frames: "none" plus the frame unlocks the server lists (it refuses locked ones too)
+  function frameKeys(r) { return ["none"].concat((r.cosmetics || []).filter(function (u) { return u.kind === "frame"; }).map(function (u) { return u.id; })); }
+  function setFrame(el, f) { if (f && f !== "none") el.dataset.frame = f; else delete el.dataset.frame; }
   var unlockedBadges = [];
   function setFace(k) {
     api("/api/me/avatar", { avatar: k }).then(function (r) {
@@ -181,7 +185,7 @@
     swatches($("#b-body"), P.bodies, face.body, function (v, i) { return "case color " + (i + 1); }, function (i) { face.body = i; changed(); }, function (v) { return v; });
     swatches($("#b-acc"), P.accs, face.acc, function (v) { return v; }, function (i) { face.acc = i; changed(); });
 
-    var form = $("#form-profile"), theme = "lime";
+    var form = $("#form-profile"), theme = "lime", frame = "none";
     var themeKeys = Object.keys(THEMES);
     $("#fav-select").innerHTML = '<option value="">none</option>' + Object.keys(catalog).map(function (s) { return '<option value="' + esc(s) + '">' + esc(catalog[s].title) + "</option>"; }).join("");
     form.bio.addEventListener("input", function () { $("#bio-count").textContent = form.bio.value.length + "/160"; });
@@ -194,6 +198,11 @@
       form.public.checked = p.public;
       theme = p.theme || "lime";
       swatches($("#theme-pick"), themeKeys, themeKeys.indexOf(theme), function (v) { return v; }, function (i) { theme = themeKeys[i]; }, function (v) { return THEMES[v]; });
+      var fk = frameKeys(r);
+      frame = fk.indexOf(p.frame) >= 0 ? p.frame : "none";
+      setFrame($("#me-avatar"), frame);
+      setFrame($("#b-preview"), frame);
+      swatches($("#frame-pick"), fk, fk.indexOf(frame), function (v) { return v; }, function (i) { frame = fk[i]; setFrame($("#b-preview"), frame); });
       showUnlocks(r);
       pinned = p.badges || [];
       renderBadges();
@@ -220,8 +229,11 @@
       e.preventDefault();
       var msg = form.querySelector(".me-msg");
       msg.textContent = "…";
-      api("/api/me/profile", { display_name: form.display_name.value, bio: form.bio.value, fav_game: form.fav_game.value, badges: pinned, theme: theme, public: form.public.checked })
-        .then(function (r) { msg.textContent = r.ok ? "saved." : (r.error || "that didn't work."); });
+      api("/api/me/profile", { display_name: form.display_name.value, bio: form.bio.value, fav_game: form.fav_game.value, badges: pinned, theme: theme, frame: frame, public: form.public.checked })
+        .then(function (r) {
+          msg.textContent = r.ok ? "saved." : (r.error || "that didn't work.");
+          if (r.ok) setFrame($("#me-avatar"), r.profile.frame);
+        });
     });
 
     var ef = $("#form-email");

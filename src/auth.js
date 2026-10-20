@@ -173,6 +173,7 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("DELETE FROM xp_events WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM achievements WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM profiles WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM frames WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM friends WHERE user_id = ? OR friend_id = ?").bind(id, id),
     env.DB.prepare("DELETE FROM dare_beats WHERE player = ?").bind("u:" + id),
     env.DB.prepare("DELETE FROM dare_beats WHERE dare_id IN (SELECT id FROM dares WHERE from_user = ?)").bind(id),
