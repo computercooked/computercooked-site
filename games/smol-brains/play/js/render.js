@@ -618,7 +618,8 @@
     if (T) { c.x = SB.clamp(c.x, -10, T.N + 10); c.z = SB.clamp(c.z, -10, T.N + 10); }
     // pitch eases from a low, cinematic angle up close to a map-like angle far out
     var zt = SB.clamp((Math.log(c.zoom) - Math.log(4)) / (Math.log(70) - Math.log(4)), 0, 1);
-    c.pitch = SB.lerp(0.62, 1.12, zt);
+    // plus the player's own tilt (right-drag / two-finger drag / R,F): lower to look across the land, higher for a map
+    c.pitch = SB.clamp(SB.lerp(0.62, 1.12, zt) + (c.tilt || 0) * (1 - zt * 0.6), 0.42, 1.42);
     var gy = T ? Math.max(SB.SEA, WG.heightAt(T, c.x, c.z)) : 0;
     c.y += (gy - c.y) * (1 - Math.exp(-dt * 3));
     if (c.shake > 0) c.shake = Math.max(0, c.shake - dt * 2);

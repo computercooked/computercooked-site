@@ -623,6 +623,7 @@
       return out;
     },
     ideas: function (c, list) { (list || SB.Ideas.LIST.map(function (d) { return d.id; })).forEach(function (id) { if (SB.Ideas.canHold(c, id)) SB.Ideas.discover(c, id, Game.current); }); },
+    reveal: function () { var w = Game.current.world; w.seen.fill(255); w.seenDirty = true; w.seenChunks = {}; for (var i = 0; i < (SB.WORLD_N / SB.CHUNK) * (SB.WORLD_N / SB.CHUNK); i++) w.seenChunks[i] = 1; },
     build: function (kind, x, z) { var g = Game.current, sp = SB.Society.home(g, 0); return SB.World.addStructure(g.world, g, kind, x == null ? sp.x + 3 : x, z == null ? sp.z : z, { done: true }); },
     skip: function (sec) { var g = Game.current; for (var t = 0; t < sec; t += SB.TICK) Game.step(g, SB.TICK); }
   };

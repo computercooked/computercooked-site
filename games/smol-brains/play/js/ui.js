@@ -42,6 +42,7 @@
 
   UI.init = function (g, opts) {
     game = g; opts = opts || {};
+    try { if (/[?&]nostory=1/.test(location.search)) UI.noStory = true; } catch (e) {} // for testing: skip the opening story
     root = document.getElementById("ui");
     clear(root);
     if (SB.Icons && !UI._icons) { UI._icons = true; SB.Icons.watch(document.body); } // every emoji the UI writes becomes a pixel icon
@@ -914,7 +915,7 @@
       "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently). drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.</p>" +
       "<p><b class='lilac'>evolution</b>: genes mutate when eggs are made. and what parents practise echoes into their babies: smols that walk a lot have kids with longer legs, smols that fiddle with things have kids with hands, smols that learn have kids with bigger brains. climb the ladder: blob → critter → tool-user → tribe → builder → thinker → ascended.</p>" +
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
-      "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-5 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
+      "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-5 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
   }
 
   /* ---------------- brain viewer ---------------- */
