@@ -1,7 +1,7 @@
 // Weekly challenge, seasonal events and the /me activity feed (slice D2).
 //   GET /api/challenge   this week's challenge + any live event, with your progress when logged in
 //   GET /api/me/feed     your recent activity: allow-listed game events, achievements, challenges
-import { json, now, dayOf, weekOf, textClean } from "./util.js";
+import { json, now, dayOf, weekOf, textClean, REAL } from "./util.js";
 import { SITE_ACH } from "./xp.js";
 import { friendIds, people } from "./friends.js";
 
@@ -59,11 +59,11 @@ export async function autoPick(env, t, catalog) {
   const ok = (slug) => slug !== prev && catalog.get(slug)?.max_score_per_sec > 0;
   const { results } = await env.DB.prepare(
     `SELECT game, COUNT(DISTINCT COALESCE('u' || user_id, 'a' || anon_id)) players, COUNT(*) plays
-     FROM plays WHERE day >= ? AND day < ? GROUP BY game ORDER BY players DESC, plays DESC`
+     FROM plays WHERE day >= ? AND day < ? AND ${REAL} GROUP BY game ORDER BY players DESC, plays DESC`
   ).bind(dayOf(start - WEEK), dayOf(start)).all();
   let game = results.map((r) => r.game).find(ok);
   if (!game) { // no plays last week: most played ever, then the catalog order
-    const all = (await env.DB.prepare("SELECT game FROM plays GROUP BY game ORDER BY COUNT(*) DESC").all()).results.map((r) => r.game);
+    const all = (await env.DB.prepare("SELECT game FROM plays WHERE " + REAL + " GROUP BY game ORDER BY COUNT(*) DESC").all()).results.map((r) => r.game);
     game = all.find(ok) || [...catalog.keys()].find(ok);
   }
   if (!game) return null;

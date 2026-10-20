@@ -1,5 +1,5 @@
 // Plays/events, leaderboards, feedback, hub stats, /me data.
-import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean, streakFrom } from "./util.js";
+import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean, streakFrom, isTestPlayer, REAL } from "./util.js";
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
 import { settleReferral, referralCounts } from "./referrals.js";
@@ -77,12 +77,14 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const cap = game.max_score_per_sec * (dur / 1000) + (game.score_slack ?? 50);
   if (score > cap || (game.max_score && score > game.max_score)) return { accepted: false, reason: "score out of bounds" };
   const player = playerKey(user && play.user_id === user.id ? user : null, play.anon_id || anon);
-  const prevBest = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND hidden = 0").bind(play.game, player).first("b");
+  // smoke-test runs are stored hidden (never on a board); their own best and rank still come back as for anyone
+  const test = isTestPlayer(player) ? 1 : 0;
+  const prevBest = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND (hidden = 0 OR ?)").bind(play.game, player, test).first("b");
   const name = user ? user.username : cleanGuest(guest, play.anon_id || anon);
   await env.DB.prepare(
-    "INSERT OR IGNORE INTO scores (game, play_id, player, user_id, name, score, day, week, ts) VALUES (?,?,?,?,?,?,?,?,?)"
-  ).bind(play.game, play.id, player, user ? user.id : null, name, score, dayOf(t), weekOf(t), t).run();
-  const best = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND hidden = 0").bind(play.game, player).first("b");
+    "INSERT OR IGNORE INTO scores (game, play_id, player, user_id, name, score, day, week, ts, hidden) VALUES (?,?,?,?,?,?,?,?,?,?)"
+  ).bind(play.game, play.id, player, user ? user.id : null, name, score, dayOf(t), weekOf(t), t, test).run();
+  const best = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND (hidden = 0 OR ?)").bind(play.game, player, test).first("b");
   const rank = await env.DB.prepare(
     "SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player) WHERE b > ?"
   ).bind(play.game, best).first("n");
@@ -113,7 +115,9 @@ export async function leaderboard(url, env, user) {
   // outside the top rows: your own rank and best on the same board, so everyone sees where they stand
   let you = null;
   if (me && typeof me === "string" && me.length <= 80 && !results.some((r) => r.player === me)) {
-    const mine = await env.DB.prepare(`SELECT MAX(score) s FROM scores WHERE game = ? AND hidden = 0${where} AND player = ?`).bind(...args, me).first("s");
+    // a smoke-test player's own (hidden) runs still give it a rank row, so the checks can read them
+    const own = isTestPlayer(me) ? "" : " AND hidden = 0";
+    const mine = await env.DB.prepare(`SELECT MAX(score) s FROM scores WHERE game = ?${own}${where} AND player = ?`).bind(...args, me).first("s");
     if (mine != null) {
       const above = await env.DB.prepare(
         `SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player) WHERE b > ?`
@@ -156,7 +160,7 @@ export async function stats(env) {
        SUM(day >= ?) week,
        SUM(day >= ? AND day < ?) prev_week,
        COUNT(DISTINCT CASE WHEN day >= ? THEN COALESCE('u' || user_id, 'a' || anon_id) END) players_week
-     FROM plays GROUP BY game`
+     FROM plays WHERE ${REAL} GROUP BY game`
   ).bind(wk, prev, wk, wk).all();
   return json({ ok: true, games: results }, 200, { "cache-control": "public, max-age=60" });
 }

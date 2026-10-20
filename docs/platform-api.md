@@ -13,6 +13,8 @@ Authorization: Bearer <token>
 
 The token is in `C:\Bush Growth\ventures\computer-cooked-games\operations\.metrics-token` (the last line of the file). It's a secret: never commit, paste or log it. If you leave out `since`, it defaults to the last 7 days. The same data is shown as a table at `https://computercooked.com/admin/` (paste the token there).
 
+**Smoke-test traffic is left out.** A guest (no account) whose anon id starts with `smoke` (any case) is test traffic, which is what `scripts/smoke-test.mjs` sends. Its plays are accepted, but its scores are stored with `hidden = 1`, and it's left out of the boards, `/api/stats`, the weekly challenge auto-pick, game of the week, every number in this response, and the dare funnel. It's counted on its own in `test_traffic: {plays, scores, scores_visible, feedback, dares}`; `scores_visible` should always be 0. The leaderboard's `you` row still reads a smoke player's own hidden runs, so the smoke checks work.
+
 Response:
 
 ```json

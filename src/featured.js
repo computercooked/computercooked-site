@@ -2,7 +2,7 @@
 // started, so it holds all week, and never the weekly challenge's game (the challenge card shows that):
 //   score = D1 return rate (needs 8+ first-time players) + 0.25 x rating (-1..1, needs 5+ ratings).
 // Thin data: rotate through the newest games by week number instead.
-import { json, now, dayOf, weekOf } from "./util.js";
+import { json, now, dayOf, weekOf, REAL } from "./util.js";
 import { challengeFor, autoPick } from "./social.js";
 
 const DAY = 86400000;
@@ -26,15 +26,15 @@ export async function pickFeatured(env, catalog, t = now(), preview = false) {
   const ok = (slug) => slug !== ch?.game && catalog.get(slug)?.made_by === "computer-cooked";
   const ret = (await env.DB.prepare(
     `WITH firsts AS (
-       SELECT game, ${PLAYER} p, MIN(day) d FROM plays GROUP BY game, p HAVING d >= ? AND d < ?
+       SELECT game, ${PLAYER} p, MIN(day) d FROM plays WHERE ${REAL} GROUP BY game, p HAVING d >= ? AND d < ?
      ), days AS (
-       SELECT DISTINCT game, ${PLAYER} p, day FROM plays WHERE day >= ? AND day < ?
+       SELECT DISTINCT game, ${PLAYER} p, day FROM plays WHERE day >= ? AND day < ? AND ${REAL}
      )
      SELECT f.game, COUNT(*) n, SUM(EXISTS (SELECT 1 FROM days x WHERE x.game = f.game AND x.p = f.p AND x.day = date(f.d, '+1 day'))) back
      FROM firsts f GROUP BY f.game`
   ).bind(since, dayOf(start - DAY), since, dayOf(start)).all()).results;
   const fb = (await env.DB.prepare(
-    "SELECT game, SUM(rating = 1) up, SUM(rating = -1) down, SUM(rating != 0) rated FROM feedback WHERE ts >= ? AND ts < ? GROUP BY game"
+    "SELECT game, SUM(rating = 1) up, SUM(rating = -1) down, SUM(rating != 0) rated FROM feedback WHERE ts >= ? AND ts < ? AND " + REAL + " GROUP BY game"
   ).bind(start - 28 * DAY, start).all()).results;
 
   const stats = new Map();
