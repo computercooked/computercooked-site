@@ -91,9 +91,9 @@
     $("#me-sub").textContent = "your stuff. still no ads. still no email.";
     $("#me-name").textContent = user.username;
     $("#me-avatar").innerHTML = window.ccAvatar(user.avatar);
-    picker($("#avatar-change"), user.avatar, function (k) {
-      api("/api/me/avatar", { avatar: k }).then(function (r) { if (r.ok) $("#me-avatar").innerHTML = window.ccAvatar(k); });
-    });
+    picker($("#avatar-change"), user.avatar, function (k) { setFace(k); });
+    $("#me-public-link").href = "/u/" + encodeURIComponent(user.username);
+    initSettings(user);
     api("/api/me/summary").then(function (s) {
       if (!s.ok) return;
       $("#me-streak").textContent = s.streak;
@@ -109,6 +109,119 @@
     });
   }
 
+  /* ---------- profile + account settings (slice C) ---------- */
+  var THEMES = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED" };
+  var unlockedBadges = [];
+  function setFace(k) {
+    api("/api/me/avatar", { avatar: k }).then(function (r) {
+      if (!r.ok) return;
+      $("#me-avatar").innerHTML = window.ccAvatar(k);
+      $("#b-preview").innerHTML = window.ccAvatar(k);
+    });
+  }
+  // a row of radio-style buttons; onPick(value)
+  function swatches(root, values, current, label, onPick, colorOf) {
+    root.innerHTML = values.map(function (v, i) {
+      var c = colorOf ? colorOf(v, i) : null;
+      return '<button type="button" role="radio" class="swatch' + (c ? " swatch-color" : "") + '" data-v="' + esc(String(i)) + '" aria-checked="' + (i === current) + '" aria-label="' + esc(label(v, i)) + '"' +
+        (c ? ' style="background:' + c + '"' : "") + ">" + (c ? "" : esc(label(v, i))) + "</button>";
+    }).join("");
+    root.onclick = function (e) {
+      var b = e.target.closest(".swatch");
+      if (!b) return;
+      root.querySelectorAll(".swatch").forEach(function (x) { x.setAttribute("aria-checked", String(x === b)); });
+      onPick(+b.dataset.v);
+    };
+  }
+  function initSettings(user) {
+    var P = window.ccAvatarParts;
+    var m = /^x:([a-z]+)-(\d)-(\d)-([a-z]+)$/.exec(user.avatar || "");
+    var face = m ? { mood: P.moods.indexOf(m[1]), face: +m[2], body: +m[3], acc: P.accs.indexOf(m[4]) } : { mood: 1, face: 0, body: 0, acc: 0 };
+    function built() { return "x:" + P.moods[face.mood] + "-" + face.face + "-" + face.body + "-" + P.accs[face.acc]; }
+    var t = null;
+    function changed() { $("#b-preview").innerHTML = window.ccAvatar(built()); clearTimeout(t); t = setTimeout(function () { setFace(built()); }, 400); }
+    $("#b-preview").innerHTML = window.ccAvatar(m ? user.avatar : built());
+    swatches($("#b-mood"), P.moods, face.mood, function (v) { return v === "x" ? "cooked" : v; }, function (i) { face.mood = i; changed(); });
+    swatches($("#b-face"), P.faces, face.face, function (v, i) { return "screen color " + (i + 1); }, function (i) { face.face = i; changed(); }, function (v) { return v; });
+    swatches($("#b-body"), P.bodies, face.body, function (v, i) { return "case color " + (i + 1); }, function (i) { face.body = i; changed(); }, function (v) { return v; });
+    swatches($("#b-acc"), P.accs, face.acc, function (v) { return v; }, function (i) { face.acc = i; changed(); });
+
+    var form = $("#form-profile"), theme = "lime";
+    var themeKeys = Object.keys(THEMES);
+    $("#fav-select").innerHTML = '<option value="">none</option>' + Object.keys(catalog).map(function (s) { return '<option value="' + esc(s) + '">' + esc(catalog[s].title) + "</option>"; }).join("");
+    form.bio.addEventListener("input", function () { $("#bio-count").textContent = form.bio.value.length + "/160"; });
+    api("/api/me/profile").then(function (r) {
+      if (!r.ok) return;
+      var p = r.profile;
+      form.display_name.value = p.display_name || "";
+      form.bio.value = p.bio || ""; $("#bio-count").textContent = form.bio.value.length + "/160";
+      form.fav_game.value = p.fav_game || "";
+      form.public.checked = p.public;
+      theme = p.theme || "lime";
+      swatches($("#theme-pick"), themeKeys, themeKeys.indexOf(theme), function (v) { return v; }, function (i) { theme = themeKeys[i]; }, function (v) { return THEMES[v]; });
+      pinned = p.badges || [];
+      renderBadges();
+      var ef = $("#form-email");
+      ef.email.value = r.email || "";
+      ef.news.checked = !!r.news_optin;
+    });
+    var pinned = [];
+    function renderBadges() {
+      if (!unlockedBadges.length) return;
+      $("#badge-pick").innerHTML = unlockedBadges.map(function (a) {
+        var k = a.game + ":" + a.id;
+        return '<label class="me-check"><input type="checkbox" value="' + esc(k) + '"' + (pinned.indexOf(k) >= 0 ? " checked" : "") + "> " + esc(a.name) + "</label>";
+      }).join("");
+    }
+    $("#badge-pick").addEventListener("change", function (e) {
+      var boxes = [].slice.call($("#badge-pick").querySelectorAll("input:checked"));
+      if (boxes.length > 3) { e.target.checked = false; return; }
+      pinned = boxes.map(function (x) { return x.value; });
+    });
+    showProfile.renderBadges = renderBadges;
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = form.querySelector(".me-msg");
+      msg.textContent = "…";
+      api("/api/me/profile", { display_name: form.display_name.value, bio: form.bio.value, fav_game: form.fav_game.value, badges: pinned, theme: theme, public: form.public.checked })
+        .then(function (r) { msg.textContent = r.ok ? "saved." : (r.error || "that didn't work."); });
+    });
+
+    var ef = $("#form-email");
+    ef.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = ef.querySelector(".me-msg");
+      api("/api/me/email", { email: ef.email.value, news: ef.news.checked }).then(function (r) {
+        msg.textContent = r.ok ? (r.email ? "saved. we'll verify it once email sending is set up." : "email removed.") : (r.error || "that didn't work.");
+      });
+    });
+    var pf = $("#form-password");
+    pf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = pf.querySelector(".me-msg");
+      api("/api/me/password", { current: pf.current.value, next: pf.next.value }).then(function (r) {
+        msg.textContent = r.ok ? "changed. other devices are logged out." : (r.error || "that didn't work.");
+        if (r.ok) pf.reset();
+      });
+    });
+    $("#btn-logout-all").addEventListener("click", function () {
+      if (!confirm("log out on every device, including this one?")) return;
+      api("/api/me/logout-all", {}).then(function () { ls("cc-user-change", String(Date.now())); location.reload(); });
+    });
+    var df = $("#form-delete");
+    df.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = df.querySelector(".me-msg");
+      if (!confirm("delete your account for good? this can't be undone.")) return;
+      api("/api/me/delete", { password: df.password.value }).then(function (r) {
+        if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
+        ls("cc-user-change", String(Date.now()));
+        location.reload();
+      });
+    });
+  }
+
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }
   var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement" };
   function showXp(s) {
@@ -118,7 +231,10 @@
     $("#lvl-fill").style.width = pct + "%";
     $("#lvl-bar").setAttribute("aria-valuenow", String(pct));
     $("#lvl-x").textContent = x.xp + " xp · " + (x.next - x.xp) + " to level " + (x.level + 1);
-    var got = s.achievements.filter(function (a) { return a.unlocked_at; }).length;
+    var gotList = s.achievements.filter(function (a) { return a.unlocked_at; });
+    var got = gotList.length;
+    unlockedBadges = gotList;
+    if (showProfile.renderBadges) showProfile.renderBadges();
     $("#ach-count").textContent = got + "/" + s.achievements.length;
     $("#achs").innerHTML = s.achievements.map(function (a) {
       var where = a.game === "site" ? "" : " · " + esc((catalog[a.game] || {}).title || a.game);

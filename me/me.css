@@ -110,3 +110,32 @@
 .me-xp li { padding: 6px 0; border-bottom: 1px solid #2a2c33; }
 .me-xp b { color: var(--lime); font-family: var(--mono); }
 @media (prefers-reduced-motion: reduce) { .me-bar span { transition: none; } }
+
+/* ---------- profile + account settings (slice C) ---------- */
+.me-settings, .me-settings form { display: grid; gap: 14px; }
+.me-settings { margin-top: 14px; }
+.me-settings label { display: grid; gap: 6px; font-family: var(--mono); font-weight: 800; font-size: 0.85rem; color: var(--paper); }
+.me-settings small { font-family: var(--sans); font-weight: 500; color: var(--paper-dim); }
+.me-settings input:not([type=checkbox]), .me-settings select, .me-settings textarea {
+  min-height: 48px; padding: 10px 12px; border: 1px solid #3a3c44; border-radius: 10px;
+  background: var(--carbon); color: var(--paper); font-family: var(--mono); font-weight: 800; font-size: 16px; width: 100%; box-sizing: border-box;
+}
+.me-settings textarea { font-family: var(--sans); font-weight: 500; resize: vertical; }
+.me-settings input:focus, .me-settings select:focus, .me-settings textarea:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px rgba(197, 255, 73, 0.25); }
+.me-settings fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.me-settings legend { margin-bottom: 8px; font-family: var(--mono); font-weight: 800; font-size: 0.85rem; }
+.me-settings .play-btn { border: 0; cursor: pointer; }
+.me-check { display: flex !important; align-items: center; gap: 10px !important; font-family: var(--sans) !important; font-weight: 500 !important; }
+.me-check input { width: 20px; height: 20px; accent-color: var(--lime); }
+.me-sub-h { margin: 0; font-family: var(--mono); font-weight: 800; }
+.me-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.me-row .tool { text-decoration: none; }
+.me-danger { padding-top: 14px; border-top: 1px dashed #5a2a2a; }
+.builder { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.builder-preview { flex: 0 0 auto; }
+.builder-rows { display: grid; gap: 8px; flex: 1 1 200px; min-width: 0; }
+.builder-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { min-width: 40px; min-height: 40px; padding: 0 8px; border: 2px solid #3a3c44; border-radius: 10px; background: var(--carbon); color: var(--paper); font-family: var(--mono); font-size: .7rem; font-weight: 800; cursor: pointer; }
+.swatch[aria-checked="true"] { border-color: var(--lime); box-shadow: 0 0 0 2px rgba(197, 255, 73, 0.3); }
+.swatch-color { width: 40px; padding: 0; }
+.badge-pick { display: grid; gap: 6px; }

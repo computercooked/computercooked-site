@@ -100,6 +100,19 @@ const BLOCK = [
   "kike", "spic", "chink", "tranny", "whore", "slut", "dick", "cock", "pussy", "penis", "vagina",
   "jizz", "kys", "killyourself", "admin", "moderator", "computercooked", "official",
 ];
+// Free text (bios): word by word, so "peacock" or "spicy" pass while the words themselves don't.
+// The worst slurs are also caught inside words and with spaces or symbols between letters.
+const STRONG = ["nigg", "kike", "fagg", "faggot", "tranny", "retard", "chink", "killyourself"];
+export function textClean(text) {
+  const norm = (s) => s.toLowerCase().replace(/[@4]/g, "a").replace(/3/g, "e").replace(/[1!|]/g, "i").replace(/0/g, "o").replace(/[5$]/g, "s").replace(/7/g, "t");
+  const t = norm(String(text));
+  const squashed = t.replace(/[^a-z]/g, "");
+  if (STRONG.some((w) => squashed.includes(w))) return false;
+  const words = t.split(/[^a-z]+/).filter(Boolean);
+  const reserved = new Set(["admin", "moderator", "computercooked", "official"]);
+  return !words.some((w) => !reserved.has(w) && BLOCK.some((b) => !reserved.has(b) && (w === b || w === b + "s" || w === b + "es" || w === b + "ed" || w === b + "ing")));
+}
+
 export function nameClean(name) {
   const n = String(name).toLowerCase()
     .replace(/[@4]/g, "a").replace(/3/g, "e").replace(/[1!|]/g, "i").replace(/0/g, "o")
