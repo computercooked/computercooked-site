@@ -30,6 +30,12 @@ export function weekOf(ms) {
   return `${y}-W${String(wk).padStart(2, "0")}`;
 }
 
+// Tip jar: off unless the TIP_URL var is a public Stripe Payment Link (https://buy.stripe.com/…). Anything else is off.
+export const tipUrl = (env) => {
+  const u = typeof env.TIP_URL === "string" ? env.TIP_URL.trim() : "";
+  return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]{4,100}$/.test(u) ? u : null;
+};
+
 export function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
