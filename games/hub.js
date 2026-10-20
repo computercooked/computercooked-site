@@ -9,6 +9,48 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  /* ---------- social landing: "tap to play <game>" for visitors from a clip ----------
+     The head script (#cc-landing-boot) marked <html data-landing="<slug>" data-landing-ref="<platform>">.
+     Draw a full-screen card for that game: one tap opens it in this same tab (no popups or new windows, which
+     in-app browsers block), carrying ?ref= so the play is credited to the platform. "more games" just closes it.
+     An unknown slug or a failed games.json falls back to the normal hub. */
+  (function landing() {
+    var root = document.documentElement, slug = root.getAttribute("data-landing"), ref = root.getAttribute("data-landing-ref");
+    if (!slug) return;
+    var done = false;
+    function off() { done = true; root.removeAttribute("data-landing"); root.removeAttribute("data-landing-ref"); root.removeAttribute("data-landing-ready"); }
+    // the game hint has done its job: drop it from the address bar (deck.js takes ?ref= off once it's stored)
+    try { var u = new URL(location.href); if (u.searchParams.has("game")) { u.searchParams.delete("game"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } } catch (e) {}
+    var safety = setTimeout(function () { if (!done) off(); }, 3000);
+    fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (done) return;
+      clearTimeout(safety);
+      var g = d && (d.games || []).filter(function (x) { return x.slug === slug; })[0];
+      if (!g) { off(); return; }
+      var href = "/games/" + encodeURIComponent(g.slug) + "/?ref=" + encodeURIComponent(ref) + "#player";
+      var card = document.createElement("div");
+      card.className = "cc-landing";
+      card.setAttribute("role", "dialog");
+      card.setAttribute("aria-modal", "true");
+      card.setAttribute("aria-labelledby", "cc-landing-title");
+      card.innerHTML =
+        '<div class="cc-landing-inner">' +
+          '<p class="cc-landing-k"><span class="cc-landing-dot" aria-hidden="true"></span>from the clip · free · no download</p>' +
+          '<a class="cc-landing-play" href="' + esc(href) + '">' +
+            '<span class="cc-landing-art"><img src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" fetchpriority="high"></span>' +
+            '<span class="cc-landing-title" id="cc-landing-title">' + esc(g.title) + "</span>" +
+            '<span class="cc-landing-go">tap to play ▶</span>' +
+          "</a>" +
+          (g.pitch ? '<p class="cc-landing-pitch">' + esc(g.pitch) + "</p>" : "") +
+          '<button type="button" class="cc-landing-more">more games ↓</button>' +
+        "</div>";
+      card.querySelector(".cc-landing-more").addEventListener("click", function () { card.remove(); off(); window.scrollTo(0, 0); });
+      document.body.appendChild(card);
+      root.setAttribute("data-landing-ready", "");
+      try { card.querySelector(".cc-landing-play").focus({ preventScroll: true }); } catch (e) {}
+    }).catch(function () { clearTimeout(safety); off(); });
+  })();
+
   function api(path, body) {
     return fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), credentials: "same-origin" } : { credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });

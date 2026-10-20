@@ -155,6 +155,25 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   });
   ok(slides.length >= 2 && bad.length === 0 && (!feat || slides[0].slug === feat.game), "hub spotlight: each slide's button href, link and art match its title's game", { slides: slides.map((s) => s.slug), bad: bad.map((s) => s.title) });
 }
+// social landing: the hub's head script decides from the URL alone (run it here for several links)
+{
+  const hubHtml = await (await get("/games/")).text();
+  const boot = (hubHtml.match(/<script id="cc-landing-boot">([\s\S]*?)<\/script>/) || [])[1];
+  const land = (search) => {
+    const attrs = {};
+    vm.runInNewContext(boot || "", { location: { search }, URLSearchParams, document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } } } });
+    return attrs["data-landing"] ? attrs["data-landing"] + "@" + attrs["data-landing-ref"] : "hub";
+  };
+  const cases = { "?ref=tiktok&game=smol-brains": "smol-brains@tiktok", "?ref=TT&game=Fathom": "fathom@tiktok", "?ref=tiktok": "smol-brains@tiktok",
+    "?ref=ig&game=crash": "crash@instagram", "?utm_source=yt&game=bellchain": "bellchain@youtube", "?ref=ig": "hub", "?ref=reddit&game=crash": "hub",
+    "?game=crash": "hub", "": "hub", "?ref=x&game=../../etc": "hub", "?ref=app": "hub" };
+  const got = Object.fromEntries(Object.keys(cases).map((k) => [k, land(k)]));
+  ok(boot && Object.keys(cases).every((k) => got[k] === cases[k]), "social landing: only a social ?ref with a game hint (or the platform default) gets the tap-to-play card", got);
+  const def = (boot.match(/LANDING_DEFAULT = \{([^}]*)\}/) || [])[1] || "";
+  const slugs = new Set(((await (await get("/games/games.json")).json()).games || []).map((g) => g.slug));
+  ok([...def.matchAll(/"([a-z0-9-]+)"/g)].every((m) => slugs.has(m[1])), "social landing: every platform default is a real game", def.trim());
+  ok(!/window\.open|target="_blank"/.test((await (await get("/games/hub.js")).text()).match(/function landing\(\)[\s\S]*?\}\)\(\);/)?.[0] || "x"), "social landing: the card opens the game in the same tab (no popups or new windows)");
+}
 r = await (await post("/api/follow", { platform: "tiktok", slot: "hub-card", anon })).json();
 ok(r.ok && r.test === true, "follow click accepted (smoke traffic not stored)", r);
 r = await post("/api/follow", { platform: "myspace", slot: "hub-card", anon });
