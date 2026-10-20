@@ -271,7 +271,7 @@
     nextCritter -= 1;
     if (nextCritter > 0) return;
     nextCritter = 3 + Math.random() * 6;
-    var tday = (w.time / SB.DAY_LENGTH) % 1, night = tday < 0.22 || tday > 0.78;
+    var tday = (w.time / SB.DAY_LENGTH) % 1, night = tday < 0.18 || tday > 0.82;
     if (night) {
       if (w.season === 3) return;
       var f = 4200 + Math.random() * 600;

@@ -116,11 +116,22 @@
     var x = cv.getContext("2d"), k = cv.width / N;
     x.imageSmoothingEnabled = true;
     x.drawImage(mini.base, 0, 0, cv.width, cv.height);
+    // unexplored: cloud
+    var seen = game.world.seen, S = SB.World.SEEN_N;
+    if (seen) {
+      if (!mini.fog || mini.fogWorld !== game.world || game.world._miniSeenV !== mini.fogV) {
+        mini.fog = mini.fog || document.createElement("canvas"); mini.fog.width = mini.fog.height = S; mini.fogWorld = game.world;
+        var fx = mini.fog.getContext("2d"), fi = fx.createImageData(S, S);
+        for (var q = 0; q < seen.length; q++) { var o4 = q * 4; fi.data[o4] = 52; fi.data[o4 + 1] = 48; fi.data[o4 + 2] = 72; fi.data[o4 + 3] = seen[q] ? 0 : 255; }
+        fx.putImageData(fi, 0, 0); mini.fogV = game.world._miniSeenV;
+      }
+      x.imageSmoothingEnabled = true; x.drawImage(mini.fog, 0, 0, cv.width, cv.height);
+    }
     // buildings, eggs, creatures
     game.world.structures.forEach(function (st) { x.fillStyle = st.done ? "#f5f3ed" : "rgba(245,243,237,0.5)"; var r = Math.max(2, 1.6 * k); x.fillRect(st.x * k - r / 2, st.z * k - r / 2, r, r); });
     game.world.items.forEach(function (o) { if (o.kind === "egg" && o.heldBy == null) { x.fillStyle = "#fff6d6"; x.beginPath(); x.arc(o.x * k, o.z * k, Math.max(1.6, 1.2 * k), 0, 6.283); x.fill(); } });
     game.creatures.forEach(function (c) {
-      if (!c.alive) return;
+      if (!c.alive || !SB.World.isSeen(game.world, c.x, c.z)) return;
       var sel = c.id === game.selectedId, r = (sel ? 2.6 : 1.7) * Math.max(1, k * 0.9);
       x.fillStyle = c.species === "grump" ? "#ff5f5f" : sel ? "#ffffff" : "#c5ff49";
       x.beginPath(); x.arc(c.x * k, c.z * k, r, 0, 6.283); x.fill();

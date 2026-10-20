@@ -71,7 +71,7 @@
     { id: "iq250", icon: "🌌", name: "cosmic brain", desc: "a smol scores 250+ iq." },
     { id: "share", icon: "📤", name: "show off", desc: "share a smol code or your civilisation card." },
     { id: "import", icon: "🌌", name: "pen pal", desc: "bring in a smol from a code." },
-    { id: "day7", icon: "📅", name: "one week", desc: "reach day 7." },
+    { id: "day7", icon: "📅", name: "three days", desc: "see three sunrises on the island." },
     { id: "winter", icon: "❄️", name: "made it through winter", desc: "reach the first spring." },
     { id: "goodbye", icon: "🕊", name: "circle of life", desc: "a smol lives a full life." },
     { id: "critter", icon: "🐾", name: "legs!", desc: "a smol evolves into a critter." },
@@ -381,7 +381,7 @@
     if (smols.length >= 5) Game.unlock(game, "pop5");
     if (smols.length >= 10) Game.unlock(game, "pop10");
     if (smols.length >= 25) Game.unlock(game, "pop25");
-    if (game.time / SB.DAY_LENGTH >= 6) Game.unlock(game, "day7");
+    if (game.time / SB.DAY_LENGTH >= 2.7) Game.unlock(game, "day7");
     if (game.world.dayIndex >= SB.SEASON_DAYS * 4) Game.unlock(game, "winter");
     var eggs = game.world.items.some(function (o) { return o.kind === "egg"; });
     // extinction is not a dead end: a wild egg turns up in the nest
@@ -452,6 +452,7 @@
   function wireBus() {
     SB.bus.on("eureka", function (d) { if (!game) return; Game.addSparks(game, d.first ? 12 : 1, d.c); });
     SB.bus.on("learnWord", function () { if (game) Game.addSparks(game, 1, null); });
+    SB.bus.on("newBiome", function (d) { if (!game) return; Game.addSparks(game, 4, null); Game.note(game, "your smols found " + (/^[aeiou]/.test(SB.BIOMES[d.biome].name) ? "an " : "a ") + SB.BIOMES[d.biome].name + "! 🧭"); });
     SB.bus.on("teach", function (d) { if (d.learned && game) Game.unlock(game, "teach"); });
     SB.bus.on("lightning", function (d) { if (!game) return; var near = game.creatures.some(function (c) { return c.alive && c.species === "smol" && SB.dist(c.x, c.z, d.x, d.z) < 16; }); if (near) Game.unlock(game, "lightning"); });
     SB.bus.on("wildfire", function () { if (game) Game.unlock(game, "wildfire"); });

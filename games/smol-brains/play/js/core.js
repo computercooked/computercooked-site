@@ -61,8 +61,8 @@
   /* ---------------- time ---------------- */
 
   SB.TICK = 1 / 20;        // fixed sim step (render interpolates)
-  SB.DAY_LENGTH = 360;     // sim seconds per day (6 min at 1x)
-  SB.SEASON_DAYS = 4;      // spring, summer, autumn, winter
+  SB.DAY_LENGTH = 1200;    // sim seconds per day (20 min at 1x, like minecraft: ~13 min of day, ~7 of night)
+  SB.SEASON_DAYS = 2;      // spring, summer, autumn, winter (40 min each)
   SB.SEASONS = ["spring", "summer", "autumn", "winter"];
   SB.SPEEDS = [0, 1, 2, 4, 8, 16];
 

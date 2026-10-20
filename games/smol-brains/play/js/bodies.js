@@ -60,6 +60,7 @@
   /* ---------------- creatures ---------------- */
 
   function drawCreature(c, alpha, t, game) {
+    if (!c.heldBy && !SB.World.isSeen(game.world, c.x, c.z)) return; // hidden under the fog of war
     var x = c.px + (c.x - c.px) * alpha, z = c.pz + (c.z - c.pz) * alpha;
     var y = c.y;
     if (c.py && Math.abs(c.y - c.py) < 2) y = c.py + (c.y - c.py) * alpha;
@@ -212,6 +213,7 @@
     for (var i = 0; i < its.length; i++) {
       var o = its[i];
       if (o.inBag && o.heldBy != null) continue;
+      if (o.heldBy == null && !SB.World.isSeen(game.world, o.x, o.z)) continue;
       if (Math.abs(o.x - cam.x) > cam.halfW * 1.4 + 2 || Math.abs(o.z - cam.z) > cam.halfH * 2.2 + 2) continue;
       if (zoomFar && !o.heldBy && o.kind !== "egg" && !K[o.kind].glow) continue;
       var def = K[o.kind], s = 1, rx = 0, rz = 0, ry = o.rot || 0, y = o.y;
@@ -349,7 +351,7 @@
     }
     for (var i = 0; i < cs.length; i++) {
       var c = cs[i];
-      if (!c.alive || c.far) continue;
+      if (!c.alive || c.far || !SB.World.isSeen(game.world, c.x, c.z)) continue;
       var Rr = SB.Creature.radius(c), lk = c.look;
       var headH = Rr * (2.3 + (lk.legs ? 0.35 + lk.legLen * 0.9 : 0) + (lk.head > 0.4 ? 1 : 0) + (lk.halo ? 0.6 : 0));
       if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, pp); pp.y -= c._pxH; } // sprites: above the painted head

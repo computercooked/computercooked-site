@@ -26,11 +26,53 @@
       weather: { kind: "clear", cloud: 0.2, rain: 0, wind: 0.4, t: 0, next: 90, storm: 0 },
       dayIndex: 0, night: false, season: 0, snowCover: 0, autumn: 0, freeze: 0,
       fires: [], bolts: [], nightGrumps: 0, wear: new Uint8Array(T.N * T.N),
-      _critT: 3, _grumpT: 10, _houseT: 1, _boltT: 10, _pending: [], _fireT: 0
+      _critT: 3, _grumpT: 10, _houseT: 1, _boltT: 10, _pending: [], _fireT: 0,
+      seen: new Uint8Array(W.SEEN_N * W.SEEN_N), seenDirty: true, biomesSeen: {}, _seeT: 0
     };
     initNodes(world, game);
+    W.reveal(world, T.nest.x, T.nest.z, 15, true);
     return world;
   };
+
+  /* ---------------- fog of war ---------------- */
+  // the island starts under cloud. it clears wherever smols go and look (their view range), so exploring
+  // matters: new places, new plants, new materials. cells are 4×4 tiles
+  var FOW = 4;
+  W.SEEN_N = SB.WORLD_N / FOW;
+  W.reveal = function (world, x, z, r, quiet) {
+    var S = W.SEEN_N, seen = world.seen;
+    if (!seen) return 0;
+    var c0 = Math.max(0, Math.floor((x - r) / FOW)), c1 = Math.min(S - 1, Math.floor((x + r) / FOW));
+    var r0 = Math.max(0, Math.floor((z - r) / FOW)), r1 = Math.min(S - 1, Math.floor((z + r) / FOW)), n = 0;
+    for (var j = r0; j <= r1; j++) for (var i = c0; i <= c1; i++) {
+      var k = j * S + i;
+      if (seen[k]) continue;
+      var cx = (i + 0.5) * FOW, cz = (j + 0.5) * FOW;
+      if ((cx - x) * (cx - x) + (cz - z) * (cz - z) > (r + 2) * (r + 2)) continue;
+      seen[k] = 255; n++;
+      (world.seenChunks || (world.seenChunks = {}))[Math.floor(cz / SB.CHUNK) * (SB.WORLD_N / SB.CHUNK) + Math.floor(cx / SB.CHUNK)] = 1; // the renderer rebuilds these
+      var b = WG.biomeAt(world.T, cx, cz);
+      if (b != null && !world.biomesSeen[b]) { world.biomesSeen[b] = 1; if (!quiet && b !== SB.B.ocean) emit("newBiome", { biome: b, x: cx, z: cz }); }
+    }
+    if (n) { world.seenDirty = true; world._miniSeenV = (world._miniSeenV || 0) + 1; }
+    return n;
+  };
+  W.isSeen = function (world, x, z) {
+    if (!world.seen) return true;
+    var S = W.SEEN_N, i = Math.floor(x / FOW), j = Math.floor(z / FOW);
+    if (i < 0 || j < 0 || i >= S || j >= S) return false;
+    return world.seen[j * S + i] > 0;
+  };
+  W.seenFraction = function (world) { var n = 0, s = world.seen; for (var i = 0; i < s.length; i++) if (s[i]) n++; return n / s.length; };
+  function revealTick(world, game, dt) {
+    world._seeT -= dt;
+    if (world._seeT > 0) return;
+    world._seeT = 1;
+    game.creatures.forEach(function (c) { if (c.alive && c.species === "smol" && !c.stranger) W.reveal(world, c.x, c.z, (c.viewR || 6) + 2); });
+  }
+  // saved as runs: "count,count,…" alternating unseen/seen
+  function seenToString(s) { var out = [], v = 0, run = 0; for (var i = 0; i < s.length; i++) { var b = s[i] ? 1 : 0; if (b === v) run++; else { out.push(run); v = b; run = 1; } } out.push(run); return out.join(","); }
+  function seenFromString(str, s) { var parts = String(str).split(","), k = 0, v = 0; for (var p = 0; p < parts.length; p++) { var n = +parts[p] || 0; for (var q = 0; q < n && k < s.length; q++) s[k++] = v ? 255 : 0; v = 1 - v; } }
 
   function initNodes(world, game) {
     var T = world.T;
@@ -224,7 +266,7 @@
   function updateClock(world, game, dt) {
     var t = world.time / SB.DAY_LENGTH, tday = t % 1;
     var wasNight = world.night;
-    world.night = tday < 0.21 || tday > 0.79;
+    world.night = tday < 0.18 || tday > 0.82;
     var di = Math.floor(t);
     if (di !== world.dayIndex) { world.dayIndex = di; emit("newDay", { day: di + 1 }); }
     var sIdx = Math.floor(di / SB.SEASON_DAYS) % 4, sp = (t / SB.SEASON_DAYS) % 1;
@@ -787,6 +829,7 @@
   W.tick = function (world, dt, game) {
     world.time = game.time;
     updateClock(world, game, dt);
+    revealTick(world, game, dt);
     updateWeather(world, game, dt);
     rebuildItemGrid(world);
     tickNodes(world, game, dt);
@@ -897,7 +940,8 @@
       structures: world.structures.map(function (s) { return { id: s.id, kind: s.kind, x: round(s.x), z: round(s.z), rot: round(s.rot), done: s.done, work: round(s.work), need: s.need, tribe: s.tribe, data: s.data, born: round(s.born), name: s.name }; }),
       nodes: nodes,
       weather: { kind: world.weather.kind, t: round(world.weather.t), next: round(world.weather.next) },
-      snowCover: round(world.snowCover), autumn: round(world.autumn), season: world.season, dayIndex: world.dayIndex, nightGrumps: world.nightGrumps
+      snowCover: round(world.snowCover), autumn: round(world.autumn), season: world.season, dayIndex: world.dayIndex, nightGrumps: world.nightGrumps,
+      seen: seenToString(world.seen), biomesSeen: world.biomesSeen
     };
   };
   function round(v) { return typeof v === "number" ? Math.round(v * 1000) / 1000 : v; }
@@ -937,7 +981,10 @@
     world.snowCover = num(data.snowCover, 0); world.autumn = num(data.autumn, 0);
     world.season = num(data.season, 0); world.dayIndex = num(data.dayIndex, 0); world.nightGrumps = num(data.nightGrumps, 0);
     var t = world.time / SB.DAY_LENGTH;
-    world.night = (t % 1) < 0.21 || (t % 1) > 0.79;
+    world.night = (t % 1) < 0.18 || (t % 1) > 0.82;
+    if (data.seen) { seenFromString(data.seen, world.seen); world.biomesSeen = data.biomesSeen || {}; }
+    else { world.seen.fill(255); for (var bi = 0; bi < SB.BIOMES.length; bi++) world.biomesSeen[bi] = 1; } // islands from before the fog: all explored
+    world.seenDirty = true;
     return world;
   };
 })();
