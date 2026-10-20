@@ -2452,3 +2452,28 @@ body.embed {
   .embed #btn-share { display: none; }
   .embed-brand-long { display: none; }
 }
+
+/* after a new personal best the dare box is the main ask */
+.cc-dare-box.is-best {
+  border-width: 2px;
+  background: linear-gradient(135deg, rgba(197, 255, 73, 0.14), rgba(181, 154, 255, 0.1));
+  box-shadow: 0 0 24px -10px var(--lime);
+}
+.cc-dare-kicker {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: #111;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cc-dare-box .cc-dare-go {
+  border-color: var(--lime);
+  background: var(--lime);
+  color: #111;
+}
+.cc-dare-box .cc-dare-go .tool-text { display: inline; }

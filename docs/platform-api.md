@@ -19,6 +19,10 @@ Response:
 {
   "ok": true, "since": "2026-10-12", "generated_at": "…",
   "totals": { "plays": 0, "accounts": 0, "new_accounts": 0, "uploads_pending": 0, "open_reports": 0 },
+  // challenge-a-friend funnel for dares made since `since` (open_rate = opened / sent; beat_rate = beaten / opened)
+  "dares": { "made": 0, "sent": 0, "via_share": 0, "via_copy": 0, "opened": 0, "opens": 0, "beaten": 0, "beats": 0,
+             "sent_rate": null, "open_rate": null, "beat_rate": null,
+             "by_source": { "best": { /* same fields: offered after a new personal best */ }, "button": { /* asked for after any run */ } } },
   "games": [{
     "game": "crash", "title": "CRASH",
     "plays": 0, "unique_players": 0,
@@ -53,7 +57,7 @@ Every game page has `/games/cc-sdk.js`. `scripts/add-game.ps1` injects it into p
 ```js
 window.cc && cc.start();                                   // a run begins
 window.cc && cc.score(n);                                   // live score (optional)
-window.cc && cc.end({ score, durationMs, completed: true }); // run over -> Promise<{accepted, best, rank, name} | null>
+window.cc && cc.end({ score, durationMs, completed: true }); // run over -> Promise<{accepted, best, prev_best, rank, name} | null>  (prev_best null = first run on that board)
 window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at most 20 per play
 ```
 
@@ -151,6 +155,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/dare` | `{play_id, anon}` → `{id, url, text}`: a challenge-a-friend link for one of your own accepted runs, `/games/<slug>/?vs=<score>&from=<name>&d=<id>`. One dare per run, 30 per hour |
 | GET | `/api/dare/:id[?open=1]` | `{game, title, score, from, beats}`. `open=1` counts a visit (the game page sends it once per tab) |
 | POST | `/api/dare/:id/beat` | `{play_id, anon}` → `{beaten, first, from, score, sender_xp}`. Your run must be yours, on that game, accepted and higher. The first beat per player counts; a logged-in sender gets +25 XP per beat (10 per dare, 100 a day). The game page also sends `cc.event('challenge_open', {d})` on the first run from a dare link |
+| POST | `/api/dare/:id/shared` | `{how: share/copy}` → `{ok}`. The game page sends it when the share sheet finishes or the link is copied; the first one per dare counts. `POST /api/dare` takes `source: best` when the dare comes from the new-personal-best prompt (made up front so the tap opens the share sheet at once) |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
 | GET | `/api/me/feed` | `{items: [{kind: game/achievement/challenge, game, title, text, ts}]}`, newest first, up to 30 |
@@ -193,6 +198,7 @@ The schema is in `migrations/0001_init.sql`:
 | `reports` | player reports |
 | `uploads` | community upload queue |
 | `dares`, `dare_beats` | challenge-a-friend links, with opens and beats (migration `0008_dares`) |
+| `dare_funnel` | per dare: source (`best`/`button`) and whether/how it was sent (migration `0009_dare_funnel`; removed with the sender's account) |
 | `friends` | one row per direction: `(user_id, friend_id, status pending/accepted/blocked)` (migration `0005_friends`) |
 
 To query it directly, run this with Ashton's Cloudflare login:

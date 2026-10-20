@@ -2,6 +2,7 @@
 //   POST /api/dare            {play_id, anon}  -> {id, url, text}   from one of your own accepted scores
 //   GET  /api/dare/:id[?open=1]                -> {game, title, score, from, beats}   (open=1 counts a visit)
 //   POST /api/dare/:id/beat   {play_id, anon}  -> {beaten, ...}    your run beat it: the sender earns XP
+//   POST /api/dare/:id/shared {how}            -> {ok}             the sender sent it (share sheet / copied)
 import { json, bad, readJson, now, dayOf, idOk, limited, randomToken } from "./util.js";
 import { grant } from "./xp.js";
 import { people } from "./friends.js";
@@ -30,12 +31,31 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
     let name = run.name;
     if (run.user_id) name = (await people(env, [run.user_id])).get(run.user_id)?.name || name;
     const id = randomToken(6);
-    await env.DB.prepare("INSERT OR IGNORE INTO dares (id, game, play_id, score, from_user, from_player, from_name, created_at) VALUES (?,?,?,?,?,?,?,?)")
-      .bind(id, run.game, b.play_id, run.score, run.user_id || null, run.player, name, now()).run();
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO dares (id, game, play_id, score, from_user, from_player, from_name, created_at) VALUES (?,?,?,?,?,?,?,?)")
+        .bind(id, run.game, b.play_id, run.score, run.user_id || null, run.player, name, now()),
+      env.DB.prepare("INSERT OR IGNORE INTO dare_funnel (dare_id, source) VALUES (?, ?)").bind(id, b.source === "best" ? "best" : "button"),
+    ]);
     row = await env.DB.prepare("SELECT id, from_name FROM dares WHERE play_id = ?").bind(b.play_id).first();
   }
   const url = `${origin}/games/${encodeURIComponent(run.game)}/?vs=${encodeURIComponent(run.score)}&from=${encodeURIComponent(row.from_name)}&d=${row.id}`;
   return json({ ok: true, id: row.id, url, text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
+}
+
+// POST /api/dare/:id/shared {how: share|copy}: the sender really sent it (share sheet finished or link copied).
+// Only the first one counts; it feeds the made → sent → opened → beaten funnel in /api/admin/metrics.
+export async function sharedDare(req, env, ip, id) {
+  if (limited("dare-shared:" + ip, 60, 3600000)) return bad("slow down", 429);
+  const b = await readJson(req, 256);
+  const how = b.how === "share" ? "share" : b.how === "copy" ? "copy" : null;
+  if (!how) return bad("how?", 400);
+  const d = await env.DB.prepare("SELECT id FROM dares WHERE id = ?").bind(id).first();
+  if (!d) return bad("no such dare", 404);
+  await env.DB.batch([
+    env.DB.prepare("INSERT OR IGNORE INTO dare_funnel (dare_id, source) VALUES (?, 'button')").bind(id),
+    env.DB.prepare("UPDATE dare_funnel SET shared_how = ?, shared_at = ? WHERE dare_id = ? AND shared_at IS NULL").bind(how, now(), id),
+  ]);
+  return json({ ok: true });
 }
 
 export async function getDare(url, env, id, catalog) {

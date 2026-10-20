@@ -207,24 +207,43 @@
     });
   }
   // after an accepted run: a button that makes a link for this exact run
+  // After an accepted run: a "challenge a friend" box. After a new personal best (not a first run) it is the
+  // main ask, and the dare is made up front so the tap can open the share sheet straight away (iOS only allows
+  // share() directly inside the tap). A finished share or copy is reported for the funnel in admin metrics.
   function dareButton(e) {
     var r = e.detail && e.detail.result;
     if (!r || !r.accepted || !e.detail.playId) return;
+    var best = r.prev_best != null && e.detail.score > r.prev_best;
     var box = document.getElementById("cc-dare");
-    if (!box) { box = document.createElement("div"); box.id = "cc-dare"; box.className = "cc-levelup cc-dare-box"; board.insertAdjacentElement("beforebegin", box); }
-    box.innerHTML = "<p>scored <b>" + esc(fmt(e.detail.score)) + "</b>. think a friend can beat it?</p>" +
-      '<button type="button" class="tool">challenge a friend</button><p class="cc-dare-say" role="status"></p>';
-    var playId = e.detail.playId;
+    if (!box) { box = document.createElement("div"); box.id = "cc-dare"; board.insertAdjacentElement("beforebegin", box); }
+    box.className = "cc-levelup cc-dare-box" + (best ? " is-best" : "");
+    box.innerHTML = best
+      ? "<p><span class=\"cc-dare-kicker\">new best</span> <b>" + esc(fmt(e.detail.score)) + "</b> (was " + esc(fmt(r.prev_best)) + "). dare a friend to beat it.</p>" +
+        "<button type=\"button\" class=\"tool cc-dare-go\">dare a friend ▶</button><p class=\"cc-dare-say\" role=\"status\"></p>"
+      : "<p>scored <b>" + esc(fmt(e.detail.score)) + "</b>. think a friend can beat it?</p>" +
+        "<button type=\"button\" class=\"tool\">challenge a friend</button><p class=\"cc-dare-say\" role=\"status\"></p>";
+    var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
+    var make = function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
+    var ready = best ? make() : null, dare = null;
+    if (ready) ready.then(function (d) { if (d && d.ok) dare = d; });
     box.querySelector("button").addEventListener("click", function () {
-      var out = box.querySelector(".cc-dare-say");
-      api("/api/dare", { play_id: playId, anon: cc._anon }).then(function (d) {
-        if (!d || !d.ok) { out.textContent = (d && d.error) || "couldn't make a link. try again."; return; }
-        if (navigator.share) { navigator.share({ title: info && info.title, text: d.text, url: d.url }).catch(function () {}); out.textContent = ""; return; }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(d.text + " " + d.url).then(function () { out.textContent = "link copied. send it to someone who thinks they're good."; }, function () { out.textContent = d.url; });
-        } else out.textContent = d.url;
+      if (dare) { send(dare); return; }
+      (ready || (ready = make())).then(function (d) {
+        if (!d || !d.ok) { ready = null; out.textContent = (d && d.error) || "couldn't make a link. try again."; return; }
+        dare = d;
+        send(d);
       });
     });
+    function sent(how) { api("/api/dare/" + dare.id + "/shared", { how: how }); }
+    function send(d) {
+      if (navigator.share) {
+        navigator.share({ title: info && info.title, text: d.text, url: d.url }).then(function () { sent("share"); out.textContent = me ? "sent. you'll see it in your feed if they beat it." : "sent. good luck to them."; }, function () {});
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(d.text + " " + d.url).then(function () { sent("copy"); out.textContent = "link copied. send it to someone who thinks they're good."; }, function () { out.textContent = d.url; });
+      } else out.textContent = d.url;
+    }
   }
 
   /* ---------- after a run ---------- */
