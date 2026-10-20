@@ -219,3 +219,5 @@
 [data-frame="molten"] { --frame-g: linear-gradient(135deg, #ff8a7d, #ffb84d 45%, #ff3d2e); box-shadow: 0 0 12px rgba(255, 138, 77, 0.5); }
 [data-frame="holo"] { --frame-g: conic-gradient(#5bc8ff, #ff6bd6, #C5FF49, #B59AFF, #5bc8ff); box-shadow: 0 0 12px rgba(91, 200, 255, 0.4); }
 [data-frame="golden"] { --frame-g: linear-gradient(135deg, #fff2a8, #ffd84d 40%, #b8860b 70%, #ffd84d); box-shadow: 0 0 14px rgba(255, 216, 77, 0.55); }
+.me-feed li.is-level span { color: var(--lime); }
+.me-feed li.is-friend span { color: var(--lilac); }
