@@ -19,6 +19,14 @@
   const track = () => {};
   const P = null;
   const portal = () => {};
+  // cc-sdk (injected by the site, missing elsewhere): one start/end pair per run, score = gnomes yeeted
+  const ccCall = (fn) => { try { if (window.cc) fn(window.cc); } catch (err) { /* never break the game */ } };
+  let ccLive = false;
+  function ccEnd(g, completed) {
+    if (!ccLive || !g) return;
+    ccLive = false;
+    ccCall((c) => c.end && c.end({ score: g.stats.yeets, durationMs: Math.round(g.t * 1000), completed }));
+  }
   let hostMuted = false;   // the player page's mute button (postMessage cc-mute) always wins
   const mq = (q) => { try { return window.matchMedia(q).matches; } catch (err) { return false; } };
   const reducedMotion = mq('(prefers-reduced-motion: reduce)');
@@ -156,7 +164,7 @@
   // ---------------------------------------------------------- screens
   function show(id, on) { $(id).classList.toggle('show', on); }
   function toTitle() {
-    if (game && (screen === 'play' || screen === 'pause' || screen === 'upgrade')) track('level_end', runProps(game, 'quit'));
+    if (game && (screen === 'play' || screen === 'pause' || screen === 'upgrade')) { track('level_end', runProps(game, 'quit')); ccEnd(game, false); }
     portal((p) => p.gameplayStop());
     screen = 'title'; game = null;
     show('summary', false); show('upgrade', false); show('pause', false); show('title', true);
@@ -173,7 +181,7 @@
     HH.SFX.init();
     const isRetry = !!game && (screen === 'summary' || screen === 'play' || screen === 'pause');
     if (isRetry) {
-      if (screen !== 'summary') track('level_end', runProps(game, 'restart'));
+      if (screen !== 'summary') { track('level_end', runProps(game, 'restart')); ccEnd(game, false); }
       track('retry', { level: game.win ? 6 : game.wave + 1, mode: m, from: screen });
       // a natural break: portals may show an ad here (CrazyGames Basic Launch has ads off; local is instant)
       if (P && P.name !== 'local') { portal((p) => p.gameplayStop()); screen = 'title'; P.breakAd().then(() => beginRun(m)); return; }
@@ -195,6 +203,7 @@
     $('pauseBtn').style.display = 'block';
     save.runs++; persist();
     track('level_start', { level: game.wave + 1, mode: m, run: save.runs, daily: game.daily || 0 });
+    if (!game.debug) { ccLive = true; ccCall((c) => c.start && c.start()); }
     portal((p) => p.gameplayStart());
   }
   function setPause(on) {
@@ -255,6 +264,7 @@
     $('pauseBtn').style.display = 'none';
     portal((p) => p.gameplayStop());
     track('level_end', runProps(g, g.win ? 'win' : 'lose'));
+    ccEnd(g, true);
     if (g.win) portal((p) => p.happytime());
     const B = g.debug ? JSON.parse(JSON.stringify(save.best)) : save.best, nb = {};
     const reached = g.win ? 6 : g.wave + 1;
