@@ -173,6 +173,21 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slugs = new Set(((await (await get("/games/games.json")).json()).games || []).map((g) => g.slug));
   ok([...def.matchAll(/"([a-z0-9-]+)"/g)].every((m) => slugs.has(m[1])), "social landing: every platform default is a real game", def.trim());
   ok(!/window\.open|target="_blank"/.test((await (await get("/games/hub.js")).text()).match(/function landing\(\)[\s\S]*?\}\)\(\);/)?.[0] || "x"), "social landing: the card opens the game in the same tab (no popups or new windows)");
+  // one tap to playing: the card leaves a flag, cc.autostart() reads it once for that game only (smol-brains honors it)
+  const sdkSrc = await (await get("/games/cc-sdk.js")).text();
+  const autoFn = (sdkSrc.match(/function autostart\(\) \{[\s\S]*?\n  \}/) || [])[0];
+  const runAuto = (stored, path) => {
+    const box = { store: { "cc-autostart": stored }, out: [] };
+    box.sessionStorage = { getItem: (k) => box.store[k] ?? null, removeItem: (k) => { delete box.store[k]; } };
+    vm.runInNewContext(`var saveGame = ${JSON.stringify(path)}; ${autoFn}; out.push(autostart(), autostart());`, box);
+    return box.out.join(",");
+  };
+  const fresh = JSON.stringify({ game: "smol-brains", t: Date.now() });
+  const autoGot = { once: runAuto(fresh, "smol-brains"), other: runAuto(fresh, "crash"), stale: runAuto(JSON.stringify({ game: "smol-brains", t: Date.now() - 600000 }), "smol-brains"), none: runAuto(undefined, "smol-brains") };
+  const smolUi = await (await get("/games/smol-brains/play/js/ui.js")).text();
+  ok(autoFn && autoGot.once === "true,false" && autoGot.other === "false,false" && autoGot.stale === "false,false" && autoGot.none === "false,false"
+    && /cc-autostart/.test((await (await get("/games/hub.js")).text())) && /cc\.autostart\(\)/.test(smolUi) && (sdkSrc.match(/autostart: saveApi\.autostart/g) || []).length === 2,
+    "social landing: the card's tap skips the game's title screen (cc.autostart: once, that game only, fresh)", autoGot);
 }
 r = await (await post("/api/follow", { platform: "tiktok", slot: "hub-card", anon })).json();
 ok(r.ok && r.test === true, "follow click accepted (smoke traffic not stored)", r);
