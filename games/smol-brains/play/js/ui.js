@@ -188,7 +188,7 @@
   function goalsList() {
     var g = game, out = [], A = g.achievements, smols = SB.Game.smols(g);
     function add(t, p, done) { out.push({ t: t, p: p, done: done }); }
-    if (!A.hatch) add("tap the glowing egg to warm it 🥚", "");
+    if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
     else if (!A.word1) add("teach a first word: 💬 talk, pick “food”, tap food near a smol (a few times, slowly)", "");
     if (A.hatch && !A.tickle) add("tickle a smol when it does something good 🪶", "");
     if (A.hatch && !A.egg) {
@@ -992,11 +992,17 @@
 
   /* ---------------- intro & tutorial ---------------- */
   function intro() {
-    var T = game.world.T, nest = T.nest;
     state.introRunning = true;
-    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, "an island of tiny minds. one egg.")]);
-    root.appendChild(title);
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
+    if (SB.Intro && !UI.noStory) { SB.Intro.play({ done: landing }); return; }
+    landing();
+  }
+  UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };
+  // after the story: the camera falls with the pod onto the island
+  function landing() {
+    var T = game.world.T, nest = T.nest;
+    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, "an island of tiny minds. one escape pod.")]);
+    root.appendChild(title);
     R.camera.x = T.N / 2; R.camera.z = T.N / 2 + 20; R.camera.zoom = R.camera.tZoom = 95; R.camera.yaw = R.camera.tYaw = -0.9;
     R.cinematic({ dur: 5.5, x0: T.N / 2, zz0: T.N / 2 + 20, x1: nest.x, zz1: nest.z, z0: 95, z1: 5.5, yaw0: -0.9, yaw1: 0.35, skippable: true, done: function () {
       title.classList.add("out"); setTimeout(function () { title.remove(); }, 1000);
@@ -1007,8 +1013,8 @@
     } });
   }
   var TUT = [
-    { t: "tap the glowing egg", s: "this is your island. you're its god: smols think for themselves, you nudge them. first, warm this egg: tap it a few times." },
-    { t: "it hatched!", s: "" },
+    { t: "tap the crashed pod", s: "this is your island. you're its god: smols think for themselves, you nudge them. something's moving in that pod. tap it a few times to open it." },
+    { t: "they're out!", s: "" },
     { t: "it's hungry", s: "smols learn by trying things and remembering what felt good. it'll find food on its own, but you can help: ✋ drag the apple next to it." },
     { t: "reward it", s: "🪶 tickle means “yes, more of that”. pick tickle and tap the smol while it eats. (👆 tap means “no”.) that's how you teach it what's good." },
     { t: "teach it a word", s: "💬 talk opens the word book. pick “food”, then tap the apple while your smol can see it. one lesson every few seconds. smols that know a word can be called with 📣, and they teach each other." },
@@ -1034,21 +1040,49 @@
   }
   UI.userActed = function () { };
 
-  function namePrompt(c) {
+  function namePrompt(c, twin) {
     var inp = h("input", { type: "text", value: c.name, maxlength: 16, autocapitalize: "words", onkeydown: function (e) { if (e.key === "Enter") ok(); e.stopPropagation(); } });
+    var inp2 = twin ? h("input", { type: "text", value: twin.name, maxlength: 16, autocapitalize: "words", onkeydown: function (e) { if (e.key === "Enter") ok(); e.stopPropagation(); } }) : null;
+    function clean(v) { return v.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 16); }
     function ok() {
-      var n = inp.value.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 16);
+      var n = clean(inp.value);
       if (n) c.name = n;
       if (game.family[c.id]) game.family[c.id].name = c.name;
+      if (twin) { var n2 = clean(inp2.value); if (n2) twin.name = n2; if (game.family[twin.id]) game.family[twin.id].name = twin.name; }
       SB.Game.unlock(game, "name");
       closeModal();
       SB.Game.select(game, c.id);
       SB.Input.follow(c);
       tutAdvance(2);
     }
-    var body = h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: function () { inp.value = SB.makeName(SB.rng(Date.now() >>> 0)); } }, "🎲")])]);
-    modal("🐣 hello, world", body, { sticky: true });
+    var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0)); }; };
+    var body = twin ? h("div", null, [
+      h("p", null, "two little blobs climbed out of the pod: a girl and a boy. the last smols. what are they called?"),
+      h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♀"), inp, h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")]),
+      h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
+      h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
+    ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
+    modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
+  }
+
+  /* ---------------- strangers ---------------- */
+  function strangerCard(c) {
+    if (!c.alive || !c.stranger || c.stranger.state !== "waiting") return;
+    if (el.modal) { setTimeout(function () { strangerCard(c); }, 3000); return; } // wait for the current card
+    R.flyTo(c.x, c.z, 6, 1.0);
+    var t = SB.TIERS[c.tier], s = c.stranger, idea = s.brings && SB.Ideas.BY_ID[s.brings];
+    var lines = [
+      h("div", { class: "row" }, [avatar(c.look, c.tier), h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "nm" }, (c.sex === "f" ? "♀ " : "♂ ") + c.name), h("div", { class: "sub2", html: '<span class="tierpill" style="color:' + t.color + '">' + t.icon + " " + t.name + "</span> · " + esc(s.trait) }) ])]),
+      h("p", null, "a survivor from another escape pod has been living wild. now " + (c.sex === "f" ? "she" : "he") + "'s at the edge of your village, waiting."),
+      idea ? h("p", { html: "they know something your smols don't: <b class='lime'>" + idea.icon + " " + esc(idea.name) + "</b>." }) : null,
+      h("p", { class: "note" }, "not related to anyone in your tribe, so they could start a family. " + (s.trait === "grumpy" ? "a bit grumpy, though." : s.trait === "hungry" ? "they look hungry: one more mouth to feed." : "")),
+      h("div", { class: "btnrow" }, [
+        h("button", { class: "btn go", onclick: function () { closeModal(); SB.Strangers.decide(game, c, true); } }, "🏠 welcome them"),
+        h("button", { class: "btn", onclick: function () { closeModal(); SB.Strangers.decide(game, c, false); } }, "send them away")
+      ])
+    ];
+    modal("🧳 a stranger approaches", h("div", null, lines), { sticky: true });
   }
 
   /* ---------------- while you were away ---------------- */
@@ -1152,7 +1186,15 @@
     on("note", function (d) { toast(esc(d.text)); });
     on("achievement", function (d) { toast(d.a.icon + " <b>" + esc(d.a.name) + "</b> · " + esc(d.a.desc), "ach", 5000); });
     on("hatch", function (d) {
-      if (d.obj && d.obj.data && d.obj.data.starter) { game.tutorial.step = 1; tutShow(); setTimeout(function () { namePrompt(d.c); }, 700); }
+      if (d.obj && d.obj.data && d.obj.data.starter) {
+        var tw = d.obj.data.twin;
+        game.tutorial.step = 1; tutShow();
+        R.flyTo(d.c.x + 0.3, d.c.z, 3.6, 1.2); // close-up: the founders climb out
+        d.c.speech = { text: "bi!", t: 2, kind: "say" };
+        if (tw) setTimeout(function () { tw.speech = { text: "ba!", t: 2, kind: "say" }; if (SB.Audio) SB.Audio.voice("ba", 0.7); }, 600);
+        if (SB.Audio) SB.Audio.voice("bi", 0.6);
+        setTimeout(function () { namePrompt(d.c, tw); }, 2200);
+      }
       if (SB.FX) SB.FX.burst("sparkle", d.c.x, d.c.y + 0.4, d.c.z, 18);
     });
     on("eat", function (d) { if (state.tutStep === 2 && d.c.species === "smol") tutAdvance(3); if (SB.FX && !d.c.far) SB.FX.burst("crumbs", d.c.x, d.c.y + 0.3, d.c.z, 5); });
@@ -1172,6 +1214,12 @@
         "you can speed inventing up with ✨ magic → 💡 inspire. the 💡 ideas tab in the menu tracks what your smols know."
       ], fb);
     });
+    on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
+    on("strangerLeft", function (d) { toast(esc(d.c.name) + (d.auto ? " gave up waiting and walked back into the wild." : " walks back into the wild.")); });
+    on("kin", function (d) { storyCard("kin", "👪", "family can't have kids together", [
+      esc(d.a.name) + " and " + esc(d.b.name) + " are in love, but they're family. <b>parents, brothers and sisters, and cousins can't have kids together.</b>",
+      "your tribe needs newcomers: wild eggs, and strangers from the other escape pods who sometimes walk up to the village. welcome them in."
+    ]); });
     on("spoiled", function () {
       storyCard("spoiled", "🍬", "your smols are getting spoiled", [
         "food keeps falling from the sky, so they've stopped looking for it. peckish smols now just <b>sit and wait for you</b>, and they're slower to learn new things.",

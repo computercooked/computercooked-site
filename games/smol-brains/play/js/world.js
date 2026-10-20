@@ -889,8 +889,9 @@
       seed: world.seed,
       items: world.items.map(function (o) {
         var d = {};
-        for (var k in o.data) if (k !== "genome") d[k] = o.data[k];
+        for (var k in o.data) if (k !== "genome" && k !== "genome2" && k !== "twin") d[k] = o.data[k];
         if (o.data.genome) d.genome = SB.Genome.encode(o.data.genome);
+        if (o.data.genome2) d.genome2 = SB.Genome.encode(o.data.genome2);
         return { id: o.id, kind: o.kind, x: round(o.x), y: round(o.y), z: round(o.z), age: round(o.age), heldBy: o.heldBy, data: d };
       }),
       structures: world.structures.map(function (s) { return { id: s.id, kind: s.kind, x: round(s.x), z: round(s.z), rot: round(s.rot), done: s.done, work: round(s.work), need: s.need, tribe: s.tribe, data: s.data, born: round(s.born), name: s.name }; }),
@@ -921,6 +922,7 @@
       if (!K[p.kind]) return;
       var d = p.data || {};
       if (typeof d.genome === "string") { try { d.genome = SB.Genome.decode(d.genome); } catch (e) { d.genome = null; } }
+      if (typeof d.genome2 === "string") { try { d.genome2 = SB.Genome.decode(d.genome2); } catch (e) { d.genome2 = null; } }
       var o = { id: p.id, type: "item", kind: p.kind, noun: K[p.kind].noun, x: num(p.x, 128), y: num(p.y, 0), z: num(p.z, 128), vx: 0, vy: 0, vz: 0, r: K[p.kind].r, rot: 0, heldBy: p.heldBy == null ? null : p.heldBy, age: num(p.age, 0), onGround: true, data: d };
       if (o.kind === "egg" && !o.data.genome) return;
       world.items.push(o);

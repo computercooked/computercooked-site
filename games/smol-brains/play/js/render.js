@@ -318,6 +318,7 @@
     meshes["n:stump"] = upload(ME.stump());
     meshes["n:burnt"] = upload(ME.burnt());
     for (k in SB.KINDS) meshes["i:" + k] = upload(ME.itemMesh(k));
+    meshes["i:pod"] = upload(ME.podMesh());
     for (k in ME.STRUCT_BUILDERS) meshes["s:" + k] = upload(ME.STRUCT_BUILDERS[k]());
     for (v = 0; v < ME.DECOR_BUILDERS.length; v++) meshes["d:" + v] = upload(ME.DECOR_BUILDERS[v]());
     for (k in ME.PARTS) if (ME.PARTS[k]) meshes["p:" + k] = upload(ME.PARTS[k]());

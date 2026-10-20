@@ -222,7 +222,10 @@
         var eg = o.data.genome, tint = eg && eg.genes ? SB.mixC([1, 1, 1], SB.hsl(eg.genes.hue * 360, 0.6, 0.7), 0.35) : null;
         if (o.data.starter && !o.data.progress) ext = [0, 0.25 + Math.sin(t * 3) * 0.15, 0];
         setBase(o.x, y, o.z, ry, 1);
-        part("i:egg", 0, 0, 0, 0, 0, rz, s, s, s, tint, ext);
+        if (o.data.pod) { // the escape pod: rattles when you tap it, smokes until it opens
+          part("i:pod", 0, 0, 0, 0.6, 0, rz * 0.4, 1.1, 1.1, 1.1, null, o.data.progress ? [0, 0.2 + o.data.progress * 0.5, 0] : ext);
+          if (SB.FX && Math.random() < 0.06) SB.FX.burst("smoke", o.x + 0.2, y + 0.8, o.z, 1, { r: 0.2 });
+        } else part("i:egg", 0, 0, 0, 0, 0, rz, s, s, s, tint, ext);
         if (o.data.starter || o.data.wild) R.light(o.x, y + 0.6, o.z, 2.5, 1, 0.9, 0.6);
       } else {
         if (def.critter === "fly") rx = Math.sin(t * 18 + o.id) * 0.4;

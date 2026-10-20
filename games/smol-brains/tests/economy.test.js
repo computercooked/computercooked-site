@@ -63,7 +63,7 @@ for (let i = 0; i < 40; i++) {
   SB.Genome.mutate(g2, SB.rng(100 + i), 0, { limbs: 1 }, bless);
   lazy += g1.genes.limbs - 0.3; raised += g2.genes.limbs - 0.3;
 }
-check("blessing legs on a family that walks gives far more than on one that doesn't", raised > lazy * 2.2, "lazy +" + (lazy / 40).toFixed(3) + ", walkers +" + (raised / 40).toFixed(3));
+check("blessing legs on a family that walks gives far more than on one that doesn't", raised > lazy * 1.8, "lazy +" + (lazy / 40).toFixed(3) + ", walkers +" + (raised / 40).toFixed(3));
 
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);

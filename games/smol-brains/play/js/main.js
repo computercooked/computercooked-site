@@ -99,6 +99,7 @@
     { id: "card", icon: "🪪", name: "postcard", desc: "make a civilisation card." },
     { id: "seed", icon: "🌱", name: "world builder", desc: "copy a world code to share." },
     { id: "migrate", icon: "🛶", name: "old friends", desc: "smols from the old valley found the island." },
+    { id: "stranger", icon: "🧳", name: "newcomer", desc: "welcome a stranger into your tribe." },
     { id: "bigthought", icon: "🌟", name: "the big thought", desc: "finish the spire." }
   ];
   var ACH = {};
@@ -166,7 +167,7 @@
     var c = SB.Creature.create(game, {
       species: "smol", genome: opts.genome || SB.Genome.random(game.rng, { species: "smol" }),
       name: opts.name || SB.makeName(game.rng), x: opts.x, z: opts.z, gen: opts.gen || 1,
-      parents: opts.parents || [], brain: opts.brain, vocab: opts.vocab, age: opts.age, tribe: opts.tribe, ideas: opts.ideas
+      parents: opts.parents || [], brain: opts.brain, vocab: opts.vocab, age: opts.age, tribe: opts.tribe, ideas: opts.ideas, sex: opts.sex
     });
     game.creatures.push(c);
     Game.familyAdd(game, c);
@@ -215,11 +216,17 @@
 
   Game.hatch = function (game, egg) {
     var d = egg.data || {};
-    var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, z: egg.z, gen: d.gen || 1, parents: d.parents || [], name: d.name, tribe: d.tribe, ideas: d.ideas });
-    if (d.starter) {
-      c.chem.hunger = 0.72; c.chem.bored = 0.15;
-      SB.Brain.dream(c.brain, [{ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 1 }], 80, game.rng);
+    var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, z: egg.z, gen: d.gen || 1, parents: d.parents || [], name: d.name, tribe: d.tribe, ideas: d.ideas, sex: d.twins ? "f" : null });
+    var twin = null;
+    if (d.twins && d.genome2) { // the escape pod: a girl and a boy climb out
+      twin = Game.spawnSmol(game, { genome: d.genome2, x: egg.x + 0.7, z: egg.z + 0.3, gen: 1, parents: [], tribe: d.tribe, sex: "m" });
+      d.twin = twin;
     }
+    if (d.starter) [c, twin].forEach(function (s) {
+      if (!s) return;
+      s.chem.hunger = 0.72; s.chem.bored = 0.15;
+      SB.Brain.dream(s.brain, [{ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 1 }], 80, game.rng);
+    });
     if (SB.Render && SB.Render.camera) c.facing = Math.atan2(SB.Render.camera.eye[0] - c.x, SB.Render.camera.eye[2] - c.z) || 0;
     SB.World.remove(game.world, egg);
     game.stats.hatched++;
@@ -283,10 +290,13 @@
   Game.newGame = function (seed) {
     var g = Game.create(seed);
     var nest = g.world.T.nest;
-    var egg = SB.World.add(g.world, g, "egg", nest.x, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0, starter: true });
-    var ins = egg.data.genome.instincts, hasEat = false;
-    for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
-    if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
+    // the founders' escape pod (an "egg" underneath: tap it open). two unrelated blobs, a girl and a boy
+    var egg = SB.World.add(g.world, g, "egg", nest.x, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), genome2: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0, starter: true, pod: true, twins: true });
+    [egg.data.genome, egg.data.genome2].forEach(function (gn) {
+      var ins = gn.instincts, hasEat = false;
+      for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
+      if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
+    });
     // an apple waits by the nest, and a gift from the sky
     var a = SB.World.add(g.world, g, "apple", nest.x + 1.6, nest.z + 0.6, {});
     a.data.starterApple = true;
@@ -348,6 +358,7 @@
     SB.Society.tick(game, dt);
     if (game.godHeat > 0) game.godHeat = Math.max(0, game.godHeat - dt / 60);
     if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
+    if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
     if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }
     checkAchievements(game, dt);
@@ -467,7 +478,7 @@
       game.playTime += dtReal;
     }
     var alpha = paused ? 1 : acc / SB.TICK;
-    SB.Render.frame(game, dtReal, alpha);
+    if (!(SB.Intro && SB.Intro.covering)) SB.Render.frame(game, dtReal, alpha); // the opening story covers the screen: skip drawing the island under it
     if (SB.UI && SB.UI.frame) SB.UI.frame(game, dtReal);
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }
@@ -603,10 +614,7 @@
     spawnTier: function (tier, n) {
       var g = Game.current, sp = SB.Society.home(g, 0), out = [];
       for (var i = 0; i < (n || 1); i++) {
-        var ge = SB.Genome.random(g.rng, { species: "smol" }), need = SB.Genome.TIER_NEEDS;
-        for (var t = 1; t <= tier; t++) for (var k in need[t]) if (k !== "neurons" && k !== "layers") ge.genes[k] = Math.max(ge.genes[k], need[t][k] + 0.05);
-        if (tier >= 2) { ge.genes.hidden = 0.6; ge.genes.cortex = Math.max(ge.genes.cortex, [0, 0, 0.1, 0.35, 0.5, 0.95, 1][tier]); }
-        if (tier >= 4) ge.genes.layers = Math.max(ge.genes.layers, tier >= 6 ? 0.85 : 0.5);
+        var ge = SB.Genome.forTier(g.rng, tier);
         var c = Game.spawnSmol(g, { genome: ge, x: sp.x + (i % 4) * 1.4 - 2, z: sp.z + Math.floor(i / 4) * 1.4 + 2, age: 700 });
         out.push(c);
       }

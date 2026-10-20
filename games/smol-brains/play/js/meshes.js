@@ -415,6 +415,20 @@
 
   /* ---------------- items ---------------- */
 
+  // the founders' escape pod: crashed, tilted, half dug into a scorched patch, window still glowing
+  ME.podMesh = function () {
+    var b = ME.builder();
+    b.color(0x2e2826, 1).cyl(12, 0.95, 1.05, 0.02);
+    b.color(0x7a5a3a, 1);
+    [[0.62, 0.3, 0.16], [-0.55, 0.42, 0.13], [0.2, -0.65, 0.14], [-0.3, -0.5, 0.1]].forEach(function (d, i) { b.push().translate(d[0], 0.04, d[1]).scale(d[2], d[2] * 0.6, d[2]).blob(0, 0.3, i + 2).pop(); });
+    b.smoothShade(true).color(0xe8e4f0, 1).push().translate(0, 0.33, 0).rotZ(0.55).scale(0.4, 0.6, 0.4).sphere(2).pop();
+    b.color(0x5fc9c0, 1).push().translate(0, 0.33, 0).rotZ(0.55).scale(0.415, 0.09, 0.415).sphere(1).pop();
+    b.color(0x9a96a8, 1).push().translate(0.27, 0.72, 0).rotZ(0.55).cyl(6, 0.08, 0.15, 0.12).pop();
+    b.color(0xc5ff49, 1).glow(0.9).push().translate(-0.06, 0.42, 0.34).scale(0.13, 0.13, 0.07).sphere(1).pop().glow(0);
+    b.color(0x9a96a8, 1).push().translate(-0.36, 0.1, 0.12).rotZ(1.1).box(0.26, 0.04, 0.16).pop();
+    b.push().translate(-0.32, 0.12, -0.16).rotZ(1.0).box(0.24, 0.04, 0.14).pop();
+    return b.finish();
+  };
   function itemMesh(kind) {
     var k = SB.KINDS[kind], b = ME.builder(), col = k.color || 0xffffff;
     switch (kind) {

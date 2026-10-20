@@ -57,7 +57,7 @@
       anim: freshAnim(), lastReward: 0, iq: 0, iqT: 0, visited: {},
       stats: { eaten: 0, words: 0, tickles: 0, taps: 0, kids: 0, obeyed: 0, hits: 0, walked: 0, crafted: 0, discoveries: 0, taught: 0 },
       habits: {}, ideas: o.ideas ? Object.assign({}, o.ideas) : {}, ideaQ: {},
-      tribe: o.tribe || 0, clade: genome.clade || 0,
+      tribe: o.tribe || 0, clade: genome.clade || 0, sex: o.sex || (game.rng.chance(0.5) ? "f" : "m"),
       eggCooldown: 0, thinkT: 0.5, chatT: 3 + Math.random() * 5, tapCount: 0, tapT: 0, stuckT: 0, inspired: 0,
       lifespan: SB.BASE_LIFESPAN * (0.8 + 0.4 * gene(genome, "lifespan", 0.5))
     };
@@ -97,6 +97,7 @@
     if (typeof c.facing !== "number" || Math.abs(c.facing) === 1) c.facing = Math.random() * 6.28;
     if (!c.lifespan) c.lifespan = SB.BASE_LIFESPAN;
     if (c.tribe == null) c.tribe = 0;
+    if (c.sex !== "f" && c.sex !== "m") c.sex = c.id % 2 ? "f" : "m"; // older saves
     c.clade = c.genome.clade || 0;
     c.thinkT = 0.5; c.chatT = 4; c.tapCount = 0; c.tapT = 0; c.stuckT = 0; c.eggCooldown = c.eggCooldown || 0; c.inspired = c.inspired || 0;
     c.stage = stageFor(c.age);
@@ -310,6 +311,11 @@
 
   function think(c, game) {
     var ch = c.chem, rng = game.rng, w = game.world;
+    if (c.stranger && SB.Strangers) { // a stranger walks up to the village and waits for your answer (or walks away)
+      var sg = SB.Strangers.think(c, game);
+      if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
+      if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
+    }
     perceive(c, game);
     if (c.species === "grump") {
       var prey = false;
@@ -541,7 +547,7 @@
 
   function findMate(c, game) {
     var best = null, bd = 45;
-    game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && o.eggCooldown <= 0) { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < bd && d > 2) { bd = d; best = o; } } });
+    game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && o.eggCooldown <= 0 && o.sex !== c.sex && !o.stranger && !(SB.Game.related && SB.Game.related(game, c, o))) { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < bd && d > 2) { bd = d; best = o; } } });
     return best;
   }
   function sniffFood(c, game) {
@@ -1002,11 +1008,15 @@
   C.knock = knock;
 
   // aLove: the actor's love before this cuddle relieved it
+  C._tryBreed = function (a, b, game, aLove) { return tryBreed(a, b, game, aLove); }; // for tests
   function tryBreed(a, b, game, aLove) {
     if (a.stage !== 3 || b.stage !== 3) return;
     // the pair's love together, so two smols who keep cuddling (and relieving each other) still get there
     if (aLove + b.chem.love < 0.8 || Math.max(aLove, b.chem.love) < 0.5) return;
     if (a.eggCooldown > 0 || b.eggCooldown > 0) return;
+    if (a.sex === b.sex) return;
+    // family can't have kids together (parents, brothers and sisters, cousins): a colony needs newcomers
+    if (SB.Game.related && SB.Game.related(game, a, b)) { a.chem.love *= 0.5; b.chem.love *= 0.5; if (!a.far) say(a, "we family!", game); SB.bus.emit("kin", { a: a, b: b }); return; }
     if (SB.Species && !SB.Species.compatible(a, b)) { emote(a, "huh", 1.5); SB.bus.emit("incompatible", { a: a, b: b }); return; }
     var pop = SB.Game.smols(game).length + game.world.items.filter(function (o) { return o.kind === "egg"; }).length;
     if (pop >= SB.Game.POP_CAP) { say(a, "too many smols", game); return; }
