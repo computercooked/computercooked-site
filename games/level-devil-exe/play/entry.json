@@ -14,7 +14,7 @@
     "1 player",
     "halloween"
   ],
-  "max_score_per_sec": 50,
+  "max_score_per_sec": 100,
   "how_to": [
     "every level is a file that lies. if a floor, an exit or a checkpoint looks too easy, it probably is.",
     "keep moving on stairs and bridges: some of them delete themselves behind you.",

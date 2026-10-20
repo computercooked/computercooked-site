@@ -1,1 +1,19 @@
-{"slug": "one-percent-popup", "title": "only 1% can close this pop-up", "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.", "thumbnail": "thumb.png", "made_by": "computer-cooked", "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.", "size_kb": 49, "tags": ["reflex", "trick", "challenge", "short", "halloween"], "version": "1.1"}
+{
+  "slug": "one-percent-popup",
+  "title": "only 1% can close this pop-up",
+  "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
+  "size_kb": 49,
+  "tags": [
+    "reflex",
+    "trick",
+    "challenge",
+    "short",
+    "halloween"
+  ],
+  "version": "1.1",
+  "max_score_per_sec": 2,
+  "max_score": 30
+}

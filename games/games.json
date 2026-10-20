@@ -56,7 +56,9 @@
       "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
       "size_kb": 49,
       "version": "1.1",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 2,
+      "max_score": 30
     },
     {
       "slug": "keyboard-escape",
@@ -75,7 +77,9 @@
       "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. land dead centre for perfect bonuses. p pause, r back to boot (keeps speed), m mute.",
       "size_kb": 46,
       "version": "1.1",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 150,
+      "score_slack": 1500
     },
     {
       "slug": "desktop-jam",
@@ -94,7 +98,9 @@
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
       "size_kb": 61,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 1000,
+      "max_score": 5500
     },
     {
       "slug": "fathom",
@@ -130,7 +136,8 @@
       "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
       "size_kb": 40,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 30
     },
     {
       "slug": "crash-test-daily",
@@ -188,7 +195,7 @@
       "size_kb": 54,
       "version": "1",
       "added": "2026-10-19",
-      "max_score_per_sec": 50,
+      "max_score_per_sec": 100,
       "how_to": [
         "every level is a file that lies. if a floor, an exit or a checkpoint looks too easy, it probably is.",
         "keep moving on stairs and bridges: some of them delete themselves behind you.",
@@ -241,7 +248,9 @@
       "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
       "size_kb": 116,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 120,
+      "max_score": 950
     },
     {
       "slug": "overdue-notice",
