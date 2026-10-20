@@ -94,6 +94,9 @@
     club: [".........ee.", "........eEee", ".......neeEe", "......nNeee.", ".....nN.....", "....nN......", "...nN.......", "..nN........", ".nN.........", "NN.........."],
     rod: ["..........n.", ".........nNw", "........nN.w", ".......nN..w", "......nN...w", ".....nN....w", "....nN.....r", "...nN......r", "..nN........", ".NN........."],
     coat: ["...CC..CC...", "..CDDCCDDC..", ".CCCCDDCCCC.", "CCCCCDDCCCCC", "CC.CCDDCC.CC", "CC.CCDDCC.CC", "...CCDDCC...", "...CCDDCC...", "...CCDDCC...", "...DDDDDD..."],
+    grave: ["....eeee....", "...eeeeee...", "..eeEEEEee..", "..eeeeeeeE..", "..eeEEEeeE..", "..eeeeeeeE..", "..eeeeeeeE..", ".p.eeeeeeE..", "pgpeeeeeEE..", "NgNNNNNNNNN.", "NNNNNNNNNNNN"],
+    fist: ["...ssssss...", "..sSsSsSss..", "..ssssssss..", ".sssssssssS.", ".sSSsssssss.", ".ssssssssss.", "..sssssssS..", "..ssssssSS..", "...ssssSS...", "...bbbbbb...", "...bbbbbb..."],
+    broken: [".rrr...rrr..", "rrwrr.rrrrr.", "rwrrkrrrrrR.", "rrrrrkrrrrR.", "rrrrkrrrrRR.", ".rrrrkrrRR..", "..rrkrrRR...", "...rrkRR....", "....rRR.....", ".....R......"],
     chart: ["..........l.", ".........ll.", "........l.l.", "...l...l....", "..l.l.l.....", ".l...l......", "l..........."]
   };
 
@@ -108,7 +111,7 @@
     "🪨": "rock", "🧱": "rock", "🎁": "gift", "✕": "x", "❓": "q", "❔": "q", "🤔": "q", "⏸": "pause", "☰": "menu", "❗": "bang", "🛠": "tools", "⚙": "gear",
     "⛏": "pick", "🪓": "axe", "🏺": "pot", "🧺": "pot", "🍯": "pot", "🧶": "yarn", "🌊": "wave", "👪": "family", "🧑": "family", "📜": "book", "📖": "book", "🏫": "school", "🎓": "school",
     "👁": "eye", "👀": "eye", "🔒": "lock", "🚀": "rocket", "🍂": "leaf", "🫐": "berry", "🐟": "fish", "🍖": "meat", "🌸": "flower", "🌼": "flower", "🐾": "paw", "👣": "paw",
-    "🎲": "dice", "⬆": "up", "🌌": "globe", "🏝": "globe", "🔊": "sound", "📣": "horn", "♀": "girl", "🏏": "club", "🎣": "rod", "🧥": "coat", "♂": "boy", "📢": "horn", "🔇": "mute", "🏆": "trophy", "💯": "trophy", "📐": "chart", "🌉": "log", "🛶": "log"
+    "🎲": "dice", "⬆": "up", "🌌": "globe", "🏝": "globe", "🔊": "sound", "📣": "horn", "♀": "girl", "🪦": "grave", "👊": "fist", "💔": "broken", "📜": "book", "🏏": "club", "🎣": "rod", "🧥": "coat", "♂": "boy", "📢": "horn", "🔇": "mute", "🏆": "trophy", "💯": "trophy", "📐": "chart", "🌉": "log", "🛶": "log"
   };
   IC.MAP = MAP;
   IC.ART = ART;

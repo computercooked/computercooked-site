@@ -326,7 +326,7 @@
     on("tierUp", function () { A.play("tierup"); });
     on("craft", function (e) { at("craft", e && e.c); });
     on("deliver", function (e) { at("build", e && e.c); });
-    on("built", function (e) { at("built", e && e.st); });
+    on("built", function (e) { if (e && e.st && e.st.kind === "grave") return; at("built", e && e.st); });
     on("lightning", function (e) { at("zap", e, 0.8); setTimeout(function () { at("thunder", e, 1); }, 200); });
     on("wildfire", function (e) { at("fire", e && e.node); });
     on("fireLit", function (e) { at("fire", e && e.st, 0.6); });

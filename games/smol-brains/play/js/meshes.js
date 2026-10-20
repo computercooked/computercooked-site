@@ -538,6 +538,15 @@
       b.color(0xd9b86a).sides(true).push().translate(0, 1.4, 0).rotZ(1.2).leaf(0.25, 0.6).pop().push().translate(0, 1.4, 0).rotZ(-1.2).leaf(0.25, 0.6).pop();
       return b.finish();
     },
+    grave: function () { // a little rounded headstone, a mound and a flower
+      var b = ME.builder();
+      b.color(0x7a5a3a, 1).push().translate(0, 0, 0.18).scale(0.32, 0.08, 0.4).sphere(1).pop();
+      b.smoothShade(true).color(0x9d98a3).push().translate(0, 0.22, -0.18).scale(0.22, 0.26, 0.07).sphere(2).pop();
+      b.push().translate(0, 0.1, -0.18).box(0.42, 0.22, 0.13).pop();
+      b.smoothShade(false).color(0xff9cc8).glow(0.3).push().translate(0.16, 0.1, 0.25).scale(0.05).sphere(0).pop().glow(0);
+      b.color(0x5fae4a).push().translate(0.16, 0.02, 0.25).cyl(3, 0.01, 0.01, 0.08).pop();
+      return b.finish();
+    },
     school: function () { // a long hut with a slate out front and a little flag
       var b = ME.builder();
       b.color(0xa8845a).push().scale(1.35, 1, 0.95).cyl(10, 0.95, 0.9, 0.8).pop();

@@ -201,6 +201,7 @@
     farm: { noun: "crop", label: "farm", emoji: "🌾", r: 1.1, cost: { stick: 2, seed: 2 }, work: 10, desc: "grows grain, sunroots or gourds by itself: a harvest every couple of minutes. faster in the rain and near a windmill." },
     totem: { noun: "totem", label: "story pole", emoji: "🗿", r: 0.4, cost: { stick: 3, stone: 1 }, work: 12, desc: "ideas carved in wood. smols who study it learn what the tribe knows, even after the inventors are gone." },
     school: { noun: "totem", label: "school", emoji: "🏫", r: 1.2, cost: { stick: 8, stone: 3, fiber: 2 }, work: 22, desc: "a roof, a slate and a circle of kids. kids nearby pick up the tribe's words and ideas twice as fast." },
+    grave: { noun: "wonder", label: "grave", emoji: "🪦", r: 0.35, cost: {}, work: 1, desc: "where a smol rests. friends come here to remember." },
     wall: { noun: "shelter", label: "palisade", emoji: "🪵", r: 0.9, cost: { stick: 4 }, work: 7, desc: "pointy sticks in a row. grumps don't like walking through it." },
     kiln: { noun: "fire", label: "kiln", emoji: "🏺", r: 0.8, cost: { stone: 4, clay: 2 }, work: 14, desc: "a hot clay oven. fires pots and smelts ore into copper." },
     workshop: { noun: "tool", label: "workshop", emoji: "🛠", r: 1.1, cost: { stick: 6, stone: 2, metal: 1 }, work: 18, desc: "a bench and a roof. crafting here is twice as fast." },

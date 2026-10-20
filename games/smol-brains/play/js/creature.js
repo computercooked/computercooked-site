@@ -135,6 +135,7 @@
   C.knows = knows;
   C.knownCount = function (c) { var n = 0; for (var w in c.vocab) if (c.vocab[w] >= 1) n++; return n; };
   function habit(c, k, amt) { c.habits[k] = (c.habits[k] || 0) + amt; }
+  C.habitOf = habit;
   C.habit = habit;
 
   function learnWord(c, word, amt, game) {
@@ -312,6 +313,20 @@
 
   function think(c, game) {
     var ch = c.chem, rng = game.rng, w = game.world;
+    if (c.convo) { startAction(c, game, V.idle, null, null, null); c.action.dur = 1.2; return; } // mid-conversation
+    if (c.tantrum && c.species === "smol") { // lashing out: shove whoever's nearest, or stomp about
+      var vic = null, vd = 4;
+      game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && !o.heldBy) { var dd = SB.dist(o.x, o.z, c.x, c.z); if (dd < vd) { vd = dd; vic = o; } } });
+      if (vic && rng.chance(0.45)) { var vt = { type: "creature", id: vic.id }, vr = resolve(game, vt); if (vr) { startAction(c, game, V.hit, vt, vr, "smol"); return; } }
+      startAction(c, game, V.wander, null, null, null); c.action.dur = 2.5;
+      if (!c.far && rng.chance(0.3)) say(c, rng.pick(["grr!", "hmph!", "BAD!", "no no no"]), game);
+      return;
+    }
+    // hit just now: brave smols hit back (a shove becomes a scuffle)
+    if (c.grudge && c.species === "smol" && game.time - c.grudge.t < 6 && ch.pain < 0.6 && rng.chance(0.35 + gene(c.genome, "bravery", 0.5) * 0.5)) {
+      var foe = SB.Game.byId(game, c.grudge.id);
+      if (foe && foe.alive && SB.dist(foe.x, foe.z, c.x, c.z) < 4 && C.provoke(c, foe, game)) return;
+    }
     if (c.stranger && SB.Strangers) { // a stranger walks up to the village and waits for your answer (or walks away)
       var sg = SB.Strangers.think(c, game);
       if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
@@ -422,10 +437,16 @@
     }
     if (mask[V.sleep] && (ch.sleepy > 0.85 || ch.tired > 0.9)) { bias[V.sleep] += 0.3; useBias = true; }
     if (ch.hunger > 0.8 && c.species === "smol") mask[V.sleep] = false; // too hungry to sleep
-    // smols are reluctant to hit their own kind unless they're really angry (and almost never family)
-    if (noun === "smol" && c.species === "smol" && mask[V.hit] && ch.anger < 0.5) {
-      var kin = target.ref && SB.Game.related && SB.Game.related(game, c, target.ref);
-      if (kin || rng.chance(0.85)) mask[V.hit] = false; else { bias[V.hit] -= 0.3; useBias = true; }
+    // smol on smol: hit back when hit, rivals pick fights, friends and family mostly don't,
+    // and everyone else shoves each other about now and then (it's funny)
+    if (noun === "smol" && c.species === "smol" && mask[V.hit] && target.ref) {
+      var foe = target.ref, op = SB.Social ? SB.Social.opinion(game, c, foe) : 0;
+      var kin = SB.Game.related && SB.Game.related(game, c, foe);
+      var grudge = c.grudge && c.grudge.id === foe.id && game.time - c.grudge.t < 10;
+      if (grudge && gene(c.genome, "bravery", 0.5) > 0.3 && ch.pain < 0.6) { bias[V.hit] += 0.7; useBias = true; }
+      else if (op <= -25 && ch.anger > 0.12) { bias[V.hit] += 0.2 + Math.min(0.5, (-op - 25) / 100); useBias = true; }
+      else if (op >= 25 || (kin && ch.anger < 0.7)) mask[V.hit] = false;
+      else if (ch.anger < 0.45 && rng.chance(0.7)) mask[V.hit] = false;
     }
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
@@ -490,6 +511,13 @@
     c.callVerb = { v: V[vn], t: game.time }; // the rest need a target: lean hard toward it and let the brain pick what
     return false;
   }
+  // go and hit someone (a fight, a grudge, a tantrum): skips the brain's choice
+  C.provoke = function (c, o, game) {
+    var t = { type: "creature", id: o.id }, r = resolve(game, t);
+    if (!r || c.plan) return false;
+    startAction(c, game, V.hit, t, r, "smol");
+    return true;
+  };
   function knowsAny(c, kind) {
     if (!SB.Ideas) return false;
     for (var id in c.ideas) if (c.ideas[id] >= 1 && SB.Ideas.BY_ID[id] && SB.Ideas.BY_ID[id].kind === kind) return true;
@@ -554,8 +582,16 @@
   }
 
   function findMate(c, game) {
-    var best = null, bd = 45;
-    game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && o.eggCooldown <= 0 && o.sex !== c.sex && !o.stranger && !(SB.Game.related && SB.Game.related(game, c, o))) { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < bd && d > 2) { bd = d; best = o; } } });
+    var p = c.partner && SB.Game.byId(game, c.partner);
+    if (p && p.alive && p.stage === 3 && SB.dist(p.x, p.z, c.x, c.z) > 2) return p; // go and find your partner
+    var best = null, bs = -1e9;
+    game.creatures.forEach(function (o) {
+      if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && o.eggCooldown <= 0 && o.sex !== c.sex && !o.stranger && !(SB.Game.related && SB.Game.related(game, c, o)) && !(o.partner && o.partner !== c.id)) {
+        var d = SB.dist(o.x, o.z, c.x, c.z); if (d > 45 || d < 2) return;
+        var s = (SB.Social ? SB.Social.opinion(game, c, o) : 0) - d * 0.8; // someone you like, not too far
+        if (s > bs) { bs = s; best = o; }
+      }
+    });
     return best;
   }
   function sniffFood(c, game) {
@@ -780,6 +816,7 @@
     }
     say(c, word, game);
     habit(c, "social", 0.3);
+    if (listener && SB.Social) SB.Social.onChat(game, c, listener);
     if (listener && listener.species === "smol" && listener.alive && !listener.asleep) { learnWord(listener, word, rate, game); habit(listener, "social", 0.2); }
   }
 
@@ -938,9 +975,12 @@
     var oc = o.chem;
     if (verb === V.hit) {
       c.stats.hits++;
+      // smol on smol: a shove when they're just annoyed, a real punch between rivals, in a grudge or a tantrum
+      var both = c.species === "smol" && o.species === "smol";
+      var punch = both && SB.Social && (SB.Social.rival(game, c, o) || (c.grudge && c.grudge.id === o.id && game.time - c.grudge.t < 10) || c.tantrum);
       // hurting one of your own when you weren't even angry feels bad (the brain learns from this)
-      if (c.species === "smol" && o.species === "smol" && c.chem.anger < 0.4) { SB.Chem.apply(c.chem, { lonely: 0.25, bored: 0.05 }); emote(c, "sad", 1.4); }
-      var hard = c.species === "grump" ? 0.3 : 0.2;
+      if (both && c.chem.anger < 0.4 && !punch) { SB.Chem.apply(c.chem, { lonely: 0.15, bored: 0.05 }); emote(c, "sad", 1.4); }
+      var hard = c.species === "grump" ? 0.3 : both ? (punch ? 0.16 : 0.05) : 0.2;
       if (o.inBed && c.species === "grump") hard *= 0.2; // huts protect
       SB.Chem.apply(oc, { pain: hard, fear: 0.18, anger: 0.15 });
       o.anim.squash = 0.35; emote(o, "ouch", 1.5);
@@ -958,21 +998,24 @@
         }
       }
       if (o.asleep) { o.asleep = false; o.inBed = false; o.action = null; }
-      var a = Math.atan2(o.x - c.x, o.z - c.z);
-      knock(o, Math.sin(a) * 2.5, Math.cos(a) * 2.5, 3);
-      SB.bus.emit("hit", { c: c, target: o });
+      var a = Math.atan2(o.x - c.x, o.z - c.z), kf = both && !punch ? 1.5 : 2.5;
+      knock(o, Math.sin(a) * kf, Math.cos(a) * kf, both && !punch ? 2 : 3);
+      if (both && SB.Social) { SB.Social.onHit(game, c, o, punch ? "punch" : "shove"); if (c.grudge && c.grudge.id === o.id) c.grudge = null; if (punch && SB.FX && !o.far) SB.FX.burst("crumbs", o.x, o.y + 0.4, o.z, 6, { col: [0.85, 0.8, 0.7] }); }
+      SB.bus.emit("hit", { c: c, target: o, kind: both ? (punch ? "punch" : "shove") : "hit" });
     } else if (verb === V.cuddle && o.species === "smol") {
       SB.Chem.apply(oc, { lonely: -0.2 });
       emote(c, "love", 1.8); emote(o, "love", 1.8);
+      if (SB.Social) SB.Social.onCuddle(game, c, o);
       tryBreed(c, o, game, c.action ? c.action.start[D.love] : c.chem.love);
     } else if (verb === V.play && o.species === "smol") {
       SB.Chem.apply(oc, { bored: -0.15 });
+      if (SB.Social) SB.Social.onPlay(game, c, o);
     } else if (verb === V.teach && o.species === "smol" && SB.Ideas) {
       var id = SB.Ideas.teach(c, o, game);
       talkTo(c, o, game);
       c.stats.taught++;
       if (id && !c.far) say(c, (game.culture.words[id] || SB.Ideas.BY_ID[id].name) + "!", game);
-      if (id && SB.Ideas.known(o, id)) SB.Game.note(game, c.name + " taught " + o.name + " " + SB.Ideas.BY_ID[id].name + " " + SB.Ideas.BY_ID[id].icon);
+      if (id && SB.Ideas.known(o, id)) { SB.Game.note(game, c.name + " taught " + o.name + " " + SB.Ideas.BY_ID[id].name + " " + SB.Ideas.BY_ID[id].icon); if (SB.Social) SB.Social.onTeach(game, c, o, SB.Ideas.BY_ID[id].name); }
     } else if (verb === V.give && o.species === "smol" && c.holding != null) {
       var it = SB.Game.byId(game, c.holding);
       if (it) {
@@ -987,6 +1030,7 @@
           SB.Brain.reinforce(c.brain, 0.4); // helping feels good
         }
         if (SB.Ideas && !SB.Ideas.known(c, "share")) SB.Ideas.discover(c, "share", game);
+        if (SB.Social) SB.Social.onGive(game, c, o, it);
         SB.bus.emit("give", { c: c, to: o, item: it });
       }
     }
@@ -1034,6 +1078,8 @@
     if (aLove + b.chem.love < 0.8 || Math.max(aLove, b.chem.love) < 0.5) return;
     if (a.eggCooldown > 0 || b.eggCooldown > 0) return;
     if (a.sex === b.sex) return;
+    if (SB.Social && (SB.Social.opinion(game, a, b) < -10 || SB.Social.opinion(game, b, a) < -10)) { emote(a, "huh", 1.2); return; } // not with someone you can't stand
+    if (a.partner && a.partner !== b.id && SB.Game.byId(game, a.partner) && SB.Game.byId(game, a.partner).alive) return; // already taken
     // family can't have kids together (parents, brothers and sisters, cousins): a colony needs newcomers
     if (SB.Game.related && SB.Game.related(game, a, b)) { a.chem.love *= 0.5; b.chem.love *= 0.5; if (!a.far) say(a, "we family!", game); SB.bus.emit("kin", { a: a, b: b }); return; }
     if (SB.Species && !SB.Species.compatible(a, b)) { emote(a, "huh", 1.5); SB.bus.emit("incompatible", { a: a, b: b }); return; }
@@ -1212,6 +1258,7 @@
   C.lesson = lesson;
 
   C.tickle = function (c, game) {
+    if (c.grief) { SB.Chem.apply(c.chem, { lonely: -0.2 }); c.grief.until -= 60; } // the sky's comfort shortens the grieving
     if (!c.alive) return;
     c.chem.reward = Math.min(1, c.chem.reward + 0.5);
     SB.Chem.apply(c.chem, { lonely: -0.05, bored: -0.03 });
@@ -1225,6 +1272,7 @@
   };
 
   C.tap = function (c, game) {
+    if (c.tantrum) { c.tantrum = null; c.chem.anger *= 0.4; if (SB.Social) SB.Social.log(game, c, "👆", "the sky told me to calm down"); } // a firm tap ends a tantrum
     if (!c.alive) return;
     c.chem.punish = Math.min(1, c.chem.punish + 0.5);
     SB.Chem.apply(c.chem, { pain: 0.06, fear: c.species === "grump" ? 0.25 : 0.05 });
@@ -1505,6 +1553,7 @@
       }
     }
 
+    if (c.convo && SB.Social) SB.Social.convoTick(game, c, dt);
     if (c.plan) runPlan(c, dt, game);
     else {
       if (!c.action) { c.thinkT -= dt * (c.far ? 0.5 : 1); if (c.thinkT <= 0) think(c, game); }

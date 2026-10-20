@@ -362,6 +362,7 @@
     ]);
     el.sheet.appendChild(head);
     el.sheet.appendChild(el.cThought = h("div", { class: "thought" }));
+    if (c.species !== "grump") el.sheet.appendChild(el.cPeople = h("div", { class: "chips people" }));
     el.sheet.appendChild(el.cDrives = h("div", { class: "drives" }));
     el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "ideas"), el.cIdeaN = h("span", { class: "dim" })]));
     el.sheet.appendChild(el.cIdeas = h("div", { class: "chips" }));
@@ -376,6 +377,7 @@
     el.sheet.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
+      h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
       h("button", { class: "btn", onclick: function () { shareSmol(c); } }, "📤 code"),
       h("button", { class: "btn", onclick: function () { openMenu("family", c); } }, "🌳 family")
     ]));
@@ -387,7 +389,14 @@
     if (!force && sheetT > 0) return;
     sheetT = 6;
     var stage = SB.STAGES[c.stage].name, tier = SB.TIERS[c.tier];
-    el.cName.textContent = c.name;
+    el.cName.textContent = (c.species === "smol" ? (c.sex === "f" ? "♀ " : "♂ ") : "") + c.name + (c.title ? " the " + c.title : "");
+    if (el.cPeople && SB.Social) {
+      var rel = SB.Social.relations(game, c).slice(0, 4), mood = [];
+      if (c.tantrum) mood.push('<span class="chip warnc">😤 tantrum!</span>');
+      if (c.grief) mood.push('<span class="chip dim">🕯 missing ' + esc(c.grief.name) + "</span>");
+      if (c.convo) mood.push('<span class="chip lime">💬 talking</span>');
+      el.cPeople.innerHTML = mood.join("") + rel.map(function (r) { var ic = r.label === "partner" ? "💕" : r.v >= 25 ? "💚" : r.v <= -25 ? "⚔" : "·"; return '<span class="chip ' + (r.v >= 25 ? "lime" : r.v <= -25 ? "warnc" : "dim") + '" title="' + esc(r.label) + '">' + ic + " " + esc(r.c.name) + " " + (r.v > 0 ? "+" : "") + r.v + "</span>"; }).join("") || '<span class="note">no friends or rivals yet</span>';
+    }
     el.cSub.innerHTML = '<span class="tierpill" style="color:' + tier.color + '">' + tier.icon + " " + tier.name + "</span> " + stage + " · gen " + c.gen + " · iq <b class='lime'>" + c.iq + "</b> · " + fmtTime(c.age) + (game.clades && game.clades[c.clade] ? " · <span class='lilac'>" + esc(game.clades[c.clade].name) + "</span>" : "");
     var mood = SB.Chem.MOOD_EMOJI[SB.Chem.mood(c.chem)] || "🙂";
     el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>";
@@ -668,6 +677,7 @@
       else if (ref.kind === "totem") { var ids = Object.keys(ref.data.ideas || {}); extra = ids.length ? "carved here: " + ids.map(function (i) { return SB.Ideas.BY_ID[i].icon + " " + (game.culture.words[i] || SB.Ideas.BY_ID[i].name); }).join(", ") : "blank, for now"; }
       else if (ref.kind === "campfire" || ref.kind === "kiln") extra = ref.data.lit ? "burning · fuel " + Math.round(ref.data.fuel * 100) + "%" : "cold. a smol who knows fire can light it.";
       else if (ref.kind === "farm") extra = "growing: " + Math.round((ref.data.grow || 0) * 100) + "%";
+      else if (ref.kind === "grave" && ref.data) { label = "🪦 " + (ref.data.name || "a smol"); extra = ref.data.epitaph || ""; }
     }
     el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "av", style: "background:#22242b" }, emoji), h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "nm" }, label), h("div", { class: "sub2" }, desc)]), h("button", { class: "ibtn", onclick: function () { UI.inspect(null); } }, "✕")]));
     if (extra) el.sheet.appendChild(h("div", { class: "thought" }, extra));
@@ -700,17 +710,49 @@
   UI.closeModal = closeModal;
 
   /* ---------------- menu / smolpedia ---------------- */
-  var TABS = [["evolution", "🧬 evolution"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
+  var TABS = [["evolution", "🧬 evolution"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
   function openMenu(tab, arg) {
     state.menuTab = tab || "evolution";
     var tabs = h("div", { class: "tabs" });
     TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
     modal("smolpedia", body, { tabs: tabs });
-    ({ evolution: tabEvolution, ideas: tabIdeas, smols: tabSmols, family: tabFamily, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
+    ({ evolution: tabEvolution, ideas: tabIdeas, smols: tabSmols, family: tabFamily, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
 
+  // the island's history, newest first (Dwarf Fortress legends, tiny)
+  function when(t) { var day = Math.floor(t / SB.DAY_LENGTH) + 1, h2 = Math.floor((t / SB.DAY_LENGTH % 1) * 24); return "day " + day + ", " + pad(h2) + ":00"; }
+  function tabChronicle(body) {
+    var ch = (game.chronicle || []).slice().reverse();
+    body.appendChild(h("p", { class: "note" }, "everything that mattered on this island: inventions, firsts, brawls, newcomers, the ones we lost."));
+    if (!ch.length) { body.appendChild(h("p", { class: "note" }, "nothing yet. give it time.")); return; }
+    var list = h("div", { class: "chron" });
+    ch.slice(0, 160).forEach(function (e) { list.appendChild(h("div", { class: "ce" }, [h("span", { class: "ci" }, e[1]), h("span", { class: "ct" }, e[2]), h("span", { class: "cd" }, when(e[0]))])); });
+    body.appendChild(list);
+  }
+  // one smol's whole story and social life (RimWorld's social tab)
+  function openStory(c) {
+    var body = h("div");
+    var rel = SB.Social ? SB.Social.relations(game, c) : [];
+    body.appendChild(h("div", { class: "sec" }, [h("span", null, "people"), h("span", { class: "dim" }, rel.length ? rel.length + " known" : "")]));
+    if (!rel.length) body.appendChild(h("p", { class: "note" }, "doesn't really know anyone yet."));
+    rel.slice(0, 14).forEach(function (r) {
+      var why = SB.Social.reasons(game, c, r.c).slice(0, 3).map(function (x) { return (x.v > 0 ? "+" : "") + x.v + " " + x.t; }).join(" · ");
+      var col = r.v >= 25 ? "lime" : r.v <= -25 ? "warnc" : "dim";
+      body.appendChild(h("div", { class: "relrow" }, [
+        avatar(r.c.look, r.c.tier),
+        h("div", { style: "flex:1;min-width:0" }, [h("div", null, [h("b", null, r.c.name), h("span", { class: "dim" }, " · " + r.label)]), h("div", { class: "note" }, why || "")]),
+        h("span", { class: "relv " + col }, (r.v > 0 ? "+" : "") + r.v)
+      ]));
+    });
+    body.appendChild(h("div", { class: "sec" }, "story"));
+    var d = (c.diary || []).slice().reverse();
+    if (!d.length) body.appendChild(h("p", { class: "note" }, "nothing has happened yet."));
+    d.forEach(function (e) { body.appendChild(h("div", { class: "ce" }, [h("span", { class: "ci" }, e[1]), h("span", { class: "ct" }, e[2]), h("span", { class: "cd" }, when(e[0]))])); });
+    modal((c.sex === "f" ? "♀ " : "♂ ") + c.name + (c.title ? " the " + c.title : ""), body);
+  }
+  UI.openStory = openStory;
   function tabEvolution(body) {
     var maxT = game.stats.maxTier || 0;
     var ladder = h("div", { class: "grid2" });
@@ -1231,6 +1273,26 @@
         "<b>ideas live in heads.</b> other smols learn them by watching, or by being taught. if everyone who knows an idea dies, it's gone.",
         "you can speed inventing up with ✨ magic → 💡 inspire. the 💡 ideas tab in the menu tracks what your smols know."
       ], fb);
+    });
+    var brawlT = 0;
+    on("brawl", function (d) {
+      if (SB.FX) SB.FX.burst("crumbs", d.b.x, d.b.y + 0.5, d.b.z, 10, { col: [0.9, 0.85, 0.7] });
+      storyCard("brawl", "👊", "a brawl!", ["<b>" + esc(d.a.name) + "</b> and <b>" + esc(d.b.name) + "</b> can't stand each other, and it came to blows.",
+        "smols remember who hit them, who shared food, who taught them things. tap a smol and open 📜 story to see who they love and who they've got a grudge against, and why.",
+        "a gift of food mends a grudge. 👆 tap scolds a bully."], ["👊", "brawl!", esc(d.a.name) + " vs " + esc(d.b.name)]);
+      if (performance.now() - brawlT > 20000) { brawlT = performance.now(); toast("👊 " + esc(d.a.name) + " and " + esc(d.b.name) + " are fighting!"); }
+    });
+    on("tantrum", function (d) { toast("😤 " + esc(d.c.name) + " is throwing a tantrum!"); });
+    on("title", function (d) { toast("🏆 " + esc(d.c.name) + " is now known as <b>" + esc(d.c.name) + " the " + esc(d.title) + "</b>", "ach"); });
+    on("inspired", function (d) { if (!d.c.far) toast("💡 " + esc(d.c.name) + " feels inspired! ideas come faster for a minute."); });
+    on("convo", function (d) {
+      if (d.a.tier >= 4 && !d.argue) storyCard("convo", "💬", "they're talking", ["your smols are clever enough now for real conversations: gossip, ideas, the weather, the sky, the ones they miss.",
+        "gossip spreads opinions: if one smol tells another that someone's a grump, the listener starts to think so too. ideas spread this way as well."]);
+    });
+    on("death", function (d) {
+      if (d.c.species !== "smol" || d.c.stranger) return;
+      storyCard("grave", "🪦", "goodbye, " + esc(d.c.name), ["every smol gets a little grave where it fell, with an epitaph. tap it to read it.",
+        "friends and family grieve for a while: they get lonely and slow, and visit the grave. the 📜 chronicle in the menu remembers everyone."]);
     });
     on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
     on("strangerLeft", function (d) { toast(esc(d.c.name) + (d.auto ? " gave up waiting and walked back into the wild." : " walks back into the wild.")); });

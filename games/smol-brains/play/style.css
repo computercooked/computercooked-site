@@ -274,3 +274,13 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 @keyframes blink { 50% { opacity: 0.35; } }
 .namebox .sexi { font-size: 0; display: flex; align-items: center; } .namebox .sexi .pxi { width: 26px; height: 26px; }
 .namebox + .namebox { margin-top: 8px; }
+
+/* ---------- social: people, story, chronicle ---------- */
+.chips.people { margin-top: 6px; }
+.warnc { color: var(--orange) !important; }
+.chron { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow-y: auto; }
+.ce { display: flex; gap: 8px; align-items: baseline; padding: 4px 2px; border-bottom: 2px solid rgba(255, 255, 255, 0.04); font-size: 13px; }
+.ce .ci { flex: none; } .ce .ct { flex: 1; } .ce .cd { flex: none; font-size: 11px; color: var(--dim); }
+.relrow { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 2px solid rgba(255, 255, 255, 0.04); }
+.relrow .av { width: 34px; height: 34px; flex: none; }
+.relv { font: 700 15px var(--sans); min-width: 3em; text-align: right; }

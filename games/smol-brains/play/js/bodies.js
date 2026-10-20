@@ -318,9 +318,22 @@
   B.pxBox = pxBox;
   var FONT = "Pixelify, ui-rounded, system-ui, sans-serif";
   B.FONT = FONT;
+  // wrap a line of speech into at most 3 lines of ~200px
+  function wrap(ctx, text, maxW) {
+    var words = String(text).split(" "), lines = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + " " + words[i] : words[i];
+      if (cur && ctx.measureText(t).width > maxW) { lines.push(cur); cur = words[i]; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > 3) { lines.length = 3; lines[2] += "…"; }
+    return lines;
+  }
   function bubble(ctx, x, y, text, kind) {
     ctx.font = "700 14px " + FONT;
-    var w = Math.round(Math.min(200, ctx.measureText(text).width) + 18), h = 24;
+    var lines = wrap(ctx, text, 210), lw = 0;
+    for (var li = 0; li < lines.length; li++) lw = Math.max(lw, ctx.measureText(lines[li]).width);
+    var w = Math.round(lw + 18), h = 8 + lines.length * 16;
     var bx = Math.round(x - w / 2), by = Math.round(y - h - 8);
     var fill = kind === "babble" ? "#e9e4f2" : kind === "think" ? "#d8d2ea" : "#fbf8f0", line = "#1a1222";
     pxBox(ctx, bx, by, w, h, fill, line);
@@ -330,7 +343,8 @@
     ctx.fillStyle = fill; ctx.fillRect(x - 3, by + h - 3, 6, 4); ctx.fillRect(x - 1, by + h + 1, 2, 2);
     if (kind === "think") { ctx.fillStyle = line; ctx.fillRect(x - 3, by + h - 2, 2, 2); ctx.fillRect(x + 1, by + h - 2, 2, 2); }
     ctx.fillStyle = "#1a1222"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    SB.Icons.fillText(ctx, text, x, by + h / 2 + 1, 14);
+    for (var lj = 0; lj < lines.length; lj++) SB.Icons.fillText(ctx, lines[lj], x, by + 4 + 8 + lj * 16 + 1, 14);
+    return h;
   }
 
   R.addOverlay(function (ctx, W, H, game) {
@@ -358,7 +372,7 @@
       else R.project(c.x, c.y + headH, c.z, pp);
       if (!pp.on) continue;
       var x = pp.x, y = pp.y;
-      if (c.speech && (zoom < 26 || game.selectedId === c.id)) { bubble(ctx, x, y - 4, c.speech.text, c.speech.kind); y -= 34; }
+      if (c.speech && (zoom < 26 || game.selectedId === c.id)) { y -= bubble(ctx, x, y - 4, c.speech.text, c.speech.kind) + 10; }
       else if (c.anim.emote && zoom < 22) {
         SB.Icons.fillText(ctx, EMOTE[c.anim.emote] || "", x, Math.round(y - 10 - Math.abs(Math.sin(t * 4)) * 4), 28);
         y -= 26;

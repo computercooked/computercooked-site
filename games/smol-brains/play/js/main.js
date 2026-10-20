@@ -358,6 +358,7 @@
     SB.Society.tick(game, dt);
     if (game.godHeat > 0) game.godHeat = Math.max(0, game.godHeat - dt / 60);
     if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
+    if (SB.Social) SB.Social.tick(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
     if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }
