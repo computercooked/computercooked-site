@@ -186,6 +186,8 @@
       if (!r || !r.ok || r.game !== game) return;
       dare = r;
       showDare(r.score, r.from);
+      // if this player makes an account later (within 30 days), the dare's sender gets credit for bringing them in
+      if (!me) { try { localStorage.setItem("cc-ref-dare", JSON.stringify({ d: did, t: Date.now() })); } catch (e) {} }
     });
   } else if (qs.get("vs")) {
     // a hand-made link without an id: show it, but nothing is verified or rewarded
