@@ -34,6 +34,7 @@
     opts = opts || {};
     var best = null, bd = 1e9, cam = R.camera, ppu = cam.pxPerUnit;
     function test(type, ref, x, y, z, rad, pri) {
+      if (!(ref.heldBy != null) && !SB.World.isSeen(game.world, x, z)) return; // nothing to touch under the fog
       R.project(x, y, z, pp);
       if (!pp.on) return;
       var d = Math.hypot(pp.x - sx, pp.y - sy), lim = Math.max(opts.touch ? 26 : 16, rad * ppu * 1.25);

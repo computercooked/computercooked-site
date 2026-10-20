@@ -129,6 +129,7 @@
     var got = learnWord(c, w, amt, game);
     if (!got) { var s = c.vocab[w] || 0; if (s >= 0.25) say(c, garble(w, s), game, c.stage === 0 ? "babble" : "say"); else emote(c, "huh", 1); }
     c.stats.lessons = (c.stats.lessons || 0) + 1;
+    habit(c, "social", 0.5); // being taught words makes for chattier kids (language)
     return got;
   };
   C.knows = knows;
@@ -427,6 +428,8 @@
       if (kin || rng.chance(0.85)) mask[V.hit] = false; else { bias[V.hit] -= 0.3; useBias = true; }
     }
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
+    // in love, but not with family (or the same sex): go and find someone else instead
+    if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
     // a sick friend and a healer who knows herbs: bring medicine
     if (noun === "smol" && mask[V.give] && target.ref.chem.sick > 0.4 && c.holding != null) { var hk = SB.Game.byId(game, c.holding); if (hk && hk.noun === "medicine") { bias[V.give] += 0.4; useBias = true; } }
@@ -1096,7 +1099,7 @@
           var src = Id.findSource(c, s.want, game);
           if (!src) { p.fails++; return endPlan(c, game, false); }
           s.src = src.item ? { type: "item", id: src.item.id } : { type: "node", id: src.node.id };
-          s.yieldKind = src.yield || null; s.yieldTime = src.time || null;
+          s.yieldKind = src.yield || null; s.yieldTime = src.time || null; s.fell = src.fell || null;
           if (src.item) src.item.claimed = c.id;
           c.attn = { type: s.src.type, id: s.src.id, noun: (src.item || src.node).noun, x: (src.item || src.node).x, z: (src.item || src.node).z };
         }
@@ -1118,6 +1121,7 @@
           var it = SB.World.add(w, game, g[0], c.x, c.z, {});
           C.carry(c, it, game, false); it.reserved = c.id;
           habit(c, "hands", 0.5);
+          if (s.fell && t.type === "node" && t.ref.state === "ok") { Id.fell(c, t.ref, game, s.fell === "axe" ? 2 : 1); if (!c.far) say(c, "timber!", game); } // the rest of the tree, for later
           p.i++;
         }
         return;

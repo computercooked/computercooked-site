@@ -34,6 +34,7 @@
     { id: "hut", name: "huts", icon: "🛖", tier: 4, needs: ["weave"], kind: "build", build: "hut", desc: "sticks and reed thatch. warm, dry, grump-proof sleep.", hint: "a builder who's cold and knows weaving" },
     { id: "pottery", name: "pottery", icon: "🏺", tier: 4, needs: ["fire"], kind: "craft", make: { in: { clay: 2 }, at: "fire", out: "pot", time: 6 }, desc: "clay + fire = a pot. pots brew medicine and bake bread.", hint: "clay near a fire" },
     { id: "totem", name: "story poles", icon: "🗿", tier: 4, needs: ["knap"], kind: "build", build: "totem", desc: "the tribe's ideas, carved in wood. study it to learn them. ideas on a pole are never forgotten.", hint: "a builder with a blade" },
+    { id: "school", name: "schools", icon: "🏫", tier: 4, needs: ["totem", "hut"], kind: "build", build: "school", desc: "a place where grown-ups teach kids on purpose. kids near a school learn words and ideas twice as fast.", hint: "a grown-up teaching kids by the story pole" },
     { id: "wall", name: "palisades", icon: "🪵", tier: 4, needs: ["hut"], kind: "build", build: "wall", desc: "pointy fences that grumps won't cross.", hint: "grumps, again" },
     { id: "bridge", name: "bridges", icon: "🌉", tier: 4, needs: ["hut"], kind: "build", build: "bridge", desc: "sticks across a river. the other side is now this side.", hint: "a builder at the water's edge" },
     { id: "kiln", name: "kilns", icon: "🧱", tier: 5, needs: ["pottery"], kind: "build", build: "kiln", desc: "a clay oven hot enough to melt rock.", hint: "a thinker who knows pottery" },
@@ -141,6 +142,7 @@
     hut: function (x) { return x.verb === "sleep" && (x.cold || x.raining) ? 0.5 : x.noun === "shelter" && x.held === "stick" ? 0.4 : 0; },
     pottery: function (x) { return x.nearFire && (x.held === "clay" || x.targetKind === "clay") ? 0.7 : 0; },
     totem: function (x) { return x.held === "blade" && (x.noun === "stick" || x.noun === "plant") ? 0.4 : 0; },
+    school: function (x) { return x.verb === "teach" && x.noun === "smol" ? 0.4 : x.noun === "totem" && x.friends >= 2 ? 0.12 : 0; },
     wall: function (x) { return x.noun === "grump" && x.held === "stick" ? 0.5 : x.noun === "grump" && x.verb === "flee" ? 0.1 : 0; },
     bridge: function (x) { return x.noun === "water" && x.held === "stick" ? 0.5 : 0; },
     kiln: function (x) { return x.nearFire && x.noun === "stone" && x.held === "clay" ? 0.6 : x.noun === "fire" && x.held === "clay" ? 0.3 : 0; },
@@ -224,6 +226,15 @@
   function toolKind(c, game) { var t = c.tool != null ? SB.Game.byId(game, c.tool) : null; return t ? t.kind : null; }
   I.heldKind = heldKind; I.toolKind = toolKind;
 
+  // a tree comes down: a stump that regrows, logs (and a stick) on the ground
+  I.fell = function (c, n, game, logs) {
+    var world = game.world;
+    n.chop = 0; n.state = "stump"; n.regrowT = 600; SB.World.markNode(world, n);
+    for (var s = 0; s < logs; s++) SB.World.dropFrom(world, game, n, "log");
+    SB.World.dropFrom(world, game, n, "stick");
+    habit(c, "hands", 2);
+    SB.bus.emit("chop", { c: c, node: n });
+  };
   function CHOPPABLE(kind) { return kind !== "bush" && kind !== "reeds" && kind !== "herbs" && kind !== "hive" && kind !== "clams" && kind !== "roots" && kind !== "gourds" && kind !== "cactus"; }
 
   /* ---------------- using things ("use" verb) ---------------- */
@@ -246,11 +257,8 @@
         res.ok = true; res.deltas.bored = -0.1; habit(c, "hands", 1);
         if (n.chop < 1) res.msg = "thok";
         else {
-          n.chop = 0; n.state = "stump"; n.regrowT = 600; SB.World.markNode(world, n);
-          for (var s = 0; s < (tool === "axe" ? 3 : 2); s++) SB.World.dropFrom(world, game, n, "log");
-          SB.World.dropFrom(world, game, n, "stick");
-          res.deltas.bored = -0.2; res.msg = "timber!"; habit(c, "hands", 2);
-          SB.bus.emit("chop", { c: c, node: n });
+          I.fell(c, n, game, tool === "axe" ? 3 : 2);
+          res.deltas.bored = -0.2; res.msg = "timber!";
         }
       } else if (tool === "hammer" && (n.kind === "boulder" || n.kind === "flintrock" || n.kind === "orevein" || n.kind === "crystals")) {
         SB.World.dropFrom(world, game, n, GATHER[n.kind][0]);
@@ -373,6 +381,12 @@
       // farmers know where seeds come from: the bottoms of bushes and fruit trees
       var sn = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && (n.kind === "bush" || n.kind === "oak" || n.kind === "birch" || n.kind === "cactus"); });
       if (sn) return { node: sn, yield: "seed", time: 3 };
+    }
+    // wood with an axe: fell a tree for logs (each worth three sticks)
+    var chopper = toolKind(c, game) === "axe" || heldKind(c, game) === "axe" ? "axe" : toolKind(c, game) === "stoneaxe" || heldKind(c, game) === "stoneaxe" ? "stoneaxe" : null;
+    if (want === "stick" && chopper) {
+      var tr = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && NK[n.kind].noun === "plant" && CHOPPABLE(n.kind) && n.grow == null && !(un[n.id] > now); });
+      if (tr) return { node: tr, yield: "log", time: chopper === "axe" ? 2 : 4.5, fell: chopper };
     }
     var node = SB.World.nearestNode(world, c.x, c.z, R, function (n) {
       if (un[n.id] > now) return false;
@@ -518,6 +532,7 @@
       case "hut": return count("hut") < Math.ceil(pop / 3) ? 0.5 + c.chem.tired * 0.3 + c.chem.cold * 0.3 : 0;
       case "farm": return count("farm") < Math.ceil(pop / 4) ? 0.45 + c.chem.hunger * 0.3 : 0;
       case "totem": return count("totem") < 1 ? 0.45 : 0;
+      case "school": return count("school") < 1 && pop >= 8 ? 0.45 : 0;
       case "wall": return count("wall") < Math.min(10, game.stats.grumpNights) ? 0.2 : 0;
       case "bridge": return count("bridge", 60) < 2 && game.rng.chance(0.2) ? 0.15 : 0;
       case "kiln": return count("kiln") < 1 ? 0.45 : 0;

@@ -538,6 +538,18 @@
       b.color(0xd9b86a).sides(true).push().translate(0, 1.4, 0).rotZ(1.2).leaf(0.25, 0.6).pop().push().translate(0, 1.4, 0).rotZ(-1.2).leaf(0.25, 0.6).pop();
       return b.finish();
     },
+    school: function () { // a long hut with a slate out front and a little flag
+      var b = ME.builder();
+      b.color(0xa8845a).push().scale(1.35, 1, 0.95).cyl(10, 0.95, 0.9, 0.8).pop();
+      b.color(0xc9a05a, 1).push().translate(0, 0.75, 0).scale(1.35, 1, 0.95).cyl(10, 1.2, 0.05, 0.95).pop();
+      b.color(0x2a1d14).push().translate(0, 0, 0.88).box(0.46, 0.58, 0.06).pop();
+      b.color(0x6a4a2e).push().translate(0.9, 0, 1.05).cyl(4, 0.03, 0.03, 0.55).pop().push().translate(1.4, 0, 1.05).cyl(4, 0.03, 0.03, 0.55).pop();
+      b.color(0x2e3b33).push().translate(1.15, 0.55, 1.05).box(0.62, 0.36, 0.04).pop();
+      b.color(0xf5f3ed).push().translate(1.05, 0.6, 1.08).box(0.18, 0.02, 0.01).pop().push().translate(1.2, 0.52, 1.08).box(0.24, 0.02, 0.01).pop();
+      b.color(0x6a4a2e).push().translate(-0.6, 1.2, 0).cyl(3, 0.025, 0.025, 1.0).pop();
+      b.color(0xc5ff49, 1).sides(true).push().translate(-0.6, 2.05, 0).rotZ(-1.57).leaf(0.16, 0.32).pop().sides(false);
+      return b.finish();
+    },
     wall: function () {
       var b = ME.builder().color(0x8a6440);
       for (var i = 0; i < 6; i++) b.push().translate(-0.75 + i * 0.3, 0, 0).cyl(5, 0.1, 0.08, 0.8 + (i % 2) * 0.12).translate(0, 0.8 + (i % 2) * 0.12, 0).cone(5, 0.08, 0.15).pop();

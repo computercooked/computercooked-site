@@ -53,7 +53,13 @@
         if (a === y || !a.alive || a.species !== "smol" || a.stage < 3) return;
         for (var id in a.ideas) if (a.ideas[id] >= 1 && !SB.Ideas.known(y, id) && SB.Ideas.canHold(y, id)) known.push(id);
       });
-      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), 0.45, game, "grew up with");
+      // a school nearby: twice the lessons, and the tribe's shared words too
+      var school = w.structures.some(function (s) { return s.kind === "school" && s.done && SB.dist(s.x, s.z, y.x, y.z) < 9; });
+      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), school ? 0.9 : 0.45, game, school ? "school" : "grew up with");
+      if (school && SB.Words) {
+        var words = SB.Words.BOOK.filter(function (b) { return SB.Words.share(game, b.w) >= 0.5 && (y.vocab[b.w] || 0) < 1; });
+        if (words.length) SB.Creature.lessonWord(y, game.rng.pick(words).w, game, 0.3);
+      }
     });
     game.tribes.forEach(function (t) {
       // name the tribe once its smols can talk about themselves

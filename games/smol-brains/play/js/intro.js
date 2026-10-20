@@ -118,6 +118,9 @@
     var lastF = 0;
     function frame() {
       if (done) return;
+      try { draw(); } catch (e) { if (window.console) console.warn("[smol] intro", e); finish(); } // never leave the island hidden
+    }
+    function draw() {
       var now = performance.now(), t = (now - t0) / 1000;
       var dt = lastF ? Math.min(0.1, (now - lastF) / 1000) : 1 / 60; // real time, so slow devices keep pace
       lastF = now;
