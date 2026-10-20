@@ -149,6 +149,7 @@
     bigthought: function (x) { return x.tier >= 6 && x.friends >= 2 && (x.noun === "totem" || x.noun === "wonder" || x.held === "crystal") ? 0.4 : 0; }
   };
 
+  var PONDER = 0.004;
   I.tryDiscover = function (c, ctx, game) {
     if (c.species !== "smol" || c.tier < 2) return null;
     var g = c.genome.genes;
@@ -161,6 +162,9 @@
       var d = LIST[i], tr = TRIGGERS[d.id];
       if (!tr || I.known(c, d.id) || !I.canHold(c, d.id)) continue;
       var w = tr(ctx);
+      // pondering: a smol evolved enough for an idea (and who knows what it builds on) can work it out
+      // eventually even if the perfect moment never comes. the right situation is still much faster.
+      if (!w) w = PONDER; // (canHold already checked the tier and what it builds on)
       if (!w) continue;
       // things someone else already knows are easier to "get" (you've seen it done)
       var seen = game.culture.found[d.id] ? 1.4 : 1;
@@ -595,7 +599,7 @@
     if (!id) return;
     SB.World.creaturesNear(game.world, game, actor.x, actor.z, 7, function (w) {
       if (w === actor || w.species !== "smol" || w.asleep || !w.alive) return;
-      if (I.learn(w, id, 0.07, game, "watched")) SB.Game.note(game, w.name + " learned " + BY[id].name + " by watching " + actor.name + " 👀");
+      if (I.learn(w, id, 0.12, game, "watched")) SB.Game.note(game, w.name + " learned " + BY[id].name + " by watching " + actor.name + " 👀");
     });
   };
 

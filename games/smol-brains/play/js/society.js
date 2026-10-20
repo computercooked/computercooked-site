@@ -33,6 +33,17 @@
     acc = 0;
     So.init(game);
     var w = game.world;
+    // growing up: young smols pick up the colony's know-how from the grown-ups around them
+    // (every 4 s, a bit of one idea from a nearby adult), so ideas outlive their inventors
+    if (SB.Ideas) game.creatures.forEach(function (y) {
+      if (!y.alive || y.species !== "smol" || y.stage > 2 || y.stage < 1 || y.asleep) return;
+      var known = [];
+      SB.World.creaturesNear(w, game, y.x, y.z, 8, function (a) {
+        if (a === y || !a.alive || a.species !== "smol" || a.stage < 3) return;
+        for (var id in a.ideas) if (a.ideas[id] >= 1 && !SB.Ideas.known(y, id) && SB.Ideas.canHold(y, id)) known.push(id);
+      });
+      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), 0.22, game, "grew up with");
+    });
     game.tribes.forEach(function (t) {
       // name the tribe once its smols can talk about themselves
       if (!t.name) {
