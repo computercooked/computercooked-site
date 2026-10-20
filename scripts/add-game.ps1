@@ -13,7 +13,7 @@ $repo = Split-Path $PSScriptRoot -Parent
 $entry = Get-Content -Raw (Join-Path $Source "entry.json") | ConvertFrom-Json
 if (-not (Test-Path (Join-Path $Source "index.html"))) { throw "no index.html in $Source" }
 $slug = "$($entry.slug)"
-if ($slug -notmatch '^[a-z0-9-]+$' -or $slug -eq "crash") { throw "bad slug '$slug'" }
+if ($slug -notmatch '^[a-z0-9-]+$') { throw "bad slug '$slug'" }
 
 # copy the game
 $dest = Join-Path $repo "games\$slug"

@@ -12,7 +12,7 @@ assets/           logo.svg (also the favicon), og.png, apple-touch-icon.png, fon
 assets/deck.*     the "control deck" nav + "/" command bar, shared by every page
 assets/fx.js      presentation-only polish for /games pages: card tilt, ticker, player boot screen, "play next" strip
 games/            Computer Cooked Games: hub (index.html), games.json, games.css, hub.js
-games/crash/      CRASH, our first game (index.html player page, crash.js, thumb.svg)
+games/crash/      CRASH, our first game (standard player page, play/ build, thumb.svg for the hub)
 robots.txt, sitemap.xml, _headers
 wrangler.jsonc    Cloudflare Worker config (static assets only)
 .assetsignore     files kept off the live site
@@ -60,7 +60,7 @@ It copies the folder to `games/<slug>/play/`, generates the player page `games/<
 
 Vanilla JS + canvas, no build step. Touch (drag anywhere), arrows / A D, P or Esc to pause, M to mute. Heat rises on its own and with every task that hits; coffee and fans cool down; 100° = cooked. High score is in `localStorage` (wrapped in try/catch).
 
-**Art and audio** live in `games/crash/assets/` and come from the ccgames pack (`computer-cooked-games\assets\crash\` and `music\crash\`). Paths are in the `SPRITES` and `SOUNDS` objects at the top of `games/crash/crash.js`; swap a file to restyle, or set a path to `""` to fall back to the code-drawn sprite / WebAudio blip for that slot. The CRASH sheet is three 128×128 frames (idle, hit, cooked), drawn with nearest-neighbour scaling. The page loads only the small sprites and SFX (~80 KB); the music loop (62 s, mp3) is fetched after the first tap, and loops via WebAudio `loopStart`/`loopEnd` so there is no gap. Task labels and game-over one-liners are arrays near the top of `crash.js`.
+**Art and audio** live in `games/crash/play/assets/` and come from the ccgames pack (`computer-cooked-games\assets\crash\` and `music\crash\`). Paths are in the `SPRITES` and `SOUNDS` objects at the top of `games/crash/play/crash.js`; swap a file to restyle, or set a path to `""` to fall back to the code-drawn sprite / WebAudio blip for that slot. The CRASH sheet is three 128×128 frames (idle, hit, cooked), drawn with nearest-neighbour scaling. The page loads only the small sprites and SFX (~80 KB); the music loop (62 s, mp3) is fetched after the first tap, and loops via WebAudio `loopStart`/`loopEnd` so there is no gap. Task labels and game-over one-liners are arrays near the top of `crash.js`.
 
 **Music licence:** the music and SFX were generated with ElevenLabs on a Creator plan. Its terms allow indie games only under revenue limits (see `computer-cooked-games\music\crash\README.md` and `operations/owner-asks.md`); confirm eligibility before this goes live.
 
