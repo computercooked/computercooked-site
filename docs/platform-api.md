@@ -52,6 +52,29 @@ Notes:
 - Days are UTC.
 - Playtest traffic carries a `tester` tag. Filter on it when you want public numbers only.
 
+## Daily digest
+
+`GET /api/admin/digest?days=7` (Bearer token, `days` 1–31, default 7). One row per **Pacific-time** day (America/Los_Angeles, DST handled), oldest first. The last row is today so far (`partial: true`). Smoke traffic is left out, as in metrics.
+
+```json
+{ "ok": true, "tz": "America/Los_Angeles", "days": 7, "from": "2026-10-14", "to": "2026-10-20", "generated_at": "…",
+  "rows": [{
+    "date": "2026-10-20", "partial": true,
+    "plays": 0, "players": 0, "new_players": 0,          // new = first play ever that day
+    "d1_return": { "back": 0, "of": 0, "pct": null },     // of that day's new players, how many played the next day (null for today)
+    "ref": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0, "threads": 0, "bluesky": 0, "search": 0, "other": 0, "direct": 0, "internal": 0, "app": 0, "embed": 0 },
+    "next": { "plays": 0, "per_run": null },             // play-next plays / runs ended that day
+    "game_shares": 0,                                    // "share this game" sends
+    "dares": { "made": 0, "sent": 0, "opened": 0, "beaten": 0 },   // dares made that day, and what became of them
+    "new_accounts": 0,
+    "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]   // games played that day
+  }],
+  "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]     // whole window
+}
+```
+
+**As a table:** `node scripts/digest.mjs https://computercooked.com "$TOKEN" [days] [--json]`. It prints the day rows (today is marked `*`), the totals (plays, plays from social, game shares, dares sent, new accounts) and the per-game table. The token goes only in the Authorization header and is never printed; a failed request prints the HTTP status and exits 1.
+
 ## Link tags (where plays come from)
 
 **Put `?ref=<channel>` on every link we post**, e.g. `https://computercooked.com/games?ref=tiktok` or `https://computercooked.com/games/crash/?ref=yt`. In-app browsers (TikTok, Instagram) usually send no referrer, so without the tag those plays would count as `direct`.
@@ -245,6 +268,7 @@ POSTs from other sites are refused, and logins, sign-ups, events and feedback ar
 | method | path | what |
 |---|---|---|
 | GET | `/api/admin/metrics?since=` | above |
+| GET | `/api/admin/digest?days=7` | daily digest by Pacific day (see "Daily digest") |
 | GET | `/api/admin/reports` | open reports |
 | GET | `/api/admin/featured?date=` | game-of-the-week preview for that date's week (default: next week). Stores nothing |
 | GET | `/api/admin/challenge?date=` | the weekly challenge for that date's week (default: next week): hand pick, stored auto pick, or a preview of the auto pick. Stores nothing |
