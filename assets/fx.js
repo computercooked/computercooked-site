@@ -9,6 +9,7 @@
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   var DAILY = { fathom: "daily dive", "handbag-havoc": "daily garden", "desktop-jam": "daily desktop" };
+  var SPOT_MAX = 6;
   var NEW_COUNT = 4; // newest N games (end of games.json, never CRASH) get a "new" badge
   /* hub filter chips. A game lands in a vibe if any of its tags match; games without tags
      use FALLBACK until they get tags in games.json. */
@@ -152,6 +153,7 @@
     var order = (lead ? [lead] : []).concat(newest.filter(function (g) { return g !== lead; })).concat(games.filter(function (g) {
       return g !== lead && newest.indexOf(g) < 0;
     }));
+    order = order.slice(0, SPOT_MAX); // a dot per game gets long on phones past ~6
     if (feat && lead && lead.slug === feat.game) {
       var cta = document.querySelector(".hero-play");
       if (cta) { cta.href = "/games/" + encodeURIComponent(lead.slug) + "/"; cta.textContent = "play " + lead.title + " ▶"; }

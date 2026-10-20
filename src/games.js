@@ -1,5 +1,5 @@
 // Plays/events, leaderboards, feedback, hub stats, /me data.
-import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean } from "./util.js";
+import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean, streakFrom } from "./util.js";
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
 import { friendIds, people } from "./friends.js";
@@ -199,18 +199,15 @@ export async function meSummary(env, user, origin) {
     }
   }
   const xp = levelOf(await totalXp(env, user.id));
-  return json({ ok: true, user, recent, bests, favorites: favs, saves, streak: streak(days), days_played: days.length, xp, xp_history: history, achievements });
+  const st = streak(days);
+  return json({ ok: true, user, recent, bests, favorites: favs, saves, streak: st.n, streak_saved: st.savedRecently, days_played: days.length, xp, xp_history: history, achievements });
 }
 
 // consecutive days with a play, counting back from today (or yesterday, so it doesn't reset before you play today)
+// the streak shown on /me: counts from today, or from yesterday if you haven't played yet today
 export function streak(days) {
-  const set = new Set(days);
-  let d = new Date();
-  let key = dayOf(d.getTime());
-  if (!set.has(key)) { d = new Date(d.getTime() - 86400000); key = dayOf(d.getTime()); }
-  let n = 0;
-  while (set.has(key)) { n++; d = new Date(d.getTime() - 86400000); key = dayOf(d.getTime()); }
-  return n;
+  const set = new Set(days), today = dayOf(now());
+  return streakFrom(set, set.has(today) ? today : dayOf(now() - 86400000));
 }
 
 // POST /api/me/favorite {game, on}

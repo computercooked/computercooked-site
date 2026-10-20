@@ -75,6 +75,7 @@ cc.achieve(id)  // -> Promise<{id, name, desc, xp} | null>; logged-in players on
   - +10 per run, plus up to +40 for the run's rank against everyone on that game's all-time board;
   - +25 the first time you play a game;
   - a daily streak bonus of +5 × streak days, capped at +50.
+  - **Streak saver:** one missed day is forgiven when the day before it was played, at most once per 7 days (`streakFrom` in `src/util.js`). It applies to the XP bonus, seven day uptime and the /me streak; `/api/me/summary` adds `streak_saved` when a saver was used in the last 7 days.
 - **Daily cap:** the run part is capped at 150 XP per game per day.
 - **Levels:** reaching level L takes 50·(L−1)^1.6 total XP (L2 50, L5 459, L10 1682). Titles: fresh install, warm boot (3), fan noise (5), tab hoarder (8), overclocked (12), thermal throttled (16), blue screen veteran (20), fully cooked (25), the kernel (30).
 - **Site-wide achievements:** sampler platter (5 games), seven day uptime (7-day streak), leaderboard material (top 10 on an all-time board), ctrl+s (first cloud save), critic.exe (rate a game).
