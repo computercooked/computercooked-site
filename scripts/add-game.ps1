@@ -74,4 +74,13 @@ if ($sm -notmatch [regex]::Escape($loc)) {
   [IO.File]::WriteAllText($smPath, $sm)
 }
 
+# link-preview cards (og.png, og-vs.png). Without the render tools, the thumbnail stands in so links never 404.
+if (Test-Path (Join-Path $repo "scripts\.og-tools\node_modules")) {
+  & node (Join-Path $repo "scripts\make-og.mjs") $slug
+} else {
+  $thumbFile = Join-Path $repo ($thumb.TrimStart("/").Replace("/", "\"))
+  foreach ($f in "og.png", "og-vs.png") { Copy-Item $thumbFile (Join-Path $dest $f) -Force }
+  Write-Warning "og cards: copied the thumbnail. For real cards: npm install --prefix scripts/.og-tools @resvg/resvg-js@2.6.2 wawoff2@2.0.1, then node scripts/make-og.mjs $slug"
+}
+
 "added $slug -> /games/$slug/ ($([math]::Round(((Get-ChildItem -Recurse -File $play | Measure-Object Length -Sum).Sum) / 1KB)) KB)"
