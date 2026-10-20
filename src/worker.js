@@ -10,7 +10,7 @@ import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { recapRoute } from "./recap.js";
-import { makeDare, getDare, beatDare, sharedDare } from "./dares.js";
+import { makeDare, getDare, beatDare, sharedDare, sharedGame } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
@@ -107,6 +107,8 @@ async function api(req, env, url) {
   if (dm && method === "GET" && !dm[2]) return getDare(url, env, dm[1], await catalogOf(env, origin));
   if (dm && method === "POST" && dm[2] === "/beat") return beatDare(req, env, user, dm[1]);
   if (dm && method === "POST" && dm[2] === "/shared") return sharedDare(req, env, ip, dm[1]);
+  // "share this game" after a run with no score
+  if (route === "POST /api/share") return sharedGame(req, env, ip, await catalogOf(env, origin));
 
   if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin, user);
 

@@ -124,6 +124,13 @@ export async function metrics(url, env, origin) {
     by_slot: Object.fromEntries(["challenge", "similar", "new"].map((k) => [k, (nx.find((r) => r.slot === k) || {}).plays || 0])),
   };
 
+  // "share this game" after runs with no score (no dare): sends by method (smoke ones are never stored)
+  const gs = (await db.prepare(
+    "SELECT json_extract(data, '$.how') how, COUNT(*) n FROM events WHERE name = 'cc:share' AND ts >= ? GROUP BY 1"
+  ).bind(Date.parse(since)).all()).results;
+  const gsOf = (k) => (gs.find((r) => r.how === k) || {}).n || 0;
+  const game_shares = { sent: gs.reduce((n, r) => n + r.n, 0), via_share: gsOf("share"), via_copy: gsOf("copy"), via_card: gsOf("card"), via_download: gsOf("download") };
+
   // smoke-test traffic left out of everything above, counted here so a live smoke run can be confirmed excluded
   const test = await db.prepare(
     `SELECT (SELECT COUNT(*) FROM plays WHERE day >= ?1 AND NOT ${REAL}) plays,
@@ -144,6 +151,7 @@ export async function metrics(url, env, origin) {
       uploads_pending: pending || 0, open_reports: reports || 0,
     },
     dares,
+    game_shares,
     next,
     test_traffic: test,
     games: out,
