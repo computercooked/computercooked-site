@@ -746,6 +746,9 @@ layout();
 startLevel(save.cleared > 0 && save.cleared < LEVELS.length ? save.cleared : 0, true);
 speedrun = { t: 0, valid: save.cleared === 0, deaths: 0, on: false };
 if (patchNews) { toastMsg = 'patch 2.0: 5 new levels'; toastT = 3.5; }
+// from the hub's "tap to play" card (cc.autostart): there's no title screen, level 1 is already live, so the
+// flag is just used up here. If a title screen is ever added, skip it when this is true.
+ccCall('autostart');
 requestAnimationFrame(frame);
 
 window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; } };

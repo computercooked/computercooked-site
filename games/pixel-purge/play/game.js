@@ -925,6 +925,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 loadLevel(levelCfg(clamp(save.last || 1, 1, save.unlocked)));
+// from the hub's "tap to play" card (cc.autostart): there's no title screen, the board is already live, so the
+// flag is just used up here. If a title screen is ever added, skip it when this is true.
+try { const c = cc(); if (c && c.autostart) c.autostart(); } catch (e) {}
 requestAnimationFrame(frame);
 
 // test hooks (harmless outside dev)
