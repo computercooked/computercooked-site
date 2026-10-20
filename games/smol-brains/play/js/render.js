@@ -12,7 +12,7 @@
   var STRIDE = ME.STRIDE, ISTRIDE = 20;
 
   var ctx = null, gl = null, canvas = null, overlay = null, octx = null;
-  var progs = {}, meshes = {}, chunks = [], ringBuf = null, cloudTex = null;
+  var progs = {}, meshes = {}, chunks = [], ringBuf = null, cloudTex = null, seenTex = null, seenBuf = null, seenWorld = null;
   var T = null, game = null;
   var W = 1, H = 1, dpr = 1, quality = { scale: 1, decor: true, lights: 8 };
   var VP = M4.create(), V = M4.create(), P = M4.create();
@@ -33,6 +33,17 @@
     "uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uSkyCol; uniform vec3 uGndCol; uniform vec3 uFogCol;",
     "uniform vec4 uFog; uniform vec4 uLP[8]; uniform vec3 uLC[8]; uniform float uNight; uniform float uNL;",
     "uniform sampler2D uCloud; uniform vec4 uCloudP;",
+    "uniform sampler2D uSeen; uniform vec2 uSeenK;",
+    // fog of war: unexplored land sits under a soft, slowly drifting sea of cloud
+    "vec3 fow(vec3 c, vec3 w) {",
+    "  if (uSeenK.y < 0.5) return c;",
+    "  float s = smoothstep(0.2, 0.8, texture2D(uSeen, w.xz * uSeenK.x).r);",
+    "  if (s > 0.999) return c;",
+    "  float n = texture2D(uCloud, w.xz * 0.035 + uCloudP.xy * 0.6).r;",
+    "  vec3 fc = mix(vec3(0.20, 0.19, 0.29), vec3(0.42, 0.40, 0.55), smoothstep(0.3, 0.75, n));",
+    "  fc *= 0.55 + 0.45 * (1.0 - uNight * 0.7);",
+    "  return mix(fc, c, s);",
+    "}",
     "vec3 shade(vec3 col, vec3 n, vec3 w, float em, float fog) {",
     "  float sd = max(dot(n, uSunDir), 0.0);",
     "  float cl = texture2D(uCloud, w.xz * uCloudP.z + uCloudP.xy).r;",
@@ -47,7 +58,7 @@
     "  }",
     "  c += col * em * (0.55 + uNight * 1.1);",
     "  c = c - max(c - 0.8, 0.0) * 0.55;",
-    "  return mix(c, uFogCol, fog);",
+    "  return fow(mix(c, uFogCol, fog), w);",
     "}"
   ].join("\n");
 
@@ -133,6 +144,7 @@
     "  vec3 col = mix(shallow, deep, smoothstep(0.0, 3.2, d));",
     "  vec3 nrm = normalize(vec3((n1 - 0.5) * 0.5, 1.0, (n2 - 0.5) * 0.5));",
     "  vec3 lit = shade(col, nrm, vW, 0.0, 0.0);",
+    "  float seenW = uSeenK.y < 0.5 ? 1.0 : smoothstep(0.2, 0.8, texture2D(uSeen, vW.xz * uSeenK.x).r);",
     "  vec3 V = normalize(uEye - vW);",
     "  float spec = pow(max(dot(reflect(-uSunDir, nrm), V), 0.0), 60.0);",
     "  lit += uSunCol * spec * 0.9;",
@@ -144,7 +156,7 @@
     "  float a = mix(0.42, 0.9, smoothstep(0.0, 1.4, d));",
     "  a = max(a, clamp(foam, 0.0, 1.0)); a = max(a, uFreeze);",
     "  float fog = smoothstep(uFog.x, uFog.y, dot(vW.xz - uCam.xy, uCam.zw)) * uFog.z;",
-    "  gl_FragColor = vec4(mix(lit, uFogCol, fog), a);",
+    "  gl_FragColor = vec4(fow(mix(lit, uFogCol, fog), vW), mix(1.0, a, seenW));",
     "}"
   ].join("\n");
 
@@ -259,7 +271,7 @@
     progs.pt = GL.program(ctx, VS_PT, FS_PT);
     progs.line = GL.program(ctx, VS_LINE, FS_LINE);
     progs.shadow = GL.program(ctx, VS_SHADOW, FS_SHADOW);
-    cloudTex = makeCloudTexture();
+    cloudTex = makeCloudTexture(); seenTex = null;
     buildMeshes();
     // phones: flat-shaded low-poly reads fine at ~1.6x, and it's a lot fewer pixels than 2x or 3x.
     // labels and UI stay crisp because the overlay canvas keeps the full device ratio.
@@ -318,6 +330,7 @@
     meshes["n:stump"] = upload(ME.stump());
     meshes["n:burnt"] = upload(ME.burnt());
     for (k in SB.KINDS) meshes["i:" + k] = upload(ME.itemMesh(k));
+    meshes["i:pod"] = upload(ME.podMesh());
     for (k in ME.STRUCT_BUILDERS) meshes["s:" + k] = upload(ME.STRUCT_BUILDERS[k]());
     for (v = 0; v < ME.DECOR_BUILDERS.length; v++) meshes["d:" + v] = upload(ME.DECOR_BUILDERS[v]());
     for (k in ME.PARTS) if (ME.PARTS[k]) meshes["p:" + k] = upload(ME.PARTS[k]());
@@ -519,6 +532,7 @@
     for (var n = 0; n < nodes.length; n++) {
       var nd = nodes[n];
       if (nd.x < x0 || nd.x >= x0 + S || nd.z < z0 || nd.z >= z0 + S) continue;
+      if (!SB.World.isSeen(game.world, nd.x, nd.z)) continue; // under the fog of war
       var y = WG.heightAt(T, nd.x, nd.z) - 0.04;
       var key = "n:" + nd.kind + ":" + (nd.id % 3);
       if (nd.state === "stump") key = "n:stump";
@@ -527,10 +541,21 @@
       var s = nd.s * (nd.grow == null ? 1 : 0.3 + 0.7 * nd.grow);
       push(key, nd.x, y, nd.z, nd.rot, s, s, s, nodeTint(nd), ME.DECIDUOUS[nd.kind] ? 1 : 0, 0);
     }
+    // places to find (sites.js): drawn once the fog has lifted off them
+    var sites = game.sites || [];
+    for (var pi = 0; pi < sites.length; pi++) {
+      var ps = sites[pi];
+      if (ps.x < x0 || ps.x >= x0 + S || ps.z < z0 || ps.z >= z0 + S || !SB.World.isSeen(game.world, ps.x, ps.z)) continue;
+      var pk = ps.kind === "cave" ? "n:cave:0" : ps.kind === "nest" ? "n:nest:0" : ps.kind === "camp" && ps.done ? "s:site_campdone" : "s:site_" + ps.kind;
+      if (!meshes[pk]) continue;
+      var py = WG.heightAt(T, ps.x, ps.z) - 0.03, psc = ps.kind === "nest" ? 1.8 : ps.kind === "cave" ? 1.3 : ps.kind === "wreck" ? 1.3 : 1.6;
+      push(pk, ps.x, py, ps.z, ps.rot || 0, psc, psc, psc, [1, 1, 1], 0, ps.kind === "ruin" && !ps.found ? 0.3 : 0);
+    }
     var sts = game.world.structures || [];
     for (var si = 0; si < sts.length; si++) {
       var st = sts[si];
       if (st.x < x0 || st.x >= x0 + S || st.z < z0 || st.z >= z0 + S) continue;
+      if (!SB.World.isSeen(game.world, st.x, st.z)) continue;
       var sk = "s:" + (st.done ? st.kind : "plot");
       if (!meshes[sk]) continue;
       // sit on the highest ground under the footprint, so nothing sinks into a slope
@@ -558,6 +583,7 @@
       for (var di = 0; di < D.length; di += 5) {
         var dx = D[di], dz = D[di + 1];
         if (dx < x0 || dx >= x0 + S || dz < z0 || dz >= z0 + S) continue;
+        if (!SB.World.isSeen(game.world, dx, dz)) continue;
         var type = D[di + 2], sc = D[di + 3], rot = D[di + 4];
         var L = dl[type] || (dl[type] = []), o = L.length;
         L.length += ISTRIDE;
@@ -588,7 +614,12 @@
     } else {
       if (c.follow) {
         var f = c.follow();
-        if (f) { var kf = 1 - Math.exp(-dt * 4); c.x += (f.x - c.x) * kf; c.z += (f.z - c.z) * kf; }
+        if (f) {
+          // with a panel open at the bottom, aim below the smol so it shows up in the visible top part
+          var sh = (c.shift || 0) * c.halfH, fl = Math.hypot(c.fwd[0], c.fwd[2]) || 1, upk = Math.max(0.35, Math.abs(c.up[1]));
+          var tx = f.x - c.fwd[0] / fl * sh / upk, tz = f.z - c.fwd[2] / fl * sh / upk;
+          var kf = 1 - Math.exp(-dt * 4); c.x += (tx - c.x) * kf; c.z += (tz - c.z) * kf;
+        }
         else c.follow = null;
       } else if (c.vx || c.vz) {
         c.x += c.vx * dt; c.z += c.vz * dt;
@@ -602,7 +633,8 @@
     if (T) { c.x = SB.clamp(c.x, -10, T.N + 10); c.z = SB.clamp(c.z, -10, T.N + 10); }
     // pitch eases from a low, cinematic angle up close to a map-like angle far out
     var zt = SB.clamp((Math.log(c.zoom) - Math.log(4)) / (Math.log(70) - Math.log(4)), 0, 1);
-    c.pitch = SB.lerp(0.62, 1.12, zt);
+    // plus the player's own tilt (right-drag / two-finger drag / R,F): lower to look across the land, higher for a map
+    c.pitch = SB.clamp(SB.lerp(0.62, 1.12, zt) + (c.tilt || 0) * (1 - zt * 0.6), 0.42, 1.42);
     var gy = T ? Math.max(SB.SEA, WG.heightAt(T, c.x, c.z)) : 0;
     c.y += (gy - c.y) * (1 - Math.exp(-dt * 3));
     if (c.shake > 0) c.shake = Math.max(0, c.shake - dt * 2);
@@ -657,9 +689,10 @@
   };
   R.rotateBy = function (a) { cam.tYaw += a; };
   R.flyTo = function (x, z, zoom, dur, done) {
+    if (cam.intro && cam.intro.cine) return; // never cut into a cinematic: its ending does important work (the landing shows the UI)
     cam.intro = { t: 0, dur: dur || 1.2, x0: cam.x, zz0: cam.z, x1: x, zz1: z, z0: cam.zoom, z1: zoom || cam.zoom, yaw0: cam.yaw, yaw1: cam.yaw, done: done };
   };
-  R.cinematic = function (o) { cam.intro = o; cam.intro.t = 0; };
+  R.cinematic = function (o) { cam.intro = o; cam.intro.t = 0; cam.intro.cine = true; };
 
   var pv = [0, 0, 0];
   // world -> CSS pixels {x, y, z(ndc depth), on}
@@ -721,14 +754,14 @@
   // keyframes over the day (0 = midnight, 0.25 dawn, 0.5 noon, 0.75 dusk)
   var SKY = [
     { t: 0.0, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
-    { t: 0.2, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
-    { t: 0.26, sun: [0.95, 0.52, 0.36], sky: [0.5, 0.42, 0.58], gnd: [0.26, 0.2, 0.22], fog: [0.62, 0.46, 0.5] },
+    { t: 0.17, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
+    { t: 0.235, sun: [0.95, 0.52, 0.36], sky: [0.5, 0.42, 0.58], gnd: [0.26, 0.2, 0.22], fog: [0.62, 0.46, 0.5] },
     { t: 0.32, sun: [1.0, 0.82, 0.6], sky: [0.56, 0.6, 0.78], gnd: [0.32, 0.29, 0.26], fog: [0.72, 0.72, 0.8] },
     { t: 0.5, sun: [1.0, 0.96, 0.88], sky: [0.55, 0.64, 0.8], gnd: [0.34, 0.32, 0.28], fog: [0.72, 0.82, 0.92] },
     { t: 0.66, sun: [1.08, 0.86, 0.62], sky: [0.58, 0.58, 0.72], gnd: [0.34, 0.29, 0.25], fog: [0.78, 0.72, 0.74] },
     { t: 0.72, sun: [1.15, 0.66, 0.38], sky: [0.6, 0.47, 0.56], gnd: [0.34, 0.24, 0.22], fog: [0.78, 0.55, 0.52] },
-    { t: 0.765, sun: [0.95, 0.42, 0.3], sky: [0.46, 0.34, 0.5], gnd: [0.22, 0.16, 0.2], fog: [0.5, 0.33, 0.42] },
-    { t: 0.81, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
+    { t: 0.785, sun: [0.95, 0.42, 0.3], sky: [0.46, 0.34, 0.5], gnd: [0.22, 0.16, 0.2], fog: [0.5, 0.33, 0.42] },
+    { t: 0.83, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
     { t: 1.0, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] }
   ];
   var env = (R.env = { sun: [1, 1, 1], sky: [0.5, 0.5, 0.5], gnd: [0.3, 0.3, 0.3], fog: [0.7, 0.8, 0.9], sunDir: [0.3, 0.8, 0.3], night: 0, cloud: 0.3, wind: 0.5, snow: 0, wet: 0, autumn: 0, freeze: 0, rain: 0, flash: 0 });
@@ -822,6 +855,25 @@
     if (perf.ft > 45 && quality.decor && perf.slowT > 1.5 && quality.scale <= 0.5) quality.decor = false;
   }
 
+  // the explored map as a little texture (one texel per 4×4 tiles, soft-filtered so the cloud edge is fuzzy)
+  function updateSeen(world) {
+    if (!world || !world.seen) return;
+    var S = SB.World.SEEN_N;
+    if (!seenTex || seenWorld !== world) {
+      seenBuf = new Uint8Array(S * S * 4);
+      seenTex = GL.texture(ctx, S, S, null, {});
+      seenWorld = world; world.seenDirty = true;
+    }
+    if (!world.seenDirty) return;
+    world.seenDirty = false;
+    if (world.seenChunks) { // trees and grass there can show now
+      for (var ck in world.seenChunks) { var ch = chunks[ck]; if (!ch) continue; ch.dirty = true; if (ch.decor) { for (var d in ch.decor) gl.deleteBuffer(ch.decor[d].buf); ch.decor = null; } }
+      world.seenChunks = {};
+    }
+    for (var i = 0, s = world.seen; i < s.length; i++) { var o = i * 4; seenBuf[o] = seenBuf[o + 1] = seenBuf[o + 2] = s[i]; seenBuf[o + 3] = 255; }
+    gl.bindTexture(gl.TEXTURE_2D, seenTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, S, S, gl.RGBA, gl.UNSIGNED_BYTE, seenBuf);
+  }
   R.frame = function (g, dt, alpha) {
     if (!gl || R.lost) return;
     game = g || game;
@@ -829,6 +881,7 @@
     adapt(dt);
     perf.draws = 0; perf.tris = 0;
     updateEnv(game && game.world);
+    updateSeen(game && game.world);
     updateCamera(dt);
     for (var k in frameDyn) frameDyn[k].n = 0;
     shadowN = 0; lightList.length = 0;
@@ -907,6 +960,10 @@
     if (p.u.uNight != null) gl.uniform1f(p.u.uNight, env.night);
     if (p.u.uCloud) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cloudTex); gl.uniform1i(p.u.uCloud, 0); }
     if (p.u.uCloudP) gl.uniform4f(p.u.uCloudP, time * 0.004 * (0.5 + env.wind), time * 0.0025 * (0.5 + env.wind), 0.012, SB.clamp01(env.cloud * 0.9 + 0.1));
+    if (p.u.uSeen) {
+      gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, seenTex); gl.uniform1i(p.u.uSeen, 4); gl.activeTexture(gl.TEXTURE0);
+      gl.uniform2f(p.u.uSeenK, 1 / SB.WORLD_N, seenTex && !R.noFog ? 1 : 0);
+    }
     gl.uniformMatrix4fv(p.u.uVP, false, VP);
   }
 

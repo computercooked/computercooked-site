@@ -60,6 +60,7 @@
   /* ---------------- creatures ---------------- */
 
   function drawCreature(c, alpha, t, game) {
+    if (!c.heldBy && !SB.World.isSeen(game.world, c.x, c.z)) return; // hidden under the fog of war
     var x = c.px + (c.x - c.px) * alpha, z = c.pz + (c.z - c.pz) * alpha;
     var y = c.y;
     if (c.py && Math.abs(c.y - c.py) < 2) y = c.py + (c.y - c.py) * alpha;
@@ -212,6 +213,7 @@
     for (var i = 0; i < its.length; i++) {
       var o = its[i];
       if (o.inBag && o.heldBy != null) continue;
+      if (o.heldBy == null && !SB.World.isSeen(game.world, o.x, o.z)) continue;
       if (Math.abs(o.x - cam.x) > cam.halfW * 1.4 + 2 || Math.abs(o.z - cam.z) > cam.halfH * 2.2 + 2) continue;
       if (zoomFar && !o.heldBy && o.kind !== "egg" && !K[o.kind].glow) continue;
       var def = K[o.kind], s = 1, rx = 0, rz = 0, ry = o.rot || 0, y = o.y;
@@ -222,7 +224,10 @@
         var eg = o.data.genome, tint = eg && eg.genes ? SB.mixC([1, 1, 1], SB.hsl(eg.genes.hue * 360, 0.6, 0.7), 0.35) : null;
         if (o.data.starter && !o.data.progress) ext = [0, 0.25 + Math.sin(t * 3) * 0.15, 0];
         setBase(o.x, y, o.z, ry, 1);
-        part("i:egg", 0, 0, 0, 0, 0, rz, s, s, s, tint, ext);
+        if (o.data.pod) { // the escape pod: rattles when you tap it, smokes until it opens
+          part("i:pod", 0, 0, 0, 0.6, 0, rz * 0.4, 1.1, 1.1, 1.1, null, o.data.progress ? [0, 0.2 + o.data.progress * 0.5, 0] : ext);
+          if (SB.FX && Math.random() < 0.06) SB.FX.burst("smoke", o.x + 0.2, y + 0.8, o.z, 1, { r: 0.2 });
+        } else part("i:egg", 0, 0, 0, 0, 0, rz, s, s, s, tint, ext);
         if (o.data.starter || o.data.wild) R.light(o.x, y + 0.6, o.z, 2.5, 1, 0.9, 0.6);
       } else {
         if (def.critter === "fly") rx = Math.sin(t * 18 + o.id) * 0.4;
@@ -303,18 +308,43 @@
   var pp = {};
   B.labels = true;
 
+  // a chunky pixel box: 2px dark border with notched corners, like the sprites' outlines
+  function pxBox(ctx, x, y, w, h, fill, line) {
+    ctx.fillStyle = line;
+    ctx.fillRect(x + 2, y, w - 4, h); ctx.fillRect(x, y + 2, w, h - 4); ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+    ctx.fillStyle = fill;
+    ctx.fillRect(x + 3, y + 2, w - 6, h - 4); ctx.fillRect(x + 2, y + 3, w - 4, h - 6);
+  }
+  B.pxBox = pxBox;
+  var FONT = "Pixelify, ui-rounded, system-ui, sans-serif";
+  B.FONT = FONT;
+  // wrap a line of speech into at most 3 lines of ~200px
+  function wrap(ctx, text, maxW) {
+    var words = String(text).split(" "), lines = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + " " + words[i] : words[i];
+      if (cur && ctx.measureText(t).width > maxW) { lines.push(cur); cur = words[i]; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > 3) { lines.length = 3; lines[2] += "…"; }
+    return lines;
+  }
   function bubble(ctx, x, y, text, kind) {
-    ctx.font = (kind === "think" ? "italic " : "") + "700 13px ui-rounded, system-ui, sans-serif";
-    var w = Math.min(200, ctx.measureText(text).width) + 16, h = 24;
+    ctx.font = "700 14px " + FONT;
+    var lines = wrap(ctx, text, 210), lw = 0;
+    for (var li = 0; li < lines.length; li++) lw = Math.max(lw, ctx.measureText(lines[li]).width);
+    var w = Math.round(lw + 18), h = 8 + lines.length * 16;
     var bx = Math.round(x - w / 2), by = Math.round(y - h - 8);
-    ctx.fillStyle = kind === "babble" ? "rgba(245,243,237,0.82)" : kind === "think" ? "rgba(255,255,255,0.7)" : "#f5f3ed";
-    ctx.strokeStyle = "rgba(16,17,20,0.85)"; ctx.lineWidth = 2;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 11); else ctx.rect(bx, by, w, h);
-    ctx.moveTo(x - 5, by + h); ctx.lineTo(x, by + h + 7); ctx.lineTo(x + 5, by + h);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#101114"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(text, x, by + h / 2 + 1, 190);
+    var fill = kind === "babble" ? "#e9e4f2" : kind === "think" ? "#d8d2ea" : "#fbf8f0", line = "#1a1222";
+    pxBox(ctx, bx, by, w, h, fill, line);
+    // the little tail, in steps
+    x = Math.round(x);
+    ctx.fillStyle = line; ctx.fillRect(x - 5, by + h - 2, 10, 4); ctx.fillRect(x - 3, by + h + 2, 6, 2); ctx.fillRect(x - 1, by + h + 4, 2, 2);
+    ctx.fillStyle = fill; ctx.fillRect(x - 3, by + h - 3, 6, 4); ctx.fillRect(x - 1, by + h + 1, 2, 2);
+    if (kind === "think") { ctx.fillStyle = line; ctx.fillRect(x - 3, by + h - 2, 2, 2); ctx.fillRect(x + 1, by + h - 2, 2, 2); }
+    ctx.fillStyle = "#1a1222"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (var lj = 0; lj < lines.length; lj++) SB.Icons.fillText(ctx, lines[lj], x, by + 4 + 8 + lj * 16 + 1, 14);
+    return h;
   }
 
   R.addOverlay(function (ctx, W, H, game) {
@@ -330,48 +360,56 @@
         if (!pp.on) return;
         ctx.fillStyle = "rgba(16,17,20,0.65)"; var tw = ctx.measureText(v.name).width + 16;
         ctx.fillRect(pp.x - tw / 2, pp.y - 11, tw, 22);
-        ctx.fillStyle = "#c5ff49"; ctx.fillText("🏘 " + v.name, pp.x, pp.y + 1);
+        ctx.fillStyle = "#c5ff49"; SB.Icons.fillText(ctx, "🏘 " + v.name, pp.x, pp.y + 1, 14);
       });
     }
     for (var i = 0; i < cs.length; i++) {
       var c = cs[i];
-      if (!c.alive || c.far) continue;
+      if (!c.alive || c.far || !SB.World.isSeen(game.world, c.x, c.z)) continue;
       var Rr = SB.Creature.radius(c), lk = c.look;
       var headH = Rr * (2.3 + (lk.legs ? 0.35 + lk.legLen * 0.9 : 0) + (lk.head > 0.4 ? 1 : 0) + (lk.halo ? 0.6 : 0));
       if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, pp); pp.y -= c._pxH; } // sprites: above the painted head
       else R.project(c.x, c.y + headH, c.z, pp);
       if (!pp.on) continue;
       var x = pp.x, y = pp.y;
-      if (c.speech && (zoom < 26 || game.selectedId === c.id)) { bubble(ctx, x, y - 4, c.speech.text, c.speech.kind); y -= 34; }
+      if (c.speech && (zoom < 26 || game.selectedId === c.id)) { y -= bubble(ctx, x, y - 4, c.speech.text, c.speech.kind) + 10; }
       else if (c.anim.emote && zoom < 22) {
-        ctx.font = "20px system-ui, apple color emoji, sans-serif";
-        ctx.fillText(EMOTE[c.anim.emote] || "", x, y - 10 - Math.abs(Math.sin(t * 4)) * 4);
+        SB.Icons.fillText(ctx, EMOTE[c.anim.emote] || "", x, Math.round(y - 10 - Math.abs(Math.sin(t * 4)) * 4), 28);
         y -= 26;
       }
       if (c.species === "smol" && (showNames || game.selectedId === c.id) && B.labels) {
-        ctx.font = "700 11px ui-rounded, system-ui, sans-serif";
+        ctx.font = "700 12px " + FONT;
         var label = c.name + (c.tier ? " " + SB.TIERS[c.tier].icon : "");
         ctx.fillStyle = game.selectedId === c.id ? "#c5ff49" : "rgba(245,243,237,0.92)";
         ctx.strokeStyle = "rgba(16,17,20,0.75)"; ctx.lineWidth = 3;
         R.project(c.x, c.y - 0.05, c.z, pp);
-        ctx.strokeText(label, pp.x, pp.y + 12); ctx.fillText(label, pp.x, pp.y + 12);
+        SB.Icons.fillText(ctx, label, pp.x, pp.y + 12, 14, true);
       }
       // starving / sick warnings so the player can help
       if (c.species === "smol" && (c.chem.hunger > 0.85 || c.chem.sick > 0.5 || c.chem.cold > 0.75) && !c.speech) {
-        ctx.font = "16px system-ui, apple color emoji, sans-serif";
-        ctx.fillText(c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, y - 8 + Math.sin(t * 5) * 2);
+        SB.Icons.fillText(ctx, c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, Math.round(y - 8 + Math.sin(t * 5) * 2), 14);
       }
     }
+    // places nobody has explored yet: a bobbing marker, so you know where to send them
+    (game.sites || []).forEach(function (st) {
+      if (st.found || !SB.World.isSeen(game.world, st.x, st.z)) return;
+      R.project(st.x, SB.World.groundY(game.world, st.x, st.z) + 2.4, st.z, pp);
+      if (!pp.on) return;
+      var by = Math.round(pp.y + Math.sin(t * 2.5 + st.id) * 4);
+      ctx.fillStyle = "rgba(16,17,20,0.75)"; ctx.fillRect(pp.x - 12, by - 12, 24, 24);
+      ctx.fillStyle = st.kind === "camp" ? "#ff5f5f" : "#ffd84a"; ctx.fillRect(pp.x - 10, by - 10, 20, 20);
+      ctx.fillStyle = "#101114"; ctx.font = "700 16px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(st.kind === "camp" ? "!" : "?", pp.x, by + 1);
+    });
     // prayers
     (game.prayers || []).forEach(function (p) {
       var c = SB.Game.byId(game, p.id);
       if (!c || !c.alive || p.answered) return;
       R.project(c.x, c.y + SB.Creature.radius(c) * 4.4, c.z, pp);
       if (!pp.on) return;
-      ctx.font = "18px system-ui, apple color emoji, sans-serif";
       var a = 0.6 + Math.sin(t * 4) * 0.4;
       ctx.globalAlpha = a;
-      ctx.fillText("🙏" + (NEED_EMOJI[p.need] || "✨"), pp.x, pp.y - 30);
+      SB.Icons.fillText(ctx, "🙏" + (NEED_EMOJI[p.need] || "✨"), pp.x, pp.y - 30, 28);
       ctx.globalAlpha = 1;
     });
     // building sites: what they still need

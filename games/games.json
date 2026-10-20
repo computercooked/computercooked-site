@@ -295,7 +295,7 @@
     {
       "slug": "smol-brains",
       "title": "smol brains",
-      "pitch": "an island of tiny pixel creatures with real neural-network brains. they evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
+      "pitch": "an island of tiny pixel creatures with real neural-network brains. they crash-land, evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
       "thumbnail": "/games/smol-brains/play/thumb.png",
       "made_by": "computer-cooked",
       "tags": [
@@ -305,17 +305,21 @@
         "3d",
         "pixel art"
       ],
-      "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, tap or drag the map to jump. tools: grab (carry, throw, rescue), tickle (reward), tap (scold), talk (teach words), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer, m map.",
-      "size_kb": 792,
-      "version": "2.2",
+      "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, rescue), tickle (reward), tap (scold), talk (the word book), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer, m map.",
+      "size_kb": 980,
+      "version": "3.2",
       "added": "2026-10-19",
       "how_to": [
-        "tap the egg to warm it, then teach a first word: pick 💬 talk and tap an apple a few times. smols learn nouns before verbs.",
+        "tap the crashed pod open. two blobs climb out, a girl and a boy: the last smols. name them.",
+        "💬 talk opens the word book. pick a word, then show it: tap some food for “food”, or ask a smol to “come” and it learns when it does. one lesson every few seconds, so mashing does nothing.",
         "tickle right after the good thing. a few seconds late rewards whatever it is doing by then, which is how smols learn weird superstitions.",
-        "stuck on an evolution? the goal strip says which gene is missing. ✨ magic → 🧬 bless makes the next eggs lean that way.",
-        "tool-users invent things on their own. 💡 inspire speeds it up, and smols teach each other. if the last smol who knows an idea dies, it's gone.",
-        "the brain viewer (b) is the cheat code: watch which action lights up and you'll know what to tickle or scold.",
-        "share your world: smolpedia → world → copy world link. anyone who opens it gets the same island."
+        "smols remember who hit them, shared food, or taught them things. tap a smol → 📜 story to see its friends, rivals and life so far; the menu's 📜 chronicle keeps the island's history.",
+        "family can't have kids together. welcome strangers from the other escape pods, or your tribe runs out of futures.",
+        "miracles get pricier the more you lean on them, and handouts spoil smols. answer prayers with the right miracle: that's where sparks come from.",
+        "the island starts under cloud. smols clear it by exploring, and new places hold new plants, stone, and bunnies to hunt.",
+        "a storyteller deals story cards every few minutes: grump raids, storms, sniffles, falling stars, feuds, lost kids, dreams. pick an answer; some cost ✨ sparks.",
+        "explore the fog: the \"?\" marks hide crashed pods with the ark's logs, ruins, crystal caves, nests and grump camps holding captured smols.",
+        "evolve them all the way to ascended and build the big thought. it's a signal home. then try new game+."
       ]
     }
   ]

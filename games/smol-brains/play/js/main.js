@@ -66,12 +66,12 @@
     { id: "cure", icon: "💊", name: "smol doctor", desc: "a sick smol gets better." },
     { id: "elder", icon: "👴", name: "wise old smol", desc: "a smol becomes an elder." },
     { id: "explorer", icon: "🧭", name: "explorer", desc: "one smol visits 6 different biomes." },
-    { id: "iq100", icon: "💯", name: "genius", desc: "a smol scores 100+ iq." },
-    { id: "iq150", icon: "🚀", name: "galaxy brain", desc: "a smol scores 150+ iq." },
-    { id: "iq250", icon: "🌌", name: "cosmic brain", desc: "a smol scores 250+ iq." },
+    { id: "iq100", icon: "💯", name: "genius", desc: "a smol scores 150+ iq." },
+    { id: "iq150", icon: "🚀", name: "galaxy brain", desc: "a smol scores 220+ iq." },
+    { id: "iq250", icon: "🌌", name: "cosmic brain", desc: "a smol scores 320+ iq." },
     { id: "share", icon: "📤", name: "show off", desc: "share a smol code or your civilisation card." },
     { id: "import", icon: "🌌", name: "pen pal", desc: "bring in a smol from a code." },
-    { id: "day7", icon: "📅", name: "one week", desc: "reach day 7." },
+    { id: "day7", icon: "📅", name: "three days", desc: "see three sunrises on the island." },
     { id: "winter", icon: "❄️", name: "made it through winter", desc: "reach the first spring." },
     { id: "goodbye", icon: "🕊", name: "circle of life", desc: "a smol lives a full life." },
     { id: "critter", icon: "🐾", name: "legs!", desc: "a smol evolves into a critter." },
@@ -99,6 +99,7 @@
     { id: "card", icon: "🪪", name: "postcard", desc: "make a civilisation card." },
     { id: "seed", icon: "🌱", name: "world builder", desc: "copy a world code to share." },
     { id: "migrate", icon: "🛶", name: "old friends", desc: "smols from the old valley found the island." },
+    { id: "stranger", icon: "🧳", name: "newcomer", desc: "welcome a stranger into your tribe." },
     { id: "bigthought", icon: "🌟", name: "the big thought", desc: "finish the spire." }
   ];
   var ACH = {};
@@ -131,6 +132,29 @@
     game.sparks -= n;
     return true;
   };
+  // miracles get dearer the more you lean on them (it cools off over a few minutes), and cost double
+  // when you're running time fast: a god at 8× or 16× isn't really paying attention
+  Game.miracleCost = function (game, base) {
+    var heat = game.godHeat || 0, fast = game.speed >= 8 ? 2 : 1;
+    return Math.round(base * (1 + 0.3 * heat) * fast);
+  };
+  // the right answer pays: a miracle for a need, a tickle for a lonely or lovesick smol (it just wants you)
+  Game.prayerPay = function (game, how, p) { var right = how === "miracle" || (how === "comfort" && p && /lonely|love|bored|fear/.test(p.need)); return right ? Math.round(5 * (1 - (game.spoil || 0))) : 1; };
+  Game.usedMiracle = function (game, id) {
+    if (game.time < SB.DAY_LENGTH * 0.335 + 1200 && !game.ngPlus) return; // the first 20 minutes are for learning what miracles do
+    game.godHeat = Math.min(10, (game.godHeat || 0) + (id === "bless" ? 2 : 1));
+  };
+  // handing out food and toys to smols who don't need them spoils them: they stop looking for their own
+  Game.spoilFrom = function (game, id) {
+    var sm = Game.smols(game);
+    if (!sm.length) return;
+    var hunger = sm.reduce(function (a, c) { return a + c.chem.hunger; }, 0) / sm.length;
+    var add = id === "bounty" ? (hunger < 0.45 ? 0.14 : 0.03) : id === "gift" ? 0.05 : 0;
+    if (!add) return;
+    var before = game.spoil || 0;
+    game.spoil = Math.min(1, before + add);
+    if (before < 0.35 && game.spoil >= 0.35) SB.bus.emit("spoiled", {});
+  };
 
   /* ---------------- family, spawning, eggs ---------------- */
 
@@ -145,7 +169,7 @@
     var c = SB.Creature.create(game, {
       species: "smol", genome: opts.genome || SB.Genome.random(game.rng, { species: "smol" }),
       name: opts.name || SB.makeName(game.rng), x: opts.x, z: opts.z, gen: opts.gen || 1,
-      parents: opts.parents || [], brain: opts.brain, vocab: opts.vocab, age: opts.age, tribe: opts.tribe, ideas: opts.ideas
+      parents: opts.parents || [], brain: opts.brain, vocab: opts.vocab, age: opts.age, tribe: opts.tribe, ideas: opts.ideas, sex: opts.sex
     });
     game.creatures.push(c);
     Game.familyAdd(game, c);
@@ -194,18 +218,24 @@
 
   Game.hatch = function (game, egg) {
     var d = egg.data || {};
-    var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, z: egg.z, gen: d.gen || 1, parents: d.parents || [], name: d.name, tribe: d.tribe, ideas: d.ideas });
-    if (d.starter) {
-      c.chem.hunger = 0.72; c.chem.bored = 0.15;
-      SB.Brain.dream(c.brain, [{ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 1 }], 80, game.rng);
+    var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, z: egg.z, gen: d.gen || 1, parents: d.parents || [], name: d.name, tribe: d.tribe, ideas: d.ideas, sex: d.twins ? "f" : null });
+    var twin = null;
+    if (d.twins && d.genome2) { // the escape pod: a girl and a boy climb out
+      twin = Game.spawnSmol(game, { genome: d.genome2, x: egg.x + 0.7, z: egg.z + 0.3, gen: 1, parents: [], tribe: d.tribe, sex: "m" });
+      d.twin = twin;
     }
+    if (d.starter) [c, twin].forEach(function (s) {
+      if (!s) return;
+      s.chem.hunger = 0.72; s.chem.bored = 0.15;
+      SB.Brain.dream(s.brain, [{ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 1 }], 80, game.rng);
+    });
     if (SB.Render && SB.Render.camera) c.facing = Math.atan2(SB.Render.camera.eye[0] - c.x, SB.Render.camera.eye[2] - c.z) || 0;
     SB.World.remove(game.world, egg);
     game.stats.hatched++;
     if (c.gen > game.stats.maxGen) game.stats.maxGen = c.gen;
     if (c.tier > (game.stats.maxTier || 0)) {
+      for (var ti = (game.stats.maxTier || 0) + 1; ti <= c.tier; ti++) if (ti >= 1) Game.unlock(game, SB.TIERS[ti].id); // a skipped tier still counts
       game.stats.maxTier = c.tier;
-      if (c.tier >= 1) Game.unlock(game, SB.TIERS[c.tier].id);
       SB.bus.emit("tierUp", { c: c, tier: c.tier });
       Game.addSparks(game, 10 * c.tier, c);
       if (window.cc && cc.event) try { cc.event("tier", { tier: c.tier, gen: c.gen }); } catch (e) {}
@@ -256,22 +286,73 @@
     game.world.time = game.time;
     SB.Society.init(game);
     SB.Species.init(game);
+    if (SB.Sites) SB.Sites.generate(game);
     return game;
   };
 
   Game.newGame = function (seed) {
     var g = Game.create(seed);
     var nest = g.world.T.nest;
-    var egg = SB.World.add(g.world, g, "egg", nest.x, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0, starter: true });
-    var ins = egg.data.genome.instincts, hasEat = false;
-    for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
-    if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
+    // the founders' escape pod (an "egg" underneath: tap it open). two unrelated blobs, a girl and a boy
+    var egg = SB.World.add(g.world, g, "egg", nest.x, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), genome2: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0, starter: true, pod: true, twins: true });
+    [egg.data.genome, egg.data.genome2].forEach(function (gn) {
+      var ins = gn.instincts, hasEat = false;
+      for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
+      if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
+    });
     // an apple waits by the nest, and a gift from the sky
     var a = SB.World.add(g.world, g, "apple", nest.x + 1.6, nest.z + 0.6, {});
     a.data.starterApple = true;
     SB.World.add(g.world, g, "ball", nest.x - 1.8, nest.z + 1.2, {});
     return g;
   };
+
+  // new game+: a new island, settled by two descendants of your best smols. They keep their looks,
+  // personalities and instincts, but the island takes their brains back down to tool-users. The
+  // storyteller remembers, and pushes harder each time round.
+  // a prayer waits at least a minute of island time and half a minute of yours, so fast-forward doesn't eat it
+  Game.prayerLive = function (game, p) { var gt = game.time - p.t; return gt < 60 || (gt < 600 && (game.playTime || 0) - (p.rt || 0) < 30); };
+  Game.champions = function (game) {
+    var sm = Game.smols(game).slice().sort(function (a, b) { return (b.tier - a.tier) || ((b.iq || 0) - (a.iq || 0)) || (b.age - a.age); });
+    var f = sm.find(function (c) { return c.sex === "f"; }) || sm[0], m = sm.find(function (c) { return c.sex === "m" && c !== f; }) || sm.find(function (c) { return c !== f; });
+    return [f, m].filter(Boolean);
+  };
+  Game.newGamePlus = function (prev, seed) {
+    var g = Game.newGame(seed), champs = Game.champions(prev), egg = g.world.items.find(function (o) { return o.data && o.data.pod; });
+    var cap = { social: 0.45, planning: 0.4, head: 0.45, recall: 0.45, glow: 0.5 }, keep = { limbs: 1, arms: 1, dexterity: 1, senses: 1, fins: 1, fluff: 1, horns: 1, wings: 1 };
+    function heir(c) {
+      var ge = SB.Genome.forTier(g.rng, 2), src = c.genome;
+      SB.Genome.GENES.forEach(function (k) {
+        if (src.genes[k] == null) return;
+        if (cap[k] != null) ge.genes[k] = Math.max(ge.genes[k], Math.min(cap[k], src.genes[k]));
+        else if (keep[k] || SB.Genome.EVO_GENES.indexOf(k) < 0) ge.genes[k] = src.genes[k];
+      });
+      ge.instincts = JSON.parse(JSON.stringify(src.instincts || ge.instincts));
+      ge.driveW = (src.driveW || ge.driveW).slice();
+      return ge;
+    }
+    if (egg && champs.length) {
+      egg.data.genome = heir(champs[0]); egg.data.genome2 = heir(champs[1] || champs[0]);
+      egg.data.heirs = champs.map(function (c) { return c.name; });
+      // the old stories survive: the girl remembers a few simple ideas from home, and can teach them
+      var keep = SB.Ideas.LIST.filter(function (d) { return prev.culture.found[d.id] && d.tier <= 2; }).slice(0, 3);
+      egg.data.ideas = {}; keep.forEach(function (d) { egg.data.ideas[d.id] = 1; });
+    }
+    g.ngPlus = (prev.ngPlus || 0) + 1;
+    g.settings = JSON.parse(JSON.stringify(prev.settings || {}));
+    g.tutorial.done = true; // they've done this before
+    g.sparks += 10 * Math.min(3, g.ngPlus);
+    return g;
+  };
+
+  // the spire is finished: the end of the long thought (the first time), and every mind left thinks faster
+  SB.bus.on("built", function (d) {
+    var g = Game.current;
+    if (!g || d.st.kind !== "spire" || !d.st.done) return;
+    Game.unlock(g, "bigthought"); g.culture.spireBoost = true;
+    SB.bus.emit("bigThought", { st: d.st, first: !g.ended });
+    g.ended = true;
+  });
 
   /* ---------------- loop ---------------- */
 
@@ -285,6 +366,21 @@
     }
     game.focus = { x: cam.x, z: cam.z };
   }
+
+  // close family: one is the other's parent or grandparent, or they share a parent or grandparent
+  function lineage(game, id, out, depth) {
+    var f = game.family[id];
+    if (!f || depth <= 0) return out;
+    for (var i = 0; i < f.parents.length; i++) { out[f.parents[i]] = 1; lineage(game, f.parents[i], out, depth - 1); }
+    return out;
+  }
+  Game.related = function (game, a, b) {
+    if (!a || !b || a.id === b.id) return !!a && a === b;
+    var la = lineage(game, a.id, {}, 2), lb = lineage(game, b.id, {}, 2);
+    if (la[b.id] || lb[a.id]) return true;
+    for (var k in la) if (lb[k]) return true;
+    return false;
+  };
 
   // average hunger of the living smols, refreshed every few seconds (breeding and the HUD use it)
   Game.colonyHunger = function (game) {
@@ -310,6 +406,15 @@
     if (game.hand.sayT > 0) { game.hand.sayT -= dt; if (game.hand.sayT <= 0) game.hand.saying = null; }
     SB.Species.tick(game, dt);
     SB.Society.tick(game, dt);
+    if (game.godHeat > 0) game.godHeat = Math.max(0, game.godHeat - dt / 60);
+    if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
+    if (SB.Social) SB.Social.tick(game, dt);
+    if (SB.Director) SB.Director.tick(game, dt);
+    if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
+    SB.Ideas.nurse(game, dt);
+    if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
+    game.wordsT = (game.wordsT || 0) - dt;
+    if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }
     checkAchievements(game, dt);
     if (game.offline) {
       // offline mode is gentle: nobody starves or dies of a cold while you're away (old age still happens)
@@ -330,7 +435,7 @@
     if (smols.length >= 5) Game.unlock(game, "pop5");
     if (smols.length >= 10) Game.unlock(game, "pop10");
     if (smols.length >= 25) Game.unlock(game, "pop25");
-    if (game.time / SB.DAY_LENGTH >= 6) Game.unlock(game, "day7");
+    if (game.time / SB.DAY_LENGTH >= 2.7) Game.unlock(game, "day7");
     if (game.world.dayIndex >= SB.SEASON_DAYS * 4) Game.unlock(game, "winter");
     var eggs = game.world.items.some(function (o) { return o.kind === "egg"; });
     // extinction is not a dead end: a wild egg turns up in the nest
@@ -377,9 +482,9 @@
       var c = smols[i];
       var iq = SB.Creature.iq(c);
       if (iq > game.stats.bestIQ) game.stats.bestIQ = iq;
-      if (iq >= 100) Game.unlock(game, "iq100");
-      if (iq >= 150) Game.unlock(game, "iq150");
-      if (iq >= 250) Game.unlock(game, "iq250");
+      if (iq >= 150) Game.unlock(game, "iq100");
+      if (iq >= 220) Game.unlock(game, "iq150");
+      if (iq >= 320) Game.unlock(game, "iq250");
       if (c.stage >= 4) Game.unlock(game, "elder");
       if (c.visited && Object.keys(c.visited).length >= 6) Game.unlock(game, "explorer");
       if (c.gen >= 1) game.lastGenome = c.genome;
@@ -394,19 +499,20 @@
     if (game.villages.length) Game.unlock(game, "village");
     if (game.culture.lostCount) Game.unlock(game, "lost");
     // expire unanswered prayers
-    game.prayers = (game.prayers || []).filter(function (p) { return !p.answered && game.time - p.t < 60; });
+    game.prayers = (game.prayers || []).filter(function (p) { return !p.answered && Game.prayerLive(game, p); });
   }
 
   // simple bus-driven bookkeeping
   function wireBus() {
-    SB.bus.on("eureka", function (d) { if (!game) return; Game.addSparks(game, d.first ? 12 : 4, d.c); });
-    SB.bus.on("learnWord", function () { if (game) Game.addSparks(game, 1, null); });
+    SB.bus.on("eureka", function (d) { if (!game) return; if (d.first) Game.addSparks(game, 12, d.c); });
+    SB.bus.on("learnWord", function () { if (game && Game.smols(game).length <= 6) Game.addSparks(game, 1, null); }); // a reward for the first lessons, not a fountain for a big tribe
+    SB.bus.on("newBiome", function (d) { if (!game) return; Game.addSparks(game, 4, null); Game.note(game, "your smols found " + (/^[aeiou]/.test(SB.BIOMES[d.biome].name) ? "an " : "a ") + SB.BIOMES[d.biome].name + "! 🧭"); });
     SB.bus.on("teach", function (d) { if (d.learned && game) Game.unlock(game, "teach"); });
     SB.bus.on("lightning", function (d) { if (!game) return; var near = game.creatures.some(function (c) { return c.alive && c.species === "smol" && SB.dist(c.x, c.z, d.x, d.z) < 16; }); if (near) Game.unlock(game, "lightning"); });
     SB.bus.on("wildfire", function () { if (game) Game.unlock(game, "wildfire"); });
-    SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, 4, d.c); Game.unlock(game, "prayer"); });
-    SB.bus.on("dawn", function () { if (game && game.world.nightGrumps > 0) { game.stats.grumpNights++; Game.unlock(game, "grump"); } });
-    SB.bus.on("built", function (d) { if (game && d.st.kind === "spire" && d.st.done) { Game.unlock(game, "bigthought"); SB.bus.emit("bigThought", { st: d.st }); } });
+    // a prayer answered with the right miracle is worth a lot; a comforting tickle a little; a spoiled tribe's demands nothing
+    SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, Game.prayerPay(game, d.how, d.prayer), d.c); Game.unlock(game, "prayer"); });
+    SB.bus.on("dawn", function (d) { if (game && ((d && d.grumps) || game.world.nightGrumps) > 0) { game.stats.grumpNights++; Game.unlock(game, "grump"); } });
   }
 
   function frame(now) {
@@ -426,7 +532,7 @@
       game.playTime += dtReal;
     }
     var alpha = paused ? 1 : acc / SB.TICK;
-    SB.Render.frame(game, dtReal, alpha);
+    if (!(SB.Intro && SB.Intro.covering)) SB.Render.frame(game, dtReal, alpha); // the opening story covers the screen: skip drawing the island under it
     if (SB.UI && SB.UI.frame) SB.UI.frame(game, dtReal);
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }
@@ -562,10 +668,7 @@
     spawnTier: function (tier, n) {
       var g = Game.current, sp = SB.Society.home(g, 0), out = [];
       for (var i = 0; i < (n || 1); i++) {
-        var ge = SB.Genome.random(g.rng, { species: "smol" }), need = SB.Genome.TIER_NEEDS;
-        for (var t = 1; t <= tier; t++) for (var k in need[t]) if (k !== "neurons" && k !== "layers") ge.genes[k] = Math.max(ge.genes[k], need[t][k] + 0.05);
-        if (tier >= 2) { ge.genes.hidden = 0.6; ge.genes.cortex = Math.max(ge.genes.cortex, [0, 0, 0.1, 0.35, 0.5, 0.95, 1][tier]); }
-        if (tier >= 4) ge.genes.layers = Math.max(ge.genes.layers, tier >= 6 ? 0.85 : 0.5);
+        var ge = SB.Genome.forTier(g.rng, tier);
         var c = Game.spawnSmol(g, { genome: ge, x: sp.x + (i % 4) * 1.4 - 2, z: sp.z + Math.floor(i / 4) * 1.4 + 2, age: 700 });
         out.push(c);
       }
@@ -573,6 +676,7 @@
       return out;
     },
     ideas: function (c, list) { (list || SB.Ideas.LIST.map(function (d) { return d.id; })).forEach(function (id) { if (SB.Ideas.canHold(c, id)) SB.Ideas.discover(c, id, Game.current); }); },
+    reveal: function () { var w = Game.current.world; w.seen.fill(255); w.seenDirty = true; w.seenChunks = {}; for (var i = 0; i < (SB.WORLD_N / SB.CHUNK) * (SB.WORLD_N / SB.CHUNK); i++) w.seenChunks[i] = 1; },
     build: function (kind, x, z) { var g = Game.current, sp = SB.Society.home(g, 0); return SB.World.addStructure(g.world, g, kind, x == null ? sp.x + 3 : x, z == null ? sp.z : z, { done: true }); },
     skip: function (sec) { var g = Game.current; for (var t = 0; t < sec; t += SB.TICK) Game.step(g, SB.TICK); }
   };

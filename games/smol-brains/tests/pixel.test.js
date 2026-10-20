@@ -17,7 +17,7 @@ function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name
 
 const game = SB.Game.newGame(3);
 SB.Game.current = game;
-const F = 32;
+const F = 32, NF = Object.keys(SB.Pixel.FR).length;
 const opaque = (fr) => { let n = 0; for (let i = 3; i < fr.d.length; i += 4) if (fr.d[i]) n++; return n; };
 const touchesEdge = (fr) => { for (let i = 0; i < F; i++) for (const [x, y] of [[i, 0], [0, i], [F - 1, i]]) if (fr.d[(y * F + x) * 4 + 3]) return true; return false; };
 
@@ -28,7 +28,7 @@ for (let tier = 0; tier <= 6; tier++) {
     c.stage = stage;
     const sheet = SB.Pixel.paint(c);
     const sizes = sheet.frames.map(opaque);
-    check(`tier ${tier} stage ${stage}: 12 frames, none empty`, sheet.frames.length === 12 && sizes.every(n => n > 40), sizes.join(","));
+    check(`tier ${tier} stage ${stage}: ${NF} frames, none empty`, sheet.frames.length === NF && sizes.every((n, i) => n > (i === SB.Pixel.FR.dot ? 12 : 40)), sizes.join(","));
     check(`tier ${tier} stage ${stage}: fits the frame (nothing cut off at the sides or top)`, sheet.frames.every(f => !touchesEdge(f)));
     check(`tier ${tier} stage ${stage}: body height is sane`, sheet.bodyPx >= 6 && sheet.bodyPx <= 28, sheet.bodyPx);
   }
@@ -47,14 +47,14 @@ check("blink, sleep, eat, happy, sad and scared all look different from idle", [
 
 console.log("3. grumps and variety");
 const gr = SB.Game.spawnGrump ? SB.Game.spawnGrump(game, s.x + 3, s.z) : null;
-if (gr) { const gs = SB.Pixel.paint(gr); check("grumps paint", gs.frames.every(f => opaque(f) > 40)); }
+if (gr) { const gs = SB.Pixel.paint(gr); check("grumps paint", gs.frames.every((f, i) => opaque(f) > (i === SB.Pixel.FR.dot ? 12 : 40))); }
 // many random genomes: never throws, never empty
 let bad = 0;
 for (let i = 0; i < 200; i++) {
   const g = SB.Genome.random(SB.rng(1000 + i), { species: "smol" });
   for (const k of SB.Genome.EVO_GENES) g.genes[k] = SB.rng(i * 7 + k.length)();
   const c = SB.Game.spawnSmol(game, { genome: g, x: s.x, z: s.z, age: 600 });
-  try { const p = SB.Pixel.paint(c); if (p.frames.some(f => opaque(f) < 30)) bad++; } catch (e) { bad++; console.log(e.stack); }
+  try { const p = SB.Pixel.paint(c); if (p.frames.some((f, i) => i !== SB.Pixel.FR.dot && opaque(f) < 30)) bad++; } catch (e) { bad++; console.log(e.stack); }
   c.alive = false; c.gone = true;
 }
 check("200 random genomes all paint", bad === 0, bad + " bad");

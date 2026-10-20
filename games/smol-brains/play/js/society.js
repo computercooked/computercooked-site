@@ -33,6 +33,17 @@
     acc = 0;
     So.init(game);
     var w = game.world;
+    // campfire songs: at night, a smol who knows "song" sitting by a lit fire with friends starts singing.
+    // everyone listening feels less bored and lonely
+    if (w.night && SB.Ideas) (w.fires || []).forEach(function (f) {
+      if (f.kind !== "campfire" || game.rng() > 0.35) return;
+      var near = SB.Game.smols(game).filter(function (c) { return !c.asleep && SB.dist(c.x, c.z, f.x, f.z) < 5; });
+      var singer = near.filter(function (c) { return SB.Ideas.known(c, "song"); })[0];
+      if (!singer || near.length < 3) return;
+      near.forEach(function (c) { SB.Chem.apply(c.chem, { bored: -0.2, lonely: -0.2, fear: -0.1 }); if (!c.far) c.speech = { text: game.rng.pick(["la la ♪", "♪ ♫", "laaa ♪", "mm mm ♪"]), t: 2, kind: "say" }; });
+      SB.Game.unlock(game, "song");
+      SB.bus.emit("song", { c: singer, n: near.length });
+    });
     // growing up: young smols pick up the colony's know-how from the grown-ups around them
     // (every 4 s, a bit of one idea from a nearby adult), so ideas outlive their inventors
     if (SB.Ideas) game.creatures.forEach(function (y) {
@@ -42,7 +53,13 @@
         if (a === y || !a.alive || a.species !== "smol" || a.stage < 3) return;
         for (var id in a.ideas) if (a.ideas[id] >= 1 && !SB.Ideas.known(y, id) && SB.Ideas.canHold(y, id)) known.push(id);
       });
-      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), 0.45, game, "grew up with");
+      // a school nearby: twice the lessons, and the tribe's shared words too
+      var school = w.structures.some(function (s) { return s.kind === "school" && s.done && SB.dist(s.x, s.z, y.x, y.z) < 9; });
+      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), school ? 0.9 : 0.45, game, school ? "school" : "grew up with");
+      if (school && SB.Words) {
+        var words = SB.Words.BOOK.filter(function (b) { return SB.Words.share(game, b.w) >= 0.5 && (y.vocab[b.w] || 0) < 1; });
+        if (words.length) SB.Creature.lessonWord(y, game.rng.pick(words).w, game, 0.3);
+      }
     });
     game.tribes.forEach(function (t) {
       // name the tribe once its smols can talk about themselves

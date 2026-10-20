@@ -23,6 +23,10 @@
     { id: "torch", name: "torch", icon: "🔦", tier: 2, needs: ["fire"], kind: "craft", make: { in: { stick: 1 }, at: "fire", out: "torch", time: 1.5 }, desc: "fire you can carry. scares grumps, lights campfires.", hint: "a stick and a fire" },
     { id: "cook", name: "cooking", icon: "🍢", tier: 2, needs: ["fire"], kind: "craft", make: { in: { food: 1 }, at: "fire", out: "cooked", time: 3 }, desc: "food + fire = more food. cooked food never makes you sick.", hint: "food near a fire" },
     { id: "spear", name: "spear", icon: "🔱", tier: 2, needs: ["knap", "poke"], kind: "craft", make: { in: { stick: 1, flint: 1 }, out: "spear", time: 4 }, desc: "for fishing, hunting hoppers, and politely suggesting grumps leave.", hint: "a sharp stone and a long stick" },
+    { id: "chop", name: "stone axes", icon: "🪓", tier: 2, needs: ["knap"], kind: "craft", make: { in: { blade: 1, stick: 1 }, out: "stoneaxe", time: 4 }, desc: "lash a blade to a stick and trees become logs. a log is worth three sticks when building.", hint: "a blade, a stick, and a tree" },
+    { id: "club", name: "clubs", icon: "🏏", tier: 2, needs: ["bonk"], kind: "craft", make: { in: { stick: 1, stone: 1 }, out: "club", time: 3 }, desc: "for when grumps come too close. a grump hit with a club runs off.", hint: "holding a stick, face to face with a grump" },
+    { id: "fishing", name: "fishing", icon: "🎣", tier: 3, needs: ["weave"], kind: "craft", make: { in: { stick: 1, fiber: 1 }, out: "rod", time: 4 }, desc: "a stick and reed string. fishers sit by the water and come back with fish.", hint: "a stick and some reed, by the water" },
+    { id: "sewing", name: "fur cloaks", icon: "🧥", tier: 3, needs: ["weave", "spear"], kind: "craft", make: { in: { fur: 2, fiber: 1 }, out: "cloak", time: 6 }, desc: "bunny fur sewn with reed thread. smols in cloaks barely feel the winter.", hint: "fur, reed, and a cold day" },
     { id: "herbal", name: "herb lore", icon: "🌿", tier: 3, needs: [], kind: "skill", desc: "healroot cures sickness. herbalists bring it to sick friends.", hint: "a sick smol eats healroot and gets better" },
     { id: "share", name: "sharing", icon: "🎁", tier: 3, needs: [], kind: "skill", desc: "giving food to the hungry. tribes that share don't starve.", hint: "a hungry friend and some food" },
     { id: "song", name: "song", icon: "🎶", tier: 3, needs: ["fire"], kind: "skill", desc: "singing together around the fire. cures boredom and loneliness for everyone listening, and they love you more for it.", hint: "friends, a fire, a night" },
@@ -30,6 +34,7 @@
     { id: "hut", name: "huts", icon: "🛖", tier: 4, needs: ["weave"], kind: "build", build: "hut", desc: "sticks and reed thatch. warm, dry, grump-proof sleep.", hint: "a builder who's cold and knows weaving" },
     { id: "pottery", name: "pottery", icon: "🏺", tier: 4, needs: ["fire"], kind: "craft", make: { in: { clay: 2 }, at: "fire", out: "pot", time: 6 }, desc: "clay + fire = a pot. pots brew medicine and bake bread.", hint: "clay near a fire" },
     { id: "totem", name: "story poles", icon: "🗿", tier: 4, needs: ["knap"], kind: "build", build: "totem", desc: "the tribe's ideas, carved in wood. study it to learn them. ideas on a pole are never forgotten.", hint: "a builder with a blade" },
+    { id: "school", name: "schools", icon: "🏫", tier: 4, needs: ["totem", "hut"], kind: "build", build: "school", desc: "a place where grown-ups teach kids on purpose. kids near a school learn words and ideas twice as fast.", hint: "a grown-up teaching kids by the story pole" },
     { id: "wall", name: "palisades", icon: "🪵", tier: 4, needs: ["hut"], kind: "build", build: "wall", desc: "pointy fences that grumps won't cross.", hint: "grumps, again" },
     { id: "bridge", name: "bridges", icon: "🌉", tier: 4, needs: ["hut"], kind: "build", build: "bridge", desc: "sticks across a river. the other side is now this side.", hint: "a builder at the water's edge" },
     { id: "kiln", name: "kilns", icon: "🧱", tier: 5, needs: ["pottery"], kind: "build", build: "kiln", desc: "a clay oven hot enough to melt rock.", hint: "a thinker who knows pottery" },
@@ -82,7 +87,7 @@
   // amount 0..1 of progress; returns true when the idea becomes known
   I.learn = function (c, id, amount, game, how) {
     if (!I.canHold(c, id) || I.known(c, id)) return false;
-    var learnK = 0.6 + (c.genome.genes.learnRate || 0.5) * 0.8;
+    var learnK = (0.6 + (c.genome.genes.learnRate || 0.5) * 0.8) * (1 + (SB.Words && game ? SB.Words.smarts(game) : 0)) * (1 - 0.4 * ((game && game.spoil) || 0)); // shared words help ideas spread; spoiled smols can't be bothered
     c.ideas[id] = Math.min(1, (c.ideas[id] || 0) + amount * learnK);
     if (c.ideas[id] >= 1) {
       c.ideas[id] = 1;
@@ -126,6 +131,10 @@
     torch: function (x) { return x.nearFire && x.held === "stick" && x.noun === "fire" ? 0.8 : 0; },
     cook: function (x) { return x.nearFire && x.noun === "fire" && x.heldNoun === "food" ? 0.8 : x.nearFire && x.noun === "food" ? 0.25 : 0; },
     spear: function (x) { return (x.held === "blade" || x.held === "flint") && x.noun === "stick" ? 0.6 : x.held === "pokestick" && x.noun === "stone" && x.targetKind === "flint" ? 0.5 : 0; },
+    chop: function (x) { return x.held === "blade" && x.noun === "plant" && (x.verb === "use" || x.verb === "hit") ? 0.6 : x.held === "blade" && x.noun === "stick" ? 0.2 : 0; },
+    club: function (x) { return (x.held === "stick" || x.held === "stone") && x.noun === "grump" ? 0.6 : x.held === "stick" && x.verb === "hit" ? 0.1 : 0; },
+    fishing: function (x) { return (x.held === "stick" || x.held === "fiber") && x.noun === "water" ? 0.5 : 0; },
+    sewing: function (x) { return x.held === "fur" && (x.cold || x.verb === "play" || x.verb === "use") ? 0.6 : x.held === "fur" ? 0.2 : 0; },
     herbal: function (x) { return x.verb === "eat" && x.targetKind === "herb" && x.sick ? 1 : 0; },
     share: function (x) { return x.verb === "give" || (x.noun === "smol" && x.heldNoun === "food" && (x.verb === "talk" || x.verb === "cuddle")) ? 0.6 : 0; },
     song: function (x) { return x.friends >= 2 && x.nearFire && x.night && (x.verb === "talk" || x.verb === "play") ? 0.6 : 0; },
@@ -133,6 +142,7 @@
     hut: function (x) { return x.verb === "sleep" && (x.cold || x.raining) ? 0.5 : x.noun === "shelter" && x.held === "stick" ? 0.4 : 0; },
     pottery: function (x) { return x.nearFire && (x.held === "clay" || x.targetKind === "clay") ? 0.7 : 0; },
     totem: function (x) { return x.held === "blade" && (x.noun === "stick" || x.noun === "plant") ? 0.4 : 0; },
+    school: function (x) { return x.verb === "teach" && x.noun === "smol" ? 0.4 : x.noun === "totem" && x.friends >= 2 ? 0.12 : 0; },
     wall: function (x) { return x.noun === "grump" && x.held === "stick" ? 0.5 : x.noun === "grump" && x.verb === "flee" ? 0.1 : 0; },
     bridge: function (x) { return x.noun === "water" && x.held === "stick" ? 0.5 : 0; },
     kiln: function (x) { return x.nearFire && x.noun === "stone" && x.held === "clay" ? 0.6 : x.noun === "fire" && x.held === "clay" ? 0.3 : 0; },
@@ -157,6 +167,7 @@
     if (c.inspired > 0) mind *= 3;
     if (c.tool != null) { var tl = SB.Game.byId(game, c.tool); if (tl && tl.kind === "lens") mind *= 1.6; }
     if (game.culture && game.culture.spireBoost) mind *= 1.5;
+    if (resonant(c, game)) mind *= 1.8;
     var found = null;
     for (var i = 0; i < LIST.length; i++) {
       var d = LIST[i], tr = TRIGGERS[d.id];
@@ -196,8 +207,8 @@
   I.knowsUse = function (c, noun, kind, game) {
     if (c.tier < 2) return false;
     var tool = c.tool != null ? toolKind(c, game) : null, held = heldKind(c, game);
-    if (noun === "plant" && (tool === "pokestick" || tool === "axe" || held === "pokestick")) return true;
-    if (noun === "water" && (tool === "spear" || held === "spear")) return true;
+    if (noun === "plant" && (tool === "pokestick" || tool === "axe" || tool === "stoneaxe" || held === "pokestick")) return true;
+    if (noun === "water" && (tool === "spear" || held === "spear" || tool === "rod" || held === "rod")) return true;
     if (noun === "critter" && (tool === "spear" || held === "spear")) return true;
     if (noun === "fire" && (held === "stick" || held === "clay" || heldNoun(c, game) === "food")) return true;
     if (noun === "totem") return true;
@@ -216,6 +227,17 @@
   function toolKind(c, game) { var t = c.tool != null ? SB.Game.byId(game, c.tool) : null; return t ? t.kind : null; }
   I.heldKind = heldKind; I.toolKind = toolKind;
 
+  // a tree comes down: a stump that regrows, logs (and a stick) on the ground
+  I.fell = function (c, n, game, logs) {
+    var world = game.world;
+    n.chop = 0; n.state = "stump"; n.regrowT = 600; SB.World.markNode(world, n);
+    for (var s = 0; s < logs; s++) SB.World.dropFrom(world, game, n, "log");
+    SB.World.dropFrom(world, game, n, "stick");
+    habit(c, "hands", 2);
+    SB.bus.emit("chop", { c: c, node: n });
+  };
+  function CHOPPABLE(kind) { return kind !== "bush" && kind !== "reeds" && kind !== "herbs" && kind !== "hive" && kind !== "clams" && kind !== "roots" && kind !== "gourds" && kind !== "cactus"; }
+
   /* ---------------- using things ("use" verb) ---------------- */
 
   // returns {deltas, chem, msg, ok} — the effect of c using whatever it holds on target (item/node/struct/water)
@@ -230,11 +252,15 @@
       if ((tool === "pokestick" || tool === "spear") && def.drops && def.noun === "plant") {
         var o = SB.World.shake(world, game, n, true);
         if (o) { res.ok = true; res.deltas.bored = -0.1; res.msg = "poke!"; habit(c, "hands", 1); }
-      } else if (tool === "axe" && def.noun === "plant" && n.state === "ok" && n.kind !== "bush" && n.kind !== "reeds" && n.kind !== "herbs") {
-        n.state = "stump"; n.regrowT = 420; SB.World.markNode(world, n);
-        for (var s = 0; s < 4; s++) SB.World.dropFrom(world, game, n, "stick");
-        res.ok = true; res.deltas.bored = -0.15; res.msg = "chop!"; habit(c, "hands", 2);
-        SB.bus.emit("chop", { c: c, node: n });
+      } else if ((tool === "axe" || tool === "stoneaxe") && def.noun === "plant" && n.state === "ok" && CHOPPABLE(n.kind)) {
+        // a stone axe takes a few swings; copper fells a tree in one. a felled tree gives logs and a stump that regrows
+        n.chop = (n.chop || 0) + (tool === "axe" ? 1 : 0.34);
+        res.ok = true; res.deltas.bored = -0.1; habit(c, "hands", 1);
+        if (n.chop < 1) res.msg = "thok";
+        else {
+          I.fell(c, n, game, tool === "axe" ? 3 : 2);
+          res.deltas.bored = -0.2; res.msg = "timber!";
+        }
       } else if (tool === "hammer" && (n.kind === "boulder" || n.kind === "flintrock" || n.kind === "orevein" || n.kind === "crystals")) {
         SB.World.dropFrom(world, game, n, GATHER[n.kind][0]);
         res.ok = true; res.deltas.bored = -0.08; res.msg = "tok!"; habit(c, "hands", 1);
@@ -253,7 +279,12 @@
         SB.World.transform(world, t, "nutmeat");
         res.ok = true; res.msg = "crack!"; res.deltas.bored = -0.1; habit(c, "hands", 1);
       } else if (t.noun === "critter" && tool === "spear") {
-        if (r.chance(0.55)) { SB.World.transform(world, t, "meat"); res.ok = true; res.msg = "got it!"; habit(c, "hands", 1); }
+        if (r.chance(0.55)) {
+          var fx = t.x, fz = t.z;
+          SB.World.transform(world, t, "meat"); res.ok = true; res.msg = "got it!"; habit(c, "hands", 1);
+          if (r.chance(0.6)) SB.World.add(world, game, "fur", fx + 0.3, fz, {});
+          SB.bus.emit("hunt", { c: c });
+        }
         else { t.data.flee = 2; res.msg = "missed"; }
       }
     } else if (tt === "struct") {
@@ -278,7 +309,10 @@
         res.ok = I.study(c, st, game); res.deltas.bored = -0.2;
       }
     } else if (tt === "water") {
-      if (tool === "spear") {
+      if (tool === "rod") { // fishing: patient, and better than stabbing
+        if (r.chance(0.45)) { var fr = SB.World.add(world, game, "fish", c.x + Math.sin(c.facing) * 0.5, c.z + Math.cos(c.facing) * 0.5, {}); fr.vy = 4; fr.onGround = false; res.ok = true; res.msg = "a bite!"; habit(c, "hands", 1); SB.bus.emit("fish", { c: c }); }
+        else { res.msg = "…"; res.deltas.bored = -0.05; }
+      } else if (tool === "spear") {
         if (r.chance(0.4)) { var f = SB.World.add(world, game, "fish", c.x + Math.sin(c.facing) * 0.5, c.z + Math.cos(c.facing) * 0.5, {}); f.vy = 5; f.onGround = false; res.ok = true; res.msg = "fish!"; habit(c, "hands", 1); }
         else res.msg = "splash";
       } else { res.deltas.hot = -0.3; res.ok = true; habit(c, "swim", 0.5); }
@@ -305,6 +339,7 @@
 
   // What kinds can satisfy an ingredient name ("food" is any raw-ish food; tools match by kind)
   function matches(kind, want) {
+    if (want === "stick" && kind === "log") return true; // a log does for three sticks
     if (want === "food") return K[kind] && K[kind].noun === "food" && kind !== "cooked" && kind !== "bread" && kind !== "nut";
     return kind === want;
   }
@@ -347,6 +382,17 @@
       // farmers know where seeds come from: the bottoms of bushes and fruit trees
       var sn = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && (n.kind === "bush" || n.kind === "oak" || n.kind === "birch" || n.kind === "cactus"); });
       if (sn) return { node: sn, yield: "seed", time: 3 };
+    }
+    // wood with an axe: fell a tree for logs (each worth three sticks)
+    var chopper = toolKind(c, game) === "axe" || heldKind(c, game) === "axe" ? "axe" : toolKind(c, game) === "stoneaxe" || heldKind(c, game) === "stoneaxe" ? "stoneaxe" : null;
+    if (want === "stick" && chopper) {
+      var tr = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && NK[n.kind].noun === "plant" && CHOPPABLE(n.kind) && n.grow == null && !(un[n.id] > now); });
+      if (tr) return { node: tr, yield: "log", time: chopper === "axe" ? 2 : 4.5, fell: chopper };
+    }
+    // ascended smols don't need hammers or kilns: they hum crystal loose and pull copper straight out of the rock
+    if (c.tier >= 6 && (want === "crystal" || want === "metal")) {
+      var src = SB.World.nearestNode(world, c.x, c.z, R * 2.5, function (n) { return n.state === "ok" && n.kind === (want === "crystal" ? "crystals" : "orevein") && !(un[n.id] > now); });
+      if (src) return { node: src, yield: want, time: 7 };
     }
     var node = SB.World.nearestNode(world, c.x, c.z, R, function (n) {
       if (un[n.id] > now) return false;
@@ -448,6 +494,41 @@
     return out;
   };
 
+  /* ---------------- herb lore: herbalists nurse sick friends ---------------- */
+  var nurseAcc = 0;
+  I.nurse = function (game, dt) {
+    nurseAcc += dt;
+    if (nurseAcc < 2) return;
+    var step = nurseAcc; nurseAcc = 0;
+    var sm = game.creatures.filter(function (c) { return c.alive && c.species === "smol" && !c.stranger; });
+    var ill = sm.filter(function (c) { return c.chem.sick > 0.3 || c.chem.antigen > 0.25; });
+    // patients who've come through it thank whoever nursed them
+    sm.forEach(function (p) {
+      if (!p.nursedBy || ill.indexOf(p) >= 0) return;
+      var best = SB.Game.byId(game, p.nursedBy); p.nursedBy = null;
+      if (!best || !best.alive) return;
+      if (best.nursing === p.id) best.nursing = null;
+      if (SB.Social) { SB.Social.remember(game, p, best, "nursed", 25, "nursed me when i was sick", 7200); SB.Social.log(game, best, "🌿", "nursed " + p.name + " back to health"); }
+      SB.bus.emit("nursed", { c: best, p: p });
+    });
+    if (!ill.length) return;
+    var docs = sm.filter(function (c) { return c.stage >= 3 && !c.asleep && !c.heldBy && I.known(c, "herbal") && c.chem.sick < 0.3 && !(c.action && c.action.called && !c.nursing); });
+    ill.forEach(function (p) {
+      var best = null, bd = 30;
+      docs.forEach(function (d) { var dd = SB.dist(d.x, d.z, p.x, p.z); if (d !== p && (!d.nursing || d.nursing === p.id) && dd < bd) { bd = dd; best = d; } });
+      if (!best) return;
+      best.nursing = p.id;
+      if (bd > 2.5) { SB.Creature.sendTo(best, p.x, p.z, game, 15); return; }
+      // close enough: tend them. healroot from the bag works twice as well
+      var herb = best.holding != null && SB.Game.byId(game, best.holding), k = herb && herb.kind === "herb" ? 2 : 1;
+      SB.Chem.apply(p.chem, { sick: -0.06 * k * step, antigen: -0.07 * k * step, toxin: -0.05 * k * step });
+      if (SB.Creature.emote) SB.Creature.emote(best, "love", 1.5);
+      habit(best, "social", 0.3);
+      p.nursedBy = best.id;
+    });
+    docs.forEach(function (d) { if (d.nursing && !ill.some(function (p) { return p.id === d.nursing; })) d.nursing = null; });
+  };
+
   /* ---------------- building ---------------- */
 
   I.chooseBuild = function (c, game) {
@@ -492,6 +573,7 @@
       case "hut": return count("hut") < Math.ceil(pop / 3) ? 0.5 + c.chem.tired * 0.3 + c.chem.cold * 0.3 : 0;
       case "farm": return count("farm") < Math.ceil(pop / 4) ? 0.45 + c.chem.hunger * 0.3 : 0;
       case "totem": return count("totem") < 1 ? 0.45 : 0;
+      case "school": return count("school") < 1 && pop >= 8 ? 0.45 : 0;
       case "wall": return count("wall") < Math.min(10, game.stats.grumpNights) ? 0.2 : 0;
       case "bridge": return count("bridge", 60) < 2 && game.rng.chance(0.2) ? 0.15 : 0;
       case "kiln": return count("kiln") < 1 ? 0.45 : 0;
@@ -549,16 +631,25 @@
   I.deliver = function (c, st, game) {
     var have = inv(c, game), n = 0;
     have.forEach(function (o) {
-      for (var k in st.need) if (st.need[k] > 0 && matches(o.kind, k)) { st.need[k]--; SB.Creature.consume(c, o, game); n++; return; }
+      for (var k in st.need) if (st.need[k] > 0 && matches(o.kind, k)) { st.need[k] = Math.max(0, st.need[k] - (o.kind === "log" && k === "stick" ? 3 : 1)); SB.Creature.consume(c, o, game); n++; return; }
     });
     if (n) { habit(c, "build", n); SB.bus.emit("deliver", { c: c, st: st, n: n }); }
     if (st.builders.indexOf(c.id) < 0) st.builders.push(c.id);
     return n;
   };
   I.siteReady = function (st) { for (var k in st.need) if (st.need[k] > 0) return false; return true; };
+  // resonance: ascended smols near thought crystals think as one, and build as one
+  function resonant(c, game) {
+    if (c.tier < 6 || !I.known(c, "resonance")) return false;
+    if (c._resT > game.time) return c._res;
+    c._resT = game.time + 3;
+    return (c._res = SB.World.nodesNear(game.world, c.x, c.z, 9, function (n) { return n.kind === "crystals"; }).length > 0);
+  }
+  I.resonant = resonant;
   I.work = function (c, st, dt, game) {
     if (!I.siteReady(st)) return false;
     var ws = SB.World.structsNear(game.world, st.x, st.z, 8, function (s) { return s.kind === "workshop" && s.done; }).length ? 1.5 : 1;
+    if (I.known(c, "resonance")) { var res = 0; st.builders.forEach(function (id) { var o = SB.Game.byId(game, id); if (o && o !== c && o.alive && I.known(o, "resonance") && SB.dist(o.x, o.z, st.x, st.z) < 8) res++; }); ws *= 1 + 0.35 * Math.min(4, res); }
     st.work += dt * ws * (0.6 + (c.genome.genes.dexterity || 0.3) * 0.8);
     habit(c, "build", dt * 0.1);
     if (st.builders.indexOf(c.id) < 0) st.builders.push(c.id);

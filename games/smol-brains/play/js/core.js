@@ -29,8 +29,8 @@
   // Nouns = attention categories. Every creature, item, plant and building belongs to exactly one.
   SB.NOUNS = ["hand", "smol", "grump", "food", "mushroom", "toy", "ball", "medicine", "egg", "bug", "plant", "water",
     "stick", "stone", "material", "fire", "shelter", "tool", "critter", "crop", "totem", "wonder"];
-  SB.NOUN_WORDS = ["hand", "smol", "grump", "food", "shroom", "toy", "ball", "medi", "egg", "bug", "plant", "water",
-    "stick", "rock", "stuff", "fire", "home", "tool", "hopper", "crop", "totem", "wonder"];
+  SB.NOUN_WORDS = ["hand", "smol", "grump", "food", "shroom", "toy", "ball", "herb", "egg", "bug", "tree", "water",
+    "stick", "rock", "goods", "fire", "home", "tool", "bunny", "crop", "totem", "wonder"];
   SB.NOUN_EMOJI = ["✋", "🐣", "👺", "🍎", "🍄", "🧸", "⚽", "🌿", "🥚", "🐞", "🌳", "💧", "🪵", "🪨", "🧶", "🔥", "🛖", "🛠", "🐇", "🌾", "🗿", "✨"];
 
   SB.N_DRIVES = SB.DRIVES.length;
@@ -61,16 +61,16 @@
   /* ---------------- time ---------------- */
 
   SB.TICK = 1 / 20;        // fixed sim step (render interpolates)
-  SB.DAY_LENGTH = 360;     // sim seconds per day (6 min at 1x)
-  SB.SEASON_DAYS = 4;      // spring, summer, autumn, winter
+  SB.DAY_LENGTH = 1200;    // sim seconds per day (20 min at 1x, like minecraft: ~13 min of day, ~7 of night)
+  SB.SEASON_DAYS = 2;      // spring, summer, autumn, winter (40 min each)
   SB.SEASONS = ["spring", "summer", "autumn", "winter"];
   SB.SPEEDS = [0, 1, 2, 4, 8, 16];
 
   SB.STAGES = [
     { id: "baby", name: "baby", from: 0, scale: 0.55 },
-    { id: "kid", name: "kid", from: 90, scale: 0.72 },
-    { id: "teen", name: "teen", from: 190, scale: 0.86 },
-    { id: "adult", name: "adult", from: 300, scale: 1 },
+    { id: "kid", name: "kid", from: 60, scale: 0.72 },
+    { id: "teen", name: "teen", from: 130, scale: 0.86 },
+    { id: "adult", name: "adult", from: 210, scale: 1 },
     { id: "elder", name: "elder", from: 2100, scale: 0.97 }
   ];
   SB.BASE_LIFESPAN = 2700; // ± genome.lifespan (about 45 min at 1x)
@@ -146,7 +146,7 @@
     seed: { noun: "crop", label: "seeds", emoji: "🌱", r: 0.1, color: 0x9bd16a, mat: 1, desc: "plant them. wait. food happens." },
     butterfly: { noun: "bug", label: "flutterby", emoji: "🦋", r: 0.12, color: 0xffb3e6, critter: "fly", food: { hunger: -0.15 }, chem: { glucose: 0.1 }, desc: "flaps around. fun to chase. edible if you catch it." },
     beetle: { noun: "bug", label: "beetle", emoji: "🐞", r: 0.1, color: 0xe5484d, critter: "crawl", food: { hunger: -0.15 }, chem: { glucose: 0.1 }, desc: "crawls about. crunchy." },
-    hopper: { noun: "critter", label: "hopper", emoji: "🐇", r: 0.2, color: 0xd9c7a8, critter: "hop", desc: "a fluffy thing that hops away. hunters with spears get meat." },
+    hopper: { noun: "critter", label: "bunny", emoji: "🐇", r: 0.2, color: 0xd9c7a8, critter: "hop", desc: "a fluffy thing that hops away. hunters with spears get meat." },
     ball: { noun: "ball", label: "ball", emoji: "⚽", r: 0.18, color: 0xf5f3ed, bouncy: true, desc: "a gift from the sky. kick it, chase it." },
     plush: { noun: "toy", label: "plush", emoji: "🧸", r: 0.18, color: 0xd9a066, desc: "a tiny stuffed smol. very huggable." },
     // tools: made with ideas, used with the "use" verb
@@ -157,6 +157,12 @@
     torch: { noun: "fire", label: "torch", emoji: "🔦", r: 0.14, color: 0xffa040, tool: "burn", light: 1, desc: "carried fire. scares grumps. lights new fires." },
     basket: { noun: "tool", label: "basket", emoji: "🧺", r: 0.17, color: 0xc9a05a, tool: "carry", desc: "carry three things at once. a logistics revolution." },
     pot: { noun: "tool", label: "pot", emoji: "🏺", r: 0.16, color: 0xb0603a, tool: "brew", desc: "fired clay. cooks bread and brews medicine." },
+    stoneaxe: { noun: "tool", label: "stone axe", emoji: "🪓", r: 0.15, color: 0x8a7a68, tool: "chop", desc: "a flint blade lashed to a stick. chops trees into logs, slowly." },
+    club: { noun: "tool", label: "club", emoji: "🏏", r: 0.15, color: 0x7a5232, tool: "whack", desc: "a heavy stick with a rock in it. a grump hit with one runs for it." },
+    rod: { noun: "tool", label: "fishing rod", emoji: "🎣", r: 0.15, color: 0xa07a50, tool: "fish", desc: "a stick, some reed string and a lot of patience. catches fish." },
+    cloak: { noun: "tool", label: "fur cloak", emoji: "🧥", r: 0.16, color: 0xc8b48a, tool: "warm", desc: "bunny fur sewn with reed thread. the smol wearing it shrugs off the cold." },
+    log: { noun: "stick", label: "log", emoji: "🪵", r: 0.2, color: 0x8a5a35, mat: 1, desc: "a chunk of tree. worth three sticks when building." },
+    fur: { noun: "material", label: "bunny fur", emoji: "🐾", r: 0.14, color: 0xe6d8c0, mat: 1, desc: "soft and warm, from a hunted bunny. sewn into cloaks." },
     axe: { noun: "tool", label: "copper axe", emoji: "🪓", r: 0.15, color: 0xd98c4a, tool: "chop", desc: "chops trees into lots of wood, fast." },
     lens: { noun: "tool", label: "crystal lens", emoji: "🔮", r: 0.14, color: 0xbfefff, tool: "focus", glow: 1, desc: "makes thinking louder. thinkers stare through it at the stars." }
   };
@@ -194,6 +200,8 @@
     hut: { noun: "shelter", label: "hut", emoji: "🛖", r: 1.1, cost: { stick: 6, fiber: 3 }, work: 18, desc: "a roof! sleeping here is warm, dry and safe from grumps." },
     farm: { noun: "crop", label: "farm", emoji: "🌾", r: 1.1, cost: { stick: 2, seed: 2 }, work: 10, desc: "grows grain, sunroots or gourds by itself: a harvest every couple of minutes. faster in the rain and near a windmill." },
     totem: { noun: "totem", label: "story pole", emoji: "🗿", r: 0.4, cost: { stick: 3, stone: 1 }, work: 12, desc: "ideas carved in wood. smols who study it learn what the tribe knows, even after the inventors are gone." },
+    school: { noun: "totem", label: "school", emoji: "🏫", r: 1.2, cost: { stick: 8, stone: 3, fiber: 2 }, work: 22, desc: "a roof, a slate and a circle of kids. kids nearby pick up the tribe's words and ideas twice as fast." },
+    grave: { noun: "wonder", label: "grave", emoji: "🪦", r: 0.35, cost: {}, work: 1, desc: "where a smol rests. friends come here to remember." },
     wall: { noun: "shelter", label: "palisade", emoji: "🪵", r: 0.9, cost: { stick: 4 }, work: 7, desc: "pointy sticks in a row. grumps don't like walking through it." },
     kiln: { noun: "fire", label: "kiln", emoji: "🏺", r: 0.8, cost: { stone: 4, clay: 2 }, work: 14, desc: "a hot clay oven. fires pots and smelts ore into copper." },
     workshop: { noun: "tool", label: "workshop", emoji: "🛠", r: 1.1, cost: { stick: 6, stone: 2, metal: 1 }, work: 18, desc: "a bench and a roof. crafting here is twice as fast." },
@@ -374,6 +382,6 @@
   SB.VERB_WORDS.forEach(function (w, i) { SB.LEXICON[w] = { type: "verb", i: i }; });
   SB.NOUN_WORDS.forEach(function (w, i) { SB.LEXICON[w] = { type: "noun", i: i }; });
   SB.DRIVE_WORDS.forEach(function (w, i) { SB.LEXICON[w] = { type: "drive", i: i }; });
-  SB.SYNONYMS = { yes: "good", no: "bad", go: "explore", stop: "wait", stay: "wait", here: "come", grab: "get", take: "get", pick: "get", kiss: "hug", cuddle: "hug", nap: "sleep", flee: "run", chat: "talk", hi: "talk", hello: "talk", kick: "hit", punch: "hit", apple: "food", berries: "food", fruit: "food", mushroom: "shroom", medicine: "medi", herb: "medi", tree: "plant", bush: "plant", stone: "rock", wood: "stick", house: "home", hut: "home", bed: "home", nest: "home", craft: "make", gift: "give", worship: "pray", bunny: "hopper", rabbit: "hopper" };
+  SB.SYNONYMS = { yes: "good", no: "bad", go: "explore", stop: "wait", stay: "wait", here: "come", grab: "get", take: "get", pick: "get", kiss: "hug", cuddle: "hug", nap: "sleep", flee: "run", chat: "talk", hi: "talk", hello: "talk", kick: "hit", punch: "hit", apple: "food", berries: "food", fruit: "food", mushroom: "shroom", medicine: "herb", medi: "herb", plant: "tree", bush: "tree", stuff: "goods", stone: "rock", wood: "stick", house: "home", hut: "home", bed: "home", nest: "home", craft: "make", gift: "give", worship: "pray", hopper: "bunny", rabbit: "bunny" };
   SB.ALL_WORDS = Object.keys(SB.LEXICON);
 })();

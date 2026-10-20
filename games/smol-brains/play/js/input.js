@@ -1,7 +1,7 @@
 /* smol brains 2 — input.js
    Touch first, mouse and keyboard too. One finger: drag empty ground to pan, drag a smol or a thing to
    carry and throw it, tap to use the current tool. Two fingers: pinch to zoom, twist to rotate.
-   Mouse: wheel zooms at the cursor, right-drag (or shift-drag) rotates. Keys: WASD/arrows pan, Q/E rotate,
+   Mouse: wheel zooms at the cursor, right-drag (or shift-drag) rotates and tilts. Keys: WASD/arrows pan, Q/E rotate, R/V tilt,
    +/- zoom, 1-5 tools, space pause, [ ] speed, F follow, B brain, Esc closes things. */
 (function () {
   "use strict";
@@ -34,6 +34,7 @@
     opts = opts || {};
     var best = null, bd = 1e9, cam = R.camera, ppu = cam.pxPerUnit;
     function test(type, ref, x, y, z, rad, pri) {
+      if (!(ref.heldBy != null) && !SB.World.isSeen(game.world, x, z)) return; // nothing to touch under the fog
       R.project(x, y, z, pp);
       if (!pp.on) return;
       var d = Math.hypot(pp.x - sx, pp.y - sy), lim = Math.max(opts.touch ? 26 : 16, rad * ppu * 1.25);
@@ -72,7 +73,7 @@
 
   function down(e) {
     if (!game || (SB.UI && SB.UI.modalOpen)) return;
-    el.setPointerCapture && el.setPointerCapture(e.pointerId);
+    try { if (el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch (err) { }
     var p = local(e);
     ptrs[e.pointerId] = { x: p.x, y: p.y, x0: p.x, y0: p.y, t0: performance.now(), type: e.pointerType, button: e.button };
     nPtr = Object.keys(ptrs).length;
@@ -119,7 +120,7 @@
       if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;
     }
     if (drag.mode === "pan") R.panBy(dx, dy);
-    else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; }
+    else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
     else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); }
     else if (drag.mode === "rub") {
       setHand(p.x, p.y, true);
@@ -174,8 +175,8 @@
         if (!game.selectedId) SB.Game.select(game, hit.ref.id);
       }
     } else if (tool === "talk") {
-      if (hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); if (SB.UI) SB.UI.talkTo(hit.ref); }
-      else if (hit) { if (SB.UI) SB.UI.sayAbout(hit); }
+      if (!hit && g && SB.World.depthAt(game.world, g.x, g.z) > 0.1) hit = { type: "water", ref: { x: g.x, z: g.z, noun: "water", id: null } }; // water isn't an object, but you can point at it
+      if (hit && SB.UI) SB.UI.teachAt(hit);
     }
   }
   IN.tap = tap;
@@ -224,10 +225,13 @@
     SB.bus.emit("handDrop", { ref: ref });
   }
 
+  function tiltBy(d) { R.camera.tilt = SB.clamp((R.camera.tilt || 0) + d, -0.22, 0.32); }
+  IN.tiltBy = tiltBy;
   /* ---------------- pinch / rotate ---------------- */
   function startPinch() {
     var ids = Object.keys(ptrs), a = ptrs[ids[0]], b = ptrs[ids[1]];
-    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, zoom: R.camera.tZoom, yaw: R.camera.tYaw };
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, zoom: R.camera.tZoom, yaw: R.camera.tYaw, mode: null };
+    pinch.mx0 = pinch.mx; pinch.my0 = pinch.my;
     if (game.hand.heldId) { var ref = SB.Game.byId(game, game.hand.heldId); if (ref) { ref.heldBy = null; ref.onGround = false; } game.hand.heldId = null; }
   }
   function updatePinch() {
@@ -236,6 +240,13 @@
     var a = ptrs[ids[0]], b = ptrs[ids[1]];
     var d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
     var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    // two fingers sliding up or down together (not spreading, not twisting): tilt the camera
+    if (!pinch.mode) {
+      var mdy = my - pinch.my0, mdx = mx - pinch.mx0, dd = Math.abs(d - pinch.d);
+      if (Math.abs(mdy) > 14 && dd < 18 && Math.abs(mdx) < Math.abs(mdy) * 0.6) pinch.mode = "tilt";
+      else if (dd > 18 || Math.abs(mdx) > 14 || Math.abs(SB.angDiff(pinch.ang, ang)) > 0.08) pinch.mode = "pinch";
+    }
+    if (pinch.mode === "tilt") { tiltBy((my - pinch.my) * 0.005); pinch.mx = mx; pinch.my = my; return; }
     R.camera.tZoom = SB.clamp(pinch.zoom * pinch.d / Math.max(20, d), R.camera.minZoom, R.camera.maxZoom);
     R.camera.zoom = R.camera.tZoom;
     var da = SB.angDiff(pinch.ang, ang);
@@ -261,7 +272,9 @@
     var k = e.key.toLowerCase();
     keys[k] = true;
     if (SB.UI && SB.UI.key && SB.UI.key(e)) return;
-    if (k === "q") R.rotateBy(-Math.PI / 4);
+    if (k === "r") tiltBy(-0.08);
+    else if (k === "v") tiltBy(0.08);
+    else if (k === "q") R.rotateBy(-Math.PI / 4);
     else if (k === "e") R.rotateBy(Math.PI / 4);
     else if (k === "+" || k === "=" || k === "z") R.zoomAt(0.8);
     else if (k === "-" || k === "_" || k === "x") R.zoomAt(1.25);

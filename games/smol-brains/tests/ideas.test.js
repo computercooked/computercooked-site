@@ -125,5 +125,18 @@ console.log("6. smols' own words");
   check("saying the smols' word for an idea is understood", c.heard.idea === "bonk", w);
 }
 
+console.log("herb lore: herbalists nurse sick friends");
+{
+  const SB = load().SB;
+  const game = SB.Game.newGame(21); SB.Game.current = game; game.tutorial.done = true;
+  const [doc, pat] = SB.Debug.spawnTier(3, 2);
+  [doc, pat].forEach(c => { c.asleep = false; c.stage = 3; c.age = SB.STAGES[3].from + 50; });
+  doc.ideas = doc.ideas || {}; doc.ideas.herbal = 1;
+  pat.x = doc.x + 8; pat.z = doc.z; pat.chem.antigen = 0.7; pat.chem.sick = 0.6;
+  let nursed = false; SB.bus.on("nursed", d => { if (d.p === pat) nursed = true; });
+  for (let t = 0; t < 120 / SB.TICK && !nursed; t++) { pat.chem.antigen = Math.max(pat.chem.antigen, 0); SB.Game.step(game, SB.TICK); }
+  check("an herbalist walks over and nurses a sick friend better", nursed, "sick " + pat.chem.sick.toFixed(2));
+}
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);
