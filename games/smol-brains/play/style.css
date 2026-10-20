@@ -161,6 +161,7 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .modal .mb { overflow: auto; padding: 4px 16px 16px; overscroll-behavior: contain; }
 .tabs { display: flex; gap: 4px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
+@media (min-width: 700px) { .tabs { flex-wrap: wrap; overflow-x: visible; } } /* desktop: every tab visible, no hidden scroll */
 .tab { padding: 7px 11px; border-radius: 0; font: 700 13px var(--mono); color: var(--dim); white-space: nowrap; background: var(--faint); }
 .tab.on { background: var(--lime); color: var(--carbon); }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }

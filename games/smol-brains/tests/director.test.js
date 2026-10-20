@@ -63,7 +63,8 @@ console.log("3. choices cost sparks");
   const inc = SB.Director.fire(game, "storm");
   check("can't afford: refused", !SB.Director.choose(game, inc, "calm") && inc.phase === "ask");
   game.sparks = 50;
-  check("can afford: taken and paid", SB.Director.choose(game, inc, "calm") && game.sparks === 42, game.sparks);
+  const cost = inc.choices.find(c => c.key === "calm").cost;
+  check("can afford: taken and paid", SB.Director.choose(game, inc, "calm") && game.sparks === 50 - cost && cost >= 8, game.sparks + " (cost " + cost + ")");
 }
 
 console.log("4. pacing: gaps between stories, a breather after trouble");

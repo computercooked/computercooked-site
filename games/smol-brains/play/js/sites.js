@@ -44,10 +44,10 @@
     game.sites = out;
     return out;
   };
-  S.serialize = function (game) { return (game.sites || []).filter(function (s) { return s.found || s.done; }).map(function (s) { return [s.id, s.found ? 1 : 0, s.done ? 1 : 0, s.log == null ? -1 : s.log]; }); };
+  S.serialize = function (game) { return (game.sites || []).filter(function (s) { return s.found || s.done; }).map(function (s) { return [s.id, s.found ? 1 : 0, s.done ? 1 : 0, s.log == null ? -1 : s.log, s.asked ? Math.round(s.againT || 0) : 0]; }); };
   S.revive = function (game, data) {
     if (!game.sites) S.generate(game);
-    (Array.isArray(data) ? data : []).forEach(function (p) { var s = game.sites[p[0]]; if (s) { s.found = !!p[1]; s.done = !!p[2]; if (p[3] >= 0) s.log = p[3]; } });
+    (Array.isArray(data) ? data : []).forEach(function (p) { var s = game.sites[p[0]]; if (s) { s.found = !!p[1]; s.done = !!p[2]; if (p[3] >= 0) s.log = p[3]; if (p[4] > 0) { s.asked = true; s.againT = p[4]; } } });
   };
   S.near = function (game, x, z, r) { return (game.sites || []).filter(function (s) { return SB.dist(s.x, s.z, x, z) < r; }); };
   function mark(s) { if (SB.Render && SB.Render.markDirty) SB.Render.markDirty(s.x, s.z); }
@@ -67,7 +67,7 @@
       for (var i = 0; i < sm.length; i++) if (SB.dist(sm[i].x, sm[i].z, s.x, s.z) < 6) { S.find(game, s, sm[i]); return; }
     });
     // a camp that's been found but not dealt with waits for the storyteller to be free
-    if (SB.Director) { var d = SB.Director.state(game); if (!d.active && game.sites.some(function (s) { return s.kind === "camp" && s.found && !s.done && !s.asked; })) SB.Director.fire(game, "camp"); }
+    if (SB.Director) { var d = SB.Director.state(game); if (!d.active && game.sites.some(function (s) { return s.kind === "camp" && s.found && !s.done && (!s.asked || game.time > (s.againT || 0)); })) SB.Director.fire(game, "camp"); }
   };
 
   S.find = function (game, s, c) {

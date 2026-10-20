@@ -85,7 +85,7 @@
         g.raider = { x: hm.x, z: hm.z }; g.chem.anger = 0.8; g.chem.hunger = 0.7;
         inc.raiders.push(g.id);
       }
-      inc.dur = 210;
+      inc.dur = 150;
       if (inc.choice === "hide") smols(game).forEach(function (c) { c.shelterT = 120; });
       if (inc.choice === "fight") smols(game).forEach(function (c) { if (c.stage >= 2 && c.tier >= 1) { c.rally = 150; SB.Chem.apply(c.chem, { fear: -0.5, anger: 0.3 }); } });
     },
@@ -93,9 +93,14 @@
       var hm = home(game), left = 0;
       inc.raiders.forEach(function (id) {
         var g = SB.Game.byId(game, id);
-        if (!g || !g.alive) return;
+        if (!g || !g.alive || g.goingHome) return;
         left++;
-        if (inc.choice === "smite" && !g.smitten && SB.dist(g.x, g.z, hm.x, hm.z) < 20) {
+        var dh = SB.dist(g.x, g.z, hm.x, hm.z);
+        // a war party keeps marching until it gets there (unless something's chasing it)
+        if (dh > 7 && !(g.action && g.action.called) && !(g.chem.fear > 0.7) && !g.heldBy) SB.Creature.sendTo(g, hm.x + game.rng.range(-3, 3), hm.z + game.rng.range(-3, 3), game, 15);
+        // beaten up or scared witless, a raider runs for it
+        if ((g.chem.pain > 0.55 || g.chem.fear > 0.85) && dh < 25) { g.goingHome = true; g.raider = null; inc.routed = (inc.routed || 0) + 1; if (inc.choice === "fight") inc.chased = (inc.chased || 0) + 1; return; }
+        if (inc.choice === "smite" && !g.smitten && dh < 15) {
           g.smitten = true;
           SB.World.lightning(game.world, game, g.x, g.z, true);
           SB.Chem.apply(g.chem, { fear: 1, pain: 0.5 });
@@ -106,13 +111,13 @@
       // the brave charge whichever raider is closest
       if (inc.choice === "fight") smols(game).forEach(function (c) {
         if (!(c.rally > 0) || c.action && c.action.verb === SB.V.hit || c.chem.pain > 0.6) return;
-        var foe = null, fd = 9;
+        var foe = null, fd = 16;
         inc.raiders.forEach(function (id) { var g = SB.Game.byId(game, id); if (g && g.alive && !g.goingHome) { var dd = SB.dist(g.x, g.z, c.x, c.z); if (dd < fd) { fd = dd; foe = g; } } });
         if (foe && game.rng.chance(0.5)) SB.Creature.provoke(c, foe, game);
       });
       inc.left = left;
       if (!left) return D.end(game, inc, true);
-      if (game.time - inc.t1 > inc.dur) { inc.raiders.forEach(function (id) { var g = SB.Game.byId(game, id); if (g) g.goingHome = true; }); return D.end(game, inc, false); }
+      if (game.time - inc.t1 > inc.dur) { inc.raiders.forEach(function (id) { var g = SB.Game.byId(game, id); if (g) g.goingHome = true; }); return D.end(game, inc, !!(inc.smote || inc.routed)); }
     },
     finish: function (game, inc, won) {
       smols(game).forEach(function (c) { c.shelterT = 0; c.rally = 0; });
@@ -122,7 +127,7 @@
         var heroes = inc.heroes ? Object.keys(inc.heroes).map(function (id) { return SB.Game.byId(game, +id); }).filter(Boolean) : [];
         heroes.forEach(function (c) { diary(game, c, "🏏", "fought off the grump raid"); c.stats.grumpsChased = (c.stats.grumpsChased || 0) + 1; if (SB.Social) SB.Social.checkTitle(game, c); });
         chron(game, "🏏", "the village fought off a grump raid" + (heroes.length ? ", led by " + heroes.slice(0, 2).map(function (c) { return c.name; }).join(" and ") : ""));
-        return "the raid is broken! " + (chased ? chased + " grumps chased off for good. " : "") + "+" + (6 + chased * 2) + " ✨ from a grateful tribe";
+        return "the raid is broken! " + (chased ? chased + (chased === 1 ? " grump" : " grumps") + " chased off for good. " : "") + "+" + (6 + chased * 2) + " ✨ from a grateful tribe";
       }
       if (won) { chron(game, "👺", "a grump raid came and went" + (inc.smote ? " (the sky struck " + inc.smote + " of them)" : "")); return "the grumps are gone." + (hurt ? " " + hurt + (hurt === 1 ? " smol got" : " smols got") + " hurt." : " nobody got hurt."); }
       chron(game, "👺", "a grump raid wore itself out and slunk home");
@@ -588,6 +593,9 @@
     d.last[def.id] = game.time;
     if (!inc) return null;
     inc.id = def.id; inc.t0 = game.time; d.count++;
+    // miracles cost more for a big tribe, so sparks stay worth something later on
+    var big = 1 + Math.max(0, smols(game).length - 8) / 25;
+    (inc.choices || []).forEach(function (ch) { if (ch.cost) ch.cost = Math.round(ch.cost * big); });
     if (def.quiet) { SB.bus.emit("incidentNote", { inc: inc }); return inc; }
     if (def.bad) d.lastBad = game.time;
     inc.phase = "ask";

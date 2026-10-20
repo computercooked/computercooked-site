@@ -53,7 +53,7 @@
     var out = [], r = a.ops && a.ops[b.id], now = game.time;
     var cp = compat(game, a, b);
     if (SB.Game.related && SB.Game.related(game, a, b)) out.push({ t: "family", v: 18 });
-    if (Math.abs(cp) >= 6) out.push({ t: cp > 0 ? "we get along" : "we just don't click", v: cp - (out.length ? 18 : 0) });
+    if (Math.abs(cp) >= 6) out.push({ t: cp > 0 ? "we get along" : "we just don't click", v: cp });
     var seen = {};
     if (r) r.m.forEach(function (m) { var v = Math.round(m[0] * fade(m, now)); if (!v) return; if (seen[m[4]]) { seen[m[4]].v += v; return; } out.push(seen[m[4]] = { t: m[4], v: v }); });
     if (a.partner === b.id) out.push({ t: "my partner", v: 30 });

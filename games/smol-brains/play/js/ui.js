@@ -203,8 +203,8 @@
     var g = game, out = [], A = g.achievements, smols = SB.Game.smols(g);
     function add(t, p, done) { out.push({ t: t, p: p, done: done }); }
     if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
-    else if (!A.word1) add("teach a first word: 💬 talk, pick “food”, tap food near a smol (a few times, slowly)", "");
-    if (A.hatch && !A.tickle) add("tickle a smol when it does something good 🪶", "");
+    else if (!A.word1 && !g.ngPlus) add("teach a first word: 💬 talk, pick “food”, tap food near a smol (a few times, slowly)", "");
+    if (A.hatch && !A.tickle && !g.ngPlus) add("tickle a smol when it does something good 🪶", "");
     if (A.hatch && !A.egg) {
       var adults = smols.filter(function (c) { return c.stage >= 3; }).length;
       var young = smols.filter(function (c) { return c.stage < 3; }).sort(function (a, b) { return b.age - a.age; })[0];
@@ -230,12 +230,16 @@
       var F = g.culture.found, sp = g.world.structures.filter(function (s) { return s.kind === "spire"; })[0], SK = SB.STRUCTS.spire;
       if (!F.astronomy || !F.resonance || !F.bigthought) {
         var got = ["astronomy", "resonance", "bigthought"].filter(function (k) { return F[k]; }).length;
-        add("the big thought ✨: ascended smols need " + ["🔭 astronomy", "💠 resonance", "✨ the idea itself"].filter(function (x, i) { return !F[["astronomy", "resonance", "bigthought"][i]]; }).join(", "), got + "/3");
+        var tips = { astronomy: "🔭 astronomy (thinkers with lenses stargazing at night)", resonance: "💠 resonance (ascended smols holding thought crystals)", bigthought: "✨ the idea itself (ascended friends together by the story pole, or holding crystals)" };
+        var nextK = ["astronomy", "resonance", "bigthought"].filter(function (k) { return !F[k]; })[0];
+        add("the big thought ✨ needs " + tips[nextK] + (nextK === "bigthought" ? "" : ", then more"), got + "/3");
       } else if (!sp) add("ascended smols will raise the spire ✨ (needs " + Object.keys(SK.cost).map(function (k) { return SK.cost[k] + " " + k; }).join(", ") + ")", "");
       else if (!SB.Ideas.siteReady(sp)) {
         var miss = Object.keys(sp.need).filter(function (k) { return sp.need[k] > 0; }).map(function (k) { return (SK.cost[k] - sp.need[k]) + "/" + SK.cost[k] + " " + k; });
-        add("bring the spire " + miss.join(" · ") + (miss.some(function (m) { return / crystal/.test(m); }) ? " (💎 caves, fallen stars)" : ""), "");
+        add("bring the spire " + miss.join(" · ") + (miss.some(function (m) { return / crystal/.test(m); }) ? " (💎 crystal caves, fallen stars)" : "") + (miss.some(function (m) { return / metal/.test(m); }) ? " (ascended pull copper out of ore rocks)" : ""), "");
       } else add("raising the spire ✨", Math.round(Math.min(1, sp.work / SK.work) * 100) + "%");
+      var asc = smols.filter(function (c) { return c.tier >= 6; }).length;
+      if (maxT >= 6 && asc < 3) add("⚠ only " + asc + " ascended left: bless eggs toward 🌟 glow to keep the line going", "");
     }
     return out.slice(0, 3);
   }
@@ -272,6 +276,7 @@
     if (!momentBusy) nextMoment();
   }
   function nextMoment() {
+    if (SB.Intro && SB.Intro.covering) { momentBusy = true; setTimeout(nextMoment, 800); return; } // wait for the cutscene
     var m = momentQ.shift();
     if (!m) { momentBusy = false; return; }
     momentBusy = true;
@@ -1074,7 +1079,7 @@
   function intro() {
     state.introRunning = true;
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
-    if (SB.Intro && !UI.noStory) { SB.Intro.play({ done: landing }); return; }
+    if (SB.Intro && !UI.noStory && !game.ngPlus) { SB.Intro.play({ done: landing }); return; }
     landing();
   }
   UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };
@@ -1255,7 +1260,7 @@
       h("div", { class: "btnrow" }, [
         h("button", { class: "btn", onclick: function () { closeModal(); } }, "keep playing"),
         h("button", { class: "btn", onclick: function () { UI.civCard(); } }, "🪪 share"),
-        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+ " + lvl) : null
+        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
       ])
     ]);
     modal("", body, { story: true, sticky: true });

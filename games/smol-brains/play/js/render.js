@@ -684,9 +684,10 @@
   };
   R.rotateBy = function (a) { cam.tYaw += a; };
   R.flyTo = function (x, z, zoom, dur, done) {
+    if (cam.intro && cam.intro.cine) return; // never cut into a cinematic: its ending does important work (the landing shows the UI)
     cam.intro = { t: 0, dur: dur || 1.2, x0: cam.x, zz0: cam.z, x1: x, zz1: z, z0: cam.zoom, z1: zoom || cam.zoom, yaw0: cam.yaw, yaw1: cam.yaw, done: done };
   };
-  R.cinematic = function (o) { cam.intro = o; cam.intro.t = 0; };
+  R.cinematic = function (o) { cam.intro = o; cam.intro.t = 0; cam.intro.cine = true; };
 
   var pv = [0, 0, 0];
   // world -> CSS pixels {x, y, z(ndc depth), on}
