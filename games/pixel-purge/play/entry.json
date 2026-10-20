@@ -18,7 +18,14 @@
   "max_score_per_sec": 200,
   "changelog": "v2: wake chains (idle disks firing again within 3s build a combo), per-lane hit-count badges, 3 stars per level (clear, no undo, low bench), daily counts first try only, bench stays visible on the lose card, timer pauses in menus, warning re-arms, shorter tutorial.",
   "playtest": {
-    "before": 5.0,
+    "before": 5,
     "after": 6.5
-  }
+  },
+  "how_to": [
+    "tap a floppy with a number badge: it shoots the lowest pixel of its color in each column, so clear from the bottom up.",
+    "the badge is how many pixels that front disk can hit right now. sleepy disks have nothing to shoot yet.",
+    "empty disks leave. anything with shots left sits on the 5-slot bench, and a full bench means you are cooked.",
+    "z is ctrl+z: one undo per level. save it for when the bench is nearly full.",
+    "the daily picture is the same for everyone, and only your first try counts."
+  ]
 }

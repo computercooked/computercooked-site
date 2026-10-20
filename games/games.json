@@ -15,7 +15,7 @@
       "size_kb": 877,
       "version": "2",
       "added": "2026-10-19",
-      "max_score_per_sec": 60.0,
+      "max_score_per_sec": 60,
       "how_to": [
         "tasks fall. touching one = +15° heat. big ones hurt more.",
         "coffee −11°, fans −24°.",
@@ -38,6 +38,7 @@
       "controls": "wasd / arrows or drag anywhere to steer. turn hard to power up the purse. 1 2 3 picks upgrades. r restart, p pause, m mute.",
       "size_kb": 119,
       "version": "1.1",
+      "max_score_per_sec": 12,
       "added": "2026-10-19"
     },
     {
@@ -56,7 +57,9 @@
       "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
       "size_kb": 49,
       "version": "1.1",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 2,
+      "max_score": 30
     },
     {
       "slug": "keyboard-escape",
@@ -75,7 +78,9 @@
       "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. land dead centre for perfect bonuses. p pause, r back to boot (keeps speed), m mute.",
       "size_kb": 46,
       "version": "1.1",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 150,
+      "score_slack": 1500
     },
     {
       "slug": "desktop-jam",
@@ -94,7 +99,9 @@
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
       "size_kb": 61,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 1000,
+      "max_score": 5500
     },
     {
       "slug": "fathom",
@@ -112,7 +119,8 @@
       "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate. modes: classic or salvo.",
       "size_kb": 122,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 300
     },
     {
       "slug": "tab-hoarder",
@@ -130,7 +138,8 @@
       "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
       "size_kb": 40,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 30
     },
     {
       "slug": "crash-test-daily",
@@ -188,7 +197,14 @@
       "size_kb": 54,
       "version": "1",
       "added": "2026-10-19",
-      "max_score_per_sec": 50
+      "max_score_per_sec": 100,
+      "how_to": [
+        "every level is a file that lies. if a floor, an exit or a checkpoint looks too easy, it probably is.",
+        "keep moving on stairs and bridges: some of them delete themselves behind you.",
+        "the controls can get swapped mid-level. watch which way you actually move, not which key you pressed.",
+        "deaths are free. r restarts the level instantly, esc opens the level list.",
+        "new speedrun starts from level 1 and times the whole run, deaths included."
+      ]
     },
     {
       "slug": "pixel-purge",
@@ -208,7 +224,14 @@
       "size_kb": 96,
       "version": "2",
       "added": "2026-10-19",
-      "max_score_per_sec": 200
+      "max_score_per_sec": 200,
+      "how_to": [
+        "tap a floppy with a number badge: it shoots the lowest pixel of its color in each column, so clear from the bottom up.",
+        "the badge is how many pixels that front disk can hit right now. sleepy disks have nothing to shoot yet.",
+        "empty disks leave. anything with shots left sits on the 5-slot bench, and a full bench means you are cooked.",
+        "z is ctrl+z: one undo per level. save it for when the bench is nearly full.",
+        "the daily picture is the same for everyone, and only your first try counts."
+      ]
     },
     {
       "slug": "crash-cheats",
@@ -227,7 +250,9 @@
       "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
       "size_kb": 116,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "max_score_per_sec": 120,
+      "max_score": 950
     },
     {
       "slug": "overdue-notice",
@@ -283,7 +308,15 @@
       "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate. tools: grab (carry, throw), tickle (reward), tap (scold), talk (teach words), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer.",
       "size_kb": 756,
       "version": "2",
-      "added": "2026-10-19"
+      "added": "2026-10-19",
+      "how_to": [
+        "tap the egg to warm it, then teach a first word: pick 💬 talk and tap an apple a few times. smols learn nouns before verbs.",
+        "tickle right after the good thing. a few seconds late rewards whatever it is doing by then, which is how smols learn weird superstitions.",
+        "stuck on an evolution? the goal strip says which gene is missing. ✨ magic → 🧬 bless makes the next eggs lean that way.",
+        "tool-users invent things on their own. 💡 inspire speeds it up, and smols teach each other. if the last smol who knows an idea dies, it's gone.",
+        "the brain viewer (b) is the cheat code: watch which action lights up and you'll know what to tickle or scold.",
+        "share your world: smolpedia → world → copy world link. anyone who opens it gets the same island."
+      ]
     }
   ]
 }

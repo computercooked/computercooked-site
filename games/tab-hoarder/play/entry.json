@@ -18,5 +18,6 @@
   "playtest": {
     "before": 5.5,
     "after": 6.4
-  }
+  },
+  "max_score_per_sec": 30
 }
