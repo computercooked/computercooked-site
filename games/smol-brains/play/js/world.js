@@ -747,6 +747,10 @@
   };
   W.siteFree = function (world, x, z, rad) {
     if (!W.walkable(world, x, z) || WG.depthAt(world.T, x, z) > 0.02 || WG.slopeAt(world.T, x, z) > 0.9) return false;
+    // level enough across the whole footprint (buildings sit at its highest point)
+    var lo = 1e9, hi = -1e9;
+    for (var q = 0; q < 5; q++) { var hx = x + [0, -rad, rad, 0, 0][q] * 0.8, hz = z + [0, 0, 0, -rad, rad][q] * 0.8, hh = WG.heightAt(world.T, hx, hz); if (WG.depthAt(world.T, hx, hz) > 0.02) return false; lo = Math.min(lo, hh); hi = Math.max(hi, hh); }
+    if (hi - lo > 0.35) return false;
     var blocked = false;
     W.eachNodeNear(world, x, z, rad + 0.8, function (n) { if (n.kind !== "herbs") blocked = true; });
     if (blocked) return false;

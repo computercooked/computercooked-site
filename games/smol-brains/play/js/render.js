@@ -462,11 +462,14 @@
       if (st.x < x0 || st.x >= x0 + S || st.z < z0 || st.z >= z0 + S) continue;
       var sk = "s:" + (st.done ? st.kind : "plot");
       if (!meshes[sk]) continue;
-      var ys = WG.heightAt(T, st.x, st.z) - 0.02;
+      // sit on the highest ground under the footprint, so nothing sinks into a slope
+      var sr = (SB.STRUCTS[st.kind] ? SB.STRUCTS[st.kind].r : 0.8) * 0.8, ys = WG.heightAt(T, st.x, st.z);
+      for (var q = 0; q < 4; q++) ys = Math.max(ys, WG.heightAt(T, st.x + (q & 1 ? sr : -sr), st.z + (q & 2 ? sr : -sr)));
+      ys -= 0.02;
       push(sk, st.x, ys, st.z, st.rot || 0, st.s || 1, st.s || 1, st.s || 1, st.tint || [1, 1, 1], 0, 0);
       if (st.done && st.kind === "farm") {
+        var g = st.data && st.data.grow != null ? st.data.grow : 0.5;
         for (var fz = 0; fz < 4; fz++) for (var fx = 0; fx < 4; fx++) {
-          var g = st.grow == null ? 0.5 : st.grow;
           if (g <= 0.02) continue;
           var ca = Math.cos(st.rot || 0), sa = Math.sin(st.rot || 0), lx = -0.7 + fx * 0.47, lz = -0.65 + fz * 0.43;
           push("s:crop", st.x + lx * ca + lz * sa, ys + 0.08, st.z - lx * sa + lz * ca, fx * 1.3 + fz, 0.4 + g * 0.8, 0.3 + g * 0.9, 0.4 + g * 0.8, [1, 1, 1], 0, 0);
