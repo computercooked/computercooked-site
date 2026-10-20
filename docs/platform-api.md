@@ -28,6 +28,8 @@ Response:
   // "play next" rail after a run: plays started from it (per_run = plays / runs_ended), by card tapped
   // "share this game" sends after runs with no score (no dare), by method
   "game_shares": { "sent": 0, "via_share": 0, "via_copy": 0, "via_card": 0, "via_download": 0 },
+  // "follow @computercooked" button clicks (site → socials)
+  "follow_clicks": { "total": 0, "by_platform": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0 }, "by_slot": { "hub-card": 0, "hub-footer": 0, "post-run": 0 } },
   "next": { "runs_ended": 0, "plays": 0, "ended": 0, "per_run": null, "by_slot": { "challenge": 0, "similar": 0, "new": 0 } },
   "games": [{
     "game": "crash", "title": "CRASH",
@@ -52,6 +54,14 @@ Notes:
 - Days are UTC.
 - Playtest traffic carries a `tester` tag. Filter on it when you want public numbers only.
 
+## Follow loop (site → socials)
+
+A "new games drop on our tiktok first / follow **@computercooked**" house card with four buttons (tiktok, youtube, instagram, x), from `assets/follow.js`:
+- **Hub:** the card fills the reserved `games-hub-bottom` ad slot, below every shelf, so it never pushes a play button down. The footer also gets a compact follow row.
+- **After a run:** the card goes at the end of the play-next rail, only when the tip jar is off and the run wasn't a new best (where the dare is the ask). There's only ever one house card on a game page.
+- **Links:** tiktok.com/@computercooked, youtube.com/@computercooked?sub_confirmation=1, instagram.com/computercooked/, x.com/computercooked. They open in a new tab with `rel="noopener"`. No pixels, no third-party scripts.
+- **Clicks:** `POST /api/follow {platform, slot, game?, anon}` → `{ok}`. It stores one `events` row `cc:follow_click` `{platform, slot}` with no player id (`game` is the game page's slug, or `site`). Smoke anon ids get `{ok, test: true}` and nothing is stored. 400 for an unknown platform or slot. 60 per hour per IP. Counted as `follow_clicks` in admin metrics and in the digest.
+
 ## Daily digest
 
 `GET /api/admin/digest?days=7` (Bearer token, `days` 1–31, default 7). One row per **Pacific-time** day (America/Los_Angeles, DST handled), oldest first. The last row is today so far (`partial: true`). Smoke traffic is left out, as in metrics.
@@ -65,6 +75,7 @@ Notes:
     "ref": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0, "threads": 0, "bluesky": 0, "search": 0, "other": 0, "direct": 0, "internal": 0, "app": 0, "embed": 0 },
     "next": { "plays": 0, "per_run": null },             // play-next plays / runs ended that day
     "game_shares": 0,                                    // "share this game" sends
+    "follow_clicks": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0 },   // follow button clicks
     "dares": { "made": 0, "sent": 0, "opened": 0, "beaten": 0 },   // dares made that day, and what became of them
     "new_accounts": 0,
     "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]   // games played that day
@@ -247,6 +258,7 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 | POST | `/api/dare/:id/beat` | `{play_id, anon}` → `{beaten, first, from, score, sender_xp}`. Your run must be yours, on that game, accepted and higher. The first beat per player counts; a logged-in sender gets +25 XP per beat (10 per dare, 100 a day). The game page also sends `cc.event('challenge_open', {d})` on the first run from a dare link |
 | POST | `/api/dare/:id/shared` | `{how: share/copy/card/download}` → `{ok}`. The game page sends it when the share sheet finishes (`share` for the link, `card` for the share card), the link is copied, or the card is downloaded; the first one per dare counts. `POST /api/dare` takes `source: best` when the dare comes from the new-personal-best prompt (made up front so the tap opens the share sheet at once) |
 | POST | `/api/share` | `{game, how: share/copy/card/download, anon}` → `{ok}`. "Share this game" after a run with no accepted score (no dare to attach it to). Stores one `events` row `cc:share` `{how}` with no player id; smoke anon ids get `{ok, test: true}` and nothing stored. 400 for an unknown `how`, 404 for an unknown game. 30 per hour per IP |
+| POST | `/api/follow` | `{platform: tiktok/youtube/instagram/x, slot: hub-card/hub-footer/post-run, game?, anon}` → `{ok}`. A follow button click (see "Follow loop"); one `cc:follow_click` event, no player id; smoke not stored |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
 | GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total} \| null}`. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |

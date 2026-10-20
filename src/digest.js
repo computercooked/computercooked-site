@@ -2,6 +2,7 @@
 // agent; scripts/digest.mjs prints it as a table). Everything is computed from existing tables, smoke traffic
 // left out the same way as /api/admin/metrics.
 import { json, now, REAL } from "./util.js";
+import { FOLLOW_PLATFORMS } from "./follow.js";
 
 const TZ = "America/Los_Angeles";
 const PLAYER = "COALESCE('u' || user_id, 'a' || anon_id)";
@@ -63,6 +64,9 @@ export async function digest(url, env) {
     `SELECT ${dayOf("p.started_at")} d, COUNT(*) n FROM events e JOIN plays p ON p.id = e.play_id
      WHERE e.name = 'cc:next' AND p.started_at >= ? AND p.started_at < ? AND ${REAL} GROUP BY 1`
   ).bind(start, end).all()).results;
+  const follows = (await db.prepare(
+    `SELECT ${dayOf("ts")} d, json_extract(data, '$.platform') p, COUNT(*) n FROM events WHERE name = 'cc:follow_click' AND ts >= ? AND ts < ? GROUP BY 1, 2`
+  ).bind(start, end).all()).results;
   const shares = (await db.prepare(
     `SELECT ${dayOf("ts")} d, COUNT(*) n FROM events WHERE name = 'cc:share' AND ts >= ? AND ts < ? GROUP BY 1`
   ).bind(start, end).all()).results;
@@ -95,6 +99,7 @@ export async function digest(url, env) {
       ref,
       next: { plays: nextPlays, per_run: p.ended ? Math.round((nextPlays / p.ended) * 1000) / 1000 : null },
       game_shares: at(shares, i).n || 0,
+      follow_clicks: Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, follows.filter((r) => r.d === i && r.p === p).reduce((s, r) => s + r.n, 0)])),
       dares: { made: dr.made || 0, sent: dr.sent || 0, opened: dr.opened || 0, beaten: dr.beaten || 0 },
       new_accounts: at(accounts, i).n || 0,
       games: perGame.filter((g) => g.d === i).map(shape),

@@ -2534,3 +2534,58 @@ body.embed {
 .footer .cc-tip { margin: 0 0 6px; }
 .cc-tip a { color: var(--lime); }
 .cc-tip small { margin-left: 4px; font-size: 0.72rem; opacity: 0.7; white-space: nowrap; }
+
+/* follow loop (assets/follow.js): house card in the hub's bottom slot and after a run, plus a footer row */
+.cc-follow {
+  position: relative;
+  margin: 12px 0 0;
+  padding: 14px 14px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background:
+    linear-gradient(#121318, #121318) padding-box,
+    linear-gradient(120deg, var(--lime), rgba(181, 154, 255, 0.9) 55%, rgba(197, 255, 73, 0.25)) border-box;
+  box-shadow: 0 0 28px -14px var(--lime);
+  font-family: var(--mono);
+  overflow: hidden;
+}
+.cc-follow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px);
+  pointer-events: none;
+}
+.ad-slot .cc-follow { margin: 8px 0 24px; max-width: 640px; }
+.cc-next .cc-follow { max-width: 640px; }
+.cc-follow p { margin: 0; }
+.cc-follow-k { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--lilac); text-transform: lowercase; letter-spacing: 0.02em; }
+.cc-follow-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 8px var(--lime); animation: cc-follow-blink 1.6s steps(2, start) infinite; }
+@keyframes cc-follow-blink { to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .cc-follow-dot { animation: none; } }
+.cc-follow-h { margin: 4px 0 10px !important; font-size: 1.05rem; font-weight: 800; color: var(--paper); }
+.cc-follow-h b { color: var(--lime); }
+.cc-follow-btns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cc-follow-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 2px 6px;
+  border: 1px solid rgba(181, 154, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--paper);
+  font-size: 0.68rem;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.cc-follow-btn svg { width: 20px; height: 20px; fill: currentColor; }
+.cc-follow-btn:hover, .cc-follow-btn:focus-visible { border-color: var(--lime); color: var(--lime); transform: translateY(-1px); }
+/* footer: one compact line of icon chips */
+.cc-follow-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 6px; margin: 10px 0 4px !important; font-family: var(--mono); font-size: 0.75rem; }
+.cc-follow-row > span { flex-basis: 100%; opacity: 0.8; }
+.footer .cc-follow-row .cc-follow-btn { display: inline-flex; flex-direction: row; align-items: center; gap: 5px; padding: 6px 10px; font-size: 0.72rem; color: var(--paper); }
+.footer .cc-follow-row .cc-follow-btn svg { width: 14px; height: 14px; }

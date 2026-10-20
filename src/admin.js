@@ -1,6 +1,7 @@
 // Admin API, guarded by a bearer token stored as the ADMIN_TOKEN Worker secret.
 import { json, bad, readJson, now, dayOf, safeEqual, limited, REAL } from "./util.js";
 import { games } from "./db.js";
+import { FOLLOW_PLATFORMS } from "./follow.js";
 
 export function isAdmin(req, env, ip) {
   const h = req.headers.get("authorization") || "";
@@ -131,6 +132,17 @@ export async function metrics(url, env, origin) {
   const gsOf = (k) => (gs.find((r) => r.how === k) || {}).n || 0;
   const game_shares = { sent: gs.reduce((n, r) => n + r.n, 0), via_share: gsOf("share"), via_copy: gsOf("copy"), via_card: gsOf("card"), via_download: gsOf("download") };
 
+  // "follow @computercooked" clicks (site → socials), by platform and by where the button was
+  const fc = (await db.prepare(
+    "SELECT json_extract(data, '$.platform') platform, json_extract(data, '$.slot') slot, COUNT(*) n FROM events WHERE name = 'cc:follow_click' AND ts >= ? GROUP BY 1, 2"
+  ).bind(Date.parse(since)).all()).results;
+  const sumBy = (k, v) => fc.filter((r) => r[k] === v).reduce((n, r) => n + r.n, 0);
+  const follow_clicks = {
+    total: fc.reduce((n, r) => n + r.n, 0),
+    by_platform: Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, sumBy("platform", p)])),
+    by_slot: Object.fromEntries(["hub-card", "hub-footer", "post-run"].map((s) => [s, sumBy("slot", s)])),
+  };
+
   // smoke-test traffic left out of everything above, counted here so a live smoke run can be confirmed excluded
   const test = await db.prepare(
     `SELECT (SELECT COUNT(*) FROM plays WHERE day >= ?1 AND NOT ${REAL}) plays,
@@ -152,6 +164,7 @@ export async function metrics(url, env, origin) {
     },
     dares,
     game_shares,
+    follow_clicks,
     next,
     test_traffic: test,
     games: out,
