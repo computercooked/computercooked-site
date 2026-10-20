@@ -13,3 +13,9 @@
 .u-friend a.tool { text-decoration: none; }
 .u-card { flex-wrap: wrap; }
 .u-friend .me-msg:empty { display: none; }
+
+/* the title is a player's name (usernames up to 16 characters, display names up to 24), not the short
+   hub heading the shared .games-title size is made for: smaller, and it breaks rather than overflow at 375px */
+#u-title { font-size: clamp(1.9rem, 9vw, 3.4rem); overflow-wrap: anywhere; }
+/* the hub hero's two columns (860px+) would put the name in the narrow right one, beside the eyebrow */
+.u-page .games-hero { grid-template-columns: minmax(0, 1fr); gap: 0; }
