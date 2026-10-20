@@ -342,6 +342,8 @@
     var sc = typeof o.score === "number" && isFinite(o.score) ? o.score : p.score;
     var dur = typeof o.durationMs === "number" && isFinite(o.durationMs) ? o.durationMs : Date.now() - p.t0;
     queue.push({ t: "end", id: p.id, game: game, score: sc, dur: Math.round(dur), completed: o.completed !== false });
+    // ended while the page is hidden (tab or app switch, closing): send as a beacon so it survives the page going away
+    if (!beacon) try { beacon = document.visibilityState === "hidden"; } catch (e) {}
     var done = flush(beacon).then(function (res) {
       var r = res && res.results ? res.results[p.id] || null : null;
       document.dispatchEvent(new CustomEvent("cc:end", { detail: { game: game, playId: p.id, score: sc, result: r } }));
