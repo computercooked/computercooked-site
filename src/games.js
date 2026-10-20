@@ -110,10 +110,21 @@ export async function leaderboard(url, env, user) {
   ).bind(...args).all();
   let me = url.searchParams.get("player");
   if (user) me = "u:" + user.id;
+  // outside the top rows: your own rank and best on the same board, so everyone sees where they stand
+  let you = null;
+  if (me && typeof me === "string" && me.length <= 80 && !results.some((r) => r.player === me)) {
+    const mine = await env.DB.prepare(`SELECT MAX(score) s FROM scores WHERE game = ? AND hidden = 0${where} AND player = ?`).bind(...args, me).first("s");
+    if (mine != null) {
+      const above = await env.DB.prepare(
+        `SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player) WHERE b > ?`
+      ).bind(...args, mine).first("n");
+      you = { rank: above + 1, score: mine };
+    }
+  }
   // account rows show the current display name and link to /u/<username>
   const who = await people(env, results.map((r) => r.user_id).filter(Boolean));
   return json({
-    ok: true, game, period, friends: friendsOnly,
+    ok: true, game, period, friends: friendsOnly, you,
     rows: results.map((r, i) => {
       const p = r.user_id && who.get(r.user_id);
       return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, score: r.score, id: r.id, me: r.player === me };

@@ -135,7 +135,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 |---|---|---|
 | GET | `/api/health` | `{ok, db}` |
 | POST | `/api/events` | SDK batches: `{anon, tester, ref, name, events:[{t:"start"/"end"/"event", id, game, …}]}` |
-| GET | `/api/leaderboard?game=&period=day/week/all[&friends=1]` | top 10, one row per player: `{rank, name, u, score, id, me}`. Account rows use the current display name and carry `u` (username, for `/u/<u>` links); guest rows have no `u`. `friends=1` (login needed) is you plus your friends, up to 50 rows |
+| GET | `/api/leaderboard?game=&period=day/week/all[&friends=1]` | top 10, one row per player: `{rank, name, u, score, id, me}`, plus `you: {rank, score} | null`: your own rank and best on the same board when you are not in the rows (from the login, or `player=a:<anon>`). The game page shows it under a ⋯ row. Account rows use the current display name and carry `u` (username, for `/u/<u>` links); guest rows have no `u`. `friends=1` (login needed) is you plus your friends, up to 50 rows |
 | POST | `/api/feedback` | `{game, version, rating: 1/-1/0, text, tester, anon, play_id}` |
 | GET | `/api/stats` | play counts per game (total, this week, last week) for the hub |
 | GET | `/api/community` | approved community uploads |

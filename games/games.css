@@ -1360,6 +1360,23 @@
   color: var(--lime);
 }
 
+.cc-rows li.cc-gap {
+  min-height: 16px;
+  justify-content: center;
+  background: none;
+  color: var(--paper-dim);
+  line-height: 1;
+}
+
+.cc-rows .cc-you .cc-rank {
+  width: auto;
+  min-width: 1.6em;
+}
+
+.cc-rows .cc-you .cc-score {
+  margin-right: 40px; /* lines up with the scores that have a report flag (32px + gap) */
+}
+
 .cc-rows .cc-empty {
   font-family: var(--sans);
   font-weight: 500;
