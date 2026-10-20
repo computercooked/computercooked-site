@@ -2,6 +2,7 @@
 // 13+ only, checked with a neutral birth month/year gate; the birth date itself is never stored.
 import { json, bad, readJson, now, b64, unb64, randomToken, sha256, safeEqual, limited, nameClean, str, HttpError } from "./util.js";
 import { levelOf, totalXp } from "./xp.js";
+import { noteReferral } from "./referrals.js";
 import { avatarLevel } from "./cosmetics.js";
 
 // Workers' WebCrypto caps PBKDF2 at 100,000 iterations.
@@ -88,6 +89,7 @@ export async function signup(req, env, ip) {
   }
   const id = res.meta.last_row_id;
   await linkAnon(env, id, b.anon_id || b.anon, b.username);
+  await noteReferral(env, id, b.ref_dare);
   return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar } });
 }
 
@@ -174,6 +176,7 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("DELETE FROM friends WHERE user_id = ? OR friend_id = ?").bind(id, id),
     env.DB.prepare("DELETE FROM dare_beats WHERE player = ?").bind("u:" + id),
     env.DB.prepare("DELETE FROM dare_beats WHERE dare_id IN (SELECT id FROM dares WHERE from_user = ?)").bind(id),
+    env.DB.prepare("DELETE FROM referrals WHERE new_user = ? OR sender = ?").bind(id, id),
     env.DB.prepare("DELETE FROM dare_funnel WHERE dare_id IN (SELECT id FROM dares WHERE from_user = ?)").bind(id),
     env.DB.prepare("DELETE FROM dares WHERE from_user = ?").bind(id),
     env.DB.prepare("UPDATE plays SET user_id = NULL WHERE user_id = ?").bind(id),

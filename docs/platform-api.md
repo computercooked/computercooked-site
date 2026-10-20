@@ -140,9 +140,9 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | GET | `/api/stats` | play counts per game (total, this week, last week) for the hub |
 | GET | `/api/community` | approved community uploads |
 | POST | `/api/report` | `{kind: username/score/feedback/upload, target, reason}`; 3 reports hide a score |
-| POST | `/api/auth/signup` | `{username, password, birth_month, birth_year, avatar, anon_id}`; 13+ only, under-13 gets `{under13:true}` and nothing is stored |
+| POST | `/api/auth/signup` | `{username, password, birth_month, birth_year, avatar, anon_id, ref_dare?}`; `ref_dare` is a dare id the browser opened in the last 30 days (game pages store it as `cc-ref-dare`), which notes a referral (see `referrals`); 13+ only, under-13 gets `{under13:true}` and nothing is stored |
 | POST | `/api/auth/login` · `/api/auth/logout` | session cookie `cc_session` (httpOnly, Secure, SameSite=Lax, 30 days) |
-| GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak, and `saves: [{game, updated_at}]` (newest cloud save per game, for the hub's "jump back in") |
+| GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak, `brought_in: {credited, pending}` (players who joined from your dares), and `saves: [{game, updated_at}]` (newest cloud save per game, for the hub's "jump back in") |
 | POST | `/api/me/favorite` · `/api/me/avatar` | `{game, on}` · `{avatar}` |
 | POST | `/api/me/delete` | `{password}`: hard-deletes the account, its sessions, saves, favorites, scores and uploads; plays and feedback stay without the link |
 | GET · POST | `/api/me/profile` | GET: profile + private settings (email). POST any of `{display_name, bio, fav_game, badges:["game:ach_id"…≤3, unlocked only], theme, public}`. Bios are 160 chars, word-filtered, no links |
@@ -199,6 +199,7 @@ The schema is in `migrations/0001_init.sql`:
 | `uploads` | community upload queue |
 | `dares`, `dare_beats` | challenge-a-friend links, with opens and beats (migration `0008_dares`) |
 | `dare_funnel` | per dare: source (`best`/`button`) and whether/how it was sent (migration `0009_dare_funnel`; removed with the sender's account) |
+| `referrals` | an account opened from a dare link: `new_user`, `sender` (the dare's account), `dare_id`, `credited_at`. The sender gets +50 XP (`xp_events` kind `referral`, ref `u:<new id>`) when the new player's first XP-earning run lands; 5 a day, extra ones wait for the next run. Only dares made by an account, never your own. Removed when either account is deleted (migration `0010_referrals`) |
 | `friends` | one row per direction: `(user_id, friend_id, status pending/accepted/blocked)` (migration `0005_friends`) |
 
 To query it directly, run this with Ashton's Cloudflare login:

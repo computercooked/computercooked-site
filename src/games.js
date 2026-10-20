@@ -2,6 +2,7 @@
 import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean, streakFrom } from "./util.js";
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
+import { settleReferral, referralCounts } from "./referrals.js";
 import { friendIds, people } from "./friends.js";
 import { EVENTS, eventsLive } from "./social.js";
 
@@ -52,6 +53,8 @@ export async function events(req, env, ip, user, origin) {
         .bind(t, Math.round(dur), score, completed, e.id).run();
       const res = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
       if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t, score);
+      // a real run by someone a dare brought in pays the dare sender (once)
+      if (user && res.xp && res.xp.gained > 0) await settleReferral(env, user.id, play.game, t);
       results[e.id] = res;
     } else if (e.t === "achieve") {
       // cc.achieve(id): accounts only, and only ids the game declares in its entry.json
@@ -201,7 +204,8 @@ export async function meSummary(env, user, origin) {
   }
   const xp = levelOf(await totalXp(env, user.id));
   const st = streak(days);
-  return json({ ok: true, user, recent, bests, favorites: favs, saves, streak: st.n, streak_saved: st.savedRecently, days_played: days.length, xp, xp_history: history, achievements });
+  const brought_in = await referralCounts(env, user.id);
+  return json({ ok: true, user, recent, bests, favorites: favs, saves, streak: st.n, streak_saved: st.savedRecently, days_played: days.length, brought_in, xp, xp_history: history, achievements });
 }
 
 // consecutive days with a play, counting back from today (or yesterday, so it doesn't reset before you play today)

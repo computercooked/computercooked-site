@@ -71,7 +71,11 @@
     });
   }
   submit($("#form-login"), "/api/auth/login");
-  submit($("#form-signup"), "/api/auth/signup", function () { return { avatar: chosen }; });
+  // a dare link opened in the last 30 days credits whoever sent it (see games/platform.js)
+  function refDare() {
+    try { var r = JSON.parse(ls("cc-ref-dare") || "null"); return r && Date.now() - r.t < 30 * 86400000 ? r.d : undefined; } catch (e) { return undefined; }
+  }
+  submit($("#form-signup"), "/api/auth/signup", function () { return { avatar: chosen, ref_dare: refDare() }; });
 
   $("#btn-logout").addEventListener("click", function () {
     api("/api/auth/logout", {}).then(function () { ls("cc-user-change", String(Date.now())); location.reload(); });
@@ -101,6 +105,10 @@
       $("#me-streak").textContent = s.streak;
       $("#me-saver").hidden = !s.streak_saved;
       $("#me-days").textContent = s.days_played;
+      var bi = s.brought_in || {};
+      $("#me-brought").hidden = !(bi.credited || bi.pending);
+      $("#me-brought-n").textContent = bi.credited || 0;
+      $("#me-brought").title = "players who joined from your dare links" + (bi.pending ? " (" + bi.pending + " more once they finish a run)" : "") + ". +50 xp each.";
       var best = {};
       s.bests.forEach(function (b) { best[b.game] = b.best; });
       $("#favs").innerHTML = s.favorites.length ? s.favorites.map(function (g) { return card(g, best[g] ? "best " + Math.round(best[g]) : ""); }).join("")
@@ -309,7 +317,7 @@
   }
 
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }
-  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge", dare: "someone took your dare" };
+  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge", dare: "someone took your dare", referral: "brought in a new player" };
   function ago(ts) {
     var m = Math.round((Date.now() - ts) / 60000);
     return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago";

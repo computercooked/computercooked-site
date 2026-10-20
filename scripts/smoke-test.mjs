@@ -333,6 +333,29 @@ if (local) {
   ok(r.ok && r.beaten && r.sender_xp === 25, "beating an account's dare gives the sender +25 xp", r);
   r = await (await get("/api/me/feed", { cookie })).json();
   ok(r.items.some((i) => /took your dare/.test(i.text)), "sender's feed shows the dare win");
+  // referral credit: an account opened from the dare link pays the sender once the new player finishes a real run
+  const w = "smokew" + rid().slice(0, 8);
+  r = await post("/api/auth/signup", { username: w, password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1, ref_dare: d2.id });
+  const cw = (r.headers.get("set-cookie") || "").split(";")[0];
+  ok(r.ok && cw, "sign up from a dare link", r.status);
+  r = await (await get("/api/me/summary", { cookie })).json();
+  ok(r.brought_in?.pending === 1 && r.brought_in.credited === 0, "the new player is pending until they play", r.brought_in);
+  const refRun = async () => {
+    const id = rid();
+    await post("/api/events", { anon: "smokew" + rid(), events: [{ t: "start", id, game: "crash", v: "1" }] }, { cookie: cw });
+    return (await (await post("/api/events", { anon: "smokew", events: [{ t: "end", id, game: "crash", score: 40, dur: 12000, completed: true }] }, { cookie: cw })).json()).results?.[id];
+  };
+  r = await refRun();
+  ok(r?.xp?.gained > 0, "the new player's first real run earns xp", r?.xp);
+  await refRun();
+  r = await (await get("/api/me/summary", { cookie })).json();
+  ok(r.brought_in?.credited === 1 && r.brought_in.pending === 0 && r.xp_history.filter((h) => h.kind === "referral" && h.amount === 50).length === 1, "the sender gets +50 xp once (not per run)", { brought_in: r.brought_in, refs: r.xp_history.filter((h) => h.kind === "referral") });
+  r = await (await get("/api/me/feed", { cookie })).json();
+  ok(r.items.some((i) => /joined from your dare/.test(i.text)), "sender's feed shows the new player");
+  r = await (await post("/api/me/delete", { password: "pw-for-smoke-1" }, { cookie: cw })).json();
+  ok(r.deleted === true, "delete the referred account");
+  r = await (await get("/api/me/summary", { cookie })).json();
+  ok(r.brought_in?.credited === 0, "deleting an account removes its referral row", r.brought_in);
   await post("/api/me/profile", { public: true }, { cookie }); // the profile steps above left it private
   r = await (await get("/api/me/friends/feed", { cookie: cv })).json();
   ok(r.ok && r.friends === 1 && r.items.some((i) => i.who?.username === u && i.kind === "best" && i.game === "crash"), "friends feed shows a friend's new best", r.items?.slice(0, 3));

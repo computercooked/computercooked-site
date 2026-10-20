@@ -108,6 +108,9 @@ export async function exportData(env, user) {
     achievements: await q("SELECT game, ach_id, ts FROM achievements WHERE user_id = ?"),
     reports_filed: await q("SELECT kind, target, reason, ts FROM reports WHERE user_id = ?"),
     friends: await q("SELECT u.username, f.status, f.created_at FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ?"),
+    dares: await q("SELECT id, game, score, from_name, opens, beats, created_at FROM dares WHERE from_user = ? ORDER BY created_at"),
+    joined_from_dare: await q("SELECT dare_id, created_at, credited_at FROM referrals WHERE new_user = ?"),
+    players_brought_in: await q("SELECT created_at, credited_at FROM referrals WHERE sender = ? ORDER BY created_at"),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: {
