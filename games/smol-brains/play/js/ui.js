@@ -245,6 +245,39 @@
   }
   UI.moment = moment;
 
+  /* story cards: the first time something big happens, the game pauses and explains it (what happened,
+     why, what you can do). Later times are just a quick moment. */
+  var cardQ = [];
+  function storyCard(key, icon, title, paras, fallback) {
+    var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
+    if (seen[key]) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
+    seen[key] = 1;
+    cardQ.push([icon, title, paras]);
+    if (!el.modal) nextCard();
+  }
+  function nextCard() {
+    var c = cardQ.shift();
+    if (!c) return;
+    var body = h("div", { class: "story" }, [h("div", { class: "icon" }, c[0]), h("h3", null, c[1])].concat(c[2].map(function (p) { return h("p", { html: p }); })).concat([h("div", { class: "row" }, [h("span", { class: "sp" }), h("button", { class: "btn go", onclick: function () { closeModal(); } }, "got it")])]));
+    modal("", body, { story: true });
+  }
+  UI.storyCard = storyCard;
+  var NEXT_HELP = {
+    1: "let smols carry and fiddle with things (✋ hand them sticks and stones), or ✨ magic → 🧬 bless the next eggs toward <b>hands</b>.",
+    2: "talk to them a lot and let them hang out together: social smols have social kids. 🧬 bless toward <b>language</b> helps.",
+    3: "builders plan ahead: smols that make things and finish plans have planning kids. 🧬 bless toward <b>planning</b>.",
+    4: "thinkers have big heads: smols that learn, study and teach have brainier kids. 🧬 bless toward <b>big heads</b> or <b>bigger brains</b>.",
+    5: "the last step needs huge, glowing brains. keep thinkers alive and teaching, and 🧬 bless toward <b>inner glow</b>."
+  };
+  var TIER_NEW = {
+    1: "critters walk further and see more, so they find food on their own better.",
+    2: "tool-users pick things up on purpose and <b>discover ideas</b> by fiddling: poke sticks, fire, baskets. watch for 💡.",
+    3: "tribes talk in sentences, <b>teach each other</b>, share food, and <b>pray to you</b> when they need help (🙏 answer with ✨ magic).",
+    4: "builders make <b>huts, farms and villages</b>. farms are the big one: they feed everybody, even in winter.",
+    5: "thinkers carve ideas into story poles so they're never forgotten, and study the sky.",
+    6: "ascended smols glow and float, and can start on the big thought. you made this."
+  };
+
   /* ---------------- dock ---------------- */
   var TOOLS = [["grab", "✋", "grab"], ["tickle", "🪶", "tickle"], ["tap", "👆", "tap"], ["talk", "💬", "talk"], ["magic", "✨", "magic"]];
   function buildDock() {
@@ -577,8 +610,8 @@
     opts = opts || {};
     UI.modalOpen = !opts.live;
     var wrap = h("div", { class: "modal-wrap", onclick: function (e) { if (e.target === wrap && !opts.sticky) closeModal(); } });
-    var m = h("div", { class: "modal glass" }, [
-      h("div", { class: "mh" }, [h("h2", null, title), opts.sticky ? null : h("button", { class: "ibtn", "aria-label": "close", onclick: closeModal }, "✕")]),
+    var m = h("div", { class: "modal glass" + (opts.story ? " storycard" : "") }, [
+      opts.story ? null : h("div", { class: "mh" }, [h("h2", null, title), opts.sticky ? null : h("button", { class: "ibtn", "aria-label": "close", onclick: closeModal }, "✕")]),
       opts.tabs || null,
       h("div", { class: "mb" }, body)
     ]);
@@ -591,6 +624,7 @@
     if (el.modal) { el.modal.remove(); el.modal = null; }
     UI.modalOpen = false;
     state.brainC = null;
+    if (cardQ.length) setTimeout(function () { if (!el.modal) nextCard(); }, 250);
   }
   UI.closeModal = closeModal;
 
@@ -805,10 +839,12 @@
 
   function tabHelp(body) {
     body.innerHTML = "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
+      "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
+      "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
       "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently). drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: tap a thing to say its name, or type words. they learn them, and eventually talk back.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.</p>" +
       "<p><b class='lilac'>evolution</b>: genes mutate when eggs are made. and what parents practise echoes into their babies: smols that walk a lot have kids with longer legs, smols that fiddle with things have kids with hands, smols that learn have kids with bigger brains. climb the ladder: blob → critter → tool-user → tribe → builder → thinker → ascended.</p>" +
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
-      "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate. keys: wasd pan, 1-5 tools, space pause, [ ] speed, f follow, b brain, esc close.</p>";
+      "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-5 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
   }
 
   /* ---------------- brain viewer ---------------- */
@@ -912,13 +948,13 @@
     } });
   }
   var TUT = [
-    { t: "tap the glowing egg", s: "it's cold out here. warm it up. (tap it a few times)" },
+    { t: "tap the glowing egg", s: "this is your island. you're its god: smols think for themselves, you nudge them. first, warm this egg: tap it a few times." },
     { t: "it hatched!", s: "" },
-    { t: "it's hungry", s: "smols find food themselves, but you can help: ✋ drag the apple next to it." },
-    { t: "tickle it when it's good", s: "🪶 tickle tool, then tap the smol while it eats. rewards teach its brain." },
-    { t: "teach it a word", s: "💬 talk tool, then tap the apple (or anything). say it a few times and it'll say it back." },
-    { t: "peek inside its head", s: "tap the smol, then 🧠. that's a real neural network. it changes as it learns." },
-    { t: "now: raise a civilisation", s: "smols grow up, fall in love and lay eggs. what parents practise echoes in their kids. evolve legs, hands, language, cities. goals are top left. ✨ magic helps." }
+    { t: "it's hungry", s: "smols learn by trying things and remembering what felt good. it'll find food on its own, but you can help: ✋ drag the apple next to it." },
+    { t: "reward it", s: "🪶 tickle means “yes, more of that”. pick tickle and tap the smol while it eats. (👆 tap means “no”.) that's how you teach it what's good." },
+    { t: "teach it a word", s: "💬 talk, then tap the apple a few times: you're saying “food”. smols that know words can be asked to do things, and they teach each other." },
+    { t: "peek inside its head", s: "tap the smol, then 🧠. that's a real neural network, and it changes as it learns." },
+    { t: "your job now", s: "keep them alive, teach them, guide their evolution. fed, happy grown-ups lay eggs, and kids inherit how their parents lived. goals are top left, the map is bottom left. when they pray 🙏, answer with ✨ magic." }
   ];
   function tutShow() {
     if (el.coach) { el.coach.remove(); el.coach = null; }
@@ -1067,18 +1103,52 @@
     });
     on("eureka", function (d) {
       if (SB.FX) SB.FX.burst("stars", d.c.x, d.c.y + 0.9, d.c.z, 20);
-      if (d.first) moment(SB.Ideas.BY_ID[d.id].icon, SB.Ideas.BY_ID[d.id].name + "!", d.c.name + " figured it out. they call it “" + d.word + "”");
+      if (!d.first) return;
+      var idea = SB.Ideas.BY_ID[d.id], fb = [idea.icon, idea.name + "!", d.c.name + " figured it out. they call it “" + d.word + "”"];
+      storyCard("idea", idea.icon, d.c.name + " invented " + idea.name + "!", [
+        "nobody showed them. " + esc(d.c.name) + " was fiddling with things and it clicked. they call it <b>“" + esc(d.word) + "”</b>.",
+        "<b>ideas live in heads.</b> other smols learn them by watching, or by being taught. if everyone who knows an idea dies, it's gone.",
+        "you can speed inventing up with ✨ magic → 💡 inspire. the 💡 ideas tab in the menu tracks what your smols know."
+      ], fb);
     });
     on("tierUp", function (d) {
-      var t = SB.TIERS[d.tier];
-      moment(t.icon, "evolution: " + t.name, d.c.name + " is the first " + t.name + ". " + t.desc, "lilac");
+      var t = SB.TIERS[d.tier], nx = SB.TIERS[d.tier + 1];
       if (SB.FX) SB.FX.burst("gold", d.c.x, d.c.y + 0.6, d.c.z, 30);
       R.flyTo(d.c.x, d.c.z, 6, 1.2);
+      var need = SB.Genome.nextNeeds(d.c.genome).map(function (n) { return n.label; }).slice(0, 2).join(" + ");
+      setTimeout(function () {
+        storyCard("tier" + d.tier, t.icon, "evolution: " + esc(d.c.name) + " is a " + t.name + "!", [
+          "<b>" + esc(d.c.name) + "</b> hatched different from its parents: " + t.desc,
+          "<b>why?</b> babies get a mix of their parents' genes plus small mutations. and what parents <i>do</i> echoes into their kids: smols that walk a lot have kids with longer legs, smols that fiddle with things have kids with hands.",
+          TIER_NEW[d.tier] || "",
+          nx ? "<b>next: " + nx.icon + " " + nx.name + "</b>" + (need ? " (needs more " + esc(need) + ")" : "") + ". " + (NEXT_HELP[d.tier] || "") : ""
+        ], [t.icon, "evolution: " + t.name, d.c.name + " is the first " + t.name + ". " + t.desc, "lilac"]);
+      }, 1300);
+    });
+    on("egg", function (d) {
+      if (!d.obj || !d.obj.data || !d.obj.data.parents || !d.obj.data.parents.length) return;
+      var ps = d.obj.data.parents.map(function (id) { var p = SB.Game.byId(game, id); return p ? p.name : "?"; });
+      storyCard("egg", "🥚", "an egg!", [
+        "<b>" + esc(ps.join(" and ")) + "</b> fell in love and laid an egg. grown-up smols do that when they're fed, healthy and happy (and the colony isn't going hungry).",
+        "it hatches in a couple of minutes. tap it to warm it, or keep it near a fire or in a hut to speed it up.",
+        "the baby gets a mix of its parents' genes, and a nudge from how they lived. that's evolution: generation by generation, your smols change."
+      ]);
+    });
+    on("harvest", function () {
+      storyCard("harvest", "🌾", "the first harvest", ["a farm ripened. farms grow grain, sunroots or gourds every couple of minutes, all by themselves, faster in the rain and near a windmill.", "grain keeps for ages: it's what gets a colony through winter. more smols need more farms, and builders will make them when food runs short."]);
+    });
+    on("death", function (d) {
+      if (d.c.species !== "smol" || d.cause === "old") return;
+      if (d.cause === "starved") storyCard("starved", "🍂", esc(d.c.name) + " starved", ["there wasn't enough food nearby. smols forage on their own, but a big colony can outgrow the land around it, especially in winter.", "what helps: ✨ magic → 🍎 bounty in a pinch; long-term, smols that reach <b>builder</b> make farms. smols also stop having babies when food is short, so it evens out."]);
+      else if (d.cause === "drowned") storyCard("drowned", "🌊", esc(d.c.name) + " drowned", ["smols without fins can't swim. dropped (or wandered) into deep water, they paddle for the shore and drown if it's too far.", "if you see one splashing, ✋ grab it and pull it out. smols that spend time in shallow water have kids with fins, eventually."]);
     });
     on("newSpecies", function (d) { if (d.c.tier === (game.stats.maxTier || 0) && d.clade.why === "tier") return; toast("🧬 new species: <b>" + esc(d.clade.name) + "</b>", "ach"); });
     on("village", function (d) { moment("🏘", d.village.name, "a village is born"); });
     on("tribe", function (d) { moment("🔥", d.tribe.name, "your smols have a name for themselves now", "lilac"); });
     on("ideaLost", function (d) { toast("🕯 <b>" + esc(SB.Ideas.BY_ID[d.id].name) + "</b> is lost. nobody alive remembers it."); });
+    on("pray", function (d) {
+      if (!game.settings || !game.settings.cards || !game.settings.cards.pray) storyCard("pray", "🙏", esc(d.c.name) + " is praying to you", ["smols pray when they need something they can't fix themselves. this one needs: <b>" + esc(d.need) + "</b>.", "answer with ✨ magic: 🍎 bounty for hunger, 💚 heal for sickness, ☀️ sun for cold. answered prayers earn sparks, and smols remember that you listen."]);
+    });
     on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + " prays" + (d.need !== "nothing" ? " (" + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + d.need + ")" : "") + ". answer with ✨ magic, food or a tickle."); });
     on("prayerAnswered", function (d) { if (SB.FX) SB.FX.burst("magic", d.c.x, d.c.y + 1, d.c.z, 14); });
     on("select", function (d) { if (d.c) { state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet("smol"); } else if (state.sheet === "smol") closeSheet(); });

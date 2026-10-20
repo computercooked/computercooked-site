@@ -206,3 +206,13 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
   .minimap { width: 92px; height: 92px; border-radius: 12px; bottom: calc(84px + var(--sab)); left: calc(8px + var(--sal)); }
   .minimap.sheetopen { display: none; }
 }
+
+/* story cards: first-time explanations */
+.modal.storycard { width: min(440px, 100%); }
+.story { padding: 18px 4px 4px; text-align: left; }
+.story .icon { font-size: 52px; line-height: 1; text-align: center; filter: drop-shadow(0 4px 0 #101114); }
+.story h3 { margin: 10px 0 8px; font: 800 20px/1.2 var(--mono); color: var(--lime); text-align: center; letter-spacing: -0.02em; }
+.story p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+.story p:empty { display: none; }
+.story .row { display: flex; margin-top: 6px; }
+.story .sp { flex: 1; }
