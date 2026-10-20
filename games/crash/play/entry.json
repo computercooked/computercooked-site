@@ -1,0 +1,12 @@
+{
+  "slug": "crash",
+  "title": "CRASH",
+  "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "drag / arrows / A D",
+  "size_kb": 877,
+  "tags": ["arcade", "dodge", "60s runs"],
+  "version": "2",
+  "max_score_per_sec": 60
+}

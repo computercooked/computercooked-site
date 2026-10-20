@@ -107,7 +107,13 @@ ok(r.headers.get("content-security-policy") === "frame-ancestors *", "the game i
 r = await get("/games/fathom/");
 ok(r.headers.get("x-frame-options") === "DENY", "the full game page still can't be framed");
 r = await get("/games/crash/embed/");
-ok(r.status === 404, "CRASH has no embed yet (it has no /play/)", r.status);
+ok(r.ok && (await r.text()).includes('src="/games/crash/play/"'), "CRASH embeds its standalone /play/ build", r.status);
+r = await get("/games/crash/play/");
+ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors *" && (await r.text()).includes("crash.js"), "CRASH /play/ is served and frameable");
+page = await (await get("/games/crash/")).text();
+ok(page.includes('class="about-card embed-card"') && !page.includes("data-embed-slot") && page.includes("how to not get cooked"), "CRASH page gets the embed card and keeps its own how-to card");
+r = await get("/games/nope-not-a-game/embed/");
+ok(r.status === 404, "unknown games have no embed", r.status);
 r = await (await post("/api/events", { anon: "smokee" + rid(), ref: "embed", events: [{ t: "start", id: rid(), game: "fathom", v: "1" }] })).json();
 ok(r.ok, "plays from embeds are accepted with ref embed");
 
