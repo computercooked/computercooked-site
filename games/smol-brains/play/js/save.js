@@ -64,15 +64,46 @@
     };
   };
 
+  // The site SDK (cc.save/cc.load) keeps a copy on the player's account when they're logged in.
+  // This game's own localStorage save stays the source of truth on this device and the fallback without the SDK.
+  var CLOUD_SLOT = "main";
+  function sdk() { return window.cc && typeof window.cc.save === "function" ? window.cc : null; }
+
   Save.save = function (game) {
-    if (!game) return false;
+    if (!game || reloading) return false;
+    var snap, ok = false;
     try {
-      var json = JSON.stringify(Save.snapshot(game));
-      window.localStorage.setItem(KEY, json);
-      return true;
+      snap = Save.snapshot(game);
+      window.localStorage.setItem(KEY, JSON.stringify(snap));
+      ok = true;
     } catch (e) {
-      return false; // quota / private mode / no storage: ignore
+      // quota / private mode / no storage: ignore
     }
+    var cc = sdk();
+    // until the boot-time cloud check answers, a brand-new game must not look "newer" than the account's save
+    if (cc && snap && !checking) { try { cc.save(CLOUD_SLOT, snap).catch(function () {}); } catch (e) {} }
+    return ok;
+  };
+
+  // After boot: if the account has a newer save (another device), offer it and restart into it.
+  var checking = false, reloading = false; // reloading: the pagehide autosave must not overwrite the save we just adopted
+  Save.cloud = function () {
+    var cc = sdk();
+    if (!cc || typeof cc.load !== "function") return;
+    var local = Save.load();
+    checking = true;
+    var done = function () { checking = false; };
+    try {
+      cc.load(CLOUD_SLOT).then(function (d) {
+        if (!d || typeof d !== "object" || typeof d.seed !== "number" || typeof d.savedAt !== "number") return done();
+        if (local && d.savedAt <= (local.savedAt || 0) + 2000) return done();
+        if (local && !window.confirm("your account has a newer smol brains save (from another device). load it?")) return done();
+        try { window.localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { return done(); }
+        reloading = true;
+        window.location.reload();
+      }).catch(done);
+    } catch (e) { done(); }
+    setTimeout(done, 15000); // never hold cloud saves back for long
   };
 
   Save.load = function () {
@@ -89,6 +120,8 @@
 
   Save.wipe = function () {
     try { window.localStorage.removeItem(KEY); } catch (e) {}
+    var cc = sdk(); // the account copy is cleared too, so a fresh start isn't overridden by the old save
+    if (cc) { try { cc.save(CLOUD_SLOT, null).catch(function () {}); } catch (e) {} }
   };
 
   function num(v, d) { return typeof v === "number" && isFinite(v) ? v : d; }

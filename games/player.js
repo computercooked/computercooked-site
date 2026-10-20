@@ -75,6 +75,16 @@
   if (cc) {
     var m = /\/games\/([a-z0-9-]+)\//.exec(location.pathname);
     if (m) cc._setGame(m[1], player.dataset.version || "1");
+    // save status from the game's cc.save(): one note per kind per visit, so autosaves don't spam
+    var saveNoted = {};
+    window.addEventListener("message", function (e) {
+      if (e.origin !== location.origin || e.source !== frame.contentWindow || !e.data || e.data.type !== "cc-save-status") return;
+      var s = e.data.state;
+      if (saveNoted[s]) return;
+      saveNoted[s] = true;
+      if (s === "cloud") toast("saved to your account ☁");
+      else if (s === "guest") toast("saved on this device. log in to keep it everywhere.");
+    });
     window.addEventListener("message", function (e) {
       if (e.origin !== location.origin || e.source !== frame.contentWindow || !e.data || e.data.type !== "cc-sdk") return;
       var d = e.data;
