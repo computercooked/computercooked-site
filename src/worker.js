@@ -7,6 +7,7 @@ import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from
 import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge } from "./social.js";
+import { featured, previewFeatured } from "./featured.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -51,6 +52,7 @@ async function api(req, env, url) {
   switch (route) {
     case "POST /api/events": return events(req, env, ip, user, origin);
     case "GET /api/leaderboard": return leaderboard(url, env, user);
+    case "GET /api/featured": return featured(env, await catalogOf(env, origin));
     case "GET /api/challenge": return challenge(env, user, await catalogOf(env, origin));
     case "POST /api/feedback": return feedback(req, env, ip, user);
     case "GET /api/stats": return stats(env);
@@ -91,6 +93,7 @@ async function api(req, env, url) {
     switch (route) {
       case "GET /api/admin/metrics": return metrics(url, env, origin);
       case "GET /api/admin/reports": return listReports(env);
+      case "GET /api/admin/featured": return previewFeatured(url, env, await catalogOf(env, origin));
       case "GET /api/admin/challenge": return previewChallenge(url, env, await catalogOf(env, origin));
       case "POST /api/admin/moderate": return moderate(req, env);
       case "GET /api/admin/uploads": return adminUploads(env);

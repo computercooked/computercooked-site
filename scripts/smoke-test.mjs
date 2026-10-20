@@ -43,6 +43,11 @@ ok(r.ok, "feedback");
 r = await (await get("/api/stats")).json();
 ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");
 
+// game of the week: a real game, never the weekly challenge's game
+r = await (await get("/api/featured")).json();
+const chNow = (await (await get("/api/challenge")).json()).challenge;
+ok(r.ok && r.featured?.game && r.featured.title && r.featured.game !== chNow?.game && ["metrics", "rotation"].includes(r.featured.basis), "game of the week (not the challenge game)", r.featured && { game: r.featured.game, basis: r.featured.basis, reason: r.featured.reason, challenge: chNow?.game });
+
 if (local) {
   const u = "smoke" + Math.floor(Math.random() * 1e6);
   r = await (await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2015, birth_month: 1 })).json();
