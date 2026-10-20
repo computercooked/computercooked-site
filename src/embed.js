@@ -2,8 +2,8 @@
 // iframe, and every embeddable game page gets an "embed this game" card with the snippet.
 // The game still runs from /games/<slug>/play/ on our origin, and plays count with ref "embed".
 const SITE = "https://computercooked.com";
-// CRASH runs inline on its own page (no /play/), so there is nothing to embed yet
-const NOT_EMBEDDABLE = new Set(["crash"]);
+// every game with a /games/<slug>/play/ build can be embedded (CRASH got one in games/crash/play/)
+const NOT_EMBEDDABLE = new Set();
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 

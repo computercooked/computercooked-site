@@ -107,6 +107,8 @@ export async function gamePage(req, env, url, slug) {
   const rw = new HTMLRewriter()
     .on("head", { element(e) { e.append(jsonLd(g), { html: true }); } })
     .on("[data-how-to]", { element(e) { e.setInnerContent(howTo(g), { html: true }); if (embeddable(g)) e.after(embedCard(g), { html: true }); } })
+    // pages with a hand-written how-to card (CRASH) mark where the embed card goes instead
+    .on("[data-embed-slot]", { element(e) { if (embeddable(g)) e.replace(embedCard(g), { html: true }); else e.remove(); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })
     .on("[data-more-games] ul", { element(e) { e.setInnerContent(related(games, slug).map(card).join(""), { html: true }); } });

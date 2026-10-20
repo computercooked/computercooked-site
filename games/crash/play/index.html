@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101114">
+<title>CRASH · computer cooked games</title>
+<meta name="description" content="CRASH is a tired beige computer. dodge falling popups, updates and 'quick question?' emails, grab coffee and fans, and don't get cooked.">
+<style>
+  @font-face { font-family: "JetBrains Mono"; src: url(assets/jetbrains-mono-800.woff2) format("woff2"); font-weight: 800; font-style: normal; font-display: swap; }
+  :root {
+    --carbon: #101114; --lime: #c5ff49; --lilac: #b59aff; --paper: #f5f3ed; --paper-dim: #b9b7b0;
+    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; background: #07080a; color: var(--paper); font-family: var(--sans); overflow: hidden; overscroll-behavior: none; }
+  /* the stage fills whatever frame the player page gives us; the canvas letterboxes inside it */
+  .player-stage { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #16181d, #07080a 70%); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  .player-stage canvas { display: block; max-width: 100%; max-height: 100%; outline: none; }
+
+  .overlay { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 16px; background: rgba(8, 9, 11, 0.55); touch-action: auto; overflow-y: auto; }
+  .overlay[hidden] { display: none; }
+  .ov-card { width: min(100%, 340px); padding: 22px 20px; border: 2px solid var(--lime); border-radius: 18px; background: rgba(13, 14, 17, 0.94); box-shadow: 0 0 40px rgba(197, 255, 73, 0.15), 8px 8px 0 var(--lilac); text-align: center; animation: ov-in 0.3s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes ov-in { from { transform: scale(0.94) translateY(8px); opacity: 0; filter: brightness(2); } to { transform: none; opacity: 1; filter: none; } }
+  .ov-eyebrow { margin: 0 0 6px; font-family: var(--mono); font-weight: 800; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lilac); }
+  .ov-title { margin: 0; font-family: var(--mono); font-weight: 800; font-size: 3.4rem; line-height: 1; letter-spacing: -0.05em; color: var(--lime); text-shadow: 3px 0 var(--lilac); }
+  .ov-title.small { font-size: 2rem; }
+  .ov-text { margin: 10px 0 0; font-size: 0.92rem; color: var(--paper); }
+  .c-lime { color: var(--lime); } .c-lilac { color: var(--lilac); }
+  .ov-controls { margin: 12px 0 0; font-size: 0.8rem; color: var(--paper-dim); }
+  .ov-controls kbd { display: inline-block; min-width: 1.6em; margin: 0 1px; font-family: var(--mono); font-weight: 800; border: 1px solid #3a3c44; border-radius: 4px; padding: 0 4px; color: var(--paper); }
+  .only-keys { display: none; }
+  @media (hover: hover) and (pointer: fine) { .only-keys { display: inline; } .only-touch { display: none; } }
+  .ov-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; margin-top: 16px; padding: 0 22px; border: 2px solid var(--lime); border-radius: 12px; background: var(--lime); color: var(--carbon); font-family: var(--mono); font-weight: 800; font-size: 1.05rem; cursor: pointer; }
+  .ov-btn:hover { box-shadow: 4px 4px 0 var(--lilac); transform: translate(-2px, -2px); }
+  .ov-btn.ghost { background: transparent; color: var(--lime); }
+  .ov-best { margin: 12px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.75rem; color: var(--paper-dim); }
+  .ov-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .ov-actions .ov-btn { flex: 1 1 130px; padding: 0 12px; white-space: nowrap; font-size: 0.95rem; }
+  .share-card { border-color: #ff6b5b; box-shadow: 0 0 50px rgba(255, 107, 91, 0.25), 8px 8px 0 var(--lime); }
+  .go-line { margin: 0; font-family: var(--mono); font-weight: 800; font-size: 1.15rem; line-height: 1.2; color: #ff8a7d; }
+  .go-time { margin: 6px 0 0; font-family: var(--mono); font-weight: 800; font-size: 4.6rem; line-height: 1; letter-spacing: -0.06em; color: var(--lime); text-shadow: 4px 0 var(--lilac); }
+  .go-meta { display: flex; justify-content: center; gap: 14px; margin: 8px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.9rem; color: var(--paper); }
+  .go-meta b { color: var(--lime); }
+  .go-stats { margin: 4px 0 0; font-size: 0.78rem; color: var(--paper-dim); }
+  .go-share { margin: 12px 0 0; padding: 10px 12px; border: 1px dashed #3a3c44; border-radius: 10px; font-family: var(--mono); font-weight: 800; font-size: 0.8rem; color: var(--paper); }
+  .go-rank { margin: 6px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.8rem; color: var(--lilac); }
+  .credit { margin: 12px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.68rem; color: var(--paper-dim); }
+  .credit b { color: var(--lime); }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 120; translate: -50% 0; padding: 10px 16px; border-radius: 10px; background: var(--lime); color: var(--carbon); font-family: var(--mono); font-weight: 800; font-size: 0.85rem; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; max-width: calc(100% - 32px); text-align: center; }
+  .toast.show { opacity: 1; }
+  @media (max-height: 520px) { .ov-card { padding: 14px 16px; } .ov-title { font-size: 2.6rem; } .go-time { font-size: 3.2rem; } .ov-btn { min-height: 44px; margin-top: 10px; } }
+</style>
+<script src="/games/cc-sdk.js" defer></script>
+</head>
+<body>
+<div class="player-stage" id="stage">
+  <canvas id="crash-canvas" width="360" height="560" tabindex="0" aria-label="CRASH game screen. use left and right arrows, A and D, or drag to move."></canvas>
+
+  <div class="overlay" id="ov-title">
+    <div class="ov-card">
+      <p class="ov-eyebrow">computer cooked games presents</p>
+      <h1 class="ov-title">CRASH</h1>
+      <p class="ov-text">crash is a tired beige computer. the tasks will not stop. dodge them, grab <b class="c-lime">coffee</b> and <b class="c-lilac">fans</b> to cool down. max heat = cooked.</p>
+      <p class="ov-controls"><span class="only-touch">drag anywhere to move</span><span class="only-keys"><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> · <kbd>P</kbd> pause · <kbd>M</kbd> mute</span></p>
+      <button class="ov-btn" id="btn-start" type="button">boot up ▶</button>
+      <p class="ov-best" id="title-best"></p>
+      <p class="credit">computer cooked <b>games</b></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="ov-pause" hidden>
+    <div class="ov-card">
+      <h2 class="ov-title small">paused</h2>
+      <p class="ov-text">crash is on a 5 minute break. it's been 40 minutes.</p>
+      <button class="ov-btn" id="btn-resume" type="button">resume ▶</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="ov-over" hidden>
+    <div class="ov-card share-card" role="dialog" aria-modal="false" aria-labelledby="go-line">
+      <p class="ov-eyebrow">system report</p>
+      <h2 class="go-line" id="go-line">status: cooked</h2>
+      <p class="go-time" id="go-time">0s</p>
+      <p class="go-meta"><span>score <b id="go-score">0</b></span><span id="go-best"></span></p>
+      <p class="go-stats" id="go-stats"></p>
+      <p class="go-rank" id="go-rank" hidden></p>
+      <p class="go-share" id="go-share-text">i lasted 0s before getting cooked. computercooked.com/games</p>
+      <div class="ov-actions">
+        <button class="ov-btn" id="btn-again" type="button">try again ↻</button>
+        <button class="ov-btn ghost" id="btn-share-score" type="button">share score ↗</button>
+      </div>
+      <p class="credit">computer cooked <b>games</b></p>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="crash.js"></script>
+</body>
+</html>
