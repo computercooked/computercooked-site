@@ -68,6 +68,14 @@
     var lk = c.look, an = c.anim, cols = lookCols(c);
     var Rr = SB.Creature.radius(c) * (c.dying ? 1 - c.fade : 1);
     if (Rr <= 0.01) return;
+    if (R.pixel && SB.Pixel) {
+      // pixel mode: a sprite painted from its genes (pixel.js), plus the 3D shadow, glow and selection ring
+      R.shadow(x, z, Rr * 1.05, 0.3);
+      SB.Pixel.creature(c, x, y, z, t, alpha);
+      if (lk.glow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
+      if (game.selectedId === c.id) { setBase(x, SB.World.groundY(game.world, x, z) + 0.03, z, t * 0.6, 1); part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]); }
+      return;
+    }
     var grump = c.species === "grump";
     var legs = lk.legs, legH = legs ? 0.35 + lk.legLen * 0.9 : 0;
     var moving = c.moving || (c.action && c.action.phase === "go") || !!c.plan;
@@ -330,7 +338,8 @@
       if (!c.alive || c.far) continue;
       var Rr = SB.Creature.radius(c), lk = c.look;
       var headH = Rr * (2.3 + (lk.legs ? 0.35 + lk.legLen * 0.9 : 0) + (lk.head > 0.4 ? 1 : 0) + (lk.halo ? 0.6 : 0));
-      R.project(c.x, c.y + headH, c.z, pp);
+      if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, pp); pp.y -= c._pxH; } // sprites: above the painted head
+      else R.project(c.x, c.y + headH, c.z, pp);
       if (!pp.on) continue;
       var x = pp.x, y = pp.y;
       if (c.speech && (zoom < 26 || game.selectedId === c.id)) { bubble(ctx, x, y - 4, c.speech.text, c.speech.kind); y -= 34; }

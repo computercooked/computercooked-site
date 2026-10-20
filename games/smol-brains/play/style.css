@@ -216,3 +216,5 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .story p:empty { display: none; }
 .story .row { display: flex; margin-top: 6px; }
 .story .sp { flex: 1; }
+/* pixel-art mode: the 3D view renders small and scales up with hard edges */
+#view.pixel { image-rendering: pixelated; image-rendering: crisp-edges; }

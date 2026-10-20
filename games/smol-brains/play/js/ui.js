@@ -828,7 +828,12 @@
     body.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn", onclick: function () { SB.Audio.setMuted(!SB.Audio.isUserMuted(), "user"); openMenu("settings"); } }, muted ? "🔇 sound off" : "🔊 sound on"),
       h("button", { class: "btn", onclick: function () { SB.Bodies.labels = !SB.Bodies.labels; openMenu("settings"); } }, SB.Bodies.labels ? "🏷 names on" : "🏷 names off"),
-      h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
+      h("button", { class: "btn", onclick: function () {
+        // the look is chosen when the 3D view starts, so switching saves and reloads
+        try { window.localStorage.setItem("smolbrains-look", R.pixel ? "3d" : "pixel"); } catch (e) {}
+        SB.Save.save(game); location.reload();
+      } }, R.pixel ? "👾 pixel art (tap for classic 3D)" : "🧊 classic 3D (tap for pixel art)"),
+      R.pixel ? null : h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
       h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off")
     ]));
     body.appendChild(h("div", { class: "sec" }, "save"));
@@ -1032,7 +1037,8 @@
       // cover-crop the snapshot into the top area
       var tw = 1080, th = 760, s = Math.max(tw / img.width, th / img.height), iw = img.width * s, ih = img.height * s;
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, tw, th); ctx.clip();
-      ctx.drawImage(img, (tw - iw) / 2, (th - ih) / 2, iw, ih); ctx.restore();
+      ctx.imageSmoothingEnabled = !R.pixel; // pixel art scales up crisp
+      ctx.drawImage(img, (tw - iw) / 2, (th - ih) / 2, iw, ih); ctx.restore(); ctx.imageSmoothingEnabled = true;
       var gr = ctx.createLinearGradient(0, th - 200, 0, th); gr.addColorStop(0, "rgba(16,17,20,0)"); gr.addColorStop(1, "#101114");
       ctx.fillStyle = gr; ctx.fillRect(0, th - 200, tw, 200);
       finish();

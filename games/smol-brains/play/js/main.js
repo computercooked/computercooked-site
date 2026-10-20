@@ -502,7 +502,9 @@
     wireBus();
     SB.Audio && SB.Audio.init && SB.Audio.init();
     var canvas = document.getElementById("view"), ov = document.getElementById("overlay");
-    if (!SB.Render.init(canvas, ov)) { SB.UI.noWebGL(); return; }
+    var look = null; try { look = window.localStorage.getItem("smolbrains-look"); } catch (e) {}
+    if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel";
+    if (!SB.Render.init(canvas, ov, { pixel: look !== "3d" })) { SB.UI.noWebGL(); return; }
     try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
     var g = null, data = null, migrated = false, seedFromUrl = urlSeed();
     try { data = SB.Save.load(); } catch (e) { data = null; }

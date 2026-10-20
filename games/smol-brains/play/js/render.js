@@ -183,7 +183,10 @@
     canvas = cv; overlay = ov; octx = overlay ? overlay.getContext("2d") : null;
     opts = opts || {};
     var lowEnd = (navigator.hardwareConcurrency || 4) <= 4 && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || "");
-    ctx = GL.create(canvas, { antialias: !lowEnd });
+    // pixel-art mode: the 3D scene renders at ~240 px tall and the browser scales it up with hard edges
+    R.pixel = opts.pixel !== false;
+    canvas.classList.toggle("pixel", R.pixel);
+    ctx = GL.create(canvas, { antialias: !lowEnd && !R.pixel });
     if (!ctx) return false;
     gl = ctx.gl;
     progs.terrain = GL.program(ctx, VS_TERRAIN, FS_TERRAIN);
@@ -210,7 +213,11 @@
     if (!canvas) return;
     var rect = canvas.getBoundingClientRect();
     W = Math.max(1, rect.width | 0); H = Math.max(1, rect.height | 0);
-    dpr = Math.min(window.devicePixelRatio || 1, 2) * quality.scale;
+    if (R.pixel) {
+      // whole CSS pixels per art pixel, so every art pixel is the same size on screen
+      R.pixelSize = Math.max(2, Math.round(Math.min(W, H) / 240));
+      dpr = 1 / R.pixelSize;
+    } else dpr = Math.min(window.devicePixelRatio || 1, 2) * quality.scale;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     if (overlay) {
       var odpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -734,6 +741,8 @@
   var lightList = [];
   R.light = function (x, y, z, radius, r, g, b) { lightList.push([x, y, z, radius, r, g, b]); };
 
+  var afterObjects = []; // functions(gl, ctx, VP, cam) that draw their own passes after opaque objects (sprites)
+  R.afterObjects = function (fn) { afterObjects.push(fn); };
   var hooks = []; // functions(game, alpha) that submit dynamic instances each frame
   R.addHook = function (fn) { hooks.push(fn); };
 
@@ -742,7 +751,7 @@
   function adapt(dt) {
     if (!(dt > 0) || dt > 0.25) return;
     perf.ft += (dt * 1000 - perf.ft) * 0.05;
-    if (quality.fixed) return;
+    if (quality.fixed || R.pixel) return; // pixel mode is already cheap
     if (perf.ft > 38) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < 22) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
     if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - 0.15); perf.slowT = 0; R.resize(); }
     else if (perf.fastT > 6 && quality.scale < (quality.max || 1)) { quality.scale = Math.min(quality.max || 1, quality.scale + 0.1); perf.fastT = 0; R.resize(); }
@@ -792,6 +801,7 @@
     drawTerrain(vis);
     drawShadows();
     drawObjects(vis);
+    for (var ah = 0; ah < afterObjects.length; ah++) { GL.resetAttribs(ctx); afterObjects[ah](gl, ctx, VP, cam); }
     drawWater(vis);
     if (R.particles) R.particles.draw(gl, ctx, progs, VP, cam);
     if (octx) drawOverlay();
@@ -939,6 +949,9 @@
     try { R.frame(game, 0, 0); return canvas.toDataURL(type || "image/jpeg", 0.85); } catch (e) { return null; }
   };
   R.quality = quality;
+  R.setLightUniforms = function (p) { setLightUniforms(p); };
+  R.LIGHT_GLSL = LIGHT_GLSL; R.PREC = PREC;
+  R.canvasSize = function () { return { w: canvas.width, h: canvas.height }; };
   R.canvasScale = function () { return canvas ? canvas.width / W : 1; };
   R.time = function () { return time; };
   R.gl = function () { return ctx; };
