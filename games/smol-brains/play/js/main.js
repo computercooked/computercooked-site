@@ -240,6 +240,7 @@
     SB.Render.init(document.getElementById("view"), g);
     SB.UI.init(g);
     if (window.cc && cc.start) try { cc.start(); } catch (e) {}
+    SB.Save.cloud && SB.Save.cloud();
 
     // autosave
     setInterval(function () { try { SB.Save.save(Game.current); } catch (e) {} }, 20000);

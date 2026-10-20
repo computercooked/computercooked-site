@@ -63,6 +63,23 @@ window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at mos
 - Games without hooks still get basic plays (time played, no score) logged by the player page.
 - The player page also sends `{type:"cc-mute", muted}`, `{type:"cc-restart"}` and `{type:"cc-pause"}` messages to the game iframe.
 
+### Saves and the player (slice A)
+
+```js
+cc.save(slot, data)  // -> Promise<{local, cloud}>; writes localStorage now, the account too when logged in
+cc.load(slot)        // -> Promise<data | null>; the newer of this device's copy and the account's
+cc.saves()           // -> Promise<[{slot, updated_at, bytes, cloud}]>, newest first
+cc.user()            // -> {id, name, level, avatar} | null (null until known: use onUser)
+cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (any tab)
+```
+
+- **Slots** are `a-z 0-9 _ -`, up to 32 characters. Each game gets 5 slots, 512 KB of JSON each.
+- **Guests** keep saves on the device. On login, saves this device never synced go up to the account; the server keeps whichever copy is newer.
+- **Batching:** cloud writes go out about once per 10 s per slot, so calling `cc.save` on every autosave is fine.
+- **Clearing:** `cc.save(slot, null)` clears a slot, for example on "erase everything".
+- **Player page:** shows one note per visit, "saved to your account ☁" or "saved on this device. log in to keep it everywhere."
+- **Example:** smol brains saves to slot `main`. On boot it calls `cc.load('main')`; if the account copy is newer, it asks before loading it.
+
 ## Public endpoints
 
 | method | path | what |
@@ -78,6 +95,9 @@ window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at mos
 | POST | `/api/auth/login` · `/api/auth/logout` | session cookie `cc_session` (httpOnly, Secure, SameSite=Lax, 30 days) |
 | GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak |
 | POST | `/api/me/favorite` · `/api/me/avatar` | `{game, on}` · `{avatar}` |
+| POST | `/api/me/delete` | `{password}`: hard-deletes the account, its sessions, saves, favorites, scores and uploads; plays and feedback stay without the link |
+| GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |
+| GET · PUT · DELETE | `/api/saves/:game/:slot` | PUT `{data, updated_at, version}`. Errors: 413 over 512 KB, 409 at 5 slots, 429 over ~1 write/10 s. An older `updated_at` returns `{stale:true}` and changes nothing. Needs login (401) |
 
 POSTs from other sites are refused, and logins, sign-ups, events and feedback are rate-limited. Nothing stores IP addresses.
 
