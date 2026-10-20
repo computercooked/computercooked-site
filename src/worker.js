@@ -1,11 +1,12 @@
 // Computer Cooked Games platform Worker.
 // Static files are served by the assets binding; only /api/* runs this code (run_worker_first in wrangler.jsonc).
 import { json, bad, HttpError } from "./util.js";
-import { ensureSchema } from "./db.js";
+import { ensureSchema, games as catalogOf } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
+import { challenge, feed } from "./social.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -50,6 +51,7 @@ async function api(req, env, url) {
   switch (route) {
     case "POST /api/events": return events(req, env, ip, user, origin);
     case "GET /api/leaderboard": return leaderboard(url, env, user);
+    case "GET /api/challenge": return challenge(env, user, await catalogOf(env, origin));
     case "POST /api/feedback": return feedback(req, env, ip, user);
     case "GET /api/stats": return stats(env);
     case "POST /api/report": return report(req, env, ip, user);
@@ -76,6 +78,7 @@ async function api(req, env, url) {
       case "POST /api/me/logout-all": return logoutAll(req, env, user);
       case "GET /api/me/export": return exportData(env, user);
       case "GET /api/me/friends": return listFriends(env, user);
+      case "GET /api/me/feed": return feed(env, user, await catalogOf(env, origin));
       case "POST /api/me/friends": return friendAction(req, env, user, ip);
     }
   }

@@ -165,3 +165,14 @@
 .me-person-act .tool { padding: 0 10px; font-size: 0.75rem; }
 .me-person-act .tool.is-quiet { opacity: 0.75; }
 .me-change .me-people { margin-top: 10px; }
+
+/* ---------- activity feed + event badges (slice D2) ---------- */
+.me-feed { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.me-feed li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid #2a2c33; }
+.me-feed li.me-empty { display: block; border: 0; }
+.me-feed span { min-width: 0; overflow-wrap: anywhere; }
+.me-feed a { color: var(--lilac); font-family: var(--mono); font-weight: 800; text-decoration: none; }
+.me-feed small { flex-shrink: 0; color: var(--paper-dim); font-family: var(--mono); font-size: 0.72rem; }
+.me-feed li.is-achievement span, .me-feed li.is-challenge span { color: var(--lime); }
+.me-ach li.is-event { border-color: #ffb84d; }
+.me-ach li.is-event i { color: #ffb84d; }

@@ -3,6 +3,7 @@ import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk,
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
 import { friendIds, people } from "./friends.js";
+import { EVENTS, eventsLive } from "./social.js";
 
 const guestName = (anon) => {
   let h = 0;
@@ -50,7 +51,7 @@ export async function events(req, env, ip, user, origin) {
       await env.DB.prepare("UPDATE plays SET ended_at = ?, duration_ms = ?, score = ?, completed = ? WHERE id = ?")
         .bind(t, Math.round(dur), score, completed, e.id).run();
       const res = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
-      if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t);
+      if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t, score);
       results[e.id] = res;
     } else if (e.t === "achieve") {
       // cc.achieve(id): accounts only, and only ids the game declares in its entry.json
@@ -181,6 +182,12 @@ export async function meSummary(env, user, origin) {
   const got = (await env.DB.prepare("SELECT game, ach_id, ts FROM achievements WHERE user_id = ?").bind(user.id).all()).results;
   const have = new Map(got.map((a) => [a.game + ":" + a.ach_id, a.ts]));
   const achievements = Object.entries(SITE_ACH).map(([id, d]) => ({ game: "site", id, name: d.name, desc: d.desc, xp: d.xp, unlocked_at: have.get("site:" + id) || null }));
+  // seasonal badges: listed while the event runs, and forever once earned
+  const live = new Set(eventsLive(now()).map((e) => e.id));
+  for (const e of EVENTS) {
+    const at = have.get("site:" + e.id) || null;
+    if (at || live.has(e.id)) achievements.push({ game: "site", id: e.id, name: e.name, desc: e.desc, xp: e.xp, unlocked_at: at, event: e.label });
+  }
   for (const g of catalog.values()) {
     for (const a of g.achievements || []) {
       const at = have.get(g.slug + ":" + a.id) || null;

@@ -87,8 +87,43 @@
       }).join(""));
     });
 
+    live.then(function (up) { return up ? api("/api/challenge") : null; }).then(weekly);
+
     var count = document.querySelector("[data-count]");
     if (count) count.textContent = ours.length + (ours.length === 1 ? " game. more cooking." : " games");
+  }
+
+  // weekly challenge + seasonal event (slice D2)
+  function weekly(r) {
+    if (!r || !r.ok || (!r.challenge && !r.events.length)) return;
+    var sec = document.getElementById("hub-weekly"), c = r.challenge;
+    var card = document.getElementById("weekly-card");
+    if (c) {
+      var days = Math.max(0, Math.ceil((Date.parse(c.ends_at) - Date.now()) / 86400000));
+      document.getElementById("weekly-ends").textContent = days <= 1 ? "ends today" : "ends in " + days + " days";
+      card.href = "/games/" + encodeURIComponent(c.game) + "/";
+      document.getElementById("weekly-thumb").src = c.thumbnail;
+      document.getElementById("weekly-title").textContent = c.title;
+      document.getElementById("weekly-goal").textContent = c.goal;
+      var meta = "+" + c.xp + " xp";
+      if (c.done) meta = "done ✓ · " + meta;
+      else if (c.best != null) meta += " · your best this week " + Math.round(c.best);
+      else if (!me) meta += " · log in to earn it";
+      if (c.finishers) meta += " · " + c.finishers + (c.finishers === 1 ? " player has" : " players have") + " done it";
+      document.getElementById("weekly-meta").textContent = meta;
+      card.classList.toggle("is-done", !!c.done);
+    } else {
+      card.hidden = true;
+      sec.querySelector(".shelf-head").textContent = "events";
+    }
+    var ev = r.events[0];
+    if (ev) {
+      var p = document.getElementById("weekly-event");
+      var until = new Date(ev.until + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).toLowerCase();
+      p.innerHTML = "<b>" + esc(ev.label) + " event</b> · finish any run before " + esc(until) + " for the <i>" + esc(ev.name) + "</i> badge" + (ev.got ? " · got it ✓" : " (+" + ev.xp + " xp)");
+      p.hidden = false;
+    }
+    sec.hidden = false;
   }
 
   document.addEventListener("click", function (e) {

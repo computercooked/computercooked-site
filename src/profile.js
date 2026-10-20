@@ -8,6 +8,7 @@ import { json, bad, readJson, now, slugOk, nameClean, textClean, dayOf } from ".
 import { games } from "./db.js";
 import { levelOf, totalXp, SITE_ACH } from "./xp.js";
 import { relation } from "./friends.js";
+import { eventDef } from "./social.js";
 
 export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper"];
 const BADGE_RE = /^[a-z0-9-]{1,40}:[a-z0-9_-]{1,40}$/;
@@ -123,7 +124,7 @@ export async function publicProfile(env, username, origin, viewer) {
   const catalog = await games(env, origin);
   const badges = p.badges.map((k) => {
     const [g, id] = k.split(":");
-    const d = g === "site" ? SITE_ACH[id] : (catalog.get(g)?.achievements || []).find((a) => a.id === id);
+    const d = g === "site" ? SITE_ACH[id] || eventDef(id) : (catalog.get(g)?.achievements || []).find((a) => a.id === id);
     return d ? { game: g, id, name: d.name, desc: d.desc || "" } : null;
   }).filter(Boolean);
   const highs = (await env.DB.prepare(

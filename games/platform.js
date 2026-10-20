@@ -28,6 +28,7 @@
           '<button type="button" role="tab" data-p="all" aria-selected="false">all time</button>' +
           '<button type="button" role="tab" data-p="friends" aria-selected="false" hidden>friends</button>' +
         "</div></div>" +
+      '<p class="cc-challenge" hidden></p>' +
       '<ol class="cc-rows" aria-live="polite"><li class="cc-empty">loading…</li></ol>' +
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
     "</div>" +
@@ -142,8 +143,18 @@
   fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
     info = (d.games || []).filter(function (g) { return g.slug === game; })[0];
     if (info && info.version) cc._setGame(game, info.version);
-    if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); }
+    if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); loadChallenge(); }
   }).catch(function () {});
+
+  /* ---------- weekly challenge line on the featured game (slice D2) ---------- */
+  function loadChallenge() {
+    api("/api/challenge").then(function (r) {
+      var c = r && r.ok && r.challenge, p = panel.querySelector(".cc-challenge");
+      if (!c || c.game !== game) return;
+      p.innerHTML = "<b>weekly challenge</b> · " + esc(c.goal) + " · " + (c.done ? "done ✓" : "+" + c.xp + " xp" + (me ? "" : ' · <a href="/me/">log in</a> to earn it'));
+      p.hidden = false;
+    });
+  }
 
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
@@ -156,6 +167,7 @@
     var x = r && r.xp;
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
+      if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
       if (x.leveled_up) levelUp(x);
     } else if (x && x.parts && x.parts.some(function (p) { return p.kind === "cap"; })) {
       say("daily xp for this game maxed. try another one.");
