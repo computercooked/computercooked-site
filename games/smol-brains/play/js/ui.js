@@ -196,7 +196,9 @@
       var young = smols.filter(function (c) { return c.stage < 3; }).sort(function (a, b) { return b.age - a.age; })[0];
       add("two grown-up smols make an egg 💕", adults >= 2 ? "in love soon" : young ? "grows up in " + fmtTime(SB.STAGES[3].from - young.age) : adults + "/2 adults");
     }
-    var maxT = g.stats.maxTier || 0;
+    var maxT = 0; // the colony as it is now, not its best ever
+    smols.forEach(function (c) { if (c.tier > maxT) maxT = c.tier; });
+    if (!smols.length) maxT = g.stats.maxTier || 0;
     if (maxT < 6 && A.hatch) {
       var best = null, bp = -1;
       smols.forEach(function (c) { if (c.tier === maxT) { var p = tierProgress(c); if (p > bp) { bp = p; best = c; } } });
@@ -506,7 +508,7 @@
     { id: "sun", e: "☀️", name: "sunshine", cost: 4, desc: "clear the sky, warm things up", answers: { cold: 1, sleepy: 0 } },
     { id: "bolt", e: "⚡", name: "lightning", cost: 10, desc: "strike a tree. fire! (smart smols learn from it)", answers: { cold: 1 } },
     { id: "inspire", e: "💡", name: "inspire", cost: 8, desc: "smols nearby get ideas 3× faster for a minute", answers: { bored: 1 } },
-    { id: "bless", e: "🧬", name: "bless eggs", cost: 15, desc: "the next eggs evolve in a direction you pick", answers: {} },
+    { id: "bless", e: "🧬", name: "bless eggs", cost: 20, desc: "the next eggs evolve in a direction you pick", answers: {} },
     { id: "gift", e: "🎁", name: "gift", cost: 3, desc: "a toy, or a starter kit for tool-users", answers: { bored: 1, lonely: 1 } }
   ];
   function renderMagic(force) {
@@ -516,20 +518,32 @@
     el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "miracles"), h("span", { class: "sp" }), el.magicSparks = h("span", { class: "mono lime" })]));
     el.mirGrid = h("div", { class: "miracles" });
     MIRACLES.forEach(function (m) {
-      m.btn = h("button", { class: "mir", title: m.desc, onclick: function () { arm(m); } }, [h("span", { class: "e" }, m.e), h("span", null, m.name), h("span", { class: "c" }, "✨" + m.cost)]);
+      m.btn = h("button", { class: "mir", title: m.desc, onclick: function () { arm(m); } }, [h("span", { class: "e" }, m.e), h("span", null, m.name), m.costEl = h("span", { class: "c" }, "✨" + m.cost)]);
       el.mirGrid.appendChild(m.btn);
     });
     el.sheet.appendChild(el.mirGrid);
-    el.sheet.appendChild(el.magicInfo = h("div", { class: "note" }, "earn sparks when smols learn, discover, hatch, pray and get answered. pick a miracle, then tap the world."));
+    el.sheet.appendChild(el.magicWarn = h("div", { class: "note warn hide" }));
+    el.sheet.appendChild(el.magicInfo = h("div", { class: "note" }, "sparks come from new discoveries, new words, hatchings, and prayers answered with the right miracle. pick a miracle, then tap the world."));
     updateMagic();
   }
   function updateMagic() {
     if (!el.magicSparks) return;
     el.magicSparks.textContent = "✨ " + Math.floor(game.sparks || 0);
-    MIRACLES.forEach(function (m) { m.btn.classList.toggle("poor", (game.sparks || 0) < m.cost); m.btn.classList.toggle("on", UI.armed === m); });
+    MIRACLES.forEach(function (m) {
+      var cost = SB.Game.miracleCost(game, m.cost), txt = "✨" + cost;
+      if (m.costEl._t !== txt) { m.costEl._t = txt; m.costEl.textContent = txt; }
+      m.btn.classList.toggle("poor", (game.sparks || 0) < cost); m.btn.classList.toggle("on", UI.armed === m);
+    });
+    var warn = [];
+    if (game.speed >= 8) warn.push("⏩ time is flying: miracles cost double");
+    if ((game.godHeat || 0) >= 1.5) warn.push("🔥 you're leaning on miracles: they cost more for a while");
+    if ((game.spoil || 0) >= 0.3) warn.push("🍬 your smols are spoiled: they wait for handouts. let them fend for themselves");
+    var wt = warn.join("<br>");
+    if (el.magicWarn && el.magicWarn._t !== wt) { el.magicWarn._t = wt; el.magicWarn.innerHTML = wt; el.magicWarn.classList.toggle("hide", !wt); }
   }
   function arm(m) {
-    if ((game.sparks || 0) < m.cost) { toast("not enough sparks ✨ (" + m.cost + " needed)"); return; }
+    var mc = SB.Game.miracleCost(game, m.cost);
+    if ((game.sparks || 0) < mc) { toast("not enough sparks ✨ (" + mc + " needed)"); return; }
     if (m.id === "rain" || m.id === "sun" || m.id === "bless") { cast(m, R.camera.x, R.camera.z); return; }
     UI.armed = UI.armed === m ? null : m;
     el.magicInfo.textContent = UI.armed ? m.e + " " + m.desc + ". tap where." : "pick a miracle, then tap the world.";
@@ -539,7 +553,9 @@
   UI.castAt = function (x, z) { var m = UI.armed; if (!m) return; cast(m, x, z); };
   function cast(m, x, z) {
     if (m.id === "bless") { blessChooser(m); return; }
-    if (!SB.Game.spend(game, m.cost)) { toast("not enough sparks ✨"); return; }
+    if (!SB.Game.spend(game, SB.Game.miracleCost(game, m.cost))) { toast("not enough sparks ✨"); return; }
+    SB.Game.usedMiracle(game, m.id);
+    SB.Game.spoilFrom(game, m.id);
     var w = game.world, r = game.rng, gy = SB.World.groundY(w, x, z);
     switch (m.id) {
       case "bounty": {
@@ -575,7 +591,7 @@
     (game.prayers || []).forEach(function (p) {
       var c = SB.Game.byId(game, p.id);
       if (!c || p.answered) return;
-      if (SB.dist(c.x, c.z, x, z) < 7 && (m.answers[p.need] || m.id === "heal" && p.need === "nothing")) SB.Creature.prayerAnswered(c, game);
+      if (SB.dist(c.x, c.z, x, z) < 7 && (m.answers[p.need] || m.id === "heal" && p.need === "nothing")) SB.Creature.prayerAnswered(c, game, "miracle");
     });
     UI.armed = null;
     updateMagic();
@@ -593,7 +609,7 @@
     { e: "✨", name: "inner glow", genes: { glow: 0.18, wings: 0.12 } }
   ];
   function blessChooser(m) {
-    var body = h("div", null, [h("p", { class: "note" }, "the next 3 eggs lean this way. evolution still decides the rest.")]);
+    var body = h("div", null, [h("p", { class: "note" }, "the next 3 eggs lean this way. a blessing amplifies what their parents practise: bless legs on a family that walks a lot, hands on one that carries things, language on chatty ones. on its own it's much weaker.")]);
     var grid = h("div", { class: "grid2" });
     // which blessings help the most-evolved smols reach their next tier
     var maxT = game.stats.maxTier || 0, want = {};
@@ -601,7 +617,8 @@
     BLESS.forEach(function (b) {
       var helps = Object.keys(b.genes).some(function (k) { return want[k]; });
       grid.appendChild(h("button", { class: "card", style: "text-align:left", onclick: function () {
-        if (!SB.Game.spend(game, m.cost)) { toast("not enough sparks ✨"); return; }
+        if (!SB.Game.spend(game, SB.Game.miracleCost(game, m.cost))) { toast("not enough sparks ✨"); return; }
+        SB.Game.usedMiracle(game, "bless");
         game.blessing = { name: b.name, genes: b.genes, uses: 3 };
         game.stats.miracles = (game.stats.miracles || 0) + 1;
         SB.Game.unlock(game, "miracle");
@@ -1154,6 +1171,19 @@
         "<b>ideas live in heads.</b> other smols learn them by watching, or by being taught. if everyone who knows an idea dies, it's gone.",
         "you can speed inventing up with ✨ magic → 💡 inspire. the 💡 ideas tab in the menu tracks what your smols know."
       ], fb);
+    });
+    on("spoiled", function () {
+      storyCard("spoiled", "🍬", "your smols are getting spoiled", [
+        "food keeps falling from the sky, so they've stopped looking for it. peckish smols now just <b>sit and wait for you</b>, and they're slower to learn new things.",
+        "it wears off if you let them fend for themselves for a while. help when they're really hungry, or when they pray: that's what miracles are for."
+      ], ["🍬", "spoiled!", "too many handouts: they wait for food from the sky"]);
+    });
+    on("sharedWord", function (d) {
+      if (d.n === 1) storyCard("shared", "💬", "your tribe shares a word", [
+        "most of your smols now know the same word. <b>shared words make every smol smarter</b> (+3% learning each), and they can be called with 📣 in the word book.",
+        "smols teach each other words when they chat, so a talkative tribe gets clever fast."
+      ], ["💬", "shared word!", "the whole tribe gets a little smarter"]);
+      else toast("💬 " + d.n + " shared words: the tribe learns " + Math.round(SB.Words.smarts(game) * 100) + "% faster");
     });
     on("tierUp", function (d) {
       var t = SB.TIERS[d.tier], nx = SB.TIERS[d.tier + 1];

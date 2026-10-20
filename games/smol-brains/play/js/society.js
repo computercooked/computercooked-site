@@ -33,6 +33,17 @@
     acc = 0;
     So.init(game);
     var w = game.world;
+    // campfire songs: at night, a smol who knows "song" sitting by a lit fire with friends starts singing.
+    // everyone listening feels less bored and lonely
+    if (w.night && SB.Ideas) (w.fires || []).forEach(function (f) {
+      if (f.kind !== "campfire" || game.rng() > 0.35) return;
+      var near = SB.Game.smols(game).filter(function (c) { return !c.asleep && SB.dist(c.x, c.z, f.x, f.z) < 5; });
+      var singer = near.filter(function (c) { return SB.Ideas.known(c, "song"); })[0];
+      if (!singer || near.length < 3) return;
+      near.forEach(function (c) { SB.Chem.apply(c.chem, { bored: -0.2, lonely: -0.2, fear: -0.1 }); if (!c.far) c.speech = { text: game.rng.pick(["la la ♪", "♪ ♫", "laaa ♪", "mm mm ♪"]), t: 2, kind: "say" }; });
+      SB.Game.unlock(game, "song");
+      SB.bus.emit("song", { c: singer, n: near.length });
+    });
     // growing up: young smols pick up the colony's know-how from the grown-ups around them
     // (every 4 s, a bit of one idea from a nearby adult), so ideas outlive their inventors
     if (SB.Ideas) game.creatures.forEach(function (y) {

@@ -346,6 +346,13 @@
       rain: w.weather.rain > 0.3, home: SB.dist(c.x, c.z, home.x, home.z) < 7
     });
 
+    // spoiled by too many handouts: a peckish smol waits for food to fall from the sky instead of looking for it
+    var spoil = game.spoil || 0;
+    if (c.species === "smol" && spoil > 0.3 && ch.hunger > 0.45 && ch.hunger < 0.85 && !c.plan && rng.chance(spoil * 0.6)) {
+      startAction(c, game, V.idle, null, null, null); c.action.dur = 3;
+      if (!c.far && rng.chance(0.25)) say(c, rng.pick(["food sky?", "sky food pls", "wait food"]), game);
+      return;
+    }
     // starving: instinct takes over from the net. go straight for the nearest food you can smell
     if (c.species === "smol" && ch.hunger > 0.85 && !c.plan && rng.chance(0.7)) {
       var sf = sniffFood(c, game);
@@ -979,13 +986,15 @@
     SB.bus.emit("pray", { c: c, need: need, prayer: p });
   }
   // the god answered: reward the praying (credited to the prayer decision)
-  C.prayerAnswered = function (c, game) {
+  // how: "miracle" (you gave what they asked for) or "comfort" (a tickle: nice, but it doesn't fix anything)
+  C.prayerAnswered = function (c, game, how) {
     var p = (game.prayers || []).filter(function (q) { return q.id === c.id && !q.answered; })[0];
     if (!p) return false;
     p.answered = true;
-    SB.Brain.teach(c.brain, p.input, V.pray, 0.8, 1.5);
+    how = how || "comfort";
+    SB.Brain.teach(c.brain, p.input, V.pray, how === "miracle" ? 0.8 : 0.3, 1.5);
     emote(c, "love", 2);
-    SB.bus.emit("prayerAnswered", { c: c, prayer: p });
+    SB.bus.emit("prayerAnswered", { c: c, prayer: p, how: how });
     return true;
   };
 
@@ -1181,7 +1190,7 @@
     emote(c, c.species === "grump" ? "huh" : "happy", 1.4);
     c.anim.squash = 0.2; c.anim.flash = 0.6;
     if (c.asleep && game.rng.chance(0.3)) { c.asleep = false; c.inBed = false; c.action = null; }
-    if (c.species === "smol") { SB.Game.unlock(game, "tickle"); C.prayerAnswered(c, game); }
+    if (c.species === "smol") { SB.Game.unlock(game, "tickle"); C.prayerAnswered(c, game, "comfort"); }
     SB.bus.emit("tickle", { c: c });
   };
 

@@ -46,8 +46,8 @@
       v: 2, savedAt: Date.now(), seed: game.seed, rngState: game.rng.state(),
       time: round(game.time), speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
       hand: { tool: game.hand.tool }, family: plain(game.family, 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
-      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0),
-      culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount }, 0),
+      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0),
+      culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount, sharedMax: game.culture.sharedMax || 0 }, 0),
       tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
       playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0),
       world: SB.World.serialize(game.world),
@@ -145,12 +145,13 @@
     var st = obj(data.stats);
     for (var k in st) if (typeof st[k] === "number") game.stats[k] = st[k];
     game.sparks = num(data.sparks, 12); game.blessing = data.blessing || null;
+    game.godHeat = num(data.godHeat, 0); game.spoil = num(data.spoil, 0);
     game.playTime = num(data.playTime, 0); game.created = num(data.created, Date.now()); game.migratedFromV1 = !!data.migratedFromV1;
     game.settings = obj(data.settings);
     game.world = SB.World.revive(obj(data.world), game);
     game.world.time = game.time;
     var cu = obj(data.culture);
-    game.culture = { words: obj(cu.words), found: obj(cu.found), lost: obj(cu.lost), alive: obj(cu.alive), lostCount: num(cu.lostCount, 0) };
+    game.culture = { words: obj(cu.words), found: obj(cu.found), lost: obj(cu.lost), alive: obj(cu.alive), lostCount: num(cu.lostCount, 0), sharedMax: num(cu.sharedMax, 0) };
     game.tribes = Array.isArray(data.tribes) && data.tribes.length ? data.tribes : null;
     game.villages = Array.isArray(data.villages) ? data.villages : [];
     game.clades = data.clades && data.clades[0] ? data.clades : null;

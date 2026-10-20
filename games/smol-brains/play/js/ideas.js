@@ -82,7 +82,7 @@
   // amount 0..1 of progress; returns true when the idea becomes known
   I.learn = function (c, id, amount, game, how) {
     if (!I.canHold(c, id) || I.known(c, id)) return false;
-    var learnK = (0.6 + (c.genome.genes.learnRate || 0.5) * 0.8) * (1 + (SB.Words && game ? SB.Words.smarts(game) : 0)); // shared words help ideas spread
+    var learnK = (0.6 + (c.genome.genes.learnRate || 0.5) * 0.8) * (1 + (SB.Words && game ? SB.Words.smarts(game) : 0)) * (1 - 0.4 * ((game && game.spoil) || 0)); // shared words help ideas spread; spoiled smols can't be bothered
     c.ideas[id] = Math.min(1, (c.ideas[id] || 0) + amount * learnK);
     if (c.ideas[id] >= 1) {
       c.ideas[id] = 1;

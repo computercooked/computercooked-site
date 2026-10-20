@@ -131,6 +131,27 @@
     game.sparks -= n;
     return true;
   };
+  // miracles get dearer the more you lean on them (it cools off over a few minutes), and cost double
+  // when you're running time fast: a god at 8× or 16× isn't really paying attention
+  Game.miracleCost = function (game, base) {
+    var heat = game.godHeat || 0, fast = game.speed >= 8 ? 2 : 1;
+    return Math.round(base * (1 + 0.3 * heat) * fast);
+  };
+  Game.prayerPay = function (game, how) { return how === "miracle" ? Math.round(5 * (1 - (game.spoil || 0))) : 1; };
+  Game.usedMiracle = function (game, id) {
+    game.godHeat = Math.min(10, (game.godHeat || 0) + (id === "bless" ? 2 : 1));
+  };
+  // handing out food and toys to smols who don't need them spoils them: they stop looking for their own
+  Game.spoilFrom = function (game, id) {
+    var sm = Game.smols(game);
+    if (!sm.length) return;
+    var hunger = sm.reduce(function (a, c) { return a + c.chem.hunger; }, 0) / sm.length;
+    var add = id === "bounty" ? (hunger < 0.45 ? 0.14 : 0.03) : id === "gift" ? 0.05 : 0;
+    if (!add) return;
+    var before = game.spoil || 0;
+    game.spoil = Math.min(1, before + add);
+    if (before < 0.35 && game.spoil >= 0.35) SB.bus.emit("spoiled", {});
+  };
 
   /* ---------------- family, spawning, eggs ---------------- */
 
@@ -204,8 +225,8 @@
     game.stats.hatched++;
     if (c.gen > game.stats.maxGen) game.stats.maxGen = c.gen;
     if (c.tier > (game.stats.maxTier || 0)) {
+      for (var ti = (game.stats.maxTier || 0) + 1; ti <= c.tier; ti++) if (ti >= 1) Game.unlock(game, SB.TIERS[ti].id); // a skipped tier still counts
       game.stats.maxTier = c.tier;
-      if (c.tier >= 1) Game.unlock(game, SB.TIERS[c.tier].id);
       SB.bus.emit("tierUp", { c: c, tier: c.tier });
       Game.addSparks(game, 10 * c.tier, c);
       if (window.cc && cc.event) try { cc.event("tier", { tier: c.tier, gen: c.gen }); } catch (e) {}
@@ -325,6 +346,8 @@
     if (game.hand.sayT > 0) { game.hand.sayT -= dt; if (game.hand.sayT <= 0) game.hand.saying = null; }
     SB.Species.tick(game, dt);
     SB.Society.tick(game, dt);
+    if (game.godHeat > 0) game.godHeat = Math.max(0, game.godHeat - dt / 60);
+    if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
     game.wordsT = (game.wordsT || 0) - dt;
     if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }
     checkAchievements(game, dt);
@@ -416,13 +439,14 @@
 
   // simple bus-driven bookkeeping
   function wireBus() {
-    SB.bus.on("eureka", function (d) { if (!game) return; Game.addSparks(game, d.first ? 12 : 4, d.c); });
+    SB.bus.on("eureka", function (d) { if (!game) return; Game.addSparks(game, d.first ? 12 : 1, d.c); });
     SB.bus.on("learnWord", function () { if (game) Game.addSparks(game, 1, null); });
     SB.bus.on("teach", function (d) { if (d.learned && game) Game.unlock(game, "teach"); });
     SB.bus.on("lightning", function (d) { if (!game) return; var near = game.creatures.some(function (c) { return c.alive && c.species === "smol" && SB.dist(c.x, c.z, d.x, d.z) < 16; }); if (near) Game.unlock(game, "lightning"); });
     SB.bus.on("wildfire", function () { if (game) Game.unlock(game, "wildfire"); });
-    SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, 4, d.c); Game.unlock(game, "prayer"); });
-    SB.bus.on("dawn", function () { if (game && game.world.nightGrumps > 0) { game.stats.grumpNights++; Game.unlock(game, "grump"); } });
+    // a prayer answered with the right miracle is worth a lot; a comforting tickle a little; a spoiled tribe's demands nothing
+    SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, Game.prayerPay(game, d.how), d.c); Game.unlock(game, "prayer"); });
+    SB.bus.on("dawn", function (d) { if (game && ((d && d.grumps) || game.world.nightGrumps) > 0) { game.stats.grumpNights++; Game.unlock(game, "grump"); } });
     SB.bus.on("built", function (d) { if (game && d.st.kind === "spire" && d.st.done) { Game.unlock(game, "bigthought"); SB.bus.emit("bigThought", { st: d.st }); } });
   }
 

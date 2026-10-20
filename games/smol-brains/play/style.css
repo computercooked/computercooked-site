@@ -255,3 +255,4 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 .word.locked { opacity: 0.45; }
 .word .call { position: absolute; top: 1px; right: 2px; font-size: 0; padding: 2px; } .word .call .pxi { width: 18px; height: 18px; }
 .word .call:hover { transform: scale(1.15); }
+.note.warn { color: var(--orange); }

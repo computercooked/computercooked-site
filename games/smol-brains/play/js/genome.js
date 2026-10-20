@@ -161,7 +161,8 @@
       var v = old;
       if (!grump && echo && echo[n] > 0) v += 0.085 * Math.min(1, echo[n]) * (1.1 - v);
       if (!grump && echo) v += 0.008; // life tends to get more complex (very slowly)
-      if (!grump && bless && bless[n]) v += bless[n] * (1.05 - v);
+      // a blessing amplifies what the parents actually practised: it's strong on a well-raised family, weak on its own
+      if (!grump && bless && bless[n]) v += bless[n] * (0.45 + 0.9 * Math.min(1, (echo && echo[n]) || 0)) * (1.05 - v);
       if (rng.chance(0.3)) v += rng.gauss() * 0.05;
       g.genes[n] = q(v);
       var dv = g.genes[n] - old;

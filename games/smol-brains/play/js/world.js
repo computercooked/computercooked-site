@@ -234,7 +234,7 @@
     world.snowCover += (snowT * 0.95 - world.snowCover) * Math.min(1, dt * 0.05);
     var autT = sIdx === 2 ? SB.smooth(sp * 3) : sIdx === 3 ? 1 - SB.smooth(sp * 2) : 0;
     world.autumn += (autT - world.autumn) * Math.min(1, dt * 0.05);
-    if (wasNight && !world.night) { world.nightGrumps = 0; emit("dawn", {}); }
+    if (wasNight && !world.night) { emit("dawn", { grumps: world.nightGrumps }); world.nightGrumps = 0; } // count first, then reset
     if (!wasNight && world.night) emit("dusk", {});
   }
   W.seasonTemp = function (world) { return [0, 0.12, -0.04, -0.2][world.season] || 0; };
