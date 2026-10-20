@@ -77,7 +77,10 @@
         var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + esc(x.name) + "</a>" : esc(x.name);
         return '<li class="' + (x.me ? "is-me" : "") + '"><span class="cc-rank">' + x.rank + '</span><span class="cc-name">' + name +
           '</span><span class="cc-score">' + fmt(x.score) + '</span><button type="button" class="cc-flag" data-id="' + x.id + '" aria-label="report ' + esc(x.name) + '" title="report">⚑</button></li>';
-      }).join("");
+      }).join("") + (r.you
+        // not in the top rows: show where you are anyway
+        ? '<li class="cc-gap" aria-hidden="true">⋯</li><li class="is-me cc-you"><span class="cc-rank">' + r.you.rank + '</span><span class="cc-name">you</span><span class="cc-score">' + fmt(r.you.score) + '</span></li>'
+        : "");
     });
   }
   panel.querySelectorAll(".cc-tabs button").forEach(function (b) {

@@ -31,7 +31,19 @@ r = await (await post("/api/events", { anon, events: [{ t: "end", id: p2, game: 
 ok(r.results?.[p2]?.accepted === false, "impossible score rejected", r.results?.[p2]);
 
 r = await (await get("/api/leaderboard?game=crash&period=day&player=a:" + anon)).json();
-ok(r.ok && r.rows.some((x) => x.me), "leaderboard shows the run", r.rows?.slice(0, 3));
+// in the top rows, or (on a busy board) as the "you" row below them
+ok(r.ok && (r.rows.some((x) => x.me) ? r.you === null : r.you?.score === 40 && r.you.rank > r.rows.length), "leaderboard shows the run", { top: r.rows?.slice(0, 3), you: r.you });
+{
+  // a weak run lands at the bottom: if it isn't in the top rows, the board still gives you your rank
+  // (no filler scores here: this test also runs against the live boards)
+  const low = "smokelow" + rid(), pl = rid();
+  await post("/api/events", { anon: low, events: [{ t: "start", id: pl, game: "crash", v: "1" }] });
+  await post("/api/events", { anon: low, events: [{ t: "end", id: pl, game: "crash", score: 2, dur: 12000, completed: true }] });
+  r = await (await get("/api/leaderboard?game=crash&period=all&player=a:" + low)).json();
+  ok(r.rows.some((x) => x.me) ? r.you === null : r.you?.score === 2 && r.you.rank > r.rows.length, "outside the top rows you get your own rank row", { rows: r.rows.length, you: r.you });
+  r = await (await get("/api/leaderboard?game=crash&period=day&player=a:nobody-" + rid())).json();
+  ok(r.you === null, "no rank row for someone with no score");
+}
 
 // cross-site POST is refused
 r = await fetch(base + "/api/feedback", { method: "POST", headers: { "content-type": "application/json", origin: "https://evil.example" }, body: "{}" });
