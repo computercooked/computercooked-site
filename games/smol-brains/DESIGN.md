@@ -106,6 +106,7 @@ Load order: `core, icons, genome, brain, chemistry, lang, ideas, words, worldgen
 - Phones render the 3D view at ≤1.6× device pixels in classic mode (overlay labels stay at full ratio), and the shader skips point lights that can't reach the screen. Pixel mode is far cheaper still: ~8.5 ms of JS per frame for a 30-smol colony at 4× CPU throttle; boot to a playable island in ~0.7 s (1.8 s throttled).
 - Metabolism: a smol eats every 2–3 min. Unattended 2-hour sims of a 20-builder colony on three seeds: 0 starved, 0 drowned, population steady around 32 through two winters (before the economy fixes they crashed to 4–7 in the first winter).
 - Full ladder with an engaged player (5–10 h sims): critter ~8 min, tool-user ~30–40 min, tribe ~1.5 h, builder ~2.5 h, thinker ~3.3 h, ascended ~5 h; colonies hold 21–27 of 30 ideas with 4–6 lost per run; the spire gets raised in end-game runs.
+- v3 (kin rule + strangers + the new economy, 5 h engaged-bot sims, seeds 2 and 9): critter ~16 min, tool-user ~50 min, tribe 1.7–2.6 h, builder ~3.4 h, thinker ~3.7 h; population holds at 32–35 with ~18 strangers welcomed by 4 h; builders with axes fell trees for logs. Browser chaos runs with the intro, strangers and the word book (desktop 522 actions, phone 771): no errors.
 - Browser chaos runs (~3,500 random taps, drags, keys, menus, miracles, resizes, reloads, drownings, on phone and desktop, pixel and 3D): no errors.
 
 ---

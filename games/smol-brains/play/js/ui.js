@@ -192,7 +192,7 @@
   function cycleSpeed(d) {
     var i = SB.SPEEDS.indexOf(game.speed);
     if (d === 0) { game.speed = game.speed === 0 ? (game._lastSpeed || 1) : (game._lastSpeed = game.speed, 0); }
-    else { i = (i + d + SB.SPEEDS.length) % SB.SPEEDS.length; if (i === 0 && d > 0) i = 1; game.speed = SB.SPEEDS[i]; }
+    else { i = (i + d + SB.SPEEDS.length) % SB.SPEEDS.length; game.speed = SB.SPEEDS[i]; } // 16× wraps round to paused (phones have no space bar)
     hudT = 0;
   }
 
@@ -368,6 +368,11 @@
     el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "words"), el.cWordN = h("span", { class: "dim" })]));
     el.sheet.appendChild(el.cWords = h("div", { class: "chips" }));
     el.sheet.appendChild(el.cMore = h("div", { class: cardMore ? "" : "hide" }));
+    if (c.species === "grump") { // grumps get a short card: no words, no family, no code
+      el.sheet.appendChild(h("div", { class: "note" }, "a grump. they came down with the warship and never stopped being grumpy. a club or a spear chases them off; fire and palisades keep them out."));
+      updateSmol(c, true);
+      return;
+    }
     el.sheet.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
@@ -712,7 +717,7 @@
     SB.TIERS.forEach(function (t, i) {
       var got = i <= maxT;
       var need = SB.Genome.TIER_NEEDS[i];
-      var needTxt = need ? Object.keys(need).map(function (k) { return k === "neurons" ? need[k] + " neurons" : k === "layers" ? need[k] + " brain layers" : (SB.Genome.GENE_LABELS[k] || k) + " " + need[k]; }).join(", ") : "where it starts";
+      var needTxt = need ? Object.keys(need).filter(function (k) { return need[k]; }).map(function (k) { return k === "neurons" ? need[k] + " neurons" : k === "layers" ? need[k] + " brain layers" : (SB.Genome.GENE_LABELS[k] || k) + " " + need[k]; }).join(", ") : "where it starts";
       ladder.appendChild(h("div", { class: "card " + (got ? "got" : "locked") }, [h("div", { class: "big" }, got ? t.icon : "❔"), h("h4", { style: "color:" + (got ? t.color : "inherit") }, (i + 1) + ". " + t.name), h("div", null, got ? t.desc : "???"), h("div", { class: "note" }, "needs: " + needTxt)]));
     });
     body.appendChild(h("div", { class: "sec" }, "the ladder"));
@@ -900,7 +905,8 @@
         SB.Save.save(game); location.reload();
       } }, R.pixel ? "👾 pixel art (tap for classic 3D)" : "🧊 classic 3D (tap for pixel art)"),
       R.pixel ? null : h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
-      h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off")
+      h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off"),
+      h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🚀 watch the opening again")
     ]));
     body.appendChild(h("div", { class: "sec" }, "save"));
     body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds and when you leave. while you're away, the island keeps going for a while."));
@@ -1318,7 +1324,6 @@
     if (k === "m") { game.settings = game.settings || {}; game.settings.minimap = game.settings.minimap === false; toast(game.settings.minimap === false ? "map hidden (m to show)" : "map on"); return true; }
     if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (c && c.type === "creature") openBrain(c); return true; }
     if (k === "f") { var c2 = SB.Game.byId(game, game.selectedId); if (c2) SB.Input.follow(R.camera.follow ? null : c2); return true; }
-    if (k === "m") { openMenu(state.menuTab); return true; }
     if (k === "h") { root.classList.toggle("hide"); return true; }
     return false;
   };
