@@ -296,7 +296,9 @@
     GL.attribs(ctx, quad, [[p.a.aCorner, 2]], 2, 0);
     GL.stream(ctx, holder, inst, n * IS);
     GL.attribs(ctx, holder.buf, [[p.a.iPos, 3], [p.a.iPx, 2], [p.a.iUV, 4], [p.a.iMisc, 4]], IS, 1);
+    gl.depthMask(false); // sprites carry their own painted outline; keep them out of the outline pass
     ctx.drawInstanced(gl.TRIANGLES, 0, 6, n);
+    gl.depthMask(true);
     gl.activeTexture(gl.TEXTURE0);
     if (R.perf) R.perf.draws++;
     n = 0;
