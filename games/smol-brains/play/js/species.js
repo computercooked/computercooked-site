@@ -52,8 +52,10 @@
     var trait = distinct(c.genome, cl.mean || c.genome.genes);
     var tierName = SB.TIERS[c.tier].name;
     var word = SB.Lang.fresh(game.lang, SB.rng((game.seed + id * 131) >>> 0), 2);
+    var nm = (trait ? trait + " " : "") + plural(tierName);
+    for (var ck in game.clades) if (game.clades[ck].name === nm) { nm = word + " " + plural(tierName); break; } // no two species with the same name
     var nc = {
-      id: id, name: (trait ? trait + " " : "") + plural(tierName), sci: "Smollus " + word + "i", parent: cl.id,
+      id: id, name: nm, sci: "Smollus " + word + "i", parent: cl.id,
       born: game.time, tier: c.tier, gen: c.gen, alive: 1, total: 1, extinct: null, look: c.look, mean: Object.assign({}, c.genome.genes),
       founder: c.name, trait: trait, why: newTier ? "tier" : "drift"
     };

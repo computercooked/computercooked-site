@@ -722,7 +722,7 @@
   UI.openMenu = openMenu;
 
   // the island's history, newest first (Dwarf Fortress legends, tiny)
-  function when(t) { var day = Math.floor(t / SB.DAY_LENGTH) + 1, h2 = Math.floor((t / SB.DAY_LENGTH % 1) * 24); return "day " + day + ", " + pad(h2) + ":00"; }
+  function when(t) { var day = Math.floor(t / SB.DAY_LENGTH) + 1, hh = (t / SB.DAY_LENGTH % 1) * 24; return "day " + day + ", " + pad(Math.floor(hh)) + ":" + pad(Math.floor((hh % 1) * 60)); }
   function tabChronicle(body) {
     var ch = (game.chronicle || []).slice().reverse();
     body.appendChild(h("p", { class: "note" }, "everything that mattered on this island: inventions, firsts, brawls, newcomers, the ones we lost."));
@@ -1111,7 +1111,7 @@
       if (twin) { var n2 = clean(inp2.value); if (n2) twin.name = n2; if (game.family[twin.id]) game.family[twin.id].name = twin.name; }
       SB.Game.unlock(game, "name");
       closeModal();
-      SB.Game.select(game, c.id);
+      if (window.innerWidth >= 600) SB.Game.select(game, c.id); // on a phone the card would cover the whole tutorial
       SB.Input.follow(c);
       tutAdvance(2);
     }
@@ -1125,6 +1125,8 @@
     modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }
+
+  var NEED_TEXT = { hunger: "food", tired: "rest", sleepy: "sleep", bored: "something to do", lonely: "company", pain: "healing", fear: "safety", cold: "warmth", hot: "shade", sick: "healing", love: "love", anger: "calm" };
 
   /* ---------------- strangers ---------------- */
   function strangerCard(c) {
@@ -1349,9 +1351,13 @@
     on("tribe", function (d) { moment("🔥", d.tribe.name, "your smols have a name for themselves now", "lilac"); });
     on("ideaLost", function (d) { toast("🕯 <b>" + esc(SB.Ideas.BY_ID[d.id].name) + "</b> is lost. nobody alive remembers it."); });
     on("pray", function (d) {
-      if (!game.settings || !game.settings.cards || !game.settings.cards.pray) storyCard("pray", "🙏", esc(d.c.name) + " is praying to you", ["smols pray when they need something they can't fix themselves. this one needs: <b>" + esc(d.need) + "</b>.", "answer with ✨ magic: 🍎 bounty for hunger, 💚 heal for sickness, ☀️ sun for cold. answered prayers earn sparks, and smols remember that you listen."]);
+      if (!game.settings || !game.settings.cards || !game.settings.cards.pray) storyCard("pray", "🙏", esc(d.c.name) + " is praying to you", ["smols pray when they need something they can't fix themselves. this one needs <b>" + esc(NEED_TEXT[d.need] || d.need) + "</b>.", "answer with ✨ magic: 🍎 bounty for hunger, 💚 heal for sickness, ☀️ sun for cold. answered prayers earn sparks, and smols remember that you listen."]);
     });
-    on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + " prays" + (d.need !== "nothing" ? " (" + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + d.need + ")" : "") + ". answer with ✨ magic, food or a tickle."); });
+    on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + (d.need !== "nothing" ? " prays for " + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + esc(NEED_TEXT[d.need] || d.need) : " says thank you to the sky") + ". the right ✨ miracle nearby answers it."); });
+    on("dusk", function () {
+      var lit = game.world.fires.some(function (f) { return f.kind === "campfire"; }), day = SB.World.clock(game.world).day;
+      if (day <= 3 || !lit) toast("🌙 night is falling. grumps prowl in the dark: " + (lit ? "smols near the fire are safe." : "a campfire or a hut keeps smols safe."));
+    });
     on("prayerAnswered", function (d) { if (SB.FX) SB.FX.burst("magic", d.c.x, d.c.y + 1, d.c.z, 14); });
     on("select", function (d) { if (d.c) { state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet("smol"); } else if (state.sheet === "smol") closeSheet(); });
     on("wildEgg", function (d) { R.flyTo(d.obj.x, d.obj.z, 7, 1.4); });

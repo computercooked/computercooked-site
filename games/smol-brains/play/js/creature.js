@@ -977,7 +977,7 @@
       c.stats.hits++;
       // smol on smol: a shove when they're just annoyed, a real punch between rivals, in a grudge or a tantrum
       var both = c.species === "smol" && o.species === "smol";
-      var punch = both && SB.Social && (SB.Social.rival(game, c, o) || (c.grudge && c.grudge.id === o.id && game.time - c.grudge.t < 10) || c.tantrum);
+      var punch = both && SB.Social && (SB.Social.rival(game, c, o) || c.tantrum);
       // hurting one of your own when you weren't even angry feels bad (the brain learns from this)
       if (both && c.chem.anger < 0.4 && !punch) { SB.Chem.apply(c.chem, { lonely: 0.15, bored: 0.05 }); emote(c, "sad", 1.4); }
       var hard = c.species === "grump" ? 0.3 : both ? (punch ? 0.16 : 0.05) : 0.2;
@@ -1634,22 +1634,37 @@
 
   /* ---------------- explain (for the UI) ---------------- */
 
+  // what a smol is up to, in plain words: "hungry · eating the berry bush"
+  var DOING = ["resting", "walking over to %", "eating %", "playing with %", "picking a fight with %", "picking up %", "putting things down", "going to sleep", "running from %", "chatting with %", "cuddling %", "wandering about", "using %", "making something", "building", "teaching %", "giving % something", "praying to the sky"];
+  function thingName(c, game) {
+    var t = c.action && c.action.target ? resolve(game, c.action.target) : null;
+    if (!t) return c.action && c.action.noun ? (SB.NOUN_WORDS[N[c.action.noun]] || c.action.noun) : "something";
+    if (t.type === "creature") return t.ref.species === "smol" ? t.ref.name : "a grump";
+    if (t.type === "hand") return "the sky hand";
+    if (t.type === "water") return "the water";
+    var def = t.type === "node" ? NK[t.kind] : t.type === "struct" ? SK[t.kind] : K[t.kind];
+    return def ? "the " + def.label : "something";
+  }
   C.thought = function (c, game) {
     if (!c.alive) return "…";
-    if (c.heldBy === "hand") return "wheee (being carried)";
+    if (c.heldBy === "hand") return "wheee! (being carried)";
     if (c.asleep) return "zzz (sleeping" + (c.inBed ? " under a roof" : "") + ")";
     var top = SB.Chem.top(c.chem);
-    var feel = top.v > 0.35 ? SB.DRIVE_WORDS[top.i] : "fine";
+    var feel = top.v > 0.35 ? SB.DRIVE_WORDS[top.i] : "happy";
+    if (c.tantrum) return "furious · throwing a tantrum!";
+    if (c.convo) { var o = c.convo.a === c ? c.convo.b : c.convo.a; return feel + " · talking with " + o.name + " about " + c.convo.topic; }
+    if (c.stranger) return "hopeful · waiting to be let in";
     if (c.plan) {
-      var d = SB.Ideas.BY_ID[c.plan.idea], s = c.plan.steps[c.plan.i];
-      var what = d ? d.icon + " " + d.name : "something";
-      var step = !s ? "" : s.do === "fetch" ? " (getting " + (K[s.want] ? K[s.want].label : s.want) + ")" : s.do === "station" ? " (going to the " + s.at + ")" : s.do === "deliver" ? " (bringing stuff)" : s.do === "work" ? " (building)" : "";
-      return feel + " → " + (c.plan.kind === "build" ? "build " : "make ") + what + step;
+      var d = SB.Ideas.BY_ID[c.plan.idea], st = c.plan.steps[c.plan.i];
+      var what = d ? d.name : "something";
+      var step = !st ? "" : st.do === "fetch" ? ", fetching " + (K[st.want] ? K[st.want].label : st.want === "food" ? "food" : st.want) : st.do === "station" ? ", heading to the " + st.at : st.do === "deliver" ? ", bringing materials" : st.do === "work" ? ", hard at work" : "";
+      return feel + " · " + (c.plan.kind === "build" ? "building: " : "making: ") + what + step;
     }
-    if (!c.action) return feel + " → thinking…";
-    var v = SB.VERB_WORDS[c.action.verb];
-    var n = c.action.noun ? " " + (SB.NOUN_WORDS[N[c.action.noun]] || c.action.noun) : "";
-    if (!SB.VERB_NEEDS_TARGET[c.action.verb] && c.action.verb !== V.talk) n = "";
-    return feel + " → " + v + n;
+    if (c.grief && (!c.action || c.action.verb === V.idle || c.action.verb === V.wander)) return "sad · missing " + c.grief.name;
+    if (!c.action) return feel + " · thinking…";
+    var phrase = DOING[c.action.verb] || SB.VERB_WORDS[c.action.verb];
+    if (c.action.verb === V.wander && c.action.called) phrase = "coming when called";
+    if (c.action.verb === V.hit && c.action.target && c.action.target.type === "creature") { var tg = SB.Game.byId(game, c.action.target.id); if (tg && tg.species === "smol" && SB.Social && !SB.Social.rival(game, c, tg)) phrase = "shoving %"; }
+    return feel + " · " + phrase.replace("%", thingName(c, game));
   };
 })();

@@ -66,9 +66,9 @@
     { id: "cure", icon: "💊", name: "smol doctor", desc: "a sick smol gets better." },
     { id: "elder", icon: "👴", name: "wise old smol", desc: "a smol becomes an elder." },
     { id: "explorer", icon: "🧭", name: "explorer", desc: "one smol visits 6 different biomes." },
-    { id: "iq100", icon: "💯", name: "genius", desc: "a smol scores 100+ iq." },
-    { id: "iq150", icon: "🚀", name: "galaxy brain", desc: "a smol scores 150+ iq." },
-    { id: "iq250", icon: "🌌", name: "cosmic brain", desc: "a smol scores 250+ iq." },
+    { id: "iq100", icon: "💯", name: "genius", desc: "a smol scores 150+ iq." },
+    { id: "iq150", icon: "🚀", name: "galaxy brain", desc: "a smol scores 220+ iq." },
+    { id: "iq250", icon: "🌌", name: "cosmic brain", desc: "a smol scores 320+ iq." },
     { id: "share", icon: "📤", name: "show off", desc: "share a smol code or your civilisation card." },
     { id: "import", icon: "🌌", name: "pen pal", desc: "bring in a smol from a code." },
     { id: "day7", icon: "📅", name: "three days", desc: "see three sunrises on the island." },
@@ -429,9 +429,9 @@
       var c = smols[i];
       var iq = SB.Creature.iq(c);
       if (iq > game.stats.bestIQ) game.stats.bestIQ = iq;
-      if (iq >= 100) Game.unlock(game, "iq100");
-      if (iq >= 150) Game.unlock(game, "iq150");
-      if (iq >= 250) Game.unlock(game, "iq250");
+      if (iq >= 150) Game.unlock(game, "iq100");
+      if (iq >= 220) Game.unlock(game, "iq150");
+      if (iq >= 320) Game.unlock(game, "iq250");
       if (c.stage >= 4) Game.unlock(game, "elder");
       if (c.visited && Object.keys(c.visited).length >= 6) Game.unlock(game, "explorer");
       if (c.gen >= 1) game.lastGenome = c.genome;

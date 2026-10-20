@@ -54,7 +54,8 @@
     var cp = compat(game, a, b);
     if (SB.Game.related && SB.Game.related(game, a, b)) out.push({ t: "family", v: 18 });
     if (Math.abs(cp) >= 6) out.push({ t: cp > 0 ? "we get along" : "we just don't click", v: cp - (out.length ? 18 : 0) });
-    if (r) r.m.forEach(function (m) { var v = Math.round(m[0] * fade(m, now)); if (v) out.push({ t: m[4], v: v }); });
+    var seen = {};
+    if (r) r.m.forEach(function (m) { var v = Math.round(m[0] * fade(m, now)); if (!v) return; if (seen[m[4]]) { seen[m[4]].v += v; return; } out.push(seen[m[4]] = { t: m[4], v: v }); });
     if (a.partner === b.id) out.push({ t: "my partner", v: 30 });
     return out.sort(function (x, y) { return Math.abs(y.v) - Math.abs(x.v); });
   };
@@ -91,24 +92,26 @@
     ["fire-finder", function (c) { return c.invented && c.invented.fire; }, 8],
     ["inventor", function (c) { return c.invented && Object.keys(c.invented).length >= 2; }, 7],
     ["peacemaker", function (c, s) { return s.makeups >= 3; }, 6],
-    ["brawler", function (c, s) { return s.fights >= 4; }, 5],
-    ["teacher", function (c, s) { return s.taught >= 6; }, 5],
-    ["wordsmith", function (c) { return SB.Creature.knownCount(c) >= 18; }, 4],
-    ["explorer", function (c) { return c.visited && Object.keys(c.visited).length >= 8; }, 4],
-    ["gossip", function (c, s) { return s.gossip >= 8; }, 3],
-    ["kind", function (c, s) { return s.gifts >= 5; }, 3],
-    ["wise", function (c) { return c.stage >= 4 && c.tier >= 3; }, 2]
+    ["brawler", function (c, s) { return s.fights >= 12; }, 5],
+    ["teacher", function (c, s) { return s.taught >= 30; }, 5],
+    ["wordsmith", function (c) { return SB.Creature.knownCount(c) >= 24; }, 4],
+    ["explorer", function (c) { return c.visited && Object.keys(c.visited).length >= 12; }, 4],
+    ["gossip", function (c, s) { return s.gossip >= 20; }, 3],
+    ["kind", function (c, s) { return s.gifts >= 12; }, 3],
+    ["wise", function (c) { return c.stage >= 4 && c.tier >= 4; }, 2]
   ];
   SO.checkTitle = function (game, c) {
     if (!smol(c)) return;
     var s = c.stats || {}, best = null, bp = c._titleP || 0;
-    for (var i = 0; i < TITLES.length; i++) if (TITLES[i][2] > bp && TITLES[i][1](c, s)) { best = TITLES[i]; bp = TITLES[i][2]; }
+    // a title means something: at most two living smols share one
+    for (var i = 0; i < TITLES.length; i++) if (TITLES[i][2] > bp && TITLES[i][1](c, s) && holders(game, TITLES[i][0]) < 2) { best = TITLES[i]; bp = TITLES[i][2]; }
     if (!best || c.title === best[0]) return;
     c.title = best[0]; c._titleP = best[2];
     SO.log(game, c, "🏆", "became known as " + c.name + " the " + c.title);
     SO.chronicle(game, "🏆", c.name + " became known as “" + c.name + " the " + c.title + "”");
     SB.bus.emit("title", { c: c, title: c.title });
   };
+  function holders(game, t) { var n = 0; game.creatures.forEach(function (o) { if (o.alive && o.title === t) n++; }); return n; }
   function stat(c, k, n) { c.stats = c.stats || {}; c.stats[k] = (c.stats[k] || 0) + (n || 1); }
 
   /* ---------------- reacting to what happens ---------------- */
@@ -118,7 +121,8 @@
     var punch = kind === "punch";
     SO.remember(game, b, a, punch ? "punched" : "shoved", punch ? -22 : -9, punch ? "punched me" : "shoved me", punch ? 2400 : 1200, punch ? 0 : 28);
     SO.remember(game, a, b, "fought", punch ? -4 : -2, "we fought", 1500, 16);
-    b.grudge = { id: a.id, t: game.time };
+    var round = a.grudge && a.grudge.id === b.id ? (a.grudge.n || 1) + 1 : 1;
+    b.grudge = round < 3 ? { id: a.id, t: game.time, n: round } : null; // a scuffle is two or three blows, then they back off
     stat(a, "fights");
     SO.log(game, a, punch ? "👊" : "💢", (punch ? "punched " : "shoved ") + b.name);
     SO.log(game, b, punch ? "🤕" : "💢", "got " + (punch ? "punched" : "shoved") + " by " + a.name);
@@ -244,7 +248,7 @@
     add(a, pick(game, hi ? ["hi " + b.name + "!", b.name + "! how are you?", "hey, " + b.name + "."] : ["hi " + b.name.toLowerCase(), b.name.toLowerCase() + "!"]));
     var need = topDrive(b);
     add(b, need.v > 0.55 ? (hi ? { hunger: "i'm so hungry.", tired: "i'm tired.", sleepy: "i need a nap.", bored: "i'm bored.", lonely: "i was lonely. glad you're here.", cold: "i'm freezing.", sick: "i don't feel good.", fear: "i'm scared.", anger: "i'm grumpy today.", pain: "ouch, i hurt." }[need.k] || "i'm okay." : "me " + (SB.DRIVE_WORDS[SB.DRIVES.indexOf(need.k)] || "ok")) : pick(game, hi ? ["good! you?", "i'm great.", "not bad. " + weatherLine(game) + "."] : ["good", "happy"]));
-    var opts = ["weather"];
+    var opts = [];
     var gz = third(game, a, b);
     if (gz) opts.push("gossip", "gossip");
     var teachable = SB.Ideas ? Object.keys(a.ideas).filter(function (k) { return a.ideas[k] >= 1 && SB.Ideas.BY_ID[k] && !SB.Ideas.known(b, k) && SB.Ideas.canHold(b, k); }) : [];
@@ -253,8 +257,23 @@
     if (a.grief) opts.push("grief", "grief");
     if (need.v > 0.55 && need.k === "hunger") opts.push("food");
     if (deep) opts.push("stars", "stars");
+    var news = (a.diary || []).filter(function (e) { return game.time - e[0] < 900 && /^(felled|helped build|learned the word|invented|chased|gave|had a baby|became partners|taught|joined)/.test(e[2]); });
+    if (news.length) opts.push("news", "news");
+    var kids = (a.diary || []).filter(function (e) { return /^had a baby: /.test(e[2]); }).map(function (e) { return SB.Game.byId(game, game.creatures.reduce(function (id, o) { return o.name === e[2].slice(12) && o.alive ? o.id : id; }, -1)); }).filter(Boolean);
+    if (kids.length) opts.push("kids");
+    if (!opts.length || r.chance(0.2)) opts.push("weather");
     var t = pick(game, opts);
-    if (t === "weather") { topic = "the weather"; add(a, weatherLine(game) + (hi ? "." : "")); add(b, pick(game, hi ? ["yeah.", "i know, right?", "mm."] : ["yes", "mm"])); }
+    if (t === "news") {
+      var n = news[news.length - 1][2];
+      topic = { felled: "chopping trees", helped: "building", learned: "words", invented: "inventing", chased: "grumps", gave: "sharing", had: "babies", became: "love", taught: "teaching", joined: "the tribe" }[n.split(" ")[0]] || "news";
+      add(a, hi ? "i " + n.replace(/[!.]+$/, "").replace(/“|”/g, "\"") + (r.chance(0.5) ? " today!" : ".") : n.split(" ").slice(0, 2).join(" ") + "!");
+      add(b, pick(game, hi ? ["nice!", "wow.", "i saw that!", "good for you.", "huh. cool."] : ["ooh", "good!"]), { cheer: true });
+    } else if (t === "kids") {
+      var kid = pick(game, kids);
+      topic = kid.name;
+      add(a, hi ? pick(game, ["my little " + kid.name + " is getting so big.", kid.name + " said a new word today.", "have you met my kid " + kid.name + "?"]) : kid.name.toLowerCase() + " big!");
+      add(b, pick(game, hi ? [kid.name + " is so cute.", "they grow up fast.", "you must be proud."] : ["cute!", "aww"]));
+    } else if (t === "weather") { topic = "the weather"; add(a, weatherLine(game) + (hi ? "." : "")); add(b, pick(game, hi ? ["yeah.", "i know, right?", "mm."] : ["yes", "mm"])); }
     else if (t === "gossip") {
       var z = gz.z, zn = z.name;
       topic = zn;
@@ -305,6 +324,7 @@
     if (fx.learn && SB.Ideas) SB.Ideas.learn(s, fx.learn, 0.35, game, "talked");
     if (fx.comfort) { SB.Chem.apply(o.chem, { lonely: -0.2 }); SO.remember(game, o, s, "comfort", 8, "comforted me", 2400, 16); }
     if (fx.argue) cv.argued = true;
+    if (fx.cheer) SO.remember(game, o, s, "cheer", 3, "cheered me on", 1800, 9);
   }
   SO.startConvo = function (game, a, b) {
     var cv = SO.makeConvo(game, a, b);
@@ -389,11 +409,11 @@
       // grief: now and then, wander back to the grave and say something
       if (c.grief && SO.free(c) && game.rng.chance(0.06) && !c.far) c.speech = { text: game.rng.pick(["i miss " + c.grief.name, c.grief.name + "...", "bye " + c.grief.name]), t: 2.2, kind: "think" };
       // rivals who cross paths start something (a RimWorld-style social fight)
-      if (SO.free(c) && c.stage >= 1 && game.rng.chance(0.1 + c.chem.anger * 0.3)) {
+      if (SO.free(c) && c.stage >= 1 && game.rng.chance(0.025 + c.chem.anger * 0.12) && game.time - (c._fightT || -999) > 120) {
         for (var k = 0; k < sm.length; k++) {
           var r = sm[k];
           if (r === c || r.heldBy || SB.dist(r.x, r.z, c.x, c.z) > 5 || SO.opinion(game, c, r) > SO.RIVAL) continue;
-          if (SB.Creature.provoke(c, r, game)) { if (!c.far) c.speech = { text: game.rng.pick(c.tier >= 4 ? ["you again!", "that's it, " + r.name + "!", "you asked for it!"] : ["grr!", "you!", "hmph!"]), t: 1.8, kind: "say" }; break; }
+          if (SB.Creature.provoke(c, r, game)) { c._fightT = game.time; if (!c.far) c.speech = { text: game.rng.pick(c.tier >= 4 ? ["you again!", "that's it, " + r.name + "!", "you asked for it!"] : ["grr!", "you!", "hmph!"]), t: 1.8, kind: "say" }; break; }
         }
       }
       // strike up a conversation (tribe and up)

@@ -181,7 +181,7 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .prog i { display: block; height: 100%; background: var(--lime); transition: width 0.2s; }
 
 /* tutorial coach */
-.coach { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(150px + var(--sab)); width: min(420px, calc(100% - 20px)); padding: 12px 14px; font-size: 14px; pointer-events: auto; border-color: rgba(197, 255, 73, 0.45); animation: tin 0.3s; }
+.coach { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(150px + var(--sab)); width: min(420px, calc(100% - 20px)); padding: 12px 14px; font-size: 14px; pointer-events: none; border-color: rgba(197, 255, 73, 0.45); animation: tin 0.3s; }
 .coach .t { font: 700 14px/1.3 var(--mono); color: var(--lime); }
 .coach .s { margin-top: 3px; color: var(--paper); font-size: 13px; }
 .coach .row { margin-top: 8px; }
@@ -284,3 +284,5 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 .relrow { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 2px solid rgba(255, 255, 255, 0.04); }
 .relrow .av { width: 34px; height: 34px; flex: none; }
 .relv { font: 700 15px var(--sans); min-width: 3em; text-align: right; }
+.coach button { pointer-events: auto; } /* the coach never blocks taps on the world, only its own buttons */
+@media (max-width: 600px) { #ui:has(.sheet:not(.hide)) .coach { top: calc(100px + var(--sat)); bottom: auto; } .coach { padding: 9px 11px; } .coach .s { font-size: 12px; } }
