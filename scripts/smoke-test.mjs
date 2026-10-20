@@ -62,6 +62,30 @@ if (local) {
   ok(r.status === 401, "wrong password refused");
   r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
   ok(r.ok, "login");
+  // XP and levels (slice B): a logged-in 12s run of CRASH
+  const ev = (events) => post("/api/events", { anon, events }, { cookie }).then((x) => x.json());
+  const run = async (dur, score) => { const id = rid(); await ev([{ t: "start", id, game: "crash" }]); return { id, r: await ev([{ t: "end", id, game: "crash", score, dur, completed: true }]) }; };
+  let x = await run(12000, 40);
+  const xp1 = x.r.results?.[x.id]?.xp;
+  ok(xp1 && xp1.gained >= 10 + 25 + 5 && xp1.parts.some((p) => p.kind === "first") && xp1.parts.some((p) => p.kind === "streak"), "xp: base + first play + streak", xp1 && { gained: xp1.gained, level: xp1.level, title: xp1.title, parts: xp1.parts.map((p) => p.kind + ":" + p.xp) });
+  r = await ev([{ t: "end", id: x.id, game: "crash", score: 40, dur: 12000, completed: true }]);
+  ok(!r.results?.[x.id], "xp: an ended play can't be paid twice");
+  x = await run(4000, 10);
+  ok(x.r.results?.[x.id]?.xp === null, "xp: runs under 10s earn nothing");
+  x = await run(12000, 999999);
+  ok(x.r.results?.[x.id]?.xp === null, "xp: out-of-bounds score earns nothing");
+  let capped = false;
+  for (let i = 0; i < 4 && !capped; i++) { x = await run(12000, 40); capped = (x.r.results?.[x.id]?.xp?.parts || []).some((p) => p.kind === "cap"); }
+  ok(capped, "xp: per-game daily cap");
+  r = await ev([{ t: "achieve", id: rid(), game: "crash", ach: "not_a_real_one" }]);
+  ok(r.ok && r.achievements.length === 0, "achievements: undeclared ids ignored");
+  r = await (await post("/api/feedback", { game: "crash", rating: 1, text: "smoke test, ignore", tester, anon }, { cookie })).json();
+  ok(r.achievements?.[0]?.id === "rate_game", "achievement: critic.exe for rating a game");
+  r = await (await get("/api/me", { cookie })).json();
+  ok(r.user?.level >= 1 && r.user.xp > 0 && r.user.title, "me: level + xp", { level: r.user?.level, xp: r.user?.xp, title: r.user?.title });
+  r = await (await get("/api/me/summary", { cookie })).json();
+  ok(r.xp?.xp > 0 && r.xp_history.length > 0 && r.achievements.some((a) => a.id === "rate_game" && a.unlocked_at), "summary: xp, history, achievements");
+
   // cloud saves (slice A)
   const put = (p, b, h = {}) => fetch(base + p, { method: "PUT", headers: { ...H, cookie, ...h }, body: JSON.stringify(b) });
   const t0 = Date.now();

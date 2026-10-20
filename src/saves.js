@@ -4,6 +4,7 @@
 //   PUT    /api/saves/:game/:slot    {data, updated_at?, version?} -> {save:{slot, updated_at, bytes}}
 //   DELETE /api/saves/:game/:slot
 import { json, bad, readJson, now, slugOk, str, limited } from "./util.js";
+import { unlock } from "./xp.js";
 
 export const MAX_BYTES = 512 * 1024;
 export const MAX_SLOTS = 5;
@@ -62,7 +63,8 @@ export async function savesRoute(req, env, user, path) {
       "INSERT INTO saves (user_id, game, slot, data, bytes, version, updated_at) VALUES (?,?,?,?,?,?,?) " +
       "ON CONFLICT(user_id, game, slot) DO UPDATE SET data = excluded.data, bytes = excluded.bytes, version = excluded.version, updated_at = excluded.updated_at"
     ).bind(user.id, game, slot, text, bytes, str(b.version, 16), at).run();
-    return json({ ok: true, save: { slot, updated_at: at, bytes } });
+    const a = b.data == null ? null : await unlock(env, user.id, "site", "first_save", t);
+    return json({ ok: true, save: { slot, updated_at: at, bytes }, achievements: a ? [a] : [] });
   }
 
   return bad("method not allowed", 405);

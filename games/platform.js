@@ -142,7 +142,38 @@
     fb.classList.add("cc-pulse");
     setTimeout(function () { fb.classList.remove("cc-pulse"); }, 2400);
     var r = e.detail && e.detail.result;
-    if (r && r.accepted && window.ccToast) window.ccToast("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
+    var say = window.ccToast || function () {};
+    if (r && r.accepted) say("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
+    var x = r && r.xp;
+    if (x && x.gained > 0) {
+      say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
+      if (x.leveled_up) levelUp(x);
+    } else if (x && x.parts && x.parts.some(function (p) { return p.kind === "cap"; })) {
+      say("daily xp for this game maxed. try another one.");
+    } else if (r && !x && !me && !nudged()) {
+      say("log in to earn xp and levels for runs like that.");
+    }
   });
+  document.addEventListener("cc:achieve", function (e) {
+    var a = e.detail;
+    if (a && window.ccToast) window.ccToast("unlocked: " + a.name + (a.xp ? " · +" + a.xp + " xp" : ""));
+  });
+  function nudged() {
+    try { if (sessionStorage.getItem("cc-xp-nudge")) return true; sessionStorage.setItem("cc-xp-nudge", "1"); } catch (e) {}
+    return false;
+  }
+  // level up: a toast, plus a share button on the panel for the rest of the visit
+  function levelUp(x) {
+    if (window.ccToast) window.ccToast("level " + x.level + " · " + x.title);
+    var box = document.getElementById("cc-levelup");
+    if (!box) { box = document.createElement("div"); box.id = "cc-levelup"; box.className = "cc-levelup"; panel.insertBefore(box, panel.firstChild); }
+    box.innerHTML = '<p><b>level ' + x.level + '</b> · ' + esc(x.title) + '</p><button type="button" class="tool">share</button>';
+    box.querySelector("button").addEventListener("click", function () {
+      var text = "just hit level " + x.level + " (" + x.title + ") on computer cooked games.";
+      var url = "https://computercooked.com/games/";
+      if (navigator.share) navigator.share({ text: text, url: url }).catch(function () {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(text + " " + url).then(function () { window.ccToast && window.ccToast("copied."); });
+    });
+  }
   }
 })();

@@ -39,11 +39,18 @@
     frame.focus();
   });
 
+  // messages queue up (score rank, +xp, level up, achievements) instead of replacing each other
+  var toastQ = [];
   function toast(msg) {
+    if (toastQ.length < 5) toastQ.push(msg);
+    if (!toast.t) nextToast();
+  }
+  function nextToast() {
+    var msg = toastQ.shift();
+    if (msg == null) { toastEl.classList.remove("show"); toast.t = null; return; }
     toastEl.textContent = msg;
     toastEl.classList.add("show");
-    clearTimeout(toast.t);
-    toast.t = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+    toast.t = setTimeout(nextToast, 2200);
   }
   document.getElementById("btn-share").addEventListener("click", function () {
     var text = "play " + title + " on computer cooked games.";
@@ -94,6 +101,11 @@
       if (d.op === "start") cc.start();
       else if (d.op === "score") cc.score(d.args);
       else if (d.op === "event") cc.event(d.args && d.args.name, d.args && d.args.data);
+      else if (d.op === "achieve") {
+        cc.achieve(d.args).then(function (result) {
+          try { frame.contentWindow.postMessage({ type: "cc-sdk-reply", id: d.id, result: result }, location.origin); } catch (err) {}
+        });
+      }
       else if (d.op === "end") {
         cc.end(d.args || {}).then(function (result) {
           try { frame.contentWindow.postMessage({ type: "cc-sdk-reply", id: d.id, result: result }, location.origin); } catch (err) {}

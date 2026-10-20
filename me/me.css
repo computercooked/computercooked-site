@@ -90,3 +90,23 @@
 .me-game-t { font-family: var(--mono); font-weight: 800; color: var(--lime); }
 .me-game-m { font-size: 0.75rem; color: var(--paper-dim); }
 .me-empty { color: var(--paper-dim); }
+
+/* ---------- level + achievements (slice B) ---------- */
+.me-level { margin-top: 12px; }
+.me-level-t { margin: 0 0 8px; font-family: var(--mono); }
+.me-level-t b { color: var(--lime); }
+.me-bar { height: 10px; border-radius: 99px; background: var(--carbon, #15161a); overflow: hidden; border: 1px solid #3a3c44; }
+.me-bar span { display: block; height: 100%; width: 0; background: var(--lime); transition: width .6s ease; }
+.me-level-x { margin: 6px 0 0; font-size: .8rem; color: var(--paper-dim); }
+.me-how { margin-top: 8px; font-size: .85rem; color: var(--paper-dim); }
+.me-how summary { cursor: pointer; }
+.me-ach { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.me-ach li { display: grid; gap: 2px; padding: 10px; border: 1px dashed #3a3c44; border-radius: 10px; opacity: .55; font-size: .8rem; }
+.me-ach li.is-got { opacity: 1; border-style: solid; border-color: var(--lime); }
+.me-ach b { font-family: var(--mono); }
+.me-ach span { color: var(--paper-dim); }
+.me-ach i { font-style: normal; color: var(--lime); font-family: var(--mono); font-size: .75rem; }
+.me-xp { list-style: none; margin: 0; padding: 0; font-size: .85rem; }
+.me-xp li { padding: 6px 0; border-bottom: 1px solid #2a2c33; }
+.me-xp b { color: var(--lime); font-family: var(--mono); }
+@media (prefers-reduced-motion: reduce) { .me-bar span { transition: none; } }

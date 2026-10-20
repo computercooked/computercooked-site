@@ -188,6 +188,13 @@
           setTimeout(function () { if (waiting[id]) { delete waiting[id]; resolve(null); } }, 8000);
         });
       },
+      achieve: function (aid) {
+        return new Promise(function (resolve) {
+          var id = send("achieve", aid);
+          waiting[id] = resolve;
+          setTimeout(function () { if (waiting[id]) { delete waiting[id]; resolve(null); } }, 8000);
+        });
+      },
       save: saveApi.save, load: saveApi.load, saves: saveApi.saves, user: saveApi.user, onUser: saveApi.onUser
     };
     return;
@@ -262,6 +269,13 @@
     }
     return fetch("/api/events", { method: "POST", headers: { "content-type": "application/json" }, body: body, keepalive: true, credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        // achievements unlocked by this batch (cc.achieve, or site-wide ones a finished play earned)
+        var list = (j && j.achievements || []).slice();
+        if (j && j.results) for (var k in j.results) { var x = j.results[k] && j.results[k].xp; if (x && x.achievements) list = list.concat(x.achievements); }
+        list.forEach(function (a) { try { document.dispatchEvent(new CustomEvent("cc:achieve", { detail: a })); } catch (e) {} });
+        return j;
+      })
       .catch(function () { return null; });
   }
   function soon() { if (!timer) timer = setTimeout(flush, 4000); }
@@ -298,6 +312,17 @@
   }
   var lastPlayId = null;
 
+  // cc.achieve(id): only ids the game lists in its entry.json count, and only for logged-in players
+  function achieve(id) {
+    if (!game || typeof id !== "string" || !/^[a-z0-9_-]{1,40}$/.test(id)) return Promise.resolve(null);
+    queue.push({ t: "achieve", id: play ? play.id : rid(16), game: game, ach: id });
+    return flush().then(function (res) {
+      var a = res && res.achievements || [];
+      for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i];
+      return null;
+    });
+  }
+
   var known = false;
   apiReady().then(function (up) { known = up; });
   window.addEventListener("pagehide", function () {
@@ -310,6 +335,7 @@
     __sdk: true,
     start: start, score: score, event: event,
     end: function (o) { return end(o); },
+    achieve: achieve,
     save: saveApi.save, load: saveApi.load, saves: saveApi.saves, user: saveApi.user, onUser: saveApi.onUser,
     // used by the player page and site UI
     _setGame: function (slug, v) { game = slug; if (v) version = String(v); },

@@ -55,6 +55,12 @@ $item = [ordered]@{
 if ($entry.max_score_per_sec) { $item.max_score_per_sec = [double]$entry.max_score_per_sec }
 if ($entry.max_score) { $item.max_score = [double]$entry.max_score }
 if ($entry.score_slack) { $item.score_slack = [double]$entry.score_slack }
+# achievements the game can unlock with cc.achieve(id); the server only accepts ids listed here
+if ($entry.achievements) {
+  $item.achievements = @($entry.achievements | Where-Object { "$($_.id)" -match '^[a-z0-9_-]{1,40}$' } | ForEach-Object {
+    [ordered]@{ id = "$($_.id)"; name = "$($_.name)"; desc = "$($_.desc)"; xp = [math]::Min(100, [math]::Max(0, [int]$_.xp)); secret = [bool]$_.secret }
+  })
+}
 $games = @($manifest.games | Where-Object { $_.slug -ne $slug }) + @([pscustomobject]$item)
 $games = @($games | Where-Object { $_.slug -eq "crash" }) + @($games | Where-Object { $_.slug -ne "crash" })
 [IO.File]::WriteAllText($manifestPath, ([ordered]@{ games = $games } | ConvertTo-Json -Depth 6) + "`n")

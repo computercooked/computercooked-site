@@ -1,0 +1,104 @@
+// XP, levels and achievements (slice B). Only the server grants XP, and only for validated plays:
+// a logged-in player's completed run of 10s+, whose score (if the game has a board) passed the bounds check.
+import { now, dayOf } from "./util.js";
+
+// total XP needed to reach level L: 50 * (L-1)^1.6  ->  L2 at 50, L3 at 152, L5 at 459, L10 at 1683, L20 at 5555
+export const xpFor = (L) => Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6));
+const TITLES = [
+  [1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"],
+  [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"],
+];
+export function levelOf(xp) {
+  let L = 1;
+  while (xpFor(L + 1) <= xp && L < 999) L++;
+  const title = TITLES.filter(([l]) => l <= L).pop()[1];
+  return { level: L, title, xp, floor: xpFor(L), next: xpFor(L + 1) };
+}
+
+// site-wide achievements; games declare their own in entry.json (achievements:[{id,name,desc,xp,secret}])
+export const SITE_ACH = {
+  play_5: { name: "sampler platter", desc: "play 5 different games", xp: 50 },
+  streak_7: { name: "seven day uptime", desc: "play 7 days in a row", xp: 100 },
+  top_10: { name: "leaderboard material", desc: "make the top 10 on an all-time board", xp: 75 },
+  first_save: { name: "ctrl+s", desc: "save a game to your account", xp: 25 },
+  rate_game: { name: "critic.exe", desc: "rate a game", xp: 15 },
+};
+
+export const RULES = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
+
+// one row per grant; (user_id, kind, ref) is unique, so a retried request never pays twice
+async function grant(env, userId, kind, game, ref, amount, t) {
+  if (!(amount > 0)) return 0;
+  const r = await env.DB.prepare("INSERT OR IGNORE INTO xp_events (user_id, kind, game, ref, amount, day, ts) VALUES (?,?,?,?,?,?,?)")
+    .bind(userId, kind, game, String(ref), Math.round(amount), dayOf(t), t).run();
+  return r.meta && r.meta.changes ? Math.round(amount) : 0;
+}
+
+export async function totalXp(env, userId) {
+  return (await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) x FROM xp_events WHERE user_id = ?").bind(userId).first("x")) || 0;
+}
+
+// -> {id, name, desc, xp} when newly unlocked, else null
+export async function unlock(env, userId, game, achId, t = now(), catalogGame = null) {
+  const def = game === "site" ? SITE_ACH[achId] : (catalogGame?.achievements || []).find((a) => a.id === achId);
+  if (!def) return null;
+  const r = await env.DB.prepare("INSERT OR IGNORE INTO achievements (user_id, game, ach_id, ts) VALUES (?,?,?,?)").bind(userId, game, achId, t).run();
+  if (!(r.meta && r.meta.changes)) return null;
+  const xp = await grant(env, userId, "achievement", game === "site" ? null : game, `${game}:${achId}`, Math.min(100, def.xp || 0), t);
+  return { game, id: achId, name: def.name, desc: def.desc || "", xp };
+}
+
+// consecutive days with a play, counting back from today
+async function streakDays(env, userId, today) {
+  const { results } = await env.DB.prepare("SELECT DISTINCT day FROM plays WHERE user_id = ? ORDER BY day DESC LIMIT 60").bind(userId).all();
+  const set = new Set(results.map((r) => r.day));
+  let n = 0, d = new Date(today + "T00:00:00Z").getTime();
+  while (set.has(dayOf(d))) { n++; d -= 86400000; }
+  return n;
+}
+
+// Called when a play ends. scoreRes is recordScore()'s result (or null when the game sent no score).
+export async function awardPlay(env, user, play, game, scoreRes, durMs, completed, t) {
+  if (!user || !game || !completed || durMs < RULES.minMs) return null;
+  if (play.user_id != null && play.user_id !== user.id) return null;
+  if (scoreRes && scoreRes.accepted === false && scoreRes.reason === "score out of bounds") return null;
+  const day = dayOf(t);
+  const before = await totalXp(env, user.id);
+  const parts = [];
+
+  // base + how good the run was against everyone on the board, capped per game per day so one game isn't a grind
+  let pct = 0;
+  if (scoreRes && scoreRes.accepted) {
+    const players = await env.DB.prepare("SELECT COUNT(DISTINCT player) n FROM scores WHERE game = ? AND hidden = 0").bind(play.game).first("n");
+    pct = Math.round(RULES.pctMax * (1 - (scoreRes.rank - 1) / Math.max(1, players)));
+  }
+  const used = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) x FROM xp_events WHERE user_id = ? AND day = ? AND game = ? AND kind = 'play'")
+    .bind(user.id, day, play.game).first("x");
+  const playXp = Math.min(RULES.base + pct, Math.max(0, RULES.perGameDayCap - used));
+  let g = await grant(env, user.id, "play", play.game, play.id, playXp, t);
+  if (g) parts.push({ kind: "play", xp: g });
+  if (playXp < RULES.base + pct) parts.push({ kind: "cap", xp: 0 });
+
+  g = await grant(env, user.id, "first", play.game, play.game, RULES.first, t);
+  if (g) parts.push({ kind: "first", xp: g });
+
+  const streak = await streakDays(env, user.id, day);
+  g = await grant(env, user.id, "streak", null, day, RULES.streakStep * Math.min(streak, RULES.streakMax), t);
+  if (g) parts.push({ kind: "streak", xp: g, days: streak });
+
+  const unlocked = [];
+  const firsts = await env.DB.prepare("SELECT COUNT(*) n FROM xp_events WHERE user_id = ? AND kind = 'first'").bind(user.id).first("n");
+  if (firsts >= 5) unlocked.push(await unlock(env, user.id, "site", "play_5", t));
+  if (streak >= 7) unlocked.push(await unlock(env, user.id, "site", "streak_7", t));
+  if (scoreRes && scoreRes.accepted && scoreRes.rank <= 10) unlocked.push(await unlock(env, user.id, "site", "top_10", t));
+  const achs = unlocked.filter(Boolean);
+  achs.forEach((a) => a.xp && parts.push({ kind: "achievement", xp: a.xp, id: a.id }));
+
+  const gained = parts.reduce((s, p) => s + p.xp, 0);
+  return progress(before, gained, { parts, achievements: achs });
+}
+
+export function progress(before, gained, extra = {}) {
+  const a = levelOf(before), b = levelOf(before + gained);
+  return { gained, ...b, leveled_up: b.level > a.level, ...extra };
+}

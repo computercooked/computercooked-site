@@ -845,11 +845,18 @@
   document.getElementById("btn-restart").addEventListener("click", start);
   btnMute.addEventListener("click", function () { audio(); setMuted(!muted); });
 
+  // messages queue up (board rank, +xp, level up, achievements) instead of replacing each other
+  var toastQ = [];
   function toast(msg) {
+    if (toastQ.length < 5) toastQ.push(msg);
+    if (!toast.t) nextToast();
+  }
+  function nextToast() {
+    var msg = toastQ.shift();
+    if (msg == null) { toastEl.classList.remove("show"); toast.t = null; return; }
     toastEl.textContent = msg;
     toastEl.classList.add("show");
-    clearTimeout(toast.t);
-    toast.t = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+    toast.t = setTimeout(nextToast, 2200);
   }
   window.ccToast = toast;
 

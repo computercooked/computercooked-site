@@ -1,6 +1,7 @@
 // Plays/events, leaderboards, feedback, hub stats, /me data.
 import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean } from "./util.js";
 import { games } from "./db.js";
+import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
 
 const guestName = (anon) => {
   let h = 0;
@@ -27,6 +28,7 @@ export async function events(req, env, ip, user, origin) {
   const device = deviceOf(req.headers.get("user-agent") || "");
   const catalog = await games(env, origin);
   const results = {};
+  const unlocked = [];
   const t = now();
 
   for (const e of list) {
@@ -46,7 +48,14 @@ export async function events(req, env, ip, user, origin) {
       const completed = e.completed === false ? 0 : 1;
       await env.DB.prepare("UPDATE plays SET ended_at = ?, duration_ms = ?, score = ?, completed = ? WHERE id = ?")
         .bind(t, Math.round(dur), score, completed, e.id).run();
-      results[e.id] = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
+      const res = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
+      if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t);
+      results[e.id] = res;
+    } else if (e.t === "achieve") {
+      // cc.achieve(id): accounts only, and only ids the game declares in its entry.json
+      if (!user || typeof e.ach !== "string") continue;
+      const a = await unlock(env, user.id, e.game, e.ach.slice(0, 40), t, catalog.get(e.game));
+      if (a) unlocked.push({ ...a, ...progress(await totalXp(env, user.id) - a.xp, a.xp) });
     } else if (e.t === "event") {
       const name = str(e.name, 40);
       if (!name) continue;
@@ -55,7 +64,7 @@ export async function events(req, env, ip, user, origin) {
       await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (?,?,?,?,?)").bind(e.id, e.game, name, data, t).run();
     }
   }
-  return json({ ok: true, results });
+  return json({ ok: true, results, achievements: unlocked });
 }
 
 async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
@@ -104,7 +113,8 @@ export async function feedback(req, env, ip, user) {
   await env.DB.prepare(
     "INSERT INTO feedback (game, version, rating, text, tester, anon_id, user_id, play_id, ts) VALUES (?,?,?,?,?,?,?,?,?)"
   ).bind(b.game, str(b.version, 16) || "1", rating, text || null, str(b.tester, 32), idOk(b.anon) ? b.anon : null, user ? user.id : null, idOk(b.play_id) ? b.play_id : null, now()).run();
-  return json({ ok: true });
+  const a = user ? await unlock(env, user.id, "site", "rate_game") : null;
+  return json({ ok: true, achievements: a ? [a] : [] });
 }
 
 // GET /api/stats — play counts for hub shelves (public, cached briefly)
@@ -138,9 +148,9 @@ export async function report(req, env, ip, user) {
 }
 
 // GET /api/me/summary — recent games, bests, favorites, streak
-export async function meSummary(env, user) {
+export async function meSummary(env, user, origin) {
   const recent = (await env.DB.prepare(
-    "SELECT game, MAX(started_at) last, COUNT(*) plays FROM plays WHERE user_id = ? GROUP BY game ORDER BY last DESC LIMIT 12"
+    "SELECT game, MAX(started_at) last, COUNT(*) plays, COALESCE(SUM(duration_ms), 0) ms FROM plays WHERE user_id = ? GROUP BY game ORDER BY last DESC LIMIT 30"
   ).bind(user.id).all()).results;
   const bests = (await env.DB.prepare(
     "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 GROUP BY game"
@@ -149,7 +159,24 @@ export async function meSummary(env, user) {
   const days = (await env.DB.prepare(
     "SELECT DISTINCT day FROM plays WHERE user_id = ? ORDER BY day DESC LIMIT 400"
   ).bind(user.id).all()).results.map((r) => r.day);
-  return json({ ok: true, user, recent, bests, favorites: favs, streak: streak(days), days_played: days.length });
+  // XP + achievements (slice B)
+  const catalog = await games(env, origin);
+  const history = (await env.DB.prepare(
+    "SELECT kind, game, amount, ts FROM xp_events WHERE user_id = ? ORDER BY ts DESC, id DESC LIMIT 15"
+  ).bind(user.id).all()).results;
+  const got = (await env.DB.prepare("SELECT game, ach_id, ts FROM achievements WHERE user_id = ?").bind(user.id).all()).results;
+  const have = new Map(got.map((a) => [a.game + ":" + a.ach_id, a.ts]));
+  const achievements = Object.entries(SITE_ACH).map(([id, d]) => ({ game: "site", id, name: d.name, desc: d.desc, xp: d.xp, unlocked_at: have.get("site:" + id) || null }));
+  for (const g of catalog.values()) {
+    for (const a of g.achievements || []) {
+      const at = have.get(g.slug + ":" + a.id) || null;
+      // secret ones stay hidden until unlocked
+      achievements.push(a.secret && !at ? { game: g.slug, id: a.id, name: "???", desc: "secret", xp: a.xp, unlocked_at: null, secret: true }
+        : { game: g.slug, id: a.id, name: a.name, desc: a.desc, xp: a.xp, unlocked_at: at });
+    }
+  }
+  const xp = levelOf(await totalXp(env, user.id));
+  return json({ ok: true, user, recent, bests, favorites: favs, streak: streak(days), days_played: days.length, xp, xp_history: history, achievements });
 }
 
 // consecutive days with a play, counting back from today (or yesterday, so it doesn't reset before you play today)

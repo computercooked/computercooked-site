@@ -2301,3 +2301,18 @@
     animation: none;
   }
 }
+
+/* ---------- level up (slice B) ---------- */
+.cc-levelup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--lime);
+  border-radius: 12px;
+  font-family: var(--mono);
+}
+.cc-levelup p { margin: 0; }
+.cc-levelup b { color: var(--lime); }
