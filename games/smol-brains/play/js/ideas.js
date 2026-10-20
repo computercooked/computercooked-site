@@ -167,6 +167,7 @@
     if (c.inspired > 0) mind *= 3;
     if (c.tool != null) { var tl = SB.Game.byId(game, c.tool); if (tl && tl.kind === "lens") mind *= 1.6; }
     if (game.culture && game.culture.spireBoost) mind *= 1.5;
+    if (resonant(c, game)) mind *= 1.8;
     var found = null;
     for (var i = 0; i < LIST.length; i++) {
       var d = LIST[i], tr = TRIGGERS[d.id];
@@ -597,9 +598,18 @@
     return n;
   };
   I.siteReady = function (st) { for (var k in st.need) if (st.need[k] > 0) return false; return true; };
+  // resonance: ascended smols near thought crystals think as one, and build as one
+  function resonant(c, game) {
+    if (c.tier < 6 || !I.known(c, "resonance")) return false;
+    if (c._resT > game.time) return c._res;
+    c._resT = game.time + 3;
+    return (c._res = SB.World.nodesNear(game.world, c.x, c.z, 9, function (n) { return n.kind === "crystals"; }).length > 0);
+  }
+  I.resonant = resonant;
   I.work = function (c, st, dt, game) {
     if (!I.siteReady(st)) return false;
     var ws = SB.World.structsNear(game.world, st.x, st.z, 8, function (s) { return s.kind === "workshop" && s.done; }).length ? 1.5 : 1;
+    if (I.known(c, "resonance")) { var res = 0; st.builders.forEach(function (id) { var o = SB.Game.byId(game, id); if (o && o !== c && o.alive && I.known(o, "resonance") && SB.dist(o.x, o.z, st.x, st.z) < 8) res++; }); ws *= 1 + 0.35 * Math.min(4, res); }
     st.work += dt * ws * (0.6 + (c.genome.genes.dexterity || 0.3) * 0.8);
     habit(c, "build", dt * 0.1);
     if (st.builders.indexOf(c.id) < 0) st.builders.push(c.id);

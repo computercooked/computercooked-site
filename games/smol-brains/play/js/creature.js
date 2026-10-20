@@ -724,6 +724,19 @@
   }
   C.pathing = function (c) { return !!c.path; };
 
+  // palisades: grumps won't walk through pointy sticks. A raid party pushes through after a while
+  var wallsT = -1, walls = [];
+  function fenced(c, x, z, game, dt) {
+    if (wallsT !== game.time) { wallsT = game.time; walls = game.world.structures.filter(function (s) { return s.kind === "wall" && s.done; }); }
+    for (var i = 0; i < walls.length; i++) {
+      var s = walls[i];
+      if (Math.abs(s.x - x) > 2.2 || Math.abs(s.z - z) > 2.2 || SB.dist(s.x, s.z, x, z) > 2.1 || SB.dist(s.x, s.z, x, z) > SB.dist(s.x, s.z, c.x, c.z)) continue;
+      if (c.raider) { c.raider.wallT = (c.raider.wallT || 0) + dt; if (c.raider.wallT > 25) return false; if (!c.raider.walled) { c.raider.walled = true; SB.bus.emit("walled", { c: c, st: s }); } }
+      else SB.Chem.apply(c.chem, { fear: dt * 0.4 });
+      return true;
+    }
+    return false;
+  }
   function stepToward(c, tx, tz, dt, sp, game, arriveR) {
     var dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz);
     if (d < (arriveR || 0.1)) return true;
@@ -734,7 +747,7 @@
     for (var i = 0; i < tries.length; i++) {
       var a = want + tries[i] * (c.steer || 1);
       var nx = c.x + Math.sin(a) * step, nz = c.z + Math.cos(a) * step;
-      if (SB.World.walkable(w, nx, nz, swim(c)) && SB.World.walkable(w, c.x + Math.sin(a) * 0.5, c.z + Math.cos(a) * 0.5, swim(c))) {
+      if (SB.World.walkable(w, nx, nz, swim(c)) && SB.World.walkable(w, c.x + Math.sin(a) * 0.5, c.z + Math.cos(a) * 0.5, swim(c)) && !(c.species === "grump" && fenced(c, nx, nz, game, dt))) {
         c.x = nx; c.z = nz; moved = true;
         c.facing += SB.angDiff(c.facing, a) * Math.min(1, dt * 10);
         if (i > 0) { c.steer = tries[i] > 0 ? 1 : -1; if (!(c.deflect > 0)) { c.deflect = 0.6; c.deflectA = tries[i] * c.steer * 0.8; } }
@@ -1065,8 +1078,8 @@
     var top = SB.Chem.top(c.chem);
     var need = top.v > 0.35 ? SB.DRIVES[top.i] : "nothing";
     c.prayedAt = game.time;
-    var p = { id: c.id, name: c.name, need: need, t: game.time, answered: false, input: new Float32Array(c.brain.x) };
-    game.prayers = (game.prayers || []).filter(function (q) { return q.id !== c.id && game.time - q.t < 60; });
+    var p = { id: c.id, name: c.name, need: need, t: game.time, rt: game.playTime || 0, answered: false, input: new Float32Array(c.brain.x) };
+    game.prayers = (game.prayers || []).filter(function (q) { return q.id !== c.id && SB.Game.prayerLive(game, q); });
     game.prayers.push(p);
     habit(c, "social", 0.5);
     emote(c, "pray", 3);

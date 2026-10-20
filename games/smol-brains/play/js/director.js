@@ -34,6 +34,7 @@
     var pop = smols(game).length, sts = game.world.structures.filter(function (s) { return s.done; }).length;
     var t = 0.6 + topTier(game) * 0.45 + pop / 10 + sts / 14;
     var d = game.dir, recent = (d.losses || []).filter(function (x) { return game.time - x < 900; }).length;
+    t *= 1 + 0.25 * Math.min(4, game.ngPlus || 0); // new game+: the grumps remember you
     return Math.max(0.5, t * (1 - Math.min(0.6, recent * 0.2)) / Math.sqrt(pace(game)));
   }
 
@@ -134,10 +135,10 @@
     id: "storm", bad: true, minTier: 0, w: 2, gap: 900,
     ok: function (game) { return game.world.weather.kind !== "storm" && game.world.season !== 3; },
     start: function (game) {
-      var hm = home(game);
+      var hm = home(game), dome = game.world.structures.some(function (s) { return s.kind === "observatory" && s.done; });
       return {
-        icon: "⛈", title: "a storm is coming", x: hm.x, z: hm.z, warn: 35,
-        text: ["black clouds are rolling in off the sea. lightning will hit the tallest trees, and trees can catch fire.", "farms love the rain, though."],
+        icon: "⛈", title: "a storm is coming", x: hm.x, z: hm.z, warn: dome ? 90 : 35,
+        text: ["black clouds are rolling in off the sea. lightning will hit the tallest trees, and trees can catch fire.", dome ? "the stargazers in the dome saw it coming early, so there's plenty of time." : "farms love the rain, though."],
         choices: [
           { key: "calm", label: "🌤 turn it away", cost: 8, hint: "the clouds break up before they get here" },
           { key: "hide", label: "🛖 everyone indoors", hint: "your smols wait it out at home, out of the way of the lightning" },
@@ -578,7 +579,7 @@
       if (c.bad && lastBad) return false;
       return c.ok(game);
     });
-    d.nextT = game.time + r.range(GAP[0], GAP[1]) * pace(game);
+    d.nextT = game.time + r.range(GAP[0], GAP[1]) * pace(game) / (1 + 0.1 * Math.min(4, game.ngPlus || 0));
     if (!hand.length) return null;
     var tot = 0; hand.forEach(function (c) { tot += c.w; });
     var pick = r() * tot, def = hand[0];
@@ -630,6 +631,12 @@
   SB.bus.on("grumpChased", function (e) {
     var game = SB.Game.current, inc = game && game.dir && game.dir.active;
     if (inc && inc.id === "raid" && e.g && e.g.raider) { inc.chased = (inc.chased || 0) + 1; (inc.heroes || (inc.heroes = {}))[e.c.id] = 1; }
+  });
+  SB.bus.on("walled", function () {
+    var game = SB.Game.current, inc = game && game.dir && game.dir.active;
+    if (!inc || inc.id !== "raid" || inc.walled) return;
+    inc.walled = true; inc.note = "🪵 the palisade is holding the grumps back!";
+    SB.bus.emit("incidentNote", { inc: inc });
   });
   SB.bus.on("death", function (e) {
     var game = SB.Game.current;

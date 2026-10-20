@@ -14,12 +14,21 @@
     { at: 16.4, smol: "nua… nua mola?", sub: "one pod falls toward a world no smol has ever seen." }
   ];
   var DUR = 22;
+  // the ending: the spire's signal reaches the old ark, and it comes back for them
+  var END = [
+    { at: 0.6, smol: "brrrm… zo'mi tak. zo'mi TAK!", sub: "every smol mind on the island thinks one thought, all at once." },
+    { at: 6.4, smol: "smol-ark? smol-ark nua!", sub: "far out in the dark, the old ark hears it. and turns around." },
+    { at: 12.6, smol: "mola… mola nua.", sub: "some smols fly home. some stay. the island is theirs now." },
+    { at: 18.6, smol: "vesh nua, pip.", sub: "you raised a civilisation, from one cold egg." }
+  ];
+  var END_DUR = 24;
 
   function rng(seed) { var s = seed >>> 0; return function () { s = (s + 0x6d2b79f5) >>> 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function ease(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
 
   IN.play = function (opts) {
     opts = opts || {};
+    var ending = opts.scene === "end", lines = ending ? END : LINES, dur = ending ? END_DUR : DUR;
     var root = document.getElementById("ui") || document.body;
     var wrap = document.createElement("div"); wrap.className = "intro live";
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.className = "introcv";
@@ -83,8 +92,10 @@
       var fl = 2 + Math.round(Math.sin(t * 25 + 1) * 1.5);
       px(x + 24, y - 2, 5 + fl, 4, "#ff6ff0");
     }
-    function boom(x, y, n, sz) {
-      for (var i = 0; i < n; i++) { var a = r() * 6.283, s = (0.3 + r()) * sz; bits.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.6 + r() * 1.2, t: 0, c: ["#ffffff", "#ffd84a", "#ff9f43", "#ff4f5e", "#8fe6dc", "#3a2a33"][Math.floor(r() * 6)], w: r() < 0.2 ? 3 : r() < 0.5 ? 2 : 1 }); }
+    var FIRE = ["#ffffff", "#ffd84a", "#ff9f43", "#ff4f5e", "#8fe6dc", "#3a2a33"], GLOW = ["#ffffff", "#ffd84a", "#c5ff49", "#e6dcff"];
+    function boom(x, y, n, sz, pal) {
+      pal = pal || FIRE;
+      for (var i = 0; i < n; i++) { var a = r() * 6.283, s = (0.3 + r()) * sz; bits.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.6 + r() * 1.2, t: 0, c: pal[Math.floor(r() * pal.length)], w: r() < 0.2 ? 3 : r() < 0.5 ? 2 : 1 }); }
     }
     // the planet is painted once, big, into its own canvas; each frame just draws it at the right size
     var planetCv = null;
@@ -115,6 +126,42 @@
       }
     }
 
+    // the ending, in three shots: the signal leaves the island, the ark comes back, pods rise to meet it
+    var rise = [];
+    function beam(x, y0, y1, t, wMax) {
+      var w = Math.max(1, Math.round(wMax * (0.75 + Math.sin(t * 9) * 0.25)));
+      px(x - w, y1, w * 2 + 1, y0 - y1, "#b59aff");
+      px(x - Math.max(1, w >> 1), y1, Math.max(1, w >> 1) * 2 + 1, y0 - y1, "#e6dcff");
+      px(x, y1, 1, y0 - y1, "#ffffff");
+      for (var i = 0; i < 3; i++) { var ry = y0 - ((t * 120 + i * 60) % (y0 - y1)); px(x - w - 2, ry, w * 2 + 5, 2, "#ffffff"); }
+    }
+    function drawEnd(t, dt) {
+      if (t < 6.4) {
+        // the island from orbit, a light climbing out of it and up into the dark
+        var R = 70, cx = W / 2, cy = H + 30;
+        planet(cx, cy, R + Math.round(t * 2), t);
+        var top = Math.round(cy - R - t * 2 - 2), grow = ease((t - 0.8) / 2.5);
+        if (t > 0.8) beam(cx - 6, top, Math.round(top - grow * top), t, 3);
+        if (t > 0.8 && t < 1.1) boom(cx - 6, top, 8, 40, GLOW);
+        if (t > 3.4) { for (var i = 0; i < 4; i++) { var rr = ((t - 3.4) * 70 + i * 25) % 110; ctx.strokeStyle = "rgba(181,154,255," + Math.max(0, 1 - rr / 110) + ")"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx - 6, 0, rr, 0, 6.283); ctx.stroke(); } }
+      } else if (t < 12.6) {
+        // the old ark, patched up, comes about and races back
+        var lt = t - 6.4, ax = -50 + ease(lt / 5) * 200, ay = 86 + Math.sin(t * 1.4) * 3;
+        beam(W - 20, H, 0, t, 2);
+        ark(ax, ay, t, 0);
+        if (lt > 1 && lt < 1.3) boom(ax + 40, ay - 16, 5, 20, GLOW);
+      } else {
+        // home: the ark hangs over the island and pods climb up to it
+        var lt2 = t - 12.6, R2 = 110, cx2 = W / 2 + 10, cy2 = H + 60;
+        planet(cx2, cy2, R2, t);
+        var ax2 = W / 2 + 10, ay2 = 34 + Math.sin(t * 1.2) * 2;
+        ark(ax2, ay2, t, 0);
+        if (lt2 < 6 && r() < 0.18) rise.push({ x: cx2 - 70 + r() * 140, y: cy2 - R2 + 18 + r() * 10, tx: ax2 + (r() - 0.5) * 30, ty: ay2 + 6, t: 0 });
+        rise = rise.filter(function (p) { p.t += dt * 0.5; if (p.t >= 1) { boom(p.tx, p.ty, 3, 12, GLOW); return false; } var e = ease(p.t), x = p.x + (p.tx - p.x) * e, y = p.y + (p.ty - p.y) * e; px(x, y + 2, 1, 2, "#ffd84a"); px(x - 1, y, 3, 2, "#c5ff49"); return true; });
+        if (lt2 > 6) { var a = Math.min(1, (lt2 - 6) * 0.7); ctx.fillStyle = "rgba(7,6,13," + a + ")"; ctx.fillRect(0, 0, W, H); if (a > 0.6) { ctx.fillStyle = "rgba(255,216,74," + (a - 0.6) * 2.5 + ")"; ctx.font = "bold 16px monospace"; ctx.textAlign = "center"; ctx.fillText("the end", W / 2, H / 2 - 20); ctx.font = "9px monospace"; ctx.fillStyle = "rgba(232,228,240," + (a - 0.6) * 2.5 + ")"; ctx.fillText("(of the beginning)", W / 2, H / 2 - 6); } }
+      }
+    }
+
     var lastF = 0;
     function frame() {
       if (done) return;
@@ -124,16 +171,17 @@
       var now = performance.now(), t = (now - t0) / 1000;
       var dt = lastF ? Math.min(0.1, (now - lastF) / 1000) : 1 / 60; // real time, so slow devices keep pace
       lastF = now;
-      if (t > DUR) { finish(); return; }
+      if (t > dur) { finish(); return; }
       ctx.fillStyle = "#07060d"; ctx.fillRect(0, 0, W, H);
-      var warp = t < 16 ? 1 : 1 + (t - 16) * 0.6;
+      var warp = ending ? (t > 6 && t < 12 ? 2.5 : 0.4) : t < 16 ? 1 : 1 + (t - 16) * 0.6;
       stars.forEach(function (s) {
         var x = ((s.x - t * 9 * s.z * warp) % W + W) % W;
         ctx.fillStyle = s.c; ctx.globalAlpha = Math.min(1, 0.35 + s.z * 0.5);
         ctx.fillRect(Math.round(x), Math.round(s.y), s.z > 1.2 ? 2 : 1, 1);
       });
       ctx.globalAlpha = 1;
-      if (t < 11.5) {
+      if (ending) drawEnd(t, dt);
+      else if (t < 11.5) {
         // scene 1–2: the chase and the battle
         var ax = 110 + Math.sin(t * 0.8) * 6, ay = 92 + Math.sin(t * 1.3) * 4;
         var gx = 330 - ease(t / 4) * 90 + Math.sin(t * 0.7) * 5, gy = 70 + Math.cos(t * 1.1) * 5;
@@ -166,8 +214,8 @@
       if (t > 9.6 && t < 16) pods.forEach(function (p) { p.x += p.vx * dt; p.y += p.vy * dt; for (var k2 = 0; k2 < 5; k2++) px(p.x - p.vx * 0.02 * k2, p.y - p.vy * 0.02 * k2, 1, 1, k2 < 2 ? "#ffd84a" : "#ff9f43"); px(p.x, p.y, 3, 2, p.hero ? "#c5ff49" : "#e8e4f0"); });
       // captions: smol-speak typed out word by word (each word blipped), then the subtitle
       var li = -1;
-      for (var q = 0; q < LINES.length; q++) if (t >= LINES[q].at) li = q;
-      if (li !== lineI) { lineI = li; cur = LINES[li]; typed = 0; typeT = 0; subEl.textContent = ""; smolEl.textContent = ""; cap.classList.toggle("on", !!cur); }
+      for (var q = 0; q < lines.length; q++) if (t >= lines[q].at) li = q;
+      if (li !== lineI) { lineI = li; cur = lines[li]; typed = 0; typeT = 0; subEl.textContent = ""; smolEl.textContent = ""; cap.classList.toggle("on", !!cur); }
       if (cur) {
         var words = cur.smol.split(" ");
         var should = Math.min(words.length, Math.floor((t - cur.at) / 0.22) + 1);

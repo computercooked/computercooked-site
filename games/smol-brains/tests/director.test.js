@@ -90,5 +90,23 @@ console.log("5. it saves");
   check("crystals from the fallen star survive", g2.world.nodes.filter(n => n.added && n.kind === "crystals").length === 4);
 }
 
+console.log("6. palisades hold grumps back");
+{
+  const { SB, game } = village(8);
+  SB.Director.state(game).nextT = 1e9;
+  const hm = SB.Society.home(game, 0);
+  let wx = hm.x + 10, wz = hm.z;
+  for (let k = 0; k < 40 && !SB.World.walkable(game.world, wx - 4, wz, false); k++) wx += 1;
+  SB.Debug.build("wall", wx, wz);
+  const g = SB.Game.spawnGrump ? SB.Game.spawnGrump(game, wx + 4, wz) : null;
+  if (!g) check("a grump to test with", false);
+  else {
+    g.x = wx + 4; g.z = wz; g.raider = null;
+    let closest = 9;
+    for (let t = 0; t < 8 / SB.TICK; t++) { SB.Creature.walkToward(g, wx - 4, wz, SB.TICK, 2, game); closest = Math.min(closest, SB.dist(g.x, g.z, wx, wz)); }
+    check("a grump walking at a palisade doesn't go through it", closest > 1.6, "closest " + closest.toFixed(2));
+  }
+}
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);

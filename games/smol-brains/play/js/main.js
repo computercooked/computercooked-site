@@ -305,6 +305,50 @@
     return g;
   };
 
+  // new game+: a new island, settled by two descendants of your best smols. They keep their looks,
+  // personalities and instincts, but the island takes their brains back down to tool-users. The
+  // storyteller remembers, and pushes harder each time round.
+  // a prayer waits at least a minute of island time and half a minute of yours, so fast-forward doesn't eat it
+  Game.prayerLive = function (game, p) { var gt = game.time - p.t; return gt < 60 || (gt < 600 && (game.playTime || 0) - (p.rt || 0) < 30); };
+  Game.champions = function (game) {
+    var sm = Game.smols(game).slice().sort(function (a, b) { return (b.tier - a.tier) || ((b.iq || 0) - (a.iq || 0)) || (b.age - a.age); });
+    var f = sm.find(function (c) { return c.sex === "f"; }) || sm[0], m = sm.find(function (c) { return c.sex === "m" && c !== f; }) || sm.find(function (c) { return c !== f; });
+    return [f, m].filter(Boolean);
+  };
+  Game.newGamePlus = function (prev, seed) {
+    var g = Game.newGame(seed), champs = Game.champions(prev), egg = g.world.items.find(function (o) { return o.data && o.data.pod; });
+    var cap = { social: 0.45, planning: 0.4, head: 0.45, recall: 0.45, glow: 0.5 }, keep = { limbs: 1, arms: 1, dexterity: 1, senses: 1, fins: 1, fluff: 1, horns: 1, wings: 1 };
+    function heir(c) {
+      var ge = SB.Genome.forTier(g.rng, 2), src = c.genome;
+      SB.Genome.GENES.forEach(function (k) {
+        if (src.genes[k] == null) return;
+        if (cap[k] != null) ge.genes[k] = Math.max(ge.genes[k], Math.min(cap[k], src.genes[k]));
+        else if (keep[k] || SB.Genome.EVO_GENES.indexOf(k) < 0) ge.genes[k] = src.genes[k];
+      });
+      ge.instincts = JSON.parse(JSON.stringify(src.instincts || ge.instincts));
+      ge.driveW = (src.driveW || ge.driveW).slice();
+      return ge;
+    }
+    if (egg && champs.length) {
+      egg.data.genome = heir(champs[0]); egg.data.genome2 = heir(champs[1] || champs[0]);
+      egg.data.heirs = champs.map(function (c) { return c.name; });
+    }
+    g.ngPlus = (prev.ngPlus || 0) + 1;
+    g.settings = JSON.parse(JSON.stringify(prev.settings || {}));
+    g.tutorial.done = true; // they've done this before
+    g.sparks += 10 * Math.min(3, g.ngPlus);
+    return g;
+  };
+
+  // the spire is finished: the end of the long thought (the first time), and every mind left thinks faster
+  SB.bus.on("built", function (d) {
+    var g = Game.current;
+    if (!g || d.st.kind !== "spire" || !d.st.done) return;
+    Game.unlock(g, "bigthought"); g.culture.spireBoost = true;
+    SB.bus.emit("bigThought", { st: d.st, first: !g.ended });
+    g.ended = true;
+  });
+
   /* ---------------- loop ---------------- */
 
   var acc = 0, last = 0, game = null, running = false, achT = 0, scoreT = 0, saveT = 0;
@@ -449,7 +493,7 @@
     if (game.villages.length) Game.unlock(game, "village");
     if (game.culture.lostCount) Game.unlock(game, "lost");
     // expire unanswered prayers
-    game.prayers = (game.prayers || []).filter(function (p) { return !p.answered && game.time - p.t < 60; });
+    game.prayers = (game.prayers || []).filter(function (p) { return !p.answered && Game.prayerLive(game, p); });
   }
 
   // simple bus-driven bookkeeping
@@ -463,7 +507,6 @@
     // a prayer answered with the right miracle is worth a lot; a comforting tickle a little; a spoiled tribe's demands nothing
     SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, Game.prayerPay(game, d.how), d.c); Game.unlock(game, "prayer"); });
     SB.bus.on("dawn", function (d) { if (game && ((d && d.grumps) || game.world.nightGrumps) > 0) { game.stats.grumpNights++; Game.unlock(game, "grump"); } });
-    SB.bus.on("built", function (d) { if (game && d.st.kind === "spire" && d.st.done) { Game.unlock(game, "bigthought"); SB.bus.emit("bigThought", { st: d.st }); } });
   }
 
   function frame(now) {

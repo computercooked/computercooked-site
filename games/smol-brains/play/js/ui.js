@@ -225,7 +225,18 @@
     if (maxT >= 2 && found < 3) add("a tool-user discovers an idea 💡 (try 💡 inspire)", found + "/3");
     if (maxT >= 4 && !A.built) add("builders finish a building 🛖", "");
     if (A.built && !A.village) add("3 huts around a campfire make a village 🏘", "");
-    if (maxT >= 6 && !A.bigthought) add("build the big thought ✨", "");
+    if (maxT >= 5 && !A.bigthought) {
+      // the last project, step by step: the two ideas, then the spire's materials, then the work
+      var F = g.culture.found, sp = g.world.structures.filter(function (s) { return s.kind === "spire"; })[0], SK = SB.STRUCTS.spire;
+      if (!F.astronomy || !F.resonance || !F.bigthought) {
+        var got = ["astronomy", "resonance", "bigthought"].filter(function (k) { return F[k]; }).length;
+        add("the big thought ✨: ascended smols need " + ["🔭 astronomy", "💠 resonance", "✨ the idea itself"].filter(function (x, i) { return !F[["astronomy", "resonance", "bigthought"][i]]; }).join(", "), got + "/3");
+      } else if (!sp) add("ascended smols will raise the spire ✨ (needs " + Object.keys(SK.cost).map(function (k) { return SK.cost[k] + " " + k; }).join(", ") + ")", "");
+      else if (!SB.Ideas.siteReady(sp)) {
+        var miss = Object.keys(sp.need).filter(function (k) { return sp.need[k] > 0; }).map(function (k) { return (SK.cost[k] - sp.need[k]) + "/" + SK.cost[k] + " " + k; });
+        add("bring the spire " + miss.join(" · ") + (miss.some(function (m) { return / crystal/.test(m); }) ? " (💎 caves, fallen stars)" : ""), "");
+      } else add("raising the spire ✨", Math.round(Math.min(1, sp.work / SK.work) * 100) + "%");
+    }
     return out.slice(0, 3);
   }
   var goalKey = "";
@@ -1119,7 +1130,7 @@
     }
     var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0)); }; };
     var body = twin ? h("div", null, [
-      h("p", null, "two little blobs climbed out of the pod: a girl and a boy. the last smols. what are they called?"),
+      h("p", null, game.ngPlus ? "a girl and a boy climbed out of the pod: the great-great-grandkids of your best smols, on a brand new island. what are they called?" : "two little blobs climbed out of the pod: a girl and a boy. the last smols. what are they called?"),
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♀"), inp, h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")]),
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
@@ -1223,6 +1234,26 @@
 
   /* ---------------- civilisation card ---------------- */
   UI.civCard = function () { closeModal(); setTimeout(civCard, 50); };
+  // after the ending: what you made, and what next (keep this island, or new game+ with your best two)
+  function endCard() {
+    function pl(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+    var g = game, s = g.stats, days = Math.floor(g.time / SB.DAY_LENGTH) + 1, ideas = Object.keys(g.culture.found).length;
+    var champs = SB.Game.champions(g), names = champs.map(function (c) { return "<b>" + esc(c.name) + "</b>"; }).join(" and ");
+    var mins = Math.round((g.playTime || 0) / 60), lvl = (g.ngPlus || 0) + 1;
+    var body = h("div", { class: "story" }, [
+      h("div", { class: "icon" }, "🌟"), h("h3", null, "you raised a civilisation"),
+      h("p", { html: "from one cold egg to the stars: <b>" + pl(days, "day") + "</b>, <b>" + pl(s.maxGen || 1, "generation") + "</b>, <b>" + pl(ideas, "idea") + "</b>, " + pl(s.hatched, "smol") + " hatched, " + pl(s.built || 0, "building") + ", " + pl(s.prayersAnswered || 0, "prayer") + " answered" + (mins ? ", in " + fmtTime(mins * 60) + " of your time" : "") + "." }),
+      h("p", { html: "score <b>" + SB.Game.score(g) + "</b>" + (g.ngPlus ? " · new game+ " + g.ngPlus : "") + ". the smols who stayed get a lasting boost: they all think faster now." }),
+      h("p", { html: champs.length ? "<b>new game+</b>: a new island, harder storyteller, and " + names + "'s descendants in the pod. they keep their looks and personalities, but start again as tool-users." : "" }),
+      h("div", { class: "btnrow" }, [
+        h("button", { class: "btn", onclick: function () { closeModal(); } }, "keep playing"),
+        h("button", { class: "btn", onclick: function () { UI.civCard(); } }, "🪪 share"),
+        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+ " + lvl) : null
+      ])
+    ]);
+    modal("", body, { story: true, sticky: true });
+  }
+  UI.endCard = endCard;
   function civCard() {
     SB.Game.unlock(game, "card");
     // frame the tribe's home for the photo, then put the camera back
@@ -1424,16 +1455,14 @@
     on("select", function (d) { if (d.c) { state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet("smol"); } else if (state.sheet === "smol") closeSheet(); });
     on("wildEgg", function (d) { R.flyTo(d.obj.x, d.obj.z, 7, 1.4); });
     on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab"); });
-    on("bigThought", function () {
-      var days = Math.floor(game.time / SB.DAY_LENGTH) + 1, gens = game.stats.maxGen || 1, ideas = Object.keys(game.culture.found).length;
+    on("bigThought", function (d) {
       moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac");
+      if (!d.first) return;
       setTimeout(function () {
-        storyCard("bigthought", "🌟", "you raised a civilisation", [
-          "the spire is finished. every smol mind on the island is thinking one thought, together. (it's about snacks.)",
-          "from one cold egg to this: <b>" + days + " days</b>, <b>" + gens + " generations</b>, <b>" + ideas + " ideas</b>, " + game.stats.hatched + " smols hatched. every one of them learned by trying things, and by you.",
-          "the island keeps going: smols still live, love, teach and pray. or start a new world and see what a different island makes of them.",
-          "<button class='btn go' onclick='SB.UI.civCard()'>🪪 share my civilisation</button>"
-        ]);
+        if (!SB.Intro || UI.noStory) { endCard(); return; }
+        var sp = game.speed; game.speed = 0; closeModal();
+        if (SB.Audio) SB.Audio.play("chime");
+        SB.Intro.play({ scene: "end", noGate: true, done: function () { game.speed = sp || 1; endCard(); } });
       }, 3600);
     });
     on("lightning", function () { R.flash(0.9); R.camera.shake = Math.max(R.camera.shake, 0.3); });
