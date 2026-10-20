@@ -1,6 +1,7 @@
 // API smoke test. Run against local `wrangler dev` or the live site:
 //   node scripts/smoke-test.mjs http://127.0.0.1:8787 <admin-token>
 // Creates a throwaway play, score, feedback and (locally only) an account.
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 const base = process.argv[2] || "http://127.0.0.1:8787";
 const admin = process.argv[3] || "";
 const local = /127\.0\.0\.1|localhost/.test(base);
@@ -10,6 +11,23 @@ const rid = () => Math.random().toString(36).slice(2, 12) + Math.random().toStri
 const H = { "content-type": "application/json", origin: base };
 const post = (p, b, h = {}) => fetch(base + p, { method: "POST", headers: { ...H, ...h }, body: JSON.stringify(b) });
 const get = (p, h = {}) => fetch(base + p, { headers: h });
+
+// repo check: a game whose code reports scores must have a board (max_score_per_sec), or every run is
+// silently dropped as "no board". Reads the checked-out repo, so it runs the same against local or live.
+{
+  const root = new URL("../games/", import.meta.url);
+  const NO_BOARD_OK = new Set(["smol-brains"]); // v2 is being rebuilt and will set its own scoring
+  const SENDS = /(?:\bcc|\bc|\bsdk|ccCall)(?:\.call)?\s*(?:\.(?:end|score)\s*\(|\(\s*['"](?:end|score)['"])/;
+  const files = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? files(new URL(e.name + "/", dir)) : /\.(js|html)$/.test(e.name) ? [new URL(e.name, dir)] : []);
+  const catalog = JSON.parse(readFileSync(new URL("games.json", root), "utf8")).games;
+  const missing = catalog.filter((g) => {
+    const play = new URL(g.slug + "/play/", root);
+    if (NO_BOARD_OK.has(g.slug) || g.max_score_per_sec || !existsSync(play)) return false;
+    return files(play).some((f) => SENDS.test(readFileSync(f, "utf8")));
+  }).map((g) => g.slug);
+  ok(missing.length === 0, "every game that reports scores has a board (max_score_per_sec)", missing);
+}
 
 const anon = "smoke" + rid();
 const tester = "smoke-test";

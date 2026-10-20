@@ -17,7 +17,9 @@
   ],
   "changelog": "v2: first to 3 for both sides, suspicion meter (100% = anticheat catches him and you take the round), counter-cheat tokens (firewall, ctrl+z, report), double-line bug fixed, \"you had it\" beat, numbered lag moves, share downloads the card, score rewards wins not stalling.",
   "playtest": {
-    "before": 5.0,
+    "before": 5,
     "after": 6.9
-  }
+  },
+  "max_score_per_sec": 120,
+  "max_score": 950
 }
