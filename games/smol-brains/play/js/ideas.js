@@ -335,10 +335,17 @@
   I.findSource = function (c, want, game, R) {
     var world = game.world;
     R = R || c.searchR || 20;
-    var it = SB.World.nearestItem(world, c.x, c.z, R, function (o) { return o.heldBy == null && !o.claimed && matches(o.kind, want) && !(o.data && o.data.rotten) && !K[o.kind].critter; });
+    var un = c.unreach || {}, now = game.time;
+    var it = SB.World.nearestItem(world, c.x, c.z, R, function (o) { return o.heldBy == null && !o.claimed && matches(o.kind, want) && !(o.data && o.data.rotten) && !K[o.kind].critter && !(un[o.id] > now); });
     if (it) return { item: it };
     if (want === "food") return null;
+    if (want === "seed" && I.known(c, "farm")) {
+      // farmers know where seeds come from: the bottoms of bushes and fruit trees
+      var sn = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && (n.kind === "bush" || n.kind === "oak" || n.kind === "birch" || n.kind === "cactus"); });
+      if (sn) return { node: sn, yield: "seed", time: 3 };
+    }
     var node = SB.World.nearestNode(world, c.x, c.z, R, function (n) {
+      if (un[n.id] > now) return false;
       var g = GATHER[n.kind];
       if (!g || g[0] !== want || n.state !== "ok" || c.tier < g[3]) return false;
       if (g[1] && toolKind(c, game) !== g[1] && heldKind(c, game) !== g[1]) return false;
@@ -382,11 +389,12 @@
       if (K[out].noun === "food") v += ch.hunger * 0.8;
       if (out === "potion") v += ch.sick * 1.2 + sickFriend(c, game) * 0.6;
       if (out === "torch") v += ch.fear * 0.6 + (game.world.night ? 0.2 : 0) + ch.cold * 0.3;
-      if (K[out].tool && haveKind(c, game, out)) v -= 0.8; // don't hoard identical tools
+      if (K[out].tool && haveKind(c, game, out)) continue; // don't hoard identical tools
       if (out === "spear" && (game.world.night || ch.hunger > 0.5)) v += 0.2;
       v -= miss.length * 0.1;
       cands.push({ d: d, v: v, miss: miss });
     }
+    cands = cands.filter(function (o) { return o.v > -0.2; });
     if (!cands.length) return null;
     var temp = c.brain.temp + 0.05, sum = 0;
     cands.forEach(function (o) { o.p = Math.exp(o.v / temp); sum += o.p; });
@@ -443,7 +451,9 @@
     var cands = [];
     LIST.forEach(function (d) {
       if (d.kind !== "build" || !I.known(c, d.id)) return;
-      var v = (c.ideaQ[d.id] != null ? c.ideaQ[d.id] : 0.2) + I.buildNeed(c, d.build, game);
+      var need = I.buildNeed(c, d.build, game);
+      if (need <= 0) return;
+      var v = (c.ideaQ[d.id] != null ? c.ideaQ[d.id] : 0.2) + need;
       cands.push({ d: d, v: v });
     });
     cands = cands.filter(function (o) { return o.v > 0.05; });

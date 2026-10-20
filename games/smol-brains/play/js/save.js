@@ -153,8 +153,10 @@
     ["hatched", "eggsLaid", "maxGen", "wordsTaught", "tickles", "taps", "deaths", "bestIQ", "grumpNights", "cured", "imported", "exported"].forEach(function (k) { if (typeof s1[k] === "number") game.stats[k] = s1[k]; });
     game.family = obj(v1.family);
     for (var fid in game.family) { var f = game.family[fid]; if (f && f.look) f.look.tier = 0; }
-    var maxId = 0;
+    var maxId = num(v1.nextId, 1);
     for (var k in game.family) if (+k > maxId) maxId = +k;
+    (v1.creatures || []).forEach(function (p) { if (p && +p.id > maxId) maxId = +p.id; });
+    game.nextId = maxId + 1; // new things get ids above everything from the old valley
     var nest = game.world.T.nest, n = 0;
     (v1.creatures || []).forEach(function (p) {
       if (!p || p.species !== "smol" || p.alive === false) return;

@@ -159,7 +159,8 @@
       n = EVO[i];
       old = g.genes[n];
       var v = old;
-      if (!grump && echo && echo[n] > 0) v += 0.05 * Math.min(1, echo[n]) * (1.1 - v);
+      if (!grump && echo && echo[n] > 0) v += 0.085 * Math.min(1, echo[n]) * (1.1 - v);
+      if (!grump && echo) v += 0.008; // life tends to get more complex (very slowly)
       if (!grump && bless && bless[n]) v += bless[n] * (1.05 - v);
       if (rng.chance(0.3)) v += rng.gauss() * 0.05;
       g.genes[n] = q(v);
@@ -225,7 +226,7 @@
   G.TIER_NEEDS = [
     null,
     { limbs: 0.35, neurons: 0 },
-    { arms: 0.5, neurons: 18 },
+    { arms: 0.5, neurons: 16 },
     { social: 0.5, neurons: 28 },
     { planning: 0.5, layers: 2, neurons: 36 },
     { head: 0.5, recall: 0.5, neurons: 58 },

@@ -331,6 +331,21 @@
         Game.note(game, "the island is quiet... an egg turned up in the nest 🥚");
       }
     } else game.emptyT = 0;
+    // a small colony gets visitors: an egg from "over the hill" (a cousin of the smols you have, so evolution keeps its progress)
+    if (smols.length >= 1 && smols.length < 4 && game.tutorial.wildDone && !eggs) {
+      game.cousinT = (game.cousinT || 0) + 1;
+      if (game.cousinT > 200) {
+        game.cousinT = 0;
+        var pa = game.rng.pick(smols), pb = game.rng.pick(smols);
+        var cg = SB.Genome.cross(pa.genome, pb.genome, game.rng, SB.Creature.echo(pa));
+        cg.gen = Math.max(pa.gen, pb.gen);
+        var ang2 = game.rng() * 6.28, home = SB.Society.home(game, 0);
+        var ex2 = home.x + Math.sin(ang2) * 6, ez2 = home.z + Math.cos(ang2) * 6;
+        if (!SB.World.walkable(game.world, ex2, ez2)) { ex2 = game.world.T.nest.x; ez2 = game.world.T.nest.z; }
+        SB.World.add(game.world, game, "egg", ex2, ez2, { genome: cg, parents: [], gen: cg.gen, progress: 0.5, wild: true });
+        Game.note(game, "an egg rolled in from over the hill 🥚 (a cousin, by the look of it)");
+      }
+    } else game.cousinT = 0;
     // a wild smol wanders in now and then while the colony is tiny, so there's always someone to love
     if (smols.length === 1 && game.stats.hatched >= 1 && !game.tutorial.wildDone && game.time > SB.DAY_LENGTH * 0.335 + 150) {
       game.tutorial.wildDone = true;

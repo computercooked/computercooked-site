@@ -40,6 +40,18 @@
 
   var DX = [1, -1, 0, 0, 1, 1, -1, -1], DZ = [0, 0, 1, -1, 1, -1, 1, -1];
 
+  // A smooth field sampled on a coarse (res+1)^2 grid over [0,1]^2 and read back bilinearly: low-frequency
+  // noise (warps, climate) doesn't need full resolution, and this makes generation ~2x faster on phones.
+  function coarse(fn, res) {
+    var g = new Float32Array((res + 1) * (res + 1));
+    for (var j = 0; j <= res; j++) for (var i = 0; i <= res; i++) g[j * (res + 1) + i] = fn(i / res, j / res);
+    return function (x, z) {
+      var fx = SB.clamp(x, 0, 1) * res, fz = SB.clamp(z, 0, 1) * res, i = Math.min(res - 1, fx | 0), j = Math.min(res - 1, fz | 0);
+      var tx = fx - i, tz = fz - j, a = j * (res + 1) + i;
+      return (g[a] * (1 - tx) + g[a + 1] * tx) * (1 - tz) + (g[a + res + 1] * (1 - tx) + g[a + res + 2] * tx) * tz;
+    };
+  }
+
   WG.generate = function (seed) {
     seed = seed >>> 0 || 1;
     var t0 = Date.now();
@@ -57,18 +69,21 @@
     };
 
     /* ---- heights ---- */
+    var warpF = coarse(function (x, z) { return fbm(nC, x * 3 + shape.ox, z * 3 + shape.oz, 3, 2, 0.5); }, 64);
+    var mtnF = coarse(function (x, z) { return fbm(nD, x * 1.6 + 7, z * 1.6 - 3, 3, 2, 0.5); }, 48);
+    var ridgeF = coarse(function (x, z) { return fbm(nB, x * 3.1, z * 3.1, 4, 2.1, 0.5); }, 128);
     for (j = 0; j < V; j++) for (i = 0; i < V; i++) {
       x = i / N; z = j / N;
       var dx = x - 0.5, dz = z - 0.5;
       var ang = Math.atan2(dz, dx);
       var d = Math.sqrt(dx * dx + dz * dz) * 2; // 0 centre .. ~1.4 corners
-      var warp = fbm(nC, x * 3 + shape.ox, z * 3 + shape.oz, 3, 2, 0.5);
+      var warp = warpF(x, z);
       d += warp * 0.22 + Math.sin(ang * shape.lobes + shape.lobeA) * 0.07;
       var mask = SB.smooth((1.02 - d) / 0.42) * shape.land;
       var e = fbm(nA, x * 4.2 + shape.ox, z * 4.2 + shape.oz, 5, 2.05, 0.5); // -1..1-ish
-      var ridge = 1 - Math.abs(fbm(nB, x * 3.1, z * 3.1, 4, 2.1, 0.5) * 1.4);
+      var ridge = 1 - Math.abs(ridgeF(x, z) * 1.4);
       ridge = ridge * ridge;
-      var mtnMask = SB.smooth((fbm(nD, x * 1.6 + 7, z * 1.6 - 3, 3, 2, 0.5) + 0.05 + shape.tilt * (x - 0.5)) / 0.4);
+      var mtnMask = SB.smooth((mtnF(x, z) + 0.05 + shape.tilt * (x - 0.5)) / 0.4);
       var hh = (mask - 0.42) * 15 + e * 5 * shape.rough + ridge * mtnMask * mask * 17 * shape.mtn;
       // gentle plateaus: soften the lowlands so there's room to walk and build
       if (hh > 0.4 && hh < 6) hh = 0.4 + (hh - 0.4) * 0.72;
@@ -103,9 +118,10 @@
 
     /* ---- flow accumulation on the filled surface (highest first) ---- */
     var acc = new Float32Array(V * V), down = new Int32Array(V * V), ci, cj;
+    var rainF = coarse(function (x, z) { return nM(x * 3, z * 3); }, 48);
     for (k = 0; k < V * V; k++) {
       x = (k % V) / N; z = ((k / V) | 0) / N;
-      acc[k] = 0.6 + 0.4 * (nM(x * 3, z * 3) + 1) * 0.5; // rain, a bit uneven
+      acc[k] = 0.6 + 0.4 * (rainF(x, z) + 1) * 0.5; // rain, a bit uneven
       down[k] = -1;
     }
     for (var o = on - 1; o >= 0; o--) {
@@ -226,6 +242,8 @@
     var biome = new Uint8Array(N * N), temp = new Float32Array(N * N), moist = new Float32Array(N * N), slope = new Float32Array(N * N);
     var tileH = new Float32Array(N * N);
     var warmSouth = r.chance(0.5) ? 1 : -1;
+    var tempF = coarse(function (x, z) { return nT(x * 2.2, z * 2.2); }, 48), moistF = coarse(function (x, z) { return nM(x * 2.6 + 9, z * 2.6 - 4); }, 48);
+    var specF = coarse(function (x, z) { return nP(x * 5.5, z * 5.5); }, 96);
     for (j = 0; j < N; j++) for (i = 0; i < N; i++) {
       var t = j * N + i, a = j * V + i;
       var h00 = h[a], h10 = h[a + 1], h01 = h[a + V], h11 = h[a + V + 1];
@@ -233,9 +251,9 @@
       tileH[t] = th;
       slope[t] = Math.max(Math.abs(h00 - h11), Math.abs(h10 - h01));
       x = (i + 0.5) / N; z = (j + 0.5) / N;
-      var tt = 0.56 + (z - 0.5) * 0.85 * warmSouth + nT(x * 2.2, z * 2.2) * 0.17 - Math.max(0, th - 4) * 0.026;
+      var tt = 0.56 + (z - 0.5) * 0.85 * warmSouth + tempF(x, z) * 0.17 - Math.max(0, th - 4) * 0.026;
       var wd = Math.min(wdist[a], wdist[a + V + 1]);
-      var mm = 0.36 + nM(x * 2.6 + 9, z * 2.6 - 4) * 0.4 + Math.max(0, 1 - wd / 16) * 0.28;
+      var mm = 0.36 + moistF(x, z) * 0.4 + Math.max(0, 1 - wd / 16) * 0.28;
       temp[t] = SB.clamp01(tt); moist[t] = SB.clamp01(mm);
       var wet = W[a] !== NONE && W[a] > h00 + 0.05 && W[a + V + 1] !== NONE && W[a + V + 1] > h11 + 0.05;
       var bm;
@@ -249,7 +267,7 @@
       else if (mm > 0.55) bm = B.forest;
       else bm = B.meadow;
       // rare special places
-      var sp = nP(x * 5.5, z * 5.5);
+      var sp = specF(x, z);
       if ((bm === B.forest || bm === B.swamp || bm === B.taiga) && sp > 0.62) bm = B.shroom;
       if ((bm === B.meadow || bm === B.tundra || bm === B.mountain || bm === B.savanna) && sp < -0.66 && th > 3) bm = B.crystal;
       if (wet && bm !== B.ocean) { /* river/lake bed keeps its land biome for colour under water */ }

@@ -231,6 +231,7 @@
     var def = NK[n.kind];
     if (def.noun !== "plant" || n.kind === "reeds" || n.kind === "herbs") return false;
     n.state = "burning"; n.burnT = 25 + game.rng() * 15; n.noun = "fire";
+    (world.burning || (world.burning = [])).push(n);
     markNode(world, n);
     emit("wildfire", { node: n });
     return true;
@@ -462,7 +463,7 @@
     var def = NK[n.kind];
     if (!def || !def.drops || n.state !== "ok") return null;
     if (!force && n.kind === "palm") return null; // too tall without a poke stick
-    if (!force && n.dropT > def.every * 0.6) { n.dropT -= def.every * 0.15; return null; }
+    if (!force && n.dropT > def.every * 0.85) { n.dropT -= def.every * 0.25; return null; }
     if (itemsNearCount(world, n.x, n.z, 4, def.drops) >= CAP_FOOD_NEAR + 1) return null;
     n.dropT = def.every * game.rng.range(0.7, 1.2);
     return dropFrom(world, game, n, def.drops);
@@ -708,8 +709,9 @@
       var def = K[o.kind], d = o.data;
       o.age += dt;
       if (def.rots) {
-        if (o.age > def.rots * 1.6 && o.heldBy == null) { W.remove(world, o); continue; }
-        if (o.age > def.rots && !d.rotten) d.rotten = true;
+        if (o.age > def.rots * 1.35 && o.heldBy == null) { W.remove(world, o); continue; }
+        // rotten food smells wrong: it reads as a "bad to eat" thing, like a red shroom
+        if (o.age > def.rots && !d.rotten) { d.rotten = true; if (o.noun === "food") o.noun = "mushroom"; }
       }
       if (o.heldBy != null) continue;
       if (def.mat && o.age > 900 && !o.data.keep && Math.random() < dt * 0.01) { W.remove(world, o); continue; }

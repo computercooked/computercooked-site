@@ -251,13 +251,15 @@
     function consider(n, t, d) { if (n == null) return; if (d < nearestD[n]) { nearestD[n] = d; nearestOf[n] = t; } }
     SB.World.itemsNear(w, c.x, c.z, R, function (o, d2) {
       if (o.heldBy === c.id) return;
+      if (c.unreach && isUnreachable(c, o.id, game)) return;
       var d = Math.sqrt(d2);
       if (o.heldBy === "hand") d *= 0.4;
       else if (o.heldBy != null) d += 3;
       consider(N[o.noun], { type: "item", id: o.id }, d);
     });
     if (c.holding != null) { var h0 = SB.Game.byId(game, c.holding); if (h0) consider(N[h0.noun], { type: "item", id: h0.id }, 0.5); }
-    SB.World.eachNodeNear(w, c.x, c.z, R * 0.85, function (n, d2) { consider(N[n.noun], { type: "node", id: n.id }, Math.sqrt(d2) + 0.5); });
+    for (i = 0; i < c.bag.length; i++) { var bi = SB.Game.byId(game, c.bag[i]); if (bi && (bi.noun === "food" || bi.noun === "medicine")) consider(N[bi.noun], { type: "item", id: bi.id }, 0.6); }
+    SB.World.eachNodeNear(w, c.x, c.z, R * 0.85, function (n, d2) { if (c.unreach && isUnreachable(c, n.id, game)) return; consider(N[n.noun], { type: "node", id: n.id }, Math.sqrt(d2) + 0.5); });
     var sts = w.structures;
     for (i = 0; i < sts.length; i++) {
       var s = sts[i], ds = SB.dist(s.x, s.z, c.x, c.z);
@@ -290,8 +292,10 @@
 
   /* ---------------- decision ---------------- */
 
+  // innate "this helps with that" attention: [drive, weight] per noun (food beats chasing bugs when starving)
   var GOOD_BY_NOUN = {}, MATERIAL = {};
-  SB.GOOD.forEach(function (g) { var n = SB.N[g.noun]; (GOOD_BY_NOUN[n] = GOOD_BY_NOUN[n] || []).push(SB.D[g.drive]); });
+  var GOOD_W = { bug: 0.35, plant: 0.45, water: 0.6, hand: 0.6 };
+  SB.GOOD.forEach(function (g) { var n = SB.N[g.noun]; (GOOD_BY_NOUN[n] = GOOD_BY_NOUN[n] || []).push([SB.D[g.drive], GOOD_W[g.noun] || 1]); });
   ["stick", "stone", "material", "tool", "crop"].forEach(function (n) { MATERIAL[SB.N[n]] = 1; });
 
   function think(c, game) {
@@ -306,7 +310,7 @@
     // innate drive-directed attention: a hungry smol's eyes go to food, a cold one's to fire
     for (var ci = 0; ci < cands.length; ci++) {
       var gl = GOOD_BY_NOUN[cands[ci].noun], boost = 0;
-      if (gl) for (var gk = 0; gk < gl.length; gk++) { var dv = drv[gl[gk]]; if (dv > 0.3) boost = Math.max(boost, (dv - 0.3) * 1.6); }
+      if (gl) for (var gk = 0; gk < gl.length; gk++) { var dv = drv[gl[gk][0]]; if (dv > 0.3) boost = Math.max(boost, (dv - 0.3) * 1.8 * gl[gk][1]); }
       if (c.tier < 2 && MATERIAL[cands[ci].noun]) cands[ci].sal -= 0.15;
       cands[ci].sal += boost;
     }
@@ -352,6 +356,8 @@
     if (mask[V.make]) mask[V.make] = knowsAny(c, "craft");
     if (mask[V.build]) mask[V.build] = knowsAny(c, "build");
     mask[V.sleep] = ch.sleepy > 0.2 || ch.tired > 0.35;
+    // prayers are for when something's really wrong, and not every minute
+    if (mask[V.pray]) mask[V.pray] = game.time - (c.prayedAt || -999) > 90 && SB.Chem.top(ch).v > 0.55;
     if (c.species === "grump") { mask[V.cuddle] = false; mask[V.sleep] = false; mask[V.use] = false; }
     if (c.stage === 0) mask[V.hit] = mask[V.hit] && rng.chance(0.3);
     if (c.stage <= 1) { mask[V.build] = false; mask[V.teach] = false; }
@@ -364,16 +370,19 @@
       if (hd && SB.Ideas.known(c, hd.id)) { var hv = hd.kind === "build" ? V.build : hd.kind === "craft" ? V.make : V.use; if (mask[hv]) { bias[hv] += 0.25; useBias = true; } }
     }
     // hard-wired reflexes for emergencies (the net still decides everything else)
-    if (noun === "food" && mask[V.eat] && ch.hunger > 0.7) { bias[V.eat] += (ch.hunger - 0.6) * 1.2; useBias = true; }
+    if (noun === "food" && mask[V.eat] && ch.hunger > 0.65) { bias[V.eat] += (ch.hunger - 0.55) * 1.4; useBias = true; }
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
     if (mask[V.sleep] && (ch.sleepy > 0.85 || ch.tired > 0.9)) { bias[V.sleep] += 0.3; useBias = true; }
+    if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
     // a sick friend and a healer who knows herbs: bring medicine
     if (noun === "smol" && mask[V.give] && target.ref.chem.sick > 0.4 && c.holding != null) { var hk = SB.Game.byId(game, c.holding); if (hk && hk.noun === "medicine") { bias[V.give] += 0.4; useBias = true; } }
 
     var any = false;
     for (v = 0; v < NV; v++) if (mask[v]) { any = true; break; }
-    var verb = any ? SB.Brain.decide(c.brain, rng, mask, useBias ? bias : null) : V.idle;
+    var urgent = Math.max(ch.hunger, ch.fear, ch.pain, ch.sick, ch.cold);
+    var tempScale = urgent > 0.5 ? 1 - 0.7 * Math.min(1, (urgent - 0.5) * 2.2) : 1;
+    var verb = any ? SB.Brain.decide(c.brain, rng, mask, useBias ? bias : null, tempScale) : V.idle;
     startAction(c, game, verb, tgt, target, noun);
 
     if (heardV >= 0 && verb === heardV) {
@@ -401,11 +410,25 @@
       case V.idle: a.phase = "do"; a.dur = rng.range(1.2, 2.6); break;
       case V.wander: {
         a.phase = "do"; a.dur = rng.range(3, 6);
+        var sniff = null;
         var ang = rng() * 6.283, dist = rng.range(4, 10);
         if (c.species === "grump") {
           var prey = null, pd = 1e9;
           game.creatures.forEach(function (o) { if (o.alive && o.species === "smol") { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < pd) { pd = d; prey = o; } } });
           if (prey) { ang = Math.atan2(prey.x - c.x, prey.z - c.z) + rng.range(-0.4, 0.4); dist = Math.min(pd, 12); a.dur = 6; }
+        } else if (c.chem.love > 0.6 && c.stage === 3 && (sniff = findMate(c, game))) {
+          // smitten: go looking for someone to cuddle
+          ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.2, 0.2);
+          dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
+          a.dur = 8;
+        } else if (c.chem.hunger > 0.6 && (sniff = sniffFood(c, game))) {
+          // hungry and nothing in sight: follow your nose toward the nearest food (or a fruit tree)
+          ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.25, 0.25);
+          dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
+          a.dur = 8;
+        } else if (c.foodSpot && c.chem.hunger > 0.55 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
+          ang = Math.atan2(c.foodSpot.x - c.x, c.foodSpot.z - c.z) + rng.range(-0.3, 0.3);
+          dist = Math.min(10, SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z));
         } else if (rng.chance(0.4)) {
           // stay roughly around home, curious ones roam further
           var home = SB.Society ? SB.Society.home(game, c.tribe) : game.world.T.spawn, dh = SB.dist(c.x, c.z, home.x, home.z);
@@ -436,6 +459,24 @@
     if (target && target.type === "node" && verb === V.pickup) a.dur = SB.Ideas && SB.Ideas.GATHER[target.kind] ? SB.Ideas.GATHER[target.kind][2] : 2;
     c.action = a;
   }
+
+  function findMate(c, game) {
+    var best = null, bd = 45;
+    game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && o.eggCooldown <= 0) { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < bd && d > 2) { bd = d; best = o; } } });
+    return best;
+  }
+  function sniffFood(c, game) {
+    var it = SB.World.nearestItem(game.world, c.x, c.z, 32, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && o.data.rotten); });
+    if (it) return it;
+    return SB.World.nearestNode(game.world, c.x, c.z, 32, function (n) { var d = NK[n.kind]; return d.drops && K[d.drops] && K[d.drops].noun === "food" && n.state === "ok" && n.kind !== "palm"; });
+  }
+
+  function unreachable(c, id, game) {
+    var u = c.unreach || (c.unreach = {});
+    u[id] = game.time + 40;
+  }
+  function isUnreachable(c, id, game) { return c.unreach && c.unreach[id] != null && c.unreach[id] > game.time; }
+  C.unreachable = unreachable;
 
   function findBed(c, game) {
     var w = game.world, best = null, bd = 1e9;
@@ -512,13 +553,15 @@
     if (d < (arriveR || 0.1)) return true;
     var want = Math.atan2(dx, dz), step = Math.min(d, sp * dt), w = game.world;
     var tries = [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9], moved = false;
+    // once deflected by an obstacle, keep hugging it for a moment instead of bouncing back and forth
+    if (c.deflect > 0) { c.deflect -= dt; want += c.deflectA; }
     for (var i = 0; i < tries.length; i++) {
       var a = want + tries[i] * (c.steer || 1);
       var nx = c.x + Math.sin(a) * step, nz = c.z + Math.cos(a) * step;
       if (SB.World.walkable(w, nx, nz, swim(c)) && SB.World.walkable(w, c.x + Math.sin(a) * 0.5, c.z + Math.cos(a) * 0.5, swim(c))) {
         c.x = nx; c.z = nz; moved = true;
         c.facing += SB.angDiff(c.facing, a) * Math.min(1, dt * 10);
-        if (i > 2) c.steer = tries[i] > 0 ? 1 : -1;
+        if (i > 0) { c.steer = tries[i] > 0 ? 1 : -1; if (!(c.deflect > 0)) { c.deflect = 0.6; c.deflectA = tries[i] * c.steer * 0.8; } }
         break;
       }
     }
@@ -544,6 +587,7 @@
     if (a.phase === "go") {
       if (!tgt) { a.phase = "do"; return; }
       var reach = C.radius(c) + tgt.r + 0.12;
+      if (tgt.type === "item" && tgt.ref.heldBy === c.id) reach = 99;
       var dist = SB.dist(tgt.x, tgt.z, c.x, c.z);
       if (a.bedSeek) reach = 0.4;
       if (dist > reach) {
@@ -553,11 +597,17 @@
         walkToward(c, gx, gz, dt, speedOf(c, a), game, 0.05);
       }
       dist = SB.dist(tgt.x, tgt.z, c.x, c.z);
+      if (a.best == null || dist < a.best - 0.25) { a.best = dist; a.bestT = a.t; }
       if (dist <= reach + 0.05) {
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
         beginDo(c, game, a, tgt);
-      } else if (a.t > 14 || c.stuckT > 1.5) { c.stuckT = 0; finish(c, game); }
+      } else if (a.t > 14 || c.stuckT > 1.5 || a.t - a.bestT > 2.5) {
+        // can't get there (cliff, water, going round in circles): remember that for a while
+        c.stuckT = 0;
+        if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
+        finish(c, game);
+      }
       return;
     }
     a.doT += dt;
@@ -650,8 +700,9 @@
 
     observe(c, a.verb, noun, r, game);
     if (ideaUsed && SB.Ideas) SB.Ideas.observe(c, ideaUsed, game);
+    if (Math.abs(r) > 0.15) habit(c, "think", 0.03); // every vivid experience is a little practice at thinking
     c.lastDone = { x: a.x, a: a.verb, t: game.time };
-    if (a.verb === V.eat && ref && tt === "item" && ((ref.data && ref.data.rotten) || (K[ref.kind] && K[ref.kind].chem && K[ref.kind].chem.toxin) || (K[ref.kind] && K[ref.kind].raw))) c.badMeal = { x: a.x, a: a.verb, t: game.time };
+    if (a.verb === V.eat && ref && tt === "item" && ((ref.data && ref.data.rotten) || (K[ref.kind] && K[ref.kind].chem && K[ref.kind].chem.toxin))) c.badMeal = { x: a.x, a: a.verb, t: game.time };
 
     // a eureka?
     if (SB.Ideas && c.species === "smol" && c.tier >= 2 && !c.far && game.rng.chance(0.7) || (SB.Ideas && c.species === "smol" && c.tier >= 2 && game.rng.chance(0.35))) {
@@ -699,6 +750,7 @@
       }
       if (o.kind === "nut") { res.deltas.hunger = -0.02; return res; } // too hard to eat; you need a rock
       c.stats.eaten++; emote(c, "yum", 1.4); c.anim.mouth = "chew";
+      c.foodSpot = { x: c.x, z: c.z }; // remember where the food was
       SB.bus.emit("eat", { c: c, obj: o });
       if (c.species === "smol") SB.Game.unlock(game, "feed");
       if ((o.kind === "berry" || o.kind === "grain" || o.kind === "banana") && game.rng.chance(0.12) && c.species === "smol") { var sd = SB.World.add(game.world, game, "seed", c.x, c.z, {}); sd.data.fromMeal = true; }
@@ -796,7 +848,8 @@
   function pray(c, game) {
     var top = SB.Chem.top(c.chem);
     var need = top.v > 0.35 ? SB.DRIVES[top.i] : "nothing";
-    var p = { id: c.id, name: c.name, need: need, t: game.time, x: a2(c).x, answered: false, input: new Float32Array(c.brain.x) };
+    c.prayedAt = game.time;
+    var p = { id: c.id, name: c.name, need: need, t: game.time, answered: false, input: new Float32Array(c.brain.x) };
     game.prayers = (game.prayers || []).filter(function (q) { return q.id !== c.id && game.time - q.t < 60; });
     game.prayers.push(p);
     habit(c, "social", 0.5);
@@ -804,7 +857,6 @@
     if (!c.far) say(c, need === "nothing" ? "thank you sky" : ["please", "sky", "help"][game.rng.int(3)] + " " + (SB.DRIVE_WORDS[top.i] || ""), game);
     SB.bus.emit("pray", { c: c, need: need, prayer: p });
   }
-  function a2(c) { return { x: c.x, z: c.z }; }
   // the god answered: reward the praying (credited to the prayer decision)
   C.prayerAnswered = function (c, game) {
     var p = (game.prayers || []).filter(function (q) { return q.id === c.id && !q.answered; })[0];
@@ -829,7 +881,7 @@
     if (pop >= SB.Game.POP_CAP) { say(a, "too many smols", game); return; }
     SB.Game.layEgg(game, a, b, (a.x + b.x) / 2, (a.z + b.z) / 2);
     a.chem.love = 0; b.chem.love = 0;
-    a.eggCooldown = b.eggCooldown = 300;
+    a.eggCooldown = b.eggCooldown = 170;
     a.stats.kids++; b.stats.kids++;
   }
 
@@ -837,13 +889,13 @@
   C.echo = function (c) {
     var h = c.habits || {}, e = {};
     function f(v, n) { return Math.min(1, (v || 0) / n); }
-    e.limbs = f(h.walk, 250); e.senses = f(h.walk, 500);
-    e.arms = f(h.hands, 15); e.dexterity = f(h.hands, 25);
-    e.cortex = f(h.think, 10); e.recall = f(h.think, 16); e.head = f(h.think, 24);
-    e.layers = f((h.think || 0) + (h.build || 0), 30);
-    e.planning = f(h.build, 14); e.social = f(h.social, 12);
-    e.fins = f(h.swim, 40); e.fluff = f(h.cold, 120); e.horns = f(h.fight, 4);
-    e.glow = f(h.glow, 30); e.wings = f(h.glow, 60);
+    e.limbs = f(h.walk, 150); e.senses = f(h.walk, 300);
+    e.arms = f(h.hands, 8); e.dexterity = f(h.hands, 14);
+    e.cortex = f(h.think, 6); e.recall = f(h.think, 10); e.head = f(h.think, 14);
+    e.layers = f((h.think || 0) + (h.plan || 0) + (h.build || 0), 18);
+    e.planning = f((h.plan || 0) + (h.build || 0), 8); e.social = f(h.social, 6);
+    e.fins = f(h.swim, 30); e.fluff = f(h.cold, 90); e.horns = f(h.fight, 3);
+    e.glow = f((h.glow || 0) + (c.tier >= 5 ? (h.think || 0) * 0.3 : 0), 16); e.wings = f(h.glow, 40);
     return e;
   };
 
@@ -882,17 +934,23 @@
           var src = Id.findSource(c, s.want, game);
           if (!src) { p.fails++; return endPlan(c, game, false); }
           s.src = src.item ? { type: "item", id: src.item.id } : { type: "node", id: src.node.id };
+          s.yieldKind = src.yield || null; s.yieldTime = src.time || null;
           if (src.item) src.item.claimed = c.id;
           c.attn = { type: s.src.type, id: s.src.id, noun: (src.item || src.node).noun, x: (src.item || src.node).x, z: (src.item || src.node).z };
         }
         var t = resolve(game, s.src);
         if (!t || (t.type === "item" && t.ref.heldBy != null && t.ref.heldBy !== c.id)) { s.src = null; p.fails++; return; }
-        var reach = C.radius(c) + t.r + 0.15;
-        if (SB.dist(t.x, t.z, c.x, c.z) > reach) { walkToward(c, t.x, t.z, dt, sp, game, reach); if (c.stuckT > 2) { c.stuckT = 0; s.src = null; p.fails++; } return; }
+        var reach = C.radius(c) + t.r + 0.15, dd = SB.dist(t.x, t.z, c.x, c.z);
+        if (dd > reach) {
+          if (s.best == null || dd < s.best - 0.25) { s.best = dd; s.bestT = s.t; }
+          walkToward(c, t.x, t.z, dt, sp, game, reach);
+          if (c.stuckT > 2 || s.t - s.bestT > 3) { c.stuckT = 0; unreachable(c, t.ref.id, game); if (t.type === "item" && t.ref.claimed === c.id) t.ref.claimed = null; s.src = null; s.best = null; p.fails++; }
+          return;
+        }
         s.work = (s.work || 0) + dt;
         c.anim.squash = Math.abs(Math.sin(s.work * 7)) * 0.15;
         if (t.type === "item") { C.carry(c, t.ref, game, false); t.ref.reserved = c.id; p.i++; return; }
-        var g = Id.GATHER[t.kind];
+        var g = s.yieldKind ? [s.yieldKind, null, s.yieldTime || 2] : Id.GATHER[t.kind];
         if (!g) { s.src = null; p.fails++; return; }
         if (s.work >= g[2]) {
           var it = SB.World.add(w, game, g[0], c.x, c.z, {});
@@ -955,6 +1013,7 @@
   function endPlan(c, game, ok) {
     var p = c.plan;
     c.plan = null;
+    habit(c, "plan", ok ? 0.6 + p.i * 0.2 : 0.15);
     SB.Ideas.inv(c, game).forEach(function (o) { o.reserved = null; });
     p.steps.forEach(function (s) { if (s.src && s.src.type === "item") { var o = SB.Game.byId(game, s.src.id); if (o && o.claimed === c.id) o.claimed = null; } });
     // the plan's outcome teaches the brain whether "make"/"build" was worth it, and how much this idea is worth
@@ -981,6 +1040,7 @@
     else SB.Brain.reinforce(c.brain, SB.clamp(delta * 0.7, -1, 1));
     c.lastReward = SB.clamp(delta, -1, 1);
     c.stats.lessons = (c.stats.lessons || 0) + 1;
+    habit(c, "think", 0.35); // being taught grows the next generation's brains
   }
   C.lesson = lesson;
 
@@ -1239,7 +1299,7 @@
 
     // interrupts
     if (c.species === "smol") {
-      if (c.plan && (ch.fear > 0.65 || ch.hunger > 0.88 || ch.pain > 0.6 || (ch.sleepy > 0.9 && c.stage < 3))) endPlan(c, game, false);
+      if (c.plan && (ch.fear > 0.65 || ch.hunger > 0.78 || ch.pain > 0.6 || (ch.sleepy > 0.9 && c.stage < 3))) endPlan(c, game, false);
       if (c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
       if (ch.hunger > 0.45 && !c.plan && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
         c.foodT = 0.5;

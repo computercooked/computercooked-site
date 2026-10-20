@@ -142,11 +142,12 @@
 
   /* ---------------- decision ---------------- */
 
-  B.decide = function (b, rng, mask, bias) {
+  // tempScale < 1 narrows the choice (an urgent need makes a creature less playful about what it does)
+  B.decide = function (b, rng, mask, bias, tempScale) {
     fwd(b, b.x, b.acts);
     if (bias) for (var k = 0; k < NO; k++) b.q[k] += bias[k];
     tables(b, b.x, b.q);
-    var a = sample(b, b.q, NO, b.temp, mask, rng);
+    var a = sample(b, b.q, NO, b.temp * (tempScale || 1), mask, rng);
     if (a < 0) a = 0;
     for (var t = 0; t < NTR; t++) b.traces[t].e *= 0.5;
     var tr = b.traces[b.traceHead];
@@ -251,6 +252,15 @@
   B.reinforce = function (b, reward) {
     reward = reward > 1 ? 1 : reward < -1 ? -1 : reward || 0;
     var newest = (b.traceHead + NTR - 1) % NTR;
+    // lived experience also keeps the noun -> verb lesson table honest (a few bad meals shouldn't ban food forever)
+    var ntr = b.traces[newest];
+    if (ntr.e > 0.5) {
+      for (var ni = 0; ni < NN; ni++) if (ntr.x[IN.NOUN0 + ni] > 0.5) {
+        var kk = ni * NO + ntr.a, cur = b.nv[kk];
+        if (reward > 0.05 && cur < 0) b.nv[kk] = Math.min(0, cur + reward * 0.35);
+        break;
+      }
+    }
     for (var t = 0; t < NTR; t++) {
       var tr = b.traces[t];
       if (tr.e < 0.05) continue;

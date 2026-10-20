@@ -68,12 +68,12 @@
 
   SB.STAGES = [
     { id: "baby", name: "baby", from: 0, scale: 0.55 },
-    { id: "kid", name: "kid", from: 150, scale: 0.72 },
-    { id: "teen", name: "teen", from: 330, scale: 0.86 },
-    { id: "adult", name: "adult", from: 540, scale: 1 },
-    { id: "elder", name: "elder", from: 3000, scale: 0.97 }
+    { id: "kid", name: "kid", from: 90, scale: 0.72 },
+    { id: "teen", name: "teen", from: 190, scale: 0.86 },
+    { id: "adult", name: "adult", from: 300, scale: 1 },
+    { id: "elder", name: "elder", from: 2100, scale: 0.97 }
   ];
-  SB.BASE_LIFESPAN = 3900; // ± genome.lifespan (about 65 min at 1x)
+  SB.BASE_LIFESPAN = 2700; // ± genome.lifespan (about 45 min at 1x)
 
   /* ---------------- the evolution ladder ----------------
      A smol's tier comes from its genes (see genome.js tierOf). Each tier unlocks verbs and a new look. */
@@ -118,7 +118,7 @@
     apple: { noun: "food", label: "apple", emoji: "🍎", r: 0.16, color: 0xe5484d, food: { hunger: -0.42 }, chem: { glucose: 0.32 }, rots: 300, desc: "falls from apple trees. crunchy, honest food." },
     berry: { noun: "food", label: "berries", emoji: "🫐", r: 0.13, color: 0x6c5ce7, food: { hunger: -0.28, bored: -0.04 }, chem: { glucose: 0.24 }, rots: 220, desc: "grows on berry bushes. small but sweet." },
     banana: { noun: "food", label: "sunfruit", emoji: "🍌", r: 0.16, color: 0xffd23f, food: { hunger: -0.45 }, chem: { glucose: 0.36 }, rots: 260, desc: "hangs from jungle palms. a smol favourite." },
-    nut: { noun: "food", label: "hardnut", emoji: "🌰", r: 0.13, color: 0x9a6a3a, food: { hunger: -0.05 }, chem: {}, rots: 0, shell: "nutmeat", desc: "drops from pines. impossible to eat... unless you crack it with a rock." },
+    nut: { noun: "material", label: "hardnut", emoji: "🌰", r: 0.13, color: 0x9a6a3a, food: { hunger: -0.05 }, chem: {}, rots: 0, shell: "nutmeat", desc: "drops from pines. impossible to eat... unless you crack it with a rock." },
     nutmeat: { noun: "food", label: "nut meat", emoji: "🥜", r: 0.12, color: 0xe6c08a, food: { hunger: -0.5 }, chem: { glucose: 0.25, fat: 0.25 }, rots: 400, desc: "what's inside a hardnut. rich and filling." },
     fish: { noun: "food", label: "fish", emoji: "🐟", r: 0.17, color: 0x7fb7d6, food: { hunger: -0.5 }, chem: { glucose: 0.2, fat: 0.3 }, rots: 200, raw: true, desc: "caught with a spear. better cooked." },
     meat: { noun: "food", label: "hopper meat", emoji: "🍖", r: 0.16, color: 0xd9776a, food: { hunger: -0.55 }, chem: { fat: 0.35, glucose: 0.15 }, rots: 180, raw: true, desc: "from a hunted hopper. raw meat can make a smol sick. cook it." },
@@ -220,7 +220,7 @@
     totem: { approach: { bored: -0.05 }, play: { bored: -0.2 }, use: {}, pray: {} },
     wonder: { approach: { bored: -0.1, fear: -0.1 }, play: { bored: -0.3 }, pray: {} }
   };
-  SB.SELF_STIM = { idle: { tired: -0.05 }, wander: { bored: -0.07 }, talk: { lonely: -0.03 }, sleep: {}, drop: {}, pray: { fear: -0.1, lonely: -0.08 }, make: {}, build: {} };
+  SB.SELF_STIM = { idle: { tired: -0.05 }, wander: { bored: -0.07 }, talk: { lonely: -0.03 }, sleep: {}, drop: {}, pray: {}, make: {}, build: {} };
 
   /* What a sensible smol does about each drive (starting instincts, IQ test). */
   SB.GOOD = [
