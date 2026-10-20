@@ -58,6 +58,15 @@
     if (url && foot && !foot.querySelector(".cc-tip")) foot.insertAdjacentHTML("afterbegin", tipLine(url));
   });
 
+  // follow loop (assets/follow.js): the house card in the bottom slot (below every shelf, so it never pushes a
+  // play button down) and a compact follow row in the footer
+  if (window.ccFollow) {
+    var slot = document.querySelector('.ad-slot[data-slot="games-hub-bottom"]');
+    if (slot && !slot.firstChild) { slot.innerHTML = ccFollow.card("hub-card"); slot.removeAttribute("aria-hidden"); ccFollow.bind(slot); }
+    var footRow = document.querySelector(".footer");
+    if (footRow && !footRow.querySelector(".cc-follow-row")) { footRow.insertAdjacentHTML("beforeend", ccFollow.row("hub-footer")); ccFollow.bind(footRow); }
+  }
+
   var live = fetch("/api/health").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return !!(j && j.db); }).catch(function () { return false; });
   var off = function () { return Promise.resolve(null); };
   Promise.all([

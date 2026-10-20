@@ -33,16 +33,16 @@ const social = (r) => r.ref.tiktok + r.ref.youtube + r.ref.instagram + r.ref.x +
 
 console.log(`computer cooked games: daily digest, ${d.from} to ${d.to} (${d.tz}; the last day is so far)\n`);
 table(
-  ["day", "plays", "players", "new", "d1 back", "tiktok", "yt", "ig", "x", "thr/bsky", "search", "other", "direct", "internal", "app", "embed", "next/run", "shares", "dares m/s/o/b", "accts"],
+  ["day", "plays", "players", "new", "d1 back", "tiktok", "yt", "ig", "x", "thr/bsky", "search", "other", "direct", "internal", "app", "embed", "next/run", "shares", "follows tt/yt/ig/x", "dares m/s/o/b", "accts"],
   d.rows.map((r) => [
     r.date + (r.partial ? "*" : ""), r.plays, r.players, r.new_players,
     r.d1_return ? `${r.d1_return.back}/${r.d1_return.of}` : "-",
     r.ref.tiktok, r.ref.youtube, r.ref.instagram, r.ref.x, r.ref.threads + r.ref.bluesky, r.ref.search, r.ref.other, r.ref.direct, r.ref.internal, r.ref.app, r.ref.embed,
-    dash(r.next.per_run), r.game_shares, `${r.dares.made}/${r.dares.sent}/${r.dares.opened}/${r.dares.beaten}`, r.new_accounts,
+    dash(r.next.per_run), r.game_shares, r.follow_clicks ? `${r.follow_clicks.tiktok}/${r.follow_clicks.youtube}/${r.follow_clicks.instagram}/${r.follow_clicks.x}` : "-", `${r.dares.made}/${r.dares.sent}/${r.dares.opened}/${r.dares.beaten}`, r.new_accounts,
   ])
 );
-const tot = d.rows.reduce((a, r) => ({ plays: a.plays + r.plays, social: a.social + social(r), shares: a.shares + r.game_shares, dares: a.dares + r.dares.sent, accts: a.accts + r.new_accounts }), { plays: 0, social: 0, shares: 0, dares: 0, accts: 0 });
-console.log(`\ntotal: ${tot.plays} plays (${tot.social} from social), ${tot.shares} game shares, ${tot.dares} dares sent, ${tot.accts} new accounts\n`);
+const tot = d.rows.reduce((a, r) => ({ plays: a.plays + r.plays, social: a.social + social(r), shares: a.shares + r.game_shares, follows: a.follows + (r.follow_clicks ? Object.values(r.follow_clicks).reduce((s, n) => s + n, 0) : 0), dares: a.dares + r.dares.sent, accts: a.accts + r.new_accounts }), { plays: 0, social: 0, shares: 0, follows: 0, dares: 0, accts: 0 });
+console.log(`\ntotal: ${tot.plays} plays (${tot.social} from social), ${tot.shares} game shares, ${tot.follows} follow clicks, ${tot.dares} dares sent, ${tot.accts} new accounts\n`);
 
 console.log("by game (whole window)");
 table(

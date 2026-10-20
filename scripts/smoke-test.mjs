@@ -126,6 +126,16 @@ r = await post("/api/share", { game: "smol-brains", how: "pigeon", anon });
 ok(r.status === 400, "share-this-game: unknown method refused", r.status);
 r = await post("/api/share", { game: "no-such-game", how: "copy", anon });
 ok(r.status === 404, "share-this-game: unknown game refused", r.status);
+// follow loop: the house card script, the hub loads it, and follow clicks are counted (smoke ones not stored)
+const followJs = await (await get("/assets/follow.js")).text();
+ok(["https://www.tiktok.com/@computercooked", "https://www.youtube.com/@computercooked?sub_confirmation=1", "https://www.instagram.com/computercooked/", "https://x.com/computercooked"].every((u) => followJs.includes(u)) && followJs.includes('rel="noopener"'), "follow.js has the four follow links (new tab, noopener)");
+ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loads the follow card");
+r = await (await post("/api/follow", { platform: "tiktok", slot: "hub-card", anon })).json();
+ok(r.ok && r.test === true, "follow click accepted (smoke traffic not stored)", r);
+r = await post("/api/follow", { platform: "myspace", slot: "hub-card", anon });
+ok(r.status === 400, "follow click: unknown platform refused", r.status);
+r = await post("/api/follow", { platform: "x", slot: "popup", anon });
+ok(r.status === 400, "follow click: unknown slot refused", r.status);
 r = await post("/api/dare/" + dare.id + "/shared", { how: "carrier pigeon" });
 ok(r.status === 400, "unknown share method refused", r.status);
 r = await post("/api/dare/nosuchdare1/shared", { how: "share" });
@@ -529,10 +539,13 @@ if (admin) {
   const dRow = dg.rows?.[dg.rows.length - 1];
   ok(dg.ok && dg.tz === "America/Los_Angeles" && dg.rows.length === 3 && dRow.partial && "tiktok" in dRow.ref && "per_run" in dRow.next && Array.isArray(dRow.games) && Array.isArray(dg.games),
     "admin digest: 3 Pacific days with refs, next, shares, dares, games", dRow && { date: dRow.date, plays: dRow.plays });
+  ok(dRow.follow_clicks && "tiktok" in dRow.follow_clicks && "x" in dRow.follow_clicks, "admin digest: follow clicks by platform", dRow.follow_clicks);
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
   await post("/api/events", { anon, events: [{ t: "start", id: rid(), game: "crash", v: "1" }] });
   const dg2 = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
   ok(dg2.rows[2].plays === dRow.plays, "admin digest leaves smoke plays out", { before: dRow.plays, after: dg2.rows[2].plays });
+  const fcl = r.follow_clicks;
+  ok(fcl && typeof fcl.total === "number" && ["tiktok", "youtube", "instagram", "x"].every((p) => p in fcl.by_platform) && "post-run" in fcl.by_slot, "admin metrics: follow clicks by platform and slot", fcl);
   const gsh = r.game_shares;
   ok(gsh && typeof gsh.sent === "number" && "via_card" in gsh && "via_download" in gsh, "admin metrics: share-this-game sends", gsh);
   const df = r.dares;

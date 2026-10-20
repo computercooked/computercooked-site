@@ -17,6 +17,7 @@ import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
 import { digest } from "./digest.js";
+import { followClick } from "./follow.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
 
 export default {
@@ -110,6 +111,8 @@ async function api(req, env, url) {
   if (dm && method === "POST" && dm[2] === "/shared") return sharedDare(req, env, ip, dm[1]);
   // "share this game" after a run with no score
   if (route === "POST /api/share") return sharedGame(req, env, ip, await catalogOf(env, origin));
+  // "follow @computercooked" button clicks (assets/follow.js)
+  if (route === "POST /api/follow") return followClick(req, env, ip);
 
   if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin, user);
 

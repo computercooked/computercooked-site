@@ -324,6 +324,18 @@
       o.querySelector(".cc-card-copy").onclick = function () { copy(d); };
     }
   }
+  var follow = null;
+  function loadFollow() {
+    if (!follow) follow = new Promise(function (ok, bad) {
+      if (window.ccFollow) return ok(window.ccFollow);
+      var s = document.createElement("script");
+      s.src = "/assets/follow.js";
+      s.onload = function () { window.ccFollow ? ok(window.ccFollow) : bad(new Error("no follow")); };
+      s.onerror = function () { follow = null; bad(new Error("no follow")); };
+      document.head.appendChild(s);
+    });
+    return follow;
+  }
   var cardMaker = null;
   function loadCardMaker() {
     if (!cardMaker) cardMaker = new Promise(function (ok, bad) {
@@ -387,7 +399,14 @@
             '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
             '<span class="cc-next-k">' + esc(p.label) + "</span><b>" + esc(p.g.title) + "</b></a>";
         }).join("") + "</div></nav>");
-      tipUrl().then(function (url) { if (url) rail.insertAdjacentHTML("beforeend", tipLine(url)); });
+      // the end of the rail holds one house ask: the tip jar when it's on, else (unless this run was a new best,
+      // where the dare is the ask) the follow card (assets/follow.js, loaded now)
+      tipUrl().then(function (url) {
+        if (url) { rail.insertAdjacentHTML("beforeend", tipLine(url)); return; }
+        var d = document.getElementById("cc-dare");
+        if (d && d.classList.contains("is-best")) return;
+        loadFollow().then(function (f) { if (!rail.querySelector(".cc-follow")) { rail.insertAdjacentHTML("beforeend", f.card("post-run")); f.bind(rail); } }, function () {});
+      });
       var dareBox = document.getElementById("cc-dare");
       if (dareBox) dareBox.insertAdjacentElement("afterend", rail);
       else board.insertAdjacentElement("beforebegin", rail);
