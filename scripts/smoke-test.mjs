@@ -62,6 +62,11 @@ r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p5, anon: ano
 ok(r.ok && r.beaten && !r.first, "beating the same dare twice counts once", r);
 r = await (await get("/api/dare/" + dare.id)).json();
 ok(r.beats === 1, "dare beat count", r.beats);
+// link previews: game pages carry a card; dare links get "can you beat N?" tags from the dare itself
+let page = await (await get("/games/crash/")).text();
+ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
+page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
+ok(/property="og:title" content="can you beat 40 on CRASH\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
 
 r = await (await get("/api/stats")).json();
 ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");
@@ -113,7 +118,8 @@ if (local) {
   x = await run(12000, 999999);
   ok(x.r.results?.[x.id]?.xp === null, "xp: out-of-bounds score earns nothing");
   let capped = false;
-  for (let i = 0; i < 4 && !capped; i++) { x = await run(12000, 40); capped = (x.r.results?.[x.id]?.xp?.parts || []).some((p) => p.kind === "cap"); }
+  // xp per run depends on where 40 sits on the board, so keep running until the 150 cap bites
+  for (let i = 0; i < 15 && !capped; i++) { x = await run(12000, 40); capped = (x.r.results?.[x.id]?.xp?.parts || []).some((p) => p.kind === "cap"); }
   ok(capped, "xp: per-game daily cap");
   r = await ev([{ t: "achieve", id: rid(), game: "crash", ach: "not_a_real_one" }]);
   ok(r.ok && r.achievements.length === 0, "achievements: undeclared ids ignored");

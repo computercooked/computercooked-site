@@ -1,5 +1,6 @@
 // Computer Cooked Games platform Worker.
-// Static files are served by the assets binding; only /api/* runs this code (run_worker_first in wrangler.jsonc).
+// Static files are served by the assets binding; /api/*, /u/* and /games/* run this code first (run_worker_first in
+// wrangler.jsonc). Game files other than dare links pass straight through to the assets.
 import { json, bad, HttpError } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
@@ -8,7 +9,7 @@ import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
-import { makeDare, getDare, beatDare } from "./dares.js";
+import { makeDare, getDare, beatDare, dareMeta } from "./dares.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -20,6 +21,9 @@ export default {
     // /u/<username> is one static page that reads the name from the URL
     // (usernames are letters, digits and _, so the page's own /u/u.js and /u/u.css never match)
     if (/^\/u\/[A-Za-z0-9_]{3,16}\/?$/.test(url.pathname)) return env.ASSETS.fetch(new Request(url.origin + "/u/", req));
+    // dare links get their own link-preview tags; every other game file goes straight to the assets
+    const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
+    if (gm && (url.searchParams.has("vs") || url.searchParams.has("d"))) return dareMeta(req, env, url, gm[1]);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
       return await api(req, env, url);
