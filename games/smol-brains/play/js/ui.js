@@ -44,7 +44,7 @@
     game = g; opts = opts || {};
     root = document.getElementById("ui");
     clear(root);
-    buildHud(); buildToasts(); buildDock();
+    buildHud(); buildToasts(); buildDock(); buildMinimap();
     SB.Input.init(document.getElementById("stage"), g);
     wireBus();
     var sp = document.getElementById("splash");
@@ -60,10 +60,79 @@
     setTool(g.hand.tool || "grab");
   };
   UI.setGame = function (g) {
-    game = g; SB.Input.setGame(g);
+    game = g; SB.Input.setGame(g); mini.base = null;
     closeSheet(); state.inspect = null;
     if (el.goals) el.goals.innerHTML = "";
   };
+
+  /* ---------------- minimap ----------------
+     The whole island in a corner. The white outline is what the camera sees; tap or drag anywhere on
+     the map to look there. Lime dots are smols, white squares buildings, red dots grumps. */
+  var mini = { base: null, t: 0, drag: null };
+  function buildMinimap() {
+    var cv = h("canvas", { class: "minimap", "aria-label": "island map: tap or drag to move the camera" });
+    el.mini = cv; mini.base = null;
+    root.appendChild(cv);
+    var toWorld = function (e) {
+      var r = cv.getBoundingClientRect(), N = game.world.T.N;
+      return { x: SB.clamp((e.clientX - r.left) / r.width, 0, 1) * N, z: SB.clamp((e.clientY - r.top) / r.height, 0, 1) * N };
+    };
+    var look = function (p) {
+      var c = R.camera; c.follow = null; c.vx = c.vz = 0;
+      c.x = p.x - (mini.drag ? mini.drag.dx : 0); c.z = p.z - (mini.drag ? mini.drag.dz : 0);
+    };
+    cv.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+      var p = toWorld(e), c = R.camera;
+      // grabbed inside the view outline: drag it from where you grabbed; elsewhere: jump there
+      var inside = SB.dist(p.x, p.z, c.x, c.z) < Math.max(4, c.halfH * 0.8);
+      mini.drag = inside ? { dx: p.x - c.x, dz: p.z - c.z } : { dx: 0, dz: 0 };
+      look(p);
+    });
+    cv.addEventListener("pointermove", function (e) { if (mini.drag) { e.preventDefault(); look(toWorld(e)); } });
+    var end = function () { mini.drag = null; };
+    cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+    cv.addEventListener("wheel", function (e) { e.preventDefault(); R.zoomAt(e.deltaY > 0 ? 1.15 : 0.87); }, { passive: false });
+  }
+  function drawMinimap(dt) {
+    var cv = el.mini;
+    if (!cv || !game) return;
+    var hide = (game.settings && game.settings.minimap === false) || state.introRunning || (game.tutorial && !game.tutorial.done && (state.tutStep || 0) < 2);
+    cv.classList.toggle("hide", !!hide);
+    cv.classList.toggle("sheetopen", !!state.sheet);
+    if (hide) return;
+    var T = game.world.T, N = T.N;
+    if (!mini.base) {
+      mini.base = document.createElement("canvas"); mini.base.width = mini.base.height = N;
+      var bx = mini.base.getContext("2d"), img = bx.createImageData(N, N);
+      img.data.set(SB.WorldGen.minimap(T)); bx.putImageData(img, 0, 0);
+    }
+    if ((mini.t -= dt) > 0 && !mini.drag) return;
+    mini.t = 0.2;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2), size = cv.clientWidth || 120;
+    if (cv.width !== Math.round(size * dpr)) { cv.width = cv.height = Math.round(size * dpr); }
+    var x = cv.getContext("2d"), k = cv.width / N;
+    x.imageSmoothingEnabled = true;
+    x.drawImage(mini.base, 0, 0, cv.width, cv.height);
+    // buildings, eggs, creatures
+    game.world.structures.forEach(function (st) { x.fillStyle = st.done ? "#f5f3ed" : "rgba(245,243,237,0.5)"; var r = Math.max(2, 1.6 * k); x.fillRect(st.x * k - r / 2, st.z * k - r / 2, r, r); });
+    game.world.items.forEach(function (o) { if (o.kind === "egg" && o.heldBy == null) { x.fillStyle = "#fff6d6"; x.beginPath(); x.arc(o.x * k, o.z * k, Math.max(1.6, 1.2 * k), 0, 6.283); x.fill(); } });
+    game.creatures.forEach(function (c) {
+      if (!c.alive) return;
+      var sel = c.id === game.selectedId, r = (sel ? 2.6 : 1.7) * Math.max(1, k * 0.9);
+      x.fillStyle = c.species === "grump" ? "#ff5f5f" : sel ? "#ffffff" : "#c5ff49";
+      x.beginPath(); x.arc(c.x * k, c.z * k, r, 0, 6.283); x.fill();
+      if (sel) { x.strokeStyle = "#101114"; x.lineWidth = 1; x.stroke(); }
+    });
+    // what the camera sees
+    var fp = R.viewFootprint();
+    x.beginPath(); fp.forEach(function (p, i) { if (i) x.lineTo(p.x * k, p.z * k); else x.moveTo(p.x * k, p.z * k); }); x.closePath();
+    x.fillStyle = "rgba(255,255,255,0.18)"; x.fill();
+    x.strokeStyle = "rgba(16,17,20,0.7)"; x.lineWidth = 3.5 * dpr; x.stroke();
+    x.strokeStyle = "#ffffff"; x.lineWidth = 1.8 * dpr; x.stroke();
+    x.fillStyle = "#ffffff"; x.beginPath(); x.arc(R.camera.x * k, R.camera.z * k, 1.8 * dpr, 0, 6.283); x.fill();
+  }
 
   /* ---------------- HUD ---------------- */
   function buildHud() {
@@ -1031,6 +1100,7 @@
     if (k === "]") { cycleSpeed(1); return true; }
     if (k >= "1" && k <= "5") { setTool(TOOLS[+k - 1][0], true); return true; }
     if (k === "t") { setTool("talk", true); setTimeout(function () { if (el.talkInput) el.talkInput.focus(); }, 30); e.preventDefault(); return true; }
+    if (k === "m") { game.settings = game.settings || {}; game.settings.minimap = game.settings.minimap === false; toast(game.settings.minimap === false ? "map hidden (m to show)" : "map on"); return true; }
     if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (c && c.type === "creature") openBrain(c); return true; }
     if (k === "f") { var c2 = SB.Game.byId(game, game.selectedId); if (c2) SB.Input.follow(R.camera.follow ? null : c2); return true; }
     if (k === "m") { openMenu(state.menuTab); return true; }
@@ -1048,6 +1118,7 @@
       if ((perfT -= dt) < 0) { perfT = 0.5; perfEl.textContent = Math.round(1000 / R.perf.ft) + " fps · " + R.perf.ft.toFixed(1) + " ms · " + R.perf.draws + " draws · " + Math.round(R.perf.tris / 1000) + "k tris · res " + R.quality.scale.toFixed(2) + " · sim " + (SB.Game.stepMs || 0).toFixed(2) + " ms · " + game.creatures.length + " creatures · " + game.world.items.length + " items"; }
     }
     updateHud(dt);
+    drawMinimap(dt);
     if (state.sheet === "smol") renderSmol(false);
     else if (state.sheet === "talk") { if (el.talkWords) updateTalk(false); }
     else if (state.sheet === "magic") { if ((magicT -= dt) < 0) { magicT = 0.5; updateMagic(); } }

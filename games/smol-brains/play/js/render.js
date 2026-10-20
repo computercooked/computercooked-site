@@ -597,6 +597,21 @@
     return out;
   };
   // CSS pixel -> ground point {x, y, z} (marches the view ray into the heightfield / water)
+  // the patch of ground the camera sees: the four screen corners cast onto a flat plane at the
+  // height of the ground under the camera (the minimap draws this as the view outline)
+  R.viewFootprint = function () {
+    var c = cam, y0 = T ? WG.heightAt(T, c.x, c.z) : 0, out = [];
+    var corners = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
+    for (var i = 0; i < 4; i++) {
+      var nx = corners[i][0], ny = corners[i][1];
+      var ox = c.eye[0] + c.right[0] * nx * c.halfW + c.up[0] * ny * c.halfH;
+      var oy = c.eye[1] + c.right[1] * nx * c.halfW + c.up[1] * ny * c.halfH;
+      var oz = c.eye[2] + c.right[2] * nx * c.halfW + c.up[2] * ny * c.halfH;
+      var t = (oy - y0) / -c.fwd[1];
+      out.push({ x: ox + c.fwd[0] * t, z: oz + c.fwd[2] * t });
+    }
+    return out;
+  };
   R.pickGround = function (sx, sy, ignoreWater) {
     if (!T) return null;
     var c = cam, nx = (sx / W) * 2 - 1, ny = 1 - (sy / H) * 2;

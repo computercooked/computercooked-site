@@ -199,3 +199,10 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .namebox input { flex: 1; font: 800 16px var(--mono); }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* minimap: the island in a corner; the white outline is the view */
+.minimap { position: absolute; left: calc(12px + var(--sal)); bottom: calc(12px + var(--sab)); width: 132px; height: 132px; border-radius: 14px; border: 2px solid rgba(245, 243, 237, 0.85); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); background: #1d4f73; pointer-events: auto; touch-action: none; cursor: crosshair; }
+@media (max-width: 700px) {
+  .minimap { width: 92px; height: 92px; border-radius: 12px; bottom: calc(84px + var(--sab)); left: calc(8px + var(--sal)); }
+  .minimap.sheetopen { display: none; }
+}
