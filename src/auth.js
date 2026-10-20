@@ -118,6 +118,30 @@ export async function setAvatar(req, env, user) {
   return json({ ok: true, avatar: b.avatar });
 }
 
+// POST /api/me/delete {password}: hard-deletes the account and everything tied to it.
+// Plays, feedback and reports stay for the game stats, with the account link removed.
+export async function deleteAccount(req, env, user, ip) {
+  if (limited("delete:" + ip, 10, 600000)) return bad("too many tries. wait a few minutes.", 429);
+  const b = await readJson(req, 4096);
+  const row = await env.DB.prepare("SELECT pass_hash, salt, iterations FROM users WHERE id = ?").bind(user.id).first();
+  if (!row) return bad("no such account", 404);
+  const hash = await hashPassword(String(b.password || ""), unb64(row.salt), row.iterations);
+  if (!safeEqual(hash, row.pass_hash)) return bad("wrong password.", 401);
+  const id = user.id;
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM saves WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM favorites WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM scores WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM uploads WHERE user_id = ?").bind(id),
+    env.DB.prepare("UPDATE plays SET user_id = NULL WHERE user_id = ?").bind(id),
+    env.DB.prepare("UPDATE feedback SET user_id = NULL WHERE user_id = ?").bind(id),
+    env.DB.prepare("UPDATE reports SET user_id = NULL WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id),
+  ]);
+  return json({ ok: true, deleted: true }, 200, { "set-cookie": cookie("", 0, isSecure(req)) });
+}
+
 // Plays made on this device before signing up/in get credited to the account.
 async function linkAnon(env, userId, anon, username) {
   if (typeof anon !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) return;

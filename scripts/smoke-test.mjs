@@ -62,10 +62,47 @@ if (local) {
   ok(r.status === 401, "wrong password refused");
   r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
   ok(r.ok, "login");
+  // cloud saves (slice A)
+  const put = (p, b, h = {}) => fetch(base + p, { method: "PUT", headers: { ...H, cookie, ...h }, body: JSON.stringify(b) });
+  const t0 = Date.now();
+  r = await (await put("/api/saves/smol-brains/main", { data: { seed: 7, savedAt: t0, hello: "smol" }, updated_at: t0, version: "1" })).json();
+  ok(r.ok && r.save?.bytes > 0, "save to cloud", r.save);
+  r = await (await get("/api/saves/smol-brains/main", { cookie })).json();
+  ok(r.save?.data?.hello === "smol" && r.save.updated_at === t0, "load cloud save");
+  r = await put("/api/saves/smol-brains/main", { data: { again: 1 } });
+  r = await put("/api/saves/smol-brains/main", { data: { again: 2 } });
+  ok(r.status === 429, "save rate limited per slot", r.status);
+  r = await (await put("/api/saves/smol-brains/old", { data: { v: "late" }, updated_at: t0 - 5000 })).json();
+  r = await (await put("/api/saves/smol-brains/old", { data: { v: "older" }, updated_at: t0 - 9000 })).json();
+  ok(r.stale === true, "an older copy never overwrites a newer one");
+  r = await put("/api/saves/smol-brains/big", { data: "x".repeat(520 * 1024) });
+  ok(r.status === 413, "over 512 KB refused", r.status);
+  for (const s of ["s3", "s4", "s5"]) await put("/api/saves/smol-brains/" + s, { data: 1 });
+  r = await put("/api/saves/smol-brains/s6", { data: 1 });
+  ok(r.status === 409, "max 5 slots per game", r.status);
+  r = await (await get("/api/saves/smol-brains", { cookie })).json();
+  ok(r.ok && r.slots.length === 5, "slot list", r.slots?.map((s) => s.slot));
+  r = await fetch(base + "/api/saves/smol-brains/main", { method: "DELETE", headers: { ...H, cookie } });
+  ok(r.ok, "delete a slot");
+  r = await get("/api/saves/smol-brains/main");
+  ok(r.status === 401, "saves need a login", r.status);
+  r = await fetch(base + "/api/saves/smol-brains/main", { method: "PUT", headers: { "content-type": "application/json", origin: "https://evil.example", cookie }, body: "{}" });
+  ok(r.status === 403, "cross-site save refused", r.status);
+
   r = await (await post("/api/auth/logout", {}, { cookie })).json();
   ok(r.ok, "logout");
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user === null, "session gone after logout");
+
+  // delete account: wrong password refused, then everything goes
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
+  const c2 = (r.headers.get("set-cookie") || "").split(";")[0];
+  r = await post("/api/me/delete", { password: "nope-nope-1" }, { cookie: c2 });
+  ok(r.status === 401, "delete account needs the password", r.status);
+  r = await (await post("/api/me/delete", { password: "pw-for-smoke-1" }, { cookie: c2 })).json();
+  ok(r.deleted === true, "delete account");
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
+  ok(r.status === 401, "deleted account can't log in", r.status);
 }
 
 r = await get("/api/admin/metrics");

@@ -65,6 +65,7 @@
         if (r.under13) { ls("cc-noacct", String(Date.now())); noAccount(); return; }
         if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
         msg.textContent = "";
+        ls("cc-user-change", String(Date.now())); // open game tabs pick up the login and sync their saves
         showProfile(r.user);
       });
     });
@@ -73,7 +74,7 @@
   submit($("#form-signup"), "/api/auth/signup", function () { return { avatar: chosen }; });
 
   $("#btn-logout").addEventListener("click", function () {
-    api("/api/auth/logout", {}).then(function () { location.reload(); });
+    api("/api/auth/logout", {}).then(function () { ls("cc-user-change", String(Date.now())); location.reload(); });
   });
 
   /* ---------- profile ---------- */

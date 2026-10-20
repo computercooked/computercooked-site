@@ -2,7 +2,8 @@
 // Static files are served by the assets binding; only /api/* runs this code (run_worker_first in wrangler.jsonc).
 import { json, bad, HttpError } from "./util.js";
 import { ensureSchema } from "./db.js";
-import { currentUser, signup, login, logout, setAvatar } from "./auth.js";
+import { currentUser, signup, login, logout, setAvatar, deleteAccount } from "./auth.js";
+import { savesRoute } from "./saves.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
@@ -61,8 +62,11 @@ async function api(req, env, url) {
       case "POST /api/me/favorite": return favorite(req, env, user);
       case "POST /api/me/avatar": return setAvatar(req, env, user);
       case "POST /api/me/upload": return uploadGame(req, env, ip, user);
+      case "POST /api/me/delete": return deleteAccount(req, env, user, ip);
     }
   }
+
+  if (path.startsWith("/api/saves/")) return savesRoute(req, env, user, path);
 
   if (path.startsWith("/api/admin/")) {
     if (!isAdmin(req, env, ip)) return bad("nope", 401);
