@@ -58,6 +58,7 @@
     return (me ? api("/api/me/summary") : Promise.resolve(null)).then(function (sum) {
       if (sum && sum.ok) favs = sum.favorites;
       render(data);
+      jumpBackIn(data, sum && sum.ok ? sum : null);
     });
   }).catch(function () { /* keep the static cards */ });
 
@@ -87,8 +88,87 @@
       }).join(""));
     });
 
+    live.then(function (up) { return up ? api("/api/challenge") : null; }).then(weekly);
+
     var count = document.querySelector("[data-count]");
     if (count) count.textContent = ours.length + (ours.length === 1 ? " game. more cooking." : " games");
+  }
+
+  // "jump back in": games played on this device or account, newest first, with save state.
+  // A cloud save newer than this device's copy says so (it loads automatically in the game).
+  function ago(t) {
+    var m = Math.round((Date.now() - t) / 60000);
+    return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago";
+  }
+  function localSaves() {
+    var out = {};
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i), m = /^cc-save:([^:]+):/.exec(k || "");
+        if (!m) continue;
+        var o = JSON.parse(localStorage.getItem(k));
+        if (o && typeof o.t === "number" && o.d !== null) out[m[1]] = Math.max(out[m[1]] || 0, o.t);
+      }
+    } catch (e) {}
+    return out;
+  }
+  function jumpBackIn(data, sum) {
+    var byslug = {};
+    (data.games || []).forEach(function (g) { byslug[g.slug] = g; });
+    var seen = {}, local = localSaves(), cloud = {};
+    function touch(slug, t) { if (byslug[slug] && t) seen[slug] = Math.max(seen[slug] || 0, t); }
+    try { JSON.parse(localStorage.getItem("cc-recent") || "[]").forEach(function (x) { touch(x.g, x.t); }); } catch (e) {}
+    Object.keys(local).forEach(function (s) { touch(s, local[s]); });
+    if (sum) {
+      (sum.recent || []).forEach(function (r) { touch(r.game, r.last); });
+      (sum.saves || []).forEach(function (s) { cloud[s.game] = s.updated_at; touch(s.game, s.updated_at); });
+    }
+    var list = Object.keys(seen).sort(function (a, b) { return seen[b] - seen[a]; }).slice(0, 4);
+    if (!list.length) return;
+    document.getElementById("continue-row").innerHTML = list.map(function (slug) {
+      var g = byslug[slug], c = cloud[slug], l = local[slug], meta, cls = "";
+      if (c && (!l || c > l + 5000)) { meta = "newer save from another device ☁ · " + ago(c); cls = " is-sync"; }
+      else if (c) meta = "saved to your account ☁ · " + ago(c);
+      else if (l) meta = "saved on this device · " + ago(l);
+      else meta = "played " + ago(seen[slug]);
+      return '<li><a class="continue-card' + cls + '" href="/games/' + encodeURIComponent(slug) + '/">' +
+        '<img src="' + esc(g.thumbnail) + '" alt="" width="96" height="72" loading="lazy">' +
+        '<span class="continue-body"><b>' + esc(g.title) + "</b><small>" + esc(meta) + '</small></span><span class="continue-go" aria-hidden="true">▶</span></a></li>';
+    }).join("");
+    document.getElementById("hub-continue").hidden = false;
+  }
+
+  // weekly challenge + seasonal event (slice D2)
+  function weekly(r) {
+    if (!r || !r.ok || (!r.challenge && !r.events.length)) return;
+    var sec = document.getElementById("hub-weekly"), c = r.challenge;
+    var card = document.getElementById("weekly-card");
+    if (c) {
+      var days = Math.max(0, Math.ceil((Date.parse(c.ends_at) - Date.now()) / 86400000));
+      document.getElementById("weekly-ends").textContent = days <= 1 ? "ends today" : "ends in " + days + " days";
+      card.href = "/games/" + encodeURIComponent(c.game) + "/";
+      document.getElementById("weekly-thumb").src = c.thumbnail;
+      document.getElementById("weekly-title").textContent = c.title;
+      document.getElementById("weekly-goal").textContent = c.goal;
+      var meta = "+" + c.xp + " xp";
+      if (c.done) meta = "done ✓ · " + meta;
+      else if (c.best != null) meta += " · your best this week " + Math.round(c.best);
+      else if (!me) meta += " · log in to earn it";
+      if (c.finishers) meta += " · " + c.finishers + (c.finishers === 1 ? " player has" : " players have") + " done it";
+      document.getElementById("weekly-meta").textContent = meta;
+      card.classList.toggle("is-done", !!c.done);
+    } else {
+      card.hidden = true;
+      sec.querySelector(".shelf-head").textContent = "events";
+    }
+    var ev = r.events[0];
+    if (ev) {
+      var p = document.getElementById("weekly-event");
+      var until = new Date(ev.until + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).toLowerCase();
+      p.innerHTML = "<b>" + esc(ev.label) + " event</b> · finish any run before " + esc(until) + " for the <i>" + esc(ev.name) + "</i> badge" + (ev.got ? " · got it ✓" : " (+" + ev.xp + " xp)");
+      p.hidden = false;
+    }
+    sec.hidden = false;
   }
 
   document.addEventListener("click", function (e) {

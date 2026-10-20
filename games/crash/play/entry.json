@@ -1,0 +1,22 @@
+{
+  "slug": "crash",
+  "title": "CRASH",
+  "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
+  "thumbnail": "/games/crash/thumb.svg",
+  "made_by": "computer-cooked",
+  "controls": "drag / arrows / A D",
+  "size_kb": 877,
+  "tags": [
+    "arcade",
+    "dodge",
+    "60s runs"
+  ],
+  "version": "2",
+  "max_score_per_sec": 60,
+  "how_to": [
+    "tasks fall. touching one = +15° heat. big ones hurt more.",
+    "coffee −11°, fans −24°.",
+    "heat creeps up on its own. it gets worse. like real life.",
+    "score = time alive + dodges + pickups."
+  ]
+}

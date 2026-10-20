@@ -3,6 +3,22 @@
 export const now = () => Date.now();
 export const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// Consecutive played days ending at `from` (YYYY-MM-DD), counting back. Streak saver: one missed day is
+// forgiven when the day before it was played, at most once per 7 days, so one busy day doesn't reset a
+// long streak (a forgiven day doesn't count toward the length). -> {n, savedRecently}
+export function streakFrom(days, from) {
+  const set = days instanceof Set ? days : new Set(days);
+  const DAY = 86400000;
+  let n = 0, t = Date.parse(from + "T00:00:00Z"), i = 0, lastSave = -Infinity;
+  for (;;) {
+    if (set.has(dayOf(t))) n++;
+    else if (n > 0 && i - lastSave >= 7 && set.has(dayOf(t - DAY))) lastSave = i;
+    else break;
+    t -= DAY; i++;
+  }
+  return { n, savedRecently: lastSave >= 0 && lastSave < 7 };
+}
+
 // ISO-8601 week label, e.g. "2026-W43"
 export function weekOf(ms) {
   const d = new Date(ms);
@@ -79,7 +95,7 @@ export function deviceOf(ua = "") {
   return "desktop";
 }
 
-const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "other"];
+const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "other"];
 export const refOk = (r) => (REFS.includes(r) ? r : "other");
 
 // ---------- rate limiting (per isolate, memory only; IPs are never written to storage) ----------
@@ -100,6 +116,19 @@ const BLOCK = [
   "kike", "spic", "chink", "tranny", "whore", "slut", "dick", "cock", "pussy", "penis", "vagina",
   "jizz", "kys", "killyourself", "admin", "moderator", "computercooked", "official",
 ];
+// Free text (bios): word by word, so "peacock" or "spicy" pass while the words themselves don't.
+// The worst slurs are also caught inside words and with spaces or symbols between letters.
+const STRONG = ["nigg", "kike", "fagg", "faggot", "tranny", "retard", "chink", "killyourself"];
+export function textClean(text) {
+  const norm = (s) => s.toLowerCase().replace(/[@4]/g, "a").replace(/3/g, "e").replace(/[1!|]/g, "i").replace(/0/g, "o").replace(/[5$]/g, "s").replace(/7/g, "t");
+  const t = norm(String(text));
+  const squashed = t.replace(/[^a-z]/g, "");
+  if (STRONG.some((w) => squashed.includes(w))) return false;
+  const words = t.split(/[^a-z]+/).filter(Boolean);
+  const reserved = new Set(["admin", "moderator", "computercooked", "official"]);
+  return !words.some((w) => !reserved.has(w) && BLOCK.some((b) => !reserved.has(b) && (w === b || w === b + "s" || w === b + "es" || w === b + "ed" || w === b + "ing")));
+}
+
 export function nameClean(name) {
   const n = String(name).toLowerCase()
     .replace(/[@4]/g, "a").replace(/3/g, "e").replace(/[1!|]/g, "i").replace(/0/g, "o")

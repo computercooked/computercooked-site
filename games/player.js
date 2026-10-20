@@ -39,11 +39,18 @@
     frame.focus();
   });
 
+  // messages queue up (score rank, +xp, level up, achievements) instead of replacing each other
+  var toastQ = [];
   function toast(msg) {
+    if (toastQ.length < 5) toastQ.push(msg);
+    if (!toast.t) nextToast();
+  }
+  function nextToast() {
+    var msg = toastQ.shift();
+    if (msg == null) { toastEl.classList.remove("show"); toast.t = null; return; }
     toastEl.textContent = msg;
     toastEl.classList.add("show");
-    clearTimeout(toast.t);
-    toast.t = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+    toast.t = setTimeout(nextToast, 2200);
   }
   document.getElementById("btn-share").addEventListener("click", function () {
     var text = "play " + title + " on computer cooked games.";
@@ -69,12 +76,35 @@
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
 
+  // "embed this game" card (added by the Worker): copy the snippet
+  var embedBtn = document.querySelector("[data-copy-embed]");
+  if (embedBtn) {
+    var code = document.querySelector(".embed-code");
+    code.addEventListener("focus", function () { code.select(); });
+    embedBtn.addEventListener("click", function () {
+      code.select();
+      var done = function () { toast("embed code copied. paste it into your site's html."); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code.value).then(done, function () { toast("press ctrl+c (or ⌘c) to copy"); });
+      else toast("press ctrl+c (or ⌘c) to copy");
+    });
+  }
+
   /* ---------- SDK relay: the game (in the iframe) talks to cc-sdk.js on this page ---------- */
   var cc = window.cc;
   var sdkGame = false;
   if (cc) {
     var m = /\/games\/([a-z0-9-]+)\//.exec(location.pathname);
     if (m) cc._setGame(m[1], player.dataset.version || "1");
+    // save status from the game's cc.save(): one note per kind per visit, so autosaves don't spam
+    var saveNoted = {};
+    window.addEventListener("message", function (e) {
+      if (e.origin !== location.origin || e.source !== frame.contentWindow || !e.data || e.data.type !== "cc-save-status") return;
+      var s = e.data.state;
+      if (saveNoted[s]) return;
+      saveNoted[s] = true;
+      if (s === "cloud") toast("saved to your account ☁");
+      else if (s === "guest") toast("saved on this device. log in to keep it everywhere.");
+    });
     window.addEventListener("message", function (e) {
       if (e.origin !== location.origin || e.source !== frame.contentWindow || !e.data || e.data.type !== "cc-sdk") return;
       var d = e.data;
@@ -84,6 +114,11 @@
       if (d.op === "start") cc.start();
       else if (d.op === "score") cc.score(d.args);
       else if (d.op === "event") cc.event(d.args && d.args.name, d.args && d.args.data);
+      else if (d.op === "achieve") {
+        cc.achieve(d.args).then(function (result) {
+          try { frame.contentWindow.postMessage({ type: "cc-sdk-reply", id: d.id, result: result }, location.origin); } catch (err) {}
+        });
+      }
       else if (d.op === "end") {
         cc.end(d.args || {}).then(function (result) {
           try { frame.contentWindow.postMessage({ type: "cc-sdk-reply", id: d.id, result: result }, location.origin); } catch (err) {}

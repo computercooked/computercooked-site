@@ -1,15 +1,15 @@
 /* Presentation-only effects for /games pages: card tilt, the hub ticker, spotlight rotation,
-   "new" badges, today's dailies, continue playing, the player "booting" screen, "play next",
-   challenge links and brag cards. Reads games.json; remembers recently played games in
-   localStorage (this browser only). No SDK, no API calls, nothing sent anywhere.
+   "new" badges, today's dailies, the player "booting" screen, "play next", challenge links and
+   brag cards. Reads games.json, plus /api/featured (game of the week) for the spotlight.
+   Nothing is sent anywhere.
    Everything here is optional polish; pages work fine if this never runs. */
 (function () {
   "use strict";
 
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  var RECENT_KEY = "cc-fx-recent";
   var DAILY = { fathom: "daily dive", "handbag-havoc": "daily garden", "desktop-jam": "daily desktop" };
+  var SPOT_MAX = 6;
   var NEW_COUNT = 4; // newest N games (end of games.json, never CRASH) get a "new" badge
   /* hub filter chips. A game lands in a vibe if any of its tags match; games without tags
      use FALLBACK until they get tags in games.json. */
@@ -20,15 +20,13 @@
     { id: "quick", label: "60s or less", tags: ["short", "60s runs", "challenge", "one-thumb", "quick"] },
     { id: "rage", label: "rage", tags: ["rage", "trick", "hard", "funny"] }
   ];
-  var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"] };
+  var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"], "smol-brains": ["chill"] };
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
-  function load(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
-  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function el(html) { var t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
 
   /* ---------- card tilt + sheen ---------- */
@@ -70,13 +68,7 @@
     } catch (e) { ready(); }
   }
 
-  if (here) {
-    // remember for "continue playing" on the hub
-    var recent = (load(RECENT_KEY) || []).filter(function (s) { return s !== here; });
-    recent.unshift(here);
-    save(RECENT_KEY, recent.slice(0, 6));
-    challengeBanner();
-  }
+  if (here) challengeBanner();
 
   /* ---------- everything that needs the game list ---------- */
   var hub = document.querySelector(".games-hero");
@@ -142,18 +134,30 @@
     shelves.forEach(function (s) { mo.observe(s, { childList: true }); });
   }
 
-  /* featured spotlight: CRASH first (it's the LCP image), then the newest games */
+  /* featured spotlight: the game of the week first (/api/featured, picked from the metrics; CRASH if
+     that's unavailable within 1.5 s, which is also the static LCP image), then the newest games */
   function spotlight(games, newest) {
     var spot = document.querySelector(".spotlight");
     if (!spot) return;
+    var feat = fetch("/api/featured").then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j && j.ok ? j.featured : null; }).catch(function () { return null; });
+    Promise.race([feat, new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })])
+      .then(function (f) { rotate(spot, games, newest, f); });
+  }
+  function rotate(spot, games, newest, feat) {
     var img = spot.querySelector(".spot-screen img");
     var name = spot.querySelector(".spot-name");
     var pitch = spot.querySelector(".spot-pitch");
     var tag = spot.querySelector(".spot-tag");
-    var crash = games.filter(function (g) { return g.slug === "crash"; });
-    var order = crash.concat(newest).concat(games.filter(function (g) {
-      return g.slug !== "crash" && newest.indexOf(g) < 0;
+    var lead = (feat && games.filter(function (g) { return g.slug === feat.game; })[0]) || games.filter(function (g) { return g.slug === "crash"; })[0];
+    var order = (lead ? [lead] : []).concat(newest.filter(function (g) { return g !== lead; })).concat(games.filter(function (g) {
+      return g !== lead && newest.indexOf(g) < 0;
     }));
+    order = order.slice(0, SPOT_MAX); // a dot per game gets long on phones past ~6
+    if (feat && lead && lead.slug === feat.game) {
+      var cta = document.querySelector(".hero-play");
+      if (cta) { cta.href = "/games/" + encodeURIComponent(lead.slug) + "/"; cta.textContent = "play " + lead.title + " ▶"; }
+    }
     if (order.length < 2) return;
 
     var dots = el('<div class="spot-dots" role="group" aria-label="featured games"></div>');
@@ -175,7 +179,7 @@
         img.classList.toggle("is-svg", /\.svg$/.test(g.thumbnail));
         name.textContent = g.title;
         pitch.textContent = g.pitch;
-        tag.textContent = cur === 0 ? "featured" : (newest.indexOf(g) >= 0 ? "new" : "featured");
+        tag.textContent = cur === 0 ? (feat && g.slug === feat.game ? "game of the week" : "featured") : (newest.indexOf(g) >= 0 ? "new" : "featured");
         spot.href = "/games/" + encodeURIComponent(g.slug) + "/";
         spot.setAttribute("aria-label", "featured game: " + g.title + ". " + g.pitch);
         spot.classList.remove("is-swapping");
@@ -194,13 +198,12 @@
     if (!reduceMotion) timer = setInterval(tick, 5200);
   }
 
-  /* today's dailies + continue playing, injected under the ticker */
+  /* today's dailies, injected under the ticker */
   function hubStrip(games, bySlug) {
     var anchor = document.querySelector(".ticker") || hub;
     var today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
     var dailies = games.filter(function (g) { return DAILY[g.slug] || (g.tags || []).indexOf("daily") >= 0; });
-    var recent = (load(RECENT_KEY) || []).filter(function (s) { return bySlug[s]; }).slice(0, 3);
-    if (!dailies.length && !recent.length) return;
+    if (!dailies.length) return; // "continue playing" lives in games/hub.js ("jump back in": this device + account + saves)
 
     var html = '<div class="hub-strip">';
     if (dailies.length) {
@@ -214,18 +217,6 @@
             '<span class="daily-go" aria-hidden="true">▶</span></a></li>';
         }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight.</p></section>";
     }
-    if (recent.length) {
-      html += '<section class="strip-box continue" aria-labelledby="continue-heading">' +
-        '<h2 class="strip-head" id="continue-heading">continue playing</h2>' +
-        '<ul class="daily-list">' + recent.map(function (s) {
-          var g = bySlug[s];
-          return '<li><a class="daily" href="/games/' + encodeURIComponent(g.slug) + '/">' +
-            '<img src="' + esc(g.thumbnail) + '" alt="" width="64" height="36" loading="lazy" decoding="async">' +
-            '<span class="daily-name">' + esc(g.title) + "</span>" +
-            '<span class="daily-mode">pick up where you left off</span>' +
-            '<span class="daily-go" aria-hidden="true">▶</span></a></li>';
-        }).join("") + "</ul></section>";
-    }
     html += "</div>";
     anchor.insertAdjacentHTML("afterend", html);
   }
@@ -235,7 +226,7 @@
     if (!more) return;
     var pick = games.filter(function (g) { return g.slug !== slug; }).slice(-3).reverse();
     var list = more.querySelector("ul");
-    if (!pick.length || !list) return;
+    if (!pick.length || !list || list.children.length) return; // the Worker already put "games like X" there
     list.innerHTML = pick.map(function (g) {
       return '<li class="game-card"><div class="game-card-inner">' +
         '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" loading="lazy" decoding="async">' +
@@ -412,7 +403,9 @@
   }
 
   function challengeBanner() {
-    var beat = cleanScore(new URLSearchParams(location.search).get("beat"));
+    var q = new URLSearchParams(location.search);
+    if (q.get("d") || q.get("vs")) return; // challenge-a-friend links: games/platform.js shows those
+    var beat = cleanScore(q.get("beat"));
     if (!beat || !/[0-9]/.test(beat)) return;
     var layout = document.querySelector(".player-layout");
     if (!layout) return;

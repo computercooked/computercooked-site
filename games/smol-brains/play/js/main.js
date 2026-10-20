@@ -493,7 +493,13 @@
     try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
     var g = null, data = null, migrated = false, seedFromUrl = urlSeed();
     try { data = SB.Save.load(); } catch (e) { data = null; }
-    if (data && seedFromUrl && data.seed !== seedFromUrl) data = null; // a shared world link opens that world (the old save stays until the next autosave)
+    // a shared world link opens that world, but never silently over an island you already have
+    if (data && seedFromUrl && data.seed !== seedFromUrl) {
+      var day = Math.floor((data.time || 0) / SB.DAY_LENGTH) + 1;
+      var code = ""; try { var q = new URLSearchParams(location.search); code = q.get("world") || q.get("seed") || ""; } catch (e) {}
+      if (window.confirm("this link opens the world " + (code || SB.worldCode(seedFromUrl)) + ". your own island (day " + day + ") will be replaced. open it?")) data = null;
+      else { seedFromUrl = 0; try { history.replaceState(null, "", location.pathname); } catch (e) {} }
+    }
     if (data) { try { g = SB.Save.revive(data); } catch (e) { console.warn("[smol] save load failed, new game", e); g = null; } }
     if (!g && !seedFromUrl) {
       var v1 = SB.Save.loadV1();
@@ -506,6 +512,7 @@
     SB.UI.init(g, { fresh: fresh, migrated: migrated });
     Game.start(g);
     if (window.cc && cc.start) try { cc.start(); } catch (e) {}
+    SB.Save.cloud && SB.Save.cloud();
 
     // offline progress
     if (!fresh && data && data.savedAt) {

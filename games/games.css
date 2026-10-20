@@ -995,6 +995,15 @@
   padding-left: 18px;
 }
 
+.about-card .how-steps {
+  margin-bottom: var(--s-2);
+}
+
+.about-card .how-facts {
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+}
+
 .about-card kbd {
   font-family: var(--mono);
   font-weight: 800;
@@ -1289,6 +1298,7 @@
 .cc-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
 }
@@ -1350,6 +1360,23 @@
   color: var(--lime);
 }
 
+.cc-rows li.cc-gap {
+  min-height: 16px;
+  justify-content: center;
+  background: none;
+  color: var(--paper-dim);
+  line-height: 1;
+}
+
+.cc-rows .cc-you .cc-rank {
+  width: auto;
+  min-width: 1.6em;
+}
+
+.cc-rows .cc-you .cc-score {
+  margin-right: 40px; /* lines up with the scores that have a report flag (32px + gap) */
+}
+
 .cc-rows .cc-empty {
   font-family: var(--sans);
   font-weight: 500;
@@ -1367,6 +1394,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cc-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cc-name a:hover,
+.cc-name a:focus-visible {
+  text-decoration: underline;
 }
 
 .cc-score {
@@ -2301,3 +2338,159 @@
     animation: none;
   }
 }
+
+/* ---------- level up (slice B) ---------- */
+.cc-levelup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--lime);
+  border-radius: 12px;
+  font-family: var(--mono);
+}
+.cc-levelup p { margin: 0; }
+.cc-levelup b { color: var(--lime); }
+
+/* ---------- weekly challenge on the hub (slice D2) ---------- */
+.weekly-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  color: inherit;
+  text-decoration: none;
+  border-color: var(--lime);
+}
+.weekly-card:hover, .weekly-card:focus-visible { transform: translateY(-2px); }
+.weekly-card img { width: 120px; height: 90px; flex-shrink: 0; border-radius: 10px; object-fit: cover; background: var(--carbon); }
+.weekly-body { display: grid; gap: 4px; min-width: 0; }
+.weekly-body b { font-family: var(--mono); font-size: 1.1rem; color: var(--lime); }
+.weekly-meta { font-family: var(--mono); font-weight: 800; font-size: 0.78rem; color: var(--paper-dim); }
+.weekly-card.is-done .weekly-meta { color: var(--lime); }
+.weekly-event { margin: var(--s-3) 0 0; font-size: 0.9rem; color: var(--paper-dim); }
+.weekly-event b { font-family: var(--mono); color: #ffb84d; }
+.cc-challenge { margin: 0 0 8px; font-size: 0.8rem; color: var(--paper-dim); }
+.cc-challenge b { font-family: var(--mono); color: var(--lime); }
+@media (max-width: 420px) {
+  .weekly-card img { width: 88px; height: 66px; }
+}
+
+/* ---------- "jump back in" on the hub ---------- */
+.continue-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-3); }
+.continue-card {
+  display: flex; align-items: center; gap: var(--s-3); min-height: 72px; padding: 8px;
+  border: 2px solid var(--line); border-radius: 14px; background: var(--carbon); color: inherit; text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s var(--ease-spring);
+}
+.continue-card:hover, .continue-card:focus-visible { border-color: var(--lime); transform: translateY(-2px); }
+.continue-card img { width: 72px; height: 54px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: #111; }
+.continue-body { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.continue-body b { font-family: var(--mono); color: var(--paper); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.continue-body small { color: var(--paper-dim); font-size: 0.78rem; }
+.continue-card.is-sync { border-color: var(--lilac); }
+.continue-card.is-sync small { color: var(--lilac); }
+.continue-go { font-family: var(--mono); font-weight: 800; color: var(--lime); padding: 0 6px; }
+
+/* ---------- challenge-a-friend ---------- */
+.dare-text i { font-style: normal; font-weight: 800; color: var(--lilac); }
+.dare.is-beaten { border-color: var(--lime); }
+.cc-dare-box { flex-wrap: wrap; }
+.cc-dare-box > p:first-child { flex: 1 1 160px; margin: 0; }
+.cc-dare-say { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--lime); overflow-wrap: anywhere; }
+.cc-dare-say:empty { display: none; }
+
+/* ---------- embed kit: the "embed this game" card and the bare player at /games/<slug>/embed/ ---------- */
+.embed-code {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 var(--s-2);
+  padding: var(--s-2);
+  border: 2px solid var(--carbon-3);
+  border-radius: 10px;
+  background: var(--carbon);
+  color: var(--paper-dim);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.embed-copy .tool-text { display: inline; }
+
+body.embed {
+  min-height: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: #07080a;
+}
+
+.embed .player {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.embed .player-stage {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.embed .player-bar { padding: 6px; }
+
+.embed-title {
+  color: var(--paper);
+  text-decoration: none;
+}
+
+.embed-brand {
+  flex: none;
+  margin-left: 4px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: var(--lime);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.embed-title:hover,
+.embed-brand:hover { text-decoration: underline; }
+
+.embed-title { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* small embeds (phones, narrow blog columns): keep the game name and the credit, drop share */
+@media (max-width: 480px) {
+  .embed #btn-share { display: none; }
+  .embed-brand-long { display: none; }
+}
+
+/* after a new personal best the dare box is the main ask */
+.cc-dare-box.is-best {
+  border-width: 2px;
+  background: linear-gradient(135deg, rgba(197, 255, 73, 0.14), rgba(181, 154, 255, 0.1));
+  box-shadow: 0 0 24px -10px var(--lime);
+}
+.cc-dare-kicker {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: #111;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cc-dare-box .cc-dare-go {
+  border-color: var(--lime);
+  background: var(--lime);
+  color: #111;
+}
+.cc-dare-box .cc-dare-go .tool-text { display: inline; }

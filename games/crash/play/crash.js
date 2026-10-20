@@ -8,7 +8,7 @@
      Pixel art and sounds live in /games/crash/assets/ (from the ccgames pack).
      Swap a file, or point a path somewhere else. Set any path to "" and the
      game falls back to its code-drawn sprite / WebAudio blip for that slot. */
-  var A = "/games/crash/assets/";
+  var A = "assets/";
   var SPRITES = {
     crash: A + "crash-spritesheet.png", // 3 frames of 128x128: idle, hit, cooked
     popup: A + "popup.png",             // task icons, 128x128
@@ -69,6 +69,7 @@
   var best = +load("cc-crash-best", 0) || 0;
   var bestTime = +load("cc-crash-best-time", 0) || 0;
   var muted = load("cc-crash-muted", "0") === "1";
+  var extMuted = false; // host page mute (cc-mute postMessage); never persisted
 
   /* ---------- sprites ---------- */
   var img = {};
@@ -111,7 +112,7 @@
     if (!AC) return;
     ac = new AC();
     master = ac.createGain();
-    master.gain.value = muted ? 0 : 0.5;
+    master.gain.value = (muted || extMuted) ? 0 : 0.5;
     master.connect(ac.destination);
     musicGain = ac.createGain();
     musicGain.gain.value = 0.55;
@@ -198,7 +199,8 @@
   function setMuted(m) {
     muted = m;
     save("cc-crash-muted", m ? "1" : "0");
-    if (master) master.gain.value = m ? 0 : 0.5;
+    if (master) master.gain.value = (m || extMuted) ? 0 : 0.5;
+    if (!btnMute) return;
     btnMute.setAttribute("aria-pressed", String(m));
     btnMute.querySelector(".tool-text").textContent = m ? "sound off" : "sound on";
     btnMute.querySelector(".ico-on").style.display = m ? "none" : "";
@@ -239,7 +241,8 @@
     stopMusic();
     startMusic();
     last = performance.now();
-    if (window.cc) cc.start();
+    lastScoreSent = -1; scoreTick = 0;
+    try { if (window.cc && cc.start) cc.start(); } catch (e) {}
   }
 
   function pause() {
@@ -302,6 +305,18 @@
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   }
 
+  // live score to the platform, about once a second
+  var lastScoreSent = -1, scoreTick = 0;
+  function reportScore(dt) {
+    scoreTick += dt;
+    if (scoreTick < 1) return;
+    scoreTick = 0;
+    var s = Math.floor(score);
+    if (s === lastScoreSent) return;
+    lastScoreSent = s;
+    try { if (window.cc && cc.score) cc.score(s); } catch (e) {}
+  }
+
   function update(dt) {
     t += dt;
 
@@ -358,7 +373,7 @@
         puff(k.x + k.w / 2, k.y + k.h, 14, k.color, 160, 0.5);
         floatText(crash.x, crash.y - crash.h - 10, "+" + (k.big ? 22 : 15) + "°", "#ff6b5b");
         sfx.hit();
-        if (navigator.vibrate && !reduceMotion) { try { navigator.vibrate(40); } catch (e) {} }
+        if (navigator.vibrate && !reduceMotion && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) { try { navigator.vibrate(40); } catch (e) {} }
         tasks.splice(i, 1);
         continue;
       }
@@ -762,15 +777,18 @@
 
     var rankEl = document.getElementById("go-rank");
     rankEl.hidden = true;
-    if (window.cc) {
-      cc.event("cooked", { hits: hits, pickups: pickups });
-      cc.end({ score: final, durationMs: Math.round(t * 1000), completed: true }).then(function (r) {
-        if (r && r.accepted && state === "over") {
-          rankEl.textContent = "#" + r.rank + " on the all-time board as " + r.name;
-          rankEl.hidden = false;
-        }
-      });
-    }
+    try {
+      if (window.cc) {
+        if (cc.event) cc.event("cooked", { hits: hits, pickups: pickups, secs: secs });
+        var p = cc.end ? cc.end({ score: final, durationMs: Math.round(t * 1000), completed: true }) : null;
+        if (p && p.then) p.then(function (r) {
+          if (r && r.accepted && state === "over") {
+            rankEl.textContent = "#" + r.rank + " on the all-time board as " + r.name;
+            rankEl.hidden = false;
+          }
+        }, function () {});
+      }
+    } catch (e) {}
   }
 
   /* ---------- loop ---------- */
@@ -778,7 +796,7 @@
   function frame(now) {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    if (state === "play") update(dt);
+    if (state === "play") { update(dt); if (state === "play") reportScore(dt); }
     if (state === "cooking") {
       cookT += dt;
       if (Math.random() < 0.5) puff(crash.x + (Math.random() - 0.5) * 50, crash.y - 30, 1, "#ff6b5b", 90, 0.6);
@@ -835,21 +853,49 @@
   });
 
   document.addEventListener("visibilitychange", function () { if (document.hidden) pause(); });
-  window.addEventListener("blur", function () { keys.left = keys.right = false; pause(); });
+  // inside nested embeds focus can bounce between frames right after a click; only pause if it really left
+  var blurT = null;
+  window.addEventListener("blur", function () {
+    keys.left = keys.right = false;
+    clearTimeout(blurT);
+    blurT = setTimeout(function () { if (!document.hasFocus()) pause(); }, 250);
+  });
   document.addEventListener("cc:deck-open", pause);
 
   /* ---------- buttons ---------- */
   document.getElementById("btn-start").addEventListener("click", start);
   document.getElementById("btn-resume").addEventListener("click", resume);
   document.getElementById("btn-again").addEventListener("click", start);
-  document.getElementById("btn-restart").addEventListener("click", start);
-  btnMute.addEventListener("click", function () { audio(); setMuted(!muted); });
+  function on(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener("click", fn); }
+  on("btn-restart", start);
+  on("btn-mute", function () { audio(); setMuted(!muted); });
 
+  /* ---------- host page hooks (player frame) ---------- */
+  window.addEventListener("message", function (e) {
+    var d = e.data;
+    if (!d || typeof d !== "object") return;
+    if (d.type === "cc-mute") {
+      extMuted = !!d.muted;
+      if (master) master.gain.value = (muted || extMuted) ? 0 : 0.5;
+    } else if (d.type === "cc-restart") {
+      start();
+    } else if (d.type === "cc-pause") {
+      if (d.paused === false) resume(); else pause();
+    }
+  });
+
+  // messages queue up (board rank, +xp, level up, achievements) instead of replacing each other
+  var toastQ = [];
   function toast(msg) {
+    if (toastQ.length < 5) toastQ.push(msg);
+    if (!toast.t) nextToast();
+  }
+  function nextToast() {
+    var msg = toastQ.shift();
+    if (msg == null) { toastEl.classList.remove("show"); toast.t = null; return; }
     toastEl.textContent = msg;
     toastEl.classList.add("show");
-    clearTimeout(toast.t);
-    toast.t = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+    toast.t = setTimeout(nextToast, 2200);
   }
   window.ccToast = toast;
 
@@ -866,15 +912,16 @@
       toast(full);
     }
   }
-  document.getElementById("btn-share").addEventListener("click", function () {
+  on("btn-share", function () {
     share("play CRASH, a game about a computer that is not handling it well.");
   });
-  document.getElementById("btn-share-score").addEventListener("click", function () {
+  on("btn-share-score", function () {
+    try { if (window.cc && cc.event) cc.event("share_clicked", { score: Math.floor(score) }); } catch (e) {}
     share(document.getElementById("go-share-text").textContent);
   });
 
   var btnFs = document.getElementById("btn-fs");
-  btnFs.addEventListener("click", function () {
+  if (btnFs) btnFs.addEventListener("click", function () {
     var real = document.fullscreenEnabled && player.requestFullscreen;
     if (real) {
       if (document.fullscreenElement) document.exitFullscreen();
@@ -886,7 +933,7 @@
     }
   });
   document.addEventListener("fullscreenchange", function () {
-    btnFs.setAttribute("aria-pressed", String(!!document.fullscreenElement));
+    if (btnFs) btnFs.setAttribute("aria-pressed", String(!!document.fullscreenElement));
     setTimeout(resize, 50);
   });
 

@@ -1,0 +1,15 @@
+/* /u/<username> public profile; builds on me.css */
+.u-page { --u-accent: var(--lime); }
+.u-card { border-color: var(--u-accent); }
+.u-card .me-name { color: var(--u-accent); }
+.u-handle { margin: 2px 0 0; font-size: .8rem; color: var(--paper-dim); }
+.u-level { margin: 4px 0 0; font-family: var(--mono); font-size: .85rem; }
+.u-level b { color: var(--u-accent); }
+.u-bio { margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.u-page .me-ach li.is-got { border-color: var(--u-accent); }
+
+.u-friend { display: grid; gap: 4px; justify-items: start; width: 100%; }
+.u-friend .me-msg { color: var(--lime); }
+.u-friend a.tool { text-decoration: none; }
+.u-card { flex-wrap: wrap; }
+.u-friend .me-msg:empty { display: none; }

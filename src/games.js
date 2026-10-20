@@ -1,6 +1,10 @@
 // Plays/events, leaderboards, feedback, hub stats, /me data.
-import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean } from "./util.js";
+import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean, streakFrom } from "./util.js";
 import { games } from "./db.js";
+import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
+import { settleReferral, referralCounts } from "./referrals.js";
+import { friendIds, people } from "./friends.js";
+import { EVENTS, eventsLive } from "./social.js";
 
 const guestName = (anon) => {
   let h = 0;
@@ -27,6 +31,7 @@ export async function events(req, env, ip, user, origin) {
   const device = deviceOf(req.headers.get("user-agent") || "");
   const catalog = await games(env, origin);
   const results = {};
+  const unlocked = [];
   const t = now();
 
   for (const e of list) {
@@ -46,7 +51,16 @@ export async function events(req, env, ip, user, origin) {
       const completed = e.completed === false ? 0 : 1;
       await env.DB.prepare("UPDATE plays SET ended_at = ?, duration_ms = ?, score = ?, completed = ? WHERE id = ?")
         .bind(t, Math.round(dur), score, completed, e.id).run();
-      results[e.id] = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
+      const res = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
+      if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t, score);
+      // a real run by someone a dare brought in pays the dare sender (once)
+      if (user && res.xp && res.xp.gained > 0) await settleReferral(env, user.id, play.game, t);
+      results[e.id] = res;
+    } else if (e.t === "achieve") {
+      // cc.achieve(id): accounts only, and only ids the game declares in its entry.json
+      if (!user || typeof e.ach !== "string") continue;
+      const a = await unlock(env, user.id, e.game, e.ach.slice(0, 40), t, catalog.get(e.game));
+      if (a) unlocked.push({ ...a, ...progress(await totalXp(env, user.id) - a.xp, a.xp) });
     } else if (e.t === "event") {
       const name = str(e.name, 40);
       if (!name) continue;
@@ -55,7 +69,7 @@ export async function events(req, env, ip, user, origin) {
       await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (?,?,?,?,?)").bind(e.id, e.game, name, data, t).run();
     }
   }
-  return json({ ok: true, results });
+  return json({ ok: true, results, achievements: unlocked });
 }
 
 async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
@@ -63,6 +77,7 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const cap = game.max_score_per_sec * (dur / 1000) + (game.score_slack ?? 50);
   if (score > cap || (game.max_score && score > game.max_score)) return { accepted: false, reason: "score out of bounds" };
   const player = playerKey(user && play.user_id === user.id ? user : null, play.anon_id || anon);
+  const prevBest = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND hidden = 0").bind(play.game, player).first("b");
   const name = user ? user.username : cleanGuest(guest, play.anon_id || anon);
   await env.DB.prepare(
     "INSERT OR IGNORE INTO scores (game, play_id, player, user_id, name, score, day, week, ts) VALUES (?,?,?,?,?,?,?,?,?)"
@@ -71,7 +86,7 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const rank = await env.DB.prepare(
     "SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player) WHERE b > ?"
   ).bind(play.game, best).first("n");
-  return { accepted: true, best, rank: rank + 1, name };
+  return { accepted: true, best, prev_best: prevBest, rank: rank + 1, name };
 }
 
 // GET /api/leaderboard?game=crash&period=day|week|all&player=a:<anon>
@@ -80,16 +95,40 @@ export async function leaderboard(url, env, user) {
   if (!slugOk(game)) return bad("game?");
   const period = ["day", "week", "all"].includes(url.searchParams.get("period")) ? url.searchParams.get("period") : "all";
   const t = now();
-  const where = period === "day" ? " AND day = ?" : period === "week" ? " AND week = ?" : "";
+  let where = period === "day" ? " AND day = ?" : period === "week" ? " AND week = ?" : "";
   const args = [game].concat(period === "day" ? [dayOf(t)] : period === "week" ? [weekOf(t)] : []);
+  // friends=1: you and your friends only (logged in)
+  const friendsOnly = url.searchParams.get("friends") === "1";
+  if (friendsOnly) {
+    if (!user) return bad("log in first", 401);
+    const keys = [user.id].concat(await friendIds(env, user.id)).map((id) => "u:" + id);
+    where += ` AND player IN (${keys.map(() => "?").join(",")})`;
+    args.push(...keys);
+  }
   const { results } = await env.DB.prepare(
-    `SELECT player, name, MAX(score) AS score, id FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player ORDER BY score DESC LIMIT 10`
+    `SELECT player, name, MAX(score) AS score, id, user_id FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player ORDER BY score DESC LIMIT ${friendsOnly ? 50 : 10}`
   ).bind(...args).all();
   let me = url.searchParams.get("player");
   if (user) me = "u:" + user.id;
+  // outside the top rows: your own rank and best on the same board, so everyone sees where they stand
+  let you = null;
+  if (me && typeof me === "string" && me.length <= 80 && !results.some((r) => r.player === me)) {
+    const mine = await env.DB.prepare(`SELECT MAX(score) s FROM scores WHERE game = ? AND hidden = 0${where} AND player = ?`).bind(...args, me).first("s");
+    if (mine != null) {
+      const above = await env.DB.prepare(
+        `SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player) WHERE b > ?`
+      ).bind(...args, mine).first("n");
+      you = { rank: above + 1, score: mine };
+    }
+  }
+  // account rows show the current display name and link to /u/<username>
+  const who = await people(env, results.map((r) => r.user_id).filter(Boolean));
   return json({
-    ok: true, game, period,
-    rows: results.map((r, i) => ({ rank: i + 1, name: r.name, score: r.score, id: r.id, me: r.player === me })),
+    ok: true, game, period, friends: friendsOnly, you,
+    rows: results.map((r, i) => {
+      const p = r.user_id && who.get(r.user_id);
+      return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, score: r.score, id: r.id, me: r.player === me };
+    }),
   }, 200, { "cache-control": "no-store" });
 }
 
@@ -104,7 +143,8 @@ export async function feedback(req, env, ip, user) {
   await env.DB.prepare(
     "INSERT INTO feedback (game, version, rating, text, tester, anon_id, user_id, play_id, ts) VALUES (?,?,?,?,?,?,?,?,?)"
   ).bind(b.game, str(b.version, 16) || "1", rating, text || null, str(b.tester, 32), idOk(b.anon) ? b.anon : null, user ? user.id : null, idOk(b.play_id) ? b.play_id : null, now()).run();
-  return json({ ok: true });
+  const a = user ? await unlock(env, user.id, "site", "rate_game") : null;
+  return json({ ok: true, achievements: a ? [a] : [] });
 }
 
 // GET /api/stats — play counts for hub shelves (public, cached briefly)
@@ -138,29 +178,52 @@ export async function report(req, env, ip, user) {
 }
 
 // GET /api/me/summary — recent games, bests, favorites, streak
-export async function meSummary(env, user) {
+export async function meSummary(env, user, origin) {
   const recent = (await env.DB.prepare(
-    "SELECT game, MAX(started_at) last, COUNT(*) plays FROM plays WHERE user_id = ? GROUP BY game ORDER BY last DESC LIMIT 12"
+    "SELECT game, MAX(started_at) last, COUNT(*) plays, COALESCE(SUM(duration_ms), 0) ms FROM plays WHERE user_id = ? GROUP BY game ORDER BY last DESC LIMIT 30"
   ).bind(user.id).all()).results;
   const bests = (await env.DB.prepare(
     "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 GROUP BY game"
   ).bind(user.id).all()).results;
   const favs = (await env.DB.prepare("SELECT game FROM favorites WHERE user_id = ? ORDER BY ts DESC").bind(user.id).all()).results.map((r) => r.game);
+  // newest cloud save per game, for "jump back in" on the hub
+  const saves = (await env.DB.prepare("SELECT game, MAX(updated_at) updated_at FROM saves WHERE user_id = ? GROUP BY game ORDER BY updated_at DESC LIMIT 20").bind(user.id).all()).results;
   const days = (await env.DB.prepare(
     "SELECT DISTINCT day FROM plays WHERE user_id = ? ORDER BY day DESC LIMIT 400"
   ).bind(user.id).all()).results.map((r) => r.day);
-  return json({ ok: true, user, recent, bests, favorites: favs, streak: streak(days), days_played: days.length });
+  // XP + achievements (slice B)
+  const catalog = await games(env, origin);
+  const history = (await env.DB.prepare(
+    "SELECT kind, game, amount, ts FROM xp_events WHERE user_id = ? ORDER BY ts DESC, id DESC LIMIT 15"
+  ).bind(user.id).all()).results;
+  const got = (await env.DB.prepare("SELECT game, ach_id, ts FROM achievements WHERE user_id = ?").bind(user.id).all()).results;
+  const have = new Map(got.map((a) => [a.game + ":" + a.ach_id, a.ts]));
+  const achievements = Object.entries(SITE_ACH).map(([id, d]) => ({ game: "site", id, name: d.name, desc: d.desc, xp: d.xp, unlocked_at: have.get("site:" + id) || null }));
+  // seasonal badges: listed while the event runs, and forever once earned
+  const live = new Set(eventsLive(now()).map((e) => e.id));
+  for (const e of EVENTS) {
+    const at = have.get("site:" + e.id) || null;
+    if (at || live.has(e.id)) achievements.push({ game: "site", id: e.id, name: e.name, desc: e.desc, xp: e.xp, unlocked_at: at, event: e.label });
+  }
+  for (const g of catalog.values()) {
+    for (const a of g.achievements || []) {
+      const at = have.get(g.slug + ":" + a.id) || null;
+      // secret ones stay hidden until unlocked
+      achievements.push(a.secret && !at ? { game: g.slug, id: a.id, name: "???", desc: "secret", xp: a.xp, unlocked_at: null, secret: true }
+        : { game: g.slug, id: a.id, name: a.name, desc: a.desc, xp: a.xp, unlocked_at: at });
+    }
+  }
+  const xp = levelOf(await totalXp(env, user.id));
+  const st = streak(days);
+  const brought_in = await referralCounts(env, user.id);
+  return json({ ok: true, user, recent, bests, favorites: favs, saves, streak: st.n, streak_saved: st.savedRecently, days_played: days.length, brought_in, xp, xp_history: history, achievements });
 }
 
 // consecutive days with a play, counting back from today (or yesterday, so it doesn't reset before you play today)
+// the streak shown on /me: counts from today, or from yesterday if you haven't played yet today
 export function streak(days) {
-  const set = new Set(days);
-  let d = new Date();
-  let key = dayOf(d.getTime());
-  if (!set.has(key)) { d = new Date(d.getTime() - 86400000); key = dayOf(d.getTime()); }
-  let n = 0;
-  while (set.has(key)) { n++; d = new Date(d.getTime() - 86400000); key = dayOf(d.getTime()); }
-  return n;
+  const set = new Set(days), today = dayOf(now());
+  return streakFrom(set, set.has(today) ? today : dayOf(now() - 86400000));
 }
 
 // POST /api/me/favorite {game, on}

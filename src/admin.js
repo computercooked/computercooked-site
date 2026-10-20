@@ -93,6 +93,23 @@ export async function metrics(url, env, origin) {
     };
   }).sort((a, b) => b.plays - a.plays);
 
+  // challenge-a-friend funnel for dares made since `since`: made → sent → opened → beaten, split by where the
+  // offer came from (best = shown after a new personal best, button = asked for after any run)
+  const funnel = (await db.prepare(
+    `SELECT COALESCE(f.source, 'button') source, COUNT(*) made, SUM(f.shared_at IS NOT NULL) sent,
+       SUM(f.shared_how = 'share') via_share, SUM(f.shared_how = 'copy') via_copy,
+       SUM(d.opens > 0) opened, SUM(d.opens) opens, SUM(d.beats > 0) beaten, SUM(d.beats) beats
+     FROM dares d LEFT JOIN dare_funnel f ON f.dare_id = d.id WHERE d.created_at >= ? GROUP BY 1`
+  ).bind(Date.parse(since)).all()).results;
+  const rate = (a, b) => (b ? Math.round((a / b) * 1000) / 1000 : null);
+  const step = (rows) => {
+    const s = (k) => rows.reduce((n, r) => n + (r[k] || 0), 0);
+    const made = s("made"), sent = s("sent"), opened = s("opened"), beaten = s("beaten");
+    return { made, sent, via_share: s("via_share"), via_copy: s("via_copy"), opened, opens: s("opens"), beaten, beats: s("beats"),
+      sent_rate: rate(sent, made), open_rate: rate(opened, sent || made), beat_rate: rate(beaten, opened) };
+  };
+  const dares = { ...step(funnel), by_source: Object.fromEntries(["best", "button"].map((k) => [k, step(funnel.filter((r) => r.source === k))])) };
+
   const users = await db.prepare("SELECT COUNT(*) n, SUM(created_at >= ?) new FROM users").bind(Date.parse(since)).first();
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
   const reports = await db.prepare("SELECT COUNT(*) n FROM reports WHERE resolved = 0").first("n");
@@ -103,6 +120,7 @@ export async function metrics(url, env, origin) {
       accounts: users.n || 0, new_accounts: users.new || 0,
       uploads_pending: pending || 0, open_reports: reports || 0,
     },
+    dares,
     games: out,
   });
 }

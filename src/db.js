@@ -1,5 +1,16 @@
 // Makes sure the schema exists. Runs once per Worker isolate; every statement is IF NOT EXISTS.
-import schema from "../migrations/0001_init.sql";
+import init from "../migrations/0001_init.sql";
+import saves from "../migrations/0002_saves.sql";
+import xp from "../migrations/0003_xp.sql";
+import profiles from "../migrations/0004_profiles.sql";
+import friends from "../migrations/0005_friends.sql";
+import activity from "../migrations/0006_activity.sql";
+import challenges from "../migrations/0007_challenges.sql";
+import dares from "../migrations/0008_dares.sql";
+import dareFunnel from "../migrations/0009_dare_funnel.sql";
+import referrals from "../migrations/0010_referrals.sql";
+
+const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals].join("\n;\n");
 
 let ready = null;
 export function ensureSchema(env) {

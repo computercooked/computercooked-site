@@ -89,13 +89,88 @@
         <div class="me-avatar" id="me-avatar"></div>
         <div class="me-id">
           <p class="me-name" id="me-name"></p>
-          <p class="me-streak"><b id="me-streak">0</b> day streak · <span id="me-days">0</span> days played</p>
+          <p class="me-streak"><b id="me-streak">0</b> day streak<span id="me-saver" hidden title="you missed a day this week and your streak survived. one per week."> (saver used)</span> · <span id="me-days">0</span> days played<span id="me-brought" hidden> · <b id="me-brought-n">0</b> brought in</span></p>
         </div>
         <button class="tool" id="btn-logout" type="button">log out</button>
       </div>
-      <details class="about-card me-change">
-        <summary>change face</summary>
-        <div class="avatar-pick" id="avatar-change"></div>
+      <div class="about-card me-level" id="me-level">
+        <p class="me-level-t"><b id="lvl-n">level 1</b> · <span id="lvl-title">fresh install</span></p>
+        <div class="me-bar" role="progressbar" aria-labelledby="lvl-n" aria-valuemin="0" aria-valuemax="100" id="lvl-bar"><span id="lvl-fill"></span></div>
+        <p class="me-level-x" id="lvl-x">0 xp</p>
+        <p class="me-fine" id="lvl-unlock"></p>
+        <details class="me-how">
+          <summary>how xp works</summary>
+          <p>finish a run of 10s or more while logged in: +10, up to +40 more for how high you place on that game's board, +25 the first time you play a game, and a daily streak bonus (miss one day a week and your streak survives). each game pays up to 150 a day, so play around.</p>
+        </details>
+      </div>
+      <p class="me-fine"><a id="me-public-link" href="/u/">see your public profile →</a></p>
+
+      <details class="about-card me-change" id="edit-profile">
+        <summary>edit profile</summary>
+        <form id="form-profile" class="me-settings">
+          <fieldset>
+            <legend>face</legend>
+            <div class="builder">
+              <div class="builder-preview me-avatar" id="b-preview"></div>
+              <div class="builder-rows">
+                <div class="builder-row" id="b-mood" role="radiogroup" aria-label="mood"></div>
+                <div class="builder-row" id="b-face" role="radiogroup" aria-label="screen color"></div>
+                <div class="builder-row" id="b-body" role="radiogroup" aria-label="case color"></div>
+                <div class="builder-row" id="b-acc" role="radiogroup" aria-label="accessory"></div>
+              </div>
+            </div>
+            <p class="me-fine">or a classic:</p>
+            <div class="avatar-pick" id="avatar-change"></div>
+          </fieldset>
+          <label>display name <small>(shown on your profile; your login name stays the same)</small>
+            <input name="display_name" maxlength="24" autocomplete="off" placeholder="your name here"></label>
+          <label>bio <small id="bio-count">0/160</small>
+            <textarea name="bio" maxlength="160" rows="3" placeholder="one line about you. friendly only."></textarea></label>
+          <label>favorite game
+            <select name="fav_game" id="fav-select"><option value="">none</option></select></label>
+          <fieldset>
+            <legend>pinned badges <small>(up to 3 you've unlocked)</small></legend>
+            <div class="badge-pick" id="badge-pick"><p class="me-fine">unlock achievements to pin them here.</p></div>
+          </fieldset>
+          <fieldset>
+            <legend>profile color</legend>
+            <div class="builder-row" id="theme-pick" role="radiogroup" aria-label="profile color"></div>
+          </fieldset>
+          <label class="me-check"><input type="checkbox" name="public" checked> public profile <small>(off: only your name, face and level show)</small></label>
+          <button class="play-btn" type="submit">save profile</button>
+          <p class="me-msg" role="alert"></p>
+        </form>
+      </details>
+
+      <details class="about-card me-change" id="account-settings">
+        <summary>account settings</summary>
+        <div class="me-settings">
+          <form id="form-email">
+            <label>email <small>(optional, for getting back in later. not verified yet, and we send nothing for now)</small>
+              <input type="email" name="email" autocomplete="email" placeholder="you@example.com"></label>
+            <label class="me-check"><input type="checkbox" name="news"> ok to email me about new games (only once email is verified)</label>
+            <button class="tool" type="submit">save email</button>
+            <p class="me-msg" role="alert"></p>
+          </form>
+          <form id="form-password">
+            <p class="me-sub-h">change password</p>
+            <input type="password" name="current" autocomplete="current-password" placeholder="current password" required>
+            <input type="password" name="next" autocomplete="new-password" placeholder="new password (8+ characters)" minlength="8" required>
+            <button class="tool" type="submit">change password</button>
+            <p class="me-msg" role="alert"></p>
+          </form>
+          <div class="me-row">
+            <button class="tool" type="button" id="btn-logout-all">log out everywhere</button>
+            <a class="tool" href="/api/me/export" download>download my data</a>
+          </div>
+          <form id="form-delete" class="me-danger">
+            <p class="me-sub-h">delete account</p>
+            <p class="me-fine">deletes your account, saves, scores, xp and badges for good. play counts stay in our stats without your name.</p>
+            <input type="password" name="password" autocomplete="current-password" placeholder="password to confirm" required>
+            <button class="tool" type="submit">delete my account</button>
+            <p class="me-msg" role="alert"></p>
+          </form>
+        </div>
       </details>
 
       <section class="shelf" aria-labelledby="fav-h">
@@ -105,6 +180,40 @@
       <section class="shelf" aria-labelledby="recent-h">
         <h2 class="shelf-head" id="recent-h">recently played</h2>
         <ul class="card-grid me-grid" id="recent"></ul>
+      </section>
+      <section class="shelf me-friends" id="friends" aria-labelledby="fr-h">
+        <h2 class="shelf-head" id="fr-h">friends <small id="fr-count"></small></h2>
+        <form id="form-friend" class="me-friend-add about-card">
+          <label for="fr-name">add a friend by username</label>
+          <div class="me-row">
+            <input id="fr-name" name="username" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="their username" required pattern="[A-Za-z0-9_]{3,16}">
+            <button class="tool" type="submit">add</button>
+          </div>
+          <p class="me-msg" role="status"></p>
+        </form>
+        <ul class="me-people" id="fr-incoming" aria-label="friend requests"></ul>
+        <ul class="me-people" id="fr-list" aria-label="your friends"></ul>
+        <ul class="me-people" id="fr-out" aria-label="requests you sent"></ul>
+        <div id="fr-feed-wrap" hidden>
+          <h3 class="me-sub-h fr-feed-h">what your friends are up to</h3>
+          <ul class="me-feed" id="fr-feed"></ul>
+        </div>
+        <details class="me-change" id="fr-blocked-wrap" hidden>
+          <summary>blocked</summary>
+          <ul class="me-people" id="fr-blocked"></ul>
+        </details>
+      </section>
+      <section class="shelf" aria-labelledby="feed-h">
+        <h2 class="shelf-head" id="feed-h">activity</h2>
+        <ul class="me-feed" id="feed"></ul>
+      </section>
+      <section class="shelf" aria-labelledby="ach-h">
+        <h2 class="shelf-head" id="ach-h">achievements <small id="ach-count"></small></h2>
+        <ul class="me-ach" id="achs"></ul>
+      </section>
+      <section class="shelf" aria-labelledby="xp-h">
+        <h2 class="shelf-head" id="xp-h">recent xp</h2>
+        <ul class="me-xp" id="xp-log"></ul>
       </section>
     </section>
   </main>

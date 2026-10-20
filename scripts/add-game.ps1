@@ -13,7 +13,7 @@ $repo = Split-Path $PSScriptRoot -Parent
 $entry = Get-Content -Raw (Join-Path $Source "entry.json") | ConvertFrom-Json
 if (-not (Test-Path (Join-Path $Source "index.html"))) { throw "no index.html in $Source" }
 $slug = "$($entry.slug)"
-if ($slug -notmatch '^[a-z0-9-]+$' -or $slug -eq "crash") { throw "bad slug '$slug'" }
+if ($slug -notmatch '^[a-z0-9-]+$') { throw "bad slug '$slug'" }
 
 # copy the game
 $dest = Join-Path $repo "games\$slug"
@@ -55,6 +55,14 @@ $item = [ordered]@{
 if ($entry.max_score_per_sec) { $item.max_score_per_sec = [double]$entry.max_score_per_sec }
 if ($entry.max_score) { $item.max_score = [double]$entry.max_score }
 if ($entry.score_slack) { $item.score_slack = [double]$entry.score_slack }
+# optional tips for the "how to play" card on the game page (plain text, one short line each)
+if ($entry.how_to) { $item.how_to = @($entry.how_to | Where-Object { $_ } | ForEach-Object { "$_" }) }
+# achievements the game can unlock with cc.achieve(id); the server only accepts ids listed here
+if ($entry.achievements) {
+  $item.achievements = @($entry.achievements | Where-Object { "$($_.id)" -match '^[a-z0-9_-]{1,40}$' } | ForEach-Object {
+    [ordered]@{ id = "$($_.id)"; name = "$($_.name)"; desc = "$($_.desc)"; xp = [math]::Min(100, [math]::Max(0, [int]$_.xp)); secret = [bool]$_.secret }
+  })
+}
 $games = @($manifest.games | Where-Object { $_.slug -ne $slug }) + @([pscustomobject]$item)
 $games = @($games | Where-Object { $_.slug -eq "crash" }) + @($games | Where-Object { $_.slug -ne "crash" })
 [IO.File]::WriteAllText($manifestPath, ([ordered]@{ games = $games } | ConvertTo-Json -Depth 6) + "`n")
@@ -66,6 +74,15 @@ $loc = "https://computercooked.com/games/$slug/"
 if ($sm -notmatch [regex]::Escape($loc)) {
   $sm = $sm.Replace("</urlset>", "  <url>`n    <loc>$loc</loc>`n    <lastmod>$(Get-Date -Format yyyy-MM-dd)</lastmod>`n  </url>`n</urlset>")
   [IO.File]::WriteAllText($smPath, $sm)
+}
+
+# link-preview cards (og.png, og-vs.png). Without the render tools, the thumbnail stands in so links never 404.
+if (Test-Path (Join-Path $repo "scripts\.og-tools\node_modules")) {
+  & node (Join-Path $repo "scripts\make-og.mjs") $slug
+} else {
+  $thumbFile = Join-Path $repo ($thumb.TrimStart("/").Replace("/", "\"))
+  foreach ($f in "og.png", "og-vs.png") { Copy-Item $thumbFile (Join-Path $dest $f) -Force }
+  Write-Warning "og cards: copied the thumbnail. For real cards: npm install --prefix scripts/.og-tools @resvg/resvg-js@2.6.2 wawoff2@2.0.1, then node scripts/make-og.mjs $slug"
 }
 
 "added $slug -> /games/$slug/ ($([math]::Round(((Get-ChildItem -Recurse -File $play | Measure-Object Length -Sum).Sum) / 1KB)) KB)"

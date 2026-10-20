@@ -35,7 +35,7 @@
       <div class="hero-copy">
         <p class="eyebrow hub-top"><span class="live-dot" aria-hidden="true"></span> arcade online · computercooked.com/games <a class="cc-chip" id="hub-chip" href="/me/" hidden>log in</a></p>
         <h1 class="games-title">computer cooked <span>games</span></h1>
-        <p class="games-sub">free little browser games. no downloads, no accounts, no ads (yet). works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
+        <p class="games-sub">free little browser games. no downloads. no account needed (but make one and you get xp, saves and friends). no ads (yet). works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
         <div class="hero-ctas">
           <a class="play-btn hero-play" href="/games/crash/">play CRASH ▶</a>
           <a class="ghost-btn" href="#ours-heading">browse games ↓</a>
@@ -64,6 +64,24 @@
     </div>
 
     <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
+
+    <section class="shelf hub-continue" id="hub-continue" hidden aria-labelledby="continue-h">
+      <h2 class="shelf-head" id="continue-h">jump back in</h2>
+      <ul class="continue-row" id="continue-row"></ul>
+    </section>
+
+    <section class="shelf hub-weekly" id="hub-weekly" hidden aria-labelledby="weekly-h">
+      <h2 class="shelf-head" id="weekly-h">weekly challenge <small id="weekly-ends"></small></h2>
+      <a class="about-card weekly-card" id="weekly-card" href="/games/">
+        <img id="weekly-thumb" src="/assets/logo.svg" alt="" width="120" height="90" loading="lazy">
+        <span class="weekly-body">
+          <b id="weekly-title"></b>
+          <span id="weekly-goal"></span>
+          <span class="weekly-meta" id="weekly-meta"></span>
+        </span>
+      </a>
+      <p class="weekly-event" id="weekly-event" hidden></p>
+    </section>
 
     <section class="shelf" id="shelf-trending" hidden>
       <h2 class="shelf-head">trending this week</h2>
