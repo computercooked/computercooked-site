@@ -286,6 +286,21 @@
     game.focus = { x: cam.x, z: cam.z };
   }
 
+  // close family: one is the other's parent or grandparent, or they share a parent or grandparent
+  function lineage(game, id, out, depth) {
+    var f = game.family[id];
+    if (!f || depth <= 0) return out;
+    for (var i = 0; i < f.parents.length; i++) { out[f.parents[i]] = 1; lineage(game, f.parents[i], out, depth - 1); }
+    return out;
+  }
+  Game.related = function (game, a, b) {
+    if (!a || !b || a.id === b.id) return !!a && a === b;
+    var la = lineage(game, a.id, {}, 2), lb = lineage(game, b.id, {}, 2);
+    if (la[b.id] || lb[a.id]) return true;
+    for (var k in la) if (lb[k]) return true;
+    return false;
+  };
+
   // average hunger of the living smols, refreshed every few seconds (breeding and the HUD use it)
   Game.colonyHunger = function (game) {
     if (game._chT != null && game.time - game._chT < 3) return game._ch;

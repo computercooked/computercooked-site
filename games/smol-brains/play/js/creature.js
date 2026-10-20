@@ -385,6 +385,11 @@
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
     if (mask[V.sleep] && (ch.sleepy > 0.85 || ch.tired > 0.9)) { bias[V.sleep] += 0.3; useBias = true; }
     if (ch.hunger > 0.8 && c.species === "smol") mask[V.sleep] = false; // too hungry to sleep
+    // smols are reluctant to hit their own kind unless they're really angry (and almost never family)
+    if (noun === "smol" && c.species === "smol" && mask[V.hit] && ch.anger < 0.5) {
+      var kin = target.ref && SB.Game.related && SB.Game.related(game, c, target.ref);
+      if (kin || rng.chance(0.85)) mask[V.hit] = false; else { bias[V.hit] -= 0.3; useBias = true; }
+    }
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
     // a sick friend and a healer who knows herbs: bring medicine
@@ -846,6 +851,8 @@
     var oc = o.chem;
     if (verb === V.hit) {
       c.stats.hits++;
+      // hurting one of your own when you weren't even angry feels bad (the brain learns from this)
+      if (c.species === "smol" && o.species === "smol" && c.chem.anger < 0.4) { SB.Chem.apply(c.chem, { lonely: 0.25, bored: 0.05 }); emote(c, "sad", 1.4); }
       var hard = c.species === "grump" ? 0.3 : 0.2;
       if (o.inBed && c.species === "grump") hard *= 0.2; // huts protect
       SB.Chem.apply(oc, { pain: hard, fear: 0.18, anger: 0.15 });
