@@ -22,7 +22,7 @@ Response:
   "ok": true, "since": "2026-10-12", "generated_at": "…",
   "totals": { "plays": 0, "accounts": 0, "new_accounts": 0, "uploads_pending": 0, "open_reports": 0 },
   // challenge-a-friend funnel for dares made since `since` (open_rate = opened / sent; beat_rate = beaten / opened)
-  "dares": { "made": 0, "sent": 0, "via_share": 0, "via_copy": 0, "opened": 0, "opens": 0, "beaten": 0, "beats": 0,
+  "dares": { "made": 0, "sent": 0, "via_share": 0, "via_copy": 0, "via_card": 0, "via_download": 0, "opened": 0, "opens": 0, "beaten": 0, "beats": 0,
              "sent_rate": null, "open_rate": null, "beat_rate": null,
              "by_source": { "best": { /* same fields: offered after a new personal best */ }, "button": { /* asked for after any run */ } } },
   "games": [{
@@ -145,6 +145,14 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 - **Install card:** on the hub, `#install-card` appears when the browser offers an install prompt (Chrome, Edge, Android) or on iPhone/iPad Safari (share → add to home screen). It can be dismissed for good.
 - **Metrics:** plays from the installed app are referrer `app` (cc-sdk.js checks display-mode standalone, plus a `cc-app` sessionStorage flag set by pwa.js for the game frame). Offline runs are not recorded: the SDK doesn't queue events, and the server bounds a run by when it saw the start.
 
+## Share-your-run card
+
+After any accepted run, the dare box on the game page offers **share card ▶** next to the plain link. `games/platform.js` loads `games/share-card.js` (only then) and draws a 1080x1920 PNG in the browser: the game's thumbnail, title, score ("new personal best" when it is one), the all-time rank chip, "can you beat me?" and `computercooked.com/games/<slug>`. Nothing is uploaded; the image is made on the device.
+
+- **Phones (Web Share with files):** the tap opens the share sheet with the image plus the dare text and link; it counts as `how: card`. The card and the dare link are made while the player looks at their score, so the tap shares straight away (iOS only allows sharing from the tap itself). If the browser still asks for a fresh tap, the box says "tap share card again".
+- **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
+- It works for every game in the shared player. A game with no thumbnail gets the card without art.
+
 ## Public endpoints
 
 | method | path | what |
@@ -171,7 +179,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/dare` | `{play_id, anon}` → `{id, url, text}`: a challenge-a-friend link for one of your own accepted runs, `/games/<slug>/?vs=<score>&from=<name>&d=<id>`. One dare per run, 30 per hour |
 | GET | `/api/dare/:id[?open=1]` | `{game, title, score, from, beats}`. `open=1` counts a visit (the game page sends it once per tab) |
 | POST | `/api/dare/:id/beat` | `{play_id, anon}` → `{beaten, first, from, score, sender_xp}`. Your run must be yours, on that game, accepted and higher. The first beat per player counts; a logged-in sender gets +25 XP per beat (10 per dare, 100 a day). The game page also sends `cc.event('challenge_open', {d})` on the first run from a dare link |
-| POST | `/api/dare/:id/shared` | `{how: share/copy}` → `{ok}`. The game page sends it when the share sheet finishes or the link is copied; the first one per dare counts. `POST /api/dare` takes `source: best` when the dare comes from the new-personal-best prompt (made up front so the tap opens the share sheet at once) |
+| POST | `/api/dare/:id/shared` | `{how: share/copy/card/download}` → `{ok}`. The game page sends it when the share sheet finishes (`share` for the link, `card` for the share card), the link is copied, or the card is downloaded; the first one per dare counts. `POST /api/dare` takes `source: best` when the dare comes from the new-personal-best prompt (made up front so the tap opens the share sheet at once) |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
 | GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total} \| null}`. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |

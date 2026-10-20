@@ -2400,6 +2400,15 @@
 .cc-dare-box > p:first-child { flex: 1 1 160px; margin: 0; }
 .cc-dare-say { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--lime); overflow-wrap: anywhere; }
 .cc-dare-say:empty { display: none; }
+.cc-dare-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.cc-dare-box .cc-dare-card { border-color: var(--lime); }
+/* share card fallback (no file sharing): the card itself with download + copy link */
+.cc-card-out { flex-basis: 100%; display: flex; gap: 12px; align-items: center; }
+.cc-card-out[hidden] { display: none; }
+.cc-card-out img { width: 108px; height: 192px; border-radius: 8px; border: 1px solid rgba(181, 154, 255, 0.3); background: #101114; flex: none; }
+.cc-card-out > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+.cc-card-out a.tool { text-decoration: none; }
+.cc-card-tip { flex-basis: 100%; margin: 0; font-size: 0.8rem; opacity: 0.75; }
 
 /* ---------- embed kit: the "embed this game" card and the bare player at /games/<slug>/embed/ ---------- */
 .embed-code {
