@@ -7,4 +7,4 @@ CREATE TABLE IF NOT EXISTS challenges (
   goal TEXT NOT NULL,
   xp INTEGER NOT NULL,
   created_at INTEGER NOT NULL
-)
+);
