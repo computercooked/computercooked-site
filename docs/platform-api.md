@@ -13,7 +13,7 @@ Authorization: Bearer <token>
 
 The token is in `C:\Bush Growth\ventures\computer-cooked-games\operations\.metrics-token` (the last line of the file). It's a secret: never commit, paste or log it. If you leave out `since`, it defaults to the last 7 days. The same data is shown as a table at `https://computercooked.com/admin/` (paste the token there).
 
-**Smoke-test traffic is left out.** A guest (no account) whose anon id starts with `smoke` (any case) is test traffic, which is what `scripts/smoke-test.mjs` sends. Its plays are accepted, but its scores are stored with `hidden = 1`, and it's left out of the boards, `/api/stats`, the weekly challenge auto-pick, game of the week, every number in this response, and the dare funnel. It's counted on its own in `test_traffic: {plays, scores, scores_visible, feedback, dares}`; `scores_visible` should always be 0. The leaderboard's `you` row still reads a smoke player's own hidden runs, so the smoke checks work.
+**Smoke-test traffic is left out.** A guest (no account) whose anon id starts with `smoke` (any case) is test traffic, which is what `scripts/smoke-test.mjs` sends. Its plays are accepted, but its scores are stored with `hidden = 1`, and it's left out of the boards, `/api/stats`, the weekly challenge auto-pick, game of the week, every number in this response, and the dare funnel. It's counted on its own in `test_traffic: {plays, scores, scores_visible, feedback, dares, next}`; `scores_visible` should always be 0. The leaderboard's `you` row still reads a smoke player's own hidden runs, so the smoke checks work.
 
 Response:
 
@@ -25,6 +25,8 @@ Response:
   "dares": { "made": 0, "sent": 0, "via_share": 0, "via_copy": 0, "via_card": 0, "via_download": 0, "opened": 0, "opens": 0, "beaten": 0, "beats": 0,
              "sent_rate": null, "open_rate": null, "beat_rate": null,
              "by_source": { "best": { /* same fields: offered after a new personal best */ }, "button": { /* asked for after any run */ } } },
+  // "play next" rail after a run: plays started from it (per_run = plays / runs_ended), by card tapped
+  "next": { "runs_ended": 0, "plays": 0, "ended": 0, "per_run": null, "by_slot": { "challenge": 0, "similar": 0, "new": 0 } },
   "games": [{
     "game": "crash", "title": "CRASH",
     "plays": 0, "unique_players": 0,
@@ -144,6 +146,15 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 - **Service worker:** `/sw.js` (scope `/`, served `Cache-Control: no-cache`). **Network first, always**: online you get exactly what the server sends; the cache (`cc-v1`) is only the offline fallback. It precaches the hub and site shell (cache `cc-v1`) and saves each page and asset you load (same origin, GET, plain 200). **Game files** (`/games/<slug>/play/…`) go in one cache per game version from games.json, `cc-game-<slug>@<version>`: when games.json shows a new version, that game's old cache is deleted, so an offline copy is never a mix of versions (it's saved again on the next play). Offline, a game frame with no current copy shows the offline page (served without X-Frame-Options so it shows inside the frame). It never touches `/api/*`, `/admin`, other sites, non-GET or range requests. Offline, a page with no saved copy shows `/games/offline`, which lists the games this device has saved. Bump `VERSION` in `sw.js` when the shell list changes.
 - **Install card:** on the hub, `#install-card` appears when the browser offers an install prompt (Chrome, Edge, Android) or on iPhone/iPad Safari (share → add to home screen). It can be dismissed for good.
 - **Metrics:** plays from the installed app are referrer `app` (cc-sdk.js checks display-mode standalone, plus a `cc-app` sessionStorage flag set by pwa.js for the game frame). Offline runs are not recorded: the SDK doesn't queue events, and the server bounds a run by when it saw the start.
+
+## Play next rail
+
+After every run (scored or not), the shared player (`games/platform.js`) shows **// play next** below the dare box: three game cards.
+- **weekly challenge:** this week's challenge game (`/api/challenge`), unless that's the game you just played.
+- **more like this:** the game sharing the most tags with this one (games not played on this device first, then newest).
+- **you haven't tried:** a random game not in this device's `cc-recent` list. If there's no challenge card or you've played everything, more games like this one fill the rail, labelled "play again" when already played.
+
+Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that page, `cc-sdk.js` counts its plays as referrer `internal`, tags its first run's start event with `src: "next", slot`, and takes the params off the URL, so a reload doesn't count again. The server stores one `events` row per play, `name = 'cc:next'`, `data = {"slot": …}` (no migration). `cc:*` event names are reserved for the platform: `cc.event` calls using them are dropped. Admin metrics `next` gives plays started from the rail per run ended, by slot.
 
 ## Share-your-run card
 

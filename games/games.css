@@ -2410,6 +2410,26 @@
 .cc-card-out a.tool { text-decoration: none; }
 .cc-card-tip { flex-basis: 100%; margin: 0; font-size: 0.8rem; opacity: 0.75; }
 
+/* "play next" rail after a run (platform.js): three small game cards, below the dare box */
+.cc-next { margin: 0 0 12px; font-family: var(--mono); }
+.cc-next h2 { margin: 0 0 8px; font-size: 0.9rem; color: var(--lilac); }
+.cc-next-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cc-next-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid rgba(181, 154, 255, 0.3);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.cc-next-card:hover, .cc-next-card:focus-visible { border-color: var(--lime); }
+.cc-next-card img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #101114; margin-bottom: 4px; }
+.cc-next-k { font-size: 0.68rem; line-height: 1.2; color: var(--lime); }
+.cc-next-card b { font-size: 0.82rem; line-height: 1.2; overflow-wrap: anywhere; }
+
 /* ---------- embed kit: the "embed this game" card and the bare player at /games/<slug>/embed/ ---------- */
 .embed-code {
   display: block;
