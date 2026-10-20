@@ -219,6 +219,21 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .story p:empty { display: none; }
 .story .row { display: flex; margin-top: 6px; }
 .story .sp { flex: 1; }
+/* storyteller: event cards with choices, and the alert banner for what's coming */
+.incident .story { padding-bottom: 0; }
+.incident p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+.incident .choices { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.incident .choice { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; text-align: left; padding: 10px 12px; background: var(--panel2); color: var(--paper); border: 2px solid var(--line); cursor: pointer; font: inherit; }
+.incident .choice:hover { border-color: var(--lime); }
+.incident .choice .cl { font: 700 14px var(--mono); }
+.incident .choice .cc { font: 700 13px var(--mono); color: var(--lime); }
+.incident .choice .ch { grid-column: 1 / -1; font-size: 12px; color: var(--dim); }
+.incident .choice.poor { opacity: 0.5; }
+.incident .choice.poor .cc { color: var(--pink); }
+.alert { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%); z-index: 6; padding: 7px 14px; font: 700 13px var(--mono); color: var(--paper); background: var(--panel); border: 2px solid var(--lilac); cursor: pointer; pointer-events: auto; white-space: nowrap; }
+.alert.bad { border-color: var(--pink); animation: alertpulse 1.2s steps(2) infinite; }
+@keyframes alertpulse { 50% { border-color: var(--orange); } }
+@media (max-width: 600px) { .alert { top: calc(96px + var(--sat)); font-size: 12px; } }
 /* pixel-art mode: the 3D view renders small and scales up with hard edges */
 #view.pixel { image-rendering: pixelated; image-rendering: crisp-edges; }
 

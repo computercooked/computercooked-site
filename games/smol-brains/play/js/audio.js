@@ -155,6 +155,7 @@
       return 2.3;
     },
     boing: function (v) { tone(140, 0.45, { to: 520, slide: 0.18, vol: 0.25 * v, type: "triangle" }); tone(70, 0.3, { to: 260, slide: 0.15, vol: 0.12 * v }); return 0.5; },
+    alert: function (v) { [55, 55, 62].forEach(function (n, i) { tone(note(n), i === 2 ? 0.55 : 0.18, { delay: i * 0.2, vol: 0.16 * v, type: "sawtooth", filter: "lowpass", ff: 900, attack: 0.02 }); }); tone(70, 0.5, { vol: 0.2 * v, type: "sine" }); return 0.9; },
     zap: function (v) { tone(1800, 0.3, { to: 200, slide: 0.28, vol: 0.12 * v, type: "sawtooth", filter: "bandpass", ff: 1500, q: 2 }); noise(0.25, { ff: 4000, q: 1, vol: 0.1 * v }); tone(300, 0.2, { to: 1600, delay: 0.25, vol: 0.12 * v, type: "square", filter: "lowpass", ff: 3000 }); return 0.5; },
     sad: function (v) { [76, 72, 69, 64].forEach(function (n, i) { tone(note(n), 0.5, { delay: i * 0.28, vol: 0.12 * v, type: "triangle", attack: 0.04 }); }); return 1.5; },
     sick: function (v) { tone(260, 0.4, { to: 110, slide: 0.35, vol: 0.18 * v, type: "sawtooth", filter: "lowpass", ff: 700, q: 6 }); noise(0.3, { delay: 0.05, ff: 500, q: 4, vol: 0.12 * v }); return 0.45; },

@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const MODULES = ["core", "genome", "brain", "chemistry", "lang", "ideas", "words", "worldgen", "world", "creature", "species", "society", "strangers", "social", "save", "main"];
+const MODULES = ["core", "genome", "brain", "chemistry", "lang", "ideas", "words", "worldgen", "world", "creature", "species", "society", "strangers", "social", "director", "save", "main"];
 module.exports = function load(only) {
   const dir = path.join(__dirname, "..", "play", "js");
   const ctx = {

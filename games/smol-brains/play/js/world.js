@@ -502,6 +502,18 @@
     return null;
   };
   W.nodeById = function (world, id) { return world.nodeById[id] || null; };
+  // a node that wasn't there at worldgen (a fallen star's crystals): saved with the world
+  W.addNode = function (world, game, kind, x, z, s) {
+    if (!NK[kind] || !W.inBounds(world, x, z)) return null;
+    var id = world._nextNode || 0;
+    if (!id) world.nodes.forEach(function (o) { if (o.id >= id) id = o.id + 1; });
+    world._nextNode = id + 1;
+    var n = { id: id, kind: kind, x: x, z: z, s: s || 1, rot: game.rng() * 6.28, seed: 1, added: true, type: "node", noun: NK[kind].noun, dropT: 20, alsoT: 60, state: "ok" };
+    world.nodes.push(n); world.nodeById[id] = n;
+    rebuildNodeGrid(world);
+    markNode(world, n);
+    return n;
+  };
   W.toss = function (o, vx, vz, vy) { o.vx = vx; o.vz = vz; o.vy = vy == null ? 4 : vy; o.onGround = false; };
 
   function dropFrom(world, game, n, kind) {

@@ -130,6 +130,7 @@
     }
     // buildings, eggs, creatures
     game.world.structures.forEach(function (st) { x.fillStyle = st.done ? "#f5f3ed" : "rgba(245,243,237,0.5)"; var r = Math.max(2, 1.6 * k); x.fillRect(st.x * k - r / 2, st.z * k - r / 2, r, r); });
+    ((game.dir && game.dir.marks) || []).forEach(function (m) { x.fillStyle = "#a8e6ff"; x.beginPath(); x.arc(m.x * k, m.z * k, Math.max(2.4, 1.8 * k), 0, 6.283); x.fill(); x.strokeStyle = "#ffffff"; x.lineWidth = 1; x.stroke(); });
     game.world.items.forEach(function (o) { if (o.kind === "egg" && o.heldBy == null) { x.fillStyle = "#fff6d6"; x.beginPath(); x.arc(o.x * k, o.z * k, Math.max(1.6, 1.2 * k), 0, 6.283); x.fill(); } });
     game.creatures.forEach(function (c) {
       if (!c.alive || !SB.World.isSeen(game.world, c.x, c.z)) return;
@@ -1147,6 +1148,56 @@
     modal("🧳 a stranger approaches", h("div", null, lines), { sticky: true });
   }
 
+  /* ---------------- the storyteller (director.js) ---------------- */
+  function incidentCard(inc) {
+    if (!inc || inc.phase !== "ask") return;
+    if (el.modal) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
+    if (inc.x != null) R.flyTo(inc.x, inc.z, 9, 1.0);
+    var body = h("div", { class: "incident" }, [
+      h("div", { class: "story" }, [h("div", { class: "icon" }, inc.icon), h("h3", null, inc.title)]),
+      h("div", null, inc.text.map(function (p) { return h("p", null, p); })),
+      h("div", { class: "choices" }, inc.choices.map(function (c) {
+        var poor = c.cost && (game.sparks || 0) < c.cost;
+        return h("button", { class: "choice" + (poor ? " poor" : ""), onclick: function () {
+          if (poor) { toast("not enough sparks ✨ (" + c.cost + " needed)"); return; }
+          if (SB.Director.choose(game, inc, c.key)) closeModal();
+        } }, [h("span", { class: "cl" }, c.label), c.cost ? h("span", { class: "cc" }, "✨" + c.cost) : null, h("span", { class: "ch" }, c.hint)]);
+      }))
+    ]);
+    modal("", body, { story: true, sticky: true });
+    if (SB.Audio && SB.Audio.play) try { SB.Audio.play(inc.id === "raid" || inc.id === "storm" ? "alert" : "chime"); } catch (e) {}
+  }
+  UI.incidentCard = incidentCard;
+  function incidentStatus(inc) {
+    var t = Math.max(0, Math.ceil(inc.t1 - game.time)), mm = Math.floor(t / 60) + ":" + ("0" + t % 60).slice(-2);
+    if (inc.phase === "warn") return inc.id === "raid" ? "👺 grumps arrive in " + mm : inc.id === "storm" ? "⛈ storm in " + mm : inc.icon + " " + mm;
+    if (inc.phase !== "on") return "";
+    switch (inc.id) {
+      case "raid": return "👺 raid! " + (inc.left == null ? inc.n : inc.left) + " grump" + (inc.left === 1 ? "" : "s") + " left";
+      case "storm": return "⛈ storm overhead";
+      case "sick": return "🤧 the sniffles are going round";
+      case "star": return "👣 explorers heading for the crater";
+      case "feud": return "🥊 the fight is on!";
+      case "lost": var k = SB.Game.byId(game, inc.kid); return "🦋 " + (k ? k.name : "a kid") + " is lost";
+      case "feast": return "🎉 feast!";
+    }
+    return inc.icon + " " + inc.title;
+  }
+  function incidentWhere(inc) {
+    if (inc.id === "raid" && inc.raiders) { var g = inc.raiders.map(function (id) { return SB.Game.byId(game, id); }).filter(function (c) { return c && c.alive; })[0]; if (g) return g; }
+    if (inc.id === "lost") { var k = SB.Game.byId(game, inc.kid); if (k) return k; }
+    if (inc.id === "feud") { var a = SB.Game.byId(game, inc.a); if (a) return a; }
+    return inc;
+  }
+  var alertT = 0;
+  function updateAlert(dt) {
+    if ((alertT -= dt) > 0) return;
+    alertT = 0.25;
+    var inc = game.dir && game.dir.active, txt = inc ? incidentStatus(inc) : "";
+    if (!el.alert) { el.alert = h("button", { class: "alert hide", onclick: function () { var i = game.dir && game.dir.active; if (i) { var p = incidentWhere(i); if (p && p.x != null) R.flyTo(p.x, p.z, 9, 0.8); } } }); root.appendChild(el.alert); }
+    if (el.alert._t !== txt) { el.alert._t = txt; el.alert.textContent = txt; el.alert.classList.toggle("hide", !txt); el.alert.classList.toggle("bad", !!inc && (inc.id === "raid" || inc.id === "storm")); }
+  }
+
   /* ---------------- while you were away ---------------- */
   UI.awayScreen = function (g, awaySec, budget) {
     var bar = h("i", { style: "width:0%" });
@@ -1297,6 +1348,9 @@
         "friends and family grieve for a while: they get lonely and slow, and visit the grave. the 📜 chronicle in the menu remembers everyone."]);
     });
     on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
+    on("incident", function (d) { setTimeout(function () { incidentCard(d.inc); }, 300); });
+    on("incidentNote", function (d) { toast(esc(d.inc.note)); });
+    on("incidentEnd", function (d) { if (!d.text) return; toast(d.inc.icon + " " + esc(d.text), d.ok && (d.inc.id === "raid" || d.inc.id === "star") ? "ach" : ""); if (d.inc.id === "raid" && d.ok && d.inc.choice === "fight") moment("🏏", "raid broken!", "the village fought them off"); });
     on("strangerLeft", function (d) { toast(esc(d.c.name) + (d.auto ? " gave up waiting and walked back into the wild." : " walks back into the wild.")); });
     on("kin", function (d) { storyCard("kin", "👪", "family can't have kids together", [
       esc(d.a.name) + " and " + esc(d.b.name) + " are in love, but they're family. <b>parents, brothers and sisters, and cousins can't have kids together.</b>",
@@ -1406,6 +1460,7 @@
       if ((perfT -= dt) < 0) { perfT = 0.5; perfEl.textContent = Math.round(1000 / R.perf.ft) + " fps · " + R.perf.ft.toFixed(1) + " ms · " + R.perf.draws + " draws · " + Math.round(R.perf.tris / 1000) + "k tris · res " + R.quality.scale.toFixed(2) + " · sim " + (SB.Game.stepMs || 0).toFixed(2) + " ms · " + game.creatures.length + " creatures · " + game.world.items.length + " items"; }
     }
     updateHud(dt);
+    updateAlert(dt);
     drawMinimap(dt);
     if (state.sheet === "smol") renderSmol(false);
     else if (state.sheet === "talk") { if (el.talkWords) updateTalk(false); }

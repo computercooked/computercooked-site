@@ -327,6 +327,16 @@
       var foe = SB.Game.byId(game, c.grudge.id);
       if (foe && foe.alive && SB.dist(foe.x, foe.z, c.x, c.z) < 4 && C.provoke(c, foe, game)) return;
     }
+    // the god's orders (see director.js): the sick keep apart, everyone shelters at home
+    if (c.quarantine && c.species === "smol") {
+      if (ch.sick < 0.15 && ch.antigen < 0.1) c.quarantine = null;
+      else if (SB.dist(c.x, c.z, c.quarantine.x, c.quarantine.z) > 2.5) { C.sendTo(c, c.quarantine.x, c.quarantine.z, game, 12); return; }
+    }
+    if (c.shelterT > 0 && c.species === "smol" && !c.quarantine) {
+      var hm = SB.Society.home(game, c.tribe || 0);
+      if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12); return; }
+      startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return;
+    }
     if (c.stranger && SB.Strangers) { // a stranger walks up to the village and waits for your answer (or walks away)
       var sg = SB.Strangers.think(c, game);
       if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
@@ -336,7 +346,7 @@
     if (c.species === "grump") {
       var prey = false;
       for (var pi = 0; pi < cands.length; pi++) if (cands[pi].noun === N.smol || cands[pi].noun === N.food) prey = true;
-      if (!prey) { c.attn = null; startAction(c, game, V.wander, null, null, null); return; }
+      if (!prey) { c.attn = null; startAction(c, game, V.wander, null, null, null); if (c.raider) { c.action.tx = c.raider.x + rng.range(-3, 3); c.action.tz = c.raider.z + rng.range(-3, 3); c.action.dur = 8; } return; } // raiders march on the village
     }
     SB.Chem.drives(ch, drv);
     // innate drive-directed attention: a hungry smol's eyes go to food, a cold one's to fire
@@ -516,6 +526,15 @@
     var t = { type: "creature", id: o.id }, r = resolve(game, t);
     if (!r || c.plan) return false;
     startAction(c, game, V.hit, t, r, "smol");
+    return true;
+  };
+  // walk somewhere on the god's say-so (everyone home!, a search party): drops whatever the brain was doing
+  C.sendTo = function (c, x, z, game, dur) {
+    if (!c.alive || c.heldBy) return false;
+    if (c.plan && SB.Ideas) c.plan = null;
+    c.asleep = false; c.inBed = false;
+    startAction(c, game, V.wander, null, null, null);
+    c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
     return true;
   };
   function knowsAny(c, kind) {
@@ -1405,6 +1424,7 @@
     if (c.species === "smol" && c.age > c.lifespan) { die(c, game, "old"); return; }
     if (c.eggCooldown > 0) c.eggCooldown -= dt;
     if (c.inspired > 0) c.inspired -= dt;
+    if (c.shelterT > 0) c.shelterT -= dt;
     if (c.species === "smol") {
       var bm = SB.World.biomeAt(w, c.x, c.z);
       c.visited[SB.BIOMES[bm].id] = true;
@@ -1518,7 +1538,7 @@
       var spear = false;
       SB.World.creaturesNear(w, game, c.x, c.z, 2.5, function (o) { if (o.species === "smol" && o.tool != null) { var t = SB.Game.byId(game, o.tool); if (t && (t.kind === "spear" || t.kind === "torch")) spear = true; } });
       if (fire || spear) { SB.Chem.apply(ch, { fear: dt * 0.8 }); if (ch.fear > 0.7 && !c.goingHome) { c.goingHome = true; say(c, "hot! nope!", game); game.stats.scaredOff = (game.stats.scaredOff || 0) + 1; } }
-      if (!w.night || c.goingHome) {
+      if ((!w.night && !c.raider) || c.goingHome) {
         var cave = nearestCave(w, c);
         c.asleep = false; c.action = null;
         if (c.holding != null && game.rng.chance(dt * 0.1)) { var held = SB.Game.byId(game, c.holding); if (held && held.kind !== "egg") SB.World.remove(w, held); c.holding = null; }
