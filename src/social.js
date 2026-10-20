@@ -172,6 +172,8 @@ export async function feed(env, user, catalog) {
   }
   const chs = (await env.DB.prepare("SELECT game, ref, amount, ts FROM xp_events WHERE user_id = ? AND kind = 'challenge' ORDER BY ts DESC LIMIT 10").bind(user.id).all()).results;
   for (const c of chs) items.push({ kind: "challenge", game: c.game, text: `finished the weekly challenge (+${c.amount} xp)`, ts: c.ts });
+  const dz = (await env.DB.prepare("SELECT game, amount, ts FROM xp_events WHERE user_id = ? AND kind = 'dare' ORDER BY ts DESC LIMIT 10").bind(user.id).all()).results;
+  for (const c of dz) items.push({ kind: "challenge", game: c.game, text: `someone took your dare and won (+${c.amount} xp)`, ts: c.ts });
   // collapse repeats (the same line from one game) to the newest, then newest first
   const seen = new Set();
   const out = items.sort((a, b) => b.ts - a.ts).filter((i) => { const k = i.game + "|" + i.text; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 30);

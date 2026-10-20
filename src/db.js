@@ -6,8 +6,9 @@ import profiles from "../migrations/0004_profiles.sql";
 import friends from "../migrations/0005_friends.sql";
 import activity from "../migrations/0006_activity.sql";
 import challenges from "../migrations/0007_challenges.sql";
+import dares from "../migrations/0008_dares.sql";
 
-const schema = [init, saves, xp, profiles, friends, activity, challenges].join("\n;\n");
+const schema = [init, saves, xp, profiles, friends, activity, challenges, dares].join("\n;\n");
 
 let ready = null;
 export function ensureSchema(env) {

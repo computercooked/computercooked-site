@@ -2366,3 +2366,11 @@
 .continue-card.is-sync { border-color: var(--lilac); }
 .continue-card.is-sync small { color: var(--lilac); }
 .continue-go { font-family: var(--mono); font-weight: 800; color: var(--lime); padding: 0 6px; }
+
+/* ---------- challenge-a-friend ---------- */
+.dare-text i { font-style: normal; font-weight: 800; color: var(--lilac); }
+.dare.is-beaten { border-color: var(--lime); }
+.cc-dare-box { flex-wrap: wrap; }
+.cc-dare-box > p:first-child { flex: 1 1 160px; margin: 0; }
+.cc-dare-say { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--lime); overflow-wrap: anywhere; }
+.cc-dare-say:empty { display: none; }

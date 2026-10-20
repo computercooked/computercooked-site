@@ -285,6 +285,7 @@
     if (play) end({ completed: false });
     play = { id: rid(16), t0: Date.now(), score: null, auto: !!(opts && opts.auto), events: 0 };
     queue.push({ t: "start", id: play.id, game: game, v: version, auto: play.auto ? 1 : 0 });
+    try { document.dispatchEvent(new CustomEvent("cc:start", { detail: { game: game, playId: play.id, auto: play.auto } })); } catch (e) {}
     flush();
   }
   function score(s) { if (play && typeof s === "number" && isFinite(s)) play.score = s; }

@@ -29,7 +29,7 @@ export const SITE_ACH = {
 export const RULES = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
 
 // one row per grant; (user_id, kind, ref) is unique, so a retried request never pays twice
-async function grant(env, userId, kind, game, ref, amount, t) {
+export async function grant(env, userId, kind, game, ref, amount, t) {
   if (!(amount > 0)) return 0;
   const r = await env.DB.prepare("INSERT OR IGNORE INTO xp_events (user_id, kind, game, ref, amount, day, ts) VALUES (?,?,?,?,?,?,?)")
     .bind(userId, kind, game, String(ref), Math.round(amount), dayOf(t), t).run();

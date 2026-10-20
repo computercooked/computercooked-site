@@ -403,7 +403,9 @@
   }
 
   function challengeBanner() {
-    var beat = cleanScore(new URLSearchParams(location.search).get("beat"));
+    var q = new URLSearchParams(location.search);
+    if (q.get("d") || q.get("vs")) return; // challenge-a-friend links: games/platform.js shows those
+    var beat = cleanScore(q.get("beat"));
     if (!beat || !/[0-9]/.test(beat)) return;
     var layout = document.querySelector(".player-layout");
     if (!layout) return;

@@ -8,6 +8,7 @@ import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
+import { makeDare, getDare, beatDare } from "./dares.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -87,6 +88,12 @@ async function api(req, env, url) {
   }
 
   if (path.startsWith("/api/saves/")) return savesRoute(req, env, user, path);
+  // challenge-a-friend links
+  if (route === "POST /api/dare") return makeDare(req, env, user, ip, await catalogOf(env, origin), origin);
+  const dm = /^\/api\/dare\/([A-Za-z0-9_-]{6,16})(\/beat)?$/.exec(path);
+  if (dm && method === "GET" && !dm[2]) return getDare(url, env, dm[1], await catalogOf(env, origin));
+  if (dm && method === "POST" && dm[2]) return beatDare(req, env, user, dm[1]);
+
   if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin, user);
 
   if (path.startsWith("/api/admin/")) {
