@@ -185,3 +185,10 @@
   font-family: var(--mono); font-weight: 800; font-size: 0.6rem; color: #111;
 }
 #lvl-unlock { margin-top: 4px; }
+
+/* ---------- friends' activity ---------- */
+.fr-feed-h { margin: 14px 0 4px; font-size: 0.9rem; color: var(--lilac); }
+.me-feed .fr-who { display: inline-flex; align-items: center; gap: 4px; color: var(--paper); }
+.fr-face { display: inline-block; width: 20px; height: 20px; vertical-align: middle; }
+.fr-face svg { width: 100%; height: 100%; display: block; }
+.me-feed li.is-best span { color: var(--paper); }

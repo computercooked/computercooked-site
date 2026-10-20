@@ -88,7 +88,7 @@
     $("#auth").hidden = true;
     $("#profile").hidden = false;
     $("#me-title").innerHTML = "hi, <span>" + esc(user.username) + "</span>";
-    $("#me-sub").textContent = "your stuff. still no ads. still no email.";
+    $("#me-sub").textContent = "your stuff. still no ads. email stays optional.";
     $("#me-name").textContent = user.username;
     $("#me-avatar").innerHTML = window.ccAvatar(user.avatar);
     picker($("#avatar-change"), user.avatar, function (k) { setFace(k); });
@@ -272,8 +272,20 @@
   function friendDo(action, username, msg) {
     return api("/api/me/friends", { action: action, username: username }).then(function (r) {
       if (msg) msg.textContent = r.ok ? DONE[r.status] || "" : r.error || "that didn't work.";
-      if (r.ok) loadFriends();
+      if (r.ok) { loadFriends(); loadFriendsFeed(); }
       return r;
+    });
+  }
+  function loadFriendsFeed() {
+    api("/api/me/friends/feed").then(function (r) {
+      if (!r.ok) return;
+      $("#fr-feed-wrap").hidden = !r.friends;
+      if (!r.friends) return;
+      $("#fr-feed").innerHTML = r.items.length ? r.items.map(function (i) {
+        var who = '<a class="fr-who" href="/u/' + encodeURIComponent(i.who.username) + '"><span class="fr-face">' + window.ccAvatar(i.who.avatar) + "</span>" + esc(i.who.name) + "</a>";
+        var g = i.game ? ' · <a href="/games/' + encodeURIComponent(i.game) + '/">' + esc(i.title) + "</a>" : "";
+        return '<li class="is-' + esc(i.kind) + '"><span>' + who + " " + esc(i.text) + g + "</span><small>" + ago(i.ts) + "</small></li>";
+      }).join("") : '<li class="me-empty">quiet week. go set a score for them to chase.</li>';
     });
   }
   function initFriends() {
@@ -292,6 +304,7 @@
       friendDo(act, b.dataset.u, ff.querySelector(".me-msg"));
     });
     loadFriends();
+    loadFriendsFeed();
   }
 
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }

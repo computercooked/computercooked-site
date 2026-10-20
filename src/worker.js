@@ -6,7 +6,7 @@ import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePas
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
-import { challenge, feed, previewChallenge } from "./social.js";
+import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
@@ -80,6 +80,7 @@ async function api(req, env, url) {
       case "POST /api/me/logout-all": return logoutAll(req, env, user);
       case "GET /api/me/export": return exportData(env, user);
       case "GET /api/me/friends": return listFriends(env, user);
+      case "GET /api/me/friends/feed": return friendsFeed(env, user, await catalogOf(env, origin));
       case "GET /api/me/feed": return feed(env, user, await catalogOf(env, origin));
       case "POST /api/me/friends": return friendAction(req, env, user, ip);
     }
