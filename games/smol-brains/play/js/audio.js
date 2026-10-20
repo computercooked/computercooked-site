@@ -162,6 +162,23 @@
     snore: function (v) { noise(0.9, { ff: 300, fTo: 180, q: 5, vol: 0.06 * v, attack: 0.3 }); tone(90, 0.8, { vol: 0.04 * v, type: "sawtooth", filter: "lowpass", ff: 300, attack: 0.3 }); return 1; },
     splash: function (v) { noise(0.35, { ff: 1800, fTo: 600, q: 0.8, vol: 0.2 * v }); return 0.4; },
     bonk: function (v) { return SFX.tap(v * 0.7); },
+    eureka: function (v) {
+      [72, 79, 84, 88, 91, 96].forEach(function (n, i) { tone(note(n), 0.5, { delay: i * 0.06, vol: 0.12 * v, type: "sine" }); tone(note(n + 7), 0.3, { delay: i * 0.06 + 0.03, vol: 0.04 * v, type: "triangle" }); });
+      return 0.9;
+    },
+    tierup: function (v) {
+      var seq = [[60, 0], [67, 0.12], [72, 0.24], [76, 0.36], [79, 0.48], [84, 0.64], [88, 0.8]];
+      seq.forEach(function (s2) { tone(note(s2[0]), 0.5, { delay: s2[1], vol: 0.13 * v, type: "triangle" }); tone(note(s2[0] + 12), 0.3, { delay: s2[1], vol: 0.05 * v, type: "sine" }); });
+      noise(1.2, { delay: 0.6, ff: 6000, fTo: 9000, q: 0.5, vol: 0.05 * v, attack: 0.3 });
+      return 1.6;
+    },
+    craft: function (v) { for (var i = 0; i < 3; i++) { tone(700 + Math.random() * 300, 0.05, { delay: i * 0.12, vol: 0.12 * v, type: "triangle" }); noise(0.04, { delay: i * 0.12, ff: 2500, q: 2, vol: 0.12 * v, filter: "bandpass" }); } return 0.4; },
+    build: function (v) { tone(160, 0.1, { to: 90, vol: 0.2 * v, type: "sine" }); noise(0.06, { ff: 900, q: 1.5, vol: 0.15 * v, filter: "bandpass" }); return 0.15; },
+    built: function (v) { [67, 72, 76, 79].forEach(function (n, i) { tone(note(n), 0.35, { delay: i * 0.09, vol: 0.12 * v, type: "triangle" }); }); tone(110, 0.2, { vol: 0.2 * v, type: "sine" }); return 0.7; },
+    magic: function (v) { for (var i = 0; i < 8; i++) tone(note(84 + [0, 4, 7, 11, 12, 16, 19, 24][i]), 0.3, { delay: i * 0.04, vol: 0.06 * v, type: "sine" }); noise(0.6, { ff: 5000, fTo: 2000, q: 1, vol: 0.06 * v, attack: 0.05 }); return 0.7; },
+    chime: function (v) { tone(note(88), 0.8, { vol: 0.08 * v, type: "sine" }); tone(note(95), 0.6, { delay: 0.1, vol: 0.05 * v, type: "sine" }); return 0.9; },
+    fire: function (v) { noise(0.5, { ff: 900, fTo: 300, q: 0.7, vol: 0.18 * v, attack: 0.02 }); tone(120, 0.3, { to: 60, vol: 0.12 * v }); return 0.5; },
+    species: function (v) { tone(300, 0.25, { to: 900, slide: 0.2, vol: 0.15 * v, type: "sine" }); tone(450, 0.25, { delay: 0.12, to: 1300, slide: 0.2, vol: 0.12 * v, type: "sine" }); return 0.45; },
     music: function (v) {
       if (T() < musicUntil) return 0;
       // a little music-box tune: pentatonic, with a bell-ish partial
@@ -177,7 +194,7 @@
       return t;
     }
   };
-  var SFX_COOLDOWN = { eat: 0.2, tickle: 0.25, tap: 0.12, learn: 0.3, egg: 0.5, grump: 1.5, thunder: 1, boing: 0.2, zap: 0.3, sad: 1, sick: 1, music: 0.5, snore: 2, splash: 0.3, pop: 0.05, click: 0.03 };
+  var SFX_COOLDOWN = { eureka: 0.5, tierup: 2, craft: 0.3, build: 0.15, built: 1, magic: 0.3, chime: 0.4, fire: 1, species: 1, eat: 0.2, tickle: 0.25, tap: 0.12, learn: 0.3, egg: 0.5, grump: 1.5, thunder: 1, boing: 0.2, zap: 0.3, sad: 1, sick: 1, music: 0.5, snore: 2, splash: 0.3, pop: 0.05, click: 0.03 };
 
   A.play = function (name, opts) {
     var f = SFX[name];
@@ -238,32 +255,32 @@
     rainSrc.connect(bq); bq.connect(rainGain); rainGain.connect(ambBus); rainSrc.start();
     ambTimer = setInterval(ambTick, 1000);
   }
-  var nextCritter = 3;
+  var nextCritter = 3, crackleT = 0;
   function ambTick() {
     if (!ac || ac.state !== "running") return;
     var g = SB.Game && SB.Game.current, w = g && g.world;
     if (!w) return;
-    var view = SB.Render && SB.Render.view, cx = view ? (view.x0 + view.x1) / 2 : SB.HOME_X;
-    var room = Math.floor(cx / (SB.ROOM_W || 900));
-    var wk = w.weather ? w.weather.kind : "sun", it = w.weather ? w.weather.intensity || 0 : 0;
-    var rainy = (wk === "rain" || wk === "storm") && room !== 3 && room !== 5;
-    rainGain.gain.setTargetAtTime(ambOn && rainy ? 0.05 * it : 0, T(), 1.2);
+    var cam = SB.Render && SB.Render.camera;
+    var rain = w.weather ? w.weather.rain || 0 : 0, zoomK = cam ? SB.clamp(1.4 - cam.zoom / 40, 0.2, 1) : 1;
+    rainGain.gain.setTargetAtTime(ambOn ? 0.06 * rain * zoomK : 0, T(), 1.2);
     if (!ambOn) return;
+    // fires crackle nearby
+    if (cam && w.fires && w.fires.some(function (f) { return Math.abs(f.x - cam.x) < cam.halfW && Math.abs(f.z - cam.z) < cam.halfH * 1.5; })) {
+      for (var c = 0; c < 4; c++) noise(0.02, { delay: Math.random() * 0.9, ff: 2500 + Math.random() * 2500, q: 3, vol: 0.03 * zoomK, filter: "bandpass", bus: ambBus });
+    }
     nextCritter -= 1;
     if (nextCritter > 0) return;
     nextCritter = 3 + Math.random() * 6;
-    var night = w.night || (w.daylight != null && w.daylight < 0.3);
-    if (room === 3) return; // the Lab hums quietly instead
+    var tday = (w.time / SB.DAY_LENGTH) % 1, night = tday < 0.22 || tday > 0.78;
     if (night) {
-      // crickets: a few quick high pulses
+      if (w.season === 3) return;
       var f = 4200 + Math.random() * 600;
-      for (var i = 0; i < 6; i++) tone(f, 0.035, { delay: i * 0.06 + (i > 2 ? 0.15 : 0), vol: 0.018, type: "sine", bus: ambBus });
-    } else if (!rainy && room !== 0) {
-      // birds: two little chirps
+      for (var i = 0; i < 6; i++) tone(f, 0.035, { delay: i * 0.06 + (i > 2 ? 0.15 : 0), vol: 0.018 * zoomK, type: "sine", bus: ambBus });
+    } else if (rain < 0.3) {
       var b = 2200 + Math.random() * 1400;
-      tone(b, 0.09, { to: b * 1.4, vol: 0.025, type: "sine", bus: ambBus });
-      tone(b * 1.1, 0.12, { delay: 0.14, to: b * 0.8, vol: 0.022, type: "sine", bus: ambBus });
-      if (Math.random() < 0.5) tone(b * 1.2, 0.08, { delay: 0.32, to: b * 1.5, vol: 0.02, type: "sine", bus: ambBus });
+      tone(b, 0.09, { to: b * 1.4, vol: 0.025 * zoomK, type: "sine", bus: ambBus });
+      tone(b * 1.1, 0.12, { delay: 0.14, to: b * 0.8, vol: 0.022 * zoomK, type: "sine", bus: ambBus });
+      if (Math.random() < 0.5) tone(b * 1.2, 0.08, { delay: 0.32, to: b * 1.5, vol: 0.02 * zoomK, type: "sine", bus: ambBus });
     }
   }
   A.ambience = function (on) { ambOn = !!on; if (!ambOn && rainGain && ac) rainGain.gain.setTargetAtTime(0, T(), 0.3); };
@@ -271,12 +288,13 @@
   /* ---------------- bus ---------------- */
   // volume falloff for things off camera (silence when far)
   function near(c) {
-    var v = SB.Render && SB.Render.view;
-    if (!v || !c || c.x == null) return 1;
-    var m = 160;
-    if (c.x >= v.x0 - m && c.x <= v.x1 + m) return 1;
-    var d = c.x < v.x0 ? v.x0 - c.x : c.x - v.x1;
-    return d > 900 ? 0 : 0.35 * (1 - d / 900);
+    var cam = SB.Render && SB.Render.camera;
+    if (!cam || !c || c.x == null || c.z == null) return 1;
+    var dx = Math.abs(c.x - cam.x) - cam.halfW, dz = Math.abs(c.z - cam.z) - cam.halfH * 1.6;
+    var d = Math.max(dx, dz);
+    var zk = SB.clamp(1.5 - cam.zoom / 40, 0.15, 1);
+    if (d <= 0) return zk;
+    return d > 20 ? 0 : 0.35 * (1 - d / 20) * zk;
   }
   function at(name, c, base) { var v = near(c) * (base || 1); if (v > 0.03) A.play(name, { vol: v }); }
   function hookBus() {
@@ -304,15 +322,20 @@
     on("sick", function (e) { at("sick", e && e.c); });
     on("hit", function (e) { at("bonk", e && e.c, 0.8); });
     on("splash", function (e) { at("splash", e, 0.7); });
-    on("music", function (e) { at("music", e && e.obj); });
-    on("use", function (e) {
-      if (!e || !e.obj) return;
-      var k = e.obj.kind, r = e.result || {};
-      if (k === "trampoline" && (r.jump || e.verb === "play")) at("boing", e.obj);
-      else if (k === "teleporter" && r.teleport != null) at("zap", e.obj);
-      else if (k === "musicbox" && e.verb === "play") at("music", e.obj);
-      else if ((k === "snackbox" || k === "medbot") && !r.msg) at("pop", e.obj);
-    });
+    on("eureka", function (e) { at("eureka", e && e.c, 1.2); });
+    on("tierUp", function () { A.play("tierup"); });
+    on("craft", function (e) { at("craft", e && e.c); });
+    on("deliver", function (e) { at("build", e && e.c); });
+    on("built", function (e) { at("built", e && e.st); });
+    on("lightning", function (e) { at("zap", e, 0.8); setTimeout(function () { at("thunder", e, 1); }, 200); });
+    on("wildfire", function (e) { at("fire", e && e.node); });
+    on("fireLit", function (e) { at("fire", e && e.st, 0.6); });
+    on("pray", function (e) { at("chime", e && e.c, 0.6); });
+    on("prayerAnswered", function (e) { at("magic", e && e.c, 0.6); });
+    on("miracle", function () { A.play("magic"); });
+    on("newSpecies", function () { A.play("species"); });
+    on("village", function () { A.play("achievement"); });
+    on("ideaLost", function () { A.play("sad", { vol: 0.6 }); });
   }
   if (SB.bus) hookBus();
 })();

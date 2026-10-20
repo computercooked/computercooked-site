@@ -1,21 +1,15 @@
-/* smol brains — save.js
-   Autosave/load to localStorage, and copy-paste "smol codes" (SMOL1:...) for sharing a single creature. */
+/* smol brains 2 — save.js
+   Autosave/load (localStorage, v2 key), the v1 -> v2 migration ("your smols from the old valley woke up
+   on an island"), and copy-paste smol codes (SMOL2:..., SMOL1 codes still import). The v1 save is never
+   touched, so going back is always possible. */
 (function () {
   "use strict";
   var SB = window.SB;
   var Save = (SB.Save = {});
-
-  var KEY = "smolbrains-save-v1";
-  var VERSION = 1;
-  var CODE_PREFIX = "SMOL1:";
-  // Creature fields that are transient: reset on load.
-  var CREATURE_DROP = { brain: 1, action: 1, attn: 1, speech: 1 };
-
-  /* ---------------- generic plain-data conversion ---------------- */
+  var KEY = "smolbrains-save-v2", KEY_V1 = "smolbrains-save-v1";
+  var CREATURE_DROP = { brain: 1, action: 1, attn: 1, speech: 1, plan: 1, anim: 1, look: 1, px: 1, pz: 1, py: 1, far: 1, moving: 1, heard: 1, lastDone: 1, badMeal: 1, type: 1, lost: 1 };
 
   function round(v) { return Number.isInteger(v) ? v : Math.round(v * 1e4) / 1e4; }
-
-  // Deep copy into JSON-safe data: typed arrays -> arrays, NaN/Infinity -> 0, functions and "_"-prefixed keys dropped.
   function plain(v, depth) {
     if (v == null) return v === undefined ? undefined : null;
     var t = typeof v;
@@ -42,25 +36,22 @@
       var pv = plain(c[k], 1);
       if (pv !== undefined) o[k] = pv;
     }
-    o.action = null; o.attn = null; o.speech = null;
-    if (c.brain && SB.Brain && SB.Brain.serialize) o.brain = SB.Brain.serialize(c.brain);
+    o.genome = SB.Genome.encode(c.genome);
+    if (c.brain) o.brain = SB.Brain.serialize(c.brain);
     return o;
   }
 
-  /* ---------------- save / load ---------------- */
-
   Save.snapshot = function (game) {
-    var w = game.world;
-    var world = SB.World.serialize ? SB.World.serialize(w) : { objects: w.objects, weather: w.weather, dayIndex: w.dayIndex, night: w.night, pads: w.pads };
     return {
-      v: VERSION, savedAt: Date.now(),
-      seed: game.seed, rngState: game.rng && game.rng.state ? game.rng.state() : 0,
-      time: game.time, speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
-      hand: { tool: game.hand ? game.hand.tool : "grab" },
-      family: plain(game.family, 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
-      tutorial: plain(game.tutorial, 0), log: plain(game.log, 0),
-      world: plain(world, 0),
-      creatures: game.creatures.filter(function (c) { return !c.gone; }).map(plainCreature)
+      v: 2, savedAt: Date.now(), seed: game.seed, rngState: game.rng.state(),
+      time: round(game.time), speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
+      hand: { tool: game.hand.tool }, family: plain(game.family, 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
+      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0),
+      culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount }, 0),
+      tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
+      playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0),
+      world: SB.World.serialize(game.world),
+      creatures: game.creatures.filter(function (c) { return !c.gone && (c.alive || c.dying) && c.species === "smol"; }).map(plainCreature)
     };
   };
 
@@ -70,7 +61,7 @@
   function sdk() { return window.cc && typeof window.cc.save === "function" ? window.cc : null; }
 
   Save.save = function (game) {
-    if (!game || reloading) return false;
+    if (!game || game.offlineRunning || reloading) return false;
     var snap, ok = false;
     try {
       snap = Save.snapshot(game);
@@ -86,6 +77,7 @@
   };
 
   // After boot: if the account has a newer save (another device), offer it and restart into it.
+  // A v1 save on the account (from before the island) goes into the v1 slot, so boot migrates it as usual.
   var checking = false, reloading = false; // reloading: the pagehide autosave must not overwrite the save we just adopted
   Save.cloud = function () {
     var cc = sdk();
@@ -96,28 +88,37 @@
     try {
       cc.load(CLOUD_SLOT).then(function (d) {
         if (!d || typeof d !== "object" || typeof d.seed !== "number" || typeof d.savedAt !== "number") return done();
+        var v1 = d.v !== 2;
+        if (v1 && (local || !Array.isArray(d.creatures))) return done(); // this device is already on the island
         if (local && d.savedAt <= (local.savedAt || 0) + 2000) return done();
         if (local && !window.confirm("your account has a newer smol brains save (from another device). load it?")) return done();
-        try { window.localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { return done(); }
+        try {
+          window.localStorage.setItem(v1 ? KEY_V1 : KEY, JSON.stringify(d));
+          if (v1) window.localStorage.removeItem(KEY); // only the brand-new game started this visit; the migration replaces it
+        } catch (e) { return done(); }
         reloading = true;
         window.location.reload();
       }).catch(done);
     } catch (e) { done(); }
     setTimeout(done, 15000); // never hold cloud saves back for long
   };
-
   Save.load = function () {
     try {
       var s = window.localStorage.getItem(KEY);
       if (!s) return null;
       var d = JSON.parse(s);
-      if (!d || typeof d !== "object" || typeof d.seed !== "number") return null;
+      if (!d || typeof d !== "object" || typeof d.seed !== "number" || d.v !== 2) return null;
       return d;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   };
-
+  Save.loadV1 = function () {
+    try {
+      var s = window.localStorage.getItem(KEY_V1);
+      if (!s) return null;
+      var d = JSON.parse(s);
+      return d && typeof d === "object" && Array.isArray(d.creatures) ? d : null;
+    } catch (e) { return null; }
+  };
   Save.wipe = function () {
     try { window.localStorage.removeItem(KEY); } catch (e) {}
     var cc = sdk(); // the account copy is cleared too, so a fresh start isn't overridden by the old save
@@ -127,69 +128,115 @@
   function num(v, d) { return typeof v === "number" && isFinite(v) ? v : d; }
   function obj(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
 
-  var DEFAULT_STATS = { hatched: 0, eggsLaid: 0, maxGen: 1, wordsTaught: 0, tickles: 0, taps: 0, deaths: 0, bestIQ: 0, grumpNights: 0, cured: 0, imported: 0, exported: 0 };
-
-  function reviveCreature(p, game) {
-    if (SB.Creature && SB.Creature.revive) return SB.Creature.revive(p, game);
-    var c = {};
-    for (var k in p) c[k] = p[k];
-    c.brain = p.brain ? SB.Brain.deserialize(p.brain, p.genome) : SB.Brain.create ? SB.Brain.create(p.genome, game.rng) : null;
-    c.action = null; c.attn = null; c.speech = null;
-    if (!c.chem && SB.Chem && SB.Chem.create) c.chem = SB.Chem.create(c.genome);
-    if (!c.look && SB.Genome && SB.Genome.look) c.look = SB.Genome.look(c.genome);
-    if (!c.vocab) c.vocab = {};
-    if (c.alive == null) c.alive = true;
-    return c;
-  }
-
-  // Build a live game object (same shape as SB.Game.create()) from Save.load() data.
   Save.revive = function (data) {
     data = obj(data);
     var seed = num(data.seed, 1) || 1;
-    var speed = num(data.speed, 1);
-    var game = {
-      v: VERSION, seed: seed, time: Math.max(0, num(data.time, 0)),
-      speed: SB.SPEEDS.indexOf(speed) >= 0 ? speed : 1,
-      rng: SB.rng(seed), nextId: Math.max(1, num(data.nextId, 1)),
-      world: null, creatures: [], selectedId: null,
-      hand: { x: SB.HOME_X, y: 300, visible: false, tool: "grab", heldId: null, heldType: null, saying: null, sayT: 0 },
-      family: obj(data.family), stats: {}, achievements: obj(data.achievements),
-      tutorial: obj(data.tutorial), log: Array.isArray(data.log) ? data.log.slice(-50) : []
-    };
+    var game = SB.Game.create(seed);
+    game.time = Math.max(0, num(data.time, game.time));
+    game.speed = SB.SPEEDS.indexOf(data.speed) >= 0 ? data.speed : 1;
     if (data.rngState != null) game.rng.setState(data.rngState);
-    var tools = ["grab", "tickle", "tap", "talk"];
+    game.nextId = Math.max(1, num(data.nextId, 1));
+    var tools = ["grab", "tickle", "tap", "talk", "magic"];
     if (data.hand && tools.indexOf(data.hand.tool) >= 0) game.hand.tool = data.hand.tool;
-    var st = obj(data.stats);
-    for (var k in DEFAULT_STATS) game.stats[k] = num(st[k], DEFAULT_STATS[k]);
+    game.family = obj(data.family); game.achievements = obj(data.achievements); game.tutorial = obj(data.tutorial);
     if (typeof game.tutorial.step !== "number") game.tutorial.step = 0;
     game.tutorial.done = !!game.tutorial.done;
-
+    game.log = Array.isArray(data.log) ? data.log.slice(-40) : [];
+    var st = obj(data.stats);
+    for (var k in st) if (typeof st[k] === "number") game.stats[k] = st[k];
+    game.sparks = num(data.sparks, 12); game.blessing = data.blessing || null;
+    game.playTime = num(data.playTime, 0); game.created = num(data.created, Date.now()); game.migratedFromV1 = !!data.migratedFromV1;
+    game.settings = obj(data.settings);
     game.world = SB.World.revive(obj(data.world), game);
-
+    game.world.time = game.time;
+    var cu = obj(data.culture);
+    game.culture = { words: obj(cu.words), found: obj(cu.found), lost: obj(cu.lost), alive: obj(cu.alive), lostCount: num(cu.lostCount, 0) };
+    game.tribes = Array.isArray(data.tribes) && data.tribes.length ? data.tribes : null;
+    game.villages = Array.isArray(data.villages) ? data.villages : [];
+    game.clades = data.clades && data.clades[0] ? data.clades : null;
+    game.nextClade = num(data.nextClade, 1);
+    SB.Society.init(game);
+    SB.Species.init(game);
     var cs = Array.isArray(data.creatures) ? data.creatures : [];
-    for (var i = 0; i < cs.length; i++) {
+    cs.forEach(function (p) {
       try {
-        var c = reviveCreature(cs[i], game);
-        if (c) game.creatures.push(c);
-      } catch (e) {
-        if (window.console) console.warn("[save] could not revive creature", cs[i] && cs[i].name, e);
-      }
-    }
+        if (typeof p.genome === "string") p.genome = SB.Genome.decode(p.genome);
+        var c = SB.Creature.revive(p, game);
+        if (c && c.alive) game.creatures.push(c);
+      } catch (e) { if (window.console) console.warn("[save] could not revive creature", p && p.name, e); }
+    });
+    fixIds(game);
+    if (data.selectedId != null && SB.Game.byId(game, data.selectedId)) game.selectedId = data.selectedId;
+    return game;
+  };
 
-    // ids must stay unique; dangling references are cleared
+  function fixIds(game) {
     var maxId = 0, ids = {};
     game.creatures.forEach(function (c) { ids[c.id] = c; if (c.id > maxId) maxId = c.id; });
-    game.world.objects.forEach(function (o) { if (o.id > maxId) maxId = o.id; });
-    for (var fid in game.family) { var n = +fid; if (n > maxId) maxId = n; }
+    game.world.items.forEach(function (o) { if (o.id > maxId) maxId = o.id; });
+    game.world.structures.forEach(function (s) { if (s.id > maxId) maxId = s.id; });
+    for (var fid in game.family) { var n = +fid; if (n > maxId && n < SB.World.NODE_ID0) maxId = n; }
     if (game.nextId <= maxId) game.nextId = maxId + 1;
-    game.world.objects.forEach(function (o) {
-      if (o.heldBy != null) { var h = ids[o.heldBy]; if (!h || h.holding !== o.id) { o.heldBy = null; o.onGround = false; } }
+    // carried things must point at a living carrier
+    game.world.items.forEach(function (o) {
+      if (o.heldBy != null) { var h = ids[o.heldBy]; if (!h || (h.holding !== o.id && h.tool !== o.id && (h.bag || []).indexOf(o.id) < 0)) { o.heldBy = null; o.onGround = false; o.inBag = false; o.onBelt = false; } }
     });
     game.creatures.forEach(function (c) {
-      if (c.holding != null && !game.world.objects.some(function (o) { return o.id === c.holding; })) c.holding = null;
-      if (c.heldBy === "hand") c.heldBy = null;
+      ["holding", "tool"].forEach(function (slot) { if (c[slot] != null && !game.world.items.some(function (o) { return o.id === c[slot]; })) c[slot] = null; });
+      c.bag = (c.bag || []).filter(function (id) { return game.world.items.some(function (o) { return o.id === id; }); });
     });
-    if (data.selectedId != null && ids[data.selectedId]) game.selectedId = data.selectedId;
+  }
+
+  /* ---------------- v1 -> v2 ---------------- */
+
+  Save.migrateV1 = function (v1) {
+    var seed = (num(v1.seed, 1) >>> 0) % 25600000 || 1;
+    var game = SB.Game.create(seed);
+    game.migratedFromV1 = true;
+    game.tutorial = { step: 99, done: true, wildDone: true };
+    game.achievements = obj(v1.achievements);
+    var s1 = obj(v1.stats);
+    ["hatched", "eggsLaid", "maxGen", "wordsTaught", "tickles", "taps", "deaths", "bestIQ", "grumpNights", "cured", "imported", "exported"].forEach(function (k) { if (typeof s1[k] === "number") game.stats[k] = s1[k]; });
+    game.family = obj(v1.family);
+    for (var fid in game.family) { var f = game.family[fid]; if (f && f.look) f.look.tier = 0; }
+    var maxId = num(v1.nextId, 1);
+    for (var k in game.family) if (+k > maxId) maxId = +k;
+    (v1.creatures || []).forEach(function (p) { if (p && +p.id > maxId) maxId = +p.id; });
+    game.nextId = maxId + 1; // new things get ids above everything from the old valley
+    var nest = game.world.T.nest, n = 0;
+    (v1.creatures || []).forEach(function (p) {
+      if (!p || p.species !== "smol" || p.alive === false) return;
+      try {
+        var genome = SB.Genome.upgrade(p.genome);
+        var ang = n * 2.4, r = 1.6 + n * 0.5;
+        var x = nest.x + Math.cos(ang) * r, z = nest.z + Math.sin(ang) * r;
+        if (!SB.World.walkable(game.world, x, z)) { x = nest.x; z = nest.z; }
+        var c = SB.Creature.create(game, { species: "smol", genome: genome, name: p.name, gen: p.gen, parents: p.parents, age: Math.min(num(p.age, 0), SB.STAGES[4].from - 60), vocab: obj(p.vocab), x: x, z: z,
+          brain: p.brain ? SB.Brain.deserialize(p.brain, genome, game.rng) : null });
+        c.id = num(p.id, c.id);
+        c.stats = Object.assign(c.stats, obj(p.stats));
+        c.age = Math.min(num(p.age, 0), SB.STAGES[4].from - 60);
+        c.stage = SB.Creature.stageFor(c.age);
+        // lifespans were longer in the old valley; keep each smol's remaining life fair
+        c.lifespan = Math.max(c.age + 1500, c.lifespan);
+        game.creatures.push(c);
+        if (!game.family[c.id]) SB.Game.familyAdd(game, c);
+        if (c.id > maxId) maxId = c.id;
+        n++;
+      } catch (e) { if (window.console) console.warn("[save] v1 smol could not migrate", p && p.name, e); }
+    });
+    ((v1.world && v1.world.objects) || []).forEach(function (o) {
+      if (!o || o.kind !== "egg" || !o.data || !o.data.genome) return;
+      var g = typeof o.data.genome === "string" ? SB.Genome.decode(o.data.genome) : SB.Genome.upgrade(o.data.genome);
+      var ang = n * 2.4, r = 1.2 + n * 0.4;
+      SB.World.add(game.world, game, "egg", nest.x + Math.cos(ang) * r, nest.z + Math.sin(ang) * r, { genome: g, parents: o.data.parents || [], gen: o.data.gen || g.gen || 1, progress: Math.min(0.9, num(o.data.progress, 0.3)) });
+      n++;
+    });
+    if (game.nextId <= maxId) game.nextId = maxId + 1;
+    if (!game.creatures.length && !game.world.items.some(function (o) { return o.kind === "egg"; })) return null;
+    game.time = SB.DAY_LENGTH * 0.3;
+    SB.Game.unlock(game, "migrate");
+    SB.Game.note(game, "your smols from the old valley woke up on an island. it's a lot bigger out here. 🏝");
     return game;
   };
 
@@ -222,39 +269,34 @@
 
   Save.exportSmol = function (c) {
     var vocab = {};
-    for (var w in c.vocab || {}) { var v = c.vocab[w]; if (v >= 0.05) vocab[w] = Math.round(v * 100) / 100; }
-    var stats = {};
-    if (c.stats) for (var k in c.stats) if (typeof c.stats[k] === "number" && isFinite(c.stats[k])) stats[k] = round(c.stats[k]);
-    var adult = SB.STAGES[3].from;
+    for (var w in c.vocab || {}) { var v = c.vocab[w]; if (v >= 0.05 && SB.LEXICON[w] && SB.LEXICON[w].type !== "idea") vocab[w] = Math.round(v * 100) / 100; }
+    var ideas = {};
+    for (var id in c.ideas || {}) if (c.ideas[id] >= 1) ideas[id] = 1;
     var payload = {
       name: String(c.name || "smol").slice(0, 32), gen: c.gen || 1,
-      genome: SB.Genome.encode(c.genome),
-      brain: c.brain ? plain(SB.Brain.serialize(c.brain), 0) : null,
-      vocab: vocab, age: Math.min(Math.round(c.age || 0), adult), stats: stats,
-      born: Math.floor((c.born || 0) / SB.DAY_LENGTH) + 1
+      genome: SB.Genome.encode(c.genome), brain: c.brain ? plain(SB.Brain.serialize(c.brain), 0) : null,
+      vocab: vocab, ideas: ideas, age: Math.min(Math.round(c.age || 0), SB.STAGES[3].from)
     };
-    return CODE_PREFIX + b64urlEncode(JSON.stringify(payload));
+    return "SMOL2:" + b64urlEncode(JSON.stringify(payload));
   };
 
   Save.importSmol = function (code) {
     var bad = function () { return new Error("not a smol code"); };
     if (typeof code !== "string") throw bad();
     var s = code.replace(/\s+/g, "");
-    var m = /^SMOL\d*:/i.exec(s);
+    var m = /^SMOL(\d*):/i.exec(s);
     if (m) s = s.slice(m[0].length);
     if (!s || /[^A-Za-z0-9\-_+/=]/.test(s)) throw bad();
     var p;
     try { p = JSON.parse(b64urlDecode(s)); } catch (e) { throw bad(); }
-    if (!p || typeof p !== "object" || !p.genome || !p.brain) throw bad();
+    if (!p || typeof p !== "object" || !p.genome) throw bad();
     var genome;
-    try { genome = typeof p.genome === "string" ? SB.Genome.decode(p.genome) : p.genome; } catch (e) { throw bad(); }
-    if (!genome || typeof genome !== "object") throw bad();
+    try { genome = typeof p.genome === "string" ? SB.Genome.decode(p.genome) : SB.Genome.upgrade(p.genome); } catch (e) { throw bad(); }
     var vocab = {};
-    for (var w in obj(p.vocab)) { var v = num(p.vocab[w], 0); if (v > 0) vocab[w] = Math.min(1.5, v); }
+    for (var w in obj(p.vocab)) { var v = num(p.vocab[w], 0); if (v > 0 && SB.LEXICON[w]) vocab[w] = Math.min(1.5, v); }
+    var ideas = {};
+    for (var id in obj(p.ideas)) if (SB.Ideas.BY_ID[id]) ideas[id] = 1;
     var name = String(p.name || "smol").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24) || "smol";
-    return {
-      name: name, gen: Math.max(1, Math.floor(num(p.gen, 1))), genome: genome, brain: p.brain, vocab: vocab,
-      age: SB.clamp(num(p.age, 0), 0, SB.STAGES[3].from), stats: obj(p.stats), born: num(p.born, 1)
-    };
+    return { name: name, gen: Math.max(1, Math.floor(num(p.gen, 1))), genome: genome, brain: p.brain || null, vocab: vocab, ideas: ideas, age: SB.clamp(num(p.age, 0), 0, SB.STAGES[3].from) };
   };
 })();

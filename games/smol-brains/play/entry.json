@@ -1,21 +1,25 @@
 {
   "slug": "smol-brains",
   "title": "smol brains",
-  "pitch": "raise tiny creatures with real neural-network brains. teach them words. they will learn the wrong ones.",
+  "pitch": "an island of tiny creatures with real neural-network brains. they evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "tools: grab, tickle (reward), tap (scold), talk (1-4). drag to carry or throw, drag empty ground to pan, pinch or wheel to zoom. space pauses, [ ] speed, t talk, b brain viewer.",
-  "size_kb": 611,
+  "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate. tools: grab (carry, throw), tickle (reward), tap (scold), talk (teach words), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer.",
+  "size_kb": 756,
   "tags": [
     "sim",
     "pets",
-    "ai"
+    "ai",
+    "3d"
   ],
+  "version": "2",
+  "added": "2026-10-19",
   "how_to": [
-    "teach nouns first: pick 💬 talk and tap the food or the ball a few times. then say verbs while a smol does them (eat while it eats).",
-    "tickle right after the good thing. ten seconds later rewards whatever it is doing then, which is how smols learn weird superstitions.",
-    "smols copy each other. throw grumps back to the hollow with ✋ grab, and tickle a smol that runs from one.",
-    "the brain viewer (b) is the cheat code: if the eat neuron lights up for shrooms, you know what to scold.",
-    "got a code from a friend? paste it in the lab and their smol arrives through the warp gate, brain and words included."
+    "tap the egg to warm it, then teach a first word: pick 💬 talk and tap an apple a few times. smols learn nouns before verbs.",
+    "tickle right after the good thing. a few seconds late rewards whatever it is doing by then, which is how smols learn weird superstitions.",
+    "stuck on an evolution? the goal strip says which gene is missing. ✨ magic → 🧬 bless makes the next eggs lean that way.",
+    "tool-users invent things on their own. 💡 inspire speeds it up, and smols teach each other. if the last smol who knows an idea dies, it's gone.",
+    "the brain viewer (b) is the cheat code: watch which action lights up and you'll know what to tickle or scold.",
+    "share your world: smolpedia → world → copy world link. anyone who opens it gets the same island."
   ]
 }

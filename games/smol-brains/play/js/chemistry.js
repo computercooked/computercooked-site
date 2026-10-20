@@ -93,7 +93,7 @@
     c.sick += (sickT - c.sick) * Math.min(1, 0.15 * dt);
 
     // love only in adults who are doing fine
-    if (stage >= 3 && stage < 4 && !grump && c.hunger < 0.6 && c.health > 0.55 && c.sick < 0.3) c.love += dt * 0.003 * (0.5 + gene(genome, "fertility", 0.5));
+    if (stage >= 3 && stage < 4 && !grump && c.hunger < 0.65 && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.006 * (0.5 + gene(genome, "fertility", 0.5));
     else if (stage !== 3 || grump) c.love -= dt * 0.01;
     else c.love -= dt * 0.0015; // a rough patch slows romance, it doesn't end it
 
