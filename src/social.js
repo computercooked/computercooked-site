@@ -2,7 +2,7 @@
 //   GET /api/challenge   this week's challenge + any live event, with your progress when logged in
 //   GET /api/me/feed     your recent activity: allow-listed game events, achievements, challenges
 import { json, now, dayOf, weekOf, textClean } from "./util.js";
-import { SITE_ACH } from "./xp.js";
+import { SITE_ACH, levelOf } from "./xp.js";
 import { friendIds, people } from "./friends.js";
 
 // One featured game per ISO week (UTC, Monday to Sunday). A hand pick here always wins. A week with no
@@ -207,6 +207,29 @@ export async function friendsFeed(env, user, catalog) {
      GROUP BY s.user_id, s.game ORDER BY ts DESC LIMIT 40`
   ).bind(...open, since).all()).results;
   for (const b of bests) items.push({ uid: b.user_id, kind: "best", game: b.game, text: `new best: ${Math.round(b.score * 10) / 10}`, ts: b.ts });
+  // level-ups, worked out from xp_events (nothing extra stored): walk each friend's running total and note where it
+  // crosses a level. One note per friend per day, the highest level reached that day, so a fast start isn't spam.
+  const xpBefore = new Map((await env.DB.prepare(
+    `SELECT user_id, COALESCE(SUM(amount), 0) x FROM xp_events WHERE user_id IN (${q2}) AND ts < ? GROUP BY user_id`
+  ).bind(...open, since).all()).results.map((r) => [r.user_id, r.x]));
+  const grants = (await env.DB.prepare(
+    `SELECT user_id, amount, ts FROM xp_events WHERE user_id IN (${q2}) AND ts >= ? ORDER BY user_id, ts, id`
+  ).bind(...open, since).all()).results;
+  const ups = new Map();
+  let cur = null, total = 0, lvl = 1;
+  for (const g of grants) {
+    if (g.user_id !== cur) { cur = g.user_id; total = xpBefore.get(cur) || 0; lvl = levelOf(total).level; }
+    total += g.amount;
+    const L = levelOf(total);
+    if (L.level > lvl) { ups.set(cur + ":" + dayOf(g.ts), { uid: cur, level: L.level, title: L.title, ts: g.ts }); lvl = L.level; }
+  }
+  for (const u of ups.values()) items.push({ uid: u.uid, kind: "level", game: null, text: `reached level ${u.level} (${u.title})`, ts: u.ts });
+  // new friends: the later of the two rows is when the friendship was accepted
+  const joined = (await env.DB.prepare(
+    `SELECT f.friend_id uid, MAX(f.created_at, COALESCE(b.created_at, 0)) ts FROM friends f LEFT JOIN friends b ON b.user_id = f.friend_id AND b.friend_id = f.user_id
+     WHERE f.user_id = ? AND f.status = 'accepted' AND f.friend_id IN (${q2})`
+  ).bind(user.id, ...open).all()).results;
+  for (const j of joined) if (j.ts >= since) items.push({ uid: j.uid, kind: "friend", game: null, text: "is now your friend", ts: j.ts });
   const who = await people(env, open);
   const out = items.filter((i) => who.has(i.uid) && (!i.game || catalog.has(i.game))).sort((a, b) => b.ts - a.ts).slice(0, 30)
     .map(({ uid, ...i }) => ({ ...i, who: who.get(uid), title: i.game ? catalog.get(i.game).title : null }));
