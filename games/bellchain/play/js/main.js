@@ -47,12 +47,14 @@ function save() {
 // ---------- tapping ----------
 const now = () => performance.now() / 1000;
 function band() { return (S.owned.handbell || 0) > 0; }
+let onboarding = false;
 function tapAt(x, y) {
   music.unlock();
   if (stage.hitGolden(x, y)) return catchGolden();
   const ch = E.rollChain(S, buffs);
   E.earn(S, ch.total);
   S.taps++; S.tapEarned += ch.total;
+  if (onboarding && S.taps >= 3) { onboarding = false; const B = stage.banner; if (B && B.life > 100) B.life = B.t + 0.4; }
   S.bestChain = Math.max(S.bestChain, ch.rings.length);
   const degs = music.tapDegrees(ch.rings.length, band());
   const t0 = now(), gap = music.stepDur() * (band() ? 1 : 1.5);
@@ -395,7 +397,8 @@ refreshShop(true); renderTab(true);
 if (firstVisit) {
   if (S.veteran) toast('welcome back, v1 veteran. here is 500 resonance for your trouble.');
   else toast('tap anywhere. every tap plays the next note.');
-  stage.showBanner('tap to play', 'the tune is in there somewhere', null, 4);
+  // first visit: the cue stays up until the first 3 rings instead of fading after 4s
+  onboarding = true; stage.showBanner('tap the bell', 'every tap plays the next note', null, 600);
 }
 if (!store.ok) toast('saving is blocked here. export a code before you leave.');
 save();
