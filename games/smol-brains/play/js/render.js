@@ -177,13 +177,80 @@
     "void main() { float d = dot(vUvA.xy, vUvA.xy); if (d > 1.0) discard; gl_FragColor = vec4(uShadowCol, vUvA.z * (1.0 - d) * (1.0 - d)); }"
   ].join("\n");
 
+  // pixel mode post pass: the scene is drawn into an offscreen buffer, then copied to the screen with a
+  // 1px dark outline around anything that stands clearly in front of what's behind it (trees, rocks, huts)
+  var VS_POST = "attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }";
+  var FS_POST = [
+    PREC,
+    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk;",
+    "varying vec2 vUv;",
+    "void main() {",
+    "  vec3 c = texture2D(uCol, vUv).rgb;",
+    "  float d = texture2D(uDep, vUv).r;",
+    "  float n = min(min(texture2D(uDep, vUv + vec2(uTexel.x, 0.0)).r, texture2D(uDep, vUv - vec2(uTexel.x, 0.0)).r),",
+    "               min(texture2D(uDep, vUv + vec2(0.0, uTexel.y)).r, texture2D(uDep, vUv - vec2(0.0, uTexel.y)).r));",
+    "  float edge = step(uThr, d - n);",
+    "  gl_FragColor = vec4(mix(c, c * 0.3 + uInk * 0.7, edge * 0.8), 1.0);",
+    "}"
+  ].join("\n");
+  var post = null; // {fb, col, dep, w, h, prog, quad}
+  function ensurePost() {
+    if (!R.pixel) return null;
+    if (post && post.failed) return null;
+    var w = canvas.width, h = canvas.height;
+    if (post && post.w === w && post.h === h) return post;
+    try {
+      var depthExt = ctx.v2 ? true : !!gl.getExtension("WEBGL_depth_texture");
+      if (!depthExt) { post = { failed: true }; return null; }
+      if (!post) post = { prog: GL.program(ctx, VS_POST, FS_POST), quad: GL.buffer(ctx, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1])) };
+      if (post.fb) { gl.deleteFramebuffer(post.fb); gl.deleteTexture(post.col); gl.deleteTexture(post.dep); }
+      post.col = GL.texture(ctx, w, h, null, { nearest: true });
+      post.dep = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, post.dep);
+      if (ctx.v2) gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, w, h, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, w, h, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(function (k) { gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST); });
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      post.fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, post.fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, post.col, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, post.dep, 0);
+      var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!ok) { post = { failed: true }; return null; }
+      post.w = w; post.h = h;
+      return post;
+    } catch (e) { post = { failed: true }; return null; }
+  }
+  function drawPost(P) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
+    GL.resetAttribs(ctx);
+    var p = P.prog;
+    gl.useProgram(p.prog);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, P.col); gl.uniform1i(p.u.uCol, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, P.dep); gl.uniform1i(p.u.uDep, 1);
+    gl.uniform2f(p.u.uTexel, 1 / P.w, 1 / P.h);
+    gl.uniform1f(p.u.uThr, 0.9 / 419); // about 0.9 world units in front
+    var ink = SB.mixC([0.12, 0.1, 0.16], [0.03, 0.03, 0.08], env.night);
+    gl.uniform3f(p.u.uInk, ink[0], ink[1], ink[2]);
+    GL.attribs(ctx, P.quad, [[p.a.aPos, 2]], 2, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.enable(gl.DEPTH_TEST);
+  }
+
   /* ================= init ================= */
 
   R.init = function (cv, ov, opts) {
     canvas = cv; overlay = ov; octx = overlay ? overlay.getContext("2d") : null;
     opts = opts || {};
     var lowEnd = (navigator.hardwareConcurrency || 4) <= 4 && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || "");
-    ctx = GL.create(canvas, { antialias: !lowEnd });
+    // pixel-art mode: the 3D scene renders at ~240 px tall and the browser scales it up with hard edges
+    R.pixel = opts.pixel !== false;
+    canvas.classList.toggle("pixel", R.pixel);
+    ctx = GL.create(canvas, { antialias: !lowEnd && !R.pixel });
     if (!ctx) return false;
     gl = ctx.gl;
     progs.terrain = GL.program(ctx, VS_TERRAIN, FS_TERRAIN);
@@ -202,7 +269,7 @@
     quality.lowEnd = lowEnd;
     R.resize();
     canvas.addEventListener("webglcontextlost", function (e) { e.preventDefault(); R.lost = true; }, false);
-    canvas.addEventListener("webglcontextrestored", function () { R.lost = false; R.init(canvas, overlay); if (game) R.setWorld(game); }, false);
+    canvas.addEventListener("webglcontextrestored", function () { R.lost = false; post = null; R.init(canvas, overlay, { pixel: R.pixel }); if (game) R.setWorld(game); }, false);
     return true;
   };
 
@@ -210,7 +277,11 @@
     if (!canvas) return;
     var rect = canvas.getBoundingClientRect();
     W = Math.max(1, rect.width | 0); H = Math.max(1, rect.height | 0);
-    dpr = Math.min(window.devicePixelRatio || 1, 2) * quality.scale;
+    if (R.pixel) {
+      // whole CSS pixels per art pixel, so every art pixel is the same size on screen
+      R.pixelSize = Math.max(2, Math.round(Math.min(W, H) / 240));
+      dpr = 1 / R.pixelSize;
+    } else dpr = Math.min(window.devicePixelRatio || 1, 2) * quality.scale;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     if (overlay) {
       var odpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -734,6 +805,8 @@
   var lightList = [];
   R.light = function (x, y, z, radius, r, g, b) { lightList.push([x, y, z, radius, r, g, b]); };
 
+  var afterObjects = []; // functions(gl, ctx, VP, cam) that draw their own passes after opaque objects (sprites)
+  R.afterObjects = function (fn) { afterObjects.push(fn); };
   var hooks = []; // functions(game, alpha) that submit dynamic instances each frame
   R.addHook = function (fn) { hooks.push(fn); };
 
@@ -742,7 +815,7 @@
   function adapt(dt) {
     if (!(dt > 0) || dt > 0.25) return;
     perf.ft += (dt * 1000 - perf.ft) * 0.05;
-    if (quality.fixed) return;
+    if (quality.fixed || R.pixel) return; // pixel mode is already cheap
     if (perf.ft > 38) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < 22) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
     if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - 0.15); perf.slowT = 0; R.resize(); }
     else if (perf.fastT > 6 && quality.scale < (quality.max || 1)) { quality.scale = Math.min(quality.max || 1, quality.scale + 0.1); perf.fastT = 0; R.resize(); }
@@ -778,6 +851,8 @@
       lightCols[li * 3] = L[4] * nk; lightCols[li * 3 + 1] = L[5] * nk; lightCols[li * 3 + 2] = L[6] * nk;
     }
 
+    var P = ensurePost();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, P ? P.fb : null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     var fc = env.fog;
     var oc = SB.mixC([0.1, 0.32, 0.52], fc, 0.35);
@@ -786,14 +861,17 @@
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.BLEND);
-    if (!T) return;
+    if (!T) { if (P) drawPost(P); return; }
 
     var vis = visibleChunks();
     drawTerrain(vis);
     drawShadows();
     drawObjects(vis);
     drawWater(vis);
+    // sprites go after the water (they don't write depth): a smol in water is cut off at the waterline instead
+    for (var ah = 0; ah < afterObjects.length; ah++) { GL.resetAttribs(ctx); afterObjects[ah](gl, ctx, VP, cam); }
     if (R.particles) R.particles.draw(gl, ctx, progs, VP, cam);
+    if (P) drawPost(P);
     if (octx) drawOverlay();
   };
 
@@ -939,6 +1017,9 @@
     try { R.frame(game, 0, 0); return canvas.toDataURL(type || "image/jpeg", 0.85); } catch (e) { return null; }
   };
   R.quality = quality;
+  R.setLightUniforms = function (p) { setLightUniforms(p); };
+  R.LIGHT_GLSL = LIGHT_GLSL; R.PREC = PREC;
+  R.canvasSize = function () { return { w: canvas.width, h: canvas.height }; };
   R.canvasScale = function () { return canvas ? canvas.width / W : 1; };
   R.time = function () { return time; };
   R.gl = function () { return ctx; };

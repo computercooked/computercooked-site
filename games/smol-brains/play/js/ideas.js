@@ -149,6 +149,7 @@
     bigthought: function (x) { return x.tier >= 6 && x.friends >= 2 && (x.noun === "totem" || x.noun === "wonder" || x.held === "crystal") ? 0.4 : 0; }
   };
 
+  var PONDER = 0.004;
   I.tryDiscover = function (c, ctx, game) {
     if (c.species !== "smol" || c.tier < 2) return null;
     var g = c.genome.genes;
@@ -161,6 +162,9 @@
       var d = LIST[i], tr = TRIGGERS[d.id];
       if (!tr || I.known(c, d.id) || !I.canHold(c, d.id)) continue;
       var w = tr(ctx);
+      // pondering: a smol evolved enough for an idea (and who knows what it builds on) can work it out
+      // eventually even if the perfect moment never comes. the right situation is still much faster.
+      if (!w) w = PONDER; // (canHold already checked the tier and what it builds on)
       if (!w) continue;
       // things someone else already knows are easier to "get" (you've seen it done)
       var seen = game.culture.found[d.id] ? 1.4 : 1;
@@ -363,7 +367,9 @@
       return f ? { fire: f } : null;
     }
     if (at === "kiln") {
-      var k = SB.World.structsNear(world, c.x, c.z, R, function (s) { return s.kind === "kiln" && s.done && s.data.lit; });
+      // a cold kiln is fine for a smol who knows fire: they stoke it when they get there (see "station")
+      var canLight = I.known(c, "fire");
+      var k = SB.World.structsNear(world, c.x, c.z, R, function (s) { return s.kind === "kiln" && s.done && (s.data.lit || canLight); });
       return k.length ? { struct: k[0] } : null;
     }
     return { self: true };
@@ -449,7 +455,8 @@
     var world = game.world;
     // 1) help an unfinished site of my tribe
     var sites = world.structures.filter(function (s) { return !s.done && s.tribe === c.tribe && SB.dist(s.x, s.z, c.x, c.z) < 40; });
-    var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && I.known(c, id); });
+    // the big thought is everyone's: any ascended smol can help raise the spire
+    var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && (I.known(c, id) || (s.kind === "spire" && c.tier >= 6)); });
     if (mine.length) {
       mine.sort(function (a, b) { return SB.dist2(a.x, a.z, c.x, c.z) - SB.dist2(b.x, b.z, c.x, c.z); });
       return planForSite(c, mine[0], game);
@@ -510,8 +517,8 @@
       }
       return null;
     }
-    var ring = kind === "wall" ? [8, 13] : kind === "spire" ? [6, 16] : kind === "farm" || kind === "windmill" ? [5, 14] : [2.5, 10];
-    for (var tries = 0; tries < 50; tries++) {
+    var ring = kind === "wall" ? [8, 13] : kind === "spire" ? [5, 26] : kind === "farm" || kind === "windmill" ? [5, 14] : [2.5, 10];
+    for (var tries = 0, maxT = kind === "spire" || kind === "observatory" ? 160 : 50; tries < maxT; tries++) {
       var aa = r() * 6.283, dd = r.range(ring[0], ring[1] + tries * 0.2);
       var px = home.x + Math.cos(aa) * dd, pz = home.z + Math.sin(aa) * dd;
       if (SB.World.siteFree(world, px, pz, def.r)) return { x: px, z: pz, rot: kind === "wall" ? aa + Math.PI / 2 : r() * 6.283 };
@@ -595,7 +602,7 @@
     if (!id) return;
     SB.World.creaturesNear(game.world, game, actor.x, actor.z, 7, function (w) {
       if (w === actor || w.species !== "smol" || w.asleep || !w.alive) return;
-      if (I.learn(w, id, 0.07, game, "watched")) SB.Game.note(game, w.name + " learned " + BY[id].name + " by watching " + actor.name + " 👀");
+      if (I.learn(w, id, 0.12, game, "watched")) SB.Game.note(game, w.name + " learned " + BY[id].name + " by watching " + actor.name + " 👀");
     });
   };
 

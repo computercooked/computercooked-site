@@ -460,7 +460,8 @@
   Game.runOffline = function (g, simSec, onProgress, cb) {
     var before = snapshotStats(g);
     g.offline = true; g.offlineRunning = true; g.offlineLog = [];
-    var done = 0, dt = 0.25;
+    // coarse half-second steps, and never more than ~8 s of real time (slow phones simulate a bit less)
+    var done = 0, dt = 0.5, wallStart = performance.now();
     function chunk() {
       var t0 = performance.now();
       while (done < simSec && performance.now() - t0 < 30) {
@@ -468,7 +469,8 @@
         Game.step(g, dt);
         done += dt;
       }
-      if (onProgress) onProgress(done / simSec);
+      if (performance.now() - wallStart > 8000) simSec = done;
+      if (onProgress) onProgress(Math.min(1, done / simSec));
       if (done < simSec) setTimeout(chunk, 0);
       else {
         g.offline = false; g.offlineRunning = false;
@@ -502,7 +504,9 @@
     wireBus();
     SB.Audio && SB.Audio.init && SB.Audio.init();
     var canvas = document.getElementById("view"), ov = document.getElementById("overlay");
-    if (!SB.Render.init(canvas, ov)) { SB.UI.noWebGL(); return; }
+    var look = null; try { look = window.localStorage.getItem("smolbrains-look"); } catch (e) {}
+    if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel";
+    if (!SB.Render.init(canvas, ov, { pixel: look !== "3d" })) { SB.UI.noWebGL(); return; }
     try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
     var g = null, data = null, migrated = false, seedFromUrl = urlSeed();
     try { data = SB.Save.load(); } catch (e) { data = null; }

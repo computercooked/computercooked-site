@@ -734,7 +734,9 @@
     if (futile) r -= 0.04;
     r = SB.clamp(r, -1, 1);
     c.lastReward = r;
-    SB.Brain.reinforce(c.brain, r);
+    // while you're away (offline catch-up) brains learn from a quarter of what happens: same direction,
+    // far less work, so the catch-up screen is quick on phones
+    if (!game.offline || Math.random() < 0.25 || Math.abs(r) > 0.4) SB.Brain.reinforce(c.brain, r);
     if (r > 0.25 && !c.anim.emote) emote(c, "happy", 1.2);
     else if (r < -0.2) emote(c, "sad", 1.2);
 
@@ -1020,6 +1022,7 @@
         var sx = st.fire ? st.fire.x : st.struct.x, sz = st.fire ? st.fire.z : st.struct.z;
         if (SB.dist(sx, sz, c.x, c.z) > 1.6) { walkToward(c, sx, sz, dt, sp, game, 1.5); if (c.stuckT > 2) { c.stuckT = 0; p.fails++; } return; }
         c.facing = Math.atan2(sx - c.x, sz - c.z);
+        if (st.struct && st.struct.kind === "kiln" && !st.struct.data.lit) { st.struct.data.fuel = 0.6; st.struct.data.lit = true; if (!c.far) say(c, "more fire", game); }
         p.i++;
         return;
       }

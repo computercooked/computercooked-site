@@ -828,7 +828,12 @@
     body.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn", onclick: function () { SB.Audio.setMuted(!SB.Audio.isUserMuted(), "user"); openMenu("settings"); } }, muted ? "🔇 sound off" : "🔊 sound on"),
       h("button", { class: "btn", onclick: function () { SB.Bodies.labels = !SB.Bodies.labels; openMenu("settings"); } }, SB.Bodies.labels ? "🏷 names on" : "🏷 names off"),
-      h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
+      h("button", { class: "btn", onclick: function () {
+        // the look is chosen when the 3D view starts, so switching saves and reloads
+        try { window.localStorage.setItem("smolbrains-look", R.pixel ? "3d" : "pixel"); } catch (e) {}
+        SB.Save.save(game); location.reload();
+      } }, R.pixel ? "👾 pixel art (tap for classic 3D)" : "🧊 classic 3D (tap for pixel art)"),
+      R.pixel ? null : h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
       h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off")
     ]));
     body.appendChild(h("div", { class: "sec" }, "save"));
@@ -1015,6 +1020,7 @@
   };
 
   /* ---------------- civilisation card ---------------- */
+  UI.civCard = function () { closeModal(); setTimeout(civCard, 50); };
   function civCard() {
     SB.Game.unlock(game, "card");
     // frame the tribe's home for the photo, then put the camera back
@@ -1032,7 +1038,8 @@
       // cover-crop the snapshot into the top area
       var tw = 1080, th = 760, s = Math.max(tw / img.width, th / img.height), iw = img.width * s, ih = img.height * s;
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, tw, th); ctx.clip();
-      ctx.drawImage(img, (tw - iw) / 2, (th - ih) / 2, iw, ih); ctx.restore();
+      ctx.imageSmoothingEnabled = !R.pixel; // pixel art scales up crisp
+      ctx.drawImage(img, (tw - iw) / 2, (th - ih) / 2, iw, ih); ctx.restore(); ctx.imageSmoothingEnabled = true;
       var gr = ctx.createLinearGradient(0, th - 200, 0, th); gr.addColorStop(0, "rgba(16,17,20,0)"); gr.addColorStop(1, "#101114");
       ctx.fillStyle = gr; ctx.fillRect(0, th - 200, tw, 200);
       finish();
@@ -1154,7 +1161,18 @@
     on("select", function (d) { if (d.c) { state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet("smol"); } else if (state.sheet === "smol") closeSheet(); });
     on("wildEgg", function (d) { R.flyTo(d.obj.x, d.obj.z, 7, 1.4); });
     on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab"); });
-    on("bigThought", function () { moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac"); });
+    on("bigThought", function () {
+      var days = Math.floor(game.time / SB.DAY_LENGTH) + 1, gens = game.stats.maxGen || 1, ideas = Object.keys(game.culture.found).length;
+      moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac");
+      setTimeout(function () {
+        storyCard("bigthought", "🌟", "you raised a civilisation", [
+          "the spire is finished. every smol mind on the island is thinking one thought, together. (it's about snacks.)",
+          "from one cold egg to this: <b>" + days + " days</b>, <b>" + gens + " generations</b>, <b>" + ideas + " ideas</b>, " + game.stats.hatched + " smols hatched. every one of them learned by trying things, and by you.",
+          "the island keeps going: smols still live, love, teach and pray. or start a new world and see what a different island makes of them.",
+          "<button class='btn go' onclick='SB.UI.civCard()'>🪪 share my civilisation</button>"
+        ]);
+      }, 3600);
+    });
     on("lightning", function () { R.flash(0.9); R.camera.shake = Math.max(R.camera.shake, 0.3); });
     on("death", function (d) { if (game.selectedId === d.c.id) closeSheet(); });
     on("grumpArrive", function () { if ((game.stats.grumpNights || 0) === 0 && !game._grumpWarned) { game._grumpWarned = true; toast("👺 grumps come out at night. 👆 tap them 3 times to shoo them. fire scares them too."); } });
