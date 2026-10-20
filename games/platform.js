@@ -8,7 +8,7 @@
   var game = panel.dataset.game || cc._game();
   cc._apiReady().then(function (up) { if (up) mount(); });
   function mount() {
-  var me = null, info = null, period = "day";
+  var me = null, info = null, catalog = null, period = "day";
 
   function el(html) { var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -152,7 +152,8 @@
 
   /* ---------- does this game have a leaderboard? ---------- */
   fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
-    info = (d.games || []).filter(function (g) { return g.slug === game; })[0];
+    catalog = d.games || [];
+    info = catalog.filter(function (g) { return g.slug === game; })[0];
     if (info && info.version) cc._setGame(game, info.version);
     if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); loadChallenge(); prefetchFriends(); }
   }).catch(function () {});
@@ -220,7 +221,7 @@
     if (!r || !r.accepted || !e.detail.playId) return;
     var best = r.prev_best != null && e.detail.score > r.prev_best;
     var box = document.getElementById("cc-dare");
-    if (!box) { box = document.createElement("div"); box.id = "cc-dare"; board.insertAdjacentElement("beforebegin", box); }
+    if (!box) { box = document.createElement("div"); box.id = "cc-dare"; (document.getElementById("cc-next") || board).insertAdjacentElement("beforebegin", box); }
     box.className = "cc-levelup cc-dare-box" + (best ? " is-best" : "");
     box.innerHTML = (best
       ? "<p><span class=\"cc-dare-kicker\">new best</span> <b>" + esc(fmt(e.detail.score)) + "</b> (was " + esc(fmt(r.prev_best)) + "). dare a friend to beat it.</p>"
@@ -322,6 +323,50 @@
     return cardMaker;
   }
 
+  /* ---------- "play next" rail after a run: the weekly challenge game, one like this, one you haven't tried ---------- */
+  // Links carry ?src=next&slot=…; cc-sdk.js tags the next page's first run with it (admin metrics: next).
+  function nextRail() {
+    if (!catalog || document.getElementById("cc-next")) return;
+    var others = catalog.filter(function (g) { return g.slug !== game; });
+    if (others.length < 3) return;
+    var seen = {};
+    try { JSON.parse(localStorage.getItem("cc-recent") || "[]").forEach(function (x, i) { if (x && x.g) seen[x.g] = i + 1; }); } catch (e) {}
+    var tags = (info && info.tags) || [];
+    var shared = function (g) { return (g.tags || []).filter(function (t) { return tags.indexOf(t) >= 0; }).length; };
+    // most shared tags first; then ones not played on this device; then newest
+    var alike = others.slice().sort(function (a, b) {
+      return shared(b) - shared(a) || (seen[a.slug] ? 1 : 0) - (seen[b.slug] ? 1 : 0) || String(b.added || "").localeCompare(String(a.added || ""));
+    });
+    var fresh = others.filter(function (g) { return !seen[g.slug]; });
+    var taken = {};
+    var take = function (g, slot, label) { taken[g.slug] = 1; return { g: g, slot: slot, label: label }; };
+    var free = function (g) { return g && !taken[g.slug]; };
+    return api("/api/challenge").then(function (r) {
+      var c = r && r.ok && r.challenge, picks = [];
+      var cg = c && c.game !== game && others.filter(function (g) { return g.slug === c.game; })[0];
+      if (cg) picks.push(take(cg, "challenge", "weekly challenge"));
+      var nw = fresh.filter(free);
+      nw = nw[Math.floor(Math.random() * nw.length)];
+      var like = alike.filter(function (g) { return free(g) && g !== nw; })[0];
+      if (like) picks.push(take(like, "similar", "more like this"));
+      if (nw) picks.push(take(nw, "new", "you haven't tried"));
+      // short of three (no challenge card, or everything played): more like this, unplayed first
+      alike.filter(free).sort(function (a, b) { return (seen[a.slug] ? 1 : 0) - (seen[b.slug] ? 1 : 0); }).slice(0, 3 - picks.length).forEach(function (g) {
+        picks.push(seen[g.slug] ? take(g, "similar", "play again") : take(g, "new", "you haven't tried"));
+      });
+      if (document.getElementById("cc-next")) return;
+      var rail = el('<nav class="cc-next" id="cc-next" aria-label="play next"><h2>// play next</h2><div class="cc-next-row">' +
+        picks.slice(0, 3).map(function (p) {
+          return '<a class="cc-next-card" href="/games/' + encodeURIComponent(p.g.slug) + '/?src=next&amp;slot=' + p.slot + '">' +
+            '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
+            '<span class="cc-next-k">' + esc(p.label) + "</span><b>" + esc(p.g.title) + "</b></a>";
+        }).join("") + "</div></nav>");
+      var dareBox = document.getElementById("cc-dare");
+      if (dareBox) dareBox.insertAdjacentElement("afterend", rail);
+      else board.insertAdjacentElement("beforebegin", rail);
+    });
+  }
+
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
     if (!board.hidden) setTimeout(loadBoard, 300);
@@ -333,6 +378,7 @@
     if (r && r.accepted && me) friendNudge(say);
     dareResult(e);
     dareButton(e);
+    nextRail();
     var x = r && r.xp;
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));

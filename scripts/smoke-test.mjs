@@ -512,6 +512,17 @@ if (admin) {
   const df = r.dares;
   ok(df && typeof df.made === "number" && df.by_source.best && df.by_source.button && (df.made === 0 || df.sent_rate !== undefined),
     "admin metrics: dare funnel (smoke dares left out)", df && { made: df.made, sent: df.sent, opened: df.opened, beaten: df.beaten });
+  // "play next" rail: a run started from it is logged once (a resent start doesn't double it, and a game can't
+  // send the platform's cc:* events itself); smoke ones count under test_traffic, the real ones under next
+  const nx = r.next;
+  ok(nx && typeof nx.runs_ended === "number" && typeof nx.plays === "number" && nx.by_slot && "challenge" in nx.by_slot && "similar" in nx.by_slot && "new" in nx.by_slot,
+    "admin metrics: play-next rail", nx);
+  const nextBefore = tt.next, pn = rid();
+  const nextStart = { t: "start", id: pn, game: "fathom", v: "1", src: "next", slot: "similar" };
+  await post("/api/events", { anon, ref: "internal", events: [nextStart] });
+  await post("/api/events", { anon, ref: "internal", events: [nextStart, { t: "event", id: pn, game: "fathom", name: "cc:next", data: { slot: "new" } }] });
+  r = await (await get("/api/admin/metrics?since=2026-01-01", { authorization: "Bearer " + admin })).json();
+  ok(r.test_traffic.next === nextBefore + 1 && r.next.plays === nx.plays, "a play started from play-next is logged once (smoke left out of next)", { before: nextBefore, after: r.test_traffic.next });
   // weekly challenge: a week with no hand pick falls back to an automatic one (never last week's game)
   r = await (await get("/api/admin/challenge", { authorization: "Bearer " + admin })).json();
   const handLast = (await (await get("/api/admin/challenge?date=" + new Date(Date.now()).toISOString().slice(0, 10), { authorization: "Bearer " + admin })).json()).pick?.game;

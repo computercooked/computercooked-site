@@ -111,13 +111,27 @@ export async function metrics(url, env, origin) {
   };
   const dares = { ...step(funnel), by_source: Object.fromEntries(["best", "button"].map((k) => [k, step(funnel.filter((r) => r.source === k))])) };
 
+  // "play next" rail: plays started from it (cc:next events) per run ended, split by which card was tapped
+  const nx = (await db.prepare(
+    `SELECT COALESCE(json_extract(e.data, '$.slot'), 'other') slot, COUNT(*) plays, SUM(p.ended_at IS NOT NULL) ended
+     FROM events e JOIN plays p ON p.id = e.play_id WHERE e.name = 'cc:next' AND p.day >= ? AND ${REAL} GROUP BY 1`
+  ).bind(since).all()).results;
+  const runsEnded = await db.prepare(`SELECT COUNT(*) n FROM plays WHERE day >= ? AND ended_at IS NOT NULL AND ${REAL}`).bind(since).first("n");
+  const nextPlays = nx.reduce((n, r) => n + r.plays, 0);
+  const next = {
+    runs_ended: runsEnded || 0, plays: nextPlays, ended: nx.reduce((n, r) => n + (r.ended || 0), 0),
+    per_run: rate(nextPlays, runsEnded),
+    by_slot: Object.fromEntries(["challenge", "similar", "new"].map((k) => [k, (nx.find((r) => r.slot === k) || {}).plays || 0])),
+  };
+
   // smoke-test traffic left out of everything above, counted here so a live smoke run can be confirmed excluded
   const test = await db.prepare(
     `SELECT (SELECT COUNT(*) FROM plays WHERE day >= ?1 AND NOT ${REAL}) plays,
        (SELECT COUNT(*) FROM scores WHERE day >= ?1 AND player LIKE 'a:smoke%') scores,
        (SELECT COUNT(*) FROM scores WHERE day >= ?1 AND player LIKE 'a:smoke%' AND hidden = 0) scores_visible,
        (SELECT COUNT(*) FROM feedback WHERE ts >= ?2 AND NOT ${REAL}) feedback,
-       (SELECT COUNT(*) FROM dares WHERE created_at >= ?2 AND from_player LIKE 'a:smoke%') dares`
+       (SELECT COUNT(*) FROM dares WHERE created_at >= ?2 AND from_player LIKE 'a:smoke%') dares,
+       (SELECT COUNT(*) FROM events e JOIN plays p ON p.id = e.play_id WHERE e.name = 'cc:next' AND p.day >= ?1 AND NOT ${REAL}) next`
   ).bind(since, Date.parse(since)).first();
   const users = await db.prepare("SELECT COUNT(*) n, SUM(created_at >= ?) new FROM users").bind(Date.parse(since)).first();
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
@@ -130,6 +144,7 @@ export async function metrics(url, env, origin) {
       uploads_pending: pending || 0, open_reports: reports || 0,
     },
     dares,
+    next,
     test_traffic: test,
     games: out,
   });

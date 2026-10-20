@@ -40,6 +40,13 @@ export async function events(req, env, ip, user, origin) {
       await env.DB.prepare(
         "INSERT OR IGNORE INTO plays (id, game, version, anon_id, user_id, tester, started_at, referrer, device, day, auto) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
       ).bind(e.id, e.game, str(e.v, 16) || "1", anon, user ? user.id : null, tester, t, ref, device, dayOf(t), e.auto ? 1 : 0).run();
+      // started from the "play next" rail after a run on another game: one cc:next event per play (admin metrics)
+      if (e.src === "next") {
+        const slot = ["challenge", "similar", "new"].includes(e.slot) ? e.slot : "other";
+        await env.DB.prepare(
+          "INSERT INTO events (play_id, game, name, data, ts) SELECT ?, ?, 'cc:next', ?, ? WHERE NOT EXISTS (SELECT 1 FROM events WHERE play_id = ? AND name = 'cc:next')"
+        ).bind(e.id, e.game, JSON.stringify({ slot }), t, e.id).run();
+      }
     } else if (e.t === "end") {
       const play = await env.DB.prepare("SELECT * FROM plays WHERE id = ?").bind(e.id).first();
       if (!play || play.ended_at) continue;
@@ -63,7 +70,7 @@ export async function events(req, env, ip, user, origin) {
       if (a) unlocked.push({ ...a, ...progress(await totalXp(env, user.id) - a.xp, a.xp) });
     } else if (e.t === "event") {
       const name = str(e.name, 40);
-      if (!name) continue;
+      if (!name || name.startsWith("cc:")) continue; // cc:* names are the platform's own
       let data = null;
       try { data = e.data == null ? null : JSON.stringify(e.data).slice(0, 500); } catch {}
       await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (?,?,?,?,?)").bind(e.id, e.game, name, data, t).run();

@@ -239,6 +239,18 @@
   // pwa.js also notes it in sessionStorage, which this same-origin game frame shares with the page around it.
   else if (isApp()) ref = "app";
   else try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refBucket(); }
+  // came from the "play next" rail after a run (?src=next&slot=…): this page's plays are internal, and its first
+  // run says so (the server logs it as a cc:next event). The params come off the URL so a reload doesn't count again.
+  var nextSlot = null;
+  if (q.get("src") === "next") {
+    nextSlot = /^(challenge|similar|new)$/.test(q.get("slot") || "") ? q.get("slot") : "other";
+    if (ref !== "embed" && ref !== "app") ref = "internal";
+    try {
+      var u = new URL(location.href);
+      u.searchParams.delete("src"); u.searchParams.delete("slot");
+      history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+    } catch (e) {}
+  }
 
   var game = slugFromPath(location.pathname);
   var version = "1";
@@ -292,7 +304,9 @@
     if (!game) return;
     if (play) end({ completed: false });
     play = { id: rid(16), t0: Date.now(), score: null, auto: !!(opts && opts.auto), events: 0 };
-    queue.push({ t: "start", id: play.id, game: game, v: version, auto: play.auto ? 1 : 0 });
+    var st = { t: "start", id: play.id, game: game, v: version, auto: play.auto ? 1 : 0 };
+    if (nextSlot) { st.src = "next"; st.slot = nextSlot; nextSlot = null; }
+    queue.push(st);
     try { document.dispatchEvent(new CustomEvent("cc:start", { detail: { game: game, playId: play.id, auto: play.auto } })); } catch (e) {}
     flush();
   }
