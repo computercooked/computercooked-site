@@ -114,6 +114,13 @@ ok(r.beats === 1, "dare beat count", r.beats);
 // the funnel: a dare reports when it was really sent; runs say what the previous best was (new best vs first run)
 r = await (await post("/api/dare/" + dare.id + "/shared", { how: "copy" })).json();
 ok(r.ok, "dare marked as sent");
+// "share this game" after a run with no score: accepted (smoke ones not stored), unknown method/game refused
+r = await (await post("/api/share", { game: "smol-brains", how: "card", anon })).json();
+ok(r.ok && r.test === true, "share-this-game send accepted (smoke traffic not stored)", r);
+r = await post("/api/share", { game: "smol-brains", how: "pigeon", anon });
+ok(r.status === 400, "share-this-game: unknown method refused", r.status);
+r = await post("/api/share", { game: "no-such-game", how: "copy", anon });
+ok(r.status === 404, "share-this-game: unknown game refused", r.status);
 r = await post("/api/dare/" + dare.id + "/shared", { how: "carrier pigeon" });
 ok(r.status === 400, "unknown share method refused", r.status);
 r = await post("/api/dare/nosuchdare1/shared", { how: "share" });
@@ -512,6 +519,8 @@ if (admin) {
   ok(r.ok && c && Array.isArray(c.testers) && typeof c.plays === "number", "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
   const tt = r.test_traffic;
   ok(tt && tt.plays >= 5 && tt.scores >= 4 && tt.scores_visible === 0 && tt.feedback >= 1 && tt.dares >= 2, "admin metrics: this run's smoke traffic counted apart, none of it visible", tt);
+  const gsh = r.game_shares;
+  ok(gsh && typeof gsh.sent === "number" && "via_card" in gsh && "via_download" in gsh, "admin metrics: share-this-game sends", gsh);
   const df = r.dares;
   ok(df && typeof df.made === "number" && df.by_source.best && df.by_source.button && (df.made === 0 || df.sent_rate !== undefined),
     "admin metrics: dare funnel (smoke dares left out)", df && { made: df.made, sent: df.sent, opened: df.opened, beaten: df.beaten });

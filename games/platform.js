@@ -216,25 +216,34 @@
   // After an accepted run: a "challenge a friend" box. After a new personal best (not a first run) it is the
   // main ask, and the dare is made up front so the tap can open the share sheet straight away (iOS only allows
   // share() directly inside the tap). A finished share or copy is reported for the funnel in admin metrics.
+  // A run with no accepted score (games without a board, or a run that didn't count) gets the same box as
+  // "share this game": the card without a score, and a plain link to the game (no dare). Those sends are
+  // counted by POST /api/share (admin metrics game_shares).
   function dareButton(e) {
     var r = e.detail && e.detail.result;
-    if (!r || !r.accepted || !e.detail.playId) return;
-    var best = r.prev_best != null && e.detail.score > r.prev_best;
+    var scored = !!(r && r.accepted && e.detail.playId);
+    if (!scored && !info) return;
+    var best = scored && r.prev_best != null && e.detail.score > r.prev_best;
     var box = document.getElementById("cc-dare");
     if (!box) { box = document.createElement("div"); box.id = "cc-dare"; (document.getElementById("cc-next") || board).insertAdjacentElement("beforebegin", box); }
     box.className = "cc-levelup cc-dare-box" + (best ? " is-best" : "");
-    box.innerHTML = (best
+    box.innerHTML = (!scored
+      ? "<p>enjoying <b>" + esc(info.title) + "</b>? send it to a friend.</p>"
+      : best
       ? "<p><span class=\"cc-dare-kicker\">new best</span> <b>" + esc(fmt(e.detail.score)) + "</b> (was " + esc(fmt(r.prev_best)) + "). dare a friend to beat it.</p>"
       : "<p>scored <b>" + esc(fmt(e.detail.score)) + "</b>. think a friend can beat it?</p>") +
       "<div class=\"cc-dare-btns\"><button type=\"button\" class=\"tool cc-dare-card" + (best ? " cc-dare-go" : "") + "\">share card ▶</button>" +
-      "<button type=\"button\" class=\"tool cc-dare-link\">" + (best ? "just the link" : "challenge a friend") + "</button></div>" +
+      "<button type=\"button\" class=\"tool cc-dare-link\">" + (!scored ? "share link" : best ? "just the link" : "challenge a friend") + "</button></div>" +
       "<p class=\"cc-dare-say\" role=\"status\"></p>" +
       "<div class=\"cc-card-out\" hidden><img alt=\"your run as a share card\" width=\"108\" height=\"192\">" +
       "<div><a class=\"tool cc-card-dl\" download>download card</a><button type=\"button\" class=\"tool cc-card-copy\">copy link</button>" +
       "<p class=\"cc-card-tip\">post the card, paste the link.</p></div></div>";
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
-    var make = function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
-    var ready = best ? make() : null, dare = null;
+    // what gets sent: a dare for this exact run, or (no score) just the game
+    var make = !scored
+      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/" }); }
+      : function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
+    var ready = best || !scored ? make() : null, dare = null;
     if (ready) ready.then(function (d) { if (d && d.ok) dare = d; });
     function getDare() {
       return (ready || (ready = make())).then(function (d) {
@@ -242,8 +251,11 @@
         return (dare = d);
       });
     }
-    function sent(how) { api("/api/dare/" + dare.id + "/shared", { how: how }); }
-    function done() { out.textContent = me ? "sent. you'll see it in your feed if they beat it." : "sent. good luck to them."; }
+    function sent(how) {
+      if (scored) api("/api/dare/" + dare.id + "/shared", { how: how });
+      else api("/api/share", { game: game, how: how, anon: cc._anon });
+    }
+    function done() { out.textContent = !scored ? "sent. thanks for passing it on." : me ? "sent. you'll see it in your feed if they beat it." : "sent. good luck to them."; }
 
     // the link on its own (as before): share sheet, else copy
     box.querySelector(".cc-dare-link").addEventListener("click", function () {
@@ -259,7 +271,7 @@
     }
     function copy(d) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(d.text + " " + d.url).then(function () { sent("copy"); out.textContent = "link copied. send it to someone who thinks they're good."; }, function () { out.textContent = d.url; });
+        navigator.clipboard.writeText(d.text + " " + d.url).then(function () { sent("copy"); out.textContent = scored ? "link copied. send it to someone who thinks they're good." : "link copied."; }, function () { out.textContent = d.url; });
       } else out.textContent = d.url;
     }
 
@@ -267,9 +279,11 @@
     // the player looks at their score so the tap can open the share sheet straight away
     var file = null, cardUrl = null;
     var card = loadCardMaker().then(function (draw) {
-      return draw({ title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best });
+      return draw(scored
+        ? { title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best }
+        : { title: info.title, slug: game, art: info.thumbnail, score: null });
     }).then(function (blob) {
-      var name = game + "-" + String(Math.round(e.detail.score)) + ".png";
+      var name = game + (scored ? "-" + String(Math.round(e.detail.score)) : "") + ".png";
       try { file = new File([blob], name, { type: "image/png" }); } catch (err) { file = null; }
       if (box._cardUrl) URL.revokeObjectURL(box._cardUrl);
       cardUrl = box._cardUrl = URL.createObjectURL(blob);
