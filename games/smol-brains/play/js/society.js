@@ -42,7 +42,7 @@
         if (a === y || !a.alive || a.species !== "smol" || a.stage < 3) return;
         for (var id in a.ideas) if (a.ideas[id] >= 1 && !SB.Ideas.known(y, id) && SB.Ideas.canHold(y, id)) known.push(id);
       });
-      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), 0.22, game, "grew up with");
+      if (known.length) SB.Ideas.learn(y, game.rng.pick(known), 0.45, game, "grew up with");
     });
     game.tribes.forEach(function (t) {
       // name the tribe once its smols can talk about themselves

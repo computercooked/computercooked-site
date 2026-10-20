@@ -182,8 +182,8 @@
     boulder: { noun: "stone", label: "boulder", emoji: "🪨", r: 0.6, drops: "stone", every: 150, desc: "a big rock that sheds small rocks." },
     flintrock: { noun: "stone", label: "flint outcrop", emoji: "🔷", r: 0.5, drops: "flint", every: 200, desc: "dark glassy rock. sharp." },
     claybank: { noun: "material", label: "clay bank", emoji: "🟫", r: 0.5, drops: "clay", every: 160, desc: "squishy riverbank. good for pots." },
-    orevein: { noun: "material", label: "ore vein", emoji: "🟠", r: 0.55, drops: "ore", every: 260, desc: "copper in the rock." },
-    crystals: { noun: "material", label: "thought crystals", emoji: "💎", r: 0.55, drops: "crystal", every: 400, glow: 1, desc: "crystals that hum near big brains." },
+    orevein: { noun: "material", label: "ore vein", emoji: "🟠", r: 0.55, drops: "ore", every: 150, desc: "copper in the rock." },
+    crystals: { noun: "material", label: "thought crystals", emoji: "💎", r: 0.55, drops: "crystal", every: 240, glow: 1, desc: "crystals that hum near big brains." },
     cave: { noun: "grump", label: "grump cave", emoji: "🕳", r: 0.9, desc: "grumps sleep here by day." },
     nest: { noun: "shelter", label: "nest", emoji: "🪺", r: 0.7, desc: "where your first egg was found. smols sleep well here." }
   };
@@ -197,10 +197,10 @@
     wall: { noun: "shelter", label: "palisade", emoji: "🪵", r: 0.9, cost: { stick: 4 }, work: 7, desc: "pointy sticks in a row. grumps don't like walking through it." },
     kiln: { noun: "fire", label: "kiln", emoji: "🏺", r: 0.8, cost: { stone: 4, clay: 2 }, work: 14, desc: "a hot clay oven. fires pots and smelts ore into copper." },
     workshop: { noun: "tool", label: "workshop", emoji: "🛠", r: 1.1, cost: { stick: 6, stone: 2, metal: 1 }, work: 18, desc: "a bench and a roof. crafting here is twice as fast." },
-    windmill: { noun: "crop", label: "windmill", emoji: "🌬", r: 0.8, cost: { stick: 6, stone: 3, metal: 2 }, work: 26, desc: "turns wind into bread. every farm nearby grows faster." },
-    observatory: { noun: "totem", label: "star dome", emoji: "🔭", r: 1.0, cost: { stone: 8, crystal: 1, metal: 2 }, work: 30, desc: "thinkers watch the sky and get ideas. forecasts the weather." },
+    windmill: { noun: "crop", label: "windmill", emoji: "🌬", r: 0.8, cost: { stick: 6, stone: 3, metal: 1 }, work: 26, desc: "turns wind into bread. every farm nearby grows faster." },
+    observatory: { noun: "totem", label: "star dome", emoji: "🔭", r: 1.0, cost: { stone: 8, crystal: 1, metal: 1 }, work: 30, desc: "thinkers watch the sky and get ideas. forecasts the weather." },
     bridge: { noun: "material", label: "bridge", emoji: "🌉", r: 1.0, cost: { stick: 8 }, work: 12, desc: "walk over water like it's nothing." },
-    spire: { noun: "wonder", label: "the big thought", emoji: "✨", r: 2.0, cost: { crystal: 12, metal: 6, stone: 16 }, work: 150, desc: "a crystal spire tuned to every smol mind at once. what happens when it's finished? nobody knows." }
+    spire: { noun: "wonder", label: "the big thought", emoji: "✨", r: 2.0, cost: { crystal: 6, metal: 4, stone: 12 }, work: 60, desc: "a crystal spire tuned to every smol mind at once. what happens when it's finished? nobody knows." }
   };
 
   /* ---------------- stimulus table ----------------
