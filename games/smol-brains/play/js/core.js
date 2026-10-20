@@ -29,8 +29,8 @@
   // Nouns = attention categories. Every creature, item, plant and building belongs to exactly one.
   SB.NOUNS = ["hand", "smol", "grump", "food", "mushroom", "toy", "ball", "medicine", "egg", "bug", "plant", "water",
     "stick", "stone", "material", "fire", "shelter", "tool", "critter", "crop", "totem", "wonder"];
-  SB.NOUN_WORDS = ["hand", "smol", "grump", "food", "shroom", "toy", "ball", "medi", "egg", "bug", "plant", "water",
-    "stick", "rock", "stuff", "fire", "home", "tool", "hopper", "crop", "totem", "wonder"];
+  SB.NOUN_WORDS = ["hand", "smol", "grump", "food", "shroom", "toy", "ball", "herb", "egg", "bug", "tree", "water",
+    "stick", "rock", "goods", "fire", "home", "tool", "bunny", "crop", "totem", "wonder"];
   SB.NOUN_EMOJI = ["✋", "🐣", "👺", "🍎", "🍄", "🧸", "⚽", "🌿", "🥚", "🐞", "🌳", "💧", "🪵", "🪨", "🧶", "🔥", "🛖", "🛠", "🐇", "🌾", "🗿", "✨"];
 
   SB.N_DRIVES = SB.DRIVES.length;
@@ -146,7 +146,7 @@
     seed: { noun: "crop", label: "seeds", emoji: "🌱", r: 0.1, color: 0x9bd16a, mat: 1, desc: "plant them. wait. food happens." },
     butterfly: { noun: "bug", label: "flutterby", emoji: "🦋", r: 0.12, color: 0xffb3e6, critter: "fly", food: { hunger: -0.15 }, chem: { glucose: 0.1 }, desc: "flaps around. fun to chase. edible if you catch it." },
     beetle: { noun: "bug", label: "beetle", emoji: "🐞", r: 0.1, color: 0xe5484d, critter: "crawl", food: { hunger: -0.15 }, chem: { glucose: 0.1 }, desc: "crawls about. crunchy." },
-    hopper: { noun: "critter", label: "hopper", emoji: "🐇", r: 0.2, color: 0xd9c7a8, critter: "hop", desc: "a fluffy thing that hops away. hunters with spears get meat." },
+    hopper: { noun: "critter", label: "bunny", emoji: "🐇", r: 0.2, color: 0xd9c7a8, critter: "hop", desc: "a fluffy thing that hops away. hunters with spears get meat." },
     ball: { noun: "ball", label: "ball", emoji: "⚽", r: 0.18, color: 0xf5f3ed, bouncy: true, desc: "a gift from the sky. kick it, chase it." },
     plush: { noun: "toy", label: "plush", emoji: "🧸", r: 0.18, color: 0xd9a066, desc: "a tiny stuffed smol. very huggable." },
     // tools: made with ideas, used with the "use" verb
@@ -374,6 +374,6 @@
   SB.VERB_WORDS.forEach(function (w, i) { SB.LEXICON[w] = { type: "verb", i: i }; });
   SB.NOUN_WORDS.forEach(function (w, i) { SB.LEXICON[w] = { type: "noun", i: i }; });
   SB.DRIVE_WORDS.forEach(function (w, i) { SB.LEXICON[w] = { type: "drive", i: i }; });
-  SB.SYNONYMS = { yes: "good", no: "bad", go: "explore", stop: "wait", stay: "wait", here: "come", grab: "get", take: "get", pick: "get", kiss: "hug", cuddle: "hug", nap: "sleep", flee: "run", chat: "talk", hi: "talk", hello: "talk", kick: "hit", punch: "hit", apple: "food", berries: "food", fruit: "food", mushroom: "shroom", medicine: "medi", herb: "medi", tree: "plant", bush: "plant", stone: "rock", wood: "stick", house: "home", hut: "home", bed: "home", nest: "home", craft: "make", gift: "give", worship: "pray", bunny: "hopper", rabbit: "hopper" };
+  SB.SYNONYMS = { yes: "good", no: "bad", go: "explore", stop: "wait", stay: "wait", here: "come", grab: "get", take: "get", pick: "get", kiss: "hug", cuddle: "hug", nap: "sleep", flee: "run", chat: "talk", hi: "talk", hello: "talk", kick: "hit", punch: "hit", apple: "food", berries: "food", fruit: "food", mushroom: "shroom", medicine: "herb", medi: "herb", plant: "tree", bush: "tree", stuff: "goods", stone: "rock", wood: "stick", house: "home", hut: "home", bed: "home", nest: "home", craft: "make", gift: "give", worship: "pray", hopper: "bunny", rabbit: "bunny" };
   SB.ALL_WORDS = Object.keys(SB.LEXICON);
 })();

@@ -88,6 +88,7 @@
     mute: ["....w.......", "...ww.......", ".www.w.r..r.", ".www.w..rr..", ".www.w..rr..", "...ww..r..r.", "....w......."],
     gear: ["....ee......", ".e.eeee.e...", "..eeeeeee...", ".eeeEEeeee..", "eeeE..Eeee..", ".eeeEEeeee..", "..eeeeeee...", ".e.eeee.e...", "....ee......"],
     trophy: [".yyyyyyyy...", "yyyyyyyyyy..", "y.yyyyyy.y..", ".yyyyyyyY...", "..yyyyyY....", "....yY......", "....yY......", "..YYYYYY...."],
+    horn: ["..........y.", "........yyy.", "......yyyyy.", "rr..yyyyyyy.", "rrryyyyyyyy.", "rrryyyyyyyy.", "rr..yyyyyyy.", "..r...yyyyy.", "..r.....yyy.", "..........y."],
     chart: ["..........l.", ".........ll.", "........l.l.", "...l...l....", "..l.l.l.....", ".l...l......", "l..........."]
   };
 
@@ -102,7 +103,7 @@
     "🪨": "rock", "🧱": "rock", "🎁": "gift", "✕": "x", "❓": "q", "❔": "q", "🤔": "q", "⏸": "pause", "☰": "menu", "❗": "bang", "🛠": "tools", "⚙": "gear",
     "⛏": "pick", "🪓": "axe", "🏺": "pot", "🧺": "pot", "🍯": "pot", "🧶": "yarn", "🌊": "wave", "👪": "family", "🧑": "family", "📜": "book", "📖": "book", "🏫": "school", "🎓": "school",
     "👁": "eye", "👀": "eye", "🔒": "lock", "🚀": "rocket", "🍂": "leaf", "🫐": "berry", "🐟": "fish", "🍖": "meat", "🌸": "flower", "🌼": "flower", "🐾": "paw", "👣": "paw",
-    "🎲": "dice", "⬆": "up", "🌌": "globe", "🏝": "globe", "🔊": "sound", "🔇": "mute", "🏆": "trophy", "💯": "trophy", "📐": "chart", "🌉": "log", "🛶": "log"
+    "🎲": "dice", "⬆": "up", "🌌": "globe", "🏝": "globe", "🔊": "sound", "📣": "horn", "📢": "horn", "🔇": "mute", "🏆": "trophy", "💯": "trophy", "📐": "chart", "🌉": "log", "🛶": "log"
   };
   IC.MAP = MAP;
   IC.ART = ART;

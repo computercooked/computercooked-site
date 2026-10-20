@@ -325,6 +325,8 @@
     if (game.hand.sayT > 0) { game.hand.sayT -= dt; if (game.hand.sayT <= 0) game.hand.saying = null; }
     SB.Species.tick(game, dt);
     SB.Society.tick(game, dt);
+    game.wordsT = (game.wordsT || 0) - dt;
+    if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }
     checkAchievements(game, dt);
     if (game.offline) {
       // offline mode is gentle: nobody starves or dies of a cold while you're away (old age still happens)

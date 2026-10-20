@@ -87,7 +87,7 @@
     c.bag = Array.isArray(p.bag) ? p.bag.slice() : [];
     c.holding = p.holding == null ? null : p.holding; c.tool = p.tool == null ? null : p.tool;
     c.stats = Object.assign({ eaten: 0, words: 0, tickles: 0, taps: 0, kids: 0, obeyed: 0, hits: 0, walked: 0, crafted: 0, discoveries: 0, taught: 0 }, p.stats || {});
-    c.visited = p.visited || {}; c.vocab = p.vocab || {}; c.habits = p.habits || {}; c.ideas = p.ideas || {}; c.ideaQ = p.ideaQ || {};
+    c.visited = p.visited || {}; c.vocab = renameWords(p.vocab || {}); c.habits = p.habits || {}; c.ideas = p.ideas || {}; c.ideaQ = p.ideaQ || {};
     c.chem = Object.assign(SB.Chem.create(c.genome), p.chem || {});
     if (c.z == null) { // a v1 smol: it lived on a 1D line; find it a spot on the island
       var sp = game.world.T.spawn;
@@ -120,7 +120,16 @@
     return word.slice(0, keep) + (keep < word.length ? word.charAt(keep - 1) : "") + "?";
   }
   C.garble = garble;
+  var RENAMED = { plant: "tree", stuff: "goods", medi: "herb", hopper: "bunny" }; // v3 gave vague words real names
+  function renameWords(v) { for (var k in RENAMED) if (v[k] != null) { v[RENAMED[k]] = Math.max(v[RENAMED[k]] || 0, v[k]); delete v[k]; } return v; }
   function knows(c, w) { return (c.vocab[w] || 0) >= 1; }
+  // a proper lesson from the god (see words.js): a bigger step, and a little cheer when it lands
+  C.lessonWord = function (c, w, game, amt) {
+    var got = learnWord(c, w, amt, game);
+    if (!got) { var s = c.vocab[w] || 0; if (s >= 0.25) say(c, garble(w, s), game, c.stage === 0 ? "babble" : "say"); else emote(c, "huh", 1); }
+    c.stats.lessons = (c.stats.lessons || 0) + 1;
+    return got;
+  };
   C.knows = knows;
   C.knownCount = function (c) { var n = 0; for (var w in c.vocab) if (c.vocab[w] >= 1) n++; return n; };
   function habit(c, k, amt) { c.habits[k] = (c.habits[k] || 0) + amt; }
@@ -129,7 +138,7 @@
   function learnWord(c, word, amt, game) {
     if (!SB.LEXICON[word]) return false;
     var before = c.vocab[word] || 0;
-    var rate = amt * (0.6 + gene(c.genome, "attnLearn", 0.5) * 0.8) * (c.stage === 0 ? 1.1 : 1) * (1 + gene(c.genome, "social", 0.2) * 0.6);
+    var rate = amt * (0.6 + gene(c.genome, "attnLearn", 0.5) * 0.8) * (c.stage === 0 ? 1.1 : 1) * (1 + gene(c.genome, "social", 0.2) * 0.6) * (1 + (SB.Words ? SB.Words.smarts(game) : 0));
     var after = Math.min(1.5, before + rate);
     c.vocab[word] = after;
     if (before < 1 && after >= 1) {
@@ -347,6 +356,13 @@
       }
     }
 
+    // a call it understands (a word it knows, from its god): it mostly just does it
+    var call = c.called && game.time - c.called.t < 8 ? c.called : null;
+    if (call && c.species === "smol" && !c.plan) {
+      c.called = null;
+      if (rng.chance(0.55 + gene(c.genome, "obedience", 0.5) * 0.45) && answerCall(c, game, call)) return;
+    }
+
     // what's physically possible
     var obj = target && target.type === "item" ? target.ref : null;
     for (var v = 0; v < NV; v++) mask[v] = c.tier >= SB.VERB_TIER[v];
@@ -375,6 +391,7 @@
 
     var heardV = recent ? c.heard.verb : -1, useBias = false;
     for (v = 0; v < NV; v++) bias[v] = 0;
+    if (c.callVerb && game.time - c.callVerb.t < 8 && mask[c.callVerb.v]) { bias[c.callVerb.v] += 0.9; useBias = true; }
     if (heardV >= 0 && mask[heardV]) { bias[heardV] = gene(c.genome, "obedience", 0.5) * 0.18 + (c.heard.name ? 0.05 : 0); useBias = true; }
     if (recent && c.heard.idea && SB.Ideas) { // a spoken idea word: "do that thing"
       var hd = SB.Ideas.BY_ID[c.heard.idea];
@@ -402,8 +419,18 @@
     var verb = any ? SB.Brain.decide(c.brain, rng, mask, useBias ? bias : null, tempScale) : V.idle;
     startAction(c, game, verb, tgt, target, noun);
 
+    if (c.callVerb && verb === c.callVerb.v) c.callVerb = null;
     if (heardV >= 0 && verb === heardV) {
       c.stats.obeyed++;
+      // asked to do something, and did it: that's how a verb is learned. friends watching pick it up too
+      var pw = c.pendingWord;
+      if (pw && SB.LEXICON[pw.w] && SB.LEXICON[pw.w].i === verb && game.time - pw.t < 15 && c.species === "smol") {
+        c.pendingWord = null;
+        C.lessonWord(c, pw.w, game, 0.45);
+        emote(c, "proud", 1.5);
+        SB.World.creaturesNear(w, game, c.x, c.z, 6, function (o) { if (o !== c && o.species === "smol" && !o.asleep) learnWord(o, pw.w, 0.12, game); });
+        SB.bus.emit("verbLesson", { c: c, word: pw.w });
+      }
       if (c.species === "smol") {
         SB.Game.unlock(game, "obey");
         SB.bus.emit("obey", { c: c, verb: verb });
@@ -413,6 +440,33 @@
       c.heard.verb = -1;
     }
     maybeChat(c, game, verb, noun);
+  }
+  var CALL_VERB = { come: "approach", food: "eat", eat: "eat", sleep: "sleep", play: "play", hug: "cuddle", run: "flee", wait: "idle", explore: "wander", get: "pickup", drop: "drop", make: "make", talk: "talk", teach: "teach", give: "give", build: "build" };
+  function answerCall(c, game, call) {
+    var w = call.w, vn = CALL_VERB[w];
+    if (vn == null) return false;
+    var ch = c.chem, rng = game.rng;
+    if (w === "come") {
+      startAction(c, game, V.wander, null, null, null);
+      var a = c.action; a.tx = call.x + rng.range(-1.2, 1.2); a.tz = call.z + rng.range(-1.2, 1.2); a.dur = 9; a.called = true;
+      say(c, "ok!", game);
+      return true;
+    }
+    if (w === "food" || w === "eat") {
+      if (ch.hunger < 0.3) { say(c, "no hungry", game); return true; }
+      var sf = sniffFood(c, game);
+      if (!sf) { say(c, "no food?", game); return true; }
+      var st = K[sf.kind] && K[sf.kind].noun === "food" && sf.heldBy !== undefined ? { type: "item", id: sf.id } : { type: "node", id: sf.id }, sr = resolve(game, st);
+      if (!sr) return false;
+      startAction(c, game, st.type === "item" ? V.eat : NIBBLE[sf.kind] ? V.eat : V.play, st, sr, st.type === "item" ? "food" : "plant");
+      return true;
+    }
+    if (w === "sleep") { if (ch.sleepy < 0.25 && ch.tired < 0.3) { say(c, "no sleepy", game); return true; } startAction(c, game, V.sleep, null, null, null); return true; }
+    if (w === "wait") { startAction(c, game, V.idle, null, null, null); c.action.dur = 6; return true; }
+    if (w === "explore") { startAction(c, game, V.wander, null, null, null); return true; }
+    if (w === "drop") { if (c.holding == null) return false; startAction(c, game, V.drop, null, null, null); return true; }
+    c.callVerb = { v: V[vn], t: game.time }; // the rest need a target: lean hard toward it and let the brain pick what
+    return false;
   }
   function knowsAny(c, kind) {
     if (!SB.Ideas) return false;
@@ -1147,6 +1201,7 @@
     var word = String(raw || "").toLowerCase().replace(/[^a-zü' ]/g, "").trim();
     if (!word) return;
     if (SB.SYNONYMS[word] && !SB.LEXICON[word]) word = SB.SYNONYMS[word];
+    if (opts.call && knows(c, word) && !c.asleep && c.species === "smol") { c.called = { w: word, t: game.time, x: opts.x != null ? opts.x : c.x, z: opts.z != null ? opts.z : c.z }; c.thinkT = Math.min(c.thinkT || 0, 0.2 + game.rng() * 0.5); if (c.action && !c.plan && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.phase === "go")) c.action = null; }
     var name = c.name.toLowerCase();
     if (c.asleep) { if (word === name && game.rng.chance(0.6)) { c.asleep = false; c.inBed = false; c.action = null; emote(c, "huh", 1.2); } return; }
     if (c.species === "grump") { if (game.rng.chance(0.3)) say(c, "huh?", game); return; }
@@ -1473,7 +1528,8 @@
     var taught = Math.min(15, (c.stats && c.stats.lessons || 0) * 0.15);
     var ideas = SB.Ideas ? SB.Ideas.count(c) : 0;
     var size = Math.min(40, SB.Brain.size(c.brain) * 0.25);
-    return Math.round(25 + 60 * t.good + 15 * t.bad + 1.5 * words + exp * 0.5 + taught + ideas * 5 + c.tier * 10 + size);
+    var shared = c.species === "smol" && SB.Game.current && SB.Game.current.culture ? (SB.Game.current.culture.shared || 0) * 1.5 : 0; // a tribe that shares words thinks better together
+    return Math.round(25 + 60 * t.good + 15 * t.bad + 1.5 * words + exp * 0.5 + taught + ideas * 5 + c.tier * 10 + size + shared);
   };
 
   /* ---------------- explain (for the UI) ---------------- */

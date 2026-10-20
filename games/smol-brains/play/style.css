@@ -241,3 +241,17 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
   .toasts { top: auto; bottom: calc(96px + var(--sab)); right: 50%; transform: translateX(50%); align-items: center; width: calc(100% - 24px); }
 }
 @media (max-width: 600px) { #ui:has(.sheet:not(.hide)) .toasts { bottom: auto; top: calc(58px + var(--sat)); } }
+
+/* ---------- the word book ---------- */
+.teachbar { font-size: 13px; line-height: 1.35; color: var(--dim); margin: 6px 0 8px; min-height: 2.7em; }
+.teachbar b { color: var(--lime); }
+.wordbook { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 7px; max-height: 38vh; overflow-y: auto; padding: 3px 3px 6px; }
+.word { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 4px 6px; background: var(--panel2); box-shadow: 0 -2px 0 var(--ink), 0 2px 0 var(--ink), -2px 0 0 var(--ink), 2px 0 0 var(--ink), inset 0 -3px 0 rgba(0, 0, 0, 0.3); font: 700 13px/1 var(--sans); color: var(--paper); }
+.word .wi { font-size: 0; } .word .wi .pxi { width: 26px; height: 26px; }
+.word .wb { width: 80%; height: 4px; background: #120e1c; display: block; } .word .wb i { display: block; height: 100%; background: var(--lilac); }
+.word.known .wb i { background: var(--lime); }
+.word.known::after { content: "★"; position: absolute; top: 2px; left: 5px; color: var(--lime); font-size: 11px; }
+.word.on { background: var(--lime); color: var(--ink); } .word.on .wb { background: rgba(0, 0, 0, 0.25); } .word.on .wb i { background: var(--ink); }
+.word.locked { opacity: 0.45; }
+.word .call { position: absolute; top: 1px; right: 2px; font-size: 0; padding: 2px; } .word .call .pxi { width: 18px; height: 18px; }
+.word .call:hover { transform: scale(1.15); }

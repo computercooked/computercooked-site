@@ -174,8 +174,8 @@
         if (!game.selectedId) SB.Game.select(game, hit.ref.id);
       }
     } else if (tool === "talk") {
-      if (hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); if (SB.UI) SB.UI.talkTo(hit.ref); }
-      else if (hit) { if (SB.UI) SB.UI.sayAbout(hit); }
+      if (!hit && g && SB.World.depthAt(game.world, g.x, g.z) > 0.1) hit = { type: "water", ref: { x: g.x, z: g.z, noun: "water", id: null } }; // water isn't an object, but you can point at it
+      if (hit && SB.UI) SB.UI.teachAt(hit);
     }
   }
   IN.tap = tap;
