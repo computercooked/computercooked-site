@@ -41,6 +41,11 @@ const tester = "smoke-test";
 
 ok((await (await get("/api/health")).json()).ok, "health");
 // tip jar: off (url null) unless TIP_URL is a buy.stripe.com Payment Link
+// link tags: ?ref=/utm_source are read on every page (deck.js) and game pages (cc-sdk.js); channel plays are stored
+for (const u of ["/assets/deck.js", "/games/cc-sdk.js"]) {
+  const js = await (await get(u)).text();
+  ok(js.includes("utm_source") && js.includes('bsky: "bluesky"') && js.includes('yt: "youtube"'), u + " maps ?ref= link tags");
+}
 const tipRes = await (await get("/api/tip")).json();
 ok(tipRes.ok && (tipRes.url === null || /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]+$/.test(tipRes.url)), "tip jar is off or a Stripe Payment Link", tipRes.url);
 

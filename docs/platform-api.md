@@ -50,6 +50,26 @@ Notes:
 - Days are UTC.
 - Playtest traffic carries a `tester` tag. Filter on it when you want public numbers only.
 
+## Link tags (where plays come from)
+
+**Put `?ref=<channel>` on every link we post**, e.g. `https://computercooked.com/games?ref=tiktok` or `https://computercooked.com/games/crash/?ref=yt`. In-app browsers (TikTok, Instagram) usually send no referrer, so without the tag those plays would count as `direct`.
+
+| tag value (case doesn't matter) | counted as (`top_referrers`) |
+|---|---|
+| `tiktok`, `tt` | `tiktok` |
+| `youtube`, `yt` | `youtube` |
+| `instagram`, `ig` | `instagram` |
+| `x`, `twitter` | `x` |
+| `threads` | `threads` |
+| `bluesky`, `bsky` | `bluesky` |
+| anything else (e.g. `reddit`) | `other` |
+
+- `utm_source=` works the same when there's no `ref`. `utm_medium`, `utm_campaign`, `utm_content` and `utm_term` are accepted and dropped; they aren't stored.
+- **First touch wins for the session (browser tab).** The first page of the visit decides, whether it's the hub, the home page or a game: its tag, else an outside referrer (so tiktok.com → hub → game counts as `tiktok`). With neither, a game opened from the hub counts as `internal`, as before. `assets/deck.js` (every page) and `games/cc-sdk.js` (game pages) both do this, into sessionStorage `cc-ref`.
+- The tags come off the address bar once read, so a copied or reloaded link doesn't carry them on. Other params (`vs`, `d`, `tester` …) stay.
+- `?ref=app` is the installed web app's start URL. It's left alone; app plays count as `app`.
+- The play-next rail still marks its plays `internal` (with a `cc:next` event).
+
 ## Playtest links
 
 Add `?tester=<name>` to any game URL, e.g. `https://computercooked.com/games/crash/?tester=sam`. Everything that person plays and every bit of feedback they send in that browser tab is tagged with that name. It shows up under `testers` and `latest_feedback[].tester`.
