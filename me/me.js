@@ -94,6 +94,7 @@
     picker($("#avatar-change"), user.avatar, function (k) { setFace(k); });
     $("#me-public-link").href = "/u/" + encodeURIComponent(user.username);
     initSettings(user);
+    initFriends();
     api("/api/me/summary").then(function (s) {
       if (!s.ok) return;
       $("#me-streak").textContent = s.streak;
@@ -220,6 +221,52 @@
         location.reload();
       });
     });
+  }
+
+  /* ---------- friends (slice D1) ---------- */
+  function person(p, note, buttons) {
+    return '<li><a class="me-person" href="/u/' + encodeURIComponent(p.username) + '"><span class="me-person-face">' + window.ccAvatar(p.avatar) + "</span>" +
+      "<b>" + esc(p.name) + "</b><small>" + (p.name !== p.username ? "@" + esc(p.username) + " · " : "") + "lv " + p.level + (note ? " · " + note : "") + "</small></a>" +
+      '<span class="me-person-act">' + buttons.map(function (b) {
+        return '<button type="button" class="tool' + (b[2] ? " is-quiet" : "") + '" data-act="' + b[0] + '" data-u="' + esc(p.username) + '">' + b[1] + "</button>";
+      }).join("") + "</span></li>";
+  }
+  function loadFriends() {
+    api("/api/me/friends").then(function (r) {
+      if (!r.ok) return;
+      $("#fr-count").textContent = r.friends.length ? String(r.friends.length) : "";
+      $("#fr-incoming").innerHTML = r.incoming.map(function (p) { return person(p, "wants to be friends", [["accept", "accept"], ["decline", "decline", 1]]); }).join("");
+      $("#fr-list").innerHTML = r.friends.length ? r.friends.map(function (p) { return person(p, "", [["remove", "remove", 1], ["block", "block", 1]]); }).join("")
+        : '<li class="me-empty">no friends yet. add someone by username, then compare scores on the friends tab of any leaderboard.</li>';
+      $("#fr-out").innerHTML = r.outgoing.map(function (p) { return person(p, "request sent", [["cancel", "cancel", 1]]); }).join("");
+      $("#fr-blocked-wrap").hidden = !r.blocked.length;
+      $("#fr-blocked").innerHTML = r.blocked.map(function (p) { return person(p, "", [["unblock", "unblock", 1]]); }).join("");
+    });
+  }
+  var DONE = { requested: "request sent.", friends: "you're friends now.", none: "", blocked: "blocked. they can't add you anymore." };
+  function friendDo(action, username, msg) {
+    return api("/api/me/friends", { action: action, username: username }).then(function (r) {
+      if (msg) msg.textContent = r.ok ? DONE[r.status] || "" : r.error || "that didn't work.";
+      if (r.ok) loadFriends();
+      return r;
+    });
+  }
+  function initFriends() {
+    var ff = $("#form-friend");
+    ff.addEventListener("submit", function (e) {
+      e.preventDefault();
+      friendDo("add", ff.username.value.trim(), ff.querySelector(".me-msg")).then(function (r) { if (r.ok) ff.reset(); });
+    });
+    $("#friends").addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-act]");
+      if (!b) return;
+      var act = b.dataset.act;
+      if (act === "remove" && !confirm("remove " + b.dataset.u + " from your friends?")) return;
+      if (act === "block" && !confirm("block " + b.dataset.u + "? they're removed and can't add you again.")) return;
+      b.disabled = true;
+      friendDo(act, b.dataset.u, ff.querySelector(".me-msg"));
+    });
+    loadFriends();
   }
 
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }

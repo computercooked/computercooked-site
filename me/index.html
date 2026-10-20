@@ -180,6 +180,24 @@
         <h2 class="shelf-head" id="recent-h">recently played</h2>
         <ul class="card-grid me-grid" id="recent"></ul>
       </section>
+      <section class="shelf me-friends" id="friends" aria-labelledby="fr-h">
+        <h2 class="shelf-head" id="fr-h">friends <small id="fr-count"></small></h2>
+        <form id="form-friend" class="me-friend-add about-card">
+          <label for="fr-name">add a friend by username</label>
+          <div class="me-row">
+            <input id="fr-name" name="username" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="their username" required pattern="[A-Za-z0-9_]{3,16}">
+            <button class="tool" type="submit">add</button>
+          </div>
+          <p class="me-msg" role="status"></p>
+        </form>
+        <ul class="me-people" id="fr-incoming" aria-label="friend requests"></ul>
+        <ul class="me-people" id="fr-list" aria-label="your friends"></ul>
+        <ul class="me-people" id="fr-out" aria-label="requests you sent"></ul>
+        <details class="me-change" id="fr-blocked-wrap" hidden>
+          <summary>blocked</summary>
+          <ul class="me-people" id="fr-blocked"></ul>
+        </details>
+      </section>
       <section class="shelf" aria-labelledby="ach-h">
         <h2 class="shelf-head" id="ach-h">achievements <small id="ach-count"></small></h2>
         <ul class="me-ach" id="achs"></ul>

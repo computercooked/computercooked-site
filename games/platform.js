@@ -26,6 +26,7 @@
           '<button type="button" role="tab" data-p="day" aria-selected="true">today</button>' +
           '<button type="button" role="tab" data-p="week" aria-selected="false">week</button>' +
           '<button type="button" role="tab" data-p="all" aria-selected="false">all time</button>' +
+          '<button type="button" role="tab" data-p="friends" aria-selected="false" hidden>friends</button>' +
         "</div></div>" +
       '<ol class="cc-rows" aria-live="polite"><li class="cc-empty">loading…</li></ol>' +
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
@@ -54,12 +55,19 @@
   var guestInput = guestBox.querySelector("input");
 
   function loadBoard() {
-    var url = "/api/leaderboard?game=" + encodeURIComponent(game) + "&period=" + period + "&player=" + encodeURIComponent("a:" + cc._anon);
+    var friends = period === "friends";
+    var url = "/api/leaderboard?game=" + encodeURIComponent(game) + "&period=" + (friends ? "all&friends=1" : period) + "&player=" + encodeURIComponent("a:" + cc._anon);
     api(url).then(function (r) {
       if (!r.ok) { rows.innerHTML = '<li class="cc-empty">leaderboard is napping. try later.</li>'; return; }
-      if (!r.rows.length) { rows.innerHTML = '<li class="cc-empty">nobody yet. be the first casualty.</li>'; return; }
+      if (!r.rows.length) {
+        rows.innerHTML = friends
+          ? '<li class="cc-empty">no friend scores yet. <a href="/me/#friends">add friends</a> and dare them.</li>'
+          : '<li class="cc-empty">nobody yet. be the first casualty.</li>';
+        return;
+      }
       rows.innerHTML = r.rows.map(function (x) {
-        return '<li class="' + (x.me ? "is-me" : "") + '"><span class="cc-rank">' + x.rank + '</span><span class="cc-name">' + esc(x.name) +
+        var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + esc(x.name) + "</a>" : esc(x.name);
+        return '<li class="' + (x.me ? "is-me" : "") + '"><span class="cc-rank">' + x.rank + '</span><span class="cc-name">' + name +
           '</span><span class="cc-score">' + fmt(x.score) + '</span><button type="button" class="cc-flag" data-id="' + x.id + '" aria-label="report ' + esc(x.name) + '" title="report">⚑</button></li>';
       }).join("");
     });
@@ -122,6 +130,7 @@
     if (me) {
       chip.textContent = me.username;
       chip.classList.add("is-in");
+      panel.querySelector('.cc-tabs [data-p="friends"]').hidden = false;
       heart.hidden = false;
       api("/api/me/summary").then(function (s) { if (s.ok) setHeart(s.favorites.indexOf(game) >= 0); });
     } else {

@@ -5,6 +5,7 @@ import { ensureSchema } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
+import { listFriends, friendAction } from "./friends.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -74,11 +75,13 @@ async function api(req, env, url) {
       case "POST /api/me/password": return changePassword(req, env, user, ip);
       case "POST /api/me/logout-all": return logoutAll(req, env, user);
       case "GET /api/me/export": return exportData(env, user);
+      case "GET /api/me/friends": return listFriends(env, user);
+      case "POST /api/me/friends": return friendAction(req, env, user, ip);
     }
   }
 
   if (path.startsWith("/api/saves/")) return savesRoute(req, env, user, path);
-  if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin);
+  if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin, user);
 
   if (path.startsWith("/api/admin/")) {
     if (!isAdmin(req, env, ip)) return bad("nope", 401);

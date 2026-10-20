@@ -103,7 +103,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 |---|---|---|
 | GET | `/api/health` | `{ok, db}` |
 | POST | `/api/events` | SDK batches: `{anon, tester, ref, name, events:[{t:"start"/"end"/"event", id, game, …}]}` |
-| GET | `/api/leaderboard?game=&period=day/week/all` | top 10, one row per player |
+| GET | `/api/leaderboard?game=&period=day/week/all[&friends=1]` | top 10, one row per player: `{rank, name, u, score, id, me}`. Account rows use the current display name and carry `u` (username, for `/u/<u>` links); guest rows have no `u`. `friends=1` (login needed) is you plus your friends, up to 50 rows |
 | POST | `/api/feedback` | `{game, version, rating: 1/-1/0, text, tester, anon, play_id}` |
 | GET | `/api/stats` | play counts per game (total, this week, last week) for the hub |
 | GET | `/api/community` | approved community uploads |
@@ -119,7 +119,9 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/me/password` | `{current, next}`: also ends every other session |
 | POST | `/api/me/logout-all` | ends every session, this one included |
 | GET | `/api/me/export` | JSON download of everything stored about the account (no password hash, no session tokens) |
-| GET | `/api/u/:username` | public profile: name, avatar, level, title, theme, plus bio, badges, favorite game and best scores when public. Private: `{private:true}` with name, avatar and level only. 404 for unknown or banned |
+| GET | `/api/u/:username` | public profile: name, avatar, level, title, theme, plus bio, badges, favorite game and best scores when public. Private: `{private:true}` with name, avatar and level only. 404 for unknown or banned. `relation` is the viewer's side: `null` logged out, `self`, `none`, `requested`, `incoming`, `friends`, `blocked` |
+| GET | `/api/me/friends` | `{friends, incoming, outgoing, blocked}`, each `[{username, name, avatar, level}]` |
+| POST | `/api/me/friends` | `{action: add/accept/decline/cancel/remove/block/unblock, username}` → `{status: requested/friends/none/blocked}`. Adding someone who already asked you accepts. 200 friends max, 20 waiting requests, 30 adds/hour. Blocking removes the friendship, and the blocked player gets "no such player" if they try to add you (a block is never revealed) |
 | GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |
 | GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |
 | GET · PUT · DELETE | `/api/saves/:game/:slot` | PUT `{data, updated_at, version}`. Errors: 413 over 512 KB, 409 at 5 slots, 429 over ~1 write/10 s. An older `updated_at` returns `{stale:true}` and changes nothing. Needs login (401) |
@@ -150,6 +152,7 @@ The schema is in `migrations/0001_init.sql`:
 | `favorites` | a user's favorite games |
 | `reports` | player reports |
 | `uploads` | community upload queue |
+| `friends` | one row per direction: `(user_id, friend_id, status pending/accepted/blocked)` (migration `0005_friends`) |
 
 To query it directly, run this with Ashton's Cloudflare login:
 

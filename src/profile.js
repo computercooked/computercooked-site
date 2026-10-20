@@ -7,6 +7,7 @@
 import { json, bad, readJson, now, slugOk, nameClean, textClean, dayOf } from "./util.js";
 import { games } from "./db.js";
 import { levelOf, totalXp, SITE_ACH } from "./xp.js";
+import { relation } from "./friends.js";
 
 export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper"];
 const BADGE_RE = /^[a-z0-9-]{1,40}:[a-z0-9_-]{1,40}$/;
@@ -101,6 +102,7 @@ export async function exportData(env, user) {
     xp: await q("SELECT kind, game, ref, amount, day, ts FROM xp_events WHERE user_id = ? ORDER BY ts"),
     achievements: await q("SELECT game, ach_id, ts FROM achievements WHERE user_id = ?"),
     reports_filed: await q("SELECT kind, target, reason, ts FROM reports WHERE user_id = ?"),
+    friends: await q("SELECT u.username, f.status, f.created_at FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ?"),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: {
@@ -110,13 +112,13 @@ export async function exportData(env, user) {
   });
 }
 
-export async function publicProfile(env, username, origin) {
+export async function publicProfile(env, username, origin, viewer) {
   if (typeof username !== "string" || !/^[A-Za-z0-9_]{3,16}$/.test(username)) return bad("no such player", 404);
   const u = await env.DB.prepare("SELECT id, username, avatar, status, created_at FROM users WHERE username = ?").bind(username).first();
   if (!u || u.status !== "active") return bad("no such player", 404);
   const p = shape(await row(env, u.id));
   const xp = levelOf(await totalXp(env, u.id));
-  const base = { ok: true, username: u.username, avatar: u.avatar, level: xp.level, title: xp.title, theme: p.theme };
+  const base = { ok: true, username: u.username, avatar: u.avatar, level: xp.level, title: xp.title, theme: p.theme, relation: await relation(env, viewer, u.id) };
   if (!p.public) return json({ ...base, private: true });
   const catalog = await games(env, origin);
   const badges = p.badges.map((k) => {

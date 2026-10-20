@@ -161,6 +161,60 @@ if (local) {
   r = await fetch(base + "/api/saves/smol-brains/main", { method: "PUT", headers: { "content-type": "application/json", origin: "https://evil.example", cookie }, body: "{}" });
   ok(r.status === 403, "cross-site save refused", r.status);
 
+  // leaderboard names link to /u/ (slice D1)
+  const p3 = rid();
+  await post("/api/events", { anon, events: [{ t: "start", id: p3, game: "crash", v: "1" }] }, { cookie });
+  await new Promise((s) => setTimeout(s, 1200));
+  await post("/api/events", { anon, events: [{ t: "end", id: p3, game: "crash", score: 41, dur: 1200, completed: true }] }, { cookie });
+  r = await (await get("/api/leaderboard?game=crash&period=day", { cookie })).json();
+  ok(r.rows?.some((x) => x.me && x.u === u), "account rows carry the username for /u/ links", r.rows?.find((x) => x.me));
+  r = await get("/api/leaderboard?game=crash&friends=1");
+  ok(r.status === 401, "friends board needs a login", r.status);
+
+  // friends (slice D1): a second throwaway local account
+  const v = "smokf" + Math.floor(Math.random() * 1e6);
+  r = await post("/api/auth/signup", { username: v, password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1 });
+  const cv = (r.headers.get("set-cookie") || "").split(";")[0];
+  ok(r.ok, "second account for friends");
+  const fr = (action, username, c) => post("/api/me/friends", { action, username }, { cookie: c }).then((x) => x.json().then((j) => ({ ...j, code: x.status })));
+  r = await fr("add", u, cookie);
+  ok(r.code === 400, "can't friend yourself", r);
+  r = await fr("add", "nobody_" + Math.floor(Math.random() * 1e6), cookie);
+  ok(r.code === 404, "unknown player", r);
+  r = await fr("add", v, cookie);
+  ok(r.status === "requested", "friend request sent", r);
+  r = await (await get("/api/me/friends", { cookie: cv })).json();
+  ok(r.incoming?.some((p) => p.username === u) && r.friends.length === 0, "request shows as incoming", r);
+  r = await (await get("/api/u/" + u, { cookie: cv })).json();
+  ok(r.relation === "incoming", "profile shows the incoming request", r.relation);
+  r = await fr("decline", u, cv);
+  r = await (await get("/api/me/friends", { cookie })).json();
+  ok(r.outgoing.length === 0, "decline clears the request", r);
+  await fr("add", v, cookie);
+  r = await fr("add", u, cv);
+  ok(r.status === "friends", "adding back accepts", r);
+  r = await (await get("/api/me/friends", { cookie })).json();
+  ok(r.friends.some((p) => p.username === v && p.level >= 1 && p.avatar), "friend listed with avatar and level", r.friends);
+  r = await (await get("/api/u/" + v, { cookie })).json();
+  ok(r.relation === "friends", "profile relation: friends", r.relation);
+  r = await (await get("/api/leaderboard?game=crash&period=all&friends=1", { cookie: cv })).json();
+  ok(r.ok && r.friends && r.rows.some((x) => x.u === u), "friends board shows your friend's score", r.rows);
+  r = await fr("remove", u, cv);
+  r = await (await get("/api/me/friends", { cookie })).json();
+  ok(r.friends.length === 0, "remove drops both sides", r.friends);
+  r = await fr("block", v, cookie);
+  ok(r.status === "blocked", "block", r);
+  r = await fr("add", u, cv);
+  ok(r.code === 404, "blocked player can't send a request (looks like no such player)", r);
+  r = await (await get("/api/u/" + u, { cookie: cv })).json();
+  ok(r.relation === "none", "a block is never revealed", r.relation);
+  r = await fr("unblock", v, cookie);
+  await fr("add", v, cookie);
+  r = await (await post("/api/me/delete", { password: "pw-for-smoke-1" }, { cookie: cv })).json();
+  ok(r.deleted === true, "delete second account");
+  r = await (await get("/api/me/friends", { cookie })).json();
+  ok(r.outgoing.length === 0 && r.friends.length === 0, "deleting an account removes its friend rows", r);
+
   r = await (await post("/api/auth/logout", {}, { cookie })).json();
   ok(r.ok, "logout");
   r = await (await get("/api/me", { cookie })).json();

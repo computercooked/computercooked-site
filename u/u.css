@@ -7,3 +7,9 @@
 .u-level b { color: var(--u-accent); }
 .u-bio { margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .u-page .me-ach li.is-got { border-color: var(--u-accent); }
+
+.u-friend { display: grid; gap: 4px; justify-items: start; width: 100%; }
+.u-friend .me-msg { color: var(--lime); }
+.u-friend a.tool { text-decoration: none; }
+.u-card { flex-wrap: wrap; }
+.u-friend .me-msg:empty { display: none; }
