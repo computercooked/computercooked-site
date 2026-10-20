@@ -167,7 +167,8 @@ r = await (await post("/api/events", { anon: "smokee" + rid(), ref: "embed", eve
 ok(r.ok, "plays from embeds are accepted with ref embed");
 
 r = await (await get("/api/stats")).json();
-ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");
+// smoke plays are test traffic and never counted, so only the shape is checked here
+ok(r.ok && Array.isArray(r.games) && !r.games.some((g) => /^smoke/i.test(g.anon || "")), "stats");
 
 // game of the week: a real game, never the weekly challenge's game
 r = await (await get("/api/featured")).json();
