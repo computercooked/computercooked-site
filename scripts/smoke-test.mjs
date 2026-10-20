@@ -327,6 +327,11 @@ if (local) {
   ok(r.deleted === true, "delete account");
   r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
   ok(r.status === 401, "deleted account can't log in", r.status);
+  // user-linked rows go with the account: their dares (and the name on old links) disappear
+  r = await get("/api/dare/" + d2.id);
+  ok(r.status === 404, "deleting an account removes its dares", r.status);
+  page = await (await get("/games/crash/?d=" + d2.id)).text();
+  ok(!page.includes("Smoke Tester") && !page.includes("can you beat"), "a deleted account's dare link shows no name in the preview");
 }
 
 r = await get("/api/admin/metrics");
