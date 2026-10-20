@@ -15,7 +15,8 @@ async function ownRun(env, user, playId, anon) {
   if (!idOk(playId)) return null;
   const p = await env.DB.prepare("SELECT id, game, anon_id, user_id FROM plays WHERE id = ?").bind(playId).first();
   if (!p || !((user && p.user_id === user.id) || (p.anon_id && p.anon_id === anon))) return null;
-  const s = await env.DB.prepare("SELECT score, player, user_id, name FROM scores WHERE play_id = ? AND hidden = 0").bind(playId).first();
+  // smoke-test runs are stored hidden but still make and beat (test) dares; admin metrics leave those dares out
+  const s = await env.DB.prepare("SELECT score, player, user_id, name FROM scores WHERE play_id = ? AND (hidden = 0 OR player LIKE 'a:smoke%')").bind(playId).first();
   return s ? { ...s, game: p.game } : null;
 }
 
