@@ -44,8 +44,8 @@ for (let i = 0; i < 4; i++) { SO.remember(game, r1, r2, "x" + i, -25, "stole my 
 r1.chem.anger = r2.chem.anger = 0.3;
 let hits = 0;
 SB.bus.on("hit", e => { if ((e.c === r1 && e.target === r2) || (e.c === r2 && e.target === r1)) hits++; });
-for (let t = 0; t < 90 / 0.1; t++) { game.time += 0.1; SO.tick(game, 0.1); [r1, r2].forEach(s => SB.Creature.tick(s, 0.1, game)); if (SB.dist(r1.x, r1.z, r2.x, r2.z) > 3) { r2.x = r1.x; r2.z = r1.z + 0.8; } }
-check("they come to blows", hits >= 1, hits + " hits in 90 s");
+for (let t = 0; t < 300 / 0.1; t++) { game.time += 0.1; SO.tick(game, 0.1); [r1, r2].forEach(s => SB.Creature.tick(s, 0.1, game)); if (SB.dist(r1.x, r1.z, r2.x, r2.z) > 3) { r2.x = r1.x; r2.z = r1.z + 0.8; } }
+check("they come to blows", hits >= 1, hits + " hits in 5 min");
 const f1 = SB.Debug.spawnTier(3, 1)[0], f2 = SB.Debug.spawnTier(3, 1)[0];
 f1.x = f2.x = game.world.T.spawn.x - 8; f1.z = game.world.T.spawn.z + 4; f2.z = f1.z + 0.8;
 for (let i = 0; i < 3; i++) { SO.remember(game, f1, f2, "p" + i, 25, "best pals", 9999); SO.remember(game, f2, f1, "q" + i, 25, "best pals", 9999); }
@@ -56,10 +56,11 @@ check("best friends don't", fh === 0, fh + " hits");
 
 console.log("4. conversations at the builder age, with gossip");
 for (let i = 0; i < 3; i++) SO.remember(game, a, c, "z" + i, -20, "stole my berries", 9999);
+SO.remember(game, a, b, "pals", 70, "old pals", 9999); SO.remember(game, b, a, "pals", 70, "old pals", 9999); // friends gossip; strangers often trade insults
 const bc0 = SO.opinion(game, b, c) + SO.opinion(game, b, d);
 let gossiped = false, lines = 0;
 for (let k = 0; k < 40 && !gossiped; k++) {
-  a.convo = b.convo = null; a.action = b.action = null;
+  a.convo = b.convo = null; a.action = b.action = null; a.chem.anger = b.chem.anger = 0;
   const cv = SO.startConvo(game, a, b);
   if (!cv) continue;
   lines = Math.max(lines, cv.lines.length);

@@ -124,6 +124,7 @@
     var round = a.grudge && a.grudge.id === b.id ? (a.grudge.n || 1) + 1 : 1;
     b.grudge = round < 3 ? { id: a.id, t: game.time, n: round } : null; // a scuffle is two or three blows, then they back off
     stat(a, "fights");
+    a._fightT = game.time;
     SO.log(game, a, punch ? "👊" : "💢", (punch ? "punched " : "shoved ") + b.name);
     SO.log(game, b, punch ? "🤕" : "💢", "got " + (punch ? "punched" : "shoved") + " by " + a.name);
     // friends who saw it take sides
@@ -245,6 +246,17 @@
       add(b, pick(game, hi ? ["say that again.", "fine. whatever.", "leave me alone."] : ["hmph", "grr!!"]), { argue: true });
       return { lines: L, topic: topic, argue: true };
     }
+    // clashing temperaments (or a bad mood) turn a chat into an insult, like RimWorld's slights
+    var oab = SO.opinion(game, a, b);
+    var slight = (0.06 + Math.min(0.3, Math.max(0, 6 - compat(game, a, b)) / 50) + a.chem.anger * 0.4) * (oab >= SO.FRIEND ? 0.3 : oab >= 8 ? 0.6 : 1);
+    if (oab < SO.BEST && a.partner !== b.id && r.chance(slight)) {
+      topic = "an insult";
+      add(a, pick(game, hi ? ["hi " + b.name + ".", "oh, " + b.name + "."] : [b.name.toLowerCase() + "..."]));
+      add(b, pick(game, hi ? ["hey! what's up?", "hi! nice day!"] : ["hi!"]));
+      add(a, pick(game, hi ? ["you talk too much.", "you smell like mud.", "nobody likes your songs.", "your hut is the ugliest one.", "you're slow, you know that?"] : ["you smell", "you dumb", "bleh"]), { insult: true });
+      add(b, pick(game, hi ? ["what did you just say?!", "rude!", "take that back!"] : ["hey!!", "grr"]), { argue: true });
+      return { lines: L, topic: topic, argue: true };
+    }
     add(a, pick(game, hi ? ["hi " + b.name + "!", b.name + "! how are you?", "hey, " + b.name + "."] : ["hi " + b.name.toLowerCase(), b.name.toLowerCase() + "!"]));
     var need = topDrive(b);
     add(b, need.v > 0.55 ? (hi ? { hunger: "i'm so hungry.", tired: "i'm tired.", sleepy: "i need a nap.", bored: "i'm bored.", lonely: "i was lonely. glad you're here.", cold: "i'm freezing.", sick: "i don't feel good.", fear: "i'm scared.", anger: "i'm grumpy today.", pain: "ouch, i hurt." }[need.k] || "i'm okay." : "me " + (SB.DRIVE_WORDS[SB.DRIVES.indexOf(need.k)] || "ok")) : pick(game, hi ? ["good! you?", "i'm great.", "not bad. " + weatherLine(game) + "."] : ["good", "happy"]));
@@ -324,6 +336,12 @@
     if (fx.learn && SB.Ideas) SB.Ideas.learn(s, fx.learn, 0.35, game, "talked");
     if (fx.comfort) { SB.Chem.apply(o.chem, { lonely: -0.2 }); SO.remember(game, o, s, "comfort", 8, "comforted me", 2400, 16); }
     if (fx.argue) cv.argued = true;
+    if (fx.insult) {
+      SO.remember(game, o, s, "insulted", -14, "insulted me", 2400, 45);
+      SO.log(game, o, "💢", s.name + " insulted me");
+      SB.Chem.apply(o.chem, { anger: 0.2 });
+      if (game.rng.chance(0.25 + g(o, "bravery") * 0.3)) { o.grudge = { id: s.id, t: game.time }; o.thinkT = 0; }
+    }
     if (fx.cheer) SO.remember(game, o, s, "cheer", 3, "cheered me on", 1800, 9);
   }
   SO.startConvo = function (game, a, b) {
@@ -409,11 +427,13 @@
       // grief: now and then, wander back to the grave and say something
       if (c.grief && SO.free(c) && game.rng.chance(0.06) && !c.far) c.speech = { text: game.rng.pick(["i miss " + c.grief.name, c.grief.name + "...", "bye " + c.grief.name]), t: 2.2, kind: "think" };
       // rivals who cross paths start something (a RimWorld-style social fight)
-      if (SO.free(c) && c.stage >= 1 && game.rng.chance(0.025 + c.chem.anger * 0.12) && game.time - (c._fightT || -999) > 120) {
+      if (SO.free(c) && c.stage >= 1 && game.rng.chance(0.2) && game.time - (c._fightT || -999) > 120) {
         for (var k = 0; k < sm.length; k++) {
-          var r = sm[k];
-          if (r === c || r.heldBy || SB.dist(r.x, r.z, c.x, c.z) > 5 || SO.opinion(game, c, r) > SO.RIVAL) continue;
-          if (SB.Creature.provoke(c, r, game)) { c._fightT = game.time; if (!c.far) c.speech = { text: game.rng.pick(c.tier >= 4 ? ["you again!", "that's it, " + r.name + "!", "you asked for it!"] : ["grr!", "you!", "hmph!"]), t: 1.8, kind: "say" }; break; }
+          var r = sm[k], op;
+          if (r === c || r.heldBy || SB.dist(r.x, r.z, c.x, c.z) > 5 || (op = SO.opinion(game, c, r)) > SO.RIVAL) continue;
+          // the deeper the hate, the shorter the fuse
+          if (!game.rng.chance(0.125 + c.chem.anger * 0.6 + (op <= SO.ENEMY ? 0.3 : 0))) break;
+          if (SB.Creature.provoke(c, r, game)) { c._fightT = game.time - 90; /* a whiff can retry soon; a landed blow resets the full cooldown in onHit */ if (!c.far) c.speech = { text: game.rng.pick(c.tier >= 4 ? ["you again!", "that's it, " + r.name + "!", "you asked for it!"] : ["grr!", "you!", "hmph!"]), t: 1.8, kind: "say" }; break; }
         }
       }
       // strike up a conversation (tribe and up)
