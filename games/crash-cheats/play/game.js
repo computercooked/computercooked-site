@@ -174,6 +174,8 @@
     cells = Array(9).fill(''); blocked = Array(9).fill(false); anims = Array(9).fill(null);
     diagBan = false; proUsed = 0; crashTurns = 0; fx.winLine = null; undoSnap = null;
   }
+  let firstMatch = true;
+  const COARSE = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
   function newMatch() {
     gen++; timers = [];
     round = 1; youPts = 0; crashPts = 0; draws = 0; cheats = 0; result = null; overT = 0;
@@ -183,7 +185,9 @@
     resetBoard();
     phase = 'player';
     matchStart = performance.now();
-    say(spooky && Math.random() < 0.5 ? pick('spooky') : pick('start'));
+    // the first match always says whose move it is (the spooky openers don't); after that, either
+    say(firstMatch || !(spooky && Math.random() < 0.5) ? pick('start') + (firstMatch ? ' tap a square.' : '') : pick('spooky'));
+    firstMatch = false;
     if (document.readyState === 'complete') sdk('start');
     else window.addEventListener('load', () => sdk('start'), { once: true });
   }
@@ -783,7 +787,7 @@
       ctx.fillStyle = i < tokens ? COL.lime : 'rgba(245,243,237,0.15)';
       ctx.save(); ctx.translate(px + 6 * u, py + 6 * u); ctx.rotate(Math.PI / 4); ctx.fillRect(-4.5 * u, -4.5 * u, 9 * u, 9 * u); ctx.restore();
     }
-    text('tokens', b.x + 4, y + h / 2 + 16 * u, Math.round(9 * u), COL.dim, 'left', 'normal');
+    text('tokens', b.x + 4, y + h / 2 + 16 * u, Math.max(10, Math.round(9 * u)), COL.dim, 'left', 'normal');
     const x0 = b.x + pipW, cw = (b.s - pipW - gap * 2) / 3;
     TOOLS.forEach((tl, i) => {
       const x = x0 + i * (cw + gap);
@@ -795,7 +799,8 @@
       ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = armed ? COL.lime : ok ? 'rgba(245,243,237,0.35)' : 'rgba(245,243,237,0.1)'; ctx.stroke();
       const fg = armed ? COL.lime : ok ? COL.paper : 'rgba(245,243,237,0.3)';
       text(armed ? 'firewall: up' : tl.label, x + cw / 2, y + h * 0.45, Math.round(12 * u), fg, 'center');
-      text(armed ? 'armed' : '[' + tl.key + '] ' + tl.tip, x + cw / 2, y + h * 0.8, Math.round(8.5 * u), armed ? COL.lime : 'rgba(245,243,237,' + (ok ? 0.55 : 0.25) + ')', 'center', 'normal');
+      // phones: no keyboard hint, and never smaller than 10px (it was ~8px at 375 wide)
+      text(armed ? 'armed' : (COARSE ? '' : '[' + tl.key + '] ') + tl.tip, x + cw / 2, y + h * 0.8, Math.max(10, Math.round(8.5 * u)), armed ? COL.lime : 'rgba(245,243,237,' + (ok ? 0.55 : 0.25) + ')', 'center', 'normal');
       buttons.push({ x, y, w: cw, h, fn: () => useTool(tl.k) });
     });
     if (record.w + record.l < 3 && round <= 2) {
