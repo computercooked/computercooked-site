@@ -1,6 +1,8 @@
 // Accounts: username + password (PBKDF2-SHA256, per-user salt), httpOnly session cookie.
 // 13+ only, checked with a neutral birth month/year gate; the birth date itself is never stored.
 import { json, bad, readJson, now, b64, unb64, randomToken, sha256, safeEqual, limited, nameClean, str, HttpError } from "./util.js";
+import { levelOf, totalXp } from "./xp.js";
+import { avatarLevel } from "./cosmetics.js";
 
 // Workers' WebCrypto caps PBKDF2 at 100,000 iterations.
 const ITERATIONS = 100000;
@@ -72,7 +74,7 @@ export async function signup(req, env, ip) {
   const pw = b.password;
   if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return bad("passwords need 8+ characters.");
   if (pw.toLowerCase() === String(b.username).toLowerCase()) return bad("password can't be your username.");
-  const avatar = avatarOk(b.avatar) ? b.avatar : "lime";
+  const avatar = avatarOk(b.avatar) && avatarLevel(b.avatar) <= 1 ? b.avatar : "lime";
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashPassword(pw, salt, ITERATIONS);
   let res;
@@ -112,7 +114,7 @@ export async function logout(req, env) {
 }
 
 // built avatars: "x:<mood>-<face 0-7>-<body 0-4>-<accessory>" (rendered by assets/avatars.js)
-export const AVATAR_RE = /^x:(tired|happy|flat|angry|x)-[0-7]-[0-4]-(none|headphones|cap|witch|bow|glasses|steam)$/;
+export const AVATAR_RE = /^x:(tired|happy|flat|angry|x)-[0-7]-[0-4]-(none|headphones|cap|witch|bow|glasses|steam|antenna|crown|halo|flames|chef)$/;
 export const avatarOk = (a) => typeof a === "string" && (AVATARS.includes(a) || AVATAR_RE.test(a));
 
 // POST /api/me/password {current, next}: also signs out every other device
@@ -144,6 +146,8 @@ export async function logoutAll(req, env, user) {
 export async function setAvatar(req, env, user) {
   const b = await readJson(req, 1024);
   if (!avatarOk(b.avatar)) return bad("unknown avatar");
+  const need = avatarLevel(b.avatar);
+  if (need > 1 && levelOf(await totalXp(env, user.id)).level < need) return bad(`reach level ${need} to wear that.`, 403);
   await env.DB.prepare("UPDATE users SET avatar = ? WHERE id = ?").bind(b.avatar, user.id).run();
   return json({ ok: true, avatar: b.avatar });
 }

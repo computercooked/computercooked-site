@@ -193,6 +193,7 @@
   // level up: a toast, plus a share button on the panel for the rest of the visit
   function levelUp(x) {
     if (window.ccToast) window.ccToast("level " + x.level + " · " + x.title);
+    (x.unlocks || []).forEach(function (u) { if (window.ccToast) window.ccToast("unlocked: " + u.name + " · wear it from your profile"); });
     var box = document.getElementById("cc-levelup");
     if (!box) { box = document.createElement("div"); box.id = "cc-levelup"; box.className = "cc-levelup"; panel.insertBefore(box, panel.firstChild); }
     box.innerHTML = '<p><b>level ' + x.level + '</b> · ' + esc(x.title) + '</p><button type="button" class="tool">share</button>';
