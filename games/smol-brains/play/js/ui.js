@@ -130,6 +130,7 @@
     }
     // buildings, eggs, creatures
     game.world.structures.forEach(function (st) { x.fillStyle = st.done ? "#f5f3ed" : "rgba(245,243,237,0.5)"; var r = Math.max(2, 1.6 * k); x.fillRect(st.x * k - r / 2, st.z * k - r / 2, r, r); });
+    (game.sites || []).forEach(function (st) { if (!SB.World.isSeen(game.world, st.x, st.z)) return; var r = Math.max(3, 2 * k); x.fillStyle = st.found ? "rgba(245,243,237,0.35)" : st.kind === "camp" ? "#ff5f5f" : "#ffd84a"; x.fillRect(st.x * k - r / 2, st.z * k - r / 2, r, r); });
     ((game.dir && game.dir.marks) || []).forEach(function (m) { x.fillStyle = "#a8e6ff"; x.beginPath(); x.arc(m.x * k, m.z * k, Math.max(2.4, 1.8 * k), 0, 6.283); x.fill(); x.strokeStyle = "#ffffff"; x.lineWidth = 1; x.stroke(); });
     game.world.items.forEach(function (o) { if (o.kind === "egg" && o.heldBy == null) { x.fillStyle = "#fff6d6"; x.beginPath(); x.arc(o.x * k, o.z * k, Math.max(1.6, 1.2 * k), 0, 6.283); x.fill(); } });
     game.creatures.forEach(function (c) {
@@ -1348,6 +1349,13 @@
         "friends and family grieve for a while: they get lonely and slow, and visit the grave. the 📜 chronicle in the menu remembers everyone."]);
     });
     on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
+    on("siteFound", function (d) {
+      var paras = d.text.map(esc);
+      if (d.log) paras.push('<span class="podlog">' + esc(d.log) + "</span>");
+      cardQ.push([d.icon, esc(d.title), paras]);
+      if (!el.modal) nextCard();
+      if (SB.Audio && SB.Audio.play) try { SB.Audio.play("chime"); } catch (e) {}
+    });
     on("incident", function (d) { setTimeout(function () { incidentCard(d.inc); }, 300); });
     on("incidentNote", function (d) { toast(esc(d.inc.note)); });
     on("incidentEnd", function (d) { if (!d.text) return; toast(d.inc.icon + " " + esc(d.text), d.ok && (d.inc.id === "raid" || d.inc.id === "star") ? "ach" : ""); if (d.inc.id === "raid" && d.ok && d.inc.choice === "fight") moment("🏏", "raid broken!", "the village fought them off"); });

@@ -559,6 +559,49 @@
       b.color(0xc5ff49, 1).sides(true).push().translate(-0.6, 2.05, 0).rotZ(-1.57).leaf(0.16, 0.32).pop().sides(false);
       return b.finish();
     },
+    // places to find out in the fog (sites.js)
+    site_wreck: function () { // another escape pod, nose-down in the dirt, hull cracked open
+      var b = ME.builder();
+      b.color(0x2e2826, 1).cyl(10, 1.3, 1.4, 0.02);
+      b.smoothShade(true).color(0xb8b4c4, 1).push().translate(0.1, 0.25, 0).rotZ(1.05).rotY(0.3).scale(0.45, 0.7, 0.45).sphere(2).pop();
+      b.color(0x5fc9c0, 1).push().translate(0.1, 0.25, 0).rotZ(1.05).rotY(0.3).scale(0.46, 0.1, 0.46).sphere(1).pop();
+      b.smoothShade(false).color(0x9a96a8, 1);
+      [[-0.9, 0.3, 0.6], [0.8, -0.6, -0.4], [-0.4, -0.9, 1.2], [0.95, 0.55, 2.1]].forEach(function (d) { b.push().translate(d[0], 0.05, d[1]).rotY(d[2]).rotZ(0.3).box(0.3, 0.05, 0.18).pop(); });
+      b.color(0xff5fa2, 1).glow(0.8).push().translate(-0.25, 0.5, 0.25).scale(0.08).sphere(0).pop().glow(0);
+      return b.finish();
+    },
+    site_ruin: function () { // standing stones, one fallen, carvings glowing faintly
+      var b = ME.builder();
+      b.color(0x6f6a7c);
+      b.push().translate(-0.9, 0, 0).box(0.32, 1.25, 0.28).pop();
+      b.push().translate(0.9, 0, 0).box(0.32, 1.1, 0.28).pop();
+      b.push().translate(0, 1.2, 0).box(2.15, 0.26, 0.32).pop();
+      b.push().translate(0.2, 0.1, 0.95).rotY(0.4).rotZ(1.57).box(0.3, 1.1, 0.28).pop();
+      b.color(0x6a6474).push().translate(-0.5, 0, -0.8).scale(0.3, 0.2, 0.3).blob(0, 0.3, 4).pop();
+      b.color(0xc5ff49, 1).glow(0.7).push().translate(-0.9, 0.7, 0.15).box(0.12, 0.12, 0.02).pop().push().translate(0.9, 0.6, 0.15).box(0.12, 0.12, 0.02).pop().glow(0);
+      return b.finish();
+    },
+    site_camp: function () { // a ring of spikes, a lopsided tent, a smoky fire and a cage
+      var b = ME.builder();
+      b.color(0x3e2618);
+      for (var i = 0; i < 12; i++) { var a = i / 12 * 6.283; b.push().translate(Math.cos(a) * 1.6, 0, Math.sin(a) * 1.6).rotZ(Math.cos(a) * 0.25).rotX(-Math.sin(a) * 0.25).cyl(4, 0.07, 0.05, 0.8).translate(0, 0.8, 0).cone(4, 0.05, 0.14).pop(); }
+      b.color(0x4a5a3a, 1).push().translate(-0.6, 0, -0.4).cyl(4, 0.75, 0.04, 1.1).pop();
+      b.color(0x2a2522).push().translate(0.5, 0.03, -0.3).scale(0.28, 0.04, 0.28).sphere(0).pop();
+      b.color(0xff9f43, 1).glow(0.9).push().translate(0.5, 0.15, -0.3).scale(0.12, 0.2, 0.12).sphere(0).pop().glow(0);
+      b.color(0x3a3440);
+      for (var j = 0; j < 6; j++) { var a2 = j / 6 * 6.283; b.push().translate(0.45 + Math.cos(a2) * 0.4, 0, 0.6 + Math.sin(a2) * 0.4).cyl(3, 0.025, 0.025, 0.7).pop(); }
+      b.push().translate(0.45, 0.7, 0.6).cyl(6, 0.45, 0.45, 0.05).pop();
+      return b.finish();
+    },
+    site_campdone: function () { // a smashed camp: fallen spikes, an open cage
+      var b = ME.builder();
+      b.color(0x5a3b26);
+      for (var i = 0; i < 7; i++) { var a = i / 7 * 6.283 + 0.3; b.push().translate(Math.cos(a) * 1.5, 0.05, Math.sin(a) * 1.5).rotY(a).rotZ(1.45).cyl(4, 0.06, 0.05, 0.7).pop(); }
+      b.color(0x2a2522).push().translate(0.5, 0.02, -0.3).scale(0.3, 0.03, 0.3).sphere(0).pop();
+      b.color(0x3a3440);
+      for (var j = 0; j < 3; j++) b.push().translate(0.4 + j * 0.2, 0.03, 0.6).rotZ(1.5).cyl(3, 0.025, 0.025, 0.6).pop();
+      return b.finish();
+    },
     wall: function () {
       var b = ME.builder().color(0x8a6440);
       for (var i = 0; i < 6; i++) b.push().translate(-0.75 + i * 0.3, 0, 0).cyl(5, 0.1, 0.08, 0.8 + (i % 2) * 0.12).translate(0, 0.8 + (i % 2) * 0.12, 0).cone(5, 0.08, 0.15).pop();

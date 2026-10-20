@@ -217,6 +217,7 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .story h3 { margin: 10px 0 8px; font: 700 20px/1.2 var(--mono); color: var(--lime); text-align: center; letter-spacing: -0.02em; }
 .story p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
 .story p:empty { display: none; }
+.story .podlog { display: block; margin-top: 4px; padding: 10px 12px; background: #0d1a1a; border-left: 3px solid #5fc9c0; color: #9ff5ec; font: 13px/1.45 var(--mono); }
 .story .row { display: flex; margin-top: 6px; }
 .story .sp { flex: 1; }
 /* storyteller: event cards with choices, and the alert banner for what's coming */

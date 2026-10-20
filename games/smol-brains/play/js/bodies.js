@@ -390,6 +390,17 @@
         SB.Icons.fillText(ctx, c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, Math.round(y - 8 + Math.sin(t * 5) * 2), 14);
       }
     }
+    // places nobody has explored yet: a bobbing marker, so you know where to send them
+    (game.sites || []).forEach(function (st) {
+      if (st.found || !SB.World.isSeen(game.world, st.x, st.z)) return;
+      R.project(st.x, SB.World.groundY(game.world, st.x, st.z) + 2.4, st.z, pp);
+      if (!pp.on) return;
+      var by = Math.round(pp.y + Math.sin(t * 2.5 + st.id) * 4);
+      ctx.fillStyle = "rgba(16,17,20,0.75)"; ctx.fillRect(pp.x - 12, by - 12, 24, 24);
+      ctx.fillStyle = st.kind === "camp" ? "#ff5f5f" : "#ffd84a"; ctx.fillRect(pp.x - 10, by - 10, 20, 20);
+      ctx.fillStyle = "#101114"; ctx.font = "700 16px " + FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(st.kind === "camp" ? "!" : "?", pp.x, by + 1);
+    });
     // prayers
     (game.prayers || []).forEach(function (p) {
       var c = SB.Game.byId(game, p.id);

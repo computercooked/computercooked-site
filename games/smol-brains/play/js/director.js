@@ -58,14 +58,16 @@
     start: function (game) {
       var hm = home(game), caves = game.world.T.caves || [], ang = null;
       if (caves.length) { var cv = caves.reduce(function (b, c) { return SB.dist(c.x, c.z, hm.x, hm.z) < SB.dist(b.x, b.z, hm.x, hm.z) ? c : b; }); ang = Math.atan2(cv.x - hm.x, cv.z - hm.z); }
+      var camp = (game.sites || []).filter(function (x) { return x.kind === "camp" && x.found && !x.done; })[0];
+      if (camp) ang = Math.atan2(camp.x - hm.x, camp.z - hm.z); // the camp you left alone sends war parties
       var at = spot(game, 34, ang);
       if (!at) return null;
-      var n = Math.max(2, Math.min(9, Math.round(threat(game) * game.rng.range(0.8, 1.2))));
+      var n = (camp ? 1 : 0) + Math.max(2, Math.min(9, Math.round(threat(game) * game.rng.range(0.8, 1.2))));
       var fires = (game.world.fires || []).filter(function (f) { return SB.dist(f.x, f.z, hm.x, hm.z) < 12; }).length;
       var armed = smols(game).filter(function (c) { return c.tool != null; }).length;
       return {
         icon: "👺", title: "a grump war party!", x: at.x, z: at.z, warn: 50, n: n,
-        text: [n + " grumps are marching on the village from the " + dirOf(at.x - hm.x, at.z - hm.z) + ". they'll be here in under a minute.",
+        text: [n + " grumps are marching on the village from the " + (camp ? "grump camp in the " : "") + dirOf(at.x - hm.x, at.z - hm.z) + ". they'll be here in under a minute.",
           (fires ? "your campfire scares grumps off. " : "") + (armed ? armed + " of your smols carry something to fight with." : "nobody has a weapon yet: clubs and spears turn grumps away for good.")],
         choices: [
           { key: "smite", label: "⚡ strike them down", cost: 6 + n * 2, hint: "lightning hits every raider that reaches the village" },
@@ -435,6 +437,100 @@
 
   function campfire(game) { var hm = home(game), best = null; game.world.structures.forEach(function (st) { if (st.kind === "campfire" && st.done && (!best || SB.dist(st.x, st.z, hm.x, hm.z) < SB.dist(best.x, best.z, hm.x, hm.z))) best = st; }); return best; }
 
+  // --- a grump camp holding captives (found out in the fog, see sites.js): only dealt when one is found
+  card({
+    id: "camp", minTier: 0, w: 0, gap: 0, bad: true,
+    ok: function () { return false; },
+    start: function (game) {
+      var s = (game.sites || []).filter(function (x) { return x.kind === "camp" && x.found && !x.done && (!x.asked || game.time > (x.againT || 0)); })[0];
+      if (!s) return null;
+      s.asked = true; s.againT = game.time + 900;
+      var armed = smols(game).filter(function (c) { return c.tool != null && c.stage >= 2; }).length;
+      return {
+        icon: "⛺", title: "a grump camp!", x: s.x, z: s.z, site: s.id, warn: 0,
+        text: ["out in the wild there's a grump camp: spiky fences, a smoky fire, and smols in a cage. survivors from another pod, by the look of them.",
+          armed ? armed + " of your smols carry clubs or spears. grumps run from a good whack." : "nobody in your tribe has a weapon. bare paws won't scare grumps off: clubs and spears will."],
+        choices: [
+          { key: "burn", label: "⚡ burn the camp", cost: 16, hint: "lightning scatters the grumps and smashes the cage" },
+          { key: "raid", label: "🏏 send a rescue party", hint: "the bravest go in. it's a fight" },
+          { key: "later", label: "not yet", hint: "the captives will wait. grumps from that camp may come raiding" }
+        ]
+      };
+    },
+    begin: function (game, inc) {
+      var s = game.sites[inc.site];
+      if (inc.choice === "later") return D.end(game, inc, false);
+      if (inc.choice === "burn") {
+        for (var i = 0; i < 3; i++) SB.World.lightning(game.world, game, s.x + game.rng.range(-2, 2), s.z + game.rng.range(-2, 2), true);
+        inc.freed = SB.Sites.free(game, s).length;
+        return D.end(game, inc, true);
+      }
+      inc.guards = [];
+      for (var j = 0; j < 3; j++) { var g = SB.Game.spawnGrump(game, s.x + game.rng.range(-2, 2), s.z + game.rng.range(-2, 2)); g.raider = { x: s.x, z: s.z }; g.chem.anger = 0.7; inc.guards.push(g.id); }
+      inc.party = smols(game).filter(function (c) { return c.stage >= 2 && !c.asleep && c.chem.pain < 0.5; }).sort(function (a, b) { return (b.tool != null) - (a.tool != null) || (b.genome.genes.bravery || 0) - (a.genome.genes.bravery || 0); }).slice(0, 4).map(function (c) { return c.id; });
+      inc.party.forEach(function (id) { var c = SB.Game.byId(game, id); c.rally = 200; SB.Creature.sendTo(c, s.x, s.z, game, 80); });
+      inc.dur = 200;
+    },
+    tick: function (game, inc) {
+      var s = game.sites[inc.site], guards = inc.guards.map(function (id) { return SB.Game.byId(game, id); }).filter(function (g) { return g && g.alive && !g.goingHome; });
+      inc.left = guards.length;
+      if (!guards.length) { inc.freed = SB.Sites.free(game, s).length; return D.end(game, inc, true); }
+      var fighters = 0;
+      inc.party.forEach(function (id) {
+        var c = SB.Game.byId(game, id);
+        if (!c || !c.alive) return;
+        if (c.chem.pain > 0.75) { c.rally = 0; return; } // too hurt: limps home
+        fighters++;
+        if (SB.dist(c.x, c.z, s.x, s.z) > 8) { if (!c.action || !c.action.called) SB.Creature.sendTo(c, s.x, s.z, game, 80); return; }
+        if (c.action && c.action.verb === SB.V.hit) return;
+        var foe = guards.reduce(function (b, g) { return !b || SB.dist(g.x, g.z, c.x, c.z) < SB.dist(b.x, b.z, c.x, c.z) ? g : b; }, null);
+        if (foe && game.rng.chance(0.6)) SB.Creature.provoke(c, foe, game);
+      });
+      if (!fighters || game.time - inc.t1 > inc.dur) return D.end(game, inc, false);
+    },
+    finish: function (game, inc, ok) {
+      var hm = home(game);
+      (inc.party || []).forEach(function (id) { var c = SB.Game.byId(game, id); if (c && c.alive) { c.rally = 0; SB.Creature.sendTo(c, hm.x, hm.z, game, 60); if (ok) { diary(game, c, "⛓", "helped free the grump camp's captives"); c.stats.grumpsChased = (c.stats.grumpsChased || 0) + 1; SB.Social.checkTitle(game, c); } } });
+      (inc.guards || []).forEach(function (id) { var g = SB.Game.byId(game, id); if (g) g.goingHome = true; });
+      if (inc.choice === "later") return "";
+      if (ok) { SB.Game.addSparks(game, 10); return inc.freed + " smols are free, and they're joining your tribe! +10 ✨"; }
+      chron(game, "⛺", "a rescue party was driven off from the grump camp");
+      return "the grumps drove the rescue party off. the captives are still there. (clubs and spears would help.)";
+    }
+  });
+
+  // --- a vision: a smol dreams of three ideas, and the god picks which one comes true
+  card({
+    id: "vision", minTier: 2, w: 2, gap: 900,
+    ok: function (game) { return !!dreamer(game); },
+    start: function (game) {
+      var d = dreamer(game);
+      if (!d) return null;
+      var opts = game.rng.shuffle ? game.rng.shuffle(d.can.slice()) : d.can.slice().sort(function () { return game.rng() - 0.5; });
+      opts = opts.slice(0, 3);
+      return {
+        icon: "💭", title: d.c.name + " had a dream", x: d.c.x, z: d.c.z, who: d.c.id, warn: 0,
+        text: [d.c.name + " woke up with three ideas tangled together, and can only hold on to one.", "which one should it be?"],
+        choices: opts.map(function (x) { return { key: x.id, label: x.icon + " " + x.name, hint: x.desc }; })
+      };
+    },
+    begin: function (game, inc) {
+      var c = SB.Game.byId(game, inc.who);
+      if (c && c.alive) { SB.Ideas.discover(c, inc.choice, game); diary(game, c, "💭", "dreamed up " + SB.Ideas.BY_ID[inc.choice].name); }
+      return D.end(game, inc, true);
+    },
+    finish: function (game, inc) { var c = SB.Game.byId(game, inc.who), d = SB.Ideas.BY_ID[inc.choice]; return c && d ? c.name + " remembered " + d.icon + " " + d.name + "!" : ""; }
+  });
+  function dreamer(game) {
+    var found = game.culture.found, best = null;
+    smols(game).forEach(function (c) {
+      if (c.stage < 2 || c.tier < 2) return;
+      var can = SB.Ideas.LIST.filter(function (d) { return !found[d.id] && SB.Ideas.canHold(c, d.id) && d.id !== "bigthought"; });
+      if (can.length >= 2 && (!best || can.length > best.can.length || (can.length === best.can.length && c.tier > best.c.tier))) best = { c: c, can: can };
+    });
+    return best;
+  }
+
   // --- small good things that don't need a card
   card({
     id: "bloom", minTier: 0, w: 2, gap: 600, quiet: true,
@@ -476,6 +572,7 @@
     var lastBad = d.lastBad && game.time - d.lastBad < 600;
     var hand = DECK.filter(function (c) {
       if (id) return c.id === id;
+      if (!c.w) return false;
       if (tier < c.minTier || (c.maxTier != null && tier > c.maxTier)) return false;
       if (d.last[c.id] != null && game.time - d.last[c.id] < c.gap) return false;
       if (c.bad && lastBad) return false;

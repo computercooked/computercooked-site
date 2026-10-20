@@ -284,6 +284,7 @@
     game.world.time = game.time;
     SB.Society.init(game);
     SB.Species.init(game);
+    if (SB.Sites) SB.Sites.generate(game);
     return game;
   };
 
@@ -360,6 +361,7 @@
     if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
     if (SB.Social) SB.Social.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
+    if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
     if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }
