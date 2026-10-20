@@ -192,3 +192,20 @@
 .fr-face { display: inline-block; width: 20px; height: 20px; vertical-align: middle; }
 .fr-face svg { width: 100%; height: 100%; display: block; }
 .me-feed li.is-best span { color: var(--paper); }
+
+/* weekly recap */
+.me-recap { margin-top: 12px; }
+.me-recap-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.me-recap-head h2 { margin: 0; }
+.me-recap-tabs { margin: 0; flex: 0 1 240px; }
+.me-recap-tabs button { min-height: 38px; font-size: 0.8rem; }
+.me-recap .me-recap-stats { list-style: none; margin: 12px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.me-recap .me-recap-stats li { margin: 0; padding: 10px; border-radius: 12px; background: var(--carbon-2); border: 1px solid var(--carbon-3); min-width: 0; }
+.me-recap-stats b { display: block; font-family: var(--mono); font-size: 1.35rem; color: var(--lime); }
+.me-recap-stats span { font-size: 0.78rem; color: var(--paper-dim); }
+.me-recap-stats i { display: block; font-style: normal; font-family: var(--mono); font-size: 0.7rem; color: var(--paper-dim); }
+.me-recap-stats i.is-up { color: var(--lime); }
+.me-recap-line { margin: 0 0 6px; font-size: 0.9rem; overflow-wrap: anywhere; }
+.me-recap-line a { color: var(--lilac); font-family: var(--mono); font-weight: 800; text-decoration: none; }
+.me-recap .me-feed { padding: 0; }
+.me-recap .me-feed li { margin: 0; }

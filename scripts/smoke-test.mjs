@@ -211,6 +211,13 @@ if (local) {
   ok(r.user?.level >= 1 && r.user.xp > 0 && r.user.title, "me: level + xp", { level: r.user?.level, xp: r.user?.xp, title: r.user?.title });
   r = await (await get("/api/me/summary", { cookie })).json();
   ok(r.xp?.xp > 0 && r.xp_history.length > 0 && r.achievements.some((a) => a.id === "rate_game" && a.unlocked_at), "summary: xp, history, achievements");
+  // weekly recap on /me
+  r = await (await get("/api/me/recap?week=this", { cookie })).json();
+  const rc = r.recap;
+  ok(rc?.runs > 0 && rc.xp > 0 && rc.complete === false && rc.days >= 1 && rc.top?.game && rc.achievements.some((a) => a.id === "rate_game"), "weekly recap: this week so far", rc && { runs: rc.runs, xp: rc.xp, top: rc.top });
+  r = await (await get("/api/me/recap", { cookie })).json();
+  ok(r.ok && r.recap === null, "weekly recap: empty for the week before the account existed", r.recap);
+  ok((await get("/api/me/recap")).status === 401, "weekly recap needs a login");
 
   // profiles + settings (slice C)
   const prof = (b) => post("/api/me/profile", b, { cookie });

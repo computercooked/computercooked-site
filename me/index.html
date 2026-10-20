@@ -103,6 +103,19 @@
           <p>finish a run of 10s or more while logged in: +10, up to +40 more for how high you place on that game's board, +25 the first time you play a game, and a daily streak bonus (miss one day a week and your streak survives). each game pays up to 150 a day, so play around.</p>
         </details>
       </div>
+      <section class="about-card me-recap" id="me-recap" aria-labelledby="recap-h" hidden>
+        <div class="me-recap-head">
+          <h2 id="recap-h">// your week in numbers</h2>
+          <div class="me-tabs me-recap-tabs" role="tablist" aria-label="which week" id="recap-tabs" hidden>
+            <button type="button" role="tab" data-week="last" aria-selected="true">last week</button>
+            <button type="button" role="tab" data-week="this" aria-selected="false">this week</button>
+          </div>
+        </div>
+        <p class="me-fine" id="recap-dates"></p>
+        <ul class="me-recap-stats" id="recap-stats"></ul>
+        <p class="me-recap-line" id="recap-top" hidden></p>
+        <ul class="me-feed" id="recap-moments"></ul>
+      </section>
       <p class="me-fine"><a id="me-public-link" href="/u/">see your public profile →</a></p>
 
       <details class="about-card me-change" id="edit-profile">

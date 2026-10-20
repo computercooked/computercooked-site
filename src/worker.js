@@ -9,6 +9,7 @@ import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
+import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { embedPage } from "./embed.js";
@@ -79,6 +80,7 @@ async function api(req, env, url) {
     if (!user) return bad("log in first", 401);
     switch (route) {
       case "GET /api/me/summary": return meSummary(env, user, origin);
+      case "GET /api/me/recap": return recapRoute(url, env, user, await catalogOf(env, origin));
       case "POST /api/me/favorite": return favorite(req, env, user);
       case "POST /api/me/avatar": return setAvatar(req, env, user);
       case "POST /api/me/upload": return uploadGame(req, env, ip, user);

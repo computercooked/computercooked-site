@@ -100,6 +100,7 @@
     initSettings(user);
     initFriends();
     loadFeed();
+    loadRecap();
     api("/api/me/summary").then(function (s) {
       if (!s.ok) return;
       $("#me-streak").textContent = s.streak;
@@ -330,6 +331,54 @@
         return '<li class="is-' + esc(i.kind) + '"><span>' + g + esc(i.text) + "</span><small>" + ago(i.ts) + "</small></li>";
       }).join("") : '<li class="me-empty">things you do in games show up here: words your smols learn, levels you clear, badges you earn.</li>';
     });
+  }
+  // your week in numbers: last full week (Mon-Sun, UTC) all week long, or this week so far
+  function loadRecap() {
+    Promise.all([api("/api/me/recap?week=last"), api("/api/me/recap?week=this")]).then(function (rs) {
+      var weeks = { last: rs[0] && rs[0].recap, "this": rs[1] && rs[1].recap };
+      if (!weeks.last && !weeks["this"]) return;
+      $("#me-recap").hidden = false;
+      var tabs = $("#recap-tabs");
+      tabs.hidden = !(weeks.last && weeks["this"]);
+      tabs.onclick = function (e) {
+        var b = e.target.closest("button");
+        if (b) showRecap(weeks[b.dataset.week], b.dataset.week);
+      };
+      showRecap(weeks.last || weeks["this"], weeks.last ? "last" : "this");
+    });
+  }
+  function showRecap(r, which) {
+    $("#recap-tabs").querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.week === which)); });
+    function day(d) { return new Date(d + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" }); }
+    function num(n) { return Math.round(n).toLocaleString(); }
+    function delta(n, p) {
+      if (!r.complete || !p) return "";
+      var d = n - p;
+      return d === 0 ? "<i>same as the week before</i>" : '<i class="' + (d > 0 ? "is-up" : "") + '">' + (d > 0 ? "▲ " : "▼ ") + num(Math.abs(d)) + " vs week before</i>";
+    }
+    function stat(v, label, extra) { return "<li><b>" + v + "</b><span>" + label + "</span>" + (extra || "") + "</li>"; }
+    $("#recap-dates").textContent = day(r.from) + " – " + day(r.to) + (r.complete ? "" : " · so far");
+    $("#recap-stats").innerHTML = stat(num(r.runs), r.runs === 1 ? "run" : "runs", delta(r.runs, r.prev.runs)) +
+      stat(r.minutes < 1 ? "<1" : num(r.minutes), r.minutes === 1 ? "minute played" : "minutes played") +
+      stat(num(r.games), r.games === 1 ? "game" : "games") +
+      stat(r.days + "/7", "days you played") +
+      stat("+" + num(r.xp), "xp", delta(r.xp, r.prev.xp));
+    var top = $("#recap-top");
+    top.hidden = !r.top;
+    if (r.top) top.innerHTML = 'most played: <a href="/games/' + encodeURIComponent(r.top.game) + '/">' + esc(r.top.title) + "</a> · " + r.top.runs + (r.top.runs === 1 ? " run" : " runs") + " · " + mins(r.top.minutes * 60000);
+    var lines = [];
+    if (r.level.to > r.level.from) lines.push('<li class="is-achievement"><span>levelled up: ' + r.level.from + " → " + r.level.to + " (" + esc(r.level.title) + ")</span></li>");
+    r.bests.forEach(function (b) {
+      var g = '<a href="/games/' + encodeURIComponent(b.game) + '/">' + esc(b.title) + "</a>";
+      lines.push('<li class="is-best"><span>' + (b.prev === null ? "first score on " + g + ": " + num(b.score) : "new best on " + g + ": " + num(b.score) + " (was " + num(b.prev) + ")") + "</span></li>");
+    });
+    if (r.bests_total > r.bests.length) lines.push("<li><span>+" + (r.bests_total - r.bests.length) + " more new bests</span></li>");
+    r.achievements.forEach(function (a) {
+      var where = a.game === "site" ? "" : " · " + esc((catalog[a.game] || {}).title || a.game);
+      lines.push('<li class="is-achievement"><span>badge: ' + esc(a.name) + where + "</span></li>");
+    });
+    if (r.achievements_total > r.achievements.length) lines.push("<li><span>+" + (r.achievements_total - r.achievements.length) + " more badges</span></li>");
+    $("#recap-moments").innerHTML = lines.join("");
   }
   function showXp(s) {
     var x = s.xp, span = Math.max(1, x.next - x.floor), pct = Math.min(100, Math.round(100 * (x.xp - x.floor) / span));
