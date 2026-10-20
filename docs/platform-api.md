@@ -113,6 +113,14 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak |
 | POST | `/api/me/favorite` · `/api/me/avatar` | `{game, on}` · `{avatar}` |
 | POST | `/api/me/delete` | `{password}`: hard-deletes the account, its sessions, saves, favorites, scores and uploads; plays and feedback stay without the link |
+| GET · POST | `/api/me/profile` | GET: profile + private settings (email). POST any of `{display_name, bio, fav_game, badges:["game:ach_id"…≤3, unlocked only], theme, public}`. Bios are 160 chars, word-filtered, no links |
+| POST | `/api/me/avatar` | a preset (`lime`…) or a built face `x:<mood>-<face 0-7>-<body 0-4>-<accessory>` (moods tired/happy/flat/angry/x; accessories none/headphones/cap/witch/bow/glasses/steam) |
+| POST | `/api/me/email` | `{email, news}`: stored unverified, `""` removes it. Nothing is emailed until verification exists |
+| POST | `/api/me/password` | `{current, next}`: also ends every other session |
+| POST | `/api/me/logout-all` | ends every session, this one included |
+| GET | `/api/me/export` | JSON download of everything stored about the account (no password hash, no session tokens) |
+| GET | `/api/u/:username` | public profile: name, avatar, level, title, theme, plus bio, badges, favorite game and best scores when public. Private: `{private:true}` with name, avatar and level only. 404 for unknown or banned |
+| GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |
 | GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |
 | GET · PUT · DELETE | `/api/saves/:game/:slot` | PUT `{data, updated_at, version}`. Errors: 413 over 512 KB, 409 at 5 slots, 429 over ~1 write/10 s. An older `updated_at` returns `{stale:true}` and changes nothing. Needs login (401) |
 

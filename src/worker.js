@@ -2,7 +2,8 @@
 // Static files are served by the assets binding; only /api/* runs this code (run_worker_first in wrangler.jsonc).
 import { json, bad, HttpError } from "./util.js";
 import { ensureSchema } from "./db.js";
-import { currentUser, signup, login, logout, setAvatar, deleteAccount } from "./auth.js";
+import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
+import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
@@ -12,6 +13,9 @@ import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    // /u/<username> is one static page that reads the name from the URL
+    // (usernames are letters, digits and _, so the page's own /u/u.js and /u/u.css never match)
+    if (/^\/u\/[A-Za-z0-9_]{3,16}\/?$/.test(url.pathname)) return env.ASSETS.fetch(new Request(url.origin + "/u/", req));
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
       return await api(req, env, url);
@@ -64,10 +68,17 @@ async function api(req, env, url) {
       case "POST /api/me/avatar": return setAvatar(req, env, user);
       case "POST /api/me/upload": return uploadGame(req, env, ip, user);
       case "POST /api/me/delete": return deleteAccount(req, env, user, ip);
+      case "GET /api/me/profile": return getMyProfile(env, user);
+      case "POST /api/me/profile": return saveMyProfile(req, env, user, origin);
+      case "POST /api/me/email": return setEmail(req, env, user);
+      case "POST /api/me/password": return changePassword(req, env, user, ip);
+      case "POST /api/me/logout-all": return logoutAll(req, env, user);
+      case "GET /api/me/export": return exportData(env, user);
     }
   }
 
   if (path.startsWith("/api/saves/")) return savesRoute(req, env, user, path);
+  if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin);
 
   if (path.startsWith("/api/admin/")) {
     if (!isAdmin(req, env, ip)) return bad("nope", 401);

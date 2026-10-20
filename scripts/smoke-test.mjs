@@ -50,7 +50,7 @@ if (local) {
   r = await post("/api/auth/signup", { username: "fuckface", password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1 });
   ok(r.status === 400, "bad username filtered");
   r = await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1, anon });
-  const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+  let cookie = (r.headers.get("set-cookie") || "").split(";")[0];
   ok(r.ok && /HttpOnly/i.test(r.headers.get("set-cookie") || ""), "signup sets httpOnly cookie");
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user?.username === u, "me after signup");
@@ -85,6 +85,54 @@ if (local) {
   ok(r.user?.level >= 1 && r.user.xp > 0 && r.user.title, "me: level + xp", { level: r.user?.level, xp: r.user?.xp, title: r.user?.title });
   r = await (await get("/api/me/summary", { cookie })).json();
   ok(r.xp?.xp > 0 && r.xp_history.length > 0 && r.achievements.some((a) => a.id === "rate_game" && a.unlocked_at), "summary: xp, history, achievements");
+
+  // profiles + settings (slice C)
+  const prof = (b) => post("/api/me/profile", b, { cookie });
+  r = await prof({ bio: "you are a f4gg0t" });
+  ok(r.status === 400, "profile: rude bio refused", r.status);
+  r = await prof({ display_name: "admin" });
+  ok(r.status === 400, "profile: reserved display name refused", r.status);
+  r = await prof({ badges: ["site:streak_7"] });
+  ok(r.status === 400, "profile: can't pin a locked badge", r.status);
+  r = await (await prof({ display_name: "Smoke Tester", bio: "i love peacocks and spicy food", fav_game: "crash", badges: ["site:rate_game"], theme: "ice", public: true })).json();
+  ok(r.ok && r.profile.display_name === "Smoke Tester" && r.profile.badges[0] === "site:rate_game", "profile: save");
+  r = await (await post("/api/me/avatar", { avatar: "x:happy-2-0-cap" }, { cookie })).json();
+  ok(r.ok, "avatar: built face accepted");
+  r = await post("/api/me/avatar", { avatar: "x:happy-9-0-cap" }, { cookie });
+  ok(r.status === 400, "avatar: bad built face refused", r.status);
+  r = await (await get("/api/u/" + u)).json();
+  ok(r.ok && r.display_name === "Smoke Tester" && r.badges[0]?.id === "rate_game" && r.highs.some((h) => h.game === "crash") && r.level >= 1, "public profile", { level: r.level, title: r.title, badges: r.badges?.length, highs: r.highs?.length });
+  await prof({ public: false });
+  r = await (await get("/api/u/" + u)).json();
+  ok(r.private === true && r.bio === undefined && r.highs === undefined, "public profile: private hides details");
+  r = await get("/u/" + u);
+  ok(r.ok && /u\.js/.test(await r.text()), "/u/<name> page served", r.status);
+  r = await get("/api/u/nobody_here_123");
+  ok(r.status === 404, "public profile: unknown is 404", r.status);
+  r = await post("/api/me/email", { email: "not-an-email" }, { cookie });
+  ok(r.status === 400, "email: bad address refused", r.status);
+  r = await (await post("/api/me/email", { email: "Smoke@Example.com", news: true }, { cookie })).json();
+  ok(r.ok && r.email === "smoke@example.com" && r.email_verified === false, "email: stored unverified");
+  r = await (await get("/api/me/profile", { cookie })).json();
+  ok(r.email === "smoke@example.com" && r.profile.public === false, "settings read back");
+  r = await get("/api/me/export", { cookie });
+  const exp = await r.json();
+  ok(/attachment/.test(r.headers.get("content-disposition") || "") && exp.account?.username === u && !JSON.stringify(exp).includes("pass_hash") && exp.xp.length > 0, "export my data (no password hash)");
+  r = await post("/api/me/password", { current: "wrong-one-1", next: "pw-for-smoke-2" }, { cookie });
+  ok(r.status === 401, "password: wrong current refused", r.status);
+  r = await (await post("/api/me/password", { current: "pw-for-smoke-1", next: "pw-for-smoke-2" }, { cookie })).json();
+  ok(r.ok, "password: changed");
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
+  ok(r.status === 401, "password: old one stops working", r.status);
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-2" });
+  const c3 = (r.headers.get("set-cookie") || "").split(";")[0];
+  ok(r.ok, "password: new one works");
+  r = await (await post("/api/me/logout-all", {}, { cookie: c3 })).json();
+  r = await (await get("/api/me", { cookie })).json();
+  ok(r.ok && r.user === null, "log out everywhere ends other sessions");
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-2" });
+  cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+  await post("/api/me/password", { current: "pw-for-smoke-2", next: "pw-for-smoke-1" }, { cookie }); // back to the original for the rest
 
   // cloud saves (slice A)
   const put = (p, b, h = {}) => fetch(base + p, { method: "PUT", headers: { ...H, cookie, ...h }, body: JSON.stringify(b) });

@@ -72,7 +72,7 @@ export async function signup(req, env, ip) {
   const pw = b.password;
   if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return bad("passwords need 8+ characters.");
   if (pw.toLowerCase() === String(b.username).toLowerCase()) return bad("password can't be your username.");
-  const avatar = AVATARS.includes(b.avatar) ? b.avatar : "lime";
+  const avatar = avatarOk(b.avatar) ? b.avatar : "lime";
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashPassword(pw, salt, ITERATIONS);
   let res;
@@ -111,9 +111,39 @@ export async function logout(req, env) {
   return json({ ok: true }, 200, { "set-cookie": cookie("", 0, isSecure(req)) });
 }
 
+// built avatars: "x:<mood>-<face 0-7>-<body 0-4>-<accessory>" (rendered by assets/avatars.js)
+export const AVATAR_RE = /^x:(tired|happy|flat|angry|x)-[0-7]-[0-4]-(none|headphones|cap|witch|bow|glasses|steam)$/;
+export const avatarOk = (a) => typeof a === "string" && (AVATARS.includes(a) || AVATAR_RE.test(a));
+
+// POST /api/me/password {current, next}: also signs out every other device
+export async function changePassword(req, env, user, ip) {
+  if (limited("pw:" + ip, 10, 600000)) return bad("too many tries. wait a few minutes.", 429);
+  const b = await readJson(req, 4096);
+  const row = await env.DB.prepare("SELECT username, pass_hash, salt, iterations FROM users WHERE id = ?").bind(user.id).first();
+  if (!row) return bad("no such account", 404);
+  const hash = await hashPassword(String(b.current || ""), unb64(row.salt), row.iterations);
+  if (!safeEqual(hash, row.pass_hash)) return bad("current password is wrong.", 401);
+  const pw = b.next;
+  if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return bad("passwords need 8+ characters.");
+  if (pw.toLowerCase() === row.username.toLowerCase()) return bad("password can't be your username.");
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keep = await sha256(readCookie(req) || "");
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET pass_hash = ?, salt = ?, iterations = ? WHERE id = ?").bind(await hashPassword(pw, salt, ITERATIONS), b64(salt), ITERATIONS, user.id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").bind(user.id, keep),
+  ]);
+  return json({ ok: true });
+}
+
+// POST /api/me/logout-all: ends every session, this one included
+export async function logoutAll(req, env, user) {
+  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
+  return json({ ok: true }, 200, { "set-cookie": cookie("", 0, isSecure(req)) });
+}
+
 export async function setAvatar(req, env, user) {
   const b = await readJson(req, 1024);
-  if (!AVATARS.includes(b.avatar)) return bad("unknown avatar");
+  if (!avatarOk(b.avatar)) return bad("unknown avatar");
   await env.DB.prepare("UPDATE users SET avatar = ? WHERE id = ?").bind(b.avatar, user.id).run();
   return json({ ok: true, avatar: b.avatar });
 }
@@ -136,6 +166,7 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("DELETE FROM uploads WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM xp_events WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM achievements WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM profiles WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE plays SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE feedback SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE reports SET user_id = NULL WHERE user_id = ?").bind(id),
