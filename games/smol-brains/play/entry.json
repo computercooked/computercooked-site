@@ -5,7 +5,7 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, rescue), tickle (reward), tap (scold), talk (the word book), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer, m map.",
-  "size_kb": 840,
+  "size_kb": 890,
   "tags": [
     "sim",
     "pets",
@@ -13,12 +13,13 @@
     "3d",
     "pixel art"
   ],
-  "version": "3.0",
+  "version": "3.1",
   "added": "2026-10-19",
   "how_to": [
     "tap the crashed pod open. two blobs climb out, a girl and a boy: the last smols. name them.",
     "💬 talk opens the word book. pick a word, then show it: tap some food for “food”, or ask a smol to “come” and it learns when it does. one lesson every few seconds, so mashing does nothing.",
     "tickle right after the good thing. a few seconds late rewards whatever it is doing by then, which is how smols learn weird superstitions.",
+    "smols remember who hit them, shared food, or taught them things. tap a smol → 📜 story to see its friends, rivals and life so far; the menu's 📜 chronicle keeps the island's history.",
     "family can't have kids together. welcome strangers from the other escape pods, or your tribe runs out of futures.",
     "miracles get pricier the more you lean on them, and handouts spoil smols. answer prayers with the right miracle: that's where sparks come from.",
     "the island starts under cloud. smols clear it by exploring, and new places hold new plants, stone, and bunnies to hunt."
