@@ -1,1039 +1,844 @@
-/* smol brains — world.js
-   The Valley: terrain, decor, day/night, weather, temperature, objects (physics, plants, critters,
-   rot, eggs), grump nights, and the kind-specific effects of using things (SB.World.use).
-   Terrain and decor are deterministic from game.seed (regenerated on load, never saved). */
+/* smol brains 2 — world.js
+   The living island on top of the generated terrain: items (food, materials, tools, eggs, critters),
+   resource nodes that drop things (trees, bushes, rocks), buildings, fires (campfires, torches, wildfires),
+   time of day, seasons, weather with storms and lightning, grump nights and spatial lookups.
+   Ids: creatures/items/buildings share game.nextId; nodes use NODE_ID0 + their worldgen id. */
 (function () {
   "use strict";
   var SB = window.SB;
-  var World = (SB.World = {});
+  var W = (SB.World = {});
+  var WG = SB.WorldGen, K = SB.KINDS, NK = SB.NODES, SK = SB.STRUCTS;
+  var NODE_ID0 = (W.NODE_ID0 = 1000000);
+  var CELL = 8;
+  var CAP_ITEMS = 420, CAP_FOOD_NEAR = 3;
+  var GRAV = 18;
 
-  var K = SB.KINDS, ROOMS = SB.ROOMS;
-  var W = SB.WORLD_W, RW = SB.ROOM_W, NR = ROOMS.length, DL = SB.DAY_LENGTH;
-  var STEP = 10, NG = Math.floor(W / STEP) + 1;
-  var GRAV = 1100, MAXV = 1400;
-  var START_HOUR = 7; // game.time 0 = 07:00 on day 1
-  var CAP_FOOD = 14, CAP_FOOD_SHAKE = 18, CAP_FOOD_MACHINE = 22, CAP_SHROOM = 6, CAP_HERB = 3, CAP_FISH = 2;
-  var TAU = Math.PI * 2;
+  function emit(ev, d) { SB.bus.emit(ev, d); }
 
-  var RI = {};
-  for (var ri = 0; ri < NR; ri++) RI[ROOMS[ri].id] = ri;
-  function rx(room, dx) { return RI[room] * RW + dx; }
+  /* ---------------- create / revive ---------------- */
 
-  /* ---------------- layout ---------------- */
-
-  // Fixed machines/plants. Ground is flattened under each of them.
-  var FIXED = [
-    { kind: "grumpcave", room: "hollow", dx: 230 },
-    { kind: "shroomring", room: "hollow", dx: 640 },
-    { kind: "shroomring", room: "woods", dx: 190 },
-    { kind: "herbpatch", room: "woods", dx: 420 },
-    { kind: "berrybush", room: "woods", dx: 610 },
-    { kind: "teleporter", room: "woods", dx: 800, data: { pad: "A" } },
-    { kind: "appletree", room: "meadow", dx: 110 },
-    { kind: "incubator", room: "meadow", dx: SB.HOME_X - 120 - RI.meadow * RW },
-    { kind: "bed", room: "meadow", dx: 540 },
-    { kind: "berrybush", room: "meadow", dx: 650 },
-    { kind: "appletree", room: "meadow", dx: 760 },
-    { kind: "carrotpatch", room: "meadow", dx: 855 },
-    { kind: "warpgate", room: "lab", dx: 95 },
-    { kind: "computer", room: "lab", dx: 225 },
-    { kind: "snackbox", room: "lab", dx: 360 },
-    { kind: "medbot", room: "lab", dx: 490 },
-    { kind: "bed", room: "lab", dx: 620 },
-    { kind: "bed", room: "lab", dx: 715 },
-    { kind: "fan", room: "lab", dx: 830 },
-    { kind: "trampoline", room: "pond", dx: 150 },
-    { kind: "appletree", room: "pond", dx: 290 },
-    { kind: "heater", room: "peak", dx: 300 },
-    { kind: "teleporter", room: "peak", dx: 720, data: { pad: "B" } }
-  ];
-  var LOOSE = [
-    { kind: "plush", room: "meadow", dx: 250 },
-    { kind: "musicbox", room: "meadow", dx: 400 },
-    { kind: "ball", room: "meadow", dx: 600 },
-    { kind: "top", room: "lab", dx: 425 },
-    { kind: "ball", room: "pond", dx: 730 },
-    { kind: "plush", room: "peak", dx: 460 },
-    // a few starting snacks near home
-    { kind: "apple", room: "meadow", dx: 395 },
-    { kind: "apple", room: "meadow", dx: 505 },
-    { kind: "berry", room: "meadow", dx: 470 },
-    { kind: "carrot", room: "meadow", dx: 590 }
-  ];
-  var POND_X0 = rx("pond", 400), POND_X1 = rx("pond", 660);
-  var FLATS = FIXED.map(function (f) { return { x: rx(f.room, f.dx), w: K[f.kind].r + 18 }; })
-    .concat([{ x: (POND_X0 + POND_X1) / 2, w: (POND_X1 - POND_X0) / 2 + 30 }]);
-
-  // Critter populations to maintain.
-  var CRITTERS = [
-    { kind: "butterfly", room: RI.meadow, n: 3 },
-    { kind: "butterfly", room: RI.pond, n: 2 },
-    { kind: "beetle", room: RI.woods, n: 3 },
-    { kind: "beetle", room: RI.hollow, n: 2 }
-  ];
-
-  // Plants: growth interval (s per stock item), max stock, drop chance per second while stocked.
-  var PLANTS = {
-    appletree: { grow: 45, max: 3, drop: 1 / 35 },
-    berrybush: { grow: 32, max: 4, drop: 1 / 30 },
-    carrotpatch: { grow: 50, max: 3, drop: 1 / 40 },
-    herbpatch: { grow: 60, max: 2, drop: 1 / 45 },
-    shroomring: { grow: 40, max: 3, drop: 1 / 28 }
+  W.create = function (game, seed) {
+    var T = WG.generate(seed || game.seed);
+    var world = {
+      T: T, seed: T.seed, time: game.time,
+      nodes: T.nodes, nodeById: {}, nodeGrid: null, nodesByChunk: null,
+      items: [], itemGrid: null, creatureGrid: null, structures: [],
+      weather: { kind: "clear", cloud: 0.2, rain: 0, wind: 0.4, t: 0, next: 90, storm: 0 },
+      dayIndex: 0, night: false, season: 0, snowCover: 0, autumn: 0, freeze: 0,
+      fires: [], bolts: [], nightGrumps: 0, wear: new Uint8Array(T.N * T.N),
+      _critT: 3, _grumpT: 10, _houseT: 1, _boltT: 10, _pending: [], _fireT: 0
+    };
+    initNodes(world, game);
+    return world;
   };
-  var MACHINE_COOL = { snackbox: 6, medbot: 25 };
 
-  // Terrain profile per room: base height, hill amplitude, optional mountain bump.
-  var PROF = [
-    { base: 474, amp: 18 }, // hollow: rocky ravine
-    { base: 462, amp: 14 }, // woods
-    { base: 452, amp: 12 }, // meadow: gentle rolling
-    { base: 470, amp: 0 }, // lab: flat floor
-    { base: 464, amp: 6 }, // pond
-    { base: 458, amp: 14, peak: -42 } // peak: a snowy hill
-  ];
-
-  var SEASONS = ["spring", "summer", "autumn", "winter"];
-  var WEATHER_KINDS = ["sun", "cloudy", "rain", "storm", "snow"];
-  var SEASON_W = [
-    [0.35, 0.25, 0.3, 0.05, 0.05],
-    [0.6, 0.2, 0.1, 0.1, 0],
-    [0.25, 0.3, 0.25, 0.15, 0.05],
-    [0.3, 0.25, 0.05, 0.05, 0.35]
-  ];
-  var WEATHER_DIM = { sun: 1, cloudy: 0.88, rain: 0.78, storm: 0.62, snow: 0.86 };
-
-  /* ---------------- small helpers ---------------- */
-
-  function ss(t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }
-  function sign(v) { return v < 0 ? -1 : 1; }
-  function emit(ev, data) { SB.bus.emit(ev, data); }
-  function isFood(kind) { var k = K[kind]; return !!(k && k.noun === "food" && kind.indexOf("shroom") !== 0); } // glowcaps count as shrooms for caps
-  function rng(game) { return game.rng; }
-
-  function groundAt(g, x) {
-    if (!(x > 0)) x = 0; else if (x > W) x = W;
-    var f = x / STEP, i = f | 0;
-    if (i >= NG - 1) return g[NG - 1];
-    return g[i] + (g[i + 1] - g[i]) * (f - i);
+  function initNodes(world, game) {
+    var T = world.T;
+    world.nodeById = {};
+    var r = SB.rng(T.seed * 13 + 5);
+    for (var i = 0; i < world.nodes.length; i++) {
+      var n = world.nodes[i];
+      if (n.id < NODE_ID0) n.id += NODE_ID0;
+      n.type = "node";
+      n.noun = NK[n.kind].noun;
+      if (n.dropT == null) n.dropT = (NK[n.kind].every || 100) * r.range(0.1, 1);
+      if (n.alsoT == null) n.alsoT = (NK[n.kind].every || 100) * r.range(0.5, 2);
+      if (n.state == null) n.state = "ok";
+      world.nodeById[n.id] = n;
+    }
+    rebuildNodeGrid(world);
+    W.nearWater(world);
   }
-  function roomIndex(x) { var i = Math.floor(x / RW); return i < 0 ? 0 : i >= NR ? NR - 1 : i; }
+  function rebuildNodeGrid(world) {
+    var T = world.T, gn = Math.ceil(T.N / CELL), grid = new Array(gn * gn);
+    for (var i = 0; i < grid.length; i++) grid[i] = [];
+    var nc = T.N / SB.CHUNK, byChunk = new Array(nc * nc);
+    for (i = 0; i < byChunk.length; i++) byChunk[i] = [];
+    world.nodes.forEach(function (n) {
+      grid[cellOf(n.x, n.z, gn)].push(n);
+      byChunk[SB.clamp((n.z / SB.CHUNK) | 0, 0, nc - 1) * nc + SB.clamp((n.x / SB.CHUNK) | 0, 0, nc - 1)].push(n);
+    });
+    world.nodeGrid = grid; world.gridN = gn; world.nodesByChunk = byChunk;
+  }
+  function cellOf(x, z, gn) { return SB.clamp((z / CELL) | 0, 0, gn - 1) * gn + SB.clamp((x / CELL) | 0, 0, gn - 1); }
 
-  World.groundY = function (world, x) { return groundAt(world.ground, x); };
-  World.slope = function (world, x) { return (groundAt(world.ground, x + 5) - groundAt(world.ground, x - 5)) / 10; };
-  World.roomAt = function (world, x) { return roomIndex(x); };
-  World.room = function (world, x) { return ROOMS[roomIndex(x)]; };
-  World.inWater = function (world, x) {
-    var ws = world.water;
-    for (var i = 0; i < ws.length; i++) if (x > ws[i].x0 && x < ws[i].x1) return ws[i];
+  // nearest wet vertex for every vertex within 24 tiles (multi-source BFS), so "water" can be seen and walked to
+  W.nearWater = function (world) {
+    var T = world.T, V = T.V, n = V * V, src = new Int32Array(n), dist = new Uint8Array(n), q = new Int32Array(n), qh = 0, qt = 0;
+    src.fill(-1);
+    for (var k = 0; k < n; k++) {
+      if (T.W[k] !== T.NONE && T.W[k] - T.h[k] > 0.08 && T.W[k] - T.h[k] < 0.6 + (T.river[k] ? 1 : 0)) { src[k] = k; q[qt++] = k; }
+    }
+    // deep ocean shore counts too: wet vertices that border dry land
+    for (k = 0; k < n; k++) {
+      if (src[k] >= 0 || T.W[k] === T.NONE || T.W[k] - T.h[k] <= 0.08) continue;
+      var ci = k % V, cj = (k / V) | 0, shore = false;
+      for (var d = 0; d < 4; d++) {
+        var ni = ci + [1, -1, 0, 0][d], nj = cj + [0, 0, 1, -1][d];
+        if (ni < 0 || nj < 0 || ni >= V || nj >= V) continue;
+        var nk = nj * V + ni;
+        if (T.W[nk] === T.NONE || T.W[nk] <= T.h[nk]) shore = true;
+      }
+      if (shore) { src[k] = k; q[qt++] = k; }
+    }
+    while (qh < qt) {
+      k = q[qh++];
+      if (dist[k] >= 24) continue;
+      ci = k % V; cj = (k / V) | 0;
+      for (d = 0; d < 4; d++) {
+        ni = ci + [1, -1, 0, 0][d]; nj = cj + [0, 0, 1, -1][d];
+        if (ni < 0 || nj < 0 || ni >= V || nj >= V) continue;
+        nk = nj * V + ni;
+        if (src[nk] >= 0) continue;
+        src[nk] = src[k]; dist[nk] = dist[k] + 1; q[qt++] = nk;
+      }
+    }
+    world.waterSrc = src;
+  };
+  // the nearest drinkable/swimmable water point to x,z, or null
+  W.waterNear = function (world, x, z) {
+    var T = world.T, V = T.V, i = SB.clamp(Math.round(x), 0, T.N), j = SB.clamp(Math.round(z), 0, T.N);
+    var s = world.waterSrc[j * V + i];
+    if (s < 0) return null;
+    return { x: s % V, z: (s / V) | 0 };
+  };
+
+  /* ---------------- geometry ---------------- */
+
+  W.heightAt = function (world, x, z) { return WG.heightAt(world.T, x, z); };
+  W.groundY = function (world, x, z) {
+    var h = WG.heightAt(world.T, x, z), w = WG.waterAt(world.T, x, z);
+    return w !== world.T.NONE && w > h ? w : h;
+  };
+  W.depthAt = function (world, x, z) { return WG.depthAt(world.T, x, z); };
+  W.biomeAt = function (world, x, z) { return WG.biomeAt(world.T, x, z); };
+  W.inBounds = function (world, x, z) { return x > 3 && z > 3 && x < world.T.N - 3 && z < world.T.N - 3; };
+  W.walkable = function (world, x, z, swim) {
+    if (!W.inBounds(world, x, z)) return false;
+    if (WG.slopeAt(world.T, x, z) > 2.8) return false;
+    var d = WG.depthAt(world.T, x, z);
+    if (d > 0.5 && !swim && !W.bridgeAt(world, x, z)) return false;
+    return true;
+  };
+  W.bridgeAt = function (world, x, z) {
+    var s = world.structures;
+    for (var i = 0; i < s.length; i++) {
+      var b = s[i];
+      if (b.kind !== "bridge" || !b.done) continue;
+      var dx = x - b.x, dz = z - b.z, c = Math.cos(b.rot || 0), sn = Math.sin(b.rot || 0);
+      var lx = dx * c - dz * sn, lz = dx * sn + dz * c;
+      if (Math.abs(lx) < 0.8 && Math.abs(lz) < 2.0) return b;
+    }
     return null;
   };
 
-  function dayness(h) {
-    if (h >= 7.5 && h <= 18.5) return 1;
-    if (h >= 5 && h < 7.5) return ss((h - 5) / 2.5);
-    if (h > 18.5 && h <= 21) return 1 - ss((h - 18.5) / 2.5);
-    return 0;
+  /* ---------------- time, seasons ---------------- */
+
+  W.clock = function (world) {
+    var t = world.time / SB.DAY_LENGTH, tday = t % 1;
+    var h = (tday * 24 + 24) % 24;
+    return { day: Math.floor(t) + 1, tday: tday, hour: Math.floor(h), min: Math.floor((h % 1) * 60), season: SB.SEASONS[world.season], night: world.night };
+  };
+  function updateClock(world, game, dt) {
+    var t = world.time / SB.DAY_LENGTH, tday = t % 1;
+    var wasNight = world.night;
+    world.night = tday < 0.21 || tday > 0.79;
+    var di = Math.floor(t);
+    if (di !== world.dayIndex) { world.dayIndex = di; emit("newDay", { day: di + 1 }); }
+    var sIdx = Math.floor(di / SB.SEASON_DAYS) % 4, sp = (t / SB.SEASON_DAYS) % 1;
+    if (sIdx !== world.season) { world.season = sIdx; emit("season", { season: SB.SEASONS[sIdx] }); if (game && SB.Game && SB.Game.note) SB.Game.note(game, ["spring is here 🌸", "summer! 🌞", "autumn. the leaves are doing the thing 🍂", "winter is coming. it's here actually ❄️"][sIdx]); }
+    // seasonal visuals ramp in and out
+    var snowT = sIdx === 3 ? SB.smooth(sp * 3) : sIdx === 0 ? 1 - SB.smooth(sp * 4) : 0;
+    world.snowCover += (snowT * 0.95 - world.snowCover) * Math.min(1, dt * 0.05);
+    var autT = sIdx === 2 ? SB.smooth(sp * 3) : sIdx === 3 ? 1 - SB.smooth(sp * 2) : 0;
+    world.autumn += (autT - world.autumn) * Math.min(1, dt * 0.05);
+    if (wasNight && !world.night) { world.nightGrumps = 0; emit("dawn", {}); }
+    if (!wasNight && world.night) emit("dusk", {});
   }
+  W.seasonTemp = function (world) { return [0, 0.12, -0.04, -0.2][world.season] || 0; };
 
-  World.clock = function (game) {
-    var t = game.time / DL + START_HOUR / 24;
-    var di = Math.floor(t), hour = (t - di) * 24;
-    var hh = Math.floor(hour), mm = Math.floor((hour - hh) * 60);
-    return {
-      day: di + 1, dayIndex: di, hour: hour, minute: mm, night: hour < 6 || hour >= 20,
-      season: SEASONS[Math.floor(di / 2) % 4],
-      label: "Day " + (di + 1) + " · " + (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm
-    };
+  /* ---------------- weather ---------------- */
+
+  var WX = {
+    clear: { cloud: 0.15, rain: 0, wind: 0.35 },
+    cloudy: { cloud: 0.6, rain: 0, wind: 0.6 },
+    rain: { cloud: 0.85, rain: 0.6, wind: 0.7 },
+    storm: { cloud: 1, rain: 1, wind: 1.2 },
+    fog: { cloud: 0.45, rain: 0, wind: 0.15 }
   };
-
-  // The weather a spot actually shows (Frost Peak turns rain to snow, the Lab is indoors).
-  World.weatherAt = function (world, x) {
-    var i = roomIndex(x), k = world.weather.kind;
-    if (i === RI.lab) return "indoor";
-    if (i === RI.peak && (k === "rain" || k === "storm")) return "snow";
-    return k;
-  };
-
-  World.tempAt = function (world, x) {
-    var i = roomIndex(x), lx = x - i * RW, base = ROOMS[i].temp;
-    if (lx < 150 && i > 0) base = SB.lerp(ROOMS[i - 1].temp, base, 0.5 + lx / 300);
-    else if (RW - lx < 150 && i < NR - 1) base = SB.lerp(base, ROOMS[i + 1].temp, 0.5 - (RW - lx) / 300);
-    var indoor = i === RI.lab;
-    var t = base - 0.15 * (1 - world.daylight) * (indoor ? 0.5 : 1);
-    if (!indoor) {
-      var w = World.weatherAt(world, x), it = world.weather.intensity;
-      if (w === "rain" || w === "storm") t -= 0.1 * it;
-      else if (w === "snow") t -= 0.25 * it;
-      else if (w === "sun" && i === RI.pond) t += 0.05 * it;
+  var WX_ODDS = [ // spring, summer, autumn, winter
+    { clear: 3, cloudy: 2, rain: 3, storm: 1, fog: 1 },
+    { clear: 5, cloudy: 2, rain: 1, storm: 1.5, fog: 0.3 },
+    { clear: 2, cloudy: 3, rain: 3, storm: 1, fog: 2 },
+    { clear: 3, cloudy: 3, rain: 2.5, storm: 0.5, fog: 1.5 }
+  ];
+  function updateWeather(world, game, dt) {
+    var w = world.weather, r = game.rng;
+    w.t += dt;
+    if (w.t >= w.next) {
+      var odds = WX_ODDS[world.season], tot = 0, k;
+      for (k in odds) tot += odds[k];
+      var pick = r() * tot, kind = "clear";
+      for (k in odds) { pick -= odds[k]; if (pick <= 0) { kind = k; break; } }
+      if (game.forceWeather) { kind = game.forceWeather; game.forceWeather = null; }
+      if (kind !== w.kind) emit("weather", { kind: kind, from: w.kind });
+      w.kind = kind; w.t = 0; w.next = r.range(80, 220) * (kind === "storm" ? 0.5 : 1);
     }
-    var hs = world._heat, fs = world._fan, j, d;
-    for (j = 0; j < hs.length; j++) {
-      d = Math.abs(x - hs[j].x);
-      if (d < 220) t += (0.3 + (hs[j].data.on > 0 ? 0.15 : 0)) * (1 - d / 220);
-    }
-    for (j = 0; j < fs.length; j++) {
-      d = Math.abs(x - fs[j].x);
-      if (d < 200) t -= (0.12 + (fs[j].data.on > 0 ? 0.2 : 0)) * (1 - d / 200);
-    }
-    return t < 0 ? 0 : t > 1 ? 1 : t;
-  };
-
-  /* ---------------- terrain + decor (deterministic from seed) ---------------- */
-
-  function terrainRng(game) { return SB.rng((Math.imul((game.seed | 0) ^ 0x5eed, 2654435761) >>> 0) || 7); }
-
-  function genGround(world, tr) {
-    var g = world.ground, hp = [], i, k, x;
-    for (i = 0; i < NR; i++) hp.push({ l1: tr.range(380, 620), l2: tr.range(150, 260), p1: tr() * TAU, p2: tr() * TAU });
-    function prof(i, x) {
-      var p = PROF[i], h = hp[i];
-      var y = p.base + p.amp * (0.62 * Math.sin(x * TAU / h.l1 + h.p1) + 0.38 * Math.sin(x * TAU / h.l2 + h.p2));
-      if (p.peak) y += p.peak * Math.sin(Math.PI * SB.clamp01((x - i * RW) / RW));
-      return y;
-    }
-    var B = 120;
-    for (k = 0; k < NG; k++) {
-      x = k * STEP;
-      i = roomIndex(x);
-      var d = x - i * RW, h;
-      if (d < B && i > 0) h = SB.lerp(prof(i - 1, x), prof(i, x), ss((d + B) / (2 * B)));
-      else if (RW - d < B && i < NR - 1) h = SB.lerp(prof(i, x), prof(i + 1, x), ss((x - (i + 1) * RW + B) / (2 * B)));
-      else h = prof(i, x);
-      g[k] = h;
-    }
-    // flat zones under fixed things
-    for (var f = 0; f < FLATS.length; f++) {
-      var fx = FLATS[f].x, fw = FLATS[f].w, target = groundAt(g, fx), M = 40;
-      var k0 = Math.max(0, Math.floor((fx - fw - M) / STEP)), k1 = Math.min(NG - 1, Math.ceil((fx + fw + M) / STEP));
-      for (k = k0; k <= k1; k++) {
-        var dd = Math.abs(k * STEP - fx);
-        g[k] = dd <= fw ? target : SB.lerp(target, g[k], ss((dd - fw) / M));
+    var tgt = WX[w.kind] || WX.clear, f = Math.min(1, dt * 0.08);
+    w.cloud += (tgt.cloud - w.cloud) * f; w.rain += (tgt.rain - w.rain) * f; w.wind += (tgt.wind - w.wind) * f;
+    w.storm = w.kind === "storm" ? 1 : 0;
+    // lightning: strikes near the action so you can see it
+    if (w.kind === "storm" && w.rain > 0.5) {
+      world._boltT -= dt;
+      if (world._boltT <= 0) {
+        world._boltT = r.range(6, 16);
+        var cx, cz, cs = game.creatures.filter(function (c) { return c.alive && c.species === "smol"; });
+        if (cs.length && r.chance(0.7)) { var c0 = r.pick(cs); cx = c0.x + r.range(-14, 14); cz = c0.z + r.range(-14, 14); }
+        else { cx = (game.focus ? game.focus.x : world.T.spawn.x) + r.range(-30, 30); cz = (game.focus ? game.focus.z : world.T.spawn.z) + r.range(-30, 30); }
+        W.lightning(world, game, cx, cz);
       }
     }
-    // the pond: a shallow, wadeable dip
-    var surf = Math.max(groundAt(g, POND_X0), groundAt(g, POND_X1)) + 3;
-    for (k = Math.ceil(POND_X0 / STEP); k <= Math.floor(POND_X1 / STEP); k++) {
-      var u = (k * STEP - POND_X0) / (POND_X1 - POND_X0);
-      g[k] += 24 * Math.pow(Math.sin(Math.PI * u), 0.7);
-    }
-    for (k = 0; k < NG; k++) g[k] = SB.clamp(g[k], 395, 505);
-    world.water = [{ x0: POND_X0, x1: POND_X1, y: surf }];
   }
-
-  function nearFixed(x, gap) {
-    for (var i = 0; i < FLATS.length; i++) if (Math.abs(x - FLATS[i].x) < FLATS[i].w + gap) return true;
-    return false;
-  }
-
-  function genDecor(world, tr) {
-    var out = (world.decor = []);
-    function add(type, x, s, layer, v, y, extra) {
-      var o = { type: type, x: x, y: y == null ? groundAt(world.ground, x) : y, s: s, room: roomIndex(x), layer: layer, v: v | 0 };
-      if (extra) for (var k in extra) o[k] = extra[k];
-      out.push(o);
-      return o;
-    }
-    function spot(lo, hi, gap, noWater) {
-      var x = lo;
-      for (var t = 0; t < 10; t++) {
-        x = tr.range(lo, hi);
-        if (gap && nearFixed(x, gap)) continue;
-        if (noWater && x > POND_X0 - 30 && x < POND_X1 + 30) continue;
-        break;
-      }
-      return x;
-    }
-    function many(n, type, room, gap, layer, smin, smax, vmax, noWater) {
-      var R = RI[room] * RW;
-      for (var i = 0; i < n; i++) add(type, spot(R + 20, R + RW - 20, gap, noWater), tr.range(smin, smax), layer, tr.int(vmax), null);
-    }
-    var R, i, x;
-
-    // every room gets a signpost (v = room index)
-    for (i = 0; i < NR; i++) add("sign", i * RW + 45, 1, "back", i);
-
-    // Grump Hollow: cave, dark rocks, dead trees, crystals, bones
-    R = RI.hollow * RW;
-    add("cave_mouth", rx("hollow", 230), 1.25, "back", 0);
-    many(7, "rock", "hollow", 30, "back", 1.1, 2.2, 2);
-    many(3, "tree", "hollow", 50, "back", 0.8, 1.1, 1); // v forced below
-    for (i = out.length - 3; i < out.length; i++) out[i].v = 2; // dead trees
-    many(6, "crystal", "hollow", 10, "back", 0.6, 1.3, 1);
-    many(4, "bones", "hollow", 10, "front", 0.7, 1.1, 3);
-    many(8, "grass", "hollow", 0, "front", 0.6, 1, 1);
-    for (i = out.length - 8; i < out.length; i++) out[i].v = 2; // dry grass
-
-    // Mushroom Woods: dark trees, giant mushrooms
-    many(9, "tree", "woods", 40, "back", 0.9, 1.5, 1);
-    for (i = out.length - 9; i < out.length; i++) out[i].v = 1; // dark trees
-    many(5, "mushroom_big", "woods", 40, "back", 0.8, 1.6, 3);
-    many(4, "rock", "woods", 20, "back", 0.7, 1.2, 2);
-    many(14, "grass", "woods", 0, "front", 0.7, 1.2, 1);
-    for (i = out.length - 14; i < out.length; i++) out[i].v = 1;
-    many(5, "flower", "woods", 10, "front", 0.6, 0.9, 1);
-    for (i = out.length - 5; i < out.length; i++) out[i].v = 5; // bluebells
-
-    // Nest Meadow: flowers, bushes, background trees, the nest/hatchery, lamps
-    add("nest", rx("meadow", SB.HOME_X - 120 - RI.meadow * RW), 1, "back", 0);
-    many(3, "tree", "meadow", 60, "back", 1, 1.4, 1);
-    many(5, "bush", "meadow", 30, "back", 0.8, 1.3, 2);
-    many(26, "flower", "meadow", 0, "front", 0.6, 1.1, 5);
-    many(22, "grass", "meadow", 0, "front", 0.7, 1.2, 1);
-    add("lamp", rx("meadow", 440), 1, "back", 1);
-    add("lamp", rx("meadow", 700), 1, "back", 1);
-
-    // The Lab: indoors. lab_wall spans the room (x = centre, w, h = ceiling height above floor).
-    R = RI.lab * RW;
-    var lg = groundAt(world.ground, R + 450);
-    add("lab_wall", R + 450, 1, "back", 0, lg, { w: RW - 20, h: 330 });
-    for (i = 0; i < 3; i++) add("window", R + 150 + i * 300, 1, "back", i, lg - 235);
-    add("screen", rx("lab", 225), 1.2, "back", 0, lg - 150); // big board above the Word Machine
-    add("screen", rx("lab", 560), 0.8, "back", 1, lg - 165);
-    add("screen", rx("lab", 770), 0.8, "back", 2, lg - 160);
-    for (i = 0; i < 4; i++) add("pipe", R + 80 + i * 230 + tr.range(-20, 20), 1, "back", i % 2, lg - 300);
-    for (i = 0; i < 4; i++) add("lamp", R + 120 + i * 220, 1, "back", 0, lg - 320); // v0 = ceiling lamp
-    for (i = 0; i < 5; i++) add("cable", spot(R + 40, R + RW - 40, 15), tr.range(0.7, 1.3), "front", tr.int(3), lg);
-
-    // Sunny Pond: dock, reeds, lily pads, palms
-    var wy = world.water[0].y;
-    add("dock", POND_X0 - 10, 1, "back", 0, wy, { w: 120 });
-    for (i = 0; i < 12; i++) {
-      x = tr() < 0.5 ? tr.range(POND_X0 - 40, POND_X0 + 30) : tr.range(POND_X1 - 30, POND_X1 + 50);
-      add("reeds", x, tr.range(0.7, 1.3), i % 3 === 0 ? "front" : "back", tr.int(2));
-    }
-    for (i = 0; i < 5; i++) add("lily", tr.range(POND_X0 + 50, POND_X1 - 30), tr.range(0.7, 1.1), "front", tr.int(2), wy);
-    many(2, "tree", "pond", 50, "back", 1.1, 1.4, 1, true);
-    for (i = out.length - 2; i < out.length; i++) out[i].v = 3; // palms
-    many(4, "rock", "pond", 20, "back", 0.6, 1, 2, true);
-    many(8, "grass", "pond", 0, "front", 0.6, 1, 1, true);
-    for (i = out.length - 8; i < out.length; i++) out[i].v = 3; // dune grass
-    many(5, "flower", "pond", 10, "front", 0.6, 1, 5, true);
-
-    // Frost Peak: pines, snowdrifts, ice crystals, snowy rocks
-    many(12, "pine", "peak", 35, "back", 0.8, 1.6, 3);
-    many(8, "snowdrift", "peak", 0, "front", 0.7, 1.4, 2);
-    many(5, "crystal", "peak", 15, "back", 0.6, 1.2, 1);
-    for (i = out.length - 5; i < out.length; i++) out[i].v = 1; // ice
-    many(4, "rock", "peak", 20, "back", 0.7, 1.3, 1);
-    for (i = out.length - 4; i < out.length; i++) out[i].v = 2; // snowy rock
-
-    out.sort(function (a, b) { return a.layer === b.layer ? a.x - b.x : a.layer === "back" ? -1 : 1; });
-  }
-
-  // Rebuild ground, water and decor from the seed (call after load).
-  World.regen = function (world, game) {
-    var tr = terrainRng(game);
-    world.ground = new Float32Array(NG);
-    genGround(world, tr);
-    genDecor(world, tr);
-    return world;
+  W.lightning = function (world, game, x, z, forced) {
+    if (!W.inBounds(world, x, z)) return;
+    // strike the tallest thing nearby
+    var best = null, bs = 0;
+    W.nodesNear(world, x, z, 4, function (n) {
+      if (NK[n.kind].noun !== "plant" || n.state !== "ok") return;
+      var s = n.s * (n.kind === "giant" ? 1.6 : n.kind === "pine" ? 1.3 : 1);
+      if (s > bs) { bs = s; best = n; }
+    });
+    var tx = best ? best.x : x, tz = best ? best.z : z;
+    var bolt = { x: tx, z: tz, y: W.groundY(world, tx, tz), t: 0.6 };
+    world.bolts.push(bolt);
+    emit("lightning", { x: tx, z: tz, node: best });
+    var dry = 1 - world.weather.rain * 0.5;
+    if (best && (forced || game.rng.chance(0.55 * dry))) W.ignite(world, game, best);
+    // anyone nearby gets a fright
+    game.creatures.forEach(function (c) {
+      if (!c.alive) return;
+      var d = SB.dist(c.x, c.z, tx, tz);
+      if (d < 3) SB.Chem.apply(c.chem, { fear: 0.6, pain: d < 1.2 ? 0.4 : 0 });
+      else if (d < 12) SB.Chem.apply(c.chem, { fear: 0.25 });
+    });
+    return bolt;
   };
 
-  /* ---------------- world object ---------------- */
+  /* ---------------- fire ---------------- */
 
-  function blank() {
-    return {
-      rooms: ROOMS,
-      ground: new Float32Array(NG), water: [], decor: [], objects: [],
-      weather: { kind: "sun", t: DL * 0.4, intensity: 0.7, target: 0.7, next: null, flash: 0 },
-      light: 1, daylight: 1, night: false, hour: START_HOUR, dayIndex: 0, season: "spring",
-      temp: 0, wind: 0, windTarget: 0.1, pads: [], nightGrumps: 0,
-      // transient (not saved)
-      _grumpT: 10, _critT: 5, _fishT: 30, _houseT: 0, _food: 0, _herb: 0, _fish: 0,
-      _inc: [], _heat: [], _fan: [], _cave: null, _pending: []
-    };
-  }
-
-  function refreshCache(world) {
-    world._inc = []; world._heat = []; world._fan = []; world._cave = null;
-    var os = world.objects;
-    for (var i = 0; i < os.length; i++) {
-      var k = os[i].kind;
-      if (k === "incubator") world._inc.push(os[i]);
-      else if (k === "heater") world._heat.push(os[i]);
-      else if (k === "fan") world._fan.push(os[i]);
-      else if (k === "grumpcave" && !world._cave) world._cave = os[i];
-    }
-  }
-  var CACHED = { incubator: 1, heater: 1, fan: 1, grumpcave: 1 };
-
-  function populate(world, game) {
-    var r = rng(game), i, f, o;
-    for (i = 0; i < FIXED.length; i++) {
-      f = FIXED[i];
-      var data = {};
-      if (f.data) for (var k in f.data) data[k] = f.data[k];
-      var P = PLANTS[f.kind];
-      if (P) { data.timer = r.range(5, P.grow); data.stock = f.kind === "appletree" ? 2 : 1; }
-      o = World.add(world, game, f.kind, rx(f.room, f.dx), undefined, data);
-      if (f.kind === "teleporter") world.pads.push(o.id);
-    }
-    for (i = 0; i < LOOSE.length; i++) World.add(world, game, LOOSE[i].kind, rx(LOOSE[i].room, LOOSE[i].dx));
-    for (i = 0; i < CRITTERS.length; i++) for (var n = 0; n < CRITTERS[i].n; n++) spawnCritter(world, game, CRITTERS[i]);
-  }
-
-  World.create = function (game) {
-    var world = blank();
-    World.regen(world, game);
-    populate(world, game);
-    updateClock(world, game, true);
-    world.season = SEASONS[Math.floor(world.dayIndex / 2) % 4];
-    return world;
-  };
-
-  World.add = function (world, game, kind, x, y, data) {
-    var def = K[kind];
-    if (!def) throw new Error("unknown kind " + kind);
-    x = SB.clamp(x, def.r, W - def.r);
-    var rest = y == null;
-    if (rest) y = groundAt(world.ground, x) - def.r;
-    var o = {
-      id: SB.Game.newId(game), kind: kind, noun: def.noun, x: x, y: y, vx: 0, vy: 0, r: def.r,
-      fixed: !!def.fixed, heldBy: null, age: 0, onGround: rest, data: data || {}
-    };
-    if (def.critter) o.data.room = roomIndex(x);
-    world.objects.push(o);
-    if (CACHED[kind]) refreshCache(world);
-    return o;
-  };
-
-  World.remove = function (world, obj) {
-    var i = world.objects.indexOf(obj);
-    if (i < 0) return false;
-    world.objects.splice(i, 1);
-    if (CACHED[obj.kind]) refreshCache(world);
+  W.ignite = function (world, game, n) {
+    if (!n || n.state !== "ok") return false;
+    var def = NK[n.kind];
+    if (def.noun !== "plant" || n.kind === "reeds" || n.kind === "herbs") return false;
+    n.state = "burning"; n.burnT = 25 + game.rng() * 15; n.noun = "fire";
+    markNode(world, n);
+    emit("wildfire", { node: n });
     return true;
   };
-
-  World.near = function (world, x, y, r, filter) {
-    var out = [], os = world.objects, r2 = r * r;
-    for (var i = 0; i < os.length; i++) {
-      var o = os[i], dx = o.x - x, dy = o.y - y;
-      if (dx * dx + dy * dy <= r2 && (!filter || filter(o))) out.push(o);
-    }
-    return out;
-  };
-
-  World.byKind = function (world, kind) {
-    var out = [], os = world.objects;
-    for (var i = 0; i < os.length; i++) if (os[i].kind === kind) out.push(os[i]);
-    return out;
-  };
-
-  /* ---------------- time & weather ---------------- */
-
-  function updateClock(world, game, silent) {
-    var t = game.time / DL + START_HOUR / 24;
-    var di = Math.floor(t), hour = (t - di) * 24;
-    world.hour = hour;
-    world.daylight = dayness(hour);
-    var w = world.weather;
-    var dim = 1 - (1 - (WEATHER_DIM[w.kind] || 1)) * w.intensity;
-    world.light = (0.12 + 0.88 * world.daylight) * dim;
-    world.temp = -0.15 * (1 - world.daylight);
-    var night = hour < 6 || hour >= 20;
-    if (silent) { world.dayIndex = di; world.night = night; return; }
-    if (di !== world.dayIndex) {
-      world.dayIndex = di;
-      world.season = SEASONS[Math.floor(di / 2) % 4];
-      emit("day", { day: di + 1, season: world.season });
-    }
-    if (night !== world.night) {
-      world.night = night;
-      if (night) {
-        world.nightGrumps = 0;
-        world._grumpT = rng(game).range(6, 15);
-        emit("night", { day: di + 1 });
-      } else {
-        var n = world.nightGrumps;
-        if (n > 0) {
-          game.stats.grumpNights = (game.stats.grumpNights || 0) + 1;
-          if (SB.Game && SB.Game.unlock) SB.Game.unlock(game, "grump");
-          if (SB.Game && SB.Game.note) SB.Game.note(game, "Dawn! The grumps slink home. 🌅");
-        }
-        world.nightGrumps = 0;
-        emit("dawn", { day: di + 1, grumps: n });
+  function tickFires(world, game, dt) {
+    var r = game.rng, list = world.burning || (world.burning = []);
+    // wildfire spread (only burning nodes are scanned)
+    for (var i = list.length - 1; i >= 0; i--) {
+      var n = list[i];
+      if (n.state !== "burning") { list.splice(i, 1); continue; }
+      n.burnT -= dt * (1 + world.weather.rain * 2);
+      if (n.burnT <= 0) {
+        n.state = "burnt"; n.noun = "plant"; n.regrowT = 500 + r() * 300;
+        markNode(world, n); list.splice(i, 1);
+        // a burnt tree drops a couple of sticks (and they're charred, but sticks are sticks)
+        for (var s = 0; s < 2; s++) dropFrom(world, game, n, "stick");
+        continue;
+      }
+      var bm = WG.biomeAt(world.T, n.x, n.z);
+      var damp = bm === SB.B.swamp || bm === SB.B.jungle ? 0.3 : bm === SB.B.desert || bm === SB.B.savanna ? 1.6 : 1;
+      if (r() < dt * 0.06 * damp * (1 - world.weather.rain)) {
+        var near = W.nodesNear(world, n.x, n.z, 3.2, function (m) { return m.state === "ok" && NK[m.kind].noun === "plant"; });
+        if (near.length) W.ignite(world, game, r.pick(near));
       }
     }
-  }
-
-  function pickWeather(world, r) {
-    var ws = SEASON_W[Math.floor(world.dayIndex / 2) % 4], x = r(), acc = 0;
-    for (var i = 0; i < ws.length; i++) { acc += ws[i]; if (x < acc) return WEATHER_KINDS[i]; }
-    return "sun";
-  }
-
-  function updateWeather(world, game, dt) {
-    var w = world.weather, r = rng(game);
-    w.t -= dt;
-    if (w.t <= 0 && !w.next) {
-      var nk = pickWeather(world, r);
-      if (nk === w.kind) { w.t = r.range(0.3, 0.6) * DL; w.target = r.range(0.5, 1); }
-      else { w.next = nk; w.target = 0; }
+    // rebuild the fire list (lights, warmth, things to discover fire from)
+    var fires = world.fires;
+    fires.length = 0;
+    for (i = 0; i < list.length; i++) fires.push({ x: list[i].x, z: list[i].z, y: W.heightAt(world, list[i].x, list[i].z) + 1.6, r: 7, heat: 1, ref: list[i], kind: "wild" });
+    var sts = world.structures;
+    for (i = 0; i < sts.length; i++) {
+      var st = sts[i];
+      if (!st.done) continue;
+      if (st.kind === "campfire" || st.kind === "kiln") {
+        var d = st.data;
+        if (d.fuel > 0) {
+          d.fuel = Math.max(0, d.fuel - dt / (st.kind === "kiln" ? 400 : 260) * (1 + world.weather.rain * 0.8));
+          d.lit = d.fuel > 0;
+          if (!d.lit) emit("fireOut", { st: st });
+        }
+        st.noun = d.lit ? "fire" : "material";
+        if (d.lit) fires.push({ x: st.x, z: st.z, y: W.heightAt(world, st.x, st.z) + 0.6, r: st.kind === "kiln" ? 4 : 6 + d.fuel * 3, heat: 0.6 + d.fuel * 0.4, ref: st, kind: st.kind });
+      }
     }
-    if (w.next && w.intensity < 0.05) {
-      w.kind = w.next; w.next = null;
-      w.target = r.range(0.5, 1);
-      w.t = r.range(0.3, 0.6) * DL;
-      world.windTarget = (r() < 0.5 ? -1 : 1) * (w.kind === "storm" ? r.range(0.6, 1) : w.kind === "rain" || w.kind === "snow" ? r.range(0.2, 0.5) : r.range(0, 0.25));
-      emit("weather", { kind: w.kind });
+    var its = world.items;
+    for (i = 0; i < its.length; i++) {
+      var it = its[i];
+      if (it.kind !== "torch") continue;
+      it.data.burn = (it.data.burn == null ? 150 : it.data.burn) - dt * (1 + world.weather.rain);
+      if (it.data.burn <= 0) { transform(world, it, "stick"); continue; }
+      fires.push({ x: it.x, z: it.z, y: it.y + 0.6, r: 4.5, heat: 0.35, ref: it, kind: "torch" });
     }
-    var rate = w.next ? 0.35 : 0.15;
-    w.intensity += (w.target - w.intensity) * Math.min(1, dt * rate);
-    if (w.flash > 0) w.flash = Math.max(0, w.flash - dt * 2.5);
-    if (w.kind === "storm" && w.intensity > 0.4 && r() < dt * 0.12 * w.intensity) {
-      w.flash = 1;
-      emit("thunder", { x: r() * W, power: w.intensity });
+    // regrowth of burnt / chopped trees
+    world._fireT -= dt;
+    if (world._fireT <= 0) {
+      world._fireT = 5;
+      for (i = 0; i < world.nodes.length; i++) {
+        var nn = world.nodes[i];
+        if (nn.state === "burnt" || nn.state === "stump") {
+          nn.regrowT = (nn.regrowT || 400) - 5;
+          if (nn.regrowT <= 0) { nn.state = "ok"; nn.grow = 0; markNode(world, nn); }
+        } else if (nn.grow != null && nn.grow < 1) {
+          nn.grow = Math.min(1, nn.grow + 5 / 300);
+          if (nn.grow >= 1) nn.grow = null;
+          markNode(world, nn);
+        }
+      }
     }
-    world.wind += (world.windTarget - world.wind) * Math.min(1, dt * 0.2);
+    for (i = world.bolts.length - 1; i >= 0; i--) { world.bolts[i].t -= dt; if (world.bolts[i].t <= 0) world.bolts.splice(i, 1); }
   }
+  // warmth from fires at x,z (0..1)
+  W.fireWarmth = function (world, x, z) {
+    var f = world.fires, w = 0;
+    for (var i = 0; i < f.length; i++) {
+      var d = SB.dist(x, z, f[i].x, f[i].z), rr = f[i].kind === "torch" ? 2 : 4.5;
+      if (d < rr) w = Math.max(w, (1 - d / rr) * f[i].heat);
+    }
+    return w;
+  };
+  W.nearestFire = function (world, x, z, maxD) {
+    var f = world.fires, best = null, bd = maxD || 1e9;
+    for (var i = 0; i < f.length; i++) { var d = SB.dist(x, z, f[i].x, f[i].z); if (d < bd) { bd = d; best = f[i]; } }
+    return best;
+  };
+  function markNode(world, n) { if (SB.Render && SB.Render.markDirty) SB.Render.markDirty(n.x, n.z); }
+  W.markNode = markNode;
 
-  function rainy(world) {
-    var k = world.weather.kind;
-    return (k === "rain" || k === "storm") && world.weather.intensity > 0.3;
+  /* ---------------- temperature ---------------- */
+
+  W.tempAt = function (world, x, z) {
+    var T = world.T;
+    var t = WG.tempAt(T, x, z) + W.seasonTemp(world);
+    var tday = (world.time / SB.DAY_LENGTH) % 1;
+    t += Math.sin((tday - 0.3) * Math.PI * 2) * 0.06;
+    t -= world.weather.rain * 0.06 + world.weather.wind * 0.02;
+    t -= Math.max(0, WG.heightAt(T, x, z) - 6) * 0.01;
+    var fw = W.fireWarmth(world, x, z);
+    if (fw > 0) t = t + (0.6 - t) * fw;
+    return SB.clamp01(t);
+  };
+  W.shelterAt = function (world, x, z) {
+    var s = world.structures;
+    for (var i = 0; i < s.length; i++) {
+      var b = s[i];
+      if (!b.done || (b.kind !== "hut" && b.kind !== "observatory" && b.kind !== "workshop")) continue;
+      if (SB.dist(x, z, b.x, b.z) < (SK[b.kind].r + 0.3) * (b.s || 1)) return b;
+    }
+    var nest = world.T.nest;
+    if (nest && SB.dist(x, z, nest.x, nest.z) < 1.0) return nest;
+    return null;
+  };
+
+  /* ---------------- items ---------------- */
+
+  W.add = function (world, game, kind, x, z, data, y) {
+    var def = K[kind];
+    if (!def) throw new Error("unknown item kind " + kind);
+    var gy = W.groundY(world, x, z);
+    var o = {
+      id: SB.Game.newId(game), type: "item", kind: kind, noun: def.noun,
+      x: x, y: y == null ? gy : y, z: z, vx: 0, vy: 0, vz: 0, r: def.r, rot: game.rng() * 6.28,
+      heldBy: null, age: 0, onGround: y == null || y <= gy + 0.01, data: data || {}
+    };
+    world.items.push(o);
+    return o;
+  };
+  W.remove = function (world, o) {
+    var i = world.items.indexOf(o);
+    if (i >= 0) world.items.splice(i, 1);
+    o.gone = true;
+  };
+  function transform(world, o, kind) {
+    o.kind = kind; o.noun = K[kind].noun; o.r = K[kind].r; o.age = 0; o.data = {};
   }
+  W.transform = transform;
+  W.itemById = function (world, id) {
+    var it = world.items;
+    for (var i = 0; i < it.length; i++) if (it[i].id === id) return it[i];
+    return null;
+  };
+  W.structById = function (world, id) {
+    var s = world.structures;
+    for (var i = 0; i < s.length; i++) if (s[i].id === id) return s[i];
+    return null;
+  };
+  W.nodeById = function (world, id) { return world.nodeById[id] || null; };
+  W.toss = function (o, vx, vz, vy) { o.vx = vx; o.vz = vz; o.vy = vy == null ? 4 : vy; o.onGround = false; };
 
-  /* ---------------- spawning ---------------- */
+  function dropFrom(world, game, n, kind) {
+    var r = game.rng, a = r() * 6.283, d = NK[n.kind].r * n.s + r.range(0.2, 0.9);
+    var x = n.x + Math.cos(a) * d, z = n.z + Math.sin(a) * d;
+    if (!W.walkable(world, x, z)) { x = n.x + Math.cos(a) * 0.6; z = n.z + Math.sin(a) * 0.6; }
+    var tall = NK[n.kind].noun === "plant" && n.kind !== "bush" && n.kind !== "reeds" && n.kind !== "herbs" && n.kind !== "cactus";
+    var o = W.add(world, game, kind, x, z, {}, W.groundY(world, x, z) + (tall ? 1.6 * n.s : 0.3));
+    o.onGround = false; o.vx = Math.cos(a) * 0.6; o.vz = Math.sin(a) * 0.6; o.vy = 0.5;
+    if (kind === "shroom" && r.chance(0.3)) transform(world, o, "glowcap");
+    emit("drop", { obj: o, node: n });
+    return o;
+  }
+  W.dropFrom = dropFrom;
 
-  function countShrooms(world, ring) {
-    var n = 0, os = world.objects;
-    for (var i = 0; i < os.length; i++) if (os[i].kind.indexOf("shroom_") === 0 && Math.abs(os[i].x - ring.x) < 150) n++;
+  function itemsNearCount(world, x, z, r, kind) {
+    var n = 0;
+    W.itemsNear(world, x, z, r, function (o) { if (o.kind === kind && o.heldBy == null) n++; });
     return n;
   }
 
-  function canSpawn(world, plant, item, cap) {
-    if (plant.kind === "shroomring") return countShrooms(world, plant) < CAP_SHROOM;
-    if (item === "herb") return world._herb < CAP_HERB;
-    if (isFood(item)) return world._food < cap;
+  // how many loose items of each sort the island can have lying around right now
+  function budgets(world, game) {
+    var smols = 0;
+    for (var i = 0; i < game.creatures.length; i++) if (game.creatures[i].alive && game.creatures[i].species === "smol") smols++;
+    var food = 0, mat = 0, its = world.items;
+    for (i = 0; i < its.length; i++) {
+      var o = its[i];
+      if (o.heldBy != null || K[o.kind].critter) continue;
+      if (o.kind === "nut") mat++;
+      else if (o.noun === "food" || o.noun === "mushroom" || o.noun === "medicine") food++;
+      else if (K[o.kind].mat) mat++;
+    }
+    world._foodRoom = 8 + smols * 4 - food;
+    world._matRoom = 10 + smols * 4 - mat;
+  }
+  function roomFor(world, kind) {
+    var def = K[kind];
+    if (kind === "nut" || def.mat) return world._matRoom > 0;
+    if (def.noun === "food" || def.noun === "mushroom" || def.noun === "medicine") return world._foodRoom > 0;
     return true;
   }
 
-  function spawnFromPlant(world, game, p) {
-    var r = rng(game), k = p.kind, item, x, o;
-    var gy = groundAt(world.ground, p.x);
-    if (k === "shroomring") {
-      item = r() < 0.5 ? "shroom_red" : "shroom_blue";
-      x = p.x + r.range(-46, 46);
-      o = World.add(world, game, item, x);
-    } else if (k === "appletree") {
-      o = World.add(world, game, "apple", p.x + r.range(-28, 28), gy - 95);
-      o.vx = r.range(-20, 20);
-    } else if (k === "berrybush") {
-      o = World.add(world, game, "berry", p.x + r.range(-16, 16), p.y - 8);
-      o.vx = r.range(-70, 70); o.vy = -150;
-    } else {
-      item = K[k].spawns;
-      o = World.add(world, game, item, p.x + r.range(-14, 14), gy - 6);
-      o.vx = r.range(-60, 60); o.vy = -260;
-    }
-    if (isFood(o.kind)) world._food++;
-    if (o.kind === "herb") world._herb++;
-    p.data.stock = Math.max(0, (p.data.stock || 0) - 1);
-    emit("spawn", { obj: o, from: p });
-    return o;
-  }
-
-  // Force a plant to drop something (tutorial: "an apple drops from the tree"). force ignores stock + caps.
-  World.shake = function (world, game, plant, force) {
-    if (!plant || !PLANTS[plant.kind]) return null;
-    plant.data.shake = 0.6;
-    if (!force) {
-      if (!(plant.data.stock > 0)) return null;
-      countStuff(world);
-      if (!canSpawn(world, plant, K[plant.kind].spawns, CAP_FOOD_SHAKE)) return null;
-    }
-    return spawnFromPlant(world, game, plant);
-  };
-
-  function spawnCritter(world, game, spec) {
-    var r = rng(game), R = spec.room * RW, x = R + r.range(80, RW - 80);
-    for (var t = 0; t < 5 && World.inWater(world, x); t++) x = R + r.range(80, RW - 80);
-    var o;
-    if (spec.kind === "butterfly") {
-      o = World.add(world, game, "butterfly", x, groundAt(world.ground, x) - r.range(80, 180), { room: spec.room, t: r() * 10 });
-      o.data.by = o.y;
-    } else {
-      o = World.add(world, game, "beetle", x, undefined, { room: spec.room, dir: r() < 0.5 ? -1 : 1, spd: 20, turnT: 1 });
-    }
-    return o;
-  }
-
-  function fishJump(world, game) {
-    var r = rng(game), wt = world.water[0];
-    if (!wt) return;
-    var x = r.range(wt.x0 + 30, wt.x1 - 30);
-    var toLeft = x - wt.x0 < wt.x1 - x;
-    var edge = toLeft ? wt.x0 - r.range(30, 90) : wt.x1 + r.range(30, 90);
-    var o = World.add(world, game, "fish", x, wt.y - 4);
-    o.vy = -430;
-    o.vx = (edge - x) / (2 * 430 / GRAV);
-    o.data.flop = 3;
-    world._fish++; world._food++;
-    emit("splash", { x: x, y: wt.y, obj: o });
-  }
-
-  /* ---------------- per-tick pieces ---------------- */
-
-  function countStuff(world) {
-    var os = world.objects, f = 0, h = 0, fi = 0;
-    for (var i = 0; i < os.length; i++) {
-      var k = os[i].kind;
-      if (isFood(k)) { f++; if (k === "fish") fi++; }
-      else if (k === "herb") h++;
-    }
-    world._food = f; world._herb = h; world._fish = fi;
-  }
-
-  function physics(world, o, dt) {
-    var bouncy = !!K[o.kind].bouncy, r = o.r;
-    if (o.onGround && o.vx === 0 && o.vy === 0) {
-      var rest = groundAt(world.ground, o.x) - r, wt = World.inWater(world, o.x);
-      if (wt) rest = Math.min(rest, wt.y - r * 0.55);
-      if (Math.abs(o.y - rest) < 0.5 && !(bouncy && Math.abs(World.slope(world, o.x)) > 0.06)) return;
-    }
-    o.vy += GRAV * dt;
-    if (o.vy > MAXV) o.vy = MAXV; else if (o.vy < -MAXV) o.vy = -MAXV;
-    if (o.vx > MAXV) o.vx = MAXV; else if (o.vx < -MAXV) o.vx = -MAXV;
-    o.x += o.vx * dt;
-    o.y += o.vy * dt;
-    if (o.x < r) { o.x = r; o.vx = Math.abs(o.vx) * 0.5; }
-    else if (o.x > W - r) { o.x = W - r; o.vx = -Math.abs(o.vx) * 0.5; }
-    if (o.y < r) { o.y = r; if (o.vy < 0) o.vy = 0; }
-    var floor = groundAt(world.ground, o.x) - r, water = World.inWater(world, o.x);
-    if (water) floor = Math.min(floor, water.y - r * 0.55); // things float
-    if (o.y >= floor) {
-      o.y = floor;
-      if (bouncy && o.vy > 140) {
-        if (o.vy > 260) emit("bounce", { obj: o, v: o.vy });
-        o.vy = -o.vy * 0.62; o.vx *= 0.92; o.onGround = false;
-      } else {
-        if (!o.onGround && o.vy > 500) emit("thud", { obj: o, v: o.vy });
-        o.vy = 0; o.onGround = true;
-        if (bouncy && !water) {
-          var sl = World.slope(world, o.x);
-          o.vx += sl * GRAV * 0.35 * dt;
-          o.vx *= 1 - Math.min(1, 0.8 * dt);
-          if (Math.abs(o.vx) < 4 && Math.abs(sl) < 0.06) o.vx = 0;
-        } else {
-          o.vx *= Math.max(0, 1 - (water ? 2 : 8) * dt);
-          if (Math.abs(o.vx) < 3) o.vx = 0;
+  function tickNodes(world, game, dt) {
+    budgets(world, game);
+    var r = game.rng, rainBoost = 1 + world.weather.rain * 0.8;
+    var winter = world.season === 3, spring = world.season === 0;
+    var nodes = world.nodes, n0 = world._nodeCursor || 0, cnt = Math.min(nodes.length, 120);
+    // nodes are ticked in slices (each node ~ every 0.5-1 s), with the elapsed time scaled up to match
+    var sdt = dt * nodes.length / cnt;
+    // only the parts of the island where someone is (smols, or you) grow stuff; elsewhere time "waits"
+    var act = world._active || (world._active = []);
+    act.length = 0;
+    var cs = game.creatures;
+    for (var a = 0; a < cs.length && act.length < 24; a++) if (cs[a].alive && cs[a].species === "smol") act.push(cs[a].x, cs[a].z);
+    if (game.focus) act.push(game.focus.x, game.focus.z);
+    for (var k = 0; k < cnt; k++) {
+      var n = nodes[(n0 + k) % nodes.length];
+      var def = NK[n.kind];
+      if (!def.drops || n.state !== "ok" || (n.grow != null && n.grow < 1)) continue;
+      var on = false;
+      for (var q = 0; q < act.length; q += 2) { var ddx = n.x - act[q], ddz = n.z - act[q + 1]; if (ddx * ddx + ddz * ddz < 1600) { on = true; break; } }
+      if (!on) continue;
+      var plant = def.noun === "plant";
+      var g = plant ? rainBoost * (winter ? 0.35 : spring ? 1.3 : 1) : 1;
+      n.dropT -= sdt * g;
+      if (n.dropT <= 0) {
+        n.dropT = def.every * r.range(0.7, 1.4);
+        if (world.items.length < CAP_ITEMS && roomFor(world, def.drops) && itemsNearCount(world, n.x, n.z, 4, def.drops) < CAP_FOOD_NEAR) { dropFrom(world, game, n, def.drops); if (K[def.drops].mat || def.drops === "nut") world._matRoom--; else world._foodRoom--; }
+      }
+      if (def.also) {
+        n.alsoT -= sdt;
+        if (n.alsoT <= 0) {
+          n.alsoT = def.every * r.range(1.6, 3);
+          if (world.items.length < CAP_ITEMS && roomFor(world, def.also) && itemsNearCount(world, n.x, n.z, 4, def.also) < 2) { dropFrom(world, game, n, def.also); world._matRoom--; }
         }
       }
+    }
+    world._nodeCursor = (n0 + cnt) % nodes.length;
+  }
+  // shake a plant (play / poke): drop something now if it has anything
+  W.shake = function (world, game, n, force) {
+    var def = NK[n.kind];
+    if (!def || !def.drops || n.state !== "ok") return null;
+    if (!force && n.kind === "palm") return null; // too tall without a poke stick
+    if (!force && n.dropT > def.every * 0.6) { n.dropT -= def.every * 0.15; return null; }
+    if (itemsNearCount(world, n.x, n.z, 4, def.drops) >= CAP_FOOD_NEAR + 1) return null;
+    n.dropT = def.every * game.rng.range(0.7, 1.2);
+    return dropFrom(world, game, n, def.drops);
+  };
+
+  function physics(world, o, dt) {
+    if (o.onGround && !o.vx && !o.vz) {
+      // settle on the ground (it might have been dropped onto a slope or into water)
+      var gy0 = W.groundY(world, o.x, o.z);
+      if (Math.abs(o.y - gy0) > 0.01) o.y += (gy0 - o.y) * Math.min(1, dt * 10);
+      if (WG.depthAt(world.T, o.x, o.z) > 0.3) { o.y = gy0 + Math.sin(world.time * 2 + o.id) * 0.03; }
+      return;
+    }
+    o.vy -= GRAV * dt;
+    var nx = o.x + o.vx * dt, nz = o.z + o.vz * dt;
+    if (!W.inBounds(world, nx, nz)) { o.vx = -o.vx * 0.5; o.vz = -o.vz * 0.5; nx = o.x; nz = o.z; }
+    o.x = nx; o.z = nz; o.y += o.vy * dt;
+    var gy = W.groundY(world, o.x, o.z);
+    if (o.y <= gy) {
+      o.y = gy;
+      var bouncy = K[o.kind].bouncy;
+      if (bouncy && o.vy < -2) { o.vy = -o.vy * 0.55; o.vx *= 0.8; o.vz *= 0.8; }
+      else { o.vy = 0; o.vx *= 0.5; o.vz *= 0.5; if (Math.abs(o.vx) + Math.abs(o.vz) < 0.15) { o.vx = 0; o.vz = 0; o.onGround = true; } }
+      if (WG.depthAt(world.T, o.x, o.z) > 0.3) { o.vx *= 0.9; o.vz *= 0.9; }
     } else o.onGround = false;
   }
 
-  function threatNear(game, x, y, r) {
-    var cs = game.creatures, best = null, bd = r * r;
-    for (var i = 0; i < cs.length; i++) {
-      var c = cs[i];
-      if (!c.alive) continue;
-      var dx = c.x - x, dy = c.y - 20 - y, d2 = dx * dx + dy * dy;
-      if (d2 < bd) { bd = d2; best = c; }
+  /* ---------------- critters ---------------- */
+  function tickCritter(world, game, o, dt) {
+    var d = o.data, def = K[o.kind], r = game.rng;
+    d.t = (d.t || 0) - dt;
+    d.flee = Math.max(0, (d.flee || 0) - dt);
+    var gy = W.heightAt(world, o.x, o.z);
+    if (def.critter === "fly") {
+      if (d.t <= 0 || d.tx == null) { d.t = r.range(1.5, 4); d.tx = o.x + r.range(-4, 4); d.tz = o.z + r.range(-4, 4); }
+      var sp = d.flee > 0 ? 3 : 1.2;
+      var dx = d.tx - o.x, dz = d.tz - o.z, l = Math.hypot(dx, dz) || 1;
+      if (l > 0.2 && W.inBounds(world, o.x + dx / l * sp * dt, o.z + dz / l * sp * dt)) { o.x += dx / l * sp * dt; o.z += dz / l * sp * dt; o.rot = Math.atan2(dx, dz); }
+      o.y = gy + 0.7 + Math.sin(world.time * 3 + o.id) * 0.25;
+      o.onGround = false;
+    } else if (def.critter === "crawl") {
+      if (d.t <= 0) { d.t = r.range(1, 3); d.dir = r() * 6.283; d.go = r.chance(0.6); }
+      if (d.go || d.flee > 0) {
+        var s2 = d.flee > 0 ? 1.6 : 0.4, nx = o.x + Math.sin(d.dir) * s2 * dt, nz = o.z + Math.cos(d.dir) * s2 * dt;
+        if (W.walkable(world, nx, nz)) { o.x = nx; o.z = nz; o.rot = d.dir; } else d.dir += 2;
+      }
+      o.y = W.groundY(world, o.x, o.z); o.onGround = true;
+    } else if (def.critter === "hop") {
+      d.hop = Math.max(0, (d.hop || 0) - dt);
+      if (d.t <= 0) {
+        d.t = r.range(0.8, 2.5);
+        // flee from smols nearby
+        var threat = null;
+        W.creaturesNear(world, game, o.x, o.z, 5, function (c) { if (c.alive) threat = c; });
+        if (threat) { d.dir = Math.atan2(o.x - threat.x, o.z - threat.z) + r.range(-0.5, 0.5); d.flee = 2; d.t = 0.5; }
+        else d.dir = r() * 6.283;
+        d.hop = 0.45;
+      }
+      if (d.hop > 0) {
+        var s3 = d.flee > 0 ? 4.5 : 2, hx = o.x + Math.sin(d.dir) * s3 * dt, hz = o.z + Math.cos(d.dir) * s3 * dt;
+        if (W.walkable(world, hx, hz)) { o.x = hx; o.z = hz; o.rot = d.dir; } else d.dir += 2.5;
+        o.y = W.groundY(world, o.x, o.z) + Math.sin(d.hop / 0.45 * Math.PI) * 0.35;
+      } else o.y = W.groundY(world, o.x, o.z);
+      o.onGround = true;
     }
-    return best;
   }
-
-  function critterRoom(o) {
-    var d = o.data;
-    if (d.room == null || o.x < d.room * RW - 40 || o.x > (d.room + 1) * RW + 40) d.room = roomIndex(o.x);
-    return d.room * RW;
-  }
-
-  function tickFly(world, game, o, dt) {
-    var d = o.data, r = rng(game);
-    if (!(d.t >= 0)) d.t = r() * 10;
-    d.t += dt;
-    var R = critterRoom(o), lo = R + 30, hi = R + RW - 30;
-    var gy = groundAt(world.ground, o.x) - o.r;
-    var th = threatNear(game, o.x, o.y, 75);
-    if (th) {
-      var s = o.x >= th.x ? 1 : -1;
-      d.landed = 0; d.flee = 1.2;
-      d.tx = SB.clamp(o.x + s * 220, lo, hi);
-      d.ty = gy - 130;
-    }
-    if (d.landed > 0) {
-      d.landed -= dt;
-      o.vx = 0;
-      o.y += (gy - o.y) * Math.min(1, 4 * dt);
-      d.by = o.y;
-      if (d.landed <= 0 && (world.night || rainy(world))) d.landed = 3;
-      return;
-    }
-    if (d.tx == null || Math.abs(d.tx - o.x) < 15 || r() < dt * 0.15) {
-      d.tx = r.range(lo, hi);
-      d.ty = groundAt(world.ground, d.tx) - r.range(45, 200);
-    }
-    var sp = d.flee > 0 ? 150 : 50, want = d.tx > o.x ? sp : -sp;
-    o.vx += (want - o.vx) * Math.min(1, 2.5 * dt) + world.wind * 20 * dt;
-    o.x += o.vx * dt;
-    if (o.x < lo) { o.x = lo; o.vx = Math.abs(o.vx); }
-    else if (o.x > hi) { o.x = hi; o.vx = -Math.abs(o.vx); }
-    if (!(d.by >= 0)) d.by = o.y;
-    d.by += (d.ty - d.by) * Math.min(1, 1.2 * dt);
-    o.y = d.by + Math.sin(d.t * 7) * 7;
-    if (o.y > gy) o.y = gy;
-    if (o.y < 15) o.y = 15;
-    o.vy = 0; o.onGround = false;
-    if (!(d.flee > 0) && (world.night || r() < dt * 0.04 || (rainy(world) && r() < dt * 0.3))) d.landed = r.range(3, 7);
-  }
-
-  function tickCrawl(world, game, o, dt) {
-    var d = o.data, r = rng(game);
-    var gy = groundAt(world.ground, o.x) - o.r;
-    if (o.y < gy - 3 || o.vy < 0) o.onGround = false;
-    if (!o.onGround) { physics(world, o, dt); return; } // thrown or dropped
-    var R = critterRoom(o), lo = R + 20, hi = R + RW - 20;
-    var th = threatNear(game, o.x, o.y, 60);
-    if (th) { d.dir = o.x >= th.x ? 1 : -1; d.flee = 0.8; d.spd = 110; }
-    else if (!(d.flee > 0)) {
-      d.turnT = (d.turnT || 0) - dt;
-      if (d.turnT <= 0) {
-        d.turnT = r.range(1.5, 5);
-        d.dir = r() < 0.5 ? -1 : 1;
-        d.spd = r() < 0.25 ? 0 : r.range(14, 34);
+  function spawnCritters(world, game) {
+    var r = game.rng, smols = game.creatures.filter(function (c) { return c.alive && c.species === "smol"; });
+    var focus = smols.length ? r.pick(smols) : game.focus || world.T.spawn;
+    var counts = { butterfly: 0, beetle: 0, hopper: 0 };
+    world.items.forEach(function (o) { if (counts[o.kind] != null) counts[o.kind]++; });
+    var cap = { butterfly: world.night || world.season === 3 ? 0 : 10, beetle: 8, hopper: world.season === 3 ? 3 : 7 };
+    for (var k in cap) {
+      if (counts[k] >= cap[k]) continue;
+      for (var tries = 0; tries < 6; tries++) {
+        var a = r() * 6.283, d = r.range(8, 22), x = focus.x + Math.cos(a) * d, z = focus.z + Math.sin(a) * d;
+        if (!W.walkable(world, x, z) || WG.depthAt(world.T, x, z) > 0.05) continue;
+        var bm = WG.biomeAt(world.T, x, z);
+        if (k === "hopper" && (bm === SB.B.desert || bm === SB.B.mountain)) continue;
+        W.add(world, game, k, x, z, {});
+        break;
       }
     }
-    o.vx = (d.dir || 1) * (d.spd || 0);
-    var nx = o.x + o.vx * dt;
-    if (nx < lo || nx > hi || World.inWater(world, nx)) { d.dir = -(d.dir || 1); nx = SB.clamp(o.x, o.r, W - o.r); }
-    o.x = nx;
-    o.y = groundAt(world.ground, o.x) - o.r;
-    o.vy = 0;
   }
 
-  function tickPlant(world, game, o, dt) {
-    var P = PLANTS[o.kind], d = o.data, r = rng(game);
-    var rate = rainy(world) && roomIndex(o.x) !== RI.lab ? 2 : 1;
-    if (!(d.stock >= 0)) d.stock = 0;
-    if (!(d.timer >= 0)) d.timer = P.grow;
-    if (d.stock < P.max) {
-      d.timer -= dt * rate;
-      if (d.timer <= 0) { d.timer = P.grow * r.range(0.8, 1.2); d.stock++; }
-    }
-    if (d.stock > 0 && r() < P.drop * dt * rate && canSpawn(world, o, K[o.kind].spawns, CAP_FOOD)) spawnFromPlant(world, game, o);
-  }
+  /* ---------------- eggs ---------------- */
 
+  W.warmEgg = function (world, game, egg, amount) {
+    if (!egg || egg.kind !== "egg") return 0;
+    var d = egg.data;
+    var amt = amount != null ? amount : d.starter ? 0.24 : 0.05;
+    d.progress = Math.min(1, (d.progress || 0) + amt);
+    d.wobble = 1;
+    emit("eggWarm", { obj: egg, progress: d.progress });
+    return d.progress;
+  };
   function tickEgg(world, game, o, dt) {
     var d = o.data;
-    if (!(d.progress >= 0)) d.progress = 0;
-    var rate = 0, warmth = 0, inInc = false, i;
-    for (i = 0; i < world._inc.length; i++) {
-      var inc = world._inc[i];
-      if (Math.abs(o.x - inc.x) < inc.r + 26 && Math.abs(o.y - inc.y) < 60) { inInc = true; break; }
-    }
-    if (d.starter) {
-      // tutorial pacing: only the hand (or cuddles) hatch it; the incubator makes it glow and wobble invitingly
-      if (inInc) warmth = 0.5;
-      d.hintT = (d.hintT || 0) + dt;
-      if (d.hintT > 3.5) { d.hintT = 0; if (d.wobble < 0.45) d.wobble = 0.45; }
-    } else {
-      if (o.heldBy) { /* carried: base rate only */ } else if (inInc) { rate = 1 / 75; warmth = 1; }
-      else {
-        for (i = 0; i < world._heat.length; i++) if (Math.abs(o.x - world._heat[i].x) < 170) { rate = 1 / 200; warmth = 0.6; break; }
-        if (!rate) {
-          var t = World.tempAt(world, o.x);
-          if (t > 0.45) { rate = (t - 0.45) / 0.55 / 500; warmth = t * 0.3; }
-        }
-      }
-    }
-    if (!d.starter && rate < 1 / 900) rate = 1 / 900; // every egg hatches eventually
-    d.progress = Math.min(1, d.progress + rate * dt);
-    d.warmth = (d.warmth || 0) + (warmth - (d.warmth || 0)) * Math.min(1, dt * 2);
-    d.wobble = (d.wobble || 0) * Math.max(0, 1 - 1.5 * dt);
-    if (rate > 0) { var base = 0.1 + 0.4 * d.progress * d.progress; if (d.wobble < base) d.wobble = base; }
+    d.wobble = Math.max(0, (d.wobble || 0) - dt * 1.5);
+    if (d.starter && !d.progress) return; // the very first egg waits for you
+    var warm = 0.004;
+    if (W.shelterAt(world, o.x, o.z)) warm += 0.008;
+    warm += W.fireWarmth(world, o.x, o.z) * 0.012;
+    if (o.heldBy === "hand") warm += 0.006;
+    if (W.tempAt(world, o.x, o.z) < 0.25) warm *= 0.5;
+    d.progress = Math.min(1, (d.progress || 0) + warm * dt * (d.starter ? 3 : 1));
+    if (Math.random() < dt * 0.3 * d.progress) d.wobble = 0.6;
     if (d.progress >= 1) world._pending.push(o);
   }
 
-  var TIMERS = ["playing", "spin", "pop", "on", "boing", "shake", "zap", "flee", "flop", "wordT"];
-  function decayTimers(d, dt) {
-    for (var i = 0; i < TIMERS.length; i++) {
-      var k = TIMERS[i];
-      if (d[k] > 0) { d[k] -= dt; if (d[k] < 0) d[k] = 0; }
+  /* ---------------- spatial lookups ---------------- */
+
+  function rebuildItemGrid(world) {
+    var gn = world.gridN, grid = world.itemGrid;
+    if (!grid) { grid = world.itemGrid = new Array(gn * gn); for (var i = 0; i < grid.length; i++) grid[i] = []; }
+    else for (i = 0; i < grid.length; i++) grid[i].length = 0;
+    var its = world.items;
+    for (i = 0; i < its.length; i++) grid[cellOf(its[i].x, its[i].z, gn)].push(its[i]);
+  }
+  W.rebuildCreatureGrid = function (world, game) {
+    var gn = world.gridN, grid = world.creatureGrid;
+    if (!grid) { grid = world.creatureGrid = new Array(gn * gn); for (var i = 0; i < grid.length; i++) grid[i] = []; }
+    else for (i = 0; i < grid.length; i++) grid[i].length = 0;
+    var cs = game.creatures;
+    for (i = 0; i < cs.length; i++) if (cs[i].alive) grid[cellOf(cs[i].x, cs[i].z, gn)].push(cs[i]);
+  };
+  function scan(grid, gn, x, z, r, fn) {
+    if (!grid) return;
+    var c0 = SB.clamp(((x - r) / CELL) | 0, 0, gn - 1), c1 = SB.clamp(((x + r) / CELL) | 0, 0, gn - 1);
+    var r0 = SB.clamp(((z - r) / CELL) | 0, 0, gn - 1), r1 = SB.clamp(((z + r) / CELL) | 0, 0, gn - 1);
+    var r2 = r * r;
+    for (var j = r0; j <= r1; j++) for (var i = c0; i <= c1; i++) {
+      var L = grid[j * gn + i];
+      for (var k = 0; k < L.length; k++) { var o = L[k], dx = o.x - x, dz = o.z - z; if (dx * dx + dz * dz <= r2) fn(o, dx * dx + dz * dz); }
     }
   }
+  // fn(item, d2) for items within r. Returns an array when no fn is given.
+  W.itemsNear = function (world, x, z, r, fn) {
+    if (fn) { scan(world.itemGrid, world.gridN, x, z, r, fn); return; }
+    var out = [];
+    scan(world.itemGrid, world.gridN, x, z, r, function (o) { out.push(o); });
+    return out;
+  };
+  W.nodesNear = function (world, x, z, r, filter) {
+    var out = [];
+    scan(world.nodeGrid, world.gridN, x, z, r, function (n) { if (!filter || filter(n)) out.push(n); });
+    return out;
+  };
+  W.eachNodeNear = function (world, x, z, r, fn) { scan(world.nodeGrid, world.gridN, x, z, r, fn); };
+  W.creaturesNear = function (world, game, x, z, r, fn) { scan(world.creatureGrid, world.gridN, x, z, r, fn); };
+  W.structsNear = function (world, x, z, r, filter) {
+    var out = [], s = world.structures, r2 = r * r;
+    for (var i = 0; i < s.length; i++) if (SB.dist2(s[i].x, s[i].z, x, z) <= r2 && (!filter || filter(s[i]))) out.push(s[i]);
+    return out;
+  };
+  W.nearestNode = function (world, x, z, r, filter) {
+    var best = null, bd = 1e9;
+    scan(world.nodeGrid, world.gridN, x, z, r, function (n, d2) { if (d2 < bd && (!filter || filter(n))) { bd = d2; best = n; } });
+    return best;
+  };
+  W.nearestItem = function (world, x, z, r, filter) {
+    var best = null, bd = 1e9;
+    scan(world.itemGrid, world.gridN, x, z, r, function (o, d2) { if (d2 < bd && (!filter || filter(o))) { bd = d2; best = o; } });
+    return best;
+  };
+  W.near = function (world, x, z, r, filter) { // v1-compatible: items only
+    var out = [];
+    scan(world.itemGrid, world.gridN, x, z, r, function (o) { if (!filter || filter(o)) out.push(o); });
+    return out;
+  };
+  W.byKind = function (world, kind) { return world.items.filter(function (o) { return o.kind === kind; }); };
 
-  function housekeeping(world, game) {
-    var os = world.objects;
-    for (var i = os.length - 1; i >= 0; i--) {
-      var o = os[i];
-      if (typeof o.heldBy === "number") {
-        var c = null, cs = game.creatures;
-        for (var j = 0; j < cs.length; j++) if (cs[j].id === o.heldBy) { c = cs[j]; break; }
-        if (!c || !c.alive) { o.heldBy = null; o.onGround = false; }
+  /* ---------------- structures ---------------- */
+
+  W.addStructure = function (world, game, kind, x, z, opts) {
+    opts = opts || {};
+    var def = SK[kind];
+    var need = {};
+    for (var k in def.cost) need[k] = def.cost[k];
+    var st = {
+      id: SB.Game.newId(game), type: "struct", kind: kind, noun: opts.done ? def.noun : "material",
+      x: x, z: z, rot: opts.rot != null ? opts.rot : game.rng() * 6.283, s: 1,
+      done: !!opts.done, work: 0, need: opts.done ? {} : need, tribe: opts.tribe == null ? 0 : opts.tribe,
+      builders: [], data: opts.data || {}, born: game.time, name: opts.name || null
+    };
+    if (kind === "campfire" || kind === "kiln") { st.data.fuel = st.data.fuel == null ? (opts.done ? 0.7 : 0) : st.data.fuel; st.data.lit = st.data.fuel > 0; }
+    if (kind === "farm") st.data.grow = st.data.grow || 0;
+    if (kind === "totem") st.data.ideas = st.data.ideas || {};
+    world.structures.push(st);
+    if (st.done) { st.noun = def.noun; emit("built", { st: st }); }
+    markNode(world, st);
+    return st;
+  };
+  W.removeStructure = function (world, st) {
+    var i = world.structures.indexOf(st);
+    if (i >= 0) world.structures.splice(i, 1);
+    markNode(world, st);
+  };
+  W.siteFree = function (world, x, z, rad) {
+    if (!W.walkable(world, x, z) || WG.depthAt(world.T, x, z) > 0.02 || WG.slopeAt(world.T, x, z) > 0.9) return false;
+    var blocked = false;
+    W.eachNodeNear(world, x, z, rad + 0.8, function (n) { if (n.kind !== "herbs") blocked = true; });
+    if (blocked) return false;
+    var s = world.structures;
+    for (var i = 0; i < s.length; i++) if (SB.dist(x, z, s[i].x, s[i].z) < rad + SK[s[i].kind].r + 0.6) return false;
+    return true;
+  };
+  function tickStructures(world, game, dt) {
+    var sts = world.structures;
+    for (var i = 0; i < sts.length; i++) {
+      var st = sts[i];
+      if (!st.done) continue;
+      if (st.kind === "farm") {
+        var mill = W.structsNear(world, st.x, st.z, 10, function (s) { return s.kind === "windmill" && s.done; }).length;
+        var g0 = st.data.grow;
+        st.data.grow = Math.min(1, g0 + dt / 200 * (1 + world.weather.rain) * (world.season === 3 ? 0.2 : 1) * (1 + mill * 0.8));
+        if ((st.data.grow * 4 | 0) !== (g0 * 4 | 0)) markNode(world, st);
+        if (st.data.grow >= 1 && itemsNearCount(world, st.x, st.z, 2.5, "grain") < 3) {
+          st.data.grow = 0.15; markNode(world, st);
+          var a = game.rng() * 6.283;
+          W.add(world, game, "grain", st.x + Math.cos(a) * 1.3, st.z + Math.sin(a) * 1.3, {});
+          if (game.rng.chance(0.35)) W.add(world, game, "seed", st.x - Math.cos(a) * 1.3, st.z - Math.sin(a) * 1.3, {});
+        }
       }
-      if (!isFinite(o.x) || !isFinite(o.y)) { o.x = SB.HOME_X; o.y = 100; o.vx = o.vy = 0; o.onGround = false; }
     }
   }
 
   /* ---------------- tick ---------------- */
 
-  World.tick = function (world, dt, game) {
-    var r = rng(game), i;
-    updateClock(world, game, false);
+  W.tick = function (world, dt, game) {
+    world.time = game.time;
+    updateClock(world, game, dt);
     updateWeather(world, game, dt);
-    countStuff(world);
+    rebuildItemGrid(world);
+    tickNodes(world, game, dt);
+    tickFires(world, game, dt);
+    tickStructures(world, game, dt);
 
-    var os = world.objects;
-    for (i = os.length - 1; i >= 0; i--) {
-      var o = os[i];
+    var its = world.items, i;
+    for (i = its.length - 1; i >= 0; i--) {
+      var o = its[i];
       if (!o) continue;
       var def = K[o.kind], d = o.data;
       o.age += dt;
-      decayTimers(d, dt);
       if (def.rots) {
-        if (o.age > def.rots * 1.5 && o.heldBy == null) {
-          World.remove(world, o);
-          if (isFood(o.kind)) world._food--;
-          else if (o.kind === "herb") world._herb--;
-          continue;
-        }
+        if (o.age > def.rots * 1.6 && o.heldBy == null) { W.remove(world, o); continue; }
         if (o.age > def.rots && !d.rotten) d.rotten = true;
       }
-      if (o.fixed) { if (PLANTS[o.kind]) tickPlant(world, game, o, dt); continue; }
       if (o.heldBy != null) continue;
-      if (def.critter === "fly") tickFly(world, game, o, dt);
-      else if (def.critter === "crawl") tickCrawl(world, game, o, dt);
+      if (def.mat && o.age > 900 && !o.data.keep && Math.random() < dt * 0.01) { W.remove(world, o); continue; }
+      if (def.critter) tickCritter(world, game, o, dt);
       else physics(world, o, dt);
       if (o.kind === "egg") tickEgg(world, game, o, dt);
     }
-    // eggs held by the hand still count warmEgg progress; hatch any that are ready
-    for (i = 0; i < os.length; i++) if (os[i].kind === "egg" && os[i].heldBy != null && os[i].data.progress >= 1) world._pending.push(os[i]);
+    for (i = 0; i < its.length; i++) if (its[i].kind === "egg" && its[i].heldBy != null && its[i].data.progress >= 1) world._pending.push(its[i]);
     var pend = world._pending;
     for (i = 0; i < pend.length; i++) {
       var egg = pend[i];
-      if (os.indexOf(egg) < 0) continue;
-      if (egg.heldBy === "hand" && game.hand && game.hand.heldId === egg.id) { game.hand.heldId = null; game.hand.heldType = null; }
+      if (egg.gone || its.indexOf(egg) < 0) continue;
+      if (egg.heldBy === "hand" && game.hand && game.hand.heldId === egg.id) { game.hand.heldId = null; }
+      if (egg.heldBy != null && egg.heldBy !== "hand") { var hc = SB.Game.byId(game, egg.heldBy); if (hc) SB.Creature.release(hc, egg); }
       egg.heldBy = null;
-      if (SB.Game && SB.Game.hatch) SB.Game.hatch(game, egg); else World.remove(world, egg);
+      if (SB.Game && SB.Game.hatch) SB.Game.hatch(game, egg); else W.remove(world, egg);
     }
     pend.length = 0;
 
-    // critter populations
     world._critT -= dt;
-    if (world._critT <= 0) {
-      world._critT = r.range(12, 20);
-      for (i = 0; i < CRITTERS.length; i++) {
-        var spec = CRITTERS[i];
-        if (spec.kind === "butterfly" && world.night) continue;
-        var n = 0;
-        for (var j = 0; j < os.length; j++) if (os[j].kind === spec.kind && roomIndex(os[j].x) === spec.room) n++;
-        if (n < spec.n) spawnCritter(world, game, spec);
-      }
-    }
+    if (world._critT <= 0) { world._critT = game.rng.range(8, 14); spawnCritters(world, game); }
 
-    // fish
-    world._fishT -= dt;
-    if (world._fishT <= 0) {
-      world._fishT = r.range(25, 55);
-      if (world._fish < CAP_FISH && world._food < CAP_FOOD) fishJump(world, game);
-    }
-
-    // grumps
-    if (world.night && world._cave && SB.Game && SB.Game.spawnGrump && ((game.tutorial && game.tutorial.done) || world.dayIndex >= 1)) {
+    // grump nights
+    if (world.night && world.T.caves.length && SB.Game.spawnGrump && (game.tutorial.done || world.dayIndex >= 1)) {
       world._grumpT -= dt;
       if (world._grumpT <= 0) {
-        world._grumpT = r.range(18, 26);
-        var max = Math.min(1 + Math.floor(world.dayIndex / 2), 3), alive = 0, cs = game.creatures;
-        for (i = 0; i < cs.length; i++) if (cs[i].alive && cs[i].species === "grump") alive++;
-        if (alive < max && world.nightGrumps < max * 2) {
-          if (world.nightGrumps === 0 && SB.Game.note) SB.Game.note(game, "Something stirs in Grump Hollow… 👺");
-          world.nightGrumps++;
-          SB.Game.spawnGrump(game, world._cave.x + r.range(-10, 10));
+        world._grumpT = game.rng.range(20, 30);
+        var smols = game.creatures.filter(function (c) { return c.alive && c.species === "smol"; });
+        var max = Math.min(1 + Math.floor(world.dayIndex / 2) + Math.floor(smols.length / 6), 5), alive = 0;
+        game.creatures.forEach(function (c) { if (c.alive && c.species === "grump") alive++; });
+        if (smols.length && alive < max && world.nightGrumps < max * 2) {
+          // the cave nearest to the smols
+          var target = smols[0], cave = null, cd = 1e9;
+          world.T.caves.forEach(function (cv) { var d = SB.dist(cv.x, cv.z, target.x, target.z); if (d < cd) { cd = d; cave = cv; } });
+          if (cave) {
+            var sx = cave.x, sz = cave.z;
+            // a grump from a faraway cave sneaks closer first (it's been walking for a while)
+            if (cd > 45) { var k = (cd - 40) / cd; sx = cave.x + (target.x - cave.x) * k; sz = cave.z + (target.z - cave.z) * k; }
+            if (world.nightGrumps === 0) SB.Game.note(game, "something stirs in the dark… 👺");
+            world.nightGrumps++;
+            SB.Game.spawnGrump(game, sx + game.rng.range(-2, 2), sz + game.rng.range(-2, 2));
+          }
         }
       }
     }
 
     world._houseT -= dt;
-    if (world._houseT <= 0) { world._houseT = 2; housekeeping(world, game); }
+    if (world._houseT <= 0) { world._houseT = 3; housekeeping(world, game); }
   };
 
-  /* ---------------- eggs ---------------- */
-
-  World.warmEgg = function (world, game, egg, amount) {
-    if (!egg || egg.kind !== "egg") return 0;
-    var d = egg.data;
-    var amt = amount != null ? amount : d.starter ? 0.22 : 0.05;
-    d.progress = Math.min(1, (d.progress || 0) + amt);
-    d.wobble = 1;
-    d.warmth = Math.max(d.warmth || 0, 0.8);
-    emit("eggWarm", { obj: egg, progress: d.progress });
-    return d.progress;
-  };
-
-  /* ---------------- using things ---------------- */
-
-  function releaseFrom(game, obj) {
-    var h = obj.heldBy;
-    if (h == null) return;
-    if (h === "hand") { if (game.hand && game.hand.heldId === obj.id) { game.hand.heldId = null; game.hand.heldType = null; } }
-    else {
-      var cs = game.creatures;
-      for (var i = 0; i < cs.length; i++) if (cs[i].id === h && cs[i].holding === obj.id) cs[i].holding = null;
+  function housekeeping(world, game) {
+    // too many things lying around: the oldest rotten food goes first
+    var its = world.items;
+    if (its.length > CAP_ITEMS) {
+      var loose = its.filter(function (o) { return o.heldBy == null && o.kind !== "egg" && !K[o.kind].tool; });
+      loose.sort(function (a, b) { return (b.data.rotten ? 1e6 : 0) + b.age - ((a.data.rotten ? 1e6 : 0) + a.age); });
+      for (var i = 0; i < its.length - CAP_ITEMS && i < loose.length; i++) W.remove(world, loose[i]);
     }
-    obj.heldBy = null;
+    // fading paths
+    var wr = world.wear;
+    for (var k = 0; k < 400; k++) { var t = (Math.random() * wr.length) | 0; if (wr[t] > 0) wr[t]--; }
   }
 
-  function addTo(dst, src, mul) {
-    if (!src) return;
-    for (var k in src) dst[k] = (dst[k] || 0) + src[k] * (mul == null ? 1 : mul);
-  }
-
-  function machineSpawn(world, game, obj, c, item, res) {
-    var d = obj.data;
-    if (game.time < (d.readyAt || 0)) { res.msg = "empty"; return; }
-    countStuff(world);
-    if (isFood(item) && world._food >= CAP_FOOD_MACHINE) { res.msg = "full"; return; }
-    var s = c ? sign(c.x - obj.x) : 1;
-    var o = World.add(world, game, item, obj.x + s * 10, obj.y - 12);
-    o.vx = s * 140; o.vy = -320;
-    d.readyAt = game.time + MACHINE_COOL[obj.kind];
-    d.pop = 0.6;
-    emit("spawn", { obj: o, from: obj });
-  }
-
-  function teachWord(c, r) {
-    var pool = SB.VERB_WORDS.concat(SB.DRIVE_WORDS), fresh = [];
-    var vocab = (c && c.vocab) || {};
-    for (var i = 0; i < pool.length; i++) if (!(vocab[pool[i]] >= 1)) fresh.push(pool[i]);
-    return r.pick(fresh.length ? fresh : pool);
-  }
-
-  World.use = function (world, game, obj, verb, c) {
-    var res = { deltas: {}, chem: {}, consumed: false, teach: null, teleport: null, jump: false, msg: null };
-    if (typeof verb === "number") verb = SB.VERBS[verb];
-    if (!obj || world.objects.indexOf(obj) < 0) { res.msg = "gone"; return res; }
-    var k = obj.kind, def = K[k] || {}, d = obj.data, r = rng(game);
-    var away = c ? (obj.x >= c.x ? 1 : -1) : r() < 0.5 ? -1 : 1;
-    var i, o;
-
-    if (verb === "eat") {
-      if (def.food) {
-        if (c && c.species === "grump") {
-          res.deltas.hunger = def.food.hunger || -0.2;
-        } else if (d.rotten) {
-          addTo(res.deltas, def.food, 0.4);
-          addTo(res.chem, def.chem, 0.5);
-          res.chem.antigen = (res.chem.antigen || 0) + 0.25;
-          res.deltas.pain = (res.deltas.pain || 0) + 0.2; // yuck right away, so the lesson lands on the meal
-          res.msg = "yuck";
-        } else {
-          addTo(res.deltas, def.food);
-          addTo(res.chem, def.chem);
-          if (def.chem && def.chem.toxin) { res.deltas.pain = (res.deltas.pain || 0) + 0.3; res.msg = "yuck"; } // red shrooms taste awful
-        }
-        res.consumed = true;
-        releaseFrom(game, obj);
-        World.remove(world, obj);
-      }
-    } else if (verb === "play" || verb === "hit") {
-      var hit = verb === "hit";
-      switch (k) {
-        case "snackbox": if (!hit) machineSpawn(world, game, obj, c, "cake", res); break;
-        case "medbot": if (!hit) machineSpawn(world, game, obj, c, "medkit", res); break;
-        case "computer":
-          if (!hit) { res.teach = teachWord(c, r); res.msg = res.teach; d.word = res.teach; d.wordT = 4; d.pop = 0.6; }
-          break;
-        case "heater": if (!hit) { res.deltas.cold = -0.5; res.deltas.hot = 0.1; d.on = 3; } break;
-        case "fan": if (!hit) { res.deltas.hot = -0.5; res.deltas.cold = 0.1; d.on = 3; } break;
-        case "trampoline":
-          if (!hit) { res.deltas.bored = -0.45; res.deltas.tired = 0.1; res.jump = true; d.boing = 0.5; }
-          break;
-        case "teleporter":
-          if (!hit) {
-            var other = null;
-            for (i = 0; i < world.pads.length; i++) if (world.pads[i] !== obj.id) { other = SB.Game.byId(game, world.pads[i]); if (other) break; }
-            if (other) { res.teleport = other.x; d.zap = 0.8; other.data.zap = 0.8; }
-          }
-          break;
-        case "musicbox":
-          if (!hit) {
-            d.playing = 4;
-            emit("music", { obj: obj, c: c });
-            if (SB.Chem && SB.Chem.apply) {
-              var cs = game.creatures;
-              for (i = 0; i < cs.length; i++) {
-                var o2 = cs[i];
-                if (o2 === c || !o2.alive || !o2.chem || Math.abs(o2.x - obj.x) > 150) continue;
-                try { SB.Chem.apply(o2.chem, { bored: -0.12, lonely: -0.05 }); } catch (e) {}
-              }
-            }
-          }
-          break;
-        case "top": d.spin = 3; if (hit) { obj.vx = away * 120; obj.vy = -120; obj.onGround = false; } break;
-        case "ball":
-          releaseFrom(game, obj);
-          obj.vx = away * (hit ? 450 : 350); obj.vy = hit ? -300 : -250; obj.onGround = false;
-          break;
-        case "butterfly": case "beetle":
-          d.flee = 1.5;
-          if (k === "butterfly") { d.landed = 0; d.tx = SB.clamp(obj.x + away * 250, obj.r, W - obj.r); d.ty = obj.y - 90; }
-          else { d.dir = away; d.spd = 120; }
-          break;
-        default:
-          if (PLANTS[k]) {
-            o = World.shake(world, game, obj, false);
-            if (!o) res.msg = "nothing";
-          }
-      }
-    } else if (verb === "cuddle") {
-      if (k === "egg") World.warmEgg(world, game, obj);
-    }
-    emit("use", { c: c, obj: obj, verb: verb, result: res });
-    return res;
+  // creatures wear paths into the ground as they walk
+  W.wearAt = function (world, x, z) {
+    var N = world.T.N, i = x | 0, j = z | 0;
+    if (i < 0 || j < 0 || i >= N || j >= N) return;
+    var t = j * N + i;
+    if (world.wear[t] < 255) world.wear[t]++;
   };
 
   /* ---------------- save / load ---------------- */
 
-  // Plain snapshot of what must persist (ground/decor are regenerated from the seed).
-  World.serialize = function (world) {
-    var w = world.weather;
+  W.serialize = function (world) {
+    var nodes = [];
+    world.nodes.forEach(function (n) {
+      if (n.state !== "ok" || n.grow != null || n.added) nodes.push({ id: n.id, kind: n.kind, x: round(n.x), z: round(n.z), s: n.s, state: n.state, regrowT: round(n.regrowT || 0), burnT: round(n.burnT || 0), grow: n.grow, added: n.added ? 1 : 0, rot: round(n.rot) });
+    });
     return {
-      objects: world.objects,
-      weather: { kind: w.kind, t: w.t, intensity: w.intensity, target: w.target, next: w.next, flash: 0 },
-      dayIndex: world.dayIndex, night: world.night, pads: world.pads.slice(), nightGrumps: world.nightGrumps,
-      wind: world.wind, windTarget: world.windTarget
+      seed: world.seed,
+      items: world.items.map(function (o) {
+        var d = {};
+        for (var k in o.data) if (k !== "genome") d[k] = o.data[k];
+        if (o.data.genome) d.genome = SB.Genome.encode(o.data.genome);
+        return { id: o.id, kind: o.kind, x: round(o.x), y: round(o.y), z: round(o.z), age: round(o.age), heldBy: o.heldBy, data: d };
+      }),
+      structures: world.structures.map(function (s) { return { id: s.id, kind: s.kind, x: round(s.x), z: round(s.z), rot: round(s.rot), done: s.done, work: round(s.work), need: s.need, tribe: s.tribe, data: s.data, born: round(s.born), name: s.name }; }),
+      nodes: nodes,
+      weather: { kind: world.weather.kind, t: round(world.weather.t), next: round(world.weather.next) },
+      snowCover: round(world.snowCover), autumn: round(world.autumn), season: world.season, dayIndex: world.dayIndex, nightGrumps: world.nightGrumps
     };
   };
+  function round(v) { return typeof v === "number" ? Math.round(v * 1000) / 1000 : v; }
+  function num(v, d) { return typeof v === "number" && isFinite(v) ? v : d; }
 
-  function num(v, dflt) { return typeof v === "number" && isFinite(v) ? v : dflt; }
-
-  World.revive = function (data, game) {
+  W.revive = function (data, game) {
     data = data || {};
-    var world = blank();
-    World.regen(world, game);
-    var src = Array.isArray(data.objects) ? data.objects : [];
-    for (var i = 0; i < src.length; i++) {
-      var p = src[i], def = p && K[p.kind];
-      if (!def) continue;
-      var x = SB.clamp(num(p.x, SB.HOME_X), def.r, W - def.r);
-      var o = {
-        id: num(p.id, 0) || SB.Game.newId(game), kind: p.kind, noun: def.noun,
-        x: x, y: num(p.y, groundAt(world.ground, x) - def.r), vx: num(p.vx, 0), vy: num(p.vy, 0), r: def.r,
-        fixed: !!def.fixed, heldBy: typeof p.heldBy === "number" ? p.heldBy : null,
-        age: num(p.age, 0), onGround: !!p.onGround && !p.heldBy, data: p.data && typeof p.data === "object" ? p.data : {}
-      };
-      if (def.critter && o.data.room == null) o.data.room = roomIndex(o.x);
-      world.objects.push(o);
-    }
-    if (!world.objects.some(function (o) { return o.fixed; })) populate(world, game); // corrupt/empty save
-    refreshCache(world);
-    var w = data.weather || {};
-    if (WEATHER_KINDS.indexOf(w.kind) >= 0) world.weather.kind = w.kind;
-    world.weather.t = num(w.t, world.weather.t);
-    world.weather.intensity = SB.clamp01(num(w.intensity, 0.7));
-    world.weather.target = SB.clamp01(num(w.target, world.weather.intensity));
-    world.weather.next = WEATHER_KINDS.indexOf(w.next) >= 0 ? w.next : null;
-    world.wind = num(data.wind, 0);
-    world.windTarget = num(data.windTarget, 0.1);
-    world.nightGrumps = num(data.nightGrumps, 0);
-    updateClock(world, game, true);
-    if (typeof data.dayIndex === "number") world.dayIndex = data.dayIndex;
-    if (typeof data.night === "boolean") world.night = data.night;
-    world.season = SEASONS[Math.floor(world.dayIndex / 2) % 4];
-    var pads = Array.isArray(data.pads) ? data.pads : [];
-    world.pads = pads.filter(function (id) { return world.objects.some(function (o) { return o.id === id && o.kind === "teleporter"; }); });
-    if (world.pads.length < 2) world.pads = World.byKind(world, "teleporter").map(function (o) { return o.id; });
+    var world = W.create(game, data.seed || game.seed);
+    world.time = game.time;
+    (data.nodes || []).forEach(function (p) {
+      var n = world.nodeById[p.id];
+      if (!n && p.added && NK[p.kind]) {
+        n = { id: p.id, kind: p.kind, x: p.x, z: p.z, s: p.s || 1, rot: p.rot || 0, seed: 1, added: true, type: "node", noun: NK[p.kind].noun, dropT: 50, alsoT: 80 };
+        world.nodes.push(n); world.nodeById[n.id] = n;
+      }
+      if (!n) return;
+      n.state = p.state || "ok"; n.regrowT = p.regrowT; n.burnT = p.burnT; n.grow = p.grow == null ? null : p.grow;
+      if (n.state === "burning") { n.noun = "fire"; (world.burning || (world.burning = [])).push(n); }
+    });
+    rebuildNodeGrid(world);
+    (data.items || []).forEach(function (p) {
+      if (!K[p.kind]) return;
+      var d = p.data || {};
+      if (typeof d.genome === "string") { try { d.genome = SB.Genome.decode(d.genome); } catch (e) { d.genome = null; } }
+      var o = { id: p.id, type: "item", kind: p.kind, noun: K[p.kind].noun, x: num(p.x, 128), y: num(p.y, 0), z: num(p.z, 128), vx: 0, vy: 0, vz: 0, r: K[p.kind].r, rot: 0, heldBy: p.heldBy == null ? null : p.heldBy, age: num(p.age, 0), onGround: true, data: d };
+      if (o.kind === "egg" && !o.data.genome) return;
+      world.items.push(o);
+    });
+    (data.structures || []).forEach(function (p) {
+      if (!SK[p.kind]) return;
+      var st = { id: p.id, type: "struct", kind: p.kind, noun: p.done ? SK[p.kind].noun : "material", x: p.x, z: p.z, rot: p.rot || 0, s: 1, done: !!p.done, work: p.work || 0, need: p.need || {}, tribe: p.tribe || 0, builders: [], data: p.data || {}, born: p.born || 0, name: p.name || null };
+      world.structures.push(st);
+    });
+    var wx = data.weather || {};
+    if (WX[wx.kind]) { world.weather.kind = wx.kind; world.weather.t = num(wx.t, 0); world.weather.next = num(wx.next, 90); var tg = WX[wx.kind]; world.weather.cloud = tg.cloud; world.weather.rain = tg.rain; world.weather.wind = tg.wind; }
+    world.snowCover = num(data.snowCover, 0); world.autumn = num(data.autumn, 0);
+    world.season = num(data.season, 0); world.dayIndex = num(data.dayIndex, 0); world.nightGrumps = num(data.nightGrumps, 0);
+    var t = world.time / SB.DAY_LENGTH;
+    world.night = (t % 1) < 0.21 || (t % 1) > 0.79;
     return world;
   };
 })();

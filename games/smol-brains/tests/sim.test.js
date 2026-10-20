@@ -1,97 +1,69 @@
-// Headless whole-game simulation: loads every non-DOM module and runs the world for a while.
-// node games/smol-brains/tests/sim.test.js [simMinutes] [seed]
-// Reports: deaths and causes, words learned, IQ, eggs, grump nights, perf, and NaN/bounds checks.
+// Headless whole-game simulation: loads every non-DOM module and runs the island for a while.
+// node games/smol-brains/tests/sim.test.js [simMinutes] [seed] [afk]
+// Reports deaths, words, ideas, tiers, species, buildings, perf, and NaN/bounds checks.
 "use strict";
-const fs = require("fs");
-const path = require("path");
-const vm = require("vm");
-
-const dir = path.join(__dirname, "..", "play", "js");
-const ctx = {
-  console, Math, Date, JSON, Object, Array, String, Number, Boolean, Error, isNaN, isFinite, parseInt, parseFloat,
-  Float32Array, Float64Array, Int8Array, Uint8Array, Int16Array, Uint16Array, Int32Array, Uint32Array, ArrayBuffer, DataView,
-  TextEncoder, TextDecoder, setTimeout, clearTimeout, performance,
-  btoa: (s) => Buffer.from(s, "binary").toString("base64"),
-  atob: (s) => Buffer.from(s, "base64").toString("binary"),
-  localStorage: { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } }
-};
-ctx.window = ctx;
-vm.createContext(ctx);
-for (const f of ["core", "genome", "brain", "chemistry", "world", "creature", "save"]) {
-  vm.runInContext(fs.readFileSync(path.join(dir, f + ".js"), "utf8"), ctx, { filename: f + ".js" });
-}
-// main.js boots on DOMContentLoaded; give it a fake document so its helpers load without booting.
-ctx.document = { readyState: "loading", addEventListener() {}, getElementById() { return null; } };
-ctx.addEventListener = () => {};
-vm.runInContext(fs.readFileSync(path.join(dir, "main.js"), "utf8"), ctx, { filename: "main.js" });
+const load = require("./_load.js");
+const ctx = load();
 const SB = ctx.SB;
-SB.Render = { fx() {} };
-
-const minutes = +(process.argv[2] || 60);
+SB.Render = undefined;
+const minutes = +(process.argv[2] || 30);
 const seed = +(process.argv[3] || 12345);
-const player = process.argv[4] !== "afk"; // a lazy scripted player that feeds and teaches
-
-const game = SB.Game.create(seed);
-const verbCount = {};
-const origDecide = SB.Brain.decide;
-SB.Brain.decide = function (b, rng, mask, bias) { const a = origDecide(b, rng, mask, bias); const k = SB.VERBS[a]; verbCount[k] = (verbCount[k] || 0) + 1; return a; };
+const player = process.argv[4] !== "afk";
+const t0 = performance.now();
+const game = SB.Game.newGame(seed);
+console.log("worldgen", game.world.T.genMs + "ms", "nodes", game.world.nodes.length);
 game.tutorial.done = true;
 const events = {};
-for (const ev of ["hatch", "death", "learnWord", "egg", "eat", "obey", "sick", "cured", "grumpArrive", "achievement", "say", "hit"]) {
-  SB.bus.on(ev, (d) => { events[ev] = (events[ev] || 0) + 1; if (ev === "death") console.log(`  t=${(game.time / 60).toFixed(1)}m death: ${d.c.name} (${d.cause}) age ${(d.c.age / 60).toFixed(1)}m stage ${d.c.stage}`); });
+for (const ev of ["hatch", "death", "learnWord", "egg", "eat", "obey", "sick", "cured", "grumpArrive", "achievement", "eureka", "craft", "built", "newSpecies", "tierUp", "teach", "ideaLost", "lightning", "wildfire", "pray", "village", "tribe"]) {
+  SB.bus.on(ev, (d) => {
+    events[ev] = (events[ev] || 0) + 1;
+    if (ev === "death") console.log(`  t=${(game.time / 60).toFixed(1)}m death: ${d.c.name} (${d.cause}) age ${(d.c.age / 60).toFixed(1)}m`);
+    if (ev === "eureka" || ev === "newSpecies" || ev === "built" || ev === "tierUp" || ev === "village") console.log(`  t=${(game.time / 60).toFixed(1)}m ${ev}: ${d.c ? d.c.name : ""} ${d.id || (d.clade && d.clade.name) || (d.st && d.st.kind) || (d.village && d.village.name) || d.tier || ""}`);
+  });
 }
-for (let i = 0; i < 4; i++) SB.Game.spawnSmol(game, { x: SB.HOME_X - 200 + i * 120, age: i < 2 ? 0 : 1300 });
-
+// hatch the starter egg and add a few smols
+const egg = game.world.items.find((o) => o.kind === "egg");
+egg.data.progress = 1;
+const sp = game.world.T.spawn;
+for (let i = 0; i < 3; i++) SB.Game.spawnSmol(game, { x: sp.x - 2 + i * 2, z: sp.z + 2, age: i < 1 ? 0 : 560 });
 const steps = Math.round((minutes * 60) / SB.TICK);
-const t0 = performance.now();
 let bad = 0;
+const ts = performance.now();
 for (let s = 0; s < steps; s++) {
-  game.time += SB.TICK;
-  SB.World.tick(game.world, SB.TICK, game);
-  for (const c of game.creatures) if (c.alive || c.dying) SB.Creature.tick(c, SB.TICK, game);
-  for (let j = game.creatures.length - 1; j >= 0; j--) if (game.creatures[j].gone) game.creatures.splice(j, 1);
-  // scripted player every 20 sim s: teach a word to a random smol about something it's near, praise good eating
-  if (player && s % 600 === 0) {
-    const smols = SB.Game.smols(game);
-    for (const c of smols) {
-      const near = SB.World.near(game.world, c.x, c.y, 300).filter((o) => !o.fixed);
+  SB.Game.step(game, SB.TICK);
+  if (player && s % 400 === 0) {
+    for (const c of SB.Game.smols(game)) {
+      const near = SB.World.itemsNear(game.world, c.x, c.z, 6).filter((o) => !o.heldBy);
       if (near.length) {
         const o = near[0];
-        game.hand.x = o.x; game.hand.y = o.y - 40; game.hand.visible = true;
-        SB.Creature.hear(c, SB.NOUN_WORDS[SB.N[o.noun]], game, { fromHand: true, aboutNoun: o.noun, aboutId: o.id });
+        game.hand.x = o.x; game.hand.z = o.z; game.hand.y = o.y + 1; game.hand.visible = true;
+        const w = SB.NOUN_WORDS[SB.N[o.noun]];
+        if (w) SB.Creature.hear(c, w, game, { about: { type: "item", id: o.id, x: o.x, z: o.z }, aboutNoun: o.noun });
       }
       if (c.action && c.action.verb === SB.V.eat) SB.Creature.tickle(c, game);
-      if (c.chem.hunger > 0.75) { // feed the hungry
-        const f = SB.World.add(game.world, game, "apple", c.x + 30, c.y - 40);
-      }
+      if (c.chem.hunger > 0.75) { const a = SB.World.add(game.world, game, "apple", c.x + 0.5, c.z, {}); }
     }
+    game.hand.visible = false;
   }
-  if (s % 300 === 0) {
-    for (const c of game.creatures) if (!isFinite(c.x) || !isFinite(c.y) || c.x < 0 || c.x > SB.WORLD_W) { bad++; console.log("BAD creature pos", c.name, c.x, c.y); }
-    for (const o of game.world.objects) if (!isFinite(o.x) || !isFinite(o.y)) { bad++; console.log("BAD obj", o.kind, o.x, o.y); }
-  }
-  if (s % Math.round(600 / SB.TICK) === 0) {
-    const smols = SB.Game.smols(game);
-    const line = smols.map((c) => `${c.name}[${["B", "K", "T", "A", "E"][c.stage]} iq${SB.Creature.iq(c, true)} w${SB.Creature.knownCount(c)} h${c.chem.health.toFixed(2)} hu${c.chem.hunger.toFixed(2)} lv${c.chem.love.toFixed(2)} lo${c.chem.lonely.toFixed(2)} bo${c.chem.bored.toFixed(2)}]`).join(" ");
-    console.log(`t=${(game.time / 60).toFixed(0)}m day ${SB.World.clock(game).day} smols=${smols.length} grumps=${SB.Game.grumps(game).length} objs=${game.world.objects.length} | ${line}`);
+  if (s % 200 === 0) for (const c of game.creatures) {
+    if (!isFinite(c.x) || !isFinite(c.z) || !isFinite(c.y)) { bad++; console.log("NaN pos", c.name); }
+    for (const k in c.chem) if (!isFinite(c.chem[k])) { bad++; console.log("NaN chem", c.name, k); }
+    if (c.x < 0 || c.z < 0 || c.x > 256 || c.z > 256) { bad++; console.log("out of bounds", c.name, c.x, c.z); }
   }
 }
-const ms = performance.now() - t0;
-console.log("\nverbs:", JSON.stringify(verbCount));
-console.log("\nevents:", JSON.stringify(events));
-console.log("stats:", JSON.stringify(game.stats));
-console.log("achievements:", Object.keys(game.achievements).join(", "));
-console.log(`sim ${minutes} min in ${ms.toFixed(0)} ms (${((ms / steps) * 1000).toFixed(1)} µs/step) bad=${bad}`);
-
-// save roundtrip
-SB.Save.save(game);
-const data = SB.Save.load();
-const g2 = SB.Game.revive(data);
-console.log("save size KB:", (ctx.localStorage._d["smolbrains-save-v1"].length / 1024).toFixed(1), "revived creatures:", g2.creatures.length, "objects:", g2.world.objects.length);
-const best = SB.Game.smols(game).sort((a, b) => b.iq - a.iq)[0];
-if (best) {
-  const code = SB.Save.exportSmol(best);
-  const back = SB.Save.importSmol(code);
-  console.log("smol code length:", code.length, "import ok:", !!back.genome, back.name);
-}
-if (bad) process.exit(1);
+const ms = performance.now() - ts;
+const smols = SB.Game.smols(game);
+console.log(`\nsimulated ${minutes} min in ${(ms / 1000).toFixed(1)}s (${(ms / steps).toFixed(3)} ms/step), ${smols.length} smols alive, ${game.world.items.length} items, ${game.world.structures.length} structures`);
+console.log("events", JSON.stringify(events));
+console.log("stats", JSON.stringify(game.stats));
+console.log("ideas found", Object.keys(game.culture.found).join(", ") || "-");
+console.log("species", Object.values(game.clades).map((c) => c.name + "(" + c.alive + ")").join(", "));
+for (const c of smols) console.log(`  ${c.name} gen${c.gen} ${SB.TIERS[c.tier].name} age ${(c.age / 60).toFixed(1)}m iq ${c.iq} words ${SB.Creature.knownCount(c)} ideas ${SB.Ideas.count(c)} neurons ${SB.Brain.size(c.brain)} limbs ${c.genome.genes.limbs.toFixed(2)} arms ${c.genome.genes.arms.toFixed(2)} hunger ${c.chem.hunger.toFixed(2)} health ${c.chem.health.toFixed(2)}`);
+// save round trip
+const snap = SB.Save.snapshot(game);
+const json = JSON.stringify(snap);
+const g2 = SB.Save.revive(JSON.parse(json));
+console.log("save size", (json.length / 1024).toFixed(0) + "KB", "revived smols", SB.Game.smols(g2).length, "items", g2.world.items.length);
+for (let s = 0; s < 200; s++) SB.Game.step(g2, SB.TICK);
+console.log(bad ? "FAIL: " + bad + " bad values" : "OK", "total", ((performance.now() - t0) / 1000).toFixed(1) + "s");
+process.exit(bad ? 1 : 0);
