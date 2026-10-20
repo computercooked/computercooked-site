@@ -1,10 +1,96 @@
-# smol brains — design doc
+# smol brains 2 — design doc
 
-A modern, original artificial-life pet game for Computer Cooked Games, inspired by *Creatures* (Creature Labs / Millennium, 1996, designed by Steve Grand). You hatch tiny creatures called **smols**, each with a real neural network brain, a body chemistry and a genome. You raise them, teach them words with a tickle-and-tap hand, keep them safe from mischievous **grumps**, and breed generations that are genuinely different from their parents.
+**Creatures/Norns on steroids, on an island, in 3D.** You find one glowing egg on a procedurally generated island. What hatches is a wobbly blob with a real neural-network brain. You raise it, teach it words, and watch its children's children grow legs, then hands, then language, then villages, then big glowing brains, until they are building something they call *the big thought*.
+
+v1 (one side-view valley, smols and grumps, word teaching) is the seed this grew from. Everything that made v1 work is still here, rebuilt for a world you can fly around: real brains that learn from reward, genetics and breeding, body chemistry, word teaching with the tickle-and-tap hand, copy-paste smol codes, autosave. v1 saves load into v2 (see *Saves*).
 
 No Creatures names, art, code or assets are used. Everything here is original.
 
 ---
+
+## 0. The twists (what nobody else does)
+
+1. **Echoes.** Evolution is steered by how you raise them. What parents *practise* during their lives (walking, carrying things, talking, being taught, planning, building, swimming, being cold) nudges their babies' genes in that direction. Teach a smol a lot and its kids are born with bigger brains. That turns ordinary pet-sim care into the evolution game.
+2. **Technology lives in heads.** There's no tech tree menu. An idea (fire, weaving, farming…) is discovered by one curious smol doing the right thing at the right moment, then spreads by watching, teaching and story poles. If everyone who knows an idea dies before passing it on, it's *lost* (a dark age). Story poles (writing) make ideas permanent.
+3. **They name their world.** Each island has its own procedurally generated language. Smols invent a word for every idea, village, tribe and species, and the words join the lexicon: say "krala!" and the ones who know fire think of fire.
+4. **You're a god they can pray to.** Tribe-stage smols pray when things are bad. Answer with miracles (bounty, heal, rain, lightning, inspire, bless the next eggs) and they learn that praying works.
+
+## 1. The ladder
+
+A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
+
+| tier | needs | unlocks |
+|---|---|---|
+| 🫧 blob | where it starts | eat, play, sleep, talk, learn words |
+| 🐾 critter | legs ≥ 0.35 | legs, further sight, tier instincts |
+| 🪵 tool-user | hands ≥ 0.5, 16+ neurons | `use` and `make`: tools, crafts, discoveries, a pouch |
+| 🔥 tribe | language centre ≥ 0.5, 28+ neurons | `teach`, `give`, `pray`, sentences with invented words, tribe names |
+| 🛖 builder | planning ≥ 0.5, 2 brain layers, 36+ neurons | `build`: huts, farms, story poles, walls, bridges, villages |
+| 🧠 thinker | head ≥ 0.5, working memory ≥ 0.5, 58+ neurons | kilns, copper, axes, lenses, observatories, writing |
+| ✨ ascended | inner glow ≥ 0.6, 3 brain layers, 88+ neurons | floats, glows, halo, resonance, the big thought |
+
+Every tier changes the body you see (legs, arms, an upright posture, tribe headbands with a feather, builder tool belts, an exposed pink brain, wings and halos) plus gene-driven variety (ears, tails, patterns, fins, fluff, horns). New tiers come with *tier instincts*: an evolved brain is born with weak hunches about its new abilities (a tool-user is born a little curious about sticks), rehearsed before hatching like v1 instincts.
+
+**Species.** A baby that climbs a tier, or drifts far from its clade's average genes, founds a new species that branches off its parent's ("long-legged critters", *Smollus kralai*). Species too far apart can't have eggs together. The smolpedia draws the tree of life.
+
+**Pacing** (from headless sims, no player): critters around 55 min, hands around 1.5–2 h. A player who teaches, blesses eggs and spends sparks gets there much faster; offline progress keeps the island going while you're away.
+
+## 2. Systems
+
+### World (`worldgen.js`, `world.js`)
+- 256×256 island from a seed: continent mask with warped coast and lobes, fBm terrain, ridged mountains, **priority-flood + flow accumulation hydrology** (lakes fill real depressions, rivers follow the flow and carve channels), temperature (latitude + height) and moisture (noise + distance to water) → 13 biomes (meadow, forest, jungle, savanna, desert, swamp, pine woods, snowfield, mountains, beach, ocean, glowshroom grove, crystal steppe).
+- ~900 resource nodes placed by biome (fruit trees, pines, palms, jungle giants, glowshrooms, cacti, bushes, reeds, healroot, shroom rings, boulders, flint, clay, copper ore, thought crystals), grump caves at mountain feet, and a guaranteed-good nest for the first egg. ~20k decorations (grass, flowers, ferns, cattails, glow dots).
+- World codes (`mossy-otter-4821`) map to seeds; any text is a world too. `?world=code` on the play URL opens that island, so friends get the same one.
+- Living world: day/night (6 min days), four seasons (4 days each; autumn leaves, winter snow on ground, trees and roofs, slower plants), weather (clear, cloudy, rain, storm, fog) with lightning that can set trees on fire, spreading wildfires that burn out and regrow, fruit and sticks dropping only where someone is (keeps the island tidy), critters (flutterbies, beetles, hoppers), grump nights, campfires that need feeding, farms that grow grain, paths.
+- Coarse A* pathfinding (2×2-tile cells) when walking straight is blocked by rivers or cliffs; bridges open new cells.
+
+### Brains (`brain.js`)
+- Inputs (61 + memory): 12 drives, 22 attended nouns, 18 heard verbs, heard its name, near, holding, dark, knows-a-use (an idea applies to this thing), friends near, raining, home, bias, plus **working-memory units** that echo the previous thought (Elman-style, from the recall gene).
+- 1 to 3 tanh hidden layers sized by the genome (6 → ~90 neurons) → 18 verb outputs (the predicted reward of doing that verb to the attended thing). Same learning rule as v1, generalised to depth: normalised LMS backpropagated through every layer, eligibility traces, reward = gene-weighted drive reduction, tickle/tap/"good"/"bad" lessons with the noun→verb and command→verb tables, imitation, dreaming instincts before hatching.
+- Urgent drives narrow the choice (softmax temperature drops when hungry or scared), innate drive-directed attention (a hungry smol's eyes go to food), and small emergency reflexes; everything else is the net.
+- **v1 brains migrate by name:** the 45-input/12-output v1 weights are mapped onto the v2 layout (`SB.Brain.deserialize` with `v: 1`), so a trained v1 smol makes the same choices on the island.
+
+### Genes (`genome.js`)
+v1's 38 genes plus 15 evolution genes (legs, hands, cortex, brain layers, working memory, planning, language centre, dexterity, senses, head size, fins, fluff, horns, wings, inner glow). Crossover, mutation with readable notes, rare "big leaps", echoes, blessings, and a compact codec (v1 codes still decode, nouns remapped).
+
+### Ideas (`ideas.js`, `lang.js`)
+30 ideas from poke sticks to the big thought: crafts (poke stick, hammerstone, basket, flint blade, torch, cooking, spear, pot, copper, axe, brew, bread, lens), builds (campfire, farm, hut, story pole, palisade, bridge, kiln, workshop, windmill, observatory, the spire) and skills (fire, herb lore, sharing, song, writing, resonance). Each has a discovery trigger (holding a stick near a fruit tree, standing by a lightning fire…), prerequisites, and a tier. `make` and `build` become **plans**: a sequence of fetch → gather → go to the fire → craft, or fetch → deliver → work, with depth limited by the planning gene. Builders cooperate on sites. Watching teaches a little, `teach` a lot, story poles keep everything.
+
+### Society and species (`society.js`, `species.js`)
+Tribes get named once they can talk about themselves; homes drift to their campfires; 3 huts around a lit campfire found a named village. The culture census finds lost ideas. Clades, compatibility and the tree of life live in `species.js`.
+
+### The god hand (`input.js`, `ui.js`)
+Tools: ✋ grab (select, carry, throw), 🪶 tickle (reward, rub to tickle more), 👆 tap (scold; three taps shoo a grump), 💬 talk (tap a thing to say its name, or type words), ✨ magic (miracles cost sparks; sparks come from learning, discoveries, hatching, achievements and answered prayers). Prayers show over heads (🙏🍎) and are answered by the matching miracle, food or a tickle.
+
+### Rendering (`gl.js`, `meshes.js`, `render.js`, `bodies.js`, `fx.js`)
+Custom WebGL (WebGL2, or WebGL1 + instancing extension; GLSL ES 1.00) with no libraries. Tilted **orthographic** camera with pan/zoom/rotate and pitch that eases from cinematic up close to map-like far out. Flat-shaded terrain chunks (32×32) with baked canopy AO and seasonal snow, a water mesh with depth colour, shoreline foam, ripples and sun glints, instanced nodes/decor per chunk, instanced dynamic bodies (every creature is ~25 instanced parts), blob shadows, 8 nearest point lights (fires, torches, glowshrooms, crystals, ascended smols), cloud shadows, distance haze, particles (embers, smoke, hearts, sparkles, rain streaks, snow, fireflies, lightning bolts) and a 2D overlay for names, speech, emotes, prayers and site needs. Frustum culling per chunk, decor skipped when zoomed out, far creatures think at half rate, and **dynamic resolution** (drops pixel ratio when frames run slow).
+
+### Saves (`save.js`)
+- v2 autosave (localStorage `smolbrains-save-v2`) every 20 s and on hide. Only deltas from worldgen are stored (changed nodes, items, buildings); the island regenerates from its seed. ~40–100 KB.
+- **v1 migration:** with no v2 save, a v1 save (`smolbrains-save-v1`) is migrated: smols wake up by the nest with their names, words, stats, family and trained brains (weights mapped), unhatched eggs come along, achievements carry over. The v1 save is never modified.
+- Offline progress: on return, up to 75 sim minutes run in chunks (1:1 for the first 10 minutes away, then slower) in a gentle mode where nobody starves; a "while you were away" card lists births, words, ideas, buildings and new species.
+- Smol codes: `SMOL2:` (genes, trained brain, words, ideas); `SMOL1:` codes still import.
+
+## 3. Module map
+Load order: `core, genome, brain, chemistry, lang, ideas, worldgen, world, creature, species, society, gl, meshes, render, fx, bodies, input, audio, save, ui, main`. All plain scripts on `window.SB`, no build step.
+
+`SB.Game` (main.js): create/newGame/revive, step, spawn, layEgg (with echoes and blessings), hatch, sparks, achievements, score, offline. `SB.Debug` has helpers for tests and screenshots (`spawnTier(t, n)`, `ideas(c)`, `build(kind)`, `skip(sec)`).
+
+## 4. Platform hooks
+`window.cc && cc.start()` on boot, `cc.score(civScore)` every 30 s and on records, `cc.end({score})` on page hide, `cc.event` for hatch, first word, egg, discovery, tier and achievements. `play/index.html` loads `/games/cc-sdk.js` like the other games so these relay to the player page. Player page messages: `cc-mute`, `cc-restart` (asks first), `cc-pause`. smol brains still has no leaderboard (`max_score_per_sec` unset): its civ score grows across sessions, which the per-play score cap isn't built for.
+
+## 5. Tests
+`node tests/brain.test.js` (learning, tiers, echoes, codecs, v2 round trip, v1 brain migration), `node tests/world.test.js` (determinism, islands, rivers, nest, resources, rot, lightning, fire, eggs, farms, walkability), `node tests/ideas.test.js` (idea web, discovery, crafting plans, cooperative building, teaching, lost knowledge, story poles, invented words), `node tests/teach.test.js` (late taps vs poison, commands, first words, lessons echo), `node tests/save.test.js` (round trip, offline progress, smol codes, v1 save migration), `node tests/sim.test.js <minutes> <seed>` (whole-game soak). `tests/render-preview.html` renders any seed in a browser (`?seed=42&zoom=12&t=0.4`).
+
+## 6. Balance notes (from headless sims)
+- Rotten food reads as "bad to eat" (it joins the shroom category) and good meals restore the noun→verb table, so a few bad meals no longer teach a colony to starve.
+- Hungry smols follow their nose to the nearest food or fruit tree; unreachable things are remembered and skipped; A* gets around rivers. 30-minute soaks across seeds and tiers now end with no starvation.
+- Builders only start sites the tribe needs (one farm per four smols, one hut per three…).
+- Small colonies get "cousin" eggs bred from the existing gene pool so evolution keeps its progress; love rises faster and partners go looking for each other.
+
+---
+
+## Appendix: the v1 research that started it
 
 ## 1. Reverse-engineering Creatures (what it actually did)
 
@@ -60,203 +146,3 @@ The player was a floating **hand**. You could pick things up, push them, and **t
 
 ---
 
-## 2. The game: smol brains
-
-**Pitch:** raise tiny creatures with real neural-network brains. teach them words. they will learn the wrong ones.
-
-### Names (all original)
-- **smols**: the player's creatures. Round, big-eyed, ear-and-tail variety from genes.
-- **grumps**: the rival species. Spiky little purple goblins with teeth. They come out at night.
-- **The Valley**: six biomes side by side: Grump Hollow, Mushroom Woods, Nest Meadow (home), The Lab, Sunny Pond, Frost Peak.
-
-### Pillars
-1. **A real brain per creature** (`brain.js`)
-   - Perception: 45 inputs = 12 drives + 16 attended-noun one-hot + 12 heard-verb one-hot + heard-its-name + near-target + holding + dark + bias.
-   - Attention: a learnable linear layer (16 nouns × 13: drives + bias) plus salience (distance, motion, novelty, the player pointing or saying its name) picks what to look at, with softmax exploration.
-   - Decision: hidden layer (6–24 tanh neurons, size from the genome) → 12 verb outputs (expected reward of doing that verb to that thing). Softmax choice with a genome-set temperature (curiosity).
-   - Learning: an online, reward-modulated update (a contextual-bandit / one-step actor-critic flavour). After each action the reward is how much the drives went down (weighted by genes) plus the tickle/tap chemicals. The error between predicted and actual reward is backpropagated through the hidden layer for the chosen verb. **Eligibility traces** keep the last few decisions "susceptible" (exactly like Creatures' dendrite susceptibility) so a tickle a second later still credits the right action.
-   - Instincts: genes list (drive, noun, verb, strength). At hatching the brain "dreams" these as training examples, so babies start with weak, imperfect hunches. Mutated instincts make weird babies.
-   - Lesson memories: the player's tickles, taps and "good"/"bad" go mostly into two small tables that sit on top of the net's output, the modern version of Creatures' concept lobe: **noun → verb** ("not THAT mushroom", so lessons stay specific and don't spill onto all food) and **heard word → verb** (what "come" or "eat" means). A lesson lands on the action being done, or the one that finished in the last 2.5 s, because players react a beat late.
-   - After-taste: feeling sick or hurt within 45 s of a rotten or poisonous meal is a lesson about that meal, so smols can learn to avoid red shrooms even without a player.
-   - Imitation: watching another creature act nudges the watcher's brain toward that action. Good smols teach each other; grumps teach hitting.
-   - Brain viewer: click a smol and see every neuron's activation, the weights as coloured lines, flashes where learning just changed a weight, and a plain-English readout ("hungry + sees food → eat (0.71)").
-2. **Biochemistry** (`chemistry.js`)
-   - Drives: hunger, tired, sleepy, bored, lonely, pain, fear, cold, hot, sick, love, anger.
-   - Body chemicals: glucose, fat, reward, punish, adrenaline, toxin, antigen, antibody, medicine, health.
-   - Glucose burns at the genome's metabolism rate; fat buffers it; low glucose raises hunger; starvation and toxins drain health. Antigens (from grumps and rotten food) multiply until antibodies (immunity gene) catch up; medicine helps. Temperature comes from the biome, weather and time of day. Sleep restores tiredness/sleepiness and consolidates learning.
-3. **Genetics** (`genome.js`)
-   - ~40 genes: appearance (two hues, pattern, ears, eyes, tail, body shape, size), brain (hidden size, learning rate, curiosity, attention learning, memory decay), temperament (bravery, sociability, playfulness, grumpiness, obedience, chattiness), metabolism, immunity, lifespan, fertility, voice pitch, 12 drive-reward weights, and an instinct list.
-   - Breeding: per-gene crossover with blending, ~5% mutation per gene, rare big mutations, instinct duplication/deletion/rewiring. Each egg shows which genes mutated. Family tree with generation numbers.
-4. **Teaching**
-   - Hand tools: **grab** (drag/throw), **tickle** (reward chemical), **tap** (punish chemical), **talk** (type or tap a word).
-   - Nouns: tap an object with the talk tool to say its name; smols looking at it learn the word (three or so repetitions). Verbs: say a verb while a smol is doing it. Feeling words come from the Word Machine in the Lab.
-   - Commands: saying a verb feeds the "heard verb" neurons. Obeying is not automatic; it is learned by tickling a smol after it obeys.
-   - Speech: smols babble as babies, then say words with growing confidence (garbled when half-learned: "fff..fuud?"), and as kids build little sentences: "Bobo hungry", "want ball", "grump scared".
-5. **World** (`world.js`): six biomes, fruit trees, berry bushes, carrot patch, healroot, shroom ring (red poison / blue glowcap), Snackbox, Medbot, Word Machine, beds, heater, fan, bouncer, zapper pads, music box, balls, plushes, tops, flutterbies and beetles, incubator, warp gate, grump cave. Day/night (5 min days), weather (sun, rain grows plants, snow chills, storms scare), seasons of weather by day.
-6. **Modern features**: autosave + manual save to localStorage, export/import **smol codes** (genome + trained brain + vocabulary, compressed into a pasteable string), a downloadable **creature card** PNG, 30 achievements, time speed (pause, 1×, 2×, 4×, 8×), the **Smolpedia** encyclopedia, a 7-step onboarding tutorial, mobile-friendly UI, Computer Cooked SDK hooks.
-
-### The first 5 minutes
-1. An egg wobbles in the incubator in Nest Meadow. "Tap the egg to warm it."
-2. It cracks and hatches with a pop. "Name your smol." (suggested random name)
-3. The baby gets hungry fast; an apple drops from the tree. "Drag the apple to your smol." It probably eats it (instinct), maybe it plays with it instead.
-4. "Tickle it when it does something good." Hearts, reward flash in the brain.
-5. "Teach it a word: pick the talk tool and tap the apple." The hand says "food!". The smol looks, and after 2–3 tries it says **"food!"** back. 🎉 First Word achievement.
-6. "Peek inside its head": brain viewer opens, the eat neuron glows.
-7. Free play, with suggested goals (achievements) and night falling with the first grump.
-
----
-
-## 3. Module interfaces
-
-All modules are plain browser scripts attaching to the global `window.SB` namespace (no build step, no imports, works from `file://`). Load order: `core.js, genome.js, brain.js, chemistry.js, world.js, creature.js, render.js, audio.js, save.js, ui.js, main.js`. Shared constants and tables live in `js/core.js`: `SB.DRIVES`, `SB.VERBS`, `SB.NOUNS` (+ `_WORDS`, `_EMOJI`), index maps `SB.D/SB.V/SB.N`, the brain input layout `SB.IN`, `SB.KINDS` (object kinds), `SB.STIM` (stimulus table), `SB.GOOD/SB.BAD` (instinct ground truth and IQ test), `SB.STAGES`, `SB.ROOMS`, `SB.ACHIEVEMENTS`, `SB.rng(seed)`, `SB.bus`, `SB.LEXICON`.
-
-### The game object (`main.js`, `SB.Game`)
-```js
-game = {
-  v: 1, seed, time /* sim seconds */, speed /* 0,1,2,4,8 */,
-  rng /* SB.rng */, nextId,
-  world /* SB.World.create */, creatures: [ /* smols and grumps, alive */ ],
-  selectedId: null,
-  hand: { x, y, visible, tool: "grab"|"tickle"|"tap"|"talk", heldId: null, heldType: null, saying: null, sayT: 0 },
-  family: { [id]: { id, name, gen, parents: [idA, idB] | [], born, died: null|time, cause, look /* genome appearance */, kids: [] } },
-  stats: { hatched, eggsLaid, maxGen, wordsTaught, tickles, taps, deaths, bestIQ, grumpNights, cured, imported, exported },
-  achievements: { [id]: timestamp },
-  tutorial: { step: 0, done: false },
-  log: [ { t, text } ] // recent events, newest last, max 50
-}
-SB.Game.current          // the live game
-SB.Game.newId(game)      // -> int
-SB.Game.byId(game, id)   // -> creature | object | null
-SB.Game.unlock(game, id) // achievement
-SB.Game.note(game, text) // log line (UI shows a ticker)
-SB.Game.spawnSmol(game, opts) / SB.Game.layEgg(game, genomeA, genomeB, x, parents) / SB.Game.hatch(game, eggObj)
-```
-
-### `genome.js` → `SB.Genome`
-```js
-SB.Genome.random(rng, {species:"smol"|"grump"}) -> genome
-SB.Genome.cross(a, b, rng) -> child genome (crossover + mutation; child.mutated = ["eyes", ...])
-SB.Genome.mutate(g, rng, rate)
-SB.Genome.look(g) -> { hue, hue2, sat, light, pattern 0-3, ears 0-4, eyes 0.6-1.4, tail 0-3, body 0.8-1.25 (width/height), size 0.85-1.2, spots seed, cheeks bool, antenna bool }
-SB.Genome.traits(g) -> ["curious", "brave", "chatty", ...]  (human-readable)
-SB.Genome.encode(g) -> string; SB.Genome.decode(str) -> genome
-genome = { v, species, gen, genes: { name: 0..1, ... }, driveW: [12 floats], instincts: [{drive, noun, verb, s}], mutated: [] }
-```
-
-### `brain.js` → `SB.Brain`
-```js
-SB.Brain.create(genome, rng) -> brain
-brain = { nIn: 45, nHid, nOut: 12, w1 Float32Array(nHid*nIn), b1, w2 Float32Array(nOut*nHid), b2,
-          att Float32Array(16*13), x, h, q (last activations), lr, temp,
-          traces: [{x, h, a, e}], dw1, dw2 (recent |Δw| for the viewer, decaying), updates, lastErr }
-SB.Brain.input(brain, ctx)             // ctx = {drives[12], noun, heardVerb, heardName, near, holding, dark} -> fills brain.x
-SB.Brain.forward(brain) -> q           // Float32Array(12)
-SB.Brain.decide(brain, rng, mask) -> verb index (softmax over q / temp; mask[i]=false forbids), pushes an eligibility trace
-SB.Brain.attend(brain, drives, cands, rng) -> index into cands  // cands = [{noun, sal}]
-SB.Brain.reinforce(brain, reward)      // reward in [-1,1]; updates w via traces; also the attention weights
-SB.Brain.imitate(brain, x, verb, rate) // supervised nudge toward verb for input x
-SB.Brain.dream(brain, instincts, n, rng)
-SB.Brain.iqTest(brain) -> { good: 0..1, bad: 0..1 }  // uses SB.GOOD / SB.BAD
-SB.Brain.serialize(brain) -> object (weights quantized, base64); SB.Brain.deserialize(obj, genome) -> brain
-```
-
-### `chemistry.js` → `SB.Chem`
-```js
-SB.Chem.create(genome) -> chem   // {hunger..anger, glucose, fat, reward, punish, adrenaline, toxin, antigen, antibody, medicine, health}
-SB.Chem.tick(chem, dt, env, genome)  // env = {temp 0..1, dark, asleep, inBed, moving, nearFriends, stage, species}
-SB.Chem.apply(chem, deltas)      // {drive: delta, chem: delta}
-SB.Chem.drives(chem) -> Float32Array(12)
-SB.Chem.top(chem) -> {i, v}      // strongest drive
-SB.Chem.mood(chem) -> "happy"|"ok"|"sad"|"sick"|"scared"|"angry"|"sleepy"
-```
-
-### `world.js` → `SB.World`
-```js
-SB.World.create(game) -> world  // { rooms, ground: Float32Array (height every 10px), objects: [], weather:{kind, t, intensity}, temp, day, light, clouds, decor }
-SB.World.groundY(world, x); SB.World.roomAt(world, x) -> room index; SB.World.tempAt(world, x) -> 0..1
-SB.World.tick(world, dt, game)  // physics, plants, critters, weather, day/night, rot, egg warmth, grump spawning (via SB.Game hooks)
-SB.World.add(world, game, kind, x, y, data) -> obj; SB.World.remove(world, obj)
-SB.World.near(world, x, y, r) -> objects
-SB.World.use(world, game, obj, verb, creature) -> {deltas?, chem?, say?, consumed?}  // kind-specific effects
-obj = { id, kind, noun, x, y, vx, vy, r, fixed, heldBy: null|"hand"|creatureId, age, data: {} }
-```
-
-### `creature.js` → `SB.Creature`
-```js
-SB.Creature.create(game, {species, genome, name, x, gen, parents, brain?, vocab?}) -> creature
-creature = { id, species, name, gen, parents, born, age, stage /* 0..4 */, alive,
-  genome, look, brain, chem,
-  x, y, vx, vy, facing, onGround, heldBy, holding /* obj id */,
-  attn: {type:"creature"|"object"|"hand", id, noun} | null,
-  action: {verb, target, t, dur, done, startDrives} | null,
-  asleep, speech: {text, t, kind:"say"|"babble"|"think"} | null,
-  vocab: { word: strength 0..1.5 },  heard: {verb, noun, name, t},
-  anim: { walk, blink, squash, emote, emoteT, bob, look },
-  lastReward, iq, visited: {roomId:true}, stats: {...} }
-SB.Creature.tick(c, dt, game)
-SB.Creature.hear(c, word, game, {fromHand, aboutNoun})
-SB.Creature.tickle(c, game); SB.Creature.tap(c, game)
-SB.Creature.say(c, text, game)
-SB.Creature.iq(c) -> number
-```
-
-### `render.js` → `SB.Render`
-```js
-SB.Render.init(canvas, game); SB.Render.resize()
-SB.Render.frame(game, dtReal)   // draws everything
-SB.Render.camera  // {x, y, zoom, follow: id|null}
-SB.Render.toWorld(sx, sy) -> {x, y}; SB.Render.toScreen(wx, wy)
-SB.Render.pick(game, sx, sy) -> {type:"creature"|"object", ref} | null
-SB.Render.fx(kind, x, y, opts)  // "hearts","stars","puff","zzz","angry","sparkle","crumbs","bonk","notes","drops"
-SB.Render.portrait(ctx, look, cx, cy, size, opts)  // used by UI cards / family tree
-```
-
-### `ui.js` → `SB.UI`, `save.js` → `SB.Save`, `audio.js` → `SB.Audio`
-```js
-SB.UI.init(game)   // toolbar, panels, brain viewer, tutorial, smolpedia, achievements, family tree, dialogs, input
-SB.UI.frame(game, dtReal) // per-frame DOM refresh (throttled)
-SB.Save.save(game) / SB.Save.load() -> plain data | null / SB.Save.wipe()
-SB.Save.exportSmol(c) -> "SMOL1:..." / SB.Save.importSmol(code) -> {genome, brain, vocab, name, gen}
-SB.Audio.init(); SB.Audio.play(name, opts); SB.Audio.voice(text, pitch); SB.Audio.setMuted(bool)
-```
-
-### Events (`SB.bus`)
-`hatch {c}`, `named {c}`, `say {c, text, words}`, `learnWord {c, word}`, `eat {c, obj}`, `tickle {c}`, `tap {c}`, `egg {obj}`, `death {c, cause}`, `achievement {a}`, `grumpArrive`, `select {c}`, `obey {c, verb}`, `sick {c}`, `cured {c}`, `use {c, obj, verb}`, `hit {c, target}`, `note {text}`.
-
----
-
-## 4. Platform hooks
-- Computer Cooked SDK: `window.cc && cc.start()` on load, `cc.event(name, data)` on hatch / first word / egg / achievement, `cc.end({score})` on page hide. Score = best IQ ever reached (shown in the HUD).
-- Player page messages: `cc-mute`, `cc-restart` (asks before wiping), `cc-pause`.
-- Later: cloud-shared smols (the smol code format is already self-contained and versioned, `SMOL1:`), a public "smol zoo", leaderboard by IQ and generations.
-
-## 5. Performance budget
-Brains are 45→≤24→12 dense nets (≈1.4k weights): a forward pass is microseconds. Decisions happen every 1–3 s, not every frame. Rendering is canvas 2D with procedural shapes, cached background layers per biome, and no per-frame allocations in the hot loop. Target: 15 creatures at 60 fps on a laptop, 30 fps on a mid phone. The sim runs at a fixed 30 Hz step, scaled by the time speed (max 8 steps per frame).
-
----
-
-## 6. Playtest results and tuning
-
-Three playtest agents played the integrated build (desktop 1280×720 and phone 390×844 with touch, plus long headless simulations and controlled teaching experiments). Their honest ratings before the fix pass:
-
-| Area | Rating |
-|---|---|
-| First 5 minutes delight | 8/10 |
-| Cuteness / art | 9/10 |
-| Phone UI / desktop UI | 7/10 · 6/10 |
-| Depth | 8/10 |
-| Stability / persistence | 8/10 |
-| Balance | 4/10 |
-| Teaching feels real | 5/10 |
-| Brain viewer | 7/10 |
-
-What they flagged, and what changed:
-- **Lessons only worked with perfect timing; taps on a hit made hitting more likely; lessons about poison spilled onto all food; commands were mostly genetics.** → lesson crediting within 2.5 s, noun→verb and word→verb lesson tables, tap = −1. Measured now (`tests/teach.test.js`): 4 late taps take "eat red shroom" from 14–60% to 0% while real food barely moves; "come" goes from ~20% to 93–100% obedience after ~5–10 rewarded obeys, versus 13–50% without the word.
-- **Smols learned to eat poison** (the sickness came too late to link to the meal) → instant "yuck" pain for rotten/poison food and the after-taste lesson; glowcaps (safe) moved to the "food" category so "shroom" means the bad one.
-- **Sickness killed 56% of smols; colonies went extinct** → slower germs, stronger antibodies, rotten food clears sooner and is less germy; after a minute with no smols the incubator finds a wild egg. 3-hour AFK sims now end mostly in old-age deaths.
-- **Breeding rare and invisible** → adults in love seek a partner to cuddle and show 💕; shorter egg cooldown; eggs hatch slowly anywhere; grumps can't steal eggs.
-- **Grumps stayed off-screen** → grumps now raid toward the smols; the alert toast jumps the camera to them; "Shoo!" always unlocks.
-- **Speech spammy, "eat bed"** → chatter rate cut by ~60%, "want X" names something that fixes the current feeling, "eat" masked to edible things; smols share the word for what the listener is looking at (cultural transmission works now).
-- **Phone layout** → the renderer keeps the ground in the gap between HUD and dock; talk bar replaces the smol sheet; toasts float at the top; carrying something to the screen edge scrolls the world.
-
-Tests: `node tests/brain.test.js`, `node tests/world.test.js`, `node tests/teach.test.js`, `node tests/sim.test.js <minutes> <seed> [afk]`.

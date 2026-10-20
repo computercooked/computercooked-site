@@ -403,7 +403,9 @@
       farFlags(game);
       acc += dtReal * game.speed;
       var steps = 0;
+      var ts0 = performance.now();
       while (acc >= SB.TICK && steps < 24) { Game.step(game, SB.TICK); acc -= SB.TICK; steps++; }
+      if (steps) Game.stepMs = (Game.stepMs || 0) * 0.9 + (performance.now() - ts0) / steps * 0.1;
       if (steps >= 24) acc = 0;
       game.playTime += dtReal;
     }
@@ -485,6 +487,7 @@
     SB.Audio && SB.Audio.init && SB.Audio.init();
     var canvas = document.getElementById("view"), ov = document.getElementById("overlay");
     if (!SB.Render.init(canvas, ov)) { SB.UI.noWebGL(); return; }
+    try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
     var g = null, data = null, migrated = false, seedFromUrl = urlSeed();
     try { data = SB.Save.load(); } catch (e) { data = null; }
     if (data && seedFromUrl && data.seed !== seedFromUrl) data = null; // a shared world link opens that world (the old save stays until the next autosave)

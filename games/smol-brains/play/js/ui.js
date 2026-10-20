@@ -907,7 +907,13 @@
   /* ---------------- civilisation card ---------------- */
   function civCard() {
     SB.Game.unlock(game, "card");
+    // frame the tribe's home for the photo, then put the camera back
+    var cam = R.camera, keep = { x: cam.x, z: cam.z, zoom: cam.zoom, tZoom: cam.tZoom, follow: cam.follow, y: cam.y };
+    var home = SB.Society.home(game, 0);
+    if (cam.zoom > 22 || SB.dist(cam.x, cam.z, home.x, home.z) > 40) { cam.follow = null; cam.x = home.x; cam.z = home.z; cam.zoom = cam.tZoom = 11; cam.y = SB.World.heightAt(game.world, home.x, home.z); }
+    R.updateCamera(0);
     var shot = R.snapshot("image/jpeg");
+    cam.x = keep.x; cam.z = keep.z; cam.zoom = keep.zoom; cam.tZoom = keep.tZoom; cam.follow = keep.follow; cam.y = keep.y;
     var cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1350;
     var ctx = cv.getContext("2d");
     ctx.fillStyle = "#101114"; ctx.fillRect(0, 0, 1080, 1350);
@@ -1027,9 +1033,14 @@
   };
 
   /* ---------------- per frame ---------------- */
+  var perfEl = null, perfT = 0;
   UI.frame = function (g, dt) {
     if (!game) return;
     SB.Input.frame(dt);
+    if (R.perf.show) {
+      if (!perfEl) { perfEl = h("div", { class: "glass mono", style: "position:absolute;left:8px;bottom:90px;padding:6px 8px;font-size:10px;pointer-events:none" }); root.appendChild(perfEl); }
+      if ((perfT -= dt) < 0) { perfT = 0.5; perfEl.textContent = Math.round(1000 / R.perf.ft) + " fps · " + R.perf.ft.toFixed(1) + " ms · " + R.perf.draws + " draws · " + Math.round(R.perf.tris / 1000) + "k tris · res " + R.quality.scale.toFixed(2) + " · sim " + (SB.Game.stepMs || 0).toFixed(2) + " ms · " + game.creatures.length + " creatures · " + game.world.items.length + " items"; }
+    }
     updateHud(dt);
     if (state.sheet === "smol") renderSmol(false);
     else if (state.sheet === "talk") { if (el.talkWords) updateTalk(false); }

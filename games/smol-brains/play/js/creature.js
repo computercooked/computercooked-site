@@ -70,7 +70,7 @@
   };
   C.newBrain = function (genome, tier, rng) {
     var b = SB.Brain.create(genome, rng);
-    if (genome.species !== "grump" && tier >= 1 && SB.Ideas) SB.Brain.dream(b, SB.Ideas.tierInstincts(tier), 160 * tier, rng);
+    if (genome.species !== "grump" && tier >= 1 && SB.Ideas) SB.Brain.dream(b, SB.Ideas.tierInstincts(tier), 90 + 70 * tier, rng);
     return b;
   };
 
@@ -548,7 +548,30 @@
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
 
   // step toward (tx, tz); steer around water and cliffs; returns true when arrived
+  // walk toward (tx, tz); if the straight line is blocked for a moment, plan a route around (A*) and follow it
   function walkToward(c, tx, tz, dt, sp, game, arriveR) {
+    var d0 = Math.hypot(tx - c.x, tz - c.z);
+    if (d0 < (arriveR || 0.1)) { c.path = null; return true; }
+    var goalMoved = !c.pathGoal || Math.abs(c.pathGoal.x - tx) + Math.abs(c.pathGoal.z - tz) > 1.5;
+    if (goalMoved) { c.path = null; c.pathGoal = { x: tx, z: tz }; c.wBest = d0; c.wBestT = 0; c.pathTried = false; }
+    c.wBestT = (c.wBestT || 0) + dt;
+    if (d0 < c.wBest - 0.2) { c.wBest = d0; c.wBestT = 0; }
+    if (!c.path && !c.pathTried && (c.wBestT > 0.8 || c.stuckT > 0.4) && d0 > 1.5) {
+      c.pathTried = true;
+      c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, swim(c), 5000);
+      c.pathI = 0;
+      if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
+    }
+    if (c.path) {
+      var wp = c.path[c.pathI];
+      while (wp && Math.hypot(wp.x - c.x, wp.z - c.z) < 0.7 && c.pathI < c.path.length - 1) wp = c.path[++c.pathI];
+      if (wp) return stepToward(c, wp.x, wp.z, dt, sp, game, c.pathI >= c.path.length - 1 ? arriveR : 0.3) && c.pathI >= c.path.length - 1;
+    }
+    return stepToward(c, tx, tz, dt, sp, game, arriveR);
+  }
+  C.pathing = function (c) { return !!c.path; };
+
+  function stepToward(c, tx, tz, dt, sp, game, arriveR) {
     var dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz);
     if (d < (arriveR || 0.1)) return true;
     var want = Math.atan2(dx, dz), step = Math.min(d, sp * dt), w = game.world;
@@ -602,7 +625,7 @@
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
         beginDo(c, game, a, tgt);
-      } else if (a.t > 14 || c.stuckT > 1.5 || a.t - a.bestT > 2.5) {
+      } else if (a.t > 25 || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || (c.noPath && game.time - c.noPath.t < 0.2)) {
         // can't get there (cliff, water, going round in circles): remember that for a while
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
@@ -612,7 +635,7 @@
     }
     a.doT += dt;
     switch (a.verb) {
-      case V.wander: if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * 0.8, game, 0.3) || c.stuckT > 1) a.doT = a.dur; break;
+      case V.wander: if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * 0.8, game, 0.3) || (c.stuckT > 1 && !c.path) || (c.noPath && game.time - c.noPath.t < 0.2)) a.doT = a.dur; break;
       case V.flee: {
         var away = tgt ? Math.atan2(c.x - tgt.x, c.z - tgt.z) : c.facing;
         walkToward(c, c.x + Math.sin(away) * 3, c.z + Math.cos(away) * 3, dt, speedOf(c, a), game, 0.1);
@@ -905,8 +928,10 @@
     if (!noun || verb === V.idle || verb === V.wander || actor.far) return;
     var rate = actor.species === "grump" ? (verb === V.hit ? 0.12 : 0.04) : r > 0.1 ? 0.1 : 0;
     if (!rate) return;
+    var watched = 0;
     SB.World.creaturesNear(game.world, game, actor.x, actor.z, 6, function (w) {
-      if (w === actor || !w.alive || w.species !== "smol" || w.asleep) return;
+      if (w === actor || !w.alive || w.species !== "smol" || w.asleep || w.far || watched >= 3) return;
+      watched++;
       var n = N[noun];
       if (!obsX || obsX.length !== w.brain.nIn) obsX = new Float32Array(w.brain.nIn); else obsX.fill(0);
       SB.Chem.drives(w.chem, drv);
@@ -944,7 +969,7 @@
         if (dd > reach) {
           if (s.best == null || dd < s.best - 0.25) { s.best = dd; s.bestT = s.t; }
           walkToward(c, t.x, t.z, dt, sp, game, reach);
-          if (c.stuckT > 2 || s.t - s.bestT > 3) { c.stuckT = 0; unreachable(c, t.ref.id, game); if (t.type === "item" && t.ref.claimed === c.id) t.ref.claimed = null; s.src = null; s.best = null; p.fails++; }
+          if ((c.stuckT > 2 && !c.path) || (s.t - s.bestT > 3 && !c.path) || (c.noPath && game.time - c.noPath.t < 0.2)) { c.stuckT = 0; unreachable(c, t.ref.id, game); if (t.type === "item" && t.ref.claimed === c.id) t.ref.claimed = null; s.src = null; s.best = null; p.fails++; }
           return;
         }
         s.work = (s.work || 0) + dt;
@@ -1323,7 +1348,7 @@
     }
     finishTick(c, game, gy);
     c.iqT -= dt;
-    if (c.iqT <= 0) { c.iq = C.iq(c, true); c.iqT = 4; }
+    if (c.iqT <= 0) { c.iq = C.iq(c, true); c.iqT = c.species === "smol" && !c.far ? 10 : 30; }
   };
 
   function finishTick(c, game, gy) {

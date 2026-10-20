@@ -68,7 +68,7 @@
     "void main() {",
     "  vec3 n = normalize(vN);",
     "  vec3 col = vCol;",
-    "  float s = smoothstep(0.35, 0.75, vMisc.x * uSnow + (n.y - 1.0) * 0.6);",
+    "  float s = smoothstep(0.28, 0.62, vMisc.x * uSnow + (n.y - 1.0) * 0.6);",
     "  col = mix(col, vec3(0.93, 0.95, 0.98), s);",
     "  col *= 1.0 - vMisc.y * 0.35;", // ambient occlusion under canopies
     "  col *= 1.0 - uWet * 0.18 * (1.0 - s);",
@@ -79,7 +79,7 @@
   var VS_OBJ = [
     "attribute vec3 aPos; attribute vec3 aNrm; attribute vec4 aCol; attribute vec2 aExt;",
     "attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; attribute vec4 iTint; attribute vec4 iExt;",
-    "uniform mat4 uVP; uniform float uTime; uniform float uWind; uniform float uAutumn; uniform vec4 uFog; uniform vec4 uCam;",
+    "uniform mat4 uVP; uniform float uTime; uniform float uWind; uniform float uAutumn; uniform float uSnow; uniform vec4 uFog; uniform vec4 uCam;",
     "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog;",
     "void main() {",
     "  vec4 p = vec4(aPos, 1.0);",
@@ -90,6 +90,8 @@
     "  vec3 tint = iTint.rgb;",
     "  tint = mix(tint, vec3(1.45, 0.62, 0.22), uAutumn * iExt.x);",
     "  vCol = mix(aCol.rgb, aCol.rgb * tint, aCol.a);",
+    "  float snowy = uSnow * smoothstep(0.35, 0.9, vN.y) * (0.35 + 0.65 * aCol.a) * (1.0 - aExt.y);",
+    "  vCol = mix(vCol, vec3(0.93, 0.95, 0.99), snowy * 0.8);",
     "  vCol = mix(vCol, vec3(1.0), iExt.z);",
     "  vEm = aExt.y + iExt.y;",
     "  vW = w;",
@@ -192,6 +194,7 @@
     cloudTex = makeCloudTexture();
     buildMeshes();
     quality.scale = lowEnd ? 0.75 : 1;
+    quality.max = 1;
     quality.lowEnd = lowEnd;
     R.resize();
     canvas.addEventListener("webglcontextlost", function (e) { e.preventDefault(); R.lost = true; }, false);
@@ -326,7 +329,7 @@
     var nz = (SB.hash(i, j, 3) - 0.5) * 0.06;
     out[0] = SB.clamp01(col[0] + nz); out[1] = SB.clamp01(col[1] + nz); out[2] = SB.clamp01(col[2] + nz * 0.7);
     // snow susceptibility (seasonal snow): cold places get it first
-    out[3] = SB.clamp01((0.6 - temp) * 2.2) * (w !== T.NONE && w > h ? 0 : 1);
+    out[3] = SB.clamp01((0.8 - temp) * 2.3) * (w !== T.NONE && w > h ? 0 : 1);
     return out;
   }
 
@@ -623,8 +626,9 @@
     { t: 0.26, sun: [0.95, 0.52, 0.36], sky: [0.5, 0.42, 0.58], gnd: [0.26, 0.2, 0.22], fog: [0.62, 0.46, 0.5] },
     { t: 0.32, sun: [1.0, 0.82, 0.6], sky: [0.56, 0.6, 0.78], gnd: [0.32, 0.29, 0.26], fog: [0.72, 0.72, 0.8] },
     { t: 0.5, sun: [1.0, 0.96, 0.88], sky: [0.55, 0.64, 0.8], gnd: [0.34, 0.32, 0.28], fog: [0.72, 0.82, 0.92] },
-    { t: 0.68, sun: [1.0, 0.86, 0.66], sky: [0.56, 0.58, 0.74], gnd: [0.32, 0.28, 0.25], fog: [0.75, 0.72, 0.78] },
-    { t: 0.75, sun: [1.0, 0.46, 0.3], sky: [0.5, 0.36, 0.52], gnd: [0.26, 0.18, 0.2], fog: [0.6, 0.38, 0.45] },
+    { t: 0.66, sun: [1.08, 0.86, 0.62], sky: [0.58, 0.58, 0.72], gnd: [0.34, 0.29, 0.25], fog: [0.78, 0.72, 0.74] },
+    { t: 0.72, sun: [1.15, 0.66, 0.38], sky: [0.6, 0.47, 0.56], gnd: [0.34, 0.24, 0.22], fog: [0.78, 0.55, 0.52] },
+    { t: 0.765, sun: [0.95, 0.42, 0.3], sky: [0.46, 0.34, 0.5], gnd: [0.22, 0.16, 0.2], fog: [0.5, 0.33, 0.42] },
     { t: 0.81, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
     { t: 1.0, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] }
   ];
@@ -638,7 +642,7 @@
     // sun arcs east -> west; at night the "sun" is a soft moon from overhead
     var day = tday > 0.22 && tday < 0.78;
     var ang = (tday - 0.25) / 0.5 * Math.PI;
-    if (day) { env.sunDir = norm3([Math.cos(ang) * 0.75, Math.max(0.12, Math.sin(ang)), 0.35]); }
+    if (day) { env.sunDir = norm3([Math.cos(ang) * 0.75, Math.max(0.3, Math.sin(ang)), 0.35]); }
     else { var ma = ((tday + 0.5) % 1 - 0.25) / 0.5 * Math.PI; env.sunDir = norm3([Math.cos(ma) * 0.5, 0.75, 0.3]); }
     env.night = day ? SB.clamp01(1 - Math.min(tday - 0.22, 0.78 - tday) / 0.06) : 1;
     var wx = world && world.weather ? world.weather : null;
@@ -705,10 +709,24 @@
   var hooks = []; // functions(game, alpha) that submit dynamic instances each frame
   R.addHook = function (fn) { hooks.push(fn); };
 
+  // dynamic resolution: keep the frame rate up on weaker phones by rendering fewer pixels
+  var perf = (R.perf = { ft: 16, slowT: 0, fastT: 0, draws: 0, tris: 0, show: false });
+  function adapt(dt) {
+    if (!(dt > 0) || dt > 0.25) return;
+    perf.ft += (dt * 1000 - perf.ft) * 0.05;
+    if (quality.fixed) return;
+    if (perf.ft > 38) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < 22) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
+    if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - 0.15); perf.slowT = 0; R.resize(); }
+    else if (perf.fastT > 6 && quality.scale < (quality.max || 1)) { quality.scale = Math.min(quality.max || 1, quality.scale + 0.1); perf.fastT = 0; R.resize(); }
+    if (perf.ft > 45 && quality.decor && perf.slowT > 1.5 && quality.scale <= 0.5) quality.decor = false;
+  }
+
   R.frame = function (g, dt, alpha) {
     if (!gl || R.lost) return;
     game = g || game;
     time += dt;
+    adapt(dt);
+    perf.draws = 0; perf.tris = 0;
     updateEnv(game && game.world);
     updateCamera(dt);
     for (var k in frameDyn) frameDyn[k].n = 0;
@@ -796,6 +814,7 @@
       if (!L) continue;
       GL.attribs(ctx, L.buf, [[p.a.aPos, 3], [p.a.aNrm, 3], [p.a.aCol, 4], [p.a.aMisc, 4]], TSTRIDE, 0);
       gl.drawArrays(gl.TRIANGLES, 0, L.count);
+      perf.draws++; perf.tris += L.count / 3;
     }
     gl.disable(gl.CULL_FACE);
   }
@@ -820,6 +839,7 @@
   function drawInstanced(p, meshKey, buf, n) {
     var m = meshes[meshKey];
     if (!m || !n) return;
+    perf.draws++; perf.tris += m.count / 3 * n;
     GL.attribs(ctx, m.buf, [[p.a.aPos, 3], [p.a.aNrm, 3], [p.a.aCol, 4], [p.a.aExt, 2]], STRIDE, 0);
     GL.attribs(ctx, buf, [[p.a.iM0, 4], [p.a.iM1, 4], [p.a.iM2, 4], [p.a.iTint, 4], [p.a.iExt, 4]], ISTRIDE, 1);
     ctx.drawInstanced(gl.TRIANGLES, 0, m.count, n);
@@ -834,6 +854,7 @@
     gl.uniform1f(p.u.uTime, time);
     gl.uniform1f(p.u.uWind, 0.4 + env.wind * 1.2 + env.rain * 0.6);
     gl.uniform1f(p.u.uAutumn, env.autumn);
+    gl.uniform1f(p.u.uSnow, env.snow);
     rebuildBudget = 4;
     var showDecor = quality.decor && cam.zoom < 26;
     for (var i = 0; i < vis.length; i++) {

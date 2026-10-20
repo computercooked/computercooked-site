@@ -553,6 +553,7 @@
   };
   I.complete = function (st, game) {
     st.done = true; st.noun = SK[st.kind].noun;
+    if (st.kind === "bridge") { var bc = Math.cos(st.rot || 0), bs = Math.sin(st.rot || 0); for (var bt = -1.8; bt <= 1.8; bt += 0.9) SB.World.openPathAt(game.world, st.x + bs * bt, st.z + bc * bt, 0.6); }
     if (st.kind === "campfire") { st.data.fuel = 0.6; st.data.lit = SB.Game.cultureKnows(game, "fire"); }
     if (st.kind === "kiln") { st.data.fuel = 0.8; st.data.lit = true; }
     if (st.kind === "farm") st.data.grow = 0.05;

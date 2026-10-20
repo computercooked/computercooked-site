@@ -48,6 +48,7 @@
     }
     rebuildNodeGrid(world);
     W.nearWater(world);
+    W.buildPathGrid(world);
   }
   function rebuildNodeGrid(world) {
     var T = world.T, gn = Math.ceil(T.N / CELL), grid = new Array(gn * gn);
@@ -102,6 +103,81 @@
     if (s < 0) return null;
     return { x: s % V, z: (s / V) | 0 };
   };
+
+  /* ---------------- pathfinding ----------------
+     A coarse walkability grid (2x2 tiles per cell) and A* on it, used when walking straight is blocked
+     (rivers, lakes, cliffs). Bridges open cells up when they're finished. */
+  var PC = (W.PATH_CELL = 2);
+  W.buildPathGrid = function (world) {
+    var T = world.T, n = T.N / PC, g = new Uint8Array(n * n);
+    for (var j = 0; j < n; j++) for (var i = 0; i < n; i++) {
+      var x = i * PC + PC / 2, z = j * PC + PC / 2;
+      // walkable if the centre and most of the cell is walkable
+      var ok = 0;
+      for (var k = 0; k < 5; k++) { var ox = [0, -0.6, 0.6, 0, 0][k], oz = [0, 0, 0, -0.6, 0.6][k]; if (W.walkable(world, x + ox, z + oz, false)) ok++; }
+      g[j * n + i] = ok >= 4 ? 1 : 0;
+    }
+    world.pathGrid = g; world.pathN = n;
+  };
+  W.openPathAt = function (world, x, z, r) {
+    if (!world.pathGrid) return;
+    var n = world.pathN;
+    for (var j = Math.floor((z - r) / PC); j <= Math.floor((z + r) / PC); j++) for (var i = Math.floor((x - r) / PC); i <= Math.floor((x + r) / PC); i++) if (i >= 0 && j >= 0 && i < n && j < n) world.pathGrid[j * n + i] = 1;
+  };
+  var pq = null;
+  // A* from (sx,sz) to (tx,tz). Returns [{x,z}...] or null. maxNodes bounds the work.
+  W.findPath = function (world, sx, sz, tx, tz, swim, maxNodes) {
+    if (!world.pathGrid) W.buildPathGrid(world);
+    var n = world.pathN, g = world.pathGrid;
+    var si = SB.clamp((sx / PC) | 0, 0, n - 1), sj = SB.clamp((sz / PC) | 0, 0, n - 1);
+    var ti = SB.clamp((tx / PC) | 0, 0, n - 1), tj = SB.clamp((tz / PC) | 0, 0, n - 1);
+    var start = sj * n + si, goal = tj * n + ti;
+    if (start === goal) return [{ x: tx, z: tz }];
+    function open(k) { return swim ? true : g[k] === 1; }
+    // a goal cell that's blocked (a tree in water, a bush on a cliff edge) is fine if a neighbour is open
+    var size = n * n;
+    if (!pq || pq.cost.length !== size) pq = { cost: new Float32Array(size), from: new Int32Array(size), seen: new Uint32Array(size), stamp: 0, hk: new Float32Array(size + 1), hv: new Int32Array(size + 1) };
+    pq.stamp++;
+    var stamp = pq.stamp, cost = pq.cost, from = pq.from, seen = pq.seen, hk = pq.hk, hv = pq.hv, hn = 0;
+    function push(key, val) { var i = hn++; while (i > 0) { var p = (i - 1) >> 1; if (hk[p] <= key) break; hk[i] = hk[p]; hv[i] = hv[p]; i = p; } hk[i] = key; hv[i] = val; }
+    function pop() { var top = hv[0], key = hk[--hn], val = hv[hn], i = 0; while (true) { var l = i * 2 + 1; if (l >= hn) break; var r = l + 1, c = r < hn && hk[r] < hk[l] ? r : l; if (hk[c] >= key) break; hk[i] = hk[c]; hv[i] = hv[c]; i = c; } hk[i] = key; hv[i] = val; return top; }
+    cost[start] = 0; seen[start] = stamp; from[start] = -1; push(0, start);
+    var budget = maxNodes || 6000, found = -1;
+    while (hn && budget-- > 0) {
+      var k = pop();
+      if (k === goal || (Math.abs((k % n) - ti) <= 1 && Math.abs(((k / n) | 0) - tj) <= 1 && !open(goal))) { found = k; break; }
+      var ci = k % n, cj = (k / n) | 0;
+      for (var d = 0; d < 8; d++) {
+        var ni = ci + DXP[d], nj = cj + DZP[d];
+        if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue;
+        var nk = nj * n + ni;
+        if (!open(nk) && nk !== goal) continue;
+        if (d >= 4 && (!open(cj * n + ni) || !open(nj * n + ci))) continue; // no corner cutting
+        var nc = cost[k] + (d >= 4 ? 1.414 : 1);
+        if (seen[nk] === stamp && cost[nk] <= nc) continue;
+        seen[nk] = stamp; cost[nk] = nc; from[nk] = k;
+        var hx = ni - ti, hz = nj - tj;
+        push(nc + Math.sqrt(hx * hx + hz * hz), nk);
+      }
+    }
+    if (found < 0) return null;
+    var cells = [];
+    for (var c2 = found; c2 >= 0 && c2 !== start; c2 = from[c2]) cells.push(c2);
+    cells.reverse();
+    var pts = cells.map(function (q) { return { x: (q % n) * PC + PC / 2, z: ((q / n) | 0) * PC + PC / 2 }; });
+    pts.push({ x: tx, z: tz });
+    // drop waypoints that are in a straight line
+    var out = [];
+    for (var i = 0; i < pts.length; i++) {
+      if (i > 0 && i < pts.length - 1) {
+        var a = pts[i - 1], b = pts[i], c = pts[i + 1];
+        if (Math.abs((b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x)) < 0.01) continue;
+      }
+      out.push(pts[i]);
+    }
+    return out;
+  };
+  var DXP = [1, -1, 0, 0, 1, 1, -1, -1], DZP = [0, 0, 1, -1, 1, -1, 1, -1];
 
   /* ---------------- geometry ---------------- */
 

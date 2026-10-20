@@ -64,7 +64,7 @@
       var bs = b.Bs[l];
       for (i = 0; i < bs.length; i++) bs[i] = last ? -0.02 : (rng() * 2 - 1) * 0.1;
     }
-    if (genome && genome.instincts && genome.instincts.length) B.dream(b, genome.instincts, 600 + 80 * (L - 1), rng);
+    if (genome && genome.instincts && genome.instincts.length) B.dream(b, genome.instincts, 500 + 40 * (L - 1), rng);
     return b;
   };
 
