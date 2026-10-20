@@ -1,7 +1,7 @@
 // Computer Cooked Games platform Worker.
 // Static files are served by the assets binding; /api/*, /u/* and /games/* run this code first (run_worker_first in
 // wrangler.jsonc). Game pages go through seo.js; other game files pass straight through to the assets.
-import { json, bad, HttpError } from "./util.js";
+import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
@@ -48,6 +48,8 @@ async function api(req, env, url) {
   const origin = url.origin;
 
   if (path === "/api/health") return json({ ok: true, db: !!env.DB });
+  // the tip jar link (hub footer, after a run): null while TIP_URL is unset, so nothing shows
+  if (path === "/api/tip") return json({ ok: true, url: tipUrl(env) }, 200, { "cache-control": "public, max-age=300" });
   if (!env.DB) return bad("database not configured", 503);
 
   // Cross-site POSTs are refused (cookies are SameSite=Lax too).

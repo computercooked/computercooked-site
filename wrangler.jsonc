@@ -5,6 +5,9 @@
   "name": "computercooked-site",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
+  // Tip jar: empty = off. Set to the public Stripe Payment Link (https://buy.stripe.com/…) and merge to switch
+  // the "tip the computer" link on (hub footer + after a run). Anything that isn't a buy.stripe.com link stays off.
+  "vars": { "TIP_URL": "" },
   "assets": {
     "directory": "./",
     "binding": "ASSETS",

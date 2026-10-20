@@ -156,6 +156,14 @@ After every run (scored or not), the shared player (`games/platform.js`) shows *
 
 Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that page, `cc-sdk.js` counts its plays as referrer `internal`, tags its first run's start event with `src: "next", slot`, and takes the params off the URL, so a reload doesn't count again. The server stores one `events` row per play, `name = 'cc:next'`, `data = {"slot": …}` (no migration). `cc:*` event names are reserved for the platform: `cc.event` calls using them are dropped. Admin metrics `next` gives plays started from the rail per run ended, by slot.
 
+## Tip jar (off by default)
+
+A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's off in the repo: `"vars": { "TIP_URL": "" }` in `wrangler.jsonc`.
+- **To switch it on:** put the public Stripe Payment Link in `TIP_URL` and merge. Only `https://buy.stripe.com/<id>` is accepted; any other value (wrong host, http, extra path or query) is treated as off.
+- `GET /api/tip` → `{ok, url}`, with `url: null` when it's off. It's cached 5 minutes, so the change shows within 5 minutes of the deploy.
+- The link opens in a new tab with `rel="noopener noreferrer"` and no referrer. Clicks aren't logged, and nothing about payments touches our server.
+- The privacy page has a "tips" line.
+
 ## Share-your-run card
 
 After any accepted run, the dare box on the game page offers **share card ▶** next to the plain link. `games/platform.js` loads `games/share-card.js` (only then) and draws a 1080x1920 PNG in the browser: the game's thumbnail, title, score ("new personal best" when it is one), the all-time rank chip, "can you beat me?" and `computercooked.com/games/<slug>`. Nothing is uploaded; the image is made on the device.

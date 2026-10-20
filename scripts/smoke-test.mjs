@@ -40,6 +40,9 @@ const anon = "smoke" + rid();
 const tester = "smoke-test";
 
 ok((await (await get("/api/health")).json()).ok, "health");
+// tip jar: off (url null) unless TIP_URL is a buy.stripe.com Payment Link
+const tipRes = await (await get("/api/tip")).json();
+ok(tipRes.ok && (tipRes.url === null || /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]+$/.test(tipRes.url)), "tip jar is off or a Stripe Payment Link", tipRes.url);
 
 // a legit CRASH run: start, wait, end with a plausible score
 const p1 = rid();

@@ -323,6 +323,18 @@
     return cardMaker;
   }
 
+  // tip jar (off until TIP_URL is a buy.stripe.com Payment Link): a plain link out, nothing tracked, no payment here
+  function tipLine(url) {
+    return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
+  }
+  var tip = null;
+  function tipUrl() {
+    if (!tip) tip = fetch("/api/tip").then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j && typeof j.url === "string" && j.url.indexOf("https://buy.stripe.com/") === 0 ? j.url : null; })
+      .catch(function () { return null; });
+    return tip;
+  }
+
   /* ---------- "play next" rail after a run: the weekly challenge game, one like this, one you haven't tried ---------- */
   // Links carry ?src=next&slot=…; cc-sdk.js tags the next page's first run with it (admin metrics: next).
   function nextRail() {
@@ -361,6 +373,7 @@
             '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
             '<span class="cc-next-k">' + esc(p.label) + "</span><b>" + esc(p.g.title) + "</b></a>";
         }).join("") + "</div></nav>");
+      tipUrl().then(function (url) { if (url) rail.insertAdjacentHTML("beforeend", tipLine(url)); });
       var dareBox = document.getElementById("cc-dare");
       if (dareBox) dareBox.insertAdjacentElement("afterend", rail);
       else board.insertAdjacentElement("beforebegin", rail);
