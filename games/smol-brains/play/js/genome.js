@@ -121,7 +121,8 @@
     for (var i = 0; i < G.GENES.length; i++) {
       var n = G.GENES[i];
       var va = a.genes[n] != null ? a.genes[n] : 0.5, vb = b.genes[n] != null ? b.genes[n] : 0.5;
-      genes[n] = q(rng.chance(0.25) ? SB.lerp(va, vb, rng()) : rng.chance(0.5) ? va : vb);
+      // evolution has momentum: a child often takes the more evolved parent's side
+      genes[n] = q(EVO_SET[n] && rng.chance(0.3) ? Math.max(va, vb) : rng.chance(0.25) ? SB.lerp(va, vb, rng()) : rng.chance(0.5) ? va : vb);
     }
     var driveW = [];
     for (var d = 0; d < SB.N_DRIVES; d++) {
@@ -167,8 +168,8 @@
       n = EVO[i];
       old = g.genes[n];
       var v = old;
-      if (!grump && echo && echo[n] > 0) v += 0.11 * Math.min(1, echo[n]) * (1.1 - v);
-      if (!grump && echo) v += 0.008; // life tends to get more complex (very slowly)
+      if (!grump && echo && echo[n] > 0) v += 0.24 * Math.min(1, echo[n]) * (1.1 - v);
+      if (!grump && echo) v += 0.01; // life tends to get more complex (very slowly)
       // a blessing amplifies what the parents actually practised: it's strong on a well-raised family, weak on its own
       if (!grump && bless && bless[n]) v += bless[n] * (0.6 + 0.9 * Math.min(1, (echo && echo[n]) || 0)) * (1.05 - v);
       if (rng.chance(0.3)) v += rng.gauss() * 0.05;
@@ -237,7 +238,7 @@
     { limbs: 0.35, neurons: 0 },
     { arms: 0.5, neurons: 16 },
     { social: 0.5, neurons: 28 },
-    { planning: 0.5, layers: 2, neurons: 36 },
+    { planning: 0.45, layers: 2, neurons: 36 },
     { head: 0.5, recall: 0.5, neurons: 58 },
     { glow: 0.6, layers: 3, neurons: 88 }
   ];

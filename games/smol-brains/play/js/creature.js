@@ -537,7 +537,7 @@
           var prey = null, pd = 1e9;
           game.creatures.forEach(function (o) { if (o.alive && o.species === "smol") { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < pd) { pd = d; prey = o; } } });
           if (prey) { ang = Math.atan2(prey.x - c.x, prey.z - c.z) + rng.range(-0.4, 0.4); dist = Math.min(pd, 12); a.dur = 6; }
-        } else if (c.chem.love > 0.6 && c.stage === 3 && (sniff = findMate(c, game))) {
+        } else if (c.chem.love > 0.45 && c.stage === 3 && (sniff = findMate(c, game))) {
           // smitten: go looking for someone to cuddle
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.2, 0.2);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
@@ -1102,7 +1102,7 @@
     e.arms = f(h.hands, 8); e.dexterity = f(h.hands, 14);
     e.cortex = f(h.think, 6); e.recall = f(h.think, 10); e.head = f(h.think, 14);
     e.layers = f((h.think || 0) + (h.plan || 0) + (h.build || 0), 18);
-    e.planning = f((h.plan || 0) + (h.build || 0), 8); e.social = f(h.social, 6);
+    e.planning = f((h.plan || 0) + (h.build || 0), 5); e.social = f(h.social, 4);
     e.fins = f(h.swim, 30); e.fluff = f(h.cold, 90); e.horns = f(h.fight, 3);
     e.glow = f((h.glow || 0) + (c.tier >= 5 ? (h.think || 0) * 0.3 : 0), 16); e.wings = f(h.glow, 40);
     return e;

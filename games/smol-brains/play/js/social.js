@@ -145,6 +145,7 @@
   SO.onCuddle = function (game, a, b) {
     if (!smol(a) || !smol(b)) return;
     SO.remember(game, a, b, "cuddle", 6, "cuddles", 2400, 24); SO.remember(game, b, a, "cuddle", 6, "cuddles", 2400, 24);
+    if (SB.Creature && SB.Creature.habitOf) { SB.Creature.habitOf(a, "social", 0.3); SB.Creature.habitOf(b, "social", 0.3); } // closeness breeds chattier kids
     SO.log(game, a, "💕", "cuddled with " + b.name);
   };
   SO.onGive = function (game, a, b, item) {
@@ -172,6 +173,7 @@
   SO.onPlay = function (game, a, b) {
     if (!smol(a) || !smol(b)) return;
     SO.remember(game, a, b, "play", 3, "we play together", 1800, 15); SO.remember(game, b, a, "play", 3, "we play together", 1800, 15);
+    if (SB.Creature && SB.Creature.habitOf) { SB.Creature.habitOf(a, "social", 0.2); SB.Creature.habitOf(b, "social", 0.2); }
   };
 
   /* ---------------- death, grief and graves ---------------- */

@@ -68,9 +68,9 @@
 
   SB.STAGES = [
     { id: "baby", name: "baby", from: 0, scale: 0.55 },
-    { id: "kid", name: "kid", from: 90, scale: 0.72 },
-    { id: "teen", name: "teen", from: 190, scale: 0.86 },
-    { id: "adult", name: "adult", from: 300, scale: 1 },
+    { id: "kid", name: "kid", from: 60, scale: 0.72 },
+    { id: "teen", name: "teen", from: 130, scale: 0.86 },
+    { id: "adult", name: "adult", from: 210, scale: 1 },
     { id: "elder", name: "elder", from: 2100, scale: 0.97 }
   ];
   SB.BASE_LIFESPAN = 2700; // ± genome.lifespan (about 45 min at 1x)

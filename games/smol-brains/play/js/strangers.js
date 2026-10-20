@@ -22,7 +22,8 @@
 
   function nextIn(game) {
     var r = game.rng, urgent = ST.breedablePairs(game) === 0;
-    return urgent ? r.range(150, 260) : r.range(480, 840);
+    // a young colony needs new blood quickly; a big one only now and then
+    return urgent ? r.range(120, 210) : smols(game).length < 12 ? r.range(300, 480) : r.range(480, 840);
   }
   function spot(game, home, dist) {
     var w = game.world, r = game.rng;
@@ -36,7 +37,7 @@
   ST.tick = function (game, dt) {
     var all = smols(game);
     if (!all.length) return;
-    if (game.strangerT == null) game.strangerT = 600; // the first one turns up about ten minutes in
+    if (game.strangerT == null) game.strangerT = 360; // the first one turns up about six minutes in
     // strangers who are here: walk up, wait, or leave
     game.creatures.forEach(function (c) {
       var s = c.stranger;
