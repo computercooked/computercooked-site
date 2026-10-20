@@ -8,9 +8,10 @@ import { json, bad, readJson, now, slugOk, nameClean, textClean, dayOf } from ".
 import { games } from "./db.js";
 import { levelOf, totalXp, SITE_ACH } from "./xp.js";
 import { relation } from "./friends.js";
+import { needLevel, cosmeticsFor } from "./cosmetics.js";
 import { eventDef } from "./social.js";
 
-export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper"];
+export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper", "mint", "pink", "gold", "chrome"];
 const BADGE_RE = /^[a-z0-9-]{1,40}:[a-z0-9_-]{1,40}$/;
 
 async function row(env, userId) {
@@ -27,7 +28,8 @@ function shape(p) {
 
 export async function getMyProfile(env, user) {
   const p = await row(env, user.id);
-  return json({ ok: true, avatar: user.avatar, profile: shape(p), email: p?.email || null, email_verified: !!p?.email_verified, news_optin: !!p?.news_optin });
+  const level = levelOf(await totalXp(env, user.id)).level;
+  return json({ ok: true, avatar: user.avatar, level, cosmetics: cosmeticsFor(level), profile: shape(p), email: p?.email || null, email_verified: !!p?.email_verified, news_optin: !!p?.news_optin });
 }
 
 export async function saveMyProfile(req, env, user, origin) {
@@ -62,6 +64,8 @@ export async function saveMyProfile(req, env, user, origin) {
   }
   if ("theme" in b) {
     if (!THEMES.includes(b.theme)) return bad("unknown theme");
+    const need = needLevel("theme", b.theme);
+    if (need > 1 && levelOf(await totalXp(env, user.id)).level < need) return bad(`reach level ${need} to use that color.`, 403);
     next.theme = b.theme;
   }
   if ("public" in b) next.public = !!b.public;

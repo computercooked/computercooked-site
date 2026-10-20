@@ -176,3 +176,12 @@
 .me-feed li.is-achievement span, .me-feed li.is-challenge span { color: var(--lime); }
 .me-ach li.is-event { border-color: #ffb84d; }
 .me-ach li.is-event i { color: #ffb84d; }
+
+/* ---------- level unlocks ---------- */
+.swatch.is-locked { opacity: 0.45; cursor: not-allowed; }
+.swatch-color.is-locked { position: relative; }
+.swatch-color.is-locked::after {
+  content: attr(data-lv); position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--mono); font-weight: 800; font-size: 0.6rem; color: #111;
+}
+#lvl-unlock { margin-top: 4px; }

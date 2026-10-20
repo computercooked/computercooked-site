@@ -54,6 +54,15 @@ if (local) {
   ok(r.ok && /HttpOnly/i.test(r.headers.get("set-cookie") || ""), "signup sets httpOnly cookie");
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user?.username === u, "me after signup");
+  // level unlocks: a level 1 account can't wear or use locked cosmetics
+  r = await (await get("/api/me/profile", { cookie })).json();
+  ok(r.level === 1 && r.cosmetics?.length >= 5 && r.cosmetics.every((c) => !c.unlocked), "cosmetics listed, all locked at level 1", r.cosmetics?.map((c) => c.id + "@" + c.level));
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-crown" }, { cookie });
+  ok(r.status === 403, "locked accessory refused", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-cap" }, { cookie });
+  ok(r.ok, "free accessory still works");
+  r = await post("/api/me/profile", { theme: "gold" }, { cookie });
+  ok(r.status === 403, "locked profile color refused", r.status);
   r = await (await post("/api/me/favorite", { game: "crash", on: true }, { cookie })).json();
   ok(r.ok, "favorite");
   r = await (await get("/api/me/summary", { cookie })).json();
@@ -190,6 +199,11 @@ if (local) {
     ] }, { cookie })).json();
     const x = r.results?.[p4]?.xp;
     ok(x?.parts?.some((p) => p.kind === "challenge" && p.xp === ch.xp), "challenge run pays the bonus", x?.parts);
+    ok(Array.isArray(x?.unlocks) && x.unlocks.every((u) => u.level <= x.level) && (x.leveled_up || !x.unlocks.length), "level ups list new unlocks", { level: x?.level, unlocks: x?.unlocks });
+    if (x?.level >= 3) {
+      r = await post("/api/me/avatar", { avatar: "x:happy-1-0-antenna" }, { cookie });
+      ok(r.ok, "unlocked accessory can be worn at level 3+", r.status);
+    }
     r = await (await get("/api/challenge", { cookie })).json();
     ok(r.challenge.done === true && r.challenge.finishers >= 1, "challenge shows done");
     if (liveEvent) {

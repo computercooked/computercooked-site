@@ -2,6 +2,7 @@
 // a logged-in player's completed run of 10s+, whose score (if the game has a board) passed the bounds check.
 import { now, dayOf } from "./util.js";
 import { challengeFor, eventsLive, eventDef } from "./social.js";
+import { unlocksBetween } from "./cosmetics.js";
 
 // total XP needed to reach level L: 50 * (L-1)^1.6  ->  L2 at 50, L3 at 152, L5 at 459, L10 at 1683, L20 at 5555
 export const xpFor = (L) => Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6));
@@ -109,5 +110,5 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
 
 export function progress(before, gained, extra = {}) {
   const a = levelOf(before), b = levelOf(before + gained);
-  return { gained, ...b, leveled_up: b.level > a.level, ...extra };
+  return { gained, ...b, leveled_up: b.level > a.level, unlocks: unlocksBetween(a.level, b.level), ...extra };
 }

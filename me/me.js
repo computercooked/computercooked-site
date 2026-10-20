@@ -112,7 +112,30 @@
   }
 
   /* ---------- profile + account settings (slice C) ---------- */
-  var THEMES = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED" };
+  var THEMES = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED", mint: "#7dffb0", pink: "#ff6bd6", gold: "#ffd84d", chrome: "#d9e2ec" };
+  // grey out cosmetics this account hasn't reached yet (the server refuses them too)
+  function lockRow(root, values, need) {
+    root.querySelectorAll(".swatch").forEach(function (b) {
+      var v = values[+b.dataset.v], lv = need[v];
+      if (!lv) return;
+      b.disabled = true;
+      b.classList.add("is-locked");
+      b.dataset.lv = "lv " + lv;
+      b.setAttribute("aria-label", (b.getAttribute("aria-label") || v) + " (unlocks at level " + lv + ")");
+      if (!b.classList.contains("swatch-color")) b.textContent = v + " · lv " + lv;
+    });
+  }
+  function showUnlocks(r) {
+    var locked = { acc: {}, theme: {} }, next = null;
+    (r.cosmetics || []).forEach(function (u) {
+      if (u.unlocked) return;
+      locked[u.kind][u.id] = u.level;
+      if (!next) next = u;
+    });
+    lockRow($("#b-acc"), window.ccAvatarParts.accs, locked.acc);
+    lockRow($("#theme-pick"), Object.keys(THEMES), locked.theme);
+    $("#lvl-unlock").textContent = next ? "next unlock: " + next.name + " at level " + next.level : "every level unlock earned. show it off.";
+  }
   var unlockedBadges = [];
   function setFace(k) {
     api("/api/me/avatar", { avatar: k }).then(function (r) {
@@ -161,6 +184,7 @@
       form.public.checked = p.public;
       theme = p.theme || "lime";
       swatches($("#theme-pick"), themeKeys, themeKeys.indexOf(theme), function (v) { return v; }, function (i) { theme = themeKeys[i]; }, function (v) { return THEMES[v]; });
+      showUnlocks(r);
       pinned = p.badges || [];
       renderBadges();
       var ef = $("#form-email");

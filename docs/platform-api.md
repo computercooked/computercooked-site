@@ -80,6 +80,27 @@ cc.achieve(id)  // -> Promise<{id, name, desc, xp} | null>; logged-in players on
 - **Site-wide achievements:** sampler platter (5 games), seven day uptime (7-day streak), leaderboard material (top 10 on an all-time board), ctrl+s (first cloud save), critic.exe (rate a game).
 - **What players see:** the player page toasts board rank, +XP, unlocks and level-ups (with a share button). `/api/me` returns `level, title, xp, floor, next`, and `/api/me/summary` adds `xp, xp_history, achievements` for /me.
 
+### Level unlocks (cosmetics)
+
+Defined in `src/cosmetics.js` (`UNLOCKS`). They're earned by playing only, and everything from before stays free.
+
+| level | unlock |
+|---|---|
+| 3 | antenna (accessory) |
+| 4 | mint profile color |
+| 5 | crown |
+| 6 | pink profile color |
+| 8 | halo |
+| 10 | gold profile color |
+| 12 | on fire (`flames`) |
+| 16 | chrome profile color |
+| 20 | chef hat |
+
+- The server checks them: `POST /api/me/avatar` and the `theme` in `POST /api/me/profile` return 403 below the level.
+- `GET /api/me/profile` returns `level` and `cosmetics: [{kind: acc/theme, id, name, level, unlocked}]`.
+- XP progress (in `cc.end` results) includes `unlocks`, the ones just reached, and the player page toasts them.
+- To add one: draw it in `assets/avatars.js` (accessories) or add the color to the `THEMES` maps in `me/me.js` and `u/u.js`, then add it to `UNLOCKS`, plus `AVATAR_RE` in `src/auth.js` or `THEMES` in `src/profile.js`.
+
 ### Saves and the player (slice A)
 
 ```js
@@ -120,7 +141,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/me/favorite` · `/api/me/avatar` | `{game, on}` · `{avatar}` |
 | POST | `/api/me/delete` | `{password}`: hard-deletes the account, its sessions, saves, favorites, scores and uploads; plays and feedback stay without the link |
 | GET · POST | `/api/me/profile` | GET: profile + private settings (email). POST any of `{display_name, bio, fav_game, badges:["game:ach_id"…≤3, unlocked only], theme, public}`. Bios are 160 chars, word-filtered, no links |
-| POST | `/api/me/avatar` | a preset (`lime`…) or a built face `x:<mood>-<face 0-7>-<body 0-4>-<accessory>` (moods tired/happy/flat/angry/x; accessories none/headphones/cap/witch/bow/glasses/steam) |
+| POST | `/api/me/avatar` | a preset (`lime`…) or a built face `x:<mood>-<face 0-7>-<body 0-4>-<accessory>` (moods tired/happy/flat/angry/x; accessories none/headphones/cap/witch/bow/glasses/steam, plus level-locked antenna/crown/halo/flames/chef) |
 | POST | `/api/me/email` | `{email, news}`: stored unverified, `""` removes it. Nothing is emailed until verification exists |
 | POST | `/api/me/password` | `{current, next}`: also ends every other session |
 | POST | `/api/me/logout-all` | ends every session, this one included |
