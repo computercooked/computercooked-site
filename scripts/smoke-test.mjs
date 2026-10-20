@@ -9,6 +9,7 @@
 // staging, a preview) those sections are skipped and print "SKIP (live: no accounts)"; only the anonymous
 // checks run. There is deliberately no flag to override this.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import vm from "node:vm";
 const base = process.argv[2] || "http://127.0.0.1:8787";
 const admin = process.argv[3] || "";
 const local = ["localhost", "127.0.0.1"].includes(new URL(base).hostname); // the exact host, never a substring of the URL
@@ -130,6 +131,30 @@ ok(r.status === 404, "share-this-game: unknown game refused", r.status);
 const followJs = await (await get("/assets/follow.js")).text();
 ok(["https://www.tiktok.com/@computercooked", "https://www.youtube.com/@computercooked?sub_confirmation=1", "https://www.instagram.com/computercooked/", "https://x.com/computercooked"].every((u) => followJs.includes(u)) && followJs.includes('rel="noopener"'), "follow.js has the four follow links (new tab, noopener)");
 ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loads the follow card");
+// hub spotlight: every slide's button and link point at the game whose title and art it shows (fx.js builds
+// each slide from one games.json record; run its slide builder here on this server's data)
+{
+  const hubHtml = await (await get("/games/")).text();
+  const spotHref = (hubHtml.match(/<a class="spotlight" href="([^"]+)"/) || [])[1];
+  const ctaHref = (hubHtml.match(/<a class="play-btn hero-play" href="([^"]+)"/) || [])[1];
+  const spotName = (hubHtml.match(/<span class="spot-name">([^<]+)<\/span>/) || [])[1];
+  const catalog = (await (await get("/games/games.json")).json()).games;
+  const byTitle = (t) => catalog.find((g) => g.title === t);
+  ok(spotHref && spotHref === ctaHref && byTitle(spotName) && spotHref === "/games/" + byTitle(spotName).slug + "/", "hub spotlight (static): art link, title and play button are the same game", { spotHref, ctaHref, spotName });
+  const sandbox = { window: { matchMedia: () => ({ matches: false }) }, document: { addEventListener() {}, getElementById: () => null, querySelector: () => null }, location: { pathname: "/" } };
+  sandbox.window.window = sandbox.window;
+  vm.runInNewContext(await (await get("/assets/fx.js")).text(), { ...sandbox, ...sandbox.window, window: sandbox.window });
+  const build = sandbox.window.ccSpotSlides;
+  const ours = catalog.filter((g) => g.made_by === "computer-cooked");
+  const newest = ours.filter((g) => g.slug !== "crash").slice(-4).reverse();
+  const feat = (await (await get("/api/featured")).json()).featured || null;
+  const slides = typeof build === "function" ? build(ours, newest, feat) : [];
+  const bad = slides.filter((s) => {
+    const g = byTitle(s.title);
+    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title + " ▶" || s.art !== g.thumbnail;
+  });
+  ok(slides.length >= 2 && bad.length === 0 && (!feat || slides[0].slug === feat.game), "hub spotlight: each slide's button href, link and art match its title's game", { slides: slides.map((s) => s.slug), bad: bad.map((s) => s.title) });
+}
 r = await (await post("/api/follow", { platform: "tiktok", slot: "hub-card", anon })).json();
 ok(r.ok && r.test === true, "follow click accepted (smoke traffic not stored)", r);
 r = await post("/api/follow", { platform: "myspace", slot: "hub-card", anon });
