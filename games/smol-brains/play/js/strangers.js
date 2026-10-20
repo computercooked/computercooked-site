@@ -60,7 +60,9 @@
     var from = spot(game, home, 30), wait = spot(game, home, 7);
     if (!from || !wait) return null;
     var top = all.reduce(function (m, c) { return Math.max(m, c.tier); }, 0);
-    var tier = opts.tier != null ? opts.tier : Math.max(0, Math.min(5, top + (r() < 0.2 ? 1 : r() < 0.55 ? 0 : -1)));
+    // usually about as evolved as your smols or a bit behind; very rarely one step ahead (and never past builder),
+    // so welcoming strangers brings fresh blood, not a shortcut up the ladder
+    var tier = opts.tier != null ? opts.tier : Math.max(0, Math.min(top < 4 ? top + 1 : 4, top + (r() < 0.05 ? 1 : r() < 0.5 ? 0 : -1)));
     // the colony's more lopsided sex is what newcomers tend to be
     var f = all.filter(function (c) { return c.sex === "f"; }).length, m = all.length - f;
     var sex = opts.sex || (f < m ? (r() < 0.75 ? "f" : "m") : m < f ? (r() < 0.75 ? "m" : "f") : (r() < 0.5 ? "f" : "m"));

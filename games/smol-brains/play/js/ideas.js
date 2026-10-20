@@ -23,6 +23,10 @@
     { id: "torch", name: "torch", icon: "🔦", tier: 2, needs: ["fire"], kind: "craft", make: { in: { stick: 1 }, at: "fire", out: "torch", time: 1.5 }, desc: "fire you can carry. scares grumps, lights campfires.", hint: "a stick and a fire" },
     { id: "cook", name: "cooking", icon: "🍢", tier: 2, needs: ["fire"], kind: "craft", make: { in: { food: 1 }, at: "fire", out: "cooked", time: 3 }, desc: "food + fire = more food. cooked food never makes you sick.", hint: "food near a fire" },
     { id: "spear", name: "spear", icon: "🔱", tier: 2, needs: ["knap", "poke"], kind: "craft", make: { in: { stick: 1, flint: 1 }, out: "spear", time: 4 }, desc: "for fishing, hunting hoppers, and politely suggesting grumps leave.", hint: "a sharp stone and a long stick" },
+    { id: "chop", name: "stone axes", icon: "🪓", tier: 2, needs: ["knap"], kind: "craft", make: { in: { blade: 1, stick: 1 }, out: "stoneaxe", time: 4 }, desc: "lash a blade to a stick and trees become logs. a log is worth three sticks when building.", hint: "a blade, a stick, and a tree" },
+    { id: "club", name: "clubs", icon: "🏏", tier: 2, needs: ["bonk"], kind: "craft", make: { in: { stick: 1, stone: 1 }, out: "club", time: 3 }, desc: "for when grumps come too close. a grump hit with a club runs off.", hint: "holding a stick, face to face with a grump" },
+    { id: "fishing", name: "fishing", icon: "🎣", tier: 3, needs: ["weave"], kind: "craft", make: { in: { stick: 1, fiber: 1 }, out: "rod", time: 4 }, desc: "a stick and reed string. fishers sit by the water and come back with fish.", hint: "a stick and some reed, by the water" },
+    { id: "sewing", name: "fur cloaks", icon: "🧥", tier: 3, needs: ["weave", "spear"], kind: "craft", make: { in: { fur: 2, fiber: 1 }, out: "cloak", time: 6 }, desc: "bunny fur sewn with reed thread. smols in cloaks barely feel the winter.", hint: "fur, reed, and a cold day" },
     { id: "herbal", name: "herb lore", icon: "🌿", tier: 3, needs: [], kind: "skill", desc: "healroot cures sickness. herbalists bring it to sick friends.", hint: "a sick smol eats healroot and gets better" },
     { id: "share", name: "sharing", icon: "🎁", tier: 3, needs: [], kind: "skill", desc: "giving food to the hungry. tribes that share don't starve.", hint: "a hungry friend and some food" },
     { id: "song", name: "song", icon: "🎶", tier: 3, needs: ["fire"], kind: "skill", desc: "singing together around the fire. cures boredom and loneliness for everyone listening, and they love you more for it.", hint: "friends, a fire, a night" },
@@ -126,6 +130,10 @@
     torch: function (x) { return x.nearFire && x.held === "stick" && x.noun === "fire" ? 0.8 : 0; },
     cook: function (x) { return x.nearFire && x.noun === "fire" && x.heldNoun === "food" ? 0.8 : x.nearFire && x.noun === "food" ? 0.25 : 0; },
     spear: function (x) { return (x.held === "blade" || x.held === "flint") && x.noun === "stick" ? 0.6 : x.held === "pokestick" && x.noun === "stone" && x.targetKind === "flint" ? 0.5 : 0; },
+    chop: function (x) { return x.held === "blade" && x.noun === "plant" && (x.verb === "use" || x.verb === "hit") ? 0.6 : x.held === "blade" && x.noun === "stick" ? 0.2 : 0; },
+    club: function (x) { return (x.held === "stick" || x.held === "stone") && x.noun === "grump" ? 0.6 : x.held === "stick" && x.verb === "hit" ? 0.1 : 0; },
+    fishing: function (x) { return (x.held === "stick" || x.held === "fiber") && x.noun === "water" ? 0.5 : 0; },
+    sewing: function (x) { return x.held === "fur" && (x.cold || x.verb === "play" || x.verb === "use") ? 0.6 : x.held === "fur" ? 0.2 : 0; },
     herbal: function (x) { return x.verb === "eat" && x.targetKind === "herb" && x.sick ? 1 : 0; },
     share: function (x) { return x.verb === "give" || (x.noun === "smol" && x.heldNoun === "food" && (x.verb === "talk" || x.verb === "cuddle")) ? 0.6 : 0; },
     song: function (x) { return x.friends >= 2 && x.nearFire && x.night && (x.verb === "talk" || x.verb === "play") ? 0.6 : 0; },
@@ -196,8 +204,8 @@
   I.knowsUse = function (c, noun, kind, game) {
     if (c.tier < 2) return false;
     var tool = c.tool != null ? toolKind(c, game) : null, held = heldKind(c, game);
-    if (noun === "plant" && (tool === "pokestick" || tool === "axe" || held === "pokestick")) return true;
-    if (noun === "water" && (tool === "spear" || held === "spear")) return true;
+    if (noun === "plant" && (tool === "pokestick" || tool === "axe" || tool === "stoneaxe" || held === "pokestick")) return true;
+    if (noun === "water" && (tool === "spear" || held === "spear" || tool === "rod" || held === "rod")) return true;
     if (noun === "critter" && (tool === "spear" || held === "spear")) return true;
     if (noun === "fire" && (held === "stick" || held === "clay" || heldNoun(c, game) === "food")) return true;
     if (noun === "totem") return true;
@@ -216,6 +224,8 @@
   function toolKind(c, game) { var t = c.tool != null ? SB.Game.byId(game, c.tool) : null; return t ? t.kind : null; }
   I.heldKind = heldKind; I.toolKind = toolKind;
 
+  function CHOPPABLE(kind) { return kind !== "bush" && kind !== "reeds" && kind !== "herbs" && kind !== "hive" && kind !== "clams" && kind !== "roots" && kind !== "gourds" && kind !== "cactus"; }
+
   /* ---------------- using things ("use" verb) ---------------- */
 
   // returns {deltas, chem, msg, ok} — the effect of c using whatever it holds on target (item/node/struct/water)
@@ -230,11 +240,18 @@
       if ((tool === "pokestick" || tool === "spear") && def.drops && def.noun === "plant") {
         var o = SB.World.shake(world, game, n, true);
         if (o) { res.ok = true; res.deltas.bored = -0.1; res.msg = "poke!"; habit(c, "hands", 1); }
-      } else if (tool === "axe" && def.noun === "plant" && n.state === "ok" && n.kind !== "bush" && n.kind !== "reeds" && n.kind !== "herbs") {
-        n.state = "stump"; n.regrowT = 420; SB.World.markNode(world, n);
-        for (var s = 0; s < 4; s++) SB.World.dropFrom(world, game, n, "stick");
-        res.ok = true; res.deltas.bored = -0.15; res.msg = "chop!"; habit(c, "hands", 2);
-        SB.bus.emit("chop", { c: c, node: n });
+      } else if ((tool === "axe" || tool === "stoneaxe") && def.noun === "plant" && n.state === "ok" && CHOPPABLE(n.kind)) {
+        // a stone axe takes a few swings; copper fells a tree in one. a felled tree gives logs and a stump that regrows
+        n.chop = (n.chop || 0) + (tool === "axe" ? 1 : 0.34);
+        res.ok = true; res.deltas.bored = -0.1; habit(c, "hands", 1);
+        if (n.chop < 1) res.msg = "thok";
+        else {
+          n.chop = 0; n.state = "stump"; n.regrowT = 600; SB.World.markNode(world, n);
+          for (var s = 0; s < (tool === "axe" ? 3 : 2); s++) SB.World.dropFrom(world, game, n, "log");
+          SB.World.dropFrom(world, game, n, "stick");
+          res.deltas.bored = -0.2; res.msg = "timber!"; habit(c, "hands", 2);
+          SB.bus.emit("chop", { c: c, node: n });
+        }
       } else if (tool === "hammer" && (n.kind === "boulder" || n.kind === "flintrock" || n.kind === "orevein" || n.kind === "crystals")) {
         SB.World.dropFrom(world, game, n, GATHER[n.kind][0]);
         res.ok = true; res.deltas.bored = -0.08; res.msg = "tok!"; habit(c, "hands", 1);
@@ -253,7 +270,12 @@
         SB.World.transform(world, t, "nutmeat");
         res.ok = true; res.msg = "crack!"; res.deltas.bored = -0.1; habit(c, "hands", 1);
       } else if (t.noun === "critter" && tool === "spear") {
-        if (r.chance(0.55)) { SB.World.transform(world, t, "meat"); res.ok = true; res.msg = "got it!"; habit(c, "hands", 1); }
+        if (r.chance(0.55)) {
+          var fx = t.x, fz = t.z;
+          SB.World.transform(world, t, "meat"); res.ok = true; res.msg = "got it!"; habit(c, "hands", 1);
+          if (r.chance(0.6)) SB.World.add(world, game, "fur", fx + 0.3, fz, {});
+          SB.bus.emit("hunt", { c: c });
+        }
         else { t.data.flee = 2; res.msg = "missed"; }
       }
     } else if (tt === "struct") {
@@ -278,7 +300,10 @@
         res.ok = I.study(c, st, game); res.deltas.bored = -0.2;
       }
     } else if (tt === "water") {
-      if (tool === "spear") {
+      if (tool === "rod") { // fishing: patient, and better than stabbing
+        if (r.chance(0.45)) { var fr = SB.World.add(world, game, "fish", c.x + Math.sin(c.facing) * 0.5, c.z + Math.cos(c.facing) * 0.5, {}); fr.vy = 4; fr.onGround = false; res.ok = true; res.msg = "a bite!"; habit(c, "hands", 1); SB.bus.emit("fish", { c: c }); }
+        else { res.msg = "…"; res.deltas.bored = -0.05; }
+      } else if (tool === "spear") {
         if (r.chance(0.4)) { var f = SB.World.add(world, game, "fish", c.x + Math.sin(c.facing) * 0.5, c.z + Math.cos(c.facing) * 0.5, {}); f.vy = 5; f.onGround = false; res.ok = true; res.msg = "fish!"; habit(c, "hands", 1); }
         else res.msg = "splash";
       } else { res.deltas.hot = -0.3; res.ok = true; habit(c, "swim", 0.5); }
@@ -305,6 +330,7 @@
 
   // What kinds can satisfy an ingredient name ("food" is any raw-ish food; tools match by kind)
   function matches(kind, want) {
+    if (want === "stick" && kind === "log") return true; // a log does for three sticks
     if (want === "food") return K[kind] && K[kind].noun === "food" && kind !== "cooked" && kind !== "bread" && kind !== "nut";
     return kind === want;
   }
@@ -549,7 +575,7 @@
   I.deliver = function (c, st, game) {
     var have = inv(c, game), n = 0;
     have.forEach(function (o) {
-      for (var k in st.need) if (st.need[k] > 0 && matches(o.kind, k)) { st.need[k]--; SB.Creature.consume(c, o, game); n++; return; }
+      for (var k in st.need) if (st.need[k] > 0 && matches(o.kind, k)) { st.need[k] = Math.max(0, st.need[k] - (o.kind === "log" && k === "stick" ? 3 : 1)); SB.Creature.consume(c, o, game); n++; return; }
     });
     if (n) { habit(c, "build", n); SB.bus.emit("deliver", { c: c, st: st, n: n }); }
     if (st.builders.indexOf(c.id) < 0) st.builders.push(c.id);

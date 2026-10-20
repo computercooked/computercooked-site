@@ -157,6 +157,12 @@
     torch: { noun: "fire", label: "torch", emoji: "🔦", r: 0.14, color: 0xffa040, tool: "burn", light: 1, desc: "carried fire. scares grumps. lights new fires." },
     basket: { noun: "tool", label: "basket", emoji: "🧺", r: 0.17, color: 0xc9a05a, tool: "carry", desc: "carry three things at once. a logistics revolution." },
     pot: { noun: "tool", label: "pot", emoji: "🏺", r: 0.16, color: 0xb0603a, tool: "brew", desc: "fired clay. cooks bread and brews medicine." },
+    stoneaxe: { noun: "tool", label: "stone axe", emoji: "🪓", r: 0.15, color: 0x8a7a68, tool: "chop", desc: "a flint blade lashed to a stick. chops trees into logs, slowly." },
+    club: { noun: "tool", label: "club", emoji: "🏏", r: 0.15, color: 0x7a5232, tool: "whack", desc: "a heavy stick with a rock in it. a grump hit with one runs for it." },
+    rod: { noun: "tool", label: "fishing rod", emoji: "🎣", r: 0.15, color: 0xa07a50, tool: "fish", desc: "a stick, some reed string and a lot of patience. catches fish." },
+    cloak: { noun: "tool", label: "fur cloak", emoji: "🧥", r: 0.16, color: 0xc8b48a, tool: "warm", desc: "bunny fur sewn with reed thread. the smol wearing it shrugs off the cold." },
+    log: { noun: "stick", label: "log", emoji: "🪵", r: 0.2, color: 0x8a5a35, mat: 1, desc: "a chunk of tree. worth three sticks when building." },
+    fur: { noun: "material", label: "bunny fur", emoji: "🐾", r: 0.14, color: 0xe6d8c0, mat: 1, desc: "soft and warm, from a hunted bunny. sewn into cloaks." },
     axe: { noun: "tool", label: "copper axe", emoji: "🪓", r: 0.15, color: 0xd98c4a, tool: "chop", desc: "chops trees into lots of wood, fast." },
     lens: { noun: "tool", label: "crystal lens", emoji: "🔮", r: 0.14, color: 0xbfefff, tool: "focus", glow: 1, desc: "makes thinking louder. thinkers stare through it at the stars." }
   };

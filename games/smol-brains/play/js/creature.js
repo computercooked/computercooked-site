@@ -414,6 +414,11 @@
     // hard-wired reflexes for emergencies (the net still decides everything else)
     if (noun === "food" && mask[V.eat] && ch.hunger > 0.65) { bias[V.eat] += (ch.hunger - 0.55) * 1.4; useBias = true; }
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
+    // armed and brave: stand up to grumps (a club or spear chases them off for good)
+    if (noun === "grump" && mask[V.hit] && c.species === "smol" && SB.Ideas) {
+      var wpn = SB.Ideas.heldKind(c, game) || SB.Ideas.toolKind(c, game);
+      if ((wpn === "club" || wpn === "spear") && gene(c.genome, "bravery", 0.5) > 0.35 && ch.pain < 0.5) { bias[V.hit] += 0.6; useBias = true; }
+    }
     if (mask[V.sleep] && (ch.sleepy > 0.85 || ch.tired > 0.9)) { bias[V.sleep] += 0.3; useBias = true; }
     if (ch.hunger > 0.8 && c.species === "smol") mask[V.sleep] = false; // too hungry to sleep
     // smols are reluctant to hit their own kind unless they're really angry (and almost never family)
@@ -925,6 +930,7 @@
     return res;
   }
 
+  C._hitFx = function (c, o, game) { return creatureEffects(c, o, V.hit, game); }; // for tests
   function creatureEffects(c, o, verb, game) {
     var oc = o.chem;
     if (verb === V.hit) {
@@ -937,7 +943,17 @@
       o.anim.squash = 0.35; emote(o, "ouch", 1.5);
       if (o.species === "smol") say(o, knows(o, "ouch") ? "ouch!" : "eek!", game);
       if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2)) oc.antigen = Math.min(1, oc.antigen + 0.25);
-      if (c.species === "smol" && o.species === "grump") { habit(c, "fight", 1); SB.Chem.apply(oc, { fear: 0.2 }); }
+      if (c.species === "smol" && o.species === "grump") {
+        habit(c, "fight", 1); SB.Chem.apply(oc, { fear: 0.2 });
+        // armed: a club or a spear really hurts. three good whacks and the grump runs off for good
+        var wk = SB.Ideas ? (SB.Ideas.heldKind(c, game) || SB.Ideas.toolKind(c, game)) : null;
+        if (wk === "club" || wk === "spear") {
+          SB.Chem.apply(oc, { pain: 0.35, fear: 0.5 });
+          o.whacked = (o.whacked || 0) + 1;
+          if (o.whacked >= 3) { o.alive = false; o.gone = true; o.dying = false; if (SB.FX && !o.far) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] }); SB.Game.note(game, c.name + " chased a grump off for good! 🏏"); SB.bus.emit("grumpChased", { c: c, g: o }); }
+          else { o.action = null; o.thinkT = 0; }
+        }
+      }
       if (o.asleep) { o.asleep = false; o.inBed = false; o.action = null; }
       var a = Math.atan2(o.x - c.x, o.z - c.z);
       knock(o, Math.sin(a) * 2.5, Math.cos(a) * 2.5, 3);
@@ -1349,6 +1365,7 @@
       var h = game.hand;
       if (h.visible && SB.dist(h.x, h.z, c.x, c.z) < 2.5) friends += 0.5;
       if (c.inBed || SB.World.shelterAt(w, c.x, c.z)) temp = temp + (0.55 - temp) * 0.7;
+      else if (temp < 0.45 && SB.Ideas && (SB.Ideas.toolKind(c, game) === "cloak" || SB.Ideas.heldKind(c, game) === "cloak")) temp = temp + (0.5 - temp) * 0.6; // a fur cloak
       if (temp < 0.3) habit(c, "cold", dt);
       // the dark is scary away from fire and home (tribe smols most of all: they know what's out there)
       if (w.night && c.tier >= 1 && !c.asleep && !SB.World.nearestFire(w, c.x, c.z, 6) && !SB.World.shelterAt(w, c.x, c.z)) ch.fear = Math.min(1, ch.fear + dt * 0.0035 * (1 - gene(c.genome, "bravery", 0.5)));
