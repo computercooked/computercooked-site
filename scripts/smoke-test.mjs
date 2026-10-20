@@ -171,6 +171,34 @@ if (local) {
   r = await get("/api/leaderboard?game=crash&friends=1");
   ok(r.status === 401, "friends board needs a login", r.status);
 
+  // weekly challenge, seasonal badge, activity feed (slice D2)
+  r = await (await get("/api/challenge", { cookie })).json();
+  ok(r.ok && Array.isArray(r.events), "challenge endpoint", r.challenge && { game: r.challenge.game, target: r.challenge.target, done: r.challenge.done });
+  const ch = r.challenge, liveEvent = r.events[0];
+  if (ch) {
+    const cat = (await (await get("/games/games.json")).json()).games.find((g) => g.slug === ch.game);
+    const needMs = Math.ceil(((ch.target - 50) / cat.max_score_per_sec) * 1000) - 15000 + 1500; // server allows 15 s of batching slack
+    const p4 = rid();
+    await post("/api/events", { anon, events: [{ t: "start", id: p4, game: ch.game, v: "1" }] }, { cookie });
+    await new Promise((s) => setTimeout(s, Math.max(1200, needMs)));
+    r = await (await post("/api/events", { anon, events: [
+      { t: "event", id: p4, game: ch.game, name: "milestone", data: { lv: 3, deaths: 2 } },
+      { t: "event", id: p4, game: ch.game, name: "not_allowed", data: { x: 1 } },
+      { t: "end", id: p4, game: ch.game, score: ch.target, dur: Math.max(10000, needMs + 14000), completed: true },
+    ] }, { cookie })).json();
+    const x = r.results?.[p4]?.xp;
+    ok(x?.parts?.some((p) => p.kind === "challenge" && p.xp === ch.xp), "challenge run pays the bonus", x?.parts);
+    r = await (await get("/api/challenge", { cookie })).json();
+    ok(r.challenge.done === true && r.challenge.finishers >= 1, "challenge shows done");
+    if (liveEvent) {
+      r = await (await get("/api/me/summary", { cookie })).json();
+      ok(r.achievements.some((a) => a.id === liveEvent.id && a.unlocked_at && a.event), "seasonal badge unlocked by a run", liveEvent.id);
+    }
+    r = await (await get("/api/me/feed", { cookie })).json();
+    ok(r.ok && r.items.some((i) => i.text === "cleared level 3 (2 deaths so far)") && !r.items.some((i) => /not_allowed|x: 1/.test(i.text)), "feed shows allow-listed events only", r.items?.slice(0, 4));
+    ok(r.items.some((i) => i.kind === "challenge"), "feed shows the challenge");
+  }
+
   // friends (slice D1): a second throwaway local account
   const v = "smokf" + Math.floor(Math.random() * 1e6);
   r = await post("/api/auth/signup", { username: v, password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1 });

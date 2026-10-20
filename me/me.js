@@ -95,6 +95,7 @@
     $("#me-public-link").href = "/u/" + encodeURIComponent(user.username);
     initSettings(user);
     initFriends();
+    loadFeed();
     api("/api/me/summary").then(function (s) {
       if (!s.ok) return;
       $("#me-streak").textContent = s.streak;
@@ -270,7 +271,20 @@
   }
 
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }
-  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement" };
+  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge" };
+  function ago(ts) {
+    var m = Math.round((Date.now() - ts) / 60000);
+    return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago";
+  }
+  function loadFeed() {
+    api("/api/me/feed").then(function (r) {
+      if (!r.ok) return;
+      $("#feed").innerHTML = r.items.length ? r.items.map(function (i) {
+        var g = i.game ? '<a href="/games/' + encodeURIComponent(i.game) + '/">' + esc(i.title) + "</a> · " : "";
+        return '<li class="is-' + esc(i.kind) + '"><span>' + g + esc(i.text) + "</span><small>" + ago(i.ts) + "</small></li>";
+      }).join("") : '<li class="me-empty">things you do in games show up here: words your smols learn, levels you clear, badges you earn.</li>';
+    });
+  }
   function showXp(s) {
     var x = s.xp, span = Math.max(1, x.next - x.floor), pct = Math.min(100, Math.round(100 * (x.xp - x.floor) / span));
     $("#lvl-n").textContent = "level " + x.level;
@@ -285,7 +299,7 @@
     $("#ach-count").textContent = got + "/" + s.achievements.length;
     $("#achs").innerHTML = s.achievements.map(function (a) {
       var where = a.game === "site" ? "" : " · " + esc((catalog[a.game] || {}).title || a.game);
-      return '<li class="' + (a.unlocked_at ? "is-got" : "") + '"><b>' + esc(a.name) + '</b><span>' + esc(a.desc) + where + '</span><i>+' + a.xp + " xp</i></li>";
+      return '<li class="' + (a.unlocked_at ? "is-got" : "") + (a.event ? " is-event" : "") + '"><b>' + esc(a.name) + '</b><span>' + esc(a.desc) + where + '</span><i>+' + a.xp + " xp" + (a.event ? " · " + esc(a.event) + " event" : "") + "</i></li>";
     }).join("");
     $("#xp-log").innerHTML = s.xp_history.length ? s.xp_history.map(function (h) {
       var g = h.game ? " · " + esc((catalog[h.game] || {}).title || h.game) : "";

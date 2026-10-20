@@ -97,6 +97,12 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 - **Player page:** shows one note per visit, "saved to your account ☁" or "saved on this device. log in to keep it everywhere."
 - **Example:** smol brains saves to slot `main`. On boot it calls `cc.load('main')`; if the account copy is newer, it asks before loading it.
 
+### Weekly challenge, events and the activity feed (slice D2)
+
+- **Weekly challenge:** one featured game per ISO week (UTC, Monday to Sunday), set in `CHALLENGES` in `src/social.js` as `{week: "2026-W43", game, target, goal, xp}`. A logged-in player's validated run (10 s+, completed, score accepted) on that game scoring at least `target` earns the bonus XP once per week (`xp_events` kind `challenge`, ref = week). A week with no entry shows no challenge, so **add next week's pick before Monday**. The hub shows it, and so does the featured game's leaderboard card.
+- **Seasonal events:** `EVENTS` in `src/social.js`, `{id, from, until, name, desc, xp, label}`. Any validated run between `from` and `until` (UTC days, until exclusive) unlocks that site badge. It's listed on /me while live, and kept forever once earned. Halloween 2026 (`halloween_2026`, "trick or treat.exe", +31 XP) runs until Nov 1.
+- **Activity feed:** /me shows your last 30 days of activity: achievements, challenge wins, and `cc.event`s that are **allow-listed** in `FEED` in `src/social.js` (game → event name → fixed template). Event values are clipped to 24 characters, stripped to letters/numbers and word-filtered; a line whose values don't pass is dropped. Today: smol brains `first_word`/`firstWord` {word}, `egg`/`hatch` {gen}; level devil.exe `milestone` {lv, deaths}, `finish` {t, deaths}. To add one, send a PR adding the template, and keep the event's data to short words and numbers.
+
 ## Public endpoints
 
 | method | path | what |
@@ -120,6 +126,8 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/me/logout-all` | ends every session, this one included |
 | GET | `/api/me/export` | JSON download of everything stored about the account (no password hash, no session tokens) |
 | GET | `/api/u/:username` | public profile: name, avatar, level, title, theme, plus bio, badges, favorite game and best scores when public. Private: `{private:true}` with name, avatar and level only. 404 for unknown or banned. `relation` is the viewer's side: `null` logged out, `self`, `none`, `requested`, `incoming`, `friends`, `blocked` |
+| GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
+| GET | `/api/me/feed` | `{items: [{kind: game/achievement/challenge, game, title, text, ts}]}`, newest first, up to 30 |
 | GET | `/api/me/friends` | `{friends, incoming, outgoing, blocked}`, each `[{username, name, avatar, level}]` |
 | POST | `/api/me/friends` | `{action: add/accept/decline/cancel/remove/block/unblock, username}` → `{status: requested/friends/none/blocked}`. Adding someone who already asked you accepts. 200 friends max, 20 waiting requests, 30 adds/hour. Blocking removes the friendship, and the blocked player gets "no such player" if they try to add you (a block is never revealed) |
 | GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |

@@ -1,6 +1,7 @@
 // XP, levels and achievements (slice B). Only the server grants XP, and only for validated plays:
 // a logged-in player's completed run of 10s+, whose score (if the game has a board) passed the bounds check.
 import { now, dayOf } from "./util.js";
+import { challengeFor, eventsLive, eventDef } from "./social.js";
 
 // total XP needed to reach level L: 50 * (L-1)^1.6  ->  L2 at 50, L3 at 152, L5 at 459, L10 at 1683, L20 at 5555
 export const xpFor = (L) => Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6));
@@ -40,7 +41,7 @@ export async function totalXp(env, userId) {
 
 // -> {id, name, desc, xp} when newly unlocked, else null
 export async function unlock(env, userId, game, achId, t = now(), catalogGame = null) {
-  const def = game === "site" ? SITE_ACH[achId] : (catalogGame?.achievements || []).find((a) => a.id === achId);
+  const def = game === "site" ? SITE_ACH[achId] || eventDef(achId) : (catalogGame?.achievements || []).find((a) => a.id === achId);
   if (!def) return null;
   const r = await env.DB.prepare("INSERT OR IGNORE INTO achievements (user_id, game, ach_id, ts) VALUES (?,?,?,?)").bind(userId, game, achId, t).run();
   if (!(r.meta && r.meta.changes)) return null;
@@ -58,7 +59,7 @@ async function streakDays(env, userId, today) {
 }
 
 // Called when a play ends. scoreRes is recordScore()'s result (or null when the game sent no score).
-export async function awardPlay(env, user, play, game, scoreRes, durMs, completed, t) {
+export async function awardPlay(env, user, play, game, scoreRes, durMs, completed, t, score = null) {
   if (!user || !game || !completed || durMs < RULES.minMs) return null;
   if (play.user_id != null && play.user_id !== user.id) return null;
   if (scoreRes && scoreRes.accepted === false && scoreRes.reason === "score out of bounds") return null;
@@ -86,11 +87,19 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
   g = await grant(env, user.id, "streak", null, day, RULES.streakStep * Math.min(streak, RULES.streakMax), t);
   if (g) parts.push({ kind: "streak", xp: g, days: streak });
 
+  // weekly challenge (slice D2): one bonus per week for a run on the featured game that hits the target
+  const ch = challengeFor(t);
+  if (ch && ch.game === play.game && scoreRes && scoreRes.accepted && score >= ch.target) {
+    g = await grant(env, user.id, "challenge", play.game, ch.week, ch.xp, t);
+    if (g) parts.push({ kind: "challenge", xp: g, week: ch.week });
+  }
+
   const unlocked = [];
   const firsts = await env.DB.prepare("SELECT COUNT(*) n FROM xp_events WHERE user_id = ? AND kind = 'first'").bind(user.id).first("n");
   if (firsts >= 5) unlocked.push(await unlock(env, user.id, "site", "play_5", t));
   if (streak >= 7) unlocked.push(await unlock(env, user.id, "site", "streak_7", t));
   if (scoreRes && scoreRes.accepted && scoreRes.rank <= 10) unlocked.push(await unlock(env, user.id, "site", "top_10", t));
+  for (const ev of eventsLive(t)) unlocked.push(await unlock(env, user.id, "site", ev.id, t)); // seasonal badge, any game
   const achs = unlocked.filter(Boolean);
   achs.forEach((a) => a.xp && parts.push({ kind: "achievement", xp: a.xp, id: a.id }));
 
