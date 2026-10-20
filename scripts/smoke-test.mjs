@@ -1,10 +1,15 @@
 // API smoke test. Run against local `wrangler dev` or the live site:
 //   node scripts/smoke-test.mjs http://127.0.0.1:8787 <admin-token>
-// Creates a throwaway play, score, feedback and (locally only) an account.
+// Creates a throwaway play, score and feedback.
+//
+// RULE (owner): agents never create accounts or log in on production. Every signup, login and account check
+// below runs only when the base host is exactly localhost or 127.0.0.1. Against any other host (the live site,
+// staging, a preview) those sections are skipped and print "SKIP (live: no accounts)"; only the anonymous
+// checks run. There is deliberately no flag to override this.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 const base = process.argv[2] || "http://127.0.0.1:8787";
 const admin = process.argv[3] || "";
-const local = /127\.0\.0\.1|localhost/.test(base);
+const local = ["localhost", "127.0.0.1"].includes(new URL(base).hostname); // the exact host, never a substring of the URL
 let fails = 0;
 const ok = (cond, msg, extra) => { console.log((cond ? "PASS " : "FAIL ") + msg + (extra !== undefined ? " " + JSON.stringify(extra) : "")); if (!cond) fails++; };
 const rid = () => Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
@@ -158,7 +163,8 @@ r = await (await get("/api/featured")).json();
 const chNow = (await (await get("/api/challenge")).json()).challenge;
 ok(r.ok && r.featured?.game && r.featured.title && r.featured.game !== chNow?.game && ["metrics", "rotation"].includes(r.featured.basis), "game of the week (not the challenge game)", r.featured && { game: r.featured.game, basis: r.featured.basis, reason: r.featured.reason, challenge: chNow?.game });
 
-if (local) {
+if (!local) console.log("SKIP (live: no accounts) signup, login, xp, profiles, saves, friends, dares by accounts, referrals, delete account");
+else {
   const u = "smoke" + Math.floor(Math.random() * 1e6);
   r = await (await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2015, birth_month: 1 })).json();
   ok(r.under13 === true, "under-13 gets no account", r);
