@@ -6,6 +6,20 @@
   "made_by": "computer-cooked",
   "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
   "size_kb": 54,
-  "tags": ["platformer", "troll", "rage", "speedrun", "1 player", "halloween"],
-  "max_score_per_sec": 50
+  "tags": [
+    "platformer",
+    "troll",
+    "rage",
+    "speedrun",
+    "1 player",
+    "halloween"
+  ],
+  "max_score_per_sec": 50,
+  "how_to": [
+    "every level is a file that lies. if a floor, an exit or a checkpoint looks too easy, it probably is.",
+    "keep moving on stairs and bridges: some of them delete themselves behind you.",
+    "the controls can get swapped mid-level. watch which way you actually move, not which key you pressed.",
+    "deaths are free. r restarts the level instantly, esc opens the level list.",
+    "new speedrun starts from level 1 and times the whole run, deaths included."
+  ]
 }
