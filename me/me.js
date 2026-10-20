@@ -309,7 +309,7 @@
   }
 
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }
-  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge" };
+  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge", dare: "someone took your dare" };
   function ago(ts) {
     var m = Math.round((Date.now() - ts) / 60000);
     return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago";

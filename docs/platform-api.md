@@ -148,6 +148,9 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/me/logout-all` | ends every session, this one included |
 | GET | `/api/me/export` | JSON download of everything stored about the account (no password hash, no session tokens) |
 | GET | `/api/u/:username` | public profile: name, avatar, level, title, theme, plus bio, badges, favorite game and best scores when public. Private: `{private:true}` with name, avatar and level only. 404 for unknown or banned. `relation` is the viewer's side: `null` logged out, `self`, `none`, `requested`, `incoming`, `friends`, `blocked` |
+| POST | `/api/dare` | `{play_id, anon}` → `{id, url, text}`: a challenge-a-friend link for one of your own accepted runs, `/games/<slug>/?vs=<score>&from=<name>&d=<id>`. One dare per run, 30 per hour |
+| GET | `/api/dare/:id[?open=1]` | `{game, title, score, from, beats}`. `open=1` counts a visit (the game page sends it once per tab) |
+| POST | `/api/dare/:id/beat` | `{play_id, anon}` → `{beaten, first, from, score, sender_xp}`. Your run must be yours, on that game, accepted and higher. The first beat per player counts; a logged-in sender gets +25 XP per beat (10 per dare, 100 a day). The game page also sends `cc.event('challenge_open', {d})` on the first run from a dare link |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
 | GET | `/api/me/feed` | `{items: [{kind: game/achievement/challenge, game, title, text, ts}]}`, newest first, up to 30 |
@@ -186,6 +189,7 @@ The schema is in `migrations/0001_init.sql`:
 | `favorites` | a user's favorite games |
 | `reports` | player reports |
 | `uploads` | community upload queue |
+| `dares`, `dare_beats` | challenge-a-friend links, with opens and beats (migration `0008_dares`) |
 | `friends` | one row per direction: `(user_id, friend_id, status pending/accepted/blocked)` (migration `0005_friends`) |
 
 To query it directly, run this with Ashton's Cloudflare login:

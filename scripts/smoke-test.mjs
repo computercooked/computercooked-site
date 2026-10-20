@@ -40,6 +40,29 @@ ok(r.status === 403, "cross-site POST refused", r.status);
 r = await (await post("/api/feedback", { game: "crash", rating: 1, text: "smoke test feedback, ignore", tester, anon, play_id: p1 })).json();
 ok(r.ok, "feedback");
 
+// challenge-a-friend links: made from your own accepted run, verified when someone beats it
+r = await (await post("/api/dare", { play_id: p1, anon })).json();
+const dare = r;
+ok(r.ok && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+$/.test(r.url) && /can you beat 40 on CRASH\? from smokey/.test(r.text), "dare link from a run", r);
+r = await post("/api/dare", { play_id: p1, anon: "someone-else-" + rid() });
+ok(r.status === 404, "can't make a dare from someone else's run", r.status);
+r = await (await post("/api/dare", { play_id: p1, anon })).json();
+ok(r.id === dare.id, "one dare per run");
+r = await (await get("/api/dare/" + dare.id + "?open=1")).json();
+ok(r.ok && r.game === "crash" && r.score === 40 && r.from === "smokey", "open a dare", r);
+r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p1, anon })).json();
+ok(r.ok && r.beaten === false && r.self, "your own run can't beat your own dare", r);
+const anon2 = "smoke2" + rid(), p5 = rid();
+await post("/api/events", { anon: anon2, events: [{ t: "start", id: p5, game: "crash", v: "1" }] });
+await new Promise((res) => setTimeout(res, 1200));
+await post("/api/events", { anon: anon2, events: [{ t: "end", id: p5, game: "crash", score: 45, dur: 1200, completed: true }] });
+r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p5, anon: anon2 })).json();
+ok(r.ok && r.beaten && r.first && r.sender_xp === 0, "a guest beats a guest's dare (no xp: the sender has no account)", r);
+r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p5, anon: anon2 })).json();
+ok(r.ok && r.beaten && !r.first, "beating the same dare twice counts once", r);
+r = await (await get("/api/dare/" + dare.id)).json();
+ok(r.beats === 1, "dare beat count", r.beats);
+
 r = await (await get("/api/stats")).json();
 ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");
 
@@ -249,6 +272,18 @@ if (local) {
   ok(r.relation === "friends", "profile relation: friends", r.relation);
   r = await (await get("/api/leaderboard?game=crash&period=all&friends=1", { cookie: cv })).json();
   ok(r.ok && r.friends && r.rows.some((x) => x.u === u), "friends board shows your friend's score", r.rows);
+  // an account's dare: beating it pays the sender
+  r = await (await post("/api/dare", { play_id: p3, anon }, { cookie })).json();
+  const d2 = r;
+  ok(r.ok && r.url.includes("from=Smoke%20Tester"), "dare from an account uses the display name", r.url);
+  const p6 = rid();
+  await post("/api/events", { anon: "smokev" + rid(), events: [{ t: "start", id: p6, game: "crash", v: "1" }] }, { cookie: cv });
+  await new Promise((res) => setTimeout(res, 1200));
+  await post("/api/events", { anon: "smokev", events: [{ t: "end", id: p6, game: "crash", score: 50, dur: 1200, completed: true }] }, { cookie: cv });
+  r = await (await post("/api/dare/" + d2.id + "/beat", { play_id: p6 }, { cookie: cv })).json();
+  ok(r.ok && r.beaten && r.sender_xp === 25, "beating an account's dare gives the sender +25 xp", r);
+  r = await (await get("/api/me/feed", { cookie })).json();
+  ok(r.items.some((i) => /took your dare/.test(i.text)), "sender's feed shows the dare win");
   await post("/api/me/profile", { public: true }, { cookie }); // the profile steps above left it private
   r = await (await get("/api/me/friends/feed", { cookie: cv })).json();
   ok(r.ok && r.friends === 1 && r.items.some((i) => i.who?.username === u && i.kind === "best" && i.game === "crash"), "friends feed shows a friend's new best", r.items?.slice(0, 3));

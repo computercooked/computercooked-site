@@ -164,6 +164,69 @@
     });
   }
 
+  /* ---------- challenge-a-friend links: /games/<slug>/?vs=<score>&from=<name>&d=<id> ---------- */
+  var qs = new URLSearchParams(location.search), dare = null, dareBanner = null, dareOpened = false;
+  function showDare(score, from) {
+    var layout = document.querySelector(".player-layout");
+    if (!layout || !(score > 0)) return;
+    if (dareBanner) dareBanner.remove();
+    dareBanner = el('<div class="dare" role="note"><span class="dare-tag">challenge</span>' +
+      '<span class="dare-text">beat <b></b> from <i></i></span>' +
+      '<button type="button" class="dare-x" aria-label="dismiss challenge">✕</button></div>');
+    dareBanner.querySelector("b").textContent = fmt(score);
+    dareBanner.querySelector("i").textContent = from || "a friend";
+    dareBanner.querySelector(".dare-x").addEventListener("click", function () { dareBanner.remove(); });
+    layout.insertAdjacentElement("beforebegin", dareBanner);
+    if (window.ccToast) window.ccToast("beat " + fmt(score) + " from " + (from || "a friend"));
+  }
+  if (/^[A-Za-z0-9_-]{6,16}$/.test(qs.get("d") || "")) {
+    var did = qs.get("d"), seenKey = "cc-dare-open:" + did, first = true;
+    try { first = !sessionStorage.getItem(seenKey); sessionStorage.setItem(seenKey, "1"); } catch (e) {}
+    api("/api/dare/" + did + (first ? "?open=1" : "")).then(function (r) {
+      if (!r || !r.ok || r.game !== game) return;
+      dare = r;
+      showDare(r.score, r.from);
+    });
+  } else if (qs.get("vs")) {
+    // a hand-made link without an id: show it, but nothing is verified or rewarded
+    var vs = parseFloat(qs.get("vs")), from = (qs.get("from") || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 24);
+    if (vs > 0) showDare(vs, from);
+  }
+  document.addEventListener("cc:start", function () {
+    if (dare && !dareOpened) { dareOpened = true; cc.event("challenge_open", { d: dare.id }); }
+  });
+  function dareResult(e) {
+    var r = e.detail && e.detail.result;
+    if (!dare || !r || !r.accepted || !e.detail.playId) return;
+    api("/api/dare/" + dare.id + "/beat", { play_id: e.detail.playId, anon: cc._anon }).then(function (b) {
+      if (!b || !b.ok) return;
+      if (b.beaten) {
+        if (window.ccToast) window.ccToast("you beat " + b.from + "'s " + fmt(b.score) + ". dare someone back.");
+        if (dareBanner) { dareBanner.querySelector(".dare-text").textContent = "beaten ✓ you topped " + b.from + "'s " + fmt(b.score); dareBanner.classList.add("is-beaten"); }
+      } else if (b.need && window.ccToast) window.ccToast(fmt(b.need - e.detail.score) + " short of " + dare.from + "'s " + fmt(b.need) + ". again?");
+    });
+  }
+  // after an accepted run: a button that makes a link for this exact run
+  function dareButton(e) {
+    var r = e.detail && e.detail.result;
+    if (!r || !r.accepted || !e.detail.playId) return;
+    var box = document.getElementById("cc-dare");
+    if (!box) { box = document.createElement("div"); box.id = "cc-dare"; box.className = "cc-levelup cc-dare-box"; board.insertAdjacentElement("beforebegin", box); }
+    box.innerHTML = "<p>scored <b>" + esc(fmt(e.detail.score)) + "</b>. think a friend can beat it?</p>" +
+      '<button type="button" class="tool">challenge a friend</button><p class="cc-dare-say" role="status"></p>';
+    var playId = e.detail.playId;
+    box.querySelector("button").addEventListener("click", function () {
+      var out = box.querySelector(".cc-dare-say");
+      api("/api/dare", { play_id: playId, anon: cc._anon }).then(function (d) {
+        if (!d || !d.ok) { out.textContent = (d && d.error) || "couldn't make a link. try again."; return; }
+        if (navigator.share) { navigator.share({ title: info && info.title, text: d.text, url: d.url }).catch(function () {}); out.textContent = ""; return; }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(d.text + " " + d.url).then(function () { out.textContent = "link copied. send it to someone who thinks they're good."; }, function () { out.textContent = d.url; });
+        } else out.textContent = d.url;
+      });
+    });
+  }
+
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
     if (!board.hidden) setTimeout(loadBoard, 300);
@@ -173,6 +236,8 @@
     var say = window.ccToast || function () {};
     if (r && r.accepted) say("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
     if (r && r.accepted && me) friendNudge(say);
+    dareResult(e);
+    dareButton(e);
     var x = r && r.xp;
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
