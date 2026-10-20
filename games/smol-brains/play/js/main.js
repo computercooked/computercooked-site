@@ -334,10 +334,13 @@
     // a small colony gets visitors: an egg from "over the hill" (a cousin of the smols you have, so evolution keeps its progress)
     if (smols.length >= 1 && smols.length < 4 && game.tutorial.wildDone && !eggs) {
       game.cousinT = (game.cousinT || 0) + 1;
-      if (game.cousinT > 200) {
+      if (game.cousinT > 130) {
         game.cousinT = 0;
         var pa = game.rng.pick(smols), pb = game.rng.pick(smols);
-        var cg = SB.Genome.cross(pa.genome, pb.genome, game.rng, SB.Creature.echo(pa));
+        // cousins have been evolving over the hill too: they lean toward whatever the colony's next tier still needs
+        var need = SB.Genome.nextNeeds(pa.genome).filter(function (n) { return SB.Genome.EVO_GENES.indexOf(n.gene) >= 0; })[0];
+        var cb = need ? {} : null; if (need) cb[need.gene] = 0.18;
+        var cg = SB.Genome.cross(pa.genome, pb.genome, game.rng, SB.Creature.echo(pa), cb);
         cg.gen = Math.max(pa.gen, pb.gen);
         var ang2 = game.rng() * 6.28, home = SB.Society.home(game, 0);
         var ex2 = home.x + Math.sin(ang2) * 6, ez2 = home.z + Math.cos(ang2) * 6;
@@ -347,7 +350,7 @@
       }
     } else game.cousinT = 0;
     // a wild smol wanders in now and then while the colony is tiny, so there's always someone to love
-    if (smols.length === 1 && game.stats.hatched >= 1 && !game.tutorial.wildDone && game.time > SB.DAY_LENGTH * 0.335 + 150) {
+    if (smols.length === 1 && game.stats.hatched >= 1 && !game.tutorial.wildDone && game.time > SB.DAY_LENGTH * 0.335 + 90) {
       game.tutorial.wildDone = true;
       var s0 = smols[0], ang = game.rng() * 6.28;
       var wx = s0.x + Math.sin(ang) * 9, wz = s0.z + Math.cos(ang) * 9;

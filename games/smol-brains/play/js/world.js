@@ -640,7 +640,7 @@
     var d = o.data;
     d.wobble = Math.max(0, (d.wobble || 0) - dt * 1.5);
     if (d.starter && !d.progress) return; // the very first egg waits for you
-    var warm = 0.004;
+    var warm = 0.007;
     if (W.shelterAt(world, o.x, o.z)) warm += 0.008;
     warm += W.fireWarmth(world, o.x, o.z) * 0.012;
     if (o.heldBy === "hand") warm += 0.006;

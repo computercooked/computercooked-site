@@ -31,7 +31,7 @@
   var PREC = "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif";
   var LIGHT_GLSL = [
     "uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uSkyCol; uniform vec3 uGndCol; uniform vec3 uFogCol;",
-    "uniform vec4 uFog; uniform vec4 uLP[8]; uniform vec3 uLC[8]; uniform float uNight;",
+    "uniform vec4 uFog; uniform vec4 uLP[8]; uniform vec3 uLC[8]; uniform float uNight; uniform float uNL;",
     "uniform sampler2D uCloud; uniform vec4 uCloudP;",
     "vec3 shade(vec3 col, vec3 n, vec3 w, float em, float fog) {",
     "  float sd = max(dot(n, uSunDir), 0.0);",
@@ -40,6 +40,7 @@
     "  vec3 amb = mix(uGndCol, uSkyCol, n.y * 0.5 + 0.5);",
     "  vec3 c = col * (amb * 1.0 + uSunCol * sd * 0.82);",
     "  for (int i = 0; i < 8; i++) {",
+    "    if (float(i) >= uNL) break;",
     "    vec3 L = uLP[i].xyz - w; float d = length(L);",
     "    float a = max(0.0, 1.0 - d / max(uLP[i].w, 0.001)); a *= a;",
     "    c += col * uLC[i] * a * (0.35 + 0.65 * max(dot(n, L / max(d, 0.001)), 0.0));",
@@ -193,8 +194,11 @@
     progs.shadow = GL.program(ctx, VS_SHADOW, FS_SHADOW);
     cloudTex = makeCloudTexture();
     buildMeshes();
-    quality.scale = lowEnd ? 0.75 : 1;
-    quality.max = 1;
+    // phones: flat-shaded low-poly reads fine at ~1.6x, and it's a lot fewer pixels than 2x or 3x.
+    // labels and UI stay crisp because the overlay canvas keeps the full device ratio.
+    var mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || "") || (window.matchMedia && matchMedia("(pointer: coarse)").matches);
+    quality.max = mobile && (window.devicePixelRatio || 1) >= 2 ? 0.8 : 1;
+    quality.scale = lowEnd ? Math.min(quality.max, 0.65) : quality.max;
     quality.lowEnd = lowEnd;
     R.resize();
     canvas.addEventListener("webglcontextlost", function (e) { e.preventDefault(); R.lost = true; }, false);
@@ -738,9 +742,13 @@
     var cx = cam.x, cz = cam.z;
     lightList.sort(function (a, b) { return SB.dist2(a[0], a[2], cx, cz) - SB.dist2(b[0], b[2], cx, cz); });
     lights.fill(0); lightCols.fill(0);
-    var nl = Math.min(quality.lights, lightList.length);
-    for (var li = 0; li < nl; li++) {
-      var L = lightList[li];
+    // only lights that can reach the visible ground; the shader stops after the last one
+    var reach = Math.hypot(cam.halfW, cam.halfH / Math.sin(cam.pitch)), cap = Math.min(quality.lights, lightList.length);
+    nLights = 0;
+    for (var li = 0; li < cap; li++) {
+      var L = lightList[li], rr = reach + L[3];
+      if (SB.dist2(L[0], L[2], cx, cz) > rr * rr) break;
+      nLights++;
       lights[li * 4] = L[0]; lights[li * 4 + 1] = L[1]; lights[li * 4 + 2] = L[2]; lights[li * 4 + 3] = L[3];
       var nk = 0.35 + env.night * 0.9;
       lightCols[li * 3] = L[4] * nk; lightCols[li * 3 + 1] = L[5] * nk; lightCols[li * 3 + 2] = L[6] * nk;
@@ -765,7 +773,7 @@
     if (octx) drawOverlay();
   };
 
-  var corner = [0, 0, 0];
+  var corner = [0, 0, 0], nLights = 0;
   function visibleChunks() {
     var out = [], S = SB.CHUNK;
     for (var i = 0; i < chunks.length; i++) {
@@ -793,6 +801,7 @@
     }
     if (p.u.uLP) gl.uniform4fv(p.u.uLP, lights);
     if (p.u.uLC) gl.uniform3fv(p.u.uLC, lightCols);
+    if (p.u.uNL) gl.uniform1f(p.u.uNL, nLights);
     if (p.u.uNight != null) gl.uniform1f(p.u.uNight, env.night);
     if (p.u.uCloud) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cloudTex); gl.uniform1i(p.u.uCloud, 0); }
     if (p.u.uCloudP) gl.uniform4f(p.u.uCloudP, time * 0.004 * (0.5 + env.wind), time * 0.0025 * (0.5 + env.wind), 0.012, SB.clamp01(env.cloud * 0.9 + 0.1));

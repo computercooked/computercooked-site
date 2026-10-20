@@ -86,7 +86,8 @@ Load order: `core, genome, brain, chemistry, lang, ideas, worldgen, world, creat
 - Rotten food reads as "bad to eat" (it joins the shroom category) and good meals restore the noun→verb table, so a few bad meals no longer teach a colony to starve.
 - Hungry smols follow their nose to the nearest food or fruit tree; unreachable things are remembered and skipped; A* gets around rivers. 30-minute soaks across seeds and tiers now end with no starvation.
 - Builders only start sites the tribe needs (one farm per four smols, one hut per three…).
-- Small colonies get "cousin" eggs bred from the existing gene pool so evolution keeps its progress; love rises faster and partners go looking for each other.
+- Small colonies get "cousin" eggs (every ~2 min while under 4 smols) bred from the existing gene pool, nudged toward the next tier's missing gene, so the first critter usually turns up around minute 8; love rises faster and partners go looking for each other. Eggs hatch in ~2.4 min on their own, faster in a hut, by a fire, or when tapped.
+- Phones render the 3D view at ≤1.6× device pixels (overlay labels stay at full ratio), and the shader skips point lights that can't reach the screen.
 
 ---
 

@@ -64,7 +64,7 @@
     genes.learnRate = rng.range(0.25, 0.85);
     genes.instinctStrength = rng.range(0.35, 0.9);
     // a fresh smol is a blob: the evolution genes start low
-    genes.limbs = rng.range(0.02, 0.26); genes.arms = rng.range(0, 0.25); genes.cortex = rng.range(0, 0.14);
+    genes.limbs = rng.range(0.16, 0.3); genes.arms = rng.range(0, 0.25); genes.cortex = rng.range(0, 0.14);
     genes.layers = rng.range(0, 0.18); genes.recall = rng.range(0, 0.2); genes.planning = rng.range(0, 0.18);
     genes.social = rng.range(0.08, 0.32); genes.dexterity = rng.range(0, 0.3); genes.senses = rng.range(0.1, 0.4);
     genes.head = rng.range(0, 0.25); genes.fins = rng.range(0, 0.3); genes.fluff = rng.range(0, 0.35);
