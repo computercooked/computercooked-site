@@ -59,6 +59,14 @@ export class HttpError extends Error {
 export const str = (v, max = 200) => (typeof v === "string" ? v.slice(0, max) : v == null ? null : String(v).slice(0, max));
 export const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
 export const slugOk = (s) => typeof s === "string" && /^[a-z0-9-]{1,40}$/.test(s);
+// Smoke-test traffic: a guest (no account) whose anon id starts with "smoke", as scripts/smoke-test.mjs sends.
+// It's accepted like any play so the checks keep working, but its scores are stored hidden and it's left out of
+// boards, hub stats, the challenge and game-of-the-week picks, and /api/admin/metrics (which counts it separately).
+// Case-insensitive, to match SQLite's LIKE. Accounts are never test traffic (the smoke test makes none on live).
+export const isTestAnon = (anon) => typeof anon === "string" && anon.toLowerCase().startsWith("smoke");
+export const isTestPlayer = (key) => typeof key === "string" && key.toLowerCase().startsWith("a:smoke");
+// SQL: rows (plays or feedback) that are not smoke-test traffic. Needs user_id and anon_id columns in scope.
+export const REAL = "NOT (user_id IS NULL AND COALESCE(anon_id, '') LIKE 'smoke%')";
 export const idOk = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(s);
 
 export function b64(buf) {

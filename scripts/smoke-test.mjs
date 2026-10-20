@@ -1,6 +1,8 @@
 // API smoke test. Run against local `wrangler dev` or the live site:
 //   node scripts/smoke-test.mjs http://127.0.0.1:8787 <admin-token>
-// Creates a throwaway play, score and feedback.
+// Creates throwaway plays, scores, feedback and dares as guests whose anon ids start with "smoke". The server treats
+// those as test traffic: scores are stored hidden and they're left out of boards, hub stats, picks and admin metrics
+// (counted under test_traffic instead), so a live run never shows up publicly. Every guest id here must start with "smoke".
 //
 // RULE (owner): agents never create accounts or log in on production. Every signup, login and account check
 // below runs only when the base host is exactly localhost or 127.0.0.1. Against any other host (the live site,
@@ -54,8 +56,9 @@ r = await (await post("/api/events", { anon, events: [{ t: "end", id: p2, game: 
 ok(r.results?.[p2]?.accepted === false, "impossible score rejected", r.results?.[p2]);
 
 r = await (await get("/api/leaderboard?game=crash&period=day&player=a:" + anon)).json();
-// in the top rows, or (on a busy board) as the "you" row below them
-ok(r.ok && (r.rows.some((x) => x.me) ? r.you === null : r.you?.score === 40 && r.you.rank > r.rows.length), "leaderboard shows the run", { top: r.rows?.slice(0, 3), you: r.you });
+// smoke runs are test traffic: never in the public rows, but the "you" row still reads the run back with its rank
+// (ties at the cutoff don't matter: the run can't be in the rows at all)
+ok(r.ok && !r.rows.some((x) => x.me || x.name === "smokey") && r.you?.score === 40 && r.you.rank >= 1, "leaderboard: the run is in your rank row, never on the public board", { top: r.rows?.slice(0, 3), you: r.you });
 {
   // a weak run lands at the bottom: if it isn't in the top rows, the board still gives you your rank
   // (no filler scores here: this test also runs against the live boards)
@@ -63,9 +66,17 @@ ok(r.ok && (r.rows.some((x) => x.me) ? r.you === null : r.you?.score === 40 && r
   await post("/api/events", { anon: low, events: [{ t: "start", id: pl, game: "crash", v: "1" }] });
   await post("/api/events", { anon: low, events: [{ t: "end", id: pl, game: "crash", score: 2, dur: 12000, completed: true }] });
   r = await (await get("/api/leaderboard?game=crash&period=all&player=a:" + low)).json();
-  ok(r.rows.some((x) => x.me) ? r.you === null : r.you?.score === 2 && r.you.rank > r.rows.length, "outside the top rows you get your own rank row", { rows: r.rows.length, you: r.you });
+  ok(!r.rows.some((x) => x.me) && r.you?.score === 2 && r.you.rank >= 1, "a weak run gets its own rank row", { rows: r.rows.length, you: r.you });
   r = await (await get("/api/leaderboard?game=crash&period=day&player=a:nobody-" + rid())).json();
   ok(r.you === null, "no rank row for someone with no score");
+}
+
+if (local) {
+  const crashTotal = async () => ((await (await get("/api/stats")).json()).games || []).find((g) => g.game === "crash")?.total || 0;
+  const before = await crashTotal(), ps = rid();
+  await post("/api/events", { anon, events: [{ t: "start", id: ps, game: "crash", v: "1" }] });
+  await post("/api/events", { anon, events: [{ t: "end", id: ps, game: "crash", score: 3, dur: 12000, completed: true }] });
+  ok((await crashTotal()) === before, "hub stats leave smoke runs out", { before });
 }
 
 // cross-site POST is refused
@@ -174,7 +185,8 @@ r = await (await post("/api/events", { anon: "smokee" + rid(), ref: "embed", eve
 ok(r.ok, "plays from embeds are accepted with ref embed");
 
 r = await (await get("/api/stats")).json();
-ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");
+// smoke plays are test traffic and never counted, so only the shape is checked here
+ok(r.ok && Array.isArray(r.games) && !r.games.some((g) => /^smoke/i.test(g.anon || "")), "stats");
 
 // game of the week: a real game, never the weekly challenge's game
 r = await (await get("/api/featured")).json();
@@ -491,10 +503,12 @@ ok(r.status === 401, "admin without token refused");
 if (admin) {
   r = await (await get("/api/admin/metrics?since=2026-01-01", { authorization: "Bearer " + admin })).json();
   const c = r.games?.find((g) => g.game === "crash");
-  ok(r.ok && c && c.plays >= 1 && c.feedback_count >= 1, "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
+  ok(r.ok && c && Array.isArray(c.testers) && typeof c.plays === "number", "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
+  const tt = r.test_traffic;
+  ok(tt && tt.plays >= 5 && tt.scores >= 4 && tt.scores_visible === 0 && tt.feedback >= 1 && tt.dares >= 2, "admin metrics: this run's smoke traffic counted apart, none of it visible", tt);
   const df = r.dares;
-  ok(df && df.made >= 2 && df.sent >= 2 && df.via_copy >= 1 && df.via_share >= 1 && df.by_source.best.made >= 1 && df.by_source.best.sent >= 1 && df.beaten >= 1 && df.sent_rate > 0,
-    "admin metrics: dare funnel made → sent → opened → beaten, by source", df && { made: df.made, sent: df.sent, opened: df.opened, beaten: df.beaten, best: df.by_source.best });
+  ok(df && typeof df.made === "number" && df.by_source.best && df.by_source.button && (df.made === 0 || df.sent_rate !== undefined),
+    "admin metrics: dare funnel (smoke dares left out)", df && { made: df.made, sent: df.sent, opened: df.opened, beaten: df.beaten });
   // weekly challenge: a week with no hand pick falls back to an automatic one (never last week's game)
   r = await (await get("/api/admin/challenge", { authorization: "Bearer " + admin })).json();
   const handLast = (await (await get("/api/admin/challenge?date=" + new Date(Date.now()).toISOString().slice(0, 10), { authorization: "Bearer " + admin })).json()).pick?.game;
