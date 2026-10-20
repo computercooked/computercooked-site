@@ -98,6 +98,7 @@ export async function metrics(url, env, origin) {
   const funnel = (await db.prepare(
     `SELECT COALESCE(f.source, 'button') source, COUNT(*) made, SUM(f.shared_at IS NOT NULL) sent,
        SUM(f.shared_how = 'share') via_share, SUM(f.shared_how = 'copy') via_copy,
+       SUM(f.shared_how = 'card') via_card, SUM(f.shared_how = 'download') via_download,
        SUM(d.opens > 0) opened, SUM(d.opens) opens, SUM(d.beats > 0) beaten, SUM(d.beats) beats
      FROM dares d LEFT JOIN dare_funnel f ON f.dare_id = d.id WHERE d.created_at >= ? AND d.from_player NOT LIKE 'a:smoke%' GROUP BY 1`
   ).bind(Date.parse(since)).all()).results;
@@ -105,7 +106,7 @@ export async function metrics(url, env, origin) {
   const step = (rows) => {
     const s = (k) => rows.reduce((n, r) => n + (r[k] || 0), 0);
     const made = s("made"), sent = s("sent"), opened = s("opened"), beaten = s("beaten");
-    return { made, sent, via_share: s("via_share"), via_copy: s("via_copy"), opened, opens: s("opens"), beaten, beats: s("beats"),
+    return { made, sent, via_share: s("via_share"), via_copy: s("via_copy"), via_card: s("via_card"), via_download: s("via_download"), opened, opens: s("opens"), beaten, beats: s("beats"),
       sent_rate: rate(sent, made), open_rate: rate(opened, sent || made), beat_rate: rate(beaten, opened) };
   };
   const dares = { ...step(funnel), by_source: Object.fromEntries(["best", "button"].map((k) => [k, step(funnel.filter((r) => r.source === k))])) };

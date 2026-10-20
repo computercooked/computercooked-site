@@ -43,12 +43,13 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
   return json({ ok: true, id: row.id, url, text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
 }
 
-// POST /api/dare/:id/shared {how: share|copy}: the sender really sent it (share sheet finished or link copied).
+// POST /api/dare/:id/shared {how: share|copy|card|download}: the sender really sent it (share sheet finished,
+// link copied, share card shared, or the card downloaded).
 // Only the first one counts; it feeds the made → sent → opened → beaten funnel in /api/admin/metrics.
 export async function sharedDare(req, env, ip, id) {
   if (limited("dare-shared:" + ip, 60, 3600000)) return bad("slow down", 429);
   const b = await readJson(req, 256);
-  const how = b.how === "share" ? "share" : b.how === "copy" ? "copy" : null;
+  const how = ["share", "copy", "card", "download"].includes(b.how) ? b.how : null;
   if (!how) return bad("how?", 400);
   const d = await env.DB.prepare("SELECT id FROM dares WHERE id = ?").bind(id).first();
   if (!d) return bad("no such dare", 404);

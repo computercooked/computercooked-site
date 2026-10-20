@@ -222,33 +222,104 @@
     var box = document.getElementById("cc-dare");
     if (!box) { box = document.createElement("div"); box.id = "cc-dare"; board.insertAdjacentElement("beforebegin", box); }
     box.className = "cc-levelup cc-dare-box" + (best ? " is-best" : "");
-    box.innerHTML = best
-      ? "<p><span class=\"cc-dare-kicker\">new best</span> <b>" + esc(fmt(e.detail.score)) + "</b> (was " + esc(fmt(r.prev_best)) + "). dare a friend to beat it.</p>" +
-        "<button type=\"button\" class=\"tool cc-dare-go\">dare a friend ▶</button><p class=\"cc-dare-say\" role=\"status\"></p>"
-      : "<p>scored <b>" + esc(fmt(e.detail.score)) + "</b>. think a friend can beat it?</p>" +
-        "<button type=\"button\" class=\"tool\">challenge a friend</button><p class=\"cc-dare-say\" role=\"status\"></p>";
+    box.innerHTML = (best
+      ? "<p><span class=\"cc-dare-kicker\">new best</span> <b>" + esc(fmt(e.detail.score)) + "</b> (was " + esc(fmt(r.prev_best)) + "). dare a friend to beat it.</p>"
+      : "<p>scored <b>" + esc(fmt(e.detail.score)) + "</b>. think a friend can beat it?</p>") +
+      "<div class=\"cc-dare-btns\"><button type=\"button\" class=\"tool cc-dare-card" + (best ? " cc-dare-go" : "") + "\">share card ▶</button>" +
+      "<button type=\"button\" class=\"tool cc-dare-link\">" + (best ? "just the link" : "challenge a friend") + "</button></div>" +
+      "<p class=\"cc-dare-say\" role=\"status\"></p>" +
+      "<div class=\"cc-card-out\" hidden><img alt=\"your run as a share card\" width=\"108\" height=\"192\">" +
+      "<div><a class=\"tool cc-card-dl\" download>download card</a><button type=\"button\" class=\"tool cc-card-copy\">copy link</button>" +
+      "<p class=\"cc-card-tip\">post the card, paste the link.</p></div></div>";
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
     var make = function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
     var ready = best ? make() : null, dare = null;
     if (ready) ready.then(function (d) { if (d && d.ok) dare = d; });
-    box.querySelector("button").addEventListener("click", function () {
-      if (dare) { send(dare); return; }
-      (ready || (ready = make())).then(function (d) {
-        if (!d || !d.ok) { ready = null; out.textContent = (d && d.error) || "couldn't make a link. try again."; return; }
-        dare = d;
-        send(d);
+    function getDare() {
+      return (ready || (ready = make())).then(function (d) {
+        if (!d || !d.ok) { ready = null; out.textContent = (d && d.error) || "couldn't make a link. try again."; return null; }
+        return (dare = d);
       });
-    });
+    }
     function sent(how) { api("/api/dare/" + dare.id + "/shared", { how: how }); }
-    function send(d) {
+    function done() { out.textContent = me ? "sent. you'll see it in your feed if they beat it." : "sent. good luck to them."; }
+
+    // the link on its own (as before): share sheet, else copy
+    box.querySelector(".cc-dare-link").addEventListener("click", function () {
+      if (dare) { sendLink(dare); return; }
+      getDare().then(function (d) { if (d) sendLink(d); });
+    });
+    function sendLink(d) {
       if (navigator.share) {
-        navigator.share({ title: info && info.title, text: d.text, url: d.url }).then(function () { sent("share"); out.textContent = me ? "sent. you'll see it in your feed if they beat it." : "sent. good luck to them."; }, function () {});
+        navigator.share({ title: info && info.title, text: d.text, url: d.url }).then(function () { sent("share"); done(); }, function () {});
         return;
       }
+      copy(d);
+    }
+    function copy(d) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(d.text + " " + d.url).then(function () { sent("copy"); out.textContent = "link copied. send it to someone who thinks they're good."; }, function () { out.textContent = d.url; });
       } else out.textContent = d.url;
     }
+
+    // the share card (share-card.js, loaded now): a story-size image of this run + the dare link, drawn while
+    // the player looks at their score so the tap can open the share sheet straight away
+    var file = null, cardUrl = null;
+    var card = loadCardMaker().then(function (draw) {
+      return draw({ title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best });
+    }).then(function (blob) {
+      var name = game + "-" + String(Math.round(e.detail.score)) + ".png";
+      try { file = new File([blob], name, { type: "image/png" }); } catch (err) { file = null; }
+      if (box._cardUrl) URL.revokeObjectURL(box._cardUrl);
+      cardUrl = box._cardUrl = URL.createObjectURL(blob);
+      var dl = box.querySelector(".cc-card-dl");
+      dl.href = cardUrl; dl.setAttribute("download", name);
+      box.querySelector(".cc-card-out img").src = cardUrl;
+      return blob;
+    });
+    card.catch(function () {});
+    var canFiles = function () { try { return !!(file && navigator.canShare && navigator.canShare({ files: [file] })); } catch (err) { return false; } };
+    box.querySelector(".cc-dare-card").addEventListener("click", function () {
+      // both ready: share inside this tap (iOS only allows share() straight from the tap)
+      if (file && dare) { sendCard(dare); return; }
+      out.textContent = "making your card…";
+      Promise.all([card, getDare()]).then(function (v) {
+        if (!v[1]) return;
+        out.textContent = "";
+        sendCard(v[1]);
+      }, function () { out.textContent = "couldn't draw the card. the link still works."; box.querySelector(".cc-dare-link").focus(); });
+    });
+    function sendCard(d) {
+      if (canFiles()) {
+        navigator.share({ files: [file], title: info && info.title, text: d.text + " " + d.url }).then(function () { sent("card"); done(); }, function (err) {
+          // the browser wanted a fresh tap (the card or link took a moment): everything's ready now
+          if (err && err.name === "NotAllowedError") out.textContent = "card ready. tap share card again.";
+          else if (!err || err.name !== "AbortError") showCard(d);
+        });
+        return;
+      }
+      showCard(d);
+    }
+    // no file sharing here (most desktops): show the card with download + copy link
+    function showCard(d) {
+      var o = box.querySelector(".cc-card-out");
+      o.hidden = false;
+      out.textContent = "";
+      o.querySelector(".cc-card-dl").onclick = function () { sent("download"); };
+      o.querySelector(".cc-card-copy").onclick = function () { copy(d); };
+    }
+  }
+  var cardMaker = null;
+  function loadCardMaker() {
+    if (!cardMaker) cardMaker = new Promise(function (ok, bad) {
+      if (window.ccShareCard) return ok(window.ccShareCard);
+      var s = document.createElement("script");
+      s.src = "/games/share-card.js";
+      s.onload = function () { window.ccShareCard ? ok(window.ccShareCard) : bad(new Error("no card")); };
+      s.onerror = function () { cardMaker = null; bad(new Error("no card")); };
+      document.head.appendChild(s);
+    });
+    return cardMaker;
   }
 
   /* ---------- after a run ---------- */

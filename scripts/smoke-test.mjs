@@ -128,7 +128,10 @@ ok(r.results?.[p8]?.accepted && r.results[p8].prev_best === null, "a first run h
 r = await (await post("/api/dare", { play_id: p7, anon: anon2, source: "best" })).json();
 ok(r.ok, "dare made from the new-best prompt");
 const bestDare = r.id;
-await post("/api/dare/" + bestDare + "/shared", { how: "share" });
+r = await (await post("/api/dare/" + bestDare + "/shared", { how: "card" })).json();
+ok(r.ok, "dare sent as a share card");
+r = await (await post("/api/dare/" + bestDare + "/shared", { how: "download" })).json();
+ok(r.ok, "a downloaded share card counts as a send method");
 // link previews: game pages carry a card; dare links get "can you beat N?" tags from the dare itself
 let page = await (await get("/games/crash/")).text();
 ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
@@ -153,7 +156,7 @@ ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass 
   r = await get("/sw.js");
   const sw = await r.text();
   ok(r.ok && /no-cache/.test(r.headers.get("cache-control") || "") && /\/api\//.test(sw) && /addEventListener\("fetch"/.test(sw), "service worker served uncached, leaves /api alone", r.headers.get("cache-control"));
-  for (const u of ["/games/offline", "/assets/pwa.js", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/icon-maskable-512.png"]) {
+  for (const u of ["/games/offline", "/assets/pwa.js", "/games/share-card.js", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/icon-maskable-512.png"]) {
     r = await get(u);
     ok(r.status === 200, "pwa file " + u, r.status);
   }
