@@ -2589,3 +2589,67 @@ body.embed {
 .cc-follow-row > span { flex-basis: 100%; opacity: 0.8; }
 .footer .cc-follow-row .cc-follow-btn { display: inline-flex; flex-direction: row; align-items: center; gap: 5px; padding: 6px 10px; font-size: 0.72rem; color: var(--paper); }
 .footer .cc-follow-row .cc-follow-btn svg { width: 14px; height: 14px; }
+
+/* social landing (games/index.html head script + games/hub.js): a visitor from a clip with a game hint gets a
+   full-screen "tap to play" card instead of the hero. Until the card is drawn the hub stays hidden, so the hero
+   never flashes; if the game is unknown, the attributes come off and the hub shows as normal. */
+html[data-landing] .games-page, html[data-landing] .footer { visibility: hidden; }
+html[data-landing-ready] { overflow: hidden; }
+.cc-landing {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 70% at 50% 35%, rgba(197, 255, 73, 0.16), rgba(197, 255, 73, 0) 60%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px),
+    #0d0e11;
+  font-family: var(--mono);
+  overflow-y: auto;
+}
+.cc-landing-inner { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: stretch; gap: 14px; text-align: center; }
+.cc-landing-k { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 0.75rem; color: var(--lilac); }
+.cc-landing-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 8px var(--lime); animation: cc-follow-blink 1.6s steps(2, start) infinite; }
+@media (prefers-reduced-motion: reduce) { .cc-landing-dot { animation: none; } }
+.cc-landing-play {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 12px 16px;
+  border: 2px solid var(--lime);
+  border-radius: 18px;
+  background: #121318;
+  box-shadow: 0 0 40px -12px var(--lime);
+  color: var(--paper);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cc-landing-art { display: block; border-radius: 10px; overflow: hidden; background: #101114; aspect-ratio: 16 / 9; }
+.cc-landing-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cc-landing-title { font-size: clamp(1.5rem, 8vw, 2.1rem); font-weight: 800; line-height: 1.1; color: var(--lime); overflow-wrap: anywhere; }
+.cc-landing-go {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--lime);
+  color: #111;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.cc-landing-play:active .cc-landing-go { transform: scale(0.98); }
+.cc-landing-play:focus-visible { outline: 3px solid var(--lilac); outline-offset: 3px; }
+.cc-landing-pitch { margin: 0; font-size: 0.85rem; line-height: 1.45; color: var(--paper-dim, #a9a7a0); }
+.cc-landing-more {
+  align-self: center;
+  padding: 10px 14px;
+  border: 1px solid rgba(181, 154, 255, 0.35);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--paper);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}

@@ -28,6 +28,27 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/games/games.css">
+  <!-- Social landing: a visitor from a clip (?ref=tiktok|ig|youtube|x|threads|bsky) with a game hint
+       (?game=<slug>, else LANDING_DEFAULT for that platform) skips the hero and gets a "tap to play" card
+       (games/hub.js draws it). Decided here, before first paint, so the hero never flashes. No hint: normal hub. -->
+  <script id="cc-landing-boot">
+    (function () {
+      // the clip-of-the-day defaults; change these when the pinned clip changes
+      var LANDING_DEFAULT = { tiktok: "smol-brains" };
+      var SOCIAL = { tiktok: "tiktok", tt: "tiktok", instagram: "instagram", ig: "instagram", youtube: "youtube", yt: "youtube",
+        x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky" };
+      try {
+        var q = new URLSearchParams(location.search);
+        var ref = SOCIAL[(q.get("ref") || q.get("utm_source") || "").toLowerCase().trim()];
+        if (!ref) return;
+        var game = (q.get("game") || LANDING_DEFAULT[ref] || "").toLowerCase().trim();
+        if (!/^[a-z0-9-]{1,40}$/.test(game)) return;
+        var root = document.documentElement;
+        root.setAttribute("data-landing", game);
+        root.setAttribute("data-landing-ref", ref);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <main class="games-page">

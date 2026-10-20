@@ -106,6 +106,15 @@ A "new games drop on our tiktok first / follow **@computercooked**" house card w
 - `?ref=app` is the installed web app's start URL. It's left alone; app plays count as `app`.
 - The play-next rail still marks its plays `internal` (with a `cc:next` event).
 
+### Social landing (tap to play from a clip)
+
+A hub link with a social tag **and** a game hint skips the hero. The visitor gets a full-screen "tap to play <game>" card instead. One tap opens that game in the same tab, scrolled to the player, and a small "more games ↓" link drops them on the normal hub.
+
+- **Caption link for a clip:** `https://computercooked.com/games?ref=<platform>&game=<slug>`, e.g. `https://computercooked.com/games?ref=tiktok&game=smol-brains`. Slugs are the folder names under `/games/` (see `games.json`).
+- **Bio link:** `https://computercooked.com/games?ref=tiktok`. With no `game=`, the platform's default is used: `LANDING_DEFAULT` in `games/index.html` (today only `tiktok → smol-brains`; change it when the pinned clip changes). Platforms without a default get the normal hub.
+- Only the social tags in the table above trigger it (`reddit`, `app` and untagged visits get the normal hub). An unknown slug also falls back to the hub.
+- Attribution is kept: the card's link carries `?ref=` on to the game, so the play counts under that platform. The card never opens a popup or a new window, which matters inside TikTok's and Instagram's in-app browsers.
+
 ## Playtest links
 
 Add `?tester=<name>` to any game URL, e.g. `https://computercooked.com/games/crash/?tester=sam`. Everything that person plays and every bit of feedback they send in that browser tab is tagged with that name. It shows up under `testers` and `latest_feedback[].tester`.
