@@ -217,6 +217,17 @@
   // no portal, no analytics, no telemetry on computer cooked games
   const P = { allowShare: true, gameplayStart() {}, gameplayStop() {}, happytime() {}, breakAd: () => Promise.resolve(true) };
   const A = { track() {} };
+  // computer cooked sdk (leaderboard). window.cc is missing outside the site, so every call is guarded.
+  function CC(fn, ...a) { try { if (window.cc && typeof window.cc[fn] === 'function') return window.cc[fn](...a); } catch (e) { /* ignore */ } return null; }
+  const RIVAL_BONUS = { easy: 0, normal: 250, hard: 500 };
+  // win: 1000 + 20 per unused cell of the 64 (fewer shots is better) + 3 per accuracy point + rival bonus (daily counts as hard).
+  // loss: 40 per hit + 100 per sub you sank. perfect 9-shot win vs root = 2900.
+  function runScore(won) {
+    const me = G.state.players[0], turns = me.stats.shots + me.stats.sonar;
+    if (!won) return me.stats.hits * 40 + me.sunk.length * 100;
+    const acc = me.stats.shots ? Math.round((me.stats.hits / me.stats.shots) * 100) : 0;
+    return 1000 + Math.max(0, 64 - turns) * 20 + acc * 3 + (G.daily ? 500 : RIVAL_BONUS[G.level] || 0);
+  }
   function J() {}
   function HL() {}
   const Q = new URLSearchParams(location.search);
@@ -527,6 +538,7 @@
     else if (G.daily) toast('daily dive #' + dayNo() + ': everyone hunts the same fleet today. no pressure.', 2600);
     else toast('<b>tap the enemy sea to fire</b>', 1800);
     A.track('level_start', { mode: G.daily ? 'daily' : 'quick', level: G.daily ? 'daily' : G.level });
+    G.ccLive = true; CC('start');
     P.gameplayStart();
     saveDaily();
   }
@@ -860,6 +872,7 @@
       store.set('daily-progress', null);
     }
     A.track('level_end', { mode, level: G.daily ? 'daily' : G.level, result: won ? 'win' : 'lose', reason, turns: me.stats.shots + me.stats.sonar, ms: Math.round(time) });
+    if (G.ccLive) { G.ccLive = false; const sc = runScore(won); G.ccScore = sc; CC('score', sc); CC('end', { score: sc, durationMs: Math.round(time), completed: true }); }
     if (won) P.happytime();
     status(won ? 'victory' : 'cooked', !won);
     clearToasts();
@@ -973,6 +986,7 @@
   }
   function toTitle() {
     if (G && !G.endedAt && ui !== 'title') P.gameplayStop();
+    if (G && G.ccLive && !G.endedAt) { G.ccLive = false; CC('end', { score: 0, durationMs: Math.round(performance.now() - (G.startedAt || performance.now())), completed: false }); } // forfeit / restart mid-run
     if (G && !G.daily && !G.endedAt && G.state && G.state.phase === 'battle' && G.state.players[0].stats.shots + G.state.players[1].stats.shots > 0) {
       const rec = store.get('record', {}); const k = G.level; rec[k] = rec[k] || { w: 0, l: 0 }; rec[k].l++; store.set('record', rec); store.set('streak', 0);
       setTimeout(() => toast('forfeit counted as a loss. ' + RIVALS[k].name + ' will bring it up.', 2400), 50);

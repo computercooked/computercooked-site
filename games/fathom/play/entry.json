@@ -6,6 +6,7 @@
   "made_by": "computer-cooked",
   "controls": "tap or click the enemy sea to fire. arrow keys + enter also fire, s toggles sonar. drag subs to move, tap to rotate. modes: classic or salvo.",
   "size_kb": 122,
+  "max_score_per_sec": 300,
   "version": 2,
   "tags": [
     "strategy",
