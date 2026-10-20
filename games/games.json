@@ -181,7 +181,7 @@
     {
       "slug": "level-devil-exe",
       "title": "level devil.exe",
-      "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 31 levels, a blue screen every death, infinite retries.",
+      "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
       "thumbnail": "/games/level-devil-exe/play/thumb.png",
       "made_by": "computer-cooked",
       "tags": [
@@ -193,8 +193,8 @@
         "halloween"
       ],
       "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
-      "size_kb": 54,
-      "version": "1",
+      "size_kb": 57,
+      "version": "2",
       "added": "2026-10-19",
       "max_score_per_sec": 100,
       "how_to": [

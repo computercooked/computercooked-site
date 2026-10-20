@@ -132,7 +132,7 @@ const FEED = {
   },
   "level-devil-exe": {
     milestone: (d) => has(d, "lv", "deaths") && `cleared level ${d.lv} (${d.deaths} deaths so far)`,
-    finish: (d) => has(d, "t", "deaths") && `beat all 31 levels in ${d.t}s with ${d.deaths} deaths`,
+    finish: (d) => has(d, "t", "deaths") && `beat every level in ${d.t}s with ${d.deaths} deaths`,
   },
 };
 const FEED_NAMES = [...new Set(Object.values(FEED).flatMap((m) => Object.keys(m)))];

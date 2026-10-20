@@ -17,8 +17,9 @@ function M(rows) { const m = []; for (let r = 0; r < ROWS; r++) m.push(rows[r] |
 const TUN = {}; for (let r = 1; r <= 8; r++) TUN[r] = FULL;
 
 const LEVELS = [
-  { n: 'hello_world.exe', sign: 'arrows / a d to move. up / w / space to jump.', map: M({ 10: '#.............##.......#', 11: '#.S.....##....##.....E.#' }) },
-  { n: 'hello_world (1).exe', sign: 'this one is also normal. promise.', map: M({ 10: '#.............##.......#', 11: '#.S.....##....##.....E.#', 12: '#################ccc####' }), R: { c: 1.5 } },
+  // the 2-high wall is a step now: a tap-jump on a phone (~0.1s) only clears 1 tile, and a full 2 tiles needs a 0.2s hold
+  { n: 'hello_world.exe', sign: 'arrows / a d to move. up / w / space to jump.', signTouch: '◀ ▶ to move. tap jump to hop, hold it to jump higher.', map: M({ 10: '#..............#.......#', 11: '#.S.....##....##.....E.#' }) },
+  { n: 'hello_world (1).exe', sign: 'this one is also normal. promise.', map: M({ 10: '#..............#.......#', 11: '#.S.....##....##.....E.#', 12: '#################ccc####' }), R: { c: 1.5 } },
   { n: 'spikes.dll', sign: 'spikes are pink. pink is bad.', map: M({ 11: '#.S....^.....h.....^.E.#' }), alt: [{ d: 3, e: [[13, 11, '^'], [16, 11, 'h']] }] },
   { n: 'shy_exit.exe', sign: 'the exit is a little shy.', map: M({ 7: '#..........##..........#', 8: '#..........##..........#', 9: '#........######........#', 10: '#........######........#', 11: '#...S..##########...E..#' }), run: [[2, 11], [11, 6]] },
   { n: 'ceiling.sys', sign: 'the ceiling is load-bearing. mostly.', map: M({ 1: '#.......d...d...d......#', 11: '#.S..................E.#' }), R: { d: 2.2 } },
@@ -47,6 +48,12 @@ const LEVELS = [
   { n: 'real_checkpoint.sav', sign: "this checkpoint is real. probably.", map: M({ 1: '#..............d...d...#', 11: '#.S...h.....K......^.E.#', 12: '#########ccc############' }), R: { d: 2.0 } },
   { n: 'reverse_bridge.reg', sign: 'left is right. the bridge is leaving.', map: M({ 8: '#.....rrrrrrrrrr.......#', 9: '#.....rrrrrrrrrr.......#', 10: '#.....rrrrrrrrrr.......#', 11: '#.S...rrrrrrrrrr....E..#', 12: '#######cccccccc#########' }), R: { c: 0.7 } },
   { n: 'final_boss.exe', sign: 'final_boss.exe has entered the chat.', map: M({ 2: '###....................#', 4: '#...#..................#', 5: '#..E........#..........#', 6: '#################......#', 8: '#.................##...#', 10: '#...................##.#', 11: '#.S....................#', 12: '######zzzzzz############' }), cursor: { x: 7, fly: 0.5, sel: 0.45 }, taskbar: { x: 13, speed: 5 }, run: [[1, 1]], popups: [{ x: 15, dir: -1, ymax: 6, r: [8, 3, 3, 3], t: 'really sure?' }], alt: [{ d: 3, cursor: { x: 7, fly: 0.8, sel: 0.6 } }] },
+  // patch 2.0 pack (levels 31-35, oct 2026): remixes of the old tricks, ramping back up after the boss
+  { n: 'patch_notes.txt', sign: 'patch 2.0: we fixed the floor. (we did not.)', map: M({ 10: '#........####..........#', 11: '#.S.....^...........h.E#', 12: '#########ffff##fff######' }), alt: [{ d: 2, e: [[9, 12, 'F'], [10, 12, 'F'], [11, 12, 'F'], [12, 12, 'F'], [15, 12, 'F'], [16, 12, 'F'], [17, 12, 'F']] }] },
+  { n: 'cloud_sync.dll', sign: 'syncing your files to the cloud. they are coming back down.', map: M({ 1: '#.......d..d..d........#', 5: '#..E...............K...#', 6: '####################...#', 11: '#.S......k.......h...p.#', 12: '##########CCCCCC########' }), fullSpring: true },
+  { n: 'antivirus.exe', sign: 'antivirus is scanning your floor. do not stand still.', map: M({ 7: '#...............###....#', 11: '#.S....^.....^.......pE#', 12: '#zzzzzzzzzzzzzzzzzzzz###' }), run: [[17, 6]], chase: { x: 3, speed: 64 }, fullSpring: true, alt: [{ d: 3, chase: { x: 3, speed: 50 } }] },
+  { n: 'safe_mode.sys', sign: 'safe mode: upside down, controls swapped. for your safety.', map: M({ 1: '#.......rrrvrrr....g...#', 2: '#.......rrrrrrr........#', 3: '#.......rrrrrrr........#', 4: '#.......rrrrrrr........#', 11: '#.S.g^^^^^^^^^^^^^^..E.#' }), popups: [{ x: 19, r: [19, 9, 4, 3], t: 'restart now?' }] },
+  { n: 'uninstall.exe', sign: 'uninstalling level devil.exe. please do not climb.', map: M({ 1: '#.................E....#', 2: '#.................######', 4: '#.............ccc......#', 6: '#.........ccc..........#', 8: '#.....###..............#', 10: '#.###..................#', 11: '#S.....................#' }), taskbar: { x: 3, speed: 14 }, run: [[22, 1]], R: { c: 0.9 }, shake: 0.45 },
   { n: 'credits.txt', sign: 'thanks for playing. crash is proud of you. kind of.', map: M({ 11: '#.S..................E.#' }), run: [[2, 11]], credits: true },
 ];
 
@@ -54,6 +61,13 @@ const LEVELS = [
 let save = { unlocked: 1, deaths: 0, best: 0, bestDeaths: 0, muted: false, hw: null, cleared: 0 };
 try { const s = JSON.parse(localStorage.getItem('cc-level-devil') || 'null'); if (s && typeof s === 'object') save = Object.assign(save, s); } catch (e) {}
 function persist() { try { localStorage.setItem('cc-level-devil', JSON.stringify(save)); } catch (e) {} }
+// v2 (patch 2.0): 5 levels went in before credits.txt, which moved from 31 to 36. anyone who had reached the
+// old credits lands on the first new level instead of skipping it.
+let patchNews = false;
+if (!save.v) { if (save.cleared >= 30) { patchNews = true; save.cleared = 30; save.unlocked = Math.max(save.unlocked, 31); } save.v = 2; persist(); }
+// deaths per level, keyed by level name so inserting levels never shuffles them
+if (!save.lvd || typeof save.lvd !== 'object') save.lvd = {};
+function nemesis() { let best = null; LEVELS.forEach((d, i) => { const n = save.lvd[d.n] || 0; if (n > 0 && (!best || n > best.n)) best = { lv: i + 1, name: d.n, n }; }); return best; }
 const NOW = new Date();
 let hw = save.hw === null || save.hw === undefined ? NOW.getMonth() === 9 : !!save.hw;
 let muted = !!save.muted;
@@ -65,7 +79,13 @@ function ccEvent(n, d) { if (eventsSent >= 18) return; eventsSent++; ccCall('eve
 const run = { open: false, startMs: 0, cleared: 0, deaths: 0 };
 function runStart() { if (run.open) return; run.open = true; run.startMs = performance.now(); run.cleared = 0; run.deaths = 0; ccCall('start'); }
 function runScore() { return Math.max(0, run.cleared * 100 - run.deaths * 2); }
-function runEnd(completed) { if (!run.open) return; run.open = false; ccCall('end', { score: runScore(), durationMs: Math.round(performance.now() - run.startMs), completed }); }
+function runEnd(completed) {
+  if (!run.open) return; run.open = false;
+  // deaths ride along on cc.end (the sdk ignores extra fields today) and as one run_end event the platform does store
+  const nm = nemesis(), extra = { deaths: run.deaths, level: lvIndex + 1, nemesis: nm ? nm.lv : 0, nemesisDeaths: nm ? nm.n : 0 };
+  ccCall('event', 'run_end', extra);
+  ccCall('end', Object.assign({ score: runScore(), durationMs: Math.round(performance.now() - run.startMs), completed }, extra));
+}
 
 // ---------- audio ----------
 let AC = null, master = null;
@@ -184,7 +204,7 @@ function input() {
 function kill(msg) {
   if (mode !== 'play') return;
   mode = 'dead'; deadT = 0; deathMsg = msg;
-  L.deaths++; save.deaths++; speedrun.deaths++; run.deaths++; persist();
+  L.deaths++; save.deaths++; speedrun.deaths++; run.deaths++; save.lvd[L.def.n] = (save.lvd[L.def.n] || 0) + 1; persist();
   const p = L.p;
   for (let i = 0; i < 24; i++) { const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200; parts.push({ x: p.x + PW / 2, y: p.y + PH / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 100, life: 0.6, max: 0.6, s: 2 + Math.random() * 3, col: i % 3 ? '#d9c9a3' : LIME }); }
   sfx('die');
@@ -277,7 +297,7 @@ function update(dt) {
   L.falls = L.falls.filter(f => !f.done);
 
   // springs
-  for (const s of L.springs) { s.t = Math.max(0, s.t - dt); if (p.vy >= 0 && rectHit(p.x, p.y, PW, PH, s.x * T + 2, s.y * T + 10, T - 4, 10)) { p.vy = -SPRING; p.ground = false; p.coyote = 0; s.t = 0.25; sfx('spring'); } }
+  for (const s of L.springs) { s.t = Math.max(0, s.t - dt); if (p.vy >= 0 && rectHit(p.x, p.y, PW, PH, s.x * T + 2, s.y * T + 10, T - 4, 10)) { p.vy = -SPRING; p.ground = false; p.coyote = 0; if (L.def.fullSpring) p.cut = true; s.t = 0.25; sfx('spring'); } }
   // gravity pads
   L.flipCd -= dt;
   for (const pd of L.pads) if (L.flipCd <= 0 && rectHit(p.x, p.y, PW, PH, pd.x * T + 2, pd.y * T + (pd.up ? 0 : 12), T - 4, 8)) { L.gs = -L.gs; L.flipCd = 0.45; p.vy = 60 * L.gs; p.ground = false; sfx('flip'); }
@@ -349,7 +369,7 @@ function win() {
   run.cleared++;
   const n = lvIndex + 1;
   save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, n + 1)); save.cleared = Math.max(save.cleared, n); persist();
-  if ([5, 10, 20, 30].includes(n)) ccEvent('milestone', { lv: n, deaths: speedrun.deaths });
+  if ([5, 10, 20, 30, 35].includes(n)) ccEvent('milestone', { lv: n, deaths: speedrun.deaths });
   ccCall('score', runScore());
 }
 function nextLevel() {
@@ -479,7 +499,7 @@ function draw() {
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (g[y][x] === 'r') { ctx.fillStyle = 'rgba(181,154,255,0.10)'; ctx.fillRect(x * T, y * T, T, T); if ((x + y) % 3 === 0) { ctx.fillStyle = 'rgba(181,154,255,0.35)'; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⇄', x * T + T / 2, y * T + T / 2); } }
   const VC = V.cam + V.vw / 2;
   // sign
-  if (L.def.sign) { ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; const sy = L.def.map[1] === FULL ? 150 : /[gv]/.test(L.def.map[1]) ? 110 : 25; let txt = L.def.sign; if (L.def.credits) txt = 'made by computer cooked. you died ' + save.deaths + ' times. crash says gg.'; const sw = ctx.measureText(txt).width + 12; ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(VC - sw / 2, sy - 3, sw, 15); ctx.fillStyle = 'rgba(197,255,73,' + (L.signT > 0 ? 0.95 : 0.55) + ')'; ctx.fillText(txt, VC, sy); }
+  if (L.def.sign) { ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; const sy = L.def.map[1] === FULL ? 150 : /[gv]/.test(L.def.map[1]) ? 110 : 25; let txt = pad.show && L.def.signTouch ? L.def.signTouch : L.def.sign; if (L.def.credits) txt = 'made by computer cooked. you died ' + save.deaths + ' times. crash says gg.'; const sw = ctx.measureText(txt).width + 12; ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(VC - sw / 2, sy - 3, sw, 15); ctx.fillStyle = 'rgba(197,255,73,' + (L.signT > 0 ? 0.95 : 0.55) + ')'; ctx.fillText(txt, VC, sy); }
   // tiles
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     const c = g[y][x], px = x * T, py = y * T;
@@ -538,7 +558,8 @@ function draw() {
     ctx.font = 'bold ' + Math.round(fs * 2.4) + 'px ' + FONT; ctx.fillText(hw ? 'boo.' : ':(', x, y); y += fs * 3.2;
     ctx.font = 'bold ' + Math.round(fs * 0.85) + 'px ' + FONT; ctx.fillText('crash ran into a problem and died.', x, y); y += fs * 1.3;
     ctx.fillText('stop code: ' + deathMsg, x, y); y += fs * 1.3;
-    ctx.fillStyle = 'rgba(245,243,237,0.7)'; ctx.fillText('deaths: ' + save.deaths + ' · restarting...', x, y);
+    ctx.fillStyle = 'rgba(245,243,237,0.7)'; ctx.fillText('deaths on this level: ' + L.deaths + ' · total: ' + save.deaths, x, y); y += fs * 1.3;
+    ctx.fillText('restarting...', x, y);
   }
   drawHud();
   drawPad();
@@ -565,7 +586,9 @@ function drawHud() {
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.font = 'bold ' + (narrow ? 11 : 13) + 'px ' + FONT;
   ctx.fillStyle = LIME; const lv = 'lvl ' + (lvIndex + 1); ctx.fillText(lv, 8, h / 2);
   let x = 8 + ctx.measureText(lv + ' ').width;
-  ctx.fillStyle = PINK; const dt = '☠ ' + save.deaths; ctx.fillText(dt, x, h / 2); x += ctx.measureText(dt + '  ').width;
+  ctx.fillStyle = PINK; const dt = '☠ ' + save.deaths; ctx.fillText(dt, x, h / 2); x += ctx.measureText(dt + ' ').width;
+  if (L && L.deaths > 0) { ctx.fillStyle = 'rgba(255,79,160,0.7)'; const dh = '(' + L.deaths + ' here)'; ctx.fillText(dh, x, h / 2); x += ctx.measureText(dh + ' ').width; }
+  x += ctx.measureText(' ').width;
   ctx.fillStyle = PAPER; ctx.fillText(speedrun.on ? fmt(speedrun.t) : '--:--.--', x, h / 2); x += ctx.measureText('00:00.00  ').width;
   if (!narrow && L) { ctx.fillStyle = 'rgba(245,243,237,0.5)'; ctx.fillText(L.def.n, x, h / 2); }
   ctx.fillStyle = 'rgba(245,243,237,0.3)'; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -582,7 +605,8 @@ function drawMenu() {
   const p = panel(); let y = p.y + 16;
   ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('level devil.exe', p.x + 16, y);
   button(p.x + p.w - 44, y - 4, 32, 30, '×', closeMenu, { fs: 18 });
-  y += 30; ctx.fillStyle = 'rgba(245,243,237,0.6)'; ctx.font = 'bold 11px ' + FONT; ctx.fillText('deaths: ' + save.deaths + (save.best ? ' · best run ' + fmt(save.best) : ''), p.x + 16, y); y += 22;
+  const nm = nemesis();
+  y += 30; ctx.fillStyle = 'rgba(245,243,237,0.6)'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'left'; ctx.fillText('deaths: ' + save.deaths + (nm ? ' · nemesis: lvl ' + nm.lv + ' (☠ ' + nm.n + ')' : '') + (save.best ? ' · best run ' + fmt(save.best) : ''), p.x + 16, y); y += 22;
   const cols = 8, gap = 5, bw = (p.w - 32 - gap * (cols - 1)) / cols, bh = Math.min(30, bw);
   for (let i = 0; i < LEVELS.length; i++) {
     const r = Math.floor(i / cols), c = i % cols, bx = p.x + 16 + c * (bw + gap), byy = y + r * (bh + gap);
@@ -608,7 +632,9 @@ function drawEnd() {
   ctx.fillText('deaths this run: ' + speedrun.deaths, W / 2, y); y += 26;
   ctx.fillStyle = 'rgba(245,243,237,0.6)'; ctx.font = 'bold 12px ' + FONT;
   ctx.fillText('all-time deaths: ' + save.deaths + (save.best ? ' · best ' + fmt(save.best) : ''), W / 2, y); y += 24;
-  ctx.fillText('crash is impressed. and a little scared.', W / 2, y); y += 40;
+  const nm = nemesis();
+  if (nm) { ctx.fillStyle = PINK; ctx.fillText('nemesis: lvl ' + nm.lv + ' ' + nm.name + ' · ☠ ' + nm.n, W / 2, y); y += 24; ctx.fillStyle = 'rgba(245,243,237,0.6)'; }
+  ctx.fillText('crash is impressed. and a little scared.', W / 2, y); y += 34;
   const bh = 44;
   button(p.x + 20, y, p.w - 40, bh, 'share card', share, { primary: true }); y += bh + 10;
   button(p.x + 20, y, p.w - 40, bh, 'new speedrun', newRun); y += bh + 10;
@@ -629,14 +655,20 @@ function makeCard() {
   const done = mode === 'end';
   g.fillText(done ? 'and i still beat all ' + LEVELS.length + ' levels' : 'made it to level ' + save.cleared + ' / ' + LEVELS.length, 90, 640);
   if (done || save.best) g.fillText('speedrun: ' + fmt(done ? speedrun.t : save.best), 90, 705);
-  g.fillStyle = 'rgba(245,243,237,0.75)'; g.font = 'bold 34px ' + FONT; g.fillText('stop code: ' + (deathMsg || 'SKILL_ISSUE'), 90, 800);
+  const nm = nemesis();
+  if (nm) { g.fillStyle = '#FF8AC4'; g.font = 'bold 36px ' + FONT; g.fillText('level ' + nm.lv + ' alone got me ' + nm.n + 'x (' + nm.name + ')', 90, 770); }
+  g.fillStyle = 'rgba(245,243,237,0.75)'; g.font = 'bold 30px ' + FONT; g.fillText('stop code: ' + (deathMsg || 'SKILL_ISSUE'), 90, 825);
   // qr-ish block
   g.fillStyle = PAPER; g.fillRect(90, 880, 110, 110); g.fillStyle = hw ? '#3a1458' : BSOD; for (let i = 0; i < 25; i++) if ((i * 7 + 3) % 3) g.fillRect(100 + (i % 5) * 18, 890 + Math.floor(i / 5) * 18, 14, 14);
   g.fillStyle = LIME; g.font = 'bold 38px ' + FONT; g.fillText(URL_TXT, 230, 905);
   g.fillStyle = 'rgba(245,243,237,0.6)'; g.font = 'bold 28px ' + FONT; g.fillText('computer cooked games', 230, 958);
   return c;
 }
-function shareText() { return mode === 'end' ? 'i beat level devil.exe in ' + fmt(speedrun.t) + ' and only died ' + speedrun.deaths + ' times. ' + URL_TXT : 'level devil.exe has killed me ' + save.deaths + ' times. i am on level ' + Math.min(LEVELS.length, save.cleared + 1) + '. ' + URL_TXT; }
+function shareText() {
+  const nm = nemesis(), nmTxt = nm && nm.n >= 3 ? ' level ' + nm.lv + ' alone got me ' + nm.n + ' times.' : '';
+  return mode === 'end' ? 'i beat level devil.exe in ' + fmt(speedrun.t) + ' and only died ' + speedrun.deaths + ' times.' + nmTxt + ' ' + URL_TXT
+    : 'level devil.exe has killed me ' + save.deaths + ' times.' + nmTxt + ' i am on level ' + Math.min(LEVELS.length, save.cleared + 1) + '. ' + URL_TXT;
+}
 function toast(m) { toastMsg = m; toastT = 2.2; }
 async function share() {
   ccEvent('share', { deaths: save.deaths });
@@ -709,6 +741,7 @@ function frame(now) {
 layout();
 startLevel(save.cleared > 0 && save.cleared < LEVELS.length ? save.cleared : 0, true);
 speedrun = { t: 0, valid: save.cleared === 0, deaths: 0, on: false };
+if (patchNews) { toastMsg = 'patch 2.0: 5 new levels'; toastT = 3.5; }
 requestAnimationFrame(frame);
 
 window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; } };
