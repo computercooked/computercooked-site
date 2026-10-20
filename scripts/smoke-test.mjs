@@ -72,6 +72,7 @@ if (local) {
   ok(r.ok, "favorite");
   r = await (await get("/api/me/summary", { cookie })).json();
   ok(r.ok && r.favorites.includes("crash") && r.streak >= 1 && r.recent.some((x) => x.game === "crash"), "summary: favorite, streak, recent (anon plays linked)", { streak: r.streak, recent: r.recent });
+  ok(typeof r.streak_saved === "boolean", "summary says whether a streak saver was used", r.streak_saved);
   r = await post("/api/auth/login", { username: u, password: "wrong-password" });
   ok(r.status === 401, "wrong password refused");
   r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });

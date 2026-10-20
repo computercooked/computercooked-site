@@ -3,6 +3,22 @@
 export const now = () => Date.now();
 export const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// Consecutive played days ending at `from` (YYYY-MM-DD), counting back. Streak saver: one missed day is
+// forgiven when the day before it was played, at most once per 7 days, so one busy day doesn't reset a
+// long streak (a forgiven day doesn't count toward the length). -> {n, savedRecently}
+export function streakFrom(days, from) {
+  const set = days instanceof Set ? days : new Set(days);
+  const DAY = 86400000;
+  let n = 0, t = Date.parse(from + "T00:00:00Z"), i = 0, lastSave = -Infinity;
+  for (;;) {
+    if (set.has(dayOf(t))) n++;
+    else if (n > 0 && i - lastSave >= 7 && set.has(dayOf(t - DAY))) lastSave = i;
+    else break;
+    t -= DAY; i++;
+  }
+  return { n, savedRecently: lastSave >= 0 && lastSave < 7 };
+}
+
 // ISO-8601 week label, e.g. "2026-W43"
 export function weekOf(ms) {
   const d = new Date(ms);

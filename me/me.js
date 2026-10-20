@@ -99,6 +99,7 @@
     api("/api/me/summary").then(function (s) {
       if (!s.ok) return;
       $("#me-streak").textContent = s.streak;
+      $("#me-saver").hidden = !s.streak_saved;
       $("#me-days").textContent = s.days_played;
       var best = {};
       s.bests.forEach(function (b) { best[b.game] = b.best; });

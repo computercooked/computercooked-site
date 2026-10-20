@@ -1,6 +1,6 @@
 // XP, levels and achievements (slice B). Only the server grants XP, and only for validated plays:
 // a logged-in player's completed run of 10s+, whose score (if the game has a board) passed the bounds check.
-import { now, dayOf } from "./util.js";
+import { now, dayOf, streakFrom } from "./util.js";
 import { challengeFor, eventsLive, eventDef } from "./social.js";
 import { unlocksBetween } from "./cosmetics.js";
 
@@ -53,10 +53,7 @@ export async function unlock(env, userId, game, achId, t = now(), catalogGame = 
 // consecutive days with a play, counting back from today
 async function streakDays(env, userId, today) {
   const { results } = await env.DB.prepare("SELECT DISTINCT day FROM plays WHERE user_id = ? ORDER BY day DESC LIMIT 60").bind(userId).all();
-  const set = new Set(results.map((r) => r.day));
-  let n = 0, d = new Date(today + "T00:00:00Z").getTime();
-  while (set.has(dayOf(d))) { n++; d -= 86400000; }
-  return n;
+  return streakFrom(results.map((r) => r.day), today).n;
 }
 
 // Called when a play ends. scoreRes is recordScore()'s result (or null when the game sent no score).
