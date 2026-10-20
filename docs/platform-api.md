@@ -99,7 +99,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 
 ### Weekly challenge, events and the activity feed (slice D2)
 
-- **Weekly challenge:** one featured game per ISO week (UTC, Monday to Sunday), set in `CHALLENGES` in `src/social.js` as `{week: "2026-W43", game, target, goal, xp}`. A logged-in player's validated run (10 s+, completed, score accepted) on that game scoring at least `target` earns the bonus XP once per week (`xp_events` kind `challenge`, ref = week). A week with no entry shows no challenge, so **add next week's pick before Monday**. The hub shows it, and so does the featured game's leaderboard card.
+- **Weekly challenge:** one featured game per ISO week (UTC, Monday to Sunday), set in `CHALLENGES` in `src/social.js` as `{week: "2026-W43", game, target, goal, xp}`. A logged-in player's validated run (10 s+, completed, score accepted) on that game scoring at least `target` earns the bonus XP once per week (`xp_events` kind `challenge`, ref = week). A hand pick always wins. A week with no entry gets an **automatic pick**: the leaderboard game with the most unique players in the 7 days before the week started, never last week's game. Its target is about the 60th percentile of that game's scores (or 30 s of perfect play when it has fewer than 10 runs), worth +100 XP. The first request of the week stores it in the `challenges` table (migration `0007_challenges`), so it stays the same all week. To see what next week will be, use `GET /api/admin/challenge` (Bearer token; `?date=YYYY-MM-DD` for another week; returns `source: hand / stored / auto (not stored yet)` and the pick). The hub shows it, and so does the featured game's leaderboard card.
 - **Seasonal events:** `EVENTS` in `src/social.js`, `{id, from, until, name, desc, xp, label}`. Any validated run between `from` and `until` (UTC days, until exclusive) unlocks that site badge. It's listed on /me while live, and kept forever once earned. Halloween 2026 (`halloween_2026`, "trick or treat.exe", +31 XP) runs until Nov 1.
 - **Activity feed:** /me shows your last 30 days of activity: achievements, challenge wins, and `cc.event`s that are **allow-listed** in `FEED` in `src/social.js` (game → event name → fixed template). Event values are clipped to 24 characters, stripped to letters/numbers and word-filtered; a line whose values don't pass is dropped. Today: smol brains `first_word`/`firstWord` {word}, `egg`/`hatch` {gen}; level devil.exe `milestone` {lv, deaths}, `finish` {t, deaths}. To add one, send a PR adding the template, and keep the event's data to short words and numbers.
 
@@ -142,6 +142,7 @@ POSTs from other sites are refused, and logins, sign-ups, events and feedback ar
 |---|---|---|
 | GET | `/api/admin/metrics?since=` | above |
 | GET | `/api/admin/reports` | open reports |
+| GET | `/api/admin/challenge?date=` | the weekly challenge for that date's week (default: next week): hand pick, stored auto pick, or a preview of the auto pick. Stores nothing |
 | POST | `/api/admin/moderate` | `{action: hide-score / show-score / ban-user / restore-user / resolve-report, id}` |
 | GET / POST | `/api/admin/uploads` | community upload queue; `{id, action: approve/reject, note}` |
 

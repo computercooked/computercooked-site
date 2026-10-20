@@ -88,7 +88,7 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
   if (g) parts.push({ kind: "streak", xp: g, days: streak });
 
   // weekly challenge (slice D2): one bonus per week for a run on the featured game that hits the target
-  const ch = challengeFor(t);
+  const ch = await challengeFor(env, t);
   if (ch && ch.game === play.game && scoreRes && scoreRes.accepted && score >= ch.target) {
     g = await grant(env, user.id, "challenge", play.game, ch.week, ch.xp, t);
     if (g) parts.push({ kind: "challenge", xp: g, week: ch.week });

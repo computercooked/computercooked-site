@@ -265,6 +265,10 @@ if (admin) {
   r = await (await get("/api/admin/metrics?since=2026-01-01", { authorization: "Bearer " + admin })).json();
   const c = r.games?.find((g) => g.game === "crash");
   ok(r.ok && c && c.plays >= 1 && c.feedback_count >= 1, "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
+  // weekly challenge: a week with no hand pick falls back to an automatic one (never last week's game)
+  r = await (await get("/api/admin/challenge", { authorization: "Bearer " + admin })).json();
+  const handLast = (await (await get("/api/admin/challenge?date=" + new Date(Date.now()).toISOString().slice(0, 10), { authorization: "Bearer " + admin })).json()).pick?.game;
+  ok(r.ok && r.pick && r.pick.game && r.pick.target > 0 && r.pick.xp === 100 && (r.source !== "auto (not stored yet)" || r.pick.game !== handLast), "next week has a challenge (hand or auto, not this week's game)", r);
 }
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

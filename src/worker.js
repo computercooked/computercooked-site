@@ -6,7 +6,7 @@ import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePas
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
-import { challenge, feed } from "./social.js";
+import { challenge, feed, previewChallenge } from "./social.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -91,6 +91,7 @@ async function api(req, env, url) {
     switch (route) {
       case "GET /api/admin/metrics": return metrics(url, env, origin);
       case "GET /api/admin/reports": return listReports(env);
+      case "GET /api/admin/challenge": return previewChallenge(url, env, await catalogOf(env, origin));
       case "POST /api/admin/moderate": return moderate(req, env);
       case "GET /api/admin/uploads": return adminUploads(env);
       case "POST /api/admin/uploads": return reviewUpload(req, env);
