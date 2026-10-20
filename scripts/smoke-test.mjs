@@ -141,6 +141,8 @@ if (local) {
   ok(r.ok && r.save?.bytes > 0, "save to cloud", r.save);
   r = await (await get("/api/saves/smol-brains/main", { cookie })).json();
   ok(r.save?.data?.hello === "smol" && r.save.updated_at === t0, "load cloud save");
+  r = await (await get("/api/me/summary", { cookie })).json();
+  ok(r.saves?.some((s) => s.game === "smol-brains" && s.updated_at === t0), "summary lists cloud saves for jump back in", r.saves);
   r = await put("/api/saves/smol-brains/main", { data: { again: 1 } });
   r = await put("/api/saves/smol-brains/main", { data: { again: 2 } });
   ok(r.status === 429, "save rate limited per slot", r.status);
