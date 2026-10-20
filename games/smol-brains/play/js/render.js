@@ -553,18 +553,24 @@
   R.updateCamera = updateCamera;
 
   // world units per screen pixel on the ground, for panning
+  // a screen drag of (dx, dy) px, as ground movement: the drag in camera space slid along the view ray
+  // onto the ground plane. Panning moves the camera the opposite way, so the ground stays under the finger.
+  function groundDelta(dxPx, dyPx, out) {
+    var c = cam, k = (2 * c.halfH) / H, r = c.right, u = c.up, f = c.fwd;
+    var wx = (r[0] * dxPx - u[0] * dyPx) * k, wy = (r[1] * dxPx - u[1] * dyPx) * k, wz = (r[2] * dxPx - u[2] * dyPx) * k;
+    var t = Math.abs(f[1]) > 1e-4 ? wy / f[1] : 0;
+    out[0] = wx - f[0] * t; out[1] = wz - f[2] * t;
+    return out;
+  }
+  var gd = [0, 0];
+  R.groundDelta = function (dxPx, dyPx) { return groundDelta(dxPx, dyPx, [0, 0]); };
   R.panBy = function (dxPx, dyPx) {
-    var c = cam, k = (2 * c.halfH) / H;
-    var sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), sp = Math.sin(c.pitch);
-    // screen right on the ground = (cy, -sy); screen up on the ground = (-sy, -cy) stretched by 1/sin(pitch)
-    c.x -= (dxPx * cy) * k - (dyPx * sy) * k / sp;
-    c.z -= (-dxPx * sy) * k - (dyPx * cy) * k / sp;
+    groundDelta(dxPx, dyPx, gd);
+    cam.x -= gd[0]; cam.z -= gd[1];
   };
   R.panVelocity = function (vxPx, vyPx) {
-    var c = cam, k = (2 * c.halfH) / H;
-    var sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), sp = Math.sin(c.pitch);
-    c.vx = -((vxPx * cy) * k - (vyPx * sy) * k / sp);
-    c.vz = -((-vxPx * sy) * k - (vyPx * cy) * k / sp);
+    groundDelta(vxPx, vyPx, gd);
+    cam.vx = -gd[0]; cam.vz = -gd[1];
   };
   R.zoomAt = function (factor, sx, sy) {
     var c = cam, before = sx != null ? R.pickGround(sx, sy) : null;
