@@ -382,7 +382,8 @@
       caption('<b>admin rights granted.</b> the locks are off.');
     } else caption(combo >= 3 ? `<b>x${combo + 1}</b> clean streak. ` + pickLine(LINES.exit, pc.name) : pickLine(LINES.exit, pc.name));
     hud();
-    cc.score(L.mode === 'daily' ? L.total - remaining() : L.idx * 100 + (L.total - remaining()));
+    // only level mode goes on the board: a finished daily always scores the same (every piece), so it isn't ranked
+    if (L.mode !== 'daily') cc.score(L.idx * 100 + (L.total - remaining()));
     const LL = L;
     if (!remaining()) { L.done = true; setTimeout(() => { if (L === LL) endLevel(true); }, 650); }
     else if (!L.pieces.some((q) => !q.gone && movable(q, L.keyGone) && !block(L.grid, L.cols, L.rows, q, dirOf(q, L.removed)).k)) {
@@ -403,7 +404,7 @@
     const ms = performance.now() - L.start;
     const st = won ? starsFor(L.bonks) : 0;
     lastResult = { mode: L.mode, idx: L.idx, won, ms, bonks: L.bonks, total: L.total, stars: st, day: dayNo(), jammed: !!L.jammed };
-    cc.call('end', { score: L.mode === 'daily' ? L.total : (won ? L.idx + 1 : L.idx) * 100 + (L.total - remaining()), durationMs: Math.round(ms) });
+    cc.call('end', L.mode === 'daily' ? { durationMs: Math.round(ms) } : { score: (won ? L.idx + 1 : L.idx) * 100 + (L.total - remaining()), durationMs: Math.round(ms) });
     if (won) { sfx.win(); burstConfetti(); } else sfx.lose();
     if (L.mode === 'level' && won) {
       stars[L.idx] = Math.max(stars[L.idx] || 0, st); store.set('stars', stars);

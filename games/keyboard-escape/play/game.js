@@ -149,11 +149,16 @@
 
   function newPlayer() { return { x: -60, y: -PH, vx: 0, vy: 0, ground: null, coyote: 0, knock: 0, face: 'idle', faceT: 0, spin: 0 }; }
   let carry = 0;
+  // leaderboard score = speed gained in this run. The speed carried over from a reboot is left out, so a
+  // run is scored on what it did (the in-game "top speed" still includes the carry).
+  let runBase = 0;
+  const runScore = () => Math.max(0, Math.round(topSpeed - runBase));
   function startRun(keepSpeed) {
     audioInit();
     course = buildCourse(save.loop, save.mult);
     p = newPlayer(); runT = 0; falls = 0; keysHit = 0; popups = []; parts = [];
     if (!keepSpeed) { speed = carry; topSpeed = carry; carry = 0; }
+    runBase = speed;
     tierIdx = TIERS.filter((t) => speed >= t).length; perfect = 0;
     booting = 0.6; cam.x = p.x; cam.y = p.y;
     screen = 'play'; show('title', false); show('win', false); show('pause', false); $('pauseBtn').style.display = 'block';
@@ -315,8 +320,8 @@
     if (isBest) save.best[loop] = ms;
     save.topSpeed = Math.max(save.topSpeed, topSpeed); save.escapes++;
     persist();
-    cc((c) => c.score && c.score(Math.round(topSpeed)));
-    cc((c) => c.end && c.end({ score: Math.round(topSpeed), durationMs: ms }));
+    cc((c) => c.score && c.score(runScore()));
+    cc((c) => c.end && c.end({ score: runScore(), durationMs: ms }));
     cc((c) => c.event && c.event('escape', { loop, mult: save.mult, ms, falls, speed: Math.round(topSpeed) }));
     setTimeout(() => showWin(ms, isBest), 650);
   }
@@ -584,7 +589,7 @@
         cam.y += (ty - cam.y) * Math.min(1, dt * 4);
       }
       render(dt);
-      if (screen === 'play' && scoreDirty && now - lastScoreSent > 1000) { scoreDirty = false; lastScoreSent = now; cc((c) => c.score && c.score(Math.round(speed))); }
+      if (screen === 'play' && scoreDirty && now - lastScoreSent > 1000) { scoreDirty = false; lastScoreSent = now; cc((c) => c.score && c.score(runScore())); }
     } catch (err) { console.error(err); }
   }
   requestAnimationFrame(frame);

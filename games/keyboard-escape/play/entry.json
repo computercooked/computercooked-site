@@ -14,7 +14,6 @@
     "platformer",
     "halloween"
   ],
-  "version": "1.1",
-  "max_score_per_sec": 150,
-  "score_slack": 1500
+  "version": "1.2",
+  "max_score_per_sec": 300
 }
