@@ -9,9 +9,9 @@
   "use strict";
   var SB = window.SB, R = SB.Render, GL = SB.GL;
   var PX = (SB.Pixel = {});
-  var F = 32, NF = 12; // frame size in px, frames per sheet
+  var F = 32, NF = 13; // frame size in px, frames per sheet
   var AW = F * NF * 4, AH = 1024, SLOTS_X = 4, SLOTS = SLOTS_X * (AH / F) | 0;
-  var FR = { idle0: 0, idle1: 1, walk0: 2, walk1: 3, walk2: 4, walk3: 5, blink: 6, sleep: 7, eat: 8, happy: 9, sad: 10, scared: 11 };
+  var FR = { idle0: 0, idle1: 1, walk0: 2, walk1: 3, walk2: 4, walk3: 5, blink: 6, sleep: 7, eat: 8, happy: 9, sad: 10, scared: 11, dot: 12 }; // dot: how a smol looks from far away
   PX.FR = FR;
 
   /* ---------------- colour helpers ---------------- */
@@ -67,43 +67,67 @@
     var bw = Math.round(11 + (lk.body - 0.8) * 9 + (lk.size - 1) * 8 + Math.min(tier, 4) * 0.4) - shrink;
     var bh = Math.round(bw * 0.86) + (tier >= 3 ? 1 : 0) + (lk.head > 0.4 || tier >= 5 ? 2 : 0);
     if (grump) { bw += 1; bh += 1; }
-    var legs = lk.legs, legH = legs ? 2 + Math.round(lk.legLen * 3) - (st < 2 ? 1 : 0) : 0;
+    // from tribe on, smols stand up: a head on a torso, two legs, two arms (a little person)
+    var upright = !grump && tier >= 3;
+    var legs = upright ? 2 : lk.legs, legH = upright ? 3 + Math.round(lk.legLen * 2) - (st < 2 ? 1 : 0) : legs ? 2 + Math.round(lk.legLen * 3) - (st < 2 ? 1 : 0) : 0;
+    var hasArms = lk.arms || upright;
+    var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+    var tw = clamp(Math.round(bw * 0.55), 5, 8), th = clamp(Math.round(bh * 0.45), 4, 7);
+    var hr = clamp(Math.round(bw * 0.36) + (tier >= 5 ? 1 : 0), 4, 6), hry = hr * 0.9;
     var frames = [];
     for (var fi = 0; fi < NF; fi++) {
       var f = new Frame();
+      if (fi === FR.dot) { // a little coloured pebble with a highlight, for the zoomed-out view
+        f.oval(16, 27.5, 2.6, 2.1, function (x, y, u, v) { return u < -0.2 && v < -0.2 ? light : v > 0.5 ? dark : base; });
+        if (!grump && tier >= 6) f.px(16, 24, GOLD, 9);
+        f.outline(outline); frames.push(f); continue;
+      }
       var walk = fi >= 2 && fi <= 5 ? fi - 2 : -1;
       var hop = 0, sq = 0, breathe = fi === 1 ? 1 : 0;
       if (!legs && walk >= 0) { hop = [1, 3, 1, 0][walk]; sq = walk === 3 ? 1 : 0; }
+      if (upright && walk >= 0) hop = walk % 2;
       if (fi === FR.sleep) { sq = 1; }
-      var bot = 30 - legH - hop, rx = bw / 2 + sq * 0.6, ry = (bh + breathe - sq) / 2;
-      var cx = 15.5, cy = bot - ry + 0.5, top = cy - ry;
-      var flap = walk >= 0 ? walk % 2 : 0;
-      // ---- behind the body: tail, wings, far legs, far arm
-      if (lk.tail === 1) f.oval(cx - rx + 0.5, cy + ry * 0.35, 1.6, 1.6, second);
-      else if (lk.tail === 2) { for (var t = 0; t < 4; t++) f.px(cx - rx - t, cy + ry * 0.3 - t * 0.8 + (t === 3 ? 1 : 0), dark); }
-      else if (lk.tail === 3) f.oval(cx - rx, cy + ry * 0.2, 2.6, 2.4, function (x, y, u, v) { return v < -0.2 ? WHITE : belly; });
-      if (lk.wings) { var wy = top + 3 - flap * 2; f.oval(cx - rx * 0.5, wy, 3.2, 2.2 + flap * 0.4, function (x, y, u, v) { return u < -0.3 ? mix(second, WHITE, 0.7) : mix(second, WHITE, 0.45); }); }
-      if (lk.fins) { for (var fn = 0; fn < 3; fn++) f.rect(cx - 1 - fn, top - 2 + fn, 1, 3 - fn, second); }
-      if (grump) for (var sp = 0; sp < 3; sp++) { var sx = cx - rx * 0.2 - sp * 2.6, sy = cy - ry * Math.cos((sp * 0.35)) ; f.px(sx, sy - 1, dark); f.px(sx, sy - 2, dark); f.px(sx - 1, sy, dark); }
+      var bot = 30 - legH - hop;
+      // body = the round blob (or the torso, when upright); head = where the face goes
+      var bcx = 15.5, brx, bry, bcy, cx, cy, rx, ry, top;
+      if (upright) {
+        brx = tw / 2; bry = (th + breathe - sq) / 2; bcy = bot - bry + 0.5;
+        cx = 16; rx = hr; ry = hry - sq * 0.5; cy = bcy - bry - ry + 1.5; top = cy - ry;
+      } else {
+        brx = bw / 2 + sq * 0.6; bry = (bh + breathe - sq) / 2; bcy = bot - bry + 0.5;
+        cx = bcx; cy = bcy; rx = brx; ry = bry; top = cy - ry;
+      }
+      var flap = walk >= 0 ? walk % 2 : 0, swing = walk >= 0 ? (walk % 2 ? 1 : -1) : 0;
+      var shade = function (x, y, u, v) { var d = u * 0.55 + v * 0.75; return d < -0.62 ? light : d > 0.62 ? dark : null; };
+      // ---- behind: tail, wings, fins, spikes, far legs, far arm
+      if (lk.tail === 1) f.oval(bcx - brx + 0.5, bcy + bry * 0.35, 1.6, 1.6, second);
+      else if (lk.tail === 2) { for (var t = 0; t < 4; t++) f.px(bcx - brx - t, bcy + bry * 0.3 - t * 0.8 + (t === 3 ? 1 : 0), dark); }
+      else if (lk.tail === 3) f.oval(bcx - brx, bcy + bry * 0.2, 2.6, 2.4, function (x, y, u, v) { return v < -0.2 ? WHITE : belly; });
+      if (lk.wings) { var wy = (upright ? bcy - bry : top + 3) - flap * 2; f.oval(bcx - brx * 0.5 - (upright ? 2 : 0), wy, 3.2, 2.2 + flap * 0.4, function (x, y, u, v) { return u < -0.3 ? mix(second, WHITE, 0.7) : mix(second, WHITE, 0.45); }); }
+      if (lk.fins) { for (var fn = 0; fn < 3; fn++) f.rect(bcx - 1 - fn - (upright ? 2 : 0), (upright ? bcy - bry : top) - 2 + fn, 1, 3 - fn, second); }
+      if (grump) for (var sp = 0; sp < 3; sp++) { var sx = cx - rx * 0.2 - sp * 2.6, sy = cy - ry * Math.cos((sp * 0.35)); f.px(sx, sy - 1, dark); f.px(sx, sy - 2, dark); f.px(sx - 1, sy, dark); }
       if (legs) {
-        var backX = legs === 4 ? [cx - rx * 0.55, cx + rx * 0.15] : [cx - rx * 0.25];
+        var backX = legs === 4 ? [bcx - brx * 0.55, bcx + brx * 0.15] : upright ? [bcx - 2] : [bcx - brx * 0.25];
         backX.forEach(function (lx, i) { var lift = walk >= 0 && (walk + i) % 2 === 0 ? 1 : 0; f.rect(lx, bot - 1 - lift, 2, legH + 1 - lift, dark); });
       }
-      if (lk.arms) { var ay = cy - (c.holding != null ? 2 : 0); f.rect(cx - rx + 0.5, ay, 2, 3, dark); }
-      // ---- body with soft shading (light from the top left)
-      f.oval(cx, cy, rx, ry, function (x, y, u, v) {
-        var d = u * 0.55 + v * 0.75;
-        if (d < -0.62) return light;
-        if (d > 0.62) return dark;
+      if (hasArms) {
+        if (upright) { var fay = bcy - bry + 1; f.rect(bcx - brx - 1, fay - swing, 2, Math.max(3, th - 1), dark); }
+        else { var ay = bcy - (c.holding != null ? 2 : 0); f.rect(bcx - brx + 0.5, ay, 2, 3, dark); }
+      }
+      // ---- body (blob or torso) with soft shading
+      f.oval(bcx, bcy, brx, bry, function (x, y, u, v) {
+        var sh = shade(x, y, u, v); if (sh) return sh;
         if (lk.pattern === 1 && v > 0.05 && u > -0.35) return belly;
         if (lk.pattern === 3 && (Math.abs(v + 0.25) < 0.13 || Math.abs(v - 0.2) < 0.13)) return second;
         return base;
       });
-      if (lk.pattern === 2) { var rs = SB.rng(lk.spotsSeed || 3); for (var s = 0; s < 4; s++) { var px = cx - rx * 0.7 + rs() * rx * 0.9, py = cy - ry * 0.6 + rs() * ry * 1.1; f.rect(px, py, 2, 1 + (s & 1), second); } }
-      if (lk.fluff) for (var fl = 0; fl < bw; fl += 2) f.px(cx - rx + fl + 0.5, bot - 1 + ((fl / 2) % 2), mix(belly, WHITE, 0.4));
+      if (lk.pattern === 2) { var rs = SB.rng(lk.spotsSeed || 3); for (var s = 0; s < (upright ? 2 : 4); s++) { var px = bcx - brx * 0.7 + rs() * brx * 0.9, py = bcy - bry * 0.6 + rs() * bry * 1.1; f.rect(px, py, 2, 1 + (s & 1), second); } }
+      if (lk.fluff) for (var fl = 0; fl < brx * 2; fl += 2) f.px(bcx - brx + fl + 0.5, bot - 1 + ((fl / 2) % 2), mix(belly, WHITE, 0.4));
+      // ---- head (upright smols): a round head sitting on the torso
+      if (upright) f.oval(cx, cy, rx, ry, function (x, y, u, v) { return shade(x, y, u, v) || base; });
       // ---- near legs
       if (legs) {
-        var frontX = legs === 4 ? [cx - rx * 0.25, cx + rx * 0.45] : [cx + rx * 0.2];
+        var frontX = legs === 4 ? [bcx - brx * 0.25, bcx + brx * 0.45] : upright ? [bcx + 0.5] : [bcx + brx * 0.2];
         frontX.forEach(function (lx, i) {
           var lift = walk >= 0 && (walk + i) % 2 === 1 ? 1 : 0;
           f.rect(lx, bot - 1 - lift, 2, legH + 1 - lift, base);
@@ -119,7 +143,7 @@
       if (lk.antenna || grump) { f.rect(cx + 1, top - 4, 1, 4, dark); f.rect(cx + 1, top - 6, 2, 2, grump ? [210, 80, 255] : LIME, 9); }
       if (lk.horns) { f.rect(cx - 3, top - 2, 2, 2, CREAM); f.px(cx - 3, top - 3, CREAM); f.rect(cx + 2, top - 2, 2, 2, CREAM); f.px(cx + 3, top - 3, CREAM); }
       // ---- face (three-quarter view: both eyes on the right half)
-      var es = lk.eyes > 1.15 ? 3 : 2, ey = Math.round(cy - ry * 0.25) - (es === 3 ? 1 : 0);
+      var es = lk.eyes > 1.15 ? 3 : 2, ey = Math.round(cy - ry * 0.2) - (es === 3 ? 1 : 0);
       var e1 = Math.round(cx + rx * 0.05), e2 = Math.round(cx + rx * 0.55), eyeC = grump ? [255, 70, 70] : INK;
       var mouthX = Math.round((e1 + e2) / 2 + 0.5), mouthY = ey + es + 1;
       [e1, e2].forEach(function (ex, i) {
@@ -132,7 +156,6 @@
       if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
       if (elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
       if (lk.cheeks && !grump && fi !== FR.sad) { f.px(e1 - 1, ey + es, PINK); f.px(e2 + 2, ey + es, PINK); }
-      // mouth
       var mc = grump ? [40, 10, 20] : outline;
       if (fi === FR.eat || fi === FR.scared) f.rect(mouthX - 1, mouthY, 2, 2, mc);
       else if (fi === FR.sad) { f.px(mouthX - 1, mouthY + 1, mc); f.px(mouthX, mouthY, mc); f.px(mouthX + 1, mouthY + 1, mc); }
@@ -140,35 +163,42 @@
       else { f.px(mouthX - 1, mouthY, mc); f.px(mouthX, mouthY + 1, mc); f.px(mouthX + 1, mouthY, mc); }
       if (grump) { f.px(mouthX - 1, mouthY + 1, WHITE); f.px(mouthX + 1, mouthY + 1, WHITE); }
       // ---- near arm
-      if (lk.arms) {
-        var hold = c.holding != null, ax = cx + rx - 1.5, ay2 = cy + (hold ? -1 : 0);
-        if (hold) f.rect(ax, ay2, 3, 2, base); else { var sw = walk >= 0 ? (walk % 2) : 0; f.rect(ax, ay2 + sw, 2, 3, base); }
+      if (hasArms) {
+        var hold = c.holding != null;
+        if (upright) {
+          var nax = bcx + brx - 1, nay = bcy - bry + 1;
+          if (hold) f.rect(nax, nay, 3, 2, base); else f.rect(nax, nay + swing, 2, Math.max(3, th - 1), base);
+          f.px(nax + (hold ? 2 : 0), nay + (hold ? 1 : Math.max(3, th - 1) + swing - 1), light); // little hand
+        } else {
+          var ax = bcx + brx - 1.5, ay2 = bcy + (hold ? -1 : 0);
+          if (hold) f.rect(ax, ay2, 3, 2, base); else f.rect(ax, ay2 + (walk >= 0 ? (walk % 2) : 0), 2, 3, base);
+        }
       }
       // ---- what evolution wears
-      if (!grump && tier >= 3 && tier < 6) {
-        var hb = Math.round(top + 2 + (lk.head > 0.4 || tier >= 5 ? 1 : 0));
-        for (var hx = Math.ceil(cx - rx + 1); hx <= cx + rx - 1; hx++) if (f.on(hx, hb)) f.px(hx, hb, tier >= 4 ? [220, 80, 70] : [240, 190, 60]);
-        f.rect(cx - rx + 1, hb - 3, 1, 3, tier >= 4 ? [90, 190, 240] : [255, 110, 90]); // feather
+      if (!grump && tier >= 3 && tier < 6) { // headband with a feather
+        var hb = Math.round(top + 2);
+        for (var hx = Math.ceil(cx - rx); hx <= cx + rx; hx++) if (f.on(hx, hb)) f.px(hx, hb, tier >= 4 ? [220, 80, 70] : [240, 190, 60]);
+        f.rect(Math.round(cx - rx + 1), hb - 3, 1, 3, tier >= 4 ? [90, 190, 240] : [255, 110, 90]);
       }
-      if (!grump && tier >= 4) {
-        var by = Math.round(bot - 3);
-        for (var bx = Math.ceil(cx - rx + 1); bx <= cx + rx - 1; bx++) if (f.on(bx, by)) f.px(bx, by, [120, 80, 45]);
-        f.px(Math.round(cx + rx * 0.3), by, GOLD);
+      if (!grump && tier >= 4) { // builder's tool belt
+        var by = Math.round(bcy + bry * 0.3);
+        for (var bx = Math.ceil(bcx - brx); bx <= bcx + brx; bx++) if (f.on(bx, by)) f.px(bx, by, [120, 80, 45]);
+        f.px(Math.round(bcx + brx * 0.3), by, GOLD);
       }
-      if (!grump && tier === 5) { // thinkers: a big pink brain peeking out, and little round glasses
-        f.oval(cx - 1, top + 1.5, 3.2, 2, function (x, y, u, v) { return (x + y) % 3 ? [255, 160, 190] : [230, 120, 160]; });
-        var gc = [90, 70, 110];
-        [e1, e2].forEach(function (ex) { f.px(ex - 1, ey, gc); f.px(ex + 2, ey, gc); f.rect(ex, ey - 1, 2, 1, gc); });
+      if (!grump && tier === 5) { // thinkers: little round glasses
+        var gc = [70, 55, 95];
+        [e1, e2].forEach(function (ex) { f.px(ex - 1, ey, gc); f.px(ex + 2, ey, gc); f.rect(ex, ey - 1, 2, 1, gc); f.rect(ex, ey + es, 2, 1, gc); });
         f.px(Math.round((e1 + e2) / 2) + 1, ey, gc);
       }
       f.outline(outline);
       if (!grump && tier >= 6) { // halo, unoutlined so it glows
-        var hy = top - 4 - (fi === 1 ? 1 : 0);
+        var hy = top - 4;
         for (var hh = -3; hh <= 3; hh++) { f.px(cx + hh, hy - (Math.abs(hh) < 3 ? 1 : 0), GOLD, 9); if (Math.abs(hh) === 3) f.px(cx + hh, hy, GOLD, 9); }
       }
       frames.push(f);
     }
-    return { frames: frames, bodyPx: bh + legH };
+    var tallPx = upright ? th + Math.round(hry * 2) + legH : bh + legH;
+    return { frames: frames, bodyPx: tallPx };
   }
   PX.paint = paint;
 
@@ -234,10 +264,13 @@
     // shrink when zoomed far out so they don't tower over a tiny island
     // one pixel scale for everyone on screen (set by the camera), so neighbours always match; size
     // differences between smols come from how big each one is painted
-    var ratio = 0.38 * 2.6 * ppu / 16;
-    var k = ratio < 0.8 ? Math.max(0.3, ratio) : Math.max(1, Math.floor(ratio + 0.45));
+    // zoomed right in they top out at 2x (no giants); zoomed far out they become dots
+    var ratio = 0.38 * 2.2 * ppu / 16, dot = ratio < 0.42;
+    var k = dot ? 1 : ratio < 0.8 ? ratio : Math.min(2, Math.max(1, Math.floor(ratio + 0.3)));
     c._pxH = (s.bodyPx + 6) * k * (R.pixelSize || 1); // on-screen height in CSS px, for speech bubbles
-    var fr = frameFor(c, t);
+    var fr = dot ? FR.dot : frameFor(c, t);
+    if (dot) c._pxH = 8 * (R.pixelSize || 1);
+    if (c.tier >= 6 && c.species === "smol" && !c.heldBy) y += Math.sin(t * 1.7 + c.id) * 0.06; // a slow, smooth hover
     // facing: which way it's heading on screen
     var sx = Math.sin(c.facing), sz = Math.cos(c.facing), flip = (sx * cam.right[0] + sz * cam.right[2]) < 0 ? 1 : 0;
     if (n * IS >= inst.length) { var ni = new Float32Array(inst.length * 2); ni.set(inst); inst = ni; }

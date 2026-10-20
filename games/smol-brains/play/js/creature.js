@@ -1310,14 +1310,14 @@
     }
 
     // airborne (thrown, knocked)
-    var gy = SB.World.groundY(w, c.x, c.z);
-    if (!c.onGround || c.y > gy + 0.02) {
+    var gy = SB.World.groundY(w, c.x, c.z), hover = c.tier >= 6 && c.species === "smol" ? HOVER : 0;
+    if (!c.onGround || c.y > gy + hover + 0.02) {
       c.vy -= GRAV * dt;
       var nx = c.x + c.vx * dt, nz = c.z + c.vz * dt;
       if (SB.World.inBounds(w, nx, nz)) { c.x = nx; c.z = nz; }
       c.y += c.vy * dt;
       gy = SB.World.groundY(w, c.x, c.z);
-      if (c.y <= gy) {
+      if (c.y <= gy + hover) {
         if (c.vy < -9 && c.species === "smol") { SB.Chem.apply(ch, { pain: 0.12 + (-c.vy - 9) / 40, fear: 0.1 }); emote(c, "ouch", 1.2); }
         c.y = gy; c.vy = 0; c.vx = 0; c.vz = 0; c.onGround = true; an.squash = 0.35;
         if (SB.World.depthAt(w, c.x, c.z) > 0.5 && !c.far && SB.FX) SB.FX.burst("splash", c.x, gy, c.z, 14, { r: 0.4 });
@@ -1417,12 +1417,13 @@
     if (c.iqT <= 0) { c.iq = C.iq(c, true); c.iqT = c.species === "smol" && !c.far ? 10 : 30; }
   };
 
+  var HOVER = 0.25;
   function finishTick(c, game, gy) {
     var w = game.world;
     c.x = SB.clamp(c.x, 3, w.T.N - 3); c.z = SB.clamp(c.z, 3, w.T.N - 3);
     var g = SB.World.groundY(w, c.x, c.z);
     if (c.onGround) c.y = g;
-    if (c.tier >= 6 && c.species === "smol") c.y = g + 0.25; // ascended smols float a little
+    if (c.tier >= 6 && c.species === "smol") c.y = g + HOVER; // ascended smols float a little
     positionHeld(c, game);
   }
   function nearestCave(w, c) {
