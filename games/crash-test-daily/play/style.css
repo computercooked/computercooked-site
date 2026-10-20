@@ -16,6 +16,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 #crashRow{display:flex;align-items:center;gap:10px;min-height:56px}
 #face{width:52px;height:52px;image-rendering:pixelated;flex:none}
 #say{flex:1;background:var(--paper);color:var(--carbon);font-size:12px;font-weight:700;padding:8px 10px;border-radius:10px;position:relative;line-height:1.35}
+#say.nudge{box-shadow:0 0 0 2px var(--lime)}
 #say::before{content:"";position:absolute;left:-7px;top:50%;margin-top:-6px;border:6px solid transparent;border-right-color:var(--paper);border-left:0}
 #boardWrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;padding:6px 0}
 #board{touch-action:none;outline:none;border-radius:14px;max-width:100%;max-height:100%}
