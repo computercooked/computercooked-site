@@ -171,6 +171,8 @@ export async function meSummary(env, user, origin) {
     "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 GROUP BY game"
   ).bind(user.id).all()).results;
   const favs = (await env.DB.prepare("SELECT game FROM favorites WHERE user_id = ? ORDER BY ts DESC").bind(user.id).all()).results.map((r) => r.game);
+  // newest cloud save per game, for "jump back in" on the hub
+  const saves = (await env.DB.prepare("SELECT game, MAX(updated_at) updated_at FROM saves WHERE user_id = ? GROUP BY game ORDER BY updated_at DESC LIMIT 20").bind(user.id).all()).results;
   const days = (await env.DB.prepare(
     "SELECT DISTINCT day FROM plays WHERE user_id = ? ORDER BY day DESC LIMIT 400"
   ).bind(user.id).all()).results.map((r) => r.day);
@@ -197,7 +199,7 @@ export async function meSummary(env, user, origin) {
     }
   }
   const xp = levelOf(await totalXp(env, user.id));
-  return json({ ok: true, user, recent, bests, favorites: favs, streak: streak(days), days_played: days.length, xp, xp_history: history, achievements });
+  return json({ ok: true, user, recent, bests, favorites: favs, saves, streak: streak(days), days_played: days.length, xp, xp_history: history, achievements });
 }
 
 // consecutive days with a play, counting back from today (or yesterday, so it doesn't reset before you play today)

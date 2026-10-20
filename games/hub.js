@@ -58,6 +58,7 @@
     return (me ? api("/api/me/summary") : Promise.resolve(null)).then(function (sum) {
       if (sum && sum.ok) favs = sum.favorites;
       render(data);
+      jumpBackIn(data, sum && sum.ok ? sum : null);
     });
   }).catch(function () { /* keep the static cards */ });
 
@@ -91,6 +92,50 @@
 
     var count = document.querySelector("[data-count]");
     if (count) count.textContent = ours.length + (ours.length === 1 ? " game. more cooking." : " games");
+  }
+
+  // "jump back in": games played on this device or account, newest first, with save state.
+  // A cloud save newer than this device's copy says so (it loads automatically in the game).
+  function ago(t) {
+    var m = Math.round((Date.now() - t) / 60000);
+    return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago";
+  }
+  function localSaves() {
+    var out = {};
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i), m = /^cc-save:([^:]+):/.exec(k || "");
+        if (!m) continue;
+        var o = JSON.parse(localStorage.getItem(k));
+        if (o && typeof o.t === "number" && o.d !== null) out[m[1]] = Math.max(out[m[1]] || 0, o.t);
+      }
+    } catch (e) {}
+    return out;
+  }
+  function jumpBackIn(data, sum) {
+    var byslug = {};
+    (data.games || []).forEach(function (g) { byslug[g.slug] = g; });
+    var seen = {}, local = localSaves(), cloud = {};
+    function touch(slug, t) { if (byslug[slug] && t) seen[slug] = Math.max(seen[slug] || 0, t); }
+    try { JSON.parse(localStorage.getItem("cc-recent") || "[]").forEach(function (x) { touch(x.g, x.t); }); } catch (e) {}
+    Object.keys(local).forEach(function (s) { touch(s, local[s]); });
+    if (sum) {
+      (sum.recent || []).forEach(function (r) { touch(r.game, r.last); });
+      (sum.saves || []).forEach(function (s) { cloud[s.game] = s.updated_at; touch(s.game, s.updated_at); });
+    }
+    var list = Object.keys(seen).sort(function (a, b) { return seen[b] - seen[a]; }).slice(0, 4);
+    if (!list.length) return;
+    document.getElementById("continue-row").innerHTML = list.map(function (slug) {
+      var g = byslug[slug], c = cloud[slug], l = local[slug], meta, cls = "";
+      if (c && (!l || c > l + 5000)) { meta = "newer save from another device ☁ · " + ago(c); cls = " is-sync"; }
+      else if (c) meta = "saved to your account ☁ · " + ago(c);
+      else if (l) meta = "saved on this device · " + ago(l);
+      else meta = "played " + ago(seen[slug]);
+      return '<li><a class="continue-card' + cls + '" href="/games/' + encodeURIComponent(slug) + '/">' +
+        '<img src="' + esc(g.thumbnail) + '" alt="" width="96" height="72" loading="lazy">' +
+        '<span class="continue-body"><b>' + esc(g.title) + "</b><small>" + esc(meta) + '</small></span><span class="continue-go" aria-hidden="true">▶</span></a></li>';
+    }).join("");
+    document.getElementById("hub-continue").hidden = false;
   }
 
   // weekly challenge + seasonal event (slice D2)

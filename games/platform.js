@@ -44,6 +44,13 @@
       '<div class="cc-row"><button type="button" class="cc-send">send</button><span class="cc-msg" role="status"></span></div>' +
     "</div>";
 
+  /* ---------- this device's recently played list, for "jump back in" on the hub ---------- */
+  try {
+    var rec = JSON.parse(localStorage.getItem("cc-recent") || "[]").filter(function (x) { return x && x.g !== game; });
+    rec.unshift({ g: game, t: Date.now() });
+    localStorage.setItem("cc-recent", JSON.stringify(rec.slice(0, 12)));
+  } catch (e) {}
+
   /* ---------- account chip (next to the breadcrumbs) ---------- */
   var crumbs = document.querySelector(".crumbs");
   var chip = el('<a class="cc-chip" href="/me/">log in</a>');

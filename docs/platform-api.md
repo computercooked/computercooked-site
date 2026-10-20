@@ -116,7 +116,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | POST | `/api/report` | `{kind: username/score/feedback/upload, target, reason}`; 3 reports hide a score |
 | POST | `/api/auth/signup` | `{username, password, birth_month, birth_year, avatar, anon_id}`; 13+ only, under-13 gets `{under13:true}` and nothing is stored |
 | POST | `/api/auth/login` · `/api/auth/logout` | session cookie `cc_session` (httpOnly, Secure, SameSite=Lax, 30 days) |
-| GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak |
+| GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak, and `saves: [{game, updated_at}]` (newest cloud save per game, for the hub's "jump back in") |
 | POST | `/api/me/favorite` · `/api/me/avatar` | `{game, on}` · `{avatar}` |
 | POST | `/api/me/delete` | `{password}`: hard-deletes the account, its sessions, saves, favorites, scores and uploads; plays and feedback stay without the link |
 | GET · POST | `/api/me/profile` | GET: profile + private settings (email). POST any of `{display_name, bio, fav_game, badges:["game:ach_id"…≤3, unlocked only], theme, public}`. Bios are 160 chars, word-filtered, no links |
