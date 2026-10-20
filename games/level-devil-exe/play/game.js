@@ -79,8 +79,12 @@ function ccEvent(n, d) { if (eventsSent >= 18) return; eventsSent++; ccCall('eve
 const run = { open: false, startMs: 0, cleared: 0, deaths: 0 };
 function runStart() { if (run.open) return; run.open = true; run.startMs = performance.now(); run.cleared = 0; run.deaths = 0; ccCall('start'); }
 function runScore() { return Math.max(0, run.cleared * 100 - run.deaths * 2); }
+// A run is one sitting: first move → finishing level 36, a new speedrun, or leaving the tab/app. It counts as
+// completed (not a quit) once it cleared at least one level, so the weekly "levels in one run" goal and
+// completion rate see real sessions.
 function runEnd(completed) {
   if (!run.open) return; run.open = false;
+  completed = completed || run.cleared > 0;
   // deaths ride along on cc.end (the sdk ignores extra fields today) and as one run_end event the platform does store
   const nm = nemesis(), extra = { deaths: run.deaths, level: lvIndex + 1, nemesis: nm ? nm.lv : 0, nemesisDeaths: nm ? nm.n : 0 };
   ccCall('event', 'run_end', extra);

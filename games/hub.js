@@ -42,6 +42,22 @@
     sec.hidden = false;
   }
 
+  // tip jar (off until TIP_URL is a buy.stripe.com Payment Link): a plain link out, nothing tracked, no payment here
+  function tipLine(url) {
+    return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
+  }
+  var tip = null;
+  function tipUrl() {
+    if (!tip) tip = fetch("/api/tip").then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j && typeof j.url === "string" && j.url.indexOf("https://buy.stripe.com/") === 0 ? j.url : null; })
+      .catch(function () { return null; });
+    return tip;
+  }
+  tipUrl().then(function (url) {
+    var foot = document.querySelector(".footer");
+    if (url && foot && !foot.querySelector(".cc-tip")) foot.insertAdjacentHTML("afterbegin", tipLine(url));
+  });
+
   var live = fetch("/api/health").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return !!(j && j.db); }).catch(function () { return false; });
   var off = function () { return Promise.resolve(null); };
   Promise.all([

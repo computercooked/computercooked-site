@@ -3,7 +3,7 @@
 //   GET  /api/dare/:id[?open=1]                -> {game, title, score, from, beats}   (open=1 counts a visit)
 //   POST /api/dare/:id/beat   {play_id, anon}  -> {beaten, ...}    your run beat it: the sender earns XP
 //   POST /api/dare/:id/shared {how}            -> {ok}             the sender sent it (share sheet / copied)
-import { json, bad, readJson, now, dayOf, idOk, limited, randomToken } from "./util.js";
+import { json, bad, readJson, now, dayOf, idOk, limited, randomToken, slugOk, isTestAnon } from "./util.js";
 import { grant } from "./xp.js";
 import { people } from "./friends.js";
 
@@ -105,4 +105,18 @@ export async function dareTags(env, url, slug) {
     } catch (e) { /* table missing before the migration: fall back to the URL */ }
   }
   return score > 0 ? { score: nice(score), from } : null;
+}
+
+// POST /api/share {game, how: share|copy|card|download, anon}: "share this game" after a run with no score (no
+// dare to attach it to). One cc:share event per send, for game_shares in /api/admin/metrics. Smoke traffic is
+// answered but not stored.
+export async function sharedGame(req, env, ip, catalog) {
+  if (limited("game-share:" + ip, 30, 3600000)) return bad("slow down", 429);
+  const b = await readJson(req, 256);
+  const how = ["share", "copy", "card", "download"].includes(b.how) ? b.how : null;
+  if (!how) return bad("how?", 400);
+  if (!slugOk(b.game) || !catalog.has(b.game)) return bad("no such game", 404);
+  if (isTestAnon(b.anon)) return json({ ok: true, test: true });
+  await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, 'cc:share', ?, ?)").bind(b.game, JSON.stringify({ how }), now()).run();
+  return json({ ok: true });
 }

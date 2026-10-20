@@ -26,6 +26,8 @@ Response:
              "sent_rate": null, "open_rate": null, "beat_rate": null,
              "by_source": { "best": { /* same fields: offered after a new personal best */ }, "button": { /* asked for after any run */ } } },
   // "play next" rail after a run: plays started from it (per_run = plays / runs_ended), by card tapped
+  // "share this game" sends after runs with no score (no dare), by method
+  "game_shares": { "sent": 0, "via_share": 0, "via_copy": 0, "via_card": 0, "via_download": 0 },
   "next": { "runs_ended": 0, "plays": 0, "ended": 0, "per_run": null, "by_slot": { "challenge": 0, "similar": 0, "new": 0 } },
   "games": [{
     "game": "crash", "title": "CRASH",
@@ -49,6 +51,49 @@ Notes:
 - `unique_players` counts accounts and anonymous ids. One person on two devices counts twice unless they're logged in.
 - Days are UTC.
 - Playtest traffic carries a `tester` tag. Filter on it when you want public numbers only.
+
+## Daily digest
+
+`GET /api/admin/digest?days=7` (Bearer token, `days` 1–31, default 7). One row per **Pacific-time** day (America/Los_Angeles, DST handled), oldest first. The last row is today so far (`partial: true`). Smoke traffic is left out, as in metrics.
+
+```json
+{ "ok": true, "tz": "America/Los_Angeles", "days": 7, "from": "2026-10-14", "to": "2026-10-20", "generated_at": "…",
+  "rows": [{
+    "date": "2026-10-20", "partial": true,
+    "plays": 0, "players": 0, "new_players": 0,          // new = first play ever that day
+    "d1_return": { "back": 0, "of": 0, "pct": null },     // of that day's new players, how many played the next day (null for today)
+    "ref": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0, "threads": 0, "bluesky": 0, "search": 0, "other": 0, "direct": 0, "internal": 0, "app": 0, "embed": 0 },
+    "next": { "plays": 0, "per_run": null },             // play-next plays / runs ended that day
+    "game_shares": 0,                                    // "share this game" sends
+    "dares": { "made": 0, "sent": 0, "opened": 0, "beaten": 0 },   // dares made that day, and what became of them
+    "new_accounts": 0,
+    "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]   // games played that day
+  }],
+  "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]     // whole window
+}
+```
+
+**As a table:** `node scripts/digest.mjs https://computercooked.com "$TOKEN" [days] [--json]`. It prints the day rows (today is marked `*`), the totals (plays, plays from social, game shares, dares sent, new accounts) and the per-game table. The token goes only in the Authorization header and is never printed; a failed request prints the HTTP status and exits 1.
+
+## Link tags (where plays come from)
+
+**Put `?ref=<channel>` on every link we post**, e.g. `https://computercooked.com/games?ref=tiktok` or `https://computercooked.com/games/crash/?ref=yt`. In-app browsers (TikTok, Instagram) usually send no referrer, so without the tag those plays would count as `direct`.
+
+| tag value (case doesn't matter) | counted as (`top_referrers`) |
+|---|---|
+| `tiktok`, `tt` | `tiktok` |
+| `youtube`, `yt` | `youtube` |
+| `instagram`, `ig` | `instagram` |
+| `x`, `twitter` | `x` |
+| `threads` | `threads` |
+| `bluesky`, `bsky` | `bluesky` |
+| anything else (e.g. `reddit`) | `other` |
+
+- `utm_source=` works the same when there's no `ref`. `utm_medium`, `utm_campaign`, `utm_content` and `utm_term` are accepted and dropped; they aren't stored.
+- **First touch wins for the session (browser tab).** The first page of the visit decides, whether it's the hub, the home page or a game: its tag, else an outside referrer (so tiktok.com → hub → game counts as `tiktok`). With neither, a game opened from the hub counts as `internal`, as before. `assets/deck.js` (every page) and `games/cc-sdk.js` (game pages) both do this, into sessionStorage `cc-ref`.
+- The tags come off the address bar once read, so a copied or reloaded link doesn't carry them on. Other params (`vs`, `d`, `tester` …) stay.
+- `?ref=app` is the installed web app's start URL. It's left alone; app plays count as `app`.
+- The play-next rail still marks its plays `internal` (with a `cc:next` event).
 
 ## Playtest links
 
@@ -156,9 +201,19 @@ After every run (scored or not), the shared player (`games/platform.js`) shows *
 
 Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that page, `cc-sdk.js` counts its plays as referrer `internal`, tags its first run's start event with `src: "next", slot`, and takes the params off the URL, so a reload doesn't count again. The server stores one `events` row per play, `name = 'cc:next'`, `data = {"slot": …}` (no migration). `cc:*` event names are reserved for the platform: `cc.event` calls using them are dropped. Admin metrics `next` gives plays started from the rail per run ended, by slot.
 
+## Tip jar (off by default)
+
+A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's off in the repo: `"vars": { "TIP_URL": "" }` in `wrangler.jsonc`.
+- **To switch it on:** put the public Stripe Payment Link in `TIP_URL` and merge. Only `https://buy.stripe.com/<id>` is accepted; any other value (wrong host, http, extra path or query) is treated as off.
+- `GET /api/tip` → `{ok, url}`, with `url: null` when it's off. It's cached 5 minutes, so the change shows within 5 minutes of the deploy.
+- The link opens in a new tab with `rel="noopener noreferrer"` and no referrer. Clicks aren't logged, and nothing about payments touches our server.
+- The privacy page has a "tips" line.
+
 ## Share-your-run card
 
 After any accepted run, the dare box on the game page offers **share card ▶** next to the plain link. `games/platform.js` loads `games/share-card.js` (only then) and draws a 1080x1920 PNG in the browser: the game's thumbnail, title, score ("new personal best" when it is one), the all-time rank chip, "can you beat me?" and `computercooked.com/games/<slug>`. Nothing is uploaded; the image is made on the device.
+
+**Runs with no score** (games without a leaderboard, or a run that didn't count) get the same box as **"enjoying X? send it to a friend"**: share card ▶ (the card says "i just played this / your turn. / come play.", with no score or rank) and **share link**, which sends the plain game URL. There's no dare. Sends go to `POST /api/share` and show as `game_shares` in admin metrics.
 
 - **Phones (Web Share with files):** the tap opens the share sheet with the image plus the dare text and link; it counts as `how: card`. The card and the dare link are made while the player looks at their score, so the tap shares straight away (iOS only allows sharing from the tap itself). If the browser still asks for a fresh tap, the box says "tap share card again".
 - **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
@@ -191,6 +246,7 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 | GET | `/api/dare/:id[?open=1]` | `{game, title, score, from, beats}`. `open=1` counts a visit (the game page sends it once per tab) |
 | POST | `/api/dare/:id/beat` | `{play_id, anon}` → `{beaten, first, from, score, sender_xp}`. Your run must be yours, on that game, accepted and higher. The first beat per player counts; a logged-in sender gets +25 XP per beat (10 per dare, 100 a day). The game page also sends `cc.event('challenge_open', {d})` on the first run from a dare link |
 | POST | `/api/dare/:id/shared` | `{how: share/copy/card/download}` → `{ok}`. The game page sends it when the share sheet finishes (`share` for the link, `card` for the share card), the link is copied, or the card is downloaded; the first one per dare counts. `POST /api/dare` takes `source: best` when the dare comes from the new-personal-best prompt (made up front so the tap opens the share sheet at once) |
+| POST | `/api/share` | `{game, how: share/copy/card/download, anon}` → `{ok}`. "Share this game" after a run with no accepted score (no dare to attach it to). Stores one `events` row `cc:share` `{how}` with no player id; smoke anon ids get `{ok, test: true}` and nothing stored. 400 for an unknown `how`, 404 for an unknown game. 30 per hour per IP |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
 | GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total} \| null}`. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |
@@ -212,6 +268,7 @@ POSTs from other sites are refused, and logins, sign-ups, events and feedback ar
 | method | path | what |
 |---|---|---|
 | GET | `/api/admin/metrics?since=` | above |
+| GET | `/api/admin/digest?days=7` | daily digest by Pacific day (see "Daily digest") |
 | GET | `/api/admin/reports` | open reports |
 | GET | `/api/admin/featured?date=` | game-of-the-week preview for that date's week (default: next week). Stores nothing |
 | GET | `/api/admin/challenge?date=` | the weekly challenge for that date's week (default: next week): hand pick, stored auto pick, or a preview of the auto pick. Stores nothing |

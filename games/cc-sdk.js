@@ -231,14 +231,31 @@
   function isApp() {
     try { return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || sessionStorage.getItem("cc-app") === "1"; } catch (e) { return false; }
   }
-  // first referrer of this visit sticks for the session
+  // Links we post carry ?ref=<channel> (or utm_source=): in-app browsers (TikTok, Instagram) often send no
+  // referrer, so the tag decides. Same map as assets/deck.js, which does this on pages without the SDK (the hub).
+  var REF_TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
+    x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky" };
+  function refTag() {
+    var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
+    if (!v || v === "app") return null; // ?ref=app is the installed web app's start URL (isApp below)
+    return REF_TAGS[v] || "other";
+  }
+  // first touch of this visit sticks for the session: a ?ref= tag, else the referrer
   var ref;
   // the embed player on another site: count those plays as "embed" whatever the referrer
   if (/\/embed\/$/.test(location.pathname)) ref = "embed";
   // launched from the home screen (the installed web app): "app", so retention from installs shows in metrics.
   // pwa.js also notes it in sessionStorage, which this same-origin game frame shares with the page around it.
   else if (isApp()) ref = "app";
-  else try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refBucket(); }
+  else try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refTag() || refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refTag() || refBucket(); }
+  // tags come off the URL once read (shared or reloaded links don't carry them on)
+  try {
+    var tu = new URL(location.href), tagged = false;
+    ["ref", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) {
+      if (tu.searchParams.has(k) && !(k === "ref" && tu.searchParams.get(k) === "app")) { tu.searchParams.delete(k); tagged = true; }
+    });
+    if (tagged) history.replaceState(history.state, "", tu.pathname + tu.search + tu.hash);
+  } catch (e) {}
   // came from the "play next" rail after a run (?src=next&slot=…): this page's plays are internal, and its first
   // run says so (the server logs it as a cc:next event). The params come off the URL so a reload doesn't count again.
   var nextSlot = null;
@@ -325,6 +342,8 @@
     var sc = typeof o.score === "number" && isFinite(o.score) ? o.score : p.score;
     var dur = typeof o.durationMs === "number" && isFinite(o.durationMs) ? o.durationMs : Date.now() - p.t0;
     queue.push({ t: "end", id: p.id, game: game, score: sc, dur: Math.round(dur), completed: o.completed !== false });
+    // ended while the page is hidden (tab or app switch, closing): send as a beacon so it survives the page going away
+    if (!beacon) try { beacon = document.visibilityState === "hidden"; } catch (e) {}
     var done = flush(beacon).then(function (res) {
       var r = res && res.results ? res.results[p.id] || null : null;
       document.dispatchEvent(new CustomEvent("cc:end", { detail: { game: game, playId: p.id, score: sc, result: r } }));

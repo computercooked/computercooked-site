@@ -3,6 +3,36 @@
 (function () {
   "use strict";
 
+  // Where this visit came from, for play counts (games/cc-sdk.js reads "cc-ref" when a game starts). The first page
+  // of the visit decides: a ?ref=<channel> / utm_source tag on our posted links (same map as cc-sdk.js), else an
+  // outside referrer (so tiktok.com → hub → game still counts as tiktok). Tags come off the URL once read.
+  (function () {
+    var TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
+      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky" };
+    try {
+      var u = new URL(location.href), q = u.searchParams;
+      var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
+      var tag = v && v !== "app" ? TAGS[v] || "other" : null;
+      if (!sessionStorage.getItem("cc-ref")) {
+        var from = null;
+        if (!tag && document.referrer) {
+          var h = new URL(document.referrer).hostname.replace(/^www\./, "");
+          if (h !== location.hostname) {
+            from = /tiktok/.test(h) ? "tiktok" : /youtube|youtu\.be/.test(h) ? "youtube" : /instagram/.test(h) ? "instagram"
+              : /(^|\.)x\.com$|twitter|t\.co$/.test(h) ? "x" : /threads/.test(h) ? "threads" : /bsky/.test(h) ? "bluesky"
+              : /google|bing|duckduckgo|yahoo|ecosia|brave/.test(h) ? "search" : "other";
+          }
+        }
+        if (tag || from) sessionStorage.setItem("cc-ref", tag || from);
+      }
+      var tagged = false;
+      ["ref", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) {
+        if (q.has(k) && !(k === "ref" && q.get(k) === "app")) { q.delete(k); tagged = true; }
+      });
+      if (tagged) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+    } catch (e) {}
+  })();
+
   var deck = document.querySelector(".deck");
   if (!deck) return;
 

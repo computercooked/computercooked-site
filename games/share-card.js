@@ -1,6 +1,7 @@
 /* Share-your-run card: a 1080x1920 (story-size) PNG of a run, for the share sheet, made in the browser.
    platform.js loads this after a run and calls
      window.ccShareCard({ title, slug, art, score, rank, best, prev }) -> Promise<Blob>
+   score null/undefined: a "come play" card for a run with no score (no rank, no "beat me").
    art: same-origin image URL (the game's thumbnail). Everything else is drawn here; no network but the art + font. */
 (function () {
   "use strict";
@@ -67,17 +68,18 @@
       g.fillStyle = C.lime; g.textAlign = "center";
       fit(g, title, 96, W - 160); g.fillText(title, W / 2, ay + ah + 130);
 
-      // the score
-      g.fillStyle = C.dim; g.font = "800 40px " + MONO; g.fillText(o.best ? "new personal best" : "i scored", W / 2, ay + ah + 230);
-      var sc = fmt(o.score);
+      // the score (or, for a run with no score, an invite)
+      var scored = o.score != null && isFinite(o.score);
+      g.fillStyle = C.dim; g.font = "800 40px " + MONO; g.fillText(!scored ? "i just played this" : o.best ? "new personal best" : "i scored", W / 2, ay + ah + 230);
+      var sc = scored ? fmt(o.score) : "your turn.";
       g.fillStyle = C.paper; fit(g, sc, 230, W - 160);
       g.shadowColor = "rgba(197,255,73,0.45)"; g.shadowBlur = 40;
       g.fillText(sc, W / 2, ay + ah + 440);
       g.shadowBlur = 0;
 
       // rank chip (+ previous best)
-      var chip = o.rank ? "#" + o.rank + " on the all-time board" : "";
-      if (o.best && o.prev != null) chip += (chip ? " · " : "") + "was " + fmt(o.prev);
+      var chip = scored && o.rank ? "#" + o.rank + " on the all-time board" : "";
+      if (scored && o.best && o.prev != null) chip += (chip ? " · " : "") + "was " + fmt(o.prev);
       if (chip) {
         g.font = "800 40px " + MONO;
         var cw = Math.min(W - 160, g.measureText(chip).width + 70), cy = ay + ah + 500;
@@ -87,7 +89,7 @@
 
       // the ask
       g.fillStyle = C.paper; g.font = "800 84px " + MONO;
-      g.fillText("can you beat me?", W / 2, 1640);
+      g.fillText(scored ? "can you beat me?" : "come play.", W / 2, 1640);
       g.fillStyle = C.lilac; var url = "computercooked.com/games/" + (o.slug || "");
       fit(g, url, 40, W - 160); g.fillText(url, W / 2, 1730);
       g.fillStyle = C.dim; g.font = "800 30px " + MONO;

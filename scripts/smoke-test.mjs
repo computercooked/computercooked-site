@@ -40,6 +40,14 @@ const anon = "smoke" + rid();
 const tester = "smoke-test";
 
 ok((await (await get("/api/health")).json()).ok, "health");
+// tip jar: off (url null) unless TIP_URL is a buy.stripe.com Payment Link
+// link tags: ?ref=/utm_source are read on every page (deck.js) and game pages (cc-sdk.js); channel plays are stored
+for (const u of ["/assets/deck.js", "/games/cc-sdk.js"]) {
+  const js = await (await get(u)).text();
+  ok(js.includes("utm_source") && js.includes('bsky: "bluesky"') && js.includes('yt: "youtube"'), u + " maps ?ref= link tags");
+}
+const tipRes = await (await get("/api/tip")).json();
+ok(tipRes.ok && (tipRes.url === null || /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]+$/.test(tipRes.url)), "tip jar is off or a Stripe Payment Link", tipRes.url);
 
 // a legit CRASH run: start, wait, end with a plausible score
 const p1 = rid();
@@ -111,6 +119,13 @@ ok(r.beats === 1, "dare beat count", r.beats);
 // the funnel: a dare reports when it was really sent; runs say what the previous best was (new best vs first run)
 r = await (await post("/api/dare/" + dare.id + "/shared", { how: "copy" })).json();
 ok(r.ok, "dare marked as sent");
+// "share this game" after a run with no score: accepted (smoke ones not stored), unknown method/game refused
+r = await (await post("/api/share", { game: "smol-brains", how: "card", anon })).json();
+ok(r.ok && r.test === true, "share-this-game send accepted (smoke traffic not stored)", r);
+r = await post("/api/share", { game: "smol-brains", how: "pigeon", anon });
+ok(r.status === 400, "share-this-game: unknown method refused", r.status);
+r = await post("/api/share", { game: "no-such-game", how: "copy", anon });
+ok(r.status === 404, "share-this-game: unknown game refused", r.status);
 r = await post("/api/dare/" + dare.id + "/shared", { how: "carrier pigeon" });
 ok(r.status === 400, "unknown share method refused", r.status);
 r = await post("/api/dare/nosuchdare1/shared", { how: "share" });
@@ -509,6 +524,17 @@ if (admin) {
   ok(r.ok && c && Array.isArray(c.testers) && typeof c.plays === "number", "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
   const tt = r.test_traffic;
   ok(tt && tt.plays >= 5 && tt.scores >= 4 && tt.scores_visible === 0 && tt.feedback >= 1 && tt.dares >= 2, "admin metrics: this run's smoke traffic counted apart, none of it visible", tt);
+  // daily digest: one row per Pacific day, smoke traffic left out (this run's plays must not show)
+  const dg = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
+  const dRow = dg.rows?.[dg.rows.length - 1];
+  ok(dg.ok && dg.tz === "America/Los_Angeles" && dg.rows.length === 3 && dRow.partial && "tiktok" in dRow.ref && "per_run" in dRow.next && Array.isArray(dRow.games) && Array.isArray(dg.games),
+    "admin digest: 3 Pacific days with refs, next, shares, dares, games", dRow && { date: dRow.date, plays: dRow.plays });
+  ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
+  await post("/api/events", { anon, events: [{ t: "start", id: rid(), game: "crash", v: "1" }] });
+  const dg2 = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
+  ok(dg2.rows[2].plays === dRow.plays, "admin digest leaves smoke plays out", { before: dRow.plays, after: dg2.rows[2].plays });
+  const gsh = r.game_shares;
+  ok(gsh && typeof gsh.sent === "number" && "via_card" in gsh && "via_download" in gsh, "admin metrics: share-this-game sends", gsh);
   const df = r.dares;
   ok(df && typeof df.made === "number" && df.by_source.best && df.by_source.button && (df.made === 0 || df.sent_rate !== undefined),
     "admin metrics: dare funnel (smoke dares left out)", df && { made: df.made, sent: df.sent, opened: df.opened, beaten: df.beaten });

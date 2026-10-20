@@ -174,7 +174,7 @@
       ],
       "controls": "tap or click anywhere to ring (space works too). buy bells and upgrades in the panel. m mutes.",
       "size_kb": 79,
-      "version": "2.0",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 100
     },
@@ -194,7 +194,7 @@
       ],
       "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
       "size_kb": 57,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 100,
       "how_to": [
@@ -248,7 +248,7 @@
       ],
       "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
       "size_kb": 116,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 120,
       "max_score": 950
@@ -270,7 +270,7 @@
       ],
       "controls": "tap / click popups and bills · space smashes (fast taps build a combo) · p pays all · g takes a gig · 1–4 tabs · 1/2 pick the daily situation",
       "size_kb": 164,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 0.02
     },
