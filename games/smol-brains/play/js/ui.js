@@ -1094,7 +1094,9 @@
   function intro() {
     state.introRunning = true;
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
-    if (SB.Intro && !UI.noStory && !game.ngPlus) { SB.Intro.play({ done: landing }); return; }
+    // from the hub's "tap to play" card (cc.autostart): that tap was the start, so go straight to the island
+    var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
+    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto) { SB.Intro.play({ done: landing }); return; }
     landing();
   }
   UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };

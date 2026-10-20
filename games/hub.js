@@ -44,6 +44,10 @@
           (g.pitch ? '<p class="cc-landing-pitch">' + esc(g.pitch) + "</p>" : "") +
           '<button type="button" class="cc-landing-more">more games ↓</button>' +
         "</div>";
+      // the tap counts as the game's start tap: games that read cc.autostart() skip their title screen
+      card.querySelector(".cc-landing-play").addEventListener("click", function () {
+        try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: g.slug, t: Date.now() })); } catch (e) {}
+      });
       card.querySelector(".cc-landing-more").addEventListener("click", function () { card.remove(); off(); window.scrollTo(0, 0); });
       document.body.appendChild(card);
       root.setAttribute("data-landing-ready", "");

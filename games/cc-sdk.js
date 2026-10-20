@@ -35,7 +35,8 @@
      cc.load(slot)       -> Promise<data|null>        the newer of this device's copy and the cloud copy
      cc.saves()          -> Promise<[{slot, updated_at, bytes}]>
      cc.user()           -> {id, name, level, avatar} | null
-     cc.onUser(fn)       -> fn(user|null) now (once known) and on every login/logout */
+     cc.onUser(fn)       -> fn(user|null) now (once known) and on every login/logout
+     cc.autostart()      -> true once if the player tapped "tap to play" on the hub landing card: skip your title screen */
   var saveGame = slugFromPath(location.pathname);
   var MAX_BYTES = 512 * 1024, CLOUD_GAP = 10500;
   var slotOk = function (s) { return typeof s === "string" && /^[a-z0-9_-]{1,32}$/.test(s); };
@@ -154,7 +155,18 @@
       }).catch(function () { return out; });
     }).then(function (m) { return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.updated_at - a.updated_at; }); });
   }
+  // one tap from a clip: the hub's landing card leaves {game, t} in sessionStorage "cc-autostart".
+  // The first call on that game within 2 minutes returns true (once), so the game skips its own title screen.
+  function autostart() {
+    try {
+      var o = JSON.parse(sessionStorage.getItem("cc-autostart"));
+      if (!o || o.game !== saveGame) return false;
+      sessionStorage.removeItem("cc-autostart");
+      return Date.now() - o.t < 120000;
+    } catch (e) { return false; }
+  }
   var saveApi = {
+    autostart: autostart,
     save: save, load: load, saves: saves,
     user: function () { if (me === undefined) whenUser(); return me || null; },
     onUser: function (fn) { if (typeof fn !== "function") return; userFns.push(fn); if (me !== undefined) { try { fn(me); } catch (e) {} } else whenUser(); }
@@ -195,7 +207,7 @@
           setTimeout(function () { if (waiting[id]) { delete waiting[id]; resolve(null); } }, 8000);
         });
       },
-      save: saveApi.save, load: saveApi.load, saves: saveApi.saves, user: saveApi.user, onUser: saveApi.onUser
+      autostart: saveApi.autostart, save: saveApi.save, load: saveApi.load, saves: saveApi.saves, user: saveApi.user, onUser: saveApi.onUser
     };
     return;
   }
@@ -378,7 +390,7 @@
     start: start, score: score, event: event,
     end: function (o) { return end(o); },
     achieve: achieve,
-    save: saveApi.save, load: saveApi.load, saves: saveApi.saves, user: saveApi.user, onUser: saveApi.onUser,
+    autostart: saveApi.autostart, save: saveApi.save, load: saveApi.load, saves: saveApi.saves, user: saveApi.user, onUser: saveApi.onUser,
     // used by the player page and site UI
     _setGame: function (slug, v) { game = slug; if (v) version = String(v); },
     _game: function () { return game; },

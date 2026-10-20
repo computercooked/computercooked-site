@@ -114,6 +114,13 @@ A hub link with a social tag **and** a game hint skips the hero. The visitor get
 - **Bio link:** `https://computercooked.com/games?ref=tiktok`. With no `game=`, the platform's default is used: `LANDING_DEFAULT` in `games/index.html` (today only `tiktok → smol-brains`; change it when the pinned clip changes). Platforms without a default get the normal hub.
 - Only the social tags in the table above trigger it (`reddit`, `app` and untagged visits get the normal hub). An unknown slug also falls back to the hub.
 - Attribution is kept: the card's link carries `?ref=` on to the game, so the play counts under that platform. The card never opens a popup or a new window, which matters inside TikTok's and Instagram's in-app browsers.
+- **One tap to playing:** the card's tap counts as the game's start tap. It leaves a one-shot flag (sessionStorage `cc-autostart`, `{game, t}`), and a game that calls `cc.autostart()` skips its own title screen. `cc.autostart()` is true once, only on that game, and only within 2 minutes of the tap; otherwise it's false. smol-brains honors it (a new island skips the "tap to begin" gate and opening story and goes straight to the fly-in and tutorial). Other games still show their start screen until they add the call:
+
+  ```js
+  if (window.cc && cc.autostart && cc.autostart()) startGame(); else showTitle();
+  ```
+
+  Browsers don't pass the tap's sound permission into the game frame, so audio starts on the player's first tap in the game.
 
 ## Playtest links
 
@@ -190,6 +197,7 @@ cc.load(slot)        // -> Promise<data | null>; the newer of this device's copy
 cc.saves()           // -> Promise<[{slot, updated_at, bytes, cloud}]>, newest first
 cc.user()            // -> {id, name, level, avatar} | null (null until known: use onUser)
 cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (any tab)
+cc.autostart()       // -> true once if the player came from the hub's "tap to play" card: skip your title screen (see Social landing)
 ```
 
 - **Slots** are `a-z 0-9 _ -`, up to 32 characters. Each game gets 5 slots, 512 KB of JSON each.
