@@ -131,10 +131,12 @@
     var autoArm = function () {
       var doc;
       try { doc = frame.contentWindow.document; } catch (err) { return; }
+      // A hooked game usually calls cc.start on that same first input, a moment later (its message has to cross
+      // the frame). Wait for it: starting an auto play first meant the game's start ended it as a stray quit run.
       var first = function () {
         doc.removeEventListener("pointerdown", first, true);
         doc.removeEventListener("keydown", first, true);
-        if (!sdkGame && !cc._active()) cc.start({ auto: true });
+        setTimeout(function () { if (!sdkGame && !cc._active()) cc.start({ auto: true }); }, 1500);
       };
       doc.addEventListener("pointerdown", first, true);
       doc.addEventListener("keydown", first, true);

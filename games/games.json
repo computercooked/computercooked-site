@@ -194,7 +194,7 @@
       ],
       "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
       "size_kb": 57,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 100,
       "how_to": [
