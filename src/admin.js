@@ -1,5 +1,5 @@
 // Admin API, guarded by a bearer token stored as the ADMIN_TOKEN Worker secret.
-import { json, bad, readJson, now, dayOf, safeEqual, limited } from "./util.js";
+import { json, bad, readJson, now, dayOf, safeEqual, limited, REAL } from "./util.js";
 import { games } from "./db.js";
 
 export function isAdmin(req, env, ip) {
@@ -24,32 +24,32 @@ export async function metrics(url, env, origin) {
        AVG(duration_ms) avg_ms,
        AVG(CASE WHEN ended_at IS NOT NULL THEN completed END) completion,
        SUM(auto) auto_plays
-     FROM plays WHERE day >= ? GROUP BY game`
+     FROM plays WHERE day >= ? AND ${REAL} GROUP BY game`
   ).bind(since).all()).results;
 
   const fb = (await db.prepare(
-    `SELECT game, COUNT(*) n, SUM(rating = 1) up, SUM(rating = -1) down FROM feedback WHERE ts >= ? GROUP BY game`
+    `SELECT game, COUNT(*) n, SUM(rating = 1) up, SUM(rating = -1) down FROM feedback WHERE ts >= ? AND ${REAL} GROUP BY game`
   ).bind(Date.parse(since)).all()).results;
 
   const refs = (await db.prepare(
-    `SELECT game, referrer, COUNT(*) n FROM plays WHERE day >= ? GROUP BY game, referrer ORDER BY n DESC`
+    `SELECT game, referrer, COUNT(*) n FROM plays WHERE day >= ? AND ${REAL} GROUP BY game, referrer ORDER BY n DESC`
   ).bind(since).all()).results;
 
   const testers = (await db.prepare(
-    `SELECT game, tester, COUNT(*) n FROM plays WHERE day >= ? AND tester IS NOT NULL GROUP BY game, tester ORDER BY n DESC`
+    `SELECT game, tester, COUNT(*) n FROM plays WHERE day >= ? AND tester IS NOT NULL AND ${REAL} GROUP BY game, tester ORDER BY n DESC`
   ).bind(since).all()).results;
 
   const devices = (await db.prepare(
-    `SELECT game, device, COUNT(*) n FROM plays WHERE day >= ? GROUP BY game, device`
+    `SELECT game, device, COUNT(*) n FROM plays WHERE day >= ? AND ${REAL} GROUP BY game, device`
   ).bind(since).all()).results;
 
   // D1 / D7 return: of players whose FIRST play of this game was on/after `since`,
   // the share who played it again exactly 1 / 7 days later. Only cohorts old enough count.
   const ret = (await db.prepare(
     `WITH firsts AS (
-       SELECT game, ${PLAYER} p, MIN(day) d FROM plays GROUP BY game, p HAVING d >= ?
+       SELECT game, ${PLAYER} p, MIN(day) d FROM plays WHERE ${REAL} GROUP BY game, p HAVING d >= ?
      ), days AS (
-       SELECT DISTINCT game, ${PLAYER} p, day FROM plays WHERE day >= ?
+       SELECT DISTINCT game, ${PLAYER} p, day FROM plays WHERE day >= ? AND ${REAL}
      )
      SELECT f.game,
        SUM(f.d <= date(?, '-1 day')) n1,
@@ -60,7 +60,7 @@ export async function metrics(url, env, origin) {
   ).bind(since, since, today, today, today, today).all()).results;
 
   const latest = (await db.prepare(
-    `SELECT game, rating, text, tester, version, ts FROM feedback WHERE ts >= ? AND text IS NOT NULL ORDER BY ts DESC LIMIT 200`
+    `SELECT game, rating, text, tester, version, ts FROM feedback WHERE ts >= ? AND text IS NOT NULL AND ${REAL} ORDER BY ts DESC LIMIT 200`
   ).bind(Date.parse(since)).all()).results;
 
   const slugs = new Set([...catalog.keys(), ...base.map((r) => r.game)]);
@@ -99,7 +99,7 @@ export async function metrics(url, env, origin) {
     `SELECT COALESCE(f.source, 'button') source, COUNT(*) made, SUM(f.shared_at IS NOT NULL) sent,
        SUM(f.shared_how = 'share') via_share, SUM(f.shared_how = 'copy') via_copy,
        SUM(d.opens > 0) opened, SUM(d.opens) opens, SUM(d.beats > 0) beaten, SUM(d.beats) beats
-     FROM dares d LEFT JOIN dare_funnel f ON f.dare_id = d.id WHERE d.created_at >= ? GROUP BY 1`
+     FROM dares d LEFT JOIN dare_funnel f ON f.dare_id = d.id WHERE d.created_at >= ? AND d.from_player NOT LIKE 'a:smoke%' GROUP BY 1`
   ).bind(Date.parse(since)).all()).results;
   const rate = (a, b) => (b ? Math.round((a / b) * 1000) / 1000 : null);
   const step = (rows) => {
@@ -110,6 +110,14 @@ export async function metrics(url, env, origin) {
   };
   const dares = { ...step(funnel), by_source: Object.fromEntries(["best", "button"].map((k) => [k, step(funnel.filter((r) => r.source === k))])) };
 
+  // smoke-test traffic left out of everything above, counted here so a live smoke run can be confirmed excluded
+  const test = await db.prepare(
+    `SELECT (SELECT COUNT(*) FROM plays WHERE day >= ?1 AND NOT ${REAL}) plays,
+       (SELECT COUNT(*) FROM scores WHERE day >= ?1 AND player LIKE 'a:smoke%') scores,
+       (SELECT COUNT(*) FROM scores WHERE day >= ?1 AND player LIKE 'a:smoke%' AND hidden = 0) scores_visible,
+       (SELECT COUNT(*) FROM feedback WHERE ts >= ?2 AND NOT ${REAL}) feedback,
+       (SELECT COUNT(*) FROM dares WHERE created_at >= ?2 AND from_player LIKE 'a:smoke%') dares`
+  ).bind(since, Date.parse(since)).first();
   const users = await db.prepare("SELECT COUNT(*) n, SUM(created_at >= ?) new FROM users").bind(Date.parse(since)).first();
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
   const reports = await db.prepare("SELECT COUNT(*) n FROM reports WHERE resolved = 0").first("n");
@@ -121,6 +129,7 @@ export async function metrics(url, env, origin) {
       uploads_pending: pending || 0, open_reports: reports || 0,
     },
     dares,
+    test_traffic: test,
     games: out,
   });
 }
