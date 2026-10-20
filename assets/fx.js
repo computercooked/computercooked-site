@@ -29,6 +29,24 @@
   }
   function el(html) { var t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
 
+  /* The hub spotlight's slides. Each slide is built from ONE games.json record, so its art, title, pitch,
+     link and the hero "play X ▶" button can never disagree. Pure: scripts/smoke-test.mjs runs it too. */
+  function spotSlides(games, newest, feat) {
+    var lead = (feat && games.filter(function (g) { return g.slug === feat.game; })[0]) || games.filter(function (g) { return g.slug === "crash"; })[0];
+    var order = (lead ? [lead] : []).concat(newest.filter(function (g) { return g !== lead; })).concat(games.filter(function (g) {
+      return g !== lead && newest.indexOf(g) < 0;
+    })).slice(0, SPOT_MAX); // a dot per game gets long on phones past ~6
+    return order.map(function (g, i) {
+      var href = "/games/" + encodeURIComponent(g.slug) + "/";
+      return {
+        slug: g.slug, title: g.title, pitch: g.pitch || "", art: g.thumbnail, href: href,
+        tag: i === 0 ? (feat && g.slug === feat.game ? "game of the week" : "featured") : (newest.indexOf(g) >= 0 ? "new" : "featured"),
+        cta: { href: href, label: "play " + g.title + " ▶" }
+      };
+    });
+  }
+  window.ccSpotSlides = spotSlides;
+
   /* ---------- card tilt + sheen ---------- */
   if (finePointer && !reduceMotion) {
     document.addEventListener("pointermove", function (e) {
@@ -149,42 +167,43 @@
     var name = spot.querySelector(".spot-name");
     var pitch = spot.querySelector(".spot-pitch");
     var tag = spot.querySelector(".spot-tag");
-    var lead = (feat && games.filter(function (g) { return g.slug === feat.game; })[0]) || games.filter(function (g) { return g.slug === "crash"; })[0];
-    var order = (lead ? [lead] : []).concat(newest.filter(function (g) { return g !== lead; })).concat(games.filter(function (g) {
-      return g !== lead && newest.indexOf(g) < 0;
-    }));
-    order = order.slice(0, SPOT_MAX); // a dot per game gets long on phones past ~6
-    if (feat && lead && lead.slug === feat.game) {
-      var cta = document.querySelector(".hero-play");
-      if (cta) { cta.href = "/games/" + encodeURIComponent(lead.slug) + "/"; cta.textContent = "play " + lead.title + " ▶"; }
+    var cta = document.querySelector(".hero-play");
+    var slides = spotSlides(games, newest, feat);
+    if (!slides.length) return;
+
+    // everything a slide shows comes from that one slide record, applied together
+    function render(s) {
+      img.src = s.art;
+      img.classList.toggle("is-svg", /\.svg$/.test(s.art || ""));
+      name.textContent = s.title;
+      pitch.textContent = s.pitch;
+      tag.textContent = s.tag;
+      spot.href = s.href;
+      spot.dataset.slug = s.slug;
+      spot.setAttribute("aria-label", "featured game: " + s.title + ". " + s.pitch);
+      if (cta) { cta.href = s.cta.href; cta.textContent = s.cta.label; cta.dataset.slug = s.slug; }
     }
-    if (order.length < 2) return;
+    if (slides.length < 2) { render(slides[0]); return; }
 
     var dots = el('<div class="spot-dots" role="group" aria-label="featured games"></div>');
-    order.forEach(function (g, i) {
+    slides.forEach(function (s, i) {
       var b = el('<button type="button" class="spot-dot"><span class="visually-hidden"></span></button>');
-      b.querySelector("span").textContent = "feature " + g.title;
+      b.querySelector("span").textContent = "feature " + s.title;
       b.addEventListener("click", function () { stop(); show(i); });
       dots.appendChild(b);
     });
     spot.insertAdjacentElement("afterend", dots);
 
-    var cur = 0, timer = null, held = false;
+    var cur = 0, timer = null, held = false, swap = null;
     function show(i) {
-      cur = (i + order.length) % order.length;
-      var g = order[cur];
-      spot.classList.add("is-swapping");
-      setTimeout(function () {
-        img.src = g.thumbnail;
-        img.classList.toggle("is-svg", /\.svg$/.test(g.thumbnail));
-        name.textContent = g.title;
-        pitch.textContent = g.pitch;
-        tag.textContent = cur === 0 ? (feat && g.slug === feat.game ? "game of the week" : "featured") : (newest.indexOf(g) >= 0 ? "new" : "featured");
-        spot.href = "/games/" + encodeURIComponent(g.slug) + "/";
-        spot.setAttribute("aria-label", "featured game: " + g.title + ". " + g.pitch);
-        spot.classList.remove("is-swapping");
-      }, reduceMotion ? 0 : 220);
+      cur = (i + slides.length) % slides.length;
       dots.querySelectorAll(".spot-dot").forEach(function (d, j) { d.setAttribute("aria-pressed", String(j === cur)); });
+      // one pending swap at a time, and it renders whatever slide is current when it fires (fast taps can't
+      // leave an older slide's art or button behind)
+      clearTimeout(swap);
+      if (reduceMotion) { render(slides[cur]); return; }
+      spot.classList.add("is-swapping");
+      swap = setTimeout(function () { render(slides[cur]); spot.classList.remove("is-swapping"); }, 220);
     }
     function tick() { if (!held && !document.hidden) show(cur + 1); }
     function stop() { clearInterval(timer); timer = null; }
@@ -194,6 +213,19 @@
       n.addEventListener("focusin", function () { held = true; });
       n.addEventListener("focusout", function () { held = false; });
     });
+
+    // swipe the spotlight on touch screens: left = next, right = previous; a swipe doesn't open the game
+    var x0 = null, y0 = 0, swiped = false;
+    spot.addEventListener("touchstart", function (e) { var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; swiped = false; }, { passive: true });
+    spot.addEventListener("touchend", function (e) {
+      if (x0 == null) return;
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) { swiped = true; stop(); show(cur + (dx < 0 ? 1 : -1)); }
+    }, { passive: true });
+    spot.addEventListener("click", function (e) { if (swiped) { e.preventDefault(); swiped = false; } }, true);
+
+    render(slides[0]);
     show(0);
     if (!reduceMotion) timer = setInterval(tick, 5200);
   }
