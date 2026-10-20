@@ -524,6 +524,15 @@ if (admin) {
   ok(r.ok && c && Array.isArray(c.testers) && typeof c.plays === "number", "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
   const tt = r.test_traffic;
   ok(tt && tt.plays >= 5 && tt.scores >= 4 && tt.scores_visible === 0 && tt.feedback >= 1 && tt.dares >= 2, "admin metrics: this run's smoke traffic counted apart, none of it visible", tt);
+  // daily digest: one row per Pacific day, smoke traffic left out (this run's plays must not show)
+  const dg = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
+  const dRow = dg.rows?.[dg.rows.length - 1];
+  ok(dg.ok && dg.tz === "America/Los_Angeles" && dg.rows.length === 3 && dRow.partial && "tiktok" in dRow.ref && "per_run" in dRow.next && Array.isArray(dRow.games) && Array.isArray(dg.games),
+    "admin digest: 3 Pacific days with refs, next, shares, dares, games", dRow && { date: dRow.date, plays: dRow.plays });
+  ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
+  await post("/api/events", { anon, events: [{ t: "start", id: rid(), game: "crash", v: "1" }] });
+  const dg2 = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
+  ok(dg2.rows[2].plays === dRow.plays, "admin digest leaves smoke plays out", { before: dRow.plays, after: dg2.rows[2].plays });
   const gsh = r.game_shares;
   ok(gsh && typeof gsh.sent === "number" && "via_card" in gsh && "via_download" in gsh, "admin metrics: share-this-game sends", gsh);
   const df = r.dares;

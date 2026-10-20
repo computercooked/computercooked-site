@@ -16,6 +16,7 @@ import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
+import { digest } from "./digest.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
 
 export default {
@@ -116,6 +117,7 @@ async function api(req, env, url) {
     if (!isAdmin(req, env, ip)) return bad("nope", 401);
     switch (route) {
       case "GET /api/admin/metrics": return metrics(url, env, origin);
+      case "GET /api/admin/digest": return digest(url, env);
       case "GET /api/admin/reports": return listReports(env);
       case "GET /api/admin/featured": return previewFeatured(url, env, await catalogOf(env, origin));
       case "GET /api/admin/challenge": return previewChallenge(url, env, await catalogOf(env, origin));
