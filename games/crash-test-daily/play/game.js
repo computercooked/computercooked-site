@@ -104,6 +104,9 @@
     updateUI();
     say.textContent = G.locked ? 'already fixed today. come back tomorrow. or practice.' : practice ? (seedOverride ? 'random practice board. par is ' + P.par + '. hints allowed.' : 'archive #' + no + (gm === 'hard' ? ' (hard)' : '') + '. par is ' + P.par + '.') : gm === 'hard' ? 'hard mode. more parts. screws don\'t move. good luck.' : 'crash is overheating. slide the parts. get the hot air out the vent →';
     if (G.locked) setTimeout(() => showResult(true), 300);
+    // first-run hint goes in crash's own bubble, once the board exists (it used to be a toast on a fixed
+    // timer from boot, which sat on top of the bubble at 375px and never fired if the board built late)
+    if (!DB.helped && !G.locked) { const g = G; setTimeout(() => { if (G === g && movesCount() === 0 && $('modal').hidden) { say.textContent = 'drag a part to slide it. free the hot air →. tap ? for rules.'; say.classList.add('nudge'); } }, 1200); }
   }
   let loadToken = null;
 
@@ -160,7 +163,7 @@
   }
 
   const QUIPS = ['is it hot in here or is it me. it\'s me.', 'my fan is making a new noise.', 'that helped. probably.', 'i can smell my own ram.', 'keep going. i believe in you (i\'m at 94°c).', 'please don\'t touch the psu.', 'airflow is a social construct.', 'the vent is right there. →'];
-  function quip() { if (Math.random() < 0.35) say.textContent = QUIPS[(Math.random() * QUIPS.length) | 0]; }
+  function quip() { say.classList.remove('nudge'); if (Math.random() < 0.35) say.textContent = QUIPS[(Math.random() * QUIPS.length) | 0]; }
 
   // ---------- solving ----------
   function solve() {
@@ -553,7 +556,6 @@
   applySpooky();
   resize();
   load(today, 'normal', false);
-  if (!DB.helped) setTimeout(() => { if (G && movesCount() === 0 && $('modal').hidden) toast('drag a part. free the hot air →. tap ? for rules.'); }, 1200);
   if (/[?&]debug/.test(location.search)) window.__ct = { get G() { return G; }, commit, undo, solve, CT, DB: () => DB };
   requestAnimationFrame(frame);
 })();
