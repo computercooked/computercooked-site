@@ -70,12 +70,10 @@ export async function beatDare(req, env, user, id) {
   return json({ ok: true, beaten: true, first, from: d.from_name, score: d.score, sender_xp: senderXp });
 }
 
-// Link previews for dare links. A crawler (iMessage, Discord, X…) fetching /games/<slug>/?vs=…&from=…&d=…
-// gets the normal page with its preview tags rewritten: "can you beat 1,240 on CRASH? from datz" and the
-// game's og-vs.png card. With a dare id the score and name come from the server; without one, from the URL.
-export async function dareMeta(req, env, url, slug) {
-  const page = await env.ASSETS.fetch(req);
-  if (!page.ok || !(page.headers.get("content-type") || "").includes("text/html")) return page;
+// Link previews for dare links: seo.js rewrites the preview tags of /games/<slug>/?vs=…&from=…&d=… to
+// "can you beat 1,240 on CRASH? from datz" with the og-vs.png card. With a dare id the score and name come
+// from the server; without one, from the URL. null when there is no score to show.
+export async function dareTags(env, url, slug) {
   let score = parseFloat(url.searchParams.get("vs")), from = (url.searchParams.get("from") || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 24);
   const id = url.searchParams.get("d");
   if (env.DB && id && /^[A-Za-z0-9_-]{6,16}$/.test(id)) {
@@ -84,20 +82,5 @@ export async function dareMeta(req, env, url, slug) {
       if (d && d.game === slug) { score = d.score; from = d.from_name; }
     } catch (e) { /* table missing before the migration: fall back to the URL */ }
   }
-  if (!(score > 0)) return page;
-  let game = slug;
-  try {
-    const list = await (await env.ASSETS.fetch(new Request(url.origin + "/games/games.json"))).json();
-    game = (list.games.find((g) => g.slug === slug) || {}).title || slug;
-  } catch (e) { /* keep the slug */ }
-  const title = `can you beat ${nice(score)} on ${game}?${from ? ` from ${from}` : ""}`;
-  const desc = "a friend dared you. free browser game: no download, plays on your phone.";
-  const img = `${url.origin}/games/${slug}/og-vs.png`;
-  const set = (v) => ({ element(e) { e.setAttribute("content", v()); } });
-  return new HTMLRewriter()
-    .on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
-    .on('meta[property="og:title"], meta[name="twitter:title"]', set(() => title))
-    .on('meta[property="og:description"], meta[name="twitter:description"]', set(() => desc))
-    .on('meta[property="og:image"], meta[name="twitter:image"]', set(() => img))
-    .transform(new Response(page.body, { status: page.status, headers: { ...Object.fromEntries(page.headers), "cache-control": "public, max-age=300" } }));
+  return score > 0 ? { score: nice(score), from } : null;
 }
