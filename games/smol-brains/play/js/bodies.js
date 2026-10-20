@@ -303,18 +303,29 @@
   var pp = {};
   B.labels = true;
 
+  // a chunky pixel box: 2px dark border with notched corners, like the sprites' outlines
+  function pxBox(ctx, x, y, w, h, fill, line) {
+    ctx.fillStyle = line;
+    ctx.fillRect(x + 2, y, w - 4, h); ctx.fillRect(x, y + 2, w, h - 4); ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+    ctx.fillStyle = fill;
+    ctx.fillRect(x + 3, y + 2, w - 6, h - 4); ctx.fillRect(x + 2, y + 3, w - 4, h - 6);
+  }
+  B.pxBox = pxBox;
+  var FONT = "Pixelify, ui-rounded, system-ui, sans-serif";
+  B.FONT = FONT;
   function bubble(ctx, x, y, text, kind) {
-    ctx.font = (kind === "think" ? "italic " : "") + "700 13px ui-rounded, system-ui, sans-serif";
-    var w = Math.min(200, ctx.measureText(text).width) + 16, h = 24;
+    ctx.font = "700 14px " + FONT;
+    var w = Math.round(Math.min(200, ctx.measureText(text).width) + 18), h = 24;
     var bx = Math.round(x - w / 2), by = Math.round(y - h - 8);
-    ctx.fillStyle = kind === "babble" ? "rgba(245,243,237,0.82)" : kind === "think" ? "rgba(255,255,255,0.7)" : "#f5f3ed";
-    ctx.strokeStyle = "rgba(16,17,20,0.85)"; ctx.lineWidth = 2;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 11); else ctx.rect(bx, by, w, h);
-    ctx.moveTo(x - 5, by + h); ctx.lineTo(x, by + h + 7); ctx.lineTo(x + 5, by + h);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#101114"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(text, x, by + h / 2 + 1, 190);
+    var fill = kind === "babble" ? "#e9e4f2" : kind === "think" ? "#d8d2ea" : "#fbf8f0", line = "#1a1222";
+    pxBox(ctx, bx, by, w, h, fill, line);
+    // the little tail, in steps
+    x = Math.round(x);
+    ctx.fillStyle = line; ctx.fillRect(x - 5, by + h - 2, 10, 4); ctx.fillRect(x - 3, by + h + 2, 6, 2); ctx.fillRect(x - 1, by + h + 4, 2, 2);
+    ctx.fillStyle = fill; ctx.fillRect(x - 3, by + h - 3, 6, 4); ctx.fillRect(x - 1, by + h + 1, 2, 2);
+    if (kind === "think") { ctx.fillStyle = line; ctx.fillRect(x - 3, by + h - 2, 2, 2); ctx.fillRect(x + 1, by + h - 2, 2, 2); }
+    ctx.fillStyle = "#1a1222"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    SB.Icons.fillText(ctx, text, x, by + h / 2 + 1, 14);
   }
 
   R.addOverlay(function (ctx, W, H, game) {
@@ -330,7 +341,7 @@
         if (!pp.on) return;
         ctx.fillStyle = "rgba(16,17,20,0.65)"; var tw = ctx.measureText(v.name).width + 16;
         ctx.fillRect(pp.x - tw / 2, pp.y - 11, tw, 22);
-        ctx.fillStyle = "#c5ff49"; ctx.fillText("🏘 " + v.name, pp.x, pp.y + 1);
+        ctx.fillStyle = "#c5ff49"; SB.Icons.fillText(ctx, "🏘 " + v.name, pp.x, pp.y + 1, 14);
       });
     }
     for (var i = 0; i < cs.length; i++) {
@@ -344,22 +355,20 @@
       var x = pp.x, y = pp.y;
       if (c.speech && (zoom < 26 || game.selectedId === c.id)) { bubble(ctx, x, y - 4, c.speech.text, c.speech.kind); y -= 34; }
       else if (c.anim.emote && zoom < 22) {
-        ctx.font = "20px system-ui, apple color emoji, sans-serif";
-        ctx.fillText(EMOTE[c.anim.emote] || "", x, y - 10 - Math.abs(Math.sin(t * 4)) * 4);
+        SB.Icons.fillText(ctx, EMOTE[c.anim.emote] || "", x, Math.round(y - 10 - Math.abs(Math.sin(t * 4)) * 4), 28);
         y -= 26;
       }
       if (c.species === "smol" && (showNames || game.selectedId === c.id) && B.labels) {
-        ctx.font = "700 11px ui-rounded, system-ui, sans-serif";
+        ctx.font = "700 12px " + FONT;
         var label = c.name + (c.tier ? " " + SB.TIERS[c.tier].icon : "");
         ctx.fillStyle = game.selectedId === c.id ? "#c5ff49" : "rgba(245,243,237,0.92)";
         ctx.strokeStyle = "rgba(16,17,20,0.75)"; ctx.lineWidth = 3;
         R.project(c.x, c.y - 0.05, c.z, pp);
-        ctx.strokeText(label, pp.x, pp.y + 12); ctx.fillText(label, pp.x, pp.y + 12);
+        SB.Icons.fillText(ctx, label, pp.x, pp.y + 12, 14, true);
       }
       // starving / sick warnings so the player can help
       if (c.species === "smol" && (c.chem.hunger > 0.85 || c.chem.sick > 0.5 || c.chem.cold > 0.75) && !c.speech) {
-        ctx.font = "16px system-ui, apple color emoji, sans-serif";
-        ctx.fillText(c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, y - 8 + Math.sin(t * 5) * 2);
+        SB.Icons.fillText(ctx, c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, Math.round(y - 8 + Math.sin(t * 5) * 2), 14);
       }
     }
     // prayers
@@ -368,10 +377,9 @@
       if (!c || !c.alive || p.answered) return;
       R.project(c.x, c.y + SB.Creature.radius(c) * 4.4, c.z, pp);
       if (!pp.on) return;
-      ctx.font = "18px system-ui, apple color emoji, sans-serif";
       var a = 0.6 + Math.sin(t * 4) * 0.4;
       ctx.globalAlpha = a;
-      ctx.fillText("🙏" + (NEED_EMOJI[p.need] || "✨"), pp.x, pp.y - 30);
+      SB.Icons.fillText(ctx, "🙏" + (NEED_EMOJI[p.need] || "✨"), pp.x, pp.y - 30, 28);
       ctx.globalAlpha = 1;
     });
     // building sites: what they still need

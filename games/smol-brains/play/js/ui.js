@@ -44,6 +44,7 @@
     game = g; opts = opts || {};
     root = document.getElementById("ui");
     clear(root);
+    if (SB.Icons && !UI._icons) { UI._icons = true; SB.Icons.watch(document.body); } // every emoji the UI writes becomes a pixel icon
     buildHud(); buildToasts(); buildDock(); buildMinimap();
     SB.Input.init(document.getElementById("stage"), g);
     wireBus();
@@ -690,7 +691,7 @@
       ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, 6.283); ctx.fill();
       ctx.strokeStyle = c.alive ? "#c5ff49" : "rgba(255,255,255,0.25)"; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.font = "15px system-ui, apple color emoji"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(t.icon, p.x, p.y + 1);
+      SB.Icons.fillText(ctx, t.icon, p.x, p.y + 1, 14);
       ctx.fillStyle = "#f5f3ed"; ctx.font = "800 10px ui-monospace, monospace";
       ctx.fillText(c.name.slice(0, 22), p.x, p.y + 27);
       ctx.fillStyle = "rgba(245,243,237,0.55)"; ctx.font = "10px system-ui";
@@ -1058,7 +1059,7 @@
       rows.forEach(function (r, i) {
         var x = 60 + (i % 3) * 330, y = 960 + Math.floor(i / 3) * 150;
         ctx.fillStyle = "#17181d"; roundRect(ctx, x, y, 300, 128, 24); ctx.fill();
-        ctx.font = "44px system-ui, apple color emoji"; ctx.fillText(r[0], x + 22, y + 66);
+        ctx.font = "44px system-ui, apple color emoji"; ctx.textBaseline = "middle"; SB.Icons.fillText(ctx, r[0], x + 22, y + 60, 42); ctx.textBaseline = "alphabetic";
         ctx.fillStyle = "#c5ff49"; ctx.font = "800 40px ui-monospace, monospace"; ctx.fillText(String(r[1]).slice(0, 10), x + 90, y + 62);
         ctx.fillStyle = "rgba(245,243,237,0.6)"; ctx.font = "600 24px system-ui"; ctx.fillText(r[2], x + 90, y + 100);
       });
