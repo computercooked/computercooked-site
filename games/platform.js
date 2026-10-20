@@ -139,6 +139,7 @@
       chip.textContent = me.username;
       chip.classList.add("is-in");
       panel.querySelector('.cc-tabs [data-p="friends"]').hidden = false;
+      prefetchFriends();
       heart.hidden = false;
       api("/api/me/summary").then(function (s) { if (s.ok) setHeart(s.favorites.indexOf(game) >= 0); });
     } else {
@@ -150,7 +151,7 @@
   fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
     info = (d.games || []).filter(function (g) { return g.slug === game; })[0];
     if (info && info.version) cc._setGame(game, info.version);
-    if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); loadChallenge(); }
+    if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); loadChallenge(); prefetchFriends(); }
   }).catch(function () {});
 
   /* ---------- weekly challenge line on the featured game (slice D2) ---------- */
@@ -171,6 +172,7 @@
     var r = e.detail && e.detail.result;
     var say = window.ccToast || function () {};
     if (r && r.accepted) say("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
+    if (r && r.accepted && me) friendNudge(say);
     var x = r && r.xp;
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
@@ -186,6 +188,37 @@
     var a = e.detail;
     if (a && window.ccToast) window.ccToast("unlocked: " + a.name + (a.xp ? " · +" + a.xp + " xp" : ""));
   });
+  // friends board before/after a run: "you passed sam" or "sam is 40 ahead"
+  var friendsBefore = null;
+  function friendRows() {
+    return api("/api/leaderboard?game=" + encodeURIComponent(game) + "&period=all&friends=1").then(function (r) { return r && r.ok ? r.rows : null; });
+  }
+  var prefetched = false;
+  function prefetchFriends() {
+    if (prefetched || !me || !info || !info.max_score_per_sec) return;
+    prefetched = true;
+    friendRows().then(function (rows) { if (rows && !friendsBefore) friendsBefore = rows; });
+  }
+  function friendNudge(say) {
+    var before = friendsBefore;
+    setTimeout(function () {
+      friendRows().then(function (rows) {
+        if (!rows || rows.length < 2) return; // no friends with scores here yet
+        friendsBefore = rows;
+        var mine = rows.filter(function (x) { return x.me; })[0];
+        if (!mine) return;
+        // friends who were above you before this run (or anyone, if you had no score) and are now below
+        var meBefore = before && before.filter(function (b) { return b.me; })[0];
+        var passed = before && before.filter(function (b) {
+          return !b.me && (!meBefore || b.rank < meBefore.rank) && b.score < mine.score;
+        });
+        if (passed && passed.length) { say("you passed " + passed[0].name + " on your friends board"); return; }
+        var above = rows.filter(function (x) { return x.rank === mine.rank - 1; })[0];
+        if (above) say(above.name + " is " + fmt(above.score - mine.score) + " ahead of you. go get them.");
+        else say("top of your friends board on this one.");
+      });
+    }, 400);
+  }
   function nudged() {
     try { if (sessionStorage.getItem("cc-xp-nudge")) return true; sessionStorage.setItem("cc-xp-nudge", "1"); } catch (e) {}
     return false;

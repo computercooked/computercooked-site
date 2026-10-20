@@ -248,6 +248,13 @@ if (local) {
   ok(r.relation === "friends", "profile relation: friends", r.relation);
   r = await (await get("/api/leaderboard?game=crash&period=all&friends=1", { cookie: cv })).json();
   ok(r.ok && r.friends && r.rows.some((x) => x.u === u), "friends board shows your friend's score", r.rows);
+  await post("/api/me/profile", { public: true }, { cookie }); // the profile steps above left it private
+  r = await (await get("/api/me/friends/feed", { cookie: cv })).json();
+  ok(r.ok && r.friends === 1 && r.items.some((i) => i.who?.username === u && i.kind === "best" && i.game === "crash"), "friends feed shows a friend's new best", r.items?.slice(0, 3));
+  await post("/api/me/profile", { public: false }, { cookie });
+  r = await (await get("/api/me/friends/feed", { cookie: cv })).json();
+  ok(r.ok && !r.items.some((i) => i.who?.username === u), "a private profile stays out of friends feeds");
+  await post("/api/me/profile", { public: true }, { cookie });
   r = await fr("remove", u, cv);
   r = await (await get("/api/me/friends", { cookie })).json();
   ok(r.friends.length === 0, "remove drops both sides", r.friends);

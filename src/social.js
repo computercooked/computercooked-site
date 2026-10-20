@@ -3,6 +3,7 @@
 //   GET /api/me/feed     your recent activity: allow-listed game events, achievements, challenges
 import { json, now, dayOf, weekOf, textClean } from "./util.js";
 import { SITE_ACH } from "./xp.js";
+import { friendIds, people } from "./friends.js";
 
 // One featured game per ISO week (UTC, Monday to Sunday). A hand pick here always wins. A week with no
 // entry gets an automatic pick (see autoPick), stored in the challenges table on first use.
@@ -175,4 +176,35 @@ export async function feed(env, user, catalog) {
   const seen = new Set();
   const out = items.sort((a, b) => b.ts - a.ts).filter((i) => { const k = i.game + "|" + i.text; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 30);
   return json({ ok: true, items: out.map((i) => ({ ...i, title: i.game ? catalog.get(i.game)?.title || i.game : null })) });
+}
+
+// GET /api/me/friends/feed: what your friends did lately (14 days). Friends with a private profile are left
+// out, and so are game moments (those stay on the player's own /me): badges, weekly challenge wins, new bests.
+export async function friendsFeed(env, user, catalog) {
+  const ids = await friendIds(env, user.id);
+  if (!ids.length) return json({ ok: true, friends: 0, items: [] });
+  const q = ids.map(() => "?").join(",");
+  const hidden = new Set((await env.DB.prepare(`SELECT user_id FROM profiles WHERE public = 0 AND user_id IN (${q})`).bind(...ids).all()).results.map((r) => r.user_id));
+  const open = ids.filter((id) => !hidden.has(id));
+  if (!open.length) return json({ ok: true, friends: ids.length, items: [] });
+  const q2 = open.map(() => "?").join(","), since = now() - 14 * 86400000;
+  const items = [];
+  const achs = (await env.DB.prepare(`SELECT user_id, game, ach_id, ts FROM achievements WHERE user_id IN (${q2}) AND ts >= ? ORDER BY ts DESC LIMIT 60`).bind(...open, since).all()).results;
+  for (const a of achs) {
+    const d = a.game === "site" ? SITE_ACH[a.ach_id] || eventDef(a.ach_id) : (catalog.get(a.game)?.achievements || []).find((x) => x.id === a.ach_id && !x.secret);
+    if (d) items.push({ uid: a.user_id, kind: "achievement", game: a.game === "site" ? null : a.game, text: `unlocked ${d.name}`, ts: a.ts });
+  }
+  const chs = (await env.DB.prepare(`SELECT user_id, game, ts FROM xp_events WHERE kind = 'challenge' AND user_id IN (${q2}) AND ts >= ? ORDER BY ts DESC LIMIT 30`).bind(...open, since).all()).results;
+  for (const c of chs) items.push({ uid: c.user_id, kind: "challenge", game: c.game, text: "finished the weekly challenge", ts: c.ts });
+  // a run that is (still) that friend's best on the game
+  const bests = (await env.DB.prepare(
+    `SELECT s.user_id, s.game, s.score, MAX(s.ts) ts FROM scores s WHERE s.user_id IN (${q2}) AND s.hidden = 0 AND s.ts >= ?
+       AND s.score = (SELECT MAX(score) FROM scores t WHERE t.user_id = s.user_id AND t.game = s.game AND t.hidden = 0)
+     GROUP BY s.user_id, s.game ORDER BY ts DESC LIMIT 40`
+  ).bind(...open, since).all()).results;
+  for (const b of bests) items.push({ uid: b.user_id, kind: "best", game: b.game, text: `new best: ${Math.round(b.score * 10) / 10}`, ts: b.ts });
+  const who = await people(env, open);
+  const out = items.filter((i) => who.has(i.uid) && (!i.game || catalog.has(i.game))).sort((a, b) => b.ts - a.ts).slice(0, 30)
+    .map(({ uid, ...i }) => ({ ...i, who: who.get(uid), title: i.game ? catalog.get(i.game).title : null }));
+  return json({ ok: true, friends: ids.length, items: out });
 }
