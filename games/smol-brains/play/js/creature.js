@@ -897,7 +897,8 @@
   // aLove: the actor's love before this cuddle relieved it
   function tryBreed(a, b, game, aLove) {
     if (a.stage !== 3 || b.stage !== 3) return;
-    if (aLove < 0.5 || b.chem.love < 0.4) return;
+    // the pair's love together, so two smols who keep cuddling (and relieving each other) still get there
+    if (aLove + b.chem.love < 0.8 || Math.max(aLove, b.chem.love) < 0.5) return;
     if (a.eggCooldown > 0 || b.eggCooldown > 0) return;
     if (SB.Species && !SB.Species.compatible(a, b)) { emote(a, "huh", 1.5); SB.bus.emit("incompatible", { a: a, b: b }); return; }
     var pop = SB.Game.smols(game).length + game.world.items.filter(function (o) { return o.kind === "egg"; }).length;

@@ -166,6 +166,7 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .card.locked { opacity: 0.45; }
 .card.got { border-color: rgba(197, 255, 73, 0.4); }
 .card .big { font-size: 24px; font-family: system-ui, "apple color emoji"; }
+.card .tag { display: inline-block; margin-top: 4px; padding: 2px 7px; border-radius: 8px; background: var(--lime); color: #101114; font: 800 10px var(--mono); }
 .tree { position: relative; overflow: auto; }
 canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; border-radius: 14px; background: rgba(0, 0, 0, 0.25); touch-action: pan-y; }
 .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }

@@ -132,7 +132,8 @@
       smols.forEach(function (c) { if (c.tier === maxT) { var p = tierProgress(c); if (p > bp) { bp = p; best = c; } } });
       var nx = SB.TIERS[maxT + 1];
       var hint = best ? SB.Genome.nextNeeds(best.genome).map(function (n) { return n.label; }).slice(0, 2).join(" + ") : "";
-      add("evolve into " + nx.icon + " " + nx.name + (hint ? " (needs more " + hint + ")" : ""), Math.round(Math.max(0, bp) * 100) + "%");
+      var nudge = !g.blessing && (g.sparks || 0) >= 15 && hint ? " · try ✨ magic → 🧬 bless" : "";
+      add("evolve into " + nx.icon + " " + nx.name + (hint ? " (needs more " + hint + ")" : "") + nudge, Math.round(Math.max(0, bp) * 100) + "%");
     }
     var found = Object.keys(g.culture.found).length;
     if (maxT >= 2 && found < 3) add("a tool-user discovers an idea 💡 (try 💡 inspire)", found + "/3");
@@ -442,20 +443,24 @@
     if (el.magicInfo) el.magicInfo.textContent = m.e + " done. pick another or close.";
   }
   var BLESS = [
-    { e: "🦵", name: "legs", genes: { limbs: 0.12, senses: 0.06 } },
-    { e: "🤲", name: "hands", genes: { arms: 0.12, dexterity: 0.08 } },
-    { e: "🧠", name: "bigger brains", genes: { cortex: 0.1, layers: 0.08, recall: 0.06 } },
-    { e: "🗣", name: "language", genes: { social: 0.12 } },
-    { e: "📐", name: "planning", genes: { planning: 0.12, layers: 0.06 } },
-    { e: "👁", name: "big heads", genes: { head: 0.12, recall: 0.06 } },
-    { e: "🐟", name: "fins", genes: { fins: 0.15 } },
-    { e: "🧶", name: "fluff", genes: { fluff: 0.15 } },
-    { e: "✨", name: "inner glow", genes: { glow: 0.12, wings: 0.08 } }
+    { e: "🦵", name: "legs", genes: { limbs: 0.18, senses: 0.09 } },
+    { e: "🤲", name: "hands", genes: { arms: 0.18, dexterity: 0.12 } },
+    { e: "🧠", name: "bigger brains", genes: { cortex: 0.15, layers: 0.12, recall: 0.09 } },
+    { e: "🗣", name: "language", genes: { social: 0.18 } },
+    { e: "📐", name: "planning", genes: { planning: 0.18, layers: 0.09 } },
+    { e: "👁", name: "big heads", genes: { head: 0.18, recall: 0.09 } },
+    { e: "🐟", name: "fins", genes: { fins: 0.22 } },
+    { e: "🧶", name: "fluff", genes: { fluff: 0.22 } },
+    { e: "✨", name: "inner glow", genes: { glow: 0.18, wings: 0.12 } }
   ];
   function blessChooser(m) {
     var body = h("div", null, [h("p", { class: "note" }, "the next 3 eggs lean this way. evolution still decides the rest.")]);
     var grid = h("div", { class: "grid2" });
+    // which blessings help the most-evolved smols reach their next tier
+    var maxT = game.stats.maxTier || 0, want = {};
+    SB.Game.smols(game).forEach(function (c) { if (c.tier === maxT) SB.Genome.nextNeeds(c.genome).forEach(function (n) { want[n.gene] = 1; }); });
     BLESS.forEach(function (b) {
+      var helps = Object.keys(b.genes).some(function (k) { return want[k]; });
       grid.appendChild(h("button", { class: "card", style: "text-align:left", onclick: function () {
         if (!SB.Game.spend(game, m.cost)) { toast("not enough sparks ✨"); return; }
         game.blessing = { name: b.name, genes: b.genes, uses: 3 };
@@ -463,7 +468,7 @@
         SB.Game.unlock(game, "miracle");
         SB.bus.emit("miracle", { id: "bless" });
         closeModal(); toast("🧬 blessed: the next 3 eggs lean toward " + b.name);
-      } }, [h("div", { class: "big" }, b.e), h("h4", null, b.name)]));
+      } }, [h("div", { class: "big" }, b.e), h("h4", null, b.name), helps ? h("div", { class: "tag" }, "next evolution") : null]));
     });
     body.appendChild(grid);
     modal("🧬 bless the next eggs", body);
