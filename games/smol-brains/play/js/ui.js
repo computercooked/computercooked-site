@@ -224,11 +224,19 @@
 
   /* ---------------- toasts & moments ---------------- */
   function buildToasts() { el.toasts = h("div", { class: "toasts" }); root.appendChild(el.toasts); }
+  // at most two toasts on screen; the rest wait their turn (repeats are dropped, old news falls off)
+  var toastQ = [];
   function toast(html, cls, ms) {
+    var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
+    if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
+    if (live.length >= 2) { toastQ.push([html, cls, ms]); if (toastQ.length > 5) toastQ.shift(); return; }
     var t = h("div", { class: "toast glass " + (cls || ""), html: html });
+    t._html = html;
     el.toasts.appendChild(t);
-    while (el.toasts.children.length > 4) el.toasts.removeChild(el.toasts.firstChild);
-    setTimeout(function () { t.classList.add("out"); setTimeout(function () { t.remove(); }, 600); }, ms || 4200);
+    setTimeout(function () {
+      t.classList.add("out");
+      setTimeout(function () { t.remove(); var q = toastQ.shift(); if (q) toast(q[0], q[1], q[2]); }, 500);
+    }, ms || 4200);
   }
   UI.toast = toast;
   var momentQ = [], momentBusy = false;

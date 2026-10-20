@@ -236,3 +236,8 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .pxi { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.28em; background: center / contain no-repeat; image-rendering: pixelated; image-rendering: crisp-edges; font-style: normal; }
 input { border-radius: 0; border: 0; background: #120e1c; box-shadow: inset 0 0 0 2px #3a3152, inset 0 3px 0 rgba(0, 0, 0, 0.35); }
 input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
+#ui:has(.modal-wrap) .toasts { display: none; }
+@media (max-width: 600px) {
+  .toasts { top: auto; bottom: calc(96px + var(--sab)); right: 50%; transform: translateX(50%); align-items: center; width: calc(100% - 24px); }
+}
+@media (max-width: 600px) { #ui:has(.sheet:not(.hide)) .toasts { bottom: auto; top: calc(58px + var(--sat)); } }
