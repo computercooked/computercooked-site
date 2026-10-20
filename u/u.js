@@ -51,6 +51,7 @@
     document.documentElement.style.setProperty("--u-accent", THEME[p.theme] || THEME.lime);
     $("#u-title").innerHTML = esc(shown);
     $("#u-avatar").innerHTML = window.ccAvatar(p.avatar);
+    if (p.frame && p.frame !== "none") $("#u-avatar").dataset.frame = p.frame; // level-unlocked border (shown even when private, like the color)
     $("#u-name").textContent = shown;
     $("#u-handle").textContent = "@" + p.username;
     $("#u-level").innerHTML = "<b>level " + p.level + "</b> · " + esc(p.title);

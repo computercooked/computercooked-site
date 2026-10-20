@@ -91,18 +91,25 @@ Defined in `src/cosmetics.js` (`UNLOCKS`). They're earned by playing only, and e
 
 | level | unlock |
 |---|---|
+| 2 | pixel frame |
 | 3 | antenna (accessory) |
 | 4 | mint profile color |
 | 5 | crown |
 | 6 | pink profile color |
+| 7 | neon frame |
 | 8 | halo |
+| 9 | circuit frame |
 | 10 | gold profile color |
 | 12 | on fire (`flames`) |
+| 14 | molten frame |
 | 16 | chrome profile color |
+| 18 | holo frame |
 | 20 | chef hat |
+| 25 | golden frame |
 
-- The server checks them: `POST /api/me/avatar` and the `theme` in `POST /api/me/profile` return 403 below the level.
-- `GET /api/me/profile` returns `level` and `cosmetics: [{kind: acc/theme, id, name, level, unlocked}]`.
+- The server checks them: `POST /api/me/avatar` and the `theme` or `frame` in `POST /api/me/profile` return 403 below the level.
+- `GET /api/me/profile` returns `level` and `cosmetics: [{kind: acc/theme/frame, id, name, level, unlocked}]`.
+- **Profile frames** (migration `0011_frames`, table `frames(user_id, frame, updated_at)`): a border around the avatar on /me and /u/<username>. `POST /api/me/profile {frame}` takes `none` (or "") or a frame id; `profile.frame` and the public profile's `frame` return it (`none` when never picked), even for a private profile, like the color. Deleted with the account, included in the export.
 - XP progress (in `cc.end` results) includes `unlocks`, the ones just reached, and the player page toasts them.
 - To add one: draw it in `assets/avatars.js` (accessories) or add the color to the `THEMES` maps in `me/me.js` and `u/u.js`, then add it to `UNLOCKS`, plus `AVATAR_RE` in `src/auth.js` or `THEMES` in `src/profile.js`.
 
@@ -145,7 +152,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | GET | `/api/me` · `/api/me/summary` | the logged-in user; recent games, bests, favorites, streak, `brought_in: {credited, pending}` (players who joined from your dares), and `saves: [{game, updated_at}]` (newest cloud save per game, for the hub's "jump back in") |
 | POST | `/api/me/favorite` · `/api/me/avatar` | `{game, on}` · `{avatar}` |
 | POST | `/api/me/delete` | `{password}`: hard-deletes the account, its sessions, saves, favorites, scores and uploads; plays and feedback stay without the link |
-| GET · POST | `/api/me/profile` | GET: profile + private settings (email). POST any of `{display_name, bio, fav_game, badges:["game:ach_id"…≤3, unlocked only], theme, public}`. Bios are 160 chars, word-filtered, no links |
+| GET · POST | `/api/me/profile` | GET: profile + private settings (email). POST any of `{display_name, bio, fav_game, badges:["game:ach_id"…≤3, unlocked only], theme, frame, public}`. Bios are 160 chars, word-filtered, no links |
 | POST | `/api/me/avatar` | a preset (`lime`…) or a built face `x:<mood>-<face 0-7>-<body 0-4>-<accessory>` (moods tired/happy/flat/angry/x; accessories none/headphones/cap/witch/bow/glasses/steam, plus level-locked antenna/crown/halo/flames/chef) |
 | POST | `/api/me/email` | `{email, news}`: stored unverified, `""` removes it. Nothing is emailed until verification exists |
 | POST | `/api/me/password` | `{current, next}`: also ends every other session |
