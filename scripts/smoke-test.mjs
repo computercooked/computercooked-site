@@ -143,6 +143,24 @@ const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/)
 ok(/games like fathom/.test(like) && (like.match(/class="play-btn" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
+// installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
+// manifest + pwa.js on the hub and every game page
+{
+  r = await get("/manifest.webmanifest");
+  const man = await r.json().catch(() => null);
+  ok(r.ok && /manifest\+json/.test(r.headers.get("content-type") || "") && man?.start_url?.startsWith("/games/") && man.display === "standalone" &&
+    man.icons?.some((i) => i.sizes === "512x512" && i.purpose === "maskable") && man.icons.some((i) => i.sizes === "192x192"), "web app manifest", man && { start: man.start_url, icons: man.icons?.length });
+  r = await get("/sw.js");
+  const sw = await r.text();
+  ok(r.ok && /no-cache/.test(r.headers.get("cache-control") || "") && /\/api\//.test(sw) && /addEventListener\("fetch"/.test(sw), "service worker served uncached, leaves /api alone", r.headers.get("cache-control"));
+  for (const u of ["/games/offline", "/assets/pwa.js", "/assets/icon-192.png", "/assets/icon-512.png", "/assets/icon-maskable-512.png"]) {
+    r = await get(u);
+    ok(r.status === 200, "pwa file " + u, r.status);
+  }
+  const hub = await (await get("/games/")).text(), gp = await (await get("/games/pixel-purge/")).text();
+  ok([hub, gp].every((h) => h.includes('rel="manifest"') && h.includes("/assets/pwa.js")) && hub.includes('id="install-card"'), "hub and game pages link the manifest and pwa.js (hub has the install card)");
+}
+
 // embed kit: a bare player any site can frame, with a credit link; the game page carries the snippet
 ok(/class="embed-code"[^>]*>&lt;iframe src=&quot;https:\/\/computercooked\.com\/games\/fathom\/embed\/&quot;/.test(page) && /Play fathom&lt;\/a&gt; free on/.test(page), "game page has the embed snippet with a credit link");
 r = await get("/games/fathom/embed/");

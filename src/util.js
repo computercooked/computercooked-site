@@ -103,7 +103,7 @@ export function deviceOf(ua = "") {
   return "desktop";
 }
 
-const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "other"];
+const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "other"];
 export const refOk = (r) => (REFS.includes(r) ? r : "other");
 
 // ---------- rate limiting (per isolate, memory only; IPs are never written to storage) ----------

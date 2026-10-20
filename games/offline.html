@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>offline — Computer Cooked Games</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#101114">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/games/games.css">
+</head>
+<body>
+  <!-- shown by the service worker (/sw.js) when there's no connection and the page you opened isn't saved -->
+  <main class="games-page">
+    <header class="games-hero">
+      <div class="hero-copy">
+        <p class="eyebrow">computercooked.com/games · offline</p>
+        <h1 class="games-title">no <span>signal</span></h1>
+        <p class="games-sub">the internet left. the computer is fine with it. games you've already played on this device still work:</p>
+      </div>
+    </header>
+    <section class="shelf" aria-labelledby="saved-h">
+      <h2 class="shelf-head" id="saved-h">ready offline</h2>
+      <ul class="card-grid" id="saved"><li class="me-empty">checking what's saved…</li></ul>
+    </section>
+    <p class="games-sub">offline runs are just for fun: scores, xp and leaderboards only count while you are online. <a href="/games/">try again ↻</a></p>
+  </main>
+  <script>
+    (function () {
+      var list = document.getElementById("saved");
+      function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+      function none() { list.innerHTML = '<li class="me-empty">nothing saved yet. open a game while online and it\'ll be here next time.</li>'; }
+      if (!window.caches) return none();
+      caches.keys().then(function (keys) {
+        return Promise.all(keys.filter(function (k) { return k.indexOf("cc-") === 0; }).map(function (k) { return caches.open(k).then(function (c) { return c.keys(); }); }));
+      }).then(function (all) {
+        var slugs = {};
+        // a game counts once its player (the /play/ page) is saved
+        all.forEach(function (reqs) { reqs.forEach(function (r) { var m = /\/games\/([a-z0-9-]+)\/play\/(index\.html)?$/.exec(new URL(r.url).pathname); if (m) slugs[m[1]] = 1; }); });
+        return caches.match("/games/games.json").then(function (res) { return res ? res.json() : { games: [] }; }).then(function (d) {
+          var games = (d.games || []).filter(function (g) { return slugs[g.slug]; });
+          if (!games.length) return none();
+          list.innerHTML = games.map(function (g) {
+            return '<li class="game-card"><div class="game-card-inner"><img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="400" height="300">' +
+              '<div class="game-body"><h3 class="game-name">' + esc(g.title) + '</h3><p class="game-pitch">' + esc(g.pitch || "") + '</p>' +
+              '<a class="play-btn" href="/games/' + encodeURIComponent(g.slug) + '/" aria-label="play ' + esc(g.title) + '">play ▶</a></div></div></li>';
+          }).join("");
+        });
+      }).catch(none);
+      window.addEventListener("online", function () { location.href = "/games/"; });
+    })();
+  </script>
+</body>
+</html>

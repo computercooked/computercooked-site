@@ -12,3 +12,10 @@
 /games/:slug/play/*
   ! X-Frame-Options
   Content-Security-Policy: frame-ancestors *
+
+# the service worker must be re-checked on every load, or a fix to it could sit in caches for a day
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=3600

@@ -1,0 +1,22 @@
+{
+  "name": "Computer Cooked Games",
+  "short_name": "CC Games",
+  "description": "free browser games, mildly overheating. the ones you've played work offline too.",
+  "id": "/games/",
+  "start_url": "/games/?ref=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101114",
+  "theme_color": "#101114",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "play CRASH", "url": "/games/crash/?ref=app", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192" }] },
+    { "name": "your profile", "url": "/me/", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
