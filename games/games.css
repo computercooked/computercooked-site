@@ -2383,3 +2383,72 @@
 .cc-dare-box > p:first-child { flex: 1 1 160px; margin: 0; }
 .cc-dare-say { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--lime); overflow-wrap: anywhere; }
 .cc-dare-say:empty { display: none; }
+
+/* ---------- embed kit: the "embed this game" card and the bare player at /games/<slug>/embed/ ---------- */
+.embed-code {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 var(--s-2);
+  padding: var(--s-2);
+  border: 2px solid var(--carbon-3);
+  border-radius: 10px;
+  background: var(--carbon);
+  color: var(--paper-dim);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.embed-copy .tool-text { display: inline; }
+
+body.embed {
+  min-height: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: #07080a;
+}
+
+.embed .player {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.embed .player-stage {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.embed .player-bar { padding: 6px; }
+
+.embed-title {
+  color: var(--paper);
+  text-decoration: none;
+}
+
+.embed-brand {
+  flex: none;
+  margin-left: 4px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: var(--lime);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.embed-title:hover,
+.embed-brand:hover { text-decoration: underline; }
+
+.embed-title { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* small embeds (phones, narrow blog columns): keep the game name and the credit, drop share */
+@media (max-width: 480px) {
+  .embed #btn-share { display: none; }
+  .embed-brand-long { display: none; }
+}

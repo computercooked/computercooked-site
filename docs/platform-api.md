@@ -30,7 +30,7 @@ Response:
     "avg_rating": 0.6,                // (up - down) / rated, from -1 to 1
     "thumbs_up": 0, "thumbs_down": 0, "feedback_count": 0,
     "latest_feedback": [{ "rating": 1, "text": "…", "tester": "sam", "version": "1", "at": "…" }],
-    "top_referrers": [{ "referrer": "tiktok", "plays": 0 }],   // tiktok | youtube | instagram | x | threads | bluesky | search | internal | direct | other
+    "top_referrers": [{ "referrer": "tiktok", "plays": 0 }],   // tiktok | youtube | instagram | x | threads | bluesky | search | internal | direct | embed | other
     "testers": [{ "tester": "sam", "plays": 0 }],
     "devices": { "mobile": 0, "desktop": 0, "tablet": 0 }
   }]
@@ -158,6 +158,7 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 | GET | `/api/me/friends/feed` | `{friends, items: [{kind: achievement/challenge/best, game, title, text, ts, who: {username, name, avatar, level}}]}`: your friends from the last 14 days (badges, weekly challenge wins, new bests). Friends with a private profile are left out, and game moments (smol words etc.) never appear here |
 | POST | `/api/me/friends` | `{action: add/accept/decline/cancel/remove/block/unblock, username}` → `{status: requested/friends/none/blocked}`. Adding someone who already asked you accepts. 200 friends max, 20 waiting requests, 30 adds/hour. Blocking removes the friendship, and the blocked player gets "no such player" if they try to add you (a block is never revealed) |
 | GET | `/games/:slug/` | every game page runs through `src/seo.js`, which adds VideoGame + BreadcrumbList JSON-LD to `<head>`, fills the `[data-how-to]` card ("how to play X": pitch, controls split into steps, optional `how_to` tips from games.json/entry.json, size and daily facts) and server-renders "games like X" into `[data-more-games]` (3 games by shared vibe, then shared tag, then newest; same vibes as the hub chips in fx.js). Everything comes from games.json |
+| GET | `/games/:slug/embed/` | the embed player (`src/embed.js`): the game's `/play/` iframe plus a slim bar (title linking to the game page, restart, sound, fullscreen, "more free games"). Any site may frame it (`frame-ancestors *`, no X-Frame-Options); `noindex`, canonical = the game page. Plays from it carry ref `embed`. 404 for CRASH (inline, no `/play/`) and community games. Game pages show an "embed this game" card with the snippet: an iframe to this URL plus a "Play X free on Computer Cooked Games" credit link |
 | GET | `/games/:slug/?vs=&from=[&d=]` | the game page with link-preview tags for a dare: `<title>`, og/twitter title "can you beat 1,240 on CRASH? from datz", a dare description, and `og-vs.png`. With a valid `d` the score and name come from the dare, not the URL. Plain game pages carry `og.png`. Both cards are 1200x630, made by `scripts/make-og.mjs` (see its header; `add-game.ps1` runs it) |
 | GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |
 | GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |

@@ -3,6 +3,7 @@
 // "games like X" row of internal links. Dare links (?vs=/&d=) also get their preview tags here.
 // Everything comes from games.json, so a game added with add-game.ps1 gets it with no extra step.
 import { dareTags } from "./dares.js";
+import { embeddable, embedCard } from "./embed.js";
 
 const SITE = "https://computercooked.com";
 // keep in step with VIBES / FALLBACK in assets/fx.js (the hub filter chips)
@@ -105,7 +106,7 @@ export async function gamePage(req, env, url, slug) {
 
   const rw = new HTMLRewriter()
     .on("head", { element(e) { e.append(jsonLd(g), { html: true }); } })
-    .on("[data-how-to]", { element(e) { e.setInnerContent(howTo(g), { html: true }); } })
+    .on("[data-how-to]", { element(e) { e.setInnerContent(howTo(g), { html: true }); if (embeddable(g)) e.after(embedCard(g), { html: true }); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })
     .on("[data-more-games] ul", { element(e) { e.setInnerContent(related(games, slug).map(card).join(""), { html: true }); } });

@@ -11,6 +11,7 @@ import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { makeDare, getDare, beatDare } from "./dares.js";
 import { gamePage } from "./seo.js";
+import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
@@ -25,6 +26,9 @@ export default {
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return gamePage(req, env, url, gm[1]);
+    // the embed player other sites can iframe
+    const em = /^\/games\/([a-z0-9-]+)\/embed\/?$/.exec(url.pathname);
+    if (em) return embedPage(env, url, em[1]);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
       return await api(req, env, url);
