@@ -102,9 +102,32 @@
       s.bests.forEach(function (b) { best[b.game] = b.best; });
       $("#favs").innerHTML = s.favorites.length ? s.favorites.map(function (g) { return card(g, best[g] ? "best " + Math.round(best[g]) : ""); }).join("")
         : '<li class="me-empty">tap ♡ on a game page to keep it here.</li>';
-      $("#recent").innerHTML = s.recent.length ? s.recent.map(function (r) { return card(r.game, r.plays + (r.plays === 1 ? " play" : " plays") + (best[r.game] ? " · best " + Math.round(best[r.game]) : "")); }).join("")
-        : '<li class="me-empty">nothing yet. <a href="/games/">go play something</a>.</li>';
+      $("#recent").innerHTML = s.recent.length ? s.recent.slice(0, 12).map(function (r) {
+        return card(r.game, r.plays + (r.plays === 1 ? " play" : " plays") + " · " + mins(r.ms) + (best[r.game] ? " · best " + Math.round(best[r.game]) : ""));
+      }).join("") : '<li class="me-empty">nothing yet. <a href="/games/">go play something</a>.</li>';
+      if (s.xp) showXp(s);
     });
+  }
+
+  function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }
+  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement" };
+  function showXp(s) {
+    var x = s.xp, span = Math.max(1, x.next - x.floor), pct = Math.min(100, Math.round(100 * (x.xp - x.floor) / span));
+    $("#lvl-n").textContent = "level " + x.level;
+    $("#lvl-title").textContent = x.title;
+    $("#lvl-fill").style.width = pct + "%";
+    $("#lvl-bar").setAttribute("aria-valuenow", String(pct));
+    $("#lvl-x").textContent = x.xp + " xp · " + (x.next - x.xp) + " to level " + (x.level + 1);
+    var got = s.achievements.filter(function (a) { return a.unlocked_at; }).length;
+    $("#ach-count").textContent = got + "/" + s.achievements.length;
+    $("#achs").innerHTML = s.achievements.map(function (a) {
+      var where = a.game === "site" ? "" : " · " + esc((catalog[a.game] || {}).title || a.game);
+      return '<li class="' + (a.unlocked_at ? "is-got" : "") + '"><b>' + esc(a.name) + '</b><span>' + esc(a.desc) + where + '</span><i>+' + a.xp + " xp</i></li>";
+    }).join("");
+    $("#xp-log").innerHTML = s.xp_history.length ? s.xp_history.map(function (h) {
+      var g = h.game ? " · " + esc((catalog[h.game] || {}).title || h.game) : "";
+      return "<li><b>+" + h.amount + "</b> " + esc(KIND[h.kind] || h.kind) + g + "</li>";
+    }).join("") : '<li class="me-empty">finish a run of 10s or more to start earning.</li>';
   }
 
   fetch("/games/games.json").then(function (r) { return r.json(); }).catch(function () { return { games: [] }; }).then(function (d) {

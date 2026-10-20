@@ -63,6 +63,23 @@ window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at mos
 - Games without hooks still get basic plays (time played, no score) logged by the player page.
 - The player page also sends `{type:"cc-mute", muted}`, `{type:"cc-restart"}` and `{type:"cc-pause"}` messages to the game iframe.
 
+### XP, levels and achievements (slice B)
+
+```js
+cc.achieve(id)  // -> Promise<{id, name, desc, xp} | null>; logged-in players only, once per account
+```
+
+- **Declaring achievements:** add them to `entry.json` as `"achievements": [{"id":"first_word","name":"first word","desc":"teach a smol a word","xp":25,"secret":false}]`. Ids are `a-z 0-9 _ -`, XP is capped at 100 each, and add-game copies them into games.json. The server ignores ids that aren't declared.
+- **What earns XP:** only the server grants it, and only for a logged-in player's completed run of 10 s or more whose score (when the game has a board) passed the bounds check.
+- **Amounts:**
+  - +10 per run, plus up to +40 for the run's rank against everyone on that game's all-time board;
+  - +25 the first time you play a game;
+  - a daily streak bonus of +5 × streak days, capped at +50.
+- **Daily cap:** the run part is capped at 150 XP per game per day.
+- **Levels:** reaching level L takes 50·(L−1)^1.6 total XP (L2 50, L5 459, L10 1682). Titles: fresh install, warm boot (3), fan noise (5), tab hoarder (8), overclocked (12), thermal throttled (16), blue screen veteran (20), fully cooked (25), the kernel (30).
+- **Site-wide achievements:** sampler platter (5 games), seven day uptime (7-day streak), leaderboard material (top 10 on an all-time board), ctrl+s (first cloud save), critic.exe (rate a game).
+- **What players see:** the player page toasts board rank, +XP, unlocks and level-ups (with a share button). `/api/me` returns `level, title, xp, floor, next`, and `/api/me/summary` adds `xp, xp_history, achievements` for /me.
+
 ### Saves and the player (slice A)
 
 ```js

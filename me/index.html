@@ -93,6 +93,15 @@
         </div>
         <button class="tool" id="btn-logout" type="button">log out</button>
       </div>
+      <div class="about-card me-level" id="me-level">
+        <p class="me-level-t"><b id="lvl-n">level 1</b> · <span id="lvl-title">fresh install</span></p>
+        <div class="me-bar" role="progressbar" aria-labelledby="lvl-n" aria-valuemin="0" aria-valuemax="100" id="lvl-bar"><span id="lvl-fill"></span></div>
+        <p class="me-level-x" id="lvl-x">0 xp</p>
+        <details class="me-how">
+          <summary>how xp works</summary>
+          <p>finish a run of 10s or more while logged in: +10, up to +40 more for how high you place on that game's board, +25 the first time you play a game, and a daily streak bonus. each game pays up to 150 a day, so play around.</p>
+        </details>
+      </div>
       <details class="about-card me-change">
         <summary>change face</summary>
         <div class="avatar-pick" id="avatar-change"></div>
@@ -105,6 +114,14 @@
       <section class="shelf" aria-labelledby="recent-h">
         <h2 class="shelf-head" id="recent-h">recently played</h2>
         <ul class="card-grid me-grid" id="recent"></ul>
+      </section>
+      <section class="shelf" aria-labelledby="ach-h">
+        <h2 class="shelf-head" id="ach-h">achievements <small id="ach-count"></small></h2>
+        <ul class="me-ach" id="achs"></ul>
+      </section>
+      <section class="shelf" aria-labelledby="xp-h">
+        <h2 class="shelf-head" id="xp-h">recent xp</h2>
+        <ul class="me-xp" id="xp-log"></ul>
       </section>
     </section>
   </main>

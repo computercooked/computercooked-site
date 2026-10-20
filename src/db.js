@@ -1,8 +1,9 @@
 // Makes sure the schema exists. Runs once per Worker isolate; every statement is IF NOT EXISTS.
 import init from "../migrations/0001_init.sql";
 import saves from "../migrations/0002_saves.sql";
+import xp from "../migrations/0003_xp.sql";
 
-const schema = [init, saves].join("\n;\n");
+const schema = [init, saves, xp].join("\n;\n");
 
 let ready = null;
 export function ensureSchema(env) {

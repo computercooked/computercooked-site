@@ -4,6 +4,7 @@ import { json, bad, HttpError } from "./util.js";
 import { ensureSchema } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount } from "./auth.js";
 import { savesRoute } from "./saves.js";
+import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
@@ -52,13 +53,13 @@ async function api(req, env, url) {
     case "POST /api/auth/signup": return signup(req, env, ip);
     case "POST /api/auth/login": return login(req, env, ip);
     case "POST /api/auth/logout": return logout(req, env);
-    case "GET /api/me": return json({ ok: true, user });
+    case "GET /api/me": return json({ ok: true, user: user && { ...user, ...levelOf(await totalXp(env, user.id)) } });
   }
 
   if (path.startsWith("/api/me/")) {
     if (!user) return bad("log in first", 401);
     switch (route) {
-      case "GET /api/me/summary": return meSummary(env, user);
+      case "GET /api/me/summary": return meSummary(env, user, origin);
       case "POST /api/me/favorite": return favorite(req, env, user);
       case "POST /api/me/avatar": return setAvatar(req, env, user);
       case "POST /api/me/upload": return uploadGame(req, env, ip, user);
