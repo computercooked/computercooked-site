@@ -76,6 +76,19 @@
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
 
+  // "embed this game" card (added by the Worker): copy the snippet
+  var embedBtn = document.querySelector("[data-copy-embed]");
+  if (embedBtn) {
+    var code = document.querySelector(".embed-code");
+    code.addEventListener("focus", function () { code.select(); });
+    embedBtn.addEventListener("click", function () {
+      code.select();
+      var done = function () { toast("embed code copied. paste it into your site's html."); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code.value).then(done, function () { toast("press ctrl+c (or ⌘c) to copy"); });
+      else toast("press ctrl+c (or ⌘c) to copy");
+    });
+  }
+
   /* ---------- SDK relay: the game (in the iframe) talks to cc-sdk.js on this page ---------- */
   var cc = window.cc;
   var sdkGame = false;

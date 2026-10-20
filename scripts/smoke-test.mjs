@@ -76,6 +76,19 @@ const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/)
 ok(/games like fathom/.test(like) && (like.match(/class="play-btn" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
+// embed kit: a bare player any site can frame, with a credit link; the game page carries the snippet
+ok(/class="embed-code"[^>]*>&lt;iframe src=&quot;https:\/\/computercooked\.com\/games\/fathom\/embed\/&quot;/.test(page) && /Play fathom&lt;\/a&gt; free on/.test(page), "game page has the embed snippet with a credit link");
+r = await get("/games/fathom/embed/");
+page = await r.text();
+ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors *" && !r.headers.get("x-frame-options") && page.includes('src="/games/fathom/play/"') && page.includes('href="https://computercooked.com/games/fathom/"') && page.includes('name="robots" content="noindex"'), "embed player: frameable anywhere, credit link, noindex");
+r = await get("/games/fathom/play/");
+ok(r.headers.get("content-security-policy") === "frame-ancestors *", "the game inside the embed may sit under any site", r.headers.get("content-security-policy"));
+r = await get("/games/fathom/");
+ok(r.headers.get("x-frame-options") === "DENY", "the full game page still can't be framed");
+r = await get("/games/crash/embed/");
+ok(r.status === 404, "CRASH has no embed yet (it has no /play/)", r.status);
+r = await (await post("/api/events", { anon: "smokee" + rid(), ref: "embed", events: [{ t: "start", id: rid(), game: "fathom", v: "1" }] })).json();
+ok(r.ok, "plays from embeds are accepted with ref embed");
 
 r = await (await get("/api/stats")).json();
 ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");

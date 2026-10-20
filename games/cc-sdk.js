@@ -230,7 +230,9 @@
   }
   // first referrer of this visit sticks for the session
   var ref;
-  try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refBucket(); }
+  // the embed player on another site: count those plays as "embed" whatever the referrer
+  if (/\/embed\/$/.test(location.pathname)) ref = "embed";
+  else try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refBucket(); }
 
   var game = slugFromPath(location.pathname);
   var version = "1";
