@@ -867,8 +867,9 @@
     drawTerrain(vis);
     drawShadows();
     drawObjects(vis);
-    for (var ah = 0; ah < afterObjects.length; ah++) { GL.resetAttribs(ctx); afterObjects[ah](gl, ctx, VP, cam); }
     drawWater(vis);
+    // sprites go after the water (they don't write depth): a smol in water is cut off at the waterline instead
+    for (var ah = 0; ah < afterObjects.length; ah++) { GL.resetAttribs(ctx); afterObjects[ah](gl, ctx, VP, cam); }
     if (R.particles) R.particles.draw(gl, ctx, progs, VP, cam);
     if (P) drawPost(P);
     if (octx) drawOverlay();

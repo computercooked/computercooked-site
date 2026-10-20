@@ -241,10 +241,17 @@
     // facing: which way it's heading on screen
     var sx = Math.sin(c.facing), sz = Math.cos(c.facing), flip = (sx * cam.right[0] + sz * cam.right[2]) < 0 ? 1 : 0;
     if (n * IS >= inst.length) { var ni = new Float32Array(inst.length * 2); ni.set(inst); inst = ni; }
+    // in water: only the part above the surface shows (wading, swimming, or sinking while it drowns)
+    var w = SB.Game.current && SB.Game.current.world, cut = 0;
+    if (w && !c.heldBy && c.onGround !== false) {
+      var dep = SB.World.depthAt(w, x, z);
+      if (dep > 0.15) { cut = Math.min(0.55, (dep - 0.15) * 0.6 + ((c.drownT || 0) > 0 ? 0.25 : 0)); y = SB.World.groundY(w, x, z); }
+    }
+    var cutPx = Math.round(cut * (s.bodyPx + 2)) + (cut ? 2 : 0); // rows hidden below the waterline (frame has 2 empty rows at the bottom)
     var o = n * IS;
     inst[o] = x; inst[o + 1] = y; inst[o + 2] = z;
-    inst[o + 3] = F * k; inst[o + 4] = F * k;
-    inst[o + 5] = (s.ox + fr * F) / AW; inst[o + 6] = s.oy / AH; inst[o + 7] = (s.ox + (fr + 1) * F) / AW; inst[o + 8] = (s.oy + F) / AH;
+    inst[o + 3] = F * k; inst[o + 4] = (F - cutPx) * k;
+    inst[o + 5] = (s.ox + fr * F) / AW; inst[o + 6] = s.oy / AH; inst[o + 7] = (s.ox + (fr + 1) * F) / AW; inst[o + 8] = (s.oy + F - cutPx) / AH;
     inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.dying ? 1 - c.fade : 1;
     n++;
   };
@@ -258,7 +265,8 @@
     "void main() {",
     "  vec4 c = uVP * vec4(iPos, 1.0);",
     "  vec2 pix = floor((c.xy / c.w * 0.5 + 0.5) * uRes + 0.5);",          // snap the feet to the pixel grid
-    "  vec2 p = pix + vec2(floor((aCorner.x - 0.5) * iPx.x + 0.5), aCorner.y * iPx.y - iPx.y / 32.0);",
+    "  float k = iPx.x / 32.0;",
+    "  vec2 p = pix + vec2(floor((aCorner.x - 0.5) * iPx.x + 0.5), aCorner.y * iPx.y - (iPx.y < iPx.x ? 0.0 : k));",
     "  gl_Position = vec4(p / uRes * 2.0 - 1.0, c.z / c.w - 0.004, 1.0);",
     "  float u = iMisc.x > 0.5 ? 1.0 - aCorner.x : aCorner.x;",
     "  vUV = vec2(mix(iUV.x, iUV.z, u), mix(iUV.w, iUV.y, aCorner.y));",
