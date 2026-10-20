@@ -853,7 +853,13 @@
   });
 
   document.addEventListener("visibilitychange", function () { if (document.hidden) pause(); });
-  window.addEventListener("blur", function () { keys.left = keys.right = false; pause(); });
+  // inside nested embeds focus can bounce between frames right after a click; only pause if it really left
+  var blurT = null;
+  window.addEventListener("blur", function () {
+    keys.left = keys.right = false;
+    clearTimeout(blurT);
+    blurT = setTimeout(function () { if (!document.hasFocus()) pause(); }, 250);
+  });
   document.addEventListener("cc:deck-open", pause);
 
   /* ---------- buttons ---------- */

@@ -12,9 +12,16 @@
         "60s runs"
       ],
       "controls": "drag / arrows / A D",
-      "version": "1",
+      "size_kb": 877,
+      "version": "2",
       "added": "2026-10-19",
-      "max_score_per_sec": 60
+      "max_score_per_sec": 60.0,
+      "how_to": [
+        "tasks fall. touching one = +15° heat. big ones hurt more.",
+        "coffee −11°, fans −24°.",
+        "heat creeps up on its own. it gets worse. like real life.",
+        "score = time alive + dodges + pickups."
+      ]
     },
     {
       "slug": "handbag-havoc",
