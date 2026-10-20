@@ -995,6 +995,15 @@
   padding-left: 18px;
 }
 
+.about-card .how-steps {
+  margin-bottom: var(--s-2);
+}
+
+.about-card .how-facts {
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+}
+
 .about-card kbd {
   font-family: var(--mono);
   font-weight: 800;

@@ -44,7 +44,7 @@
         </div>
 
         <div class="player-bar">
-          <p class="player-title">smol brains</p>
+          <h1 class="player-title">smol brains</h1>
           <button class="tool" id="btn-restart" type="button" aria-label="restart">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>
             <span class="tool-text">restart</span>
@@ -66,7 +66,7 @@
 
       <aside class="player-side">
         <div class="ad-slot" data-slot="player-side" aria-hidden="true"></div>
-        <div class="about-card">
+        <div class="about-card" data-how-to>
           <h2>// smol brains</h2>
           <p>raise tiny creatures with real neural-network brains. teach them words. they will learn the wrong ones.</p>
           <p><b>controls:</b> tools: grab, tickle (reward), tap (scold), talk (1-4). drag to carry or throw, drag empty ground to pan, pinch or wheel to zoom. space pauses, [ ] speed, t talk, b brain viewer.</p>
@@ -77,6 +77,10 @@
         </div>
       </aside>
     </div>
+    <section class="more-games" data-more-games="smol-brains" aria-labelledby="more-heading" hidden>
+      <h2 class="shelf-head" id="more-heading">play next <a class="shelf-link" href="/games/">all games ▶</a></h2>
+      <ul class="card-grid"></ul>
+    </section>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

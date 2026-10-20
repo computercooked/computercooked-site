@@ -67,6 +67,15 @@ let page = await (await get("/games/crash/")).text();
 ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
 ok(/property="og:title" content="can you beat 40 on CRASH\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+// search: every game page carries VideoGame JSON-LD, a how-to-play card and a "games like X" row of links
+page = await (await get("/games/fathom/")).text();
+const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
+ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
+ok(/how to play fathom/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
+const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
+ok(/games like fathom/.test(like) && (like.match(/class="play-btn" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
+r = await get("/games/fathom/play/");
+ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
 
 r = await (await get("/api/stats")).json();
 ok(r.ok && r.games.some((g) => g.game === "crash"), "stats");
@@ -327,6 +336,11 @@ if (local) {
   ok(r.deleted === true, "delete account");
   r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
   ok(r.status === 401, "deleted account can't log in", r.status);
+  // user-linked rows go with the account: their dares (and the name on old links) disappear
+  r = await get("/api/dare/" + d2.id);
+  ok(r.status === 404, "deleting an account removes its dares", r.status);
+  page = await (await get("/games/crash/?d=" + d2.id)).text();
+  ok(!page.includes("Smoke Tester") && !page.includes("can you beat"), "a deleted account's dare link shows no name in the preview");
 }
 
 r = await get("/api/admin/metrics");

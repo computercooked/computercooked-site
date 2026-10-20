@@ -20,7 +20,7 @@
     { id: "quick", label: "60s or less", tags: ["short", "60s runs", "challenge", "one-thumb", "quick"] },
     { id: "rage", label: "rage", tags: ["rage", "trick", "hard", "funny"] }
   ];
-  var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"] };
+  var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"], "smol-brains": ["chill"] };
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -226,7 +226,7 @@
     if (!more) return;
     var pick = games.filter(function (g) { return g.slug !== slug; }).slice(-3).reverse();
     var list = more.querySelector("ul");
-    if (!pick.length || !list) return;
+    if (!pick.length || !list || list.children.length) return; // the Worker already put "games like X" there
     list.innerHTML = pick.map(function (g) {
       return '<li class="game-card"><div class="game-card-inner">' +
         '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" loading="lazy" decoding="async">' +
