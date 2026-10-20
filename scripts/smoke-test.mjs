@@ -431,8 +431,13 @@ else {
   r = await (await get("/api/me/summary", { cookie })).json();
   ok(r.brought_in?.credited === 0, "deleting an account removes its referral row", r.brought_in);
   await post("/api/me/profile", { public: true }, { cookie }); // the profile steps above left it private
+  const me4 = (await (await get("/api/me", { cookie })).json()).user;
   r = await (await get("/api/me/friends/feed", { cookie: cv })).json();
   ok(r.ok && r.friends === 1 && r.items.some((i) => i.who?.username === u && i.kind === "best" && i.game === "crash"), "friends feed shows a friend's new best", r.items?.slice(0, 3));
+  // the xp runs earlier took this account past several levels today: one note for the day, the highest level
+  const lv = r.items.filter((i) => i.who?.username === u && i.kind === "level");
+  ok(lv.length === 1 && lv[0].text.startsWith("reached level " + me4.level), "friends feed: one level-up note per day, the highest", lv);
+  ok(r.items.some((i) => i.who?.username === u && i.kind === "friend"), "friends feed: new friend note");
   await post("/api/me/profile", { public: false }, { cookie });
   r = await (await get("/api/me/friends/feed", { cookie: cv })).json();
   ok(r.ok && !r.items.some((i) => i.who?.username === u), "a private profile stays out of friends feeds");
