@@ -4,8 +4,9 @@
 import { json, now, dayOf, weekOf, textClean } from "./util.js";
 import { SITE_ACH } from "./xp.js";
 
-// One featured game per ISO week (UTC, Monday to Sunday). Add the next pick before the week starts;
-// a week with no entry simply shows no challenge. `target` is a single run's score on that game's board.
+// One featured game per ISO week (UTC, Monday to Sunday). A hand pick here always wins. A week with no
+// entry gets an automatic pick (see autoPick), stored in the challenges table on first use.
+// `target` is a single run's score on that game's board.
 export const CHALLENGES = [
   { week: "2026-W43", game: "level-devil-exe", target: 1000, goal: "clear 10 levels in one run (score 1,000+)", xp: 100 },
 ];
@@ -15,7 +16,66 @@ export const EVENTS = [
   { id: "halloween_2026", from: "2026-10-19", until: "2026-11-01", name: "trick or treat.exe", desc: "finish a run before nov 1 (halloween 2026)", xp: 31, label: "halloween" },
 ];
 
-export const challengeFor = (t) => CHALLENGES.find((c) => c.week === weekOf(t)) || null;
+export const AUTO_XP = 100;
+const WEEK = 7 * 86400000;
+
+// Monday 00:00 UTC of the week of t
+function weekStart(t) {
+  const d = new Date(t), dow = d.getUTCDay() || 7;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1 - dow);
+}
+
+let cached = { week: null, c: null };
+// This week's challenge. With a catalog it may make (and store) the automatic pick; without one
+// (inside awardPlay) it only reads a pick that already exists.
+export async function challengeFor(env, t, catalog = null) {
+  const week = weekOf(t);
+  const manual = CHALLENGES.find((c) => c.week === week);
+  if (manual) return manual;
+  if (cached.week === week && cached.c) return cached.c;
+  let row = await env.DB.prepare("SELECT week, game, target, goal, xp FROM challenges WHERE week = ?").bind(week).first();
+  if (!row && catalog) {
+    const pick = await autoPick(env, t, catalog);
+    if (!pick) return null;
+    await env.DB.prepare("INSERT OR IGNORE INTO challenges (week, game, target, goal, xp, created_at) VALUES (?,?,?,?,?,?)")
+      .bind(week, pick.game, pick.target, pick.goal, pick.xp, now()).run();
+    row = await env.DB.prepare("SELECT week, game, target, goal, xp FROM challenges WHERE week = ?").bind(week).first(); // first writer wins
+  }
+  if (row) { row.auto = true; cached = { week, c: row }; }
+  return row || null;
+}
+
+// 2 significant figures: 1234 -> 1200, 0.0372 -> 0.037
+const nice = (x) => Number(Number(x).toPrecision(2));
+
+// The game with the most unique players in the 7 days before the week started (so the pick is the same
+// all week), among games with a leaderboard, skipping last week's pick. Target: about the 60th
+// percentile of that game's scores (needs 10+ runs, else 30 s of perfect play).
+export async function autoPick(env, t, catalog) {
+  const start = weekStart(t), prevWeek = weekOf(start - WEEK);
+  const prev = CHALLENGES.find((c) => c.week === prevWeek)?.game
+    || await env.DB.prepare("SELECT game FROM challenges WHERE week = ?").bind(prevWeek).first("game");
+  const ok = (slug) => slug !== prev && catalog.get(slug)?.max_score_per_sec > 0;
+  const { results } = await env.DB.prepare(
+    `SELECT game, COUNT(DISTINCT COALESCE('u' || user_id, 'a' || anon_id)) players, COUNT(*) plays
+     FROM plays WHERE day >= ? AND day < ? GROUP BY game ORDER BY players DESC, plays DESC`
+  ).bind(dayOf(start - WEEK), dayOf(start)).all();
+  let game = results.map((r) => r.game).find(ok);
+  if (!game) { // no plays last week: most played ever, then the catalog order
+    const all = (await env.DB.prepare("SELECT game FROM plays GROUP BY game ORDER BY COUNT(*) DESC").all()).results.map((r) => r.game);
+    game = all.find(ok) || [...catalog.keys()].find(ok);
+  }
+  if (!game) return null;
+  const g = catalog.get(game);
+  const n = await env.DB.prepare("SELECT COUNT(*) n FROM scores WHERE game = ? AND hidden = 0").bind(game).first("n");
+  let target;
+  if (n >= 10) {
+    target = await env.DB.prepare("SELECT score FROM scores WHERE game = ? AND hidden = 0 ORDER BY score LIMIT 1 OFFSET ?")
+      .bind(game, Math.floor(0.6 * (n - 1))).first("score");
+  }
+  target = nice(target > 0 ? target : g.max_score_per_sec * 30);
+  return { week: weekOf(start), game, target, goal: `score ${target.toLocaleString("en-US")}+ in one run`, xp: AUTO_XP, auto: true, basis: { players_last_week: results.find((r) => r.game === game)?.players || 0, scores: n, excluded: prev || null } };
+}
 export const eventsLive = (t) => EVENTS.filter((e) => dayOf(t) >= e.from && dayOf(t) < e.until);
 export const eventDef = (id) => EVENTS.find((e) => e.id === id) || null;
 
@@ -26,12 +86,12 @@ function weekEnd(t) {
 }
 
 export async function challenge(env, user, catalog) {
-  const t = now(), c = challengeFor(t);
+  const t = now(), c = await challengeFor(env, t, catalog);
   let out = null;
   if (c && catalog.has(c.game)) {
     const g = catalog.get(c.game);
     const finishers = await env.DB.prepare("SELECT COUNT(*) n FROM xp_events WHERE kind = 'challenge' AND ref = ?").bind(c.week).first("n");
-    out = { week: c.week, game: c.game, title: g.title, thumbnail: g.thumbnail, goal: c.goal, target: c.target, xp: c.xp, ends_at: new Date(weekEnd(t)).toISOString(), finishers };
+    out = { week: c.week, game: c.game, title: g.title, thumbnail: g.thumbnail, goal: c.goal, target: c.target, xp: c.xp, auto: !!c.auto, ends_at: new Date(weekEnd(t)).toISOString(), finishers };
     if (user) {
       out.done = !!(await env.DB.prepare("SELECT 1 FROM xp_events WHERE user_id = ? AND kind = 'challenge' AND ref = ?").bind(user.id, c.week).first());
       out.best = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE user_id = ? AND game = ? AND week = ? AND hidden = 0").bind(user.id, c.game, c.week).first("b");
@@ -44,6 +104,17 @@ export async function challenge(env, user, catalog) {
     events.push(ev);
   }
   return json({ ok: true, challenge: out, events }, 200, { "cache-control": "no-store" });
+}
+
+// GET /api/admin/challenge?date=YYYY-MM-DD (admin): the pick for that date's week (hand pick, stored
+// auto pick, or what the auto pick would be right now) without storing anything. Default: next week.
+export async function previewChallenge(url, env, catalog) {
+  const d = url.searchParams.get("date");
+  const t = d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(d + "T12:00:00Z") : now() + WEEK;
+  const week = weekOf(t);
+  const manual = CHALLENGES.find((c) => c.week === week);
+  const stored = await env.DB.prepare("SELECT week, game, target, goal, xp FROM challenges WHERE week = ?").bind(week).first();
+  return json({ ok: true, week, source: manual ? "hand" : stored ? "stored" : "auto (not stored yet)", pick: manual || stored || await autoPick(env, t, catalog) });
 }
 
 // ---------- activity feed ----------
