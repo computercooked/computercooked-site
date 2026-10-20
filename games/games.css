@@ -1289,6 +1289,7 @@
 .cc-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
 }
@@ -1367,6 +1368,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cc-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cc-name a:hover,
+.cc-name a:focus-visible {
+  text-decoration: underline;
 }
 
 .cc-score {

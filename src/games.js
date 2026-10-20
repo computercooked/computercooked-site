@@ -2,6 +2,7 @@
 import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean } from "./util.js";
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
+import { friendIds, people } from "./friends.js";
 
 const guestName = (anon) => {
   let h = 0;
@@ -89,16 +90,29 @@ export async function leaderboard(url, env, user) {
   if (!slugOk(game)) return bad("game?");
   const period = ["day", "week", "all"].includes(url.searchParams.get("period")) ? url.searchParams.get("period") : "all";
   const t = now();
-  const where = period === "day" ? " AND day = ?" : period === "week" ? " AND week = ?" : "";
+  let where = period === "day" ? " AND day = ?" : period === "week" ? " AND week = ?" : "";
   const args = [game].concat(period === "day" ? [dayOf(t)] : period === "week" ? [weekOf(t)] : []);
+  // friends=1: you and your friends only (logged in)
+  const friendsOnly = url.searchParams.get("friends") === "1";
+  if (friendsOnly) {
+    if (!user) return bad("log in first", 401);
+    const keys = [user.id].concat(await friendIds(env, user.id)).map((id) => "u:" + id);
+    where += ` AND player IN (${keys.map(() => "?").join(",")})`;
+    args.push(...keys);
+  }
   const { results } = await env.DB.prepare(
-    `SELECT player, name, MAX(score) AS score, id FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player ORDER BY score DESC LIMIT 10`
+    `SELECT player, name, MAX(score) AS score, id, user_id FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player ORDER BY score DESC LIMIT ${friendsOnly ? 50 : 10}`
   ).bind(...args).all();
   let me = url.searchParams.get("player");
   if (user) me = "u:" + user.id;
+  // account rows show the current display name and link to /u/<username>
+  const who = await people(env, results.map((r) => r.user_id).filter(Boolean));
   return json({
-    ok: true, game, period,
-    rows: results.map((r, i) => ({ rank: i + 1, name: r.name, score: r.score, id: r.id, me: r.player === me })),
+    ok: true, game, period, friends: friendsOnly,
+    rows: results.map((r, i) => {
+      const p = r.user_id && who.get(r.user_id);
+      return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, score: r.score, id: r.id, me: r.player === me };
+    }),
   }, 200, { "cache-control": "no-store" });
 }
 
