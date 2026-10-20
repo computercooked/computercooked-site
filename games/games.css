@@ -2494,3 +2494,8 @@ body.embed {
   color: #111;
 }
 .cc-dare-box .cc-dare-go .tool-text { display: inline; }
+
+/* "add to home screen" card on the hub (assets/pwa.js shows it when the browser can install, or on iPhone Safari) */
+.install-card { margin: 0 0 var(--s-5); }
+.install-card .install-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--s-3); }
+.install-card .install-row button { min-height: 44px; }

@@ -23,6 +23,7 @@
 
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
@@ -55,6 +56,15 @@
         </span>
       </a>
     </header>
+
+    <aside class="about-card install-card" id="install-card" aria-label="install" hidden>
+      <p><b>keep the arcade on your phone.</b> add it to your home screen: it opens like an app, and the games you have played work offline.</p>
+      <p class="install-how" data-install-how hidden>on iPhone or iPad: tap the share button <span aria-hidden="true">⬆︎</span>, then <b>add to home screen</b>.</p>
+      <div class="install-row">
+        <button class="play-btn" type="button" data-install hidden>add to home screen</button>
+        <button class="ghost-btn" type="button" data-install-close>not now</button>
+      </div>
+    </aside>
 
     <div class="ticker" aria-hidden="true">
       <div class="ticker-track">
@@ -159,6 +169,7 @@
       </a>
     </div>
   </nav>
+  <script src="/assets/pwa.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
 </html>

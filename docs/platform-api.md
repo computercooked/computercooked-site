@@ -34,7 +34,7 @@ Response:
     "avg_rating": 0.6,                // (up - down) / rated, from -1 to 1
     "thumbs_up": 0, "thumbs_down": 0, "feedback_count": 0,
     "latest_feedback": [{ "rating": 1, "text": "…", "tester": "sam", "version": "1", "at": "…" }],
-    "top_referrers": [{ "referrer": "tiktok", "plays": 0 }],   // tiktok | youtube | instagram | x | threads | bluesky | search | internal | direct | embed | other
+    "top_referrers": [{ "referrer": "tiktok", "plays": 0 }],   // tiktok | youtube | instagram | x | threads | bluesky | search | internal | direct | embed | app | other
     "testers": [{ "tester": "sam", "plays": 0 }],
     "devices": { "mobile": 0, "desktop": 0, "tablet": 0 }
   }]
@@ -135,6 +135,13 @@ cc.onUser(fn)        // fn(user | null) once known, then on every login/logout (
 - **Weekly challenge:** one featured game per ISO week (UTC, Monday to Sunday), set in `CHALLENGES` in `src/social.js` as `{week: "2026-W43", game, target, goal, xp}`. A logged-in player's validated run (10 s+, completed, score accepted) on that game scoring at least `target` earns the bonus XP once per week (`xp_events` kind `challenge`, ref = week). A hand pick always wins. A week with no entry gets an **automatic pick**: the leaderboard game with the most unique players in the 7 days before the week started, never last week's game. Its target is about the 60th percentile of that game's scores (or 30 s of perfect play when it has fewer than 10 runs), worth +100 XP. The first request of the week stores it in the `challenges` table (migration `0007_challenges`), so it stays the same all week. To see what next week will be, use `GET /api/admin/challenge` (Bearer token; `?date=YYYY-MM-DD` for another week; returns `source: hand / stored / auto (not stored yet)` and the pick). The hub shows it, and so does the featured game's leaderboard card.
 - **Seasonal events:** `EVENTS` in `src/social.js`, `{id, from, until, name, desc, xp, label}`. Any validated run between `from` and `until` (UTC days, until exclusive) unlocks that site badge. It's listed on /me while live, and kept forever once earned. Halloween 2026 (`halloween_2026`, "trick or treat.exe", +31 XP) runs until Nov 1.
 - **Activity feed:** /me shows your last 30 days of activity: achievements, challenge wins, and `cc.event`s that are **allow-listed** in `FEED` in `src/social.js` (game → event name → fixed template). Event values are clipped to 24 characters, stripped to letters/numbers and word-filtered; a line whose values don't pass is dropped. Today: smol brains `first_word`/`firstWord` {word}, `egg`/`hatch` {gen}; level devil.exe `milestone` {lv, deaths}, `finish` {t, deaths}. To add one, send a PR adding the template, and keep the event's data to short words and numbers.
+
+## Installable web app (PWA)
+
+- **Manifest:** `/manifest.webmanifest` ("Computer Cooked Games", start `/games/?ref=app`, standalone, icons from `scripts/make-icons.mjs`). The hub, /me, /u/ and every game page link it; the Worker adds the link and `assets/pwa.js` to game pages (`src/seo.js`).
+- **Service worker:** `/sw.js` (scope `/`, served `Cache-Control: no-cache`). **Network first, always**: online you get exactly what the server sends; the cache (`cc-v1`) is only the offline fallback. It precaches the hub and site shell and saves each page, game file and asset you load (same origin, GET, plain 200). It never touches `/api/*`, `/admin`, other sites, non-GET or range requests. Offline, a page with no saved copy shows `/games/offline`, which lists the games this device has saved. Bump `VERSION` in `sw.js` when the shell list changes.
+- **Install card:** on the hub, `#install-card` appears when the browser offers an install prompt (Chrome, Edge, Android) or on iPhone/iPad Safari (share → add to home screen). It can be dismissed for good.
+- **Metrics:** plays from the installed app are referrer `app` (cc-sdk.js checks display-mode standalone, plus a `cc-app` sessionStorage flag set by pwa.js for the game frame). Offline runs are not recorded: the SDK doesn't queue events, and the server bounds a run by when it saw the start.
 
 ## Public endpoints
 

@@ -94,6 +94,8 @@ function card(g) {
   return `<li class="game-card"><div class="game-card-inner"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="360" loading="lazy" decoding="async"><div class="game-body"><h3 class="game-name">${esc(g.title)}</h3><p class="game-pitch">${esc(g.pitch)}</p><a class="play-btn" href="/games/${encodeURIComponent(g.slug)}/" aria-label="play ${esc(g.title)}">play ▶</a></div></div></li>`;
 }
 
+const PWA = `<link rel="manifest" href="/manifest.webmanifest"><script src="/assets/pwa.js" defer></script>`;
+
 export async function gamePage(req, env, url, slug) {
   const page = await env.ASSETS.fetch(req);
   if (!page.ok || !(page.headers.get("content-type") || "").includes("text/html")) return page;
@@ -105,7 +107,8 @@ export async function gamePage(req, env, url, slug) {
   if (!g) return page;
 
   const rw = new HTMLRewriter()
-    .on("head", { element(e) { e.append(jsonLd(g), { html: true }); } })
+    // installable web app: every game page links the manifest and registers the offline service worker (assets/pwa.js)
+    .on("head", { element(e) { e.append(jsonLd(g) + PWA, { html: true }); } })
     .on("[data-how-to]", { element(e) { e.setInnerContent(howTo(g), { html: true }); if (embeddable(g)) e.after(embedCard(g), { html: true }); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })

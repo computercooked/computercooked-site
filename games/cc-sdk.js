@@ -228,10 +228,16 @@
     if (/google|bing|duckduckgo|yahoo|ecosia|brave/.test(h)) return "search";
     return "other";
   }
+  function isApp() {
+    try { return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || sessionStorage.getItem("cc-app") === "1"; } catch (e) { return false; }
+  }
   // first referrer of this visit sticks for the session
   var ref;
   // the embed player on another site: count those plays as "embed" whatever the referrer
   if (/\/embed\/$/.test(location.pathname)) ref = "embed";
+  // launched from the home screen (the installed web app): "app", so retention from installs shows in metrics.
+  // pwa.js also notes it in sessionStorage, which this same-origin game frame shares with the page around it.
+  else if (isApp()) ref = "app";
   else try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refBucket(); }
 
   var game = slugFromPath(location.pathname);
