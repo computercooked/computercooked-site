@@ -389,6 +389,11 @@
       var tr = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && NK[n.kind].noun === "plant" && CHOPPABLE(n.kind) && n.grow == null && !(un[n.id] > now); });
       if (tr) return { node: tr, yield: "log", time: chopper === "axe" ? 2 : 4.5, fell: chopper };
     }
+    // ascended smols don't need hammers or kilns: they hum crystal loose and pull copper straight out of the rock
+    if (c.tier >= 6 && (want === "crystal" || want === "metal")) {
+      var src = SB.World.nearestNode(world, c.x, c.z, R * 2.5, function (n) { return n.state === "ok" && n.kind === (want === "crystal" ? "crystals" : "orevein") && !(un[n.id] > now); });
+      if (src) return { node: src, yield: want, time: 7 };
+    }
     var node = SB.World.nearestNode(world, c.x, c.z, R, function (n) {
       if (un[n.id] > now) return false;
       var g = GATHER[n.kind];
