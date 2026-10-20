@@ -174,6 +174,7 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("DELETE FROM friends WHERE user_id = ? OR friend_id = ?").bind(id, id),
     env.DB.prepare("DELETE FROM dare_beats WHERE player = ?").bind("u:" + id),
     env.DB.prepare("DELETE FROM dare_beats WHERE dare_id IN (SELECT id FROM dares WHERE from_user = ?)").bind(id),
+    env.DB.prepare("DELETE FROM dare_funnel WHERE dare_id IN (SELECT id FROM dares WHERE from_user = ?)").bind(id),
     env.DB.prepare("DELETE FROM dares WHERE from_user = ?").bind(id),
     env.DB.prepare("UPDATE plays SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE feedback SET user_id = NULL WHERE user_id = ?").bind(id),

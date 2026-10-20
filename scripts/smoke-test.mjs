@@ -62,6 +62,27 @@ r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p5, anon: ano
 ok(r.ok && r.beaten && !r.first, "beating the same dare twice counts once", r);
 r = await (await get("/api/dare/" + dare.id)).json();
 ok(r.beats === 1, "dare beat count", r.beats);
+// the funnel: a dare reports when it was really sent; runs say what the previous best was (new best vs first run)
+r = await (await post("/api/dare/" + dare.id + "/shared", { how: "copy" })).json();
+ok(r.ok, "dare marked as sent");
+r = await post("/api/dare/" + dare.id + "/shared", { how: "carrier pigeon" });
+ok(r.status === 400, "unknown share method refused", r.status);
+r = await post("/api/dare/nosuchdare1/shared", { how: "share" });
+ok(r.status === 404, "can't mark a missing dare as sent", r.status);
+const p7 = rid();
+await post("/api/events", { anon: anon2, events: [{ t: "start", id: p7, game: "crash", v: "1" }] });
+await new Promise((res) => setTimeout(res, 1200));
+r = await (await post("/api/events", { anon: anon2, events: [{ t: "end", id: p7, game: "crash", score: 47, dur: 1200, completed: true }] })).json();
+ok(r.results?.[p7]?.prev_best === 45 && r.results[p7].best === 47, "a run reports the previous best (45 → 47 is a new best)", r.results?.[p7]);
+const anon3 = "smoke3" + rid(), p8 = rid();
+await post("/api/events", { anon: anon3, events: [{ t: "start", id: p8, game: "crash", v: "1" }] });
+await new Promise((res) => setTimeout(res, 1200));
+r = await (await post("/api/events", { anon: anon3, events: [{ t: "end", id: p8, game: "crash", score: 12, dur: 1200, completed: true }] })).json();
+ok(r.results?.[p8]?.accepted && r.results[p8].prev_best === null, "a first run has no previous best (no 'new best' prompt)", r.results?.[p8]);
+r = await (await post("/api/dare", { play_id: p7, anon: anon2, source: "best" })).json();
+ok(r.ok, "dare made from the new-best prompt");
+const bestDare = r.id;
+await post("/api/dare/" + bestDare + "/shared", { how: "share" });
 // link previews: game pages carry a card; dare links get "can you beat N?" tags from the dare itself
 let page = await (await get("/games/crash/")).text();
 ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
@@ -362,6 +383,9 @@ if (admin) {
   r = await (await get("/api/admin/metrics?since=2026-01-01", { authorization: "Bearer " + admin })).json();
   const c = r.games?.find((g) => g.game === "crash");
   ok(r.ok && c && c.plays >= 1 && c.feedback_count >= 1, "admin metrics", c && { plays: c.plays, players: c.unique_players, completion: c.completion_rate, rating: c.avg_rating, testers: c.testers });
+  const df = r.dares;
+  ok(df && df.made >= 2 && df.sent >= 2 && df.via_copy >= 1 && df.via_share >= 1 && df.by_source.best.made >= 1 && df.by_source.best.sent >= 1 && df.beaten >= 1 && df.sent_rate > 0,
+    "admin metrics: dare funnel made → sent → opened → beaten, by source", df && { made: df.made, sent: df.sent, opened: df.opened, beaten: df.beaten, best: df.by_source.best });
   // weekly challenge: a week with no hand pick falls back to an automatic one (never last week's game)
   r = await (await get("/api/admin/challenge", { authorization: "Bearer " + admin })).json();
   const handLast = (await (await get("/api/admin/challenge?date=" + new Date(Date.now()).toISOString().slice(0, 10), { authorization: "Bearer " + admin })).json()).pick?.game;

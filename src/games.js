@@ -74,6 +74,7 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const cap = game.max_score_per_sec * (dur / 1000) + (game.score_slack ?? 50);
   if (score > cap || (game.max_score && score > game.max_score)) return { accepted: false, reason: "score out of bounds" };
   const player = playerKey(user && play.user_id === user.id ? user : null, play.anon_id || anon);
+  const prevBest = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND hidden = 0").bind(play.game, player).first("b");
   const name = user ? user.username : cleanGuest(guest, play.anon_id || anon);
   await env.DB.prepare(
     "INSERT OR IGNORE INTO scores (game, play_id, player, user_id, name, score, day, week, ts) VALUES (?,?,?,?,?,?,?,?,?)"
@@ -82,7 +83,7 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const rank = await env.DB.prepare(
     "SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player) WHERE b > ?"
   ).bind(play.game, best).first("n");
-  return { accepted: true, best, rank: rank + 1, name };
+  return { accepted: true, best, prev_best: prevBest, rank: rank + 1, name };
 }
 
 // GET /api/leaderboard?game=crash&period=day|week|all&player=a:<anon>
