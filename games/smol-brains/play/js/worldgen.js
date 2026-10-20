@@ -473,6 +473,50 @@
     ensure("shrooms", 1, 9, 18);
     ensure("pine", 1, 10, 22);
     ensure("flintrock", 1, 12, 30);
+
+    // v2.1 food plants. Placed last, from their own random stream, so islands from older saves keep every
+    // node they had (same ids, same spots) and simply gain these.
+    var r2 = SB.rng((T.seed * 31 + 977) >>> 0);
+    function add2(kind, x, z, s) {
+      var n = { id: id++, kind: kind, x: x, z: z, s: s || 1, rot: r2() * 6.283, seed: (r2() * 1e9) | 0 };
+      nodes.push(n); mark(x, z, SB.NODES[kind].r * (s || 1));
+      return n;
+    }
+    var EXTRA = {};
+    EXTRA[B.meadow] = [["roots", 0.022], ["gourds", 0.008]];
+    EXTRA[B.forest] = [["hive", 0.01], ["roots", 0.008], ["gourds", 0.005]];
+    EXTRA[B.jungle] = [["gourds", 0.012], ["hive", 0.008]];
+    EXTRA[B.savanna] = [["roots", 0.02], ["gourds", 0.01]];
+    EXTRA[B.swamp] = [["roots", 0.01]];
+    EXTRA[B.taiga] = [["roots", 0.006], ["hive", 0.004]];
+    for (var ej = 3; ej < Nn - 3; ej += 2) for (var ei = 3; ei < Nn - 3; ei += 2) {
+      var ex = ei + r2() * 2, ez = ej + r2() * 2, et = (ez | 0) * Nn + (ex | 0), elist = EXTRA[T.biome[et]];
+      if (!elist || WG.depthAt(T, ex, ez) > 0.02 || T.slope[et] > 1.6 || T.wdist[(ez | 0) * T.V + (ex | 0)] < 1.5) continue;
+      for (var el = 0; el < elist.length; el++) {
+        if (r2() >= elist[el][1]) continue;
+        var es = r2.range(0.85, 1.15);
+        if (free(ex, ez, SB.NODES[elist[el][0]].r * es + 0.4)) add2(elist[el][0], ex, ez, es);
+        break;
+      }
+    }
+    // clam beds on sandy shores
+    for (k = 0; k < 3000; k++) {
+      x = 3 + r2() * (Nn - 6); z = 3 + r2() * (Nn - 6);
+      var ta = (z | 0) * T.V + (x | 0), tt = (z | 0) * Nn + (x | 0);
+      if (T.biome[tt] !== B.beach || T.wdist[ta] > 2 || WG.depthAt(T, x, z) > 0.05) continue;
+      if (r2() < 0.25 && free(x, z, 0.6)) add2("clams", x, z, r2.range(0.85, 1.1));
+    }
+    // every nest gets a sunroot patch and a gourd vine within reach
+    function ensure2(kind, rmin, rmax) {
+      for (var q = 0; q < nodes.length; q++) if (nodes[q].kind === kind && SB.dist(nodes[q].x, nodes[q].z, best.x, best.z) < rmax) return;
+      for (var tries = 0; tries < 400; tries++) {
+        var aa = r2() * 6.283, rr = r2.range(rmin, rmax), px = best.x + Math.cos(aa) * rr, pz = best.z + Math.sin(aa) * rr;
+        if (!WG.walkable(T, px, pz) || WG.depthAt(T, px, pz) > 0 || !free(px, pz, 0.8)) continue;
+        add2(kind, px, pz, r2.range(0.9, 1.1)); return;
+      }
+    }
+    ensure2("roots", 5, 14);
+    ensure2("gourds", 8, 20);
   }
 
   /* ---------------- decorations (render only) ----------------

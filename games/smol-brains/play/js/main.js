@@ -286,6 +286,19 @@
     game.focus = { x: cam.x, z: cam.z };
   }
 
+  // average hunger of the living smols, refreshed every few seconds (breeding and the HUD use it)
+  Game.colonyHunger = function (game) {
+    if (game._chT != null && game.time - game._chT < 3) return game._ch;
+    var sm = Game.smols(game), t = 0, its = game.world.items, f = 0;
+    for (var i = 0; i < sm.length; i++) t += sm[i].chem.hunger;
+    for (i = 0; i < its.length; i++) if (its[i].noun === "food" && !its[i].data.rotten) f++;
+    game._chT = game.time; game._ch = sm.length ? t / sm.length : 0;
+    game._foodPer = sm.length ? f / sm.length : 9;
+    return game._ch;
+  };
+  // fresh food on the island per smol (same refresh as colonyHunger)
+  Game.foodPerSmol = function (game) { Game.colonyHunger(game); return game._foodPer; };
+
   Game.step = function (game, dt) {
     game.time += dt;
     reindex(game);

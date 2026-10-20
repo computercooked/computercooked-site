@@ -94,12 +94,24 @@ console.log("3. the living world");
   check("a hut is a shelter", SB.World.shelterAt(w, hut.x, hut.z) === hut);
   const farm = SB.World.addStructure(w, game, "farm", sp.x - 5, sp.z + 4, { done: true });
   farm.data.grow = 0.99;
-  for (let s = 0; s < 20 * 20; s++) SB.Game.step(game, SB.TICK);
-  check("farms grow grain", w.items.some(o => o.kind === "grain"), "grow " + farm.data.grow.toFixed(2));
+  const before = w.items.length; let harvested = null;
+  SB.bus.on("harvest", d => { if (d.st === farm && !harvested) harvested = w.items.slice(before).filter(o => o.kind === d.crop || o.kind === "grain").length; });
+  for (let s = 0; s < 20 * 20 && harvested == null; s++) SB.Game.step(game, SB.TICK);
+  check("farms ripen into a harvest of several crops", harvested >= 3, harvested + " crops");
   // walkability: deep water blocks walkers but not swimmers
   let deep = null;
   for (let k = 0; k < 4000 && !deep; k++) { const x = 20 + (k * 13) % 216, z = 20 + (k * 29) % 216; if (SB.World.depthAt(w, x, z) > 1.2) deep = { x, z }; }
   check("deep water blocks walkers, not swimmers", deep && !SB.World.walkable(w, deep.x, deep.z, false) && SB.World.walkable(w, deep.x, deep.z, true));
+  // water: a smol that can't swim, dropped far out, flails and drowns; one dropped by the shore climbs out
+  const shoreDist = (x, z) => { for (let r = 0.5; r < 30; r += 0.5) for (let a = 0; a < 6.28; a += 0.3) { const px = x + Math.sin(a) * r, pz = z + Math.cos(a) * r; if (SB.World.walkable(w, px, pz) && SB.World.depthAt(w, px, pz) < 0.3) return r; } return 99; };
+  let lakeNear = null, lakeFar = null;
+  for (let k = 0; k < 20000 && (!lakeNear || !lakeFar); k++) { const x = 10 + (k * 37) % 236, z = 10 + (k * 61) % 236; if (SB.World.depthAt(w, x, z) < 1) continue; const d = shoreDist(x, z); if (!lakeNear && d > 1.5 && d < 2.5) lakeNear = { x, z }; if (!lakeFar && d > 9 && d < 14) lakeFar = { x, z }; }
+  const swimTest = (p) => { const c = SB.Game.spawnSmol(game, { x: p.x, z: p.z, age: 600 }); c.genome.genes.fins = 0; c.look = SB.Genome.look(c.genome); c.onGround = true; for (let s = 0; s < 60 / SB.TICK && c.alive; s++) SB.Game.step(game, SB.TICK); return c; };
+  if (lakeNear && lakeFar) {
+    const cn = swimTest(lakeNear), cf = swimTest(lakeFar);
+    check("a smol dropped by the shore climbs out", cn.alive && SB.World.depthAt(w, cn.x, cn.z) <= 0.5);
+    check("a smol dropped far out in deep water drowns (no floating out)", !cf.alive);
+  }
   check("no NaNs in creatures", game.creatures.every(o => isFinite(o.x) && isFinite(o.y) && isFinite(o.z)));
 }
 

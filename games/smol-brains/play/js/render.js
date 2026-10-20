@@ -462,11 +462,14 @@
       if (st.x < x0 || st.x >= x0 + S || st.z < z0 || st.z >= z0 + S) continue;
       var sk = "s:" + (st.done ? st.kind : "plot");
       if (!meshes[sk]) continue;
-      var ys = WG.heightAt(T, st.x, st.z) - 0.02;
+      // sit on the highest ground under the footprint, so nothing sinks into a slope
+      var sr = (SB.STRUCTS[st.kind] ? SB.STRUCTS[st.kind].r : 0.8) * 0.8, ys = WG.heightAt(T, st.x, st.z);
+      for (var q = 0; q < 4; q++) ys = Math.max(ys, WG.heightAt(T, st.x + (q & 1 ? sr : -sr), st.z + (q & 2 ? sr : -sr)));
+      ys -= 0.02;
       push(sk, st.x, ys, st.z, st.rot || 0, st.s || 1, st.s || 1, st.s || 1, st.tint || [1, 1, 1], 0, 0);
       if (st.done && st.kind === "farm") {
+        var g = st.data && st.data.grow != null ? st.data.grow : 0.5;
         for (var fz = 0; fz < 4; fz++) for (var fx = 0; fx < 4; fx++) {
-          var g = st.grow == null ? 0.5 : st.grow;
           if (g <= 0.02) continue;
           var ca = Math.cos(st.rot || 0), sa = Math.sin(st.rot || 0), lx = -0.7 + fx * 0.47, lz = -0.65 + fz * 0.43;
           push("s:crop", st.x + lx * ca + lz * sa, ys + 0.08, st.z - lx * sa + lz * ca, fx * 1.3 + fz, 0.4 + g * 0.8, 0.3 + g * 0.9, 0.4 + g * 0.8, [1, 1, 1], 0, 0);
@@ -553,18 +556,24 @@
   R.updateCamera = updateCamera;
 
   // world units per screen pixel on the ground, for panning
+  // a screen drag of (dx, dy) px, as ground movement: the drag in camera space slid along the view ray
+  // onto the ground plane. Panning moves the camera the opposite way, so the ground stays under the finger.
+  function groundDelta(dxPx, dyPx, out) {
+    var c = cam, k = (2 * c.halfH) / H, r = c.right, u = c.up, f = c.fwd;
+    var wx = (r[0] * dxPx - u[0] * dyPx) * k, wy = (r[1] * dxPx - u[1] * dyPx) * k, wz = (r[2] * dxPx - u[2] * dyPx) * k;
+    var t = Math.abs(f[1]) > 1e-4 ? wy / f[1] : 0;
+    out[0] = wx - f[0] * t; out[1] = wz - f[2] * t;
+    return out;
+  }
+  var gd = [0, 0];
+  R.groundDelta = function (dxPx, dyPx) { return groundDelta(dxPx, dyPx, [0, 0]); };
   R.panBy = function (dxPx, dyPx) {
-    var c = cam, k = (2 * c.halfH) / H;
-    var sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), sp = Math.sin(c.pitch);
-    // screen right on the ground = (cy, -sy); screen up on the ground = (-sy, -cy) stretched by 1/sin(pitch)
-    c.x -= (dxPx * cy) * k - (dyPx * sy) * k / sp;
-    c.z -= (-dxPx * sy) * k - (dyPx * cy) * k / sp;
+    groundDelta(dxPx, dyPx, gd);
+    cam.x -= gd[0]; cam.z -= gd[1];
   };
   R.panVelocity = function (vxPx, vyPx) {
-    var c = cam, k = (2 * c.halfH) / H;
-    var sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), sp = Math.sin(c.pitch);
-    c.vx = -((vxPx * cy) * k - (vyPx * sy) * k / sp);
-    c.vz = -((-vxPx * sy) * k - (vyPx * cy) * k / sp);
+    groundDelta(vxPx, vyPx, gd);
+    cam.vx = -gd[0]; cam.vz = -gd[1];
   };
   R.zoomAt = function (factor, sx, sy) {
     var c = cam, before = sx != null ? R.pickGround(sx, sy) : null;
@@ -591,6 +600,21 @@
     return out;
   };
   // CSS pixel -> ground point {x, y, z} (marches the view ray into the heightfield / water)
+  // the patch of ground the camera sees: the four screen corners cast onto a flat plane at the
+  // height of the ground under the camera (the minimap draws this as the view outline)
+  R.viewFootprint = function () {
+    var c = cam, y0 = T ? WG.heightAt(T, c.x, c.z) : 0, out = [];
+    var corners = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
+    for (var i = 0; i < 4; i++) {
+      var nx = corners[i][0], ny = corners[i][1];
+      var ox = c.eye[0] + c.right[0] * nx * c.halfW + c.up[0] * ny * c.halfH;
+      var oy = c.eye[1] + c.right[1] * nx * c.halfW + c.up[1] * ny * c.halfH;
+      var oz = c.eye[2] + c.right[2] * nx * c.halfW + c.up[2] * ny * c.halfH;
+      var t = (oy - y0) / -c.fwd[1];
+      out.push({ x: ox + c.fwd[0] * t, z: oz + c.fwd[2] * t });
+    }
+    return out;
+  };
   R.pickGround = function (sx, sy, ignoreWater) {
     if (!T) return null;
     var c = cam, nx = (sx / W) * 2 - 1, ny = 1 - (sy / H) * 2;

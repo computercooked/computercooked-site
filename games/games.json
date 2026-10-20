@@ -304,9 +304,9 @@
         "ai",
         "3d"
       ],
-      "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate. tools: grab (carry, throw), tickle (reward), tap (scold), talk (teach words), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer.",
-      "size_kb": 756,
-      "version": "2",
+      "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, tap or drag the map to jump. tools: grab (carry, throw, rescue), tickle (reward), tap (scold), talk (teach words), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer, m map.",
+      "size_kb": 780,
+      "version": "2.1",
       "added": "2026-10-19",
       "how_to": [
         "tap the egg to warm it, then teach a first word: pick 💬 talk and tap an apple a few times. smols learn nouns before verbs.",

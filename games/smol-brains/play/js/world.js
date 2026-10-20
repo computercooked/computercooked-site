@@ -119,6 +119,12 @@
     }
     world.pathGrid = g; world.pathN = n;
   };
+  // is (x, z) on a cell of the walkable path grid (proper ground, connected to the rest)
+  W.pathOpen = function (world, x, z) {
+    if (!world.pathGrid) W.buildPathGrid(world);
+    var n = world.pathN, i = (x / PC) | 0, j = (z / PC) | 0;
+    return i >= 0 && j >= 0 && i < n && j < n && world.pathGrid[j * n + i] === 1;
+  };
   W.openPathAt = function (world, x, z, r) {
     if (!world.pathGrid) return;
     var n = world.pathN;
@@ -482,7 +488,7 @@
     var food = 0, mat = 0, its = world.items;
     for (i = 0; i < its.length; i++) {
       var o = its[i];
-      if (o.heldBy != null || K[o.kind].critter) continue;
+      if (o.heldBy != null || K[o.kind].critter || o.data.rotten) continue; // rotten food doesn't stop fresh food growing
       if (o.kind === "nut") mat++;
       else if (o.noun === "food" || o.noun === "mushroom" || o.noun === "medicine") food++;
       else if (K[o.kind].mat) mat++;
@@ -518,7 +524,8 @@
       for (var q = 0; q < act.length; q += 2) { var ddx = n.x - act[q], ddz = n.z - act[q + 1]; if (ddx * ddx + ddz * ddz < 1600) { on = true; break; } }
       if (!on) continue;
       var plant = def.noun === "plant";
-      var g = plant ? rainBoost * (winter ? 0.35 : spring ? 1.3 : 1) : 1;
+      // seasons: spring flush, autumn bounty (time to stock up), lean winter
+      var g = plant ? rainBoost * (winter ? 0.6 : spring ? 1.3 : world.season === 2 ? 1.25 : 1) : 1;
       n.dropT -= sdt * g;
       if (n.dropT <= 0) {
         n.dropT = def.every * r.range(0.7, 1.4);
@@ -740,6 +747,10 @@
   };
   W.siteFree = function (world, x, z, rad) {
     if (!W.walkable(world, x, z) || WG.depthAt(world.T, x, z) > 0.02 || WG.slopeAt(world.T, x, z) > 0.9) return false;
+    // level enough across the whole footprint (buildings sit at its highest point)
+    var lo = 1e9, hi = -1e9;
+    for (var q = 0; q < 5; q++) { var hx = x + [0, -rad, rad, 0, 0][q] * 0.8, hz = z + [0, 0, 0, -rad, rad][q] * 0.8, hh = WG.heightAt(world.T, hx, hz); if (WG.depthAt(world.T, hx, hz) > 0.02) return false; lo = Math.min(lo, hh); hi = Math.max(hi, hh); }
+    if (hi - lo > 0.35) return false;
     var blocked = false;
     W.eachNodeNear(world, x, z, rad + 0.8, function (n) { if (n.kind !== "herbs") blocked = true; });
     if (blocked) return false;
@@ -755,15 +766,19 @@
       if (st.kind === "farm") {
         var mill = W.structsNear(world, st.x, st.z, 10, function (s) { return s.kind === "windmill" && s.done; }).length;
         var g0 = st.data.grow;
-        st.data.grow = Math.min(1, g0 + dt / 200 * (1 + world.weather.rain) * (world.season === 3 ? 0.2 : 1) * (1 + mill * 0.8));
+        // a farm feeds several smols: every ~2 min it ripens into a harvest of 3 (4 with a windmill nearby)
+        st.data.grow = Math.min(1, g0 + dt / 130 * (1 + world.weather.rain * 0.6) * (world.season === 3 ? 0.6 : 1) * (1 + mill * 0.5));
         if ((st.data.grow * 4 | 0) !== (g0 * 4 | 0)) markNode(world, st);
-        if (st.data.grow >= 1 && itemsNearCount(world, st.x, st.z, 2.5, "grain") < 3) {
-          st.data.grow = 0.15; markNode(world, st);
-          var a = game.rng() * 6.283;
-          W.add(world, game, "grain", st.x + Math.cos(a) * 1.3, st.z + Math.sin(a) * 1.3, {});
-          if (game.rng.chance(0.35)) W.add(world, game, "seed", st.x - Math.cos(a) * 1.3, st.z - Math.sin(a) * 1.3, {});
-        }
-      }
+        if (st.data.grow >= 1 && itemsNearCount(world, st.x, st.z, 2.5, "grain") + itemsNearCount(world, st.x, st.z, 2.5, "carrot") + itemsNearCount(world, st.x, st.z, 2.5, "pumpkin") < 4) {
+          st.data.grow = 0.1; markNode(world, st);
+          var crop = st.data.crop || (st.data.crop = game.rng.pick(["grain", "grain", "carrot", "pumpkin"]));
+          for (var h = 0, nh = 3 + (mill ? 1 : 0); h < nh; h++) {
+            var a = game.rng() * 6.283, rr = game.rng.range(1.1, 1.5);
+            W.add(world, game, h === 0 ? crop : game.rng.chance(0.7) ? crop : "grain", st.x + Math.cos(a) * rr, st.z + Math.sin(a) * rr, {});
+          }
+          if (game.rng.chance(0.35)) W.add(world, game, "seed", st.x + game.rng.range(-1, 1), st.z + game.rng.range(-1, 1), {});
+          SB.bus.emit("harvest", { st: st, crop: crop });
+        }      }
     }
   }
 
@@ -785,12 +800,14 @@
       var def = K[o.kind], d = o.data;
       o.age += dt;
       if (def.rots) {
-        if (o.age > def.rots * 1.35 && o.heldBy == null) { W.remove(world, o); continue; }
+        if (o.age > def.rots * 1.2 && o.heldBy == null) { W.remove(world, o); continue; }
         // rotten food smells wrong: it reads as a "bad to eat" thing, like a red shroom
         if (o.age > def.rots && !d.rotten) { d.rotten = true; if (o.noun === "food") o.noun = "mushroom"; }
       }
       if (o.heldBy != null) continue;
       if (def.mat && o.age > 900 && !o.data.keep && Math.random() < dt * 0.01) { W.remove(world, o); continue; }
+      // abandoned tools weather away too (a poke stick left out for ten minutes is just a stick in the rain)
+      if (def.tool && !o.data.keep) { d.looseT = (d.looseT || 0) + dt; if (d.looseT > 600 && Math.random() < dt * 0.005) { W.remove(world, o); continue; } }
       if (def.critter) tickCritter(world, game, o, dt);
       else physics(world, o, dt);
       if (o.kind === "egg") tickEgg(world, game, o, dt);
@@ -839,11 +856,13 @@
   };
 
   function housekeeping(world, game) {
-    // too many things lying around: the oldest rotten food goes first
+    // too many things lying around: clear junk first (rotten food, then the oldest spare tools and
+    // materials), fresh food last, so a cluttered island never eats its own harvest
     var its = world.items;
     if (its.length > CAP_ITEMS) {
-      var loose = its.filter(function (o) { return o.heldBy == null && o.kind !== "egg" && !K[o.kind].tool; });
-      loose.sort(function (a, b) { return (b.data.rotten ? 1e6 : 0) + b.age - ((a.data.rotten ? 1e6 : 0) + a.age); });
+      var loose = its.filter(function (o) { return o.heldBy == null && o.kind !== "egg" && !K[o.kind].critter && !o.data.keep; });
+      var rank = function (o) { return o.data.rotten ? 3e6 : o.noun === "food" || o.noun === "medicine" ? 0 : 1e6; };
+      loose.sort(function (a, b) { return rank(b) + b.age - (rank(a) + a.age); });
       for (var i = 0; i < its.length - CAP_ITEMS && i < loose.length; i++) W.remove(world, loose[i]);
     }
     // fading paths

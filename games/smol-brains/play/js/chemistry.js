@@ -38,7 +38,7 @@
     if (c.glucose > 0.9) { var store = (c.glucose - 0.9) * 0.05 * dt; c.glucose -= store; c.fat = Math.min(1, c.fat + store); }
     c.glucose = clamp01(c.glucose);
     var appetite = 0.7 + gene(genome, "appetite", 0.5) * 0.6;
-    c.hunger += dt * appetite * (0.0024 * met + 0.007 * Math.max(0, 0.35 - c.glucose)) * (env.asleep ? 0.5 : 1);
+    c.hunger += dt * appetite * (0.0015 * met + 0.0045 * Math.max(0, 0.35 - c.glucose)) * (env.asleep ? 0.5 : 1);
 
     // rest
     if (env.asleep) {

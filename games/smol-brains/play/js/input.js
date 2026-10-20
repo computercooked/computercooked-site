@@ -207,11 +207,9 @@
     h.heldId = null;
     if (!ref) return;
     var hist = d.hist, a = hist[0], b = hist[hist.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
-    var k = (2 * R.camera.halfH) / R.size().h;
-    var vx = (b.x - a.x) / dt * k, vy = (b.y - a.y) / dt * k;
-    // screen velocity -> ground velocity (rotate by yaw)
-    var cy = Math.cos(R.camera.yaw), sy = Math.sin(R.camera.yaw);
-    var gx = vx * cy + vy * sy / Math.sin(R.camera.pitch), gz = -vx * sy + vy * cy / Math.sin(R.camera.pitch);
+    // the flick's screen velocity as ground velocity (same mapping as panning, so it flies where you threw it)
+    var gv = R.groundDelta((b.x - a.x) / dt, (b.y - a.y) / dt), gx = gv[0], gz = gv[1];
+    if (b.t - a.t < 1 || performance.now() - b.t > 90) { gx = 0; gz = 0; } // held still before letting go: just drop it
     var sp = Math.hypot(gx, gz), cap = 9;
     if (sp > cap) { gx *= cap / sp; gz *= cap / sp; }
     if (ref.type === "creature") {
@@ -219,7 +217,7 @@
       if (sp > 6 && ref.species === "smol") { SB.Chem.apply(ref.chem, { fear: 0.15 }); }
       if (ref.species === "smol") { SB.Chem.apply(ref.chem, { lonely: -0.05 }); }
     } else {
-      ref.heldBy = null; SB.World.toss(ref, gx * 0.9, gz * 0.9, 2 + Math.min(6, sp * 0.35));
+      ref.heldBy = null; SB.World.toss(ref, gx * 0.9, gz * 0.9, sp ? 2 + Math.min(6, sp * 0.35) : 0.5);
       // dropped right in front of a hungry smol? it'll notice
       if (ref.noun === "food") game.creatures.forEach(function (c) { if (c.alive && c.species === "smol" && SB.dist(c.x, c.z, ref.x, ref.z) < 4 && !c.plan && c.chem.hunger > 0.3) { c.action = null; c.thinkT = 0.3; } });
     }

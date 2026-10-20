@@ -169,6 +169,7 @@
   // put an item somewhere on the creature. hand first (or forced into the hand), then bag, then tool belt.
   C.carry = function (c, o, game, toHand) {
     if (!o || o.gone) return false;
+    if (o.data) o.data.looseT = 0;
     if (o.heldBy === "hand" && game.hand.heldId === o.id) game.hand.heldId = null;
     if (o.heldBy != null && o.heldBy !== c.id && o.heldBy !== "hand") { var other = SB.Game.byId(game, o.heldBy); if (other) C.release(other, o); }
     var isTool = !!K[o.kind].tool && c.tier >= 2;
@@ -336,6 +337,16 @@
       rain: w.weather.rain > 0.3, home: SB.dist(c.x, c.z, home.x, home.z) < 7
     });
 
+    // starving: instinct takes over from the net. go straight for the nearest food you can smell
+    if (c.species === "smol" && ch.hunger > 0.85 && !c.plan && rng.chance(0.7)) {
+      var sf = sniffFood(c, game);
+      if (sf) {
+        var st = sf.kind && K[sf.kind] && K[sf.kind].noun === "food" && sf.heldBy !== undefined ? { type: "item", id: sf.id } : { type: "node", id: sf.id };
+        var sr = resolve(game, st);
+        if (sr) { startAction(c, game, st.type === "item" ? V.eat : NIBBLE[sf.kind] ? V.eat : V.play, st, sr, st.type === "item" ? "food" : "plant"); return; }
+      }
+    }
+
     // what's physically possible
     var obj = target && target.type === "item" ? target.ref : null;
     for (var v = 0; v < NV; v++) mask[v] = c.tier >= SB.VERB_TIER[v];
@@ -348,7 +359,7 @@
       if (!(noun in CUDDLY)) mask[V.cuddle] = false;
       if (c.species === "grump" && noun === "egg") mask[V.pickup] = false;
       if (!(noun in EDIBLE) || tt !== "item") mask[V.eat] = false;
-      if ((noun === "plant" && target.kind === "bush") || noun === "water") mask[V.eat] = true;
+      if ((noun === "plant" && NIBBLE[target.kind]) || (noun === "water" && c.chem.hot > 0.25)) mask[V.eat] = true; // drinking only cools you down
       if (tt === "creature" || tt === "hand") mask[V.use] = false;
       if (target.type !== "creature" || target.ref.species !== "smol" || target.ref.asleep) { mask[V.teach] = false; mask[V.give] = false; }
       if (c.holding == null) mask[V.give] = false;
@@ -373,6 +384,7 @@
     if (noun === "food" && mask[V.eat] && ch.hunger > 0.65) { bias[V.eat] += (ch.hunger - 0.55) * 1.4; useBias = true; }
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
     if (mask[V.sleep] && (ch.sleepy > 0.85 || ch.tired > 0.9)) { bias[V.sleep] += 0.3; useBias = true; }
+    if (ch.hunger > 0.8 && c.species === "smol") mask[V.sleep] = false; // too hungry to sleep
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
     // a sick friend and a healer who knows herbs: bring medicine
@@ -432,7 +444,7 @@
         } else if (rng.chance(0.4)) {
           // stay roughly around home, curious ones roam further
           var home = SB.Society ? SB.Society.home(game, c.tribe) : game.world.T.spawn, dh = SB.dist(c.x, c.z, home.x, home.z);
-          var roam = 14 + gene(c.genome, "curiosity", 0.5) * 22 + c.tier * 4;
+          var roam = 14 + gene(c.genome, "curiosity", 0.5) * 22 + c.tier * 4 + Math.max(0, c.chem.hunger - 0.4) * 60;
           if (dh > roam) ang = Math.atan2(home.x - c.x, home.z - c.z) + rng.range(-0.6, 0.6);
         }
         a.tx = c.x + Math.sin(ang) * dist; a.tz = c.z + Math.cos(ang) * dist;
@@ -466,9 +478,12 @@
     return best;
   }
   function sniffFood(c, game) {
-    var it = SB.World.nearestItem(game.world, c.x, c.z, 32, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && o.data.rotten); });
+    // the hungrier, the further a smol's nose reaches (a starving one will cross the island)
+    var reach = 32 + Math.max(0, c.chem.hunger - 0.6) * 110;
+    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && o.data.rotten) && !isUnreachable(c, o.id, game); });
     if (it) return it;
-    return SB.World.nearestNode(game.world, c.x, c.z, 32, function (n) { var d = NK[n.kind]; return d.drops && K[d.drops] && K[d.drops].noun === "food" && n.state === "ok" && n.kind !== "palm"; });
+    // a plant only smells of food when it's nearly ready to drop some
+    return SB.World.nearestNode(game.world, c.x, c.z, reach, function (n) { var d = NK[n.kind]; return d.drops && K[d.drops] && K[d.drops].noun === "food" && n.state === "ok" && n.kind !== "palm" && !d.stings && (n.dropT == null || n.dropT < d.every * 0.5) && !isUnreachable(c, n.id, game); });
   }
 
   function unreachable(c, id, game) {
@@ -562,6 +577,8 @@
       c.pathI = 0;
       if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
     }
+    // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground
+    if (c.path && c.wBestT > 8) { c.path = null; c.lost = true; }
     if (c.path) {
       var wp = c.path[c.pathI];
       while (wp && Math.hypot(wp.x - c.x, wp.z - c.z) < 0.7 && c.pathI < c.path.length - 1) wp = c.path[++c.pathI];
@@ -588,7 +605,7 @@
         break;
       }
     }
-    if (!moved) { c.stuckT += dt; return false; }
+    if (!moved) { c.stuckT += dt; if (c.stuckT > 3 && !SB.World.pathOpen(w, c.x, c.z)) c.lost = true; return false; }
     c.stuckT = Math.max(0, c.stuckT - dt * 0.5);
     c.anim.walk += step * 3.2;
     c.moving = true;
@@ -625,7 +642,7 @@
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
         beginDo(c, game, a, tgt);
-      } else if (a.t > 25 || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || (c.noPath && game.time - c.noPath.t < 0.2)) {
+      } else if (a.t > 25 || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > 7 || (c.noPath && game.time - c.noPath.t < 0.2)) {
         // can't get there (cliff, water, going round in circles): remember that for a while
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
@@ -793,6 +810,8 @@
     } else if (verb === "cuddle" && o.kind === "egg") SB.World.warmEgg(game.world, game, o);
     return res;
   }
+  // low plants a smol can nibble straight off (a little food, no shaking needed)
+  var NIBBLE = { bush: 0.06, roots: 0.08, gourds: 0.08 };
   function addTo(dst, src, mul) { if (!src) return; for (var k in src) dst[k] = (dst[k] || 0) + src[k] * (mul == null ? 1 : mul); }
 
   // nodes: shake trees (play), nibble bushes (eat), gather (pickup)
@@ -801,9 +820,14 @@
     var def = NK[n.kind];
     if (verb === "play" || verb === "hit") {
       if (def.noun === "plant" && n.state === "ok") { var o = SB.World.shake(game.world, game, n, false); if (o) { res.ok = true; habit(c, "hands", 0.2); } }
+      // bees: shaking a hive without smoke (a torch) gets you stung. honey is worth it... sometimes.
+      if (def.stings && SB.Ideas && SB.Ideas.heldKind(c, game) !== "torch" && game.rng.chance(0.55)) {
+        res.deltas.pain = (res.deltas.pain || 0) + 0.3; res.deltas.fear = (res.deltas.fear || 0) + 0.2;
+        emote(c, "ouch", 1.5); if (SB.FX) SB.FX.burst("crumbs", n.x, SB.World.groundY(game.world, n.x, n.z) + 0.9, n.z, 6, { col: [1, 0.85, 0.2] });
+      }
       if (n.kind === "boulder" && verb === "hit" && game.rng.chance(0.3)) { SB.World.dropFrom(game.world, game, n, "stone"); res.ok = true; }
-    } else if (verb === "eat" && n.kind === "bush") {
-      res.deltas.hunger = -0.06; res.ok = true;
+    } else if (verb === "eat" && NIBBLE[n.kind]) {
+      res.deltas.hunger = -NIBBLE[n.kind]; res.ok = true;
     } else if (verb === "pickup" && SB.Ideas) {
       var g = SB.Ideas.GATHER[n.kind];
       if (g && c.tier >= g[3] && n.state === "ok" && game.world.items.length < 420) {
@@ -903,6 +927,9 @@
     if (SB.Species && !SB.Species.compatible(a, b)) { emote(a, "huh", 1.5); SB.bus.emit("incompatible", { a: a, b: b }); return; }
     var pop = SB.Game.smols(game).length + game.world.items.filter(function (o) { return o.kind === "egg"; }).length;
     if (pop >= SB.Game.POP_CAP) { say(a, "too many smols", game); return; }
+    // hard times: when the colony is going hungry, nobody starts a family
+    // (and a big colony needs food lying around to raise another: about one bite per smol, more in winter)
+    if (SB.Game.colonyHunger && (SB.Game.colonyHunger(game) > 0.55 || (pop > 6 && SB.Game.foodPerSmol(game) < (game.world.season === 3 ? 1.2 : 0.7)))) { say(a, "not now. hungry", game); return; }
     SB.Game.layEgg(game, a, b, (a.x + b.x) / 2, (a.z + b.z) / 2);
     a.chem.love = 0; b.chem.love = 0;
     a.eggCooldown = b.eggCooldown = 170;
@@ -1181,7 +1208,7 @@
     game.stats.deaths++;
     var f = game.family[c.id];
     if (f) { f.died = game.time; f.cause = cause; f.name = c.name; f.ideas = Object.keys(c.ideas).filter(function (k) { return c.ideas[k] >= 1; }); }
-    var why = { starved: "starved 😢", sick: "got too sick", hurt: "got hurt too badly", old: "passed away of old age, surrounded by snacks", cold: "got too cold" }[cause] || "died";
+    var why = { starved: "starved 😢", sick: "got too sick", hurt: "got hurt too badly", old: "passed away of old age, surrounded by snacks", cold: "got too cold", drowned: "drowned. smols without fins can't swim 🌊" }[cause] || "died";
     SB.Game.note(game, c.name + " " + why + ".");
     if (cause === "old") SB.Game.unlock(game, "goodbye");
     if (game.selectedId === c.id) game.selectedId = null;
@@ -1283,14 +1310,42 @@
       if (c.y <= gy) {
         if (c.vy < -9 && c.species === "smol") { SB.Chem.apply(ch, { pain: 0.12 + (-c.vy - 9) / 40, fear: 0.1 }); emote(c, "ouch", 1.2); }
         c.y = gy; c.vy = 0; c.vx = 0; c.vz = 0; c.onGround = true; an.squash = 0.35;
-        // landed in deep water without fins: paddle to the nearest shore
-        if (!SB.World.walkable(w, c.x, c.z, swim(c))) c.lost = true;
+        if (SB.World.depthAt(w, c.x, c.z) > 0.5 && !c.far && SB.FX) SB.FX.burst("splash", c.x, gy, c.z, 14, { r: 0.4 });
       } else { c.onGround = false; positionHeld(c, game); return; }
     }
-    if (c.lost) {
-      var shore = findShore(c, game);
-      if (shore) { c.x += (shore.x - c.x) * Math.min(1, dt * 0.8); c.z += (shore.z - c.z) * Math.min(1, dt * 0.8); c.moving = true; }
-      if (SB.World.walkable(w, c.x, c.z, swim(c)) || !shore) c.lost = false;
+
+    // in over its head: a smol that can't swim flails toward the nearest good shore and slowly drowns.
+    // c.lost is also how a smol that's wedged somewhere (a pocket of shallows, a ledge) scrambles out.
+    var depth = SB.World.depthAt(w, c.x, c.z);
+    var deep = depth > 0.5 && !swim(c) && !SB.World.bridgeAt(w, c.x, c.z);
+    if (!deep && !c.lost && c.onGround && c.species === "smol" && !SB.World.walkable(w, c.x, c.z, swim(c))) c.lost = true; // perched somewhere impossible
+    if (deep || c.lost) {
+      c.asleep = false; c.inBed = false; c.action = null;
+      if (c.plan) endPlan(c, game, false);
+      if (!c.shore || game.time > c.shoreT) { c.shore = findShore(c, game); c.shoreT = game.time + 2.5; }
+      var sh = c.shore;
+      if (sh) {
+        var psp = deep ? 0.35 + gene(c.genome, "limbs", 0.2) * 0.6 : speedOf(c, null) * 0.8; // paddling is slow, legs help
+        var pa = Math.atan2(sh.x - c.x, sh.z - c.z) + (deep ? Math.sin(game.time * 2.3 + c.id) * 0.7 : 0);
+        var px = c.x + Math.sin(pa) * psp * dt, pz = c.z + Math.cos(pa) * psp * dt;
+        if (SB.World.inBounds(w, px, pz)) { c.x = px; c.z = pz; }
+        c.facing += SB.angDiff(c.facing, pa) * Math.min(1, dt * 6); c.moving = true; an.walk += dt * (deep ? 9 : 4);
+      }
+      if (deep) {
+        c.drownT = (c.drownT || 0) + dt;
+        SB.Chem.apply(ch, { fear: dt * 0.6 });
+        ch.health -= dt * (c.drownT > 6 ? 0.05 : 0.03);
+        if (!c.far && SB.FX && Math.random() < dt * 3) SB.FX.burst("splash", c.x + (Math.random() - 0.5) * 0.4, SB.World.groundY(w, c.x, c.z), c.z + (Math.random() - 0.5) * 0.4, 3, { r: 0.2 });
+        if (Math.random() < dt * 0.6) { emote(c, "huh", 1); if (c.species === "smol" && game.rng.chance(0.3)) say(c, knows(c, "help") ? "help!" : "blub!", game); }
+        if (c.drownT > 0.5 && !c.drownNoted && c.species === "smol") { c.drownNoted = true; SB.bus.emit("drowning", { c: c }); }
+        if (ch.health <= 0) { die(c, game, "drowned"); return; }
+      } else { c.drownT = 0; c.drownNoted = false; }
+      if (!deep && (!sh || SB.World.pathOpen(w, c.x, c.z) || SB.dist(c.x, c.z, sh.x, sh.z) < 0.4)) { c.lost = false; c.shore = null; c.stuckT = 0; }
+      if (c.lost || deep) {
+        finishTick(c, game, gy);
+        if (deep) c.y = SB.World.groundY(w, c.x, c.z) - 0.28 + Math.sin(game.time * 5 + c.id) * 0.06; // bobbing, half under
+        return;
+      }
     }
 
     // grumps go home at dawn (or when shooed, or when they see fire)
@@ -1365,12 +1420,16 @@
     w.T.caves.forEach(function (cv) { var d = SB.dist(cv.x, cv.z, c.x, c.z); if (d < bd) { bd = d; best = cv; } });
     return best;
   }
+  // the nearest proper land: walkable and on the open path grid (so not another little pocket)
   function findShore(c, game) {
-    for (var r = 1; r < 12; r += 1) for (var a = 0; a < 6.28; a += 0.5) {
+    var w = game.world, fallback = null;
+    for (var r = 0.8; r < 18; r += 0.8) for (var a = 0; a < 6.28; a += 0.4) {
       var x = c.x + Math.sin(a) * r, z = c.z + Math.cos(a) * r;
-      if (SB.World.walkable(game.world, x, z, false)) return { x: x, z: z };
+      if (!SB.World.walkable(w, x, z, false) || SB.World.depthAt(w, x, z) > 0.3) continue;
+      if (SB.World.pathOpen(w, x, z)) return { x: x, z: z };
+      if (!fallback) fallback = { x: x, z: z };
     }
-    return null;
+    return fallback;
   }
 
   function positionHeld(c, game) {
