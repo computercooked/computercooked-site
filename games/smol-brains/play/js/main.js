@@ -406,6 +406,7 @@
     if (SB.Social) SB.Social.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
+    SB.Ideas.nurse(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
     if (game.wordsT <= 0 && SB.Words) { game.wordsT = 3; SB.Words.update(game); }

@@ -489,6 +489,41 @@
     return out;
   };
 
+  /* ---------------- herb lore: herbalists nurse sick friends ---------------- */
+  var nurseAcc = 0;
+  I.nurse = function (game, dt) {
+    nurseAcc += dt;
+    if (nurseAcc < 2) return;
+    var step = nurseAcc; nurseAcc = 0;
+    var sm = game.creatures.filter(function (c) { return c.alive && c.species === "smol" && !c.stranger; });
+    var ill = sm.filter(function (c) { return c.chem.sick > 0.3 || c.chem.antigen > 0.25; });
+    // patients who've come through it thank whoever nursed them
+    sm.forEach(function (p) {
+      if (!p.nursedBy || ill.indexOf(p) >= 0) return;
+      var best = SB.Game.byId(game, p.nursedBy); p.nursedBy = null;
+      if (!best || !best.alive) return;
+      if (best.nursing === p.id) best.nursing = null;
+      if (SB.Social) { SB.Social.remember(game, p, best, "nursed", 25, "nursed me when i was sick", 7200); SB.Social.log(game, best, "🌿", "nursed " + p.name + " back to health"); }
+      SB.bus.emit("nursed", { c: best, p: p });
+    });
+    if (!ill.length) return;
+    var docs = sm.filter(function (c) { return c.stage >= 3 && !c.asleep && !c.heldBy && I.known(c, "herbal") && c.chem.sick < 0.3 && !(c.action && c.action.called && !c.nursing); });
+    ill.forEach(function (p) {
+      var best = null, bd = 30;
+      docs.forEach(function (d) { var dd = SB.dist(d.x, d.z, p.x, p.z); if (d !== p && (!d.nursing || d.nursing === p.id) && dd < bd) { bd = dd; best = d; } });
+      if (!best) return;
+      best.nursing = p.id;
+      if (bd > 2.5) { SB.Creature.sendTo(best, p.x, p.z, game, 15); return; }
+      // close enough: tend them. healroot from the bag works twice as well
+      var herb = best.holding != null && SB.Game.byId(game, best.holding), k = herb && herb.kind === "herb" ? 2 : 1;
+      SB.Chem.apply(p.chem, { sick: -0.06 * k * step, antigen: -0.07 * k * step, toxin: -0.05 * k * step });
+      if (SB.Creature.emote) SB.Creature.emote(best, "love", 1.5);
+      habit(best, "social", 0.3);
+      p.nursedBy = best.id;
+    });
+    docs.forEach(function (d) { if (d.nursing && !ill.some(function (p) { return p.id === d.nursing; })) d.nursing = null; });
+  };
+
   /* ---------------- building ---------------- */
 
   I.chooseBuild = function (c, game) {

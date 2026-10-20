@@ -41,11 +41,24 @@
     return o;
   }
 
+  // the family tree only grows. Keep everyone alive, their ancestors, the recently dead, and the
+  // founders; long-gone branches with nobody left are let go once the tree gets big
+  function pruneFamily(game) {
+    var fam = game.family || {}, ids = Object.keys(fam);
+    if (ids.length <= 600) return fam;
+    var keep = {};
+    function up(id, d) { var f = fam[id]; if (!f || d > 4 || keep[id] > 0) return; keep[id] = 1; (f.parents || []).forEach(function (p) { up(p, d + 1); }); }
+    ids.forEach(function (id) { var f = fam[id]; if (f.died == null || game.time - f.died < SB.DAY_LENGTH * 3 || f.gen <= 1) up(id, 0); });
+    var out = {};
+    ids.forEach(function (id) { if (keep[id]) { var f = fam[id]; out[id] = f.kids ? Object.assign({}, f, { kids: f.kids.filter(function (k) { return fam[k] && keep[k]; }) }) : f; } });
+    return out;
+  }
+
   Save.snapshot = function (game) {
     return {
       v: 2, savedAt: Date.now(), seed: game.seed, rngState: game.rng.state(),
       time: round(game.time), speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
-      hand: { tool: game.hand.tool }, family: plain(game.family, 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
+      hand: { tool: game.hand.tool }, family: plain(pruneFamily(game), 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
       tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
       culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount, sharedMax: game.culture.sharedMax || 0, spireBoost: !!game.culture.spireBoost }, 0),
       tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
