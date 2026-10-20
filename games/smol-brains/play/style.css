@@ -303,3 +303,4 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 .relv { font: 700 15px var(--sans); min-width: 3em; text-align: right; }
 .coach button { pointer-events: auto; } /* the coach never blocks taps on the world, only its own buttons */
 @media (max-width: 600px) { #ui:has(.sheet:not(.hide)) .coach { top: calc(100px + var(--sat)); bottom: auto; } .coach { padding: 9px 11px; } .coach .s { font-size: 12px; } }
+.chipbtn.pray b { color: #ffd84a; } .chipbtn.pray { animation: praypulse 1.6s ease-in-out infinite; } @keyframes praypulse { 50% { filter: brightness(1.35); } }

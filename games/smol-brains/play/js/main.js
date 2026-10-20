@@ -138,8 +138,10 @@
     var heat = game.godHeat || 0, fast = game.speed >= 8 ? 2 : 1;
     return Math.round(base * (1 + 0.3 * heat) * fast);
   };
-  Game.prayerPay = function (game, how) { return how === "miracle" ? Math.round(5 * (1 - (game.spoil || 0))) : 1; };
+  // the right answer pays: a miracle for a need, a tickle for a lonely or lovesick smol (it just wants you)
+  Game.prayerPay = function (game, how, p) { var right = how === "miracle" || (how === "comfort" && p && /lonely|love|bored|fear/.test(p.need)); return right ? Math.round(5 * (1 - (game.spoil || 0))) : 1; };
   Game.usedMiracle = function (game, id) {
+    if (game.time < SB.DAY_LENGTH * 0.335 + 1200 && !game.ngPlus) return; // the first 20 minutes are for learning what miracles do
     game.godHeat = Math.min(10, (game.godHeat || 0) + (id === "bless" ? 2 : 1));
   };
   // handing out food and toys to smols who don't need them spoils them: they stop looking for their own
@@ -509,7 +511,7 @@
     SB.bus.on("lightning", function (d) { if (!game) return; var near = game.creatures.some(function (c) { return c.alive && c.species === "smol" && SB.dist(c.x, c.z, d.x, d.z) < 16; }); if (near) Game.unlock(game, "lightning"); });
     SB.bus.on("wildfire", function () { if (game) Game.unlock(game, "wildfire"); });
     // a prayer answered with the right miracle is worth a lot; a comforting tickle a little; a spoiled tribe's demands nothing
-    SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, Game.prayerPay(game, d.how), d.c); Game.unlock(game, "prayer"); });
+    SB.bus.on("prayerAnswered", function (d) { if (!game) return; game.stats.prayersAnswered++; Game.addSparks(game, Game.prayerPay(game, d.how, d.prayer), d.c); Game.unlock(game, "prayer"); });
     SB.bus.on("dawn", function (d) { if (game && ((d && d.grumps) || game.world.nightGrumps) > 0) { game.stats.grumpNights++; Game.unlock(game, "grump"); } });
   }
 

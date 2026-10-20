@@ -145,7 +145,7 @@
         icon: "⛈", title: "a storm is coming", x: hm.x, z: hm.z, warn: dome ? 90 : 35,
         text: ["black clouds are rolling in off the sea. lightning will hit the tallest trees, and trees can catch fire.", dome ? "the stargazers in the dome saw it coming early, so there's plenty of time." : "farms love the rain, though."],
         choices: [
-          { key: "calm", label: "🌤 turn it away", cost: 8, hint: "the clouds break up before they get here" },
+          { key: "calm", label: "🌤 turn it away", cost: 8, now: true, hint: "the clouds break up before they get here" },
           { key: "hide", label: "🛖 everyone indoors", hint: "your smols wait it out at home, out of the way of the lightning" },
           { key: "let", label: "🌧 let it rain", hint: "smart smols watch fire come from the sky" }
         ]
@@ -568,6 +568,8 @@
     // raiders from a raid that's over (or from before a reload) head home
     game.creatures.forEach(function (c) { if (c.raider && c.alive && !c.goingHome) c.goingHome = true; });
     if (game.time < d.nextT) return;
+    // at 8–16× the island races, but you still get at least a minute and a half of your own time between cards
+    if (game.playTime > 0 && game.playTime - (d.realT || -1e9) < 90) return;
     if (SB.Strangers && SB.Strangers.pending(game)) { d.nextT = game.time + 30; return; }
     D.fire(game);
   };
@@ -592,7 +594,7 @@
     var inc = def.start(game);
     d.last[def.id] = game.time;
     if (!inc) return null;
-    inc.id = def.id; inc.t0 = game.time; d.count++;
+    inc.id = def.id; inc.t0 = game.time; d.count++; d.realT = game.playTime || 0;
     // miracles cost more for a big tribe, so sparks stay worth something later on
     var big = 1 + Math.max(0, smols(game).length - 8) / 25;
     (inc.choices || []).forEach(function (ch) { if (ch.cost) ch.cost = Math.round(ch.cost * big); });
@@ -610,9 +612,10 @@
     if (!ch) return false;
     if (ch.cost && !SB.Game.spend(game, ch.cost)) return false;
     inc.choice = key;
-    inc.phase = inc.warn ? "warn" : "on";
-    inc.t1 = game.time + (inc.warn || 0);
-    if (!inc.warn) D[inc.id].begin(game, inc);
+    var warn = ch.now ? 0 : inc.warn || 0; // some answers happen right away (a storm turned back)
+    inc.phase = warn ? "warn" : "on";
+    inc.t1 = game.time + warn;
+    if (!warn) D[inc.id].begin(game, inc);
     SB.bus.emit("incidentChoice", { inc: inc, choice: ch });
     return true;
   };

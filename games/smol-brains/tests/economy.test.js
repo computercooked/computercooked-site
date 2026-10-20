@@ -14,6 +14,7 @@ game.speed = 1;
 for (let i = 0; i < 4; i++) SB.Debug.spawnTier(3, 1);
 
 console.log("1. miracles get dearer when you lean on them, then cool off");
+{ const t = game.time; SB.Game.usedMiracle(game, "bless"); check("…but not in the first 20 minutes", !game.godHeat); game.time = t + 1300; }
 const c0 = SB.Game.miracleCost(game, 5);
 for (let i = 0; i < 5; i++) SB.Game.usedMiracle(game, "bounty");
 const c5 = SB.Game.miracleCost(game, 5);

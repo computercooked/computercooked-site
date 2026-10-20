@@ -73,7 +73,7 @@
 
   function down(e) {
     if (!game || (SB.UI && SB.UI.modalOpen)) return;
-    el.setPointerCapture && el.setPointerCapture(e.pointerId);
+    try { if (el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch (err) { }
     var p = local(e);
     ptrs[e.pointerId] = { x: p.x, y: p.y, x0: p.x, y0: p.y, t0: performance.now(), type: e.pointerType, button: e.button };
     nPtr = Object.keys(ptrs).length;

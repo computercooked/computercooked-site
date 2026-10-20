@@ -158,7 +158,15 @@
     el.speed = h("button", { class: "chipbtn glass live speed", title: "speed (space pauses, [ ] changes)", onclick: function () { cycleSpeed(1); } });
     el.menu = h("button", { class: "chipbtn glass live menu-btn", title: "smolpedia and settings", "aria-label": "menu", onclick: function () { openMenu(state.menuTab); } }, "☰");
     var mid = h("div", { class: "grow" }, el.era);
-    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.menu);
+    // prayers waiting: tap to fly to the next one
+    var prayI = 0;
+    el.pray = h("button", { class: "chipbtn glass live pray hide", title: "smols praying to you: tap to go to one", onclick: function () {
+      var ps = (game.prayers || []).filter(function (p) { return !p.answered && SB.Game.prayerLive(game, p); }).map(function (p) { return SB.Game.byId(game, p.id); }).filter(function (c) { return c && c.alive; });
+      if (!ps.length) return;
+      var c = ps[prayI++ % ps.length];
+      SB.Game.select(game, c.id); SB.Input.follow(c); if (R.camera.tZoom > 12) R.camera.tZoom = 9;
+    } });
+    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
     el.goals = h("div", { class: "goals glass live", onclick: function () { el.goals.classList.toggle("min"); } });
     root.appendChild(el.goals);
@@ -178,6 +186,9 @@
     if (best) prog = tierProgress(best);
     el.era.innerHTML = '<span class="ico">' + SB.TIERS[maxT].icon + '</span><span><span class="long">' + SB.TIERS[maxT].name + " · </span>gen " + gen + " · " + smols.length + ' 🐣</span><span class="bar"><i style="width:' + Math.round(prog * 100) + '%"></i></span>';
     el.sparks.innerHTML = '<span class="ico">✨</span><b>' + Math.floor(game.sparks || 0) + "</b>";
+    var np = (game.prayers || []).filter(function (p) { return !p.answered && SB.Game.prayerLive(game, p); }).length;
+    el.pray.classList.toggle("hide", !np);
+    if (np) el.pray.innerHTML = '<span class="ico">🙏</span><b>' + np + "</b>";
     el.speed.textContent = game.speed === 0 ? "⏸ paused" : "▶ " + game.speed + "×";
     el.speed.classList.toggle("paused", game.speed === 0);
     updateGoals();
@@ -334,6 +345,7 @@
   }
   function setTool(t, user) {
     var prev = state.tool;
+    if (user && prev === t && (t === "talk" || t === "magic")) t = "grab"; // tap the open book's button again to put it away
     state.tool = t; game.hand.tool = t;
     [].forEach.call(el.tools.children, function (b) { b.classList.toggle("on", b.getAttribute("data-tool") === t); });
     disarm();
@@ -349,10 +361,12 @@
     state.sheet = kind;
     el.sheet.classList.remove("hide");
     el.sheet.classList.toggle("side", kind === "smol" || kind === "inspect");
+    // the followed smol shouldn't sit under the panel: frame it in the part of the screen still visible
+    R.camera.shift = kind === "smol" || kind === "inspect" ? (window.innerWidth < 600 ? 0.45 : 0) : 0.4;
     sheetT = 0;
     renderSheet(true);
   }
-  function closeSheet() { state.sheet = null; el.sheet.classList.add("hide"); clear(el.sheet); }
+  function closeSheet() { state.sheet = null; el.sheet.classList.add("hide"); clear(el.sheet); R.camera.shift = 0; }
   UI.closeSheet = closeSheet;
   var sheetT = 0, sheetKey = "";
   function renderSheet(force) {
@@ -469,7 +483,7 @@
   function updateTalk(force) {
     if (!el.talkWords) return;
     var WD = SB.Words, cul = game.culture || {};
-    var key = state.teach + ":" + WD.topTier(game) + ":" + WD.BOOK.map(function (b) { return Math.round(WD.share(game, b.w) * 10); }).join("");
+    var key = state.teach + ":" + WD.topTier(game) + ":" + WD.BOOK.map(function (b) { return Math.round(WD.progress(game, b.w) * 20); }).join("") + ":" + (state.talkTarget && state.teach ? Math.round((state.talkTarget.vocab[state.teach] || 0) * 10) : "");
     if (!force && key === el.talkWords.dataset.key) return;
     el.talkWords.dataset.key = key;
     el.talkShared.innerHTML = "shared " + (cul.shared || 0) + " · smarts +" + Math.round(WD.smarts(game) * 100) + "%";
@@ -480,14 +494,15 @@
         onclick: function () { if (!open) { toast("“" + b.w + "” unlocks when you have a " + SB.TIERS[b.tier].icon + " " + SB.TIERS[b.tier].name); return; } state.teach = state.teach === b.w ? null : b.w; updateTalk(true); } }, [
         h("span", { class: "wi" }, open ? WD.icon(b.w) : "🔒"),
         h("span", { class: "ww" }, open ? b.w : "?"),
-        h("span", { class: "wb" }, [h("i", { style: "width:" + Math.round(sh * 100) + "%" })])
+        h("span", { class: "wb" }, [h("i", { style: "width:" + Math.round(WD.progress(game, b.w) * 100) + "%" })])
       ]);
       if (open && b.call && sh > 0) card.appendChild(h("span", { class: "call", title: "call: " + b.call, onclick: function (e) { e.stopPropagation(); callWord(b.w); } }, "📣"));
       el.talkWords.appendChild(card);
     });
     var t = state.teach;
-    el.talkInfo.innerHTML = t ? "teaching <b class='lime'>“" + esc(t) + "”</b>: " + esc(WD.how(t)) + (WD.byWord[t].call ? ". <span class='dim'>when they know it, 📣 " + esc(WD.byWord[t].call) + ".</span>" : "") :
-      "pick a word, then show them what it means. one lesson per smol every few seconds, so take it slow. words most of the tribe knows make everyone smarter.";
+    var tc = state.talkTarget && state.talkTarget.alive ? state.talkTarget : null, tv = tc && t ? Math.min(1, tc.vocab[t] || 0) : 0;
+    el.talkInfo.innerHTML = (tc && t ? "<b>" + esc(tc.name) + "</b>: " + (tv >= 1 ? "knows “" + esc(t) + "”! ✔" : Math.round(tv * 100) + "% of the way to “" + esc(t) + "”") + "<br>" : "") + (t ? "teaching <b class='lime'>“" + esc(t) + "”</b>: " + esc(WD.how(t)) + (WD.byWord[t].call ? ". <span class='dim'>when they know it, 📣 " + esc(WD.byWord[t].call) + ".</span>" : "") :
+      "pick a word, then show them what it means. one lesson per smol every few seconds, so take it slow. words most of the tribe knows make everyone smarter.");
   }
   function listeners(x, z, r) {
     var out = [];
@@ -1130,10 +1145,12 @@
     var inp2 = twin ? h("input", { type: "text", value: twin.name, maxlength: 16, autocapitalize: "words", onkeydown: function (e) { if (e.key === "Enter") ok(); e.stopPropagation(); } }) : null;
     function clean(v) { return v.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 16); }
     function ok() {
-      var n = clean(inp.value);
+      var n = clean(inp.value), was = [c.name, twin && twin.name];
       if (n) c.name = n;
       if (game.family[c.id]) game.family[c.id].name = c.name;
       if (twin) { var n2 = clean(inp2.value); if (n2) twin.name = n2; if (game.family[twin.id]) game.family[twin.id].name = twin.name; }
+      // the log already said "x hatched": use the names you chose
+      (game.log || []).forEach(function (e) { if (was[0] && was[0] !== c.name) e.text = e.text.split(was[0]).join(c.name); if (twin && was[1] && was[1] !== twin.name) e.text = e.text.split(was[1]).join(twin.name); });
       SB.Game.unlock(game, "name");
       closeModal();
       if (window.innerWidth >= 600) SB.Game.select(game, c.id); // on a phone the card would cover the whole tutorial
@@ -1388,15 +1405,24 @@
     });
     on("death", function (d) {
       if (d.c.species !== "smol" || d.c.stranger) return;
+      // a founder's death is a moment, not a footnote
+      if (d.c.gen === 1 && !(d.c.parents || []).length) {
+        var f = game.family[d.c.id], kids = f && f.kids ? f.kids.length : 0, days = Math.max(1, Math.round((game.time - (f ? f.born : game.time)) / SB.DAY_LENGTH));
+        moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + ". everyone here comes from them.", "lilac");
+        R.flyTo(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
+      }
       storyCard("grave", "🪦", "goodbye, " + esc(d.c.name), ["every smol gets a little grave where it fell, with an epitaph. tap it to read it.",
         "friends and family grieve for a while: they get lonely and slow, and visit the grave. the 📜 chronicle in the menu remembers everyone."]);
     });
     on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
     on("siteFound", function (d) {
       var paras = d.text.map(esc);
-      if (d.log) paras.push('<span class="podlog">' + esc(d.log) + "</span>");
-      cardQ.push([d.icon, esc(d.title), paras]);
-      if (!el.modal) nextCard();
+      if (d.log) { paras.push('<span class="podlog">' + esc(d.log) + "</span>"); cardQ.push([d.icon, esc(d.title), paras]); if (!el.modal) nextCard(); }
+      else {
+        var cards = (game.settings = game.settings || {}).cards || {}, again = !!cards["site_" + d.site.kind];
+        storyCard("site_" + d.site.kind, d.icon, esc(d.title), paras, [d.icon, d.title, "", "lilac"]); // the first of each kind gets a card, later ones a moment and a note
+        if (again) toast(d.icon + " " + esc(d.text.join(" ")));
+      }
       if (SB.Audio && SB.Audio.play) try { SB.Audio.play("chime"); } catch (e) {}
     });
     on("incident", function (d) { setTimeout(function () { incidentCard(d.inc); }, 300); });
@@ -1459,7 +1485,7 @@
     on("pray", function (d) {
       if (!game.settings || !game.settings.cards || !game.settings.cards.pray) storyCard("pray", "🙏", esc(d.c.name) + " is praying to you", ["smols pray when they need something they can't fix themselves. this one needs <b>" + esc(NEED_TEXT[d.need] || d.need) + "</b>.", "answer with ✨ magic: 🍎 bounty for hunger, 💚 heal for sickness, ☀️ sun for cold. answered prayers earn sparks, and smols remember that you listen."]);
     });
-    on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + (d.need !== "nothing" ? " prays for " + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + esc(NEED_TEXT[d.need] || d.need) : " says thank you to the sky") + ". the right ✨ miracle nearby answers it."); });
+    on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + (d.need !== "nothing" ? " prays for " + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + esc(NEED_TEXT[d.need] || d.need) : " says thank you to the sky") + (/lonely|love|bored|fear/.test(d.need) ? ". it just wants you: 🪶 tickle it." : ". the right ✨ miracle nearby answers it. (tap 🙏 up top to find it)")); });
     on("dusk", function () {
       var lit = game.world.fires.some(function (f) { return f.kind === "campfire"; }), day = SB.World.clock(game.world).day;
       if (day <= 3 || !lit) toast("🌙 night is falling. grumps prowl in the dark: " + (lit ? "smols near the fire are safe." : "a campfire or a hut keeps smols safe."));

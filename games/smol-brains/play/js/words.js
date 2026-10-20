@@ -83,6 +83,12 @@
     all.forEach(function (c) { if (c.stage === 0 && all.length > 3) return; n++; if ((c.vocab[w] || 0) >= 1) k++; });
     return n ? k / n : 0;
   };
+  // how far the tribe is with a word, counting half-learned ones (for the word book's bars)
+  WD.progress = function (game, w) {
+    var all = smols(game), n = 0, k = 0;
+    all.forEach(function (c) { if (c.stage === 0 && all.length > 3) return; n++; k += Math.min(1, c.vocab[w] || 0); });
+    return n ? k / n : 0;
+  };
   // the tribe's shared words (known by at least half): every one makes everybody a bit smarter
   WD.update = function (game) {
     var cul = game.culture || (game.culture = { words: {} }), n = 0;

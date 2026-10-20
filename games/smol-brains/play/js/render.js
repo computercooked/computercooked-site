@@ -614,7 +614,12 @@
     } else {
       if (c.follow) {
         var f = c.follow();
-        if (f) { var kf = 1 - Math.exp(-dt * 4); c.x += (f.x - c.x) * kf; c.z += (f.z - c.z) * kf; }
+        if (f) {
+          // with a panel open at the bottom, aim below the smol so it shows up in the visible top part
+          var sh = (c.shift || 0) * c.halfH, fl = Math.hypot(c.fwd[0], c.fwd[2]) || 1, upk = Math.max(0.35, Math.abs(c.up[1]));
+          var tx = f.x - c.fwd[0] / fl * sh / upk, tz = f.z - c.fwd[2] / fl * sh / upk;
+          var kf = 1 - Math.exp(-dt * 4); c.x += (tx - c.x) * kf; c.z += (tz - c.z) * kf;
+        }
         else c.follow = null;
       } else if (c.vx || c.vz) {
         c.x += c.vx * dt; c.z += c.vz * dt;
