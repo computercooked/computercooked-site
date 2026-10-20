@@ -305,6 +305,42 @@
     }
     return b.finish();
   }
+  function roots(seed) {
+    var b = ME.builder().sides(true).flex(1.4, 0);
+    for (var i = 0; i < 5; i++) {
+      var a = i * 2.5 + seed, x = Math.cos(a) * 0.2, z = Math.sin(a) * 0.2;
+      for (var j = 0; j < 3; j++) b.color(j % 2 ? 0x6fbf4a : 0x58a83c, 1).push().translate(x, 0.04, z).rotY(a + j * 2.1).rotX(0.35).leaf(0.07, 0.34, 0.03).pop();
+      b.sides(false).color(0xff8a3d).push().translate(x, 0.03, z).scale(0.05, 0.04, 0.05).sphere(0).pop().sides(true);
+    }
+    return b.finish();
+  }
+  function gourds(seed) {
+    var b = ME.builder();
+    b.sides(true).flex(0.8, 0).color(0x4f9a48, 1);
+    for (var i = 0; i < 7; i++) { var a = i * 0.9 + seed; b.push().translate(Math.cos(a) * 0.35, 0.03, Math.sin(a) * 0.35).rotY(a).rotX(1.3).leaf(0.16, 0.2, 0.02).pop(); }
+    b.sides(false).flex(0, 0).color(0x5a7a2a).push().translate(0, 0.02, 0).rotZ(1.57).translate(0, -0.45, 0).cyl(4, 0.02, 0.02, 0.9, false).pop();
+    b.color(0xf59b2b);
+    [[0.22, 0.12, 0.05, 0.16], [-0.25, 0.1, -0.12, 0.12], [0.02, 0.09, 0.3, 0.1]].forEach(function (g) { b.push().translate(g[0], g[1], g[2]).scale(g[3] * 1.2, g[3], g[3] * 1.2).sphere(1, function (x, y, z) { return 1 + 0.08 * Math.cos(Math.atan2(z, x) * 8); }).pop(); });
+    return b.finish();
+  }
+  function hive(seed) {
+    var b = ME.builder();
+    b.color(0x7a5236).cyl(5, 0.06, 0.05, 1.1);
+    b.push().translate(0, 1.0, 0).rotZ(1.2).cyl(4, 0.04, 0.03, 0.5, false).pop();
+    b.color(0xe8b04a);
+    for (var i = 0; i < 4; i++) b.push().translate(0.28, 0.82 - i * 0.09, 0).scale(0.17 - Math.abs(i - 1.3) * 0.03, 0.06, 0.17 - Math.abs(i - 1.3) * 0.03).sphere(0).pop();
+    b.color(0x3a2a1a).push().translate(0.28, 0.66, 0.13).scale(0.035).sphere(0).pop();
+    return b.finish();
+  }
+  function clams(seed) {
+    var b = ME.builder();
+    b.color(0xd8c9a0).push().translate(0, 0.0, 0).scale(0.45, 0.04, 0.4).sphere(1).pop();
+    b.color(0xc9c1b4);
+    for (var i = 0; i < 4; i++) { var a = i * 1.7 + seed; b.push().translate(Math.cos(a) * 0.22, 0.04, Math.sin(a) * 0.2).rotY(a).scale(0.07, 0.035, 0.06).sphere(0).pop(); }
+    b.color(0xeef6ff).glow(0.2);
+    for (i = 0; i < 3; i++) b.push().translate(Math.cos(i * 2.3) * 0.1, 0.06, Math.sin(i * 2.3) * 0.12).scale(0.025).sphere(0).pop();
+    return b.finish();
+  }
   function boulder(seed) {
     var b = ME.builder();
     b.color(C.rock, 1).push().translate(0, 0.28, 0).scale(0.62, 0.45, 0.55).rotY(seed).blob(1, 0.4, seed, 0.3).pop();
@@ -369,7 +405,7 @@
     return b.finish();
   }
 
-  ME.NODE_BUILDERS = { oak: oak, birch: birch, pine: pine, palm: palm, giant: giant, deadtree: deadtree, shroomtree: shroomtree, cactus: cactus, bush: bush, reeds: reeds, herbs: herbs, shrooms: shrooms, boulder: boulder, flintrock: flintrock, claybank: claybank, orevein: orevein, crystals: crystals, cave: cave, nest: nest };
+  ME.NODE_BUILDERS = { oak: oak, birch: birch, pine: pine, palm: palm, giant: giant, deadtree: deadtree, shroomtree: shroomtree, cactus: cactus, bush: bush, reeds: reeds, herbs: herbs, shrooms: shrooms, boulder: boulder, flintrock: flintrock, claybank: claybank, orevein: orevein, crystals: crystals, cave: cave, nest: nest, roots: roots, gourds: gourds, hive: hive, clams: clams };
   // trees that change colour in autumn
   ME.DECIDUOUS = { oak: 1, birch: 1, bush: 1, giant: 0 };
 
@@ -391,6 +427,11 @@
       case "cooked": b.color(0x8a5a33).push().translate(0, 0.02, 0).rotZ(1.57).translate(0, -0.18, 0).cyl(4, 0.012, 0.012, 0.36).pop(); b.color(col); for (var j = 0; j < 3; j++) b.push().translate(-0.1 + j * 0.1, 0.03, 0).scale(0.06).blob(0, 0.3, j).pop(); break;
       case "bread": b.color(col).push().translate(0, 0.07, 0).scale(0.16, 0.09, 0.1).sphere(1).pop(); break;
       case "grain": b.sides(true).color(col); for (var g = 0; g < 4; g++) b.push().rotY(g * 0.8).rotZ(0.2).leaf(0.06, 0.3).pop(); break;
+      case "carrot": b.color(col).push().translate(0, 0.05, 0).rotZ(1.45).cone(5, 0.05, 0.24).pop(); b.sides(true).color(0x6fbf4a); for (var cr = 0; cr < 3; cr++) b.push().translate(0.13, 0.05, 0).rotY(cr * 2.1).rotZ(-1.2).leaf(0.04, 0.13).pop(); b.sides(false); break;
+      case "pumpkin": b.color(col).push().translate(0, 0.15, 0).scale(0.24, 0.17, 0.24).sphere(1, function (x, y, z) { return 1 + 0.07 * Math.cos(Math.atan2(z, x) * 8); }).pop(); b.color(0x5a7a2a).push().translate(0, 0.3, 0).cyl(4, 0.025, 0.02, 0.07).pop(); break;
+      case "honey": b.color(col).glow(0.15).push().translate(0, 0.07, 0).cyl(6, 0.13, 0.13, 0.1).pop(); b.color(0xd99a20).glow(0); for (var hc = 0; hc < 6; hc++) b.push().translate(Math.cos(hc * 1.047) * 0.07, 0.175, Math.sin(hc * 1.047) * 0.07).scale(0.03, 0.006, 0.03).sphere(0).pop(); break;
+      case "pricklypear": b.color(col).push().translate(0, 0.09, 0).scale(0.09, 0.11, 0.09).sphere(1).pop(); b.color(0xfff0c0); for (var pp = 0; pp < 4; pp++) b.push().translate(Math.cos(pp * 1.57) * 0.09, 0.11, Math.sin(pp * 1.57) * 0.09).scale(0.012).sphere(0).pop(); break;
+      case "clam": b.color(col).push().translate(0, 0.04, 0).scale(0.13, 0.05, 0.11).sphere(1, function (x, y) { return y > 0 ? 1 : 0.6; }).pop(); b.color(0x9a9286).push().translate(0, 0.04, 0).scale(0.135, 0.008, 0.115).sphere(1).pop(); break;
       case "glowcap": case "shroom": b.color(0xe8e0d0).cyl(5, 0.035, 0.03, 0.1); b.color(col).glow(kind === "glowcap" ? 0.8 : 0).push().translate(0, 0.1, 0).scale(0.12, 0.08, 0.12).sphere(1, function (x, y) { return y < 0 ? 0.25 : 1; }).pop(); if (kind === "shroom") { b.color(0xffffff).glow(0); b.push().translate(0.05, 0.16, 0.03).scale(0.025).sphere(0).pop(); b.push().translate(-0.04, 0.15, -0.04).scale(0.02).sphere(0).pop(); } break;
       case "herb": b.sides(true).color(col); for (var h = 0; h < 4; h++) b.push().rotY(h * 1.57).rotX(0.5).leaf(0.08, 0.18).pop(); b.sides(false).color(0xc9a36a).push().scale(0.03, 0.08, 0.03).sphere(0).pop(); break;
       case "potion": b.color(0xb0603a).cyl(6, 0.08, 0.06, 0.16); b.color(col).glow(0.5).push().translate(0, 0.16, 0).cyl(6, 0.055, 0.055, 0.01).pop(); break;

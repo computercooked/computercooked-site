@@ -370,6 +370,11 @@
   };
 
   // Choose something to make; returns a plan or null. Plans: {idea, steps:[...], i}
+  function looseNear(game, x, z, r, kind) {
+    var n = 0;
+    SB.World.itemsNear(game.world, x, z, r, function (o) { if (o.kind === kind && o.heldBy == null) n++; });
+    return n;
+  }
   I.chooseMake = function (c, game) {
     if (c.tier < 2) return null;
     var depth = SB.Genome.planDepth(c.genome) + 1;
@@ -390,6 +395,8 @@
       if (out === "potion") v += ch.sick * 1.2 + sickFriend(c, game) * 0.6;
       if (out === "torch") v += ch.fear * 0.6 + (game.world.night ? 0.2 : 0) + ch.cold * 0.3;
       if (K[out].tool && haveKind(c, game, out)) continue; // don't hoard identical tools
+      // ...and don't make another if spares are already lying around nearby (pick one of those up instead)
+      if (K[out].tool && looseNear(game, c.x, c.z, 14, out) >= 1) continue;
       if (out === "spear" && (game.world.night || ch.hunger > 0.5)) v += 0.2;
       v -= miss.length * 0.1;
       cands.push({ d: d, v: v, miss: miss });

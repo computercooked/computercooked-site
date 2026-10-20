@@ -1014,6 +1014,7 @@
     on("prayerAnswered", function (d) { if (SB.FX) SB.FX.burst("magic", d.c.x, d.c.y + 1, d.c.z, 14); });
     on("select", function (d) { if (d.c) { state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet("smol"); } else if (state.sheet === "smol") closeSheet(); });
     on("wildEgg", function (d) { R.flyTo(d.obj.x, d.obj.z, 7, 1.4); });
+    on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab"); });
     on("bigThought", function () { moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac"); });
     on("lightning", function () { R.flash(0.9); R.camera.shake = Math.max(R.camera.shake, 0.3); });
     on("death", function (d) { if (game.selectedId === d.c.id) closeSheet(); });
