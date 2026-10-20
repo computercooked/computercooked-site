@@ -360,7 +360,8 @@
     var call = c.called && game.time - c.called.t < 8 ? c.called : null;
     if (call && c.species === "smol" && !c.plan) {
       c.called = null;
-      if (rng.chance(0.55 + gene(c.genome, "obedience", 0.5) * 0.45) && answerCall(c, game, call)) return;
+      if (!rng.chance(0.8 + gene(c.genome, "obedience", 0.5) * 0.2)) say(c, "no!", game); // a stubborn one
+      else if (answerCall(c, game, call)) return;
     }
 
     // what's physically possible
@@ -711,7 +712,17 @@
     }
     a.doT += dt;
     switch (a.verb) {
-      case V.wander: if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * 0.8, game, 0.3) || (c.stuckT > 1 && !c.path) || (c.noPath && game.time - c.noPath.t < 0.2)) a.doT = a.dur; break;
+      case V.wander:
+        if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * (a.called ? 1 : 0.8), game, a.called ? 1.2 : 0.3)) {
+          if (a.called) { startAction(c, game, V.idle, null, null, null); c.action.dur = 3; emote(c, "happy", 1.5); return; } // here! waits to see what you want
+          a.doT = a.dur;
+        }
+        else if ((c.stuckT > 1 && !c.path) || (c.noPath && game.time - c.noPath.t < 0.2)) {
+          // called over but bumped into a friend or a rock: try a spot next to it instead of giving up
+          if (a.called && a.doT < a.dur - 1) { a.tx += game.rng.range(-1.5, 1.5); a.tz += game.rng.range(-1.5, 1.5); c.stuckT = 0; }
+          else a.doT = a.dur;
+        }
+        break;
       case V.flee: {
         var away = tgt ? Math.atan2(c.x - tgt.x, c.z - tgt.z) : c.facing;
         walkToward(c, c.x + Math.sin(away) * 3, c.z + Math.cos(away) * 3, dt, speedOf(c, a), game, 0.1);

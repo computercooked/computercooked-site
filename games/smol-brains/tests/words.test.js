@@ -54,10 +54,10 @@ smols.forEach(c => { c.vocab.come = 1.2; c.action = null; c.plan = null; c.aslee
 const tx = sp.x + 9, tz = sp.z + 3;
 const d0 = smols.map(c => SB.dist(c.x, c.z, tx, tz));
 const heard = SB.Words.call(game, "come", tx, tz);
-for (let t = 0; t < 12 / 0.1; t++) { game.time += 0.1; smols.forEach(c => SB.Creature.tick(c, 0.1, game)); }
-const d1 = smols.map(c => SB.dist(c.x, c.z, tx, tz));
+const d1 = d0.slice();
+for (let t = 0; t < 12 / 0.1; t++) { game.time += 0.1; smols.forEach((c, i) => { SB.Creature.tick(c, 0.1, game); d1[i] = Math.min(d1[i], SB.dist(c.x, c.z, tx, tz)); }); }
 const closer = d1.filter((d, i) => d < d0[i] - 2).length;
-check("smols who know “come” come", heard === 3 && closer >= 2, `heard ${heard}, ${closer}/3 closer: ${d0.map(d => d.toFixed(1))} -> ${d1.map(d => d.toFixed(1))}`);
+check("smols who know “come” come (closest they got)", heard === 3 && closer >= 2, `heard ${heard}, ${closer}/3 closer: ${d0.map(d => d.toFixed(1))} -> ${d1.map(d => d.toFixed(1))}`);
 
 console.log("7. shared words make the tribe smarter");
 const iq0 = SB.Creature.iq(smols[1], true);
