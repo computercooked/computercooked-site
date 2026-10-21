@@ -306,8 +306,8 @@
         "pixel art"
       ],
       "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, rescue), tickle (reward), tap (scold), talk (the word book), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer, m map.",
-      "size_kb": 1020,
-      "version": "3.3",
+      "size_kb": 1087,
+      "version": "3.4",
       "added": "2026-10-19",
       "how_to": [
         "tap the crashed pod open. two blobs climb out, a girl and a boy: the last smols. name them.",
@@ -318,9 +318,12 @@
         "miracles get pricier the more you lean on them, and handouts spoil smols. answer prayers with the right miracle: that's where sparks come from.",
         "the island starts under cloud. smols clear it by exploring, and new places hold new plants, stone, and bunnies to hunt.",
         "a storyteller deals story cards every few minutes: grump raids, storms, sniffles, falling stars, feuds, lost kids, dreams. pick an answer; some cost ✨ sparks.",
-        "explore the fog: the \"?\" marks hide crashed pods with the ark's logs, ruins, crystal caves, nests and grump camps holding captured smols.",
+        "explore the fog: the \"?\" marks hide ruins, crystal caves, nests and grump camps holding captured smols.",
         "tap a smol and it holds still for a few seconds, so it's easy to teach. the word book opens at the side of the screen.",
         "the seasons turn every 40 minutes: blossoms, summer storms, falling leaves, snow. the soundtrack, 20 songs, follows them; some only play in one season, at night, or in the rain. settings has a jukebox.",
+        "more escape pods crash while you play. you see where on the map: send a rescue party of grown smols, lift them home with magic, or they climb out on their own later.",
+        "smols remember places, dream about their day, read each other's moods and pick goals. open the 🧠 brain viewer to hear what one is thinking.",
+        "new here? say yes to the tutorial: it stays with you the whole game, with a tip whenever something new happens or you're not sure what to do.",
         "evolve them all the way to ascended and build the big thought. it's a signal home. then try new game+."
       ]
     }
