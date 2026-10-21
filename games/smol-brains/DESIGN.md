@@ -1,4 +1,4 @@
-# smol brains 3 — design doc
+# smol brains 4 — design doc
 
 **Creatures/Norns on steroids, on an island, in 3D.** You find one glowing egg on a procedurally generated island. What hatches is a wobbly blob with a real neural-network brain. You raise it, teach it words, and watch its children's children grow legs, then hands, then language, then villages, then big glowing brains, until they are building something they call *the big thought*.
 
@@ -79,6 +79,21 @@ From the owner's fourth round of notes and a playtester's complaint that pods we
   - One tip card at the bottom shows anything urgent (drowning, pod down, stranger waiting, prayers, grumps, starving, sickness, a wild egg) with a "show me" button.
   - After 20 idle seconds, the card names the next goal and how to reach it.
   - ✕ snoozes a tip for 3 minutes. No turns it all off, and settings switches it back on.
+
+## 0.10 What v4.0 added: a front door, bigger worlds, your hands in the world
+
+From the owner's fifth and sixth rounds of notes (v3.5 never shipped on its own, so it rides along here).
+
+- **Title screen** (`title.js`): a "Computer Cooked Games presents" card and the title over a slow orbit of a late-game city that builds itself in stages (it's a throwaway showcase game, never saved). Start, Load and Create World. Battle music and laser/boom sfx play under the presents card and the intro. The whole interface zooms on big screens (settings has a text-size choice).
+- **Create World and many islands**: a name, a seed (or dice), a size, and choices for land, peaks, climate, food, grumps, storms and crew, plus stackable quirks (bunny boom, lush, crystal isle, tempest, grump moon, gentle, wild, old island). Every island has its own id and an IndexedDB copy; Load lists them with day, population and tier. Old saves show up as "legacy".
+- **Bigger islands and 21 biomes** (`worldgen.js`, generator v2 for new worlds; old saves keep v1 and come back identical): small 384, medium 544 (default, twice the old area), large 768, extra large 1024. Eight island shapes (classic, volcano, twin isles, crescent bay, mesas, delta, lake district, fjord) and biome regions about twice as big. New biomes: blossom grove (cherries), maple woods, ashlands (vents and basalt), mangrove coast, bamboo thicket, red mesas, flower fields, coral shallows. Terrain builds per chunk with three levels of detail, and the item/creature grids only clear cells in use, so a big island costs about what a small one did.
+- **Possess a smol** (`possess.js`): 3 sparks on the smol card drops you into its eyes. WASD and mouse look (joystick and look-drag on phones), act on what the crosshair points at, a make menu for crafting and build sites, survival bars, a compass home. You're limited to what its tier can do. Friends tag along and bring food. The brain doesn't decide while you drive; it learns from your choices (`P.LEARN_RATE`) and keeps them when you leave with Esc.
+- **The sky's orders** (`orders.js`, a 6th tool from tool-users on): rally flags, explore beacons, work marks (chop, harvest, mine, hunt), blueprints from ideas the tribe knows, no-go/stockpile/home zones, and a jobs panel that nudges each smol's interests. Smols weigh trust, stubbornness, curiosity and needs; too many orders and they call you bossy.
+- **The first hour** (`firsthour.js`): echo pips while smols practise, "what its kids will inherit" bars, a hatch reveal card that explains the baby's genes, learning chips from the real change in the net, small wishes you grant with the hand, a throw arc, and shaking fruit out of trees. Tool-user now lands around 22–32 game minutes for an engaged player.
+- **Minds that feel human** (`mind.js`, `social.js`): beliefs tagged with where they came from (saw it, told, mum said, dreamt, guessed); hidden food, theft, lies and being caught; plan bubbles with re-planning and named routines ("Grandma Ula's fire"); values that shift in dreams; superstitions that become rituals and deaths that become taboos.
+- **Collectible smols** (`collect.js`, `cards.js`): six trait slots and a fluff grade, rarity common to mythic, inherited with rare-parent luck. Collector cards, a smoldex with a hall of fame, and checksummed smol codes so a typo can't forge a legendary.
+- **Cosy art pass**: warmer palette and golden light, turquoise shallows and foam, thatched huts with chimneys and lit windows, fenced farms, fruit on the trees.
+- **From v3.5**: funerals by culture (river, pyre, burial and memorials), a much bigger name generator, clickable guide tips, a bigger menu that fits the tree of life.
 
 ## 1. The ladder
 
