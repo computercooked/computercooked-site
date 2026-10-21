@@ -11,13 +11,41 @@
 
   /* ---------------- tiny affine helpers ---------------- */
   var bm = new Float32Array(12), out = new Float32Array(12), rl = new Float32Array(9);
-  // base = translate(x,y,z) * rotY(a) * uniform scale s
-  function setBase(x, y, z, a, s) {
-    var c = Math.cos(a), sn = Math.sin(a);
-    bm[0] = c * s; bm[1] = 0; bm[2] = sn * s; bm[3] = x;
-    bm[4] = 0; bm[5] = s; bm[6] = 0; bm[7] = y;
-    bm[8] = -sn * s; bm[9] = 0; bm[10] = c * s; bm[11] = z;
+  // base = translate(x,y,z) * rotY(a) * rotX(lean) * uniform scale s (lean > 0 tips the top forward, toward +z)
+  function setBase(x, y, z, a, s, lean) {
+    var c = Math.cos(a), sn = Math.sin(a), cl = 1, sl = 0;
+    if (lean) { cl = Math.cos(lean); sl = Math.sin(lean); }
+    bm[0] = c * s; bm[1] = sn * sl * s; bm[2] = sn * cl * s; bm[3] = x;
+    bm[4] = 0; bm[5] = cl * s; bm[6] = -sl * s; bm[7] = y;
+    bm[8] = -sn * s; bm[9] = c * sl * s; bm[10] = c * cl * s; bm[11] = z;
   }
+
+  // Secondary motion, render-side only (never saved): a couple of damped springs per creature, so bodies
+  // squash when they land or get bonked and stretch in the air, lean into their stride and wobble back
+  // upright when they stop, and turn smoothly even when the sim snaps their facing round.
+  //   sq: squash (+ flatter, - taller)   ln: lean forward (radians)   face: the facing actually drawn
+  function motion(c, x, y, z, t) {
+    var m = c._mo;
+    if (!m || t < m.t || t - m.t > 1 || Math.abs(x - m.x) + Math.abs(z - m.z) > 3) m = c._mo = { t: t, x: x, y: y, z: z, vy: 0, sq: 0, sv: 0, ln: 0, lv: 0, face: c.facing, air: false, turn: 0, flip: -1 };
+    var dt = Math.min(0.05, t - m.t);
+    if (!(dt > 0)) return m;
+    m.t = t;
+    var vx = (x - m.x) / dt, vz = (z - m.z) / dt, vy = (y - m.y) / dt;
+    m.x = x; m.y = y; m.z = z;
+    m.face += SB.angDiff(m.face, c.facing) * Math.min(1, dt * 12);
+    var fwd = SB.clamp(vx * Math.sin(m.face) + vz * Math.cos(m.face), -4, 4);
+    var air = c.onGround === false && !c.heldBy;
+    var tsq = c.asleep ? 0.12 : (c.anim.squash || 0);
+    if (air) tsq -= SB.clamp(Math.abs(vy) * 0.04, 0, 0.22);
+    if (m.air && !air) m.sv += 1.6 + Math.min(3, Math.abs(m.vy) * 0.35); // landing thump
+    m.air = air; m.vy = vy;
+    m.sv += ((tsq - m.sq) * 170 - m.sv * 12) * dt; m.sq = SB.clamp(m.sq + m.sv * dt, -0.35, 0.45);
+    var tln = c.asleep || c.heldBy ? 0 : SB.clamp(fwd * 0.08, -0.22, 0.22);
+    m.lv += ((tln - m.ln) * 80 - m.lv * 8) * dt; m.ln = SB.clamp(m.ln + m.lv * dt, -0.35, 0.35);
+    if (m.turn > 0) m.turn = Math.max(0, m.turn - dt * 7);
+    return m;
+  }
+  B.motion = motion;
   // local rotation Ry(ry) * Rx(rx) * Rz(rz)
   function rot(ry, rx, rz) {
     var cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx), cz = Math.cos(rz), sz = Math.sin(rz);
@@ -54,7 +82,7 @@
     return c._cols;
   }
 
-  var EXT = [0, 0, 0], EXT_GLOW = [0, 0.7, 0];
+  var EXT = [0, 0, 0], EXT_GLOW = [0, 0.7, 0], HI = [[0, 0, 0, 1], [0, 0.7, 0, 1]];
   var SEL = [0.77, 1, 0.29];
 
   /* ---------------- creatures ---------------- */
@@ -70,9 +98,10 @@
     var lk = c.look, an = c.anim, cols = lookCols(c);
     var Rr = SB.Creature.radius(c) * (c.dying ? 1 - c.fade : 1);
     if (Rr <= 0.01) return;
+    var mo = motion(c, x, y, z, t);
     if (R.pixel && SB.Pixel) {
       // pixel mode: a sprite painted from its genes (pixel.js), plus the 3D shadow, glow and selection ring
-      R.shadow(x, z, Rr * 1.05, 0.3);
+      R.shadow(x, z, Rr * 1.05 * (1 + Math.max(0, mo.sq) * 0.3), 0.3);
       SB.Pixel.creature(c, x, y, z, t, alpha);
       if (lk.glow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
       if (game.selectedId === c.id) { setBase(x, SB.World.groundY(game.world, x, z) + 0.03, z, t * 0.6, 1); part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]); }
@@ -81,16 +110,16 @@
     var grump = c.species === "grump";
     var legs = lk.legs, legH = legs ? 0.35 + lk.legLen * 0.9 : 0;
     var moving = c.moving || (c.action && c.action.phase === "go") || !!c.plan;
-    var hop = 0, sq = an.squash;
+    var hop = 0, sq = mo.sq;
     if (!legs && moving && !c.asleep && c.onGround) {
       var hp = Math.abs(Math.sin(an.walk * 1.1));
-      hop = hp * 0.45; sq += (1 - hp) * 0.12 - 0.06;
-    }
-    var breath = Math.sin(an.bob) * 0.03;
-    if (c.asleep) sq = 0.25;
+      hop = hp * 0.45; sq += (1 - hp) * 0.14 - 0.07; // squash on the ground, stretch at the top of each hop
+    } else if (legs && moving && !c.asleep && c.onGround) hop = (1 - Math.cos(an.walk * 3.2)) * 0.035; // a soft bob with each step
+    var breath = Math.sin(an.bob) * (c.asleep ? 0.05 : 0.035);
+    if (c.asleep) sq = Math.max(sq, 0.2);
     var ext = an.flash > 0 ? [0, lk.glow * 0.6, an.flash] : lk.glow ? [0, lk.glow * 0.6, 0] : EXT;
     var tierGlow = lk.glow;
-    setBase(x, y + hop * Rr, z, c.facing, Rr);
+    setBase(x, y + hop * Rr, z, mo.face, Rr, mo.ln * 0.9);
     var cy = 1 + legH;
     var bw = 0.85 + (lk.body - 0.8) * 0.55;
     var upright = grump ? 1.05 : 1 + Math.min(4, c.tier) * 0.06;
@@ -138,7 +167,7 @@
     }
     // face: eyes look toward the attended thing
     var look = 0, tilt = 0;
-    if (c.attn && c.attn.x != null) { look = SB.clamp(SB.angDiff(c.facing, Math.atan2(c.attn.x - x, c.attn.z - z)), -0.6, 0.6); }
+    if (c.attn && c.attn.x != null) { look = SB.clamp(SB.angDiff(mo.face, Math.atan2(c.attn.x - x, c.attn.z - z)), -0.6, 0.6); }
     var es = 0.21 * lk.eyes * (c.stage === 0 ? 1.15 : 1), blink = c.asleep ? 0.12 : 1 - an.blink * 0.9;
     var eyY = headY + 0.25 * sy, eyZ = 0.8 * sxz;
     var eyeTint = grump ? [1, 0.35, 0.3] : null, eyeExt = grump ? [0, 0.4 + SB.Render.env.night * 0.8, 0] : ext;
@@ -149,14 +178,15 @@
     if (grump) { part("p:cone", 0.07, headY - 0.07, 0.86 * sxz, 0, Math.PI, 0, 0.04, 0.09, 0.04, cols.white, EXT); part("p:cone", -0.07, headY - 0.07, 0.86 * sxz, 0, Math.PI, 0, 0.04, 0.09, 0.04, cols.white, EXT); }
     if (lk.cheeks && !grump) { part("p:ball", 0.5 * bw, headY + 0.03, 0.66 * sxz, 0, 0, 0, 0.11, 0.07, 0.06, cols.cheek, EXT); part("p:ball", -0.5 * bw, headY + 0.03, 0.66 * sxz, 0, 0, 0, 0.11, 0.07, 0.06, cols.cheek, EXT); }
     // ears
-    var ear = lk.ears, wig = Math.sin(t * 3 + c.id) * 0.08;
+    var ear = lk.ears, wig = Math.sin(t * 3 + c.id) * 0.08 + SB.clamp(mo.sv * 0.025, -0.3, 0.3); // ears flop when it lands
     if (ear === 1) { part("p:cone", 0.42 * bw, top - 0.2, 0, 0, 0, -0.45 + wig, 0.2, 0.42, 0.14, cols.body, ext); part("p:cone", -0.42 * bw, top - 0.2, 0, 0, 0, 0.45 - wig, 0.2, 0.42, 0.14, cols.body, ext); }
     else if (ear === 2) { part("p:leaf", 0.25 * bw, top - 0.15, 0, 0, -0.2, -0.25 + wig, 0.28, 0.85, 0.3, cols.second, ext); part("p:leaf", -0.25 * bw, top - 0.15, 0, 0, -0.2, 0.25 - wig, 0.28, 0.85, 0.3, cols.second, ext); }
     else if (ear === 3) { part("p:ball", 0.5 * bw, top - 0.2, -0.05, 0, 0, 0, 0.22, 0.22, 0.12, cols.second, ext); part("p:ball", -0.5 * bw, top - 0.2, -0.05, 0, 0, 0, 0.22, 0.22, 0.12, cols.second, ext); }
     else if (ear === 4) { part("p:leaf", 0.55 * bw, headY + 0.25, -0.1, 1.2, 0, -1.1 + wig, 0.35, 0.55, 0.3, cols.body, ext); part("p:leaf", -0.55 * bw, headY + 0.25, -0.1, -1.2, 0, 1.1 - wig, 0.35, 0.55, 0.3, cols.body, ext); }
     if (lk.antenna || grump) {
-      part("p:limb", 0.12, top - 0.08, 0.05, 0, -0.3, -0.25, 0.025, 0.45, 0.025, cols.dark, ext);
-      part("p:ball", 0.12 + Math.sin(0.25) * 0.45, top + 0.33, 0.05 - Math.sin(0.3) * 0.45, 0, 0, 0, 0.09, 0.09, 0.09, grump ? [0.9, 0.3, 1] : SEL, [0, 0.6, 0]);
+      var arx = -0.3 - mo.ln * 1.6 - mo.sv * 0.02; // the antenna trails behind the lean and springs back
+      part("p:limb", 0.12, top - 0.08, 0.05, 0, arx, -0.25, 0.025, 0.45, 0.025, cols.dark, ext);
+      part("p:ball", 0.12 + Math.sin(0.25) * 0.45, top - 0.08 + Math.cos(arx) * 0.45, 0.05 + Math.sin(arx) * 0.45, 0, 0, 0, 0.09, 0.09, 0.09, grump ? [0.9, 0.3, 1] : SEL, [0, 0.6, 0]);
     }
     if (lk.horns) { part("p:cone", 0.25, top - 0.15, 0.15, 0, 0.35, -0.3, 0.09, 0.32, 0.09, cols.horn, ext); part("p:cone", -0.25, top - 0.15, 0.15, 0, 0.35, 0.3, 0.09, 0.32, 0.09, cols.horn, ext); }
     if (grump) for (var gs = 0; gs < 4; gs++) part("p:cone", 0, cy + 0.6 - gs * 0.28, -0.55 - gs * 0.12 + gs * 0.05, 0, -0.5 - gs * 0.35, 0, 0.12, 0.3, 0.12, cols.dark, ext);
@@ -172,7 +202,7 @@
       part("p:leaf", -0.3, cy + 0.2, -0.6, -0.6, -0.4, 0.9 + flap, 0.7, 1.2, 0.3, SB.mixC(cols.second, [1, 1, 1], 0.4), [0, tierGlow * 0.4, ext[2]]);
     }
     // tail
-    var tl = lk.tail, wag = Math.sin(t * (moving ? 9 : 3) + c.id) * 0.35;
+    var tl = lk.tail, wag = Math.sin(t * (moving ? 9 : 3) + c.id) * 0.35 - mo.ln * 0.8;
     if (tl === 1) part("p:ball", 0, cy - 0.35, -0.92 * sxz, 0, 0, 0, 0.18, 0.18, 0.18, cols.second, ext);
     else if (tl === 2) { part("p:limb", 0, cy - 0.3, -0.85 * sxz, wag, -2.2, 0, 0.07, 0.65, 0.07, cols.body, ext); }
     else if (tl === 3) part("p:ball", Math.sin(wag) * 0.1, cy - 0.15, -1.0 * sxz, 0, 0, 0, 0.3, 0.3, 0.3, cols.belly, ext);
@@ -219,11 +249,19 @@
       if (zoomFar && !o.heldBy && o.kind !== "egg" && !K[o.kind].glow) continue;
       var def = K[o.kind], s = 1, rx = 0, rz = 0, ry = o.rot || 0, y = o.y;
       var ext = def.glow ? EXT_GLOW : EXT;
+      // things lying about to pick up read from the god view: a bit bigger, a slow bob, and (in the shader) a
+      // bright rim, a glint every few seconds and an outline (pixel look) or a dark shell (3D look)
+      var loose = o.heldBy == null && !o.inBag && !o.onBelt && !(o.data && o.data.pod);
+      if (loose) {
+        s = o.kind === "egg" ? 1.1 : 1.3;
+        if (!def.critter && o.kind !== "egg" && o.onGround !== false) y += 0.015 + (Math.sin(t * 2.2 + o.id * 1.7) * 0.5 + 0.5) * 0.035;
+        ext = HI[def.glow ? 1 : 0];
+      }
       if (o.kind === "egg") {
         var wob = (o.data.wobble || 0) * Math.sin(t * 22) * 0.25;
         rz = wob; s = 1 + (o.data.progress || 0) * 0.15;
         var eg = o.data.genome, tint = eg && eg.genes ? SB.mixC([1, 1, 1], SB.hsl(eg.genes.hue * 360, 0.6, 0.7), 0.35) : null;
-        if (o.data.starter && !o.data.progress) ext = [0, 0.25 + Math.sin(t * 3) * 0.15, 0];
+        if (o.data.starter && !o.data.progress) ext = [0, 0.25 + Math.sin(t * 3) * 0.15, 0, loose ? 1 : 0];
         setBase(o.x, y, o.z, ry, 1);
         if (o.data.pod) { // the escape pod: rattles when you tap it, smokes until it opens
           part("i:pod", 0, 0, 0, 0.6, 0, rz * 0.4, 1.1, 1.1, 1.1, null, o.data.progress ? [0, 0.2 + o.data.progress * 0.5, 0] : ext);
@@ -236,7 +274,7 @@
         setBase(o.x, y, o.z, ry, 1);
         part("i:" + o.kind, 0, 0, 0, 0, rx, rz, s, s, s, o.data.rotten ? [0.55, 0.6, 0.4] : null, ext);
       }
-      if (!o.heldBy && cam.zoom < 18) R.shadow(o.x, o.z, (o.r || 0.15) * 1.2, 0.22);
+      if (!o.heldBy && cam.zoom < 26) R.shadow(o.x, o.z, (o.r || 0.15) * 1.25 * s, 0.26);
       if (o.kind === "torch") R.light(o.x, y + 0.5, o.z, 4.5, 1, 0.6, 0.25);
       else if (def.glow && SB.Render.env.night > 0.3) R.light(o.x, y + 0.3, o.z, 1.6, 0.4, 0.8, 1);
     }
