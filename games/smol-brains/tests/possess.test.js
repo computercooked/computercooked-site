@@ -86,7 +86,7 @@ console.log("4. interact eats and picks up");
   cs.slice(1).forEach(o => { o.x += 30; o.z += 30; }); // nobody else in the way
   g.world.items.filter(o => o !== apple && SB.dist(o.x, o.z, c.x, c.z) < 6).forEach(o => SB.World.remove(g.world, o)); // (the pod egg, mostly)
   run(g, SB.TICK * 2); // the spatial grid catches up
-  const t = P.look(g, c, null, -0.35);
+  const t = P.look(g, c, null, -0.5);
   check("the crosshair finds the apple", t && t.type === "item" && t.id === apple.id, JSON.stringify(t));
   const mv = P.verbFor(g, c, t, "main");
   check("E on food is eat", mv && mv.verb === V.eat, mv && mv.label);

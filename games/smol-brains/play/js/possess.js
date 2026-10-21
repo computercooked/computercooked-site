@@ -242,11 +242,11 @@
     SB.World.eachNodeNear(w, ex, ez, P.REACH + 2, function (n) {
       if (n.state && n.state !== "ok" && n.state !== "stump" && !NIBBLE[n.kind]) return;
       var r = NK[n.kind].r * (n.s || 1);
-      consider({ type: "node", id: n.id }, n.x, (n.y || SB.World.groundY(w, n.x, n.z)) + Math.min(1.2, r * 1.4), n.z, r, 0.05);
+      consider({ type: "node", id: n.id }, n.x, (n.y || SB.World.groundY(w, n.x, n.z)) + Math.min(1.2, r * 1.4), n.z, r, 0.15); // big things lose ties to small ones
     });
     SB.World.structsNear(w, ex, ez, P.REACH + 3).forEach(function (st) {
       var r = SK[st.kind].r * (st.s || 1);
-      consider({ type: "struct", id: st.id }, st.x, SB.World.groundY(w, st.x, st.z) + 0.5, st.z, r, 0.1);
+      consider({ type: "struct", id: st.id }, st.x, SB.World.groundY(w, st.x, st.z) + 0.5, st.z, r, 0.25);
     });
     if (best) return best;
     // nothing standing there: is it water under the crosshair?
