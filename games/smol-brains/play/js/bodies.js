@@ -102,9 +102,16 @@
     if (R.pixel && SB.Pixel) {
       // pixel mode: a sprite painted from its genes (pixel.js), plus the 3D shadow, glow and selection ring
       R.shadow(x, z, Rr * 1.05 * (1 + Math.max(0, mo.sq) * 0.3), 0.3);
-      SB.Pixel.creature(c, x, y, z, t, alpha);
+      if (R.hd) R.shadow(x, z, Rr * 0.62, 0.34); // hd: a tight, soft contact shadow right under the feet
+      // up close (first person, the hd look, or "3D smols" on) a voxel model built from the same pixel art
+      if (!(SB.Voxel && SB.Voxel.creature(c, x, y, z, t, mo))) SB.Pixel.creature(c, x, y, z, t, alpha);
       if (lk.glow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
       if (game.selectedId === c.id) { setBase(x, SB.World.groundY(game.world, x, z) + 0.03, z, t * 0.6, 1); part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]); }
+      return;
+    }
+    if (cam.pov && SB.Voxel && SB.Voxel.creature(c, x, y, z, t, mo)) { // first person: the voxel smol (fades up close instead of clipping)
+      R.shadow(x, z, Rr * 1.05, 0.3);
+      if (lk.glow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
       return;
     }
     var grump = c.species === "grump";

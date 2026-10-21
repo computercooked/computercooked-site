@@ -144,6 +144,7 @@
     } else if (!c.action && !c.plan) {
       c.facing += SB.angDiff(c.facing, S.yaw + Math.PI) * Math.min(1, dt * 6); // looking about turns the body
     }
+    apart(c, game, dt); // no walking into other smols: the eye never ends up inside someone
     if (inp.jump) {
       inp.jump = false;
       if (c.onGround !== false && !c.asleep) {
@@ -169,6 +170,20 @@
     if ((S.friendT -= dt) <= 0) { S.friendT = 6; friends(c, game); }
   };
   function ok(w, x, z, swim) { return SB.World.walkable(w, x, z, swim); }
+  // a soft push apart from anyone you bump into (a bit each tick, so it slides rather than snaps)
+  function apart(c, game, dt) {
+    var C = SB.Creature, rc = C.radius(c), cs = game.creatures, w = game.world;
+    for (var i = 0; i < cs.length; i++) {
+      var o = cs[i];
+      if (o === c || !o.alive || o.heldBy || Math.abs((o.y || 0) - (c.y || 0)) > 1.2) continue;
+      var dx = c.x - o.x, dz = c.z - o.z, d = Math.hypot(dx, dz), min = rc + C.radius(o) + 0.05;
+      if (d >= min) continue;
+      if (d < 1e-4) { dx = Math.sin(S.yaw); dz = Math.cos(S.yaw); d = 1; }
+      var k = (min - d) * Math.min(1, dt * 12), nx = c.x + dx / d * k, nz = c.z + dz / d * k;
+      if (ok(w, nx, nz, C.canSwim(c))) { c.x = nx; c.z = nz; }
+    }
+  }
+  P.apart = apart;
 
   function friends(c, game) {
     var n = 0, Soc = SB.Social;
