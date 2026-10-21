@@ -269,8 +269,8 @@
     var k = dot ? 1 : ratio < 0.8 ? ratio : Math.min(2, Math.max(1, Math.floor(ratio + 0.3)));
     if (cam.pov) { // first person: each sprite scales with its own distance, and nothing behind the eye
       ppu = R.ppuAt(x, y + 0.3, z);
-      if (!ppu) return;
-      ratio = 0.38 * 2.2 * ppu / 16; dot = ratio < 0.12; k = Math.max(0.12, ratio);
+      if (!ppu || ppu > cam.povK / 0.75) return; // behind the eye, or so close it would fill the screen
+      ratio = 0.38 * 2.2 * ppu / 16; dot = ratio < 0.12; k = SB.clamp(ratio, 0.12, cs.h * 0.6 / F);
     }
     c._pxH = (s.bodyPx + 6) * k * (R.pixelSize || 1); // on-screen height in CSS px, for speech bubbles
     var fr = dot ? FR.dot : frameFor(c, t);

@@ -473,6 +473,8 @@
     var c = S.c, cm = cam();
     if (SB.Game.current && SB.Game.current !== S.game) { P.leave("swap"); return; }
     if (!cm || !cm.pov) return;
+    // asleep, the creature's tick never reaches drive(): moving is what wakes you
+    if (c.asleep && !S.dead && (Math.abs(P.input.fwd) + Math.abs(P.input.side) > 0.1 || P.input.jump)) { c.asleep = false; c.inBed = false; c.action = null; }
     var x = c.px + (c.x - c.px) * alpha, z = c.pz + (c.z - c.pz) * alpha;
     var y = c.py != null && Math.abs(c.y - c.py) < 2 ? c.py + (c.y - c.py) * alpha : c.y;
     var bobA = c._povMove ? 1 : 0;
