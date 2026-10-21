@@ -104,6 +104,10 @@
     if (!rotate && tool === "grab") {
       var hit = IN.pick(p.x, p.y, { touch: touch, carryable: true });
       if (hit && (hit.type === "creature" || hit.type === "item")) drag.target = hit;
+      else if (SB.FirstHour) { // grabbing a tree: wiggle it side to side to shake fruit loose
+        var gp = R.pickGround(p.x, p.y), tn = gp && SB.World.nearestNode(game.world, gp.x, gp.z, 1.4, SB.FirstHour.canShake);
+        if (tn && SB.World.isSeen(game.world, tn.x, tn.z)) drag.shake = { n: tn, dir: 0, flips: 0, t: performance.now() };
+      }
     }
     if (!rotate && (tool === "tickle")) {
       var hc = IN.pick(p.x, p.y, { touch: touch, creaturesOnly: true });
@@ -129,13 +133,14 @@
     if (drag.hist.length > 6) drag.hist.shift();
     var moved = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
     if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5)) {
-      drag.mode = drag.target ? "carry" : drag.rub ? "rub" : "pan";
+      drag.mode = drag.target ? "carry" : drag.rub ? "rub" : drag.shake ? "shake" : "pan";
       if (drag.mode === "carry") pickUp(drag.target);
       if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;
     }
     if (drag.mode === "pan") R.panBy(dx, dy);
     else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
-    else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); }
+    else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist)); }
+    else if (drag.mode === "shake") shakeMove(p, ptr, dx);
     else if (drag.mode === "rub") {
       setHand(p.x, p.y, true);
       tickleRub += Math.hypot(dx, dy);
@@ -211,6 +216,7 @@
     }
     h.heldId = ref.id; h.heldType = t.type;
     if (SB.Audio) SB.Audio.play("whoosh", { vol: 0.5 });
+    SB.bus.emit("handGrab", { ref: ref });
   }
   function carryUpdate() {
     var h = game.hand, ref = SB.Game.byId(game, h.heldId);
@@ -218,16 +224,34 @@
     ref.x = h.x; ref.z = h.z; ref.y = h.y + 0.2;
     if (ref.type === "creature") { ref.px = ref.x; ref.pz = ref.z; ref.py = ref.y; ref.onGround = false; }
   }
-  function release(d) {
-    var h = game.hand, ref = SB.Game.byId(game, h.heldId);
-    h.heldId = null;
-    if (!ref) return;
-    var hist = d.hist, a = hist[0], b = hist[hist.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
-    // the flick's screen velocity as ground velocity (same mapping as panning, so it flies where you threw it)
+  // the flick's screen velocity as ground velocity (same mapping as panning, so it flies where you threw it)
+  function flick(hist) {
+    var a = hist[0], b = hist[hist.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
     var gv = R.groundDelta((b.x - a.x) / dt, (b.y - a.y) / dt), gx = gv[0], gz = gv[1];
     if (b.t - a.t < 1 || performance.now() - b.t > 90) { gx = 0; gz = 0; } // held still before letting go: just drop it
     var sp = Math.hypot(gx, gz), cap = 9;
-    if (sp > cap) { gx *= cap / sp; gz *= cap / sp; }
+    if (sp > cap) { gx *= cap / sp; gz *= cap / sp; sp = cap; }
+    return { gx: gx, gz: gz, sp: sp };
+  }
+  // where a throw would land, as dotted points for bodies.js (same launch numbers and gravity as the sim)
+  function aimArc(ref, f) {
+    var h = game.hand;
+    if (f.sp < 1.5) { h.aim = null; return; }
+    var cr = ref.type === "creature", vx = f.gx * (cr ? 0.8 : 0.9), vz = f.gz * (cr ? 0.8 : 0.9), vy = 2 + Math.min(6, f.sp * (cr ? 0.3 : 0.35)), gr = cr ? 20 : 18;
+    var x = ref.x, y = ref.y, z = ref.z, pts = [], st = 1 / 30;
+    for (var i = 0; i < 90; i++) {
+      vy -= gr * st; x += vx * st; z += vz * st; y += vy * st;
+      var gy = SB.World.groundY(game.world, x, z);
+      if (y <= gy) { pts.push([x, gy, z]); break; }
+      if (i % 3 === 2) pts.push([x, y, z]);
+    }
+    h.aim = { pts: pts, t: performance.now() };
+  }
+  function release(d) {
+    var h = game.hand, ref = SB.Game.byId(game, h.heldId);
+    h.heldId = null; h.aim = null;
+    if (!ref) return;
+    var f = flick(d.hist), gx = f.gx, gz = f.gz, sp = f.sp;
     if (ref.type === "creature") {
       ref.heldBy = null; ref.vx = gx * 0.8; ref.vz = gz * 0.8; ref.vy = 2 + Math.min(6, sp * 0.3); ref.onGround = false;
       if (sp > 6 && ref.species === "smol") { SB.Chem.apply(ref.chem, { fear: 0.15 }); }
@@ -238,6 +262,28 @@
       if (ref.noun === "food") game.creatures.forEach(function (c) { if (c.alive && c.species === "smol" && SB.dist(c.x, c.z, ref.x, ref.z) < 4 && !c.plan && c.chem.hunger > 0.3) { c.action = null; c.thinkT = 0.3; } });
     }
     SB.bus.emit("handDrop", { ref: ref });
+  }
+
+  // shaking: count side-to-side swings; a long drag away from the tree turns back into panning
+  var shakeNoteT = 0;
+  function shakeMove(p, ptr, dx) {
+    var s = drag.shake;
+    setHand(p.x, p.y, true);
+    var dir = dx > 1.5 ? 1 : dx < -1.5 ? -1 : 0;
+    if (dir && dir !== s.dir) { if (s.dir) s.flips++; s.dir = dir; }
+    // heading off without wiggling back (or a long drag away): it was a pan after all, so catch the camera up
+    var far = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
+    if ((!s.flips && !s.shook && far > 40) || far > 110) {
+      drag.mode = "pan"; if (R.camera.follow) R.camera.follow = null;
+      R.panBy(p.x - ptr.x0, p.y - ptr.y0);
+      return;
+    }
+    if (s.flips >= 4) {
+      s.flips = 1; s.shook = true;
+      var o = SB.FirstHour.handShake(game, s.n);
+      if (SB.FX) SB.FX.burst("leaves", s.n.x, SB.World.heightAt(game.world, s.n.x, s.n.z) + 1.6, s.n.z, o ? 10 : 4);
+      if (!o && SB.UI && SB.UI.toast && performance.now() - shakeNoteT > 6000) { shakeNoteT = performance.now(); SB.UI.toast("🌳 nothing left to shake down. give it a little while."); }
+    }
   }
 
   function tiltBy(d) { R.camera.tilt = SB.clamp((R.camera.tilt || 0) + d, -0.22, 0.32); }
