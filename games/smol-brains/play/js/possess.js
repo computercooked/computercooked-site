@@ -486,7 +486,7 @@
     cm.pov.yaw = S.yaw + Math.sin(S.bob * Math.PI * 0.5) * 0.006 * S.bobK; cm.pov.pitch = S.pitch + (c.asleep ? -0.25 : 0);
     if (c.drownT > 0) cm.pov.y = Math.max(SB.World.groundY(S.game.world, x, z) + 0.05, cm.pov.y - 0.15);
     if ((S.hudT -= dt) <= 0) { S.hudT = 0.1; if (hud) updateHud(); }
-    if (hud) { if (S.mdx || S.mdy) { look(S.mdx, S.mdy); S.mdx = S.mdy = 0; } paws(dt); }
+    if (hud) { if (S.mdx || S.mdy) { look(S.mdx, S.mdy); S.mdx = S.mdy = 0; } keyLook(dt); paws(dt); }
     readKeys();
   }
 
@@ -521,38 +521,62 @@
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   var CSS = [
     "body.pov #ui{display:none!important}",
-    "#pov{position:fixed;inset:0;z-index:40;pointer-events:none;font:600 13px ui-rounded,system-ui,sans-serif;color:#f5f3ed;user-select:none;-webkit-user-select:none;touch-action:none}",
-    "#pov .glassy{background:rgba(16,17,20,.62);border:1px solid rgba(255,255,255,.1);border-radius:12px;backdrop-filter:blur(6px)}",
-    "#pov .cross{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px}",
-    "#pov .cross:before,#pov .cross:after{content:'';position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 2px #000}",
-    "#pov .cross:before{left:6px;top:0;width:2px;height:14px}#pov .cross:after{top:6px;left:0;height:2px;width:14px}",
-    "#pov .cross.on:before,#pov .cross.on:after{background:#c5ff49}",
-    "#pov .prompt{position:absolute;left:50%;top:calc(50% + 22px);transform:translateX(-50%);padding:6px 10px;white-space:nowrap;text-align:center;line-height:1.5}",
-    "#pov .prompt:empty{display:none}#pov .prompt b{color:#c5ff49;font-family:ui-monospace,monospace}",
-    "#pov .compass{position:absolute;left:50%;top:10px;width:min(360px,60vw);height:26px;transform:translateX(-50%);overflow:hidden}",
-    "#pov .compass span{position:absolute;top:4px;transform:translateX(-50%);font-family:ui-monospace,monospace;font-size:12px;opacity:.8}",
-    "#pov .compass span.c{color:#c5ff49;opacity:1;font-weight:800}#pov .compass:after{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:#c5ff49;opacity:.6}",
-    "#pov .clock{position:absolute;left:50%;top:42px;transform:translateX(-50%);font-size:12px;opacity:.85;text-shadow:0 1px 2px #000;white-space:nowrap}",
-    "#pov .bars{position:absolute;left:12px;bottom:12px;padding:10px 12px;display:grid;grid-template-columns:20px 110px;gap:5px 6px;align-items:center}",
-    "#pov .bar{height:9px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}#pov .bar i{display:block;height:100%;border-radius:5px;transition:width .3s}",
-    "#pov .bar.low i{animation:povblink .8s infinite}@keyframes povblink{50%{opacity:.35}}",
-    "#pov .who{position:absolute;left:12px;top:12px;padding:8px 12px;max-width:42vw}#pov .who small{display:block;opacity:.7;font-weight:500}",
-    "#pov .leave{position:absolute;right:12px;top:12px;pointer-events:auto;font:800 15px ui-rounded,system-ui,sans-serif;padding:12px 16px;border-radius:14px;border:2px solid #c5ff49;background:rgba(16,17,20,.75);color:#c5ff49;cursor:pointer}",
-    "#pov .held{position:absolute;right:12px;bottom:12px;padding:8px 12px;text-align:right;max-width:40vw}",
+    // the frame language: square pixel panels with a dark outline, a light inner rim and a hard drop shadow
+    "#pov{position:fixed;inset:0;z-index:40;pointer-events:none;font:600 14px var(--sans);color:#f5f3ed;user-select:none;-webkit-user-select:none;touch-action:none;--px:#1a1222;--rim:rgba(245,243,237,.22)}",
+    "#pov .glassy,#pov .panel{background:rgba(22,18,34,.78);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--rim),4px 4px 0 2px rgba(0,0,0,.35);border-radius:0}",
+    "#pov .scan{position:absolute;inset:0;background:repeating-linear-gradient(rgba(0,0,0,.07) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}",
+    // crosshair: four corner brackets that close in and go lime on a target
+    "#pov .cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;transition:width .12s,height .12s,margin .12s}",
+    "#pov .cross i{position:absolute;width:7px;height:7px;border:0 solid rgba(255,255,255,.9);filter:drop-shadow(1px 1px 0 #000)}",
+    "#pov .cross i:nth-child(1){left:0;top:0;border-width:2px 0 0 2px}#pov .cross i:nth-child(2){right:0;top:0;border-width:2px 2px 0 0}",
+    "#pov .cross i:nth-child(3){left:0;bottom:0;border-width:0 0 2px 2px}#pov .cross i:nth-child(4){right:0;bottom:0;border-width:0 2px 2px 0}",
+    "#pov .cross b{position:absolute;left:50%;top:50%;width:2px;height:2px;margin:-1px;background:#fff;box-shadow:1px 1px 0 #000}",
+    "#pov .cross.on{width:38px;height:38px;margin:-19px 0 0 -19px}#pov .cross.on i{border-color:#c5ff49}#pov .cross.on b{background:#c5ff49}",
+    "#pov .tname{position:absolute;left:50%;top:calc(50% - 46px);transform:translateX(-50%);font:700 15px var(--mono);color:#c5ff49;text-shadow:2px 2px 0 #000;white-space:nowrap}",
+    "#pov .prompt{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);padding:7px 12px;white-space:nowrap;text-align:center;line-height:1.6;font-size:14px}",
+    "#pov .prompt:empty{display:none}",
+    "#pov kbd{display:inline-block;min-width:20px;padding:1px 5px;margin-right:5px;font:700 13px var(--mono);text-align:center;color:#101114;background:#f5f3ed;box-shadow:0 0 0 2px var(--px),0 3px 0 2px var(--px)}",
+    "#pov kbd.g{background:#c5ff49}",
+    // compass strip with ticks
+    "#pov .compass{position:absolute;left:50%;top:12px;width:min(440px,64vw);height:34px;transform:translateX(-50%);overflow:hidden}",
+    "#pov .compass .ticks{position:absolute;left:0;right:0;bottom:3px;height:6px;background:repeating-linear-gradient(90deg,rgba(245,243,237,.45) 0 2px,transparent 2px 15px)}",
+    "#pov .compass span{position:absolute;top:5px;transform:translateX(-50%);font:700 13px var(--mono);opacity:.75}",
+    "#pov .compass span.c{color:#c5ff49;opacity:1;font-size:16px;top:3px}",
+    "#pov .compass .mark{position:absolute;left:50%;top:-1px;width:0;height:0;margin-left:-6px;border:6px solid transparent;border-top-color:#c5ff49}",
+    "#pov .clock{position:absolute;left:50%;top:54px;transform:translateX(-50%);padding:3px 10px;font:700 13px var(--mono);white-space:nowrap}",
+    // portrait card
+    "#pov .who{position:absolute;left:14px;top:14px;padding:10px 14px 10px 12px;display:flex;gap:10px;align-items:center;max-width:44vw}",
+    "#pov .who .face{width:44px;height:44px;flex:none;display:grid;place-items:center;font-size:26px;box-shadow:0 0 0 2px var(--px),inset 0 -8px 0 rgba(0,0,0,.18)}",
+    "#pov .who .nm{font:700 18px var(--mono);line-height:1.1}#pov .who .tr{font-size:13px}#pov .who small{display:block;opacity:.7;font-weight:500;font-size:12px}",
+    "#pov .who .learn{display:inline-block;margin-top:3px;padding:1px 6px;font-size:12px;background:rgba(181,154,255,.25);box-shadow:0 0 0 1px #b59aff;color:#d9ccff}",
+    // vitals
+    "#pov .bars{position:absolute;left:14px;bottom:14px;padding:10px 12px;display:grid;grid-template-columns:22px 52px 132px 34px;gap:7px 8px;align-items:center;font-size:12px}",
+    "#pov .bars .lb{font:700 12px var(--mono);opacity:.8;text-transform:uppercase}#pov .bars .n{font:700 12px var(--mono);text-align:right}",
+    "#pov .bar{position:relative;height:12px;background:rgba(0,0,0,.45);box-shadow:0 0 0 2px var(--px)}",
+    "#pov .bar i{display:block;height:100%;transition:width .3s;box-shadow:inset 0 3px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.2)}",
+    "#pov .bar:after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 11px,rgba(16,12,24,.85) 11px 13px)}",
+    "#pov .bar.low i{animation:povblink .7s steps(2) infinite}@keyframes povblink{50%{opacity:.3}}",
+    // hotbar
+    "#pov .held{position:absolute;right:14px;bottom:14px;padding:8px;display:flex;gap:8px}",
+    "#pov .slot{position:relative;width:54px;height:54px;display:grid;place-items:center;font-size:28px;background:rgba(0,0,0,.35);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px rgba(255,255,255,.08)}",
+    "#pov .slot.on{box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px #c5ff49}#pov .slot small{position:absolute;left:3px;top:1px;font:700 10px var(--mono);opacity:.7}",
+    "#pov .slot em{position:absolute;right:3px;bottom:1px;font:700 11px var(--mono);font-style:normal}#pov .slot .pxi{width:32px;height:32px}",
+    "#pov .leave{position:absolute;right:14px;top:14px;pointer-events:auto;font:700 15px var(--mono);padding:10px 14px;background:rgba(22,18,34,.85);color:#c5ff49;cursor:pointer;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px #c5ff49,4px 4px 0 2px rgba(0,0,0,.35)}",
+    "#pov .leave:hover{background:#c5ff49;color:#101114}#pov .leave kbd{margin:0 0 0 6px}",
     "#pov .paws{position:absolute;left:50%;bottom:-30px;width:300px;height:120px;transform:translateX(-50%)}",
     "#pov .paw{position:absolute;bottom:0;width:78px;height:96px;border-radius:44% 44% 30% 30%;box-shadow:inset -10px -8px 0 rgba(0,0,0,.18),0 0 0 3px rgba(20,16,30,.55)}",
     "#pov .paw.l{left:10px;transform:rotate(14deg)}#pov .paw.r{right:10px;transform:rotate(-14deg)}",
-    "#pov .paws .item{position:absolute;right:30px;bottom:72px;font-size:42px;filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}",
-    "#pov .toast{position:absolute;left:50%;top:64px;transform:translateX(-50%);padding:7px 12px;opacity:0;transition:opacity .3s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}#pov .toast.on{opacity:1}",
+    "#pov .paws .item{position:absolute;right:30px;bottom:72px;font-size:42px;filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}#pov .paws .item .pxi{width:44px;height:44px}",
+    "#pov .toast{position:absolute;left:50%;top:92px;transform:translateX(-50%);padding:7px 14px;opacity:0;transition:opacity .3s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}#pov .toast.on{opacity:1}",
     "#pov .warn{position:absolute;inset:0;box-shadow:inset 0 0 120px rgba(255,40,60,.0);transition:box-shadow .5s}#pov .warn.on{box-shadow:inset 0 0 140px rgba(255,40,60,.45)}",
-    "#pov .intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,18,.6);transition:opacity 1.2s;text-align:center;gap:8px}",
-    "#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font-size:30px;color:#c5ff49}#pov .intro p{margin:0;opacity:.85;max-width:520px;padding:0 16px;line-height:1.6}",
+    "#pov .intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,18,.6);transition:opacity 1.2s;text-align:center;gap:10px}",
+    "#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 34px var(--mono);color:#c5ff49;text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:520px;padding:0 16px;line-height:1.7}",
     "#pov .death{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(20,6,12,.82);pointer-events:auto;text-align:center}",
-    "#pov .death h2{margin:0;font-size:34px}#pov .death button,#pov .menu button{font:800 15px ui-rounded,system-ui,sans-serif;padding:11px 16px;border-radius:12px;border:0;background:#c5ff49;color:#101114;cursor:pointer}",
-    "#pov .menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px;width:min(420px,92vw);max-height:70vh;overflow:auto;pointer-events:auto;background:rgba(16,17,20,.94);z-index:2}",
-    "#pov .menu h3{margin:0 0 8px}#pov .menu .r{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)}#pov .menu .r .t{flex:1}#pov .menu .r small{display:block;opacity:.65;font-weight:500}",
-    "#pov .menu button[disabled]{background:#444;color:#999}#pov .menu .x{background:transparent;color:#f5f3ed;border:1px solid rgba(255,255,255,.2)}",
-    "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:6px 10px;font-size:12px;opacity:.85}",
+    "#pov .death h2{margin:0;font:700 34px var(--mono)}#pov .death button,#pov .menu button{font:700 15px var(--mono);padding:10px 16px;border:0;border-radius:0;background:#c5ff49;color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
+    "#pov .menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:16px;width:min(440px,92vw);max-height:70vh;overflow:auto;pointer-events:auto;background:rgba(22,18,34,.96);z-index:2}",
+    "#pov .menu h3{margin:0 0 8px;font:700 20px var(--mono);color:#c5ff49}#pov .menu .r{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:2px solid rgba(255,255,255,.08)}#pov .menu .r .t{flex:1}#pov .menu .r small{display:block;opacity:.65;font-weight:500}",
+    "#pov .menu button[disabled]{background:#444;color:#999}#pov .menu .x{background:transparent;color:#f5f3ed;box-shadow:0 0 0 2px rgba(255,255,255,.3)}",
+    "#pov .lockhint{position:absolute;left:50%;bottom:130px;transform:translateX(-50%);padding:7px 12px;font-size:13px;white-space:nowrap}",
     // phone controls
     "#pov .touch{display:none}#pov.phone .touch{display:block}#pov.phone .lockhint{display:none}#pov.phone .paws{bottom:-50px;width:240px}",
     "#pov .stickzone{position:absolute;left:0;bottom:0;width:45vw;height:55vh;pointer-events:auto}",
@@ -560,11 +584,11 @@
     "#pov .stick{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(16,17,20,.3);left:90px;bottom:auto;top:calc(100% - 110px)}",
     "#pov .stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(245,243,237,.75)}",
     "#pov .btns{position:absolute;right:14px;bottom:18px;display:grid;grid-template-columns:repeat(3,64px);gap:10px;pointer-events:auto}",
-    "#pov .btns button{width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(16,17,20,.62);color:#f5f3ed;font:800 12px ui-rounded,system-ui,sans-serif;line-height:1.1;padding:0}",
-    "#pov .btns button.big{background:rgba(197,255,73,.88);color:#101114;border-color:#c5ff49}#pov .btns button.on{border-color:#c5ff49;color:#c5ff49}",
+    "#pov .btns button{width:64px;height:64px;border-radius:0;background:rgba(22,18,34,.75);color:#f5f3ed;font:700 13px var(--mono);line-height:1.1;padding:0;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--rim)}",
+    "#pov .btns button.big{background:#c5ff49;color:#101114}#pov .btns button.on{color:#c5ff49;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px #c5ff49}",
     "#pov.phone .toast{top:auto;bottom:250px;white-space:normal;text-align:center;max-width:80vw}",
-    "#pov.phone .bars{bottom:auto;top:118px;left:8px;transform:scale(.85);transform-origin:left top}#pov.phone .held{display:none}#pov.phone .who{display:none}",
-    "@media (max-width:640px){#pov .compass{top:58px}#pov .clock{top:88px}#pov .leave{font-size:13px;padding:10px 12px}}"
+    "#pov.phone .bars{bottom:auto;top:126px;left:8px;transform:scale(.8);transform-origin:left top}#pov.phone .held{display:none}#pov.phone .who{display:none}",
+    "@media (max-width:640px){#pov .compass{top:62px}#pov .clock{top:102px}#pov .leave{font-size:13px;padding:9px 11px}}"
   ].join("\n");
 
   function phone() { try { return ("ontouchstart" in window) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (e) { return false; } }
@@ -581,22 +605,25 @@
     hud.pawL = hud.paws.appendChild(el("div", "paw l")); hud.pawR = hud.paws.appendChild(el("div", "paw r"));
     hud.pawL.style.background = hud.pawR.style.background = col;
     hud.item = hud.paws.appendChild(el("div", "item"));
-    hud.cross = root.appendChild(el("div", "cross"));
-    hud.prompt = root.appendChild(el("div", "prompt glassy"));
-    hud.compass = root.appendChild(el("div", "compass glassy"));
-    hud.clock = root.appendChild(el("div", "clock"));
+    hud.scan = root.appendChild(el("div", "scan"));
+    hud.cross = root.appendChild(el("div", "cross", "<i></i><i></i><i></i><i></i><b></b>"));
+    hud.tname = root.appendChild(el("div", "tname"));
+    hud.prompt = root.appendChild(el("div", "prompt panel"));
+    hud.compass = root.appendChild(el("div", "compass panel"));
+    hud.clock = root.appendChild(el("div", "clock panel"));
     hud.who = root.appendChild(el("div", "who glassy"));
     hud.bars = root.appendChild(el("div", "bars glassy"));
     hud.bar = {};
-    [["food", "🍎"], ["health", "❤️"], ["warm", "🔥"], ["energy", "⚡"]].forEach(function (b) {
-      hud.bars.appendChild(el("span", null, b[1]));
-      var bar = hud.bars.appendChild(el("div", "bar")), fill = bar.appendChild(el("i"));
-      hud.bar[b[0]] = { bar: bar, fill: fill, icon: hud.bars.children[hud.bars.children.length - 2] };
+    [["food", "🍎", "food"], ["health", "❤️", "life"], ["warm", "🔥", "warm"], ["energy", "⚡", "pep"]].forEach(function (b) {
+      var icon = hud.bars.appendChild(el("span", null, b[1]));
+      hud.bars.appendChild(el("span", "lb", b[2]));
+      var bar = hud.bars.appendChild(el("div", "bar")), fill = bar.appendChild(el("i")), n = hud.bars.appendChild(el("span", "n"));
+      hud.bar[b[0]] = { bar: bar, fill: fill, icon: icon, n: n };
     });
-    hud.held = root.appendChild(el("div", "held glassy"));
+    hud.held = root.appendChild(el("div", "held panel"));
     hud.toast = root.appendChild(el("div", "toast glassy"));
-    hud.lockhint = root.appendChild(el("div", "lockhint glassy", "click to look around · WASD move · E / F / R act · C make · Esc leave"));
-    var leave = root.appendChild(el("button", "leave", "⬆ leave body"));
+    hud.lockhint = root.appendChild(el("div", "lockhint panel", "<kbd class='g'>click</kbd>look around &nbsp; <kbd>WASD</kbd>walk &nbsp; <kbd>←→</kbd>turn &nbsp; <kbd>E</kbd><kbd>F</kbd><kbd>R</kbd>act &nbsp; <kbd>C</kbd>make &nbsp; <kbd>Esc</kbd>leave"));
+    var leave = root.appendChild(el("button", "leave", "⬆ leave body" + (P.forcePhone || phone() ? "" : "<kbd>Esc</kbd>")));
     leave.title = "back to god view (Esc)";
     leave.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
     leave.addEventListener("click", function (e) { e.stopPropagation(); P.leave(); });
@@ -643,7 +670,7 @@
 
   function pct(v) { return Math.round(SB.clamp01(v) * 100) + "%"; }
   function setBar(b, v, colA, colB) {
-    var x = hud.bar[b]; x.fill.style.width = pct(v); x.fill.style.background = v < 0.3 ? colB : colA; x.bar.classList.toggle("low", v < 0.2);
+    var x = hud.bar[b]; x.fill.style.width = pct(v); x.n.textContent = Math.round(SB.clamp01(v) * 100); x.fill.style.background = v < 0.3 ? colB : colA; x.bar.classList.toggle("low", v < 0.2);
   }
   var DIRS = [["N", 0], ["NE", 45], ["E", 90], ["SE", 135], ["S", 180], ["SW", 225], ["W", 270], ["NW", 315]];
   function updateHud() {
@@ -657,11 +684,21 @@
     setBar("energy", 1 - Math.max(ch.tired || 0, (ch.sleepy || 0) * 0.9), "#c5ff49", "#b59aff");
     // who you are
     var tier = SB.TIERS[c.tier];
-    hud.who.innerHTML = esc(c.name) + " <span style='color:" + tier.color + "'>" + tier.icon + " " + tier.name + "</span><small>" + SB.STAGES[c.stage].name + (c.asleep ? " · asleep (move to wake)" : "") + (S.lessons ? " · 🧠 " + S.lessons + " learned from you" : "") + "</small>";
+    var face = (SB.Chem.MOOD_EMOJI || {})[SB.Chem.mood(c)] || "🙂";
+    var wkey = c.name + tier.name + c.stage + !!c.asleep + S.lessons + face;
+    if (hud.whoKey !== wkey) {
+      hud.whoKey = wkey;
+      hud.who.innerHTML = "<div class='face' style='background:" + (hud.pawL.style.background || "#c99") + "'>" + face + "</div><div><div class='nm'>" + esc(c.name) + "</div><div class='tr' style='color:" + tier.color + "'>" + tier.icon + " " + tier.name + "</div><small>" + SB.STAGES[c.stage].name + (c.asleep ? " · asleep, move to wake" : "") + "</small>" + (S.lessons ? "<span class='learn'>🧠 " + S.lessons + " learned from you</span>" : "") + "</div>";
+    }
     // what's in your paws
     var hk = heldKind(c, game), tk = toolKind(c, game), bag = (c.bag || []).map(function (id) { var o = SB.Game.byId(game, id); return o && K[o.kind] ? K[o.kind].emoji : ""; }).join("");
     hud.item.textContent = hk && K[hk] ? K[hk].emoji : "";
-    hud.held.innerHTML = (hk ? "✋ " + (K[hk] ? K[hk].emoji + " " + K[hk].label : hk) : "<span style='opacity:.6'>empty paws</span>") + (tk ? "<br>🔧 " + (K[tk] ? K[tk].emoji + " " + K[tk].label : tk) : "") + (bag ? "<br>🎒 " + bag : "");
+    var bagN = (c.bag || []).length, hkey = hk + "|" + tk + "|" + bag;
+    if (hud.heldKey !== hkey) {
+      hud.heldKey = hkey;
+      var slot = function (lbl, k, on, extra) { return "<div class='slot" + (on ? " on" : "") + "' title='" + (k && K[k] ? esc(K[k].label) : "") + "'><small>" + lbl + "</small>" + (k && K[k] ? K[k].emoji : "") + (extra || "") + "</div>"; };
+      hud.held.innerHTML = slot("paws", hk, !!hk) + slot("tool", tk, !!tk) + "<div class='slot'><small>bag</small>" + (bag ? bag.slice(0, 2) : "") + (bagN ? "<em>" + bagN + "</em>" : "") + "</div>";
+    }
     // time of day and compass
     var tday = (w.time / SB.DAY_LENGTH) % 1, hh = Math.floor(tday * 24), mm = Math.floor((tday * 24 - hh) * 60);
     var part = w.night ? "night 🌙" : tday < 0.27 ? "dawn 🌅" : tday < 0.45 ? "morning ☀️" : tday < 0.58 ? "midday ☀️" : tday < 0.74 ? "afternoon 🌤" : "dusk 🌇";
@@ -678,15 +715,18 @@
       var ha = Math.atan2(home.x - c.x, -(home.z - c.z)) * 180 / Math.PI, ho = ((ha - head + 540) % 360) - 180;
       if (Math.abs(ho) < span / 2) html += "<span style='left:" + (50 + ho / span * 100) + "%;top:2px'>🏠</span>";
     }
-    hud.compass.innerHTML = html;
+    hud.compass.innerHTML = "<div class='ticks' style='background-position:" + (-head / span * wpx).toFixed(1) + "px 0'></div><div class='mark'></div>" + html;
     void wpx;
     // what you're looking at
     if (!S.dead) {
       var t = P.look(game, c), m1 = P.verbFor(game, c, t, "main"), m2 = t ? P.verbFor(game, c, t, "alt") : null, desk = !hud.root.classList.contains("phone");
       var parts = [];
-      if (m1) parts.push((desk && m1.verb != null ? "<b>E</b> " : "") + esc(m1.label));
-      if (m2 && m2.verb != null) parts.push((desk ? "<b>F</b> " : "") + esc(m2.label));
-      hud.prompt.innerHTML = t || (m1 && m1.tgt) ? parts.join(" &nbsp;·&nbsp; ") : "";
+      if (m1) parts.push((desk && m1.verb != null ? "<kbd class='g'>E</kbd>" : "") + esc(m1.label));
+      if (m2 && m2.verb != null && !(m1 && m1.label === m2.label)) parts.push((desk ? "<kbd>F</kbd>" : "") + esc(m2.label));
+      var ph = t || (m1 && m1.tgt) ? parts.join(" &nbsp; ") : "";
+      if (hud.promptKey !== ph) { hud.promptKey = ph; hud.prompt.innerHTML = ph; }
+      var tn = t ? (t.name || (t.kind && K[t.kind] && K[t.kind].label) || (t.kind && SB.NODES && SB.NODES[t.kind] && SB.NODES[t.kind].label) || "") : "";
+      if (hud.tname.textContent !== tn) hud.tname.textContent = tn;
       hud.cross.classList.toggle("on", !!t);
       if (hud.btnAlt) hud.btnAlt.style.opacity = m2 && m2.verb != null ? 1 : 0.4;
     }
@@ -756,7 +796,7 @@
   /* ---------------- desktop and phone controls ---------------- */
   var bound = null;
   function locked() { return typeof document !== "undefined" && !!document.pointerLockElement; }
-  function canvasEl() { return document.getElementById("overlay") || document.getElementById("view"); }
+  function canvasEl() { return document.getElementById("view"); } // #overlay ignores the pointer, so the mouse lands on #view
   function bindInputs() {
     var cv = canvasEl(), drag = null, stick = null, lookP = null;
     var h = {
@@ -832,14 +872,19 @@
     bound = null;
   }
   // held keys -> the move vector (the joystick writes P.input directly)
+  // arrow keys turn the head, so you can look about without the mouse (or when the browser won't lock it)
+  function keyLook(dt) {
+    var tx = (keys.arrowright ? 1 : 0) - (keys.arrowleft ? 1 : 0), ty = (keys.arrowdown ? 1 : 0) - (keys.arrowup ? 1 : 0);
+    if (tx || ty) look(tx * 620 * dt, ty * 380 * dt);
+  }
   function readKeys() {
     if (!hud || !bound) return;
-    if (hud.root.classList.contains("phone") && !(keys.w || keys.a || keys.s || keys.d || keys.arrowup || keys.arrowdown || keys.arrowleft || keys.arrowright)) return;
+    if (hud.root.classList.contains("phone") && !(keys.w || keys.a || keys.s || keys.d)) return;
     var f = 0, s = 0;
-    if (keys.w || keys.arrowup) f += 1;
-    if (keys.s || keys.arrowdown) f -= 1;
-    if (keys.a || keys.arrowleft) s -= 1;
-    if (keys.d || keys.arrowright) s += 1;
+    if (keys.w) f += 1;
+    if (keys.s) f -= 1;
+    if (keys.a) s -= 1;
+    if (keys.d) s += 1;
     P.input.fwd = f; P.input.side = s; P.input.run = !!keys.shift;
   }
 
