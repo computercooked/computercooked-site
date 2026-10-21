@@ -185,6 +185,11 @@
     return c;
   };
 
+  // fewer eggs, raised with more care: from the tribe on a couple has an egg about every quarter-hour (creature.js),
+  // and each child gets more of what its parents practised and leans harder toward the more evolved parent
+  Game.CARE_MOMENTUM = [0.3, 0.65]; // before the tribe, from the tribe on (fewer births: each child has to carry more of the line)
+  Game.GLOW_ECHO = 1.25;
+  Game.care = function (game) { return ((game.stats && game.stats.maxTier) || 0) >= 3 ? 1.8 : 1; };
   Game.layEgg = function (game, a, b, x, z) {
     var ga = a.genome || a, gb = b.genome || b;
     var echo = null;
@@ -193,11 +198,13 @@
       echo = {};
       // a small band adapts faster: with room for fewer smols, what parents practise echoes harder
       var small = SB.clamp(1 + 0.6 * (36 - (Game.POP_CAP || 36)) / 24, 1, 1.6);
-      for (var k in ea) echo[k] = (ea[k] + (eb[k] || 0)) / 2 * small;
+      for (var k in ea) echo[k] = (ea[k] + (eb[k] || 0)) / 2 * small * Game.care(game);
+      // a thinker's inner glow carries further: with an egg a quarter-hour, a line can't wait out many generations
+      if (Math.max(a.tier || 0, b.tier || 0) >= 5 && echo.glow) echo.glow *= Game.GLOW_ECHO;
     }
     var bless = game.blessing && game.blessing.uses > 0 ? game.blessing.genes : null;
     if (bless) { game.blessing.uses--; if (game.blessing.uses <= 0) game.blessing = null; }
-    var child = SB.Genome.cross(ga, gb, game.rng, echo, bless);
+    var child = SB.Genome.cross(ga, gb, game.rng, echo, bless, Game.CARE_MOMENTUM[Game.care(game) <= 1 ? 0 : 1]);
     child.gen = Math.max(a.gen || 1, b.gen || 1) + 1;
     if (a.clade != null) child.clade = game.rng.chance(0.5) ? a.clade : b.clade;
     var egg = SB.World.add(game.world, game, "egg", x, z, {

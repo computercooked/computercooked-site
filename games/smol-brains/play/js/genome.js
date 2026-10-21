@@ -116,13 +116,15 @@
     if (tier >= 4) ge.genes.layers = Math.max(ge.genes.layers, tier >= 6 ? 0.85 : 0.5);
     return ge;
   };
-  G.cross = function (a, b, rng, echo, bless) {
+  // momentum: how often a child takes the more evolved parent's side of an evolution gene (0.3 unless given)
+  G.cross = function (a, b, rng, echo, bless, momentum) {
+    var mo = momentum == null ? 0.3 : momentum;
     var genes = {};
     for (var i = 0; i < G.GENES.length; i++) {
       var n = G.GENES[i];
       var va = a.genes[n] != null ? a.genes[n] : 0.5, vb = b.genes[n] != null ? b.genes[n] : 0.5;
       // evolution has momentum: a child often takes the more evolved parent's side
-      genes[n] = q(EVO_SET[n] && rng.chance(0.3) ? Math.max(va, vb) : rng.chance(0.25) ? SB.lerp(va, vb, rng()) : rng.chance(0.5) ? va : vb);
+      genes[n] = q(EVO_SET[n] && rng.chance(mo) ? Math.max(va, vb) : rng.chance(0.25) ? SB.lerp(va, vb, rng()) : rng.chance(0.5) ? va : vb);
     }
     var driveW = [];
     for (var d = 0; d < SB.N_DRIVES; d++) {

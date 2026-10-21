@@ -147,10 +147,117 @@
   function bestReason(game, a, b) { var r = SO.reasons(game, a, b).filter(function (x) { return x.v < 0; })[0]; return r ? r.t : "old grudges"; }
   SO.onCuddle = function (game, a, b) {
     if (!smol(a) || !smol(b)) return;
-    SO.remember(game, a, b, "cuddle", 6, "cuddles", 2400, 24); SO.remember(game, b, a, "cuddle", 6, "cuddles", 2400, 24);
+    var close = SO.intimate(game, a, b);
+    SO.remember(game, a, b, "cuddle", close ? 6 : 4, close ? "cuddles" : "hugs", 2400, close ? 24 : 16); SO.remember(game, b, a, "cuddle", close ? 6 : 4, close ? "cuddles" : "hugs", 2400, close ? 24 : 16);
     if (SB.Creature && SB.Creature.habitOf) { SB.Creature.habitOf(a, "social", 0.3); SB.Creature.habitOf(b, "social", 0.3); } // closeness breeds chattier kids
-    SO.log(game, a, "💕", "cuddled with " + b.name);
+    SO.log(game, a, close ? "💕" : "🤗", (close ? "cuddled with " : "hugged ") + b.name);
+    if (!close) { jealous(game, a, b); jealous(game, b, a); }
+    SO.court(game, a, b, "cuddle");
   };
+
+  /* ---------------- love: partners, courtship, jealousy, break-ups ---------------- */
+  // Romance is a few real love stories per generation, not ambient hearts. Grown-ups who are settled fall for one
+  // smol (love only rises slowly: chemistry.js), court them (a hug, a gift, a shared meal or a good talk, two or three
+  // times, each a diary line), and become partners. Only partners make eggs (creature.js tryBreed). Hearts are for
+  // partners and for parents with their own kids; friends hug. A partner who sees a hug they don't like gets jealous;
+  // three times in a while (twice with a best friend) is a break-up. Widows grieve, and can love again after a day.
+  SO.partnerOf = function (game, c) { var p = c && c.partner != null ? SB.Game.byId(game, c.partner) : null; return p && p.alive ? p : null; };
+  SO.parentOf = function (a, b) { return !!(b && b.parents && b.parents.indexOf(a.id) >= 0); };
+  // hearts are allowed: partners, and a parent with their own kid (either way round)
+  SO.intimate = function (game, a, b) { return !!a && !!b && (a.partner === b.id || b.partner === a.id || SO.parentOf(a, b) || SO.parentOf(b, a)); };
+  // could these two ever be a couple?
+  SO.eligible = function (game, a, b) {
+    return smol(a) && smol(b) && a !== b && a.alive && b.alive && a.stage === 3 && b.stage === 3 && a.sex !== b.sex && !a.stranger && !b.stranger &&
+      !(SB.Game.related && SB.Game.related(game, a, b)) && !(SB.Species && SB.Species.compatible && !SB.Species.compatible(a, b));
+  };
+  // free to fall for someone: no partner (or one who has grown old: an adult can move on, kindly), and not newly widowed
+  function free2love(game, c) { var p = SO.partnerOf(game, c); return (!p || (p.stage >= 4 && c.stage === 3)) && !(c.widowT && game.time < c.widowT); }
+  // how many good moments a courtship takes (a hug, a gift, a shared meal, a good talk, a game)
+  // (a builder or thinker is a catch: two)
+  SO.courtSteps = function (a, b) { return Math.max(a.tier || 0, b.tier || 0) >= 4 ? 2 : 3; };
+  SO.court = function (game, a, b, how) {
+    if (!SO.eligible(game, a, b) || Math.min(a.tier, b.tier) < 3) return false; // courting is for talkers (tribe and on)
+    if (a.partner === b.id) return false;
+    if (!free2love(game, a) || !free2love(game, b)) return false;
+    if (a.chem.love < 0.3 && b.chem.love < 0.3) return false; // just friends
+    if (b.chem.love > a.chem.love) { var sw = a; a = b; b = sw; } // the one more in love is the one courting
+    if (a.shy && a.shy.id === b.id && game.time < a.shy.t) return false;
+    var talkers = Math.min(a.tier, b.tier) >= 3, oba = SO.opinion(game, b, a);
+    // blobs and critters (a band of a handful) never say no; talkers do, to someone they barely like or when not in the mood
+    if (talkers && (oba < 0 || (b.chem.love < 0.1 && game.rng.chance(0.2)))) {
+      // turned down: it stings, and makes them a little shy of trying again
+      SO.remember(game, a, b, "turneddown", -8, "turned me down", 2400, 16);
+      a.chem.love *= 0.75; a.shy = { id: b.id, t: game.time + 300 };
+      SO.log(game, a, "💔", b.name + " turned me down");
+      if (!a.far && talkers) a.speech = { text: game.rng.pick(["oh. okay.", "never mind then.", "...right."]), t: 2, kind: "say" };
+      SB.bus.emit("turnedDown", { a: a, b: b });
+      return false;
+    }
+    var k = a.court && a.court.id === b.id ? a.court : b.court && b.court.id === a.id ? b.court : null;
+    if (k && game.time - k.t < 20) return false; // one good moment at a time
+    var n = (k ? k.n : 0) + 1;
+    a.court = { id: b.id, n: n, t: game.time }; b.court = { id: a.id, n: n, t: game.time };
+    var what = { cuddle: "a cuddle", give: "a gift", meal: "a meal", talk: "a long talk", play: "a game" }[how] || "time together";
+    SO.log(game, a, "🌸", "courting " + b.name + " (" + what + ")"); SO.log(game, b, "🌸", a.name + " is courting me (" + what + ")");
+    SO.remember(game, a, b, "courting", 4, "sweet on them", 2400, 16); SO.remember(game, b, a, "courted", 4, "sweet on me", 2400, 16);
+    var need = SO.courtSteps(a, b), fr = 12; // they have to like each other, at least a bit
+    if (n >= need && SO.opinion(game, a, b) >= fr && SO.opinion(game, b, a) >= fr) SO.bond(game, a, b);
+    return true;
+  };
+  SO.bond = function (game, a, b) {
+    var old = [a, b].map(function (c) { return SO.partnerOf(game, c); });
+    old.forEach(function (o, i) { if (o) SO.breakUp(game, [a, b][i], o, "quiet"); });
+    a.partner = b.id; b.partner = a.id; a.court = b.court = null; a.jealous = b.jealous = null;
+    SO.log(game, a, "💕", "became partners with " + b.name); SO.log(game, b, "💕", "became partners with " + a.name);
+    if (Math.min(a.tier, b.tier) >= 3) SO.chronicle(game, "💕", a.name + " and " + b.name + " are partners now");
+    if (SB.Creature && SB.Creature.emote) { SB.Creature.emote(a, "love", 2.4); SB.Creature.emote(b, "love", 2.4); }
+    if (SB.FX && !a.far) SB.FX.burst("hearts", (a.x + b.x) / 2, a.y + 1, (a.z + b.z) / 2, 5);
+    // a widow's kids don't always take to the new one
+    [[a, b], [b, a]].forEach(function (p) {
+      if (!p[0].widowed) return;
+      game.creatures.forEach(function (k) { if (k.alive && smol(k) && k.stage >= 1 && SO.parentOf(p[0], k) && !SO.parentOf(p[1], k) && game.rng.chance(0.6)) SO.remember(game, k, p[1], "stepparent", -12, "not my real " + (p[1].sex === "f" ? "mum" : "dad"), 3600, 12); });
+      p[0].widowed = null;
+    });
+    SB.bus.emit("partners", { a: a, b: b });
+  };
+  SO.breakUp = function (game, a, b, why, other) {
+    if (a.partner === b.id) a.partner = null;
+    if (b.partner === a.id) b.partner = null;
+    a.court = b.court = null; a.jealous = b.jealous = null;
+    if (why === "quiet") return;
+    var hurt = why === "cheated" && other ? "left me for " + other.name : "we split up";
+    SO.remember(game, b, a, "leftme", why === "cheated" ? -40 : -20, hurt, 4800);
+    SO.remember(game, a, b, "splitup", -12, "we split up", 3600);
+    SO.log(game, a, "💔", "split up with " + b.name); SO.log(game, b, "💔", why === "cheated" && other ? a.name + " left me for " + other.name : "split up with " + a.name);
+    a.shy = { id: b.id, t: game.time + 1800 }; b.shy = { id: a.id, t: game.time + 1800 };
+    SB.Chem.apply(b.chem, { anger: 0.3, lonely: 0.3 }); a.chem.love *= 0.5; b.chem.love *= 0.3;
+    if (Math.min(a.tier, b.tier) >= 3) SO.chronicle(game, "💔", a.name + " and " + b.name + " split up" + (why === "cheated" && other ? " (" + other.name + " was involved)" : ""));
+    if (why === "cheated" && other && SO.opinion(game, b, other) <= SO.RIVAL && g(b, "bravery") > 0.35) { b.grudge = { id: other.id, t: game.time }; b.thinkT = 0; } // and a brawl, maybe
+    SB.bus.emit("breakup", { a: a, b: b, why: why });
+  };
+  // p sees their partner a hug someone (o) they don't rate: a pang of jealousy. twice in a while is a break-up
+  function jealous(game, a, o) {
+    var p = SO.partnerOf(game, a);
+    if (!p || p === o || p.asleep || SB.dist(p.x, p.z, a.x, a.z) > 8) return;
+    if (p.tier < 3 || a.tier < 3 || o.stage < 3 || (SB.Game.related && SB.Game.related(game, a, o)) || SO.opinion(game, p, o) >= SO.FRIEND || !game.rng.chance(0.5)) return; // (talkers only; and not every time)
+    SO.remember(game, p, a, "jealous", -15, "hugged " + o.name + " right in front of me", 2400, 30);
+    SO.remember(game, p, o, "jealousof", -10, "too close to " + a.name, 2400, 20);
+    SB.Chem.apply(p.chem, { anger: 0.3 });
+    SO.log(game, p, "😒", "saw " + a.name + " hugging " + o.name);
+    if (!p.far && p.tier >= 3) p.speech = { text: game.rng.pick(["hey! " + a.name + "!", "what was that?", "hmph."]), t: 2, kind: "say" };
+    var j = p.jealous && game.time - p.jealous.t < 1800 ? p.jealous.n + 1 : 1;
+    p.jealous = { n: j, t: game.time };
+    if (SO.rival(game, p, o) && g(p, "bravery") > 0.4) { p.grudge = { id: o.id, t: game.time }; p.thinkT = 0; }
+    if (j >= 3 || (j >= 2 && SO.opinion(game, a, o) >= SO.BEST)) SO.breakUp(game, a, p, "cheated", o); // again and again, or for a best friend: over
+  }
+  SO.jealous = jealous;
+  // couples who have come to dislike each other drift apart now and then
+  function driftApart(game, c) {
+    var p = SO.partnerOf(game, c);
+    if (!p || c.id > p.id || Math.min(c.tier, p.tier) < 3) return;
+    var v = Math.min(SO.opinion(game, c, p), SO.opinion(game, p, c)) - 30; // without the partner bonus
+    if (v < -20 && game.rng.chance(0.01)) SO.breakUp(game, c, p, "drift");
+  }
   SO.onGive = function (game, a, b, item) {
     if (!smol(a) || !smol(b)) return;
     var food = item && item.noun === "food";
@@ -160,6 +267,7 @@
     SO.log(game, b, "🎁", a.name + " gave me " + (item && SB.KINDS[item.kind] ? "some " + SB.KINDS[item.kind].label : "something"));
     // making up: a gift to someone you fought with mends things
     if (SO.opinion(game, b, a) < 5 && a.ops && a.ops[b.id] && a.ops[b.id].m.some(function (m) { return m[3] === "fought"; })) { SO.remember(game, b, a, "makeup", 12, "made up after a fight", 2400); stat(a, "makeups"); SO.log(game, a, "🕊", "made up with " + b.name); }
+    SO.court(game, a, b, food ? "meal" : "give");
     SO.checkTitle(game, a);
   };
   SO.onTeach = function (game, a, b, ideaName) {
@@ -177,6 +285,7 @@
     if (!smol(a) || !smol(b)) return;
     SO.remember(game, a, b, "play", 3, "we play together", 1800, 15); SO.remember(game, b, a, "play", 3, "we play together", 1800, 15);
     if (SB.Creature && SB.Creature.habitOf) { SB.Creature.habitOf(a, "social", 0.2); SB.Creature.habitOf(b, "social", 0.2); }
+    SO.court(game, a, b, "play");
   };
 
   /* ---------------- death, grief and graves ---------------- */
@@ -205,7 +314,7 @@
         mourners++;
         o.grief = { id: c.id, name: c.name, until: game.time + (v >= SO.BEST || wasPartner ? 420 : 200), x: c.x, z: c.z };
         SB.Chem.apply(o.chem, { lonely: 0.45, bored: 0.1 });
-        if (wasPartner) o.partner = null;
+        if (wasPartner) { o.partner = null; o.widowT = game.time + SB.DAY_LENGTH; o.widowed = c.id; } // can love again after a day of mourning
         SO.log(game, o, "🕯", "lost " + (wasPartner ? "my partner " : "") + c.name);
       } else if (v <= SO.ENEMY) SO.log(game, o, "😶", c.name + " is gone. we never got along");
     });
@@ -443,7 +552,7 @@
     if (!cv.lines.length) return null;
     cv.a = a; cv.b = b; cv.i = 0; cv.t = 0; cv.id = a.id + ":" + b.id;
     a.convo = cv; b.convo = cv;
-    [a, b].forEach(function (c) { c.action = null; c.plan = null; });
+    [a, b].forEach(function (c) { c.action = null; if (c.plan) SB.Creature.dropPlan(c, game); });
     return cv;
   };
   SO.convoTick = function (game, c, dt) {
@@ -476,6 +585,7 @@
       SB.Chem.apply(a.chem, { lonely: -0.25, bored: -0.15 }); SB.Chem.apply(b.chem, { lonely: -0.25, bored: -0.15 });
       SO.log(game, a, "💬", "talked with " + b.name + " about " + cv.topic); SO.log(game, b, "💬", "talked with " + a.name + " about " + cv.topic);
       if (SB.Creature && SB.Creature.habitOf) { SB.Creature.habitOf(a, "social", 0.6); SB.Creature.habitOf(b, "social", 0.6); }
+      SO.court(game, a, b, "talk");
     }
     SO.checkTitle(game, a);
     SB.bus.emit("convo", { a: a, b: b, topic: cv.topic, argue: !!(cv.argued || cv.argue) });
@@ -518,6 +628,15 @@
       var c = sm[i];
       moodTick(game, c);
       SO.checkTitle(game, c);
+      driftApart(game, c);
+      // smitten and free: spending time near someone they could love counts as courting (social.js court)
+      if (c.stage === 3 && (c.tier || 0) >= 3 && c.chem.love >= 0.35 && !c.asleep && !c.convo && free2love(game, c) && game.rng.chance(0.2)) {
+        for (var ci = 0; ci < sm.length; ci++) { var o = sm[ci]; if (o !== c && !o.asleep && (o.tier || 0) >= 3 && SB.dist(o.x, o.z, c.x, c.z) < 3 && SO.eligible(game, c, o) && SO.court(game, c, o, "near")) break; }
+      }
+      // lazing about while everyone else works: the workers notice
+      if ((c.duty || 0) > 0.8 && c.stage === 3 && SO.free(c) && game.rng.chance(0.1)) {
+        for (var wi = 0; wi < sm.length; wi++) { var wk = sm[wi]; if (wk !== c && wk.plan && wk.plan.kind === "build" && SB.dist(wk.x, wk.z, c.x, c.z) < 7) { SO.remember(game, wk, c, "lazy", -3, "never helps", 1800, 12); break; } }
+      }
       // grief: now and then, wander back to the grave and say something
       if (c.grief && SO.free(c) && game.rng.chance(0.06) && !c.far) c.speech = { text: game.rng.pick(["i miss " + c.grief.name, c.grief.name + "...", "bye " + c.grief.name]), t: 2.2, kind: "think" };
       // rivals who cross paths start something (a RimWorld-style social fight)

@@ -19,6 +19,7 @@
     return c;
   };
 
+  Chem.LOVE_RATE = 0.0022;
   function gene(g, k, d) { return g && g.genes && g.genes[k] != null ? g.genes[k] : d; }
   var clamp01 = SB.clamp01;
 
@@ -92,8 +93,10 @@
     var sickT = clamp01(Math.max(c.toxin * 1.6, c.antigen * 1.4));
     c.sick += (sickT - c.sick) * Math.min(1, 0.15 * dt);
 
-    // love only in adults who are doing fine
-    if (stage >= 3 && stage < 4 && !grump && c.hunger < 0.65 && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.009 * (0.5 + gene(genome, "fertility", 0.5));
+    // love only in adults who are doing fine. With env.loveK (creature.js: settled, fed, warm, housed, the season)
+    // it grows slowly, about 3.5 minutes to smitten in a settled village; without it, the old quick rate
+    if (env.loveK != null && stage === 3 && !grump) { if (env.loveK > 0) c.love += dt * Chem.LOVE_RATE * env.loveK * (0.5 + gene(genome, "fertility", 0.5)); else c.love -= dt * 0.0015; }
+    else if (stage >= 3 && stage < 4 && !grump && c.hunger < 0.65 && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.009 * (0.5 + gene(genome, "fertility", 0.5));
     else if (stage !== 3 || grump) c.love -= dt * 0.01;
     else c.love -= dt * 0.0015; // a rough patch slows romance, it doesn't end it
 
