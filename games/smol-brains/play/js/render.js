@@ -346,15 +346,23 @@
     chunks.forEach(freeChunk);
     chunks = [];
     var nc = T.N / SB.CHUNK;
-    for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: [], water: null, groups: null, decor: null, dirty: true, minY: 0, maxY: 0 });
+    for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: {}, wat: {}, groups: null, decor: null, dirty: true, minY: 0, maxY: 0, used: 0 });
     computeAO();
-    for (var i = 0; i < chunks.length; i++) buildChunkTerrain(chunks[i]);
+    // only the height range of each chunk is needed up front (for culling): its meshes are built the first
+    // time it is looked at, at the detail the zoom needs, and far-away fine meshes are dropped again
+    var S = SB.CHUNK, V = T.V;
+    for (var i = 0; i < chunks.length; i++) {
+      var c = chunks[i], lo = 1e9, hi = -1e9;
+      for (var j = c.cj * S; j <= c.cj * S + S; j++) for (var k = c.ci * S; k <= c.ci * S + S; k++) { var hh = T.h[j * V + k]; if (hh < lo) lo = hh; if (hh > hi) hi = hh; }
+      c.minY = Math.min(lo, SB.SEA - 0.5); c.maxY = hi + 6;
+    }
     buildOceanRing();
+    cam.maxZoom = Math.max(120, T.N * 0.25);
     cam.x = T.spawn.x; cam.z = T.spawn.z;
   };
   function freeChunk(c) {
-    c.lod.forEach(function (l) { if (l) gl.deleteBuffer(l.buf); });
-    if (c.water) gl.deleteBuffer(c.water.buf);
+    for (var s in c.lod) if (c.lod[s]) gl.deleteBuffer(c.lod[s].buf);
+    for (var s2 in c.wat) if (c.wat[s2]) gl.deleteBuffer(c.wat[s2].buf);
     if (c.groups) for (var k in c.groups) gl.deleteBuffer(c.groups[k].buf);
     if (c.decor) for (var d in c.decor) gl.deleteBuffer(c.decor[d].buf);
   }
@@ -388,7 +396,7 @@
   function vertexColor(i, j, out) {
     var N = T.N, V = T.V, k = j * V + i;
     // average the biome colours of the up-to-4 tiles touching this vertex
-    var r = 0, g = 0, b = 0, n = 0, temp = 0;
+    var r = 0, g = 0, b = 0, n = 0, temp = 0, ash = 0;
     for (var dj = -1; dj <= 0; dj++) for (var di = -1; di <= 0; di++) {
       var ti = i + di, tj = j + dj;
       if (ti < 0 || tj < 0 || ti >= N || tj >= N) continue;
@@ -396,6 +404,7 @@
       var hsh = SB.hash(ti, tj, 7);
       var c = SB.hex(hsh < 0.5 ? bm.c[0] : bm.c[1]);
       r += c[0]; g += c[1]; b += c[2]; temp += T.temp[t]; n++;
+      if (T.biome[t] === SB.B.ash) ash++;
     }
     r /= n; g /= n; b /= n; temp /= n;
     var h = T.h[k];
@@ -405,7 +414,7 @@
     if (i > 0 && j > 0 && i < N && j < N) sl = Math.max(Math.abs(T.h[k + 1] - T.h[k - 1]), Math.abs(T.h[k + V] - T.h[k - V])) * 0.5;
     col = SB.mixC(col, ROCK, SB.smooth((sl - 0.9) / 1.2));
     // snowy peaks
-    col = SB.mixC(col, SNOW, SB.smooth((h - 13) / 3) * (temp < 0.5 ? 1 : 0.6));
+    if (!ash) col = SB.mixC(col, SNOW, SB.smooth((h - 13) / 3) * (temp < 0.5 ? 1 : 0.6)); // no snow on the warm volcano
     // wet banks and lake/river beds
     var w = T.W[k];
     if (w !== T.NONE) {
@@ -460,29 +469,49 @@
         }
       }
     }
-    c.minY = Math.min(minY, SB.SEA - 0.5); c.maxY = maxY + 6;
     return { buf: GL.buffer(ctx, out), count: o / TSTRIDE };
   }
-  function buildChunkTerrain(c) {
-    c.lod.forEach(function (l) { if (l) gl.deleteBuffer(l.buf); });
-    c.lod = [buildTerrainLOD(c, 1)];
+  // a chunk's terrain and water at one level of detail (step 1 = every tile, 2 and 4 for far zooms)
+  function buildChunkTerrain(c, step) {
+    c.lod[step] = buildTerrainLOD(c, step);
     // water: quads where all four corners have a water level and at least one is actually wet
     var S = SB.CHUNK, V = T.V, i0 = c.ci * S, j0 = c.cj * S, NONE = T.NONE;
     var out = [];
-    for (var j = j0; j < j0 + S; j++) for (var i = i0; i < i0 + S; i++) {
-      var ks = [j * V + i, j * V + i + 1, (j + 1) * V + i + 1, (j + 1) * V + i];
+    for (var j = j0; j < j0 + S; j += step) for (var i = i0; i < i0 + S; i += step) {
+      var ks = [j * V + i, j * V + i + step, (j + step) * V + i + step, (j + step) * V + i];
       var any = false, all = true;
       for (var q = 0; q < 4; q++) { var w = T.W[ks[q]]; if (w === NONE) all = false; else if (w > T.h[ks[q]] + 0.01) any = true; }
       if (!all || !any) continue;
       var P = ks.map(function (k, qi) {
-        var x = i + (qi === 1 || qi === 2 ? 1 : 0), z = j + (qi >= 2 ? 1 : 0);
+        var x = i + (qi === 1 || qi === 2 ? step : 0), z = j + (qi >= 2 ? step : 0);
         return [x, T.W[k], z, Math.max(0, T.W[k] - T.h[k]), T.river[k] ? 1 : 0];
       });
       [P[0], P[1], P[2], P[0], P[2], P[3]].forEach(function (p) { out.push(p[0], p[1], p[2], p[3], p[4]); });
     }
-    if (c.water) { gl.deleteBuffer(c.water.buf); c.water = null; }
-    if (out.length) c.water = { buf: GL.buffer(ctx, new Float32Array(out)), count: out.length / 5 };
+    c.wat[step] = out.length ? { buf: GL.buffer(ctx, new Float32Array(out)), count: out.length / 5 } : null;
   }
+  // which mesh to draw for a chunk this frame: the step the zoom wants, else a coarser one already built
+  var LODS = [1, 2, 4], terrBudget = 0, frameNo = 0;
+  function chunkLOD(c, want) {
+    c.used = frameNo;
+    if (c.lod[want]) return want;
+    if (terrBudget-- > 0 || want === 4) { buildChunkTerrain(c, want); return want; }
+    for (var li = 0; li < LODS.length; li++) if (LODS[li] > want && c.lod[LODS[li]]) return LODS[li];
+    buildChunkTerrain(c, 4); return 4;
+  }
+  // fine meshes of chunks nobody has looked at for a while go back (a 1024 island would not fit otherwise)
+  function evictChunks() {
+    for (var i = 0; i < chunks.length; i++) {
+      var c = chunks[i];
+      if (frameNo - c.used < 900) continue;
+      for (var s = 1; s <= 2; s++) {
+        if (c.lod[s]) { gl.deleteBuffer(c.lod[s].buf); c.lod[s] = null; }
+        if (c.wat[s]) { gl.deleteBuffer(c.wat[s].buf); c.wat[s] = null; }
+      }
+      if (c.decor) { for (var d in c.decor) gl.deleteBuffer(c.decor[d].buf); c.decor = null; }
+    }
+  }
+  R.terrainStep = function () { return cam.zoom < 48 ? 1 : cam.zoom < 115 ? 2 : 4; };
   function buildOceanRing() {
     var N = T.N, E = 900, out = [];
     function rect(x0, z0, x1, z1) {
@@ -513,6 +542,10 @@
     if (bm === SB.B.swamp) tint = [0.85, 0.95, 0.75];
     if (nd.kind === "boulder" || nd.kind === "flintrock" || nd.kind === "orevein") tint = [0.95 + t * 0.1, 0.95 + t * 0.1, 0.95 + t * 0.12];
     if (nd.kind === "shroomtree") { var hh = [[0.69, 0.48, 0.88], [0.5, 0.75, 1.0], [1.0, 0.55, 0.7]][(t * 3) | 0]; tint = [hh[0] / 0.69, hh[1] / 0.48, hh[2] / 0.88]; }
+    if (bm === SB.B.ash) tint = [0.8, 0.78, 0.8];
+    if (bm === SB.B.mesa) tint = [1.12, 0.95, 0.8];
+    if (bm === SB.B.mangrove) tint = [0.88, 0.98, 0.8];
+    if (bm === SB.B.maple && nd.kind !== "maple") tint = [1.1, 0.95, 0.8];
     return tint;
   }
 
@@ -576,27 +609,27 @@
       var arr = new Float32Array(lists[key2]);
       c.groups[key2] = { buf: GL.buffer(ctx, arr), n: arr.length / ISTRIDE };
     }
-    // decorations
-    if (!c.decor) {
-      c.decor = {};
-      var dl = {}, D = T.decor;
-      for (var di = 0; di < D.length; di += 5) {
-        var dx = D[di], dz = D[di + 1];
-        if (dx < x0 || dx >= x0 + S || dz < z0 || dz >= z0 + S) continue;
-        if (!SB.World.isSeen(game.world, dx, dz)) continue;
-        var type = D[di + 2], sc = D[di + 3], rot = D[di + 4];
-        var L = dl[type] || (dl[type] = []), o = L.length;
-        L.length += ISTRIDE;
-        trs(L, o, dx, WG.heightAt(T, dx, dz) - 0.02, dz, rot, sc, sc, sc);
-        var t = SB.hash(di, 1, 2);
-        var tint = type === 1 ? SB.hsl([0, 45, 200, 280, 330, 50][(t * 6) | 0], 0.75, 0.72).map(function (v) { return v * 1.1; }) : [0.9 + t * 0.2, 0.95 + t * 0.1, 0.9];
-        if (type === 0 || type === 3) { var bmc = SB.hex(SB.BIOMES[WG.biomeAt(T, dx, dz)].c[1]); tint = [bmc[0] / 0.5 * (0.8 + t * 0.3), bmc[1] / 0.75 * (0.85 + t * 0.2), bmc[2] / 0.35 * (0.8 + t * 0.2)].map(function (v) { return Math.min(1.4, v); }); }
-        L[o + 12] = tint[0]; L[o + 13] = tint[1]; L[o + 14] = tint[2]; L[o + 15] = 1;
-        L[o + 16] = type === 0 || type === 3 ? 0.3 : 0; L[o + 17] = type === 6 ? 0.6 : 0; L[o + 18] = 0; L[o + 19] = 0;
-      }
-      for (var ty in dl) { var arr2 = new Float32Array(dl[ty]); c.decor[ty] = { buf: GL.buffer(ctx, arr2), n: arr2.length / ISTRIDE }; }
-    }
     c.dirty = false;
+  }
+  // grass, flowers and pebbles: only for chunks seen up close
+  function buildChunkDecor(c) {
+    c.decor = {};
+    var dl = {}, D = WG.decorChunk(T, c.ci, c.cj);
+    for (var di = 0; di < D.length; di += 5) {
+      var dx = D[di], dz = D[di + 1];
+      if (!SB.World.isSeen(game.world, dx, dz)) continue;
+      var type = D[di + 2], sc = D[di + 3], rot = D[di + 4];
+      var L = dl[type] || (dl[type] = []), o = L.length;
+      L.length += ISTRIDE;
+      trs(L, o, dx, WG.heightAt(T, dx, dz) - 0.02, dz, rot, sc, sc, sc);
+      var t = SB.hash(dx * 7.1, dz * 3.3, 2);
+      var tint = type === 1 || type === 11 ? SB.hsl([0, 45, 200, 280, 330, 50][(t * 6) | 0], 0.75, 0.72).map(function (v) { return v * 1.1; }) : [0.9 + t * 0.2, 0.95 + t * 0.1, 0.9];
+      if (type === 0 || type === 3) { var bmc = SB.hex(SB.BIOMES[WG.biomeAt(T, dx, dz)].c[1]); tint = [bmc[0] / 0.5 * (0.8 + t * 0.3), bmc[1] / 0.75 * (0.85 + t * 0.2), bmc[2] / 0.35 * (0.8 + t * 0.2)].map(function (v) { return Math.min(1.4, v); }); }
+      if (type === 10) tint = [1.05 + t * 0.1, 0.9 + t * 0.1, 0.7];
+      L[o + 12] = tint[0]; L[o + 13] = tint[1]; L[o + 14] = tint[2]; L[o + 15] = 1;
+      L[o + 16] = type === 0 || type === 3 || type === 10 ? 0.3 : 0; L[o + 17] = type === 6 ? 0.6 : type === 9 ? 0.8 : 0; L[o + 18] = 0; L[o + 19] = 0;
+    }
+    for (var ty in dl) { var arr2 = new Float32Array(dl[ty]); c.decor[ty] = { buf: GL.buffer(ctx, arr2), n: arr2.length / ISTRIDE }; }
   }
 
   /* ================= camera ================= */
@@ -978,8 +1011,12 @@
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CW);
+    frameNo++; terrBudget = 6;
+    if (frameNo % 120 === 0) evictChunks();
+    var want = R.terrainStep();
     for (var i = 0; i < vis.length; i++) {
-      var c = vis[i], L = c.lod[0];
+      var c = vis[i], st = chunkLOD(c, want), L = c.lod[st];
+      c.drawStep = st;
       if (!L) continue;
       GL.attribs(ctx, L.buf, [[p.a.aPos, 3], [p.a.aNrm, 3], [p.a.aCol, 4], [p.a.aMisc, 4]], TSTRIDE, 0);
       gl.drawArrays(gl.TRIANGLES, 0, L.count);
@@ -1025,11 +1062,16 @@
     gl.uniform1f(p.u.uAutumn, env.autumn);
     gl.uniform1f(p.u.uSnow, env.snow);
     rebuildBudget = 4;
-    var showDecor = quality.decor && cam.zoom < 26;
+    var showDecor = quality.decor && cam.zoom < 26, farObj = R.terrainStep() === 4;
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i];
       if ((c.dirty || !c.groups) && (rebuildBudget-- > 0 || !c.groups)) buildChunkInstances(c);
-      for (var key in c.groups) drawInstanced(p, key, c.groups[key].buf, c.groups[key].n);
+      for (var key in c.groups) {
+        // zoomed right out (big islands) the little plants and rocks are a pixel each: only trees and big rocks
+        if (farObj && key.charAt(0) === "n" && meshes[key] && meshes[key].maxY < 1.3) continue;
+        drawInstanced(p, key, c.groups[key].buf, c.groups[key].n);
+      }
+      if (showDecor && !c.decor) buildChunkDecor(c);
       if (showDecor && c.decor) for (var d in c.decor) drawInstanced(p, "d:" + d, c.decor[d].buf, c.decor[d].n);
     }
     for (var k in frameDyn) {
@@ -1053,9 +1095,10 @@
     gl.depthMask(false);
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i];
-      if (!c.water) continue;
-      GL.attribs(ctx, c.water.buf, [[p.a.aPos, 3], [p.a.aInfo, 2]], 5, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, c.water.count);
+      var wt = c.wat[c.drawStep || 1];
+      if (!wt) continue;
+      GL.attribs(ctx, wt.buf, [[p.a.aPos, 3], [p.a.aInfo, 2]], 5, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, wt.count);
     }
     if (ringBuf) { GL.attribs(ctx, ringBuf.buf, [[p.a.aPos, 3], [p.a.aInfo, 2]], 5, 0); gl.drawArrays(gl.TRIANGLES, 0, ringBuf.count); }
     gl.depthMask(true);

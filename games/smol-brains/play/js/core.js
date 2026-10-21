@@ -90,10 +90,11 @@
   /* ---------------- world ---------------- */
 
   SB.WORLD_N = 256;          // tiles per side of the current island (set per game by SB.setWorldN)
-  SB.WORLD_N_NEW = window.SB_N || 384; // new islands since v3.5: about twice the land of the old 256 ones (old saves keep theirs; SB_N is a test hook)
+  SB.WORLD_N_NEW = window.SB_N || 544; // new islands since v3.7: twice the land of v3.5's 384 (old saves keep theirs; SB_N is a test hook)
+  SB.WORLD_GV = 2; // the island generator new worlds use (worldgen.js); saves without one are generator 1
   SB.setWorldN = function (n) {
     n = Math.round(+n || 0);
-    if (!(n >= 128 && n <= 512 && n % 32 === 0)) n = 256;
+    if (!(n >= 128 && n <= 1024 && n % 32 === 0)) n = 256;
     SB.WORLD_N = n;
     if (SB.World) SB.World.SEEN_N = n / 4;
     return n;
@@ -102,7 +103,7 @@
   // "create world" options (v3.6). Each choice maps to plain multipliers the sim reads through SB.wopt;
   // the defaults are exactly the classic island, and an island quirk stacks on top of the choices
   SB.WORLD_CHOICES = {
-    size: { small: 256, normal: 384, large: 512 },
+    size: { small: 384, normal: 544, large: 768, huge: 1024 },
     land: { isles: { land: 0.86 }, island: {}, big: { land: 1.16 } },
     peaks: { flat: { mtn: 0.5 }, normal: {}, tall: { mtn: 1.55 } },
     climate: { temperate: {}, tropical: { temp: 0.16, moist: 0.12 }, frozen: { temp: -0.24 }, dry: { temp: 0.08, moist: -0.22 } },
@@ -123,8 +124,10 @@
   };
   SB.WORLD_OPTS = {}; // the multipliers of the island being made or played (set by Game.create)
   SB.worldFx = function (w) {
-    var fx = { land: 1, mtn: 1, temp: 0, moist: 0, food: 1, grumps: 1, storms: 1, critters: 1, ore: 1, sparks: 1, sites: 1, crew: 2 };
+    var fx = { land: 1, mtn: 1, temp: 0, moist: 0, food: 1, grumps: 1, storms: 1, critters: 1, ore: 1, sparks: 1, sites: 1, crew: 2, gv: 1, arch: null };
     w = w || {};
+    if (w.gv >= 2) fx.gv = Math.min(SB.WORLD_GV, w.gv | 0);
+    if (typeof w.arch === "string") fx.arch = w.arch;
     Object.keys(SB.WORLD_CHOICES).forEach(function (k) {
       var c = SB.WORLD_CHOICES[k][w[k]];
       if (c && typeof c === "object") for (var f in c) fx[f] = (f === "temp" || f === "moist" || f === "crew") ? c[f] : fx[f] * c[f];
@@ -155,7 +158,16 @@
     { id: "tundra", name: "snowfield", c: [0xe7eef5, 0xf5f8fc], temp: 0.12 },
     { id: "mountain", name: "mountains", c: [0x8a8590, 0x9d98a3], temp: 0.3 },
     { id: "shroom", name: "glowshroom grove", c: [0x7a5fb0, 0x8c70c4], temp: 0.5 },
-    { id: "crystal", name: "crystal steppe", c: [0xb4b9d8, 0xc6cbe6], temp: 0.4 }
+    { id: "crystal", name: "crystal steppe", c: [0xb4b9d8, 0xc6cbe6], temp: 0.4 },
+    // v3.7 (new islands only; ids are appended so old saves keep theirs)
+    { id: "blossom", name: "blossom grove", c: [0x8fd06a, 0xf0b8cf], temp: 0.55 },
+    { id: "maple", name: "maple woods", c: [0x9a8a3e, 0xc8743a], temp: 0.45 },
+    { id: "ash", name: "ashlands", c: [0x4a4248, 0x5c5257], temp: 0.7 },
+    { id: "mangrove", name: "mangrove coast", c: [0x5e8a52, 0x77985a], temp: 0.7 },
+    { id: "bamboo", name: "bamboo thicket", c: [0x7cbf4e, 0x96cf5a], temp: 0.68 },
+    { id: "mesa", name: "red mesas", c: [0xc9714a, 0xd98a5a], temp: 0.8 },
+    { id: "flowers", name: "flower fields", c: [0x92d468, 0xb6dc6e], temp: 0.56 },
+    { id: "reef", name: "coral shallows", c: [0x4fc0b8, 0xf08a8a], temp: 0.7 }
   ];
   SB.B = idx(SB.BIOMES.map(function (b) { return b.id; }));
 
@@ -164,6 +176,7 @@
      rots: seconds before it goes bad (0 = never). tool: crafted tool that an "use" verb can apply. */
   SB.KINDS = {
     apple: { noun: "food", label: "apple", emoji: "🍎", r: 0.16, color: 0xe5484d, food: { hunger: -0.42 }, chem: { glucose: 0.32 }, rots: 480, desc: "falls from apple trees. crunchy, honest food." },
+    cherry: { noun: "food", label: "cherries", emoji: "🍒", r: 0.13, color: 0xd7263d, food: { hunger: -0.3, bored: -0.05 }, chem: { glucose: 0.26 }, rots: 380, desc: "from blossom trees. tiny, red and very sweet." },
     berry: { noun: "food", label: "berries", emoji: "🫐", r: 0.13, color: 0x6c5ce7, food: { hunger: -0.28, bored: -0.04 }, chem: { glucose: 0.24 }, rots: 360, desc: "grows on berry bushes. small but sweet." },
     banana: { noun: "food", label: "sunfruit", emoji: "🍌", r: 0.16, color: 0xffd23f, food: { hunger: -0.45 }, chem: { glucose: 0.36 }, rots: 420, desc: "hangs from jungle palms. a smol favourite." },
     nut: { noun: "material", label: "hardnut", emoji: "🌰", r: 0.13, color: 0x9a6a3a, food: { hunger: -0.05 }, chem: {}, rots: 0, shell: "nutmeat", desc: "drops from pines. impossible to eat... unless you crack it with a rock." },
@@ -237,6 +250,14 @@
     flintrock: { noun: "stone", label: "flint outcrop", emoji: "🔷", r: 0.5, drops: "flint", every: 200, desc: "dark glassy rock. sharp." },
     claybank: { noun: "material", label: "clay bank", emoji: "🟫", r: 0.5, drops: "clay", every: 160, desc: "squishy riverbank. good for pots." },
     orevein: { noun: "material", label: "ore vein", emoji: "🟠", r: 0.55, drops: "ore", every: 150, desc: "copper in the rock." },
+    // v3.7 biomes
+    sakura: { noun: "plant", label: "blossom tree", emoji: "🌸", r: 0.55, drops: "cherry", every: 75, also: "stick", desc: "pink all year. drops sweet cherries." },
+    maple: { noun: "plant", label: "maple", emoji: "🍁", r: 0.55, drops: "nut", every: 95, also: "stick", desc: "red leaves, spinning seeds, lots of sticks." },
+    bamboo: { noun: "plant", label: "bamboo", emoji: "🎋", r: 0.35, drops: "stick", every: 40, also: "fiber", desc: "grows so fast you can almost watch. sticks and fibre for days." },
+    mangrove: { noun: "plant", label: "mangrove", emoji: "🌳", r: 0.6, drops: "stick", every: 80, also: "fiber", desc: "a tree on stilts with its feet in the water." },
+    basalt: { noun: "stone", label: "basalt column", emoji: "🪨", r: 0.55, drops: "flint", every: 170, desc: "black glassy rock from the volcano. flakes into sharp flint." },
+    vent: { noun: "material", label: "steam vent", emoji: "♨️", r: 0.5, drops: "ore", every: 200, glow: 1, desc: "hot breath from deep down. leaves copper ore around it." },
+    redrock: { noun: "stone", label: "red rock", emoji: "🪨", r: 0.6, drops: "stone", every: 140, also: "clay", desc: "soft red stone, crumbly with clay." },
     crystals: { noun: "material", label: "thought crystals", emoji: "💎", r: 0.55, drops: "crystal", every: 240, glow: 1, desc: "crystals that hum near big brains." },
     cave: { noun: "grump", label: "grump cave", emoji: "🕳", r: 0.9, desc: "grumps sleep here by day." },
     nest: { noun: "shelter", label: "nest", emoji: "🪺", r: 0.7, desc: "where your first egg was found. smols sleep well here." }

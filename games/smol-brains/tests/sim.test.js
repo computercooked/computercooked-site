@@ -48,7 +48,7 @@ for (let s = 0; s < steps; s++) {
   if (s % 200 === 0) for (const c of game.creatures) {
     if (!isFinite(c.x) || !isFinite(c.z) || !isFinite(c.y)) { bad++; console.log("NaN pos", c.name); }
     for (const k in c.chem) if (!isFinite(c.chem[k])) { bad++; console.log("NaN chem", c.name, k); }
-    if (c.x < 0 || c.z < 0 || c.x > 256 || c.z > 256) { bad++; console.log("out of bounds", c.name, c.x, c.z); }
+    if (c.x < 0 || c.z < 0 || c.x > game.world.T.N || c.z > game.world.T.N) { bad++; console.log("out of bounds", c.name, c.x, c.z); }
   }
 }
 const ms = performance.now() - ts;

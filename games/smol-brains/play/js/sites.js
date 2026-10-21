@@ -29,7 +29,7 @@
   S.generate = function (game) {
     var w = game.world, T = w.T, r = rng(game.seed), out = [], id = 0, sp = T.spawn;
     Object.keys(S.KINDS).forEach(function (k) {
-      var def = S.KINDS[k], K = T.N / 256, n = Math.round(def.n * K * K * SB.wopt(game, "sites")); // a bigger island hides more, further out
+      var def = S.KINDS[k], K = T.N / 256, n = Math.round(def.n * (T.gv >= 2 ? Math.pow(K, 1.5) : K * K) * SB.wopt(game, "sites")); // a bigger island hides more, further out (v3.7 islands: not quite in proportion, or an XL island is all ruins)
       for (var i = 0; i < n; i++) {
         for (var tries = 0; tries < 60; tries++) {
           var a = r() * 6.283, d = (def.dist[0] + r() * (def.dist[1] - def.dist[0])) * K;

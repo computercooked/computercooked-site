@@ -704,4 +704,97 @@
     mouth: function () { return ME.builder().color(0x3a1520).push().scale(1, 0.55, 0.4).sphere(0).pop().finish(); },
     shadow: null // drawn by the blob-shadow pass
   };
+  /* ---------------- v3.7 biomes: their trees, rocks and ground cover ---------------- */
+  (function () {
+    var NB = ME.NODE_BUILDERS;
+    NB.sakura = function (seed) { // blossom tree: dark crooked trunk under a big pink cloud, petals hanging
+      var b = ME.builder();
+      b.color(0x5a3b2e).push().rotZ(0.12).cyl(6, 0.15, 0.1, 1.3).pop();
+      b.push().translate(0.15, 1.1, 0).rotZ(-0.8).color(0x5a3b2e).cyl(5, 0.07, 0.04, 0.7).pop();
+      b.push().translate(0.1, 1.15, 0).rotZ(0.7).rotY(seed).color(0x5a3b2e).cyl(5, 0.06, 0.03, 0.6).pop();
+      b.flex(0.3, 1).color(0xf4b6cc, 1);
+      b.push().translate(0.15, 1.85, 0).scale(1.15, 0.7, 1.05).blob(1, 0.35, seed).pop();
+      b.color(0xf8cadb, 1).push().translate(0.7, 1.6, 0.25).scale(0.6, 0.45, 0.6).blob(1, 0.3, seed + 2).pop();
+      b.color(0xeea0bd, 1).push().translate(-0.45, 1.65, -0.3).scale(0.6, 0.45, 0.55).blob(1, 0.3, seed + 3).pop();
+      b.color(0xd7263d);
+      [[0.55, 1.4, 0.5], [-0.4, 1.38, 0.35], [0.1, 1.42, -0.6]].forEach(function (p) { b.push().translate(p[0], p[1], p[2]).scale(0.07).sphere(0).pop(); });
+      return b.finish();
+    };
+    NB.maple = function (seed) { // round red-orange crown on a straight trunk
+      var b = ME.builder();
+      b.color(0x6a4a34).cyl(6, 0.15, 0.1, 1.5);
+      b.flex(0.3, 1).color(0xd9542b, 1);
+      b.push().translate(0, 2.0, 0).scale(1.0, 0.95, 1.0).blob(1, 0.32, seed).pop();
+      b.color(0xe8823a, 1).push().translate(0.42, 1.7, 0.25).scale(0.6, 0.55, 0.6).blob(1, 0.3, seed + 2).pop();
+      b.color(0xb8402a, 1).push().translate(-0.38, 1.8, -0.25).scale(0.6, 0.6, 0.6).blob(1, 0.3, seed + 3).pop();
+      b.color(0xf0b040, 1).push().translate(0.05, 2.55, 0.1).scale(0.45, 0.4, 0.45).blob(0, 0.3, seed + 4).pop();
+      return b.finish();
+    };
+    NB.bamboo = function (seed) { // a clump of segmented green canes with leaf tufts
+      var b = ME.builder();
+      for (var i = 0; i < 5; i++) {
+        var a = i * 2.39 + seed, rr = i ? 0.18 + (i % 2) * 0.1 : 0, hh = 2.0 + ((i * 7 + (seed | 0)) % 5) * 0.3;
+        b.push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).rotZ((i % 3 - 1) * 0.06);
+        for (var s = 0; s < 4; s++) {
+          b.color(s % 2 ? 0x8cc63e : 0x7ab535, 1).push().translate(0, s * hh / 4, 0).cyl(5, 0.06, 0.055, hh / 4 - 0.03, false).pop();
+          b.color(0x5e8f2a).push().translate(0, (s + 1) * hh / 4 - 0.03, 0).cyl(5, 0.066, 0.066, 0.03).pop();
+        }
+        b.flex(0.6, hh * 0.6).sides(true).color(0x6fbf4a, 1);
+        for (var k = 0; k < 3; k++) b.push().translate(0, hh - k * 0.3, 0).rotY(a + k * 2.1).rotX(1.1).leaf(0.12, 0.45, -0.1).pop();
+        b.sides(false).flex(0, 0);
+        b.pop();
+      }
+      return b.finish();
+    };
+    NB.mangrove = function (seed) { // a tree on stilt roots
+      var b = ME.builder();
+      b.color(0x6e5440);
+      for (var i = 0; i < 6; i++) {
+        var a = i / 6 * 6.283 + seed;
+        b.push().translate(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5).rotY(-a).rotZ(0.55).cyl(4, 0.04, 0.035, 0.75, false).pop();
+      }
+      b.push().translate(0, 0.55, 0).cyl(6, 0.13, 0.1, 1.0).pop();
+      b.flex(0.25, 1).color(0x4f8a46, 1);
+      b.push().translate(0, 1.75, 0).scale(1.2, 0.6, 1.2).blob(1, 0.35, seed).pop();
+      b.color(0x3f7a3e, 1).push().translate(0.5, 1.55, -0.3).scale(0.6, 0.4, 0.6).blob(1, 0.3, seed + 1).pop();
+      return b.finish();
+    };
+    NB.basalt = function (seed) { // black hexagonal columns
+      var b = ME.builder();
+      for (var i = 0; i < 6; i++) {
+        var a = i * 1.05 + seed, rr = i ? 0.28 : 0, hh = 0.5 + ((i * 5 + (seed | 0)) % 4) * 0.22;
+        b.color(i % 2 ? 0x34303a : 0x3e3944, 1).push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).cyl(6, 0.16, 0.16, hh).pop();
+      }
+      return b.finish();
+    };
+    NB.vent = function (seed) { // a hot crack with a glowing mouth and an orange rim
+      var b = ME.builder();
+      b.color(0x4a4248, 1).push().translate(0, 0.12, 0).scale(0.7, 0.24, 0.6).blob(1, 0.4, seed, 0.6).pop();
+      b.color(0xff7a2a).glow(1).push().translate(0, 0.3, 0).scale(0.22, 0.05, 0.18).sphere(1).pop();
+      b.color(C.ore).glow(0.3);
+      for (var i = 0; i < 4; i++) { var a = i * 1.6 + seed; b.push().translate(Math.cos(a) * 0.45, 0.12, Math.sin(a) * 0.38).scale(0.1).blob(0, 0.3, i).pop(); }
+      b.glow(0).color(0xd8d4d0).push().translate(0, 0.32, 0).scale(0.08, 0.3, 0.08).sphere(0).pop();
+      return b.finish();
+    };
+    NB.redrock = function (seed) { // a striped red hoodoo
+      var b = ME.builder();
+      var cols = [0xb85a36, 0xd27a4a, 0xc0663e, 0xe09a64];
+      for (var i = 0; i < 4; i++) b.color(cols[i], 1).push().translate(0, i * 0.3, 0).rotY(seed + i).cyl(7, 0.5 - i * 0.07, 0.46 - i * 0.07, 0.3).pop();
+      b.color(0x9a4a2c, 1).push().translate(0, 1.2, 0).scale(0.42, 0.18, 0.4).blob(0, 0.3, seed).pop();
+      return b.finish();
+    };
+    ME.DECIDUOUS.maple = 1; ME.DECIDUOUS.mangrove = 0;
+    // ground cover types 7..11 (worldgen.js DECOR)
+    ME.DECOR_BUILDERS.push(
+      function petals() { var b = ME.builder().color(0xf6bcd0); for (var i = 0; i < 4; i++) b.push().translate(Math.cos(i * 1.7) * 0.1, 0.012, Math.sin(i * 1.7) * 0.1).scale(0.04, 0.008, 0.03).sphere(0).pop(); return b.finish(); },
+      function leafpile() { var b = ME.builder(); [0xd9542b, 0xe8823a, 0xf0b040].forEach(function (c, i) { b.color(c).push().translate(Math.cos(i * 2.1) * 0.06, 0.015 + i * 0.008, Math.sin(i * 2.1) * 0.06).scale(0.09, 0.012, 0.07).sphere(0).pop(); }); return b.finish(); },
+      function ember() { var b = ME.builder().color(0xff6a2a, 1).glow(1); b.push().translate(0, 0.02, 0).scale(0.05, 0.025, 0.04).sphere(0).pop(); b.glow(0).color(0x2a2522).push().translate(0.06, 0.015, 0).scale(0.06, 0.02, 0.05).blob(0, 0.3, 3).pop(); return b.finish(); },
+      function drygrass() { var b = ME.builder().sides(true).flex(3, 0); for (var i = 0; i < 4; i++) b.color(i % 2 ? 0xd9b86a : 0xc8a050, 1).push().rotY(i * 0.8).rotZ((i - 1.5) * 0.35).leaf(0.04, 0.2 + (i % 2) * 0.06).pop(); return b.finish(); },
+      function tallflower() {
+        var b = ME.builder().flex(3, 0); b.sides(true).color(0x5aaa48, 1).leaf(0.035, 0.36); b.sides(false);
+        b.color(0xffffff, 1); for (var i = 0; i < 6; i++) b.push().translate(0, 0.36, 0).rotY(i * 1.047).translate(0.05, 0, 0).scale(0.045, 0.014, 0.03).sphere(0).pop();
+        b.color(0x3a2a1a).push().translate(0, 0.37, 0).scale(0.03).sphere(0).pop(); return b.finish();
+      }
+    );
+  })();
 })();

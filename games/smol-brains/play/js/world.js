@@ -376,7 +376,7 @@
         continue;
       }
       var bm = WG.biomeAt(world.T, n.x, n.z);
-      var damp = bm === SB.B.swamp || bm === SB.B.jungle ? 0.3 : bm === SB.B.desert || bm === SB.B.savanna ? 1.6 : 1;
+      var damp = bm === SB.B.swamp || bm === SB.B.jungle || bm === SB.B.mangrove || bm === SB.B.bamboo ? 0.3 : bm === SB.B.desert || bm === SB.B.savanna || bm === SB.B.mesa || bm === SB.B.ash ? 1.6 : 1;
       if (r() < dt * 0.06 * damp * (1 - world.weather.rain)) {
         var near = W.nodesNear(world, n.x, n.z, 3.2, function (m) { return m.state === "ok" && NK[m.kind].noun === "plant"; });
         if (near.length) W.ignite(world, game, r.pick(near));
@@ -680,7 +680,8 @@
         var a = r() * 6.283, d = r.range(8, 22), x = focus.x + Math.cos(a) * d, z = focus.z + Math.sin(a) * d;
         if (!W.walkable(world, x, z) || WG.depthAt(world.T, x, z) > 0.05) continue;
         var bm = WG.biomeAt(world.T, x, z);
-        if (k === "hopper" && (bm === SB.B.desert || bm === SB.B.mountain)) continue;
+        if (k === "hopper" && (bm === SB.B.desert || bm === SB.B.mountain || bm === SB.B.ash || bm === SB.B.mesa)) continue;
+        if (k === "butterfly" && bm === SB.B.ash) continue;
         W.add(world, game, k, x, z, {});
         break;
       }
@@ -714,19 +715,25 @@
 
   /* ---------------- spatial lookups ---------------- */
 
-  function rebuildItemGrid(world) {
-    var gn = world.gridN, grid = world.itemGrid;
-    if (!grid) { grid = world.itemGrid = new Array(gn * gn); for (var i = 0; i < grid.length; i++) grid[i] = []; }
-    else for (i = 0; i < grid.length; i++) grid[i].length = 0;
-    var its = world.items;
-    for (i = 0; i < its.length; i++) grid[cellOf(its[i].x, its[i].z, gn)].push(its[i]);
+  // the grids are rebuilt every tick: only the cells used last time are emptied (big islands have a lot of cells)
+  function fillGrid(grid, list, gn, keep) {
+    var used = grid.used || (grid.used = []);
+    for (var i = 0; i < used.length; i++) grid[used[i]].length = 0;
+    used.length = 0;
+    for (i = 0; i < list.length; i++) {
+      if (keep && !keep(list[i])) continue;
+      var c = cellOf(list[i].x, list[i].z, gn), L = grid[c];
+      if (!L.length) used.push(c);
+      L.push(list[i]);
+    }
   }
+  function newGrid(gn) { var g = new Array(gn * gn); for (var i = 0; i < g.length; i++) g[i] = []; return g; }
+  function rebuildItemGrid(world) {
+    fillGrid(world.itemGrid || (world.itemGrid = newGrid(world.gridN)), world.items, world.gridN);
+  }
+  function isAlive(c) { return c.alive; }
   W.rebuildCreatureGrid = function (world, game) {
-    var gn = world.gridN, grid = world.creatureGrid;
-    if (!grid) { grid = world.creatureGrid = new Array(gn * gn); for (var i = 0; i < grid.length; i++) grid[i] = []; }
-    else for (i = 0; i < grid.length; i++) grid[i].length = 0;
-    var cs = game.creatures;
-    for (i = 0; i < cs.length; i++) if (cs[i].alive) grid[cellOf(cs[i].x, cs[i].z, gn)].push(cs[i]);
+    fillGrid(world.creatureGrid || (world.creatureGrid = newGrid(world.gridN)), game.creatures, world.gridN, isAlive);
   };
   function scan(grid, gn, x, z, r, fn) {
     if (!grid) return;

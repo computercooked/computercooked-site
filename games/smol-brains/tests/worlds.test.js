@@ -30,7 +30,7 @@ console.log("2. the choices do what they say");
   const g = SB.Game.newGame(80, 256, { crew: "crew" });
   check("two pods make a crew of four", g.world.items.filter(o => o.data && o.data.pod).length === 2);
   check("one pod by default", SB.Game.newGame(80, 256).world.items.filter(o => o.data && o.data.pod).length === 1);
-  check("size choice picks the island size", SB.WORLD_CHOICES.size.large === 512 && SB.Game.create(81, SB.WORLD_CHOICES.size.small).world.T.N === 256);
+  check("size choice picks the island size", SB.WORLD_CHOICES.size.large === 768 && SB.Game.create(81, SB.WORLD_CHOICES.size.small).world.T.N === 384);
   const q = SB.worldFx({ grumps: "few", quirks: ["grumpmoon"] });
   check("a quirk stacks on the choices", Math.abs(q.grumps - 0.75) < 1e-9 && q.sparks > 1);
   check("unknown choices and quirks are ignored", SB.worldFx({ climate: "lava", quirks: ["nope", 5] }).temp === 0);
