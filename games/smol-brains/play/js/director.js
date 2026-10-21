@@ -456,7 +456,9 @@
     start: function (game) {
       var s = (game.sites || []).filter(function (x) { return x.kind === "camp" && x.found && !x.done && (!x.asked || game.time > (x.againT || 0)); })[0];
       if (!s) return null;
+      if (SB.Threats && !SB.Threats.campCardOk(game)) { s.asked = true; s.againT = SB.Threats.campNext(game); return null; }
       s.asked = true; s.againT = game.time + 900;
+      if (SB.Threats) SB.Threats.campCard(game);
       var armed = smols(game).filter(function (c) { return c.tool != null && c.stage >= 2; }).length;
       return {
         icon: "⛺", title: "a grump camp!", x: s.x, z: s.z, site: s.id, warn: 0,

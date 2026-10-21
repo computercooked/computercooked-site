@@ -888,7 +888,7 @@
       if (world._grumpT <= 0) {
         world._grumpT = game.rng.range(20, 30);
         var smols = game.creatures.filter(function (c) { return c.alive && c.species === "smol"; });
-        var max = Math.min(1 + Math.floor(world.dayIndex / 2) + Math.floor(smols.length / 6), 5 + (SB.Threats ? Math.round((SB.Threats.level(game) - 1) * 2) : 0)), alive = 0;
+        var max = Math.min(1 + Math.floor(world.dayIndex / 2) + Math.floor(smols.length / 6), 5), alive = 0;
         game.creatures.forEach(function (c) { if (c.alive && c.species === "grump") alive++; });
         if (smols.length && alive < max && world.nightGrumps < max * 2) {
           // the cave nearest to the smols

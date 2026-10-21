@@ -29,11 +29,22 @@
     if (s.lastDisReal == null) s.lastDisReal = -1e9;
     if (!s.dis) s.dis = 0;
     if (!s.taken) s.taken = 0;
+    if (!Array.isArray(s.grabT)) s.grabT = [];
+    if (!Array.isArray(s.campCards)) s.campCards = [];
     return s;
   };
+  // rolling caps over the last 200 minutes: a handful of kidnaps and camp cards, spaced out
+  var WINDOW = 12000, SPACING = 1200, CAP = 6;
+  function recent(list, now) { while (list.length && now - list[0] > WINDOW) list.shift(); return list; }
+  function capOk(list, now) { recent(list, now); return list.length < CAP && (!list.length || now - list[list.length - 1] >= SPACING); }
+  T.grabOk = function (game) { return capOk(T.state(game).grabT, game.time); };
+  T.campCardOk = function (game) { return capOk(T.state(game).campCards, game.time); };
+  T.campCard = function (game) { T.state(game).campCards.push(game.time); };
+  // when the next camp card may be dealt (so a blocked camp doesn't keep knocking on the storyteller's door)
+  T.campNext = function (game) { var l = recent(T.state(game).campCards, game.time); return l.length >= CAP ? l[0] + WINDOW : l.length ? l[l.length - 1] + SPACING : game.time; };
   T.serialize = function (game) {
     var s = T.state(game);
-    return { lore: s.lore, camps: s.camps, lastDis: Math.round(s.lastDis), lastDisReal: Math.round(s.lastDisReal), dis: s.dis, taken: s.taken, campT: Math.round(s.campT || 0) };
+    return { lore: s.lore, camps: s.camps, lastDis: Math.round(s.lastDis), lastDisReal: Math.round(s.lastDisReal), dis: s.dis, taken: s.taken, campT: Math.round(s.campT || 0), grabT: s.grabT.map(Math.round), campCards: s.campCards.map(Math.round) };
   };
   T.revive = function (game, data) {
     game.threats = null;
@@ -43,6 +54,8 @@
     if (data.camps && typeof data.camps === "object") for (var k in data.camps) s.camps[k] = Math.max(1, Math.min(5, +data.camps[k] || 1));
     s.lastDis = isFinite(+data.lastDis) ? +data.lastDis : -1e9; s.lastDisReal = isFinite(+data.lastDisReal) ? +data.lastDisReal : -1e9;
     s.dis = +data.dis || 0; s.taken = +data.taken || 0; s.campT = +data.campT || 0;
+    var nums = function (a) { return Array.isArray(a) ? a.map(Number).filter(isFinite).slice(-CAP) : []; };
+    s.grabT = nums(data.grabT); s.campCards = nums(data.campCards);
   };
 
   /* ================= grumps ================= */
@@ -117,6 +130,7 @@
     g.carry = c.id; c.carriedBy = g.id; c.asleep = false; c.inBed = false; c.action = null;
     if (c.plan && SB.Creature.endPlan) SB.Creature.endPlan(c, game, false);
     g.goingHome = true; g.raider = null; g.action = null;
+    T.state(game).grabT.push(game.time);
     SB.Chem.apply(c.chem, { fear: 0.9 });
     c.speech = { text: c.stage <= 1 ? "waaah!" : "help!!", t: 2.5, kind: "say" };
     SB.Game.note(game, "a grump grabbed " + c.name + "! hit it, or tap it, before it gets away 👺");
@@ -137,9 +151,9 @@
     }
     if (camp.done) { camp.done = false; camp.asked = false; s.camps[camp.id] = 1; }
     if (!camp.found) { camp.found = true; if (SB.World.reveal) SB.World.reveal(game.world, camp.x, camp.z, 8); }
-    camp.asked = false; camp.againT = 0;
+    camp.asked = !T.campCardOk(game); camp.againT = camp.asked ? T.campNext(game) : 0;
     c.captive = camp.id; c.captiveT = game.time;
-    c.x = camp.x + game.rng.range(-1, 1); c.z = camp.z + game.rng.range(-1, 1); c.px = c.x; c.pz = c.z; c.y = SB.World.groundY(game.world, c.x, c.z); c.onGround = true;
+    c.x = camp.x + game.rng.range(-1, 1); c.z = camp.z + game.rng.range(-1, 1); c.px = c.x; c.pz = c.z; c.y = SB.World.groundY(game.world, c.x, c.z); c.onGround = true; c.vx = c.vz = c.vy = 0; c.action = null; c.path = null;
     s.taken++;
     var hm = home(game);
     SB.Game.note(game, "the grumps carried " + c.name + " off to their camp in the " + dirOf(camp.x - hm.x, camp.z - hm.z) + " ⛺ free them!");
@@ -251,15 +265,18 @@
         });
         // at most one smol taken per raid, and one per night: a threat, not a massacre
         var night = Math.floor(w.time / SB.DAY_LENGTH);
-        var allowed = g.raider ? !(raid && raid.grabs) : s.grabNight !== night;
-        if (vic && allowed && r.chance(Math.min(0.5, 0.12 * (g.str || 1) * step))) { var wasRaider = !!g.raider; grab(game, g, vic); if (raid && wasRaider) raid.grabs = 1; else s.grabNight = night; }
+        var allowed = (g.raider ? !(raid && raid.grabs) : s.grabNight !== night) && T.grabOk(game);
+        var grabK = topTier(game) <= 4 ? 0.06 : 0.12; // until thinkers can guard their kids, go easier on them
+        if (vic && allowed && r.chance(Math.min(0.5, grabK * (g.str || 1) * step))) { var wasRaider = !!g.raider; grab(game, g, vic); if (raid && wasRaider) raid.grabs = 1; else s.grabNight = night; }
       }
       // raiders in the village go for the buildings
-      if (g.raider && dh < 11) {
-        var gear = T.gear(game), near = SB.World.structsNear(w, g.x, g.z, 2.4, function (q) { return q.done && !NOWRECK[q.kind] && q.kind !== "wall"; })[0];
+      // (a raid levels a few buildings, not the whole village: two, or three once they carry torches)
+      var gear = T.gear(game), sated = raid && (raid.wrecked || []).length >= (gear.torches ? 3 : 2);
+      if (g.raider && dh < 11 && !sated) {
+        var near = SB.World.structsNear(w, g.x, g.z, 2.4, function (q) { return q.done && !NOWRECK[q.kind] && q.kind !== "wall"; })[0];
         if (near) {
           var burn = gear.torches && (near.kind === "hut" || near.kind === "farm" || near.kind === "school" || near.kind === "workshop");
-          if (T.damage(game, near, 0.05 * (g.str || 1) * (burn ? 2 : 1) * step, burn ? "burned" : "smashed") && raid) (raid.wrecked || (raid.wrecked = [])).push(near.kind);
+          if (T.damage(game, near, 0.04 * Math.min(2, g.str || 1) * (burn ? 1.5 : 1) * step, burn ? "burned" : "smashed") && raid) (raid.wrecked || (raid.wrecked = [])).push(near.kind);
           if (burn && SB.FX && !g.far) fx("embers", near.x, SB.World.groundY(w, near.x, near.z) + 0.8, near.z, 4, { r: 1 });
         } else if (!(g.action && g.action.called) && r.chance(0.25 * step)) {
           var tgt = SB.World.structsNear(w, hm.x, hm.z, 11, function (q) { return q.done && !NOWRECK[q.kind] && q.kind !== "wall"; });
@@ -439,7 +456,7 @@
 
   // --- tsunami: the sea pulls back, then a wave sweeps the beach and floods the low ground
   disaster({
-    id: "tsunami", name: "great wave", icon: "🌊", title: "the sea is pulling back!", w: 0.9, warn: 30, dur: 40,
+    id: "tsunami", name: "great wave", icon: "🌊", title: "the sea is pulling back!", w: 2.2, warn: 30, dur: 40,
     can: function (game) { return T.coastal(game); },
     setup: function (game) { var sv = sea(game), hm = home(game); return { sx: sv.x, sz: sv.z, x: hm.x + sv.x * 20, z: hm.z + sv.z * 20 }; },
     text: function (game, info) { var hm = home(game); return "the water is draining off the beach to the " + dirOf(info.sx, info.sz) + ", further than anyone's ever seen. the ground shook a little while ago. a huge wave is coming."; },
@@ -492,7 +509,7 @@
 
   // --- hurricane: days of wind and rain in the warm months. roofs lift, crops flatten
   disaster({
-    id: "hurricane", name: "hurricane", icon: "🌀", title: "a hurricane is coming", w: 0.9, warn: 40, dur: 150,
+    id: "hurricane", name: "hurricane", icon: "🌀", title: "a hurricane is coming", w: 2.2, warn: 40, dur: 150,
     can: function (game) { var s = game.world.season; return (s === 1 || s === 2) && T.coastal(game) && game.world.structures.some(function (q) { return q.done; }); },
     text: function () { return "a wall of black cloud is spinning in off the sea, bigger than any storm. the wind is already bending the trees."; },
     hint: "huts and farms out in the wind will take a beating. smols are safest indoors.",
@@ -527,7 +544,7 @@
 
   // --- sandstorm: a red-brown wall rolls in off the savanna. you can't see, crops get buried
   disaster({
-    id: "sandstorm", name: "sandstorm", icon: "🏜", title: "a sandstorm!", w: 1.0, warn: 30, dur: 100,
+    id: "sandstorm", name: "sandstorm", icon: "🏜", title: "a sandstorm!", w: 2.5, warn: 30, dur: 100,
     can: function (game) { return game.world.season !== 3 && T.dusty(game); },
     setup: function (game) { var B = SB.B, hm = home(game), bx = 0, bz = 0; for (var a = 0; a < 24; a++) for (var dd = 10; dd < 45; dd += 5) { var x = hm.x + Math.sin(a * 0.2618) * dd, z = hm.z + Math.cos(a * 0.2618) * dd; if (!SB.World.inBounds(game.world, x, z)) continue; var b = SB.World.biomeAt(game.world, x, z); if (b === B.savanna || b === B.desert) { bx += Math.sin(a * 0.2618); bz += Math.cos(a * 0.2618); } } var l = Math.hypot(bx, bz) || 1; return { dx: bx / l, dz: bz / l }; },
     text: function (game, info) { return "a red-brown wall of dust is rolling in from the " + dirOf(info.dx, info.dz) + ". it's taller than the trees and swallowing the sun."; },
@@ -557,7 +574,7 @@
 
   // --- tornado: rare. a funnel walks across the land and takes everything in its path
   disaster({
-    id: "tornado", name: "tornado", icon: "🌪", title: "a tornado!", w: 0.5, warn: 25, dur: 70,
+    id: "tornado", name: "tornado", icon: "🌪", title: "a tornado!", w: 1.4, warn: 25, dur: 70,
     can: function (game) { return game.world.season !== 3 && game.world.structures.some(function (q) { return q.done; }); },
     setup: function (game) {
       var hm = home(game), r = game.rng, a = r() * 6.283, x0 = hm.x + Math.sin(a) * 38, z0 = hm.z + Math.cos(a) * 38;
@@ -601,7 +618,7 @@
 
   // --- earthquake: only where there are mountains. a minute of shaking, rockfalls, cracked walls
   disaster({
-    id: "quake", name: "earthquake", icon: "🫨", title: "the ground is rumbling", w: 0.7, warn: 15, dur: 30,
+    id: "quake", name: "earthquake", icon: "🫨", title: "the ground is rumbling", w: 1.8, warn: 15, dur: 30,
     can: function (game) { return T.mountains(game) && game.world.structures.some(function (q) { return q.done; }); },
     text: function () { return "the birds have all gone quiet, and the ground is humming under everyone's feet. the old smols say the mountain is waking up."; },
     hint: "buildings will crack and shake apart. smols out in the open are safest, away from walls and roofs.",

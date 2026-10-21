@@ -80,7 +80,8 @@ console.log("4. grumps carry smols off to their camps (and you can get them back
   game.world.time = Math.floor(game.world.time / SB.DAY_LENGTH + 1) * SB.DAY_LENGTH + 0.05 * SB.DAY_LENGTH; game.world.night = true;
   let g = SB.Game.spawnGrump(game, kid.x + 0.6, kid.z);
   let grabbed = 0; SB.bus.on("grumpGrab", () => grabbed++);
-  run(SB, game, 20, () => { if (g.carry == null && g.alive && !g.goingHome) { g.x = kid.x + 0.6; g.z = kid.z; } });
+  for (let t = 0; t < 120 / SB.TICK && !grabbed; t++) { if (g.carry == null && g.alive) { g.goingHome = false; kid.x = hm.x + 14; kid.z = hm.z + 14; kid.inBed = false; g.x = kid.x + 0.6; g.z = kid.z; } SB.Game.step(game, SB.TICK); } // young tribes lose kids less often: give it time
+  run(SB, game, 0.5);
   check("a night prowler snatches a kid out in the open", grabbed >= 1 && kid.carriedBy === g.id, "grabbed " + grabbed);
   const y0 = kid.y;
   check("the kid dangles from it", SB.dist(kid.x, kid.z, g.x, g.z) < 0.5 && y0 > SB.World.groundY(game.world, kid.x, kid.z) + 0.3);
