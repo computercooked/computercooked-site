@@ -394,12 +394,25 @@
   }
   function fling(c, vx, vz, vy) { if (c.heldBy) return; c.vx = vx; c.vz = vz; c.vy = vy; c.onGround = false; c.asleep = false; c.inBed = false; c.action = null; }
 
-  var DIS = {};
+  var DIS = {}, DIS_ODDS = 5; // the total weight of the disaster cards that can happen here
+  // an inland village only gets tornadoes (maybe quakes): the odds are shared among the kinds that can happen here,
+  // so every island sees about the same number of disasters, just of its own kinds
+  var possG = null, possT = -1e9, possW = 1;
+  function possible(game) {
+    if (possG === game && Math.abs(game.time - possT) < 30) return possW;
+    possG = game; possT = game.time; possW = 0;
+    for (var id in DIS) if (DIS[id].can(game)) possW += DIS[id].w;
+    return possW || 1;
+  }
   function disaster(def) {
     DIS[def.id] = def;
     var card = {
       id: def.id, bad: true, minTier: 0, w: def.w, gap: 5400, dis: true,
-      ok: function (game) { return ready(game) && def.can(game); },
+      ok: function (game) {
+        if (!ready(game) || !def.can(game)) return false;
+        card.w = def.w * DIS_ODDS / possible(game) / pace(game); // calm storytellers deal them less, wild ones more
+        return true;
+      },
       start: function (game) {
         var hm = home(game), wn = warn(game, def.warn), info = def.setup ? def.setup(game) : {};
         if (!info) return null;

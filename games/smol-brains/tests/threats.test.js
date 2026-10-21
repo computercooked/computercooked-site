@@ -122,6 +122,7 @@ console.log("5. raiders smash and burn buildings; builders put them back up");
   const grave = SB.World.addStructure(game.world, game, "grave", hm.x + 3, hm.z + 3, { done: true });
   check("graves are never wrecked", !T.wreck(game, grave) && grave.done);
   let back = false; SB.bus.on("built", d => { if (d.st === hut) back = true; });
+  Object.keys(hut.need).forEach(k => { for (let i = 0; i < hut.need[k] + 2; i++) SB.World.add(game.world, game, k, hut.x + 2 + i * 0.4, hut.z + 2, {}); }); // the makings lie about (gathering isn't what's tested here)
   run(SB, game, 600);
   check("the builders rebuild it", back && hut.done, JSON.stringify(hut.need) + " work " + hut.work.toFixed(1));
   // a raid at full strength: buildings get hit and it says so
