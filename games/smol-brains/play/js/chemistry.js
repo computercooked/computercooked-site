@@ -156,4 +156,25 @@
   };
 
   Chem.MOOD_EMOJI = { happy: "😊", ok: "🙂", sad: "😢", sick: "🤢", scared: "😱", angry: "😠", hurt: "🤕", sleepy: "😴" };
+
+  // The face a grown-up smol (tribe and on) wears. It rests neutral and smiles only when it feels good
+  // (content, happy, in love, excited); bad feelings show as a frown, worry, anger or sleepy eyes.
+  // cur is the face it has now: each threshold leans a little toward keeping it, so a drive hovering on a
+  // line doesn't flip the face back and forth (creature.js also holds a face a moment before changing it).
+  Chem.FACES = ["neutral", "smile", "sad", "worried", "angry", "tired", "sick", "sleep"];
+  Chem.FACE_EMOJI = { neutral: "😐", smile: "🙂", sad: "😢", worried: "😟", angry: "😠", tired: "🥱", sick: "🤢", sleep: "😴" };
+  var GOOD_EMOTE = { happy: 1, love: 1, yum: 1, proud: 1, idea: 1 };
+  Chem.face = function (c, cur, emote) {
+    var k = function (f) { return cur === f ? 0.06 : 0; }; // stickiness for the face it already has
+    if (c.sick > 0.45 - k("sick")) return "sick";
+    if (c.fear > 0.4 - k("worried")) return "worried";
+    if (c.anger > 0.45 - k("angry")) return "angry";
+    if (c.pain > 0.5 - k("sad")) return "sad";
+    if (c.sleepy > 0.7 - k("tired") || c.tired > 0.8 - k("tired")) return "tired";
+    var worst = 0; // the worst need, not counting love (being in love is a good feeling)
+    for (var i = 0; i < DRIVES.length; i++) if (DRIVES[i] !== "love" && c[DRIVES[i]] > worst) worst = c[DRIVES[i]];
+    if (worst > 0.7 - k("sad")) return "sad";
+    if ((emote && GOOD_EMOTE[emote]) || c.reward > 0.2 - k("smile") || c.love > 0.6 - k("smile") || worst < 0.3 + k("smile")) return "smile";
+    return "neutral";
+  };
 })();

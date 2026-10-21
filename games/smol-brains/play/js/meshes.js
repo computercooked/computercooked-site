@@ -933,6 +933,17 @@
     disc: function () { var b = ME.builder().color(0xffffff, 1); b.cyl(24, 1, 1, 0.02, true); return b.finish(); },
     brain: function () { var b = ME.builder().color(0xffffff, 1); b.push().scale(1, 0.75, 1.1).blob(2, 0.18, 7).pop(); b.color(0xd06a8a, 1).push().translate(0, 0.62, 0).scale(0.06, 0.18, 1.0).sphere(1).pop(); return b.finish(); },
     mouth: function () { return ME.builder().color(0x3a1520).push().scale(1, 0.55, 0.4).sphere(0).pop().finish(); },
+    eye2: function () { // a grown-up's eye (tribe and on): a smaller pupil and no sparkle, looking +z
+      var b = ME.builder().smoothShade(true);
+      b.color(0xf4f1ea, 1).sphere(1);
+      b.color(0x14131a).push().translate(0, -0.02, 0.72).scale(0.4, 0.46, 0.34).sphere(1).pop();
+      return b.finish();
+    },
+    smile: function () { // a curved mouth, 1 wide: a smile as drawn, a frown upside down (rz = pi)
+      var b = ME.builder().smoothShade(true).color(0x3a1520);
+      for (var i = 0; i <= 6; i++) { var a = (i / 6 - 0.5) * 2.1; b.push().translate(Math.sin(a) * 0.5, 0.5 - Math.cos(a) * 0.5, 0).scale(0.11, 0.11, 0.09).sphere(0).pop(); }
+      return b.finish();
+    },
     shadow: null // drawn by the blob-shadow pass
   };
   /* ---------------- v3.7 biomes: their trees, rocks and ground cover ---------------- */

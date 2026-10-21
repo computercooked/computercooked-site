@@ -59,5 +59,48 @@ for (let i = 0; i < 200; i++) {
 }
 check("200 random genomes all paint", bad === 0, bad + " bad");
 
+console.log("4. grown-up faces follow the mood (tribe on); early tiers keep the cute smile");
+const calm = { hunger: 0.45, tired: 0.2, sleepy: 0.2, bored: 0.4, lonely: 0.3, pain: 0, fear: 0, cold: 0, hot: 0, sick: 0, love: 0, anger: 0, reward: 0 };
+const faceFor = (extra, cur) => SB.Chem.face(Object.assign({}, calm, extra), cur);
+check("at rest the face is neutral, not a smile", faceFor({}) === "neutral");
+check("content, rewarded or in love: a smile", faceFor({ hunger: 0.1, bored: 0.1, lonely: 0.1 }) === "smile" && faceFor({ reward: 0.4 }) === "smile" && faceFor({ love: 0.8 }) === "smile");
+check("bad moods: sad, worried, angry, tired, sick", faceFor({ hunger: 0.8 }) === "sad" && faceFor({ fear: 0.6 }) === "worried" && faceFor({ anger: 0.7 }) === "angry" && faceFor({ sleepy: 0.85 }) === "tired" && faceFor({ sick: 0.6 }) === "sick");
+check("a need right on a line keeps the face it has", faceFor({ hunger: 0.68 }, "sad") === "sad" && faceFor({ hunger: 0.68 }, "neutral") === "neutral");
+const [tr] = SB.Debug.spawnTier(4, 1);
+tr.asleep = false; Object.assign(tr.chem, calm); SB.Creature.settleFace(tr);
+check("a fresh tribe smol settles on neutral", tr.anim.face === "neutral", tr.anim.face);
+// a mood that flips every 0.3 s for 10 s must not flip the face that often
+let flips = 0, last = tr.anim.face;
+for (let t = 0; t < 10; t += 0.05) { tr.chem.anger = Math.floor(t / 0.3) % 2 ? 0.8 : 0; SB.Creature.faceStep(tr, 0.05); if (tr.anim.face !== last) { flips++; last = tr.anim.face; } }
+check("a flickering mood doesn't flicker the face", flips === 0, flips + " switches");
+for (let t = 0; t < 5; t += 0.05) { tr.chem.anger = 0.8; SB.Creature.faceStep(tr, 0.05); }
+check("a mood that lasts shows within a few seconds", tr.anim.face === "angry", tr.anim.face);
+tr.asleep = true; SB.Creature.faceStep(tr, 0.05);
+check("falling asleep shows at once", tr.anim.face === "sleep");
+tr.asleep = false;
+const idle = (c, f) => { c.anim.face = f; return SB.Pixel.paint(c).frames[FR.idle0]; };
+const faces = ["neutral", "smile", "sad", "worried", "angry", "tired", "sick"].map(f => idle(tr, f));
+let distinct = 0; for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) if (!same(faces[i], faces[j])) distinct++;
+check("every tribe face paints differently", distinct === faces.length * (faces.length - 1) / 2, distinct + " distinct pairs");
+const diffPx = (a, b) => { let n = 0; for (let i = 3; i < a.d.length; i += 4) if (a.d[i - 3] !== b.d[i - 3] || a.d[i - 2] !== b.d[i - 2] || a.d[i - 1] !== b.d[i - 1]) n++; return n; };
+check("faces differ by a few pixels, not a repaint", faces.slice(1).every(f => diffPx(f, faces[0]) <= 20), faces.slice(1).map(f => diffPx(f, faces[0])).join(","));
+for (let tier = 0; tier <= 2; tier++) {
+  const [e] = SB.Debug.spawnTier(tier, 1);
+  check(`tier ${tier} keeps its cute look whatever its mood`, same(idle(e, "angry"), idle(e, "neutral")) && SB.Pixel.faceOf(e) === "");
+}
+// grown-ups stand taller than tribe babies, with a smaller head for their height
+const [gu] = SB.Debug.spawnTier(3, 1);
+gu.stage = 3; const adult = SB.Pixel.paint(gu); gu.stage = 0; const baby = SB.Pixel.paint(gu); gu.stage = 3;
+check("grown-ups are taller, with a smaller head for their size", adult.bodyPx > baby.bodyPx && adult.head.r / adult.bodyPx < baby.head.r / baby.bodyPx, adult.bodyPx + " vs " + baby.bodyPx);
+let cut = 0;
+for (let i = 0; i < 120; i++) {
+  const g = SB.Genome.forTier(SB.rng(77 + i), 3 + (i % 4));
+  for (const k of ["body", "size", "head", "legLen"]) if (g.genes[k] != null) g.genes[k] = SB.rng(i * 3 + k.length)();
+  const c = SB.Game.spawnSmol(game, { genome: g, x: s.x, z: s.z, age: 700 });
+  for (const f of ["neutral", "angry"]) { c.anim.face = f; if (SB.Pixel.paint(c).frames.some(fr => touchesEdge(fr))) cut++; }
+  c.alive = false; c.gone = true;
+}
+check("tall grown-ups still fit their frame", cut === 0, cut + " cut");
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);
