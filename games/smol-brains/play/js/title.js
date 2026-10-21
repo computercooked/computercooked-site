@@ -214,7 +214,7 @@
     if (s < 86400 * 1.5) return Math.round(s / 3600) + " h ago";
     return Math.round(s / 86400) + " days ago";
   }
-  function metaLine(m) { return "day " + m.day + " · " + m.pop + " smol" + (m.pop === 1 ? "" : "s") + " · " + tierName(m.tier) + " · " + ({ 256: "small", 384: "normal", 512: "large" }[m.n] || m.n) + " island"; }
+  function metaLine(m) { return "day " + m.day + " · " + (m.pop ? m.pop + " smol" + (m.pop === 1 ? "" : "s") + " · " + tierName(m.tier) : "still in the pod") + " · " + ({ 256: "small", 384: "normal", 512: "large" }[m.n] || m.n) + " island"; }
 
   function mainMenu() {
     var ws = SB.Save.worlds(), last = ws[0];
