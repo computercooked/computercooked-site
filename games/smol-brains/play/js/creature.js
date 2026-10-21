@@ -32,6 +32,22 @@
   };
   function stageFor(age) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from) s = i; return s; }
   C.stageFor = stageFor;
+  // Grown-up faces (tribe and on): an.face follows the mood (SB.Chem.face) but never flickers. A new feeling
+  // has to last FACE_WANT seconds and the old face is held at least FACE_HOLD, except falling asleep and
+  // waking up, which show at once. Render-only state: anim is never saved.
+  var FACE_WANT = 1.2, FACE_HOLD = 2.5;
+  function faceStep(c, dt) {
+    var an = c.anim, want = c.asleep ? "sleep" : SB.Chem.face(c.chem, an.face, an.emote);
+    if (!an.face) { an.face = want; an.faceHold = 0; an.faceWant = want; an.faceWantT = 0; return; }
+    an.faceHold += dt;
+    if (want === an.face) { an.faceWantT = 0; return; }
+    if (want !== an.faceWant) { an.faceWant = want; an.faceWantT = 0; }
+    an.faceWantT += dt;
+    if (want === "sleep" || an.face === "sleep" || (an.faceWantT >= FACE_WANT && an.faceHold >= FACE_HOLD)) { an.face = want; an.faceHold = 0; an.faceWantT = 0; }
+  }
+  C.faceStep = faceStep;
+  // jump straight to the face its mood calls for (screenshots, a freshly loaded smol)
+  C.settleFace = function (c) { if (c.anim) { c.anim.face = null; faceStep(c, 0); } };
   function freshAnim() { return { walk: 0, blink: 0, blinkT: 1 + Math.random() * 3, squash: 0, emote: null, emoteT: 0, bob: Math.random() * 6, look: 0, mouth: "smile", hop: 0, flash: 0, wave: 0 }; }
 
   function derive(c) {
@@ -1571,6 +1587,7 @@
     if (an.emoteT > 0) { an.emoteT -= dt; if (an.emoteT <= 0) an.emote = null; }
     if (c.speech) { c.speech.t -= dt; if (c.speech.t <= 0) c.speech = null; }
     an.mouth = c.asleep ? "o" : ch.sick > 0.5 || ch.pain > 0.5 ? "frown" : c.action && c.action.verb === V.eat && c.action.phase === "do" ? "chew" : ch.reward > 0.2 || ch.fear > 0.5 ? "open" : SB.Chem.mood(ch) === "sad" ? "frown" : "smile";
+    if (c.species === "smol" && c.tier >= 3) faceStep(c, dt);
 
     if (c.heldBy === "hand") {
       c.asleep = false; c.inBed = false; c.action = null; c.onGround = false; c.vx = c.vy = c.vz = 0;

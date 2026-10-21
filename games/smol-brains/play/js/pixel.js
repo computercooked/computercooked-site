@@ -54,7 +54,15 @@
 
   /* ---------------- the painter ----------------
      Facing right. Feet on row 30. Returns frames and a little metadata (body height in px). */
-  function paint(c) {
+  // the face a sheet is painted with: blobs, critters and tool-users always wear their cute smile (""),
+  // tribe smols and up show their mood (SB.Chem.face, held steady by creature.js); asleep they rest "tired"
+  function faceOf(c) {
+    if (c.species === "grump" || !(c.tier >= 3)) return "";
+    var f = c.anim && c.anim.face;
+    return f === "sleep" ? "tired" : f || "neutral";
+  }
+  PX.faceOf = faceOf;
+  function paint(c, faceIn) {
     var lk = c.look, grump = c.species === "grump", tier = grump ? 0 : c.tier, st = c.stage || 0;
     var elder = st >= 4, r = SB.rng(((lk.spotsSeed || 1) * 31 + (lk.hue | 0)) >>> 0);
     // collectible traits (see collect.js): pattern, eyes, accessory, palette, fluff
@@ -100,11 +108,16 @@
     if (grump) { bw += 1; bh += 1; }
     // from tribe on, smols stand up: a head on a torso, two legs, two arms (a little person)
     var upright = !grump && tier >= 3;
-    var legs = upright ? 2 : lk.legs, legH = upright ? 3 + Math.round(lk.legLen * 2) - (st < 2 ? 1 : 0) : legs ? 2 + Math.round(lk.legLen * 3) - (st < 2 ? 1 : 0) : 0;
+    // grown-ups (tribe on, teen and older) lose the baby proportions: a longer torso and legs, broader
+    // shoulders, a head no bigger than radius 5 (thinkers keep their big one), small pupils and brows
+    var grown = upright && st >= 2, face = upright ? faceIn || faceOf(c) || "neutral" : "";
+    var legs = upright ? 2 : lk.legs, legH = upright ? 3 + Math.round(lk.legLen * 2) - (st < 2 ? 1 : 0) + (grown ? 1 : 0) : legs ? 2 + Math.round(lk.legLen * 3) - (st < 2 ? 1 : 0) : 0;
     var hasArms = lk.arms || upright;
     var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
-    var tw = clamp(Math.round(bw * 0.55), 5, 8), th = clamp(Math.round(bh * 0.45), 4, 7);
-    var hr = clamp(Math.round(bw * 0.36) + (tier >= 5 ? 1 : 0), 4, 6), hry = hr * 0.9;
+    var tw = clamp(Math.round(bw * 0.55) + (grown ? 1 : 0), 5, grown ? 9 : 8), th = clamp(Math.round(bh * 0.45) + (grown ? 1 : 0), 4, grown ? 8 : 7);
+    var hr = clamp(Math.round(bw * 0.36) + (tier >= 5 ? 1 : 0), 4, grown && tier < 5 ? 5 : 6), hry = hr * 0.9;
+    if (grown && hr >= 6 && lk.ears === 2) legH--; // a big thinker head with tall ears: no room to stand taller
+    var headAt = null;
     var frames = [];
     for (var fi = 0; fi < NF; fi++) {
       var f = new Frame();
@@ -186,10 +199,19 @@
       if (lk.antenna || grump) { f.rect(cx + 1, top - 4, 1, 4, dark); f.rect(cx + 1, top - 6, 2, 2, grump ? [210, 80, 255] : LIME, 9); }
       if (lk.horns) { f.rect(cx - 3, top - 2, 2, 2, CREAM); f.px(cx - 3, top - 3, CREAM); f.rect(cx + 2, top - 2, 2, 2, CREAM); f.px(cx + 3, top - 3, CREAM); }
       // ---- face (three-quarter view: both eyes on the right half)
-      var es = lk.eyes > 1.15 ? 3 : 2, ey = Math.round(cy - ry * 0.2) - (es === 3 ? 1 : 0);
+      var es = lk.eyes > 1.15 && !grown ? 3 : 2, ey = Math.round(cy - ry * 0.2) - (es === 3 ? 1 : 0);
       var e1 = Math.round(cx + rx * 0.05), e2 = Math.round(cx + rx * 0.55), eyeC = grump ? [255, 70, 70] : INK;
       var mouthX = Math.round((e1 + e2) / 2 + 0.5), mouthY = ey + es + 1;
-      [e1, e2].forEach(function (ex, i) {
+      if (fi === 0) headAt = { x: cx, y: cy, r: rx, ey: ey };
+      if (upright) {
+        // what evolution wears on the head: a headband with a feather (under the face, so brows sit on it)
+        if (tier < 6) {
+          var hb = Math.min(Math.round(top + 2), ey - 2);
+          for (var hx = Math.ceil(cx - rx); hx <= cx + rx; hx++) if (f.on(hx, hb)) f.px(hx, hb, tier >= 4 ? [220, 80, 70] : [240, 190, 60]);
+          f.rect(Math.round(cx - rx + 1), hb - 3, 1, 3, tier >= 4 ? [90, 190, 240] : [255, 110, 90]);
+        }
+        paintFace(f, fi, { e1: e1, e2: e2, ey: ey, es: es, mx: mouthX, my: mouthY, grown: grown, face: face, eyeT: eyeT, elder: elder, cheeks: lk.cheeks, dark: dark, outline: outline, glasses: tier === 5 });
+      } else [e1, e2].forEach(function (ex, i) {
         if (fi === FR.blink || fi === FR.sleep) { f.rect(ex, ey + es - 1, 2, 1, INK); return; }
         if (fi === FR.happy) { f.px(ex, ey + es - 1, INK); f.px(ex + 1, ey + es - 2, INK); f.px(ex + 2, ey + es - 1, i ? null : INK); return; }
         if (fi === FR.scared) { f.rect(ex, ey - 1, 2, es + 1, WHITE); f.px(ex + 1, ey + 1, INK); return; }
@@ -201,15 +223,17 @@
         if (eyeT === "heart") f.px(ex + 1, ey + es - 1, [170, 20, 80]);
         if (eyeT === "star" && i) f.px(ex + 2, ey - 1, WHITE, 9);
       });
-      if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
-      if (elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
-      if (lk.cheeks && !grump && fi !== FR.sad) { f.px(e1 - 1, ey + es, PINK); f.px(e2 + 2, ey + es, PINK); }
-      var mc = grump ? [40, 10, 20] : outline;
-      if (fi === FR.eat || fi === FR.scared) f.rect(mouthX - 1, mouthY, 2, 2, mc);
-      else if (fi === FR.sad) { f.px(mouthX - 1, mouthY + 1, mc); f.px(mouthX, mouthY, mc); f.px(mouthX + 1, mouthY + 1, mc); }
-      else if (fi === FR.sleep) f.px(mouthX, mouthY, mc);
-      else { f.px(mouthX - 1, mouthY, mc); f.px(mouthX, mouthY + 1, mc); f.px(mouthX + 1, mouthY, mc); }
-      if (grump) { f.px(mouthX - 1, mouthY + 1, WHITE); f.px(mouthX + 1, mouthY + 1, WHITE); }
+      if (!upright) { // the cute face: big sparkly eyes and a smile (blobs, critters, tool-users) or a grump's scowl
+        if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
+        if (elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
+        if (lk.cheeks && !grump && fi !== FR.sad) { f.px(e1 - 1, ey + es, PINK); f.px(e2 + 2, ey + es, PINK); }
+        var mc = grump ? [40, 10, 20] : outline;
+        if (fi === FR.eat || fi === FR.scared) f.rect(mouthX - 1, mouthY, 2, 2, mc);
+        else if (fi === FR.sad) { f.px(mouthX - 1, mouthY + 1, mc); f.px(mouthX, mouthY, mc); f.px(mouthX + 1, mouthY + 1, mc); }
+        else if (fi === FR.sleep) f.px(mouthX, mouthY, mc);
+        else { f.px(mouthX - 1, mouthY, mc); f.px(mouthX, mouthY + 1, mc); f.px(mouthX + 1, mouthY, mc); }
+        if (grump) { f.px(mouthX - 1, mouthY + 1, WHITE); f.px(mouthX + 1, mouthY + 1, WHITE); }
+      }
       // ---- near arm
       if (hasArms) {
         var hold = c.holding != null;
@@ -222,12 +246,7 @@
           if (hold) f.rect(ax, ay2, 3, 2, base); else f.rect(ax, ay2 + (walk >= 0 ? (walk % 2) : 0), 2, 3, base);
         }
       }
-      // ---- what evolution wears
-      if (!grump && tier >= 3 && tier < 6) { // headband with a feather
-        var hb = Math.round(top + 2);
-        for (var hx = Math.ceil(cx - rx); hx <= cx + rx; hx++) if (f.on(hx, hb)) f.px(hx, hb, tier >= 4 ? [220, 80, 70] : [240, 190, 60]);
-        f.rect(Math.round(cx - rx + 1), hb - 3, 1, 3, tier >= 4 ? [90, 190, 240] : [255, 110, 90]);
-      }
+      // ---- what evolution wears (the tribe headband went on with the face)
       if (!grump && tier >= 4) { // builder's tool belt
         var by = Math.round(bcy + bry * 0.3);
         for (var bx = Math.ceil(bcx - brx); bx <= bcx + brx; bx++) if (f.on(bx, by)) f.px(bx, by, [120, 80, 45]);
@@ -253,16 +272,67 @@
       frames.push(f);
     }
     var tallPx = upright ? th + Math.round(hry * 2) + legH : bh + legH;
-    return { frames: frames, bodyPx: tallPx };
+    return { frames: frames, bodyPx: tallPx, head: headAt, face: face };
   }
   PX.paint = paint;
+
+  // A tribe-and-on face, readable from the god view in a couple of pixels: brows that tilt (angry: in and
+  // down, sad and worried: in and up), the mouth (smile, flat, frown, a little "o"), sleepy lids. Grown-ups
+  // get small one-pixel pupils without the sparkle and only blush when they smile; tribe babies keep the
+  // big shiny eyes. The special frames (blink, sleep, eat, happy, sad, scared) still win over the mood.
+  var BLUSH = PINK, SICKLY = [128, 190, 96];
+  function paintFace(f, fi, o) {
+    var e1 = o.e1, e2 = o.e2, ey = o.ey, es = o.es, face = o.face, eyeT = o.eyeT;
+    var mood = fi === FR.sad ? "sad" : fi === FR.happy ? "smile" : fi === FR.scared ? "worried" : face;
+    var closed = fi === FR.blink || fi === FR.sleep, lid = mood === "tired" || eyeT === "sleepy";
+    // eyes
+    [e1, e2].forEach(function (ex, i) {
+      if (closed) { f.rect(ex, ey + es - 1, 2, 1, INK); return; }
+      if (fi === FR.happy) { f.px(ex, ey + es - 1, INK); f.px(ex + 1, ey + es - 2, INK); f.px(ex + 2, ey + es - 1, i ? null : INK); return; }
+      if (fi === FR.scared) { f.rect(ex, ey - 1, 2, es + 1, WHITE); f.px(ex + 1, ey + 1, INK); return; }
+      var ec = eyeT === "hetero" ? (i ? [235, 165, 45] : [70, 150, 235]) : eyeT === "star" ? [255, 200, 50] : eyeT === "heart" ? [240, 60, 125] : eyeT === "cosmic" ? [80, 40, 150] : INK;
+      if (o.grown) {
+        if (lid) { f.rect(ex, ey, 2, 1, o.dark); f.px(ex + 1, ey + 1, ec); return; } // heavy lids
+        f.rect(ex + 1, ey, 1, 2, ec); // a small pupil
+        if (mood === "worried") f.px(ex, ey, mix(WHITE, ec, 0.15)); // eyes wide
+        return;
+      }
+      f.rect(ex, ey, 2, es, ec);
+      if (lid) { f.rect(ex, ey, 2, es - 1, o.dark); return; }
+      f.px(ex, ey, eyeT === "cosmic" ? [150, 245, 255] : WHITE);
+      if (eyeT === "cosmic") f.px(ex + 1, ey + es - 1, [255, 120, 220]);
+      if (eyeT === "heart") f.px(ex + 1, ey + es - 1, [170, 20, 80]);
+      if (eyeT === "star" && i) f.px(ex + 2, ey - 1, WHITE, 9);
+    });
+    // brows: above the glasses for thinkers; white for elders; softer when the face is at rest
+    var by = o.glasses ? ey - 2 : ey - 1, strong = mood === "angry" || mood === "sad" || mood === "worried" || mood === "sick";
+    var bc = o.elder ? [232, 232, 232] : strong ? INK : mix(o.dark, INK, 0.45);
+    if (o.grown || strong || o.elder) [e1, e2].forEach(function (ex, i) {
+      var inner = i ? ex : ex + 1, outer = i ? ex + 1 : ex;
+      if (mood === "angry") { f.px(outer, by - 1, bc); f.px(inner, by, bc); }
+      else if (strong) { f.px(outer, by, bc); f.px(inner, by - 1, bc); }
+      else if (!closed || o.grown) f.rect(ex, by - (mood === "smile" && !closed ? 1 : 0), 2, 1, bc);
+    });
+    // cheeks: grown-ups blush when they smile; a sick smol goes a little green
+    if (mood === "sick") { f.px(e1 - 1, ey + es, SICKLY); f.px(e2 + 2, ey + es, SICKLY); }
+    else if (o.cheeks && (mood === "smile" || !o.grown) && mood !== "sad") { f.px(e1 - 1, ey + es, BLUSH); f.px(e2 + 2, ey + es, BLUSH); }
+    // mouth
+    var mx = o.mx, my = o.my, mc = o.outline;
+    if (fi === FR.eat || fi === FR.scared) f.rect(mx - 1, my, 2, 2, mc);
+    else if (fi === FR.sleep) f.px(mx, my, mc);
+    else if (mood === "smile") { f.px(mx - 1, my, mc); f.px(mx, my + 1, mc); f.px(mx + 1, my, mc); }
+    else if (mood === "sad" || mood === "sick") { f.px(mx - 1, my + 1, mc); f.px(mx, my, mc); f.px(mx + 1, my + 1, mc); }
+    else if (mood === "worried") f.rect(mx, my, 1, 2, mc);
+    else if (mood === "angry") f.rect(mx - 1, my + 1, 3, 1, mc);
+    else f.rect(mx - 1, my, 2, 1, mc); // neutral, tired: a flat little line
+  }
 
   /* ---------------- atlas ---------------- */
   var atlas = null, tex = null, slots = {}, slotUse = [], frameNo = 0, glctx = null;
   function sheetKey(c) {
     var lk = c.look;
     return [c.species, lk.hue, lk.hue2, lk.sat | 0, lk.light | 0, lk.pattern, lk.ears, (lk.eyes * 10) | 0, lk.tail, (lk.body * 10) | 0, lk.legs, (lk.legLen * 10) | 0, lk.arms ? 1 : 0,
-      lk.head > 0.4 ? 1 : 0, lk.fins ? 1 : 0, lk.fluff ? 1 : 0, lk.horns ? 1 : 0, lk.wings ? 1 : 0, lk.antenna ? 1 : 0, lk.cheeks ? 1 : 0, c.tier, Math.min(4, c.stage || 0), c.holding != null ? 1 : 0, lk.spotsSeed, lk.cxKey || "", (lk.size * 20) | 0].join(",");
+      lk.head > 0.4 ? 1 : 0, lk.fins ? 1 : 0, lk.fluff ? 1 : 0, lk.horns ? 1 : 0, lk.wings ? 1 : 0, lk.antenna ? 1 : 0, lk.cheeks ? 1 : 0, c.tier, Math.min(4, c.stage || 0), c.holding != null ? 1 : 0, lk.spotsSeed, lk.cxKey || "", (lk.size * 20) | 0, faceOf(c)].join(",");
   }
   function ensureAtlas(ctx) {
     if (tex && glctx === ctx) return;
@@ -272,8 +342,9 @@
     atlas = document.createElement("canvas"); atlas.width = F * NF; atlas.height = F;
   }
   function sheetFor(c, ctx) {
-    var key = c._pxKey && c._pxLook === c.look && c._pxTier === c.tier && c._pxStage === c.stage && c._pxHold === (c.holding != null) ? c._pxKey : null;
-    if (!key) { key = sheetKey(c); c._pxKey = key; c._pxLook = c.look; c._pxTier = c.tier; c._pxStage = c.stage; c._pxHold = c.holding != null; }
+    var face = faceOf(c); // a variant per face: the atlas keeps the recent ones, so a smol switching back and forth doesn't repaint
+    var key = c._pxKey && c._pxLook === c.look && c._pxTier === c.tier && c._pxStage === c.stage && c._pxHold === (c.holding != null) && c._pxFace === face ? c._pxKey : null;
+    if (!key) { key = sheetKey(c); c._pxKey = key; c._pxLook = c.look; c._pxTier = c.tier; c._pxStage = c.stage; c._pxHold = c.holding != null; c._pxFace = face; }
     var s = slots[key];
     if (s) { slotUse[s.i] = frameNo; return s; }
     // find a free slot, or the least recently used one

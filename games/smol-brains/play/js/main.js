@@ -633,8 +633,8 @@
     SB.Music && SB.Music.init && SB.Music.init();
     var canvas = document.getElementById("view"), ov = document.getElementById("overlay");
     var look = null; try { look = window.localStorage.getItem("smolbrains-look"); } catch (e) {}
-    if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel";
-    if (!SB.Render.init(canvas, ov, { pixel: look !== "3d" })) { SB.UI.noWebGL(); return; }
+    if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel"; else if (/[?&]look=hd/.test(location.search)) look = "hd";
+    if (!SB.Render.init(canvas, ov, { pixel: look !== "3d", hd: look === "hd" })) { SB.UI.noWebGL(); return; }
     try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
     hookPage();
     if (window.cc && cc.start) try { cc.start(); } catch (e) {}

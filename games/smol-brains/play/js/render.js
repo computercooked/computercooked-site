@@ -15,6 +15,7 @@
   var progs = {}, meshes = {}, chunks = [], ringBuf = null, cloudTex = null, seenTex = null, seenBuf = null, seenWorld = null;
   var T = null, game = null;
   var W = 1, H = 1, dpr = 1, quality = { scale: 1, decor: true, lights: 8 };
+  var BW = 1, BH = 1; // the 3D scene's buffer size (= the canvas, except in the hd look, where the canvas is full resolution)
   var VP = M4.create(), V = M4.create(), P = M4.create();
   var time = 0;
 
@@ -63,6 +64,26 @@
     "}"
   ].join("\n");
 
+  // the "hd pixel" look (hd.js): programs are compiled with "#define HD". Generated pixel-art tiles live in one
+  // 4x4 atlas as detail maps (tile / its own average, so 0.5 = no change) that multiply the usual colours, so
+  // biomes, seasons, snow and fog keep working. uHdK: x = strength, y = art px per world unit (orthographic;
+  // 0 in first person, then uHdE.w = px per unit at distance 1), z = ground tiles per unit, w = object tiles per unit.
+  // Far away (more texels than pixels) the detail fades to flat so it never shimmers.
+  var HD_GLSL = [
+    "#ifdef HD",
+    "uniform sampler2D uTiles; uniform vec4 uHdK; uniform vec4 uHdE;",
+    "vec3 hdTile(float id, vec2 uv) {",
+    "  vec2 cell = vec2(mod(id, 4.0), floor(id / 4.0 + 0.01));",
+    "  vec2 f = clamp(fract(uv), 0.5 / 64.0, 1.0 - 0.5 / 64.0);",
+    "  return texture2D(uTiles, (cell + f) * 0.25).rgb;",
+    "}",
+    "float hdFar(vec3 w, float tilesPerUnit) {",
+    "  float ppu = uHdK.y > 0.0 ? uHdK.y : uHdE.w / max(distance(w, uHdE.xyz), 0.05);",
+    "  return smoothstep(1.3, 3.2, 64.0 * tilesPerUnit / max(ppu, 0.001));",
+    "}",
+    "#endif"
+  ].join("\n");
+
   var VS_TERRAIN = [
     "attribute vec3 aPos; attribute vec3 aNrm; attribute vec4 aCol; attribute vec4 aMisc;",
     "uniform mat4 uVP; uniform vec4 uFog; uniform vec4 uCam;",
@@ -78,14 +99,46 @@
     LIGHT_GLSL,
     "uniform float uSnow; uniform float uWet; uniform sampler2D uDetail; uniform vec2 uDetailK;",
     "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vFog; varying vec4 vMisc;",
+    HD_GLSL,
     "void main() {",
     "  vec3 n = normalize(vN);",
     "  vec3 col = vCol;",
+    "#ifdef HD",
+    // which ground this is, from its colour: green = grass, pale gold = sand, grey or steep = rock, white = snow,
+    // anything else (browns, reds, ash) = dirt. Only the tiles that matter here are sampled.
+    "  float fadeD = hdFar(vW, uHdK.z);",
+    "  if (uHdK.x > 0.0 && fadeD < 0.999) {",
+    "    float mx = max(col.r, max(col.g, col.b)), mn = min(col.r, min(col.g, col.b)), sat = (mx - mn) / max(mx, 0.001), lum = dot(col, vec3(0.3, 0.59, 0.11));",
+    "    float wr = max(smoothstep(0.8, 0.62, n.y), smoothstep(0.2, 0.08, sat) * smoothstep(0.92, 0.8, lum));",
+    "    float ws = smoothstep(0.8, 0.9, lum) * smoothstep(0.2, 0.1, sat);",
+    "    float wg = smoothstep(0.0, 0.07, col.g - max(col.r, col.b) * 0.92) * (1.0 - wr);",
+    "    float wa = smoothstep(0.55, 0.68, lum) * step(col.b, col.g) * smoothstep(0.15, 0.3, sat) * (1.0 - wg) * (1.0 - wr);",
+    "    ws *= 1.0 - wr * 0.5;",
+    "    float wd = max(0.0, 1.0 - wg - wa - wr - ws);",
+    "    vec2 uv = vW.xz * uHdK.z;",
+    "    vec3 an = abs(n); vec2 uvr = (an.y > 0.75 ? vW.xz : an.x > an.z ? vW.zy : vW.xy) * uHdK.z;",
+    "    vec3 d = vec3(0.0);",
+    "    if (wg > 0.01) d += hdTile(0.0, uv) * wg;",
+    "    if (wd > 0.01) d += hdTile(1.0, uv) * wd;",
+    "    if (wa > 0.01) d += hdTile(2.0, uv) * wa;",
+    "    if (wr > 0.01) d += hdTile(3.0, uvr) * wr;",
+    "    if (ws > 0.01) d += hdTile(4.0, uv) * ws;",
+    "    d /= max(wg + wd + wa + wr + ws, 0.001);",
+    "    col *= mix(vec3(1.0), d * 2.0, uHdK.x * 0.55 * (1.0 - fadeD));",
+    "  }",
+    "#endif",
     // art hook: a tiling ground texture (R.loadArt "ground"), grey 0.5 = no change. Off (k = 0) until one is loaded
     "  if (uDetailK.x > 0.0) col *= mix(vec3(1.0), texture2D(uDetail, vW.xz * uDetailK.y).rgb * 2.0, uDetailK.x);",
     "  float s = smoothstep(0.28, 0.62, vMisc.x * uSnow + (n.y - 1.0) * 0.6);",
     "  col = mix(col, vec3(0.93, 0.95, 0.98), s);",
+    "#ifdef HD",
+    "  if (uHdK.x > 0.0 && s > 0.01 && fadeD < 0.999) col *= mix(vec3(1.0), hdTile(4.0, vW.xz * uHdK.z) * 2.0, s * uHdK.x * (1.0 - fadeD));",
+    "#endif",
+    "#ifdef HD",
+    "  col *= mix(vec3(1.0), vec3(0.58, 0.62, 0.8), min(1.0, vMisc.y * 1.1));", // hd: deeper, cooler shade under trees
+    "#else",
     "  col *= 1.0 - vMisc.y * 0.35;", // ambient occlusion under canopies
+    "#endif",
     "  col *= 1.0 - uWet * 0.18 * (1.0 - s);",
     "  gl_FragColor = vec4(shade(col, n, vW, vMisc.z * 0.5, vFog), 1.0);",
     "}"
@@ -98,6 +151,9 @@
   var VS_OBJ = [
     "attribute vec3 aPos; attribute vec3 aNrm; attribute vec4 aCol; attribute vec2 aExt;",
     "attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; attribute vec4 iTint; attribute vec4 iExt;",
+    "#ifdef HD",
+    "attribute float aMat; varying float vMat; varying vec3 vLP; varying vec3 vLN;",
+    "#endif",
     "uniform mat4 uVP; uniform float uTime; uniform float uWind; uniform float uAutumn; uniform float uSnow; uniform vec4 uFog; uniform vec4 uCam;",
     "uniform vec4 uHull;", // hull pass (3D look item outlines): x = on, y = width, zw unused
     "uniform vec4 uView;", // xyz: toward the eye (orthographic), w = 1 in first person (use uEyeO)
@@ -106,6 +162,9 @@
     "void main() {",
     "  vec4 p = vec4(aPos, 1.0);",
     "  vec3 w = vec3(dot(iM0, p), dot(iM1, p), dot(iM2, p));",
+    "#ifdef HD",
+    "  vMat = aMat; vLP = aPos * length(iM0.xyz); vLN = aNrm;",
+    "#endif",
     "  float fl = aExt.x;",
     "  if (fl > 0.0) {",
     "    float ph = iM0.w * 0.37 + iM2.w * 0.29;",
@@ -143,12 +202,31 @@
     LIGHT_GLSL,
     "uniform vec4 uView; uniform vec3 uEyeO; uniform float uTime; uniform vec4 uHull; uniform vec3 uInkO;",
     "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog; varying vec3 vIdHi;",
+    HD_GLSL,
+    "#ifdef HD",
+    "varying float vMat; varying vec3 vLP; varying vec3 vLN;",
+    "#endif",
     "void main() {",
     "  if (uHull.x > 0.5) { if (vIdHi.y < 0.5) discard; gl_FragColor = vec4(mix(uInkO, uFogCol, vFog), 1.0); return; }",
     "  vec3 n = normalize(vN);",
     "  vec3 V = uView.w > 0.5 ? normalize(uEyeO - vW) : uView.xyz;",
     "  float rim = pow(1.0 - clamp(abs(dot(n, V)), 0.0, 1.0), 3.0);",
-    "  vec3 c = shade(vCol, n, vW, vEm, vFog);",
+    "  vec3 base = vCol;",
+    "#ifdef HD",
+    // a material tile (bark, leaves, brick, thatch, planks, roof...), projected along the part's own main axis
+    "  if (vMat > 0.5 && uHdK.x > 0.0) {",
+    "    float id = floor(vMat - 0.5), tpu = uHdK.w * (id > 7.5 && id < 11.5 ? 1.5 : 1.0);",
+    "    float fo = hdFar(vW, tpu);",
+    "    if (fo < 0.999) {",
+    "      vec3 an = abs(normalize(vLN));",
+    // thatch and roof tiles always run in rows by height (rings round a cone roof, courses up a gable)
+    "      bool rows = id > 12.5 && (id < 13.5 || id > 14.5);",
+    "      vec2 uv = (an.y > max(an.x, an.z) && !rows ? vLP.xz : an.x > an.z ? vLP.zy : vLP.xy) * tpu;",
+    "      base *= mix(vec3(1.0), hdTile(id, uv) * 2.0, uHdK.x * (1.0 - fo));",
+    "    }",
+    "  }",
+    "#endif",
+    "  vec3 c = shade(base, n, vW, vEm, vFog);",
     // a soft sky-coloured rim lifts every silhouette off the ground behind it; pickups get a stronger, warmer one
     // and a little glint that sweeps over them every few seconds
     "  float hi = vIdHi.y;",
@@ -176,6 +254,7 @@
     LIGHT_GLSL,
     "uniform float uTime; uniform vec3 uEye; uniform float uFreeze; uniform vec4 uCam;",
     "varying vec3 vW; varying float vDepth; varying float vRiver;",
+    HD_GLSL,
     "void main() {",
     "  float d = vDepth;",
     "  vec2 flow = vec2(uTime * 0.02, uTime * 0.013) * (1.0 + vRiver * 6.0);",
@@ -184,6 +263,10 @@
     "  vec3 shallow = vec3(0.42, 0.88, 0.88); vec3 deep = vec3(0.10, 0.36, 0.62);",
     "  vec3 col = mix(shallow, deep, smoothstep(0.0, 3.2, d));",
     "  vec3 nrm = normalize(vec3((n1 - 0.5) * 0.5, 1.0, (n2 - 0.5) * 0.5));",
+    "#ifdef HD",
+    "  float fw = hdFar(vW, uHdK.z * 0.5);",
+    "  if (uHdK.x > 0.0 && fw < 0.999) col *= mix(vec3(1.0), hdTile(6.0, vW.xz * uHdK.z * 0.5 + flow * 2.0) * 2.0, uHdK.x * 0.8 * (1.0 - fw));",
+    "#endif",
     "  vec3 lit = shade(col, nrm, vW, 0.0, 0.0);",
     "  float seenW = uSeenK.y < 0.5 ? 1.0 : smoothstep(0.2, 0.8, texture2D(uSeen, vW.xz * uSeenK.x).r);",
     "  vec3 V = normalize(uEye - vW);",
@@ -311,7 +394,7 @@
   function ensurePost() {
     if (!R.pixel) return null;
     if (post && post.failed) return null;
-    var w = canvas.width, h = canvas.height;
+    var w = BW, h = BH;
     if (post && post.w === w && post.h === h) return post;
     try {
       var depthExt = ctx.v2 ? true : !!gl.getExtension("WEBGL_depth_texture");
@@ -337,8 +420,10 @@
     } catch (e) { post = { failed: true }; return null; }
   }
   function drawPost(P) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    // hd look: the outlined picture goes to one more buffer, and hd.js blurs, blooms and grades it onto the canvas
+    var hdT = R.hd && SB.HD ? SB.HD.target(ctx, P) : null;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, hdT);
+    gl.viewport(0, 0, P.w, P.h);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     GL.resetAttribs(ctx);
     var p = P.prog;
@@ -353,6 +438,7 @@
     GL.attribs(ctx, P.quad, [[p.a.aPos, 2]], 2, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.activeTexture(gl.TEXTURE0);
+    if (hdT) SB.HD.post(ctx, P, env, cam, canvas);
     gl.enable(gl.DEPTH_TEST);
   }
 
@@ -364,18 +450,21 @@
     var lowEnd = (navigator.hardwareConcurrency || 4) <= 4 && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || "");
     // pixel-art mode: the 3D scene renders at ~240 px tall and the browser scales it up with hard edges
     R.pixel = opts.pixel !== false;
+    R.hd = !!(opts.hd && R.pixel && SB.HD); // the hd pixel look (hd.js) builds on the pixel look
     canvas.classList.toggle("pixel", R.pixel);
     ctx = GL.create(canvas, { antialias: !lowEnd && !R.pixel });
     if (!ctx) return false;
     gl = ctx.gl;
-    progs.terrain = GL.program(ctx, VS_TERRAIN, FS_TERRAIN);
-    progs.obj = GL.program(ctx, VS_OBJ, FS_OBJ);
-    progs.water = GL.program(ctx, VS_WATER, FS_WATER);
+    var def = R.hd ? "#define HD\n" : "";
+    progs.terrain = GL.program(ctx, def + VS_TERRAIN, def + FS_TERRAIN);
+    progs.obj = GL.program(ctx, def + VS_OBJ, def + FS_OBJ);
+    progs.water = GL.program(ctx, def + VS_WATER, def + FS_WATER);
     progs.pt = GL.program(ctx, VS_PT, FS_PT);
     progs.line = GL.program(ctx, VS_LINE, FS_LINE);
     progs.shadow = GL.program(ctx, VS_SHADOW, FS_SHADOW);
     cloudTex = makeCloudTexture(); seenTex = null;
     art.blank = GL.texture(ctx, 1, 1, new Uint8Array([128, 128, 128, 255]), { nearest: true });
+    if (R.hd) SB.HD.init(ctx); // starts loading the hd art (nothing is fetched in the other looks)
     buildMeshes();
     // phones: flat-shaded low-poly reads fine at ~1.6x, and it's a lot fewer pixels than 2x or 3x.
     // labels and UI stay crisp because the overlay canvas keeps the full device ratio.
@@ -383,9 +472,10 @@
     quality.max = mobile && (window.devicePixelRatio || 1) >= 2 ? 0.8 : 1;
     quality.scale = lowEnd ? Math.min(quality.max, 0.65) : quality.max;
     quality.lowEnd = lowEnd;
+    if (quality.fx == null) quality.fx = !lowEnd; // hd look: depth of field and bloom (off on weak phones)
     R.resize();
     canvas.addEventListener("webglcontextlost", function (e) { e.preventDefault(); R.lost = true; }, false);
-    canvas.addEventListener("webglcontextrestored", function () { R.lost = false; post = null; R.init(canvas, overlay, { pixel: R.pixel }); if (game) R.setWorld(game); }, false);
+    canvas.addEventListener("webglcontextrestored", function () { R.lost = false; post = null; R.init(canvas, overlay, { pixel: R.pixel, hd: R.hd }); if (game) R.setWorld(game); }, false);
     return true;
   };
 
@@ -394,11 +484,15 @@
     var rect = canvas.getBoundingClientRect();
     W = Math.max(1, rect.width | 0); H = Math.max(1, rect.height | 0);
     if (R.pixel) {
-      // whole CSS pixels per art pixel, so every art pixel is the same size on screen
-      R.pixelSize = Math.max(2, Math.round(Math.min(W, H) / 240));
+      // whole CSS pixels per art pixel, so every art pixel is the same size on screen (a little finer in hd)
+      R.pixelSize = Math.max(2, Math.round(Math.min(W, H) / (R.hd ? SB.HD.ROWS : 240)));
       dpr = 1 / R.pixelSize;
     } else dpr = Math.min(window.devicePixelRatio || 1, 2) * quality.scale;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    BW = Math.round(W * dpr); BH = Math.round(H * dpr);
+    if (R.hd && quality.fx) { // the soft blur needs real screen pixels; the art itself stays on its grid
+      var cd = Math.min(window.devicePixelRatio || 1, 2) * (quality.max || 1);
+      canvas.width = Math.round(W * cd); canvas.height = Math.round(H * cd);
+    } else { canvas.width = BW; canvas.height = BH; }
     if (overlay) {
       var odpr = Math.min(window.devicePixelRatio || 1, 2);
       overlay.width = Math.round(W * odpr); overlay.height = Math.round(H * odpr);
@@ -426,19 +520,23 @@
     return GL.texture(ctx, S, S, data, { repeat: true });
   }
 
-  function upload(m) { return { buf: GL.buffer(ctx, m.data), count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad }; }
+  function upload(m, key) {
+    var u = { buf: GL.buffer(ctx, m.data), count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad };
+    if (R.hd) u.mat = GL.buffer(ctx, SB.HD.materials(key, m.data, m.count, STRIDE)); // which hd tile each vertex wears
+    return u;
+  }
   function buildMeshes() {
     meshes = {};
     var k, v;
-    for (k in ME.NODE_BUILDERS) for (v = 0; v < 3; v++) meshes["n:" + k + ":" + v] = upload(ME.NODE_BUILDERS[k](v * 3.7 + 1));
-    meshes["n:stump"] = upload(ME.stump());
-    meshes["n:burnt"] = upload(ME.burnt());
-    for (k in SB.KINDS) meshes["i:" + k] = upload(ME.itemMesh(k));
-    meshes["i:pod"] = upload(ME.podMesh());
-    for (k in ME.STRUCT_BUILDERS) meshes["s:" + k] = upload(ME.STRUCT_BUILDERS[k]());
-    for (v = 0; v < ME.DECOR_BUILDERS.length; v++) meshes["d:" + v] = upload(ME.DECOR_BUILDERS[v]());
-    for (k in ME.PARTS) if (ME.PARTS[k]) meshes["p:" + k] = upload(ME.PARTS[k]());
-    if (ME.extraMeshes) { var ex = ME.extraMeshes(); for (k in ex) meshes[k] = upload(ex[k]); }
+    for (k in ME.NODE_BUILDERS) for (v = 0; v < 3; v++) meshes["n:" + k + ":" + v] = upload(ME.NODE_BUILDERS[k](v * 3.7 + 1), "n:" + k);
+    meshes["n:stump"] = upload(ME.stump(), "n:stump");
+    meshes["n:burnt"] = upload(ME.burnt(), "n:burnt");
+    for (k in SB.KINDS) meshes["i:" + k] = upload(ME.itemMesh(k), "i:" + k);
+    meshes["i:pod"] = upload(ME.podMesh(), "i:pod");
+    for (k in ME.STRUCT_BUILDERS) meshes["s:" + k] = upload(ME.STRUCT_BUILDERS[k](), "s:" + k);
+    for (v = 0; v < ME.DECOR_BUILDERS.length; v++) meshes["d:" + v] = upload(ME.DECOR_BUILDERS[v](), "d:" + v);
+    for (k in ME.PARTS) if (ME.PARTS[k]) meshes["p:" + k] = upload(ME.PARTS[k](), "p:" + k);
+    if (ME.extraMeshes) { var ex = ME.extraMeshes(); for (k in ex) meshes[k] = upload(ex[k], k); }
   }
   R.hasMesh = function (key) { return !!meshes[key]; };
 
@@ -786,13 +884,13 @@
     M4.mul(VP, P, V);
     c.x = p.x - sy * far * 0.42; c.z = p.z - cy * far * 0.42; c.y = p.y;
     c.halfH = far * 0.55; c.halfW = far * 0.55; c.zoom = 6; c.pitch = 1;
-    c.povK = canvas.height / (2 * Math.tan((p.fov || 1.22) / 2)); // canvas px per world unit at distance 1
+    c.povK = BH / (2 * Math.tan((p.fov || 1.22) / 2)); // buffer px per world unit at distance 1
     c.pxPerUnit = H / (2 * Math.tan((p.fov || 1.22) / 2)) / 6;
     c.fwdXZ = [-sy, -cy];
   }
   // screen pixels per world unit at a point (perspective: falls off with distance; 0 behind the eye)
   R.ppuAt = function (x, y, z) {
-    if (!cam.pov) return canvas.height / (2 * cam.halfH);
+    if (!cam.pov) return BH / (2 * cam.halfH);
     var d = (x - cam.eye[0]) * cam.fwd[0] + (y - cam.eye[1]) * cam.fwd[1] + (z - cam.eye[2]) * cam.fwd[2];
     return d < 0.06 ? 0 : cam.povK / d;
   };
@@ -983,6 +1081,7 @@
     env.sun = env.sun.map(function (v) { return v * (1 - oc * 0.55); });
     env.sky = SB.mixC(env.sky, [env.sky[0] * 0.9 + 0.08, env.sky[1] * 0.9 + 0.08, env.sky[2] * 0.9 + 0.08], oc);
     env.fog = SB.mixC(env.fog, [0.55, 0.58, 0.64].map(function (v) { return v * (1 - env.night * 0.85); }), oc * 0.6);
+    if (R.hd) SB.HD.env(env); // hd look: warmer sun, cooler shadows
     if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky
     if (env.flash > 0) {
       env.flash = Math.max(0, env.flash - 0.05);
@@ -1047,6 +1146,7 @@
   function adapt(dt) {
     if (!(dt > 0) || dt > 0.25) return;
     perf.ft += (dt * 1000 - perf.ft) * 0.05;
+    if (R.hd) SB.HD.adapt(perf, dt, quality); // hd look: drops its blur and glow if frames run slow
     if (quality.fixed || R.pixel) return; // pixel mode is already cheap
     if (perf.ft > 38) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < 22) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
     if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - 0.15); perf.slowT = 0; R.resize(); }
@@ -1105,7 +1205,7 @@
 
     var P = ensurePost();
     gl.bindFramebuffer(gl.FRAMEBUFFER, P ? P.fb : null);
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.viewport(0, 0, BW, BH);
     var fc = env.fog;
     var oc = SB.mixC([0.1, 0.32, 0.52], fc, 0.35);
     if (cam.pov) gl.clearColor(fc[0], fc[1], fc[2], 1); // first person: the horizon is the fog colour
@@ -1188,6 +1288,7 @@
       gl.uniform2f(p.u.uSeenK, 1 / SB.WORLD_N, seenTex && !R.noFog ? 1 : 0);
     }
     gl.uniformMatrix4fv(p.u.uVP, false, VP);
+    if (p.u.uHdK) SB.HD.uniforms(gl, p, cam, BH);
   }
 
   function drawTerrain(vis) {
@@ -1239,6 +1340,7 @@
     if (!m || !n) return;
     perf.draws++; perf.tris += m.count / 3 * n;
     GL.attribs(ctx, m.buf, [[p.a.aPos, 3], [p.a.aNrm, 3], [p.a.aCol, 4], [p.a.aExt, 2]], STRIDE, 0);
+    if (m.mat && p.a.aMat != null) GL.attribs(ctx, m.mat, [[p.a.aMat, 1]], 1, 0);
     GL.attribs(ctx, buf, [[p.a.iM0, 4], [p.a.iM1, 4], [p.a.iM2, 4], [p.a.iTint, 4], [p.a.iExt, 4]], ISTRIDE, 1);
     ctx.drawInstanced(gl.TRIANGLES, 0, m.count, n);
   }
@@ -1310,7 +1412,7 @@
     gl.uniform3fv(p.u.uEye, cam.eye);
     gl.uniform1f(p.u.uFreeze, env.freeze);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.depthMask(false);
+    gl.depthMask(!!(R.hd && cam.pov)); // hd first person: the surface is what the depth of field should focus on, not the lake bed
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i];
       var wt = c.wat[c.drawStep || 1];
@@ -1411,8 +1513,8 @@
   R.quality = quality;
   R.setLightUniforms = function (p) { setLightUniforms(p); };
   R.LIGHT_GLSL = LIGHT_GLSL; R.PREC = PREC;
-  R.canvasSize = function () { return { w: canvas.width, h: canvas.height }; };
-  R.canvasScale = function () { return canvas ? canvas.width / W : 1; };
+  R.canvasSize = function () { return { w: BW, h: BH }; }; // the scene buffer (sprites snap to its pixels)
+  R.canvasScale = function () { return canvas ? BW / W : 1; };
   R.time = function () { return time; };
   R.gl = function () { return ctx; };
   R.programs = progs;

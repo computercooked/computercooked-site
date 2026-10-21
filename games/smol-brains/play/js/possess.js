@@ -658,6 +658,20 @@
     if (hud && hud.root) hud.root.remove();
     hud = null; keys = {};
   }
+  // a close-up of the smol's own pixel head (painted only when its face, tier, stage or sleep changes)
+  function portrait(c) {
+    if (!SB.Pixel || !SB.Pixel.paint || typeof document === "undefined" || !document.createElement) return null;
+    try {
+      var sh = SB.Pixel.paint(c), fr = sh.frames[c.asleep ? SB.Pixel.FR.sleep : SB.Pixel.FR.idle0], hd = sh.head || { x: 16, y: 14, r: 5 };
+      var n = 18, x0 = Math.max(0, Math.min(32 - n, Math.round(hd.x - n / 2))), y0 = Math.max(0, Math.min(32 - n, Math.round(hd.y - n / 2 + 1)));
+      var cv = document.createElement("canvas"); cv.width = cv.height = n;
+      var x = cv.getContext("2d"), img = x.createImageData(n, n);
+      for (var y = 0; y < n; y++) img.data.set(fr.d.subarray(((y0 + y) * 32 + x0) * 4, ((y0 + y) * 32 + x0 + n) * 4), y * n * 4);
+      x.putImageData(img, 0, 0);
+      cv.style.cssText = "width:40px;height:40px;image-rendering:pixelated";
+      return cv;
+    } catch (e) { return null; }
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]; }); }
 
   var toastT = null;
@@ -684,11 +698,16 @@
     setBar("energy", 1 - Math.max(ch.tired || 0, (ch.sleepy || 0) * 0.9), "#c5ff49", "#b59aff");
     // who you are
     var tier = SB.TIERS[c.tier];
-    var face = (SB.Chem.MOOD_EMOJI || {})[SB.Chem.mood(c)] || "🙂";
-    var wkey = c.name + tier.name + c.stage + !!c.asleep + S.lessons + face;
+    // the portrait is your own sprite's face, with the same expression the others see (tribe and on: your
+    // mood, held steady; earlier tiers: the cute smile), and the emoji is its tooltip
+    var pface = SB.Pixel && SB.Pixel.faceOf ? SB.Pixel.faceOf(c) : "";
+    var face = c.tier >= 3 && c.anim && c.anim.face ? (SB.Chem.FACE_EMOJI || {})[c.anim.face] || "🙂" : (SB.Chem.MOOD_EMOJI || {})[SB.Chem.mood(c.chem)] || "🙂";
+    var wkey = c.name + tier.name + c.stage + !!c.asleep + S.lessons + face + pface;
     if (hud.whoKey !== wkey) {
       hud.whoKey = wkey;
-      hud.who.innerHTML = "<div class='face' style='background:" + (hud.pawL.style.background || "#c99") + "'>" + face + "</div><div><div class='nm'>" + esc(c.name) + "</div><div class='tr' style='color:" + tier.color + "'>" + tier.icon + " " + tier.name + "</div><small>" + SB.STAGES[c.stage].name + (c.asleep ? " · asleep, move to wake" : "") + "</small>" + (S.lessons ? "<span class='learn'>🧠 " + S.lessons + " learned from you</span>" : "") + "</div>";
+      var pic = portrait(c);
+      hud.who.innerHTML = "<div class='face' title='" + face + "' style='background:" + (hud.pawL.style.background || "#c99") + "'>" + (pic ? "" : face) + "</div><div><div class='nm'>" + esc(c.name) + "</div><div class='tr' style='color:" + tier.color + "'>" + tier.icon + " " + tier.name + "</div><small>" + SB.STAGES[c.stage].name + (c.asleep ? " · asleep, move to wake" : "") + "</small>" + (S.lessons ? "<span class='learn'>🧠 " + S.lessons + " learned from you</span>" : "") + "</div>";
+      var fbox = pic && hud.who.querySelector && hud.who.querySelector(".face"); if (fbox) fbox.appendChild(pic);
     }
     // what's in your paws
     var hk = heldKind(c, game), tk = toolKind(c, game), bag = (c.bag || []).map(function (id) { var o = SB.Game.byId(game, id); return o && K[o.kind] ? K[o.kind].emoji : ""; }).join("");
