@@ -196,6 +196,8 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .title h1 span { color: var(--lime); }
 .title p { margin: 10px 0 0; font: 700 14px var(--sans); color: var(--paper); text-shadow: 0 2px 0 #101114; }
 .title.out { opacity: 0; transition: opacity 1s; }
+.title p.quirk { margin-top: 14px; display: inline-block; padding: 6px 12px; background: rgba(16, 17, 20, 0.75); color: var(--paper); font-weight: 500; }
+.title p.quirk b { color: var(--lime); }
 @keyframes titlein { from { opacity: 0; transform: translateY(10px); } }
 
 .nowebgl { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; pointer-events: auto; }

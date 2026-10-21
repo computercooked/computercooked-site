@@ -1217,7 +1217,9 @@
   // after the story: the camera falls with the pod onto the island
   function landing() {
     var T = game.world.T, nest = T.nest;
-    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, "an island of tiny minds. one escape pod.")]);
+    // the island's name, and its quirk (a "surprise me" quirk is revealed right here)
+    var qk = ((game.settings && game.settings.world && game.settings.world.quirks) || []).map(function (k) { return SB.QUIRKS && SB.QUIRKS[k]; }).filter(Boolean)[0];
+    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "welcome to " + game.wname + "." : "an island of tiny minds. one escape pod."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
     root.appendChild(title);
     R.camera.x = T.N / 2; R.camera.z = T.N / 2 + 20; R.camera.zoom = R.camera.tZoom = 95; R.camera.yaw = R.camera.tYaw = -0.9;
     R.cinematic({ dur: 5.5, x0: T.N / 2, zz0: T.N / 2 + 20, x1: nest.x, zz1: nest.z, z0: 95, z1: 5.5, yaw0: -0.9, yaw1: 0.35, skippable: true, done: function () {
