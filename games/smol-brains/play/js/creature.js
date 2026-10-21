@@ -183,6 +183,7 @@
   // put an item somewhere on the creature. hand first (or forced into the hand), then bag, then tool belt.
   C.carry = function (c, o, game, toHand) {
     if (!o || o.gone) return false;
+    if (o.hid != null && M()) M().took(c, o, game);
     if (o.data) o.data.looseT = 0;
     if (o.heldBy === "hand" && game.hand.heldId === o.id) game.hand.heldId = null;
     if (o.heldBy != null && o.heldBy !== c.id && o.heldBy !== "hand") { var other = SB.Game.byId(game, o.heldBy); if (other) C.release(other, o); }
@@ -217,7 +218,7 @@
     if (i >= 0) c.bag.splice(i, 1);
     if (o.heldBy === c.id) o.heldBy = null;
   };
-  C.consume = function (c, o, game) { if (!o) return; C.release(c, o); SB.World.remove(game.world, o); };
+  C.consume = function (c, o, game) { if (!o) return; if (o.hid != null && M()) M().took(c, o, game); C.release(c, o); SB.World.remove(game.world, o); };
   function dropItem(c, o, game, toss) {
     C.release(c, o);
     o.x = c.x + Math.sin(c.facing) * 0.3; o.z = c.z + Math.cos(c.facing) * 0.3;
@@ -275,6 +276,7 @@
     function consider(n, t, d) { if (n == null) return; if (d < nearestD[n]) { nearestD[n] = d; nearestOf[n] = t; } }
     SB.World.itemsNear(w, c.x, c.z, R, function (o, d2) {
       if (o.heldBy === c.id) return;
+      if (o.hid != null && M() && !M().canSee(c, o)) return; // hidden food: only its owner and whoever watched know it's there
       if (c.unreach && isUnreachable(c, o.id, game)) return;
       var d = Math.sqrt(d2);
       if (o.heldBy === "hand") d *= 0.4;
@@ -418,6 +420,8 @@
     }
 
     // thinking about others (tribe+): comfort, keep clear, share, go and watch a clever one
+    // the mind's own plans (tool-user+): hiding food, stealing it back, a ritual, trying another way
+    if (M() && c.species === "smol" && !c.plan && M().scheme(c, game)) return;
     var so = M() && c.species === "smol" && !c.plan ? M().social(c, game) : null;
     if (so) {
       if (so.avoid) {
@@ -552,6 +556,7 @@
     return false;
   }
   // go and hit someone (a fight, a grudge, a tantrum): skips the brain's choice
+  C.start = function (c, game, verb, tgt, target, noun) { startAction(c, game, verb, tgt || null, target || null, noun || null); };
   C.provoke = function (c, o, game) {
     var t = { type: "creature", id: o.id }, r = resolve(game, t);
     if (!r || c.plan) return false;
@@ -621,7 +626,8 @@
         }
         a.tx = c.x + Math.sin(ang) * dist; a.tz = c.z + Math.cos(ang) * dist;
         // a place it learned to fear: turn round
-        if (c.species === "smol" && !a.why && M() && M().dangerAt(c, game, a.tx, a.tz)) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = "not that way. that's where it hurt"; }
+        var dz = c.species === "smol" && !a.why && M() ? M().dangerAt(c, game, a.tx, a.tz) : null;
+        if (dz) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = dz.why || "not that way. that's where it hurt"; }
         if (c.species === "smol" && SB.Orders) SB.Orders.steer(c, game, a); // no-go and home zones
         break;
       }
@@ -636,7 +642,7 @@
       case V.pray: a.phase = "do"; a.dur = DO_DUR[verb]; break;
       case V.make: case V.build: {
         var plan = verb === V.make ? SB.Ideas.chooseMake(c, game) : SB.Ideas.chooseBuild(c, game);
-        if (plan) { c.plan = plan; plan.x = a.x; plan.verb = verb; plan.start = a.start; c.action = null; return; }
+        if (plan) { c.plan = plan; plan.x = a.x; plan.verb = verb; plan.start = a.start; c.action = null; if (M() && c.species === "smol") M().planStarted(c, game, plan); return; }
         a.phase = "do"; a.dur = 0.6; a.futile = true; // wanted to, couldn't think how
         break;
       }
@@ -1316,6 +1322,7 @@
   function endPlan(c, game, ok) {
     var p = c.plan;
     c.plan = null;
+    if (M() && c.species === "smol") M().planEnded(c, game, p, ok);
     habit(c, "plan", ok ? 0.6 + p.i * 0.2 : 0.15);
     SB.Ideas.inv(c, game).forEach(function (o) { o.reserved = null; });
     p.steps.forEach(function (s) { if (s.src && s.src.type === "item") { var o = SB.Game.byId(game, s.src.id); if (o && o.claimed === c.id) o.claimed = null; } });

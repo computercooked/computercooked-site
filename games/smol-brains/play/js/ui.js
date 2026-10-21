@@ -476,7 +476,7 @@
     }
     el.cSub.innerHTML = '<span class="tierpill" style="color:' + tier.color + '">' + tier.icon + " " + tier.name + "</span> " + stage + " · gen " + c.gen + " · iq <b class='lime'>" + c.iq + "</b> · " + fmtTime(c.age) + (game.clades && game.clades[c.clade] ? " · <span class='lilac'>" + esc(game.clades[c.clade].name) + "</span>" : "");
     var mood = SB.Chem.MOOD_EMOJI[SB.Chem.mood(c.chem)] || "🙂";
-    el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>";
+    el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>" + (SB.Mind && SB.Mind.cardLine ? SB.Mind.cardLine(c, game) : "");
     // drives: the 6 strongest
     var ds = SB.DRIVES.map(function (d, i) { return { i: i, v: c.chem[d] }; }).sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
     el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +

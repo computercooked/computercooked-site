@@ -89,6 +89,7 @@
   // deeds earn a smol a title; the most remarkable one sticks
   var TITLES = [
     ["grump-chaser", function (c, s) { return s.grumpsChased >= 1; }, 9],
+    ["liar", function (c, s) { return s.liesCaught >= 2; }, 6.5],
     ["fire-finder", function (c) { return c.invented && c.invented.fire; }, 8],
     ["inventor", function (c) { return c.invented && Object.keys(c.invented).length >= 2; }, 7],
     ["peacemaker", function (c, s) { return s.makeups >= 3; }, 6],
@@ -96,6 +97,8 @@
     ["teacher", function (c, s) { return s.taught >= 30; }, 5],
     ["wordsmith", function (c) { return SB.Creature.knownCount(c) >= 24; }, 4],
     ["explorer", function (c) { return c.visited && Object.keys(c.visited).length >= 12; }, 4],
+    ["thief", function (c, s) { return s.thefts >= 3; }, 4.5],
+    ["taboo-breaker", function (c, s) { return s.taboos >= 1; }, 3.5],
     ["gossip", function (c, s) { return s.gossip >= 20; }, 3],
     ["kind", function (c, s) { return s.gifts >= 12; }, 3],
     ["wise", function (c) { return c.stage >= 4 && c.tier >= 4; }, 2]
@@ -240,6 +243,23 @@
     var rivals = SO.opinion(game, a, b) <= SO.RIVAL || SO.opinion(game, b, a) <= SO.RIVAL;
     var hi = lv >= 4, deep = lv >= 5;
     function add(s, t, fx) { L.push([s, t, fx]); }
+    // something one of them heard about the other: ask. the memory of the one it's about settles it,
+    // and a lie that meets the truth costs the liar (mind.js, theory of mind)
+    var MI = SB.Mind, cf = MI ? confrontable(a, b) || confrontable(b, a) : null;
+    if (cf) {
+      var ask = cf.x, sub = cf.y, bel = cf.b, teller = bel.src === "guess" ? null : bel.bn || "someone", claimYou = bel.w.split(sub.name).join("you");
+      if (teller) claimYou = claimYou.split(teller + "'s").join("their").split(" " + teller).join(" them");
+      topic = teller ? "what " + teller + " said" : "the missing food";
+      add(ask, hi ? (teller ? pick(game, [teller + " says " + claimYou + ". is it true?", "is it true, " + sub.name + "? " + teller + " told me " + claimYou + "."]) : "did you take my food, " + sub.name + "?") : sub.name.toLowerCase() + " bad?");
+      if (bel.lie) {
+        add(sub, hi ? pick(game, ["what? i never did that!", "that never happened. i'd remember!", teller ? teller + " is lying about me." : "no! i didn't touch it."]) : "no! no!", { caught: bel, asker: ask });
+        add(ask, hi ? (teller ? pick(game, ["huh. " + teller + " lied to me?", "then why would " + teller + " say that?"]) : "oh. sorry, " + sub.name + ".") : "hmm");
+      } else {
+        add(sub, hi ? pick(game, ["...yes. i'm sorry. i was hungry.", "okay, fine. it was me."]) : "...sorry", { confess: bel, asker: ask });
+        add(ask, hi ? "i knew it." : "hmph");
+      }
+      return { lines: L, topic: topic, argue: !bel.lie };
+    }
     if (rivals) {
       topic = "an argument";
       var why = bestReason(game, a, b);
@@ -268,6 +288,8 @@
     if (gz) opts.push("gossip", "gossip");
     var teachable = SB.Ideas ? Object.keys(a.ideas).filter(function (k) { return a.ideas[k] >= 1 && SB.Ideas.BY_ID[k] && !SB.Ideas.known(b, k) && SB.Ideas.canHold(b, k); }) : [];
     if (teachable.length) opts.push("idea");
+    var tb = MI ? cultureToShare(a, b) : null;
+    if (tb) opts.push("belief", "belief");
     if ((game.prayers && game.prayers.length) || game.stats.miracles) opts.push("sky");
     if (a.grief) opts.push("grief", "grief");
     if (need.v > 0.55 && need.k === "hunger") opts.push("food");
@@ -293,10 +315,20 @@
       var z = gz.z, zn = z.name;
       topic = zn;
       if (gz.v < 0) {
-        add(a, hi ? pick(game, ["have you seen " + zn + "? " + bestReason(game, a, z).replace(/\bme\b/, "me") + ".", zn + " is such a grump.", "don't trust " + zn + "."]) : zn.toLowerCase() + " bad");
+        // a story: something true it saw or heard, or (a disagreeable smol with a grudge) a lie
+        var story = MI && hi ? storyAbout(game, a, z) : null;
         var bz = SO.opinion(game, b, z);
-        if (bz > 15) add(b, hi ? pick(game, [zn + "'s nice to me.", "that's not fair. " + zn + " is my friend."]) : zn.toLowerCase() + " good!", { defend: z });
-        else add(b, hi ? pick(game, ["ugh, " + zn + "...", "i heard that too.", "yeah. " + zn + " is the worst."]) : "yes. bad", { spread: z, d: -6 });
+        if (story) {
+          add(a, story.say);
+          var tr = MI.trust(b, a, game);
+          if (bz > 15 && tr < 0.7) add(b, pick(game, ["no way. " + zn + " wouldn't do that.", "i don't believe you. " + zn + " is my friend."]), { defend: z });
+          else if (tr >= 0.4) add(b, pick(game, ["what? that's awful.", "really? i'll keep an eye on " + zn + ".", "i knew " + zn + " was trouble."]), { spread: z, d: -10, claim: story.claim });
+          else add(b, pick(game, ["hmm. i'm not sure i believe you.", "you say a lot of things, " + a.name + "."]), { doubt: a });
+        } else {
+          add(a, hi ? pick(game, ["have you seen " + zn + "? " + bestReason(game, a, z).replace(/\bme\b/, "me") + ".", zn + " is such a grump.", "don't trust " + zn + "."]) : zn.toLowerCase() + " bad");
+          if (bz > 15) add(b, hi ? pick(game, [zn + "'s nice to me.", "that's not fair. " + zn + " is my friend."]) : zn.toLowerCase() + " good!", { defend: z });
+          else add(b, hi ? pick(game, ["ugh, " + zn + "...", "i heard that too.", "yeah. " + zn + " is the worst."]) : "yes. bad", { spread: z, d: -6 });
+        }
       } else {
         add(a, hi ? pick(game, [zn + " is great.", zn + " " + (bestReason(game, a, z) === "shared food with me" ? "shared food with me!" : "is really kind."), "i like " + zn + "."]) : zn.toLowerCase() + " good");
         add(b, hi ? pick(game, ["yeah, " + zn + "'s nice.", "really? huh.", "i should talk to " + zn + " more."]) : "good", { spread: z, d: 4 });
@@ -307,6 +339,11 @@
       topic = d.name;
       add(a, hi ? pick(game, ["have you tried " + word + "? " + d.desc.split(".")[0] + ".", "i can show you " + word + ".", "you know " + word + "? it's easy."]) : word + "! " + word + "!");
       add(b, hi ? pick(game, ["ooh, show me!", "really? how?", "i'll try it."]) : "ooh", { learn: id });
+    } else if (t === "belief") {
+      topic = tb.k === "taboo" || tb.k === "heir" ? "the " + (tb.l || "old stories") : "the sky one";
+      add(a, hi ? pick(game, ["did you know? " + tb.w + ".", "everyone knows " + tb.w + ".", "listen. " + tb.w + "."]) : (tb.l || "sky") + "!");
+      var take = MI.trust(b, a, game) * (0.6 + g(b, "obedience") * 0.6) - g(b, "curiosity") * 0.2 > 0.3;
+      add(b, take ? (hi ? pick(game, ["really? i'll remember that.", "i didn't know that!", "huh. so that's why."]) : "ooh") : (hi ? pick(game, ["that's just a story.", "i don't believe that."]) : "no"), take ? { adopt: tb } : null);
     } else if (t === "sky") {
       topic = "the sky one";
       var spoiled = (game.spoil || 0) > 0.3;
@@ -334,7 +371,13 @@
   function lineFx(game, cv, line) {
     var fx = line[2], s = line[0], o = s === cv.a ? cv.b : cv.a;
     if (!fx) return;
-    if (fx.spread) SO.remember(game, s, fx.spread, "gossip", fx.d, fx.d < 0 ? "heard bad things" : "heard good things", 1800, 18);
+    var MI = SB.Mind, trust = MI ? MI.trust(s, o, game) : 0.55;
+    if (fx.spread) SO.remember(game, s, fx.spread, "gossip", Math.round(fx.d * (0.4 + trust)), fx.d < 0 ? "heard bad things" : "heard good things", 1800, 18);
+    if (fx.claim && MI) MI.believe(s, game, Object.assign({}, fx.claim, { f: fx.claim.f * trust }));
+    if (fx.adopt && MI) MI.hear(s, o, game, fx.adopt);
+    if (fx.doubt && MI) MI.trustAdj(s, fx.doubt, -0.04);
+    if (fx.caught && MI) caught(game, fx.asker, s, fx.caught);
+    if (fx.confess && MI) { var tl = fx.confess.by != null ? SB.Game.byId(game, fx.confess.by) : null; if (tl) MI.trustAdj(fx.asker, tl, 0.1); fx.confess.f = 1; fx.confess.src = "seen"; SO.remember(game, fx.asker, s, "confessed", -6, "owned up to it", 1800, 12); }
     if (fx.defend) { SO.remember(game, o, s, "defended", -3, "defended " + fx.defend.name, 1200, 9); }
     if (fx.learn && SB.Ideas) SB.Ideas.learn(s, fx.learn, 0.35, game, "talked");
     if (fx.comfort) { SB.Chem.apply(o.chem, { lonely: -0.2 }); SO.remember(game, o, s, "comfort", 8, "comforted me", 2400, 16); }
@@ -347,6 +390,54 @@
     }
     if (fx.cheer) SO.remember(game, o, s, "cheer", 3, "cheered me on", 1800, 9);
   }
+  // x heard (or guessed) something about y, and hasn't asked y yet
+  function confrontable(x, y) {
+    var bl = x.mind && x.mind.bel;
+    if (!bl || x.tier < 3) return null;
+    for (var i = 0; i < bl.length; i++) if (bl[i].k === "who" && bl[i].a === y.id && (bl[i].src === "told" || bl[i].src === "guess") && bl[i].f >= 0.15) return { x: x, y: y, b: bl[i] };
+    return null;
+  }
+  // something a believes that b doesn't: a rite, a taboo, a parent's story
+  function cultureToShare(a, b) {
+    var bl = a.mind && a.mind.bel, best = null;
+    if (!bl) return null;
+    for (var i = 0; i < bl.length; i++) { var x = bl[i]; if ((x.k === "sup" || x.k === "taboo" || x.k === "heir") && x.f >= 0.4 && !SB.Mind.belief(b, x.c) && (!best || x.f > best.f)) best = x; }
+    return best;
+  }
+  // what a will say about z: a true thing it saw or was told, or, if it's disagreeable enough, a lie
+  function storyAbout(game, a, z) {
+    var bl = a.mind && a.mind.bel, zn = z.name, i;
+    if (bl) for (i = 0; i < bl.length; i++) {
+      var x = bl[i];
+      if (x.k !== "who" || x.a !== z.id || x.f < 0.4 || x.src === "guess") continue;
+      var mine = x.w.replace(/\bmy\b/, a.name + "'s");
+      return { say: x.src === "seen" ? "i saw it. " + x.w + "!" : (x.bn || "someone") + " says " + x.w + ".", claim: { c: x.c, k: "who", w: mine, src: "told", bn: a.name, by: x.lie ? x.by : a.id, f: x.f, a: z.id, lie: x.lie } };
+    }
+    var lieP = (g(a, "grumpiness") - 0.45) * 0.9 + (0.5 - g(a, "affection")) * 0.3;
+    if (!game.rng.chance(lieP)) return null;
+    var hit = a.ops && a.ops[z.id] && a.ops[z.id].m.some(function (m) { return m[3] === "punched" || m[3] === "shoved"; });
+    stat(a, "lies");
+    if (!hit && game.rng.chance(0.5)) return { say: zn + " hit me when nobody was looking.", claim: { c: "hitter:" + z.id + ":" + a.id, k: "who", w: zn + " hit " + a.name + " when nobody was looking", src: "told", bn: a.name, by: a.id, f: 0.8, a: z.id, lie: 1 } };
+    return { say: "you know what " + zn + " did? stole my food!", claim: { c: "thief:" + z.id + ":" + a.id, k: "who", w: zn + " stole " + a.name + "'s food", src: "told", bn: a.name, by: a.id, f: 0.8, a: z.id, lie: 1 } };
+  }
+  SO.storyAbout = storyAbout;
+  // a lie caught: the one who asked stops trusting the liar, the one lied about is angry, the island talks
+  function caught(game, asker, sub, bel) {
+    var MI = SB.Mind, liar = bel.by != null ? SB.Game.byId(game, bel.by) : null;
+    MI.doubt(asker, bel.c, 0);
+    if (bel.src !== "told" || !liar) { SO.remember(game, sub, asker, "accused", -4, "blamed me for nothing", 1200, 8); return; }
+    MI.trustAdj(asker, liar, -0.35);
+    SO.remember(game, asker, liar, "lied", -18, "lied to me", 3600, 36);
+    SO.remember(game, sub, liar, "liedabout", -15, "told lies about me", 3600, 30);
+    SO.remember(game, asker, sub, "wronged", 6, "i believed a lie about them", 1800, 12);
+    stat(liar, "liesCaught");
+    SO.log(game, asker, "🤥", liar.name + " lied to me about " + sub.name);
+    SO.log(game, sub, "🤥", liar.name + " has been telling lies about me");
+    MI.remember(asker, game, "social", liar.name + " lied to me about " + sub.name, 0.7, null, null, liar.name);
+    SO.checkTitle(game, liar);
+    SB.bus.emit("lieCaught", { liar: liar, asker: asker, about: sub });
+  }
+  SO.caught = caught;
   SO.startConvo = function (game, a, b) {
     var cv = SO.makeConvo(game, a, b);
     if (!cv.lines.length) return null;
@@ -446,6 +537,7 @@
         if (mate) SO.startConvo(game, c, mate);
       }
     }
+    if (SB.Mind && SB.Mind.cultureTick) SB.Mind.cultureTick(game, step, sm); // beliefs spreading through the crowd
   };
 
   /* ---------------- wire up to the rest of the game ---------------- */
