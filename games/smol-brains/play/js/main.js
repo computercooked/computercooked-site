@@ -609,6 +609,7 @@
   function boot() {
     wireBus();
     SB.Audio && SB.Audio.init && SB.Audio.init();
+    SB.Music && SB.Music.init && SB.Music.init();
     var canvas = document.getElementById("view"), ov = document.getElementById("overlay");
     var look = null; try { look = window.localStorage.getItem("smolbrains-look"); } catch (e) {}
     if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel";

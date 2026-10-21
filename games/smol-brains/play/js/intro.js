@@ -44,11 +44,11 @@
     root.appendChild(wrap);
     IN.covering = true;
     var started = false;
-    gate.onclick = function (e) { e.stopPropagation(); if (started) return; started = true; gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
+    gate.onclick = function (e) { e.stopPropagation(); if (started) return; started = true; if (SB.Music) SB.Music.play(ending ? "bigthought" : "smolbrains"); gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
     var ctx = cv.getContext("2d");
     var r = rng(3127), stars = [];
     for (var i = 0; i < 140; i++) stars.push({ x: r() * W, y: r() * H, z: 0.2 + r() * r() * 1.6, c: r() < 0.1 ? "#b59aff" : r() < 0.2 ? "#ffd84a" : "#ffffff" });
-    var bolts = [], bits = [], pods = [], t0 = performance.now(), done = false, lineI = -1, typed = 0, typeT = 0;
+    var bolts = [], shipAt = {}, bits = [], pods = [], t0 = performance.now(), done = false, lineI = -1, typed = 0, typeT = 0;
     var cur = null;
 
     function finish() {
@@ -185,11 +185,18 @@
         // scene 1–2: the chase and the battle
         var ax = 110 + Math.sin(t * 0.8) * 6, ay = 92 + Math.sin(t * 1.3) * 4;
         var gx = 330 - ease(t / 4) * 90 + Math.sin(t * 0.7) * 5, gy = 70 + Math.cos(t * 1.1) * 5;
-        if (t > 2 && r() < 0.12) bolts.push({ x: gx - 22, y: gy + (r() - 0.5) * 6, vx: -260, c: "#ff3b4f", hit: ax + 30 });
-        if (t > 2.5 && t < 9 && r() < 0.06) bolts.push({ x: ax + 36, y: ay - 2, vx: 240, c: "#c5ff49", hit: gx - 18 });
+        // bolts are aimed: each one steers onto a spot on the other ship's hull and bursts when it touches it
+        if (t > 2 && t < 9.3 && r() < 0.12) bolts.push({ x: gx - 22, y: gy + (r() - 0.5) * 6, vx: -260, vy: 0, c: "#ff3b4f", at: "ark", ox: 4 + r() * 22, oy: (r() - 0.5) * 12 });
+        if (t > 2.5 && t < 9 && r() < 0.06) bolts.push({ x: ax + 36, y: ay - 2, vx: 240, vy: 0, c: "#c5ff49", at: "grump", ox: -6 - r() * 14, oy: (r() - 0.5) * 8 });
+        shipAt.ark = { x: ax, y: ay, rx: 38, ry: 13 }; shipAt.grump = { x: gx, y: gy, rx: 23, ry: 8 };
         var hitBig = t > 8.2 && t < 8.4;
         if (hitBig && r() < 0.8) boom(ax + (r() - 0.5) * 50, ay + (r() - 0.5) * 16, 6, 60);
-        if (t > 7.4 && t < 8.2) { var bw = Math.round((t - 7.4) * 30); px(ax + 30, gy + 6 + (ay - gy) * 0.5 - bw / 6, gx - ax - 50, Math.max(1, bw / 3), "#ff6ff0"); px(ax + 30, gy + 7 + (ay - gy) * 0.5 - bw / 6, gx - ax - 50, 1, "#ffffff"); }
+        if (t > 7.4 && t < 8.2) {
+          // the big beam runs from the warship's cannon to the ark's hull
+          var bw = Math.max(1, Math.round((t - 7.4) * 10)), bx0 = ax + 26, bx1 = gx - 22, by0 = ay, by1 = gy + 1;
+          for (var bx = bx0; bx <= bx1; bx++) { var by = by0 + (by1 - by0) * (bx - bx0) / Math.max(1, bx1 - bx0); px(bx, by - bw / 2, 1, bw, "#ff6ff0"); px(bx, by, 1, 1, "#ffffff"); }
+          if (r() < 0.5) boom(bx0, by0, 2, 25);
+        }
         if (t < 9.6) ark(ax, ay, t, t > 8 ? Math.min(3, (t - 8) * 2) : 0);
         if (t > 9.4 && t < 9.7) boom(ax, ay, 40, 90);
         if (t > 9.6 && t < 9.65) { for (var p = 0; p < 7; p++) pods.push({ x: ax + (r() - 0.5) * 20, y: ay + (r() - 0.5) * 10, vx: -20 + r() * 50, vy: -30 + r() * 60, hero: p === 3 }); }
@@ -209,7 +216,16 @@
         if (pt > 5.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (pt - 5.2) * 1.4) + ")"; ctx.fillRect(0, 0, W, H); }
       }
       // shared particles
-      bolts = bolts.filter(function (b) { b.x += b.vx * dt; if ((b.vx < 0 && b.x < b.hit) || (b.vx > 0 && b.x > b.hit)) { boom(b.x, b.y, 4, 30); return false; } px(b.x, b.y, 6, 1, b.c); px(b.x + (b.vx < 0 ? 0 : 4), b.y, 2, 1, "#ffffff"); return true; });
+      bolts = bolts.filter(function (b) {
+        var s = shipAt[b.at];
+        if (!s || t > 9.6) return false;
+        var tx = s.x + b.ox, ty = s.y + b.oy, left = (tx - b.x) / b.vx; // seconds until it reaches the target
+        b.vy = left > 0.02 ? (ty - b.y) / left : 0;
+        b.x += b.vx * dt; b.y += b.vy * dt;
+        var ex = (b.x - s.x) / s.rx, ey = (b.y - s.y) / s.ry;
+        if (ex * ex + ey * ey <= 1 || left <= 0) { boom(b.x, b.y, 4, 30); return false; }
+        px(b.x, b.y, 6, 1, b.c); px(b.x + (b.vx < 0 ? 0 : 4), b.y, 2, 1, "#ffffff"); return true;
+      });
       bits = bits.filter(function (b) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.97; b.vy *= 0.97; if (b.t > b.life) return false; px(b.x, b.y, b.w, b.w, b.c); return true; });
       if (t > 9.6 && t < 16) pods.forEach(function (p) { p.x += p.vx * dt; p.y += p.vy * dt; for (var k2 = 0; k2 < 5; k2++) px(p.x - p.vx * 0.02 * k2, p.y - p.vy * 0.02 * k2, 1, 1, k2 < 2 ? "#ffd84a" : "#ff9f43"); px(p.x, p.y, 3, 2, p.hero ? "#c5ff49" : "#e8e4f0"); });
       // captions: smol-speak typed out word by word (each word blipped), then the subtitle

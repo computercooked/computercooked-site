@@ -40,8 +40,22 @@
       var d = Math.hypot(pp.x - sx, pp.y - sy), lim = Math.max(opts.touch ? 26 : 16, rad * ppu * 1.25);
       if (d < lim && d - pri < bd) { bd = d - pri; best = { type: type, ref: ref }; }
     }
-    var cs = game.creatures;
-    for (var i = 0; i < cs.length; i++) { var c = cs[i]; if (!c.alive || c.far) continue; var r = SB.Creature.radius(c); test("creature", c, c.x, c.y + r * (1.2 + (c.look.legs ? 0.6 : 0)), c.z, r * 1.3, 30); }
+    // creatures: anywhere on the body counts, plus a forgiving ring around it. a tap right on the body
+    // beats a nearby item; a tap in the ring loses to an item that's actually under the finger.
+    var cs = game.creatures, pad = opts.touch ? 24 : 14;
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i]; if (!c.alive || c.far || (c.heldBy == null && !SB.World.isSeen(game.world, c.x, c.z))) continue;
+      R.project(c.x, c.y, c.z, pp);
+      if (!pp.on) continue;
+      var r = SB.Creature.radius(c), fx = pp.x, fy = pp.y;
+      var hpx = R.pixel && c._pxH ? c._pxH : r * (2.4 + (c.look.legs ? 1.2 : 0)) * ppu;
+      hpx = Math.max(hpx, opts.touch ? 22 : 14);
+      var hw = Math.max(hpx * 0.38, 8), ox = Math.max(0, Math.abs(sx - fx) - hw);
+      var oy = sy > fy + 2 ? sy - fy - 2 : sy < fy - hpx ? fy - hpx - sy : 0, d = Math.hypot(ox, oy);
+      if (d > pad) continue;
+      var score = d === 0 ? Math.hypot(sx - fx, sy - (fy - hpx / 2)) * 0.3 - 40 : d - 6;
+      if (score < bd) { bd = score; best = { type: "creature", ref: c }; }
+    }
     if (opts.creaturesOnly) return best;
     var its = game.world.items;
     for (i = 0; i < its.length; i++) { var o = its[i]; if (o.inBag && o.heldBy != null) continue; if (o.heldBy != null && o.heldBy !== "hand") continue; test("item", o, o.x, o.y + 0.15, o.z, Math.max(0.25, o.r * 1.5), 12); }
@@ -158,6 +172,7 @@
     var g = setHand(sx, sy, true);
     if (SB.UI && SB.UI.armed) { if (g) SB.UI.castAt(g.x, g.z); return; }
     var hit = IN.pick(sx, sy, { touch: touch });
+    if (hit && hit.type === "creature") SB.Creature.hold(hit.ref, game, 3); // hold still so you can work with it
     if (dbl && hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); R.camera.follow = followFn(hit.ref); if (R.camera.tZoom > 9) R.camera.tZoom = 7; return; }
     if (dbl && !hit && g) { R.flyTo(g.x, g.z, Math.max(R.camera.minZoom, R.camera.tZoom * 0.6), 0.5); return; }
     if (hit && hit.type === "item" && hit.ref.kind === "egg" && hit.ref.data.starter && !hit.ref.data.progress) {

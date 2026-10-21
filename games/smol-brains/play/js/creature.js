@@ -737,9 +737,18 @@
     }
     return false;
   }
+  // a smol you just tapped stands still for a few (real) seconds, so it's easy to teach or tickle.
+  // a game-time cap keeps it from sticking at high speed, or in headless runs where real time doesn't pass.
+  C.hold = function (c, game, secs) {
+    if (!c || c.species !== "smol") return;
+    c.holdUntil = (game.playTime || 0) + secs; c.holdGT = game.time + secs * 4;
+  };
+  function held(c, game) { return c.holdUntil != null && (game.playTime || 0) < c.holdUntil && game.time < c.holdGT && !(c.action && c.action.verb === V.flee); }
+  C.isHeld = held;
   function stepToward(c, tx, tz, dt, sp, game, arriveR) {
     var dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz);
     if (d < (arriveR || 0.1)) return true;
+    if (held(c, game)) return false;
     var want = Math.atan2(dx, dz), step = Math.min(d, sp * dt), w = game.world;
     var tries = [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9], moved = false;
     // once deflected by an obstacle, keep hugging it for a moment instead of bouncing back and forth
