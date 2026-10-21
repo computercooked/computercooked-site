@@ -505,6 +505,61 @@
     }
   });
 
+  // --- an escape pod came down (sites.js): send a rescue party for whoever's inside
+  card({
+    id: "pod", minTier: 0, w: 0, gap: 0,
+    ok: function () { return false; },
+    start: function (game) {
+      var s = (game.sites || []).filter(function (x) { return x.kind === "pod" && !x.gone && !x.done && (!x.asked || game.time > (x.againT || 0)); })[0];
+      if (!s) return null;
+      s.asked = true; s.againT = game.time + 300;
+      var hm = home(game), dist = Math.round(SB.dist(s.x, s.z, hm.x, hm.z)), left = Math.max(1, Math.round((720 - (game.time - s.crashT)) / 60));
+      var able = rescuers(game, s).length;
+      return {
+        icon: "🛸", title: "an escape pod came down!", x: s.x, z: s.z, site: s.id, warn: 0,
+        text: ["another of the ark's pods crashed " + dist + " steps " + dirOf(s.x - hm.x, s.z - hm.z) + " of the village. something inside is knocking.",
+          able ? "survivors aren't related to anyone in your tribe, so they can start new families. pods also hold supplies, and sometimes one of the ark's logs." : "nobody's grown up and well enough to go yet. a smol who wanders past will open it, or the survivors will climb out in about " + left + " min."],
+        choices: [
+          { key: "rescue", label: "🧭 send a rescue party", hint: able ? "your " + Math.min(3, able) + " fittest grown-ups go and pry it open" : "nobody can go right now" },
+          { key: "magic", label: "✨ lift them home", cost: 12, hint: "a gentle wind carries the survivors straight to the village" },
+          { key: "later", label: "later", hint: "it'll wait. if nobody comes, the survivors climb out in about " + left + " min" }
+        ]
+      };
+    },
+    begin: function (game, inc) {
+      var s = game.sites[inc.site];
+      if (!s || s.done) return D.end(game, inc, !!s);
+      if (inc.choice === "later") return D.end(game, inc, false);
+      if (inc.choice === "magic") { inc.res = SB.Sites.openPod(game, s, null, [], "magic"); var hm = home(game); (inc.res ? inc.res.survivors : []).forEach(function (c) { c.x = hm.x + game.rng.range(-2, 2); c.z = hm.z + game.rng.range(-2, 2); c.px = c.x; c.pz = c.z; c.y += 3; c.onGround = false; }); return D.end(game, inc, true); }
+      inc.party = rescuers(game, s).slice(0, 3).map(function (c) { return c.id; });
+      if (!inc.party.length) { s.asked = true; s.againT = game.time + 120; return D.end(game, inc, false); }
+      inc.party.forEach(function (id) { var c = SB.Game.byId(game, id); c.asleep = false; c.inBed = false; SB.Creature.sendTo(c, s.x, s.z, game, 120); });
+      inc.dur = 240;
+    },
+    tick: function (game, inc) {
+      var s = game.sites[inc.site];
+      if (!s) return D.end(game, inc, false);
+      if (s.done) return D.end(game, inc, true); // opened by the party (below) or by someone passing
+      var party = inc.party.map(function (id) { return SB.Game.byId(game, id); }).filter(function (c) { return c && c.alive; });
+      if (!party.length || game.time - inc.t1 > inc.dur) return D.end(game, inc, false);
+      party.forEach(function (c) { if (SB.dist(c.x, c.z, s.x, s.z) > 2.2 && (!c.action || !c.action.called)) SB.Creature.sendTo(c, s.x, s.z, game, 90); });
+      var there = party.filter(function (c) { return SB.dist(c.x, c.z, s.x, s.z) < 2.6; });
+      if (there.length) { inc.res = SB.Sites.openPod(game, s, null, party); return D.end(game, inc, true); }
+    },
+    finish: function (game, inc, ok) {
+      var hm = home(game), res = inc.res;
+      (inc.party || []).forEach(function (id) { var c = SB.Game.byId(game, id); if (c && c.alive) SB.Creature.sendTo(c, hm.x, hm.z, game, 60); });
+      if (inc.choice === "later") return "";
+      if (!ok) { var s = game.sites[inc.site]; if (s && !s.done) { s.asked = true; s.againT = game.time + 90; } return inc.party && inc.party.length ? "the rescue party couldn't reach the pod. it's still out there." : "nobody's fit to go right now. try again in a bit."; }
+      if (!res) return "";
+      return res.survivors.length ? res.survivors.map(function (c) { return c.name; }).join(" and ") + (res.survivors.length > 1 ? " are" : " is") + " safe and heading home! 🛸" : "the pod was empty, but full of supplies.";
+    }
+  });
+  function rescuers(game, s) {
+    return smols(game).filter(function (c) { return c.stage >= 2 && c.chem.pain < 0.5 && c.chem.sick < 0.4 && c.chem.health > 0.4 && !c.heldBy; })
+      .sort(function (a, b) { return SB.dist(a.x, a.z, s.x, s.z) - SB.dist(b.x, b.z, s.x, s.z) + ((b.genome.genes.bravery || 0) - (a.genome.genes.bravery || 0)) * 10; });
+  }
+
   // --- a vision: a smol dreams of three ideas, and the god picks which one comes true
   card({
     id: "vision", minTier: 2, w: 2, gap: 900,
@@ -594,7 +649,7 @@
     var inc = def.start(game);
     d.last[def.id] = game.time;
     if (!inc) return null;
-    inc.id = def.id; inc.t0 = game.time; d.count++; d.realT = game.playTime || 0;
+    inc.id = def.id; inc.t0 = game.time; d.count++; d.realT = game.playTime || 0; if (!def.quiet) d.lastT = game.time;
     // miracles cost more for a big tribe, so sparks stay worth something later on
     var big = 1 + Math.max(0, smols(game).length - 8) / 25;
     (inc.choices || []).forEach(function (ch) { if (ch.cost) ch.cost = Math.round(ch.cost * big); });

@@ -72,7 +72,7 @@
     });
     var env = SB.Render.env;
     if (env.night > 0.5 && w.season !== 3) {
-      while (fireflies.length < 24) fireflies.push({ x: cam.x + (Math.random() - 0.5) * R * 2, z: cam.z + (Math.random() - 0.5) * R * 2, ph: Math.random() * 6, y: 0 });
+      while (fireflies.length < (w.season === 1 ? 44 : 24)) fireflies.push({ x: cam.x + (Math.random() - 0.5) * R * 2, z: cam.z + (Math.random() - 0.5) * R * 2, ph: Math.random() * 6, y: 0 });
     } else fireflies.length = Math.max(0, fireflies.length - 1);
   }
 
@@ -90,7 +90,7 @@
     var rain = env.rain;
     if (rain < 0.05) return;
     var temp = SB.World.tempAt(w, cam.x, cam.z);
-    var snow = temp < 0.28;
+    var snow = temp < 0.28 || w.season === 3; // winter rain always comes down as snow
     var R = Math.max(cam.halfW, cam.halfH * 1.6) + 2, count = Math.round(rain * (snow ? 260 : 420) * SB.clamp(R / 18, 0.6, 2.4));
     var wind = env.wind * 1.5;
     var r = SB.rng(rainSeed);
@@ -104,6 +104,29 @@
       if (snow) { addPoint(x, y, z, 0.07, 0.95, 0.97, 1, 0.9); continue; }
       line(x, y, z, x + wind * 0.15, y - 0.6, z, 0.75, 0.85, 1, 0.5);
       if (k > 0.97 && i % 3 === 0) addPoint(x, gy + 0.05, z, 0.08, 0.8, 0.9, 1, 0.6);
+    }
+  }
+
+  // the season in the air: blossom petals in spring, drifting seed fluff on summer days, tumbling leaves in
+  // autumn, and flurries under winter clouds. stateless like the rain: every flake is a function of time.
+  var LEAF = [[0.96, 0.56, 0.16], [0.88, 0.3, 0.14], [0.97, 0.8, 0.26], [0.62, 0.36, 0.16]];
+  function seasonal(game, cam, t) {
+    var w = game.world, env = SB.Render.env, s = w.season;
+    if (env.rain > 0.3 && s !== 3) return;
+    var R = Math.max(cam.halfW, cam.halfH * 1.6) + 2, area = SB.clamp(R / 18, 0.6, 2.4), day = 1 - env.night;
+    var count = Math.round(area * (s === 0 ? 70 : s === 1 ? 30 * day : s === 2 ? 90 : env.cloud > 0.5 && env.rain < 0.05 ? 90 : 0));
+    if (!count) return;
+    var r = SB.rng(7331 + s), wind = env.wind * 1.2;
+    for (var i = 0; i < count; i++) {
+      var bx = (r() - 0.5) * 2 * R, bz = (r() - 0.5) * 2 * R, ph = r(), pick = r();
+      var fall = s === 0 ? 0.45 : s === 1 ? 0.3 : s === 2 ? 0.8 : 1.1, H = s === 1 ? 4 : 8;
+      var k = ((t * fall / H) + ph) % 1, sw = Math.sin(t * (1.3 + ph) + ph * 40);
+      var x = cam.x + bx + sw * (s === 2 ? 0.9 : 0.5) + wind * k * 2, z = cam.z + bz + Math.cos(t * 0.9 + ph * 30) * 0.3;
+      var gy = SB.World.groundY(w, x, z), a = Math.min(1, Math.min(k, 1 - k) * 6);
+      if (s === 0) addPoint(x, gy + H * (1 - k), z, 0.17, 1, 0.72 + pick * 0.12, 0.86, 0.85 * a);
+      else if (s === 1) addPoint(x, gy + 0.4 + H * k, z, 0.1, 1, 1, 0.88, 0.7 * a); // fluff rises on the warm air
+      else if (s === 2) { var c = LEAF[Math.floor(pick * 4)], fl = 0.75 + 0.25 * Math.abs(sw); addPoint(x, gy + H * (1 - k), z, 0.21, c[0] * fl, c[1] * fl, c[2] * fl, 0.95 * a); }
+      else addPoint(x, gy + H * (1 - k), z, 0.13, 0.95, 0.97, 1, 0.85 * a);
     }
   }
 
@@ -140,6 +163,7 @@
           if (Math.abs(ff.x - cam.x) > cam.halfW * 1.6 + 4 || Math.abs(ff.z - cam.z) > cam.halfH * 2 + 4) { fireflies.splice(f, 1); f--; }
         }
         weather(game, cam, tAcc);
+        seasonal(game, cam, tAcc);
         // lightning bolts: jagged lines from the sky
         game.world.bolts.forEach(function (bt) {
           var r = SB.rng((bt.x * 1000 + bt.z) | 0), x = bt.x, z = bt.z, y = bt.y + 30, segs = 12;

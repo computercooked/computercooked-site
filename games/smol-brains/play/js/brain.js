@@ -279,6 +279,16 @@
     b.updates++;
   };
 
+  // experience replay (sleep): retrain on a remembered (input, action, reward) as if it were happening again.
+  // the remembered input is a copy, so the working-memory units it carries are the ones from back then.
+  B.replay = function (b, x, a, reward, frac) {
+    if (!x || x.length !== b.nIn || a < 0 || a >= NO) return 0;
+    reward = reward > 1 ? 1 : reward < -1 ? -1 : reward || 0;
+    var err = train(b, x, a, reward, frac == null ? b.lr * 0.35 : frac, true);
+    b.updates++;
+    return err;
+  };
+
   function heardVerb(x) { for (var i = 0; i < NO; i++) if (x[IN.HEARD0 + i] > 0.5) return i; return -1; }
 
   // A direct lesson (tickle, tap, "good", "bad") about one specific past decision.

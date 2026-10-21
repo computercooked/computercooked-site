@@ -304,3 +304,53 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 .coach button { pointer-events: auto; } /* the coach never blocks taps on the world, only its own buttons */
 @media (max-width: 600px) { #ui:has(.sheet:not(.hide)) .coach { top: calc(100px + var(--sat)); bottom: auto; } .coach { padding: 9px 11px; } .coach .s { font-size: 12px; } }
 .chipbtn.pray b { color: #ffd84a; } .chipbtn.pray { animation: praypulse 1.6s ease-in-out infinite; } @keyframes praypulse { 50% { filter: brightness(1.35); } }
+
+/* v3.3: the word book is a side panel, so the island (and the smol you're teaching) stays in view */
+.sheet.talkside { position: fixed; right: calc(10px + var(--sar)); top: calc(58px + var(--sat)); bottom: calc(92px + var(--sab)); width: 300px; max-height: none; display: flex; flex-direction: column; animation: sin 0.25s ease-out; }
+.sheet.talkside .wordbook { max-height: none; flex: 1; min-height: 0; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); }
+.sheet.talkside .teachbar { min-height: 0; }
+.sheet .btn.x { padding: 4px 8px; }
+.sheet .small { font-size: 11px; margin-top: 2px; }
+@keyframes sin { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (max-width: 600px) {
+  .sheet.talkside { width: min(46vw, 176px); padding: 8px; top: calc(52px + var(--sat)); bottom: calc(84px + var(--sab)); }
+  .sheet.talkside .wordbook { grid-template-columns: repeat(2, 1fr); gap: 5px; }
+  .sheet.talkside .word { padding: 5px 2px; font-size: 11px; }
+  .sheet.talkside .word .wi .pxi { width: 20px; height: 20px; }
+  .sheet.talkside .teachbar { font-size: 11px; margin: 4px 0 6px; }
+  #ui:has(.sheet.talkside:not(.hide)) .coach { top: auto; bottom: calc(150px + var(--sab)); left: 8px; transform: none; width: calc(100% - min(46vw, 176px) - 26px); }
+  #ui:has(.sheet.talkside:not(.hide)) .toasts { top: auto; bottom: calc(92px + var(--sab)); }
+}
+@media (min-width: 601px) { #ui:has(.sheet.talkside:not(.hide)) .coach { left: calc(50% - 160px); } }
+
+/* tutorial: a step counter, and a glow on whatever the step is about */
+.coach .n { color: var(--dim); font-weight: 400; }
+.coach .row .btn { padding: 6px 10px; font-size: 12px; }
+.tutglow { animation: tutglow 1.1s ease-in-out infinite; position: relative; z-index: 2; }
+@keyframes tutglow { 0%, 100% { box-shadow: 0 0 0 2px var(--lime); } 50% { box-shadow: 0 0 0 4px var(--lime), 0 0 18px rgba(197, 255, 73, 0.7); } }
+
+/* the soundtrack */
+.toast.song { font-style: normal; color: var(--lilac); }
+.jukebox { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; margin-top: 6px; }
+.jukebox .track { text-align: left; padding: 6px 8px; background: var(--panel2); font: 700 12px var(--sans); color: var(--paper); }
+.jukebox .track.on { background: var(--lilac); color: var(--carbon); }
+.jukebox .track.locked { opacity: 0.4; cursor: default; }
+
+/* v3.4: a pod comes down — the whole island as a map, with the crash marked */
+.podmap { position: fixed; inset: 0; z-index: 40; background: rgba(7, 6, 13, 0.88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; animation: tin 0.3s; }
+.podmap.out { opacity: 0; transition: opacity 0.4s; }
+.podmapcv { border: 3px solid var(--paper); box-shadow: 0 0 0 3px var(--ink), 0 10px 30px rgba(0, 0, 0, 0.5); image-rendering: pixelated; }
+.podcap { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; color: var(--paper); font-size: 14px; }
+.podcap b { font: 700 16px var(--mono); color: #8fe6dc; }
+
+/* v3.4: the guide — one tip at a time, for the whole game */
+.guide { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100px + var(--sab)); width: min(460px, calc(100% - 20px)); padding: 9px 10px; display: flex; gap: 10px; align-items: center; border-color: rgba(143, 230, 220, 0.5); animation: tin 0.3s; z-index: 5; }
+.guide .gi { font-size: 22px; flex: none; } .guide .gi .pxi { width: 26px; height: 26px; }
+.guide .gb { flex: 1; min-width: 0; }
+.guide .t { font: 700 13px/1.3 var(--mono); color: #8fe6dc; }
+.guide .s { font-size: 12px; color: var(--paper); margin-top: 2px; line-height: 1.35; }
+.guide .gx { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.guide .gx .btn { padding: 5px 9px; font-size: 11px; justify-content: center; }
+@media (max-width: 700px) { #ui:has(.sheet:not(.hide)) .guide { display: none; } }
+#ui:has(.podmap) .guide { display: none; }
+@media (max-width: 700px) { .guide { bottom: calc(184px + var(--sab)); } }

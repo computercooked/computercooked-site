@@ -8,7 +8,7 @@
   var SB = (window.SB = window.SB || {});
   var A = (SB.Audio = {});
 
-  var ac = null, master = null, sfxBus = null, voiceBus = null, ambBus = null, noiseBuf = null;
+  var ac = null, master = null, musicBus = null, sfxBus = null, voiceBus = null, ambBus = null, noiseBuf = null;
   var mutedHost = false, mutedUser = false, ambOn = true, hooked = false, busHooked = false;
   var MASTER = 0.5, KEY = "smolbrains-muted";
   var sfxEnds = [], voiceEnds = [], lastVoice = 0, lastByName = {}, musicUntil = 0;
@@ -31,6 +31,7 @@
     sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
     voiceBus = ac.createGain(); voiceBus.gain.value = 0.75; voiceBus.connect(master);
     ambBus = ac.createGain(); ambBus.gain.value = 0.5; ambBus.connect(master);
+    musicBus = ac.createGain(); musicBus.gain.value = 1; musicBus.connect(master);
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -68,6 +69,8 @@
     applyMute();
   };
   A.isMuted = function () { return muted(); };
+  // the soundtrack (music.js) plays through its own bus under the master, so every mute covers it
+  A.musicOut = function () { return live() ? { ac: ac, out: musicBus, noise: noiseBuf } : null; };
   A.isUserMuted = function () { return mutedUser; };
 
   /* ---------------- voice management ---------------- */
