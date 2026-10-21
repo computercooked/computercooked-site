@@ -117,6 +117,26 @@
     return t;
   };
 
+  // An image file as a texture, for art that may or may not be there (render.js R.loadArt). cb(texture, img) on
+  // success; cb(null) when the file is missing or broken, so the caller keeps its procedural fallback.
+  GL.loadImage = function (ctx, url, opts, cb) {
+    if (typeof Image === "undefined" || !url) { cb(null); return; }
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var gl = ctx.gl, t = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        var filt = opts && opts.nearest ? gl.NEAREST : gl.LINEAR, wrap = opts && opts.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filt); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filt);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+        cb(t, img);
+      } catch (e) { cb(null); }
+    };
+    img.onerror = function () { cb(null); };
+    img.src = url;
+  };
+
   /* ---------------- mat4 (column-major Float32Array(16)) ---------------- */
   var M = (GL.mat4 = {});
   M.create = function () { var m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; };
