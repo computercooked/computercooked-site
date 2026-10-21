@@ -168,7 +168,7 @@
     opts = opts || {};
     var c = SB.Creature.create(game, {
       species: "smol", genome: opts.genome || SB.Genome.random(game.rng, { species: "smol" }),
-      name: opts.name || SB.makeName(game.rng), x: opts.x, z: opts.z, gen: opts.gen || 1,
+      name: opts.name || SB.makeName(game.rng, game, { parents: (opts.parents || []).map(function (id) { var f = game.family[id]; return f && f.name; }).filter(Boolean) }), x: opts.x, z: opts.z, gen: opts.gen || 1,
       parents: opts.parents || [], brain: opts.brain, vocab: opts.vocab, age: opts.age, tribe: opts.tribe, ideas: opts.ideas, sex: opts.sex
     });
     game.creatures.push(c);

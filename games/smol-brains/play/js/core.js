@@ -357,13 +357,71 @@
     clear: function () { handlers = {}; }
   };
 
-  // Names: cute 2-3 syllable names.
-  var SYL_A = ["Bo", "Pi", "Mo", "Lu", "Ki", "Zu", "No", "Fi", "Da", "Wi", "Po", "Ta", "Bi", "Ru", "Ji", "Mi", "Su", "Ko", "Ne", "Yu", "Gu", "Pa", "Te", "Vo"];
-  var SYL_B = ["bo", "lo", "mi", "ppy", "nk", "zle", "do", "ri", "bble", "mp", "sh", "ki", "na", "go", "tz", "ffle", "ni", "ru", "pi", "x", "mo", "bu"];
-  SB.makeName = function (r) {
-    var n = r.pick(SYL_A) + r.pick(SYL_B);
-    if (r.chance(0.25)) n += r.pick(SYL_B);
-    return n;
+  // Names: cute, pronounceable, and (with a game) never already taken.
+  // Built from sound pieces instead of a short list: soft openings, a vowel, an optional middle, and a
+  // cute ending, so there are hundreds of thousands of names. Some names borrow the island's own language,
+  // and kids sometimes echo a parent's name (Pip → Pippa, Mo → Momo), like real families do.
+  var ON1 = ["b", "p", "m", "n", "l", "k", "t", "d", "g", "f", "v", "z", "s", "r", "w", "y", "h", "j", "ch", "sh"];
+  var ON2 = ["bl", "pl", "fl", "gl", "kl", "br", "pr", "tr", "dr", "gr", "fr", "sn", "sp", "st", "tw"];
+  var NV = ["a", "e", "i", "o", "u", "a", "i", "o", "u", "oo", "ee", "ai", "ou"];
+  var MID = ["b", "bb", "p", "pp", "m", "mm", "n", "nn", "l", "ll", "k", "g", "gg", "d", "dd", "t", "z", "zz", "v", "r", "ff", "nk", "mp", "nd", "ng", "w"];
+  var END = ["o", "a", "i", "y", "ie", "u", "o", "a", "ble", "ple", "zle", "ggle", "ffle", "mble", "kin", "bin", "lin", "nik", "bo", "po", "mo", "lo", "ro", "ko", "zo", "na", "la", "ka", "ra", "bee", "pip", "pop", "bop", "loo", "doo", "zee", "sy", "by", "dy", "ly", "ny", "nk", "sh", "tz", "x", "m", "n", "l", "p", "b", "k", "s", "bert", "wick", "ton", "ling", "kins", "et", "ette", "ina", "ella", "ito", "ix", "us", "on", "im", "os", "ar", "", "", ""];
+  function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
+  function on(r) { return r.chance(0.08) ? "" : r.chance(0.8) ? r.pick(ON1) : r.pick(ON2); }
+  function tidy(w) {
+    w = w.replace(/([^aeiouy])\1\1+/g, "$1$1").replace(/([aeiouy])\1\1+/g, "$1$1").replace(/[aeiou]{3,}/g, function (m) { return m.slice(0, 2); });
+    return w.length > 9 ? w.slice(0, 9).replace(/[^aeiouy]+$/, "") || w.slice(0, 9) : w;
+  }
+  // soft and sayable: no three consonants in a row, no "y" stuck mid-word, no stuttering vowel pairs
+  function cute(w) {
+    var l = w.toLowerCase();
+    return l.length >= 3 && l.length <= 8 && !/[^aeiouy]{3}/.test(l) && !/y[^aeiou]./.test(l.slice(0, -1)) && !/(ou|oo|ee|ai).*(ou|oo|ee|ai)/.test(l) &&
+      !/^[^aeiouy]{2}.*[^aeiouy]{2}[aeiouy]?[^aeiouy]{2}/.test(l) && !/q|xx|x[^aeiou]|h[^aeiou]|[^aeiou]h(?!$)/.test(l.replace(/^(ch|sh)/, "").replace(/(ch|sh)/g, "c"));
+  }
+  function freshName(r) {
+    var w = on(r) + r.pick(NV);
+    var shape = r();
+    if (shape < 0.5) w += r.pick(MID) + r.pick(NV) + r.pick(END);          // Bob-i-ble, Zan-o-nik
+    else if (shape < 0.8) w += r.pick(END.filter(function (e) { return e; })); // Pip-kin, Mo-ffle
+    else if (shape < 0.92) w = w + r.pick(ON1) + r.pick(NV) + (r.chance(0.4) ? r.pick(["n", "y", "k", "bo", "li", "ra"]) : ""); // Lu-ma-ri
+    else { var syl = r.pick(ON1) + r.pick(["a", "i", "o", "u"]); w = syl + syl + r.pick(["", "", "n", "y", "k", "b"]); } // Bibi, Momon
+    w = tidy(w);
+    if (w.length < 3) w += r.pick(["bo", "pi", "lu", "ki", "mo"]);
+    return cap(w);
+  }
+  // a kid's name that echoes a parent's: Pip → Pippa / Pipkin, Moru → Momo
+  function echoName(r, parent) {
+    var root = parent.toLowerCase().replace(/[^a-z]/g, "").slice(0, 3).replace(/[aeiouy]+$/, "") || parent.toLowerCase().slice(0, 2);
+    var stem = root.length > 1 ? root : root + "a";
+    var v = /[aeiouy]$/.test(stem) ? "" : r.pick(["a", "i", "o", "u", "e"]);
+    return cap(tidy(stem + v + r.pick(["", "pa", "kin", "ka", "lo", "bo", "ri", "ny", "sy", "ette", "ito", "mo", "x", "ble", "doo"])));
+  }
+  // every name in use on this island: the living, the remembered dead, the bodies waiting for their funeral
+  function usedNames(game) {
+    var u = {};
+    if (!game) return u;
+    (game.creatures || []).forEach(function (c) { if (c.name) u[c.name.toLowerCase()] = 1; });
+    for (var id in (game.family || {})) { var f = game.family[id]; if (f && f.name) u[f.name.toLowerCase()] = 1; }
+    (game.bodies || []).forEach(function (b) { if (b.name) u[b.name.toLowerCase()] = 1; });
+    return u;
+  }
+  // SB.makeName(rng, game?, opts?) → a name nobody on the island has had. opts.parents: names to echo now and then
+  SB.makeName = function (r, game, opts) {
+    opts = opts || {};
+    var used = usedNames(game), lang = game && game.lang, name = null;
+    for (var tries = 0; tries < 40; tries++) {
+      var roll = r(), n;
+      if (opts.parents && opts.parents.length && roll < 0.18) n = echoName(r, r.pick(opts.parents));
+      else if (lang && SB.Lang && SB.Lang.word && roll < 0.33) n = cap(tidy(SB.Lang.word(lang, r, 2 + (r.chance(0.3) ? 1 : 0)).replace(/[^a-zü']/gi, "").replace(/ü/g, "u").replace(/'/g, "")));
+      else n = freshName(r);
+      if (!cute(n)) continue;
+      if (!used[n.toLowerCase()]) { name = n; break; }
+    }
+    if (!name) { // astronomically unlikely: add a little flourish until it's new
+      name = freshName(r);
+      for (var k = 0; used[name.toLowerCase()] && k < 50; k++) name = freshName(r) + r.pick(["ko", "li", "bo", "ra", "mi"]);
+    }
+    return name;
   };
 
   // World codes: a friendly name for a seed ("mossy-otter-4821") and back.

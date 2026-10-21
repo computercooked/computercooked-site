@@ -1371,7 +1371,7 @@
       SB.Input.follow(c);
       tutAdvance(2);
     }
-    var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0)); }; };
+    var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0), game); }; };
     var body = twin ? h("div", null, [
       h("p", null, game.ngPlus ? "a girl and a boy climbed out of the pod: the great-great-grandkids of your best smols, on a brand new island. what are they called?" : "two little blobs climbed out of the pod: a girl and a boy. the last smols. what are they called?"),
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♀"), inp, h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")]),
