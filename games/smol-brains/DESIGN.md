@@ -122,7 +122,9 @@ The owner wanted towns, money and a real challenge instead of constant cuddling.
 - **Pacing (headless engaged-bot sims)**: builders 60–65 min, town 72–109, city 115–140, ascended 117–170 (target 125–150; the spread is generation turnover and glow inheritance in the last stretch, not food). Raids wreck 9–17 buildings a run; ~5 kidnaps; 1–2 disasters per 4 hours.
 - **From v3.5**: funerals by culture (river, pyre, burial and memorials), a much bigger name generator, clickable guide tips, a bigger menu that fits the tree of life.
 
-## 0.12 The hd pixel look (`hd.js`, opt-in, not the default yet)
+## 0.13 What v4.3.1 added: the hd pixel look (`hd.js`, opt-in, not the default yet) and grown-up faces
+
+Faces: from tribe on smols look grown-up and their face follows their mood (see "Faces grow up" in the creatures section). The hd look:
 
 A third look, in the spirit of HD-2D (Octopath Traveler, Eastward): settings → look cycles pixel art → hd pixel → classic 3D (saved in `smolbrains-look` as `"hd"`; `?look=hd` too). Switching back loads today's look untouched: every hd change sits behind `R.hd` or `#ifdef HD` in the shaders.
 

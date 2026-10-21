@@ -5,7 +5,7 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, e/f/r act, c make, esc leave. wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, b brain viewer, m map.",
-  "size_kb": 1621,
+  "size_kb": 1810,
   "tags": [
     "sim",
     "pets",
@@ -13,7 +13,7 @@
     "3d",
     "pixel art"
   ],
-  "version": "4.3",
+  "version": "4.3.1",
   "added": "2026-10-19",
   "how_to": [
     "start makes a new island: pick a name, a size (small to extra large) and how wild it is. load keeps every island you've made.",
@@ -36,6 +36,7 @@
     "every smol rolls traits and a rarity, common to mythic. rare parents make rare babies; the smoldex keeps your best.",
     "evolve them all the way to ascended and build the big thought. it's a signal home. then try new game+.",
     "your band grows into a village, a town and a city: money, market stalls, jobs, roads, a council and city lights. the 🏛 civilization tab shows what the next era needs.",
-    "it isn't safe. grumps raid, steal, burn huts and carry smols off to their camps; the village fights back and rebuilds. rare disasters depend on where you live."
+    "it isn't safe. grumps raid, steal, burn huts and carry smols off to their camps; the village fights back and rebuilds. rare disasters depend on where you live.",
+    "settings → look has a new ✨ hd pixel look: drawn pixel-art tiles and items, warm light and soft focus. from tribe on, smols grow up and their faces show how they really feel."
   ]
 }
