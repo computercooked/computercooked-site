@@ -59,7 +59,7 @@
       v: 2, savedAt: Date.now(), seed: game.seed, n: game.world && game.world.T ? game.world.T.N : SB.WORLD_N, rngState: game.rng.state(),
       time: round(game.time), speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
       hand: { tool: game.hand.tool }, family: plain(pruneFamily(game), 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
-      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, podsDown: game.podsDown || 0, bodies: SB.Funeral ? SB.Funeral.serialize(game) : [], podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
+      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, podsDown: game.podsDown || 0, bodies: SB.Funeral ? SB.Funeral.serialize(game) : [], orders: SB.Orders ? SB.Orders.serialize(game) : null,podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
       culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount, sharedMax: game.culture.sharedMax || 0, spireBoost: !!game.culture.spireBoost }, 0),
       tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
       playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0), ngPlus: game.ngPlus || 0, ended: !!game.ended,
@@ -149,7 +149,7 @@
     game.speed = SB.SPEEDS.indexOf(data.speed) >= 0 ? data.speed : 1;
     if (data.rngState != null) game.rng.setState(data.rngState);
     game.nextId = Math.max(1, num(data.nextId, 1));
-    var tools = ["grab", "tickle", "tap", "talk", "magic"];
+    var tools = ["grab", "tickle", "tap", "talk", "magic", "orders"];
     if (data.hand && tools.indexOf(data.hand.tool) >= 0) game.hand.tool = data.hand.tool;
     game.family = obj(data.family); game.achievements = obj(data.achievements); game.tutorial = obj(data.tutorial);
     if (typeof game.tutorial.step !== "number") game.tutorial.step = 0;
@@ -180,6 +180,7 @@
       } catch (e) { if (window.console) console.warn("[save] could not revive creature", p && p.name, e); }
     });
     if (SB.Funeral) SB.Funeral.revive(game, Array.isArray(data.bodies) ? data.bodies : []);
+    if (SB.Orders) SB.Orders.revive(game, data.orders);
     fixIds(game);
     if (data.selectedId != null && SB.Game.byId(game, data.selectedId)) game.selectedId = data.selectedId;
     return game;

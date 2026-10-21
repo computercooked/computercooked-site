@@ -411,6 +411,7 @@
     if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
     if (SB.Social) SB.Social.tick(game, dt);
     if (SB.Funeral) SB.Funeral.tick(game, dt);
+    if (SB.Orders) SB.Orders.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     SB.Ideas.nurse(game, dt);

@@ -344,6 +344,7 @@
       if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
       if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
     }
+    if (c.species === "smol" && SB.Orders && SB.Orders.think(c, game)) return; // the sky's orders (orders.js): followed if it trusts you
     perceive(c, game);
     if (c.species === "grump") {
       var prey = false;
@@ -477,6 +478,7 @@
       else if (ch.anger < 0.45 && rng.chance(0.7)) mask[V.hit] = false;
     }
     if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
+    if (c.prio && SB.Orders && SB.Orders.bias(c, game, noun, mask, bias)) useBias = true; // job interests you nudged
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
@@ -556,6 +558,15 @@
     c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
     return true;
   };
+  // do one thing on the sky's say-so (orders.js): skips the brain's choice, like provoke
+  C.startOn = function (c, game, verb, tgt) {
+    var r = tgt ? resolve(game, tgt) : null;
+    if (tgt && !r) return false;
+    if (c.plan) endPlan(c, game, false);
+    c.asleep = false; c.inBed = false;
+    startAction(c, game, verb, tgt, r, r ? r.noun : null);
+    return !!c.action;
+  };
   function knowsAny(c, kind) {
     if (!SB.Ideas) return false;
     for (var id in c.ideas) if (c.ideas[id] >= 1 && SB.Ideas.BY_ID[id] && SB.Ideas.BY_ID[id].kind === kind) return true;
@@ -602,6 +613,7 @@
         a.tx = c.x + Math.sin(ang) * dist; a.tz = c.z + Math.cos(ang) * dist;
         // a place it learned to fear: turn round
         if (c.species === "smol" && !a.why && M() && M().dangerAt(c, game, a.tx, a.tz)) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = "not that way. that's where it hurt"; }
+        if (c.species === "smol" && SB.Orders) SB.Orders.steer(c, game, a); // no-go and home zones
         break;
       }
       case V.sleep:

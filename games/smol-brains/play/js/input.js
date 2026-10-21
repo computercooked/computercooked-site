@@ -2,7 +2,7 @@
    Touch first, mouse and keyboard too. One finger: drag empty ground to pan, drag a smol or a thing to
    carry and throw it, tap to use the current tool. Two fingers: pinch to zoom, twist to rotate.
    Mouse: wheel zooms at the cursor, right-drag (or shift-drag) rotates and tilts. Keys: WASD/arrows pan, Q/E rotate, R/V tilt,
-   +/- zoom, 1-5 tools, space pause, [ ] speed, F follow, B brain, Esc closes things. */
+   +/- zoom, 1-6 tools, space pause, [ ] speed, F follow, B brain, Esc closes things. */
 (function () {
   "use strict";
   var SB = window.SB;
@@ -172,6 +172,7 @@
     var g = setHand(sx, sy, true);
     if (SB.UI && SB.UI.armed) { if (g) SB.UI.castAt(g.x, g.z); return; }
     var hit = IN.pick(sx, sy, { touch: touch });
+    if (tool === "orders" && SB.UI && SB.UI.orderTap && !dbl) { SB.UI.orderTap(g, hit); return; } // a sign from the sky (orders.js)
     if (hit && hit.type === "creature") SB.Creature.hold(hit.ref, game, 3); // hold still so you can work with it
     if (dbl && hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); R.camera.follow = followFn(hit.ref); if (R.camera.tZoom > 9) R.camera.tZoom = 7; return; }
     if (dbl && !hit && g) { R.flyTo(g.x, g.z, Math.max(R.camera.minZoom, R.camera.tZoom * 0.6), 0.5); return; }

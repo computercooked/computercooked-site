@@ -626,6 +626,7 @@
     } else steps.push({ do: "work", site: st.id });
     return { idea: I.forStruct[st.kind], kind: "build", site: st.id, steps: steps, i: 0, t: 0, fails: 0 };
   }
+  I.planForSite = planForSite;
 
   // deliver materials from inventory to a site
   I.deliver = function (c, st, game) {
