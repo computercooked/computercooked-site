@@ -350,7 +350,7 @@
       egg.data.genome = heir(champs[0]); egg.data.genome2 = heir(champs[1] || champs[0]);
       egg.data.heirs = champs.map(function (c) { return c.name; });
       // the old stories survive: the girl remembers a few simple ideas from home, and can teach them
-      var keep = SB.Ideas.LIST.filter(function (d) { return prev.culture.found[d.id] && d.tier <= 2; }).slice(0, 3);
+      var keep = SB.Ideas.LIST.filter(function (d) { return prev.culture.found[d.id] && d.tier <= 2 && !d.pov; }).slice(0, 3);
       egg.data.ideas = {}; keep.forEach(function (d) { egg.data.ideas[d.id] = 1; });
     }
     g.ngPlus = (prev.ngPlus || 0) + 1;
@@ -435,6 +435,7 @@
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     if (SB.Threats) SB.Threats.tick(game, dt);
+    if (SB.Surv) SB.Surv.tick(game, dt); // v4.4: hit-point animations, rocks and vines growing back, packs
     SB.Ideas.nurse(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
@@ -518,7 +519,7 @@
     if (found >= 1) Game.unlock(game, "eureka");
     if (found >= 5) Game.unlock(game, "ideas5");
     if (found >= 15) Game.unlock(game, "ideas15");
-    if (found >= SB.Ideas.LIST.length) Game.unlock(game, "ideasAll");
+    if (found >= SB.Ideas.LIST.filter(function (d) { return !d.pov; }).length) Game.unlock(game, "ideasAll");
     if ((game.stats.built || 0) >= 1) Game.unlock(game, "built");
     if (game.villages.length) Game.unlock(game, "village");
     if (game.culture.lostCount) Game.unlock(game, "lost");

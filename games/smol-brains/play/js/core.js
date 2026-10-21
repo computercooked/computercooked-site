@@ -225,7 +225,16 @@
     log: { noun: "stick", label: "log", emoji: "🪵", r: 0.2, color: 0x8a5a35, mat: 1, desc: "a chunk of tree. worth three sticks when building." },
     fur: { noun: "material", label: "bunny fur", emoji: "🐾", r: 0.14, color: 0xe6d8c0, mat: 1, desc: "soft and warm, from a hunted bunny. sewn into cloaks." },
     axe: { noun: "tool", label: "copper axe", emoji: "🪓", r: 0.15, color: 0xd98c4a, tool: "chop", desc: "chops trees into lots of wood, fast." },
-    lens: { noun: "tool", label: "crystal lens", emoji: "🔮", r: 0.14, color: 0xbfefff, tool: "focus", glow: 1, desc: "makes thinking louder. thinkers stare through it at the stars." }
+    lens: { noun: "tool", label: "crystal lens", emoji: "🔮", r: 0.14, color: 0xbfefff, tool: "focus", glow: 1, desc: "makes thinking louder. thinkers stare through it at the stars." },
+    // v4.4 "first tool": things you make with your own paws when you're down there (survival.js)
+    vine: { noun: "material", label: "vine", emoji: "➰", r: 0.13, color: 0x4f9a3a, mat: 1, desc: "pulled off cliffs, ruins and riverbanks. bendy and strong: it ties things together." },
+    leaves: { noun: "material", label: "leaves", emoji: "🍃", r: 0.15, color: 0x6fbf4a, mat: 1, desc: "a bundle of leaves from a felled tree. thatch for a lean-to, tinder for a fire." },
+    plank: { noun: "stick", label: "plank", emoji: "🪵", r: 0.16, color: 0xc9935a, mat: 1, desc: "a log split on a stump. worth two sticks when building." },
+    firewood: { noun: "stick", label: "firewood", emoji: "🪵", r: 0.15, color: 0x9a6a3c, mat: 1, desc: "split wood. a fire fed with it burns twice as long as with a stick." },
+    sharpstone: { noun: "stone", label: "sharp stone", emoji: "🗡", r: 0.13, color: 0x8a8694, mat: 1, desc: "a rock knocked against another rock until it has an edge." },
+    primtool: { noun: "tool", label: "rock-on-a-stick", emoji: "⚒", r: 0.15, color: 0x8a6a48, tool: "whack", desc: "a rock tied to a stick with a vine. chops, chips and bonks, badly. your first tool." },
+    stonepick: { noun: "tool", label: "stone pick", emoji: "⛏", r: 0.15, color: 0x8a8694, tool: "mine", desc: "two sharp stones on a handle. breaks rocks fast and digs copper ore out of a vein." },
+    sapling: { noun: "crop", label: "sapling", emoji: "🌱", r: 0.12, color: 0x6fbf4a, mat: 1, desc: "a baby tree from a felled one. plant it and it grows." }
   };
 
   // Static things that sit in the world and produce items (made by worldgen, some by smols).
@@ -260,7 +269,9 @@
     redrock: { noun: "stone", label: "red rock", emoji: "🪨", r: 0.6, drops: "stone", every: 140, also: "clay", desc: "soft red stone, crumbly with clay." },
     crystals: { noun: "material", label: "thought crystals", emoji: "💎", r: 0.55, drops: "crystal", every: 240, glow: 1, desc: "crystals that hum near big brains." },
     cave: { noun: "grump", label: "grump cave", emoji: "🕳", r: 0.9, desc: "grumps sleep here by day." },
-    nest: { noun: "shelter", label: "nest", emoji: "🪺", r: 0.7, desc: "where your first egg was found. smols sleep well here." }
+    nest: { noun: "shelter", label: "nest", emoji: "🪺", r: 0.7, desc: "where your first egg was found. smols sleep well here." },
+    // v4.4: hangs off cliffs, ruins and riverbanks (never trees). nop: the AI's eyes skip it (it's for your paws)
+    vines: { noun: "material", label: "vines", emoji: "➰", r: 0.35, nop: 1, desc: "tough green vines hanging off the rock. pull some: they tie things together." }
   };
 
   // Buildings smols can make (ideas.js says which idea unlocks which). cost: materials delivered; work: seconds of building.
@@ -283,7 +294,9 @@
     house: { noun: "shelter", label: "house", emoji: "🏠", r: 1.1, cost: { stick: 6, stone: 4 }, work: 20, desc: "stone walls, a tiled roof, a window. more room than a hut: more smols can live on the island." },
     hall: { noun: "totem", label: "council hall", emoji: "🏛", r: 1.4, cost: { stick: 8, stone: 8, fiber: 2 }, work: 32, desc: "where the council sits and the scribe keeps the laws. a town with one can become a city." },
     mint: { noun: "tool", label: "mint", emoji: "🪙", r: 0.9, cost: { stone: 6, metal: 1 }, work: 22, desc: "copper in, coins out. stamped money everyone trusts." },
-    granary: { noun: "material", label: "granary", emoji: "🛢", r: 1.0, cost: { stick: 6, stone: 4, fiber: 2 }, work: 20, desc: "a round store on stilts. the harvest waits here for winter, and the leader decides who gets it." }
+    granary: { noun: "material", label: "granary", emoji: "🛢", r: 1.0, cost: { stick: 6, stone: 4, fiber: 2 }, work: 20, desc: "a round store on stilts. the harvest waits here for winter, and the leader decides who gets it." },
+    // v4.4: the first shelter you can put up yourself
+    leanto: { noun: "shelter", label: "lean-to", emoji: "⛺", r: 0.75, cost: { stick: 4, leaves: 2, vine: 1 }, work: 6, desc: "sticks against a ridge pole, leaves on top. sleep under it: warm, dry, and the night passes safer." }
   };
 
   /* ---------------- stimulus table ----------------

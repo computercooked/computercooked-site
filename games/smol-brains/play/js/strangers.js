@@ -75,7 +75,7 @@
     c.stranger = { state: "waiting", t: game.time, x0: from.x, z0: from.z, wx: wait.x, wz: wait.z };
     // survivors have had to learn things out there
     if (SB.Ideas && c.tier >= 2) {
-      var can = SB.Ideas.LIST.filter(function (d) { return SB.Ideas.canHold(c, d.id) && d.tier <= c.tier && !SB.Game.cultureKnows(game, d.id); });
+      var can = SB.Ideas.LIST.filter(function (d) { return !d.pov && SB.Ideas.canHold(c, d.id) && d.tier <= c.tier && !SB.Game.cultureKnows(game, d.id); });
       if (can.length && r() < 0.6) { var d = r.pick(can); c.ideas[d.id] = 1; c.stranger.brings = d.id; }
     }
     c.stranger.trait = r.pick(["shy", "brave", "chatty", "hungry", "tired", "cheerful", "grumpy", "curious"]);

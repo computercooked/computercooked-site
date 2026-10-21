@@ -626,7 +626,7 @@
     var w = game.world, best = null, bd = 4.5, wp = SB.World.waterNear ? SB.World.waterNear(w, x, z) : null;
     if (SB.World.depthAt(w, x, z) > 0.15 || (wp && SB.dist(wp.x, wp.z, x, z) < 2.5)) best = { x: x, z: z, l: "lake", water: true };
     if (!best) w.structures.forEach(function (s) { var d = SB.dist(s.x, s.z, x, z), def = SB.STRUCTS[s.kind]; if (d < bd && def && def.label) { bd = d; best = { x: s.x, z: s.z, l: def.label }; } });
-    if (!best) SB.World.eachNodeNear(w, x, z, 4, function (n, d2) { var d = Math.sqrt(d2), def = SB.NODES[n.kind]; if (def && def.label && d < bd) { bd = d; best = { x: n.x, z: n.z, l: def.label }; } });
+    if (!best) SB.World.eachNodeNear(w, x, z, 4, function (n, d2) { if (n.nop) return; var d = Math.sqrt(d2), def = SB.NODES[n.kind]; if (def && def.label && d < bd) { bd = d; best = { x: n.x, z: n.z, l: def.label }; } });
     if (!best) { var b = SB.BIOMES[SB.World.biomeAt(w, x, z)]; best = { x: x, z: z, l: (b ? b.name : "open") + " clearing" }; }
     best.key = best.l.replace(/\s+/g, "_") + "@" + Math.round(best.x / 6) + "," + Math.round(best.z / 6);
     return best;

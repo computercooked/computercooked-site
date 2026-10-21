@@ -62,7 +62,9 @@
     return f === "sleep" ? "tired" : f || "neutral";
   }
   PX.faceOf = faceOf;
-  function paint(c, faceIn) {
+  // Everything the painter decides from the genes before it paints: palette, pattern functions and body
+  // proportions. Shared with voxel.js, so the 3D smols are built from exactly the same numbers.
+  function spec(c, faceIn) {
     var lk = c.look, grump = c.species === "grump", tier = grump ? 0 : c.tier, st = c.stage || 0;
     var elder = st >= 4, r = SB.rng(((lk.spotsSeed || 1) * 31 + (lk.hue | 0)) >>> 0);
     // collectible traits (see collect.js): pattern, eyes, accessory, palette, fluff
@@ -117,6 +119,15 @@
     var tw = clamp(Math.round(bw * 0.55) + (grown ? 1 : 0), 5, grown ? 9 : 8), th = clamp(Math.round(bh * 0.45) + (grown ? 1 : 0), 4, grown ? 8 : 7);
     var hr = clamp(Math.round(bw * 0.36) + (tier >= 5 ? 1 : 0), 4, grown && tier < 5 ? 5 : 6), hry = hr * 0.9;
     if (grown && hr >= 6 && lk.ears === 2) legH--; // a big thinker head with tall ears: no room to stand taller
+    return { lk: lk, grump: grump, tier: tier, st: st, elder: elder, pat: pat, eyeT: eyeT, acc: acc, pal: pal, fluffF: fluffF, hue: hue, hue2: hue2, sat: sat, lig: lig,
+      base: base, light: light, dark: dark, second: second, belly: belly, outline: outline, seed: seed, special: special, patternAt: patternAt, classic: classic,
+      bw: bw, bh: bh, upright: upright, grown: grown, face: face, legs: legs, legH: legH, hasArms: hasArms, tw: tw, th: th, hr: hr, hry: hry };
+  }
+  PX.spec = spec;
+  function paint(c, faceIn) {
+    var S = spec(c, faceIn), lk = S.lk, grump = S.grump, tier = S.tier, elder = S.elder, pat = S.pat, eyeT = S.eyeT, acc = S.acc, pal = S.pal, fluffF = S.fluffF;
+    var base = S.base, light = S.light, dark = S.dark, second = S.second, belly = S.belly, outline = S.outline, special = S.special, patternAt = S.patternAt, classic = S.classic;
+    var bw = S.bw, bh = S.bh, upright = S.upright, grown = S.grown, face = S.face, legs = S.legs, legH = S.legH, hasArms = S.hasArms, tw = S.tw, th = S.th, hr = S.hr, hry = S.hry;
     var headAt = null;
     var frames = [];
     for (var fi = 0; fi < NF; fi++) {
@@ -210,30 +221,8 @@
           for (var hx = Math.ceil(cx - rx); hx <= cx + rx; hx++) if (f.on(hx, hb)) f.px(hx, hb, tier >= 4 ? [220, 80, 70] : [240, 190, 60]);
           f.rect(Math.round(cx - rx + 1), hb - 3, 1, 3, tier >= 4 ? [90, 190, 240] : [255, 110, 90]);
         }
-        paintFace(f, fi, { e1: e1, e2: e2, ey: ey, es: es, mx: mouthX, my: mouthY, grown: grown, face: face, eyeT: eyeT, elder: elder, cheeks: lk.cheeks, dark: dark, outline: outline, glasses: tier === 5 });
-      } else [e1, e2].forEach(function (ex, i) {
-        if (fi === FR.blink || fi === FR.sleep) { f.rect(ex, ey + es - 1, 2, 1, INK); return; }
-        if (fi === FR.happy) { f.px(ex, ey + es - 1, INK); f.px(ex + 1, ey + es - 2, INK); f.px(ex + 2, ey + es - 1, i ? null : INK); return; }
-        if (fi === FR.scared) { f.rect(ex, ey - 1, 2, es + 1, WHITE); f.px(ex + 1, ey + 1, INK); return; }
-        var ec = eyeT === "hetero" ? (i ? [235, 165, 45] : [70, 150, 235]) : eyeT === "star" ? [255, 200, 50] : eyeT === "heart" ? [240, 60, 125] : eyeT === "cosmic" ? [80, 40, 150] : eyeC;
-        f.rect(ex, ey, 2, es, ec);
-        if (eyeT === "sleepy") { f.rect(ex, ey, 2, es - 1, dark); return; }
-        if (!grump) f.px(ex, ey, eyeT === "cosmic" ? [150, 245, 255] : WHITE);
-        if (eyeT === "cosmic") f.px(ex + 1, ey + es - 1, [255, 120, 220]);
-        if (eyeT === "heart") f.px(ex + 1, ey + es - 1, [170, 20, 80]);
-        if (eyeT === "star" && i) f.px(ex + 2, ey - 1, WHITE, 9);
-      });
-      if (!upright) { // the cute face: big sparkly eyes and a smile (blobs, critters, tool-users) or a grump's scowl
-        if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
-        if (elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
-        if (lk.cheeks && !grump && fi !== FR.sad) { f.px(e1 - 1, ey + es, PINK); f.px(e2 + 2, ey + es, PINK); }
-        var mc = grump ? [40, 10, 20] : outline;
-        if (fi === FR.eat || fi === FR.scared) f.rect(mouthX - 1, mouthY, 2, 2, mc);
-        else if (fi === FR.sad) { f.px(mouthX - 1, mouthY + 1, mc); f.px(mouthX, mouthY, mc); f.px(mouthX + 1, mouthY + 1, mc); }
-        else if (fi === FR.sleep) f.px(mouthX, mouthY, mc);
-        else { f.px(mouthX - 1, mouthY, mc); f.px(mouthX, mouthY + 1, mc); f.px(mouthX + 1, mouthY, mc); }
-        if (grump) { f.px(mouthX - 1, mouthY + 1, WHITE); f.px(mouthX + 1, mouthY + 1, WHITE); }
-      }
+        paintFace(faceInk(f), fi, { e1: e1, e2: e2, ey: ey, es: es, mx: mouthX, my: mouthY, grown: grown, face: face, eyeT: eyeT, elder: elder, cheeks: lk.cheeks, dark: dark, outline: outline, glasses: tier === 5 });
+      } else cuteFace(faceInk(f), fi, { e1: e1, e2: e2, ey: ey, es: es, mx: mouthX, my: mouthY, grump: grump, eyeT: eyeT, elder: elder, cheeks: lk.cheeks, dark: dark, outline: outline });
       // ---- near arm
       if (hasArms) {
         var hold = c.holding != null;
@@ -252,11 +241,7 @@
         for (var bx = Math.ceil(bcx - brx); bx <= bcx + brx; bx++) if (f.on(bx, by)) f.px(bx, by, [120, 80, 45]);
         f.px(Math.round(bcx + brx * 0.3), by, GOLD);
       }
-      if (!grump && tier === 5) { // thinkers: little round glasses
-        var gc = [70, 55, 95];
-        [e1, e2].forEach(function (ex) { f.px(ex - 1, ey, gc); f.px(ex + 2, ey, gc); f.rect(ex, ey - 1, 2, 1, gc); f.rect(ex, ey + es, 2, 1, gc); });
-        f.px(Math.round((e1 + e2) / 2) + 1, ey, gc);
-      }
+      if (!grump && tier === 5) glasses(faceInk(f), e1, e2, ey, es); // thinkers: little round glasses
       f.outline(outline);
       var gl9 = function (x, y, c) { if (x >= 1 && x <= F - 2 && y >= 1) f.px(x, y, c, 9); };
       if (acc === "halo" && tier < 6) for (var hh2 = -2; hh2 <= 2; hh2++) { gl9(cx + hh2, top - 4 - (Math.abs(hh2) < 2 ? 1 : 0), [190, 240, 255]); if (Math.abs(hh2) === 2) gl9(cx + hh2, top - 4, [190, 240, 255]); }
@@ -275,6 +260,44 @@
     return { frames: frames, bodyPx: tallPx, head: headAt, face: face };
   }
   PX.paint = paint;
+
+  // Face pixels carry their own tag (5), so the hd treatment (hdify) shades the body around them and never the
+  // eyes and mouth. Glowing bits (tag 9) keep theirs.
+  function faceInk(f) {
+    return { px: function (x, y, c, t) { f.px(x, y, c, t === 9 ? 9 : 5); }, rect: function (x, y, w, h, c, t) { f.rect(x, y, w, h, c, t === 9 ? 9 : 5); } };
+  }
+  // The cute face (blobs, critters, tool-users): big sparkly eyes and a smile, or a grump's scowl. Also painted
+  // on the front of the 3D smols (voxel.js), so o carries the positions.
+  function cuteFace(f, fi, o) {
+    var e1 = o.e1, e2 = o.e2, ey = o.ey, es = o.es, eyeT = o.eyeT, grump = o.grump, eyeC = grump ? [255, 70, 70] : INK, mouthX = o.mx, mouthY = o.my;
+    [e1, e2].forEach(function (ex, i) {
+      if (fi === FR.blink || fi === FR.sleep) { f.rect(ex, ey + es - 1, 2, 1, INK); return; }
+      if (fi === FR.happy) { f.px(ex, ey + es - 1, INK); f.px(ex + 1, ey + es - 2, INK); f.px(ex + 2, ey + es - 1, i ? null : INK); return; }
+      if (fi === FR.scared) { f.rect(ex, ey - 1, 2, es + 1, WHITE); f.px(ex + 1, ey + 1, INK); return; }
+      var ec = eyeT === "hetero" ? (i ? [235, 165, 45] : [70, 150, 235]) : eyeT === "star" ? [255, 200, 50] : eyeT === "heart" ? [240, 60, 125] : eyeT === "cosmic" ? [80, 40, 150] : eyeC;
+      f.rect(ex, ey, 2, es, ec);
+      if (eyeT === "sleepy") { f.rect(ex, ey, 2, es - 1, o.dark); return; }
+      if (!grump) f.px(ex, ey, eyeT === "cosmic" ? [150, 245, 255] : WHITE);
+      if (eyeT === "cosmic") f.px(ex + 1, ey + es - 1, [255, 120, 220]);
+      if (eyeT === "heart") f.px(ex + 1, ey + es - 1, [170, 20, 80]);
+      if (eyeT === "star" && i) f.px(ex + 2, ey - 1, WHITE, 9);
+    });
+    if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
+    if (o.elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
+    if (o.cheeks && !grump && fi !== FR.sad) { f.px(e1 - 1, ey + es, PINK); f.px(e2 + 2, ey + es, PINK); }
+    var mc = grump ? [40, 10, 20] : o.outline;
+    if (fi === FR.eat || fi === FR.scared) f.rect(mouthX - 1, mouthY, 2, 2, mc);
+    else if (fi === FR.sad) { f.px(mouthX - 1, mouthY + 1, mc); f.px(mouthX, mouthY, mc); f.px(mouthX + 1, mouthY + 1, mc); }
+    else if (fi === FR.sleep) f.px(mouthX, mouthY, mc);
+    else { f.px(mouthX - 1, mouthY, mc); f.px(mouthX, mouthY + 1, mc); f.px(mouthX + 1, mouthY, mc); }
+    if (grump) { f.px(mouthX - 1, mouthY + 1, WHITE); f.px(mouthX + 1, mouthY + 1, WHITE); }
+  }
+  function glasses(f, e1, e2, ey, es) {
+    var gc = [70, 55, 95];
+    [e1, e2].forEach(function (ex) { f.px(ex - 1, ey, gc); f.px(ex + 2, ey, gc); f.rect(ex, ey - 1, 2, 1, gc); f.rect(ex, ey + es, 2, 1, gc); });
+    f.px(Math.round((e1 + e2) / 2) + 1, ey, gc);
+  }
+  PX.cuteFace = cuteFace; PX.glasses = glasses;
 
   // A tribe-and-on face, readable from the god view in a couple of pixels: brows that tilt (angry: in and
   // down, sad and worried: in and up), the mouth (smile, flat, frown, a little "o"), sleepy lids. Grown-ups
@@ -326,6 +349,68 @@
     else if (mood === "angry") f.rect(mx - 1, my + 1, 3, 1, mc);
     else f.rect(mx - 1, my, 2, 1, mc); // neutral, tired: a flat little line
   }
+  PX.paintFace = paintFace;
+
+  /* ---------------- the hd treatment ----------------
+     In the hd look every painted frame gets the generated world art's rendering, procedurally, so every gene
+     variation keeps working: a soft dome of normals from the silhouette lit from the upper left in five steps
+     (lilac deep shade, shade, base, warm light, a honey highlight) with ordered dithering at the steps, a fine
+     skin or fur texture (more for fluffy smols), a cool rim of sky light on the far edge, and outlines coloured
+     from what they wrap: dark under the feet, a little lighter along the top. Faces (tag 5), glowing bits
+     (tag 9) and the outline itself are never shaded. */
+  var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  var TONES = [[0.64, 0.62, 0.8], [0.82, 0.8, 0.92], [1, 1, 1], [1.1, 1.07, 0.97]], HONEY = [255, 244, 214], SKY = [196, 222, 255];
+  function hdify(sheet, c) {
+    var seed = (c && c.look && c.look.spotsSeed) || 7, fluffy = !!(c && c.look && c.look.fluff), A = new Float32Array(F * F), B = new Float32Array(F * F);
+    for (var fi = 0; fi < sheet.frames.length; fi++) {
+      if (fi === FR.dot) continue;
+      var f = sheet.frames[fi], d = f.d, tg = f.tag, x, y, i;
+      // a blurred silhouette (two box passes, radius 2): its slope is the surface normal near the edges
+      for (i = 0; i < F * F; i++) A[i] = d[i * 4 + 3] ? 1 : 0;
+      var cyy = 0, cn = 0, top = F, bot = 0;
+      for (i = 0; i < F * F; i++) if (A[i]) { var yi = (i / F) | 0; cyy += yi; cn++; if (yi < top) top = yi; if (yi > bot) bot = yi; }
+      cyy = cn ? cyy / cn : 16;
+      for (var pass = 0; pass < 2; pass++) {
+        for (y = 0; y < F; y++) for (x = 0; x < F; x++) { var s = 0; for (var k = -3; k <= 3; k++) { var xx = x + k; s += xx >= 0 && xx < F ? A[y * F + xx] : 0; } B[y * F + x] = s / 7; }
+        for (y = 0; y < F; y++) for (x = 0; x < F; x++) { var s2 = 0; for (var k2 = -3; k2 <= 3; k2++) { var yy = y + k2; s2 += yy >= 0 && yy < F ? B[yy * F + x] : 0; } A[y * F + x] = s2 / 7; }
+      }
+      var out = new Uint8ClampedArray(d);
+      for (y = 1; y < F - 1; y++) for (x = 1; x < F - 1; x++) {
+        i = y * F + x;
+        var o = i * 4;
+        if (!d[o + 3]) continue;
+        var t = tg[i];
+        if (t === 2) { // the outline: a dark shade of what it wraps (darkest under the feet, warmer along the top)
+          var src = -1, nb = [i - 1, i + 1, i - F, i + F];
+          for (var q = 0; q < 4; q++) if (d[nb[q] * 4 + 3] && tg[nb[q]] !== 2 && tg[nb[q]] !== 9) { src = nb[q]; break; }
+          if (src < 0) continue;
+          var kk = src === i - F ? 0.16 : src === i + F ? 0.34 : 0.24;
+          out[o] = d[src * 4] * kk + 14 * (1 - kk); out[o + 1] = d[src * 4 + 1] * kk + 10 * (1 - kk); out[o + 2] = d[src * 4 + 2] * kk + 26 * (1 - kk);
+          continue;
+        }
+        if (t === 5 || t === 9) continue;
+        var gx = A[i + 1] - A[i - 1], gy = A[i + F] - A[i - F];
+        var nx = -gx * 4, ny = -gy * 4, nz = 1, nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        var lam = (nx * -0.55 + ny * -0.68 + nz * 0.48) / nl; // light from the upper left, a little in front
+        var tone = lam * 0.5 + 0.5 - (y - cyy) / Math.max(6, bot - top) * 0.32 + (BAYER[(y & 3) * 4 + (x & 3)] / 16 - 0.47) * 0.12;
+        var r = d[o], g = d[o + 1], b = d[o + 2], T;
+        if (tone < 0.36) T = TONES[0]; else if (tone < 0.5) T = TONES[1]; else if (tone < 0.73) T = TONES[2]; else T = TONES[3];
+        r *= T[0]; g *= T[1]; b *= T[2];
+        if (tone > 0.86) { r += (HONEY[0] - r) * 0.3; g += (HONEY[1] - g) * 0.3; b += (HONEY[2] - b) * 0.3; }
+        // skin and fur: a sparse texture of slightly darker (and, on fluffy smols, lighter) pixels
+        var hsh = SB.hash(x, y + fi * 0, seed);
+        if (hsh < (fluffy ? 0.16 : 0.08)) { r *= 0.9; g *= 0.9; b *= 0.93; }
+        else if (fluffy && hsh > 0.9) { r += (255 - r) * 0.12; g += (255 - g) * 0.12; b += (255 - b) * 0.12; }
+        // rim light on the far (right) edge, where the sky catches it
+        if (!d[(i + 1) * 4 + 3] || tg[i + 1] === 2) { r += (SKY[0] - r) * 0.38; g += (SKY[1] - g) * 0.38; b += (SKY[2] - b) * 0.38; }
+        out[o] = r; out[o + 1] = g; out[o + 2] = b;
+      }
+      f.d = out;
+    }
+    sheet.hd = true;
+    return sheet;
+  }
+  PX.hdify = hdify;
 
   /* ---------------- atlas ---------------- */
   var atlas = null, tex = null, slots = {}, slotUse = [], frameNo = 0, glctx = null;
@@ -353,6 +438,7 @@
     if (idx < 0) return null;
     for (var k in slots) if (slots[k].i === idx) delete slots[k];
     var sheet = (PX.override && PX.override(c, F, NF, FR)) || paint(c), gl = ctx.gl, a2 = atlas.getContext("2d"), img = a2.createImageData(F * NF, F);
+    if (R.hd && !sheet.hd) hdify(sheet, c); // the hd look: richer shading, a little texture, rim light, coloured outlines
     for (var fi = 0; fi < NF; fi++) for (var y = 0; y < F; y++) img.data.set(sheet.frames[fi].d.subarray(y * F * 4, (y + 1) * F * 4), (y * F * NF + fi * F) * 4);
     var ox = (idx % SLOTS_X) * F * NF, oy = ((idx / SLOTS_X) | 0) * F;
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -383,6 +469,7 @@
     if (an.blink > 0.5) return FR.blink;
     return Math.sin(an.bob) > 0 ? FR.idle1 : FR.idle0;
   }
+  PX.frameFor = frameFor;
   // queue one creature (called from bodies.js instead of the 3D parts)
   PX.creature = function (c, x, y, z, t, alpha) {
     var ctx = R.gl();
