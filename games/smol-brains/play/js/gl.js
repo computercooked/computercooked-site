@@ -127,6 +127,13 @@
     out[12] = (l + r) * lr; out[13] = (t + b) * bt; out[14] = (f + n) * nf; out[15] = 1;
     return out;
   };
+  // perspective: fovy in radians (used by the possessed smol's eyes, possess.js)
+  M.perspective = function (out, fovy, aspect, n, f) {
+    var t = 1 / Math.tan(fovy / 2), nf = 1 / (n - f);
+    out.fill(0);
+    out[0] = t / aspect; out[5] = t; out[10] = (f + n) * nf; out[11] = -1; out[14] = 2 * f * n * nf;
+    return out;
+  };
   M.lookAt = function (out, ex, ey, ez, cx, cy, cz, ux, uy, uz) {
     var zx = ex - cx, zy = ey - cy, zz = ez - cz, l = 1 / Math.hypot(zx, zy, zz);
     zx *= l; zy *= l; zz *= l;
@@ -153,6 +160,7 @@
     out[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
     out[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
     out[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
+    out[3] = w; // < 0: behind a perspective camera
     return out;
   };
 })();

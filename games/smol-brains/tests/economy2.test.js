@@ -58,14 +58,14 @@ console.log("2. small heads forget debts; tally sticks don't");
 console.log("3. tally sticks, then shells, are invented when they're needed");
 {
   const { SB, game, cs } = town(73, 18);
-  const ev = []; ["eureka", "coins"].forEach(k => SB.bus.on(k, d => ev.push([k, d.id])));
+  const ev = []; let atCoins = null; ["eureka", "coins"].forEach(k => SB.bus.on(k, d => ev.push([k, d.id]))); SB.bus.on("coins", () => { atCoins = SB.Game.smols(game).filter(c => c.stage >= 3 && !c.stranger).map(c => c.purse || 0); });
   runFed(SB, game, 6);
   check("a town", SB.Civ.era(game) === 2, SB.Civ.eraName(game));
   for (let i = 0; i < 12; i++) SB.bus.emit("give", { c: cs[i], to: cs[i + 1], item: { kind: "apple" } });
   runFed(SB, game, 120);
   check("a thinker carves tally sticks when debts pile up", ev.some(e => e[1] === "tally"));
   check("a town with tallies agrees on shell money", game.econ.coins && ev.some(e => e[0] === "coins"));
-  check("everyone gets a few shells", cs.every(c => !c.alive || c.purse >= 1), cs.map(c => c.purse).slice(0, 5).join(","));
+  check("every grown-up gets a few shells", atCoins && atCoins.every(p => p >= 3), atCoins && atCoins.slice(0, 5).join(","));
   check("the money is called shells", SB.Economy.money(game) === "shells");
 }
 

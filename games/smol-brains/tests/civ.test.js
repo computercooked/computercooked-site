@@ -170,10 +170,11 @@ console.log("7. the Law of the Sky: what the hand does becomes law, and guards k
   const law = game.civ.laws[0], guard = SB.Game.smols(game).find(c => c.job === "guard"), bad = cs.find(c => c.job !== "guard" && c !== guard);
   const told = []; SB.bus.on("lawBroken", d => told.push(d));
   bad.x = guard.x + 1; bad.z = guard.z; bad._lawT = 0;
+  const scolded = () => ((bad.ops && bad.ops[guard.id] && bad.ops[guard.id].m) || []).filter(m => m[3] === "scolded").length;
   bad.action = { verb: law.verb, noun: law.noun, kind: "x", phase: "go", dur: 5, t: 0 };
   run(SB, game, 2.1);
   check("a guard tells off a law-breaker", told.length >= 1 && told[0].c === bad, told.length);
-  check("and the offender remembers it", SB.Social.opinion(game, bad, guard) < SB.Social.opinion(game, cs.find(c => c !== bad && c !== guard), guard) + 1);
+  check("and the offender remembers it", scolded() >= 1);
   // a scribe who can barely read misreads a lot: over many laws, some come out wrong
   const scribe = SB.Game.byId(game, game.civ.scribe); scribe.genome.genes.learnRate = 0;
   let mis = 0;

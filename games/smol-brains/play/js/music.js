@@ -97,6 +97,14 @@
       A: { ch: "1 5 6 3 4 1 4 5", mel: "3' . . . 2' . . . | 2' . . . 7 . . . | 1' . . . 6 . 1' . | 7 . . . 5 . . . | 6 . . . 1' . 6 . | 5 . . . 3 . 1 . | 2 . 4 . 6 . 1' . | 7 . . . . . . ." },
       B: { ch: "4 5 3 6 2 5 1 1", mel: "6 . 1' . 4' . 6' . | 5' . . . 2' . 7 . | 5 . 7 . 3' . 5' . | 3' . . . 1' . 6 . | 6 . 1' . 4' . 2' . | 7 . . . 2' . 5' . | 3' . . . 2' . 1' . | 1' . . . . . . ." } }
   ];
+  // cues: music for one scene, never picked by the playlist or listed in the jukebox (v3.6: the ark battle)
+  var CUES = [
+    { id: "arkfight", title: "the ark falls", root: 69, scale: "minor", bpm: 148, bar: 8, lead: "synth", lead2: "brass", acc: "drive", accI: "pluck", drums: 1, strings: 1,
+      tags: ["cue"],
+      A: { ch: "1 6 3 5", mel: "1 . 1 5, 1 . 3 . | 3 . 1 . 6, . 1 . | 5 . 5 3 5 . 1' . | 7 . 5 . 2 . 5, ." },
+      B: { ch: "4 6 5 5M", mel: "4 . 6 . 1' . 6 . | 3' . . 2' 1' . 6 . | 5 . 7 . 2' . 1' 7 | #7 . . . 5 . . ." } }
+  ];
+  M.CUES = CUES;
   var SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10] };
   var FORM = ["A", "A", "B", "A"];
   M.SONGS = SONGS;
@@ -147,9 +155,20 @@
     function band(ch, t0, pass, last) {
       var bass = keyRoot - 24 + ch[0], tones = ch.map(function (x) { return keyRoot - 12 + x; }), n = song.bar, a = song.acc, I = song.accI, vA = pass ? 0.5 : 0.42;
       while (bass > keyRoot - 14) bass -= 12;
+      if (a === "drive") {
+        // action: a pumping eighth-note bass in octaves, and power stabs on the off-beats
+        for (var s0 = 0; s0 < n; s0++) add("bass", t0 + s0 * step, bass + (s0 % 2 ? 12 : 0), step * 0.8, s0 % 4 ? 0.45 : 0.62);
+        if (pass >= 0) [3, 6].forEach(function (s1) { tones.forEach(function (m, j) { add("brass", t0 + s1 * step + j * 0.004, m, step * 0.9, 0.3); }); });
+      } else {
       // bass: the root on the downbeat, the fifth halfway in the faster songs
       add("bass", t0, bass, barLen * (song.bpm > 95 ? 0.45 : 0.9), 0.55);
       if (song.bpm > 95 && n === 8) add("bass", t0 + 4 * step, bass + 7, barLen * 0.4, 0.4);
+      }
+      if (song.drums) {
+        // a big kit: kick on the beat, snare on two and four, hats on every step (the intro bars only tick)
+        for (var d0 = 0; d0 < n; d0++) add("hat", t0 + d0 * step, 0, 0.04, d0 % 2 ? 0.3 : 0.5);
+        if (pass >= 0) { [0, 2, 4, 6].forEach(function (d1) { add("kick", t0 + d1 * step, 0, 0.2, 0.9); }); [2, 6].forEach(function (d2) { add("snare", t0 + d2 * step, 0, 0.2, 0.7); }); if (last) add("crash", t0, 0, 1.5, 0.6); }
+      }
       if (a === "arp") { var pat = [0, 2, 1, 2, 3, 2, 1, 2]; for (var s = 0; s < n; s++) add(I, t0 + s * step, [tones[0], tones[1], tones[2], tones[0] + 12][pat[s % 8]], step * 3, vA * (s === 0 ? 1 : 0.75)); }
       else if (a === "waltz") { [2, 4].forEach(function (s2) { tones.forEach(function (m, j) { add(I, t0 + s2 * step + j * 0.012, m + 12, step * 1.6, vA * 0.55); }); }); }
       else if (a === "jig") { [0, 3].forEach(function (s2) { tones.forEach(function (m, j) { add(I, t0 + s2 * step + j * 0.01, m + 12, step * 1.2, vA * (s2 ? 0.45 : 0.6)); }); }); }
@@ -283,6 +302,35 @@
       var n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain(); n.buffer = noiseBuf; hp.type = "highpass"; hp.frequency.value = 7000;
       env(g, t, 0.004, v * 0.05, [0.0001, 0.02], t + 0.06); n.connect(hp); hp.connect(g); g.connect(out); n.start(t, Math.random() * 0.8); n.stop(t + 0.1);
     },
+    synth: function (t, f, d, v, out) { // an 8-bit hero lead: two detuned squares through a bright filter
+      var g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 3;
+      lp.frequency.setValueAtTime(Math.min(8000, f * 7), t); lp.frequency.setTargetAtTime(Math.min(5000, f * 3.5), t, 0.12);
+      var end = t + d * 0.95 + 0.03; env(g, t, 0.006, v * 0.15, [0.7, 0.3], end); lp.connect(g); g.connect(out);
+      osc("square", f, t, end, lp, -6); osc("square", f, t, end, lp, 6);
+    },
+    brass: function (t, f, d, v, out) { // a swelling saw stab
+      var g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 1.5;
+      lp.frequency.setValueAtTime(f * 1.2, t); lp.frequency.linearRampToValueAtTime(Math.min(6000, f * 6), t + 0.06); lp.frequency.setTargetAtTime(f * 2, t + 0.08, 0.2);
+      var end = t + d * 0.95 + 0.04; env(g, t, 0.02, v * 0.2, [0.6, 0.3], end); lp.connect(g); g.connect(out);
+      osc("sawtooth", f, t, end, lp, -9); osc("sawtooth", f, t, end, lp, 9); osc("sawtooth", f / 2, t, end, lp);
+    },
+    snare: function (t, f, d, v, out) {
+      var g = ctx.createGain(), o = ctx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.08);
+      env(g, t, 0.002, v * 0.2, [0.0001, 0.05], t + 0.12); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.2);
+      if (!noiseBuf) return;
+      var n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), ng = ctx.createGain(); n.buffer = noiseBuf; bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.7;
+      env(ng, t, 0.002, v * 0.32, [0.0001, 0.07], t + 0.2); n.connect(bp); bp.connect(ng); ng.connect(out); n.start(t, Math.random() * 0.8); n.stop(t + 0.25);
+    },
+    hat: function (t, f, d, v, out) {
+      if (!noiseBuf) return;
+      var n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain(); n.buffer = noiseBuf; hp.type = "highpass"; hp.frequency.value = 9000;
+      env(g, t, 0.002, v * 0.08, [0.0001, 0.015], t + 0.05); n.connect(hp); hp.connect(g); g.connect(out); n.start(t, Math.random() * 0.8); n.stop(t + 0.08);
+    },
+    crash: function (t, f, d, v, out) {
+      if (!noiseBuf) return;
+      var n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain(); n.buffer = noiseBuf; n.loop = true; hp.type = "highpass"; hp.frequency.value = 5000;
+      env(g, t, 0.003, v * 0.14, [0.0001, 0.5], t + d); n.connect(hp); hp.connect(g); g.connect(out); n.start(t, Math.random() * 0.5); n.stop(t + d + 0.5);
+    },
     kick: function (t, f, d, v, out) {
       var g = ctx.createGain(), o = ctx.createOscillator(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
       env(g, t, 0.003, v * 0.35, [0.0001, 0.06], t + 0.2); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.3);
@@ -357,7 +405,7 @@
     if (!wire()) return;
     var game = SB.Game && SB.Game.current, now = ctx.currentTime;
     // raids and storms pull the music right down, so the alarm and thunder carry the moment
-    var inc = game && game.dir && game.dir.active, want = vol * (inc && (inc.id === "raid" || inc.id === "storm") ? 0.25 : 1) * (SB.Intro && SB.Intro.covering && (!cur || cur.song.id !== "smolbrains" && cur.song.id !== "bigthought") ? 0 : 1);
+    var inc = game && game.dir && game.dir.active, want = vol * (inc && (inc.id === "raid" || inc.id === "storm") ? 0.25 : 1) * (SB.Intro && SB.Intro.covering && (!cur || cur.song.id !== "smolbrains" && cur.song.id !== "bigthought" && cur.song.tags.indexOf("cue") < 0) ? 0 : 1);
     if (Math.abs(want - duck) > 0.001) { duck = want; bus.gain.setTargetAtTime(duck * LEVEL, now, 0.8); }
     if (vol <= 0) return;
     if (cur) return;
@@ -387,7 +435,7 @@
     return sc.dur;
   };
   M._fits = fits; M._pick = pick; M._grief = function (t) { griefT = t; }; // for tests
-  M.byId = function (id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return null; };
+  M.byId = function (id) { var all = SONGS.concat(CUES); for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; };
   // cue a song now (the title card, the ending, the jukebox)
   M.play = function (id, opts) {
     var s = M.byId(id);

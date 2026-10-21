@@ -120,14 +120,8 @@
     return cap;
   };
 
-  // strangers and pods leave the last few seats for babies: a small band full of newcomers stops evolving.
-  // and a full small band lives fast: grown-ups age quicker, so generations still turn over (CROWD = aging rate)
-  function setCaps(game) {
-    var cap = SB.Game.POP_CAP = Cv.popCap(game);
-    SB.Game.JOIN_CAP = cap < 36 ? Math.max(4, cap - 3) : cap;
-    var full = cap < 36 && SB.Game.smols(game).length + game.world.items.filter(function (o) { return o.kind === "egg"; }).length >= cap;
-    SB.Game.CROWD = full ? Math.pow(36 / cap, 0.75) : 1;
-  }
+  // strangers and pods leave the last few seats for babies: a small band full of newcomers stops evolving
+  function setCaps(game) { var cap = SB.Game.POP_CAP = Cv.popCap(game); SB.Game.JOIN_CAP = cap < 36 ? Math.max(4, cap - 3) : cap; }
 
   /* ---------------- new ideas the island grows into ---------------- */
 
@@ -155,6 +149,24 @@
       if (pop >= 22 && game.culture.writing) maybeFind(game, "council", 0.06 * k, "said we should all sit down and decide things");
     }
     if (e >= 3) maybeFind(game, "law", 0.08 * k, "started writing down what the sky wants");
+    // the first stalls and the hall don't wait for their few knowers to fancy building them: someone who knows
+    // marks out the site, and any builder can help raise it
+    game.civ.foundT = (game.civ.foundT || 0) - dt;
+    if (game.civ.foundT <= 0) {
+      game.civ.foundT = 30;
+      if (knows(game, "market") && all(game, "stall").length < 2) found(game, "market", "stall");
+      else if (e >= 2 && pop >= 22 && knows(game, "council") && !all(game, "hall").length) found(game, "council", "hall");
+    }
+  }
+  function all(game, kind) { return game.world.structures.filter(function (s) { return s.kind === kind; }); }
+  function found(game, id, kind) {
+    var c = smols(game).find(function (o) { return o.stage >= 3 && !o.far && SB.Ideas.known(o, id); });
+    if (!c || !SB.Ideas.pickSite) return;
+    var site = SB.Ideas.pickSite(c, kind, game);
+    if (!site) return;
+    var st = SB.World.addStructure(game.world, game, kind, site.x, site.z, { tribe: c.tribe, rot: site.rot });
+    st.founder = c.name;
+    SB.bus.emit("siteStarted", { c: c, st: st });
   }
 
   // how much the tribe needs one of the new buildings (called from Ideas.buildNeed)

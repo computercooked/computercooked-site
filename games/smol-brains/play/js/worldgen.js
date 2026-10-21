@@ -46,10 +46,112 @@
     var g = new Float32Array((res + 1) * (res + 1));
     for (var j = 0; j <= res; j++) for (var i = 0; i <= res; i++) g[j * (res + 1) + i] = fn(i / res, j / res);
     return function (x, z) {
-      var fx = SB.clamp(x, 0, 1) * res, fz = SB.clamp(z, 0, 1) * res, i = Math.min(res - 1, fx | 0), j = Math.min(res - 1, fz | 0);
+      var fx = (x < 0 ? 0 : x > 1 ? 1 : x) * res, fz = (z < 0 ? 0 : z > 1 ? 1 : z) * res, i = fx | 0, j = fz | 0;
+      if (i > res - 1) i = res - 1; if (j > res - 1) j = res - 1;
       var tx = fx - i, tz = fz - j, a = j * (res + 1) + i;
       return (g[a] * (1 - tx) + g[a + 1] * tx) * (1 - tz) + (g[a + res + 1] * (1 - tx) + g[a + res + 2] * tx) * tz;
     };
+  }
+
+  /* ---------------- generator 2 (v3.7): island archetypes ----------------
+     Every new island is one of these shapes (picked by the seed, or chosen in "create world"), with the same
+     per-tile hills, ridges and rivers on top, so a big island has more of everything rather than bigger bumps. */
+  var ARCHS = ["classic", "volcano", "twin", "crescent", "mesa", "delta", "lakes", "fjord"];
+  WG.ARCHS = ARCHS;
+  WG.ARCH_NAMES = { classic: "one big island", volcano: "volcano island", twin: "twin islands", crescent: "crescent bay", mesa: "mesa country", delta: "river delta", lakes: "lake district", fjord: "fjord coast" };
+  function segDist(px, pz, ax, az, bx, bz) {
+    var vx = bx - ax, vz = bz - az, t = ((px - ax) * vx + (pz - az) * vz) / (vx * vx + vz * vz);
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    var ex = ax + vx * t - px, ez = az + vz * t - pz;
+    return Math.sqrt(ex * ex + ez * ez);
+  }
+  function heights2(h, seed, shape, arch, feat, nA, nB, nC, nD, nP) {
+    var K = N / 256, T2 = N / 256; // tiles-per-classic-unit: noise below is in tiles, so features keep their size
+    var ra = SB.rng((seed * 977 + 5) >>> 0);
+    var res = Math.max(32, N >> 3);
+    var warpF = coarse(function (x, z) { return fbm(nC, x * 3 * T2 + shape.ox, z * 3 * T2 + shape.oz, 3, 2, 0.5); }, res);
+    var mtnF = coarse(function (x, z) { return fbm(nD, x * 1.6 * T2 + 7, z * 1.6 * T2 - 3, 3, 2, 0.5); }, res);
+    var ridgeF = coarse(function (x, z) { return fbm(nB, x * 3.1 * T2, z * 3.1 * T2, 4, 2.1, 0.5); }, Math.max(64, N >> 1));
+    // big-shape warp in island units (coastlines that wander), and extras per archetype
+    var nS = SB.noise2(seed + 909), bigF = coarse(function (x, z) { return fbm(nS, x * 2.2 + 5, z * 2.2 - 8, 3, 2, 0.5); }, 48);
+    var nL = SB.noise2(seed + 919), lakeF = arch === "lakes" ? coarse(function (x, z) { return fbm(nL, x * N / 70, z * N / 70, 2, 2, 0.5); }, Math.max(32, N >> 2)) : null;
+    var fjF = arch === "fjord" ? coarse(function (x, z) { return 1 - Math.abs(fbm(nL, x * N / 55 + 3, z * N / 55, 3, 2, 0.5)) * 2.2; }, Math.max(48, N >> 1)) : null;
+    var canF = arch === "mesa" ? coarse(function (x, z) { return Math.abs(fbm(nL, x * N / 90 - 4, z * N / 90 + 2, 3, 2, 0.5)); }, Math.max(48, N >> 1)) : null;
+    var a0 = ra() * 6.283, ca = Math.cos(a0), sa = Math.sin(a0);
+    var c1x = 0.5 - ca * 0.235, c1z = 0.5 - sa * 0.235, c2x = 0.5 + ca * 0.235, c2z = 0.5 + sa * 0.235; // twins
+    var vx = 0.5 + (ra() - 0.5) * 0.16, vz = 0.5 + (ra() - 0.5) * 0.16; // the volcano
+    var gapA = ra() * 6.283; // where the crescent opens
+    if (arch === "volcano") feat.volcano = { x: vx * N, z: vz * N, r: 0.2 * N };
+    var V2 = V, Nn = N, oct = 5;
+    for (var j = 0; j < V2; j++) for (var i = 0; i < V2; i++) {
+      var x = i / Nn, z = j / Nn, dx = x - 0.5, dz = z - 0.5, ang = Math.atan2(dz, dx), rr = Math.sqrt(dx * dx + dz * dz);
+      var d = rr * 2, warp = warpF(x, z), big = bigF(x, z);
+      if (arch === "twin") d = Math.min(Math.hypot(x - c1x, z - c1z), Math.hypot(x - c2x, z - c2z)) * 3.9;
+      else if (arch === "crescent") {
+        var gd = Math.abs(SB.angDiff(ang, gapA));
+        d = Math.abs(rr - 0.29) * 5.2 + 0.2 + SB.smooth(1 - gd / 0.75) * 1.1;
+      }
+      d += warp * 0.2 + big * 0.12 + (arch === "classic" || arch === "volcano" || arch === "mesa" ? Math.sin(ang * shape.lobes + shape.lobeA) * 0.07 : 0);
+      if (fjF) { var mk0 = SB.smooth((1.02 - d) / 0.42); if (mk0 > 0.1 && mk0 < 0.97) { var fv = fjF(x, z); if (fv > 0.7) d += (fv - 0.7) / 0.3 * 1.1 * (1.05 - mk0); } }
+      var mask = SB.smooth((1.02 - d) / 0.42) * shape.land;
+      var e = fbm(nA, x * 4.2 * T2 + shape.ox, z * 4.2 * T2 + shape.oz, oct, 2.05, 0.5);
+      var ridge = 1 - Math.abs(ridgeF(x, z) * 1.4); ridge *= ridge;
+      var mtnMask = SB.smooth((mtnF(x, z) + 0.05 + shape.tilt * (x - 0.5)) / 0.4);
+      var mtn = shape.mtn * (arch === "delta" ? 0.45 : arch === "mesa" ? 0.6 : 1);
+      var hh = (mask - 0.42) * 15 + e * 5 * shape.rough + ridge * mtnMask * mask * 17 * mtn;
+      if (hh > 0.4 && hh < 6) hh = 0.4 + (hh - 0.4) * (arch === "delta" ? 0.5 : 0.72);
+      if (arch === "volcano") {
+        var dc = Math.hypot(x - vx, z - vz) / 0.2;
+        if (dc < 1) { var cone = SB.smooth(1 - dc); hh += cone * cone * 24 - SB.smooth(1 - dc / 0.12) * 9; }
+      }
+      if (arch === "twin") { var sd = segDist(x, z, c1x, c1z, c2x, c2z) * Nn; if (sd < 7) hh = Math.max(hh, 0.55 * SB.smooth(1 - sd / 7) - (1 - SB.smooth(1 - sd / 7)) * 2); }
+      if (canF && hh > 1.2) {
+        // mesas: flat tops and cliffs, cut by dry canyons
+        var st = 2.8, v = (hh - 1.2) / st, f = v - Math.floor(v);
+        hh = 1.2 + (Math.floor(v) + SB.smooth((f - 0.72) / 0.24)) * st;
+        var cv = canF(x, z); if (cv < 0.06) hh -= (1 - cv / 0.06) * Math.min(5, hh - 0.6);
+      }
+      if (lakeF && mask > 0.75) { var lv = lakeF(x, z); if (lv > 0.32) hh -= (lv - 0.32) * 14; }
+      if (hh < -7) hh = -7 + (hh + 7) * 0.3;
+      h[j * V2 + i] = hh;
+    }
+    // sea stacks: rock pillars standing in the shallows
+    var nStacks = Math.round(10 * K * K);
+    for (var s = 0, tries = 0; s < nStacks && tries < nStacks * 60; tries++) {
+      var si = 14 + ra.int(Nn - 28), sj = 14 + ra.int(Nn - 28), hv = h[sj * V2 + si];
+      if (hv > -0.6 || hv < -3.2) continue;
+      var land = false;
+      for (var q = 0; q < 8 && !land; q++) { var qi = si + Math.round(Math.cos(q * 0.785) * 9), qj = sj + Math.round(Math.sin(q * 0.785) * 9); if (qi > 0 && qj > 0 && qi < Nn && qj < Nn && h[qj * V2 + qi] > 0.5) land = true; }
+      if (!land) continue;
+      var top = 3 + ra() * 4, rad = 1.2 + ra() * 1.2;
+      for (var pj = -3; pj <= 3; pj++) for (var pi = -3; pi <= 3; pi++) {
+        var dd = Math.hypot(pi, pj) / rad; if (dd > 1.6) continue;
+        var kk = (sj + pj) * V2 + si + pi;
+        h[kk] = Math.max(h[kk], dd < 1 ? top - dd * 0.8 : hv + (top - hv) * (1.6 - dd) / 0.6 * 0.4);
+      }
+      s++;
+    }
+    feat.stacks = s;
+  }
+
+  // generator 2 biomes: the classic twelve plus eight new ones, chosen by climate and a slow "variant"
+  // noise that splits a forest into maple or blossom woods, a jungle into bamboo, a meadow into flower fields
+  function biome2(th, tt, mm, sl, sea, od, vr, sp, rf, feat, i, j) {
+    if (th < SB.SEA - 0.15 && sea) return th > SB.SEA - 1.8 && tt > 0.5 && rf > -0.15 ? B.reef : B.ocean;
+    if (feat.volcano) { var dv = Math.hypot(i - feat.volcano.x, j - feat.volcano.z) / feat.volcano.r; if (dv < 0.75 + sp * 0.15 && th > 1) return B.ash; }
+    if (od < 4 && th < 1.4 && sl < 1.2) return tt < 0.2 ? B.tundra : tt > 0.6 && mm > 0.62 ? B.mangrove : B.beach;
+    if (th > 14 || (th > 9 && sl > 1.6)) return tt > 0.68 && mm < 0.4 ? B.mesa : sp > 0.72 ? B.ash : B.mountain;
+    var bm;
+    if (tt < 0.2) bm = B.tundra;
+    else if (tt < 0.36) bm = mm > 0.42 ? B.taiga : B.tundra;
+    else if (tt > 0.72) bm = mm < 0.34 ? (th > 3 && vr > -0.1 ? B.mesa : B.desert) : mm < 0.56 ? B.savanna : vr < -0.22 ? B.bamboo : B.jungle;
+    else if (mm > 0.7 && th < 3.4) bm = od < 10 && tt > 0.58 ? B.mangrove : B.swamp;
+    else if (mm > 0.55) bm = vr > 0.28 ? B.maple : vr < -0.24 ? B.blossom : B.forest;
+    else bm = vr > 0.34 ? B.flowers : B.meadow;
+    if ((bm === B.forest || bm === B.swamp || bm === B.taiga || bm === B.maple) && sp > 0.62) bm = B.shroom;
+    if ((bm === B.meadow || bm === B.tundra || bm === B.savanna || bm === B.flowers) && sp < -0.66 && th > 3) bm = B.crystal;
+    if (bm === B.mesa && th < 1.2) bm = B.desert;
+    return bm;
   }
 
   WG.generate = function (seed) {
@@ -71,8 +173,18 @@
       land: r.range(0.92, 1.12), mtn: r.range(0.7, 1.35), rough: r.range(0.8, 1.2),
       tilt: r.range(-0.25, 0.25), lobes: r.int(3) + 2, lobeA: r.range(0, 6.28)
     };
+    // the "create world" choices (all 1 / 0 for a classic island, so old worlds come out the same)
+    var WO = SB.WORLD_OPTS || {};
+    shape.land *= WO.land || 1; shape.mtn *= WO.mtn || 1;
+
+    // v3.7 islands (generator 2): archetypes, bigger biomes, more of them. Saves made before keep generator 1,
+    // which is everything outside the G2 branches below, untouched, so old islands come back exactly the same
+    var G2 = (WO.gv || 1) >= 2, arch = null, feat = {};
+    if (G2) { arch = ARCHS.indexOf(WO.arch) >= 0 ? WO.arch : ARCHS[SB.rng((seed * 131 + 71) >>> 0).int(ARCHS.length)]; }
 
     /* ---- heights ---- */
+    if (G2) heights2(h, seed, shape, arch, feat, nA, nB, nC, nD, nP);
+    else {
     var warpF = coarse(function (x, z) { return fbm(nC, x * 3 * K + shape.ox, z * 3 * K + shape.oz, 3, 2, 0.5); }, KR(64));
     var mtnF = coarse(function (x, z) { return fbm(nD, x * 1.6 * K + 7, z * 1.6 * K - 3, 3, 2, 0.5); }, KR(48));
     var ridgeF = coarse(function (x, z) { return fbm(nB, x * 3.1 * K, z * 3.1 * K, 4, 2.1, 0.5); }, KR(128));
@@ -93,6 +205,7 @@
       if (hh > 0.4 && hh < 6) hh = 0.4 + (hh - 0.4) * 0.72;
       if (hh < -7) hh = -7 + (hh + 7) * 0.3;
       h[j * V + i] = hh;
+    }
     }
     // edges are always deep sea
     for (j = 0; j < V; j++) for (i = 0; i < V; i++) {
@@ -144,7 +257,7 @@
     /* ---- water: sea, lakes, rivers ---- */
     var W = new Float32Array(V * V), river = new Uint8Array(V * V);
     var NONE = -99;
-    var RIVER_T = 260 * (0.8 + r() * 0.5);
+    var RIVER_T = 260 * (0.8 + r() * 0.5) * (arch === "delta" ? 0.45 : arch === "lakes" ? 0.8 : 1);
     for (k = 0; k < V * V; k++) W[k] = NONE;
     // lakes: only depressions deeper than LAKE_D hold water (plus a shallow shore around them);
     // shallower dips are filled in as flat dry ground, so the island isn't all puddles
@@ -246,8 +359,21 @@
     var biome = new Uint8Array(N * N), temp = new Float32Array(N * N), moist = new Float32Array(N * N), slope = new Float32Array(N * N);
     var tileH = new Float32Array(N * N);
     var warmSouth = r.chance(0.5) ? 1 : -1;
-    var tempF = coarse(function (x, z) { return nT(x * 2.2 * Math.sqrt(K), z * 2.2 * Math.sqrt(K)); }, KR(48)), moistF = coarse(function (x, z) { return nM(x * 2.6 * Math.sqrt(K) + 9, z * 2.6 * Math.sqrt(K) - 4); }, KR(48));
-    var specF = coarse(function (x, z) { return nP(x * 5.5 * K, z * 5.5 * K); }, KR(96));
+    var tempF, moistF, specF, varF = null, reefF = null;
+    if (G2) {
+      // generator 2: climate measured in tiles, not in islands, with long wavelengths, so biomes are big
+      // places (a few hundred tiles of forest, not a patch) and a bigger island simply has more of them
+      var nV = SB.noise2(seed + 707), nR = SB.noise2(seed + 808), CW = N / 420, MW = N / 340, SW = N / 170, VW = N / 300;
+      tempF = coarse(function (x, z) { return fbm(nT, x * CW, z * CW, 2, 2, 0.4); }, Math.max(16, N >> 4));
+      moistF = coarse(function (x, z) { return fbm(nM, x * MW + 9, z * MW - 4, 2, 2, 0.4); }, Math.max(16, N >> 4));
+      specF = coarse(function (x, z) { return nP(x * SW, z * SW); }, Math.max(24, N >> 3));
+      varF = coarse(function (x, z) { return fbm(nV, x * VW + 3, z * VW + 1, 2, 2, 0.45); }, Math.max(16, N >> 4));
+      reefF = coarse(function (x, z) { return nR(x * N / 60, z * N / 60); }, Math.max(24, N >> 3));
+    } else {
+    tempF = coarse(function (x, z) { return nT(x * 2.2 * Math.sqrt(K), z * 2.2 * Math.sqrt(K)); }, KR(48)); moistF = coarse(function (x, z) { return nM(x * 2.6 * Math.sqrt(K) + 9, z * 2.6 * Math.sqrt(K) - 4); }, KR(48));
+    specF = coarse(function (x, z) { return nP(x * 5.5 * K, z * 5.5 * K); }, KR(96));
+    }
+    var archT = arch === "mesa" ? 0.08 : arch === "volcano" ? 0.04 : 0, archM = arch === "mesa" ? -0.12 : arch === "delta" || arch === "lakes" ? 0.08 : 0;
     for (j = 0; j < N; j++) for (i = 0; i < N; i++) {
       var t = j * N + i, a = j * V + i;
       var h00 = h[a], h10 = h[a + 1], h01 = h[a + V], h11 = h[a + V + 1];
@@ -255,12 +381,19 @@
       tileH[t] = th;
       slope[t] = Math.max(Math.abs(h00 - h11), Math.abs(h10 - h01));
       x = (i + 0.5) / N; z = (j + 0.5) / N;
-      var tt = 0.56 + (z - 0.5) * 0.85 * warmSouth + tempF(x, z) * 0.17 - Math.max(0, th - 4) * 0.026;
+      var tt = 0.56 + (WO.temp || 0) + (z - 0.5) * 0.85 * warmSouth + tempF(x, z) * 0.17 - Math.max(0, th - 4) * 0.026;
       var wd = Math.min(wdist[a], wdist[a + V + 1]);
-      var mm = 0.36 + moistF(x, z) * 0.4 + Math.max(0, 1 - wd / 16) * 0.28;
+      var mm = 0.36 + (WO.moist || 0) + moistF(x, z) * 0.4 + Math.max(0, 1 - wd / 16) * 0.28;
+      if (G2) { tt += archT - (z - 0.5) * 0.2 * warmSouth + Math.max(0, th - 4) * 0.008; mm += archM; }
       temp[t] = SB.clamp01(tt); moist[t] = SB.clamp01(mm);
       var wet = W[a] !== NONE && W[a] > h00 + 0.05 && W[a + V + 1] !== NONE && W[a + V + 1] > h11 + 0.05;
       var bm;
+      if (G2) {
+        bm = biome2(th, tt, mm, slope[t], W[a] === SB.SEA, oceanDist[a], varF(x, z), specF(x, z), reefF(x, z), feat, i, j);
+        if (bm === B.ash) temp[t] = SB.clamp01(tt + 0.14); // warm ground
+        biome[t] = bm;
+        continue;
+      }
       if (th < SB.SEA - 0.15 && W[a] === SB.SEA) bm = B.ocean;
       else if (oceanDist[a] < 4 && th < 1.4 && slope[t] < 1.2) bm = tt < 0.2 ? B.tundra : B.beach;
       else if (th > 12.5 || (th > 8 && slope[t] > 1.5)) bm = B.mountain;
@@ -281,11 +414,11 @@
     var terrain = {
       seed: seed, N: N, V: V, h: h, W: W, NONE: NONE, river: river, acc: acc, wdist: wdist, oceanDist: oceanDist,
       biome: biome, temp: temp, moist: moist, slope: slope, tileH: tileH, warmSouth: warmSouth,
-      nodes: [], decor: null, caves: [], spawn: null
+      nodes: [], decor: null, caves: [], spawn: null, gv: G2 ? 2 : 1, arch: arch || "classic", volcano: feat.volcano || null
     };
 
     placeNodes(terrain, r, nP);
-    terrain.decor = makeDecor(terrain, SB.rng(seed * 3 + 1));
+    terrain.decor = null; // see WG.decorChunk
     terrain.genMs = Date.now() - t0;
     return terrain;
   };
@@ -357,6 +490,13 @@
   FLORA[B.beach] = [["palm", 0.03], ["boulder", 0.006]];
   FLORA[B.shroom] = [["shroomtree", 0.16], ["shrooms", 0.04], ["herbs", 0.02], ["crystals", 0.004]];
   FLORA[B.crystal] = [["crystals", 0.04], ["boulder", 0.03], ["orevein", 0.01], ["flintrock", 0.01]];
+  FLORA[B.blossom] = [["sakura", 0.16], ["bush", 0.05], ["herbs", 0.015], ["boulder", 0.008], ["hive", 0.006]];
+  FLORA[B.maple] = [["maple", 0.2], ["oak", 0.04], ["shrooms", 0.02], ["bush", 0.03], ["boulder", 0.01]];
+  FLORA[B.ash] = [["basalt", 0.05], ["vent", 0.012], ["deadtree", 0.02], ["flintrock", 0.01], ["orevein", 0.008]];
+  FLORA[B.mangrove] = [["mangrove", 0.14], ["reeds", 0.06], ["herbs", 0.01], ["palm", 0.02]];
+  FLORA[B.bamboo] = [["bamboo", 0.3], ["bush", 0.04], ["herbs", 0.02], ["giant", 0.02]];
+  FLORA[B.mesa] = [["redrock", 0.04], ["cactus", 0.02], ["orevein", 0.014], ["deadtree", 0.01], ["flintrock", 0.008]];
+  FLORA[B.flowers] = [["bush", 0.05], ["hive", 0.012], ["herbs", 0.02], ["oak", 0.012], ["sakura", 0.006]];
 
   function placeNodes(T, r, nP) {
     var Nn = T.N, nodes = T.nodes, occ = new Uint8Array(Nn * Nn);
@@ -421,7 +561,8 @@
 
     // grump caves: at the foot of steep slopes, away from the middle
     var caves = [];
-    for (k = 0; k < 6000 && caves.length < 4; k++) {
+    var KK = T.N / 256, nCaves = T.gv >= 2 ? Math.min(14, Math.round(4 * KK * KK * 0.6)) : 4;
+    for (k = 0; k < 6000 * (T.gv >= 2 ? KK * KK : 1) && caves.length < nCaves; k++) {
       x = 12 + r() * (Nn - 24); z = 12 + r() * (Nn - 24);
       var t3 = (z | 0) * Nn + (x | 0);
       var bm3 = T.biome[t3];
@@ -440,7 +581,7 @@
     for (k = 0; k < 4000; k++) {
       x = 30 + r() * (Nn - 60); z = 30 + r() * (Nn - 60);
       var t4 = (z | 0) * Nn + (x | 0), a4 = (z | 0) * T.V + (x | 0), bm4 = T.biome[t4];
-      if (bm4 !== B.meadow && bm4 !== B.forest) continue;
+      if (bm4 !== B.meadow && bm4 !== B.forest && bm4 !== B.flowers && bm4 !== B.blossom && bm4 !== B.maple) continue;
       if (T.slope[t4] > 0.6 || WG.depthAt(T, x, z) > 0) continue;
       var sc = 0;
       sc -= Math.abs(T.wdist[a4] - 7) * 0.6;
@@ -453,7 +594,14 @@
       if (!free(x, z, 1.2)) sc -= 5;
       if (sc > bestS) { bestS = sc; best = { x: x, z: z }; }
     }
-    if (!best) best = { x: Nn / 2, z: Nn / 2 };
+    if (!best) {
+      // no temperate meadow anywhere (a frozen or desert island): the flattest dry spot nearest the middle
+      for (var sr = 0; sr < Nn / 2 && !best; sr += 2) for (var sa = 0; sa < 24 && !best; sa++) {
+        var bx = Nn / 2 + Math.cos(sa / 24 * 6.283) * sr, bz = Nn / 2 + Math.sin(sa / 24 * 6.283) * sr, bt = (bz | 0) * Nn + (bx | 0);
+        if (WG.walkable(T, bx, bz) && WG.depthAt(T, bx, bz) === 0 && T.slope[bt] < 0.8 && T.biome[bt] !== B.ocean) best = { x: bx, z: bz };
+      }
+      if (!best) best = { x: Nn / 2, z: Nn / 2 };
+    }
     // clear the spot and guarantee a starter kit around it
     for (var n = nodes.length - 1; n >= 0; n--) if (SB.dist2(nodes[n].x, nodes[n].z, best.x, best.z) < 9) { nodes.splice(n, 1); }
     for (var cz = -2; cz <= 2; cz++) for (var cx = -2; cx <= 2; cx++) { var ti = ((best.z | 0) + cz) * Nn + (best.x | 0) + cx; if (ti >= 0 && ti < occ.length) occ[ti] = 0; }
@@ -493,6 +641,10 @@
     EXTRA[B.savanna] = [["roots", 0.02], ["gourds", 0.01]];
     EXTRA[B.swamp] = [["roots", 0.01]];
     EXTRA[B.taiga] = [["roots", 0.006], ["hive", 0.004]];
+    EXTRA[B.flowers] = [["roots", 0.02], ["gourds", 0.008]];
+    EXTRA[B.blossom] = [["roots", 0.01]];
+    EXTRA[B.maple] = [["gourds", 0.01], ["roots", 0.006]];
+    EXTRA[B.bamboo] = [["gourds", 0.008]];
     for (var ej = 3; ej < Nn - 3; ej += 2) for (var ei = 3; ei < Nn - 3; ei += 2) {
       var ex = ei + r2() * 2, ez = ej + r2() * 2, et = (ez | 0) * Nn + (ex | 0), elist = EXTRA[T.biome[et]];
       if (!elist || WG.depthAt(T, ex, ez) > 0.02 || T.slope[et] > 1.6 || T.wdist[(ez | 0) * T.V + (ex | 0)] < 1.5) continue;
@@ -507,7 +659,7 @@
     for (k = 0; k < 3000; k++) {
       x = 3 + r2() * (Nn - 6); z = 3 + r2() * (Nn - 6);
       var ta = (z | 0) * T.V + (x | 0), tt = (z | 0) * Nn + (x | 0);
-      if (T.biome[tt] !== B.beach || T.wdist[ta] > 2 || WG.depthAt(T, x, z) > 0.05) continue;
+      if ((T.biome[tt] !== B.beach && T.biome[tt] !== B.mangrove) || T.wdist[ta] > 2 || WG.depthAt(T, x, z) > 0.05) continue;
       if (r2() < 0.25 && free(x, z, 0.6)) add2("clams", x, z, r2.range(0.85, 1.1));
     }
     // every nest gets a sunroot patch and a gourd vine within reach
@@ -538,10 +690,24 @@
   DECOR[B.beach] = [[2, 0.03]];
   DECOR[B.shroom] = [[6, 0.3], [3, 0.15]];
   DECOR[B.crystal] = [[6, 0.15], [2, 0.08]];
+  // v3.7 types: 7 petals, 8 leaf pile, 9 ember, 10 dry grass, 11 tall flowers
+  DECOR[B.blossom] = [[7, 0.35], [0, 0.3], [1, 0.08]];
+  DECOR[B.maple] = [[8, 0.3], [3, 0.12], [0, 0.12]];
+  DECOR[B.ash] = [[9, 0.05], [2, 0.12]];
+  DECOR[B.mangrove] = [[5, 0.25], [3, 0.15]];
+  DECOR[B.bamboo] = [[3, 0.35], [0, 0.2]];
+  DECOR[B.mesa] = [[10, 0.12], [2, 0.08]];
+  DECOR[B.flowers] = [[11, 0.35], [1, 0.35], [0, 0.25]];
 
-  function makeDecor(T, r) {
-    var out = [], Nn = T.N;
-    for (var j = 1; j < Nn - 1; j++) for (var i = 1; i < Nn - 1; i++) {
+  // decor is made per chunk when the renderer first needs it (a 1024 island has millions of tufts)
+  WG.decorChunk = function (T, ci, cj) {
+    var S = SB.CHUNK, key = cj * (T.N / S) + ci, cache = T._decor || (T._decor = {});
+    if (cache[key]) return cache[key];
+    return (cache[key] = makeDecor(T, SB.rng((T.seed * 3 + 1 + key * 7919) >>> 0), ci * S, cj * S, S));
+  };
+  function makeDecor(T, r, i0, j0, S) {
+    var out = [], Nn = T.N, i1 = Math.min(Nn - 1, i0 + S), j1 = Math.min(Nn - 1, j0 + S);
+    for (var j = Math.max(1, j0); j < j1; j++) for (var i = Math.max(1, i0); i < i1; i++) {
       var t = j * Nn + i, list = DECOR[T.biome[t]];
       if (!list) continue;
       for (var k = 0; k < 2; k++) {

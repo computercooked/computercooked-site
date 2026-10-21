@@ -45,7 +45,9 @@
       if (s.state === "waiting" && game.time - s.t > WAIT) ST.decide(game, c, all.length < 8 || ST.breedablePairs(game) === 0, true);
       if (s.state === "leaving" && (game.time - s.t > 70 || SB.dist(c.x, c.z, s.x0, s.z0) < 3)) { c.alive = false; c.gone = true; c.dying = false; }
     });
-    game.strangerT -= dt;
+    // a small band that's all cousins draws newcomers sooner (checked now and then: pairs is a full scan)
+    if (!(game._pairsT > game.time - 5)) { game._pairsT = game.time; game._pairs = ST.breedablePairs(game); }
+    game.strangerT -= dt * (game._pairs < 2 && all.length < 24 ? 4 : 1);
     if (game.strangerT > 0) return;
     game.strangerT = nextIn(game);
     if (ST.pending(game)) return;
