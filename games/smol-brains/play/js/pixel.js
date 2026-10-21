@@ -281,7 +281,7 @@
     for (var i = 0; i < SLOTS; i++) { if (slotUse[i] == null) { idx = i; break; } if (slotUse[i] < oldest && slotUse[i] < frameNo - 2) { oldest = slotUse[i]; idx = i; } }
     if (idx < 0) return null;
     for (var k in slots) if (slots[k].i === idx) delete slots[k];
-    var sheet = paint(c), gl = ctx.gl, a2 = atlas.getContext("2d"), img = a2.createImageData(F * NF, F);
+    var sheet = (PX.override && PX.override(c, F, NF, FR)) || paint(c), gl = ctx.gl, a2 = atlas.getContext("2d"), img = a2.createImageData(F * NF, F);
     for (var fi = 0; fi < NF; fi++) for (var y = 0; y < F; y++) img.data.set(sheet.frames[fi].d.subarray(y * F * 4, (y + 1) * F * 4), (y * F * NF + fi * F) * 4);
     var ox = (idx % SLOTS_X) * F * NF, oy = ((idx / SLOTS_X) | 0) * F;
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -291,9 +291,14 @@
     return s;
   }
   PX.sheetFor = sheetFor;
+  // Art hook: a later pass can hand in drawn sprite sheets (e.g. sliced from SB.Render.art.img.sprites).
+  // PX.override(c, frameSize, frameCount, FR) returns { frames: [{ d: Uint8ClampedArray(32*32*4) } x 13], bodyPx }
+  // in the same layout paint() makes, or null to keep the painted sheet. Call PX.flush() after changing it.
+  PX.override = null;
+  PX.flush = function () { slots = {}; slotUse = []; };
 
   /* ---------------- per-frame sprite list ---------------- */
-  var IS = 13, inst = new Float32Array(IS * 128), n = 0, holder = {}, quad = null, prog = null;
+  var IS = 14, inst = new Float32Array(IS * 128), n = 0, holder = {}, quad = null, prog = null;
   function frameFor(c, t) {
     var an = c.anim, a = c.action;
     if (c.asleep) return FR.sleep;
@@ -333,7 +338,7 @@
     if (dot) c._pxH = 8 * (R.pixelSize || 1);
     if (c.tier >= 6 && c.species === "smol" && !c.heldBy && !c.corpse) y += Math.sin(t * 1.7 + c.id) * 0.06; // a slow, smooth hover
     // facing: which way it's heading on screen
-    var sx = Math.sin(c.facing), sz = Math.cos(c.facing), flip = (sx * cam.right[0] + sz * cam.right[2]) < 0 ? 1 : 0;
+    var fa = c._mo ? c._mo.face : c.facing, sx = Math.sin(fa), sz = Math.cos(fa), flip = (sx * cam.right[0] + sz * cam.right[2]) < 0 ? 1 : 0;
     if (n * IS >= inst.length) { var ni = new Float32Array(inst.length * 2); ni.set(inst); inst = ni; }
     // in water: only the part above the surface shows (wading, swimming, or sinking while it drowns)
     var w = SB.Game.current && SB.Game.current.world, cut = 0;
@@ -344,8 +349,14 @@
     var cutPx = Math.round(cut * (s.bodyPx + 2)) + (cut ? 2 : 0); // rows hidden below the waterline (frame has 2 empty rows at the bottom)
     var o = n * IS;
     inst[o] = x; inst[o + 1] = y; inst[o + 2] = z;
-    var sq = c.heldBy === "hand" ? c.anim.squash || 0 : 0; // squirming in the hand: squish and stretch
-    inst[o + 3] = F * k * (1 + sq * 0.5); inst[o + 4] = (F - cutPx) * k * (1 - sq);
+    // squash and stretch from bodies.js's springs (landing thumps, bonks, play, stretch in the air), a breath
+    // when idle, a squish sideways as it turns round, and a lean into its stride that wobbles back when it stops
+    var mo = c._mo, sq = c.heldBy === "hand" ? c.anim.squash || 0 : mo ? mo.sq : 0, lean = mo && !dot ? mo.ln : 0;
+    if (!dot && !c.corpse && !c.asleep && fr !== FR.sleep) sq += Math.sin(c.anim.bob * 1.3) * 0.03;
+    if (mo) { if (mo.flip >= 0 && mo.flip !== flip && !dot) mo.turn = 1; mo.flip = flip; }
+    var turnK = mo && mo.turn > 0 ? 1 - Math.sin(mo.turn * Math.PI) * 0.45 : 1;
+    inst[o + 3] = F * k * (1 + sq * 0.5) * turnK; inst[o + 4] = (F - cutPx) * k * (1 - sq);
+    inst[o + 13] = (flip ? -1 : 1) * lean * 9 * k; // art pixels the top shifts forward
     inst[o + 5] = (s.ox + fr * F) / AW; inst[o + 6] = s.oy / AH; inst[o + 7] = (s.ox + (fr + 1) * F) / AW; inst[o + 8] = (s.oy + F - cutPx) / AH;
     inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.corpse ? 2 : c.dying ? 1 - c.fade : 1; // 2: a body (drawn grey and still)
     n++;
@@ -353,7 +364,7 @@
 
   var VS = [
     "attribute vec2 aCorner;",
-    "attribute vec3 iPos; attribute vec2 iPx; attribute vec4 iUV; attribute vec4 iMisc;",
+    "attribute vec3 iPos; attribute vec2 iPx; attribute vec4 iUV; attribute vec4 iMisc; attribute float iShear;",
     "uniform mat4 uVP; uniform vec2 uRes; uniform vec2 uZo;",
     "varying vec2 vUV; varying vec3 vW; varying vec2 vMisc; varying float vFog; varying float vA;",
     "uniform vec4 uFog; uniform vec4 uCam;",
@@ -361,7 +372,7 @@
     "  vec4 c = uVP * vec4(iPos, 1.0);",
     "  vec2 pix = floor((c.xy / c.w * 0.5 + 0.5) * uRes + 0.5);",          // snap the feet to the pixel grid
     "  float k = iPx.x / 32.0;",
-    "  vec2 p = pix + vec2(floor((aCorner.x - 0.5) * iPx.x + 0.5), aCorner.y * iPx.y - (iPx.y < iPx.x ? 0.0 : k));",
+    "  vec2 p = pix + vec2(floor((aCorner.x - 0.5) * iPx.x + 0.5 + aCorner.y * iShear), aCorner.y * iPx.y - (iPx.y < iPx.x ? 0.0 : k));",
     "  gl_Position = vec4(p / uRes * 2.0 - 1.0, c.z / c.w - uZo.x - uZo.y / (c.w * c.w), 1.0);",
     "  float u = iMisc.x > 0.5 ? 1.0 - aCorner.x : aCorner.x;",
     "  vUV = vec2(mix(iUV.x, iUV.z, u), mix(iUV.w, iUV.y, aCorner.y));",
@@ -380,7 +391,7 @@
       "  vec3 col = shade(t.rgb, normalize(vec3(-0.2, 0.85, 0.5)), vW, vMisc.x, vFog);",
       "  col = mix(col, vec3(1.0), vMisc.y * 0.7);",
       "  if (vA > 1.5) { float g = dot(col, vec3(0.3, 0.59, 0.11)); col = mix(col, vec3(g * 0.8 + 0.06, g * 0.8 + 0.06, g * 0.85 + 0.1), 0.8); }",
-      "  gl_FragColor = vec4(col, 1.0);",
+      "  gl_FragColor = vec4(col, 0.0);", // alpha 0: the outline pass leaves sprites alone (they carry their own)
       "}"].join("\n");
   }
 
@@ -402,7 +413,7 @@
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(p.u.uAtlas, 1);
     GL.attribs(ctx, quad, [[p.a.aCorner, 2]], 2, 0);
     GL.stream(ctx, holder, inst, n * IS);
-    GL.attribs(ctx, holder.buf, [[p.a.iPos, 3], [p.a.iPx, 2], [p.a.iUV, 4], [p.a.iMisc, 4]], IS, 1);
+    GL.attribs(ctx, holder.buf, [[p.a.iPos, 3], [p.a.iPx, 2], [p.a.iUV, 4], [p.a.iMisc, 4], [p.a.iShear, 1]], IS, 1);
     gl.depthMask(!!cam.pov); // sprites carry their own painted outline; keep them out of the outline pass (not in first person: one can fill half the screen, and the ink of what's behind mustn't show through it)
     ctx.drawInstanced(gl.TRIANGLES, 0, 6, n);
     gl.depthMask(true);
