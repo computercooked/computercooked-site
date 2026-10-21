@@ -98,7 +98,7 @@
     if (game.time < game.podT) return;
     var n = (game.podsDown || 0);
     if (n >= POD_MAX || game.sites.some(function (s) { return s.kind === "pod" && !s.done && !s.gone; })) { game.podT = game.time + 120; return; }
-    if (sm.length + 1 >= SB.Game.POP_CAP) { game.podT = game.time + 300; return; }
+    if (sm.length + 1 >= (SB.Game.JOIN_CAP || SB.Game.POP_CAP)) { game.podT = game.time + 300; return; }
     S.crash(game);
   };
   S.crash = function (game, at) {
@@ -131,7 +131,7 @@
     var top = 0; game.creatures.forEach(function (o) { if (o.alive && o.species === "smol" && !o.stranger && o.tier > top) top = o.tier; });
     var fs = game.creatures.filter(function (o) { return o.alive && o.species === "smol" && !o.stranger; }), f = fs.filter(function (o) { return o.sex === "f"; }).length;
     for (var i = 0; i < s.surv; i++) {
-      if (game.creatures.filter(function (o) { return o.alive && o.species === "smol"; }).length >= SB.Game.POP_CAP) break;
+      if (game.creatures.filter(function (o) { return o.alive && o.species === "smol"; }).length >= (SB.Game.JOIN_CAP || SB.Game.POP_CAP)) break;
       // survivors have been asleep in orbit: about as evolved as your tribe, never past builder
       var g = SB.Genome.forTier(r, Math.max(0, Math.min(4, top - (r() < 0.4 ? 1 : 0))));
       var sex = i === 0 ? (f * 2 < fs.length ? "f" : "m") : (out[0] && out[0].sex === "f" ? "m" : "f");
@@ -189,7 +189,7 @@
       }
       case "ruin": {
         s.done = true;
-        var known = game.culture.found, can = SB.Ideas.LIST.filter(function (d) { return !known[d.id] && SB.Ideas.canHold(c, d.id); });
+        var known = game.culture.found, can = SB.Ideas.LIST.filter(function (d) { return !known[d.id] && !d.civ && SB.Ideas.canHold(c, d.id); });
         out.title = "old ruins";
         out.text.push(c.name + " found stones carved by smols who lived here long ago.");
         if (can.length) {

@@ -586,7 +586,7 @@
     var found = game.culture.found, best = null;
     smols(game).forEach(function (c) {
       if (c.stage < 2 || c.tier < 2) return;
-      var can = SB.Ideas.LIST.filter(function (d) { return !found[d.id] && SB.Ideas.canHold(c, d.id) && d.id !== "bigthought"; });
+      var can = SB.Ideas.LIST.filter(function (d) { return !found[d.id] && !d.civ && SB.Ideas.canHold(c, d.id) && d.id !== "bigthought"; });
       if (can.length >= 2 && (!best || can.length > best.can.length || (can.length === best.can.length && c.tier > best.c.tier))) best = { c: c, can: can };
     });
     return best;

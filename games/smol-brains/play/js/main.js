@@ -189,7 +189,9 @@
     if (a.habits && b.habits) {
       var ea = SB.Creature.echo(a), eb = SB.Creature.echo(b);
       echo = {};
-      for (var k in ea) echo[k] = (ea[k] + (eb[k] || 0)) / 2;
+      // a small band adapts faster: with room for fewer smols, what parents practise echoes harder
+      var small = SB.clamp(1 + 0.8 * (36 - (Game.POP_CAP || 36)) / 24, 1, 1.8);
+      for (var k in ea) echo[k] = (ea[k] + (eb[k] || 0)) / 2 * small;
     }
     var bless = game.blessing && game.blessing.uses > 0 ? game.blessing.genes : null;
     if (bless) { game.blessing.uses--; if (game.blessing.uses <= 0) game.blessing = null; }
@@ -411,6 +413,8 @@
     if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
     if (SB.Social) SB.Social.tick(game, dt);
     if (SB.Funeral) SB.Funeral.tick(game, dt);
+    if (SB.Civ) SB.Civ.tick(game, dt);
+    if (SB.Economy) SB.Economy.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     SB.Ideas.nurse(game, dt);
@@ -520,7 +524,7 @@
   function frame(now) {
     if (!running) return;
     requestAnimationFrame(frame);
-    var dtReal = Math.min(0.1, (now - last) / 1000 || 0);
+    var dtReal = Math.max(0, Math.min(0.1, (now - last) / 1000 || 0)); // never backwards: a negative step makes the camera easing blow up
     last = now;
     var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning;
     if (!paused) {

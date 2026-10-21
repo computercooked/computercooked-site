@@ -168,7 +168,7 @@
       n = EVO[i];
       old = g.genes[n];
       var v = old;
-      if (!grump && echo && echo[n] > 0) v += 0.24 * Math.min(1, echo[n]) * (1.1 - v);
+      if (!grump && echo && echo[n] > 0) v += 0.24 * Math.min(1.8, echo[n]) * (1.1 - v); // above 1 only in a small band (see layEgg)
       if (!grump && echo) v += 0.01; // life tends to get more complex (very slowly)
       // a blessing amplifies what the parents actually practised: it's strong on a well-raised family, weak on its own
       if (!grump && bless && bless[n]) v += bless[n] * (0.6 + 0.9 * Math.min(1, (echo && echo[n]) || 0)) * (1.05 - v);

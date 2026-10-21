@@ -25,7 +25,7 @@
       items: [], itemGrid: null, creatureGrid: null, structures: [],
       weather: { kind: "clear", cloud: 0.2, rain: 0, wind: 0.4, t: 0, next: 90, storm: 0 },
       dayIndex: 0, night: false, season: 0, snowCover: 0, autumn: 0, freeze: 0,
-      fires: [], bolts: [], nightGrumps: 0, wear: new Uint8Array(T.N * T.N),
+      fires: [], bolts: [], nightGrumps: 0, wear: new Uint8Array(T.N * T.N), road: new Uint8Array(T.N * T.N),
       _critT: 3, _grumpT: 10, _houseT: 1, _boltT: 10, _pending: [], _fireT: 0,
       seen: new Uint8Array(W.SEEN_N * W.SEEN_N), seenDirty: true, biomesSeen: {}, _seeT: 0
     };
@@ -460,7 +460,7 @@
     var s = world.structures;
     for (var i = 0; i < s.length; i++) {
       var b = s[i];
-      if (!b.done || (b.kind !== "hut" && b.kind !== "observatory" && b.kind !== "workshop")) continue;
+      if (!b.done || (b.kind !== "hut" && b.kind !== "house" && b.kind !== "hall" && b.kind !== "observatory" && b.kind !== "workshop")) continue;
       if (SB.dist(x, z, b.x, b.z) < (SK[b.kind].r + 0.3) * (b.s || 1)) return b;
     }
     var nest = world.T.nest;
@@ -932,6 +932,13 @@
     var t = j * N + i;
     if (world.wear[t] < 255) world.wear[t]++;
   };
+  // desire paths that became roads (civ.js): 1 = a trodden trail, 2 = paved. Walking on one is faster
+  W.roadAt = function (world, x, z) {
+    var N = world.T.N, i = x | 0, j = z | 0;
+    if (!world.road || i < 0 || j < 0 || i >= N || j >= N) return 0;
+    return world.road[j * N + i];
+  };
+  W.roadSpeed = function (world, x, z) { var r = W.roadAt(world, x, z); return r === 2 ? 1.4 : r === 1 ? 1.2 : 1; };
 
   /* ---------------- save / load ---------------- */
 

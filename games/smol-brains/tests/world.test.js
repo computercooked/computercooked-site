@@ -79,9 +79,11 @@ console.log("3. the living world");
   const tree = w.nodes.find(n => n.kind === "oak" && SB.dist(n.x, n.z, sp.x, sp.z) < 12);
   SB.World.lightning(w, game, tree.x, tree.z, true);
   check("lightning sets a tree on fire", tree.state === "burning" || w.nodes.some(n => n.state === "burning"));
+  // lightning picks the tallest tree nearby, which may not be ours: watch whichever one caught
+  const lit = tree.state === "burning" ? tree : w.nodes.find(n => n.state === "burning");
   let burnt = false;
-  for (let s = 0; s < 20 * 80; s++) { SB.Game.step(game, SB.TICK); if (tree.state === "burnt") { burnt = true; break; } }
-  check("the fire burns out and leaves a burnt tree", burnt, "state " + tree.state);
+  for (let s = 0; s < 20 * 80; s++) { SB.Game.step(game, SB.TICK); if (lit.state === "burnt") { burnt = true; break; } }
+  check("the fire burns out and leaves a burnt tree", burnt, "state " + lit.state);
   check("fire is warm", SB.World.fireWarmth(w, tree.x, tree.z) >= 0);
   // eggs hatch near warmth
   const egg = SB.World.add(w, game, "egg", sp.x, sp.z, { genome: SB.Genome.random(game.rng, {}), gen: 1, progress: 0.9, parents: [] });

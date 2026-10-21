@@ -49,7 +49,7 @@
     if (game.strangerT > 0) return;
     game.strangerT = nextIn(game);
     if (ST.pending(game)) return;
-    if (all.length + 1 >= SB.Game.POP_CAP) return;
+    if (all.length + 1 >= (SB.Game.JOIN_CAP || SB.Game.POP_CAP)) return;
     ST.arrive(game);
   };
 

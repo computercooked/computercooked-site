@@ -658,7 +658,7 @@
   function findBed(c, game) {
     var w = game.world, best = null, bd = 1e9;
     w.structures.forEach(function (s) {
-      if (!s.done || s.kind !== "hut") return;
+      if (!s.done || (s.kind !== "hut" && s.kind !== "house")) return;
       var d = SB.dist(s.x, s.z, c.x, c.z) + (s.tribe === c.tribe ? 0 : 10);
       if (d < bd && d < 25) { bd = d; best = { type: "struct", id: s.id }; }
     });
@@ -775,7 +775,7 @@
     var dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz);
     if (d < (arriveR || 0.1)) return true;
     if (held(c, game)) return false;
-    var want = Math.atan2(dx, dz), step = Math.min(d, sp * dt), w = game.world;
+    var w = game.world, want = Math.atan2(dx, dz), step = Math.min(d, sp * dt * SB.World.roadSpeed(w, c.x, c.z));
     var tries = [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9], moved = false;
     // once deflected by an obstacle, keep hugging it for a moment instead of bouncing back and forth
     if (c.deflect > 0) { c.deflect -= dt; want += c.deflectA; }
@@ -1461,7 +1461,7 @@
     if (c.dying) { c.fade += dt / 2.5; if (c.fade >= 1) c.gone = true; return; }
     var w = game.world, ch = c.chem, an = c.anim;
     c.px = c.x; c.pz = c.z; c.py = c.y;
-    c.age += dt;
+    c.age += dt * (c.stage >= 3 && c.species === "smol" && SB.Game.CROWD > 1 ? SB.Game.CROWD : 1); // a full small band lives fast
     c.moving = false;
     var st = stageFor(c.age);
     if (st !== c.stage) {
