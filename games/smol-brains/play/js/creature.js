@@ -199,6 +199,7 @@
   // put an item somewhere on the creature. hand first (or forced into the hand), then bag, then tool belt.
   C.carry = function (c, o, game, toHand) {
     if (!o || o.gone) return false;
+    if (o.data && o.data.n > 1 && SB.Surv) o = SB.Surv.split(game, o); // a pile (survival.js): take one off the top
     if (o.hid != null && M()) M().took(c, o, game);
     if (o.data) o.data.looseT = 0;
     if (o.heldBy === "hand" && game.hand.heldId === o.id) game.hand.heldId = null;
@@ -301,7 +302,7 @@
     });
     if (c.holding != null) { var h0 = SB.Game.byId(game, c.holding); if (h0) consider(N[h0.noun], { type: "item", id: h0.id }, 0.5); }
     for (i = 0; i < c.bag.length; i++) { var bi = SB.Game.byId(game, c.bag[i]); if (bi && (bi.noun === "food" || bi.noun === "medicine")) consider(N[bi.noun], { type: "item", id: bi.id }, 0.6); }
-    SB.World.eachNodeNear(w, c.x, c.z, R * 0.85, function (n, d2) { if (c.unreach && isUnreachable(c, n.id, game)) return; consider(N[n.noun], { type: "node", id: n.id }, Math.sqrt(d2) + 0.5); });
+    SB.World.eachNodeNear(w, c.x, c.z, R * 0.85, function (n, d2) { if (n.nop || n.state === "gone") return; if (c.unreach && isUnreachable(c, n.id, game)) return; consider(N[n.noun], { type: "node", id: n.id }, Math.sqrt(d2) + 0.5); });
     var sts = w.structures;
     for (i = 0; i < sts.length; i++) {
       var s = sts[i], ds = SB.dist(s.x, s.z, c.x, c.z);

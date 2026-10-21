@@ -189,7 +189,7 @@
       }
       case "ruin": {
         s.done = true;
-        var known = game.culture.found, can = SB.Ideas.LIST.filter(function (d) { return !known[d.id] && !d.civ && SB.Ideas.canHold(c, d.id); });
+        var known = game.culture.found, can = SB.Ideas.LIST.filter(function (d) { return !known[d.id] && !d.civ && !d.pov && SB.Ideas.canHold(c, d.id); });
         out.title = "old ruins";
         out.text.push(c.name + " found stones carved by smols who lived here long ago.");
         if (can.length) {
