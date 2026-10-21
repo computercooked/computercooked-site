@@ -89,7 +89,15 @@
 
   /* ---------------- world ---------------- */
 
-  SB.WORLD_N = 256;          // tiles per side
+  SB.WORLD_N = 256;          // tiles per side of the current island (set per game by SB.setWorldN)
+  SB.WORLD_N_NEW = window.SB_N || 384; // new islands since v3.5: about twice the land of the old 256 ones (old saves keep theirs; SB_N is a test hook)
+  SB.setWorldN = function (n) {
+    n = Math.round(+n || 0);
+    if (!(n >= 128 && n <= 512 && n % 32 === 0)) n = 256;
+    SB.WORLD_N = n;
+    if (SB.World) SB.World.SEEN_N = n / 4;
+    return n;
+  };
   SB.CHUNK = 32;             // tiles per render chunk side
   SB.SEA = 0;                // sea level
 

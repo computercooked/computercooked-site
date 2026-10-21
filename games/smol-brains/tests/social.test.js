@@ -77,8 +77,7 @@ console.log("5. graves, grief and the chronicle");
 for (let i = 0; i < 3; i++) SO.remember(game, b, d, "w" + i, 20, "my friend", 9999);
 const graves0 = game.world.structures.filter(s => s.kind === "grave").length;
 SB.Creature.die(d, game, "old");
-const grave = game.world.structures.find(s => s.kind === "grave" && s.data && s.data.name === d.name);
-check("a grave with an epitaph", !!grave && /here lies/.test(grave.data.epitaph) && game.world.structures.filter(s => s.kind === "grave").length === graves0 + 1, grave && grave.data.epitaph);
+check("the body keeps an epitaph for its funeral (funeral.js digs the grave)", d.body && /here lies/.test(d.body.epitaph) && game.world.structures.filter(s => s.kind === "grave").length === graves0, d.body && d.body.epitaph);
 check("friends grieve", b.grief && b.grief.id === d.id && b.diary.some(e => /lost/.test(e[2])));
 check("the island remembers", (game.chronicle || []).some(e => e[2].indexOf(d.name) >= 0));
 
@@ -97,6 +96,7 @@ console.log("8. it all saves");
 const snap = JSON.parse(JSON.stringify(SB.Save.snapshot(game)));
 const g2 = SB.Save.revive(snap);
 const b2 = g2.creatures.find(x => x.id === b.id);
+check("a body still waiting for its funeral gets a grave on load", g2.world.structures.some(s => s.kind === "grave" && s.data && s.data.name === d.name && /here lies/.test(s.data.epitaph)));
 check("opinions, diary and chronicle survive a save", b2 && b2.ops && b2.ops[a.id] && b2.diary.length === b.diary.length && g2.chronicle.length === game.chronicle.length);
 
 console.log(failed ? failed + " FAILED" : "all passed");

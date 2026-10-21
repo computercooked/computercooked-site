@@ -270,8 +270,9 @@
 
   /* ---------------- new game ---------------- */
 
-  Game.create = function (seed) {
+  Game.create = function (seed, n) {
     seed = seed || SB.newSeed();
+    SB.setWorldN(n || SB.WORLD_N_NEW);
     var game = {
       v: 2, seed: seed, time: 0, speed: 1, rng: SB.rng(seed ^ 0x5bd1e995), nextId: 1,
       world: null, creatures: [], selectedId: null,
@@ -409,6 +410,7 @@
     if (game.godHeat > 0) game.godHeat = Math.max(0, game.godHeat - dt / 60);
     if (game.spoil > 0) game.spoil = Math.max(0, game.spoil - dt * 0.0005); // about 3% a minute: leave them be and they relearn to fend for themselves
     if (SB.Social) SB.Social.tick(game, dt);
+    if (SB.Funeral) SB.Funeral.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     SB.Ideas.nurse(game, dt);

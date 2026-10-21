@@ -156,6 +156,8 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .modal-wrap { position: absolute; inset: 0; background: rgba(8, 9, 12, 0.55); display: flex; align-items: center; justify-content: center; padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal)); pointer-events: auto; animation: fade 0.2s; z-index: 5; }
 @keyframes fade { from { opacity: 0; } }
 .modal { width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; border-radius: 0; overflow: hidden; }
+.modal.big { width: min(1240px, 100%); height: min(940px, 100%); }
+.modal.big .mb { flex: 1; }
 .modal .mh { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; }
 .modal .mh h2 { margin: 0; font: 700 16px var(--mono); flex: 1; }
 .modal .mb { overflow: auto; padding: 4px 16px 16px; overscroll-behavior: contain; }
@@ -337,14 +339,14 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 .jukebox .track.locked { opacity: 0.4; cursor: default; }
 
 /* v3.4: a pod comes down — the whole island as a map, with the crash marked */
-.podmap { position: fixed; inset: 0; z-index: 40; background: rgba(7, 6, 13, 0.88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; animation: tin 0.3s; }
+.podmap { position: fixed; pointer-events: auto; inset: 0; z-index: 40; background: rgba(7, 6, 13, 0.88); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; animation: tin 0.3s; }
 .podmap.out { opacity: 0; transition: opacity 0.4s; }
 .podmapcv { border: 3px solid var(--paper); box-shadow: 0 0 0 3px var(--ink), 0 10px 30px rgba(0, 0, 0, 0.5); image-rendering: pixelated; }
 .podcap { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; color: var(--paper); font-size: 14px; }
 .podcap b { font: 700 16px var(--mono); color: #8fe6dc; }
 
 /* v3.4: the guide — one tip at a time, for the whole game */
-.guide { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100px + var(--sab)); width: min(460px, calc(100% - 20px)); padding: 9px 10px; display: flex; gap: 10px; align-items: center; border-color: rgba(143, 230, 220, 0.5); animation: tin 0.3s; z-index: 5; }
+.guide { position: absolute; pointer-events: auto; left: 50%; transform: translateX(-50%); bottom: calc(100px + var(--sab)); width: min(460px, calc(100% - 20px)); padding: 9px 10px; display: flex; gap: 10px; align-items: center; border-color: rgba(143, 230, 220, 0.5); animation: tin 0.3s; z-index: 5; }
 .guide .gi { font-size: 22px; flex: none; } .guide .gi .pxi { width: 26px; height: 26px; }
 .guide .gb { flex: 1; min-width: 0; }
 .guide .t { font: 700 13px/1.3 var(--mono); color: #8fe6dc; }

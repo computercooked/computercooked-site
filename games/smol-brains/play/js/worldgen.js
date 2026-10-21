@@ -54,6 +54,10 @@
 
   WG.generate = function (seed) {
     seed = seed >>> 0 || 1;
+    N = SB.WORLD_N; V = N + 1;
+    // bigger islands get more of everything (hills, rivers, biomes), not a blown-up copy of a small one.
+    // k = 1 for the classic 256 islands, so old worlds come out exactly as they were
+    var K = N / 256, KR = function (res) { return Math.round(res * K); };
     var t0 = Date.now();
     var r = SB.rng(seed * 7 + 13);
     var nA = SB.noise2(seed), nB = SB.noise2(seed + 101), nC = SB.noise2(seed + 202), nD = SB.noise2(seed + 303);
@@ -69,9 +73,9 @@
     };
 
     /* ---- heights ---- */
-    var warpF = coarse(function (x, z) { return fbm(nC, x * 3 + shape.ox, z * 3 + shape.oz, 3, 2, 0.5); }, 64);
-    var mtnF = coarse(function (x, z) { return fbm(nD, x * 1.6 + 7, z * 1.6 - 3, 3, 2, 0.5); }, 48);
-    var ridgeF = coarse(function (x, z) { return fbm(nB, x * 3.1, z * 3.1, 4, 2.1, 0.5); }, 128);
+    var warpF = coarse(function (x, z) { return fbm(nC, x * 3 * K + shape.ox, z * 3 * K + shape.oz, 3, 2, 0.5); }, KR(64));
+    var mtnF = coarse(function (x, z) { return fbm(nD, x * 1.6 * K + 7, z * 1.6 * K - 3, 3, 2, 0.5); }, KR(48));
+    var ridgeF = coarse(function (x, z) { return fbm(nB, x * 3.1 * K, z * 3.1 * K, 4, 2.1, 0.5); }, KR(128));
     for (j = 0; j < V; j++) for (i = 0; i < V; i++) {
       x = i / N; z = j / N;
       var dx = x - 0.5, dz = z - 0.5;
@@ -80,7 +84,7 @@
       var warp = warpF(x, z);
       d += warp * 0.22 + Math.sin(ang * shape.lobes + shape.lobeA) * 0.07;
       var mask = SB.smooth((1.02 - d) / 0.42) * shape.land;
-      var e = fbm(nA, x * 4.2 + shape.ox, z * 4.2 + shape.oz, 5, 2.05, 0.5); // -1..1-ish
+      var e = fbm(nA, x * 4.2 * K + shape.ox, z * 4.2 * K + shape.oz, 5, 2.05, 0.5); // -1..1-ish
       var ridge = 1 - Math.abs(ridgeF(x, z) * 1.4);
       ridge = ridge * ridge;
       var mtnMask = SB.smooth((mtnF(x, z) + 0.05 + shape.tilt * (x - 0.5)) / 0.4);
@@ -118,7 +122,7 @@
 
     /* ---- flow accumulation on the filled surface (highest first) ---- */
     var acc = new Float32Array(V * V), down = new Int32Array(V * V), ci, cj;
-    var rainF = coarse(function (x, z) { return nM(x * 3, z * 3); }, 48);
+    var rainF = coarse(function (x, z) { return nM(x * 3 * K, z * 3 * K); }, KR(48));
     for (k = 0; k < V * V; k++) {
       x = (k % V) / N; z = ((k / V) | 0) / N;
       acc[k] = 0.6 + 0.4 * (rainF(x, z) + 1) * 0.5; // rain, a bit uneven
@@ -242,8 +246,8 @@
     var biome = new Uint8Array(N * N), temp = new Float32Array(N * N), moist = new Float32Array(N * N), slope = new Float32Array(N * N);
     var tileH = new Float32Array(N * N);
     var warmSouth = r.chance(0.5) ? 1 : -1;
-    var tempF = coarse(function (x, z) { return nT(x * 2.2, z * 2.2); }, 48), moistF = coarse(function (x, z) { return nM(x * 2.6 + 9, z * 2.6 - 4); }, 48);
-    var specF = coarse(function (x, z) { return nP(x * 5.5, z * 5.5); }, 96);
+    var tempF = coarse(function (x, z) { return nT(x * 2.2 * Math.sqrt(K), z * 2.2 * Math.sqrt(K)); }, KR(48)), moistF = coarse(function (x, z) { return nM(x * 2.6 * Math.sqrt(K) + 9, z * 2.6 * Math.sqrt(K) - 4); }, KR(48));
+    var specF = coarse(function (x, z) { return nP(x * 5.5 * K, z * 5.5 * K); }, KR(96));
     for (j = 0; j < N; j++) for (i = 0; i < N; i++) {
       var t = j * N + i, a = j * V + i;
       var h00 = h[a], h10 = h[a + 1], h01 = h[a + V], h11 = h[a + V + 1];

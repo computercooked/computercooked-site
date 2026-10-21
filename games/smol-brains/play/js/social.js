@@ -184,7 +184,8 @@
     var deeds = (c.diary || []).filter(function (d) { return /invented|became known|chased|taught|joined/.test(d[2]); }).slice(-2).map(function (d) { return d[2]; });
     var why = { starved: "starved", sick: "fell sick", hurt: "was hurt", old: "grew old", cold: "froze", drowned: "drowned" }[cause] || "passed";
     var epitaph = "here lies " + c.name + title + ". " + why + " at " + age + " minutes old." + (deeds.length ? " " + deeds.join(". ") + "." : "");
-    try {
+    if (c.body) c.body.epitaph = epitaph; // funeral.js lays it to rest later, with the tribe's own rite
+    else try {
       var gr = SB.World.addStructure(w, game, "grave", c.x, c.z, { done: true });
       if (gr) { gr.data = { name: c.name, title: c.title || null, epitaph: epitaph, died: Math.round(game.time), id: c.id }; gr.name = c.name; }
       var graves = w.structures.filter(function (s) { return s.kind === "grave"; });

@@ -1444,6 +1444,7 @@
     SB.Game.note(game, c.name + " " + why + ".");
     if (cause === "old") SB.Game.unlock(game, "goodbye");
     if (game.selectedId === c.id) game.selectedId = null;
+    if (SB.Funeral) SB.Funeral.add(game, c, cause); // the body stays until the tribe says goodbye
     SB.bus.emit("death", { c: c, cause: cause });
   }
   C.die = die;

@@ -270,7 +270,7 @@
     c._pxH = (s.bodyPx + 6) * k * (R.pixelSize || 1); // on-screen height in CSS px, for speech bubbles
     var fr = dot ? FR.dot : frameFor(c, t);
     if (dot) c._pxH = 8 * (R.pixelSize || 1);
-    if (c.tier >= 6 && c.species === "smol" && !c.heldBy) y += Math.sin(t * 1.7 + c.id) * 0.06; // a slow, smooth hover
+    if (c.tier >= 6 && c.species === "smol" && !c.heldBy && !c.corpse) y += Math.sin(t * 1.7 + c.id) * 0.06; // a slow, smooth hover
     // facing: which way it's heading on screen
     var sx = Math.sin(c.facing), sz = Math.cos(c.facing), flip = (sx * cam.right[0] + sz * cam.right[2]) < 0 ? 1 : 0;
     if (n * IS >= inst.length) { var ni = new Float32Array(inst.length * 2); ni.set(inst); inst = ni; }
@@ -285,7 +285,7 @@
     inst[o] = x; inst[o + 1] = y; inst[o + 2] = z;
     inst[o + 3] = F * k; inst[o + 4] = (F - cutPx) * k;
     inst[o + 5] = (s.ox + fr * F) / AW; inst[o + 6] = s.oy / AH; inst[o + 7] = (s.ox + (fr + 1) * F) / AW; inst[o + 8] = (s.oy + F - cutPx) / AH;
-    inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.dying ? 1 - c.fade : 1;
+    inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.corpse ? 2 : c.dying ? 1 - c.fade : 1; // 2: a body (drawn grey and still)
     n++;
   };
 
@@ -317,6 +317,7 @@
       "  if (t.a < 0.5 || vA < 0.02) discard;",
       "  vec3 col = shade(t.rgb, normalize(vec3(-0.2, 0.85, 0.5)), vW, vMisc.x, vFog);",
       "  col = mix(col, vec3(1.0), vMisc.y * 0.7);",
+      "  if (vA > 1.5) { float g = dot(col, vec3(0.3, 0.59, 0.11)); col = mix(col, vec3(g * 0.8 + 0.06, g * 0.8 + 0.06, g * 0.85 + 0.1), 0.8); }",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n");
   }

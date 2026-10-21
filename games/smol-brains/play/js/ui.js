@@ -735,7 +735,7 @@
     opts = opts || {};
     UI.modalOpen = !opts.live;
     var wrap = h("div", { class: "modal-wrap", onclick: function (e) { if (e.target === wrap && !opts.sticky) closeModal(); } });
-    var m = h("div", { class: "modal glass" + (opts.story ? " storycard" : "") }, [
+    var m = h("div", { class: "modal glass" + (opts.story ? " storycard" : "") + (opts.big ? " big" : "") }, [
       opts.story ? null : h("div", { class: "mh" }, [h("h2", null, title), opts.sticky ? null : h("button", { class: "ibtn", "aria-label": "close", onclick: closeModal }, "✕")]),
       opts.tabs || null,
       h("div", { class: "mb" }, body)
@@ -754,14 +754,14 @@
   UI.closeModal = closeModal;
 
   /* ---------------- menu / smolpedia ---------------- */
-  var TABS = [["evolution", "🧬 evolution"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
+  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
   function openMenu(tab, arg) {
     state.menuTab = tab || "evolution";
     var tabs = h("div", { class: "tabs" });
     TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
-    modal("smolpedia", body, { tabs: tabs });
-    ({ evolution: tabEvolution, ideas: tabIdeas, smols: tabSmols, family: tabFamily, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
+    modal("smolpedia", body, { tabs: tabs, big: true });
+    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, smols: tabSmols, family: tabFamily, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
 
@@ -808,13 +808,19 @@
     });
     body.appendChild(h("div", { class: "sec" }, "the ladder"));
     body.appendChild(ladder);
-    body.appendChild(h("div", { class: "sec" }, [h("span", null, "tree of life"), h("span", { class: "dim" }, SB.Species.count(game) + " species · " + SB.Species.living(game) + " alive")]));
-    var cv = h("canvas", { class: "treecv" });
-    body.appendChild(cv);
-    body.appendChild(h("p", { class: "note" }, "new species branch off when a baby climbs a tier or drifts far from its family's genes. species too far apart can't have eggs together. 💫 echoes: what parents practise (walking, carrying, talking, building, thinking) nudges their kids' genes."));
-    requestAnimationFrame(function () { drawTree(cv); });
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { openMenu("tree"); } }, "🌿 see the tree of life (" + SB.Species.count(game) + " species)")]));
   }
-  function drawTree(cv) {
+  // the tree of life gets a whole tab, sized to fit the menu so you can see every branch at once
+  function tabTree(body) {
+    body.appendChild(h("div", { class: "sec" }, [h("span", null, "tree of life"), h("span", { class: "dim" }, SB.Species.count(game) + " species · " + SB.Species.living(game) + " alive")]));
+    var cap = h("div", { class: "note treecap" }, "tap a species to see its name.");
+    var cv = h("canvas", { class: "treecv" });
+    body.appendChild(h("div", { class: "tree" }, cv));
+    body.appendChild(cap);
+    body.appendChild(h("p", { class: "note" }, "new species branch off when a baby climbs a tier or drifts far from its family's genes. species too far apart can't have eggs together. 💫 echoes: what parents practise (walking, carrying, talking, building, thinking) nudges their kids' genes."));
+    requestAnimationFrame(function () { drawTree(cv, cap); });
+  }
+  function drawTree(cv, cap) {
     var clades = game.clades, ids = Object.keys(clades).map(Number).sort(function (a, b) { return a - b; });
     var kids = {};
     ids.forEach(function (id) { var p = clades[id].parent; if (p != null) (kids[p] = kids[p] || []).push(id); });
@@ -830,13 +836,24 @@
     place(0, 0);
     var cols = Math.max(1, col), depth = 0;
     for (var k in pos) depth = Math.max(depth, pos[k].y);
-    var W = cv.clientWidth || 600, dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(W, cols * 120), H = Math.max(160, (depth + 1) * 92 + 30);
+    // fit the whole tree in the space the menu has: shrink the spacing (and the labels) before ever scrolling
+    var W = cv.parentNode.clientWidth || 600, mb = el.modalBody, room = mb ? mb.clientHeight - 150 : 420;
+    var sx = Math.max(34, Math.min(130, W / cols)), sy = Math.max(46, Math.min(92, (Math.max(260, room) - 50) / (depth + 1)));
+    var dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(W, cols * sx), H = Math.max(160, (depth + 1) * sy + 30);
+    var rad = Math.max(8, Math.min(16, Math.min(sx, sy) * 0.2)), full = sx >= 92, short = sx >= 56;
     cv.style.width = cw + "px"; cv.style.height = H + "px";
-    cv.parentNode.style.overflowX = "auto";
+    cv.parentNode.style.overflowX = cw > W + 1 ? "auto" : "hidden";
     cv.width = cw * dpr; cv.height = H * dpr;
     var ctx = cv.getContext("2d");
     ctx.scale(dpr, dpr);
-    function px(id) { return { x: (pos[id].x + 0.5) * cw / cols, y: 34 + pos[id].y * 92 }; }
+    function px(id) { return { x: (pos[id].x + 0.5) * cw / cols, y: 22 + rad + pos[id].y * sy }; }
+    cv.onclick = function (e) {
+      var r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, hit = null, hd = 1e9;
+      ids.forEach(function (id) { if (!pos[id]) return; var p = px(id), d = Math.hypot(p.x - mx, p.y - my); if (d < hd) { hd = d; hit = id; } });
+      if (hit == null || hd > rad * 2.2 || !cap) return;
+      var c = clades[hit], t = SB.TIERS[c.tier] || SB.TIERS[0];
+      cap.textContent = c.name + " (" + c.sci + ") · " + t.name + " · " + (c.extinct ? "extinct" : c.alive + " alive");
+    };
     ctx.lineWidth = 2;
     ids.forEach(function (id) { var p = clades[id].parent; if (p == null || !pos[id] || !pos[p]) return; var a = px(p), b = px(id); ctx.strokeStyle = "rgba(181,154,255,0.5)"; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.bezierCurveTo(a.x, (a.y + b.y) / 2, b.x, (a.y + b.y) / 2, b.x, b.y); ctx.stroke(); });
     ids.forEach(function (id) {
@@ -844,14 +861,12 @@
       var c = clades[id], p = px(id), t = SB.TIERS[c.tier] || SB.TIERS[0];
       ctx.globalAlpha = c.extinct ? 0.4 : 1;
       ctx.fillStyle = c.look ? bodyColor(c.look) : "#b59aff";
-      ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, 6.283); ctx.fill();
       ctx.strokeStyle = c.alive ? "#c5ff49" : "rgba(255,255,255,0.25)"; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.font = "15px system-ui, apple color emoji"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      SB.Icons.fillText(ctx, t.icon, p.x, p.y + 1, 14);
-      ctx.fillStyle = "#f5f3ed"; ctx.font = "800 10px ui-monospace, monospace";
-      ctx.fillText(c.name.slice(0, 22), p.x, p.y + 27);
-      ctx.fillStyle = "rgba(245,243,237,0.55)"; ctx.font = "10px system-ui";
-      ctx.fillText((c.extinct ? "extinct" : c.alive + " alive") + " · " + c.sci, p.x, p.y + 40);
+      SB.Icons.fillText(ctx, t.icon, p.x, p.y + 1, Math.round(rad * 0.9));
+      if (short) { ctx.fillStyle = "#f5f3ed"; ctx.font = "800 10px ui-monospace, monospace"; ctx.fillText(c.name.slice(0, full ? 22 : Math.floor(sx / 7)), p.x, p.y + rad + 11); }
+      if (full) { ctx.fillStyle = "rgba(245,243,237,0.55)"; ctx.font = "10px system-ui"; ctx.fillText((c.extinct ? "extinct" : c.alive + " alive") + " · " + c.sci, p.x, p.y + rad + 24); }
       ctx.globalAlpha = 1;
     });
   }
@@ -1289,6 +1304,8 @@
     if (dr) out.push({ key: "drown" + dr.id, icon: "🌊", t: dr.name + " is drowning!", s: "pick ✋ grab and drag " + dr.name + " back onto land.", go: function () { fly(dr, 6); setTool("grab", true); } });
     var pod = (g.sites || []).filter(function (x) { return x.kind === "pod" && !x.done && !x.gone; })[0], act = g.dir && g.dir.active;
     if (pod && !(act && act.id === "pod")) out.push({ key: "pod" + pod.id, icon: "🛸", t: "a pod is down, with survivors inside", s: "send a rescue party before they give up and wander off. it's the flashing 🛸 on your map.", btn: "send rescue", go: function () { if (!(g.dir && g.dir.active)) { pod.asked = false; pod.againT = 0; SB.Director.fire(g, "pod"); } else UI.podMap(pod); } });
+    var fu = (g.funerals || []).filter(function (f) { return f.phase === "gather" || f.phase === "rite" || f.phase === "mourn"; })[0];
+    if (fu) { var fn = fu.names || "a friend"; out.push({ key: "fun" + fu.id, icon: "🕯", t: "a funeral for " + fn, s: { river: "the tribe is carrying them to the water " + fu.where + ".", pyre: "the tribe is gathering " + fu.where + " for a pyre.", burial: "the tribe is digging a grave " + fu.where + ".", cairn: "the tribe is piling stones " + fu.where + "." }[fu.rite] + " come and watch, or tickle a mourner to comfort them.", btn: "go there", go: function () { R.flyTo(fu.x, fu.z, 8, 1.0); } }); }
     var str = SB.Strangers && SB.Strangers.pending(g);
     if (str && !el.modal) out.push({ key: "str" + str.id, icon: "🧳", t: str.name + " is waiting to join", s: "a survivor is at the edge of the village. welcome them in: newcomers aren't family, so they can start new families.", go: function () { strangerCard(str); } });
     var pr = (g.prayers || []).filter(function (p) { return !p.answered && SB.Game.prayerLive(g, p) && SB.Game.byId(g, p.id); })[0];
@@ -1609,11 +1626,17 @@
         moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + ". everyone here comes from them.", "lilac");
         R.flyTo(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
       }
-      storyCard("grave", "🪦", "goodbye, " + esc(d.c.name), ["every smol gets a little grave where it fell, with an epitaph. tap it to read it.",
-        "friends and family grieve for a while: they get lonely and slow, and visit the grave. the 📜 chronicle in the menu remembers everyone."]);
+      storyCard("grave", "🕯", "goodbye, " + esc(d.c.name), ["when a smol dies, its body stays where it fell (look for the 🕯). in a little while the tribe gathers to say goodbye, the way their culture knows how.",
+        "early smols float their dead down the river to the sea. once they know fire, they give them to the flames. builders dig a grave at a favourite place, with an epitaph you can tap to read.",
+        "friends and family grieve for a while: they get lonely and slow, and visit the place. a tickle comforts them. the 📜 chronicle in the menu remembers everyone."]);
     });
     on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
     on("podCrash", function (d) { podQ.push(d.site); if (podQ.length === 1) setTimeout(nextPod, 300); });
+    on("funeral", function (d) {
+      var how = { river: "carrying " + (d.n > 1 ? "them" : "the body") + " to the water", pyre: "gathering for a pyre", burial: "digging a grave", cairn: "piling stones" }[d.rite];
+      toast("🕯 the smols are planning a funeral for <b>" + esc(d.names) + "</b>: " + how + ".", "", 6000);
+    });
+    on("funeralDone", function (d) { moment("🕯", "goodbye, " + d.names, "the tribe " + d.how + ".", "sad"); });
     on("podOpened", function (d) {
       if (d.self) { toast("🛸 " + esc(d.title) + (d.survivors.length ? ": " + d.survivors.map(function (c) { return esc(c.name); }).join(" and ") + " went looking for the village." : "")); if (d.log) cardQ.push(["🛸", "a log from the pod", ['<span class="podlog">' + esc(d.log) + "</span>"]]); if (!el.modal) nextCard(); return; }
       var paras = d.text.map(esc);

@@ -56,10 +56,10 @@
 
   Save.snapshot = function (game) {
     return {
-      v: 2, savedAt: Date.now(), seed: game.seed, rngState: game.rng.state(),
+      v: 2, savedAt: Date.now(), seed: game.seed, n: game.world && game.world.T ? game.world.T.N : SB.WORLD_N, rngState: game.rng.state(),
       time: round(game.time), speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
       hand: { tool: game.hand.tool }, family: plain(pruneFamily(game), 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
-      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, podsDown: game.podsDown || 0, podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
+      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, podsDown: game.podsDown || 0, bodies: SB.Funeral ? SB.Funeral.serialize(game) : [], podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
       culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount, sharedMax: game.culture.sharedMax || 0, spireBoost: !!game.culture.spireBoost }, 0),
       tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
       playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0), ngPlus: game.ngPlus || 0, ended: !!game.ended,
@@ -144,7 +144,7 @@
   Save.revive = function (data) {
     data = obj(data);
     var seed = num(data.seed, 1) || 1;
-    var game = SB.Game.create(seed);
+    var game = SB.Game.create(seed, num(data.n, 256)); // saves from before v3.5 have no size: those islands are 256 across
     game.time = Math.max(0, num(data.time, game.time));
     game.speed = SB.SPEEDS.indexOf(data.speed) >= 0 ? data.speed : 1;
     if (data.rngState != null) game.rng.setState(data.rngState);
@@ -179,6 +179,7 @@
         if (c && c.alive) game.creatures.push(c);
       } catch (e) { if (window.console) console.warn("[save] could not revive creature", p && p.name, e); }
     });
+    if (SB.Funeral) SB.Funeral.revive(game, Array.isArray(data.bodies) ? data.bodies : []);
     fixIds(game);
     if (data.selectedId != null && SB.Game.byId(game, data.selectedId)) game.selectedId = data.selectedId;
     return game;
@@ -205,7 +206,7 @@
 
   Save.migrateV1 = function (v1) {
     var seed = (num(v1.seed, 1) >>> 0) % 25600000 || 1;
-    var game = SB.Game.create(seed);
+    var game = SB.Game.create(seed, 256);
     game.migratedFromV1 = true;
     game.tutorial = { step: 99, done: true, wildDone: true };
     game.achievements = obj(v1.achievements);

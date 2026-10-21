@@ -292,6 +292,7 @@
     drawItems(game, t);
     var cs = game.creatures;
     for (var i = 0; i < cs.length; i++) if (cs[i].alive || cs[i].dying) drawCreature(cs[i], alpha, t, game);
+    var bd = game.bodies; if (bd) for (var bi = 0; bi < bd.length; bi++) if (!bd[bi].gone2 && !bd[bi].away) drawCreature(bd[bi], alpha, t, game); // the dead, waiting for their funeral
     // the god hand's ground marker
     var h = game.hand;
     if (h.visible && h.marker) {
@@ -390,6 +391,14 @@
         SB.Icons.fillText(ctx, c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, Math.round(y - 8 + Math.sin(t * 5) * 2), 14);
       }
     }
+    // the dead: a little candle and their name, until the tribe has said goodbye
+    (game.bodies || []).forEach(function (b) {
+      if (b.gone2 || b.away || b.drift || !SB.World.isSeen(game.world, b.x, b.z)) return;
+      R.project(b.x, b.y + 1.3, b.z, pp);
+      if (!pp.on) return;
+      SB.Icons.fillText(ctx, "🕯", pp.x, Math.round(pp.y + Math.sin(t * 2 + b.id) * 2), 14);
+      if (B.labels) { ctx.font = "700 11px " + FONT; ctx.fillStyle = "rgba(245,243,237,0.7)"; ctx.strokeStyle = "rgba(16,17,20,0.75)"; ctx.lineWidth = 3; SB.Icons.fillText(ctx, b.name, pp.x, pp.y + 16, 12, true); }
+    });
     // places nobody has explored yet: a bobbing marker, so you know where to send them
     (game.sites || []).forEach(function (st) {
       if (st.kind === "pod" && !st.done && !st.gone) { // a downed pod: someone's inside, waiting
