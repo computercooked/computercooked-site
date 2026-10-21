@@ -94,6 +94,18 @@ From the owner's fifth and sixth rounds of notes (v3.5 never shipped on its own,
 - **Collectible smols** (`collect.js`, `cards.js`): six trait slots and a fluff grade, rarity common to mythic, inherited with rare-parent luck. Collector cards, a smoldex with a hall of fame, and checksummed smol codes so a typo can't forge a legendary.
 - **Cosy art pass**: warmer palette and golden light, turquoise shallows and foam, thatched huts with chimneys and lit windows, fenced farms, fruit on the trees.
 - **v4.1 (first playtest of possession)**: the mouse never reached the look code (it listened on the overlay canvas, which ignores the pointer), so the head couldn't turn; it now listens on the island view, and the arrow keys turn the head too. The first-person HUD was redrawn in the game's pixel style: ticked compass strip, bracket crosshair with the target's name, keycap prompts, a portrait card with mood, segmented vitals with numbers, a paws/tool/bag hotbar, faint scanlines.
+
+## 0.11 What v4.2 added: you can tell what things are
+
+The playtest note was "it's very hard to tell what anything is" and "the models are very rigid". v4.2 is a readability and motion pass in code (`render.js`, `meshes.js`, `bodies.js`, `pixel.js`, `gl.js`); generated art comes later through the hooks below.
+
+- **Outlines**: in the pixel look every object writes its id into the low-res buffer and the outline pass draws a 1px dark edge (a shade of the front object's colour) wherever one object stands in front of another, so a flat apple on grass still has a crisp edge, in god view and first person. Grass, flowers and sprites are skipped. In `?look=3d` a soft sky rim light does the same job.
+- **Pickups pop**: loose items are 1.3× bigger, bob, cast a shadow further out, and in 3D get a stronger rim, a glint and a thin dark shell. Apple, cherries, berries, stick, stone, clay, egg, ore and flint were redrawn to read at god-view zoom.
+- **Every tree is its own shape**: oak (broad, bright apples), birch (white trunk), pine (four dark tiers), palm (ringed curved trunk, drooping fronds, coconuts), sakura (pink umbrella), maple (red-orange teardrop), mangrove (stilt roots), bamboo (jointed canes, 660 → 260 tris). Berries sit on top of the bush; ore shows copper nuggets, flint is glassy, clay is a wet mound.
+- **Less rigid**: plants bend from the root with rolling gusts and leaf flutter; smols squash and stretch on springs (landings, bonks, flight), lean into their stride, turn smoothly, squish on a turnaround and breathe when idle; in 3D the antenna, ears and tail trail behind.
+- **Smoother ground**: mostly smooth shading with a little faceting kept, and biome colours blend over a couple of tiles.
+- **Art hooks**: `GL.loadImage`, `SB.Render.loadArt(manifest)` (with a tiling ground-texture slot) and `SB.Pixel.override` for drawn sprite sheets. Missing images fall back to today's look; nothing is requested by default.
+- Triangle counts are flat (big village: 332k pixel, 356k 3D desktop; 63k 3D phone); 3D adds one draw per visible item kind for the pickup shell.
 - **From v3.5**: funerals by culture (river, pyre, burial and memorials), a much bigger name generator, clickable guide tips, a bigger menu that fits the tree of life.
 
 ## 1. The ladder
