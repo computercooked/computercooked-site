@@ -162,6 +162,11 @@
     zap: function (v) { tone(1800, 0.3, { to: 200, slide: 0.28, vol: 0.12 * v, type: "sawtooth", filter: "bandpass", ff: 1500, q: 2 }); noise(0.25, { ff: 4000, q: 1, vol: 0.1 * v }); tone(300, 0.2, { to: 1600, delay: 0.25, vol: 0.12 * v, type: "square", filter: "lowpass", ff: 3000 }); return 0.5; },
     sad: function (v) { [76, 72, 69, 64].forEach(function (n, i) { tone(note(n), 0.5, { delay: i * 0.28, vol: 0.12 * v, type: "triangle", attack: 0.04 }); }); return 1.5; },
     sick: function (v) { tone(260, 0.4, { to: 110, slide: 0.35, vol: 0.18 * v, type: "sawtooth", filter: "lowpass", ff: 700, q: 6 }); noise(0.3, { delay: 0.05, ff: 500, q: 4, vol: 0.12 * v }); return 0.45; },
+    // the opening battle (v3.6): pew lasers, a heavy beam, and explosions, in the same little synth
+    laser: function (v) { var f = 1400 + Math.random() * 900; tone(f, 0.16, { to: f * 0.18, slide: 0.15, vol: 0.09 * v, type: "square", filter: "lowpass", ff: 4200 }); tone(f * 1.5, 0.08, { to: f * 0.4, slide: 0.08, vol: 0.04 * v, type: "sawtooth" }); return 0.18; },
+    beam: function (v) { tone(110, 0.9, { to: 70, slide: 0.8, vol: 0.12 * v, type: "sawtooth", filter: "lowpass", ff: 1600, q: 6, attack: 0.05 }); tone(880, 0.9, { to: 1760, slide: 0.8, vol: 0.05 * v, type: "square", filter: "bandpass", ff: 2400, q: 3, attack: 0.1 }); noise(0.9, { ff: 3000, fTo: 900, q: 2, vol: 0.08 * v, attack: 0.1 }); return 1; },
+    boom: function (v) { tone(90, 0.6, { to: 32, slide: 0.5, vol: 0.4 * v, type: "sine" }); tone(60, 0.4, { to: 25, slide: 0.35, vol: 0.2 * v, type: "triangle" }); noise(0.9, { ff: 1400, fTo: 140, q: 0.7, vol: 0.32 * v, filter: "lowpass", attack: 0.004 }); noise(0.25, { ff: 4000, fTo: 900, q: 0.8, vol: 0.12 * v }); return 0.9; },
+    bigboom: function (v) { SFX.boom(v); tone(45, 1.8, { to: 22, slide: 1.6, vol: 0.4 * v, type: "sine" }); noise(2.2, { ff: 900, fTo: 60, q: 0.6, vol: 0.3 * v, filter: "lowpass", attack: 0.01, delay: 0.05 }); noise(1.2, { ff: 6000, fTo: 1500, q: 0.5, vol: 0.1 * v, delay: 0.1 }); return 2.2; },
     whoosh: function (v) { noise(0.35, { ff: 600, fTo: 2500, q: 1.5, vol: 0.18 * v, attack: 0.08 }); return 0.4; },
     snore: function (v) { noise(0.9, { ff: 300, fTo: 180, q: 5, vol: 0.06 * v, attack: 0.3 }); tone(90, 0.8, { vol: 0.04 * v, type: "sawtooth", filter: "lowpass", ff: 300, attack: 0.3 }); return 1; },
     splash: function (v) { noise(0.35, { ff: 1800, fTo: 600, q: 0.8, vol: 0.2 * v }); return 0.4; },
@@ -198,7 +203,7 @@
       return t;
     }
   };
-  var SFX_COOLDOWN = { eureka: 0.5, tierup: 2, craft: 0.3, build: 0.15, built: 1, magic: 0.3, chime: 0.4, fire: 1, species: 1, eat: 0.2, tickle: 0.25, tap: 0.12, learn: 0.3, egg: 0.5, grump: 1.5, thunder: 1, boing: 0.2, zap: 0.3, sad: 1, sick: 1, music: 0.5, snore: 2, splash: 0.3, pop: 0.05, click: 0.03 };
+  var SFX_COOLDOWN = { eureka: 0.5, tierup: 2, craft: 0.3, build: 0.15, built: 1, magic: 0.3, chime: 0.4, fire: 1, species: 1, eat: 0.2, tickle: 0.25, tap: 0.12, learn: 0.3, egg: 0.5, grump: 1.5, thunder: 1, boing: 0.2, zap: 0.3, laser: 0.04, beam: 0.6, boom: 0.08, bigboom: 1, sad: 1, sick: 1, music: 0.5, snore: 2, splash: 0.3, pop: 0.05, click: 0.03 };
 
   A.play = function (name, opts) {
     var f = SFX[name];

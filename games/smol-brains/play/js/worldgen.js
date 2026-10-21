@@ -71,6 +71,9 @@
       land: r.range(0.92, 1.12), mtn: r.range(0.7, 1.35), rough: r.range(0.8, 1.2),
       tilt: r.range(-0.25, 0.25), lobes: r.int(3) + 2, lobeA: r.range(0, 6.28)
     };
+    // the "create world" choices (all 1 / 0 for a classic island, so old worlds come out the same)
+    var WO = SB.WORLD_OPTS || {};
+    shape.land *= WO.land || 1; shape.mtn *= WO.mtn || 1;
 
     /* ---- heights ---- */
     var warpF = coarse(function (x, z) { return fbm(nC, x * 3 * K + shape.ox, z * 3 * K + shape.oz, 3, 2, 0.5); }, KR(64));
@@ -255,9 +258,9 @@
       tileH[t] = th;
       slope[t] = Math.max(Math.abs(h00 - h11), Math.abs(h10 - h01));
       x = (i + 0.5) / N; z = (j + 0.5) / N;
-      var tt = 0.56 + (z - 0.5) * 0.85 * warmSouth + tempF(x, z) * 0.17 - Math.max(0, th - 4) * 0.026;
+      var tt = 0.56 + (WO.temp || 0) + (z - 0.5) * 0.85 * warmSouth + tempF(x, z) * 0.17 - Math.max(0, th - 4) * 0.026;
       var wd = Math.min(wdist[a], wdist[a + V + 1]);
-      var mm = 0.36 + moistF(x, z) * 0.4 + Math.max(0, 1 - wd / 16) * 0.28;
+      var mm = 0.36 + (WO.moist || 0) + moistF(x, z) * 0.4 + Math.max(0, 1 - wd / 16) * 0.28;
       temp[t] = SB.clamp01(tt); moist[t] = SB.clamp01(mm);
       var wet = W[a] !== NONE && W[a] > h00 + 0.05 && W[a + V + 1] !== NONE && W[a + V + 1] > h11 + 0.05;
       var bm;

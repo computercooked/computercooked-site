@@ -47,7 +47,7 @@
     root.appendChild(wrap);
     IN.covering = true;
     var started = false;
-    gate.onclick = function (e) { e.stopPropagation(); if (started) return; started = true; if (SB.Music && !podFall) SB.Music.play(ending ? "bigthought" : "smolbrains"); gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
+    gate.onclick = function (e) { e.stopPropagation(); if (started) return; started = true; if (SB.Music && !podFall) SB.Music.play(ending ? "bigthought" : "arkfight"); gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
     var ctx = cv.getContext("2d");
     var r = rng(3127), stars = [];
     for (var i = 0; i < 140; i++) stars.push({ x: r() * W, y: r() * H, z: 0.2 + r() * r() * 1.6, c: r() < 0.1 ? "#b59aff" : r() < 0.2 ? "#ffd84a" : "#ffffff" });
@@ -61,12 +61,17 @@
       wrap.classList.add("out");
       setTimeout(function () { wrap.remove(); }, 700);
       document.removeEventListener("keydown", key, true);
+      // the battle music hands over to the island's own songs
+      if (!ending && !podFall && SB.Music && SB.Music.now && SB.Music.now() && SB.Music.now().id === "arkfight") SB.Music.skip();
       if (opts.done) opts.done();
     }
     function key(e) { if (e.key === "Escape" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (!started) gate.onclick(e); else finish(); } }
     skip.onclick = function (e) { e.stopPropagation(); finish(); };
     document.addEventListener("keydown", key, true);
 
+    var fired = {}, shake = 0;
+    function sfx(name, v) { if (SB.Audio && SB.Audio.play) try { SB.Audio.play(name, { vol: v == null ? 1 : v }); } catch (e) {} }
+    function once(k, name, v, sh) { if (fired[k]) return; fired[k] = 1; sfx(name, v); if (sh) shake = Math.max(shake, sh); }
     function px(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
     function oval(cx, cy, rx, ry, c) { ctx.fillStyle = c; for (var y = -ry; y <= ry; y++) { var hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry)))); ctx.fillRect(Math.round(cx - hw), Math.round(cy + y), hw * 2 + 1, 1); } }
 
@@ -175,7 +180,10 @@
       var dt = lastF ? Math.min(0.1, (now - lastF) / 1000) : 1 / 60; // real time, so slow devices keep pace
       lastF = now;
       if (t > dur) { finish(); return; }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#07060d"; ctx.fillRect(0, 0, W, H);
+      // impacts shake the camera
+      if (shake > 0.05) { ctx.setTransform(1, 0, 0, 1, Math.round((r() - 0.5) * shake * 2), Math.round((r() - 0.5) * shake * 2)); shake *= Math.pow(0.02, dt); } else shake = 0;
       var warp = ending ? (t > 6 && t < 12 ? 2.5 : 0.4) : t < 16 ? 1 : 1 + (t - 16) * 0.6;
       stars.forEach(function (s) {
         var x = ((s.x - t * 9 * s.z * warp) % W + W) % W;
@@ -192,6 +200,7 @@
         for (var k1 = 0; k1 < 18; k1++) px(fx0 - k1 * 2.6 - (k1 % 2), fy0 - k1 * 2.2, Math.max(1, 4 - k1 / 5), Math.max(1, 4 - k1 / 5), k1 < 3 ? "#ffffff" : k1 < 8 ? "#ffd84a" : "#ff9f43");
         px(fx0, fy0, 5, 4, "#1a1222"); px(fx0 + 1, fy0, 3, 3, "#8fe6dc");
         if (r() < 0.5) bits.push({ x: fx0 - 4, y: fy0 - 3, vx: -20 - r() * 30, vy: -10 - r() * 20, life: 0.4 + r() * 0.4, t: 0, c: r() < 0.5 ? "#ff9f43" : "#ffd84a", w: 1 });
+        if (t > 3.6) once("podhit", "bigboom", 0.7, 4);
         if (t > 3.7) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (t - 3.7) * 1.4) + ")"; ctx.fillRect(0, 0, W, H); }
       }
       else if (t < 11.5) {
@@ -199,11 +208,14 @@
         var ax = 110 + Math.sin(t * 0.8) * 6, ay = 92 + Math.sin(t * 1.3) * 4;
         var gx = 330 - ease(t / 4) * 90 + Math.sin(t * 0.7) * 5, gy = 70 + Math.cos(t * 1.1) * 5;
         // bolts are aimed: each one steers onto a spot on the other ship's hull and bursts when it touches it
-        if (t > 2 && t < 9.3 && r() < 0.12) bolts.push({ x: gx - 22, y: gy + (r() - 0.5) * 6, vx: -260, vy: 0, c: "#ff3b4f", at: "ark", ox: 4 + r() * 22, oy: (r() - 0.5) * 12 });
-        if (t > 2.5 && t < 9 && r() < 0.06) bolts.push({ x: ax + 36, y: ay - 2, vx: 240, vy: 0, c: "#c5ff49", at: "grump", ox: -6 - r() * 14, oy: (r() - 0.5) * 8 });
+        if (t > 2 && t < 9.3 && r() < 0.12) { bolts.push({ x: gx - 22, y: gy + (r() - 0.5) * 6, vx: -260, vy: 0, c: "#ff3b4f", at: "ark", ox: 4 + r() * 22, oy: (r() - 0.5) * 12 }); sfx("laser", 0.45); }
+        if (t > 2.5 && t < 9 && r() < 0.06) { bolts.push({ x: ax + 36, y: ay - 2, vx: 240, vy: 0, c: "#c5ff49", at: "grump", ox: -6 - r() * 14, oy: (r() - 0.5) * 8 }); sfx("laser", 0.35); }
         shipAt.ark = { x: ax, y: ay, rx: 38, ry: 13 }; shipAt.grump = { x: gx, y: gy, rx: 23, ry: 8 };
         var hitBig = t > 8.2 && t < 8.4;
         if (hitBig && r() < 0.8) boom(ax + (r() - 0.5) * 50, ay + (r() - 0.5) * 16, 6, 60);
+        if (t > 7.4) once("beam", "beam", 1, 1.5);
+        if (t > 8.2) once("hit", "boom", 0.8, 3);
+        if (t > 9.4) once("big", "bigboom", 1, 6);
         if (t > 7.4 && t < 8.2) {
           // the big beam runs from the warship's cannon to the ark's hull
           var bw = Math.max(1, Math.round((t - 7.4) * 10)), bx0 = ax + 26, bx1 = gx - 22, by0 = ay, by1 = gy + 1;
@@ -226,6 +238,7 @@
         var fx = W / 2 - 40 + pt * 18, fy = 30 + pt * 16;
         for (var k = 0; k < 14; k++) { px(fx - k * 2.2 - (k % 2), fy - k * 1.8, Math.max(1, 3 - k / 5), Math.max(1, 3 - k / 5), k < 3 ? "#ffffff" : k < 7 ? "#ffd84a" : "#ff9f43"); }
         px(fx, fy, 4, 3, "#1a1222"); px(fx + 1, fy, 2, 2, "#e8e4f0");
+        if (pt > 5.1) once("land", "boom", 0.7, 3);
         if (pt > 5.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (pt - 5.2) * 1.4) + ")"; ctx.fillRect(0, 0, W, H); }
       }
       // shared particles
@@ -236,7 +249,7 @@
         b.vy = left > 0.02 ? (ty - b.y) / left : 0;
         b.x += b.vx * dt; b.y += b.vy * dt;
         var ex = (b.x - s.x) / s.rx, ey = (b.y - s.y) / s.ry;
-        if (ex * ex + ey * ey <= 1 || left <= 0) { boom(b.x, b.y, 4, 30); return false; }
+        if (ex * ex + ey * ey <= 1 || left <= 0) { boom(b.x, b.y, 4, 30); sfx("boom", 0.22); shake = Math.max(shake, 1); return false; }
         px(b.x, b.y, 6, 1, b.c); px(b.x + (b.vx < 0 ? 0 : 4), b.y, 2, 1, "#ffffff"); return true;
       });
       bits = bits.filter(function (b) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.97; b.vy *= 0.97; if (b.t > b.life) return false; px(b.x, b.y, b.w, b.w, b.c); return true; });

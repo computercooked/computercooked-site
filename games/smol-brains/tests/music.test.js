@@ -33,6 +33,17 @@ console.log("1. the album");
   check("about 40 minutes of music", durs.reduce((a, b) => a + b, 0) > 35 * 60, Math.round(durs.reduce((a, b) => a + b, 0) / 60) + " min");
 }
 
+console.log("1b. the opening battle cue (v3.6)");
+{
+  const cue = M.byId("arkfight");
+  check("the cue exists but isn't on the album or the playlist", cue && SONGS.indexOf(cue) < 0 && !M._fits(cue, null));
+  const sc = M._score(cue), kinds = new Set(sc.ev.map(e => e.i));
+  ["A", "B"].forEach(k => { const toks = cue[k].mel.split(/\s+/).filter(x => x && x !== "|"); check("cue " + k + " bars line up", toks.length === cue[k].ch.split(/\s+/).length * cue.bar); });
+  check("drums, a driving bass, synth and brass", ["kick", "snare", "hat", "bass", "synth", "brass"].every(k => kinds.has(k)), [...kinds].join(","));
+  check("fast and long enough for the opening", cue.bpm >= 140 && sc.dur > 30, Math.round(sc.dur) + " s");
+  check("every note is playable", sc.ev.every(e => isFinite(e.t) && e.t >= 0 && e.d > 0 && e.v > 0));
+}
+
 console.log("2. the playlist follows the island");
 {
   const game = SB.Game.newGame(5); SB.Game.current = game;

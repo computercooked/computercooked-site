@@ -301,9 +301,10 @@
     w.t += dt;
     if (w.t >= w.next) {
       var odds = WX_ODDS[world.season], tot = 0, k;
-      for (k in odds) tot += odds[k];
+      var stormy = SB.wopt(game, "storms");
+      for (k in odds) tot += odds[k] * (k === "storm" ? stormy : 1);
       var pick = r() * tot, kind = "clear";
-      for (k in odds) { pick -= odds[k]; if (pick <= 0) { kind = k; break; } }
+      for (k in odds) { pick -= odds[k] * (k === "storm" ? stormy : 1); if (pick <= 0) { kind = k; break; } }
       if (game.forceWeather) { kind = game.forceWeather; game.forceWeather = null; }
       if (kind !== w.kind) emit("weather", { kind: kind, from: w.kind });
       w.kind = kind; w.t = 0; w.next = r.range(80, 220) * (kind === "storm" ? 0.5 : 1);
@@ -579,7 +580,7 @@
       if (!on) continue;
       var plant = def.noun === "plant";
       // seasons: spring flush, autumn bounty (time to stock up), lean winter
-      var g = plant ? rainBoost * (winter ? 0.6 : spring ? 1.3 : world.season === 2 ? 1.25 : 1) : 1;
+      var g = plant ? rainBoost * (winter ? 0.6 : spring ? 1.3 : world.season === 2 ? 1.25 : 1) * SB.wopt(game, "food") : SB.wopt(game, "ore");
       n.dropT -= sdt * g;
       if (n.dropT <= 0) {
         n.dropT = def.every * r.range(0.7, 1.4);
@@ -672,7 +673,7 @@
     var focus = smols.length ? r.pick(smols) : game.focus || world.T.spawn;
     var counts = { butterfly: 0, beetle: 0, hopper: 0 };
     world.items.forEach(function (o) { if (counts[o.kind] != null) counts[o.kind]++; });
-    var cap = { butterfly: world.night || world.season === 3 ? 0 : 10, beetle: 8, hopper: world.season === 3 ? 3 : 7 };
+    var cm = SB.wopt(game, "critters"), cap = { butterfly: world.night || world.season === 3 ? 0 : 10, beetle: Math.round(8 * cm), hopper: Math.round((world.season === 3 ? 3 : 7) * cm) };
     for (var k in cap) {
       if (counts[k] >= cap[k]) continue;
       for (var tries = 0; tries < 6; tries++) {
@@ -888,7 +889,7 @@
       if (world._grumpT <= 0) {
         world._grumpT = game.rng.range(20, 30);
         var smols = game.creatures.filter(function (c) { return c.alive && c.species === "smol"; });
-        var max = Math.min(1 + Math.floor(world.dayIndex / 2) + Math.floor(smols.length / 6), 5), alive = 0;
+        var gm = SB.wopt(game, "grumps"), max = Math.round(Math.min(1 + Math.floor(world.dayIndex / 2) + Math.floor(smols.length / 6), 5) * gm), alive = 0;
         game.creatures.forEach(function (c) { if (c.alive && c.species === "grump") alive++; });
         if (smols.length && alive < max && world.nightGrumps < max * 2) {
           // the cave nearest to the smols

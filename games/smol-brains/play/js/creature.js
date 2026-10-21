@@ -71,7 +71,7 @@
   };
   C.newBrain = function (genome, tier, rng) {
     var b = SB.Brain.create(genome, rng);
-    if (genome.species !== "grump" && tier >= 1 && SB.Ideas) SB.Brain.dream(b, SB.Ideas.tierInstincts(tier), 90 + 70 * tier, rng);
+    if (genome.species !== "grump" && tier >= 1 && SB.Ideas) SB.Brain.dream(b, SB.Ideas.tierInstincts(tier), Math.round((90 + 70 * tier) * (SB.quickBrains || 1)), rng); // quickBrains: the title screen's city doesn't need deep sleepers
     return b;
   };
 

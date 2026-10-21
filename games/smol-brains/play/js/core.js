@@ -98,6 +98,46 @@
     if (SB.World) SB.World.SEEN_N = n / 4;
     return n;
   };
+
+  // "create world" options (v3.6). Each choice maps to plain multipliers the sim reads through SB.wopt;
+  // the defaults are exactly the classic island, and an island quirk stacks on top of the choices
+  SB.WORLD_CHOICES = {
+    size: { small: 256, normal: 384, large: 512 },
+    land: { isles: { land: 0.86 }, island: {}, big: { land: 1.16 } },
+    peaks: { flat: { mtn: 0.5 }, normal: {}, tall: { mtn: 1.55 } },
+    climate: { temperate: {}, tropical: { temp: 0.16, moist: 0.12 }, frozen: { temp: -0.24 }, dry: { temp: 0.08, moist: -0.22 } },
+    food: { scarce: { food: 0.6 }, normal: {}, plenty: { food: 1.6 } },
+    grumps: { none: { grumps: 0 }, few: { grumps: 0.5 }, normal: {}, many: { grumps: 1.8 } },
+    storms: { calm: { storms: 0.3 }, normal: {}, wild: { storms: 2.2 } },
+    crew: { pair: {}, crew: { crew: 4 } }
+  };
+  SB.QUIRKS = {
+    bunnies: { icon: "🐇", name: "bunny island", desc: "hoppers everywhere. easy snacks, noisy nights.", fx: { critters: 2.2 } },
+    lush: { icon: "🍎", name: "the fat years", desc: "every bush is heavy with fruit.", fx: { food: 1.35 } },
+    crystals: { icon: "💎", name: "crystal veins", desc: "the rocks glitter. crystals and ore come easier.", fx: { ore: 1.8 } },
+    tempest: { icon: "⛈", name: "storm coast", desc: "the sky is angry here. more storms, more lightning, more fire.", fx: { storms: 2 } },
+    grumpmoon: { icon: "🌑", name: "grump moon", desc: "the caves are full. more grumps, but prayers pay more.", fx: { grumps: 1.5, sparks: 1.3 } },
+    gentle: { icon: "🌼", name: "sleepy island", desc: "few grumps and soft weather. a good place to grow up.", fx: { grumps: 0.4, storms: 0.5 } },
+    wild: { icon: "🦎", name: "wild island", desc: "bugs, beasts and critters all over.", fx: { critters: 1.6, food: 1.1 } },
+    old: { icon: "🏛", name: "old ruins", desc: "the pods aren't the first to land here. more ruins to find.", fx: { sites: 1.6 } }
+  };
+  SB.WORLD_OPTS = {}; // the multipliers of the island being made or played (set by Game.create)
+  SB.worldFx = function (w) {
+    var fx = { land: 1, mtn: 1, temp: 0, moist: 0, food: 1, grumps: 1, storms: 1, critters: 1, ore: 1, sparks: 1, sites: 1, crew: 2 };
+    w = w || {};
+    Object.keys(SB.WORLD_CHOICES).forEach(function (k) {
+      var c = SB.WORLD_CHOICES[k][w[k]];
+      if (c && typeof c === "object") for (var f in c) fx[f] = (f === "temp" || f === "moist" || f === "crew") ? c[f] : fx[f] * c[f];
+    });
+    (w.quirks || []).forEach(function (q) { var d = SB.QUIRKS[q]; if (d) for (var f in d.fx) fx[f] *= d.fx[f]; });
+    return fx;
+  };
+  // one multiplier of the current island (1 if the island has no options)
+  SB.wopt = function (game, k) {
+    var fx = game && game._fx;
+    if (!fx) { fx = SB.worldFx(game && game.settings && game.settings.world); if (game) game._fx = fx; }
+    return fx[k] == null ? 1 : fx[k];
+  };
   SB.CHUNK = 32;             // tiles per render chunk side
   SB.SEA = 0;                // sea level
 

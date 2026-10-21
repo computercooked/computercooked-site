@@ -62,7 +62,7 @@ From the owner's third playtest notes.
 
 From the owner's fourth round of notes and a playtester's complaint that pods were "found" but never mattered.
 
-- **Minds** (`mind.js`, saved as `c.mind`): a layer of thinking around each smol's neural net. It is not human-level and doesn't pretend to be, but each piece changes behaviour you can see, and more of it switches on with each tier.
+- **Minds** (`mind.js`, saved as `c.mind`): a layer of thinking around each smol's neural net. It's the first stretch of the road toward smols that think the way people do: each piece changes behaviour you can see, and more of it switches on with each tier.
   - **Memory** (all tiers): a diary of vivid moments that fade. It holds 4 + 2×tier entries; a better memory gene and a higher tier make them fade more slowly, and repeats strengthen a memory instead of copying it.
   - **A map of places** (critter and up): food, water, fire, beds and danger. Needy smols walk to what they remember, and a spot that turns out empty loses value. Tribe smols share places when they talk, and parents pass places on to hatchlings.
   - **Dreams**: while asleep the net is retrained on its most important recent experiences (`SB.Brain.replay`).

@@ -123,6 +123,7 @@
 
   /* ---------------- sparks (the god's currency) ---------------- */
   Game.addSparks = function (game, n, where) {
+    if (n > 0) n = Math.round(n * SB.wopt(game, "sparks") * 10) / 10;
     game.sparks = Math.min(999, (game.sparks || 0) + n);
     game.stats.sparksEarned = (game.stats.sparksEarned || 0) + n;
     if (n > 0 && !game.offline) SB.bus.emit("sparks", { n: n, at: where });
@@ -270,9 +271,11 @@
 
   /* ---------------- new game ---------------- */
 
-  Game.create = function (seed, n) {
+  // wopts: the "create world" choices (settings.world); old saves and default islands have none
+  Game.create = function (seed, n, wopts) {
     seed = seed || SB.newSeed();
     SB.setWorldN(n || SB.WORLD_N_NEW);
+    SB.WORLD_OPTS = SB.worldFx(wopts);
     var game = {
       v: 2, seed: seed, time: 0, speed: 1, rng: SB.rng(seed ^ 0x5bd1e995), nextId: 1,
       world: null, creatures: [], selectedId: null,
@@ -280,7 +283,7 @@
       family: {}, achievements: {}, tutorial: { step: 0, done: false }, log: [],
       stats: { hatched: 0, eggsLaid: 0, maxGen: 1, wordsTaught: 0, tickles: 0, taps: 0, deaths: 0, bestIQ: 0, grumpNights: 0, cured: 0, imported: 0, exported: 0, maxTier: 0, built: 0, crafted: 0, miracles: 0, prayersAnswered: 0 },
       sparks: 12, prayers: [], blessing: null, culture: null, tribes: null, villages: null, clades: null,
-      lang: SB.Lang.create(seed), created: Date.now(), playTime: 0
+      lang: SB.Lang.create(seed), created: Date.now(), playTime: 0, settings: wopts ? { world: wopts } : {}
     };
     game.world = SB.World.create(game, seed);
     game.time = SB.DAY_LENGTH * 0.335; // golden morning
@@ -291,16 +294,19 @@
     return game;
   };
 
-  Game.newGame = function (seed) {
-    var g = Game.create(seed);
+  Game.newGame = function (seed, n, wopts) {
+    var g = Game.create(seed, n, wopts);
     var nest = g.world.T.nest;
-    // the founders' escape pod (an "egg" underneath: tap it open). two unrelated blobs, a girl and a boy
-    var egg = SB.World.add(g.world, g, "egg", nest.x, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), genome2: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0, starter: true, pod: true, twins: true });
-    [egg.data.genome, egg.data.genome2].forEach(function (gn) {
-      var ins = gn.instincts, hasEat = false;
-      for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
-      if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
-    });
+    // the founders' escape pod (an "egg" underneath: tap it open). two unrelated blobs, a girl and a boy.
+    // a "crew" start lands a second pod next to it
+    for (var p = 0; p < (SB.wopt(g, "crew") >= 4 ? 2 : 1); p++) {
+      var egg = SB.World.add(g.world, g, "egg", nest.x + p * 2.4, nest.z - p * 1.2, { genome: SB.Genome.random(g.rng, { species: "smol" }), genome2: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0, starter: true, pod: true, twins: true });
+      [egg.data.genome, egg.data.genome2].forEach(function (gn) {
+        var ins = gn.instincts, hasEat = false;
+        for (var i = 0; i < ins.length; i++) if (ins[i].drive === SB.D.hunger && ins[i].noun === SB.N.food && ins[i].verb === SB.V.eat) { ins[i].s = Math.max(ins[i].s, 0.8); hasEat = true; }
+        if (!hasEat) ins.push({ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 0.8 });
+      });
+    }
     // an apple waits by the nest, and a gift from the sky
     var a = SB.World.add(g.world, g, "apple", nest.x + 1.6, nest.z + 0.6, {});
     a.data.starterApple = true;
@@ -319,7 +325,7 @@
     return [f, m].filter(Boolean);
   };
   Game.newGamePlus = function (prev, seed) {
-    var g = Game.newGame(seed), champs = Game.champions(prev), egg = g.world.items.find(function (o) { return o.data && o.data.pod; });
+    var g = Game.newGame(seed, prev.world && prev.world.T ? prev.world.T.N : 0, prev.settings && prev.settings.world), champs = Game.champions(prev), egg = g.world.items.find(function (o) { return o.data && o.data.pod; });
     var cap = { social: 0.45, planning: 0.4, head: 0.45, recall: 0.45, glow: 0.5 }, keep = { limbs: 1, arms: 1, dexterity: 1, senses: 1, fins: 1, fluff: 1, horns: 1, wings: 1 };
     function heir(c) {
       var ge = SB.Genome.forTier(g.rng, 2), src = c.genome;
@@ -343,6 +349,9 @@
     g.settings = JSON.parse(JSON.stringify(prev.settings || {}));
     g.tutorial.done = true; // they've done this before
     g.sparks += 10 * Math.min(3, g.ngPlus);
+    // a new island in the world list; the old one stays saved under its own name
+    g.wid = SB.Save && SB.Save.newWid ? SB.Save.newWid() : null;
+    g.wname = String(prev.wname || "my island").replace(/ · new game\+.*$/, "").slice(0, 26) + " · new game+" + (g.ngPlus > 1 ? " " + g.ngPlus : "");
     return g;
   };
 
@@ -539,7 +548,7 @@
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }
     scoreT += dtReal;
-    if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score) try { cc.score(Game.score(game)); } catch (e) {} }
+    if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score && !game.showcase) try { cc.score(Game.score(game)); } catch (e) {} }
   }
 
   Game.start = function (g) {
@@ -617,7 +626,35 @@
     if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel";
     if (!SB.Render.init(canvas, ov, { pixel: look !== "3d" })) { SB.UI.noWebGL(); return; }
     try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
-    var g = null, data = null, migrated = false, seedFromUrl = urlSeed();
+    hookPage();
+    if (window.cc && cc.start) try { cc.start(); } catch (e) {}
+    // how this visit starts: straight into the live island (a reload from inside the game, or ?play=1 for
+    // tests), or the title screen, after "computer cooked games presents" on a fresh visit
+    var flag = null; try { flag = window.sessionStorage.getItem("smolbrains-boot"); window.sessionStorage.removeItem("smolbrains-boot"); } catch (e) {}
+    var q = location.search || "", seedFromUrl = urlSeed();
+    try { var ns = +window.sessionStorage.getItem("smolbrains-newseed"); window.sessionStorage.removeItem("smolbrains-newseed"); if (ns > 0 && !seedFromUrl) seedFromUrl = ns; } catch (e) {}
+    if (/[?&](play|notitle)=1/.test(q) || flag === "play" || !SB.Title) return enterLive(seedFromUrl);
+    var title = function () {
+      hideSplash();
+      SB.Title.show({
+        shareSeed: seedFromUrl || 0,
+        onPlay: function (d) { SB.Title.hide(); enterData(d); },
+        onNew: function (o) { SB.Title.hide(); enterNew(o); }
+      });
+    };
+    if (flag === "title" || /[?&]nopresents=1/.test(q)) { SB.Title.prepare(); title(); }
+    else { hideSplash(); SB.Title.presents(title); setTimeout(function () { SB.Title.prepare(); }, 900); }
+  }
+  function hideSplash() { var sp = document.getElementById("splash"); if (sp) { sp.classList.add("gone"); setTimeout(function () { sp.remove(); }, 800); } }
+  // reloads that should skip the title (switching islands from inside the game) or land on it
+  Game.reloadTo = function (where) {
+    try { window.sessionStorage.setItem("smolbrains-boot", where || "title"); } catch (e) {}
+    window.location.reload();
+  };
+
+  // the island in the live save (the pre-v3.6 boot, still used by ?play=1 and in-game reloads)
+  function enterLive(seedFromUrl) {
+    var g = null, data = null, migrated = false;
     try { data = SB.Save.load(); } catch (e) { data = null; }
     // a shared world link opens that world, but never silently over an island you already have
     if (data && seedFromUrl && data.seed !== seedFromUrl) {
@@ -633,22 +670,47 @@
     }
     var fresh = !g;
     if (!g) g = Game.newGame(seedFromUrl || 0);
+    enter(g, { fresh: fresh, migrated: migrated, data: fresh ? null : data });
+  }
+  // an island picked on the title screen (already made the live save)
+  function enterData(d) {
+    var g = null;
+    try { g = SB.Save.revive(d); } catch (e) { console.warn("[smol] save load failed", e); g = null; }
+    if (!g) { var v1 = SB.Save.loadV1(); if (v1 && !d) try { g = SB.Save.migrateV1(v1); } catch (e) { g = null; } }
+    if (!g) return enterNew({});
+    enter(g, { fresh: false, data: d });
+  }
+  // a new island from "create world"
+  function enterNew(o) {
+    o = o || {};
+    var g = Game.newGame(o.seed || 0, o.n || 0, o.world || null);
+    g.wid = SB.Save.newWid(); g.wname = o.name || null;
+    if (o.story) g.settings.storyteller = o.story;
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    enter(g, { fresh: true });
+  }
+  function enter(g, o) {
     game = Game.current = g;
     SB.Render.setWorld(g);
-    SB.UI.init(g, { fresh: fresh, migrated: migrated });
+    SB.UI.init(g, { fresh: o.fresh, migrated: o.migrated });
     Game.start(g);
-    if (window.cc && cc.start) try { cc.start(); } catch (e) {}
+    try { SB.Save.save(g); } catch (e) {}
     SB.Save.cloud && SB.Save.cloud();
-
     // offline progress
-    if (!fresh && data && data.savedAt) {
+    var data = o.data;
+    if (!o.fresh && data && data.savedAt) {
       var away = (Date.now() - data.savedAt) / 1000, budget = Game.offlineBudget(away);
       if (budget > 30 && SB.UI.awayScreen) SB.UI.awayScreen(g, away, budget);
     }
+  }
+  var hooked = false;
+  function hookPage() {
+    if (hooked) return;
+    hooked = true;
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {
         try { SB.Save.save(Game.current); } catch (e) {}
-        if (window.cc && cc.end) try { cc.end({ score: Game.score(Game.current) }); } catch (e) {}
+        if (window.cc && cc.end && !Game.current.showcase) try { cc.end({ score: Game.score(Game.current) }); } catch (e) {}
       }
     });
     window.addEventListener("pagehide", function () { try { SB.Save.save(Game.current); } catch (e) {} });
@@ -660,7 +722,7 @@
       if (m.type === "cc-mute") SB.Audio && SB.Audio.setMuted(!!m.muted, "host");
       else if (m.type === "cc-pause") Game.hostPaused = !!(m.paused == null ? true : m.paused);
       else if (m.type === "cc-resume") Game.hostPaused = false;
-      else if (m.type === "cc-restart") SB.UI && SB.UI.confirmRestart && SB.UI.confirmRestart();
+      else if (m.type === "cc-restart" && Game.current && !Game.current.showcase) SB.UI && SB.UI.confirmRestart && SB.UI.confirmRestart();
     });
     window.ccGameActive = true;
   }

@@ -356,3 +356,89 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 @media (max-width: 700px) { #ui:has(.sheet:not(.hide)) .guide { display: none; } }
 #ui:has(.podmap) .guide { display: none; }
 @media (max-width: 700px) { .guide { bottom: calc(184px + var(--sab)); } }
+
+/* ---------------- v3.6: bigger interface, presents, title screen, create world ---------------- */
+/* the whole interface zooms as one (--uiz is set from the text-size setting; auto grows it on big screens) */
+#ui { zoom: var(--uiz, 1); }
+
+.presents { position: fixed; inset: 0; z-index: 60; background: #07060d; display: grid; place-items: center; cursor: pointer; transition: opacity 0.9s; }
+.presents.gone { opacity: 0; pointer-events: none; }
+.presents .pcard { grid-area: 1 / 1; text-align: center; opacity: 0; transform: scale(0.96); transition: opacity 1.4s ease, transform 3.6s ease-out; }
+.presents .pcard.on { opacity: 1; transform: scale(1.02); }
+.presents .pcard.off { opacity: 0; transform: scale(1.06); transition: opacity 1s ease, transform 1s ease; }
+.pcc-mark { display: flex; gap: 10px; justify-content: center; margin-bottom: 22px; }
+.pcc-mark i { width: 22px; height: 22px; background: var(--lime); box-shadow: 0 0 24px rgba(197, 255, 73, 0.6); animation: pccbob 1.6s ease-in-out infinite; }
+.pcc-mark i:nth-child(2) { background: var(--lilac); box-shadow: 0 0 24px rgba(181, 154, 255, 0.6); animation-delay: 0.2s; }
+.pcc-mark i:nth-child(3) { background: var(--pink); box-shadow: 0 0 24px rgba(255, 95, 162, 0.6); animation-delay: 0.4s; }
+@keyframes pccbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.pcc-name { font: 700 clamp(34px, 8vw, 92px)/0.95 var(--mono); color: var(--paper); letter-spacing: 0.02em; text-transform: uppercase; text-shadow: 0 6px 0 #000, 0 0 50px rgba(197, 255, 73, 0.25); }
+.pcc-name b { color: var(--lime); }
+.pcc-sub { margin-top: 20px; font: 700 clamp(16px, 2.6vw, 28px) var(--mono); color: var(--dim); letter-spacing: 0.5em; text-transform: lowercase; padding-left: 0.5em; }
+.ptitle h1 { margin: 0; font: 700 clamp(64px, 16vw, 180px)/0.86 var(--sans); color: var(--paper); text-shadow: 0 8px 0 #000, 0 0 70px rgba(197, 255, 73, 0.25); }
+.ptitle h1 span { color: var(--lime); }
+.ptitle p { margin: 18px 0 0; font: 700 clamp(14px, 2.2vw, 22px) var(--sans); color: var(--lilac); }
+.pskip { position: absolute; bottom: calc(20px + var(--sab)); left: 0; right: 0; text-align: center; font: 600 12px var(--sans); color: rgba(245, 243, 237, 0.3); }
+
+/* the title screen: the late-game city drifts behind, soft and faded */
+/* soft, not blurred: the low-res pixel render is simply scaled up smoothly (a CSS blur is too slow without a GPU) */
+body.titling #view { image-rendering: auto !important; opacity: 0; }
+body.titling.cityup #view { opacity: 1; transition: opacity 2.5s; }
+body.titling #overlay { opacity: 0; }
+.ts { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; overflow-y: auto; animation: tsin 1.4s ease-out; transition: opacity 0.7s; }
+.ts.out { opacity: 0; pointer-events: none; }
+@keyframes tsin { from { opacity: 0; } to { opacity: 1; } }
+.ts-fade { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 42%, rgba(16, 17, 20, 0.05) 0%, rgba(16, 17, 20, 0.35) 55%, rgba(7, 6, 13, 0.8) 100%), linear-gradient(rgba(7, 6, 13, 0.25), rgba(7, 6, 13, 0.1) 40%, rgba(7, 6, 13, 0.55)); }
+.ts-box { position: relative; width: min(560px, calc(100% - 32px)); margin: auto; padding: calc(28px + var(--sat)) 0 calc(56px + var(--sab)); display: flex; flex-direction: column; align-items: stretch; gap: 26px; }
+.ts-logo { text-align: center; }
+.ts-logo h1 { margin: 0; font: 700 clamp(58px, 15vw, 120px)/0.86 var(--sans); color: var(--paper); text-shadow: 0 6px 0 #000, 0 0 60px rgba(0, 0, 0, 0.5); animation: tsbob 6s ease-in-out infinite; }
+.ts-logo h1 span { color: var(--lime); }
+.ts-logo p { margin: 12px 0 0; font: 700 15px var(--sans); color: var(--paper); text-shadow: 0 2px 0 #000; opacity: 0.85; }
+@keyframes tsbob { 0%, 100% { transform: translateY(0) rotate(-0.6deg); } 50% { transform: translateY(-5px) rotate(0.6deg); } }
+.ts-pane { display: flex; flex-direction: column; gap: 10px; }
+.ts-pane.wide { background: rgba(16, 17, 20, 0.82); border: 2px solid rgba(255, 255, 255, 0.1); box-shadow: 0 6px 0 rgba(0, 0, 0, 0.5); padding: 18px; }
+.ts-pane h2 { margin: 0 0 4px; font: 700 22px var(--mono); color: var(--lime); }
+.ts-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 18px; background: rgba(23, 24, 29, 0.86); border: 2px solid rgba(255, 255, 255, 0.14); box-shadow: 0 4px 0 #000; color: var(--paper); transition: transform 0.08s, background 0.15s, border-color 0.15s; }
+.ts-btn .l { font: 700 19px var(--sans); }
+.ts-btn .s { font: 500 12px var(--sans); color: var(--dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-btn:hover { background: rgba(40, 42, 50, 0.92); border-color: rgba(197, 255, 73, 0.6); transform: translateY(-1px); }
+.ts-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #000; }
+.ts-btn.go { background: var(--lime); color: #101114; border-color: #101114; }
+.ts-btn.go .s { color: rgba(16, 17, 20, 0.7); }
+.ts-btn.go:hover { background: #d6ff7a; }
+.ts-btn.big { padding: 18px; }
+.ts-btn.big .l { font-size: 23px; }
+.ts-btn.small { padding: 10px 14px; }
+.ts-btn.small .l { font-size: 15px; }
+.ts-btn.dim { opacity: 0.6; }
+.ts-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.ts-row .ts-btn { flex: 1; }
+.ts-foot { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; padding: 10px 16px calc(10px + var(--sab)); font: 600 11px var(--mono); color: rgba(245, 243, 237, 0.5); pointer-events: none; text-shadow: 0 1px 0 #000; }
+.ts-wait { text-align: center; padding: 30px 10px; font: 700 18px var(--sans); color: var(--paper); text-shadow: 0 2px 0 #000; }
+.ts-wait small { font-weight: 500; color: var(--dim); }
+.ts-note { margin: 4px 0; font: 500 13px var(--sans); color: var(--dim); }
+.ts-note.small { font-size: 12px; }
+.ts-field { display: flex; flex-direction: column; gap: 5px; }
+.ts-field label, .ts-opt label { font: 700 12px var(--mono); color: var(--lilac); text-transform: uppercase; letter-spacing: 0.06em; }
+.ts-field small, .ts-opt small { font: 500 12px var(--sans); color: var(--dim); min-height: 1em; }
+.ts-inrow { display: flex; gap: 6px; }
+.ts-in { flex: 1; font-size: 16px; padding: 10px 12px; background: rgba(7, 6, 13, 0.7); border: 2px solid rgba(255, 255, 255, 0.14); }
+.ts-dice { width: 46px; font-size: 20px; background: rgba(23, 24, 29, 0.9); border: 2px solid rgba(255, 255, 255, 0.14); }
+.ts-dice:hover { border-color: var(--lime); }
+.ts-opts { display: flex; flex-direction: column; gap: 12px; }
+.ts-opt { display: flex; flex-direction: column; gap: 5px; }
+.ts-seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.ts-seg button { flex: 1 1 0; min-width: 70px; padding: 9px 8px; font: 700 14px var(--sans); background: rgba(7, 6, 13, 0.6); border: 2px solid rgba(255, 255, 255, 0.12); color: var(--dim); }
+.ts-seg.wrap button { flex: 1 1 auto; font-size: 13px; }
+.ts-seg button:hover { color: var(--paper); border-color: rgba(255, 255, 255, 0.3); }
+.ts-seg button.on { background: rgba(197, 255, 73, 0.16); border-color: var(--lime); color: var(--lime); }
+.ts-more { align-self: flex-start; font: 600 13px var(--sans); color: var(--sky); padding: 4px 0; text-align: left; }
+.ts-worlds { display: flex; flex-direction: column; gap: 8px; max-height: min(52vh, 440px); overflow-y: auto; }
+.ts-world { display: flex; gap: 6px; }
+.ts-wplay { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; text-align: left; background: rgba(7, 6, 13, 0.6); border: 2px solid rgba(255, 255, 255, 0.12); min-width: 0; }
+.ts-wplay:hover { border-color: var(--lime); }
+.ts-wplay b { font: 700 17px var(--sans); color: var(--paper); }
+.ts-wplay span { font: 600 13px var(--sans); color: var(--lime); }
+.ts-wplay small { font: 500 11px var(--mono); color: var(--dim); }
+.ts-wdel { width: 52px; flex: none; font-size: 16px; background: rgba(7, 6, 13, 0.6); border: 2px solid rgba(255, 255, 255, 0.12); color: var(--dim); }
+.ts-world.sure .ts-wdel { width: 84px; background: #ff4f5e; color: #fff; font: 700 13px var(--sans); }
+@media (max-height: 640px) { .ts-logo h1 { font-size: 54px; } .ts-box { gap: 14px; } }

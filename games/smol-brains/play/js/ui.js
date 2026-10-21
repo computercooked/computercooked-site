@@ -848,7 +848,7 @@
     ctx.scale(dpr, dpr);
     function px(id) { return { x: (pos[id].x + 0.5) * cw / cols, y: 22 + rad + pos[id].y * sy }; }
     cv.onclick = function (e) {
-      var r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, hit = null, hd = 1e9;
+      var r = cv.getBoundingClientRect(), zx = cv.offsetWidth / (r.width || 1), zy = cv.offsetHeight / (r.height || 1), mx = (e.clientX - r.left) * zx, my = (e.clientY - r.top) * zy, hit = null, hd = 1e9; // the UI may be zoomed
       ids.forEach(function (id) { if (!pos[id]) return; var p = px(id), d = Math.hypot(p.x - mx, p.y - my); if (d < hd) { hd = d; hit = id; } });
       if (hit == null || hd > rad * 2.2 || !cap) return;
       var c = clades[hit], t = SB.TIERS[c.tier] || SB.TIERS[0];
@@ -955,21 +955,23 @@
       h("button", { class: "btn", onclick: function () { var sd = SB.parseWorldCode(inp.value); if (!sd) { toast("type a world code first"); return; } confirmNew(sd); } }, "go to that world"),
       h("button", { class: "btn", onclick: function () { confirmNew(SB.newSeed()); } }, "🎲 random new world")
     ]));
-    body.appendChild(h("p", { class: "note" }, "a new world replaces this one (your smols don't come along, but you can bring any smol with its code)."));
+    body.appendChild(h("p", { class: "note" }, "a new world doesn't delete this one: it stays under 📂 load game on the title screen. your smols don't come along, but you can bring any smol with its code."));
     body.appendChild(h("div", { class: "sec" }, "bring a smol in"));
     var imp = h("input", { type: "text", placeholder: "paste a SMOL code", style: "width:100%" });
     body.appendChild(imp);
     body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { importSmol(imp.value); } }, "🌌 bring it in")]));
   }
   function confirmNew(seed) {
-    var body = h("div", null, [h("p", null, "start world " + SB.worldCode(seed) + "? this island and its smols will be gone (save codes for the ones you love first)."), h("div", { class: "btnrow" }, [h("button", { class: "btn warn", onclick: function () { closeModal(); newWorld(seed); } }, "yes, new world"), h("button", { class: "btn", onclick: closeModal }, "cancel")])]);
+    var body = h("div", null, [h("p", null, "make world " + SB.worldCode(seed) + "? this island is saved and waits for you under 📂 load game. you'll pick a name, a size and the world settings next."), h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: function () { closeModal(); newWorld(seed); } }, "🌱 create world"), h("button", { class: "btn", onclick: closeModal }, "cancel")])]);
     modal("new world?", body);
   }
+  // a new island goes through the title screen's "create world" page (this one is saved first)
   function newWorld(seed) {
-    var g = SB.Game.newGame(seed);
-    SB.Game.swap(g);
-    UI.init(g, { fresh: true });
+    try { SB.Save.save(game); } catch (e) {}
+    try { window.sessionStorage.setItem("smolbrains-newseed", String(seed || "")); } catch (e) {}
+    SB.Game.reloadTo("title");
   }
+  UI.toTitle = function () { try { SB.Save.save(game); } catch (e) {} SB.Game.reloadTo("title"); };
   UI.confirmRestart = function () { confirmNew(SB.newSeed()); };
 
   function importSmol(code) {
@@ -1034,7 +1036,13 @@
     body.appendChild(h("p", { class: "note" }, ST.filter(function (o) { return o[0] === cur; })[0][2] + (game.ngPlus ? " (new game+ " + game.ngPlus + ": the grumps remember you.)" : "")));
     body.appendChild(h("div", { class: "sec" }, "save"));
     body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds and when you leave. while you're away, the island keeps going for a while."));
-    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "new world")]));
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
+    // text size: the whole interface zooms as one
+    if (SB.Title) {
+      var uz = SB.Title.uiScale();
+      body.appendChild(h("div", { class: "sec" }, "text & menu size"));
+      body.appendChild(h("div", { class: "btnrow" }, [["auto", "auto"], ["1", "normal"], ["1.2", "big"], ["1.4", "bigger"], ["1.65", "huge"]].map(function (o) { return h("button", { class: "btn" + (o[0] === uz ? " go" : ""), onclick: function () { SB.Title.setUiScale(o[0]); openMenu("settings"); } }, o[1]); })));
+    }
     if (SB.Save.loadV1()) body.appendChild(h("p", { class: "note" }, "your old valley save (v1) is still kept safe on this device."));
   }
 
@@ -1492,7 +1500,7 @@
       h("div", { class: "btnrow" }, [
         h("button", { class: "btn", onclick: function () { closeModal(); } }, "keep playing"),
         h("button", { class: "btn", onclick: function () { UI.civCard(); } }, "🪪 share"),
-        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
+        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); try { SB.Save.save(g); } catch (e) {} var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
       ])
     ]);
     modal("", body, { story: true, sticky: true });
