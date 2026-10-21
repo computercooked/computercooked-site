@@ -23,7 +23,8 @@
     follow: null, minZoom: 3.2, maxZoom: 120,
     vx: 0, vz: 0, // pan inertia (world units / s)
     eye: [0, 0, 0], right: [1, 0, 0], up: [0, 1, 0], fwd: [0, 0, -1], halfW: 1, halfH: 1,
-    shake: 0, intro: null
+    shake: 0, intro: null,
+    pov: null // {x, y, z, yaw, pitch, fov, far}: looking out of a possessed smol's eyes (possess.js)
   });
 
   /* ================= shaders ================= */
@@ -140,7 +141,7 @@
     "  vec2 flow = vec2(uTime * 0.02, uTime * 0.013) * (1.0 + vRiver * 6.0);",
     "  float n1 = texture2D(uCloud, vW.xz * 0.11 + flow).r;",
     "  float n2 = texture2D(uCloud, vW.xz * 0.23 - flow * 1.3 + 0.5).r;",
-    "  vec3 shallow = vec3(0.36, 0.84, 0.86); vec3 deep = vec3(0.07, 0.30, 0.52);",
+    "  vec3 shallow = vec3(0.42, 0.88, 0.88); vec3 deep = vec3(0.10, 0.36, 0.62);",
     "  vec3 col = mix(shallow, deep, smoothstep(0.0, 3.2, d));",
     "  vec3 nrm = normalize(vec3((n1 - 0.5) * 0.5, 1.0, (n2 - 0.5) * 0.5));",
     "  vec3 lit = shade(col, nrm, vW, 0.0, 0.0);",
@@ -148,10 +149,11 @@
     "  vec3 V = normalize(uEye - vW);",
     "  float spec = pow(max(dot(reflect(-uSunDir, nrm), V), 0.0), 60.0);",
     "  lit += uSunCol * spec * 0.9;",
-    "  float foamLine = 0.18 + 0.06 * sin(uTime * 1.8 + vW.x * 1.3 + vW.z * 0.9);",
+    "  float foamLine = 0.26 + 0.07 * sin(uTime * 1.8 + vW.x * 1.3 + vW.z * 0.9);",
     "  float foam = smoothstep(foamLine, 0.0, d + (n1 - 0.5) * 0.12) * (1.0 - vRiver * 0.5);",
     "  foam += smoothstep(0.82, 0.92, n1 * n2 * 1.6) * 0.25 * vRiver;",
-    "  lit = mix(lit, mix(uSkyCol + uSunCol * 0.6, vec3(1.0), 0.5), clamp(foam, 0.0, 1.0) * 0.85);",
+    "  foam += (1.0 - smoothstep(0.3, 0.62, d + (n2 - 0.5) * 0.1)) * 0.3 * (1.0 - vRiver);",
+    "  lit = mix(lit, mix(uSkyCol + uSunCol * 0.6, vec3(1.0), 0.55), clamp(foam, 0.0, 1.0) * 0.85);",
     "  lit = mix(lit, vec3(0.85, 0.92, 0.98) * (uSkyCol + uSunCol * 0.5), uFreeze);",
     "  float a = mix(0.42, 0.9, smoothstep(0.0, 1.4, d));",
     "  a = max(a, clamp(foam, 0.0, 1.0)); a = max(a, uFreeze);",
@@ -194,18 +196,54 @@
   var VS_POST = "attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }";
   var FS_POST = [
     PREC,
-    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk;",
+    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk; uniform vec3 uPersp;",
     "varying vec2 vUv;",
+    // a perspective depth buffer isn't linear: turn it back into distance (uPersp: on, near, far)
+    "float D(vec2 uv) { float z = texture2D(uDep, uv).r; if (uPersp.x < 0.5) return z; float n = uPersp.y, f = uPersp.z; return 2.0 * n * f / (f + n - (z * 2.0 - 1.0) * (f - n)); }",
     "void main() {",
     "  vec3 c = texture2D(uCol, vUv).rgb;",
-    "  float d = texture2D(uDep, vUv).r;",
-    "  float n = min(min(texture2D(uDep, vUv + vec2(uTexel.x, 0.0)).r, texture2D(uDep, vUv - vec2(uTexel.x, 0.0)).r),",
-    "               min(texture2D(uDep, vUv + vec2(0.0, uTexel.y)).r, texture2D(uDep, vUv - vec2(0.0, uTexel.y)).r));",
-    "  float edge = step(uThr, d - n);",
+    "  float d = D(vUv);",
+    "  float n = min(min(D(vUv + vec2(uTexel.x, 0.0)), D(vUv - vec2(uTexel.x, 0.0))),",
+    "               min(D(vUv + vec2(0.0, uTexel.y)), D(vUv - vec2(0.0, uTexel.y))));",
+    "  float edge = uPersp.x > 0.5 ? step(0.3 + d * 0.15, d - n) * step(d, uPersp.z * 0.75) : step(uThr, d - n);",
     "  gl_FragColor = vec4(mix(c, c * 0.3 + uInk * 0.7, edge * 0.8), 1.0);",
     "}"
   ].join("\n");
   var post = null; // {fb, col, dep, w, h, prog, quad}
+
+  // the sky behind a first-person view: horizon (the fog colour) up to the zenith, a sun disc, stars at night
+  var VS_SKY = "attribute vec2 aPos; varying vec2 vP; void main() { vP = aPos; gl_Position = vec4(aPos, 0.9999, 1.0); }";
+  var FS_SKY = [
+    PREC,
+    "uniform vec3 uHor; uniform vec3 uTop; uniform vec3 uFwd; uniform vec3 uRight; uniform vec3 uUp; uniform vec2 uTan; uniform vec3 uSun; uniform vec3 uSunCol; uniform float uNight;",
+    "varying vec2 vP;",
+    "void main() {",
+    "  vec3 d = normalize(uFwd + uRight * vP.x * uTan.x + uUp * vP.y * uTan.y);",
+    "  vec3 c = mix(uHor, uTop, smoothstep(-0.02, 0.5, d.y));",
+    "  float s = max(dot(d, normalize(uSun)), 0.0);",
+    "  c += uSunCol * (step(0.9985, s) * 0.9 + pow(s, 14.0) * 0.15) * (1.0 - uNight * 0.85);",
+    "  vec3 q = floor(d * 220.0); float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);",
+    "  c += vec3(step(0.997, h) * uNight * smoothstep(0.04, 0.3, d.y)) * 0.8;",
+    "  gl_FragColor = vec4(c, 1.0);",
+    "}"
+  ].join("\n");
+  var sky = null;
+  function drawSky() {
+    if (!sky) sky = { prog: GL.program(ctx, VS_SKY, FS_SKY), quad: GL.buffer(ctx, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1])) };
+    var p = sky.prog, top = SB.mixC([0.25, 0.47, 0.82], [0.02, 0.03, 0.1], env.night);
+    top = SB.mixC(top, env.fog, 0.2 + env.cloud * 0.5 + env.rain * 0.3);
+    GL.resetAttribs(ctx);
+    gl.useProgram(p.prog);
+    gl.depthMask(false); gl.disable(gl.DEPTH_TEST);
+    var ty = Math.tan((cam.pov.fov || 1.22) / 2);
+    gl.uniform3fv(p.u.uHor, env.fog); gl.uniform3fv(p.u.uTop, top);
+    gl.uniform3fv(p.u.uFwd, cam.fwd); gl.uniform3fv(p.u.uRight, cam.right); gl.uniform3fv(p.u.uUp, cam.up);
+    gl.uniform2f(p.u.uTan, ty * W / H, ty);
+    gl.uniform3fv(p.u.uSun, env.sunDir); gl.uniform3fv(p.u.uSunCol, env.sun); gl.uniform1f(p.u.uNight, env.night);
+    GL.attribs(ctx, sky.quad, [[p.a.aPos, 2]], 2, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
+  }
   function ensurePost() {
     if (!R.pixel) return null;
     if (post && post.failed) return null;
@@ -245,6 +283,7 @@
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, P.dep); gl.uniform1i(p.u.uDep, 1);
     gl.uniform2f(p.u.uTexel, 1 / P.w, 1 / P.h);
     gl.uniform1f(p.u.uThr, 0.9 / 419); // about 0.9 world units in front
+    if (cam.pov) gl.uniform3f(p.u.uPersp, 1, 0.04, (cam.pov.far || 80) + 20); else gl.uniform3f(p.u.uPersp, 0, 0, 0);
     var ink = SB.mixC([0.12, 0.1, 0.16], [0.03, 0.03, 0.08], env.night);
     gl.uniform3f(p.u.uInk, ink[0], ink[1], ink[2]);
     GL.attribs(ctx, P.quad, [[p.a.aPos, 2]], 2, 0);
@@ -346,15 +385,23 @@
     chunks.forEach(freeChunk);
     chunks = [];
     var nc = T.N / SB.CHUNK;
-    for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: [], water: null, groups: null, decor: null, dirty: true, minY: 0, maxY: 0 });
+    for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: {}, wat: {}, groups: null, decor: null, dirty: true, minY: 0, maxY: 0, used: 0 });
     computeAO();
-    for (var i = 0; i < chunks.length; i++) buildChunkTerrain(chunks[i]);
+    // only the height range of each chunk is needed up front (for culling): its meshes are built the first
+    // time it is looked at, at the detail the zoom needs, and far-away fine meshes are dropped again
+    var S = SB.CHUNK, V = T.V;
+    for (var i = 0; i < chunks.length; i++) {
+      var c = chunks[i], lo = 1e9, hi = -1e9;
+      for (var j = c.cj * S; j <= c.cj * S + S; j++) for (var k = c.ci * S; k <= c.ci * S + S; k++) { var hh = T.h[j * V + k]; if (hh < lo) lo = hh; if (hh > hi) hi = hh; }
+      c.minY = Math.min(lo, SB.SEA - 0.5); c.maxY = hi + 6;
+    }
     buildOceanRing();
+    cam.maxZoom = Math.max(120, T.N * 0.25);
     cam.x = T.spawn.x; cam.z = T.spawn.z;
   };
   function freeChunk(c) {
-    c.lod.forEach(function (l) { if (l) gl.deleteBuffer(l.buf); });
-    if (c.water) gl.deleteBuffer(c.water.buf);
+    for (var s in c.lod) if (c.lod[s]) gl.deleteBuffer(c.lod[s].buf);
+    for (var s2 in c.wat) if (c.wat[s2]) gl.deleteBuffer(c.wat[s2].buf);
     if (c.groups) for (var k in c.groups) gl.deleteBuffer(c.groups[k].buf);
     if (c.decor) for (var d in c.decor) gl.deleteBuffer(c.decor[d].buf);
   }
@@ -388,7 +435,7 @@
   function vertexColor(i, j, out) {
     var N = T.N, V = T.V, k = j * V + i;
     // average the biome colours of the up-to-4 tiles touching this vertex
-    var r = 0, g = 0, b = 0, n = 0, temp = 0;
+    var r = 0, g = 0, b = 0, n = 0, temp = 0, ash = 0;
     for (var dj = -1; dj <= 0; dj++) for (var di = -1; di <= 0; di++) {
       var ti = i + di, tj = j + dj;
       if (ti < 0 || tj < 0 || ti >= N || tj >= N) continue;
@@ -396,6 +443,7 @@
       var hsh = SB.hash(ti, tj, 7);
       var c = SB.hex(hsh < 0.5 ? bm.c[0] : bm.c[1]);
       r += c[0]; g += c[1]; b += c[2]; temp += T.temp[t]; n++;
+      if (T.biome[t] === SB.B.ash) ash++;
     }
     r /= n; g /= n; b /= n; temp /= n;
     var h = T.h[k];
@@ -405,7 +453,7 @@
     if (i > 0 && j > 0 && i < N && j < N) sl = Math.max(Math.abs(T.h[k + 1] - T.h[k - 1]), Math.abs(T.h[k + V] - T.h[k - V])) * 0.5;
     col = SB.mixC(col, ROCK, SB.smooth((sl - 0.9) / 1.2));
     // snowy peaks
-    col = SB.mixC(col, SNOW, SB.smooth((h - 13) / 3) * (temp < 0.5 ? 1 : 0.6));
+    if (!ash) col = SB.mixC(col, SNOW, SB.smooth((h - 13) / 3) * (temp < 0.5 ? 1 : 0.6)); // no snow on the warm volcano
     // wet banks and lake/river beds
     var w = T.W[k];
     if (w !== T.NONE) {
@@ -460,29 +508,49 @@
         }
       }
     }
-    c.minY = Math.min(minY, SB.SEA - 0.5); c.maxY = maxY + 6;
     return { buf: GL.buffer(ctx, out), count: o / TSTRIDE };
   }
-  function buildChunkTerrain(c) {
-    c.lod.forEach(function (l) { if (l) gl.deleteBuffer(l.buf); });
-    c.lod = [buildTerrainLOD(c, 1)];
+  // a chunk's terrain and water at one level of detail (step 1 = every tile, 2 and 4 for far zooms)
+  function buildChunkTerrain(c, step) {
+    c.lod[step] = buildTerrainLOD(c, step);
     // water: quads where all four corners have a water level and at least one is actually wet
     var S = SB.CHUNK, V = T.V, i0 = c.ci * S, j0 = c.cj * S, NONE = T.NONE;
     var out = [];
-    for (var j = j0; j < j0 + S; j++) for (var i = i0; i < i0 + S; i++) {
-      var ks = [j * V + i, j * V + i + 1, (j + 1) * V + i + 1, (j + 1) * V + i];
+    for (var j = j0; j < j0 + S; j += step) for (var i = i0; i < i0 + S; i += step) {
+      var ks = [j * V + i, j * V + i + step, (j + step) * V + i + step, (j + step) * V + i];
       var any = false, all = true;
       for (var q = 0; q < 4; q++) { var w = T.W[ks[q]]; if (w === NONE) all = false; else if (w > T.h[ks[q]] + 0.01) any = true; }
       if (!all || !any) continue;
       var P = ks.map(function (k, qi) {
-        var x = i + (qi === 1 || qi === 2 ? 1 : 0), z = j + (qi >= 2 ? 1 : 0);
+        var x = i + (qi === 1 || qi === 2 ? step : 0), z = j + (qi >= 2 ? step : 0);
         return [x, T.W[k], z, Math.max(0, T.W[k] - T.h[k]), T.river[k] ? 1 : 0];
       });
       [P[0], P[1], P[2], P[0], P[2], P[3]].forEach(function (p) { out.push(p[0], p[1], p[2], p[3], p[4]); });
     }
-    if (c.water) { gl.deleteBuffer(c.water.buf); c.water = null; }
-    if (out.length) c.water = { buf: GL.buffer(ctx, new Float32Array(out)), count: out.length / 5 };
+    c.wat[step] = out.length ? { buf: GL.buffer(ctx, new Float32Array(out)), count: out.length / 5 } : null;
   }
+  // which mesh to draw for a chunk this frame: the step the zoom wants, else a coarser one already built
+  var LODS = [1, 2, 4], terrBudget = 0, frameNo = 0;
+  function chunkLOD(c, want) {
+    c.used = frameNo;
+    if (c.lod[want]) return want;
+    if (terrBudget-- > 0 || want === 4) { buildChunkTerrain(c, want); return want; }
+    for (var li = 0; li < LODS.length; li++) if (LODS[li] > want && c.lod[LODS[li]]) return LODS[li];
+    buildChunkTerrain(c, 4); return 4;
+  }
+  // fine meshes of chunks nobody has looked at for a while go back (a 1024 island would not fit otherwise)
+  function evictChunks() {
+    for (var i = 0; i < chunks.length; i++) {
+      var c = chunks[i];
+      if (frameNo - c.used < 900) continue;
+      for (var s = 1; s <= 2; s++) {
+        if (c.lod[s]) { gl.deleteBuffer(c.lod[s].buf); c.lod[s] = null; }
+        if (c.wat[s]) { gl.deleteBuffer(c.wat[s].buf); c.wat[s] = null; }
+      }
+      if (c.decor) { for (var d in c.decor) gl.deleteBuffer(c.decor[d].buf); c.decor = null; }
+    }
+  }
+  R.terrainStep = function () { return cam.zoom < 48 ? 1 : cam.zoom < 115 ? 2 : 4; };
   function buildOceanRing() {
     var N = T.N, E = 900, out = [];
     function rect(x0, z0, x1, z1) {
@@ -513,6 +581,10 @@
     if (bm === SB.B.swamp) tint = [0.85, 0.95, 0.75];
     if (nd.kind === "boulder" || nd.kind === "flintrock" || nd.kind === "orevein") tint = [0.95 + t * 0.1, 0.95 + t * 0.1, 0.95 + t * 0.12];
     if (nd.kind === "shroomtree") { var hh = [[0.69, 0.48, 0.88], [0.5, 0.75, 1.0], [1.0, 0.55, 0.7]][(t * 3) | 0]; tint = [hh[0] / 0.69, hh[1] / 0.48, hh[2] / 0.88]; }
+    if (bm === SB.B.ash) tint = [0.8, 0.78, 0.8];
+    if (bm === SB.B.mesa) tint = [1.12, 0.95, 0.8];
+    if (bm === SB.B.mangrove) tint = [0.88, 0.98, 0.8];
+    if (bm === SB.B.maple && nd.kind !== "maple") tint = [1.1, 0.95, 0.8];
     return tint;
   }
 
@@ -576,33 +648,62 @@
       var arr = new Float32Array(lists[key2]);
       c.groups[key2] = { buf: GL.buffer(ctx, arr), n: arr.length / ISTRIDE };
     }
-    // decorations
-    if (!c.decor) {
-      c.decor = {};
-      var dl = {}, D = T.decor;
-      for (var di = 0; di < D.length; di += 5) {
-        var dx = D[di], dz = D[di + 1];
-        if (dx < x0 || dx >= x0 + S || dz < z0 || dz >= z0 + S) continue;
-        if (!SB.World.isSeen(game.world, dx, dz)) continue;
-        var type = D[di + 2], sc = D[di + 3], rot = D[di + 4];
-        var L = dl[type] || (dl[type] = []), o = L.length;
-        L.length += ISTRIDE;
-        trs(L, o, dx, WG.heightAt(T, dx, dz) - 0.02, dz, rot, sc, sc, sc);
-        var t = SB.hash(di, 1, 2);
-        var tint = type === 1 ? SB.hsl([0, 45, 200, 280, 330, 50][(t * 6) | 0], 0.75, 0.72).map(function (v) { return v * 1.1; }) : [0.9 + t * 0.2, 0.95 + t * 0.1, 0.9];
-        if (type === 0 || type === 3) { var bmc = SB.hex(SB.BIOMES[WG.biomeAt(T, dx, dz)].c[1]); tint = [bmc[0] / 0.5 * (0.8 + t * 0.3), bmc[1] / 0.75 * (0.85 + t * 0.2), bmc[2] / 0.35 * (0.8 + t * 0.2)].map(function (v) { return Math.min(1.4, v); }); }
-        L[o + 12] = tint[0]; L[o + 13] = tint[1]; L[o + 14] = tint[2]; L[o + 15] = 1;
-        L[o + 16] = type === 0 || type === 3 ? 0.3 : 0; L[o + 17] = type === 6 ? 0.6 : 0; L[o + 18] = 0; L[o + 19] = 0;
-      }
-      for (var ty in dl) { var arr2 = new Float32Array(dl[ty]); c.decor[ty] = { buf: GL.buffer(ctx, arr2), n: arr2.length / ISTRIDE }; }
-    }
     c.dirty = false;
+  }
+  // grass, flowers and pebbles: only for chunks seen up close
+  function buildChunkDecor(c) {
+    c.decor = {};
+    var dl = {}, D = WG.decorChunk(T, c.ci, c.cj);
+    for (var di = 0; di < D.length; di += 5) {
+      var dx = D[di], dz = D[di + 1];
+      if (!SB.World.isSeen(game.world, dx, dz)) continue;
+      var type = D[di + 2], sc = D[di + 3], rot = D[di + 4];
+      var L = dl[type] || (dl[type] = []), o = L.length;
+      L.length += ISTRIDE;
+      trs(L, o, dx, WG.heightAt(T, dx, dz) - 0.02, dz, rot, sc, sc, sc);
+      var t = SB.hash(dx * 7.1, dz * 3.3, 2);
+      var tint = type === 1 || type === 11 ? SB.hsl([0, 45, 200, 280, 330, 50][(t * 6) | 0], 0.75, 0.72).map(function (v) { return v * 1.1; }) : [0.9 + t * 0.2, 0.95 + t * 0.1, 0.9];
+      if (type === 0 || type === 3) { var bmc = SB.hex(SB.BIOMES[WG.biomeAt(T, dx, dz)].c[1]); tint = [bmc[0] / 0.5 * (0.8 + t * 0.3), bmc[1] / 0.75 * (0.85 + t * 0.2), bmc[2] / 0.35 * (0.8 + t * 0.2)].map(function (v) { return Math.min(1.4, v); }); }
+      if (type === 10) tint = [1.05 + t * 0.1, 0.9 + t * 0.1, 0.7];
+      L[o + 12] = tint[0]; L[o + 13] = tint[1]; L[o + 14] = tint[2]; L[o + 15] = 1;
+      L[o + 16] = type === 0 || type === 3 || type === 10 ? 0.3 : 0; L[o + 17] = type === 6 ? 0.6 : type === 9 ? 0.8 : 0; L[o + 18] = 0; L[o + 19] = 0;
+    }
+    for (var ty in dl) { var arr2 = new Float32Array(dl[ty]); c.decor[ty] = { buf: GL.buffer(ctx, arr2), n: arr2.length / ISTRIDE }; }
   }
 
   /* ================= camera ================= */
 
+  // first person: a perspective camera at a smol's eye. cam.x/z/halfW/halfH become the patch of island
+  // in view (bodies, fx and sound cull with them), the zoom reads as "close up" (decor, names)
+  function povCamera(dt) {
+    var c = cam, p = c.pov, cp = Math.cos(p.pitch), sp = Math.sin(p.pitch), sy = Math.sin(p.yaw), cy = Math.cos(p.yaw);
+    var far = p.far || 80;
+    c.fwd[0] = -sy * cp; c.fwd[1] = sp; c.fwd[2] = -cy * cp;
+    c.right[0] = cy; c.right[1] = 0; c.right[2] = -sy;
+    c.up[0] = c.right[1] * c.fwd[2] - c.right[2] * c.fwd[1];
+    c.up[1] = c.right[2] * c.fwd[0] - c.right[0] * c.fwd[2];
+    c.up[2] = c.right[0] * c.fwd[1] - c.right[1] * c.fwd[0];
+    var sh = c.shake > 0 ? c.shake * 0.04 : 0;
+    if (c.shake > 0) c.shake = Math.max(0, c.shake - dt * 2);
+    c.eye[0] = p.x + (Math.random() - 0.5) * sh; c.eye[1] = p.y + (Math.random() - 0.5) * sh; c.eye[2] = p.z;
+    M4.lookAt(V, c.eye[0], c.eye[1], c.eye[2], c.eye[0] + c.fwd[0], c.eye[1] + c.fwd[1], c.eye[2] + c.fwd[2], 0, 1, 0);
+    M4.perspective(P, p.fov || 1.22, W / H, 0.04, far + 20);
+    M4.mul(VP, P, V);
+    c.x = p.x - sy * far * 0.42; c.z = p.z - cy * far * 0.42; c.y = p.y;
+    c.halfH = far * 0.55; c.halfW = far * 0.55; c.zoom = 6; c.pitch = 1;
+    c.povK = canvas.height / (2 * Math.tan((p.fov || 1.22) / 2)); // canvas px per world unit at distance 1
+    c.pxPerUnit = H / (2 * Math.tan((p.fov || 1.22) / 2)) / 6;
+    c.fwdXZ = [-sy, -cy];
+  }
+  // screen pixels per world unit at a point (perspective: falls off with distance; 0 behind the eye)
+  R.ppuAt = function (x, y, z) {
+    if (!cam.pov) return canvas.height / (2 * cam.halfH);
+    var d = (x - cam.eye[0]) * cam.fwd[0] + (y - cam.eye[1]) * cam.fwd[1] + (z - cam.eye[2]) * cam.fwd[2];
+    return d < 0.06 ? 0 : cam.povK / d;
+  };
   function updateCamera(dt) {
     var c = cam;
+    if (c.pov) { povCamera(dt); return; }
     if (c.intro) {
       c.intro.t += dt;
       var k = SB.smooth(c.intro.t / c.intro.dur);
@@ -701,7 +802,7 @@
     out = out || {};
     M4.project(VP, x, y, z, pv);
     out.x = (pv[0] * 0.5 + 0.5) * W; out.y = (0.5 - pv[1] * 0.5) * H; out.z = pv[2];
-    out.on = pv[0] > -1.15 && pv[0] < 1.15 && pv[1] > -1.15 && pv[1] < 1.25;
+    out.on = pv[0] > -1.15 && pv[0] < 1.15 && pv[1] > -1.15 && pv[1] < 1.25 && !(pv[3] < 0);
     return out;
   };
   // CSS pixel -> ground point {x, y, z} (marches the view ray into the heightfield / water)
@@ -754,16 +855,16 @@
 
   // keyframes over the day (0 = midnight, 0.25 dawn, 0.5 noon, 0.75 dusk)
   var SKY = [
-    { t: 0.0, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
-    { t: 0.17, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
+    { t: 0.0, sun: [0.2, 0.25, 0.44], sky: [0.12, 0.15, 0.3], gnd: [0.06, 0.06, 0.11], fog: [0.05, 0.07, 0.15] },
+    { t: 0.17, sun: [0.2, 0.25, 0.44], sky: [0.12, 0.15, 0.3], gnd: [0.06, 0.06, 0.11], fog: [0.05, 0.07, 0.15] },
     { t: 0.235, sun: [0.95, 0.52, 0.36], sky: [0.5, 0.42, 0.58], gnd: [0.26, 0.2, 0.22], fog: [0.62, 0.46, 0.5] },
-    { t: 0.32, sun: [1.0, 0.82, 0.6], sky: [0.56, 0.6, 0.78], gnd: [0.32, 0.29, 0.26], fog: [0.72, 0.72, 0.8] },
-    { t: 0.5, sun: [1.0, 0.96, 0.88], sky: [0.55, 0.64, 0.8], gnd: [0.34, 0.32, 0.28], fog: [0.72, 0.82, 0.92] },
-    { t: 0.66, sun: [1.08, 0.86, 0.62], sky: [0.58, 0.58, 0.72], gnd: [0.34, 0.29, 0.25], fog: [0.78, 0.72, 0.74] },
+    { t: 0.32, sun: [1.04, 0.84, 0.6], sky: [0.5, 0.58, 0.82], gnd: [0.34, 0.29, 0.24], fog: [0.74, 0.72, 0.8] },
+    { t: 0.5, sun: [1.05, 0.96, 0.82], sky: [0.5, 0.62, 0.86], gnd: [0.36, 0.32, 0.25], fog: [0.72, 0.83, 0.94] },
+    { t: 0.66, sun: [1.14, 0.88, 0.58], sky: [0.52, 0.56, 0.78], gnd: [0.36, 0.29, 0.22], fog: [0.8, 0.73, 0.72] },
     { t: 0.72, sun: [1.15, 0.66, 0.38], sky: [0.6, 0.47, 0.56], gnd: [0.34, 0.24, 0.22], fog: [0.78, 0.55, 0.52] },
     { t: 0.785, sun: [0.95, 0.42, 0.3], sky: [0.46, 0.34, 0.5], gnd: [0.22, 0.16, 0.2], fog: [0.5, 0.33, 0.42] },
-    { t: 0.83, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] },
-    { t: 1.0, sun: [0.16, 0.2, 0.36], sky: [0.1, 0.12, 0.25], gnd: [0.05, 0.05, 0.09], fog: [0.04, 0.06, 0.13] }
+    { t: 0.83, sun: [0.2, 0.25, 0.44], sky: [0.12, 0.15, 0.3], gnd: [0.06, 0.06, 0.11], fog: [0.05, 0.07, 0.15] },
+    { t: 1.0, sun: [0.2, 0.25, 0.44], sky: [0.12, 0.15, 0.3], gnd: [0.06, 0.06, 0.11], fog: [0.05, 0.07, 0.15] }
   ];
   var env = (R.env = { sun: [1, 1, 1], sky: [0.5, 0.5, 0.5], gnd: [0.3, 0.3, 0.3], fog: [0.7, 0.8, 0.9], sunDir: [0.3, 0.8, 0.3], night: 0, cloud: 0.3, wind: 0.5, snow: 0, wet: 0, autumn: 0, freeze: 0, rain: 0, flash: 0 });
   function updateEnv(world) {
@@ -910,8 +1011,10 @@
     gl.viewport(0, 0, canvas.width, canvas.height);
     var fc = env.fog;
     var oc = SB.mixC([0.1, 0.32, 0.52], fc, 0.35);
-    gl.clearColor(oc[0] * (1 - env.night * 0.7), oc[1] * (1 - env.night * 0.7), oc[2] * (1 - env.night * 0.6), 1);
+    if (cam.pov) gl.clearColor(fc[0], fc[1], fc[2], 1); // first person: the horizon is the fog colour
+    else gl.clearColor(oc[0] * (1 - env.night * 0.7), oc[1] * (1 - env.night * 0.7), oc[2] * (1 - env.night * 0.6), 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (cam.pov) drawSky();
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.BLEND);
@@ -932,6 +1035,17 @@
   var corner = [0, 0, 0], nLights = 0;
   function visibleChunks() {
     var out = [], S = SB.CHUNK;
+    if (cam.pov) {
+      // first person: chunks within the view distance, in front of the eye and inside the view cone
+      var e = cam.eye, fx = cam.fwdXZ[0], fz = cam.fwdXZ[1], far = (cam.pov.far || 80) + S * 0.75, half = Math.atan(Math.tan((cam.pov.fov || 1.22) / 2) * W / H) + 0.35;
+      for (var pi = 0; pi < chunks.length; pi++) {
+        var pc = chunks[pi], mx = pc.ci * S + S / 2 - e[0], mz = pc.cj * S + S / 2 - e[2], md = Math.hypot(mx, mz);
+        if (md > far) continue;
+        if (md > S * 0.75) { var ca = (mx * fx + mz * fz) / md, ang = Math.acos(SB.clamp(ca, -1, 1)) - Math.asin(Math.min(1, S * 0.72 / md)); if (ang > half) continue; }
+        out.push(pc);
+      }
+      return out;
+    }
     for (var i = 0; i < chunks.length; i++) {
       var c = chunks[i], x0 = c.ci * S, z0 = c.cj * S;
       var minx = 9, maxx = -9, miny = 9, maxy = -9;
@@ -950,8 +1064,13 @@
     gl.uniform3fv(p.u.uSunDir, env.sunDir); gl.uniform3fv(p.u.uSunCol, env.sun); gl.uniform3fv(p.u.uSkyCol, env.sky);
     gl.uniform3fv(p.u.uGndCol, env.gnd); gl.uniform3fv(p.u.uFogCol, env.fog);
     var fogFar = cam.halfH * 2.6 / Math.sin(cam.pitch);
-    if (p.u.uFog) gl.uniform4f(p.u.uFog, cam.halfH * 0.4, fogFar, SB.clamp01(0.15 + env.cloud * 0.2 + env.rain * 0.25) * SB.clamp01((cam.zoom - 8) / 40), 0);
-    if (p.u.uCam) {
+    if (cam.pov) {
+      // first person: the land fades into the sky colour toward the edge of the view distance
+      var pf = cam.pov.far || 80;
+      if (p.u.uFog) gl.uniform4f(p.u.uFog, pf * (0.3 - env.rain * 0.12), pf * (0.98 - env.rain * 0.3), 1, 0);
+      if (p.u.uCam) gl.uniform4f(p.u.uCam, cam.eye[0], cam.eye[2], cam.fwdXZ[0], cam.fwdXZ[1]);
+    } else if (p.u.uFog) gl.uniform4f(p.u.uFog, cam.halfH * 0.4, fogFar, SB.clamp01(0.15 + env.cloud * 0.2 + env.rain * 0.25) * SB.clamp01((cam.zoom - 8) / 40), 0);
+    if (p.u.uCam && !cam.pov) {
       var sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
       gl.uniform4f(p.u.uCam, cam.x, cam.z, -sy, -cy);
     }
@@ -978,8 +1097,12 @@
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CW);
+    frameNo++; terrBudget = 6;
+    if (frameNo % 120 === 0) evictChunks();
+    var want = R.terrainStep();
     for (var i = 0; i < vis.length; i++) {
-      var c = vis[i], L = c.lod[0];
+      var c = vis[i], st = chunkLOD(c, want), L = c.lod[st];
+      c.drawStep = st;
       if (!L) continue;
       GL.attribs(ctx, L.buf, [[p.a.aPos, 3], [p.a.aNrm, 3], [p.a.aCol, 4], [p.a.aMisc, 4]], TSTRIDE, 0);
       gl.drawArrays(gl.TRIANGLES, 0, L.count);
@@ -1025,11 +1148,16 @@
     gl.uniform1f(p.u.uAutumn, env.autumn);
     gl.uniform1f(p.u.uSnow, env.snow);
     rebuildBudget = 4;
-    var showDecor = quality.decor && cam.zoom < 26;
+    var showDecor = quality.decor && cam.zoom < 26, farObj = R.terrainStep() === 4;
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i];
       if ((c.dirty || !c.groups) && (rebuildBudget-- > 0 || !c.groups)) buildChunkInstances(c);
-      for (var key in c.groups) drawInstanced(p, key, c.groups[key].buf, c.groups[key].n);
+      for (var key in c.groups) {
+        // zoomed right out (big islands) the little plants and rocks are a pixel each: only trees and big rocks
+        if (farObj && key.charAt(0) === "n" && meshes[key] && meshes[key].maxY < 1.3) continue;
+        drawInstanced(p, key, c.groups[key].buf, c.groups[key].n);
+      }
+      if (showDecor && !c.decor) buildChunkDecor(c);
       if (showDecor && c.decor) for (var d in c.decor) drawInstanced(p, "d:" + d, c.decor[d].buf, c.decor[d].n);
     }
     for (var k in frameDyn) {
@@ -1053,9 +1181,10 @@
     gl.depthMask(false);
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i];
-      if (!c.water) continue;
-      GL.attribs(ctx, c.water.buf, [[p.a.aPos, 3], [p.a.aInfo, 2]], 5, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, c.water.count);
+      var wt = c.wat[c.drawStep || 1];
+      if (!wt) continue;
+      GL.attribs(ctx, wt.buf, [[p.a.aPos, 3], [p.a.aInfo, 2]], 5, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, wt.count);
     }
     if (ringBuf) { GL.attribs(ctx, ringBuf.buf, [[p.a.aPos, 3], [p.a.aInfo, 2]], 5, 0); gl.drawArrays(gl.TRIANGLES, 0, ringBuf.count); }
     gl.depthMask(true);

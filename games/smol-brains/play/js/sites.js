@@ -29,10 +29,10 @@
   S.generate = function (game) {
     var w = game.world, T = w.T, r = rng(game.seed), out = [], id = 0, sp = T.spawn;
     Object.keys(S.KINDS).forEach(function (k) {
-      var def = S.KINDS[k];
-      for (var i = 0; i < def.n; i++) {
+      var def = S.KINDS[k], K = T.N / 256, n = Math.round(def.n * (T.gv >= 2 ? Math.pow(K, 1.5) : K * K) * SB.wopt(game, "sites")); // a bigger island hides more, further out (v3.7 islands: not quite in proportion, or an XL island is all ruins)
+      for (var i = 0; i < n; i++) {
         for (var tries = 0; tries < 60; tries++) {
-          var a = r() * 6.283, d = def.dist[0] + r() * (def.dist[1] - def.dist[0]);
+          var a = r() * 6.283, d = (def.dist[0] + r() * (def.dist[1] - def.dist[0])) * K;
           var x = sp.x + Math.sin(a) * d, z = sp.z + Math.cos(a) * d;
           if (!SB.World.inBounds(w, x, z) || !SB.World.walkable(w, x, z, false) || SB.World.depthAt(w, x, z) > 0.05) continue;
           if (out.some(function (o) { return SB.dist(o.x, o.z, x, z) < 18; })) continue;
