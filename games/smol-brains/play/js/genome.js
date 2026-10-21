@@ -145,6 +145,7 @@
       clade: rng.chance(0.5) ? a.clade || 0 : b.clade || 0
     };
     G.mutate(child, rng, 0.05, echo, bless);
+    if (SB.Collect) SB.Collect.inherit(child, a, b); // collectible traits (their own rng, seeded from the genes)
     return child;
   };
 
@@ -270,7 +271,10 @@
     var e = g.genes, grump = g.species === "grump";
     var tier = G.tierOf(g);
     var limbs = gv(g, "limbs", 0), arms = gv(g, "arms", 0);
+    var cx = SB.Collect && !grump ? SB.Collect.ensure(g) : null, sc = cx ? SB.Collect.entry("size", cx.size)[0] : "";
+    var szK = sc === "teacup" ? 0.74 : sc === "tiny" ? 0.88 : sc === "titan" ? 1.16 : 1, bodyK = sc === "chonky" ? 0.16 : 0;
     return {
+      cx: cx, cxKey: cx ? [cx.pat, cx.eye, cx.acc, cx.pal, cx.size, cx.f < 0.07 ? 1 : cx.f > 0.85 ? 2 : 0].join("") : "",
       species: g.species, tier: tier,
       hue: Math.round(e.hue * 360) % 360,
       hue2: Math.round(e.hue2 * 360) % 360,
@@ -280,8 +284,8 @@
       ears: Math.min(4, Math.floor(e.ears * 5)),
       eyes: 0.6 + e.eyes * 0.8,
       tail: Math.min(3, Math.floor(e.tail * 4)),
-      body: 0.8 + e.body * 0.45,
-      size: 0.85 + e.size * 0.35,
+      body: Math.min(1.35, 0.8 + e.body * 0.45 + bodyK),
+      size: (0.85 + e.size * 0.35) * szK,
       spotsSeed: Math.floor(e.spots * 65535) + 1,
       cheeks: e.cheeks > 0.5,
       antenna: e.antenna > 0.8,
@@ -383,6 +387,7 @@
     ins.forEach(function (x) { b.push(x.drive & 255, x.noun & 255, x.verb & 255, byte(x.s)); });
     var cl = g.clade || 0;
     b.push((cl >> 8) & 255, cl & 255);
+    if (SB.Collect) SB.Collect.encodeInto(b, g);
     return G.b64enc(b);
   };
 
@@ -412,7 +417,10 @@
     var clade = 0;
     if (ver >= 2 && p + 1 < b.length + 1) { clade = ((b[p++] || 0) << 8) | (b[p++] || 0); }
     if (p > b.length) throw new Error("genome code is cut short");
-    return { v: 2, species: species, gen: gen || 1, genes: genes, driveW: driveW, instincts: instincts, mutated: [], clade: clade };
+    var out = { v: 2, species: species, gen: gen || 1, genes: genes, driveW: driveW, instincts: instincts, mutated: [], clade: clade };
+    var cx = SB.Collect && ver >= 2 ? SB.Collect.decodeFrom(b, p) : null;
+    if (cx && species !== "grump") out.cx = cx;
+    return out;
   };
 
   // Upgrade a plain genome object from a v1 save (noun indices change; new genes are filled in as a blob's).

@@ -173,6 +173,7 @@
     });
     game.creatures.push(c);
     Game.familyAdd(game, c);
+    if (SB.Collect) c._cxNew = SB.Collect.register(game, c, opts.how);
     return c;
   };
 
@@ -218,10 +219,10 @@
 
   Game.hatch = function (game, egg) {
     var d = egg.data || {};
-    var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, z: egg.z, gen: d.gen || 1, parents: d.parents || [], name: d.name, tribe: d.tribe, ideas: d.ideas, sex: d.twins ? "f" : null });
+    var c = Game.spawnSmol(game, { genome: d.genome, x: egg.x, z: egg.z, gen: d.gen || 1, parents: d.parents || [], name: d.name, tribe: d.tribe, ideas: d.ideas, sex: d.twins ? "f" : null, how: "hatch" });
     var twin = null;
     if (d.twins && d.genome2) { // the escape pod: a girl and a boy climb out
-      twin = Game.spawnSmol(game, { genome: d.genome2, x: egg.x + 0.7, z: egg.z + 0.3, gen: 1, parents: [], tribe: d.tribe, sex: "m" });
+      twin = Game.spawnSmol(game, { genome: d.genome2, x: egg.x + 0.7, z: egg.z + 0.3, gen: 1, parents: [], tribe: d.tribe, sex: "m", how: "hatch" });
       d.twin = twin;
     }
     if (d.starter) [c, twin].forEach(function (s) {
