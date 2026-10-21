@@ -10,6 +10,8 @@
   var R = SB.Render;
   var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "evolution" };
   UI.modalOpen = false;
+  var povHeld = null; // the last god window that came up while possessing (see modal)
+  UI.povDone = function () { var m = povHeld; povHeld = null; if (m) modal(m[0], m[1], m[2]); };
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -416,6 +418,7 @@
       return;
     }
     el.sheet.appendChild(h("div", { class: "btnrow" }, [
+      SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess") : null,
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
@@ -731,8 +734,9 @@
 
   /* ---------------- modals ---------------- */
   function modal(title, body, opts) {
-    closeModal();
     opts = opts || {};
+    if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld = [title, body, opts]; return; } // no god windows in a smol's eyes: shown on the way out
+    closeModal();
     UI.modalOpen = !opts.live;
     var wrap = h("div", { class: "modal-wrap", onclick: function (e) { if (e.target === wrap && !opts.sticky) closeModal(); } });
     var m = h("div", { class: "modal glass" + (opts.story ? " storycard" : "") + (opts.big ? " big" : "") }, [
@@ -1416,7 +1420,7 @@
   /* ---------------- the storyteller (director.js) ---------------- */
   function incidentCard(inc) {
     if (!inc || inc.phase !== "ask") return;
-    if (el.modal) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
+    if (el.modal || (SB.Possess && SB.Possess.active)) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
     if (inc.x != null && inc.id !== "pod") R.flyTo(inc.x, inc.z, 9, 1.0);
     var body = h("div", { class: "incident" }, [
       h("div", { class: "story" }, [h("div", { class: "icon" }, inc.icon), h("h3", null, inc.title)]),

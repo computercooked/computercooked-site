@@ -23,7 +23,8 @@
     follow: null, minZoom: 3.2, maxZoom: 120,
     vx: 0, vz: 0, // pan inertia (world units / s)
     eye: [0, 0, 0], right: [1, 0, 0], up: [0, 1, 0], fwd: [0, 0, -1], halfW: 1, halfH: 1,
-    shake: 0, intro: null
+    shake: 0, intro: null,
+    pov: null // {x, y, z, yaw, pitch, fov, far}: looking out of a possessed smol's eyes (possess.js)
   });
 
   /* ================= shaders ================= */
@@ -194,18 +195,54 @@
   var VS_POST = "attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }";
   var FS_POST = [
     PREC,
-    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk;",
+    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk; uniform vec3 uPersp;",
     "varying vec2 vUv;",
+    // a perspective depth buffer isn't linear: turn it back into distance (uPersp: on, near, far)
+    "float D(vec2 uv) { float z = texture2D(uDep, uv).r; if (uPersp.x < 0.5) return z; float n = uPersp.y, f = uPersp.z; return 2.0 * n * f / (f + n - (z * 2.0 - 1.0) * (f - n)); }",
     "void main() {",
     "  vec3 c = texture2D(uCol, vUv).rgb;",
-    "  float d = texture2D(uDep, vUv).r;",
-    "  float n = min(min(texture2D(uDep, vUv + vec2(uTexel.x, 0.0)).r, texture2D(uDep, vUv - vec2(uTexel.x, 0.0)).r),",
-    "               min(texture2D(uDep, vUv + vec2(0.0, uTexel.y)).r, texture2D(uDep, vUv - vec2(0.0, uTexel.y)).r));",
-    "  float edge = step(uThr, d - n);",
+    "  float d = D(vUv);",
+    "  float n = min(min(D(vUv + vec2(uTexel.x, 0.0)), D(vUv - vec2(uTexel.x, 0.0))),",
+    "               min(D(vUv + vec2(0.0, uTexel.y)), D(vUv - vec2(0.0, uTexel.y))));",
+    "  float edge = uPersp.x > 0.5 ? step(0.3 + d * 0.15, d - n) * step(d, uPersp.z * 0.75) : step(uThr, d - n);",
     "  gl_FragColor = vec4(mix(c, c * 0.3 + uInk * 0.7, edge * 0.8), 1.0);",
     "}"
   ].join("\n");
   var post = null; // {fb, col, dep, w, h, prog, quad}
+
+  // the sky behind a first-person view: horizon (the fog colour) up to the zenith, a sun disc, stars at night
+  var VS_SKY = "attribute vec2 aPos; varying vec2 vP; void main() { vP = aPos; gl_Position = vec4(aPos, 0.9999, 1.0); }";
+  var FS_SKY = [
+    PREC,
+    "uniform vec3 uHor; uniform vec3 uTop; uniform vec3 uFwd; uniform vec3 uRight; uniform vec3 uUp; uniform vec2 uTan; uniform vec3 uSun; uniform vec3 uSunCol; uniform float uNight;",
+    "varying vec2 vP;",
+    "void main() {",
+    "  vec3 d = normalize(uFwd + uRight * vP.x * uTan.x + uUp * vP.y * uTan.y);",
+    "  vec3 c = mix(uHor, uTop, smoothstep(-0.02, 0.5, d.y));",
+    "  float s = max(dot(d, normalize(uSun)), 0.0);",
+    "  c += uSunCol * (step(0.9985, s) * 0.9 + pow(s, 14.0) * 0.15) * (1.0 - uNight * 0.85);",
+    "  vec3 q = floor(d * 220.0); float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);",
+    "  c += vec3(step(0.997, h) * uNight * smoothstep(0.04, 0.3, d.y)) * 0.8;",
+    "  gl_FragColor = vec4(c, 1.0);",
+    "}"
+  ].join("\n");
+  var sky = null;
+  function drawSky() {
+    if (!sky) sky = { prog: GL.program(ctx, VS_SKY, FS_SKY), quad: GL.buffer(ctx, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1])) };
+    var p = sky.prog, top = SB.mixC([0.25, 0.47, 0.82], [0.02, 0.03, 0.1], env.night);
+    top = SB.mixC(top, env.fog, 0.2 + env.cloud * 0.5 + env.rain * 0.3);
+    GL.resetAttribs(ctx);
+    gl.useProgram(p.prog);
+    gl.depthMask(false); gl.disable(gl.DEPTH_TEST);
+    var ty = Math.tan((cam.pov.fov || 1.22) / 2);
+    gl.uniform3fv(p.u.uHor, env.fog); gl.uniform3fv(p.u.uTop, top);
+    gl.uniform3fv(p.u.uFwd, cam.fwd); gl.uniform3fv(p.u.uRight, cam.right); gl.uniform3fv(p.u.uUp, cam.up);
+    gl.uniform2f(p.u.uTan, ty * W / H, ty);
+    gl.uniform3fv(p.u.uSun, env.sunDir); gl.uniform3fv(p.u.uSunCol, env.sun); gl.uniform1f(p.u.uNight, env.night);
+    GL.attribs(ctx, sky.quad, [[p.a.aPos, 2]], 2, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
+  }
   function ensurePost() {
     if (!R.pixel) return null;
     if (post && post.failed) return null;
@@ -245,6 +282,7 @@
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, P.dep); gl.uniform1i(p.u.uDep, 1);
     gl.uniform2f(p.u.uTexel, 1 / P.w, 1 / P.h);
     gl.uniform1f(p.u.uThr, 0.9 / 419); // about 0.9 world units in front
+    if (cam.pov) gl.uniform3f(p.u.uPersp, 1, 0.04, (cam.pov.far || 80) + 20); else gl.uniform3f(p.u.uPersp, 0, 0, 0);
     var ink = SB.mixC([0.12, 0.1, 0.16], [0.03, 0.03, 0.08], env.night);
     gl.uniform3f(p.u.uInk, ink[0], ink[1], ink[2]);
     GL.attribs(ctx, P.quad, [[p.a.aPos, 2]], 2, 0);
@@ -601,8 +639,37 @@
 
   /* ================= camera ================= */
 
+  // first person: a perspective camera at a smol's eye. cam.x/z/halfW/halfH become the patch of island
+  // in view (bodies, fx and sound cull with them), the zoom reads as "close up" (decor, names)
+  function povCamera(dt) {
+    var c = cam, p = c.pov, cp = Math.cos(p.pitch), sp = Math.sin(p.pitch), sy = Math.sin(p.yaw), cy = Math.cos(p.yaw);
+    var far = p.far || 80;
+    c.fwd[0] = -sy * cp; c.fwd[1] = sp; c.fwd[2] = -cy * cp;
+    c.right[0] = cy; c.right[1] = 0; c.right[2] = -sy;
+    c.up[0] = c.right[1] * c.fwd[2] - c.right[2] * c.fwd[1];
+    c.up[1] = c.right[2] * c.fwd[0] - c.right[0] * c.fwd[2];
+    c.up[2] = c.right[0] * c.fwd[1] - c.right[1] * c.fwd[0];
+    var sh = c.shake > 0 ? c.shake * 0.04 : 0;
+    if (c.shake > 0) c.shake = Math.max(0, c.shake - dt * 2);
+    c.eye[0] = p.x + (Math.random() - 0.5) * sh; c.eye[1] = p.y + (Math.random() - 0.5) * sh; c.eye[2] = p.z;
+    M4.lookAt(V, c.eye[0], c.eye[1], c.eye[2], c.eye[0] + c.fwd[0], c.eye[1] + c.fwd[1], c.eye[2] + c.fwd[2], 0, 1, 0);
+    M4.perspective(P, p.fov || 1.22, W / H, 0.04, far + 20);
+    M4.mul(VP, P, V);
+    c.x = p.x - sy * far * 0.42; c.z = p.z - cy * far * 0.42; c.y = p.y;
+    c.halfH = far * 0.55; c.halfW = far * 0.55; c.zoom = 6; c.pitch = 1;
+    c.povK = canvas.height / (2 * Math.tan((p.fov || 1.22) / 2)); // canvas px per world unit at distance 1
+    c.pxPerUnit = H / (2 * Math.tan((p.fov || 1.22) / 2)) / 6;
+    c.fwdXZ = [-sy, -cy];
+  }
+  // screen pixels per world unit at a point (perspective: falls off with distance; 0 behind the eye)
+  R.ppuAt = function (x, y, z) {
+    if (!cam.pov) return canvas.height / (2 * cam.halfH);
+    var d = (x - cam.eye[0]) * cam.fwd[0] + (y - cam.eye[1]) * cam.fwd[1] + (z - cam.eye[2]) * cam.fwd[2];
+    return d < 0.06 ? 0 : cam.povK / d;
+  };
   function updateCamera(dt) {
     var c = cam;
+    if (c.pov) { povCamera(dt); return; }
     if (c.intro) {
       c.intro.t += dt;
       var k = SB.smooth(c.intro.t / c.intro.dur);
@@ -701,7 +768,7 @@
     out = out || {};
     M4.project(VP, x, y, z, pv);
     out.x = (pv[0] * 0.5 + 0.5) * W; out.y = (0.5 - pv[1] * 0.5) * H; out.z = pv[2];
-    out.on = pv[0] > -1.15 && pv[0] < 1.15 && pv[1] > -1.15 && pv[1] < 1.25;
+    out.on = pv[0] > -1.15 && pv[0] < 1.15 && pv[1] > -1.15 && pv[1] < 1.25 && !(pv[3] < 0);
     return out;
   };
   // CSS pixel -> ground point {x, y, z} (marches the view ray into the heightfield / water)
@@ -910,8 +977,10 @@
     gl.viewport(0, 0, canvas.width, canvas.height);
     var fc = env.fog;
     var oc = SB.mixC([0.1, 0.32, 0.52], fc, 0.35);
-    gl.clearColor(oc[0] * (1 - env.night * 0.7), oc[1] * (1 - env.night * 0.7), oc[2] * (1 - env.night * 0.6), 1);
+    if (cam.pov) gl.clearColor(fc[0], fc[1], fc[2], 1); // first person: the horizon is the fog colour
+    else gl.clearColor(oc[0] * (1 - env.night * 0.7), oc[1] * (1 - env.night * 0.7), oc[2] * (1 - env.night * 0.6), 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (cam.pov) drawSky();
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.BLEND);
@@ -932,6 +1001,17 @@
   var corner = [0, 0, 0], nLights = 0;
   function visibleChunks() {
     var out = [], S = SB.CHUNK;
+    if (cam.pov) {
+      // first person: chunks within the view distance, in front of the eye and inside the view cone
+      var e = cam.eye, fx = cam.fwdXZ[0], fz = cam.fwdXZ[1], far = (cam.pov.far || 80) + S * 0.75, half = Math.atan(Math.tan((cam.pov.fov || 1.22) / 2) * W / H) + 0.35;
+      for (var pi = 0; pi < chunks.length; pi++) {
+        var pc = chunks[pi], mx = pc.ci * S + S / 2 - e[0], mz = pc.cj * S + S / 2 - e[2], md = Math.hypot(mx, mz);
+        if (md > far) continue;
+        if (md > S * 0.75) { var ca = (mx * fx + mz * fz) / md, ang = Math.acos(SB.clamp(ca, -1, 1)) - Math.asin(Math.min(1, S * 0.72 / md)); if (ang > half) continue; }
+        out.push(pc);
+      }
+      return out;
+    }
     for (var i = 0; i < chunks.length; i++) {
       var c = chunks[i], x0 = c.ci * S, z0 = c.cj * S;
       var minx = 9, maxx = -9, miny = 9, maxy = -9;
@@ -950,8 +1030,13 @@
     gl.uniform3fv(p.u.uSunDir, env.sunDir); gl.uniform3fv(p.u.uSunCol, env.sun); gl.uniform3fv(p.u.uSkyCol, env.sky);
     gl.uniform3fv(p.u.uGndCol, env.gnd); gl.uniform3fv(p.u.uFogCol, env.fog);
     var fogFar = cam.halfH * 2.6 / Math.sin(cam.pitch);
-    if (p.u.uFog) gl.uniform4f(p.u.uFog, cam.halfH * 0.4, fogFar, SB.clamp01(0.15 + env.cloud * 0.2 + env.rain * 0.25) * SB.clamp01((cam.zoom - 8) / 40), 0);
-    if (p.u.uCam) {
+    if (cam.pov) {
+      // first person: the land fades into the sky colour toward the edge of the view distance
+      var pf = cam.pov.far || 80;
+      if (p.u.uFog) gl.uniform4f(p.u.uFog, pf * (0.3 - env.rain * 0.12), pf * (0.98 - env.rain * 0.3), 1, 0);
+      if (p.u.uCam) gl.uniform4f(p.u.uCam, cam.eye[0], cam.eye[2], cam.fwdXZ[0], cam.fwdXZ[1]);
+    } else if (p.u.uFog) gl.uniform4f(p.u.uFog, cam.halfH * 0.4, fogFar, SB.clamp01(0.15 + env.cloud * 0.2 + env.rain * 0.25) * SB.clamp01((cam.zoom - 8) / 40), 0);
+    if (p.u.uCam && !cam.pov) {
       var sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
       gl.uniform4f(p.u.uCam, cam.x, cam.z, -sy, -cy);
     }

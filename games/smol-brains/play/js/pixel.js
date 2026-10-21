@@ -267,6 +267,11 @@
     // zoomed right in they top out at 2x (no giants); zoomed far out they become dots
     var ratio = 0.38 * 2.2 * ppu / 16, dot = ratio < 0.42;
     var k = dot ? 1 : ratio < 0.8 ? ratio : Math.min(2, Math.max(1, Math.floor(ratio + 0.3)));
+    if (cam.pov) { // first person: each sprite scales with its own distance, and nothing behind the eye
+      ppu = R.ppuAt(x, y + 0.3, z);
+      if (!ppu) return;
+      ratio = 0.38 * 2.2 * ppu / 16; dot = ratio < 0.12; k = Math.max(0.12, ratio);
+    }
     c._pxH = (s.bodyPx + 6) * k * (R.pixelSize || 1); // on-screen height in CSS px, for speech bubbles
     var fr = dot ? FR.dot : frameFor(c, t);
     if (dot) c._pxH = 8 * (R.pixelSize || 1);
@@ -292,7 +297,7 @@
   var VS = [
     "attribute vec2 aCorner;",
     "attribute vec3 iPos; attribute vec2 iPx; attribute vec4 iUV; attribute vec4 iMisc;",
-    "uniform mat4 uVP; uniform vec2 uRes;",
+    "uniform mat4 uVP; uniform vec2 uRes; uniform vec2 uZo;",
     "varying vec2 vUV; varying vec3 vW; varying vec2 vMisc; varying float vFog; varying float vA;",
     "uniform vec4 uFog; uniform vec4 uCam;",
     "void main() {",
@@ -300,7 +305,7 @@
     "  vec2 pix = floor((c.xy / c.w * 0.5 + 0.5) * uRes + 0.5);",          // snap the feet to the pixel grid
     "  float k = iPx.x / 32.0;",
     "  vec2 p = pix + vec2(floor((aCorner.x - 0.5) * iPx.x + 0.5), aCorner.y * iPx.y - (iPx.y < iPx.x ? 0.0 : k));",
-    "  gl_Position = vec4(p / uRes * 2.0 - 1.0, c.z / c.w - 0.004, 1.0);",
+    "  gl_Position = vec4(p / uRes * 2.0 - 1.0, c.z / c.w - uZo.x - uZo.y / (c.w * c.w), 1.0);",
     "  float u = iMisc.x > 0.5 ? 1.0 - aCorner.x : aCorner.x;",
     "  vUV = vec2(mix(iUV.x, iUV.z, u), mix(iUV.w, iUV.y, aCorner.y));",
     "  vW = iPos + vec3(0.0, aCorner.y * 0.8, 0.0);",
@@ -334,11 +339,14 @@
     R.setLightUniforms(p);
     var cs = R.canvasSize();
     gl.uniform2f(p.u.uRes, cs.w, cs.h);
+    // pulled a little toward the eye so they stand in front of the ground they're on (a perspective depth
+    // buffer squeezes far away, so there it's a fixed distance, not a fixed depth)
+    if (cam.pov) gl.uniform2f(p.u.uZo, 0, 2 * 0.04 * 0.35); else gl.uniform2f(p.u.uZo, 0.004, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(p.u.uAtlas, 1);
     GL.attribs(ctx, quad, [[p.a.aCorner, 2]], 2, 0);
     GL.stream(ctx, holder, inst, n * IS);
     GL.attribs(ctx, holder.buf, [[p.a.iPos, 3], [p.a.iPx, 2], [p.a.iUV, 4], [p.a.iMisc, 4]], IS, 1);
-    gl.depthMask(false); // sprites carry their own painted outline; keep them out of the outline pass
+    gl.depthMask(!!cam.pov); // sprites carry their own painted outline; keep them out of the outline pass (not in first person: one can fill half the screen, and the ink of what's behind mustn't show through it)
     ctx.drawInstanced(gl.TRIANGLES, 0, 6, n);
     gl.depthMask(true);
     gl.activeTexture(gl.TEXTURE0);

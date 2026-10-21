@@ -60,6 +60,7 @@
   /* ---------------- creatures ---------------- */
 
   function drawCreature(c, alpha, t, game) {
+    if (c._pov && R.camera.pov) return; // first person: you are this one
     if (!c.heldBy && !SB.World.isSeen(game.world, c.x, c.z)) return; // hidden under the fog of war
     var x = c.px + (c.x - c.px) * alpha, z = c.pz + (c.z - c.pz) * alpha;
     var y = c.y;
@@ -367,6 +368,7 @@
     for (var i = 0; i < cs.length; i++) {
       var c = cs[i];
       if (!c.alive || c.far || !SB.World.isSeen(game.world, c.x, c.z)) continue;
+      if (cam.pov && (c._pov || SB.dist2(c.x, c.z, cam.eye[0], cam.eye[2]) > 400)) continue; // first person: you, and the far-off, get no labels
       var Rr = SB.Creature.radius(c), lk = c.look;
       var headH = Rr * (2.3 + (lk.legs ? 0.35 + lk.legLen * 0.9 : 0) + (lk.head > 0.4 ? 1 : 0) + (lk.halo ? 0.6 : 0));
       if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, pp); pp.y -= c._pxH; } // sprites: above the painted head

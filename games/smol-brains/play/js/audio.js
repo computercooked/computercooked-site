@@ -171,6 +171,13 @@
     snore: function (v) { noise(0.9, { ff: 300, fTo: 180, q: 5, vol: 0.06 * v, attack: 0.3 }); tone(90, 0.8, { vol: 0.04 * v, type: "sawtooth", filter: "lowpass", ff: 300, attack: 0.3 }); return 1; },
     splash: function (v) { noise(0.35, { ff: 1800, fTo: 600, q: 0.8, vol: 0.2 * v }); return 0.4; },
     bonk: function (v) { return SFX.tap(v * 0.7); },
+    // footsteps for a possessed smol (possess.js), one per surface
+    step_grass: function (v) { noise(0.07, { ff: 1100 + Math.random() * 500, q: 1.2, vol: 0.09 * v, filter: "bandpass" }); return 0.08; },
+    step_sand: function (v) { noise(0.1, { ff: 2600 + Math.random() * 800, q: 0.7, vol: 0.06 * v, filter: "highpass" }); return 0.1; },
+    step_snow: function (v) { noise(0.13, { ff: 700 + Math.random() * 300, fTo: 400, q: 2.5, vol: 0.1 * v, attack: 0.02 }); return 0.13; },
+    step_stone: function (v) { tone(260 + Math.random() * 80, 0.05, { to: 160, vol: 0.07 * v, type: "triangle" }); noise(0.03, { ff: 3000, q: 2, vol: 0.05 * v }); return 0.06; },
+    step_wood: function (v) { tone(170 + Math.random() * 40, 0.08, { to: 110, vol: 0.1 * v, type: "sine" }); noise(0.04, { ff: 900, q: 3, vol: 0.05 * v }); return 0.08; },
+    step_water: function (v) { noise(0.16, { ff: 1400 + Math.random() * 600, fTo: 500, q: 1, vol: 0.09 * v }); tone(500 + Math.random() * 300, 0.06, { to: 900, vol: 0.03 * v }); return 0.16; },
     eureka: function (v) {
       [72, 79, 84, 88, 91, 96].forEach(function (n, i) { tone(note(n), 0.5, { delay: i * 0.06, vol: 0.12 * v, type: "sine" }); tone(note(n + 7), 0.3, { delay: i * 0.06 + 0.03, vol: 0.04 * v, type: "triangle" }); });
       return 0.9;
@@ -299,12 +306,15 @@
   function near(c) {
     var cam = SB.Render && SB.Render.camera;
     if (!cam || !c || c.x == null || c.z == null) return 1;
+    if (cam.pov) { var pd = Math.hypot(c.x - cam.eye[0], c.z - cam.eye[2]); return pd < 3 ? 1 : pd > 32 ? 0 : 1 - (pd - 3) / 29; } // first person: heard from the eye
+
     var dx = Math.abs(c.x - cam.x) - cam.halfW, dz = Math.abs(c.z - cam.z) - cam.halfH * 1.6;
     var d = Math.max(dx, dz);
     var zk = SB.clamp(1.5 - cam.zoom / 40, 0.15, 1);
     if (d <= 0) return zk;
     return d > 20 ? 0 : 0.35 * (1 - d / 20) * zk;
   }
+  A.near = near;
   function at(name, c, base) { var v = near(c) * (base || 1); if (v > 0.03) A.play(name, { vol: v }); }
   function hookBus() {
     if (busHooked || !SB.bus) return;
