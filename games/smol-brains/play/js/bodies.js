@@ -392,7 +392,16 @@
     }
     // places nobody has explored yet: a bobbing marker, so you know where to send them
     (game.sites || []).forEach(function (st) {
-      if (st.found || !SB.World.isSeen(game.world, st.x, st.z)) return;
+      if (st.kind === "pod" && !st.done && !st.gone) { // a downed pod: someone's inside, waiting
+        R.project(st.x, SB.World.groundY(game.world, st.x, st.z) + 2.6, st.z, pp);
+        if (!pp.on) return;
+        var py = Math.round(pp.y + Math.sin(t * 3 + st.id) * 4);
+        ctx.fillStyle = "rgba(16,17,20,0.75)"; ctx.fillRect(pp.x - 13, py - 13, 26, 26);
+        ctx.fillStyle = Math.sin(t * 6) > 0 ? "#8fe6dc" : "#c5ff49"; ctx.fillRect(pp.x - 11, py - 11, 22, 22);
+        SB.Icons.fillText(ctx, "🛸", pp.x, py, 16);
+        return;
+      }
+      if (st.gone || st.found || !SB.World.isSeen(game.world, st.x, st.z)) return;
       R.project(st.x, SB.World.groundY(game.world, st.x, st.z) + 2.4, st.z, pp);
       if (!pp.on) return;
       var by = Math.round(pp.y + Math.sin(t * 2.5 + st.id) * 4);

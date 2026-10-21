@@ -22,13 +22,16 @@
     { at: 18.6, smol: "vesh nua, pip.", sub: "you raised a civilisation, from one cold egg." }
   ];
   var END_DUR = 24;
+  // another of the ark's pods falls out of orbit (sites.js crashes one): a quick shot of it streaking down
+  var POD = [{ at: 0.3, smol: "pip-pod! nua pip-pod!", sub: "another escape pod is falling out of the sky!" }];
+  var POD_DUR = 4.6;
 
   function rng(seed) { var s = seed >>> 0; return function () { s = (s + 0x6d2b79f5) >>> 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function ease(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
 
   IN.play = function (opts) {
     opts = opts || {};
-    var ending = opts.scene === "end", lines = ending ? END : LINES, dur = ending ? END_DUR : DUR;
+    var ending = opts.scene === "end", podFall = opts.scene === "pod", lines = ending ? END : podFall ? POD : LINES, dur = ending ? END_DUR : podFall ? POD_DUR : DUR;
     var root = document.getElementById("ui") || document.body;
     var wrap = document.createElement("div"); wrap.className = "intro live";
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.className = "introcv";
@@ -44,7 +47,7 @@
     root.appendChild(wrap);
     IN.covering = true;
     var started = false;
-    gate.onclick = function (e) { e.stopPropagation(); if (started) return; started = true; if (SB.Music) SB.Music.play(ending ? "bigthought" : "smolbrains"); gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
+    gate.onclick = function (e) { e.stopPropagation(); if (started) return; started = true; if (SB.Music && !podFall) SB.Music.play(ending ? "bigthought" : "smolbrains"); gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
     var ctx = cv.getContext("2d");
     var r = rng(3127), stars = [];
     for (var i = 0; i < 140; i++) stars.push({ x: r() * W, y: r() * H, z: 0.2 + r() * r() * 1.6, c: r() < 0.1 ? "#b59aff" : r() < 0.2 ? "#ffd84a" : "#ffffff" });
@@ -181,6 +184,16 @@
       });
       ctx.globalAlpha = 1;
       if (ending) drawEnd(t, dt);
+      else if (podFall) {
+        // the pod streaks in from the top corner, trailing fire, and dives at the island
+        var R0 = Math.round(70 + ease(t / POD_DUR) * 60);
+        planet(Math.round(W / 2 + 30), Math.round(H + R0 * 0.45), R0, t);
+        var k0 = ease(t / 3.8), fx0 = -20 + k0 * (W / 2 + 40), fy0 = -10 + k0 * (H - 40);
+        for (var k1 = 0; k1 < 18; k1++) px(fx0 - k1 * 2.6 - (k1 % 2), fy0 - k1 * 2.2, Math.max(1, 4 - k1 / 5), Math.max(1, 4 - k1 / 5), k1 < 3 ? "#ffffff" : k1 < 8 ? "#ffd84a" : "#ff9f43");
+        px(fx0, fy0, 5, 4, "#1a1222"); px(fx0 + 1, fy0, 3, 3, "#8fe6dc");
+        if (r() < 0.5) bits.push({ x: fx0 - 4, y: fy0 - 3, vx: -20 - r() * 30, vy: -10 - r() * 20, life: 0.4 + r() * 0.4, t: 0, c: r() < 0.5 ? "#ff9f43" : "#ffd84a", w: 1 });
+        if (t > 3.7) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (t - 3.7) * 1.4) + ")"; ctx.fillRect(0, 0, W, H); }
+      }
       else if (t < 11.5) {
         // scene 1–2: the chase and the battle
         var ax = 110 + Math.sin(t * 0.8) * 6, ay = 92 + Math.sin(t * 1.3) * 4;

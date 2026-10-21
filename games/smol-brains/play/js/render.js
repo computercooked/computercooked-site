@@ -545,10 +545,10 @@
     var sites = game.sites || [];
     for (var pi = 0; pi < sites.length; pi++) {
       var ps = sites[pi];
-      if (ps.x < x0 || ps.x >= x0 + S || ps.z < z0 || ps.z >= z0 + S || !SB.World.isSeen(game.world, ps.x, ps.z)) continue;
-      var pk = ps.kind === "cave" ? "n:cave:0" : ps.kind === "nest" ? "n:nest:0" : ps.kind === "camp" && ps.done ? "s:site_campdone" : "s:site_" + ps.kind;
+      if (ps.gone || ps.x < x0 || ps.x >= x0 + S || ps.z < z0 || ps.z >= z0 + S || !SB.World.isSeen(game.world, ps.x, ps.z)) continue;
+      var pk = ps.kind === "pod" ? "s:site_wreck" : ps.kind === "cave" ? "n:cave:0" : ps.kind === "nest" ? "n:nest:0" : ps.kind === "camp" && ps.done ? "s:site_campdone" : "s:site_" + ps.kind;
       if (!meshes[pk]) continue;
-      var py = WG.heightAt(T, ps.x, ps.z) - 0.03, psc = ps.kind === "nest" ? 1.8 : ps.kind === "cave" ? 1.3 : ps.kind === "wreck" ? 1.3 : 1.6;
+      var py = WG.heightAt(T, ps.x, ps.z) - 0.03, psc = ps.kind === "nest" ? 1.8 : ps.kind === "cave" ? 1.3 : ps.kind === "wreck" || ps.kind === "pod" ? 1.3 : 1.6;
       push(pk, ps.x, py, ps.z, ps.rot || 0, psc, psc, psc, [1, 1, 1], 0, ps.kind === "ruin" && !ps.found ? 0.3 : 0);
     }
     var sts = game.world.structures || [];
