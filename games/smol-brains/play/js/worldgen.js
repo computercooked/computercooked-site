@@ -673,7 +673,26 @@
     }
     ensure2("roots", 5, 14);
     ensure2("gourds", 8, 20);
+
+    // thought crystals within a thinker's round: the glow that makes ascended smols is practised by crystals, and many
+    // islands (most v4 ones) put the crystal steppes 60-130 tiles from the nest. With none within 50, a small patch
+    // 30-50 tiles out, from its own random stream and its own id range (CRYSTAL_ID0), so nothing else on the island moves
+    var nearCry = nodes.some(function (n) { return n.kind === "crystals" && SB.dist(n.x, n.z, best.x, best.z) < 50; });
+    if (!nearCry) {
+      var r3 = SB.rng((T.seed * 53 + 4111) >>> 0), cn = 0, ca = r3() * 6.283;
+      for (var ct = 0; ct < 600 && cn < 3; ct++) {
+        if (ct % 60 === 59) ca = r3() * 6.283; // that way's no good: try another
+        var cr = cn ? 2 + r3() * 3 : r3.range(30, 50), cx0 = cn ? T._cry.x : best.x, cz0 = cn ? T._cry.z : best.z, ang = cn ? r3() * 6.283 : ca + r3.range(-0.5, 0.5);
+        var qx = cx0 + Math.cos(ang) * cr, qz = cz0 + Math.sin(ang) * cr, qt = (qz | 0) * Nn + (qx | 0);
+        if (qx < 3 || qz < 3 || qx > Nn - 3 || qz > Nn - 3 || !WG.walkable(T, qx, qz) || WG.depthAt(T, qx, qz) > 0 || T.slope[qt] > 1.4 || !free(qx, qz, 0.9)) continue;
+        var cnode = { id: WG.CRYSTAL_ID0 + cn, kind: "crystals", x: qx, z: qz, s: r3.range(0.85, 1.1), rot: r3() * 6.283, seed: (r3() * 1e9) | 0, patch: 1 };
+        nodes.push(cnode); mark(qx, qz, SB.NODES.crystals.r * cnode.s);
+        if (!cn) T._cry = { x: qx, z: qz };
+        cn++;
+      }
+    }
   }
+  WG.CRYSTAL_ID0 = 2e7;
 
   /* ---------------- decorations (render only) ----------------
      Float32Array of [x, z, type, scale, rot] per item. Types: 0 grass, 1 flower, 2 pebble, 3 fern, 4 snowtuft, 5 cattail, 6 glowdot */

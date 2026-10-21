@@ -165,6 +165,29 @@ From the owner's playtest: smols vanished in first person when you got close, an
 - **HD smols.** In the hd look, sprite sheets go through `PX.hdify`: normals from a blurred silhouette, 4 tone steps plus a honey highlight, Bayer dither, a fur/skin hash (fluffy smols get more), a sky rim light on the shadow edge, and outlines coloured from the neighbouring pixel. Face pixels are untouched, and smols also get a soft contact shadow. The pixel look is byte-identical to before.
 - Concept art for the look came from two Nano Banana Flash images, about 4 credits; they are not shipped.
 
+## 0.16 What v4.4.1 added: less cuddling — love is slow, earned, and between partners (`social.js`, `creature.js`, `civ.js`)
+
+The owner's call: an egg about every 15 minutes instead of every ~3, hearts only for partners and kids, and a housing limit, so the population grows slower and feels earned. Blobs, critters and tool-users keep the old quick breeding (the band needs its generations); it all applies to pairs of talkers (tribe and on).
+
+- **Love grows slowly**, and only in a settled grown-up: fed, warm, calm, healthy, not grieving or out fighting (`Creature.loveK` scales `Chem.LOVE_RATE`). Spring ×1.5, summer ×1.1, autumn ×0.85, winter ×0.5; a small band falls faster (pop < 6 ×3, < 10 ×2, < 14 ×1.4); from the builder age, before the first hut is up, ×0.6.
+- **Partners.** A smitten talker courts one smol: a hug, a gift, a shared meal, a good talk, a game, or just time near each other each count once per 20 s, each is a diary line (🌸) and a little warmth both ways; three of them and liking each other (opinion ≥ 12) makes partners (diary, chronicle, a burst of hearts). They can say no (they don't like you, or aren't in the mood): "turned me down", a little shyness. Seeing your partner hug someone you don't rate is jealousy; three times (twice for their best friend) is a break-up, and couples who've come to dislike each other drift apart. A widow mourns a day before loving again; a widow's kids may resent the new one. From the tribe on **only partners have eggs**.
+- **Hearts** (💕 emote, the hearts particles, "cuddles") only between partners and between parents and their own kids (and the sky's hand, and a parent with its own egg). Friends hug: a smile, "hugs", and the hug doesn't settle a smitten heart. Grown-up talkers hug only family, friends and the one they're courting.
+- **Eggs.** 12 minutes' rest after each (`Creature.EGG_GAP` 720 s, ×0.3/0.5/0.75 for a band under 6/10/14, +40 s per young kid), and love has to come back after, so about a quarter-hour egg to egg. An egg costs two bites (the granary, the couple's pouches, food lying near) or the mother's reserves; nothing to hand and hungry, they wait. Partners both ready get a strong pull toward each other.
+- **Housing** (`Civ.room`): once the builders are here and someone knows huts, every finished hut sleeps 5, a house 8 (a wrecked one half, until it is rebuilt), and 12 more by the fire; a full village has no eggs ("no room for a baby. we need a hut"), and builders put huts and houses first once it is nearly full. Strangers still arrive.
+- **Work drive** (`c.duty`): from the builder age a grown-up who isn't working grows restless (~4 min to full) and leans toward building and making over cuddles and games; working settles it, and the workers notice who never helps.
+- **Compensation** (fewer births means fewer generations, so the late game is kept on schedule another way; the numbers are in §6):
+  - talkers live two-fifths longer (`Creature.TALKER_LIFE`; elder age scales too);
+  - each child of the tribe on gets more of its parents' practice (echo ×1.8) and leans harder toward the more evolved parent (`Game.CARE_MOMENTUM` 0.65, from 0.3), and a thinker's glow echoes ×1.25 more (`Game.GLOW_ECHO`);
+  - a tribe has room for 24 and builders for 30 (`Civ.TIER_CAP`; 20 and 28 before), so long-lived elders and newcomers don't crowd out the children who carry the next step;
+  - partners both ready go and find each other; a builder or thinker with nobody, in love, goes looking for someone free (and is a catch: two good moments make partners, not three);
+  - strangers come oftener while the colony is under 30, and urgently while there are fewer than three couples or free talker pairs who could become one (`Strangers.couples`);
+  - the homes the colony already had when housing starts count (`civ.roomBase`), so the limit doesn't stop a tribe dead while its first huts go up;
+  - thinkers studying a story pole or a wonder are working (duty), and grow restless half as fast;
+  - the path to writing is shorter: a story pole comes to a builder with a blade in the pouch or working with sticks, it's the first thing builders put up once known, and a thinker near a pole can think of writing;
+  - a city needs 30 smols, one fewer for each finished house (down to 26) while nobody's going hungry (`Civ.cityPop`);
+  - every island has a few thought crystals 30–50 tiles from home (`WorldGen`, ids from `CRYSTAL_ID0`), when none are nearer.
+- Also fixed: a builder's fetch step now looks as far as its plan did (it planned with 1.5× its search radius, then failed to find the fibre at the first step, so rebuilds stalled), claims from plans dropped by a conversation, an order or a stranger's choice no longer hide items forever, and builders haul makings from up to 64 m once nothing is near (the flaky threats test).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
@@ -251,6 +274,7 @@ Load order: `core, icons, genome, collect, brain, chemistry, lang, ideas, words,
 - Metabolism: a smol eats every 2–3 min. Unattended 2-hour sims of a 20-builder colony on three seeds: 0 starved, 0 drowned, population steady around 32 through two winters (before the economy fixes they crashed to 4–7 in the first winter).
 - Full ladder with an engaged player (5–10 h sims): critter ~8 min, tool-user ~30–40 min, tribe ~1.5 h, builder ~2.5 h, thinker ~3.3 h, ascended ~5 h; colonies hold 21–27 of 30 ideas with 4–6 lost per run; the spire gets raised in end-game runs.
 - v3 (kin rule + strangers + the new economy, 5 h engaged-bot sims, seeds 2 and 9): critter ~16 min, tool-user ~50 min, tribe 1.7–2.6 h, builder ~3.4 h, thinker ~3.7 h; population holds at 32–35 with ~18 strangers welcomed by 4 h; builders with axes fell trees for logs. Browser chaos runs with the intro, strangers and the word book (desktop 522 actions, phone 771): no errors.
+- Less cuddling (§0.16; engaged-bot ladder, 200 min, medium island seeds 1–3, the sim's randomness seeded per run so before and after are compared on the same dice; 3 runs a seed after, 2 before). 4.4: 77–175 eggs, hearts ~9–12% of smol-time, builders 55–123 min, town 70–159, city 117–149 (median 141; one run never), ascended 115–160 (median 138; same run never). Now: 52–105 eggs, ending at 29–56 smols (lowest after 30 min: 8–21), hearts ~1%; builders 32–98 (median 69), town 64–113 (87), city 109–172 (127; all 9 runs), ascended 99–177 (125). A single run swings ±30 min with chance alone (one seed's three runs: city 109/146/172), so judge medians, not one run. The first cut of this (before the compensation list above) had city 159–179 or never and ascended 178–203.
 - Browser chaos runs (~3,500 random taps, drags, keys, menus, miracles, resizes, reloads, drownings, on phone and desktop, pixel and 3D): no errors.
 
 ---

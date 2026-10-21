@@ -161,7 +161,8 @@
     farm: function (x) { return x.held === "seed" || (x.targetKind === "seed") ? 0.5 : x.held === "grain" ? 0.3 : 0; },
     hut: function (x) { return x.verb === "sleep" && (x.cold || x.raining) ? 0.5 : x.noun === "shelter" && x.held === "stick" ? 0.4 : 0; },
     pottery: function (x) { return x.nearFire && (x.held === "clay" || x.targetKind === "clay") ? 0.7 : 0; },
-    totem: function (x) { return x.held === "blade" && (x.noun === "stick" || x.noun === "plant") ? 0.4 : 0; },
+    // (a slower-breeding tribe has fewer builders: a blade in the tool pouch counts too, and so does building with a stick)
+    totem: function (x) { return (x.held === "blade" || x.hasTool === "blade") && (x.noun === "stick" || x.noun === "plant") ? 0.6 : x.tier >= 4 && (x.held === "stick" || x.noun === "stick") && (x.verb === "build" || x.verb === "make" || x.verb === "use") ? 0.25 : 0; },
     school: function (x) { return x.verb === "teach" && x.noun === "smol" ? 0.4 : x.noun === "totem" && x.friends >= 2 ? 0.12 : 0; },
     wall: function (x) { return x.noun === "grump" && x.held === "stick" ? 0.5 : x.noun === "grump" && x.verb === "flee" ? 0.1 : 0; },
     bridge: function (x) { return x.noun === "water" && x.held === "stick" ? 0.5 : 0; },
@@ -170,7 +171,7 @@
     axe: function (x) { return x.held === "metal" && (x.noun === "plant" || x.noun === "stick") ? 0.6 : 0; },
     brew: function (x) { return x.held === "herb" && x.noun === "fire" && x.hasTool === "pot" ? 0.7 : x.held === "herb" && x.noun === "fire" ? 0.15 : 0; },
     bake: function (x) { return x.held === "grain" && x.noun === "fire" ? 0.5 : 0; },
-    writing: function (x) { return x.noun === "totem" && (x.verb === "use" || x.verb === "play") ? 0.5 : 0; },
+    writing: function (x) { return x.noun === "totem" && (x.verb === "use" || x.verb === "play") ? 0.7 : x.noun === "totem" ? 0.25 : 0; },
     workshop: function (x) { return x.verb === "make" && x.hasTool === "axe" ? 0.4 : 0; },
     windmill: function (x) { return x.noun === "crop" && x.windy ? 0.5 : 0; },
     lens: function (x) { return x.held === "crystal" && (x.verb === "play" || x.verb === "use") ? 0.5 : x.noun === "material" && x.targetKind === "crystals" ? 0.15 : 0; },
@@ -391,11 +392,21 @@
   I.missingFor = missingFor;
 
   // is there a source of `want` within reach? returns {item} | {node} | null
+  // an item is only spoken for while the smol who claimed it is still on its way to it. A claim left behind by
+  // a plan that ended any other way (a chat, a call home, a grump, a death, a reload) is let go here
+  function claimed(o, game) {
+    if (o.claimed == null) return false;
+    var by = SB.Game.byId(game, o.claimed), p = by && by.alive && by.plan, s = p && p.steps[p.i];
+    if (s && s.src && s.src.type === "item" && s.src.id === o.id) return true;
+    o.claimed = null;
+    return false;
+  }
+  I.claimed = claimed;
   I.findSource = function (c, want, game, R) {
     var world = game.world;
     R = R || c.searchR || 20;
     var un = c.unreach || {}, now = game.time;
-    var it = SB.World.nearestItem(world, c.x, c.z, R, function (o) { return o.heldBy == null && !o.claimed && matches(o.kind, want) && !(o.data && o.data.rotten) && !K[o.kind].critter && !(un[o.id] > now); });
+    var it = SB.World.nearestItem(world, c.x, c.z, R, function (o) { return o.heldBy == null && !claimed(o, game) && matches(o.kind, want) && !(o.data && o.data.rotten) && !K[o.kind].critter && !(un[o.id] > now); });
     if (it) return { item: it };
     if (want === "food") return null;
     // leaves for a lean-to: shake them off any proper tree
@@ -547,7 +558,7 @@
       // close enough: tend them. healroot from the bag works twice as well
       var herb = best.holding != null && SB.Game.byId(game, best.holding), k = herb && herb.kind === "herb" ? 2 : 1;
       SB.Chem.apply(p.chem, { sick: -0.06 * k * step, antigen: -0.07 * k * step, toxin: -0.05 * k * step });
-      if (SB.Creature.emote) SB.Creature.emote(best, "love", 1.5);
+      if (SB.Creature.emote) SB.Creature.emote(best, SB.Social && SB.Social.intimate(game, best, p) ? "love" : "happy", 1.5);
       habit(best, "social", 0.3);
       p.nursedBy = best.id;
     });
@@ -563,7 +574,8 @@
     var sites = world.structures.filter(function (s) { return !s.done && s.tribe === c.tribe && SB.dist(s.x, s.z, c.x, c.z) < 40; });
     // the big thought is everyone's: any ascended smol can help raise the spire
     // and town works (stalls, houses, the hall...) are everyone's too once they're started: any builder can carry stones
-    var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && (I.known(c, id) || (s.kind === "spire" && c.tier >= 6) || (BY[id] && BY[id].civ && c.tier >= 4)); });
+    // (and builders all lend a hand with homes: a hut someone has started, or anything the grumps or the weather wrecked)
+    var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && (I.known(c, id) || (s.kind === "spire" && c.tier >= 6) || (BY[id] && BY[id].civ && c.tier >= 4) || ((s.kind === "hut" || (s.data && s.data.wrecked)) && c.tier >= 4)); });
     if (mine.length) {
       mine.sort(function (a, b) { return SB.dist2(a.x, a.z, c.x, c.z) - SB.dist2(b.x, b.z, c.x, c.z); });
       return planForSite(c, mine[0], game);
@@ -589,6 +601,9 @@
     return planForSite(c, st, game);
   };
 
+  // every bed in the village taken (civ.js housing): couples are waiting on the builders
+  function full(game, pop) { return !!(SB.Civ && SB.Civ.room) && pop + 3 >= SB.Civ.room(game); } // (or nearly: build ahead of the babies)
+  I.villageFull = full;
   // how much the tribe needs another one of these right now (0 = no need)
   I.buildNeed = function (c, kind, game) {
     var world = game.world, home = SB.Society ? SB.Society.home(game, c.tribe) : world.T.spawn;
@@ -596,9 +611,9 @@
     var pop = game.creatures.filter(function (o) { return o.alive && o.species === "smol" && o.tribe === c.tribe; }).length;
     switch (kind) {
       case "campfire": return count("campfire") < 1 + Math.floor(pop / 8) ? 0.6 + c.chem.cold * 0.5 : 0;
-      case "hut": return count("hut") < Math.ceil(pop / 3) ? 0.5 + c.chem.tired * 0.3 + c.chem.cold * 0.3 : 0;
+      case "hut": return count("hut") < Math.ceil(pop / 3) ? 0.5 + c.chem.tired * 0.3 + c.chem.cold * 0.3 + (full(game, pop) ? 0.45 : 0) : 0; // no room for babies: huts first
       case "farm": return count("farm") < Math.ceil(pop / 4) ? 0.45 + c.chem.hunger * 0.3 : 0;
-      case "totem": return count("totem") < 1 ? 0.45 : 0;
+      case "totem": return count("totem") < 1 ? 0.65 : 0;
       case "school": return count("school") < 1 && pop >= 8 ? 0.45 : 0;
       case "wall": return count("wall") < Math.min(10, game.stats.grumpNights) ? 0.2 : 0;
       case "bridge": return count("bridge", 60) < 2 && game.rng.chance(0.2) ? 0.15 : 0;
@@ -641,20 +656,37 @@
     return null;
   };
 
+  // how far a builder goes for the makings: a short walk first, then (tribe and up) a proper haul across the island,
+  // so a village whose reeds grow far off still gets its roofs (and its wrecked huts) back up
+  I.HAUL_R = 64;
+  function haul(c, game, want, far) {
+    var r1 = (c.searchR || 20) * 1.5;
+    if (!far) return inv(c, game).some(function (o) { return matches(o.kind, want); }) || I.findSource(c, want, game, r1) ? r1 : 0;
+    var r2 = Math.max(r1, I.HAUL_R);
+    return c.tier >= 3 && I.findSource(c, want, game, r2) ? r2 : 0;
+  }
+  // how many of `want` other builders are already bringing to this site
+  function hauling(game, c, st, want) {
+    var n = 0;
+    game.creatures.forEach(function (o) { var p = o.plan; if (o !== c && o.alive && p && p.site === st.id) p.steps.forEach(function (s, j) { if (j >= p.i && s.do === "fetch" && s.want === want) n++; }); });
+    return n;
+  }
   function planForSite(c, st, game) {
     var steps = [];
     var need = Object.keys(st.need).filter(function (k) { return st.need[k] > 0; });
     if (need.length) {
-      // bring one (or two, with a bag) of the most needed material
+      // bring one (or two, with a bag) of the most needed material, near ones first
       need.sort(function (a, b) { return st.need[b] - st.need[a]; });
-      var want = need[0];
-      if (!I.findSource(c, want, game, (c.searchR || 20) * 1.5) && !inv(c, game).some(function (o) { return matches(o.kind, want); })) {
-        want = null;
-        for (var i = 1; i < need.length; i++) if (I.findSource(c, need[i], game, (c.searchR || 20) * 1.5)) { want = need[i]; break; }
-        if (!want) return null;
+      var want = null, R = 0;
+      for (var pass = 0; pass < 2 && !want; pass++) for (var i = 0; i < need.length && !want; i++) {
+        if (pass === 1 && hauling(game, c, st, need[i]) >= st.need[need[i]]) continue; // enough already on the way from far off
+        var r = haul(c, game, need[i], pass === 1); if (r) { want = need[i]; R = r; }
       }
+      if (!want) return null;
       var n = Math.min(st.need[want], 1 + Math.min(2, SB.Creature.bagCap(c, game)));
-      for (var k = 0; k < n; k++) steps.push({ do: "fetch", want: want });
+      // the fetch step searches as far as this plan looked (it used to look only half as far, so a builder who
+      // could see the makings from the site gave up on them at the first step, and nobody ever brought them)
+      for (var k = 0; k < n; k++) steps.push({ do: "fetch", want: want, R: R });
       steps.push({ do: "deliver", site: st.id });
     } else steps.push({ do: "work", site: st.id });
     return { idea: I.forStruct[st.kind], kind: "build", site: st.id, steps: steps, i: 0, t: 0, fails: 0 };
@@ -686,6 +718,7 @@
     if (I.known(c, "resonance")) { var res = 0; st.builders.forEach(function (id) { var o = SB.Game.byId(game, id); if (o && o !== c && o.alive && I.known(o, "resonance") && SB.dist(o.x, o.z, st.x, st.z) < 8) res++; }); ws *= 1 + 0.35 * Math.min(4, res); }
     st.work += dt * ws * (0.6 + (c.genome.genes.dexterity || 0.3) * 0.8);
     habit(c, "build", dt * 0.1);
+    if (st.builders.length > 1) c.chem.lonely = Math.max(0, c.chem.lonely - dt * 0.004); // working side by side is company too
     if (st.builders.indexOf(c.id) < 0) st.builders.push(c.id);
     if (st.work >= SK[st.kind].work) { I.complete(st, game); return true; }
     return false;
