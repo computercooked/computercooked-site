@@ -23,7 +23,9 @@
   function nextIn(game) {
     var r = game.rng, urgent = ST.breedablePairs(game) === 0;
     // a young colony needs new blood quickly; a big one only now and then
-    return urgent ? r.range(120, 210) : smols(game).length < 12 ? r.range(300, 480) : r.range(480, 840);
+    // (from the tribe on, with eggs only every quarter-hour or so, newcomers matter more: they come a bit oftener)
+    var n = smols(game).length, talk = (game.stats.maxTier || 0) >= 3;
+    return urgent ? r.range(120, 210) : talk && n < 30 ? r.range(200, 360) : n < 12 ? r.range(300, 480) : talk ? r.range(330, 600) : r.range(480, 840);
   }
   function spot(game, home, dist) {
     var w = game.world, r = game.rng;
@@ -91,13 +93,13 @@
       c.stranger = null;
       c.tribe = 0;
       SB.Chem.apply(c.chem, { lonely: -0.5, fear: -0.3 });
-      c.anim.emote = "love"; c.anim.emoteT = 2;
+      c.anim.emote = "happy"; c.anim.emoteT = 2;
       SB.Game.unlock(game, "stranger");
       SB.Game.note(game, c.name + (auto ? " wandered in and stayed. welcome!" : " joined your smols! 🧳"));
       SB.bus.emit("strangerJoined", { c: c, auto: !!auto });
     } else {
       s.state = "leaving"; s.t = game.time;
-      c.action = null; c.plan = null;
+      c.action = null; if (c.plan) SB.Creature.dropPlan(c, game);
       SB.bus.emit("strangerLeft", { c: c, auto: !!auto });
     }
   };

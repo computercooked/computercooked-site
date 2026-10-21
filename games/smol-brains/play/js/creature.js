@@ -30,7 +30,11 @@
     var st = SB.STAGES[c.stage] || SB.STAGES[3];
     return BODY_R * st.scale * ((c.look && c.look.size) || 1) * (c.species === "grump" ? 1.1 : 1) * (1 + (c.species === "smol" ? (c.tier || 0) * 0.045 : 0));
   };
-  function stageFor(age) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from) s = i; return s; }
+  // smols who talk (tribe and on) have fewer eggs and live longer: grown-up for longer, and two-fifths more life
+  C.TALKER_LIFE = 1.4;
+  function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
+  C.lifeK = lifeK;
+  function stageFor(age, c) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from * (i === 4 ? lifeK(c) : 1)) s = i; return s; }
   C.stageFor = stageFor;
   // Grown-up faces (tribe and on): an.face follows the mood (SB.Chem.face) but never flickers. A new feeling
   // has to last FACE_WANT seconds and the old face is held at least FACE_HOLD, except falling asleep and
@@ -79,6 +83,7 @@
       lifespan: SB.BASE_LIFESPAN * (0.8 + 0.4 * gene(genome, "lifespan", 0.5))
     };
     derive(c);
+    if (lifeK(c) > 1) { c.lifespan *= lifeK(c); c.lifeX = 1; c.stage = stageFor(c.age, c); }
     c.brain = o.brain || C.newBrain(genome, c.tier, game.rng);
     if (c.species === "grump") { c.chem.hunger = 0.5; c.chem.anger = 0.3; }
     if (c.stage === 0) c.chem.hunger = 0.45;
@@ -113,11 +118,12 @@
     c.y = SB.World.groundY(game.world, c.x, c.z); c.px = c.x; c.pz = c.z; c.vx = c.vy = c.vz = 0; c.onGround = true;
     if (typeof c.facing !== "number" || Math.abs(c.facing) === 1) c.facing = Math.random() * 6.28;
     if (!c.lifespan) c.lifespan = SB.BASE_LIFESPAN;
+    if (lifeK(c) > 1 && !c.lifeX) { c.lifespan *= lifeK(c); c.lifeX = 1; } // a talker from an older save gets the longer life too
     if (c.tribe == null) c.tribe = 0;
     if (c.sex !== "f" && c.sex !== "m") c.sex = c.id % 2 ? "f" : "m"; // older saves
     c.clade = c.genome.clade || 0;
     c.thinkT = 0.5; c.chatT = 4; c.tapCount = 0; c.tapT = 0; c.stuckT = 0; c.eggCooldown = c.eggCooldown || 0; c.inspired = c.inspired || 0;
-    c.stage = stageFor(c.age);
+    c.stage = stageFor(c.age, c);
     c.iq = C.iq(c, true);
     if (M()) M().revive(c);
     return c;
@@ -395,6 +401,7 @@
       if (gl) for (var gk = 0; gk < gl.length; gk++) { var dv = drv[gl[gk][0]]; if (dv > 0.3) boost = Math.max(boost, (dv - 0.3) * 1.8 * gl[gk][1]); }
       if (c.tier < 2 && MATERIAL[cands[ci].noun]) cands[ci].sal -= 0.15;
       cands[ci].sal += boost;
+      if (ch.love > 0.35 && cands[ci].t.type === "creature" && (c.partner != null ? cands[ci].t.id === c.partner && ch.love > 0.5 : c.court && cands[ci].t.id === c.court.id)) cands[ci].sal += 0.3 + ch.love * 0.5; // eyes for the one they love (or are courting)
       if (c.mind && c.tier >= 1) { var mv = c.mind.val[SB.NOUNS[cands[ci].noun]]; if (mv) cands[ci].sal += mv * 0.15; } // how things went last time
     }
     var pick = cands.length ? SB.Brain.attend(c.brain, drv, cands, rng) : -1;
@@ -521,7 +528,28 @@
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
-    if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
+    if (noun === "smol" && mask[V.cuddle] && c.species === "smol" && target.ref && SB.Social) {
+      var mine = SB.Social.intimate(game, c, target.ref), suit = !mine && ch.love > 0.3 && !SB.Social.partnerOf(game, c) && SB.Social.eligible(game, c, target.ref) && !SB.Social.partnerOf(game, target.ref);
+      // grown-ups from the tribe on don't hug just anyone: family, friends, and the one they're sweet on
+      // (a grown-up with a partner, or one who has one, only by way of comfort: mind.js)
+      if (c.stage === 3 && c.tier >= 3 && !mine && !suit && !SB.Game.related(game, c, target.ref)) {
+        var tr = target.ref, op2 = SB.Social.opinion(game, c, tr);
+        if (tr.stage >= 3 ? op2 < SB.Social.FRIEND || SB.Social.partnerOf(game, c) || SB.Social.partnerOf(game, tr) : op2 < 8) mask[V.cuddle] = false;
+      }
+      // in love: lean toward the partner, or the one being courted, not toward everyone
+      else if (ch.love > 0.7 && c.stage === 3 && (mine ? target.ref.partner === c.id : suit)) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
+    } else if (noun === "smol" && mask[V.cuddle] && ch.love > 0.7 && c.stage === 3) { bias[V.cuddle] += 0.25 + (ch.love - 0.7); useBias = true; }
+    // partners both ready for a baby (in love, rested from the last one): the pull to them beats everything but emergencies
+    if (noun === "smol" && mask[V.cuddle] && c.stage === 3 && target.ref && c.partner === target.ref.id && target.ref.partner === c.id && ch.love > 0.5 && ch.love + target.ref.chem.love >= 0.85 && c.eggCooldown <= 0 && target.ref.eggCooldown <= 0) { bias[V.cuddle] += 0.6 + ch.love * 0.5 + Math.max(0, (c.duty || 0) - 0.4) * 0.8; useBias = true; }
+    // a grown-up with work to do (builder age on): the duty drive pulls toward building and making, away from cuddles and games
+    if ((c.duty || 0) > 0.45 && c.stage === 3) {
+      var dd = c.duty - 0.4;
+      if (mask[V.build]) { bias[V.build] += dd * 0.9; useBias = true; }
+      if (mask[V.make]) { bias[V.make] += dd * 0.5; useBias = true; }
+      if (mask[V.use] && knowsUse) { bias[V.use] += dd * 0.4; useBias = true; }
+      if (mask[V.cuddle]) { bias[V.cuddle] -= dd * 0.8; useBias = true; }
+      if (mask[V.play]) { bias[V.play] -= dd * 0.5; useBias = true; }
+    }
     // a sick friend and a healer who knows herbs: bring medicine
     if (noun === "smol" && mask[V.give] && target.ref.chem.sick > 0.4 && c.holding != null) { var hk = SB.Game.byId(game, c.holding); if (hk && hk.noun === "medicine") { bias[V.give] += 0.4; useBias = true; } }
 
@@ -592,7 +620,7 @@
   // walk somewhere on the god's say-so (everyone home!, a search party): drops whatever the brain was doing
   C.sendTo = function (c, x, z, game, dur) {
     if (!c.alive || c.heldBy) return false;
-    if (c.plan && SB.Ideas) c.plan = null;
+    if (c.plan && SB.Ideas) C.dropPlan(c, game);
     c.asleep = false; c.inBed = false;
     startAction(c, game, V.wander, null, null, null);
     c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
@@ -668,7 +696,7 @@
       case V.pray: a.phase = "do"; a.dur = DO_DUR[verb]; break;
       case V.make: case V.build: {
         var plan = verb === V.make ? SB.Ideas.chooseMake(c, game) : SB.Ideas.chooseBuild(c, game);
-        if (plan) { c.plan = plan; plan.x = a.x; plan.verb = verb; plan.start = a.start; c.action = null; if (M() && c.species === "smol") M().planStarted(c, game, plan); return; }
+        if (plan) { if (c.plan) C.dropPlan(c, game); SB.Ideas.inv(c, game).forEach(function (o) { if (o.reserved === c.id) o.reserved = null; }); c.plan = plan; plan.x = a.x; plan.verb = verb; plan.start = a.start; c.action = null; if (M() && c.species === "smol") M().planStarted(c, game, plan); return; }
         a.phase = "do"; a.dur = 0.6; a.futile = true; // wanted to, couldn't think how
         break;
       }
@@ -680,13 +708,14 @@
   }
 
   function findMate(c, game) {
-    var p = c.partner && SB.Game.byId(game, c.partner);
-    if (p && p.alive && p.stage === 3 && SB.dist(p.x, p.z, c.x, c.z) > 2) return p; // go and find your partner
+    var p = c.partner != null && SB.Game.byId(game, c.partner);
+    if (p && p.alive) return p.stage === 3 && SB.dist(p.x, p.z, c.x, c.z) > 2 ? p : null; // go and find your partner (and only them)
+    if (c.widowT && game.time < c.widowT) return null; // still grieving
     var best = null, bs = -1e9;
     game.creatures.forEach(function (o) {
-      if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && o.eggCooldown <= 0 && o.sex !== c.sex && !o.stranger && !(SB.Game.related && SB.Game.related(game, c, o)) && !(o.partner && o.partner !== c.id)) {
+      if (o !== c && o.alive && o.species === "smol" && o.stage === 3 && (o.eggCooldown <= 0 || (c.court && c.court.id === o.id)) && o.sex !== c.sex && !o.stranger && !(SB.Game.related && SB.Game.related(game, c, o)) && !(o.partner != null && o.partner !== c.id && SB.Game.byId(game, o.partner) && SB.Game.byId(game, o.partner).alive) && !(c.shy && c.shy.id === o.id && game.time < c.shy.t)) {
         var d = SB.dist(o.x, o.z, c.x, c.z); if (d > 45 || d < 2) return;
-        var s = (SB.Social ? SB.Social.opinion(game, c, o) : 0) - d * 0.8; // someone you like, not too far
+        var s = (SB.Social ? SB.Social.opinion(game, c, o) : 0) - d * 0.8 + (c.court && c.court.id === o.id ? 25 : 0); // someone you like (or are courting), not too far
         if (s > bs) { bs = s; best = o; }
       }
     });
@@ -910,7 +939,7 @@
         break;
       case V.play: c.anim.squash = Math.abs(Math.sin(a.doT * 9)) * 0.25; break;
       case V.eat: c.anim.mouth = "chew"; break;
-      case V.cuddle: if (Math.random() < dt * 2 && SB.FX) SB.FX.burst("hearts", c.x, c.y + C.radius(c) * 2.2, c.z, 1); break;
+      case V.cuddle: if (Math.random() < dt * 2 && SB.FX && heartsFor(c, tgt, game)) SB.FX.burst("hearts", c.x, c.y + C.radius(c) * 2.2, c.z, 1); break;
       case V.hit: c.anim.squash = a.doT < 0.3 ? -0.2 : 0; break;
       case V.pray: c.anim.wave = 1; break;
       case V.use: case V.pickup: c.anim.squash = Math.abs(Math.sin(a.doT * 6)) * 0.15; break;
@@ -919,6 +948,14 @@
     if (a.verb !== V.sleep && a.doT >= a.dur) complete(c, game, a, tgt);
   }
 
+  // floating hearts while cuddling: your partner, your own kid or parent, your own egg, or the sky's hand
+  function heartsFor(c, tgt, game) {
+    if (!tgt) return false;
+    if (tgt.type === "hand") return true;
+    if (tgt.type === "creature") return !SB.Social || SB.Social.intimate(game, c, tgt.ref);
+    return tgt.type === "item" && tgt.ref.kind === "egg" && !!(tgt.ref.data && tgt.ref.data.parents && tgt.ref.data.parents.indexOf(c.id) >= 0);
+  }
+  C.heartsFor = heartsFor;
   function beginDo(c, game, a, tgt) {
     if (a.verb === V.talk && tgt) talkTo(c, tgt.type === "creature" ? tgt.ref : null, game);
     if (a.verb === V.hit) c.anim.squash = -0.25;
@@ -1128,7 +1165,12 @@
       SB.bus.emit("hit", { c: c, target: o, kind: both ? (punch ? "punch" : "shove") : "hit" });
     } else if (verb === V.cuddle && o.species === "smol") {
       SB.Chem.apply(oc, { lonely: -0.2 });
-      emote(c, "love", 1.8); emote(o, "love", 1.8);
+      // hearts are for partners and for parents with their kids. Friends hug: a smile, no hearts, and a hug
+      // from someone who isn't the one doesn't settle a smitten heart
+      if (!SB.Social || SB.Social.intimate(game, c, o)) { emote(c, "love", 1.8); emote(o, "love", 1.8); }
+      else { emote(c, "happy", 1.4); emote(o, "happy", 1.4); }
+      // only a partner settles a smitten heart: a hug for a friend or a cuddle with your kid leaves the longing as it was
+      if (o.id !== c.partner && SB.Social && c.action && c.action.start) c.chem.love = Math.max(c.chem.love, c.action.start[D.love] * 0.92);
       if (SB.Social) SB.Social.onCuddle(game, c, o);
       tryBreed(c, o, game, c.action ? c.action.start[D.love] : c.chem.love);
     } else if (verb === V.play && o.species === "smol") {
@@ -1207,16 +1249,73 @@
     // family can't have kids together (parents, brothers and sisters, cousins): a colony needs newcomers
     if (SB.Game.related && SB.Game.related(game, a, b)) { a.chem.love *= 0.5; b.chem.love *= 0.5; if (!a.far) say(a, "we family!", game); SB.bus.emit("kin", { a: a, b: b }); return; }
     if (SB.Species && !SB.Species.compatible(a, b)) { emote(a, "huh", 1.5); SB.bus.emit("incompatible", { a: a, b: b }); return; }
+    // from the tribe on, only partners have eggs (courting comes first: social.js). blobs and critters just pair up
+    if (SB.Social && Math.min(a.tier, b.tier) >= 3 && a.partner !== b.id) return;
     var pop = SB.Game.smols(game).length + game.world.items.filter(function (o) { return o.kind === "egg"; }).length;
     if (pop >= SB.Game.POP_CAP) { say(a, "too many smols", game); return; }
+    // a home for it: from the builder age on, no egg while every hut and house is full
+    var room = SB.Civ && SB.Civ.room ? SB.Civ.room(game) : Infinity;
+    if (pop >= room) { if (!a.far) say(a, a.tier >= 3 ? "no room for a baby. we need a hut" : "no room", game); a.eggCooldown = b.eggCooldown = 90; SB.bus.emit("noRoom", { a: a, b: b, room: room }); return; }
     // hard times: when the colony is going hungry, nobody starts a family
     // (and a big colony needs food lying around to raise another: about one bite per smol, more in winter)
     if (SB.Game.colonyHunger && (SB.Game.colonyHunger(game) > 0.55 || (pop > 6 && SB.Game.foodPerSmol(game) < (game.world.season === 3 ? 1.2 : 0.7)))) { say(a, "not now. hungry", game); return; }
+    if (Math.min(a.tier, b.tier) >= 3 && !payEgg(game, a, b)) { say(a, "not now. hungry", game); return; } // (blobs, critters and tool-users just have them)
     SB.Game.layEgg(game, a, b, (a.x + b.x) / 2, (a.z + b.z) / 2);
     a.chem.love = 0; b.chem.love = 0;
-    a.eggCooldown = b.eggCooldown = 170;
+    a.eggCooldown = b.eggCooldown = C.eggGap(game, a, b);
     a.stats.kids++; b.stats.kids++;
   }
+  // time between a couple's eggs: 12 minutes of rest, and with love coming back slowly after, about a quarter-hour
+  // from egg to egg (a band of a few smols, with room and the island to fill, has them sooner), plus a little more for
+  // every little one they're still raising
+  C.EGG_GAP = 720;
+  C.eggGap = function (game, a, b) {
+    var pop = SB.Game.smols(game).length, young = 0;
+    game.creatures.forEach(function (k) { if (k.alive && k.species === "smol" && k.stage < 3 && k.parents && (k.parents.indexOf(a.id) >= 0 || k.parents.indexOf(b.id) >= 0)) young++; });
+    var band = Math.min(a.tier, b.tier) < 3 ? 0.19 : pop < 6 ? 0.3 : pop < 10 ? 0.5 : pop < 14 ? 0.75 : 1; // a pair of blobs, critters or tool-users: about every 3 min, as before
+    return Math.round(C.EGG_GAP * band + 40 * Math.min(4, young) * band);
+  };
+  // an egg costs food: two bites from the granary or what the couple has to hand (or lying near), and the mother's
+  // reserves. A couple with nothing put by and empty bellies waits
+  function payEgg(game, a, b) {
+    var mum = a.sex === "f" ? a : b, need = 2, v = game.civ;
+    if (v && v.granary >= 2 && game.world.structures.some(function (s) { return s.kind === "granary" && s.done; })) { v.granary -= 2; need = 0; }
+    var food = function (o) { return o && o.noun === "food" && !(o.data && o.data.rotten) && (o.heldBy == null || o.heldBy === a.id || o.heldBy === b.id); };
+    [a, b].forEach(function (p) { if (need > 0 && SB.Ideas) SB.Ideas.inv(p, game).forEach(function (o) { if (need > 0 && food(o)) { C.consume(p, o, game); need--; } }); });
+    if (need > 0) {
+      var eat = [];
+      SB.World.itemsNear(game.world, (a.x + b.x) / 2, (a.z + b.z) / 2, 9, function (o) { if (eat.length < need && food(o) && o.heldBy == null && !o.reserved && !(SB.Ideas && SB.Ideas.claimed(o, game))) eat.push(o); });
+      eat.forEach(function (o) { SB.World.remove(game.world, o); need--; });
+    }
+    if (need > 0 && (a.chem.hunger > 0.45 || b.chem.hunger > 0.45)) return false;
+    // what nobody could find comes out of the parents
+    SB.Chem.apply(mum.chem, { fat: -0.25, hunger: 0.06 * need });
+    SB.Chem.apply((mum === a ? b : a).chem, { hunger: 0.06 * need });
+    return true;
+  }
+  C._payEgg = payEgg; // for tests
+
+  // how fast love grows (chemistry.js multiplies its slow base rate by this): only in settled grown-ups, who are fed,
+  // warm, calm, healthy and not grieving or out fighting; from the builder age on, best with a hut or house to nest
+  // in; most of all in spring. A small band falls for each other faster (there's an island to fill)
+  C.LOVE_SEASON = [1.5, 1.1, 0.85, 0.5];
+  C.LOVE_BAND = 0.009 / 0.0022; // = the old rate
+  C.loveK = function (c, game) {
+    if (c.species !== "smol" || c.stage !== 3 || c.stranger) return 0;
+    if (c._lkT != null && game.time - c._lkT < 2 && game.time >= c._lkT) return c._lk;
+    c._lkT = game.time;
+    var ch = c.chem, k = 0, top = game.stats.maxTier || 0;
+    // smols who can't talk yet (blobs, critters, tool-users) fall in love as quickly as they always did: the band needs generations
+    if ((c.tier || 0) < 3) return (c._lk = ch.hunger < 0.65 && ch.health > 0.5 && ch.sick < 0.35 ? C.LOVE_BAND : 0);
+    var settled = ch.hunger < 0.5 && ch.cold < 0.35 && ch.fear < 0.35 && ch.sick < 0.3 && ch.pain < 0.4 && ch.health > 0.5 && !c.grief && !c.rally && !c.hideAt && c.captive == null && !c.tantrum;
+    if (settled) {
+      k = C.LOVE_SEASON[game.world.season || 0] || 1;
+      var pop = game._smolN != null && game._smolNT === Math.floor(game.time) ? game._smolN : (game._smolNT = Math.floor(game.time), game._smolN = SB.Game.smols(game).length);
+      k *= pop < 6 ? 3 : pop < 10 ? 2 : pop < 14 ? 1.4 : 1;
+      if (top >= 4 && SB.Game.cultureKnows(game, "hut") && !game.world.structures.some(function (s) { return s.done && (s.kind === "hut" || s.kind === "house") && s.tribe === c.tribe; })) k *= 0.6;
+    }
+    return (c._lk = k);
+  };
 
   // Habits -> echo: what a parent practised, mapped onto evolution genes (0..1 each)
   C.echo = function (c) {
@@ -1266,7 +1365,7 @@
         var have = Id.inv(c, game).some(function (o) { return Id.matches(o.kind, s.want) && !o.reserved; });
         if (have && !s.src) { reserveOne(c, game, s.want); p.i++; return; }
         if (!s.src) {
-          var src = Id.findSource(c, s.want, game);
+          var src = Id.findSource(c, s.want, game, s.R); // as far as the plan looked (a builder hauls further than a crafter)
           if (!src) { p.fails++; return endPlan(c, game, false); }
           s.src = src.item ? { type: "item", id: src.item.id } : { type: "node", id: src.node.id };
           s.yieldKind = src.yield || null; s.yieldTime = src.time || null; s.fell = src.fell || null;
@@ -1347,9 +1446,19 @@
     var items = SB.Ideas.inv(c, game);
     for (var i = 0; i < items.length; i++) if (SB.Ideas.matches(items[i].kind, want) && !items[i].reserved) { items[i].reserved = c.id; return; }
   }
+  // drop a plan without judging it (called away, a chat, a stranger leaving): let go of what it claimed and reserved,
+  // or those things stay invisible to every other builder for good
+  C.dropPlan = function (c, game) {
+    var p = c.plan;
+    c.plan = null;
+    if (!p) return;
+    if (SB.Ideas) SB.Ideas.inv(c, game).forEach(function (o) { if (o.reserved === c.id) o.reserved = null; });
+    (p.steps || []).forEach(function (s) { if (s.src && s.src.type === "item") { var o = SB.Game.byId(game, s.src.id); if (o && o.claimed === c.id) o.claimed = null; } });
+  };
   function endPlan(c, game, ok) {
     var p = c.plan;
     c.plan = null;
+    if (ok && c.duty > 0.3) { SB.Chem.apply(c.chem, { bored: -0.1, lonely: -0.05 }); c.duty = Math.max(0, c.duty - 0.4); } // a job done: feeling useful
     if (M() && c.species === "smol") M().planEnded(c, game, p, ok);
     habit(c, "plan", ok ? 0.6 + p.i * 0.2 : 0.15);
     SB.Ideas.inv(c, game).forEach(function (o) { o.reserved = null; });
@@ -1517,6 +1626,20 @@
     return "hurt";
   }
 
+  // the duty drive (builder age on): grown-ups want to be useful in the daytime. It rises while they idle, wander,
+  // play or cuddle, and falls while they work (a plan, a job, using a tool, gathering); a finished job feels good
+  // (endPlan). Kids keep their play and elders their stories. Not a brain drive, so old brains and saves are untouched
+  var WORKY = {};
+  function dutyTick(c, dt, game) {
+    if (c.stage !== 3 || c.stranger || c.captive != null || (game.stats.maxTier || 0) < 4) { if (c.duty) c.duty = Math.max(0, c.duty - dt * 0.01); return; }
+    if (!WORKY.ok) { WORKY.ok = 1; [V.build, V.make, V.use, V.pickup, V.give, V.teach].forEach(function (v) { WORKY[v] = 1; }); }
+    var d = c.duty || 0;
+    if (c.plan || c.nursing || (c.action && WORKY[c.action.verb]) || (c.job && c.action && c.action.called)) d -= dt * 0.02;
+    else if (!c.asleep && !game.world.night) d += dt * 0.004;
+    c.duty = d < 0 ? 0 : d > 1 ? 1 : d;
+  }
+  C.dutyTick = dutyTick;
+
   /* ---------------- main tick ---------------- */
 
   C.tick = function (c, dt, game) {
@@ -1525,7 +1648,7 @@
     c.px = c.x; c.pz = c.z; c.py = c.y;
     c.age += dt;
     c.moving = false;
-    var st = stageFor(c.age);
+    var st = stageFor(c.age, c);
     if (st !== c.stage) {
       c.stage = st;
       if (c.species === "smol") {
@@ -1559,8 +1682,9 @@
     SB.Chem.tick(ch, dt, {
       temp: temp, dark: w.night, asleep: c.asleep, inBed: c.inBed,
       moving: !!(c.action && c.action.phase === "go") || !!c.plan || (c.action && (c.action.verb === V.wander || c.action.verb === V.flee || c.action.verb === V.play)) || !!c._povMove,
-      nearFriends: friends, stage: c.stage, species: c.species
+      nearFriends: friends, stage: c.stage, species: c.species, loveK: c.species === "smol" ? C.loveK(c, game) : null
     }, c.genome);
+    if (c.species === "smol") dutyTick(c, dt, game);
     if (ch.health <= 0) { die(c, game, causeOfDeath(ch)); return; }
     if (c.badMeal) {
       if (game.time - c.badMeal.t > 45) c.badMeal = null;
@@ -1573,7 +1697,7 @@
     if (c.species === "smol") {
       if (!c.wasSick && ch.sick > 0.5) { c.wasSick = true; SB.Game.note(game, c.name + " is feeling sick 🤢 healroot helps (it grows in damp places)"); SB.bus.emit("sick", { c: c }); }
       else if (c.wasSick && ch.sick < 0.15) { c.wasSick = false; game.stats.cured++; SB.Game.unlock(game, "cure"); SB.bus.emit("cured", { c: c }); }
-      if (ch.love > 0.8 && c.stage === 3 && !an.emote && Math.random() < dt * 0.15) emote(c, "love", 1.5);
+      if (ch.love > 0.8 && c.stage === 3 && !an.emote && Math.random() < dt * 0.15) { var pt = SB.Social && SB.Social.partnerOf(game, c); if (!SB.Social || (pt && SB.dist(pt.x, pt.z, c.x, c.z) < 6)) emote(c, "love", 1.5); } // mooning over a partner nearby, not at nobody
     }
 
     // anim timers

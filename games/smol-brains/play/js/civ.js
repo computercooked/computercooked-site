@@ -120,6 +120,18 @@
     return cap;
   };
 
+  // housing (Banished's rule): from the builder age on, a couple only has an egg if there's a bed for the baby.
+  // Each finished hut sleeps 4 and each house 6, and a few more can curl up by the fire. A wrecked home still sleeps
+  // half (a leaky roof is a roof; it stops a raid from becoming a spiral) until it's rebuilt. Strangers still arrive
+  // (fresh blood), but eggs wait for the builders
+  Cv.ROOM = { hut: 4, house: 6, fire: 10 };
+  Cv.room = function (game) {
+    // (only once the builders are here and someone knows how to raise a hut: nobody waits on a roof nobody can build)
+    if (((game.stats && game.stats.maxTier) || 0) < 4 || !SB.Game.cultureKnows(game, "hut")) return Infinity;
+    var wrecked = function (kind) { return game.world.structures.filter(function (s) { return s.kind === kind && !s.done && s.data && s.data.wrecked; }).length; };
+    return Math.floor(Cv.ROOM.hut * (done(game, "hut").length + wrecked("hut") / 2) + Cv.ROOM.house * (done(game, "house").length + wrecked("house") / 2)) + Cv.ROOM.fire;
+  };
+
   // strangers and pods leave the last few seats for babies: a small band full of newcomers stops evolving
   function setCaps(game) { var cap = SB.Game.POP_CAP = Cv.popCap(game); SB.Game.JOIN_CAP = cap < 36 ? Math.max(4, cap - 3) : cap; }
 
@@ -174,7 +186,7 @@
     var e = Cv.era(game);
     switch (kind) {
       case "stall": var ns = count("stall", 40); return ns < 2 ? 0.7 : e >= 1 && ns < Math.min(6, 2 + Math.floor(pop / 12)) ? 0.55 : 0;
-      case "house": return e >= 2 && count("house", 40) < Math.min(14, Math.ceil(pop / 4)) ? 0.5 + c.chem.tired * 0.2 : 0;
+      case "house": return e >= 2 && count("house", 40) < Math.min(14, Math.ceil(pop / 4)) ? 0.5 + c.chem.tired * 0.2 + (SB.Ideas.villageFull && SB.Ideas.villageFull(game, pop) ? 0.4 : 0) : 0;
       case "granary": return e >= 2 && count("granary", 40) < 1 + Math.floor(pop / 35) ? 0.4 : 0;
       case "hall": return e >= 2 && pop >= 22 && count("hall", 60) < 1 ? 0.65 : 0;
       case "mint": return e >= 3 && count("mint", 60) < 1 ? 0.5 : 0;

@@ -303,7 +303,7 @@
       inc.dur = 60;
       if (inc.choice === "mend") {
         [[a, b], [b, a]].forEach(function (p) { var r = p[0].ops && p[0].ops[p[1].id]; if (r) r.m.forEach(function (m) { if (m[0] < 0) m[0] *= 0.2; }); SO.remember(game, p[0], p[1], "madeup", 30, "we made up", 3600); });
-        SB.Creature.emote(a, "love", 2); SB.Creature.emote(b, "love", 2);
+        SB.Creature.emote(a, "happy", 2); SB.Creature.emote(b, "happy", 2); // friends again (hearts are for partners)
         return D.end(game, inc, true);
       }
       if (inc.choice === "exile") {

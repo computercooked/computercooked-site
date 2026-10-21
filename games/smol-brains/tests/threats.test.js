@@ -18,6 +18,12 @@ function village(seed, tier) {
   game.time = 1200; game.sparks = 400;
   return { SB, game, hm };
 }
+// run fn with a seeded Math.random (the test context shares this Math), then put the real one back
+function seeded(seed, fn) {
+  const r0 = Math.random; let s = seed >>> 0;
+  Math.random = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  try { return fn(); } finally { Math.random = r0; }
+}
 function run(SB, game, secs, each) { for (let t = 0; t < secs / SB.TICK; t++) { SB.Game.step(game, SB.TICK); if (each) each(t); } }
 const smols = (SB, game) => SB.Game.smols(game);
 
@@ -123,7 +129,27 @@ console.log("5. raiders smash and burn buildings; builders put them back up");
   check("graves are never wrecked", !T.wreck(game, grave) && grave.done);
   let back = false; SB.bus.on("built", d => { if (d.st === hut) back = true; });
   Object.keys(hut.need).forEach(k => { for (let i = 0; i < hut.need[k] + 2; i++) SB.World.add(game.world, game, k, hut.x + 2 + i * 0.4, hut.z + 2, {}); }); // the makings lie about (gathering isn't what's tested here)
-  run(SB, game, 1200); // twenty minutes: builders juggle other sites too
+  // why rebuilding used to stall at {stick:0, fiber:2}: a builder planned with eyes 1.5× as far as its fetch step then
+  // looked (so makings it could see from the site were "gone" at the first step and the plan failed, every time),
+  // claims left by plans that ended in a chat or a call home hid items from everyone for good, and fibre that only
+  // grows far off was never fetched at all
+  const B = smols(SB, game)[0], fib = game.world.items.find(o => o.kind === "fiber" && !o.heldBy);
+  B.x = fib.x + (B.searchR || 20) * 1.3; B.z = fib.z; B.plan = null;
+  const pl = SB.Ideas.planForSite(B, hut, game), fs = pl && pl.steps.find(s => s.do === "fetch");
+  check("a builder's fetch step looks as far as its plan did", !!fs && fs.R >= (B.searchR || 20) * 1.3 && !!SB.Ideas.findSource(B, fs.want, game, fs.R), fs ? fs.want + " R " + (fs.R || 0).toFixed(0) : "no plan");
+  fib.claimed = B.id; B.plan = null;
+  check("a claim left behind by a dropped plan doesn't hide the item", !SB.Ideas.claimed(fib, game) && fib.claimed == null);
+  const far = SB.World.add(game.world, game, "fiber", hut.x + 50, hut.z, {}); far.claimed = null;
+  const B2 = smols(SB, game)[1]; B2.x = hut.x; B2.z = hut.z;
+  const onlyFar = Object.assign({}, hut, { need: { fiber: 1 } });
+  const hid = game.world.items.filter(o => o.kind === "fiber" && o !== far && o.heldBy == null); hid.forEach(o => { o.heldBy = -99; }); // pretend the near fibre is spoken for
+  SB.Ideas.inv(B2, game).filter(o => o.kind === "fiber").forEach(o => SB.Creature.consume(B2, o, game));
+  const pl2 = SB.Ideas.planForSite(B2, onlyFar, game);
+  hid.forEach(o => { o.heldBy = null; });
+  check("…and makings from far off get hauled in", !!pl2 && pl2.steps[0].R >= 50, pl2 ? "R " + pl2.steps[0].R : "no plan");
+  SB.World.remove(game.world, far);
+  // the rest of the run is seeded (the game uses Math.random for small things), so it plays out the same every time
+  seeded(5, () => run(SB, game, 1200)); // twenty minutes: builders juggle other sites too
   check("the builders rebuild it", back && hut.done, JSON.stringify(hut.need) + " work " + hut.work.toFixed(1));
   // a raid at full strength: buildings get hit and it says so
   const r = village(55); const S2 = r.SB, g2 = r.game;
@@ -187,13 +213,13 @@ console.log("8. natural disasters: every one, every choice, plays out and leaves
     const s0 = game.sparks;
     const ok = SB.Director.choose(game, inc, choice);
     const paid = s0 - game.sparks;
-    let deaths = 0; SB.bus.on("death", d => { if (d.cause !== "old") deaths++; });
+    let deaths = 0; const why = []; SB.bus.on("death", d => { if (d.cause !== "old") { deaths++; why.push(d.cause); } });
     let seen = false;
     run(SB, game, inc.warn + 220, () => { if (game.disaster) seen = true; });
     const end = ends.find(d => d.inc === inc);
     check(id + " / " + choice + " ends cleanly", ok && !!end && game.dir.active !== inc && !game.disaster, end ? end.text.slice(0, 70) : "no end");
     if (choice === "calm") check(id + " / calm costs sparks and never lands", paid > 0 && !seen, paid + " ✨");
-    if (choice === "shelter") check(id + " / shelter: nobody dies", deaths === 0, deaths + " deaths");
+    if (choice === "shelter") check(id + " / shelter: nobody dies", deaths === 0, deaths + " deaths" + (why.length ? ": " + why.join(", ") : ""));
     if (choice === "ride") {
       check(id + " / it goes in the chronicle", (game.chronicle || []).some(e => JSON.stringify(e).includes(SB.Threats.DIS[id].name)));
       check(id + " / survivors remember it", smols(SB, game).some(c => SB.Mind.vivid(c, game, 9).some(e => e.w.includes(SB.Threats.DIS[id].name))));
