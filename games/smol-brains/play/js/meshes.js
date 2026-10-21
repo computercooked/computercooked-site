@@ -45,6 +45,9 @@
   BP.glow = function (e) { this.em = e; return this; };
   BP.smoothShade = function (on) { this.flatShade = !on; return this; };
   BP.sides = function (two) { this.twoSided = !!two; return this; };
+  // soft vertical shading baked into the vertex colours: darker toward y0, full colour at y1 (k = how much
+  // darker). It's what makes a canopy read as a round, sunlit ball from a farm-sim camera. null turns it off
+  BP.shadeY = function (y0, y1, k) { this.gy = y0 == null ? null : [y0, y1, k == null ? 0.35 : k]; return this; };
 
   BP.xf = function (p) {
     var m = this.m;
@@ -59,8 +62,9 @@
     return [x / l, y / l, z / l];
   };
   BP.vert = function (p, n) {
-    var c = this.c, f = this.fk ? SB.clamp01((p[1] - this.f0) * this.fk) : 0;
-    this.v.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0], c[1], c[2], c[3], f, this.em);
+    var c = this.c, f = this.fk ? SB.clamp01((p[1] - this.f0) * this.fk) : 0, m = 1;
+    if (this.gy) m = 1 - this.gy[2] * (1 - SB.clamp01((p[1] - this.gy[0]) / (this.gy[1] - this.gy[0] || 1)));
+    this.v.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0] * m, c[1] * m, c[2] * m, c[3], f, this.em);
   };
   // triangle in local coords; normals given (smooth) or computed (flat)
   BP.tri = function (a, b, c, na, nb, nc) {
@@ -132,6 +136,16 @@
     return this;
   };
   BP.cone = function (segs, r, h) { return this.cyl(segs, r, 0, h, true); };
+  // a pitched roof along x: w wide (x), d deep (z), h tall, sitting on y = 0, with an overhang
+  BP.gable = function (w, h, d, over) {
+    var x = w / 2 + (over || 0), z = d / 2 + (over || 0), t = 0.06;
+    var A = [-x, 0, -z], Bq = [x, 0, -z], Cq = [x, 0, z], D = [-x, 0, z], E = [-x, h, 0], F = [x, h, 0];
+    this.quad(D, Cq, F, E); this.quad(Bq, A, E, F); // the two slopes
+    this.tri(A, D, E); this.tri(Cq, Bq, F); // gable ends
+    this.quad(A, Bq, [x, -t, -z], [-x, -t, -z]); this.quad([-x, -t, z], [x, -t, z], Cq, D); // eave thickness
+    this.quad([-x, -t, -z], [x, -t, -z], [x, -t, z], [-x, -t, z]); // underside
+    return this;
+  };
   BP.box = function (w, h, d) {
     var x = w / 2, z = d / 2;
     var P = [[-x, 0, -z], [x, 0, -z], [x, 0, z], [-x, 0, z], [-x, h, -z], [x, h, -z], [x, h, z], [-x, h, z]];
@@ -167,8 +181,8 @@
 
   /* ---------------- palette ---------------- */
   var C = {
-    bark: 0x7a5236, barkDark: 0x5a3b26, birch: 0xe8e2d6, leaf: 0x5fae4a, leafDark: 0x3f8a3a, pine: 0x2f6e48, palm: 0x58b04a,
-    jungle: 0x2f9a4f, rock: 0x9a96a0, rockDark: 0x77737e, flint: 0x46526c, sand: 0xe0c890, clay: 0xb86b45, ore: 0xd9823e,
+    bark: 0x8a5a36, barkDark: 0x5e3d26, birch: 0xf0e9dc, leaf: 0x6cc04a, leafDark: 0x4a9a3c, pine: 0x2f7c4e, palm: 0x62bc4c,
+    jungle: 0x34a052, rock: 0xa49e9a, rockDark: 0x837c7c, moss: 0x7cb84a, flint: 0x46526c, sand: 0xe0c890, clay: 0xb86b45, ore: 0xd9823e,
     crystal: 0x9fe4ff, shroomCap: 0xb07ae0, shroomStem: 0xe8e0d0, red: 0xe0405a, straw: 0xd9b86a, twig: 0x8a6440,
     reed: 0x9cb85a, white: 0xf5f3ed, dark: 0x1a1a22, lime: 0xc5ff49, lilac: 0xb59aff, fire: 0xffa640, ember: 0xff5a2a
   };
@@ -177,37 +191,46 @@
   /* ---------------- nodes (trees, bushes, rocks...) ---------------- */
 
   function oak(seed) {
+    // a round, layered farm-sim oak: a flared trunk, three soft canopy balls (darker underneath) and apples
     var b = ME.builder();
-    b.color(C.bark).cyl(6, 0.16, 0.11, 1.5);
-    b.push().translate(0, 1.1, 0).rotZ(0.6).color(C.bark).cyl(5, 0.07, 0.04, 0.6).pop();
-    b.flex(0.3, 1).color(C.leaf, 1);
-    b.push().translate(0, 2.0, 0).scale(1.05, 0.85, 1.05).blob(1, 0.3, seed).pop();
-    b.push().translate(0.45, 1.75, 0.2).scale(0.65, 0.55, 0.65).blob(1, 0.3, seed + 2).pop();
-    b.push().translate(-0.35, 1.8, -0.3).scale(0.6, 0.55, 0.6).blob(1, 0.3, seed + 3).pop();
+    b.color(C.bark).cyl(6, 0.2, 0.11, 1.5);
+    b.push().translate(0, 1.1, 0).rotZ(0.6).cyl(5, 0.07, 0.04, 0.6).pop();
+    b.color(C.barkDark);
+    for (var r = 0; r < 3; r++) b.push().rotY(r * 2.1 + seed).translate(0.16, 0, 0).rotZ(-0.9).cyl(4, 0.07, 0.02, 0.28, false).pop();
+    b.flex(0.3, 1).color(C.leaf, 1).smoothShade(true).shadeY(1.25, 2.6, 0.42);
+    b.push().translate(0, 2.05, 0).scale(1.08, 0.88, 1.08).blob(1, 0.22, seed).pop();
+    b.push().translate(0.5, 1.75, 0.22).scale(0.68, 0.58, 0.68).blob(1, 0.22, seed + 2).pop();
+    b.push().translate(-0.38, 1.82, -0.32).scale(0.64, 0.56, 0.64).blob(1, 0.22, seed + 3).pop();
+    b.shadeY(null).smoothShade(false);
     // apples peek out
-    b.flex(0.3, 1).color(0xe5484d);
-    [[0.6, 1.95, 0.55], [-0.55, 1.6, 0.4], [0.2, 1.55, -0.75]].forEach(function (p) { b.push().translate(p[0], p[1], p[2]).scale(0.09).sphere(0).pop(); });
+    b.flex(0.3, 1).color(0xe8434b);
+    [[0.62, 1.98, 0.58], [-0.6, 1.62, 0.42], [0.22, 1.56, -0.8], [0.05, 2.5, 0.75]].forEach(function (p) { b.push().translate(p[0], p[1], p[2]).scale(0.1).sphere(0).pop(); });
     return b.finish();
   }
+
   function birch(seed) {
     var b = ME.builder();
     b.color(C.birch).cyl(6, 0.11, 0.07, 2.2);
-    b.color(0x333333);
+    b.color(0x3a3434);
     [0.5, 1.0, 1.5].forEach(function (y, i) { b.push().translate(0, y, 0).rotY(i * 2).box(0.235, 0.05, 0.08).pop(); });
-    b.flex(0.3, 1.2).color(0x8fc85a, 1);
-    b.push().translate(0, 2.2, 0).scale(0.55, 0.95, 0.55).blob(1, 0.25, seed).pop();
-    b.push().translate(0.15, 1.6, 0.1).scale(0.45, 0.6, 0.45).blob(1, 0.25, seed + 1).pop();
+    b.flex(0.3, 1.2).color(0x9ed05c, 1).smoothShade(true).shadeY(1.3, 2.9, 0.38);
+    b.push().translate(0, 2.2, 0).scale(0.58, 0.98, 0.58).blob(1, 0.2, seed).pop();
+    b.push().translate(0.17, 1.62, 0.1).scale(0.47, 0.62, 0.47).blob(1, 0.2, seed + 1).pop();
     return b.finish();
   }
+
   function pine(seed) {
+    // tiers that are darker where they tuck under the one above
     var b = ME.builder();
-    b.color(C.barkDark).cyl(5, 0.13, 0.08, 1.0);
+    b.color(C.barkDark).cyl(5, 0.14, 0.08, 1.0);
     b.flex(0.25, 0.8).color(C.pine, 1);
-    b.push().translate(0, 0.6, 0).rotY(seed).cyl(7, 0.95, 0, 1.4).pop();
-    b.push().translate(0, 1.3, 0).rotY(seed + 1).cyl(7, 0.75, 0, 1.2).pop();
-    b.push().translate(0, 1.95, 0).rotY(seed + 2).cyl(7, 0.5, 0, 1.0).pop();
+    [[0.6, 0.98, 1.4], [1.3, 0.76, 1.2], [1.95, 0.52, 1.0]].forEach(function (t, i) {
+      b.shadeY(t[0], t[0] + t[2] * 0.7, 0.4).push().translate(0, t[0], 0).rotY(seed + i).cyl(8, t[1], 0, t[2]).pop();
+    });
+    b.shadeY(null);
     return b.finish();
   }
+
   function palm(seed) {
     var b = ME.builder(), x = 0, y = 0, lean = 0.12;
     b.color(0x9c7a4a);
@@ -267,16 +290,18 @@
   }
   function bush(seed) {
     var b = ME.builder();
-    b.flex(0.6, 0).color(0x4f9a48, 1);
-    b.push().translate(0, 0.35, 0).scale(0.55, 0.42, 0.55).blob(1, 0.35, seed, 0.5).pop();
-    b.push().translate(0.28, 0.28, 0.1).scale(0.35, 0.3, 0.35).blob(1, 0.35, seed + 1, 0.5).pop();
-    b.color(0x6c5ce7);
-    for (var i = 0; i < 7; i++) {
+    b.flex(0.6, 0).color(0x56a84a, 1).smoothShade(true).shadeY(0, 0.75, 0.4);
+    b.push().translate(0, 0.35, 0).scale(0.57, 0.44, 0.57).blob(1, 0.25, seed, 0.5).pop();
+    b.push().translate(0.3, 0.28, 0.1).scale(0.37, 0.31, 0.37).blob(1, 0.25, seed + 1, 0.5).pop();
+    b.shadeY(null).smoothShade(false).color(0x7b5cf0);
+    for (var i = 0; i < 9; i++) {
       var a = i * 2.2 + seed;
-      b.push().translate(Math.cos(a) * 0.45, 0.3 + (i % 3) * 0.14, Math.sin(a) * 0.45).scale(0.07).sphere(0).pop();
+      b.push().translate(Math.cos(a) * 0.47, 0.32 + (i % 3) * 0.14, Math.sin(a) * 0.47).scale(0.075).sphere(0).pop();
     }
+    b.color(0xf5f3ed).push().translate(Math.cos(seed) * 0.4, 0.62, Math.sin(seed) * 0.3).scale(0.03).sphere(0).pop(); // a glint
     return b.finish();
   }
+
   function reeds(seed) {
     var b = ME.builder().sides(true).flex(1.2, 0);
     for (var i = 0; i < 9; i++) {
@@ -343,10 +368,14 @@
   }
   function boulder(seed) {
     var b = ME.builder();
-    b.color(C.rock, 1).push().translate(0, 0.28, 0).scale(0.62, 0.45, 0.55).rotY(seed).blob(1, 0.4, seed, 0.3).pop();
+    b.color(C.rock, 1).shadeY(0, 0.6, 0.3).push().translate(0, 0.28, 0).scale(0.62, 0.45, 0.55).rotY(seed).blob(1, 0.4, seed, 0.3).pop();
     b.color(C.rockDark, 1).push().translate(0.42, 0.12, 0.25).scale(0.22, 0.16, 0.2).blob(0, 0.3, seed + 1).pop();
+    // a cap of moss on the shady top
+    b.shadeY(null).color(C.moss).push().translate(-0.08, 0.6, -0.05).scale(0.42, 0.11, 0.36).blob(0, 0.35, seed + 2).pop();
+    b.color(0xf5e05a).push().translate(0.12, 0.69, 0.1).scale(0.035).sphere(0).pop(); // a tiny flower
     return b.finish();
   }
+
   function flintrock(seed) {
     var b = ME.builder();
     b.color(C.flint, 1);
@@ -488,13 +517,17 @@
   /* ---------------- structures (built by smols) ---------------- */
 
   ME.STRUCT_BUILDERS = {
-    campfire: function () {
+    campfire: function () { // a ring of stones, crossed logs, and three log seats round it
       var b = ME.builder();
-      b.color(0x8a8590);
-      for (var i = 0; i < 8; i++) { var a = i / 8 * 6.283; b.push().translate(Math.cos(a) * 0.42, 0.06, Math.sin(a) * 0.42).scale(0.12, 0.09, 0.1).blob(0, 0.3, i).pop(); }
-      b.color(0x6a4a2e);
+      b.color(0x9a948e).shadeY(0, 0.15, 0.3);
+      for (var i = 0; i < 9; i++) { var a = i / 9 * 6.283; b.push().translate(Math.cos(a) * 0.42, 0.06, Math.sin(a) * 0.42).scale(0.12, 0.09, 0.1).blob(0, 0.3, i).pop(); }
+      b.shadeY(null).color(0x6a4a2e);
       for (i = 0; i < 4; i++) b.push().rotY(i * 1.57 + 0.4).translate(0, 0.06, 0).rotZ(1.1).translate(0, -0.25, 0).cyl(4, 0.05, 0.04, 0.5).pop();
       b.color(0x2a2522).push().translate(0, 0.03, 0).scale(0.3, 0.03, 0.3).sphere(0).pop();
+      for (i = 0; i < 3; i++) {
+        var a2 = i / 3 * 6.283 + 0.5;
+        b.color(0x8a5a36).push().translate(Math.cos(a2) * 0.92, 0.09, Math.sin(a2) * 0.92).rotY(-a2).rotX(1.5708).translate(0, -0.25, 0).cyl(6, 0.09, 0.09, 0.5).pop();
+      }
       return b.finish();
     },
     flame: function () { // drawn on top of fires, scaled by fuel
@@ -506,26 +539,67 @@
       return b.finish();
     },
     hut: function () {
+      // a cosy round cottage: a stone footing, timber walls, a door with a step, a warm window with a flower
+      // box, a layered thatch roof with an overhang, and a stone chimney (bodies.js puffs smoke from it)
       var b = ME.builder();
-      b.color(0x9c7a4a).cyl(9, 0.9, 0.85, 0.75);
-      b.color(0xd9b86a, 1).push().translate(0, 0.7, 0).cyl(9, 1.15, 0.05, 1.05).pop();
-      b.color(0x2a1d14).push().translate(0, 0, 0.84).box(0.42, 0.55, 0.06).pop();
-      b.color(0x6a4a2e).push().translate(0, 1.7, 0).rotZ(0.4).cyl(3, 0.03, 0.03, 0.35).pop().push().translate(0, 1.7, 0).rotZ(-0.4).cyl(3, 0.03, 0.03, 0.35).pop();
+      b.color(0x9a8f86).cyl(10, 0.95, 0.93, 0.14);
+      b.color(0xc8925a).shadeY(0.1, 0.95, 0.25).push().translate(0, 0.12, 0).cyl(10, 0.87, 0.84, 0.8, false).pop().shadeY(null);
+      b.color(0x8a5a36);
+      for (var i = 0; i < 6; i++) { var a = 2.2 + i * 0.9; b.push().rotY(a).translate(0, 0.12, 0.855).cyl(4, 0.045, 0.045, 0.8, false).pop(); }
+      b.color(0xe2b862, 1).shadeY(0.8, 1.9, 0.3);
+      b.push().translate(0, 0.84, 0).cyl(10, 1.0, 0.07, 1.0).pop();
+      b.push().translate(0, 0.78, 0).cyl(10, 1.05, 0.96, 0.12).pop();
+      b.color(0xc99a48, 1).push().translate(0, 1.18, 0).cyl(10, 0.68, 0.48, 0.09, false).pop();
+      b.shadeY(null);
+      b.color(0x5e3d26).push().translate(0, 0.1, 0.84).box(0.44, 0.6, 0.07).pop();
+      b.color(0x7a5236).push().translate(0, 0.12, 0.865).box(0.36, 0.52, 0.05).pop();
+      b.color(0xffd84a).push().translate(0.11, 0.38, 0.9).scale(0.025).sphere(0).pop();
+      b.color(0x9a8f86).push().translate(0, 0, 1.0).box(0.5, 0.06, 0.22).pop();
+      // a window to the side, lit warm (much brighter at night)
+      b.push().rotY(0.85).translate(0, 0.46, 0.83);
+      b.color(0x5e3d26).box(0.34, 0.3, 0.06);
+      b.color(0xffcf6a).glow(0.75).push().translate(0, 0.04, 0.02).box(0.26, 0.22, 0.04).pop().glow(0);
+      b.color(0x5e3d26).push().translate(0, 0.04, 0.05).box(0.03, 0.22, 0.02).pop().push().translate(0, 0.14, 0.05).box(0.26, 0.03, 0.02).pop();
+      b.color(0x6aa84a).push().translate(0, -0.02, 0.07).box(0.36, 0.06, 0.1).pop();
+      b.color(0xff7eb6).push().translate(-0.09, 0.03, 0.09).scale(0.035).sphere(0).pop().color(0xffd84a).push().translate(0.08, 0.03, 0.09).scale(0.035).sphere(0).pop();
+      b.pop();
+      // chimney
+      b.color(0x8f8780).push().translate(-0.4, 1.0, -0.34).box(0.22, 0.85, 0.22).pop();
+      b.color(0x6e6862).push().translate(-0.4, 1.83, -0.34).box(0.27, 0.07, 0.27).pop();
       return b.finish();
     },
     farm: function () {
+      // rich tilled soil in raised rows, a little fence with a gate gap at the front, and a scarecrow
       var b = ME.builder();
-      b.color(0x6e4a30).push().translate(0, 0.01, 0).box(1.9, 0.06, 1.9).pop();
-      b.color(0x5a3b26);
-      for (var i = 0; i < 4; i++) b.push().translate(-0.7 + i * 0.47, 0.07, 0).box(0.18, 0.05, 1.8).pop();
-      b.color(0x8a6440);
-      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (p) { b.push().translate(p[0] * 0.98, 0, p[1] * 0.98).cyl(4, 0.04, 0.035, 0.35).pop(); });
+      b.color(0x6b4428).push().translate(0, 0.01, 0).box(1.9, 0.05, 1.9).pop();
+      b.color(0x84553a).shadeY(0.05, 0.12, 0.3);
+      for (var i = 0; i < 4; i++) b.push().translate(-0.7 + i * 0.47, 0.05, 0).box(0.26, 0.06, 1.72).pop();
+      b.shadeY(null).color(0xb08a5a);
+      var posts = [[-0.98, -0.98], [0, -0.98], [0.98, -0.98], [0.98, 0], [0.98, 0.98], [0.3, 0.98], [-0.3, 0.98], [-0.98, 0.98], [-0.98, 0]];
+      posts.forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.045, 0.04, 0.36).translate(0, 0.36, 0).cone(4, 0.045, 0.06).pop(); });
+      b.color(0xc8a06a);
+      [0.14, 0.27].forEach(function (y) {
+        b.push().translate(0, y, -0.98).box(1.96, 0.035, 0.03).pop();
+        b.push().translate(0.98, y, 0).rotY(1.5708).box(1.96, 0.035, 0.03).pop();
+        b.push().translate(-0.98, y, 0).rotY(1.5708).box(1.96, 0.035, 0.03).pop();
+        b.push().translate(0.64, y, 0.98).box(0.68, 0.035, 0.03).pop();
+        b.push().translate(-0.64, y, 0.98).box(0.68, 0.035, 0.03).pop();
+      });
+      // scarecrow in the corner
+      b.push().translate(0.74, 0, -0.74);
+      b.color(0x8a6440).cyl(3, 0.025, 0.025, 0.62).push().translate(0, 0.46, 0).rotZ(1.5708).translate(0, -0.2, 0).cyl(3, 0.02, 0.02, 0.4).pop();
+      b.color(0xd96a4a).push().translate(0, 0.32, 0).box(0.16, 0.18, 0.08).pop();
+      b.color(0xe8cf8a).push().translate(0, 0.6, 0).scale(0.07).sphere(0).pop();
+      b.color(0xd9b86a).push().translate(0, 0.64, 0).cyl(6, 0.12, 0.02, 0.08).pop();
+      b.pop();
       return b.finish();
     },
-    crop: function () { // one crop plant; drawn in rows on farms, scaled by growth
+    crop: function () { // one crop plant; drawn in rows on farms, scaled by growth: sprout, leafy, golden ears
       var b = ME.builder().sides(true).flex(1.5, 0);
-      for (var i = 0; i < 4; i++) b.color(0x8fc85a, 1).push().rotY(i * 0.8).rotZ(0.25).leaf(0.07, 0.35).pop();
-      b.sides(false).color(0xe8c45a, 1).push().translate(0, 0.38, 0).scale(0.04, 0.09, 0.04).sphere(0).pop();
+      for (var i = 0; i < 5; i++) b.color(i % 2 ? 0x8fd05a : 0x6fb84a, 1).push().rotY(i * 1.25).rotZ(0.3).leaf(0.08, 0.34).pop();
+      b.sides(false).color(0xf0c84a, 1);
+      b.push().translate(0.02, 0.3, 0).rotZ(-0.12).cyl(5, 0.035, 0.012, 0.16).pop();
+      b.push().translate(-0.05, 0.26, 0.03).rotZ(0.25).cyl(5, 0.03, 0.01, 0.13).pop();
       return b.finish();
     },
     totem: function () {
@@ -538,25 +612,46 @@
       b.color(0xd9b86a).sides(true).push().translate(0, 1.4, 0).rotZ(1.2).leaf(0.25, 0.6).pop().push().translate(0, 1.4, 0).rotZ(-1.2).leaf(0.25, 0.6).pop();
       return b.finish();
     },
-    grave: function () { // a little rounded headstone, a mound and a flower
+    grave: function () { // a little rounded headstone on a grassy mound, a ring of flowers
       var b = ME.builder();
-      b.color(0x7a5a3a, 1).push().translate(0, 0, 0.18).scale(0.32, 0.08, 0.4).sphere(1).pop();
-      b.smoothShade(true).color(0x9d98a3).push().translate(0, 0.22, -0.18).scale(0.22, 0.26, 0.07).sphere(2).pop();
+      b.color(0x6ea84a, 1).push().translate(0, 0, 0.18).scale(0.34, 0.09, 0.42).sphere(1).pop();
+      b.smoothShade(true).color(0xb0aab2).shadeY(0, 0.45, 0.3).push().translate(0, 0.22, -0.18).scale(0.22, 0.26, 0.07).sphere(2).pop();
       b.push().translate(0, 0.1, -0.18).box(0.42, 0.22, 0.13).pop();
-      b.smoothShade(false).color(0xff9cc8).glow(0.3).push().translate(0.16, 0.1, 0.25).scale(0.05).sphere(0).pop().glow(0);
-      b.color(0x5fae4a).push().translate(0.16, 0.02, 0.25).cyl(3, 0.01, 0.01, 0.08).pop();
+      b.shadeY(null).smoothShade(false).color(0x8a8590).push().translate(0, 0.25, -0.11).box(0.16, 0.03, 0.01).pop();
+      var fl = [0xff9cc8, 0xffd84a, 0xffffff, 0xb59aff, 0xff7a5a];
+      for (var i = 0; i < 5; i++) {
+        var a = -0.9 + i * 0.45, x = Math.sin(a) * 0.32, z = 0.2 + Math.cos(a) * 0.2;
+        b.color(0x5fae4a).push().translate(x, 0.04, z).cyl(3, 0.01, 0.01, 0.07).pop();
+        b.color(fl[i]).glow(0.15).push().translate(x, 0.12, z).scale(0.045, 0.03, 0.045).sphere(0).pop().glow(0);
+      }
       return b.finish();
     },
-    school: function () { // a long hut with a slate out front and a little flag
+    school: function () { // a schoolhouse: plaster and timber, a red gable roof, a bell tower, a slate out front
       var b = ME.builder();
-      b.color(0xa8845a).push().scale(1.35, 1, 0.95).cyl(10, 0.95, 0.9, 0.8).pop();
-      b.color(0xc9a05a, 1).push().translate(0, 0.75, 0).scale(1.35, 1, 0.95).cyl(10, 1.2, 0.05, 0.95).pop();
-      b.color(0x2a1d14).push().translate(0, 0, 0.88).box(0.46, 0.58, 0.06).pop();
+      b.color(0x9a8f86).push().box(2.3, 0.12, 1.5).pop();
+      b.color(0xf0dfbc).shadeY(0.1, 0.95, 0.22).push().translate(0, 0.12, 0).box(2.1, 0.8, 1.3).pop().shadeY(null);
+      b.color(0x8a5a36);
+      [-1.04, 1.04].forEach(function (x) { [-0.64, 0.64].forEach(function (z) { b.push().translate(x, 0.12, z).box(0.08, 0.8, 0.08).pop(); }); });
+      b.push().translate(0, 0.88, 0.655).box(2.14, 0.06, 0.04).pop();
+      b.color(0xc4523a, 1).shadeY(0.9, 1.65, 0.3).push().translate(0, 0.94, 0).gable(2.1, 0.7, 1.3, 0.14).pop().shadeY(null);
+      b.color(0x5e3d26).push().translate(0, 0.12, 0.66).box(0.42, 0.6, 0.06).pop();
+      b.color(0x7a5236).push().translate(0, 0.14, 0.685).box(0.34, 0.52, 0.04).pop();
+      [-0.62, 0.62].forEach(function (x) {
+        b.color(0x5e3d26).push().translate(x, 0.4, 0.66).box(0.36, 0.3, 0.05).pop();
+        b.color(0xffcf6a).glow(0.75).push().translate(x, 0.43, 0.68).box(0.28, 0.22, 0.03).pop().glow(0);
+        b.color(0x5e3d26).push().translate(x, 0.43, 0.70).box(0.03, 0.22, 0.02).pop();
+      });
+      // bell tower on the ridge
+      b.color(0xf0dfbc).push().translate(-0.6, 1.4, 0).box(0.36, 0.46, 0.36).pop();
+      b.color(0x2a1d14).push().translate(-0.6, 1.5, 0.17).box(0.2, 0.26, 0.03).pop();
+      b.color(0xe8b84a).glow(0.2).push().translate(-0.6, 1.56, 0.12).cyl(6, 0.08, 0.04, 0.16).pop().glow(0);
+      b.color(0xc4523a, 1).push().translate(-0.6, 1.86, 0).rotY(0.785).cyl(4, 0.32, 0, 0.36).pop();
+      b.color(0x6a4a2e).push().translate(-0.6, 2.2, 0).cyl(3, 0.012, 0.012, 0.32).pop();
+      b.color(0xc5ff49, 1).sides(true).push().translate(-0.6, 2.5, 0).rotZ(-1.57).leaf(0.12, 0.24).pop().sides(false);
+      // the slate
       b.color(0x6a4a2e).push().translate(0.9, 0, 1.05).cyl(4, 0.03, 0.03, 0.55).pop().push().translate(1.4, 0, 1.05).cyl(4, 0.03, 0.03, 0.55).pop();
       b.color(0x2e3b33).push().translate(1.15, 0.55, 1.05).box(0.62, 0.36, 0.04).pop();
       b.color(0xf5f3ed).push().translate(1.05, 0.6, 1.08).box(0.18, 0.02, 0.01).pop().push().translate(1.2, 0.52, 1.08).box(0.24, 0.02, 0.01).pop();
-      b.color(0x6a4a2e).push().translate(-0.6, 1.2, 0).cyl(3, 0.025, 0.025, 1.0).pop();
-      b.color(0xc5ff49, 1).sides(true).push().translate(-0.6, 2.05, 0).rotZ(-1.57).leaf(0.16, 0.32).pop().sides(false);
       return b.finish();
     },
     // places to find out in the fog (sites.js)
@@ -602,45 +697,96 @@
       for (var j = 0; j < 3; j++) b.push().translate(0.4 + j * 0.2, 0.03, 0.6).rotZ(1.5).cyl(3, 0.025, 0.025, 0.6).pop();
       return b.finish();
     },
-    wall: function () {
-      var b = ME.builder().color(0x8a6440);
-      for (var i = 0; i < 6; i++) b.push().translate(-0.75 + i * 0.3, 0, 0).cyl(5, 0.1, 0.08, 0.8 + (i % 2) * 0.12).translate(0, 0.8 + (i % 2) * 0.12, 0).cone(5, 0.08, 0.15).pop();
-      b.color(0x6a4a2e).push().translate(0, 0.5, 0).rotZ(1.57).translate(0, -0.85, 0).cyl(4, 0.04, 0.04, 1.7).pop();
+    wall: function () { // a palisade of uneven posts, lashed with two rails
+      var b = ME.builder();
+      var hs = [0.86, 1.02, 0.8, 0.95, 0.9, 1.06], rs = [0.1, 0.085, 0.11, 0.09, 0.1, 0.08], cs = [0x8a6440, 0x9a7048, 0x7e5a3a, 0x94693f, 0x86603c, 0x9c744c];
+      for (var i = 0; i < 6; i++) {
+        b.color(cs[i]).shadeY(0, hs[i], 0.25).push().translate(-0.75 + i * 0.3, 0, (i % 3 - 1) * 0.03).rotZ((i % 2 ? 1 : -1) * 0.04).cyl(5, rs[i], rs[i] * 0.85, hs[i]).translate(0, hs[i], 0).cone(5, rs[i] * 0.85, 0.16).pop();
+      }
+      b.shadeY(null).color(0x6a4a2e);
+      [0.32, 0.66].forEach(function (y) { b.push().translate(0, y, 0.09).rotZ(1.57).translate(0, -0.88, 0).cyl(4, 0.035, 0.035, 1.76).pop(); });
+      b.color(0xd9b86a);
+      [-0.6, 0.3].forEach(function (x) { b.push().translate(x, 0.28, 0.11).box(0.05, 0.1, 0.04).pop(); });
       return b.finish();
     },
-    kiln: function () {
+    kiln: function () { // a beehive kiln of red clay, brick bands, an ember-glowing mouth and a chimney
       var b = ME.builder();
-      b.color(0xa85f3d).push().scale(0.8, 1.0, 0.8).sphere(1, function (x, y) { return y < 0 ? 0.1 : 1; }).pop();
-      b.color(0x1a1210).push().translate(0, 0.2, 0.72).scale(0.25, 0.22, 0.1).sphere(0).pop();
-      b.color(0x8a4a2d).push().translate(0, 0.85, 0).cyl(6, 0.18, 0.14, 0.4).pop();
+      b.color(0x9a8f86).cyl(10, 0.86, 0.86, 0.08);
+      b.color(0xc0683e).shadeY(0, 1.0, 0.3).push().scale(0.8, 1.0, 0.8).sphere(1, function (x, y) { return y < 0 ? 0.1 : 1; }).pop();
+      b.shadeY(null).color(0x9a5032);
+      b.push().translate(0, 0.3, 0).cyl(10, 0.78, 0.76, 0.06, false).pop();
+      b.push().translate(0, 0.62, 0).cyl(10, 0.63, 0.59, 0.06, false).pop();
+      b.color(0x1a1210).push().translate(0, 0.2, 0.72).scale(0.26, 0.24, 0.1).sphere(0).pop();
+      b.color(0xff7a2a).glow(0.7).push().translate(0, 0.14, 0.72).scale(0.18, 0.08, 0.08).sphere(0).pop().glow(0);
+      b.color(0x8a4a2d).push().translate(0, 0.85, 0).cyl(6, 0.18, 0.14, 0.42).pop();
+      b.color(0x6e3a24).push().translate(0, 1.27, 0).cyl(6, 0.17, 0.17, 0.05).pop();
+      b.color(0x7a5236).push().translate(0.78, 0.0, 0.38).rotY(0.4).box(0.3, 0.12, 0.2).pop();
       return b.finish();
     },
-    workshop: function () {
+    workshop: function () { // an open shed: a blue shingle roof on posts, a workbench, an anvil and a chopping log
       var b = ME.builder();
+      b.color(0x9a8f86).push().box(2.0, 0.06, 1.4).pop();
       b.color(0x8a6440);
-      [[-0.9, -0.6], [0.9, -0.6], [0.9, 0.6], [-0.9, 0.6]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.06, 0.06, 1.2).pop(); });
-      b.color(0xc9a05a, 1).push().translate(0, 1.2, 0).box(2.1, 0.08, 1.5).pop();
-      b.color(0x9c7a4a).push().translate(0, 0.45, 0).box(1.3, 0.08, 0.6).pop();
-      b.color(0x8e8a96).push().translate(0.3, 0.55, 0).scale(0.12).blob(0, 0.3, 1).pop();
+      [[-0.9, -0.6, 1.3], [0.9, -0.6, 1.3], [0.9, 0.6, 1.08], [-0.9, 0.6, 1.08]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.06, 0.06, p[2]).pop(); });
+      b.color(0x4f7aa8, 1).push().translate(0, 1.18, 0).rotX(0.17).box(2.2, 0.07, 1.6).pop();
+      b.color(0x3f6890, 1);
+      for (var i = 0; i < 4; i++) b.push().translate(0, 1.27 - i * 0.065, -0.6 + i * 0.4).rotX(0.17).box(2.22, 0.02, 0.06).pop();
+      b.color(0x9c7a4a).push().translate(0, 0.45, -0.25).box(1.4, 0.08, 0.55).pop();
+      b.color(0x7a5236);
+      [[-0.6, -0.45], [0.6, -0.45], [-0.6, -0.05], [0.6, -0.05]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).box(0.07, 0.45, 0.07).pop(); });
+      b.color(0x8e8a96).push().translate(0.3, 0.53, -0.25).scale(0.12).blob(0, 0.3, 1).pop();
+      b.color(0xd9823e).push().translate(-0.3, 0.53, -0.3).box(0.22, 0.03, 0.06).pop();
+      // anvil
+      b.push().translate(0.55, 0, 0.95);
+      b.color(0x7a5236).cyl(6, 0.18, 0.18, 0.26);
+      b.color(0x4a4652).push().translate(0, 0.26, 0).box(0.16, 0.12, 0.12).pop().push().translate(0, 0.38, 0).box(0.36, 0.09, 0.15).pop();
+      b.push().translate(0.18, 0.425, 0).rotZ(-1.5708).cone(4, 0.045, 0.12).pop();
+      b.pop();
+      // chopping log with an axe in it
+      b.push().translate(-0.6, 0, 1.0);
+      b.color(0x8a5a36).cyl(7, 0.2, 0.2, 0.3);
+      b.color(0xd9b88a).push().translate(0, 0.3, 0).cyl(7, 0.18, 0.18, 0.005).pop();
+      b.color(0x7a5236).push().translate(0, 0.3, 0).rotZ(0.6).cyl(4, 0.02, 0.02, 0.36).pop();
+      b.color(0xb4b0bc).push().translate(0.02, 0.28, 0).box(0.03, 0.1, 0.14).pop();
+      b.pop();
       return b.finish();
     },
-    windmill: function () {
+    windmill: function () { // a whitewashed stone tower with a door, little lit windows and a wooden cap
       var b = ME.builder();
-      b.color(0xe8e2d6).cyl(8, 0.7, 0.45, 2.4);
-      b.color(0xb0603a, 1).push().translate(0, 2.4, 0).cone(8, 0.62, 0.7).pop();
+      b.color(0x9a8f86).cyl(8, 0.76, 0.74, 0.18);
+      b.color(0xf2ece0).shadeY(0, 2.4, 0.25).push().translate(0, 0.18, 0).cyl(8, 0.7, 0.45, 2.22, false).pop().shadeY(null);
+      b.color(0xb0603a, 1).shadeY(2.4, 3.1, 0.25).push().translate(0, 2.36, 0).cyl(8, 0.62, 0.58, 0.12).translate(0, 0.12, 0).cone(8, 0.6, 0.62).pop().shadeY(null);
+      b.color(0x5e3d26).push().translate(0, 0.16, 0.68).rotX(-0.11).box(0.36, 0.56, 0.08).pop();
+      b.color(0xffcf6a).glow(0.7);
+      b.push().translate(0, 1.3, 0.565).rotX(-0.11).box(0.18, 0.22, 0.05).pop();
+      b.push().rotY(2.2).translate(0, 0.9, 0.62).rotX(-0.11).box(0.18, 0.22, 0.05).pop();
+      b.glow(0).color(0x7a5236).push().translate(0, 2.6, 0.4).rotX(1.5708).cyl(6, 0.08, 0.08, 0.36).pop();
       return b.finish();
     },
-    blades: function () {
-      var b = ME.builder().sides(true).color(0xf5f3ed);
-      for (var i = 0; i < 4; i++) b.push().rotZ(i * 1.5708).translate(0.12, 0, 0).quad([0, -0.06, 0], [1.3, -0.12, 0], [1.3, 0.18, 0], [0, 0.06, 0]).pop();
+    blades: function () { // four lattice arms with sail cloth
+      var b = ME.builder().sides(true);
+      b.color(0xe8b04a).push().scale(0.13).sphere(0).pop();
+      for (var i = 0; i < 4; i++) {
+        b.push().rotZ(i * 1.5708);
+        b.color(0x7a5236).quad([0.05, -0.03, 0], [1.45, -0.03, 0], [1.45, 0.03, 0], [0.05, 0.03, 0]);
+        b.color(0xf5efe2).quad([0.22, 0.03, 0.01], [1.38, 0.03, 0.01], [1.38, 0.28, 0.01], [0.22, 0.24, 0.01]);
+        b.color(0x9c7a4a);
+        [0.5, 0.85, 1.2].forEach(function (x) { b.quad([x - 0.015, 0.03, 0.02], [x + 0.015, 0.03, 0.02], [x + 0.015, 0.28, 0.02], [x - 0.015, 0.27, 0.02]); });
+        b.pop();
+      }
       return b.finish();
     },
-    observatory: function () {
+    observatory: function () { // the star dome: a stone drum with lit windows, a dome with a slit, a brass telescope
       var b = ME.builder();
-      b.color(0xd9d4cc).cyl(10, 1.0, 0.95, 1.2);
-      b.color(0xb59aff, 1).push().translate(0, 1.2, 0).scale(1.0, 0.85, 1.0).sphere(2, function (x, y) { return y < 0 ? 0.05 : 1; }).pop();
-      b.color(0x1a1a22).push().translate(0, 1.55, 0.55).rotX(0.9).box(0.3, 0.7, 0.12).pop();
-      b.color(0x8a8590).push().translate(0, 1.7, 0.6).rotX(0.9).cyl(6, 0.08, 0.06, 0.9).pop();
+      b.color(0x9a8f86).cyl(12, 1.06, 1.06, 0.14);
+      b.color(0xe2dcd0).shadeY(0.1, 1.2, 0.22).push().translate(0, 0.14, 0).cyl(12, 1.0, 0.96, 1.06, false).pop().shadeY(null);
+      b.color(0xffcf6a).glow(0.7);
+      for (var i = 0; i < 4; i++) b.push().rotY(i * 1.5708 + 0.4).translate(0, 0.6, 0.97).box(0.16, 0.26, 0.04).pop();
+      b.glow(0).color(0xa892e8, 1).smoothShade(true).shadeY(1.2, 2.1, 0.3).push().translate(0, 1.2, 0).scale(1.0, 0.85, 1.0).sphere(2, function (x, y) { return y < 0 ? 0.05 : 1; }).pop().shadeY(null).smoothShade(false);
+      b.color(0x7e68c0, 1).push().translate(0, 1.18, 0).cyl(12, 1.02, 1.02, 0.07, false).pop();
+      b.color(0x1a1a2e).push().translate(0, 1.55, 0.55).rotX(0.9).box(0.3, 0.7, 0.12).pop();
+      b.color(0xd9a23e).push().translate(0, 1.7, 0.6).rotX(0.9).cyl(6, 0.09, 0.06, 0.95).pop();
+      b.color(0xffd84a).glow(0.4).push().translate(0, 2.05, 0).scale(0.07).sphere(0).pop().glow(0);
       return b.finish();
     },
     bridge: function () {
@@ -650,13 +796,21 @@
       [-0.6, 0.6].forEach(function (x) { b.push().translate(x, 0.6, 0).rotX(1.5708).translate(0, -1.8, 0).cyl(4, 0.04, 0.04, 3.6).pop(); for (var k = 0; k < 4; k++) b.push().translate(x, -0.6, -1.6 + k * 1.07).cyl(4, 0.06, 0.06, 1.25).pop(); });
       return b.finish();
     },
-    spire: function () { // the Big Thought: a crystal spire that grows as it's built
+    spire: function () { // the Big Thought: stepped stone tiers, a faceted crystal crown, crystal shards round its foot
       var b = ME.builder();
-      b.color(0x3a3550).cyl(8, 2.0, 1.6, 0.8);
-      b.color(0xb59aff, 1).push().translate(0, 0.8, 0).cyl(8, 1.3, 0.6, 5.0).pop();
-      b.color(C.crystal).glow(0.8).push().translate(0, 5.8, 0).cyl(6, 0.6, 0.6, 1.2, false).translate(0, 1.2, 0).cone(6, 0.6, 1.8).pop();
+      b.color(0x4a4560).cyl(8, 2.05, 1.85, 0.4);
+      b.color(0x5a5476).push().translate(0, 0.4, 0).cyl(8, 1.75, 1.55, 0.4).pop();
+      b.color(0xc5ff49).glow(0.6);
+      for (var i = 0; i < 8; i++) b.push().rotY(i * 0.785 + 0.39).translate(0, 0.45, 1.66).box(0.18, 0.08, 0.04).pop();
+      b.glow(0).color(0xb59aff, 1).shadeY(0.8, 5.8, 0.35).push().translate(0, 0.8, 0).cyl(6, 1.25, 0.6, 5.0).pop().shadeY(null);
+      b.color(C.crystal).glow(0.8).push().translate(0, 5.8, 0).cyl(6, 0.62, 0.72, 0.5, false).translate(0, 0.5, 0).cyl(6, 0.72, 0.6, 0.8, false).translate(0, 0.8, 0).cone(6, 0.6, 1.8).pop();
+      b.color(0xe6f8ff).glow(1).push().translate(0, 6.27, 0).cyl(6, 0.735, 0.735, 0.06, false).pop();
+      for (i = 0; i < 7; i++) {
+        var a = i * 0.9 + 0.3, rr = 1.5 + (i % 2) * 0.3, hh = 0.5 + (i % 3) * 0.3;
+        b.color(i % 2 ? C.crystal : 0xd6c8ff).glow(0.6).push().translate(Math.cos(a) * rr, 0.75, Math.sin(a) * rr).rotY(a).rotZ(0.25 * (i % 2 ? 1 : -1)).cyl(5, 0.12, 0.12, hh * 0.6, false).translate(0, hh * 0.6, 0).cone(5, 0.12, hh * 0.4).pop();
+      }
       b.color(0xc5ff49).glow(1);
-      for (var i = 0; i < 6; i++) { var a = i * 1.047; b.push().translate(Math.cos(a) * 1.0, 3.0, Math.sin(a) * 1.0).scale(0.16).sphere(1).pop(); }
+      for (i = 0; i < 6; i++) { var a2 = i * 1.047; b.push().translate(Math.cos(a2) * 1.0, 3.0, Math.sin(a2) * 1.0).scale(0.16).sphere(1).pop(); }
       return b.finish();
     },
     plot: function () { // construction site
@@ -704,4 +858,97 @@
     mouth: function () { return ME.builder().color(0x3a1520).push().scale(1, 0.55, 0.4).sphere(0).pop().finish(); },
     shadow: null // drawn by the blob-shadow pass
   };
+  /* ---------------- v3.7 biomes: their trees, rocks and ground cover ---------------- */
+  (function () {
+    var NB = ME.NODE_BUILDERS;
+    NB.sakura = function (seed) { // blossom tree: dark crooked trunk under a big pink cloud, petals hanging
+      var b = ME.builder();
+      b.color(0x5a3b2e).push().rotZ(0.12).cyl(6, 0.15, 0.1, 1.3).pop();
+      b.push().translate(0.15, 1.1, 0).rotZ(-0.8).color(0x5a3b2e).cyl(5, 0.07, 0.04, 0.7).pop();
+      b.push().translate(0.1, 1.15, 0).rotZ(0.7).rotY(seed).color(0x5a3b2e).cyl(5, 0.06, 0.03, 0.6).pop();
+      b.flex(0.3, 1).color(0xf4b6cc, 1);
+      b.push().translate(0.15, 1.85, 0).scale(1.15, 0.7, 1.05).blob(1, 0.35, seed).pop();
+      b.color(0xf8cadb, 1).push().translate(0.7, 1.6, 0.25).scale(0.6, 0.45, 0.6).blob(1, 0.3, seed + 2).pop();
+      b.color(0xeea0bd, 1).push().translate(-0.45, 1.65, -0.3).scale(0.6, 0.45, 0.55).blob(1, 0.3, seed + 3).pop();
+      b.color(0xd7263d);
+      [[0.55, 1.4, 0.5], [-0.4, 1.38, 0.35], [0.1, 1.42, -0.6]].forEach(function (p) { b.push().translate(p[0], p[1], p[2]).scale(0.07).sphere(0).pop(); });
+      return b.finish();
+    };
+    NB.maple = function (seed) { // round red-orange crown on a straight trunk
+      var b = ME.builder();
+      b.color(0x6a4a34).cyl(6, 0.15, 0.1, 1.5);
+      b.flex(0.3, 1).color(0xd9542b, 1);
+      b.push().translate(0, 2.0, 0).scale(1.0, 0.95, 1.0).blob(1, 0.32, seed).pop();
+      b.color(0xe8823a, 1).push().translate(0.42, 1.7, 0.25).scale(0.6, 0.55, 0.6).blob(1, 0.3, seed + 2).pop();
+      b.color(0xb8402a, 1).push().translate(-0.38, 1.8, -0.25).scale(0.6, 0.6, 0.6).blob(1, 0.3, seed + 3).pop();
+      b.color(0xf0b040, 1).push().translate(0.05, 2.55, 0.1).scale(0.45, 0.4, 0.45).blob(0, 0.3, seed + 4).pop();
+      return b.finish();
+    };
+    NB.bamboo = function (seed) { // a clump of segmented green canes with leaf tufts
+      var b = ME.builder();
+      for (var i = 0; i < 5; i++) {
+        var a = i * 2.39 + seed, rr = i ? 0.18 + (i % 2) * 0.1 : 0, hh = 2.0 + ((i * 7 + (seed | 0)) % 5) * 0.3;
+        b.push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).rotZ((i % 3 - 1) * 0.06);
+        for (var s = 0; s < 4; s++) {
+          b.color(s % 2 ? 0x8cc63e : 0x7ab535, 1).push().translate(0, s * hh / 4, 0).cyl(5, 0.06, 0.055, hh / 4 - 0.03, false).pop();
+          b.color(0x5e8f2a).push().translate(0, (s + 1) * hh / 4 - 0.03, 0).cyl(5, 0.066, 0.066, 0.03).pop();
+        }
+        b.flex(0.6, hh * 0.6).sides(true).color(0x6fbf4a, 1);
+        for (var k = 0; k < 3; k++) b.push().translate(0, hh - k * 0.3, 0).rotY(a + k * 2.1).rotX(1.1).leaf(0.12, 0.45, -0.1).pop();
+        b.sides(false).flex(0, 0);
+        b.pop();
+      }
+      return b.finish();
+    };
+    NB.mangrove = function (seed) { // a tree on stilt roots
+      var b = ME.builder();
+      b.color(0x6e5440);
+      for (var i = 0; i < 6; i++) {
+        var a = i / 6 * 6.283 + seed;
+        b.push().translate(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5).rotY(-a).rotZ(0.55).cyl(4, 0.04, 0.035, 0.75, false).pop();
+      }
+      b.push().translate(0, 0.55, 0).cyl(6, 0.13, 0.1, 1.0).pop();
+      b.flex(0.25, 1).color(0x4f8a46, 1);
+      b.push().translate(0, 1.75, 0).scale(1.2, 0.6, 1.2).blob(1, 0.35, seed).pop();
+      b.color(0x3f7a3e, 1).push().translate(0.5, 1.55, -0.3).scale(0.6, 0.4, 0.6).blob(1, 0.3, seed + 1).pop();
+      return b.finish();
+    };
+    NB.basalt = function (seed) { // black hexagonal columns
+      var b = ME.builder();
+      for (var i = 0; i < 6; i++) {
+        var a = i * 1.05 + seed, rr = i ? 0.28 : 0, hh = 0.5 + ((i * 5 + (seed | 0)) % 4) * 0.22;
+        b.color(i % 2 ? 0x34303a : 0x3e3944, 1).push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).cyl(6, 0.16, 0.16, hh).pop();
+      }
+      return b.finish();
+    };
+    NB.vent = function (seed) { // a hot crack with a glowing mouth and an orange rim
+      var b = ME.builder();
+      b.color(0x4a4248, 1).push().translate(0, 0.12, 0).scale(0.7, 0.24, 0.6).blob(1, 0.4, seed, 0.6).pop();
+      b.color(0xff7a2a).glow(1).push().translate(0, 0.3, 0).scale(0.22, 0.05, 0.18).sphere(1).pop();
+      b.color(C.ore).glow(0.3);
+      for (var i = 0; i < 4; i++) { var a = i * 1.6 + seed; b.push().translate(Math.cos(a) * 0.45, 0.12, Math.sin(a) * 0.38).scale(0.1).blob(0, 0.3, i).pop(); }
+      b.glow(0).color(0xd8d4d0).push().translate(0, 0.32, 0).scale(0.08, 0.3, 0.08).sphere(0).pop();
+      return b.finish();
+    };
+    NB.redrock = function (seed) { // a striped red hoodoo
+      var b = ME.builder();
+      var cols = [0xb85a36, 0xd27a4a, 0xc0663e, 0xe09a64];
+      for (var i = 0; i < 4; i++) b.color(cols[i], 1).push().translate(0, i * 0.3, 0).rotY(seed + i).cyl(7, 0.5 - i * 0.07, 0.46 - i * 0.07, 0.3).pop();
+      b.color(0x9a4a2c, 1).push().translate(0, 1.2, 0).scale(0.42, 0.18, 0.4).blob(0, 0.3, seed).pop();
+      return b.finish();
+    };
+    ME.DECIDUOUS.maple = 1; ME.DECIDUOUS.mangrove = 0;
+    // ground cover types 7..11 (worldgen.js DECOR)
+    ME.DECOR_BUILDERS.push(
+      function petals() { var b = ME.builder().color(0xf6bcd0); for (var i = 0; i < 4; i++) b.push().translate(Math.cos(i * 1.7) * 0.1, 0.012, Math.sin(i * 1.7) * 0.1).scale(0.04, 0.008, 0.03).sphere(0).pop(); return b.finish(); },
+      function leafpile() { var b = ME.builder(); [0xd9542b, 0xe8823a, 0xf0b040].forEach(function (c, i) { b.color(c).push().translate(Math.cos(i * 2.1) * 0.06, 0.015 + i * 0.008, Math.sin(i * 2.1) * 0.06).scale(0.09, 0.012, 0.07).sphere(0).pop(); }); return b.finish(); },
+      function ember() { var b = ME.builder().color(0xff6a2a, 1).glow(1); b.push().translate(0, 0.02, 0).scale(0.05, 0.025, 0.04).sphere(0).pop(); b.glow(0).color(0x2a2522).push().translate(0.06, 0.015, 0).scale(0.06, 0.02, 0.05).blob(0, 0.3, 3).pop(); return b.finish(); },
+      function drygrass() { var b = ME.builder().sides(true).flex(3, 0); for (var i = 0; i < 4; i++) b.color(i % 2 ? 0xd9b86a : 0xc8a050, 1).push().rotY(i * 0.8).rotZ((i - 1.5) * 0.35).leaf(0.04, 0.2 + (i % 2) * 0.06).pop(); return b.finish(); },
+      function tallflower() {
+        var b = ME.builder().flex(3, 0); b.sides(true).color(0x5aaa48, 1).leaf(0.035, 0.36); b.sides(false);
+        b.color(0xffffff, 1); for (var i = 0; i < 6; i++) b.push().translate(0, 0.36, 0).rotY(i * 1.047).translate(0.05, 0, 0).scale(0.045, 0.014, 0.03).sphere(0).pop();
+        b.color(0x3a2a1a).push().translate(0, 0.37, 0).scale(0.03).sphere(0).pop(); return b.finish();
+      }
+    );
+  })();
 })();

@@ -71,7 +71,7 @@
   };
   C.newBrain = function (genome, tier, rng) {
     var b = SB.Brain.create(genome, rng);
-    if (genome.species !== "grump" && tier >= 1 && SB.Ideas) SB.Brain.dream(b, SB.Ideas.tierInstincts(tier), 90 + 70 * tier, rng);
+    if (genome.species !== "grump" && tier >= 1 && SB.Ideas) SB.Brain.dream(b, SB.Ideas.tierInstincts(tier), Math.round((90 + 70 * tier) * (SB.quickBrains || 1)), rng); // quickBrains: the title screen's city doesn't need deep sleepers
     return b;
   };
 
@@ -136,7 +136,7 @@
   };
   C.knows = knows;
   C.knownCount = function (c) { var n = 0; for (var w in c.vocab) if (c.vocab[w] >= 1) n++; return n; };
-  function habit(c, k, amt) { c.habits[k] = (c.habits[k] || 0) + amt; }
+  function habit(c, k, amt) { c.habits[k] = (c.habits[k] || 0) + amt; if (C.onHabit) C.onHabit(c, k, amt); }
   C.habitOf = habit;
   C.habit = habit;
 
@@ -183,6 +183,7 @@
   // put an item somewhere on the creature. hand first (or forced into the hand), then bag, then tool belt.
   C.carry = function (c, o, game, toHand) {
     if (!o || o.gone) return false;
+    if (o.hid != null && M()) M().took(c, o, game);
     if (o.data) o.data.looseT = 0;
     if (o.heldBy === "hand" && game.hand.heldId === o.id) game.hand.heldId = null;
     if (o.heldBy != null && o.heldBy !== c.id && o.heldBy !== "hand") { var other = SB.Game.byId(game, o.heldBy); if (other) C.release(other, o); }
@@ -201,7 +202,7 @@
       if (old) dropItem(c, old, game, 0.6);
     }
     o.heldBy = c.id; o.onGround = false; o.claimed = null;
-    habit(c, "hands", 0.3);
+    habit(c, "hands", o.skyT != null && game.time - o.skyT < 180 ? 0.9 : 0.35); // a thing from the sky hand is extra interesting
     return true;
   };
   function stow(c, o, game) {
@@ -217,7 +218,7 @@
     if (i >= 0) c.bag.splice(i, 1);
     if (o.heldBy === c.id) o.heldBy = null;
   };
-  C.consume = function (c, o, game) { if (!o) return; C.release(c, o); SB.World.remove(game.world, o); };
+  C.consume = function (c, o, game) { if (!o) return; if (o.hid != null && M()) M().took(c, o, game); C.release(c, o); SB.World.remove(game.world, o); };
   function dropItem(c, o, game, toss) {
     C.release(c, o);
     o.x = c.x + Math.sin(c.facing) * 0.3; o.z = c.z + Math.cos(c.facing) * 0.3;
@@ -254,6 +255,15 @@
     return { x: ref.x, z: ref.z, y: ref.y, r: ref.r || 0.15, ref: ref, noun: ref.noun, type: "item", kind: ref.kind };
   }
   C.resolve = resolve;
+  // start one action on purpose (a possessed smol, possess.js): the same actions the brain picks from
+  C.startAction = function (c, game, verb, tgt) {
+    var r = tgt ? resolve(game, tgt) : null;
+    if (tgt && !r) return false;
+    if (c.asleep) { c.asleep = false; c.inBed = false; }
+    startAction(c, game, verb, tgt, r, r ? r.noun : null);
+    return true;
+  };
+  C.canSwim = function (c) { return swim(c); };
 
   /* ---------------- perception ---------------- */
 
@@ -266,6 +276,7 @@
     function consider(n, t, d) { if (n == null) return; if (d < nearestD[n]) { nearestD[n] = d; nearestOf[n] = t; } }
     SB.World.itemsNear(w, c.x, c.z, R, function (o, d2) {
       if (o.heldBy === c.id) return;
+      if (o.hid != null && M() && !M().canSee(c, o)) return; // hidden food: only its owner and whoever watched know it's there
       if (c.unreach && isUnreachable(c, o.id, game)) return;
       var d = Math.sqrt(d2);
       if (o.heldBy === "hand") d *= 0.4;
@@ -354,6 +365,7 @@
       if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
       if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
     }
+    if (c.species === "smol" && SB.Orders && SB.Orders.think(c, game)) return; // the sky's orders (orders.js): followed if it trusts you
     perceive(c, game);
     if (c.species === "grump") {
       var prey = false;
@@ -418,6 +430,8 @@
     }
 
     // thinking about others (tribe+): comfort, keep clear, share, go and watch a clever one
+    // the mind's own plans (tool-user+): hiding food, stealing it back, a ritual, trying another way
+    if (M() && c.species === "smol" && !c.plan && M().scheme(c, game)) return;
     var so = M() && c.species === "smol" && !c.plan ? M().social(c, game) : null;
     if (so) {
       if (so.avoid) {
@@ -487,6 +501,7 @@
       else if (ch.anger < 0.45 && rng.chance(0.7)) mask[V.hit] = false;
     }
     if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
+    if (c.prio && SB.Orders && SB.Orders.bias(c, game, noun, mask, bias)) useBias = true; // job interests you nudged
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
@@ -551,6 +566,7 @@
     return false;
   }
   // go and hit someone (a fight, a grudge, a tantrum): skips the brain's choice
+  C.start = function (c, game, verb, tgt, target, noun) { startAction(c, game, verb, tgt || null, target || null, noun || null); };
   C.provoke = function (c, o, game) {
     var t = { type: "creature", id: o.id }, r = resolve(game, t);
     if (!r || c.plan) return false;
@@ -565,6 +581,15 @@
     startAction(c, game, V.wander, null, null, null);
     c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
     return true;
+  };
+  // do one thing on the sky's say-so (orders.js): skips the brain's choice, like provoke
+  C.startOn = function (c, game, verb, tgt) {
+    var r = tgt ? resolve(game, tgt) : null;
+    if (tgt && !r) return false;
+    if (c.plan) endPlan(c, game, false);
+    c.asleep = false; c.inBed = false;
+    startAction(c, game, verb, tgt, r, r ? r.noun : null);
+    return !!c.action;
   };
   function knowsAny(c, kind) {
     if (!SB.Ideas) return false;
@@ -611,7 +636,9 @@
         }
         a.tx = c.x + Math.sin(ang) * dist; a.tz = c.z + Math.cos(ang) * dist;
         // a place it learned to fear: turn round
-        if (c.species === "smol" && !a.why && M() && M().dangerAt(c, game, a.tx, a.tz)) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = "not that way. that's where it hurt"; }
+        var dz = c.species === "smol" && !a.why && M() ? M().dangerAt(c, game, a.tx, a.tz) : null;
+        if (dz) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = dz.why || "not that way. that's where it hurt"; }
+        if (c.species === "smol" && SB.Orders) SB.Orders.steer(c, game, a); // no-go and home zones
         break;
       }
       case V.sleep:
@@ -625,7 +652,7 @@
       case V.pray: a.phase = "do"; a.dur = DO_DUR[verb]; break;
       case V.make: case V.build: {
         var plan = verb === V.make ? SB.Ideas.chooseMake(c, game) : SB.Ideas.chooseBuild(c, game);
-        if (plan) { c.plan = plan; plan.x = a.x; plan.verb = verb; plan.start = a.start; c.action = null; return; }
+        if (plan) { c.plan = plan; plan.x = a.x; plan.verb = verb; plan.start = a.start; c.action = null; if (M() && c.species === "smol") M().planStarted(c, game, plan); return; }
         a.phase = "do"; a.dur = 0.6; a.futile = true; // wanted to, couldn't think how
         break;
       }
@@ -1180,7 +1207,7 @@
     var h = c.habits || {}, e = {};
     function f(v, n) { return Math.min(1, (v || 0) / n); }
     e.limbs = f(h.walk, 150); e.senses = f(h.walk, 300);
-    e.arms = f(h.hands, 8); e.dexterity = f(h.hands, 14);
+    e.arms = f(h.hands, 6.3); e.dexterity = f(h.hands, 11);
     e.cortex = f(h.think, 6); e.recall = f(h.think, 10); e.head = f(h.think, 14);
     e.layers = f((h.think || 0) + (h.plan || 0) + (h.build || 0), 18);
     e.planning = f((h.plan || 0) + (h.build || 0), 5); e.social = f(h.social, 4);
@@ -1307,6 +1334,7 @@
   function endPlan(c, game, ok) {
     var p = c.plan;
     c.plan = null;
+    if (M() && c.species === "smol") M().planEnded(c, game, p, ok);
     habit(c, "plan", ok ? 0.6 + p.i * 0.2 : 0.15);
     SB.Ideas.inv(c, game).forEach(function (o) { o.reserved = null; });
     p.steps.forEach(function (s) { if (s.src && s.src.type === "item") { var o = SB.Game.byId(game, s.src.id); if (o && o.claimed === c.id) o.claimed = null; } });
@@ -1330,8 +1358,13 @@
     if (c.plan && c.plan.x) t = { x: c.plan.x, a: c.plan.verb };
     else if (a && a.x && (a.phase === "do" || a.verb === V.approach)) t = { x: a.x, a: a.verb };
     else if (c.lastDone && game.time - c.lastDone.t < 2.5) t = c.lastDone;
-    if (t && t.x.length === c.brain.nIn) SB.Brain.teach(c.brain, t.x, t.a, delta, 2);
-    else SB.Brain.reinforce(c.brain, SB.clamp(delta * 0.7, -1, 1));
+    var b = c.brain, probe = t && t.x.length === b.nIn ? t : null;
+    if (!probe) { var tr = b.traces[(b.traceHead + b.traces.length - 1) % b.traces.length]; if (tr && tr.e > 0.05 && tr.x.length === b.nIn) probe = { x: tr.x, a: tr.a }; }
+    var before = probe ? SB.Brain.qOf(b, probe.x, probe.a) : 0, px = probe ? Float32Array.from(probe.x) : null;
+    if (t && t.x.length === b.nIn) SB.Brain.teach(b, t.x, t.a, delta, 2);
+    else SB.Brain.reinforce(b, SB.clamp(delta * 0.7, -1, 1));
+    // what the lesson actually changed in the net, for the "🍎 eat apple ↑" chip
+    if (probe) { var nn = -1; for (var i = 0; i < SB.N_NOUNS; i++) if (px[SB.IN.NOUN0 + i] > 0.5) { nn = i; break; } SB.bus.emit("learned", { c: c, verb: probe.a, noun: nn, delta: SB.Brain.qOf(b, px, probe.a) - before }); }
     c.lastReward = SB.clamp(delta, -1, 1);
     c.stats.lessons = (c.stats.lessons || 0) + 1;
     habit(c, "think", 0.35); // being taught grows the next generation's brains
@@ -1457,6 +1490,7 @@
     SB.Game.note(game, c.name + " " + why + ".");
     if (cause === "old") SB.Game.unlock(game, "goodbye");
     if (game.selectedId === c.id) game.selectedId = null;
+    if (SB.Funeral) SB.Funeral.add(game, c, cause); // the body stays until the tribe says goodbye
     SB.bus.emit("death", { c: c, cause: cause });
   }
   C.die = die;
@@ -1508,7 +1542,7 @@
     }
     SB.Chem.tick(ch, dt, {
       temp: temp, dark: w.night, asleep: c.asleep, inBed: c.inBed,
-      moving: !!(c.action && c.action.phase === "go") || !!c.plan || (c.action && (c.action.verb === V.wander || c.action.verb === V.flee || c.action.verb === V.play)),
+      moving: !!(c.action && c.action.phase === "go") || !!c.plan || (c.action && (c.action.verb === V.wander || c.action.verb === V.flee || c.action.verb === V.play)) || !!c._povMove,
       nearFriends: friends, stage: c.stage, species: c.species
     }, c.genome);
     if (ch.health <= 0) { die(c, game, causeOfDeath(ch)); return; }
@@ -1639,8 +1673,8 @@
       }
     }
 
-    // interrupts
-    if (c.species === "smol") {
+    // interrupts (not for a possessed smol: the player decides)
+    if (c.species === "smol" && !c._pov) {
       if (c.plan && (ch.fear > 0.65 || ch.hunger > 0.78 || ch.pain > 0.6 || (ch.sleepy > 0.9 && c.stage < 3))) endPlan(c, game, false);
       if (c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
       if (ch.hunger > 0.45 && !c.plan && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
@@ -1651,9 +1685,10 @@
     }
 
     if (c.convo && SB.Social) SB.Social.convoTick(game, c, dt);
+    if (c._pov && SB.Possess) SB.Possess.drive(c, dt, game); // possessed: the player moves it and picks its actions, the brain only watches
     if (c.plan) runPlan(c, dt, game);
     else {
-      if (!c.action) { c.thinkT -= dt * (c.far ? 0.5 : 1); if (c.thinkT <= 0) think(c, game); }
+      if (!c.action && !c._pov) { c.thinkT -= dt * (c.far ? 0.5 : 1); if (c.thinkT <= 0) think(c, game); }
       if (c.action) act(c, dt, game);
     }
 
@@ -1662,7 +1697,7 @@
     c.chatT -= dt;
     if (c.chatT <= 0) {
       c.chatT = 6 + game.rng() * 10;
-      if (c.species === "smol" && !c.speech) maybeChat(c, game, c.action ? c.action.verb : V.idle, c.attn ? c.attn.noun : null);
+      if (c.species === "smol" && !c.speech && !c._pov) maybeChat(c, game, c.action ? c.action.verb : V.idle, c.attn ? c.attn.noun : null);
     }
     finishTick(c, game, gy);
     c.iqT -= dt;

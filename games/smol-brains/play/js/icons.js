@@ -97,6 +97,7 @@
     grave: ["....eeee....", "...eeeeee...", "..eeEEEEee..", "..eeeeeeeE..", "..eeEEEeeE..", "..eeeeeeeE..", "..eeeeeeeE..", ".p.eeeeeeE..", "pgpeeeeeEE..", "NgNNNNNNNNN.", "NNNNNNNNNNNN"],
     fist: ["...ssssss...", "..sSsSsSss..", "..ssssssss..", ".sssssssssS.", ".sSSsssssss.", ".ssssssssss.", "..sssssssS..", "..ssssssSS..", "...ssssSS...", "...bbbbbb...", "...bbbbbb..."],
     broken: [".rrr...rrr..", "rrwrr.rrrrr.", "rwrrkrrrrrR.", "rrrrrkrrrrR.", "rrrrkrrrrRR.", ".rrrrkrrRR..", "..rrkrrRR...", "...rrkRR....", "....rRR.....", ".....R......"],
+    flag: ["..Nrrrrr....", "..NrrrrrrR..", "..NrrrrrrrR.", "..NrrrrrrR..", "..NrrrrR....", "..NR........", "..N.........", "..N.........", "..N.........", "..N.........", ".NNN........", "NNNNN......."],
     chart: ["..........l.", ".........ll.", "........l.l.", "...l...l....", "..l.l.l.....", ".l...l......", "l..........."]
   };
 
@@ -111,7 +112,7 @@
     "🪨": "rock", "🧱": "rock", "🎁": "gift", "✕": "x", "❓": "q", "❔": "q", "🤔": "q", "⏸": "pause", "☰": "menu", "❗": "bang", "🛠": "tools", "⚙": "gear",
     "⛏": "pick", "🪓": "axe", "🏺": "pot", "🧺": "pot", "🍯": "pot", "🧶": "yarn", "🌊": "wave", "👪": "family", "🧑": "family", "📜": "book", "📖": "book", "🏫": "school", "🎓": "school",
     "👁": "eye", "👀": "eye", "🔒": "lock", "🚀": "rocket", "🍂": "leaf", "🫐": "berry", "🐟": "fish", "🍖": "meat", "🌸": "flower", "🌼": "flower", "🐾": "paw", "👣": "paw",
-    "🎲": "dice", "⬆": "up", "🌌": "globe", "🏝": "globe", "🔊": "sound", "📣": "horn", "♀": "girl", "🪦": "grave", "👊": "fist", "💔": "broken", "📜": "book", "🏏": "club", "🎣": "rod", "🧥": "coat", "♂": "boy", "📢": "horn", "🔇": "mute", "🏆": "trophy", "💯": "trophy", "📐": "chart", "🌉": "log", "🛶": "log"
+    "🎲": "dice", "⬆": "up", "🌌": "globe", "🏝": "globe", "🔊": "sound", "📣": "horn", "♀": "girl", "🪦": "grave", "👊": "fist", "💔": "broken", "📜": "book", "🏏": "club", "🎣": "rod", "🧥": "coat", "♂": "boy", "📢": "horn", "🔇": "mute", "🏆": "trophy", "💯": "trophy", "📐": "chart", "🚩": "flag", "🌉": "log", "🛶": "log"
   };
   IC.MAP = MAP;
   IC.ART = ART;

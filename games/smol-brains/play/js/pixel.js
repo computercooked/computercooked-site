@@ -57,11 +57,42 @@
   function paint(c) {
     var lk = c.look, grump = c.species === "grump", tier = grump ? 0 : c.tier, st = c.stage || 0;
     var elder = st >= 4, r = SB.rng(((lk.spotsSeed || 1) * 31 + (lk.hue | 0)) >>> 0);
+    // collectible traits (see collect.js): pattern, eyes, accessory, palette, fluff
+    var cx = !grump && lk.cx && SB.Collect ? lk.cx : null;
+    function trait(slot) { return cx ? SB.Collect.entry(slot, cx[slot])[0] : ""; }
+    var pat = trait("pat"), eyeT = trait("eye"), acc = trait("acc"), pal = trait("pal"), fluffF = cx ? cx.f : 0.5;
     // palette
-    var sat = lk.sat / 100 * (elder ? 0.7 : 1), lig = lk.light / 100;
-    var base = hsl(lk.hue, sat, lig), light = hsl(lk.hue - 6, sat * 0.85, Math.min(0.9, lig + 0.14)), dark = hsl(lk.hue + 8, sat, Math.max(0.12, lig - 0.17));
-    var second = hsl(lk.hue2, Math.min(1, sat + 0.1), Math.min(0.85, lig + 0.1)), belly = mix(base, [255, 250, 240], 0.55);
-    var outline = grump ? [20, 12, 24] : hsl(lk.hue + 10, sat * 0.6, Math.max(0.08, lig - 0.45));
+    var hue = lk.hue, hue2 = lk.hue2, sat = lk.sat / 100 * (elder ? 0.7 : 1), lig = lk.light / 100;
+    if (pal === "pastel") { sat *= 0.5; lig = Math.min(0.84, lig + 0.13); }
+    else if (pal === "midnight") { sat = Math.min(1, sat * 0.7 + 0.2); lig = 0.3; hue2 = hue + 180; }
+    else if (pal === "shiny") { hue += 150; hue2 += 150; sat = Math.min(1, sat + 0.15); }
+    if (pat === "galaxy") { hue = 252; sat = 0.55; lig = 0.24; hue2 = 300; }
+    else if (pat === "gold") { hue2 = 45; }
+    var base = hsl(hue, sat, lig), light = hsl(hue - 6, sat * 0.85, Math.min(0.9, lig + 0.14)), dark = hsl(hue + 8, sat, Math.max(0.12, lig - 0.17));
+    var second = hsl(hue2, Math.min(1, sat + 0.1), Math.min(0.85, lig + (pal === "midnight" ? 0.3 : 0.1))), belly = mix(base, [255, 250, 240], 0.55);
+    var outline = grump ? [20, 12, 24] : pat === "galaxy" ? [16, 10, 40] : hsl(hue + 10, sat * 0.6, Math.max(0.08, lig - 0.45));
+    var seed = lk.spotsSeed || 1;
+    // the body's colour at a pixel for the special patterns (null: use the usual shading and pattern)
+    var shine = function (col, u, v) { var d = u * 0.55 + v * 0.75; return d < -0.62 ? mix(col, WHITE, 0.35) : d > 0.62 ? mix(col, INK, 0.3) : col; };
+    function special(x, y, u, v) {
+      if (pal === "prism") return shine(hsl(hue + x * 22 + y * 7, 0.75, 0.66), u, v);
+      if (pat === "holo") return shine(SB.hash(x, y, seed) < 0.06 ? WHITE : hsl(hue + (x + y) * 24, 0.5, 0.76), u, v);
+      if (pat === "galaxy") {
+        if (SB.hash(x, y, seed + 7) < 0.08) return SB.hash(x, y, seed) < 0.5 ? WHITE : [255, 200, 240];
+        if (SB.hash(x >> 2, y >> 2, seed + 3) < 0.35) return shine(hsl(300 + (x - y) * 4, 0.55, 0.36), u, v);
+        return null;
+      }
+      return null;
+    }
+    function patternAt(x, y, u, v) {
+      if (pat === "gradient") return v < -0.25 ? null : v < 0.3 ? mix(base, second, 0.5) : second;
+      if (pat === "tiger") return u > -0.75 && (x + (y >> 1)) % 4 === 0 ? dark : null;
+      if (pat === "calico") { var hc = SB.hash(Math.floor(x / 3), Math.floor(y / 3), seed); return hc < 0.28 ? second : hc < 0.45 ? CREAM : null; }
+      if (pat === "gold") return SB.hash(x, y, seed + 11) < 0.2 ? (SB.hash(y, x, seed) < 0.5 ? GOLD : [255, 238, 160]) : null;
+      if (pat === "freckles") return v > -0.15 && v < 0.35 && SB.hash(x, y, seed + 5) < 0.13 ? mix(base, [150, 70, 50], 0.5) : null;
+      return null;
+    }
+    var classic = !pat || pat === "classic";
     // body size: babies are smaller, big bodies are bigger, evolved smols stand a bit taller
     var shrink = [4, 2, 1, 0, 0][Math.min(4, st)] || 0;
     var bw = Math.round(11 + (lk.body - 0.8) * 9 + (lk.size - 1) * 8 + Math.min(tier, 4) * 0.4) - shrink;
@@ -105,6 +136,7 @@
       else if (lk.tail === 3) f.oval(bcx - brx, bcy + bry * 0.2, 2.6, 2.4, function (x, y, u, v) { return v < -0.2 ? WHITE : belly; });
       if (lk.wings) { var wy = (upright ? bcy - bry : top + 3) - flap * 2; f.oval(bcx - brx * 0.5 - (upright ? 2 : 0), wy, 3.2, 2.2 + flap * 0.4, function (x, y, u, v) { return u < -0.3 ? mix(second, WHITE, 0.7) : mix(second, WHITE, 0.45); }); }
       if (lk.fins) { for (var fn = 0; fn < 3; fn++) f.rect(bcx - 1 - fn - (upright ? 2 : 0), (upright ? bcy - bry : top) - 2 + fn, 1, 3 - fn, second); }
+      if (acc === "crystal") for (var cr = 0; cr < 3; cr++) { var crx = Math.round(cx - rx * 0.35 - cr * 2.4), cry = Math.round(top + 1 + cr * 1.8); f.rect(crx, cry - 3, 2, 3, [120, 220, 255]); f.px(crx, cry - 4, [220, 250, 255]); f.px(crx + 1, cry - 2, [200, 245, 255]); }
       if (grump) for (var sp = 0; sp < 3; sp++) { var sx = cx - rx * 0.2 - sp * 2.6, sy = cy - ry * Math.cos((sp * 0.35)); f.px(sx, sy - 1, dark); f.px(sx, sy - 2, dark); f.px(sx - 1, sy, dark); }
       if (legs) {
         var backX = legs === 4 ? [bcx - brx * 0.55, bcx + brx * 0.15] : upright ? [bcx - 2] : [bcx - brx * 0.25];
@@ -116,15 +148,26 @@
       }
       // ---- body (blob or torso) with soft shading
       f.oval(bcx, bcy, brx, bry, function (x, y, u, v) {
+        var sp2 = special(x, y, u, v); if (sp2) return sp2;
         var sh = shade(x, y, u, v); if (sh) return sh;
+        if (!classic) return patternAt(x, y, u, v) || base;
         if (lk.pattern === 1 && v > 0.05 && u > -0.35) return belly;
         if (lk.pattern === 3 && (Math.abs(v + 0.25) < 0.13 || Math.abs(v - 0.2) < 0.13)) return second;
         return base;
       });
-      if (lk.pattern === 2) { var rs = SB.rng(lk.spotsSeed || 3); for (var s = 0; s < (upright ? 2 : 4); s++) { var px = bcx - brx * 0.7 + rs() * brx * 0.9, py = bcy - bry * 0.6 + rs() * bry * 1.1; f.rect(px, py, 2, 1 + (s & 1), second); } }
+      if (lk.pattern === 2 && classic) { var rs = SB.rng(lk.spotsSeed || 3); for (var s = 0; s < (upright ? 2 : 4); s++) { var px = bcx - brx * 0.7 + rs() * brx * 0.9, py = bcy - bry * 0.6 + rs() * bry * 1.1; f.rect(px, py, 2, 1 + (s & 1), second); } }
       if (lk.fluff) for (var fl = 0; fl < brx * 2; fl += 2) f.px(bcx - brx + fl + 0.5, bot - 1 + ((fl / 2) % 2), mix(belly, WHITE, 0.4));
       // ---- head (upright smols): a round head sitting on the torso
-      if (upright) f.oval(cx, cy, rx, ry, function (x, y, u, v) { return shade(x, y, u, v) || base; });
+      if (upright) f.oval(cx, cy, rx, ry, function (x, y, u, v) { return special(x, y, u, v) || shade(x, y, u, v) || (pat === "freckles" || pat === "gold" || pat === "calico" ? patternAt(x, y, u, v) : null) || base; });
+      // ---- worn things: a flower bud, a crown, a leaf scarf, a scruffy tuft
+      if (acc === "bud") { f.px(cx - 2, top - 1, [80, 170, 80]); f.px(cx - 2, top - 2, [80, 170, 80]); f.px(cx - 3, top - 3, PINK); f.px(cx - 1, top - 3, PINK); f.px(cx - 2, top - 4, PINK); f.px(cx - 2, top - 3, GOLD); }
+      if (acc === "crown") { f.rect(cx - 2, top - 1, 5, 1, GOLD); f.px(cx - 2, top - 2, GOLD); f.px(cx, top - 2, GOLD); f.px(cx + 2, top - 2, GOLD); f.px(cx, top - 1, [255, 90, 150]); }
+      if (acc === "scarf") {
+        var scy = upright ? Math.round(bcy - bry + 1) : Math.round(cy + ry * 0.45);
+        for (var scx = 0; scx < F; scx++) if (f.on(scx, scy)) f.px(scx, scy, scx % 2 ? [96, 196, 92] : [58, 150, 72]);
+        f.px(Math.round(bcx - brx * 0.5), scy + 1, [58, 150, 72]); f.px(Math.round(bcx - brx * 0.5) - 1, scy + 2, [96, 196, 92]);
+      }
+      if (fluffF > 0.85) { f.px(cx - 1, top - 1, light); f.px(cx, top - 2, light); }
       // ---- near legs
       if (legs) {
         var frontX = legs === 4 ? [bcx - brx * 0.25, bcx + brx * 0.45] : upright ? [bcx + 0.5] : [bcx + brx * 0.2];
@@ -150,8 +193,13 @@
         if (fi === FR.blink || fi === FR.sleep) { f.rect(ex, ey + es - 1, 2, 1, INK); return; }
         if (fi === FR.happy) { f.px(ex, ey + es - 1, INK); f.px(ex + 1, ey + es - 2, INK); f.px(ex + 2, ey + es - 1, i ? null : INK); return; }
         if (fi === FR.scared) { f.rect(ex, ey - 1, 2, es + 1, WHITE); f.px(ex + 1, ey + 1, INK); return; }
-        f.rect(ex, ey, 2, es, eyeC);
-        if (!grump) f.px(ex, ey, WHITE);
+        var ec = eyeT === "hetero" ? (i ? [235, 165, 45] : [70, 150, 235]) : eyeT === "star" ? [255, 200, 50] : eyeT === "heart" ? [240, 60, 125] : eyeT === "cosmic" ? [80, 40, 150] : eyeC;
+        f.rect(ex, ey, 2, es, ec);
+        if (eyeT === "sleepy") { f.rect(ex, ey, 2, es - 1, dark); return; }
+        if (!grump) f.px(ex, ey, eyeT === "cosmic" ? [150, 245, 255] : WHITE);
+        if (eyeT === "cosmic") f.px(ex + 1, ey + es - 1, [255, 120, 220]);
+        if (eyeT === "heart") f.px(ex + 1, ey + es - 1, [170, 20, 80]);
+        if (eyeT === "star" && i) f.px(ex + 2, ey - 1, WHITE, 9);
       });
       if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
       if (elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
@@ -191,6 +239,13 @@
         f.px(Math.round((e1 + e2) / 2) + 1, ey, gc);
       }
       f.outline(outline);
+      var gl9 = function (x, y, c) { if (x >= 1 && x <= F - 2 && y >= 1) f.px(x, y, c, 9); };
+      if (acc === "halo" && tier < 6) for (var hh2 = -2; hh2 <= 2; hh2++) { gl9(cx + hh2, top - 4 - (Math.abs(hh2) < 2 ? 1 : 0), [190, 240, 255]); if (Math.abs(hh2) === 2) gl9(cx + hh2, top - 4, [190, 240, 255]); }
+      if (acc === "moon") { var ma = fi * 0.95, mx = Math.round(cx + Math.cos(ma) * (rx + 3)), my = Math.round(cy - ry * 0.3 + Math.sin(ma) * 3); gl9(mx, my, [235, 230, 255]); gl9(mx + 1, my, [235, 230, 255]); gl9(mx, my + 1, [235, 230, 255]); gl9(mx + 1, my + 1, [165, 150, 230]); }
+      if (pal === "shiny" || pal === "prism" || fluffF < 0.07) { // a twinkle that moves between frames
+        var spk = [[cx + rx + 1, top + 1], [cx - rx - 1, cy], [cx + rx * 0.4, top - 2], [cx - rx * 0.5, top]][fi % 4], skx = Math.round(spk[0]), sky = Math.round(spk[1]);
+        if (!f.on(skx, sky)) { gl9(skx, sky, WHITE); if (pal !== "natural" && pal !== "pastel" && pal !== "midnight") { [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { if (!f.on(skx + d[0], sky + d[1])) gl9(skx + d[0], sky + d[1], pal === "prism" ? hsl(fi * 40, 0.9, 0.7) : GOLD); }); } }
+      }
       if (!grump && tier >= 6) { // halo, unoutlined so it glows
         var hy = top - 4;
         for (var hh = -3; hh <= 3; hh++) { f.px(cx + hh, hy - (Math.abs(hh) < 3 ? 1 : 0), GOLD, 9); if (Math.abs(hh) === 3) f.px(cx + hh, hy, GOLD, 9); }
@@ -207,7 +262,7 @@
   function sheetKey(c) {
     var lk = c.look;
     return [c.species, lk.hue, lk.hue2, lk.sat | 0, lk.light | 0, lk.pattern, lk.ears, (lk.eyes * 10) | 0, lk.tail, (lk.body * 10) | 0, lk.legs, (lk.legLen * 10) | 0, lk.arms ? 1 : 0,
-      lk.head > 0.4 ? 1 : 0, lk.fins ? 1 : 0, lk.fluff ? 1 : 0, lk.horns ? 1 : 0, lk.wings ? 1 : 0, lk.antenna ? 1 : 0, lk.cheeks ? 1 : 0, c.tier, Math.min(4, c.stage || 0), c.holding != null ? 1 : 0, lk.spotsSeed].join(",");
+      lk.head > 0.4 ? 1 : 0, lk.fins ? 1 : 0, lk.fluff ? 1 : 0, lk.horns ? 1 : 0, lk.wings ? 1 : 0, lk.antenna ? 1 : 0, lk.cheeks ? 1 : 0, c.tier, Math.min(4, c.stage || 0), c.holding != null ? 1 : 0, lk.spotsSeed, lk.cxKey || "", (lk.size * 20) | 0].join(",");
   }
   function ensureAtlas(ctx) {
     if (tex && glctx === ctx) return;
@@ -242,6 +297,7 @@
   function frameFor(c, t) {
     var an = c.anim, a = c.action;
     if (c.asleep) return FR.sleep;
+    if (c.heldBy === "hand" && an.held) return an.held === "giggle" ? FR.happy : FR.scared; // grabbed: a giggle or a squeal
     if ((c.drownT || 0) > 0 || c.chem.fear > 0.65) return FR.scared;
     if (a && a.verb === SB.V.eat && a.phase === "do") return ((t * 6) | 0) % 2 ? FR.eat : FR.idle0;
     if (an.emote === "happy" || an.emote === "love" || an.emote === "yum" || an.emote === "proud") return FR.happy;
@@ -267,10 +323,15 @@
     // zoomed right in they top out at 2x (no giants); zoomed far out they become dots
     var ratio = 0.38 * 2.2 * ppu / 16, dot = ratio < 0.42;
     var k = dot ? 1 : ratio < 0.8 ? ratio : Math.min(2, Math.max(1, Math.floor(ratio + 0.3)));
+    if (cam.pov) { // first person: each sprite scales with its own distance, and nothing behind the eye
+      ppu = R.ppuAt(x, y + 0.3, z);
+      if (!ppu || ppu > cam.povK / 0.75) return; // behind the eye, or so close it would fill the screen
+      ratio = 0.38 * 2.2 * ppu / 16; dot = ratio < 0.12; k = SB.clamp(ratio, 0.12, cs.h * 0.45 / F);
+    }
     c._pxH = (s.bodyPx + 6) * k * (R.pixelSize || 1); // on-screen height in CSS px, for speech bubbles
     var fr = dot ? FR.dot : frameFor(c, t);
     if (dot) c._pxH = 8 * (R.pixelSize || 1);
-    if (c.tier >= 6 && c.species === "smol" && !c.heldBy) y += Math.sin(t * 1.7 + c.id) * 0.06; // a slow, smooth hover
+    if (c.tier >= 6 && c.species === "smol" && !c.heldBy && !c.corpse) y += Math.sin(t * 1.7 + c.id) * 0.06; // a slow, smooth hover
     // facing: which way it's heading on screen
     var sx = Math.sin(c.facing), sz = Math.cos(c.facing), flip = (sx * cam.right[0] + sz * cam.right[2]) < 0 ? 1 : 0;
     if (n * IS >= inst.length) { var ni = new Float32Array(inst.length * 2); ni.set(inst); inst = ni; }
@@ -283,16 +344,17 @@
     var cutPx = Math.round(cut * (s.bodyPx + 2)) + (cut ? 2 : 0); // rows hidden below the waterline (frame has 2 empty rows at the bottom)
     var o = n * IS;
     inst[o] = x; inst[o + 1] = y; inst[o + 2] = z;
-    inst[o + 3] = F * k; inst[o + 4] = (F - cutPx) * k;
+    var sq = c.heldBy === "hand" ? c.anim.squash || 0 : 0; // squirming in the hand: squish and stretch
+    inst[o + 3] = F * k * (1 + sq * 0.5); inst[o + 4] = (F - cutPx) * k * (1 - sq);
     inst[o + 5] = (s.ox + fr * F) / AW; inst[o + 6] = s.oy / AH; inst[o + 7] = (s.ox + (fr + 1) * F) / AW; inst[o + 8] = (s.oy + F - cutPx) / AH;
-    inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.dying ? 1 - c.fade : 1;
+    inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.corpse ? 2 : c.dying ? 1 - c.fade : 1; // 2: a body (drawn grey and still)
     n++;
   };
 
   var VS = [
     "attribute vec2 aCorner;",
     "attribute vec3 iPos; attribute vec2 iPx; attribute vec4 iUV; attribute vec4 iMisc;",
-    "uniform mat4 uVP; uniform vec2 uRes;",
+    "uniform mat4 uVP; uniform vec2 uRes; uniform vec2 uZo;",
     "varying vec2 vUV; varying vec3 vW; varying vec2 vMisc; varying float vFog; varying float vA;",
     "uniform vec4 uFog; uniform vec4 uCam;",
     "void main() {",
@@ -300,7 +362,7 @@
     "  vec2 pix = floor((c.xy / c.w * 0.5 + 0.5) * uRes + 0.5);",          // snap the feet to the pixel grid
     "  float k = iPx.x / 32.0;",
     "  vec2 p = pix + vec2(floor((aCorner.x - 0.5) * iPx.x + 0.5), aCorner.y * iPx.y - (iPx.y < iPx.x ? 0.0 : k));",
-    "  gl_Position = vec4(p / uRes * 2.0 - 1.0, c.z / c.w - 0.004, 1.0);",
+    "  gl_Position = vec4(p / uRes * 2.0 - 1.0, c.z / c.w - uZo.x - uZo.y / (c.w * c.w), 1.0);",
     "  float u = iMisc.x > 0.5 ? 1.0 - aCorner.x : aCorner.x;",
     "  vUV = vec2(mix(iUV.x, iUV.z, u), mix(iUV.w, iUV.y, aCorner.y));",
     "  vW = iPos + vec3(0.0, aCorner.y * 0.8, 0.0);",
@@ -317,6 +379,7 @@
       "  if (t.a < 0.5 || vA < 0.02) discard;",
       "  vec3 col = shade(t.rgb, normalize(vec3(-0.2, 0.85, 0.5)), vW, vMisc.x, vFog);",
       "  col = mix(col, vec3(1.0), vMisc.y * 0.7);",
+      "  if (vA > 1.5) { float g = dot(col, vec3(0.3, 0.59, 0.11)); col = mix(col, vec3(g * 0.8 + 0.06, g * 0.8 + 0.06, g * 0.85 + 0.1), 0.8); }",
       "  gl_FragColor = vec4(col, 1.0);",
       "}"].join("\n");
   }
@@ -333,11 +396,14 @@
     R.setLightUniforms(p);
     var cs = R.canvasSize();
     gl.uniform2f(p.u.uRes, cs.w, cs.h);
+    // pulled a little toward the eye so they stand in front of the ground they're on (a perspective depth
+    // buffer squeezes far away, so there it's a fixed distance, not a fixed depth)
+    if (cam.pov) gl.uniform2f(p.u.uZo, 0, 2 * 0.04 * 0.35); else gl.uniform2f(p.u.uZo, 0.004, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(p.u.uAtlas, 1);
     GL.attribs(ctx, quad, [[p.a.aCorner, 2]], 2, 0);
     GL.stream(ctx, holder, inst, n * IS);
     GL.attribs(ctx, holder.buf, [[p.a.iPos, 3], [p.a.iPx, 2], [p.a.iUV, 4], [p.a.iMisc, 4]], IS, 1);
-    gl.depthMask(false); // sprites carry their own painted outline; keep them out of the outline pass
+    gl.depthMask(!!cam.pov); // sprites carry their own painted outline; keep them out of the outline pass (not in first person: one can fill half the screen, and the ink of what's behind mustn't show through it)
     ctx.drawInstanced(gl.TRIANGLES, 0, 6, n);
     gl.depthMask(true);
     gl.activeTexture(gl.TEXTURE0);

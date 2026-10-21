@@ -56,13 +56,13 @@
 
   Save.snapshot = function (game) {
     return {
-      v: 2, savedAt: Date.now(), seed: game.seed, rngState: game.rng.state(),
+      v: 2, savedAt: Date.now(), wid: game.wid || null, wname: game.wname || null, seed: game.seed, n: game.world && game.world.T ? game.world.T.N : SB.WORLD_N, rngState: game.rng.state(),
       time: round(game.time), speed: game.speed, nextId: game.nextId, selectedId: game.selectedId,
       hand: { tool: game.hand.tool }, family: plain(pruneFamily(game), 0), stats: plain(game.stats, 0), achievements: plain(game.achievements, 0),
-      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, threats: SB.Threats ? SB.Threats.serialize(game) : null, podsDown: game.podsDown || 0, podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
+      tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, threats: SB.Threats ? SB.Threats.serialize(game) : null, podsDown: game.podsDown || 0, bodies: SB.Funeral ? SB.Funeral.serialize(game) : [], orders: SB.Orders ? SB.Orders.serialize(game) : null, lore: SB.Mind && SB.Mind.saveLore ? plain(SB.Mind.saveLore(game), 0) : null, podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
       culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount, sharedMax: game.culture.sharedMax || 0, spireBoost: !!game.culture.spireBoost }, 0),
       tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
-      playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0), ngPlus: game.ngPlus || 0, ended: !!game.ended,
+      playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0), collect: plain(game.collect || {}, 0), ngPlus: game.ngPlus || 0, ended: !!game.ended,
       world: SB.World.serialize(game.world),
       creatures: game.creatures.filter(function (c) { return !c.gone && (c.alive || c.dying) && c.species === "smol"; }).map(plainCreature)
     };
@@ -74,15 +74,18 @@
   function sdk() { return window.cc && typeof window.cc.save === "function" ? window.cc : null; }
 
   Save.save = function (game) {
-    if (!game || game.offlineRunning || reloading) return false;
-    var snap, ok = false;
+    if (!game || game.offlineRunning || game.showcase || reloading) return false;
+    var snap, ok = false, json = null;
+    Save.claim(game);
     try {
       snap = Save.snapshot(game);
-      window.localStorage.setItem(KEY, JSON.stringify(snap));
+      json = JSON.stringify(snap);
+      window.localStorage.setItem(KEY, json);
       ok = true;
     } catch (e) {
       // quota / private mode / no storage: ignore
     }
+    if (snap) { Save.note(snap); if (json) idb("put", snap.wid, json); }
     var cc = sdk();
     // until the boot-time cloud check answers, a brand-new game must not look "newer" than the account's save
     if (cc && snap && !checking) { try { cc.save(CLOUD_SLOT, snap).catch(function () {}); } catch (e) {} }
@@ -133,9 +136,127 @@
     } catch (e) { return null; }
   };
   Save.wipe = function () {
+    var cur = Save.load();
     try { window.localStorage.removeItem(KEY); } catch (e) {}
+    if (cur && cur.wid) Save.forget(cur.wid);
     var cc = sdk(); // the account copy is cleared too, so a fresh start isn't overridden by the old save
     if (cc) { try { cc.save(CLOUD_SLOT, null).catch(function () {}); } catch (e) {} }
+  };
+
+  /* ---------------- many worlds (v3.6) ----------------
+     The island being played stays in the one localStorage save above (so old builds, the cloud copy and
+     the tests all keep working). Every island also has a copy in IndexedDB under its world id, and a small
+     list of them (name, day, tier...) lives in localStorage for the "load game" screen. Without IndexedDB
+     the browser keeps one island, as before. */
+  var INDEX = "smolbrains-worlds", DB = "smolbrains", STORE = "worlds";
+  var dbP = null;
+  function openDb() {
+    if (dbP) return dbP;
+    dbP = new Promise(function (ok, no) {
+      try {
+        if (!window.indexedDB) return no(new Error("no indexeddb"));
+        var rq = window.indexedDB.open(DB, 1);
+        rq.onupgradeneeded = function () { rq.result.createObjectStore(STORE); };
+        rq.onsuccess = function () { ok(rq.result); };
+        rq.onerror = function () { no(rq.error); };
+        rq.onblocked = function () { no(new Error("blocked")); };
+      } catch (e) { no(e); }
+    });
+    dbP.catch(function () {});
+    return dbP;
+  }
+  // idb(op, key, value) -> promise of the result (null on any failure)
+  function idb(op, key, val) {
+    if (!key) return Promise.resolve(null);
+    return openDb().then(function (db) {
+      return new Promise(function (ok) {
+        try {
+          var tx = db.transaction(STORE, op === "get" ? "readonly" : "readwrite"), st = tx.objectStore(STORE);
+          var rq = op === "get" ? st.get(key) : op === "put" ? st.put(val, key) : st.delete(key);
+          rq.onsuccess = function () { ok(op === "get" ? rq.result : true); };
+          rq.onerror = function () { ok(null); };
+        } catch (e) { ok(null); }
+      });
+    }).catch(function () { return null; });
+  }
+  Save.manyOk = function () { return openDb().then(function () { return true; }, function () { return false; }); };
+  function readIndex() {
+    try { var d = JSON.parse(window.localStorage.getItem(INDEX) || "null"); return d && Array.isArray(d.list) ? d : { list: [] }; } catch (e) { return { list: [] }; }
+  }
+  function writeIndex(d) { try { window.localStorage.setItem(INDEX, JSON.stringify(d)); } catch (e) {} }
+  Save.newWid = function () { return "w" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); };
+  // every played island gets an id and a name the first time it's saved (saves from before v3.6 included)
+  Save.claim = function (game) {
+    if (!game.wid) game.wid = Save.newWid();
+    if (!game.wname) game.wname = "my first island";
+    return game.wid;
+  };
+  // what the load screen shows about an island, from its save
+  Save.meta = function (d) {
+    var cs = Array.isArray(d.creatures) ? d.creatures : [], tier = 0;
+    cs.forEach(function (c) { if (c && typeof c.tier === "number" && c.tier > tier) tier = c.tier; });
+    var st = obj(d.stats), w = obj(obj(d.settings).world);
+    return { id: d.wid, name: String(d.wname || "my first island").slice(0, 40), seed: d.seed, n: num(d.n, 256), day: Math.floor(num(d.time, 0) / SB.DAY_LENGTH) + 1, pop: cs.length, tier: Math.max(tier, num(st.maxTier, 0)), gen: num(st.maxGen, 1), savedAt: num(d.savedAt, 0), created: num(d.created, 0), play: Math.round(num(d.playTime, 0)), quirks: Array.isArray(w.quirks) ? w.quirks.slice(0, 3) : [], ended: !!d.ended };
+  };
+  Save.note = function (d) {
+    if (!d || !d.wid) return;
+    var ix = readIndex(), m = Save.meta(d), i = ix.list.findIndex(function (e) { return e && e.id === d.wid; });
+    if (i >= 0) ix.list[i] = m; else ix.list.push(m);
+    ix.active = d.wid;
+    writeIndex(ix);
+  };
+  Save.forget = function (wid) {
+    var ix = readIndex();
+    ix.list = ix.list.filter(function (e) { return e && e.id !== wid; });
+    if (ix.active === wid) ix.active = null;
+    writeIndex(ix);
+    idb("del", wid);
+  };
+  // every island this browser keeps, the most recently played first. The live save always counts
+  Save.worlds = function () {
+    var ix = readIndex(), cur = Save.load(), list = ix.list.filter(function (e) { return e && e.id; });
+    if (cur) {
+      if (!cur.wid) cur.wid = "legacy"; // a save from before v3.6: it gets a real id when it's next saved
+      var m = Save.meta(cur), i = list.findIndex(function (e) { return e.id === cur.wid; });
+      if (i >= 0) list[i] = m; else list.push(m);
+    }
+    return list.sort(function (a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+  };
+  // the island's save, from the live slot or its IndexedDB copy -> promise of the data (or null)
+  Save.loadWorld = function (wid) {
+    var cur = Save.load();
+    if (cur && (cur.wid || "legacy") === wid) return Promise.resolve(cur);
+    return idb("get", wid).then(function (s) {
+      if (!s) return null;
+      try { var d = JSON.parse(s); return d && d.v === 2 && typeof d.seed === "number" ? d : null; } catch (e) { return null; }
+    });
+  };
+  // before another island takes the live slot: make sure the one there is safe in IndexedDB.
+  // -> promise of true when it is (or there's nothing to keep)
+  Save.stash = function () {
+    var cur = Save.load();
+    if (!cur) return Promise.resolve(true);
+    if (!cur.wid) { cur.wid = Save.newWid(); cur.wname = cur.wname || "my first island"; }
+    var json = JSON.stringify(cur);
+    return idb("put", cur.wid, json).then(function (ok) {
+      if (!ok) return false;
+      try { window.localStorage.setItem(KEY, json); } catch (e) {}
+      Save.note(cur);
+      return true;
+    });
+  };
+  // make an island the live one (the caller then revives it)
+  Save.adopt = function (d) {
+    try { window.localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
+    Save.note(d);
+  };
+  Save.removeWorld = function (wid) {
+    var cur = Save.load();
+    if (cur && (cur.wid || "legacy") === wid) {
+      try { window.localStorage.removeItem(KEY); } catch (e) {}
+      var cc = sdk(); if (cc) { try { cc.save(CLOUD_SLOT, null).catch(function () {}); } catch (e) {} }
+    }
+    Save.forget(wid);
   };
 
   function num(v, d) { return typeof v === "number" && isFinite(v) ? v : d; }
@@ -144,12 +265,12 @@
   Save.revive = function (data) {
     data = obj(data);
     var seed = num(data.seed, 1) || 1;
-    var game = SB.Game.create(seed);
+    var game = SB.Game.create(seed, num(data.n, 256), obj(data.settings).world || null); // saves from before v3.5 have no size: those islands are 256 across
     game.time = Math.max(0, num(data.time, game.time));
     game.speed = SB.SPEEDS.indexOf(data.speed) >= 0 ? data.speed : 1;
     if (data.rngState != null) game.rng.setState(data.rngState);
     game.nextId = Math.max(1, num(data.nextId, 1));
-    var tools = ["grab", "tickle", "tap", "talk", "magic"];
+    var tools = ["grab", "tickle", "tap", "talk", "magic", "orders"];
     if (data.hand && tools.indexOf(data.hand.tool) >= 0) game.hand.tool = data.hand.tool;
     game.family = obj(data.family); game.achievements = obj(data.achievements); game.tutorial = obj(data.tutorial);
     if (typeof game.tutorial.step !== "number") game.tutorial.step = 0;
@@ -160,6 +281,7 @@
     game.sparks = num(data.sparks, 12); game.blessing = data.blessing || null;
     game.godHeat = num(data.godHeat, 0); game.spoil = num(data.spoil, 0); game.chronicle = Array.isArray(data.chronicle) ? data.chronicle : []; if (SB.Sites) SB.Sites.revive(game, data.sites); game.logsFound = num(data.logsFound, 0); if (SB.Threats) SB.Threats.revive(game, data.threats); game.podsDown = num(data.podsDown, 0); game.podT = data.podT == null ? null : num(data.podT, 0); game.dir = data.dir && typeof data.dir === "object" ? { nextT: num(data.dir.nextT, 480), count: num(data.dir.count, 0), last: data.dir.last || {}, losses: data.dir.losses || [], history: data.dir.history || [], marks: data.dir.marks || [], lastBad: num(data.dir.lastBad, 0), active: null } : null; game.strangerT = data.strangerT == null ? null : num(data.strangerT, 600);
     game.playTime = num(data.playTime, 0); game.created = num(data.created, Date.now()); game.migratedFromV1 = !!data.migratedFromV1;
+    game.wid = typeof data.wid === "string" && data.wid !== "legacy" ? data.wid.slice(0, 40) : null; game.wname = typeof data.wname === "string" ? data.wname.slice(0, 40) : null;
     game.settings = obj(data.settings); game.ngPlus = num(data.ngPlus, 0); game.ended = !!data.ended;
     game.world = SB.World.revive(obj(data.world), game);
     game.world.time = game.time;
@@ -179,7 +301,11 @@
         if (c && c.alive) game.creatures.push(c);
       } catch (e) { if (window.console) console.warn("[save] could not revive creature", p && p.name, e); }
     });
+    if (SB.Funeral) SB.Funeral.revive(game, Array.isArray(data.bodies) ? data.bodies : []);
+    if (SB.Orders) SB.Orders.revive(game, data.orders);
+    if (SB.Mind && SB.Mind.loadLore) SB.Mind.loadLore(game, data.lore); // the tribe's rituals and taboos
     fixIds(game);
+    if (SB.Collect) { game.collect = obj(data.collect); SB.Collect.backfill(game); } // older saves: everyone gets a serial number
     if (data.selectedId != null && SB.Game.byId(game, data.selectedId)) game.selectedId = data.selectedId;
     return game;
   };
@@ -205,7 +331,7 @@
 
   Save.migrateV1 = function (v1) {
     var seed = (num(v1.seed, 1) >>> 0) % 25600000 || 1;
-    var game = SB.Game.create(seed);
+    var game = SB.Game.create(seed, 256);
     game.migratedFromV1 = true;
     game.tutorial = { step: 99, done: true, wildDone: true };
     game.achievements = obj(v1.achievements);
@@ -291,6 +417,11 @@
       genome: SB.Genome.encode(c.genome), brain: c.brain ? plain(SB.Brain.serialize(c.brain), 0) : null,
       vocab: vocab, ideas: ideas, age: Math.min(Math.round(c.age || 0), SB.STAGES[3].from)
     };
+    if (SB.Collect) {
+      if (c.oid) payload.oid = c.oid;
+      if (c.serial) payload.ser = c.serial;
+      payload.ck = SB.Collect.checksum(JSON.stringify(payload)); // the last key, over everything before it
+    }
     return "SMOL2:" + b64urlEncode(JSON.stringify(payload));
   };
 
@@ -304,13 +435,23 @@
     var p;
     try { p = JSON.parse(b64urlDecode(s)); } catch (e) { throw bad(); }
     if (!p || typeof p !== "object" || !p.genome) throw bad();
+    var signed = false;
+    if (p.ck != null && SB.Collect) {
+      var rest = {};
+      for (var pk in p) if (pk !== "ck") rest[pk] = p[pk];
+      if (SB.Collect.checksum(JSON.stringify(rest)) !== p.ck) { var e2 = new Error("this smol code was changed or mistyped"); e2.tampered = true; throw e2; }
+      signed = true;
+    }
     var genome;
     try { genome = typeof p.genome === "string" ? SB.Genome.decode(p.genome) : SB.Genome.upgrade(p.genome); } catch (e) { throw bad(); }
+    if (!signed) delete genome.cx; // an unsigned code keeps no traits of its own: they come from its genes, so nobody can type in a legendary
     var vocab = {};
     for (var w in obj(p.vocab)) { var v = num(p.vocab[w], 0); if (v > 0 && SB.LEXICON[w]) vocab[w] = Math.min(1.5, v); }
     var ideas = {};
     for (var id in obj(p.ideas)) if (SB.Ideas.BY_ID[id]) ideas[id] = 1;
     var name = String(p.name || "smol").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24) || "smol";
-    return { name: name, gen: Math.max(1, Math.floor(num(p.gen, 1))), genome: genome, brain: p.brain || null, vocab: vocab, ideas: ideas, age: SB.clamp(num(p.age, 0), 0, SB.STAGES[3].from) };
+    var oid = typeof p.oid === "string" ? p.oid.slice(0, 40) : null;
+    return { name: name, gen: Math.max(1, Math.floor(num(p.gen, 1))), genome: genome, brain: p.brain || null, vocab: vocab, ideas: ideas, age: SB.clamp(num(p.age, 0), 0, SB.STAGES[3].from),
+      oid: oid, ser: num(p.ser, 0), key: SB.Collect ? SB.Collect.importKey(typeof p.genome === "string" ? p.genome : JSON.stringify(p.genome), oid) : null };
   };
 })();

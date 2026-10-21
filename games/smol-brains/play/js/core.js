@@ -89,25 +89,85 @@
 
   /* ---------------- world ---------------- */
 
-  SB.WORLD_N = 256;          // tiles per side
+  SB.WORLD_N = 256;          // tiles per side of the current island (set per game by SB.setWorldN)
+  SB.WORLD_N_NEW = window.SB_N || 544; // new islands since v3.7: twice the land of v3.5's 384 (old saves keep theirs; SB_N is a test hook)
+  SB.WORLD_GV = 2; // the island generator new worlds use (worldgen.js); saves without one are generator 1
+  SB.setWorldN = function (n) {
+    n = Math.round(+n || 0);
+    if (!(n >= 128 && n <= 1024 && n % 32 === 0)) n = 256;
+    SB.WORLD_N = n;
+    if (SB.World) SB.World.SEEN_N = n / 4;
+    return n;
+  };
+
+  // "create world" options (v3.6). Each choice maps to plain multipliers the sim reads through SB.wopt;
+  // the defaults are exactly the classic island, and an island quirk stacks on top of the choices
+  SB.WORLD_CHOICES = {
+    size: { small: 384, normal: 544, large: 768, huge: 1024 },
+    land: { isles: { land: 0.86 }, island: {}, big: { land: 1.16 } },
+    peaks: { flat: { mtn: 0.5 }, normal: {}, tall: { mtn: 1.55 } },
+    climate: { temperate: {}, tropical: { temp: 0.16, moist: 0.12 }, frozen: { temp: -0.24 }, dry: { temp: 0.08, moist: -0.22 } },
+    food: { scarce: { food: 0.6 }, normal: {}, plenty: { food: 1.6 } },
+    grumps: { none: { grumps: 0 }, few: { grumps: 0.5 }, normal: {}, many: { grumps: 1.8 } },
+    storms: { calm: { storms: 0.3 }, normal: {}, wild: { storms: 2.2 } },
+    crew: { pair: {}, crew: { crew: 4 } }
+  };
+  SB.QUIRKS = {
+    bunnies: { icon: "🐇", name: "bunny island", desc: "hoppers everywhere. easy snacks, noisy nights.", fx: { critters: 2.2 } },
+    lush: { icon: "🍎", name: "the fat years", desc: "every bush is heavy with fruit.", fx: { food: 1.35 } },
+    crystals: { icon: "💎", name: "crystal veins", desc: "the rocks glitter. crystals and ore come easier.", fx: { ore: 1.8 } },
+    tempest: { icon: "⛈", name: "storm coast", desc: "the sky is angry here. more storms, more lightning, more fire.", fx: { storms: 2 } },
+    grumpmoon: { icon: "🌑", name: "grump moon", desc: "the caves are full. more grumps, but prayers pay more.", fx: { grumps: 1.5, sparks: 1.3 } },
+    gentle: { icon: "🌼", name: "sleepy island", desc: "few grumps and soft weather. a good place to grow up.", fx: { grumps: 0.4, storms: 0.5 } },
+    wild: { icon: "🦎", name: "wild island", desc: "bugs, beasts and critters all over.", fx: { critters: 1.6, food: 1.1 } },
+    old: { icon: "🏛", name: "old ruins", desc: "the pods aren't the first to land here. more ruins to find.", fx: { sites: 1.6 } }
+  };
+  SB.WORLD_OPTS = {}; // the multipliers of the island being made or played (set by Game.create)
+  SB.worldFx = function (w) {
+    var fx = { land: 1, mtn: 1, temp: 0, moist: 0, food: 1, grumps: 1, storms: 1, critters: 1, ore: 1, sparks: 1, sites: 1, crew: 2, gv: 1, arch: null };
+    w = w || {};
+    if (w.gv >= 2) fx.gv = Math.min(SB.WORLD_GV, w.gv | 0);
+    if (typeof w.arch === "string") fx.arch = w.arch;
+    Object.keys(SB.WORLD_CHOICES).forEach(function (k) {
+      var c = SB.WORLD_CHOICES[k][w[k]];
+      if (c && typeof c === "object") for (var f in c) fx[f] = (f === "temp" || f === "moist" || f === "crew") ? c[f] : fx[f] * c[f];
+    });
+    (w.quirks || []).forEach(function (q) { var d = SB.QUIRKS[q]; if (d) for (var f in d.fx) fx[f] *= d.fx[f]; });
+    return fx;
+  };
+  // one multiplier of the current island (1 if the island has no options)
+  SB.wopt = function (game, k) {
+    var fx = game && game._fx;
+    if (!fx) { fx = SB.worldFx(game && game.settings && game.settings.world); if (game) game._fx = fx; }
+    return fx[k] == null ? 1 : fx[k];
+  };
   SB.CHUNK = 32;             // tiles per render chunk side
   SB.SEA = 0;                // sea level
 
   // Biomes: id, name, ground colours (low, high), temperature 0..1, what grows there.
   SB.BIOMES = [
     { id: "ocean", name: "ocean", c: [0x2b6f9c, 0x3f8fbf], temp: 0.5 },
-    { id: "beach", name: "beach", c: [0xe9d8a6, 0xf2e2b4], temp: 0.62 },
-    { id: "meadow", name: "meadow", c: [0x7fcf5f, 0x9ad86a], temp: 0.55 },
-    { id: "forest", name: "forest", c: [0x4f9a48, 0x5fae52], temp: 0.5 },
-    { id: "jungle", name: "jungle", c: [0x2f9a5a, 0x3fb468], temp: 0.78 },
-    { id: "savanna", name: "savanna", c: [0xc8c068, 0xd6cc74], temp: 0.72 },
+    { id: "beach", name: "beach", c: [0xf0dca4, 0xf7e7b6], temp: 0.62 },
+    { id: "meadow", name: "meadow", c: [0x84c955, 0x98d660], temp: 0.55 },
+    { id: "forest", name: "forest", c: [0x58a248, 0x67b252], temp: 0.5 },
+    { id: "jungle", name: "jungle", c: [0x36a256, 0x46b862], temp: 0.78 },
+    { id: "savanna", name: "savanna", c: [0xd0c264, 0xdecd70], temp: 0.72 },
     { id: "desert", name: "desert", c: [0xe8c487, 0xf0cf94], temp: 0.88 },
-    { id: "swamp", name: "swamp", c: [0x587a4a, 0x66885a], temp: 0.6 },
-    { id: "taiga", name: "pine woods", c: [0x4f7d5d, 0x5d8c69], temp: 0.3 },
+    { id: "swamp", name: "swamp", c: [0x5f8a4a, 0x6e9858], temp: 0.6 },
+    { id: "taiga", name: "pine woods", c: [0x518a5c, 0x609a68], temp: 0.3 },
     { id: "tundra", name: "snowfield", c: [0xe7eef5, 0xf5f8fc], temp: 0.12 },
     { id: "mountain", name: "mountains", c: [0x8a8590, 0x9d98a3], temp: 0.3 },
     { id: "shroom", name: "glowshroom grove", c: [0x7a5fb0, 0x8c70c4], temp: 0.5 },
-    { id: "crystal", name: "crystal steppe", c: [0xb4b9d8, 0xc6cbe6], temp: 0.4 }
+    { id: "crystal", name: "crystal steppe", c: [0xb4b9d8, 0xc6cbe6], temp: 0.4 },
+    // v3.7 (new islands only; ids are appended so old saves keep theirs)
+    { id: "blossom", name: "blossom grove", c: [0x8fd06a, 0xf0b8cf], temp: 0.55 },
+    { id: "maple", name: "maple woods", c: [0x9a8a3e, 0xc8743a], temp: 0.45 },
+    { id: "ash", name: "ashlands", c: [0x4a4248, 0x5c5257], temp: 0.7 },
+    { id: "mangrove", name: "mangrove coast", c: [0x5e8a52, 0x77985a], temp: 0.7 },
+    { id: "bamboo", name: "bamboo thicket", c: [0x7cbf4e, 0x96cf5a], temp: 0.68 },
+    { id: "mesa", name: "red mesas", c: [0xc9714a, 0xd98a5a], temp: 0.8 },
+    { id: "flowers", name: "flower fields", c: [0x92d468, 0xb6dc6e], temp: 0.56 },
+    { id: "reef", name: "coral shallows", c: [0x4fc0b8, 0xf08a8a], temp: 0.7 }
   ];
   SB.B = idx(SB.BIOMES.map(function (b) { return b.id; }));
 
@@ -116,6 +176,7 @@
      rots: seconds before it goes bad (0 = never). tool: crafted tool that an "use" verb can apply. */
   SB.KINDS = {
     apple: { noun: "food", label: "apple", emoji: "🍎", r: 0.16, color: 0xe5484d, food: { hunger: -0.42 }, chem: { glucose: 0.32 }, rots: 480, desc: "falls from apple trees. crunchy, honest food." },
+    cherry: { noun: "food", label: "cherries", emoji: "🍒", r: 0.13, color: 0xd7263d, food: { hunger: -0.3, bored: -0.05 }, chem: { glucose: 0.26 }, rots: 380, desc: "from blossom trees. tiny, red and very sweet." },
     berry: { noun: "food", label: "berries", emoji: "🫐", r: 0.13, color: 0x6c5ce7, food: { hunger: -0.28, bored: -0.04 }, chem: { glucose: 0.24 }, rots: 360, desc: "grows on berry bushes. small but sweet." },
     banana: { noun: "food", label: "sunfruit", emoji: "🍌", r: 0.16, color: 0xffd23f, food: { hunger: -0.45 }, chem: { glucose: 0.36 }, rots: 420, desc: "hangs from jungle palms. a smol favourite." },
     nut: { noun: "material", label: "hardnut", emoji: "🌰", r: 0.13, color: 0x9a6a3a, food: { hunger: -0.05 }, chem: {}, rots: 0, shell: "nutmeat", desc: "drops from pines. impossible to eat... unless you crack it with a rock." },
@@ -189,6 +250,14 @@
     flintrock: { noun: "stone", label: "flint outcrop", emoji: "🔷", r: 0.5, drops: "flint", every: 200, desc: "dark glassy rock. sharp." },
     claybank: { noun: "material", label: "clay bank", emoji: "🟫", r: 0.5, drops: "clay", every: 160, desc: "squishy riverbank. good for pots." },
     orevein: { noun: "material", label: "ore vein", emoji: "🟠", r: 0.55, drops: "ore", every: 150, desc: "copper in the rock." },
+    // v3.7 biomes
+    sakura: { noun: "plant", label: "blossom tree", emoji: "🌸", r: 0.55, drops: "cherry", every: 75, also: "stick", desc: "pink all year. drops sweet cherries." },
+    maple: { noun: "plant", label: "maple", emoji: "🍁", r: 0.55, drops: "nut", every: 95, also: "stick", desc: "red leaves, spinning seeds, lots of sticks." },
+    bamboo: { noun: "plant", label: "bamboo", emoji: "🎋", r: 0.35, drops: "stick", every: 40, also: "fiber", desc: "grows so fast you can almost watch. sticks and fibre for days." },
+    mangrove: { noun: "plant", label: "mangrove", emoji: "🌳", r: 0.6, drops: "stick", every: 80, also: "fiber", desc: "a tree on stilts with its feet in the water." },
+    basalt: { noun: "stone", label: "basalt column", emoji: "🪨", r: 0.55, drops: "flint", every: 170, desc: "black glassy rock from the volcano. flakes into sharp flint." },
+    vent: { noun: "material", label: "steam vent", emoji: "♨️", r: 0.5, drops: "ore", every: 200, glow: 1, desc: "hot breath from deep down. leaves copper ore around it." },
+    redrock: { noun: "stone", label: "red rock", emoji: "🪨", r: 0.6, drops: "stone", every: 140, also: "clay", desc: "soft red stone, crumbly with clay." },
     crystals: { noun: "material", label: "thought crystals", emoji: "💎", r: 0.55, drops: "crystal", every: 240, glow: 1, desc: "crystals that hum near big brains." },
     cave: { noun: "grump", label: "grump cave", emoji: "🕳", r: 0.9, desc: "grumps sleep here by day." },
     nest: { noun: "shelter", label: "nest", emoji: "🪺", r: 0.7, desc: "where your first egg was found. smols sleep well here." }
@@ -349,13 +418,71 @@
     clear: function () { handlers = {}; }
   };
 
-  // Names: cute 2-3 syllable names.
-  var SYL_A = ["Bo", "Pi", "Mo", "Lu", "Ki", "Zu", "No", "Fi", "Da", "Wi", "Po", "Ta", "Bi", "Ru", "Ji", "Mi", "Su", "Ko", "Ne", "Yu", "Gu", "Pa", "Te", "Vo"];
-  var SYL_B = ["bo", "lo", "mi", "ppy", "nk", "zle", "do", "ri", "bble", "mp", "sh", "ki", "na", "go", "tz", "ffle", "ni", "ru", "pi", "x", "mo", "bu"];
-  SB.makeName = function (r) {
-    var n = r.pick(SYL_A) + r.pick(SYL_B);
-    if (r.chance(0.25)) n += r.pick(SYL_B);
-    return n;
+  // Names: cute, pronounceable, and (with a game) never already taken.
+  // Built from sound pieces instead of a short list: soft openings, a vowel, an optional middle, and a
+  // cute ending, so there are hundreds of thousands of names. Some names borrow the island's own language,
+  // and kids sometimes echo a parent's name (Pip → Pippa, Mo → Momo), like real families do.
+  var ON1 = ["b", "p", "m", "n", "l", "k", "t", "d", "g", "f", "v", "z", "s", "r", "w", "y", "h", "j", "ch", "sh"];
+  var ON2 = ["bl", "pl", "fl", "gl", "kl", "br", "pr", "tr", "dr", "gr", "fr", "sn", "sp", "st", "tw"];
+  var NV = ["a", "e", "i", "o", "u", "a", "i", "o", "u", "oo", "ee", "ai", "ou"];
+  var MID = ["b", "bb", "p", "pp", "m", "mm", "n", "nn", "l", "ll", "k", "g", "gg", "d", "dd", "t", "z", "zz", "v", "r", "ff", "nk", "mp", "nd", "ng", "w"];
+  var END = ["o", "a", "i", "y", "ie", "u", "o", "a", "ble", "ple", "zle", "ggle", "ffle", "mble", "kin", "bin", "lin", "nik", "bo", "po", "mo", "lo", "ro", "ko", "zo", "na", "la", "ka", "ra", "bee", "pip", "pop", "bop", "loo", "doo", "zee", "sy", "by", "dy", "ly", "ny", "nk", "sh", "tz", "x", "m", "n", "l", "p", "b", "k", "s", "bert", "wick", "ton", "ling", "kins", "et", "ette", "ina", "ella", "ito", "ix", "us", "on", "im", "os", "ar", "", "", ""];
+  function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
+  function on(r) { return r.chance(0.08) ? "" : r.chance(0.8) ? r.pick(ON1) : r.pick(ON2); }
+  function tidy(w) {
+    w = w.replace(/([^aeiouy])\1\1+/g, "$1$1").replace(/([aeiouy])\1\1+/g, "$1$1").replace(/[aeiou]{3,}/g, function (m) { return m.slice(0, 2); });
+    return w.length > 9 ? w.slice(0, 9).replace(/[^aeiouy]+$/, "") || w.slice(0, 9) : w;
+  }
+  // soft and sayable: no three consonants in a row, no "y" stuck mid-word, no stuttering vowel pairs
+  function cute(w) {
+    var l = w.toLowerCase();
+    return l.length >= 3 && l.length <= 8 && !/[^aeiouy]{3}/.test(l) && !/y[^aeiou]./.test(l.slice(0, -1)) && !/(ou|oo|ee|ai).*(ou|oo|ee|ai)/.test(l) &&
+      !/^[^aeiouy]{2}.*[^aeiouy]{2}[aeiouy]?[^aeiouy]{2}/.test(l) && !/q|xx|x[^aeiou]|h[^aeiou]|[^aeiou]h(?!$)/.test(l.replace(/^(ch|sh)/, "").replace(/(ch|sh)/g, "c"));
+  }
+  function freshName(r) {
+    var w = on(r) + r.pick(NV);
+    var shape = r();
+    if (shape < 0.5) w += r.pick(MID) + r.pick(NV) + r.pick(END);          // Bob-i-ble, Zan-o-nik
+    else if (shape < 0.8) w += r.pick(END.filter(function (e) { return e; })); // Pip-kin, Mo-ffle
+    else if (shape < 0.92) w = w + r.pick(ON1) + r.pick(NV) + (r.chance(0.4) ? r.pick(["n", "y", "k", "bo", "li", "ra"]) : ""); // Lu-ma-ri
+    else { var syl = r.pick(ON1) + r.pick(["a", "i", "o", "u"]); w = syl + syl + r.pick(["", "", "n", "y", "k", "b"]); } // Bibi, Momon
+    w = tidy(w);
+    if (w.length < 3) w += r.pick(["bo", "pi", "lu", "ki", "mo"]);
+    return cap(w);
+  }
+  // a kid's name that echoes a parent's: Pip → Pippa / Pipkin, Moru → Momo
+  function echoName(r, parent) {
+    var root = parent.toLowerCase().replace(/[^a-z]/g, "").slice(0, 3).replace(/[aeiouy]+$/, "") || parent.toLowerCase().slice(0, 2);
+    var stem = root.length > 1 ? root : root + "a";
+    var v = /[aeiouy]$/.test(stem) ? "" : r.pick(["a", "i", "o", "u", "e"]);
+    return cap(tidy(stem + v + r.pick(["", "pa", "kin", "ka", "lo", "bo", "ri", "ny", "sy", "ette", "ito", "mo", "x", "ble", "doo"])));
+  }
+  // every name in use on this island: the living, the remembered dead, the bodies waiting for their funeral
+  function usedNames(game) {
+    var u = {};
+    if (!game) return u;
+    (game.creatures || []).forEach(function (c) { if (c.name) u[c.name.toLowerCase()] = 1; });
+    for (var id in (game.family || {})) { var f = game.family[id]; if (f && f.name) u[f.name.toLowerCase()] = 1; }
+    (game.bodies || []).forEach(function (b) { if (b.name) u[b.name.toLowerCase()] = 1; });
+    return u;
+  }
+  // SB.makeName(rng, game?, opts?) → a name nobody on the island has had. opts.parents: names to echo now and then
+  SB.makeName = function (r, game, opts) {
+    opts = opts || {};
+    var used = usedNames(game), lang = game && game.lang, name = null;
+    for (var tries = 0; tries < 40; tries++) {
+      var roll = r(), n;
+      if (opts.parents && opts.parents.length && roll < 0.18) n = echoName(r, r.pick(opts.parents));
+      else if (lang && SB.Lang && SB.Lang.word && roll < 0.33) n = cap(tidy(SB.Lang.word(lang, r, 2 + (r.chance(0.3) ? 1 : 0)).replace(/[^a-zü']/gi, "").replace(/ü/g, "u").replace(/'/g, "")));
+      else n = freshName(r);
+      if (!cute(n)) continue;
+      if (!used[n.toLowerCase()]) { name = n; break; }
+    }
+    if (!name) { // astronomically unlikely: add a little flourish until it's new
+      name = freshName(r);
+      for (var k = 0; used[name.toLowerCase()] && k < 50; k++) name = freshName(r) + r.pick(["ko", "li", "bo", "ra", "mi"]);
+    }
+    return name;
   };
 
   // World codes: a friendly name for a seed ("mossy-otter-4821") and back.

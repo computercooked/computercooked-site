@@ -118,6 +118,8 @@
   }
 
   B.forward = function (b) { fwd(b, b.x, b.acts); tables(b, b.x, b.q); return b.q; };
+  // how much the brain wants action a for input x, without touching its live state (for "what did it learn?")
+  B.qOf = function (b, x, a) { fwd(b, x, b._acts); var q = b._acts[b.W.length]; tables(b, x, q); return q[a]; };
 
   function tables(b, x, q) {
     var n = -1, hv = -1, i;

@@ -369,7 +369,7 @@
   function ring(game, r, fn) { var hm = home(game), out = 0; for (var a = 0; a < 24; a++) for (var k = 1; k <= 3; k++) { var x = hm.x + Math.sin(a * 0.2618) * r * k / 3, z = hm.z + Math.cos(a * 0.2618) * r * k / 3; if (SB.World.inBounds(game.world, x, z) && fn(x, z)) out++; } return out; }
   function lowCoast(game, x, z) { return oceanD(game, x, z) < 12 && SB.World.heightAt(game.world, x, z) < 2.2 && SB.World.depthAt(game.world, x, z) < 0.3; }
   T.coastal = function (game) { return ring(game, 30, function (x, z) { return lowCoast(game, x, z); }) >= 6; };
-  T.dusty = function (game) { var B = SB.B; return ring(game, 40, function (x, z) { var b = SB.World.biomeAt(game.world, x, z); return b === B.savanna || b === B.desert; }) >= 8; };
+  T.dusty = function (game) { var B = SB.B; return ring(game, 40, function (x, z) { var b = SB.World.biomeAt(game.world, x, z); return b === B.savanna || b === B.desert || (B.mesa != null && b === B.mesa); }) >= 8; };
   T.mountains = function (game) { var B = SB.B; return ring(game, 55, function (x, z) { return SB.World.biomeAt(game.world, x, z) === B.mountain; }) >= 6; };
   function sea(game) { // which way the sea is from the village
     var hm = home(game), bx = 0, bz = 0;
@@ -546,7 +546,7 @@
   disaster({
     id: "sandstorm", name: "sandstorm", icon: "🏜", title: "a sandstorm!", w: 2.5, warn: 30, dur: 100,
     can: function (game) { return game.world.season !== 3 && T.dusty(game); },
-    setup: function (game) { var B = SB.B, hm = home(game), bx = 0, bz = 0; for (var a = 0; a < 24; a++) for (var dd = 10; dd < 45; dd += 5) { var x = hm.x + Math.sin(a * 0.2618) * dd, z = hm.z + Math.cos(a * 0.2618) * dd; if (!SB.World.inBounds(game.world, x, z)) continue; var b = SB.World.biomeAt(game.world, x, z); if (b === B.savanna || b === B.desert) { bx += Math.sin(a * 0.2618); bz += Math.cos(a * 0.2618); } } var l = Math.hypot(bx, bz) || 1; return { dx: bx / l, dz: bz / l }; },
+    setup: function (game) { var B = SB.B, hm = home(game), bx = 0, bz = 0; for (var a = 0; a < 24; a++) for (var dd = 10; dd < 45; dd += 5) { var x = hm.x + Math.sin(a * 0.2618) * dd, z = hm.z + Math.cos(a * 0.2618) * dd; if (!SB.World.inBounds(game.world, x, z)) continue; var b = SB.World.biomeAt(game.world, x, z); if (b === B.savanna || b === B.desert || (B.mesa != null && b === B.mesa)) { bx += Math.sin(a * 0.2618); bz += Math.cos(a * 0.2618); } } var l = Math.hypot(bx, bz) || 1; return { dx: bx / l, dz: bz / l }; },
     text: function (game, info) { return "a red-brown wall of dust is rolling in from the " + dirOf(info.dx, info.dz) + ". it's taller than the trees and swallowing the sun."; },
     hint: "nobody will be able to see a thing. smols caught outside get lost and scraped, and the farms will be buried.",
     choices: [

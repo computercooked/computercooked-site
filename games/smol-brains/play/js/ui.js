@@ -10,6 +10,8 @@
   var R = SB.Render;
   var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "evolution" };
   UI.modalOpen = false;
+  var povHeld = null; // the last god window that came up while possessing (see modal)
+  UI.povDone = function () { var m = povHeld; povHeld = null; if (m) modal(m[0], m[1], m[2]); };
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -47,6 +49,7 @@
     clear(root);
     if (SB.Icons && !UI._icons) { UI._icons = true; SB.Icons.watch(document.body); } // every emoji the UI writes becomes a pixel icon
     buildHud(); buildToasts(); buildDock(); buildMinimap();
+    if (SB.Orders && !UI._ordOv) { UI._ordOv = true; R.addOverlay(SB.Orders.draw); } // flags, zones and blueprints on the ground
     SB.Input.init(document.getElementById("stage"), g);
     wireBus();
     var sp = document.getElementById("splash");
@@ -62,7 +65,7 @@
     setTool(g.hand.tool || "grab");
   };
   UI.setGame = function (g) {
-    game = g; SB.Input.setGame(g); mini.base = null;
+    game = g; SB.Input.setGame(g); mini.base = null; ordUnlockedSeen = false;
     closeSheet(); state.inspect = null;
     if (el.goals) el.goals.innerHTML = "";
   };
@@ -233,7 +236,8 @@
       var nx = SB.TIERS[maxT + 1];
       var hint = best ? SB.Genome.nextNeeds(best.genome).map(function (n) { return n.label; }).slice(0, 2).join(" + ") : "";
       var nudge = !g.blessing && (g.sparks || 0) >= 15 && hint ? " · try ✨ magic → 🧬 bless" : "";
-      add("evolve into " + nx.icon + " " + nx.name + (hint ? " (needs more " + hint + ")" : "") + nudge, Math.round(Math.max(0, bp) * 100) + "%");
+      var job = best ? echoJob(best, smols) : "";
+      add("evolve into " + nx.icon + " " + nx.name + (job ? ": " + job : hint ? " (needs more " + hint + ")" : "") + nudge, Math.round(Math.max(0, bp) * 100) + "%");
     }
     var found = Object.keys(g.culture.found).length;
     if (maxT >= 2 && found < 3) add("a tool-user discovers an idea 💡 (try 💡 inspire)", found + "/3");
@@ -256,6 +260,29 @@
       if (maxT >= 6 && asc < 3) add("⚠ only " + asc + " ascended left: bless eggs toward 🌟 glow to keep the line going", "");
     }
     return out.slice(0, 3);
+  }
+  // "needs more hands" as a job you can see happening: who is practising it, and how far they've got
+  function echoJob(best, smols) {
+    var FH = SB.FirstHour;
+    if (!FH) return "";
+    var want = FH.wanted(best)[0];
+    if (!want) return "";
+    var parents = smols.filter(function (c) { return c.stage >= 2 && !c.stranger; }), top = null;
+    parents.forEach(function (c) { var p = FH.echoProgress(c, want); if (!top || p.frac > top.frac || (p.frac === top.frac && c.tier > top.c.tier)) { top = p; top.c = c; } });
+    if (!top) return "";
+    var i = top.info;
+    if (top.frac >= 1) return top.c.name + " is full of " + i.word + " " + i.icon + " → " + i.kids + " next";
+    return top.c.name + " " + i.did + " " + top.n + "/" + top.of + " " + i.what + " → " + i.kids;
+  }
+  function kidsHTML(c) {
+    var FH = SB.FirstHour, want = FH.wanted(c), out = [];
+    var genes = want.concat(Object.keys(FH.ECHO).filter(function (g) { return want.indexOf(g) < 0 && FH.echoProgress(c, g).frac > 0.05; })).slice(0, 3);
+    if (!genes.length) genes = ["arms"];
+    genes.forEach(function (g) {
+      var p = FH.echoProgress(c, g), star = want.indexOf(g) >= 0;
+      out.push('<div class="fhk' + (star ? " want" : "") + '" title="' + esc(p.info.kids + ": what " + c.name + " practises nudges its babies' genes") + '"><span class="e">' + p.info.icon + '</span><span class="l">' + esc(p.info.kids) + (star ? " ★" : "") + '</span><span class="b"><i style="width:' + Math.round(p.frac * 100) + "%;background:" + p.info.col + '"></i></span><span class="n mono">' + p.n + "/" + p.of + "</span></div>");
+    });
+    return out.join("") + (want.length ? '<div class="note">★ what the next tier needs. watch for +' + FH.ECHO[want[0]].icon + " while it practises.</div>" : "");
   }
   var goalKey = "";
   function updateGoals() {
@@ -318,7 +345,7 @@
   }
   UI.storyCard = storyCard;
   var NEXT_HELP = {
-    1: "let smols carry and fiddle with things (✋ hand them sticks and stones), or ✨ magic → 🧬 bless the next eggs toward <b>hands</b>.",
+    1: "let smols carry and fiddle with things (✋ hand them sticks and stones; every carry pops a +🤲), or ✨ magic → 🧬 bless the next eggs toward <b>hands</b>.",
     2: "talk to them a lot and let them hang out together: social smols have social kids. 🧬 bless toward <b>language</b> helps.",
     3: "builders plan ahead: smols that make things and finish plans have planning kids. 🧬 bless toward <b>planning</b>.",
     4: "thinkers have big heads: smols that learn, study and teach have brainier kids. 🧬 bless toward <b>big heads</b> or <b>bigger brains</b>.",
@@ -334,7 +361,7 @@
   };
 
   /* ---------------- dock ---------------- */
-  var TOOLS = [["grab", "✋", "grab"], ["tickle", "🪶", "tickle"], ["tap", "👆", "tap"], ["talk", "💬", "talk"], ["magic", "✨", "magic"]];
+  var TOOLS = [["grab", "✋", "grab"], ["tickle", "🪶", "tickle"], ["tap", "👆", "tap"], ["talk", "💬", "talk"], ["magic", "✨", "magic"], ["orders", "🚩", "orders"]];
   function buildDock() {
     el.dock = h("div", { class: "dock" });
     el.sheet = h("div", { class: "sheet glass live hide" });
@@ -348,13 +375,15 @@
   }
   function setTool(t, user) {
     var prev = state.tool;
-    if (user && prev === t && (t === "talk" || t === "magic")) t = "grab"; // tap the open book's button again to put it away
+    if (user && prev === t && (t === "talk" || t === "magic" || t === "orders")) t = "grab"; // tap the open book's button again to put it away
+    if (t === "orders" && !(SB.Orders && SB.Orders.unlocked(game))) t = "grab"; // tool-users first
     state.tool = t; game.hand.tool = t;
     [].forEach.call(el.tools.children, function (b) { b.classList.toggle("on", b.getAttribute("data-tool") === t); });
-    disarm();
+    disarm(); state.order = null;
     if (t === "talk") { if (tutIs("word") && !state.teach) state.teach = "food"; openSheet("talk"); }
     else if (t === "magic") { openSheet("magic"); tutDone("magic"); }
-    else if (state.sheet === "talk" || state.sheet === "magic" || (user && prev === t && state.sheet)) { if (game.selectedId) openSheet("smol"); else closeSheet(); }
+    else if (t === "orders") openSheet("orders");
+    else if (state.sheet === "talk" || state.sheet === "magic" || state.sheet === "orders" || (user && prev === t && state.sheet)) { if (game.selectedId) openSheet("smol"); else closeSheet(); }
     else if (game.selectedId && user) openSheet("smol");
   }
   UI.setTool = setTool;
@@ -362,6 +391,7 @@
   /* ---------------- sheets ---------------- */
   function openSheet(kind) {
     state.sheet = kind;
+    el.sheet.dataset.kind = "";
     el.sheet.classList.remove("hide");
     el.sheet.classList.toggle("side", kind === "smol" || kind === "inspect");
     el.sheet.classList.toggle("talkside", kind === "talk"); // the word book sits at the side, so the island stays in view
@@ -383,6 +413,7 @@
     if (state.sheet === "smol") return renderSmol(force);
     if (state.sheet === "talk") return renderTalk(force);
     if (state.sheet === "magic") return renderMagic(force);
+    if (state.sheet === "orders") return renderOrders(force);
     if (state.sheet === "inspect") return renderInspect(force);
   }
 
@@ -405,6 +436,8 @@
     el.sheet.appendChild(el.cThought = h("div", { class: "thought" }));
     if (c.species !== "grump") el.sheet.appendChild(el.cPeople = h("div", { class: "chips people" }));
     el.sheet.appendChild(el.cDrives = h("div", { class: "drives" }));
+    if (c.species === "smol" && SB.FirstHour) { el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "what its kids will inherit"), h("span", { class: "dim" }, "💫 echoes")])); el.sheet.appendChild(el.cKids = h("div", { class: "fhkids" })); }
+    else el.cKids = null;
     el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "ideas"), el.cIdeaN = h("span", { class: "dim" })]));
     el.sheet.appendChild(el.cIdeas = h("div", { class: "chips" }));
     el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "words"), el.cWordN = h("span", { class: "dim" })]));
@@ -416,9 +449,11 @@
       return;
     }
     el.sheet.appendChild(h("div", { class: "btnrow" }, [
+      SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess") : null,
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
+      SB.Cards ? h("button", { class: "btn", onclick: function () { SB.Cards.open(c); } }, "✨ card") : null,
       h("button", { class: "btn", onclick: function () { shareSmol(c); } }, "📤 code"),
       h("button", { class: "btn", onclick: function () { openMenu("family", c); } }, "🌳 family")
     ]));
@@ -436,15 +471,17 @@
       if (c.tantrum) mood.push('<span class="chip warnc">😤 tantrum!</span>');
       if (c.grief) mood.push('<span class="chip dim">🕯 missing ' + esc(c.grief.name) + "</span>");
       if (c.convo) mood.push('<span class="chip lime">💬 talking</span>');
+      if (SB.Orders && SB.Orders.unlocked(game) && c.tier >= 1 && !c.stranger) mood.push(orderChip(c));
       el.cPeople.innerHTML = mood.join("") + rel.map(function (r) { var ic = r.label === "partner" ? "💕" : r.v >= 25 ? "💚" : r.v <= -25 ? "⚔" : "·"; return '<span class="chip ' + (r.v >= 25 ? "lime" : r.v <= -25 ? "warnc" : "dim") + '" title="' + esc(r.label) + '">' + ic + " " + esc(r.c.name) + " " + (r.v > 0 ? "+" : "") + r.v + "</span>"; }).join("") || '<span class="note">no friends or rivals yet</span>';
     }
     el.cSub.innerHTML = '<span class="tierpill" style="color:' + tier.color + '">' + tier.icon + " " + tier.name + "</span> " + stage + " · gen " + c.gen + " · iq <b class='lime'>" + c.iq + "</b> · " + fmtTime(c.age) + (game.clades && game.clades[c.clade] ? " · <span class='lilac'>" + esc(game.clades[c.clade].name) + "</span>" : "");
     var mood = SB.Chem.MOOD_EMOJI[SB.Chem.mood(c.chem)] || "🙂";
-    el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>";
+    el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>" + (SB.Mind && SB.Mind.cardLine ? SB.Mind.cardLine(c, game) : "");
     // drives: the 6 strongest
     var ds = SB.DRIVES.map(function (d, i) { return { i: i, v: c.chem[d] }; }).sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
     el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +
       '<div class="drive" title="health"><span class="e">❤️</span><span class="b"><i style="width:' + Math.round(c.chem.health * 100) + '%;background:#c5ff49"></i></span></div>';
+    if (el.cKids) el.cKids.innerHTML = kidsHTML(c);
     var ids = Object.keys(c.ideas).filter(function (k) { return SB.Ideas.BY_ID[k]; });
     el.cIdeaN.textContent = SB.Ideas.count(c) + (c.tier < 2 ? " · needs hands" : "");
     el.cIdeas.innerHTML = ids.length ? ids.map(function (k) { var d = SB.Ideas.BY_ID[k], v = c.ideas[k]; return '<span class="chip ' + (v >= 1 ? "lime" : "dim") + '" title="' + esc(d.desc) + '">' + d.icon + " " + esc(game.culture.words[k] || d.name) + (v < 1 ? " " + Math.round(v * 100) + "%" : "") + "</span>"; }).join("") : '<span class="note">' + (c.tier < 2 ? "blobs and critters can't hold ideas yet. evolve hands." : "nothing yet. curious smols discover things by fiddling.") + "</span>";
@@ -700,6 +737,132 @@
     modal("🧬 bless the next eggs", body);
   }
 
+  /* ---- orders: signs from the sky (orders.js) ----
+     You can't steer a smol, but you can leave signs. Pick one, then tap the island. Who follows is up to them. */
+  var ORDER_BTNS = ["rally", "explore", "mark", "build", "nogo", "stock", "home"];
+  var ORDER_HELP = "signs from the sky, not commands. smols who trust you follow; stubborn, hungry or scared ones may not. pick one, then tap the island.";
+  function renderOrders(force) {
+    if (!force && el.sheet.dataset.kind === "orders") return updateOrders();
+    el.sheet.dataset.kind = "orders"; el.sheet.dataset.id = "";
+    clear(el.sheet);
+    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime small", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
+    el.ordGrid = h("div", { class: "miracles orders" });
+    ORDER_BTNS.forEach(function (k) {
+      var K = SB.Orders.KINDS[k];
+      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name)]));
+    });
+    el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": "jobs", title: "nudge what each smol likes doing", onclick: function () { openJobs(); } }, [h("span", { class: "e" }, "📋"), h("span", null, "jobs")]));
+    el.sheet.appendChild(el.ordGrid);
+    el.sheet.appendChild(el.ordBuild = h("div", { class: "chips ordbuild hide" }));
+    el.sheet.appendChild(el.ordWarn = h("div", { class: "note warn hide" }));
+    el.sheet.appendChild(el.ordInfo = h("div", { class: "note" }, ORDER_HELP));
+    el.sheet.appendChild(el.ordList = h("div", { class: "chips ordlist" }));
+    updateOrders(true);
+  }
+  function updateOrders(force) {
+    if (!el.ordGrid || !SB.Orders) return;
+    var O = SB.Orders, od = O.ensure(game), maxT = game.stats.maxTier || 0, so = state.order;
+    el.ordObey.textContent = "they listen about " +Math.round(O.obedience(game) * 100) + "%";
+    [].forEach.call(el.ordGrid.children, function (b) {
+      var k = b.getAttribute("data-ord"), K = O.KINDS[k];
+      b.classList.toggle("on", !!so && so.kind === k);
+      b.classList.toggle("poor", !!K && maxT < K.tier);
+    });
+    // which building the blueprint is for
+    var showB = !!so && so.kind === "build";
+    el.ordBuild.classList.toggle("hide", !showB);
+    if (showB) {
+      var bl = O.buildable(game), bk = bl.map(function (b) { return b.kind; }).join() + ":" + so.build;
+      if (force || el.ordBuild.dataset.key !== bk) {
+        el.ordBuild.dataset.key = bk; clear(el.ordBuild);
+        if (!bl.length) el.ordBuild.appendChild(h("span", { class: "note" }, "nobody knows how to build anything yet. builders invent huts, farms and fires."));
+        bl.forEach(function (b) { el.ordBuild.appendChild(h("button", { class: "chip" + (so.build === b.kind ? " lime" : ""), onclick: function () { so.build = b.kind; el.ordInfo.innerHTML = "📐 " + esc(b.name) + ": tap flat, open ground. green means it fits."; updateOrders(true); } }, b.e + " " + b.name)); });
+      }
+    }
+    var warn = od.heat > 2.5 ? "😤 that's a lot of orders. they're getting annoyed and listen less for a while." : "";
+    if (el.ordWarn._t !== warn) { el.ordWarn._t = warn; el.ordWarn.textContent = warn; el.ordWarn.classList.toggle("hide", !warn); }
+    // what's out there now
+    var key = od.list.map(function (o) { return o.id + ":" + O.followers(game, o) + ":" + (o.no || 0) + ":" + (o.n || 0); }).join(",");
+    if (!force && el.ordList.dataset.key === key) return;
+    el.ordList.dataset.key = key; clear(el.ordList);
+    od.list.forEach(function (o) {
+      var K = O.KINDS[o.kind], f = O.followers(game, o);
+      var txt = o.kind === "mark" ? o.label : o.kind === "build" ? "📐 " + (SB.STRUCTS[o.build] ? SB.STRUCTS[o.build].label : "") : K.e + " " + K.name;
+      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "");
+      if (o.kind === "stock" && o.n) txt += " · " + o.n + " brought";
+      el.ordList.appendChild(h("span", { class: "chip ordchip" }, [h("button", { class: "lnk", title: "look", onclick: function () { R.flyTo(o.x, o.z, Math.min(R.camera.tZoom, 12), 0.7); } }, txt), h("button", { class: "lnk x", title: "take it back", onclick: function () { O.remove(game, o.id); updateOrders(true); } }, "✕")]));
+    });
+  }
+  function armOrder(k) {
+    var K = SB.Orders.KINDS[k];
+    if ((game.stats.maxTier || 0) < K.tier) { toast(K.e + " " + K.name + " needs a " + SB.TIERS[K.tier].icon + " " + SB.TIERS[K.tier].name); return; }
+    state.order = state.order && state.order.kind === k ? null : { kind: k };
+    if (state.order && k === "build") { var bl = SB.Orders.buildable(game); state.order.build = bl.length ? bl[0].kind : null; }
+    el.ordInfo.innerHTML = state.order ? K.e + " " + esc(K.desc) + (K.zone ? " tap to place one, tap it again to clear it." : " tap the island.") : ORDER_HELP;
+    updateOrders(true);
+  }
+  UI.orderArmed = function () { return state.tool === "orders" ? state.order : null; };
+  UI.armOrder = armOrder;
+  // the orders tool tapped the island
+  UI.orderTap = function (g, hit) {
+    var so = state.order;
+    if (hit && hit.type === "creature" && (!so || so.kind !== "mark")) { SB.Game.select(game, hit.ref.id); return; }
+    if (!so) { toast("pick an order first: 🚩 rally, 🪓 work, 📐 build…"); return; }
+    if (!g) return;
+    if (so.kind === "build" && !so.build) { toast("nobody knows how to build anything yet"); return; }
+    var res = SB.Orders.place(game, so.kind, g.x, g.z, { hit: hit, build: so.build });
+    if (!res.ok) { toast(res.msg || "can't put that there"); return; }
+    if (res.removed) toast(res.msg);
+    else {
+      var K = SB.Orders.KINDS[so.kind];
+      if (SB.FX) SB.FX.burst("sparkle", res.o.x, SB.World.groundY(game.world, res.o.x, res.o.z) + 0.6, res.o.z, 10);
+      if (SB.Audio) SB.Audio.play("chime", { vol: 0.4 });
+      if (so.kind === "rally" || so.kind === "explore") { toast(K.e + " " + K.name + " placed. about " + Math.round(SB.Orders.obedience(game, so.kind) * 100) + "% of them will listen"); state.order = null; el.ordInfo.innerHTML = ORDER_HELP; }
+    }
+    updateOrders(true);
+  };
+  function orderChip(c) {
+    var p = Math.round(SB.Orders.willing(c, game, "rally") * 100), tr = SB.Orders.trust(c);
+    return '<span class="chip ' + (p >= 50 ? "lime" : p < 25 ? "warnc" : "dim") + '" title="trusts the sky ' + Math.round(tr * 100) + '%. tickles, answered prayers and orders that work out build trust">🚩 ' + p + "%</span>";
+  }
+  // the jobs board: a nudge per smol (high / normal / low) for each kind of work. stubborn smols mostly ignore it
+  function openJobs() {
+    var O = SB.Orders, smols = SB.Game.smols(game).filter(function (c) { return !c.stranger && c.tier >= 1; });
+    var body = h("div", null, [h("p", { class: "note" }, "tap a box to cycle ▲ more, · normal, ▼ less. it's a nudge, not a command: stubborn smols barely notice, and smols who trust you listen more.")]);
+    var tbl = h("div", { class: "jobs" });
+    tbl.appendChild(h("div", { class: "jrow jhead" }, [h("span", { class: "jn" }, "smol")].concat(O.PRIO.map(function (p) { return h("span", { class: "jc", title: p[2] }, p[1]); }))));
+    smols.slice(0, 60).forEach(function (c) {
+      var row = h("div", { class: "jrow" }, [h("span", { class: "jn", title: "follows orders ~" + Math.round(O.willing(c, game, "rally") * 100) + "%" }, esc(c.name) + (c.genome.genes.obedience < 0.3 ? " 🙄" : ""))]);
+      O.PRIO.forEach(function (p) {
+        var v = c.prio && c.prio[p[0]] || 0;
+        var b = h("button", { class: "jc jb" + (v > 0 ? " up" : v < 0 ? " down" : ""), title: p[2] }, v > 0 ? "▲" : v < 0 ? "▼" : "·");
+        b.addEventListener("click", function () { var nv = v === 0 ? 1 : v > 0 ? -1 : 0; v = nv; O.setPrio(c, p[0], nv); b.textContent = nv > 0 ? "▲" : nv < 0 ? "▼" : "·"; b.className = "jc jb" + (nv > 0 ? " up" : nv < 0 ? " down" : ""); });
+        row.appendChild(b);
+      });
+      tbl.appendChild(row);
+    });
+    if (!smols.length) tbl.appendChild(h("p", { class: "note" }, "no smols yet."));
+    body.appendChild(tbl);
+    body.appendChild(h("p", { class: "note" }, O.PRIO.map(function (p) { return p[1] + " " + p[2]; }).join(" · ")));
+    modal("📋 jobs", body);
+  }
+  UI.openJobs = openJobs;
+  var ordUnlockedSeen = false, ordT = 0, annoyT = 0;
+  function updateOrdersUI(dt) {
+    if (!SB.Orders || !el.tools) return;
+    var on = SB.Orders.unlocked(game), b = el.tools.querySelector('[data-tool="orders"]');
+    if (b) b.classList.toggle("hide", !on);
+    el.tools.classList.toggle("six", on);
+    if (on && !ordUnlockedSeen && game.tutorial.done && !state.introRunning && !el.modal) {
+      ordUnlockedSeen = true;
+      storyCard("orders", "🚩", "the sky's orders", [
+        "your smols are clever enough now to notice signs from the sky. pick <b>🚩 orders</b> (key 6) and leave one: a <b>rally flag</b>, an <b>explore beacon</b>, <b>work marks</b> on trees, rocks, bushes, fields and bunnies, <b>blueprints</b> for buildings they know, and <b>zones</b> (no-go, stockpile, home).",
+        "they're suggestions, not commands. a smol follows if it <b>trusts you</b> (tickles, answered prayers and orders that worked out build trust; taps cost some), if it isn't stubborn, and if it isn't starving or scared. order too much and they get annoyed.",
+        "📋 jobs nudges what each smol likes doing. the strategy is asking for the right thing at the right time: walls round the village before the raid, farms by the river before winter."
+      ]);
+    }
+    if (state.sheet === "orders" && (ordT -= dt) < 0) { ordT = 0.5; updateOrders(false); }
+  }
   /* ---- inspecting things ---- */
   UI.inspect = function (hit) {
     state.inspect = hit;
@@ -731,11 +894,12 @@
 
   /* ---------------- modals ---------------- */
   function modal(title, body, opts) {
-    closeModal();
     opts = opts || {};
+    if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld = [title, body, opts]; return; } // no god windows in a smol's eyes: shown on the way out
+    closeModal();
     UI.modalOpen = !opts.live;
     var wrap = h("div", { class: "modal-wrap", onclick: function (e) { if (e.target === wrap && !opts.sticky) closeModal(); } });
-    var m = h("div", { class: "modal glass" + (opts.story ? " storycard" : "") }, [
+    var m = h("div", { class: "modal glass" + (opts.story ? " storycard" : "") + (opts.big ? " big" : "") }, [
       opts.story ? null : h("div", { class: "mh" }, [h("h2", null, title), opts.sticky ? null : h("button", { class: "ibtn", "aria-label": "close", onclick: closeModal }, "✕")]),
       opts.tabs || null,
       h("div", { class: "mb" }, body)
@@ -752,19 +916,21 @@
     if (cardQ.length) setTimeout(function () { if (!el.modal) nextCard(); }, 250);
   }
   UI.closeModal = closeModal;
+  UI.modal = modal;
 
   /* ---------------- menu / smolpedia ---------------- */
-  var TABS = [["evolution", "🧬 evolution"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
+  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["dex", "✨ smoldex"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
   function openMenu(tab, arg) {
     state.menuTab = tab || "evolution";
     var tabs = h("div", { class: "tabs" });
     TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
-    modal("smolpedia", body, { tabs: tabs });
-    ({ evolution: tabEvolution, ideas: tabIdeas, smols: tabSmols, family: tabFamily, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
+    modal("smolpedia", body, { tabs: tabs, big: true });
+    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
 
+  function tabDex(body) { if (SB.Cards) SB.Cards.tabDex(body); else body.appendChild(h("p", { class: "note" }, "the smoldex isn't here.")); }
   // the island's history, newest first (Dwarf Fortress legends, tiny)
   function when(t) { var day = Math.floor(t / SB.DAY_LENGTH) + 1, hh = (t / SB.DAY_LENGTH % 1) * 24; return "day " + day + ", " + pad(Math.floor(hh)) + ":" + pad(Math.floor((hh % 1) * 60)); }
   function tabChronicle(body) {
@@ -808,13 +974,19 @@
     });
     body.appendChild(h("div", { class: "sec" }, "the ladder"));
     body.appendChild(ladder);
-    body.appendChild(h("div", { class: "sec" }, [h("span", null, "tree of life"), h("span", { class: "dim" }, SB.Species.count(game) + " species · " + SB.Species.living(game) + " alive")]));
-    var cv = h("canvas", { class: "treecv" });
-    body.appendChild(cv);
-    body.appendChild(h("p", { class: "note" }, "new species branch off when a baby climbs a tier or drifts far from its family's genes. species too far apart can't have eggs together. 💫 echoes: what parents practise (walking, carrying, talking, building, thinking) nudges their kids' genes."));
-    requestAnimationFrame(function () { drawTree(cv); });
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { openMenu("tree"); } }, "🌿 see the tree of life (" + SB.Species.count(game) + " species)")]));
   }
-  function drawTree(cv) {
+  // the tree of life gets a whole tab, sized to fit the menu so you can see every branch at once
+  function tabTree(body) {
+    body.appendChild(h("div", { class: "sec" }, [h("span", null, "tree of life"), h("span", { class: "dim" }, SB.Species.count(game) + " species · " + SB.Species.living(game) + " alive")]));
+    var cap = h("div", { class: "note treecap" }, "tap a species to see its name.");
+    var cv = h("canvas", { class: "treecv" });
+    body.appendChild(h("div", { class: "tree" }, cv));
+    body.appendChild(cap);
+    body.appendChild(h("p", { class: "note" }, "new species branch off when a baby climbs a tier or drifts far from its family's genes. species too far apart can't have eggs together. 💫 echoes: what parents practise (walking, carrying, talking, building, thinking) nudges their kids' genes."));
+    requestAnimationFrame(function () { drawTree(cv, cap); });
+  }
+  function drawTree(cv, cap) {
     var clades = game.clades, ids = Object.keys(clades).map(Number).sort(function (a, b) { return a - b; });
     var kids = {};
     ids.forEach(function (id) { var p = clades[id].parent; if (p != null) (kids[p] = kids[p] || []).push(id); });
@@ -830,13 +1002,24 @@
     place(0, 0);
     var cols = Math.max(1, col), depth = 0;
     for (var k in pos) depth = Math.max(depth, pos[k].y);
-    var W = cv.clientWidth || 600, dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(W, cols * 120), H = Math.max(160, (depth + 1) * 92 + 30);
+    // fit the whole tree in the space the menu has: shrink the spacing (and the labels) before ever scrolling
+    var W = cv.parentNode.clientWidth || 600, mb = el.modalBody, room = mb ? mb.clientHeight - 150 : 420;
+    var sx = Math.max(34, Math.min(130, W / cols)), sy = Math.max(46, Math.min(92, (Math.max(260, room) - 50) / (depth + 1)));
+    var dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(W, cols * sx), H = Math.max(160, (depth + 1) * sy + 30);
+    var rad = Math.max(8, Math.min(16, Math.min(sx, sy) * 0.2)), full = sx >= 92, short = sx >= 56;
     cv.style.width = cw + "px"; cv.style.height = H + "px";
-    cv.parentNode.style.overflowX = "auto";
+    cv.parentNode.style.overflowX = cw > W + 1 ? "auto" : "hidden";
     cv.width = cw * dpr; cv.height = H * dpr;
     var ctx = cv.getContext("2d");
     ctx.scale(dpr, dpr);
-    function px(id) { return { x: (pos[id].x + 0.5) * cw / cols, y: 34 + pos[id].y * 92 }; }
+    function px(id) { return { x: (pos[id].x + 0.5) * cw / cols, y: 22 + rad + pos[id].y * sy }; }
+    cv.onclick = function (e) {
+      var r = cv.getBoundingClientRect(), zx = cv.offsetWidth / (r.width || 1), zy = cv.offsetHeight / (r.height || 1), mx = (e.clientX - r.left) * zx, my = (e.clientY - r.top) * zy, hit = null, hd = 1e9; // the UI may be zoomed
+      ids.forEach(function (id) { if (!pos[id]) return; var p = px(id), d = Math.hypot(p.x - mx, p.y - my); if (d < hd) { hd = d; hit = id; } });
+      if (hit == null || hd > rad * 2.2 || !cap) return;
+      var c = clades[hit], t = SB.TIERS[c.tier] || SB.TIERS[0];
+      cap.textContent = c.name + " (" + c.sci + ") · " + t.name + " · " + (c.extinct ? "extinct" : c.alive + " alive");
+    };
     ctx.lineWidth = 2;
     ids.forEach(function (id) { var p = clades[id].parent; if (p == null || !pos[id] || !pos[p]) return; var a = px(p), b = px(id); ctx.strokeStyle = "rgba(181,154,255,0.5)"; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.bezierCurveTo(a.x, (a.y + b.y) / 2, b.x, (a.y + b.y) / 2, b.x, b.y); ctx.stroke(); });
     ids.forEach(function (id) {
@@ -844,14 +1027,12 @@
       var c = clades[id], p = px(id), t = SB.TIERS[c.tier] || SB.TIERS[0];
       ctx.globalAlpha = c.extinct ? 0.4 : 1;
       ctx.fillStyle = c.look ? bodyColor(c.look) : "#b59aff";
-      ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, 6.283); ctx.fill();
       ctx.strokeStyle = c.alive ? "#c5ff49" : "rgba(255,255,255,0.25)"; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.font = "15px system-ui, apple color emoji"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      SB.Icons.fillText(ctx, t.icon, p.x, p.y + 1, 14);
-      ctx.fillStyle = "#f5f3ed"; ctx.font = "800 10px ui-monospace, monospace";
-      ctx.fillText(c.name.slice(0, 22), p.x, p.y + 27);
-      ctx.fillStyle = "rgba(245,243,237,0.55)"; ctx.font = "10px system-ui";
-      ctx.fillText((c.extinct ? "extinct" : c.alive + " alive") + " · " + c.sci, p.x, p.y + 40);
+      SB.Icons.fillText(ctx, t.icon, p.x, p.y + 1, Math.round(rad * 0.9));
+      if (short) { ctx.fillStyle = "#f5f3ed"; ctx.font = "800 10px ui-monospace, monospace"; ctx.fillText(c.name.slice(0, full ? 22 : Math.floor(sx / 7)), p.x, p.y + rad + 11); }
+      if (full) { ctx.fillStyle = "rgba(245,243,237,0.55)"; ctx.font = "10px system-ui"; ctx.fillText((c.extinct ? "extinct" : c.alive + " alive") + " · " + c.sci, p.x, p.y + rad + 24); }
       ctx.globalAlpha = 1;
     });
   }
@@ -940,33 +1121,38 @@
       h("button", { class: "btn", onclick: function () { var sd = SB.parseWorldCode(inp.value); if (!sd) { toast("type a world code first"); return; } confirmNew(sd); } }, "go to that world"),
       h("button", { class: "btn", onclick: function () { confirmNew(SB.newSeed()); } }, "🎲 random new world")
     ]));
-    body.appendChild(h("p", { class: "note" }, "a new world replaces this one (your smols don't come along, but you can bring any smol with its code)."));
+    body.appendChild(h("p", { class: "note" }, "a new world doesn't delete this one: it stays under 📂 load game on the title screen. your smols don't come along, but you can bring any smol with its code."));
     body.appendChild(h("div", { class: "sec" }, "bring a smol in"));
     var imp = h("input", { type: "text", placeholder: "paste a SMOL code", style: "width:100%" });
     body.appendChild(imp);
     body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { importSmol(imp.value); } }, "🌌 bring it in")]));
   }
   function confirmNew(seed) {
-    var body = h("div", null, [h("p", null, "start world " + SB.worldCode(seed) + "? this island and its smols will be gone (save codes for the ones you love first)."), h("div", { class: "btnrow" }, [h("button", { class: "btn warn", onclick: function () { closeModal(); newWorld(seed); } }, "yes, new world"), h("button", { class: "btn", onclick: closeModal }, "cancel")])]);
+    var body = h("div", null, [h("p", null, "make world " + SB.worldCode(seed) + "? this island is saved and waits for you under 📂 load game. you'll pick a name, a size and the world settings next."), h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: function () { closeModal(); newWorld(seed); } }, "🌱 create world"), h("button", { class: "btn", onclick: closeModal }, "cancel")])]);
     modal("new world?", body);
   }
+  // a new island goes through the title screen's "create world" page (this one is saved first)
   function newWorld(seed) {
-    var g = SB.Game.newGame(seed);
-    SB.Game.swap(g);
-    UI.init(g, { fresh: true });
+    try { SB.Save.save(game); } catch (e) {}
+    try { window.sessionStorage.setItem("smolbrains-newseed", String(seed || "")); } catch (e) {}
+    SB.Game.reloadTo("title");
   }
+  UI.toTitle = function () { try { SB.Save.save(game); } catch (e) {} SB.Game.reloadTo("title"); };
   UI.confirmRestart = function () { confirmNew(SB.newSeed()); };
 
   function importSmol(code) {
     try {
       var d = SB.Save.importSmol(code);
+      if (SB.Collect && d.key && SB.Collect.seenImport(game, d.key, d.oid)) { toast("🌌 " + esc(d.name) + " is already on this island. each smol can only come in once."); return; }
       var sp = SB.Society.home(game, 0);
-      var c = SB.Game.spawnSmol(game, { genome: d.genome, name: d.name, gen: d.gen, vocab: d.vocab, ideas: d.ideas, age: d.age, x: sp.x + 1, z: sp.z + 1, brain: d.brain ? SB.Brain.deserialize(d.brain, d.genome, game.rng) : null });
+      var c = SB.Game.spawnSmol(game, { genome: d.genome, name: d.name, gen: d.gen, vocab: d.vocab, ideas: d.ideas, age: d.age, x: sp.x + 1, z: sp.z + 1, brain: d.brain ? SB.Brain.deserialize(d.brain, d.genome, game.rng) : null, how: "import" });
+      if (SB.Collect && d.key) { if (d.oid) c.oid = d.oid; SB.Collect.markImport(game, d.key); }
       game.stats.imported++;
       SB.Game.unlock(game, "import");
       closeModal(); SB.Game.select(game, c.id); R.flyTo(c.x, c.z, 7, 1);
-      moment("🌌", c.name + " arrived!", "a smol from somewhere else", "lilac");
-    } catch (e) { toast("that's not a smol code 🤔"); }
+      var ci = SB.Collect && SB.Collect.info(c);
+      moment("🌌", c.name + " arrived!", ci && ci.tier >= 2 ? "a " + ci.rarity.name + " smol from somewhere else (" + ci.rarest.name + ")" : "a smol from somewhere else", "lilac");
+    } catch (e) { toast(e && e.tampered ? "that smol code has been changed or mistyped, so it won't work 🔒" : "that's not a smol code 🤔"); }
   }
   function shareSmol(c) {
     var code = SB.Save.exportSmol(c);
@@ -1019,7 +1205,13 @@
     body.appendChild(h("p", { class: "note" }, ST.filter(function (o) { return o[0] === cur; })[0][2] + (game.ngPlus ? " (new game+ " + game.ngPlus + ": the grumps remember you.)" : "")));
     body.appendChild(h("div", { class: "sec" }, "save"));
     body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds and when you leave. while you're away, the island keeps going for a while."));
-    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "new world")]));
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
+    // text size: the whole interface zooms as one
+    if (SB.Title) {
+      var uz = SB.Title.uiScale();
+      body.appendChild(h("div", { class: "sec" }, "text & menu size"));
+      body.appendChild(h("div", { class: "btnrow" }, [["auto", "auto"], ["1", "normal"], ["1.2", "big"], ["1.4", "bigger"], ["1.65", "huge"]].map(function (o) { return h("button", { class: "btn" + (o[0] === uz ? " go" : ""), onclick: function () { SB.Title.setUiScale(o[0]); openMenu("settings"); } }, o[1]); })));
+    }
     if (SB.Save.loadV1()) body.appendChild(h("p", { class: "note" }, "your old valley save (v1) is still kept safe on this device."));
   }
 
@@ -1027,10 +1219,10 @@
     body.innerHTML = "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
       "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
       "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
-      "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently). drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.</p>" +
+      "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently: the dotted arc shows where they'll land). grab a tree and wiggle it side to side to shake fruit down. drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b> (from tool-users on): signs from the sky. a rally flag, an explore beacon, work marks, building blueprints, and no-go, stockpile and home zones. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
       "<p><b class='lilac'>evolution</b>: genes mutate when eggs are made. and what parents practise echoes into their babies: smols that walk a lot have kids with longer legs, smols that fiddle with things have kids with hands, smols that learn have kids with bigger brains. climb the ladder: blob → critter → tool-user → tribe → builder → thinker → ascended.</p>" +
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
-      "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-5 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
+      "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-6 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
   }
 
   /* ---------------- brain viewer ---------------- */
@@ -1187,14 +1379,16 @@
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
     // from the hub's "tap to play" card (cc.autostart): that tap was the start, so go straight to the island
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
-    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto) { SB.Intro.play({ done: landing }); return; }
+    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto) { SB.Intro.play({ done: landing, noGate: !!SB.Game.fromTitle }); return; } // the "create world" tap already let the sound start
     landing();
   }
   UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };
   // after the story: the camera falls with the pod onto the island
   function landing() {
     var T = game.world.T, nest = T.nest;
-    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, "an island of tiny minds. one escape pod.")]);
+    // the island's name, and its quirk (a "surprise me" quirk is revealed right here)
+    var qk = ((game.settings && game.settings.world && game.settings.world.quirks) || []).map(function (k) { return SB.QUIRKS && SB.QUIRKS[k]; }).filter(Boolean)[0];
+    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "welcome to " + game.wname + "." : "an island of tiny minds. one escape pod."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
     root.appendChild(title);
     R.camera.x = T.N / 2; R.camera.z = T.N / 2 + 20; R.camera.zoom = R.camera.tZoom = 95; R.camera.yaw = R.camera.tYaw = -0.9;
     R.cinematic({ dur: 5.5, x0: T.N / 2, zz0: T.N / 2 + 20, x1: nest.x, zz1: nest.z, z0: 95, z1: 5.5, yaw0: -0.9, yaw1: 0.35, skippable: true, done: function () {
@@ -1276,7 +1470,7 @@
     [/first word/, "tap 💬 talk, pick “food”, then tap a piece of food while a smol is looking at it. one lesson every few seconds."],
     [/tickle/, "pick 🪶 tickle and tap a smol right after it does something good, like eating."],
     [/egg/, "grown-ups who are fed, healthy and happy fall in love. feed them, tickle them, keep them company."],
-    [/evolve/, "evolution happens through eggs: kids get a mix of their parents plus a nudge from how they lived. ✨ magic → 🧬 bless makes the next 3 eggs lean the way you pick."],
+    [/evolve/, "evolution happens through eggs: kids get a mix of their parents plus a nudge from how they lived (the +🤲 pips). the next list shows who's practising what. ✨ magic → 🧬 bless makes the next 3 eggs lean the way you pick."],
     [/idea/, "tool-users invent by fiddling with things. ✋ hand them sticks and stones, or ✨ magic → 💡 inspire one."],
     [/building/, "builders build by themselves when they need something (huts for cold, farms for food). keep them fed and give them sticks and stones."],
     [/village/, "builders put huts round the campfire when the tribe grows. more smols, more huts."],
@@ -1289,12 +1483,20 @@
     if (dr) out.push({ key: "drown" + dr.id, icon: "🌊", t: dr.name + " is drowning!", s: "pick ✋ grab and drag " + dr.name + " back onto land.", go: function () { fly(dr, 6); setTool("grab", true); } });
     var pod = (g.sites || []).filter(function (x) { return x.kind === "pod" && !x.done && !x.gone; })[0], act = g.dir && g.dir.active;
     if (pod && !(act && act.id === "pod")) out.push({ key: "pod" + pod.id, icon: "🛸", t: "a pod is down, with survivors inside", s: "send a rescue party before they give up and wander off. it's the flashing 🛸 on your map.", btn: "send rescue", go: function () { if (!(g.dir && g.dir.active)) { pod.asked = false; pod.againT = 0; SB.Director.fire(g, "pod"); } else UI.podMap(pod); } });
+    var fu = (g.funerals || []).filter(function (f) { return f.phase === "gather" || f.phase === "rite" || f.phase === "mourn"; })[0];
+    if (fu) { var fn = fu.names || "a friend"; out.push({ key: "fun" + fu.id, icon: "🕯", t: "a funeral for " + fn, s: { river: "the tribe is carrying them to the water " + fu.where + ".", pyre: "the tribe is gathering " + fu.where + " for a pyre.", burial: "the tribe is digging a grave " + fu.where + ".", cairn: "the tribe is piling stones " + fu.where + "." }[fu.rite] + " come and watch, or tickle a mourner to comfort them.", btn: "go there", go: function () { R.flyTo(fu.x, fu.z, 8, 1.0); } }); }
     var str = SB.Strangers && SB.Strangers.pending(g);
     if (str && !el.modal) out.push({ key: "str" + str.id, icon: "🧳", t: str.name + " is waiting to join", s: "a survivor is at the edge of the village. welcome them in: newcomers aren't family, so they can start new families.", go: function () { strangerCard(str); } });
     var pr = (g.prayers || []).filter(function (p) { return !p.answered && SB.Game.prayerLive(g, p) && SB.Game.byId(g, p.id); })[0];
     if (pr) {
       var pc = SB.Game.byId(g, pr.id), soft = /lonely|love|bored|fear/.test(pr.need), fix = { hunger: "🍎 bounty", sick: "💚 heal", pain: "💚 heal", cold: "☀️ sun", hot: "🌧 rain", tired: "💤 rest" }[pr.need] || "a miracle";
       out.push({ key: "pray" + pr.id + pr.t, icon: "🙏", t: pc.name + " is praying for " + (NEED_TEXT[pr.need] || pr.need), s: soft ? "it just wants you: pick 🪶 tickle and tap it." : "open ✨ magic, pick " + fix + ", and tap near " + pc.name + ". the right miracle earns sparks.", go: function () { fly(pc, 6); setTool(soft ? "tickle" : "magic", true); } });
+    }
+    var wsh = g.fh && g.fh.wishes.filter(function (w) { return !w.done && SB.Game.byId(g, w.id); })[0];
+    if (wsh) {
+      var wc = SB.Game.byId(g, wsh.id), wd = SB.FirstHour.WISHES[wsh.kind];
+      var wh = { food: "✋ shake a tree near it (grab the tree and wiggle), or carry it some food.", friend: "✋ carry another smol over and set it down next to " + wc.name + ".", warm: "✋ carry " + wc.name + " to the fire.", toy: "✋ carry it a ball, a stick or a rock." }[wsh.kind];
+      out.push({ key: "wish" + wsh.id + wsh.t, icon: "💭", t: wc.name + " wishes for " + wd.text, s: wh + " a granted wish earns " + wd.sparks + " ✨ and a happy memory.", go: function () { fly(wc, 6); setTool("grab", true); } });
     }
     var gr = g.creatures.filter(function (c) { return c.alive && c.species === "grump" && !c.goingHome && smols.some(function (o) { return SB.dist(o.x, o.z, c.x, c.z) < 8; }); })[0];
     if (gr && !(act && act.id === "raid")) out.push({ key: "grump" + gr.id, icon: "👺", t: "a grump is bothering your smols", s: "pick 👆 tap and tap the grump 3 times to chase it off. a campfire keeps them away at night.", go: function () { fly(gr, 7); setTool("tap", true); } });
@@ -1310,10 +1512,11 @@
     if (site) out.push({ key: "site" + site.id, icon: "❓", t: "something's out in the fog", s: "that ? marker is a place nobody's visited. smols explore on their own; ✋ carry one over there to look sooner.", go: function () { fly(site, 9); setTool("grab", true); } });
     var maxT = smols.reduce(function (m, c) { return Math.max(m, c.tier); }, 0);
     if ((g.sparks || 0) >= 20 && !(g.stats.blessed) && maxT < 6) out.push({ key: "bless", icon: "🧬", t: "you've saved up " + Math.floor(g.sparks) + " sparks", s: "spend them: ✨ magic → 🧬 bless makes the next 3 eggs lean toward what you pick. it's the fastest way to evolve.", go: function () { setTool("magic", true); } });
+    if (SB.Orders && SB.Orders.unlocked(g) && !SB.Orders.ensure(g).placed) out.push({ key: "orders1", icon: "🚩", t: "your smols can follow orders now", s: "pick 🚩 orders and put down a 📐 blueprint, a 🪓 work mark or a 🚩 rally flag. they follow if they trust you.", btn: "try it", go: function () { setTool("orders", true); } });
     if (maxT >= 2 && (g.stats.wordsTaught || 0) < 6) out.push({ key: "words", icon: "💬", t: "teach more words", s: "every word the whole tribe knows makes everyone learn faster. 💬 talk, pick a word, show it.", go: function () { setTool("talk", true); } });
     if (g.speed === 1 && g.playTime > 600 && !g._spedUp) out.push({ key: "speed", icon: "⏩", t: "waiting for something?", s: "tap ▶ 1× (top right) to speed time up. evolution takes generations.", go: function () { g._spedUp = true; cycleSpeed(1); } });
     var goal = goalsList()[0];
-    if (goal) { var how = HOW.filter(function (x) { return x[0].test(goal.t); })[0]; out.push({ key: "goal:" + goal.t, icon: "🎯", t: "next: " + goal.t.replace(/ \(.*$/, ""), s: how ? how[1] : "the next list (top left) tracks it.", go: function () { el.goals.classList.remove("min"); el.goals.classList.add("tutglow"); setTimeout(function () { el.goals.classList.remove("tutglow"); }, 3000); } }); }
+    if (goal) { var how = HOW.filter(function (x) { return x[0].test(goal.t); })[0]; out.push({ key: "goal:" + goal.t.replace(/[:(].*$/, ""), icon: "🎯", t: "next: " + goal.t.replace(/ \(.*$/, ""), s: how ? how[1] : "the next list (top left) tracks it.", go: function () { el.goals.classList.remove("min"); el.goals.classList.add("tutglow"); setTimeout(function () { el.goals.classList.remove("tutglow"); }, 3000); } }); }
     return out;
   }
   function updateGuide(dt) {
@@ -1354,7 +1557,7 @@
       SB.Input.follow(c);
       tutAdvance(2);
     }
-    var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0)); }; };
+    var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0), game); }; };
     var body = twin ? h("div", null, [
       h("p", null, game.ngPlus ? "a girl and a boy climbed out of the pod: the great-great-grandkids of your best smols, on a brand new island. what are they called?" : "two little blobs climbed out of the pod: a girl and a boy. the last smols. what are they called?"),
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♀"), inp, h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")]),
@@ -1389,7 +1592,7 @@
   /* ---------------- the storyteller (director.js) ---------------- */
   function incidentCard(inc) {
     if (!inc || inc.phase !== "ask") return;
-    if (el.modal) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
+    if (el.modal || (SB.Possess && SB.Possess.active)) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
     if (inc.x != null && inc.id !== "pod") R.flyTo(inc.x, inc.z, 9, 1.0);
     var body = h("div", { class: "incident" }, [
       h("div", { class: "story" }, [h("div", { class: "icon" }, inc.icon), h("h3", null, inc.title)]),
@@ -1475,7 +1678,7 @@
       h("div", { class: "btnrow" }, [
         h("button", { class: "btn", onclick: function () { closeModal(); } }, "keep playing"),
         h("button", { class: "btn", onclick: function () { UI.civCard(); } }, "🪪 share"),
-        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
+        champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); try { SB.Save.save(g); } catch (e) {} var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
       ])
     ]);
     modal("", body, { story: true, sticky: true });
@@ -1550,11 +1753,58 @@
   function roundRect(ctx, x, y, w, hh, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + hh, r); ctx.arcTo(x + w, y + hh, x, y + hh, r); ctx.arcTo(x, y + hh, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
   /* ---------------- bus ---------------- */
+  /* ---------------- the first hour: wishes, the hatch reveal, big tier moments ---------------- */
+  var TIER_SHOUT = { 1: "LEGS!", 2: "HANDS!", 3: "WORDS!", 4: "PLANS!", 5: "BIG BRAINS!", 6: "ASCENDED!" };
+  var revealEl = null, revealSkip = 0;
+  function hatchReveal(c, d) {
+    var FH = SB.FirstHour, why = d.why || [], ps = (d.parents || []).map(function (id) { return SB.Game.byId(game, id) || (game.family[id] ? { name: game.family[id].name } : null); }).filter(Boolean);
+    if (revealEl) revealEl.remove();
+    var from = d.pTier || 0, to = FH.tierProgress(c.genome), nx = SB.TIERS[c.tier + 1];
+    var bar = h("i", { style: "width:" + Math.round(from * 100) + "%" });
+    revealEl = h("div", { class: "fhhatch glass", onclick: function () { SB.Game.select(game, c.id); if (revealEl) { revealEl.remove(); revealEl = null; } } }, [
+      h("div", { class: "row" }, [avatar(c.look, c.tier), h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "nm" }, "🐣 " + c.name + " hatched!"), h("div", { class: "sub2" }, ps.length ? "child of " + ps.map(function (p) { return p.name; }).join(" & ") + " · gen " + c.gen : "gen " + c.gen)])]),
+      h("div", { class: "fhwhy" }, why.length ? why.map(function (w) { return h("div", { class: w.d >= 0 ? "up" : "dn" }, FH.reasonText(w)); }) : [h("div", { class: "dim" }, "just like its parents, this time")]),
+      nx ? h("div", { class: "fhbar" }, [h("span", null, "next: " + nx.icon + " " + nx.name), h("span", { class: "b" }, [bar]), h("span", { class: "mono" }, Math.round(to * 100) + "%")]) : null
+    ]);
+    root.appendChild(revealEl);
+    var me = revealEl;
+    setTimeout(function () { bar.style.width = Math.round(to * 100) + "%"; }, 60);
+    setTimeout(function () { if (me.parentNode) me.classList.add("out"); }, 2400);
+    setTimeout(function () { if (me.parentNode) me.remove(); if (revealEl === me) revealEl = null; }, 2900);
+  }
+  function wireFirstHour(on) {
+    if (!SB.FirstHour) return;
+    on("hatch", function (d) {
+      var dd = d.obj && d.obj.data;
+      if (!dd || dd.starter || !(dd.parents || []).length || d.c.far || state.introRunning || revealSkip === d.c.id) return;
+      hatchReveal(d.c, dd);
+    });
+    on("tierUp", function (d) {
+      revealSkip = d.c.id; // the evolution card says it bigger
+      var seen = (game.settings && game.settings.cards) || {};
+      if (TIER_SHOUT[d.tier] && !seen["tier" + d.tier] && !(game.settings && game.settings.guide === false)) moment(SB.TIERS[d.tier].icon, TIER_SHOUT[d.tier], d.c.name + " is the first " + SB.TIERS[d.tier].name + "!", "lilac");
+    });
+    on("wish", function (d) {
+      storyCard("wish", "💭", "a wish!", [
+        "<b>" + esc(d.c.name) + "</b> is wishing for " + esc(SB.FirstHour.WISHES[d.w.kind].text) + ". little smols can't pray yet, but they can hope the sky notices.",
+        "grant it with ✋ the hand: carry food or a toy over, bring a friend, carry them to the fire. you can even grab a tree and wiggle it to shake fruit down.",
+        "a granted wish earns ✨ sparks and the smol remembers that the sky one helped."
+      ]);
+    });
+    on("wishGranted", function (d) {
+      if (SB.FX) SB.FX.burst("hearts", d.c.x, d.c.y + 0.8, d.c.z, 6);
+      toast("💭 wish granted! <b>" + esc(d.c.name) + "</b> got " + esc(SB.FirstHour.WISHES[d.w.kind].text) + " · +" + d.sparks + " ✨");
+      if (SB.Audio && SB.Audio.play) try { SB.Audio.play("chime"); } catch (e) {}
+    });
+    on("handShake", function (d) { if (d.o && SB.Audio && SB.Audio.play) try { SB.Audio.play("pop"); } catch (e) {} });
+  }
+
   var wired = false;
   function wireBus() {
     if (wired) return;
     wired = true;
     var on = SB.bus.on;
+    wireFirstHour(on);
     on("note", function (d) { toast(esc(d.text)); });
     on("achievement", function (d) { toast(d.a.icon + " <b>" + esc(d.a.name) + "</b> · " + esc(d.a.desc), "ach", 5000); });
     on("hatch", function (d) {
@@ -1609,11 +1859,17 @@
         moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + ". everyone here comes from them.", "lilac");
         R.flyTo(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
       }
-      storyCard("grave", "🪦", "goodbye, " + esc(d.c.name), ["every smol gets a little grave where it fell, with an epitaph. tap it to read it.",
-        "friends and family grieve for a while: they get lonely and slow, and visit the grave. the 📜 chronicle in the menu remembers everyone."]);
+      storyCard("grave", "🕯", "goodbye, " + esc(d.c.name), ["when a smol dies, its body stays where it fell (look for the 🕯). in a little while the tribe gathers to say goodbye, the way their culture knows how.",
+        "early smols float their dead down the river to the sea. once they know fire, they give them to the flames. builders dig a grave at a favourite place, with an epitaph you can tap to read.",
+        "friends and family grieve for a while: they get lonely and slow, and visit the place. a tickle comforts them. the 📜 chronicle in the menu remembers everyone."]);
     });
     on("stranger", function (d) { setTimeout(function () { strangerCard(d.c); }, 400); });
     on("podCrash", function (d) { podQ.push(d.site); if (podQ.length === 1) setTimeout(nextPod, 300); });
+    on("funeral", function (d) {
+      var how = { river: "carrying " + (d.n > 1 ? "them" : "the body") + " to the water", pyre: "gathering for a pyre", burial: "digging a grave", cairn: "piling stones" }[d.rite];
+      toast("🕯 the smols are planning a funeral for <b>" + esc(d.names) + "</b>: " + how + ".", "", 6000);
+    });
+    on("funeralDone", function (d) { moment("🕯", "goodbye, " + d.names, "the tribe " + d.how + ".", "sad"); });
     on("podOpened", function (d) {
       if (d.self) { toast("🛸 " + esc(d.title) + (d.survivors.length ? ": " + d.survivors.map(function (c) { return esc(c.name); }).join(" and ") + " went looking for the village." : "")); if (d.log) cardQ.push(["🛸", "a log from the pod", ['<span class="podlog">' + esc(d.log) + "</span>"]]); if (!el.modal) nextCard(); return; }
       var paras = d.text.map(esc);
@@ -1723,6 +1979,8 @@
     on("incident", function () { setTimeout(function () { if (!game.settings.cards || !game.settings.cards.incident) { storyCard("incident", "📜", "story cards", ["every few minutes something happens on the island: raids, storms, sickness, falling stars, feuds, lost kids, visions. the storyteller asks what you want to do.", "answers with ✨ cost sparks. if you don't answer in time, the free one happens. you can make the storyteller calmer or wilder in settings."]); } }, 200); });
     on("lightning", function () { R.flash(0.9); R.camera.shake = Math.max(R.camera.shake, 0.3); });
     on("death", function (d) { if (game.selectedId === d.c.id) closeSheet(); });
+    on("orderDone", function (d) { if (d.msg) toast(esc(d.msg)); });
+    on("ordersAnnoyed", function () { var now = performance.now(); if (now - annoyT < 30000) return; annoyT = now; toast("😤 too many orders: your smols are getting annoyed. they'll listen less for a while"); });
     on("grumpArrive", function () { if ((game.stats.grumpNights || 0) === 0 && !game._grumpWarned) { game._grumpWarned = true; toast("👺 grumps come out at night. 👆 tap them 3 times to shoo them. fire scares them too."); } });
     // threats.js: disasters, smols carried off, buildings wrecked
     on("disaster", function (d) {
@@ -1751,7 +2009,7 @@
     if (k === " ") { cycleSpeed(0); e.preventDefault(); return true; }
     if (k === "[") { cycleSpeed(-1); return true; }
     if (k === "]") { cycleSpeed(1); return true; }
-    if (k >= "1" && k <= "5") { setTool(TOOLS[+k - 1][0], true); return true; }
+    if (k >= "1" && k <= "6") { setTool(TOOLS[+k - 1][0], true); return true; }
     if (k === "t") { setTool("talk", true); e.preventDefault(); return true; }
     if (k === "m") { game.settings = game.settings || {}; game.settings.minimap = game.settings.minimap === false; toast(game.settings.minimap === false ? "map hidden (m to show)" : "map on"); return true; }
     if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (c && c.type === "creature") openBrain(c); return true; }
@@ -1774,6 +2032,7 @@
     if (el.coach && game.tutorial.done) { el.coach.remove(); el.coach = null; }
     if (!el.coach) updateGuide(dt); else if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; }
     drawMinimap(dt);
+    updateOrdersUI(dt);
     if (state.sheet === "smol") renderSmol(false);
     else if (state.sheet === "talk") { if (el.talkWords) updateTalk(false); }
     else if (state.sheet === "magic") { if ((magicT -= dt) < 0) { magicT = 0.5; updateMagic(); } }

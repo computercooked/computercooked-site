@@ -60,6 +60,7 @@
   /* ---------------- creatures ---------------- */
 
   function drawCreature(c, alpha, t, game) {
+    if (c._pov && R.camera.pov) return; // first person: you are this one
     if (!c.heldBy && !SB.World.isSeen(game.world, c.x, c.z)) return; // hidden under the fog of war
     var x = c.px + (c.x - c.px) * alpha, z = c.pz + (c.z - c.pz) * alpha;
     var y = c.y;
@@ -243,6 +244,16 @@
 
   /* ---------------- structures (moving / unfinished parts) ---------------- */
 
+  // a hut with someone home: smoke curls from the chimney (on cold days and at night) and the window throws
+  // a warm glow on the ground after dark
+  function hutLife(game, s, gy) {
+    var cs = game.creatures, home = false, env = SB.Render.env;
+    for (var i = 0; i < cs.length && !home; i++) { var c = cs[i]; if (c.alive && c.species === "smol" && Math.abs(c.x - s.x) < 2.2 && Math.abs(c.z - s.z) < 2.2) home = true; }
+    if (!home) return;
+    var ca = Math.cos(s.rot || 0), sa = Math.sin(s.rot || 0), sc = s.s || 1;
+    if ((env.night > 0.3 || game.world.season === 3 || game.world.season === 2) && SB.FX && Math.random() < 0.035) SB.FX.burst("smoke", s.x + (-0.4 * ca - 0.34 * sa) * sc, gy + 1.9 * sc, s.z + (0.4 * sa - 0.34 * ca) * sc, 1, { scale: 0.7 });
+    if (env.night > 0.5) R.light(s.x + 0.6 * sa, gy + 0.5, s.z + 0.6 * ca, 2.8, 1, 0.68, 0.32);
+  }
   function drawStructures(game, t) {
     var sts = game.world.structures, cam = R.camera, w = game.world;
     for (var i = 0; i < sts.length; i++) {
@@ -263,6 +274,7 @@
         else part("s:flame", 0, 0.05, 0.72, 0, 0, 0, 0.5, 0.45 * fl, 0.4, null, [0, 0.15, 0]);
         R.light(s.x, gy + 0.9, s.z, s.kind === "kiln" ? 4 : 5.5 + s.data.fuel * 3, 1, 0.58, 0.25);
       }
+      if (s.kind === "hut") hutLife(game, s, gy);
       if (s.kind === "windmill") { setBase(s.x, gy, s.z, s.rot || 0, 1); part("s:blades", 0, 2.6, 0.75, 0, 0, t * (0.8 + w.weather.wind * 2), 1, 1, 1, null, EXT); }
       if (s.kind === "spire") { R.light(s.x, gy + 7, s.z, 14, 0.7, 0.9, 1); }
       if (s.kind === "totem" && SB.Render.env.night > 0.5) R.light(s.x, gy + 1.5, s.z, 2, 0.8, 0.7, 1);
@@ -292,6 +304,7 @@
     drawItems(game, t);
     var cs = game.creatures;
     for (var i = 0; i < cs.length; i++) if (cs[i].alive || cs[i].dying) drawCreature(cs[i], alpha, t, game);
+    var bd = game.bodies; if (bd) for (var bi = 0; bi < bd.length; bi++) if (!bd[bi].gone2 && !bd[bi].away) drawCreature(bd[bi], alpha, t, game); // the dead, waiting for their funeral
     // the god hand's ground marker
     var h = game.hand;
     if (h.visible && h.marker) {
@@ -366,13 +379,16 @@
     for (var i = 0; i < cs.length; i++) {
       var c = cs[i];
       if (!c.alive || c.far || !SB.World.isSeen(game.world, c.x, c.z)) continue;
+      if (cam.pov && (c._pov || SB.dist2(c.x, c.z, cam.eye[0], cam.eye[2]) > 400)) continue; // first person: you, and the far-off, get no labels
       var Rr = SB.Creature.radius(c), lk = c.look;
       var headH = Rr * (2.3 + (lk.legs ? 0.35 + lk.legLen * 0.9 : 0) + (lk.head > 0.4 ? 1 : 0) + (lk.halo ? 0.6 : 0));
       if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, pp); pp.y -= c._pxH; } // sprites: above the painted head
       else R.project(c.x, c.y + headH, c.z, pp);
       if (!pp.on) continue;
       var x = pp.x, y = pp.y;
+      var ph = 0;
       if (c.speech && (zoom < 26 || game.selectedId === c.id)) { y -= bubble(ctx, x, y - 4, c.speech.text, c.speech.kind) + 10; }
+      else if (SB.Mind && c.species === "smol" && (ph = SB.Mind.drawBubble(ctx, x, y - 4, c, game, zoom))) y -= ph + 10; // its plan, in pictures
       else if (c.anim.emote && zoom < 22) {
         SB.Icons.fillText(ctx, EMOTE[c.anim.emote] || "", x, Math.round(y - 10 - Math.abs(Math.sin(t * 4)) * 4), 28);
         y -= 26;
@@ -390,6 +406,14 @@
         SB.Icons.fillText(ctx, c.chem.hunger > 0.85 ? "🍎❗" : c.chem.sick > 0.5 ? "🤢" : "🥶", x, Math.round(y - 8 + Math.sin(t * 5) * 2), 14);
       }
     }
+    // the dead: a little candle and their name, until the tribe has said goodbye
+    (game.bodies || []).forEach(function (b) {
+      if (b.gone2 || b.away || b.drift || !SB.World.isSeen(game.world, b.x, b.z)) return;
+      R.project(b.x, b.y + 1.3, b.z, pp);
+      if (!pp.on) return;
+      SB.Icons.fillText(ctx, "🕯", pp.x, Math.round(pp.y + Math.sin(t * 2 + b.id) * 2), 14);
+      if (B.labels) { ctx.font = "700 11px " + FONT; ctx.fillStyle = "rgba(245,243,237,0.7)"; ctx.strokeStyle = "rgba(16,17,20,0.75)"; ctx.lineWidth = 3; SB.Icons.fillText(ctx, b.name, pp.x, pp.y + 16, 12, true); }
+    });
     // places nobody has explored yet: a bobbing marker, so you know where to send them
     (game.sites || []).forEach(function (st) {
       if (st.kind === "pod" && !st.done && !st.gone) { // a downed pod: someone's inside, waiting
@@ -402,6 +426,8 @@
         return;
       }
       if (st.gone || st.found || !SB.World.isSeen(game.world, st.x, st.z)) return;
+      var pv = SB.Possess && SB.Possess.active && SB.Possess.c; // in a smol's eyes: only the ones close by
+      if (pv && (st.x - pv.x) * (st.x - pv.x) + (st.z - pv.z) * (st.z - pv.z) > 18 * 18) return;
       R.project(st.x, SB.World.groundY(game.world, st.x, st.z) + 2.4, st.z, pp);
       if (!pp.on) return;
       var by = Math.round(pp.y + Math.sin(t * 2.5 + st.id) * 4);
@@ -448,5 +474,75 @@
     // the hand's words
     var hd = game.hand;
     if (hd.saying && hd.visible) { R.project(hd.x, hd.y + 0.6, hd.z, pp); bubble(ctx, pp.x, pp.y, "“" + hd.saying + "”", "say"); }
+  });
+  /* ---------------- the first hour: echo pips, learning chips, wishes, egg hints, the throw arc ---------------- */
+  var LEAN = { arms: "255,209,102", limbs: "143,211,255", cortex: "255,126,182", social: "255,159,67", planning: "197,255,73" };
+  function headAt(c, out) {
+    if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, out); out.y -= c._pxH; }
+    else R.project(c.x, c.y + SB.Creature.radius(c) * 3, c.z, out);
+    return out.on;
+  }
+  R.addOverlay(function (ctx, W, H, game) {
+    if (!game || !SB.FirstHour) return;
+    var t = R.time(), cs = game.creatures, zoom = R.camera.zoom;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    // eggs glow softly in the colour of what the baby leans toward
+    if (zoom < 24) game.world.items.forEach(function (o) {
+      if (o.kind !== "egg" || !o.data || !o.data.lean || !LEAN[o.data.lean] || !SB.World.isSeen(game.world, o.x, o.z)) return;
+      R.project(o.x, o.y + 0.25, o.z, pp);
+      if (!pp.on) return;
+      var r = 20 + Math.sin(t * 2.2 + o.id) * 3, gr = ctx.createRadialGradient(pp.x, pp.y, 2, pp.x, pp.y, r);
+      gr.addColorStop(0, "rgba(" + LEAN[o.data.lean] + ",0.55)"); gr.addColorStop(1, "rgba(" + LEAN[o.data.lean] + ",0)");
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(pp.x, pp.y, r, 0, 6.283); ctx.fill();
+    });
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i], fl = c._fl;
+      if (!fl || !fl.length) continue;
+      if (!c.alive || c.far || zoom > 22 || !SB.World.isSeen(game.world, c.x, c.z) || !headAt(c, pp)) { fl.length = 0; continue; }
+      for (var j = fl.length - 1; j >= 0; j--) {
+        var f = fl[j];
+        if (f.born == null) f.born = t + (fl.length - 1 - j) * 0.18; // a burst comes out one after another
+        var age = t - f.born, life = f.k === "pip" ? 1.3 : 2.2;
+        if (age > life) { fl.splice(j, 1); continue; }
+        if (age < 0) continue;
+        var a = Math.min(1, (life - age) / 0.4), y = pp.y - 14 - age * (f.k === "pip" ? 30 : 16);
+        ctx.globalAlpha = a;
+        if (f.k === "pip") {
+          ctx.font = "700 14px " + FONT; ctx.fillStyle = f.col || "#ffd166"; ctx.strokeStyle = "rgba(16,17,20,0.85)"; ctx.lineWidth = 3;
+          SB.Icons.fillText(ctx, f.t, pp.x + 14, y, 15, true);
+        } else {
+          ctx.font = "700 12px " + FONT;
+          var tw = ctx.measureText(f.t).width + 30;
+          ctx.fillStyle = "rgba(16,17,20,0.82)"; ctx.fillRect(Math.round(pp.x - tw / 2), Math.round(y - 11), Math.round(tw), 22);
+          ctx.fillStyle = f.k === "up" ? "#c5ff49" : "#ff8a8a"; ctx.fillRect(Math.round(pp.x - tw / 2), Math.round(y - 11), 3, 22);
+          ctx.fillStyle = "#f5f3ed"; SB.Icons.fillText(ctx, f.t, pp.x, y + 1, 13);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    // wishes: a thought bubble the hand can answer
+    var fh = game.fh;
+    if (fh && fh.wishes.length && zoom < 26) fh.wishes.forEach(function (w) {
+      var c = SB.Game.byId(game, w.id);
+      if (!c || !c.alive || c.far || c.speech || !SB.World.isSeen(game.world, c.x, c.z) || !headAt(c, pp)) return;
+      var def = SB.FirstHour.WISHES[w.kind], left = 1 - (game.time - w.t) / SB.FirstHour.WISH_LIFE, by = Math.round(pp.y - 22 + Math.sin(t * 2.5 + c.id) * 3);
+      ctx.fillStyle = "rgba(245,243,237,0.95)"; ctx.strokeStyle = "#101114"; ctx.lineWidth = 2;
+      ctx.fillRect(pp.x - 21, by - 15, 42, 28); ctx.strokeRect(pp.x - 21, by - 15, 42, 28);
+      ctx.fillRect(pp.x - 4, by + 15, 5, 4); ctx.fillRect(pp.x - 1, by + 21, 3, 3);
+      ctx.fillStyle = "#b59aff"; ctx.fillRect(pp.x - 19, by + 9, Math.max(0, 38 * left), 2);
+      SB.Icons.fillText(ctx, "💭" + def.icon, pp.x, by - 2, 16);
+    });
+    // the throw arc: where a flick would land
+    var aim = game.hand && game.hand.aim;
+    if (aim && aim.pts.length && game.hand.heldId != null && performance.now() - aim.t < 120) {
+      for (var k = 0; k < aim.pts.length; k++) {
+        var q = aim.pts[k];
+        R.project(q[0], q[1], q[2], pp);
+        if (!pp.on) continue;
+        var last = k === aim.pts.length - 1;
+        if (last) { ctx.strokeStyle = "rgba(16,17,20,0.7)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(pp.x, pp.y, 12, 5, 0, 0, 6.283); ctx.stroke(); ctx.strokeStyle = "#c5ff49"; ctx.lineWidth = 2; ctx.stroke(); }
+        else { ctx.fillStyle = "rgba(16,17,20,0.6)"; ctx.fillRect(Math.round(pp.x) - 3, Math.round(pp.y) - 3, 6, 6); ctx.fillStyle = "#f5f3ed"; ctx.fillRect(Math.round(pp.x) - 2, Math.round(pp.y) - 2, 4, 4); }
+      }
+    }
   });
 })();
