@@ -122,6 +122,16 @@ The owner wanted towns, money and a real challenge instead of constant cuddling.
 - **Pacing (headless engaged-bot sims)**: builders 60–65 min, town 72–109, city 115–140, ascended 117–170 (target 125–150; the spread is generation turnover and glow inheritance in the last stretch, not food). Raids wreck 9–17 buildings a run; ~5 kidnaps; 1–2 disasters per 4 hours.
 - **From v3.5**: funerals by culture (river, pyre, burial and memorials), a much bigger name generator, clickable guide tips, a bigger menu that fits the tree of life.
 
+## 0.12 The hd pixel look (`hd.js`, opt-in, not the default yet)
+
+A third look, in the spirit of HD-2D (Octopath Traveler, Eastward): settings → look cycles pixel art → hd pixel → classic 3D (saved in `smolbrains-look` as `"hd"`; `?look=hd` too). Switching back loads today's look untouched: every hd change sits behind `R.hd` or `#ifdef HD` in the shaders.
+
+- **Generated art** (Nano Banana 2 with the approved HD-2D mock as style reference, then seam-fixed, area-downscaled and palette-snapped to crisp pixel art): `art/hd/tiles.png`, a 4×4 atlas of 64 px tiles (grass, dirt, sand, rock, snow, farmland, water, bark, leaves, pine needles, blossom, palm fronds, stone brick, thatch, planks, roof tiles), and `art/hd/items.png` + `items.json`, 46 pickup sprites at 32, 16 and 12 px. ~150 KB in all, fetched only in this look.
+- **Tiles are detail maps** (each tile divided by its own average colour), multiplied onto the usual colours, so biomes, seasons, snow, fog and night all still work. The ground picks its tiles from the vertex colour and slope (green = grass, gold = sand, grey or steep = rock, white = snow, else dirt). Meshes get a tile per vertex from their colour and kind (`HD.materials`: tree trunks bark, crowns the leaves of their family, huts thatch/planks/stone, roofs tiles, farms soil), projected along each part's main axis; thatch and roof tiles always run in rows. Far away, where a tile would have more texels than pixels, the detail fades out so it never shimmers.
+- **Pickups are sprites** (Octopath-style billboards snapped to the pixel grid) at the native size closest to what the zoom wants. Critters, the pod and plushies keep their meshes.
+- **Light and lens**: a warmer, stronger sun with a dimmer lilac fill and deeper cool shade under trees; the scene renders at ~320 art rows (240 in the pixel look) with the same 1px outlines, then `HD.post` draws it onto a full-resolution canvas: depth of field from the depth buffer in first person (focus on the crosshair, the distance goes soft; the water surface writes depth there), a gentle tilt-shift in god view that switches off zoomed out to a map, a little bloom, and a warm grade with a soft vignette. Smols are pixel.js sprites as in the pixel look (faces, proportions and moods unchanged).
+- **Phones**: weak phones start with the blur/glow off, any device drops it after ~4 s under 25 fps, and settings has "soft focus & glow on/off" (`smolbrains-hdfx`). Tiles and sprites stay on.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
