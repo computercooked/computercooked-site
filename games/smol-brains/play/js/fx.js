@@ -164,6 +164,7 @@
         }
         weather(game, cam, tAcc);
         seasonal(game, cam, tAcc);
+        if (SB.Threats && SB.Threats.draw) SB.Threats.draw(game, cam, tAcc, addPoint, line); // tornado funnels, tsunami waves, blowing dust
         // lightning bolts: jagged lines from the sky
         game.world.bolts.forEach(function (bt) {
           var r = SB.rng((bt.x * 1000 + bt.z) | 0), x = bt.x, z = bt.z, y = bt.y + 30, segs = 12;

@@ -1724,6 +1724,23 @@
     on("lightning", function () { R.flash(0.9); R.camera.shake = Math.max(R.camera.shake, 0.3); });
     on("death", function (d) { if (game.selectedId === d.c.id) closeSheet(); });
     on("grumpArrive", function () { if ((game.stats.grumpNights || 0) === 0 && !game._grumpWarned) { game._grumpWarned = true; toast("👺 grumps come out at night. 👆 tap them 3 times to shoo them. fire scares them too."); } });
+    // threats.js: disasters, smols carried off, buildings wrecked
+    on("disaster", function (d) {
+      var def = SB.Threats && SB.Threats.DIS[d.kind];
+      if (!def) return;
+      moment(def.icon, "the " + def.name + "!", d.inc.choice === "shelter" ? "everyone's taking cover" : "hold on tight", "");
+      R.camera.shake = Math.max(R.camera.shake, 0.6); R.flash(0.4);
+      if (SB.Audio) try { SB.Audio.play("thunder", { vol: 0.8 }); } catch (e) {}
+      storyCard("disaster", "🌋", "natural disasters", ["very rarely, the island itself turns on the smols. what can happen depends on where they live: <b>tsunamis</b> on the coast, <b>hurricanes</b> in the warm months, <b>sandstorms</b> near the savanna, <b>earthquakes</b> under the mountains, and once in a long while a <b>tornado</b>.", "you always get a warning. ✨ magic can stop it outright; taking cover keeps smols safe (buildings still suffer); riding it out is a gamble. builders put back what's wrecked. a star dome and thinkers see them coming much earlier."]);
+    });
+    on("grumpGrab", function (d) {
+      if (!d.c.far || game.selectedId === d.c.id) R.flyTo(d.g.x, d.g.z, 8, 1.0);
+      storyCard("grab", "👺", "a grump grabbed " + d.c.name + "!", ["grumps carry off kids and sleepers caught out in the open. 👆 tap the grump, or let a smol with a club whack it, and it drops them.", "if it gets away, " + d.c.name + " is held at a grump camp until you free them (or they escape on their own, eventually). huts keep kids safe at night."]);
+    });
+    on("wrecked", function (d) {
+      if (!d.st || (game.dir && game.dir.active)) return; // raids and disasters report their own damage
+      toast("💥 the " + SB.STRUCTS[d.st.kind].label + " was " + (d.how || "wrecked") + ". builders will fix it");
+    });
   }
 
   /* ---------------- keys ---------------- */

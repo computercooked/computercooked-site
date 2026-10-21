@@ -64,12 +64,13 @@
       var at = spot(game, 34, ang);
       if (!at) return null;
       var n = (camp ? 1 : 0) + Math.max(2, Math.min(9, Math.round(threat(game) * game.rng.range(0.8, 1.2))));
+      if (SB.Threats) n = SB.Threats.raidSize(game, n) + (camp ? SB.Threats.campSize(game, camp) - 1 : 0); // grumps grow stronger and bolder (threats.js)
       var fires = (game.world.fires || []).filter(function (f) { return SB.dist(f.x, f.z, hm.x, hm.z) < 12; }).length;
       var armed = smols(game).filter(function (c) { return c.tool != null; }).length;
       return {
         icon: "👺", title: "a grump war party!", x: at.x, z: at.z, warn: 50, n: n,
         text: [n + " grumps are marching on the village from the " + (camp ? "grump camp in the " : "") + dirOf(at.x - hm.x, at.z - hm.z) + ". they'll be here in under a minute.",
-          (fires ? "your campfire scares grumps off. " : "") + (armed ? armed + " of your smols carry something to fight with." : "nobody has a weapon yet: clubs and spears turn grumps away for good.")],
+          (fires ? "your campfire scares grumps off. " : "") + (armed ? armed + " of your smols carry something to fight with." : "nobody has a weapon yet: clubs and spears turn grumps away for good.") + (SB.Threats && SB.Threats.raidNote(game) ? " " + SB.Threats.raidNote(game) : "")],
         choices: [
           { key: "smite", label: "⚡ strike them down", cost: 6 + n * 2, hint: "lightning hits every raider that reaches the village" },
           { key: "hide", label: "🛖 everyone home!", hint: "your smols run home and huddle together. huts keep them safe" },
@@ -121,19 +122,24 @@
     },
     finish: function (game, inc, won) {
       smols(game).forEach(function (c) { c.shelterT = 0; c.rally = 0; });
-      var hurt = Object.keys(inc.hurt || {}).length, chased = inc.chased || 0;
-      if (won && inc.choice === "fight") {
-        SB.Game.addSparks(game, 6 + chased * 2);
-        var heroes = inc.heroes ? Object.keys(inc.heroes).map(function (id) { return SB.Game.byId(game, +id); }).filter(Boolean) : [];
-        heroes.forEach(function (c) { diary(game, c, "🏏", "fought off the grump raid"); c.stats.grumpsChased = (c.stats.grumpsChased || 0) + 1; if (SB.Social) SB.Social.checkTitle(game, c); });
-        chron(game, "🏏", "the village fought off a grump raid" + (heroes.length ? ", led by " + heroes.slice(0, 2).map(function (c) { return c.name; }).join(" and ") : ""));
-        return "the raid is broken! " + (chased ? chased + (chased === 1 ? " grump" : " grumps") + " chased off for good. " : "") + "+" + (6 + chased * 2) + " ✨ from a grateful tribe";
-      }
-      if (won) { chron(game, "👺", "a grump raid came and went" + (inc.smote ? " (the sky struck " + inc.smote + " of them)" : "")); return "the grumps are gone." + (hurt ? " " + hurt + (hurt === 1 ? " smol got" : " smols got") + " hurt." : " nobody got hurt."); }
-      chron(game, "👺", "a grump raid wore itself out and slunk home");
-      return "the grumps gave up and went home.";
+      var dmg = SB.Threats ? SB.Threats.raidReport(game, inc) : "";
+      return raidEnd(game, inc, won) + dmg;
     }
   });
+  // how the raid went, in a sentence
+  function raidEnd(game, inc, won) {
+    var hurt = Object.keys(inc.hurt || {}).length, chased = inc.chased || 0;
+    if (won && inc.choice === "fight") {
+      SB.Game.addSparks(game, 6 + chased * 2);
+      var heroes = inc.heroes ? Object.keys(inc.heroes).map(function (id) { return SB.Game.byId(game, +id); }).filter(Boolean) : [];
+      heroes.forEach(function (c) { diary(game, c, "🏏", "fought off the grump raid"); c.stats.grumpsChased = (c.stats.grumpsChased || 0) + 1; if (SB.Social) SB.Social.checkTitle(game, c); });
+      chron(game, "🏏", "the village fought off a grump raid" + (heroes.length ? ", led by " + heroes.slice(0, 2).map(function (c) { return c.name; }).join(" and ") : ""));
+      return "the raid is broken! " + (chased ? chased + (chased === 1 ? " grump" : " grumps") + " chased off for good. " : "") + "+" + (6 + chased * 2) + " ✨ from a grateful tribe";
+    }
+    if (won) { chron(game, "👺", "a grump raid came and went" + (inc.smote ? " (the sky struck " + inc.smote + " of them)" : "")); return "the grumps are gone." + (hurt ? " " + hurt + (hurt === 1 ? " smol got" : " smols got") + " hurt." : " nobody got hurt."); }
+    chron(game, "👺", "a grump raid wore itself out and slunk home");
+    return "the grumps gave up and went home.";
+  }
 
   // --- storm: a big one, announced. lightning starts fires; farms love the rain
   card({
@@ -454,7 +460,7 @@
       var armed = smols(game).filter(function (c) { return c.tool != null && c.stage >= 2; }).length;
       return {
         icon: "⛺", title: "a grump camp!", x: s.x, z: s.z, site: s.id, warn: 0,
-        text: ["out in the wild there's a grump camp: spiky fences, a smoky fire, and smols in a cage. survivors from another pod, by the look of them.",
+        text: [(SB.Threats && SB.Threats.captives(game, s).length ? "the grumps are holding " + SB.Threats.captives(game, s).map(function (c) { return c.name; }).join(" and ") + " at their camp, along with " : "out in the wild there's a grump camp: spiky fences, a smoky fire, and smols in a cage. ") + "survivors from another pod, by the look of them." + (SB.Threats && SB.Threats.campSize(game, s) > 1 ? " it's grown: " + (2 + SB.Threats.campSize(game, s)) + " grumps guard it now." : ""),
           armed ? armed + " of your smols carry clubs or spears. grumps run from a good whack." : "nobody in your tribe has a weapon. bare paws won't scare grumps off: clubs and spears will."],
         choices: [
           { key: "burn", label: "⚡ burn the camp", cost: 16, hint: "lightning scatters the grumps and smashes the cage" },
@@ -472,7 +478,7 @@
         return D.end(game, inc, true);
       }
       inc.guards = [];
-      for (var j = 0; j < 3; j++) { var g = SB.Game.spawnGrump(game, s.x + game.rng.range(-2, 2), s.z + game.rng.range(-2, 2)); g.raider = { x: s.x, z: s.z }; g.chem.anger = 0.7; inc.guards.push(g.id); }
+      for (var j = 0, ng = 3 + (SB.Threats ? SB.Threats.campSize(game, s) - 1 : 0); j < ng; j++) { var g = SB.Game.spawnGrump(game, s.x + game.rng.range(-2, 2), s.z + game.rng.range(-2, 2)); g.raider = { x: s.x, z: s.z }; g.chem.anger = 0.7; inc.guards.push(g.id); }
       inc.party = smols(game).filter(function (c) { return c.stage >= 2 && !c.asleep && c.chem.pain < 0.5; }).sort(function (a, b) { return (b.tool != null) - (a.tool != null) || (b.genome.genes.bravery || 0) - (a.genome.genes.bravery || 0); }).slice(0, 4).map(function (c) { return c.id; });
       inc.party.forEach(function (id) { var c = SB.Game.byId(game, id); c.rally = 200; SB.Creature.sendTo(c, s.x, s.z, game, 80); });
       inc.dur = 200;
