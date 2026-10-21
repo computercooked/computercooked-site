@@ -76,11 +76,13 @@
   var FS_TERRAIN = [
     PREC,
     LIGHT_GLSL,
-    "uniform float uSnow; uniform float uWet;",
+    "uniform float uSnow; uniform float uWet; uniform sampler2D uDetail; uniform vec2 uDetailK;",
     "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vFog; varying vec4 vMisc;",
     "void main() {",
     "  vec3 n = normalize(vN);",
     "  vec3 col = vCol;",
+    // art hook: a tiling ground texture (R.loadArt "ground"), grey 0.5 = no change. Off (k = 0) until one is loaded
+    "  if (uDetailK.x > 0.0) col *= mix(vec3(1.0), texture2D(uDetail, vW.xz * uDetailK.y).rgb * 2.0, uDetailK.x);",
     "  float s = smoothstep(0.28, 0.62, vMisc.x * uSnow + (n.y - 1.0) * 0.6);",
     "  col = mix(col, vec3(0.93, 0.95, 0.98), s);",
     "  col *= 1.0 - vMisc.y * 0.35;", // ambient occlusion under canopies
@@ -89,17 +91,38 @@
     "}"
   ].join("\n");
 
+  // Objects. Wind: every vertex carries a flex weight (meshes.js: 0 at the root, growing toward the tips, already
+  // curved), so trunks bend a little, crowns a lot, and leaves flutter on top; gusts roll across the island.
+  // iTint.a = 1 outlines the thing in the pixel look (decor writes 0), iExt.w = a pickup: rim light and a glint.
+  // The alpha written in pixel mode is an object id for the outline pass (1 = ground / no outline, 0 = sprite).
   var VS_OBJ = [
     "attribute vec3 aPos; attribute vec3 aNrm; attribute vec4 aCol; attribute vec2 aExt;",
     "attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; attribute vec4 iTint; attribute vec4 iExt;",
     "uniform mat4 uVP; uniform float uTime; uniform float uWind; uniform float uAutumn; uniform float uSnow; uniform vec4 uFog; uniform vec4 uCam;",
-    "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog;",
+    "uniform vec4 uHull;", // hull pass (3D look item outlines): x = on, y = width, zw unused
+    "uniform vec4 uView;", // xyz: toward the eye (orthographic), w = 1 in first person (use uEyeO)
+    "uniform vec3 uEyeO;",
+    "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog; varying vec3 vIdHi;",
     "void main() {",
     "  vec4 p = vec4(aPos, 1.0);",
     "  vec3 w = vec3(dot(iM0, p), dot(iM1, p), dot(iM2, p));",
     "  float fl = aExt.x;",
-    "  if (fl > 0.0) { float ph = uTime * 1.6 + iM0.w * 0.37 + iM2.w * 0.29; w.x += sin(ph) * fl * uWind * 0.1; w.z += cos(ph * 0.83) * fl * uWind * 0.07; }",
+    "  if (fl > 0.0) {",
+    "    float ph = iM0.w * 0.37 + iM2.w * 0.29;",
+    "    float gust = 0.6 + 0.4 * sin(uTime * 0.55 - (w.x + w.z) * 0.06) * sin(uTime * 0.31 + w.x * 0.03);",
+    "    float sway = sin(uTime * 1.5 + ph) * 0.65 + sin(uTime * 2.6 + ph * 1.7) * 0.22;",
+    "    float k = fl * uWind * gust;",
+    "    w.x += (0.3 + sway) * k * 0.12;",
+    "    w.z += (0.12 + sin(uTime * 1.2 + ph * 0.7) * 0.5) * k * 0.08;",
+    "    w.y -= k * k * 0.02;",
+    "    w += vec3(sin(uTime * 6.7 + aPos.x * 9.0 + ph), cos(uTime * 5.9 + aPos.z * 8.0 + ph) * 0.5, sin(uTime * 7.9 + aPos.y * 7.0)) * 0.012 * k;",
+    "  }",
     "  vN = normalize(vec3(dot(iM0.xyz, aNrm), dot(iM1.xyz, aNrm), dot(iM2.xyz, aNrm)));",
+    "  if (uHull.x > 0.5) {", // pushed out from the item's middle, and back from the eye so the item itself covers it
+    "    vec3 o = vec3(iM0.w, iM1.w, iM2.w); vec3 dd = w - o - vec3(0.0, 0.1, 0.0); float l = length(dd);",
+    "    w += (l > 0.001 ? dd / l : vN) * uHull.y;",
+    "    vec3 tv = uView.w > 0.5 ? normalize(uEyeO - w) : uView.xyz; w -= tv * 0.12;",
+    "  }",
     "  vec3 tint = iTint.rgb;",
     "  tint = mix(tint, vec3(1.45, 0.62, 0.22), uAutumn * iExt.x);",
     "  vCol = mix(aCol.rgb, aCol.rgb * tint, aCol.a);",
@@ -108,6 +131,9 @@
     "  vCol = mix(vCol, vec3(1.0), iExt.z);",
     "  vEm = aExt.y + iExt.y;",
     "  vW = w;",
+    // an id per instance for the outline pass, 6..250 out of 255 (never 0 = sprite or 255 = ground)
+    "  float id = fract(sin(dot(vec3(iM0.w, iM1.w, iM2.w), vec3(12.9898, 78.233, 37.719))) * 43758.5453);",
+    "  vIdHi = vec3(iTint.a > 0.5 ? (6.0 + floor(id * 244.0)) / 255.0 : 1.0, iExt.w, id * 6.2832);",
     "  vFog = smoothstep(uFog.x, uFog.y, dot(w.xz - uCam.xy, uCam.zw)) * uFog.z;",
     "  gl_Position = uVP * vec4(w, 1.0);",
     "}"
@@ -115,8 +141,22 @@
   var FS_OBJ = [
     PREC,
     LIGHT_GLSL,
-    "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog;",
-    "void main() { gl_FragColor = vec4(shade(vCol, normalize(vN), vW, vEm, vFog), 1.0); }"
+    "uniform vec4 uView; uniform vec3 uEyeO; uniform float uTime; uniform vec4 uHull; uniform vec3 uInkO;",
+    "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog; varying vec3 vIdHi;",
+    "void main() {",
+    "  if (uHull.x > 0.5) { if (vIdHi.y < 0.5) discard; gl_FragColor = vec4(mix(uInkO, uFogCol, vFog), 1.0); return; }",
+    "  vec3 n = normalize(vN);",
+    "  vec3 V = uView.w > 0.5 ? normalize(uEyeO - vW) : uView.xyz;",
+    "  float rim = pow(1.0 - clamp(abs(dot(n, V)), 0.0, 1.0), 3.0);",
+    "  vec3 c = shade(vCol, n, vW, vEm, vFog);",
+    // a soft sky-coloured rim lifts every silhouette off the ground behind it; pickups get a stronger, warmer one
+    // and a little glint that sweeps over them every few seconds
+    "  float hi = vIdHi.y;",
+    "  c += (uSkyCol * 0.5 + uSunCol * 0.15) * rim * (0.22 + hi * 0.5) * (1.0 - vFog) * (1.0 - uNight * 0.6);",
+    "  float glint = pow(max(sin(uTime * 1.6 + vIdHi.z), 0.0), 30.0) * hi;",
+    "  c = mix(c, vec3(1.0, 0.98, 0.9), glint * (0.35 + rim * 0.5) * smoothstep(-0.2, 0.6, n.y));",
+    "  gl_FragColor = vec4(c, vIdHi.x);",
+    "}"
   ].join("\n");
 
   var VS_WATER = [
@@ -200,13 +240,37 @@
     "varying vec2 vUv;",
     // a perspective depth buffer isn't linear: turn it back into distance (uPersp: on, near, far)
     "float D(vec2 uv) { float z = texture2D(uDep, uv).r; if (uPersp.x < 0.5) return z; float n = uPersp.y, f = uPersp.z; return 2.0 * n * f / (f + n - (z * 2.0 - 1.0) * (f - n)); }",
+    // the colour buffer's alpha is an object id (objects 6..250/255, ground and decor 1, sprites 0). A pixel gets
+    // ink when a neighbour belongs to a different object that stands in front of it: a crisp 1px outline round
+    // every tree, rock, item and building (even an apple lying flat on the grass), in a dark shade of that
+    // object's own colour. Big depth steps in the ground itself (cliffs) still get the old dark line.
+    "float eps(float d) { return uPersp.x > 0.5 ? 0.04 + d * 0.012 : uThr * 0.035; }",
+    "vec4 inkFrom(vec2 uv, vec4 me, float d, inout float best) {",
+    "  vec4 q = texture2D(uCol, uv); float dq = D(uv);",
+    "  float obj = step(0.01, q.a) * step(q.a, 0.985) * step(0.002, abs(q.a - me.a));",
+    "  float e = obj * step(eps(d), d - dq);",
+    "  if (e > best) { best = e; return q; }",
+    "  return vec4(0.0);",
+    "}",
     "void main() {",
-    "  vec3 c = texture2D(uCol, vUv).rgb;",
+    "  vec4 me = texture2D(uCol, vUv);",
+    "  vec3 c = me.rgb;",
     "  float d = D(vUv);",
-    "  float n = min(min(D(vUv + vec2(uTexel.x, 0.0)), D(vUv - vec2(uTexel.x, 0.0))),",
-    "               min(D(vUv + vec2(0.0, uTexel.y)), D(vUv - vec2(0.0, uTexel.y))));",
+    "  vec2 ox = vec2(uTexel.x, 0.0), oy = vec2(0.0, uTexel.y);",
+    "  float n = min(min(D(vUv + ox), D(vUv - ox)), min(D(vUv + oy), D(vUv - oy)));",
     "  float edge = uPersp.x > 0.5 ? step(0.3 + d * 0.15, d - n) * step(d, uPersp.z * 0.75) : step(uThr, d - n);",
-    "  gl_FragColor = vec4(mix(c, c * 0.3 + uInk * 0.7, edge * 0.8), 1.0);",
+    "  float best = 0.0; vec4 src = vec4(0.0), t;",
+    "  t = inkFrom(vUv + ox, me, d, best); if (t.a > 0.0) src = t;",
+    "  t = inkFrom(vUv - ox, me, d, best); if (t.a > 0.0) src = t;",
+    "  t = inkFrom(vUv + oy, me, d, best); if (t.a > 0.0) src = t;",
+    "  t = inkFrom(vUv - oy, me, d, best); if (t.a > 0.0) src = t;",
+    "  float far = uPersp.x > 0.5 ? 1.0 - smoothstep(uPersp.z * 0.45, uPersp.z * 0.8, d) : 1.0;",
+    "  best *= far * step(0.003, me.a);", // never ink over a sprite (they carry their own outline)
+    "  edge *= step(0.003, me.a);",
+    "  vec3 ink = mix(uInk, src.rgb * 0.32, 0.45);",
+    "  c = mix(c, c * 0.3 + uInk * 0.7, edge * 0.8 * (1.0 - best));",
+    "  c = mix(c, ink, best * 0.92);",
+    "  gl_FragColor = vec4(c, 1.0);",
     "}"
   ].join("\n");
   var post = null; // {fb, col, dep, w, h, prog, quad}
@@ -311,6 +375,7 @@
     progs.line = GL.program(ctx, VS_LINE, FS_LINE);
     progs.shadow = GL.program(ctx, VS_SHADOW, FS_SHADOW);
     cloudTex = makeCloudTexture(); seenTex = null;
+    art.blank = GL.texture(ctx, 1, 1, new Uint8Array([128, 128, 128, 255]), { nearest: true });
     buildMeshes();
     // phones: flat-shaded low-poly reads fine at ~1.6x, and it's a lot fewer pixels than 2x or 3x.
     // labels and UI stay crisp because the overlay canvas keeps the full device ratio.
@@ -387,6 +452,7 @@
     var nc = T.N / SB.CHUNK;
     for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: {}, wat: {}, groups: null, decor: null, dirty: true, minY: 0, maxY: 0, used: 0 });
     computeAO();
+    biomeCols();
     // only the height range of each chunk is needed up front (for culling): its meshes are built the first
     // time it is looked at, at the detail the zoom needs, and far-away fine meshes are dropped again
     var S = SB.CHUNK, V = T.V;
@@ -431,21 +497,25 @@
     }
   }
 
+  var BIOME_HEX = null, BIOME_MID = null;
+  function biomeCols() { BIOME_HEX = SB.BIOMES.map(function (bm) { return bm.c; }); BIOME_MID = SB.BIOMES.map(function (bm) { return SB.mixC(SB.hex(bm.c[0]), SB.hex(bm.c[1]), 0.5); }); }
   var ROCK = SB.hex(0x8a8590), SAND = SB.hex(0xe2cf9a), MUD = SB.hex(0x8a6a48), SNOW = SB.hex(0xf2f5fa);
   function vertexColor(i, j, out) {
     var N = T.N, V = T.V, k = j * V + i;
-    // average the biome colours of the up-to-4 tiles touching this vertex
-    var r = 0, g = 0, b = 0, n = 0, temp = 0, ash = 0;
-    for (var dj = -1; dj <= 0; dj++) for (var di = -1; di <= 0; di++) {
+    // blend the biome colours of the tiles round this vertex: the 4 touching it pick one of their biome's two
+    // shades (a little texture), a softer ring of 12 beyond them uses the biome's middle colour, so one biome
+    // fades into the next over a couple of tiles instead of stepping at the border
+    var r = 0, g = 0, b = 0, n = 0, temp = 0, ash = 0, tn = 0;
+    for (var dj = -2; dj <= 1; dj++) for (var di = -2; di <= 1; di++) {
       var ti = i + di, tj = j + dj;
       if (ti < 0 || tj < 0 || ti >= N || tj >= N) continue;
-      var t = tj * N + ti, bm = SB.BIOMES[T.biome[t]];
-      var hsh = SB.hash(ti, tj, 7);
-      var c = SB.hex(hsh < 0.5 ? bm.c[0] : bm.c[1]);
-      r += c[0]; g += c[1]; b += c[2]; temp += T.temp[t]; n++;
-      if (T.biome[t] === SB.B.ash) ash++;
+      var t = tj * N + ti, bid = T.biome[t], inner = di >= -1 && dj >= -1, c;
+      if (inner) { c = SB.hex(SB.hash(ti, tj, 7) < 0.5 ? BIOME_HEX[bid][0] : BIOME_HEX[bid][1]); temp += T.temp[t]; tn++; if (bid === SB.B.ash) ash++; }
+      else c = BIOME_MID[bid];
+      var wgt = inner ? 1 : 0.3;
+      r += c[0] * wgt; g += c[1] * wgt; b += c[2] * wgt; n += wgt;
     }
-    r /= n; g /= n; b /= n; temp /= n;
+    r /= n; g /= n; b /= n; temp /= tn || 1;
     var h = T.h[k];
     var col = [r, g, b];
     // slopes show rock
@@ -469,7 +539,15 @@
     return out;
   }
 
-  // Terrain: 32x32 quads per chunk, flat-shaded triangles. Vertex = pos3 nrm3 col4 misc4 (14 floats).
+  // Terrain: 32x32 quads per chunk. Vertex = pos3 nrm3 col4 misc4 (14 floats). Normals are mostly the smooth
+  // heightfield normal at each corner with a quarter of the triangle's own facet mixed in: hills read as soft
+  // rolling shapes (no harsh triangle checkerboard), with just enough facet left to keep the low-poly feel.
+  function smoothN(i, j, st, out) {
+    var V = T.V, N = T.N, i0 = Math.max(0, i - st), i1 = Math.min(N, i + st), j0 = Math.max(0, j - st), j1 = Math.min(N, j + st);
+    var dx = (T.h[j * V + i1] - T.h[j * V + i0]) / Math.max(1, i1 - i0), dz = (T.h[j1 * V + i] - T.h[j0 * V + i]) / Math.max(1, j1 - j0);
+    var l = Math.hypot(dx, 1, dz); out[0] = -dx / l; out[1] = 1 / l; out[2] = -dz / l;
+    return out;
+  }
   var TSTRIDE = 14;
   function buildTerrainLOD(c, step) {
     var S = SB.CHUNK, V = T.V, i0 = c.ci * S, j0 = c.cj * S;
@@ -482,11 +560,13 @@
       if (!cc) { cc = colCache[key] = vertexColor(i, j, [0, 0, 0, 0]).concat([aoMap[key] || 0]); }
       return cc;
     }
+    var nrmCache = {};
+    function nrmAt(i, j) { var key = j * V + i; return nrmCache[key] || (nrmCache[key] = smoothN(i, j, step, [0, 0, 0])); }
     var minY = 1e9, maxY = -1e9;
     for (var j = j0; j < j0 + S; j += step) for (var i = i0; i < i0 + S; i += step) {
       var a = [i, j], b = [i + step, j], cc = [i + step, j + step], d = [i, j + step];
       var tris = [[a, b, cc], [a, cc, d]];
-      var jit = (SB.hash(i, j, 11) - 0.5) * 0.04;
+      var jit = (SB.hash(i, j, 11) - 0.5) * 0.02;
       for (var t = 0; t < 2; t++) {
         var tr = tris[t];
         var p = tr.map(function (q) { return [q[0], T.h[q[1] * V + q[0]], q[1]]; });
@@ -501,7 +581,8 @@
           var wet = 0, kk = tr[q][1] * V + tr[q][0];
           if (T.river[kk]) wet = 1;
           out[o++] = pp[0]; out[o++] = pp[1]; out[o++] = pp[2];
-          out[o++] = nx; out[o++] = ny; out[o++] = nz;
+          var sn = nrmAt(tr[q][0], tr[q][1]), mx = sn[0] * 0.75 + nx * 0.25, my = sn[1] * 0.75 + ny * 0.25, mz = sn[2] * 0.75 + nz * 0.25, ml = Math.hypot(mx, my, mz) || 1;
+          out[o++] = mx / ml; out[o++] = my / ml; out[o++] = mz / ml;
           out[o++] = SB.clamp01(col[0] * (1 + jit)); out[o++] = SB.clamp01(col[1] * (1 + jit)); out[o++] = SB.clamp01(col[2] * (1 + jit)); out[o++] = col[3];
           out[o++] = col[4]; out[o++] = 0; out[o++] = wet; out[o++] = 0;
           if (pp[1] < minY) minY = pp[1]; if (pp[1] > maxY) maxY = pp[1];
@@ -665,7 +746,7 @@
       var tint = type === 1 || type === 11 ? SB.hsl([0, 45, 200, 280, 330, 50][(t * 6) | 0], 0.75, 0.72).map(function (v) { return v * 1.1; }) : [0.9 + t * 0.2, 0.95 + t * 0.1, 0.9];
       if (type === 0 || type === 3) { var bmc = SB.hex(SB.BIOMES[WG.biomeAt(T, dx, dz)].c[1]); tint = [bmc[0] / 0.5 * (0.8 + t * 0.3), bmc[1] / 0.75 * (0.85 + t * 0.2), bmc[2] / 0.35 * (0.8 + t * 0.2)].map(function (v) { return Math.min(1.4, v); }); }
       if (type === 10) tint = [1.05 + t * 0.1, 0.9 + t * 0.1, 0.7];
-      L[o + 12] = tint[0]; L[o + 13] = tint[1]; L[o + 14] = tint[2]; L[o + 15] = 1;
+      L[o + 12] = tint[0]; L[o + 13] = tint[1]; L[o + 14] = tint[2]; L[o + 15] = 0; // ground cover: no outline
       L[o + 16] = type === 0 || type === 3 || type === 10 ? 0.3 : 0; L[o + 17] = type === 6 ? 0.6 : type === 9 ? 0.8 : 0; L[o + 18] = 0; L[o + 19] = 0;
     }
     for (var ty in dl) { var arr2 = new Float32Array(dl[ty]); c.decor[ty] = { buf: GL.buffer(ctx, arr2), n: arr2.length / ISTRIDE }; }
@@ -915,9 +996,10 @@
   R.inst = function (key, m, tint, ext) {
     if (!meshes[key]) return;
     var d = dyn(key), o = d.n * ISTRIDE, a = d.data;
+    if (ext && ext[3]) d.hi = true;
     for (var i = 0; i < 12; i++) a[o + i] = m[i];
     a[o + 12] = tint ? tint[0] : 1; a[o + 13] = tint ? tint[1] : 1; a[o + 14] = tint ? tint[2] : 1; a[o + 15] = 1;
-    a[o + 16] = ext ? ext[0] : 0; a[o + 17] = ext ? ext[1] : 0; a[o + 18] = ext ? ext[2] : 0; a[o + 19] = 0;
+    a[o + 16] = ext ? ext[0] : 0; a[o + 17] = ext ? ext[1] : 0; a[o + 18] = ext ? ext[2] : 0; a[o + 19] = ext && ext[3] ? ext[3] : 0;
     d.n++;
   };
   R.instTRS = function (key, x, y, z, rot, s, tint, ext) {
@@ -985,7 +1067,7 @@
     updateEnv(game && game.world);
     updateSeen(game && game.world);
     updateCamera(dt);
-    for (var k in frameDyn) frameDyn[k].n = 0;
+    for (var k in frameDyn) { frameDyn[k].n = 0; frameDyn[k].hi = false; }
     shadowN = 0; lightList.length = 0;
     for (var h = 0; h < hooks.length; h++) hooks[h](game, alpha || 0, dt);
     if (R.particles) R.particles.update(dt);
@@ -1022,13 +1104,19 @@
 
     var vis = visibleChunks();
     drawTerrain(vis);
+    if (P) gl.colorMask(true, true, true, false);
     drawShadows();
+    if (P) gl.colorMask(true, true, true, true);
     drawObjects(vis);
+    // blended passes leave the alpha channel alone: in the pixel look it holds the object ids for the outlines
+    if (P) gl.colorMask(true, true, true, false);
     drawWater(vis);
+    if (P) gl.colorMask(true, true, true, true);
     // sprites go after the water (they don't write depth): a smol in water is cut off at the waterline instead
     for (var ah = 0; ah < afterObjects.length; ah++) { GL.resetAttribs(ctx); afterObjects[ah](gl, ctx, VP, cam); }
+    if (P) gl.colorMask(true, true, true, false);
     if (R.particles) R.particles.draw(gl, ctx, progs, VP, cam);
-    if (P) drawPost(P);
+    if (P) { gl.colorMask(true, true, true, true); drawPost(P); }
     if (octx) drawOverlay();
   };
 
@@ -1094,6 +1182,9 @@
     setLightUniforms(p);
     gl.uniform1f(p.u.uSnow, env.snow);
     gl.uniform1f(p.u.uWet, env.wet);
+    var gtex = art.tex.ground;
+    if (p.u.uDetail) { gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, gtex || art.blank); gl.uniform1i(p.u.uDetail, 5); gl.activeTexture(gl.TEXTURE0); }
+    if (p.u.uDetailK) gl.uniform2f(p.u.uDetailK, gtex ? (art.opts.ground && art.opts.ground.k) || 0.6 : 0, (art.opts.ground && art.opts.ground.scale) || 0.125);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CW);
@@ -1147,6 +1238,8 @@
     gl.uniform1f(p.u.uWind, 0.4 + env.wind * 1.2 + env.rain * 0.6);
     gl.uniform1f(p.u.uAutumn, env.autumn);
     gl.uniform1f(p.u.uSnow, env.snow);
+    setViewUniforms(p);
+    if (p.u.uHull) gl.uniform4f(p.u.uHull, 0, 0, 0, 0);
     rebuildBudget = 4;
     var showDecor = quality.decor && cam.zoom < 26, farObj = R.terrainStep() === 4;
     for (var i = 0; i < vis.length; i++) {
@@ -1167,6 +1260,30 @@
       GL.stream(ctx, hold, dd.data, dd.n * ISTRIDE);
       drawInstanced(p, k, hold.buf, dd.n);
     }
+    // the smooth 3D look has no outline pass: things to pick up get a thin dark shell instead (drawn behind
+    // them, so it only shows round the edge), the same job the pixel look's outline does
+    if (!R.pixel && p.u.uHull) {
+      var any = false;
+      for (var k2 in frameDyn) {
+        var d2 = frameDyn[k2];
+        if (!d2.n || k2.charAt(0) !== "i" || !d2.hi) continue;
+        if (!any) {
+          any = true;
+          gl.depthMask(false);
+          var ink = SB.mixC([0.1, 0.08, 0.14], [0.02, 0.02, 0.06], env.night);
+          gl.uniform3f(p.u.uInkO, ink[0], ink[1], ink[2]);
+          gl.uniform4f(p.u.uHull, 1, cam.pov ? 0.012 : 0.022 + cam.zoom * 0.0012, 0, 0);
+        }
+        drawInstanced(p, k2, dynHolders[k2].buf, d2.n);
+      }
+      if (any) { gl.depthMask(true); gl.uniform4f(p.u.uHull, 0, 0, 0, 0); }
+    }
+  }
+  // which way is the eye: a direction for the orthographic god view, a point in first person
+  function setViewUniforms(p) {
+    if (!p.u.uView) return;
+    if (cam.pov) gl.uniform4f(p.u.uView, 0, 0, 0, 1); else gl.uniform4f(p.u.uView, -cam.fwd[0], -cam.fwd[1], -cam.fwd[2], 0);
+    if (p.u.uEyeO) gl.uniform3f(p.u.uEyeO, cam.eye[0], cam.eye[1], cam.eye[2]);
   }
 
   function drawWater(vis) {
@@ -1190,6 +1307,27 @@
     gl.depthMask(true);
     gl.disable(gl.BLEND);
   }
+
+  /* ================= art hooks ================= */
+  // A later art pass can swap generated images in for the procedural look without touching the renderer:
+  //   SB.Render.loadArt({ ground: { url: "art/ground.png", k: 0.6, scale: 0.125 },   // tiling ground detail
+  //                       sprites: { url: "art/smols.png" } })                      // see pixel.js PX.override
+  // Each entry is optional and loaded on its own; a missing or broken file just leaves today's procedural
+  // colours in place. R.art.tex[name] holds the texture, R.art.img[name] the image (for CPU-side slicing).
+  // Nothing is requested by default (no art ships yet).
+  var art = (R.art = { tex: {}, img: {}, opts: {} });
+  R.loadArt = function (manifest, done) {
+    var names = Object.keys(manifest || {}), left = names.length;
+    if (!left) { if (done) done(art); return; }
+    names.forEach(function (name) {
+      var e = manifest[name]; if (typeof e === "string") e = { url: e };
+      art.opts[name] = e;
+      GL.loadImage(ctx, e.url, { nearest: e.nearest !== false, repeat: !!e.repeat || name === "ground" }, function (t, img) {
+        if (t) { art.tex[name] = t; art.img[name] = img; }
+        if (--left === 0 && done) done(art);
+      });
+    });
+  };
 
   /* ================= overlay (2D canvas on top) ================= */
   var overlayHooks = [];
