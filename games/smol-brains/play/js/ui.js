@@ -236,7 +236,8 @@
       var nx = SB.TIERS[maxT + 1];
       var hint = best ? SB.Genome.nextNeeds(best.genome).map(function (n) { return n.label; }).slice(0, 2).join(" + ") : "";
       var nudge = !g.blessing && (g.sparks || 0) >= 15 && hint ? " · try ✨ magic → 🧬 bless" : "";
-      add("evolve into " + nx.icon + " " + nx.name + (hint ? " (needs more " + hint + ")" : "") + nudge, Math.round(Math.max(0, bp) * 100) + "%");
+      var job = best ? echoJob(best, smols) : "";
+      add("evolve into " + nx.icon + " " + nx.name + (job ? ": " + job : hint ? " (needs more " + hint + ")" : "") + nudge, Math.round(Math.max(0, bp) * 100) + "%");
     }
     var found = Object.keys(g.culture.found).length;
     if (maxT >= 2 && found < 3) add("a tool-user discovers an idea 💡 (try 💡 inspire)", found + "/3");
@@ -259,6 +260,29 @@
       if (maxT >= 6 && asc < 3) add("⚠ only " + asc + " ascended left: bless eggs toward 🌟 glow to keep the line going", "");
     }
     return out.slice(0, 3);
+  }
+  // "needs more hands" as a job you can see happening: who is practising it, and how far they've got
+  function echoJob(best, smols) {
+    var FH = SB.FirstHour;
+    if (!FH) return "";
+    var want = FH.wanted(best)[0];
+    if (!want) return "";
+    var parents = smols.filter(function (c) { return c.stage >= 2 && !c.stranger; }), top = null;
+    parents.forEach(function (c) { var p = FH.echoProgress(c, want); if (!top || p.frac > top.frac || (p.frac === top.frac && c.tier > top.c.tier)) { top = p; top.c = c; } });
+    if (!top) return "";
+    var i = top.info;
+    if (top.frac >= 1) return top.c.name + " is full of " + i.word + " " + i.icon + " → " + i.kids + " next";
+    return top.c.name + " " + i.did + " " + top.n + "/" + top.of + " " + i.what + " → " + i.kids;
+  }
+  function kidsHTML(c) {
+    var FH = SB.FirstHour, want = FH.wanted(c), out = [];
+    var genes = want.concat(Object.keys(FH.ECHO).filter(function (g) { return want.indexOf(g) < 0 && FH.echoProgress(c, g).frac > 0.05; })).slice(0, 3);
+    if (!genes.length) genes = ["arms"];
+    genes.forEach(function (g) {
+      var p = FH.echoProgress(c, g), star = want.indexOf(g) >= 0;
+      out.push('<div class="fhk' + (star ? " want" : "") + '" title="' + esc(p.info.kids + ": what " + c.name + " practises nudges its babies' genes") + '"><span class="e">' + p.info.icon + '</span><span class="l">' + esc(p.info.kids) + (star ? " ★" : "") + '</span><span class="b"><i style="width:' + Math.round(p.frac * 100) + "%;background:" + p.info.col + '"></i></span><span class="n mono">' + p.n + "/" + p.of + "</span></div>");
+    });
+    return out.join("") + (want.length ? '<div class="note">★ what the next tier needs. watch for +' + FH.ECHO[want[0]].icon + " while it practises.</div>" : "");
   }
   var goalKey = "";
   function updateGoals() {
@@ -321,7 +345,7 @@
   }
   UI.storyCard = storyCard;
   var NEXT_HELP = {
-    1: "let smols carry and fiddle with things (✋ hand them sticks and stones), or ✨ magic → 🧬 bless the next eggs toward <b>hands</b>.",
+    1: "let smols carry and fiddle with things (✋ hand them sticks and stones; every carry pops a +🤲), or ✨ magic → 🧬 bless the next eggs toward <b>hands</b>.",
     2: "talk to them a lot and let them hang out together: social smols have social kids. 🧬 bless toward <b>language</b> helps.",
     3: "builders plan ahead: smols that make things and finish plans have planning kids. 🧬 bless toward <b>planning</b>.",
     4: "thinkers have big heads: smols that learn, study and teach have brainier kids. 🧬 bless toward <b>big heads</b> or <b>bigger brains</b>.",
@@ -412,6 +436,8 @@
     el.sheet.appendChild(el.cThought = h("div", { class: "thought" }));
     if (c.species !== "grump") el.sheet.appendChild(el.cPeople = h("div", { class: "chips people" }));
     el.sheet.appendChild(el.cDrives = h("div", { class: "drives" }));
+    if (c.species === "smol" && SB.FirstHour) { el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "what its kids will inherit"), h("span", { class: "dim" }, "💫 echoes")])); el.sheet.appendChild(el.cKids = h("div", { class: "fhkids" })); }
+    else el.cKids = null;
     el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "ideas"), el.cIdeaN = h("span", { class: "dim" })]));
     el.sheet.appendChild(el.cIdeas = h("div", { class: "chips" }));
     el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "words"), el.cWordN = h("span", { class: "dim" })]));
@@ -455,6 +481,7 @@
     var ds = SB.DRIVES.map(function (d, i) { return { i: i, v: c.chem[d] }; }).sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
     el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +
       '<div class="drive" title="health"><span class="e">❤️</span><span class="b"><i style="width:' + Math.round(c.chem.health * 100) + '%;background:#c5ff49"></i></span></div>';
+    if (el.cKids) el.cKids.innerHTML = kidsHTML(c);
     var ids = Object.keys(c.ideas).filter(function (k) { return SB.Ideas.BY_ID[k]; });
     el.cIdeaN.textContent = SB.Ideas.count(c) + (c.tier < 2 ? " · needs hands" : "");
     el.cIdeas.innerHTML = ids.length ? ids.map(function (k) { var d = SB.Ideas.BY_ID[k], v = c.ideas[k]; return '<span class="chip ' + (v >= 1 ? "lime" : "dim") + '" title="' + esc(d.desc) + '">' + d.icon + " " + esc(game.culture.words[k] || d.name) + (v < 1 ? " " + Math.round(v * 100) + "%" : "") + "</span>"; }).join("") : '<span class="note">' + (c.tier < 2 ? "blobs and critters can't hold ideas yet. evolve hands." : "nothing yet. curious smols discover things by fiddling.") + "</span>";
@@ -1192,7 +1219,7 @@
     body.innerHTML = "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
       "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
       "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
-      "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently). drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b> (from tool-users on): signs from the sky. a rally flag, an explore beacon, work marks, building blueprints, and no-go, stockpile and home zones. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
+      "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently: the dotted arc shows where they'll land). grab a tree and wiggle it side to side to shake fruit down. drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b> (from tool-users on): signs from the sky. a rally flag, an explore beacon, work marks, building blueprints, and no-go, stockpile and home zones. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
       "<p><b class='lilac'>evolution</b>: genes mutate when eggs are made. and what parents practise echoes into their babies: smols that walk a lot have kids with longer legs, smols that fiddle with things have kids with hands, smols that learn have kids with bigger brains. climb the ladder: blob → critter → tool-user → tribe → builder → thinker → ascended.</p>" +
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
       "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-6 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
@@ -1443,7 +1470,7 @@
     [/first word/, "tap 💬 talk, pick “food”, then tap a piece of food while a smol is looking at it. one lesson every few seconds."],
     [/tickle/, "pick 🪶 tickle and tap a smol right after it does something good, like eating."],
     [/egg/, "grown-ups who are fed, healthy and happy fall in love. feed them, tickle them, keep them company."],
-    [/evolve/, "evolution happens through eggs: kids get a mix of their parents plus a nudge from how they lived. ✨ magic → 🧬 bless makes the next 3 eggs lean the way you pick."],
+    [/evolve/, "evolution happens through eggs: kids get a mix of their parents plus a nudge from how they lived (the +🤲 pips). the next list shows who's practising what. ✨ magic → 🧬 bless makes the next 3 eggs lean the way you pick."],
     [/idea/, "tool-users invent by fiddling with things. ✋ hand them sticks and stones, or ✨ magic → 💡 inspire one."],
     [/building/, "builders build by themselves when they need something (huts for cold, farms for food). keep them fed and give them sticks and stones."],
     [/village/, "builders put huts round the campfire when the tribe grows. more smols, more huts."],
@@ -1465,6 +1492,12 @@
       var pc = SB.Game.byId(g, pr.id), soft = /lonely|love|bored|fear/.test(pr.need), fix = { hunger: "🍎 bounty", sick: "💚 heal", pain: "💚 heal", cold: "☀️ sun", hot: "🌧 rain", tired: "💤 rest" }[pr.need] || "a miracle";
       out.push({ key: "pray" + pr.id + pr.t, icon: "🙏", t: pc.name + " is praying for " + (NEED_TEXT[pr.need] || pr.need), s: soft ? "it just wants you: pick 🪶 tickle and tap it." : "open ✨ magic, pick " + fix + ", and tap near " + pc.name + ". the right miracle earns sparks.", go: function () { fly(pc, 6); setTool(soft ? "tickle" : "magic", true); } });
     }
+    var wsh = g.fh && g.fh.wishes.filter(function (w) { return !w.done && SB.Game.byId(g, w.id); })[0];
+    if (wsh) {
+      var wc = SB.Game.byId(g, wsh.id), wd = SB.FirstHour.WISHES[wsh.kind];
+      var wh = { food: "✋ shake a tree near it (grab the tree and wiggle), or carry it some food.", friend: "✋ carry another smol over and set it down next to " + wc.name + ".", warm: "✋ carry " + wc.name + " to the fire.", toy: "✋ carry it a ball, a stick or a rock." }[wsh.kind];
+      out.push({ key: "wish" + wsh.id + wsh.t, icon: "💭", t: wc.name + " wishes for " + wd.text, s: wh + " a granted wish earns " + wd.sparks + " ✨ and a happy memory.", go: function () { fly(wc, 6); setTool("grab", true); } });
+    }
     var gr = g.creatures.filter(function (c) { return c.alive && c.species === "grump" && !c.goingHome && smols.some(function (o) { return SB.dist(o.x, o.z, c.x, c.z) < 8; }); })[0];
     if (gr && !(act && act.id === "raid")) out.push({ key: "grump" + gr.id, icon: "👺", t: "a grump is bothering your smols", s: "pick 👆 tap and tap the grump 3 times to chase it off. a campfire keeps them away at night.", go: function () { fly(gr, 7); setTool("tap", true); } });
     var starving = smols.filter(function (c) { return c.chem.hunger > 0.8; });
@@ -1483,7 +1516,7 @@
     if (maxT >= 2 && (g.stats.wordsTaught || 0) < 6) out.push({ key: "words", icon: "💬", t: "teach more words", s: "every word the whole tribe knows makes everyone learn faster. 💬 talk, pick a word, show it.", go: function () { setTool("talk", true); } });
     if (g.speed === 1 && g.playTime > 600 && !g._spedUp) out.push({ key: "speed", icon: "⏩", t: "waiting for something?", s: "tap ▶ 1× (top right) to speed time up. evolution takes generations.", go: function () { g._spedUp = true; cycleSpeed(1); } });
     var goal = goalsList()[0];
-    if (goal) { var how = HOW.filter(function (x) { return x[0].test(goal.t); })[0]; out.push({ key: "goal:" + goal.t, icon: "🎯", t: "next: " + goal.t.replace(/ \(.*$/, ""), s: how ? how[1] : "the next list (top left) tracks it.", go: function () { el.goals.classList.remove("min"); el.goals.classList.add("tutglow"); setTimeout(function () { el.goals.classList.remove("tutglow"); }, 3000); } }); }
+    if (goal) { var how = HOW.filter(function (x) { return x[0].test(goal.t); })[0]; out.push({ key: "goal:" + goal.t.replace(/[:(].*$/, ""), icon: "🎯", t: "next: " + goal.t.replace(/ \(.*$/, ""), s: how ? how[1] : "the next list (top left) tracks it.", go: function () { el.goals.classList.remove("min"); el.goals.classList.add("tutglow"); setTimeout(function () { el.goals.classList.remove("tutglow"); }, 3000); } }); }
     return out;
   }
   function updateGuide(dt) {
@@ -1720,11 +1753,58 @@
   function roundRect(ctx, x, y, w, hh, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + hh, r); ctx.arcTo(x + w, y + hh, x, y + hh, r); ctx.arcTo(x, y + hh, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
   /* ---------------- bus ---------------- */
+  /* ---------------- the first hour: wishes, the hatch reveal, big tier moments ---------------- */
+  var TIER_SHOUT = { 1: "LEGS!", 2: "HANDS!", 3: "WORDS!", 4: "PLANS!", 5: "BIG BRAINS!", 6: "ASCENDED!" };
+  var revealEl = null, revealSkip = 0;
+  function hatchReveal(c, d) {
+    var FH = SB.FirstHour, why = d.why || [], ps = (d.parents || []).map(function (id) { return SB.Game.byId(game, id) || (game.family[id] ? { name: game.family[id].name } : null); }).filter(Boolean);
+    if (revealEl) revealEl.remove();
+    var from = d.pTier || 0, to = FH.tierProgress(c.genome), nx = SB.TIERS[c.tier + 1];
+    var bar = h("i", { style: "width:" + Math.round(from * 100) + "%" });
+    revealEl = h("div", { class: "fhhatch glass", onclick: function () { SB.Game.select(game, c.id); if (revealEl) { revealEl.remove(); revealEl = null; } } }, [
+      h("div", { class: "row" }, [avatar(c.look, c.tier), h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "nm" }, "🐣 " + c.name + " hatched!"), h("div", { class: "sub2" }, ps.length ? "child of " + ps.map(function (p) { return p.name; }).join(" & ") + " · gen " + c.gen : "gen " + c.gen)])]),
+      h("div", { class: "fhwhy" }, why.length ? why.map(function (w) { return h("div", { class: w.d >= 0 ? "up" : "dn" }, FH.reasonText(w)); }) : [h("div", { class: "dim" }, "just like its parents, this time")]),
+      nx ? h("div", { class: "fhbar" }, [h("span", null, "next: " + nx.icon + " " + nx.name), h("span", { class: "b" }, [bar]), h("span", { class: "mono" }, Math.round(to * 100) + "%")]) : null
+    ]);
+    root.appendChild(revealEl);
+    var me = revealEl;
+    setTimeout(function () { bar.style.width = Math.round(to * 100) + "%"; }, 60);
+    setTimeout(function () { if (me.parentNode) me.classList.add("out"); }, 2400);
+    setTimeout(function () { if (me.parentNode) me.remove(); if (revealEl === me) revealEl = null; }, 2900);
+  }
+  function wireFirstHour(on) {
+    if (!SB.FirstHour) return;
+    on("hatch", function (d) {
+      var dd = d.obj && d.obj.data;
+      if (!dd || dd.starter || !(dd.parents || []).length || d.c.far || state.introRunning || revealSkip === d.c.id) return;
+      hatchReveal(d.c, dd);
+    });
+    on("tierUp", function (d) {
+      revealSkip = d.c.id; // the evolution card says it bigger
+      var seen = (game.settings && game.settings.cards) || {};
+      if (TIER_SHOUT[d.tier] && !seen["tier" + d.tier] && !(game.settings && game.settings.guide === false)) moment(SB.TIERS[d.tier].icon, TIER_SHOUT[d.tier], d.c.name + " is the first " + SB.TIERS[d.tier].name + "!", "lilac");
+    });
+    on("wish", function (d) {
+      storyCard("wish", "💭", "a wish!", [
+        "<b>" + esc(d.c.name) + "</b> is wishing for " + esc(SB.FirstHour.WISHES[d.w.kind].text) + ". little smols can't pray yet, but they can hope the sky notices.",
+        "grant it with ✋ the hand: carry food or a toy over, bring a friend, carry them to the fire. you can even grab a tree and wiggle it to shake fruit down.",
+        "a granted wish earns ✨ sparks and the smol remembers that the sky one helped."
+      ]);
+    });
+    on("wishGranted", function (d) {
+      if (SB.FX) SB.FX.burst("hearts", d.c.x, d.c.y + 0.8, d.c.z, 6);
+      toast("💭 wish granted! <b>" + esc(d.c.name) + "</b> got " + esc(SB.FirstHour.WISHES[d.w.kind].text) + " · +" + d.sparks + " ✨");
+      if (SB.Audio && SB.Audio.play) try { SB.Audio.play("chime"); } catch (e) {}
+    });
+    on("handShake", function (d) { if (d.o && SB.Audio && SB.Audio.play) try { SB.Audio.play("pop"); } catch (e) {} });
+  }
+
   var wired = false;
   function wireBus() {
     if (wired) return;
     wired = true;
     var on = SB.bus.on;
+    wireFirstHour(on);
     on("note", function (d) { toast(esc(d.text)); });
     on("achievement", function (d) { toast(d.a.icon + " <b>" + esc(d.a.name) + "</b> · " + esc(d.a.desc), "ach", 5000); });
     on("hatch", function (d) {

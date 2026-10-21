@@ -203,6 +203,7 @@
       tribe: a.tribe || 0, blessed: !!bless, echo: echo,
       ideas: inherit(a, b), vocab: inheritWords(a, b)
     });
+    if (SB.FirstHour) SB.FirstHour.onEgg(game, egg, a, b, bless); // what the baby leans toward, and why
     game.stats.eggsLaid++;
     Game.unlock(game, "egg");
     Game.note(game, (a.name || "?") + " and " + (b.name || "?") + " made an egg! 🥚");
@@ -422,6 +423,7 @@
     if (SB.Social) SB.Social.tick(game, dt);
     if (SB.Funeral) SB.Funeral.tick(game, dt);
     if (SB.Orders) SB.Orders.tick(game, dt);
+    if (SB.FirstHour) SB.FirstHour.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     SB.Ideas.nurse(game, dt);

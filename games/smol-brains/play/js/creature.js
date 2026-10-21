@@ -136,7 +136,7 @@
   };
   C.knows = knows;
   C.knownCount = function (c) { var n = 0; for (var w in c.vocab) if (c.vocab[w] >= 1) n++; return n; };
-  function habit(c, k, amt) { c.habits[k] = (c.habits[k] || 0) + amt; }
+  function habit(c, k, amt) { c.habits[k] = (c.habits[k] || 0) + amt; if (C.onHabit) C.onHabit(c, k, amt); }
   C.habitOf = habit;
   C.habit = habit;
 
@@ -201,7 +201,7 @@
       if (old) dropItem(c, old, game, 0.6);
     }
     o.heldBy = c.id; o.onGround = false; o.claimed = null;
-    habit(c, "hands", 0.3);
+    habit(c, "hands", o.skyT != null && game.time - o.skyT < 180 ? 0.9 : 0.35); // a thing from the sky hand is extra interesting
     return true;
   };
   function stow(c, o, game) {
@@ -1189,7 +1189,7 @@
     var h = c.habits || {}, e = {};
     function f(v, n) { return Math.min(1, (v || 0) / n); }
     e.limbs = f(h.walk, 150); e.senses = f(h.walk, 300);
-    e.arms = f(h.hands, 8); e.dexterity = f(h.hands, 14);
+    e.arms = f(h.hands, 6.3); e.dexterity = f(h.hands, 11);
     e.cortex = f(h.think, 6); e.recall = f(h.think, 10); e.head = f(h.think, 14);
     e.layers = f((h.think || 0) + (h.plan || 0) + (h.build || 0), 18);
     e.planning = f((h.plan || 0) + (h.build || 0), 5); e.social = f(h.social, 4);
@@ -1339,8 +1339,13 @@
     if (c.plan && c.plan.x) t = { x: c.plan.x, a: c.plan.verb };
     else if (a && a.x && (a.phase === "do" || a.verb === V.approach)) t = { x: a.x, a: a.verb };
     else if (c.lastDone && game.time - c.lastDone.t < 2.5) t = c.lastDone;
-    if (t && t.x.length === c.brain.nIn) SB.Brain.teach(c.brain, t.x, t.a, delta, 2);
-    else SB.Brain.reinforce(c.brain, SB.clamp(delta * 0.7, -1, 1));
+    var b = c.brain, probe = t && t.x.length === b.nIn ? t : null;
+    if (!probe) { var tr = b.traces[(b.traceHead + b.traces.length - 1) % b.traces.length]; if (tr && tr.e > 0.05 && tr.x.length === b.nIn) probe = { x: tr.x, a: tr.a }; }
+    var before = probe ? SB.Brain.qOf(b, probe.x, probe.a) : 0, px = probe ? Float32Array.from(probe.x) : null;
+    if (t && t.x.length === b.nIn) SB.Brain.teach(b, t.x, t.a, delta, 2);
+    else SB.Brain.reinforce(b, SB.clamp(delta * 0.7, -1, 1));
+    // what the lesson actually changed in the net, for the "🍎 eat apple ↑" chip
+    if (probe) { var nn = -1; for (var i = 0; i < SB.N_NOUNS; i++) if (px[SB.IN.NOUN0 + i] > 0.5) { nn = i; break; } SB.bus.emit("learned", { c: c, verb: probe.a, noun: nn, delta: SB.Brain.qOf(b, px, probe.a) - before }); }
     c.lastReward = SB.clamp(delta, -1, 1);
     c.stats.lessons = (c.stats.lessons || 0) + 1;
     habit(c, "think", 0.35); // being taught grows the next generation's brains

@@ -471,4 +471,74 @@
     var hd = game.hand;
     if (hd.saying && hd.visible) { R.project(hd.x, hd.y + 0.6, hd.z, pp); bubble(ctx, pp.x, pp.y, "“" + hd.saying + "”", "say"); }
   });
+  /* ---------------- the first hour: echo pips, learning chips, wishes, egg hints, the throw arc ---------------- */
+  var LEAN = { arms: "255,209,102", limbs: "143,211,255", cortex: "255,126,182", social: "255,159,67", planning: "197,255,73" };
+  function headAt(c, out) {
+    if (R.pixel && c._pxH) { R.project(c.x, c.y, c.z, out); out.y -= c._pxH; }
+    else R.project(c.x, c.y + SB.Creature.radius(c) * 3, c.z, out);
+    return out.on;
+  }
+  R.addOverlay(function (ctx, W, H, game) {
+    if (!game || !SB.FirstHour) return;
+    var t = R.time(), cs = game.creatures, zoom = R.camera.zoom;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    // eggs glow softly in the colour of what the baby leans toward
+    if (zoom < 24) game.world.items.forEach(function (o) {
+      if (o.kind !== "egg" || !o.data || !o.data.lean || !LEAN[o.data.lean] || !SB.World.isSeen(game.world, o.x, o.z)) return;
+      R.project(o.x, o.y + 0.25, o.z, pp);
+      if (!pp.on) return;
+      var r = 20 + Math.sin(t * 2.2 + o.id) * 3, gr = ctx.createRadialGradient(pp.x, pp.y, 2, pp.x, pp.y, r);
+      gr.addColorStop(0, "rgba(" + LEAN[o.data.lean] + ",0.55)"); gr.addColorStop(1, "rgba(" + LEAN[o.data.lean] + ",0)");
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(pp.x, pp.y, r, 0, 6.283); ctx.fill();
+    });
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i], fl = c._fl;
+      if (!fl || !fl.length) continue;
+      if (!c.alive || c.far || zoom > 22 || !SB.World.isSeen(game.world, c.x, c.z) || !headAt(c, pp)) { fl.length = 0; continue; }
+      for (var j = fl.length - 1; j >= 0; j--) {
+        var f = fl[j];
+        if (f.born == null) f.born = t + (fl.length - 1 - j) * 0.18; // a burst comes out one after another
+        var age = t - f.born, life = f.k === "pip" ? 1.3 : 2.2;
+        if (age > life) { fl.splice(j, 1); continue; }
+        if (age < 0) continue;
+        var a = Math.min(1, (life - age) / 0.4), y = pp.y - 14 - age * (f.k === "pip" ? 30 : 16);
+        ctx.globalAlpha = a;
+        if (f.k === "pip") {
+          ctx.font = "700 14px " + FONT; ctx.fillStyle = f.col || "#ffd166"; ctx.strokeStyle = "rgba(16,17,20,0.85)"; ctx.lineWidth = 3;
+          SB.Icons.fillText(ctx, f.t, pp.x + 14, y, 15, true);
+        } else {
+          ctx.font = "700 12px " + FONT;
+          var tw = ctx.measureText(f.t).width + 30;
+          ctx.fillStyle = "rgba(16,17,20,0.82)"; ctx.fillRect(Math.round(pp.x - tw / 2), Math.round(y - 11), Math.round(tw), 22);
+          ctx.fillStyle = f.k === "up" ? "#c5ff49" : "#ff8a8a"; ctx.fillRect(Math.round(pp.x - tw / 2), Math.round(y - 11), 3, 22);
+          ctx.fillStyle = "#f5f3ed"; SB.Icons.fillText(ctx, f.t, pp.x, y + 1, 13);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    // wishes: a thought bubble the hand can answer
+    var fh = game.fh;
+    if (fh && fh.wishes.length && zoom < 26) fh.wishes.forEach(function (w) {
+      var c = SB.Game.byId(game, w.id);
+      if (!c || !c.alive || c.far || c.speech || !SB.World.isSeen(game.world, c.x, c.z) || !headAt(c, pp)) return;
+      var def = SB.FirstHour.WISHES[w.kind], left = 1 - (game.time - w.t) / SB.FirstHour.WISH_LIFE, by = Math.round(pp.y - 22 + Math.sin(t * 2.5 + c.id) * 3);
+      ctx.fillStyle = "rgba(245,243,237,0.95)"; ctx.strokeStyle = "#101114"; ctx.lineWidth = 2;
+      ctx.fillRect(pp.x - 21, by - 15, 42, 28); ctx.strokeRect(pp.x - 21, by - 15, 42, 28);
+      ctx.fillRect(pp.x - 4, by + 15, 5, 4); ctx.fillRect(pp.x - 1, by + 21, 3, 3);
+      ctx.fillStyle = "#b59aff"; ctx.fillRect(pp.x - 19, by + 9, Math.max(0, 38 * left), 2);
+      SB.Icons.fillText(ctx, "💭" + def.icon, pp.x, by - 2, 16);
+    });
+    // the throw arc: where a flick would land
+    var aim = game.hand && game.hand.aim;
+    if (aim && aim.pts.length && game.hand.heldId != null && performance.now() - aim.t < 120) {
+      for (var k = 0; k < aim.pts.length; k++) {
+        var q = aim.pts[k];
+        R.project(q[0], q[1], q[2], pp);
+        if (!pp.on) continue;
+        var last = k === aim.pts.length - 1;
+        if (last) { ctx.strokeStyle = "rgba(16,17,20,0.7)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(pp.x, pp.y, 12, 5, 0, 0, 6.283); ctx.stroke(); ctx.strokeStyle = "#c5ff49"; ctx.lineWidth = 2; ctx.stroke(); }
+        else { ctx.fillStyle = "rgba(16,17,20,0.6)"; ctx.fillRect(Math.round(pp.x) - 3, Math.round(pp.y) - 3, 6, 6); ctx.fillStyle = "#f5f3ed"; ctx.fillRect(Math.round(pp.x) - 2, Math.round(pp.y) - 2, 4, 4); }
+      }
+    }
+  });
 })();

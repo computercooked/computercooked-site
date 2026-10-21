@@ -297,6 +297,7 @@
   function frameFor(c, t) {
     var an = c.anim, a = c.action;
     if (c.asleep) return FR.sleep;
+    if (c.heldBy === "hand" && an.held) return an.held === "giggle" ? FR.happy : FR.scared; // grabbed: a giggle or a squeal
     if ((c.drownT || 0) > 0 || c.chem.fear > 0.65) return FR.scared;
     if (a && a.verb === SB.V.eat && a.phase === "do") return ((t * 6) | 0) % 2 ? FR.eat : FR.idle0;
     if (an.emote === "happy" || an.emote === "love" || an.emote === "yum" || an.emote === "proud") return FR.happy;
@@ -343,7 +344,8 @@
     var cutPx = Math.round(cut * (s.bodyPx + 2)) + (cut ? 2 : 0); // rows hidden below the waterline (frame has 2 empty rows at the bottom)
     var o = n * IS;
     inst[o] = x; inst[o + 1] = y; inst[o + 2] = z;
-    inst[o + 3] = F * k; inst[o + 4] = (F - cutPx) * k;
+    var sq = c.heldBy === "hand" ? c.anim.squash || 0 : 0; // squirming in the hand: squish and stretch
+    inst[o + 3] = F * k * (1 + sq * 0.5); inst[o + 4] = (F - cutPx) * k * (1 - sq);
     inst[o + 5] = (s.ox + fr * F) / AW; inst[o + 6] = s.oy / AH; inst[o + 7] = (s.ox + (fr + 1) * F) / AW; inst[o + 8] = (s.oy + F - cutPx) / AH;
     inst[o + 9] = flip; inst[o + 10] = lk.glow ? 0.35 + lk.glow * 0.4 : 0; inst[o + 11] = c.anim.flash || 0; inst[o + 12] = c.corpse ? 2 : c.dying ? 1 - c.fade : 1; // 2: a body (drawn grey and still)
     n++;
