@@ -1210,7 +1210,7 @@
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
     // from the hub's "tap to play" card (cc.autostart): that tap was the start, so go straight to the island
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
-    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto) { SB.Intro.play({ done: landing }); return; }
+    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto) { SB.Intro.play({ done: landing, noGate: !!SB.Game.fromTitle }); return; } // the "create world" tap already let the sound start
     landing();
   }
   UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };

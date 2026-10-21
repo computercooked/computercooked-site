@@ -687,6 +687,7 @@
     g.wid = SB.Save.newWid(); g.wname = o.name || null;
     if (o.story) g.settings.storyteller = o.story;
     try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    Game.fromTitle = true;
     enter(g, { fresh: true });
   }
   function enter(g, o) {
