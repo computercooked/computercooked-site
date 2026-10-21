@@ -305,9 +305,9 @@
         "3d",
         "pixel art"
       ],
-      "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, rescue), tickle (reward), tap (scold), talk (the word book), magic (miracles). wasd pan, q/e rotate, 1-5 tools, space pause, [ ] speed, b brain viewer, m map.",
+      "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, e/f/r act, c make, esc leave. wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, b brain viewer, m map.",
       "size_kb": 1462,
-      "version": "4.0",
+      "version": "4.1",
       "added": "2026-10-19",
       "how_to": [
         "tap the crashed pod open. two blobs climb out, a girl and a boy: the last smols. name them.",
