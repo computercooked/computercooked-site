@@ -244,6 +244,16 @@
 
   /* ---------------- structures (moving / unfinished parts) ---------------- */
 
+  // a hut with someone home: smoke curls from the chimney (on cold days and at night) and the window throws
+  // a warm glow on the ground after dark
+  function hutLife(game, s, gy) {
+    var cs = game.creatures, home = false, env = SB.Render.env;
+    for (var i = 0; i < cs.length && !home; i++) { var c = cs[i]; if (c.alive && c.species === "smol" && Math.abs(c.x - s.x) < 2.2 && Math.abs(c.z - s.z) < 2.2) home = true; }
+    if (!home) return;
+    var ca = Math.cos(s.rot || 0), sa = Math.sin(s.rot || 0), sc = s.s || 1;
+    if ((env.night > 0.3 || game.world.season === 3 || game.world.season === 2) && SB.FX && Math.random() < 0.035) SB.FX.burst("smoke", s.x + (-0.4 * ca - 0.34 * sa) * sc, gy + 1.9 * sc, s.z + (0.4 * sa - 0.34 * ca) * sc, 1, { scale: 0.7 });
+    if (env.night > 0.5) R.light(s.x + 0.6 * sa, gy + 0.5, s.z + 0.6 * ca, 2.8, 1, 0.68, 0.32);
+  }
   function drawStructures(game, t) {
     var sts = game.world.structures, cam = R.camera, w = game.world;
     for (var i = 0; i < sts.length; i++) {
@@ -264,6 +274,7 @@
         else part("s:flame", 0, 0.05, 0.72, 0, 0, 0, 0.5, 0.45 * fl, 0.4, null, [0, 0.15, 0]);
         R.light(s.x, gy + 0.9, s.z, s.kind === "kiln" ? 4 : 5.5 + s.data.fuel * 3, 1, 0.58, 0.25);
       }
+      if (s.kind === "hut") hutLife(game, s, gy);
       if (s.kind === "windmill") { setBase(s.x, gy, s.z, s.rot || 0, 1); part("s:blades", 0, 2.6, 0.75, 0, 0, t * (0.8 + w.weather.wind * 2), 1, 1, 1, null, EXT); }
       if (s.kind === "spire") { R.light(s.x, gy + 7, s.z, 14, 0.7, 0.9, 1); }
       if (s.kind === "totem" && SB.Render.env.night > 0.5) R.light(s.x, gy + 1.5, s.z, 2, 0.8, 0.7, 1);
