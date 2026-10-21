@@ -26,6 +26,9 @@
     window.addEventListener("blur", function () { keys = {}; });
   };
   IN.setGame = function (g) { game = g; };
+  // "god" (the hand, the camera) or "pov" (possess.js has the controls; everything here stands down)
+  IN.mode = "god";
+  function god() { return IN.mode === "god"; }
 
   /* ---------------- picking ---------------- */
   var pp = {};
@@ -86,7 +89,7 @@
   /* ---------------- pointer events ---------------- */
 
   function down(e) {
-    if (!game || (SB.UI && SB.UI.modalOpen)) return;
+    if (!game || !god() || (SB.UI && SB.UI.modalOpen)) return;
     try { if (el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch (err) { }
     var p = local(e);
     ptrs[e.pointerId] = { x: p.x, y: p.y, x0: p.x, y0: p.y, t0: performance.now(), type: e.pointerType, button: e.button };
@@ -114,7 +117,7 @@
   }
 
   function move(e) {
-    if (!game) return;
+    if (!game || !god()) return;
     var p = local(e), ptr = ptrs[e.pointerId];
     if (!ptr) {
       // hover (mouse only): the hand follows the cursor
@@ -145,6 +148,7 @@
   }
 
   function up(e) {
+    if (!god()) { ptrs = {}; nPtr = 0; drag = null; pinch = null; return; }
     var ptr = ptrs[e.pointerId];
     if (!ptr) return;
     delete ptrs[e.pointerId];
@@ -272,7 +276,7 @@
   }
 
   function wheel(e) {
-    if (!game || (SB.UI && SB.UI.modalOpen)) return;
+    if (!game || !god() || (SB.UI && SB.UI.modalOpen)) return;
     e.preventDefault();
     var p = local(e);
     var f = Math.exp((e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY) * 0.0016);
@@ -282,7 +286,7 @@
 
   /* ---------------- keyboard ---------------- */
   function keydown(e) {
-    if (!game) return;
+    if (!game || !god()) return;
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
     var k = e.key.toLowerCase();
@@ -297,7 +301,7 @@
   }
   // continuous WASD panning (called every frame)
   IN.frame = function (dt) {
-    if (!game) return;
+    if (!game || !god()) return;
     var px = 0, py = 0, s = 520 * dt;
     if (keys.w || keys.arrowup) py += s;
     if (keys.s || keys.arrowdown) py -= s;

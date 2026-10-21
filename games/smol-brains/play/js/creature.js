@@ -254,6 +254,15 @@
     return { x: ref.x, z: ref.z, y: ref.y, r: ref.r || 0.15, ref: ref, noun: ref.noun, type: "item", kind: ref.kind };
   }
   C.resolve = resolve;
+  // start one action on purpose (a possessed smol, possess.js): the same actions the brain picks from
+  C.startAction = function (c, game, verb, tgt) {
+    var r = tgt ? resolve(game, tgt) : null;
+    if (tgt && !r) return false;
+    if (c.asleep) { c.asleep = false; c.inBed = false; }
+    startAction(c, game, verb, tgt, r, r ? r.noun : null);
+    return true;
+  };
+  C.canSwim = function (c) { return swim(c); };
 
   /* ---------------- perception ---------------- */
 
@@ -1508,7 +1517,7 @@
     }
     SB.Chem.tick(ch, dt, {
       temp: temp, dark: w.night, asleep: c.asleep, inBed: c.inBed,
-      moving: !!(c.action && c.action.phase === "go") || !!c.plan || (c.action && (c.action.verb === V.wander || c.action.verb === V.flee || c.action.verb === V.play)),
+      moving: !!(c.action && c.action.phase === "go") || !!c.plan || (c.action && (c.action.verb === V.wander || c.action.verb === V.flee || c.action.verb === V.play)) || !!c._povMove,
       nearFriends: friends, stage: c.stage, species: c.species
     }, c.genome);
     if (ch.health <= 0) { die(c, game, causeOfDeath(ch)); return; }
@@ -1626,8 +1635,8 @@
       }
     }
 
-    // interrupts
-    if (c.species === "smol") {
+    // interrupts (not for a possessed smol: the player decides)
+    if (c.species === "smol" && !c._pov) {
       if (c.plan && (ch.fear > 0.65 || ch.hunger > 0.78 || ch.pain > 0.6 || (ch.sleepy > 0.9 && c.stage < 3))) endPlan(c, game, false);
       if (c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
       if (ch.hunger > 0.45 && !c.plan && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
@@ -1638,9 +1647,10 @@
     }
 
     if (c.convo && SB.Social) SB.Social.convoTick(game, c, dt);
+    if (c._pov && SB.Possess) SB.Possess.drive(c, dt, game); // possessed: the player moves it and picks its actions, the brain only watches
     if (c.plan) runPlan(c, dt, game);
     else {
-      if (!c.action) { c.thinkT -= dt * (c.far ? 0.5 : 1); if (c.thinkT <= 0) think(c, game); }
+      if (!c.action && !c._pov) { c.thinkT -= dt * (c.far ? 0.5 : 1); if (c.thinkT <= 0) think(c, game); }
       if (c.action) act(c, dt, game);
     }
 
@@ -1649,7 +1659,7 @@
     c.chatT -= dt;
     if (c.chatT <= 0) {
       c.chatT = 6 + game.rng() * 10;
-      if (c.species === "smol" && !c.speech) maybeChat(c, game, c.action ? c.action.verb : V.idle, c.attn ? c.attn.noun : null);
+      if (c.species === "smol" && !c.speech && !c._pov) maybeChat(c, game, c.action ? c.action.verb : V.idle, c.attn ? c.attn.noun : null);
     }
     finishTick(c, game, gy);
     c.iqT -= dt;
