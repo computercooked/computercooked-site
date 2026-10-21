@@ -673,7 +673,7 @@
       if (v1) { try { g = SB.Save.migrateV1(v1); migrated = !!g; } catch (e) { console.warn("[smol] v1 migration failed", e); g = null; } }
     }
     var fresh = !g;
-    if (!g) g = Game.newGame(seedFromUrl || 0);
+    if (!g) g = Game.newGame(seedFromUrl || 0, 0, { gv: SB.WORLD_GV });
     enter(g, { fresh: fresh, migrated: migrated, data: fresh ? null : data });
   }
   // an island picked on the title screen (already made the live save)
@@ -687,7 +687,7 @@
   // a new island from "create world"
   function enterNew(o) {
     o = o || {};
-    var g = Game.newGame(o.seed || 0, o.n || 0, o.world || null);
+    var g = Game.newGame(o.seed || 0, o.n || 0, o.world || { gv: SB.WORLD_GV });
     g.wid = SB.Save.newWid(); g.wname = o.name || null;
     if (o.story) g.settings.storyteller = o.story;
     try { history.replaceState(null, "", location.pathname); } catch (e) {}

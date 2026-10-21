@@ -424,6 +424,8 @@
         return;
       }
       if (st.gone || st.found || !SB.World.isSeen(game.world, st.x, st.z)) return;
+      var pv = SB.Possess && SB.Possess.active && SB.Possess.c; // in a smol's eyes: only the ones close by
+      if (pv && (st.x - pv.x) * (st.x - pv.x) + (st.z - pv.z) * (st.z - pv.z) > 18 * 18) return;
       R.project(st.x, SB.World.groundY(game.world, st.x, st.z) + 2.4, st.z, pp);
       if (!pp.on) return;
       var by = Math.round(pp.y + Math.sin(t * 2.5 + st.id) * 4);
