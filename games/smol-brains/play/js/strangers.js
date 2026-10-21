@@ -18,10 +18,24 @@
     }
     return n;
   };
+  // from the tribe on only partners have eggs: couples, plus talker pairs who are free and could become one
+  ST.couples = function (game) {
+    var SO = SB.Social, ad = smols(game).filter(function (c) { return c.stage === 3 && c.tier >= 3; }), n = 0;
+    if (!SO || !SO.eligible) return ST.breedablePairs(game);
+    var taken = function (c) { var p = SO.partnerOf(game, c); return !!p && p.stage === 3; };
+    for (var i = 0; i < ad.length; i++) for (var j = i + 1; j < ad.length; j++) {
+      var a = ad[i], b = ad[j];
+      if (a.partner === b.id && b.partner === a.id) n++;
+      else if (SO.eligible(game, a, b) && !taken(a) && !taken(b)) n++;
+    }
+    return n;
+  };
+  // pairs that count for "the colony is running out of futures"
+  function chances(game) { return (game.stats.maxTier || 0) >= 3 ? ST.couples(game) : ST.breedablePairs(game); }
   ST.pending = function (game) { return game.creatures.filter(function (c) { return c.alive && c.stranger && c.stranger.state === "waiting"; })[0] || null; };
 
   function nextIn(game) {
-    var r = game.rng, urgent = ST.breedablePairs(game) === 0;
+    var r = game.rng, urgent = chances(game) === 0;
     // a young colony needs new blood quickly; a big one only now and then
     // (from the tribe on, with eggs only every quarter-hour or so, newcomers matter more: they come a bit oftener)
     var n = smols(game).length, talk = (game.stats.maxTier || 0) >= 3;
@@ -48,8 +62,8 @@
       if (s.state === "leaving" && (game.time - s.t > 70 || SB.dist(c.x, c.z, s.x0, s.z0) < 3)) { c.alive = false; c.gone = true; c.dying = false; }
     });
     // a small band that's all cousins draws newcomers sooner (checked now and then: pairs is a full scan)
-    if (!(game._pairsT > game.time - 5)) { game._pairsT = game.time; game._pairs = ST.breedablePairs(game); }
-    game.strangerT -= dt * (game._pairs < 2 && all.length < 24 ? 4 : 1);
+    if (!(game._pairsT > game.time - 5)) { game._pairsT = game.time; game._pairs = chances(game); }
+    game.strangerT -= dt * (game._pairs < ((game.stats.maxTier || 0) >= 3 ? 3 : 2) && all.length < 24 ? 4 : 1);
     if (game.strangerT > 0) return;
     game.strangerT = nextIn(game);
     if (ST.pending(game)) return;

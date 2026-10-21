@@ -389,6 +389,31 @@
       if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
     }
     if (c.species === "smol" && SB.Orders && SB.Orders.think(c, game)) return; // the sky's orders (orders.js): followed if it trusts you
+    // partners both ready for a baby (in love, rested from the last one) find each other at the end of a job, even in a
+    // busy village: otherwise builders who work all day never meet. Not when hungry, scared or hurting
+    if (c.species === "smol" && c.stage === 3 && c.partner != null && ch.love > 0.5 && c.eggCooldown <= 0 && Math.max(ch.hunger, ch.fear, ch.pain, ch.sick) < 0.5 && rng.chance(0.5)) {
+      var pt = SB.Game.byId(game, c.partner);
+      if (pt && pt.alive && pt.partner === c.id && pt.stage === 3 && !pt.heldBy && pt.eggCooldown <= 0 && ch.love + pt.chem.love >= 0.85 && SB.dist(pt.x, pt.z, c.x, c.z) < 40) {
+        var ptT = { type: "creature", id: pt.id }, ptR = resolve(game, ptT);
+        if (ptR) { c.attn = { type: "creature", id: pt.id, noun: "smol", x: ptR.x, z: ptR.z }; startAction(c, game, V.cuddle, ptT, ptR, "smol"); if (c.action) return; }
+      }
+    }
+    // a builder or thinker with nobody, in love: goes looking for someone free to court (otherwise the one clever smol
+    // works all day, never meets anyone, and dies without passing the next step on)
+    var SOc = SB.Social;
+    if (SOc && SOc.eligible && c.species === "smol" && c.stage === 3 && c.tier >= 4 && ch.love > 0.4 && !SOc.partnerOf(game, c) && !(c.widowT && game.time < c.widowT) && Math.max(ch.hunger, ch.fear, ch.pain, ch.sick) < 0.5 && rng.chance(0.3)) {
+      var best = null, bd = 30;
+      for (var mi = 0; mi < game.creatures.length; mi++) {
+        var m = game.creatures[mi];
+        if (m.species !== "smol" || m.tier < 3 || m.heldBy || m.asleep || SOc.partnerOf(game, m) || (m.widowT && game.time < m.widowT) || (c.shy && c.shy.id === m.id && game.time < c.shy.t)) continue;
+        var md = SB.dist(m.x, m.z, c.x, c.z);
+        if (md < bd && SOc.eligible(game, c, m)) { best = m; bd = md; }
+      }
+      if (best && bd > 2.5) {
+        var mT = { type: "creature", id: best.id }, mR = resolve(game, mT);
+        if (mR) { c.attn = { type: "creature", id: best.id, noun: "smol", x: mR.x, z: mR.z }; startAction(c, game, V.approach, mT, mR, "smol"); if (c.action) return; }
+      }
+    }
     perceive(c, game);
     if (c.species === "grump") {
       var prey = false;
@@ -549,7 +574,7 @@
       if (mask[V.make]) { bias[V.make] += dd * 0.5; useBias = true; }
       if (mask[V.use] && knowsUse) { bias[V.use] += dd * 0.4; useBias = true; }
       if (mask[V.cuddle]) { bias[V.cuddle] -= dd * 0.8; useBias = true; }
-      if (mask[V.play]) { bias[V.play] -= dd * 0.5; useBias = true; }
+      if (mask[V.play] && !(c.tier >= 5 && (noun === "totem" || noun === "wonder"))) { bias[V.play] -= dd * 0.5; useBias = true; }
     }
     // a sick friend and a healer who knows herbs: bring medicine
     if (noun === "smol" && mask[V.give] && target.ref.chem.sick > 0.4 && c.holding != null) { var hk = SB.Game.byId(game, c.holding); if (hk && hk.noun === "medicine") { bias[V.give] += 0.4; useBias = true; } }
@@ -1635,8 +1660,9 @@
     if (c.stage !== 3 || c.stranger || c.captive != null || (game.stats.maxTier || 0) < 4) { if (c.duty) c.duty = Math.max(0, c.duty - dt * 0.01); return; }
     if (!WORKY.ok) { WORKY.ok = 1; [V.build, V.make, V.use, V.pickup, V.give, V.teach].forEach(function (v) { WORKY[v] = 1; }); }
     var d = c.duty || 0;
-    if (c.plan || c.nursing || (c.action && WORKY[c.action.verb]) || (c.job && c.action && c.action.called)) d -= dt * 0.02;
-    else if (!c.asleep && !game.world.night) d += dt * 0.004;
+    var study = c.tier >= 5 && c.action && (c.action.noun === "totem" || c.action.noun === "wonder"); // a thinker at a story pole or a wonder is working too
+    if (c.plan || c.nursing || study || (c.action && WORKY[c.action.verb]) || (c.job && c.action && c.action.called)) d -= dt * 0.02;
+    else if (!c.asleep && !game.world.night) d += dt * (c.tier >= 5 ? 0.002 : 0.004); // (thinkers mull things over: half as restless)
     c.duty = d < 0 ? 0 : d > 1 ? 1 : d;
   }
   C.dutyTick = dutyTick;

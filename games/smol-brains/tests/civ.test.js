@@ -42,9 +42,9 @@ console.log("1. population room grows with the colony");
   game.stats.maxTier = 2; run(SB, game, 2.5);
   check("tool-users: 16", SB.Game.POP_CAP === 16, SB.Game.POP_CAP);
   game.stats.maxTier = 3; run(SB, game, 2.5);
-  check("a tribe: 20", SB.Game.POP_CAP === 20, SB.Game.POP_CAP);
+  check("a tribe: 24", SB.Game.POP_CAP === 24, SB.Game.POP_CAP);
   game.stats.maxTier = 4; run(SB, game, 2.5);
-  check("builders: 28", SB.Game.POP_CAP === 28, SB.Game.POP_CAP);
+  check("builders: 30", SB.Game.POP_CAP === 30, SB.Game.POP_CAP);
   check("the era name starts as a band", SB.Civ.eraName(game) === "band");
 }
 

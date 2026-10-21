@@ -1,7 +1,7 @@
 /* smol brains 2 — civ.js
    From village to city. Eras live in heads, not in a counter: a band becomes a village when it settles around a
-   fire, a town when a thinker, 15+ smols and a working market are all there at once, a city when 30+ smols, writing
-   and a council hall are. Lose them (a plague, a lost idea) and the city slides back.
+   fire, a town when a thinker, 15+ smols and a working market are all there at once, a city when 30+ smols (as few as 26 if
+   they're well housed and fed), writing and a council hall are. Lose them (a plague, a lost idea) and the city slides back.
    Also here: jobs that grow out of habits and run in families, desire paths that wear into trails and get paved,
    districts that form when buildings of a kind cluster, the council and its leader's policies, and the Law of the
    Sky: the scribe watches what the hand pokes and tickles and writes it down as law (not always correctly). */
@@ -75,8 +75,15 @@
     return [
       [{ label: "settle down: two of a campfire, hut, farm or totem", ok: village }],
       [{ label: "a thinker", ok: thinker }, { label: "15 smols (" + pop + ")", ok: pop >= 15 }, { label: "a market: 2 stalls (" + stalls + ")", ok: market }],
-      [{ label: "30 smols (" + pop + ")", ok: pop >= 30 }, { label: "writing", ok: writing }, { label: "a council hall", ok: hall }]
+      [{ label: Cv.cityPop(game) + " smols (" + pop + ")", ok: pop >= Cv.cityPop(game) }, { label: "writing", ok: writing }, { label: "a council hall", ok: hall }]
     ];
+  };
+  // how many smols make a city: 30, or fewer when they're better off per head. Each finished house (a proper home,
+  // not a hut) counts for one smol, up to 4, as long as nobody's going hungry: a well-housed, well-fed 26 is a city
+  Cv.CITY_POP = 30; Cv.CITY_POP_MIN = 26;
+  Cv.cityPop = function (game) {
+    var fed = !SB.Game.colonyHunger || SB.Game.colonyHunger(game) < 0.4;
+    return fed ? Math.max(Cv.CITY_POP_MIN, Cv.CITY_POP - done(game, "house").length) : Cv.CITY_POP;
   };
   function eraTarget(game) {
     var n = Cv.needs(game), t = 0;
@@ -111,7 +118,9 @@
 
   // the island's room for smols grows with the colony: a few smols while they're blobs and critters, more as
   // they learn tools, band together and build, then the era (and its houses) takes over
-  Cv.TIER_CAP = [12, 12, 16, 20, 28, 36, 36];
+  // (a tribe's slow, long-lived talkers fill a band of 20 with elders and newcomers and leave no room for the
+  // children who carry the next step, so a tribe has room for 24 and builders for 30)
+  Cv.TIER_CAP = [12, 12, 16, 24, 30, 36, 36];
   Cv.popCap = function (game) {
     var e = Cv.era(game), houses = done(game, "house").length, best = (game.stats && game.stats.maxTier) || 0;
     var cap = Cv.TIER_CAP[Math.min(Cv.TIER_CAP.length - 1, best)];
@@ -121,15 +130,18 @@
   };
 
   // housing (Banished's rule): from the builder age on, a couple only has an egg if there's a bed for the baby.
-  // Each finished hut sleeps 4 and each house 6, and a few more can curl up by the fire. A wrecked home still sleeps
+  // Each finished hut sleeps 5 and each house 8, and a few more can curl up by the fire. A wrecked home still sleeps
   // half (a leaky roof is a roof; it stops a raid from becoming a spiral) until it's rebuilt. Strangers still arrive
   // (fresh blood), but eggs wait for the builders
-  Cv.ROOM = { hut: 4, house: 6, fire: 10 };
+  Cv.ROOM = { hut: 5, house: 8, fire: 12 };
   Cv.room = function (game) {
     // (only once the builders are here and someone knows how to raise a hut: nobody waits on a roof nobody can build)
     if (((game.stats && game.stats.maxTier) || 0) < 4 || !SB.Game.cultureKnows(game, "hut")) return Infinity;
+    // everyone already here when the rule starts has a spot by the fire: it limits growth, it doesn't stop a village dead
+    var v = game.civ || {};
+    if (v.roomBase == null && game.civ) v.roomBase = smols(game).length;
     var wrecked = function (kind) { return game.world.structures.filter(function (s) { return s.kind === kind && !s.done && s.data && s.data.wrecked; }).length; };
-    return Math.floor(Cv.ROOM.hut * (done(game, "hut").length + wrecked("hut") / 2) + Cv.ROOM.house * (done(game, "house").length + wrecked("house") / 2)) + Cv.ROOM.fire;
+    return Math.floor(Cv.ROOM.hut * (done(game, "hut").length + wrecked("hut") / 2) + Cv.ROOM.house * (done(game, "house").length + wrecked("house") / 2)) + Math.max(Cv.ROOM.fire, v.roomBase || 0);
   };
 
   // strangers and pods leave the last few seats for babies: a small band full of newcomers stops evolving
@@ -591,7 +603,7 @@
     if (!v) return null;
     return {
       era: v.era, eraT: v.eraT, best: v.best, slipT: Math.round(v.slipT), hand: v.hand, laws: v.laws, districts: v.districts.map(function (d) { return { g: d.g, x: d.x, z: d.z, name: d.name, n: d.n, ids: d.ids }; }),
-      council: v.council, stats: v.stats, granary: v.granary, scribe: v.scribe == null ? null : v.scribe, roadN: v.roadN || 0,
+      council: v.council, stats: v.stats, granary: v.granary, scribe: v.scribe == null ? null : v.scribe, roadN: v.roadN || 0, roomBase: v.roomBase == null ? null : v.roomBase,
       roads: game.world && game.world.road ? roadsToString(game.world) : ""
     };
   };
@@ -607,6 +619,7 @@
       if (Array.isArray(data.districts)) v.districts = data.districts.filter(function (d) { return d && GROUPS[d.g] && typeof d.name === "string" && isFinite(d.x) && isFinite(d.z); }).map(function (d) { d.ids = Array.isArray(d.ids) ? d.ids : []; return d; });
       if (data.council && typeof data.council === "object") { v.council = data.council; if (!Array.isArray(v.council.history)) v.council.history = []; if (!v.council.policies) v.council.policies = {}; }
       if (data.stats && typeof data.stats === "object") v.stats = Object.assign(v.stats, data.stats);
+      if (typeof data.roomBase === "number" && data.roomBase >= 0) v.roomBase = data.roomBase | 0;
       v.granary = +data.granary || 0; v.scribe = data.scribe == null ? null : data.scribe; v.roadN = +data.roadN || 0;
       if (typeof data.roads === "string" && data.roads && game.world.road) data.roads.split(",").forEach(function (s) {
         var t = parseInt(s.slice(0, -1), 36);

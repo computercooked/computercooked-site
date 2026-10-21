@@ -161,7 +161,8 @@
     farm: function (x) { return x.held === "seed" || (x.targetKind === "seed") ? 0.5 : x.held === "grain" ? 0.3 : 0; },
     hut: function (x) { return x.verb === "sleep" && (x.cold || x.raining) ? 0.5 : x.noun === "shelter" && x.held === "stick" ? 0.4 : 0; },
     pottery: function (x) { return x.nearFire && (x.held === "clay" || x.targetKind === "clay") ? 0.7 : 0; },
-    totem: function (x) { return x.held === "blade" && (x.noun === "stick" || x.noun === "plant") ? 0.4 : 0; },
+    // (a slower-breeding tribe has fewer builders: a blade in the tool pouch counts too, and so does building with a stick)
+    totem: function (x) { return (x.held === "blade" || x.hasTool === "blade") && (x.noun === "stick" || x.noun === "plant") ? 0.6 : x.tier >= 4 && (x.held === "stick" || x.noun === "stick") && (x.verb === "build" || x.verb === "make" || x.verb === "use") ? 0.25 : 0; },
     school: function (x) { return x.verb === "teach" && x.noun === "smol" ? 0.4 : x.noun === "totem" && x.friends >= 2 ? 0.12 : 0; },
     wall: function (x) { return x.noun === "grump" && x.held === "stick" ? 0.5 : x.noun === "grump" && x.verb === "flee" ? 0.1 : 0; },
     bridge: function (x) { return x.noun === "water" && x.held === "stick" ? 0.5 : 0; },
@@ -170,7 +171,7 @@
     axe: function (x) { return x.held === "metal" && (x.noun === "plant" || x.noun === "stick") ? 0.6 : 0; },
     brew: function (x) { return x.held === "herb" && x.noun === "fire" && x.hasTool === "pot" ? 0.7 : x.held === "herb" && x.noun === "fire" ? 0.15 : 0; },
     bake: function (x) { return x.held === "grain" && x.noun === "fire" ? 0.5 : 0; },
-    writing: function (x) { return x.noun === "totem" && (x.verb === "use" || x.verb === "play") ? 0.5 : 0; },
+    writing: function (x) { return x.noun === "totem" && (x.verb === "use" || x.verb === "play") ? 0.7 : x.noun === "totem" ? 0.25 : 0; },
     workshop: function (x) { return x.verb === "make" && x.hasTool === "axe" ? 0.4 : 0; },
     windmill: function (x) { return x.noun === "crop" && x.windy ? 0.5 : 0; },
     lens: function (x) { return x.held === "crystal" && (x.verb === "play" || x.verb === "use") ? 0.5 : x.noun === "material" && x.targetKind === "crystals" ? 0.15 : 0; },
@@ -612,7 +613,7 @@
       case "campfire": return count("campfire") < 1 + Math.floor(pop / 8) ? 0.6 + c.chem.cold * 0.5 : 0;
       case "hut": return count("hut") < Math.ceil(pop / 3) ? 0.5 + c.chem.tired * 0.3 + c.chem.cold * 0.3 + (full(game, pop) ? 0.45 : 0) : 0; // no room for babies: huts first
       case "farm": return count("farm") < Math.ceil(pop / 4) ? 0.45 + c.chem.hunger * 0.3 : 0;
-      case "totem": return count("totem") < 1 ? 0.45 : 0;
+      case "totem": return count("totem") < 1 ? 0.65 : 0;
       case "school": return count("school") < 1 && pop >= 8 ? 0.45 : 0;
       case "wall": return count("wall") < Math.min(10, game.stats.grumpNights) ? 0.2 : 0;
       case "bridge": return count("bridge", 60) < 2 && game.rng.chance(0.2) ? 0.15 : 0;

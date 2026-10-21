@@ -173,7 +173,8 @@
   // free to fall for someone: no partner (or one who has grown old: an adult can move on, kindly), and not newly widowed
   function free2love(game, c) { var p = SO.partnerOf(game, c); return (!p || (p.stage >= 4 && c.stage === 3)) && !(c.widowT && game.time < c.widowT); }
   // how many good moments a courtship takes (a hug, a gift, a shared meal, a good talk, a game)
-  SO.courtSteps = function (a, b) { return 3; };
+  // (a builder or thinker is a catch: two)
+  SO.courtSteps = function (a, b) { return Math.max(a.tier || 0, b.tier || 0) >= 4 ? 2 : 3; };
   SO.court = function (game, a, b, how) {
     if (!SO.eligible(game, a, b) || Math.min(a.tier, b.tier) < 3) return false; // courting is for talkers (tribe and on)
     if (a.partner === b.id) return false;
