@@ -108,7 +108,10 @@
       return;
     }
     var grump = c.species === "grump";
-    var legs = lk.legs, legH = legs ? 0.35 + lk.legLen * 0.9 : 0;
+    // tribe and on: a face that shows the mood (an.face, held steady by creature.js); grown-ups (teen and
+    // older) also lose the baby look: taller and slimmer, longer legs, smaller eyes with small pupils, brows
+    var moody = !grump && c.tier >= 3, grown = moody && c.stage >= 2, face = moody ? an.face || "neutral" : null;
+    var legs = lk.legs, legH = legs ? (0.35 + lk.legLen * 0.9) * (grown ? 1.2 : 1) : 0;
     var moving = c.moving || (c.action && c.action.phase === "go") || !!c.plan;
     var hop = 0, sq = mo.sq;
     if (!legs && moving && !c.asleep && c.onGround) {
@@ -122,7 +125,7 @@
     setBase(x, y + hop * Rr, z, mo.face, Rr, mo.ln * 0.9);
     var cy = 1 + legH;
     var bw = 0.85 + (lk.body - 0.8) * 0.55;
-    var upright = grump ? 1.05 : 1 + Math.min(4, c.tier) * 0.06;
+    var upright = grump ? 1.05 : (1 + Math.min(4, c.tier) * 0.06) * (grown ? 1.12 : 1);
     var sy = (1 + breath) * (1 - sq) * upright, sxz = bw * (1 + sq * 0.45) / Math.sqrt(upright);
     // shadow
     R.shadow(x, z, Rr * 1.1 * bw, 0.3 * (1 - hop * 0.5));
@@ -168,15 +171,18 @@
     // face: eyes look toward the attended thing
     var look = 0, tilt = 0;
     if (c.attn && c.attn.x != null) { look = SB.clamp(SB.angDiff(mo.face, Math.atan2(c.attn.x - x, c.attn.z - z)), -0.6, 0.6); }
-    var es = 0.21 * lk.eyes * (c.stage === 0 ? 1.15 : 1), blink = c.asleep ? 0.12 : 1 - an.blink * 0.9;
-    var eyY = headY + 0.25 * sy, eyZ = 0.8 * sxz;
-    var eyeTint = grump ? [1, 0.35, 0.3] : null, eyeExt = grump ? [0, 0.4 + SB.Render.env.night * 0.8, 0] : ext;
-    part("p:eye", 0.34 * bw, eyY, eyZ - 0.06, look + 0.25, -0.1, 0, es, es * blink, es, eyeTint, eyeExt);
-    part("p:eye", -0.34 * bw, eyY, eyZ - 0.06, look - 0.25, -0.1, 0, es, es * blink, es, eyeTint, eyeExt);
-    var mo = an.mouth, mh = mo === "open" || mo === "o" ? 0.1 : mo === "chew" ? 0.04 + Math.abs(Math.sin(t * 14)) * 0.07 : 0.045;
-    part("p:mouth", 0, headY - 0.02 * sy, 0.9 * sxz, 0, 0, 0, mo === "frown" ? 0.1 : 0.13, mh, 0.08, null, EXT);
+    var es = 0.21 * lk.eyes * (c.stage === 0 ? 1.15 : 1) * (grown ? 0.72 : 1), blink = c.asleep ? 0.12 : 1 - an.blink * 0.9;
+    if (face === "tired") blink *= 0.45; // heavy lids
+    else if (face === "worried") blink *= 1.12; // eyes wide
+    var eyY = headY + (grown ? 0.3 : 0.25) * sy, eyZ = 0.8 * sxz, eyX = (grown ? 0.3 : 0.34) * bw;
+    var eyeTint = grump ? [1, 0.35, 0.3] : null, eyeExt = grump ? [0, 0.4 + SB.Render.env.night * 0.8, 0] : ext, eyeKey = grown ? "p:eye2" : "p:eye";
+    part(eyeKey, eyX, eyY, eyZ - 0.06, look + 0.25, -0.1, 0, es, es * blink, es, eyeTint, eyeExt);
+    part(eyeKey, -eyX, eyY, eyZ - 0.06, look - 0.25, -0.1, 0, es, es * blink, es, eyeTint, eyeExt);
+    var mth = an.mouth, mh = mth === "open" || mth === "o" ? 0.1 : mth === "chew" ? 0.04 + Math.abs(Math.sin(t * 14)) * 0.07 : 0.045; // (was "mo", which hid the motion springs from the ears and antenna below)
+    if (moody) faceParts(c, an, face, grown, headY, cy, sy, sxz, eyX, eyY, eyZ, es, cols, t);
+    else part("p:mouth", 0, headY - 0.02 * sy, 0.9 * sxz, 0, 0, 0, mth === "frown" ? 0.1 : 0.13, mh, 0.08, null, EXT);
     if (grump) { part("p:cone", 0.07, headY - 0.07, 0.86 * sxz, 0, Math.PI, 0, 0.04, 0.09, 0.04, cols.white, EXT); part("p:cone", -0.07, headY - 0.07, 0.86 * sxz, 0, Math.PI, 0, 0.04, 0.09, 0.04, cols.white, EXT); }
-    if (lk.cheeks && !grump) { part("p:ball", 0.5 * bw, headY + 0.03, 0.66 * sxz, 0, 0, 0, 0.11, 0.07, 0.06, cols.cheek, EXT); part("p:ball", -0.5 * bw, headY + 0.03, 0.66 * sxz, 0, 0, 0, 0.11, 0.07, 0.06, cols.cheek, EXT); }
+    if (lk.cheeks && !grump && (!moody || face === "smile")) { part("p:ball", 0.5 * bw, headY + 0.03, 0.66 * sxz, 0, 0, 0, 0.11, 0.07, 0.06, cols.cheek, EXT); part("p:ball", -0.5 * bw, headY + 0.03, 0.66 * sxz, 0, 0, 0, 0.11, 0.07, 0.06, cols.cheek, EXT); }
     // ears
     var ear = lk.ears, wig = Math.sin(t * 3 + c.id) * 0.08 + SB.clamp(mo.sv * 0.025, -0.3, 0.3); // ears flop when it lands
     if (ear === 1) { part("p:cone", 0.42 * bw, top - 0.2, 0, 0, 0, -0.45 + wig, 0.2, 0.42, 0.14, cols.body, ext); part("p:cone", -0.42 * bw, top - 0.2, 0, 0, 0, 0.45 - wig, 0.2, 0.42, 0.14, cols.body, ext); }
@@ -235,6 +241,33 @@
       setBase(x, SB.World.groundY(game.world, x, z) + 0.03, z, t * 0.6, 1);
       part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]);
     }
+  }
+
+  // brows and mouth for a tribe-and-on face (3D look). Brows tilt with the mood (angry: in and down; sad,
+  // worried, sick: in and up); the mouth is a smile only when it feels good, a flat line at rest
+  var BROW_TILT = { angry: 0.55, sad: -0.45, worried: -0.5, sick: -0.4, smile: -0.08 }; // rz of the brow over +x: > 0 lifts its outer end
+  function faceParts(c, an, face, grown, headY, cy, sy, sxz, eyX, eyY, eyZ, es, cols, t) {
+    var mood = an.emote === "sad" || an.emote === "ouch" || an.emote === "sick" ? "sad" : an.emote === "happy" || an.emote === "love" || an.emote === "yum" || an.emote === "proud" ? "smile" : face;
+    var eating = c.action && c.action.verb === SB.V.eat && c.action.phase === "do";
+    if (c.asleep) mood = "sleep";
+    // brows (grown-ups always have them; babies only when they feel strongly)
+    var tilt = BROW_TILT[mood] || 0, strong = mood === "angry" || mood === "sad" || mood === "worried" || mood === "sick";
+    if (grown || strong) {
+      var bc = c.stage >= 4 ? [0.92, 0.92, 0.9] : strong ? [0.1, 0.07, 0.1] : SB.mixC(cols.dark, [0.1, 0.07, 0.1], 0.4);
+      var byy = eyY + es * (mood === "smile" ? 1.35 : 1.15) + (mood === "worried" ? 0.03 : 0), bz = eyZ - 0.04;
+      part("p:ball", eyX, byy, bz, 0.25, -0.15, tilt, es * 0.95, 0.032, 0.05, bc, EXT);
+      part("p:ball", -eyX, byy, bz, -0.25, -0.15, -tilt, es * 0.95, 0.032, 0.05, bc, EXT);
+    }
+    // mouth
+    // on the body's surface (the old mouth sat just inside it), a little below the middle of the face
+    var my = headY - 0.1 * sy, dy = (my - cy) / sy, mz = 0.96 * sxz * Math.sqrt(Math.max(0, 1 - dy * dy)) + 0.012;
+    if (eating) part("p:mouth", 0, my, mz, 0, 0, 0, 0.11, 0.04 + Math.abs(Math.sin(t * 14)) * 0.07, 0.08, null, EXT);
+    else if (mood === "smile") part("p:smile", 0, my - 0.04, mz, 0, -0.15, 0, 0.24, 0.24, 0.24, null, EXT);
+    else if (mood === "sad" || mood === "sick") part("p:smile", 0, my + 0.03, mz, 0, -0.15, Math.PI, 0.2, 0.2, 0.2, null, EXT);
+    else if (mood === "worried") part("p:mouth", 0, my, mz, 0, 0, 0, 0.06, 0.08, 0.08, null, EXT);
+    else if (mood === "sleep") part("p:mouth", 0, my, mz, 0, 0, 0, 0.05, 0.05, 0.08, null, EXT);
+    else part("p:mouth", 0, my, mz, 0, 0, 0, mood === "angry" ? 0.13 : 0.1, 0.022, 0.08, null, EXT); // neutral, tired, angry: a flat line
+    if (mood === "sick") { var gx = eyX + 0.14; part("p:ball", gx, headY + 0.03, 0.68 * sxz, 0, 0, 0, 0.1, 0.06, 0.06, [0.5, 0.78, 0.4], EXT); part("p:ball", -gx, headY + 0.03, 0.68 * sxz, 0, 0, 0, 0.1, 0.06, 0.06, [0.5, 0.78, 0.4], EXT); } // a little green
   }
 
   /* ---------------- items ---------------- */
