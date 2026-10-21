@@ -38,9 +38,12 @@ check("hut needs 3 fewer sticks", before - (site.need.stick || 0) === Math.min(3
 console.log("3. clubs chase grumps off");
 const g = SB.Game.spawnGrump(game, c.x + 1, c.z);
 hold("club");
-for (let i = 0; i < 3; i++) SB.Creature._hitFx ? SB.Creature._hitFx(c, g, game) : null;
+// bigger grumps (threats.js) take more whacks; a plain one takes three
+const need = SB.Threats ? SB.Threats.whacksNeeded(g) : 3;
+check("a plain grump takes three whacks", !SB.Threats || SB.Threats.whacksNeeded({ tough: 1 }) === 3);
+for (let i = 0; i < need; i++) SB.Creature._hitFx ? SB.Creature._hitFx(c, g, game) : null;
 if (!SB.Creature._hitFx) console.log("  (no hit hook)");
-check("three club hits and the grump is gone", !SB.Creature._hitFx || (!g.alive && g.gone), g.whacked + " whacks");
+check("enough club hits and the grump is gone", !SB.Creature._hitFx || (!g.alive && g.gone), g.whacked + " whacks of " + need);
 
 console.log("4. fishing rods catch fish");
 hold("rod");

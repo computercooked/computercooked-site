@@ -725,6 +725,20 @@
         }
       }
     }
+    // roads (civ.js): worn trails are packed dirt, paved roads are pale stone
+    var road = game.world.road;
+    if (road && game.civ && game.civ.roadN) {
+      var RN = T.N;
+      for (var rj = z0; rj < z0 + S; rj++) for (var ri = x0; ri < x0 + S; ri++) {
+        var rv = road[rj * RN + ri];
+        if (!rv || !SB.World.isSeen(game.world, ri + 0.5, rj + 0.5)) continue;
+        var rx = ri + 0.5, rz = rj + 0.5;
+        if (WG.waterAt(T, rx, rz) > WG.heightAt(T, rx, rz) + 0.05) continue; // the bridge covers it
+        var ry = Math.max(WG.heightAt(T, rx - 0.45, rz - 0.45), WG.heightAt(T, rx + 0.45, rz - 0.45), WG.heightAt(T, rx - 0.45, rz + 0.45), WG.heightAt(T, rx + 0.45, rz + 0.45)) - 0.015;
+        var rh = SB.hash(ri, rj, 3);
+        push("s:road", rx, ry, rz, 0, 1, 1, 1, rv === 2 ? [0.78 + rh * 0.08, 0.74 + rh * 0.08, 0.7 + rh * 0.06] : [0.6 + rh * 0.06, 0.47 + rh * 0.05, 0.33], 0, 0);
+      }
+    }
     for (var key2 in lists) {
       var arr = new Float32Array(lists[key2]);
       c.groups[key2] = { buf: GL.buffer(ctx, arr), n: arr.length / ISTRIDE };
@@ -969,6 +983,7 @@
     env.sun = env.sun.map(function (v) { return v * (1 - oc * 0.55); });
     env.sky = SB.mixC(env.sky, [env.sky[0] * 0.9 + 0.08, env.sky[1] * 0.9 + 0.08, env.sky[2] * 0.9 + 0.08], oc);
     env.fog = SB.mixC(env.fog, [0.55, 0.58, 0.64].map(function (v) { return v * (1 - env.night * 0.85); }), oc * 0.6);
+    if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky
     if (env.flash > 0) {
       env.flash = Math.max(0, env.flash - 0.05);
       var fl = env.flash;
@@ -1336,6 +1351,58 @@
     octx.clearRect(0, 0, W, H);
     for (var i = 0; i < overlayHooks.length; i++) overlayHooks[i](octx, W, H, game);
   }
+
+  /* ---- town and city: lit windows at night, price tags on stalls, district names ---- */
+  var WINDOWS = { house: [[0.38, 0.45, 0.68]], hall: [[-0.6, 0.75, 0.37], [0.6, 0.75, 0.37]], school: [[-0.5, 0.35, 0.86]], mint: [[-0.3, 0.45, 0.56]] };
+  R.addHook(function (g) {
+    if (!g || !SB.Civ || !g.civ || env.night < 0.25) return;
+    var lit = SB.Civ.lights(g), cx = cam.x, cz = cam.z, reach = Math.max(cam.halfW, cam.halfH) * 2 + 8;
+    for (var i = 0; i < lit.length; i++) {
+      var s = lit[i];
+      if (Math.abs(s.x - cx) > reach || Math.abs(s.z - cz) > reach || !SB.World.isSeen(g.world, s.x, s.z)) continue;
+      var gy = WG.heightAt(T, s.x, s.z), ca = Math.cos(s.rot || 0), sa = Math.sin(s.rot || 0), ws = WINDOWS[s.kind] || [];
+      // not every window at once: some smols are already asleep
+      if (SB.hash(s.id, Math.floor(g.time / 90), 7) < 0.15) continue;
+      for (var k = 0; k < ws.length; k++) { var w = ws[k]; R.instTRS("s:winglow", s.x + w[0] * ca + w[2] * sa, gy + w[1], s.z - w[0] * sa + w[2] * ca, s.rot || 0, 1, null, [0, 1.2, 0]); }
+      R.light(s.x + 0.9 * sa, gy + 1, s.z + 0.9 * ca, 3.5, 1, 0.72, 0.32);
+    }
+  });
+  var tagP = {};
+  R.addOverlay(function (ctx, Wd, Hd, g) {
+    if (!g || !SB.Civ || !g.civ) return;
+    var zoom = cam.zoom;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    // price tags: what each stall sells and its asking price, like a little pixel sign
+    if (SB.Economy && zoom < 22) {
+      var money = SB.Economy.moneyIcon(g);
+      SB.Economy.stalls(g).forEach(function (st) {
+        var d = st.data;
+        if (!d.good || !SB.World.isSeen(g.world, st.x, st.z)) return;
+        R.project(st.x, WG.heightAt(T, st.x, st.z) + 1.7, st.z, tagP);
+        if (!tagP.on) return;
+        var txt = SB.Economy.GOODS[d.good].icon + " " + (d.stock > 0 ? d.ask.toFixed(1) + money : "sold out");
+        ctx.font = "700 12px Pixelify, ui-rounded, system-ui, sans-serif";
+        var tw = Math.round(ctx.measureText(txt).width + 22), x = Math.round(tagP.x - tw / 2), y = Math.round(tagP.y - 11);
+        ctx.fillStyle = "#1a1222"; ctx.fillRect(x, y, tw, 22); ctx.fillRect(Math.round(tagP.x) - 1, y + 22, 2, 6);
+        ctx.fillStyle = d.stock > 0 ? "#fbf3d6" : "#c9c1b4"; ctx.fillRect(x + 2, y + 2, tw - 4, 18);
+        ctx.fillStyle = "#1a1222";
+        if (SB.Icons && SB.Icons.fillText) SB.Icons.fillText(ctx, txt, Math.round(tagP.x), y + 12, 12); else ctx.fillText(txt, tagP.x, y + 12);
+      });
+    }
+    // district names, once zoomed out a bit
+    if (zoom > 12 && g.civ.districts.length) {
+      ctx.font = "800 12px ui-rounded, system-ui, sans-serif";
+      g.civ.districts.forEach(function (d) {
+        if (!SB.World.isSeen(g.world, d.x, d.z)) return;
+        R.project(d.x, WG.heightAt(T, d.x, d.z) + 0.5, d.z, tagP);
+        if (!tagP.on) return;
+        var t = SB.Civ.GROUPS[d.g], tw = ctx.measureText(d.name).width + 14, col = t.tint;
+        ctx.fillStyle = "rgba(16,17,20,0.55)"; ctx.fillRect(tagP.x - tw / 2, tagP.y - 9, tw, 18);
+        ctx.fillStyle = "rgb(" + Math.round(Math.min(255, col[0] * 200)) + "," + Math.round(Math.min(255, col[1] * 200)) + "," + Math.round(Math.min(255, col[2] * 200)) + ")";
+        ctx.fillText(d.name, tagP.x, tagP.y + 1);
+      });
+    }
+  });
 
   // A JPEG/PNG of the current view (for the civilisation card). Renders a frame first so the buffer is fresh.
   R.snapshot = function (type) {

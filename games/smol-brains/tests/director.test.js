@@ -53,7 +53,8 @@ console.log("2. raids bring grumps, and the free choice is taken if nobody answe
   const raiders = SB.Game.grumps(game).filter(g => g.raider);
   check("raiders turn up", raiders.length >= 2 || game.dir.history.some(h => h[1] === "raid"), raiders.length + " raiders");
   run(SB, game, 400);
-  check("…and the raid ends", !game.dir.active);
+  // (another card may have been dealt since: it is the raid that has to be over)
+  check("…and the raid ends", !(game.dir.active && game.dir.active.id === "raid") && game.dir.history.some(h => h[1] === "raid"));
 }
 
 console.log("3. choices cost sparks");

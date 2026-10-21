@@ -170,7 +170,8 @@
       old = g.genes[n];
       var v = old;
       // hands are the first big step: kids of parents who handled lots of things lean harder toward them
-      if (!grump && echo && echo[n] > 0) v += (n === "arms" ? 0.32 : 0.24) * Math.min(1, echo[n]) * (1.1 - v);
+      // (echo goes above 1 only in a small band, see layEgg)
+      if (!grump && echo && echo[n] > 0) v += (n === "arms" ? 0.32 : 0.24) * Math.min(1.8, echo[n]) * (1.1 - v);
       if (!grump && echo) v += 0.01; // life tends to get more complex (very slowly)
       // a blessing amplifies what the parents actually practised: it's strong on a well-raised family, weak on its own
       if (!grump && bless && bless[n]) v += bless[n] * (0.6 + 0.9 * Math.min(1, (echo && echo[n]) || 0)) * (1.05 - v);

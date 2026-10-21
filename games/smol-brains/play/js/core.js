@@ -277,7 +277,13 @@
     windmill: { noun: "crop", label: "windmill", emoji: "🌬", r: 0.8, cost: { stick: 6, stone: 3, metal: 1 }, work: 26, desc: "turns wind into bread. every farm nearby grows faster." },
     observatory: { noun: "totem", label: "star dome", emoji: "🔭", r: 1.0, cost: { stone: 8, crystal: 1, metal: 1 }, work: 30, desc: "thinkers watch the sky and get ideas. forecasts the weather." },
     bridge: { noun: "material", label: "bridge", emoji: "🌉", r: 1.0, cost: { stick: 8 }, work: 12, desc: "walk over water like it's nothing." },
-    spire: { noun: "wonder", label: "the big thought", emoji: "✨", r: 2.0, cost: { crystal: 6, metal: 4, stone: 12 }, work: 60, desc: "a crystal spire tuned to every smol mind at once. what happens when it's finished? nobody knows." }
+    spire: { noun: "wonder", label: "the big thought", emoji: "✨", r: 2.0, cost: { crystal: 6, metal: 4, stone: 12 }, work: 60, desc: "a crystal spire tuned to every smol mind at once. what happens when it's finished? nobody knows." },
+    // from village to city (civ.js, economy.js)
+    stall: { noun: "material", label: "market stall", emoji: "🏪", r: 0.7, cost: { stick: 4, fiber: 1 }, work: 8, desc: "a counter and an awning. a smol sells what it has spare, at a price it made up." },
+    house: { noun: "shelter", label: "house", emoji: "🏠", r: 1.1, cost: { stick: 6, stone: 4 }, work: 20, desc: "stone walls, a tiled roof, a window. more room than a hut: more smols can live on the island." },
+    hall: { noun: "totem", label: "council hall", emoji: "🏛", r: 1.4, cost: { stick: 8, stone: 8, fiber: 2 }, work: 32, desc: "where the council sits and the scribe keeps the laws. a town with one can become a city." },
+    mint: { noun: "tool", label: "mint", emoji: "🪙", r: 0.9, cost: { stone: 6, metal: 1 }, work: 22, desc: "copper in, coins out. stamped money everyone trusts." },
+    granary: { noun: "material", label: "granary", emoji: "🛢", r: 1.0, cost: { stick: 6, stone: 4, fiber: 2 }, work: 20, desc: "a round store on stilts. the harvest waits here for winter, and the leader decides who gets it." }
   };
 
   /* ---------------- stimulus table ----------------

@@ -345,6 +345,16 @@
       if (ch.sick < 0.15 && ch.antigen < 0.1) c.quarantine = null;
       else if (SB.dist(c.x, c.z, c.quarantine.x, c.quarantine.z) > 2.5) { C.sendTo(c, c.quarantine.x, c.quarantine.z, game, 12); return; }
     }
+    if (c.captive != null && c.species === "smol") { // held at a grump camp (threats.js): huddled in the cage
+      var cs0 = game.sites && game.sites[c.captive];
+      if (cs0 && SB.dist(c.x, c.z, cs0.x, cs0.z) > 1.8) { C.sendTo(c, cs0.x + rng.range(-1, 1), cs0.z + rng.range(-1, 1), game, 10); return; }
+      startAction(c, game, V.idle, null, null, null); c.action.dur = 3; if (!c.far && rng.chance(0.1)) say(c, rng.pick(["let me go!", "i want to go home", "...", "help?"]), game); return;
+    }
+    if (c.hideAt && c.species === "smol") { // grumps or a disaster: kids and elders hide in a hut
+      if (game.time > c.hideAt.t) c.hideAt = null;
+      else if (SB.dist(c.x, c.z, c.hideAt.x, c.hideAt.z) > 0.9) { C.sendTo(c, c.hideAt.x, c.hideAt.z, game, 10); return; }
+      else { startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return; }
+    }
     if (c.shelterT > 0 && c.species === "smol" && !c.quarantine) {
       var hm = SB.Society.home(game, c.tribe || 0);
       if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12); return; }
@@ -685,7 +695,7 @@
   function findBed(c, game) {
     var w = game.world, best = null, bd = 1e9;
     w.structures.forEach(function (s) {
-      if (!s.done || s.kind !== "hut") return;
+      if (!s.done || (s.kind !== "hut" && s.kind !== "house")) return;
       var d = SB.dist(s.x, s.z, c.x, c.z) + (s.tribe === c.tribe ? 0 : 10);
       if (d < bd && d < 25) { bd = d; best = { type: "struct", id: s.id }; }
     });
@@ -784,7 +794,7 @@
     for (var i = 0; i < walls.length; i++) {
       var s = walls[i];
       if (Math.abs(s.x - x) > 2.2 || Math.abs(s.z - z) > 2.2 || SB.dist(s.x, s.z, x, z) > 2.1 || SB.dist(s.x, s.z, x, z) > SB.dist(s.x, s.z, c.x, c.z)) continue;
-      if (c.raider) { c.raider.wallT = (c.raider.wallT || 0) + dt; if (c.raider.wallT > 25) return false; if (!c.raider.walled) { c.raider.walled = true; SB.bus.emit("walled", { c: c, st: s }); } }
+      if (c.raider) { c.raider.wallT = (c.raider.wallT || 0) + dt; if (c.raider.wallT > (SB.Threats ? SB.Threats.wallTime(game) : 25)) { if (SB.Threats && SB.Threats.gear(game).rams && !c.raider.rammed) { c.raider.rammed = true; SB.Threats.wreck(game, s, "rammed"); } return false; } if (!c.raider.walled) { c.raider.walled = true; SB.bus.emit("walled", { c: c, st: s }); } }
       else SB.Chem.apply(c.chem, { fear: dt * 0.4 });
       return true;
     }
@@ -802,7 +812,7 @@
     var dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz);
     if (d < (arriveR || 0.1)) return true;
     if (held(c, game)) return false;
-    var want = Math.atan2(dx, dz), step = Math.min(d, sp * dt), w = game.world;
+    var w = game.world, want = Math.atan2(dx, dz), step = Math.min(d, sp * dt * SB.World.roadSpeed(w, c.x, c.z));
     var tries = [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9], moved = false;
     // once deflected by an obstacle, keep hugging it for a moment instead of bouncing back and forth
     if (c.deflect > 0) { c.deflect -= dt; want += c.deflectA; }
@@ -1076,20 +1086,22 @@
       var punch = both && SB.Social && (SB.Social.rival(game, c, o) || c.tantrum);
       // hurting one of your own when you weren't even angry feels bad (the brain learns from this)
       if (both && c.chem.anger < 0.4 && !punch) { SB.Chem.apply(c.chem, { lonely: 0.15, bored: 0.05 }); emote(c, "sad", 1.4); }
-      var hard = c.species === "grump" ? 0.3 : both ? (punch ? 0.16 : 0.05) : 0.2;
+      var hard = c.species === "grump" ? 0.3 * Math.min(1.6, c.str || 1) : both ? (punch ? 0.16 : 0.05) : 0.2;
       if (o.inBed && c.species === "grump") hard *= 0.2; // huts protect
       SB.Chem.apply(oc, { pain: hard, fear: 0.18, anger: 0.15 });
       o.anim.squash = 0.35; emote(o, "ouch", 1.5);
       if (o.species === "smol") say(o, knows(o, "ouch") ? "ouch!" : "eek!", game);
       if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2)) oc.antigen = Math.min(1, oc.antigen + 0.25);
+      if (c.species === "grump" && o.species === "smol" && SB.Threats) SB.Threats.wound(game, c, o);
       if (c.species === "smol" && o.species === "grump") {
         habit(c, "fight", 1); SB.Chem.apply(oc, { fear: 0.2 });
+        if (o.carry != null && SB.Threats) SB.Threats.drop(game, o, c); // a whack makes it let go
         // armed: a club or a spear really hurts. three good whacks and the grump runs off for good
         var wk = SB.Ideas ? (SB.Ideas.heldKind(c, game) || SB.Ideas.toolKind(c, game)) : null;
         if (wk === "club" || wk === "spear") {
-          SB.Chem.apply(oc, { pain: 0.35, fear: 0.5 });
+          SB.Chem.apply(oc, { pain: 0.35 / (o.tough || 1), fear: 0.5 / (o.tough || 1) });
           o.whacked = (o.whacked || 0) + 1;
-          if (o.whacked >= 3) { o.alive = false; o.gone = true; o.dying = false; if (SB.FX && !o.far) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] }); SB.Game.note(game, c.name + " chased a grump off for good! 🏏"); SB.bus.emit("grumpChased", { c: c, g: o }); }
+          if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) { o.alive = false; o.gone = true; o.dying = false; if (SB.FX && !o.far) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] }); SB.Game.note(game, c.name + " chased a grump off for good! 🏏"); SB.bus.emit("grumpChased", { c: c, g: o }); }
           else { o.action = null; o.thinkT = 0; }
         }
       }
@@ -1386,6 +1398,7 @@
     c.action = null; c.thinkT = 0.4;
     if (c.plan) endPlan(c, game, false);
     if (c.species === "grump") {
+      if (c.carry != null && SB.Threats) SB.Threats.drop(game, c, null); // the sky flicks it: it lets go
       if (game.time - c.tapT > 10) c.tapCount = 0;
       c.tapT = game.time; c.tapCount++;
       if (c.tapCount >= 3) { if (!c.goingHome) say(c, "fine! FINE!", game); c.goingHome = true; SB.Game.unlock(game, "scare"); }
@@ -1567,6 +1580,18 @@
       return;
     }
 
+    // carried off by a grump (threats.js): dangling from its arms, kicking
+    if (c.carriedBy != null) {
+      var cb = SB.Game.byId(game, c.carriedBy);
+      if (cb && cb.alive && !cb.gone) {
+        c.asleep = false; c.inBed = false; c.action = null; c.onGround = false; c.vx = c.vy = c.vz = 0;
+        c.x = cb.x; c.z = cb.z; c.y = cb.y + 0.75; an.walk += dt * 14;
+        if (!c.speech && Math.random() < dt * 0.4) say(c, c.stage <= 1 ? "waaah!" : "help!!", game);
+        SB.Chem.apply(ch, { fear: dt * 0.3 });
+        return;
+      }
+    }
+
     // airborne (thrown, knocked)
     var gy = SB.World.groundY(w, c.x, c.z), hover = c.tier >= 6 && c.species === "smol" ? HOVER : 0;
     if (!c.onGround || c.y > gy + hover + 0.02) {
@@ -1619,6 +1644,7 @@
     // grumps go home at dawn (or when shooed, or when they see fire)
     if (c.species === "grump") {
       var fire = SB.World.nearestFire(w, c.x, c.z, 4.5);
+      if (fire && c.raider && SB.Threats && SB.Threats.gear(game).torches) fire = null; // raiders with torches of their own aren't scared of your fire
       var spear = false;
       SB.World.creaturesNear(w, game, c.x, c.z, 2.5, function (o) { if (o.species === "smol" && o.tool != null) { var t = SB.Game.byId(game, o.tool); if (t && (t.kind === "spear" || t.kind === "torch")) spear = true; } });
       if (fire || spear) { SB.Chem.apply(ch, { fear: dt * 0.8 }); if (ch.fear > 0.7 && !c.goingHome) { c.goingHome = true; say(c, "hot! nope!", game); game.stats.scaredOff = (game.stats.scaredOff || 0) + 1; } }

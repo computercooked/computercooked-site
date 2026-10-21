@@ -48,7 +48,18 @@
     { id: "lens", name: "lenses", icon: "🔮", tier: 5, needs: ["smelt"], kind: "craft", make: { in: { crystal: 1, metal: 1 }, out: "lens", time: 8 }, desc: "a thought crystal in a copper ring. thinking through it makes ideas come faster.", hint: "a thought crystal and copper" },
     { id: "astronomy", name: "astronomy", icon: "🔭", tier: 5, needs: ["lens", "writing"], kind: "build", build: "observatory", desc: "a dome for watching the sky. thinkers get ideas from the stars and know when it'll rain.", hint: "a lens and a night sky" },
     { id: "resonance", name: "resonance", icon: "💠", tier: 6, needs: ["lens"], kind: "skill", desc: "ascended smols near thought crystals think together, as one big brain.", hint: "an ascended smol meets a thought crystal" },
-    { id: "bigthought", name: "the big thought", icon: "✨", tier: 6, needs: ["resonance", "astronomy"], kind: "build", build: "spire", desc: "a spire that joins every smol mind at once. build it to finish the long thought.", hint: "everything." }
+    { id: "bigthought", name: "the big thought", icon: "✨", tier: 6, needs: ["resonance", "astronomy"], kind: "build", build: "spire", desc: "a spire that joins every smol mind at once. build it to finish the long thought.", hint: "everything." },
+    // from village to city: these have no trigger moment; civ.js and economy.js notice when the island is ready for them
+    // (appended at the end so the older ideas keep their words)
+    { id: "market", name: "markets", icon: "🏪", tier: 4, needs: ["share"], kind: "build", build: "stall", civ: true, desc: "a stall where a smol puts what it has spare and asks for something back. prices are made up, then argued about.", hint: "a village with more stuff than it needs" },
+    { id: "tally", name: "tally sticks", icon: "🪵", tier: 5, needs: ["market"], kind: "skill", civ: true, desc: "notches on a stick for who owes whom. debts stop being forgotten.", hint: "too many favours to remember" },
+    { id: "coins", name: "shell money", icon: "🐚", tier: 5, needs: ["tally"], kind: "skill", civ: true, desc: "pretty shells everyone agrees are worth something. buy now, pay with shells.", hint: "a town where everyone owes everyone" },
+    { id: "house", name: "houses", icon: "🏠", tier: 4, needs: ["hut", "pottery"], kind: "build", build: "house", civ: true, desc: "stone walls and a tiled roof. room for more smols.", hint: "a town running out of huts" },
+    { id: "paving", name: "paving", icon: "🧱", tier: 4, needs: ["hut"], kind: "skill", civ: true, desc: "flat stones on the paths everyone walks anyway. roads are faster.", hint: "a muddy trail walked a thousand times" },
+    { id: "granary", name: "granaries", icon: "🛢", tier: 4, needs: ["farm", "pottery"], kind: "build", build: "granary", civ: true, desc: "a store for the harvest. the leader can ration it in winter.", hint: "a town with more grain than mouths, in autumn" },
+    { id: "council", name: "councils", icon: "🏛", tier: 5, needs: ["writing"], kind: "build", build: "hall", civ: true, desc: "the smols pick a leader and argue in a hall. a town with a hall can become a city.", hint: "a big town that can write" },
+    { id: "mint", name: "minting", icon: "🪙", tier: 5, needs: ["coins", "smelt"], kind: "build", build: "mint", civ: true, desc: "stamped copper coins. worth the same everywhere.", hint: "shell money and smelted copper" },
+    { id: "law", name: "law", icon: "⚖", tier: 5, needs: ["council"], kind: "skill", civ: true, desc: "a scribe writes down what the sky seems to want. guards make sure everyone does it.", hint: "a city, and a sky that keeps poking" }
   ]);
   var BY = (I.BY_ID = {});
   LIST.forEach(function (d, i) { d.index = i; BY[d.id] = d; });
@@ -537,7 +548,8 @@
     // 1) help an unfinished site of my tribe
     var sites = world.structures.filter(function (s) { return !s.done && s.tribe === c.tribe && SB.dist(s.x, s.z, c.x, c.z) < 40; });
     // the big thought is everyone's: any ascended smol can help raise the spire
-    var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && (I.known(c, id) || (s.kind === "spire" && c.tier >= 6)); });
+    // and town works (stalls, houses, the hall...) are everyone's too once they're started: any builder can carry stones
+    var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && (I.known(c, id) || (s.kind === "spire" && c.tier >= 6) || (BY[id] && BY[id].civ && c.tier >= 4)); });
     if (mine.length) {
       mine.sort(function (a, b) { return SB.dist2(a.x, a.z, c.x, c.z) - SB.dist2(b.x, b.z, c.x, c.z); });
       return planForSite(c, mine[0], game);
@@ -581,6 +593,7 @@
       case "windmill": return count("farm") >= 2 && count("windmill") < 1 ? 0.4 : 0;
       case "observatory": return count("observatory") < 1 ? 0.45 : 0;
       case "spire": return count("spire", 200) < 1 ? 0.7 : 0;
+      default: return SB.Civ ? SB.Civ.buildNeed(c, kind, game, count, pop) : 0;
     }
     return 0;
   };
@@ -598,6 +611,12 @@
         }
       }
       return null;
+    }
+    // town buildings cluster with their own kind, so districts form
+    var near = SB.Civ && SB.Civ.siteNear(game, c, kind);
+    if (near) for (var nt = 0; nt < 40; nt++) {
+      var na = r() * 6.283, nd = r.range(near.r0, near.r1 + nt * 0.15), nx = near.x + Math.cos(na) * nd, nz = near.z + Math.sin(na) * nd;
+      if (SB.World.siteFree(world, nx, nz, def.r)) return { x: nx, z: nz, rot: r() * 6.283 };
     }
     var ring = kind === "wall" ? [8, 13] : kind === "spire" ? [5, 26] : kind === "farm" || kind === "windmill" ? [5, 14] : [2.5, 10];
     for (var tries = 0, maxT = kind === "spire" || kind === "observatory" ? 160 : 50; tries < maxT; tries++) {

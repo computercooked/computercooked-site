@@ -191,7 +191,9 @@
     if (a.habits && b.habits) {
       var ea = SB.Creature.echo(a), eb = SB.Creature.echo(b);
       echo = {};
-      for (var k in ea) echo[k] = (ea[k] + (eb[k] || 0)) / 2;
+      // a small band adapts faster: with room for fewer smols, what parents practise echoes harder
+      var small = SB.clamp(1 + 0.6 * (36 - (Game.POP_CAP || 36)) / 24, 1, 1.6);
+      for (var k in ea) echo[k] = (ea[k] + (eb[k] || 0)) / 2 * small;
     }
     var bless = game.blessing && game.blessing.uses > 0 ? game.blessing.genes : null;
     if (bless) { game.blessing.uses--; if (game.blessing.uses <= 0) game.blessing = null; }
@@ -424,8 +426,11 @@
     if (SB.Funeral) SB.Funeral.tick(game, dt);
     if (SB.Orders) SB.Orders.tick(game, dt);
     if (SB.FirstHour) SB.FirstHour.tick(game, dt);
+    if (SB.Civ) SB.Civ.tick(game, dt);
+    if (SB.Economy) SB.Economy.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
+    if (SB.Threats) SB.Threats.tick(game, dt);
     SB.Ideas.nurse(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
@@ -533,7 +538,7 @@
   function frame(now) {
     if (!running) return;
     requestAnimationFrame(frame);
-    var dtReal = Math.min(0.1, (now - last) / 1000 || 0);
+    var dtReal = Math.max(0, Math.min(0.1, (now - last) / 1000 || 0)); // never backwards: a negative step makes the camera easing blow up
     last = now;
     var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning;
     if (!paused) {
@@ -548,6 +553,7 @@
     }
     var alpha = paused ? 1 : acc / SB.TICK;
     if (!(SB.Intro && SB.Intro.covering)) SB.Render.frame(game, dtReal, alpha); // the opening story covers the screen: skip drawing the island under it
+    if (SB.Threats && SB.Threats.frame && !paused) SB.Threats.frame(game, dtReal);
     if (SB.UI && SB.UI.frame) SB.UI.frame(game, dtReal);
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }

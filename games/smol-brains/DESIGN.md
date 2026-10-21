@@ -106,6 +106,20 @@ The playtest note was "it's very hard to tell what anything is" and "the models 
 - **Smoother ground**: mostly smooth shading with a little faceting kept, and biome colours blend over a couple of tiles.
 - **Art hooks**: `GL.loadImage`, `SB.Render.loadArt(manifest)` (with a tiling ground-texture slot) and `SB.Pixel.override` for drawn sprite sheets. Missing images fall back to today's look; nothing is requested by default.
 - Triangle counts are flat (big village: 332k pixel, 356k 3D desktop; 63k 3D phone); 3D adds one draw per visible item kind for the pickup shell.
+
+## 0.12 What v4.3 added: from village to city, and it isn't safe (`economy.js`, `civ.js`, `threats.js`)
+
+The owner wanted towns, money and a real challenge instead of constant cuddling. Two branches land together.
+
+- **Eras**: band → village → town → city, with a banner, a civilization tab and goal steps. Eras slide back if the smols lose what made them. Early population caps grow with tier (12/16/20/28), then era caps and houses take over; strangers leave room for births. A village needs any two of campfire, hut, farm or totem.
+- **Money**: debts remembered as memories → tally sticks → shell coins (town) → minted copper (city). Prices come from need and each smol's map; the bounty miracle pushes them up.
+- **Market**: 8 goods, stalls with pixel price tags, shoppers comparing stalls, market days that spread gossip and ideas.
+- **Jobs**: farmer, fisher, potter, smith, builder, trader, teacher (plus guards and a scribe in cities). Jobs run in families; kids apprentice with a mentor.
+- **Roads and districts**: worn ground becomes trails, then paved roads in towns (faster to walk, bridges sit on them). Named, tinted quarters; new buildings: stall, house, council hall, mint, granary. City windows glow at night.
+- **Council and the Law of the Sky**: a leader elected each season (coup if hated, genes set policy); your taps and tickles become written laws, sometimes misread, enforced by guards.
+- **Threats**: grumps get stronger and smarter as the island grows. They hurt, steal, carry smols off to their camps (a rescue card follows), smash and burn buildings, and learn your walls. The village defends itself: the armed and brave stand, kids and elders hide in huts; builders rebuild what's wrecked. Kidnaps and camp cards have rolling caps so it stays fair.
+- **Disasters**: rare and local: tsunamis on coasts, hurricanes in warm months, sandstorms near savanna, tornadoes, earthquakes under mountains. Every island gets the same total odds, split among the kinds it can get, and scaled by the storyteller (calm/wild).
+- **Pacing (headless engaged-bot sims)**: builders 60–65 min, town 72–109, city 115–140, ascended 117–170 (target 125–150; the spread is generation turnover and glow inheritance in the last stretch, not food). Raids wreck 9–17 buildings a run; ~5 kidnaps; 1–2 disasters per 4 hours.
 - **From v3.5**: funerals by culture (river, pyre, burial and memorials), a much bigger name generator, clickable guide tips, a bigger menu that fits the tree of life.
 
 ## 1. The ladder

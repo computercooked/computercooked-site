@@ -830,6 +830,66 @@
       for (i = 0; i < 6; i++) { var a2 = i * 1.047; b.push().translate(Math.cos(a2) * 1.0, 3.0, Math.sin(a2) * 1.0).scale(0.16).sphere(1).pop(); }
       return b.finish();
     },
+    // from village to city
+    stall: function () { // a counter under a striped awning on four poles
+      var b = ME.builder();
+      b.color(0x8a6440).push().translate(0, 0, 0.1).box(1.1, 0.45, 0.5).pop();
+      b.color(0xb08a5a).push().translate(0, 0.45, 0.1).box(1.2, 0.05, 0.6).pop();
+      b.color(0x6a4a2e);
+      [[-0.55, -0.3], [0.55, -0.3], [-0.55, 0.45], [0.55, 0.45]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.03, 0.03, 1.15).pop(); });
+      for (var i = 0; i < 5; i++) b.color(i % 2 ? 0xf5f3ed : 0xe5484d, 1).push().translate(-0.5 + i * 0.25, 1.15, 0.08).rotX(0.25).box(0.25, 0.04, 0.95).pop();
+      b.color(0xe8c45a, 1).push().translate(-0.25, 0.5, 0.15).scale(0.09).sphere(0).pop().push().translate(0, 0.5, 0.2).scale(0.08).sphere(0).pop();
+      b.color(0xe5484d, 1).push().translate(0.25, 0.5, 0.12).scale(0.09).sphere(0).pop();
+      return b.finish();
+    },
+    house: function () { // stone walls, a tiled roof, a chimney and a window
+      var b = ME.builder();
+      b.color(0xb8ad9c).push().box(1.6, 0.95, 1.3).pop();
+      b.color(0x8f8577).push().translate(0, 0, 0).box(1.66, 0.12, 1.36).pop();
+      b.color(0xb4573a, 1);
+      b.push().translate(0, 0.95, -0.36).rotX(0.62).box(1.8, 0.07, 0.95).pop();
+      b.push().translate(0, 0.95, 0.36).rotX(-0.62).box(1.8, 0.07, 0.95).pop();
+      b.color(0xa8a094).push().translate(0, 0.95, 0).cyl(3, 0.65, 0.01, 0.5).pop();
+      b.color(0x7a7268).push().translate(0.5, 1.0, -0.2).box(0.2, 0.6, 0.2).pop();
+      b.color(0x3a2a1c).push().translate(-0.35, 0, 0.66).box(0.36, 0.6, 0.04).pop();
+      b.color(0x2a3550).push().translate(0.38, 0.45, 0.66).box(0.34, 0.28, 0.03).pop();
+      return b.finish();
+    },
+    hall: function () { // a stone hall with columns, steps and a pediment
+      var b = ME.builder();
+      b.color(0xcfc6b4).push().box(2.4, 0.12, 1.9).pop().push().translate(0, 0.12, 0).box(2.2, 0.1, 1.7).pop();
+      b.color(0xd9d0be).push().translate(0, 0.22, -0.2).box(2.0, 1.2, 1.1).pop();
+      b.color(0xe6dfcf);
+      for (var i = 0; i < 5; i++) b.push().translate(-0.9 + i * 0.45, 0.22, 0.65).cyl(6, 0.09, 0.08, 1.2).pop();
+      b.color(0xcfc6b4).push().translate(0, 1.42, 0.05).box(2.3, 0.14, 1.6).pop();
+      b.color(0x9a8f7c, 1).push().translate(0, 1.56, 0.05).scale(1.25, 1, 0.85).cyl(4, 0.95, 0.01, 0.55).pop();
+      b.color(0x3a2a1c).push().translate(0, 0.22, 0.36).box(0.42, 0.75, 0.04).pop();
+      b.color(0xc5ff49, 1).sides(true).push().translate(0.95, 2.1, 0.05).rotZ(-1.57).leaf(0.14, 0.3).pop().sides(false);
+      b.color(0x6a4a2e).push().translate(0.95, 1.56, 0.05).cyl(3, 0.02, 0.02, 0.6).pop();
+      return b.finish();
+    },
+    mint: function () { // a squat stone workshop with a furnace glow and a stack of coins
+      var b = ME.builder();
+      b.color(0x8f8a96).push().box(1.4, 0.8, 1.1).pop();
+      b.color(0x6a6474, 1).push().translate(0, 0.8, 0).scale(1.1, 1, 0.85).cyl(4, 0.95, 0.4, 0.3).pop();
+      b.color(0x5a5560).push().translate(-0.4, 1.0, 0).cyl(6, 0.14, 0.12, 0.6).pop();
+      b.color(0xff8a2a, 1).glow(0.9).push().translate(0.3, 0.15, 0.56).box(0.36, 0.26, 0.02).pop().glow(0);
+      b.color(0xe08a4a, 1).glow(0.3);
+      for (var i = 0; i < 4; i++) b.push().translate(-0.3, i * 0.05, 0.75).cyl(8, 0.1, 0.1, 0.04).pop();
+      b.glow(0);
+      return b.finish();
+    },
+    granary: function () { // a round store on stilts with a conical thatched roof
+      var b = ME.builder();
+      b.color(0x6a4a2e);
+      for (var i = 0; i < 4; i++) { var a = i / 4 * 6.283 + 0.4; b.push().translate(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55).cyl(4, 0.06, 0.06, 0.5).pop(); }
+      b.color(0xc9a97a).push().translate(0, 0.5, 0).cyl(10, 0.75, 0.8, 0.9).pop();
+      b.color(0xd9b86a, 1).push().translate(0, 1.4, 0).cyl(10, 0.95, 0.04, 0.8).pop();
+      b.color(0x3a2a1c).push().translate(0, 0.7, 0.78).box(0.26, 0.4, 0.04).pop();
+      return b.finish();
+    },
+    road: function () { return ME.builder().color(0xffffff, 1).push().box(1.02, 0.03, 1.02).pop().finish(); }, // one tile of trail or paving, tinted per kind
+    winglow: function () { return ME.builder().color(0xffd27a, 1).glow(1.3).push().box(0.3, 0.24, 0.02).pop().finish(); }, // a lit window
     plot: function () { // construction site
       var b = ME.builder();
       b.color(0xc5ff49).glow(0.4);

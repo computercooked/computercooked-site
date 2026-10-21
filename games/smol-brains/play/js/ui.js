@@ -243,6 +243,7 @@
     if (maxT >= 2 && found < 3) add("a tool-user discovers an idea 💡 (try 💡 inspire)", found + "/3");
     if (maxT >= 4 && !A.built) add("builders finish a building 🛖", "");
     if (A.built && !A.village) add("3 huts around a campfire make a village 🏘", "");
+    civGoals(add);
     if (maxT >= 5 && !A.bigthought) {
       // the last project, step by step: the two ideas, then the spire's materials, then the work
       var F = g.culture.found, sp = g.world.structures.filter(function (s) { return s.kind === "spire"; })[0], SK = SB.STRUCTS.spire;
@@ -312,8 +313,8 @@
   }
   UI.toast = toast;
   var momentQ = [], momentBusy = false;
-  function moment(icon, big, sub, cls) {
-    momentQ.push([icon, big, sub, cls]);
+  function moment(icon, big, sub, cls, first) {
+    if (first) momentQ.unshift([icon, big, sub, cls]); else momentQ.push([icon, big, sub, cls]); // big news (a new era) skips the queue
     if (!momentBusy) nextMoment();
   }
   function nextMoment() {
@@ -474,7 +475,7 @@
       if (SB.Orders && SB.Orders.unlocked(game) && c.tier >= 1 && !c.stranger) mood.push(orderChip(c));
       el.cPeople.innerHTML = mood.join("") + rel.map(function (r) { var ic = r.label === "partner" ? "💕" : r.v >= 25 ? "💚" : r.v <= -25 ? "⚔" : "·"; return '<span class="chip ' + (r.v >= 25 ? "lime" : r.v <= -25 ? "warnc" : "dim") + '" title="' + esc(r.label) + '">' + ic + " " + esc(r.c.name) + " " + (r.v > 0 ? "+" : "") + r.v + "</span>"; }).join("") || '<span class="note">no friends or rivals yet</span>';
     }
-    el.cSub.innerHTML = '<span class="tierpill" style="color:' + tier.color + '">' + tier.icon + " " + tier.name + "</span> " + stage + " · gen " + c.gen + " · iq <b class='lime'>" + c.iq + "</b> · " + fmtTime(c.age) + (game.clades && game.clades[c.clade] ? " · <span class='lilac'>" + esc(game.clades[c.clade].name) + "</span>" : "");
+    el.cSub.innerHTML = '<span class="tierpill" style="color:' + tier.color + '">' + tier.icon + " " + tier.name + "</span> " + stage + " · gen " + c.gen + " · iq <b class='lime'>" + c.iq + "</b> · " + fmtTime(c.age) + jobChip(c) + (game.clades && game.clades[c.clade] ? " · <span class='lilac'>" + esc(game.clades[c.clade].name) + "</span>" : "");
     var mood = SB.Chem.MOOD_EMOJI[SB.Chem.mood(c.chem)] || "🙂";
     el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>" + (SB.Mind && SB.Mind.cardLine ? SB.Mind.cardLine(c, game) : "");
     // drives: the 6 strongest
@@ -919,14 +920,83 @@
   UI.modal = modal;
 
   /* ---------------- menu / smolpedia ---------------- */
-  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["dex", "✨ smoldex"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
+  /* ---------------- civilization: eras, money, council, laws ---------------- */
+  function jobChip(c) { var J = c.job && SB.Civ && SB.Civ.JOBS[c.job]; return J ? " · <span class='lilac'>" + J.icon + " " + J.name + "</span>" : ""; }
+  function eraMissing() {
+    if (!SB.Civ) return "";
+    var e = SB.Civ.era(game), n = SB.Civ.needs(game)[e];
+    return n ? n.filter(function (x) { return !x.ok; }).map(function (x) { return x.label; }).join(", ") : "";
+  }
+  // goals-strip steps toward the next era
+  function civGoals(add) {
+    if (!SB.Civ || !game.civ) return;
+    var e = SB.Civ.era(game), n = SB.Civ.needs(game)[e], A = game.achievements;
+    if (!n || (e === 0 && !A.built)) return;
+    var got = n.filter(function (x) { return x.ok; }).length, miss = n.filter(function (x) { return !x.ok; })[0];
+    add("become a " + SB.Civ.ERAS[e + 1].icon + " " + SB.Civ.ERAS[e + 1].name + (miss ? ": " + miss.label : ": any moment now"), got + "/" + n.length);
+  }
+  function tabCiv(body) {
+    var C = SB.Civ, E = SB.Economy, v = game.civ || {}, e = C ? C.era(game) : 0;
+    if (!C) return;
+    body.appendChild(h("div", { class: "sec" }, [h("span", null, "era"), h("span", { class: "dim" }, "room for " + SB.Game.POP_CAP + " smols")]));
+    var row = h("div", { class: "erarow", style: "display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px" });
+    C.ERAS.forEach(function (E2, i) { row.appendChild(h("span", { class: "chip " + (i === e ? "lime" : i < e ? "" : "dim") }, E2.icon + " " + E2.name + (v.eraT && v.eraT[i] != null ? " · day " + (Math.floor(v.eraT[i] / SB.DAY_LENGTH) + 1) : ""))); });
+    body.appendChild(row);
+    body.appendChild(h("p", { class: "note" }, C.ERAS[e].desc + " eras live in heads: if the smols lose what made them a " + C.ERAS[e].name + ", it slides back."));
+    var nx = C.needs(game)[e];
+    if (nx) {
+      body.appendChild(h("div", { class: "sec" }, "to become a " + C.ERAS[e + 1].icon + " " + C.ERAS[e + 1].name));
+      nx.forEach(function (x) { body.appendChild(h("div", { class: "it list" }, (x.ok ? "✅ " : "⬜ ") + x.label)); });
+    }
+    // money
+    if (E && game.econ) {
+      var ec = game.econ, db = E.debts(game);
+      body.appendChild(h("div", { class: "sec" }, [h("span", null, "money"), h("span", { class: "dim" }, E.moneyIcon(game) + " " + E.money(game))]));
+      var lines = [];
+      lines.push(db.n + " debts remembered (" + db.total + " owed)" + (ec.forgot ? ", " + ec.forgot + " forgotten" : ""));
+      if (ec.coins) lines.push(Math.round(E.supply(game)) + " " + (ec.copper ? "coins" : "shells") + " going round" + (ec.printed ? " · " + ec.printed + " fell from the sky" : "") + (ec.minted ? " · " + ec.minted + " minted" : ""));
+      lines.push("prices are " + Math.round((ec.index || 1) * 100) + "% of the old normal" + (ec.cpi.length > 3 ? " (was " + Math.round(ec.cpi[Math.max(0, ec.cpi.length - 30)][1] * 100) + "% half an hour ago)" : ""));
+      lines.push(ec.sales + " things sold at stalls");
+      lines.forEach(function (t) { body.appendChild(h("p", { class: "note" }, t)); });
+      var pr = h("div", { style: "display:flex;gap:6px;flex-wrap:wrap" });
+      Object.keys(E.GOODS).forEach(function (g) { pr.appendChild(h("span", { class: "chip" }, E.GOODS[g].icon + " " + ec.price[g].toFixed(1))); });
+      body.appendChild(pr);
+      if (ec.coins) body.appendChild(h("p", { class: "note" }, "the 🍎 bounty miracle drops shells too. more shells, same apples: prices go up."));
+      var st = E.stalls(game);
+      if (st.length) {
+        body.appendChild(h("div", { class: "sec" }, "stalls"));
+        st.forEach(function (s) { var d = s.data, o = SB.Game.byId(game, d.owner); if (!d.good) return; body.appendChild(h("div", { class: "it list", onclick: function () { closeModal(); R.flyTo(s.x, s.z, 6, 0.9); } }, E.GOODS[d.good].icon + " " + E.GOODS[d.good].name + " · asks " + d.ask.toFixed(1) + " · " + d.stock + " left · " + (o ? o.name : "nobody") + (E.settled(s) ? " · settled" : ""))); });
+      }
+    }
+    // jobs
+    var jobs = {};
+    SB.Game.smols(game).forEach(function (c) { if (c.job) (jobs[c.job] = jobs[c.job] || []).push(c.name); });
+    if (Object.keys(jobs).length) {
+      body.appendChild(h("div", { class: "sec" }, "jobs"));
+      Object.keys(jobs).forEach(function (j) { body.appendChild(h("p", { class: "note" }, C.JOBS[j].icon + " " + jobs[j].length + " " + C.JOBS[j].name + (jobs[j].length > 1 ? "s" : "") + ": " + jobs[j].slice(0, 6).join(", "))); });
+    }
+    if (v.districts && v.districts.length) {
+      body.appendChild(h("div", { class: "sec" }, "quarters"));
+      v.districts.forEach(function (d) { body.appendChild(h("div", { class: "it list", onclick: function () { closeModal(); R.flyTo(d.x, d.z, 14, 0.9); } }, "🗺 " + d.name + " · " + d.n + " buildings")); });
+    }
+    // council and law
+    if (e >= 3 && v.council) {
+      var L = v.council.leader != null && SB.Game.byId(game, v.council.leader);
+      body.appendChild(h("div", { class: "sec" }, [h("span", null, "council"), h("span", { class: "dim" }, v.council.approval != null ? "approval " + v.council.approval : "")]));
+      body.appendChild(h("p", { class: "note" }, L ? "🏛 " + L.name + " leads: " + C.policyText(v.council.policies).join(", ") + "." : "no leader yet. the next season's vote will pick one."));
+      body.appendChild(h("div", { class: "sec" }, "the law of the sky"));
+      if (!v.laws.length) body.appendChild(h("p", { class: "note" }, "the scribe is watching what you 👆 tap and 🪶 tickle, and what the smol was doing. do the same thing often and it'll be written down as law. guards enforce it."));
+      v.laws.slice().reverse().forEach(function (l) { body.appendChild(h("div", { class: "it list" }, "📜 " + l.text + (l.misread ? " (misread)" : "") + " · " + (l.act === "tap" ? l.broken + " told off" : l.kept + " praised"))); });
+    } else body.appendChild(h("p", { class: "note" }, "cities get a council, a leader voted in each season, and laws the scribe reads off your taps and tickles."));
+  }
+  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["civ", "🏛 civilization"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["dex", "✨ smoldex"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
   function openMenu(tab, arg) {
     state.menuTab = tab || "evolution";
     var tabs = h("div", { class: "tabs" });
     TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
     modal("smolpedia", body, { tabs: tabs, big: true });
-    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
+    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, civ: tabCiv, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
 
@@ -1061,7 +1131,7 @@
     cs.forEach(function (c) {
       list.appendChild(h("div", { class: "it", onclick: function () { closeModal(); SB.Game.select(game, c.id); R.flyTo(c.x, c.z, 7, 0.9); SB.Input.follow(c); } }, [
         avatar(c.look, c.tier, 36),
-        h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "mono", style: "font-weight:800" }, c.name), h("div", { class: "sub2" }, SB.TIERS[c.tier].name + " · " + SB.STAGES[c.stage].name + " · gen " + c.gen + " · iq " + c.iq + " · " + SB.Ideas.count(c) + " ideas · " + SB.Creature.knownCount(c) + " words")]),
+        h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "mono", style: "font-weight:800" }, c.name), h("div", { class: "sub2" }, SB.TIERS[c.tier].name + " · " + SB.STAGES[c.stage].name + (c.job && SB.Civ && SB.Civ.JOBS[c.job] ? " · " + SB.Civ.JOBS[c.job].icon + " " + SB.Civ.JOBS[c.job].name : "") + " · gen " + c.gen + " · iq " + c.iq + " · " + SB.Ideas.count(c) + " ideas · " + SB.Creature.knownCount(c) + " words")]),
         h("span", { class: "dim" }, "›")
       ]));
     });
@@ -1944,6 +2014,10 @@
     });
     on("newSpecies", function (d) { if (d.c.tier === (game.stats.maxTier || 0) && d.clade.why === "tier") return; toast("🧬 new species: <b>" + esc(d.clade.name) + "</b>", "ach"); });
     on("village", function (d) { moment("🏘", d.village.name, "a village is born"); });
+    on("era", function (d) { var E = SB.Civ.ERAS[d.era]; if (d.up) moment(E.icon, "a " + E.name + "!", E.desc, "era", true); else moment("💔", "back to a " + E.name, "the " + SB.Civ.ERAS[d.from].name + " fell apart. win it back: " + eraMissing(), "era", true); });
+    on("law", function (d) { toast("📜 new law: <b>" + esc(d.law.text) + "</b>" + (d.law.misread ? " <span class='dim'>(misread?)</span>" : ""), "", 6000); });
+    on("coup", function (d) { moment("😠", "a coup!", d.c.name + " threw " + d.old.name + " out of the council"); });
+    on("marketDay", function () { toast("🏪 market day! the smols gather at the stalls"); });
     on("song", function (d) { if (!SB.Intro || !SB.Intro.covering) toast("♪ <i>" + esc(d.title) + "</i>", "song", 3200); });
     on("season", function (d) {
       var S = { spring: ["🌸", "spring", "blossoms, rain showers, baby bunnies. everything grows fast."], summer: ["🌞", "summer", "long warm days, thunderstorms, and fireflies at night."], autumn: ["🍂", "autumn", "falling leaves and big harvests. stock up: winter is next."], winter: ["❄️", "winter", "snow, frozen ponds, and slow-growing food. keep your smols warm by the fire."] }[d.season];
@@ -1982,6 +2056,23 @@
     on("orderDone", function (d) { if (d.msg) toast(esc(d.msg)); });
     on("ordersAnnoyed", function () { var now = performance.now(); if (now - annoyT < 30000) return; annoyT = now; toast("😤 too many orders: your smols are getting annoyed. they'll listen less for a while"); });
     on("grumpArrive", function () { if ((game.stats.grumpNights || 0) === 0 && !game._grumpWarned) { game._grumpWarned = true; toast("👺 grumps come out at night. 👆 tap them 3 times to shoo them. fire scares them too."); } });
+    // threats.js: disasters, smols carried off, buildings wrecked
+    on("disaster", function (d) {
+      var def = SB.Threats && SB.Threats.DIS[d.kind];
+      if (!def) return;
+      moment(def.icon, "the " + def.name + "!", d.inc.choice === "shelter" ? "everyone's taking cover" : "hold on tight", "");
+      R.camera.shake = Math.max(R.camera.shake, 0.6); R.flash(0.4);
+      if (SB.Audio) try { SB.Audio.play("thunder", { vol: 0.8 }); } catch (e) {}
+      storyCard("disaster", "🌋", "natural disasters", ["very rarely, the island itself turns on the smols. what can happen depends on where they live: <b>tsunamis</b> on the coast, <b>hurricanes</b> in the warm months, <b>sandstorms</b> near the savanna, <b>earthquakes</b> under the mountains, and once in a long while a <b>tornado</b>.", "you always get a warning. ✨ magic can stop it outright; taking cover keeps smols safe (buildings still suffer); riding it out is a gamble. builders put back what's wrecked. a star dome and thinkers see them coming much earlier."]);
+    });
+    on("grumpGrab", function (d) {
+      if (!d.c.far || game.selectedId === d.c.id) R.flyTo(d.g.x, d.g.z, 8, 1.0);
+      storyCard("grab", "👺", "a grump grabbed " + d.c.name + "!", ["grumps carry off kids and sleepers caught out in the open. 👆 tap the grump, or let a smol with a club whack it, and it drops them.", "if it gets away, " + d.c.name + " is held at a grump camp until you free them (or they escape on their own, eventually). huts keep kids safe at night."]);
+    });
+    on("wrecked", function (d) {
+      if (!d.st || (game.dir && game.dir.active)) return; // raids and disasters report their own damage
+      toast("💥 the " + SB.STRUCTS[d.st.kind].label + " was " + (d.how || "wrecked") + ". builders will fix it");
+    });
   }
 
   /* ---------------- keys ---------------- */
