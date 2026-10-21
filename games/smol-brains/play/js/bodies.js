@@ -266,13 +266,14 @@
         if (o.data.pod) { // the escape pod: rattles when you tap it, smokes until it opens
           part("i:pod", 0, 0, 0, 0.6, 0, rz * 0.4, 1.1, 1.1, 1.1, null, o.data.progress ? [0, 0.2 + o.data.progress * 0.5, 0] : ext);
           if (SB.FX && Math.random() < 0.06) SB.FX.burst("smoke", o.x + 0.2, y + 0.8, o.z, 1, { r: 0.2 });
-        } else part("i:egg", 0, 0, 0, 0, 0, rz, s, s, s, tint, ext);
+        } else if (!(R.hd && SB.HD.item(o, o.x, y, o.z, s, tint, ext[1]))) part("i:egg", 0, 0, 0, 0, 0, rz, s, s, s, tint, ext);
         if (o.data.starter || o.data.wild) R.light(o.x, y + 0.6, o.z, 2.5, 1, 0.9, 0.6);
       } else {
         if (def.critter === "fly") rx = Math.sin(t * 18 + o.id) * 0.4;
         if (o.onBelt) { ry = o.rot; rz = 1.2; }
         setBase(o.x, y, o.z, ry, 1);
-        part("i:" + o.kind, 0, 0, 0, 0, rx, rz, s, s, s, o.data.rotten ? [0.55, 0.6, 0.4] : null, ext);
+        // hd look: a drawn sprite instead of the mesh, when there is one (hd.js)
+        if (!(R.hd && SB.HD.item(o, o.x, y, o.z, s, o.data.rotten ? [0.55, 0.6, 0.4] : null, ext[1]))) part("i:" + o.kind, 0, 0, 0, 0, rx, rz, s, s, s, o.data.rotten ? [0.55, 0.6, 0.4] : null, ext);
       }
       if (!o.heldBy && cam.zoom < 26) R.shadow(o.x, o.z, (o.r || 0.15) * 1.25 * s, 0.26);
       if (o.kind === "torch") R.light(o.x, y + 0.5, o.z, 4.5, 1, 0.6, 0.25);
