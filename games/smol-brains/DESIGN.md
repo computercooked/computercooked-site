@@ -165,7 +165,7 @@ From the owner's playtest: smols vanished in first person when you got close, an
 - **HD smols.** In the hd look, sprite sheets go through `PX.hdify`: normals from a blurred silhouette, 4 tone steps plus a honey highlight, Bayer dither, a fur/skin hash (fluffy smols get more), a sky rim light on the shadow edge, and outlines coloured from the neighbouring pixel. Face pixels are untouched, and smols also get a soft contact shadow. The pixel look is byte-identical to before.
 - Concept art for the look came from two Nano Banana Flash images, about 4 credits; they are not shipped.
 
-## 0.16 Less cuddling: love is slow, earned, and between partners (`social.js`, `creature.js`, `civ.js`)
+## 0.16 What v4.4.1 added: less cuddling — love is slow, earned, and between partners (`social.js`, `creature.js`, `civ.js`)
 
 The owner's call: an egg about every 15 minutes instead of every ~3, hearts only for partners and kids, and a housing limit, so the population grows slower and feels earned. Blobs, critters and tool-users keep the old quick breeding (the band needs its generations); it all applies to pairs of talkers (tribe and on).
 
