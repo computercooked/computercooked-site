@@ -93,6 +93,7 @@ From the owner's fifth and sixth rounds of notes (v3.5 never shipped on its own,
 - **Minds that feel human** (`mind.js`, `social.js`): beliefs tagged with where they came from (saw it, told, mum said, dreamt, guessed); hidden food, theft, lies and being caught; plan bubbles with re-planning and named routines ("Grandma Ula's fire"); values that shift in dreams; superstitions that become rituals and deaths that become taboos.
 - **Collectible smols** (`collect.js`, `cards.js`): six trait slots and a fluff grade, rarity common to mythic, inherited with rare-parent luck. Collector cards, a smoldex with a hall of fame, and checksummed smol codes so a typo can't forge a legendary.
 - **Cosy art pass**: warmer palette and golden light, turquoise shallows and foam, thatched huts with chimneys and lit windows, fenced farms, fruit on the trees.
+- **v4.1 (first playtest of possession)**: the mouse never reached the look code (it listened on the overlay canvas, which ignores the pointer), so the head couldn't turn; it now listens on the island view, and the arrow keys turn the head too. The first-person HUD was redrawn in the game's pixel style: ticked compass strip, bracket crosshair with the target's name, keycap prompts, a portrait card with mood, segmented vitals with numbers, a paws/tool/bag hotbar, faint scanlines.
 - **From v3.5**: funerals by culture (river, pyre, burial and memorials), a much bigger name generator, clickable guide tips, a bigger menu that fits the tree of life.
 
 ## 1. The ladder
