@@ -1034,9 +1034,12 @@
     SB.Game.unlock(game, "brain");
     var cv = h("canvas", { class: "braincv" });
     var info = h("div", { class: "note" });
-    var body = h("div", null, [h("p", { class: "note" }, "live: left are its senses (feelings, what it sees and hears, memory), middle its hidden neurons, right the actions it could take. lime lines push up, pink push down, flashes are learning."), cv, info]);
+    // the rest of its mind (SB.Mind): inner voice, memories, the map in its head, dreams
+    var mind = h("div", { class: "mindp" });
+    var mcss = h("style", null, ".mindp{margin-top:10px;font-size:13px;line-height:1.45}.mindp .mindv{background:rgba(255,255,255,.05);border-radius:8px;padding:8px 10px}.mindp .ml b{display:inline-block;min-width:68px;color:#c5ff49;font-weight:600}.mindp .ml.read b,.mindp .ml.dream b{color:#c9a7ff}.mindp .mindl{margin:8px 0;font-size:12px}.mindp .mindl span{margin-right:8px;white-space:nowrap}.mindp .mindl .off{opacity:.45}.mindp .mindh{margin-top:8px;font-weight:600;color:#f5f3ed}.mindp .mm{padding-left:8px}.mindp .dim{opacity:.55;font-size:11px}");
+    var body = h("div", null, [h("p", { class: "note" }, "live: left are its senses (feelings, what it sees and hears, memory), middle its hidden neurons, right the actions it could take. lime lines push up, pink push down, flashes are learning."), cv, info, mcss, h("p", { class: "note" }, "its mind: the net picks actions; around it sit memories, a map of places, dreams that retrain the net overnight, curiosity, reading other smols and goals. more switch on as its kind evolves."), mind]);
     modal("🧠 " + c.name + "'s brain", body, { live: true });
-    state.brainC = { c: c, cv: cv, info: info, t: 0 };
+    state.brainC = { c: c, cv: cv, info: info, mind: mind, t: 0, mt: 0 };
     tutDone("brain");
   }
   function drawBrain(dt) {
@@ -1047,6 +1050,7 @@
     B.t = 0.1;
     var c = B.c, b = c.brain, cv = B.cv;
     if (!c.alive) { B.info.textContent = c.name + " is gone. 🕊"; return; }
+    if (B.mind && SB.Mind && c.species === "smol" && (B.mt -= 0.1) <= 0) { B.mt = 0.5; B.mind.innerHTML = SB.Mind.panel(c, game); }
     var W = cv.clientWidth || 600, Hh = Math.min(520, Math.max(320, W * 0.75)), dpr = Math.min(2, window.devicePixelRatio || 1);
     if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr); cv.style.height = Hh + "px"; }
     var ctx = cv.getContext("2d");

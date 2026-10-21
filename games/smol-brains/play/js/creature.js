@@ -10,6 +10,7 @@
   var V = SB.V, N = SB.N, D = SB.D, NV = SB.N_VERBS;
   var K = SB.KINDS, NK = SB.NODES, SK = SB.STRUCTS;
   var I = function () { return SB.Ideas; };
+  var M = function () { return SB.Mind; };
 
   var BODY_R = 0.32;
   var HEAR_T = 5;
@@ -102,6 +103,7 @@
     c.thinkT = 0.5; c.chatT = 4; c.tapCount = 0; c.tapT = 0; c.stuckT = 0; c.eggCooldown = c.eggCooldown || 0; c.inspired = c.inspired || 0;
     c.stage = stageFor(c.age);
     c.iq = C.iq(c, true);
+    if (M()) M().revive(c);
     return c;
   };
 
@@ -355,6 +357,7 @@
       if (gl) for (var gk = 0; gk < gl.length; gk++) { var dv = drv[gl[gk][0]]; if (dv > 0.3) boost = Math.max(boost, (dv - 0.3) * 1.8 * gl[gk][1]); }
       if (c.tier < 2 && MATERIAL[cands[ci].noun]) cands[ci].sal -= 0.15;
       cands[ci].sal += boost;
+      if (c.mind && c.tier >= 1) { var mv = c.mind.val[SB.NOUNS[cands[ci].noun]]; if (mv) cands[ci].sal += mv * 0.15; } // how things went last time
     }
     var pick = cands.length ? SB.Brain.attend(c.brain, drv, cands, rng) : -1;
     var cand = pick >= 0 ? cands[pick] : null;
@@ -362,6 +365,7 @@
     var target = tgt ? resolve(game, tgt) : null;
     if (!target) { cand = null; tgt = null; }
     c.attn = cand ? { type: tgt.type, id: tgt.id, noun: SB.NOUNS[cand.noun], x: target.x, z: target.z } : null;
+    if (M() && c.species === "smol") M().notice(c, game, cands);
 
     var recent = game.time - c.heard.t < HEAR_T;
     var reach = C.radius(c) + (target ? target.r : 0) + 0.25;
@@ -402,6 +406,20 @@
       if (!rng.chance(0.8 + gene(c.genome, "obedience", 0.5) * 0.2)) say(c, "no!", game); // a stubborn one
       else if (answerCall(c, game, call)) return;
     }
+
+    // thinking about others (tribe+): comfort, keep clear, share, go and watch a clever one
+    var so = M() && c.species === "smol" && !c.plan ? M().social(c, game) : null;
+    if (so) {
+      if (so.avoid) {
+        startAction(c, game, V.wander, null, null, null);
+        var aw = Math.atan2(c.x - so.avoid.x, c.z - so.avoid.z);
+        c.action.tx = c.x + Math.sin(aw) * 7; c.action.tz = c.z + Math.cos(aw) * 7; c.action.dur = 4;
+        return;
+      }
+      var st2 = { type: "creature", id: so.o.id }, sr2 = resolve(game, st2);
+      if (sr2 && c.tier >= SB.VERB_TIER[so.verb]) { startAction(c, game, so.verb, st2, sr2, "smol"); return; }
+    }
+    var goal = M() && c.species === "smol" ? M().deliberate(c, game, drv) : null;
 
     // what's physically possible
     var obj = target && target.type === "item" ? target.ref : null;
@@ -458,6 +476,7 @@
       else if (op >= 25 || (kin && ch.anger < 0.7)) mask[V.hit] = false;
       else if (ch.anger < 0.45 && rng.chance(0.7)) mask[V.hit] = false;
     }
+    if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
@@ -566,6 +585,11 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.25, 0.25);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8;
+        } else if (M() && (sniff = M().wanderTarget(c, game))) {
+          // the map in its head: back to where the good thing was (or off exploring)
+          ang = Math.atan2(sniff.x - c.x, sniff.z - c.z);
+          dist = Math.min(14, SB.dist(c.x, c.z, sniff.x, sniff.z));
+          a.dur = 8; a.why = sniff.why;
         } else if (c.foodSpot && c.chem.hunger > 0.55 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
           ang = Math.atan2(c.foodSpot.x - c.x, c.foodSpot.z - c.z) + rng.range(-0.3, 0.3);
           dist = Math.min(10, SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z));
@@ -576,6 +600,8 @@
           if (dh > roam) ang = Math.atan2(home.x - c.x, home.z - c.z) + rng.range(-0.6, 0.6);
         }
         a.tx = c.x + Math.sin(ang) * dist; a.tz = c.z + Math.cos(ang) * dist;
+        // a place it learned to fear: turn round
+        if (c.species === "smol" && !a.why && M() && M().dangerAt(c, game, a.tx, a.tz)) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = "not that way. that's where it hurt"; }
         break;
       }
       case V.sleep:
@@ -901,6 +927,7 @@
     for (var i = 0; i < SB.N_DRIVES; i++) r += (a.start[i] - ch[SB.DRIVES[i]]) * (dw[i] || 1);
     r = r * 2.2 + bonus;
     if (futile) r -= 0.04;
+    if (M() && c.species === "smol") r += M().curiosity(c, game, a, tgt); // the thrill of something new
     r = SB.clamp(r, -1, 1);
     c.lastReward = r;
     // while you're away (offline catch-up) brains learn from a quarter of what happens: same direction,
@@ -909,6 +936,7 @@
     if (r > 0.25 && !c.anim.emote) emote(c, "happy", 1.2);
     else if (r < -0.2) emote(c, "sad", 1.2);
 
+    if (M() && c.species === "smol") M().experience(c, game, a, tgt, r);
     observe(c, a.verb, noun, r, game);
     if (ideaUsed && SB.Ideas) SB.Ideas.observe(c, ideaUsed, game);
     if (Math.abs(r) > 0.15) habit(c, "think", 0.03); // every vivid experience is a little practice at thinking
@@ -1579,6 +1607,7 @@
         emote(c, "happy", 1);
       } else {
         if (Math.random() < dt * 0.4 && !c.far) emote(c, "zzz", 1.5);
+        if (M() && c.species === "smol") M().sleep(c, game, dt); // dreams: the day's experiences replayed
         positionHeld(c, game); finishTick(c, game, gy);
         return;
       }
@@ -1687,10 +1716,16 @@
     var def = t.type === "node" ? NK[t.kind] : t.type === "struct" ? SK[t.kind] : K[t.kind];
     return def ? "the " + def.label : "something";
   }
-  C.thought = function (c, game) {
+  C.thought = function (c, game, raw) {
+    var t0 = thought0(c, game);
+    if (raw || !M() || c.species !== "smol" || !c.alive || c.asleep || c.plan || c.convo) return t0;
+    var as = M().aside(c, game);
+    return as ? t0 + " (" + as + ")" : t0;
+  };
+  function thought0(c, game) {
     if (!c.alive) return "…";
     if (c.heldBy === "hand") return "wheee! (being carried)";
-    if (c.asleep) return "zzz (sleeping" + (c.inBed ? " under a roof" : "") + ")";
+    if (c.asleep) { var dr = c.mind && c.mind.dream; return dr && game.time - dr.t < 60 ? "zzz · dreaming: " + dr.w : "zzz (sleeping" + (c.inBed ? " under a roof" : "") + ")"; }
     var top = SB.Chem.top(c.chem);
     var feel = top.v > 0.35 ? SB.DRIVE_WORDS[top.i] : "happy";
     if (c.tantrum) return "furious · throwing a tantrum!";
