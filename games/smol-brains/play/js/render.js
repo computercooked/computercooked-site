@@ -983,6 +983,7 @@
     env.sun = env.sun.map(function (v) { return v * (1 - oc * 0.55); });
     env.sky = SB.mixC(env.sky, [env.sky[0] * 0.9 + 0.08, env.sky[1] * 0.9 + 0.08, env.sky[2] * 0.9 + 0.08], oc);
     env.fog = SB.mixC(env.fog, [0.55, 0.58, 0.64].map(function (v) { return v * (1 - env.night * 0.85); }), oc * 0.6);
+    if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky
     if (env.flash > 0) {
       env.flash = Math.max(0, env.flash - 0.05);
       var fl = env.flash;

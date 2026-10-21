@@ -430,6 +430,7 @@
     if (SB.Economy) SB.Economy.tick(game, dt);
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
+    if (SB.Threats) SB.Threats.tick(game, dt);
     SB.Ideas.nurse(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
     game.wordsT = (game.wordsT || 0) - dt;
@@ -552,6 +553,7 @@
     }
     var alpha = paused ? 1 : acc / SB.TICK;
     if (!(SB.Intro && SB.Intro.covering)) SB.Render.frame(game, dtReal, alpha); // the opening story covers the screen: skip drawing the island under it
+    if (SB.Threats && SB.Threats.frame && !paused) SB.Threats.frame(game, dtReal);
     if (SB.UI && SB.UI.frame) SB.UI.frame(game, dtReal);
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }
