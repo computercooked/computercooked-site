@@ -59,7 +59,15 @@
     { id: "granary", name: "granaries", icon: "🛢", tier: 4, needs: ["farm", "pottery"], kind: "build", build: "granary", civ: true, desc: "a store for the harvest. the leader can ration it in winter.", hint: "a town with more grain than mouths, in autumn" },
     { id: "council", name: "councils", icon: "🏛", tier: 5, needs: ["writing"], kind: "build", build: "hall", civ: true, desc: "the smols pick a leader and argue in a hall. a town with a hall can become a city.", hint: "a big town that can write" },
     { id: "mint", name: "minting", icon: "🪙", tier: 5, needs: ["coins", "smelt"], kind: "build", build: "mint", civ: true, desc: "stamped copper coins. worth the same everywhere.", hint: "shell money and smelted copper" },
-    { id: "law", name: "law", icon: "⚖", tier: 5, needs: ["council"], kind: "skill", civ: true, desc: "a scribe writes down what the sky seems to want. guards make sure everyone does it.", hint: "a city, and a sky that keeps poking" }
+    { id: "law", name: "law", icon: "⚖", tier: 5, needs: ["council"], kind: "skill", civ: true, desc: "a scribe writes down what the sky seems to want. guards make sure everyone does it.", hint: "a city, and a sky that keeps poking" },
+    // v4.4 "first tool": found by your own paws, in first person, by putting the right things together (survival.js).
+    // pov: the AI never stumbles on these by itself (so the god game paces exactly as before), but smols who
+    // watch you make one can pick the idea up, and then teach it on like any other
+    { id: "lashing", name: "lashing", icon: "⚒", tier: 2, needs: [], kind: "craft", pov: 1, make: { in: { stick: 1, vine: 1, stone: 1 }, out: "primtool", time: 2 }, desc: "a rock tied to a stick with a vine: a rock-on-a-stick. it chops, chips and bonks. badly, but it's a start.", hint: "a stick and a rock… and something bendy to hold them together" },
+    { id: "sharpen", name: "sharp stones", icon: "🗡", tier: 2, needs: [], kind: "craft", pov: 1, make: { in: { stone: 2 }, out: "sharpstone", time: 2 }, desc: "knock a rock against a rock until one of them has an edge.", hint: "two rocks, knocked together" },
+    { id: "hafting", name: "hafting", icon: "🪓", tier: 2, needs: ["lashing", "sharpen"], kind: "craft", pov: 1, make: { in: { sharpstone: 1, stick: 1, vine: 1 }, out: "stoneaxe", time: 3 }, desc: "a sharp stone lashed to a handle is a stone axe. trees come down in a few good swings.", hint: "lash something sharp onto a stick" },
+    { id: "picks", name: "stone picks", icon: "⛏", tier: 2, needs: ["hafting"], kind: "craft", pov: 1, make: { in: { sharpstone: 2, stick: 1, vine: 1 }, out: "stonepick", time: 3 }, desc: "two sharp stones on a handle. rocks break fast, and a tool-user can dig copper ore out of a vein with one.", hint: "an axe, but pointier: more sharp stones" },
+    { id: "leanto", name: "lean-tos", icon: "⛺", tier: 2, needs: ["lashing"], kind: "build", build: "leanto", pov: 1, desc: "sticks leaned on a ridge pole, leaves on top, tied with a vine. sleep under it: warm, dry, safer.", hint: "sticks, leaves, a vine, and a cold night" }
   ]);
   var BY = (I.BY_ID = {});
   LIST.forEach(function (d, i) { d.index = i; BY[d.id] = d; });
@@ -70,7 +78,8 @@
   var GATHER = (I.GATHER = {
     oak: ["stick", null, 2, 0], birch: ["stick", null, 2, 0], pine: ["stick", null, 2, 0], deadtree: ["stick", null, 1.5, 0], giant: ["stick", null, 2, 0],
     reeds: ["fiber", null, 2.5, 2], boulder: ["stone", null, 3, 0], flintrock: ["flint", null, 3.5, 2], claybank: ["clay", null, 2.5, 2],
-    orevein: ["ore", "hammer", 4, 4], crystals: ["crystal", "hammer", 5, 4], herbs: ["herb", null, 2, 0], bush: ["berry", null, 1.5, 0], shrooms: ["shroom", null, 1.5, 0]
+    orevein: ["ore", "hammer", 4, 4], crystals: ["crystal", "hammer", 5, 4], herbs: ["herb", null, 2, 0], bush: ["berry", null, 1.5, 0], shrooms: ["shroom", null, 1.5, 0],
+    vines: ["vine", null, 2, 2]
   });
 
   /* ---------------- knowing ---------------- */
@@ -182,7 +191,7 @@
     var found = null;
     for (var i = 0; i < LIST.length; i++) {
       var d = LIST[i], tr = TRIGGERS[d.id];
-      if (!tr || I.known(c, d.id) || !I.canHold(c, d.id)) continue;
+      if (!tr || d.pov || I.known(c, d.id) || !I.canHold(c, d.id)) continue;
       var w = tr(ctx);
       // pondering: a smol evolved enough for an idea (and who knows what it builds on) can work it out
       // eventually even if the perfect moment never comes. the right situation is still much faster.
@@ -350,7 +359,7 @@
 
   // What kinds can satisfy an ingredient name ("food" is any raw-ish food; tools match by kind)
   function matches(kind, want) {
-    if (want === "stick" && kind === "log") return true; // a log does for three sticks
+    if (want === "stick" && (kind === "log" || kind === "plank" || kind === "firewood")) return true; // a log does for three sticks, a plank for two
     if (want === "food") return K[kind] && K[kind].noun === "food" && kind !== "cooked" && kind !== "bread" && kind !== "nut";
     return kind === want;
   }
@@ -389,6 +398,11 @@
     var it = SB.World.nearestItem(world, c.x, c.z, R, function (o) { return o.heldBy == null && !o.claimed && matches(o.kind, want) && !(o.data && o.data.rotten) && !K[o.kind].critter && !(un[o.id] > now); });
     if (it) return { item: it };
     if (want === "food") return null;
+    // leaves for a lean-to: shake them off any proper tree
+    if (want === "leaves") {
+      var lt = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && NK[n.kind].noun === "plant" && CHOPPABLE(n.kind) && n.kind !== "palm" && n.kind !== "deadtree" && n.kind !== "shroomtree" && !(un[n.id] > now); });
+      return lt ? { node: lt, yield: "leaves", time: 2.5 } : null;
+    }
     if (want === "seed" && I.known(c, "farm")) {
       // farmers know where seeds come from: the bottoms of bushes and fruit trees
       var sn = SB.World.nearestNode(world, c.x, c.z, R, function (n) { return n.state === "ok" && (n.kind === "bush" || n.kind === "oak" || n.kind === "birch" || n.kind === "cactus"); });
@@ -444,7 +458,7 @@
     var ch = c.chem, cands = [];
     for (var i = 0; i < LIST.length; i++) {
       var d = LIST[i];
-      if (d.kind !== "craft" || !I.known(c, d.id)) continue;
+      if (d.kind !== "craft" || d.pov || !I.known(c, d.id)) continue; // (first-person recipes are made by paws you drive)
       var miss = missingFor(c, d, game);
       if (miss.length > depth) continue;
       var srcOk = true;
@@ -651,7 +665,7 @@
   I.deliver = function (c, st, game) {
     var have = inv(c, game), n = 0;
     have.forEach(function (o) {
-      for (var k in st.need) if (st.need[k] > 0 && matches(o.kind, k)) { st.need[k] = Math.max(0, st.need[k] - (o.kind === "log" && k === "stick" ? 3 : 1)); SB.Creature.consume(c, o, game); n++; return; }
+      for (var k in st.need) if (st.need[k] > 0 && matches(o.kind, k)) { st.need[k] = Math.max(0, st.need[k] - (k === "stick" ? (o.kind === "log" ? 3 : o.kind === "plank" ? 2 : 1) : 1)); SB.Creature.consume(c, o, game); n++; return; }
     });
     if (n) { habit(c, "build", n); SB.bus.emit("deliver", { c: c, st: st, n: n }); }
     if (st.builders.indexOf(c.id) < 0) st.builders.push(c.id);

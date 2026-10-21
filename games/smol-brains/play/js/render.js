@@ -200,7 +200,7 @@
   var FS_OBJ = [
     PREC,
     LIGHT_GLSL,
-    "uniform vec4 uView; uniform vec3 uEyeO; uniform float uTime; uniform vec4 uHull; uniform vec3 uInkO;",
+    "uniform vec4 uView; uniform vec3 uEyeO; uniform float uTime; uniform vec4 uHull; uniform vec3 uInkO; uniform vec4 uGhost;",
     "varying vec3 vCol; varying vec3 vN; varying vec3 vW; varying float vEm; varying float vFog; varying vec3 vIdHi;",
     HD_GLSL,
     "#ifdef HD",
@@ -233,6 +233,7 @@
     "  c += (uSkyCol * 0.5 + uSunCol * 0.15) * rim * (0.22 + hi * 0.5) * (1.0 - vFog) * (1.0 - uNight * 0.6);",
     "  float glint = pow(max(sin(uTime * 1.6 + vIdHi.z), 0.0), 30.0) * hi;",
     "  c = mix(c, vec3(1.0, 0.98, 0.9), glint * (0.35 + rim * 0.5) * smoothstep(-0.2, 0.6, n.y));",
+    "  if (uGhost.x > 0.5) { gl_FragColor = vec4(mix(c, uGhost.yzw, 0.55) + rim * uGhost.yzw * 0.8, 0.42 + rim * 0.3); return; }", // a building ghost (survival): see-through, tinted
     "  gl_FragColor = vec4(c, vIdHi.x);",
     "}"
   ].join("\n");
@@ -784,13 +785,16 @@
       var nd = nodes[n];
       if (nd.x < x0 || nd.x >= x0 + S || nd.z < z0 || nd.z >= z0 + S) continue;
       if (!SB.World.isSeen(game.world, nd.x, nd.z)) continue; // under the fog of war
+      if (nd._anim || nd.state === "gone") continue; // shaking / mined out (survival.js draws the moving ones)
       var y = WG.heightAt(T, nd.x, nd.z) - 0.04;
       var key = "n:" + nd.kind + ":" + (nd.id % 3);
       if (nd.state === "stump") key = "n:stump";
       else if (nd.state === "burnt") key = "n:burnt";
+      else if (nd.state === "picked") key = "n:picked";
       if (!meshes[key]) continue;
-      var s = nd.s * (nd.grow == null ? 1 : 0.3 + 0.7 * nd.grow);
+      var s = nd.s * (nd.grow == null ? 1 : 0.3 + 0.7 * nd.grow) * (nd.left != null && SB.Surv ? SB.Surv.shrinkOf(nd) : 1);
       push(key, nd.x, y, nd.z, nd.rot, s, s, s, nodeTint(nd), ME.DECIDUOUS[nd.kind] ? 1 : 0, 0);
+      if (nd.block && meshes["i:log"]) push("i:log", nd.x, y + 0.25 * s, nd.z, nd.rot + 0.6, 1.2, 1.2, 1.2, [1, 1, 1], 0, 0); // a log on the chopping stump
     }
     // places to find (sites.js): drawn once the fog has lifted off them
     var sites = game.sites || [];
@@ -1357,6 +1361,7 @@
     gl.uniform1f(p.u.uSnow, env.snow);
     setViewUniforms(p);
     if (p.u.uHull) gl.uniform4f(p.u.uHull, 0, 0, 0, 0);
+    if (p.u.uGhost) gl.uniform4f(p.u.uGhost, 0, 0, 0, 0);
     rebuildBudget = 4;
     var showDecor = quality.decor && cam.zoom < 26, farObj = R.terrainStep() === 4;
     for (var i = 0; i < vis.length; i++) {
@@ -1395,6 +1400,24 @@
       }
       if (any) { gl.depthMask(true); gl.uniform4f(p.u.uHull, 0, 0, 0, 0); }
     }
+    drawGhost(p);
+  }
+  // a see-through building ghost (first person build mode): R.ghost = {key, m: 12-float matrix, col: [r, g, b]}.
+  // blended over everything, writing no depth and (in the pixel look) leaving the outline ids in alpha alone
+  var ghostHold = {}, ghostBuf = new Float32Array(ISTRIDE);
+  R.ghost = null;
+  function drawGhost(p) {
+    var gh = R.ghost;
+    if (!gh || !meshes[gh.key] || !p.u.uGhost) return;
+    for (var i = 0; i < 12; i++) ghostBuf[i] = gh.m[i];
+    ghostBuf[12] = ghostBuf[13] = ghostBuf[14] = 1; ghostBuf[15] = 0; ghostBuf[16] = ghostBuf[17] = ghostBuf[18] = ghostBuf[19] = 0;
+    GL.stream(ctx, ghostHold, ghostBuf, ISTRIDE);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false); gl.colorMask(true, true, true, false);
+    gl.uniform4f(p.u.uGhost, 1, gh.col[0], gh.col[1], gh.col[2]);
+    drawInstanced(p, gh.key, ghostHold.buf, 1);
+    gl.uniform4f(p.u.uGhost, 0, 0, 0, 0);
+    gl.colorMask(true, true, true, true); gl.depthMask(true); gl.disable(gl.BLEND);
   }
   // which way is the eye: a direction for the orthographic god view, a point in first person
   function setViewUniforms(p) {

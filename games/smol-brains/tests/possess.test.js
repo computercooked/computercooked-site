@@ -1,4 +1,4 @@
-// Possession (v3.7): step into one smol and play it first person. Its brain stops deciding and learns from
+// Possession (v3.7, controls rebuilt in v4.4): step into one smol and play it first person. Its brain stops deciding and learns from
 // you instead, its needs keep running, interact drives the normal actions, death and saves bring you back
 // to god mode cleanly.
 // node games/smol-brains/tests/possess.test.js
@@ -75,7 +75,7 @@ console.log("3. walking, and needs keep running");
   P.leave();
 }
 
-console.log("4. interact eats and picks up");
+console.log("4. the controls: right click eats, F picks up into the hotbar");
 {
   const { g, cs } = fresh(44, 2);
   const c = cs[0];
@@ -88,26 +88,29 @@ console.log("4. interact eats and picks up");
   run(g, SB.TICK * 2); // the spatial grid catches up
   const t = P.look(g, c, null, -0.5);
   check("the crosshair finds the apple", t && t.type === "item" && t.id === apple.id, JSON.stringify(t));
-  const mv = P.verbFor(g, c, t, "main");
-  check("E on food is eat", mv && mv.verb === V.eat, mv && mv.label);
-  P.interact("main", t);
-  run(g, 6);
-  check("eaten", apple.gone && c.chem.hunger < 0.6, "hunger " + c.chem.hunger.toFixed(2));
+  const o = P.options(g, c, t);
+  check("F on food picks it up", o.pick && /pick up/.test(o.pick.label), o.pick && o.pick.label);
+  check("E does the same", o.ctx === o.pick);
+  P.act("pick", t);
+  check("it's in the hotbar", SB.Surv.count(c, "apple", true) === 1 && apple.gone);
+  P.select(SB.Surv.inv(c).s.findIndex(x => x && x.k === "apple"));
+  const o2 = P.options(g, c, null);
+  check("right click with food in hand eats it", o2.place && /eat/.test(o2.place.label), o2.place && o2.place.label);
+  P.act("place", null);
+  check("eaten", SB.Surv.count(c, "apple", true) === 0 && c.chem.hunger < 0.6, "hunger " + c.chem.hunger.toFixed(2));
   const q = ahead(c, 0.9);
   const stone = SB.World.add(g.world, g, "stone", q.x, q.z, {});
-  const t2 = { type: "item", id: stone.id };
-  check("E on a stone is pick up (tool-user)", P.verbFor(g, c, t2, "main").verb === V.pickup);
-  P.interact("main", t2);
-  run(g, 4);
-  check("picked up", c.holding === stone.id || c.bag.indexOf(stone.id) >= 0 || stone.heldBy === c.id);
-  check("Q-drop is offered via drop verb tier 0", SB.VERB_TIER[V.drop] === 0);
+  P.act("ctx", { type: "item", id: stone.id });
+  check("E on a stone picks it up", SB.Surv.count(c, "stone", true) === 1);
+  P.select(SB.Surv.inv(c).s.findIndex(x => x && x.k === "stone"));
+  check("Q drops what's in your hand", P.drop() && SB.Surv.count(c, "stone", true) === 0);
   P.leave();
-  // a blob can't pick things up, only roll them about
-  const b = fresh(45, 0).cs[0];
-  const s2 = SB.World.add(SB.Game.current.world, SB.Game.current, "stone", b.x + 0.5, b.z, {});
-  const vb = P.verbFor(SB.Game.current, b, { type: "item", id: s2.id }, "main");
-  check("a blob rolls a stone about instead", vb.verb === V.play, vb.label);
-  check("a blob has no make menu", P.recipes(SB.Game.current, b).length === 0);
+  // a blob can't pick things up: no hands. it kicks stones about
+  const g3 = fresh(45, 0).g, b = g3.creatures.find(x => x.species === "smol" && x.tier === 0);
+  const s2 = SB.World.add(g3.world, g3, "stone", b.x + 0.5, b.z, {});
+  const vb = P.options(g3, b, { type: "item", id: s2.id });
+  check("a blob kicks a stone about instead", vb.use && /kick/.test(vb.use.label) && vb.pick && vb.pick.locked, vb.use && vb.use.label);
+  check("a blob has no hotbar and no recipes", SB.Surv.hotN(b) === 0 && SB.Surv.recipes(b, g3).length === 0);
 }
 
 console.log("5. the brain learns from what you choose");

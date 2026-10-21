@@ -77,6 +77,7 @@
   function initNodes(world, game) {
     var T = world.T;
     world.nodeById = {};
+    if (SB.Surv && SB.Surv.placeVines) SB.Surv.placeVines(world); // v4.4: vines on cliffs, banks and boulders (own random stream, appended)
     var r = SB.rng(T.seed * 13 + 5);
     for (var i = 0; i < world.nodes.length; i++) {
       var n = world.nodes[i];
@@ -86,6 +87,7 @@
       if (n.dropT == null) n.dropT = (NK[n.kind].every || 100) * r.range(0.1, 1);
       if (n.alsoT == null) n.alsoT = (NK[n.kind].every || 100) * r.range(0.5, 2);
       if (n.state == null) n.state = "ok";
+      if (NK[n.kind].nop) n.nop = 1;
       world.nodeById[n.id] = n;
     }
     rebuildNodeGrid(world);
@@ -102,7 +104,10 @@
       byChunk[SB.clamp((n.z / SB.CHUNK) | 0, 0, nc - 1) * nc + SB.clamp((n.x / SB.CHUNK) | 0, 0, nc - 1)].push(n);
     });
     world.nodeGrid = grid; world.gridN = gn; world.nodesByChunk = byChunk;
+    // the nodes that grow and drop things (vines don't, so the island's own clock ticks exactly as before them)
+    world._tickList = world.nodes.filter(function (n) { return !NK[n.kind].nop; });
   }
+  W.rebuildNodeGrid = rebuildNodeGrid;
   function cellOf(x, z, gn) { return SB.clamp((z / CELL) | 0, 0, gn - 1) * gn + SB.clamp((x / CELL) | 0, 0, gn - 1); }
 
   // nearest wet vertex for every vertex within 24 tiles (multi-source BFS), so "water" can be seen and walked to
@@ -461,7 +466,7 @@
     var s = world.structures;
     for (var i = 0; i < s.length; i++) {
       var b = s[i];
-      if (!b.done || (b.kind !== "hut" && b.kind !== "house" && b.kind !== "hall" && b.kind !== "observatory" && b.kind !== "workshop")) continue;
+      if (!b.done || (b.kind !== "hut" && b.kind !== "house" && b.kind !== "hall" && b.kind !== "observatory" && b.kind !== "workshop" && b.kind !== "leanto")) continue;
       if (SB.dist(x, z, b.x, b.z) < (SK[b.kind].r + 0.3) * (b.s || 1)) return b;
     }
     var nest = world.T.nest;
@@ -507,7 +512,7 @@
   W.addNode = function (world, game, kind, x, z, s) {
     if (!NK[kind] || !W.inBounds(world, x, z)) return null;
     var id = world._nextNode || 0;
-    if (!id) world.nodes.forEach(function (o) { if (o.id >= id) id = o.id + 1; });
+    if (!id) world.nodes.forEach(function (o) { if (o.id >= id && !(NK[o.kind] && NK[o.kind].nop)) id = o.id + 1; }); // (vines have their own id range)
     world._nextNode = id + 1;
     var n = { id: id, kind: kind, x: x, z: z, s: s || 1, rot: game.rng() * 6.28, seed: 1, added: true, type: "node", noun: NK[kind].noun, dropT: 20, alsoT: 60, state: "ok" };
     world.nodes.push(n); world.nodeById[id] = n;
@@ -562,7 +567,7 @@
     budgets(world, game);
     var r = game.rng, rainBoost = 1 + world.weather.rain * 0.8;
     var winter = world.season === 3, spring = world.season === 0;
-    var nodes = world.nodes, n0 = world._nodeCursor || 0, cnt = Math.min(nodes.length, 120);
+    var nodes = world._tickList || world.nodes, n0 = world._nodeCursor || 0, cnt = Math.min(nodes.length, 120);
     // nodes are ticked in slices (each node ~ every 0.5-1 s), with the elapsed time scaled up to match
     var sdt = dt * nodes.length / cnt;
     // only the parts of the island where someone is (smols, or you) grow stuff; elsewhere time "waits"
@@ -814,7 +819,7 @@
     for (var q = 0; q < 5; q++) { var hx = x + [0, -rad, rad, 0, 0][q] * 0.8, hz = z + [0, 0, 0, -rad, rad][q] * 0.8, hh = WG.heightAt(world.T, hx, hz); if (WG.depthAt(world.T, hx, hz) > 0.02) return false; lo = Math.min(lo, hh); hi = Math.max(hi, hh); }
     if (hi - lo > 0.35 + rad * 0.2) return false;
     var blocked = false;
-    W.eachNodeNear(world, x, z, rad + 0.8, function (n) { if (n.kind !== "herbs") blocked = true; });
+    W.eachNodeNear(world, x, z, rad + 0.8, function (n) { if (n.kind !== "herbs" && !n.nop) blocked = true; }); // (vines: survival.js checks those for you)
     if (blocked) return false;
     var s = world.structures;
     for (var i = 0; i < s.length; i++) if (SB.dist(x, z, s[i].x, s[i].z) < rad + SK[s[i].kind].r + 0.6) return false;
@@ -953,7 +958,13 @@
   W.serialize = function (world) {
     var nodes = [];
     world.nodes.forEach(function (n) {
-      if (n.state !== "ok" || n.grow != null || n.added) nodes.push({ id: n.id, kind: n.kind, x: round(n.x), z: round(n.z), s: n.s, state: n.state, regrowT: round(n.regrowT || 0), burnT: round(n.burnT || 0), grow: n.grow, added: n.added ? 1 : 0, rot: round(n.rot) });
+      if (n.state !== "ok" || n.grow != null || n.added || n.left != null || n.block) {
+        var p = { id: n.id, kind: n.kind, x: round(n.x), z: round(n.z), s: n.s, state: n.state, regrowT: round(n.regrowT || 0), burnT: round(n.burnT || 0), grow: n.grow, added: n.added ? 1 : 0, rot: round(n.rot) };
+        if (n.left != null) p.left = n.left; // v4.4: a chipped rock, a vine pulled half bare, a log waiting on a stump
+        if (n.hp != null && n.left != null) p.hp = round(n.hp);
+        if (n.block) p.block = 1;
+        nodes.push(p);
+      }
     });
     return {
       seed: world.seed,
@@ -984,8 +995,11 @@
         n = { id: p.id, kind: p.kind, x: p.x, z: p.z, s: p.s || 1, rot: p.rot || 0, seed: 1, added: true, type: "node", noun: NK[p.kind].noun, dropT: 50, alsoT: 80 };
         world.nodes.push(n); world.nodeById[n.id] = n;
       }
-      if (!n) return;
+      if (!n) { (world._orphans || (world._orphans = [])).push(p); return; } // (vines by the ruins arrive on the first tick: survival.js)
       n.state = p.state || "ok"; n.regrowT = p.regrowT; n.burnT = p.burnT; n.grow = p.grow == null ? null : p.grow;
+      if (p.left != null) n.left = p.left;
+      if (p.hp != null) n.hp = p.hp;
+      if (p.block) n.block = 1;
       if (n.state === "burning") { n.noun = "fire"; (world.burning || (world.burning = [])).push(n); }
     });
     rebuildNodeGrid(world);

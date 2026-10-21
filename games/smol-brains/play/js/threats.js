@@ -97,7 +97,7 @@
     var friends = 0; SB.World.creaturesNear(w, game, o.x, o.z, 6, function (q) { if (q !== o && q.species === "smol") friends++; });
     var alone = w.night && !friends && !inHut && !SB.World.nearestFire(w, o.x, o.z, 6);
     var dmg = 0.06 * s * (inHut ? 0.25 : 1) * (o.stage <= 1 ? 0.7 : 1);
-    var floor = o.rally > 0 ? 0 : alone ? (s >= 1.6 ? 0 : 0.08) : o.stage <= 1 || o.stage >= 4 ? 0.4 : 0.3;
+    var floor = o.rally > 0 || (o._pov && !inHut) ? 0 : alone ? (s >= 1.6 ? 0 : 0.08) : o.stage <= 1 || o.stage >= 4 ? 0.4 : 0.3;
     if (ch.health > floor) ch.health = Math.max(floor, ch.health - dmg);
     mem(game, o, "hurt", "a grump hit me", 0.8, g.x, g.z);
     if (SB.Mind && SB.Mind.learnPlace) SB.Mind.learnPlace(o, game, "danger", g.x, g.z, "grumps", 0.8);

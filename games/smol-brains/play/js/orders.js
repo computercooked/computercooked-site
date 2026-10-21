@@ -160,7 +160,7 @@
   O.buildable = function (game) {
     var out = [], smols = SB.Game.smols(game);
     SB.Ideas.LIST.forEach(function (d) {
-      if (d.kind !== "build" || d.build === "bridge") return;
+      if (d.kind !== "build" || d.build === "bridge" || d.pov) return;
       if (smols.some(function (c) { return SB.Ideas.known(c, d.id) || (d.build === "spire" && c.tier >= 6 && SB.Ideas.known(c, "resonance")); })) out.push({ kind: d.build, idea: d.id, e: SB.STRUCTS[d.build].emoji, name: SB.STRUCTS[d.build].label });
     });
     return out;

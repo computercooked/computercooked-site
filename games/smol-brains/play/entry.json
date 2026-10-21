@@ -4,7 +4,7 @@
   "pitch": "an island of tiny pixel creatures with real neural-network brains. they crash-land, evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
-  "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, e/f/r act, c make, esc leave. wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, b brain viewer, m map.",
+  "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, left click uses what you hold, right click places or eats, f picks up, q drops, e does what the prompt says, 1-9 or the wheel pick a hotbar slot, tab opens the bag and crafting, b the building plans, r turns a building, esc leaves (phones: thumbstick, look pad, an action button that says what it does). wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, b brain viewer, m map.",
   "size_kb": 1810,
   "tags": [
     "sim",
@@ -32,7 +32,7 @@
     "smols remember places, dream about their day, read each other's moods and pick goals. open the 🧠 brain viewer to hear what one is thinking.",
     "new here? say yes to the tutorial: it stays with you the whole game, with a tip whenever something new happens or you're not sure what to do.",
     "from tool-users on, 🚩 orders put up rally flags, work marks, blueprints and zones. smols follow if they trust you, and get grumpy if you boss them.",
-    "possess a smol (smol card, 3 sparks) to see the island through its eyes and survive as it does. its brain learns from how you play it.",
+    "possess a smol (smol card, 3 sparks) to live as it: a hotbar and a bag, hearts and drumsticks, a rock-on-a-stick to make, trees to chop, a campfire and a lean-to to build. a first-time guide walks you through it. its brain learns from how you play it.",
     "every smol rolls traits and a rarity, common to mythic. rare parents make rare babies; the smoldex keeps your best.",
     "evolve them all the way to ascended and build the big thought. it's a signal home. then try new game+.",
     "your band grows into a village, a town and a city: money, market stalls, jobs, roads, a council and city lights. the 🏛 civilization tab shows what the next era needs.",

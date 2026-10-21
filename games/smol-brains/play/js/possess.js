@@ -2,9 +2,13 @@
    The second game: step down into one smol and see the island through its eyes. No god hand, no miracles:
    you walk, you get hungry, the night has grumps in it. The smol's own brain switches off while you drive
    and watches instead, learning from every choice you make (supervised: "in a moment like this, do that"),
-   so a smol you've lived as comes back a little more like you. Everything here drives the creature's normal
-   actions (creature.js), so eating, chopping, talking and sleeping work exactly the way they do for the AI.
-   render.js draws the first-person camera (cam.pov), input.js stands down while IN.mode is "pov". */
+   so a smol you've lived as comes back a little more like you.
+   v4.4 "first tool": the controls every survival game uses. A hotbar and a bag (survival.js holds the
+   rules), left click uses what's in your hand on what you point at (an axe on a tree, a pick on rock, paws
+   punch), right click places or uses it (eat, plant, put down a building ghost, give), F picks up, Q drops,
+   E does whatever the prompt says. A first-time quest walks you from a stick to a campfire.
+   This file is the logic (tests drive it headless); povhud.js is the screen. render.js draws the camera
+   (cam.pov), input.js stands down while IN.mode is "pov". */
 (function () {
   "use strict";
   var SB = window.SB;
@@ -16,20 +20,20 @@
   P.FOV = 70 * Math.PI / 180;
   P.REACH = 4.2;        // how far away you can point at something and act on it
   P.LEARN_RATE = 0.15;  // how hard each of your choices pulls on the brain
+  P.SWING = 0.42;       // seconds between swings
   P.active = false;
   P.c = null;
-  P.input = { fwd: 0, side: 0, run: false, jump: false }; // the controls, whoever's holding them (keys, joystick, a test)
+  P.input = { fwd: 0, side: 0, run: false, jump: false, use: false }; // the controls, whoever's holding them (keys, joystick, a test)
 
-  var S = null; // the possession: {c, game, saved camera, yaw, pitch, lessons, ...}
-  var EDIBLE = { food: 1, mushroom: 1, bug: 1, medicine: 1 };
-  var NIBBLE = { bush: 1, roots: 1, gourds: 1 };
-  var ROCKS = { boulder: 1, flintrock: 1, orevein: 1, crystals: 1 };
+  var S = null; // the possession: {c, game, yaw, pitch, lessons, busy, ghost, quest, ...}
   var drv = new Float32Array(SB.N_DRIVES);
 
-  function R() { return SB.Render; }
   function I() { return SB.Ideas; }
+  function Sv() { return SB.Surv; }
+  function H() { return !P.headless && SB.PovHud && SB.PovHud.on() ? SB.PovHud : null; } // the screen, when there is one
   function cam() { return SB.Render && SB.Render.camera; }
-  function dom() { return typeof document !== "undefined" && document.body && document.createElement && !P.headless; }
+  function audio(name, vol) { if (SB.Audio && SB.Audio.play && !P.headless) SB.Audio.play(name, { vol: vol == null ? 1 : vol }); }
+  P.state = function () { return S; };
 
   /* ---------------- entering and leaving ---------------- */
 
@@ -52,12 +56,16 @@
     c.action = null; c.asleep = false; c.inBed = false; c.called = null; c.callVerb = null;
     c._pov = true;
     S = {
-      c: c, game: game, yaw: c.facing + Math.PI, pitch: -0.06, lessons: 0, verbs: {}, bob: 0, stepAcc: 0, friendT: 2, hudT: 0,
-      speed: game.speed, work: null, dead: false, t: 0, born: game.time
+      c: c, game: game, yaw: c.facing + Math.PI, pitch: -0.06, lessons: 0, verbs: {}, bob: 0, stepAcc: 0, friendT: 2,
+      speed: game.speed, work: null, dead: false, t: 0, born: game.time, busy: null, swingT: 0, stam: 1, ghost: null,
+      pickT: 0, swing: 0, lastHp: c.chem.health, hurtT: 0, aim: null, target: null, opts: null, questT: 0
     };
     P.active = true; P.c = c;
-    P.input.fwd = P.input.side = 0; P.input.run = P.input.jump = false;
+    P.input.fwd = P.input.side = 0; P.input.run = P.input.jump = P.input.use = false;
     game.speed = 1; // a smol lives in real time
+    // what it carried as a creature goes into its inventory, and tool-users get their building plans
+    Sv().absorb(c, game);
+    givePlans(c);
     C.emote(c, "huh", 2);
     C.say(c, "i feel… watched", game);
     if (SB.Input) SB.Input.mode = "pov";
@@ -70,7 +78,8 @@
     }
     if (SB.Game.select) SB.Game.select(game, null);
     hookBus();
-    if (dom()) buildHud();
+    questStart();
+    if (!P.headless && SB.PovHud) SB.PovHud.build(S);
     SB.bus.emit("possess", { c: c });
     return true;
   };
@@ -80,7 +89,10 @@
     var s = S, c = s.c, game = s.game;
     S = null; P.active = false; P.c = null;
     c._pov = false; c._povMove = false;
-    if (c.alive && !c.action) c.thinkT = 0.3;
+    if (SB.Render) SB.Render.ghost = null;
+    // the plans are yours, not the smol's
+    if (c.inv && c.inv.s) c.inv.s.forEach(function (sl, i) { if (sl && sl.k === "plans") c.inv.s[i] = null; });
+    if (c.alive) { Sv().release(c, game); if (!c.action) c.thinkT = 0.3; }
     game.speed = s.speed || 1;
     if (SB.Input) SB.Input.mode = "god";
     var cm = cam();
@@ -92,10 +104,10 @@
       if (c.alive && SB.Input && SB.Input.follow) SB.Input.follow(c);
     }
     if (typeof document !== "undefined" && document.exitPointerLock && document.pointerLockElement) try { document.exitPointerLock(); } catch (e) {}
-    removeHud();
+    if (SB.PovHud) SB.PovHud.remove();
     if (c.alive && SB.Game.select) SB.Game.select(game, c.id);
     var name = c.name;
-    if (SB.UI && SB.UI.toast && !P.headless) {
+    if (SB.UI && SB.UI.toast && !P.headless && why !== "died") {
       if (s.lessons) SB.UI.toast("👁 back in the sky. " + name + " learned from " + s.lessons + " of your choices: its brain leans a little more your way now.", "", 6000);
       else SB.UI.toast("👁 back in the sky.");
     }
@@ -105,6 +117,15 @@
 
   P.lessons = function () { return S ? S.lessons : 0; };
   function farFor() { var q = SB.Render && SB.Render.quality; return q && q.scale < 0.75 ? 52 : 78; }
+  function givePlans(c) {
+    if (c.tier < 2) return;
+    var v = Sv().inv(c);
+    for (var i = 0; i < v.s.length; i++) if (v.s[i] && v.s[i].k === "plans") return;
+    var at = v.s[8] ? -1 : 8;
+    if (at < 0) for (var j = 8; j >= 0; j--) if (!v.s[j]) { at = j; break; }
+    if (at < 0) for (j = 9; j < v.s.length; j++) if (!v.s[j]) { at = j; break; }
+    if (at >= 0) v.s[at] = { k: "plans", n: 1 };
+  }
 
   /* ---------------- driving (called from the creature's tick instead of its brain) ---------------- */
 
@@ -115,18 +136,24 @@
     var w = game.world, C = SB.Creature, ch = c.chem, inp = P.input;
     var f = inp.fwd || 0, sd = inp.side || 0, mag = Math.hypot(f, sd);
     c._povMove = false;
+    // pep: running and swinging use it up, standing still brings it back. tiredness caps it
+    var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
+    var running = inp.run && mag > 0.08 && c.stage >= 1 && S.stam > 0.04;
+    if (running) S.stam = Math.max(0, S.stam - dt * 0.11);
+    else S.stam = Math.min(pepMax, S.stam + dt * (mag > 0.08 ? 0.05 : 0.14));
+    if (S.stam > pepMax) S.stam = pepMax;
     if (mag > 0.08) {
       if (mag > 1) { f /= mag; sd /= mag; mag = 1; }
       if (c.plan) C.endPlan(c, game, false);
       if (c.action) c.action = null;
       S.work = null;
+      if (S.busy) { S.busy = null; }
       if (c.asleep) { c.asleep = false; c.inBed = false; }
       var sy = Math.sin(S.yaw), cy = Math.cos(S.yaw);
       // forward is (-sin yaw, -cos yaw), right is (cos yaw, -sin yaw)
       var dx = -sy * f + cy * sd, dz = -cy * f - sy * sd, dl = Math.hypot(dx, dz) || 1;
       dx /= dl; dz /= dl;
-      var run = inp.run && c.stage >= 1 && ch.tired < 0.85;
-      var sp = C.speedOf(c, null) * (run ? 1.75 : 1) * mag * (c.tier === 0 ? 1.1 : 1);
+      var sp = C.speedOf(c, null) * (running ? 1.75 : 1) * mag * (c.tier === 0 ? 1.1 : 1);
       var step = sp * dt, swim = C.canSwim(c), moved = 0;
       var nx = c.x + dx * step, nz = c.z + dz * step;
       if (ok(w, nx, nz, swim)) { c.x = nx; c.z = nz; moved = step; }
@@ -136,8 +163,8 @@
         c.facing += SB.angDiff(c.facing, Math.atan2(dx, dz)) * Math.min(1, dt * 12);
         c.anim.walk += moved * 3.2; c.moving = true; c._povMove = true;
         c.stats.walked += moved;
-        if (run) SB.Chem.apply(ch, { tired: dt * 0.006 });
-        S.bob += moved * (run ? 2.4 : 2.9);
+        if (running) SB.Chem.apply(ch, { tired: dt * 0.006 });
+        S.bob += moved * (running ? 2.4 : 2.9);
         S.stepAcc += moved;
         if (S.stepAcc > (c.stage === 0 ? 0.35 : 0.55)) { S.stepAcc = 0; footstep(c, w); }
       }
@@ -152,23 +179,61 @@
         c.vx = jx / jl * js; c.vz = jz / jl * js; c.vy = c.stage === 0 ? 4.6 : 5.6; c.onGround = false;
         c.anim.squash = 0.3;
         SB.Chem.apply(ch, { tired: 0.004, bored: -0.01 });
-        if (SB.Audio && SB.Audio.play) SB.Audio.play("boing", { vol: 0.25 });
+        audio("boing", 0.25);
       }
+    }
+    // a timed job (pulling a vine, snapping a stick off): moving cancels it
+    if (S.busy) {
+      S.busy.t += dt;
+      c.anim.squash = Math.abs(Math.sin(S.busy.t * 9)) * 0.12;
+      if (S.busy.t >= S.busy.dur) { var b = S.busy; S.busy = null; b.done(); }
     }
     // building: keep at it while the site needs work
     if (S.work) {
       var st = SB.Game.byId(game, S.work.id);
-      if (!st || st.done || S.work.t <= 0 || SB.dist(st.x, st.z, c.x, c.z) > SK[st.kind].r * (st.s || 1) + 2) S.work = null;
+      if (!st || st.done || S.work.t <= 0 || SB.dist(st.x, st.z, c.x, c.z) > SK[st.kind].r * (st.s || 1) + 2.2) S.work = null;
       else {
         S.work.t -= dt;
-        if (I().siteReady(st)) { c.anim.squash = Math.abs(Math.sin(S.t * 8)) * 0.2; if (I().work(c, st, dt, game)) { S.work = null; C.emote(c, "proud", 2); } }
-        else S.work = null;
+        if (I().siteReady(st)) {
+          c.anim.squash = Math.abs(Math.sin(S.t * 8)) * 0.2; S.swing = Math.max(S.swing, Math.abs(Math.sin(S.t * 6)));
+          if ((S.work.snd = (S.work.snd || 0) - dt) <= 0) { S.work.snd = 0.45; audio("build", 0.6); }
+          if (I().work(c, st, dt, game)) { S.work = null; C.emote(c, "proud", 2); say("built the " + SK[st.kind].label + "! " + SK[st.kind].emoji); }
+        } else S.work = null;
       }
     }
+    // holding the use button down keeps swinging
+    S.swingT = Math.max(0, S.swingT - dt);
+    S.swing = Math.max(0, S.swing - dt * 3.2);
+    if (inp.use && S.swingT <= 0 && !S.busy) P.act("use", undefined, true);
+    // walking over your own drops (and anything loose at your feet) picks them up
+    if ((S.pickT -= dt) <= 0) { S.pickT = 0.2; autoPickup(c, game); }
+    // damage and cold, for the screen: a flash when hurt
+    if (ch.health < S.lastHp - 0.004) { S.hurtT = 0.6; if (H()) H().hurt(S.lastHp - ch.health); }
+    S.lastHp = ch.health; S.hurtT = Math.max(0, S.hurtT - dt);
     // friends tag along, and share food with a hungry you
     if ((S.friendT -= dt) <= 0) { S.friendT = 6; friends(c, game); }
+    if ((S.questT -= dt) <= 0) { S.questT = 0.3; questTick(); }
   };
   function ok(w, x, z, swim) { return SB.World.walkable(w, x, z, swim); }
+
+  function autoPickup(c, game) {
+    if (c.tier < 1) return;
+    SB.World.itemsNear(game.world, c.x, c.z, 1.7, function (o) {
+      if (o.gone || o.heldBy != null || (o.data && o.data.noPick > game.time)) return;
+      var d = SB.dist(o.x, o.z, c.x, c.z), mine = o.data && o.data.by === c.id;
+      if (d > (mine ? 1.7 : 0.75)) return;
+      if (Sv().whyNot(c, o.kind) || K[o.kind].critter || o.kind === "egg" || o.data.rotten || o.data.pod || o.data.starter) return;
+      gain(Sv().pickup(c, game, o), o.kind);
+    });
+  }
+  // a "+1 stick" on the screen (and a pop)
+  function gain(n, kind) {
+    if (!n) return;
+    audio("pop", 0.5);
+    if (H()) H().gain(kind, n);
+    SB.bus.emit("povGain", { c: S && S.c, kind: kind, n: n });
+  }
+  P._gain = gain;
 
   function friends(c, game) {
     var n = 0, Soc = SB.Social;
@@ -205,13 +270,14 @@
     return "grass";
   }
   P.surface = surface;
-  function footstep(c, w) {
-    if (!SB.Audio || !SB.Audio.play) return;
-    SB.Audio.play("step_" + surface(c, w), { vol: 0.5 + (c.stage || 0) * 0.12 });
-  }
+  function footstep(c, w) { audio("step_" + surface(c, w), 0.5 + (c.stage || 0) * 0.12); }
 
   /* ---------------- what am I looking at? ---------------- */
 
+  function eyeY(c) {
+    var r = SB.Creature.radius(c);
+    return c.y + r * (c.look && c.look.legs ? 2.1 + c.look.legLen * 0.9 : 1.7) + 0.05;
+  }
   // the thing nearest the middle of the view (and within reach), as a target for creature.js
   P.look = function (game, c, yaw, pitch) {
     c = c || (S && S.c); game = game || (S && S.game);
@@ -236,17 +302,19 @@
       consider({ type: "creature", id: o.id }, o.x, o.y + r, o.z, r);
     });
     SB.World.itemsNear(w, ex, ez, P.REACH + 1, function (o) {
-      if (o.gone || (o.heldBy != null && o.heldBy !== c.id) || o.heldBy === c.id) return;
-      consider({ type: "item", id: o.id }, o.x, o.y + (o.r || 0.15), o.z, (o.r || 0.15) + 0.12);
+      if (o.gone || o.heldBy != null) return;
+      consider({ type: "item", id: o.id }, o.x, o.y + (o.r || 0.15), o.z, (o.r || 0.15) + 0.12, -0.05);
     });
     SB.World.eachNodeNear(w, ex, ez, P.REACH + 2, function (n) {
-      if (n.state && n.state !== "ok" && n.state !== "stump" && !NIBBLE[n.kind]) return;
-      var r = NK[n.kind].r * (n.s || 1);
-      consider({ type: "node", id: n.id }, n.x, (n.y || SB.World.groundY(w, n.x, n.z)) + Math.min(1.2, r * 1.4), n.z, r, 0.15); // big things lose ties to small ones
+      if (n.state === "gone" || n.state === "burning") return;
+      var r = NK[n.kind].r * (n.s || 1) * (n.left != null ? Sv().shrinkOf(n) : 1);
+      var hy = n.state === "stump" ? 0.3 : n.kind === "vines" ? 0.6 : Math.min(1.2, r * 1.4);
+      if (Sv().isTree(n)) r = Math.min(r, 0.7); // you aim at the trunk, not the whole crown
+      consider({ type: "node", id: n.id }, n.x, (n.y || SB.World.groundY(w, n.x, n.z)) + hy, n.z, r, 0.15); // big things lose ties to small ones
     });
     SB.World.structsNear(w, ex, ez, P.REACH + 3).forEach(function (st) {
       var r = SK[st.kind].r * (st.s || 1);
-      consider({ type: "struct", id: st.id }, st.x, SB.World.groundY(w, st.x, st.z) + 0.5, st.z, r, 0.25);
+      consider({ type: "struct", id: st.id }, st.x, SB.World.groundY(w, st.x, st.z) + 0.5, st.z, r, st.done ? 0.25 : -0.2); // a site you're building wins ties
     });
     if (best) return best;
     // nothing standing there: is it water under the crosshair?
@@ -261,128 +329,505 @@
     if (SB.World.depthAt(w, ex, ez) > 0.12) return { type: "water", x: ex, z: ez };
     return null;
   };
+  // where the view ray meets the ground (for planting, putting things down and placing buildings)
+  P.aimGround = function (game, c, maxD) {
+    c = c || (S && S.c); game = game || (S && S.game);
+    if (!c || !game) return null;
+    var yaw = S ? S.yaw : c.facing + Math.PI, pitch = S ? S.pitch : -0.3, w = game.world, ey = eyeY(c);
+    var fx = -Math.sin(yaw) * Math.cos(pitch), fy = Math.sin(pitch), fz = -Math.cos(yaw) * Math.cos(pitch), last = null;
+    maxD = maxD || 7;
+    for (var k = 0.5; k <= maxD; k += 0.2) {
+      var px = c.x + fx * k, py = ey + fy * k, pz = c.z + fz * k;
+      if (py <= SB.World.groundY(w, px, pz)) return { x: px, z: pz, d: k };
+      last = { x: px, z: pz, d: k };
+    }
+    // looking level or up: the spot on the ground straight ahead at arm's length-ish
+    var fl = Math.hypot(fx, fz) || 1, dd = Math.min(maxD, 3.2);
+    return last && pitch > -0.05 ? { x: c.x + fx / fl * dd, z: c.z + fz / fl * dd, d: dd, far: true } : last;
+  };
 
-  function heldKind(c, game) { var it = c.holding != null ? SB.Game.byId(game, c.holding) : null; return it ? it.kind : null; }
-  function toolKind(c, game) { var t = c.tool != null ? SB.Game.byId(game, c.tool) : null; return t ? t.kind : null; }
-  function tool(c, game) { var hk = heldKind(c, game); return hk && K[hk] && K[hk].tool ? hk : toolKind(c, game); }
   function label(r) {
     if (!r) return "";
     if (r.type === "creature") return r.ref.species === "smol" ? r.ref.name : r.ref.species;
     if (r.type === "water") return "water";
     var d = r.type === "item" ? K[r.kind] : r.type === "node" ? NK[r.kind] : SK[r.kind];
+    if (r.type === "node" && r.ref.state === "stump") return "stump";
     return d ? d.label : r.kind;
   }
+  P.label = label;
+  function kl(k) { return k === "plans" ? "plans" : K[k] ? K[k].label : k; }
 
-  // what E (primary), F (alt) and R (hit) do to a target, given who you are. tier limits what you can do:
-  // a blob rolls, hops and eats; a tool-user picks things up, uses tools and crafts; builders build
-  P.verbFor = function (game, c, t, which) {
-    var C = SB.Creature, tier = c.tier, r = t ? C.resolve(game, t) : null, nm = label(r);
-    var hk = heldKind(c, game), tl = tool(c, game), Id = I();
-    function m(verb, lbl, special) { return { verb: verb, tgt: t, label: lbl, special: special || null, r: r }; }
-    if (which === "hit") return r ? m(V.hit, (r.type === "creature" ? "hit " : "whack the ") + nm) : null;
-    if (!r) {
-      if (which === "alt") return null;
-      if (hk && K[hk] && EDIBLE[K[hk].noun]) return { verb: V.eat, tgt: { type: "item", id: c.holding }, label: "eat your " + K[hk].label, r: C.resolve(game, { type: "item", id: c.holding }) };
-      return { verb: V.play, tgt: null, label: tier === 0 ? "roll about" : "play", r: null };
+  /* ---------------- what each button does, right now ----------------
+     use (left click / the big phone button): the thing in your hand, on the thing you point at
+     place (right click): eat it, plant it, put it down, give it, place a building
+     pick (F): pick up, pull, snap off, prise loose
+     E: the best of those three, so one key always does something sensible */
+  P.options = function (game, c, t) {
+    game = game || (S && S.game); c = c || (S && S.c);
+    var Surv = Sv(), C = SB.Creature, Id = I();
+    var r = t ? C.resolve(game, t) : null, nm = label(r), tier = c.tier;
+    var held = Surv.held(c), hk = held ? held.k : null, P0 = Surv.power(hk && K[hk] && K[hk].tool ? hk : "paws");
+    var toolName = hk && K[hk] && K[hk].tool ? K[hk].label : null;
+    var o = { use: null, place: null, pick: null, ctx: null, r: r, name: nm };
+    function op(label, go, verb, extra) { var x = { label: label, go: go, verb: verb, r: r }; for (var k in extra || {}) x[k] = extra[k]; return x; }
+    function no(label) { return { label: label, locked: true, r: r }; }
+    var g = S && S.ghost;
+    // building mode: right click places, left click / Esc cancels
+    if (g) {
+      o.place = g.ok ? op("place the " + SK[g.kind].label, function () { return placeGhost(); }, V.build) : no(g.why || "can't build here");
+      o.use = op("cancel", function () { P.cancelBuild(); return true; }, null);
+      o.ctx = o.place.locked ? null : o.place;
+      return o;
     }
-    var alt = which === "alt";
-    if (r.type === "creature") {
-      var o = r.ref;
-      if (o.species === "grump") return alt ? m(V.flee, "run from the grump!") : m(V.hit, "hit the grump" + (tl === "club" || tl === "spear" ? " with your " + tl : ""));
-      if (o.species !== "smol") return alt ? null : m(V.hit, "pounce on the " + nm);
-      if (alt) return m(V.cuddle, (o.stage === 0 ? "pet " : "hug ") + o.name);
-      if (tier >= 3 && c.holding != null) return m(V.give, "give " + o.name + " your " + (K[hk] ? K[hk].label : "thing"));
-      return m(V.talk, "talk to " + o.name);
-    }
-    if (r.type === "water") {
-      if (!alt) return m(V.eat, "drink");
-      if (tier >= 2 && (tl === "rod" || tl === "spear")) return m(V.use, "fish");
-      return tier >= 2 ? m(V.use, "splash about") : null;
-    }
-    if (r.type === "item") {
-      var it = r.ref, def = K[it.kind] || {};
-      if (def.critter) return alt ? null : tier >= 2 && tl === "spear" ? m(V.use, "spear the " + nm) : m(V.hit, "pounce on the " + nm);
-      var edible = EDIBLE[it.noun];
-      if (!alt) return edible ? m(V.eat, "eat the " + nm) : tier >= 2 ? m(V.pickup, "pick up the " + nm) : m(V.play, "roll the " + nm + " about");
-      if (edible && tier >= 2) return m(V.pickup, "pick up the " + nm);
-      if (!edible && tier >= 2 && it.kind === "nut" && (tl === "hammer" || hk === "stone")) return m(V.use, "crack the nut");
-      return m(V.hit, "kick the " + nm);
-    }
-    if (r.type === "node") {
-      var n = r.ref, nd = NK[n.kind], g = Id && Id.GATHER[n.kind];
-      var canGather = g && tier >= Math.max(2, g[3]) && (!g[1] || tl === g[1]);
-      var choppable = nd.noun === "plant" && !NIBBLE[n.kind] && n.kind !== "reeds" && n.kind !== "herbs" && n.kind !== "hive" && n.kind !== "cactus";
-      if (alt) {
-        if (canGather) return m(V.pickup, "gather " + g[0]);
-        if (nd.noun === "plant" && nd.drops) return m(V.play, "shake the " + nm);
-        return null;
+    if (r && r.type === "creature") {
+      var cr = r.ref;
+      if (cr.species === "grump") o.use = op("hit the grump" + (toolName ? " with your " + toolName : ""), function () { return attack(cr); }, V.hit);
+      else if (cr.species !== "smol") o.use = op("pounce on the " + nm, function () { return attack(cr); }, V.hit);
+      else {
+        o.use = op("talk to " + cr.name, function () { return creatureAct(V.talk, t); }, V.talk);
+        if (held && hk !== "plans" && tier >= 1) o.place = op("give " + cr.name + " your " + kl(hk), function () { return give(cr); }, V.give);
+        else o.place = op((cr.stage === 0 ? "pet " : "hug ") + cr.name, function () { return creatureAct(V.cuddle, t); }, V.cuddle);
       }
-      if (n === game.world.T.nest) return m(V.sleep, "sleep in the nest", "sleep");
-      if (tier >= 2 && (tl === "axe" || tl === "stoneaxe") && choppable && n.state === "ok") return m(V.use, "chop the " + nm);
-      if (tier >= 2 && tl === "hammer" && ROCKS[n.kind]) return m(V.use, "mine the " + nm);
-      if (tier >= 2 && tl === "blade" && (n.kind === "bush" || n.kind === "reeds")) return m(V.use, "cut the " + nm);
-      if (NIBBLE[n.kind]) return m(V.eat, "nibble the " + nm);
-      if (nd.noun === "plant" && nd.drops) return m(V.play, "shake the " + nm);
-      if (canGather) return m(V.pickup, "gather " + g[0]);
-      return m(V.hit, "whack the " + nm);
-    }
-    if (r.type === "struct") {
-      var st = r.ref, d = st.data || {}, near = SB.dist(st.x, st.z, c.x, c.z) < SK[st.kind].r * (st.s || 1) + 2.2;
+    } else if (r && r.type === "item") {
+      var it = r.ref, def = K[it.kind] || {}, pn = Surv.pileN(it), why = Surv.whyNot(c, it.kind);
+      if (def.critter) {
+        if (hk === "spear") o.use = op("spear the " + nm, function () { return spearCritter(it); }, V.use);
+        else o.use = op("pounce on the " + nm, function () { return pounce(it); }, V.hit);
+      } else {
+        if (it.kind === "nut" && (hk === "stone" || hk === "hammer" || hk === "primtool")) o.use = op("crack the nut", function () { return crackNut(it); }, V.use);
+        else if (tier === 0 && Surv.edible(it.kind)) o.use = op("eat the " + nm, function () { return eatItem(it); }, V.eat);
+        else o.use = op("kick the " + nm, function () { return kick(it); }, V.hit);
+        if (!why && !it.data.rotten) o.pick = op("pick up the " + nm + (pn > 1 ? " (" + pn + ")" : ""), function () { return pickItem(it); }, V.pickup);
+        else if (Surv.edible(it.kind)) o.pick = op("eat the " + nm, function () { return eatItem(it); }, V.eat);
+        else if (it.data.rotten) o.pick = no("it's gone bad");
+        else o.pick = no(why);
+      }
+    } else if (r && r.type === "node") {
+      var n = r.ref, nd = NK[n.kind], rk = Surv.rockOf(n), gat = Surv.gatherOf(c, game, n);
+      if (n.state === "stump") {
+        if (n.block) o.use = P0.wood > 0 ? op("split the log", function () { return hitNode(n, hk); }, V.use) : no("split the log: hold an axe or a rock-on-a-stick");
+        else if (hk === "log") o.place = op("put the log on the stump", function () { return putBlock(n); }, V.drop);
+        else if (Surv.count(c, "log", true)) o.hint = "a stump: hold a log and right click to split it";
+      } else if (n.kind === "vines") {
+        if (n.state === "picked") o.pick = no("pulled bare. it grows back");
+        else if (tier < 2) o.pick = no("you need hands to pull vines");
+        else { o.pick = op("pull a vine", function () { return gather(n); }, V.pickup); o.use = o.pick; }
+      } else if (Surv.isTree(n)) {
+        if (n.state === "ok" && tier >= 1) o.use = P0.wood > 0 ? op("chop the " + nm, function () { return hitNode(n, hk); }, V.use) : op("shake the " + nm, function () { return hitNode(n, hk); }, V.play);
+        if (gat && tier >= 2) o.pick = op(gat.verb, function () { return gather(n); }, V.pickup);
+      } else if (rk) {
+        var pw = rk.ore ? P0.ore : P0.stone;
+        if (rk.ore && hk === "hammer" && tier < 4) pw = 0;
+        if (rk.crystal && hk === "stonepick" && tier < 4) pw = 0;
+        if (tier >= 1) o.use = pw > 0 ? op((rk.ore ? "mine the " : "chip the ") + nm + (toolName ? "" : " with your paws"), function () { return hitNode(n, hk); }, V.use) : no(rk.crystal ? "too hard: needs a pick, and a builder's know-how" : rk.ore ? "copper ore! dig it out with a stone pick" : "punch it? ouch");
+        if (gat && tier >= 2) o.pick = op(gat.verb, function () { return gather(n); }, V.pickup);
+      } else if (n === game.world.T.nest) {
+        o.place = op("sleep in the nest", function () { return sleepAt(t); }, V.sleep);
+      } else if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds" || n.kind === "hive" || n.kind === "cactus") {
+        o.use = op((n.kind === "roots" ? "pull at the " : "shake the ") + nm, function () { return shakeNode(n); }, V.play);
+        if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds") o.place = op("nibble the " + nm, function () { return creatureAct(V.eat, t); }, V.eat);
+      } else if (gat) {
+        o.pick = tier >= 2 ? op(gat.verb, function () { return gather(n); }, V.pickup) : no("you need hands for that");
+        o.use = o.pick.locked ? null : o.pick;
+      }
+    } else if (r && r.type === "struct") {
+      var st = r.ref, d = st.data || {};
       if (!st.done) {
-        if (alt || tier < 2) return null;
-        var has = Id && Id.inv(c, game).some(function (o) { for (var k in st.need) if (st.need[k] > 0 && Id.matches(o.kind, k)) return true; return false; });
-        if (has) return m(V.build, "add to the " + nm, "deliver");
-        if (Id && Id.siteReady(st)) return m(V.build, "build the " + nm, "work");
-        var want = Object.keys(st.need).filter(function (k) { return st.need[k] > 0; });
-        return { verb: null, tgt: t, label: "the " + nm + " needs " + want.map(function (k) { return st.need[k] + " " + k; }).join(", "), r: r };
+        if (tier < 2) o.use = no("you need hands to build");
+        else if (Surv.canDeliver(c, st)) o.use = op("add your things to the " + nm, function () { return deliver(st); }, V.build);
+        else if (Id.siteReady(st)) o.use = op("build the " + nm, function () { return work(st); }, V.build);
+        else o.use = no("bring it " + Surv.needs(st).map(function (x) { return x.n + " " + kl(x.k) + (x.n > 1 && x.k !== "leaves" ? "s" : ""); }).join(", "));
+        o.place = o.use && !o.use.locked ? o.use : null;
+      } else if (st.kind === "campfire" || st.kind === "kiln") {
+        if (hk && Surv.FUEL[hk] && (d.lit || Id.known(c, "fire"))) o.use = op((d.lit ? "feed the fire your " : "fuel the fire with your ") + kl(hk), function () { return feed(st, hk); }, V.use);
+        else if (!d.lit && (Surv.has(c, "torch") || (Id.known(c, "fire") && Surv.count(c, "stick")))) o.use = op("light the fire", function () { return light(st); }, V.use);
+        else if (d.lit) o.use = op("warm your paws", function () { return creatureAct(V.use, t); }, V.use);
+        else o.use = no(Id.known(c, "fire") ? "a cold fire. bring a stick to light it" : "a cold fire. you don't know how to light it");
+        o.place = op("sit by the fire", function () { return sit(); }, V.idle);
+        if (hk && Surv.edible(hk) && K[hk].raw && d.lit) o.place = op("cook your " + kl(hk), function () { return cook(hk); }, V.make);
+      } else if (st.kind === "hut" || st.kind === "leanto" || st.kind === "house") {
+        o.place = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
+      } else if (st.kind === "farm") {
+        o.use = tier >= 2 ? op(d.grow > 0.6 ? "harvest" : "check the crop", function () { return creatureAct(V.use, t); }, V.use) : null;
+      } else if (st.kind === "totem" || st.kind === "observatory") {
+        o.use = tier >= 2 ? op("study the " + nm, function () { return creatureAct(V.use, t); }, V.use) : null;
       }
-      if (st.kind === "campfire" || st.kind === "kiln") {
-        if (alt) return near ? m(V.idle, "sit by the fire", "sit") : m(V.approach, "go to the fire");
-        if (hk === "stick" && Id.known(c, "fire")) return m(V.use, "feed the fire");
-        if (!d.lit && (hk === "torch" || (Id.known(c, "fire") && (hk === "flint" || toolKind(c, game) === "hammer")))) return m(V.use, "light the fire");
-        return tier >= 2 ? m(V.use, d.lit ? "warm your paws" : "poke the cold fire") : m(V.approach, "go to the fire");
-      }
-      if (st.kind === "hut") return alt ? m(V.approach, "go in") : m(V.sleep, "sleep in the hut", "sleep");
-      if (st.kind === "farm") return alt ? null : tier >= 2 ? m(V.use, d.grow > 0.6 ? "harvest" : "check the crop") : m(V.play, "play in the " + nm);
-      if (st.kind === "totem" || st.kind === "observatory") return alt ? null : tier >= 2 ? m(V.use, "study the " + nm) : m(V.approach, "look at the " + nm);
-      return alt ? null : m(V.approach, "go to the " + nm);
+    } else if (r && r.type === "water") {
+      if (tier >= 2 && (hk === "rod" || hk === "spear")) o.use = op("fish", function () { return fish(hk); }, V.use);
+      o.place = op("drink", function () { return creatureAct(V.eat, t); }, V.eat);
+      if (!o.use) o.use = o.place;
     }
-    return null;
+    // things in your hand that don't need a target
+    if (held && !o.place) {
+      if (hk === "plans") o.place = op("open your building plans", function () { if (H()) H().openBag("build"); return true; }, null);
+      else if (Surv.edible(hk)) o.place = op("eat your " + kl(hk), function () { return eatHeld(); }, V.eat);
+      else if (hk === "nut" && (Surv.has(c, "stone") || Surv.has(c, "hammer") || Surv.has(c, "primtool"))) o.place = op("crack your nut", function () { return crackHeld(); }, V.use);
+      else if (hk === "sapling" || hk === "seed") {
+        var ag = S ? S.aim : P.aimGround(game, c);
+        o.place = ag && Surv.plantSpot(game, ag.x, ag.z) ? op("plant the " + kl(hk), function () { return plant(hk, ag); }, V.drop) : no("no room to plant here: find open ground");
+      } else if (!o.use || !o.place) {
+        var ag2 = S ? S.aim : P.aimGround(game, c);
+        if (ag2 && !ag2.far) o.place = op("put down the " + kl(hk), function () { return putDown(ag2); }, V.drop);
+      }
+    }
+    if (!o.use && !r && held && K[hk] && K[hk].tool) o.use = op("swing your " + kl(hk), function () { swingAnim(); return true; }, null);
+    o.ctx = o.pick && !o.pick.locked ? o.pick : o.use && !o.use.locked && o.use.label !== "cancel" ? o.use : o.place && !o.place.locked ? o.place : null;
+    return o;
   };
 
-  // act on whatever's under the crosshair (which: "main" E, "alt" F, "hit" R)
-  P.interact = function (which, t) {
+  // do one of them: which = "use" | "place" | "pick" | "ctx". returns the option done (or null)
+  P.act = function (which, t, repeat) {
     if (!S || S.dead) return null;
     var c = S.c, game = S.game;
     if (t === undefined) t = P.look(game, c);
-    var mv = P.verbFor(game, c, t, which || "main");
-    if (!mv || mv.verb == null) { if (mv) say(mv.label); return null; }
-    return P.doVerb(game, c, mv);
+    var o = P.options(game, c, t), op = o[which];
+    if (!op) { if (!repeat && which === "use") swingAnim(); return null; }
+    if (op.locked) { if (!repeat) say(op.label); return null; }
+    if (repeat && (op.verb === V.talk || op.verb === V.cuddle || op.verb === V.give || op.verb === V.eat || op.verb === V.sleep || op.verb === V.build && !op.r)) return null; // holding the button only repeats swings
+    var res = op.go();
+    if (res && op.verb != null) learn(game, c, op.verb, op.r);
+    return res ? op : null;
   };
+  // old names (tests, the god-game help): main = E, alt = F, hit = left click
+  P.interact = function (which, t) { return P.act(which === "alt" ? "pick" : which === "hit" ? "use" : which === "place" ? "place" : "ctx", t); };
 
-  P.doVerb = function (game, c, mv) {
-    var C = SB.Creature, Id = I();
-    if (SB.VERB_TIER[mv.verb] > c.tier && mv.special !== "sit") { say("not yet: " + SB.TIERS[SB.VERB_TIER[mv.verb]].name + "s can do that"); return null; }
-    learn(game, c, mv.verb, mv.r);
-    if (mv.special === "deliver") {
-      var st = mv.r.ref;
-      if (SB.dist(st.x, st.z, c.x, c.z) > SK[st.kind].r * (st.s || 1) + 1.6) { C.startAction(c, game, V.approach, mv.tgt); return mv; }
-      var n = Id.deliver(c, st, game);
-      if (n) { C.emote(c, "proud", 1.2); if (SB.Audio && SB.Audio.play) SB.Audio.play("build"); }
-      if (Id.siteReady(st)) S.work = { id: st.id, t: 3 };
-      return mv;
-    }
-    if (mv.special === "work") {
-      var st2 = mv.r.ref;
-      if (SB.dist(st2.x, st2.z, c.x, c.z) > SK[st2.kind].r * (st2.s || 1) + 1.6) { C.startAction(c, game, V.approach, mv.tgt); return mv; }
-      S.work = { id: st2.id, t: 3 };
-      if (SB.Audio && SB.Audio.play) SB.Audio.play("build");
-      return mv;
-    }
-    if (mv.special === "sit") { C.startAction(c, game, V.idle, null); c.action.dur = 8; C.emote(c, "happy", 1.5); return mv; }
-    C.startAction(c, game, mv.verb, mv.verb === V.play && !mv.tgt ? null : mv.tgt);
-    return mv;
+  /* ---------------- the actions ---------------- */
+
+  function say(msg) { if (H()) H().say(msg); S && (S.lastSay = msg); }
+  P.say = say;
+  function swingAnim() { if (S) { S.swing = 1; S.swingT = P.SWING; } }
+  function tired(amount) { if (S) S.stam = Math.max(0, S.stam - amount); }
+  function creatureAct(verb, t) {
+    var C = SB.Creature;
+    if (!C.startAction(S.c, S.game, verb, t)) return false;
+    return true;
+  }
+  function sit() { var C = SB.Creature; C.startAction(S.c, S.game, V.idle, null); S.c.action.dur = 8; C.emote(S.c, "happy", 1.5); return true; }
+  function sleepAt(t) {
+    var c = S.c, ch = c.chem;
+    if (ch.sleepy < 0.12 && ch.tired < 0.2 && !S.game.world.night) { say("not sleepy yet. come back tonight"); return false; }
+    SB.Creature.startAction(c, S.game, V.sleep, t);
+    say("zzz… (move to wake up)");
+    return true;
+  }
+  P.sleep = function () {
+    if (!S) return;
+    var c = S.c, ch = c.chem;
+    if (ch.sleepy < 0.15 && ch.tired < 0.25) { say("not sleepy"); return; }
+    learn(S.game, c, V.sleep, null);
+    SB.Creature.startAction(c, S.game, V.sleep, null);
+    say("zzz… (move to wake up)");
   };
+  function attack(o) {
+    var c = S.c, game = S.game, Surv = Sv(), hk = Surv.heldKind(c), pw = Surv.power(hk && K[hk] && K[hk].tool ? hk : "paws");
+    if (S.swingT > 0) return false;
+    swingAnim(); tired(0.03);
+    if (SB.dist(o.x, o.z, c.x, c.z) > SB.Creature.radius(c) + SB.Creature.radius(o) + 1.2) { say("too far: get closer"); return false; }
+    SB.Creature._hitFx(c, o, game);
+    // weapons from your inventory hurt more (club and spear as the AI's do; a rock-on-a-stick, an axe, a pick a bit)
+    if (o.species === "grump" && pw.dmg > 0 && o.alive) {
+      SB.Chem.apply(o.chem, { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) });
+      o.whacked = (o.whacked || 0) + pw.dmg;
+      if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) {
+        o.alive = false; o.gone = true; o.dying = false;
+        if (SB.FX && SB.FX.burst) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] });
+        SB.Game.note(game, c.name + " chased a grump off for good! 🏏"); SB.bus.emit("grumpChased", { c: c, g: o });
+        say("the grump runs off for good!");
+      } else { o.action = null; o.thinkT = 0; }
+      wear();
+    }
+    audio("bonk", 0.8);
+    return true;
+  }
+  function pounce(it) {
+    var c = S.c, game = S.game;
+    swingAnim();
+    var def = K[it.kind];
+    if (def.food && def.noun === "bug" && game.rng.chance(0.5)) { var r = Sv().eat(c, game, it.kind, it); SB.World.remove(game.world, it); if (r && r.msg) say(r.msg); else say("caught it! crunchy"); return true; }
+    it.data.flee = 1.5; if (def.critter === "hop") it.data.t = 0;
+    say(def.critter === "hop" ? "it hops away. a spear would do it" : "missed!");
+    return true;
+  }
+  function spearCritter(it) {
+    var c = S.c, game = S.game;
+    swingAnim();
+    if (game.rng.chance(0.55)) {
+      var x = it.x, z = it.z;
+      SB.World.remove(game.world, it);
+      Sv().spawn(game, "meat", 1, x, z, { by: c.id });
+      if (game.rng.chance(0.6)) Sv().spawn(game, "fur", 1, x + 0.3, z, { by: c.id });
+      SB.bus.emit("hunt", { c: c });
+      say("got it!");
+      wear();
+    } else { it.data.flee = 2; say("missed"); }
+    return true;
+  }
+  function crackNut(it) {
+    var c = S.c, game = S.game;
+    swingAnim();
+    if (Sv().pileN(it) > 1) it = Sv().split(S.game, it);
+    SB.World.transform(game.world, it, "nutmeat"); it.data.by = c.id;
+    say("crack!"); audio("tap");
+    return true;
+  }
+  function crackHeld() {
+    var c = S.c, Surv = Sv();
+    if (!Surv.take(c, "nut", 1).length) return false;
+    var left = Surv.add(c, "nutmeat", 1);
+    if (left) Surv.spawn(S.game, "nutmeat", 1, c.x, c.z, { by: c.id });
+    say("crack! nut meat"); audio("tap");
+    return true;
+  }
+  function kick(it) {
+    var c = S.c, a = Math.atan2(it.x - c.x, it.z - c.z);
+    swingAnim();
+    if (Sv().pileN(it) > 1) it = Sv().split(S.game, it);
+    SB.World.toss(it, Math.sin(a) * 4, Math.cos(a) * 4, 4);
+    if (it.data) it.data.noPick = S.game.time + 1.5;
+    return true;
+  }
+  function eatItem(it) {
+    var c = S.c, game = S.game;
+    if (Sv().pileN(it) > 1) it = Sv().split(game, it);
+    var r = Sv().eat(c, game, it.kind, it);
+    if (!r) return false;
+    if (r.ok) SB.World.remove(game.world, it);
+    if (r.msg) say(r.msg);
+    audio("eat");
+    return !!r.ok;
+  }
+  function eatHeld() {
+    var c = S.c, game = S.game, v = Sv().inv(c), sl = v.s[v.sel];
+    if (!sl) return false;
+    if (c.chem.hunger < 0.05 && K[sl.k].noun === "food") { say("you're full"); return false; }
+    var k = sl.k;
+    Sv().removeAt(c, v.sel, 1);
+    var r = Sv().eat(c, game, k, null);
+    if (r && r.msg) say(r.msg);
+    audio("eat");
+    return true;
+  }
+  function pickItem(it) {
+    var c = S.c, game = S.game, kind = it.kind;
+    if (Sv().whyNot(c, kind)) { say(Sv().whyNot(c, kind)); return false; }
+    var n = Sv().pickup(c, game, it);
+    if (!n) { say("your bag is full"); return false; }
+    gain(n, kind);
+    return true;
+  }
+  function gather(n) {
+    var c = S.c, game = S.game, g = Sv().gatherOf(c, game, n);
+    if (!g) return false;
+    if (!Sv().room(c, g.kind)) { say("your bag is full"); return false; }
+    if (S.busy) return false;
+    S.busy = { t: 0, dur: g.secs, label: g.verb, done: function () {
+      if (!S) return;
+      var r = Sv().gather(c, game, n);
+      if (r && r.kind && !r.full) { gain(1, r.kind); if (n.kind === "vines") audio("snap", 0.6); }
+    } };
+    return true;
+  }
+  function hitNode(n, hk) {
+    var c = S.c, game = S.game, Surv = Sv();
+    if (S.swingT > 0) return false;
+    swingAnim(); tired(0.025);
+    var tk = hk && K[hk] && K[hk].tool ? hk : "paws";
+    var res = Surv.hitNode(c, game, n, tk);
+    if (res.kind === "chop" || res.kind === "split") audio("chop");
+    else if (res.kind === "chip" || res.kind === "mine") audio(res.gave.length ? "crumble" : "mine", res.gave.length ? 0.7 : 1);
+    else if (res.kind === "shake" || res.kind === "punch") audio("tap", 0.6);
+    if (res.felled) { audio("timber"); say("timber! a " + NK[n.kind].label + " comes down"); }
+    else if (res.gone) say(res.msg);
+    else if (res.msg && (res.kind === "shake" || res.kind === "punch" || !res.ok || res.kind === "split" && res.gave.length)) say(res.msg);
+    if (res.ok && tk !== "paws") wear();
+    return res.ok;
+  }
+  function wear() {
+    var c = S.c, v = Sv().inv(c), sl = v.s[v.sel];
+    if (!sl || !K[sl.k] || !K[sl.k].tool) return;
+    if (Sv().wear(c, S.game, v.sel)) { audio("snap"); say("your " + K[sl.k].label + " broke!"); }
+  }
+  function felledHook(n) {
+    // those leaves and sticks… a lean-to! (the idea comes to a smol who already knows lashing)
+    var c = S.c, Id = I();
+    if (Id.known(c, "lashing") && !Id.known(c, "leanto") && Id.canHold(c, "leanto")) {
+      if (!S.game.culture.found.leanto) Id.discover(c, "leanto", S.game); else Id.learn(c, "leanto", 1, S.game, "figured out");
+      if (!P.headless) setTimeout(function () { if (S && S.c === c) say("💡 sticks… leaves… a vine: you could make a lean-to! (it's in your plans, B)"); }, 1800);
+    }
+    void n;
+  }
+  function shakeNode(n) {
+    var o = SB.World.shake(S.game.world, S.game, n, false);
+    swingAnim();
+    if (o) { o.data.by = S.c.id; say("something fell out!"); } else say("nothing ripe right now");
+    return true;
+  }
+  function putBlock(n) { if (!Sv().setBlock(S.c, S.game, n)) return false; say("now hit it with an axe or a rock-on-a-stick"); audio("build", 0.6); return true; }
+  function deliver(st) {
+    var c = S.c, game = S.game;
+    if (SB.dist(st.x, st.z, c.x, c.z) > SK[st.kind].r * (st.s || 1) + 2.4) { say("get closer"); return false; }
+    var got = Sv().deliver(c, game, st);
+    if (!got.length) return false;
+    SB.Creature.emote(c, "proud", 1.2); audio("build");
+    var need = Sv().needs(st);
+    say(need.length ? "still needs " + need.map(function (x) { return x.n + " " + kl(x.k); }).join(", ") : "it has everything: now build it (hold left click)");
+    if (I().siteReady(st)) S.work = { id: st.id, t: 3 };
+    return true;
+  }
+  function work(st) {
+    var c = S.c;
+    if (SB.dist(st.x, st.z, c.x, c.z) > SK[st.kind].r * (st.s || 1) + 2.4) { say("get closer"); return false; }
+    S.work = { id: st.id, t: 3 };
+    audio("build");
+    return true;
+  }
+  function feed(st, hk) {
+    var r = Sv().feedFire(S.c, S.game, st, hk);
+    if (r === "cold") { say("a cold fire, and you don't know how to light it"); return false; }
+    if (r) { audio("fire"); say(hk === "firewood" ? "the fire roars" : "more fire"); }
+    return !!r;
+  }
+  function light(st) { if (!Sv().lightFire(S.c, S.game, st)) return false; audio("fire"); say("fire!"); return true; }
+  function cook(hk) {
+    var c = S.c;
+    if (!I().known(c, "cook") && I().canHold(c, "cook")) { if (!S.game.culture.found.cook) I().discover(c, "cook", S.game); else I().learn(c, "cook", 1, S.game, "figured out"); }
+    if (!I().known(c, "cook")) { say("you hold it over the fire… and drop it. too hot!"); return false; }
+    if (!Sv().take(c, hk, 1).length) return false;
+    if (Sv().add(c, "cooked", 1)) Sv().spawn(S.game, "cooked", 1, c.x, c.z, { by: c.id });
+    say("cooked! " + K.cooked.emoji); audio("craft");
+    I().observe(c, "cook", S.game);
+    return true;
+  }
+  function fish(hk) {
+    var c = S.c, game = S.game;
+    swingAnim();
+    if (game.rng.chance(hk === "rod" ? 0.45 : 0.35)) { Sv().spawn(game, "fish", 1, c.x, c.z, { by: c.id }); say(hk === "rod" ? "a bite!" : "fish!"); SB.bus.emit("fish", { c: c }); wear(); }
+    else say(hk === "rod" ? "…nothing yet" : "splash");
+    return true;
+  }
+  function give(o) {
+    var c = S.c, v = Sv().inv(c), sl = v.s[v.sel];
+    if (!sl || sl.k === "plans") return false;
+    if (SB.dist(o.x, o.z, c.x, c.z) > 2.6) { say("get closer to give it"); return false; }
+    var k = sl.k, it = Sv().give(c, S.game, o, v.sel);
+    if (it) say("you gave " + o.name + " your " + kl(k));
+    return !!it;
+  }
+  function plant(kind, ag) {
+    var n = Sv().plant(S.c, S.game, kind, ag.x, ag.z);
+    if (!n) { say("no room to plant here"); return false; }
+    say(kind === "sapling" ? "planted. it'll be a " + NK[n.kind].label + " one day" : "planted. a bush will grow here");
+    audio("build", 0.5);
+    return true;
+  }
+  function putDown(ag) {
+    var c = S.c, v = Sv().inv(c), sl = v.s[v.sel];
+    if (!sl || sl.k === "plans") return false;
+    var o = Sv().removeAt(c, v.sel, 1);
+    var it = Sv().spawn(S.game, o.k, 1, ag.x, ag.z, { w: o.w });
+    if (it) it.data.noPick = S.game.time + 4;
+    return true;
+  }
+  // Q: drop one of what's in your hand (shift: the whole stack), tossed a little ahead
+  P.drop = function (all) {
+    if (!S || S.dead) return false;
+    var c = S.c, v = Sv().inv(c), sl = v.s[v.sel];
+    if (!sl) return false;
+    if (sl.k === "plans") { say("your plans stay with you"); return false; }
+    var o = Sv().removeAt(c, v.sel, all ? null : 1), a = S.yaw;
+    var x = c.x - Math.sin(a) * 0.9, z = c.z - Math.cos(a) * 0.9;
+    if (!SB.World.walkable(S.game.world, x, z)) { x = c.x; z = c.z; }
+    var it = Sv().spawn(S.game, o.k, o.n, x, z, { w: o.w });
+    if (it) { it.data.noPick = S.game.time + 3; it.vy = 2; it.onGround = false; }
+    learn(S.game, c, V.drop, null);
+    return true;
+  };
+  P.select = function (i) { if (!S) return; Sv().select(S.c, i); if (S.ghost && Sv().heldKind(S.c) !== "plans") P.cancelBuild(); if (H()) H().selected(); };
+  P.scroll = function (d) { if (!S) return; var v = Sv().inv(S.c); P.select(v.sel + (d > 0 ? 1 : -1)); };
+
+  /* ---------------- crafting and building ---------------- */
+
+  P.combine = function (kinds) {
+    if (!S) return null;
+    var r = Sv().combine(S.c, S.game, kinds);
+    afterMake(r);
+    return r;
+  };
+  P.craft = function (id) {
+    if (!S) return null;
+    var r = Sv().craft(S.c, S.game, id);
+    afterMake(r);
+    return r;
+  };
+  P.make = P.craft;
+  function afterMake(r) {
+    if (!r) return;
+    if (r.ok) {
+      learn(S.game, S.c, V.make, null);
+      SB.Creature.emote(S.c, r.learned ? "idea" : "proud", 2);
+      audio(r.learned ? "eureka" : "craft");
+      if (r.out) gain(1, r.out);
+    }
+    if (r.msg) say(r.msg);
+  }
+  // the buildings this smol (or its tribe) knows, for the build tab
+  P.buildable = function () {
+    if (!S) return [];
+    var c = S.c, game = S.game, Id = I(), out = [];
+    Id.LIST.forEach(function (d) {
+      if (d.kind !== "build" || !d.build || d.build === "spire" || d.build === "grave") return;
+      var known = Id.known(c, d.id), tribe = !known && game.creatures.some(function (o) { return o.alive && o.species === "smol" && o.tribe === c.tribe && Id.known(o, d.id); });
+      // the first buildings come straight out of what you already know: a lean-to from lashing, a campfire from fire
+      var near = !known && Id.canHold(c, d.id) && (d.id === "leanto" ? Id.known(c, "lashing") : d.id === "campfire" ? Id.known(c, "fire") : false);
+      if (!known && !tribe && !near) return;
+      out.push({ id: d.id, kind: d.build, d: d, known: known, tribe: tribe, fresh: near, can: known || near || (tribe && c.tier >= Math.min(4, d.tier)), cost: SK[d.build].cost });
+    });
+    return out;
+  };
+  P.startBuild = function (kind) {
+    if (!S || !SK[kind]) return false;
+    var b = P.buildable().filter(function (x) { return x.kind === kind; })[0];
+    if (!b || !b.can) { say(b ? "you don't know how to build a " + SK[kind].label + " yet" : "nobody knows how to build that"); return false; }
+    if (b.fresh) { var Id = I(); if (!S.game.culture.found[b.id]) Id.discover(S.c, b.id, S.game); else Id.learn(S.c, b.id, 1, S.game, "figured out"); }
+    S.ghost = { kind: kind, rot: S.yaw + Math.PI, x: S.c.x, z: S.c.z, ok: false };
+    updateGhost();
+    if (H()) H().closeBag();
+    say(H() && H().phone() ? "aim where it goes, then tap “place”" : "aim where it goes · right click places it · R turns it · Esc cancels");
+    return true;
+  };
+  P.cancelBuild = function () { if (!S) return; S.ghost = null; if (SB.Render) SB.Render.ghost = null; };
+  P.rotateGhost = function () { if (S && S.ghost) { S.ghost.rot += Math.PI / 4; updateGhost(); } };
+  function updateGhost() {
+    var g = S.ghost, c = S.c, game = S.game, def = SK[g.kind], ag = P.aimGround(game, c, 8);
+    if (!ag) { g.ok = false; return; }
+    var dx = ag.x - c.x, dz = ag.z - c.z, d = Math.hypot(dx, dz) || 1, minD = def.r + 0.9, maxD = def.r + 4.5;
+    var dd = SB.clamp(d, minD, maxD);
+    g.x = c.x + dx / d * dd; g.z = c.z + dz / d * dd;
+    g.ok = Sv().canPlace(game, g.kind, g.x, g.z);
+    // a little off where you aim is fine: snap to the nearest spot that fits (so a first-timer isn't stuck on red)
+    for (var rr = 0.7; !g.ok && rr <= 2.1; rr += 0.7) for (var k = 0; k < 8 && !g.ok; k++) {
+      var a = k * Math.PI / 4, tx = g.x + Math.sin(a) * rr, tz = g.z + Math.cos(a) * rr;
+      if (SB.dist(tx, tz, c.x, c.z) < def.r + 0.6) continue;
+      if (Sv().canPlace(game, g.kind, tx, tz)) { g.x = tx; g.z = tz; g.ok = true; }
+    }
+    g.why = g.ok ? "" : SB.World.depthAt(game.world, g.x, g.z) > 0.02 ? "not in the water" : "no room: it needs flat, open ground";
+  }
+  function placeGhost() {
+    var g = S.ghost, c = S.c, game = S.game;
+    updateGhost();
+    if (!g.ok) { say(g.why); return false; }
+    var st = Sv().place(c, game, g.kind, g.x, g.z, g.rot);
+    if (!st) { say("can't build there"); return false; }
+    S.ghost = null; if (SB.Render) SB.Render.ghost = null;
+    audio("build");
+    // bring it what you're carrying straight away if you can
+    var got = Sv().canDeliver(c, st) ? Sv().deliver(c, game, st) : [];
+    var need = Sv().needs(st);
+    say("a " + SK[st.kind].label + " site! " + (need.length ? "it needs " + need.map(function (x) { return x.n + " " + kl(x.k); }).join(", ") : "now build it: hold left click on it"));
+    void got;
+    return st;
+  }
+  P.placeGhost = function () { return S && S.ghost ? placeGhost() : null; };
 
   // the bridge between the two games: the smol's brain watches what you chose and learns to choose it too
   function learn(game, c, verb, r) {
@@ -396,7 +841,7 @@
     var home = SB.Society ? SB.Society.home(game, c.tribe) : w.T.spawn;
     var knows = !!(r && I() && I().knowsUse && I().knowsUse(c, r.noun, r.kind, game));
     B.input(b, {
-      drives: drv, noun: noun, heardVerb: -1, heardName: false, near: near, holding: c.holding != null, dark: w.night,
+      drives: drv, noun: noun, heardVerb: -1, heardName: false, near: near, holding: !!Sv().heldKind(c), dark: w.night,
       knows: knows, friends: friends, rain: w.weather.rain > 0.3, home: SB.dist(c.x, c.z, home.x, home.z) < 7
     });
     B.imitate(b, b.x, verb, P.LEARN_RATE);
@@ -410,59 +855,119 @@
       t.x.set(b.x); t.a = verb; t.e = 1;
       b.lastVerb = verb;
     }
-    S.lessons++;
-    S.verbs[verb] = (S.verbs[verb] || 0) + 1;
+    if (S) { S.lessons++; S.verbs[verb] = (S.verbs[verb] || 0) + 1; }
   }
   P._learn = learn;
 
-  /* ---------------- making things ---------------- */
-
-  // what you could make or build right now, with what's missing
-  P.recipes = function (game, c) {
-    var Id = I(), out = [];
-    if (!Id || c.tier < 2) return out;
-    Id.LIST.forEach(function (d) {
-      if (!Id.known(c, d.id)) return;
-      if (d.kind === "craft" && d.make) {
-        var miss = Id.missingFor(c, d, game), st = d.make.at ? Id.stationFor(c, d.make.at, game) : { self: true };
-        var near = st && (st.self || (st.fire && SB.dist(st.fire.x, st.fire.z, c.x, c.z) < 3) || (st.struct && SB.dist(st.struct.x, st.struct.z, c.x, c.z) < 3.5));
-        out.push({ id: d.id, d: d, kind: "craft", miss: miss, ok: !miss.length && !!near, why: miss.length ? "need " + miss.map(function (m) { return m.n + " " + m.want; }).join(", ") : !near ? "do it at a " + d.make.at : "" });
-      } else if (d.kind === "build" && d.build) {
-        out.push({ id: d.id, d: d, kind: "build", ok: true, why: "costs " + Object.keys(SK[d.build].cost).map(function (k) { return SK[d.build].cost[k] + " " + k; }).join(", ") });
-      }
-    });
-    return out;
+  /* ---------------- the first-time quest ---------------- */
+  // stick → vine → rock → rock-on-a-stick → chop a tree → a campfire (→ a lean-to, if you like).
+  // skippable, and remembered (per browser and per island) once done
+  var QKEY = "smolbrains-firsttool";
+  P.QUEST = [
+    { id: "stick", text: "pick up a stick", tip: "sticks lie under trees. look at one and press F (or snap one off a tree)" },
+    { id: "vine", text: "find a vine", tip: "vines hang off cliffs, rocks and riverbanks. follow the green marker, then F" },
+    { id: "rock", text: "grab a rock", tip: "loose rocks lie about, or prise one off a boulder with F" },
+    { id: "craft", text: "make a rock-on-a-stick", tip: "open your bag (Tab), put the stick, vine and rock together, press combine" },
+    { id: "chop", text: "chop down a tree", tip: "hold your new tool (1–9) and left click a tree until it falls" },
+    { id: "fire", text: "build a campfire", tip: "open your plans (B), pick the campfire, place it, bring it sticks and rocks" },
+    { id: "leanto", text: "build a lean-to (optional)", tip: "in your plans now: sticks, leaves and a vine. sleep under it tonight", optional: true }
+  ];
+  function questStore() { try { return localStorage.getItem(QKEY); } catch (e) { return null; } }
+  function questStart() {
+    var game = S.game, c = S.c, st = game.settings || (game.settings = {});
+    var done = st.povQuest === "done" || st.povQuest === "skipped" || questStore() === "done";
+    S.quest = null;
+    if (done || c.tier < 2) return;
+    S.quest = { i: 0, started: game.time, flags: {} };
+    questTick();
+  }
+  P.quest = function () { return S && S.quest; };
+  P.questStep = function () { return S && S.quest ? P.QUEST[S.quest.i] : null; };
+  P.skipQuest = function () {
+    if (!S || !S.quest) return;
+    S.quest = null;
+    (S.game.settings || (S.game.settings = {})).povQuest = "skipped";
+    try { localStorage.setItem(QKEY, "done"); } catch (e) {}
+    if (H()) H().quest();
   };
-  P.make = function (id) {
-    if (!S) return false;
-    var c = S.c, game = S.game, Id = I(), d = Id.BY_ID[id];
-    if (!d) return false;
-    if (d.kind === "craft") {
-      var it = Id.craft(c, id, game);
-      if (!it) { say("missing something for the " + d.name); return false; }
-      learn(game, c, V.make, null);
-      SB.Creature.emote(c, "proud", 1.5);
-      if (SB.Audio && SB.Audio.play) SB.Audio.play("craft");
-      say("made a " + (K[it.kind] ? K[it.kind].label : d.name) + "!");
-      return true;
+  function questTick() {
+    var q = S && S.quest;
+    if (!q) return;
+    var c = S.c, game = S.game, Surv = Sv(), Id = I(), made = Id.known(c, "lashing") || q.flags.craft;
+    var step = P.QUEST[q.i], ok = false;
+    switch (step.id) {
+      case "stick": ok = Surv.count(c, "stick", true) > 0 || made; break;
+      case "vine": ok = Surv.count(c, "vine", true) > 0 || made; break;
+      case "rock": ok = Surv.count(c, "stone", true) > 0 || made; break;
+      case "craft": ok = Surv.count(c, "primtool", true) > 0 || Surv.count(c, "stoneaxe", true) > 0 || q.flags.craft; break;
+      case "chop": ok = !!q.flags.chop; break;
+      case "fire": ok = !!q.flags.fire; break;
+      case "leanto": ok = !!q.flags.leanto; break;
     }
-    // building: lay out the site right in front of you, then bring it materials
-    var r = SK[d.build].r, a = S.yaw, x = c.x - Math.sin(a) * (r + 1.2), z = c.z - Math.cos(a) * (r + 1.2);
-    if (!SB.World.siteFree(game.world, x, z, r)) { say("no room for a " + d.name + " there"); return false; }
-    var st = SB.World.addStructure(game.world, game, d.build, x, z, { tribe: c.tribe, rot: a });
-    st.founder = c.name;
-    SB.bus.emit("siteStarted", { c: c, st: st });
-    learn(game, c, V.build, null);
-    say("a " + d.name + " site: bring it " + Object.keys(st.need).map(function (k) { return st.need[k] + " " + k; }).join(", "));
+    if (ok) {
+      q.i++;
+      audio("chime");
+      if (q.i >= P.QUEST.length) { questDone(); return; }
+      if (P.QUEST[q.i].id === "leanto" && !Id.known(c, "leanto") && !Id.canHold(c, "leanto")) { questDone(); return; }
+      if (H()) H().questStep(P.QUEST[q.i - 1], P.QUEST[q.i]);
+      questTick();
+      return;
+    }
+    // the campfire step changes if the tribe can't make fire yet: rub sticks on leaves first
+    q.fireFirst = step.id === "fire" && !Id.known(c, "campfire");
+    q.target = questTarget(step.id);
+  }
+  function questDone() {
+    var game = S.game;
+    (game.settings || (game.settings = {})).povQuest = "done";
+    try { localStorage.setItem(QKEY, "done"); } catch (e) {}
+    S.quest = null;
+    say("🏕 you made it from a stick to a fire. the island is yours to figure out now");
+    SB.bus.emit("povQuestDone", { c: S.c });
+    if (H()) H().quest();
+  }
+  P.questText = function () {
+    var q = S && S.quest;
+    if (!q) return null;
+    var st = P.QUEST[q.i];
+    if (st.id === "fire" && q.fireFirst) return { text: "make fire", tip: "you need fire first: in your bag, put 2 sticks and some leaves together (leaves come from a felled tree)" };
     return st;
   };
+  // the thing the green marker points at
+  function questTarget(id) {
+    var c = S.c, w = S.game.world, R2 = 40;
+    function node(fn) { return SB.World.nearestNode(w, c.x, c.z, R2, fn); }
+    function item(kind) { return SB.World.nearestItem(w, c.x, c.z, 25, function (o) { return o.kind === kind && o.heldBy == null; }); }
+    var t = null;
+    if (id === "stick") t = item("stick") || node(function (n) { return n.state === "ok" && Sv().isTree(n) && n.kind !== "shroomtree"; });
+    else if (id === "vine") t = node(function (n) { return n.kind === "vines" && n.state === "ok"; }) || SB.World.nearestNode(w, c.x, c.z, 120, function (n) { return n.kind === "vines" && n.state === "ok"; });
+    else if (id === "rock") t = item("stone") || node(function (n) { return (n.kind === "boulder" || n.kind === "redrock") && n.state === "ok"; });
+    else if (id === "chop") t = node(function (n) { return n.state === "ok" && Sv().isTree(n) && n.kind !== "giant" && n.kind !== "shroomtree"; });
+    return t ? { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + (t.type === "node" && t.kind !== "vines" && Sv().isTree(t) ? 2.4 : 1.1) } : null;
+  }
+  var qHooked = false;
+  function hookQuest() {
+    if (qHooked || !SB.bus) return;
+    qHooked = true;
+    SB.bus.on("chop", function (d) {
+      if (!S || d.c !== S.c) return;
+      felledHook(d.node);
+      if (S.quest) { S.quest.flags.chop = 1; questTick(); }
+    });
+    SB.bus.on("craft", function (d) { if (S && S.quest && d.c === S.c && (d.id === "lashing" || d.id === "hafting")) { S.quest.flags.craft = 1; questTick(); } });
+    SB.bus.on("built", function (d) {
+      if (!S || !S.quest || !d.st || !d.st.done) return;
+      var mine = (d.st.builders || []).indexOf(S.c.id) >= 0 || d.st.founder === S.c.name;
+      if (!mine) return;
+      if (d.st.kind === "campfire") S.quest.flags.fire = 1;
+      if (d.st.kind === "leanto") S.quest.flags.leanto = 1;
+      questTick();
+    });
+  }
+  hookQuest();
 
   /* ---------------- the camera (each rendered frame) ---------------- */
 
-  function eyeY(c) {
-    var r = SB.Creature.radius(c);
-    return c.y + r * (c.look && c.look.legs ? 2.1 + c.look.legLen * 0.9 : 1.7) + 0.05;
-  }
   var hooked = false;
   function hookRender() {
     if (hooked || !SB.Render || !SB.Render.addHook) return;
@@ -483,428 +988,55 @@
     var eyeH = eyeY(c) - c.y;
     if (c.asleep) eyeH *= 0.45;
     cm.pov.x = x; cm.pov.z = z; cm.pov.y = y + eyeH + Math.abs(bob);
-    cm.pov.yaw = S.yaw + Math.sin(S.bob * Math.PI * 0.5) * 0.006 * S.bobK; cm.pov.pitch = S.pitch + (c.asleep ? -0.25 : 0);
+    // a hit lands with a tiny kick of the view; being hurt shakes it
+    var kick = S.swing > 0.6 ? (S.swing - 0.6) * 0.02 : 0, hurt = S.hurtT > 0 ? Math.sin(S.t * 60) * S.hurtT * 0.012 : 0;
+    cm.pov.yaw = S.yaw + Math.sin(S.bob * Math.PI * 0.5) * 0.006 * S.bobK + hurt; cm.pov.pitch = S.pitch + (c.asleep ? -0.25 : 0) - kick;
     if (c.drownT > 0) cm.pov.y = Math.max(SB.World.groundY(S.game.world, x, z) + 0.05, cm.pov.y - 0.15);
-    if ((S.hudT -= dt) <= 0) { S.hudT = 0.1; if (hud) updateHud(); }
-    if (hud) { if (S.mdx || S.mdy) { look(S.mdx, S.mdy); S.mdx = S.mdy = 0; } keyLook(dt); paws(dt); }
-    readKeys();
+    // what's under the crosshair, the ground point, and the building ghost
+    if (!S.dead) {
+      S.aim = P.aimGround(S.game, c);
+      S.target = P.look(S.game, c);
+      S.opts = P.options(S.game, c, S.target);
+      if (S.ghost) {
+        updateGhost();
+        var g = S.ghost, def = SK[g.kind], gy = SB.World.groundY(S.game.world, g.x, g.z);
+        var m = new Float32Array(12);
+        SB.Render.trs(m, 0, g.x, gy, g.z, g.rot, 1, 1, 1);
+        SB.Render.ghost = { key: "s:" + g.kind, m: m, col: g.ok ? [0.45, 1, 0.5] : [1, 0.32, 0.3] };
+        void def;
+      } else SB.Render.ghost = null;
+    }
+    if (H()) H().frame(dt);
   }
-
-  function look(dx, dy) {
-    if (!S) return;
-    S.yaw -= dx * 0.0032;
-    S.pitch = SB.clamp(S.pitch - dy * 0.0032, -1.25, 1.2);
-  }
-  P.look2 = look;
-  // point the eyes somewhere (screenshots, tests): yaw 0 faces north (-z)
   P.view = function (yaw, pitch) { if (!S) return; if (yaw != null) S.yaw = yaw; if (pitch != null) S.pitch = pitch; };
   P.faceTo = function (x, z, pitch) { if (!S) return; S.yaw = Math.atan2(-(x - S.c.x), -(z - S.c.z)); if (pitch != null) S.pitch = pitch; };
+  P.look2 = function (dx, dy) { if (!S) return; S.yaw -= dx * 0.0032; S.pitch = SB.clamp(S.pitch - dy * 0.0032, -1.25, 1.2); };
 
   /* ---------------- the body dies ---------------- */
   var busHooked = false;
+  P.CAUSE = { starved: "starved", sick: "got too sick", hurt: "was hurt too badly", old: "grew old", cold: "froze to death", drowned: "drowned" };
+  P.CAUSE_WHY = {
+    starved: "the food row ran out. eat before it's empty: hold food and right click (the place button on a phone), or nibble a bush",
+    sick: "something bad got eaten, or a cut went bad. healroot cures it; cook meat and fish",
+    hurt: "too many hits. grumps hunt at night: stay near a fire or under a roof",
+    old: "every smol's life runs out in the end",
+    cold: "the warmth row ran out. a fire, a hut or a lean-to keeps the cold off",
+    drowned: "deep water. smols without fins can't swim"
+  };
   function hookBus() {
     if (busHooked || !SB.bus) return;
     busHooked = true;
     SB.bus.on("death", function (d) {
       if (!S || !d || d.c !== S.c || S.dead) return;
       S.dead = true;
-      var why = { starved: "starved", sick: "got too sick", hurt: "was hurt too badly", old: "grew old", cold: "froze", drowned: "drowned" }[d.cause] || "died";
-      SB.bus.emit("possessedDeath", { c: d.c, cause: d.cause });
-      if (!hud) { P.leave("died"); return; }
-      deathScreen(d.c, why);
+      if (SB.Render) SB.Render.ghost = null;
+      var lost = Sv().onDeath(d.c, S.game);
+      var info = { c: d.c, cause: d.cause, why: P.CAUSE[d.cause] || "died", tip: P.CAUSE_WHY[d.cause] || "", items: lost.items.filter(function (x) { return x.k !== "plans"; }), ideas: lost.ideas, age: d.c.age, lessons: S.lessons, time: S.game.time - S.born };
+      S.death = info;
+      SB.bus.emit("possessedDeath", { c: d.c, cause: d.cause, info: info });
+      if (!H()) { P.leave("died"); return; }
+      H().death(info);
     });
-  }
-
-  /* ---------------- the survival HUD ---------------- */
-
-  var hud = null, keys = {};
-  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-  var CSS = [
-    "body.pov #ui{display:none!important}",
-    // the frame language: square pixel panels with a dark outline, a light inner rim and a hard drop shadow
-    "#pov{position:fixed;inset:0;z-index:40;pointer-events:none;font:600 14px var(--sans);color:#f5f3ed;user-select:none;-webkit-user-select:none;touch-action:none;--px:#1a1222;--rim:rgba(245,243,237,.22)}",
-    "#pov .glassy,#pov .panel{background:rgba(22,18,34,.78);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--rim),4px 4px 0 2px rgba(0,0,0,.35);border-radius:0}",
-    "#pov .scan{position:absolute;inset:0;background:repeating-linear-gradient(rgba(0,0,0,.07) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}",
-    // crosshair: four corner brackets that close in and go lime on a target
-    "#pov .cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;transition:width .12s,height .12s,margin .12s}",
-    "#pov .cross i{position:absolute;width:7px;height:7px;border:0 solid rgba(255,255,255,.9);filter:drop-shadow(1px 1px 0 #000)}",
-    "#pov .cross i:nth-child(1){left:0;top:0;border-width:2px 0 0 2px}#pov .cross i:nth-child(2){right:0;top:0;border-width:2px 2px 0 0}",
-    "#pov .cross i:nth-child(3){left:0;bottom:0;border-width:0 0 2px 2px}#pov .cross i:nth-child(4){right:0;bottom:0;border-width:0 2px 2px 0}",
-    "#pov .cross b{position:absolute;left:50%;top:50%;width:2px;height:2px;margin:-1px;background:#fff;box-shadow:1px 1px 0 #000}",
-    "#pov .cross.on{width:38px;height:38px;margin:-19px 0 0 -19px}#pov .cross.on i{border-color:#c5ff49}#pov .cross.on b{background:#c5ff49}",
-    "#pov .tname{position:absolute;left:50%;top:calc(50% - 46px);transform:translateX(-50%);font:700 15px var(--mono);color:#c5ff49;text-shadow:2px 2px 0 #000;white-space:nowrap}",
-    "#pov .prompt{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);padding:7px 12px;white-space:nowrap;text-align:center;line-height:1.6;font-size:14px}",
-    "#pov .prompt:empty{display:none}",
-    "#pov kbd{display:inline-block;min-width:20px;padding:1px 5px;margin-right:5px;font:700 13px var(--mono);text-align:center;color:#101114;background:#f5f3ed;box-shadow:0 0 0 2px var(--px),0 3px 0 2px var(--px)}",
-    "#pov kbd.g{background:#c5ff49}",
-    // compass strip with ticks
-    "#pov .compass{position:absolute;left:50%;top:12px;width:min(440px,64vw);height:34px;transform:translateX(-50%);overflow:hidden}",
-    "#pov .compass .ticks{position:absolute;left:0;right:0;bottom:3px;height:6px;background:repeating-linear-gradient(90deg,rgba(245,243,237,.45) 0 2px,transparent 2px 15px)}",
-    "#pov .compass span{position:absolute;top:5px;transform:translateX(-50%);font:700 13px var(--mono);opacity:.75}",
-    "#pov .compass span.c{color:#c5ff49;opacity:1;font-size:16px;top:3px}",
-    "#pov .compass .mark{position:absolute;left:50%;top:-1px;width:0;height:0;margin-left:-6px;border:6px solid transparent;border-top-color:#c5ff49}",
-    "#pov .clock{position:absolute;left:50%;top:54px;transform:translateX(-50%);padding:3px 10px;font:700 13px var(--mono);white-space:nowrap}",
-    // portrait card
-    "#pov .who{position:absolute;left:14px;top:14px;padding:10px 14px 10px 12px;display:flex;gap:10px;align-items:center;max-width:44vw}",
-    "#pov .who .face{width:44px;height:44px;flex:none;display:grid;place-items:center;font-size:26px;box-shadow:0 0 0 2px var(--px),inset 0 -8px 0 rgba(0,0,0,.18)}",
-    "#pov .who .nm{font:700 18px var(--mono);line-height:1.1}#pov .who .tr{font-size:13px}#pov .who small{display:block;opacity:.7;font-weight:500;font-size:12px}",
-    "#pov .who .learn{display:inline-block;margin-top:3px;padding:1px 6px;font-size:12px;background:rgba(181,154,255,.25);box-shadow:0 0 0 1px #b59aff;color:#d9ccff}",
-    // vitals
-    "#pov .bars{position:absolute;left:14px;bottom:14px;padding:10px 12px;display:grid;grid-template-columns:22px 52px 132px 34px;gap:7px 8px;align-items:center;font-size:12px}",
-    "#pov .bars .lb{font:700 12px var(--mono);opacity:.8;text-transform:uppercase}#pov .bars .n{font:700 12px var(--mono);text-align:right}",
-    "#pov .bar{position:relative;height:12px;background:rgba(0,0,0,.45);box-shadow:0 0 0 2px var(--px)}",
-    "#pov .bar i{display:block;height:100%;transition:width .3s;box-shadow:inset 0 3px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.2)}",
-    "#pov .bar:after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 11px,rgba(16,12,24,.85) 11px 13px)}",
-    "#pov .bar.low i{animation:povblink .7s steps(2) infinite}@keyframes povblink{50%{opacity:.3}}",
-    // hotbar
-    "#pov .held{position:absolute;right:14px;bottom:14px;padding:8px;display:flex;gap:8px}",
-    "#pov .slot{position:relative;width:54px;height:54px;display:grid;place-items:center;font-size:28px;background:rgba(0,0,0,.35);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px rgba(255,255,255,.08)}",
-    "#pov .slot.on{box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px #c5ff49}#pov .slot small{position:absolute;left:3px;top:1px;font:700 10px var(--mono);opacity:.7}",
-    "#pov .slot em{position:absolute;right:3px;bottom:1px;font:700 11px var(--mono);font-style:normal}#pov .slot .pxi{width:32px;height:32px}",
-    "#pov .leave{position:absolute;right:14px;top:14px;pointer-events:auto;font:700 15px var(--mono);padding:10px 14px;background:rgba(22,18,34,.85);color:#c5ff49;cursor:pointer;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px #c5ff49,4px 4px 0 2px rgba(0,0,0,.35)}",
-    "#pov .leave:hover{background:#c5ff49;color:#101114}#pov .leave kbd{margin:0 0 0 6px}",
-    "#pov .paws{position:absolute;left:50%;bottom:-30px;width:300px;height:120px;transform:translateX(-50%)}",
-    "#pov .paw{position:absolute;bottom:0;width:78px;height:96px;border-radius:44% 44% 30% 30%;box-shadow:inset -10px -8px 0 rgba(0,0,0,.18),0 0 0 3px rgba(20,16,30,.55)}",
-    "#pov .paw.l{left:10px;transform:rotate(14deg)}#pov .paw.r{right:10px;transform:rotate(-14deg)}",
-    "#pov .paws .item{position:absolute;right:30px;bottom:72px;font-size:42px;filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}#pov .paws .item .pxi{width:44px;height:44px}",
-    "#pov .toast{position:absolute;left:50%;top:92px;transform:translateX(-50%);padding:7px 14px;opacity:0;transition:opacity .3s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}#pov .toast.on{opacity:1}",
-    "#pov .warn{position:absolute;inset:0;box-shadow:inset 0 0 120px rgba(255,40,60,.0);transition:box-shadow .5s}#pov .warn.on{box-shadow:inset 0 0 140px rgba(255,40,60,.45)}",
-    "#pov .intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,18,.6);transition:opacity 1.2s;text-align:center;gap:10px}",
-    "#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 34px var(--mono);color:#c5ff49;text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:520px;padding:0 16px;line-height:1.7}",
-    "#pov .death{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(20,6,12,.82);pointer-events:auto;text-align:center}",
-    "#pov .death h2{margin:0;font:700 34px var(--mono)}#pov .death button,#pov .menu button{font:700 15px var(--mono);padding:10px 16px;border:0;border-radius:0;background:#c5ff49;color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
-    "#pov .menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:16px;width:min(440px,92vw);max-height:70vh;overflow:auto;pointer-events:auto;background:rgba(22,18,34,.96);z-index:2}",
-    "#pov .menu h3{margin:0 0 8px;font:700 20px var(--mono);color:#c5ff49}#pov .menu .r{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:2px solid rgba(255,255,255,.08)}#pov .menu .r .t{flex:1}#pov .menu .r small{display:block;opacity:.65;font-weight:500}",
-    "#pov .menu button[disabled]{background:#444;color:#999}#pov .menu .x{background:transparent;color:#f5f3ed;box-shadow:0 0 0 2px rgba(255,255,255,.3)}",
-    "#pov .lockhint{position:absolute;left:50%;bottom:130px;transform:translateX(-50%);padding:7px 12px;font-size:13px;white-space:nowrap}",
-    // phone controls
-    "#pov .touch{display:none}#pov.phone .touch{display:block}#pov.phone .lockhint{display:none}#pov.phone .paws{bottom:-50px;width:240px}",
-    "#pov .stickzone{position:absolute;left:0;bottom:0;width:45vw;height:55vh;pointer-events:auto}",
-    "#pov .lookzone{position:absolute;right:0;top:70px;width:55vw;bottom:0;pointer-events:auto}",
-    "#pov .stick{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(16,17,20,.3);left:90px;bottom:auto;top:calc(100% - 110px)}",
-    "#pov .stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(245,243,237,.75)}",
-    "#pov .btns{position:absolute;right:14px;bottom:18px;display:grid;grid-template-columns:repeat(3,64px);gap:10px;pointer-events:auto}",
-    "#pov .btns button{width:64px;height:64px;border-radius:0;background:rgba(22,18,34,.75);color:#f5f3ed;font:700 13px var(--mono);line-height:1.1;padding:0;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--rim)}",
-    "#pov .btns button.big{background:#c5ff49;color:#101114}#pov .btns button.on{color:#c5ff49;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px #c5ff49}",
-    "#pov.phone .toast{top:auto;bottom:250px;white-space:normal;text-align:center;max-width:80vw}",
-    "#pov.phone .bars{bottom:auto;top:126px;left:8px;transform:scale(.8);transform-origin:left top}#pov.phone .held{display:none}#pov.phone .who{display:none}",
-    "@media (max-width:640px){#pov .compass{top:62px}#pov .clock{top:102px}#pov .leave{font-size:13px;padding:9px 11px}}"
-  ].join("\n");
-
-  function phone() { try { return ("ontouchstart" in window) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (e) { return false; } }
-
-  function buildHud() {
-    removeHud();
-    if (!document.getElementById("pov-css")) { var st = el("style"); st.id = "pov-css"; st.textContent = CSS; document.head.appendChild(st); }
-    var c = S.c, root = el("div", P.forcePhone || phone() ? "phone" : "");
-    root.id = "pov";
-    hud = { root: root };
-    hud.warn = root.appendChild(el("div", "warn"));
-    hud.paws = root.appendChild(el("div", "paws"));
-    var hue = c.look && c.look.hue != null ? c.look.hue : 40, col = "hsl(" + hue + ",55%," + (52 + (c.look.light || 0) * 0.2) + "%)";
-    hud.pawL = hud.paws.appendChild(el("div", "paw l")); hud.pawR = hud.paws.appendChild(el("div", "paw r"));
-    hud.pawL.style.background = hud.pawR.style.background = col;
-    hud.item = hud.paws.appendChild(el("div", "item"));
-    hud.scan = root.appendChild(el("div", "scan"));
-    hud.cross = root.appendChild(el("div", "cross", "<i></i><i></i><i></i><i></i><b></b>"));
-    hud.tname = root.appendChild(el("div", "tname"));
-    hud.prompt = root.appendChild(el("div", "prompt panel"));
-    hud.compass = root.appendChild(el("div", "compass panel"));
-    hud.clock = root.appendChild(el("div", "clock panel"));
-    hud.who = root.appendChild(el("div", "who glassy"));
-    hud.bars = root.appendChild(el("div", "bars glassy"));
-    hud.bar = {};
-    [["food", "🍎", "food"], ["health", "❤️", "life"], ["warm", "🔥", "warm"], ["energy", "⚡", "pep"]].forEach(function (b) {
-      var icon = hud.bars.appendChild(el("span", null, b[1]));
-      hud.bars.appendChild(el("span", "lb", b[2]));
-      var bar = hud.bars.appendChild(el("div", "bar")), fill = bar.appendChild(el("i")), n = hud.bars.appendChild(el("span", "n"));
-      hud.bar[b[0]] = { bar: bar, fill: fill, icon: icon, n: n };
-    });
-    hud.held = root.appendChild(el("div", "held panel"));
-    hud.toast = root.appendChild(el("div", "toast glassy"));
-    hud.lockhint = root.appendChild(el("div", "lockhint panel", "<kbd class='g'>click</kbd>look around &nbsp; <kbd>WASD</kbd>walk &nbsp; <kbd>←→</kbd>turn &nbsp; <kbd>E</kbd><kbd>F</kbd><kbd>R</kbd>act &nbsp; <kbd>C</kbd>make &nbsp; <kbd>Esc</kbd>leave"));
-    var leave = root.appendChild(el("button", "leave", "⬆ leave body" + (P.forcePhone || phone() ? "" : "<kbd>Esc</kbd>")));
-    leave.title = "back to god view (Esc)";
-    leave.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
-    leave.addEventListener("click", function (e) { e.stopPropagation(); P.leave(); });
-    // phone: joystick on the left, drag to look on the right, big buttons
-    var tz = root.appendChild(el("div", "touch"));
-    hud.stickZone = tz.appendChild(el("div", "stickzone"));
-    hud.stick = hud.stickZone.appendChild(el("div", "stick")); hud.knob = hud.stick.appendChild(el("i"));
-    hud.lookZone = tz.appendChild(el("div", "lookzone"));
-    var btns = tz.appendChild(el("div", "btns"));
-    function btn(txt, cls, fn, hold) {
-      var b = btns.appendChild(el("button", cls || "", txt));
-      b.addEventListener("pointerdown", function (e) { e.preventDefault(); e.stopPropagation(); fn(true, b); });
-      if (hold) { b.addEventListener("pointerup", function (e) { e.preventDefault(); fn(false, b); }); b.addEventListener("pointercancel", function () { fn(false, b); }); }
-      return b;
-    }
-    btn("make", "", function () { toggleMenu(); });
-    hud.btnAlt = btn("F<br><small>alt</small>", "", function () { P.interact("alt"); });
-    hud.btnAct = btn("E<br><small>act</small>", "big", function () { P.interact("main"); });
-    btn("drop", "", function () { drop(); });
-    hud.btnRun = btn("run", "", function (on, b) { P.input.run = !P.input.run; b.classList.toggle("on", P.input.run); });
-    btn("hop", "", function () { P.input.jump = true; });
-    hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. find food, keep warm, sleep somewhere safe before the grumps come out.</p><p style='opacity:.6;font-size:12px'>" + (root.classList.contains("phone") ? "left thumb walks · drag right side to look · E acts on what you're looking at" : "WASD walk · mouse looks · space hops · shift runs · E / F act · R hits · Q drops · Z sleeps · C makes things · Esc leaves") + "</p>"));
-    setTimeout(function () { if (hud && hud.intro) { hud.intro.classList.add("out"); setTimeout(function () { if (hud && hud.intro) { hud.intro.remove(); hud.intro = null; } }, 1300); } }, 2600);
-    document.body.appendChild(root);
-    document.body.classList.add("pov");
-    bindInputs();
-    updateHud();
-  }
-  function removeHud() {
-    unbindInputs();
-    if (typeof document !== "undefined" && document.body && document.body.classList) document.body.classList.remove("pov");
-    if (hud && hud.root) hud.root.remove();
-    hud = null; keys = {};
-  }
-  // a close-up of the smol's own pixel head (painted only when its face, tier, stage or sleep changes)
-  function portrait(c) {
-    if (!SB.Pixel || !SB.Pixel.paint || typeof document === "undefined" || !document.createElement) return null;
-    try {
-      var sh = SB.Pixel.paint(c), fr = sh.frames[c.asleep ? SB.Pixel.FR.sleep : SB.Pixel.FR.idle0], hd = sh.head || { x: 16, y: 14, r: 5 };
-      var n = 18, x0 = Math.max(0, Math.min(32 - n, Math.round(hd.x - n / 2))), y0 = Math.max(0, Math.min(32 - n, Math.round(hd.y - n / 2 + 1)));
-      var cv = document.createElement("canvas"); cv.width = cv.height = n;
-      var x = cv.getContext("2d"), img = x.createImageData(n, n);
-      for (var y = 0; y < n; y++) img.data.set(fr.d.subarray(((y0 + y) * 32 + x0) * 4, ((y0 + y) * 32 + x0 + n) * 4), y * n * 4);
-      x.putImageData(img, 0, 0);
-      cv.style.cssText = "width:40px;height:40px;image-rendering:pixelated";
-      return cv;
-    } catch (e) { return null; }
-  }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]; }); }
-
-  var toastT = null;
-  function say(msg) {
-    if (!hud) return;
-    hud.toast.textContent = msg; hud.toast.classList.add("on");
-    clearTimeout(toastT); toastT = setTimeout(function () { if (hud) hud.toast.classList.remove("on"); }, 2600);
-  }
-  P.say = say;
-
-  function pct(v) { return Math.round(SB.clamp01(v) * 100) + "%"; }
-  function setBar(b, v, colA, colB) {
-    var x = hud.bar[b]; x.fill.style.width = pct(v); x.n.textContent = Math.round(SB.clamp01(v) * 100); x.fill.style.background = v < 0.3 ? colB : colA; x.bar.classList.toggle("low", v < 0.2);
-  }
-  var DIRS = [["N", 0], ["NE", 45], ["E", 90], ["SE", 135], ["S", 180], ["SW", 225], ["W", 270], ["NW", 315]];
-  function updateHud() {
-    var c = S.c, game = S.game, w = game.world, ch = c.chem, Id = I();
-    // bars: full is good
-    setBar("food", 1 - ch.hunger, "#ffb347", "#ff5d5d");
-    setBar("health", ch.health, "#ff6b8b", "#ff3b3b");
-    var cold = ch.cold || 0, hot = ch.hot || 0;
-    setBar("warm", 1 - Math.max(cold, hot), hot > cold ? "#ffd166" : "#8fd3ff", hot > cold ? "#ff8c42" : "#5d9bff");
-    hud.bar.warm.icon.textContent = cold > 0.35 ? "🥶" : hot > 0.35 ? "🥵" : "🔥";
-    setBar("energy", 1 - Math.max(ch.tired || 0, (ch.sleepy || 0) * 0.9), "#c5ff49", "#b59aff");
-    // who you are
-    var tier = SB.TIERS[c.tier];
-    // the portrait is your own sprite's face, with the same expression the others see (tribe and on: your
-    // mood, held steady; earlier tiers: the cute smile), and the emoji is its tooltip
-    var pface = SB.Pixel && SB.Pixel.faceOf ? SB.Pixel.faceOf(c) : "";
-    var face = c.tier >= 3 && c.anim && c.anim.face ? (SB.Chem.FACE_EMOJI || {})[c.anim.face] || "🙂" : (SB.Chem.MOOD_EMOJI || {})[SB.Chem.mood(c.chem)] || "🙂";
-    var wkey = c.name + tier.name + c.stage + !!c.asleep + S.lessons + face + pface;
-    if (hud.whoKey !== wkey) {
-      hud.whoKey = wkey;
-      var pic = portrait(c);
-      hud.who.innerHTML = "<div class='face' title='" + face + "' style='background:" + (hud.pawL.style.background || "#c99") + "'>" + (pic ? "" : face) + "</div><div><div class='nm'>" + esc(c.name) + "</div><div class='tr' style='color:" + tier.color + "'>" + tier.icon + " " + tier.name + "</div><small>" + SB.STAGES[c.stage].name + (c.asleep ? " · asleep, move to wake" : "") + "</small>" + (S.lessons ? "<span class='learn'>🧠 " + S.lessons + " learned from you</span>" : "") + "</div>";
-      var fbox = pic && hud.who.querySelector && hud.who.querySelector(".face"); if (fbox) fbox.appendChild(pic);
-    }
-    // what's in your paws
-    var hk = heldKind(c, game), tk = toolKind(c, game), bag = (c.bag || []).map(function (id) { var o = SB.Game.byId(game, id); return o && K[o.kind] ? K[o.kind].emoji : ""; }).join("");
-    hud.item.textContent = hk && K[hk] ? K[hk].emoji : "";
-    var bagN = (c.bag || []).length, hkey = hk + "|" + tk + "|" + bag;
-    if (hud.heldKey !== hkey) {
-      hud.heldKey = hkey;
-      var slot = function (lbl, k, on, extra) { return "<div class='slot" + (on ? " on" : "") + "' title='" + (k && K[k] ? esc(K[k].label) : "") + "'><small>" + lbl + "</small>" + (k && K[k] ? K[k].emoji : "") + (extra || "") + "</div>"; };
-      hud.held.innerHTML = slot("paws", hk, !!hk) + slot("tool", tk, !!tk) + "<div class='slot'><small>bag</small>" + (bag ? bag.slice(0, 2) : "") + (bagN ? "<em>" + bagN + "</em>" : "") + "</div>";
-    }
-    // time of day and compass
-    var tday = (w.time / SB.DAY_LENGTH) % 1, hh = Math.floor(tday * 24), mm = Math.floor((tday * 24 - hh) * 60);
-    var part = w.night ? "night 🌙" : tday < 0.27 ? "dawn 🌅" : tday < 0.45 ? "morning ☀️" : tday < 0.58 ? "midday ☀️" : tday < 0.74 ? "afternoon 🌤" : "dusk 🌇";
-    var wx = w.weather.rain > 0.3 ? (w.weather.snow || SB.World.tempAt(w, c.x, c.z) < 0.25 ? " · snowing ❄️" : " · raining 🌧") : w.weather.wind > 0.7 ? " · windy 💨" : "";
-    var pf = SB.Render && SB.Render.perf;
-    hud.clock.textContent = ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2) + " · " + part + wx + (pf && pf.show && pf.ft ? " · " + Math.round(1000 / pf.ft) + " fps" : "");
-    var head = ((-S.yaw * 180 / Math.PI) % 360 + 360) % 360, wpx = hud.compass.clientWidth || 300, span = 120, html = "";
-    DIRS.forEach(function (d) {
-      var off = ((d[1] - head + 540) % 360) - 180;
-      if (Math.abs(off) < span / 2) html += "<span class='" + (d[0].length === 1 ? "c" : "") + "' style='left:" + (50 + off / span * 100) + "%'>" + d[0] + "</span>";
-    });
-    var home = SB.Society ? SB.Society.home(game, c.tribe) : w.T.spawn;
-    if (home && SB.dist(home.x, home.z, c.x, c.z) > 3) {
-      var ha = Math.atan2(home.x - c.x, -(home.z - c.z)) * 180 / Math.PI, ho = ((ha - head + 540) % 360) - 180;
-      if (Math.abs(ho) < span / 2) html += "<span style='left:" + (50 + ho / span * 100) + "%;top:2px'>🏠</span>";
-    }
-    hud.compass.innerHTML = "<div class='ticks' style='background-position:" + (-head / span * wpx).toFixed(1) + "px 0'></div><div class='mark'></div>" + html;
-    void wpx;
-    // what you're looking at
-    if (!S.dead) {
-      var t = P.look(game, c), m1 = P.verbFor(game, c, t, "main"), m2 = t ? P.verbFor(game, c, t, "alt") : null, desk = !hud.root.classList.contains("phone");
-      var parts = [];
-      if (m1) parts.push((desk && m1.verb != null ? "<kbd class='g'>E</kbd>" : "") + esc(m1.label));
-      if (m2 && m2.verb != null && !(m1 && m1.label === m2.label)) parts.push((desk ? "<kbd>F</kbd>" : "") + esc(m2.label));
-      var ph = t || (m1 && m1.tgt) ? parts.join(" &nbsp; ") : "";
-      if (hud.promptKey !== ph) { hud.promptKey = ph; hud.prompt.innerHTML = ph; }
-      var tn = t ? (t.name || (t.kind && K[t.kind] && K[t.kind].label) || (t.kind && SB.NODES && SB.NODES[t.kind] && SB.NODES[t.kind].label) || "") : "";
-      if (hud.tname.textContent !== tn) hud.tname.textContent = tn;
-      hud.cross.classList.toggle("on", !!t);
-      if (hud.btnAlt) hud.btnAlt.style.opacity = m2 && m2.verb != null ? 1 : 0.4;
-    }
-    // danger: a grump close by at night
-    var g = null, gd = 12;
-    game.creatures.forEach(function (o) { if (o.alive && o.species === "grump") { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < gd) { gd = d; g = o; } } });
-    hud.warn.classList.toggle("on", !!g || ch.health < 0.25);
-    if (g && !S.grumpWarned) { S.grumpWarned = true; say("👺 a grump! hit it with a club, run, or get near a fire"); }
-    if (!g) S.grumpWarned = false;
-    if (w.night && !S.nightWarned) { S.nightWarned = true; say("🌙 night. grumps come out: find a fire or a hut"); }
-    if (!w.night) S.nightWarned = false;
-    if (ch.hunger > 0.75 && !S.hungryWarned) { S.hungryWarned = true; say("🍎 so hungry… look for food"); }
-    if (ch.hunger < 0.6) S.hungryWarned = false;
-    hud.lockhint.style.display = locked() ? "none" : "";
-  }
-
-  var pawT = 0;
-  function paws(dt) {
-    pawT += dt;
-    var b = S.bobK || 0, s = Math.sin(S.bob * Math.PI), a = S.c.action;
-    var busy = a && a.phase === "do" && a.verb !== V.idle && a.verb !== V.sleep ? Math.abs(Math.sin(pawT * 9)) * 18 : 0;
-    hud.pawL.style.transform = "translateY(" + (s * 8 * b + busy * 0.4) + "px) rotate(14deg)";
-    hud.pawR.style.transform = "translateY(" + (-s * 8 * b - busy) + "px) rotate(-14deg)";
-    hud.paws.style.opacity = S.c.asleep ? 0.2 : 1;
-  }
-
-  function deathScreen(c, why) {
-    var d = hud.root.appendChild(el("div", "death", "<div style='font-size:48px'>🕯</div><h2>" + esc(c.name) + " " + esc(why) + "</h2><p style='opacity:.75;max-width:420px;line-height:1.6;margin:0;padding:0 16px'>you rise out of the little body and back up into the sky. the others will remember " + esc(c.name) + ".</p>"));
-    var b = d.appendChild(el("button", null, "back to the sky"));
-    var done = false, go = function () { if (done) return; done = true; P.leave("died"); };
-    b.addEventListener("click", go);
-    setTimeout(go, 7000);
-  }
-
-  /* crafting / building menu (C) */
-  function toggleMenu() {
-    if (!hud) return;
-    if (hud.menu) { hud.menu.remove(); hud.menu = null; return; }
-    var c = S.c, game = S.game, list = P.recipes(game, c);
-    if (document.exitPointerLock && locked()) try { document.exitPointerLock(); } catch (e) {}
-    var m = hud.root.appendChild(el("div", "menu glassy"));
-    hud.menu = m;
-    m.appendChild(el("h3", null, "🛠 make & build"));
-    if (c.tier < 2) m.appendChild(el("p", null, "a " + SB.TIERS[c.tier].name + " has no hands for this yet. tool-users can make things; their ideas show here."));
-    else if (!list.length) m.appendChild(el("p", null, esc(c.name) + " doesn't know how to make anything yet. ideas come from playing with things (and from your miracles, up in the sky)."));
-    list.forEach(function (r) {
-      var row = m.appendChild(el("div", "r"));
-      row.appendChild(el("div", "t", (r.d.icon || "") + " " + esc(r.d.name) + "<small>" + esc(r.why || r.d.desc || "") + "</small>"));
-      var b = row.appendChild(el("button", null, r.kind === "build" ? "place" : "make"));
-      if (!r.ok || (r.kind === "build" && c.tier < 2)) b.disabled = true;
-      b.addEventListener("click", function () { P.make(r.id); toggleMenu(); });
-    });
-    var x = m.appendChild(el("button", "x", "close (C)"));
-    x.addEventListener("click", function () { toggleMenu(); });
-  }
-  P.toggleMenu = toggleMenu;
-  function drop() { if (S && S.c.holding != null) { learn(S.game, S.c, V.drop, null); SB.Creature.startAction(S.c, S.game, V.drop, null); } }
-  function sleep() {
-    if (!S) return;
-    var c = S.c, ch = c.chem;
-    if (ch.sleepy < 0.15 && ch.tired < 0.25) { say("not sleepy"); return; }
-    learn(S.game, c, V.sleep, null);
-    SB.Creature.startAction(c, S.game, V.sleep, null);
-    say("zzz… (move to wake up)");
-  }
-
-  /* ---------------- desktop and phone controls ---------------- */
-  var bound = null;
-  function locked() { return typeof document !== "undefined" && !!document.pointerLockElement; }
-  function canvasEl() { return document.getElementById("view"); } // #overlay ignores the pointer, so the mouse lands on #view
-  function bindInputs() {
-    var cv = canvasEl(), drag = null, stick = null, lookP = null;
-    var h = {
-      keydown: function (e) {
-        if (!S) return;
-        var k = e.key.toLowerCase();
-        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
-        keys[k] = true;
-        if (k === "escape") { if (hud && hud.menu) toggleMenu(); else P.leave(); e.preventDefault(); return; }
-        if (S.dead) return;
-        if (k === " ") { P.input.jump = true; e.preventDefault(); }
-        else if (k === "e" || k === "enter") P.interact("main");
-        else if (k === "f") P.interact("alt");
-        else if (k === "r") P.interact("hit");
-        else if (k === "q") drop();
-        else if (k === "z") sleep();
-        else if (k === "c" || k === "tab") { toggleMenu(); e.preventDefault(); }
-        if (k.indexOf("arrow") === 0) e.preventDefault();
-      },
-      keyup: function (e) { keys[e.key.toLowerCase()] = false; },
-      blur: function () { keys = {}; },
-      down: function (e) {
-        if (!S || S.dead || (hud && hud.menu) || e.pointerType !== "mouse") return;
-        if (!locked() && cv.requestPointerLock && !P.noLock) { try { var pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(function () {}); } catch (er) {} }
-        if (locked()) { if (e.button === 0) P.interact("main"); else if (e.button === 2) P.interact("alt"); return; }
-        drag = { x: e.clientX, y: e.clientY, moved: 0, b: e.button };
-      },
-      move: function (e) {
-        if (!S) return;
-        if (locked()) { S.mdx = (S.mdx || 0) + (e.movementX || 0); S.mdy = (S.mdy || 0) + (e.movementY || 0); return; }
-        if (drag) { var dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); look(dx * 1.4, dy * 1.4); }
-      },
-      up: function () { if (drag && drag.moved < 6) P.interact(drag.b === 2 ? "alt" : "main"); drag = null; },
-      ctx: function (e) { if (S) e.preventDefault(); },
-      stickDown: function (e) { e.preventDefault(); stick = { id: e.pointerId, x: e.clientX, y: e.clientY }; var r = hud.stickZone.getBoundingClientRect(); hud.stick.style.left = (e.clientX - r.left) + "px"; hud.stick.style.top = (e.clientY - r.top) + "px"; try { hud.stickZone.setPointerCapture(e.pointerId); } catch (er) {} },
-      stickMove: function (e) {
-        if (!stick || e.pointerId !== stick.id) return;
-        var dx = e.clientX - stick.x, dy = e.clientY - stick.y, d = Math.hypot(dx, dy), mx = 48;
-        if (d > mx) { dx *= mx / d; dy *= mx / d; }
-        hud.knob.style.transform = "translate(" + dx + "px," + dy + "px)";
-        P.input.side = dx / mx; P.input.fwd = -dy / mx;
-        P.input.run = P.input.run || d > mx * 1.6;
-      },
-      stickUp: function (e) { if (!stick || e.pointerId !== stick.id) return; stick = null; hud.knob.style.transform = ""; P.input.side = P.input.fwd = 0; },
-      lookDown: function (e) { e.preventDefault(); lookP = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 }; try { hud.lookZone.setPointerCapture(e.pointerId); } catch (er) {} },
-      lookMove: function (e) { if (!lookP || e.pointerId !== lookP.id) return; var dx = e.clientX - lookP.x, dy = e.clientY - lookP.y; lookP.x = e.clientX; lookP.y = e.clientY; lookP.moved += Math.abs(dx) + Math.abs(dy); look(dx * 1.6, dy * 1.6); },
-      lookUp: function (e) { if (!lookP || e.pointerId !== lookP.id) return; if (lookP.moved < 8 && performance.now() - lookP.t < 300) P.interact("main"); lookP = null; },
-      lockChange: function () { if (hud) updateHud(); }
-    };
-    window.addEventListener("keydown", h.keydown);
-    window.addEventListener("keyup", h.keyup);
-    window.addEventListener("blur", h.blur);
-    if (cv) { cv.addEventListener("pointerdown", h.down); cv.addEventListener("contextmenu", h.ctx); }
-    window.addEventListener("pointermove", h.move);
-    window.addEventListener("pointerup", h.up);
-    document.addEventListener("pointerlockchange", h.lockChange);
-    hud.stickZone.addEventListener("pointerdown", h.stickDown); hud.stickZone.addEventListener("pointermove", h.stickMove);
-    hud.stickZone.addEventListener("pointerup", h.stickUp); hud.stickZone.addEventListener("pointercancel", h.stickUp);
-    hud.lookZone.addEventListener("pointerdown", h.lookDown); hud.lookZone.addEventListener("pointermove", h.lookMove);
-    hud.lookZone.addEventListener("pointerup", h.lookUp); hud.lookZone.addEventListener("pointercancel", h.lookUp);
-    bound = { h: h, cv: cv };
-  }
-  function unbindInputs() {
-    if (!bound) return;
-    var h = bound.h, cv = bound.cv;
-    window.removeEventListener("keydown", h.keydown);
-    window.removeEventListener("keyup", h.keyup);
-    window.removeEventListener("blur", h.blur);
-    if (cv) { cv.removeEventListener("pointerdown", h.down); cv.removeEventListener("contextmenu", h.ctx); }
-    window.removeEventListener("pointermove", h.move);
-    window.removeEventListener("pointerup", h.up);
-    document.removeEventListener("pointerlockchange", h.lockChange);
-    bound = null;
-  }
-  // held keys -> the move vector (the joystick writes P.input directly)
-  // arrow keys turn the head, so you can look about without the mouse (or when the browser won't lock it)
-  function keyLook(dt) {
-    var tx = (keys.arrowright ? 1 : 0) - (keys.arrowleft ? 1 : 0), ty = (keys.arrowdown ? 1 : 0) - (keys.arrowup ? 1 : 0);
-    if (tx || ty) look(tx * 620 * dt, ty * 380 * dt);
-  }
-  function readKeys() {
-    if (!hud || !bound) return;
-    if (hud.root.classList.contains("phone") && !(keys.w || keys.a || keys.s || keys.d)) return;
-    var f = 0, s = 0;
-    if (keys.w) f += 1;
-    if (keys.s) f -= 1;
-    if (keys.a) s -= 1;
-    if (keys.d) s += 1;
-    P.input.fwd = f; P.input.side = s; P.input.run = !!keys.shift;
   }
 
   /* ---------------- a hint after the first hatch ---------------- */
@@ -914,6 +1046,6 @@
     var st = g.settings || (g.settings = {});
     if (st.povTip) return;
     st.povTip = 1;
-    setTimeout(function () { if (SB.UI && SB.UI.toast && !P.active) SB.UI.toast("👁 tap a smol, then <b>possess</b> on its card to see the island through its eyes (" + P.COST + " ✨)", "", 7000); }, 9000);
+    setTimeout(function () { if (SB.UI && SB.UI.toast && !P.active) SB.UI.toast("👁 tap a smol, then <b>possess</b> on its card to live as it: a hotbar, a bag, your own two paws (" + P.COST + " ✨)", "", 7000); }, 9000);
   });
 })();

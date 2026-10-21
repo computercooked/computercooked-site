@@ -178,6 +178,12 @@
     step_stone: function (v) { tone(260 + Math.random() * 80, 0.05, { to: 160, vol: 0.07 * v, type: "triangle" }); noise(0.03, { ff: 3000, q: 2, vol: 0.05 * v }); return 0.06; },
     step_wood: function (v) { tone(170 + Math.random() * 40, 0.08, { to: 110, vol: 0.1 * v, type: "sine" }); noise(0.04, { ff: 900, q: 3, vol: 0.05 * v }); return 0.08; },
     step_water: function (v) { noise(0.16, { ff: 1400 + Math.random() * 600, fTo: 500, q: 1, vol: 0.09 * v }); tone(500 + Math.random() * 300, 0.06, { to: 900, vol: 0.03 * v }); return 0.16; },
+    // v4.4 first tool (survival.js): chopping wood, chipping rock, a tree coming down, a rock breaking up
+    chop: function (v) { var f = 190 + Math.random() * 50; tone(f, 0.12, { to: f * 0.55, vol: 0.3 * v, type: "triangle" }); noise(0.07, { ff: 1400 + Math.random() * 400, q: 2.5, vol: 0.24 * v, filter: "bandpass" }); return 0.14; },
+    mine: function (v) { var f = 900 + Math.random() * 300; tone(f, 0.09, { to: f * 0.8, vol: 0.12 * v, type: "square", filter: "lowpass", ff: 2600 }); noise(0.05, { ff: 4200, q: 1.5, vol: 0.16 * v, filter: "highpass" }); tone(150, 0.08, { to: 90, vol: 0.14 * v }); return 0.1; },
+    timber: function (v) { noise(0.9, { ff: 500, fTo: 150, q: 1.2, vol: 0.12 * v, attack: 0.25 }); [0, 0.14, 0.26].forEach(function (d) { tone(130 + Math.random() * 40, 0.12, { delay: d, to: 70, vol: 0.12 * v, type: "triangle" }); }); noise(0.5, { delay: 0.85, ff: 300, fTo: 80, q: 0.8, vol: 0.32 * v, filter: "lowpass" }); tone(70, 0.4, { delay: 0.85, to: 38, vol: 0.32 * v }); return 1.4; },
+    crumble: function (v) { for (var i = 0; i < 5; i++) noise(0.08, { delay: i * 0.05 + Math.random() * 0.03, ff: 700 + Math.random() * 1600, q: 2, vol: 0.18 * v }); tone(110, 0.25, { to: 60, vol: 0.2 * v }); return 0.4; },
+    snap: function (v) { noise(0.06, { ff: 2600, q: 3, vol: 0.25 * v }); tone(500, 0.08, { to: 180, vol: 0.12 * v, type: "triangle" }); noise(0.2, { delay: 0.06, ff: 900, fTo: 300, q: 1, vol: 0.1 * v }); return 0.3; },
     eureka: function (v) {
       [72, 79, 84, 88, 91, 96].forEach(function (n, i) { tone(note(n), 0.5, { delay: i * 0.06, vol: 0.12 * v, type: "sine" }); tone(note(n + 7), 0.3, { delay: i * 0.06 + 0.03, vol: 0.04 * v, type: "triangle" }); });
       return 0.9;
@@ -210,7 +216,7 @@
       return t;
     }
   };
-  var SFX_COOLDOWN = { eureka: 0.5, tierup: 2, craft: 0.3, build: 0.15, built: 1, magic: 0.3, chime: 0.4, fire: 1, species: 1, eat: 0.2, tickle: 0.25, tap: 0.12, learn: 0.3, egg: 0.5, grump: 1.5, thunder: 1, boing: 0.2, zap: 0.3, laser: 0.04, beam: 0.6, boom: 0.08, bigboom: 1, sad: 1, sick: 1, music: 0.5, snore: 2, splash: 0.3, pop: 0.05, click: 0.03 };
+  var SFX_COOLDOWN = { eureka: 0.5, tierup: 2, craft: 0.3, build: 0.15, built: 1, magic: 0.3, chime: 0.4, fire: 1, species: 1, eat: 0.2, tickle: 0.25, tap: 0.12, learn: 0.3, egg: 0.5, grump: 1.5, thunder: 1, boing: 0.2, zap: 0.3, laser: 0.04, beam: 0.6, boom: 0.08, bigboom: 1, sad: 1, sick: 1, music: 0.5, snore: 2, splash: 0.3, pop: 0.05, click: 0.03, chop: 0.08, mine: 0.08, timber: 1, crumble: 0.3, snap: 0.3 };
 
   A.play = function (name, opts) {
     var f = SFX[name];
