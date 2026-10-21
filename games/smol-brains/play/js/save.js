@@ -62,7 +62,7 @@
       tutorial: plain(game.tutorial, 0), log: plain(game.log.slice(-40), 0), sparks: round(game.sparks || 0), blessing: plain(game.blessing, 0), godHeat: round(game.godHeat || 0), spoil: round(game.spoil || 0), chronicle: plain((game.chronicle || []).slice(-220), 0), sites: SB.Sites ? SB.Sites.serialize(game) : [], logsFound: game.logsFound || 0, podsDown: game.podsDown || 0, bodies: SB.Funeral ? SB.Funeral.serialize(game) : [], podT: game.podT == null ? null : Math.round(game.podT), dir: game.dir ? { nextT: round(game.dir.nextT), count: game.dir.count || 0, last: plain(game.dir.last || {}, 0), losses: plain(game.dir.losses || [], 0), history: plain(game.dir.history || [], 0), marks: plain(game.dir.marks || [], 0), lastBad: game.dir.lastBad || 0 } : null, strangerT: game.strangerT == null ? null : round(game.strangerT),
       culture: plain({ words: game.culture.words, found: game.culture.found, lost: game.culture.lost, alive: game.culture.alive, lostCount: game.culture.lostCount, sharedMax: game.culture.sharedMax || 0, spireBoost: !!game.culture.spireBoost }, 0),
       tribes: plain(game.tribes, 0), villages: plain(game.villages, 0), clades: plain(game.clades, 0), nextClade: game.nextClade,
-      playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0), ngPlus: game.ngPlus || 0, ended: !!game.ended,
+      playTime: round(game.playTime || 0), created: game.created, migratedFromV1: !!game.migratedFromV1, settings: plain(game.settings || {}, 0), collect: plain(game.collect || {}, 0), ngPlus: game.ngPlus || 0, ended: !!game.ended,
       world: SB.World.serialize(game.world),
       creatures: game.creatures.filter(function (c) { return !c.gone && (c.alive || c.dying) && c.species === "smol"; }).map(plainCreature)
     };
@@ -303,6 +303,7 @@
     });
     if (SB.Funeral) SB.Funeral.revive(game, Array.isArray(data.bodies) ? data.bodies : []);
     fixIds(game);
+    if (SB.Collect) { game.collect = obj(data.collect); SB.Collect.backfill(game); } // older saves: everyone gets a serial number
     if (data.selectedId != null && SB.Game.byId(game, data.selectedId)) game.selectedId = data.selectedId;
     return game;
   };
@@ -414,6 +415,11 @@
       genome: SB.Genome.encode(c.genome), brain: c.brain ? plain(SB.Brain.serialize(c.brain), 0) : null,
       vocab: vocab, ideas: ideas, age: Math.min(Math.round(c.age || 0), SB.STAGES[3].from)
     };
+    if (SB.Collect) {
+      if (c.oid) payload.oid = c.oid;
+      if (c.serial) payload.ser = c.serial;
+      payload.ck = SB.Collect.checksum(JSON.stringify(payload)); // the last key, over everything before it
+    }
     return "SMOL2:" + b64urlEncode(JSON.stringify(payload));
   };
 
@@ -427,13 +433,23 @@
     var p;
     try { p = JSON.parse(b64urlDecode(s)); } catch (e) { throw bad(); }
     if (!p || typeof p !== "object" || !p.genome) throw bad();
+    var signed = false;
+    if (p.ck != null && SB.Collect) {
+      var rest = {};
+      for (var pk in p) if (pk !== "ck") rest[pk] = p[pk];
+      if (SB.Collect.checksum(JSON.stringify(rest)) !== p.ck) { var e2 = new Error("this smol code was changed or mistyped"); e2.tampered = true; throw e2; }
+      signed = true;
+    }
     var genome;
     try { genome = typeof p.genome === "string" ? SB.Genome.decode(p.genome) : SB.Genome.upgrade(p.genome); } catch (e) { throw bad(); }
+    if (!signed) delete genome.cx; // an unsigned code keeps no traits of its own: they come from its genes, so nobody can type in a legendary
     var vocab = {};
     for (var w in obj(p.vocab)) { var v = num(p.vocab[w], 0); if (v > 0 && SB.LEXICON[w]) vocab[w] = Math.min(1.5, v); }
     var ideas = {};
     for (var id in obj(p.ideas)) if (SB.Ideas.BY_ID[id]) ideas[id] = 1;
     var name = String(p.name || "smol").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24) || "smol";
-    return { name: name, gen: Math.max(1, Math.floor(num(p.gen, 1))), genome: genome, brain: p.brain || null, vocab: vocab, ideas: ideas, age: SB.clamp(num(p.age, 0), 0, SB.STAGES[3].from) };
+    var oid = typeof p.oid === "string" ? p.oid.slice(0, 40) : null;
+    return { name: name, gen: Math.max(1, Math.floor(num(p.gen, 1))), genome: genome, brain: p.brain || null, vocab: vocab, ideas: ideas, age: SB.clamp(num(p.age, 0), 0, SB.STAGES[3].from),
+      oid: oid, ser: num(p.ser, 0), key: SB.Collect ? SB.Collect.importKey(typeof p.genome === "string" ? p.genome : JSON.stringify(p.genome), oid) : null };
   };
 })();

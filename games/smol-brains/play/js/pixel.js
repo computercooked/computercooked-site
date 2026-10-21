@@ -57,11 +57,42 @@
   function paint(c) {
     var lk = c.look, grump = c.species === "grump", tier = grump ? 0 : c.tier, st = c.stage || 0;
     var elder = st >= 4, r = SB.rng(((lk.spotsSeed || 1) * 31 + (lk.hue | 0)) >>> 0);
+    // collectible traits (see collect.js): pattern, eyes, accessory, palette, fluff
+    var cx = !grump && lk.cx && SB.Collect ? lk.cx : null;
+    function trait(slot) { return cx ? SB.Collect.entry(slot, cx[slot])[0] : ""; }
+    var pat = trait("pat"), eyeT = trait("eye"), acc = trait("acc"), pal = trait("pal"), fluffF = cx ? cx.f : 0.5;
     // palette
-    var sat = lk.sat / 100 * (elder ? 0.7 : 1), lig = lk.light / 100;
-    var base = hsl(lk.hue, sat, lig), light = hsl(lk.hue - 6, sat * 0.85, Math.min(0.9, lig + 0.14)), dark = hsl(lk.hue + 8, sat, Math.max(0.12, lig - 0.17));
-    var second = hsl(lk.hue2, Math.min(1, sat + 0.1), Math.min(0.85, lig + 0.1)), belly = mix(base, [255, 250, 240], 0.55);
-    var outline = grump ? [20, 12, 24] : hsl(lk.hue + 10, sat * 0.6, Math.max(0.08, lig - 0.45));
+    var hue = lk.hue, hue2 = lk.hue2, sat = lk.sat / 100 * (elder ? 0.7 : 1), lig = lk.light / 100;
+    if (pal === "pastel") { sat *= 0.5; lig = Math.min(0.84, lig + 0.13); }
+    else if (pal === "midnight") { sat = Math.min(1, sat * 0.7 + 0.2); lig = 0.3; hue2 = hue + 180; }
+    else if (pal === "shiny") { hue += 150; hue2 += 150; sat = Math.min(1, sat + 0.15); }
+    if (pat === "galaxy") { hue = 252; sat = 0.55; lig = 0.24; hue2 = 300; }
+    else if (pat === "gold") { hue2 = 45; }
+    var base = hsl(hue, sat, lig), light = hsl(hue - 6, sat * 0.85, Math.min(0.9, lig + 0.14)), dark = hsl(hue + 8, sat, Math.max(0.12, lig - 0.17));
+    var second = hsl(hue2, Math.min(1, sat + 0.1), Math.min(0.85, lig + (pal === "midnight" ? 0.3 : 0.1))), belly = mix(base, [255, 250, 240], 0.55);
+    var outline = grump ? [20, 12, 24] : pat === "galaxy" ? [16, 10, 40] : hsl(hue + 10, sat * 0.6, Math.max(0.08, lig - 0.45));
+    var seed = lk.spotsSeed || 1;
+    // the body's colour at a pixel for the special patterns (null: use the usual shading and pattern)
+    var shine = function (col, u, v) { var d = u * 0.55 + v * 0.75; return d < -0.62 ? mix(col, WHITE, 0.35) : d > 0.62 ? mix(col, INK, 0.3) : col; };
+    function special(x, y, u, v) {
+      if (pal === "prism") return shine(hsl(hue + x * 22 + y * 7, 0.75, 0.66), u, v);
+      if (pat === "holo") return shine(SB.hash(x, y, seed) < 0.06 ? WHITE : hsl(hue + (x + y) * 24, 0.5, 0.76), u, v);
+      if (pat === "galaxy") {
+        if (SB.hash(x, y, seed + 7) < 0.08) return SB.hash(x, y, seed) < 0.5 ? WHITE : [255, 200, 240];
+        if (SB.hash(x >> 2, y >> 2, seed + 3) < 0.35) return shine(hsl(300 + (x - y) * 4, 0.55, 0.36), u, v);
+        return null;
+      }
+      return null;
+    }
+    function patternAt(x, y, u, v) {
+      if (pat === "gradient") return v < -0.25 ? null : v < 0.3 ? mix(base, second, 0.5) : second;
+      if (pat === "tiger") return u > -0.75 && (x + (y >> 1)) % 4 === 0 ? dark : null;
+      if (pat === "calico") { var hc = SB.hash(Math.floor(x / 3), Math.floor(y / 3), seed); return hc < 0.28 ? second : hc < 0.45 ? CREAM : null; }
+      if (pat === "gold") return SB.hash(x, y, seed + 11) < 0.2 ? (SB.hash(y, x, seed) < 0.5 ? GOLD : [255, 238, 160]) : null;
+      if (pat === "freckles") return v > -0.15 && v < 0.35 && SB.hash(x, y, seed + 5) < 0.13 ? mix(base, [150, 70, 50], 0.5) : null;
+      return null;
+    }
+    var classic = !pat || pat === "classic";
     // body size: babies are smaller, big bodies are bigger, evolved smols stand a bit taller
     var shrink = [4, 2, 1, 0, 0][Math.min(4, st)] || 0;
     var bw = Math.round(11 + (lk.body - 0.8) * 9 + (lk.size - 1) * 8 + Math.min(tier, 4) * 0.4) - shrink;
@@ -105,6 +136,7 @@
       else if (lk.tail === 3) f.oval(bcx - brx, bcy + bry * 0.2, 2.6, 2.4, function (x, y, u, v) { return v < -0.2 ? WHITE : belly; });
       if (lk.wings) { var wy = (upright ? bcy - bry : top + 3) - flap * 2; f.oval(bcx - brx * 0.5 - (upright ? 2 : 0), wy, 3.2, 2.2 + flap * 0.4, function (x, y, u, v) { return u < -0.3 ? mix(second, WHITE, 0.7) : mix(second, WHITE, 0.45); }); }
       if (lk.fins) { for (var fn = 0; fn < 3; fn++) f.rect(bcx - 1 - fn - (upright ? 2 : 0), (upright ? bcy - bry : top) - 2 + fn, 1, 3 - fn, second); }
+      if (acc === "crystal") for (var cr = 0; cr < 3; cr++) { var crx = Math.round(cx - rx * 0.35 - cr * 2.4), cry = Math.round(top + 1 + cr * 1.8); f.rect(crx, cry - 3, 2, 3, [120, 220, 255]); f.px(crx, cry - 4, [220, 250, 255]); f.px(crx + 1, cry - 2, [200, 245, 255]); }
       if (grump) for (var sp = 0; sp < 3; sp++) { var sx = cx - rx * 0.2 - sp * 2.6, sy = cy - ry * Math.cos((sp * 0.35)); f.px(sx, sy - 1, dark); f.px(sx, sy - 2, dark); f.px(sx - 1, sy, dark); }
       if (legs) {
         var backX = legs === 4 ? [bcx - brx * 0.55, bcx + brx * 0.15] : upright ? [bcx - 2] : [bcx - brx * 0.25];
@@ -116,15 +148,26 @@
       }
       // ---- body (blob or torso) with soft shading
       f.oval(bcx, bcy, brx, bry, function (x, y, u, v) {
+        var sp2 = special(x, y, u, v); if (sp2) return sp2;
         var sh = shade(x, y, u, v); if (sh) return sh;
+        if (!classic) return patternAt(x, y, u, v) || base;
         if (lk.pattern === 1 && v > 0.05 && u > -0.35) return belly;
         if (lk.pattern === 3 && (Math.abs(v + 0.25) < 0.13 || Math.abs(v - 0.2) < 0.13)) return second;
         return base;
       });
-      if (lk.pattern === 2) { var rs = SB.rng(lk.spotsSeed || 3); for (var s = 0; s < (upright ? 2 : 4); s++) { var px = bcx - brx * 0.7 + rs() * brx * 0.9, py = bcy - bry * 0.6 + rs() * bry * 1.1; f.rect(px, py, 2, 1 + (s & 1), second); } }
+      if (lk.pattern === 2 && classic) { var rs = SB.rng(lk.spotsSeed || 3); for (var s = 0; s < (upright ? 2 : 4); s++) { var px = bcx - brx * 0.7 + rs() * brx * 0.9, py = bcy - bry * 0.6 + rs() * bry * 1.1; f.rect(px, py, 2, 1 + (s & 1), second); } }
       if (lk.fluff) for (var fl = 0; fl < brx * 2; fl += 2) f.px(bcx - brx + fl + 0.5, bot - 1 + ((fl / 2) % 2), mix(belly, WHITE, 0.4));
       // ---- head (upright smols): a round head sitting on the torso
-      if (upright) f.oval(cx, cy, rx, ry, function (x, y, u, v) { return shade(x, y, u, v) || base; });
+      if (upright) f.oval(cx, cy, rx, ry, function (x, y, u, v) { return special(x, y, u, v) || shade(x, y, u, v) || (pat === "freckles" || pat === "gold" || pat === "calico" ? patternAt(x, y, u, v) : null) || base; });
+      // ---- worn things: a flower bud, a crown, a leaf scarf, a scruffy tuft
+      if (acc === "bud") { f.px(cx - 2, top - 1, [80, 170, 80]); f.px(cx - 2, top - 2, [80, 170, 80]); f.px(cx - 3, top - 3, PINK); f.px(cx - 1, top - 3, PINK); f.px(cx - 2, top - 4, PINK); f.px(cx - 2, top - 3, GOLD); }
+      if (acc === "crown") { f.rect(cx - 2, top - 1, 5, 1, GOLD); f.px(cx - 2, top - 2, GOLD); f.px(cx, top - 2, GOLD); f.px(cx + 2, top - 2, GOLD); f.px(cx, top - 1, [255, 90, 150]); }
+      if (acc === "scarf") {
+        var scy = upright ? Math.round(bcy - bry + 1) : Math.round(cy + ry * 0.45);
+        for (var scx = 0; scx < F; scx++) if (f.on(scx, scy)) f.px(scx, scy, scx % 2 ? [96, 196, 92] : [58, 150, 72]);
+        f.px(Math.round(bcx - brx * 0.5), scy + 1, [58, 150, 72]); f.px(Math.round(bcx - brx * 0.5) - 1, scy + 2, [96, 196, 92]);
+      }
+      if (fluffF > 0.85) { f.px(cx - 1, top - 1, light); f.px(cx, top - 2, light); }
       // ---- near legs
       if (legs) {
         var frontX = legs === 4 ? [bcx - brx * 0.25, bcx + brx * 0.45] : upright ? [bcx + 0.5] : [bcx + brx * 0.2];
@@ -150,8 +193,13 @@
         if (fi === FR.blink || fi === FR.sleep) { f.rect(ex, ey + es - 1, 2, 1, INK); return; }
         if (fi === FR.happy) { f.px(ex, ey + es - 1, INK); f.px(ex + 1, ey + es - 2, INK); f.px(ex + 2, ey + es - 1, i ? null : INK); return; }
         if (fi === FR.scared) { f.rect(ex, ey - 1, 2, es + 1, WHITE); f.px(ex + 1, ey + 1, INK); return; }
-        f.rect(ex, ey, 2, es, eyeC);
-        if (!grump) f.px(ex, ey, WHITE);
+        var ec = eyeT === "hetero" ? (i ? [235, 165, 45] : [70, 150, 235]) : eyeT === "star" ? [255, 200, 50] : eyeT === "heart" ? [240, 60, 125] : eyeT === "cosmic" ? [80, 40, 150] : eyeC;
+        f.rect(ex, ey, 2, es, ec);
+        if (eyeT === "sleepy") { f.rect(ex, ey, 2, es - 1, dark); return; }
+        if (!grump) f.px(ex, ey, eyeT === "cosmic" ? [150, 245, 255] : WHITE);
+        if (eyeT === "cosmic") f.px(ex + 1, ey + es - 1, [255, 120, 220]);
+        if (eyeT === "heart") f.px(ex + 1, ey + es - 1, [170, 20, 80]);
+        if (eyeT === "star" && i) f.px(ex + 2, ey - 1, WHITE, 9);
       });
       if (grump || fi === FR.sad) { f.px(e1 - 1, ey - 2 + (grump ? 0 : 1), INK); f.px(e1, ey - 1 - (grump ? 0 : 1), INK); f.px(e2 + 2, ey - 2 + (grump ? 0 : 1), INK); f.px(e2 + 1, ey - 1 - (grump ? 0 : 1), INK); }
       if (elder && !grump) { f.rect(e1, ey - 2, 2, 1, [230, 230, 230]); f.rect(e2, ey - 2, 2, 1, [230, 230, 230]); }
@@ -191,6 +239,13 @@
         f.px(Math.round((e1 + e2) / 2) + 1, ey, gc);
       }
       f.outline(outline);
+      var gl9 = function (x, y, c) { if (x >= 1 && x <= F - 2 && y >= 1) f.px(x, y, c, 9); };
+      if (acc === "halo" && tier < 6) for (var hh2 = -2; hh2 <= 2; hh2++) { gl9(cx + hh2, top - 4 - (Math.abs(hh2) < 2 ? 1 : 0), [190, 240, 255]); if (Math.abs(hh2) === 2) gl9(cx + hh2, top - 4, [190, 240, 255]); }
+      if (acc === "moon") { var ma = fi * 0.95, mx = Math.round(cx + Math.cos(ma) * (rx + 3)), my = Math.round(cy - ry * 0.3 + Math.sin(ma) * 3); gl9(mx, my, [235, 230, 255]); gl9(mx + 1, my, [235, 230, 255]); gl9(mx, my + 1, [235, 230, 255]); gl9(mx + 1, my + 1, [165, 150, 230]); }
+      if (pal === "shiny" || pal === "prism" || fluffF < 0.07) { // a twinkle that moves between frames
+        var spk = [[cx + rx + 1, top + 1], [cx - rx - 1, cy], [cx + rx * 0.4, top - 2], [cx - rx * 0.5, top]][fi % 4], skx = Math.round(spk[0]), sky = Math.round(spk[1]);
+        if (!f.on(skx, sky)) { gl9(skx, sky, WHITE); if (pal !== "natural" && pal !== "pastel" && pal !== "midnight") { [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { if (!f.on(skx + d[0], sky + d[1])) gl9(skx + d[0], sky + d[1], pal === "prism" ? hsl(fi * 40, 0.9, 0.7) : GOLD); }); } }
+      }
       if (!grump && tier >= 6) { // halo, unoutlined so it glows
         var hy = top - 4;
         for (var hh = -3; hh <= 3; hh++) { f.px(cx + hh, hy - (Math.abs(hh) < 3 ? 1 : 0), GOLD, 9); if (Math.abs(hh) === 3) f.px(cx + hh, hy, GOLD, 9); }
@@ -207,7 +262,7 @@
   function sheetKey(c) {
     var lk = c.look;
     return [c.species, lk.hue, lk.hue2, lk.sat | 0, lk.light | 0, lk.pattern, lk.ears, (lk.eyes * 10) | 0, lk.tail, (lk.body * 10) | 0, lk.legs, (lk.legLen * 10) | 0, lk.arms ? 1 : 0,
-      lk.head > 0.4 ? 1 : 0, lk.fins ? 1 : 0, lk.fluff ? 1 : 0, lk.horns ? 1 : 0, lk.wings ? 1 : 0, lk.antenna ? 1 : 0, lk.cheeks ? 1 : 0, c.tier, Math.min(4, c.stage || 0), c.holding != null ? 1 : 0, lk.spotsSeed].join(",");
+      lk.head > 0.4 ? 1 : 0, lk.fins ? 1 : 0, lk.fluff ? 1 : 0, lk.horns ? 1 : 0, lk.wings ? 1 : 0, lk.antenna ? 1 : 0, lk.cheeks ? 1 : 0, c.tier, Math.min(4, c.stage || 0), c.holding != null ? 1 : 0, lk.spotsSeed, lk.cxKey || "", (lk.size * 20) | 0].join(",");
   }
   function ensureAtlas(ctx) {
     if (tex && glctx === ctx) return;

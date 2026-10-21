@@ -419,6 +419,7 @@
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
+      SB.Cards ? h("button", { class: "btn", onclick: function () { SB.Cards.open(c); } }, "✨ card") : null,
       h("button", { class: "btn", onclick: function () { shareSmol(c); } }, "📤 code"),
       h("button", { class: "btn", onclick: function () { openMenu("family", c); } }, "🌳 family")
     ]));
@@ -752,19 +753,21 @@
     if (cardQ.length) setTimeout(function () { if (!el.modal) nextCard(); }, 250);
   }
   UI.closeModal = closeModal;
+  UI.modal = modal;
 
   /* ---------------- menu / smolpedia ---------------- */
-  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
+  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["dex", "✨ smoldex"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
   function openMenu(tab, arg) {
     state.menuTab = tab || "evolution";
     var tabs = h("div", { class: "tabs" });
     TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
     modal("smolpedia", body, { tabs: tabs, big: true });
-    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, smols: tabSmols, family: tabFamily, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
+    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
 
+  function tabDex(body) { if (SB.Cards) SB.Cards.tabDex(body); else body.appendChild(h("p", { class: "note" }, "the smoldex isn't here.")); }
   // the island's history, newest first (Dwarf Fortress legends, tiny)
   function when(t) { var day = Math.floor(t / SB.DAY_LENGTH) + 1, hh = (t / SB.DAY_LENGTH % 1) * 24; return "day " + day + ", " + pad(Math.floor(hh)) + ":" + pad(Math.floor((hh % 1) * 60)); }
   function tabChronicle(body) {
@@ -977,13 +980,16 @@
   function importSmol(code) {
     try {
       var d = SB.Save.importSmol(code);
+      if (SB.Collect && d.key && SB.Collect.seenImport(game, d.key, d.oid)) { toast("🌌 " + esc(d.name) + " is already on this island. each smol can only come in once."); return; }
       var sp = SB.Society.home(game, 0);
-      var c = SB.Game.spawnSmol(game, { genome: d.genome, name: d.name, gen: d.gen, vocab: d.vocab, ideas: d.ideas, age: d.age, x: sp.x + 1, z: sp.z + 1, brain: d.brain ? SB.Brain.deserialize(d.brain, d.genome, game.rng) : null });
+      var c = SB.Game.spawnSmol(game, { genome: d.genome, name: d.name, gen: d.gen, vocab: d.vocab, ideas: d.ideas, age: d.age, x: sp.x + 1, z: sp.z + 1, brain: d.brain ? SB.Brain.deserialize(d.brain, d.genome, game.rng) : null, how: "import" });
+      if (SB.Collect && d.key) { if (d.oid) c.oid = d.oid; SB.Collect.markImport(game, d.key); }
       game.stats.imported++;
       SB.Game.unlock(game, "import");
       closeModal(); SB.Game.select(game, c.id); R.flyTo(c.x, c.z, 7, 1);
-      moment("🌌", c.name + " arrived!", "a smol from somewhere else", "lilac");
-    } catch (e) { toast("that's not a smol code 🤔"); }
+      var ci = SB.Collect && SB.Collect.info(c);
+      moment("🌌", c.name + " arrived!", ci && ci.tier >= 2 ? "a " + ci.rarity.name + " smol from somewhere else (" + ci.rarest.name + ")" : "a smol from somewhere else", "lilac");
+    } catch (e) { toast(e && e.tampered ? "that smol code has been changed or mistyped, so it won't work 🔒" : "that's not a smol code 🤔"); }
   }
   function shareSmol(c) {
     var code = SB.Save.exportSmol(c);
