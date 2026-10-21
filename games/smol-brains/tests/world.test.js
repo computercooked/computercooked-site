@@ -76,8 +76,9 @@ console.log("3. the living world");
   const clock = SB.World.clock(w);
   check("clock and seasons", clock.day >= 1 && SB.SEASONS.indexOf(clock.season) >= 0, "day " + clock.day + " " + clock.season);
   // weather + lightning + wildfire
-  const tree = w.nodes.find(n => n.kind === "oak" && SB.dist(n.x, n.z, sp.x, sp.z) < 12);
+  let tree = w.nodes.find(n => n.kind === "oak" && n.state === "ok" && SB.dist(n.x, n.z, sp.x, sp.z) < 12);
   SB.World.lightning(w, game, tree.x, tree.z, true);
+  tree = w.nodes.find(n => n.state === "burning") || tree; // the bolt hits the tallest tree nearby, not always this one
   check("lightning sets a tree on fire", tree.state === "burning" || w.nodes.some(n => n.state === "burning"));
   let burnt = false;
   for (let s = 0; s < 20 * 80; s++) { SB.Game.step(game, SB.TICK); if (tree.state === "burnt") { burnt = true; break; } }

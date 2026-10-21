@@ -373,7 +373,9 @@
       else R.project(c.x, c.y + headH, c.z, pp);
       if (!pp.on) continue;
       var x = pp.x, y = pp.y;
+      var ph = 0;
       if (c.speech && (zoom < 26 || game.selectedId === c.id)) { y -= bubble(ctx, x, y - 4, c.speech.text, c.speech.kind) + 10; }
+      else if (SB.Mind && c.species === "smol" && (ph = SB.Mind.drawBubble(ctx, x, y - 4, c, game, zoom))) y -= ph + 10; // its plan, in pictures
       else if (c.anim.emote && zoom < 22) {
         SB.Icons.fillText(ctx, EMOTE[c.anim.emote] || "", x, Math.round(y - 10 - Math.abs(Math.sin(t * 4)) * 4), 28);
         y -= 26;
