@@ -119,6 +119,19 @@ a {
   text-align: center;
 }
 
+/* the brand wordmark (scripts/make-brand.py): beige CRT mascot + "computer cooked" */
+.brand-mark {
+  margin: 0;
+  line-height: 0;
+}
+
+.brand-mark img {
+  display: block;
+  width: min(100%, 420px);
+  height: auto;
+  margin: 0 auto;
+}
+
 .logo {
   display: block;
   width: 84px;
@@ -621,6 +634,10 @@ a {
     width: 128px;
     height: 128px;
     margin-bottom: 22px;
+  }
+
+  .brand-mark img {
+    width: 560px;
   }
 
   .tagline {

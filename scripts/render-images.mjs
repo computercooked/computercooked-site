@@ -1,3 +1,4 @@
+// SUPERSEDED (Oct 2026 rebrand): assets/og.png and apple-touch-icon.png now come from scripts/make-brand.py. Running this overwrites them with the old logo.
 // Renders assets/og.png (1200x630) and assets/apple-touch-icon.png (180x180).
 // Usage: node scripts/render-images.mjs   (needs the playwright package: npm i --no-save playwright)
 // Needs Playwright with Chromium available. Not part of any build; only run when the art changes.

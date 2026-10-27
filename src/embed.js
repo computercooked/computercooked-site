@@ -42,7 +42,8 @@ function page(g) {
   <meta name="robots" content="noindex">
   <link rel="canonical" href="${url}">
   <meta name="color-scheme" content="dark">
-  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/games/games.css">
 </head>

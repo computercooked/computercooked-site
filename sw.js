@@ -10,14 +10,14 @@
    - Never touched: /api/* (always network, never cached), /admin/*, other sites, non-GET, range requests.
    - Offline navigation with nothing saved: /games/offline (games/offline.html), which lists the games this device can play.
    Bump VERSION when SHELL changes; old shell caches are deleted on activate. */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = "cc-" + VERSION;
 const GAME_PREFIX = "cc-game-";
 const SHELL = [
   "/games/", "/games/offline", "/games/games.json", "/games/games.css", "/games/hub.js",
   "/games/player.js", "/games/platform.js", "/games/cc-sdk.js",
   "/styles.css", "/assets/deck.css", "/assets/deck.js", "/assets/fx.js", "/assets/avatars.js", "/assets/pwa.js",
-  "/assets/logo.svg", "/assets/icon-192.png", "/assets/fonts/jetbrains-mono-latin-800-normal.woff2",
+  "/assets/logo.svg", "/assets/brand/wordmark-480.webp", "/assets/favicon-32.png", "/assets/icon-192.png", "/assets/fonts/jetbrains-mono-latin-800-normal.woff2",
   "/manifest.webmanifest",
 ];
 
