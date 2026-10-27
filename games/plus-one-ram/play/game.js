@@ -393,7 +393,9 @@
 
   // ------------------------------------------------------------------ run flow
   let lastScoreSent = 0;
+  let overAt = 0; // restarts are ignored for 0.8 s after the end card shows
   function startRun() {
+    if (screen === 'over' && performance.now() - overAt < 800) return;
     audioInit();
     run = newRun(false);
     screen = 'play'; ccEvents = 0;
@@ -404,7 +406,7 @@
   }
   function endRun(completed) {
     const R = run;
-    screen = 'over'; $('pauseBtn').style.display = 'none';
+    screen = 'over'; overAt = performance.now(); $('pauseBtn').style.display = 'none';
     const score = Math.floor(R.maxV);
     const earned = Math.round(Math.pow(R.maxV, 0.4) + R.kills * 0.2 + R.rivalKills * 3);
     save.cache += earned;

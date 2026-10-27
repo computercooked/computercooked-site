@@ -11,7 +11,7 @@
     "dodge",
     "60s runs"
   ],
-  "version": "2",
+  "version": "2.1",
   "max_score_per_sec": 60,
   "how_to": [
     "tasks fall. touching one = +15° heat. big ones hurt more.",

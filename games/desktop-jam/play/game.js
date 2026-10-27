@@ -415,8 +415,9 @@
     if (L.mode === 'daily') { store.set('daily2-' + dayNo(), lastResult); cc.call('event', 'daily_done', { day: dayNo(), bonks: L.bonks, ms: Math.round(ms) }); }
     setTimeout(() => showEnd(lastResult), won ? 500 : 200);
   }
+  let endAt = 0; // the end card's buttons ignore input for 0.8 s (bNext is focused, so a held key would retry)
   function showEnd(r) {
-    ui = 'end';
+    ui = 'end'; endAt = performance.now();
     const allDone = r.mode === 'level' && r.won && r.idx + 1 >= LEVELS;
     $('endCrash').className = 'bigcrash ' + (r.won ? '' : 'cooked');
     $('endTitle').textContent = r.won ? (r.mode === 'daily' ? 'daily: cleared' : allDone ? 'all ' + LEVELS + ' cleared' : 'desktop cleared') : (r.jammed ? 'jammed' : 'cooked');
@@ -729,7 +730,7 @@
     $('bSpooky').textContent = spooky ? '🎃 spooky mode: on' : 'spooky mode: off';
     caption('');
   }
-  function restart() { if (!L) return; if (L.mode === 'daily') { toast('no take-backs on the daily.'); return; } startLevel(L.mode, L.idx); sfx.tap(); }
+  function restart() { if (!L || L.done) return; if (L.mode === 'daily') { toast('no take-backs on the daily.'); return; } startLevel(L.mode, L.idx); sfx.tap(); }
   function setPause(p) {
     if ((ui !== 'play' || (L && L.done)) && p) return;
     if (p === paused) return;
@@ -764,6 +765,7 @@
   $('lvGrid').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.classList.contains('lock')) return; audio(); sfx.tap(); startLevel('level', +b.dataset.i); });
   on('bSpooky', () => { spooky = !spooky; store.set('spooky', spooky); sfx.tap(); toTitle(); });
   on('bNext', () => {
+    if (performance.now() - endAt < 800) return;
     audio(); sfx.tap();
     const r = lastResult;
     if (!r || r.mode === 'daily') { startLevel('level', level); return; }

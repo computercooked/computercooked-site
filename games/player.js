@@ -32,6 +32,15 @@
     send({ type: "cc-mute", muted: m });
   }
 
+  // phones: the bottom nav slides away while a run is going (it took a big share of the screen) and comes back when
+  // the run ends or the game is scrolled off screen. The CSS (assets/deck.css .cc-playing) only applies on small/touch screens.
+  var root = document.documentElement, running = false, onScreen = true;
+  function syncDeck() { root.classList.toggle("cc-playing", running && onScreen); }
+  function playing(on) { running = on; syncDeck(); }
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) { onScreen = es[0].intersectionRatio >= 0.5; syncDeck(); }, { threshold: [0, 0.5, 1] }).observe(player);
+  }
+
   frame.addEventListener("load", function () { send({ type: "cc-mute", muted: muted }); });
   btnMute.addEventListener("click", function () { setMuted(!muted); });
   document.getElementById("btn-restart").addEventListener("click", function () {
@@ -111,7 +120,7 @@
       // "hello" only means the SDK script loaded; a game counts as hooked once it calls start/end
       if (d.op === "hello") return;
       sdkGame = true;
-      if (d.op === "start") cc.start();
+      if (d.op === "start") { cc.start(); playing(true); }
       else if (d.op === "score") cc.score(d.args);
       else if (d.op === "event") cc.event(d.args && d.args.name, d.args && d.args.data);
       else if (d.op === "achieve") {
@@ -120,6 +129,7 @@
         });
       }
       else if (d.op === "end") {
+        playing(false);
         cc.end(d.args || {}).then(function (result) {
           try { frame.contentWindow.postMessage({ type: "cc-sdk-reply", id: d.id, result: result }, location.origin); } catch (err) {}
         });
@@ -136,6 +146,7 @@
       var first = function () {
         doc.removeEventListener("pointerdown", first, true);
         doc.removeEventListener("keydown", first, true);
+        playing(true); // a game without SDK hooks: from the first input on, it's being played
         setTimeout(function () { if (!sdkGame && !cc._active()) cc.start({ auto: true }); }, 1500);
       };
       doc.addEventListener("pointerdown", first, true);
