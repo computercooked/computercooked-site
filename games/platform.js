@@ -349,9 +349,10 @@
     return cardMaker;
   }
 
-  // tip jar (off until TIP_URL is a buy.stripe.com Payment Link): a plain link out, nothing tracked, no payment here
+  // tip jar (off until TIP_URL is a buy.stripe.com Payment Link): a plain link out, no payment here. A click is
+  // counted as tip_click (slot post-run, this game) via assets/deck.js → POST /api/hit.
   function tipLine(url) {
-    return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
+    return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-run">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
   }
   var tip = null;
   function tipUrl() {
@@ -402,7 +403,14 @@
       // the end of the rail holds one house ask: the tip jar when it's on, else (unless this run was a new best,
       // where the dare is the ask) the follow card (assets/follow.js, loaded now)
       tipUrl().then(function (url) {
-        if (url) { rail.insertAdjacentHTML("beforeend", tipLine(url)); return; }
+        if (url) {
+          rail.insertAdjacentHTML("beforeend", tipLine(url));
+          rail.addEventListener("click", function (e) {
+            var a = e.target.closest && e.target.closest("a[data-tip]");
+            if (a && window.ccHit) window.ccHit("tip_click", { slot: "post-run", game: game });
+          });
+          return;
+        }
         var d = document.getElementById("cc-dare");
         if (d && d.classList.contains("is-best")) return;
         loadFollow().then(function (f) { if (!rail.querySelector(".cc-follow")) { rail.insertAdjacentHTML("beforeend", f.card("post-run")); f.bind(rail); } }, function () {});

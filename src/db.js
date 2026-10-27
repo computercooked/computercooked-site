@@ -10,8 +10,9 @@ import dares from "../migrations/0008_dares.sql";
 import dareFunnel from "../migrations/0009_dare_funnel.sql";
 import referrals from "../migrations/0010_referrals.sql";
 import frames from "../migrations/0011_frames.sql";
+import measurement from "../migrations/0012_measurement.sql";
 
-const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals, frames].join("\n;\n");
+const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals, frames, measurement].join("\n;\n");
 
 let ready = null;
 export function ensureSchema(env) {

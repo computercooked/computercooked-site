@@ -88,9 +88,18 @@
     sec.hidden = false;
   }
 
-  // tip jar (off until TIP_URL is a buy.stripe.com Payment Link): a plain link out, nothing tracked, no payment here
-  function tipLine(url) {
-    return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
+  // tip jar (off until TIP_URL is a buy.stripe.com Payment Link): a plain link out, no payment here. A click is
+  // counted (tip_click with its slot, via assets/deck.js → POST /api/hit); Stripe's ?tip=thanks return is a tip_success.
+  function tipLine(url, slot) {
+    return '<p class="cc-tip' + (slot === "hub-top" ? " cc-tip-top" : "") + '"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="' + slot + '">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
+  }
+  function bindTip(el) {
+    if (!el || el._ccTip) return;
+    el._ccTip = true;
+    el.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[data-tip]");
+      if (a && window.ccHit) window.ccHit("tip_click", { slot: a.getAttribute("data-tip") });
+    });
   }
   var tip = null;
   function tipUrl() {
@@ -100,8 +109,17 @@
     return tip;
   }
   tipUrl().then(function (url) {
+    if (!url) return;
+    // up top, right under the hero, so it's seen without scrolling; and again in the footer
+    var hero = document.querySelector(".games-hero");
+    if (hero && !document.querySelector(".cc-tip-top")) {
+      hero.insertAdjacentHTML("afterend", window.ccTipThanks
+        ? '<p class="cc-tip cc-tip-top cc-tip-thanks">thank you for the tip. the computer is slightly less cooked.</p>'
+        : tipLine(url, "hub-top"));
+      bindTip(hero.nextElementSibling);
+    }
     var foot = document.querySelector(".footer");
-    if (url && foot && !foot.querySelector(".cc-tip")) foot.insertAdjacentHTML("afterbegin", tipLine(url));
+    if (foot && !foot.querySelector(".cc-tip")) { foot.insertAdjacentHTML("afterbegin", tipLine(url, "hub-footer")); bindTip(foot); }
   });
 
   // follow loop (assets/follow.js): the house card in the bottom slot (below every shelf, so it never pushes a

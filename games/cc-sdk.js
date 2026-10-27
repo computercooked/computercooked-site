@@ -260,6 +260,13 @@
   // pwa.js also notes it in sessionStorage, which this same-origin game frame shares with the page around it.
   else if (isApp()) ref = "app";
   else try { ref = sessionStorage.getItem("cc-ref"); if (!ref) { ref = refTag() || refBucket(); sessionStorage.setItem("cc-ref", ref); } } catch (e) { ref = refTag() || refBucket(); }
+  // the visit's utm_campaign (first tagged link wins; assets/deck.js stores it too), sent with every batch
+  var campaign = null;
+  try {
+    var qc = (q.get("utm_campaign") || "").trim().toLowerCase();
+    if (/^[a-z0-9_.-]{1,40}$/.test(qc) && !sessionStorage.getItem("cc-campaign")) sessionStorage.setItem("cc-campaign", qc);
+    campaign = sessionStorage.getItem("cc-campaign");
+  } catch (e) {}
   // tags come off the URL once read (shared or reloaded links don't carry them on)
   try {
     var tu = new URL(location.href), tagged = false;
@@ -288,7 +295,7 @@
   var timer = null;
 
   function payload(evts) {
-    return JSON.stringify({ anon: anon, tester: tester || null, ref: ref, name: ls("cc-guest-name") || null, events: evts });
+    return JSON.stringify({ anon: anon, tester: tester || null, ref: ref, campaign: campaign, name: ls("cc-guest-name") || null, events: evts });
   }
 
   // The platform API may not be live yet; ask once and stay quiet if it is not.

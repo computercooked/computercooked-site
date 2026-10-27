@@ -111,6 +111,11 @@ export function deviceOf(ua = "") {
 
 const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "other"];
 export const refOk = (r) => (REFS.includes(r) ? r : "other");
+// utm_campaign from our posted links: lowercase [a-z0-9_.-], max 40, else none
+export const campaignOk = (c) => {
+  const v = typeof c === "string" ? c.trim().toLowerCase() : "";
+  return /^[a-z0-9_.-]{1,40}$/.test(v) ? v : null;
+};
 
 // ---------- rate limiting (per isolate, memory only; IPs are never written to storage) ----------
 const buckets = new Map();
