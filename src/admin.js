@@ -184,7 +184,8 @@ export async function metrics(url, env, origin) {
        (SELECT COUNT(*) FROM scores WHERE day >= ?1 AND player LIKE 'a:smoke%' AND hidden = 0) scores_visible,
        (SELECT COUNT(*) FROM feedback WHERE ts >= ?2 AND NOT ${REAL}) feedback,
        (SELECT COUNT(*) FROM dares WHERE created_at >= ?2 AND from_player LIKE 'a:smoke%') dares,
-       (SELECT COUNT(*) FROM events e JOIN plays p ON p.id = e.play_id WHERE e.name = 'cc:next' AND p.day >= ?1 AND NOT ${REAL}) next`
+       (SELECT COUNT(*) FROM events e JOIN plays p ON p.id = e.play_id WHERE e.name = 'cc:next' AND p.day >= ?1 AND NOT ${REAL}) next,
+       (SELECT COUNT(*) FROM events WHERE name LIKE 'test:cc:%' AND ts >= ?2) site_hits`
   ).bind(since, Date.parse(since)).first();
   const users = await db.prepare("SELECT COUNT(*) n, SUM(created_at >= ?) new FROM users").bind(Date.parse(since)).first();
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
@@ -246,4 +247,41 @@ export async function moderate(req, env) {
     default: return bad("unknown action");
   }
   return json({ ok: true });
+}
+
+// POST /api/admin/test-traffic: flag the team's own visits that were stored before test mode (?cctest=1) was on.
+//   {from, to}                       list (dry run): page views/tip hits and plays stored between two ms timestamps (≤ 6h)
+//   {flag: {events: [id], plays: [id]}}    flag them: hit events renamed test:cc:<kind>, plays get a "smoke-flag-" anon id,
+//                                          so every count leaves them out. Nothing is deleted.
+//   {unflag: {events: [id], plays: [id]}}  undo exactly that
+const HIT_NAMES = ["cc:pageview", "cc:tip_click", "cc:tip_success"];
+export async function testTraffic(req, env) {
+  const b = await readJson(req, 8192);
+  const db = env.DB;
+  const ids = (a, ok) => (Array.isArray(a) ? a : []).slice(0, 200).filter(ok);
+  const op = b.flag || b.unflag;
+  if (op) {
+    const ev = ids(op.events, (n) => Number.isInteger(n) && n > 0), pl = ids(op.plays, (s) => typeof s === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(s));
+    const stmts = [];
+    for (const id of ev) stmts.push(b.flag
+      ? db.prepare(`UPDATE events SET name = 'test:' || name WHERE id = ? AND play_id IS NULL AND name IN (${HIT_NAMES.map(() => "?").join(",")})`).bind(id, ...HIT_NAMES)
+      : db.prepare("UPDATE events SET name = substr(name, 6) WHERE id = ? AND play_id IS NULL AND name LIKE 'test:cc:%'").bind(id));
+    for (const id of pl) stmts.push(b.flag
+      ? db.prepare("UPDATE plays SET anon_id = 'smoke-flag-' || COALESCE(anon_id, '') WHERE id = ? AND user_id IS NULL AND COALESCE(anon_id, '') NOT LIKE 'smoke%'").bind(id)
+      : db.prepare("UPDATE plays SET anon_id = NULLIF(substr(anon_id, 12), '') WHERE id = ? AND anon_id LIKE 'smoke-flag-%'").bind(id));
+    const res = stmts.length ? await db.batch(stmts) : [];
+    const changed = res.map((r) => r.meta?.changes || 0);
+    return json({ ok: true, action: b.flag ? "flag" : "unflag",
+      events: changed.slice(0, ev.length).reduce((n, c) => n + c, 0), plays: changed.slice(ev.length).reduce((n, c) => n + c, 0) });
+  }
+  const from = +b.from, to = +b.to;
+  if (!(from > 0 && to > from && to - from <= 6 * 3600e3)) return bad("from/to? (ms, up to 6h apart)", 400);
+  const events = (await db.prepare(
+    `SELECT id, ts, name, game, json_extract(data, '$.path') path, json_extract(data, '$.ref') ref FROM events
+     WHERE ts >= ? AND ts < ? AND play_id IS NULL AND (name IN (${HIT_NAMES.map(() => "?").join(",")}) OR name LIKE 'test:cc:%') ORDER BY ts`
+  ).bind(from, to, ...HIT_NAMES).all()).results;
+  const plays = (await db.prepare(
+    "SELECT id, started_at ts, game, referrer ref, device, (user_id IS NOT NULL) signed_in, (COALESCE(anon_id, '') LIKE 'smoke%') test FROM plays WHERE started_at >= ? AND started_at < ? ORDER BY started_at"
+  ).bind(from, to).all()).results;
+  return json({ ok: true, events, plays });
 }

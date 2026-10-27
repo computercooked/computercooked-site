@@ -15,7 +15,7 @@ import { gamePage } from "./seo.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
-import { isAdmin, metrics, listReports, moderate } from "./admin.js";
+import { isAdmin, metrics, listReports, moderate, testTraffic } from "./admin.js";
 import { digest } from "./digest.js";
 import { followClick } from "./follow.js";
 import { hit } from "./hits.js";
@@ -128,6 +128,7 @@ async function api(req, env, url) {
       case "GET /api/admin/featured": return previewFeatured(url, env, await catalogOf(env, origin));
       case "GET /api/admin/challenge": return previewChallenge(url, env, await catalogOf(env, origin));
       case "POST /api/admin/moderate": return moderate(req, env);
+      case "POST /api/admin/test-traffic": return testTraffic(req, env);
       case "GET /api/admin/uploads": return adminUploads(env);
       case "POST /api/admin/uploads": return reviewUpload(req, env);
     }

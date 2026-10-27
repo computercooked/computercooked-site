@@ -214,6 +214,10 @@
 
   /* ---------------- collector mode (top-level page) ---------------- */
   var anon = ls("cc-anon");
+  // team test mode (same as assets/deck.js): ?cctest=1 → a "smoke-" id that every count leaves out, ?cctest=0 → normal
+  var tmode = new URLSearchParams(location.search).get("cctest");
+  if (tmode === "1" && !/^smoke/i.test(anon || "")) { anon = "smoke-team-" + rid(10); ls("cc-anon", anon); }
+  else if (tmode === "0" && /^smoke/i.test(anon || "")) anon = null;
   if (!anon || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) { anon = rid(16); ls("cc-anon", anon); }
 
   var q = new URLSearchParams(location.search);
