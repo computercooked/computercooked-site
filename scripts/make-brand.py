@@ -2,7 +2,7 @@
 # and the mascot alone. Not part of any build; run only when the art changes.
 #
 #   pip install pillow fonttools brotli        (fonttools + brotli read the site font for the share image)
-#   python scripts/make-brand.py <folder with wordmark.jpg|png and mascot.jpg|png>
+#   python scripts/make-brand.py scripts/brand-src     (the source art: wordmark.jpg + mascot.png, 1024x1024)
 #
 # The near-black background is cut out (flood fill from the corners) and a thin dark outline is kept so the art
 # holds its edge on the site's #101114. Writes:
