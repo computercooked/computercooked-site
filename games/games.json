@@ -13,7 +13,7 @@
       ],
       "controls": "drag / arrows / A D",
       "size_kb": 877,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 60,
       "how_to": [
@@ -56,7 +56,7 @@
       ],
       "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
       "size_kb": 49,
-      "version": "1.2",
+      "version": "1.3",
       "added": "2026-10-19",
       "max_score_per_sec": 2,
       "max_score": 30
@@ -97,7 +97,7 @@
       ],
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
       "size_kb": 61,
-      "version": "2.2",
+      "version": "2.3",
       "added": "2026-10-19",
       "max_score_per_sec": 1000,
       "max_score": 5500
@@ -136,7 +136,7 @@
       ],
       "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
       "size_kb": 40,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 30
     },
@@ -221,7 +221,7 @@
       ],
       "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart. badges show how many pixels each front disk can hit.",
       "size_kb": 96,
-      "version": "2",
+      "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 200,
       "how_to": [
@@ -270,7 +270,7 @@
       ],
       "controls": "tap / click popups and bills · space smashes (fast taps build a combo) · p pays all · g takes a gig · 1–4 tabs · 1/2 pick the daily situation",
       "size_kb": 164,
-      "version": "2.1",
+      "version": "2.2",
       "added": "2026-10-19",
       "max_score_per_sec": 0.02
     },
@@ -288,7 +288,7 @@
       ],
       "controls": "drag anywhere to steer (mouse or wasd/arrows on desktop). p pauses, m mutes.",
       "size_kb": 53,
-      "version": "1",
+      "version": "1.1",
       "added": "2026-10-19",
       "max_score_per_sec": 1000000
     },

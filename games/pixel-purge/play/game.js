@@ -816,7 +816,9 @@ function drawMenu() {
 
 function openMenu() { if (mode === 'menu') return; menuFrom = mode; mode = 'menu'; sfx('click'); }
 function closeMenu() { mode = menuFrom === 'menu' ? 'play' : menuFrom; }
-function restart() { if (!S) return; if (S.runOpen) closeRun(false, mode === 'play'); loadLevel(S.cfg); }
+// the lose card ignores restarts for 0.8 s, so a held/mashed key doesn't skip it
+const loseLocked = () => mode === 'lose' && S && performance.now() - S.endMs < 800;
+function restart() { if (!S || loseLocked()) return; if (S.runOpen) closeRun(false, mode === 'play'); loadLevel(S.cfg); }
 
 // ---------- share card ----------
 function makeCard() {
@@ -904,7 +906,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'r') restart();
   else if (k === 'm') setMuted(!muted);
   else if (k === 'escape') { if (mode === 'menu') closeMenu(); else openMenu(); }
-  else if (k === 'enter' || k === ' ') { const p = buttons.find(b => b.o.primary); if (p && mode !== 'play') { p.fn(); e.preventDefault(); } }
+  else if (k === 'enter' || k === ' ') { const p = buttons.find(b => b.o.primary); if (p && mode !== 'play' && !loseLocked()) { p.fn(); e.preventDefault(); } }
 });
 window.addEventListener('message', (e) => {
   const d = e.data; if (!d || typeof d !== 'object') return;

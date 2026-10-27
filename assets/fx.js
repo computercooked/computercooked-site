@@ -171,8 +171,19 @@
     var slides = spotSlides(games, newest, feat);
     if (!slides.length) return;
 
-    // everything a slide shows comes from that one slide record, applied together
+    // everything a slide shows comes from that one slide record, applied together: the art is loaded first so the old
+    // game's picture never sits under the new game's name (CRASH art under "smol brains")
+    var want = null;
     function render(s) {
+      want = s;
+      var pre = new Image();
+      var go = function () { if (want === s) apply(s); };
+      pre.onload = pre.onerror = go;
+      pre.src = s.art;
+      if (pre.complete) go();
+    }
+    function apply(s) {
+      spot.classList.remove("is-swapping");
       img.src = s.art;
       img.classList.toggle("is-svg", /\.svg$/.test(s.art || ""));
       name.textContent = s.title;
@@ -203,7 +214,7 @@
       clearTimeout(swap);
       if (reduceMotion) { render(slides[cur]); return; }
       spot.classList.add("is-swapping");
-      swap = setTimeout(function () { render(slides[cur]); spot.classList.remove("is-swapping"); }, 220);
+      swap = setTimeout(function () { render(slides[cur]); }, 220);
     }
     function tick() { if (!held && !document.hidden) show(cur + 1); }
     function stop() { clearInterval(timer); timer = null; }

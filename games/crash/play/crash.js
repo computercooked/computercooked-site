@@ -4,6 +4,9 @@
 (function () {
   "use strict";
 
+  // touch screens get the drag hint on the intro card even when they also report a fine pointer (hybrids, tablets)
+  if (navigator.maxTouchPoints > 0) document.documentElement.classList.add("has-touch");
+
   /* ---------- swappable art + audio ----------
      Pixel art and sounds live in /games/crash/assets/ (from the ccgames pack).
      Swap a file, or point a path somewhere else. Set any path to "" and the
@@ -209,7 +212,10 @@
 
   /* ---------- game state ---------- */
   var state = "title"; // title | play | paused | cooking | over
-  var t, heat, score, pickups, hits, spawnT, pickT, warnT, cookT;
+  var t, heat, score, pickups, hits, spawnT, pickT, warnT, cookT, overAt = 0;
+  // the first seconds teach the loop (dodge, grab coffee): 1 at the start, 0 from 25 s on, so the late game is as before
+  var EASE_T = 25;
+  function ease() { return Math.max(0, 1 - t / EASE_T); }
   var shake, glitch, flash;
   var crash = { x: W / 2, y: FLOOR, vx: 0, w: 64, h: 56, tilt: 0, step: 0, squash: 0, hurt: 0 };
   var tasks = [], items = [], parts = [], floats = [];
@@ -218,7 +224,7 @@
 
   function reset() {
     t = 0; heat = 8; score = 0; pickups = 0; hits = 0;
-    spawnT = 0.6; pickT = 2.2; warnT = 0; cookT = 0;
+    spawnT = 0.6; pickT = 1.2; warnT = 0; cookT = 0;
     shake = 0; glitch = 0; flash = 0;
     crash.x = W / 2; crash.vx = 0; crash.tilt = 0; crash.squash = 0; crash.hurt = 0;
     tasks.length = 0; items.length = 0; parts.length = 0; floats.length = 0;
@@ -234,6 +240,8 @@
   }
 
   function start() {
+    // ignore restarts for 0.8 s after game over, so a held/mashed key doesn't skip the end card
+    if (state === "over" && performance.now() - overAt < 800) return;
     audio();
     reset();
     setState("play");
@@ -350,7 +358,7 @@
     if (spawnT <= 0) {
       spawnTask();
       if (t > 25 && Math.random() < Math.min(0.35, (t - 25) / 120)) spawnTask();
-      spawnT = Math.max(0.3, 0.95 - t * 0.011) * (0.75 + Math.random() * 0.5);
+      spawnT = (Math.max(0.3, 0.95 - t * 0.011) + 0.5 * ease()) * (0.75 + Math.random() * 0.5);
     }
     pickT -= dt;
     if (pickT <= 0) { spawnItem(); pickT = 2.1 + Math.random() * 1.6; }
@@ -363,7 +371,8 @@
       k.x += k.vx * dt;
       if (k.x < 4 || k.x + k.w > W - 4) k.vx = -k.vx;
       if (crash.hurt <= 0 && overlap(hb, { x: k.x + 3, y: k.y + 3, w: k.w - 6, h: k.h - 6 })) {
-        heat += k.big ? 22 : 15;
+        var burn = Math.round((k.big ? 22 : 15) * (1 - 0.5 * ease()));
+        heat += burn;
         hits++;
         crash.hurt = 0.45;
         crash.squash = 1;
@@ -371,7 +380,7 @@
         glitch = 0.32;
         flash = 0.25;
         puff(k.x + k.w / 2, k.y + k.h, 14, k.color, 160, 0.5);
-        floatText(crash.x, crash.y - crash.h - 10, "+" + (k.big ? 22 : 15) + "°", "#ff6b5b");
+        floatText(crash.x, crash.y - crash.h - 10, "+" + burn + "°", "#ff6b5b");
         sfx.hit();
         if (navigator.vibrate && !reduceMotion && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) { try { navigator.vibrate(40); } catch (e) {} }
         tasks.splice(i, 1);
@@ -770,9 +779,11 @@
     document.getElementById("go-time").textContent = secs + "s";
     document.getElementById("go-score").textContent = final;
     document.getElementById("go-best").textContent = newBest ? "new best!" : "best " + best;
-    document.getElementById("go-stats").textContent = hits + " tasks took the hit · " + pickups + " coffees & fans";
+    document.getElementById("go-stats").textContent = hits + (hits === 1 ? " task" : " tasks") + " took the hit · " +
+      pickups + (pickups === 1 ? " coffee or fan" : " coffees & fans");
     document.getElementById("go-share-text").textContent = "i lasted " + secs + "s before getting cooked. computercooked.com/games";
     setState("over");
+    overAt = performance.now();
     document.getElementById("btn-again").focus({ preventScroll: true });
 
     var rankEl = document.getElementById("go-rank");

@@ -342,7 +342,9 @@
 
   // ---------- share card ----------
   let shareMsg = '', shareMsgT = 0;
-  function shareText() { return `tab hoarder: ${score} pts · ${tabsN} tabs · best streak ${bestCombo}\ncause of death: "${lastTitle}"\ncomputercooked.com/games/tab-hoarder`; }
+  // the streak counts PERFECT drops only (a run with no perfect drop is "no perfect drops", not a confusing "streak 0")
+  function streakText() { return bestCombo ? 'best perfect streak ' + bestCombo : 'no perfect drops'; }
+  function shareText() { return `tab hoarder: ${score} pts · ${tabsN} tabs · ${streakText()}\ncause of death: "${lastTitle}"\ncomputercooked.com/games/tab-hoarder`; }
   function card() {
     const c = document.createElement('canvas'); c.width = 1200; c.height = 630;
     const g = c.getContext('2d');
@@ -354,7 +356,7 @@
     if (crashReady) { g.imageSmoothingEnabled = false; g.drawImage(crashImg, 256, 0, 128, 128, 780, 560 - 0, 240, 70); }
     g.font = '900 88px ' + FONT; g.fillStyle = '#5e4a9e'; g.fillText('tab hoarder', 66, 146); g.fillStyle = COL.lime; g.fillText('tab hoarder', 60, 140);
     g.font = '900 150px ' + FONT; g.fillStyle = COL.paper; g.fillText(String(score), 60, 320);
-    g.font = '800 34px ' + FONT; g.fillStyle = COL.lilac; g.fillText(`${tabsN} tabs · best streak ${bestCombo}`, 60, 390);
+    g.font = '800 34px ' + FONT; g.fillStyle = COL.lilac; g.fillText(`${tabsN} tabs · ${streakText()}`, 60, 390);
     g.font = '700 26px ' + FONT; g.fillStyle = 'rgba(245,243,237,.6)'; g.fillText(('cause of death: "' + lastTitle + '"').slice(0, 52), 60, 450);
     g.font = '800 28px ' + FONT; g.fillStyle = '#77756e'; g.fillText('computercooked.com/games/tab-hoarder', 60, 570);
     return c;
@@ -697,7 +699,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const u = Math.max(0.85, Math.min(1.4, S * 1.1));
     const cw = Math.min(W - 32, 400 * u);
-    const ch = 320 * u;
+    const ch = 372 * u;
     const cx = (W - cw) / 2;
     const cy = Math.max(12, Math.min(H * 0.1, (H - ch) * 0.35)) + (1 - e) * 30;
     ctx.globalAlpha = e;
@@ -716,7 +718,7 @@
     let y = cy + 30 * u;
     text(String(score), mid, y + 96 * u, Math.round(96 * u), COL.lime, 'center');
     y += 122 * u;
-    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + ' pts, best streak ' + bestCombo + ') before getting cooked.';
+    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + ' pts, ' + streakText() + ') before getting cooked.';
     const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
     for (const ln of lines) { text(ln, mid, y, Math.round(16 * u), COL.paper, 'center'); y += 22 * u; }
     y += 4 * u;
@@ -728,7 +730,7 @@
     ctx.fillStyle = 'rgba(245,243,237,0.15)'; ctx.fillRect(cx + 18 * u, y - 20 * u, cw - 36 * u, 1);
     text('computercooked.com/games', mid, y, Math.round(13 * u), COL.lilac, 'center');
     // share button
-    const sb = { w: 200 * u, h: 30 * u }; sb.x = mid - sb.w / 2; sb.y = cy + ch + 12 * u;
+    const sb = { w: 200 * u, h: 30 * u }; sb.x = mid - sb.w / 2; sb.y = cy + ch - 104 * u;
     btns.share = sb;
     ctx.fillStyle = COL.lilac; ctx.fillRect(sb.x, sb.y, sb.w, sb.h);
     text(shareMsgT > 0 ? shareMsg : 'share (s)', mid, sb.y + sb.h * 0.68, Math.round(13 * u), COL.carbon, 'center');

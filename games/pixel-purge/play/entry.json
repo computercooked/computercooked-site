@@ -1,7 +1,7 @@
 {
   "slug": "pixel-purge",
   "title": "pixel purge",
-  "version": 2,
+  "version": "2.1",
   "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",

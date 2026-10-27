@@ -508,7 +508,7 @@
       <div class="acts"><button class="btn alt" data-m="share">share</button><button class="btn" data-m="again">new run</button></div></div>`, bank ? 'bad' : 'lilac', () => modalHandlers.again());
     $('cardSlot').appendChild(shareCanvas);
     modalHandlers.share = share;
-    modalHandlers.again = () => { closeModal(); newRun(); setTab('fresh'); if (meta.cp > 0) toast('spend your credit points on perks →'); };
+    modalHandlers.again = () => { if (performance.now() - modalAt < 800) return; closeModal(); newRun(); setTab('fresh'); if (meta.cp > 0) toast('spend your credit points on perks →'); };
   }
   function shareText() {
     return S.over && S.over.why === 'bankrupt'
@@ -576,7 +576,7 @@
     // space is the smash key, so it never confirms a modal. enter does, after a short lock so a held key can't skip the summary.
     if (modalOpen) {
       if (e.code === 'Space') { e.preventDefault(); return; }
-      if (performance.now() - modalAt < 450 || e.repeat) return;
+      if (performance.now() - modalAt < (S && S.over ? 800 : 450) || e.repeat) return;
       if (modalKeys[e.key]) { e.preventDefault(); modalKeys[e.key](); return; }
       if (e.code === 'Enter' && modalPrimary) { e.preventDefault(); modalPrimary(); }
       return;

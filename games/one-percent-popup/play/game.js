@@ -407,6 +407,7 @@
   function clearLevel() { layer.innerHTML = ''; ticks.length = 0; stageHandler = null; }
 
   function startRun() {
+    if (state === 'over' && performance.now() - overAt < 800) return;
     closeOverlay();
     level = 0; runStart = performance.now(); shuffleOrder();
     sdk((c) => c.start && c.start());
@@ -475,8 +476,10 @@
     o.querySelector('#spk').addEventListener('click', (e) => { spooky = !spooky; store.set(SPOOK_KEY, spooky ? '1' : '0'); applySpooky(); e.target.textContent = 'halloween mode: ' + (spooky ? 'on' : 'off'); });
   }
 
+  // restarts are ignored for 0.8 s after the end card shows, so a held/mashed key doesn't skip it
+  let overAt = 0;
   function gameOver(won, why) {
-    state = 'over'; clearLevel();
+    state = 'over'; overAt = performance.now(); clearLevel();
     const reached = won ? 30 : level + 1;
     setCrash(won ? '' : 'cooked');
     const dur = Math.round(performance.now() - runStart);
