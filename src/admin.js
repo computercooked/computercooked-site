@@ -2,6 +2,7 @@
 import { json, bad, readJson, now, dayOf, safeEqual, limited, REAL } from "./util.js";
 import { games } from "./db.js";
 import { FOLLOW_PLATFORMS } from "./follow.js";
+import { TIP_SLOTS } from "./hits.js";
 
 export function isAdmin(req, env, ip) {
   const h = req.headers.get("authorization") || "";
@@ -143,6 +144,39 @@ export async function metrics(url, env, origin) {
     by_slot: Object.fromEntries(["hub-card", "hub-footer", "post-run"].map((s) => [s, sumBy("slot", s)])),
   };
 
+  // site measurement (src/hits.js): page views, tip clicks and tip successes, each with the visit's channel and campaign
+  const hits = (await db.prepare(
+    `SELECT name, json_extract(data, '$.path') path, json_extract(data, '$.ref') ref, json_extract(data, '$.campaign') campaign,
+       json_extract(data, '$.slot') slot, COUNT(*) n
+     FROM events WHERE name IN ('cc:pageview', 'cc:tip_click', 'cc:tip_success') AND ts >= ? GROUP BY 1, 2, 3, 4, 5`
+  ).bind(Date.parse(since)).all()).results;
+  const tally = (rows, key) => {
+    const m = {};
+    for (const r of rows) { const k = r[key] == null ? "none" : r[key]; m[k] = (m[k] || 0) + r.n; }
+    return Object.fromEntries(Object.entries(m).sort((a, b) => b[1] - a[1]));
+  };
+  const ofKind = (k) => hits.filter((r) => r.name === "cc:" + k);
+  const pv = ofKind("pageview"), tc = ofKind("tip_click"), ts = ofKind("tip_success");
+  const total = (rows) => rows.reduce((n, r) => n + r.n, 0);
+  const pageviews = { total: total(pv), by_ref: tally(pv, "ref"), by_path: Object.fromEntries(Object.entries(tally(pv, "path")).slice(0, 20)) };
+  const tcSlots = tally(tc, "slot");
+  const tips = {
+    clicks: total(tc), clicks_by_slot: Object.fromEntries(TIP_SLOTS.concat("other").map((k) => [k, tcSlots[k] || 0])),
+    clicks_by_ref: tally(tc, "ref"), successes: total(ts), successes_by_ref: tally(ts, "ref"),
+  };
+  // real plays by channel, and everything by utm_campaign (plays via play_tags)
+  const playsRef = (await db.prepare(`SELECT referrer, COUNT(*) n FROM plays WHERE day >= ? AND ${REAL} GROUP BY 1`).bind(since).all()).results;
+  const plays_by_ref = tally(playsRef, "referrer");
+  const playsCamp = (await db.prepare(
+    `SELECT t.campaign, COUNT(*) n FROM plays p JOIN play_tags t ON t.play_id = p.id WHERE p.day >= ? AND ${REAL.replace(/anon_id/g, "p.anon_id").replace(/user_id/g, "p.user_id")} GROUP BY 1`
+  ).bind(since).all()).results;
+  const campaigns = {};
+  const bump = (c, k, n) => { if (!c) return; campaigns[c] = campaigns[c] || { pageviews: 0, plays: 0, tip_clicks: 0, tip_successes: 0 }; campaigns[c][k] += n; };
+  for (const r of pv) bump(r.campaign, "pageviews", r.n);
+  for (const r of tc) bump(r.campaign, "tip_clicks", r.n);
+  for (const r of ts) bump(r.campaign, "tip_successes", r.n);
+  for (const r of playsCamp) bump(r.campaign, "plays", r.n);
+
   // smoke-test traffic left out of everything above, counted here so a live smoke run can be confirmed excluded
   const test = await db.prepare(
     `SELECT (SELECT COUNT(*) FROM plays WHERE day >= ?1 AND NOT ${REAL}) plays,
@@ -165,6 +199,10 @@ export async function metrics(url, env, origin) {
     dares,
     game_shares,
     follow_clicks,
+    pageviews,
+    tips,
+    plays_by_ref,
+    campaigns,
     next,
     test_traffic: test,
     games: out,

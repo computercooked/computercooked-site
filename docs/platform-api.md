@@ -30,6 +30,12 @@ Response:
   "game_shares": { "sent": 0, "via_share": 0, "via_copy": 0, "via_card": 0, "via_download": 0 },
   // "follow @computercooked" button clicks (site → socials)
   "follow_clicks": { "total": 0, "by_platform": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0 }, "by_slot": { "hub-card": 0, "hub-footer": 0, "post-run": 0 } },
+  // site measurement (POST /api/hit): page views, tip clicks/successes; "none" = no campaign / no slot
+  "pageviews": { "total": 0, "by_ref": { "tiktok": 0 }, "by_path": { "/games/": 0 } },
+  "tips": { "clicks": 0, "clicks_by_slot": { "hub-top": 0, "hub-footer": 0, "post-run": 0, "other": 0 }, "clicks_by_ref": {}, "successes": 0, "successes_by_ref": {} },
+  // real plays by channel (all games), and pageviews / plays / tips per utm_campaign
+  "plays_by_ref": { "tiktok": 0, "direct": 0 },
+  "campaigns": { "<utm_campaign>": { "pageviews": 0, "plays": 0, "tip_clicks": 0, "tip_successes": 0 } },
   "next": { "runs_ended": 0, "plays": 0, "ended": 0, "per_run": null, "by_slot": { "challenge": 0, "similar": 0, "new": 0 } },
   "games": [{
     "game": "crash", "title": "CRASH",
@@ -329,3 +335,12 @@ To query it directly, run this with Ashton's Cloudflare login:
 ```
 npx wrangler d1 execute computercooked --remote --command "SELECT …"
 ```
+
+
+## Site measurement: page views, tips, campaigns
+
+No cookies, no third-party analytics, no player id stored on these rows.
+- **Channel and campaign:** the first page of a visit stores the channel in `sessionStorage` `cc-ref` (a `?ref=` / `utm_source` tag, else the outside referrer) and a valid `utm_campaign` (lowercase `[a-z0-9_.-]`, max 40) in `cc-campaign` (`assets/deck.js`; `games/cc-sdk.js` does the same inside game frames). Tags come off the URL once read. Plays carry the channel in `plays.referrer` and the campaign in `play_tags` (`migrations/0012_measurement.sql`).
+- **`POST /api/hit {kind, path, game?, slot?, ref, campaign, anon}`** → `{ok}`. `kind` is `pageview` (one per page load with the control deck), `tip_click` (`slot` = `hub-top` | `hub-footer` | `post-run`) or `tip_success`. Stored as one `events` row `cc:<kind>` `{path, ref, campaign, slot}`. Smoke anon ids get `{ok, test: true}` and nothing is stored. 400 for an unknown kind or a bad path; 120 per minute per IP.
+- **Tip success:** set the Stripe Payment Link's after-payment redirect to `https://computercooked.com/games/?tip=thanks`. A page opened with `?tip=thanks` sends one `tip_success` per visit, removes the param, and the hub shows a thank-you line instead of the tip link.
+- **Reading it:** `GET /api/admin/metrics?since=YYYY-MM-DD` (admin token) → `pageviews`, `tips`, `plays_by_ref`, `campaigns`, alongside the existing game numbers.

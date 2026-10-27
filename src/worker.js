@@ -18,6 +18,7 @@ import { events, leaderboard, feedback, stats, report, meSummary, favorite } fro
 import { isAdmin, metrics, listReports, moderate } from "./admin.js";
 import { digest } from "./digest.js";
 import { followClick } from "./follow.js";
+import { hit } from "./hits.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
 
 export default {
@@ -113,6 +114,8 @@ async function api(req, env, url) {
   if (route === "POST /api/share") return sharedGame(req, env, ip, await catalogOf(env, origin));
   // "follow @computercooked" button clicks (assets/follow.js)
   if (route === "POST /api/follow") return followClick(req, env, ip);
+  // page views and tip clicks/successes (assets/deck.js, games/hub.js, games/platform.js)
+  if (route === "POST /api/hit") return hit(req, env, ip);
 
   if (method === "GET" && path.startsWith("/api/u/")) return publicProfile(env, path.slice(7), origin, user);
 

@@ -25,11 +25,28 @@
         }
         if (tag || from) sessionStorage.setItem("cc-ref", tag || from);
       }
+      // the campaign of the first tagged link this visit (utm_campaign), sent with page views, plays and tips
+      var camp = (q.get("utm_campaign") || "").trim().toLowerCase();
+      if (/^[a-z0-9_.-]{1,40}$/.test(camp) && !sessionStorage.getItem("cc-campaign")) sessionStorage.setItem("cc-campaign", camp);
+      // back from a Stripe tip (the Payment Link redirects to ?tip=thanks): counted once per visit, param removed
+      var thanks = q.get("tip") === "thanks";
+      if (thanks) q.delete("tip");
       var tagged = false;
       ["ref", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) {
         if (q.has(k) && !(k === "ref" && q.get(k) === "app")) { q.delete(k); tagged = true; }
       });
-      if (tagged) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      if (tagged || thanks) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      // one page view per load, and the tip success: no cookies, no player id stored (POST /api/hit, src/hits.js)
+      var hit = window.ccHit = function (kind, extra) {
+        try {
+          var body = { kind: kind, path: location.pathname, ref: sessionStorage.getItem("cc-ref") || "direct",
+            campaign: sessionStorage.getItem("cc-campaign"), anon: localStorage.getItem("cc-anon") };
+          for (var k in extra || {}) body[k] = extra[k];
+          fetch("/api/hit", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
+        } catch (err) {}
+      };
+      hit("pageview");
+      if (thanks && !sessionStorage.getItem("cc-tipped")) { sessionStorage.setItem("cc-tipped", "1"); hit("tip_success"); window.ccTipThanks = true; }
     } catch (e) {}
   })();
 

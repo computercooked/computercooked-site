@@ -2534,6 +2534,12 @@ body.embed {
 .footer .cc-tip { margin: 0 0 6px; }
 .cc-tip a { color: var(--lime); }
 .cc-tip small { margin-left: 4px; font-size: 0.72rem; opacity: 0.7; white-space: nowrap; }
+/* the hub's tip line up top (games/hub.js, right under the hero): a visible pill, not a footer link */
+.cc-tip-top { margin: 4px auto 18px; padding: 10px 16px; max-width: max-content; border: 1px solid var(--lime); border-radius: 999px; text-align: center; }
+.cc-tip-top a { font-weight: 700; text-decoration: none; }
+.cc-tip-top a:hover, .cc-tip-top a:focus-visible { text-decoration: underline; }
+.cc-tip-thanks { color: var(--lime); }
+@media (max-width: 420px) { .cc-tip-top { max-width: none; margin-inline: 16px; border-radius: 14px; } }
 
 /* follow loop (assets/follow.js): house card in the hub's bottom slot and after a run, plus a footer row */
 .cc-follow {

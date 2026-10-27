@@ -1,5 +1,5 @@
 // Plays/events, leaderboards, feedback, hub stats, /me data.
-import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, deviceOf, limited, nameClean, streakFrom, isTestPlayer, REAL } from "./util.js";
+import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, campaignOk, deviceOf, limited, nameClean, streakFrom, isTestPlayer, REAL } from "./util.js";
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
 import { settleReferral, referralCounts } from "./referrals.js";
@@ -19,7 +19,7 @@ function cleanGuest(name, anon) {
   return guestName(anon);
 }
 
-// POST /api/events  {anon, tester, ref, name, events:[{t:'start'|'end'|'event', id, game, v, score, dur, completed, auto, name, data}]}
+// POST /api/events  {anon, tester, ref, campaign, name, events:[{t:'start'|'end'|'event', id, game, v, score, dur, completed, auto, name, data}]}
 export async function events(req, env, ip, user, origin) {
   if (limited("events:" + ip, 240, 60000)) return bad("slow down", 429);
   const b = await readJson(req, 32 * 1024);
@@ -28,6 +28,7 @@ export async function events(req, env, ip, user, origin) {
   const list = Array.isArray(b.events) ? b.events.slice(0, 50) : [];
   const tester = str(b.tester, 32);
   const ref = refOk(b.ref);
+  const campaign = campaignOk(b.campaign);
   const device = deviceOf(req.headers.get("user-agent") || "");
   const catalog = await games(env, origin);
   const results = {};
@@ -40,6 +41,8 @@ export async function events(req, env, ip, user, origin) {
       await env.DB.prepare(
         "INSERT OR IGNORE INTO plays (id, game, version, anon_id, user_id, tester, started_at, referrer, device, day, auto) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
       ).bind(e.id, e.game, str(e.v, 16) || "1", anon, user ? user.id : null, tester, t, ref, device, dayOf(t), e.auto ? 1 : 0).run();
+      // the utm_campaign this visit arrived with (plays.referrer already holds the channel)
+      if (campaign) await env.DB.prepare("INSERT OR IGNORE INTO play_tags (play_id, campaign) VALUES (?, ?)").bind(e.id, campaign).run();
       // started from the "play next" rail after a run on another game: one cc:next event per play (admin metrics)
       if (e.src === "next") {
         const slot = ["challenge", "similar", "new"].includes(e.slot) ? e.slot : "other";
