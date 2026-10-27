@@ -28,6 +28,22 @@
       // the campaign of the first tagged link this visit (utm_campaign), sent with page views, plays and tips
       var camp = (q.get("utm_campaign") || "").trim().toLowerCase();
       if (/^[a-z0-9_.-]{1,40}$/.test(camp) && !sessionStorage.getItem("cc-campaign")) sessionStorage.setItem("cc-campaign", camp);
+      // team test mode: ?cctest=1 gives this browser a "smoke-" anonymous id, which every count already leaves out
+      // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. Param removed.
+      var tm = q.get("cctest");
+      if (tm === "1" && !/^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
+        localStorage.setItem("cc-anon", "smoke-team-" + Math.random().toString(36).slice(2, 12));
+      } else if (tm === "0" && /^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
+        localStorage.removeItem("cc-anon");
+      }
+      if (tm !== null) q.delete("cctest");
+      if (/^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
+        var badge = document.createElement("div");
+        badge.textContent = "test mode: not counted";
+        badge.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:9999;padding:2px 8px;border-radius:6px;" +
+          "font:11px ui-monospace,monospace;background:#c6ff3d;color:#0e120c;opacity:.85;pointer-events:none";
+        (document.body || document.documentElement).appendChild(badge);
+      }
       // back from a Stripe tip (the Payment Link redirects to ?tip=thanks): counted once per visit, param removed
       var thanks = q.get("tip") === "thanks";
       if (thanks) q.delete("tip");
@@ -35,7 +51,7 @@
       ["ref", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) {
         if (q.has(k) && !(k === "ref" && q.get(k) === "app")) { q.delete(k); tagged = true; }
       });
-      if (tagged || thanks) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      if (tagged || thanks || tm !== null) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
       // one page view per load, and the tip success: no cookies, no player id stored (POST /api/hit, src/hits.js)
       var hit = window.ccHit = function (kind, extra) {
         try {
