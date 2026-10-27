@@ -1,3 +1,4 @@
+// SUPERSEDED (Oct 2026 rebrand): the app icons now come from scripts/make-brand.py. Running this overwrites them with the old logo.
 // App icons for the web app manifest (add to home screen): assets/icon-192.png, icon-512.png and
 // icon-maskable-512.png, rendered from assets/logo.svg with resvg. Same tools as make-og.mjs:
 //
