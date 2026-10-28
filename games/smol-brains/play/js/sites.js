@@ -83,8 +83,8 @@
     S.podTick(game, sm);
     // a camp or a pod that hasn't been dealt with waits for the storyteller to be free
     if (SB.Director) {
-      var d = SB.Director.state(game), waiting = function (k) { return game.sites.some(function (s) { return s.kind === k && !s.gone && s.found && !s.done && (!s.asked || game.time > (s.againT || 0)); }); };
-      if (!d.active && game.tutorial && game.tutorial.done && !game.offline && game.time - (d.lastT == null ? -1e9 : d.lastT) > 120 && (!game.playTime || game.playTime - (d.realT || -1e9) > 45)) { if (waiting("pod")) SB.Director.fire(game, "pod"); else if (waiting("camp")) SB.Director.fire(game, "camp"); }
+      var d = SB.Director.state(game), waiting = function (k) { return game.sites.some(function (s) { return s.kind === k && !s.gone && s.found && !s.done && (!s.asked || game.time > (s.againT || 0)) && (k !== "pod" || game.time > (s.crashT || 0) + 40); }); }; // a pod: not while it's still falling (K-0027)
+      if (!d.active && game.tutorial && game.tutorial.done && !game.offline && game.time - (d.lastT == null ? -1e9 : d.lastT) > 120 && (!game.playTime || game.playTime - (d.realT || -1e9) > 45)) { if (waiting("pod") && !(SB.UI && SB.UI.podBusy && SB.UI.podBusy())) SB.Director.fire(game, "pod"); else if (waiting("camp")) SB.Director.fire(game, "camp"); }
     }
   };
 

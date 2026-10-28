@@ -58,5 +58,35 @@ console.log("3. a blob's first day in your hands starts hungry");
   SB.Possess.leave();
 }
 
+console.log("4. K-0027: G, G walks a blob to food it can eat, and it eats it when it gets there");
+{
+  const { SB, game, cs } = tribe(84, 2);
+  const c = cs[0];
+  delete game.settings.povBlobQuest; delete game.settings.povHungry;
+  SB.Possess.enter(game, c);
+  check("first time in a blob on this island: hungry", c.chem.hunger >= 0.72, c.chem.hunger.toFixed(2));
+  SB.Possess.sniff();
+  const sn = SB.Possess.sniffing();
+  const tgt = sn && sn.ref && SB.Creature.resolve(game, sn.ref);
+  check("the nose found something a blob can eat", !!tgt && (sn.ref.type === "item" || ["bush", "roots", "gourds"].indexOf(tgt.ref.kind) >= 0), sn && sn.ref ? sn.ref.type + " " + (tgt && tgt.ref.kind) : "nothing");
+  SB.Possess.sniff(); // G again: off you go
+  const h0 = c.chem.hunger;
+  let ate = false; SB.bus.on("povEat", () => { ate = true; }); SB.bus.on("nibble", () => { ate = true; });
+  for (let t = 0; t < 45 && !ate; t += SB.TICK) SB.Game.step(game, SB.TICK);
+  check("it walked there and ate", ate, "hunger " + h0.toFixed(2) + " → " + c.chem.hunger.toFixed(2));
+  check("the food bar filled back up", c.chem.hunger < h0, c.chem.hunger.toFixed(2));
+  SB.Possess.leave();
+}
+
+console.log("5. K-0027: a day-1 birthday doesn't end a skip; coming of age does");
+{
+  const { SB, game, cs } = tribe(85, 2);
+  game.speed = 1; SB.Game.skip(game); game.time += 5;
+  cs[0].stage = 1; SB.bus.emit("grow", { c: cs[0] });
+  check("a new kid: still skipping", !!game.skip);
+  cs[0].stage = 3; SB.bus.emit("grow", { c: cs[0] });
+  check("a new adult: stops", !game.skip);
+}
+
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);

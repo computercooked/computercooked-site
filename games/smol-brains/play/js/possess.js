@@ -144,9 +144,14 @@
     if (S.auto) {
       var ax = S.auto.x - c.x, az = S.auto.z - c.z, ad = Math.hypot(ax, az);
       S.auto.t -= dt;
+      if (S.auto.best == null || ad < S.auto.best - 0.25) { S.auto.best = ad; S.auto.stuck = 0; } else S.auto.stuck += dt;
       if (mag > 0.08 || S.auto.t <= 0) S.auto = null;
-      else if (ad < 1.6) { S.auto = null; say("here! right click to nibble a bush, or left click food to eat it"); }
+      else if (ad < (S.auto.reach || 1.6) || S.auto.stuck > 1.5) { var ref = S.auto.ref; S.auto = null; arrive(ref); }
       else { S.yaw += SB.angDiff(S.yaw, Math.atan2(-ax, -az)) * Math.min(1, dt * 5); f = 1; sd = 0; mag = 1; }
+    }
+    if (S.quest && S.quest.kind === "blob" && S.quest.i <= 1 && ch.hunger > 0.5 && ch.hunger < 0.97) {
+      ch.hunger = Math.min(0.97, ch.hunger + dt * 0.006); // a drumstick about every 8 s until you've eaten (K-0027: "no timer")
+      if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
@@ -508,7 +513,8 @@
     if (!o.use && !r && held && K[hk] && K[hk].tool) o.use = op("swing your " + kl(hk), function () { swingAnim(); return true; }, null);
     o.ctx = o.pick && !o.pick.locked ? o.pick : o.use && !o.use.locked && o.use.label !== "cancel" ? o.use : o.place && !o.place.locked ? o.place : null;
     if (o.use && o.use.nestLine) o.ctx = o.use;
-    if (!o.ctx && tier < 2) o.ctx = op(S && S.sniff && !S.auto ? "walk to food" : "sniff for food", function () { return P.sniff(); }, null); // a small body's nose (G)
+    var hungryNose = tier < 2 && c.chem.hunger > 0.5 && !(o.ctx && o.ctx.verb === V.eat); // a hungry blob's big button is its nose, even by water (K-0027 phone)
+    if ((!o.ctx || hungryNose) && tier < 2) o.ctx = op(S && S.sniff && !S.auto ? "walk to food" : "sniff for food", function () { return P.sniff(); }, null); // a small body's nose (G)
     return o;
     function tugOpt(n) { return Surv.canTug(game, n) ? op("tug off some leaves", function () { return tug(n); }, V.pickup) : null; }
   };
@@ -745,19 +751,32 @@
     }
   }
   // G: a small body's nose. points the marker at the nearest food for a while
+  // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
+  function arrive(ref) {
+    var c = S.c, game = S.game, r = ref ? SB.Creature.resolve(game, ref) : null;
+    if (r && r.ref && !r.ref.gone) {
+      S.yaw = Math.atan2(-(r.ref.x - c.x), -(r.ref.z - c.z)); S.pitch = -0.25;
+      var o = P.options(game, c, ref);
+      var k = ["place", "use", "pick"].filter(function (w) { return o[w] && !o[w].locked && o[w].verb === V.eat; })[0];
+      if (k && P.act(k, ref)) return;
+    }
+    say("here! right click to nibble a bush, or left click food to eat it");
+  }
   P.sniff = function () {
     if (!S || S.dead) return false;
     var c = S.c, game = S.game, w = game.world, Surv = Sv();
-    if (S.sniff && !S.auto) { S.auto = { x: S.sniff.x, z: S.sniff.z, t: 40 }; S.sniff.t = Math.max(S.sniff.t, 40); say("👃 off you go… (any move key stops)"); return true; }
+    if (S.sniff && !S.auto) { S.auto = { x: S.sniff.x, z: S.sniff.z, t: 40, ref: S.sniff.ref, reach: S.sniff.reach }; S.sniff.t = Math.max(S.sniff.t, 40); say("👃 off you go… (any move key stops)"); return true; }
     if (S.sniffCd > 0) { say("sniff… your nose needs a moment"); return false; }
     S.sniffCd = 3;
     var it = SB.World.nearestItem(w, c.x, c.z, 45, function (o) { return o.heldBy == null && Surv.edible(o.kind) && !(o.data && o.data.rotten) && !(K[o.kind] && K[o.kind].critter) && !(o.data && o.data.pod); });
-    var nd = SB.World.nearestNode(w, c.x, c.z, 45, function (n) { var d = NK[n.kind]; return n.state === "ok" && d && d.drops && Surv.edible(d.drops) && n.kind !== "hive"; });
+    var small = c.tier < 2;
+    var nd = SB.World.nearestNode(w, c.x, c.z, 45, function (n) { var d = NK[n.kind]; return n.state === "ok" && d && d.drops && Surv.edible(d.drops) && n.kind !== "hive" && (!small || n.kind === "bush" || n.kind === "roots" || n.kind === "gourds"); });
     var t = it, d1 = it ? SB.dist(it.x, it.z, c.x, c.z) : 1e9, d2 = nd ? SB.dist(nd.x, nd.z, c.x, c.z) : 1e9;
     if (d2 + 4 < d1) t = nd; // loose food beats a plant unless the plant is much nearer
     if (!t) { say("sniff sniff… nothing tasty nearby"); return true; }
     var d = Math.min(d1, d2);
-    S.sniff = { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + 1.1, t: 14 };
+    var isIt = t === it;
+    S.sniff = { x: t.x, z: t.z, y: (isIt ? t.y : SB.World.groundY(w, t.x, t.z)) + 1.1, t: 14, ref: { type: isIt ? "item" : "node", id: t.id }, reach: isIt ? 1.2 : NK[t.kind].r * (t.s || 1) + 1.0 };
     say("sniff sniff… something tasty, " + Math.round(d) + "m that way. press G again to walk there");
     audio("tap", 0.4);
     SB.bus.emit("sniff", { c: c });
@@ -993,10 +1012,10 @@
   function questStart() {
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
     S.quest = null;
+    if (c.tier < 2 && !st.povHungry) { st.povHungry = 1; if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; } // per island, quest or not (K-0027 saw a full bar)
     if (c.tier < 2) {
       if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
       S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };
-      if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; // a tummy rumbling: the food bar is low, and eating fills it back up (K-0025)
     } else {
       if (st.povQuest === "done" || st.povQuest === "skipped" || questStore() === "done") return;
       S.quest = { i: 0, started: game.time, flags: {} };

@@ -344,6 +344,18 @@ Fun 5/10: "the sim ideas are strong, but it still plays as watch-and-click". The
 - **Not a bug**: typing n in the founders' name box types an n. Keys go to the text box while you're naming.
 - **Tests**: `firstminutes.test.js` (a rally answers at once with reasons, wishes don't end a skip, a possessed blob starts hungry).
 
+## 0.28 What v4.8.3 fixed: possession you can finish (K-0027)
+
+The bot's v4.8.2 playtest: popups and skip banners were much better (5/10). Possession was still the gap: no stakes, and the G loop stalled.
+
+- **G, G, eaten**: a blob's nose only finds what a blob can eat (food on the ground, bushes, roots, gourds), not a palm it can't climb. Walking there stops at arm's length, or when a trunk is in the way, and then it eats: it faces the food and nibbles it, the food bar fills (and pulses), and the quest moves on. On a phone, a hungry blob's big button is "sniff for food" / "walk to food" even by water (it said "drink", so a phone had no way to sniff).
+- **Stakes**: the first time you're in a blob on an island, it's hungry, whether or not the guide has been done before (the bot's bar was full because its browser had finished the guide). Until it has eaten, the food bar runs down, about a drumstick every 8 s, with a warning at the end. Hearts go when it's empty. That's the first-minute clock. A grump or the cold in the first minute is still to come.
+- **Mouse look**: only the move right after the pointer locks is dropped. 4.8.2 also dropped big moves, which ate real fast flicks.
+- **Cards don't stack**: tips wait while a smol's card is open (they covered its possess button), and the card's header has a 👁 that possesses (following is still f). A skip stop shows its banner and flies the camera but leaves the card closed.
+- **One pod at a time**: the storyteller's "an escape pod came down!" waits until the pod has landed and its map is closed (40 sim s), instead of a window over the map.
+- **Skip stops worth it**: growing up stops a skip only when a smol comes of age (a day-1 "now a kid" doesn't). An incident is named ("☄️ a star fell!", not "something's happening"). The orders panel tucks itself away 3 s after a rally or explore flag lands; the flag's label keeps the count.
+- **Tests**: `firstminutes.test.js` §4 (G, G walks a blob to food it can eat and eats it) and §5 (a kid birthday doesn't end a skip, coming of age does). `skip.test.js` §1 now uses teens.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

@@ -258,7 +258,6 @@
     var sp = d.why.indexOf(" "), ic = sp > 0 && sp <= 3 ? d.why.slice(0, sp) : "⏭";
     moment(ic, d.why.slice(sp > 0 && sp <= 3 ? sp + 1 : 0), "⏭ skipped to here · back to " + (game.speed || 1) + "×", "", true);
     if (d.at && d.at.x != null) R.flyTo(d.at.x, d.at.z, Math.min(R.camera.tZoom, 10), 1.0); // you asked to be shown: always fly
-    if (d.at && d.at.type === "creature" && d.at.alive) SB.Game.select(game, d.at.id);
   });
   function cycleSpeed(d) {
     if (game.skip && d !== 0) { SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); hudT = 0; return; } // mid-skip, [ or ] just stops it
@@ -607,7 +606,7 @@
     var head = h("div", { class: "row" }, [
       el.cAv = avatar(c.look, c.tier),
       h("div", { style: "min-width:0;flex:1" }, [el.cName = h("div", { class: "nm" }), el.cSub = h("div", { class: "sub2" })]),
-      h("button", { class: "ibtn", title: "follow with the camera (f)", onclick: function () { var on = !R.camera.follow; SB.Input.follow(on ? c : null); this.classList.toggle("on", on); } }, "🎥"),
+      SB.Possess && c.species === "smol" ? h("button", { class: "ibtn", title: "possess: see through its eyes", onclick: function () { SB.Possess.enter(game, c); } }, "👁") : h("button", { class: "ibtn", title: "follow with the camera (f)", onclick: function () { var on = !R.camera.follow; SB.Input.follow(on ? c : null); this.classList.toggle("on", on); } }, "🎥"),
       h("button", { class: "ibtn", title: "brain viewer (b)", onclick: function () { openBrain(c); } }, "🧠"),
       h("button", { class: "ibtn", title: "close", onclick: function () { SB.Game.select(game, null); closeSheet(); } }, "✕")
     ]);
@@ -1046,6 +1045,7 @@
       if (so.kind === "rally" || so.kind === "explore") {
         toast(res.o && res.o.first ? "🚩 your first flag: watch them come. the 🚩! bubbles are the ones on their way" : K.e + " " + K.name + " placed. about " + Math.round(SB.Orders.obedience(game, so.kind) * 100) + "% of them will listen", "", 6000);
         state.order = null; el.ordInfo.innerHTML = ORDER_HELP;
+        setTimeout(function () { if (state.tool === "orders" && !state.order) setTool("grab"); }, 3000);
         if (res.o && R.camera.tZoom < 12) R.flyTo((res.o.x + R.camera.x) / 2, (res.o.z + R.camera.z) / 2, Math.max(R.camera.tZoom, 13), 0.8); // pull back so the walk is in view
       }
     }
@@ -1676,6 +1676,7 @@
     if (SB.Intro && !UI.noStory) SB.Intro.play({ scene: "pod", noGate: true, done: function () { podMap(s, resume); } });
     else podMap(s, resume);
   }
+  UI.podBusy = function () { return podQ.length > 0; }; // the cutscene and map are still up: the storyteller waits
   UI.podMap = function (s, done) { podMap(s, done || function () {}); };
   function podMap(s, done) {
     var T = game.world.T, N = T.N, hm = SB.Society.home(game, 0), seenP = (game.settings = game.settings || {}).cards || (game.settings.cards = {}), first = !seenP.podcard;
@@ -1868,7 +1869,7 @@
   function updateGuide(dt) {
     if ((guideT -= dt) > 0) return;
     guideT = 1;
-    var on = guideOn() && game.tutorial.done && !state.introRunning && !(SB.Intro && SB.Intro.covering) && !el.modal;
+    var on = guideOn() && game.tutorial.done && !state.introRunning && !(SB.Intro && SB.Intro.covering) && !el.modal && !state.sheet;
     var now = performance.now(), tip = on ? guideTips().filter(function (x) { return !(snooze[x.key] > now); })[0] : null;
     if (!tip) { if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; } return; }
     if (tip.key === guideKey && el.guide) return;
