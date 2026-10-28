@@ -337,3 +337,4 @@ body {
    run ends or the game scrolls off screen. All screen sizes (audit P1 #20): on desktop it sat over the game too. */
 .deck { transition: translate 0.25s ease, opacity 0.25s ease; }
 .cc-playing .deck { translate: -50% calc(100% + 24px); opacity: 0; pointer-events: none; }
+.cc-deck-rest .deck { translate: -50% calc(100% + 24px); opacity: 0; pointer-events: none; }
