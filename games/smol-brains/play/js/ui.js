@@ -10,8 +10,8 @@
   var R = SB.Render;
   var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "evolution" };
   UI.modalOpen = false;
-  var povHeld = null; // the last god window that came up while possessing (see modal)
-  UI.povDone = function () { var m = povHeld; povHeld = null; if (m) modal(m[0], m[1], m[2]); };
+  var povHeld = []; // god windows that came up while possessing (see modal), shown in order on the way out
+  UI.povDone = function () { var m = povHeld.shift(); if (m) modal(m[0], m[1], m[2]); };
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -529,6 +529,7 @@
     el.sheet.appendChild(h("div", { class: "btnrow" }, [
       SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess" + (SB.Possess.cost && SB.Possess.cost(game) === 0 ? " · free" : "")) : null,
       SB.Tricks ? h("button", { class: "btn go", title: "train it: every bar is read from its brain", onclick: function () { openSheet("tricks"); } }, "🎓 tricks " + SB.Tricks.count(c) + "/" + SB.Tricks.LIST.length) : null,
+      h("button", { class: "btn go", title: "watch its neural net think and learn, live (b)", onclick: function () { openBrain(c); } }, "🧠 brain"),
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
@@ -974,7 +975,9 @@
   /* ---------------- modals ---------------- */
   function modal(title, body, opts) {
     opts = opts || {};
-    if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld = [title, body, opts]; return; } // no god windows in a smol's eyes: shown on the way out
+    if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld.push([title, body, opts]); return; } // no god windows in a smol's eyes: shown on the way out
+    // an event card (story, stranger, storyteller…) never replaces another one: it waits its turn
+    if (el.modal && el.modalOpts && (opts.story || opts.sticky) && (el.modalOpts.story || el.modalOpts.sticky)) { popQ.push([title, body, opts]); return; }
     closeModal();
     UI.modalOpen = !opts.live;
     var wrap = h("div", { class: "modal-wrap", onclick: function (e) { if (e.target === wrap && !opts.sticky) closeModal(); } });
@@ -985,14 +988,21 @@
     ]);
     wrap.appendChild(m);
     root.appendChild(wrap);
-    el.modal = wrap; el.modalBody = m.querySelector(".mb");
+    el.modal = wrap; el.modalBody = m.querySelector(".mb"); el.modalOpts = opts;
+    root.classList.add("hasmodal");
     return wrap;
   }
+  var popQ = []; // event windows waiting for the one on screen to close
   function closeModal() {
-    if (el.modal) { el.modal.remove(); el.modal = null; }
+    if (el.modal) { el.modal.remove(); el.modal = null; el.modalOpts = null; }
+    if (root) root.classList.remove("hasmodal");
     UI.modalOpen = false;
     state.brainC = null;
-    if (cardQ.length) setTimeout(function () { if (!el.modal) nextCard(); }, 250);
+    if (popQ.length || cardQ.length) setTimeout(function () {
+      if (el.modal) return;
+      var m = popQ.shift();
+      if (m) modal(m[0], m[1], m[2]); else nextCard();
+    }, 250);
   }
   UI.closeModal = closeModal;
   UI.modal = modal;
@@ -2169,6 +2179,7 @@
   /* ---------------- keys ---------------- */
   UI.key = function (e) {
     var k = e.key.toLowerCase();
+    if (k === "backspace") { k = "escape"; e.preventDefault(); } // esc also leaves fullscreen, so backspace closes things too
     if (k === "escape") { if (el.modal) closeModal(); else if (UI.armed) disarm(); else if (state.sheet) { SB.Game.select(game, null); closeSheet(); } return true; }
     if (el.modal && !state.brainC) return false;
     if (k === " ") { cycleSpeed(0); e.preventDefault(); return true; }
@@ -2177,11 +2188,19 @@
     if (k >= "1" && k <= "6") { setTool(TOOLS[+k - 1][0], true); return true; }
     if (k === "t") { setTool("talk", true); e.preventDefault(); return true; }
     if (k === "m") { game.settings = game.settings || {}; game.settings.minimap = game.settings.minimap === false; toast(game.settings.minimap === false ? "map hidden (m to show)" : "map on"); return true; }
-    if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (c && c.type === "creature") openBrain(c); return true; }
+    if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (!c || c.type !== "creature") c = brainPick(); if (c) { SB.Game.select(game, c.id); openBrain(c); } else toast("no smols to look inside yet"); return true; }
     if (k === "f") { var c2 = SB.Game.byId(game, game.selectedId); if (c2) SB.Input.follow(R.camera.follow ? null : c2); return true; }
     if (k === "h") { root.classList.toggle("hide"); return true; }
     return false;
   };
+
+  // "b" with nobody picked: the smol the camera follows, else the living smol nearest the middle of the screen
+  function brainPick() {
+    var f = R.camera.follow; if (f && f.alive && f.type === "creature" && f.species === "smol") return f;
+    var best = null, bd = Infinity;
+    SB.Game.smols(game).forEach(function (c) { var d = (c.x - R.camera.x) * (c.x - R.camera.x) + (c.z - R.camera.z) * (c.z - R.camera.z); if (d < bd) { bd = d; best = c; } });
+    return best;
+  }
 
   /* ---------------- per frame ---------------- */
   var perfEl = null, perfT = 0;

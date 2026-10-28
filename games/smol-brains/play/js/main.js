@@ -672,6 +672,12 @@
     window.location.reload();
   };
 
+  // the play URL without the island it opened (?world= / ?seed=), keeping test flags like ?cctest=1
+  function cleanUrl() {
+    var keep = [];
+    try { new URLSearchParams(location.search).forEach(function (v, k) { if (k !== "world" && k !== "seed") keep.push(encodeURIComponent(k) + "=" + encodeURIComponent(v)); }); } catch (e) {}
+    return location.pathname + (keep.length ? "?" + keep.join("&") : "");
+  }
   // the island in the live save (the pre-v3.6 boot, still used by ?play=1 and in-game reloads)
   function enterLive(seedFromUrl) {
     var g = null, data = null, migrated = false;
@@ -681,7 +687,7 @@
       var day = Math.floor((data.time || 0) / SB.DAY_LENGTH) + 1;
       var code = ""; try { var q = new URLSearchParams(location.search); code = q.get("world") || q.get("seed") || ""; } catch (e) {}
       if (window.confirm("this link opens the world " + (code || SB.worldCode(seedFromUrl)) + ". your own island (day " + day + ") will be replaced. open it?")) data = null;
-      else { seedFromUrl = 0; try { history.replaceState(null, "", location.pathname); } catch (e) {} }
+      else { seedFromUrl = 0; try { history.replaceState(null, "", cleanUrl()); } catch (e) {} }
     }
     if (data) { try { g = SB.Save.revive(data); } catch (e) { console.warn("[smol] save load failed, new game", e); g = null; } }
     if (!g && !seedFromUrl) {
@@ -706,7 +712,7 @@
     var g = Game.newGame(o.seed || 0, o.n || 0, o.world || { gv: SB.WORLD_GV });
     g.wid = SB.Save.newWid(); g.wname = o.name || null;
     if (o.story) g.settings.storyteller = o.story;
-    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    try { history.replaceState(null, "", cleanUrl()); } catch (e) {}
     Game.fromTitle = true;
     enter(g, { fresh: true });
   }

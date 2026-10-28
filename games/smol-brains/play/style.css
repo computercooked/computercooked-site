@@ -189,7 +189,9 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .coach { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(150px + var(--sab)); width: min(420px, calc(100% - 20px)); padding: 12px 14px; font-size: 14px; pointer-events: none; border-color: rgba(197, 255, 73, 0.45); animation: tin 0.3s; }
 .coach .t { font: 700 14px/1.3 var(--mono); color: var(--lime); }
 .coach .s { margin-top: 3px; color: var(--paper); font-size: 13px; }
-.coach .row { margin-top: 8px; }
+.coach .row { margin-top: auto; padding-top: 8px; }
+.coach { display: flex; flex-direction: column; min-height: 172px; } /* steps are one height, so "next" stays under your finger */
+#ui.hasmodal .coach, #ui.hasmodal .guide { visibility: hidden; } /* one thing at a time: tips wait behind a window */
 .coach.top { bottom: auto; top: calc(100px + var(--sat)); }
 
 /* intro title */

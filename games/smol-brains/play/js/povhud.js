@@ -781,6 +781,7 @@
         var s = S(); if (!s) return;
         var k = e.key.toLowerCase();
         if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+        if (k === "backspace") k = "escape"; // esc also leaves fullscreen, so backspace backs out too
         if (k === "escape") { e.preventDefault(); if (bag) closeBag(); else if (s.ghost) P().cancelBuild(); else if (!s.dead) P().leave(); return; }
         if (s.dead) return;
         if (k === "tab" || k === "i" || k === "c") { e.preventDefault(); HUD.openBag(); return; }
