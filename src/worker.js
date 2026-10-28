@@ -10,7 +10,7 @@ import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { recapRoute } from "./recap.js";
-import { makeDare, getDare, beatDare, sharedDare, sharedGame } from "./dares.js";
+import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { hubPage } from "./hub.js";
 import { embedPage } from "./embed.js";
@@ -31,6 +31,9 @@ export default {
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
     // the hub: the grid, spotlight and ticker rendered from games.json (crawlers and link previews see every game)
     if (url.pathname === "/games/" || url.pathname === "/games/index.html") return hubPage(req, env, url);
+    // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
+    const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
+    if (dl) return dareLink(env, url, dl[1]);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe

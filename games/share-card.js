@@ -1,6 +1,7 @@
 /* Share-your-run card: a 1080x1920 (story-size) PNG of a run, for the share sheet, made in the browser.
    platform.js loads this after a run and calls
-     window.ccShareCard({ title, slug, art, score, rank, best, prev }) -> Promise<Blob>
+     window.ccShareCard({ title, slug, art, score, rank, best, prev, link }) -> Promise<Blob>
+   link: the dare's short link (computercooked.com/d/<id>) when there is one, printed instead of the game's address.
    score null/undefined: a "come play" card for a run with no score (no rank, no "beat me").
    art: same-origin image URL (the game's thumbnail). Everything else is drawn here; no network but the art + font. */
 (function () {
@@ -90,7 +91,7 @@
       // the ask
       g.fillStyle = C.paper; g.font = "800 84px " + MONO;
       g.fillText(scored ? "can you beat me?" : "come play.", W / 2, 1640);
-      g.fillStyle = C.lilac; var url = "computercooked.com/games/" + (o.slug || "");
+      g.fillStyle = C.lilac; var url = o.link || "computercooked.com/games/" + (o.slug || "");
       fit(g, url, 40, W - 160); g.fillText(url, W / 2, 1730);
       g.fillStyle = C.dim; g.font = "800 30px " + MONO;
       g.fillText("free · no download · plays on your phone", W / 2, 1800);
