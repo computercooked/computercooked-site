@@ -729,3 +729,20 @@ a {
   .start-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .start-tile { transition: none; } .start-tile:hover { transform: none; } }
+
+/* ---------- accessibility safety nets (audit P1 #26) ----------
+   every page loads this file. :where() keeps the specificity at zero, so any control's own focus style still wins. */
+:where(a, button, summary, [role="tab"], [tabindex]):focus-visible {
+  outline: 3px solid var(--lime, #c5ff49);
+  outline-offset: 2px;
+}
+/* reduced motion: every CSS animation and transition on the site stops (one frame), whatever file it lives in.
+   The games' own canvas animation is the content and stays. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
