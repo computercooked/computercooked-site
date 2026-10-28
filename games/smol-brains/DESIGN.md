@@ -237,6 +237,15 @@ The bot's playtest: possessing a blob was "walk and eat" because the bag said "n
 - **A calmer clock**: the HUD clocks move in ten-minute steps (one tick about every 8 real seconds at 1×) instead of every in-game minute.
 - `tests/possess.test.js` §9 covers the mouth, tugging, the nest, sniffing, sharing, the quest, eggs by a cosy nest, and the save.
 
+## 0.20 What v4.6.1 added: signs for blobs, a save you can see, who a smol is
+
+From the bot's sim wish list (K-0011): "player-placed zones and a go-there at the blob stage", "an autosave indicator", "personality and relationships at a glance".
+
+- **Orders from day one** (`orders.js`): once the tutorial is done, the 🚩 orders tool is there for blobs. A **🚩 rally flag** is a "go there": blobs who trust you wander over and hang about. **🏠 home** (wanderers drift back) and **🚫 no-go** zones work for blobs too. The explore beacon waits for critters; work marks, blueprints and the stockpile wait for tool-users (greyed until then). A blob-stage story card explains the three it can use. The trust chip (🚩 n%) is on every smol's card once orders are open.
+- **💾 autosave blink**: a small 💾 lights by the menu each time the island saves (every 20 s and when you leave; `Save.save` emits `saved`). Menu → settings says when it last saved.
+- **Who it is, at a glance**: under the thought on a smol's card: its three strongest traits, its parents ("child of A & B", or "one of the first"), its best friend and who it can't stand.
+- `tests/orders.test.js` §1 and §1b: the tool opens for blobs after the tutorial, and trusting blobs go to a rally flag.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

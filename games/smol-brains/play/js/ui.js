@@ -172,11 +172,19 @@
       var c = ps[prayI++ % ps.length];
       SB.Game.select(game, c.id); SB.Input.follow(c); if (R.camera.tZoom > 12) R.camera.tZoom = 9;
     } });
-    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.menu);
+    // autosave: a 💾 blinks by the menu each time the island is saved (every 20 s and when you leave)
+    el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
+    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
     el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); } });
     root.appendChild(el.goals);
   }
+  var savedT = null;
+  SB.bus.on("saved", function () {
+    if (!el.saved) return;
+    el.saved.classList.remove("on"); void el.saved.offsetWidth; el.saved.classList.add("on");
+    clearTimeout(savedT); savedT = setTimeout(function () { el.saved.classList.remove("on"); }, 1400);
+  });
   var hudT = 0;
   function updateHud(dt) {
     hudT -= dt;
@@ -549,6 +557,7 @@
     ]);
     el.sheet.appendChild(head);
     el.sheet.appendChild(el.cThought = h("div", { class: "thought" }));
+    if (c.species === "smol") el.sheet.appendChild(el.cWho = h("div", { class: "who note" })); else el.cWho = null;
     if (c.species !== "grump") el.sheet.appendChild(el.cPeople = h("div", { class: "chips people" }));
     el.sheet.appendChild(el.cDrives = h("div", { class: "drives" }));
     if (c.species === "smol" && SB.FirstHour) { el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "what its kids will inherit"), h("span", { class: "dim" }, "💫 echoes")])); el.sheet.appendChild(el.cKids = h("div", { class: "fhkids" })); }
@@ -588,7 +597,7 @@
       if (c.tantrum) mood.push('<span class="chip warnc">😤 tantrum!</span>');
       if (c.grief) mood.push('<span class="chip dim">🕯 missing ' + esc(c.grief.name) + "</span>");
       if (c.convo) mood.push('<span class="chip lime">💬 talking</span>');
-      if (SB.Orders && SB.Orders.unlocked(game) && c.tier >= 1 && !c.stranger) mood.push(orderChip(c));
+      if (SB.Orders && SB.Orders.unlocked(game) && !c.stranger) mood.push(orderChip(c));
       el.cPeople.innerHTML = mood.join("") + rel.map(function (r) { var ic = r.label === "partner" ? "💕" : r.v >= 25 ? "💚" : r.v <= -25 ? "⚔" : "·"; return '<span class="chip ' + (r.v >= 25 ? "lime" : r.v <= -25 ? "warnc" : "dim") + '" title="' + esc(r.label) + '">' + ic + " " + esc(r.c.name) + " " + (r.v > 0 ? "+" : "") + r.v + "</span>"; }).join("") || '<span class="note">no friends or rivals yet</span>';
     }
     el.cSub.innerHTML = '<span class="tierpill" style="color:' + tier.color + '">' + tier.icon + " " + tier.name + "</span> " + stage + " · gen " + c.gen + " · iq <b class='lime'>" + c.iq + "</b> · " + fmtTime(c.age) + jobChip(c) + (game.clades && game.clades[c.clade] ? " · <span class='lilac'>" + esc(game.clades[c.clade].name) + "</span>" : "");
@@ -599,6 +608,7 @@
     el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +
       '<div class="drive" title="health"><span class="e">❤️</span><span class="b"><i style="width:' + Math.round(c.chem.health * 100) + '%;background:#c5ff49"></i></span></div>';
     if (el.cKids) el.cKids.innerHTML = kidsHTML(c);
+    if (el.cWho) el.cWho.innerHTML = whoHTML(c);
     var ids = Object.keys(c.ideas).filter(function (k) { return SB.Ideas.BY_ID[k]; });
     el.cIdeaN.textContent = SB.Ideas.count(c) + (c.tier < 2 ? " · needs hands" : "");
     el.cIdeas.innerHTML = ids.length ? ids.map(function (k) { var d = SB.Ideas.BY_ID[k], v = c.ideas[k]; return '<span class="chip ' + (v >= 1 ? "lime" : "dim") + '" title="' + esc(d.desc) + '">' + d.icon + " " + esc(game.culture.words[k] || d.name) + (v < 1 ? " " + Math.round(v * 100) + "%" : "") + "</span>"; }).join("") : '<span class="note">' + (c.tier < 2 ? "blobs and critters can't hold ideas yet. evolve hands." : "nothing yet. curious smols discover things by fiddling.") + "</span>";
@@ -606,6 +616,22 @@
     el.cWordN.textContent = SB.Creature.knownCount(c) + " known";
     el.cWords.innerHTML = words.length ? words.slice(0, 30).map(function (w) { var v = c.vocab[w]; return '<span class="chip ' + (v >= 1 ? "lime" : "dim") + '">' + esc(v >= 1 ? w : SB.Creature.garble(w, v)) + "</span>"; }).join("") : '<span class="note">no words yet. talk to it.</span>';
     if (cardMore) renderMore(c);
+  }
+  // who it is, at a glance (the bot's K-0011): personality, where it comes from, who it likes and who it doesn't
+  function whoHTML(c) {
+    var out = [], tr = SB.Genome.traits(c.genome).slice(0, 3);
+    if (tr.length) out.push("🎭 " + tr.map(esc).join(", "));
+    var fam = game.family || {}, f = fam[c.id];
+    var ps = (c.parents || (f && f.parents) || []).map(function (id) { var p = SB.Game.byId(game, id) || fam[id]; return p && p.name; }).filter(Boolean);
+    out.push(ps.length ? "👪 child of " + ps.map(esc).join(" & ") : c.gen > 1 ? "👪 parents unknown" : "🥚 one of the first");
+    if (c.stranger) out.push("🧳 a stranger");
+    if (SB.Social) {
+      var rel = SB.Social.relations(game, c), best = rel.filter(function (r) { return r.v >= 25 && r.label !== "partner"; })[0], foe = rel.filter(function (r) { return r.v <= -25; }).sort(function (a, b) { return a.v - b.v; })[0];
+      var nm = function (r) { var o = r.c || SB.Game.byId(game, r.id); return o && o.name; };
+      if (best && nm(best)) out.push("💚 best friend " + esc(nm(best)));
+      if (foe && nm(foe)) out.push("⚔ can't stand " + esc(nm(foe)));
+    }
+    return out.join(" · ");
   }
   function renderMore(c) {
     if (!el.cMore) return;
@@ -972,7 +998,11 @@
     el.tools.classList.toggle("six", on);
     if (on && !ordUnlockedSeen && game.tutorial.done && !state.introRunning && !el.modal) {
       ordUnlockedSeen = true;
-      storyCard("orders", "🚩", "the sky's orders", [
+      if ((game.stats.maxTier || 0) < 2) storyCard("orders", "🚩", "signs from the sky", [
+        "pick <b>🚩 orders</b> (key 6) and tap the island. a <b>🚩 rally flag</b> says \"go there\": blobs who trust you wander over and hang about. a <b>🏠 home</b> zone is where wanderers drift back to, and a <b>🚫 no-go</b> zone keeps them away from the water or the grumps.",
+        "they're suggestions, not commands. tickles build trust, taps cost some, and a hungry or scared blob does what it needs first. work marks, blueprints and stockpiles come when they grow hands."
+      ]);
+      else storyCard("orders", "🚩", "the sky's orders", [
         "your smols are clever enough now to notice signs from the sky. pick <b>🚩 orders</b> (key 6) and leave one: a <b>rally flag</b>, an <b>explore beacon</b>, <b>work marks</b> on trees, rocks, bushes, fields and bunnies, <b>blueprints</b> for buildings they know, and <b>zones</b> (no-go, stockpile, home).",
         "they're suggestions, not commands. a smol follows if it <b>trusts you</b> (tickles, answered prayers and orders that worked out build trust; taps cost some), if it isn't stubborn, and if it isn't starving or scared. order too much and they get annoyed.",
         "📋 jobs nudges what each smol likes doing. the strategy is asking for the right thing at the right time: walls round the village before the raid, farms by the river before winter."
@@ -1414,7 +1444,8 @@
     body.appendChild(h("div", { class: "btnrow" }, ST.map(function (o) { return h("button", { class: "btn" + (o[0] === cur ? " go" : ""), onclick: function () { (game.settings = game.settings || {}).storyteller = o[0]; openMenu("settings"); } }, o[1]); })));
     body.appendChild(h("p", { class: "note" }, ST.filter(function (o) { return o[0] === cur; })[0][2] + (game.ngPlus ? " (new game+ " + game.ngPlus + ": the grumps remember you.)" : "")));
     body.appendChild(h("div", { class: "sec" }, "save"));
-    body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds and when you leave. while you're away, the island keeps going for a while."));
+    var ago = SB.Save.lastAt ? Math.round((Date.now() - SB.Save.lastAt) / 1000) : -1;
+    body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds (💾 blinks by the menu) and when you leave. " + (ago >= 0 ? "last saved " + (ago < 5 ? "just now" : ago + " s ago") + ". " : "") + "while you're away, the island keeps going for a while."));
     body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
     // text size: the whole interface zooms as one
     if (SB.Title) {
@@ -1429,7 +1460,7 @@
     body.innerHTML = "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
       "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
       "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
-      "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently: the dotted arc shows where they'll land). grab a tree and wiggle it side to side to shake fruit down. drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b> (from tool-users on): signs from the sky. a rally flag, an explore beacon, work marks, building blueprints, and no-go, stockpile and home zones. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
+      "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently: the dotted arc shows where they'll land). grab a tree and wiggle it side to side to shake fruit down. drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b>: signs from the sky. after the tutorial even blobs follow a rally flag (\"go there\") and keep to home and no-go zones; tool-users add an explore beacon, work marks, building blueprints and a stockpile. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
       "<p><b class='lilac'>evolution</b>: genes mutate when eggs are made. and what parents practise echoes into their babies: smols that walk a lot have kids with longer legs, smols that fiddle with things have kids with hands, smols that learn have kids with bigger brains. climb the ladder: blob → critter → tool-user → tribe → builder → thinker → ascended.</p>" +
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
       "<p><b class='lime'>👁 possess</b> (smol card, " + (SB.Possess ? SB.Possess.COST : 3) + " sparks): live as one smol, first person. survival-game rules: a 9-slot hotbar (1-9 or the wheel), a bag (tab) with crafting beside it, hearts and drumsticks to keep up. left click uses what you hold on what you point at (a tool chops trees and chips rock, paws only shake and punch), right click eats, plants, gives or places, f picks up, q drops, e does what the prompt says, b opens your building plans (r turns the ghost). put a stick, a vine (they hang off cliffs, rocks and riverbanks) and a rock together for your first tool. at zero hearts the smol dies for real, with everything it carried. phones: thumbstick on the left, drag the right side to look, the big button does what it says, tap a hotbar slot to hold it.</p>" +
@@ -1724,7 +1755,7 @@
     if (site) out.push({ key: "site" + site.id, icon: "❓", t: "something's out in the fog", s: "that ? marker is a place nobody's visited. smols explore on their own; ✋ carry one over there to look sooner.", go: function () { fly(site, 9); setTool("grab", true); } });
     var maxT = smols.reduce(function (m, c) { return Math.max(m, c.tier); }, 0);
     if ((g.sparks || 0) >= 20 && !(g.stats.blessed) && maxT < 6) out.push({ key: "bless", icon: "🧬", t: "you've saved up " + Math.floor(g.sparks) + " sparks", s: "spend them: ✨ magic → 🧬 bless makes the next 3 eggs lean toward what you pick. it's the fastest way to evolve.", go: function () { setTool("magic", true); } });
-    if (SB.Orders && SB.Orders.unlocked(g) && !SB.Orders.ensure(g).placed) out.push({ key: "orders1", icon: "🚩", t: "your smols can follow orders now", s: "pick 🚩 orders and put down a 📐 blueprint, a 🪓 work mark or a 🚩 rally flag. they follow if they trust you.", btn: "try it", go: function () { setTool("orders", true); } });
+    if (SB.Orders && SB.Orders.unlocked(g) && !SB.Orders.ensure(g).placed) out.push({ key: "orders1", icon: "🚩", t: "your smols can follow orders now", s: maxT >= 2 ? "pick 🚩 orders and put down a 📐 blueprint, a 🪓 work mark or a 🚩 rally flag. they follow if they trust you." : "pick 🚩 orders and put down a 🚩 rally flag: \"go there\". or a 🏠 home zone they drift back to. they follow if they trust you.", btn: "try it", go: function () { setTool("orders", true); } });
     if (maxT >= 2 && (g.stats.wordsTaught || 0) < 6) out.push({ key: "words", icon: "💬", t: "teach more words", s: "every word the whole tribe knows makes everyone learn faster. 💬 talk, pick a word, show it.", go: function () { setTool("talk", true); } });
     if (g.speed === 1 && g.playTime > 600 && !g._spedUp) out.push({ key: "speed", icon: "⏩", t: "waiting for something?", s: "tap ▶ 1× (top right) to speed time up. evolution takes generations.", go: function () { g._spedUp = true; cycleSpeed(1); } });
     var goal = goalsList()[0];

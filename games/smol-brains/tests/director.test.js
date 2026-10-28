@@ -2,7 +2,7 @@
 // raids actually bring grumps, choices cost sparks, the pacing leaves gaps, and it all survives a save.
 // node games/smol-brains/tests/director.test.js
 "use strict";
-const load = require("./_load.js");
+const load = require("./_load.js"), seeded = load.seeded;
 
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
@@ -44,7 +44,7 @@ for (const id of ids) {
 }
 
 console.log("2. raids bring grumps, and the free choice is taken if nobody answers");
-{
+seeded(3, () => {
   const { SB, game } = village(3);
   const inc = SB.Director.fire(game, "raid");
   run(SB, game, 50);
@@ -54,8 +54,8 @@ console.log("2. raids bring grumps, and the free choice is taken if nobody answe
   check("raiders turn up", raiders.length >= 2 || game.dir.history.some(h => h[1] === "raid"), raiders.length + " raiders");
   run(SB, game, 400);
   // (another card may have been dealt since: it is the raid that has to be over)
-  check("…and the raid ends", !(game.dir.active && game.dir.active.id === "raid") && game.dir.history.some(h => h[1] === "raid"));
-}
+  check("…and the raid ends", !(game.dir.active && game.dir.active.id === "raid") && game.dir.history.some(h => h[1] === "raid"), "raid " + inc.phase + ", active " + (game.dir.active ? game.dir.active.id + "/" + game.dir.active.phase : "none") + ", history " + JSON.stringify(game.dir.history));
+});
 
 console.log("3. choices cost sparks");
 {

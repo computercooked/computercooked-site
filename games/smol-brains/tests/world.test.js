@@ -15,9 +15,10 @@ function hashArr(a) { let h = 2166136261; for (let i = 0; i < a.length; i += 7) 
 console.log("1. world generation");
 const WG = SB.WorldGen;
 const seeds = [1, 42, 777, 12345, 31337];
-let t0 = Date.now();
+// CPU time, not wall time: other test suites running alongside shouldn't make generation look slow
+let t0 = process.cpuUsage();
 const A = WG.generate(42), A2 = WG.generate(42), Bw = WG.generate(43);
-const genMs = (Date.now() - t0) / 3;
+const cpu = process.cpuUsage(t0), genMs = (cpu.user + cpu.system) / 1000 / 3;
 check("same seed, same island", hashArr(A.h) === hashArr(A2.h) && A.nodes.length === A2.nodes.length && A.spawn.x === A2.spawn.x);
 check("different seed, different island", hashArr(A.h) !== hashArr(Bw.h));
 check("generation is reasonably fast", genMs < 2500, Math.round(genMs) + " ms each");

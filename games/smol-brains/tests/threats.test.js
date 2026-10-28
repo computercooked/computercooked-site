@@ -204,12 +204,16 @@ console.log("7. raids never wipe out a colony (answered sensibly, or not at all)
 console.log("8. natural disasters: every one, every choice, plays out and leaves a mark");
 {
   const kinds = ["tsunami", "hurricane", "sandstorm", "tornado", "quake"];
-  for (const id of kinds) for (const choice of ["calm", "shelter", "ride"]) {
+  for (const id of kinds) for (const choice of ["calm", "shelter", "ride"]) seeded(80 + kinds.indexOf(id), () => {
     const { SB, game, hm } = village(80 + kinds.indexOf(id), 4);
     game.time = 2 * 3600; game.world.season = 1;
     const ends = []; SB.bus.on("incidentEnd", d => ends.push(d));
     const inc = SB.Director.fire(game, id);
-    if (!inc) { check(id + " can be dealt", false); continue; }
+    if (!inc) { check(id + " can be dealt", false); return; }
+    // just this one story: otherwise another card lands in the four minutes after it (a found grump camp, a pod
+    // of survivors crashing out among the grumps) and a death there would be pinned on the disaster
+    game.dir.nextT = 1e9; game.podT = 1e9; game.strangerT = 1e9;
+    SB.Director.fire = () => null;
     const s0 = game.sparks;
     const ok = SB.Director.choose(game, inc, choice);
     const paid = s0 - game.sparks;
@@ -224,7 +228,7 @@ console.log("8. natural disasters: every one, every choice, plays out and leaves
       check(id + " / it goes in the chronicle", (game.chronicle || []).some(e => JSON.stringify(e).includes(SB.Threats.DIS[id].name)));
       check(id + " / survivors remember it", smols(SB, game).some(c => SB.Mind.vivid(c, game, 9).some(e => e.w.includes(SB.Threats.DIS[id].name))));
     }
-  }
+  });
   // the tornado really does wreck what's in its path, and the builders fix it after
   const { SB, game, hm } = village(90, 4);
   const inc = SB.Director.fire(game, "tornado");

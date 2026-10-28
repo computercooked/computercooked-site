@@ -3,7 +3,7 @@
 // night lights, saving, and speed with a big city.
 // node games/smol-brains/tests/civ.test.js
 "use strict";
-const load = require("./_load.js");
+const load = require("./_load.js"), seeded = load.seeded;
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 function run(SB, game, secs) { for (let t = 0; t < secs / SB.TICK; t++) SB.Game.step(game, SB.TICK); }
@@ -76,15 +76,17 @@ console.log("2. band → village → town → city, with a banner each time");
   runFed(SB, game, 150);
   check("a long one does: back to a town", SB.Civ.era(game) === 2 && down.length === 1 && down[0].name === "town");
 }
-{
+seeded(54, () => {
   // eras live in heads: if nobody remembers how to write, the city is a town again
+  // (seeded: 32 tier-5 thinkers can ponder their way back to story poles and then writing; when that happens
+  // inside the 200 s the slump resets and the city rightly holds. that's the game working, not this check failing)
   const { SB, game, cs } = city(54, 32);
   runFed(SB, game, 12);
   check("a city to start with", SB.Civ.era(game) === 3, SB.Civ.eraName(game));
   cs.forEach(c => { delete c.ideas.writing; delete c.ideas.totem; });
   runFed(SB, game, 200);
-  check("forget writing and the city falls back to a town", SB.Civ.era(game) === 2, SB.Civ.eraName(game));
-}
+  check("forget writing and the city falls back to a town", SB.Civ.era(game) === 2, SB.Civ.eraName(game) + (game.culture.writing ? ", writing was reinvented" : ""));
+});
 
 console.log("3. jobs grow from habits and run in families");
 {

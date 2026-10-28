@@ -4,7 +4,7 @@
 // weekly market day spreads gossip and ideas.
 // node games/smol-brains/tests/economy2.test.js
 "use strict";
-const load = require("./_load.js");
+const load = require("./_load.js"), seeded = load.seeded;
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 function run(SB, game, secs) { for (let t = 0; t < secs / SB.TICK; t++) SB.Game.step(game, SB.TICK); }
@@ -86,7 +86,7 @@ console.log("4. prices come from need and from the map in each head");
 }
 
 console.log("5. stalls ask, buyers compare, prices settle");
-{
+seeded(75, () => { // seeded: whether a hungry smol reaches a stall or grabs a berry on the way is luck
   const { SB, game, cs } = town(75, 18);
   runFed(SB, game, 6);
   game.econ.coins = true; cs.forEach(c => c.purse = 20);
@@ -116,7 +116,7 @@ console.log("5. stalls ask, buyers compare, prices settle");
   check("unsold, the ask comes down", s1.data.ask < a1, a1.toFixed(2) + " → " + s1.data.ask.toFixed(2));
   s1.data.hist = [1, 1.05, 1.02, 0.98];
   check("a stall whose prices stopped moving has settled", SB.Economy.settled(s1));
-}
+});
 
 console.log("6. the bounty miracle prints money, and prices climb");
 {

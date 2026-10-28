@@ -3,7 +3,7 @@
 // done, the stockpile fills up, job interests nudge the brain, and it all saves.
 // node games/smol-brains/tests/orders.test.js
 "use strict";
-const load = require("./_load.js");
+const load = require("./_load.js"), seeded = load.seeded;
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 function run(SB, game, secs) { for (let t = 0; t < secs / SB.TICK; t++) SB.Game.step(game, SB.TICK); }
@@ -30,12 +30,28 @@ function spotAway(SB, game, h, d, kind) {
   return null;
 }
 
-console.log("1. the orders tool unlocks at tool-user");
+console.log("1. the orders tool: rally, home and no-go for blobs once the tutorial is done; the rest at tool-user");
 {
-  const a = tribe(11, 1, 3);
-  check("critters: not yet", !a.SB.Orders.unlocked(a.game));
+  const a = tribe(11, 0, 3);
+  a.game.tutorial.done = false;
+  check("blobs in the tutorial: not yet", !a.SB.Orders.unlocked(a.game));
+  a.game.tutorial.done = true;
+  check("blobs after it: unlocked", a.SB.Orders.unlocked(a.game));
+  const K = a.SB.Orders.KINDS;
+  check("blobs get rally, home and no-go", K.rally.tier === 0 && K.home.tier === 0 && K.nogo.tier === 0 && K.mark.tier === 2 && K.build.tier === 2);
   const b = tribe(12, 2, 3);
   check("tool-users: unlocked", b.SB.Orders.unlocked(b.game));
+}
+
+console.log("1b. a rally flag is a go-there for blobs");
+{
+  const { SB, game, cs, h } = tribe(13, 0, 8, 0.95);
+  const p = spotAway(SB, game, h, 14);
+  check("found a spot", !!p);
+  check("rally placed", SB.Orders.place(game, "rally", p.x, p.z).ok);
+  runFed(SB, game, 40);
+  const near = cs.filter(c => c.alive && SB.dist(c.x, c.z, p.x, p.z) < 5).length;
+  check("trusting blobs go there", near >= 4, near + "/8");
 }
 
 console.log("2. a rally gathers the willing");
@@ -120,7 +136,9 @@ console.log("5. a blueprint gets built where you put it");
 }
 
 console.log("6. a no-go zone is kept clear");
-function zoneTime(seed, withZone) {
+// seeded: the zone and no-zone runs of an island share their luck, so the comparison is like for like
+// (unseeded, a no-zone run where the smols happened to drift off on their own could make the zone look useless)
+function zoneTime(seed, withZone) { return seeded(seed, () => {
   const { SB, game, cs, h } = tribe(seed, 3, 8, 0.95);
   const z = { x: h.x + 7, z: h.z };
   const r = withZone ? SB.Orders.place(game, "nogo", z.x, z.z) : null;
@@ -138,7 +156,7 @@ function zoneTime(seed, withZone) {
   }
   const followers = r ? cs.filter(c => c.ord && c.ord[r.o.id] && c.ord[r.o.id].f).length : 0;
   return { inside, obeyed, followers };
-}
+}); }
 {
   let free = 0, kept = 0, obeyed = 0, followers = 0;
   for (const seed of [31, 32, 33]) {

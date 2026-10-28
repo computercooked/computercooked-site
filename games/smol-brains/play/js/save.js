@@ -89,6 +89,7 @@
     var cc = sdk();
     // until the boot-time cloud check answers, a brand-new game must not look "newer" than the account's save
     if (cc && snap && !checking) { try { cc.save(CLOUD_SLOT, snap).catch(function () {}); } catch (e) {} }
+    if (ok) { Save.lastAt = Date.now(); if (SB.bus) SB.bus.emit("saved", { game: game }); } // the HUD's 💾 blink
     return ok;
   };
 

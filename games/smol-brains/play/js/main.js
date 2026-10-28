@@ -594,6 +594,7 @@
     return Math.min(4500, Math.min(a, 600) + Math.max(0, a - 600) / 8);
   };
   // run the sim fast (coarse step, chunked so the page stays responsive). cb(report) at the end.
+  Game.OFFLINE_WALL_MS = 8000; // real-time cap on the catch-up (tests lift it so a busy machine still sims it all)
   Game.runOffline = function (g, simSec, onProgress, cb) {
     var before = snapshotStats(g);
     g.offline = true; g.offlineRunning = true; g.offlineLog = [];
@@ -606,7 +607,7 @@
         Game.step(g, dt);
         done += dt;
       }
-      if (performance.now() - wallStart > 8000) simSec = done;
+      if (performance.now() - wallStart > Game.OFFLINE_WALL_MS) simSec = done;
       if (onProgress) onProgress(Math.min(1, done / simSec));
       if (done < simSec) setTimeout(chunk, 0);
       else {
