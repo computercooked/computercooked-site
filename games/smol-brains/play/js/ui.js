@@ -1021,7 +1021,11 @@
       var K = SB.Orders.KINDS[so.kind];
       if (SB.FX) SB.FX.burst("sparkle", res.o.x, SB.World.groundY(game.world, res.o.x, res.o.z) + 0.6, res.o.z, 10);
       if (SB.Audio) SB.Audio.play("chime", { vol: 0.4 });
-      if (so.kind === "rally" || so.kind === "explore") { toast(K.e + " " + K.name + " placed. about " + Math.round(SB.Orders.obedience(game, so.kind) * 100) + "% of them will listen"); state.order = null; el.ordInfo.innerHTML = ORDER_HELP; }
+      if (so.kind === "rally" || so.kind === "explore") {
+        toast(res.o && res.o.first ? "🚩 your first flag: watch them come. the 🚩! bubbles are the ones on their way" : K.e + " " + K.name + " placed. about " + Math.round(SB.Orders.obedience(game, so.kind) * 100) + "% of them will listen", "", 6000);
+        state.order = null; el.ordInfo.innerHTML = ORDER_HELP;
+        if (res.o && R.camera.tZoom < 12) R.flyTo((res.o.x + R.camera.x) / 2, (res.o.z + R.camera.z) / 2, Math.max(R.camera.tZoom, 13), 0.8); // pull back so the walk is in view
+      }
     }
     updateOrders(true);
   };

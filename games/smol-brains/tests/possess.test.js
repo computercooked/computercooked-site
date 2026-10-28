@@ -181,19 +181,21 @@ console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sh
   const { g, cs } = fresh(47, 0, 3);
   const b = cs[0], friend = cs[1], Sv = SB.Surv;
   g.stats.possessed = 0; g.settings.povBlobQuest = null;
-  check("possessing a blob starts the blob quest", P.enter(g, b) && P.quest() && P.quest().kind === "blob" && P.questStep().id === "eat");
-  // eat
+  check("possessing a blob starts the blob quest", P.enter(g, b) && P.quest() && P.quest().kind === "blob" && P.questStep().id === "sniff");
+  const sp0 = g.sparks;
+  // eat first, out of order: it's remembered for when its step comes
   b.chem.hunger = 0.6;
   const berry = SB.World.add(g.world, g, "berry", b.x + 0.6, b.z, {});
   const ve = P.options(g, b, { type: "item", id: berry.id });
   check("a blob eats food on the ground", ve.use && /eat/.test(ve.use.label) && P.act("use", { type: "item", id: berry.id }));
   run(g, 0.4);
-  check("…and the quest moves on to sniffing", P.questStep() && P.questStep().id === "sniff", P.questStep() && P.questStep().id);
+  check("…the guide still asks you to find food first", P.questStep() && P.questStep().id === "sniff", P.questStep() && P.questStep().id);
   // sniff
   SB.World.add(g.world, g, "apple", b.x + 9, b.z + 2, {});
   check("G sniffs out food and points the marker at it", P.sniff() && P.sniffing() && SB.dist(P.sniffing().x, P.sniffing().z, b.x + 9, b.z + 2) < 12);
   run(g, 0.4);
-  check("…then: tug leaves", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
+  check("…then the eating counts too, and on to: tug leaves", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
+  check("each step pays a spark", g.sparks >= sp0 + 2, (g.sparks - sp0) + " sparks");
   // tug leaves off a plant, then line the nest three times
   const plant = SB.World.nearestNode(g.world, b.x, b.z, 200, n => Sv.canTug(g, n) && (n.kind === "bush" || Sv.isTree(n)));
   const vt = P.options(g, b, { type: "node", id: plant.id });
@@ -271,7 +273,7 @@ console.log("11. a nibble on a bush counts as eating, even for a full blob (K-00
   g.stats.possessed = 0; g.settings.povBlobQuest = null;
   try { ctx.localStorage.removeItem("smolbrains-blobquest"); } catch (e) {} // §9 finished it in this browser
   P.enter(g, b);
-  check("the blob guide starts at eat", P.questStep() && P.questStep().id === "eat");
+  check("the blob guide starts at find food", P.questStep() && P.questStep().id === "sniff");
   b.chem.hunger = 0.03;
   const bush = SB.World.nearestNode(g.world, b.x, b.z, 300, n => n.kind === "bush" && n.state === "ok");
   b.x = bush.x + 0.9; b.z = bush.z; b.facing = Math.atan2(bush.x - b.x, bush.z - b.z);
@@ -279,7 +281,9 @@ console.log("11. a nibble on a bush counts as eating, even for a full blob (K-00
   check("right click offers a nibble", v.place && /nibble/.test(v.place.label), v.place && v.place.label);
   const ok = P.act("place", { type: "node", id: bush.id });
   run(g, 4);
-  check("the nibble ticks the guide's first step", ok && P.questStep() && P.questStep().id === "sniff", (P.questStep() && P.questStep().id) + " ok=" + ok);
+  check("the nibble counts as eating", ok && P.quest() && P.quest().flags.eat >= 1, JSON.stringify(P.quest() && P.quest().flags) + " ok=" + ok);
+  P.sniff(); run(g, 0.4);
+  check("…so after sniffing, the guide moves past eat", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
   P.leave();
 }
 

@@ -982,8 +982,9 @@
   // a blob's (or critter's) first day: something to do in its body from the first seconds
   var BKEY = "smolbrains-blobquest";
   P.BLOB_QUEST = [
-    { id: "eat", text: "eat something", tip: "look at a berry bush and right click to nibble it, or left click food on the ground" },
-    { id: "sniff", text: "sniff out food", tip: "press G (or E with nothing in front of you). your nose points the marker at food" },
+    // find food, eat it, get paid: one loop you can read at a glance (the bot's K-0022 top three)
+    { id: "sniff", text: "find food", tip: "press G to sniff: the 👃 marker points at food. press G again and you walk there by yourself" },
+    { id: "eat", text: "eat it", tip: "right click a berry bush to nibble it, or left click food on the ground" },
     { id: "tug", text: "tug leaves off a plant", tip: "look at a bush or a tree and press F. the leaves go in your mouth" },
     { id: "nest", text: "line the nest", tip: "carry leaves to the nest (follow the marker) and left click it. a cosy nest hatches eggs faster" },
     { id: "share", text: "bring a friend some food", tip: "pick food up with F, walk to a friend and right click them" }
@@ -1034,6 +1035,7 @@
     if (ok) {
       q.i++;
       audio("chime");
+      if (q.kind === "blob" && SB.Game.addSparks) SB.Game.addSparks(game, 1, c); // every step of a blob's day pays a spark
       if (q.i >= list.length) { questDone(); return; }
       if (list[q.i].id === "leanto" && !Id.known(c, "leanto") && !Id.canHold(c, "leanto")) { questDone(); return; }
       if (H()) H().questStep(list[q.i - 1], list[q.i]);
