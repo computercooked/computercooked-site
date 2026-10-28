@@ -31,12 +31,27 @@
       var t = m.totals;
       $("#totals").innerHTML = [["plays", t.plays], ["accounts", t.accounts], ["new accounts", t.new_accounts], ["uploads pending", t.uploads_pending], ["open reports", t.open_reports]]
         .map(function (x) { return "<div><b>" + x[1] + "</b><span>" + x[0] + "</span></div>"; }).join("");
+      var LBL = { d1: "next day", d7: "week later", replay: "replays", share: "shares", session: "session", rating: "rating", outside: "outside traffic" };
+      (m.winners || []).forEach(function (w, i) { w.rank = w.verdict === "too early" ? 0 : i + 1; });
+      table($("#win-table"), [
+        ["#", function (w) { return w.rank || "–"; }],
+        ["game", function (w) { return esc(w.title); }],
+        ["score", function (w) { return w.score == null ? "–" : '<b class="adm-score s' + (w.score >= 60 ? 3 : w.score >= 40 ? 2 : 1) + '">' + w.score + "</b>"; }, "n"],
+        ["verdict", function (w) { return esc(w.verdict) + (w.verdict === "too early" ? " <small>(" + w.players_needed + " more players)</small>" : ""); }],
+        ["players", function (w) { return w.players || 0; }, "n"],
+        ["plays", function (w) { return w.plays || 0; }, "n"],
+        ["fix first", function (w) { return w.weakest ? esc(LBL[w.weakest] || w.weakest) : "–"; }],
+        ["signals", function (w) { return Object.keys(LBL).filter(function (k) { return w.parts[k] != null; }).map(function (k) { return esc(LBL[k]) + " " + w.parts[k]; }).join(" · ") || "–"; }]
+      ], m.winners || []);
       table($("#games-table"), [
         ["game", function (g) { return esc(g.title); }],
         ["plays", function (g) { return g.plays; }, "n"],
         ["players", function (g) { return g.unique_players; }, "n"],
         ["avg secs", function (g) { return g.avg_session_seconds == null ? "–" : g.avg_session_seconds; }, "n"],
         ["completion", function (g) { return pct(g.completion_rate); }, "n"],
+        ["shares", function (g) { return g.shares ? g.shares.total + " <small>(" + g.shares.dares_sent + " dares)</small>" : "–"; }, "n"],
+        ["outside", function (g) { return g.plays ? pct(g.outside_plays / g.plays) : "–"; }, "n"],
+        ["minutes", function (g) { return g.total_minutes || 0; }, "n"],
         ["D1", function (g) { return pct(g.d1_return_rate) + " <small>(" + g.d1_cohort + ")</small>"; }, "n"],
         ["D7", function (g) { return pct(g.d7_return_rate) + " <small>(" + g.d7_cohort + ")</small>"; }, "n"],
         ["👍/👎", function (g) { return g.thumbs_up + " / " + g.thumbs_down; }, "n"],
