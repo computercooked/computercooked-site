@@ -188,6 +188,7 @@
     el.era = h("button", { class: "chipbtn glass live era", title: "evolution", onclick: function () { openMenu("evolution"); } });
     el.sparks = h("button", { class: "chipbtn glass live", title: "sparks: spend them on miracles", onclick: function () { setTool("magic"); } });
     el.speed = h("button", { class: "chipbtn glass live speed", title: "speed (space pauses, [ ] changes)", onclick: function () { cycleSpeed(1); } });
+    el.skip = h("button", { class: "chipbtn glass live skipbtn", title: "skip to the next interesting thing (n)", "aria-label": "skip ahead", onclick: function () { toggleSkip(); } }, "⏭");
     el.menu = h("button", { class: "chipbtn glass live menu-btn", title: "smolpedia and settings", "aria-label": "menu", onclick: function () { openMenu(state.menuTab); } }, "☰");
     var mid = h("div", { class: "grow" }, el.era);
     // prayers waiting: tap to fly to the next one
@@ -200,7 +201,7 @@
     } });
     // autosave: a 💾 blinks by the menu each time the island is saved (every 20 s and when you leave)
     el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
-    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
+    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
     el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); } });
     root.appendChild(el.goals);
@@ -230,6 +231,7 @@
     el.pray.classList.toggle("hide", !np);
     if (np) el.pray.innerHTML = '<span class="ico">🙏</span><b>' + np + "</b>";
     el.speed.textContent = game.speed === 0 ? "⏸ paused" : "▶ " + game.speed + "×";
+    if (el.skip) { el.skip.classList.toggle("on", !!game.skip); el.skip.textContent = game.skip ? "⏭ …" : "⏭"; }
     el.speed.classList.toggle("paused", game.speed === 0);
     updateGoals();
   }
@@ -242,6 +244,21 @@
     needs.forEach(function (n) { worst = Math.min(worst, n.have / n.need); });
     return SB.clamp01(worst);
   }
+  // ⏭: fast until something worth seeing happens (main.js Game.skip)
+  function toggleSkip() {
+    if (game.skip) { SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); return; }
+    if (SB.Possess && SB.Possess.active) { toast("leave the body first (Esc)"); return; }
+    if (SB.Game.skip(game)) { toast("⏭ skipping ahead until something happens…", "", 2500); hudT = 0; }
+  }
+  UI.toggleSkip = toggleSkip;
+  SB.bus.on("skipDone", function (d) {
+    if (!el.skip) return;
+    hudT = 0;
+    if (d.why === "⏭ stopped") return;
+    toast(esc(d.why), "ach", 5000);
+    if (d.at && d.at.x != null) R.flyTo(d.at.x, d.at.z, Math.min(R.camera.tZoom, 10), 1.0); // you asked to be shown: always fly
+    if (d.at && d.at.type === "creature" && d.at.alive) SB.Game.select(game, d.at.id);
+  });
   function cycleSpeed(d) {
     var i = SB.SPEEDS.indexOf(game.speed);
     if (d === 0) { game.speed = game.speed === 0 ? (game._lastSpeed || 1) : (game._lastSpeed = game.speed, 0); }
@@ -2356,6 +2373,7 @@
     if (k === "t") { setTool("talk", true); e.preventDefault(); return true; }
     if (k === "m") { game.settings = game.settings || {}; game.settings.minimap = game.settings.minimap === false; toast(game.settings.minimap === false ? "map hidden (m to show)" : "map on"); return true; }
     if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (!c || c.type !== "creature") c = brainPick(); if (c) { SB.Game.select(game, c.id); openBrain(c); } else toast("no smols to look inside yet"); return true; }
+    if (k === "n") { toggleSkip(); return true; }
     if (k === "f") { var c2 = SB.Game.byId(game, game.selectedId); if (c2) SB.Input.follow(R.camera.follow ? null : c2); return true; }
     if (k === "h") { root.classList.toggle("hide"); return true; }
     return false;
