@@ -692,7 +692,7 @@
     var t = state.teach;
     var tc = state.talkTarget && state.talkTarget.alive ? state.talkTarget : null, tv = tc && t ? Math.min(1, tc.vocab[t] || 0) : 0;
     el.talkInfo.innerHTML = (tc && t ? "<b>" + esc(tc.name) + "</b>: " + (tv >= 1 ? "knows “" + esc(t) + "”! ✔" : Math.round(tv * 100) + "% of the way to “" + esc(t) + "”") + "<br>" : "") + (t ? "teaching <b class='lime'>“" + esc(t) + "”</b>: " + esc(WD.how(t)) + (WD.byWord[t].call ? ". <span class='dim'>when they know it, 📣 " + esc(WD.byWord[t].call) + ".</span>" : "") :
-      "pick a word, then show them what it means. one lesson per smol every few seconds, so take it slow. words most of the tribe knows make everyone smarter.");
+      "pick a word, then show them what it means. one lesson per smol every 4 seconds. a friend nearby who knows the word helps (👯), and a smol that learns one says it to the others. words most of the tribe knows make everyone smarter.");
   }
   function listeners(x, z, r) {
     var out = [];
@@ -738,6 +738,8 @@
     if (res.pending && hit && hit.ref) hit.ref.holdUntil = null; // you asked it to do something: let it go and do it
     if (res.tried || res.ok) showSay(w, x, z, hit && hit.type === "creature");
     var now = performance.now();
+    // every lesson shows how far it got: "+36% food" floats up from each smol that took it in
+    (res.gains || []).slice(0, 6).forEach(function (g) { if (g.v < 1) float(g.c, "+" + Math.round(g.d * 100) + "% “" + w + "”" + (g.friend ? " 👯" : "")); });
     if (res.learned && res.learned.length) {
       res.learned.forEach(function (c) { if (SB.FX) SB.FX.burst("sparkle", c.x, c.y + 0.8, c.z, 10); });
       toast("✨ " + res.learned.map(function (c) { return esc(c.name); }).slice(0, 3).join(", ") + (res.learned.length > 3 ? " +" + (res.learned.length - 3) : "") + " learned “" + esc(w) + "”!", "ach");
@@ -761,7 +763,9 @@
     { id: "bless", e: "🧬", name: "bless eggs", cost: 20, desc: "the next eggs evolve in a direction you pick", answers: {} },
     { id: "gift", e: "🎁", name: "gift", cost: 3, desc: "a toy, or a starter kit for tool-users", answers: { bored: 1, lonely: 1 } }
   ];
+  var spawnBtns = [];
   function renderMagic(force) {
+    spawnBtns = [];
     if (!force && el.sheet.dataset.kind === "magic") return updateMagic();
     el.sheet.dataset.kind = "magic"; el.sheet.dataset.id = "";
     clear(el.sheet);
@@ -772,6 +776,19 @@
       el.mirGrid.appendChild(m.btn);
     });
     el.sheet.appendChild(el.mirGrid);
+    if (SB.Game.sandbox(game)) {
+      // 🧪 the sandbox palette: pick one, then tap the island (it stays picked, so you can place lots)
+      el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "🧪 spawn"), h("span", { class: "dim" }, "sandbox")]));
+      var sp = h("div", { class: "miracles spawns" });
+      SB.Game.SPAWNS.forEach(function (k) {
+        var t = /^t(\d)$/.exec(k), T = t && SB.TIERS[+t[1]];
+        var m = { id: "spawn", what: k, cost: 0, e: T ? T.icon : k === "egg" ? "🥚" : k === "grump" ? "👹" : "🍎", name: T ? T.name : k, desc: T ? "a grown " + T.name : k === "egg" ? "an egg, nearly ready" : k === "grump" ? "a grump (they're grumpy)" : "a pile of fruit" };
+        m.btn = h("button", { class: "mir", "data-spawn": k, title: m.desc, onclick: function () { arm(m); } }, [h("span", { class: "e" }, m.e), h("span", null, m.name)]);
+        m.costEl = { _t: "" };
+        sp.appendChild(m.btn); spawnBtns.push(m);
+      });
+      el.sheet.appendChild(sp);
+    }
     el.sheet.appendChild(el.magicWarn = h("div", { class: "note warn hide" }));
     el.sheet.appendChild(el.magicInfo = h("div", { class: "note" }, "sparks come from new discoveries, new words, hatchings, and prayers answered with the right miracle. pick a miracle, then tap the world."));
     updateMagic();
@@ -784,6 +801,7 @@
       if (m.costEl._t !== txt) { m.costEl._t = txt; m.costEl.textContent = txt; }
       m.btn.classList.toggle("poor", (game.sparks || 0) < cost); m.btn.classList.toggle("on", UI.armed === m);
     });
+    spawnBtns.forEach(function (m) { m.btn.classList.toggle("on", UI.armed === m); });
     var warn = [];
     if (game.speed >= 8) warn.push("⏩ time is flying: miracles cost double");
     if ((game.godHeat || 0) >= 1.5) warn.push("🔥 you're leaning on miracles: they cost more for a while");
@@ -803,6 +821,13 @@
   UI.castAt = function (x, z) { var m = UI.armed; if (!m) return; cast(m, x, z); };
   function cast(m, x, z) {
     if (m.id === "bless") { blessChooser(m); return; }
+    if (m.id === "spawn") {
+      var made = SB.Game.sandboxSpawn(game, m.what, x, z);
+      if (!made) { toast("can't put that there"); return; }
+      if (SB.FX) SB.FX.burst("sparkle", x, SB.World.groundY(game.world, x, z) + 0.6, z, 12);
+      if (SB.Audio) SB.Audio.play("pop", { vol: 0.4 });
+      return; // stays armed: tap again for another
+    }
     if (!SB.Game.spend(game, SB.Game.miracleCost(game, m.cost))) { toast("not enough sparks ✨"); return; }
     SB.Game.usedMiracle(game, m.id);
     SB.Game.spoilFrom(game, m.id);
@@ -1446,7 +1471,17 @@
     body.appendChild(h("div", { class: "sec" }, "save"));
     var ago = SB.Save.lastAt ? Math.round((Date.now() - SB.Save.lastAt) / 1000) : -1;
     body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds (💾 blinks by the menu) and when you leave. " + (ago >= 0 ? "last saved " + (ago < 5 ? "just now" : ago + " s ago") + ". " : "") + "while you're away, the island keeps going for a while."));
-    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
+    var nCopies = SB.Save.copies ? SB.Save.copies(game).length : 0;
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"),
+      SB.Save.keepCopy ? h("button", { class: "btn", title: "a save slot: keep this island as it is now, to come back to from 📂 load game", onclick: function () {
+        var b = this; b.disabled = true;
+        SB.Save.keepCopy(game).then(function (m) {
+          b.disabled = false;
+          if (!m) { toast("this browser can only keep one island, so there's no room for a copy"); return; }
+          toast("📌 kept a copy: “" + esc(m.name) + "”. it's in 🏠 title screen → 📂 load game", "ach");
+          if (state.menuTab === "settings" && el.modal) openMenu("settings");
+        });
+      } }, "📌 keep a copy" + (nCopies ? " (" + nCopies + ")" : "")) : null, h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
     // text size: the whole interface zooms as one
     if (SB.Title) {
       var uz = SB.Title.uiScale();

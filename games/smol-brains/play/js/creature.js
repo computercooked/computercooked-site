@@ -175,6 +175,8 @@
       say(c, word + "!", game);
       emote(c, "idea", 2);
       SB.bus.emit("learnWord", { c: c, word: word });
+      // it says its new word to whoever's near, and they pick some of it up (each smol passes a word on once)
+      if (c.species === "smol" && SB.World && SB.World.creaturesNear) SB.World.creaturesNear(game.world, game, c.x, c.z, 6, function (o) { if (o !== c && o.species === "smol" && o.alive && !o.asleep && (o.vocab[word] || 0) < 1) learnWord(o, word, 0.2, game); });
       var n = C.knownCount(c);
       if (n >= 1) SB.Game.unlock(game, "word1");
       if (n >= 5) SB.Game.unlock(game, "word5");

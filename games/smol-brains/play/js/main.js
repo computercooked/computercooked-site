@@ -135,7 +135,10 @@
   };
   // miracles get dearer the more you lean on them (it cools off over a few minutes), and cost double
   // when you're running time fast: a god at 8× or 16× isn't really paying attention
+  // a sandbox island (create world → mode): free miracles, a spawn palette in ✨ magic, no leaderboard score
+  Game.sandbox = function (game) { var w = game && game.settings && game.settings.world; return !!(w && w.mode === "sandbox"); };
   Game.miracleCost = function (game, base) {
+    if (Game.sandbox(game)) return 0;
     var heat = game.godHeat || 0, fast = game.speed >= 8 ? 2 : 1;
     return Math.round(base * (1 + 0.3 * heat) * fast);
   };
@@ -178,6 +181,21 @@
     return c;
   };
 
+  // the sandbox palette: put something down at x, z. -> what was made (or null)
+  Game.SPAWNS = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "egg", "grump", "food"];
+  Game.sandboxSpawn = function (game, what, x, z) {
+    if (!Game.sandbox(game) || !SB.World.walkable(game.world, x, z)) return null;
+    var m = /^t(\d)$/.exec(what);
+    if (m) {
+      var t = +m[1], c = Game.spawnSmol(game, { genome: SB.Genome.forTier(game.rng, t), x: x, z: z, age: 700, how: "sandbox" });
+      c.asleep = false; game.stats.maxTier = Math.max(game.stats.maxTier || 0, c.tier);
+      return c;
+    }
+    if (what === "egg") return SB.World.add(game.world, game, "egg", x, z, { genome: SB.Genome.random(game.rng, { species: "smol" }), parents: [], gen: 1, progress: 0.6 });
+    if (what === "grump") return Game.spawnGrump(game, x, z);
+    if (what === "food") { var out = null; for (var i = 0; i < 5; i++) out = SB.World.add(game.world, game, game.rng.pick(["apple", "berry", "banana"]), x + game.rng.range(-1.2, 1.2), z + game.rng.range(-1.2, 1.2), {}); return out; }
+    return null;
+  };
   Game.spawnGrump = function (game, x, z) {
     var c = SB.Creature.create(game, { species: "grump", genome: SB.Genome.random(game.rng, { species: "grump" }), name: "grump", x: x, z: z, gen: 1, age: 900 });
     game.creatures.push(c);
@@ -519,7 +537,7 @@
       if (c.visited && Object.keys(c.visited).length >= 6) Game.unlock(game, "explorer");
       if (c.gen >= 1) game.lastGenome = c.genome;
     }
-    if (game.stats.bestIQ > best && window.cc && cc.score) try { cc.score(Game.score(game)); } catch (e) {}
+    if (game.stats.bestIQ > best && window.cc && cc.score && !Game.sandbox(game)) try { cc.score(Game.score(game)); } catch (e) {}
     var found = Object.keys(game.culture.found).length;
     if (found >= 1) Game.unlock(game, "eureka");
     if (found >= 5) Game.unlock(game, "ideas5");
@@ -568,7 +586,7 @@
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }
     scoreT += dtReal;
-    if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score && !game.showcase) try { cc.score(Game.score(game)); } catch (e) {} }
+    if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score && !game.showcase && !Game.sandbox(game)) try { cc.score(Game.score(game)); } catch (e) {} }
   }
 
   Game.start = function (g) {

@@ -80,5 +80,33 @@ if (saved) {
   check("plant → tree, stuff → goods", b && b.vocab.tree >= 1.1 && b.vocab.goods === 0.5 && b.vocab.plant == null, JSON.stringify(b && { tree: b.vocab.tree, goods: b.vocab.goods }));
 } else console.log("  (no serialize hook, skipped)");
 
+console.log("9. faster: a friend who knows it helps, and a new word gets passed on");
+{
+  const g2 = SB.Game.newGame(17); SB.Game.current = g2;
+  const W2 = g2.world, p2 = W2.T.spawn;
+  g2.creatures.slice().forEach(c => { c.alive = false; c.gone = true; }); g2.creatures = [];
+  const mk = (dx, dz) => { const [c] = SB.Debug.spawnTier(2, 1); c.x = p2.x + dx; c.z = p2.z + dz; c.asleep = false; c.vocab = {}; c.genome.genes.attnLearn = 0.5; c.genome.genes.social = 0.2; return c; };
+  const lone = mk(0, 0);
+  const ap = SB.World.add(W2, g2, "apple", p2.x + 0.5, p2.z + 0.5, {});
+  const r1 = SB.Words.teach(g2, "water", null); // a no-op, so nobody's stamped
+  g2.time += 10; const ra = SB.Words.teach(g2, "food", { type: "item", ref: ap });
+  const alone = lone.vocab.food || 0;
+  const pal = mk(1, 0); pal.vocab.food = 1.2;
+  lone.vocab.food = 0; g2.time += 10;
+  const rb = SB.Words.teach(g2, "food", { type: "item", ref: ap });
+  const withPal = lone.vocab.food || 0;
+  check("a friend who knows it makes the lesson stick better", withPal > alone * 1.3, alone.toFixed(2) + " → " + withPal.toFixed(2));
+  check("the lesson reports how far it got", ra.gains && ra.gains.length === 1 && ra.gains[0].d > 0.2 && rb.gains[0].friend, JSON.stringify(rb.gains && rb.gains.map(x => +x.d.toFixed(2))));
+  check("the cooldown is 4 s", SB.Words.COOLDOWN === 4);
+  // a smol that learns a word says it to whoever's near
+  const ears = [mk(2, 1), mk(-1, 2)];
+  SB.World.rebuildGrid && SB.World.rebuildGrid(W2, g2);
+  SB.Game.step(g2, SB.TICK);
+  lone.vocab.food = 0.99; ears.forEach(c => { c.asleep = false; c.vocab = {}; });
+  SB.Creature.learnWord(lone, "food", 0.3, g2);
+  check("those nearby pick some of it up", ears.every(c => (c.vocab.food || 0) >= 0.15), ears.map(c => (c.vocab.food || 0).toFixed(2)).join(","));
+  void r1;
+}
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);

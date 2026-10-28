@@ -51,7 +51,7 @@
   WD.byWord = {};
   BOOK.forEach(function (b) { WD.byWord[b.w] = b; });
 
-  var COOLDOWN = 9; // seconds before the same smol can take in the same word again
+  var COOLDOWN = 4; // seconds before the same smol can take in the same word again (9 until 4.7: the bot found it slow)
   WD.COOLDOWN = COOLDOWN;
 
   function lex(w) { return SB.LEXICON[w]; }
@@ -109,6 +109,13 @@
     return t == null || game.time - t >= COOLDOWN;
   }
   function stamp(c, w, game) { c.lessonT = c.lessonT || {}; c.lessonT[w] = game.time; }
+  // a friend nearby who already knows the word says it too: the lesson sticks half again as well
+  WD.FRIEND_BONUS = 1.5;
+  function friendKnows(game, c, w) {
+    return smols(game).some(function (o) { return o !== c && !o.asleep && (o.vocab[w] || 0) >= 1 && SB.dist(o.x, o.z, c.x, c.z) < 6; });
+  }
+  WD.friendKnows = friendKnows;
+  function gain(out, c, w, b) { var d = Math.min(1, c.vocab[w] || 0) - Math.min(1, b); if (d > 0.005) (out.gains || (out.gains = [])).push({ c: c, d: d, v: Math.min(1, c.vocab[w] || 0), friend: !!out._f }); }
   function hearers(game, x, z, r) {
     return smols(game).filter(function (c) { return !c.asleep && SB.dist(c.x, c.z, x, z) < r; });
   }
@@ -131,7 +138,9 @@
         stamp(c, w, game);
         // attention matters: a smol that's looking at the thing learns a lot more
         c.attn = { type: about.type, id: about.id, noun: noun, x: about.x, z: about.z };
-        if (C.lessonWord(c, w, game, 0.36)) out.learned.push(c);
+        var b0 = c.vocab[w] || 0; out._f = friendKnows(game, c, w);
+        if (C.lessonWord(c, w, game, 0.36 * (out._f ? WD.FRIEND_BONUS : 1))) out.learned.push(c);
+        gain(out, c, w, b0);
       });
       out.ok = out.tried > 0;
       if (!out.tried) out.msg = "no smols close enough to see it";
@@ -148,7 +157,9 @@
       var top = SB.Chem.top(c.chem);
       if (top.i !== lex(w).i || top.v < 0.35) { out.msg = c.name + " doesn't feel " + w + " right now"; out.wrong = true; c.speech = { text: "?", t: 1, kind: "think" }; return out; }
       out.ok = true;
-      if (C.lessonWord(c, w, game, 0.4)) out.learned.push(c);
+      var b1 = c.vocab[w] || 0; out._f = friendKnows(game, c, w);
+      if (C.lessonWord(c, w, game, 0.4 * (out._f ? WD.FRIEND_BONUS : 1))) out.learned.push(c);
+      gain(out, c, w, b1);
       return out;
     }
     // a verb: it hears the request; the lesson lands when it actually does it (see Creature: obey)
