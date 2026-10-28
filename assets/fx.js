@@ -241,9 +241,10 @@
     if (!reduceMotion) timer = setInterval(tick, 5200);
   }
 
-  /* today's dailies, injected under the ticker */
+  /* today's dailies, injected under the "made by computer cooked" grid (the games come first on screen) */
   function hubStrip(games, bySlug) {
-    var anchor = document.querySelector(".ticker") || hub;
+    var grid = document.getElementById("shelf-computer-cooked");
+    var anchor = (grid && grid.closest("section")) || document.querySelector(".ticker") || hub;
     var today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
     var dailies = games.filter(function (g) { return DAILY[g.slug] || (g.tags || []).indexOf("daily") >= 0; });
     if (!dailies.length) return; // "continue playing" lives in games/hub.js ("jump back in": this device + account + saves)
@@ -424,7 +425,8 @@
   }
 
   function renderCup(g, rows) {
-    var anchor = document.querySelector(".hub-strip") || document.querySelector(".ticker");
+    var grid = document.getElementById("shelf-computer-cooked");
+    var anchor = document.querySelector(".hub-strip") || (grid && grid.closest("section")) || document.querySelector(".ticker");
     if (!anchor) return;
     var top = rows.slice(0, 5);
     var html = '<section class="cup" aria-labelledby="cup-heading">' +

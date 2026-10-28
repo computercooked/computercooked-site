@@ -12,6 +12,7 @@ import { featured, previewFeatured } from "./featured.js";
 import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame } from "./dares.js";
 import { gamePage } from "./seo.js";
+import { hubPage } from "./hub.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
@@ -28,6 +29,8 @@ export default {
     // (usernames are letters, digits and _, so the page's own /u/u.js and /u/u.css never match)
     if (/^\/u\/[A-Za-z0-9_]{3,16}\/?$/.test(url.pathname)) return env.ASSETS.fetch(new Request(url.origin + "/u/", req));
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
+    // the hub: the grid, spotlight and ticker rendered from games.json (crawlers and link previews see every game)
+    if (url.pathname === "/games/" || url.pathname === "/games/index.html") return hubPage(req, env, url);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe

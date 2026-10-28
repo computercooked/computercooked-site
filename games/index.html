@@ -57,8 +57,8 @@
       <div class="hero-floor" aria-hidden="true"></div>
       <div class="hero-copy">
         <p class="eyebrow hub-top"><span class="live-dot" aria-hidden="true"></span> arcade online · computercooked.com/games <a class="cc-chip" id="hub-chip" href="/me/" hidden>log in</a></p>
-        <h1 class="games-title"><img class="games-brand" src="/assets/brand/wordmark-480.webp" srcset="/assets/brand/wordmark-480.webp 480w, /assets/brand/wordmark-960.webp 960w" sizes="(min-width: 900px) 400px, min(84vw, 340px)" width="960" height="589" alt="computer cooked" fetchpriority="high"> <span>games</span></h1>
-        <p class="games-sub">free little browser games. no downloads. no account needed (but make one and you get xp, saves and friends). no ads (yet). works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
+        <h1 class="games-title"><img class="games-brand" src="/assets/brand/wordmark-480.webp" srcset="/assets/brand/wordmark-480.webp 480w, /assets/brand/wordmark-960.webp 960w" sizes="(min-width: 900px) 170px, 150px" width="960" height="589" alt="computer cooked" fetchpriority="high"> <span>games</span></h1>
+        <p class="games-sub">free little browser games. no downloads, no account needed, works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
         <div class="hero-ctas">
           <a class="play-btn hero-play" href="/games/crash/">play CRASH ▶</a>
           <a class="ghost-btn" href="#ours-heading">browse games ↓</a>
@@ -95,12 +95,28 @@
       </div>
     </div>
 
-    <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
-
     <section class="shelf hub-continue" id="hub-continue" hidden aria-labelledby="continue-h">
       <h2 class="shelf-head" id="continue-h">jump back in</h2>
       <ul class="continue-row" id="continue-row"></ul>
     </section>
+
+    <section class="shelf" aria-labelledby="ours-heading">
+      <h2 class="shelf-head" id="ours-heading">made by computer cooked <small data-count></small></h2>
+      <ul class="card-grid" id="shelf-computer-cooked">
+        <li class="game-card">
+          <div class="game-card-inner">
+            <img class="game-thumb" src="/games/crash/thumb.svg" alt="" width="400" height="300">
+            <div class="game-body">
+              <h3 class="game-name">CRASH</h3>
+              <p class="game-pitch">dodge the tasks, drink the coffee, don't get cooked.</p>
+              <a class="play-btn" href="/games/crash/" aria-label="play CRASH">play ▶</a>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
 
     <section class="shelf hub-weekly" id="hub-weekly" hidden aria-labelledby="weekly-h">
       <h2 class="shelf-head" id="weekly-h">weekly challenge <small id="weekly-ends"></small></h2>
@@ -123,22 +139,6 @@
     <section class="shelf" id="shelf-popular" hidden>
       <h2 class="shelf-head">most played</h2>
       <ul class="card-grid"></ul>
-    </section>
-
-    <section class="shelf" aria-labelledby="ours-heading">
-      <h2 class="shelf-head" id="ours-heading">made by computer cooked <small data-count></small></h2>
-      <ul class="card-grid" id="shelf-computer-cooked">
-        <li class="game-card">
-          <div class="game-card-inner">
-            <img class="game-thumb" src="/games/crash/thumb.svg" alt="" width="400" height="300">
-            <div class="game-body">
-              <h3 class="game-name">CRASH</h3>
-              <p class="game-pitch">dodge the tasks, drink the coffee, don't get cooked.</p>
-              <a class="play-btn" href="/games/crash/" aria-label="play CRASH">play ▶</a>
-            </div>
-          </div>
-        </li>
-      </ul>
     </section>
 
     <section class="shelf" aria-labelledby="community-heading">
