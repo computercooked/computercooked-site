@@ -11,7 +11,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const base = process.argv[2] || "http://127.0.0.1:8787";
 const req = createRequire(process.env.PLAYWRIGHT ? join(resolve(process.env.PLAYWRIGHT), "x.js") : import.meta.url);
 const { chromium } = req("playwright");
-const out = join(ROOT, "dist/page-check");
+// CI writes outside the repo: wrangler dev watches the repo (it is the asset folder) and reloads on every new file
+const out = process.env.PAGE_CHECK_OUT || join(ROOT, "dist/page-check");
 mkdirSync(out, { recursive: true });
 
 const games = JSON.parse(readFileSync(join(ROOT, "games/games.json"), "utf8")).games.filter((g) => g.made_by === "computer-cooked");

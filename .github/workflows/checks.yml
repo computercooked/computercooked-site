@@ -5,6 +5,8 @@
 #   3. scripts/page-check.mjs: landing, hub, daily 3 and every game page at 390 and 1280 wide, no console errors,
 #      screenshots kept as an artifact for eyeballing (pixel-diff baselines are a later step)
 # Nothing here deploys; Cloudflare Workers Builds still deploys main as before.
+# Everything the job writes goes to $RUNNER_TEMP, never the repo: the repo is the Worker's asset folder, wrangler dev
+# reloads on every new file there, and its own log file in the repo kept it reloading forever (the first run hung).
 name: checks
 on:
   pull_request:
@@ -15,7 +17,9 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    env:
+      OUT: ${{ runner.temp }}/site-checks
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,29 +27,35 @@ jobs:
           node-version: 22
       - name: start the site locally
         run: |
+          mkdir -p "$OUT"
           TOKEN=$(openssl rand -hex 24)
           echo "::add-mask::$TOKEN"
           echo "ADMIN_TOKEN=$TOKEN" > .dev.vars
           echo "ADMIN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-          npx --yes wrangler@4 dev --local --port 8787 > wrangler.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8787/api/health && break; sleep 2; done
-          curl -sf http://127.0.0.1:8787/api/health
+          npx --yes wrangler@4 d1 migrations apply DB --local > "$OUT/migrations.log" 2>&1
+          npx --yes wrangler@4 dev --local --port 8787 > "$OUT/wrangler.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf -m 5 http://127.0.0.1:8787/api/health && break; sleep 2; done
+          curl -sf -m 5 http://127.0.0.1:8787/api/health || { tail -40 "$OUT/wrangler.log"; exit 1; }
       - name: API smoke test
+        timeout-minutes: 5
         run: node scripts/smoke-test.mjs http://127.0.0.1:8787 "$ADMIN_TOKEN"
       - name: Lighthouse budgets
-        run: npx --yes @lhci/cli@0.14.0 autorun --config=.github/lighthouserc.json
+        timeout-minutes: 8
+        working-directory: ${{ runner.temp }}
+        run: npx --yes @lhci/cli@0.14.0 autorun --config="$GITHUB_WORKSPACE/.github/lighthouserc.json"
       - name: pages at 390 and 1280
+        timeout-minutes: 8
         run: |
-          npm i --no-save playwright@1.57.0
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw" && npm init -y > /dev/null && npm i --no-save playwright@1.57.0
           npx playwright install --with-deps chromium
-          node scripts/page-check.mjs http://127.0.0.1:8787
+          cd "$GITHUB_WORKSPACE"
+          PLAYWRIGHT="$RUNNER_TEMP/pw" PAGE_CHECK_OUT="$OUT/page-check" node scripts/page-check.mjs http://127.0.0.1:8787
       - name: keep screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: site-checks
           path: |
-            dist/page-check/
-            .lighthouseci/
-            wrangler.log
+            ${{ runner.temp }}/site-checks/
+            ${{ runner.temp }}/.lighthouseci/
           if-no-files-found: ignore

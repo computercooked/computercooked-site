@@ -21,3 +21,5 @@ games/smol-brains/DESIGN.md
 games/smol-brains/screenshots/
 native/
 dist/
+.lighthouseci
+wrangler.log
