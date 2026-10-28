@@ -220,6 +220,22 @@ From the Computer Cooked bot's two playtests (sim 7/10, then a 5/10 on v4.5.0). 
 - **Taps on tall peaks**: `R.pickGround` marches over the island's real height range, so a tap on a volcano top (43–50) picks the top.
 - **Test flags stay in the URL**: "play now" and shared-world links keep `?cctest=1` and `?tester=`.
 
+## 0.19 What v4.6 added: a small body's day (possessing a blob or a critter is a game)
+
+The bot's playtest: possessing a blob was "walk and eat" because the bag said "no hands". Every body now has a loop, and the small ones feed evolution.
+
+- **A mouth** (`survival.js`): blobs and critters carry one mouthful in a single slot (`S.hotN` is 1 below tool-user; `S.stackFor` caps a mouthful at 3). A blob takes small soft things only (`S.mouthy`: food, leaves, fibre, fur, seeds, nuts, balls, plushies): "too big for a blob's mouth. nudge it along instead". Carrying in the mouth is practice for hands (`habit hands`), so it echoes into the kids.
+- **Tug leaves** (`S.tug`, F on a bush or tree): a mouthful of leaves; each plant gives one every 40 s (`game._tug`, not saved).
+- **Line the nest** (`S.lineNest`, left click the nest holding leaves, fibre or fur): three mouthfuls make it a step cosier, up to 3 (`game.nest`, saved). Eggs within 4 tiles of a cosy nest warm faster (`world.js` tickEgg: +0.003 a step). An island nobody possesses never lines its nest, so it plays out as before.
+- **Sniff** (G, or E with nothing in front of you): the marker points at the nearest food (loose food beats a plant unless the plant is much nearer) for 14 s; the compass shows 👃.
+- **Share**: right click a friend with food in your mouth: "share your berries with Bea" (a blob can give now, too).
+- **Bump trees**: a blob's left click on a tree shakes it like the god hand does.
+- **A small body's day** (`P.BLOB_QUEST`, its own guide beside the first-tool one): eat something → sniff out food → tug leaves → line the nest (n/3) → bring a friend food; +3 sparks and "its kids will lean toward hands". Remembered per island and per browser (`smolbrains-blobquest`). Tool-users still get the first-tool guide.
+- **The way to hands**: the bag's make tab, for a blob or critter, says how far it is from hands and shows the hands echo it has built up (🤲 n/18).
+- **Eyes adjust**: in first person, night and storm light gets a lift in the sky and ground ambient (`render.js`), so a smol's view at night is dim blue, not black. God view is unchanged.
+- **A calmer clock**: the HUD clocks move in ten-minute steps (one tick about every 8 real seconds at 1×) instead of every in-game minute.
+- `tests/possess.test.js` §9 covers the mouth, tugging, the nest, sniffing, sharing, the quest, eggs by a cosy nest, and the save.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
