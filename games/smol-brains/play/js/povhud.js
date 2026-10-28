@@ -338,7 +338,7 @@
   HUD.quest = function () {
     if (!hud) return;
     var s = S(), q = s && s.quest;
-    if (!q) { hud.quest.style.display = "none"; hud.qmark.classList.remove("on"); return; }
+    if (!q) { hud.quest.style.display = "none"; if (!s || (!s.sniff && !s.night)) hud.qmark.classList.remove("on"); return; }
     hud.quest.style.display = "";
     var steps = P().questList(), cur = P().questText(), title = q.kind === "blob" ? "🫧 a small body's day" : "🪨 f&zwnj;irst tool";
     var html = "<h4><span>" + title + "</span><button class='skip' title='hide the guide for good'>skip ✕</button></h4>";
@@ -364,7 +364,7 @@
     void next;
   };
   function questMarker() {
-    var s = S(), q = s && s.quest, t = s && s.sniff ? s.sniff : q && q.target, R = SB.Render; // the nose beats the guide while it lasts
+    var s = S(), q = s && s.quest, t = s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target, R = SB.Render; // the nose, then home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
@@ -718,6 +718,7 @@
     var home = SB.Society ? SB.Society.home(game, c.tribe) : w.T.spawn;
     if (home && SB.dist(home.x, home.z, c.x, c.z) > 3) mark(home.x, home.z, "🏠");
     if (s.sniff) mark(s.sniff.x, s.sniff.z, "👃");
+    else if (s.night) mark(s.night.x, s.night.z, "🌙");
     else if (s.quest && s.quest.target) mark(s.quest.target.x, s.quest.target.z, "◆");
     hud.compass.innerHTML = "<div class='ticks' style='background-position:" + (-head / span * wpx).toFixed(1) + "px 0'></div><div class='mark'></div>" + html;
   }

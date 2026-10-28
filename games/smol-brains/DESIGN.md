@@ -232,6 +232,7 @@ The bot's playtest: possessing a blob was "walk and eat" because the bag said "n
 - **Bump trees**: a blob's left click on a tree shakes it like the god hand does.
 - **A small body's day** (`P.BLOB_QUEST`, its own guide beside the first-tool one): eat something → sniff out food → tug leaves → line the nest (n/3) → bring a friend food; +3 sparks and "its kids will lean toward hands". Remembered per island and per browser (`smolbrains-blobquest`). Tool-users still get the first-tool guide.
 - **The way to hands**: the bag's make tab, for a blob or critter, says how far it is from hands and shows the hands echo it has built up (🤲 n/18).
+- **Home before dark** (every body): when night falls while you're possessing, a 🌙 marker leads to the nearest shelter (a hut, house or lean-to, a lit fire, or the nest), and getting there pays 1 spark once a night (`P.shelterFor`, `settings.povSafeNight`).
 - **Eyes adjust**: in first person, night and storm light gets a lift in the sky and ground ambient (`render.js`), so a smol's view at night is dim blue, not black. God view is unchanged.
 - **A calmer clock**: the HUD clocks move in ten-minute steps (one tick about every 8 real seconds at 1×) instead of every in-game minute.
 - `tests/possess.test.js` §9 covers the mouth, tugging, the nest, sniffing, sharing, the quest, eggs by a cosy nest, and the save.

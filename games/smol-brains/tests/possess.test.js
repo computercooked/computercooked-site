@@ -242,5 +242,27 @@ console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sh
   P.leave();
 }
 
+console.log("10. night: get home before the grumps come out");
+{
+  const { g, cs } = fresh(49, 0, 2);
+  const b = cs[0], nest = g.world.T.nest;
+  g.settings.povBlobQuest = "done";
+  b.x = nest.x + 14; b.z = nest.z + 2;
+  if (!SB.World.walkable(g.world, b.x, b.z)) { b.x = nest.x + 6; b.z = nest.z; }
+  P.enter(g, b);
+  const d = SB.DAY_LENGTH, t = Math.floor(g.time / d) * d + d * 0.9;
+  g.time = t; g.world.time = t;
+  run(g, 1.5);
+  const ng = P.nightGoal();
+  check("at night the marker leads to the nest", g.world.night && ng && ng.kind === "nest" && Math.abs(ng.x - nest.x) < 0.01, ng && ng.kind);
+  const s0 = g.sparks;
+  b.x = nest.x + 0.8; b.z = nest.z;
+  run(g, 1.5);
+  check("getting home is safe and pays a spark", !P.nightGoal() && g.sparks >= s0 + 1 && g.settings.povSafeNight != null);
+  b.x = nest.x + 14; run(g, 1.5);
+  check("once a night", !P.nightGoal());
+  P.leave();
+}
+
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);

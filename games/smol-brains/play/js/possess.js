@@ -218,6 +218,7 @@
     // friends tag along, and share food with a hungry you
     if ((S.friendT -= dt) <= 0) { S.friendT = 6; friends(c, game); }
     if ((S.questT -= dt) <= 0) { S.questT = 0.3; questTick(); }
+    if ((S.nightT = (S.nightT || 0) - dt) <= 0) { S.nightT = 0.5; nightTick(c, game); }
     // the nose: the sniff marker fades, or goes when you get there
     S.sniffCd = Math.max(0, (S.sniffCd || 0) - dt);
     if (S.sniff && ((S.sniff.t -= dt) <= 0 || SB.dist(S.sniff.x, S.sniff.z, c.x, c.z) < 1.6)) S.sniff = null;
@@ -703,6 +704,38 @@
     return true;
   }
   P.sniffing = function () { return S ? S.sniff : null; };
+  // night: get home before the grumps come out. the marker leads to the nearest shelter (a hut, a lean-to,
+  // a lit fire, or the nest), and getting there safe pays a spark once a night
+  P.shelterFor = function (game, c) {
+    var w = game.world, best = null, bd = 1e9;
+    w.structures.forEach(function (s) {
+      if (!s.done) return;
+      var ok = s.kind === "hut" || s.kind === "house" || s.kind === "leanto" || (s.kind === "campfire" && s.data && s.data.lit);
+      if (!ok) return;
+      var d = SB.dist(s.x, s.z, c.x, c.z); if (d < bd) { bd = d; best = s; }
+    });
+    var n = w.T.nest, dn = n ? SB.dist(n.x, n.z, c.x, c.z) : 1e9;
+    if (n && (dn < bd || !best)) { best = n; bd = dn; }
+    return best ? { x: best.x, z: best.z, y: SB.World.groundY(w, best.x, best.z) + 1.4, d: bd, kind: best === n ? "nest" : best.kind } : null;
+  };
+  P.nightGoal = function () { return S ? S.night : null; };
+  function nightTick(c, game) {
+    var w = game.world, night = w.night, day = Math.floor(game.time / SB.DAY_LENGTH);
+    if (!night) { S.night = null; return; }
+    var safeDay = (game.settings || {}).povSafeNight;
+    if (safeDay === day && !S.night) return;
+    var t = P.shelterFor(game, c);
+    if (!t) return;
+    if (!S.night) { S.night = t; say("🌙 night is falling. get to the " + (t.kind === "nest" ? "nest" : t.kind === "campfire" ? "fire" : t.kind) + " before the grumps come out (follow the marker)"); return; }
+    S.night = t;
+    if (t.d < (t.kind === "nest" ? 2.4 : 3.2) || SB.World.shelterAt(w, c.x, c.z)) {
+      S.night = null;
+      (game.settings || (game.settings = {})).povSafeNight = day;
+      if (SB.Game.addSparks) SB.Game.addSparks(game, 1, c);
+      say("🏠 safe for the night. +1 ✨ sleep with Z until morning: you heal faster at home");
+      SB.bus.emit("povSafeNight", { c: c });
+    }
+  }
   // G: a small body's nose. points the marker at the nearest food for a while
   P.sniff = function () {
     if (!S || S.dead) return false;
