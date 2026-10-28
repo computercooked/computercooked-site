@@ -37,12 +37,15 @@
 
   /* ---------------- entering and leaving ---------------- */
 
+  // the first time is on the house: it's the best thing in the game, so nobody should miss it
+  P.cost = function (game) { return game && !(game.stats && game.stats.possessed) ? 0 : P.COST; };
+
   P.canEnter = function (game, c) {
     if (!game || !c || !c.alive || c.type !== "creature") return "nobody there";
     if (c.species !== "smol") return "only smols can be possessed";
     if (c.heldBy || c.dying || c.corpse) return "not right now";
     if (P.active) return "you're already someone";
-    if ((game.sparks || 0) < P.COST) return "possessing a smol costs " + P.COST + " sparks ✨";
+    if ((game.sparks || 0) < P.cost(game)) return "possessing a smol costs " + P.COST + " sparks ✨";
     return "";
   };
 
@@ -50,7 +53,8 @@
     opts = opts || {};
     var why = opts.free ? (c && c.alive && c.species === "smol" && !P.active ? "" : "nope") : P.canEnter(game, c);
     if (why) { if (SB.UI && SB.UI.toast) SB.UI.toast(why); return false; }
-    if (!opts.free) SB.Game.spend(game, P.COST);
+    if (!opts.free) SB.Game.spend(game, P.cost(game));
+    game.stats.possessed = (game.stats.possessed || 0) + 1;
     var C = SB.Creature;
     if (c.plan) C.endPlan(c, game, false);
     c.action = null; c.asleep = false; c.inBed = false; c.called = null; c.callVerb = null;
@@ -609,6 +613,7 @@
     if (r.ok) SB.World.remove(game.world, it);
     if (r.msg) say(r.msg);
     audio("eat");
+    if (r.ok) SB.bus.emit("povEat", { c: c, kind: it.kind });
     return !!r.ok;
   }
   function eatHeld() {
@@ -620,6 +625,7 @@
     var r = Sv().eat(c, game, k, null);
     if (r && r.msg) say(r.msg);
     audio("eat");
+    SB.bus.emit("povEat", { c: c, kind: k });
     return true;
   }
   function pickItem(it) {
