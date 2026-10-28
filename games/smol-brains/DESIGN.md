@@ -295,6 +295,15 @@ The bot's fourth playtest (K-0022, 6/10). Its top three for 10/10: orders that v
 - **The card**: "💚 first friend: still looking…" until a smol has one, and the card's subtitle and who-line are a size up.
 - Tests: `orders.test.js` §1c, `strangers.test.js` §6 (nobody on day 1), `possess.test.js` §12.
 
+## 0.23 What v4.7.2 added: one clear possess loop
+
+The bot's top three for 10/10 (K-0022), round two.
+
+- **Find food, eat it, get paid** (`P.BLOB_QUEST`): a blob's day now starts "find food" (G sniffs, G again walks you there), then "eat it" (right click a bush, or left click food). Eating first is remembered for when its step comes. Every step of a blob's day pays +1 ✨ on top of the +3 at the end, and the step banner is big: "✓ find food · +1 ✨", then "next: eat it".
+- **Readable guide**: the first-person guide is wider, with 15 px steps and a 14 px tip (was 13/12).
+- **Your first flag**: placing it says "watch them come" and pulls the camera back so the walk is in view.
+- **A steady test**: `threats.test.js` §5 is seeded from the village's set-up, not just the long run. Its "builders rebuild it" check passed or failed by luck (about 1 in 3 under a parallel suite).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

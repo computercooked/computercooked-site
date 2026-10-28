@@ -71,6 +71,7 @@
   var CSS = [
     "body.pov #ui{display:none!important}",
     "#pov{position:fixed;inset:0;z-index:40;pointer-events:none;font:600 14px var(--sans,system-ui);color:#f5f3ed;user-select:none;-webkit-user-select:none;touch-action:none;font-variant-ligatures:none;font-feature-settings:'liga' 0,'clig' 0,'calt' 0;--px:#1a1222;--rim:rgba(245,243,237,.22);--lime:#c5ff49}",
+    "#pov *{font-variant-ligatures:none;font-feature-settings:'liga' 0,'clig' 0,'calt' 0}", // a font: shorthand turns ligatures back on, and the pixel font's fi is broken ("find" read "And")
     "#pov .panel{background:rgba(22,18,34,.8);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--rim),4px 4px 0 2px rgba(0,0,0,.35)}",
     "#pov kbd{display:inline-block;min-width:20px;padding:1px 5px;margin-right:6px;font:700 12px var(--mono,monospace);text-align:center;color:#101114;background:#f5f3ed;box-shadow:0 0 0 2px var(--px),0 3px 0 2px var(--px);vertical-align:1px}",
     "#pov kbd.g{background:var(--lime)}#pov kbd.m{background:#ffd84a}",
@@ -139,19 +140,19 @@
     "#pov .edge{position:absolute;inset:0;transition:box-shadow .4s}#pov .edge.red{box-shadow:inset 0 0 130px rgba(255,40,60,.5)}#pov .edge.blue{box-shadow:inset 0 0 140px rgba(90,170,255,.55)}",
     "#pov .edge.hit{box-shadow:inset 0 0 160px rgba(255,20,40,.75);transition:none}",
     // quest
-    "#pov .quest{position:absolute;right:14px;top:64px;width:250px;padding:10px 12px;pointer-events:auto}",
-    "#pov .quest h4{margin:0 0 6px;font:700 13px var(--mono,monospace);color:var(--lime);display:flex;justify-content:space-between;align-items:center}",
+    "#pov .quest{position:absolute;right:14px;top:64px;width:300px;padding:12px 14px;pointer-events:auto}",
+    "#pov .quest h4{margin:0 0 6px;font:700 15px var(--mono,monospace);color:var(--lime);display:flex;justify-content:space-between;align-items:center}",
     "#pov .quest h4 button{font:600 11px var(--mono,monospace);background:none;border:0;color:#f5f3ed;opacity:.6;cursor:pointer;padding:0}",
-    "#pov .quest .st{display:flex;gap:7px;align-items:baseline;font-size:13px;margin:3px 0;opacity:.5}",
+    "#pov .quest .st{display:flex;gap:7px;align-items:baseline;font-size:15px;margin:4px 0;opacity:.5}",
     "#pov .quest .st b{width:14px;flex:none;font-family:var(--mono,monospace)}#pov .quest .st.done{opacity:.55;text-decoration:line-through}#pov .quest .st.now{opacity:1;color:#fff}",
-    "#pov .quest .tip{margin:6px 0 0;padding:6px 8px;font-size:12px;line-height:1.45;background:rgba(197,255,73,.12);box-shadow:inset 2px 0 0 var(--lime)}",
+    "#pov .quest .tip{margin:8px 0 0;padding:8px 10px;font-size:14px;line-height:1.45;background:rgba(197,255,73,.12);box-shadow:inset 2px 0 0 var(--lime)}",
     "#pov .quest.mini .st:not(.now){display:none}",
     "#pov .qmark{position:absolute;width:0;height:0;display:none}#pov .qmark.on{display:block}",
     "#pov .qmark i{position:absolute;left:-9px;top:-22px;width:18px;height:18px;background:var(--lime);transform:rotate(45deg);box-shadow:0 0 0 2px var(--px);animation:povbob 1s ease-in-out infinite}",
     "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 11px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
     "@keyframes povbob{50%{translate:0 -5px}}",
-    "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:10px 18px;font:700 18px var(--mono,monospace);color:var(--lime);animation:povgain 2.6s forwards}",
+    "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:12px 22px;font:700 22px var(--mono,monospace);color:var(--lime);text-align:center;animation:povgain 2.6s forwards}#pov .qdone small{display:block;margin-top:4px;font-size:14px;color:#f5f3ed}",
     // the bag
     "#pov .bag{position:absolute;inset:0;background:rgba(8,6,14,.55);display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:3}",
     "#pov .mpath{display:flex;align-items:center;gap:6px;margin:6px 0 12px}#pov .mpstep{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 10px;min-width:74px;font:700 12px var(--mono,monospace);background:rgba(10,8,18,.55);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px rgba(255,255,255,.08);opacity:.6}",
@@ -361,10 +362,11 @@
   };
   HUD.questStep = function (done, next) {
     if (!hud) return;
-    var d = hud.root.appendChild(el("div", "qdone panel", "✓ " + esc(done.text)));
+    var blob = S() && S().quest && S().quest.kind === "blob";
+    var nofi = function (t) { return esc(t).replace(/f(?=[il])/g, "f‌"); }; // the mono font's big sizes still join f+i / f+l ("find" read "And")
+    var d = hud.root.appendChild(el("div", "qdone panel", "✓ " + nofi(done.text) + (blob ? " · +1 ✨" : "") + (next ? "<small>next: " + nofi(next.text) + "</small>" : "")));
     setTimeout(function () { d.remove(); }, 2700);
     HUD.quest();
-    void next;
   };
   function questMarker() {
     var s = S(), q = s && s.quest, t = s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target, R = SB.Render; // the nose, then home at night, then the guide

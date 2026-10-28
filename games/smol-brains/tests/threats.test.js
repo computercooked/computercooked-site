@@ -119,6 +119,9 @@ console.log("4. grumps carry smols off to their camps (and you can get them back
 
 console.log("5. raiders smash and burn buildings; builders put them back up");
 {
+  // the whole rebuild story is seeded, set-up included: the village's own small choices use Math.random too, and
+  // only seeding the twenty-minute run left it passing or failing by luck (about 1 in 3 under a parallel suite)
+  seeded(505, () => {
   const { SB, game, hm } = village(5, 4);
   const T = SB.Threats;
   const hut = game.world.structures.find(s => s.kind === "hut" && s.done);
@@ -151,6 +154,7 @@ console.log("5. raiders smash and burn buildings; builders put them back up");
   // the rest of the run is seeded (the game uses Math.random for small things), so it plays out the same every time
   seeded(5, () => run(SB, game, 1200)); // twenty minutes: builders juggle other sites too
   check("the builders rebuild it", back && hut.done, JSON.stringify(hut.need) + " work " + hut.work.toFixed(1));
+  });
   // a raid at full strength: buildings get hit and it says so
   const r = village(55); const S2 = r.SB, g2 = r.game;
   g2.time = 3 * 3600; ["raid", "raid", "raid"].forEach(() => S2.bus.emit("incidentEnd", { inc: { id: "raid" }, ok: true, text: "" }));
