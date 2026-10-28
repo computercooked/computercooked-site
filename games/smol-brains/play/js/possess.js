@@ -140,6 +140,14 @@
     var w = game.world, C = SB.Creature, ch = c.chem, inp = P.input;
     var f = inp.fwd || 0, sd = inp.side || 0, mag = Math.hypot(f, sd);
     c._povMove = false;
+    // walking to the sniffed food by itself (G twice, K-0022): any move key takes over again
+    if (S.auto) {
+      var ax = S.auto.x - c.x, az = S.auto.z - c.z, ad = Math.hypot(ax, az);
+      S.auto.t -= dt;
+      if (mag > 0.08 || S.auto.t <= 0) S.auto = null;
+      else if (ad < 1.6) { S.auto = null; say("here! right click to nibble a bush, or left click food to eat it"); }
+      else { S.yaw += SB.angDiff(S.yaw, Math.atan2(-ax, -az)) * Math.min(1, dt * 5); f = 1; sd = 0; mag = 1; }
+    }
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
     var running = inp.run && mag > 0.08 && c.stage >= 1 && S.stam > 0.04;
@@ -740,6 +748,7 @@
   P.sniff = function () {
     if (!S || S.dead) return false;
     var c = S.c, game = S.game, w = game.world, Surv = Sv();
+    if (S.sniff && !S.auto) { S.auto = { x: S.sniff.x, z: S.sniff.z, t: 40 }; S.sniff.t = Math.max(S.sniff.t, 40); say("👃 off you go… (any move key stops)"); return true; }
     if (S.sniffCd > 0) { say("sniff… your nose needs a moment"); return false; }
     S.sniffCd = 3;
     var it = SB.World.nearestItem(w, c.x, c.z, 45, function (o) { return o.heldBy == null && Surv.edible(o.kind) && !(o.data && o.data.rotten) && !(K[o.kind] && K[o.kind].critter) && !(o.data && o.data.pod); });
@@ -749,7 +758,7 @@
     if (!t) { say("sniff sniff… nothing tasty nearby"); return true; }
     var d = Math.min(d1, d2);
     S.sniff = { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + 1.1, t: 14 };
-    say("sniff sniff… something tasty, " + Math.round(d) + "m that way");
+    say("sniff sniff… something tasty, " + Math.round(d) + "m that way. press G again to walk there");
     audio("tap", 0.4);
     SB.bus.emit("sniff", { c: c });
     return true;

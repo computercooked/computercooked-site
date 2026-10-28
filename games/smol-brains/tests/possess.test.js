@@ -283,5 +283,24 @@ console.log("11. a nibble on a bush counts as eating, even for a full blob (K-00
   P.leave();
 }
 
+console.log("12. G twice walks you to the food (K-0022: tapping W only moved a step)");
+{
+  const { g, cs } = fresh(59, 0, 2);
+  const b = cs[0];
+  P.enter(g, b);
+  const ap = SB.World.add(g.world, g, "apple", b.x + 7, b.z + 3, {});
+  if (!SB.World.walkable(g.world, ap.x, ap.z)) { ap.x = b.x + 3; ap.z = b.z; }
+  P.input.fwd = 0; P.input.side = 0;
+  check("first G sniffs", P.sniff() && P.sniffing());
+  const tg = Object.assign({}, P.sniffing());
+  check("second G sets off", P.sniff() && P.c === b);
+  b.x = tg.x + 6; b.z = tg.z; // a little way off, so there's a walk to make
+  const d0 = SB.dist(b.x, b.z, tg.x, tg.z);
+  run(g, 12);
+  const d1 = SB.dist(b.x, b.z, tg.x, tg.z);
+  check("it walks there by itself", d1 < 2.2 && d1 < d0, d0.toFixed(1) + " → " + d1.toFixed(1));
+  P.leave();
+}
+
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);

@@ -65,6 +65,8 @@
     if (!(game._pairsT > game.time - 5)) { game._pairsT = game.time; game._pairs = chances(game); }
     game.strangerT -= dt * (game._pairs < ((game.stats.maxTier || 0) >= 3 ? 3 : 2) && all.length < 24 ? 4 : 1);
     if (game.strangerT > 0) return;
+    // a calm first day (K-0022): nobody turns up before day 2 of a new island
+    if (game.time < SB.DAY_LENGTH && !game.ngPlus) { game.strangerT = 30; return; }
     game.strangerT = nextIn(game);
     if (ST.pending(game)) return;
     if (all.length + 1 >= (SB.Game.JOIN_CAP || SB.Game.POP_CAP)) return;

@@ -942,11 +942,11 @@
     if (!force && el.sheet.dataset.kind === "orders") return updateOrders();
     el.sheet.dataset.kind = "orders"; el.sheet.dataset.id = "";
     clear(el.sheet);
-    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime small", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
+    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime ordobey", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
     el.ordGrid = h("div", { class: "miracles orders" });
     ORDER_BTNS.forEach(function (k) {
       var K = SB.Orders.KINDS[k];
-      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name)]));
+      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name), h("span", { class: "c need" }, "needs " + SB.TIERS[K.tier].name + "s")]));
     });
     el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": "jobs", title: "nudge what each smol likes doing", onclick: function () { openJobs(); } }, [h("span", { class: "e" }, "📋"), h("span", null, "jobs")]));
     el.sheet.appendChild(el.ordGrid);
@@ -959,7 +959,7 @@
   function updateOrders(force) {
     if (!el.ordGrid || !SB.Orders) return;
     var O = SB.Orders, od = O.ensure(game), maxT = game.stats.maxTier || 0, so = state.order;
-    el.ordObey.textContent = "they listen about " +Math.round(O.obedience(game) * 100) + "%";
+    el.ordObey.innerHTML = "they listen <b>" + Math.round(O.obedience(game) * 100) + "%</b>";
     [].forEach.call(el.ordGrid.children, function (b) {
       var k = b.getAttribute("data-ord"), K = O.KINDS[k];
       b.classList.toggle("on", !!so && so.kind === k);
@@ -985,7 +985,7 @@
     od.list.forEach(function (o) {
       var K = O.KINDS[o.kind], f = O.followers(game, o);
       var txt = o.kind === "mark" ? o.label : o.kind === "build" ? "📐 " + (SB.STRUCTS[o.build] ? SB.STRUCTS[o.build].label : "") : K.e + " " + K.name;
-      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "");
+      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "") + (o.whys ? " (" + Object.keys(o.whys).sort(function (a, b) { return o.whys[b] - o.whys[a]; }).slice(0, 2).join(", ") + ")" : "");
       if (o.kind === "stock" && o.n) txt += " · " + o.n + " brought";
       el.ordList.appendChild(h("span", { class: "chip ordchip" }, [h("button", { class: "lnk", title: "look", onclick: function () { R.flyTo(o.x, o.z, Math.min(R.camera.tZoom, 12), 0.7); } }, txt), h("button", { class: "lnk x", title: "take it back", onclick: function () { O.remove(game, o.id); updateOrders(true); } }, "✕")]));
     });

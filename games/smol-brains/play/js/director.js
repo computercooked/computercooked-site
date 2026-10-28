@@ -631,6 +631,7 @@
     // raiders from a raid that's over (or from before a reload) head home
     game.creatures.forEach(function (c) { if (c.raider && c.alive && !c.goingHome) c.goingHome = true; });
     if (game.time < d.nextT) return;
+    if (game.time < SB.DAY_LENGTH && !game.ngPlus) return; // a calm first day (K-0022): no storms, raids or visitors on day 1
     // at 8–16× the island races, but you still get at least a minute and a half of your own time between cards
     if (game.playTime > 0 && game.playTime - (d.realT || -1e9) < 90) return;
     if (SB.Strangers && SB.Strangers.pending(game)) { d.nextT = game.time + 30; return; }

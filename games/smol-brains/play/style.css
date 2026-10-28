@@ -54,6 +54,10 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .speed { font: 700 13px/1 var(--mono); }
 @media (max-width: 480px) { .hud .long { display: none; } .chipbtn { padding: 0 9px; gap: 5px; } .era .bar { width: 30px; } }
 .speed.paused { color: var(--pink); }
+.ordobey { font-size: 13px; }
+.ordobey b { font-size: 20px; }
+.mir .need { display: none; font-size: 10px; color: var(--dim); }
+.mir.poor .need { display: block; }
 .menu-btn { width: 38px; justify-content: center; padding: 0; font-size: 18px; }
 .savedot { align-self: center; font-size: 13px; opacity: 0; transition: opacity .5s; pointer-events: none; margin: 0 -2px; }
 .savedot.on { opacity: .85; transition: opacity .15s; }
