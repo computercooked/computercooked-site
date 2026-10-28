@@ -43,6 +43,7 @@
     },
     {
       "slug": "one-percent-popup",
+      "featured_rank": 2,
       "title": "only 1% can close this pop-up",
       "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
       "thumbnail": "/games/one-percent-popup/play/thumb.png",
@@ -63,6 +64,7 @@
     },
     {
       "slug": "keyboard-escape",
+      "featured_rank": 3,
       "title": "+1 Speed Keyboard Escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
       "thumbnail": "/games/keyboard-escape/play/thumb.png",
@@ -180,6 +182,7 @@
     },
     {
       "slug": "level-devil-exe",
+      "featured_rank": 5,
       "title": "level devil.exe",
       "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
       "thumbnail": "/games/level-devil-exe/play/thumb.png",
@@ -234,6 +237,7 @@
     },
     {
       "slug": "crash-cheats",
+      "featured_rank": 4,
       "title": "crash cheats at tic tac toe",
       "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
       "thumbnail": "/games/crash-cheats/play/thumb.png",
@@ -329,6 +333,7 @@
     },
     {
       "slug": "reel-weird",
+      "featured_rank": 1,
       "title": "reel weird",
       "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
       "thumbnail": "/games/reel-weird/play/thumb.png",
@@ -343,7 +348,7 @@
       ],
       "controls": "hold tap / click / space to charge, let go to cast. tap on the big bite. hold to reel, let go to ease. b opens the book, m mutes, p pauses.",
       "size_kb": 112,
-      "version": "1",
+      "version": "2",
       "added": "2026-10-28",
       "max_score_per_sec": 200.0,
       "score_slack": 3000.0,

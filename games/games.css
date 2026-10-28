@@ -2706,7 +2706,9 @@ html[data-landing-ready] { overflow: hidden; }
 @media (min-width: 1000px) {
   .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4) var(--s-3); }
   .game-name { font-size: 1.12rem; }
-  .game-pitch { font-size: 0.86rem; }
+  .game-pitch { font-size: 0.86rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .game-body { gap: 4px; }
+  .game-body > :nth-last-child(2) { margin-bottom: var(--s-2); }
   .game-body { padding: var(--s-3); }
   .game-tags { display: none; }
   .game-body .play-btn { min-height: 42px; font-size: 0.95rem; }

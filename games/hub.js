@@ -110,13 +110,14 @@
   }
   tipUrl().then(function (url) {
     if (!url) return;
-    // up top, right under the hero, so it's seen without scrolling; and again in the footer
-    var hero = document.querySelector(".games-hero");
-    if (hero && !document.querySelector(".cc-tip-top")) {
-      hero.insertAdjacentHTML("afterend", window.ccTipThanks
+    // right under the first row of games (the grid comes first above the fold); and again in the footer
+    var grid = document.getElementById("shelf-computer-cooked");
+    var top = (grid && grid.closest("section")) || document.querySelector(".games-hero");
+    if (top && !document.querySelector(".cc-tip-top")) {
+      top.insertAdjacentHTML("afterend", window.ccTipThanks
         ? '<p class="cc-tip cc-tip-top cc-tip-thanks">thank you for the tip. the computer is slightly less cooked.</p>'
         : tipLine(url, "hub-top"));
-      bindTip(hero.nextElementSibling);
+      bindTip(top.nextElementSibling);
     }
     var foot = document.querySelector(".footer");
     if (foot && !foot.querySelector(".cc-tip")) { foot.insertAdjacentHTML("afterbegin", tipLine(url, "hub-footer")); bindTip(foot); }
@@ -153,7 +154,11 @@
 
   function render(data) {
     var games = data.games || [];
-    var ours = games.filter(function (g) { return g.made_by === "computer-cooked"; });
+    // featured_rank in games.json puts the hits (and a new game while it's new) first; the rest keep file order
+    var ours = games.filter(function (g) { return g.made_by === "computer-cooked"; })
+      .map(function (g, i) { return [g.featured_rank || 1e9, i, g]; })
+      .sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; })
+      .map(function (x) { return x[2]; });
     var community = games.filter(function (g) { return g.made_by === "community"; });
 
     // trending: most plays in the last 7 days (needs some data before it shows)

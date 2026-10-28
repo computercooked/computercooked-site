@@ -26,7 +26,9 @@ export async function hubPage(req, env, url) {
   let ours = [], feat = null;
   try {
     const catalog = await catalogOf(env, url.origin);
-    ours = [...catalog.values()].filter((g) => g.made_by === "computer-cooked");
+    // same order as games/hub.js: featured_rank first, then file order (sort is stable)
+    ours = [...catalog.values()].filter((g) => g.made_by === "computer-cooked")
+      .sort((a, b) => (a.featured_rank || 1e9) - (b.featured_rank || 1e9));
     try {
       if (env.DB) { await ensureSchema(env); const f = await pickFeatured(env, catalog); feat = f && catalog.get(f.game); }
     } catch (e) { /* no database: fall back below */ }
