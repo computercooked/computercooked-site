@@ -74,23 +74,30 @@
   // leftover fallback ("is-pseudo-fs", used when the browser refuses real fullscreen) never eats a click.
   // In real fullscreen, Esc is locked to the game where the browser allows it (Chrome: Keyboard Lock), so games
   // that use Esc (smol brains) get it; holding Esc still leaves fullscreen.
+  // in fullscreen the browser's own bar is gone, so this button turns into a labelled "exit fullscreen" (K-0023)
+  function fsLabel(on) {
+    btnFs.setAttribute("aria-pressed", String(on));
+    btnFs.setAttribute("aria-label", on ? "exit fullscreen" : "fullscreen");
+    btnFs.classList.toggle("is-exit", on);
+    btnFs.querySelector(".tool-text").textContent = on ? "exit fullscreen" : "fullscreen";
+  }
   function pseudoFs(on) {
     player.classList.toggle("is-pseudo-fs", on);
     document.body.style.overflow = on ? "hidden" : "";
-    btnFs.setAttribute("aria-pressed", String(on));
+    fsLabel(on);
   }
   btnFs.addEventListener("click", function () {
     if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); return; }
     if (player.classList.contains("is-pseudo-fs")) { pseudoFs(false); return; }
     if (!document.fullscreenEnabled || !player.requestFullscreen) { pseudoFs(true); return; }
     player.requestFullscreen().then(function () {
-      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).catch(function () {});
+      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).then(function () { toast("hold esc (or tap exit fullscreen) to leave"); }, function () {});
       var f = document.getElementById("game-frame");
       if (f && f.contentWindow) try { f.contentWindow.focus(); } catch (e) {}
     }, function () { pseudoFs(true); });
   });
   document.addEventListener("fullscreenchange", function () {
-    btnFs.setAttribute("aria-pressed", String(!!document.fullscreenElement));
+    fsLabel(!!document.fullscreenElement);
     if (!document.fullscreenElement && navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock();
   });
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
