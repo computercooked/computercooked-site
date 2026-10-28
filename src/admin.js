@@ -3,6 +3,7 @@ import { json, bad, readJson, now, dayOf, safeEqual, limited, REAL } from "./uti
 import { games } from "./db.js";
 import { FOLLOW_PLATFORMS } from "./follow.js";
 import { TIP_SLOTS } from "./hits.js";
+import { rankWinners } from "./winners.js";
 
 export function isAdmin(req, env, ip) {
   const h = req.headers.get("authorization") || "";
@@ -61,6 +62,15 @@ export async function metrics(url, env, origin) {
      FROM firsts f GROUP BY f.game`
   ).bind(since, since, today, today, today, today).all()).results;
 
+  // shares per game: dares made / actually sent, plus "share this game" sends (cc:share, smoke never stored)
+  const dareShares = (await db.prepare(
+    `SELECT d.game, COUNT(*) made, SUM(f.shared_at IS NOT NULL) sent FROM dares d LEFT JOIN dare_funnel f ON f.dare_id = d.id
+     WHERE d.created_at >= ? AND d.from_player NOT LIKE 'a:smoke%' GROUP BY d.game`
+  ).bind(Date.parse(since)).all()).results;
+  const gameShares = (await db.prepare(
+    "SELECT game, COUNT(*) n FROM events WHERE name = 'cc:share' AND ts >= ? GROUP BY game"
+  ).bind(Date.parse(since)).all()).results;
+
   const latest = (await db.prepare(
     `SELECT game, rating, text, tester, version, ts FROM feedback WHERE ts >= ? AND text IS NOT NULL AND ${REAL} ORDER BY ts DESC LIMIT 200`
   ).bind(Date.parse(since)).all()).results;
@@ -72,6 +82,8 @@ export async function metrics(url, env, origin) {
     const f = fb.find((r) => r.game === g) || {};
     const r = ret.find((x) => x.game === g) || {};
     const rated = (f.up || 0) + (f.down || 0);
+    const ds = dareShares.find((x) => x.game === g) || {}, gs1 = gameShares.find((x) => x.game === g) || {};
+    const outside = pick(refs, g).filter((x) => x.referrer && x.referrer !== "internal").reduce((n, x) => n + x.n, 0);
     return {
       game: g,
       title: catalog.get(g)?.title || g,
@@ -80,6 +92,9 @@ export async function metrics(url, env, origin) {
       avg_session_seconds: b.avg_ms ? Math.round(b.avg_ms / 100) / 10 : null,
       completion_rate: b.completion == null ? null : Math.round(b.completion * 1000) / 1000,
       auto_logged_plays: b.auto_plays || 0,
+      total_minutes: b.avg_ms && b.plays ? Math.round((b.avg_ms * b.plays) / 60000) : 0,
+      outside_plays: outside,
+      shares: { dares_made: ds.made || 0, dares_sent: ds.sent || 0, game_shares: gs1.n || 0, total: (ds.sent || 0) + (gs1.n || 0) },
       d1_return_rate: r.n1 ? Math.round((r.r1 / r.n1) * 1000) / 1000 : null,
       d1_cohort: r.n1 || 0,
       d7_return_rate: r.n7 ? Math.round((r.r7 / r.n7) * 1000) / 1000 : null,
@@ -206,6 +221,7 @@ export async function metrics(url, env, origin) {
     campaigns,
     next,
     test_traffic: test,
+    winners: rankWinners(out),
     games: out,
   });
 }
