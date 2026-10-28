@@ -18,8 +18,6 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env:
-      OUT: ${{ runner.temp }}/site-checks
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +25,7 @@ jobs:
           node-version: 22
       - name: start the site locally
         run: |
+          OUT="$RUNNER_TEMP/site-checks"; echo "OUT=$OUT" >> "$GITHUB_ENV"
           mkdir -p "$OUT"
           TOKEN=$(openssl rand -hex 24)
           echo "::add-mask::$TOKEN"
