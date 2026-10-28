@@ -7,7 +7,7 @@
 import { json, bad, readJson, now, limited, slugOk, refOk, campaignOk, isTestAnon } from "./util.js";
 
 const KINDS = ["pageview", "tip_click", "tip_success"];
-export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run"];
+export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run", "post-best"];
 
 const pathOk = (p) => {
   if (typeof p !== "string" || p[0] !== "/" || p.length > 120) return null;
