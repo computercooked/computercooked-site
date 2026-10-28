@@ -246,6 +246,39 @@ From the bot's sim wish list (K-0011): "player-placed zones and a go-there at th
 - **Who it is, at a glance**: under the thought on a smol's card: its three strongest traits, its parents ("child of A & B", or "one of the first"), its best friend and who it can't stand.
 - `tests/orders.test.js` §1 and §1b: the tool opens for blobs after the tutorial, and trusting blobs go to a rally flag.
 
+## 0.21 What v4.7 added: faster words, save slots, sandbox islands, calmer windows
+
+The rest of the bot's sim wish list (K-0011): "faster word learning", "save slots", "sandbox spawns".
+
+- **Faster words** (`words.js`, `creature.js`):
+  - A smol can take in the same word again after 4 s (it was 9).
+  - A lesson sticks half again as well (`WD.FRIEND_BONUS` 1.5) when a friend within 6 tiles already knows the word.
+  - A smol that learns a word says it to those near it, and each of them picks up 0.2 of it.
+  - Every lesson floats "+36% “food”" up from each smol that took it in (👯 when a friend helped).
+  - Together these take a word from about 3 lessons 9 s apart per smol to 2 or 3 lessons 4 s apart, and a tribe catches on from its first learners.
+- **Save slots** (`Save.keepCopy`): menu → settings → "📌 keep a copy" stores the island as it is now as its own island ("name · day 12") in 📂 load game. The island you're on stays the active one. Playing the copy carries on from there and never touches the original. It needs IndexedDB (a browser that keeps one island can't keep copies, and says so).
+- **Sandbox islands** (`Game.sandbox`, `Game.sandboxSpawn`): create world → mode → 🧪 sandbox.
+  - ✨ magic gets a spawn palette: a grown smol of any tier (blob to ascended), an egg nearly ready, a grump or a pile of fruit. Pick one, then tap the island; it stays picked so you can place lots.
+  - Miracles are free.
+  - The island doesn't post a leaderboard score.
+  - Normal islands can't spawn.
+- `tests/sandbox.test.js`; `tests/words.test.js` §9.
+
+And the bot's third playtest (K-0021, 6/10, up from 5):
+
+- **One window at a time** (`ui.js`): event windows (story cards, strangers, the storyteller) show one at a time. They come at least 25 s apart (`UI.EVENT_GAP`), never while a button is held or within 0.8 s of a click, and never in a smol's eyes or within 4 s of leaving one. The game is paused while a window is open. A third story card waiting becomes a toast. The tutorial, naming, "while you were away" and the ending still come straight away.
+- **A wider tickle window** (`tricks.js`):
+  - A tickle (or tap) up to 2.5 s after the smol finished still counts (`T.GRACE`, was 1.5), and the lesson goes to the eating, not the walk it has started since (`T.target`, used by `Creature.lesson`).
+  - "🪶 tickle now!" stays up about 3 s once it appears.
+  - "Set it up" refuses a smol that isn't hungry ("isn't hungry yet (12%)") instead of starting a session that can't work.
+  - The bar shows "lessons n/3" during a session.
+- **The blob guide's first step**: nibbling a bush now counts as eating (`Creature` emits `nibble`; it used to be silent), for a full blob too. When the mouse can't be locked, the HUD says to drag to look or use the arrow keys.
+- **A calm start** (`Game.pace`): at 1× the first two days run at 0.6 speed and the third at 0.8, the whole sim together, so 09:00 to 18:00 takes about 12 minutes instead of 7.5. Fast-forward is unchanged.
+- **The way to hands, drawn**: the bag's make tab for a blob or critter shows blob → critter → tool-user with "you" marked, and bars for legs (walks) and hands (carrying) n/18.
+- **Eyes adjust slowly**: the first-person night lift eases in over about 1.5 s instead of switching on.
+- **A readable card**: on wide screens the smol card's text is a size up.
+- Tests: `possess.test.js` §11 (a nibble ticks the guide) and `tricks.test.js` §9 (a late tickle counts and goes to the eating).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

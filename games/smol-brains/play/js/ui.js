@@ -11,7 +11,33 @@
   var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "evolution" };
   UI.modalOpen = false;
   var povHeld = []; // god windows that came up while possessing (see modal), shown in order on the way out
-  UI.povDone = function () { var m = povHeld.shift(); if (m) modal(m[0], m[1], m[2]); };
+  // leaving a body: the held windows join the event queue (they wait out the grace period like the rest)
+  UI.povDone = function () { lastPovOut = now(); while (povHeld.length) popQ.push(povHeld.shift()); };
+  /* event windows are paced (the bot's K-0021: "4 modals in about 90 s, each eating a click"): one at a time,
+     at least EVENT_GAP seconds apart, never while a button is down or just after a click, and not within
+     POV_GRACE seconds of leaving a body. Story cards past the second waiting one become toasts. Windows you
+     open yourself (menu, brain, card) are never held. The game pauses while any window is open. */
+  UI.EVENT_GAP = 25; UI.POV_GRACE = 4; UI.CLICK_GRACE = 0.8;
+  var lastEventClose = -1e9, lastPovOut = -1e9, lastPointer = -1e9, pointerDown = false;
+  function now() { return (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000; }
+  UI.eventReady = function () {
+    var t = now();
+    if (el.modal || pointerDown) return false;
+    if (SB.Possess && SB.Possess.active) return false;
+    return t - lastEventClose >= UI.EVENT_GAP && t - lastPovOut >= UI.POV_GRACE && t - lastPointer >= UI.CLICK_GRACE;
+  };
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("pointerdown", function () { pointerDown = true; lastPointer = now(); }, true);
+    window.addEventListener("pointerup", function () { pointerDown = false; lastPointer = now(); }, true);
+    window.addEventListener("pointercancel", function () { pointerDown = false; }, true);
+  }
+  // called every frame: show the next waiting event window when it's time
+  function pumpEvents() {
+    if ((!popQ.length && !cardQ.length) || !UI.eventReady()) return;
+    var m = popQ.shift();
+    if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
+  }
+  UI.pendingEvents = function () { return popQ.length + cardQ.length; };
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -368,14 +394,14 @@
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
+    if (cardQ.length >= 2) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 6500); return; } // too many waiting: a toast instead
     cardQ.push([icon, title, paras]);
-    if (!el.modal) nextCard();
   }
   function nextCard() {
     var c = cardQ.shift();
     if (!c) return;
     var body = h("div", { class: "story" }, [h("div", { class: "icon" }, c[0]), h("h3", null, c[1])].concat(c[2].map(function (p) { return h("p", { html: p }); })).concat([h("div", { class: "row" }, [h("span", { class: "sp" }), h("button", { class: "btn go", onclick: function () { closeModal(); } }, "got it")])]));
-    modal("", body, { story: true });
+    modal("", body, { story: true, paced: true });
   }
   UI.storyCard = storyCard;
   var NEXT_HELP = {
@@ -473,12 +499,13 @@
         h("div", { class: "top" }, [h("span", { class: "e" }, d.icon), h("span", { class: "l" }, d.name), star, pct]),
         h("div", { class: "tbar" }, [bar]),
         h("div", { class: "how" }, [h("span", null, d.how), d.practice ? h("button", { class: "btn small go", onclick: function () {
+          if (d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.3) { toast(esc(c.name) + " isn't " + (d.drive === "hunger" ? "hungry" : d.drive) + " yet (" + Math.round(c.chem[d.drive] * 100) + "%), so it won't bite. try again in a bit, or pick a " + (d.drive === "hunger" ? "hungrier" : "different") + " smol.", "", 5000); return; }
           if (T.practice(game, c, d.id)) {
             setTool(d.avoid ? "tap" : "tickle");
             if (R.camera.follow === c) SB.Input.follow(null); // the camera holds still, so the smol stays under your finger
             trCue.c = c; trCue.shown = false;
             var row = this.closest && this.closest(".trick"); if (row && row.scrollIntoView) try { row.scrollIntoView({ block: "nearest" }); } catch (e) {}
-            var full = d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.3;
+            var full = false;
             toast((d.practice.say ? "you said “" + d.practice.say + "”. 🪶 tickle " + esc(c.name) + " when it comes over." : d.avoid ? "👆 tap " + esc(c.name) + " the moment it nibbles." : "🪶 wait for “tickle now!”, then tickle " + esc(c.name) + " while it " + trickVerb(d) + ".") +
               (full ? " (it isn't very " + (d.drive === "hunger" ? "hungry" : d.drive) + " right now, so it may not bite. a hungry smol learns this best.)" : ""), "", 6000);
           }
@@ -502,7 +529,8 @@
       if (r._m >= 0 && Math.abs(m - r._m) > 0.03) { r.classList.remove("up", "down"); void r.offsetWidth; r.classList.add(m > r._m ? "up" : "down"); }
       r._m = m;
       r._bar.style.width = Math.round(m * 100) + "%";
-      r._pct.textContent = on ? "learned" : Math.round(m * 100) + "%";
+      var rr = c.tricks && c.tricks[r._d.id], live = !!(ses && ses.id === r._d.id);
+      r._pct.textContent = on ? "learned" : Math.round(m * 100) + "%" + (live || (rr && rr.n) ? " · lessons " + Math.min(T.REPS, (rr && rr.n) || 0) + "/" + T.REPS : "");
       r._star.textContent = on ? "⭐" : "";
       r.classList.toggle("on", on);
       r.classList.toggle("live", !!(ses && ses.id === r._d.id));
@@ -525,8 +553,9 @@
   var trCue = { c: null, el: null, shown: false };
   function updateTrickCue() {
     var T = SB.Tricks, c = trCue.c, s = c && T && T.session && c.alive ? T.session(c, game) : null;
-    var on = false, d = s && T.BY[s.id];
-    if (d && T.doing(c, game, d)) {
+    var on = false, d = s && T.BY[s.id], t = performance.now();
+    if (d && T.doing(c, game, d) && !trCue.until) trCue.until = t + 3000; // once it's up, it stays up about 3 s
+    if (d && (T.doing(c, game, d) || t < (trCue.until || 0))) {
       var p = R.project(c.x, c.y + 1.7, c.z), z = (SB.Title && SB.Title.zoom) || 1;
       if (p.on) {
         if (!trCue.el) { trCue.el = h("div", { class: "trcue" }); root.appendChild(trCue.el); }
@@ -536,7 +565,7 @@
         if (!trCue.shown) { trCue.shown = true; if (SB.Audio && SB.Audio.play) SB.Audio.play("pop"); }
       }
     } else if (!s) trCue.c = null;
-    if (!on) trCue.shown = false;
+    if (!on) { trCue.shown = false; trCue.until = 0; }
     if (trCue.el) trCue.el.classList.toggle("on", on);
   }
 
@@ -1069,6 +1098,7 @@
     opts = opts || {};
     if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld.push([title, body, opts]); return; } // no god windows in a smol's eyes: shown on the way out
     // an event card (story, stranger, storyteller…) never replaces another one: it waits its turn
+    if ((opts.story || opts.sticky) && !opts.paced && !opts.now && !UI.eventReady()) { popQ.push([title, body, opts]); return; }
     if (el.modal && el.modalOpts && (opts.story || opts.sticky) && (el.modalOpts.story || el.modalOpts.sticky)) { popQ.push([title, body, opts]); return; }
     closeModal();
     UI.modalOpen = !opts.live;
@@ -1086,15 +1116,10 @@
   }
   var popQ = []; // event windows waiting for the one on screen to close
   function closeModal() {
-    if (el.modal) { el.modal.remove(); el.modal = null; el.modalOpts = null; }
+    if (el.modal) { if (el.modalOpts && (el.modalOpts.story || el.modalOpts.sticky)) lastEventClose = now(); el.modal.remove(); el.modal = null; el.modalOpts = null; }
     if (root) root.classList.remove("hasmodal");
     UI.modalOpen = false;
     state.brainC = null;
-    if (popQ.length || cardQ.length) setTimeout(function () {
-      if (el.modal) return;
-      var m = popQ.shift();
-      if (m) modal(m[0], m[1], m[2]); else nextCard();
-    }, 250);
   }
   UI.closeModal = closeModal;
   UI.modal = modal;
@@ -1687,7 +1712,7 @@
         h("button", { class: "btn go", onclick: function () { set.guide = true; closeModal(); st.step = 0; tutShow(); } }, "yes, show me how"),
         h("button", { class: "btn", onclick: function () { set.guide = false; st.done = true; closeModal(); tutShow(); toast("tap the crashed pod to begin. ❓ help is in the menu."); } }, "no, i know how to play")
       ])
-    ]), { sticky: true });
+    ]), { sticky: true, now: true });
   }
   UI.askTutorial = askTutorial;
   function guideOn() { return !game.settings || game.settings.guide !== false; }
@@ -1841,7 +1866,7 @@
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
     ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
-    modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true });
+    modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true, now: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }
 
@@ -1921,7 +1946,7 @@
   UI.awayScreen = function (g, awaySec, budget) {
     var bar = h("i", { style: "width:0%" });
     var body = h("div", null, [h("p", null, "you were gone " + fmtTime(awaySec) + ". the island kept going…"), h("div", { class: "prog" }, bar), h("p", { class: "note" }, "simulating " + fmtTime(budget) + " of smol life")]);
-    modal("🌙 while you were away", body, { sticky: true });
+    modal("🌙 while you were away", body, { sticky: true, now: true });
     SB.Game.runOffline(g, budget, function (p) { bar.style.width = Math.round(p * 100) + "%"; }, function (rep) {
       var lines = [];
       if (rep.hatched) lines.push("🐣 " + rep.hatched + " hatched");
@@ -1958,7 +1983,7 @@
         champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); try { SB.Save.save(g); } catch (e) {} var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
       ])
     ]);
-    modal("", body, { story: true, sticky: true });
+    modal("", body, { story: true, sticky: true, now: true });
   }
   UI.endCard = endCard;
   function civCard() {
@@ -2334,6 +2359,7 @@
   var perfEl = null, perfT = 0;
   UI.frame = function (g, dt) {
     if (!game) return;
+    pumpEvents();
     SB.Input.frame(dt);
     if (R.perf.show) {
       if (!perfEl) { perfEl = h("div", { class: "glass mono", style: "position:absolute;left:8px;bottom:90px;padding:6px 8px;font-size:10px;pointer-events:none" }); root.appendChild(perfEl); }

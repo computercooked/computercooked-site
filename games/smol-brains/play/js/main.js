@@ -571,7 +571,7 @@
     var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning;
     if (!paused) {
       farFlags(game);
-      acc += dtReal * game.speed;
+      acc += dtReal * game.speed * Game.pace(game);
       var steps = 0;
       var ts0 = performance.now();
       while (acc >= SB.TICK && steps < 24) { Game.step(game, SB.TICK); acc -= SB.TICK; steps++; }
@@ -589,6 +589,13 @@
     if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score && !game.showcase && !Game.sandbox(game)) try { cc.score(Game.score(game)); } catch (e) {} }
   }
 
+  // a calm start (K-0021: "09:00 to 18:00 in about 10 min"): at 1x the first two days run at 0.6 and the third
+  // at 0.8, the whole sim together (clock, hunger, eggs), so a new island isn't a blur. fast-forward is untouched
+  Game.pace = function (g) {
+    if (!g || g.speed !== 1 || g.showcase) return 1;
+    var day = Math.floor((g.time || 0) / SB.DAY_LENGTH) + 1;
+    return day <= 2 ? 0.6 : day === 3 ? 0.8 : 1;
+  };
   Game.start = function (g) {
     game = Game.current = g;
     acc = 0;

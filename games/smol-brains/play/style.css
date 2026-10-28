@@ -546,3 +546,9 @@ body.titling #overlay { opacity: 0; }
   #ui:has(.sheet:not(.hide)) .goals { display: none; }
   .goals .head.sub, .goals .head.sub ~ .g { display: none; }
 }
+/* the smol card on a wide screen: a size up, so it reads at a glance (K-0021: "dense, tiny text") */
+@media (min-width: 900px) {
+  .sheet.side .sub2, .sheet.side .chip, .sheet.side .who, .sheet.side .note { font-size: 13px; }
+  .sheet.side .thought { font-size: 14px; }
+  .sheet.side .sec { margin-top: 12px; }
+}

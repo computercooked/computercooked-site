@@ -154,6 +154,9 @@
     "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:10px 18px;font:700 18px var(--mono,monospace);color:var(--lime);animation:povgain 2.6s forwards}",
     // the bag
     "#pov .bag{position:absolute;inset:0;background:rgba(8,6,14,.55);display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:3}",
+    "#pov .mpath{display:flex;align-items:center;gap:6px;margin:6px 0 12px}#pov .mpstep{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 10px;min-width:74px;font:700 12px var(--mono,monospace);background:rgba(10,8,18,.55);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px rgba(255,255,255,.08);opacity:.6}",
+    "#pov .mpstep .mpi{font-size:26px}#pov .mpstep small{font-size:10px;color:var(--lime)}#pov .mpstep.here{opacity:1;box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--lime)}#pov .mpstep.done{opacity:.85}#pov .mparr{font:700 18px var(--mono,monospace);opacity:.7}",
+    "#pov .mpbar{margin:0 0 10px}#pov .mpbar .row{display:flex;gap:6px;align-items:center;font-size:13px}#pov .mpbar .sp{flex:1}#pov .mpbar .tb{height:12px;margin:4px 0;background:rgba(10,8,18,.6);box-shadow:0 0 0 2px var(--px)}#pov .mpbar .tb i{display:block;height:100%}#pov .mpbar small{opacity:.75;font-size:11px}",
     "#pov .bag .win.panel{background:rgba(22,18,34,.96)}#pov .bag .win{display:flex;gap:14px;padding:14px;max-width:96vw;max-height:92vh;overflow:auto;align-items:flex-start}",
     "#pov .bag h3{margin:0 0 8px;font:700 16px var(--mono,monospace);color:var(--lime);display:flex;gap:12px;align-items:center}",
     "#pov .bag h3 small{color:#f5f3ed;opacity:.6;font-weight:600;font-size:12px}",
@@ -468,9 +471,22 @@
   function makeHtml() {
     var s = S(), c = s.c, h = "";
     if (c.tier < 2) {
-      var ep = SB.FirstHour && SB.FirstHour.echoProgress ? SB.FirstHour.echoProgress(c, "arms") : null;
-      return "<p>a " + esc(SB.TIERS[c.tier].name) + " has no hands for making things. tool-users can: two more steps up (" + (c.tier === 0 ? "legs, then hands" : "hands") + ").</p>" +
-        "<p>the way there: carry things in your mouth, tug leaves, line the nest. every mouthful is practice, and practice echoes into " + esc(c.name) + "'s kids" + (ep ? ": 🤲 hands " + ep.n + "/" + ep.of : "") + ".</p>";
+      // the way to hands, drawn (K-0021: "make it a visual legs-to-hands path"): blob → critter → tool-user,
+      // where this one is, and bars for the practice its kids will inherit
+      var FH = SB.FirstHour, steps = [0, 1, 2].map(function (t) {
+        var T = SB.TIERS[t], cls = t < c.tier ? "done" : t === c.tier ? "here" : "next";
+        return "<div class='mpstep " + cls + "'><span class='mpi'>" + T.icon + "</span><span>" + esc(T.name) + "</span>" + (t === c.tier ? "<small>you</small>" : t === 2 ? "<small>hands!</small>" : "") + "</div>";
+      });
+      var h0 = "<div class='mpath'>" + steps.join("<span class='mparr'>→</span>") + "</div>";
+      var bars = (c.tier === 0 ? ["limbs", "arms"] : ["arms"]).map(function (g) {
+        var ep = FH && FH.echoProgress ? FH.echoProgress(c, g) : null;
+        if (!ep) return "";
+        var how = g === "limbs" ? "walk about: every walk counts" : "carry things in your mouth, tug leaves, line the nest";
+        return "<div class='mpbar'><div class='row'><b>" + ep.info.icon + " " + esc(ep.info.word) + "</b><span class='sp'></span><span class='mono'>" + ep.n + "/" + ep.of + "</span></div>" +
+          "<div class='tb'><i style='width:" + Math.round(ep.frac * 100) + "%;background:" + ep.info.col + "'></i></div><small>" + how + "</small></div>";
+      }).join("");
+      return "<div class='lbl'>the way to hands</div>" + h0 + bars +
+        "<p class='help'>a " + esc(SB.TIERS[c.tier].name) + " can't make things yet. what " + esc(c.name) + " practises echoes into its kids, and kids that lean far enough are born the next step up.</p>";
     }
     // the crafting grid: put things together and see what happens
     var rc = bag.grid.length ? Sv().match(bag.grid) : null;
@@ -779,6 +795,7 @@
   }
 
   /* ---------------- desktop and phone controls ---------------- */
+  var lockHinted = false;
   function locked() { return typeof document !== "undefined" && !!document.pointerLockElement; }
   function canvasEl() { return document.getElementById("view"); }
   function bind() {
@@ -810,7 +827,7 @@
       down: function (e) {
         var s = S();
         if (!s || s.dead || bag || e.pointerType !== "mouse") return;
-        if (!locked() && cv.requestPointerLock && !P().noLock) { try { var pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(function () {}); } catch (er) {} }
+        if (!locked() && cv.requestPointerLock && !P().noLock) { try { var pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(function () { if (h.lockErr) h.lockErr(); }); } catch (er) { if (h.lockErr) h.lockErr(); } }
         if (locked()) { press(e.button); return; }
         drag = { x: e.clientX, y: e.clientY, moved: 0, b: e.button };
       },
@@ -846,6 +863,9 @@
       else if (button === 2) P().act("place");
       else if (button === 1) P().act("pick");
     }
+    // the mouse can't always be locked (some browsers, iframes, a recent Esc): say how to look without it (K-0021)
+    h.lockErr = function () { if (S() && !lockHinted) { lockHinted = true; HUD.say("🖱 the mouse couldn't lock here: hold a button and drag to look, or use the arrow keys"); } };
+    document.addEventListener("pointerlockerror", h.lockErr);
     window.addEventListener("keydown", h.keydown);
     window.addEventListener("keyup", h.keyup);
     window.addEventListener("blur", h.blur);
@@ -862,6 +882,7 @@
   function unbind() {
     if (!bound) return;
     var h = bound.h, cv = bound.cv;
+    document.removeEventListener("pointerlockerror", h.lockErr);
     window.removeEventListener("keydown", h.keydown);
     window.removeEventListener("keyup", h.keyup);
     window.removeEventListener("blur", h.blur);

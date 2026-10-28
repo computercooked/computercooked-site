@@ -1100,6 +1100,7 @@
     function blobFlag(d, k) { if (S && S.quest && S.quest.kind === "blob" && d && d.c === S.c) { S.quest.flags[k] = (S.quest.flags[k] || 0) + 1; questTick(); } }
     SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
+    SB.bus.on("nibble", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("sniff", function (d) { blobFlag(d, "sniff"); });
     SB.bus.on("tug", function (d) { blobFlag(d, "tug"); });
     SB.bus.on("nestLined", function (d) { blobFlag(d, "lined"); });

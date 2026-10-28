@@ -1147,6 +1147,8 @@
       if (n.kind === "boulder" && verb === "hit" && game.rng.chance(0.3)) { SB.World.dropFrom(game.world, game, n, "stone"); res.ok = true; }
     } else if (verb === "eat" && NIBBLE[n.kind]) {
       res.deltas.hunger = -NIBBLE[n.kind]; res.ok = true;
+      if (!c.far) emote(c, "yum", 1.2);
+      SB.bus.emit("nibble", { c: c, node: n }); // a nibble is eating too (the blob guide's first step, K-0021)
     } else if (verb === "pickup" && SB.Ideas) {
       var g = SB.Ideas.GATHER[n.kind];
       if (g && c.tier >= g[3] && n.state === "ok" && game.world.items.length < 420) {
@@ -1509,8 +1511,9 @@
   /* ---------------- the hand ---------------- */
 
   function lesson(c, game, delta) {
-    var a = c.action, t = null;
-    if (c.plan && c.plan.x) t = { x: c.plan.x, a: c.plan.verb };
+    var a = c.action, t = null, tt = SB.Tricks && SB.Tricks.target ? SB.Tricks.target(c, game) : null;
+    if (tt) t = tt;
+    else if (c.plan && c.plan.x) t = { x: c.plan.x, a: c.plan.verb };
     else if (a && a.x && (a.phase === "do" || a.verb === V.approach)) t = { x: a.x, a: a.verb };
     else if (c.lastDone && game.time - c.lastDone.t < 2.5) t = c.lastDone;
     var b = c.brain, probe = t && t.x.length === b.nIn ? t : null;
