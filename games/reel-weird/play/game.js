@@ -171,7 +171,7 @@
     cast: () => tone(700, 180, 0.28, 'sawtooth', 0.12),
     plop: () => tone(320, 110, 0.16, 'sine', 0.3),
     nibble: () => tone(500, 420, 0.05, 'sine', 0.12),
-    bite: () => { tone(880, 880, 0.07, 'square', 0.18); tone(1320, 1320, 0.09, 'square', 0.16, 0.08); },
+    bite: () => { tone(180, 70, 0.14, 'sine', 0.4); tone(880, 880, 0.08, 'square', 0.24); tone(1320, 1320, 0.11, 'square', 0.22, 0.08); },
     hook: () => tone(400, 900, 0.1, 'square', 0.16),
     tick: () => tone(1500, 1400, 0.025, 'square', 0.05),
     snap: () => { tone(260, 50, 0.35, 'sawtooth', 0.25); },
@@ -258,14 +258,16 @@
   function bite() {
     hooked = rollItem(cast.d);
     state = 'bite';
-    biteWin = 0.62 - hooked.tier * 0.05;
+    // generous on the first casts (~0.95s), tighter as the streak grows; deeper (rarer) things are a bit quicker
+    biteWin = Math.max(0.45, 0.95 - streak * 0.07 - hooked.tier * 0.05);
     biteT = 0;
     bobDip = 1;
-    splash(bobX, waterY, 6, '#cfefff');
+    splash(bobX, waterY, 10, '#cfefff');
+    shake = Math.max(shake, 0.35);
     sfx.bite();
   }
   function hook() {
-    perfectHook = biteT <= biteWin * 0.45;
+    perfectHook = biteT <= Math.min(0.28, biteWin * 0.45); // "perfect" stays as tight as before
     state = 'reel';
     tension = 0.3; progress = 0; slackT = 0; surgeT = 0.5 + Math.random() * 0.8; surgeLeft = 0; tickT = 0;
     sfx.hook();
@@ -560,6 +562,7 @@
       by = cast.fromY + (waterY - cast.fromY) * k - Math.sin(k * Math.PI) * 70 * S;
     } else if (state === 'wait' || state === 'bite' || state === 'reel' || state === 'catch') {
       bx = bobX; by = waterY + Math.sin(t * 3) * 1.5 * S + bobDip * 7 * S;
+      if (state === 'bite') by += 7 * S + Math.sin(t * 40) * 2 * S; // the bobber dunks under and jerks
     }
     const taut = state === 'reel' || state === 'bite';
     ctx.strokeStyle = state === 'reel' && tension > 0.85 ? COL.red : 'rgba(245,243,237,0.75)'; ctx.lineWidth = 1;
@@ -579,7 +582,7 @@
     }
     if (state === 'bite') {
       const k = 1 - biteT / biteWin;
-      text('!', bx, waterY - 30 * S - (1 - k) * 6 * S, 34 * S, COL.gold, 'center', '900');
+      text('!', bx, waterY - 30 * S - (1 - k) * 6 * S, (34 + 14 * Math.max(0, 1 - biteT * 5)) * S, COL.gold, 'center', '900');
     }
   }
 
