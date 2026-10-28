@@ -56,8 +56,8 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .speed.paused { color: var(--pink); }
 .ordobey { font-size: 13px; }
 .ordobey b { font-size: 20px; }
-.mir .need { display: none; font-size: 10px; color: var(--dim); }
-.mir.poor .need { display: block; }
+.mir .c.need { display: none; font-size: 10px; color: var(--dim); }
+.mir.poor .c.need { display: block; }
 .menu-btn { width: 38px; justify-content: center; padding: 0; font-size: 18px; }
 .savedot { align-self: center; font-size: 13px; opacity: 0; transition: opacity .5s; pointer-events: none; margin: 0 -2px; }
 .savedot.on { opacity: .85; transition: opacity .15s; }
@@ -111,14 +111,14 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .sp { flex: 1; }
 .av { width: 44px; height: 44px; border-radius: 0; display: grid; place-items: center; font-size: 22px; flex: none; box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.18); }
 .nm { font: 700 17px/1.1 var(--mono); }
-.sub2 { font-size: 12px; color: var(--dim); }
+.sub2 { font-size: 13px; color: var(--dim); }
 .tierpill { display: inline-flex; gap: 4px; align-items: center; padding: 2px 8px; border-radius: 0; font: 700 12px/16px var(--mono); background: var(--faint); }
 .ibtn { width: 40px; height: 40px; border-radius: 0; background: var(--faint); display: grid; place-items: center; font-size: 18px; flex: none; }
 .ibtn:hover { background: rgba(245, 243, 237, 0.18); }
 .ibtn.on { background: var(--lime); color: var(--carbon); }
 .thought { margin: 10px 0 8px; padding: 8px 10px; border-radius: 0; background: rgba(0, 0, 0, 0.25); font-size: 13px; }
 .thought b { color: var(--lime); font-weight: 800; }
-.who { margin: -2px 0 8px; font-size: 12px; line-height: 1.45; }
+.who { margin: -2px 0 8px; font-size: 13px; line-height: 1.45; }
 .drives { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
 .drive { display: flex; align-items: center; gap: 5px; font-size: 11px; }
 .drive .e { width: 16px; text-align: center; font-family: system-ui, "apple color emoji"; }
