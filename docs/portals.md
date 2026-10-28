@@ -92,7 +92,8 @@ is Ashton's decision and Ashton's to do.
 
 - `native/portal.js`: the adapter. Our SDK's run start/end become the portal's gameplayStart/Stop. A midroll goes between runs (never before the first run, at most every 3 runs and 3 minutes). Web Audio is suspended and input is blocked while an ad shows. Outside links are off on the ad portals. `cc.rewarded()` is available for games that offer a reward. Drivers: none (itch.io, Newgrounds), CrazyGames v3, GameDistribution and Poki v2. Tested against a stand-in Poki SDK.
 - `node scripts/package-portal.mjs <slug> <itch|newgrounds|crazygames|gamedistribution|poki> [--gd-id id]` writes `dist/portals/<portal>/<slug>.zip` with `index.html` at the root and relative paths only. GameDistribution needs its game id from their control panel, so that build waits for the account.
-- Still to do: the asset kit (covers, square thumbnails, 15–20 s videos), and a CrazyGames check that no game draws its own fullscreen button.
+- `node scripts/portal-assets.mjs <slug> [base]` makes the asset kit from the running game into `dist/portal-assets/<slug>/`: covers 1920×1080, 1280×720, 1280×550, 800×1200, 800×800 and 630×500, GD 512×512, 512×384 and 200×120 (the game's og art over blurred gameplay), a 628×628 gameplay square with no title, a 1280×720 gameplay still and a silent 15 s H.264 hover clip. Games with `?autoplay=skilled` (handbag havoc) play themselves for the clip. Made and checked for handbag havoc. The portrait 800×1200 cover is weak (the og art is landscape), so a hand-made portrait is worth it for the first submission. The square shows the in-game HUD.
+- Still to do: a 2:3 clip, and a CrazyGames check that no game draws its own fullscreen button.
 
 ## What we build once (code, no accounts)
 
