@@ -39,8 +39,24 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
     ]);
     row = await env.DB.prepare("SELECT id, from_name FROM dares WHERE play_id = ?").bind(b.play_id).first();
   }
-  const url = `${origin}/games/${encodeURIComponent(run.game)}/?vs=${encodeURIComponent(run.score)}&from=${encodeURIComponent(row.from_name)}&d=${row.id}&utm_source=dare&utm_medium=share&utm_campaign=dare`;
-  return json({ ok: true, id: row.id, url, text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
+  const url = `${origin}/d/${row.id}`; // short; /d/<id> redirects to dareUrl()
+  return json({ ok: true, id: row.id, url, long_url: origin + dareUrl({ id: row.id, game: run.game, score: run.score, from_name: row.from_name }), text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
+}
+
+// where a dare link lands: the game page with the dare banner (platform.js) and dare preview tags (seo.js), tagged so
+// plays it brings show under the "dare" campaign
+export function dareUrl(d) {
+  return `/games/${encodeURIComponent(d.game)}/?vs=${encodeURIComponent(d.score)}&from=${encodeURIComponent(d.from_name)}&d=${d.id}&utm_source=dare&utm_medium=share&utm_campaign=dare`;
+}
+
+// GET /d/:id (outside /api): a 302 to dareUrl(). Unknown or broken ids go to the hub. Cached briefly at the edge.
+export async function dareLink(env, url, id) {
+  let to = "/games/";
+  try {
+    const d = env.DB && await env.DB.prepare("SELECT id, game, score, from_name FROM dares WHERE id = ?").bind(id).first();
+    if (d) to = dareUrl(d);
+  } catch (e) { /* no table yet: the hub */ }
+  return new Response(null, { status: 302, headers: { location: url.origin + to, "cache-control": "public, max-age=300" } });
 }
 
 // POST /api/dare/:id/shared {how: share|copy|card|download}: the sender really sent it (share sheet finished,

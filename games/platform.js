@@ -278,10 +278,17 @@
     // the share card (share-card.js, loaded now): a story-size image of this run + the dare link, drawn while
     // the player looks at their score so the tap can open the share sheet straight away
     var file = null, cardUrl = null;
+    // a dare made straight away (a new best) puts its short link on the card; otherwise the card shows the game's address
+    var link = ready && scored ? Promise.race([
+      ready.then(function (d) { return d && d.ok && d.id ? "computercooked.com/d/" + d.id : null; }, function () { return null; }),
+      new Promise(function (res) { setTimeout(function () { res(null); }, 1500); })
+    ]) : Promise.resolve(null);
     var card = loadCardMaker().then(function (draw) {
-      return draw(scored
-        ? { title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best }
-        : { title: info.title, slug: game, art: info.thumbnail, score: null });
+      return link.then(function (l) {
+        return draw(scored
+          ? { title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best, link: l }
+          : { title: info.title, slug: game, art: info.thumbnail, score: null });
+      });
     }).then(function (blob) {
       var name = game + (scored ? "-" + String(Math.round(e.detail.score)) : "") + ".png";
       try { file = new File([blob], name, { type: "image/png" }); } catch (err) { file = null; }
