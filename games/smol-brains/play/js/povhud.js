@@ -467,7 +467,11 @@
   }
   function makeHtml() {
     var s = S(), c = s.c, h = "";
-    if (c.tier < 2) return "<p>a " + esc(SB.TIERS[c.tier].name) + " has no hands for making things. tool-users can.</p>";
+    if (c.tier < 2) {
+      var ep = SB.FirstHour && SB.FirstHour.echoProgress ? SB.FirstHour.echoProgress(c, "arms") : null;
+      return "<p>a " + esc(SB.TIERS[c.tier].name) + " has no hands for making things. tool-users can: two more steps up (" + (c.tier === 0 ? "legs, then hands" : "hands") + ").</p>" +
+        "<p>the way there: carry things in your mouth, tug leaves, line the nest. every mouthful is practice, and practice echoes into " + esc(c.name) + "'s kids" + (ep ? ": 🤲 hands " + ep.n + "/" + ep.of : "") + ".</p>";
+    }
     // the crafting grid: put things together and see what happens
     var rc = bag.grid.length ? Sv().match(bag.grid) : null;
     h += "<div class='lbl'>put things together</div><div class='cgrid'><div class='slots'>";
@@ -697,7 +701,7 @@
     } catch (e) { return null; }
   }
   function clockCompass(c, s, w, game) {
-    var tday = (w.time / SB.DAY_LENGTH) % 1, hh = Math.floor(tday * 24), mm = Math.floor((tday * 24 - hh) * 60);
+    var tday = (w.time / SB.DAY_LENGTH) % 1, hh = Math.floor(tday * 24), mm = Math.floor((tday * 24 - hh) * 6) * 10; // ten-minute steps: a calmer clock
     var part = w.night ? "night 🌙" : tday < 0.27 ? "dawn 🌅" : tday < 0.45 ? "morning ☀️" : tday < 0.58 ? "midday ☀️" : tday < 0.74 ? "afternoon 🌤" : "dusk 🌇";
     var wx = w.weather.rain > 0.3 ? (w.weather.snow || SB.World.tempAt(w, c.x, c.z) < 0.25 ? " · snowing ❄️" : " · raining 🌧") : w.weather.wind > 0.7 ? " · windy 💨" : "";
     var pf = SB.Render && SB.Render.perf, ct = ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2) + " · " + part + wx + (pf && pf.show && pf.ft ? " · " + Math.round(1000 / pf.ft) + " fps" : "");

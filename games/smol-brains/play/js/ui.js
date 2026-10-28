@@ -185,7 +185,7 @@
     var w = game.world, ck = SB.World.clock(w);
     var wx = w.weather.kind, icon = ck.night ? "🌙" : { clear: "☀️", cloudy: "⛅", rain: "🌧", storm: "⛈", fog: "🌫" }[wx] || "☀️";
     if (wx === "rain" && SB.World.tempAt(w, R.camera.x, R.camera.z) < 0.28) icon = "🌨";
-    el.clock.innerHTML = '<span class="ico">' + icon + '</span><span><span class="long">day </span>' + ck.day + ' <span class="dim long">· ' + ck.season + ' </span>· ' + pad(ck.hour) + ":" + pad(ck.min) + "</span>";
+    el.clock.innerHTML = '<span class="ico">' + icon + '</span><span><span class="long">day </span>' + ck.day + ' <span class="dim long">· ' + ck.season + ' </span>· ' + pad(ck.hour) + ":" + pad(Math.floor(ck.min / 10) * 10) + "</span>"; // ten-minute steps: a calmer clock
     var smols = SB.Game.smols(game), maxT = game.stats.maxTier || 0, gen = game.stats.maxGen;
     var best = smols.reduce(function (b, c) { return c.tier > (b ? b.tier : -1) ? c : b; }, null);
     var prog = 0;
