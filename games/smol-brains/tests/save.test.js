@@ -42,6 +42,7 @@ console.log("2. offline progress");
   const rt = SB.Game.runOffline;
   // run synchronously for the test (no setTimeout chunks)
   ctx.setTimeout = (fn) => fn();
+  SB.Game.OFFLINE_WALL_MS = Infinity; // the ~8 s real-time cap is for slow phones: on a loaded test box it would cut the run short
   SB.Game.runOffline(g3, 600, null, (rep) => { done = rep; });
   check("the world keeps going while you're away", done && done.sim === 600 && g3.time > game.time + 590, JSON.stringify(done && { hatched: done.hatched, deaths: done.deaths, words: done.words, ideas: done.ideas }));
   check("…and nobody starves while you're away", done && SB.Game.smols(g3).every(c => c.chem.health >= 0.29));

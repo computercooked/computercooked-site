@@ -3,7 +3,7 @@
 // done, the stockpile fills up, job interests nudge the brain, and it all saves.
 // node games/smol-brains/tests/orders.test.js
 "use strict";
-const load = require("./_load.js");
+const load = require("./_load.js"), seeded = load.seeded;
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 function run(SB, game, secs) { for (let t = 0; t < secs / SB.TICK; t++) SB.Game.step(game, SB.TICK); }
@@ -136,7 +136,9 @@ console.log("5. a blueprint gets built where you put it");
 }
 
 console.log("6. a no-go zone is kept clear");
-function zoneTime(seed, withZone) {
+// seeded: the zone and no-zone runs of an island share their luck, so the comparison is like for like
+// (unseeded, a no-zone run where the smols happened to drift off on their own could make the zone look useless)
+function zoneTime(seed, withZone) { return seeded(seed, () => {
   const { SB, game, cs, h } = tribe(seed, 3, 8, 0.95);
   const z = { x: h.x + 7, z: h.z };
   const r = withZone ? SB.Orders.place(game, "nogo", z.x, z.z) : null;
@@ -154,7 +156,7 @@ function zoneTime(seed, withZone) {
   }
   const followers = r ? cs.filter(c => c.ord && c.ord[r.o.id] && c.ord[r.o.id].f).length : 0;
   return { inside, obeyed, followers };
-}
+}); }
 {
   let free = 0, kept = 0, obeyed = 0, followers = 0;
   for (const seed of [31, 32, 33]) {

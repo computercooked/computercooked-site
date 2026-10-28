@@ -25,3 +25,10 @@ module.exports = function load(only) {
   }
   return ctx;
 };
+// run fn with a seeded Math.random (mulberry32; the game context shares this Math), then put the real one back.
+// The game's own rng is seeded by the island, but lots of small choices use Math.random: seed it when a check depends on luck.
+module.exports.seeded = function (seed, fn) {
+  const r0 = Math.random; let s = seed >>> 0;
+  Math.random = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  try { return fn(); } finally { Math.random = r0; }
+};
