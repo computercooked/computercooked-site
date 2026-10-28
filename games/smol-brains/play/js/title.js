@@ -217,10 +217,11 @@
   function metaLine(m) { return "day " + m.day + " · " + (m.pop ? m.pop + " smol" + (m.pop === 1 ? "" : "s") + " · " + tierName(m.tier) : "still in the pod") + " · " + ({ 256: "classic", 384: "small", 512: "big", 544: "medium", 768: "large", 1024: "extra large" }[m.n] || m.n) + " island"; }
 
   function mainMenu() {
-    var ws = SB.Save.worlds(), last = ws[0];
+    var ws = SB.Save.worlds(), last = ws[0], recent = last && Date.now() - (last.savedAt || 0) < 12 * 3600 * 1000; // an old island isn't the default (K-0025)
+    var cont = last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), recent ? "go big" : "small", function () { play(last.id); }) : null;
+    var now = btn("▶ play now", last ? "a fresh island, playing in seconds" : "jump straight in: a fresh island, ready in seconds", recent ? "" : "go big", function () { createWorld({ quick: true }); });
     setPane([
-      last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), "go big", function () { play(last.id); }) : null,
-      btn("▶ play now", last ? "a fresh island, playing in seconds" : "jump straight in: a fresh island, ready in seconds", last ? "" : "go big", function () { createWorld({ quick: true }); }),
+      recent ? cont : now, recent ? now : cont,
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
       btn("📂 load game", ws.length ? ws.length + " island" + (ws.length === 1 ? "" : "s") + " saved" : "nothing saved yet", ws.length ? "" : "dim", function () { loadGame(); }),
       btn("⚙ settings", "text size · sound", "small", function () { settings(); })

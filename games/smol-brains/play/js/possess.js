@@ -996,6 +996,7 @@
     if (c.tier < 2) {
       if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
       S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };
+      if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; // a tummy rumbling: the food bar is low, and eating fills it back up (K-0025)
     } else {
       if (st.povQuest === "done" || st.povQuest === "skipped" || questStore() === "done") return;
       S.quest = { i: 0, started: game.time, flags: {} };

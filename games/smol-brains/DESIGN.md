@@ -332,6 +332,18 @@ The second half of the roadmap's M2 "pace" item. A season lasts 2 days (40 minut
 - `SB.seasonDays(game)` is the one place that knows: the clock (`world.js`) and the "made it through winter" achievement read it. The setting lives in `game.settings.seasons`, so saves keep it.
 - **Tests**: `seasons.test.js` (normal is 2 days; short runs spring → summer → autumn → winter → spring in 2 days and announces each; the achievement unlocks after a short year; a reload keeps the setting).
 
+## 0.27 What v4.8.2 fixed: the bot's v4.8.0 playtest (K-0025)
+
+Fun 5/10: "the sim ideas are strong, but it still plays as watch-and-click". The top three, then the bugs.
+
+- **Fewer windows at the start**: for the first 4 minutes of an island (`UI.QUIET_START`), story cards come as toasts (title and first line) instead of windows. A falling pod is one window, not three: what pods are now sits on the map's caption, and the "send a rescue party?" card waits 20 s instead of popping up under your next tap.
+- **Possession with something at stake**: a blob's first day in your hands starts hungry (food bar low), so "find food, eat it" fills a bar you can see. The step banners queue, so "✓ find food · next: eat it" is never covered by the next one when both finish at once. (A first-minute threat is still to come.)
+- **A rally answers at once**: when a flag lands, every smol in earshot decides straight away, so the chip reads "rally · 5 going, 1 nah (😋 hungry)" from the first second, not "0 going". The first two flags pull everyone who isn't starving, scared or asleep.
+- **⏭ says where it stopped**: the stop is a big mid-screen banner ("Grogou is now a kid · ⏭ skipped to here · back to 1×"), not a toast a window can hide. Wishes and prayers no longer stop it (they open their own windows). A pod cutscene now ends the skip properly. Before, it left the game running at 16× with no skip on.
+- **Bugs**: [ or ] mid-skip stops the skip and keeps your speed (it used to drop to paused once the skip had already ended). The 🚩 orders slot is always in the toolbar, greyed out until the tutorial is done, so nothing shifts under your click. The blob orders toast times itself from this island (an earlier island's clock made it come at once). In first person, the jump on the first mouse move after the pointer locks is ignored (the view flew up to the sky). On the title, ▶ continue is the big button only for an island played in the last 12 hours; otherwise ▶ play now is.
+- **Not a bug**: typing n in the founders' name box types an n. Keys go to the text box while you're naming.
+- **Tests**: `firstminutes.test.js` (a rally answers at once with reasons, wishes don't end a skip, a possessed blob starts hungry).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

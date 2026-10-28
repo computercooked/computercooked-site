@@ -81,7 +81,7 @@
     var p = O.willing(c, game, o.kind, o);
     // the first rally flags you put down always pull a few (K-0022: "rally is a dud"): anyone who isn't starving or
     // terrified comes, as long as they can hear it
-    if (o.first && o.kind === "rally" && c.chem.hunger < 0.75 && c.chem.fear < 0.7) p = Math.max(p, 0.9);
+    if (o.first && o.kind === "rally" && c.chem.hunger < 0.75 && c.chem.fear < 0.7 && !c.asleep) p = 1;
     var f = rng(game)() < p;
     d[k] = { f: f ? 1 : 0, t: game.time, n: prev ? (prev.n || 0) + 1 : 0 };
     var od = game.orders;
@@ -121,6 +121,7 @@
     od.placed++;
     if (kind === "rally") { od.rallies = (od.rallies || 0) + 1; if (od.rallies <= 2) o.first = 1; } // the first two always work (see decide)
     heatUp(game, K.cost);
+    if (kind === "rally") SB.Game.smols(game).forEach(function (c) { if (c.alive && !c.held && SB.dist(c.x, c.z, x, z) < 90) decide(c, game, o); }); // the chip says "N going, M nah" at once (K-0025)
     SB.Game.unlock && SB.Game.unlock(game, "order");
     SB.bus.emit("order", { o: o });
     return o;
