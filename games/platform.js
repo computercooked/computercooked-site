@@ -238,6 +238,7 @@
       "<div class=\"cc-card-out\" hidden><img alt=\"your run as a share card\" width=\"108\" height=\"192\">" +
       "<div><a class=\"tool cc-card-dl\" download>download card</a><button type=\"button\" class=\"tool cc-card-copy\">copy link</button>" +
       "<p class=\"cc-card-tip\">post the card, paste the link.</p></div></div>";
+    if (best) pbTip(box);
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
     // what gets sent: a dare for this exact run, or (no score) just the game
     var make = !scored
@@ -360,6 +361,17 @@
   // counted as tip_click (slot post-run, this game) via assets/deck.js → POST /api/hit.
   function tipLine(url) {
     return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-run">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
+  }
+  // after a new personal best (the happiest moment of a run): a small coffee chip under the dare, once per visit.
+  // Non-blocking, a plain link out; a click is tip_click slot post-best.
+  function pbTip(box) {
+    try { if (sessionStorage.getItem("cc-tip-pb")) return; } catch (e) { return; }
+    tipUrl().then(function (url) {
+      if (!url || !box.isConnected || box.querySelector(".cc-tip-pb")) return;
+      try { sessionStorage.setItem("cc-tip-pb", "1"); } catch (e) {}
+      box.insertAdjacentHTML("beforeend", '<p class="cc-tip cc-tip-pb"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-best">☕ new best? buy the computer a coffee ↗</a> <small>18+ / ask a parent</small></p>');
+      box.querySelector(".cc-tip-pb a").addEventListener("click", function () { if (window.ccHit) window.ccHit("tip_click", { slot: "post-best", game: game }); });
+    });
   }
   var tip = null;
   function tipUrl() {
