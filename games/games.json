@@ -326,6 +326,34 @@
         "new here? say yes to the tutorial: it stays with you the whole game, with a tip whenever something new happens or you're not sure what to do.",
         "evolve them all the way to ascended and build the big thought. it's a signal home. then try new game+."
       ]
+    },
+    {
+      "slug": "reel-weird",
+      "title": "reel weird",
+      "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
+      "thumbnail": "/games/reel-weird/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "fishing",
+        "arcade",
+        "collection",
+        "one-tap",
+        "high score",
+        "casual"
+      ],
+      "controls": "hold tap / click / space to charge, let go to cast. tap on the big bite. hold to reel, let go to ease. b opens the book, m mutes, p pauses.",
+      "size_kb": 112,
+      "version": "1",
+      "added": "2026-10-28",
+      "max_score_per_sec": 200.0,
+      "score_slack": 3000.0,
+      "how_to": [
+        "hold to charge, let go to cast. farther = deeper = weirder.",
+        "small twitches are fakes. tap on the big bite (! appears).",
+        "hold to reel, let go before the tension hits the red.",
+        "catches in a row stack a streak multiplier (up to 3x).",
+        "today's rare is worth 2x. new book entries pay 1.5x."
+      ]
     }
   ]
 }
