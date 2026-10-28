@@ -2714,3 +2714,12 @@ html[data-landing-ready] { overflow: hidden; }
   .game-tags { display: none; }
   .game-body .play-btn { min-height: 42px; font-size: 0.95rem; }
 }
+
+/* ads consent banner (assets/consent.js): only appears once an ad network is switched on, for EU/UK visitors */
+.cc-consent { position: fixed; z-index: 10000; left: 12px; right: 12px; bottom: 12px; max-width: 560px; margin: 0 auto; padding: 14px 16px;
+  border: 2px solid var(--lime); border-radius: 14px; background: var(--carbon-2); color: var(--paper); font-family: var(--mono); font-size: 0.85rem; }
+.cc-consent p { margin: 0 0 10px; }
+.cc-consent a { color: var(--lime); }
+.cc-consent div { display: flex; gap: 8px; }
+.cc-consent button { min-height: 40px; padding: 0 16px; border: 2px solid var(--lime); border-radius: 10px; background: transparent; color: var(--paper); font: inherit; font-weight: 800; cursor: pointer; }
+.cc-consent button[data-c="granted"] { background: var(--lime); color: var(--carbon); }

@@ -220,6 +220,12 @@ export async function metrics(url, env, origin) {
   const opened = await db.prepare("SELECT COUNT(*) n FROM events WHERE name = 'cc:dare_opened' AND ts >= ?").bind(Date.parse(since)).first("n");
   // the whole site, one line: land → play → finish → share → follow / tip / sign up
   const sum = (k) => out.reduce((n, g) => n + g.funnel[k], 0);
+  // ad moments under the assets/ads.js caps (no network yet): what an ad network would get to fill
+  const ad = (await db.prepare(
+    "SELECT json_extract(data, '$.slot') slot, COUNT(*) n FROM events WHERE name = 'cc:ad_slot' AND ts >= ? GROUP BY 1"
+  ).bind(Date.parse(since)).all()).results;
+  const adN = (k) => (ad.find((r) => r.slot === k) || {}).n || 0;
+  const ad_slots = { interstitial: adN("interstitial"), rewarded: adN("rewarded") };
   const site_funnel = {
     landed: pageviews.total, played: out.reduce((n, g) => n + g.plays, 0), finished: sum("finished"),
     shared: dares.sent + game_shares.sent, dares_opened: opened || 0,
@@ -235,6 +241,7 @@ export async function metrics(url, env, origin) {
       uploads_pending: pending || 0, open_reports: reports || 0,
     },
     funnel: site_funnel,
+    ad_slots,
     dares,
     game_shares,
     follow_clicks,

@@ -53,6 +53,7 @@
       table($("#extras-table"), [["what", function (x) { return x[0]; }], ["numbers", function (x) { return x[1]; }, "wrap"]], [
         ["dares", d.made + " made → " + d.sent + " sent → " + d.opened + " opened → " + d.beaten + " beaten"],
         ["follow clicks", fc.total + " · " + kv(fc.by_platform) + " · from " + kv(fc.by_slot)],
+        ["ad slots (no network yet)", ((m.ad_slots || {}).interstitial || 0) + " interstitial · " + ((m.ad_slots || {}).rewarded || 0) + " rewarded"],
         ["tips", tp.clicks + " clicks (" + kv(tp.clicks_by_slot) + ") · " + tp.successes + " paid"],
         ["page views by channel", kv((m.pageviews || {}).by_ref)],
         ["plays by channel", kv(m.plays_by_ref)],
