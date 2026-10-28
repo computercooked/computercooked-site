@@ -264,5 +264,24 @@ console.log("10. night: get home before the grumps come out");
   P.leave();
 }
 
+console.log("11. a nibble on a bush counts as eating, even for a full blob (K-0021)");
+{
+  const { g, cs } = fresh(53, 0, 2);
+  const b = cs[0];
+  g.stats.possessed = 0; g.settings.povBlobQuest = null;
+  try { ctx.localStorage.removeItem("smolbrains-blobquest"); } catch (e) {} // §9 finished it in this browser
+  P.enter(g, b);
+  check("the blob guide starts at eat", P.questStep() && P.questStep().id === "eat");
+  b.chem.hunger = 0.03;
+  const bush = SB.World.nearestNode(g.world, b.x, b.z, 300, n => n.kind === "bush" && n.state === "ok");
+  b.x = bush.x + 0.9; b.z = bush.z; b.facing = Math.atan2(bush.x - b.x, bush.z - b.z);
+  const v = P.options(g, b, { type: "node", id: bush.id });
+  check("right click offers a nibble", v.place && /nibble/.test(v.place.label), v.place && v.place.label);
+  const ok = P.act("place", { type: "node", id: bush.id });
+  run(g, 4);
+  check("the nibble ticks the guide's first step", ok && P.questStep() && P.questStep().id === "sniff", (P.questStep() && P.questStep().id) + " ok=" + ok);
+  P.leave();
+}
+
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);

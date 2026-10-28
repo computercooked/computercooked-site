@@ -178,5 +178,25 @@ console.log("8. v4.5.1: bars start at 0 for a new smol, a mistimed tickle is hel
   check("once the session is over, tickles land as before", c.stats.lessons === l1 + 1);
 }
 
+console.log("9. K-0021: a tickle just after eating still counts, and goes to the eating, not the walk after");
+{
+  const { SB, game, cs } = island(37, 0, 2);
+  const c = cs[0]; c.chem.hunger = 0.7;
+  SB.Tricks.practice(game, c, "eat");
+  const deltas = []; SB.bus.on("trickDelta", e => deltas.push(e));
+  lived(SB, game, c, "hunger", "food", "eat");
+  game.time += 2; // it finished two seconds ago and has wandered off
+  const wx = Float32Array.from(c.lastDone.x); wx[SB.IN.NOUN0 + SB.N.food] = 0;
+  c.action = { verb: SB.V.wander, phase: "go", x: wx, start: new Float32Array(SB.N_DRIVES), t: 0, dur: 4 };
+  check("it still counts as eating for the cue", SB.Tricks.doing(c, game, SB.Tricks.BY.eat));
+  const l0 = c.stats.lessons || 0;
+  SB.Creature.tickle(c, game);
+  check("the late tickle lands", (c.stats.lessons || 0) === l0 + 1 && deltas.length === 1);
+  check("and moves the eat bar up", deltas[0] && deltas[0].to > deltas[0].from, deltas[0] && (deltas[0].from.toFixed(2) + " → " + deltas[0].to.toFixed(2)));
+  check("it counts as a lesson toward the trick", (c.tricks.eat && c.tricks.eat.n) === 1, JSON.stringify(c.tricks.eat));
+  game.time += 3; c.action = null;
+  check("but not forever", !SB.Tricks.doing(c, game, SB.Tricks.BY.eat));
+}
+
 console.log(failed ? "\n" + failed + " FAILED" : "\nall good");
 process.exit(failed ? 1 : 0);

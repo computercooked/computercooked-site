@@ -1094,7 +1094,7 @@
   // (whatever the frame took), so lighting read straight off world.time moves in uneven jumps, and weather that
   // fades over 12 sim seconds fades over 1.5 real ones: the ease turns both back into a smooth change. At 1x
   // the ease is far quicker than the light changes, so nothing lags visibly.
-  var lit = null, litWorld = null, litTime = 0, tgt = {}, flashAt = -9;
+  var lit = null, litWorld = null, litTime = 0, tgt = {}, flashAt = -9, povAdj = 0;
   function easeV(cur, to, k) { cur[0] += (to[0] - cur[0]) * k; cur[1] += (to[1] - cur[1]) * k; cur[2] += (to[2] - cur[2]) * k; }
   function updateEnv(world, dt) {
     var tday = world ? (world.time / SB.DAY_LENGTH) % 1 : 0.4;
@@ -1123,8 +1123,11 @@
     env.sky = SB.mixC(env.sky, [env.sky[0] * 0.9 + 0.08, env.sky[1] * 0.9 + 0.08, env.sky[2] * 0.9 + 0.08], oc);
     env.fog = SB.mixC(env.fog, [0.55, 0.58, 0.64].map(function (v) { return v * (1 - env.night * 0.85); }), oc * 0.6);
     // first person: the eyes adjust. a smol's own view at night or under storm cloud is dim, never black
-    if (cam && cam.pov) {
-      var dk = Math.max(env.night, oc * 0.6), add = [0.1, 0.11, 0.17];
+    // (eased over about 1.5 s, like real eyes, instead of switching on: K-0021 saw "dark, then suddenly bright")
+    var povTo = cam && cam.pov ? 1 : 0;
+    povAdj = snap || !(dt > 0) ? povTo : povAdj + (povTo - povAdj) * (1 - Math.exp(-dt / 1.5));
+    if (povAdj > 0.002) {
+      var dk = Math.max(env.night, oc * 0.6) * povAdj, add = [0.1, 0.11, 0.17];
       env.sky = env.sky.map(function (v, i) { return v + dk * add[i]; });
       env.gnd = env.gnd.map(function (v, i) { return v + dk * add[i] * 0.5; });
     }
