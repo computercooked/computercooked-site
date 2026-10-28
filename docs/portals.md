@@ -88,6 +88,12 @@ is Ashton's decision and Ashton's to do.
 - **Upload:** a zip with `index.html` at the root; it goes live into user voting at once.
 - **Optional API:** Newgrounds.io for medals, scoreboards and cloud saves.
 
+## Built (2026-10-28)
+
+- `native/portal.js`: the adapter. Our SDK's run start/end become the portal's gameplayStart/Stop. A midroll goes between runs (never before the first run, at most every 3 runs and 3 minutes). Web Audio is suspended and input is blocked while an ad shows. Outside links are off on the ad portals. `cc.rewarded()` is available for games that offer a reward. Drivers: none (itch.io, Newgrounds), CrazyGames v3, GameDistribution and Poki v2. Tested against a stand-in Poki SDK.
+- `node scripts/package-portal.mjs <slug> <itch|newgrounds|crazygames|gamedistribution|poki> [--gd-id id]` writes `dist/portals/<portal>/<slug>.zip` with `index.html` at the root and relative paths only. GameDistribution needs its game id from their control panel, so that build waits for the account.
+- Still to do: the asset kit (covers, square thumbnails, 15–20 s videos), and a CrazyGames check that no game draws its own fullscreen button.
+
 ## What we build once (code, no accounts)
 
 1. **`portal.js` adapter:** one interface (init, loading done, gameplay start/stop, midroll, rewarded, save, open link) with drivers for none (our site / itch / Newgrounds), CrazyGames, GameDistribution and Poki. It bridges to our existing `cc` SDK, which already marks run start and end in every game.
