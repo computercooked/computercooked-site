@@ -1,0 +1,20 @@
+{
+  "slug": "reel-weird",
+  "title": "reel weird",
+  "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "hold tap / click / space to charge, let go to cast. tap on the big bite. hold to reel, let go to ease. b opens the book, m mutes, p pauses.",
+  "size_kb": 112,
+  "version": "1",
+  "tags": ["fishing", "arcade", "collection", "one-tap", "high score", "casual"],
+  "how_to": [
+    "hold to charge, let go to cast. farther = deeper = weirder.",
+    "small twitches are fakes. tap on the big bite (! appears).",
+    "hold to reel, let go before the tension hits the red.",
+    "catches in a row stack a streak multiplier (up to 3x).",
+    "today's rare is worth 2x. new book entries pay 1.5x."
+  ],
+  "max_score_per_sec": 200,
+  "score_slack": 3000
+}
