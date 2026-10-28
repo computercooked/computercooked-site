@@ -2745,3 +2745,7 @@ html[data-landing-ready] { overflow: hidden; }
 
 /* text pages (about, terms, privacy, daily 3) have no spotlight: one column, title under the eyebrow */
 @media (min-width: 860px) { .games-hero:not(:has(.spotlight)) { grid-template-columns: 1fr; gap: var(--s-2); } }
+
+/* animated thumbnails (games/hub.js clips()): the loop fades in over the static thumbnail */
+.game-clip { position: absolute; z-index: 1; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; background: transparent; }
+.game-clip.is-on { opacity: 1; }

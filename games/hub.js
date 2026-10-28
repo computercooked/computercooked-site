@@ -152,6 +152,51 @@
     });
   }).catch(function () { /* keep the static cards */ });
 
+  // animated thumbnails (audit P1 #18): a 3 s muted loop (games.json "clip", made by scripts/make-clips.mjs) plays
+  // over the thumbnail on hover (mouse) or while the card is mostly on screen (touch). Never with reduced motion or
+  // Save-Data; the static thumbnail stays underneath as the fallback, and nothing downloads until a card asks.
+  function clips(grid, games) {
+    var mq = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
+    if (mq("(prefers-reduced-motion: reduce)") || (navigator.connection && navigator.connection.saveData)) return;
+    var bySlug = {};
+    games.forEach(function (g) { if (g.clip) bySlug[g.slug] = g.clip; });
+    var touch = mq("(hover: none)");
+    var play = function (li) {
+      var img = li.querySelector(".game-thumb"), a = li.querySelector(".play-btn");
+      var m = a && /^\/games\/([a-z0-9-]+)\/$/.exec(a.getAttribute("href") || "");
+      var src = m && bySlug[m[1]];
+      if (!img || !src) return;
+      var v = li.querySelector(".game-clip");
+      if (!v) {
+        v = document.createElement("video");
+        v.className = "game-clip"; v.muted = true; v.loop = true; v.playsInline = true; v.preload = "none";
+        v.setAttribute("aria-hidden", "true"); v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+        v.src = src;
+        img.insertAdjacentElement("afterend", v);
+      }
+      // sit exactly on the thumbnail (cards are a column on desktop and a row on phones)
+      v.style.left = img.offsetLeft + "px"; v.style.top = img.offsetTop + "px";
+      v.style.width = img.offsetWidth + "px"; v.style.height = img.offsetHeight + "px";
+      var p = v.play(); if (p && p.catch) p.catch(function () {});
+      v.classList.add("is-on");
+    };
+    var stop = function (li) { var v = li.querySelector(".game-clip"); if (v) { v.pause(); v.classList.remove("is-on"); } };
+    var items = [].slice.call(grid.querySelectorAll(".game-card"));
+    if (touch && "IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { e.isIntersecting ? play(e.target) : stop(e.target); });
+      }, { threshold: 0.75 });
+      items.forEach(function (li) { io.observe(li); });
+    } else {
+      items.forEach(function (li) {
+        li.addEventListener("mouseenter", function () { play(li); });
+        li.addEventListener("mouseleave", function () { stop(li); });
+        li.addEventListener("focusin", function () { play(li); });
+        li.addEventListener("focusout", function () { stop(li); });
+      });
+    }
+  }
+
   function render(data) {
     var games = data.games || [];
     // featured_rank in games.json puts the hits (and a new game while it's new) first; the rest keep file order
@@ -170,7 +215,7 @@
     shelf("shelf-popular", "most played", "all time", popular);
 
     var mine = document.getElementById("shelf-computer-cooked");
-    if (mine && ours.length) mine.innerHTML = ours.map(card).join("");
+    if (mine && ours.length) { mine.innerHTML = ours.map(card).join(""); clips(mine, ours); }
 
     var cshelf = document.getElementById("shelf-community");
     if (cshelf && community.length) cshelf.insertAdjacentHTML("afterbegin", community.map(card).join(""));
