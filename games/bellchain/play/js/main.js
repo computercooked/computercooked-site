@@ -116,7 +116,6 @@ document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on',
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
 
 // shop
-let upKey = '';
 const bldEls = {};
 for (const b of E.BUILDINGS) {
   const el = document.createElement('button');
@@ -134,24 +133,63 @@ for (const b of E.BUILDINGS) {
   });
   $('blds').appendChild(el); bldEls[b.id] = el;
 }
-function refreshShop(force) {
-  const av = E.availableUpgrades(S).slice(0, 8), key = av.map((u) => u.id).join();
-  if (force || key !== upKey) {
-    upKey = key;
-    $('ups').innerHTML = '';
-    for (const u of av) {
-      const el = document.createElement('button'); el.className = 'up'; el.dataset.id = u.id;
-      el.innerHTML = `<b>${u.name}</b><small>${u.desc}</small><i>${E.fmt(u.cost)}</i>`;
-      el.addEventListener('click', () => { music.unlock(); if (E.buyUpgrade(S, u.id)) { music.play('glock', 7, now(), 0.8); music.play('glock', 9, now() + 0.07, 0.8); refreshShop(true); } else toast(`need ${E.fmt(u.cost - S.res)} more.`); });
-      $('ups').appendChild(el);
-    }
-    $('upsNone').hidden = av.length > 0;
+// Upgrades sit in 8 fixed slots (K-0020): an upgrade keeps its slot until it's bought, a new one fills an empty slot,
+// and the buttons are never rebuilt, so nothing moves under the pointer and the bells list below never jumps.
+const UP_SLOTS = 8, upSlots = [];
+for (let i = 0; i < UP_SLOTS; i++) {
+  const el = document.createElement('button'); el.className = 'up empty'; el.tabIndex = -1;
+  el.innerHTML = '<b></b><small>keep ringing</small><i></i>';
+  el.addEventListener('click', () => {
+    const u = E.UP_BY_ID[el.dataset.id || ''];
+    if (!u) return;
+    music.unlock();
+    if (E.buyUpgrade(S, u.id)) {
+      music.play('glock', 7, now(), 0.8); music.play('glock', 9, now() + 0.07, 0.8);
+      stage.showBanner(u.name, u.id === 'mallet_0' ? 'taps x2. feel that?' : u.desc, null, 1.8);
+      refreshShop(true);
+    } else toast(`need ${E.fmt(u.cost - S.res)} more.`);
+  });
+  $('ups').appendChild(el); upSlots.push(el);
+}
+// the grid shows from the first upgrade on (about the 5th tap, before any bell is affordable) and then stays put
+let upsShown = false;
+function setSlot(el, u) {
+  el.dataset.id = u ? u.id : '';
+  el.classList.toggle('empty', !u); el.tabIndex = u ? 0 : -1;
+  el.querySelector('b').textContent = u ? u.name : '';
+  el.querySelector('small').textContent = u ? u.desc : 'keep ringing';
+  el.querySelector('i').textContent = u ? E.fmt(u.cost) : '';
+}
+function fillSlots() {
+  const av = E.availableUpgrades(S), ids = new Set(av.map((u) => u.id));
+  upSlots.forEach((el) => { if (el.dataset.id && !ids.has(el.dataset.id)) setSlot(el, null); });
+  const shown = new Set(upSlots.map((el) => el.dataset.id));
+  for (const u of av) {
+    if (shown.has(u.id)) continue;
+    const free = upSlots.find((el) => !el.dataset.id);
+    if (!free) break;
+    setSlot(free, u);
   }
-  $('ups').querySelectorAll('.up').forEach((el) => el.classList.toggle('poor', S.res < E.UP_BY_ID[el.dataset.id].cost));
+}
+// early in a first run the cheapest thing you can buy right now pulses, so the first "number go up" is obvious
+function pulseNext() {
+  let best = null, bestCost = Infinity;
+  if (S.ascensions === 0 && S.earnedRun < 2000) {
+    for (const el of upSlots) { const u = E.UP_BY_ID[el.dataset.id || '']; if (u && S.res >= u.cost && u.cost < bestCost) { best = el; bestCost = u.cost; } }
+    for (const b of E.BUILDINGS) { const c = E.costOf(S, b.id, S.buyAmt), el = bldEls[b.id]; if (!el.hidden && !el.classList.contains('mystery') && S.res >= c && c < bestCost) { best = el; bestCost = c; } }
+  }
+  document.querySelectorAll('#pane-shop .pulse').forEach((el) => { if (el !== best) el.classList.remove('pulse'); });
+  if (best) best.classList.add('pulse');
+}
+function refreshShop(force) {
+  fillSlots();
+  if (!upsShown && upSlots.some((el) => el.dataset.id)) upsShown = true;
+  $('ups').hidden = !upsShown; $('upsNone').hidden = upsShown;
+  upSlots.forEach((el) => { const u = E.UP_BY_ID[el.dataset.id || '']; el.classList.toggle('poor', !!u && S.res < u.cost); });
   let shownNext = false;
   for (const b of E.BUILDINGS) {
     const el = bldEls[b.id], own = S.owned[b.id] || 0;
-    const seen = own > 0 || S.earnedRun >= b.cost * 0.4 || S.ascensions > 0 && b.cost <= 1.4e6;
+    const seen = own > 0 || b.id === 'handbell' || S.earnedRun >= b.cost * 0.4 || S.ascensions > 0 && b.cost <= 1.4e6;
     el.hidden = !seen && shownNext; if (!seen) shownNext = true;
     el.classList.toggle('mystery', !seen);
     const cost = E.costOf(S, b.id, S.buyAmt);
@@ -161,26 +199,50 @@ function refreshShop(force) {
     el.querySelector('.own').textContent = own || '';
     el.classList.toggle('poor', S.res < cost);
   }
+  pulseNext();
 }
 
 // songs
+// built once and updated in place: rebuilding them every second swapped the button out between press and release,
+// and that click was lost
+const songEls = {};
 function renderSongs() {
-  $('songs').innerHTML = '';
   $('songBonus').textContent = `+${Math.round(E.CFG.songBonus * 100 * (S.songs.length - 1))}%`;
   for (const so of E.SONGS) {
-    const have = S.songs.includes(so.id), el = document.createElement('button');
+    let el = songEls[so.id];
+    if (!el) {
+      el = songEls[so.id] = document.createElement('button');
+      el.innerHTML = `<span>${so.name}</span><i></i>`;
+      el.addEventListener('click', () => {
+        music.unlock();
+        if (S.songs.includes(so.id)) { S.song = so.id; applySong(); }
+        else if (E.buySong(S, so.id)) { applySong(); stage.showBanner('new song', so.name, null, 2.2); sdk((c) => c.event && c.event('song', { id: so.id })); offerDare(so); }
+        else return toast(`need ${E.fmt(so.cost - S.res)} more.`);
+        renderSongs();
+      });
+      $('songs').appendChild(el);
+    }
+    const have = S.songs.includes(so.id);
     el.className = 'song' + (S.song === so.id ? ' on' : '') + (have ? '' : ' locked') + (!have && S.res < so.cost ? ' poor' : '');
-    el.innerHTML = `<span>${so.name}</span><i>${S.song === so.id ? 'playing' : have ? 'play' : E.fmt(so.cost)}</i>`;
-    el.addEventListener('click', () => {
-      music.unlock();
-      if (have) { S.song = so.id; applySong(); }
-      else if (E.buySong(S, so.id)) { applySong(); stage.showBanner('new song', so.name, null, 2.2); sdk((c) => c.event && c.event('song', { id: so.id })); }
-      else return toast(`need ${E.fmt(so.cost - S.res)} more.`);
-      renderSongs();
-    });
-    $('songs').appendChild(el);
+    el.querySelector('i').textContent = S.song === so.id ? 'playing' : have ? 'play' : E.fmt(so.cost);
   }
 }
+
+// a new song offers the brag line as a dare (K-0020): "i unlocked ode to joy in 2:14. beat it"
+const clock = (sec) => { sec = Math.floor(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s = sec % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
+function offerDare(so) {
+  const line = `i unlocked ${so.name} in ${clock(S.runSec)}. beat it`;
+  $('dareLine').textContent = '"' + line + '"';
+  $('dare').dataset.line = line;
+  $('dare').hidden = false;
+  clearTimeout(offerDare.t); offerDare.t = setTimeout(() => { $('dare').hidden = true; }, 12000);
+}
+$('dareGo').addEventListener('click', () => {
+  sdk((c) => c.event && c.event('dare_clicked', { from: 'song' }));
+  shareLine($('dare').dataset.line + ' computercooked.com/games/bellchain');
+  $('dare').hidden = true;
+});
+$('dareX').addEventListener('click', () => { $('dare').hidden = true; });
 
 // stats + achievements
 function renderStats() {
@@ -268,9 +330,12 @@ $('shareBtn').addEventListener('click', () => {
   const th = themeFor(S.ascensions);
   const txt = `my bellchain band makes ${E.fmt(E.baseRps(S))} resonance/s in ${th.mode}. ${S.otLevel} overtones, best chain ${S.bestChain}. computercooked.com/games/bellchain`;
   sdk((c) => c.event && c.event('share_clicked', {}));
+  shareLine(txt);
+});
+function shareLine(txt) {
   const copy = () => { try { navigator.clipboard.writeText(txt).then(() => toast('copied. go brag.'), () => toast(txt)); } catch (e) { toast(txt); } };
   if (navigator.share) navigator.share({ text: txt }).catch((err) => { if (!err || err.name !== 'AbortError') copy(); }); else copy();
-});
+}
 
 function renderTab(force) {
   if (tab === 'shop') refreshShop(force);

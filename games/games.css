@@ -404,8 +404,11 @@
   border-radius: 99px;
   font-family: var(--mono);
   font-weight: 800;
-  font-size: 0.72rem;
-  color: var(--paper-dim);
+  font-size: 0.8rem;
+  /* K-0020: the dim grey count was hard to read next to the chips */
+  color: var(--lime);
+  background: rgba(197, 255, 73, 0.1);
+  border-color: rgba(197, 255, 73, 0.45);
   white-space: nowrap;
 }
 
