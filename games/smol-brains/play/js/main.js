@@ -529,7 +529,7 @@
     if (smols.length >= 10) Game.unlock(game, "pop10");
     if (smols.length >= 25) Game.unlock(game, "pop25");
     if (game.time / SB.DAY_LENGTH >= 2.7) Game.unlock(game, "day7");
-    if (game.world.dayIndex >= SB.SEASON_DAYS * 4) Game.unlock(game, "winter");
+    if (game.time / SB.DAY_LENGTH >= SB.seasonDays(game) * 4) Game.unlock(game, "winter");
     var eggs = game.world.items.some(function (o) { return o.kind === "egg"; });
     // extinction is not a dead end: a wild egg turns up in the nest
     if (!smols.length && !eggs && game.stats.hatched > 0) {
@@ -783,6 +783,7 @@
     var g = Game.newGame(o.seed || 0, o.n || 0, o.world || { gv: SB.WORLD_GV });
     g.wid = SB.Save.newWid(); g.wname = o.name || null;
     if (o.story) g.settings.storyteller = o.story;
+    if (o.seasons === "short") g.settings.seasons = "short";
     try { history.replaceState(null, "", cleanUrl()); } catch (e) {}
     Game.fromTitle = true;
     enter(g, { fresh: true });

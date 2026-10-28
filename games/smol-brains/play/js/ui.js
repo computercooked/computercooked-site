@@ -1524,6 +1524,11 @@
     body.appendChild(h("div", { class: "sec" }, "storyteller"));
     body.appendChild(h("div", { class: "btnrow" }, ST.map(function (o) { return h("button", { class: "btn" + (o[0] === cur ? " go" : ""), onclick: function () { (game.settings = game.settings || {}).storyteller = o[0]; openMenu("settings"); } }, o[1]); })));
     body.appendChild(h("p", { class: "note" }, ST.filter(function (o) { return o[0] === cur; })[0][2] + (game.ngPlus ? " (new game+ " + game.ngPlus + ": the grumps remember you.)" : "")));
+    // seasons: 40 minutes each, or 10 to see the whole year sooner
+    var sh = game.settings && game.settings.seasons === "short";
+    body.appendChild(h("div", { class: "sec" }, "seasons"));
+    body.appendChild(h("div", { class: "btnrow" }, [["normal", "🍂 normal"], ["short", "⏩ short"]].map(function (o) { return h("button", { class: "btn" + ((o[0] === "short") === sh ? " go" : ""), onclick: function () { var s = (game.settings = game.settings || {}); if (o[0] === "short") s.seasons = "short"; else delete s.seasons; openMenu("settings"); } }, o[1]); })));
+    body.appendChild(h("p", { class: "note" }, sh ? "10 minutes a season at 1×: a whole year in 40 minutes." : "40 minutes a season at 1×. short seasons show you the whole year sooner."));
     body.appendChild(h("div", { class: "sec" }, "save"));
     var ago = SB.Save.lastAt ? Math.round((Date.now() - SB.Save.lastAt) / 1000) : -1;
     body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds (💾 blinks by the menu) and when you leave. " + (ago >= 0 ? "last saved " + (ago < 5 ? "just now" : ago + " s ago") + ". " : "") + "while you're away, the island keeps going for a while."));
