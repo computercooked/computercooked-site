@@ -247,4 +247,18 @@
     var a = keys[e.key.toLowerCase()];
     if (a) { e.preventDefault(); a.click(); }
   });
+
+  /* ---------- first screen of the hub and the landing (K-0020) ---------- */
+  // On wide screens the floating deck sat over the first row of game cards. While the page is at the very top it
+  // rests below the screen; any scroll, or tabbing into it, brings it back ("/" and the shortcut keys always work).
+  if (document.body.hasAttribute("data-deck-rest")) {
+    var rest = function () {
+      document.documentElement.classList.toggle("cc-deck-rest", window.innerWidth >= 1000 && window.scrollY < 40 && !deck.contains(document.activeElement));
+    };
+    window.addEventListener("scroll", rest, { passive: true });
+    window.addEventListener("resize", rest);
+    deck.addEventListener("focusin", rest);
+    deck.addEventListener("focusout", function () { setTimeout(rest, 0); });
+    rest();
+  }
 })();
