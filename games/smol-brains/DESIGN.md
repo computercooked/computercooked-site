@@ -200,6 +200,7 @@ The owner's verdict on v4.4 was that you mostly sit and watch. v4.5 is milestone
   - Real rounds in the headless test: a hungry blob learns "eat when hungry" in 1–2 lessons; "come when called" takes about 2 lessons over 2–6 calls.
 - **Quest board.** `Quests.CHAPTERS` holds six chapters of 3–4 quests with spark rewards, "how" hints and shortcuts, plus a chapter bonus. It's shown in the goals panel with the old goals underneath. Counters it needs (possessions, possessed meals, new places, first tool) come off the bus. It's saved as `game.quests`.
 - **The first possession is free** (`Possess.cost`). The tutorial's brain step became "teach it a trick".
+- On desktop the tutorial card moves left of an open side panel (smol card, tricks) instead of sitting on top of it.
 
 ## 1. The ladder
 

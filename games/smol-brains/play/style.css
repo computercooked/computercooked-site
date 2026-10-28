@@ -95,6 +95,8 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .sheet::-webkit-scrollbar { width: 6px; } .sheet::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 0; }
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet.side { position: fixed; right: calc(10px + var(--sar)); top: calc(56px + var(--sat)); bottom: calc(80px + var(--sab)); width: 360px; max-height: none; }
+  /* the coach moves into the space left of an open side panel instead of sitting under it */
+  #ui:has(.sheet.side:not(.hide)) .coach { left: max(10px, calc(50% - 400px)); transform: none; width: min(420px, calc(100% - 400px)); }
 }
 .row { display: flex; gap: 8px; align-items: center; }
 .row.wrap { flex-wrap: wrap; }
