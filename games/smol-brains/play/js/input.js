@@ -15,10 +15,12 @@
 
   IN.init = function (element, g) {
     el = element; game = g;
+    el.addEventListener("pointerdown", function () { IN.touchedT = performance.now(); }, true); // when the player last took the camera (UI.autoFly waits)
     el.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
+    el.addEventListener("wheel", function () { IN.touchedT = performance.now(); }, { passive: true });
     el.addEventListener("wheel", wheel, { passive: false });
     el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     window.addEventListener("keydown", keydown);

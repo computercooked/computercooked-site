@@ -279,6 +279,22 @@ And the bot's third playtest (K-0021, 6/10, up from 5):
 - **A readable card**: on wide screens the smol card's text is a size up.
 - Tests: `possess.test.js` §11 (a nibble ticks the guide) and `tricks.test.js` §9 (a late tickle counts and goes to the eating).
 
+## 0.22 What v4.7.1 added: orders that work first time, a calm day 1, walk to food
+
+The bot's fourth playtest (K-0022, 6/10). Its top three for 10/10: orders that visibly work first time, a calm first day, and one clear possess loop.
+
+- **Rally works first time** (`orders.js`):
+  - The first two rally flags on an island (`od.rallies`, `o.first`) pull everyone who can hear them and isn't starving or terrified (willingness at least 0.9).
+  - Every smol shows its answer: "🚩!" over the ones on their way, and the reason over the ones who won't (`O.why`: 😋 hungry, 😨 scared, 🤒 poorly, 😴 sleepy, 🙄 stubborn, 🤨 doesn't trust you yet, 🤔 busy).
+  - The order's chip sums it up: "5 going, 1 nah (🤨 doesn't trust you yet)".
+  - "They listen n%" is big in the panel.
+- **Locked orders say what they need** on the button ("needs critters", "needs tool-users").
+- **A calm first day**: no strangers (`strangers.js`) and no storyteller cards (storms, raids, visitors; `director.js`) before day 2 of a new island (new game+ is exempt).
+- **Walk to food**: G sniffs; G again walks you there by itself (`S.auto`, up to 40 s; any move key takes over), then "here! right click to nibble…". The sniff message says so.
+- **The camera stays put**: event flights (a wild egg, a stranger, a storm, a hatch) are skipped for 8 s after you touch the camera (`UI autoFly`, `Input.touchedT`).
+- **The card**: "💚 first friend: still looking…" until a smol has one, and the card's subtitle and who-line are a size up.
+- Tests: `orders.test.js` §1c, `strangers.test.js` §6 (nobody on day 1), `possess.test.js` §12.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

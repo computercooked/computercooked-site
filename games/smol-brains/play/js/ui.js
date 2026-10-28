@@ -386,6 +386,12 @@
     setTimeout(function () { d.remove(); nextMoment(); }, 3300);
   }
   UI.moment = moment;
+  // the camera flies to things that happen (an egg, a stranger, a storm) only when you haven't just moved it
+  // yourself: K-0022 found the new-game camera panning and jumping under the player's hand
+  function autoFly(x, z, zoom, dur) {
+    if (SB.Input && SB.Input.touchedT && performance.now() - SB.Input.touchedT < 8000) return;
+    R.flyTo(x, z, zoom, dur);
+  }
 
   /* story cards: the first time something big happens, the game pauses and explains it (what happened,
      why, what you can do). Later times are just a quick moment. */
@@ -658,6 +664,7 @@
       var rel = SB.Social.relations(game, c), best = rel.filter(function (r) { return r.v >= 25 && r.label !== "partner"; })[0], foe = rel.filter(function (r) { return r.v <= -25; }).sort(function (a, b) { return a.v - b.v; })[0];
       var nm = function (r) { var o = r.c || SB.Game.byId(game, r.id); return o && o.name; };
       if (best && nm(best)) out.push("💚 best friend " + esc(nm(best)));
+      else out.push("💚 first friend: still looking…"); // early on nobody's close yet (K-0022: the line was empty)
       if (foe && nm(foe)) out.push("⚔ can't stand " + esc(nm(foe)));
     }
     return out.join(" · ");
@@ -942,11 +949,11 @@
     if (!force && el.sheet.dataset.kind === "orders") return updateOrders();
     el.sheet.dataset.kind = "orders"; el.sheet.dataset.id = "";
     clear(el.sheet);
-    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime small", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
+    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime ordobey", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
     el.ordGrid = h("div", { class: "miracles orders" });
     ORDER_BTNS.forEach(function (k) {
       var K = SB.Orders.KINDS[k];
-      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name)]));
+      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name), h("span", { class: "c need" }, "needs " + SB.TIERS[K.tier].name + "s")]));
     });
     el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": "jobs", title: "nudge what each smol likes doing", onclick: function () { openJobs(); } }, [h("span", { class: "e" }, "📋"), h("span", null, "jobs")]));
     el.sheet.appendChild(el.ordGrid);
@@ -959,7 +966,7 @@
   function updateOrders(force) {
     if (!el.ordGrid || !SB.Orders) return;
     var O = SB.Orders, od = O.ensure(game), maxT = game.stats.maxTier || 0, so = state.order;
-    el.ordObey.textContent = "they listen about " +Math.round(O.obedience(game) * 100) + "%";
+    el.ordObey.innerHTML = "they listen <b>" + Math.round(O.obedience(game) * 100) + "%</b>";
     [].forEach.call(el.ordGrid.children, function (b) {
       var k = b.getAttribute("data-ord"), K = O.KINDS[k];
       b.classList.toggle("on", !!so && so.kind === k);
@@ -985,7 +992,7 @@
     od.list.forEach(function (o) {
       var K = O.KINDS[o.kind], f = O.followers(game, o);
       var txt = o.kind === "mark" ? o.label : o.kind === "build" ? "📐 " + (SB.STRUCTS[o.build] ? SB.STRUCTS[o.build].label : "") : K.e + " " + K.name;
-      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "");
+      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "") + (o.whys ? " (" + Object.keys(o.whys).sort(function (a, b) { return o.whys[b] - o.whys[a]; }).slice(0, 2).join(", ") + ")" : "");
       if (o.kind === "stock" && o.n) txt += " · " + o.n + " brought";
       el.ordList.appendChild(h("span", { class: "chip ordchip" }, [h("button", { class: "lnk", title: "look", onclick: function () { R.flyTo(o.x, o.z, Math.min(R.camera.tZoom, 12), 0.7); } }, txt), h("button", { class: "lnk x", title: "take it back", onclick: function () { O.remove(game, o.id); updateOrders(true); } }, "✕")]));
     });
@@ -1876,7 +1883,7 @@
   function strangerCard(c) {
     if (!c.alive || !c.stranger || c.stranger.state !== "waiting") return;
     if (el.modal) { setTimeout(function () { strangerCard(c); }, 3000); return; } // wait for the current card
-    R.flyTo(c.x, c.z, 6, 1.0);
+    autoFly(c.x, c.z, 6, 1.0);
     var t = SB.TIERS[c.tier], s = c.stranger, idea = s.brings && SB.Ideas.BY_ID[s.brings];
     var lines = [
       h("div", { class: "row" }, [avatar(c.look, c.tier), h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "nm" }, (c.sex === "f" ? "♀ " : "♂ ") + c.name), h("div", { class: "sub2", html: '<span class="tierpill" style="color:' + t.color + '">' + t.icon + " " + t.name + "</span> · " + esc(s.trait) }) ])]),
@@ -1895,7 +1902,7 @@
   function incidentCard(inc) {
     if (!inc || inc.phase !== "ask") return;
     if (el.modal || (SB.Possess && SB.Possess.active)) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
-    if (inc.x != null && inc.id !== "pod") R.flyTo(inc.x, inc.z, 9, 1.0);
+    if (inc.x != null && inc.id !== "pod") autoFly(inc.x, inc.z, 9, 1.0);
     var body = h("div", { class: "incident" }, [
       h("div", { class: "story" }, [h("div", { class: "icon" }, inc.icon), h("h3", null, inc.title)]),
       h("div", null, inc.text.map(function (p) { return h("p", null, p); })),
@@ -2181,7 +2188,7 @@
       if (d.c.gen === 1 && !(d.c.parents || []).length) {
         var f = game.family[d.c.id], kids = f && f.kids ? f.kids.length : 0, days = Math.max(1, Math.round((game.time - (f ? f.born : game.time)) / SB.DAY_LENGTH));
         moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + ". everyone here comes from them.", "lilac");
-        R.flyTo(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
+        autoFly(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
       }
       storyCard("grave", "🕯", "goodbye, " + esc(d.c.name), ["when a smol dies, its body stays where it fell (look for the 🕯). in a little while the tribe gathers to say goodbye, the way their culture knows how.",
         "early smols float their dead down the river to the sea. once they know fire, they give them to the flames. builders dig a grave at a favourite place, with an epitaph you can tap to read.",
@@ -2238,7 +2245,7 @@
     on("tierUp", function (d) {
       var t = SB.TIERS[d.tier], nx = SB.TIERS[d.tier + 1];
       if (SB.FX) SB.FX.burst("gold", d.c.x, d.c.y + 0.6, d.c.z, 30);
-      R.flyTo(d.c.x, d.c.z, 6, 1.2);
+      autoFly(d.c.x, d.c.z, 6, 1.2);
       var need = SB.Genome.nextNeeds(d.c.genome).map(function (n) { return n.label; }).slice(0, 2).join(" + ");
       setTimeout(function () {
         storyCard("tier" + d.tier, t.icon, "evolution: " + esc(d.c.name) + " is a " + t.name + "!", [
@@ -2289,7 +2296,7 @@
     });
     on("prayerAnswered", function (d) { if (SB.FX) SB.FX.burst("magic", d.c.x, d.c.y + 1, d.c.z, 14); });
     on("select", function (d) { if (d.c) { tutDone("look"); state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet(state.sheet === "tricks" ? "tricks" : "smol"); } else if (state.sheet === "smol") closeSheet(); });
-    on("wildEgg", function (d) { R.flyTo(d.obj.x, d.obj.z, 7, 1.4); });
+    on("wildEgg", function (d) { autoFly(d.obj.x, d.obj.z, 7, 1.4); });
     on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab"); });
     on("bigThought", function (d) {
       moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac");
@@ -2320,7 +2327,7 @@
       storyCard("disaster", "🌋", "natural disasters", ["very rarely, the island itself turns on the smols. what can happen depends on where they live: <b>tsunamis</b> on the coast, <b>hurricanes</b> in the warm months, <b>sandstorms</b> near the savanna, <b>earthquakes</b> under the mountains, and once in a long while a <b>tornado</b>.", "you always get a warning. ✨ magic can stop it outright; taking cover keeps smols safe (buildings still suffer); riding it out is a gamble. builders put back what's wrecked. a star dome and thinkers see them coming much earlier."]);
     });
     on("grumpGrab", function (d) {
-      if (!d.c.far || game.selectedId === d.c.id) R.flyTo(d.g.x, d.g.z, 8, 1.0);
+      if (!d.c.far || game.selectedId === d.c.id) autoFly(d.g.x, d.g.z, 8, 1.0);
       storyCard("grab", "👺", "a grump grabbed " + d.c.name + "!", ["grumps carry off kids and sleepers caught out in the open. 👆 tap the grump, or let a smol with a club whack it, and it drops them.", "if it gets away, " + d.c.name + " is held at a grump camp until you free them (or they escape on their own, eventually). huts keep kids safe at night."]);
     });
     on("wrecked", function (d) {
