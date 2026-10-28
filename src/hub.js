@@ -37,7 +37,18 @@ export async function hubPage(req, env, url) {
   if (!ours.length) return page;
 
   const txt = (v) => ({ element(e) { e.setInnerContent(v); } });
+  // structured data: the hub as an ItemList of VideoGames (rich results), "<" escaped so a title can't close the script
+  const ld = JSON.stringify({
+    "@context": "https://schema.org", "@type": "ItemList", name: "Computer Cooked Games",
+    itemListElement: ours.map((g, i) => ({
+      "@type": "ListItem", position: i + 1, url: `${url.origin}/games/${g.slug}/`,
+      item: { "@type": "VideoGame", name: g.title, description: g.pitch, url: `${url.origin}/games/${g.slug}/`, image: url.origin + g.thumbnail,
+        genre: (g.tags || []).slice(0, 3), gamePlatform: "Web browser", applicationCategory: "Game", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" } },
+    })),
+  }).replace(/</g, String.fromCharCode(92) + "u003c"); // "<" as its JSON escape
   const rw = new HTMLRewriter()
+    .on("head", { element(e) { e.append(`<script type="application/ld+json">${ld}</script>`, { html: true }); } })
+    .on("title", txt("free online games, no download — Computer Cooked Games"))
     .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map(hubCard).join(""), { html: true }); } })
     .on("#ours-heading [data-count]", txt(String(ours.length)))
     .on(".ticker-track", { element(e) { const t = ours.map((g) => `<span>${esc(g.title)}</span>`).join(""); e.setInnerContent(t + t, { html: true }); } });

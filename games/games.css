@@ -2723,3 +2723,7 @@ html[data-landing-ready] { overflow: hidden; }
 .cc-consent div { display: flex; gap: 8px; }
 .cc-consent button { min-height: 40px; padding: 0 16px; border: 2px solid var(--lime); border-radius: 10px; background: transparent; color: var(--paper); font: inherit; font-weight: 800; cursor: pointer; }
 .cc-consent button[data-c="granted"] { background: var(--lime); color: var(--carbon); }
+
+/* the 🎲 random chip in the hub filter bar; desktop chips slim down so the row (and the first card row) stays on one line */
+.chip-random { border-style: dashed; }
+@media (min-width: 1000px) { .chip-row { gap: 6px; } .chip-row .chip { padding: 0 12px; min-height: 36px; } }
