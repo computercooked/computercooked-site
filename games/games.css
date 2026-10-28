@@ -944,6 +944,13 @@
 }
 
 /* fullscreen (real API, or the CSS fallback for iPhone Safari) */
+.tool.is-exit {
+  color: var(--carbon);
+  background: var(--lime);
+  border-color: var(--lime);
+}
+.tool.is-exit .tool-text { display: inline; }
+
 .player:fullscreen,
 .player.is-pseudo-fs {
   border: 0;

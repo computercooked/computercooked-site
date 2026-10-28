@@ -15,6 +15,16 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); this.ok = true; } catch (e) { this.ok = false; } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { /* blocked */ } },
 };
+const UNDO_KEY = 'bellchain.save.undo';
+// ?fresh=1 starts a clean save, for testing the first minute (the old save is kept as the undo copy). Works on the
+// game page's URL too (/games/bellchain/?fresh=1).
+const freshAsked = (q) => /[?&]fresh=1(&|$)/.test(q || '');
+let parentQ = ''; try { parentQ = window.parent !== window ? window.parent.location.search : ''; } catch (e) { /* other origin */ }
+if ((freshAsked(location.search) || freshAsked(parentQ)) && store.get(SAVE_KEY)) {
+  // reloading with ?fresh=1 still in the URL must not replace the real save kept for undo with a test run
+  if (!store.get(UNDO_KEY)) store.set(UNDO_KEY, store.get(SAVE_KEY));
+  store.del(SAVE_KEY);
+}
 let S = E.deserialize(store.get(SAVE_KEY) || '') || E.newState();
 const firstVisit = !store.get(SAVE_KEY);
 if (firstVisit && store.get('bellchain.save.v1')) { S.veteran = true; E.earn(S, 500); }
@@ -323,9 +333,30 @@ $('importBtn').addEventListener('click', () => {
 let resetArm = 0;
 $('resetBtn').addEventListener('click', () => {
   if (Date.now() - resetArm > 3000) { resetArm = Date.now(); $('resetBtn').textContent = 'tap again. it is all gone forever.'; setTimeout(() => { $('resetBtn').textContent = 'erase everything'; }, 3000); return; }
-  resetArm = 0; store.del(SAVE_KEY); S = E.newState(); buffs = []; applySong(); applyVolume(); refreshShop(true); renderTab(true); save();
+  resetArm = 0; hardReset();
   $('resetBtn').textContent = 'erase everything'; toast('fresh start. the silence is deafening.');
 });
+// a true reset (K-0023): the pending offline gain used to be written back into the save by the next autosave, so
+// "erase" left resonance behind and the away popup came back. The old save is kept once, for "undo restart".
+function hardReset() {
+  const old = store.get(SAVE_KEY);
+  if (old) store.set(UNDO_KEY, old);
+  store.del(SAVE_KEY);
+  pendingAway = null;
+  document.querySelectorAll('.modal').forEach((m) => m.classList.remove('open'));
+  S = E.newState(); buffs = []; sentScore = 0; scoreAcc = 0; stage.golden = null; goldenIn = Math.min(40, E.goldenDelay(S));
+  upSlots.forEach((el) => setSlot(el, null)); upsShown = false;
+  applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); showUndo();
+}
+function showUndo() { $('undoBtn').hidden = !store.get(UNDO_KEY); }
+$('undoBtn').addEventListener('click', () => {
+  const s = E.deserialize(store.get(UNDO_KEY) || '');
+  if (!s) return;
+  store.del(UNDO_KEY); pendingAway = null; S = s; buffs = [];
+  upSlots.forEach((el) => setSlot(el, null));
+  applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); showUndo(); toast('your old save is back.');
+});
+showUndo();
 $('shareBtn').addEventListener('click', () => {
   const th = themeFor(S.ascensions);
   const txt = `my bellchain band makes ${E.fmt(E.baseRps(S))} resonance/s in ${th.mode}. ${S.otLevel} overtones, best chain ${S.bestChain}. computercooked.com/games/bellchain`;
@@ -378,11 +409,9 @@ window.addEventListener('message', (e) => {
   if (d.type === 'cc-mute') { extMuted = !!d.muted; applyVolume(); }
   else if (d.type === 'cc-pause') { if (d.paused === false) resume(); else if (d.paused === true) pause(); else if (paused) resume(); else pause(); }
   else if (d.type === 'cc-restart') {
-    // an idle game's save is the whole point: restart asks first
-    tab = 'menu'; document.querySelector('[data-tab=menu]').click();
-    resetArm = Date.now(); $('resetBtn').textContent = 'tap to erase everything and restart';
-    setTimeout(() => { $('resetBtn').textContent = 'erase everything'; }, 6000);
-    toast('restart = erase your save. tap the red button to confirm.');
+    // a real restart (K-0023); the old save stays one tap away under menu → undo restart
+    hardReset();
+    toast('fresh start. changed your mind? menu → undo restart.');
   }
 });
 
