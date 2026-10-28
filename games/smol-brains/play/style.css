@@ -55,6 +55,8 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 @media (max-width: 480px) { .hud .long { display: none; } .chipbtn { padding: 0 9px; gap: 5px; } .era .bar { width: 30px; } }
 .speed.paused { color: var(--pink); }
 .menu-btn { width: 38px; justify-content: center; padding: 0; font-size: 18px; }
+.savedot { align-self: center; font-size: 13px; opacity: 0; transition: opacity .5s; pointer-events: none; margin: 0 -2px; }
+.savedot.on { opacity: .85; transition: opacity .15s; }
 
 /* goals strip under the HUD */
 .goals { position: absolute; top: calc(52px + var(--sat)); left: calc(8px + var(--sal)); max-width: min(330px, calc(100% - 16px)); padding: 8px 10px; font-size: 12px; pointer-events: auto; }
@@ -112,6 +114,7 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .ibtn.on { background: var(--lime); color: var(--carbon); }
 .thought { margin: 10px 0 8px; padding: 8px 10px; border-radius: 0; background: rgba(0, 0, 0, 0.25); font-size: 13px; }
 .thought b { color: var(--lime); font-weight: 800; }
+.who { margin: -2px 0 8px; font-size: 12px; line-height: 1.45; }
 .drives { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
 .drive { display: flex; align-items: center; gap: 5px; font-size: 11px; }
 .drive .e { width: 16px; text-align: center; font-family: system-ui, "apple color emoji"; }

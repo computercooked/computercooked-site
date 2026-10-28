@@ -12,13 +12,13 @@
   var V = SB.V;
 
   O.KINDS = {
-    rally: { e: "🚩", name: "rally", tier: 1, cost: 1, life: 180, cap: 99, desc: "gather here. for raids, storms and saying goodbye." },
+    rally: { e: "🚩", name: "rally", tier: 0, cost: 1, life: 180, cap: 99, desc: "gather here. for raids, storms and saying goodbye." },
     explore: { e: "🔭", name: "explore", tier: 1, cost: 1, life: 300, cap: 3, desc: "curious smols head out there, even into the fog." },
     mark: { e: "🪓", name: "work", tier: 2, cost: 0.6, life: 300, cap: 3, desc: "tap a tree to chop, a bush or field to harvest, a rock to mine, a bunny to hunt." },
     build: { e: "📐", name: "build", tier: 2, cost: 1.2, cap: 99, desc: "place a building they know. builders do it there instead of picking their own spot." },
-    nogo: { e: "🚫", name: "no-go", tier: 1, cost: 0.5, zone: true, r: 6, desc: "keep out: danger, or a taboo place." },
+    nogo: { e: "🚫", name: "no-go", tier: 0, cost: 0.5, zone: true, r: 6, desc: "keep out: danger, or a taboo place." },
     stock: { e: "📦", name: "stockpile", tier: 2, cost: 0.5, zone: true, r: 3.5, desc: "willing smols bring what they gather here. builders find it fast." },
-    home: { e: "🏠", name: "home", tier: 2, cost: 0.5, zone: true, r: 10, desc: "where they settle: new buildings go here and wanderers drift back." }
+    home: { e: "🏠", name: "home", tier: 0, cost: 0.5, zone: true, r: 10, desc: "where they settle: new buildings go here and wanderers drift back." }
   };
   O.PRIO = [["gather", "🧺", "gather"], ["build", "🔨", "build"], ["craft", "🛠", "craft"], ["explore", "👣", "explore"], ["care", "💚", "care"], ["fight", "👊", "fight"]];
   var MAX_ORDERS = 14, MAX_ZONES = 8, REROLL = 45;
@@ -31,7 +31,9 @@
     if (!od || typeof od !== "object" || !Array.isArray(od.list)) od = game.orders = { list: [], heat: 0, nextId: 1, placed: 0, followed: 0, refused: 0, annoyed: 0 };
     return od;
   };
-  O.unlocked = function (game) { return (game.stats && game.stats.maxTier || 0) >= 2; };
+  // blobs can follow a rally flag and keep to their zones as soon as the tutorial is done (the bot's K-0011:
+  // "zones and a go-there at the blob stage"); work marks, blueprints and stockpiles wait for tool-users
+  O.unlocked = function (game) { return (game.stats && game.stats.maxTier || 0) >= 2 || !!(game.tutorial && game.tutorial.done); };
 
   /* ---------------- trust ---------------- */
   // how much this smol trusts the sky, 0..1 (0.5 to start). the minds' faith, when a smol has one, counts too
@@ -219,7 +221,7 @@
       if (ex0) return SB.Creature.sendTo(c, ex0.x, ex0.z, game, 10);
     }
     var rally = first(game, "rally");
-    if (rally && c.tier >= 1 && SB.dist(c.x, c.z, rally.x, rally.z) < 90 && decide(c, game, rally)) {
+    if (rally && SB.dist(c.x, c.z, rally.x, rally.z) < 90 && decide(c, game, rally)) {
       c.ordOn = rally.id;
       var dr = SB.dist(c.x, c.z, rally.x, rally.z);
       if (dr > 3.2) return SB.Creature.sendTo(c, rally.x + rng(game).range(-1.8, 1.8), rally.z + rng(game).range(-1.8, 1.8), game, 20);
@@ -433,7 +435,7 @@
 
   // a rough "how many would follow" for the UI: average willingness for a rally across the tribe
   O.obedience = function (game, kind) {
-    var cs = SB.Game.smols(game).filter(function (c) { return !c.stranger && c.tier >= 1; });
+    var cs = SB.Game.smols(game).filter(function (c) { return !c.stranger; });
     if (!cs.length) return 0;
     return cs.reduce(function (s, c) { return s + O.willing(c, game, kind || "rally"); }, 0) / cs.length;
   };

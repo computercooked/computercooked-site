@@ -30,12 +30,28 @@ function spotAway(SB, game, h, d, kind) {
   return null;
 }
 
-console.log("1. the orders tool unlocks at tool-user");
+console.log("1. the orders tool: rally, home and no-go for blobs once the tutorial is done; the rest at tool-user");
 {
-  const a = tribe(11, 1, 3);
-  check("critters: not yet", !a.SB.Orders.unlocked(a.game));
+  const a = tribe(11, 0, 3);
+  a.game.tutorial.done = false;
+  check("blobs in the tutorial: not yet", !a.SB.Orders.unlocked(a.game));
+  a.game.tutorial.done = true;
+  check("blobs after it: unlocked", a.SB.Orders.unlocked(a.game));
+  const K = a.SB.Orders.KINDS;
+  check("blobs get rally, home and no-go", K.rally.tier === 0 && K.home.tier === 0 && K.nogo.tier === 0 && K.mark.tier === 2 && K.build.tier === 2);
   const b = tribe(12, 2, 3);
   check("tool-users: unlocked", b.SB.Orders.unlocked(b.game));
+}
+
+console.log("1b. a rally flag is a go-there for blobs");
+{
+  const { SB, game, cs, h } = tribe(13, 0, 8, 0.95);
+  const p = spotAway(SB, game, h, 14);
+  check("found a spot", !!p);
+  check("rally placed", SB.Orders.place(game, "rally", p.x, p.z).ok);
+  runFed(SB, game, 40);
+  const near = cs.filter(c => c.alive && SB.dist(c.x, c.z, p.x, p.z) < 5).length;
+  check("trusting blobs go there", near >= 4, near + "/8");
 }
 
 console.log("2. a rally gathers the willing");
