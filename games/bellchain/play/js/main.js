@@ -95,15 +95,18 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ---------- golden bells ----------
-let goldenIn = Math.min(40, E.goldenDelay(S));
+// K-0028: the first golden bell of a first run comes early and always pays out, a payoff inside the first 30 s
+const firstGolden = () => S.goldenClicks === 0 && S.ascensions === 0;
+const goldenStart = () => (firstGolden() ? 18 : Math.min(40, E.goldenDelay(S)));
+let goldenIn = goldenStart();
 function spawnGolden() {
   const m = stage.bs * 1.6;
   stage.golden = { x: m + Math.random() * (stage.w - 2 * m), y: 70 + Math.random() * Math.max(10, stage.h - 140), t: 0, life: E.CFG.goldenLife };
 }
 function catchGolden() {
   stage.golden = null;
+  const ef = firstGolden() ? { kind: 'lucky', gain: 100, label: 'lucky · +100' } : E.goldenEffect(S);
   S.goldenClicks++;
-  const ef = E.goldenEffect(S);
   if (ef.kind === 'lucky') E.earn(S, ef.gain);
   else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); }
   [0, 2, 4, 7, 9].forEach((d, i) => music.play('glock', d + 7, now() + i * 0.06, 0.9));
@@ -161,13 +164,15 @@ for (let i = 0; i < UP_SLOTS; i++) {
   });
   $('ups').appendChild(el); upSlots.push(el);
 }
-// the grid shows from the first upgrade on (about the 5th tap, before any bell is affordable) and then stays put
-let upsShown = false;
+$('upsNone').hidden = true; // the 8 slots are there from the first frame, so nothing below them ever moves
+const REFILL_MS = 1500;
+upSlots.forEach((el) => setSlot(el, null));
 function setSlot(el, u) {
+  if (!u && el.dataset.id) el.dataset.freeAt = Date.now();
   el.dataset.id = u ? u.id : '';
   el.classList.toggle('empty', !u); el.tabIndex = u ? 0 : -1;
   el.querySelector('b').textContent = u ? u.name : '';
-  el.querySelector('small').textContent = u ? u.desc : 'keep ringing';
+  el.querySelector('small').textContent = u ? u.desc : (el === upSlots[0] ? 'upgrades land here' : 'keep ringing');
   el.querySelector('i').textContent = u ? E.fmt(u.cost) : '';
 }
 function fillSlots() {
@@ -176,7 +181,8 @@ function fillSlots() {
   const shown = new Set(upSlots.map((el) => el.dataset.id));
   for (const u of av) {
     if (shown.has(u.id)) continue;
-    const free = upSlots.find((el) => !el.dataset.id);
+    // K-0028: a slot emptied a moment ago, or the one under the pointer, waits; a new upgrade never lands under the cursor
+    const free = upSlots.find((el) => !el.dataset.id && Date.now() - (+el.dataset.freeAt || 0) > REFILL_MS && !el.matches(':hover'));
     if (!free) break;
     setSlot(free, u);
   }
@@ -193,8 +199,6 @@ function pulseNext() {
 }
 function refreshShop(force) {
   fillSlots();
-  if (!upsShown && upSlots.some((el) => el.dataset.id)) upsShown = true;
-  $('ups').hidden = !upsShown; $('upsNone').hidden = upsShown;
   upSlots.forEach((el) => { const u = E.UP_BY_ID[el.dataset.id || '']; el.classList.toggle('poor', !!u && S.res < u.cost); });
   let shownNext = false;
   for (const b of E.BUILDINGS) {
@@ -333,26 +337,33 @@ $('importBtn').addEventListener('click', () => {
 let resetArm = 0;
 $('resetBtn').addEventListener('click', () => {
   if (Date.now() - resetArm > 3000) { resetArm = Date.now(); $('resetBtn').textContent = 'tap again. it is all gone forever.'; setTimeout(() => { $('resetBtn').textContent = 'erase everything'; }, 3000); return; }
-  resetArm = 0; hardReset();
+  resetArm = 0; hardReset(); offerUndo();
   $('resetBtn').textContent = 'erase everything'; toast('fresh start. the silence is deafening.');
 });
 // a true reset (K-0023): the pending offline gain used to be written back into the save by the next autosave, so
 // "erase" left resonance behind and the away popup came back. The old save is kept once, for "undo restart".
 function hardReset() {
-  const old = store.get(SAVE_KEY);
-  if (old) store.set(UNDO_KEY, old);
+  // the run as it is right now (the stored copy can be up to 10 s old, or missing before the first autosave)
+  if (S.earnedAll > 0 || S.taps > 0) store.set(UNDO_KEY, E.serialize(S));
   store.del(SAVE_KEY);
   pendingAway = null;
   document.querySelectorAll('.modal').forEach((m) => m.classList.remove('open'));
-  S = E.newState(); buffs = []; sentScore = 0; scoreAcc = 0; stage.golden = null; goldenIn = Math.min(40, E.goldenDelay(S));
-  upSlots.forEach((el) => setSlot(el, null)); upsShown = false;
+  S = E.newState(); buffs = []; sentScore = 0; scoreAcc = 0; stage.golden = null; goldenIn = goldenStart();
+  upSlots.forEach((el) => setSlot(el, null));
   applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); showUndo();
 }
 function showUndo() { $('undoBtn').hidden = !store.get(UNDO_KEY); }
+// after a restart a clickable bar offers the old save back for 10 s (menu → undo restart keeps it after that)
+function offerUndo() {
+  if (!store.get(UNDO_KEY)) return;
+  $('undoBar').hidden = false;
+  clearTimeout(offerUndo.t); offerUndo.t = setTimeout(() => { $('undoBar').hidden = true; }, 10000);
+}
+$('undoGo').addEventListener('click', () => { $('undoBar').hidden = true; $('undoBtn').click(); });
 $('undoBtn').addEventListener('click', () => {
   const s = E.deserialize(store.get(UNDO_KEY) || '');
   if (!s) return;
-  store.del(UNDO_KEY); pendingAway = null; S = s; buffs = [];
+  store.del(UNDO_KEY); pendingAway = null; S = s; buffs = []; $('undoBar').hidden = true;
   upSlots.forEach((el) => setSlot(el, null));
   applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); showUndo(); toast('your old save is back.');
 });
@@ -411,7 +422,7 @@ window.addEventListener('message', (e) => {
   else if (d.type === 'cc-restart') {
     // a real restart (K-0023); the old save stays one tap away under menu → undo restart
     hardReset();
-    toast('fresh start. changed your mind? menu → undo restart.');
+    offerUndo();
   }
 });
 
@@ -442,7 +453,7 @@ function frame(tms) {
     } else music.tempoMult = 1;
     // golden bell
     if (stage.golden) { if (stage.golden.t > stage.golden.life) stage.golden = null; }
-    else if ((goldenIn -= dt) <= 0) { spawnGolden(); goldenIn = E.goldenDelay(S); }
+    else if ((goldenIn -= dt) <= 0) { if (firstGolden()) toast('a golden bell! tap it.'); spawnGolden(); goldenIn = E.goldenDelay(S); }
     // the band
     music.update(now(), S.owned);
     stage.bandIds = E.BUILDINGS.filter((b) => S.owned[b.id]).map((b) => b.id);

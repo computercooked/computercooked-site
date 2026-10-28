@@ -96,8 +96,11 @@
       if (f && f.contentWindow) try { f.contentWindow.focus(); } catch (e) {}
     }, function () { pseudoFs(true); });
   });
+  var toastHome = toastEl.parentNode;
   document.addEventListener("fullscreenchange", function () {
     fsLabel(!!document.fullscreenElement);
+    // only the fullscreen element is drawn, so the toast moves in with it (K-0028: the "hold esc" hint never showed)
+    if (document.fullscreenElement === player) player.appendChild(toastEl); else if (toastEl.parentNode !== toastHome) toastHome.appendChild(toastEl);
     if (!document.fullscreenElement && navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock();
   });
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
