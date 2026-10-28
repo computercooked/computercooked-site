@@ -37,6 +37,12 @@ Response:
   "plays_by_ref": { "tiktok": 0, "direct": 0 },
   "campaigns": { "<utm_campaign>": { "pageviews": 0, "plays": 0, "tip_clicks": 0, "tip_successes": 0 } },
   "next": { "runs_ended": 0, "plays": 0, "ended": 0, "per_run": null, "by_slot": { "challenge": 0, "similar": 0, "new": 0 } },
+  // the whole-site funnel (first-party events): page views → plays → finished runs → shares (dares sent + game shares)
+  // → follow clicks, plus tip clicks, sign-ups (cc:signup) and dares opened (cc:dare_opened). Each game row also has
+  // "funnel": { landed (views of /games/<slug>/), played, finished, shared, followed }.
+  "funnel": { "landed": 0, "played": 0, "finished": 0, "shared": 0, "dares_opened": 0, "followed": 0, "tip_clicks": 0, "signups": 0 },
+  // outbound links are tagged: follow buttons utm_source=computercooked&utm_medium=<slot>&utm_campaign=follow;
+  // dare links ...&utm_campaign=dare and share-this-game links ...&utm_campaign=share, so plays they bring land in "campaigns".
   // the test-lab ranking (src/winners.js): which games are catching on, best first; "too early" ones (under 20 real
   // players) go last. score 0-100 = weighted next-day return 25%, week-later return 15%, plays per player 15%,
   // shares per player 20%, avg session 10%, thumbs-up share 10%, outside traffic 5%, each against a "hit" target;

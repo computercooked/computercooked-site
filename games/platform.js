@@ -241,7 +241,7 @@
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
     // what gets sent: a dare for this exact run, or (no score) just the game
     var make = !scored
-      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/" }); }
+      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/?utm_source=share&utm_medium=" + (navigator.share ? "native" : "link") + "&utm_campaign=share" }); }
       : function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
     var ready = best || !scored ? make() : null, dare = null;
     if (ready) ready.then(function (d) { if (d && d.ok) dare = d; });

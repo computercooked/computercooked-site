@@ -14,8 +14,12 @@
     { id: "x", label: "x", url: "https://x.com/computercooked",
       icon: '<path d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.3L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/>' },
   ];
+  // UTMs on the way out, so a platform's own link analytics can tell site clicks apart (slot = where the button was)
+  function out(l, slot) {
+    return l.url + (l.url.indexOf("?") < 0 ? "?" : "&") + "utm_source=computercooked&utm_medium=" + encodeURIComponent(slot) + "&utm_campaign=follow";
+  }
   function btn(l, slot) {
-    return '<a class="cc-follow-btn" href="' + l.url + '" target="_blank" rel="noopener" data-follow="' + l.id + '" data-slot="' + slot + '">' +
+    return '<a class="cc-follow-btn" href="' + out(l, slot) + '" target="_blank" rel="noopener" data-follow="' + l.id + '" data-slot="' + slot + '">' +
       '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + l.icon + "</svg><span>" + l.label + "</span></a>";
   }
   function card(slot) {

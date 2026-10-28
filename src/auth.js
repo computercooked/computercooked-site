@@ -88,6 +88,7 @@ export async function signup(req, env, ip) {
     throw e;
   }
   const id = res.meta.last_row_id;
+  await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, 'site', 'cc:signup', '{}', ?)").bind(now()).run();
   await linkAnon(env, id, b.anon_id || b.anon, b.username);
   await noteReferral(env, id, b.ref_dare);
   return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar } });
