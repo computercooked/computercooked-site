@@ -220,7 +220,8 @@
     var ws = SB.Save.worlds(), last = ws[0];
     setPane([
       last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), "go big", function () { play(last.id); }) : null,
-      btn("🌱 start game", "a brand-new island", last ? "" : "go big", function () { createWorld({}); }),
+      btn(last ? "▶ new island" : "▶ play now", "jump straight in: a fresh island, ready in seconds", last ? "" : "go big", function () { createWorld({ quick: true }); }),
+      btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
       btn("📂 load game", ws.length ? ws.length + " island" + (ws.length === 1 ? "" : "s") + " saved" : "nothing saved yet", ws.length ? "" : "dim", function () { loadGame(); }),
       btn("⚙ settings", "text size · sound", "small", function () { settings(); })
     ], "menu");
@@ -276,7 +277,7 @@
   function islandName(r) { var w = SB.makeName ? SB.makeName(r) : "smol"; return (r() < 0.5 ? w + " island" : r() < 0.5 ? "isle of " + w : w + " cove").toLowerCase(); }
   function createWorld(pre) {
     var r = SB.rng((Math.random() * 1e9) >>> 0);
-    var st = { name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", crew: "pair", quirk: "surprise" };
+    var st = { name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", crew: "pair", quirk: "surprise" };
     var more = false;
     function rowFor(k) {
       var L = LABELS[k], cur = L[1].find(function (o) { return o[0] === st[k]; });
@@ -319,7 +320,7 @@
         if (!kept && SB.Save.load()) {
           return SB.Save.manyOk().then(function (many) {
             if (many || window.confirm("this browser can only keep one island. starting a new one replaces the island you have. go ahead?")) return true;
-            createWorld(pre); return false;
+            if (pre.quick) mainMenu(); else createWorld(pre); return false;
           });
         }
         return true;
@@ -328,7 +329,7 @@
         setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, name: name }); }, 60);
       });
     }
-    draw();
+    if (pre.quick) go(); else draw();
   }
 
   /* ---------------- settings ---------------- */

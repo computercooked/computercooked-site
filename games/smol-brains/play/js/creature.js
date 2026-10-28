@@ -429,7 +429,9 @@
       cands[ci].sal += boost;
       if (ch.love > 0.35 && cands[ci].t.type === "creature" && (c.partner != null ? cands[ci].t.id === c.partner && ch.love > 0.5 : c.court && cands[ci].t.id === c.court.id)) cands[ci].sal += 0.3 + ch.love * 0.5; // eyes for the one they love (or are courting)
       if (c.mind && c.tier >= 1) { var mv = c.mind.val[SB.NOUNS[cands[ci].noun]]; if (mv) cands[ci].sal += mv * 0.15; } // how things went last time
+      if (c.lure && cands[ci].t.id === c.lure.id) cands[ci].sal += 3; // the sky set something down for it (tricks.js): its eyes go there, what it does is up to its brain
     }
+    if (c.lure && game.time > c.lure.t) c.lure = null;
     var pick = cands.length ? SB.Brain.attend(c.brain, drv, cands, rng) : -1;
     var cand = pick >= 0 ? cands[pick] : null;
     var tgt = cand ? cand.t : null;

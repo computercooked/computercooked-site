@@ -95,6 +95,8 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .sheet::-webkit-scrollbar { width: 6px; } .sheet::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 0; }
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet.side { position: fixed; right: calc(10px + var(--sar)); top: calc(56px + var(--sat)); bottom: calc(80px + var(--sab)); width: 360px; max-height: none; }
+  /* the coach moves into the space left of an open side panel instead of sitting under it */
+  #ui:has(.sheet.side:not(.hide)) .coach { left: max(10px, calc(50% - 400px)); transform: none; width: min(420px, calc(100% - 400px)); }
 }
 .row { display: flex; gap: 8px; align-items: center; }
 .row.wrap { flex-wrap: wrap; }
@@ -495,3 +497,36 @@ body.titling #overlay { opacity: 0; }
 .fhbar .b { flex: 1; height: 8px; background: var(--faint); overflow: hidden; }
 .fhbar .b i { display: block; height: 100%; background: var(--lilac); transition: width 1.4s ease-out; }
 @keyframes fhin { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translateX(-50%); } }
+
+/* v4.5 tricks: the training panel, every bar read from the net */
+.trick { margin-top: 8px; padding: 7px 8px; background: rgba(245, 243, 237, 0.04); border: 1px solid var(--faint); }
+.trick.on { border-color: rgba(197, 255, 73, 0.45); }
+.trick .top { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.trick .top .e { width: 18px; text-align: center; }
+.trick .top .l { flex: 1; min-width: 0; font-weight: 700; }
+.trick .top .n { color: var(--dim); font-size: 12px; width: 38px; text-align: right; }
+.trick .tbar { position: relative; height: 9px; margin: 5px 0 4px; background: var(--faint); }
+.trick .tbar i { display: block; height: 100%; width: 0; background: var(--lilac); transition: width 0.45s cubic-bezier(.2,.9,.3,1.3); }
+.trick.on .tbar i { background: var(--lime); }
+.trick.avoid .tbar i { background: var(--sky); }
+.trick.avoid.on .tbar i { background: var(--lime); }
+.trick .tbar b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--paper); opacity: 0.55; }
+.trick .how { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
+.trick .how span { flex: 1; }
+.trick .how .btn { flex: none; }
+.trick.up { animation: trup 0.6s; } .trick.down { animation: trdown 0.6s; }
+@keyframes trup { 0% { background: rgba(197, 255, 73, 0.28); } 100% { background: rgba(245, 243, 237, 0.04); } }
+@keyframes trdown { 0% { background: rgba(255, 77, 77, 0.28); } 100% { background: rgba(245, 243, 237, 0.04); } }
+/* quests in the goals panel */
+.goals .g.q { cursor: pointer; }
+.goals .g.q:hover .t { color: var(--lime); }
+.goals .g .e { width: 16px; text-align: center; flex: none; }
+.goals .g .r { font: 700 11px var(--mono); color: var(--lime); flex: none; }
+.goals .g.q.done .r { visibility: hidden; }
+.goals .head.sub { margin-top: 5px; font-size: 10px; color: var(--dim); }
+.btn.small { padding: 4px 8px; font-size: 11px; }
+/* phones: the quest board steps aside while a panel is open, and keeps to the chapter's quests */
+@media (max-width: 600px) {
+  #ui:has(.sheet:not(.hide)) .goals { display: none; }
+  .goals .head.sub, .goals .head.sub ~ .g { display: none; }
+}

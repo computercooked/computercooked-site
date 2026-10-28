@@ -30,6 +30,7 @@ console.log("1. entering and leaving");
   const c = cs[0];
   g.sparks = 12;
   check("a grump can't be possessed", !!P.canEnter(g, { type: "creature", alive: true, species: "grump" }));
+  g.stats.possessed = 1; // the first possession is free (tricks.test.js covers that); after it, it costs
   check("enter costs sparks", P.enter(g, c) && g.sparks === 12 - P.COST, "sparks " + g.sparks);
   check("the smol knows", c._pov && P.active && P.c === c && /watched/.test((c.speech && c.speech.text) || ""));
   check("can't possess two at once", !!P.canEnter(g, cs[1]));

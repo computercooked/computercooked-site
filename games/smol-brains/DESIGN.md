@@ -188,6 +188,20 @@ The owner's call: an egg about every 15 minutes instead of every ~3, hearts only
   - every island has a few thought crystals 30–50 tiles from home (`WorldGen`, ids from `CRYSTAL_ID0`), when none are nearer.
 - Also fixed: a builder's fetch step now looks as far as its plan did (it planned with 1.5× its search radius, then failed to find the fibre at the first step, so rebuilds stalled), claims from plans dropped by a conversation, an order or a stranger's choice no longer hide items forever, and builders haul makings from up to 64 m once nothing is near (the flaky threats test).
 
+## 0.17 What v4.5 added: hands on from the first minute (`tricks.js`, `quests.js`)
+
+The owner's verdict on v4.4 was that you mostly sit and watch. v4.5 is milestone 1 of `docs/smol-brains/plans/plan-hands-on.md` (the plan that reorders the next releases around that note).
+
+- **▶ play now** on the title starts a fresh island in one tap; "custom island" keeps the form.
+- **Tricks.** Eight trained behaviours, each a situation plus the right verb (or the one to leave alone).
+  - The meter is read live from the smol's net (`Tricks.chance`: `Brain.qOf` over the everyday verbs, softmax at 0.25), so every lesson visibly moves it, including lessons meant for other tricks.
+  - Learned at 80%, forgotten below 45%. The first time pays 2 sparks; instinct tricks are seeded quietly and don't count as taught.
+  - "Set it up" drops the item beside the smol and sets `c.lure`, which adds +3 to that thing's salience for 15 s in `think()`. The smol looks at it; what it does is still its brain's choice.
+  - Real rounds in the headless test: a hungry blob learns "eat when hungry" in 1–2 lessons; "come when called" takes about 2 lessons over 2–6 calls.
+- **Quest board.** `Quests.CHAPTERS` holds six chapters of 3–4 quests with spark rewards, "how" hints and shortcuts, plus a chapter bonus. It's shown in the goals panel with the old goals underneath. Counters it needs (possessions, possessed meals, new places, first tool) come off the bus. It's saved as `game.quests`.
+- **The first possession is free** (`Possess.cost`). The tutorial's brain step became "teach it a trick".
+- On desktop the tutorial card moves left of an open side panel (smol card, tricks) instead of sitting on top of it.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
@@ -252,9 +266,11 @@ Custom WebGL (WebGL2, or WebGL1 + instancing extension; GLSL ES 1.00) with no li
 - Smol codes: `SMOL2:` (genes, trained brain, words, ideas); `SMOL1:` codes still import.
 
 ## 3. Module map
-Load order: `core, icons, genome, collect, brain, chemistry, lang, ideas, words, worldgen, world, creature, mind, species, society, strangers, social, funeral, orders, firsthour, economy, civ, director, sites, threats, survival, gl, meshes, render, voxel, pixel, hd, fx, bodies, input, audio, music, save, intro, title, possess, survival-art, povhud, ui, cards, main`. All plain scripts on `window.SB`, no build step.
+Load order: `core, icons, genome, collect, brain, chemistry, lang, ideas, words, worldgen, world, creature, mind, species, society, strangers, social, funeral, orders, firsthour, tricks, quests, economy, civ, director, sites, threats, survival, gl, meshes, render, voxel, pixel, hd, fx, bodies, input, audio, music, save, intro, title, possess, survival-art, povhud, ui, cards, main`. All plain scripts on `window.SB`, no build step.
 
 `SB.Surv` (survival.js): the inventory (`inv`, `add`, `take`, `move`, `select`, `held`), piles (`spawn`, `split`, `pickup`), recipes (`recipes`, `match`, `combine`, `craft`), hit points (`hitNode`, `fell`, `gather`, `setBlock`), planting, building (`canPlace`, `place`, `deliver`, `needs`), fires, `onDeath`, and the vines. `SB.Possess` (possess.js): entering and leaving, `drive`, `look`, `options` (what use / place / pick / E would do on a target), `act`, `drop`, `select`, building ghosts, and the first-time quest. `SB.PovHud` (povhud.js): the screen and the input listeners. `SB.SurvArt` (survival-art.js): meshes for vines, the lean-to and the new items, the topple and shake animations, piles, and the 16×16 item icons.
+
+`SB.Tricks` (tricks.js): `LIST` (data), `chance`/`meter` (read from the net), `check`/`seed` (learned and forgotten, emits `trickLearned`/`trickForgot`), `practice` (set it up), `colony`/`best`. `SB.Quests` (quests.js): `CHAPTERS` (data), `board`, `tick` (emits `questDone`/`chapterDone`), `count`.
 
 `SB.Game` (main.js): create/newGame/newGamePlus/revive, step, spawn, layEgg (with echoes and blessings), hatch, sparks, achievements, score, offline. `SB.Debug` has helpers for tests and screenshots (`spawnTier(t, n)`, `ideas(c)`, `build(kind)`, `skip(sec)`).
 

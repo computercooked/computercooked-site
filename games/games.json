@@ -324,11 +324,13 @@
         "pixel art"
       ],
       "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, left click uses what you hold, right click places or eats, f picks up, q drops, e does what the prompt says, 1-9 or the wheel pick a hotbar slot, tab opens the bag and crafting, b the building plans, r turns a building, esc leaves (phones: thumbstick, look pad, an action button that says what it does). wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, b brain viewer, m map.",
-      "size_kb": 2021,
-      "version": "4.4.1",
+      "size_kb": 2076,
+      "version": "4.5.0",
       "added": "2026-10-19",
       "how_to": [
         "tap the crashed pod open. two blobs climb out, a girl and a boy: the last smols. name them.",
+        "🎓 tricks: tap a smol, then 🎓 tricks. every bar is read live from its brain. press “set it up”, then 🪶 tickle or 👆 tap at the right moment and watch the bar move. each trick it learns pays ✨ sparks.",
+        "the chapter list (top left) always has a few quests with ✨ rewards. tap one to see how. your first 👁 possession is free.",
         "💬 talk opens the word book. pick a word, then show it: tap some food for “food”, or ask a smol to “come” and it learns when it does. one lesson every few seconds, so mashing does nothing.",
         "tickle right after the good thing. a few seconds late rewards whatever it is doing by then, which is how smols learn weird superstitions.",
         "smols remember who hit them, shared food, or taught them things. tap a smol → 📜 story to see its friends, rivals and life so far; the menu's 📜 chronicle keeps the island's history.",
