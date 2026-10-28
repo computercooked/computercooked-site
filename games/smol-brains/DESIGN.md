@@ -324,6 +324,14 @@ The first ten minutes have quiet stretches: waiting for the twins to grow up, fo
 - **You're in charge**: changing the speed yourself, or pressing ⏭ again, stops it and keeps your speed. It won't start while you're in a smol's eyes, and the first 2 seconds ignore echoes of what just happened (the second twin growing up a moment after the first).
 - **Tests**: `skip.test.js` (stops with a reason before half a day, an empty island gives up quietly, your speed wins).
 
+## 0.26 What v4.8.1 added: short seasons
+
+The second half of the roadmap's M2 "pace" item. A season lasts 2 days (40 minutes at 1×), so a new player rarely sees summer, let alone winter, in a first session.
+
+- **Short seasons** (an island setting): a season lasts half a day, 10 minutes at 1×, so the whole year takes 40 minutes. Pick it under "more world options" when you make an island, or switch it any time in ⚙ settings. Normal is still the default.
+- `SB.seasonDays(game)` is the one place that knows: the clock (`world.js`) and the "made it through winter" achievement read it. The setting lives in `game.settings.seasons`, so saves keep it.
+- **Tests**: `seasons.test.js` (normal is 2 days; short runs spring → summer → autumn → winter → spring in 2 days and announces each; the achievement unlocks after a short year; a reload keeps the setting).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

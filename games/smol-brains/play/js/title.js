@@ -272,13 +272,14 @@
     grumps: ["grumps", [["none", "none", "no grumps at night"], ["few", "few", ""], ["normal", "normal", ""], ["many", "lots", "hard nights"]]],
     storms: ["weather", [["calm", "calm", "few storms"], ["normal", "normal", ""], ["wild", "wild", "storms, lightning, wildfires"]]],
     story: ["storyteller", [["calm", "gentle", "fewer events, more breathing room"], ["balanced", "balanced", ""], ["wild", "wild", "events come thick and fast"]]],
+    seasons: ["seasons", [["normal", "normal", "40 minutes each"], ["short", "short", "10 minutes each: a whole year in under an hour"]]],
     crew: ["escape pods", [["pair", "one pod", "two smols, a girl and a boy"], ["crew", "two pods", "four smols: a faster start"]]]
   };
-  var ORDER = ["mode", "size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "crew"];
+  var ORDER = ["mode", "size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "seasons", "crew"];
   function islandName(r) { var w = SB.makeName ? SB.makeName(r) : "smol"; return (r() < 0.5 ? w + " island" : r() < 0.5 ? "isle of " + w : w + " cove").toLowerCase(); }
   function createWorld(pre) {
     var r = SB.rng((Math.random() * 1e9) >>> 0);
-    var st = { mode: pre.mode || "normal", name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", crew: "pair", quirk: "surprise" };
+    var st = { mode: pre.mode || "normal", name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", seasons: "normal", crew: "pair", quirk: "surprise" };
     var more = false;
     function rowFor(k) {
       var L = LABELS[k], cur = L[1].find(function (o) { return o[0] === st[k]; });
@@ -328,7 +329,7 @@
         return true;
       }).then(function (yes) {
         if (!yes) return;
-        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, name: name }); }, 60);
+        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, seasons: st.seasons, name: name }); }, 60);
       });
     }
     if (pre.quick) go(); else draw();

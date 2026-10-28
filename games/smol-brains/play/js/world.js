@@ -274,7 +274,7 @@
     world.night = tday < 0.18 || tday > 0.82;
     var di = Math.floor(t);
     if (di !== world.dayIndex) { world.dayIndex = di; emit("newDay", { day: di + 1 }); }
-    var sIdx = Math.floor(di / SB.SEASON_DAYS) % 4, sp = (t / SB.SEASON_DAYS) % 1;
+    var sd = SB.seasonDays(game), sIdx = Math.floor(t / sd) % 4, sp = (t / sd) % 1;
     if (sIdx !== world.season) { world.season = sIdx; emit("season", { season: SB.SEASONS[sIdx] }); if (game && SB.Game && SB.Game.note) SB.Game.note(game, ["spring is here 🌸", "summer! 🌞", "autumn. the leaves are doing the thing 🍂", "winter is coming. it's here actually ❄️"][sIdx]); }
     // seasonal visuals ramp in and out
     var snowT = sIdx === 3 ? SB.smooth(sp * 3) : sIdx === 0 ? 1 - SB.smooth(sp * 4) : 0;
