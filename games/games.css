@@ -2670,3 +2670,44 @@ html[data-landing-ready] { overflow: hidden; }
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* ---------- compact hub: games above the fold (audit P0 #3) ----------
+   The hero used to fill the whole first screen. Now it stays under ~35% of the viewport, and the
+   "made by computer cooked" grid starts right under it: 4 cards across on desktop, the compact list on phones. */
+.games-hero { gap: var(--s-3); padding: 0 0 var(--s-3); }
+.games-hero .eyebrow { margin-bottom: var(--s-2); }
+.games-title { font-size: clamp(1.9rem, 8vw, 3rem); }
+.games-brand { width: 150px; margin: 0 0 0 -4px; }
+/* wordmark and "games" side by side: one short line instead of a tall stack */
+.games-title { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0 10px; }
+.games-title span { padding-bottom: 4px; }
+.games-sub { margin-top: var(--s-2); font-size: 0.92rem; }
+.hero-ctas { margin-top: var(--s-3); }
+.ticker { margin-top: 0; }
+.games-hero .spot-dots { display: none; }
+@media (max-width: 859px) {
+  /* phones keep the compact spotlight card as the play button (the hero buttons are hidden there) */
+  .games-hero { gap: var(--s-3); }
+  /* the spotlight shrinks to a slim "featured: X ▶" row; the sub line and the decorative ticker step aside */
+  .games-sub, .ticker { display: none; }
+  .games-hero .spotlight { grid-template-columns: minmax(0, 34%) 1fr; gap: var(--s-3); padding: var(--s-2); }
+  .games-hero .spot-pitch { display: none; }
+  .games-hero .spot-tag { margin-bottom: 2px; }
+}
+@media (min-width: 860px) {
+  .games-hero { grid-template-columns: 1fr minmax(0, 300px); padding: var(--s-2) 0 var(--s-3); gap: var(--s-5); }
+  .spot-bezel { padding: 8px; animation: none; }
+  .spot-meta { gap: 2px; }
+  .spot-pitch { display: none; }
+}
+@media (min-width: 900px) {
+  .games-brand { width: 170px; }
+}
+@media (min-width: 1000px) {
+  .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4) var(--s-3); }
+  .game-name { font-size: 1.12rem; }
+  .game-pitch { font-size: 0.86rem; }
+  .game-body { padding: var(--s-3); }
+  .game-tags { display: none; }
+  .game-body .play-btn { min-height: 42px; font-size: 0.95rem; }
+}
