@@ -966,7 +966,7 @@
   function updateOrders(force) {
     if (!el.ordGrid || !SB.Orders) return;
     var O = SB.Orders, od = O.ensure(game), maxT = game.stats.maxTier || 0, so = state.order;
-    el.ordObey.innerHTML = "they listen <b>" + Math.round(O.obedience(game) * 100) + "%</b>";
+    el.ordObey.innerHTML = (od.rallies || 0) < 2 ? "your first 🚩: <b>they come</b>" : "they listen <b>" + Math.round(O.obedience(game) * 100) + "%</b>"; // the first two rally flags always work (orders.js)
     [].forEach.call(el.ordGrid.children, function (b) {
       var k = b.getAttribute("data-ord"), K = O.KINDS[k];
       b.classList.toggle("on", !!so && so.kind === k);
@@ -1055,19 +1055,22 @@
     modal("📋 jobs", body);
   }
   UI.openJobs = openJobs;
-  var ordUnlockedSeen = false, ordT = 0, annoyT = 0;
+  var ordUnlockedAt = 0, ordUnlockedSeen = false, ordT = 0, annoyT = 0;
   function updateOrdersUI(dt) {
     if (!SB.Orders || !el.tools) return;
     var on = SB.Orders.unlocked(game), b = el.tools.querySelector('[data-tool="orders"]');
     if (b) b.classList.toggle("hide", !on);
     el.tools.classList.toggle("six", on);
-    if (on && !ordUnlockedSeen && game.tutorial.done && !state.introRunning && !el.modal) {
+    if (on && game.tutorial.done && !ordUnlockedAt) ordUnlockedAt = game.playTime || 0;
+    // blobs: no window the moment the tutorial ends (K-0022: a calm first day). a toast a minute and a half in instead
+    if (on && !ordUnlockedSeen && (game.stats.maxTier || 0) < 2 && game.tutorial.done && (game.playTime || 0) - ordUnlockedAt > 90) {
       ordUnlockedSeen = true;
-      if ((game.stats.maxTier || 0) < 2) storyCard("orders", "🚩", "signs from the sky", [
-        "pick <b>🚩 orders</b> (key 6) and tap the island. a <b>🚩 rally flag</b> says \"go there\": blobs who trust you wander over and hang about. a <b>🏠 home</b> zone is where wanderers drift back to, and a <b>🚫 no-go</b> zone keeps them away from the water or the grumps.",
-        "they're suggestions, not commands. tickles build trust, taps cost some, and a hungry or scared blob does what it needs first. work marks, blueprints and stockpiles come when they grow hands."
-      ]);
-      else storyCard("orders", "🚩", "the sky's orders", [
+      var seenC = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
+      if (!seenC.ordersBlob) { seenC.ordersBlob = 1; toast("🚩 new: <b>orders</b> (key 6). put down a rally flag and your blobs walk to it. tap 🚩 at the bottom to try", "ach", 9000); }
+    }
+    if (on && !ordUnlockedSeen && (game.stats.maxTier || 0) >= 2 && game.tutorial.done && !state.introRunning && !el.modal) {
+      ordUnlockedSeen = true;
+      storyCard("orders", "🚩", "the sky's orders", [
         "your smols are clever enough now to notice signs from the sky. pick <b>🚩 orders</b> (key 6) and leave one: a <b>rally flag</b>, an <b>explore beacon</b>, <b>work marks</b> on trees, rocks, bushes, fields and bunnies, <b>blueprints</b> for buildings they know, and <b>zones</b> (no-go, stockpile, home).",
         "they're suggestions, not commands. a smol follows if it <b>trusts you</b> (tickles, answered prayers and orders that worked out build trust; taps cost some), if it isn't stubborn, and if it isn't starving or scared. order too much and they get annoyed.",
         "📋 jobs nudges what each smol likes doing. the strategy is asking for the right thing at the right time: walls round the village before the raid, farms by the river before winter."
@@ -1754,7 +1757,7 @@
     if (!d) { st.done = true; state.tutStep = -1; return; }
     var last = st.step === TUT.length - 1;
     el.coach = h("div", { class: "coach glass" }, [
-      h("div", { class: "t" }, [h("span", { class: "n" }, (st.step - 1) + "/" + (TUT.length - 2) + " "), d.t]),
+      h("div", { class: "t" }, [st.step >= 2 ? h("span", { class: "n" }, (st.step - 1) + "/" + (TUT.length - 2) + " ") : null, d.t]), // the pod comes before step 1 (it read "-1/7")
       d.s ? h("div", { class: "s", html: d.s }) : null,
       h("div", { class: "row" }, [
         !last ? h("button", { class: "btn", onclick: function () { st.done = true; tutShow(); toast("tutorial skipped. ❓ help is in the menu."); } }, "skip tutorial") : null,

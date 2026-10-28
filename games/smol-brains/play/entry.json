@@ -5,7 +5,7 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, left click uses what you hold, right click places or eats, f picks up, q drops, e does what the prompt says, g sniffs for food (blobs and critters), 1-9 or the wheel pick a hotbar slot, tab opens the bag and crafting, b the building plans, r turns a building, esc or backspace leaves (phones: thumbstick, look pad, an action button that says what it does). wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, b brain viewer (of the picked smol, or the nearest), backspace closes windows, m map.",
-  "size_kb": 2120,
+  "size_kb": 2121,
   "tags": [
     "sim",
     "pets",
@@ -13,7 +13,7 @@
     "3d",
     "pixel art"
   ],
-  "version": "4.7.2",
+  "version": "4.7.3",
   "added": "2026-10-19",
   "how_to": [
     "▶ play now drops you on a fresh island in one tap. 🌱 custom island lets you pick a name, a size (small to extra large) and how wild it is. load keeps every island you've made.",

@@ -184,7 +184,7 @@
     "#pov .death .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}#pov .death .items span{display:flex;align-items:center;gap:3px;font:700 12px var(--mono,monospace)}",
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
     "#pov .intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,18,.6);transition:opacity 1.2s;text-align:center;gap:10px;padding:16px}",
-    "#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 32px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
+    "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 32px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
     "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:6px 12px;font-size:13px;white-space:nowrap}",
     // phone
     "#pov .touch{display:none}#pov.phone .touch{display:block}#pov.phone .lockhint{display:none}",
