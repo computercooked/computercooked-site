@@ -756,7 +756,7 @@
         break;
       case "rain": game.forceWeather = "rain"; w.weather.t = w.weather.next; toast("🌧 the sky opens up"); break;
       case "sun": game.forceWeather = "clear"; w.weather.t = w.weather.next; toast("☀️ the clouds roll away"); break;
-      case "bolt": SB.World.lightning(w, game, x, z, true); R.flash(1); R.camera.shake = 0.6; break;
+      case "bolt": SB.World.lightning(w, game, x, z, true); R.flash(1, true); R.camera.shake = 0.6; break;
       case "inspire":
         listeners(x, z, 6).forEach(function (c) { if (c.species !== "smol") return; c.inspired = 60; SB.Chem.apply(c.chem, { bored: -0.3 }); SB.Creature.emote(c, "idea", 2); });
         if (SB.FX) SB.FX.burst("magic", x, gy + 1, z, 24, { r: 4 });
