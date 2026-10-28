@@ -39,7 +39,7 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
     ]);
     row = await env.DB.prepare("SELECT id, from_name FROM dares WHERE play_id = ?").bind(b.play_id).first();
   }
-  const url = `${origin}/games/${encodeURIComponent(run.game)}/?vs=${encodeURIComponent(run.score)}&from=${encodeURIComponent(row.from_name)}&d=${row.id}`;
+  const url = `${origin}/games/${encodeURIComponent(run.game)}/?vs=${encodeURIComponent(run.score)}&from=${encodeURIComponent(row.from_name)}&d=${row.id}&utm_source=dare&utm_medium=share&utm_campaign=dare`;
   return json({ ok: true, id: row.id, url, text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
 }
 
@@ -64,7 +64,12 @@ export async function getDare(url, env, id, catalog) {
   if (typeof id !== "string" || !/^[A-Za-z0-9_-]{6,16}$/.test(id)) return bad("no such dare", 404);
   const d = await env.DB.prepare("SELECT id, game, score, from_name, beats FROM dares WHERE id = ?").bind(id).first();
   if (!d || !catalog.has(d.game)) return bad("no such dare", 404);
-  if (url.searchParams.get("open") === "1") await env.DB.prepare("UPDATE dares SET opens = opens + 1 WHERE id = ?").bind(id).run();
+  if (url.searchParams.get("open") === "1") {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE dares SET opens = opens + 1 WHERE id = ?").bind(id),
+      env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, 'cc:dare_opened', ?, ?)").bind(d.game, JSON.stringify({ dare: d.id }), now()),
+    ]);
+  }
   return json({ ok: true, id: d.id, game: d.game, title: catalog.get(d.game).title, score: d.score, from: d.from_name, beats: d.beats });
 }
 

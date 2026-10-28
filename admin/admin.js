@@ -31,6 +31,34 @@
       var t = m.totals;
       $("#totals").innerHTML = [["plays", t.plays], ["accounts", t.accounts], ["new accounts", t.new_accounts], ["uploads pending", t.uploads_pending], ["open reports", t.open_reports]]
         .map(function (x) { return "<div><b>" + x[1] + "</b><span>" + x[0] + "</span></div>"; }).join("");
+      // site funnel strip, then per game, then where the follow / tip / dare / campaign numbers come from
+      var f = m.funnel || {};
+      var steps = [["landed", f.landed], ["played", f.played], ["finished", f.finished], ["shared", f.shared], ["followed", f.followed]];
+      $("#funnel").innerHTML = steps.map(function (s, i) {
+        var prev = i ? steps[i - 1][1] : null;
+        return "<div><b>" + (s[1] || 0) + "</b><span>" + s[0] + (prev ? " · " + pct(s[1] / prev) : "") + "</span></div>";
+      }).join("") + "<div><b>" + (f.tip_clicks || 0) + "</b><span>tip clicks</span></div><div><b>" + (f.signups || 0) + "</b><span>sign-ups</span></div>" +
+        "<div><b>" + (f.dares_opened || 0) + "</b><span>dares opened</span></div>";
+      var step = function (a, b) { return b ? " <small>" + pct(a / b) + "</small>" : ""; };
+      table($("#funnel-table"), [
+        ["game", function (g) { return esc(g.title); }],
+        ["landed", function (g) { return g.funnel.landed; }, "n"],
+        ["played", function (g) { return g.funnel.played + step(g.funnel.played, g.funnel.landed); }, "n"],
+        ["finished", function (g) { return g.funnel.finished + step(g.funnel.finished, g.funnel.played); }, "n"],
+        ["shared", function (g) { return g.funnel.shared + step(g.funnel.shared, g.funnel.finished); }, "n"],
+        ["followed", function (g) { return g.funnel.followed + step(g.funnel.followed, g.funnel.finished); }, "n"]
+      ], m.games.filter(function (g) { return g.funnel && (g.funnel.landed || g.funnel.played); }));
+      var kv = function (o) { return Object.keys(o || {}).filter(function (k) { return o[k]; }).map(function (k) { return esc(k) + " " + o[k]; }).join(", ") || "–"; };
+      var d = m.dares || {}, fc = m.follow_clicks || {}, tp = m.tips || {};
+      table($("#extras-table"), [["what", function (x) { return x[0]; }], ["numbers", function (x) { return x[1]; }, "wrap"]], [
+        ["dares", d.made + " made → " + d.sent + " sent → " + d.opened + " opened → " + d.beaten + " beaten"],
+        ["follow clicks", fc.total + " · " + kv(fc.by_platform) + " · from " + kv(fc.by_slot)],
+        ["tips", tp.clicks + " clicks (" + kv(tp.clicks_by_slot) + ") · " + tp.successes + " paid"],
+        ["page views by channel", kv((m.pageviews || {}).by_ref)],
+        ["plays by channel", kv(m.plays_by_ref)],
+        ["campaigns", Object.keys(m.campaigns || {}).map(function (c) { var x = m.campaigns[c]; return esc(c) + ": " + x.pageviews + " views, " + x.plays + " plays, " + x.tip_clicks + " tip clicks"; }).join(" · ") || "–"]
+      ]);
+
       var LBL = { d1: "next day", d7: "week later", replay: "replays", share: "shares", session: "session", rating: "rating", outside: "outside traffic" };
       (m.winners || []).forEach(function (w, i) { w.rank = w.verdict === "too early" ? 0 : i + 1; });
       table($("#win-table"), [
