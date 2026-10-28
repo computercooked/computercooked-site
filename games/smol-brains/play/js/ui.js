@@ -91,7 +91,7 @@
     setTool(g.hand.tool || "grab");
   };
   UI.setGame = function (g) {
-    game = g; SB.Input.setGame(g); mini.base = null; ordUnlockedSeen = false;
+    game = g; SB.Input.setGame(g); mini.base = null; ordUnlockedSeen = false; ordUnlockedAt = -1; // per island: an old island's clock made the toast come at once (K-0025)
     closeSheet(); state.inspect = null;
     if (el.goals) el.goals.innerHTML = "";
   };
@@ -255,11 +255,13 @@
     if (!el.skip) return;
     hudT = 0;
     if (d.why === "⏭ stopped") return;
-    toast(esc(d.why), "ach", 5000);
+    var sp = d.why.indexOf(" "), ic = sp > 0 && sp <= 3 ? d.why.slice(0, sp) : "⏭";
+    moment(ic, d.why.slice(sp > 0 && sp <= 3 ? sp + 1 : 0), "⏭ skipped to here · back to " + (game.speed || 1) + "×", "", true);
     if (d.at && d.at.x != null) R.flyTo(d.at.x, d.at.z, Math.min(R.camera.tZoom, 10), 1.0); // you asked to be shown: always fly
     if (d.at && d.at.type === "creature" && d.at.alive) SB.Game.select(game, d.at.id);
   });
   function cycleSpeed(d) {
+    if (game.skip && d !== 0) { SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); hudT = 0; return; } // mid-skip, [ or ] just stops it
     var i = SB.SPEEDS.indexOf(game.speed);
     if (d === 0) { game.speed = game.speed === 0 ? (game._lastSpeed || 1) : (game._lastSpeed = game.speed, 0); }
     else { i = (i + d + SB.SPEEDS.length) % SB.SPEEDS.length; game.speed = SB.SPEEDS[i]; } // 16× wraps round to paused (phones have no space bar)
@@ -413,10 +415,12 @@
   /* story cards: the first time something big happens, the game pauses and explains it (what happened,
      why, what you can do). Later times are just a quick moment. */
   var cardQ = [];
+  UI.QUIET_START = 240; // real seconds into an island when story cards stop being toasts
   function storyCard(key, icon, title, paras, fallback) {
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
+    if ((game.playTime || 0) < UI.QUIET_START && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
     if (cardQ.length >= 2) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 6500); return; } // too many waiting: a toast instead
     cardQ.push([icon, title, paras]);
   }
@@ -459,7 +463,7 @@
   function setTool(t, user) {
     var prev = state.tool;
     if (user && prev === t && (t === "talk" || t === "magic" || t === "orders")) t = "grab"; // tap the open book's button again to put it away
-    if (t === "orders" && !(SB.Orders && SB.Orders.unlocked(game))) t = "grab"; // tool-users first
+    if (t === "orders" && !(SB.Orders && SB.Orders.unlocked(game))) { if (user) toast("🚩 orders open when the tutorial is done"); t = "grab"; } // tool-users first
     state.tool = t; game.hand.tool = t;
     [].forEach.call(el.tools.children, function (b) { b.classList.toggle("on", b.getAttribute("data-tool") === t); });
     disarm(); state.order = null;
@@ -1003,12 +1007,13 @@
     var warn = od.heat > 2.5 ? "😤 that's a lot of orders. they're getting annoyed and listen less for a while." : "";
     if (el.ordWarn._t !== warn) { el.ordWarn._t = warn; el.ordWarn.textContent = warn; el.ordWarn.classList.toggle("hide", !warn); }
     // what's out there now
-    var key = od.list.map(function (o) { return o.id + ":" + O.followers(game, o) + ":" + (o.no || 0) + ":" + (o.n || 0); }).join(",");
+    var key = od.list.map(function (o) { return o.id + ":" + O.followers(game, o) + ":" + (o.yes || 0) + ":" + (o.no || 0) + ":" + (o.n || 0); }).join(",");
     if (!force && el.ordList.dataset.key === key) return;
     el.ordList.dataset.key = key; clear(el.ordList);
     od.list.forEach(function (o) {
       var K = O.KINDS[o.kind], f = O.followers(game, o);
       var txt = o.kind === "mark" ? o.label : o.kind === "build" ? "📐 " + (SB.STRUCTS[o.build] ? SB.STRUCTS[o.build].label : "") : K.e + " " + K.name;
+      if (o.kind === "rally") f = Math.max(f, o.yes || 0);
       if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "") + (o.whys ? " (" + Object.keys(o.whys).sort(function (a, b) { return o.whys[b] - o.whys[a]; }).slice(0, 2).join(", ") + ")" : "");
       if (o.kind === "stock" && o.n) txt += " · " + o.n + " brought";
       el.ordList.appendChild(h("span", { class: "chip ordchip" }, [h("button", { class: "lnk", title: "look", onclick: function () { R.flyTo(o.x, o.z, Math.min(R.camera.tZoom, 12), 0.7); } }, txt), h("button", { class: "lnk x", title: "take it back", onclick: function () { O.remove(game, o.id); updateOrders(true); } }, "✕")]));
@@ -1072,15 +1077,15 @@
     modal("📋 jobs", body);
   }
   UI.openJobs = openJobs;
-  var ordUnlockedAt = 0, ordUnlockedSeen = false, ordT = 0, annoyT = 0;
+  var ordUnlockedAt = -1, ordUnlockedSeen = false, ordT = 0, annoyT = 0;
   function updateOrdersUI(dt) {
     if (!SB.Orders || !el.tools) return;
     var on = SB.Orders.unlocked(game), b = el.tools.querySelector('[data-tool="orders"]');
-    if (b) b.classList.toggle("hide", !on);
-    el.tools.classList.toggle("six", on);
-    if (on && game.tutorial.done && !ordUnlockedAt) ordUnlockedAt = game.playTime || 0;
+    if (b) b.classList.toggle("locked", !on);
+    el.tools.classList.add("six");
+    if (on && game.tutorial.done && ordUnlockedAt < 0) ordUnlockedAt = game.playTime || 0;
     // blobs: no window the moment the tutorial ends (K-0022: a calm first day). a toast a minute and a half in instead
-    if (on && !ordUnlockedSeen && (game.stats.maxTier || 0) < 2 && game.tutorial.done && (game.playTime || 0) - ordUnlockedAt > 90) {
+    if (on && !ordUnlockedSeen && (game.stats.maxTier || 0) < 2 && game.tutorial.done && ordUnlockedAt >= 0 && (game.playTime || 0) - ordUnlockedAt > 90) {
       ordUnlockedSeen = true;
       var seenC = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
       if (!seenC.ordersBlob) { seenC.ordersBlob = 1; toast("🚩 new: <b>orders</b> (key 6). put down a rally flag and your blobs walk to it. tap 🚩 at the bottom to try", "ach", 9000); }
@@ -1659,12 +1664,13 @@
     var s = podQ[0];
     if (!s) return;
     if (el.modal || state.introRunning || (SB.Intro && SB.Intro.covering) || (R.camera.intro)) { setTimeout(nextPod, 1500); return; }
+    if (game.skip) SB.Game.skipStop(game, { why: "🛸 a pod came down", c: null });
     var sp = game.speed || 1; game.speed = 0;
     // back where you were: the first time, a word on what pods are; then straight to "send a rescue party?"
     var resume = function () {
       if (!game.speed) game.speed = sp; podQ.shift();
-      storyCard("podcard", "🛸", "the other pods", ["the ark had thousands of escape pods. some are still drifting in orbit, and every so often one falls.", "each one may hold survivors who aren't related to your tribe, so they can start new families. pods also carry supplies and the ark's logs, which tell the story (and the way home).", "send a rescue party, or they'll climb out after a while and come looking for you."]);
-      if (SB.Director && !s.done && !SB.Director.state(game).active && game.tutorial.done) SB.Director.fire(game, "pod");
+      if (0) storyCard("podcard", "🛸", "the other pods", ["the ark had thousands of escape pods. some are still drifting in orbit, and every so often one falls.", "each one may hold survivors who aren't related to your tribe, so they can start new families. pods also carry supplies and the ark's logs, which tell the story (and the way home).", "send a rescue party, or they'll climb out after a while and come looking for you."]);
+      if (SB.Director && !s.done && game.tutorial.done) setTimeout(function () { if (!s.done && !SB.Director.state(game).active) SB.Director.fire(game, "pod"); }, 20000); // not straight after the map: that ate taps (K-0025)
       if (podQ.length) setTimeout(nextPod, 4000);
     };
     if (SB.Intro && !UI.noStory) SB.Intro.play({ scene: "pod", noGate: true, done: function () { podMap(s, resume); } });
@@ -1672,13 +1678,14 @@
   }
   UI.podMap = function (s, done) { podMap(s, done || function () {}); };
   function podMap(s, done) {
-    var T = game.world.T, N = T.N, hm = SB.Society.home(game, 0);
+    var T = game.world.T, N = T.N, hm = SB.Society.home(game, 0), seenP = (game.settings = game.settings || {}).cards || (game.settings.cards = {}), first = !seenP.podcard;
+    seenP.podcard = 1;
     var size = Math.round(Math.min(window.innerWidth * 0.9, window.innerHeight * 0.68, 560));
     var dpr = Math.min(window.devicePixelRatio || 1, 2), cv = h("canvas", { class: "podmapcv", style: "width:" + size + "px;height:" + size + "px" });
     cv.width = cv.height = Math.round(size * dpr);
     var d = Math.round(SB.dist(s.x, s.z, hm.x, hm.z)), a = (Math.atan2(s.x - hm.x, -(s.z - hm.z)) * 180 / Math.PI + 360) % 360;
     var dir = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][Math.round(a / 45) % 8];
-    var cap = h("div", { class: "podcap" }, [h("b", null, "🛸 pod " + (s.n || "") + " came down here"), h("span", null, d + " steps " + dir + " of the village. it's marked on your map.")]);
+    var cap = h("div", { class: "podcap" }, [h("b", null, "🛸 pod " + (s.n || "") + " came down here"), h("span", null, d + " steps " + dir + " of the village. it's marked on your map."), first ? h("span", { class: "podwhy" }, "the ark's other escape pods still fall now and then. survivors inside aren't family, so they can start new families. pods carry supplies too.") : null]);
     var ok = h("button", { class: "btn go" }, "ok");
     var wrap = h("div", { class: "podmap" }, [cv, cap, ok]);
     root.appendChild(wrap);
@@ -2332,6 +2339,7 @@
       if (!d.first) return;
       setTimeout(function () {
         if (!SB.Intro || UI.noStory) { endCard(); return; }
+        if (game.skip) SB.Game.skipStop(game, null);
         var sp = game.speed; game.speed = 0; closeModal();
         if (SB.Audio) SB.Audio.play("chime");
         SB.Intro.play({ scene: "end", noGate: true, done: function () { game.speed = sp || 1; endCard(); } });

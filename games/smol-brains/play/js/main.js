@@ -444,8 +444,6 @@
     egg: function (d) { return { why: "🥚 an egg!", c: d.obj }; },
     wildEgg: function (d) { return { why: "🥚 a wild egg turned up", c: d.obj }; },
     partners: function (d) { return { why: "💕 " + d.a.name + " and " + d.b.name + " paired up", c: d.a }; },
-    pray: function (d) { return { why: "🙏 " + d.c.name + " is praying to you", c: d.c }; },
-    wish: function (d) { return { why: "✨ " + d.c.name + " made a wish", c: d.c }; },
     tierUp: function (d) { return { why: "🧬 " + d.c.name + " evolved!", c: d.c }; },
     eureka: function (d) { return d.first ? { why: "💡 " + d.c.name + " had an idea!", c: d.c } : null; },
     incident: function (d) { return { why: "⚠ something's happening", c: d.inc }; },

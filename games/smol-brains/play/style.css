@@ -464,6 +464,8 @@ body.titling #overlay { opacity: 0; }
 @media (max-width: 420px) { .tools.six .tool { width: 51px; } }
 @media (max-width: 360px) { .tools.six .tool { width: 46px; font-size: 10px; } }
 .tool.hide { display: none; }
+.tool.locked { opacity: 0.35; filter: grayscale(1); }
+.podmap .podwhy { display: block; margin-top: 6px; font-size: 12px; opacity: 0.85; }
 #ui:has(.sheet[data-kind="orders"]:not(.hide)) .guide { display: none; } /* placing orders needs the whole sheet */
 .ordbuild .chip { cursor: pointer; border: 0; color: inherit; font: inherit; font-size: 12px; }
 .ordbuild .chip.lime { background: var(--lime); color: var(--carbon); }

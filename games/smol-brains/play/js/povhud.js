@@ -360,8 +360,12 @@
     }
     hud.quest.classList.toggle("mini", !!hud.phone);
   };
+  var qQ = [], qBusy = false;
   HUD.questStep = function (done, next) {
     if (!hud) return;
+    if (qBusy) { qQ.push([done, next]); return; } // two steps at once (food already eaten): one banner after the other
+    qBusy = true;
+    setTimeout(function () { qBusy = false; var n = qQ.shift(); if (n) HUD.questStep(n[0], n[1]); }, 2800);
     var blob = S() && S().quest && S().quest.kind === "blob";
     var nofi = function (t) { return esc(t).replace(/f(?=[il])/g, "f‌"); }; // the mono font's big sizes still join f+i / f+l ("find" read "And")
     var d = hud.root.appendChild(el("div", "qdone panel", "✓ " + nofi(done.text) + (blob ? " · +1 ✨" : "") + (next ? "<small>next: " + nofi(next.text) + "</small>" : "")));
@@ -798,6 +802,7 @@
 
   /* ---------------- desktop and phone controls ---------------- */
   var lockHinted = false;
+  var lockAt = 0;
   function locked() { return typeof document !== "undefined" && !!document.pointerLockElement; }
   function canvasEl() { return document.getElementById("view"); }
   function bind() {
@@ -835,7 +840,11 @@
       },
       move: function (e) {
         var s = S(); if (!s || bag) return;
-        if (locked()) { s.mdx = (s.mdx || 0) + (e.movementX || 0); s.mdy = (s.mdy || 0) + (e.movementY || 0); return; }
+        if (locked()) {
+          var mx = e.movementX || 0, my = e.movementY || 0;
+          if (performance.now() - lockAt < 120 || Math.abs(mx) > 250 || Math.abs(my) > 250) return; // the lock's first jump (K-0025)
+          s.mdx = (s.mdx || 0) + mx; s.mdy = (s.mdy || 0) + my; return;
+        }
         if (drag) { var dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); P().look2(dx * 1.4, dy * 1.4); }
       },
       up: function (e) {
@@ -868,6 +877,7 @@
     // the mouse can't always be locked (some browsers, iframes, a recent Esc): say how to look without it (K-0021)
     h.lockErr = function () { if (S() && !lockHinted) { lockHinted = true; HUD.say("🖱 the mouse couldn't lock here: hold a button and drag to look, or use the arrow keys"); } };
     document.addEventListener("pointerlockerror", h.lockErr);
+    document.addEventListener("pointerlockchange", function () { lockAt = performance.now(); });
     window.addEventListener("keydown", h.keydown);
     window.addEventListener("keyup", h.keyup);
     window.addEventListener("blur", h.blur);
