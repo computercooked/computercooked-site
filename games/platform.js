@@ -373,6 +373,17 @@
       box.querySelector(".cc-tip-pb a").addEventListener("click", function () { if (window.ccHit) window.ccHit("tip_click", { slot: "post-best", game: game }); });
     });
   }
+  // the ad layer (assets/ads.js + consent.js): caps and consent only, no network yet; loaded on the first run end
+  var adsP = null;
+  function adsReady() {
+    if (!adsP) adsP = new Promise(function (ok) {
+      var n = 0, one = function () { if (++n === 2) ok(window.ccAds || null); };
+      ["/assets/consent.js", "/assets/ads.js"].forEach(function (src) {
+        var s = document.createElement("script"); s.src = src; s.onload = one; s.onerror = one; document.head.appendChild(s);
+      });
+    });
+    return adsP;
+  }
   var tip = null;
   function tipUrl() {
     if (!tip) tip = fetch("/api/tip").then(function (r) { return r.ok ? r.json() : null; })
@@ -452,6 +463,7 @@
     dareResult(e);
     dareButton(e);
     nextRail();
+    adsReady().then(function (a) { if (a) a.runEnded(game); });
     var x = r && r.xp;
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));

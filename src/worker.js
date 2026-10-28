@@ -22,6 +22,8 @@ import { followClick } from "./follow.js";
 import { hit } from "./hits.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
 
+const CONSENT_COUNTRIES = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
@@ -57,6 +59,8 @@ async function api(req, env, url) {
   const origin = url.origin;
 
   if (path === "/api/health") return json({ ok: true, db: !!env.DB });
+  // does this visitor need an ads consent banner (assets/consent.js)? EU/EEA, UK and Switzerland, from Cloudflare's country
+  if (path === "/api/geo") return json({ ok: true, consent_required: CONSENT_COUNTRIES.has((req.cf && req.cf.country) || "") }, 200, { "cache-control": "private, max-age=3600" });
   // the tip jar link (hub footer, after a run): null while TIP_URL is unset, so nothing shows
   if (path === "/api/tip") return json({ ok: true, url: tipUrl(env) }, 200, { "cache-control": "public, max-age=300" });
   if (!env.DB) return bad("database not configured", 503);
