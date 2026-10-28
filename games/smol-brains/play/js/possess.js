@@ -218,6 +218,9 @@
     // friends tag along, and share food with a hungry you
     if ((S.friendT -= dt) <= 0) { S.friendT = 6; friends(c, game); }
     if ((S.questT -= dt) <= 0) { S.questT = 0.3; questTick(); }
+    // the nose: the sniff marker fades, or goes when you get there
+    S.sniffCd = Math.max(0, (S.sniffCd || 0) - dt);
+    if (S.sniff && ((S.sniff.t -= dt) <= 0 || SB.dist(S.sniff.x, S.sniff.z, c.x, c.z) < 1.6)) S.sniff = null;
   };
   function ok(w, x, z, swim) { return SB.World.walkable(w, x, z, swim); }
   // a soft push apart from anyone you bump into (a bit each tick, so it slides rather than snaps)
@@ -404,7 +407,7 @@
       else if (cr.species !== "smol") o.use = op("pounce on the " + nm, function () { return attack(cr); }, V.hit);
       else {
         o.use = op("talk to " + cr.name, function () { return creatureAct(V.talk, t); }, V.talk);
-        if (held && hk !== "plans" && tier >= 1) o.place = op("give " + cr.name + " your " + kl(hk), function () { return give(cr); }, V.give);
+        if (held && hk !== "plans") o.place = op((Surv.edible(hk) ? "share your " + kl(hk) + " with " + cr.name : "give " + cr.name + " your " + kl(hk)), function () { return give(cr); }, V.give);
         else o.place = op((cr.stage === 0 ? "pet " : "hug ") + cr.name, function () { return creatureAct(V.cuddle, t); }, V.cuddle);
       }
     } else if (r && r.type === "item") {
@@ -433,7 +436,9 @@
         else { o.pick = op("pull a vine", function () { return gather(n); }, V.pickup); o.use = o.pick; }
       } else if (Surv.isTree(n)) {
         if (n.state === "ok" && tier >= 1) o.use = P0.wood > 0 ? op("chop the " + nm, function () { return hitNode(n, hk); }, V.use) : op("shake the " + nm, function () { return hitNode(n, hk); }, V.play);
+        else if (n.state === "ok") o.use = op("bump the " + nm, function () { return shakeNode(n); }, V.play);
         if (gat && tier >= 2) o.pick = op(gat.verb, function () { return gather(n); }, V.pickup);
+        else if (tier < 2) o.pick = tugOpt(n);
       } else if (rk) {
         var pw = rk.ore ? P0.ore : P0.stone;
         if (rk.ore && hk === "hammer" && tier < 4) pw = 0;
@@ -442,11 +447,13 @@
         if (gat && tier >= 2) o.pick = op(gat.verb, function () { return gather(n); }, V.pickup);
       } else if (n === game.world.T.nest) {
         o.place = op("sleep in the nest", function () { return sleepAt(t); }, V.sleep);
+        if (held && Surv.SOFT[hk]) o.use = Surv.nest(game).cosy >= Surv.NEST_MAX ? no("the nest is as cosy as it gets") : op("line the nest with your " + kl(hk), function () { return lineNest(); }, V.drop, { nestLine: 1 });
       } else if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds" || n.kind === "hive" || n.kind === "cactus") {
         o.use = op((n.kind === "roots" ? "pull at the " : "shake the ") + nm, function () { return shakeNode(n); }, V.play);
         if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds") o.place = op("nibble the " + nm, function () { return creatureAct(V.eat, t); }, V.eat);
+        if (tier < 2 && n.kind !== "hive" && n.kind !== "cactus") o.pick = tugOpt(n);
       } else if (gat) {
-        o.pick = tier >= 2 ? op(gat.verb, function () { return gather(n); }, V.pickup) : no("you need hands for that");
+        o.pick = tier >= 2 ? op(gat.verb, function () { return gather(n); }, V.pickup) : Surv.canTug(game, n) ? tugOpt(n) : no("you need hands for that");
         o.use = o.pick.locked ? null : o.pick;
       }
     } else if (r && r.type === "struct") {
@@ -491,7 +498,10 @@
     }
     if (!o.use && !r && held && K[hk] && K[hk].tool) o.use = op("swing your " + kl(hk), function () { swingAnim(); return true; }, null);
     o.ctx = o.pick && !o.pick.locked ? o.pick : o.use && !o.use.locked && o.use.label !== "cancel" ? o.use : o.place && !o.place.locked ? o.place : null;
+    if (o.use && o.use.nestLine) o.ctx = o.use;
+    if (!o.ctx && tier < 2) o.ctx = op("sniff for food", function () { return P.sniff(); }, null); // a small body's nose (G)
     return o;
+    function tugOpt(n) { return Surv.canTug(game, n) ? op("tug off some leaves", function () { return tug(n); }, V.pickup) : null; }
   };
 
   // do one of them: which = "use" | "place" | "pick" | "ctx". returns the option done (or null)
@@ -632,7 +642,8 @@
     var c = S.c, game = S.game, kind = it.kind;
     if (Sv().whyNot(c, kind)) { say(Sv().whyNot(c, kind)); return false; }
     var n = Sv().pickup(c, game, it);
-    if (!n) { say("your bag is full"); return false; }
+    if (!n) { say(c.tier < 2 ? "your mouth is full. drop it (Q) first" : "your bag is full"); return false; }
+    if (c.tier < 2 && SB.Creature.habit) SB.Creature.habit(c, "hands", 0.35); // carrying in its mouth is practice for hands (echoes)
     gain(n, kind);
     return true;
   }
@@ -677,6 +688,39 @@
     }
     void n;
   }
+  function tug(n) {
+    var r = Sv().tug(S.c, S.game, n);
+    if (r.msg) say(r.msg);
+    if (r.ok) { swingAnim(); gain(1, "leaves"); }
+    return !!r.ok;
+  }
+  function lineNest() {
+    var c = S.c, v = Sv().inv(c), r = Sv().lineNest(c, S.game, v.sel);
+    if (!r) return false;
+    if (r.full) { say("the nest is as cosy as it gets"); return false; }
+    audio(r.up ? "chime" : "build", r.up ? 1 : 0.5);
+    say(r.up ? ["", "the nest feels cosier! eggs by it hatch a little faster", "cosier still. the eggs love it", "the cosiest nest on the island"][r.cosy] : "softer… " + r.left + " more to make it cosier");
+    return true;
+  }
+  P.sniffing = function () { return S ? S.sniff : null; };
+  // G: a small body's nose. points the marker at the nearest food for a while
+  P.sniff = function () {
+    if (!S || S.dead) return false;
+    var c = S.c, game = S.game, w = game.world, Surv = Sv();
+    if (S.sniffCd > 0) { say("sniff… your nose needs a moment"); return false; }
+    S.sniffCd = 3;
+    var it = SB.World.nearestItem(w, c.x, c.z, 45, function (o) { return o.heldBy == null && Surv.edible(o.kind) && !(o.data && o.data.rotten) && !(K[o.kind] && K[o.kind].critter) && !(o.data && o.data.pod); });
+    var nd = SB.World.nearestNode(w, c.x, c.z, 45, function (n) { var d = NK[n.kind]; return n.state === "ok" && d && d.drops && Surv.edible(d.drops) && n.kind !== "hive"; });
+    var t = it, d1 = it ? SB.dist(it.x, it.z, c.x, c.z) : 1e9, d2 = nd ? SB.dist(nd.x, nd.z, c.x, c.z) : 1e9;
+    if (d2 + 4 < d1) t = nd; // loose food beats a plant unless the plant is much nearer
+    if (!t) { say("sniff sniff… nothing tasty nearby"); return true; }
+    var d = Math.min(d1, d2);
+    S.sniff = { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + 1.1, t: 14 };
+    say("sniff sniff… something tasty, " + Math.round(d) + "m that way");
+    audio("tap", 0.4);
+    SB.bus.emit("sniff", { c: c });
+    return true;
+  };
   function shakeNode(n) {
     var o = SB.World.shake(S.game.world, S.game, n, false);
     swingAnim();
@@ -893,30 +937,50 @@
     { id: "fire", text: "build a campfire", tip: "open your plans (B), pick the campfire, place it, bring it sticks and rocks" },
     { id: "leanto", text: "build a lean-to (optional)", tip: "in your plans now: sticks, leaves and a vine. sleep under it tonight", optional: true }
   ];
-  function questStore() { try { return localStorage.getItem(QKEY); } catch (e) { return null; } }
+  // a blob's (or critter's) first day: something to do in its body from the first seconds
+  var BKEY = "smolbrains-blobquest";
+  P.BLOB_QUEST = [
+    { id: "eat", text: "eat something", tip: "look at a berry bush and right click to nibble it, or left click food on the ground" },
+    { id: "sniff", text: "sniff out food", tip: "press G (or E with nothing in front of you). your nose points the marker at food" },
+    { id: "tug", text: "tug leaves off a plant", tip: "look at a bush or a tree and press F. the leaves go in your mouth" },
+    { id: "nest", text: "line the nest", tip: "carry leaves to the nest (follow the marker) and left click it. a cosy nest hatches eggs faster" },
+    { id: "share", text: "bring a friend some food", tip: "pick food up with F, walk to a friend and right click them" }
+  ];
+  function questStore(key) { try { return localStorage.getItem(key || QKEY); } catch (e) { return null; } }
   function questStart() {
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
-    var done = st.povQuest === "done" || st.povQuest === "skipped" || questStore() === "done";
     S.quest = null;
-    if (done || c.tier < 2) return;
-    S.quest = { i: 0, started: game.time, flags: {} };
+    if (c.tier < 2) {
+      if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
+      S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };
+    } else {
+      if (st.povQuest === "done" || st.povQuest === "skipped" || questStore() === "done") return;
+      S.quest = { i: 0, started: game.time, flags: {} };
+    }
     questTick();
   }
   P.quest = function () { return S && S.quest; };
-  P.questStep = function () { return S && S.quest ? P.QUEST[S.quest.i] : null; };
+  P.questList = function () { return S && S.quest && S.quest.kind === "blob" ? P.BLOB_QUEST : P.QUEST; };
+  P.questStep = function () { return S && S.quest ? P.questList()[S.quest.i] : null; };
   P.skipQuest = function () {
     if (!S || !S.quest) return;
+    var blob = S.quest.kind === "blob";
     S.quest = null;
-    (S.game.settings || (S.game.settings = {})).povQuest = "skipped";
-    try { localStorage.setItem(QKEY, "done"); } catch (e) {}
+    (S.game.settings || (S.game.settings = {}))[blob ? "povBlobQuest" : "povQuest"] = "skipped";
+    try { localStorage.setItem(blob ? BKEY : QKEY, "done"); } catch (e) {}
     if (H()) H().quest();
   };
   function questTick() {
     var q = S && S.quest;
     if (!q) return;
     var c = S.c, game = S.game, Surv = Sv(), Id = I(), made = Id.known(c, "lashing") || q.flags.craft;
-    var step = P.QUEST[q.i], ok = false;
-    switch (step.id) {
+    var list = P.questList(), step = list[q.i], ok = false;
+    switch (q.kind === "blob" ? "b:" + step.id : step.id) {
+      case "b:eat": ok = !!q.flags.eat; break;
+      case "b:sniff": ok = !!q.flags.sniff; break;
+      case "b:tug": ok = !!q.flags.tug || Surv.count(c, "leaves", true) > 0; break;
+      case "b:nest": ok = (q.flags.lined || 0) >= 3 || Surv.nest(game).cosy >= Surv.NEST_MAX; break;
+      case "b:share": ok = !!q.flags.share; break;
       case "stick": ok = Surv.count(c, "stick", true) > 0 || made; break;
       case "vine": ok = Surv.count(c, "vine", true) > 0 || made; break;
       case "rock": ok = Surv.count(c, "stone", true) > 0 || made; break;
@@ -928,9 +992,9 @@
     if (ok) {
       q.i++;
       audio("chime");
-      if (q.i >= P.QUEST.length) { questDone(); return; }
-      if (P.QUEST[q.i].id === "leanto" && !Id.known(c, "leanto") && !Id.canHold(c, "leanto")) { questDone(); return; }
-      if (H()) H().questStep(P.QUEST[q.i - 1], P.QUEST[q.i]);
+      if (q.i >= list.length) { questDone(); return; }
+      if (list[q.i].id === "leanto" && !Id.known(c, "leanto") && !Id.canHold(c, "leanto")) { questDone(); return; }
+      if (H()) H().questStep(list[q.i - 1], list[q.i]);
       questTick();
       return;
     }
@@ -940,6 +1004,16 @@
   }
   function questDone() {
     var game = S.game;
+    if (S.quest && S.quest.kind === "blob") {
+      (game.settings || (game.settings = {})).povBlobQuest = "done";
+      try { localStorage.setItem(BKEY, "done"); } catch (e) {}
+      S.quest = null;
+      if (SB.Game.addSparks) SB.Game.addSparks(game, 3, S.c);
+      say("🫧 a good day for a blob. +3 ✨. all that carrying counts: " + S.c.name + "'s kids will lean toward hands");
+      SB.bus.emit("povBlobQuestDone", { c: S.c });
+      if (H()) H().quest();
+      return;
+    }
     (game.settings || (game.settings = {})).povQuest = "done";
     try { localStorage.setItem(QKEY, "done"); } catch (e) {}
     S.quest = null;
@@ -950,7 +1024,8 @@
   P.questText = function () {
     var q = S && S.quest;
     if (!q) return null;
-    var st = P.QUEST[q.i];
+    var st = P.questList()[q.i];
+    if (q.kind === "blob" && st.id === "nest") return { id: st.id, text: "line the nest (" + Math.min(3, q.flags.lined || 0) + "/3)", tip: st.tip };
     if (st.id === "fire" && q.fireFirst) return { text: "make fire", tip: "you need fire first: in your bag, put 2 sticks and some leaves together (leaves come from a felled tree)" };
     return st;
   };
@@ -959,7 +1034,21 @@
     var c = S.c, w = S.game.world, R2 = 40;
     function node(fn) { return SB.World.nearestNode(w, c.x, c.z, R2, fn); }
     function item(kind) { return SB.World.nearestItem(w, c.x, c.z, 25, function (o) { return o.kind === kind && o.heldBy == null; }); }
-    var t = null;
+    var t = null, Surv = Sv(), q = S.quest, held = Surv.held(c), hk = held && held.k;
+    function food() { return SB.World.nearestItem(w, c.x, c.z, 30, function (o) { return o.heldBy == null && Surv.edible(o.kind) && !(o.data && (o.data.rotten || o.data.pod)) && !(K[o.kind] && K[o.kind].critter); }); }
+    function plant() { return node(function (n) { return Surv.canTug(S.game, n) && (n.kind === "bush" || Surv.isTree(n)); }); }
+    if (q && q.kind === "blob") {
+      if (id === "share" && hk && Surv.edible(hk)) { // the nearest friend
+        var f = null, fd = 1e9;
+        S.game.creatures.forEach(function (o) { if (o === c || !o.alive || o.species !== "smol") return; var d = SB.dist(o.x, o.z, c.x, c.z); if (d < fd) { fd = d; f = o; } });
+        return f ? { x: f.x, z: f.z, y: f.y + 1.2 } : null;
+      }
+      if (id === "eat") t = node(function (n) { return n.kind === "bush" && n.state === "ok"; }) || food();
+      else if (id === "tug") t = plant();
+      else if (id === "nest") t = hk && Surv.SOFT[hk] ? w.T.nest : plant();
+      else if (id === "share") t = food();
+      return t ? { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + (t.type === "node" && Surv.isTree(t) ? 2.4 : 1.1) } : null;
+    }
     if (id === "stick") t = item("stick") || node(function (n) { return n.state === "ok" && Sv().isTree(n) && n.kind !== "shroomtree"; });
     else if (id === "vine") t = node(function (n) { return n.kind === "vines" && n.state === "ok"; }) || SB.World.nearestNode(w, c.x, c.z, 120, function (n) { return n.kind === "vines" && n.state === "ok"; });
     else if (id === "rock") t = item("stone") || node(function (n) { return (n.kind === "boulder" || n.kind === "redrock") && n.state === "ok"; });
@@ -975,6 +1064,13 @@
       felledHook(d.node);
       if (S.quest) { S.quest.flags.chop = 1; questTick(); }
     });
+    function blobFlag(d, k) { if (S && S.quest && S.quest.kind === "blob" && d && d.c === S.c) { S.quest.flags[k] = (S.quest.flags[k] || 0) + 1; questTick(); } }
+    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); });
+    SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
+    SB.bus.on("sniff", function (d) { blobFlag(d, "sniff"); });
+    SB.bus.on("tug", function (d) { blobFlag(d, "tug"); });
+    SB.bus.on("nestLined", function (d) { blobFlag(d, "lined"); });
+    SB.bus.on("give", function (d) { if (d && d.item && Sv().edible(d.item.kind)) blobFlag(d, "share"); });
     SB.bus.on("craft", function (d) { if (S && S.quest && d.c === S.c && (d.id === "lashing" || d.id === "hafting")) { S.quest.flags.craft = 1; questTick(); } });
     SB.bus.on("built", function (d) {
       if (!S || !S.quest || !d.st || !d.st.done) return;
