@@ -70,17 +70,28 @@
   });
 
   var btnFs = document.getElementById("btn-fs");
+  // One click in, one click out, whatever happened before: the button reads the real state each time, and a
+  // leftover fallback ("is-pseudo-fs", used when the browser refuses real fullscreen) never eats a click.
+  // In real fullscreen, Esc is locked to the game where the browser allows it (Chrome: Keyboard Lock), so games
+  // that use Esc (smol brains) get it; holding Esc still leaves fullscreen.
+  function pseudoFs(on) {
+    player.classList.toggle("is-pseudo-fs", on);
+    document.body.style.overflow = on ? "hidden" : "";
+    btnFs.setAttribute("aria-pressed", String(on));
+  }
   btnFs.addEventListener("click", function () {
-    if (document.fullscreenEnabled && player.requestFullscreen) {
-      if (document.fullscreenElement) document.exitFullscreen();
-      else player.requestFullscreen().catch(function () { player.classList.toggle("is-pseudo-fs"); });
-    } else {
-      player.classList.toggle("is-pseudo-fs");
-      document.body.style.overflow = player.classList.contains("is-pseudo-fs") ? "hidden" : "";
-    }
+    if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); return; }
+    if (player.classList.contains("is-pseudo-fs")) { pseudoFs(false); return; }
+    if (!document.fullscreenEnabled || !player.requestFullscreen) { pseudoFs(true); return; }
+    player.requestFullscreen().then(function () {
+      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).catch(function () {});
+      var f = document.getElementById("game-frame");
+      if (f && f.contentWindow) try { f.contentWindow.focus(); } catch (e) {}
+    }, function () { pseudoFs(true); });
   });
   document.addEventListener("fullscreenchange", function () {
     btnFs.setAttribute("aria-pressed", String(!!document.fullscreenElement));
+    if (!document.fullscreenElement && navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock();
   });
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
