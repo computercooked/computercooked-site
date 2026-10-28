@@ -127,7 +127,7 @@ a {
 
 .brand-mark img {
   display: block;
-  width: min(100%, 420px);
+  width: min(72%, 300px);
   height: auto;
   margin: 0 auto;
 }
@@ -407,8 +407,18 @@ a {
   color: var(--lime);
 }
 
+/* phones: the play button sits under the card as a full-width bar (it used to be hidden below 520px) */
 .arcade-go {
-  display: none;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 12px;
+  background: var(--lime);
+  color: var(--carbon);
+  font-family: var(--mono);
+  font-weight: 800;
 }
 
 .promo-tag {
@@ -457,6 +467,7 @@ a {
     padding: var(--s-3) var(--s-5) var(--s-3) var(--s-3);
   }
   .arcade-go {
+    grid-column: auto;
     display: inline-flex;
     align-items: center;
     min-height: 48px;
@@ -680,3 +691,41 @@ a {
     transform: none;
   }
 }
+
+/* ---------- landing: start here (the viral hits, one tap to play) ---------- */
+.tagline-sub {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+.start { margin-top: var(--s-6); }
+.start-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.start-tile {
+  display: grid;
+  gap: 6px;
+  padding: 6px 6px 8px;
+  border: 2px solid var(--carbon-3);
+  border-radius: 14px;
+  background: var(--carbon-2);
+  color: var(--paper);
+  text-decoration: none;
+  transition: transform 0.15s var(--ease-out), border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.start-tile:hover, .start-tile:focus-visible { transform: translateY(-2px); border-color: var(--lime); }
+.start-tile img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: #0a0b0d; }
+.start-name { font-family: var(--mono); font-weight: 800; font-size: 0.8rem; line-height: 1.2; min-height: 2.4em; padding: 0 2px; }
+.start-go { justify-self: start; margin: 0 2px; padding: 4px 10px; border-radius: 8px; background: var(--lime); color: var(--carbon); font-family: var(--mono); font-weight: 800; font-size: 0.78rem; }
+@media (min-width: 720px) {
+  .start { max-width: 760px; margin-left: auto; margin-right: auto; }
+  .start-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .start-tile { transition: none; } .start-tile:hover { transform: none; } }
