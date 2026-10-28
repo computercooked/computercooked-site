@@ -2727,3 +2727,21 @@ html[data-landing-ready] { overflow: hidden; }
 /* the 🎲 random chip in the hub filter bar; desktop chips slim down so the row (and the first card row) stays on one line */
 .chip-random { border-style: dashed; }
 @media (min-width: 1000px) { .chip-row { gap: 6px; } .chip-row .chip { padding: 0 12px; min-height: 36px; } }
+
+/* ---------- /games/daily/: daily 3 (assets/daily3.js) ---------- */
+.d3-streak { margin: 0; font-family: var(--mono); font-weight: 800; font-size: 1.4rem; }
+.d3-streak b { color: var(--lime); }
+.d3-sub { margin: 4px 0 var(--s-4); color: var(--paper-dim); }
+.d3-list { display: grid; gap: 10px; margin: 0 0 var(--s-4); padding: 0; list-style: none; }
+.d3-card { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 12px; padding: 8px; border: 2px solid var(--line); border-radius: 14px; color: var(--paper); text-decoration: none; }
+.d3-card img { width: 96px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: #0a0b0d; }
+.d3-card:hover, .d3-card:focus-visible { border-color: var(--lime); }
+.d3-name { font-family: var(--mono); font-weight: 800; }
+.d3-state { font-size: 1.3rem; padding-right: 6px; color: var(--paper-dim); }
+.d3-card.is-done { border-color: var(--lime); }
+.d3-card.is-done .d3-state { color: var(--lime); }
+.d3-share { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.d3-note { margin: var(--s-3) 0 0; font-size: 0.78rem; color: var(--paper-dim); }
+
+/* text pages (about, terms, privacy, daily 3) have no spotlight: one column, title under the eyebrow */
+@media (min-width: 860px) { .games-hero:not(:has(.spotlight)) { grid-template-columns: 1fr; gap: var(--s-2); } }

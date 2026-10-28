@@ -259,7 +259,7 @@
             '<span class="daily-name">' + esc(g.title) + "</span>" +
             '<span class="daily-mode">' + esc(DAILY[g.slug] || "daily") + "</span>" +
             '<span class="daily-go" aria-hidden="true">▶</span></a></li>';
-        }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight.</p></section>";
+        }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight. <a href=\"/games/daily/\">daily 3 streak ▶</a></p></section>";
     }
     html += "</div>";
     anchor.insertAdjacentHTML("afterend", html);

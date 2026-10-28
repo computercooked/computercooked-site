@@ -441,6 +441,17 @@
     });
   }
 
+  // daily 3 (assets/daily3.js, /games/daily/): a run in one of the three counts for today
+  function daily3(slug) {
+    if (["crash-test-daily", "desktop-jam", "fathom"].indexOf(slug) < 0) return;
+    var go = function () {
+      var r = window.ccDaily3 && window.ccDaily3.mark(slug);
+      if (r && window.ccToast) window.ccToast(r.done < r.of ? "daily 3: " + r.done + "/" + r.of + " today" : "daily 3 done" + (r.streak ? " · 🔥" + r.streak : ""));
+    };
+    if (window.ccDaily3) return go();
+    var s = document.createElement("script"); s.src = "/assets/daily3.js"; s.onload = go; document.head.appendChild(s);
+  }
+
   // the end of the rail holds one house ask. From the 3rd run of a visit (someone who's hooked): the follow card,
   // "this game came from a tiktok trend" (audit P1 #24). Before that: the tip jar when it's on, else the follow card.
   // Never on top of a new-best dare, which is the ask then.
@@ -467,6 +478,7 @@
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
     try { sessionStorage.setItem("cc-runs", String(visitRuns() + 1)); } catch (err) {}
+    daily3(game);
     houseAsk(document.getElementById("cc-next"));
     if (!board.hidden) setTimeout(loadBoard, 300);
     fb.classList.add("cc-pulse");
