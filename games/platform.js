@@ -485,7 +485,9 @@
     setTimeout(function () { fb.classList.remove("cc-pulse"); }, 2400);
     var r = e.detail && e.detail.result;
     var say = window.ccToast || function () {};
-    if (r && r.accepted) say("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
+    if (r && r.accepted) say(r.today && r.today.of > 1
+      ? "#" + r.today.rank + " of " + r.today.of + " today" + (r.best === e.detail.score ? " · new best" : "") + " · #" + r.rank + " all-time"
+      : "#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
     if (r && r.accepted && me) friendNudge(say);
     dareResult(e);
     dareButton(e);

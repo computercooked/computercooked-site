@@ -98,7 +98,13 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const rank = await env.DB.prepare(
     "SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player) WHERE b > ?"
   ).bind(play.game, best).first("n");
-  return { accepted: true, best, prev_best: prevBest, rank: rank + 1, name };
+  // today's board too, for "#3 of 41 today" after a run (audit P1 #23): your best today vs everyone's best today
+  const today = await env.DB.prepare(
+    `SELECT SUM(b > (SELECT MAX(score) FROM scores WHERE game = ?1 AND player = ?2 AND day = ?3)) above, COUNT(*) players
+     FROM (SELECT player, MAX(score) b FROM scores WHERE game = ?1 AND day = ?3 AND hidden = 0 GROUP BY player)`
+  ).bind(play.game, player, dayOf(t)).first();
+  return { accepted: true, best, prev_best: prevBest, rank: rank + 1, name,
+    today: { rank: (today && today.above || 0) + 1, of: Math.max(today && today.players || 0, 1) } };
 }
 
 // GET /api/leaderboard?game=crash&period=day|week|all&player=a:<anon>
