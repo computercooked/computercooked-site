@@ -14,6 +14,7 @@
   var ctx = null, gl = null, canvas = null, overlay = null, octx = null;
   var progs = {}, meshes = {}, chunks = [], ringBuf = null, cloudTex = null, seenTex = null, seenBuf = null, seenWorld = null;
   var T = null, game = null;
+  var groundHi = 32, groundLo = -9; // the island's height range, found in setWorld (R.pickGround marches through it)
   var W = 1, H = 1, dpr = 1, quality = { scale: 1, decor: true, lights: 8 };
   var BW = 1, BH = 1; // the 3D scene's buffer size (= the canvas, except in the hd look, where the canvas is full resolution)
   var VP = M4.create(), V = M4.create(), P = M4.create();
@@ -552,6 +553,14 @@
     for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: {}, wat: {}, groups: null, decor: null, dirty: true, minY: 0, maxY: 0, used: 0 });
     computeAO();
     biomeCols();
+    // the island's height range (land and water), for the tap-to-ground ray march
+    var hiY = SB.SEA, loY = SB.SEA, NONE = T.NONE;
+    for (var hk = 0; hk < T.h.length; hk++) {
+      var hv = T.h[hk], wv = T.W ? T.W[hk] : NONE;
+      if (hv > hiY) hiY = hv; if (hv < loY) loY = hv;
+      if (wv !== NONE && wv > hiY) hiY = wv;
+    }
+    groundHi = hiY + 0.5; groundLo = loY - 1;
     // only the height range of each chunk is needed up front (for culling): its meshes are built the first
     // time it is looked at, at the detail the zoom needs, and far-away fine meshes are dropped again
     var S = SB.CHUNK, V = T.V;
@@ -1025,7 +1034,8 @@
     var oy = c.eye[1] + c.right[1] * nx * c.halfW + c.up[1] * ny * c.halfH;
     var oz = c.eye[2] + c.right[2] * nx * c.halfW + c.up[2] * ny * c.halfH;
     var dx = c.fwd[0], dy = c.fwd[1], dz = c.fwd[2];
-    var t = (oy - 32) / -dy, tEnd = (oy + 9) / -dy, step = 0.35, prevT = t, prevD = 1;
+    // march from the top of the tallest peak (volcanoes reach ~50) down to below the sea floor
+    var t = (oy - groundHi) / -dy, tEnd = (oy - groundLo) / -dy, step = 0.35, prevT = t, prevD = 1;
     for (; t < tEnd; t += step) {
       var x = ox + dx * t, y = oy + dy * t, z = oz + dz * t;
       var gh = WG.heightAt(T, x, z);
@@ -1064,22 +1074,49 @@
     { t: 1.0, sun: [0.2, 0.25, 0.44], sky: [0.12, 0.15, 0.3], gnd: [0.06, 0.06, 0.11], fog: [0.05, 0.07, 0.15] }
   ];
   var env = (R.env = { sun: [1, 1, 1], sky: [0.5, 0.5, 0.5], gnd: [0.3, 0.3, 0.3], fog: [0.7, 0.8, 0.9], sunDir: [0.3, 0.8, 0.3], night: 0, cloud: 0.3, wind: 0.5, snow: 0, wet: 0, autumn: 0, freeze: 0, rain: 0, flash: 0 });
-  function updateEnv(world) {
-    var tday = world ? (world.time / SB.DAY_LENGTH) % 1 : 0.4;
+  // the light as the sim says it should be right now (no weather, no flash): sun, sky, ground, fog, sun direction, night
+  R.envTarget = function (tday, out) {
+    out = out || {};
     var a = SKY[0], b = SKY[1];
     for (var i = 0; i < SKY.length - 1; i++) if (tday >= SKY[i].t && tday <= SKY[i + 1].t) { a = SKY[i]; b = SKY[i + 1]; break; }
     var k = (tday - a.t) / Math.max(0.0001, b.t - a.t);
-    ["sun", "sky", "gnd", "fog"].forEach(function (key) { env[key] = SB.mixC(a[key], b[key], k); });
-    // sun arcs east -> west; at night the "sun" is a soft moon from overhead
+    out.sun = SB.mixC(a.sun, b.sun, k); out.sky = SB.mixC(a.sky, b.sky, k); out.gnd = SB.mixC(a.gnd, b.gnd, k); out.fog = SB.mixC(a.fog, b.fog, k);
     var day = tday > 0.22 && tday < 0.78;
-    var ang = (tday - 0.25) / 0.5 * Math.PI;
-    if (day) { env.sunDir = norm3([Math.cos(ang) * 0.75, Math.max(0.3, Math.sin(ang)), 0.35]); }
-    else { var ma = ((tday + 0.5) % 1 - 0.25) / 0.5 * Math.PI; env.sunDir = norm3([Math.cos(ma) * 0.5, 0.75, 0.3]); }
-    env.night = day ? SB.clamp01(1 - Math.min(tday - 0.22, 0.78 - tday) / 0.06) : 1;
+    out.night = day ? SB.clamp01(1 - Math.min(tday - 0.22, 0.78 - tday) / 0.06) : 1;
+    // sun arcs east -> west; at night the "sun" is a soft moon from overhead. The two blend through dawn
+    // and dusk (it used to snap from the low sun to the moon at 0.78, a jolt across every lit surface)
+    var ang = (tday - 0.25) / 0.5 * Math.PI, ma = ((tday + 0.5) % 1 - 0.25) / 0.5 * Math.PI;
+    var sd = norm3([Math.cos(ang) * 0.75, Math.max(0.3, Math.sin(ang)), 0.35]), md = norm3([Math.cos(ma) * 0.5, 0.75, 0.3]);
+    out.sunDir = norm3(SB.mixC(sd, md, out.night));
+    return out;
+  };
+  // The light follows the sim through a short real-time ease. At 8x the sim takes 2, 3 or a dozen ticks a frame
+  // (whatever the frame took), so lighting read straight off world.time moves in uneven jumps, and weather that
+  // fades over 12 sim seconds fades over 1.5 real ones: the ease turns both back into a smooth change. At 1x
+  // the ease is far quicker than the light changes, so nothing lags visibly.
+  var lit = null, litWorld = null, litTime = 0, tgt = {}, flashAt = -9;
+  function easeV(cur, to, k) { cur[0] += (to[0] - cur[0]) * k; cur[1] += (to[1] - cur[1]) * k; cur[2] += (to[2] - cur[2]) * k; }
+  function updateEnv(world, dt) {
+    var tday = world ? (world.time / SB.DAY_LENGTH) % 1 : 0.4;
+    R.envTarget(tday, tgt);
     var wx = world && world.weather ? world.weather : null;
-    env.cloud = wx ? wx.cloud : 0.25; env.rain = wx ? wx.rain : 0; env.wind = wx ? wx.wind : 0.5;
+    var cloud = wx ? wx.cloud : 0.25, rain = wx ? wx.rain : 0, wind = wx ? wx.wind : 0.5;
+    // a new world, a load, a skip or offline catch-up: jump straight to the new light
+    var snap = !lit || litWorld !== world || !(dt > 0) || (world && Math.abs(world.time - litTime) > 120);
+    litWorld = world; litTime = world ? world.time : 0;
+    if (snap) lit = { sun: tgt.sun.slice(), sky: tgt.sky.slice(), gnd: tgt.gnd.slice(), fog: tgt.fog.slice(), sunDir: tgt.sunDir.slice(), night: tgt.night, cloud: cloud, rain: rain, wind: wind };
+    else {
+      var kf = 1 - Math.exp(-dt / 0.25), ks = 1 - Math.exp(-dt / 1.2);
+      easeV(lit.sun, tgt.sun, kf); easeV(lit.sky, tgt.sky, kf); easeV(lit.gnd, tgt.gnd, kf); easeV(lit.fog, tgt.fog, kf);
+      easeV(lit.sunDir, tgt.sunDir, kf); lit.sunDir = norm3(lit.sunDir);
+      lit.night += (tgt.night - lit.night) * kf;
+      lit.cloud += (cloud - lit.cloud) * ks; lit.rain += (rain - lit.rain) * ks; lit.wind += (wind - lit.wind) * ks;
+    }
+    env.sun = lit.sun.slice(); env.sky = lit.sky.slice(); env.gnd = lit.gnd.slice(); env.fog = lit.fog.slice();
+    env.sunDir = lit.sunDir.slice(); env.night = lit.night;
+    env.cloud = lit.cloud; env.rain = lit.rain; env.wind = lit.wind;
     env.snow = world ? world.snowCover || 0 : 0; env.autumn = world ? world.autumn || 0 : 0; env.freeze = world ? world.freeze || 0 : 0;
-    env.wet += ((env.rain > 0.1 ? 1 : 0) - env.wet) * 0.01;
+    env.wet += ((env.rain > 0.1 ? 1 : 0) - env.wet) * (dt > 0 ? 1 - Math.exp(-dt * 0.6) : 0);
     // overcast: flatter, greyer light
     var oc = SB.clamp01(env.cloud * 0.8 + env.rain * 0.6);
     env.sun = env.sun.map(function (v) { return v * (1 - oc * 0.55); });
@@ -1088,14 +1125,23 @@
     if (R.hd) SB.HD.env(env); // hd look: warmer sun, cooler shadows
     if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky
     if (env.flash > 0) {
-      env.flash = Math.max(0, env.flash - 0.05);
+      env.flash = Math.max(0, env.flash - (dt > 0 ? dt * 3 : 0.05)); // fades in real time (was 0.05 a frame: longer on slow phones)
       var fl = env.flash;
       env.sky = env.sky.map(function (v) { return v + fl * 1.2; });
       env.sun = env.sun.map(function (v) { return v + fl * 0.8; });
     }
   }
-  function norm3(v) { var l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
-  R.flash = function (k) { env.flash = Math.max(env.flash, k || 1); };
+  function norm3(v) { var l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  // a lightning flash. Storms strike every 6-16 sim seconds, so at 8x the sky was strobing to daylight every
+  // second or two through the night: above 2x, flashes get fainter (2/speed) and rarer (one per speed/2 real
+  // seconds, so about as often as at 2x). mine = the player's own bolt: always the full flash.
+  R.flash = function (k, mine) {
+    k = k || 1;
+    var sp = game && game.speed > 2 ? game.speed : 1;
+    if (!mine && sp > 1) { if (time - flashAt < sp / 2) return; k *= 2 / sp; }
+    flashAt = time;
+    env.flash = Math.max(env.flash, k);
+  };
 
   /* ================= frame ================= */
 
@@ -1183,7 +1229,7 @@
     time += dt;
     adapt(dt);
     perf.draws = 0; perf.tris = 0;
-    updateEnv(game && game.world);
+    updateEnv(game && game.world, dt);
     updateSeen(game && game.world);
     updateCamera(dt);
     for (var k in frameDyn) { frameDyn[k].n = 0; frameDyn[k].hi = false; }
