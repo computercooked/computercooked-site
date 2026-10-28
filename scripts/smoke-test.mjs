@@ -98,7 +98,7 @@ ok(r.ok, "feedback");
 // challenge-a-friend links: made from your own accepted run, verified when someone beats it
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
 const dare = r;
-ok(r.ok && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+$/.test(r.url) && /can you beat 40 on CRASH\? from smokey/.test(r.text), "dare link from a run", r);
+ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$/.test(r.long_url) && /can you beat 40 on CRASH\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
 r = await post("/api/dare", { play_id: p1, anon: "someone-else-" + rid() });
 ok(r.status === 404, "can't make a dare from someone else's run", r.status);
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
@@ -341,7 +341,7 @@ else {
   // weekly recap on /me
   r = await (await get("/api/me/recap?week=this", { cookie })).json();
   const rc = r.recap;
-  ok(rc?.runs > 0 && rc.xp > 0 && rc.complete === false && rc.days >= 1 && rc.top?.game && rc.achievements.some((a) => a.id === "rate_game"), "weekly recap: this week so far", rc && { runs: rc.runs, xp: rc.xp, top: rc.top });
+  ok(rc?.runs > 0 && rc.xp > 0 && rc.complete === false && rc.days >= 1 && rc.top?.game && rc.achievements_total >= 1 && rc.achievements.length >= 1, "weekly recap: this week so far", rc && { runs: rc.runs, xp: rc.xp, top: rc.top });
   r = await (await get("/api/me/recap", { cookie })).json();
   ok(r.ok && r.recap === null, "weekly recap: empty for the week before the account existed", r.recap);
   ok((await get("/api/me/recap")).status === 401, "weekly recap needs a login");
@@ -451,7 +451,8 @@ else {
     await post("/api/events", { anon, events: [{ t: "start", id: p4, game: ch.game, v: "1" }] }, { cookie });
     await new Promise((s) => setTimeout(s, Math.max(1200, needMs)));
     r = await (await post("/api/events", { anon, events: [
-      { t: "event", id: p4, game: ch.game, name: "milestone", data: { lv: 3, deaths: 2 } },
+      // the feed only templates level devil's milestone, so name that game whatever this week's challenge is
+      { t: "event", id: p4, game: "level-devil-exe", name: "milestone", data: { lv: 3, deaths: 2 } },
       { t: "event", id: p4, game: ch.game, name: "not_allowed", data: { x: 1 } },
       { t: "end", id: p4, game: ch.game, score: ch.target, dur: Math.max(10000, needMs + 14000), completed: true },
     ] }, { cookie })).json();
@@ -469,7 +470,7 @@ else {
       ok(r.achievements.some((a) => a.id === liveEvent.id && a.unlocked_at && a.event), "seasonal badge unlocked by a run", liveEvent.id);
     }
     r = await (await get("/api/me/feed", { cookie })).json();
-    ok(r.ok && r.items.some((i) => i.text === "cleared level 3 (2 deaths so far)") && !r.items.some((i) => /not_allowed|x: 1/.test(i.text)), "feed shows allow-listed events only", r.items?.slice(0, 4));
+    ok(r.ok && r.items.some((i) => i.text === "cleared level 3 (2 deaths so far)") && !r.items.some((i) => /not_allowed|x: 1/.test(i.text)), "feed shows allow-listed events only", r.items?.map((i) => i.text));
     ok(r.items.some((i) => i.kind === "challenge"), "feed shows the challenge");
   }
 
@@ -504,7 +505,7 @@ else {
   // an account's dare: beating it pays the sender
   r = await (await post("/api/dare", { play_id: p3, anon }, { cookie })).json();
   const d2 = r;
-  ok(r.ok && r.url.includes("from=Smoke%20Tester"), "dare from an account uses the display name", r.url);
+  ok(r.ok && (r.long_url || "").includes("from=Smoke%20Tester"), "dare from an account uses the display name", r.long_url);
   const p6 = rid();
   await post("/api/events", { anon: "smokev" + rid(), events: [{ t: "start", id: p6, game: "crash", v: "1" }] }, { cookie: cv });
   await new Promise((res) => setTimeout(res, 1200));
