@@ -430,29 +430,44 @@
             '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
             '<span class="cc-next-k">' + esc(p.label) + "</span><b>" + esc(p.g.title) + "</b></a>";
         }).join("") + "</div></nav>");
-      // the end of the rail holds one house ask: the tip jar when it's on, else (unless this run was a new best,
-      // where the dare is the ask) the follow card (assets/follow.js, loaded now)
-      tipUrl().then(function (url) {
-        if (url) {
-          rail.insertAdjacentHTML("beforeend", tipLine(url));
-          rail.addEventListener("click", function (e) {
-            var a = e.target.closest && e.target.closest("a[data-tip]");
-            if (a && window.ccHit) window.ccHit("tip_click", { slot: "post-run", game: game });
-          });
-          return;
-        }
-        var d = document.getElementById("cc-dare");
-        if (d && d.classList.contains("is-best")) return;
-        loadFollow().then(function (f) { if (!rail.querySelector(".cc-follow")) { rail.insertAdjacentHTML("beforeend", f.card("post-run")); f.bind(rail); } }, function () {});
+      rail.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[data-tip]");
+        if (a && window.ccHit) window.ccHit("tip_click", { slot: "post-run", game: game });
       });
+      houseAsk(rail);
       var dareBox = document.getElementById("cc-dare");
       if (dareBox) dareBox.insertAdjacentElement("afterend", rail);
       else board.insertAdjacentElement("beforebegin", rail);
     });
   }
 
+  // the end of the rail holds one house ask. From the 3rd run of a visit (someone who's hooked): the follow card,
+  // "this game came from a tiktok trend" (audit P1 #24). Before that: the tip jar when it's on, else the follow card.
+  // Never on top of a new-best dare, which is the ask then.
+  function visitRuns() { try { return +sessionStorage.getItem("cc-runs") || 0; } catch (e) { return 0; } }
+  function houseAsk(rail) {
+    if (!rail || rail.querySelector(".cc-follow")) return;
+    var d = document.getElementById("cc-dare");
+    var follow = function () {
+      if (d && d.classList.contains("is-best")) return;
+      loadFollow().then(function (f) {
+        if (rail.querySelector(".cc-follow")) return;
+        var t = rail.querySelector(".cc-tip"); if (t) t.remove();
+        rail.insertAdjacentHTML("beforeend", f.card("post-run", visitRuns() >= 3 ? "this game came from a tiktok trend. follow for the next one" : null));
+        f.bind(rail);
+      }, function () {});
+    };
+    if (visitRuns() >= 3) return follow();
+    tipUrl().then(function (url) {
+      if (!url) return follow();
+      if (!rail.querySelector(".cc-tip")) rail.insertAdjacentHTML("beforeend", tipLine(url));
+    });
+  }
+
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
+    try { sessionStorage.setItem("cc-runs", String(visitRuns() + 1)); } catch (err) {}
+    houseAsk(document.getElementById("cc-next"));
     if (!board.hidden) setTimeout(loadBoard, 300);
     fb.classList.add("cc-pulse");
     setTimeout(function () { fb.classList.remove("cc-pulse"); }, 2400);

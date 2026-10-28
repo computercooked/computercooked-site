@@ -22,9 +22,9 @@
     return '<a class="cc-follow-btn" href="' + out(l, slot) + '" target="_blank" rel="noopener" data-follow="' + l.id + '" data-slot="' + slot + '">' +
       '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + l.icon + "</svg><span>" + l.label + "</span></a>";
   }
-  function card(slot) {
+  function card(slot, kicker) {
     return '<aside class="cc-follow" aria-label="follow computer cooked">' +
-      '<p class="cc-follow-k"><span class="cc-follow-dot" aria-hidden="true"></span>new games drop on our tiktok first</p>' +
+      '<p class="cc-follow-k"><span class="cc-follow-dot" aria-hidden="true"></span>' + (kicker || "new games drop on our tiktok first") + '</p>' +
       '<p class="cc-follow-h">follow <b>@computercooked</b></p>' +
       '<div class="cc-follow-btns">' + LINKS.map(function (l) { return btn(l, slot); }).join("") + "</div></aside>";
   }

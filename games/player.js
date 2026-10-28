@@ -33,7 +33,7 @@
   }
 
   // phones: the bottom nav slides away while a run is going (it took a big share of the screen) and comes back when
-  // the run ends or the game is scrolled off screen. The CSS (assets/deck.css .cc-playing) only applies on small/touch screens.
+  // the run ends or the game is scrolled off screen. The CSS is assets/deck.css .cc-playing.
   var root = document.documentElement, running = false, onScreen = true;
   function syncDeck() { root.classList.toggle("cc-playing", running && onScreen); }
   function playing(on) { running = on; syncDeck(); }

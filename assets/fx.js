@@ -330,6 +330,14 @@
       b.setAttribute("aria-pressed", String(c.id === "all"));
       row.appendChild(b);
     });
+    // 🎲: a random game, picked from the ones the current filter shows (audit P1 #17)
+    var dice = el('<button type="button" class="chip chip-random" aria-label="play a random game">🎲 random</button>');
+    dice.addEventListener("click", function () {
+      var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
+      var pool = shown.length ? shown : games.map(function (g) { return g.slug; });
+      location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
+    });
+    row.appendChild(dice);
     var section = grid.closest(".shelf");
     section.querySelector(".shelf-head").insertAdjacentElement("afterend", bar);
 
