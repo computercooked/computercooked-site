@@ -29,8 +29,11 @@
     if (d.noun === "food" || d.noun === "medicine" || d.noun === "mushroom" || d.noun === "bug") return 12;
     return 24;
   };
-  // a blob has no hands at all; a critter can carry one thing in its mouth; tool-users get the full hotbar
-  S.hotN = function (c) { return c.tier >= 2 ? S.HOT : c.tier === 1 ? 1 : 0; };
+  S.stackFor = function (c, kind) { return c.tier < 2 ? Math.min(3, S.stackOf(kind)) : S.stackOf(kind); }; // a mouthful is three
+  // blobs and critters carry one thing in their mouth (a blob only small soft things); tool-users get the full hotbar
+  S.hotN = function (c) { return c.tier >= 2 ? S.HOT : 1; };
+  S.SOFT = { leaves: 1, fiber: 1, fur: 1 }; // what lines a nest
+  S.mouthy = function (kind) { return S.edible(kind) || !!S.SOFT[kind] || kind === "seed" || kind === "ball" || kind === "plush" || kind === "nut"; };
   S.bagN = function (c) {
     var n = BAG[Math.min(6, c.tier | 0)] || 0;
     if (n && c.inv && c.inv.s) for (var i = 0; i < c.inv.s.length; i++) if (c.inv.s[i] && c.inv.s[i].k === "basket") { n += 9; break; }
@@ -44,6 +47,7 @@
     if (kind === "egg") return "eggs need two paws and a warm nest, not a pocket";
     if (d.critter) return "it wriggles out of your paws";
     if (S.cap(c) <= 0) return "a blob has no hands to hold things. eat it, or roll it about";
+    if (c.tier < 1 && !S.mouthy(kind)) return "too big for a blob's mouth. nudge it along instead";
     if (d.tool && c.tier < 2) return "you need hands for tools: a tool-user can hold one";
     return "";
   };
@@ -76,7 +80,7 @@
   S.add = function (c, kind, n, w) {
     n = n == null ? 1 : n;
     if (S.whyNot(c, kind)) return n;
-    var v = S.inv(c), cap = S.cap(c), mx = S.stackOf(kind), i, t;
+    var v = S.inv(c), cap = S.cap(c), mx = S.stackFor(c, kind), i, t;
     if (mx > 1) for (i = 0; i < cap && n > 0; i++) { var sl = v.s[i]; if (sl && sl.k === kind && sl.n < mx) { t = Math.min(n, mx - sl.n); sl.n += t; n -= t; } }
     for (i = 0; i < cap && n > 0; i++) if (!v.s[i]) {
       t = Math.min(n, mx);
@@ -88,7 +92,7 @@
   };
   S.room = function (c, kind) { // how many more of this kind would fit
     if (S.whyNot(c, kind)) return 0;
-    var v = S.inv(c), cap = S.cap(c), mx = S.stackOf(kind), r = 0;
+    var v = S.inv(c), cap = S.cap(c), mx = S.stackFor(c, kind), r = 0;
     for (var i = 0; i < cap; i++) { var sl = v.s[i]; if (!sl) r += mx; else if (sl.k === kind) r += mx - sl.n; }
     return r;
   };
@@ -668,6 +672,39 @@
   };
 
   /* ---------------- giving ---------------- */
+  /* ---------------- small bodies: leaves off plants, and the nest (blobs and critters) ---------------- */
+  // tug a few leaves off a bush or a low branch, straight into your mouth. each plant gives one every 40 s
+  S.TUG_GAP = 40;
+  S.canTug = function (game, n) {
+    if (!n || n.state !== "ok" || !NK[n.kind] || NK[n.kind].noun !== "plant" || n.kind === "cactus" || n.kind === "hive" || n.kind === "clams" || n.kind === "shrooms") return false;
+    var t = (game._tug || {})[n.id];
+    return t == null || game.time - t >= S.TUG_GAP;
+  };
+  S.tug = function (c, game, n) {
+    if (!S.canTug(game, n)) return { msg: "no loose leaves left here. try another plant" };
+    if (!S.room(c, "leaves")) return { msg: "your mouth is full. drop it (Q) or take it somewhere" };
+    (game._tug || (game._tug = {}))[n.id] = game.time;
+    S.add(c, "leaves", 1);
+    if (SB.Creature.habit) SB.Creature.habit(c, "hands", 0.35);
+    emit("tug", { c: c, node: n });
+    return { ok: true, msg: "a mouthful of leaves" };
+  };
+  // the nest: soft things brought home make it cosier (eggs by it hatch faster: see world.js tickEgg)
+  S.NEST_STEP = 3; S.NEST_MAX = 3;
+  S.nest = function (game) { return game.nest || (game.nest = { fluff: 0, cosy: 0 }); };
+  S.lineNest = function (c, game, i) {
+    var v = S.inv(c), sl = v.s[i];
+    if (!sl || !S.SOFT[sl.k]) return null;
+    var n = S.nest(game);
+    if (n.cosy >= S.NEST_MAX) return { full: true, cosy: n.cosy };
+    S.removeAt(c, i, 1);
+    n.fluff++;
+    var up = n.fluff >= S.NEST_STEP * (n.cosy + 1);
+    if (up) n.cosy++;
+    if (SB.Creature.habit) SB.Creature.habit(c, "hands", 0.35);
+    emit("nestLined", { c: c, cosy: n.cosy, up: up });
+    return { cosy: n.cosy, up: up, left: n.cosy >= S.NEST_MAX ? 0 : S.NEST_STEP * (n.cosy + 1) - n.fluff };
+  };
   S.give = function (c, game, o, i) {
     var v = S.inv(c), sl = v.s[i];
     if (!sl || !o || !o.alive) return null;

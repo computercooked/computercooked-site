@@ -1122,6 +1122,12 @@
     env.sun = env.sun.map(function (v) { return v * (1 - oc * 0.55); });
     env.sky = SB.mixC(env.sky, [env.sky[0] * 0.9 + 0.08, env.sky[1] * 0.9 + 0.08, env.sky[2] * 0.9 + 0.08], oc);
     env.fog = SB.mixC(env.fog, [0.55, 0.58, 0.64].map(function (v) { return v * (1 - env.night * 0.85); }), oc * 0.6);
+    // first person: the eyes adjust. a smol's own view at night or under storm cloud is dim, never black
+    if (cam && cam.pov) {
+      var dk = Math.max(env.night, oc * 0.6), add = [0.1, 0.11, 0.17];
+      env.sky = env.sky.map(function (v, i) { return v + dk * add[i]; });
+      env.gnd = env.gnd.map(function (v, i) { return v + dk * add[i] * 0.5; });
+    }
     if (R.hd) SB.HD.env(env); // hd look: warmer sun, cooler shadows
     if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky
     if (env.flash > 0) {

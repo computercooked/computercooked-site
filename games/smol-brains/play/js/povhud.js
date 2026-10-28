@@ -338,9 +338,10 @@
   HUD.quest = function () {
     if (!hud) return;
     var s = S(), q = s && s.quest;
-    if (!q) { hud.quest.style.display = "none"; hud.qmark.classList.remove("on"); return; }
+    if (!q) { hud.quest.style.display = "none"; if (!s || (!s.sniff && !s.night)) hud.qmark.classList.remove("on"); return; }
     hud.quest.style.display = "";
-    var steps = P().QUEST, cur = P().questText(), html = "<h4><span>🪨 f&zwnj;irst tool</span><button class='skip' title='hide the guide for good'>skip ✕</button></h4>";
+    var steps = P().questList(), cur = P().questText(), title = q.kind === "blob" ? "🫧 a small body's day" : "🪨 f&zwnj;irst tool";
+    var html = "<h4><span>" + title + "</span><button class='skip' title='hide the guide for good'>skip ✕</button></h4>";
     steps.forEach(function (st, i) {
       var cls = i < q.i ? "done" : i === q.i ? "now" : "";
       var txt = i === q.i ? cur.text : st.text;
@@ -363,7 +364,7 @@
     void next;
   };
   function questMarker() {
-    var s = S(), q = s && s.quest, t = q && q.target, R = SB.Render;
+    var s = S(), q = s && s.quest, t = s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target, R = SB.Render; // the nose, then home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
@@ -466,7 +467,11 @@
   }
   function makeHtml() {
     var s = S(), c = s.c, h = "";
-    if (c.tier < 2) return "<p>a " + esc(SB.TIERS[c.tier].name) + " has no hands for making things. tool-users can.</p>";
+    if (c.tier < 2) {
+      var ep = SB.FirstHour && SB.FirstHour.echoProgress ? SB.FirstHour.echoProgress(c, "arms") : null;
+      return "<p>a " + esc(SB.TIERS[c.tier].name) + " has no hands for making things. tool-users can: two more steps up (" + (c.tier === 0 ? "legs, then hands" : "hands") + ").</p>" +
+        "<p>the way there: carry things in your mouth, tug leaves, line the nest. every mouthful is practice, and practice echoes into " + esc(c.name) + "'s kids" + (ep ? ": 🤲 hands " + ep.n + "/" + ep.of : "") + ".</p>";
+    }
     // the crafting grid: put things together and see what happens
     var rc = bag.grid.length ? Sv().match(bag.grid) : null;
     h += "<div class='lbl'>put things together</div><div class='cgrid'><div class='slots'>";
@@ -696,7 +701,7 @@
     } catch (e) { return null; }
   }
   function clockCompass(c, s, w, game) {
-    var tday = (w.time / SB.DAY_LENGTH) % 1, hh = Math.floor(tday * 24), mm = Math.floor((tday * 24 - hh) * 60);
+    var tday = (w.time / SB.DAY_LENGTH) % 1, hh = Math.floor(tday * 24), mm = Math.floor((tday * 24 - hh) * 6) * 10; // ten-minute steps: a calmer clock
     var part = w.night ? "night 🌙" : tday < 0.27 ? "dawn 🌅" : tday < 0.45 ? "morning ☀️" : tday < 0.58 ? "midday ☀️" : tday < 0.74 ? "afternoon 🌤" : "dusk 🌇";
     var wx = w.weather.rain > 0.3 ? (w.weather.snow || SB.World.tempAt(w, c.x, c.z) < 0.25 ? " · snowing ❄️" : " · raining 🌧") : w.weather.wind > 0.7 ? " · windy 💨" : "";
     var pf = SB.Render && SB.Render.perf, ct = ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2) + " · " + part + wx + (pf && pf.show && pf.ft ? " · " + Math.round(1000 / pf.ft) + " fps" : "");
@@ -712,7 +717,9 @@
     }
     var home = SB.Society ? SB.Society.home(game, c.tribe) : w.T.spawn;
     if (home && SB.dist(home.x, home.z, c.x, c.z) > 3) mark(home.x, home.z, "🏠");
-    if (s.quest && s.quest.target) mark(s.quest.target.x, s.quest.target.z, "◆");
+    if (s.sniff) mark(s.sniff.x, s.sniff.z, "👃");
+    else if (s.night) mark(s.night.x, s.night.z, "🌙");
+    else if (s.quest && s.quest.target) mark(s.quest.target.x, s.quest.target.z, "◆");
     hud.compass.innerHTML = "<div class='ticks' style='background-position:" + (-head / span * wpx).toFixed(1) + "px 0'></div><div class='mark'></div>" + html;
   }
   function kc(which) {
@@ -795,6 +802,7 @@
         else if (k === "q") P().drop(e.shiftKey || e.ctrlKey);
         else if (k === "r") { if (s.ghost) P().rotateGhost(); }
         else if (k === "z") P().sleep();
+        else if (k === "g") P().sniff();
         if (k.indexOf("arrow") === 0) e.preventDefault();
       },
       keyup: function (e) { keys[e.key.toLowerCase()] = false; },

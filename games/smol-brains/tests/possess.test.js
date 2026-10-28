@@ -106,12 +106,12 @@ console.log("4. the controls: right click eats, F picks up into the hotbar");
   P.select(SB.Surv.inv(c).s.findIndex(x => x && x.k === "stone"));
   check("Q drops what's in your hand", P.drop() && SB.Surv.count(c, "stone", true) === 0);
   P.leave();
-  // a blob can't pick things up: no hands. it kicks stones about
+  // a blob can't pick up a stone (too big for its mouth). it kicks stones about
   const g3 = fresh(45, 0).g, b = g3.creatures.find(x => x.species === "smol" && x.tier === 0);
   const s2 = SB.World.add(g3.world, g3, "stone", b.x + 0.5, b.z, {});
   const vb = P.options(g3, b, { type: "item", id: s2.id });
   check("a blob kicks a stone about instead", vb.use && /kick/.test(vb.use.label) && vb.pick && vb.pick.locked, vb.use && vb.use.label);
-  check("a blob has no hotbar and no recipes", SB.Surv.hotN(b) === 0 && SB.Surv.recipes(b, g3).length === 0);
+  check("a blob has one mouth slot and no recipes", SB.Surv.hotN(b) === 1 && SB.Surv.recipes(b, g3).length === 0);
 }
 
 console.log("5. the brain learns from what you choose");
@@ -174,6 +174,94 @@ console.log("7. a save made while possessed loads in god mode");
   run(g2, 20);
   SB.Brain.decide = orig;
   check("it thinks for itself after loading", c2 && n > 0, n + " decisions");
+}
+
+console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sharing");
+{
+  const { g, cs } = fresh(47, 0, 3);
+  const b = cs[0], friend = cs[1], Sv = SB.Surv;
+  g.stats.possessed = 0; g.settings.povBlobQuest = null;
+  check("possessing a blob starts the blob quest", P.enter(g, b) && P.quest() && P.quest().kind === "blob" && P.questStep().id === "eat");
+  // eat
+  b.chem.hunger = 0.6;
+  const berry = SB.World.add(g.world, g, "berry", b.x + 0.6, b.z, {});
+  const ve = P.options(g, b, { type: "item", id: berry.id });
+  check("a blob eats food on the ground", ve.use && /eat/.test(ve.use.label) && P.act("use", { type: "item", id: berry.id }));
+  run(g, 0.4);
+  check("…and the quest moves on to sniffing", P.questStep() && P.questStep().id === "sniff", P.questStep() && P.questStep().id);
+  // sniff
+  SB.World.add(g.world, g, "apple", b.x + 9, b.z + 2, {});
+  check("G sniffs out food and points the marker at it", P.sniff() && P.sniffing() && SB.dist(P.sniffing().x, P.sniffing().z, b.x + 9, b.z + 2) < 12);
+  run(g, 0.4);
+  check("…then: tug leaves", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
+  // tug leaves off a plant, then line the nest three times
+  const plant = SB.World.nearestNode(g.world, b.x, b.z, 200, n => Sv.canTug(g, n) && (n.kind === "bush" || Sv.isTree(n)));
+  const vt = P.options(g, b, { type: "node", id: plant.id });
+  check("F on a plant tugs leaves into the mouth", vt.pick && /leaves/.test(vt.pick.label) && P.act("pick", { type: "node", id: plant.id }) && Sv.count(b, "leaves", true) === 1, vt.pick && vt.pick.label);
+  check("the same plant has no more leaves for a while", !Sv.canTug(g, plant));
+  Sv.add(b, "leaves", 5);
+  check("a mouthful is three", Sv.count(b, "leaves", true) === 3 && /mouth is full/.test(Sv.tug(b, g, SB.World.nearestNode(g.world, b.x, b.z, 200, n => n !== plant && Sv.canTug(g, n))).msg || ""));
+  run(g, 0.4);
+  check("…then: line the nest", P.questStep() && P.questStep().id === "nest");
+  const nest = g.world.T.nest;
+  b.x = nest.x + 0.8; b.z = nest.z;
+  for (let i = 0; i < 3; i++) {
+    if (!Sv.count(b, "leaves", true)) Sv.add(b, "leaves", 1);
+    const vn = P.options(g, b, { type: "node", id: nest.id });
+    if (i === 0) check("left click on the nest lines it", vn.use && /line the nest/.test(vn.use.label) && vn.ctx === vn.use, vn.use && vn.use.label);
+    P.act("use", { type: "node", id: nest.id });
+  }
+  check("three mouthfuls make the nest cosier", g.nest && g.nest.cosy === 1 && g.nest.fluff === 3, JSON.stringify(g.nest));
+  run(g, 0.4);
+  check("…then: share food", P.questStep() && P.questStep().id === "share");
+  // a cosy nest warms eggs faster
+  const e1 = SB.World.add(g.world, g, "egg", nest.x + 1, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0.1 });
+  const far = SB.World.nearestNode(g.world, nest.x + 30, nest.z + 30, 200, n => true);
+  const e2 = SB.World.add(g.world, g, "egg", nest.x + 12, nest.z + 12, { genome: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0.1 });
+  void far;
+  run(g, 5);
+  check("eggs by a cosy nest hatch faster", e1.data.progress > e2.data.progress + 0.005, e1.data.progress.toFixed(3) + " vs " + e2.data.progress.toFixed(3));
+  // share
+  friend.x = b.x + 1; friend.z = b.z; friend.alive = true;
+  Sv.add(b, "berry", 1);
+  const vs = P.options(g, b, { type: "creature", id: friend.id });
+  check("a blob shares food with a friend", vs.place && /share your/.test(vs.place.label) && P.act("place", { type: "creature", id: friend.id }), vs.place && vs.place.label);
+  run(g, 0.4);
+  check("the blob quest is done and pays sparks", !P.quest() && g.settings.povBlobQuest === "done");
+  check("mouth carrying counts as practice for hands", (b.habits.hands || 0) > 0.6, (b.habits.hands || 0).toFixed(2));
+  check("E with nothing in front of a blob sniffs", P.options(g, b, null).ctx && /sniff/.test(P.options(g, b, null).ctx.label));
+  P.leave();
+  // the nest saves
+  const d = JSON.parse(JSON.stringify(SB.Save.snapshot(g)));
+  const g2 = SB.Save.revive(d);
+  check("the cosy nest is saved", g2.nest && g2.nest.cosy === 1 && g2.nest.fluff === 3);
+  // a tool-user still gets the first-tool quest
+  const t = fresh(48, 2, 2); t.g.settings.povQuest = null;
+  P.enter(t.g, t.cs[0]);
+  check("a tool-user still gets the first-tool quest", P.quest() && P.quest().kind !== "blob" && P.questStep().id === "stick");
+  P.leave();
+}
+
+console.log("10. night: get home before the grumps come out");
+{
+  const { g, cs } = fresh(49, 0, 2);
+  const b = cs[0], nest = g.world.T.nest;
+  g.settings.povBlobQuest = "done";
+  b.x = nest.x + 14; b.z = nest.z + 2;
+  if (!SB.World.walkable(g.world, b.x, b.z)) { b.x = nest.x + 6; b.z = nest.z; }
+  P.enter(g, b);
+  const d = SB.DAY_LENGTH, t = Math.floor(g.time / d) * d + d * 0.9;
+  g.time = t; g.world.time = t;
+  run(g, 1.5);
+  const ng = P.nightGoal();
+  check("at night the marker leads to the nest", g.world.night && ng && ng.kind === "nest" && Math.abs(ng.x - nest.x) < 0.01, ng && ng.kind);
+  const s0 = g.sparks;
+  b.x = nest.x + 0.8; b.z = nest.z;
+  run(g, 1.5);
+  check("getting home is safe and pays a spark", !P.nightGoal() && g.sparks >= s0 + 1 && g.settings.povSafeNight != null);
+  b.x = nest.x + 14; run(g, 1.5);
+  check("once a night", !P.nightGoal());
+  P.leave();
 }
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

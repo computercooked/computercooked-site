@@ -712,6 +712,8 @@
     if (W.shelterAt(world, o.x, o.z)) warm += 0.008;
     warm += W.fireWarmth(world, o.x, o.z) * 0.012;
     if (o.heldBy === "hand") warm += 0.006;
+    var nest = game && game.nest && game.nest.cosy ? world.T.nest : null; // a nest the smols lined with leaves (survival.js lineNest)
+    if (nest && Math.abs(o.x - nest.x) < 4 && Math.abs(o.z - nest.z) < 4) warm += 0.003 * game.nest.cosy;
     if (W.tempAt(world, o.x, o.z) < 0.25) warm *= 0.5;
     d.progress = Math.min(1, (d.progress || 0) + warm * dt * (d.starter ? 3 : 1));
     if (Math.random() < dt * 0.3 * d.progress) d.wobble = 0.6;
