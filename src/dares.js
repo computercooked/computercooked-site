@@ -4,7 +4,7 @@
 //   POST /api/dare/:id/beat   {play_id, anon}  -> {beaten, ...}    your run beat it: the sender earns XP
 //   POST /api/dare/:id/shared {how}            -> {ok}             the sender sent it (share sheet / copied)
 import { json, bad, readJson, now, dayOf, idOk, limited, randomToken, slugOk, isTestAnon } from "./util.js";
-import { grant } from "./xp.js";
+import { grant, unlock } from "./xp.js";
 import { people } from "./friends.js";
 
 const SENDER_XP = 25, PER_DARE = 10, PER_DAY = 100;
@@ -38,6 +38,7 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
       env.DB.prepare("INSERT OR IGNORE INTO dare_funnel (dare_id, source) VALUES (?, ?)").bind(id, b.source === "best" ? "best" : "button"),
     ]);
     row = await env.DB.prepare("SELECT id, from_name FROM dares WHERE play_id = ?").bind(b.play_id).first();
+    if (user) await unlock(env, user.id, "site", "dare_maker");
   }
   const url = `${origin}/d/${row.id}`; // short; /d/<id> redirects to dareUrl()
   return json({ ok: true, id: row.id, url, long_url: origin + dareUrl({ id: row.id, game: run.game, score: run.score, from_name: row.from_name }), text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
@@ -110,7 +111,8 @@ export async function beatDare(req, env, user, id) {
       if (n <= PER_DARE && today + SENDER_XP <= PER_DAY) senderXp = await grant(env, d.from_user, "dare", d.game, `${id}:${run.player}`, SENDER_XP, t);
     }
   }
-  return json({ ok: true, beaten: true, first, from: d.from_name, score: d.score, sender_xp: senderXp });
+  const badge = user ? await unlock(env, user.id, "site", "dare_beat") : null;
+  return json({ ok: true, beaten: true, first, from: d.from_name, score: d.score, sender_xp: senderXp, achievement: badge });
 }
 
 // Link previews for dare links: seo.js rewrites the preview tags of /games/<slug>/?vs=…&from=…&d=… to
