@@ -469,6 +469,7 @@
             setTool(d.avoid ? "tap" : "tickle");
             if (R.camera.follow === c) SB.Input.follow(null); // the camera holds still, so the smol stays under your finger
             trCue.c = c; trCue.shown = false;
+            var row = this.closest && this.closest(".trick"); if (row && row.scrollIntoView) try { row.scrollIntoView({ block: "nearest" }); } catch (e) {}
             var full = d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.3;
             toast((d.practice.say ? "you said “" + d.practice.say + "”. 🪶 tickle " + esc(c.name) + " when it comes over." : d.avoid ? "👆 tap " + esc(c.name) + " the moment it nibbles." : "🪶 wait for “tickle now!”, then tickle " + esc(c.name) + " while it " + trickVerb(d) + ".") +
               (full ? " (it isn't very " + (d.drive === "hunger" ? "hungry" : d.drive) + " right now, so it may not bite. a hungry smol learns this best.)" : ""), "", 6000);
@@ -488,7 +489,7 @@
     var n = 0;
     var ses = T.session && T.session(c, game);
     el.trRows.forEach(function (r) {
-      var m = T.progress ? T.progress(c, r._d).p : T.meter(c, r._d), on = T.known(c, r._d.id);
+      var m = T.shown ? T.shown(c, r._d) : T.meter(c, r._d), on = T.known(c, r._d.id);
       if (on) { n++; m = 1; }
       if (r._m >= 0 && Math.abs(m - r._m) > 0.03) { r.classList.remove("up", "down"); void r.offsetWidth; r.classList.add(m > r._m ? "up" : "down"); }
       r._m = m;

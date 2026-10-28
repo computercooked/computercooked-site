@@ -84,6 +84,14 @@
     var r = c && c.tricks && c.tricks[d.id], m = T.meter(c, d), q = T.goal(r);
     return { p: SB.clamp01((m - q.b) / Math.max(0.05, q.g - q.b)), m: m, g: q.g, b: q.b };
   };
+  // a habit takes repeating: the brain may get it from one lesson, but a trick counts after REPS good ones,
+  // and the bar you see fills a step per good lesson (never past what the net really does)
+  T.REPS = 3;
+  T.shown = function (c, d) {
+    if (T.known(c, d.id)) return 1;
+    var r = c && c.tricks && c.tricks[d.id];
+    return Math.min(T.progress(c, d).p, ((r && r.n) || 0) / T.REPS);
+  };
   T.known = function (c, id) { return !!(c && c.tricks && c.tricks[id] && c.tricks[id].on); };
   T.count = function (c) { var n = 0; if (c && c.tricks) for (var k in c.tricks) if (c.tricks[k].on) n++; return n; };
   // tricks you've taught the colony (instincts don't count): how many different ones, and the total
@@ -104,7 +112,7 @@
       if (!r) { r = tr[d.id] = { on: 0, b: Math.round(m * 1000) / 1000 }; if (quiet) continue; }
       if (r.b == null) r.b = r.on ? Math.max(0, T.LEARN - T.STRETCH) : Math.round(m * 1000) / 1000;
       var q = T.goal(r);
-      if (m >= q.g && !r.on) {
+      if (m >= q.g && !r.on && (quiet || (r.n || 0) >= T.REPS)) {
         var first = !r.t;
         r.on = 1; r.t = Math.round(game.time); r.by = quiet ? (r.by || 0) : 1; // by: 1 = you taught it, 0 = instinct
         if (first && !quiet) {
@@ -135,7 +143,7 @@
       if (c.action && !c.plan && (c.action.verb === SB.V.idle || c.action.verb === SB.V.wander)) c.action = null;
     } else if (p.say) SB.Creature.hear(c, p.say, game, { call: true });
     game.stats.practices = (game.stats.practices || 0) + 1;
-    c.trickSession = { id: id, until: game.time + 30, from: T.progress(c, d).p };
+    c.trickSession = { id: id, until: game.time + 30, from: T.shown(c, d) };
     return true;
   };
   // the trick it's being set up for, if the session is still on
@@ -161,13 +169,13 @@
     SB.bus.emit("trickWait", { c: c, trick: d });
     return false;
   };
-  // after a lesson inside a session: how much the bar moved (the UI shows +n%)
-  SB.bus.on("learned", function (e) {
+  // after a lesson inside a session: how much the bar moved (the UI shows +n%). runs after the counting below
+  T._delta = (function (e) {
     var g = SB.Game.current, c = e && e.c;
     if (!g || !c) return;
     var s = T.session(c, g);
     if (!s) return;
-    var d = T.BY[s.id], p = T.progress(c, d).p;
+    var d = T.BY[s.id], p = T.shown(c, d);
     SB.bus.emit("trickDelta", { c: c, trick: d, from: s.last != null ? s.last : s.from, to: p });
     s.last = p;
   });
@@ -182,6 +190,19 @@
     SB.Game.smols(game).forEach(function (c) { if (!c.tricks) T.seed(c, game); else if (!c.far) T.check(c, game); });
   };
   // a smol nobody has read yet (a founder, a stranger, an old save) starts from what it already does
-  SB.bus.on("learned", function (d) { var g = SB.Game.current; if (!g || !d || !d.c) return; if (!d.c.tricks) T.seed(d.c, g); T.check(d.c, g); });
+  SB.bus.on("learned", function (d) {
+    var g = SB.Game.current; if (!g || !d || !d.c) return;
+    var c = d.c;
+    if (!c.tricks) T.seed(c, g);
+    // a lesson on the trick's own thing, the right way round (a tickle for doing it, a tap for doing what
+    // it should leave alone), counts as one repetition of it
+    for (var i = 0; i < T.LIST.length; i++) {
+      var tr = T.LIST[i], r = c.tricks[tr.id];
+      if (!r || r.on || d.verb !== SB.V[tr.verb || tr.avoid] || (d.noun >= 0 && d.noun !== SB.N[tr.noun])) continue;
+      if (tr.avoid ? d.delta < 0 : d.delta > 0) r.n = (r.n || 0) + 1;
+    }
+    T.check(c, g);
+    T._delta(d);
+  });
   SB.bus.on("hatch", function (d) { var g = SB.Game.current; if (g && d && d.c) T.seed(d.c, g); });
 })();

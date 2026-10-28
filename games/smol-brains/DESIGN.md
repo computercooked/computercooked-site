@@ -202,6 +202,24 @@ The owner's verdict on v4.4 was that you mostly sit and watch. v4.5 is milestone
 - **The first possession is free** (`Possess.cost`). The tutorial's brain step became "teach it a trick".
 - On desktop the tutorial card moves left of an open side panel (smol card, tricks) instead of sitting on top of it.
 
+## 0.18 What v4.5.1 added: a trick loop you can read, and a faster start
+
+From the Computer Cooked bot's two playtests (sim 7/10, then a 5/10 on v4.5.0). The meter went down while it was teaching: a tickle rewards whatever the smol is doing at that moment, so tickling while it walked off taught it to walk off.
+
+- **Tricks you can read** (`tricks.js`, `ui.js`):
+  - The bar is now progress from where this smol started (`r.b`, its instinct when first read) to its goal (`T.goal`: 80%, or half the way that's left for a smol born good at it). Every new smol starts near 0%.
+  - A trick takes three good lessons (`T.REPS`): a tickle for doing it (a tap for doing what it should leave alone), on the trick's own thing. The bar shows a third per good lesson, never past what the net really does (`T.shown`).
+  - "Set it up" opens a 30-second session (`c.trickSession`). Inside it, a tickle or tap that lands while the smol isn't doing the thing is held back (`T.gate`, called from `Creature.tickle`/`tap`): "wait for it…". While it does the thing, a lime "🪶 tickle now! it eats" tag bobs over it, and each good lesson floats "+33%" up from it. The camera stops following, so the smol stays under your finger. If it isn't hungry, the set-up says so.
+  - Old saves get a starting point the first time they're read; tricks already learned stay learned.
+- **A faster start**: "▶ play now" is always on the title (also for returning players). It skips the opening film (the menu can still play it), the fall to the nest takes 2.4 s instead of 5.5, the tutorial starts without asking ("skip tutorial" is on every step), and the pod opens in three taps.
+- **One thing at a time**: event windows (story cards, strangers, the storyteller) wait their turn instead of replacing each other, and windows that come up while you're possessing queue for when you leave (only the last one was kept before). Tips and the tutorial card hide behind a window and while a side card is open; toasts sit left of the side card. The card no longer opens by itself after naming. The tutorial card is one height, so "next" stays put.
+- **The brain is one tap away**: a 🧠 brain button on the smol card, and "b" opens the brain of the picked smol, or the one the camera follows, or the one nearest the middle of the screen.
+- **Keys**: Backspace does what Esc does (close a window, leave a body), because Esc also leaves fullscreen. The site's player page now holds Esc for the game in fullscreen (Chrome's keyboard lock; holding Esc still leaves), from the site session.
+- **Menu → goals** shows the quest chapters (done, current with its quests, locked) above the milestones.
+- **Day and night at high speed** (`render.js`): lighting eases toward the sim's value in real time (about 0.25 s for light, 1.2 s for weather), the sun and moon blend through dawn and dusk instead of snapping at 0.78, and lightning flashes fade in real time and are fainter and rarer above 2× (at 8×: one faint flash every 4 s at most, where a storm at dusk used to strobe). `tests/render.test.js`.
+- **Taps on tall peaks**: `R.pickGround` marches over the island's real height range, so a tap on a volcano top (43–50) picks the top.
+- **Test flags stay in the URL**: "play now" and shared-world links keep `?cctest=1` and `?tester=`.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
