@@ -508,7 +508,7 @@
     if (!o.use && !r && held && K[hk] && K[hk].tool) o.use = op("swing your " + kl(hk), function () { swingAnim(); return true; }, null);
     o.ctx = o.pick && !o.pick.locked ? o.pick : o.use && !o.use.locked && o.use.label !== "cancel" ? o.use : o.place && !o.place.locked ? o.place : null;
     if (o.use && o.use.nestLine) o.ctx = o.use;
-    if (!o.ctx && tier < 2) o.ctx = op("sniff for food", function () { return P.sniff(); }, null); // a small body's nose (G)
+    if (!o.ctx && tier < 2) o.ctx = op(S && S.sniff && !S.auto ? "walk to food" : "sniff for food", function () { return P.sniff(); }, null); // a small body's nose (G)
     return o;
     function tugOpt(n) { return Surv.canTug(game, n) ? op("tug off some leaves", function () { return tug(n); }, V.pickup) : null; }
   };

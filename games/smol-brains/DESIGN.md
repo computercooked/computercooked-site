@@ -304,6 +304,17 @@ The bot's top three for 10/10 (K-0022), round two.
 - **Your first flag**: placing it says "watch them come" and pulls the camera back so the walk is in view.
 - **A steady test**: `threats.test.js` §5 is seeded from the village's set-up, not just the long run. Its "builders rebuild it" check passed or failed by luck (about 1 in 3 under a parallel suite).
 
+## 0.24 What v4.7.3 fixed: a new player's first five minutes, played through
+
+Played as a brand-new player at 1280×800 and on a phone (title, play now, skip the tutorial, open the pod, orders, possess):
+
+- **No window when you skip the tutorial**: the blob-stage orders news is a toast about a minute and a half later ("🚩 new: orders (key 6)…"), not a window the moment you skip. Tool-users still get the full orders card.
+- **The first tutorial card** ("tap the crashed pod") no longer reads "-1/7"; the count starts at the next step.
+- **Taps right after possessing work**: the "you are …" intro was eating the first taps (it caught pointer events, even while fading). It's click-through now and still fades by itself.
+- **The phone's big button** says "walk to food" once you've sniffed some (it said "sniff for food" both times).
+- **The orders panel** says "your first 🚩: they come" until two flags are down, instead of a listen % that the guaranteed first flags don't follow.
+- Checked at 8×: lighting through dusk is smooth (largest frame-to-frame step 1.3 on a 0–200 scale). A storm shows a lightning flash now and then, as designed.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
