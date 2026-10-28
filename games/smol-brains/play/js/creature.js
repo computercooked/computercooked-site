@@ -1527,6 +1527,7 @@
   C.tickle = function (c, game) {
     if (c.grief) { SB.Chem.apply(c.chem, { lonely: -0.2 }); c.grief.until -= 60; } // the sky's comfort shortens the grieving
     if (!c.alive) return;
+    if (SB.Tricks && SB.Tricks.gate && !SB.Tricks.gate(c, game, 1)) { emote(c, "huh", 0.8); return; } // a trick session: wait for the moment
     c.chem.reward = Math.min(1, c.chem.reward + 0.5);
     SB.Chem.apply(c.chem, { lonely: -0.05, bored: -0.03 });
     lesson(c, game, 1);
@@ -1541,6 +1542,7 @@
   C.tap = function (c, game) {
     if (c.tantrum) { c.tantrum = null; c.chem.anger *= 0.4; if (SB.Social) SB.Social.log(game, c, "👆", "the sky told me to calm down"); } // a firm tap ends a tantrum
     if (!c.alive) return;
+    if (SB.Tricks && SB.Tricks.gate && !SB.Tricks.gate(c, game, -1)) return; // a trick session: wait for the moment
     c.chem.punish = Math.min(1, c.chem.punish + 0.5);
     SB.Chem.apply(c.chem, { pain: 0.06, fear: c.species === "grump" ? 0.25 : 0.05 });
     lesson(c, game, -1);
