@@ -434,7 +434,52 @@
   // fresh food on the island per smol (same refresh as colonyHunger)
   Game.foodPerSmol = function (game) { Game.colonyHunger(game); return game._foodPer; };
 
+  /* ⏭ skip to the next interesting thing (plan-hands-on M2 "pace"): time runs at 16x until something worth
+     seeing happens (a hatch, growing up, an egg, a wish, a prayer, a discovery, trouble), or half a day passes.
+     Then it drops back to the speed you had and says what happened. Not while you're in a smol's eyes. */
+  Game.SKIP_MAX = SB.DAY_LENGTH * 0.5;
+  var SKIP_ON = {
+    hatch: function (d) { return { why: "🐣 " + d.c.name + " hatched!", c: d.c }; },
+    grow: function (d) { return { why: "🌱 " + d.c.name + " is now " + (SB.STAGES[d.c.stage] ? (d.c.stage >= 3 ? "an " : "a ") + SB.STAGES[d.c.stage].name : "older"), c: d.c }; },
+    egg: function (d) { return { why: "🥚 an egg!", c: d.obj }; },
+    wildEgg: function (d) { return { why: "🥚 a wild egg turned up", c: d.obj }; },
+    partners: function (d) { return { why: "💕 " + d.a.name + " and " + d.b.name + " paired up", c: d.a }; },
+    pray: function (d) { return { why: "🙏 " + d.c.name + " is praying to you", c: d.c }; },
+    wish: function (d) { return { why: "✨ " + d.c.name + " made a wish", c: d.c }; },
+    tierUp: function (d) { return { why: "🧬 " + d.c.name + " evolved!", c: d.c }; },
+    eureka: function (d) { return d.first ? { why: "💡 " + d.c.name + " had an idea!", c: d.c } : null; },
+    incident: function (d) { return { why: "⚠ something's happening", c: d.inc }; },
+    stranger: function (d) { return { why: "🧳 a stranger turned up", c: d.c }; },
+    drowning: function (d) { return { why: "🌊 " + d.c.name + " is drowning!", c: d.c }; },
+    death: function (d) { return d.c && d.c.species === "smol" ? { why: "🕯 " + d.c.name + " died", c: d.c } : null; },
+    grumpArrive: function (d) { return { why: "👹 a grump!", c: d.c }; }
+  };
+  Game.skip = function (game) {
+    if (!game || game.skip || (SB.Possess && SB.Possess.active)) return false;
+    game.skip = { from: game.speed || 1, t0: game.time, until: game.time + Game.SKIP_MAX };
+    game.speed = 16;
+    return true;
+  };
+  Game.skipStop = function (game, what) {
+    var s = game && game.skip;
+    if (!s) return false;
+    game.skip = null;
+    game.speed = s.from || 1;
+    SB.bus.emit("skipDone", { why: what ? what.why : "🌙 half a day went by quietly", at: what ? what.c : null });
+    return true;
+  };
+  Object.keys(SKIP_ON).forEach(function (k) {
+    SB.bus.on(k, function (d) {
+      var g = Game.current;
+      if (!g || !g.skip || g.offline || g.time < g.skip.t0 + 2) return; // not the echo of what just happened (a twin growing up too)
+      var w = null;
+      try { w = SKIP_ON[k](d || {}); } catch (e) { w = null; }
+      if (w) Game.skipStop(g, w);
+    });
+  });
   Game.step = function (game, dt) {
+    if (game.skip && game.speed !== 16) { game.skip = null; SB.bus.emit("skipDone", { why: "⏭ stopped", at: null }); } // you changed the speed yourself: keep yours
+    else if (game.skip && game.time >= game.skip.until) Game.skipStop(game, null); // half a day, nothing much
     game.time += dt;
     reindex(game);
     SB.World.rebuildCreatureGrid(game.world, game);

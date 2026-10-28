@@ -315,6 +315,15 @@ Played as a brand-new player at 1280×800 and on a phone (title, play now, skip 
 - **The orders panel** says "your first 🚩: they come" until two flags are down, instead of a listen % that the guaranteed first flags don't follow.
 - Checked at 8×: lighting through dusk is smooth (largest frame-to-frame step 1.3 on a 0–200 scale). A storm shows a lightning flash now and then, as designed.
 
+## 0.25 What v4.8.0 added: ⏭ skip to the next interesting thing
+
+The first ten minutes have quiet stretches: waiting for the twins to grow up, for an egg, for the first wish. 16× is there, but you have to watch for the moment and slow down yourself.
+
+- **⏭ next to the speed** (key n): time runs at 16× until something worth seeing happens: a hatch, a smol growing up, an egg (yours or wild), a pair, a prayer or wish, evolving, a first idea, a stranger, a grump, an incident, drowning or a death. Then it drops back to the speed you had, toasts what happened ("🌱 Brompius is now a kid"), flies the camera there and opens that smol's card.
+- **Half a day at most**: an island with nothing going on gives up after half a day ("🌙 half a day went by quietly").
+- **You're in charge**: changing the speed yourself, or pressing ⏭ again, stops it and keeps your speed. It won't start while you're in a smol's eyes, and the first 2 seconds ignore echoes of what just happened (the second twin growing up a moment after the first).
+- **Tests**: `skip.test.js` (stops with a reason before half a day, an empty island gives up quietly, your speed wins).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
