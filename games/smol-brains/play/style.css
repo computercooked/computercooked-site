@@ -96,6 +96,7 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet.side { position: fixed; right: calc(10px + var(--sar)); top: calc(56px + var(--sat)); bottom: calc(80px + var(--sab)); width: 360px; max-height: none; }
   /* the coach moves into the space left of an open side panel instead of sitting under it */
+  #ui:has(.sheet.side:not(.hide)) .toasts { right: calc(380px + var(--sar)); } /* toasts never cover the card */
   #ui:has(.sheet.side:not(.hide)) .coach { left: max(10px, calc(50% - 400px)); transform: none; width: min(420px, calc(100% - 400px)); }
 }
 .row { display: flex; gap: 8px; align-items: center; }
@@ -516,6 +517,15 @@ body.titling #overlay { opacity: 0; }
 .trick .how { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
 .trick .how span { flex: 1; }
 .trick .how .btn { flex: none; }
+.qch { margin: 10px 0 4px; font: 700 13px var(--mono); } .qch.done { color: var(--lime); } .qch.later { color: var(--dim); }
+.qrow { display: flex; justify-content: space-between; gap: 10px; padding: 6px 8px; margin: 3px 0; background: rgba(245, 243, 237, 0.04); cursor: pointer; font-size: 13px; } .qrow.done { opacity: 0.6; text-decoration: line-through; }
+.trick.live { border-color: var(--lime); box-shadow: 0 0 0 1px var(--lime) inset; }
+.trfloat { position: absolute; transform: translate(-50%, -100%); font: 700 16px var(--mono); color: var(--lime); text-shadow: 0 2px 0 var(--ink), 0 0 6px rgba(0, 0, 0, 0.6); pointer-events: none; animation: trfloat 1.4s ease-out forwards; z-index: 4; white-space: nowrap; }
+.trfloat.down { color: var(--pink, #ff7aa8); } .trfloat.wait { color: var(--paper); font-size: 13px; }
+@keyframes trfloat { 0% { opacity: 0; margin-top: 6px; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -34px; } }
+.trcue { position: absolute; transform: translate(-50%, -100%); padding: 5px 9px; font: 700 13px var(--mono); color: var(--ink); background: var(--lime); pointer-events: none; z-index: 4; white-space: nowrap; display: none; animation: trcue 0.5s ease-in-out infinite alternate; }
+.trcue.on { display: block; }
+@keyframes trcue { from { transform: translate(-50%, -100%) scale(1); } to { transform: translate(-50%, -110%) scale(1.06); } }
 .trick.up { animation: trup 0.6s; } .trick.down { animation: trdown 0.6s; }
 @keyframes trup { 0% { background: rgba(197, 255, 73, 0.28); } 100% { background: rgba(245, 243, 237, 0.04); } }
 @keyframes trdown { 0% { background: rgba(255, 77, 77, 0.28); } 100% { background: rgba(245, 243, 237, 0.04); } }

@@ -698,7 +698,7 @@
   W.warmEgg = function (world, game, egg, amount) {
     if (!egg || egg.kind !== "egg") return 0;
     var d = egg.data;
-    var amt = amount != null ? amount : d.starter ? 0.24 : 0.05;
+    var amt = amount != null ? amount : d.starter ? 0.36 : 0.05; // the pod opens in three taps
     d.progress = Math.min(1, (d.progress || 0) + amt);
     d.wobble = 1;
     emit("eggWarm", { obj: egg, progress: d.progress });

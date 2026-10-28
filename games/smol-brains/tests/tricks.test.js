@@ -151,5 +151,32 @@ console.log("7. the real loop: set it up, it looks at the thing, you reward what
   check("hungry blobs learn “eat when hungry” from real rounds", tries > 0 && ok === tries, ok + "/" + tries + " in " + lessons + " lessons");
 }
 
+console.log("8. v4.5.1: bars start at 0 for a new smol, a mistimed tickle is held back, a good one shows +n%");
+{
+  const { SB, game, cs } = island(31, 0, 3);
+  run(SB, game, 4);
+  const ps = [];
+  cs.forEach(c => SB.Tricks.LIST.forEach(d => ps.push(SB.Tricks.progress(c, d).p)));
+  ps.sort((a, b) => a - b);
+  check("every bar of a new smol starts near 0%", ps[ps.length - 1] < 0.2 && ps[Math.floor(ps.length / 2)] < 0.03, "median " + ps[Math.floor(ps.length / 2)].toFixed(2) + ", max " + ps[ps.length - 1].toFixed(2));
+  check("nobody knows a trick before you teach it", cs.every(c => SB.Tricks.count(c) === 0));
+  const c = cs[0]; c.chem.hunger = 0.7;
+  SB.Tricks.practice(game, c, "eat");
+  const waits = [], deltas = [];
+  SB.bus.on("trickWait", e => waits.push(e)); SB.bus.on("trickDelta", e => deltas.push(e));
+  c.action = null; c.plan = null; c.lastDone = null;
+  const m0 = SB.Tricks.meter(c, SB.Tricks.BY.eat), l0 = c.stats.lessons || 0;
+  SB.Creature.tickle(c, game);
+  check("a tickle while it isn't eating is held back", waits.length === 1 && (c.stats.lessons || 0) === l0 && Math.abs(SB.Tricks.meter(c, SB.Tricks.BY.eat) - m0) < 1e-6);
+  lived(SB, game, c, "hunger", "food", "eat");
+  SB.Creature.tickle(c, game);
+  check("a tickle while it eats lands and the bar goes up", deltas.length === 1 && deltas[0].to > deltas[0].from, deltas[0] && (deltas[0].from.toFixed(2) + " → " + deltas[0].to.toFixed(2)));
+  game.time += 60;
+  c.action = null; c.lastDone = null;
+  const l1 = c.stats.lessons;
+  SB.Creature.tickle(c, game);
+  check("once the session is over, tickles land as before", c.stats.lessons === l1 + 1);
+}
+
 console.log(failed ? "\n" + failed + " FAILED" : "\nall good");
 process.exit(failed ? 1 : 0);

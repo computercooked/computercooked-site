@@ -220,7 +220,7 @@
     var ws = SB.Save.worlds(), last = ws[0];
     setPane([
       last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), "go big", function () { play(last.id); }) : null,
-      btn(last ? "▶ new island" : "▶ play now", "jump straight in: a fresh island, ready in seconds", last ? "" : "go big", function () { createWorld({ quick: true }); }),
+      btn("▶ play now", last ? "a fresh island, playing in seconds" : "jump straight in: a fresh island, ready in seconds", last ? "" : "go big", function () { createWorld({ quick: true }); }),
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
       btn("📂 load game", ws.length ? ws.length + " island" + (ws.length === 1 ? "" : "s") + " saved" : "nothing saved yet", ws.length ? "" : "dim", function () { loadGame(); }),
       btn("⚙ settings", "text size · sound", "small", function () { settings(); })
@@ -311,6 +311,7 @@
       ], "wide");
     }
     function go() {
+      SB.Game.quickStart = !!pre.quick; // play now: no opening film, straight to the pod (the menu can show the film)
       var seed = st.seed && SB.parseWorldCode(st.seed) || SB.newSeed();
       var q = st.quirk === "surprise" ? (Math.random() < 0.75 ? [SB.pick ? SB.pick(Object.keys(SB.QUIRKS)) : Object.keys(SB.QUIRKS)[(Math.random() * Object.keys(SB.QUIRKS).length) | 0]] : []) : st.quirk === "none" ? [] : [st.quirk];
       var world = { gv: SB.WORLD_GV, arch: st.shape === "surprise" ? undefined : st.shape, size: st.size, land: st.land, peaks: st.peaks, climate: st.climate, food: st.food, grumps: st.grumps, storms: st.storms, crew: st.crew, quirks: q, surprise: st.quirk === "surprise" };

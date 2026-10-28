@@ -190,7 +190,7 @@
     }
     if (tool === "grab") {
       if (hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); }
-      else if (hit && hit.type === "item" && hit.ref.kind === "egg") { SB.World.warmEgg(game.world, game, hit.ref, hit.ref.data.starter ? 0.24 : 0.06); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 5); }
+      else if (hit && hit.type === "item" && hit.ref.kind === "egg") { SB.World.warmEgg(game.world, game, hit.ref, hit.ref.data.starter ? 0.36 : 0.06); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 5); }
       else if (hit) { if (SB.UI) SB.UI.inspect(hit); }
       else { SB.Game.select(game, null); if (SB.UI) SB.UI.inspect(null); }
     } else if (tool === "tickle" || tool === "tap") {
