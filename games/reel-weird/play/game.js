@@ -208,6 +208,18 @@
     for (let i = 0; i < n; i++) { const a = -Math.PI * (0.15 + Math.random() * 0.7); const v = (60 + Math.random() * 120) * S; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6, max: 0.6, col: col || '#9fd6e8', size: (2 + Math.random() * 2) * S }); }
   }
 
+  // test-only: ?cctest=1&slowbite=1 (on this page or the game page around it) makes bite windows 5x longer so automated
+  // playtests can land catches. Needs team test mode (a "smoke-" id), which already keeps plays, scores and ratings out
+  // of every count. Never on by default.
+  const SLOWBITE = (() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      let pq = null; try { if (parent !== window) pq = new URLSearchParams(parent.location.search); } catch (e) { /* cross-origin embed */ }
+      const get = (k) => q.get(k) || (pq && pq.get(k));
+      const smoke = /^smoke/i.test(localStorage.getItem('cc-anon') || '') || get('cctest') === '1';
+      return get('slowbite') === '1' && smoke ? 5 : 1;
+    } catch (e) { return 1; }
+  })();
   function mult() { return Math.min(3, 1 + 0.25 * Math.max(0, streak - 1)); }
   function castMinX() { return dockR + 34 * S; }
   function castMaxX() { return W - 26 * S; }
@@ -259,7 +271,7 @@
     hooked = rollItem(cast.d);
     state = 'bite';
     // generous on the first casts (~0.95s), tighter as the streak grows; deeper (rarer) things are a bit quicker
-    biteWin = Math.max(0.45, 0.95 - streak * 0.07 - hooked.tier * 0.05);
+    biteWin = Math.max(0.45, 0.95 - streak * 0.07 - hooked.tier * 0.05) * SLOWBITE;
     biteT = 0;
     bobDip = 1;
     splash(bobX, waterY, 10, '#cfefff');
@@ -593,6 +605,7 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(pad, pad, bw, bh);
     ctx.fillStyle = timeLeft <= 10 && Math.sin(t * 10) > 0 ? COL.red : COL.lime; ctx.fillRect(pad, pad, bw * k, bh);
     text(Math.ceil(timeLeft) + 's', pad, pad + bh + 16 * S, 13 * S, COL.paper, 'left');
+    if (SLOWBITE > 1) text('test: slow bite x' + SLOWBITE, pad, pad + bh + 32 * S, 10 * S, COL.gold, 'left');
     text(String(score), W - pad, pad + bh + 26 * S, 26 * S, COL.lime, 'right', '900');
     if (streak >= 2) text('x' + mult().toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' streak ' + streak, W - pad, pad + bh + 44 * S, 12 * S, COL.lilac, 'right');
     // mute toggle
@@ -836,7 +849,7 @@
 
   // test/debug hooks (read-only state + the same actions the inputs use)
   window.RW = {
-    state: () => state, score: () => score, time: () => timeLeft, streak: () => streak, catches: () => catches.map((x) => x.it.id),
+    slowbite: () => SLOWBITE, biteWin: () => biteWin, state: () => state, score: () => score, time: () => timeLeft, streak: () => streak, catches: () => catches.map((x) => x.it.id),
     power: () => power, tension: () => tension, progress: () => progress, daily: () => daily.id, book: () => ({ ...book }),
     items: () => ITEMS.map((it) => ({ id: it.id, tier: it.tier })), press: (x, y) => { down = true; press(x, y); }, release: () => up(),
     card: () => card().toDataURL('image/png'), poster: (w, h) => poster(w || 640, h || 360).toDataURL('image/png')
