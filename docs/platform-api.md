@@ -37,11 +37,25 @@ Response:
   "plays_by_ref": { "tiktok": 0, "direct": 0 },
   "campaigns": { "<utm_campaign>": { "pageviews": 0, "plays": 0, "tip_clicks": 0, "tip_successes": 0 } },
   "next": { "runs_ended": 0, "plays": 0, "ended": 0, "per_run": null, "by_slot": { "challenge": 0, "similar": 0, "new": 0 } },
+  // the whole-site funnel (first-party events): page views → plays → finished runs → shares (dares sent + game shares)
+  // → follow clicks, plus tip clicks, sign-ups (cc:signup) and dares opened (cc:dare_opened). Each game row also has
+  // "funnel": { landed (views of /games/<slug>/), played, finished, shared, followed }.
+  "funnel": { "landed": 0, "played": 0, "finished": 0, "shared": 0, "dares_opened": 0, "followed": 0, "tip_clicks": 0, "signups": 0 },
+  // outbound links are tagged: follow buttons utm_source=computercooked&utm_medium=<slot>&utm_campaign=follow;
+  // dare links ...&utm_campaign=dare and share-this-game links ...&utm_campaign=share, so plays they bring land in "campaigns".
+  // the test-lab ranking (src/winners.js): which games are catching on, best first; "too early" ones (under 20 real
+  // players) go last. score 0-100 = weighted next-day return 25%, week-later return 15%, plays per player 15%,
+  // shares per player 20%, avg session 10%, thumbs-up share 10%, outside traffic 5%, each against a "hit" target;
+  // signals without enough data drop out and the rest are rescaled. parts = each signal 0-100; weakest = fix first.
+  "winners": [{ "game": "crash", "title": "CRASH", "plays": 0, "players": 0, "score": 18, "verdict": "too early | winner: package it | promising | not catching on",
+                "parts": { "d1": null, "d7": null, "replay": 25, "share": 0, "session": 3, "rating": null, "outside": 100 }, "players_needed": 16, "weakest": "share" }],
   "games": [{
     "game": "crash", "title": "CRASH",
     "plays": 0, "unique_players": 0,
     "avg_session_seconds": 41.2,
     "completion_rate": 0.93,          // share of finished plays that ended normally (not quit)
+    // new: shares per game, plays from outside the site (referrer not "internal"), and total minutes played
+    "shares": { "dares_made": 0, "dares_sent": 0, "game_shares": 0, "total": 0 }, "outside_plays": 0, "total_minutes": 0,
     "auto_logged_plays": 0,           // plays logged by the player page because the game has no SDK hooks
     "d1_return_rate": 0.21, "d1_cohort": 140,   // of players whose first play was on/after `since` (and ≥1 day ago), share who played again the next day
     "d7_return_rate": 0.05, "d7_cohort": 60,

@@ -3,6 +3,7 @@ import { json, bad, readJson, now, dayOf, safeEqual, limited, REAL } from "./uti
 import { games } from "./db.js";
 import { FOLLOW_PLATFORMS } from "./follow.js";
 import { TIP_SLOTS } from "./hits.js";
+import { rankWinners } from "./winners.js";
 
 export function isAdmin(req, env, ip) {
   const h = req.headers.get("authorization") || "";
@@ -25,7 +26,7 @@ export async function metrics(url, env, origin) {
     `SELECT game, COUNT(*) plays, COUNT(DISTINCT ${PLAYER}) players,
        AVG(duration_ms) avg_ms,
        AVG(CASE WHEN ended_at IS NOT NULL THEN completed END) completion,
-       SUM(auto) auto_plays
+       SUM(auto) auto_plays, SUM(ended_at IS NOT NULL) finished
      FROM plays WHERE day >= ? AND ${REAL} GROUP BY game`
   ).bind(since).all()).results;
 
@@ -61,6 +62,25 @@ export async function metrics(url, env, origin) {
      FROM firsts f GROUP BY f.game`
   ).bind(since, since, today, today, today, today).all()).results;
 
+  // shares per game: dares made / actually sent, plus "share this game" sends (cc:share, smoke never stored)
+  const dareShares = (await db.prepare(
+    `SELECT d.game, COUNT(*) made, SUM(f.shared_at IS NOT NULL) sent FROM dares d LEFT JOIN dare_funnel f ON f.dare_id = d.id
+     WHERE d.created_at >= ? AND d.from_player NOT LIKE 'a:smoke%' GROUP BY d.game`
+  ).bind(Date.parse(since)).all()).results;
+  const gameShares = (await db.prepare(
+    "SELECT game, COUNT(*) n FROM events WHERE name = 'cc:share' AND ts >= ? GROUP BY game"
+  ).bind(Date.parse(since)).all()).results;
+
+  // funnel inputs: game page views (from the path, so older rows count too) and follow clicks per game
+  const pvPaths = (await db.prepare(
+    "SELECT json_extract(data, '$.path') path, COUNT(*) n FROM events WHERE name = 'cc:pageview' AND ts >= ? AND json_extract(data, '$.path') LIKE '/games/%' GROUP BY 1"
+  ).bind(Date.parse(since)).all()).results;
+  const landed = {};
+  for (const r of pvPaths) { const m = /^\/games\/([a-z0-9-]+)\/?/.exec(r.path || ""); if (m) landed[m[1]] = (landed[m[1]] || 0) + r.n; }
+  const fcGames = (await db.prepare(
+    "SELECT game, COUNT(*) n FROM events WHERE name = 'cc:follow_click' AND ts >= ? GROUP BY game"
+  ).bind(Date.parse(since)).all()).results;
+
   const latest = (await db.prepare(
     `SELECT game, rating, text, tester, version, ts FROM feedback WHERE ts >= ? AND text IS NOT NULL AND ${REAL} ORDER BY ts DESC LIMIT 200`
   ).bind(Date.parse(since)).all()).results;
@@ -72,6 +92,8 @@ export async function metrics(url, env, origin) {
     const f = fb.find((r) => r.game === g) || {};
     const r = ret.find((x) => x.game === g) || {};
     const rated = (f.up || 0) + (f.down || 0);
+    const ds = dareShares.find((x) => x.game === g) || {}, gs1 = gameShares.find((x) => x.game === g) || {};
+    const outside = pick(refs, g).filter((x) => x.referrer && x.referrer !== "internal").reduce((n, x) => n + x.n, 0);
     return {
       game: g,
       title: catalog.get(g)?.title || g,
@@ -80,6 +102,13 @@ export async function metrics(url, env, origin) {
       avg_session_seconds: b.avg_ms ? Math.round(b.avg_ms / 100) / 10 : null,
       completion_rate: b.completion == null ? null : Math.round(b.completion * 1000) / 1000,
       auto_logged_plays: b.auto_plays || 0,
+      total_minutes: b.avg_ms && b.plays ? Math.round((b.avg_ms * b.plays) / 60000) : 0,
+      outside_plays: outside,
+      shares: { dares_made: ds.made || 0, dares_sent: ds.sent || 0, game_shares: gs1.n || 0, total: (ds.sent || 0) + (gs1.n || 0) },
+      funnel: {
+        landed: landed[g] || 0, played: b.plays || 0, finished: b.finished || 0,
+        shared: (ds.sent || 0) + (gs1.n || 0), followed: (fcGames.find((x) => x.game === g) || {}).n || 0,
+      },
       d1_return_rate: r.n1 ? Math.round((r.r1 / r.n1) * 1000) / 1000 : null,
       d1_cohort: r.n1 || 0,
       d7_return_rate: r.n7 ? Math.round((r.r7 / r.n7) * 1000) / 1000 : null,
@@ -188,6 +217,20 @@ export async function metrics(url, env, origin) {
        (SELECT COUNT(*) FROM events WHERE name LIKE 'test:cc:%' AND ts >= ?2) site_hits`
   ).bind(since, Date.parse(since)).first();
   const users = await db.prepare("SELECT COUNT(*) n, SUM(created_at >= ?) new FROM users").bind(Date.parse(since)).first();
+  const opened = await db.prepare("SELECT COUNT(*) n FROM events WHERE name = 'cc:dare_opened' AND ts >= ?").bind(Date.parse(since)).first("n");
+  // the whole site, one line: land → play → finish → share → follow / tip / sign up
+  const sum = (k) => out.reduce((n, g) => n + g.funnel[k], 0);
+  // ad moments under the assets/ads.js caps (no network yet): what an ad network would get to fill
+  const ad = (await db.prepare(
+    "SELECT json_extract(data, '$.slot') slot, COUNT(*) n FROM events WHERE name = 'cc:ad_slot' AND ts >= ? GROUP BY 1"
+  ).bind(Date.parse(since)).all()).results;
+  const adN = (k) => (ad.find((r) => r.slot === k) || {}).n || 0;
+  const ad_slots = { interstitial: adN("interstitial"), rewarded: adN("rewarded") };
+  const site_funnel = {
+    landed: pageviews.total, played: out.reduce((n, g) => n + g.plays, 0), finished: sum("finished"),
+    shared: dares.sent + game_shares.sent, dares_opened: opened || 0,
+    followed: follow_clicks.total, tip_clicks: tips.clicks, signups: users.new || 0,
+  };
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
   const reports = await db.prepare("SELECT COUNT(*) n FROM reports WHERE resolved = 0").first("n");
   return json({
@@ -197,6 +240,8 @@ export async function metrics(url, env, origin) {
       accounts: users.n || 0, new_accounts: users.new || 0,
       uploads_pending: pending || 0, open_reports: reports || 0,
     },
+    funnel: site_funnel,
+    ad_slots,
     dares,
     game_shares,
     follow_clicks,
@@ -206,6 +251,7 @@ export async function metrics(url, env, origin) {
     campaigns,
     next,
     test_traffic: test,
+    winners: rankWinners(out),
     games: out,
   });
 }

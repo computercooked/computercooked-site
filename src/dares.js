@@ -4,7 +4,7 @@
 //   POST /api/dare/:id/beat   {play_id, anon}  -> {beaten, ...}    your run beat it: the sender earns XP
 //   POST /api/dare/:id/shared {how}            -> {ok}             the sender sent it (share sheet / copied)
 import { json, bad, readJson, now, dayOf, idOk, limited, randomToken, slugOk, isTestAnon } from "./util.js";
-import { grant } from "./xp.js";
+import { grant, unlock } from "./xp.js";
 import { people } from "./friends.js";
 
 const SENDER_XP = 25, PER_DARE = 10, PER_DAY = 100;
@@ -38,9 +38,26 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
       env.DB.prepare("INSERT OR IGNORE INTO dare_funnel (dare_id, source) VALUES (?, ?)").bind(id, b.source === "best" ? "best" : "button"),
     ]);
     row = await env.DB.prepare("SELECT id, from_name FROM dares WHERE play_id = ?").bind(b.play_id).first();
+    if (user) await unlock(env, user.id, "site", "dare_maker");
   }
-  const url = `${origin}/games/${encodeURIComponent(run.game)}/?vs=${encodeURIComponent(run.score)}&from=${encodeURIComponent(row.from_name)}&d=${row.id}`;
-  return json({ ok: true, id: row.id, url, text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
+  const url = `${origin}/d/${row.id}`; // short; /d/<id> redirects to dareUrl()
+  return json({ ok: true, id: row.id, url, long_url: origin + dareUrl({ id: row.id, game: run.game, score: run.score, from_name: row.from_name }), text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
+}
+
+// where a dare link lands: the game page with the dare banner (platform.js) and dare preview tags (seo.js), tagged so
+// plays it brings show under the "dare" campaign
+export function dareUrl(d) {
+  return `/games/${encodeURIComponent(d.game)}/?vs=${encodeURIComponent(d.score)}&from=${encodeURIComponent(d.from_name)}&d=${d.id}&utm_source=dare&utm_medium=share&utm_campaign=dare`;
+}
+
+// GET /d/:id (outside /api): a 302 to dareUrl(). Unknown or broken ids go to the hub. Cached briefly at the edge.
+export async function dareLink(env, url, id) {
+  let to = "/games/";
+  try {
+    const d = env.DB && await env.DB.prepare("SELECT id, game, score, from_name FROM dares WHERE id = ?").bind(id).first();
+    if (d) to = dareUrl(d);
+  } catch (e) { /* no table yet: the hub */ }
+  return new Response(null, { status: 302, headers: { location: url.origin + to, "cache-control": "public, max-age=300" } });
 }
 
 // POST /api/dare/:id/shared {how: share|copy|card|download}: the sender really sent it (share sheet finished,
@@ -64,7 +81,12 @@ export async function getDare(url, env, id, catalog) {
   if (typeof id !== "string" || !/^[A-Za-z0-9_-]{6,16}$/.test(id)) return bad("no such dare", 404);
   const d = await env.DB.prepare("SELECT id, game, score, from_name, beats FROM dares WHERE id = ?").bind(id).first();
   if (!d || !catalog.has(d.game)) return bad("no such dare", 404);
-  if (url.searchParams.get("open") === "1") await env.DB.prepare("UPDATE dares SET opens = opens + 1 WHERE id = ?").bind(id).run();
+  if (url.searchParams.get("open") === "1") {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE dares SET opens = opens + 1 WHERE id = ?").bind(id),
+      env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, 'cc:dare_opened', ?, ?)").bind(d.game, JSON.stringify({ dare: d.id }), now()),
+    ]);
+  }
   return json({ ok: true, id: d.id, game: d.game, title: catalog.get(d.game).title, score: d.score, from: d.from_name, beats: d.beats });
 }
 
@@ -89,7 +111,8 @@ export async function beatDare(req, env, user, id) {
       if (n <= PER_DARE && today + SENDER_XP <= PER_DAY) senderXp = await grant(env, d.from_user, "dare", d.game, `${id}:${run.player}`, SENDER_XP, t);
     }
   }
-  return json({ ok: true, beaten: true, first, from: d.from_name, score: d.score, sender_xp: senderXp });
+  const badge = user ? await unlock(env, user.id, "site", "dare_beat") : null;
+  return json({ ok: true, beaten: true, first, from: d.from_name, score: d.score, sender_xp: senderXp, achievement: badge });
 }
 
 // Link previews for dare links: seo.js rewrites the preview tags of /games/<slug>/?vs=…&from=…&d=… to

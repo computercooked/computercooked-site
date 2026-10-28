@@ -333,9 +333,7 @@ body {
   }
 }
 
-/* game pages on phones/touch screens: the deck slides away while a run is going (games/player.js sets .cc-playing)
-   and comes back when the run ends or the game scrolls off screen */
-@media (max-width: 760px), (pointer: coarse) {
-  .deck { transition: translate 0.25s ease, opacity 0.25s ease; }
-  .cc-playing .deck { translate: -50% calc(100% + 24px); opacity: 0; pointer-events: none; }
-}
+/* game pages: the deck slides away while a run is going (games/player.js sets .cc-playing) and comes back when the
+   run ends or the game scrolls off screen. All screen sizes (audit P1 #20): on desktop it sat over the game too. */
+.deck { transition: translate 0.25s ease, opacity 0.25s ease; }
+.cc-playing .deck { translate: -50% calc(100% + 24px); opacity: 0; pointer-events: none; }

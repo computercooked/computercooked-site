@@ -2,12 +2,13 @@
 //   pageview     one per page load on pages with the control deck (assets/deck.js)
 //   tip_click    a click on a "tip the computer" link (games/hub.js, games/platform.js)
 //   tip_success  a page opened with ?tip=thanks (the Stripe Payment Link's after-payment redirect), once per visit
+//   ad_slot      a moment an ad would show under the assets/ads.js caps (interstitial / rewarded), counted before any network
 // Stored as events rows named cc:<kind>, data {path, ref, campaign, slot}; read in /api/admin/metrics.
 // Smoke traffic is answered but not stored, like /api/follow.
 import { json, bad, readJson, now, limited, slugOk, refOk, campaignOk, isTestAnon } from "./util.js";
 
-const KINDS = ["pageview", "tip_click", "tip_success"];
-export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run"];
+const KINDS = ["pageview", "tip_click", "tip_success", "ad_slot"];
+export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run", "post-best"];
 
 const pathOk = (p) => {
   if (typeof p !== "string" || p[0] !== "/" || p.length > 120) return null;
@@ -23,6 +24,7 @@ export async function hit(req, env, ip) {
   if (!path) return bad("path?", 400);
   const data = { path, ref: refOk(b.ref), campaign: campaignOk(b.campaign) };
   if (b.kind === "tip_click") data.slot = TIP_SLOTS.includes(b.slot) ? b.slot : "other";
+  if (b.kind === "ad_slot") data.slot = b.slot === "rewarded" ? "rewarded" : "interstitial";
   const game = slugOk(b.game) ? b.game : "site";
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, ?, ?, ?)")
     .bind(game, "cc:" + b.kind, JSON.stringify(data), now()).run();

@@ -124,6 +124,9 @@ export async function gamePage(req, env, url, slug) {
       .on('meta[property="og:description"], meta[name="twitter:description"]', set("a friend dared you. free browser game: no download, plays on your phone."))
       .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png`));
     cache = "public, max-age=300";
+  } else {
+    // search-intent title: what people type ("<game> online free no download")
+    rw.on("title", { element(e) { e.setInnerContent(`${g.title}: play online free, no download — Computer Cooked`); } });
   }
   const headers = new Headers(page.headers);
   headers.delete("content-length");

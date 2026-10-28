@@ -10,8 +10,9 @@ import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { recapRoute } from "./recap.js";
-import { makeDare, getDare, beatDare, sharedDare, sharedGame } from "./dares.js";
+import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
+import { hubPage } from "./hub.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
@@ -21,6 +22,8 @@ import { followClick } from "./follow.js";
 import { hit } from "./hits.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
 
+const CONSENT_COUNTRIES = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
@@ -28,6 +31,11 @@ export default {
     // (usernames are letters, digits and _, so the page's own /u/u.js and /u/u.css never match)
     if (/^\/u\/[A-Za-z0-9_]{3,16}\/?$/.test(url.pathname)) return env.ASSETS.fetch(new Request(url.origin + "/u/", req));
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
+    // the hub: the grid, spotlight and ticker rendered from games.json (crawlers and link previews see every game)
+    if (url.pathname === "/games/" || url.pathname === "/games/index.html") return hubPage(req, env, url);
+    // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
+    const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
+    if (dl) return dareLink(env, url, dl[1]);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe
@@ -51,6 +59,8 @@ async function api(req, env, url) {
   const origin = url.origin;
 
   if (path === "/api/health") return json({ ok: true, db: !!env.DB });
+  // does this visitor need an ads consent banner (assets/consent.js)? EU/EEA, UK and Switzerland, from Cloudflare's country
+  if (path === "/api/geo") return json({ ok: true, consent_required: CONSENT_COUNTRIES.has((req.cf && req.cf.country) || "") }, 200, { "cache-control": "private, max-age=3600" });
   // the tip jar link (hub footer, after a run): null while TIP_URL is unset, so nothing shows
   if (path === "/api/tip") return json({ ok: true, url: tipUrl(env) }, 200, { "cache-control": "public, max-age=300" });
   if (!env.DB) return bad("database not configured", 503);

@@ -241,9 +241,10 @@
     if (!reduceMotion) timer = setInterval(tick, 5200);
   }
 
-  /* today's dailies, injected under the ticker */
+  /* today's dailies, injected under the "made by computer cooked" grid (the games come first on screen) */
   function hubStrip(games, bySlug) {
-    var anchor = document.querySelector(".ticker") || hub;
+    var grid = document.getElementById("shelf-computer-cooked");
+    var anchor = (grid && grid.closest("section")) || document.querySelector(".ticker") || hub;
     var today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
     var dailies = games.filter(function (g) { return DAILY[g.slug] || (g.tags || []).indexOf("daily") >= 0; });
     if (!dailies.length) return; // "continue playing" lives in games/hub.js ("jump back in": this device + account + saves)
@@ -258,7 +259,7 @@
             '<span class="daily-name">' + esc(g.title) + "</span>" +
             '<span class="daily-mode">' + esc(DAILY[g.slug] || "daily") + "</span>" +
             '<span class="daily-go" aria-hidden="true">▶</span></a></li>';
-        }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight.</p></section>";
+        }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight. <a href=\"/games/daily/\">daily 3 streak ▶</a></p></section>";
     }
     html += "</div>";
     anchor.insertAdjacentHTML("afterend", html);
@@ -329,6 +330,14 @@
       b.setAttribute("aria-pressed", String(c.id === "all"));
       row.appendChild(b);
     });
+    // 🎲: a random game, picked from the ones the current filter shows (audit P1 #17)
+    var dice = el('<button type="button" class="chip chip-random" aria-label="play a random game">🎲 random</button>');
+    dice.addEventListener("click", function () {
+      var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
+      var pool = shown.length ? shown : games.map(function (g) { return g.slug; });
+      location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
+    });
+    row.appendChild(dice);
     var section = grid.closest(".shelf");
     section.querySelector(".shelf-head").insertAdjacentElement("afterend", bar);
 
@@ -424,7 +433,8 @@
   }
 
   function renderCup(g, rows) {
-    var anchor = document.querySelector(".hub-strip") || document.querySelector(".ticker");
+    var grid = document.getElementById("shelf-computer-cooked");
+    var anchor = document.querySelector(".hub-strip") || (grid && grid.closest("section")) || document.querySelector(".ticker");
     if (!anchor) return;
     var top = rows.slice(0, 5);
     var html = '<section class="cup" aria-labelledby="cup-heading">' +

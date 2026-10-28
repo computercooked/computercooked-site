@@ -24,6 +24,23 @@ export const SITE_ACH = {
   top_10: { name: "leaderboard material", desc: "make the top 10 on an all-time board", xp: 75 },
   first_save: { name: "ctrl+s", desc: "save a game to your account", xp: 25 },
   rate_game: { name: "critic.exe", desc: "rate a game", xp: 15 },
+  // audit P1 #19: 16 more, all awarded on the server from things it already knows
+  first_run: { name: "boot sequence", desc: "finish your first run", xp: 10 },
+  play_10: { name: "tab hopper", desc: "play 10 different games", xp: 75 },
+  play_15: { name: "the whole arcade", desc: "play 15 different games", xp: 150 },
+  streak_3: { name: "three-peat", desc: "play 3 days in a row", xp: 30 },
+  streak_30: { name: "always online", desc: "play 30 days in a row", xp: 100 },
+  top_3: { name: "podium", desc: "make the top 3 on an all-time board", xp: 100 },
+  rank_1: { name: "king of the hill", desc: "hold #1 on an all-time board", xp: 100 },
+  runs_25: { name: "regular", desc: "finish 25 runs", xp: 40 },
+  runs_100: { name: "can't stop", desc: "finish 100 runs", xp: 100 },
+  new_best: { name: "personal record", desc: "beat your own best score", xp: 15 },
+  marathon: { name: "marathon", desc: "one run of 10 minutes or more", xp: 40 },
+  challenge_1: { name: "weekly warrior", desc: "complete a weekly challenge", xp: 50 },
+  level_5: { name: "promoted", desc: "reach level 5", xp: 50 },
+  level_10: { name: "senior engineer", desc: "reach level 10", xp: 100 },
+  dare_maker: { name: "instigator", desc: "dare someone to beat your score", xp: 15 },
+  dare_beat: { name: "took the bait", desc: "beat someone's dare", xp: 40 },
 };
 
 export const RULES = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
@@ -97,6 +114,18 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
   if (firsts >= 5) unlocked.push(await unlock(env, user.id, "site", "play_5", t));
   if (streak >= 7) unlocked.push(await unlock(env, user.id, "site", "streak_7", t));
   if (scoreRes && scoreRes.accepted && scoreRes.rank <= 10) unlocked.push(await unlock(env, user.id, "site", "top_10", t));
+  const runs = await env.DB.prepare("SELECT COUNT(*) n FROM plays WHERE user_id = ? AND ended_at IS NOT NULL AND completed = 1").bind(user.id).first("n");
+  const lvl = levelOf(before + parts.reduce((s, p) => s + p.xp, 0)).level;
+  const earned = [
+    ["first_run", runs >= 1], ["play_10", firsts >= 10], ["play_15", firsts >= 15],
+    ["streak_3", streak >= 3], ["streak_30", streak >= 30],
+    ["top_3", scoreRes && scoreRes.accepted && scoreRes.rank <= 3], ["rank_1", scoreRes && scoreRes.accepted && scoreRes.rank === 1],
+    ["runs_25", runs >= 25], ["runs_100", runs >= 100],
+    ["new_best", scoreRes && scoreRes.accepted && scoreRes.prev_best != null && score > scoreRes.prev_best],
+    ["marathon", durMs >= 600000], ["challenge_1", parts.some((p) => p.kind === "challenge")],
+    ["level_5", lvl >= 5], ["level_10", lvl >= 10],
+  ];
+  for (const [id, ok] of earned) if (ok) unlocked.push(await unlock(env, user.id, "site", id, t));
   for (const ev of eventsLive(t)) unlocked.push(await unlock(env, user.id, "site", ev.id, t)); // seasonal badge, any game
   const achs = unlocked.filter(Boolean);
   achs.forEach((a) => a.xp && parts.push({ kind: "achievement", xp: a.xp, id: a.id }));

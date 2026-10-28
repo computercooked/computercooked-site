@@ -2546,6 +2546,7 @@ body.embed {
 .cc-tip a { color: var(--lime); }
 .cc-tip small { margin-left: 4px; font-size: 0.72rem; opacity: 0.7; white-space: nowrap; }
 /* the hub's tip line up top (games/hub.js, right under the hero): a visible pill, not a footer link */
+.cc-tip-pb { display: inline-block; margin: 10px 0 0; padding: 6px 12px; border: 1px solid var(--lime); border-radius: 999px; }
 .cc-tip-top { margin: 4px auto 18px; padding: 10px 16px; max-width: max-content; border: 1px solid var(--lime); border-radius: 999px; text-align: center; }
 .cc-tip-top a { font-weight: 700; text-decoration: none; }
 .cc-tip-top a:hover, .cc-tip-top a:focus-visible { text-decoration: underline; }
@@ -2670,3 +2671,81 @@ html[data-landing-ready] { overflow: hidden; }
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* ---------- compact hub: games above the fold (audit P0 #3) ----------
+   The hero used to fill the whole first screen. Now it stays under ~35% of the viewport, and the
+   "made by computer cooked" grid starts right under it: 4 cards across on desktop, the compact list on phones. */
+.games-hero { gap: var(--s-3); padding: 0 0 var(--s-3); }
+.games-hero .eyebrow { margin-bottom: var(--s-2); }
+.games-title { font-size: clamp(1.9rem, 8vw, 3rem); }
+.games-brand { width: 150px; margin: 0 0 0 -4px; }
+/* wordmark and "games" side by side: one short line instead of a tall stack */
+.games-title { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0 10px; }
+.games-title span { padding-bottom: 4px; }
+.games-sub { margin-top: var(--s-2); font-size: 0.92rem; }
+.hero-ctas { margin-top: var(--s-3); }
+.ticker { margin-top: 0; }
+.games-hero .spot-dots { display: none; }
+@media (max-width: 859px) {
+  /* phones keep the compact spotlight card as the play button (the hero buttons are hidden there) */
+  .games-hero { gap: var(--s-3); }
+  /* the spotlight shrinks to a slim "featured: X ▶" row; the sub line and the decorative ticker step aside */
+  .games-sub, .ticker { display: none; }
+  .games-hero .spotlight { grid-template-columns: minmax(0, 34%) 1fr; gap: var(--s-3); padding: var(--s-2); }
+  .games-hero .spot-pitch { display: none; }
+  .games-hero .spot-tag { margin-bottom: 2px; }
+}
+@media (min-width: 860px) {
+  .games-hero { grid-template-columns: 1fr minmax(0, 300px); padding: var(--s-2) 0 var(--s-3); gap: var(--s-5); }
+  .spot-bezel { padding: 8px; animation: none; }
+  .spot-meta { gap: 2px; }
+  .spot-pitch { display: none; }
+}
+@media (min-width: 900px) {
+  .games-brand { width: 170px; }
+}
+@media (min-width: 1000px) {
+  .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4) var(--s-3); }
+  .game-name { font-size: 1.12rem; }
+  .game-pitch { font-size: 0.86rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .game-body { gap: 4px; }
+  .game-body > :nth-last-child(2) { margin-bottom: var(--s-2); }
+  .game-body { padding: var(--s-3); }
+  .game-tags { display: none; }
+  .game-body .play-btn { min-height: 42px; font-size: 0.95rem; }
+}
+
+/* ads consent banner (assets/consent.js): only appears once an ad network is switched on, for EU/UK visitors */
+.cc-consent { position: fixed; z-index: 10000; left: 12px; right: 12px; bottom: 12px; max-width: 560px; margin: 0 auto; padding: 14px 16px;
+  border: 2px solid var(--lime); border-radius: 14px; background: var(--carbon-2); color: var(--paper); font-family: var(--mono); font-size: 0.85rem; }
+.cc-consent p { margin: 0 0 10px; }
+.cc-consent a { color: var(--lime); }
+.cc-consent div { display: flex; gap: 8px; }
+.cc-consent button { min-height: 40px; padding: 0 16px; border: 2px solid var(--lime); border-radius: 10px; background: transparent; color: var(--paper); font: inherit; font-weight: 800; cursor: pointer; }
+.cc-consent button[data-c="granted"] { background: var(--lime); color: var(--carbon); }
+
+/* the 🎲 random chip in the hub filter bar; desktop chips slim down so the row (and the first card row) stays on one line */
+.chip-random { border-style: dashed; }
+@media (min-width: 1000px) { .chip-row { gap: 6px; } .chip-row .chip { padding: 0 12px; min-height: 36px; } }
+
+/* ---------- /games/daily/: daily 3 (assets/daily3.js) ---------- */
+.d3-streak { margin: 0; font-family: var(--mono); font-weight: 800; font-size: 1.4rem; }
+.d3-streak b { color: var(--lime); }
+.d3-sub { margin: 4px 0 var(--s-4); color: var(--paper-dim); }
+.d3-list { display: grid; gap: 10px; margin: 0 0 var(--s-4); padding: 0; list-style: none; }
+.d3-card { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 12px; padding: 8px; border: 2px solid var(--line); border-radius: 14px; color: var(--paper); text-decoration: none; }
+.d3-card img { width: 96px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: #0a0b0d; }
+.d3-card:hover, .d3-card:focus-visible { border-color: var(--lime); }
+.d3-name { font-family: var(--mono); font-weight: 800; }
+.d3-state { font-size: 1.3rem; padding-right: 6px; color: var(--paper-dim); }
+.d3-card.is-done { border-color: var(--lime); }
+.d3-card.is-done .d3-state { color: var(--lime); }
+.d3-share { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.d3-note { margin: var(--s-3) 0 0; font-size: 0.78rem; color: var(--paper-dim); }
+
+/* text pages (about, terms, privacy, daily 3) have no spotlight: one column, title under the eyebrow */
+@media (min-width: 860px) { .games-hero:not(:has(.spotlight)) { grid-template-columns: 1fr; gap: var(--s-2); } }
+
+/* animated thumbnails (games/hub.js clips()): the loop fades in over the static thumbnail */
+.game-clip { position: absolute; z-index: 1; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; background: transparent; }
+.game-clip.is-on { opacity: 1; }

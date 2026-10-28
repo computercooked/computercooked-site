@@ -31,12 +31,56 @@
       var t = m.totals;
       $("#totals").innerHTML = [["plays", t.plays], ["accounts", t.accounts], ["new accounts", t.new_accounts], ["uploads pending", t.uploads_pending], ["open reports", t.open_reports]]
         .map(function (x) { return "<div><b>" + x[1] + "</b><span>" + x[0] + "</span></div>"; }).join("");
+      // site funnel strip, then per game, then where the follow / tip / dare / campaign numbers come from
+      var f = m.funnel || {};
+      var steps = [["landed", f.landed], ["played", f.played], ["finished", f.finished], ["shared", f.shared], ["followed", f.followed]];
+      $("#funnel").innerHTML = steps.map(function (s, i) {
+        var prev = i ? steps[i - 1][1] : null;
+        return "<div><b>" + (s[1] || 0) + "</b><span>" + s[0] + (prev ? " · " + pct(s[1] / prev) : "") + "</span></div>";
+      }).join("") + "<div><b>" + (f.tip_clicks || 0) + "</b><span>tip clicks</span></div><div><b>" + (f.signups || 0) + "</b><span>sign-ups</span></div>" +
+        "<div><b>" + (f.dares_opened || 0) + "</b><span>dares opened</span></div>";
+      var step = function (a, b) { return b ? " <small>" + pct(a / b) + "</small>" : ""; };
+      table($("#funnel-table"), [
+        ["game", function (g) { return esc(g.title); }],
+        ["landed", function (g) { return g.funnel.landed; }, "n"],
+        ["played", function (g) { return g.funnel.played + step(g.funnel.played, g.funnel.landed); }, "n"],
+        ["finished", function (g) { return g.funnel.finished + step(g.funnel.finished, g.funnel.played); }, "n"],
+        ["shared", function (g) { return g.funnel.shared + step(g.funnel.shared, g.funnel.finished); }, "n"],
+        ["followed", function (g) { return g.funnel.followed + step(g.funnel.followed, g.funnel.finished); }, "n"]
+      ], m.games.filter(function (g) { return g.funnel && (g.funnel.landed || g.funnel.played); }));
+      var kv = function (o) { return Object.keys(o || {}).filter(function (k) { return o[k]; }).map(function (k) { return esc(k) + " " + o[k]; }).join(", ") || "–"; };
+      var d = m.dares || {}, fc = m.follow_clicks || {}, tp = m.tips || {};
+      table($("#extras-table"), [["what", function (x) { return x[0]; }], ["numbers", function (x) { return x[1]; }, "wrap"]], [
+        ["dares", d.made + " made → " + d.sent + " sent → " + d.opened + " opened → " + d.beaten + " beaten"],
+        ["follow clicks", fc.total + " · " + kv(fc.by_platform) + " · from " + kv(fc.by_slot)],
+        ["ad slots (no network yet)", ((m.ad_slots || {}).interstitial || 0) + " interstitial · " + ((m.ad_slots || {}).rewarded || 0) + " rewarded"],
+        ["tips", tp.clicks + " clicks (" + kv(tp.clicks_by_slot) + ") · " + tp.successes + " paid"],
+        ["page views by channel", kv((m.pageviews || {}).by_ref)],
+        ["plays by channel", kv(m.plays_by_ref)],
+        ["campaigns", Object.keys(m.campaigns || {}).map(function (c) { var x = m.campaigns[c]; return esc(c) + ": " + x.pageviews + " views, " + x.plays + " plays, " + x.tip_clicks + " tip clicks"; }).join(" · ") || "–"]
+      ]);
+
+      var LBL = { d1: "next day", d7: "week later", replay: "replays", share: "shares", session: "session", rating: "rating", outside: "outside traffic" };
+      (m.winners || []).forEach(function (w, i) { w.rank = w.verdict === "too early" ? 0 : i + 1; });
+      table($("#win-table"), [
+        ["#", function (w) { return w.rank || "–"; }],
+        ["game", function (w) { return esc(w.title); }],
+        ["score", function (w) { return w.score == null ? "–" : '<b class="adm-score s' + (w.score >= 60 ? 3 : w.score >= 40 ? 2 : 1) + '">' + w.score + "</b>"; }, "n"],
+        ["verdict", function (w) { return esc(w.verdict) + (w.verdict === "too early" ? " <small>(" + w.players_needed + " more players)</small>" : ""); }],
+        ["players", function (w) { return w.players || 0; }, "n"],
+        ["plays", function (w) { return w.plays || 0; }, "n"],
+        ["fix first", function (w) { return w.weakest ? esc(LBL[w.weakest] || w.weakest) : "–"; }],
+        ["signals", function (w) { return Object.keys(LBL).filter(function (k) { return w.parts[k] != null; }).map(function (k) { return esc(LBL[k]) + " " + w.parts[k]; }).join(" · ") || "–"; }]
+      ], m.winners || []);
       table($("#games-table"), [
         ["game", function (g) { return esc(g.title); }],
         ["plays", function (g) { return g.plays; }, "n"],
         ["players", function (g) { return g.unique_players; }, "n"],
         ["avg secs", function (g) { return g.avg_session_seconds == null ? "–" : g.avg_session_seconds; }, "n"],
         ["completion", function (g) { return pct(g.completion_rate); }, "n"],
+        ["shares", function (g) { return g.shares ? g.shares.total + " <small>(" + g.shares.dares_sent + " dares)</small>" : "–"; }, "n"],
+        ["outside", function (g) { return g.plays ? pct(g.outside_plays / g.plays) : "–"; }, "n"],
+        ["minutes", function (g) { return g.total_minutes || 0; }, "n"],
         ["D1", function (g) { return pct(g.d1_return_rate) + " <small>(" + g.d1_cohort + ")</small>"; }, "n"],
         ["D7", function (g) { return pct(g.d7_return_rate) + " <small>(" + g.d7_cohort + ")</small>"; }, "n"],
         ["👍/👎", function (g) { return g.thumbs_up + " / " + g.thumbs_down; }, "n"],

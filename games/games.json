@@ -2,6 +2,7 @@
   "games": [
     {
       "slug": "crash",
+      "clip": "/assets/clips/crash.mp4",
       "title": "CRASH",
       "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
       "thumbnail": "/games/crash/thumb.svg",
@@ -12,7 +13,7 @@
         "60s runs"
       ],
       "controls": "drag / arrows / A D",
-      "size_kb": 877,
+      "size_kb": 268,
       "version": "2.1",
       "added": "2026-10-19",
       "max_score_per_sec": 60,
@@ -25,6 +26,7 @@
     },
     {
       "slug": "handbag-havoc",
+      "clip": "/assets/clips/handbag-havoc.mp4",
       "title": "Handbag Havoc",
       "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
       "thumbnail": "/games/handbag-havoc/play/thumb.png",
@@ -43,6 +45,8 @@
     },
     {
       "slug": "one-percent-popup",
+      "clip": "/assets/clips/one-percent-popup.mp4",
+      "featured_rank": 2,
       "title": "only 1% can close this pop-up",
       "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
       "thumbnail": "/games/one-percent-popup/play/thumb.png",
@@ -63,6 +67,8 @@
     },
     {
       "slug": "keyboard-escape",
+      "clip": "/assets/clips/keyboard-escape.mp4",
+      "featured_rank": 3,
       "title": "+1 Speed Keyboard Escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
       "thumbnail": "/games/keyboard-escape/play/thumb.png",
@@ -83,6 +89,7 @@
     },
     {
       "slug": "desktop-jam",
+      "clip": "/assets/clips/desktop-jam.mp4",
       "title": "desktop jam",
       "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
       "thumbnail": "/games/desktop-jam/play/thumb.png",
@@ -104,6 +111,7 @@
     },
     {
       "slug": "fathom",
+      "clip": "/assets/clips/fathom.mp4",
       "title": "fathom",
       "pitch": "submarine duel against a computer with opinions. every miss tells you how close you were. decoys lie.",
       "thumbnail": "/games/fathom/play/thumb.png",
@@ -123,6 +131,7 @@
     },
     {
       "slug": "tab-hoarder",
+      "clip": "/assets/clips/tab-hoarder.mp4",
       "title": "tab hoarder",
       "pitch": "stack browser tabs on a tired computer. perfect drops stack a multiplier. free_ram_download.exe is a trap.",
       "thumbnail": "/games/tab-hoarder/play/thumb.png",
@@ -142,6 +151,7 @@
     },
     {
       "slug": "crash-test-daily",
+      "clip": "/assets/clips/crash-test-daily.mp4",
       "title": "crash test (daily)",
       "pitch": "a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your 🟩🟨🟥 grid.",
       "thumbnail": "/games/crash-test-daily/play/thumb.png",
@@ -162,6 +172,7 @@
     },
     {
       "slug": "bellchain",
+      "clip": "/assets/clips/bellchain.mp4",
       "title": "bellchain",
       "pitch": "an idle game that plays actual music. buy a cowbell. then 200 more.",
       "thumbnail": "/games/bellchain/play/thumb.png",
@@ -180,6 +191,8 @@
     },
     {
       "slug": "level-devil-exe",
+      "clip": "/assets/clips/level-devil-exe.mp4",
+      "featured_rank": 5,
       "title": "level devil.exe",
       "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
       "thumbnail": "/games/level-devil-exe/play/thumb.png",
@@ -207,6 +220,7 @@
     },
     {
       "slug": "pixel-purge",
+      "clip": "/assets/clips/pixel-purge.mp4",
       "title": "pixel purge",
       "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
       "thumbnail": "/games/pixel-purge/play/thumb.png",
@@ -234,6 +248,8 @@
     },
     {
       "slug": "crash-cheats",
+      "clip": "/assets/clips/crash-cheats.mp4",
+      "featured_rank": 4,
       "title": "crash cheats at tic tac toe",
       "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
       "thumbnail": "/games/crash-cheats/play/thumb.png",
@@ -255,6 +271,7 @@
     },
     {
       "slug": "overdue-notice",
+      "clip": "/assets/clips/overdue-notice.mp4",
       "title": "overdue notice",
       "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
       "thumbnail": "/games/overdue-notice/play/thumb.png",
@@ -276,6 +293,7 @@
     },
     {
       "slug": "plus-one-ram",
+      "clip": "/assets/clips/plus-one-ram.mp4",
       "title": "+1 ram every second",
       "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
       "thumbnail": "/games/plus-one-ram/play/thumb.png",
@@ -331,6 +349,8 @@
     },
     {
       "slug": "reel-weird",
+      "clip": "/assets/clips/reel-weird.mp4",
+      "featured_rank": 1,
       "title": "reel weird",
       "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
       "thumbnail": "/games/reel-weird/play/thumb.png",
@@ -345,7 +365,7 @@
       ],
       "controls": "hold tap / click / space to charge, let go to cast. tap on the big bite. hold to reel, let go to ease. b opens the book, m mutes, p pauses.",
       "size_kb": 112,
-      "version": "1",
+      "version": "2",
       "added": "2026-10-28",
       "max_score_per_sec": 200.0,
       "score_slack": 3000.0,

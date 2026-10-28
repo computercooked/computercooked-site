@@ -238,10 +238,11 @@
       "<div class=\"cc-card-out\" hidden><img alt=\"your run as a share card\" width=\"108\" height=\"192\">" +
       "<div><a class=\"tool cc-card-dl\" download>download card</a><button type=\"button\" class=\"tool cc-card-copy\">copy link</button>" +
       "<p class=\"cc-card-tip\">post the card, paste the link.</p></div></div>";
+    if (best) pbTip(box);
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
     // what gets sent: a dare for this exact run, or (no score) just the game
     var make = !scored
-      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/" }); }
+      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/?utm_source=share&utm_medium=" + (navigator.share ? "native" : "link") + "&utm_campaign=share" }); }
       : function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
     var ready = best || !scored ? make() : null, dare = null;
     if (ready) ready.then(function (d) { if (d && d.ok) dare = d; });
@@ -278,10 +279,17 @@
     // the share card (share-card.js, loaded now): a story-size image of this run + the dare link, drawn while
     // the player looks at their score so the tap can open the share sheet straight away
     var file = null, cardUrl = null;
+    // a dare made straight away (a new best) puts its short link on the card; otherwise the card shows the game's address
+    var link = ready && scored ? Promise.race([
+      ready.then(function (d) { return d && d.ok && d.id ? "computercooked.com/d/" + d.id : null; }, function () { return null; }),
+      new Promise(function (res) { setTimeout(function () { res(null); }, 1500); })
+    ]) : Promise.resolve(null);
     var card = loadCardMaker().then(function (draw) {
-      return draw(scored
-        ? { title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best }
-        : { title: info.title, slug: game, art: info.thumbnail, score: null });
+      return link.then(function (l) {
+        return draw(scored
+          ? { title: info && info.title, slug: game, art: info && info.thumbnail, score: e.detail.score, rank: r.rank, best: best, prev: r.prev_best, link: l }
+          : { title: info.title, slug: game, art: info.thumbnail, score: null });
+      });
     }).then(function (blob) {
       var name = game + (scored ? "-" + String(Math.round(e.detail.score)) : "") + ".png";
       try { file = new File([blob], name, { type: "image/png" }); } catch (err) { file = null; }
@@ -354,6 +362,28 @@
   function tipLine(url) {
     return '<p class="cc-tip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-run">keep the games free: tip the computer ↗</a> <small>18+ / ask a parent</small></p>';
   }
+  // after a new personal best (the happiest moment of a run): a small coffee chip under the dare, once per visit.
+  // Non-blocking, a plain link out; a click is tip_click slot post-best.
+  function pbTip(box) {
+    try { if (sessionStorage.getItem("cc-tip-pb")) return; } catch (e) { return; }
+    tipUrl().then(function (url) {
+      if (!url || !box.isConnected || box.querySelector(".cc-tip-pb")) return;
+      try { sessionStorage.setItem("cc-tip-pb", "1"); } catch (e) {}
+      box.insertAdjacentHTML("beforeend", '<p class="cc-tip cc-tip-pb"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-best">☕ new best? buy the computer a coffee ↗</a> <small>18+ / ask a parent</small></p>');
+      box.querySelector(".cc-tip-pb a").addEventListener("click", function () { if (window.ccHit) window.ccHit("tip_click", { slot: "post-best", game: game }); });
+    });
+  }
+  // the ad layer (assets/ads.js + consent.js): caps and consent only, no network yet; loaded on the first run end
+  var adsP = null;
+  function adsReady() {
+    if (!adsP) adsP = new Promise(function (ok) {
+      var n = 0, one = function () { if (++n === 2) ok(window.ccAds || null); };
+      ["/assets/consent.js", "/assets/ads.js"].forEach(function (src) {
+        var s = document.createElement("script"); s.src = src; s.onload = one; s.onerror = one; document.head.appendChild(s);
+      });
+    });
+    return adsP;
+  }
   var tip = null;
   function tipUrl() {
     if (!tip) tip = fetch("/api/tip").then(function (r) { return r.ok ? r.json() : null; })
@@ -400,39 +430,69 @@
             '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
             '<span class="cc-next-k">' + esc(p.label) + "</span><b>" + esc(p.g.title) + "</b></a>";
         }).join("") + "</div></nav>");
-      // the end of the rail holds one house ask: the tip jar when it's on, else (unless this run was a new best,
-      // where the dare is the ask) the follow card (assets/follow.js, loaded now)
-      tipUrl().then(function (url) {
-        if (url) {
-          rail.insertAdjacentHTML("beforeend", tipLine(url));
-          rail.addEventListener("click", function (e) {
-            var a = e.target.closest && e.target.closest("a[data-tip]");
-            if (a && window.ccHit) window.ccHit("tip_click", { slot: "post-run", game: game });
-          });
-          return;
-        }
-        var d = document.getElementById("cc-dare");
-        if (d && d.classList.contains("is-best")) return;
-        loadFollow().then(function (f) { if (!rail.querySelector(".cc-follow")) { rail.insertAdjacentHTML("beforeend", f.card("post-run")); f.bind(rail); } }, function () {});
+      rail.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[data-tip]");
+        if (a && window.ccHit) window.ccHit("tip_click", { slot: "post-run", game: game });
       });
+      houseAsk(rail);
       var dareBox = document.getElementById("cc-dare");
       if (dareBox) dareBox.insertAdjacentElement("afterend", rail);
       else board.insertAdjacentElement("beforebegin", rail);
     });
   }
 
+  // daily 3 (assets/daily3.js, /games/daily/): a run in one of the three counts for today
+  function daily3(slug) {
+    if (["crash-test-daily", "desktop-jam", "fathom"].indexOf(slug) < 0) return;
+    var go = function () {
+      var r = window.ccDaily3 && window.ccDaily3.mark(slug);
+      if (r && window.ccToast) window.ccToast(r.done < r.of ? "daily 3: " + r.done + "/" + r.of + " today" : "daily 3 done" + (r.streak ? " · 🔥" + r.streak : ""));
+    };
+    if (window.ccDaily3) return go();
+    var s = document.createElement("script"); s.src = "/assets/daily3.js"; s.onload = go; document.head.appendChild(s);
+  }
+
+  // the end of the rail holds one house ask. From the 3rd run of a visit (someone who's hooked): the follow card,
+  // "this game came from a tiktok trend" (audit P1 #24). Before that: the tip jar when it's on, else the follow card.
+  // Never on top of a new-best dare, which is the ask then.
+  function visitRuns() { try { return +sessionStorage.getItem("cc-runs") || 0; } catch (e) { return 0; } }
+  function houseAsk(rail) {
+    if (!rail || rail.querySelector(".cc-follow")) return;
+    var d = document.getElementById("cc-dare");
+    var follow = function () {
+      if (d && d.classList.contains("is-best")) return;
+      loadFollow().then(function (f) {
+        if (rail.querySelector(".cc-follow")) return;
+        var t = rail.querySelector(".cc-tip"); if (t) t.remove();
+        rail.insertAdjacentHTML("beforeend", f.card("post-run", visitRuns() >= 3 ? "this game came from a tiktok trend. follow for the next one" : null));
+        f.bind(rail);
+      }, function () {});
+    };
+    if (visitRuns() >= 3) return follow();
+    tipUrl().then(function (url) {
+      if (!url) return follow();
+      if (!rail.querySelector(".cc-tip")) rail.insertAdjacentHTML("beforeend", tipLine(url));
+    });
+  }
+
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
+    try { sessionStorage.setItem("cc-runs", String(visitRuns() + 1)); } catch (err) {}
+    daily3(game);
+    houseAsk(document.getElementById("cc-next"));
     if (!board.hidden) setTimeout(loadBoard, 300);
     fb.classList.add("cc-pulse");
     setTimeout(function () { fb.classList.remove("cc-pulse"); }, 2400);
     var r = e.detail && e.detail.result;
     var say = window.ccToast || function () {};
-    if (r && r.accepted) say("#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
+    if (r && r.accepted) say(r.today && r.today.of > 1
+      ? "#" + r.today.rank + " of " + r.today.of + " today" + (r.best === e.detail.score ? " · new best" : "") + " · #" + r.rank + " all-time"
+      : "#" + r.rank + " on the all-time board" + (r.best === e.detail.score ? " · new best" : ""));
     if (r && r.accepted && me) friendNudge(say);
     dareResult(e);
     dareButton(e);
     nextRail();
+    adsReady().then(function (a) { if (a) a.runEnded(game); });
     var x = r && r.xp;
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
