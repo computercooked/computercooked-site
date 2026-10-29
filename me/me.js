@@ -65,6 +65,7 @@
         if (r.under13) { ls("cc-noacct", String(Date.now())); noAccount(); return; }
         if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
         msg.textContent = "";
+        try { localStorage.removeItem("cc-guest-xp"); } catch (e) {} // K-0030 step 1: the server replayed the guest xp
         ls("cc-user-change", String(Date.now())); // open game tabs pick up the login and sync their saves
         showProfile(r.user);
       });

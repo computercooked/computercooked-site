@@ -2462,3 +2462,14 @@ html[data-landing-ready] { overflow: hidden; }
 .d3-card img { image-rendering: pixelated; }
 .d3-card { border-width: 1px; }
 .d3-card img { aspect-ratio: 16 / 10; }
+
+/* K-0030 step 1: the level bar at the top of the player panel (guests: saved on this device) */
+.cc-level { margin: 0 0 var(--s-4); padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.cc-level-row { display: flex; align-items: baseline; gap: var(--s-2); flex-wrap: wrap; }
+.cc-level-n { font-family: var(--display); font-weight: 600; font-size: var(--fs-20); color: var(--text); }
+.cc-level-t { color: var(--text-dim); font-size: var(--fs-14); }
+.cc-level-x { margin-left: auto; color: var(--text-dim); font-size: var(--fs-12); }
+.cc-level-bar { height: 6px; margin-top: var(--s-2); border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.cc-level-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 400ms ease; }
+.cc-level-note { margin: var(--s-2) 0 0; color: var(--text-dim); font-size: var(--fs-14); }
+@media (prefers-reduced-motion: reduce) { .cc-level-bar span { transition: none; } }

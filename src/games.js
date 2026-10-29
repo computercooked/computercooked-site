@@ -103,7 +103,9 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
     `SELECT SUM(b > (SELECT MAX(score) FROM scores WHERE game = ?1 AND player = ?2 AND day = ?3)) above, COUNT(*) players
      FROM (SELECT player, MAX(score) b FROM scores WHERE game = ?1 AND day = ?3 AND hidden = 0 GROUP BY player)`
   ).bind(play.game, player, dayOf(t)).first();
-  return { accepted: true, best, prev_best: prevBest, rank: rank + 1, name,
+  // how many players are on the all-time board: guests work out their XP on the device from rank / players (K-0030 step 1)
+  const players = await env.DB.prepare("SELECT COUNT(DISTINCT player) n FROM scores WHERE game = ? AND hidden = 0").bind(play.game).first("n");
+  return { accepted: true, best, prev_best: prevBest, rank: rank + 1, players: players || 1, name,
     today: { rank: (today && today.above || 0) + 1, of: Math.max(today && today.players || 0, 1) } };
 }
 
