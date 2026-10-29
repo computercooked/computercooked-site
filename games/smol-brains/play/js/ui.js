@@ -2176,6 +2176,12 @@
       tutDone("trick");
     });
     var waitT = 0;
+    on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); });
+    on("trickNoBite", function (d) {
+      toast("🤷 <b>" + esc(d.c.name) + "</b> isn't biting: " + esc(d.why) + ". press <b>set it up</b> to try again" + (/hungry/.test(d.why) ? ", or wait till it's hungrier" : "") + ".", "", 7000);
+      if (trCue.c === d.c) trCue.c = null;
+      if (state.sheet === "tricks") renderTricks(true);
+    });
     on("trickWait", function (d) {
       if (performance.now() - waitT < 1800) return;
       waitT = performance.now();

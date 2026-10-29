@@ -138,12 +138,12 @@
     if (p.drop) {
       var a = (c.facing || 0) + (game.rng() - 0.5) * 0.8, x = c.x + Math.sin(a) * 0.9, z = c.z + Math.cos(a) * 0.9;
       var it = SB.World.walkable(game.world, x, z) ? SB.World.add(game.world, game, p.drop, x, z) : SB.World.add(game.world, game, p.drop, c.x + 0.5, c.z);
-      c.lure = { id: it.id, t: game.time + 20 }; // it looks at the thing; what it does with it is up to its brain
+      c.lure = { id: it.id, t: game.time + 20 }; var lureId = it.id; // it looks at the thing; what it does with it is up to its brain
       c.thinkT = Math.min(c.thinkT || 0, 0.3);
       if (c.action && !c.plan && (c.action.verb === SB.V.idle || c.action.verb === SB.V.wander)) c.action = null;
     } else if (p.say) SB.Creature.hear(c, p.say, game, { call: true });
     game.stats.practices = (game.stats.practices || 0) + 1;
-    c.trickSession = { id: id, until: game.time + 30, from: T.shown(c, d) };
+    c.trickSession = { id: id, until: game.time + 30, from: T.shown(c, d), t0: game.time, lure: typeof lureId === "number" ? lureId : null };
     return true;
   };
   // the trick it's being set up for, if the session is still on
@@ -201,7 +201,31 @@
   // after any lesson (tickle, tap, "good"/"bad", a possessed choice), and every few seconds as brains
   // drift from living, look again
   var t = 0;
+  /* a set-up that goes nowhere shouldn't leave you waiting (4.8.5 playtest: 25 s of nothing): 8 s in, if it
+     hasn't gone for it, it looks at the thing again; 16 s in, it's over, and the game says why */
+  T.NUDGE = 8; T.NO_BITE = 16;
+  function sessions(game) {
+    SB.Game.smols(game).forEach(function (c) {
+      var s = c.trickSession;
+      if (!s || s.t0 == null) return;
+      var d = T.BY[s.id];
+      if (!d || !T.session(c, game)) return;
+      if (T.doing(c, game, d)) { s.seen = true; return; }
+      if (s.seen) return;
+      var since = game.time - s.t0;
+      if (since > T.NUDGE && !s.nudged) {
+        s.nudged = true;
+        if (s.lure != null && SB.Game.byId(game, s.lure)) { c.lure = { id: s.lure, t: game.time + 10 }; c.thinkT = 0; if (c.action && !c.plan && (c.action.verb === SB.V.idle || c.action.verb === SB.V.wander)) c.action = null; }
+        SB.bus.emit("trickNudge", { c: c, trick: d });
+      } else if (since > T.NO_BITE) {
+        c.trickSession = null;
+        var low = d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.45;
+        SB.bus.emit("trickNoBite", { c: c, trick: d, why: low ? "it isn't " + (d.drive === "hunger" ? "hungry" : d.drive) + " enough" : c.asleep ? "it fell asleep" : "its brain picked something else this time" });
+      }
+    });
+  }
   T.tick = function (game, dt) {
+    sessions(game);
     t -= dt;
     if (t > 0) return;
     t = 3;

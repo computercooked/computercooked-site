@@ -377,6 +377,15 @@ Played through the items the bot hadn't reached yet, at 1280×800:
 - **Play now** says the island you were on stays in 📂 load game ("a fresh island. x stays safe in 📂 load game"): it never overwrites.
 - **Tests**: `firstminutes.test.js` §6 (a tickle before the thing is held back; two good tickles are two lessons; not twice for the same go).
 
+## 0.31 What v4.8.6 fixed: a set-up never leaves you waiting
+
+In a 4.8.5 play-through, a "set it up" lesson sat for 25 s with the smol ignoring the food and nothing on screen saying why.
+
+- **8 s in** (`Tricks.NUDGE`): if it hasn't gone for the thing yet, it looks at it again (the lure is renewed and it rethinks). A "👀 hmm?" floats over it.
+- **16 s in** (`Tricks.NO_BITE`): the lesson ends and a toast says why: "🤷 Wady isn't biting: it isn't hungry enough. press set it up to try again, or wait till it's hungrier" (or "it fell asleep", or "its brain picked something else this time"). The cue is cleared and the panel is ready for another go.
+- Once it has done the thing in a session, none of this applies: the usual 30 s window stays.
+- **Tests**: `firstminutes.test.js` §7.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
