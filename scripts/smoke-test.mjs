@@ -639,6 +639,15 @@ if (admin) {
   ok((garyHtml.match(/class="gary-entry/g) || []).length >= 3, "/gary shows the disaster log");
   const sup = await get("/support/");
   ok(sup.ok && /coming soon/.test(await sup.text()), "/support is up (supporter tier marked coming soon)");
+  // phase three: about = meet gary + the lab, merch is a stub with nothing for sale, every game has its pixel cover
+  const ab = await (await get("/about/")).text();
+  ok(/meet gary, the computer and the lab/.test(ab) && (ab.match(/class="cast-card"/g) || []).length === 3, "/about introduces gary, the computer and the lab");
+  const mr = await (await get("/merch/")).text();
+  ok(/not open yet/.test(mr) && !/checkout|add to cart|buy\.stripe/i.test(mr), "/merch is a stub with nothing for sale");
+  const cat = (await (await get("/games/games.json")).json()).games.filter((g) => g.made_by === "computer-cooked");
+  const covers = await Promise.all(cat.map((g) => get(g.thumbnail).then((r) => r.ok && /png/.test(r.headers.get("content-type") || ""))));
+  ok(cat.every((g) => /\/cover\.png$/.test(g.thumbnail)) && covers.every(Boolean), "every game uses its pixel-art cover", cat.length);
+  ok((await get("/assets/daily-card.js")).ok, "daily 3 result card script is served");
 }
 
 // email signup (K-0031): local only, so no smoke address ever lands in the live list

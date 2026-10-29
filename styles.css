@@ -940,3 +940,22 @@ a {
 @media (max-width: 599px) { .support-grid { grid-template-columns: 1fr; } }
 .home > .signup-block, .home > .links { max-width: 640px; margin-left: 0; margin-right: 0; }
 .home > .links .social-row { justify-content: flex-start; }
+
+/* K-0032 phase three: the game art is pixel art at 320x200, so it scales without blur */
+.game-thumb, .spotlight img, .continue-card img, .daily img, .d3-card img, .weekly-card img { image-rendering: pixelated; }
+
+/* ---------- K-0032 phase three: about ("meet gary + the lab") and the merch stub ---------- */
+.cast, .merch-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); margin: var(--s-6) 0 0; padding: 0; list-style: none; }
+.cast-card, .merch-card { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.cast-card h2, .merch-card h2 { margin: var(--s-3) 0 0; font-size: var(--fs-28); }
+.cast-card p, .merch-card p { margin: 0; color: var(--text-dim); }
+.char-art { display: block; width: auto; height: 96px; image-rendering: pixelated; }
+.about-prose { display: grid; gap: var(--s-6); max-width: 760px; margin-top: var(--s-8); }
+.about-prose .section-label { margin: 0 0 var(--s-2); }
+.about-prose p { margin: 0; max-width: 65ch; }
+.merch-pic { display: grid; place-items: center; aspect-ratio: 16 / 10; border-radius: var(--r-sm); background: var(--surface-2); }
+.merch-art { width: 45%; height: auto; image-rendering: pixelated; }
+.merch-card .stage { margin-top: var(--s-2); }
+.merch-page > .links { margin-top: var(--s-8); text-align: left; max-width: 640px; margin-left: 0; }
+.merch-page > .links .social-row { justify-content: flex-start; }
+@media (max-width: 899px) { .cast, .merch-grid { grid-template-columns: 1fr; } .char-art { height: 72px; } }

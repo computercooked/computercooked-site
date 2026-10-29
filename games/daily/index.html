@@ -26,15 +26,19 @@
       <p class="d3-streak" id="d3-streak"><b class="num">0</b> day streak</p>
       <p class="d3-sub" id="d3-sub">play all three once today to keep it going.</p>
       <ul class="d3-list">
-        <li><a class="d3-card" href="/games/crash-test-daily/" data-d3="crash-test-daily"><img src="/games/crash-test-daily/play/thumb.png" alt="" width="160" height="90"><span class="d3-name">crash test (daily)</span><span class="d3-state" aria-label="not played today">○</span></a></li>
-        <li><a class="d3-card" href="/games/desktop-jam/" data-d3="desktop-jam"><img src="/games/desktop-jam/play/thumb.png" alt="" width="160" height="90"><span class="d3-name">desktop jam</span><span class="d3-state" aria-label="not played today">○</span></a></li>
-        <li><a class="d3-card" href="/games/fathom/" data-d3="fathom"><img src="/games/fathom/play/thumb.png" alt="" width="160" height="90"><span class="d3-name">fathom</span><span class="d3-state" aria-label="not played today">○</span></a></li>
+        <li><a class="d3-card" href="/games/crash-test-daily/" data-d3="crash-test-daily"><img src="/games/crash-test-daily/cover.png" alt="" width="160" height="100"><span class="d3-name">crash test (daily)</span><span class="d3-state" aria-label="not played today">○</span></a></li>
+        <li><a class="d3-card" href="/games/desktop-jam/" data-d3="desktop-jam"><img src="/games/desktop-jam/cover.png" alt="" width="160" height="100"><span class="d3-name">desktop jam</span><span class="d3-state" aria-label="not played today">○</span></a></li>
+        <li><a class="d3-card" href="/games/fathom/" data-d3="fathom"><img src="/games/fathom/cover.png" alt="" width="160" height="100"><span class="d3-name">fathom</span><span class="d3-state" aria-label="not played today">○</span></a></li>
       </ul>
       <div class="d3-share"><button class="play-btn" type="button" id="d3-share">share today</button><span id="d3-said" role="status"></span></div>
+      <figure class="d3-card-preview" id="d3-preview" hidden>
+        <img id="d3-preview-img" alt="your daily 3 result card" width="540" height="540">
+        <figcaption><a class="ghost-btn" id="d3-save" download="computer-cooked-daily-3.png" href="#">save image</a> <button class="ghost-btn" type="button" id="d3-copy">copy text</button></figcaption>
+      </figure>
       <p class="d3-note">your streak lives on this device for now.</p>
     </div>
   </main>
-  <footer class="footer"><p>© 2026 Computer Cooked · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p></footer>
+  <footer class="footer"><p>© 2026 Computer Cooked · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/merch/">merch</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p></footer>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
       <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
@@ -49,6 +53,7 @@
   </nav>
   <script src="/assets/deck.js" defer></script>
   <script src="/assets/daily3.js"></script>
+  <script src="/assets/daily-card.js"></script>
   <script>
   (function () {
     var d = window.ccDaily3; if (!d) return;
@@ -60,10 +65,35 @@
       var on = t.indexOf(a.getAttribute("data-d3")) >= 0, st = a.querySelector(".d3-state");
       a.classList.toggle("is-done", on); st.textContent = on ? "✓" : "○"; st.setAttribute("aria-label", on ? "played today" : "not played today");
     });
-    document.getElementById("d3-share").addEventListener("click", function () {
-      var text = d.share(), said = document.getElementById("d3-said");
-      if (navigator.share) { navigator.share({ text: text }).catch(function () {}); return; }
+    var said = document.getElementById("d3-said");
+    function copyText() {
+      var text = d.share();
       (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { said.textContent = "copied. paste it anywhere."; }, function () { said.textContent = text; });
+    }
+    document.getElementById("d3-copy").addEventListener("click", copyText);
+    // the result card (assets/daily-card.js): shared as an image where the browser can, otherwise shown to save
+    document.getElementById("d3-share").addEventListener("click", function () {
+      var text = d.share();
+      if (!window.ccDailyCard) { copyText(); return; }
+      said.textContent = "making your card…";
+      var date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
+      window.ccDailyCard({ games: d.GAMES, done: d.today(), streak: d.streak(), date: date }).then(function (blob) {
+        if (!blob) { copyText(); return; }
+        var file = new File([blob], "computer-cooked-daily-3.png", { type: "image/png" });
+        function preview() {
+          var url = URL.createObjectURL(blob);
+          document.getElementById("d3-preview-img").src = url;
+          document.getElementById("d3-save").href = url;
+          document.getElementById("d3-preview").hidden = false;
+          said.textContent = "here's your card. save it, or copy the text.";
+        }
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          said.textContent = "";
+          navigator.share({ files: [file], text: text }).catch(function (e) { if (!e || e.name !== "AbortError") preview(); });
+          return;
+        }
+        preview();
+      }, copyText);
     });
   })();
   </script>
