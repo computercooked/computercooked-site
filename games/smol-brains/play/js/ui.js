@@ -1535,7 +1535,7 @@
       R.hd ? h("button", { class: "btn", onclick: function () { var q = R.quality; q.fx = !q.fx; q.fxPinned = true; try { window.localStorage.setItem("smolbrains-hdfx", q.fx ? "1" : "0"); } catch (e) {} R.resize(); openMenu("settings"); } }, R.quality.fx ? "🌅 soft focus & glow on" : "🔋 soft focus & glow off") : null,
       h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off"),
       h("button", { class: "btn", onclick: function () { var set = game.settings = game.settings || {}; set.guide = !guideOn(); if (set.guide) set.cards = {}; openMenu("settings"); toast(set.guide ? "🧭 tutorial tips on. explanations will show again as things happen." : "🧭 tutorial tips off."); } }, guideOn() ? "🧭 tutorial tips on" : "🧭 tutorial tips off"),
-      h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🚀 watch the opening again"),
+      h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the opening again"),
       game.ended ? h("button", { class: "btn", onclick: function () { closeModal(); SB.Intro.play({ scene: "end", noGate: true }); } }, "🌟 watch the ending again") : null
     ]));
     // the soundtrack: a volume, and a jukebox of every song you've heard so far
@@ -1588,7 +1588,8 @@
   }
 
   function tabHelp(body) {
-    body.innerHTML = "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
+    body.innerHTML = "<p><b class='lime'>the last lantern</b>: the smols are tiny, forgetful creatures living on the back of a sleeping giant, the Hollow. long ago they lit a Lantern to remember who they are. every night it burns a little lower, and as it fades their memories fade with it: that's why their brains are smol. <b>you are the Lantern's last spark.</b> Pip, the smallest smol, made one last wish into the dying flame, and it lifted you into the sky. you can watch over them and nudge them, but you can't touch the world. you can only <b>lend your light</b> to one smol at a time (👁 possess): while you're inside it remembers everything and is brave. <b>grumps</b> are smols whose light went out completely. they hunt the light, and that includes you.</p>" +
+      "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
       "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
       "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
       "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently: the dotted arc shows where they'll land). grab a tree and wiggle it side to side to shake fruit down. drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b>: signs from the sky. after the tutorial even blobs follow a rally flag (\"go there\") and keep to home and no-go zones; tool-users add an explore beacon, work marks, building blueprints and a stockpile. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
@@ -1596,6 +1597,7 @@
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
       "<p><b class='lime'>👁 possess</b> (smol card, " + (SB.Possess ? SB.Possess.COST : 3) + " sparks): live as one smol, first person. survival-game rules: a 9-slot hotbar (1-9 or the wheel), a bag (tab) with crafting beside it, hearts and drumsticks to keep up. left click uses what you hold on what you point at (a tool chops trees and chips rock, paws only shake and punch), right click eats, plants, gives or places, f picks up, q drops, e does what the prompt says, b opens your building plans (r turns the ghost). put a stick, a vine (they hang off cliffs, rocks and riverbanks) and a rock together for your first tool. at zero hearts the smol dies for real, with everything it carried. phones: thumbstick on the left, drag the right side to look, the big button does what it says, tap a hotbar slot to hold it.</p>" +
       "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-6 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the last lantern (the intro)")]));
   }
 
   /* ---------------- brain viewer ---------------- */
@@ -1755,16 +1757,18 @@
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
     // from the hub's "tap to play" card (cc.autostart): that tap was the start, so go straight to the island
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
-    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto && !SB.Game.quickStart) { SB.Intro.play({ done: landing, noGate: !!SB.Game.fromTitle }); return; } // the "create world" tap already let the sound start
+    // the opening film, "The Last Lantern" (K-0041): always the first time on a device, even from "play now"; after that when you asked for the story
+    // K-0045: the ark battle and its falling pod open it, then the pod knocks the Lantern down and Pip makes the wish
+    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.play({ noGate: true, done: landing }); } }); return; } // the "create world" tap already let the sound start
     landing();
   }
-  UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };
+  UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Intro) SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } }); };
   // after the story: the camera falls with the pod onto the island
   function landing() {
     var T = game.world.T, nest = T.nest;
     // the island's name, and its quirk (a "surprise me" quirk is revealed right here)
     var qk = ((game.settings && game.settings.world && game.settings.world.quirks) || []).map(function (k) { return SB.QUIRKS && SB.QUIRKS[k]; }).filter(Boolean)[0];
-    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "welcome to " + game.wname + "." : "an island of tiny minds. one escape pod."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
+    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "the Hollow: " + game.wname + "." : "the Hollow. one last Lantern."), h("p", { class: "quirk" }, "you are its last spark. watch over them."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
     root.appendChild(title);
     R.camera.x = T.N / 2; R.camera.z = T.N / 2 + 20; R.camera.zoom = R.camera.tZoom = 95; R.camera.yaw = R.camera.tYaw = -0.9;
     R.cinematic({ dur: SB.Game.quickStart ? 2.4 : 5.5, x0: T.N / 2, zz0: T.N / 2 + 20, x1: nest.x, zz1: nest.z, z0: 95, z1: 5.5, yaw0: -0.9, yaw1: 0.35, skippable: true, done: function () {
@@ -1795,7 +1799,7 @@
   var TUT = [
     { id: "pod", t: "tap the crashed pod", s: "something's moving in that pod. tap it a few times to open it." },
     { id: "name", t: "they're out!", s: "" },
-    { id: "why", read: 1, t: "why you're here", s: "these two are the last smols. you're the sky above their island: you can't control them, but you can feed, teach, protect and bless them. raise them from blobs into a people clever enough to build <b>the big thought</b> and call their lost ark home." },
+    { id: "why", read: 1, t: "why you're here", s: "you're the Lantern's last spark, lifted into the sky by Pip's wish. you can't touch the world, but you can watch over the smols: feed, teach, protect and bless them, or <b>lend your light</b> to one (👁 possess) and live as it. raise them from blobs into a people clever enough to remember who they are." },
     { id: "look", t: "look around", s: "drag to move, pinch or scroll to zoom. <b>tap one of your smols</b> to pick it: it stops still for a few seconds so you can teach it, and its card shows what it's thinking." },
     { id: "food", t: "it's hungry", s: "smols learn by trying things and remembering what felt good. they find food on their own, but you can help: with ✋ grab, <b>drag the apple next to a smol</b>." },
     { id: "tickle", t: "reward it", hl: '[data-tool="tickle"]', s: "🪶 tickle means “yes, more of that”. pick tickle and <b>tap a smol</b> while it eats. 👆 tap means “no, stop that”. rewards and scoldings are how you shape its brain." },
