@@ -139,8 +139,9 @@ function catchGolden() {
   stage.golden = null;
   const ef = firstGolden() ? { kind: 'lucky', gain: 100, label: 'lucky · +100' } : E.goldenEffect(S);
   S.goldenClicks++;
-  if (ef.kind === 'lucky') { E.earn(S, ef.gain); if (gb) stage.tapGreat(gb.x, gb.y, '+' + E.fmt(ef.gain), true); refreshShop(); }
-  else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); }
+  if (ef.kind === 'lucky') { E.earn(S, ef.gain); stage.goldBurst('+' + E.fmt(ef.gain)); refreshShop(); }
+  else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); stage.goldBurst(ef.label.split(' · ')[0]); }
+  toast(`golden bell! ${ef.label}`, 3500);
   [0, 2, 4, 7, 9].forEach((d, i) => music.play('glock', d + 7, now() + i * 0.06, 0.9));
   stage.showBanner(ef.label, 'golden bell', '#ffe14a', gb && gb.pop ? 3.5 : 2.4); stage.flash = 0.3;
   sdk((c) => c.event && c.event('golden', { kind: ef.kind }));
@@ -158,7 +159,14 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
 document.querySelectorAll('.amt button').forEach((b) => b.addEventListener('click', () => { S.buyAmt = +b.dataset.amt; document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on', x === b)); refreshShop(true); }));
 document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on', +x.dataset.amt === S.buyAmt));
 
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
+// a long toast (the golden bell's) isn't cut short: anything shown meanwhile waits its turn (K-0038)
+function toast(msg, ms) {
+  const wait = (toast.lock || 0) - Date.now();
+  if (wait > 0 && !ms) { setTimeout(() => toast(msg), wait + 50); return; }
+  const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h);
+  if (ms) toast.lock = Date.now() + ms;
+  toast.h = setTimeout(() => t.classList.remove('on'), ms || 2200);
+}
 
 // shop
 const bldEls = {};
@@ -256,8 +264,16 @@ function refreshGoals() {
     el.querySelector('em').style.width = Math.min(100, (100 * S.res) / g.cost).toFixed(1) + '%';
   });
 }
+// K-0038: after the first minute the empty placeholders fold away. Only while the pointer is off the shop, so the
+// list never moves under a click (K-0020).
+function compactSlots() {
+  const on = S.playSec > 60 && Object.keys(S.ups).length >= 3;
+  const ups = $('ups');
+  if (ups.classList.contains('compact') !== on && !$('pane-shop').matches(':hover')) ups.classList.toggle('compact', on);
+}
 function refreshShop(force) {
   fillSlots();
+  compactSlots();
   refreshGoals();
   upSlots.forEach((el) => { const u = E.UP_BY_ID[el.dataset.id || '']; el.classList.toggle('poor', !!u && S.res < u.cost); });
   let shownNext = false;
