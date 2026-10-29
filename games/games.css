@@ -2773,3 +2773,14 @@ html[data-landing-ready] { overflow: hidden; }
   .cc-levelup, .cc-rows li, .cc-nap img, .toast.show { animation: none; }
   .cc-level-bar span { transition: none; }
 }
+
+/* the panel fills in after load (games/platform.js), which moved what's around it while it was on screen
+   (~0.03 CLS). Two boxes are held from the start, so on a phone everything that moves afterwards is already
+   below the screen:
+   - the empty panel holds 258px, the smallest it ends up (level bar + rating; smol brains has no leaderboard),
+     so nothing under it jumps when it fills
+   - the level bar holds its place while hidden, so the rating card under it doesn't jump when it shows.
+     The leaderboard isn't held, since smol brains never shows one.
+   ([hidden] is display:none !important at the top of this file, hence the !important.) */
+.player-panel:empty { min-height: 258px; }
+.player-panel > .cc-level[hidden] { display: block !important; visibility: hidden; min-height: 113px; }
