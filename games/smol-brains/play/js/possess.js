@@ -90,6 +90,7 @@
 
   P.leave = function (why) {
     if (!S) return;
+    if (S.scout) endScout(null); // leaving the body: the grump loses the scent
     var s = S, c = s.c, game = s.game;
     S = null; P.active = false; P.c = null;
     c._pov = false; c._povMove = false;
@@ -153,6 +154,7 @@
       ch.hunger = Math.min(0.97, ch.hunger + dt * 0.006); // a drumstick about every 8 s until you've eaten (K-0027: "no timer")
       if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
+    scoutTick(dt);
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
     var running = inp.run && mag > 0.08 && c.stage >= 1 && S.stam > 0.04;
@@ -751,6 +753,52 @@
     }
   }
   // G: a small body's nose. points the marker at the nearest food for a while
+  /* ---------------- the first minute's grump (K-0025 / K-0027: "possession has no stakes") ----------------
+     the first time you're in a blob on an island, once you're 20 s in and out past the nest, a grump catches your
+     scent and comes for you.
+     run home to the nest (hold shift, or push the stick all the way), or find two friends, and it gives up: +2 ✨.
+     it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
+  P.SCOUT_AT = 20; P.SCOUT_MAX = 35;
+  function scoutTick(dt) {
+    var c = S.c, game = S.game, st = game.settings || (game.settings = {});
+    if (c.tier >= 2 || st.povThreat === "done" || game.offline) return;
+    S.threatT = (S.threatT || 0) + dt;
+    if (!S.scout) {
+      if (st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return;
+      var hm = SB.Society.home(game, 0), w = game.world, spot = null;
+      if (SB.dist(c.x, c.z, hm.x, hm.z) < 7) return; // safe by the nest: it waits for you to go out (for food, say)
+      for (var a = 0; a < 16 && !spot; a++) {
+        var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * 15, z = c.z - Math.cos(ang) * 15; // out in front, where you can see it come
+        if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 10) spot = { x: x, z: z };
+      }
+      if (!spot) return;
+      var g = SB.Game.spawnGrump(game, spot.x, spot.z);
+      g.name = "a hungry grump"; g.scout = { who: c.id, t: 0, hitT: 0 };
+      S.scout = g.id; st.povThreat = "on";
+      audio("grump", 0.9);
+      say("👹 a grump caught your scent! run home to the nest (hold shift to run), or find your friends");
+      SB.bus.emit("scout", { c: c, g: g });
+      return;
+    }
+    var gr = SB.Game.byId(game, S.scout);
+    if (!gr || !gr.alive || !gr.scout) { endScout(null); return; }
+    var home = SB.Society.home(game, 0), pals = 0;
+    SB.World.creaturesNear(game.world, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals++; });
+    if (SB.dist(c.x, c.z, home.x, home.z) < 5) endScout("🏠 safe at the nest! the grump gives up. +2 ✨", 2);
+    else if (pals >= 2) endScout("🫂 safety in numbers! the grump backs off. +2 ✨", 2);
+    else if (gr.chem.fear > 0.6 || gr.goingHome) endScout("👹 you scared it off! +2 ✨", 2);
+    else if (gr.scout.t > P.SCOUT_MAX) endScout("😮‍💨 the grump got bored and wandered off. next time, run for the nest", 0);
+  }
+  function endScout(msg, pay) {
+    var game = S.game, gr = S.scout != null ? SB.Game.byId(game, S.scout) : null;
+    if (gr && gr.scout) gr.scout.done = true;
+    S.scout = null;
+    (game.settings || (game.settings = {})).povThreat = "done";
+    if (pay && SB.Game.addSparks) SB.Game.addSparks(game, pay, S.c);
+    if (msg) { say(msg); audio("chime"); }
+    SB.bus.emit("scoutEnd", { c: S.c, ok: !!pay });
+  }
+  P.scout = function () { return S && S.scout != null ? SB.Game.byId(S.game, S.scout) : null; };
   // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
   function arrive(ref) {
     var c = S.c, game = S.game, r = ref ? SB.Creature.resolve(game, ref) : null;

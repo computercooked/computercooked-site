@@ -1818,6 +1818,27 @@
       }
     }
 
+    // a scout grump (possess.js: the first minute in a blob) chases the smol you're in, day or night. it stings,
+    // but it never takes the last quarter of a heart bar, and it gives up when possess.js says so
+    if (c.species === "grump" && c.scout && !c.scout.done) {
+      var sc = c.scout, prey = SB.Game.byId(game, sc.who);
+      sc.t += dt; sc.hitT = Math.max(0, (sc.hitT || 0) - dt);
+      if (!prey || !prey.alive) sc.done = true;
+      else {
+        c.asleep = false; c.action = null; c.goingHome = false;
+        walkToward(c, prey.x, prey.z, dt, speedOf(prey, null) * 1.35, game, 0.9);
+        if (SB.dist(c.x, c.z, prey.x, prey.z) < 1.2 && !sc.hitT) {
+          sc.hitT = 1.6; sc.hits = (sc.hits || 0) + 1;
+          prey.chem.health = Math.max(0.25, prey.chem.health - 0.1);
+          SB.Chem.apply(prey.chem, { fear: 0.3, pain: 0.2 });
+          emote(c, "angry", 1);
+          SB.bus.emit("scoutHit", { c: prey, g: c });
+        }
+        positionHeld(c, game); finishTick(c, game, gy);
+        return;
+      }
+    }
+    if (c.species === "grump" && c.scout && c.scout.done) { c.scout = null; c.goingHome = true; }
     // grumps go home at dawn (or when shooed, or when they see fire)
     if (c.species === "grump") {
       var fire = SB.World.nearestFire(w, c.x, c.z, 4.5);
