@@ -69,6 +69,7 @@
   /* ---------------- init ---------------- */
 
   UI.init = function (g, opts) {
+    setTimeout(function () { try { versionLabel(); } catch (e) {} }, 0);
     game = g; opts = opts || {};
     try { if (/[?&]nostory=1/.test(location.search)) UI.noStory = true; } catch (e) {} // for testing: skip the opening story
     root = document.getElementById("ui");
@@ -389,6 +390,12 @@
     }, ms || 4200);
   }
   UI.toast = toast;
+  function versionLabel() {
+    if (el.ver) return;
+    var v = document.documentElement.getAttribute("data-version");
+    if (v) el.ver = root.appendChild(h("div", { class: "verlbl" }, "v" + v)); // K-0033: which build am I on?
+  }
+  UI.versionLabel = versionLabel;
   var momentQ = [], momentBusy = false;
   function moment(icon, big, sub, cls, first) {
     if (first) momentQ.unshift([icon, big, sub, cls]); else momentQ.push([icon, big, sub, cls]); // big news (a new era) skips the queue

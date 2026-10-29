@@ -137,7 +137,8 @@
     drag.hist.push({ x: p.x, y: p.y, t: performance.now() });
     if (drag.hist.length > 6) drag.hist.shift();
     var moved = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
-    if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5)) {
+    var cre = drag.target && drag.target.type === "creature", held = performance.now() - ptr.t0;
+    if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5) && (!cre || moved > (drag.touch ? 16 : 12) || held > 180)) {
       drag.mode = drag.target ? "carry" : drag.rub ? "rub" : drag.shake ? "shake" : "pan";
       if (drag.mode === "carry") pickUp(drag.target);
       if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;

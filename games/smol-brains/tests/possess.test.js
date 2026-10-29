@@ -194,8 +194,16 @@ console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sh
   SB.World.add(g.world, g, "apple", b.x + 9, b.z + 2, {});
   check("G sniffs out food and points the marker at it", P.sniff() && P.sniffing() && SB.dist(P.sniffing().x, P.sniffing().z, b.x + 9, b.z + 2) < 12);
   run(g, 0.4);
-  check("…then the eating counts too, and on to: tug leaves", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
+  check("…then the eating counts too, and on to: carry food home to a hungry friend", P.questStep() && P.questStep().id === "share", P.questStep() && P.questStep().id);
   check("each step pays a spark", g.sparks >= sp0 + 2, (g.sparks - sp0) + " sparks");
+  check("the friend at home really is hungry", friend.chem.hunger >= 0.7, friend.chem.hunger.toFixed(2));
+  // share
+  friend.x = b.x + 1; friend.z = b.z; friend.alive = true;
+  Sv.add(b, "berry", 1);
+  const vs = P.options(g, b, { type: "creature", id: friend.id });
+  check("a blob shares food with a friend", vs.place && /share your/.test(vs.place.label) && P.act("place", { type: "creature", id: friend.id }), vs.place && vs.place.label);
+  run(g, 0.4);
+  check("feeding a friend pays two, and on to: tug leaves", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
   // tug leaves off a plant, then line the nest three times
   const plant = SB.World.nearestNode(g.world, b.x, b.z, 200, n => Sv.canTug(g, n) && (n.kind === "bush" || Sv.isTree(n)));
   const vt = P.options(g, b, { type: "node", id: plant.id });
@@ -215,7 +223,6 @@ console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sh
   }
   check("three mouthfuls make the nest cosier", g.nest && g.nest.cosy === 1 && g.nest.fluff === 3, JSON.stringify(g.nest));
   run(g, 0.4);
-  check("…then: share food", P.questStep() && P.questStep().id === "share");
   // a cosy nest warms eggs faster
   const e1 = SB.World.add(g.world, g, "egg", nest.x + 1, nest.z, { genome: SB.Genome.random(g.rng, { species: "smol" }), parents: [], gen: 1, progress: 0.1 });
   const far = SB.World.nearestNode(g.world, nest.x + 30, nest.z + 30, 200, n => true);
@@ -223,12 +230,6 @@ console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sh
   void far;
   run(g, 5);
   check("eggs by a cosy nest hatch faster", e1.data.progress > e2.data.progress + 0.005, e1.data.progress.toFixed(3) + " vs " + e2.data.progress.toFixed(3));
-  // share
-  friend.x = b.x + 1; friend.z = b.z; friend.alive = true;
-  Sv.add(b, "berry", 1);
-  const vs = P.options(g, b, { type: "creature", id: friend.id });
-  check("a blob shares food with a friend", vs.place && /share your/.test(vs.place.label) && P.act("place", { type: "creature", id: friend.id }), vs.place && vs.place.label);
-  run(g, 0.4);
   check("the blob quest is done and pays sparks", !P.quest() && g.settings.povBlobQuest === "done");
   check("mouth carrying counts as practice for hands", (b.habits.hands || 0) > 0.6, (b.habits.hands || 0).toFixed(2));
   check("E with nothing in front of a blob sniffs", P.options(g, b, null).ctx && /sniff/.test(P.options(g, b, null).ctx.label));
@@ -283,7 +284,7 @@ console.log("11. a nibble on a bush counts as eating, even for a full blob (K-00
   run(g, 4);
   check("the nibble counts as eating", ok && P.quest() && P.quest().flags.eat >= 1, JSON.stringify(P.quest() && P.quest().flags) + " ok=" + ok);
   P.sniff(); run(g, 0.4);
-  check("…so after sniffing, the guide moves past eat", P.questStep() && P.questStep().id === "tug", P.questStep() && P.questStep().id);
+  check("…so after sniffing, the guide moves past eat", P.questStep() && P.questStep().id === "share", P.questStep() && P.questStep().id);
   P.leave();
 }
 

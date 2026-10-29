@@ -395,6 +395,19 @@ In 4.8.4 the first-minute grump was announced in a line that faded after 3 s, an
 - **The guide points home**: while the chase is on, the lime marker points at the nest instead of the next quest step.
 - The marker code is shared now (`mark()`), so the guide and the grump place their arrows the same way.
 
+## 0.33 What v4.8.8 fixed: the bot's v4.8.5 playtest (K-0033)
+
+Fun 5.5/10 (up from 5): "possession finally has a loop: hungry, walk out, eat, grump. It still feels like ticking quest boxes more than surviving."
+
+- **Vitals you can read at a glance**: in first person, hearts and food are 26 px icons (17 on phones), up from 18 (13). Warmth and pep sit smaller underneath. A drop flashes the row, a nearly empty row glows red and shakes, and low food rumbles (a sound every 6 s).
+- **The grump gives warning**: it turns up about 19 steps away, in view, then stands and growls for 3 s ("👹 a grump spotted you! run!") before it comes. The banner (moved below the speech line) and the green arrow home are from 4.8.7.
+- **A reason to stay in the body**: right after "eat it", the blob's day goes "carry food home to your hungry friend". Your friend really is hungry and says so. The marker points at food, then at your friend once you're carrying it, and it pays +2 ✨. Then the leaves and the nest, as before.
+- **Esc keeps fullscreen**: while you're in a body in fullscreen, Esc is locked to the game (Chrome's keyboard lock), so it leaves the body but not fullscreen. Hold Esc to leave fullscreen.
+- **A click selects, a drag carries**: with the grab tool, picking up a smol now needs a real drag (12 px, or a 0.18 s hold), so a click on a blob under a tree opens its card instead of carrying it off.
+- **A version label**: "v4.8.8", small, bottom right.
+- **Not a bug**: the clock moves in 10-minute steps (about 8 s of play at 1×), so 08:10 → 08:20 after a G is the clock, not a jump.
+- **Tests**: `possess.test.js` follows the new order (the friend is hungry, feeding pays two). `threat.test.js`: it growls first, and starts well off.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

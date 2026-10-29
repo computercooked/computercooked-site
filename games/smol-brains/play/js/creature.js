@@ -1826,6 +1826,7 @@
       if (!prey || !prey.alive) sc.done = true;
       else {
         c.asleep = false; c.action = null; c.goingHome = false;
+        if (sc.t < 3) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); emote(c, "angry", 0.5); positionHeld(c, game); finishTick(c, game, gy); return; } // it spots you and growls first (K-0033: "appeared in my face")
         walkToward(c, prey.x, prey.z, dt, speedOf(prey, null) * 1.35, game, 0.9);
         if (SB.dist(c.x, c.z, prey.x, prey.z) < 1.2 && !sc.hitT) {
           sc.hitT = 1.6; sc.hits = (sc.hits || 0) + 1;

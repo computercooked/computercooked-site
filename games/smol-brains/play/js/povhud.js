@@ -109,8 +109,11 @@
     // the bottom: vitals rows over the hotbar
     "#pov .bottom{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}",
     "#pov .vit{display:grid;grid-template-columns:auto auto;column-gap:24px;row-gap:2px;width:100%;justify-content:space-between}",
-    "#pov .vrow{display:flex;gap:0;height:18px;align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
-    "#pov .vrow i{width:18px;height:18px;background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}",
+    "#pov .vrow{display:flex;gap:0;height:26px;align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
+    "#pov .vrow i{width:26px;height:26px;background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
+    "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
+    "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
+    "#pov .vrow.low{filter:drop-shadow(0 0 6px #ff4f5e)}",
     "#pov .vrow.r i.h{transform:scaleX(-1)}",
     "#pov .vrow.low i{animation:povjit .32s steps(2) infinite}#pov .vrow.low i:nth-child(odd){animation-delay:-.16s}",
     "@keyframes povjit{0%{translate:0 -2px}50%{translate:0 1px}}",
@@ -152,7 +155,7 @@
     "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 11px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
-    "#pov .threat{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
+    "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
     "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:12px 22px;font:700 22px var(--mono,monospace);color:var(--lime);text-align:center;animation:povgain 2.6s forwards}#pov .qdone small{display:block;margin-top:4px;font-size:14px;color:#f5f3ed}",
     // the bag
@@ -200,7 +203,7 @@
     "#pov .pbtns button.act[disabled],#pov .pbtns button.off{opacity:.45}",
     "#pov .pbtns button.on{color:var(--lime);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--lime)}",
     "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:38px;height:38px}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
-    "#pov.phone .vrow i{width:13px;height:13px}#pov.phone .vrow{height:13px}#pov.phone .vit{column-gap:8px}",
+    "#pov.phone .vrow i{width:17px;height:17px}#pov.phone .vrow{height:17px}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
     "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
     "#pov.phone .quest{top:58px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
     "#pov.phone .prompt{font-size:12px;top:calc(50% + 24px)}#pov.phone .prompt kbd{display:none}#pov.phone .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}",
@@ -214,6 +217,7 @@
   /* ---------------- building and removing ---------------- */
 
   HUD.build = function (s) {
+    escLock(true); // K-0033: Esc to leave the body also left fullscreen
     HUD.remove();
     if (typeof document === "undefined" || !document.body) return;
     if (!document.getElementById("pov-css")) { var st = el("style"); st.id = "pov-css"; st.textContent = CSS; document.head.appendChild(st); }
@@ -245,7 +249,7 @@
     var bot = hud.bottom = root.appendChild(el("div", "bottom"));
     var vit = bot.appendChild(el("div", "vit"));
     hud.rows = {};
-    [["heart", ""], ["food", "r"], ["warm", ""], ["pep", "r"]].forEach(function (v) {
+    [["heart", ""], ["food", "r"], ["warm", "small"], ["pep", "r small"]].forEach(function (v) { // hearts and food big, the rest smaller
       var row = vit.appendChild(el("div", "vrow " + v[1]));
       row.title = { heart: "health", food: "food", warm: "warmth", pep: "pep (running, swinging)" }[v[0]];
       for (var i = 0; i < 10; i++) row.appendChild(el("i"));
@@ -290,7 +294,16 @@
     update(true);
   };
   function fadeIntro() { if (hud && hud.intro) { var i = hud.intro; hud.intro = null; i.classList.add("out"); setTimeout(function () { i.remove(); }, 1300); } }
+  function escLock(on) {
+    try {
+      var kb = navigator.keyboard;
+      if (!kb || !kb.lock) return;
+      if (on && document.fullscreenElement) { var pr = kb.lock(["Escape"]); if (pr && pr.catch) pr.catch(function () {}); }
+      else if (!on) kb.unlock();
+    } catch (e) {}
+  }
   HUD.remove = function () {
+    escLock(false);
     unbind();
     if (typeof document !== "undefined" && document.body && document.body.classList) document.body.classList.remove("pov");
     if (hud && hud.root) hud.root.remove();
@@ -382,7 +395,7 @@
     if (!g) { hud.gmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
     var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z);
     mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0);
-    var txt = (dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
+    var txt = (g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
     if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
     hud.threat.classList.add("on");
     return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };
@@ -669,6 +682,7 @@
     }
     r.el.classList.toggle("low", !!low);
     if (prev != null && halves > prev + 1) { r.el.classList.remove("pulse"); void r.el.offsetWidth; r.el.classList.add("pulse"); }
+    if (prev != null && halves < prev && (name === "food" || name === "heart")) { r.el.classList.add("drop"); clearTimeout(r.dropT); r.dropT = setTimeout(function () { r.el.classList.remove("drop"); }, 260); } // you see it go down
   }
   function update(force) {
     var s = S(), c = s.c, game = s.game, w = game.world, ch = c.chem;
@@ -688,6 +702,7 @@
     if (w.night && !s.nightWarned) { s.nightWarned = true; HUD.say("🌙 night. grumps come out: find a fire or a roof"); }
     if (!w.night) s.nightWarned = false;
     if (ch.hunger > 0.75 && !s.hungryWarned) { s.hungryWarned = true; HUD.say("🍗 so hungry… hold food and right click to eat"); }
+    if (ch.hunger > 0.78 && (s.lowT = (s.lowT || 0) - 0.1) <= 0) { s.lowT = 6; if (SB.Audio && SB.Audio.play) SB.Audio.play("sick", { vol: 0.7 }); } // a tummy rumble every few seconds while it's nearly empty
     if (ch.hunger < 0.6) s.hungryWarned = false;
     if (cold > 0.5 && !s.coldWarned) { s.coldWarned = true; HUD.say("❄ freezing! get to a fire or under a roof"); }
     if (cold < 0.3) s.coldWarned = false;
