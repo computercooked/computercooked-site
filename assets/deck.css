@@ -301,11 +301,10 @@ html.cc-stage body::before {
 }
 @media (pointer: coarse) { .cc-phosphor { display: none; } }
 
-/* nav: smoked glass with a phosphor line under it */
+/* nav: dark glass with a phosphor line under it */
 .deck {
-  background: rgb(14 15 17 / .78);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  backdrop-filter: blur(10px) saturate(1.2);
+  /* near-opaque instead of a backdrop blur: a blur would be recomputed every frame over the moving embers */
+  background: rgb(14 15 17 / .94);
   border-bottom-color: transparent;
   box-shadow: 0 1px 0 rgb(var(--phosphor) / .14), 0 8px 24px -16px rgb(var(--phosphor) / .35);
   view-transition-name: deck;

@@ -19,6 +19,10 @@
   var REVEAL = CARDS + ", .page-head, .section-label, .section-head, .shelf-head";
   var fine = matchMedia("(pointer: fine)").matches;
 
+  // game pages: the game is the show. No embers or pointer glow there (they cost frames the game needs); rims and
+  // boot-in still run below.
+  if (document.getElementById("game-frame")) { rimsAndBoot(); return; }
+
   // ---------------------------------------------------------------- embers
   var CELL = 4, cv = document.createElement("canvas"), ctx = cv.getContext("2d"), cols = 0, rows = 0;
   cv.className = "cc-embers"; cv.setAttribute("aria-hidden", "true");
@@ -34,7 +38,12 @@
 
   // ember colours: hot orange → beige → lime phosphor → gone
   var RAMP = [[255, 150, 90], [255, 214, 120], [232, 217, 181], [184, 242, 58]];
+  var tints = {};
   function tint(t, a) {
+    var key = (t * 32 | 0) * 16 + (a * 15 | 0);
+    return tints[key] || (tints[key] = mix(t, (a * 15 | 0) / 15));
+  }
+  function mix(t, a) {
     var i = Math.min(RAMP.length - 2, Math.floor(t * (RAMP.length - 1))), k = t * (RAMP.length - 1) - i;
     var c = RAMP[i], d = RAMP[i + 1];
     return "rgba(" + (c[0] + (d[0] - c[0]) * k | 0) + "," + (c[1] + (d[1] - c[1]) * k | 0) + "," + (c[2] + (d[2] - c[2]) * k | 0) + "," + a.toFixed(3) + ")";
@@ -48,7 +57,7 @@
   for (var i = 0; i < N; i++) { var e = spawn(Math.random() * cols, Math.random() * rows, false); e.life = Math.random() * e.max; embers.push(e); }
 
   var px = -1e3, py = -1e3, gx = innerWidth / 2, gy = innerHeight / 2, tx = gx, ty = gy;
-  addEventListener("pointermove", function (ev) { px = ev.clientX / CELL; py = ev.clientY / CELL; tx = ev.clientX; ty = ev.clientY; light(ev); }, { passive: true });
+  addEventListener("pointermove", function (ev) { px = ev.clientX / CELL; py = ev.clientY / CELL; tx = ev.clientX; ty = ev.clientY; }, { passive: true });
   addEventListener("pointerdown", function (ev) {
     for (var j = 0; j < 14; j++) embers.push(spawn(ev.clientX / CELL, ev.clientY / CELL, true));
   }, { passive: true });
@@ -85,8 +94,12 @@
   }
   requestAnimationFrame(frame);
 
+  rimsAndBoot();
+
+  function rimsAndBoot() {
   // ---------------------------------------------------------------- rims
   var lit = null;
+  addEventListener("pointermove", light, { passive: true });
   function light(ev) {
     if (!fine) return;
     var el = ev.target && ev.target.closest ? ev.target.closest(CARDS) : null;
@@ -130,4 +143,5 @@
   new MutationObserver(function (ms) {
     ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) watch(n.parentNode || n); }); });
   }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  }
 })();

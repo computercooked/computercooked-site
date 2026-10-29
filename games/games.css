@@ -2523,3 +2523,145 @@ html[data-landing-ready] { overflow: hidden; }
 .cc-trophy, .wk-trophy { height: 1.35em; width: auto; margin-right: .4em; vertical-align: -0.3em; image-rendering: pixelated; }
 .cc-nap { display: flex; align-items: center; gap: var(--s-2, 12px); }
 .cc-nap img { width: 34px; height: auto; flex: none; image-rendering: pixelated; }
+
+
+/* ======================================================================================================
+   Overhaul phase 3: the hub and game pages are cooked CRTs (tokens and the shared layer are in
+   /assets/tokens.css and /assets/deck.css). Nothing here sits over a running game: the glass, scanlines
+   and glow live on the bezel, the boot screen and the hub's spotlight only.
+   ====================================================================================================== */
+
+/* ---------- game page: the monitor ---------- */
+.player {
+  box-shadow: 0 0 0 1px rgb(var(--phosphor) / .08), 0 24px 60px -30px rgb(0 0 0 / .9), 0 0 60px -20px rgb(var(--phosphor) / .35);
+  transition: box-shadow var(--slow) ease;
+}
+.player:focus-within, .player:hover {
+  box-shadow: 0 0 0 1px rgb(var(--phosphor) / .16), 0 24px 60px -30px rgb(0 0 0 / .9), 0 0 80px -16px rgb(var(--phosphor) / .5);
+}
+
+/* the boot screen reads like the computer starting the game: glass, scanlines, a glowing sleeper, a pixel bar */
+.stage-boot {
+  background:
+    radial-gradient(ellipse at 50% 45%, rgb(var(--phosphor) / .07), transparent 60%),
+    radial-gradient(ellipse at 50% 45%, #16181d, #07080a 70%);
+}
+.stage-boot::after {
+  background:
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / .03) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 100% at 50% 50%, transparent 55%, rgb(0 0 0 / .55));
+  pointer-events: none;
+}
+.boot-logo { filter: drop-shadow(0 0 14px rgb(var(--phosphor) / .35)); }
+.boot-text {
+  font-family: var(--mono);
+  letter-spacing: .02em;
+  text-shadow: var(--text-glow);
+}
+.boot-text::before { content: "C:\\COOKED> "; color: var(--text-dim); text-shadow: none; }
+.boot-bar {
+  width: 192px;
+  height: 12px;
+  padding: 2px;
+  border: 2px solid rgb(var(--phosphor) / .5);
+  border-radius: 2px;
+  background: #07080a;
+  box-shadow: var(--glow-sm);
+}
+.boot-bar span {
+  width: 100%;
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 10px);
+  transform-origin: 0 50%;
+  animation: boot-fill 1.6s steps(19, end) infinite;
+}
+@keyframes boot-fill { from { transform: scaleX(0); } 80%, to { transform: scaleX(1); } }
+/* when the game is ready the screen switches over like a channel change */
+.player-stage.is-ready .stage-boot { animation: boot-crt .32s cubic-bezier(.6, 0, .9, .4) forwards; }
+@keyframes boot-crt {
+  50% { transform: scaleY(.02); filter: brightness(3); opacity: 1; }
+  to { transform: scaleY(0); opacity: 0; visibility: hidden; }
+}
+
+/* the toolbar: a power LED by the title, glowing keys */
+.player-title { text-shadow: var(--text-glow); }
+.tool { transition: color var(--fast), background-color var(--fast), box-shadow var(--fast), transform var(--fast); }
+.tool:hover { box-shadow: inset 0 0 0 1px rgb(var(--phosphor) / .35), var(--glow-sm); color: var(--accent); }
+.tool:active { transform: translateY(1px) scale(.97); }
+.tool[aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgb(var(--phosphor) / .5); }
+
+/* ---------- hub: the game of the week is on a real monitor (beige, like the computer) ---------- */
+.spot-bezel {
+  position: relative;
+  padding: 14px 14px 26px;
+  border-radius: 18px;
+  background: linear-gradient(165deg, #f0e3c2, #d9c79f 55%, #bfae86);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / .18), inset 0 2px 0 rgb(255 255 255 / .4), 0 18px 40px -22px rgb(0 0 0 / .9), 0 0 50px -18px rgb(var(--phosphor) / .35);
+  transition: box-shadow var(--slow) ease, transform var(--slow) var(--ease-boot);
+}
+.spot-bezel::after {          /* the power LED */
+  content: "";
+  position: absolute;
+  right: 22px;
+  bottom: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgb(var(--phosphor) / .9);
+  animation: cc-led 3.2s steps(1) infinite;
+}
+@keyframes cc-led { 0%, 92% { opacity: 1; } 94% { opacity: .3; } 96% { opacity: 1; } 98% { opacity: .4; } }
+.spot-screen {
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 3px #0b0c0e, inset 0 0 30px rgb(0 0 0 / .8);
+}
+.spot-screen::before, .spot-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.spot-screen::before { background: repeating-linear-gradient(to bottom, rgb(255 255 255 / .035) 0 1px, transparent 1px 3px); }
+.spot-screen::after {
+  background:
+    linear-gradient(155deg, rgb(255 255 255 / .09), transparent 32%),
+    radial-gradient(120% 100% at 50% 50%, transparent 55%, rgb(0 0 0 / .5));
+}
+.spotlight:hover .spot-bezel, .spotlight:focus-visible .spot-bezel {
+  transform: translateY(-3px) rotate(-.4deg);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / .18), inset 0 2px 0 rgb(255 255 255 / .4), 0 24px 50px -22px rgb(0 0 0 / .9), 0 0 70px -12px rgb(var(--phosphor) / .55);
+}
+.spotlight:hover .spot-screen img { animation: cc-flicker .45s steps(3) 1; }
+@keyframes cc-flicker { 33% { filter: brightness(1.6) contrast(1.2); } 66% { filter: brightness(.8); } }
+.spot-name { text-shadow: var(--text-glow); }
+
+/* ---------- hub filters: the chip that's on glows, and cards flick on as they (re)appear ---------- */
+.chip[aria-pressed="true"] { box-shadow: var(--glow-md); }
+.chip { transition: box-shadow var(--fast), background-color var(--fast), color var(--fast), transform var(--fast); }
+.chip:active { transform: scale(.94); }
+.game-card { animation: cc-card-on .38s var(--ease-boot) both; }
+.card-grid > .game-card:nth-child(2) { animation-delay: 30ms; }
+.card-grid > .game-card:nth-child(3) { animation-delay: 60ms; }
+.card-grid > .game-card:nth-child(4) { animation-delay: 90ms; }
+.card-grid > .game-card:nth-child(n+5) { animation-delay: 120ms; }
+@keyframes cc-card-on {
+  0% { transform: scaleY(.9); filter: brightness(2.2) saturate(.3); }
+  60% { filter: brightness(1.15); }
+  100% { transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card, .spot-bezel::after, .boot-bar span { animation: none; }
+  .boot-bar span { transform: none; }
+  .player-stage.is-ready .stage-boot { animation: boot-out .01ms forwards; }
+}
+.games-hero .eyebrow { text-transform: lowercase; color: var(--accent); }
+/* phones: the spotlight is compact, so the monitor is too */
+@media (max-width: 859px) {
+  .spot-bezel { padding: 5px 5px 12px; border-radius: 10px; }
+  .spot-bezel::after { right: 9px; bottom: 3px; width: 5px; height: 5px; }
+  .spot-screen { border-radius: 6px; }
+}
