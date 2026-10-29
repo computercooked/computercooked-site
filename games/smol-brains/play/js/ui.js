@@ -33,7 +33,8 @@
   }
   // called every frame: show the next waiting event window when it's time
   function pumpEvents() {
-    if ((!popQ.length && !cardQ.length) || !UI.eventReady()) return;
+    var back = popQ[0] && popQ[0][2] && popQ[0][2].resume && !el.modal && !(SB.Possess && SB.Possess.active) && now() - lastPovOut >= 1; // the window you had open comes straight back
+    if ((!popQ.length && !cardQ.length) || !(back || UI.eventReady())) return;
     var m = popQ.shift();
     if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
   }
@@ -111,6 +112,7 @@
     };
     var look = function (p) {
       var c = R.camera; c.follow = null; c.vx = c.vz = 0;
+      if (c.intro && !c.intro.cine) c.intro = null; // a camera flight would carry on over the top of you (K-0037: "clicking the minimap didn't move the camera")
       c.x = p.x - (mini.drag ? mini.drag.dx : 0); c.z = p.z - (mini.drag ? mini.drag.dz : 0);
     };
     cv.addEventListener("pointerdown", function (e) {
@@ -390,7 +392,26 @@
     }, ms || 4200);
   }
   UI.toast = toast;
+  // ?cctest=1: "🧪 test possession" drops you into a first possession as a new player gets it (hungry, a grump at
+  // 20 s, the blob's day from the start), on the smol nearest the camera. a playtester without held keys needs it (K-0037)
+  function testHook() {
+    if (!SB.TEST || el.testBtn || !SB.Possess) return;
+    el.testBtn = root.appendChild(h("button", { class: "chipbtn glass live testbtn", title: "playtest: a fresh first possession", onclick: function () {
+      var cs = SB.Game.smols(game).filter(function (c) { return c.alive && !c.held; });
+      if (!cs.length) { toast("no smols yet: open the pod first"); return; }
+      var cam = R.camera;
+      cs.sort(function (a, b) { return (a.tier - b.tier) * 1000 + SB.dist(a.x, a.z, cam.x, cam.z) - SB.dist(b.x, b.z, cam.x, cam.z); });
+      var c = cs[0], st = game.settings || (game.settings = {});
+      delete st.povHungry; delete st.povThreat; delete st.povBlobQuest; delete st.povQuest;
+      try { localStorage.removeItem("smolbrains-blobquest"); localStorage.removeItem("smolbrains-firsttool"); } catch (e) {}
+      game.sparks = Math.max(game.sparks || 0, 50);
+      closeModal(); closeSheet();
+      SB.Possess.enter(game, c);
+      toast("🧪 test possession: click the ground left or right of centre to walk that way", "", 6000);
+    } }, "🧪 test possession"));
+  }
   function versionLabel() {
+    testHook();
     if (el.ver) return;
     var v = document.documentElement.getAttribute("data-version");
     if (v) el.ver = root.appendChild(h("div", { class: "verlbl" }, "v" + v)); // K-0033: which build am I on?
@@ -398,6 +419,7 @@
   UI.versionLabel = versionLabel;
   var momentQ = [], momentBusy = false;
   function moment(icon, big, sub, cls, first) {
+    if (game && game.offlineRunning) return;
     if (first) momentQ.unshift([icon, big, sub, cls]); else momentQ.push([icon, big, sub, cls]); // big news (a new era) skips the queue
     if (!momentBusy) nextMoment();
   }
@@ -424,6 +446,7 @@
   UI.QUIET_START = 240; // real seconds into an island when story cards stop being toasts
   function storyCard(key, icon, title, paras, fallback) {
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
+    if (game.offlineRunning) return; // the "welcome back" card sums up the catch-up
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
     if ((game.playTime || 0) < UI.QUIET_START && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
@@ -1153,7 +1176,7 @@
     ]);
     wrap.appendChild(m);
     root.appendChild(wrap);
-    el.modal = wrap; el.modalBody = m.querySelector(".mb"); el.modalOpts = opts;
+    el.modal = wrap; el.modalBody = m.querySelector(".mb"); el.modalOpts = opts; el.modalArgs = [title, body, opts];
     root.classList.add("hasmodal");
     return wrap;
   }
@@ -2183,6 +2206,7 @@
       tutDone("trick");
     });
     var waitT = 0;
+    on("possess", function () { if (el.modal && el.modalArgs && !(el.modalOpts && el.modalOpts.pov)) { var a = el.modalArgs; closeModal(); povHeld.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]); } }); // hidden in first person, it paused the island (K-0037 "freeze")
     on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); toast("👀 <b>" + esc(d.c.name) + "</b> is thinking about it…", "", 4000); });
     on("trickNoBite", function (d) {
       toast("🤷 <b>" + esc(d.c.name) + "</b> isn't biting: " + esc(d.why) + ". press <b>set it up</b> to try again" + (/hungry/.test(d.why) ? ", or wait till it's hungrier" : "") + ".", "", 7000);

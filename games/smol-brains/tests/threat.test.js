@@ -77,7 +77,7 @@ seeded(904, () => {
   SB.Possess.leave();
 });
 
-console.log("3. once per island, and only in a blob");
+console.log("3. once per island");
 seeded(903, () => {
   const { SB, game, c } = island(93);
   game.settings.povThreat = "done";
@@ -92,6 +92,23 @@ seeded(903, () => {
   const g = game.creatures.find(o => o.species === "grump" && o.alive);
   check("leaving the body: the grump loses the scent", !g || !g.scout || g.scout.done, g && JSON.stringify(g.scout));
 });
+
+console.log("4. K-0037: a tool-user's first possession on an old island gets it too");
+seeded(905, () => {
+  const { SB, game, c } = island(95);
+  const [t] = SB.Debug.spawnTier(2, 1); t.x = c.x; t.z = c.z; t.asleep = false; t.chem.hunger = 0.1; t.age = 900;
+  SB.Possess.enter(game, t);
+  check("it starts hungry", t.chem.hunger >= 0.72, t.chem.hunger.toFixed(2));
+  run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
+  check("and a grump comes", !!SB.Possess.scout());
+  SB.Possess.leave();
+});
+
+console.log("5. K-0037: coming back runs at most one island day");
+{
+  const SB = load().SB;
+  check("a week away is one day of catch-up", SB.Game.offlineBudget(3600 * 24 * 7) === SB.DAY_LENGTH, SB.Game.offlineBudget(3600 * 24 * 7));
+}
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);

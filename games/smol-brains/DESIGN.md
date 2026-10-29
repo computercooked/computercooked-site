@@ -418,6 +418,17 @@ Fun 5.5/10 (flat). The tester could only send single key taps, so the chase went
 - **The trick nudge shows where you look**: at 8 s a toast says "👀 Wady is thinking about it…", as well as the bubble over the smol (which can be off screen).
 - **Tests**: `threat.test.js` §2b (a grump by the nest too; safe there once it has come at you), §2 (not straight away). `possess.test.js`: eating first counts for both steps.
 
+## 0.35 What v4.8.10 fixed: the bot's v4.8.9 playtest (K-0037)
+
+- **Coming back runs at most one island day**: the catch-up for time away is capped at `SB.DAY_LENGTH` (it was 75 sim minutes, so day 1 came back as day 8). The catch-up shows no story cards or banners; the "welcome back" card sums it up.
+- **Eyes start mostly adjusted**: going into a body starts the light adaptation at 70%, then eases the rest in. It read almost black for 3-5 s at dusk.
+- **No more freeze on possess**: a window open when you went into a body stayed open but hidden, and paused the island. It now closes, waits, and comes straight back when you leave (not after the usual 25 s event gap).
+- **Every first possession gets its stakes**: any smol, on any island including old saves, starts hungry (food 28%) with the hunger clock running, and gets the grump at about 20 s. Before, only a blob on a fresh island did.
+- **The minimap always moves the camera**: a tap on it cancels a camera flight that would carry on over the top of it.
+- **Playtest hook (`?cctest=1` only)**: a "🧪 test possession" button bottom left drops you into a fresh first possession of the smol nearest the camera (hungry, a grump at 20 s, the quest from the start). While possessed, a left click on empty ground walks you about 7 steps that way, for testers who can't hold keys.
+- **Not reproduced**: the snow spawn with the pod off screen. Fresh "play now" islands put the pod on screen in our checks; the minimap fix covers getting back to it.
+- **Tests**: `threat.test.js` §4 (a tool-user's first possession on an old island is hungry and gets a grump), §5 (a week away is one day of catch-up).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
