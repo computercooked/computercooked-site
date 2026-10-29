@@ -27,6 +27,7 @@
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/mascot/sleep.svg" as="image" fetchpriority="high">
   <link rel="preload" href="/assets/fonts/pixelify-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/tokens.css">
@@ -48,7 +49,7 @@
             <span class="boot-text">booting pixel purge<span class="boot-dots"></span></span>
             <span class="boot-bar"><span></span></span>
           </div>
-          <iframe id="game-frame" src="/games/pixel-purge/play/" title="pixel purge" allow="fullscreen; autoplay" loading="eager"></iframe>
+          <iframe id="game-frame" data-src="/games/pixel-purge/play/" title="pixel purge" allow="fullscreen; autoplay" loading="eager"></iframe><script>/* start the game one frame after the boot screen paints, so the page shows before the game loads */(function(f){function go(){if(!f.src)f.src=f.dataset.src}requestAnimationFrame(function(){setTimeout(go,0)});setTimeout(go,400)})(document.getElementById("game-frame"))</script>
         </div>
 
         <div class="player-bar">
