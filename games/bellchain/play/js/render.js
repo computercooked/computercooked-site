@@ -46,7 +46,7 @@ export class Stage {
   }
   hop(deg, value, n) { const i = ringIndex(deg), p = this.bellPos(i); this.pops.push({ x: p.x, y: p.y - this.bs, text: '+' + value, t: 0, life: 0.9, small: true }); this.chain = { n, t: 0 }; }
   showBanner(text, sub, color, life) { this.banner = { text, sub, color, t: 0, life: life || 2.2 }; }
-  hitGolden(x, y) { const g = this.golden; return g && Math.hypot(x - g.x, y - g.y) < this.bs * 1.4; }
+  hitGolden(x, y) { const g = this.golden; return g && Math.hypot(x - g.x, y - g.y) < this.bs * 1.6 * (g.scale || 1) + 12; }
   hitGreat(x, y) { return Math.hypot(x - this.cx, y - this.cy) < this.gs * 1.2; }
 
   draw(dt) {
@@ -92,7 +92,12 @@ export class Stage {
       gb.t += dt;
       const a = Math.min(1, gb.t * 3, (gb.life - gb.t) * 2);
       c.globalAlpha = Math.max(0, a);
-      const r = this.bs * (1.1 + 0.1 * Math.sin(this.t * 6));
+      const r = this.bs * (gb.scale || 1) * (1.15 + 0.15 * Math.sin(this.t * 7));
+      // a ring that keeps pulsing outwards, so it reads as "tap me" (K-0029)
+      const ph = (this.t * 1.2) % 1;
+      c.strokeStyle = '#ffe14a'; c.lineWidth = 3; c.globalAlpha = Math.max(0, a) * (1 - ph);
+      c.beginPath(); c.arc(gb.x, gb.y, r * (1.2 + ph * 1.6), 0, TAU); c.stroke();
+      c.globalAlpha = Math.max(0, a);
       const rg = c.createRadialGradient(gb.x, gb.y, 2, gb.x, gb.y, r * 2.2); rg.addColorStop(0, '#fff3a0cc'); rg.addColorStop(1, '#fff3a000');
       c.fillStyle = rg; c.beginPath(); c.arc(gb.x, gb.y, r * 2.2, 0, TAU); c.fill();
       this.drawBell(gb.x, gb.y, r, Math.sin(this.t * 4) * 0.25, 1, '#ffe14a', { bell: ['#ffd23f', '#fff6c2', '#a87a00'], acc: '#ffe14a' });

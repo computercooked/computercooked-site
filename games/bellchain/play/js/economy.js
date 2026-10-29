@@ -73,8 +73,8 @@ for (const b of BUILDINGS) {
   UPGRADES.push({ id: `cresc_${i}`, name: ['crescendo', 'fortissimo', 'sforzando', 'too loud'][i], cost,
     desc: `each echo hop +${Math.round(CFG.crescStep * 100)}%`, req: (s) => s.earnedRun >= cost * 0.3, kind: 'cresc' });
 });
-// the first mallet is the first buy (K-0020): 15 doubles a tap within the first 10 seconds
-[15, 250, 1200, 6000, 3e4].forEach((cost, i) => {
+// the first mallet is the first buy (K-0020, K-0029): 5, about 5 taps, doubles a tap inside the first 10 seconds
+[5, 250, 1200, 6000, 3e4].forEach((cost, i) => {
   UPGRADES.push({ id: `mallet_${i}`, name: ['foam mallet', 'wooden mallet', 'rubber mallet', 'brass mallet', 'sledgehammer'][i], cost,
     desc: 'taps +1 base resonance', req: (s) => s.earnedRun >= cost * 0.3, kind: 'mallet' });
 });

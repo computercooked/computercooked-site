@@ -86,9 +86,11 @@ $('cv').addEventListener('pointerdown', (e) => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  // K-0029: Space and the scroll keys are the game's; a page around it (the embed's host) must not scroll
+  if (e.code === 'Space' || /^(Arrow(Up|Down|Left|Right)|PageUp|PageDown)$/.test(e.key)) e.preventDefault();
   if (e.code === 'Space' || e.key === 'Enter') {
-    if (document.querySelector('.modal.open') || (e.target && e.target.tagName === 'BUTTON')) return;
-    e.preventDefault(); if (!paused) tapAt(stage.cx + (Math.random() - 0.5) * 40, stage.cy);
+    if (document.querySelector('.modal.open') || (e.key === 'Enter' && e.target && e.target.tagName === 'BUTTON')) return;
+    e.preventDefault(); if (!paused && !e.repeat) tapAt(stage.cx + (Math.random() - 0.5) * 40, stage.cy);
   }
   if (e.key === 'm' || e.key === 'M') toggleMute();
   if (e.key === 'Escape') closeModals();
@@ -101,13 +103,17 @@ const goldenStart = () => (firstGolden() ? 18 : Math.min(40, E.goldenDelay(S)));
 let goldenIn = goldenStart();
 function spawnGolden() {
   const m = stage.bs * 1.6;
-  stage.golden = { x: m + Math.random() * (stage.w - 2 * m), y: 70 + Math.random() * Math.max(10, stage.h - 140), t: 0, life: E.CFG.goldenLife };
+  const g = { x: m + Math.random() * (stage.w - 2 * m), y: 70 + Math.random() * Math.max(10, stage.h - 140), t: 0, life: E.CFG.goldenLife, scale: 1.35 };
+  // the first one (a first run's early payoff) is big, sits clear of the great bell and stays the full 13 s
+  if (firstGolden()) { g.scale = 1.9; g.x = stage.cx + (Math.random() < 0.5 ? -1 : 1) * Math.min(stage.w * 0.3, stage.gs * 2.6); g.y = Math.max(90, stage.cy - stage.gs * 1.2); }
+  stage.golden = g;
 }
 function catchGolden() {
+  const gb = stage.golden;
   stage.golden = null;
   const ef = firstGolden() ? { kind: 'lucky', gain: 100, label: 'lucky · +100' } : E.goldenEffect(S);
   S.goldenClicks++;
-  if (ef.kind === 'lucky') E.earn(S, ef.gain);
+  if (ef.kind === 'lucky') { E.earn(S, ef.gain); if (gb) stage.tapGreat(gb.x, gb.y, '+' + E.fmt(ef.gain), true); refreshShop(); }
   else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); }
   [0, 2, 4, 7, 9].forEach((d, i) => music.play('glock', d + 7, now() + i * 0.06, 0.9));
   stage.showBanner(ef.label, 'golden bell', '#ffe14a', 2.4); stage.flash = 0.3;
@@ -166,14 +172,20 @@ for (let i = 0; i < UP_SLOTS; i++) {
 }
 $('upsNone').hidden = true; // the 8 slots are there from the first frame, so nothing below them ever moves
 const REFILL_MS = 1500;
-upSlots.forEach((el) => setSlot(el, null));
+restoreSlots();
 function setSlot(el, u) {
   if (!u && el.dataset.id) el.dataset.freeAt = Date.now();
   el.dataset.id = u ? u.id : '';
+  S.slots = upSlots.map((x) => x.dataset.id || '');
   el.classList.toggle('empty', !u); el.tabIndex = u ? 0 : -1;
   el.querySelector('b').textContent = u ? u.name : '';
   el.querySelector('small').textContent = u ? u.desc : (el === upSlots[0] ? 'upgrades land here' : 'keep ringing');
   el.querySelector('i').textContent = u ? E.fmt(u.cost) : '';
+}
+// put the saved layout back (after a load or an undo), each upgrade in the slot it had
+function restoreSlots() {
+  const saved = Array.isArray(S.slots) ? S.slots.slice(0, UP_SLOTS) : [];
+  upSlots.forEach((el, i) => { el.dataset.id = ''; setSlot(el, E.UP_BY_ID[saved[i]] && !S.ups[saved[i]] ? E.UP_BY_ID[saved[i]] : null); el.dataset.freeAt = 0; });
 }
 function fillSlots() {
   const av = E.availableUpgrades(S), ids = new Set(av.map((u) => u.id));
@@ -364,7 +376,7 @@ $('undoBtn').addEventListener('click', () => {
   const s = E.deserialize(store.get(UNDO_KEY) || '');
   if (!s) return;
   store.del(UNDO_KEY); pendingAway = null; S = s; buffs = []; $('undoBar').hidden = true;
-  upSlots.forEach((el) => setSlot(el, null));
+  restoreSlots();
   applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); showUndo(); toast('your old save is back.');
 });
 showUndo();
