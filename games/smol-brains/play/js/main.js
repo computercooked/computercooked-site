@@ -440,13 +440,13 @@
   Game.SKIP_MAX = SB.DAY_LENGTH * 0.5;
   var SKIP_ON = {
     hatch: function (d) { return { why: "🐣 " + d.c.name + " hatched!", c: d.c }; },
-    grow: function (d) { return { why: "🌱 " + d.c.name + " is now " + (SB.STAGES[d.c.stage] ? (d.c.stage >= 3 ? "an " : "a ") + SB.STAGES[d.c.stage].name : "older"), c: d.c }; },
+    grow: function (d) { return !d.c || d.c.stage < 3 ? null : { why: "🌱 " + d.c.name + " is now " + (SB.STAGES[d.c.stage] ? (d.c.stage >= 3 ? "an " : "a ") + SB.STAGES[d.c.stage].name : "older"), c: d.c }; },
     egg: function (d) { return { why: "🥚 an egg!", c: d.obj }; },
     wildEgg: function (d) { return { why: "🥚 a wild egg turned up", c: d.obj }; },
     partners: function (d) { return { why: "💕 " + d.a.name + " and " + d.b.name + " paired up", c: d.a }; },
     tierUp: function (d) { return { why: "🧬 " + d.c.name + " evolved!", c: d.c }; },
     eureka: function (d) { return d.first ? { why: "💡 " + d.c.name + " had an idea!", c: d.c } : null; },
-    incident: function (d) { return { why: "⚠ something's happening", c: d.inc }; },
+    incident: function (d) { var i = d.inc || {}; return { why: (i.icon || "⚠") + " " + (i.title || "something's happening"), c: i }; },
     stranger: function (d) { return { why: "🧳 a stranger turned up", c: d.c }; },
     drowning: function (d) { return { why: "🌊 " + d.c.name + " is drowning!", c: d.c }; },
     death: function (d) { return d.c && d.c.species === "smol" ? { why: "🕯 " + d.c.name + " died", c: d.c } : null; },

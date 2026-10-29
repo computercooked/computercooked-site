@@ -842,7 +842,7 @@
         var s = S(); if (!s || bag) return;
         if (locked()) {
           var mx = e.movementX || 0, my = e.movementY || 0;
-          if (performance.now() - lockAt < 120 || Math.abs(mx) > 250 || Math.abs(my) > 250) return; // the lock's first jump (K-0025)
+          if (performance.now() - lockAt < 120) return; // the lock's first jump (K-0025). big moves are real (K-0027: look didn't steer)
           s.mdx = (s.mdx || 0) + mx; s.mdy = (s.mdy || 0) + my; return;
         }
         if (drag) { var dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); P().look2(dx * 1.4, dy * 1.4); }

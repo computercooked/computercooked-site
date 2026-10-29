@@ -17,7 +17,7 @@ console.log("1. it stops at the next thing worth seeing");
 {
   const { SB, g } = island(61);
   const [a, b] = SB.Debug.spawnTier(0, 2);
-  a.age = 30; b.age = 30; // little ones: growing up is coming
+  a.age = 200; b.age = 200; // teens: coming of age is close
   [a, b].forEach(c => { c.asleep = false; c.chem.hunger = 0.1; });
   for (let i = 0; i < 20; i++) SB.Game.step(g, SB.TICK); // let their stages settle first
   g.speed = 1;
