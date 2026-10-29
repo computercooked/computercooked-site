@@ -11,7 +11,7 @@ import { relation } from "./friends.js";
 import { needLevel, cosmeticsFor, FRAMES } from "./cosmetics.js";
 import { eventDef } from "./social.js";
 
-export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper", "mint", "pink", "gold", "chrome"];
+export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper", "mint", "pink", "gold", "chrome", "sunset", "grape", "aqua", "rose", "lemon", "ember"];
 const BADGE_RE = /^[a-z0-9-]{1,40}:[a-z0-9_-]{1,40}$/;
 
 async function row(env, userId) {

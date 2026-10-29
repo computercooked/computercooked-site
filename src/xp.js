@@ -43,6 +43,16 @@ export const SITE_ACH = {
   dare_beat: { name: "took the bait", desc: "beat someone's dare", xp: 40 },
 };
 
+// K-0030 step 6: finishing all three Daily 3 games in a day (UTC) pays a bonus, once a day
+export const DAILY3 = ["crash-test-daily", "desktop-jam", "fathom"];
+export const DAILY3_XP = 60;
+async function daily3Days(env, userId) {
+  const { results } = await env.DB.prepare(
+    `SELECT day FROM plays WHERE user_id = ? AND completed = 1 AND ended_at IS NOT NULL AND duration_ms >= ? AND game IN (${DAILY3.map(() => "?").join(",")}) GROUP BY day HAVING COUNT(DISTINCT game) = ?`
+  ).bind(userId, 10000, ...DAILY3, DAILY3.length).all();
+  return new Set(results.map((r) => r.day));
+}
+
 export const RULES = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
 
 // one row per grant; (user_id, kind, ref) is unique, so a retried request never pays twice
@@ -107,6 +117,17 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
   if (ch && ch.game === play.game && scoreRes && scoreRes.accepted && score >= ch.target) {
     g = await grant(env, user.id, "challenge", play.game, ch.week, ch.xp, t);
     if (g) parts.push({ kind: "challenge", xp: g, week: ch.week });
+  }
+
+  if (DAILY3.includes(play.game)) {
+    const { results } = await env.DB.prepare(
+      `SELECT DISTINCT game FROM plays WHERE user_id = ? AND day = ? AND completed = 1 AND duration_ms >= ? AND game IN (${DAILY3.map(() => "?").join(",")})`
+    ).bind(user.id, day, RULES.minMs, ...DAILY3).all();
+    const got = new Set(results.map((r) => r.game).concat(play.game));
+    if (DAILY3.every((x) => got.has(x))) {
+      g = await grant(env, user.id, "daily3", null, day, DAILY3_XP, t);
+      if (g) parts.push({ kind: "daily3", xp: g });
+    }
   }
 
   const unlocked = [];
@@ -192,6 +213,11 @@ export async function replayGuest(env, userId, playIds) {
     maxStreak = Math.max(maxStreak, streak);
     rows.push(["streak", null, p.day, RULES.streakStep * Math.min(streak, RULES.streakMax), p]);
     if (p.duration_ms >= 600000) marathon = true;
+  }
+  // Daily 3 days these plays completed (counting the account's own plays that day too)
+  const replayDays = new Set(plays.map((p) => p.day));
+  for (const d of await daily3Days(env, userId)) {
+    if (replayDays.has(d)) rows.push(["daily3", null, d, DAILY3_XP, { day: d, ended_at: Date.parse(d + "T12:00:00Z") }]);
   }
   for (let i = 0; i < rows.length; i += 50) {
     await env.DB.batch(rows.slice(i, i + 50).map(([kind, game, ref, amount, p]) =>

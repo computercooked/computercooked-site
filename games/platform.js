@@ -48,6 +48,7 @@
      The same rules as src/xp.js (RULES, the level curve, the site badges a run can earn). For guests it's a
      preview kept in localStorage: at sign-up or log-in the server replays their plays for the real XP
      (src/xp.js replayGuest), so nothing here can be faked into an account. Keep the numbers in step with xp.js. */
+  var DAILY3 = ["crash-test-daily", "desktop-jam", "fathom"], DAILY3_XP = 60;
   var XP = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
   var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
   var BADGES = { first_run: ["boot sequence", 10], play_5: ["sampler platter", 50], play_10: ["tab hopper", 75], play_15: ["the whole arcade", 150],
@@ -93,6 +94,12 @@
     if (firstToday) { s.days.push(day); s.days = s.days.slice(-60); }
     var streak = streakOf(s.days, day);
     if (firstToday) parts.push({ kind: "streak", xp: XP.streakStep * Math.min(streak, XP.streakMax), days: streak });
+    // K-0030 step 6: all three Daily 3 games finished today (same bonus the server pays accounts)
+    if (DAILY3.indexOf(d.game) >= 0) {
+      if (!s.d3 || s.d3.day !== day) s.d3 = { day: day, g: [] };
+      if (s.d3.g.indexOf(d.game) < 0) s.d3.g.push(d.game);
+      if (!s.d3.paid && DAILY3.every(function (g) { return s.d3.g.indexOf(g) >= 0; })) { s.d3.paid = 1; parts.push({ kind: "daily3", xp: DAILY3_XP }); }
+    }
     s.runs++;
     var n = Object.keys(s.games).length, ok = r && r.accepted;
     function give(id) { if (s.badges[id]) return; s.badges[id] = 1; var b = BADGES[id]; achs.push({ id: id, name: b[0], xp: b[1] }); parts.push({ kind: "achievement", xp: b[1], id: id }); }
@@ -674,6 +681,7 @@
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
+      if (x.parts && x.parts.some(function (p) { return p.kind === "daily3"; })) say("daily 3 done: +" + DAILY3_XP + " xp");
       if (x.guest) (x.achievements || []).forEach(function (a) { say("unlocked: " + a.name + " · +" + a.xp + " xp"); });
       if (x.leveled_up) levelUp(x);
       if (x.guest) {

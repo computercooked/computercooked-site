@@ -35,8 +35,9 @@
         <img id="d3-preview-img" alt="your daily 3 result card" width="540" height="540">
         <figcaption><a class="ghost-btn" id="d3-save" download="computer-cooked-daily-3.png" href="#">save image</a> <button class="ghost-btn" type="button" id="d3-copy">copy text</button></figcaption>
       </figure>
-      <p class="d3-note">your streak lives on this device for now.</p>
+      <p class="d3-note">finish all three today: <b>+60 xp</b>. your streak lives on this device for now.</p>
     </div>
+    <section class="about-card wk" id="d3-week" aria-label="this week's top xp" hidden></section>
   </main>
   <footer class="footer"><p>© 2026 Computer Cooked · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/merch/">merch</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p></footer>
   <nav class="deck" aria-label="main">
@@ -54,6 +55,8 @@
   <script src="/assets/deck.js" defer></script>
   <script src="/assets/daily3.js"></script>
   <script src="/assets/daily-card.js"></script>
+  <script src="/assets/weekly.js" defer></script>
+  <script>document.addEventListener("DOMContentLoaded", function () { if (window.ccWeekly) window.ccWeekly(document.getElementById("d3-week")); });</script>
   <script>
   (function () {
     var d = window.ccDaily3; if (!d) return;

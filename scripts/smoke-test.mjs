@@ -413,6 +413,26 @@ else {
   r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1", anon: anon2 });
   const lx = (await r.clone().json()).xp;
   ok(r.ok && lx && lx.replayed === 1 && lx.gained >= 10, "login replays guest plays for real xp", lx && { gained: lx.gained, replayed: lx.replayed, level: lx.level });
+  // K-0030 step 6: Daily 3 pays +60 once a day when all three are finished; weekly xp board across games
+  {
+    const run = async (game) => {
+      const id = rid();
+      await post("/api/events", { anon, events: [{ t: "start", id, game, v: "1" }] }, { cookie });
+      return (await (await post("/api/events", { anon, events: [{ t: "end", id, game, dur: 15000, completed: true }] }, { cookie })).json()).results?.[id]?.xp;
+    };
+    const d3 = (x) => (x?.parts || []).find((p) => p.kind === "daily3");
+    const a1 = await run("crash-test-daily"), a2 = await run("desktop-jam");
+    ok(a1 && a2 && !d3(a1) && !d3(a2), "daily 3: no bonus before all three are done");
+    const a3 = await run("fathom");
+    ok(d3(a3)?.xp === 60, "daily 3: finishing all three pays +60", a3?.parts);
+    const a4 = await run("fathom");
+    ok(a4 && !d3(a4), "daily 3: the bonus pays once a day");
+    let wk = await (await get("/api/xp/week", { cookie })).json();
+    const mine = wk.rows?.find((x) => x.me);
+    ok(wk.ok && /^\d{4}-W\d\d$/.test(wk.week) && wk.resets_at > Date.now() && (mine ? mine.xp >= 60 && mine.u === u : wk.you?.xp >= 60), "weekly xp board shows this account", mine || wk.you);
+    wk = await (await get("/api/xp/week")).json();
+    ok(wk.ok && wk.you === null && wk.rows.every((x) => !x.me && x.u && typeof x.level === "number"), "weekly xp board for guests: rows, no 'you'");
+  }
   // XP and levels (slice B): a logged-in 12s run of CRASH
   const ev = (events) => post("/api/events", { anon, events }, { cookie }).then((x) => x.json());
   const run = async (dur, score) => { const id = rid(); await ev([{ t: "start", id, game: "crash" }]); return { id, r: await ev([{ t: "end", id, game: "crash", score, dur, completed: true }]) }; };

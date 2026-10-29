@@ -239,3 +239,10 @@
 .me-keys:empty { display: none; }
 .me-keys li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .me-keys small { color: var(--text-dim); font-size: var(--fs-12); }
+
+/* K-0030 step 6: every level's reward */
+.me-rewards { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; }
+.me-rewards li { display: grid; grid-template-columns: 5.5em minmax(0, 1fr) 1.5em; gap: 8px; padding: 4px 8px; border-radius: 6px; color: var(--text-dim); font-size: var(--fs-14); }
+.me-rewards li.is-got { color: var(--text); }
+.me-rewards li.is-got i { color: var(--lime); font-style: normal; }
+.me-rewards li.is-next { outline: 1px solid var(--lime); color: var(--text); }

@@ -33,6 +33,13 @@ export const UNLOCKS = [
   { kind: "mood", id: "sleepy", name: "sleepy face", level: 22 },
   { kind: "face", id: "11", name: "sky screen", level: 23 },
   { kind: "acc", id: "wizard", name: "wizard hat", level: 30 },
+  // K-0030 step 6: every level from 2 to 30 now unlocks something
+  { kind: "theme", id: "sunset", name: "sunset profile color", level: 21 },
+  { kind: "theme", id: "grape", name: "grape profile color", level: 24 },
+  { kind: "theme", id: "aqua", name: "aqua profile color", level: 26 },
+  { kind: "theme", id: "rose", name: "rose profile color", level: 27 },
+  { kind: "theme", id: "lemon", name: "lemon profile color", level: 28 },
+  { kind: "theme", id: "ember", name: "ember profile color", level: 29 },
 ].sort((a, b) => a.level - b.level);
 // profile frames (avatar border on /me and /u/): "none" is free, the rest are level unlocks above
 export const FRAMES = ["none", ...UNLOCKS.filter((u) => u.kind === "frame").map((u) => u.id)];
