@@ -834,6 +834,7 @@
     return base;
   }
   C.speedOf = speedOf;
+  C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
 
   // step toward (tx, tz); steer around water and cliffs; returns true when arrived
@@ -1826,22 +1827,37 @@
       if (!prey || !prey.alive) sc.done = true;
       else {
         c.asleep = false; c.action = null; c.goingHome = false;
+        if (sc.hold) { sc.t = 0; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); if (Math.random() < dt * 0.4) emote(c, "angry", 1.2); positionHeld(c, game); finishTick(c, game, gy); return; } // lurking: eyes in the dark, waiting
         if (sc.t < 3) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); emote(c, "angry", 0.5); positionHeld(c, game); finishTick(c, game, gy); return; } // it spots you and growls first (K-0033: "appeared in my face")
         if (sc.hitT > 0.9) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); positionHeld(c, game); finishTick(c, game, gy); return; } // a beat after a bite: your chance to run
-        walkToward(c, prey.x, prey.z, dt, Math.max(1.7, speedOf(prey, null) * 1.2), game, 0.9);
+        if (sc.wind > 0) { // the tell: it crouches and shakes for 1.5 s, then pounces at where you are
+          sc.wind -= dt; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); c.anim.squash = 0.25;
+          if (sc.wind <= 0) {
+            var gap = SB.dist(c.x, c.z, prey.x, prey.z), jump = Math.min(C.LUNGE_REACH, Math.max(0, gap - 0.8)), ja = Math.atan2(prey.x - c.x, prey.z - c.z);
+            var jx = c.x + Math.sin(ja) * jump, jz = c.z + Math.cos(ja) * jump;
+            if (SB.World.walkable(w, jx, jz)) { c.x = jx; c.z = jz; }
+            if (SB.dist(c.x, c.z, prey.x, prey.z) < 1.5) bite();
+            else { sc.hitT = 1.0; SB.bus.emit("scoutMiss", { c: prey, g: c }); } // dodged it
+          }
+          positionHeld(c, game); finishTick(c, game, gy); return;
+        }
+        walkToward(c, prey.x, prey.z, dt, sc.speed || Math.max(1.7, speedOf(prey, null) * 1.2), game, 0.9);
         sc.growlT = (sc.growlT || 0) - dt;
         if (sc.growlT <= 0) { sc.growlT = 3 + Math.random() * 2; emote(c, "angry", 1); SB.bus.emit("scoutGrowl", { c: prey, g: c }); }
-        if (SB.dist(c.x, c.z, prey.x, prey.z) < 1.3 && !sc.hitT) {
+        if (SB.dist(c.x, c.z, prey.x, prey.z) < C.LUNGE_AT && !sc.hitT) { sc.wind = C.LUNGE_WIND; emote(c, "angry", 1.6); SB.bus.emit("scoutWindup", { c: prey, g: c }); }
+        positionHeld(c, game); finishTick(c, game, gy);
+        return;
+      }
+      function bite() {
+        {
           sc.hitT = 1.8; sc.hits = (sc.hits || 0) + 1;
-          prey.chem.health = Math.max(0.25, prey.chem.health - 0.15);
+          prey.chem.health = Math.max(0.25, prey.chem.health - (sc.dmg || C.LUNGE_DMG));
           var ka = Math.atan2(prey.x - c.x, prey.z - c.z), kx = prey.x + Math.sin(ka) * 1.2, kz = prey.z + Math.cos(ka) * 1.2; // knocked back
           if (SB.World.walkable(w, kx, kz)) { prey.x = kx; prey.z = kz; }
           SB.Chem.apply(prey.chem, { fear: 0.3, pain: 0.2 });
           emote(c, "angry", 1);
           SB.bus.emit("scoutHit", { c: prey, g: c });
         }
-        positionHeld(c, game); finishTick(c, game, gy);
-        return;
       }
     }
     if (c.species === "grump" && c.scout && c.scout.done) { c.scout = null; c.goingHome = true; }
