@@ -41,6 +41,10 @@
   <script>if(/[?&]from=bushgrowth(&|$)/.test(location.search)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cc-arrive')</script>
   <style>html.cc-arrive::after{content:"";position:fixed;inset:0;z-index:2147483646;background:linear-gradient(to top,#ecffaa,#ffd678 10%,#ff965a 26%,#ff5a4e 44%,#8c1e24 66%,#34101a 86%,#120609)}</style>
   <script src="/assets/arrive.js" defer></script>
+  <!-- first visit on this device: the computer boots (assets/boot.js); skipped from bushgrowth, repeat visits, reduced motion -->
+  <script>try{if(!localStorage.getItem('cc-booted')&&!/[?&]from=bushgrowth(&|$)/.test(location.search)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cc-bootseq');else localStorage.setItem('cc-booted','1')}catch(e){}</script>
+  <style>html.cc-bootseq::before{content:"";position:fixed;inset:0;z-index:2147483640;background:#050605}</style>
+  <script src="/assets/boot.js" defer></script>
 </head>
 <body>
   <main class="home2">
