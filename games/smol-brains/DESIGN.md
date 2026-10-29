@@ -450,19 +450,22 @@ Ashton wants smol brains built out into a full, story-driven game: lore for why 
 
 **The lore.** The smols are tiny, forgetful creatures living on the back of a sleeping giant, the Hollow. Long ago they lit a Lantern to remember who they are. Each night it burns lower, and as it fades their memories fade too: that's why their brains are smol. **You are the Lantern's last spark**, lifted into the sky by Pip's wish. You can watch and nudge, but you can only touch the world by **lending your light** to one smol (possession). **Grumps** are smols whose light went out; they hunt the light. The long goal (P4-P5): memory embers relight the Lantern in stages, and the finale reveals that the Hollow is waking.
 
-- **The opening film** (`lantern.js`, 68 s, pixel art drawn in code at 320×180, smol-speak with subtitles):
-  1. A heartbeat in the dark: "every night, they forget a little more."
-  2. A pan along the giant's back at dusk: smols walking in circles, putting berries down and forgetting them.
-  3. The Lantern on the hill gutters, and the smols' glows dim with it.
-  4. Pip runs up with the last berry; a grump follows to the edge of the light; Pip trips and the berry rolls into the flame.
-  5. Close up, Pip wishes: "somebody… remember us."
-  6. The flame bursts, and its last spark climbs into the stars: "you are that spark."
+- **The opening** (K-0045: keep the ark battle and the crash pods, and build the lore around them). The ark film (`intro.js`, 22 s) plays first: the smol ark is caught by a grump warship and its pods scatter, one falling toward an unknown world. Then "The Last Lantern" (`lantern.js`, 52 s, pixel art drawn in code at 320×180, smol-speak with subtitles):
+  1. Dusk on the Hollow's back: smols walking in circles, putting berries down and forgetting them, and the Lantern on its hill.
+  2. The pod streaks across the sky and slams into the hill. The Lantern gutters nearly out, and every smol's glow dims with it.
+  3. Pip runs up with the last berry; a grump follows to the edge of the light; Pip trips and the berry rolls into the flame.
+  4. Close up, Pip wishes: "somebody… remember us."
+  5. The flame bursts, and its last spark climbs into the stars: "you are that spark."
 
-  Then the camera drops onto the island (5.5 s), and you have control at about 74 s (measured in the browser: 71 s).
-- **When it plays**: always on a device's first new island, even from "play now". After that, "create world" tells the story again and "play now" goes straight in. It can't be skipped the first time (it's the why of the game), but after that, or with `?cctest=1`, Esc or "skip" ends it.
+  Then the camera drops onto the island (5.5 s), and you have control at about 80 s (measured: 77 s). The crashed pod you open first is that same pod.
+- **When it plays**: always on a device's first new island, even from "play now". After that, "create world" tells the story again and "play now" goes straight in. It can't be skipped the first time (it's the why of the game). After that, or with `?cctest=1`, skipping the ark skips the whole opening.
+- **Mood music** (K-0045): two new layers in the soundtrack's own notation and instruments.
+  - "something out there" (A minor, driving pluck bass, strings) crossfades in over 1.5 s when a grump is near the smol you're in, when the first-minute grump is after you, when your hearts are under 30%, during a raid, for 25 s at nightfall and for 30 s when a grump turns up.
+  - "the sky is strange" (D dorian, bells and music box over a harp) plays for 25 s after a pod crash, an evolution era, a new biome, the big thought, and (coming) the Lantern stages.
+  - Each loops while its moment lasts, then the island's song fades back.
 - **Lore text**: ❓ help opens with the story and has "🏮 watch the last lantern". The tutorial's "why you're here" is rewritten for the spark, and the island title card says "the Hollow. one last Lantern."
-- **Not yet**: the first minutes still open the crashed pod. P2 replaces them with Pip's scripted first night.
-- **Tests**: `lantern.test.js` (fresh save plays it and can't skip; a repeat can; a playtest can always skip; film plus camera drop ≤ 90 s; the story beats are told).
+- **Next**: P2 makes the first minutes Pip's scripted first night.
+- **Tests**: `lantern.test.js` (fresh save plays it and can't skip; a repeat can; a playtest can always skip; ark + Lantern + camera drop ≤ 90 s; the story beats, the pod included). `mood.test.js` (both layers are real cues; which moments want which layer).
 
 ## 1. The ladder
 

@@ -104,6 +104,18 @@
       A: { ch: "1 6 3 5", mel: "1 . 1 5, 1 . 3 . | 3 . 1 . 6, . 1 . | 5 . 5 3 5 . 1' . | 7 . 5 . 2 . 5, ." },
       B: { ch: "4 6 5 5M", mel: "4 . 6 . 1' . 6 . | 3' . . 2' 1' . 6 . | 5 . 7 . 2' . 1' 7 | #7 . . . 5 . . ." } }
   ];
+  // mood layers (K-0045): they crossfade in over the island's song and loop until the moment passes.
+  // danger: a grump near, nightfall, hearts low. strange: pods falling, the Lantern, things nobody can explain
+  CUES.push(
+    { id: "danger", title: "something out there", root: 57, scale: "minor", bpm: 96, bar: 8, lead: "pluck", lead2: "bell", acc: "drive", accI: "pluck", strings: 1,
+      tags: ["cue", "mood"],
+      A: { ch: "1 1 6 5", mel: "1 . . . . . 5, . | 6, . . . . . . . | 1 . . . 3 . 2 . | #7, . . . . . . ." },
+      B: { ch: "4 4 5M 5M", mel: "4 . . . 3 . . . | 2 . . . 1 . . . | 5 . . . 4 . 3 . | #7, . . . . . . ." } },
+    { id: "strange", title: "the sky is strange", root: 62, scale: "dorian", bpm: 60, bar: 8, lead: "bell", lead2: "box", acc: "harp", accI: "bell", strings: 1, bellTop: 1,
+      tags: ["cue", "mood"],
+      A: { ch: "1 7 4 1", mel: "5' . . . . . . . | 4' . . . 2' . . . | 6 . . . . . 1' . | 5 . . . . . . ." },
+      B: { ch: "4 2 7 5", mel: "6 . . . 1' . . . | 3' . . . . . 2' . | 7 . . . 5 . . . | #4 . . . . . . ." } }
+  );
   M.CUES = CUES;
   var SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10] };
   var FORM = ["A", "A", "B", "A"];
@@ -342,6 +354,8 @@
   var vol = 0.8, heard = {};
   try { var sv = localStorage.getItem(KEY); if (sv != null) vol = Math.max(0, Math.min(1, +sv || 0)); heard = JSON.parse(localStorage.getItem(HEARD) || "{}") || {}; } catch (e) {}
   var cur = null, next = null, gapUntil = 0, recent = [], duck = 1, griefT = -1e9, timer = null, pinned = null;
+  var mood = null, dangerUntil = 0, strangeUntil = 0, XFADE = 1.5;
+  M.XFADE = XFADE;
 
   function stopCur(fade) {
     if (!cur) return;
@@ -352,7 +366,7 @@
   function start(song) {
     if (!wire()) return false;
     stopCur(2.5);
-    var sc = score(song), g = ctx.createGain(); g.gain.value = 1; g.connect(bus);
+    var sc = score(song), g = ctx.createGain(); g.gain.value = mood ? 0.0001 : 1; g.connect(bus); // under a mood layer it waits silent
     cur = { song: song, ev: sc.ev, dur: sc.dur, i: 0, t0: ctx.currentTime + 0.25, gain: g };
     recent.push(song.id); if (recent.length > 6) recent.shift();
     if (!heard[song.id]) { heard[song.id] = 1; try { localStorage.setItem(HEARD, JSON.stringify(heard)); } catch (e) {} }
@@ -401,6 +415,44 @@
     return pool[0];
   }
 
+  M.moodOf = function (game, P, wall) {
+    if (!game || !game.world) return null;
+    var w = game.world;
+    if (wall < strangeUntil) return "strange";
+    if (P && P.active && P.c && P.c.alive) {
+      var c = P.c;
+      if (c.chem && c.chem.health < 0.3) return "danger";
+      if (P.scout && P.scout()) return "danger";
+      var near = false;
+      if (SB.World && SB.World.creaturesNear) SB.World.creaturesNear(w, game, c.x, c.z, 15, function (o) { if (o.species === "grump" && o.alive && !o.goingHome) near = true; });
+      if (near) return "danger";
+    }
+    var inc = game.dir && game.dir.active;
+    if (inc && inc.id === "raid") return "danger";
+    if (wall < dangerUntil) return "danger";
+    return null;
+  };
+  function setMood(id) {
+    var now = ctx.currentTime;
+    if (mood) { var old = mood; mood = null; old.gain.gain.cancelScheduledValues(now); old.gain.gain.setValueAtTime(Math.max(0.0001, old.gain.gain.value), now); old.gain.gain.linearRampToValueAtTime(0.0001, now + XFADE); setTimeout(function () { try { old.gain.disconnect(); } catch (e) {} }, (XFADE + 3) * 1000); }
+    if (cur) { var cg = cur.gain.gain; cg.cancelScheduledValues(now); cg.setValueAtTime(Math.max(0.0001, cg.value), now); cg.linearRampToValueAtTime(id ? 0.0001 : 1, now + XFADE); }
+    if (!id) { M.mood = null; return; }
+    var song = M.byId(id), sc = score(song), g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(1, now + XFADE); g.connect(bus);
+    mood = { id: id, ev: sc.ev, dur: sc.dur, i: 0, t0: now + 0.1, gain: g };
+    M.mood = id;
+    if (SB.bus) SB.bus.emit("mood", { id: id });
+  }
+  function pumpMood() {
+    if (!mood) return;
+    var now = ctx.currentTime, ahead = now + 0.5;
+    while (mood.i < mood.ev.length && mood.t0 + mood.ev[mood.i].t < ahead) {
+      var e = mood.ev[mood.i++], at = mood.t0 + e.t;
+      if (at < now - 0.05) continue;
+      try { INST[e.i](Math.max(now, at), hz(e.m), e.d, e.v, mood.gain); } catch (er) {}
+    }
+    if (mood.i >= mood.ev.length && now > mood.t0 + mood.dur - 0.3) { mood.t0 += mood.dur; mood.i = 0; } // it loops for as long as the moment lasts
+  }
   function tick() {
     if (!wire()) return;
     var game = SB.Game && SB.Game.current, now = ctx.currentTime;
@@ -408,22 +460,36 @@
     var inc = game && game.dir && game.dir.active, want = vol * (inc && (inc.id === "raid" || inc.id === "storm") ? 0.25 : 1) * (SB.Intro && SB.Intro.covering && (!cur || cur.song.id !== "smolbrains" && cur.song.id !== "bigthought" && cur.song.tags.indexOf("cue") < 0) ? 0 : 1);
     if (Math.abs(want - duck) > 0.001) { duck = want; bus.gain.setTargetAtTime(duck * LEVEL, now, 0.8); }
     if (vol <= 0) return;
-    if (cur) return;
+    var wantMood = SB.Intro && SB.Intro.covering ? null : M.moodOf(game, SB.Possess, Date.now() / 1000);
+    if (wantMood !== (mood ? mood.id : null)) setMood(wantMood);
+    if (cur || mood) return;
     if (next) { var n = next; next = null; start(n); return; }
     if (pinned) return; // a song picked from the jukebox plays once, then the island takes over again
     if (now < gapUntil || !game || !game.world || (SB.Intro && SB.Intro.covering)) return;
     var s = pick(game);
     if (s) start(s);
   }
+  // nightfall and a grump turning up set the danger layer for a while; odd sky things set the strange one
+  var moodHooked = false;
+  function moodEvents() {
+    if (moodHooked || !SB.bus) return;
+    moodHooked = true;
+    var wall = function () { return Date.now() / 1000; };
+    SB.bus.on("dusk", function () { dangerUntil = Math.max(dangerUntil, wall() + 25); });
+    SB.bus.on("grumpArrive", function () { dangerUntil = Math.max(dangerUntil, wall() + 30); });
+    ["podCrash", "bigThought", "era", "newBiome", "lantern"].forEach(function (k) { SB.bus.on(k, function () { strangeUntil = Math.max(strangeUntil, wall() + 25); }); });
+  }
+  M._moodEvents = moodEvents; // for tests
   M.init = function () {
     if (timer) return;
-    timer = setInterval(function () { try { tick(); pump(); } catch (e) {} }, 120);
+    timer = setInterval(function () { try { tick(); pump(); pumpMood(); } catch (e) {} }, 120);
     if (SB.bus) {
       SB.bus.on("death", function (e) {
         var c = e && e.c;
         if (!c || c.species === "grump" || c.stage === 0) return;
         griefT = (SB.Game.current && SB.Game.current.playTime) || 0;
       });
+      moodEvents();
       SB.bus.on("season", function () { if (cur && !pinned) stopCur(6); gapUntil = ctx ? ctx.currentTime + 8 : 0; });
     }
   };

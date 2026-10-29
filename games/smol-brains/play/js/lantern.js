@@ -10,19 +10,20 @@
   var L = SB.Lantern = {};
   var W = 320, H = 180;
   L.KEY = "smolbrains-lantern";
-  L.DUR = 68; // + the camera drop onto the island (ui.js landing, 5.5 s): control at about 74 s
+  L.DUR = 52; // after the ark film (intro.js, 22 s), then the camera drop onto the island (ui.js landing, 5.5 s): control at about 80 s
 
   L.LINES = [
-    { at: 7.5, smol: "hollo… hollo mumu.", sub: "the smols live on the back of the Hollow, a giant who sleeps and never wakes." },
-    { at: 13.5, smol: "pip-a? mo… mo'pi?", sub: "they forget things. what they were doing. where they put the berry." },
-    { at: 19.5, smol: "lumi! lumi vesh.", sub: "long ago they lit a Lantern on the hill, so they would remember who they are." },
-    { at: 25.5, smol: "lumi… lumi nua.", sub: "but each night it burns lower. and as it fades, so do they." },
-    { at: 34.5, smol: "pip! pip go go!", sub: "Pip, the smallest of them, runs up the hill with the last berry of the day." },
-    { at: 40.5, smol: "GRUMPA! shoo! shoo!", sub: "a grump: a smol whose light went out. grumps hunt the light." },
-    { at: 45.5, smol: "wa—!", sub: "" },
-    { at: 50.5, smol: "mo'pi… nua zo'mi.", sub: "“somebody… remember us.”" },
-    { at: 58.6, smol: "", sub: "the wish lifts the Lantern's last spark into the sky." },
-    { at: 62.4, smol: "", sub: "you are that spark. watch over them. lend them your light." }
+    { at: 0.6, smol: "hollo… hollo mumu.", sub: "below, on the back of the Hollow, a giant who sleeps, live smols who forget a little more every night." },
+    { at: 5.4, smol: "pip-a? mo… mo'pi?", sub: "what they were doing. where they put the berry." },
+    { at: 9.6, smol: "lumi! lumi vesh.", sub: "long ago they lit a Lantern on the hill, so they would remember who they are." },
+    { at: 14.6, smol: "pip-pod?!", sub: "then the pod fell out of the sky." },
+    { at: 18.4, smol: "lumi… lumi nua!", sub: "it hit the hill. the Lantern guttered, nearly out, and as it fades, so do the smols." },
+    { at: 22.6, smol: "pip! pip go go!", sub: "Pip, the smallest of them, runs up the hill with the last berry of the day." },
+    { at: 28.4, smol: "GRUMPA! shoo! shoo!", sub: "a grump: a smol whose light went out. grumps hunt the light." },
+    { at: 33.4, smol: "wa—!", sub: "" },
+    { at: 36.5, smol: "mo'pi… nua zo'mi.", sub: "“somebody… remember us.”" },
+    { at: 43.4, smol: "", sub: "the wish lifts the Lantern's last spark into the sky." },
+    { at: 46.6, smol: "", sub: "you are that spark. watch over them. lend them your light." }
   ];
 
   function store() { try { return window.localStorage; } catch (e) { return null; } }
@@ -114,10 +115,10 @@
     var LX = 520;
     function ground(xw, t) { return 128 - 14 * Math.sin(Math.min(1, Math.max(0, xw / 600)) * Math.PI) - 34 * Math.exp(-Math.pow((xw - LX) / 46, 2)) + Math.sin(t * 0.55) * 1.5; }
     function lanternLight(t) {
-      if (t < 25) return 0.85 + Math.sin(t * 7) * 0.05;
-      if (t < 34) { var d = [27.2, 29.6, 31.8].reduce(function (m, a) { return Math.max(m, Math.exp(-Math.pow((t - a) / 0.35, 2))); }, 0); return 0.7 - d * 0.55 + Math.sin(t * 9) * 0.05; }
-      if (t < 47) return 0.45 + Math.sin(t * 11) * 0.08;
-      if (t < 58) return 0.35 + Math.min(1, Math.max(0, t - 47)) * 0.2 + Math.sin(t * 13) * 0.08;
+      if (t < 17.5) return 0.85 + Math.sin(t * 7) * 0.05;
+      if (t < 22) return 0.16 + Math.abs(Math.sin(t * 9)) * 0.14; // knocked down by the pod: nearly out
+      if (t < 34.8) return 0.25 + Math.sin(t * 11) * 0.06;
+      if (t < 43) return 0.3 + Math.min(1, Math.max(0, t - 34.8)) * 0.25 + Math.sin(t * 13) * 0.08;
       return 1.2;
     }
     function lantern(sx, gy, t, lit) {
@@ -132,7 +133,7 @@
     }
 
     function scene(t, dt) {
-      if (t < 7) {
+      if (t < 0) { // (the heartbeat opening: the ark film opens the story now)
         // 1. black. a heartbeat. "every night, they forget a little more."
         var beat = t % 1.6;
         if (beat < 0.05 && t > 0.3) { if (!fired["b" + Math.floor(t / 1.6)]) { fired["b" + Math.floor(t / 1.6)] = 1; sfx("tap", 0.9); setTimeout(function () { sfx("tap", 0.55); }, 260); } }
@@ -143,10 +144,10 @@
         return;
       }
       var camX, lit = lanternLight(t);
-      if (t < 50) {
+      if (t < 36) {
         // 2-4. dusk on the Hollow's back, the Lantern, Pip's run
-        camX = t < 25 ? ease((t - 7) / 18) * 380 : t < 34 ? lerp(380, 360, ease((t - 25) / 4)) : 360;
-        var night = t < 25 ? (t - 7) / 40 : 0.45 + Math.min(0.4, (t - 25) / 40);
+        camX = t < 14 ? ease(t / 14) * 380 : t < 22 ? lerp(380, 360, ease((t - 14) / 2)) : 360;
+        var night = t < 14 ? t / 30 : 0.45 + Math.min(0.4, (t - 14) / 30);
         sky(t, night);
         stars.forEach(function (s) { if (s.y < H && night > 0.2) { ctx.globalAlpha = (night - 0.2) * s.z; px((s.x - camX * 0.05 + W) % W, s.y * 0.6, 1, 1, s.c); } }); ctx.globalAlpha = 1;
         // the giant's head, asleep, at the start of its back: a dome with a closed eye that breathes
@@ -162,16 +163,28 @@
         // smols, walking their little circles, forgetting
         smols.forEach(function (s, idx) {
           var x = s.x + Math.cos(t * 0.8 + s.ph) * 7, sx2 = x - camX; if (sx2 < -10 || sx2 > W + 10) return;
-          var cyc = (t + s.ph * 2) % s.cyc, gy2 = ground(x, t) - 2, dim = t < 25 ? 1 : Math.min(1, lit * 1.3);
-          if (t > 34 && Math.abs(x - LX) > 120) dim *= 0.6;
+          var cyc = (t + s.ph * 2) % s.cyc, gy2 = ground(x, t) - 2, dim = t < 17.5 ? 1 : Math.min(1, lit * 1.3);
+          if (t > 22 && Math.abs(x - LX) > 120) dim *= 0.6;
           if (cyc < 3) px(s.x + 6 - camX, ground(s.x + 6, t) - 1, 2, 2, "#ff4f5e"); // the berry it put down somewhere
           smol(sx2, gy2 - 2, s.col, dim, 2, Math.sin(t * 0.8 + s.ph) > 0 ? -1 : 1);
-          if (cyc < 1.4 && t < 34) text("?", sx2, gy2 - 10, 8, "#ffffff", 1 - cyc / 1.4);
+          if (cyc < 1.4 && t < 14.5) text("?", sx2, gy2 - 10, 8, "#ffffff", 1 - cyc / 1.4);
           void idx;
         });
-        if (t >= 34) {
+        // the pod: it streaks across the dusk and slams into the Lantern's hill
+        var podX = LX - 26, podY = ground(podX, t) - 3;
+        if (t >= 15 && t < 17.5) {
+          var fk = ease((t - 15) / 2.5), fx = lerp(podX - 260, podX, fk) - camX, fy = lerp(-10, podY, fk);
+          for (var k1 = 0; k1 < 16; k1++) px(fx - k1 * 3, fy - k1 * 1.6, Math.max(1, 5 - k1 / 4), Math.max(1, 5 - k1 / 4), k1 < 3 ? "#ffffff" : k1 < 8 ? "#ffd84a" : "#ff9f43");
+          px(fx - 3, fy - 3, 7, 6, "#1a1222"); px(fx - 2, fy - 3, 4, 4, "#8fe6dc");
+        }
+        if (t >= 17.5) {
+          if (!fired.crash) { once("crash", "bigboom", 0.8, 5); boom(podX - camX, podY, 36, 70, ["#ffffff", "#ffd84a", "#ff9f43", "#8fe6dc"]); }
+          px(podX - camX - 4, podY - 4, 9, 7, "#1a1222"); px(podX - camX - 3, podY - 4, 6, 5, "#8fe6dc"); px(podX - camX - 1, podY - 3, 2, 2, "#1a1222");
+          if (r() < 0.25) bits.push({ x: podX - camX + (r() - 0.5) * 4, y: podY - 6, vx: (r() - 0.5) * 4, vy: -10 - r() * 6, life: 1.4, t: 0, c: r() < 0.5 ? "#5a5266" : "#3a3446", w: 2 });
+        }
+        if (t >= 22) {
           // 4. Pip runs up the hill with the berry; a grump follows to the edge of the light; Pip trips
-          var pt = t - 34, px0 = lerp(380, 506, ease(Math.min(1, pt / 11))), pgy = ground(px0, t) - 2;
+          var pt = t - 22, px0 = lerp(380, 506, ease(Math.min(1, pt / 11))), pgy = ground(px0, t) - 2;
           var gxw = lerp(330, 452, ease(Math.min(1, pt / 9))) - (pt > 7 && pt < 10 ? (pt - 7) * 3 : 0), ggy = ground(gxw, t) - 4;
           grump(gxw - camX, ggy - 2, 1.5, true);
           if (pt > 6.5 && pt < 10) text("!", gxw - camX, ggy - 10, 8, "#ff4f5e", 1);
@@ -185,9 +198,9 @@
             if (bk < 1) px(bx, by, 2, 2, "#ff4f5e"); else { once("berryin", "pop", 0.8); }
           }
         }
-      } else if (t < 58) {
+      } else if (t < 43) {
         // 5. close: Pip kneels at the flame and wishes
-        var ct = t - 50;
+        var ct = t - 36;
         sky(t, 0.9);
         px(0, 140, W, 40, "#251d36"); px(0, 140, W, 3, "#22382a");
         var fl = 0.5 + Math.sin(t * 13) * 0.1 + ease(ct / 8) * 0.3;
@@ -198,7 +211,7 @@
         if (ct > 2 && ct < 7) for (var q = 0; q < 2; q++) if (r() < 0.05) bits.push({ x: 132 + r() * 8, y: 126, vx: 0, vy: 8, life: 1, t: 0, c: "#8fe6dc", w: 1 }); // a tear
       } else {
         // 6. the flame bursts and its last spark climbs into the sky: you
-        var rt = t - 58, climb = ease(rt / 7) * 360;
+        var rt = t - 43, climb = ease(rt / 6) * 360;
         sky(t, 1);
         stars.forEach(function (s) { var y = (s.y - 360 + climb) % (H * 3); if (y < 0) y += H * 3; if (y < H) { ctx.globalAlpha = Math.min(1, 0.3 + s.z * 0.5 + rt * 0.05); px(s.x, y, s.z > 1.2 ? 2 : 1, 1, s.c); } }); ctx.globalAlpha = 1;
         var hill = 150 + climb;
@@ -208,8 +221,8 @@
         glow(W / 2, sy, 14, "#fff6c0", 1); px(W / 2 - 1, sy - 1, 3, 3, "#ffffff");
         if (r() < 0.7) bits.push({ x: W / 2 + (r() - 0.5) * 3, y: sy + 2, vx: (r() - 0.5) * 8, vy: 40 + r() * 30, life: 0.6, t: 0, c: GLOW[Math.floor(r() * 4)], w: 1 });
         if (rt < 0.6) { ctx.fillStyle = "rgba(255,246,192," + (0.8 - rt) + ")"; ctx.fillRect(0, 0, W, H); }
-        if (rt > 5.6) text("THE LAST LANTERN", W / 2, 40, 13, "#ffd84a", ease((rt - 5.6) / 1.2));
-        if (rt > 8.6) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (rt - 8.6) * 0.8) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (rt > 4.6) text("THE LAST LANTERN", W / 2, 40, 13, "#ffd84a", ease((rt - 4.6) / 1.2));
+        if (rt > 7.4) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (rt - 7.4) * 0.8) + ")"; ctx.fillRect(0, 0, W, H); }
       }
     }
     function frame() {

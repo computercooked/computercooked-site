@@ -65,8 +65,10 @@
       if (!ending && !podFall && SB.Music && SB.Music.now && SB.Music.now() && SB.Music.now().id === "arkfight") SB.Music.skip();
       if (opts.done) opts.done();
     }
-    function key(e) { if (e.key === "Escape" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (!started) gate.onclick(e); else finish(); } }
-    skip.onclick = function (e) { e.stopPropagation(); finish(); };
+    function key(e) { if (e.key === "Escape" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (!started) gate.onclick(e); else if (!opts.noSkip) skipped(); } }
+    function skipped() { if (opts.skipped) { var d = opts.done; opts.done = opts.skipped; finish(); void d; } else finish(); } // skipping the ark skips the whole opening (the Lantern film after it too)
+    skip.onclick = function (e) { e.stopPropagation(); skipped(); };
+    if (opts.noSkip) skip.remove(); // a device's first opening plays through (K-0041)
     document.addEventListener("keydown", key, true);
 
     var fired = {}, shake = 0;

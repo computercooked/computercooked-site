@@ -1758,10 +1758,11 @@
     // from the hub's "tap to play" card (cc.autostart): that tap was the start, so go straight to the island
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
     // the opening film, "The Last Lantern" (K-0041): always the first time on a device, even from "play now"; after that when you asked for the story
-    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Lantern.play({ done: landing, noGate: !!SB.Game.fromTitle || auto }); return; } // the "create world" tap already let the sound start
+    // K-0045: the ark battle and its falling pod open it, then the pod knocks the Lantern down and Pip makes the wish
+    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.play({ noGate: true, done: landing }); } }); return; } // the "create world" tap already let the sound start
     landing();
   }
-  UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Lantern) SB.Lantern.play({ noGate: true }); else if (SB.Intro) SB.Intro.play({ noGate: true }); };
+  UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Intro) SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } }); };
   // after the story: the camera falls with the pod onto the island
   function landing() {
     var T = game.world.T, nest = T.nest;

@@ -33,14 +33,16 @@ console.log("2. control within 90 s");
   const L = load(false);
   const m = ui.match(/R\.cinematic\(\{ dur: SB\.Game\.quickStart \? ([\d.]+) : ([\d.]+)/);
   const drop = m ? Math.max(+m[1], +m[2]) : 99;
-  check("film + the camera drop onto the island <= 90 s", L.DUR + drop <= 90, L.DUR + " + " + drop + " s");
+  const ark = +(fs.readFileSync(path.join(__dirname, "..", "play", "js", "intro.js"), "utf8").match(/var DUR = ([\d.]+);/) || [0, 99])[1];
+  check("the ark film + the Lantern film + the camera drop <= 90 s", ark + L.DUR + drop <= 90, ark + " + " + L.DUR + " + " + drop + " s");
   check("ui.js plays it for a new island", /SB\.Lantern\.shouldPlay\(game/.test(ui));
+  check("K-0045: the ark battle and its pod still open the story, then the Lantern film", /SB\.Intro\.play\(\{[^\n]*SB\.Lantern\.play\(/.test(ui));
 }
 
 console.log("3. the story beats (K-0041)");
 {
   const L = load(false), subs = L.LINES.map(l => l.sub).join(" ");
-  ["Hollow", "Lantern", "Pip", "grump", "remember us", "spark"].forEach(w => check("it tells: " + w, subs.indexOf(w) >= 0));
+  ["Hollow", "Lantern", "pod", "Pip", "grump", "remember us", "spark"].forEach(w => check("it tells: " + w, subs.indexOf(w) >= 0));
   check("lines in order, inside the film", L.LINES.every((l, i) => l.at < L.DUR && (i === 0 || l.at > L.LINES[i - 1].at)));
 }
 
