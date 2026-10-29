@@ -109,5 +109,22 @@ console.log("6. a tickle at the right moment in a lesson always counts (even whe
   check("but not twice for the same go", n() === 2, n() + "/3");
 }
 
+console.log("7. a set-up that goes nowhere: another look at 8 s, and a plain \"not biting\" at 16 s");
+{
+  const { SB, game, cs } = tribe(87, 1);
+  const c = cs[0], T = SB.Tricks, d = T.BY.eat;
+  c.chem.hunger = 0.2; // not hungry: it won't bite
+  if (!c.tricks) T.seed(c, game);
+  T.practice(game, c, "eat");
+  let nudge = 0, nob = null;
+  SB.bus.on("trickNudge", () => nudge++); SB.bus.on("trickNoBite", e => { nob = e; });
+  const busy = () => { c.action = { verb: SB.V.wander, phase: "go", x: new Float32Array(c.brain.nIn), start: new Float32Array(SB.N_DRIVES), t: 0, dur: 99 }; c.lastDone = null; c.chem.hunger = 0.2; };
+  for (let t = 0; t < 10; t += SB.TICK) { busy(); SB.Game.step(game, SB.TICK); }
+  check("8 s in: it takes another look", nudge === 1 && !nob);
+  for (let t = 0; t < 8; t += SB.TICK) { busy(); SB.Game.step(game, SB.TICK); }
+  check("16 s in: over, and it says why", !!nob && /hungry/.test(nob.why), nob && nob.why);
+  check("the lesson is closed, so you can set it up again", !c.trickSession);
+}
+
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);
