@@ -70,7 +70,7 @@ export async function signup(req, env, ip) {
   if (ok === null) return bad("pick your birth month and year.");
   // Under 13: no account, no data kept. The page tells them they can just play.
   if (!ok) return json({ ok: false, under13: true });
-  const err = usernameError(b.username);
+  const err = usernameError(b.username) || (await heldName(env, b.username, 0));
   if (err) return bad(err);
   const pw = b.password;
   if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return bad("passwords need 8+ characters.");
@@ -140,6 +140,49 @@ export async function changePassword(req, env, user, ip) {
   return json({ ok: true });
 }
 
+// K-0030 step 3: change your username, at most once every 30 days. Needs the current password. The old name stays
+// held for you for 30 days (nobody else can take it, and /u/<old> points to the new one); boards show the new name.
+const RENAME_DAYS = 30;
+async function heldName(env, name, userId) {
+  const r = await env.DB.prepare("SELECT 1 FROM username_history WHERE old_name = ? AND user_id != ? AND changed_at > ? LIMIT 1")
+    .bind(String(name), userId, now() - RENAME_DAYS * 86400000).first();
+  return r ? "that username is taken." : null;
+}
+export async function renameInfo(env, user) {
+  const last = await env.DB.prepare("SELECT MAX(changed_at) t FROM username_history WHERE user_id = ?").bind(user.id).first("t");
+  return { last_change: last || null, next_change: last ? last + RENAME_DAYS * 86400000 : null };
+}
+export async function changeUsername(req, env, user, ip) {
+  if (limited("rename:" + ip, 10, 600000)) return bad("too many tries. wait a few minutes.", 429);
+  const b = await readJson(req, 4096);
+  const name = typeof b.username === "string" ? b.username.trim() : "";
+  const row = await env.DB.prepare("SELECT username, pass_hash, salt, iterations FROM users WHERE id = ?").bind(user.id).first();
+  if (!row) return bad("no such account", 404);
+  const hash = await hashPassword(String(b.password || ""), unb64(row.salt), row.iterations);
+  if (!safeEqual(hash, row.pass_hash)) return bad("password is wrong.", 401);
+  if (name === row.username) return bad("that's already your username.");
+  const info = await renameInfo(env, user);
+  // a change of capitals only (Sam -> sam) is always allowed; a new name waits 30 days from the last one
+  const caseOnly = name.toLowerCase() === row.username.toLowerCase();
+  if (!caseOnly && info.next_change && info.next_change > now()) {
+    const days = Math.ceil((info.next_change - now()) / 86400000);
+    return bad(`you can change it again in ${days} day${days === 1 ? "" : "s"}.`, 429);
+  }
+  const err = usernameError(name) || (await heldName(env, name, user.id));
+  if (err) return bad(err);
+  try {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET username = ? WHERE id = ?").bind(name, user.id),
+      env.DB.prepare("UPDATE scores SET name = ? WHERE user_id = ?").bind(name, user.id),
+      ...(caseOnly ? [] : [env.DB.prepare("INSERT INTO username_history (user_id, old_name, new_name, changed_at) VALUES (?, ?, ?, ?)").bind(user.id, row.username, name, now())]),
+    ]);
+  } catch (e) {
+    if (/UNIQUE/i.test(String(e))) return bad("that username is taken.");
+    throw e;
+  }
+  return json({ ok: true, username: name, ...(await renameInfo(env, user)) });
+}
+
 // POST /api/me/logout-all: ends every session, this one included
 export async function logoutAll(req, env, user) {
   await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
@@ -184,6 +227,7 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("UPDATE plays SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE feedback SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE reports SET user_id = NULL WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM username_history WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id),
   ]);
   return json({ ok: true, deleted: true }, 200, { "set-cookie": cookie("", 0, isSecure(req)) });

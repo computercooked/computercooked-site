@@ -6,7 +6,7 @@ import { labVotes, labVote } from "./lab.js";
 import { homePage, labPage, garyPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
-import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
+import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll, changeUsername, renameInfo } from "./auth.js";
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
@@ -115,6 +115,8 @@ async function api(req, env, url) {
       case "POST /api/me/profile": return saveMyProfile(req, env, user, origin);
       case "POST /api/me/email": return setEmail(req, env, user);
       case "POST /api/me/password": return changePassword(req, env, user, ip);
+      case "POST /api/me/username": return changeUsername(req, env, user, ip);
+      case "GET /api/me/username": return json({ ok: true, username: user.username, ...(await renameInfo(env, user)) });
       case "POST /api/me/logout-all": return logoutAll(req, env, user);
       case "GET /api/me/export": return exportData(env, user);
       case "GET /api/me/friends": return listFriends(env, user);

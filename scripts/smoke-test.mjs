@@ -282,7 +282,7 @@ ok(r.ok && r.featured?.game && r.featured.title && r.featured.game !== chNow?.ga
 
 if (!local) console.log("SKIP (live: no accounts) signup, login, xp, profiles, saves, friends, dares by accounts, referrals, delete account");
 else {
-  const u = "smoke" + Math.floor(Math.random() * 1e6);
+  let u = "smoke" + Math.floor(Math.random() * 1e6);
   r = await (await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2015, birth_month: 1 })).json();
   ok(r.under13 === true, "under-13 gets no account", r);
   r = await post("/api/auth/signup", { username: "fuckface", password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1 });
@@ -292,6 +292,24 @@ else {
   ok(r.ok && /HttpOnly/i.test(r.headers.get("set-cookie") || ""), "signup sets httpOnly cookie");
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user?.username === u, "me after signup");
+  // K-0030 step 3: username changes: password needed, once per 30 days, old name held and redirected, boards follow
+  {
+    const nu = "smokeR" + Math.floor(Math.random() * 1e6);
+    r = await post("/api/me/username", { username: nu, password: "wrong-password" }, { cookie });
+    ok(r.status === 401, "rename needs the password", r.status);
+    r = await (await post("/api/me/username", { username: nu, password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(r.ok && r.username === nu && r.next_change > Date.now() + 29 * 86400000, "rename works and sets the 30-day wait", r);
+    const old = u; u = nu;
+    r = await (await get("/api/u/" + old)).json();
+    ok(r.moved === nu, "old profile link points to the new name", r);
+    r = await post("/api/me/username", { username: nu + "x", password: "pw-for-smoke-1" }, { cookie });
+    ok(r.status === 429, "a second rename within 30 days waits", r.status);
+    r = await (await post("/api/me/username", { username: nu.toLowerCase(), password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(r.ok, "changing only capitals is always allowed", r);
+    u = r.username || u;
+    r = await (await get("/api/me", { cookie })).json();
+    ok(r.user?.username === u, "me shows the new name");
+  }
   // level unlocks: an account can't wear or use cosmetics above its level (sign-up replays this device's guest runs, K-0030 step 1)
   r = await (await get("/api/me/profile", { cookie })).json();
   ok(r.level >= 1 && r.level < 8 && r.cosmetics?.length >= 5 && r.cosmetics.every((c) => c.unlocked === (c.level <= r.level)), "cosmetics listed, unlocked up to the account's level", r.cosmetics?.map((c) => c.id + "@" + c.level));

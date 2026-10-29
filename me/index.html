@@ -173,6 +173,14 @@
             <button class="tool" type="submit">save email</button>
             <p class="me-msg" role="alert"></p>
           </form>
+          <form id="form-username">
+            <p class="me-sub-h">change username</p>
+            <input name="username" autocomplete="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" spellcheck="false" autocapitalize="off" placeholder="new username">
+            <input type="password" name="password" autocomplete="current-password" placeholder="your password" required>
+            <button class="tool" type="submit">change username</button>
+            <p class="me-note" id="username-note">once every 30 days. your old name stays yours for 30 days, and your profile link follows you.</p>
+            <p class="me-msg" role="alert"></p>
+          </form>
           <form id="form-password">
             <p class="me-sub-h">change password</p>
             <input type="password" name="current" autocomplete="current-password" placeholder="current password" required>

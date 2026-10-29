@@ -245,6 +245,24 @@
         msg.textContent = r.ok ? (r.email ? "saved. we'll verify it once email sending is set up." : "email removed.") : (r.error || "that didn't work.");
       });
     });
+    // K-0030 step 3: change username (once every 30 days, needs the password)
+    var uf = $("#form-username");
+    function nextNote(t) {
+      var n = $("#username-note");
+      if (t && t > Date.now()) n.textContent = "you can change it again on " + new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase() + ". capital letters can change any time.";
+    }
+    api("/api/me/username").then(function (r) { if (r && r.ok) nextNote(r.next_change); });
+    uf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = uf.querySelector(".me-msg");
+      api("/api/me/username", { username: uf.username.value.trim(), password: uf.password.value }).then(function (r) {
+        if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
+        msg.textContent = "done. you're " + r.username + " now.";
+        uf.reset(); nextNote(r.next_change);
+        ls("cc-user-change", String(Date.now()));
+        setTimeout(function () { location.reload(); }, 900);
+      });
+    });
     var pf = $("#form-password");
     pf.addEventListener("submit", function (e) {
       e.preventDefault();
