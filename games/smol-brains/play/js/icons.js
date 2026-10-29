@@ -137,7 +137,7 @@
   }
   function fromArt(rows) {
     var cv = document.createElement("canvas"); cv.width = cv.height = 14;
-    var ctx = cv.getContext("2d"), top = 1 + Math.floor((12 - rows.length) / 2);
+    var ctx = cv.getContext("2d", { willReadFrequently: true }), top = 1 + Math.floor((12 - rows.length) / 2);
     rows.forEach(function (r, y) { for (var x = 0; x < r.length && x < 12; x++) { var col = PAL[r[x]]; if (col) { ctx.fillStyle = col; ctx.fillRect(x + 1, y + top, 1, 1); } } });
     outline(ctx, 14);
     return cv;
@@ -145,7 +145,7 @@
   // anything else: draw the emoji small, posterize it and outline it, so it reads as pixel art too
   function pixelate(ch) {
     var cv = document.createElement("canvas"); cv.width = cv.height = 14;
-    var ctx = cv.getContext("2d");
+    var ctx = cv.getContext("2d", { willReadFrequently: true });
     ctx.font = "11px system-ui, 'apple color emoji', 'segoe ui emoji', 'noto color emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(ch, 7, 7.5);
     var img = ctx.getImageData(0, 0, 14, 14), d = img.data, solid = 0;

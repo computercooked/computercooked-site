@@ -80,6 +80,9 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .toast.ach { border-color: var(--lime); }
 .toast.ach b { color: var(--lime); }
 .toast.ember { border-color: #ffb347; }
+.lanternchip b { font: 800 15px/1 system-ui, Arial, sans-serif; color: #ffd84a; }
+.lanternchip small { font: 600 10px/1 system-ui, Arial, sans-serif; opacity: .75; }
+.lanternchip.pulse { animation: emberpulse 1.2s ease-out; } @keyframes emberpulse { 0% { box-shadow: 0 0 0 0 rgba(255,179,71,.9); filter: brightness(1.8); } 100% { box-shadow: 0 0 0 16px rgba(255,179,71,0); filter: none; } }
 .toast.ember b { color: #ffd84a; }
 @keyframes tin { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
 .moment { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; animation: mom 3.4s ease-out forwards; width: min(90vw, 520px); }

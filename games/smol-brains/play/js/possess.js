@@ -1264,9 +1264,9 @@
     // 1. a grump bite is felt: the screen jolts and goes red, you're knocked back, and it hurts (K-0039: "a banner, not a chase")
     SB.bus.on("scoutHit", function (d) {
       if (!S || !d || d.c !== S.c) return;
-      var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 3);
+      var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 5);
       audio("bonk", 1); audio("grump", 0.8);
-      if (H()) { H().hurt(0.4); if (H().beat) H().beat("👹 OUCH! it bit you", "run for the nest: follow the green arrow"); }
+      if (H()) { H().hurt(0.4); if (H().ouch) H().ouch(Math.round((d.g && d.g.scout && d.g.scout.dmg || SB.Creature.LUNGE_DMG) * 100)); if (H().beat) H().beat("👹 OUCH! it bit you", "run for the nest: follow the green arrow"); }
     });
     SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("nibble", function (d) { blobFlag(d, "eat"); });

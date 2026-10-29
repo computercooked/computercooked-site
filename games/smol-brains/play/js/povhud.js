@@ -142,6 +142,7 @@
     "#pov .paws .item{position:absolute;right:56px;bottom:84px;transform-origin:80% 90%}",
     // edges
     "#pov .edge{position:absolute;inset:0;transition:box-shadow .4s}#pov .edge.red{box-shadow:inset 0 0 130px rgba(255,40,60,.5)}#pov .edge.blue{box-shadow:inset 0 0 140px rgba(90,170,255,.55)}",
+    "#pov .ouch{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(255,30,50,.15),rgba(255,20,40,.55));animation:povouch 1.1s ease-out forwards}#pov .ouch b{font:900 64px system-ui,Arial,sans-serif;color:#fff;text-shadow:3px 3px 0 #a0001a,0 0 24px #ff2040}#pov .ouch span{font:800 26px system-ui,Arial,sans-serif;color:#ffd0d6;text-shadow:2px 2px 0 #000}@keyframes povouch{0%{opacity:1;transform:scale(1.15)}60%{opacity:1;transform:scale(1)}100%{opacity:0}}",
     "#pov .edge.hit{box-shadow:inset 0 0 160px rgba(255,20,40,.75);transition:none}",
     // quest
     "#pov .quest{position:absolute;right:14px;top:64px;width:300px;padding:12px 14px;pointer-events:auto}",
@@ -340,6 +341,11 @@
     setTimeout(function () { g.remove(); }, 2500);
     hud.hotKey = null;
   };
+  HUD.ouch = function (n) { // a red flash and the damage, big, so a bite reads (K-0048)
+    if (!hud || !hud.edge || !hud.edge.parentNode) return;
+    var o = el("div", "ouch"); o.innerHTML = "<b>OUCH!</b><span>−" + n + "% ❤</span>";
+    hud.edge.parentNode.appendChild(o); setTimeout(function () { o.remove(); }, 1100);
+  };
   HUD.hurt = function (amt) {
     if (!hud) return;
     hud.hurtT = 0.35 + Math.min(0.4, amt * 4);
@@ -436,6 +442,15 @@
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
     mark(hud.qmark, t, d, 1.4);
     if (home || s.goal) { var sp = hud.qmark.querySelector("span"), lb = (s.goal ? s.goal.label : "🏠 home") + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
+    keepLabel(hud.qmark);
+  }
+  // a marker's label never runs off the screen edge (K-0048: "o sticks 2m")
+  function keepLabel(m) {
+    var sp = m.querySelector("span"); if (!sp) return;
+    var w = sp.offsetWidth, x = parseFloat(m.style.left) || 0, W = window.innerWidth, sh = 0;
+    if (x - w / 2 < 6) sh = 6 - (x - w / 2); else if (x + w / 2 > W - 6) sh = W - 6 - (x + w / 2);
+    var tf = "translateX(calc(-50% + " + Math.round(sh) + "px))";
+    if (sp.style.transform !== tf) sp.style.transform = tf;
   }
   function mark(m, t, d, minD) {
     var s = S(), c = s.c, R = SB.Render;
@@ -449,6 +464,7 @@
     m.style.left = x + "px"; m.style.top = y + "px";
     var sp = m.querySelector("span"), lbl = Math.round(d) + "m";
     if (sp.textContent !== lbl) sp.textContent = lbl;
+    keepLabel(m);
     var ic = m.querySelector("i");
     ic.style.transform = edge ? "rotate(" + (diff > 0 ? -45 : 135) + "deg)" : "rotate(45deg)";
   }

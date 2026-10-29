@@ -26,6 +26,19 @@
     { at: 46.6, smol: "", sub: "you are that spark. watch over them. lend them your light." }
   ];
 
+  L.WARP = [[0, 14, 1.45], [22, 36, 1.5], [43, 52, 1.35]]; // [story from, to, speed]
+  L.warp = function (r) { // real seconds into the opening → story seconds
+    var st = 0, segs = L.WARP;
+    for (var i = 0; i < segs.length; i++) {
+      var a = segs[i][0], b = segs[i][1], k = segs[i][2];
+      if (r <= a - st) return st + r;
+      r -= a - st;
+      if (r <= (b - a) / k) return a + r * k;
+      r -= (b - a) / k; st = b;
+    }
+    return st + r;
+  };
+  L.realDur = function () { var r = 0, segs = L.WARP, st = 0; segs.forEach(function (s) { r += s[0] - st + (s[1] - s[0]) / s[2]; st = s[1]; }); return r + L.DUR - st; };
   L.DAWN_DUR = 20;
   L.DAWN = [
     { at: 0.5, smol: "lumi… lumi!", sub: "dawn. Pip made it through the night." },
@@ -50,17 +63,18 @@
     { at: 0.5, smol: "lumi vesh!", sub: "thirty memories." },
     { at: 5.4, smol: "", sub: "more embers than the smols can count." },
     { at: 11, smol: "LUMI!", sub: "the Lantern blazes. the night can barely touch the island." },
-    { at: 16.6, smol: "HOLLO.", sub: "the giant's eye flickers. it's nearly awake." }
+    { at: 16.6, smol: "HOLLO.", sub: "under the island, the giant's eye opens. just a crack." },
+    { at: 22.4, smol: "lumi-nest!", sub: "and the nest glows with the Lantern's light now. grumps won't come near it." }
   ];
   L.SCENES = {
     dawn: { dur: L.DAWN_DUR, lines: L.DAWN, name: "dawn: the first ember" },
     stage1: { dur: L.STAGE1_DUR, lines: L.STAGE1, stage: 1, name: "the Lantern: stage 1" },
     stage2: { dur: L.STAGE1_DUR, lines: L.STAGE2, stage: 2, name: "the Lantern: stage 2" },
-    stage3: { dur: L.STAGE1_DUR, lines: L.STAGE3, stage: 3, name: "the Lantern: stage 3" },
-    lend: { dur: 10, name: "lend your light", lines: [
+    stage3: { dur: 28, lines: L.STAGE3, stage: 3, name: "the Lantern: stage 3" },
+    lend: { dur: 11, name: "lend your light", lines: [
       { at: 0.4, smol: "pip… pip-a?", sub: "Pip is frozen. something is watching from the dark." },
-      { at: 3.6, smol: "", sub: "your light can't touch the world. but it can lend itself." },
-      { at: 6.6, smol: "LUMI!", sub: "for a while, you are Pip." }] },
+      { at: 2.8, smol: "", sub: "your light can't touch the world. but it can lend itself." },
+      { at: 5.6, smol: "LUMI!", sub: "for a while, you are Pip." }] },
     baby: { dur: 12, name: "the first baby", lines: [
       { at: 0.5, smol: "mo? mo-mo!", sub: "an egg, nearly ready." },
       { at: 5.6, smol: "pip-pa!", sub: "a new smol." },
@@ -143,6 +157,7 @@
     root.appendChild(wrap);
     if (SB.Intro) SB.Intro.covering = true;
     L.running = true;
+    if (SB.UI && SB.UI.holdForFilm) try { SB.UI.holdForFilm(); } catch (e) {} // an open window steps aside (K-0048)
     var started = false, done = false, t0 = performance.now(), lastF = 0, lineI = -1, typed = 0, cur = null;
     gate.onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (started) return; started = true; if (SB.Music && SB.Music.play) try { SB.Music.play(short ? "firstlight" : "bigthought"); } catch (er) {} gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
     function finish() {
@@ -207,6 +222,27 @@
       var fh = Math.max(1, Math.round(2 + lit * 4 + Math.sin(t * 17) * 1)); oval(sx, gy - 30 - (fh >> 1), Math.max(1, Math.round(1 + lit * 2)), fh, "#ff9f43");
       oval(sx, gy - 30 - (fh >> 1), 1, Math.max(1, fh - 2), "#fff6c0");
     }
+    // the pod hits the Lantern's hill, close up: it buries itself in the slope, the post tilts, the flame gutters
+    function closeCrash(ct) {
+      if (!fired.crash) { once("crash", "bigboom", 0.8, 6); boom(150, 104, 50, 90, ["#ffffff", "#ffd84a", "#ff9f43", "#8fe6dc"]); }
+      sky(ct, 0.55);
+      for (var xs = 0; xs < W; xs += 2) { var gy = Math.round(150 - xs * 0.25); px(xs, gy, 2, H - gy, "#251d36"); px(xs, gy, 2, 3, "#4f8a52"); } // the hill's slope, rising to the Lantern
+      // the Lantern, knocked crooked, top right
+      ctx.save(); ctx.translate(248, 90); ctx.rotate(0.22 + Math.sin(ct * 18) * 0.01 * Math.max(0, 1 - ct));
+      px(-3, -44, 6, 46, "#3a2a33"); px(-14, -72, 28, 3, "#7a6248"); px(-14, -46, 28, 3, "#7a6248"); px(-14, -72, 3, 28, "#7a6248"); px(11, -72, 3, 28, "#7a6248");
+      var fl = ct < 1.2 ? 1 - ct * 0.6 : 0.25 + Math.abs(Math.sin(ct * 11)) * 0.2;
+      glow(0, -58, Math.round(18 + fl * 40), "#ffd84a", fl); var fh = Math.max(2, Math.round(4 + fl * 12)); oval(0, -54 - (fh >> 1), Math.max(2, Math.round(2 + fl * 5)), fh, "#ff9f43"); oval(0, -54 - (fh >> 1), 1, Math.max(1, fh - 4), "#fff6c0");
+      ctx.restore();
+      // the pod, big, nose-first in the slope: dark hull, a teal window, cracks of light
+      ctx.save(); ctx.translate(150, 110); ctx.rotate(-0.55);
+      oval(0, 0, 30, 18, "#140c1c"); oval(0, -2, 27, 15, "#2a2238"); oval(8, -4, 9, 7, "#8fe6dc"); oval(10, -6, 3, 2, "#e8fffb");
+      px(-20, -2, 14, 2, "#4a3d66"); px(-26, 4, 10, 2, "#4a3d66");
+      if (Math.sin(ct * 13) > 0) { px(-6, 8, 2, 7, "#ffd84a"); px(-4, 14, 4, 2, "#ffd84a"); }
+      ctx.restore();
+      oval(128, 118, 16, 4, "#1a1424"); oval(172, 108, 14, 4, "#1a1424"); // the earth it threw up
+      if (Math.random() < 0.6) bits.push({ x: 120 + Math.random() * 50, y: 100, vx: (Math.random() - 0.5) * 6, vy: -12 - Math.random() * 10, life: 1.6, t: 0, c: Math.random() < 0.5 ? "#5a5266" : "#3a3446", w: 3 });
+      if (ct < 0.3) { ctx.fillStyle = "rgba(255,246,192," + (0.9 - ct * 3) + ")"; ctx.fillRect(0, 0, W, H); }
+    }
     function sky(t, k) { // dusk gradient, darkening with k (0 dusk .. 1 night)
       for (var y = 0; y < H; y += 4) { var f = y / H; ctx.fillStyle = mix(mix("#3a2a5e", "#ff9f6a", f * f), mix("#0b0918", "#1d1636", f), k); ctx.fillRect(0, y, W, 4); }
     }
@@ -254,8 +290,18 @@
         }
       });
       if (t > 11) { once("catch", "achievement", 0.8, 3); if (!fired.catchB) { fired.catchB = 1; boom(lsx, lgy - 31, 50, 80, GLOW); } }
-      if (n >= 3 && t > 19.5 && t < 21.5) { var ex0 = 70 - camX + 26, ey0 = gr(70) - 8; oval(ex0, ey0, 5, Math.max(1, Math.round(3 * Math.abs(Math.sin((t - 19.5) * 3)))), "#ffb347"); px(ex0, ey0 - 1, 2, 2, "#140c1c"); } // the eye flickers
-      if (t > 13.5 && t < 21) text("the Lantern: stage " + n + " of 3", W / 2, 24, 10, "#ffd84a", ease((t - 13.5) / 1) * (1 - ease((t - 20) / 1)));
+      if (n >= 3 && t > 17.6 && t < 22.6) { // stage 3: the giant's eye opens a crack, big and bright, and the ground shakes
+        var op = ease((t - 17.6) / 1.2) * (1 - ease((t - 21.4) / 1.2)), ex0 = 70 - camX + 26, ey0 = gr(70) - 8;
+        glow(ex0, ey0, 34, "#ffd84a", op * 0.8); oval(ex0, ey0, 13, Math.max(1, Math.round(7 * op)), "#ffd84a"); oval(ex0, ey0, 9, Math.max(1, Math.round(5 * op)), "#ffb347"); oval(ex0 + 1, ey0, 3, Math.max(1, Math.round(5 * op)), "#140c1c");
+        once("eye3", "bigboom", 0.6, 4); if (t < 19) shake = Math.max(shake, 2);
+      }
+      if (n >= 3 && t > 22.4) { // the nest glows: a ring of light the grumps turn away from
+        var nx0 = 230, ny0 = gr(230 + camX) - 6, pr = 22 + Math.sin(t * 3) * 2;
+        glow(nx0, ny0, Math.round(pr), "#ffd84a", ease((t - 22.4) / 1));
+        smol(nx0 - 8, ny0, "#ff9fd0", 1, 2, 1); smol(nx0 + 8, ny0, "#8fe6dc", 1, 2, -1);
+        var gx3 = 300 - ease((t - 22.4) / 1.5) * 10 + ease((t - 24) / 2) * 30; grump(gx3, gr(gx3 + camX) - 6, 1.3, true); if (t > 23.6 && t < 25.5) text("!", gx3, gr(gx3 + camX) - 18, 8, "#ff4f5e", 1);
+      }
+      if (t > 13.5 && t < (n >= 3 ? 17.4 : 21)) text("the Lantern: stage " + n + " of 3", W / 2, 24, 10, "#ffd84a", ease((t - 13.5) / 1) * (1 - ease((t - 20) / 1)));
       if (t > DUR - 1.2) { ctx.fillStyle = "rgba(255,246,192," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); }
     }
     function fadeOut(t, col) { if (t > DUR - 1.2) { ctx.fillStyle = "rgba(" + (col || "255,246,192") + "," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); } }
@@ -263,20 +309,20 @@
     function starsAt(a) { stars.forEach(function (s) { if (s.y < H) { ctx.globalAlpha = a * s.z * 0.7; px(s.x, s.y * 0.6, 1, 1, s.c); } }); ctx.globalAlpha = 1; }
     // lend your light: the spark (you) circles high over Pip, frozen with a grump's eyes in the dark, then dives in
     function sceneLend(t) {
-      sky(t, 0.95); starsAt(1); flat(t, 1, 112);
-      var pipX = 150, pipY = 108, k = ease((t - 4) / 2.4), lit = t < 6.4 ? 0.15 : 1;
-      smol(pipX + (t < 6.4 ? Math.sin(t * 40) * 0.6 : 0), pipY, t < 6.4 ? "#8fd13a" : "#c5ff49", lit, 3, 1);
-      if (t >= 6.4) { px(pipX + 2, pipY - 4, 3, 3, "#fff6c0"); px(pipX + 7, pipY - 4, 3, 3, "#fff6c0"); }
-      var blink = Math.sin(t * 2.3) > -0.85; if (blink) { px(268, 98, 3, 2, "#ff3b4f"); px(276, 98, 3, 2, "#ff3b4f"); }
-      if (t > 6.4) grump(272, 106, 1.4, true);
-      var a0 = t * 2, sx = 160 + Math.cos(a0) * 70, sy = 34 + Math.sin(a0) * 10;
-      if (t < 6.4) {
-        var x = lerp(sx, pipX, k), y = lerp(sy, pipY - 2, k);
-        glow(x, y, 10, "#fff6c0", 1); px(x - 1, y - 1, 3, 3, "#ffffff");
-        if (Math.random() < 0.7) bits.push({ x: x, y: y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 0.5, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 1 });
-      } else { once("inpip", "achievement", 0.7, 2); if (!fired.inB) { fired.inB = 1; boom(pipX, pipY - 2, 34, 60, GLOW); } }
-      if (t > 6.4 && t < 7) { ctx.fillStyle = "rgba(255,246,192," + (7 - t) * 1.2 + ")"; ctx.fillRect(0, 0, W, H); }
-      if (t > 7.4) text("you are Pip", W / 2, 30, 12, "#c5ff49", ease((t - 7.4) / 0.8));
+      sky(t, 0.95); starsAt(1); flat(t, 1, 118);
+      var pipX = 160, pipY = 110, k = ease((t - 3) / 2), inside = t >= 5; // K-0048: the dive, centred, then held
+      smol(pipX + (inside ? 0 : Math.sin(t * 40) * 0.6), pipY, inside ? "#c5ff49" : "#6f9a3a", inside ? 1 : 0.12, 4, 1);
+      if (inside) glow(pipX, pipY - 4, 44, "#c5ff49", 0.45 + 0.15 * Math.sin(t * 4));
+      var blink = Math.sin(t * 2.3) > -0.85;
+      if (!inside) { if (blink) { px(278, 106, 3, 2, "#ff3b4f"); px(286, 106, 3, 2, "#ff3b4f"); } }
+      else grump(286 + ease((t - 5) / 2) * 14, 112, 1.3, true);
+      if (!inside) {
+        var a0 = t * 2.2, rad = 70 * (1 - k), x = lerp(160 + Math.cos(a0) * rad, pipX, k), y = lerp(34 + Math.sin(a0) * 8, pipY - 4, k);
+        glow(x, y, 14 + k * 8, "#fff6c0", 1); px(x - 2, y - 2, 4, 4, "#ffffff");
+        if (Math.random() < 0.8) bits.push({ x: x, y: y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 0.6, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 2 });
+      } else { once("inpip", "achievement", 0.8, 3); if (!fired.inB) { fired.inB = 1; boom(pipX, pipY - 4, 46, 70, GLOW); } }
+      if (t > 5 && t < 5.7) { ctx.fillStyle = "rgba(255,246,192," + (5.7 - t) * 1.3 + ")"; ctx.fillRect(0, 0, W, H); }
+      if (t > 5.6) text("you are Pip", W / 2, 46, 16, "#c5ff49", ease((t - 5.6) / 0.5));
       fadeOut(t, "0,0,0");
     }
     // the first baby: an egg wobbles, cracks, and a tiny smol pops out between its parents
@@ -403,6 +449,7 @@
           for (var k1 = 0; k1 < 16; k1++) px(fx - k1 * 3, fy - k1 * 1.6, Math.max(1, 5 - k1 / 4), Math.max(1, 5 - k1 / 4), k1 < 3 ? "#ffffff" : k1 < 8 ? "#ffd84a" : "#ff9f43");
           px(fx - 3, fy - 3, 7, 6, "#1a1222"); px(fx - 2, fy - 3, 4, 4, "#8fe6dc");
         }
+        if (t >= 17.5 && t < 21.4) { closeCrash(t - 17.5); return; } // a close shot of the impact (K-0048)
         if (t >= 17.5) {
           if (!fired.crash) { once("crash", "bigboom", 0.8, 5); boom(podX - camX, podY, 36, 70, ["#ffffff", "#ffd84a", "#ff9f43", "#8fe6dc"]); }
           px(podX - camX - 4, podY - 4, 9, 7, "#1a1222"); px(podX - camX - 3, podY - 4, 6, 5, "#8fe6dc"); px(podX - camX - 1, podY - 3, 2, 2, "#1a1222");
@@ -460,6 +507,7 @@
       var dt = lastF ? Math.min(0.1, (now - lastF) / 1000) : 1 / 60;
       lastF = now;
       if (opts.speed) t *= opts.speed; // tests
+      if (!short) t = L.warp(t);
       L.t = t;
       if (t > DUR) { finish(); return; }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -470,7 +518,7 @@
       // captions: smol-speak typed out word by word, then the subtitle
       var li = -1;
       for (var q = 0; q < LINES.length; q++) if (t >= LINES[q].at) li = q;
-      if (li >= 0 && li < LINES.length - 1 && t > LINES[li].at + 5.6) li = -2; // a line holds 5.6 s (the last one to the end)
+      if (short && li >= 0 && li < LINES.length - 1 && t > LINES[li].at + 5.6) li = -2; // a line holds 5.6 s (the last one to the end); in the opening, until the next
       if (li !== lineI) { lineI = li; cur = li >= 0 ? LINES[li] : null; typed = 0; subEl.textContent = ""; smolEl.textContent = ""; cap.classList.toggle("on", !!cur); }
       if (cur) {
         var words = cur.smol ? cur.smol.split(" ") : [];
