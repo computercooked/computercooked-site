@@ -1,5 +1,7 @@
-/* Computer Cooked design tokens (K-0031 polish pass). Loaded first on every page; everything else uses these.
-   The chaos lives in the art and the copy. The UI stays quiet: flat surfaces, one accent, no glows. */
+/* Computer Cooked design tokens. Loaded first on every page; everything else uses these.
+   Overhaul (Oct 2026, Ashton: "as beautiful and animated as bushgrowth.com"): the site is a cooked CRT. Surfaces
+   glow like phosphor, the pointer lights what it touches, embers drift up behind everything (assets/stage.js).
+   This replaces the K-0031 "quiet UI, no glows" rule on purpose. Same palette, same fonts, one accent. */
 
 @font-face {
   font-family: "Inter";
@@ -74,7 +76,17 @@
 
   /* motion */
   --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-boot: cubic-bezier(.16, 1, .3, 1);
   --fast: 150ms;
+  --slow: 420ms;
+
+  /* phosphor: the glow a lit CRT surface gives off (lime), and the heat under it (the fire ramp's orange) */
+  --phosphor: 184 242 58;            /* the accent as an rgb triple, for rgb(var(--phosphor) / a) */
+  --heat: 255 150 90;
+  --glow-sm: 0 0 12px rgb(var(--phosphor) / .18);
+  --glow-md: 0 0 28px rgb(var(--phosphor) / .16), 0 0 2px rgb(var(--phosphor) / .5);
+  --text-glow: 0 0 18px rgb(var(--phosphor) / .35);
+  --rim: rgb(var(--phosphor) / .55);  /* the lit edge of a card under the pointer */
 
   /* older names, kept so existing rules pick up the new palette */
   --carbon: var(--bg);
@@ -87,7 +99,7 @@
   --line-2: var(--line);
   --radius: var(--r-md);
   --radius-lg: var(--r-md);
-  --glow-lime: none;
+  --glow-lime: var(--glow-md);
   --ease-spring: var(--ease-out);
 }
 

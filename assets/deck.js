@@ -297,3 +297,15 @@
   document.addEventListener("pointerover", over, { passive: true });
   document.addEventListener("focusin", over);
 })();
+
+// The stage (assets/stage.js): embers, the phosphor glow, lit card rims and boot-in. Loaded once the page is idle so
+// it never slows the first paint; it skips itself on home, in game players and under reduced motion.
+(function () {
+  if (window.self !== window.top || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  function go() {
+    var s = document.createElement("script"); s.src = "/assets/stage.js"; s.async = true;
+    document.head.appendChild(s);
+  }
+  function idle() { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 2500 }) : setTimeout(go, 1200); }
+  document.readyState === "complete" ? idle() : addEventListener("load", idle);
+})();

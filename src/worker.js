@@ -33,6 +33,12 @@ const CONSENT_COUNTRIES = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    // one address for search engines: www.computercooked.com → computercooked.com (permanent). Covers every path this
+    // Worker runs first on (home, /games/*, /lab/, /gary/, /u/*, /d/*, /api/*); static pages carry a canonical tag.
+    if (url.hostname === "www.computercooked.com" && (req.method === "GET" || req.method === "HEAD")) {
+      url.hostname = "computercooked.com";
+      return Response.redirect(url.toString(), 301);
+    }
     // /u/<username> is one static page that reads the name from the URL
     // (usernames are letters, digits and _, so the page's own /u/u.js and /u/u.css never match)
     if (/^\/u\/[A-Za-z0-9_]{3,16}\/?$/.test(url.pathname)) return env.ASSETS.fetch(new Request(url.origin + "/u/", req));
