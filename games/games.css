@@ -2500,3 +2500,20 @@ html[data-landing-ready] { overflow: hidden; }
 /* K-0030 step 5: recovery codes in the claim card */
 .cc-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-1) var(--s-3); margin: var(--s-3) 0 0; padding-left: 1.6em; }
 .cc-codes code { font-size: var(--fs-14); user-select: all; }
+
+/* K-0030 step 6: this week's top xp (assets/weekly.js), on /me and /games/daily/ */
+.wk { margin-top: var(--s-4); }
+.wk-h { margin: 0 0 var(--s-1); font-size: var(--fs-20); }
+.wk-sub, .wk-you, .wk-empty { margin: 0; color: var(--text-dim); font-size: var(--fs-14); }
+.wk-you { margin-top: var(--s-3); }
+.wk-list { display: grid; gap: var(--s-1); margin: var(--s-3) 0 0; padding: 0; list-style: none; }
+.wk-list li { display: grid; grid-template-columns: 2em 28px minmax(0, 1fr) auto auto; align-items: center; gap: var(--s-2); min-height: 40px; padding: 0 var(--s-2); border-radius: var(--r-sm); }
+.wk-list li:nth-child(-n+3) .wk-rank { color: var(--accent); }
+.wk-list li.is-me { background: var(--bg); outline: 1px solid var(--line); }
+.wk-rank { font-weight: 800; text-align: right; }
+.wk-face { display: block; width: 28px; height: 32px; }
+.wk-face svg { display: block; width: 100%; height: 100%; }
+.wk-name { overflow: hidden; color: var(--text); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.wk-name:hover, .wk-name:focus-visible { text-decoration: underline; }
+.wk-lvl { color: var(--text-dim); font-size: var(--fs-12); }
+.wk-xp { font-weight: 700; }

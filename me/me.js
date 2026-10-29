@@ -260,6 +260,7 @@
     initFriends();
     loadFeed();
     loadRecap();
+    if (window.ccWeekly) window.ccWeekly($("#me-week"));
     api("/api/me/summary").then(function (s) {
       if (!s.ok) return;
       $("#me-streak").textContent = s.streak;
@@ -281,7 +282,7 @@
   }
 
   /* ---------- profile + account settings (slice C) ---------- */
-  var THEMES = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED", mint: "#7dffb0", pink: "#ff6bd6", gold: "#ffd84d", chrome: "#d9e2ec" };
+  var THEMES = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED", mint: "#7dffb0", pink: "#ff6bd6", gold: "#ffd84d", chrome: "#d9e2ec", sunset: "#ff9f43", grape: "#8f5bff", aqua: "#2ee6d6", rose: "#ff9ec4", lemon: "#fff35c", ember: "#ff4d2e" };
   // grey out cosmetics this account hasn't reached yet (the server refuses them too)
   function lockRow(root, values, need) {
     root.querySelectorAll(".swatch").forEach(function (b) {
@@ -309,6 +310,13 @@
     lockRow($("#b-body"), idx(P2.bodies), locked.body);
     lockRow($("#theme-pick"), Object.keys(THEMES), locked.theme);
     lockRow($("#frame-pick"), frameKeys(r), locked.frame);
+    // K-0030 step 6: the whole ladder, so every level's reward is visible
+    var byLevel = {};
+    (r.cosmetics || []).forEach(function (u) { (byLevel[u.level] = byLevel[u.level] || []).push(u); });
+    $("#lvl-list").innerHTML = Object.keys(byLevel).map(Number).sort(function (a, b) { return a - b; }).map(function (L) {
+      var got = byLevel[L][0].unlocked;
+      return '<li class="' + (got ? "is-got" : "") + (L === r.level + 1 ? " is-next" : "") + '"><b>level ' + L + "</b><span>" + byLevel[L].map(function (u) { return esc(u.name); }).join(", ") + "</span><i>" + (got ? "✓" : "") + "</i></li>";
+    }).join("");
     $("#lvl-unlock").textContent = next ? "next unlock: " + next.name + " at level " + next.level : "every level unlock earned. show it off.";
   }
   // profile frames: "none" plus the frame unlocks the server lists (it refuses locked ones too)
@@ -514,7 +522,7 @@
   }
 
   function mins(ms) { var m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m + " min"; }
-  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge", dare: "someone took your dare", referral: "brought in a new player" };
+  var KIND = { play: "run", first: "first time", streak: "streak bonus", achievement: "achievement", challenge: "weekly challenge", daily3: "daily 3 done", dare: "someone took your dare", referral: "brought in a new player" };
   function ago(ts) {
     var m = Math.round((Date.now() - ts) / 60000);
     return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago";

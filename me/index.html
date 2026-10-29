@@ -117,11 +117,16 @@
         <div class="me-bar" role="progressbar" aria-labelledby="lvl-n" aria-valuemin="0" aria-valuemax="100" id="lvl-bar"><span id="lvl-fill"></span></div>
         <p class="me-level-x" id="lvl-x">0 xp</p>
         <p class="me-fine" id="lvl-unlock"></p>
+        <details class="me-how" id="lvl-rewards">
+          <summary>every level's reward</summary>
+          <ol class="me-rewards" id="lvl-list"></ol>
+        </details>
         <details class="me-how">
           <summary>how xp works</summary>
-          <p>finish a run of 10s or more while logged in: +10, up to +40 more for how high you place on that game's board, +25 the first time you play a game, and a daily streak bonus (miss one day a week and your streak survives). each game pays up to 150 a day, so play around.</p>
+          <p>finish a run of 10s or more while logged in: +10, up to +40 more for how high you place on that game's board, +25 the first time you play a game, and a daily streak bonus (miss one day a week and your streak survives). each game pays up to 150 a day, so play around. finish all three <a href="/games/daily/">daily 3</a> games in a day: +60.</p>
         </details>
       </div>
+      <section class="about-card wk" id="me-week" aria-label="this week's top xp" hidden></section>
       <section class="about-card me-recap" id="me-recap" aria-labelledby="recap-h" hidden>
         <div class="me-recap-head">
           <h2 id="recap-h">your week in numbers</h2>
@@ -282,6 +287,7 @@
   </footer>
 
   <script src="/assets/avatars.js" defer></script>
+  <script src="/assets/weekly.js" defer></script>
   <script src="/me/me.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">

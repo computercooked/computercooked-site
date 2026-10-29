@@ -25,6 +25,7 @@ import { followClick } from "./follow.js";
 import { hit } from "./hits.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
 import { recover, recoveryInfo, remakeCodes } from "./recovery.js";
+import { weeklyXp } from "./weekly.js";
 import { loginOptions as passkeyLoginOptions, loginFinish as passkeyLogin, registerOptions, registerFinish, listPasskeys, deletePasskey } from "./passkeys.js";
 
 const CONSENT_COUNTRIES = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
@@ -101,6 +102,7 @@ async function api(req, env, url) {
     case "POST /api/auth/signup": return signup(req, env, ip);
     case "POST /api/auth/login": return login(req, env, ip);
     case "POST /api/auth/logout": return logout(req, env);
+    case "GET /api/xp/week": return weeklyXp(env, user);
     case "POST /api/auth/recover": return recover(req, env, ip);
     case "POST /api/auth/passkey/options": return passkeyLoginOptions(req, env, ip);
     case "POST /api/auth/passkey": return passkeyLogin(req, env, ip);
