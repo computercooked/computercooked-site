@@ -444,6 +444,26 @@ Fun 5.5/10. "The grump has to be FELT, not a banner": the single biggest lever.
 - **Version label**: 13 px and brighter.
 - **Tests**: `threat.test.js` §6 (a bite in under 16 s; 15% of hearts; knockback), §7 (starts a third full; a minute later some left; one meal ≥ 25%), §2b (one bite before safe at the nest).
 
+## 0.37 What v4.9.0 added: "The Last Lantern", phase 1 (K-0041)
+
+Ashton wants smol brains built out into a full, story-driven game: lore for why you're the god in the sky, real cutscenes, and a tutorial that teaches through play. It ships in phases (K-0041 P1-P5), building on the current game, not rewriting it.
+
+**The lore.** The smols are tiny, forgetful creatures living on the back of a sleeping giant, the Hollow. Long ago they lit a Lantern to remember who they are. Each night it burns lower, and as it fades their memories fade too: that's why their brains are smol. **You are the Lantern's last spark**, lifted into the sky by Pip's wish. You can watch and nudge, but you can only touch the world by **lending your light** to one smol (possession). **Grumps** are smols whose light went out; they hunt the light. The long goal (P4-P5): memory embers relight the Lantern in stages, and the finale reveals that the Hollow is waking.
+
+- **The opening film** (`lantern.js`, 68 s, pixel art drawn in code at 320×180, smol-speak with subtitles):
+  1. A heartbeat in the dark: "every night, they forget a little more."
+  2. A pan along the giant's back at dusk: smols walking in circles, putting berries down and forgetting them.
+  3. The Lantern on the hill gutters, and the smols' glows dim with it.
+  4. Pip runs up with the last berry; a grump follows to the edge of the light; Pip trips and the berry rolls into the flame.
+  5. Close up, Pip wishes: "somebody… remember us."
+  6. The flame bursts, and its last spark climbs into the stars: "you are that spark."
+
+  Then the camera drops onto the island (5.5 s), and you have control at about 74 s (measured in the browser: 71 s).
+- **When it plays**: always on a device's first new island, even from "play now". After that, "create world" tells the story again and "play now" goes straight in. It can't be skipped the first time (it's the why of the game), but after that, or with `?cctest=1`, Esc or "skip" ends it.
+- **Lore text**: ❓ help opens with the story and has "🏮 watch the last lantern". The tutorial's "why you're here" is rewritten for the spark, and the island title card says "the Hollow. one last Lantern."
+- **Not yet**: the first minutes still open the crashed pod. P2 replaces them with Pip's scripted first night.
+- **Tests**: `lantern.test.js` (fresh save plays it and can't skip; a repeat can; a playtest can always skip; film plus camera drop ≤ 90 s; the story beats are told).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
