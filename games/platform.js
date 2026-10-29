@@ -21,7 +21,7 @@
 
   panel.innerHTML =
     '<div class="about-card cc-board" hidden>' +
-      '<div class="cc-head"><h2>leaderboard</h2>' +
+      '<div class="cc-head"><h2><img class="cc-trophy" src="/assets/mascot/trophy.svg" alt="" width="31" height="40">leaderboard</h2>' +
         '<div class="cc-tabs" role="tablist" aria-label="leaderboard period">' +
           '<button type="button" role="tab" data-p="day" aria-selected="true">today</button>' +
           '<button type="button" role="tab" data-p="week" aria-selected="false">week</button>' +
@@ -152,7 +152,7 @@
     var friends = period === "friends";
     var url = "/api/leaderboard?game=" + encodeURIComponent(game) + "&period=" + (friends ? "all&friends=1" : period) + "&player=" + encodeURIComponent("a:" + cc._anon);
     api(url).then(function (r) {
-      if (!r.ok) { rows.innerHTML = '<li class="cc-empty">leaderboard is napping. try later.</li>'; return; }
+      if (!r.ok) { rows.innerHTML = '<li class="cc-empty cc-nap"><img src="/assets/mascot/sleep.svg" alt="" width="45" height="68">leaderboard is napping. try later.</li>'; return; }
       if (!r.rows.length) {
         rows.innerHTML = friends
           ? '<li class="cc-empty">no friend scores yet. <a href="/me/#friends">add friends</a> and dare them.</li>'

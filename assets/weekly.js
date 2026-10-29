@@ -23,7 +23,7 @@
         }).join("");
         var you = d.rows.some(function (r) { return r.me; }) ? "that's you up there. keep it." : d.you ? (d.you.rank ? "you're #" + d.you.rank + " with " + d.you.xp + " xp this week." : "no xp yet this week. finish a run to get on the board.")
           : '<a href="/me/">make an account</a> to get on this board. your device xp comes with you.';
-        root.innerHTML = '<h2 class="wk-h">this week’s top xp</h2><p class="wk-sub">every game counts. resets in ' + left(d.resets_at) + ".</p>" +
+        root.innerHTML = '<h2 class="wk-h"><img class="wk-trophy" src="/assets/mascot/trophy.svg" alt="" width="31" height="40">this week’s top xp</h2><p class="wk-sub">every game counts. resets in ' + left(d.resets_at) + ".</p>" +
           (rows ? '<ol class="wk-list">' + rows + "</ol>" : '<p class="wk-empty">nobody yet this week. first run wins it.</p>') +
           '<p class="wk-you">' + you + "</p>";
         root.hidden = false;

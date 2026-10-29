@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- The wide hero banner (K-0046). Rendered to PNG by scripts/mascot/hero.mjs: ?w=1500&h=500 (social header,
+     assets/hero-banner.png) and ?w=1200&h=630 (assets/og.png). Uses the site fonts and the mascot variations. -->
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Pixelify Sans"; src: url(../../assets/fonts/pixelify-sans-latin-wght.woff2) format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "JetBrains Mono"; src: url(../../assets/fonts/jetbrains-mono-latin-800-normal.woff2) format("woff2"); font-weight: 800; }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: var(--w); height: var(--h); overflow: hidden; background: #0e0f11; }
+  .ban { position: relative; width: 100%; height: 100%; overflow: hidden;
+    background:
+      radial-gradient(ellipse 46% 70% at 72% 62%, rgba(168, 213, 51, .22), transparent 70%),
+      linear-gradient(rgba(168, 213, 51, .06) 1px, transparent 1px) 0 0 / 32px 32px,
+      linear-gradient(90deg, rgba(168, 213, 51, .06) 1px, transparent 1px) 0 0 / 32px 32px,
+      #0e0f11; }
+  .ban::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(transparent 0 3px, rgba(0, 0, 0, .22) 3px 4px), radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .55)); }
+  .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 13%; background: #1a1c15; border-top: 4px solid #2c3020; }
+  .star { position: absolute; width: 6px; height: 6px; background: #a8d533; box-shadow: 6px 0 #a8d533, -6px 0 #a8d533, 0 6px #a8d533, 0 -6px #a8d533; opacity: .55; }
+  .copy { position: absolute; left: 6.5%; top: 50%; transform: translateY(-58%); z-index: 2; }
+  .tag { font: 800 calc(var(--h) * .036)/1 "JetBrains Mono", monospace; color: #a8d533; letter-spacing: .02em; margin-bottom: calc(var(--h) * .035); }
+  .tag b { color: #e6d596; font-weight: 800; }
+  h1 { font: 700 calc(var(--h) * .15)/.95 "Pixelify Sans", sans-serif; color: #e6d596; letter-spacing: -.01em; text-shadow: 0 6px 0 #554e2c; }
+  h2 { font: 700 calc(var(--h) * .068)/1.15 "Pixelify Sans", sans-serif; color: #a8d533; margin-top: calc(var(--h) * .05); }
+  .url { font: 800 calc(var(--h) * .036)/1 "JetBrains Mono", monospace; color: #8a8e80; margin-top: calc(var(--h) * .05); }
+  .cast { position: absolute; right: 4%; bottom: 7%; display: flex; align-items: flex-end; gap: calc(var(--w) * .006); z-index: 2; }
+  .cast img { display: block; image-rendering: pixelated; filter: drop-shadow(0 8px 0 rgba(0, 0, 0, .45)); }
+  body.og .copy { left: 7%; }
+  body.og h1 { font-size: calc(var(--h) * .125); }
+  body.og h2 { font-size: calc(var(--h) * .062); }
+  body.og .cast { right: 4%; bottom: 6%; }
+  body.og .ban { background-position: 0 0; }
+</style>
+<body>
+<div class="ban">
+  <div class="floor"></div>
+  <i class="star" style="left:46%;top:14%"></i><i class="star" style="left:58%;top:30%;opacity:.3"></i><i class="star" style="left:93%;top:12%"></i><i class="star" style="left:38%;top:80%;opacity:.25"></i><i class="star" style="left:4%;top:12%;opacity:.3"></i>
+  <div class="copy">
+    <p class="tag"><b>C:\COOKED&gt;</b> run games_</p>
+    <h1>computer<br>cooked</h1>
+    <h2>stupid-fun games.<br>play one in 3 seconds.</h2>
+    <p class="url">computercooked.com</p>
+  </div>
+  <div class="cast" id="cast"></div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search), w = +q.get("w") || 1500, h = +q.get("h") || 500;
+  document.documentElement.style.setProperty("--w", w + "px"); document.documentElement.style.setProperty("--h", h + "px");
+  const og = h / w > 0.45; if (og) document.body.classList.add("og");
+  // px per art cell for each variant (crisp whole pixels), scaled with the banner height
+  const k = h / 500;
+  const cast = og ? [["happy", 7], ["trophy", 3]] : [["gamer", 3], ["happy", 6], ["trophy", 3], ["fire", 3]];
+  Promise.all(cast.map(([n, c]) => fetch("../../assets/mascot/" + n + ".svg").then((r) => r.text()).then((t) => {
+    const vb = /viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/.exec(t);
+    const img = new Image(); img.src = "../../assets/mascot/" + n + ".svg"; img.alt = "";
+    const s = Math.max(2, Math.round(c * (og ? 1 : k)));
+    img.width = vb[3] * s; img.height = vb[4] * s; return img;
+  }))).then((imgs) => { imgs.forEach((i) => document.getElementById("cast").appendChild(i)); return Promise.all(imgs.map((i) => i.decode())); })
+    .then(() => document.fonts.ready).then(() => { document.body.dataset.ready = "1"; });
+</script>

@@ -549,9 +549,10 @@
 }
 
 .boot-logo {
-  width: 64px;
-  height: 64px;
-  background: url("/assets/logo.svg") center / contain no-repeat;
+  width: 76px;
+  height: 115px;
+  background: url("/assets/mascot/sleep.svg") center / contain no-repeat;
+  image-rendering: pixelated;
   filter: none;
 }
 
@@ -2517,3 +2518,8 @@ html[data-landing-ready] { overflow: hidden; }
 .wk-name:hover, .wk-name:focus-visible { text-decoration: underline; }
 .wk-lvl { color: var(--text-dim); font-size: var(--fs-12); }
 .wk-xp { font-weight: 700; }
+
+/* K-0046 mascot variations: trophy on the boards, the sleeping computer when a board naps */
+.cc-trophy, .wk-trophy { height: 1.35em; width: auto; margin-right: .4em; vertical-align: -0.3em; image-rendering: pixelated; }
+.cc-nap { display: flex; align-items: center; gap: var(--s-2, 12px); }
+.cc-nap img { width: 34px; height: auto; flex: none; image-rendering: pixelated; }
