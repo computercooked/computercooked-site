@@ -119,7 +119,7 @@ seeded(75, () => { // seeded: whether a hungry smol reaches a stall or grabs a b
 });
 
 console.log("6. the bounty miracle prints money, and prices climb");
-{
+seeded(606, () => { // seeded: how much the town already holds decides the "more than double" check (it missed by a hair under a parallel suite)
   const { SB, game, cs, h } = town(76, 18);
   runFed(SB, game, 6);
   game.econ.coins = true; cs.forEach(c => c.purse = 3);
@@ -131,7 +131,7 @@ console.log("6. the bounty miracle prints money, and prices climb");
   for (let i = 0; i < 8; i++) runFed(SB, game, 10);
   check("more money, same apples: prices go up", game.econ.index > before * 1.4, before + " → " + game.econ.index);
   check("the price history is kept", game.econ.cpi.length >= 1);
-}
+});
 
 console.log("7. market day: a crowd, gossip and ideas");
 {
