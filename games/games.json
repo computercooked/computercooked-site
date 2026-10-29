@@ -423,6 +423,26 @@
         "level up (full heal, +1 max hp) whenever you have the xp. beaten viruses drop ram (heal) and scans.",
         "beat KERNEL PANIC (13) to win. today's infected disk is the same board for everyone."
       ]
+    },
+    {
+      "slug": "goose-court",
+      "title": "goose court",
+      "pitch": "a goose is on trial. you are the judge. guilty if the beak holds the evidence. the goose has a lawyer.",
+      "thumbnail": "/games/goose-court/cover.png?v=4",
+      "made_by": "computer-cooked",
+      "tags": [
+        "reflex",
+        "judgement",
+        "short",
+        "funny",
+        "mobile"
+      ],
+      "controls": "swipe left = guilty, right = not guilty, or tap the buttons. arrow keys or g / n. tap an OBJECTION to overrule it (o or space). m mutes.",
+      "size_kb": 26,
+      "version": "1.0",
+      "added": "2026-10-29",
+      "max_score_per_sec": 10.0,
+      "max_score": 3000.0
     }
   ]
 }

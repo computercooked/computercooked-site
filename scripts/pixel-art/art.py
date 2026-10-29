@@ -486,12 +486,61 @@ def sweeper(c):
         c.disc(c.cx + x, y + 2, 2, "#f6e9d8")
     for i in range(10): c.px(wx - 4 - (i % 3), wy + 10 + i * 7, "#ff8a2a"); c.px(wx + ww + 3 + (i % 3), wy + 14 + i * 6, "#ff8a2a")
 
+GC_GOOSE = """
+..........KKK...
+.........KWWWK..
+.........KWkWKOO
+.........KWWWOOo
+..........KWWKK.
+..........KWWK..
+..........KWWK..
+....KKK...KWWK..
+...KWWWKKKWWWK..
+..KWWWWWWWWWWK..
+.KWwWWWWWWWWWK..
+.KWwwWWWWWWWK...
+..KWwwwWWWWK....
+...KKKKKKKK.....
+.....OO..OO.....
+"""
+GC_BREAD = """
+..KKKKK..
+.KTTTTTK.
+KTTtTtTTK
+KTTTTTTTK
+KtTTTTTtK
+.KKKKKKK.
+"""
+GC_PAL = {"K": "#0b0c0e", "W": "#f7f5ee", "w": "#cfcbbd", "O": "#ff9a3d", "o": "#c46a1c", "k": "#1a1b1f", "T": "#d79b52", "t": "#9c6a2c"}
+
+
+def goosecourt(c):
+    c.rect(0, 0, c.W, c.H, "#14130f")
+    for x in range(0, c.W, 14): c.rect(x, 0, 1, c.H - 22, "#1c1810")
+    c.rect(0, c.H - 22, c.W, 22, "#211b12")
+    # the bench, the computer presiding in a wig
+    bx = c.W - 62
+    c.rect(bx - 2, 44, 58, 22, "#0b0c0e"); c.rect(bx, 46, 54, 20, "#6b4424"); c.rect(bx, 46, 54, 2, "#8a5a32")
+    mx = bx + 27
+    for i in range(4): c.rect(mx - 19, 22 + i * 5, 4, 4, "#e9e6dc"); c.rect(mx + 14, 22 + i * 5, 4, 4, "#e9e6dc")
+    c.mascot(mx, 47, 40)
+    c.rect(mx - 17, 18, 32, 3, "#e9e6dc"); c.rect(mx - 17, 18, 32, 1, "#cfcbbd")
+    # gavel
+    c.rect(bx - 14, 40, 10, 4, "#8a5a32"); c.rect(bx - 10, 44, 2, 6, "#4e301a")
+    # the dock and the accused, with the evidence
+    c.sprite(GC_GOOSE, 34, c.H - 22 - 44, GC_PAL, scale=3)
+    c.sprite(GC_BREAD, 34 + 45, c.H - 22 - 44 + 6, GC_PAL, scale=2)
+    c.rect(26, c.H - 30, 62, 12, "#0b0c0e"); c.rect(28, c.H - 28, 58, 10, "#6b4424"); c.rect(28, c.H - 28, 58, 2, "#8a5a32")
+    # placard
+    c.window(8, 6, 66, 18, title="alarm")
+    c.rect(12, 15, 30, 1, "text"); c.rect(46, 13, 9, 5, "#d79b52")
+
 
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
-    "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout,
+    "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
     "cooked-sweeper": sweeper,
 }
 

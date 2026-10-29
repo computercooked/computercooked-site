@@ -1,9 +1,10 @@
 {
   "updated": "2026-10-29",
   "pipeline": [
-    { "stage": "building", "title": "goose court", "note": "a goose is on trial. you are the judge. the goose has a lawyer." },
+    { "stage": "building", "title": "elevator full of fish", "note": "an elevator. it is full of fish. you have to get to floor 9." },
     { "stage": "next", "title": "whatever wins the vote", "note": "the top idea below gets built next. one vote each, change it any time." },
     { "stage": "shipped", "title": "cooked sweeper", "slug": "cooked-sweeper", "note": "minesweeper.exe has a virus. the numbers are virus power." },
+    { "stage": "shipped", "title": "goose court", "slug": "goose-court", "note": "a goose is on trial. you are the judge. the goose has a lawyer." },
     { "stage": "shipped", "title": "haunted self-checkout", "slug": "haunted-self-checkout", "note": "scan the groceries. never scan the ones with eyes." },
     { "stage": "shipped", "title": "a new look for the arcade", "note": "a living crt desktop homepage, the computer everywhere, glowing new game pages." },
     { "stage": "shipped", "title": "accounts that level up", "note": "guest xp from your first run, levels, faces, weekly xp board." },
