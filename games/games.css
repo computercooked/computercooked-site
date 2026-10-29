@@ -2473,3 +2473,21 @@ html[data-landing-ready] { overflow: hidden; }
 .cc-level-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 400ms ease; }
 .cc-level-note { margin: var(--s-2) 0 0; color: var(--text-dim); font-size: var(--fs-14); }
 @media (prefers-reduced-motion: reduce) { .cc-level-bar span { transition: none; } }
+
+/* K-0030 step 2: "save your level" card in the player panel */
+.cc-claim { border-color: var(--text-dim); }
+.cc-claim h2 { margin: 0 0 var(--s-2); }
+.cc-claim-why { margin: 0; color: var(--text-dim); }
+.cc-claim-acts { display: flex; align-items: center; gap: var(--s-4); margin: var(--s-4) 0 0; }
+.cc-claim-later { min-height: 44px; padding: 0 var(--s-2); border: 0; background: none; color: var(--text-dim); font: inherit; font-weight: 600; cursor: pointer; }
+.cc-claim-later:hover, .cc-claim-later:focus-visible { color: var(--text); text-decoration: underline; }
+.cc-claim-form { display: grid; gap: var(--s-3); margin-top: var(--s-4); }
+.cc-claim-form fieldset { margin: 0; padding: 0; border: 0; }
+.cc-claim-form legend { margin-bottom: var(--s-2); color: var(--text-dim); font-size: var(--fs-14); }
+.cc-claim-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.cc-claim-form label { display: grid; gap: var(--s-1); font-size: var(--fs-14); color: var(--text-dim); }
+.cc-claim-form small { font-size: var(--fs-12); }
+.cc-claim-form input, .cc-claim-form select { min-height: 44px; padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-16); }
+.cc-claim-form input:focus, .cc-claim-form select:focus { border-color: var(--text-dim); outline: none; }
+.cc-claim-msg { min-height: 1.2em; margin: 0; color: var(--alarm); font-size: var(--fs-14); }
+.cc-claim-fine { margin: 0; color: var(--text-dim); font-size: var(--fs-12); }

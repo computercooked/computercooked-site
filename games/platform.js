@@ -552,6 +552,79 @@
     });
   }
 
+  /* ---------- K-0030 step 2: "save your level": after a proud moment, a guest signs up right here ----------
+     Same sign-up as /me/ (13+ check, username rules, hashed password, no email). The server replays this
+     device's guest plays for real xp (step 1). "not now" hides it for 3 days. */
+  var MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  function claimCard(why) {
+    if (me || document.getElementById("cc-claim")) return;
+    try {
+      if (Date.now() - (+localStorage.getItem("cc-claim-later") || 0) < 3 * 86400000) return;
+      if (Date.now() - (+localStorage.getItem("cc-noacct") || 0) < 86400000) return;
+    } catch (e) {}
+    var L = levelOf(gRead().xp || 0), y = new Date().getFullYear(), years = "";
+    for (var i = y - 5; i >= y - 100; i--) years += '<option value="' + i + '">' + i + "</option>";
+    var guess = "";
+    try { guess = (localStorage.getItem("cc-guest-name") || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 16); } catch (e) {}
+    if (guess.length < 3) guess = "";
+    var box = el('<div class="about-card cc-claim" id="cc-claim" role="region" aria-labelledby="cc-claim-h">' +
+      '<h2 id="cc-claim-h">save your level ' + L.level + '</h2>' +
+      '<p class="cc-claim-why">' + esc(why) + ". right now it only lives on this device.</p>" +
+      '<p class="cc-claim-acts"><button type="button" class="play-btn cc-claim-go">claim it</button> <button type="button" class="cc-claim-later">not now</button></p>' +
+      '<form class="cc-claim-form" hidden novalidate>' +
+        '<fieldset><legend>when were you born?</legend><div class="cc-claim-two">' +
+          '<label>month <select name="birth_month" required><option value="" selected disabled>month</option>' + MONTHS.map(function (m, j) { return '<option value="' + (j + 1) + '">' + m + "</option>"; }).join("") + "</select></label>" +
+          '<label>year <select name="birth_year" required><option value="" selected disabled>year</option>' + years + "</select></label></div></fieldset>" +
+        '<label>username <input name="username" autocomplete="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" spellcheck="false" autocapitalize="off" value="' + esc(guess) + '"><small>3-16 letters, numbers or _. not your real name.</small></label>' +
+        '<label>password <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200"><small>8+ characters. no email needed.</small></label>' +
+        '<button class="play-btn" type="submit">save my level</button>' +
+        '<p class="cc-claim-msg" role="alert"></p>' +
+        '<p class="cc-claim-fine">we store your username, a scrambled (hashed) password and your plays. <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a> · have an account? <a href="/me/">log in</a></p>' +
+      "</form></div>");
+    var lvlEl = document.querySelector(".cc-level");
+    if (lvlEl && lvlEl.nextSibling) panel.insertBefore(box, lvlEl.nextSibling); else panel.insertBefore(box, panel.firstChild);
+    var form = box.querySelector("form"), msg = box.querySelector(".cc-claim-msg");
+    box.querySelector(".cc-claim-go").addEventListener("click", function () {
+      box.querySelector(".cc-claim-acts").hidden = true; form.hidden = false; form.querySelector("select").focus();
+    });
+    box.querySelector(".cc-claim-later").addEventListener("click", function () {
+      try { localStorage.setItem("cc-claim-later", String(Date.now())); } catch (e) {}
+      box.remove();
+    });
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var d = Object.fromEntries(new FormData(form).entries());
+      if (!d.birth_month || !d.birth_year) { msg.textContent = "pick your birth month and year."; return; }
+      if (!/^[A-Za-z0-9_]{3,16}$/.test(d.username || "")) { msg.textContent = "usernames are 3-16 letters, numbers or _."; return; }
+      if ((d.password || "").length < 8) { msg.textContent = "passwords need 8+ characters."; return; }
+      var refDare;
+      try { var rd = JSON.parse(localStorage.getItem("cc-ref-dare") || "null"); refDare = rd && Date.now() - rd.t < 30 * 86400000 ? rd.d : undefined; } catch (e) {}
+      d.anon_id = cc._anon || (function () { try { return localStorage.getItem("cc-anon"); } catch (e) { return null; } })();
+      d.ref_dare = refDare;
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true; msg.textContent = "…";
+      api("/api/auth/signup", d).then(function (res) {
+        btn.disabled = false;
+        if (res.under13) {
+          try { localStorage.setItem("cc-noacct", String(Date.now())); } catch (e) {}
+          box.innerHTML = "<h2>keep playing</h2><p>accounts are for 13 and up, so we didn't save anything. your level stays on this device, and every game still works.</p>";
+          return;
+        }
+        if (!res.ok) { msg.textContent = res.error || "that didn't work."; return; }
+        try { localStorage.removeItem(GKEY); localStorage.setItem("cc-user-change", String(Date.now())); } catch (e) {}
+        api("/api/me").then(function (m) {
+          me = m && m.user;
+          if (!me) return;
+          guestBox.hidden = true;
+          showLevel(me, false);
+          box.innerHTML = "<h2>saved</h2><p>you're <b>" + esc(me.username) + "</b>, level " + me.level + ". your xp now follows you to any device. <a href=\"/me/\">your profile</a></p>";
+          if (window.ccToast) window.ccToast("level " + me.level + " saved to " + me.username);
+          if (!board.hidden) loadBoard();
+        });
+      });
+    });
+  }
+
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
     try { sessionStorage.setItem("cc-runs", String(visitRuns() + 1)); } catch (err) {}
@@ -578,7 +651,13 @@
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
       if (x.guest) (x.achievements || []).forEach(function (a) { say("unlocked: " + a.name + " · +" + a.xp + " xp"); });
       if (x.leveled_up) levelUp(x);
-      if (x.guest && !nudged()) say("your xp is saved on this device. make an account to keep it.");
+      if (x.guest) {
+        // K-0030 step 2: a proud moment is when we ask
+        var bestNow = r && r.accepted && r.prev_best != null && e.detail.score > r.prev_best;
+        var why = x.leveled_up ? "you just hit level " + x.level : x.achievements && x.achievements.length ? "you unlocked " + x.achievements[0].name : bestNow ? "new personal best" : "";
+        if (why) claimCard(why);
+        else if (!nudged()) say("your xp is saved on this device. make an account to keep it.");
+      }
     } else if (x && x.parts && x.parts.some(function (p) { return p.kind === "cap"; })) {
       say("daily xp for this game maxed. try another one.");
     }
