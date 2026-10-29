@@ -112,6 +112,11 @@
   panel.insertBefore(lvl, panel.firstChild);
   function showLevel(L, guest) {
     if (!L || !L.level) return;
+    var fc = lvl.querySelector(".cc-level-face");
+    if (!guest && me && me.avatar && window.ccAvatar) {
+      if (!fc) { fc = document.createElement("span"); fc.className = "cc-level-face"; fc.setAttribute("aria-hidden", "true"); lvl.querySelector(".cc-level-row").insertBefore(fc, lvl.querySelector(".cc-level-n")); }
+      fc.innerHTML = window.ccAvatar(me.avatar);
+    } else if (fc) fc.remove();
     lvl.querySelector(".cc-level-n").textContent = "level " + L.level;
     lvl.querySelector(".cc-level-t").textContent = L.title;
     lvl.querySelector(".cc-level-x").textContent = (L.xp - L.floor) + " / " + (L.next - L.floor) + " xp";
@@ -148,7 +153,9 @@
         return;
       }
       rows.innerHTML = r.rows.map(function (x) {
-        var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + esc(x.name) + "</a>" : esc(x.name);
+        // K-0030 step 4: accounts show their face next to their name
+        var face = x.a && window.ccAvatar ? '<span class="cc-face" aria-hidden="true">' + window.ccAvatar(x.a) + "</span>" : "";
+        var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + face + esc(x.name) + "</a>" : esc(x.name);
         return '<li class="' + (x.me ? "is-me" : "") + '"><span class="cc-rank">' + x.rank + '</span><span class="cc-name">' + name +
           '</span><span class="cc-score">' + fmt(x.score) + '</span><button type="button" class="cc-flag" data-id="' + x.id + '" aria-label="report ' + esc(x.name) + '" title="report">⚑</button></li>';
       }).join("") + (r.you
@@ -226,6 +233,13 @@
       showLevel(levelOf(gRead().xp || 0), true);
     }
   });
+
+  if (!window.ccAvatar) {
+    var avs = document.createElement("script");
+    avs.src = "/assets/avatars.js"; avs.defer = true;
+    avs.onload = function () { if (!board.hidden) loadBoard(); if (me) showLevel(me, false); };
+    document.head.appendChild(avs);
+  }
 
   /* ---------- does this game have a leaderboard? ---------- */
   fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
