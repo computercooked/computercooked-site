@@ -402,7 +402,8 @@
       if (!cs.length) { toast("no smols yet: open the pod first"); return; }
       var cam = R.camera;
       cs.sort(function (a, b) { return (a.tier - b.tier) * 1000 + SB.dist(a.x, a.z, cam.x, cam.z) - SB.dist(b.x, b.z, cam.x, cam.z); });
-      var c = cs[0], st = game.settings || (game.settings = {});
+      var c = cs[0], st = game.settings || (game.settings = {}), hm = SB.Society.home(game, 0);
+      if (SB.dist(c.x, c.z, hm.x, hm.z) < 25) for (var k = 0; k < 40; k++) { var a = k * 0.9, rr = 28 + (k % 4) * 3, x = hm.x + Math.sin(a) * rr, z = hm.z + Math.cos(a) * rr; if (SB.World.walkable(game.world, x, z) && SB.World.depthAt(game.world, x, z) < 0.05) { c.x = x; c.z = z; c.action = null; break; } } // K-0042: out 25-40 m, so the grump means a run home
       delete st.povHungry; delete st.povThreat; delete st.povBlobQuest; delete st.povQuest;
       try { localStorage.removeItem("smolbrains-blobquest"); localStorage.removeItem("smolbrains-firsttool"); } catch (e) {}
       game.sparks = Math.max(game.sparks || 0, 50);
@@ -1944,6 +1945,7 @@
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
     ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
+    if (SB.TEST) { ok(); toast("🧪 test mode: the founders keep their names (" + esc(c.name) + (twin ? " & " + esc(twin.name) : "") + ")"); return; }
     modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true, now: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }

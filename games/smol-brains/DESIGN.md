@@ -467,6 +467,19 @@ Ashton wants smol brains built out into a full, story-driven game: lore for why 
 - **Next**: P2 makes the first minutes Pip's scripted first night.
 - **Tests**: `lantern.test.js` (fresh save plays it and can't skip; a repeat can; a playtest can always skip; ark + Lantern + camera drop ≤ 90 s; the story beats, the pod included). `mood.test.js` (both layers are real cues; which moments want which layer).
 
+## 0.38 What v4.9.1 fixed: the bot's v4.8.11 playtest (K-0042)
+
+Fun 6/10 (up from 5.5): "the grump is a real visible threat, eating feels good."
+
+1. **A chase you run home from.** By the nest, the first-minute grump now waits until you're 12 m out (or 40 s more) before it comes. When you're out, it appears on the far side from home, so running from it means running home. The test button starts you 25-40 m from the nest.
+2. **The way home is a big green arrow.** While the grump is after you, the guide marker is a 28 px green diamond labelled "🏠 home 34m" (an arrow at the screen edge when home is behind you).
+3. **No dark start.** It was the "you are …" card: a full-screen 60% dimmer for 4 s. Now it's a small panel up top that doesn't dim the view, gone after 4 s. You never open your eyes inside a bush (you're stepped 1.5 m clear), and friends tag along beside or behind you, not in your face.
+4. **The test button in the games page**: it was there, but the founders dialog sat over it. Now it's lime and bolder, and test mode skips the dialog (item 7).
+5. **Readability.** The vitals numbers are in a plain bold face, 18-26 px, white (the pixel font's 2, 3 and 8 looked alike: "28" read as "87"); low shows as a red badge. The version label is 16 px on a dark chip.
+6. **Sleep is E, not right click**: sleeping in the nest or a hut moved off the click you eat with.
+7. **Test mode skips naming the founders** (they keep their random names; a toast says who).
+- **Tests**: `threat.test.js` §2b (by the nest it waits for you to go out, but still comes), §5b (it comes from further out than you, so home is away from it).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

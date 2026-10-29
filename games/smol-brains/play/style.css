@@ -464,8 +464,8 @@ body.titling #overlay { opacity: 0; }
 @media (max-width: 420px) { .tools.six .tool { width: 51px; } }
 @media (max-width: 360px) { .tools.six .tool { width: 46px; font-size: 10px; } }
 .tool.hide { display: none; }
-.testbtn { position: fixed; left: 8px; bottom: 6px; z-index: 7; font-size: 12px; padding: 6px 10px; }
-.verlbl { position: fixed; right: 8px; bottom: 5px; font: 700 13px/1 var(--mono); color: var(--paper); opacity: 0.85; text-shadow: 1px 1px 0 #000; pointer-events: none; z-index: 5; }
+.testbtn { position: fixed; left: 8px; bottom: 6px; z-index: 7; font-size: 14px; padding: 8px 12px; background: var(--lime); color: #101114; font-weight: 800; }
+.verlbl { position: fixed; right: 8px; bottom: 6px; font: 800 16px/1 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color: #fff; background: rgba(0, 0, 0, 0.55); padding: 3px 6px; opacity: 0.95; pointer-events: none; z-index: 5; }
 .tool.locked { opacity: 0.35; filter: grayscale(1); }
 .podmap .podwhy { display: block; margin-top: 6px; font-size: 12px; opacity: 0.85; }
 #ui:has(.sheet[data-kind="orders"]:not(.hide)) .guide { display: none; } /* placing orders needs the whole sheet */

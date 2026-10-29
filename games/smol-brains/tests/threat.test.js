@@ -69,8 +69,10 @@ seeded(904, () => {
   const { SB, game, c, h } = island(94);
   c.x = h.x + 1; c.z = h.z;
   SB.Possess.enter(game, c);
-  run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
-  check("a grump within the first minute, by the nest too", !!SB.Possess.scout() && game.time > 0);
+  run(SB, game, SB.Possess.SCOUT_AT + 5);
+  check("K-0042: by the nest it waits for you to go out (so there's a chase)", !SB.Possess.scout());
+  run(SB, game, SB.Possess.SCOUT_WAIT, () => !!SB.Possess.scout());
+  check("but it still comes inside the first minute and a bit, by the nest too", !!SB.Possess.scout() && game.time > 0);
   let end = null; SB.bus.on("scoutEnd", d => { end = d; });
   let bit = 0; SB.bus.on("scoutHit", () => bit++);
   run(SB, game, 25, () => !!end);
@@ -110,6 +112,18 @@ console.log("5. K-0037: coming back runs at most one island day");
   const SB = load().SB;
   check("a week away is one day of catch-up", SB.Game.offlineBudget(3600 * 24 * 7) === SB.DAY_LENGTH, SB.Game.offlineBudget(3600 * 24 * 7));
 }
+
+console.log("5b. K-0042: out in the open, it comes from the far side, so you run home");
+seeded(908, () => {
+  const { SB, game, c, h } = island(98);
+  SB.Possess.enter(game, c);
+  run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
+  const g = SB.Possess.scout();
+  check("it comes when you're out", !!g);
+  const dHome = SB.dist(c.x, c.z, h.x, h.z), gHome = g && SB.dist(g.x, g.z, h.x, h.z);
+  check("from further out than you: home is away from it", g && gHome > dHome + 5, gHome && gHome.toFixed(1) + " vs you " + dHome.toFixed(1));
+  SB.Possess.leave();
+});
 
 console.log("6. K-0039: it really comes, and a bite is felt");
 seeded(906, () => {

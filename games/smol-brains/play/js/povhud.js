@@ -110,7 +110,7 @@
     "#pov .bottom{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}",
     "#pov .vit{display:grid;grid-template-columns:auto auto;column-gap:24px;row-gap:2px;width:100%;justify-content:space-between}",
     "#pov .vrow{display:flex;gap:0;height:clamp(26px,3.8vh,40px);align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
-    "#pov .vrow b{font:700 clamp(15px,2.2vh,22px) var(--mono,monospace);color:#fff;text-shadow:2px 2px 0 #000;margin:0 8px;min-width:3.2em;text-align:center}#pov .vrow.low b{color:#ff4f5e}",
+    "#pov .vrow b{font:800 clamp(18px,3vh,26px)/1 system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#fff;text-shadow:2px 2px 0 #000;margin:0 8px;min-width:3em;padding:2px 6px;text-align:center}#pov .vrow.low b{background:#c8233a;text-shadow:none}",
     "#pov .vrow i{width:clamp(26px,3.8vh,40px);height:clamp(26px,3.8vh,40px);background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
     "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
     "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
@@ -155,6 +155,7 @@
     "#pov .qmark i{position:absolute;left:-9px;top:-22px;width:18px;height:18px;background:var(--lime);transform:rotate(45deg);box-shadow:0 0 0 2px var(--px);animation:povbob 1s ease-in-out infinite}",
     "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 11px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
+    "#pov .qmark.home i{width:28px;height:28px;left:-14px;top:-34px;box-shadow:0 0 0 3px #000,0 0 18px var(--lime)}#pov .qmark.home span{font:800 15px system-ui,Arial,sans-serif;top:4px;background:rgba(0,0,0,.6);padding:2px 6px}",
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
     "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
@@ -190,8 +191,8 @@
     "#pov .death .lost{padding:10px 14px;max-width:min(520px,92vw)}#pov .death .lost h4{margin:0 0 6px;font:700 13px var(--mono,monospace);opacity:.8}",
     "#pov .death .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}#pov .death .items span{display:flex;align-items:center;gap:3px;font:700 12px var(--mono,monospace)}",
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
-    "#pov .intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,18,.6);transition:opacity 1.2s;text-align:center;gap:10px;padding:16px}",
-    "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 32px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
+    "#pov .intro{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
+    "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 24px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
     "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:6px 12px;font-size:13px;white-space:nowrap}",
     // phone
     "#pov .touch{display:none}#pov.phone .touch{display:block}#pov.phone .lockhint{display:none}",
@@ -289,7 +290,7 @@
       : "<kbd>WASD</kbd>walk <kbd>mouse</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
     hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
-    setTimeout(fadeIntro, 3800);
+    setTimeout(fadeIntro, 4000);
     document.body.appendChild(root);
     document.body.classList.add("pov");
     bind();
@@ -414,8 +415,10 @@
     var s = S(), q = s && s.quest, t = home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
+    hud.qmark.classList.toggle("home", !!home);
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
     mark(hud.qmark, t, d, 1.4);
+    if (home) { var sp = hud.qmark.querySelector("span"), lb = "🏠 home " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
   }
   function mark(m, t, d, minD) {
     var s = S(), c = s.c, R = SB.Render;
