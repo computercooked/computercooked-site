@@ -1,4 +1,5 @@
-/* The stage: the cooked-CRT motion layer on every page except home (which has its own desk) and game players.
+/* The stage: the cooked-CRT motion layer on every page except game players. On home the embers only show below the
+   desk (the desk paints its own background and effects); rims and boot-in work there like everywhere else.
    Loaded by assets/deck.js once the page is idle, so it never competes with the first paint.
    - embers: a quarter-resolution pixel canvas behind the page. Embers drift up from the bottom edge, shy away from
      the pointer, and a click or tap throws a burst of sparks. 30 fps, stops while the tab is hidden.
@@ -9,7 +10,7 @@
 (function () {
   "use strict";
   var html = document.documentElement;
-  if (html.classList.contains("cc-stage") || document.getElementById("desk")) return;
+  if (html.classList.contains("cc-stage")) return;
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   html.classList.add("cc-stage");
 

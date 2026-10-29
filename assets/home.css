@@ -135,3 +135,34 @@
   .caret { animation: desk-caret 1s steps(2) infinite; }
   @keyframes desk-caret { 50% { opacity: 0; } }
 }
+
+/* ---------- first-visit boot (assets/boot.js) ----------
+   A POST screen types out, then the tube powers on: the black glass collapses to a bright line and the desk is there. */
+.cc-post {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483641;
+  display: flex;
+  align-items: flex-start;
+  padding: max(10vh, 48px) max(6vw, 20px);
+  background:
+    radial-gradient(120% 90% at 50% 45%, rgb(var(--phosphor) / .06), transparent 60%),
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / .03) 0 1px, transparent 1px 3px),
+    #050605;
+  color: var(--accent);
+  font: 800 clamp(13px, 1.8vw, 22px)/1.75 var(--mono);
+  text-shadow: 0 0 8px rgb(var(--phosphor) / .55);
+  transform-origin: 50% 50%;
+}
+.cc-post p { display: flex; gap: 1ch; max-width: 46ch; margin: 0; white-space: pre; }
+.cc-post p:first-child { margin-bottom: 1.2em; color: var(--beige); text-shadow: 0 0 8px rgb(232 217 181 / .4); }
+.cc-post b { margin-left: auto; font-weight: 800; }
+.cc-post b.alarm { color: var(--alarm); text-shadow: 0 0 8px rgb(255 90 78 / .6); }
+.cc-post i { font-style: normal; animation: desk-caret .6s steps(2) infinite; }
+.cc-post.off { animation: cc-post-off .4s cubic-bezier(.6, 0, .9, .4) forwards; }
+@keyframes cc-post-off {
+  0% { transform: none; filter: none; }
+  45% { transform: scaleY(.006) scaleX(1); filter: brightness(5); background: #e9ffc0; }
+  100% { transform: scaleY(.004) scaleX(0); filter: brightness(5); opacity: 0; }
+}
+@media (max-width: 480px) { .cc-post p { max-width: none; } }
