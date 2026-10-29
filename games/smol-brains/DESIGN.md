@@ -356,6 +356,15 @@ The bot's v4.8.2 playtest: popups and skip banners were much better (5/10). Poss
 - **Skip stops worth it**: growing up stops a skip only when a smol comes of age (a day-1 "now a kid" doesn't). An incident is named ("☄️ a star fell!", not "something's happening"). The orders panel tucks itself away 3 s after a rally or explore flag lands; the flag's label keeps the count.
 - **Tests**: `firstminutes.test.js` §4 (G, G walks a blob to food it can eat and eats it) and §5 (a kid birthday doesn't end a skip, coming of age does). `skip.test.js` §1 now uses teens.
 
+## 0.29 What v4.8.4 added: a grump in the first minute
+
+The bot's top ask in K-0025 and K-0027: "possession has no stakes… a real threat in the first minute is the biggest lever." 4.8.3 gave it a hunger clock; this adds a chase.
+
+- **The scout grump** (`possess.js` `scoutTick`, `creature.js` scout branch): the first time you're in a blob on an island, once you're 20 s in (`P.SCOUT_AT`) and out more than 7 steps from the nest (looking for food, say), "a hungry grump" catches your scent. It turns up about 15 steps away, off to one side of where you're looking, and comes straight for you, day or night.
+- **It's faster than you walk, slower than you run** (1.35× your walking speed; running is 1.75×). If it catches you it stings: a tenth of your hearts every 1.6 s, the red screen edge, fear. It never takes the last quarter, so a first possession can't end in a death.
+- **Getting away**: get back to the nest (within 5 steps), or next to two friends, or scare it (it goes home when frightened), and it gives up: +2 ✨. After 35 s (`P.SCOUT_MAX`) it gets bored anyway, with no sparks and a "next time, run for the nest" hint. Leaving the body ends it too. Once per island (`settings.povThreat`).
+- **Tests**: `threat.test.js` (not straight away, then a grump about 15 steps off; it catches you if you stand still but never takes the last quarter; it gets bored; the nest pays +2 and sends it home; once per island; leaving the body ends it).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
