@@ -748,20 +748,24 @@ if (admin) {
   ok(r.ok && r.pick && r.pick.game && r.pick.target > 0 && r.pick.xp === 100 && (r.source !== "auto (not stored yet)" || r.pick.game !== handLast), "next week has a challenge (hand or auto, not this week's game)", r);
 }
 
-// K-0031 phase two pages: the homepage, /lab and /gary are filled on the server from their JSON files
+// K-0031 phase two pages: the homepage, /lab and /log are filled on the server from their JSON files
 {
   const home = await (await get("/")).text();
   ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('class="card2') && !home.includes("gary-entry"),
     "homepage: one play button, featured game, lab strip, cooked desktop, no gary");
   const labHtml = await (await get("/lab/")).text();
   ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");
-  const garyHtml = await (await get("/gary/")).text();
-  ok((garyHtml.match(/class="gary-entry/g) || []).length >= 3, "/gary shows the disaster log");
+  // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
+  const logHtml = await (await get("/log/")).text();
+  ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
+  const gr = await fetch(base + "/gary/", { redirect: "manual" });
+  ok(gr.status === 301 && new URL(gr.headers.get("location"), base).pathname === "/log/", "/gary/ redirects to /log/", gr.status);
   const sup = await get("/support/");
   ok(sup.ok && /coming soon/.test(await sup.text()), "/support is up (supporter tier marked coming soon)");
-  // phase three: about = meet gary + the lab, merch is a stub with nothing for sale, every game has its pixel cover
+  // phase three: about = meet the computer + the lab (K-0048: gary is out), merch is a stub with nothing for sale, every game has its pixel cover
   const ab = await (await get("/about/")).text();
-  ok(/meet gary, the computer and the lab/.test(ab) && (ab.match(/class="cast-card"/g) || []).length === 3, "/about introduces gary, the computer and the lab");
+  ok(/meet the computer and the lab/.test(ab) && !/gary/i.test(ab) && (ab.match(/class="cast-card"/g) || []).length === 3, "/about introduces the computer, the cooked log and the lab, no gary");
+  ok(!/href="\/gary\/"/.test(home + ab + labHtml) && /href="\/log\/" data-key="k"/.test(home), "the nav links the cooked log, not gary");
   const mr = await (await get("/merch/")).text();
   ok(/not open yet/.test(mr) && !/checkout|add to cart|buy\.stripe/i.test(mr), "/merch is a stub with nothing for sale");
   const cat = (await (await get("/games/games.json")).json()).games.filter((g) => g.made_by === "computer-cooked");

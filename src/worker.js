@@ -3,7 +3,7 @@
 // wrangler.jsonc). Game pages go through seo.js; other game files pass straight through to the assets.
 import { subscribe, unsubscribe } from "./subscribe.js";
 import { labVotes, labVote } from "./lab.js";
-import { homePage, labPage, garyPage } from "./pages.js";
+import { homePage, labPage, logPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll, changeUsername, renameInfo } from "./auth.js";
@@ -34,7 +34,7 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     // one address for search engines: www.computercooked.com → computercooked.com (permanent). Covers every path this
-    // Worker runs first on (home, /games/*, /lab/, /gary/, /u/*, /d/*, /api/*); static pages carry a canonical tag.
+    // Worker runs first on (home, /games/*, /lab/, /log/, /gary/, /u/*, /d/*, /api/*); static pages carry a canonical tag.
     if (url.hostname === "www.computercooked.com" && (req.method === "GET" || req.method === "HEAD")) {
       url.hostname = "computercooked.com";
       return Response.redirect(url.toString(), 301);
@@ -45,10 +45,12 @@ export default {
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
     // the hub: the grid, spotlight and ticker rendered from games.json (crawlers and link previews see every game)
     if (url.pathname === "/games/" || url.pathname === "/games/index.html") return hubPage(req, env, url);
-    // homepage, /lab and /gary: filled from games.json, /lab/lab.json and /gary/log.json (src/pages.js)
+    // homepage, /lab and /log: filled from games.json, /lab/lab.json and /log/log.json (src/pages.js)
     if (url.pathname === "/" || url.pathname === "/index.html") return homePage(req, env, url);
     if (url.pathname === "/lab/") return labPage(req, env, url);
-    if (url.pathname === "/gary/") return garyPage(req, env, url);
+    if (url.pathname === "/log/") return logPage(req, env, url);
+    // K-0048: Gary's disaster log became the cooked log, the computer's own
+    if (/^\/gary(\/|\/index\.html)?$/.test(url.pathname)) return Response.redirect(url.origin + "/log/", 301);
     // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
     const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
     if (dl) return dareLink(env, url, dl[1]);

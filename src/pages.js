@@ -1,5 +1,6 @@
-// Homepage, /lab and /gary rendered on the server (K-0031 items 8 and 10). Their content lives in two static files,
-// so editing them updates every page: /lab/lab.json (pipeline + the vote) and /gary/log.json (Gary's disaster log).
+// Homepage, /lab and /log rendered on the server (K-0031 items 8 and 10). Their content lives in two static files,
+// so editing them updates every page: /lab/lab.json (pipeline + the vote) and /log/log.json (the cooked log, the
+// computer's own). K-0048: /gary/ now 301s to /log/; gary/log.json and garyEntry/garyPage stay, unused.
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { pickFeatured } from "./featured.js";
@@ -15,6 +16,13 @@ async function jsonAsset(env, origin, path) {
 export function labItem(p) {
   const inner = `<span class="stage stage-${esc(p.stage)}">${esc(STAGE[p.stage] || p.stage)}</span><b>${esc(p.title)}</b><span>${esc(p.note)}</span>`;
   return `<li class="lab-item">${p.slug ? `<a href="/games/${encodeURIComponent(p.slug)}/">${inner}</a>` : `<div>${inner}</div>`}</li>`;
+}
+
+export function logEntry(e, catalog, first) {
+  const g = e.game && catalog && catalog.get(e.game);
+  return `<article class="log-entry${first ? " is-latest" : ""}" id="log-${esc(e.date)}">` +
+    `<p class="log-date"><time class="num" datetime="${esc(e.date)}">${esc(day(e.date))}</time>${g ? ` · <a href="/games/${encodeURIComponent(g.slug)}/">${esc(g.title)}</a>` : ""}</p>` +
+    `<h3>${esc(e.title)}</h3><p>${esc(e.text)}</p></article>`;
 }
 
 export function garyEntry(e, catalog, first) {
@@ -63,7 +71,7 @@ export async function homePage(req, env, url) {
     try { if (env.DB) { await ensureSchema(env); const f = await pickFeatured(env, catalog); feat = f && catalog.get(f.game); } } catch (e) { /* no database */ }
     if (!feat) feat = catalog.get("crash") || null;
   } catch (e) { /* static page as it is */ }
-  const [lab, log] = await Promise.all([jsonAsset(env, url.origin, "/lab/lab.json"), jsonAsset(env, url.origin, "/gary/log.json")]);
+  const lab = await jsonAsset(env, url.origin, "/lab/lab.json");
   const ours = [...catalog.values()].filter((g) => g.made_by === "computer-cooked").length;
   const rw = new HTMLRewriter();
   if (feat) {
@@ -72,7 +80,6 @@ export async function homePage(req, env, url) {
   }
   if (ours) rw.on("[data-games-count]", { element(e) { e.setInnerContent(`all ${ours} games`); } });
   if (lab && lab.pipeline) rw.on("#home-lab", { element(e) { e.setInnerContent(lab.pipeline.slice(0, 4).map(labItem).join(""), { html: true }); } });
-  if (log && log.entries && log.entries[0]) rw.on("#home-gary", { element(e) { e.setInnerContent(garyEntry(log.entries[0], catalog, true), { html: true }); } });
   const mine = [...catalog.values()].filter((g) => g.made_by === "computer-cooked");
   if (mine.length) {
     // newest first, then the catalog's order; the desktop gets eight, the shelf gets everything
@@ -83,6 +90,16 @@ export async function homePage(req, env, url) {
   }
   const out = rw.transform(page);
   return new Response(out.body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" } });
+}
+
+export async function logPage(req, env, url) {
+  const page = await env.ASSETS.fetch(req);
+  if (!page.ok || !(page.headers.get("content-type") || "").includes("text/html")) return page;
+  const [log, catalog] = await Promise.all([jsonAsset(env, url.origin, "/log/log.json"), catalogOf(env, url.origin).catch(() => new Map())]);
+  if (!log || !log.entries) return page;
+  return new HTMLRewriter()
+    .on("#cooked-log", { element(e) { e.setInnerContent(log.entries.map((x, i) => logEntry(x, catalog, i === 0)).join(""), { html: true }); } })
+    .transform(page);
 }
 
 export async function garyPage(req, env, url) {
