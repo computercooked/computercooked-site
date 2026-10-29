@@ -137,13 +137,18 @@
     });
   }
   function showUnlocks(r) {
-    var locked = { acc: {}, theme: {}, frame: {} }, next = null;
+    var locked = { acc: {}, theme: {}, frame: {}, mood: {}, face: {}, body: {} }, next = null;
     (r.cosmetics || []).forEach(function (u) {
       if (u.unlocked) return;
       locked[u.kind][u.id] = u.level;
       if (!next) next = u;
     });
     lockRow($("#b-acc"), window.ccAvatarParts.accs, locked.acc);
+    // K-0030 step 4: moods, screen and case colours unlock by level too
+    var P2 = window.ccAvatarParts, idx = function (list) { return list.map(function (_, i) { return String(i); }); };
+    lockRow($("#b-mood"), P2.moods, locked.mood);
+    lockRow($("#b-face"), idx(P2.faces), locked.face);
+    lockRow($("#b-body"), idx(P2.bodies), locked.body);
     lockRow($("#theme-pick"), Object.keys(THEMES), locked.theme);
     lockRow($("#frame-pick"), frameKeys(r), locked.frame);
     $("#lvl-unlock").textContent = next ? "next unlock: " + next.name + " at level " + next.level : "every level unlock earned. show it off.";
@@ -175,7 +180,7 @@
   }
   function initSettings(user) {
     var P = window.ccAvatarParts;
-    var m = /^x:([a-z]+)-(\d)-(\d)-([a-z]+)$/.exec(user.avatar || "");
+    var m = /^x:([a-z]+)-(\d+)-(\d+)-([a-z]+)$/.exec(user.avatar || "");
     var face = m ? { mood: P.moods.indexOf(m[1]), face: +m[2], body: +m[3], acc: P.accs.indexOf(m[4]) } : { mood: 1, face: 0, body: 0, acc: 0 };
     function built() { return "x:" + P.moods[face.mood] + "-" + face.face + "-" + face.body + "-" + P.accs[face.acc]; }
     var t = null;

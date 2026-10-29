@@ -149,7 +149,7 @@ export async function leaderboard(url, env, user) {
     ok: true, game, period, friends: friendsOnly, you,
     rows: results.map((r, i) => {
       const p = r.user_id && who.get(r.user_id);
-      return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, score: r.score, id: r.id, me: r.player === me };
+      return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, a: p ? p.avatar : undefined, score: r.score, id: r.id, me: r.player === me };
     }),
   }, 200, { "cache-control": "no-store" });
 }

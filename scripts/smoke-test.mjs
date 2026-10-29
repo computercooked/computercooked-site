@@ -317,6 +317,16 @@ else {
   ok(r.status === 403, "locked accessory refused", r.status);
   r = await post("/api/me/avatar", { avatar: "x:happy-1-0-cap" }, { cookie });
   ok(r.ok, "free accessory still works");
+  // K-0030 step 4: new free parts work, new locked parts (moods, colours) wait for their level
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-beanie" }, { cookie });
+  ok(r.ok, "new free accessory (beanie) works");
+  r = await post("/api/me/avatar", { avatar: "x:sleepy-0-0-none" }, { cookie });
+  ok(r.status === 403, "locked mood refused (sleepy, level 22)", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-11-0-none" }, { cookie });
+  ok(r.status === 403, "locked screen colour refused (sky, level 23)", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-12-0-none" }, { cookie });
+  ok(r.status === 400, "unknown screen colour refused", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-cap" }, { cookie });
   r = await post("/api/me/profile", { theme: "gold" }, { cookie });
   ok(r.status === 403, "locked profile color refused", r.status);
   r = await post("/api/me/profile", { frame: "golden" }, { cookie });
@@ -390,7 +400,7 @@ else {
   ok(r.profile.frame === "pixel" && r.cosmetics.some((c) => c.kind === "frame" && c.id === "pixel" && c.unlocked), "avatar frame read back, listed as unlocked");
   r = await (await post("/api/me/avatar", { avatar: "x:happy-2-0-cap" }, { cookie })).json();
   ok(r.ok, "avatar: built face accepted");
-  r = await post("/api/me/avatar", { avatar: "x:happy-9-0-cap" }, { cookie });
+  r = await post("/api/me/avatar", { avatar: "x:happy-12-0-cap" }, { cookie });
   ok(r.status === 400, "avatar: bad built face refused", r.status);
   r = await (await get("/api/u/" + u)).json();
   ok(r.ok && r.display_name === "Smoke Tester" && r.badges[0]?.id === "rate_game" && r.highs.some((h) => h.game === "crash") && r.level >= 1 && r.frame === "pixel", "public profile (with frame)", { level: r.level, title: r.title, badges: r.badges?.length, highs: r.highs?.length });

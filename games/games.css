@@ -2491,3 +2491,8 @@ html[data-landing-ready] { overflow: hidden; }
 .cc-claim-form input:focus, .cc-claim-form select:focus { border-color: var(--text-dim); outline: none; }
 .cc-claim-msg { min-height: 1.2em; margin: 0; color: var(--alarm); font-size: var(--fs-14); }
 .cc-claim-fine { margin: 0; color: var(--text-dim); font-size: var(--fs-12); }
+
+/* K-0030 step 4: faces on boards and in the level bar */
+.cc-face { display: inline-block; width: 20px; height: 22px; margin-right: var(--s-2); vertical-align: -5px; }
+.cc-face svg, .cc-level-face svg { width: 100%; height: 100%; display: block; }
+.cc-level-face { display: inline-block; width: 32px; height: 36px; margin-right: var(--s-1); align-self: center; }

@@ -117,7 +117,7 @@ export async function logout(req, env) {
 }
 
 // built avatars: "x:<mood>-<face 0-7>-<body 0-4>-<accessory>" (rendered by assets/avatars.js)
-export const AVATAR_RE = /^x:(tired|happy|flat|angry|x)-[0-7]-[0-4]-(none|headphones|cap|witch|bow|glasses|steam|antenna|crown|halo|flames|chef)$/;
+export const AVATAR_RE = /^x:(tired|happy|flat|angry|x|smug|shock|sleepy|wink)-(1[01]|[0-9])-[0-6]-(none|headphones|cap|witch|bow|glasses|steam|antenna|crown|halo|flames|chef|beanie|shades|party|bandana|tophat|horns|visor|wizard)$/;
 export const avatarOk = (a) => typeof a === "string" && (AVATARS.includes(a) || AVATAR_RE.test(a));
 
 // POST /api/me/password {current, next}: also signs out every other device
