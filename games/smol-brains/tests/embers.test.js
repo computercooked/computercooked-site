@@ -66,6 +66,13 @@ seeded(4400, () => {
   check("with the first grump's film", game.lantern.films.grump === 1);
   SB.bus.emit("death", { c: a, cause: "hurt" });
   check("only the first time", game.creatures.filter(o => o.species === "grump" && o.alive).length === g0 + 1);
+  console.log("4b. stage 3: the nest glows and grumps keep away (K-0048)");
+  const st0 = game.lantern.stage, nest = game.world.T.nest;
+  game.lantern.stage = 3; game.world.night = true;
+  const gx = SB.Game.spawnGrump(game, nest.x + 8, nest.z);
+  for (let t = 0; t < 4 && !gx.goingHome; t += SB.TICK) SB.Game.step(game, SB.TICK);
+  check("a grump 8 m from the glowing nest turns for home", gx.goingHome);
+  game.lantern.stage = st0;
   console.log("5. fifty embers: the Hollow wakes");
   const sp0 = game.sparks;
   for (let i = 0; E.next(game) != null && i < 80; i++) E.add(game, "fill:" + i, "a memory");
@@ -74,8 +81,9 @@ seeded(4400, () => {
   check("the Hollow woke: every grump goes home", E.woke(game) && game.creatures.filter(o => o.species === "grump" && o.alive).every(o => o.goingHome));
   check("the finale's film", game.lantern.films.wake === 1);
   check("the nights are nearly half as dark", Math.abs(E.nightLight(game) - 0.48) < 1e-9, E.nightLight(game));
+  const gBefore = game.creatures.filter(o => o.species === "grump" && o.alive).length;
   SB.bus.emit("death", { c: SB.Game.smols(game)[0], cause: "hurt" });
-  check("no more grumps get up after it", game.creatures.filter(o => o.species === "grump" && o.alive).length === g0 + 1);
+  check("no more grumps get up after it", game.creatures.filter(o => o.species === "grump" && o.alive).length === gBefore);
 
   console.log("6. saved with the island");
   const back = SB.Save.revive(JSON.parse(JSON.stringify(SB.Save.snapshot(game))));

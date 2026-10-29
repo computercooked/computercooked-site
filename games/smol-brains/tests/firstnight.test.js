@@ -56,6 +56,9 @@ seeded(4100, () => {
   let wind = 0, hits = 0; SB.bus.on("scoutWindup", () => wind++); SB.bus.on("scoutHit", () => hits++);
   run(25, () => hits > 0);
   check("standing there: it winds up, then pounces", wind >= 1 && hits >= 1, wind + " wind-ups, " + hits + " hits");
+  check("after a bite you're apart: knocked back, and it staggers off your face", SB.dist(g.x, g.z, pip.x, pip.z) >= 3, SB.dist(g.x, g.z, pip.x, pip.z).toFixed(1) + " m");
+  const h0 = hits; let wound = 0; for (let t = 0; t < 1.8; t += SB.TICK) { SB.Game.step(game, SB.TICK); if (!g.scout) break; /* the knock-back can carry Pip over the sticks to the nest, which ends it */ if (g.scout.wind > 0) wound++; }
+  check("and it stands there for 2 s: no wind-up, no second bite", hits === h0 && !wound, wound + " wind-up ticks");
   check("a pounce is a big bite, but Pip lives", pip.alive && pip.chem.health <= 0.8 && pip.chem.health >= 0.25, pip.chem.health.toFixed(2));
 
   console.log("5. two sticks, light the nest, it runs");

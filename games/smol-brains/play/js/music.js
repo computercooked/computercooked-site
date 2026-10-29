@@ -480,6 +480,7 @@
     ["podCrash", "bigThought", "era", "newBiome", "lantern"].forEach(function (k) { SB.bus.on(k, function () { strangeUntil = Math.max(strangeUntil, wall() + 25); }); });
   }
   M._moodEvents = moodEvents; // for tests
+  M.levels = function () { return { mood: M.mood, moodGain: mood ? +mood.gain.gain.value.toFixed(3) : 0, songGain: cur ? +cur.gain.gain.value.toFixed(3) : null, t: ctx ? +ctx.currentTime.toFixed(2) : null }; }; // a playtest probe: the layers' levels
   M.init = function () {
     if (timer) return;
     timer = setInterval(function () { try { tick(); pump(); pumpMood(); } catch (e) {} }, 120);

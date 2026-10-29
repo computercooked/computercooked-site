@@ -23,6 +23,7 @@
   UI.eventReady = function () {
     var t = now();
     if (el.modal || pointerDown) return false;
+    if (SB.Lantern && SB.Lantern.running) return false; // never behind a film
     if (SB.Possess && SB.Possess.active) return false;
     return t - lastEventClose >= UI.EVENT_GAP && t - lastPovOut >= UI.POV_GRACE && t - lastPointer >= UI.CLICK_GRACE;
   };
@@ -33,7 +34,7 @@
   }
   // called every frame: show the next waiting event window when it's time
   function pumpEvents() {
-    var back = popQ[0] && popQ[0][2] && popQ[0][2].resume && !el.modal && !(SB.Possess && SB.Possess.active) && now() - lastPovOut >= 1; // the window you had open comes straight back
+    var back = popQ[0] && popQ[0][2] && popQ[0][2].resume && !el.modal && !(SB.Lantern && SB.Lantern.running) && !(SB.Possess && SB.Possess.active) && now() - lastPovOut >= 1; // the window you had open comes straight back
     if ((!popQ.length && !cardQ.length) || !(back || UI.eventReady())) return;
     var m = popQ.shift();
     if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
@@ -230,7 +231,7 @@
     if (best) prog = tierProgress(best);
     el.era.innerHTML = '<span class="ico">' + SB.TIERS[maxT].icon + '</span><span><span class="long">' + SB.TIERS[maxT].name + " · </span>gen " + gen + " · " + smols.length + ' 🐣</span><span class="bar"><i style="width:' + Math.round(prog * 100) + '%"></i></span>';
     el.sparks.innerHTML = '<span class="ico">✨</span><b>' + Math.floor(game.sparks || 0) + "</b>";
-    if (el.lantern && SB.Embers) { var en = SB.Embers.count(game), nx = SB.Embers.next(game); el.lantern.style.display = en > 0 ? "" : "none"; el.lantern.innerHTML = '<span class="ico">🏮</span><b>' + en + (nx ? "/" + nx : "") + "</b>"; }
+    if (el.lantern && SB.Embers) { var en = SB.Embers.count(game), nx = SB.Embers.next(game); el.lantern.style.display = en > 0 ? "" : "none"; el.lantern.innerHTML = '<span class="ico">🏮</span><b>' + en + (nx ? " / " + nx : "") + "</b><small>embers</small>"; }
     var np = (game.prayers || []).filter(function (p) { return !p.answered && SB.Game.prayerLive(game, p); }).length;
     el.pray.classList.toggle("hide", !np);
     if (np) el.pray.innerHTML = '<span class="ico">🙏</span><b>' + np + "</b>";
@@ -390,7 +391,11 @@
     if (game && SB.FirstNight && SB.FirstNight.active(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
-    if (live.length >= 2) { toastQ.push([html, cls, ms]); if (toastQ.length > 5) toastQ.shift(); return; }
+    if (live.length >= 2) { // a full queue drops its oldest ordinary toast; memory embers go first and are never dropped (K-0048)
+      if (cls === "ember") toastQ.unshift([html, cls, ms]); else toastQ.push([html, cls, ms]);
+      if (toastQ.length > 5) { var dk = toastQ.findIndex(function (q) { return q[1] !== "ember"; }); if (dk >= 0) toastQ.splice(dk, 1); }
+      return;
+    }
     var t = h("div", { class: "toast glass " + (cls || ""), html: html });
     t._html = html;
     el.toasts.appendChild(t);
@@ -1173,6 +1178,7 @@
   function modal(title, body, opts) {
     opts = opts || {};
     if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld.push([title, body, opts]); return; } // no god windows in a smol's eyes: shown on the way out
+    if (SB.Lantern && SB.Lantern.running && !opts.live) { popQ.push([title, body, opts]); return; } // a film is playing: it waits (K-0048)
     // an event card (story, stranger, storyteller…) never replaces another one: it waits its turn
     if ((opts.story || opts.sticky) && !opts.paced && !opts.now && !UI.eventReady()) { popQ.push([title, body, opts]); return; }
     if (el.modal && el.modalOpts && (opts.story || opts.sticky) && (el.modalOpts.story || el.modalOpts.sticky)) { popQ.push([title, body, opts]); return; }
@@ -1198,6 +1204,12 @@
     state.brainC = null;
   }
   UI.closeModal = closeModal;
+  // a film is starting: the window on screen steps aside and comes back after it
+  UI.holdForFilm = function () {
+    if (!el.modal || !el.modalArgs || (el.modalOpts && el.modalOpts.live)) return;
+    var a = el.modalArgs; closeModal();
+    popQ.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]);
+  };
   UI.modal = modal;
 
   /* ---------------- menu / smolpedia ---------------- */
@@ -2231,7 +2243,11 @@
     on("unpossess", function (d) { var k = el.heldSheet; el.heldSheet = null; if (k && d.why !== "died") setTimeout(function () { if (!(SB.Possess && SB.Possess.active) && !state.sheet) openSheet(k); }, 450); });
     on("possess", function () { if (el.modal && el.modalArgs && !(el.modalOpts && el.modalOpts.pov)) { var a = el.modalArgs; closeModal(); povHeld.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]); } }); // hidden in first person, it paused the island (K-0037 "freeze")
     on("knockout", function (d) { toast("💫 <b>" + esc(d.c.name) + "</b> was knocked out" + (d.items.length ? " and dropped what it carried" : "") + ". your light needs " + (SB.Possess ? SB.Possess.KO_COOLDOWN : 30) + " s to gather itself.", "", 7000); });
-    on("ember", function (d) { var g = SB.Game.current; if (!g || g.offline) return; toast("🔥 <b>a memory ember</b>: " + esc(d.why) + (d.next ? " <span class=\"dim\">(" + d.n + "/" + d.next + ")</span>" : ""), "ember", 4500); });
+    on("ember", function (d) {
+      var g = SB.Game.current; if (!g || g.offline) return;
+      var html = "🔥 <b>memory ember +1</b>: " + esc(d.why) + (d.next ? " <span class=\"dim\">(" + d.n + " of " + d.next + ")</span>" : "");
+      (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast(html, "ember", 5500); if (el.lantern) { el.lantern.classList.remove("pulse"); void el.lantern.offsetWidth; el.lantern.classList.add("pulse"); } })();
+    });
     on("lantern", function (d) {
       var g = SB.Game.current; if (!g || !d.stage || g.offline) return; // stage 0 is the first night's ember
       if (SB.Game.note && d.stage < SB.Embers.STAGES.length) SB.Game.note(g, "🏮 the Lantern caught: stage " + d.stage + ". the nights are a little less dark."); // (sparks: embers.js)

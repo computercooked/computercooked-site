@@ -557,6 +557,26 @@ Every story beat now has its own film, drawn in code at 320×180 like the openin
 - **Measured in the browser**: the full first night with the lend film (button hidden while it plays, then you're Pip and the chase starts). Each film played with its captions and no errors (screenshots `v495-*`).
 - **Tests**: `embers.test.js` §4-5 (each film queued once; the first baby; Pip's little one is Pip growing up; a lonely death at night gets up a grump, only once; fifty embers is the finale; grumps go home; the night light; no more grumps after; saved).
 
+## 0.43 What v4.9.6 changed: the K-0048 playtest fixes
+
+1. **A bite reads.** When a scout grump's pounce lands:
+   - you're thrown back 2.2 m (was 1.2), and the grump staggers 1.6 m back off your face
+   - it stands there for 2.1 s before it can wind up again (was 0.9 s)
+   - a full-screen red "OUCH! −25% ❤" flash and a bigger camera shake
+   Pounces can't come back to back any more: about one every 5-6 s if you stand still, and you can run.
+2. **Lantern stage 3 is its own beat.** Its film (28 s) has the giant's eye opening a crack, big and bright, with the ground shaking. A new line follows ("the nest glows with the Lantern's light now. grumps won't come near it.") and a shot of a grump turning away from the glowing nest. In the game, from stage 3 the nest scares grumps off from 12 m, like a fire.
+3. **Lend your light, centred.** The spark circles, then dives into Pip in the middle of the shot (3-5 s). A flash, then Pip glows and "you are Pip" holds for 4 s (11 s film).
+4. **Films and windows.** A film that starts while a window is open puts the window aside and brings it back afterwards. A window that wants to open during a film waits for it. Event windows never count as ready while a film plays.
+5. **Embers.**
+   - Each one toasts "🔥 memory ember +1: <why> (n of 5)". The toast waits out a film, jumps the toast queue and is never dropped when the queue is full.
+   - The chip reads "🏮 n / 5 embers" in a plain font (the pixel font made 5 look like 8) and pulses on each ember.
+6. **The opening.** A close shot of the crash (story 17.5-21.4 s) shows the pod nose-first in the Lantern's hill, earth thrown up and the Lantern knocked crooked and guttering. The slow stretches play faster: the pan ×1.45, Pip's run ×1.5, the climb ×1.35. The film runs 41.7 s (was 52), and each caption holds until the next.
+7. **Marker labels stay on screen.** A label that would run off an edge is slid back in ("🪵 grab sticks 30m" at the screen edge).
+8. The canvases that read pixels back (icons, survival art) set `willReadFrequently`.
+
+- **Music, self-checked in the browser** (the bot had no audio): a grump arriving brings the danger layer in. Sampled at 0.3 / 0.8 / 1.3 / 2.0 s, the layer went 0.18 → 0.52 → 0.86 → 1.0 while the song went 0.82 → 0.48 → 0.14 → 0: a 1.5 s crossfade. `SB.Music.levels()` is a probe for that.
+- **Tests**: `firstnight.test.js` (after a bite you're ≥3 m apart, and there's no wind-up for 1.8 s). `embers.test.js` §4b (a grump 8 m from the stage-3 nest turns for home).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
