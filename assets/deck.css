@@ -335,6 +335,9 @@ html.cc-stage body::before {
 /* page heads read like a prompt: C:\COOKED> the lab_ */
 .page-head h1, .games-title, .gary-head h1 { text-shadow: var(--text-glow); }
 .eyebrow {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: var(--mono);
   font-weight: 800;
   letter-spacing: 0;
@@ -344,6 +347,7 @@ html.cc-stage body::before {
 .eyebrow::before { content: "C:\\COOKED> "; color: var(--text-dim); text-transform: none; }
 .eyebrow::after { content: "_"; margin-left: 2px; animation: cc-caret 1s steps(2) infinite; }
 @keyframes cc-caret { 50% { opacity: 0; } }
+@media (max-width: 480px) { .eyebrow::before { content: "> "; } }
 
 /* cards: phosphor rim under the pointer (stage.js sets --mx/--my), a lift and a glow */
 .cc-lit { position: relative; }
