@@ -6,7 +6,7 @@ import { FOLLOW_PLATFORMS } from "./follow.js";
 
 const TZ = "America/Los_Angeles";
 const PLAYER = "COALESCE('u' || user_id, 'a' || anon_id)";
-const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "other", "direct", "internal", "app", "embed"];
+const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "other", "direct", "internal", "app", "embed", "portal"];
 
 // ms offset of Pacific time from UTC at instant t (negative: -7h or -8h)
 const fmt = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });

@@ -8,11 +8,16 @@
      - while an ad shows: all Web Audio suspended, input blocked by a full-screen shield, then everything resumes
      - links out of the game (our "play next" links) do nothing: portals don't allow outside links
      - cc.rewarded() → Promise<bool> for games that offer a reward (true only when the ad finished)
-   Scores, saves and accounts on computercooked.com don't exist inside a portal; cc-sdk's calls fail quietly. */
+   Scores, saves and accounts on computercooked.com don't exist inside a portal; cc-sdk keeps saves and bests on
+   this device and never calls our API (it works offline).
+   K-0030 step 7: on itch.io and Newgrounds (outside links allowed), a small card after the 1st run and then every 5th
+   offers xp, levels and boards on computercooked.com. It opens in a new tab, never blocks play, and can be closed for
+   the session. Ad portals (CrazyGames, GameDistribution, Poki) don't allow outside links, so they never see it. */
 (function () {
   "use strict";
   var cfg = window.CC_PORTAL || { name: "none" };
   var name = cfg.name || "none";
+  var site = cfg.portal || name; // which portal this build is for (itch and newgrounds run the "none" driver)
 
   // every AudioContext the game makes, so an ad can silence them all
   var ctxs = [];
@@ -108,6 +113,32 @@
   var d = drivers[name] || none;
   var ready = d.init().catch(function () {});
 
+  // ---- K-0030 step 7: "play on computercooked.com" (itch.io and Newgrounds only) ----
+  var LINK_PORTALS = { itch: 1, newgrounds: 1 };
+  function siteCard() {
+    if (!LINK_PORTALS[site] || !/^[a-z0-9-]{1,40}$/.test(cfg.slug || "")) return;
+    try { if (sessionStorage.getItem("cc-portal-card-off")) return; } catch (e) {}
+    if (document.getElementById("cc-site-card")) return;
+    var url = "https://computercooked.com/games/" + cfg.slug + "/?ref=portal&utm_campaign=portal-" + site;
+    var box = document.createElement("div");
+    box.id = "cc-site-card";
+    box.setAttribute("role", "status");
+    box.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483000;display:flex;align-items:center;gap:10px;" +
+      "max-width:calc(100% - 32px);padding:8px 8px 8px 14px;border:1px solid #2A2D34;border-radius:12px;background:#17181C;color:#F5F3ED;" +
+      "font:600 14px/1.3 system-ui,-apple-system,Segoe UI,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.45)";
+    var a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+    a.style.cssText = "color:#C5FF49;text-decoration:none";
+    a.textContent = "want xp, levels and leaderboards? play on computercooked.com \u2197";
+    var x = document.createElement("button");
+    x.type = "button"; x.setAttribute("aria-label", "close"); x.textContent = "\u00d7";
+    x.style.cssText = "min-width:32px;min-height:32px;border:0;border-radius:8px;background:#2A2D34;color:#F5F3ED;font:700 18px/1 system-ui,sans-serif;cursor:pointer";
+    x.addEventListener("click", function () { box.remove(); try { sessionStorage.setItem("cc-portal-card-off", "1"); } catch (e) {} });
+    box.appendChild(a); box.appendChild(x);
+    document.body.appendChild(box);
+    setTimeout(function () { box.remove(); }, 9000);
+  }
+
   // ---- hook our SDK ----
   var runs = 0, lastAd = Date.now(), playing = false;
   function wrap(cc) {
@@ -124,6 +155,7 @@
       ready.then(function () {
         if (playing) { playing = false; d.stop(); }
         runs++;
+        if (runs === 1 || runs % 5 === 0) siteCard();
         if (runs >= 2 && runs % 3 === 0 && Date.now() - lastAd >= 180000) { lastAd = Date.now(); return d.midroll(); }
       }).catch(function () { hold(false); });
       return r;
@@ -132,5 +164,5 @@
   }
   wrap(window.cc);
   if (!window.cc) document.addEventListener("DOMContentLoaded", function () { wrap(window.cc); });
-  window.ccPortal = { name: name, state: function () { return { runs: runs, playing: playing, holding: !!shield }; } };
+  window.ccPortal = { name: name, portal: site, state: function () { return { runs: runs, playing: playing, holding: !!shield }; } };
 })();

@@ -109,7 +109,7 @@ export function deviceOf(ua = "") {
   return "desktop";
 }
 
-const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "other"];
+const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "portal", "other"];
 export const refOk = (r) => (REFS.includes(r) ? r : "other");
 // utm_campaign from our posted links: lowercase [a-z0-9_.-], max 40, else none
 export const campaignOk = (c) => {
