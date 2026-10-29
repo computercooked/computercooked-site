@@ -49,7 +49,7 @@
             <span class="boot-text">booting desktop jam<span class="boot-dots"></span></span>
             <span class="boot-bar"><span></span></span>
           </div>
-          <iframe id="game-frame" data-src="/games/desktop-jam/play/" title="desktop jam" allow="fullscreen; autoplay" loading="eager"></iframe><script>/* start the game one frame after the boot screen paints, so the page shows before the game loads */(function(f){function go(){if(!f.src)f.src=f.dataset.src}requestAnimationFrame(function(){setTimeout(go,0)});setTimeout(go,400)})(document.getElementById("game-frame"))</script>
+          <iframe id="game-frame" data-src="/games/desktop-jam/play/" title="desktop jam" allow="fullscreen; autoplay" loading="eager"></iframe><script>/* start the game once the boot screen (and its sprite) has painted, so the page shows before the game loads; 600 ms at most */(function(f){function go(){if(!f.src)f.src=f.dataset.src}var i=new Image();i.src="/assets/mascot/sleep.svg";(i.decode?i.decode():Promise.resolve()).then(function(){requestAnimationFrame(function(){setTimeout(go,0)})},go);setTimeout(go,600)})(document.getElementById("game-frame"))</script>
         </div>
 
         <div class="player-bar">
