@@ -92,7 +92,9 @@ export class Stage {
       gb.t += dt;
       const a = Math.min(1, gb.t * 3, (gb.life - gb.t) * 2);
       c.globalAlpha = Math.max(0, a);
-      const r = this.bs * (gb.scale || 1) * (1.15 + 0.15 * Math.sin(this.t * 7));
+      // K-0036: the first one pops in (grows past full size, then settles) so the eye goes to it
+      const k = gb.pop ? Math.min(1, gb.t / 0.6) : 1, pop = gb.pop ? 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2) : 1;
+      const r = this.bs * (gb.scale || 1) * pop * (1.15 + 0.15 * Math.sin(this.t * 7));
       // a ring that keeps pulsing outwards, so it reads as "tap me" (K-0029)
       const ph = (this.t * 1.2) % 1;
       c.strokeStyle = '#ffe14a'; c.lineWidth = 3; c.globalAlpha = Math.max(0, a) * (1 - ph);
