@@ -751,8 +751,8 @@ if (admin) {
 // K-0031 phase two pages: the homepage, /lab and /gary are filled on the server from their JSON files
 {
   const home = await (await get("/")).text();
-  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card"') && home.includes('class="lab-item"') && home.includes('class="gary-entry is-latest"'),
-    "homepage: one play button, featured game, lab strip, latest gary entry");
+  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('class="card2') && !home.includes("gary-entry"),
+    "homepage: one play button, featured game, lab strip, cooked desktop, no gary");
   const labHtml = await (await get("/lab/")).text();
   ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");
   const garyHtml = await (await get("/gary/")).text();
@@ -766,7 +766,7 @@ if (admin) {
   ok(/not open yet/.test(mr) && !/checkout|add to cart|buy\.stripe/i.test(mr), "/merch is a stub with nothing for sale");
   const cat = (await (await get("/games/games.json")).json()).games.filter((g) => g.made_by === "computer-cooked");
   const covers = await Promise.all(cat.map((g) => get(g.thumbnail).then((r) => r.ok && /png/.test(r.headers.get("content-type") || ""))));
-  ok(cat.every((g) => /\/cover\.png$/.test(g.thumbnail)) && covers.every(Boolean), "every game uses its pixel-art cover", cat.length);
+  ok(cat.every((g) => /\/cover\.png(\?v=\d+)?$/.test(g.thumbnail)) && covers.every(Boolean), "every game uses its pixel-art cover", cat.length);
   ok((await get("/assets/daily-card.js")).ok, "daily 3 result card script is served");
 }
 

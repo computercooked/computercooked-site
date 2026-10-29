@@ -959,3 +959,7 @@ a {
 .merch-page > .links { margin-top: var(--s-8); text-align: left; max-width: 640px; margin-left: 0; }
 .merch-page > .links .social-row { justify-content: flex-start; }
 @media (max-width: 899px) { .cast, .merch-grid { grid-template-columns: 1fr; } .char-art { height: 72px; } }
+
+/* K-0044: the computer on the 404 page */
+.lost-pc { width: 150px; margin: 0 auto var(--s-4); }
+.lost-pc img, .lost-pc svg { display: block; width: 100%; height: auto; image-rendering: pixelated; }

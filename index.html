@@ -29,40 +29,69 @@
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/mascot.svg" as="image">
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
+  <link rel="stylesheet" href="/assets/home.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://computercooked.com/#site","name":"Computer Cooked","url":"https://computercooked.com/","description":"free stupid-fun browser games. play one in 3 seconds, no downloads.","publisher":{"@id":"https://computercooked.com/#org"}},{"@type":"Organization","@id":"https://computercooked.com/#org","name":"Computer Cooked","url":"https://computercooked.com/","logo":"https://computercooked.com/assets/logo.svg","email":"hello@computercooked.com","sameAs":["https://www.tiktok.com/@computercooked","https://www.youtube.com/@computercooked","https://www.instagram.com/computercooked/","https://x.com/computercooked"]}]}</script>
 </head>
 <body>
-  <main class="page page-wide home">
-    <header class="home-hero">
-      <div class="home-copy">
-        <p class="eyebrow">free browser games</p>
-        <h1 class="home-title">stupid-fun games.<br>play one in 3 seconds.</h1>
-        <p class="home-sub">no downloads, no sign-up, works on your phone. the computer is not handling it well.</p>
-        <p class="home-ctas"><a class="play-btn" id="home-play" href="/games/crash/?ref=landing">play crash</a><a class="text-link" href="/games/" data-games-count>all 16 games</a></p>
+  <main class="home2">
+    <!-- K-0044 redesign: the cooked desktop. A living CRT desktop: the computer watches the cursor, game icons can be
+         dragged around and open on a click, hovering one plays its clip. assets/home.js runs it; it works without JS too. -->
+    <section class="desk" id="desk" aria-label="the cooked desktop">
+      <canvas class="desk-fx" id="desk-fx" aria-hidden="true"></canvas>
+      <div class="desk-glow" aria-hidden="true"></div>
+
+      <div class="desk-win desk-hello" role="presentation">
+        <div class="win-bar"><span class="win-title">C:\COOKED\welcome.exe</span><span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        <div class="win-body">
+          <p class="desk-prompt" aria-hidden="true"><span>C:\COOKED&gt;</span> run games<b class="caret">_</b></p>
+          <h1 class="desk-title">stupid-fun games.<br><span>play one in 3 seconds.</span></h1>
+          <p class="desk-sub">free in your browser. no downloads, no sign-up, works on your phone. the computer is not handling it well.</p>
+          <p class="desk-ctas"><a class="play-btn" id="home-play" href="/games/crash/?ref=landing">play crash ▶</a><a class="ghost-btn" href="/games/" data-games-count>all 16 games</a></p>
+        </div>
       </div>
-      <div class="home-mascot"><svg class="mascot" viewBox="60 20 392 400" width="280" height="286" role="img" aria-label="the computer, steaming gently"><path d="M130 108h252v48h32v190H98V156h32z" fill="#E8D9B5"/><path d="M98 300h316v46H98z" fill="#C9B791"/><rect x="130" y="166" width="252" height="148" rx="12" fill="#0E0F11"/><path d="M170 211l30 30-30 30m55 0h48" fill="none" stroke="#B8F23A" stroke-width="16"/><path class="mascot-eye" d="M314 203l28 28m0-28l-28 28" stroke="#B8F23A" stroke-width="12"/><path d="M231 346h50v35h55v25H176v-25h55z" fill="#C9B791"/><g stroke="#A3A09A" stroke-width="14" stroke-linecap="square"><path class="steam steam-1" d="M179 81V57"/><path class="steam steam-2" d="M256 81V39"/><path class="steam steam-3" d="M333 81V57"/></g></svg></div>
-    </header>
 
-    <section class="home-section" aria-labelledby="feat-heading">
-      <h2 id="feat-heading" class="section-label">featured</h2>
-      <div id="home-featured"><a class="feature-card" href="/games/crash/?ref=landing"><img class="game-thumb" src="/games/crash/cover.png" alt="" width="640" height="400" fetchpriority="high" decoding="async"><span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">crash</h3><span class="feature-pitch">dodge the tasks, drink the coffee, don&#x27;t get cooked.</span><span class="game-tags"><span>arcade</span><span>dodge</span><span>60s runs</span></span></span></a></div>
+      <div class="desk-pc" id="desk-pc">
+        <div class="desk-bubble" id="desk-bubble" role="status" aria-live="polite">hi. please don't click me.</div>
+        <div class="desk-mascot" id="desk-mascot"><img src="/assets/mascot.svg" alt="the computer cooked computer, steaming" width="230" height="330"></div>
+        <div class="desk-shadow" aria-hidden="true"></div>
+      </div>
+
+      <ul class="desk-icons" id="desk-icons" aria-label="games on the desktop">
+        <li><a class="desk-icon" href="/games/crash/?ref=desk" data-slug="crash"><span class="ico"><img src="/games/crash/cover.png" alt="" width="96" height="60" loading="lazy"></span><span class="lbl">crash.exe</span></a></li>
+        <li><a class="desk-icon" href="/games/level-devil-exe/?ref=desk" data-slug="level-devil-exe"><span class="ico"><img src="/games/level-devil-exe/cover.png" alt="" width="96" height="60" loading="lazy"></span><span class="lbl">level devil.exe</span></a></li>
+        <li><a class="desk-icon" href="/games/one-percent-popup/?ref=desk" data-slug="one-percent-popup"><span class="ico"><img src="/games/one-percent-popup/cover.png" alt="" width="96" height="60" loading="lazy"></span><span class="lbl">1% pop-up.exe</span></a></li>
+      </ul>
+
+      <div class="desk-bar" aria-hidden="true">
+        <a class="desk-start" href="/games/" tabindex="-1"><img src="/assets/logo.svg" alt="" width="18" height="18"> start</a>
+        <span class="desk-chip">cpu <b id="desk-cpu" class="num">61°C</b><i class="cpu-meter"><i id="desk-cpu-bar"></i></i></span>
+        <span class="desk-chip desk-cooked">cooked <b id="desk-cooked" class="num">0</b>×</span>
+        <span class="desk-clock num" id="desk-clock">--:--</span>
+      </div>
+      <div class="desk-scan" aria-hidden="true"></div>
     </section>
 
-    <section class="home-section" aria-labelledby="lab-heading">
-      <div class="section-head"><h2 id="lab-heading" class="section-label">from the lab</h2><a class="text-link" href="/lab/">vote on the next game →</a></div>
-      <ul class="lab-strip" id="home-lab"><li class="lab-item"><div><span class="stage stage-building">building</span><b>accounts that level up</b><span>guest xp from your first run, levels, and a face you build yourself.</span></div></li><li class="lab-item"><div><span class="stage stage-building">building</span><b>a new look for the arcade</b><span>the site you&#x27;re on. calmer, faster, fewer flashing boxes.</span></div></li><li class="lab-item"><div><span class="stage stage-next">up next</span><b>whatever wins the vote</b><span>the top idea below gets built next. one vote each, change it any time.</span></div></li><li class="lab-item"><a href="/games/reel-weird/"><span class="stage stage-shipped">shipped</span><b>reel weird</b><span>a 60-second fishing run in a cursed pond.</span></a></li></ul>
+    <section class="home-sec" aria-labelledby="feat-heading">
+      <div class="sec-head"><h2 id="feat-heading" class="section-label">game of the week</h2></div>
+      <div id="home-featured"><a class="feature-card" href="/games/crash/?ref=landing"><img class="game-thumb" src="/games/crash/cover.png" alt="" width="640" height="400" decoding="async"><span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">crash</h3><span class="feature-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span></a></div>
     </section>
 
-    <section class="home-section" aria-labelledby="gary-heading">
-      <div class="section-head"><h2 id="gary-heading" class="section-label">latest from gary</h2><a class="text-link" href="/gary/">read the whole log →</a></div>
-      <div class="gary-latest"><svg class="gary-sprite" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 22" width="100" height="110" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="2" height="1" fill="#E8D9B5"/><rect x="16" y="0" width="2" height="1" fill="#E8D9B5"/><rect x="2" y="1" width="2" height="1" fill="#E8D9B5"/><rect x="8" y="1" width="4" height="1" fill="#5A4332"/><rect x="16" y="1" width="2" height="1" fill="#E8D9B5"/><rect x="2" y="2" width="2" height="1" fill="#F3F1EA"/><rect x="6" y="2" width="8" height="1" fill="#5A4332"/><rect x="15" y="2" width="1" height="1" fill="#8FD3FF"/><rect x="16" y="2" width="2" height="1" fill="#F3F1EA"/><rect x="2" y="3" width="2" height="1" fill="#F3F1EA"/><rect x="5" y="3" width="10" height="1" fill="#5A4332"/><rect x="15" y="3" width="1" height="1" fill="#8FD3FF"/><rect x="16" y="3" width="2" height="1" fill="#F3F1EA"/><rect x="2" y="4" width="2" height="1" fill="#F3F1EA"/><rect x="5" y="4" width="1" height="1" fill="#5A4332"/><rect x="6" y="4" width="8" height="1" fill="#E8D9B5"/><rect x="14" y="4" width="1" height="1" fill="#5A4332"/><rect x="16" y="4" width="2" height="1" fill="#F3F1EA"/><rect x="3" y="5" width="2" height="1" fill="#F3F1EA"/><rect x="5" y="5" width="2" height="1" fill="#E8D9B5"/><rect x="7" y="5" width="1" height="1" fill="#0E0F11"/><rect x="8" y="5" width="4" height="1" fill="#E8D9B5"/><rect x="12" y="5" width="1" height="1" fill="#0E0F11"/><rect x="13" y="5" width="2" height="1" fill="#E8D9B5"/><rect x="15" y="5" width="2" height="1" fill="#F3F1EA"/><rect x="3" y="6" width="2" height="1" fill="#F3F1EA"/><rect x="5" y="6" width="2" height="1" fill="#E8D9B5"/><rect x="7" y="6" width="1" height="1" fill="#0E0F11"/><rect x="8" y="6" width="4" height="1" fill="#E8D9B5"/><rect x="12" y="6" width="1" height="1" fill="#0E0F11"/><rect x="13" y="6" width="2" height="1" fill="#E8D9B5"/><rect x="15" y="6" width="2" height="1" fill="#F3F1EA"/><rect x="4" y="7" width="1" height="1" fill="#F3F1EA"/><rect x="5" y="7" width="10" height="1" fill="#E8D9B5"/><rect x="15" y="7" width="1" height="1" fill="#F3F1EA"/><rect x="4" y="8" width="1" height="1" fill="#F3F1EA"/><rect x="5" y="8" width="4" height="1" fill="#E8D9B5"/><rect x="9" y="8" width="2" height="1" fill="#0E0F11"/><rect x="11" y="8" width="4" height="1" fill="#E8D9B5"/><rect x="15" y="8" width="1" height="1" fill="#F3F1EA"/><rect x="5" y="9" width="3" height="1" fill="#E8D9B5"/><rect x="8" y="9" width="1" height="1" fill="#0E0F11"/><rect x="9" y="9" width="2" height="1" fill="#C9B791"/><rect x="11" y="9" width="1" height="1" fill="#0E0F11"/><rect x="12" y="9" width="3" height="1" fill="#E8D9B5"/><rect x="5" y="10" width="4" height="1" fill="#E8D9B5"/><rect x="9" y="10" width="2" height="1" fill="#0E0F11"/><rect x="11" y="10" width="4" height="1" fill="#E8D9B5"/><rect x="6" y="11" width="8" height="1" fill="#E8D9B5"/><rect x="5" y="12" width="4" height="1" fill="#F3F1EA"/><rect x="9" y="12" width="2" height="1" fill="#FF5A4E"/><rect x="11" y="12" width="4" height="1" fill="#F3F1EA"/><rect x="4" y="13" width="5" height="1" fill="#F3F1EA"/><rect x="9" y="13" width="2" height="1" fill="#FF5A4E"/><rect x="11" y="13" width="5" height="1" fill="#F3F1EA"/><rect x="4" y="14" width="1" height="1" fill="#A3A09A"/><rect x="5" y="14" width="4" height="1" fill="#F3F1EA"/><rect x="9" y="14" width="2" height="1" fill="#FF5A4E"/><rect x="11" y="14" width="4" height="1" fill="#F3F1EA"/><rect x="15" y="14" width="1" height="1" fill="#A3A09A"/><rect x="4" y="15" width="1" height="1" fill="#A3A09A"/><rect x="5" y="15" width="5" height="1" fill="#F3F1EA"/><rect x="10" y="15" width="1" height="1" fill="#FF5A4E"/><rect x="11" y="15" width="4" height="1" fill="#F3F1EA"/><rect x="15" y="15" width="1" height="1" fill="#A3A09A"/><rect x="4" y="16" width="12" height="1" fill="#F3F1EA"/><rect x="4" y="17" width="12" height="1" fill="#5B6170"/><rect x="4" y="18" width="5" height="1" fill="#5B6170"/><rect x="11" y="18" width="5" height="1" fill="#5B6170"/><rect x="4" y="19" width="5" height="1" fill="#5B6170"/><rect x="11" y="19" width="5" height="1" fill="#5B6170"/><rect x="4" y="20" width="4" height="1" fill="#5B6170"/><rect x="12" y="20" width="4" height="1" fill="#5B6170"/><rect x="3" y="21" width="5" height="1" fill="#5A4332"/><rect x="12" y="21" width="5" height="1" fill="#5A4332"/></svg><div id="home-gary"><article class="gary-entry is-latest" id="log-2026-10-28"><p class="gary-date"><time class="num" datetime="2026-10-28">oct 28</time> · <a href="/games/reel-weird/">reel weird</a></p><h3>the pond</h3><p>went fishing for 60 seconds. caught a boot, a phone and what i can only describe as a feeling. the pond kept the rod.</p></article></div></div>
+    <section class="home-sec" aria-labelledby="shelf-heading">
+      <div class="sec-head"><h2 id="shelf-heading" class="section-label">pick something stupid</h2><a class="text-link" href="/games/">every game →</a></div>
+      <ul class="shelf2" id="home-shelf"></ul>
     </section>
 
-    <section class="signup-block" aria-labelledby="signup-heading">
+    <section class="home-sec" aria-labelledby="lab-heading">
+      <div class="sec-head"><h2 id="lab-heading" class="section-label">from the lab</h2><a class="text-link" href="/lab/">vote on the next game →</a></div>
+      <ul class="lab-strip" id="home-lab"></ul>
+    </section>
+
+    <section class="home-sec signup-block" aria-labelledby="signup-heading">
       <h2 id="signup-heading" class="section-label">new games, in your inbox</h2>
       <form class="signup" data-signup data-source="landing" novalidate>
         <label class="visually-hidden" for="signup-email">email address</label>
@@ -95,6 +124,8 @@
       <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>
   </nav>
+  <script src="/assets/mascot.js" defer></script>
+  <script src="/assets/home.js" defer></script>
   <script src="/assets/signup.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>

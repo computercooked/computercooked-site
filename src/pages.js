@@ -24,10 +24,32 @@ export function garyEntry(e, catalog, first) {
     `<h3>${esc(e.title)}</h3><p>${esc(e.text)}</p></article>`;
 }
 
+// K-0044 redesign: the desktop's icons, the shelf's cards (clip on hover) and what the computer says about each game
+const LINES = {
+  crash: "that's me. i'm crash. it's a documentary.", "level-devil-exe": "the floor lies. so do i.", "one-percent-popup": "only 1% close it. you won't.",
+  "keyboard-escape": "every key makes it faster. don't.", "tab-hoarder": "this is literally my life.", "desktop-jam": "please clean my desktop.",
+  fathom: "a submarine. i get seasick.", bellchain: "it plays actual music. i hum along.", "pixel-purge": "my pictures got corrupted. help.",
+  "crash-cheats": "i cheat at tic tac toe. sue me.", "overdue-notice": "smash the bills. i can't pay them either.", "plus-one-ram": "+1 mb a second. i'm gaining.",
+  "smol-brains": "tiny creatures. tinier brains.", "reel-weird": "the pond keeps the rod.", "handbag-havoc": "granny is faster than you.", "crash-test-daily": "a new puzzle every day.",
+};
+const isNew = (g) => g.added && Date.now() - Date.parse(g.added) < 7 * 86400000;
+export function deskIcon(g) {
+  return `<li><a class="desk-icon" href="/games/${encodeURIComponent(g.slug)}/?ref=desk" data-slug="${esc(g.slug)}" data-pitch="${esc(g.pitch)}"` +
+    `${g.clip ? ` data-clip="${esc(g.clip)}"` : ""} data-line="${esc(LINES[g.slug] || "ooh. " + g.title + ".")}">` +
+    `<span class="ico"><img src="${esc(g.thumbnail)}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
+}
+export function card2(g) {
+  return `<li><a class="card2" href="/games/${encodeURIComponent(g.slug)}/?ref=shelf">${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
+    `<span class="thumb"><img src="${esc(g.thumbnail)}" alt="" width="320" height="200" loading="lazy" decoding="async">` +
+    `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
+    `<span class="meta"><b>${esc(g.title)}</b><small>${esc(g.pitch)}</small></span></a></li>`;
+}
+
 function featuredCard(g) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
-  return `<a class="feature-card" href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
-    `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" fetchpriority="high" decoding="async">` +
+  return `<a class="feature-card card2" href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
+    `<span class="thumb"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" decoding="async">` +
+    `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">${esc(g.title)}</h3>` +
     `<span class="feature-pitch">${esc(g.pitch)}</span>${tags ? `<span class="game-tags">${tags}</span>` : ""}</span></a>`;
 }
@@ -46,11 +68,19 @@ export async function homePage(req, env, url) {
   const rw = new HTMLRewriter();
   if (feat) {
     rw.on("#home-featured", { element(e) { e.setInnerContent(featuredCard(feat), { html: true }); } })
-      .on("a#home-play", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=landing`); e.setInnerContent(`play ${feat.title}`); } });
+      .on("a#home-play", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=landing`); e.setInnerContent(`play ${feat.title} ▶`); } });
   }
   if (ours) rw.on("[data-games-count]", { element(e) { e.setInnerContent(`all ${ours} games`); } });
   if (lab && lab.pipeline) rw.on("#home-lab", { element(e) { e.setInnerContent(lab.pipeline.slice(0, 4).map(labItem).join(""), { html: true }); } });
   if (log && log.entries && log.entries[0]) rw.on("#home-gary", { element(e) { e.setInnerContent(garyEntry(log.entries[0], catalog, true), { html: true }); } });
+  const mine = [...catalog.values()].filter((g) => g.made_by === "computer-cooked");
+  if (mine.length) {
+    // newest first, then the catalog's order; the desktop gets eight, the shelf gets everything
+    const order = mine.slice().sort((a, b) => (isNew(b) ? 1 : 0) - (isNew(a) ? 1 : 0));
+    const desk = (feat ? [feat] : []).concat(order.filter((g) => !feat || g.slug !== feat.slug)).slice(0, 8);
+    rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
+      .on("#home-shelf", { element(e) { e.setInnerContent(order.map(card2).join(""), { html: true }); } });
+  }
   const out = rw.transform(page);
   return new Response(out.body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" } });
 }

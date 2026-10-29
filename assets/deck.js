@@ -242,3 +242,48 @@
     if (a) { e.preventDefault(); a.click(); }
   });
 })();
+
+/* K-0044 redesign: any game card on any page (hub, game pages, search) plays the game's clip over its thumbnail on
+   hover or keyboard focus. Clips come from games.json, fetched on the first hover. Off for reduced motion and touch. */
+(function () {
+  "use strict";
+  if (!window.matchMedia || matchMedia("(prefers-reduced-motion: reduce)").matches || !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  var clips = null, asked = false;
+  function load(cb) {
+    if (clips) return cb();
+    if (asked) return;
+    asked = true;
+    fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
+      clips = {};
+      (d.games || []).forEach(function (g) { if (g.clip) clips[g.slug] = g.clip; });
+      cb();
+    }).catch(function () { clips = {}; });
+  }
+  var cur = null;
+  function start(a) {
+    var m = /\/games\/([a-z0-9-]+)\/?/.exec(a.getAttribute("href") || ""), img = a.querySelector("img.game-thumb");
+    if (!m || !img) return;
+    load(function () {
+      var src = clips[m[1]];
+      if (!src || cur !== a) return;
+      var v = a.querySelector("video.cc-peek");
+      if (!v) {
+        v = document.createElement("video");
+        v.className = "cc-peek"; v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute("aria-hidden", "true"); v.src = src;
+        v.style.cssText = "position:absolute;left:" + img.offsetLeft + "px;top:" + img.offsetTop + "px;width:" + img.offsetWidth + "px;height:" + img.offsetHeight + "px;object-fit:cover;image-rendering:pixelated;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .2s";
+        if (getComputedStyle(a).position === "static") a.style.position = "relative";
+        a.appendChild(v);
+      }
+      v.play().then(function () { if (cur === a) v.style.opacity = "1"; }).catch(function () {});
+    });
+  }
+  function stop(a) { var v = a && a.querySelector("video.cc-peek"); if (v) { v.style.opacity = "0"; try { v.pause(); } catch (e) {} } }
+  function over(e) {
+    var a = e.target.closest && e.target.closest(".game-card a.game-link, a.game-card-inner");
+    if (a === cur) return;
+    stop(cur); cur = a;
+    if (a) start(a);
+  }
+  document.addEventListener("pointerover", over, { passive: true });
+  document.addEventListener("focusin", over);
+})();
