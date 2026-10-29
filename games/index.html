@@ -81,6 +81,11 @@
 
     <section class="shelf" aria-labelledby="ours-heading">
       <h2 class="shelf-head" id="ours-heading">made by computer cooked <small data-count></small></h2>
+      <!-- the filter bar's twin: assets/fx.js swaps in the working one at the same height, so the grid never jumps (CLS) -->
+      <div class="hub-filters is-placeholder" aria-hidden="true" inert>
+        <label class="hub-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.4"/></svg><input type="search" placeholder="search games" tabindex="-1"></label>
+        <div class="chip-row"><button type="button" class="chip" aria-pressed="true">all</button><button type="button" class="chip">new</button><button type="button" class="chip">arcade</button><button type="button" class="chip">puzzle</button><button type="button" class="chip">chill</button><button type="button" class="chip">60s or less</button><button type="button" class="chip">rage</button><button type="button" class="chip">daily</button><button type="button" class="chip chip-random">🎲 random</button></div>
+      </div>
       <ul class="card-grid" id="shelf-computer-cooked">
         <li class="game-card">
           <div class="game-card-inner">
