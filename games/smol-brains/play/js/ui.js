@@ -379,7 +379,9 @@
   function buildToasts() { el.toasts = h("div", { class: "toasts" }); root.appendChild(el.toasts); }
   // at most two toasts on screen; the rest wait their turn (repeats are dropped, old news falls off)
   var toastQ = [];
+  var nightHeld = [];
   function toast(html, cls, ms) {
+    if (game && SB.FirstNight && SB.FirstNight.active(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
     if (live.length >= 2) { toastQ.push([html, cls, ms]); if (toastQ.length > 5) toastQ.shift(); return; }
@@ -421,6 +423,7 @@
   var momentQ = [], momentBusy = false;
   function moment(icon, big, sub, cls, first) {
     if (game && game.offlineRunning) return;
+    if (game && SB.FirstNight && SB.FirstNight.active(game)) return; // the first night speaks through the island
     if (first) momentQ.unshift([icon, big, sub, cls]); else momentQ.push([icon, big, sub, cls]); // big news (a new era) skips the queue
     if (!momentBusy) nextMoment();
   }
@@ -450,7 +453,7 @@
     if (game.offlineRunning) return; // the "welcome back" card sums up the catch-up
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
-    if ((game.playTime || 0) < UI.QUIET_START && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
+    if (((game.playTime || 0) < UI.QUIET_START || (SB.FirstNight && SB.FirstNight.active(game))) && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
     if (cardQ.length >= 2) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 6500); return; } // too many waiting: a toast instead
     cardQ.push([icon, title, paras]);
   }
@@ -1782,6 +1785,7 @@
   // the first question: guided or not. the guide is the opening steps plus tips for the whole game
   function askTutorial() {
     var st = game.tutorial, set = game.settings = game.settings || {};
+    if (SB.FirstNight && SB.FirstNight.wants(game)) { set.guide = true; st.step = 0; SB.FirstNight.start(game); tutShow(); return; }
     if (game.ngPlus || st.done || set.guide != null) { st.step = st.step || 0; tutShow(); return; }
     if (SB.Game.quickStart) { set.guide = true; st.step = 0; tutShow(); return; } // play now: the guide starts by itself ("skip tutorial" is always on its card)
     modal("🐣 play the tutorial?", h("div", null, [
@@ -1794,6 +1798,8 @@
     ]), { sticky: true, now: true });
   }
   UI.askTutorial = askTutorial;
+  // after the first night: the god's tools (reward, words, tricks) as the next lessons
+  UI.afterNight = function () { var held = nightHeld; nightHeld = []; held.forEach(function (t, k) { setTimeout(function () { toast(t[0], t[1], t[2]); }, 2500 + k * 1500); }); var st = game.tutorial; if (st.done) return; var i = TUT.map(function (d) { return d.id; }).indexOf("tickle"); st.step = i >= 0 ? i : st.step; tutShow(); };
   function guideOn() { return !game.settings || game.settings.guide !== false; }
   // the tutorial walks through every mechanic. "do" steps wait for you to try the thing; "read" steps
   // have a next button. it never blocks taps on the island, and it can be skipped at any point.
@@ -1816,6 +1822,7 @@
     [].forEach.call(document.querySelectorAll(".tutglow"), function (n) { n.classList.remove("tutglow"); });
     var st = game.tutorial;
     if (st.done) { state.tutStep = -1; return; }
+    if (SB.FirstNight && SB.FirstNight.active(game) && st.step >= 1) { state.tutStep = -1; return; } // the first night teaches by itself
     state.tutStep = st.step;
     if (st.step === 1) return; // name prompt handles it
     var d = TUT[st.step];
@@ -1945,7 +1952,7 @@
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
     ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
-    if (SB.TEST) { ok(); toast("🧪 test mode: the founders keep their names (" + esc(c.name) + (twin ? " & " + esc(twin.name) : "") + ")"); return; }
+    if (SB.TEST || (SB.FirstNight && SB.FirstNight.active(game))) { ok(); toast("🧪 test mode: the founders keep their names (" + esc(c.name) + (twin ? " & " + esc(twin.name) : "") + ")"); return; }
     modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true, now: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }

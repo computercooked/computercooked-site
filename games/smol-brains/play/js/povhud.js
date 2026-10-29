@@ -288,8 +288,11 @@
     hud.bAct2 = null;
     var intro = isPhone ? "left thumb walks · drag the right side to look · the big button does what it says · tap a hotbar slot to hold it"
       : "<kbd>WASD</kbd>walk <kbd>mouse</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
+    if (s.firstNight) setTimeout(function () { HUD.beat("you are " + c.name, "run! grab sticks, light the nest", true); }, 400); // the first night: a beat, not a card over the grump
+    else {
     hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
+    }
     setTimeout(fadeIntro, 4000);
     document.body.appendChild(root);
     document.body.classList.add("pov");
@@ -405,20 +408,20 @@
     if (!g) { hud.gmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
     var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z);
     mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0);
-    var txt = (g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
+    var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
     if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
     hud.threat.classList.add("on");
     return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };
   }
   function questMarker() {
     var home = threatMarker();
-    var s = S(), q = s && s.quest, t = home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the way home from a grump, the nose, home at night, then the guide
+    var s = S(), q = s && s.quest, t = (s && s.goal) || home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
-    hud.qmark.classList.toggle("home", !!home);
+    hud.qmark.classList.toggle("home", !!home || !!(s && s.goal));
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
     mark(hud.qmark, t, d, 1.4);
-    if (home) { var sp = hud.qmark.querySelector("span"), lb = "🏠 home " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
+    if (home || s.goal) { var sp = hud.qmark.querySelector("span"), lb = (s.goal ? s.goal.label : "🏠 home") + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
   }
   function mark(m, t, d, minD) {
     var s = S(), c = s.c, R = SB.Render;
