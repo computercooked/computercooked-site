@@ -221,3 +221,6 @@
 [data-frame="golden"] { --frame-g: linear-gradient(135deg, #fff2a8, #ffd84d 40%, #b8860b 70%, #ffd84d); box-shadow: none; }
 .me-feed li.is-level span { color: var(--lime); }
 .me-feed li.is-friend span { color: var(--lilac); }
+
+/* K-0030 step 3 */
+.me-note { margin: 0; color: var(--text-dim); font-size: var(--fs-12); }

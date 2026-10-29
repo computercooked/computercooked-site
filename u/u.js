@@ -41,10 +41,11 @@
 
   Promise.all([
     fetch("/games/games.json").then(function (r) { return r.json(); }).catch(function () { return { games: [] }; }),
-    fetch("/api/u/" + encodeURIComponent(name)).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    fetch("/api/u/" + encodeURIComponent(name)).then(function (r) { return r.json().catch(function () { return null; }); }).catch(function () { return null; })
   ]).then(function (res) {
     (res[0].games || []).forEach(function (g) { catalog[g.slug] = g; });
     var p = res[1];
+    if (p && p.moved && /^[A-Za-z0-9_]{3,16}$/.test(p.moved)) { location.replace("/u/" + p.moved); return; } // renamed in the last 30 days
     if (!p || !p.ok) return missing();
     var shown = p.display_name || p.username;
     document.title = shown + " — Computer Cooked Games";

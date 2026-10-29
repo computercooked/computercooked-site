@@ -138,6 +138,13 @@ export async function exportData(env, user) {
 export async function publicProfile(env, username, origin, viewer) {
   if (typeof username !== "string" || !/^[A-Za-z0-9_]{3,16}$/.test(username)) return bad("no such player", 404);
   const u = await env.DB.prepare("SELECT id, username, avatar, status, created_at FROM users WHERE username = ?").bind(username).first();
+  if (!u) {
+    // K-0030 step 3: a name changed in the last 30 days points to the new one
+    const m = await env.DB.prepare(
+      "SELECT u.username FROM username_history h JOIN users u ON u.id = h.user_id WHERE h.old_name = ? AND h.changed_at > ? AND u.status = 'active' ORDER BY h.changed_at DESC LIMIT 1"
+    ).bind(username, Date.now() - 30 * 86400000).first("username");
+    if (m) return json({ ok: false, error: "this player has a new name", moved: m }, 404);
+  }
   if (!u || u.status !== "active") return bad("no such player", 404);
   const p = shape(await row(env, u.id));
   const xp = levelOf(await totalXp(env, u.id));
