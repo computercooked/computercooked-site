@@ -10,6 +10,15 @@
   font-display: swap;
   src: url("/assets/fonts/inter-latin-wght.woff2") format("woff2");
 }
+/* Arial sized to Inter's metrics: text laid out before Inter arrives keeps its line breaks when it swaps in (no CLS) */
+@font-face {
+  font-family: "Inter fallback";
+  src: local("Arial"), local("ArialMT"), local("Helvetica");
+  size-adjust: 107.1%;
+  ascent-override: 90.4%;
+  descent-override: 22.5%;
+  line-gap-override: 0%;
+}
 @font-face {
   font-family: "Pixelify Sans";
   font-style: normal;
@@ -41,8 +50,8 @@
   --alarm: #ff5a4e;
 
   /* type: one pixel display face for h1/h2/game titles, Inter for everything else, mono only for numbers */
-  --display: "Pixelify Sans", "Inter", system-ui, sans-serif;
-  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Pixelify Sans", "Inter", "Inter fallback", system-ui, sans-serif;
+  --sans: "Inter", "Inter fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --fs-12: 0.75rem;
   --fs-14: 0.875rem;
