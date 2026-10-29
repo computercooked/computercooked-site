@@ -101,6 +101,12 @@ export class Stage {
       const rg = c.createRadialGradient(gb.x, gb.y, 2, gb.x, gb.y, r * 2.2); rg.addColorStop(0, '#fff3a0cc'); rg.addColorStop(1, '#fff3a000');
       c.fillStyle = rg; c.beginPath(); c.arc(gb.x, gb.y, r * 2.2, 0, TAU); c.fill();
       this.drawBell(gb.x, gb.y, r, Math.sin(this.t * 4) * 0.25, 1, '#ffe14a', { bell: ['#ffd23f', '#fff6c2', '#a87a00'], acc: '#ffe14a' });
+      // K-0034: a gold glint on the nearest screen edge, so it catches the eye from anywhere
+      const ex = gb.x < this.w / 2 ? 0 : this.w, ew = Math.min(90, this.w * 0.12);
+      const eg = c.createLinearGradient(ex, 0, ex === 0 ? ew : this.w - ew, 0);
+      eg.addColorStop(0, '#ffe14a'); eg.addColorStop(1, '#ffe14a00');
+      c.globalAlpha = Math.max(0, a) * (0.25 + 0.2 * Math.sin(this.t * 6));
+      c.fillStyle = eg; c.fillRect(ex === 0 ? 0 : this.w - ew, 0, ew, this.h);
       c.globalAlpha = 1;
     }
     // floating notes
