@@ -135,7 +135,10 @@
   };
   // miracles get dearer the more you lean on them (it cools off over a few minutes), and cost double
   // when you're running time fast: a god at 8× or 16× isn't really paying attention
+  // a sandbox island (create world → mode): free miracles, a spawn palette in ✨ magic, no leaderboard score
+  Game.sandbox = function (game) { var w = game && game.settings && game.settings.world; return !!(w && w.mode === "sandbox"); };
   Game.miracleCost = function (game, base) {
+    if (Game.sandbox(game)) return 0;
     var heat = game.godHeat || 0, fast = game.speed >= 8 ? 2 : 1;
     return Math.round(base * (1 + 0.3 * heat) * fast);
   };
@@ -178,6 +181,21 @@
     return c;
   };
 
+  // the sandbox palette: put something down at x, z. -> what was made (or null)
+  Game.SPAWNS = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "egg", "grump", "food"];
+  Game.sandboxSpawn = function (game, what, x, z) {
+    if (!Game.sandbox(game) || !SB.World.walkable(game.world, x, z)) return null;
+    var m = /^t(\d)$/.exec(what);
+    if (m) {
+      var t = +m[1], c = Game.spawnSmol(game, { genome: SB.Genome.forTier(game.rng, t), x: x, z: z, age: 700, how: "sandbox" });
+      c.asleep = false; game.stats.maxTier = Math.max(game.stats.maxTier || 0, c.tier);
+      return c;
+    }
+    if (what === "egg") return SB.World.add(game.world, game, "egg", x, z, { genome: SB.Genome.random(game.rng, { species: "smol" }), parents: [], gen: 1, progress: 0.6 });
+    if (what === "grump") return Game.spawnGrump(game, x, z);
+    if (what === "food") { var out = null; for (var i = 0; i < 5; i++) out = SB.World.add(game.world, game, game.rng.pick(["apple", "berry", "banana"]), x + game.rng.range(-1.2, 1.2), z + game.rng.range(-1.2, 1.2), {}); return out; }
+    return null;
+  };
   Game.spawnGrump = function (game, x, z) {
     var c = SB.Creature.create(game, { species: "grump", genome: SB.Genome.random(game.rng, { species: "grump" }), name: "grump", x: x, z: z, gen: 1, age: 900 });
     game.creatures.push(c);
@@ -416,7 +434,50 @@
   // fresh food on the island per smol (same refresh as colonyHunger)
   Game.foodPerSmol = function (game) { Game.colonyHunger(game); return game._foodPer; };
 
+  /* ⏭ skip to the next interesting thing (plan-hands-on M2 "pace"): time runs at 16x until something worth
+     seeing happens (a hatch, growing up, an egg, a wish, a prayer, a discovery, trouble), or half a day passes.
+     Then it drops back to the speed you had and says what happened. Not while you're in a smol's eyes. */
+  Game.SKIP_MAX = SB.DAY_LENGTH * 0.5;
+  var SKIP_ON = {
+    hatch: function (d) { return { why: "🐣 " + d.c.name + " hatched!", c: d.c }; },
+    grow: function (d) { return !d.c || d.c.stage < 3 ? null : { why: "🌱 " + d.c.name + " is now " + (SB.STAGES[d.c.stage] ? (d.c.stage >= 3 ? "an " : "a ") + SB.STAGES[d.c.stage].name : "older"), c: d.c }; },
+    egg: function (d) { return { why: "🥚 an egg!", c: d.obj }; },
+    wildEgg: function (d) { return { why: "🥚 a wild egg turned up", c: d.obj }; },
+    partners: function (d) { return { why: "💕 " + d.a.name + " and " + d.b.name + " paired up", c: d.a }; },
+    tierUp: function (d) { return { why: "🧬 " + d.c.name + " evolved!", c: d.c }; },
+    eureka: function (d) { return d.first ? { why: "💡 " + d.c.name + " had an idea!", c: d.c } : null; },
+    incident: function (d) { var i = d.inc || {}; return { why: (i.icon || "⚠") + " " + (i.title || "something's happening"), c: i }; },
+    stranger: function (d) { return { why: "🧳 a stranger turned up", c: d.c }; },
+    drowning: function (d) { return { why: "🌊 " + d.c.name + " is drowning!", c: d.c }; },
+    death: function (d) { return d.c && d.c.species === "smol" ? { why: "🕯 " + d.c.name + " died", c: d.c } : null; },
+    grumpArrive: function (d) { return { why: "👹 a grump!", c: d.c }; }
+  };
+  Game.skip = function (game) {
+    if (!game || game.skip || (SB.Possess && SB.Possess.active)) return false;
+    game.skip = { from: game.speed || 1, t0: game.time, until: game.time + Game.SKIP_MAX };
+    game.speed = 16;
+    return true;
+  };
+  Game.skipStop = function (game, what) {
+    var s = game && game.skip;
+    if (!s) return false;
+    game.skip = null;
+    game.speed = s.from || 1;
+    SB.bus.emit("skipDone", { why: what ? what.why : "🌙 half a day went by quietly", at: what ? what.c : null });
+    return true;
+  };
+  Object.keys(SKIP_ON).forEach(function (k) {
+    SB.bus.on(k, function (d) {
+      var g = Game.current;
+      if (!g || !g.skip || g.offline || g.time < g.skip.t0 + 2) return; // not the echo of what just happened (a twin growing up too)
+      var w = null;
+      try { w = SKIP_ON[k](d || {}); } catch (e) { w = null; }
+      if (w) Game.skipStop(g, w);
+    });
+  });
   Game.step = function (game, dt) {
+    if (game.skip && game.speed !== 16) { game.skip = null; SB.bus.emit("skipDone", { why: "⏭ stopped", at: null }); } // you changed the speed yourself: keep yours
+    else if (game.skip && game.time >= game.skip.until) Game.skipStop(game, null); // half a day, nothing much
     game.time += dt;
     reindex(game);
     SB.World.rebuildCreatureGrid(game.world, game);
@@ -466,7 +527,7 @@
     if (smols.length >= 10) Game.unlock(game, "pop10");
     if (smols.length >= 25) Game.unlock(game, "pop25");
     if (game.time / SB.DAY_LENGTH >= 2.7) Game.unlock(game, "day7");
-    if (game.world.dayIndex >= SB.SEASON_DAYS * 4) Game.unlock(game, "winter");
+    if (game.time / SB.DAY_LENGTH >= SB.seasonDays(game) * 4) Game.unlock(game, "winter");
     var eggs = game.world.items.some(function (o) { return o.kind === "egg"; });
     // extinction is not a dead end: a wild egg turns up in the nest
     if (!smols.length && !eggs && game.stats.hatched > 0) {
@@ -519,7 +580,7 @@
       if (c.visited && Object.keys(c.visited).length >= 6) Game.unlock(game, "explorer");
       if (c.gen >= 1) game.lastGenome = c.genome;
     }
-    if (game.stats.bestIQ > best && window.cc && cc.score) try { cc.score(Game.score(game)); } catch (e) {}
+    if (game.stats.bestIQ > best && window.cc && cc.score && !Game.sandbox(game)) try { cc.score(Game.score(game)); } catch (e) {}
     var found = Object.keys(game.culture.found).length;
     if (found >= 1) Game.unlock(game, "eureka");
     if (found >= 5) Game.unlock(game, "ideas5");
@@ -553,7 +614,7 @@
     var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning;
     if (!paused) {
       farFlags(game);
-      acc += dtReal * game.speed;
+      acc += dtReal * game.speed * Game.pace(game);
       var steps = 0;
       var ts0 = performance.now();
       while (acc >= SB.TICK && steps < 24) { Game.step(game, SB.TICK); acc -= SB.TICK; steps++; }
@@ -568,9 +629,16 @@
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }
     scoreT += dtReal;
-    if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score && !game.showcase) try { cc.score(Game.score(game)); } catch (e) {} }
+    if (scoreT > 30) { scoreT = 0; if (window.cc && cc.score && !game.showcase && !Game.sandbox(game)) try { cc.score(Game.score(game)); } catch (e) {} }
   }
 
+  // a calm start (K-0021: "09:00 to 18:00 in about 10 min"): at 1x the first two days run at 0.6 and the third
+  // at 0.8, the whole sim together (clock, hunger, eggs), so a new island isn't a blur. fast-forward is untouched
+  Game.pace = function (g) {
+    if (!g || g.speed !== 1 || g.showcase) return 1;
+    var day = Math.floor((g.time || 0) / SB.DAY_LENGTH) + 1;
+    return day <= 2 ? 0.6 : day === 3 ? 0.8 : 1;
+  };
   Game.start = function (g) {
     game = Game.current = g;
     acc = 0;
@@ -713,6 +781,7 @@
     var g = Game.newGame(o.seed || 0, o.n || 0, o.world || { gv: SB.WORLD_GV });
     g.wid = SB.Save.newWid(); g.wname = o.name || null;
     if (o.story) g.settings.storyteller = o.story;
+    if (o.seasons === "short") g.settings.seasons = "short";
     try { history.replaceState(null, "", cleanUrl()); } catch (e) {}
     Game.fromTitle = true;
     enter(g, { fresh: true });

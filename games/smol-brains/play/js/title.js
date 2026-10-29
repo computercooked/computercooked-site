@@ -217,10 +217,11 @@
   function metaLine(m) { return "day " + m.day + " · " + (m.pop ? m.pop + " smol" + (m.pop === 1 ? "" : "s") + " · " + tierName(m.tier) : "still in the pod") + " · " + ({ 256: "classic", 384: "small", 512: "big", 544: "medium", 768: "large", 1024: "extra large" }[m.n] || m.n) + " island"; }
 
   function mainMenu() {
-    var ws = SB.Save.worlds(), last = ws[0];
+    var ws = SB.Save.worlds(), last = ws[0], recent = last && Date.now() - (last.savedAt || 0) < 12 * 3600 * 1000; // an old island isn't the default (K-0025)
+    var cont = last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), recent ? "go big" : "small", function () { play(last.id); }) : null;
+    var now = btn("▶ play now", last ? "a fresh island, playing in seconds" : "jump straight in: a fresh island, ready in seconds", recent ? "" : "go big", function () { createWorld({ quick: true }); });
     setPane([
-      last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), "go big", function () { play(last.id); }) : null,
-      btn("▶ play now", last ? "a fresh island, playing in seconds" : "jump straight in: a fresh island, ready in seconds", last ? "" : "go big", function () { createWorld({ quick: true }); }),
+      recent ? cont : now, recent ? now : cont,
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
       btn("📂 load game", ws.length ? ws.length + " island" + (ws.length === 1 ? "" : "s") + " saved" : "nothing saved yet", ws.length ? "" : "dim", function () { loadGame(); }),
       btn("⚙ settings", "text size · sound", "small", function () { settings(); })
@@ -262,6 +263,7 @@
 
   /* ---------------- create world ---------------- */
   var LABELS = {
+    mode: ["mode", [["normal", "normal", ""], ["sandbox", "🧪 sandbox", "spawn smols of any tier, eggs, grumps and food from ✨ magic. miracles are free. not on the leaderboard"]]],
     size: ["island size", [["small", "small", "quick to explore. best on phones"], ["normal", "medium", "lots to explore"], ["large", "large", "huge. slow to make and to play on phones"], ["huge", "extra large", "enormous. needs a fast computer: phones will struggle"]]],
     shape: ["island shape", [["surprise", "🎲 surprise", "any of the shapes below"], ["classic", "classic", "one big rolling island"], ["volcano", "volcano", "a huge cone with a crater, black ash and hot vents"], ["twin", "twin isles", "two islands joined by a sandbar"], ["crescent", "crescent bay", "a ring of land around a sheltered bay"], ["mesa", "mesas", "red table-top hills and canyons"], ["delta", "river delta", "flat wet land where rivers fan out"], ["lakes", "lake district", "green hills full of lakes"], ["fjord", "fjord coast", "deep sea inlets between cliffs"]]],
     land: ["land", [["isles", "little isles", "smaller islands, more sea"], ["island", "one island", ""], ["big", "big land", "more land, fewer beaches"]]],
@@ -271,13 +273,14 @@
     grumps: ["grumps", [["none", "none", "no grumps at night"], ["few", "few", ""], ["normal", "normal", ""], ["many", "lots", "hard nights"]]],
     storms: ["weather", [["calm", "calm", "few storms"], ["normal", "normal", ""], ["wild", "wild", "storms, lightning, wildfires"]]],
     story: ["storyteller", [["calm", "gentle", "fewer events, more breathing room"], ["balanced", "balanced", ""], ["wild", "wild", "events come thick and fast"]]],
+    seasons: ["seasons", [["normal", "normal", "40 minutes each"], ["short", "short", "10 minutes each: a whole year in under an hour"]]],
     crew: ["escape pods", [["pair", "one pod", "two smols, a girl and a boy"], ["crew", "two pods", "four smols: a faster start"]]]
   };
-  var ORDER = ["size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "crew"];
+  var ORDER = ["mode", "size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "seasons", "crew"];
   function islandName(r) { var w = SB.makeName ? SB.makeName(r) : "smol"; return (r() < 0.5 ? w + " island" : r() < 0.5 ? "isle of " + w : w + " cove").toLowerCase(); }
   function createWorld(pre) {
     var r = SB.rng((Math.random() * 1e9) >>> 0);
-    var st = { name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", crew: "pair", quirk: "surprise" };
+    var st = { mode: pre.mode || "normal", name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", seasons: "normal", crew: "pair", quirk: "surprise" };
     var more = false;
     function rowFor(k) {
       var L = LABELS[k], cur = L[1].find(function (o) { return o[0] === st[k]; });
@@ -300,7 +303,7 @@
     function draw() {
       var nameIn = h("input", { class: "ts-in", maxlength: "32", value: st.name, "aria-label": "world name", oninput: function () { st.name = this.value; } });
       var seedIn = h("input", { class: "ts-in mono", maxlength: "16", value: st.seed, placeholder: "random", "aria-label": "world code", oninput: function () { st.seed = this.value; } });
-      var opts2 = h("div", { class: "ts-opts" }, (more ? ORDER : ORDER.slice(0, 3)).map(rowFor).concat([more ? quirkRow() : null]));
+      var opts2 = h("div", { class: "ts-opts" }, (more ? ORDER : ORDER.slice(0, 4)).map(rowFor).concat([more ? quirkRow() : null]));
       setPane([
         h("h2", { text: "create world" }),
         h("div", { class: "ts-field" }, [h("label", { text: "world name" }), h("div", { class: "ts-inrow" }, [nameIn, h("button", { class: "ts-dice", title: "another name", onclick: function () { sfx("click"); st.name = islandName(r); draw(); } }, "🎲")])]),
@@ -314,7 +317,7 @@
       SB.Game.quickStart = !!pre.quick; // play now: no opening film, straight to the pod (the menu can show the film)
       var seed = st.seed && SB.parseWorldCode(st.seed) || SB.newSeed();
       var q = st.quirk === "surprise" ? (Math.random() < 0.75 ? [SB.pick ? SB.pick(Object.keys(SB.QUIRKS)) : Object.keys(SB.QUIRKS)[(Math.random() * Object.keys(SB.QUIRKS).length) | 0]] : []) : st.quirk === "none" ? [] : [st.quirk];
-      var world = { gv: SB.WORLD_GV, arch: st.shape === "surprise" ? undefined : st.shape, size: st.size, land: st.land, peaks: st.peaks, climate: st.climate, food: st.food, grumps: st.grumps, storms: st.storms, crew: st.crew, quirks: q, surprise: st.quirk === "surprise" };
+      var world = { gv: SB.WORLD_GV, arch: st.shape === "surprise" ? undefined : st.shape, size: st.size, land: st.land, peaks: st.peaks, climate: st.climate, food: st.food, grumps: st.grumps, storms: st.storms, crew: st.crew, quirks: q, surprise: st.quirk === "surprise", mode: st.mode === "sandbox" ? "sandbox" : undefined };
       var name = (st.name || "").trim().slice(0, 32) || islandName(r);
       setPane([h("div", { class: "ts-wait", html: "growing <b>" + esc(name) + "</b>…<br><small>raising mountains, digging rivers</small>" })]);
       SB.Save.stash().then(function (kept) {
@@ -327,7 +330,7 @@
         return true;
       }).then(function (yes) {
         if (!yes) return;
-        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, name: name }); }, 60);
+        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, seasons: st.seasons, name: name }); }, 60);
       });
     }
     if (pre.quick) go(); else draw();

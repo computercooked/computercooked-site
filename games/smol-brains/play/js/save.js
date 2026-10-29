@@ -251,6 +251,29 @@
     try { window.localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
     Save.note(d);
   };
+  // save slots (the bot's K-0011): keep a copy of this island as it is now. The copy is its own island in
+  // 📂 load game ("name · day 12"), so you can go back to it; playing it carries on from there and never
+  // touches the original. -> promise of the copy's meta, or null (no IndexedDB, or it couldn't be written)
+  Save.keepCopy = function (game) {
+    if (!game || game.showcase) return Promise.resolve(null);
+    Save.save(game);
+    var snap;
+    try { snap = Save.snapshot(game); } catch (e) { return Promise.resolve(null); }
+    var day = Math.floor(num(snap.time, 0) / SB.DAY_LENGTH) + 1, base = String(game.wname || "my first island").replace(/ · day \d+( \(\d+\))?$/, "");
+    snap.wid = Save.newWid();
+    snap.wname = (base + " · day " + day).slice(0, 40);
+    snap.copyOf = game.wid || null;
+    snap.savedAt = Date.now();
+    var json = JSON.stringify(snap);
+    return idb("put", snap.wid, json).then(function (ok) {
+      if (!ok) return null;
+      var ix = readIndex(), m = Save.meta(snap);
+      ix.list.push(m); // the island you're on stays the active one
+      writeIndex(ix);
+      return m;
+    });
+  };
+  Save.copies = function (game) { var wid = game && game.wid; return readIndex().list.filter(function (e) { return e && e.id !== wid && e.name && game && e.name.indexOf(String(game.wname || "").replace(/ · day \d+.*$/, "") + " · day ") === 0; }); };
   Save.removeWorld = function (wid) {
     var cur = Save.load();
     if (cur && (cur.wid || "legacy") === wid) {

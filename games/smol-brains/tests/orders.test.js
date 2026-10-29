@@ -54,6 +54,21 @@ console.log("1b. a rally flag is a go-there for blobs");
   check("trusting blobs go there", near >= 4, near + "/8");
 }
 
+console.log("1c. K-0022: the first rally works even for blobs who barely trust you, and says why for the rest");
+{
+  const { SB, game, cs, h } = tribe(14, 0, 8, 0.2);
+  const p = spotAway(SB, game, h, 14);
+  const res = SB.Orders.place(game, "rally", p.x, p.z);
+  check("the first flag is marked", res.ok && res.o && res.o.first === 1);
+  runFed(SB, game, 40);
+  const near = cs.filter(c => c.alive && SB.dist(c.x, c.z, p.x, p.z) < 5).length;
+  check("most blobs go to the first flag", near >= 5, near + "/8 (trust 0.2)");
+  cs.forEach(c => { c.ord = {}; c.chem.hunger = 0.9; });
+  const o2 = SB.Orders.place(game, "rally", p.x + 3, p.z).o;
+  cs.forEach(c => SB.Orders.decide(c, game, o2));
+  check("a starving blob's no comes with a reason", o2.whys && o2.whys["😋 hungry"] >= 1, JSON.stringify(o2.whys));
+}
+
 console.log("2. a rally gathers the willing");
 let highNear = 0, lowNear = 0;
 {
@@ -75,6 +90,7 @@ console.log("3. low trust: fewer followers");
 {
   const { SB, game, cs, h } = tribe(21, 3, 10, 0.05, (SB, game, cs) => cs.forEach(c => { c.genome.genes.obedience = 0.2; }));
   const p = spotAway(SB, game, h, 16);
+  SB.Orders.ensure(game).rallies = 5; // not a first flag (those always pull a few, §1c)
   SB.Orders.place(game, "rally", p.x, p.z);
   runFed(SB, game, 40);
   lowNear = cs.filter(c => c.alive && SB.dist(c.x, c.z, p.x, p.z) < 5).length;

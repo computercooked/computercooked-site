@@ -63,17 +63,33 @@
     return SB.clamp(w, 0.02, 0.97);
   };
 
+  // why a smol said no, short enough for a bubble and the order's chip
+  O.why = function (c, game) {
+    var ch = c.chem;
+    if (ch.hunger > 0.5) return "😋 hungry";
+    if (ch.fear > 0.5) return "😨 scared";
+    if (ch.sick > 0.4 || ch.pain > 0.4) return "🤒 poorly";
+    if (ch.sleepy > 0.7) return "😴 sleepy";
+    if (gene(c, "obedience") < 0.3) return "🙄 stubborn";
+    if (O.trust(c) < 0.35) return "🤨 doesn't trust you yet";
+    return "🤔 busy";
+  };
   // decide once per order (a refusal is reconsidered after a while), and say so
   function decide(c, game, o) {
     var d = c.ord || (c.ord = {}), k = o.id, prev = d[k];
     if (prev && (prev.f || game.time - prev.t < REROLL || prev.n >= 2)) return !!prev.f; // a refusal gets two more thoughts, then that's that
-    var p = O.willing(c, game, o.kind, o), f = rng(game)() < p;
+    var p = O.willing(c, game, o.kind, o);
+    // the first rally flags you put down always pull a few (K-0022: "rally is a dud"): anyone who isn't starving or
+    // terrified comes, as long as they can hear it
+    if (o.first && o.kind === "rally" && c.chem.hunger < 0.75 && c.chem.fear < 0.7 && !c.asleep) p = 1;
+    var f = rng(game)() < p;
     d[k] = { f: f ? 1 : 0, t: game.time, n: prev ? (prev.n || 0) + 1 : 0 };
     var od = game.orders;
-    if (f) { od.followed++; o.yes = (o.yes || 0) + 1; } else { od.refused++; o.no = (o.no || 0) + 1; }
-    if (!c.far && !c.speech && !prev) {
-      if (c.tier >= 3) SB.Creature.say(c, f ? rng(game).pick(FOLLOW) : c.chem.hunger > 0.5 ? "food first" : rng(game).pick(NAH), game);
-      else if (SB.Creature.emote) SB.Creature.emote(c, f ? "idea" : "huh", 1.4);
+    if (f) { od.followed++; o.yes = (o.yes || 0) + 1; } else { od.refused++; o.no = (o.no || 0) + 1; var why = O.why(c, game); o.whys = o.whys || {}; o.whys[why] = (o.whys[why] || 0) + 1; }
+    if (!c.far && !prev) {
+      // everyone shows it: a 🚩 over the ones on their way, the reason over the ones who won't
+      if (f) SB.Creature.say(c, c.tier >= 3 ? rng(game).pick(FOLLOW) : O.KINDS[o.kind].e + "!", game);
+      else SB.Creature.say(c, c.tier >= 3 && c.chem.hunger <= 0.5 ? rng(game).pick(NAH) + " (" + O.why(c, game).split(" ").slice(1).join(" ") + ")" : O.why(c, game), game, "think");
     }
     SB.bus.emit(f ? "orderFollow" : "orderRefuse", { c: c, o: o });
     return f;
@@ -103,7 +119,9 @@
     for (var k in extra) o[k] = extra[k];
     od.list.push(o);
     od.placed++;
+    if (kind === "rally") { od.rallies = (od.rallies || 0) + 1; if (od.rallies <= 2) o.first = 1; } // the first two always work (see decide)
     heatUp(game, K.cost);
+    if (kind === "rally") SB.Game.smols(game).forEach(function (c) { if (c.alive && !c.held && SB.dist(c.x, c.z, x, z) < 90) decide(c, game, o); }); // the chip says "N going, M nah" at once (K-0025)
     SB.Game.unlock && SB.Game.unlock(game, "order");
     SB.bus.emit("order", { o: o });
     return o;

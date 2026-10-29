@@ -154,10 +154,20 @@
     return s;
   };
   // is it doing the trick's verb right now (or did it just)?
+  // a tickle (or tap) up to GRACE seconds after it finished still counts (K-0021: "the window is too short")
+  T.GRACE = 2.5;
   T.doing = function (c, game, d) {
     var v = SB.V[d.verb || d.avoid], a = c.action;
     if (a && a.verb === v && (a.phase === "do" || v === SB.V.approach)) return true;
-    return !!(c.lastDone && c.lastDone.a === v && game.time - c.lastDone.t < 1.5);
+    return !!(c.lastDone && c.lastDone.a === v && game.time - c.lastDone.t < T.GRACE);
+  };
+  // in a session, a lesson just after the thing goes to the thing (not to the walk it has started since)
+  T.target = function (c, game) {
+    var s = T.session(c, game), d = s && T.BY[s.id];
+    if (!d) return null;
+    var v = SB.V[d.verb || d.avoid], a = c.action;
+    if (a && a.verb === v) return null; // still at it: the usual rule finds it
+    return c.lastDone && c.lastDone.a === v && game.time - c.lastDone.t < T.GRACE && c.lastDone.x ? c.lastDone : null;
   };
   // the hand asks before a lesson lands (creature.js tickle/tap). sign: +1 tickle, -1 tap. false = hold it back
   T.gate = function (c, game, sign) {

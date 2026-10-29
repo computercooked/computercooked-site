@@ -64,6 +64,9 @@
   SB.DAY_LENGTH = 1200;    // sim seconds per day (20 min at 1x, like minecraft: ~13 min of day, ~7 of night)
   SB.SEASON_DAYS = 2;      // spring, summer, autumn, winter (40 min each)
   SB.SEASONS = ["spring", "summer", "autumn", "winter"];
+  // days per season on this island: "short" seasons (an island setting) last half a day, 10 min at 1x
+  SB.SHORT_SEASON_DAYS = 0.5;
+  SB.seasonDays = function (game) { return game && game.settings && game.settings.seasons === "short" ? SB.SHORT_SEASON_DAYS : SB.SEASON_DAYS; };
   SB.SPEEDS = [0, 1, 2, 4, 8, 16];
 
   SB.STAGES = [

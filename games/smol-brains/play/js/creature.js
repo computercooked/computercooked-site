@@ -175,6 +175,8 @@
       say(c, word + "!", game);
       emote(c, "idea", 2);
       SB.bus.emit("learnWord", { c: c, word: word });
+      // it says its new word to whoever's near, and they pick some of it up (each smol passes a word on once)
+      if (c.species === "smol" && SB.World && SB.World.creaturesNear) SB.World.creaturesNear(game.world, game, c.x, c.z, 6, function (o) { if (o !== c && o.species === "smol" && o.alive && !o.asleep && (o.vocab[word] || 0) < 1) learnWord(o, word, 0.2, game); });
       var n = C.knownCount(c);
       if (n >= 1) SB.Game.unlock(game, "word1");
       if (n >= 5) SB.Game.unlock(game, "word5");
@@ -1145,6 +1147,8 @@
       if (n.kind === "boulder" && verb === "hit" && game.rng.chance(0.3)) { SB.World.dropFrom(game.world, game, n, "stone"); res.ok = true; }
     } else if (verb === "eat" && NIBBLE[n.kind]) {
       res.deltas.hunger = -NIBBLE[n.kind]; res.ok = true;
+      if (!c.far) emote(c, "yum", 1.2);
+      SB.bus.emit("nibble", { c: c, node: n }); // a nibble is eating too (the blob guide's first step, K-0021)
     } else if (verb === "pickup" && SB.Ideas) {
       var g = SB.Ideas.GATHER[n.kind];
       if (g && c.tier >= g[3] && n.state === "ok" && game.world.items.length < 420) {
@@ -1507,8 +1511,9 @@
   /* ---------------- the hand ---------------- */
 
   function lesson(c, game, delta) {
-    var a = c.action, t = null;
-    if (c.plan && c.plan.x) t = { x: c.plan.x, a: c.plan.verb };
+    var a = c.action, t = null, tt = SB.Tricks && SB.Tricks.target ? SB.Tricks.target(c, game) : null;
+    if (tt) t = tt;
+    else if (c.plan && c.plan.x) t = { x: c.plan.x, a: c.plan.verb };
     else if (a && a.x && (a.phase === "do" || a.verb === V.approach)) t = { x: a.x, a: a.verb };
     else if (c.lastDone && game.time - c.lastDone.t < 2.5) t = c.lastDone;
     var b = c.brain, probe = t && t.x.length === b.nIn ? t : null;

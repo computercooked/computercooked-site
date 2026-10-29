@@ -52,10 +52,15 @@
     try { if (window.parent !== window) window.parent.postMessage({ type: "cc-save-status", state: state, game: saveGame }, location.origin); } catch (e) {}
   }
 
+  // Portal builds (scripts/package-portal.mjs sets window.CC_PORTAL) have no computercooked.com API on their host:
+  // never call it there, so portal QA consoles stay free of 404s. Everything falls back to this device, as offline.
+  function health() {
+    if (window.CC_PORTAL) return Promise.resolve(null);
+    return fetch("/api/health", { credentials: "same-origin" }).then(function (r) { return r.ok ? r.json() : null; });
+  }
   var me = undefined, userFns = [], meReq = null; // undefined = not known yet
   function fetchUser() {
-    meReq = fetch("/api/health", { credentials: "same-origin" })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    meReq = health()
       .then(function (h) { return h && h.db ? fetch("/api/me", { credentials: "same-origin" }).then(function (r) { return r.ok ? r.json() : null; }) : null; })
       .then(function (j) { return j && j.user ? { id: j.user.id, name: j.user.username, level: j.user.level || 1, avatar: j.user.avatar } : null; })
       .catch(function () { return null; })
@@ -306,8 +311,7 @@
   var apiUp = null;
   function apiReady() {
     if (apiUp) return apiUp;
-    apiUp = fetch("/api/health", { credentials: "same-origin" })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    apiUp = health()
       .then(function (j) { return !!(j && j.db); })
       .catch(function () { return false; });
     return apiUp;

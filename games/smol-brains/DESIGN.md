@@ -246,6 +246,116 @@ From the bot's sim wish list (K-0011): "player-placed zones and a go-there at th
 - **Who it is, at a glance**: under the thought on a smol's card: its three strongest traits, its parents ("child of A & B", or "one of the first"), its best friend and who it can't stand.
 - `tests/orders.test.js` §1 and §1b: the tool opens for blobs after the tutorial, and trusting blobs go to a rally flag.
 
+## 0.21 What v4.7 added: faster words, save slots, sandbox islands, calmer windows
+
+The rest of the bot's sim wish list (K-0011): "faster word learning", "save slots", "sandbox spawns".
+
+- **Faster words** (`words.js`, `creature.js`):
+  - A smol can take in the same word again after 4 s (it was 9).
+  - A lesson sticks half again as well (`WD.FRIEND_BONUS` 1.5) when a friend within 6 tiles already knows the word.
+  - A smol that learns a word says it to those near it, and each of them picks up 0.2 of it.
+  - Every lesson floats "+36% “food”" up from each smol that took it in (👯 when a friend helped).
+  - Together these take a word from about 3 lessons 9 s apart per smol to 2 or 3 lessons 4 s apart, and a tribe catches on from its first learners.
+- **Save slots** (`Save.keepCopy`): menu → settings → "📌 keep a copy" stores the island as it is now as its own island ("name · day 12") in 📂 load game. The island you're on stays the active one. Playing the copy carries on from there and never touches the original. It needs IndexedDB (a browser that keeps one island can't keep copies, and says so).
+- **Sandbox islands** (`Game.sandbox`, `Game.sandboxSpawn`): create world → mode → 🧪 sandbox.
+  - ✨ magic gets a spawn palette: a grown smol of any tier (blob to ascended), an egg nearly ready, a grump or a pile of fruit. Pick one, then tap the island; it stays picked so you can place lots.
+  - Miracles are free.
+  - The island doesn't post a leaderboard score.
+  - Normal islands can't spawn.
+- `tests/sandbox.test.js`; `tests/words.test.js` §9.
+
+And the bot's third playtest (K-0021, 6/10, up from 5):
+
+- **One window at a time** (`ui.js`): event windows (story cards, strangers, the storyteller) show one at a time. They come at least 25 s apart (`UI.EVENT_GAP`), never while a button is held or within 0.8 s of a click, and never in a smol's eyes or within 4 s of leaving one. The game is paused while a window is open. A third story card waiting becomes a toast. The tutorial, naming, "while you were away" and the ending still come straight away.
+- **A wider tickle window** (`tricks.js`):
+  - A tickle (or tap) up to 2.5 s after the smol finished still counts (`T.GRACE`, was 1.5), and the lesson goes to the eating, not the walk it has started since (`T.target`, used by `Creature.lesson`).
+  - "🪶 tickle now!" stays up about 3 s once it appears.
+  - "Set it up" refuses a smol that isn't hungry ("isn't hungry yet (12%)") instead of starting a session that can't work.
+  - The bar shows "lessons n/3" during a session.
+- **The blob guide's first step**: nibbling a bush now counts as eating (`Creature` emits `nibble`; it used to be silent), for a full blob too. When the mouse can't be locked, the HUD says to drag to look or use the arrow keys.
+- **A calm start** (`Game.pace`): at 1× the first two days run at 0.6 speed and the third at 0.8, the whole sim together, so 09:00 to 18:00 takes about 12 minutes instead of 7.5. Fast-forward is unchanged.
+- **The way to hands, drawn**: the bag's make tab for a blob or critter shows blob → critter → tool-user with "you" marked, and bars for legs (walks) and hands (carrying) n/18.
+- **Eyes adjust slowly**: the first-person night lift eases in over about 1.5 s instead of switching on.
+- **A readable card**: on wide screens the smol card's text is a size up.
+- Tests: `possess.test.js` §11 (a nibble ticks the guide) and `tricks.test.js` §9 (a late tickle counts and goes to the eating).
+
+## 0.22 What v4.7.1 added: orders that work first time, a calm day 1, walk to food
+
+The bot's fourth playtest (K-0022, 6/10). Its top three for 10/10: orders that visibly work first time, a calm first day, and one clear possess loop.
+
+- **Rally works first time** (`orders.js`):
+  - The first two rally flags on an island (`od.rallies`, `o.first`) pull everyone who can hear them and isn't starving or terrified (willingness at least 0.9).
+  - Every smol shows its answer: "🚩!" over the ones on their way, and the reason over the ones who won't (`O.why`: 😋 hungry, 😨 scared, 🤒 poorly, 😴 sleepy, 🙄 stubborn, 🤨 doesn't trust you yet, 🤔 busy).
+  - The order's chip sums it up: "5 going, 1 nah (🤨 doesn't trust you yet)".
+  - "They listen n%" is big in the panel.
+- **Locked orders say what they need** on the button ("needs critters", "needs tool-users").
+- **A calm first day**: no strangers (`strangers.js`) and no storyteller cards (storms, raids, visitors; `director.js`) before day 2 of a new island (new game+ is exempt).
+- **Walk to food**: G sniffs; G again walks you there by itself (`S.auto`, up to 40 s; any move key takes over), then "here! right click to nibble…". The sniff message says so.
+- **The camera stays put**: event flights (a wild egg, a stranger, a storm, a hatch) are skipped for 8 s after you touch the camera (`UI autoFly`, `Input.touchedT`).
+- **The card**: "💚 first friend: still looking…" until a smol has one, and the card's subtitle and who-line are a size up.
+- Tests: `orders.test.js` §1c, `strangers.test.js` §6 (nobody on day 1), `possess.test.js` §12.
+
+## 0.23 What v4.7.2 added: one clear possess loop
+
+The bot's top three for 10/10 (K-0022), round two.
+
+- **Find food, eat it, get paid** (`P.BLOB_QUEST`): a blob's day now starts "find food" (G sniffs, G again walks you there), then "eat it" (right click a bush, or left click food). Eating first is remembered for when its step comes. Every step of a blob's day pays +1 ✨ on top of the +3 at the end, and the step banner is big: "✓ find food · +1 ✨", then "next: eat it".
+- **Readable guide**: the first-person guide is wider, with 15 px steps and a 14 px tip (was 13/12).
+- **Your first flag**: placing it says "watch them come" and pulls the camera back so the walk is in view.
+- **A steady test**: `threats.test.js` §5 is seeded from the village's set-up, not just the long run. Its "builders rebuild it" check passed or failed by luck (about 1 in 3 under a parallel suite).
+
+## 0.24 What v4.7.3 fixed: a new player's first five minutes, played through
+
+Played as a brand-new player at 1280×800 and on a phone (title, play now, skip the tutorial, open the pod, orders, possess):
+
+- **No window when you skip the tutorial**: the blob-stage orders news is a toast about a minute and a half later ("🚩 new: orders (key 6)…"), not a window the moment you skip. Tool-users still get the full orders card.
+- **The first tutorial card** ("tap the crashed pod") no longer reads "-1/7"; the count starts at the next step.
+- **Taps right after possessing work**: the "you are …" intro was eating the first taps (it caught pointer events, even while fading). It's click-through now and still fades by itself.
+- **The phone's big button** says "walk to food" once you've sniffed some (it said "sniff for food" both times).
+- **The orders panel** says "your first 🚩: they come" until two flags are down, instead of a listen % that the guaranteed first flags don't follow.
+- Checked at 8×: lighting through dusk is smooth (largest frame-to-frame step 1.3 on a 0–200 scale). A storm shows a lightning flash now and then, as designed.
+
+## 0.25 What v4.8.0 added: ⏭ skip to the next interesting thing
+
+The first ten minutes have quiet stretches: waiting for the twins to grow up, for an egg, for the first wish. 16× is there, but you have to watch for the moment and slow down yourself.
+
+- **⏭ next to the speed** (key n): time runs at 16× until something worth seeing happens: a hatch, a smol growing up, an egg (yours or wild), a pair, a prayer or wish, evolving, a first idea, a stranger, a grump, an incident, drowning or a death. Then it drops back to the speed you had, toasts what happened ("🌱 Brompius is now a kid"), flies the camera there and opens that smol's card.
+- **Half a day at most**: an island with nothing going on gives up after half a day ("🌙 half a day went by quietly").
+- **You're in charge**: changing the speed yourself, or pressing ⏭ again, stops it and keeps your speed. It won't start while you're in a smol's eyes, and the first 2 seconds ignore echoes of what just happened (the second twin growing up a moment after the first).
+- **Tests**: `skip.test.js` (stops with a reason before half a day, an empty island gives up quietly, your speed wins).
+
+## 0.26 What v4.8.1 added: short seasons
+
+The second half of the roadmap's M2 "pace" item. A season lasts 2 days (40 minutes at 1×), so a new player rarely sees summer, let alone winter, in a first session.
+
+- **Short seasons** (an island setting): a season lasts half a day, 10 minutes at 1×, so the whole year takes 40 minutes. Pick it under "more world options" when you make an island, or switch it any time in ⚙ settings. Normal is still the default.
+- `SB.seasonDays(game)` is the one place that knows: the clock (`world.js`) and the "made it through winter" achievement read it. The setting lives in `game.settings.seasons`, so saves keep it.
+- **Tests**: `seasons.test.js` (normal is 2 days; short runs spring → summer → autumn → winter → spring in 2 days and announces each; the achievement unlocks after a short year; a reload keeps the setting).
+
+## 0.27 What v4.8.2 fixed: the bot's v4.8.0 playtest (K-0025)
+
+Fun 5/10: "the sim ideas are strong, but it still plays as watch-and-click". The top three, then the bugs.
+
+- **Fewer windows at the start**: for the first 4 minutes of an island (`UI.QUIET_START`), story cards come as toasts (title and first line) instead of windows. A falling pod is one window, not three: what pods are now sits on the map's caption, and the "send a rescue party?" card waits 20 s instead of popping up under your next tap.
+- **Possession with something at stake**: a blob's first day in your hands starts hungry (food bar low), so "find food, eat it" fills a bar you can see. The step banners queue, so "✓ find food · next: eat it" is never covered by the next one when both finish at once. (A first-minute threat is still to come.)
+- **A rally answers at once**: when a flag lands, every smol in earshot decides straight away, so the chip reads "rally · 5 going, 1 nah (😋 hungry)" from the first second, not "0 going". The first two flags pull everyone who isn't starving, scared or asleep.
+- **⏭ says where it stopped**: the stop is a big mid-screen banner ("Grogou is now a kid · ⏭ skipped to here · back to 1×"), not a toast a window can hide. Wishes and prayers no longer stop it (they open their own windows). A pod cutscene now ends the skip properly. Before, it left the game running at 16× with no skip on.
+- **Bugs**: [ or ] mid-skip stops the skip and keeps your speed (it used to drop to paused once the skip had already ended). The 🚩 orders slot is always in the toolbar, greyed out until the tutorial is done, so nothing shifts under your click. The blob orders toast times itself from this island (an earlier island's clock made it come at once). In first person, the jump on the first mouse move after the pointer locks is ignored (the view flew up to the sky). On the title, ▶ continue is the big button only for an island played in the last 12 hours; otherwise ▶ play now is.
+- **Not a bug**: typing n in the founders' name box types an n. Keys go to the text box while you're naming.
+- **Tests**: `firstminutes.test.js` (a rally answers at once with reasons, wishes don't end a skip, a possessed blob starts hungry).
+
+## 0.28 What v4.8.3 fixed: possession you can finish (K-0027)
+
+The bot's v4.8.2 playtest: popups and skip banners were much better (5/10). Possession was still the gap: no stakes, and the G loop stalled.
+
+- **G, G, eaten**: a blob's nose only finds what a blob can eat (food on the ground, bushes, roots, gourds), not a palm it can't climb. Walking there stops at arm's length, or when a trunk is in the way, and then it eats: it faces the food and nibbles it, the food bar fills (and pulses), and the quest moves on. On a phone, a hungry blob's big button is "sniff for food" / "walk to food" even by water (it said "drink", so a phone had no way to sniff).
+- **Stakes**: the first time you're in a blob on an island, it's hungry, whether or not the guide has been done before (the bot's bar was full because its browser had finished the guide). Until it has eaten, the food bar runs down, about a drumstick every 8 s, with a warning at the end. Hearts go when it's empty. That's the first-minute clock. A grump or the cold in the first minute is still to come.
+- **Mouse look**: only the move right after the pointer locks is dropped. 4.8.2 also dropped big moves, which ate real fast flicks.
+- **Cards don't stack**: tips wait while a smol's card is open (they covered its possess button), and the card's header has a 👁 that possesses (following is still f). A skip stop shows its banner and flies the camera but leaves the card closed.
+- **One pod at a time**: the storyteller's "an escape pod came down!" waits until the pod has landed and its map is closed (40 sim s), instead of a window over the map.
+- **Skip stops worth it**: growing up stops a skip only when a smol comes of age (a day-1 "now a kid" doesn't). An incident is named ("☄️ a star fell!", not "something's happening"). The orders panel tucks itself away 3 s after a rally or explore flag lands; the flag's label keeps the count.
+- **Tests**: `firstminutes.test.js` §4 (G, G walks a blob to food it can eat and eats it) and §5 (a kid birthday doesn't end a skip, coming of age does). `skip.test.js` §1 now uses teens.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

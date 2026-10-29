@@ -54,6 +54,12 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .speed { font: 700 13px/1 var(--mono); }
 @media (max-width: 480px) { .hud .long { display: none; } .chipbtn { padding: 0 9px; gap: 5px; } .era .bar { width: 30px; } }
 .speed.paused { color: var(--pink); }
+.ordobey { font-size: 13px; }
+.ordobey b { font-size: 20px; }
+.mir .c.need { display: none; font-size: 10px; color: var(--dim); }
+.mir.poor .c.need { display: block; }
+.skipbtn { width: 38px; justify-content: center; padding: 0; font-size: 15px; }
+.skipbtn.on { color: var(--lime); box-shadow: inset 0 0 0 2px var(--lime); }
 .menu-btn { width: 38px; justify-content: center; padding: 0; font-size: 18px; }
 .savedot { align-self: center; font-size: 13px; opacity: 0; transition: opacity .5s; pointer-events: none; margin: 0 -2px; }
 .savedot.on { opacity: .85; transition: opacity .15s; }
@@ -107,14 +113,14 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .sp { flex: 1; }
 .av { width: 44px; height: 44px; border-radius: 0; display: grid; place-items: center; font-size: 22px; flex: none; box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.18); }
 .nm { font: 700 17px/1.1 var(--mono); }
-.sub2 { font-size: 12px; color: var(--dim); }
+.sub2 { font-size: 13px; color: var(--dim); }
 .tierpill { display: inline-flex; gap: 4px; align-items: center; padding: 2px 8px; border-radius: 0; font: 700 12px/16px var(--mono); background: var(--faint); }
 .ibtn { width: 40px; height: 40px; border-radius: 0; background: var(--faint); display: grid; place-items: center; font-size: 18px; flex: none; }
 .ibtn:hover { background: rgba(245, 243, 237, 0.18); }
 .ibtn.on { background: var(--lime); color: var(--carbon); }
 .thought { margin: 10px 0 8px; padding: 8px 10px; border-radius: 0; background: rgba(0, 0, 0, 0.25); font-size: 13px; }
 .thought b { color: var(--lime); font-weight: 800; }
-.who { margin: -2px 0 8px; font-size: 12px; line-height: 1.45; }
+.who { margin: -2px 0 8px; font-size: 13px; line-height: 1.45; }
 .drives { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
 .drive { display: flex; align-items: center; gap: 5px; font-size: 11px; }
 .drive .e { width: 16px; text-align: center; font-family: system-ui, "apple color emoji"; }
@@ -458,6 +464,8 @@ body.titling #overlay { opacity: 0; }
 @media (max-width: 420px) { .tools.six .tool { width: 51px; } }
 @media (max-width: 360px) { .tools.six .tool { width: 46px; font-size: 10px; } }
 .tool.hide { display: none; }
+.tool.locked { opacity: 0.35; filter: grayscale(1); }
+.podmap .podwhy { display: block; margin-top: 6px; font-size: 12px; opacity: 0.85; }
 #ui:has(.sheet[data-kind="orders"]:not(.hide)) .guide { display: none; } /* placing orders needs the whole sheet */
 .ordbuild .chip { cursor: pointer; border: 0; color: inherit; font: inherit; font-size: 12px; }
 .ordbuild .chip.lime { background: var(--lime); color: var(--carbon); }
@@ -545,4 +553,10 @@ body.titling #overlay { opacity: 0; }
 @media (max-width: 600px) {
   #ui:has(.sheet:not(.hide)) .goals { display: none; }
   .goals .head.sub, .goals .head.sub ~ .g { display: none; }
+}
+/* the smol card on a wide screen: a size up, so it reads at a glance (K-0021: "dense, tiny text") */
+@media (min-width: 900px) {
+  .sheet.side .sub2, .sheet.side .chip, .sheet.side .who, .sheet.side .note { font-size: 13px; }
+  .sheet.side .thought { font-size: 14px; }
+  .sheet.side .sec { margin-top: 12px; }
 }

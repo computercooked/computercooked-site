@@ -1303,13 +1303,18 @@
 
 .cc-chip {
   margin-left: auto;
-  padding: 6px 10px;
+  padding: 8px 12px; /* a 34px tap target on phones */
   border: 1px solid #3a3c44;
   border-radius: 99px;
   font-size: 0.75rem;
   color: var(--paper-dim);
   text-decoration: none;
+  white-space: nowrap; /* 360px: "log in" broke onto two lines */
+  flex-shrink: 0;
 }
+/* hidden until the API answers, but its space is kept, so the hub header doesn't grow when it shows (CLS) */
+.cc-chip[hidden] { display: inline-block; visibility: hidden; }
+.hub-filters.is-placeholder .chip, .hub-filters.is-placeholder input { pointer-events: none; }
 
 .cc-chip.is-in {
   border-color: var(--lime);

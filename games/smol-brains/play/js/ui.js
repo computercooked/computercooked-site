@@ -11,7 +11,33 @@
   var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "evolution" };
   UI.modalOpen = false;
   var povHeld = []; // god windows that came up while possessing (see modal), shown in order on the way out
-  UI.povDone = function () { var m = povHeld.shift(); if (m) modal(m[0], m[1], m[2]); };
+  // leaving a body: the held windows join the event queue (they wait out the grace period like the rest)
+  UI.povDone = function () { lastPovOut = now(); while (povHeld.length) popQ.push(povHeld.shift()); };
+  /* event windows are paced (the bot's K-0021: "4 modals in about 90 s, each eating a click"): one at a time,
+     at least EVENT_GAP seconds apart, never while a button is down or just after a click, and not within
+     POV_GRACE seconds of leaving a body. Story cards past the second waiting one become toasts. Windows you
+     open yourself (menu, brain, card) are never held. The game pauses while any window is open. */
+  UI.EVENT_GAP = 25; UI.POV_GRACE = 4; UI.CLICK_GRACE = 0.8;
+  var lastEventClose = -1e9, lastPovOut = -1e9, lastPointer = -1e9, pointerDown = false;
+  function now() { return (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000; }
+  UI.eventReady = function () {
+    var t = now();
+    if (el.modal || pointerDown) return false;
+    if (SB.Possess && SB.Possess.active) return false;
+    return t - lastEventClose >= UI.EVENT_GAP && t - lastPovOut >= UI.POV_GRACE && t - lastPointer >= UI.CLICK_GRACE;
+  };
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("pointerdown", function () { pointerDown = true; lastPointer = now(); }, true);
+    window.addEventListener("pointerup", function () { pointerDown = false; lastPointer = now(); }, true);
+    window.addEventListener("pointercancel", function () { pointerDown = false; }, true);
+  }
+  // called every frame: show the next waiting event window when it's time
+  function pumpEvents() {
+    if ((!popQ.length && !cardQ.length) || !UI.eventReady()) return;
+    var m = popQ.shift();
+    if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
+  }
+  UI.pendingEvents = function () { return popQ.length + cardQ.length; };
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -65,7 +91,7 @@
     setTool(g.hand.tool || "grab");
   };
   UI.setGame = function (g) {
-    game = g; SB.Input.setGame(g); mini.base = null; ordUnlockedSeen = false;
+    game = g; SB.Input.setGame(g); mini.base = null; ordUnlockedSeen = false; ordUnlockedAt = -1; // per island: an old island's clock made the toast come at once (K-0025)
     closeSheet(); state.inspect = null;
     if (el.goals) el.goals.innerHTML = "";
   };
@@ -162,6 +188,7 @@
     el.era = h("button", { class: "chipbtn glass live era", title: "evolution", onclick: function () { openMenu("evolution"); } });
     el.sparks = h("button", { class: "chipbtn glass live", title: "sparks: spend them on miracles", onclick: function () { setTool("magic"); } });
     el.speed = h("button", { class: "chipbtn glass live speed", title: "speed (space pauses, [ ] changes)", onclick: function () { cycleSpeed(1); } });
+    el.skip = h("button", { class: "chipbtn glass live skipbtn", title: "skip to the next interesting thing (n)", "aria-label": "skip ahead", onclick: function () { toggleSkip(); } }, "⏭");
     el.menu = h("button", { class: "chipbtn glass live menu-btn", title: "smolpedia and settings", "aria-label": "menu", onclick: function () { openMenu(state.menuTab); } }, "☰");
     var mid = h("div", { class: "grow" }, el.era);
     // prayers waiting: tap to fly to the next one
@@ -174,7 +201,7 @@
     } });
     // autosave: a 💾 blinks by the menu each time the island is saved (every 20 s and when you leave)
     el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
-    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
+    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
     el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); } });
     root.appendChild(el.goals);
@@ -204,6 +231,7 @@
     el.pray.classList.toggle("hide", !np);
     if (np) el.pray.innerHTML = '<span class="ico">🙏</span><b>' + np + "</b>";
     el.speed.textContent = game.speed === 0 ? "⏸ paused" : "▶ " + game.speed + "×";
+    if (el.skip) { el.skip.classList.toggle("on", !!game.skip); el.skip.textContent = game.skip ? "⏭ …" : "⏭"; }
     el.speed.classList.toggle("paused", game.speed === 0);
     updateGoals();
   }
@@ -216,7 +244,23 @@
     needs.forEach(function (n) { worst = Math.min(worst, n.have / n.need); });
     return SB.clamp01(worst);
   }
+  // ⏭: fast until something worth seeing happens (main.js Game.skip)
+  function toggleSkip() {
+    if (game.skip) { SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); return; }
+    if (SB.Possess && SB.Possess.active) { toast("leave the body first (Esc)"); return; }
+    if (SB.Game.skip(game)) { toast("⏭ skipping ahead until something happens…", "", 2500); hudT = 0; }
+  }
+  UI.toggleSkip = toggleSkip;
+  SB.bus.on("skipDone", function (d) {
+    if (!el.skip) return;
+    hudT = 0;
+    if (d.why === "⏭ stopped") return;
+    var sp = d.why.indexOf(" "), ic = sp > 0 && sp <= 3 ? d.why.slice(0, sp) : "⏭";
+    moment(ic, d.why.slice(sp > 0 && sp <= 3 ? sp + 1 : 0), "⏭ skipped to here · back to " + (game.speed || 1) + "×", "", true);
+    if (d.at && d.at.x != null) R.flyTo(d.at.x, d.at.z, Math.min(R.camera.tZoom, 10), 1.0); // you asked to be shown: always fly
+  });
   function cycleSpeed(d) {
+    if (game.skip && d !== 0) { SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); hudT = 0; return; } // mid-skip, [ or ] just stops it
     var i = SB.SPEEDS.indexOf(game.speed);
     if (d === 0) { game.speed = game.speed === 0 ? (game._lastSpeed || 1) : (game._lastSpeed = game.speed, 0); }
     else { i = (i + d + SB.SPEEDS.length) % SB.SPEEDS.length; game.speed = SB.SPEEDS[i]; } // 16× wraps round to paused (phones have no space bar)
@@ -360,22 +404,30 @@
     setTimeout(function () { d.remove(); nextMoment(); }, 3300);
   }
   UI.moment = moment;
+  // the camera flies to things that happen (an egg, a stranger, a storm) only when you haven't just moved it
+  // yourself: K-0022 found the new-game camera panning and jumping under the player's hand
+  function autoFly(x, z, zoom, dur) {
+    if (SB.Input && SB.Input.touchedT && performance.now() - SB.Input.touchedT < 8000) return;
+    R.flyTo(x, z, zoom, dur);
+  }
 
   /* story cards: the first time something big happens, the game pauses and explains it (what happened,
      why, what you can do). Later times are just a quick moment. */
   var cardQ = [];
+  UI.QUIET_START = 240; // real seconds into an island when story cards stop being toasts
   function storyCard(key, icon, title, paras, fallback) {
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
+    if ((game.playTime || 0) < UI.QUIET_START && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
+    if (cardQ.length >= 2) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 6500); return; } // too many waiting: a toast instead
     cardQ.push([icon, title, paras]);
-    if (!el.modal) nextCard();
   }
   function nextCard() {
     var c = cardQ.shift();
     if (!c) return;
     var body = h("div", { class: "story" }, [h("div", { class: "icon" }, c[0]), h("h3", null, c[1])].concat(c[2].map(function (p) { return h("p", { html: p }); })).concat([h("div", { class: "row" }, [h("span", { class: "sp" }), h("button", { class: "btn go", onclick: function () { closeModal(); } }, "got it")])]));
-    modal("", body, { story: true });
+    modal("", body, { story: true, paced: true });
   }
   UI.storyCard = storyCard;
   var NEXT_HELP = {
@@ -410,7 +462,7 @@
   function setTool(t, user) {
     var prev = state.tool;
     if (user && prev === t && (t === "talk" || t === "magic" || t === "orders")) t = "grab"; // tap the open book's button again to put it away
-    if (t === "orders" && !(SB.Orders && SB.Orders.unlocked(game))) t = "grab"; // tool-users first
+    if (t === "orders" && !(SB.Orders && SB.Orders.unlocked(game))) { if (user) toast("🚩 orders open when the tutorial is done"); t = "grab"; } // tool-users first
     state.tool = t; game.hand.tool = t;
     [].forEach.call(el.tools.children, function (b) { b.classList.toggle("on", b.getAttribute("data-tool") === t); });
     disarm(); state.order = null;
@@ -473,12 +525,13 @@
         h("div", { class: "top" }, [h("span", { class: "e" }, d.icon), h("span", { class: "l" }, d.name), star, pct]),
         h("div", { class: "tbar" }, [bar]),
         h("div", { class: "how" }, [h("span", null, d.how), d.practice ? h("button", { class: "btn small go", onclick: function () {
+          if (d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.3) { toast(esc(c.name) + " isn't " + (d.drive === "hunger" ? "hungry" : d.drive) + " yet (" + Math.round(c.chem[d.drive] * 100) + "%), so it won't bite. try again in a bit, or pick a " + (d.drive === "hunger" ? "hungrier" : "different") + " smol.", "", 5000); return; }
           if (T.practice(game, c, d.id)) {
             setTool(d.avoid ? "tap" : "tickle");
             if (R.camera.follow === c) SB.Input.follow(null); // the camera holds still, so the smol stays under your finger
             trCue.c = c; trCue.shown = false;
             var row = this.closest && this.closest(".trick"); if (row && row.scrollIntoView) try { row.scrollIntoView({ block: "nearest" }); } catch (e) {}
-            var full = d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.3;
+            var full = false;
             toast((d.practice.say ? "you said “" + d.practice.say + "”. 🪶 tickle " + esc(c.name) + " when it comes over." : d.avoid ? "👆 tap " + esc(c.name) + " the moment it nibbles." : "🪶 wait for “tickle now!”, then tickle " + esc(c.name) + " while it " + trickVerb(d) + ".") +
               (full ? " (it isn't very " + (d.drive === "hunger" ? "hungry" : d.drive) + " right now, so it may not bite. a hungry smol learns this best.)" : ""), "", 6000);
           }
@@ -502,7 +555,8 @@
       if (r._m >= 0 && Math.abs(m - r._m) > 0.03) { r.classList.remove("up", "down"); void r.offsetWidth; r.classList.add(m > r._m ? "up" : "down"); }
       r._m = m;
       r._bar.style.width = Math.round(m * 100) + "%";
-      r._pct.textContent = on ? "learned" : Math.round(m * 100) + "%";
+      var rr = c.tricks && c.tricks[r._d.id], live = !!(ses && ses.id === r._d.id);
+      r._pct.textContent = on ? "learned" : Math.round(m * 100) + "%" + (live || (rr && rr.n) ? " · lessons " + Math.min(T.REPS, (rr && rr.n) || 0) + "/" + T.REPS : "");
       r._star.textContent = on ? "⭐" : "";
       r.classList.toggle("on", on);
       r.classList.toggle("live", !!(ses && ses.id === r._d.id));
@@ -525,8 +579,9 @@
   var trCue = { c: null, el: null, shown: false };
   function updateTrickCue() {
     var T = SB.Tricks, c = trCue.c, s = c && T && T.session && c.alive ? T.session(c, game) : null;
-    var on = false, d = s && T.BY[s.id];
-    if (d && T.doing(c, game, d)) {
+    var on = false, d = s && T.BY[s.id], t = performance.now();
+    if (d && T.doing(c, game, d) && !trCue.until) trCue.until = t + 3000; // once it's up, it stays up about 3 s
+    if (d && (T.doing(c, game, d) || t < (trCue.until || 0))) {
       var p = R.project(c.x, c.y + 1.7, c.z), z = (SB.Title && SB.Title.zoom) || 1;
       if (p.on) {
         if (!trCue.el) { trCue.el = h("div", { class: "trcue" }); root.appendChild(trCue.el); }
@@ -536,7 +591,7 @@
         if (!trCue.shown) { trCue.shown = true; if (SB.Audio && SB.Audio.play) SB.Audio.play("pop"); }
       }
     } else if (!s) trCue.c = null;
-    if (!on) trCue.shown = false;
+    if (!on) { trCue.shown = false; trCue.until = 0; }
     if (trCue.el) trCue.el.classList.toggle("on", on);
   }
 
@@ -551,7 +606,7 @@
     var head = h("div", { class: "row" }, [
       el.cAv = avatar(c.look, c.tier),
       h("div", { style: "min-width:0;flex:1" }, [el.cName = h("div", { class: "nm" }), el.cSub = h("div", { class: "sub2" })]),
-      h("button", { class: "ibtn", title: "follow with the camera (f)", onclick: function () { var on = !R.camera.follow; SB.Input.follow(on ? c : null); this.classList.toggle("on", on); } }, "🎥"),
+      SB.Possess && c.species === "smol" ? h("button", { class: "ibtn", title: "possess: see through its eyes", onclick: function () { SB.Possess.enter(game, c); } }, "👁") : h("button", { class: "ibtn", title: "follow with the camera (f)", onclick: function () { var on = !R.camera.follow; SB.Input.follow(on ? c : null); this.classList.toggle("on", on); } }, "🎥"),
       h("button", { class: "ibtn", title: "brain viewer (b)", onclick: function () { openBrain(c); } }, "🧠"),
       h("button", { class: "ibtn", title: "close", onclick: function () { SB.Game.select(game, null); closeSheet(); } }, "✕")
     ]);
@@ -629,6 +684,7 @@
       var rel = SB.Social.relations(game, c), best = rel.filter(function (r) { return r.v >= 25 && r.label !== "partner"; })[0], foe = rel.filter(function (r) { return r.v <= -25; }).sort(function (a, b) { return a.v - b.v; })[0];
       var nm = function (r) { var o = r.c || SB.Game.byId(game, r.id); return o && o.name; };
       if (best && nm(best)) out.push("💚 best friend " + esc(nm(best)));
+      else out.push("💚 first friend: still looking…"); // early on nobody's close yet (K-0022: the line was empty)
       if (foe && nm(foe)) out.push("⚔ can't stand " + esc(nm(foe)));
     }
     return out.join(" · ");
@@ -692,7 +748,7 @@
     var t = state.teach;
     var tc = state.talkTarget && state.talkTarget.alive ? state.talkTarget : null, tv = tc && t ? Math.min(1, tc.vocab[t] || 0) : 0;
     el.talkInfo.innerHTML = (tc && t ? "<b>" + esc(tc.name) + "</b>: " + (tv >= 1 ? "knows “" + esc(t) + "”! ✔" : Math.round(tv * 100) + "% of the way to “" + esc(t) + "”") + "<br>" : "") + (t ? "teaching <b class='lime'>“" + esc(t) + "”</b>: " + esc(WD.how(t)) + (WD.byWord[t].call ? ". <span class='dim'>when they know it, 📣 " + esc(WD.byWord[t].call) + ".</span>" : "") :
-      "pick a word, then show them what it means. one lesson per smol every few seconds, so take it slow. words most of the tribe knows make everyone smarter.");
+      "pick a word, then show them what it means. one lesson per smol every 4 seconds. a friend nearby who knows the word helps (👯), and a smol that learns one says it to the others. words most of the tribe knows make everyone smarter.");
   }
   function listeners(x, z, r) {
     var out = [];
@@ -738,6 +794,8 @@
     if (res.pending && hit && hit.ref) hit.ref.holdUntil = null; // you asked it to do something: let it go and do it
     if (res.tried || res.ok) showSay(w, x, z, hit && hit.type === "creature");
     var now = performance.now();
+    // every lesson shows how far it got: "+36% food" floats up from each smol that took it in
+    (res.gains || []).slice(0, 6).forEach(function (g) { if (g.v < 1) float(g.c, "+" + Math.round(g.d * 100) + "% “" + w + "”" + (g.friend ? " 👯" : "")); });
     if (res.learned && res.learned.length) {
       res.learned.forEach(function (c) { if (SB.FX) SB.FX.burst("sparkle", c.x, c.y + 0.8, c.z, 10); });
       toast("✨ " + res.learned.map(function (c) { return esc(c.name); }).slice(0, 3).join(", ") + (res.learned.length > 3 ? " +" + (res.learned.length - 3) : "") + " learned “" + esc(w) + "”!", "ach");
@@ -761,7 +819,9 @@
     { id: "bless", e: "🧬", name: "bless eggs", cost: 20, desc: "the next eggs evolve in a direction you pick", answers: {} },
     { id: "gift", e: "🎁", name: "gift", cost: 3, desc: "a toy, or a starter kit for tool-users", answers: { bored: 1, lonely: 1 } }
   ];
+  var spawnBtns = [];
   function renderMagic(force) {
+    spawnBtns = [];
     if (!force && el.sheet.dataset.kind === "magic") return updateMagic();
     el.sheet.dataset.kind = "magic"; el.sheet.dataset.id = "";
     clear(el.sheet);
@@ -772,6 +832,19 @@
       el.mirGrid.appendChild(m.btn);
     });
     el.sheet.appendChild(el.mirGrid);
+    if (SB.Game.sandbox(game)) {
+      // 🧪 the sandbox palette: pick one, then tap the island (it stays picked, so you can place lots)
+      el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "🧪 spawn"), h("span", { class: "dim" }, "sandbox")]));
+      var sp = h("div", { class: "miracles spawns" });
+      SB.Game.SPAWNS.forEach(function (k) {
+        var t = /^t(\d)$/.exec(k), T = t && SB.TIERS[+t[1]];
+        var m = { id: "spawn", what: k, cost: 0, e: T ? T.icon : k === "egg" ? "🥚" : k === "grump" ? "👹" : "🍎", name: T ? T.name : k, desc: T ? "a grown " + T.name : k === "egg" ? "an egg, nearly ready" : k === "grump" ? "a grump (they're grumpy)" : "a pile of fruit" };
+        m.btn = h("button", { class: "mir", "data-spawn": k, title: m.desc, onclick: function () { arm(m); } }, [h("span", { class: "e" }, m.e), h("span", null, m.name)]);
+        m.costEl = { _t: "" };
+        sp.appendChild(m.btn); spawnBtns.push(m);
+      });
+      el.sheet.appendChild(sp);
+    }
     el.sheet.appendChild(el.magicWarn = h("div", { class: "note warn hide" }));
     el.sheet.appendChild(el.magicInfo = h("div", { class: "note" }, "sparks come from new discoveries, new words, hatchings, and prayers answered with the right miracle. pick a miracle, then tap the world."));
     updateMagic();
@@ -784,6 +857,7 @@
       if (m.costEl._t !== txt) { m.costEl._t = txt; m.costEl.textContent = txt; }
       m.btn.classList.toggle("poor", (game.sparks || 0) < cost); m.btn.classList.toggle("on", UI.armed === m);
     });
+    spawnBtns.forEach(function (m) { m.btn.classList.toggle("on", UI.armed === m); });
     var warn = [];
     if (game.speed >= 8) warn.push("⏩ time is flying: miracles cost double");
     if ((game.godHeat || 0) >= 1.5) warn.push("🔥 you're leaning on miracles: they cost more for a while");
@@ -803,6 +877,13 @@
   UI.castAt = function (x, z) { var m = UI.armed; if (!m) return; cast(m, x, z); };
   function cast(m, x, z) {
     if (m.id === "bless") { blessChooser(m); return; }
+    if (m.id === "spawn") {
+      var made = SB.Game.sandboxSpawn(game, m.what, x, z);
+      if (!made) { toast("can't put that there"); return; }
+      if (SB.FX) SB.FX.burst("sparkle", x, SB.World.groundY(game.world, x, z) + 0.6, z, 12);
+      if (SB.Audio) SB.Audio.play("pop", { vol: 0.4 });
+      return; // stays armed: tap again for another
+    }
     if (!SB.Game.spend(game, SB.Game.miracleCost(game, m.cost))) { toast("not enough sparks ✨"); return; }
     SB.Game.usedMiracle(game, m.id);
     SB.Game.spoilFrom(game, m.id);
@@ -888,11 +969,11 @@
     if (!force && el.sheet.dataset.kind === "orders") return updateOrders();
     el.sheet.dataset.kind = "orders"; el.sheet.dataset.id = "";
     clear(el.sheet);
-    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime small", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
+    el.sheet.appendChild(h("div", { class: "row" }, [h("div", { class: "nm", style: "font-size:14px" }, "🚩 orders"), h("span", { class: "sp" }), el.ordObey = h("span", { class: "mono lime ordobey", title: "about how often your smols follow an order right now" }), h("button", { class: "btn x", title: "close", onclick: function () { setTool("grab", true); } }, "✕")]));
     el.ordGrid = h("div", { class: "miracles orders" });
     ORDER_BTNS.forEach(function (k) {
       var K = SB.Orders.KINDS[k];
-      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name)]));
+      el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": k, title: K.desc, onclick: function () { armOrder(k); } }, [h("span", { class: "e" }, K.e), h("span", null, K.name), h("span", { class: "c need" }, "needs " + SB.TIERS[K.tier].name + "s")]));
     });
     el.ordGrid.appendChild(h("button", { class: "mir", "data-ord": "jobs", title: "nudge what each smol likes doing", onclick: function () { openJobs(); } }, [h("span", { class: "e" }, "📋"), h("span", null, "jobs")]));
     el.sheet.appendChild(el.ordGrid);
@@ -905,7 +986,7 @@
   function updateOrders(force) {
     if (!el.ordGrid || !SB.Orders) return;
     var O = SB.Orders, od = O.ensure(game), maxT = game.stats.maxTier || 0, so = state.order;
-    el.ordObey.textContent = "they listen about " +Math.round(O.obedience(game) * 100) + "%";
+    el.ordObey.innerHTML = (od.rallies || 0) < 2 ? "your first 🚩: <b>they come</b>" : "they listen <b>" + Math.round(O.obedience(game) * 100) + "%</b>"; // the first two rally flags always work (orders.js)
     [].forEach.call(el.ordGrid.children, function (b) {
       var k = b.getAttribute("data-ord"), K = O.KINDS[k];
       b.classList.toggle("on", !!so && so.kind === k);
@@ -925,13 +1006,14 @@
     var warn = od.heat > 2.5 ? "😤 that's a lot of orders. they're getting annoyed and listen less for a while." : "";
     if (el.ordWarn._t !== warn) { el.ordWarn._t = warn; el.ordWarn.textContent = warn; el.ordWarn.classList.toggle("hide", !warn); }
     // what's out there now
-    var key = od.list.map(function (o) { return o.id + ":" + O.followers(game, o) + ":" + (o.no || 0) + ":" + (o.n || 0); }).join(",");
+    var key = od.list.map(function (o) { return o.id + ":" + O.followers(game, o) + ":" + (o.yes || 0) + ":" + (o.no || 0) + ":" + (o.n || 0); }).join(",");
     if (!force && el.ordList.dataset.key === key) return;
     el.ordList.dataset.key = key; clear(el.ordList);
     od.list.forEach(function (o) {
       var K = O.KINDS[o.kind], f = O.followers(game, o);
       var txt = o.kind === "mark" ? o.label : o.kind === "build" ? "📐 " + (SB.STRUCTS[o.build] ? SB.STRUCTS[o.build].label : "") : K.e + " " + K.name;
-      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "");
+      if (o.kind === "rally") f = Math.max(f, o.yes || 0);
+      if (!K.zone && o.kind !== "mark") txt += " · " + f + " going" + (o.no ? ", " + o.no + " nah" : "") + (o.whys ? " (" + Object.keys(o.whys).sort(function (a, b) { return o.whys[b] - o.whys[a]; }).slice(0, 2).join(", ") + ")" : "");
       if (o.kind === "stock" && o.n) txt += " · " + o.n + " brought";
       el.ordList.appendChild(h("span", { class: "chip ordchip" }, [h("button", { class: "lnk", title: "look", onclick: function () { R.flyTo(o.x, o.z, Math.min(R.camera.tZoom, 12), 0.7); } }, txt), h("button", { class: "lnk x", title: "take it back", onclick: function () { O.remove(game, o.id); updateOrders(true); } }, "✕")]));
     });
@@ -960,7 +1042,12 @@
       var K = SB.Orders.KINDS[so.kind];
       if (SB.FX) SB.FX.burst("sparkle", res.o.x, SB.World.groundY(game.world, res.o.x, res.o.z) + 0.6, res.o.z, 10);
       if (SB.Audio) SB.Audio.play("chime", { vol: 0.4 });
-      if (so.kind === "rally" || so.kind === "explore") { toast(K.e + " " + K.name + " placed. about " + Math.round(SB.Orders.obedience(game, so.kind) * 100) + "% of them will listen"); state.order = null; el.ordInfo.innerHTML = ORDER_HELP; }
+      if (so.kind === "rally" || so.kind === "explore") {
+        toast(res.o && res.o.first ? "🚩 your first flag: watch them come. the 🚩! bubbles are the ones on their way" : K.e + " " + K.name + " placed. about " + Math.round(SB.Orders.obedience(game, so.kind) * 100) + "% of them will listen", "", 6000);
+        state.order = null; el.ordInfo.innerHTML = ORDER_HELP;
+        setTimeout(function () { if (state.tool === "orders" && !state.order) setTool("grab"); }, 3000);
+        if (res.o && R.camera.tZoom < 12) R.flyTo((res.o.x + R.camera.x) / 2, (res.o.z + R.camera.z) / 2, Math.max(R.camera.tZoom, 13), 0.8); // pull back so the walk is in view
+      }
     }
     updateOrders(true);
   };
@@ -990,19 +1077,22 @@
     modal("📋 jobs", body);
   }
   UI.openJobs = openJobs;
-  var ordUnlockedSeen = false, ordT = 0, annoyT = 0;
+  var ordUnlockedAt = -1, ordUnlockedSeen = false, ordT = 0, annoyT = 0;
   function updateOrdersUI(dt) {
     if (!SB.Orders || !el.tools) return;
     var on = SB.Orders.unlocked(game), b = el.tools.querySelector('[data-tool="orders"]');
-    if (b) b.classList.toggle("hide", !on);
-    el.tools.classList.toggle("six", on);
-    if (on && !ordUnlockedSeen && game.tutorial.done && !state.introRunning && !el.modal) {
+    if (b) b.classList.toggle("locked", !on);
+    el.tools.classList.add("six");
+    if (on && game.tutorial.done && ordUnlockedAt < 0) ordUnlockedAt = game.playTime || 0;
+    // blobs: no window the moment the tutorial ends (K-0022: a calm first day). a toast a minute and a half in instead
+    if (on && !ordUnlockedSeen && (game.stats.maxTier || 0) < 2 && game.tutorial.done && ordUnlockedAt >= 0 && (game.playTime || 0) - ordUnlockedAt > 90) {
       ordUnlockedSeen = true;
-      if ((game.stats.maxTier || 0) < 2) storyCard("orders", "🚩", "signs from the sky", [
-        "pick <b>🚩 orders</b> (key 6) and tap the island. a <b>🚩 rally flag</b> says \"go there\": blobs who trust you wander over and hang about. a <b>🏠 home</b> zone is where wanderers drift back to, and a <b>🚫 no-go</b> zone keeps them away from the water or the grumps.",
-        "they're suggestions, not commands. tickles build trust, taps cost some, and a hungry or scared blob does what it needs first. work marks, blueprints and stockpiles come when they grow hands."
-      ]);
-      else storyCard("orders", "🚩", "the sky's orders", [
+      var seenC = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
+      if (!seenC.ordersBlob) { seenC.ordersBlob = 1; toast("🚩 new: <b>orders</b> (key 6). put down a rally flag and your blobs walk to it. tap 🚩 at the bottom to try", "ach", 9000); }
+    }
+    if (on && !ordUnlockedSeen && (game.stats.maxTier || 0) >= 2 && game.tutorial.done && !state.introRunning && !el.modal) {
+      ordUnlockedSeen = true;
+      storyCard("orders", "🚩", "the sky's orders", [
         "your smols are clever enough now to notice signs from the sky. pick <b>🚩 orders</b> (key 6) and leave one: a <b>rally flag</b>, an <b>explore beacon</b>, <b>work marks</b> on trees, rocks, bushes, fields and bunnies, <b>blueprints</b> for buildings they know, and <b>zones</b> (no-go, stockpile, home).",
         "they're suggestions, not commands. a smol follows if it <b>trusts you</b> (tickles, answered prayers and orders that worked out build trust; taps cost some), if it isn't stubborn, and if it isn't starving or scared. order too much and they get annoyed.",
         "📋 jobs nudges what each smol likes doing. the strategy is asking for the right thing at the right time: walls round the village before the raid, farms by the river before winter."
@@ -1044,6 +1134,7 @@
     opts = opts || {};
     if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld.push([title, body, opts]); return; } // no god windows in a smol's eyes: shown on the way out
     // an event card (story, stranger, storyteller…) never replaces another one: it waits its turn
+    if ((opts.story || opts.sticky) && !opts.paced && !opts.now && !UI.eventReady()) { popQ.push([title, body, opts]); return; }
     if (el.modal && el.modalOpts && (opts.story || opts.sticky) && (el.modalOpts.story || el.modalOpts.sticky)) { popQ.push([title, body, opts]); return; }
     closeModal();
     UI.modalOpen = !opts.live;
@@ -1061,15 +1152,10 @@
   }
   var popQ = []; // event windows waiting for the one on screen to close
   function closeModal() {
-    if (el.modal) { el.modal.remove(); el.modal = null; el.modalOpts = null; }
+    if (el.modal) { if (el.modalOpts && (el.modalOpts.story || el.modalOpts.sticky)) lastEventClose = now(); el.modal.remove(); el.modal = null; el.modalOpts = null; }
     if (root) root.classList.remove("hasmodal");
     UI.modalOpen = false;
     state.brainC = null;
-    if (popQ.length || cardQ.length) setTimeout(function () {
-      if (el.modal) return;
-      var m = popQ.shift();
-      if (m) modal(m[0], m[1], m[2]); else nextCard();
-    }, 250);
   }
   UI.closeModal = closeModal;
   UI.modal = modal;
@@ -1443,10 +1529,25 @@
     body.appendChild(h("div", { class: "sec" }, "storyteller"));
     body.appendChild(h("div", { class: "btnrow" }, ST.map(function (o) { return h("button", { class: "btn" + (o[0] === cur ? " go" : ""), onclick: function () { (game.settings = game.settings || {}).storyteller = o[0]; openMenu("settings"); } }, o[1]); })));
     body.appendChild(h("p", { class: "note" }, ST.filter(function (o) { return o[0] === cur; })[0][2] + (game.ngPlus ? " (new game+ " + game.ngPlus + ": the grumps remember you.)" : "")));
+    // seasons: 40 minutes each, or 10 to see the whole year sooner
+    var sh = game.settings && game.settings.seasons === "short";
+    body.appendChild(h("div", { class: "sec" }, "seasons"));
+    body.appendChild(h("div", { class: "btnrow" }, [["normal", "🍂 normal"], ["short", "⏩ short"]].map(function (o) { return h("button", { class: "btn" + ((o[0] === "short") === sh ? " go" : ""), onclick: function () { var s = (game.settings = game.settings || {}); if (o[0] === "short") s.seasons = "short"; else delete s.seasons; openMenu("settings"); } }, o[1]); })));
+    body.appendChild(h("p", { class: "note" }, sh ? "10 minutes a season at 1×: a whole year in 40 minutes." : "40 minutes a season at 1×. short seasons show you the whole year sooner."));
     body.appendChild(h("div", { class: "sec" }, "save"));
     var ago = SB.Save.lastAt ? Math.round((Date.now() - SB.Save.lastAt) / 1000) : -1;
     body.appendChild(h("p", { class: "note" }, "the game saves itself every 20 seconds (💾 blinks by the menu) and when you leave. " + (ago >= 0 ? "last saved " + (ago < 5 ? "just now" : ago + " s ago") + ". " : "") + "while you're away, the island keeps going for a while."));
-    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"), h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
+    var nCopies = SB.Save.copies ? SB.Save.copies(game).length : 0;
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { SB.Save.save(game); toast("saved 💾"); } }, "save now"),
+      SB.Save.keepCopy ? h("button", { class: "btn", title: "a save slot: keep this island as it is now, to come back to from 📂 load game", onclick: function () {
+        var b = this; b.disabled = true;
+        SB.Save.keepCopy(game).then(function (m) {
+          b.disabled = false;
+          if (!m) { toast("this browser can only keep one island, so there's no room for a copy"); return; }
+          toast("📌 kept a copy: “" + esc(m.name) + "”. it's in 🏠 title screen → 📂 load game", "ach");
+          if (state.menuTab === "settings" && el.modal) openMenu("settings");
+        });
+      } }, "📌 keep a copy" + (nCopies ? " (" + nCopies + ")" : "")) : null, h("button", { class: "btn", onclick: function () { UI.toTitle(); } }, "🏠 title screen · other islands"), h("button", { class: "btn warn", onclick: function () { UI.confirmRestart(); } }, "🌱 new world")]));
     // text size: the whole interface zooms as one
     if (SB.Title) {
       var uz = SB.Title.uiScale();
@@ -1563,26 +1664,29 @@
     var s = podQ[0];
     if (!s) return;
     if (el.modal || state.introRunning || (SB.Intro && SB.Intro.covering) || (R.camera.intro)) { setTimeout(nextPod, 1500); return; }
+    if (game.skip) SB.Game.skipStop(game, { why: "🛸 a pod came down", c: null });
     var sp = game.speed || 1; game.speed = 0;
     // back where you were: the first time, a word on what pods are; then straight to "send a rescue party?"
     var resume = function () {
       if (!game.speed) game.speed = sp; podQ.shift();
-      storyCard("podcard", "🛸", "the other pods", ["the ark had thousands of escape pods. some are still drifting in orbit, and every so often one falls.", "each one may hold survivors who aren't related to your tribe, so they can start new families. pods also carry supplies and the ark's logs, which tell the story (and the way home).", "send a rescue party, or they'll climb out after a while and come looking for you."]);
-      if (SB.Director && !s.done && !SB.Director.state(game).active && game.tutorial.done) SB.Director.fire(game, "pod");
+      if (0) storyCard("podcard", "🛸", "the other pods", ["the ark had thousands of escape pods. some are still drifting in orbit, and every so often one falls.", "each one may hold survivors who aren't related to your tribe, so they can start new families. pods also carry supplies and the ark's logs, which tell the story (and the way home).", "send a rescue party, or they'll climb out after a while and come looking for you."]);
+      if (SB.Director && !s.done && game.tutorial.done) setTimeout(function () { if (!s.done && !SB.Director.state(game).active) SB.Director.fire(game, "pod"); }, 20000); // not straight after the map: that ate taps (K-0025)
       if (podQ.length) setTimeout(nextPod, 4000);
     };
     if (SB.Intro && !UI.noStory) SB.Intro.play({ scene: "pod", noGate: true, done: function () { podMap(s, resume); } });
     else podMap(s, resume);
   }
+  UI.podBusy = function () { return podQ.length > 0; }; // the cutscene and map are still up: the storyteller waits
   UI.podMap = function (s, done) { podMap(s, done || function () {}); };
   function podMap(s, done) {
-    var T = game.world.T, N = T.N, hm = SB.Society.home(game, 0);
+    var T = game.world.T, N = T.N, hm = SB.Society.home(game, 0), seenP = (game.settings = game.settings || {}).cards || (game.settings.cards = {}), first = !seenP.podcard;
+    seenP.podcard = 1;
     var size = Math.round(Math.min(window.innerWidth * 0.9, window.innerHeight * 0.68, 560));
     var dpr = Math.min(window.devicePixelRatio || 1, 2), cv = h("canvas", { class: "podmapcv", style: "width:" + size + "px;height:" + size + "px" });
     cv.width = cv.height = Math.round(size * dpr);
     var d = Math.round(SB.dist(s.x, s.z, hm.x, hm.z)), a = (Math.atan2(s.x - hm.x, -(s.z - hm.z)) * 180 / Math.PI + 360) % 360;
     var dir = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][Math.round(a / 45) % 8];
-    var cap = h("div", { class: "podcap" }, [h("b", null, "🛸 pod " + (s.n || "") + " came down here"), h("span", null, d + " steps " + dir + " of the village. it's marked on your map.")]);
+    var cap = h("div", { class: "podcap" }, [h("b", null, "🛸 pod " + (s.n || "") + " came down here"), h("span", null, d + " steps " + dir + " of the village. it's marked on your map."), first ? h("span", { class: "podwhy" }, "the ark's other escape pods still fall now and then. survivors inside aren't family, so they can start new families. pods carry supplies too.") : null]);
     var ok = h("button", { class: "btn go" }, "ok");
     var wrap = h("div", { class: "podmap" }, [cv, cap, ok]);
     root.appendChild(wrap);
@@ -1652,7 +1756,7 @@
         h("button", { class: "btn go", onclick: function () { set.guide = true; closeModal(); st.step = 0; tutShow(); } }, "yes, show me how"),
         h("button", { class: "btn", onclick: function () { set.guide = false; st.done = true; closeModal(); tutShow(); toast("tap the crashed pod to begin. ❓ help is in the menu."); } }, "no, i know how to play")
       ])
-    ]), { sticky: true });
+    ]), { sticky: true, now: true });
   }
   UI.askTutorial = askTutorial;
   function guideOn() { return !game.settings || game.settings.guide !== false; }
@@ -1683,7 +1787,7 @@
     if (!d) { st.done = true; state.tutStep = -1; return; }
     var last = st.step === TUT.length - 1;
     el.coach = h("div", { class: "coach glass" }, [
-      h("div", { class: "t" }, [h("span", { class: "n" }, (st.step - 1) + "/" + (TUT.length - 2) + " "), d.t]),
+      h("div", { class: "t" }, [st.step >= 2 ? h("span", { class: "n" }, (st.step - 1) + "/" + (TUT.length - 2) + " ") : null, d.t]), // the pod comes before step 1 (it read "-1/7")
       d.s ? h("div", { class: "s", html: d.s }) : null,
       h("div", { class: "row" }, [
         !last ? h("button", { class: "btn", onclick: function () { st.done = true; tutShow(); toast("tutorial skipped. ❓ help is in the menu."); } }, "skip tutorial") : null,
@@ -1765,7 +1869,7 @@
   function updateGuide(dt) {
     if ((guideT -= dt) > 0) return;
     guideT = 1;
-    var on = guideOn() && game.tutorial.done && !state.introRunning && !(SB.Intro && SB.Intro.covering) && !el.modal;
+    var on = guideOn() && game.tutorial.done && !state.introRunning && !(SB.Intro && SB.Intro.covering) && !el.modal && !state.sheet;
     var now = performance.now(), tip = on ? guideTips().filter(function (x) { return !(snooze[x.key] > now); })[0] : null;
     if (!tip) { if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; } return; }
     if (tip.key === guideKey && el.guide) return;
@@ -1806,7 +1910,7 @@
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
     ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
-    modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true });
+    modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true, now: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }
 
@@ -1816,7 +1920,7 @@
   function strangerCard(c) {
     if (!c.alive || !c.stranger || c.stranger.state !== "waiting") return;
     if (el.modal) { setTimeout(function () { strangerCard(c); }, 3000); return; } // wait for the current card
-    R.flyTo(c.x, c.z, 6, 1.0);
+    autoFly(c.x, c.z, 6, 1.0);
     var t = SB.TIERS[c.tier], s = c.stranger, idea = s.brings && SB.Ideas.BY_ID[s.brings];
     var lines = [
       h("div", { class: "row" }, [avatar(c.look, c.tier), h("div", { style: "flex:1;min-width:0" }, [h("div", { class: "nm" }, (c.sex === "f" ? "♀ " : "♂ ") + c.name), h("div", { class: "sub2", html: '<span class="tierpill" style="color:' + t.color + '">' + t.icon + " " + t.name + "</span> · " + esc(s.trait) }) ])]),
@@ -1835,7 +1939,7 @@
   function incidentCard(inc) {
     if (!inc || inc.phase !== "ask") return;
     if (el.modal || (SB.Possess && SB.Possess.active)) { setTimeout(function () { incidentCard(inc); }, 2500); return; }
-    if (inc.x != null && inc.id !== "pod") R.flyTo(inc.x, inc.z, 9, 1.0);
+    if (inc.x != null && inc.id !== "pod") autoFly(inc.x, inc.z, 9, 1.0);
     var body = h("div", { class: "incident" }, [
       h("div", { class: "story" }, [h("div", { class: "icon" }, inc.icon), h("h3", null, inc.title)]),
       h("div", null, inc.text.map(function (p) { return h("p", null, p); })),
@@ -1886,7 +1990,7 @@
   UI.awayScreen = function (g, awaySec, budget) {
     var bar = h("i", { style: "width:0%" });
     var body = h("div", null, [h("p", null, "you were gone " + fmtTime(awaySec) + ". the island kept going…"), h("div", { class: "prog" }, bar), h("p", { class: "note" }, "simulating " + fmtTime(budget) + " of smol life")]);
-    modal("🌙 while you were away", body, { sticky: true });
+    modal("🌙 while you were away", body, { sticky: true, now: true });
     SB.Game.runOffline(g, budget, function (p) { bar.style.width = Math.round(p * 100) + "%"; }, function (rep) {
       var lines = [];
       if (rep.hatched) lines.push("🐣 " + rep.hatched + " hatched");
@@ -1923,7 +2027,7 @@
         champs.length ? h("button", { class: "btn go", onclick: function () { closeModal(); try { SB.Save.save(g); } catch (e) {} var ng = SB.Game.newGamePlus(g, SB.newSeed()); SB.Game.swap(ng); UI.init(ng, { fresh: true }); } }, "🌱 new game+" + (lvl > 1 ? " " + lvl : "")) : null
       ])
     ]);
-    modal("", body, { story: true, sticky: true });
+    modal("", body, { story: true, sticky: true, now: true });
   }
   UI.endCard = endCard;
   function civCard() {
@@ -2121,7 +2225,7 @@
       if (d.c.gen === 1 && !(d.c.parents || []).length) {
         var f = game.family[d.c.id], kids = f && f.kids ? f.kids.length : 0, days = Math.max(1, Math.round((game.time - (f ? f.born : game.time)) / SB.DAY_LENGTH));
         moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + ". everyone here comes from them.", "lilac");
-        R.flyTo(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
+        autoFly(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
       }
       storyCard("grave", "🕯", "goodbye, " + esc(d.c.name), ["when a smol dies, its body stays where it fell (look for the 🕯). in a little while the tribe gathers to say goodbye, the way their culture knows how.",
         "early smols float their dead down the river to the sea. once they know fire, they give them to the flames. builders dig a grave at a favourite place, with an epitaph you can tap to read.",
@@ -2178,7 +2282,7 @@
     on("tierUp", function (d) {
       var t = SB.TIERS[d.tier], nx = SB.TIERS[d.tier + 1];
       if (SB.FX) SB.FX.burst("gold", d.c.x, d.c.y + 0.6, d.c.z, 30);
-      R.flyTo(d.c.x, d.c.z, 6, 1.2);
+      autoFly(d.c.x, d.c.z, 6, 1.2);
       var need = SB.Genome.nextNeeds(d.c.genome).map(function (n) { return n.label; }).slice(0, 2).join(" + ");
       setTimeout(function () {
         storyCard("tier" + d.tier, t.icon, "evolution: " + esc(d.c.name) + " is a " + t.name + "!", [
@@ -2229,13 +2333,14 @@
     });
     on("prayerAnswered", function (d) { if (SB.FX) SB.FX.burst("magic", d.c.x, d.c.y + 1, d.c.z, 14); });
     on("select", function (d) { if (d.c) { tutDone("look"); state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet(state.sheet === "tricks" ? "tricks" : "smol"); } else if (state.sheet === "smol") closeSheet(); });
-    on("wildEgg", function (d) { R.flyTo(d.obj.x, d.obj.z, 7, 1.4); });
+    on("wildEgg", function (d) { autoFly(d.obj.x, d.obj.z, 7, 1.4); });
     on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab"); });
     on("bigThought", function (d) {
       moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac");
       if (!d.first) return;
       setTimeout(function () {
         if (!SB.Intro || UI.noStory) { endCard(); return; }
+        if (game.skip) SB.Game.skipStop(game, null);
         var sp = game.speed; game.speed = 0; closeModal();
         if (SB.Audio) SB.Audio.play("chime");
         SB.Intro.play({ scene: "end", noGate: true, done: function () { game.speed = sp || 1; endCard(); } });
@@ -2260,7 +2365,7 @@
       storyCard("disaster", "🌋", "natural disasters", ["very rarely, the island itself turns on the smols. what can happen depends on where they live: <b>tsunamis</b> on the coast, <b>hurricanes</b> in the warm months, <b>sandstorms</b> near the savanna, <b>earthquakes</b> under the mountains, and once in a long while a <b>tornado</b>.", "you always get a warning. ✨ magic can stop it outright; taking cover keeps smols safe (buildings still suffer); riding it out is a gamble. builders put back what's wrecked. a star dome and thinkers see them coming much earlier."]);
     });
     on("grumpGrab", function (d) {
-      if (!d.c.far || game.selectedId === d.c.id) R.flyTo(d.g.x, d.g.z, 8, 1.0);
+      if (!d.c.far || game.selectedId === d.c.id) autoFly(d.g.x, d.g.z, 8, 1.0);
       storyCard("grab", "👺", "a grump grabbed " + d.c.name + "!", ["grumps carry off kids and sleepers caught out in the open. 👆 tap the grump, or let a smol with a club whack it, and it drops them.", "if it gets away, " + d.c.name + " is held at a grump camp until you free them (or they escape on their own, eventually). huts keep kids safe at night."]);
     });
     on("wrecked", function (d) {
@@ -2282,6 +2387,7 @@
     if (k === "t") { setTool("talk", true); e.preventDefault(); return true; }
     if (k === "m") { game.settings = game.settings || {}; game.settings.minimap = game.settings.minimap === false; toast(game.settings.minimap === false ? "map hidden (m to show)" : "map on"); return true; }
     if (k === "b") { var c = SB.Game.byId(game, game.selectedId); if (!c || c.type !== "creature") c = brainPick(); if (c) { SB.Game.select(game, c.id); openBrain(c); } else toast("no smols to look inside yet"); return true; }
+    if (k === "n") { toggleSkip(); return true; }
     if (k === "f") { var c2 = SB.Game.byId(game, game.selectedId); if (c2) SB.Input.follow(R.camera.follow ? null : c2); return true; }
     if (k === "h") { root.classList.toggle("hide"); return true; }
     return false;
@@ -2299,6 +2405,7 @@
   var perfEl = null, perfT = 0;
   UI.frame = function (g, dt) {
     if (!game) return;
+    pumpEvents();
     SB.Input.frame(dt);
     if (R.perf.show) {
       if (!perfEl) { perfEl = h("div", { class: "glass mono", style: "position:absolute;left:8px;bottom:90px;padding:6px 8px;font-size:10px;pointer-events:none" }); root.appendChild(perfEl); }
