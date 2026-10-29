@@ -109,8 +109,9 @@
     // the bottom: vitals rows over the hotbar
     "#pov .bottom{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}",
     "#pov .vit{display:grid;grid-template-columns:auto auto;column-gap:24px;row-gap:2px;width:100%;justify-content:space-between}",
-    "#pov .vrow{display:flex;gap:0;height:26px;align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
-    "#pov .vrow i{width:26px;height:26px;background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
+    "#pov .vrow{display:flex;gap:0;height:clamp(26px,3.8vh,40px);align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
+    "#pov .vrow b{font:700 clamp(15px,2.2vh,22px) var(--mono,monospace);color:#fff;text-shadow:2px 2px 0 #000;margin:0 8px;min-width:3.2em;text-align:center}#pov .vrow.low b{color:#ff4f5e}",
+    "#pov .vrow i{width:clamp(26px,3.8vh,40px);height:clamp(26px,3.8vh,40px);background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
     "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
     "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
     "#pov .vrow.low{filter:drop-shadow(0 0 6px #ff4f5e)}",
@@ -253,6 +254,7 @@
       var row = vit.appendChild(el("div", "vrow " + v[1]));
       row.title = { heart: "health", food: "food", warm: "warmth", pep: "pep (running, swinging)" }[v[0]];
       for (var i = 0; i < 10; i++) row.appendChild(el("i"));
+      if (v[0] === "heart" || v[0] === "food") row.appendChild(el("b", "", "")); // the number, readable at a glance (K-0035)
       hud.rows[v[0]] = { el: row, key: "" };
     });
     hud.hot = bot.appendChild(el("div", "hot panel"));
@@ -681,6 +683,7 @@
       ch[i].className = mode === 1 ? "h" : "";
     }
     r.el.classList.toggle("low", !!low);
+    if (ch[10]) ch[10].textContent = Math.round(SB.clamp(v, 0, 1) * 100) + "%";
     if (prev != null && halves > prev + 1) { r.el.classList.remove("pulse"); void r.el.offsetWidth; r.el.classList.add("pulse"); }
     if (prev != null && halves < prev && (name === "food" || name === "heart")) { r.el.classList.add("drop"); clearTimeout(r.dropT); r.dropT = setTimeout(function () { r.el.classList.remove("drop"); }, 260); } // you see it go down
   }
