@@ -61,7 +61,17 @@
           fetch("/api/hit", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
         } catch (err) {}
       };
-      hit("pageview");
+      // first page view of the day says whether this browser is new or back (only the last-seen day is kept)
+      var day = new Date().toDateString(), last = localStorage.getItem("cc-seen");
+      if (last !== day) localStorage.setItem("cc-seen", day);
+      hit("pageview", last === day ? null : { vis: last ? "back" : "new" });
+      // time on page: visible time only, sent once when the tab is hidden or closed
+      var shown = document.visibilityState === "visible" ? Date.now() : 0, seen = 0, left = false;
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") { shown = Date.now(); return; }
+        if (shown) { seen += Date.now() - shown; shown = 0; }
+        if (!left) { left = true; hit("leave", { ms: seen }); }
+      });
       if (thanks && !sessionStorage.getItem("cc-tipped")) { sessionStorage.setItem("cc-tipped", "1"); hit("tip_success"); window.ccTipThanks = true; }
     } catch (e) {}
   })();
