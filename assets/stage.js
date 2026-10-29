@@ -15,7 +15,7 @@
   html.classList.add("cc-stage");
 
   var CARDS = ".game-card-inner, .card2, .feature-card, .lab-item > a, .lab-item > div, .cast-card, .about-card, " +
-    ".support-card, .d3-card, .weekly-card, .continue-card, .soon-card, .spot-bezel, .poll-opt, .start-tile, .btn";
+    ".support-card, .d3-card, .weekly-card, .continue-card, .soon-card, .spot-bezel, .poll-opt, .start-tile, .btn, .cc-next-card, .cc-level";
   var REVEAL = CARDS + ", .page-head, .section-label, .section-head, .shelf-head";
   var fine = matchMedia("(pointer: fine)").matches;
 
