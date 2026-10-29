@@ -154,6 +154,7 @@
       ch.hunger = Math.min(0.97, ch.hunger + dt * 0.006); // a drumstick about every 8 s until you've eaten (K-0027: "no timer")
       if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
+    if (S.hungerClock && ch.health < 0.25) ch.health = 0.25; // the first-possession hunger stings, but like the grump it never takes the last quarter
     scoutTick(dt);
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
