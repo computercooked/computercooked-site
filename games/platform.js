@@ -21,7 +21,7 @@
 
   panel.innerHTML =
     '<div class="about-card cc-board" hidden>' +
-      '<div class="cc-head"><h2>// leaderboard</h2>' +
+      '<div class="cc-head"><h2>leaderboard</h2>' +
         '<div class="cc-tabs" role="tablist" aria-label="leaderboard period">' +
           '<button type="button" role="tab" data-p="day" aria-selected="true">today</button>' +
           '<button type="button" role="tab" data-p="week" aria-selected="false">week</button>' +
@@ -33,11 +33,11 @@
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
     "</div>" +
     '<div class="about-card cc-fb" id="cc-feedback">' +
-      '<div class="cc-head"><h2>// how was it?</h2>' +
+      '<div class="cc-head"><h2>how was it?</h2>' +
         '<button type="button" class="cc-heart" aria-pressed="false" aria-label="favorite" hidden>♡</button></div>' +
       '<div class="cc-thumbs">' +
-        '<button type="button" data-r="1" aria-pressed="false" aria-label="thumbs up">👍</button>' +
-        '<button type="button" data-r="-1" aria-pressed="false" aria-label="thumbs down">👎</button>' +
+        '<button type="button" data-r="1" aria-pressed="false" aria-label="thumbs up"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 11v9H3v-9zM7 11l4-8c1.7 0 3 1.3 3 3v3h5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>' +
+        '<button type="button" data-r="-1" aria-pressed="false" aria-label="thumbs down"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="transform:rotate(180deg)"><path d="M7 11v9H3v-9zM7 11l4-8c1.7 0 3 1.3 3 3v3h5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>' +
       "</div>" +
       '<label class="cc-label" for="cc-fb-text">what would make this better?</label>' +
       '<textarea id="cc-fb-text" maxlength="1000" rows="3" placeholder="be honest. the computer can take it. (it cannot)"></textarea>' +
@@ -51,10 +51,8 @@
     localStorage.setItem("cc-recent", JSON.stringify(rec.slice(0, 12)));
   } catch (e) {}
 
-  /* ---------- account chip (next to the breadcrumbs) ---------- */
-  var crumbs = document.querySelector(".crumbs");
+  /* ---------- account chip: K-0031 the top bar's "log in" covers this now, so it stays off the page ---------- */
   var chip = el('<a class="cc-chip" href="/me/">log in</a>');
-  if (crumbs) crumbs.appendChild(chip);
 
   /* ---------- leaderboard ---------- */
   var board = panel.querySelector(".cc-board");
@@ -369,7 +367,7 @@
     tipUrl().then(function (url) {
       if (!url || !box.isConnected || box.querySelector(".cc-tip-pb")) return;
       try { sessionStorage.setItem("cc-tip-pb", "1"); } catch (e) {}
-      box.insertAdjacentHTML("beforeend", '<p class="cc-tip cc-tip-pb"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-best">☕ new best? buy the computer a coffee ↗</a> <small>18+ / ask a parent</small></p>');
+      box.insertAdjacentHTML("beforeend", '<p class="cc-tip cc-tip-pb"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-best">new best? buy the computer a coffee ↗</a> <small>18+ / ask a parent</small></p>');
       box.querySelector(".cc-tip-pb a").addEventListener("click", function () { if (window.ccHit) window.ccHit("tip_click", { slot: "post-best", game: game }); });
     });
   }
@@ -424,7 +422,7 @@
         picks.push(seen[g.slug] ? take(g, "similar", "play again") : take(g, "new", "you haven't tried"));
       });
       if (document.getElementById("cc-next")) return;
-      var rail = el('<nav class="cc-next" id="cc-next" aria-label="play next"><h2>// play next</h2><div class="cc-next-row">' +
+      var rail = el('<nav class="cc-next" id="cc-next" aria-label="play next"><h2>play next</h2><div class="cc-next-row">' +
         picks.slice(0, 3).map(function (p) {
           return '<a class="cc-next-card" href="/games/' + encodeURIComponent(p.g.slug) + '/?src=next&amp;slot=' + p.slot + '">' +
             '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
@@ -446,7 +444,7 @@
     if (["crash-test-daily", "desktop-jam", "fathom"].indexOf(slug) < 0) return;
     var go = function () {
       var r = window.ccDaily3 && window.ccDaily3.mark(slug);
-      if (r && window.ccToast) window.ccToast(r.done < r.of ? "daily 3: " + r.done + "/" + r.of + " today" : "daily 3 done" + (r.streak ? " · 🔥" + r.streak : ""));
+      if (r && window.ccToast) window.ccToast(r.done < r.of ? "daily 3: " + r.done + "/" + r.of + " today" : "daily 3 done" + (r.streak ? " · " + r.streak + "-day streak" : ""));
     };
     if (window.ccDaily3) return go();
     var s = document.createElement("script"); s.src = "/assets/daily3.js"; s.onload = go; document.head.appendChild(s);

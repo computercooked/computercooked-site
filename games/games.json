@@ -3,7 +3,7 @@
     {
       "slug": "crash",
       "clip": "/assets/clips/crash.mp4",
-      "title": "CRASH",
+      "title": "crash",
       "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
       "thumbnail": "/games/crash/thumb.svg",
       "made_by": "computer-cooked",
@@ -27,7 +27,7 @@
     {
       "slug": "handbag-havoc",
       "clip": "/assets/clips/handbag-havoc.mp4",
-      "title": "Handbag Havoc",
+      "title": "handbag havoc",
       "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
       "thumbnail": "/games/handbag-havoc/play/thumb.png",
       "made_by": "computer-cooked",
@@ -69,7 +69,7 @@
       "slug": "keyboard-escape",
       "clip": "/assets/clips/keyboard-escape.mp4",
       "featured_rank": 3,
-      "title": "+1 Speed Keyboard Escape",
+      "title": "+1 speed keyboard escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
       "thumbnail": "/games/keyboard-escape/play/thumb.png",
       "made_by": "computer-cooked",

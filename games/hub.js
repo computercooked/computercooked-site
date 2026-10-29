@@ -64,20 +64,19 @@
   var stats = {}, me = null, favs = [];
 
   function card(g) {
-    var tags = (g.tags || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+    var tags = (g.tags || []).slice(0, 3).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
     var isNew = g.added && (Date.now() - Date.parse(g.added)) < 14 * 86400000;
     var s = stats[g.slug];
     var count = s && s.total > 100 ? '<span class="game-plays">' + plays(s.total) + "</span>" : "";
     var heart = me ? '<button type="button" class="cc-heart game-heart" data-game="' + esc(g.slug) + '" aria-pressed="' + (favs.indexOf(g.slug) >= 0) + '" aria-label="favorite ' + esc(g.title) + '">' + (favs.indexOf(g.slug) >= 0 ? "♥" : "♡") + "</button>" : "";
-    return '<li class="game-card"><div class="game-card-inner">' +
-      '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="400" height="300" loading="lazy">' +
-      '<div class="game-body">' +
-        (isNew ? '<span class="game-new">new</span>' : "") + heart +
+    return '<li class="game-card">' + heart + '<a class="game-card-inner game-link" href="/games/' + encodeURIComponent(g.slug) + '/">' +
+      '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="400" loading="lazy">' +
+      '<span class="game-body">' +
+        (isNew ? '<span class="game-new">new</span>' : "") +
         '<h3 class="game-name">' + esc(g.title) + "</h3>" +
-        '<p class="game-pitch">' + esc(g.pitch) + "</p>" +
-        (tags ? '<ul class="game-tags" aria-label="tags">' + tags + "</ul>" : "") + count +
-        '<a class="play-btn" href="/games/' + encodeURIComponent(g.slug) + '/" aria-label="play ' + esc(g.title) + '">play ▶</a>' +
-      "</div></div></li>";
+        '<span class="game-pitch">' + esc(g.pitch) + "</span>" +
+        (tags ? '<span class="game-tags">' + tags + "</span>" : "") + count +
+      "</span></a></li>";
   }
 
   function shelf(id, title, note, list) {
@@ -162,7 +161,7 @@
     games.forEach(function (g) { if (g.clip) bySlug[g.slug] = g.clip; });
     var touch = mq("(hover: none)");
     var play = function (li) {
-      var img = li.querySelector(".game-thumb"), a = li.querySelector(".play-btn");
+      var img = li.querySelector(".game-thumb"), a = li.querySelector(".game-link");
       var m = a && /^\/games\/([a-z0-9-]+)\/$/.exec(a.getAttribute("href") || "");
       var src = m && bySlug[m[1]];
       if (!img || !src) return;
@@ -266,8 +265,8 @@
     if (!list.length) return;
     document.getElementById("continue-row").innerHTML = list.map(function (slug) {
       var g = byslug[slug], c = cloud[slug], l = local[slug], meta, cls = "";
-      if (c && (!l || c > l + 5000)) { meta = "newer save from another device ☁ · " + ago(c); cls = " is-sync"; }
-      else if (c) meta = "saved to your account ☁ · " + ago(c);
+      if (c && (!l || c > l + 5000)) { meta = "newer save from another device · " + ago(c); cls = " is-sync"; }
+      else if (c) meta = "saved to your account · " + ago(c);
       else if (l) meta = "saved on this device · " + ago(l);
       else meta = "played " + ago(seen[slug]);
       return '<li><a class="continue-card' + cls + '" href="/games/' + encodeURIComponent(slug) + '/">' +
