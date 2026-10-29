@@ -126,12 +126,14 @@
   };
 
   /* ---------- active page ---------- */
-  var path = location.pathname;
+  // the longest matching link wins, so /games/daily/ lights "daily", not "games" too
+  var path = location.pathname, best = null, bestLen = -1;
   deck.querySelectorAll(".deck-link").forEach(function (a) {
     var href = a.getAttribute("href");
     var on = href === "/" ? (path === "/" || path === "/index.html") : (href.charAt(0) === "/" && href.indexOf("#") < 0 && path.indexOf(href) === 0);
-    if (on) a.setAttribute("aria-current", "page");
+    if (on && href.length > bestLen) { best = a; bestLen = href.length; }
   });
+  if (best) best.setAttribute("aria-current", "page");
 
   /* ---------- account: "log in", or your name once the API says who you are ---------- */
   var acct = deck.querySelector("[data-account-label]");

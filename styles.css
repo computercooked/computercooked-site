@@ -963,3 +963,85 @@ a {
 /* K-0044: the computer on the 404 page */
 .lost-pc { width: 150px; margin: 0 auto var(--s-4); }
 .lost-pc img, .lost-pc svg { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+
+/* ======================================================================================================
+   Overhaul phase 5: Daily 3, the lab and the weekly board. Same cooked CRT as everywhere else.
+   ====================================================================================================== */
+
+/* Daily 3: the streak is on fire, finished games get stamped, and the three slots read as a meter */
+.d3-streak { display: flex; align-items: center; gap: 10px; }
+.d3-streak::before {
+  content: "";
+  flex: none;
+  width: 30px;
+  height: 42px;
+  background: url("/assets/mascot/fire.svg") center / contain no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 10px rgb(var(--heat) / .45));
+}
+.d3-streak b { font-family: var(--display); font-size: 1.6em; line-height: 1; text-shadow: var(--text-glow); }
+.d3-card { position: relative; overflow: hidden; transition: border-color var(--fast), box-shadow var(--fast), transform var(--fast); }
+.d3-card:hover, .d3-card:focus-visible { box-shadow: 0 0 22px -6px rgb(var(--phosphor) / .45); transform: translateX(3px); }
+.d3-card.is-done { background: linear-gradient(90deg, rgb(var(--phosphor) / .1), transparent 60%); box-shadow: inset 3px 0 0 var(--accent); }
+.d3-card.is-done .d3-state { text-shadow: var(--text-glow); }
+.d3-card.is-done::after {
+  content: "cooked";
+  position: absolute;
+  right: 44px;
+  top: 50%;
+  padding: 1px 6px;
+  border: 2px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font: 800 11px/1.3 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transform: translateY(-50%) rotate(-8deg);
+  opacity: .85;
+  animation: cc-stamp .3s cubic-bezier(.3, 1.6, .5, 1) both;
+}
+@keyframes cc-stamp { from { transform: translateY(-50%) rotate(-8deg) scale(2.2); opacity: 0; } }
+@media (max-width: 480px) {
+  .d3-card.is-done::after { right: auto; left: 14px; top: 12px; transform: rotate(-8deg); animation: none; }
+}
+#d3-share { box-shadow: var(--glow-md); }
+
+/* the weekly board and leaderboards: rows print in, the podium glows, your row is lit */
+.wk-list li { animation: cc-row-in .3s var(--ease-boot) both; transition: background-color var(--fast); }
+.wk-list li:nth-child(2) { animation-delay: 40ms; }
+.wk-list li:nth-child(3) { animation-delay: 80ms; }
+.wk-list li:nth-child(n+4) { animation-delay: 120ms; }
+.wk-list li:hover { background: rgb(var(--phosphor) / .06); }
+.wk-list li:nth-child(1) .wk-rank { color: var(--accent); text-shadow: var(--text-glow); }
+.wk-list li:nth-child(2) .wk-rank { color: var(--beige); }
+.wk-list li:nth-child(3) .wk-rank { color: rgb(var(--heat)); }
+.wk-list li.is-me { outline: 0; background: rgb(var(--phosphor) / .1); box-shadow: inset 3px 0 0 var(--accent), 0 0 18px -6px rgb(var(--phosphor) / .6); }
+.wk-trophy { filter: drop-shadow(0 0 8px rgb(var(--phosphor) / .4)); }
+@keyframes cc-row-in { from { opacity: 0; transform: translateX(-8px); filter: brightness(2); } to { opacity: 1; transform: none; filter: none; } }
+
+/* the lab: pipeline tags carry status LEDs (building blinks amber, up next pulses lime, shipped is done) */
+.stage { display: inline-flex; align-items: center; gap: 6px; }
+.stage::before { content: ""; width: 6px; height: 6px; border-radius: 1px; background: currentColor; }
+.stage-building::before { box-shadow: 0 0 6px currentColor; animation: cc-blink 1.1s steps(1) infinite; }
+.stage-next::before { box-shadow: 0 0 8px currentColor; animation: cc-pulse 1.6s ease-in-out infinite; }
+.stage-shipped::before { content: "✓"; width: auto; height: auto; background: none; font-size: 10px; line-height: 1; }
+@keyframes cc-blink { 50% { opacity: .25; } }
+@keyframes cc-pulse { 50% { opacity: .35; transform: scale(.7); } }
+.lab-item b { transition: text-shadow var(--fast); }
+.lab-item > a:hover b { text-shadow: var(--text-glow); }
+
+/* the vote: bars are segmented meters that fill in steps; your pick glows */
+.poll-opt { transition: border-color var(--fast), box-shadow var(--fast), transform var(--fast); }
+.poll-opt:active { transform: scale(.99); }
+.poll-opt[aria-pressed="true"] { box-shadow: 0 0 0 1px rgb(var(--phosphor) / .35), 0 0 26px -8px rgb(var(--phosphor) / .6); }
+.poll-bar { height: 10px; padding: 2px; border: 1px solid var(--line); border-radius: 2px; background: #07080a; }
+.poll-bar span { border-radius: 0; background: repeating-linear-gradient(90deg, var(--text-dim) 0 6px, transparent 6px 8px); transition: width .7s steps(20, end); }
+.poll-opt[aria-pressed="true"] .poll-bar span { background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px); filter: drop-shadow(0 0 4px rgb(var(--phosphor) / .6)); }
+.poll-n { font-family: var(--mono); font-weight: 800; }
+.poll-opt[aria-pressed="true"] .poll-n { color: var(--accent); text-shadow: var(--text-glow); }
+
+@media (prefers-reduced-motion: reduce) {
+  .d3-card.is-done::after, .wk-list li, .stage-building::before, .stage-next::before { animation: none; }
+  .poll-bar span { transition: none; }
+}

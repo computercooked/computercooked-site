@@ -304,7 +304,7 @@ html.cc-stage body::before {
 /* nav: dark glass with a phosphor line under it */
 .deck {
   /* near-opaque instead of a backdrop blur: a blur would be recomputed every frame over the moving embers */
-  background: rgb(14 15 17 / .94);
+  background: rgb(14 15 17 / .985);
   border-bottom-color: transparent;
   box-shadow: 0 1px 0 rgb(var(--phosphor) / .14), 0 8px 24px -16px rgb(var(--phosphor) / .35);
   view-transition-name: deck;
