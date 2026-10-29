@@ -49,7 +49,7 @@
             <span class="boot-text">booting CRASH<span class="boot-dots"></span></span>
             <span class="boot-bar"><span></span></span>
           </div>
-          <iframe id="game-frame" data-src="/games/crash/play/" title="CRASH" allow="fullscreen; autoplay" loading="eager"></iframe><script>/* start the game once the boot screen (and its sprite) has painted, so the page shows before the game loads; 600 ms at most */(function(f){function go(){if(!f.src)f.src=f.dataset.src}var i=new Image();i.src="/assets/mascot/sleep.svg";(i.decode?i.decode():Promise.resolve()).then(function(){requestAnimationFrame(function(){setTimeout(go,0)})},go);setTimeout(go,600)})(document.getElementById("game-frame"))</script>
+          <iframe id="game-frame" data-src="/games/crash/play/" title="CRASH" allow="fullscreen; autoplay" loading="eager"></iframe><script>/* start the game only once the page has painted: when the boot logo is reported painted, or two frames after load, 2.5 s at most. Starting it earlier (K-0050) put the game's download and startup ahead of the first paint */(function(f){var d=0;function go(){if(!d){d=1;if(!f.src)f.src=f.dataset.src}}function soon(){requestAnimationFrame(function(){requestAnimationFrame(function(){setTimeout(go,0)})})}try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){if(e.element&&e.element.classList.contains("boot-logo"))go()})}).observe({type:"largest-contentful-paint",buffered:true})}catch(e){}if(document.readyState==="complete")soon();else addEventListener("load",soon);setTimeout(go,2500)})(document.getElementById("game-frame"))</script>
         </div>
 
         <div class="player-bar">

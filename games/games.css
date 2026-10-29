@@ -2559,6 +2559,8 @@ html[data-landing-ready] { overflow: hidden; }
   text-shadow: var(--text-glow);
 }
 .boot-text::before { content: "C:\\COOKED> "; color: var(--text-dim); text-shadow: none; }
+/* the dots get a fixed 3ch box, so the centered line never moves as they grow (it was a 0.066 layout shift, K-0050) */
+.boot-dots { display: inline-block; width: 3ch; text-align: left; }
 .boot-bar {
   width: 192px;
   height: 12px;
