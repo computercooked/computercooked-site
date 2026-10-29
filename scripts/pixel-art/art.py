@@ -4,6 +4,8 @@ Each scene draws on a W x H logical canvas (props placed from the centre), so th
 import os, sys
 from PIL import Image
 import pix
+_MD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "mascot")
+MINI = {h: Image.open(os.path.join(_MD, f"mini-{h}.png")).convert("RGBA") for h in (30, 40)}
 
 T = {  # tokens
     "bg": "#0E0F11", "surface": "#17181C", "s2": "#202228", "line": "#2A2D34", "text": "#F3F1EA",
@@ -151,8 +153,13 @@ class Canvas:
                     for a in range(scale):
                         for b in range(scale): s.px(x + i * scale + a, y + j * scale + b, pal[ch])
 
-    def gary(s, x, y, flip=False): s.sprite(pix.GARY, x, y, pix.PAL, flip)
-    def computer(s, x, y, flip=False, scale=1): s.sprite(COMPUTER, x, y, CPAL, flip, scale)
+    # K-0044: the one mascot everywhere is the Computer Cooked computer (scripts/mascot/mini.py). Gary is retired:
+    # both old call sites now draw the computer, bottom-centred where the old sprite stood.
+    def mascot(s, cx, bottom, h=30, flip=False):
+        im = MINI[h].transpose(Image.FLIP_LEFT_RIGHT) if flip else MINI[h]
+        s.im.alpha_composite(im, (cx - im.size[0] // 2, bottom - im.size[1]))
+    def gary(s, x, y, flip=False): s.mascot(x + 10, y + 22, 30, flip)
+    def computer(s, x, y, flip=False, scale=1): s.mascot(x + 10 * scale, y + 15 * scale, 30 if scale == 1 else 40, flip)
 
     def grid(s, step, c="deep"):
         for x in range(0, s.W, step): s.rect(x, 0, 1, s.H, c)

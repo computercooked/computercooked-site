@@ -12,7 +12,7 @@
     "id": "next-game-1",
     "question": "which one should we build next?",
     "options": [
-      { "id": "gary-weather", "title": "gary vs. the weather", "pitch": "pick a disaster, watch gary survive it for 0.4 seconds." },
+      { "id": "gary-weather", "title": "the computer vs. the weather", "pitch": "pick a disaster, watch the computer survive it for 0.4 seconds." },
       { "id": "microwave", "title": "rate my microwave", "pitch": "hold to cook. let go before it explodes. every item has a secret perfect time." },
       { "id": "checkout", "title": "unexpected item", "pitch": "a self-checkout that gets more unhinged with every scan." },
       { "id": "parallel-park", "title": "parallel park hell", "pitch": "one tap to park. the space shrinks every time you make it." },
