@@ -386,6 +386,15 @@ In a 4.8.5 play-through, a "set it up" lesson sat for 25 s with the smol ignorin
 - Once it has done the thing in a session, none of this applies: the usual 30 s window stays.
 - **Tests**: `firstminutes.test.js` §7.
 
+## 0.32 What v4.8.7 added: you can see the grump coming
+
+In 4.8.4 the first-minute grump was announced in a line that faded after 3 s, and nothing pointed at it: in a play-through the first sign was the red screen edge.
+
+- **A banner while it's after you** (`povhud.js` `threatMarker`): "👹 a grump is after you · 9m · 🏠 nest 14m", red, under the compass. When it's on you: "👹 it's got you! run!".
+- **A red marker on the grump** (or a red arrow at the screen edge when it's behind you, stacked under the other arrow).
+- **The guide points home**: while the chase is on, the lime marker points at the nest instead of the next quest step.
+- The marker code is shared now (`mark()`), so the guide and the grump place their arrows the same way.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

@@ -151,6 +151,8 @@
     "#pov .qmark i{position:absolute;left:-9px;top:-22px;width:18px;height:18px;background:var(--lime);transform:rotate(45deg);box-shadow:0 0 0 2px var(--px);animation:povbob 1s ease-in-out infinite}",
     "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 11px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
+    "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
+    "#pov .threat{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
     "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:12px 22px;font:700 22px var(--mono,monospace);color:var(--lime);text-align:center;animation:povgain 2.6s forwards}#pov .qdone small{display:block;margin-top:4px;font-size:14px;color:#f5f3ed}",
     // the bag
@@ -224,6 +226,8 @@
     hud.paw = hud.paws.appendChild(el("div", "paw")); hud.paw.style.background = col; hud.col = col;
     hud.item = hud.paws.appendChild(el("div", "item"));
     hud.qmark = root.appendChild(el("div", "qmark", "<i></i><span></span>"));
+    hud.gmark = root.appendChild(el("div", "qmark gmark", "<i></i><span></span>")); // the first minute's grump (possess.js scoutTick)
+    hud.threat = root.appendChild(el("div", "threat", ""));
     hud.cross = root.appendChild(el("div", "cross", "<i></i><i></i><i></i><i></i><b></b>"));
     hud.tname = root.appendChild(el("div", "tname"));
     hud.prompt = root.appendChild(el("div", "prompt panel"));
@@ -372,21 +376,38 @@
     setTimeout(function () { d.remove(); }, 2700);
     HUD.quest();
   };
+  // while a grump is after you: a red marker on it, a banner that says how close, and the guide points home
+  function threatMarker() {
+    var s = S(), g = s && !s.dead && P().scout ? P().scout() : null;
+    if (!g) { hud.gmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
+    var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z);
+    mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0);
+    var txt = (dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
+    if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
+    hud.threat.classList.add("on");
+    return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };
+  }
   function questMarker() {
-    var s = S(), q = s && s.quest, t = s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target, R = SB.Render; // the nose, then home at night, then the guide
+    var home = threatMarker();
+    var s = S(), q = s && s.quest, t = home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
+    mark(hud.qmark, t, d, 1.4);
+  }
+  function mark(m, t, d, minD) {
+    var s = S(), c = s.c, R = SB.Render;
+    if (d < minD) { m.classList.remove("on"); return; }
     var bearing = Math.atan2(-(t.x - c.x), -(t.z - c.z)), diff = SB.angDiff(s.yaw, bearing);
     var p = R.project(t.x, t.y, t.z), W = window.innerWidth, H = window.innerHeight, x, y, edge = false;
     if (Math.abs(diff) < 0.75 && p.on) { x = SB.clamp(p.x, 24, W - 24); y = SB.clamp(p.y, 60, H - 140); }
-    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5; }
-    hud.qmark.classList.add("on");
-    hud.qmark.classList.toggle("edge", edge);
-    hud.qmark.style.left = x + "px"; hud.qmark.style.top = y + "px";
-    var sp = hud.qmark.querySelector("span"), lbl = Math.round(d) + "m";
+    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5 + (m === hud.gmark ? 46 : 0); } // two arrows on one side: stacked
+    m.classList.add("on");
+    m.classList.toggle("edge", edge);
+    m.style.left = x + "px"; m.style.top = y + "px";
+    var sp = m.querySelector("span"), lbl = Math.round(d) + "m";
     if (sp.textContent !== lbl) sp.textContent = lbl;
-    var ic = hud.qmark.querySelector("i");
+    var ic = m.querySelector("i");
     ic.style.transform = edge ? "rotate(" + (diff > 0 ? -45 : 135) + "deg)" : "rotate(45deg)";
   }
 
