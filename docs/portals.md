@@ -28,6 +28,7 @@ is Ashton's decision and Ashton's to do.
   - genre plus up to 10 tags
   - embed size set; "mobile friendly" ticked
 - **Rules:** our ads, analytics, branding and links back to computercooked.com are all allowed, and the game stays on our site.
+- **Our build (K-0030 step 7):** progress stays on the player's device. After the 1st run and every 5th, a small closable card links to the game on computercooked.com (`?ref=portal&utm_campaign=portal-itch`) for xp, levels and boards. Newgrounds builds do the same (`portal-newgrounds`). Ad portals never show it.
 - **Money:** only from sales or donations.
   - payouts from $5 by PayPal or Payoneer
   - a **tax interview** is required (Ashton)
