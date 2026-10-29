@@ -376,6 +376,26 @@
         "catches in a row stack a streak multiplier (up to 3x).",
         "today's rare is worth 2x. new book entries pay 1.5x."
       ]
+    },
+    {
+      "slug": "haunted-self-checkout",
+      "title": "haunted self-checkout",
+      "pitch": "scan the groceries. never scan the ones with eyes. a 60-second shift at the cursed till.",
+      "thumbnail": "/games/haunted-self-checkout/cover.png?v=4",
+      "made_by": "computer-cooked",
+      "tags": [
+        "reflex",
+        "spooky",
+        "short",
+        "halloween",
+        "mobile"
+      ],
+      "controls": "tap / click an item to scan it. space or enter scans the item nearest the bag, and starts or retries. m mutes.",
+      "size_kb": 24,
+      "version": "1.0",
+      "added": "2026-10-29",
+      "max_score_per_sec": 8.0,
+      "max_score": 480.0
     }
   ]
 }

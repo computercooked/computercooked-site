@@ -352,12 +352,69 @@ def reel(c):
     c.sprite(BOOT, c.cx + 24, wy + 10, {"B": T["beige2"]}, scale=2)
     c.ring(c.cx + 29, wy + 2, 4, "line")
 
+HSC_BANANA = """
+.........kk.
+........kyk.
+........kYk.
+.......kYYk.
+.......kYYk.
+......kYYyk.
+.....kYYYk..
+...kkYYYyk..
+.kkYYYYyk...
+kYYYYyyk....
+.kkkkkk.....
+"""
+HSC_APPLE = """
+.....k......
+......k.kk..
+......kkGGk.
+...kkkkkkk..
+..kRRRkRRRk.
+.kRRRRRRRRrk
+.kWWRRRWWRrk
+.kWERRRWERrk
+.kRRRRRRRrrk
+..kRRRRRrrk.
+...kkrkrkk..
+"""
+HSC_GHOST = """
+....kkkk....
+...kWWWWk...
+..kWWWWWWk..
+.kWWkWWkWWk.
+.kWWkWWkWWk.
+.kWWWWWWWWk.
+.kWWWWWWWWk.
+.kWWWWWWWwk.
+.kWWwWWwWWk.
+.kWk.kWk.kk.
+"""
+HSC_PAL = {"k": "#0b0c0e", "Y": "#f6d84a", "y": "#c9a628", "R": "#e5484d", "r": "#9e2a2e", "G": "#5fbf3a", "W": "#f4f1e6", "w": "#c9c6bb", "E": "#ff3344"}
+
+
+def checkout(c):
+    c.rect(0, 0, c.W, c.H, "#14150f")
+    for i in range(14): c.px((i * 41) % c.W, (i * 17) % 34, "line")
+    by = c.H - 24
+    c.rect(0, by, c.W, 10, "#23261d")
+    for x in range(0, c.W, 8): c.rect(x, by, 3, 10, "#3a3f2e")
+    c.rect(0, by - 1, c.W, 1, "deep")
+    c.computer(c.cx - 70, by - 30, scale=2)
+    c.sprite(HSC_BANANA, c.cx - 26, by - 22, HSC_PAL, scale=2)
+    c.disc(c.cx + 22, by - 11, 15, "#2a2140")
+    c.sprite(HSC_APPLE, c.cx + 10, by - 23, HSC_PAL, scale=2)
+    c.sprite(HSC_GHOST, c.cx + 46, by - 58, HSC_PAL, scale=2)
+    c.window(c.cx - 44, 8, 60, 22, title="alarm")
+    c.rect(c.cx - 40, 18, 44, 1, "text"); c.rect(c.cx - 40, 22, 30, 1, "dim")
+    c.rect(c.W - 22, by - 14, 14, 13, "#c9a36a"); c.rect(c.W - 22, by - 14, 14, 2, "#a9844d")
+
 
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
-    "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel,
+    "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout,
 }
 
 
