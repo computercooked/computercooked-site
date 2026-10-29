@@ -1045,3 +1045,59 @@ a {
   .d3-card.is-done::after, .wk-list li, .stage-building::before, .stage-next::before { animation: none; }
   .poll-bar span { transition: none; }
 }
+
+
+/* ======================================================================================================
+   Overhaul phase 6: accounts, support, about, 404 and the rest. Inputs everywhere get a lime caret
+   and a phosphor focus; the account forms are little programs on the computer.
+   ====================================================================================================== */
+input:not([type="checkbox"]):not([type="radio"]), textarea { caret-color: var(--accent); }
+input:not([type="checkbox"]):not([type="radio"]):focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px rgb(var(--phosphor) / .5), 0 0 18px -4px rgb(var(--phosphor) / .5);
+}
+
+/* /me and /u: log in, sign up and recovery are windows on the computer */
+.me-form::before {
+  content: "C:\\COOKED\\account.exe";
+  display: flex;
+  align-items: center;
+  margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-4)) 4px;
+  padding: 6px var(--s-4);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: linear-gradient(90deg, rgb(var(--phosphor) / .12), transparent 70%), #07080a;
+  color: var(--text-dim);
+  font: 800 11px/1.4 var(--mono);
+  letter-spacing: .04em;
+}
+#form-login::before { content: "C:\\COOKED\\login.exe"; }
+#form-signup::before { content: "C:\\COOKED\\new_player.exe"; }
+.me-form { box-shadow: 0 0 40px -18px rgb(var(--phosphor) / .45); }
+.me-tabs button { transition: background-color var(--fast), color var(--fast), box-shadow var(--fast); }
+.me-tabs button[aria-selected="true"] { box-shadow: var(--glow-md); }
+.me-msg:not(:empty) { font-family: var(--mono); }
+
+/* about: the cast lights up */
+.cast-card .char-art { transition: transform var(--slow) var(--ease-boot), filter var(--fast); }
+.cast-card:hover .char-art { transform: translateY(-4px) scale(1.06); filter: drop-shadow(0 0 12px rgb(var(--phosphor) / .45)); }
+.cast-card h2 { text-shadow: var(--text-glow); }
+
+/* support */
+.support-card h2 { text-shadow: var(--text-glow); }
+
+/* 404: the computer is on fire and the error code glitches */
+.lost-pc img { filter: drop-shadow(0 0 22px rgb(var(--heat) / .45)); animation: cc-shake 4s steps(1) infinite; }
+@keyframes cc-shake { 0%, 90% { transform: none; } 91% { transform: translate(-2px, 1px); } 93% { transform: translate(2px, -1px); } 95% { transform: translate(-1px, 0); } }
+.error-code { color: var(--alarm); text-shadow: 0 0 12px rgb(255 90 78 / .5); animation: cc-glitch 3.2s steps(1) infinite; }
+@keyframes cc-glitch {
+  0%, 88% { transform: none; text-shadow: 0 0 12px rgb(255 90 78 / .5); }
+  90% { transform: translateX(2px); text-shadow: -2px 0 rgb(var(--phosphor) / .8), 2px 0 rgb(255 90 78 / .8); }
+  93% { transform: translateX(-2px); text-shadow: 2px 0 rgb(var(--phosphor) / .8), -2px 0 rgb(255 90 78 / .8); }
+}
+.is-404 .section-label, .page .hero .section-label { text-shadow: var(--text-glow); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lost-pc img, .error-code { animation: none; }
+}
