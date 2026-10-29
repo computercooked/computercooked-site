@@ -57,7 +57,7 @@ console.log("2. the brain stops deciding while you drive");
 }
 
 console.log("3. walking, and needs keep running");
-{
+load.seeded(303, () => { // seeded: a first possession starts hungry now (K-0037), and a starving smol's luck shouldn't decide the hop
   const { g, cs } = fresh(43, 2);
   const c = cs[0];
   P.enter(g, c, { free: true });
@@ -74,7 +74,7 @@ console.log("3. walking, and needs keep running");
   check("space hops", c.onGround === false || c.vy !== 0 || c.y > SB.World.groundY(g.world, c.x, c.z) + 0.01);
   run(g, 2);
   P.leave();
-}
+});
 
 console.log("4. the controls: right click eats, F picks up into the hotbar");
 {

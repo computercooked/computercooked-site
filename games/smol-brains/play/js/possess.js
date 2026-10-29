@@ -150,10 +150,11 @@
       else if (ad < (S.auto.reach || 1.6) || S.auto.stuck > 1.5) { var ref = S.auto.ref; S.auto = null; arrive(ref); }
       else { S.yaw += SB.angDiff(S.yaw, Math.atan2(-ax, -az)) * Math.min(1, dt * 5); f = 1; sd = 0; mag = 1; }
     }
-    if (S.quest && S.quest.kind === "blob" && S.quest.i <= 1 && ch.hunger > 0.5 && ch.hunger < 0.97) {
+    if (((S.quest && S.quest.kind === "blob" && S.quest.i <= 1) || S.hungerClock) && ch.hunger > 0.5 && ch.hunger < 0.97) {
       ch.hunger = Math.min(0.97, ch.hunger + dt * 0.006); // a drumstick about every 8 s until you've eaten (K-0027: "no timer")
       if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
+    if (S.hungerClock && ch.health < 0.25) ch.health = 0.25; // the first-possession hunger stings, but like the grump it never takes the last quarter
     scoutTick(dt);
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
@@ -761,7 +762,7 @@
   P.SCOUT_AT = 20; P.SCOUT_MAX = 35;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
-    if (c.tier >= 2 || st.povThreat === "done" || game.offline) return;
+    if (st.povThreat === "done" || game.offline) return;
     S.threatT = (S.threatT || 0) + dt;
     if (!S.scout) {
       if (st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return;
@@ -798,6 +799,13 @@
     if (msg) { say(msg); audio("chime"); }
     SB.bus.emit("scoutEnd", { c: S.c, ok: !!pay });
   }
+  P.walkToward = function (frac) { // frac: where the click was across the screen, -0.5 (left) .. 0.5 (right)
+    if (!S || S.dead) return false;
+    S.yaw -= frac * (P.FOV || 1.2) * 1.4;
+    var c = S.c, d = 7;
+    S.auto = { x: c.x - Math.sin(S.yaw) * d, z: c.z - Math.cos(S.yaw) * d, t: 12, reach: 1 };
+    return true;
+  };
   P.scout = function () { return S && S.scout != null ? SB.Game.byId(S.game, S.scout) : null; };
   // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
   function arrive(ref) {
@@ -1060,7 +1068,7 @@
   function questStart() {
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
     S.quest = null;
-    if (c.tier < 2 && !st.povHungry) { st.povHungry = 1; if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; } // per island, quest or not (K-0027 saw a full bar)
+    if (!st.povHungry) { st.povHungry = 1; S.hungerClock = true; if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; } // per island, any smol, quest or not (K-0027 saw a full bar, K-0037 a tool-user)
     if (c.tier < 2) {
       if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
       S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };
@@ -1187,7 +1195,8 @@
       if (S.quest) { S.quest.flags.chop = 1; questTick(); }
     });
     function blobFlag(d, k) { if (S && S.quest && S.quest.kind === "blob" && d && d.c === S.c) { S.quest.flags[k] = (S.quest.flags[k] || 0) + 1; questTick(); } }
-    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); });
+    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); if (S && d && d.c === S.c) S.hungerClock = false; });
+    SB.bus.on("nibble", function (d) { if (S && d && d.c === S.c) S.hungerClock = false; });
     SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("nibble", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("sniff", function (d) { blobFlag(d, "sniff"); });

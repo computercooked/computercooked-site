@@ -888,7 +888,10 @@
       },
       up: function (e) {
         P().input.use = false;
-        if (drag && drag.moved < 6) press(drag.b, true);
+        if (drag && drag.moved < 6) {
+          var used = press(drag.b, true);
+          if (!used && drag.b === 0 && SB.TEST) P().walkToward((e.clientX / window.innerWidth) - 0.5); // ?cctest=1: click to walk that way
+        }
         drag = null;
         void e;
       },
@@ -909,7 +912,7 @@
       lookUp: function (e) { if (!lookP || e.pointerId !== lookP.id) return; if (lookP.moved < 8 && performance.now() - lookP.t < 300) P().act("ctx"); lookP = null; }
     };
     function press(button, click) {
-      if (button === 0) { P().act("use"); if (!click) P().input.use = true; }
+      if (button === 0) { var r = P().act("use"); if (!click) P().input.use = true; return r; }
       else if (button === 2) P().act("place");
       else if (button === 1) P().act("pick");
     }
