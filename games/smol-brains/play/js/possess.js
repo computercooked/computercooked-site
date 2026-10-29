@@ -768,7 +768,7 @@
       var hm = SB.Society.home(game, 0), w = game.world, spot = null;
       if (SB.dist(c.x, c.z, hm.x, hm.z) < 7) return; // safe by the nest: it waits for you to go out (for food, say)
       for (var a = 0; a < 16 && !spot; a++) {
-        var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * 15, z = c.z - Math.cos(ang) * 15; // out in front, where you can see it come
+        var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * 19, z = c.z - Math.cos(ang) * 19; // out in front, where you can see it come
         if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 10) spot = { x: x, z: z };
       }
       if (!spot) return;
@@ -776,7 +776,7 @@
       g.name = "a hungry grump"; g.scout = { who: c.id, t: 0, hitT: 0 };
       S.scout = g.id; st.povThreat = "on";
       audio("grump", 0.9);
-      say("👹 a grump caught your scent! run home to the nest (hold shift to run), or find your friends");
+      say("👹 a grump spotted you! run home to the nest (hold shift to run): follow the green arrow");
       SB.bus.emit("scout", { c: c, g: g });
       return;
     }
@@ -1052,9 +1052,9 @@
     // find food, eat it, get paid: one loop you can read at a glance (the bot's K-0022 top three)
     { id: "sniff", text: "find food", tip: "press G to sniff: the 👃 marker points at food. press G again and you walk there by yourself" },
     { id: "eat", text: "eat it", tip: "right click a berry bush to nibble it, or left click food on the ground" },
+    { id: "share", text: "carry food home to your hungry friend", tip: "pick food up with F (shake a bush with a left click to drop some), find your friend and right click them. +2 ✨" },
     { id: "tug", text: "tug leaves off a plant", tip: "look at a bush or a tree and press F. the leaves go in your mouth" },
     { id: "nest", text: "line the nest", tip: "carry leaves to the nest (follow the marker) and left click it. a cosy nest hatches eggs faster" },
-    { id: "share", text: "bring a friend some food", tip: "pick food up with F, walk to a friend and right click them" }
   ];
   function questStore(key) { try { return localStorage.getItem(key || QKEY); } catch (e) { return null; } }
   function questStart() {
@@ -1103,7 +1103,8 @@
     if (ok) {
       q.i++;
       audio("chime");
-      if (q.kind === "blob" && SB.Game.addSparks) SB.Game.addSparks(game, 1, c); // every step of a blob's day pays a spark
+      if (q.kind === "blob" && SB.Game.addSparks) SB.Game.addSparks(game, step.id === "share" ? 2 : 1, c); // every step of a blob's day pays a spark (feeding a friend, two)
+      if (q.kind === "blob" && list[q.i] && list[q.i].id === "share") hungryFriend(game, c);
       if (q.i >= list.length) { questDone(); return; }
       if (list[q.i].id === "leanto" && !Id.known(c, "leanto") && !Id.canHold(c, "leanto")) { questDone(); return; }
       if (H()) H().questStep(list[q.i - 1], list[q.i]);
@@ -1113,6 +1114,15 @@
     // the campfire step changes if the tribe can't make fire yet: rub sticks on leaves first
     q.fireFirst = step.id === "fire" && !Id.known(c, "campfire");
     q.target = questTarget(step.id);
+  }
+  // the friend waiting at home really is hungry, and says so (K-0033: "a reason to stay in the body")
+  function hungryFriend(game, c) {
+    var f = null, fd = 1e9;
+    SB.Game.smols(game).forEach(function (o) { if (o !== c && o.alive) { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < fd) { fd = d; f = o; } } });
+    if (!f) return;
+    if (f.chem.hunger < 0.7) f.chem.hunger = 0.7;
+    SB.Creature.say(f, "so hungry…", game);
+    S.quest.friend = f.id;
   }
   function questDone() {
     var game = S.game;
@@ -1158,7 +1168,7 @@
       if (id === "eat") t = node(function (n) { return n.kind === "bush" && n.state === "ok"; }) || food();
       else if (id === "tug") t = plant();
       else if (id === "nest") t = hk && Surv.SOFT[hk] ? w.T.nest : plant();
-      else if (id === "share") t = food();
+      else if (id === "share") { var fr = S.quest && S.quest.friend != null ? SB.Game.byId(S.game, S.quest.friend) : null; t = hk && Surv.edible(hk) && fr && fr.alive ? { type: "creature", x: fr.x, z: fr.z, y: fr.y } : food(); } // food first, then the way to your friend
       return t ? { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + (t.type === "node" && Surv.isTree(t) ? 2.4 : 1.1) } : null;
     }
     if (id === "stick") t = item("stick") || node(function (n) { return n.state === "ok" && Sv().isTree(n) && n.kind !== "shroomtree"; });

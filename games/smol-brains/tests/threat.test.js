@@ -32,9 +32,10 @@ seeded(901, () => {
   run(SB, game, 6);
   const g = SB.Possess.scout();
   check("then a grump is after you", !!g && g.species === "grump" && g.scout && g.scout.who === c.id);
-  check("about 15 steps off", !!g && SB.dist(g.x, g.z, c.x, c.z) > 10, g && SB.dist(g.x, g.z, c.x, c.z).toFixed(1));
+  check("well off, where you can see it", !!g && SB.dist(g.x, g.z, c.x, c.z) > 12, g && SB.dist(g.x, g.z, c.x, c.z).toFixed(1));
   let hits = 0; SB.bus.on("scoutHit", () => hits++);
-  run(SB, game, 12); // standing still
+  check("it growls first, then comes", g && g.scout.t < 3.5);
+  run(SB, game, 20); // standing still
   check("it catches you if you stand there", hits >= 1, hits + " hits");
   check("it hurts, but never the last quarter", c.alive && c.chem.health >= 0.25, c.chem.health.toFixed(2));
   run(SB, game, SB.Possess.SCOUT_MAX);
