@@ -292,17 +292,17 @@ else {
   ok(r.ok && /HttpOnly/i.test(r.headers.get("set-cookie") || ""), "signup sets httpOnly cookie");
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user?.username === u, "me after signup");
-  // level unlocks: a level 1 account can't wear or use locked cosmetics
+  // level unlocks: an account can't wear or use cosmetics above its level (sign-up replays this device's guest runs, K-0030 step 1)
   r = await (await get("/api/me/profile", { cookie })).json();
-  ok(r.level === 1 && r.cosmetics?.length >= 5 && r.cosmetics.every((c) => !c.unlocked), "cosmetics listed, all locked at level 1", r.cosmetics?.map((c) => c.id + "@" + c.level));
-  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-crown" }, { cookie });
+  ok(r.level >= 1 && r.level < 8 && r.cosmetics?.length >= 5 && r.cosmetics.every((c) => c.unlocked === (c.level <= r.level)), "cosmetics listed, unlocked up to the account's level", r.cosmetics?.map((c) => c.id + "@" + c.level));
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-halo" }, { cookie });
   ok(r.status === 403, "locked accessory refused", r.status);
   r = await post("/api/me/avatar", { avatar: "x:happy-1-0-cap" }, { cookie });
   ok(r.ok, "free accessory still works");
   r = await post("/api/me/profile", { theme: "gold" }, { cookie });
   ok(r.status === 403, "locked profile color refused", r.status);
-  r = await post("/api/me/profile", { frame: "pixel" }, { cookie });
-  ok(r.status === 403, "locked avatar frame refused at level 1", r.status);
+  r = await post("/api/me/profile", { frame: "golden" }, { cookie });
+  ok(r.status === 403, "locked avatar frame refused", r.status);
   r = await post("/api/me/profile", { frame: "sparkly" }, { cookie });
   ok(r.status === 400, "unknown avatar frame refused", r.status);
   r = await (await post("/api/me/favorite", { game: "crash", on: true }, { cookie })).json();
@@ -312,14 +312,21 @@ else {
   ok(typeof r.streak_saved === "boolean", "summary says whether a streak saver was used", r.streak_saved);
   r = await post("/api/auth/login", { username: u, password: "wrong-password" });
   ok(r.status === 401, "wrong password refused");
-  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
-  ok(r.ok, "login");
+  // K-0030 step 1: a guest's runs on another device earn real xp when they log in there (the server replays the plays)
+  const anon2 = "smoke-" + rid(), g2 = rid();
+  await post("/api/events", { anon: anon2, events: [{ t: "start", id: g2, game: "crash", v: "1" }] });
+  const g2r = await (await post("/api/events", { anon: anon2, events: [{ t: "end", id: g2, game: "crash", score: 40, dur: 12000, completed: true }] })).json();
+  ok(g2r.results?.[g2]?.xp === undefined && g2r.results?.[g2]?.players >= 1, "guest run: no server xp, but rank and players for the device preview", g2r.results?.[g2]);
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1", anon: anon2 });
+  const lx = (await r.clone().json()).xp;
+  ok(r.ok && lx && lx.replayed === 1 && lx.gained >= 10, "login replays guest plays for real xp", lx && { gained: lx.gained, replayed: lx.replayed, level: lx.level });
   // XP and levels (slice B): a logged-in 12s run of CRASH
   const ev = (events) => post("/api/events", { anon, events }, { cookie }).then((x) => x.json());
   const run = async (dur, score) => { const id = rid(); await ev([{ t: "start", id, game: "crash" }]); return { id, r: await ev([{ t: "end", id, game: "crash", score, dur, completed: true }]) }; };
   let x = await run(12000, 40);
   const xp1 = x.r.results?.[x.id]?.xp;
-  ok(xp1 && xp1.gained >= 10 + 25 + 5 && xp1.parts.some((p) => p.kind === "first") && xp1.parts.some((p) => p.kind === "streak"), "xp: base + first play + streak", xp1 && { gained: xp1.gained, level: xp1.level, title: xp1.title, parts: xp1.parts.map((p) => p.kind + ":" + p.xp) });
+  // first-play and today's streak xp were already paid by the replay above, so this run pays the play xp
+  ok(xp1 && xp1.gained >= 10 && xp1.parts.some((p) => p.kind === "play") && !xp1.parts.some((p) => p.kind === "first"), "xp: base for the run (first + streak not paid twice)", xp1 && { gained: xp1.gained, level: xp1.level, title: xp1.title, parts: xp1.parts.map((p) => p.kind + ":" + p.xp) });
   r = await ev([{ t: "end", id: x.id, game: "crash", score: 40, dur: 12000, completed: true }]);
   ok(!r.results?.[x.id], "xp: an ended play can't be paid twice");
   x = await run(4000, 10);

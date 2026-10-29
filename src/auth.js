@@ -1,7 +1,7 @@
 // Accounts: username + password (PBKDF2-SHA256, per-user salt), httpOnly session cookie.
 // 13+ only, checked with a neutral birth month/year gate; the birth date itself is never stored.
 import { json, bad, readJson, now, b64, unb64, randomToken, sha256, safeEqual, limited, nameClean, str, HttpError } from "./util.js";
-import { levelOf, totalXp } from "./xp.js";
+import { levelOf, totalXp, replayGuest } from "./xp.js";
 import { noteReferral } from "./referrals.js";
 import { avatarLevel } from "./cosmetics.js";
 
@@ -89,9 +89,9 @@ export async function signup(req, env, ip) {
   }
   const id = res.meta.last_row_id;
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, 'site', 'cc:signup', '{}', ?)").bind(now()).run();
-  await linkAnon(env, id, b.anon_id || b.anon, b.username);
+  const xp = await linkAnon(env, id, b.anon_id || b.anon, b.username);
   await noteReferral(env, id, b.ref_dare);
-  return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar } });
+  return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar }, xp });
 }
 
 export async function login(req, env, ip) {
@@ -106,8 +106,8 @@ export async function login(req, env, ip) {
   const salt = row ? unb64(row.salt) : new Uint8Array(16);
   const hash = await hashPassword(String(b.password || ""), salt, row ? row.iterations : ITERATIONS);
   if (!row || !safeEqual(hash, row.pass_hash) || row.status === "banned") return bad("wrong username or password.", 401);
-  await linkAnon(env, row.id, b.anon_id || b.anon, row.username);
-  return startSession(env, row.id, req, { ok: true, user: { id: row.id, username: row.username, avatar: row.avatar } });
+  const xp = await linkAnon(env, row.id, b.anon_id || b.anon, row.username);
+  return startSession(env, row.id, req, { ok: true, user: { id: row.id, username: row.username, avatar: row.avatar }, xp });
 }
 
 export async function logout(req, env) {
@@ -191,11 +191,14 @@ export async function deleteAccount(req, env, user, ip) {
 
 // Plays made on this device before signing up/in get credited to the account.
 async function linkAnon(env, userId, anon, username) {
-  if (typeof anon !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) return;
+  if (typeof anon !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) return null;
+  // K-0030 step 1: the guest plays being moved over are replayed for real XP (src/xp.js replayGuest)
+  const moving = (await env.DB.prepare("SELECT id FROM plays WHERE anon_id = ? AND user_id IS NULL ORDER BY started_at").bind(anon).all()).results.map((r) => r.id);
   await env.DB.batch([
     env.DB.prepare("UPDATE plays SET user_id = ? WHERE anon_id = ? AND user_id IS NULL").bind(userId, anon),
     env.DB.prepare("UPDATE scores SET user_id = ?, player = ?, name = ? WHERE player = ? AND user_id IS NULL").bind(userId, "u:" + userId, username, "a:" + anon),
   ]);
+  try { return await replayGuest(env, userId, moving); } catch (e) { console.error("guest xp replay", e && e.stack || e); return null; }
 }
 
 export { HttpError };

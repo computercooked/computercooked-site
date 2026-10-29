@@ -44,6 +44,82 @@
       '<div class="cc-row"><button type="button" class="cc-send">send</button><span class="cc-msg" role="status"></span></div>' +
     "</div>";
 
+  /* ---------- K-0030 step 1: XP for guests on this device, and a level bar for everyone ----------
+     The same rules as src/xp.js (RULES, the level curve, the site badges a run can earn). For guests it's a
+     preview kept in localStorage: at sign-up or log-in the server replays their plays for the real XP
+     (src/xp.js replayGuest), so nothing here can be faked into an account. Keep the numbers in step with xp.js. */
+  var XP = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
+  var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
+  var BADGES = { first_run: ["boot sequence", 10], play_5: ["sampler platter", 50], play_10: ["tab hopper", 75], play_15: ["the whole arcade", 150],
+    streak_3: ["three-peat", 30], streak_7: ["seven day uptime", 100], streak_30: ["always online", 100], runs_25: ["regular", 40], runs_100: ["can't stop", 100],
+    top_10: ["leaderboard material", 75], top_3: ["podium", 100], rank_1: ["king of the hill", 100], new_best: ["personal record", 15], marathon: ["marathon", 40],
+    level_5: ["promoted", 50], level_10: ["senior engineer", 100] };
+  function xpFor(L) { return Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6)); }
+  function levelOf(x) {
+    var L = 1;
+    while (xpFor(L + 1) <= x && L < 999) L++;
+    return { level: L, title: TITLES.filter(function (t) { return t[0] <= L; }).pop()[1], xp: x, floor: xpFor(L), next: xpFor(L + 1) };
+  }
+  var GKEY = "cc-guest-xp";
+  function gRead() { try { return JSON.parse(localStorage.getItem(GKEY) || "null") || {}; } catch (e) { return {}; } }
+  function gWrite(s) { try { localStorage.setItem(GKEY, JSON.stringify(s)); } catch (e) {} }
+  function dayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  // src/util.js streakFrom: days in a row, with one missed day forgiven per 7
+  function streakOf(days, from) {
+    var set = {}; days.forEach(function (d) { set[d] = 1; });
+    var n = 0, t = new Date(from + "T12:00:00"), i = 0, lastSave = -Infinity;
+    for (;;) {
+      var prev = new Date(t); prev.setDate(prev.getDate() - 1);
+      if (set[dayKey(t)]) n++;
+      else if (n > 0 && i - lastSave >= 7 && set[dayKey(prev)]) lastSave = i;
+      else break;
+      t.setDate(t.getDate() - 1); i++;
+    }
+    return n;
+  }
+  function guestAward(d) {
+    var dur = d.durationMs || 0;
+    if (d.completed === false || dur < XP.minMs) return null;
+    var s = gRead();
+    s.xp = s.xp || 0; s.runs = s.runs || 0; s.games = s.games || {}; s.days = s.days || []; s.used = s.used || {}; s.badges = s.badges || {};
+    var before = s.xp, parts = [], achs = [], day = dayKey(new Date()), r = d.result;
+    var pct = r && r.accepted ? Math.round(XP.pctMax * (1 - (r.rank - 1) / Math.max(1, r.players || 1))) : 0;
+    var k = day + "|" + d.game, playXp = Math.min(XP.base + pct, Math.max(0, XP.perGameDayCap - (s.used[k] || 0)));
+    var used = {}; used[k] = (s.used[k] || 0) + playXp; s.used = used; // only today's caps matter
+    if (playXp) parts.push({ kind: "play", xp: playXp });
+    if (playXp < XP.base + pct) parts.push({ kind: "cap", xp: 0 });
+    if (!s.games[d.game]) { s.games[d.game] = 1; parts.push({ kind: "first", xp: XP.first }); }
+    var firstToday = s.days.indexOf(day) < 0;
+    if (firstToday) { s.days.push(day); s.days = s.days.slice(-60); }
+    var streak = streakOf(s.days, day);
+    if (firstToday) parts.push({ kind: "streak", xp: XP.streakStep * Math.min(streak, XP.streakMax), days: streak });
+    s.runs++;
+    var n = Object.keys(s.games).length, ok = r && r.accepted;
+    function give(id) { if (s.badges[id]) return; s.badges[id] = 1; var b = BADGES[id]; achs.push({ id: id, name: b[0], xp: b[1] }); parts.push({ kind: "achievement", xp: b[1], id: id }); }
+    [["first_run", true], ["play_5", n >= 5], ["play_10", n >= 10], ["play_15", n >= 15], ["streak_3", streak >= 3], ["streak_7", streak >= 7], ["streak_30", streak >= 30],
+     ["runs_25", s.runs >= 25], ["runs_100", s.runs >= 100], ["top_10", ok && r.rank <= 10], ["top_3", ok && r.rank <= 3], ["rank_1", ok && r.rank === 1],
+     ["new_best", ok && r.prev_best != null && d.score > r.prev_best], ["marathon", dur >= 600000]].forEach(function (e) { if (e[1]) give(e[0]); });
+    function sum() { return parts.reduce(function (a, p) { return a + p.xp; }, 0); }
+    if (levelOf(before + sum()).level >= 5) give("level_5");
+    if (levelOf(before + sum()).level >= 10) give("level_10");
+    s.xp = before + sum(); gWrite(s);
+    var a = levelOf(before), b = levelOf(s.xp);
+    b.gained = s.xp - before; b.parts = parts; b.achievements = achs; b.leveled_up = b.level > a.level; b.guest = true;
+    return b;
+  }
+  var lvl = el('<div class="cc-level" hidden><div class="cc-level-row"><b class="cc-level-n"></b> <span class="cc-level-t"></span><span class="cc-level-x num"></span></div>' +
+    '<div class="cc-level-bar" aria-hidden="true"><span></span></div><p class="cc-level-note" hidden>saved on this device. <a href="/me/">make an account</a> to keep it.</p></div>');
+  panel.insertBefore(lvl, panel.firstChild);
+  function showLevel(L, guest) {
+    if (!L || !L.level) return;
+    lvl.querySelector(".cc-level-n").textContent = "level " + L.level;
+    lvl.querySelector(".cc-level-t").textContent = L.title;
+    lvl.querySelector(".cc-level-x").textContent = (L.xp - L.floor) + " / " + (L.next - L.floor) + " xp";
+    lvl.querySelector(".cc-level-bar span").style.width = Math.max(2, Math.min(100, 100 * (L.xp - L.floor) / Math.max(1, L.next - L.floor))) + "%";
+    lvl.querySelector(".cc-level-note").hidden = !guest;
+    lvl.hidden = false;
+  }
+
   /* ---------- this device's recently played list, for "jump back in" on the hub ---------- */
   try {
     var rec = JSON.parse(localStorage.getItem("cc-recent") || "[]").filter(function (x) { return x && x.g !== game; });
@@ -144,8 +220,10 @@
       prefetchFriends();
       heart.hidden = false;
       api("/api/me/summary").then(function (s) { if (s.ok) setHeart(s.favorites.indexOf(game) >= 0); });
+      showLevel(me, false);
     } else {
       guestBox.hidden = false;
+      showLevel(levelOf(gRead().xp || 0), true);
     }
   });
 
@@ -493,14 +571,16 @@
     nextRail();
     adsReady().then(function (a) { if (a) a.runEnded(game); });
     var x = r && r.xp;
+    if (!x && !me) x = guestAward(e.detail); // K-0030 step 1: guests earn xp on this device
+    if (x && x.level) showLevel(x, !!x.guest);
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
+      if (x.guest) (x.achievements || []).forEach(function (a) { say("unlocked: " + a.name + " · +" + a.xp + " xp"); });
       if (x.leveled_up) levelUp(x);
+      if (x.guest && !nudged()) say("your xp is saved on this device. make an account to keep it.");
     } else if (x && x.parts && x.parts.some(function (p) { return p.kind === "cap"; })) {
       say("daily xp for this game maxed. try another one.");
-    } else if (r && !x && !me && !nudged()) {
-      say("log in to earn xp and levels for runs like that.");
     }
   });
   document.addEventListener("cc:achieve", function (e) {

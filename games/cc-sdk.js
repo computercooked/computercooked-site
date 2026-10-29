@@ -373,7 +373,7 @@
     if (!beacon) try { beacon = document.visibilityState === "hidden"; } catch (e) {}
     var done = flush(beacon).then(function (res) {
       var r = res && res.results ? res.results[p.id] || null : null;
-      document.dispatchEvent(new CustomEvent("cc:end", { detail: { game: game, playId: p.id, score: sc, result: r } }));
+      document.dispatchEvent(new CustomEvent("cc:end", { detail: { game: game, playId: p.id, score: sc, result: r, durationMs: Math.round(dur), completed: o.completed !== false } }));
       return r;
     });
     lastPlayId = p.id;
