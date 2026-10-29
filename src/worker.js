@@ -24,6 +24,8 @@ import { digest } from "./digest.js";
 import { followClick } from "./follow.js";
 import { hit } from "./hits.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
+import { recover, recoveryInfo, remakeCodes } from "./recovery.js";
+import { loginOptions as passkeyLoginOptions, loginFinish as passkeyLogin, registerOptions, registerFinish, listPasskeys, deletePasskey } from "./passkeys.js";
 
 const CONSENT_COUNTRIES = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
 
@@ -99,6 +101,9 @@ async function api(req, env, url) {
     case "POST /api/auth/signup": return signup(req, env, ip);
     case "POST /api/auth/login": return login(req, env, ip);
     case "POST /api/auth/logout": return logout(req, env);
+    case "POST /api/auth/recover": return recover(req, env, ip);
+    case "POST /api/auth/passkey/options": return passkeyLoginOptions(req, env, ip);
+    case "POST /api/auth/passkey": return passkeyLogin(req, env, ip);
     case "GET /api/me": return json({ ok: true, user: user && { ...user, ...levelOf(await totalXp(env, user.id)) } });
   }
 
@@ -117,6 +122,12 @@ async function api(req, env, url) {
       case "POST /api/me/password": return changePassword(req, env, user, ip);
       case "POST /api/me/username": return changeUsername(req, env, user, ip);
       case "GET /api/me/username": return json({ ok: true, username: user.username, ...(await renameInfo(env, user)) });
+      case "GET /api/me/recovery": return recoveryInfo(env, user);
+      case "POST /api/me/recovery": return remakeCodes(req, env, user, ip);
+      case "GET /api/me/passkeys": return listPasskeys(env, user);
+      case "POST /api/me/passkey/options": return registerOptions(req, env, user, ip);
+      case "POST /api/me/passkey": return registerFinish(req, env, user);
+      case "POST /api/me/passkey/delete": return deletePasskey(req, env, user);
       case "POST /api/me/logout-all": return logoutAll(req, env, user);
       case "GET /api/me/export": return exportData(env, user);
       case "GET /api/me/friends": return listFriends(env, user);

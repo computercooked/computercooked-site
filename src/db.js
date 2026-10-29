@@ -14,8 +14,9 @@ import measurement from "../migrations/0012_measurement.sql";
 import subscribers from "../migrations/0013_subscribers.sql";
 import labVotes from "../migrations/0014_lab_votes.sql";
 import renames from "../migrations/0015_renames.sql";
+import recovery from "../migrations/0016_recovery.sql";
 
-const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals, frames, measurement, subscribers, labVotes, renames].join("\n;\n");
+const schema = [init, saves, xp, profiles, friends, activity, challenges, dares, dareFunnel, referrals, frames, measurement, subscribers, labVotes, renames, recovery].join("\n;\n");
 
 let ready = null;
 export function ensureSchema(env) {

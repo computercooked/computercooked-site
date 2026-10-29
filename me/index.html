@@ -44,7 +44,21 @@
         <label>username <input name="username" autocomplete="username" required maxlength="16" spellcheck="false" autocapitalize="off"></label>
         <label>password <input name="password" type="password" autocomplete="current-password" required maxlength="200"></label>
         <button class="play-btn" type="submit">log in</button>
+        <button class="tool me-passkey-btn" type="button" id="btn-passkey-login" hidden>log in with a passkey</button>
         <p class="me-msg" role="alert"></p>
+        <p class="me-fine"><button type="button" class="me-link" id="btn-forgot">forgot your password?</button></p>
+      </form>
+
+      <!-- K-0030 step 5: no email reset, so a recovery code gets you back in -->
+      <form id="form-recover" class="me-form about-card" hidden>
+        <p class="me-sub-h">forgot your password?</p>
+        <p class="me-fine">use one of the recovery codes you saved when you made your account. each code works once.</p>
+        <label>username <input name="username" autocomplete="username" required maxlength="16" spellcheck="false" autocapitalize="off"></label>
+        <label>recovery code <input name="code" autocomplete="one-time-code" required maxlength="24" placeholder="xxxx-xxxx-xxxx" spellcheck="false" autocapitalize="off"></label>
+        <label>new password <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200"><small>8+ characters. other devices get logged out.</small></label>
+        <button class="play-btn" type="submit">reset and log in</button>
+        <p class="me-msg" role="alert"></p>
+        <p class="me-fine">no codes? email <a href="mailto:hello@computercooked.com">hello@computercooked.com</a> with your username. <button type="button" class="me-link" id="btn-back-login">back to log in</button></p>
       </form>
 
       <form id="form-signup" class="me-form about-card" role="tabpanel" aria-labelledby="tab-signup" hidden>
@@ -89,6 +103,7 @@
 
     <!-- logged in -->
     <section id="profile" hidden>
+      <section class="about-card me-codes" id="me-codes" aria-labelledby="codes-h" hidden></section>
       <div class="me-card about-card">
         <div class="me-avatar" id="me-avatar"></div>
         <div class="me-id">
@@ -186,6 +201,21 @@
             <input type="password" name="current" autocomplete="current-password" placeholder="current password" required>
             <input type="password" name="next" autocomplete="new-password" placeholder="new password (8+ characters)" minlength="8" required>
             <button class="tool" type="submit">change password</button>
+            <p class="me-msg" role="alert"></p>
+          </form>
+          <form id="form-recovery">
+            <p class="me-sub-h">recovery codes</p>
+            <p class="me-note" id="recovery-note">one-time codes that get you back in if you forget your password.</p>
+            <input type="password" name="password" autocomplete="current-password" placeholder="your password" required>
+            <button class="tool" type="submit">make new codes</button>
+            <p class="me-msg" role="alert"></p>
+          </form>
+          <form id="form-passkey">
+            <p class="me-sub-h">passkeys</p>
+            <p class="me-note" id="passkey-note">log in with face id, a fingerprint or your phone instead of typing your password. optional.</p>
+            <ul class="me-keys" id="passkey-list"></ul>
+            <input type="password" name="password" autocomplete="current-password" placeholder="your password" required>
+            <button class="tool" type="submit">add a passkey</button>
             <p class="me-msg" role="alert"></p>
           </form>
           <div class="me-row">

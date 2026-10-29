@@ -290,6 +290,71 @@ else {
   r = await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1, anon });
   let cookie = (r.headers.get("set-cookie") || "").split(";")[0];
   ok(r.ok && /HttpOnly/i.test(r.headers.get("set-cookie") || ""), "signup sets httpOnly cookie");
+  // K-0030 step 5: recovery codes (8, shown once at sign-up, each works once) and passkeys
+  {
+    const sb = await r.json();
+    const codes = sb.recovery_codes || [];
+    ok(codes.length === 8 && codes.every((c) => /^[0-9a-hjkmnp-tv-z]{4}-[0-9a-hjkmnp-tv-z]{4}-[0-9a-hjkmnp-tv-z]{4}$/.test(c)) && new Set(codes).size === 8, "signup returns 8 recovery codes", codes.length);
+    let rc = await (await get("/api/me/recovery", { cookie })).json();
+    ok(rc.ok && rc.left === 8, "8 recovery codes left", rc);
+    rc = await post("/api/auth/recover", { username: u, code: "0000-0000-0000", password: "pw-for-smoke-1" });
+    ok(rc.status === 401, "recover: wrong code refused", rc.status);
+    rc = await post("/api/auth/recover", { username: u, code: " " + codes[0].toUpperCase().replace(/-/g, " ") + " ", password: "pw-for-smoke-1" });
+    const rcBody = await rc.json();
+    ok(rc.ok && rcBody.left === 7 && /HttpOnly/i.test(rc.headers.get("set-cookie") || ""), "recover: a code (any case/spacing) resets the password and logs in", rcBody);
+    ok((await (await get("/api/me", { cookie })).json()).user === null, "recover: logs out other sessions");
+    cookie = (rc.headers.get("set-cookie") || "").split(";")[0];
+    rc = await post("/api/auth/recover", { username: u, code: codes[0], password: "pw-for-smoke-1" });
+    ok(rc.status === 401, "recover: a used code stops working", rc.status);
+    rc = await post("/api/me/recovery", { password: "wrong-password" }, { cookie });
+    ok(rc.status === 401, "new recovery codes need the password", rc.status);
+    rc = await (await post("/api/me/recovery", { password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(rc.ok && rc.codes.length === 8 && !rc.codes.includes(codes[1]), "new recovery codes made", rc.codes && rc.codes.length);
+    rc = await post("/api/auth/recover", { username: u, code: codes[1], password: "pw-for-smoke-1" });
+    ok(rc.status === 401, "recover: old codes stop working after new ones are made", rc.status);
+    rc = await (await get("/api/me/export", { cookie })).json();
+    ok(/^8 unused/.test(rc.recovery_codes) && !JSON.stringify(rc).includes(codes[2]), "export counts recovery codes without showing them", rc.recovery_codes);
+
+    // passkeys: a software P-256 key plays the authenticator
+    const { generateKeyPairSync, createHash, sign } = await import("node:crypto");
+    const b64u = (b) => Buffer.from(b).toString("base64url");
+    const sha = (b) => createHash("sha256").update(b).digest();
+    const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+    const credId = b64u(Buffer.from(rid()));
+    const host = new URL(base).hostname, origin = new URL(base).origin;
+    const authData = (flags, count) => { const c = Buffer.alloc(4); c.writeUInt32BE(count); return Buffer.concat([sha(host), Buffer.from([flags]), c]); };
+    let pk = await post("/api/me/passkey/options", { password: "wrong-password" }, { cookie });
+    ok(pk.status === 401, "adding a passkey needs the password", pk.status);
+    pk = await (await post("/api/me/passkey/options", { password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(pk.ok && pk.publicKey.rp.id === host && pk.publicKey.authenticatorSelection.residentKey === "required", "passkey options", pk.publicKey && pk.publicKey.rp);
+    const regCd = b64u(JSON.stringify({ type: "webauthn.create", challenge: pk.publicKey.challenge, origin }));
+    const reg = { id: credId, clientDataJSON: regCd, authenticatorData: b64u(authData(0x45, 0)), publicKey: b64u(publicKey.export({ type: "spki", format: "der" })), alg: -7, label: "smoke key" };
+    pk = await (await post("/api/me/passkey", reg, { cookie })).json();
+    ok(pk.ok && pk.passkeys.length === 1 && pk.passkeys[0].label === "smoke key", "passkey added", pk);
+    pk = await post("/api/me/passkey", reg, { cookie });
+    ok(pk.status === 400, "a passkey challenge works once", pk.status);
+    const assertion = async (count, tamper) => {
+      const o = await (await post("/api/auth/passkey/options", {})).json();
+      const cd = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: o.publicKey.challenge, origin }));
+      const ad = authData(0x05, count);
+      const sig = sign("sha256", Buffer.concat([ad, sha(cd)]), privateKey); // DER, like a real authenticator
+      return { id: credId, clientDataJSON: b64u(cd), authenticatorData: b64u(tamper ? authData(0x05, count + 1) : ad), signature: b64u(sig) };
+    };
+    let as = await assertion(1);
+    pk = await post("/api/auth/passkey", as);
+    const pkBody = await pk.json();
+    ok(pk.ok && pkBody.user?.username === u && /HttpOnly/i.test(pk.headers.get("set-cookie") || ""), "passkey log-in", pkBody.user);
+    pk = await post("/api/auth/passkey", as);
+    ok(pk.status === 401, "a passkey log-in can't be replayed", pk.status);
+    pk = await post("/api/auth/passkey", await assertion(5, true));
+    ok(pk.status === 401, "a passkey log-in with a bad signature is refused", pk.status);
+    pk = await post("/api/auth/passkey", await assertion(1));
+    ok(pk.status === 401, "a passkey counter that doesn't go up is refused", pk.status);
+    pk = await (await post("/api/me/passkey/delete", { id: credId }, { cookie })).json();
+    ok(pk.ok && pk.passkeys.length === 0, "passkey removed", pk);
+    pk = await post("/api/auth/passkey", await assertion(9));
+    ok(pk.status === 401, "a removed passkey can't log in", pk.status);
+  }
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user?.username === u, "me after signup");
   // K-0030 step 3: username changes: password needed, once per 30 days, old name held and redirected, boards follow

@@ -65,11 +65,15 @@
         if (r.under13) { ls("cc-noacct", String(Date.now())); noAccount(); return; }
         if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
         msg.textContent = "";
-        try { localStorage.removeItem("cc-guest-xp"); } catch (e) {} // K-0030 step 1: the server replayed the guest xp
-        ls("cc-user-change", String(Date.now())); // open game tabs pick up the login and sync their saves
-        showProfile(r.user);
+        loggedIn(r);
       });
     });
+  }
+  function loggedIn(r) {
+    try { localStorage.removeItem("cc-guest-xp"); } catch (e) {} // K-0030 step 1: the server replayed the guest xp
+    ls("cc-user-change", String(Date.now())); // open game tabs pick up the login and sync their saves
+    showProfile(r.user);
+    if (r.recovery_codes) showCodes(r.recovery_codes); // K-0030 step 5: new accounts see their codes once
   }
   submit($("#form-login"), "/api/auth/login");
   // a dare link opened in the last 30 days credits whoever sent it (see games/platform.js)
@@ -81,6 +85,160 @@
   $("#btn-logout").addEventListener("click", function () {
     api("/api/auth/logout", {}).then(function () { ls("cc-user-change", String(Date.now())); location.reload(); });
   });
+
+  /* ---------- K-0030 step 5: recovery codes + passkeys ---------- */
+  function b64u(buf) { var s = "", a = new Uint8Array(buf); for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function unb64u(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  var canPasskey = !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create);
+  function pkError(e, fallback) {
+    if (e && e.name === "NotAllowedError") return "cancelled. nothing changed.";
+    if (e && e.name === "InvalidStateError") return "this device already has a passkey here.";
+    return (e && e.message) || fallback;
+  }
+  function deviceName() {
+    var ua = navigator.userAgent;
+    return /iPhone/.test(ua) ? "iphone" : /iPad/.test(ua) ? "ipad" : /Android/.test(ua) ? "android" : /Mac/.test(ua) ? "mac" : /Windows/.test(ua) ? "windows pc" : /CrOS/.test(ua) ? "chromebook" : "passkey";
+  }
+
+  // shown once, right after sign-up or "make new codes"
+  function showCodes(codes) {
+    var box = $("#me-codes");
+    var text = "computer cooked recovery codes for " + ($("#me-name").textContent || "your account") + "\n" +
+      "each code works once. use one at computercooked.com/me if you forget your password.\n\n" + codes.join("\n") + "\n";
+    box.innerHTML = '<h2 id="codes-h">save your recovery codes</h2>' +
+      "<p>there's no email reset here. if you forget your password, one of these gets you back in. each works once, and we can't show them again.</p>" +
+      '<ol class="me-codes-list">' + codes.map(function (c) { return "<li><code>" + esc(c) + "</code></li>"; }).join("") + "</ol>" +
+      '<div class="me-row"><button class="tool" type="button" data-act="copy">copy</button><button class="tool" type="button" data-act="save">download .txt</button>' +
+      '<button class="play-btn" type="button" data-act="done">i saved them</button></div><p class="me-msg" role="status"></p>';
+    box.hidden = false;
+    box.scrollIntoView({ block: "start" });
+    var msg = box.querySelector(".me-msg");
+    box.querySelector('[data-act="copy"]').addEventListener("click", function () {
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { msg.textContent = "copied. paste them somewhere safe."; }, function () { msg.textContent = "couldn't copy. write them down instead."; });
+    });
+    box.querySelector('[data-act="save"]').addEventListener("click", function () {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+      a.download = "computercooked-recovery-codes.txt";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      msg.textContent = "saved to your downloads.";
+    });
+    box.querySelector('[data-act="done"]').addEventListener("click", function () { box.hidden = true; box.innerHTML = ""; });
+  }
+  // older accounts (and anyone who used them all) get a nudge to make some
+  function nudgeCodes() {
+    var box = $("#me-codes");
+    box.innerHTML = '<h2 id="codes-h">get recovery codes</h2><p>if you forget your password, there is no email reset, so make a set of one-time codes now and keep them somewhere safe.</p>' +
+      '<div class="me-row"><button class="play-btn" type="button" data-act="go">make codes</button></div>';
+    box.hidden = false;
+    box.querySelector('[data-act="go"]').addEventListener("click", function () {
+      var s = $("#account-settings"); s.open = true;
+      box.hidden = true;
+      $("#form-recovery").scrollIntoView({ block: "center" });
+      $("#form-recovery").password.focus();
+    });
+  }
+
+  function initRecovery() {
+    var rf = $("#form-recovery"), note = $("#recovery-note");
+    function left(n) {
+      note.textContent = n ? n + " of 8 codes left. making new ones replaces them." : "you have no recovery codes. make some so a forgotten password can't lock you out.";
+      if (!n && $("#me-codes").hidden) nudgeCodes();
+    }
+    api("/api/me/recovery").then(function (r) { if (r && r.ok) left(r.left); });
+    rf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = rf.querySelector(".me-msg");
+      api("/api/me/recovery", { password: rf.password.value }).then(function (r) {
+        if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
+        rf.reset(); msg.textContent = "new codes made. the old ones stopped working.";
+        left(r.codes.length);
+        showCodes(r.codes);
+      });
+    });
+  }
+
+  function initPasskeys() {
+    var pf = $("#form-passkey"), list = $("#passkey-list");
+    if (!canPasskey) { $("#passkey-note").textContent = "this browser can't do passkeys. your password still works everywhere."; pf.password.hidden = pf.querySelector("button").hidden = true; return; }
+    function day(t) { return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toLowerCase(); }
+    function render(keys) {
+      list.innerHTML = keys.map(function (k) {
+        return '<li><span><b>' + esc(k.label) + "</b> <small>added " + day(k.created_at) + (k.last_used ? " · last used " + day(k.last_used) : "") + '</small></span><button class="tool" type="button" data-id="' + esc(k.id) + '">remove</button></li>';
+      }).join("");
+    }
+    api("/api/me/passkeys").then(function (r) { if (r && r.ok) render(r.passkeys); });
+    list.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-id]");
+      if (!b || !confirm("remove this passkey? you can still log in with your password.")) return;
+      api("/api/me/passkey/delete", { id: b.dataset.id }).then(function (r) { if (r.ok) render(r.passkeys); });
+    });
+    pf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = pf.querySelector(".me-msg"), btn = pf.querySelector("button[type=submit]");
+      btn.disabled = true; msg.textContent = "…";
+      api("/api/me/passkey/options", { password: pf.password.value }).then(function (o) {
+        if (!o.ok) throw new Error(o.error || "that didn't work.");
+        var pk = o.publicKey;
+        pk.challenge = unb64u(pk.challenge);
+        pk.user.id = unb64u(pk.user.id);
+        pk.excludeCredentials = pk.excludeCredentials.map(function (x) { return { type: "public-key", id: unb64u(x.id) }; });
+        return navigator.credentials.create({ publicKey: pk });
+      }).then(function (c) {
+        var res = c.response;
+        if (!res.getPublicKey || !res.getAuthenticatorData) throw new Error("this browser is too old to add a passkey.");
+        return api("/api/me/passkey", { id: c.id, clientDataJSON: b64u(res.clientDataJSON), authenticatorData: b64u(res.getAuthenticatorData()), publicKey: b64u(res.getPublicKey()), alg: res.getPublicKeyAlgorithm(), label: deviceName() });
+      }).then(function (r) {
+        btn.disabled = false;
+        if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
+        pf.reset(); msg.textContent = "passkey added. next time, tap \"log in with a passkey\".";
+        render(r.passkeys);
+      }).catch(function (err) { btn.disabled = false; msg.textContent = pkError(err, "that didn't work."); });
+    });
+  }
+
+  // logged out: passkey log-in, and the recovery form
+  (function () {
+    var lf = $("#form-login"), rf = $("#form-recover"), pkBtn = $("#btn-passkey-login");
+    pkBtn.hidden = !canPasskey;
+    pkBtn.addEventListener("click", function () {
+      var msg = lf.querySelector(".me-msg");
+      msg.textContent = "…"; pkBtn.disabled = true;
+      api("/api/auth/passkey/options", {}).then(function (o) {
+        if (!o.ok) throw new Error(o.error || "that didn't work.");
+        o.publicKey.challenge = unb64u(o.publicKey.challenge);
+        return navigator.credentials.get({ publicKey: o.publicKey });
+      }).then(function (c) {
+        var res = c.response;
+        return api("/api/auth/passkey", { id: c.id, clientDataJSON: b64u(res.clientDataJSON), authenticatorData: b64u(res.authenticatorData), signature: b64u(res.signature), anon_id: anon });
+      }).then(function (r) {
+        pkBtn.disabled = false;
+        if (!r.ok) { msg.textContent = r.error || "that passkey didn't work."; return; }
+        msg.textContent = "";
+        loggedIn(r);
+      }).catch(function (err) { pkBtn.disabled = false; msg.textContent = pkError(err, "that passkey didn't work. try your password."); });
+    });
+    function show(recover) {
+      lf.hidden = recover; rf.hidden = !recover;
+      document.querySelector(".me-tabs").hidden = recover;
+      (recover ? rf.username : lf.username).focus();
+    }
+    $("#btn-forgot").addEventListener("click", function () { show(true); });
+    $("#btn-back-login").addEventListener("click", function () { show(false); });
+    rf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = rf.querySelector(".me-msg"), btn = rf.querySelector("button[type=submit]");
+      btn.disabled = true; msg.textContent = "…";
+      api("/api/auth/recover", { username: rf.username.value.trim(), code: rf.code.value, password: rf.password.value, anon_id: anon }).then(function (r) {
+        btn.disabled = false;
+        if (!r.ok) { msg.textContent = r.error || "that didn't work."; return; }
+        msg.textContent = "";
+        loggedIn(r);
+        if (window.ccToast) window.ccToast("you're back in. " + r.left + " recovery code" + (r.left === 1 ? "" : "s") + " left.");
+      });
+    });
+  })();
 
   /* ---------- profile ---------- */
   function card(slug, meta) {
@@ -179,6 +337,8 @@
     };
   }
   function initSettings(user) {
+    initRecovery();
+    initPasskeys();
     var P = window.ccAvatarParts;
     var m = /^x:([a-z]+)-(\d+)-(\d+)-([a-z]+)$/.exec(user.avatar || "");
     var face = m ? { mood: P.moods.indexOf(m[1]), face: +m[2], body: +m[3], acc: P.accs.indexOf(m[4]) } : { mood: 1, face: 0, body: 0, acc: 0 };
