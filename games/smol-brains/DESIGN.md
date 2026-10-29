@@ -513,6 +513,28 @@ The tutorial is the story: on a new guided island the first minutes are Pip's fi
 - **Checkable in a playtest**: with `?cctest=1` a possessed smol shows the numbers: food and its rate, your sprint and the grump's speed (and its wind-up), the pounce, the fire distance and the KO cooldown.
 - **Tests**: `threat.test.js` §7 (a full bar in about 3 minutes; a meal is a quarter). `possess.test.js` §6 and `survival.test.js` §8 (knocked out, alive, items dropped, ideas kept, 30 s before you can go in again).
 
+## 0.41 What v4.9.4 added: The Last Lantern, phase 4: memory embers and stage 1 (K-0041)
+
+Every memory the smols win back is a **memory ember** (`embers.js`, state in `game.lantern`, saved with the island). The same memory only counts once. Embers relight the Lantern a stage at a time: 5 for stage 1, then 15, 30 and 50 (the finale, P5).
+
+- **What counts.**
+  - Surviving the first night (Pip remembers fire), and each dawn with smols alive.
+  - The first tickle.
+  - The first 3 words and the first 3 tricks.
+  - Each idea discovered, and the first building of each kind.
+  - The first 5 babies and the first 3 couples.
+  - The blob day and the first tool made while possessed.
+- **About 15 minutes to stage 1.** The guided start alone reaches it: the first night and its dawn (2), the reward lesson (a tickle, 3), the first word (4) and the first trick (5).
+- **Feedback.**
+  - Each ember is a toast that says why ("🔥 a memory ember: a word remembered: “mo” (3/5)").
+  - A 🏮 chip by the sparks shows n/next. Tapping it shows the last few memories.
+- **Stage 1.**
+  - A 24 s film, drawn in code like the opening: five embers fly up from the smols into the Lantern, it catches, its light rolls down over the Hollow, and the giant breathes in.
+  - The danger and strange music cue on "lantern". The film waits until you leave a body, and it can always be skipped.
+  - Rewards: +10 ✨, and nights are less dark (12% per stage: warmer, lighter night light; at most 50%).
+- **Measured in the browser**: four embers then a fifth; the chip read 4/5; the film ran, then stage 1, +10 ✨ and the toast; no errors.
+- **Tests**: `embers.test.js` (one ember per memory; tickle once; three words not four; five is stage 1 and the next is 15; ideas and couples; grumps give none; the night light; saved, and old saves start at 0).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

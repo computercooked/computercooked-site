@@ -33,6 +33,13 @@
     { at: 10.2, smol: "", sub: "it flies to the Lantern: the first memory ember. the flame grows a little." },
     { at: 15, smol: "pip-a vesh!", sub: "Pip remembers. and what one smol remembers, the others can learn." }
   ];
+  L.STAGE1_DUR = 24;
+  L.STAGE1 = [
+    { at: 0.5, smol: "lumi… lumi-a!", sub: "the smols have remembered enough: five memory embers." },
+    { at: 5.4, smol: "", sub: "they fly up the hill, one after another, into the Lantern." },
+    { at: 11, smol: "LUMI!", sub: "the Lantern catches. its light rolls down over the whole Hollow." },
+    { at: 16.6, smol: "hollo… mm.", sub: "and under the island, the giant breathes in, as if it remembered something too." }
+  ];
   function store() { try { return window.localStorage; } catch (e) { return null; } }
   L.seen = function () { var s = store(); try { return !!(s && s.getItem(L.KEY)); } catch (e) { return false; } };
   L.markSeen = function () { var s = store(); try { if (s) s.setItem(L.KEY, "1"); } catch (e) {} };
@@ -56,7 +63,8 @@
 
   L.play = function (opts) {
     opts = opts || {};
-    var dawnScene = opts.scene === "dawn", LINES = dawnScene ? L.DAWN : L.LINES, DUR = dawnScene ? L.DAWN_DUR : L.DUR;
+    var dawnScene = opts.scene === "dawn", stageScene = opts.scene === "stage1", short = dawnScene || stageScene;
+    var LINES = dawnScene ? L.DAWN : stageScene ? L.STAGE1 : L.LINES, DUR = dawnScene ? L.DAWN_DUR : stageScene ? L.STAGE1_DUR : L.DUR;
     var root = document.getElementById("ui") || document.body;
     var wrap = document.createElement("div"); wrap.className = "intro live lantern";
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.className = "introcv";
@@ -64,7 +72,7 @@
     var smolEl = document.createElement("div"); smolEl.className = "smol";
     var subEl = document.createElement("div"); subEl.className = "sub";
     cap.appendChild(smolEl); cap.appendChild(subEl);
-    var canSkip = L.skippable();
+    var canSkip = short || L.skippable(); // the story films after the opening can always be skipped
     var skip = document.createElement("button"); skip.className = "introskip"; skip.textContent = "skip ▸";
     var gate = document.createElement("div"); gate.className = "introgate";
     gate.innerHTML = '<h1>the last<br><span>lantern</span></h1><p>▶ tap to begin</p>';
@@ -73,11 +81,11 @@
     if (SB.Intro) SB.Intro.covering = true;
     L.running = true;
     var started = false, done = false, t0 = performance.now(), lastF = 0, lineI = -1, typed = 0, cur = null;
-    gate.onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (started) return; started = true; if (SB.Music && SB.Music.play) try { SB.Music.play(dawnScene ? "firstlight" : "bigthought"); } catch (er) {} gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
+    gate.onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (started) return; started = true; if (SB.Music && SB.Music.play) try { SB.Music.play(short ? "firstlight" : "bigthought"); } catch (er) {} gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
     function finish() {
       if (done) return;
       done = true; L.running = false;
-      if (!dawnScene) L.markSeen();
+      if (!short) L.markSeen();
       if (SB.Intro) SB.Intro.covering = false;
       wrap.classList.add("out");
       setTimeout(function () { wrap.remove(); }, 700);
@@ -159,8 +167,36 @@
       if (t > 13) text("1 memory ember", W / 2, 24, 10, "#ffd84a", ease((t - 13) / 1));
       if (t > DUR - 1.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); }
     }
+    // stage 1: embers stream up from the smols into the Lantern; it catches, its light rolls down over the Hollow,
+    // and the giant breathes in. drawn at the same 320×180 as the opening
+    function sceneStage1(t) {
+      var wash = t < 11 ? 0 : ease((t - 11) / 4);
+      sky(t, Math.max(0, 0.8 - wash * 0.75));
+      stars.forEach(function (s) { if (s.y < H) { ctx.globalAlpha = 0.6 * (1 - wash) * s.z; px(s.x, s.y * 0.6, 1, 1, s.c); } }); ctx.globalAlpha = 1;
+      var camX = t < 14.5 ? 300 : lerp(300, 0, ease((t - 14.5) / 3)), breath = t > 17 ? Math.sin((t - 17) * 1.4) * 3 : 0;
+      function gr(x) { return ground(x, t) - Math.max(0, breath) * (1 - Math.min(1, Math.abs(x - 70) / 300)); }
+      var hx = 70 - camX, hy = gr(70);
+      if (hx > -90) { oval(hx, hy + 4, 60, 44, "#1e1830"); oval(hx + 2, hy + 2, 56, 40, mix("#2e2440", "#4a3d66", wash)); for (var k = 0; k < 24; k++) px(hx + 14 + k, hy - 12 + Math.round(Math.pow((k - 12) / 12, 2) * (t > 18.5 && t < 19.3 ? 2 : 5)), 1, 1, t > 18.5 && t < 19.3 ? "#ffd84a" : "#4a3d66"); }
+      for (var xs = 0; xs < W; xs += 2) { var gx = xs + camX, gy = gr(gx), near = Math.max(0, 1 - Math.abs(gx - LX) / (40 + wash * 600)); px(xs, gy, 2, H - gy, mix("#251d36", "#3a2f52", near * wash)); px(xs, gy, 2, 2, mix("#2c4a33", "#6fd16a", near)); }
+      var lsx = LX - camX, lgy = gr(LX), lit = t < 11 ? 0.35 + Math.min(0.3, t / 30) + Math.sin(t * 9) * 0.05 : 0.65 + wash * 0.8;
+      if (lsx > -80 && lsx < W + 80) lantern(lsx, lgy, t, lit);
+      if (wash > 0) glow(lsx, lgy - 31, Math.round(40 + wash * 200), "#ffd84a", wash * 0.5);
+      smols.forEach(function (s, i) {
+        var x = s.x + Math.cos(t * 0.7 + s.ph) * 6, sx = x - camX; if (sx < -10 || sx > W + 10) return;
+        var gy = gr(x) - 4; smol(sx, gy - (t > 11.5 ? Math.abs(Math.sin(t * 5 + i)) * 3 : 0), s.col, 0.35 + wash * 0.65, 2, x < LX ? 1 : -1);
+        if (i < 5) { // each of five smols gives an ember
+          var t0e = 4.5 + i * 1.2, k = ease((t - t0e) / 2.6);
+          if (t > t0e && k < 1) { var ex = lerp(sx, lsx, k), ey = lerp(gy - 8, lgy - 31, k) - Math.sin(k * Math.PI) * 34; glow(ex, ey, 7, "#ffb347", 1); px(ex - 1, ey - 1, 3, 3, "#fff6c0"); if (Math.random() < 0.5) bits.push({ x: ex, y: ey, vx: (Math.random() - 0.5) * 6, vy: 6, life: 0.5, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 1 }); }
+          if (k >= 1) once("ein" + i, "pop", 0.5);
+        }
+      });
+      if (t > 11) { once("catch", "achievement", 0.8, 3); if (!fired.catchB) { fired.catchB = 1; boom(lsx, lgy - 31, 50, 80, GLOW); } }
+      if (t > 13.5 && t < 21) text("the Lantern: stage 1 of 3", W / 2, 24, 10, "#ffd84a", ease((t - 13.5) / 1) * (1 - ease((t - 20) / 1)));
+      if (t > DUR - 1.2) { ctx.fillStyle = "rgba(255,246,192," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); }
+    }
     function scene(t, dt) {
       if (dawnScene) { sceneDawn(t); return; }
+      if (stageScene) { sceneStage1(t); return; }
       if (t < 0) { // (the heartbeat opening: the ark film opens the story now)
         // 1. black. a heartbeat. "every night, they forget a little more."
         var beat = t % 1.6;

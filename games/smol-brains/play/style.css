@@ -79,6 +79,8 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .toast.out { opacity: 0; transform: translateY(-6px); transition: 0.5s; }
 .toast.ach { border-color: var(--lime); }
 .toast.ach b { color: var(--lime); }
+.toast.ember { border-color: #ffb347; }
+.toast.ember b { color: #ffd84a; }
 @keyframes tin { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
 .moment { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; animation: mom 3.4s ease-out forwards; width: min(90vw, 520px); }
 .moment .big { font: 700 clamp(26px, 7vw, 44px)/1.05 var(--mono); color: var(--lime); text-shadow: 0 3px 0 #101114, 0 0 30px rgba(197, 255, 73, 0.4); letter-spacing: -0.02em; }
