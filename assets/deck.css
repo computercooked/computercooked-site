@@ -240,3 +240,180 @@ body { padding-top: var(--topbar-h); }
 @media (prefers-reduced-motion: reduce) {
   .deck, .cmd[open] { transition: none; animation: none; }
 }
+
+/* ======================================================================================================
+   The cooked CRT (overhaul, Oct 2026). Every page: scanlines and a vignette (static, also under reduced
+   motion), a glowing nav, CRT power-off/on page transitions, and the stage (assets/stage.js) that adds the
+   embers, the phosphor glow, lit card rims and boot-in.
+   ====================================================================================================== */
+
+/* scanlines and vignette over everything; never catch the pointer */
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 40%, transparent 60%, rgb(0 0 0 / .38) 100%),
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / .022) 0 1px, transparent 1px 3px);
+}
+
+/* never over a game: game pages keep the frame clean (the wrapper's own look is phase 3) */
+html:has(#game-frame)::after { display: none; }
+
+/* the stage paints behind the page: body lets it show through (html keeps the colour) */
+html.cc-stage body { background-color: transparent; }
+.cc-embers {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+/* the heat under the page: a low orange glow along the bottom edge that breathes */
+html.cc-stage body::before {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  height: 38vh;
+  background: radial-gradient(70% 100% at 50% 100%, rgb(var(--heat) / .09), rgb(255 90 78 / .04) 45%, transparent 75%);
+  pointer-events: none;
+  animation: cc-heat 6s ease-in-out infinite alternate;
+}
+@keyframes cc-heat { from { opacity: .65; } to { opacity: 1; } }
+.cc-phosphor {
+  position: fixed;
+  left: -360px;
+  top: -360px;
+  z-index: -1;
+  width: 720px;
+  height: 720px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--phosphor) / .075), rgb(var(--phosphor) / .025) 55%, transparent);
+  pointer-events: none;
+  will-change: transform;
+}
+@media (pointer: coarse) { .cc-phosphor { display: none; } }
+
+/* nav: smoked glass with a phosphor line under it */
+.deck {
+  background: rgb(14 15 17 / .78);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 rgb(var(--phosphor) / .14), 0 8px 24px -16px rgb(var(--phosphor) / .35);
+  view-transition-name: deck;
+}
+.deck-brand span { text-shadow: var(--text-glow); }
+.deck-brand img { transition: transform var(--slow) var(--ease-boot), filter var(--fast); }
+.deck-brand:hover img { transform: rotate(-8deg) scale(1.12); filter: drop-shadow(0 0 6px rgb(var(--phosphor) / .6)); }
+.deck-link { position: relative; }
+.deck-link[aria-current="page"] { color: var(--accent); text-shadow: var(--text-glow); }
+.deck-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: 6px;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+.deck-account { border-color: rgb(var(--phosphor) / .35); }
+.deck-account:hover { border-color: var(--accent); box-shadow: var(--glow-sm); }
+@media (max-width: 767px) {
+  .deck { box-shadow: 0 -1px 0 rgb(var(--phosphor) / .14), 0 -8px 24px -16px rgb(var(--phosphor) / .35); }
+  .deck-link[aria-current="page"]::after { left: 30%; right: 30%; top: 0; bottom: auto; }
+}
+
+/* page heads read like a prompt: C:\COOKED> the lab_ */
+.page-head h1, .games-title, .gary-head h1 { text-shadow: var(--text-glow); }
+.eyebrow {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+.eyebrow::before { content: "C:\\COOKED> "; color: var(--text-dim); text-transform: none; }
+.eyebrow::after { content: "_"; margin-left: 2px; animation: cc-caret 1s steps(2) infinite; }
+@keyframes cc-caret { 50% { opacity: 0; } }
+@media (max-width: 480px) { .eyebrow::before { content: "> "; } }
+
+/* cards: phosphor rim under the pointer (stage.js sets --mx/--my), a lift and a glow */
+.cc-lit { position: relative; }
+.cc-lit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%), var(--rim), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.game-card-inner:hover, .card2:hover, .feature-card:hover, .lab-item > a:hover, .d3-card:hover,
+.weekly-card:hover, .continue-card:hover, .start-tile:hover {
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / .8), 0 0 24px -6px rgb(var(--phosphor) / .28);
+}
+.play-btn, .btn-primary { box-shadow: 0 0 0 0 rgb(var(--phosphor) / 0); transition: box-shadow var(--fast), background-color var(--fast), transform var(--fast); }
+.play-btn:hover, .btn-primary:hover { box-shadow: var(--glow-md); }
+.play-btn:active, .btn-primary:active { transform: translateY(1px) scale(.98); }
+
+/* boot-in: below-the-fold blocks power on as they arrive (stage.js) */
+.cc-boot { opacity: 0; transform: translateY(16px) scaleY(.92); filter: brightness(2.2) saturate(.4); }
+.cc-boot.cc-in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: opacity var(--slow) ease-out, transform var(--slow) var(--ease-boot), filter .6s ease-out;
+}
+
+/* footer: a pixel rule, the sleeping computer, and who makes it */
+.footer { position: relative; padding-top: var(--s-7); }
+.footer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: var(--s-4);
+  width: min(560px, 80%);
+  height: 2px;
+  translate: -50% 0;
+  background: repeating-linear-gradient(90deg, rgb(var(--phosphor) / .5) 0 4px, transparent 4px 8px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+}
+.footer .made-by { color: var(--text-dim); }
+.footer .made-by a { color: var(--beige); }
+
+/* between our pages: the old one switches off like a CRT, the new one powers on. The nav stays put. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: cc-crt-off .18s cubic-bezier(.6, 0, .9, .4) both; }
+::view-transition-new(root) { animation: cc-crt-on .34s var(--ease-boot) both; }
+@keyframes cc-crt-off {
+  60% { transform: scaleY(.012) scaleX(.96); filter: brightness(2.5); opacity: 1; }
+  100% { transform: scaleY(.004) scaleX(0); filter: brightness(4); opacity: 0; }
+}
+@keyframes cc-crt-on {
+  0% { transform: scaleY(.006) scaleX(.6); filter: brightness(4); opacity: .8; }
+  45% { transform: scaleY(1.01) scaleX(1); filter: brightness(1.5); opacity: 1; }
+  100% { transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .eyebrow::after { animation: none; }
+  .cc-boot { opacity: 1; transform: none; filter: none; }
+}

@@ -30,12 +30,13 @@
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="preload" href="/assets/mascot.svg" as="image">
+  <link rel="preload" href="/assets/fonts/pixelify-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/assets/home.css">
-  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://computercooked.com/#site","name":"Computer Cooked","url":"https://computercooked.com/","description":"free stupid-fun browser games. play one in 3 seconds, no downloads.","publisher":{"@id":"https://computercooked.com/#org"}},{"@type":"Organization","@id":"https://computercooked.com/#org","name":"Computer Cooked","url":"https://computercooked.com/","logo":"https://computercooked.com/assets/logo.svg","email":"hello@computercooked.com","sameAs":["https://www.tiktok.com/@computercooked","https://www.youtube.com/@computercooked","https://www.instagram.com/computercooked/","https://x.com/computercooked"]}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://computercooked.com/#site","name":"Computer Cooked","url":"https://computercooked.com/","description":"free stupid-fun browser games. play one in 3 seconds, no downloads.","publisher":{"@id":"https://computercooked.com/#org"}},{"@type":"Organization","@id":"https://computercooked.com/#org","name":"Computer Cooked","url":"https://computercooked.com/","logo":"https://computercooked.com/assets/logo.svg","email":"hello@computercooked.com","parentOrganization":{"@type":"Organization","@id":"https://bushgrowth.com/#org","name":"Bush Development & Growth","url":"https://bushgrowth.com/"},"sameAs":["https://www.tiktok.com/@computercooked","https://www.youtube.com/@computercooked","https://www.instagram.com/computercooked/","https://x.com/computercooked"]}]}</script>
   <!-- arriving from bushgrowth.com/projects: open under its fire; assets/arrive.js burns it away -->
   <script>if(/[?&]from=bushgrowth(&|$)/.test(location.search)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cc-arrive')</script>
   <style>html.cc-arrive::after{content:"";position:fixed;inset:0;z-index:2147483646;background:linear-gradient(to top,#ecffaa,#ffd678 10%,#ff965a 26%,#ff5a4e 44%,#8c1e24 66%,#34101a 86%,#120609)}</style>
@@ -72,7 +73,7 @@
       </ul>
 
       <div class="desk-bar" aria-hidden="true">
-        <a class="desk-start" href="/games/" tabindex="-1"><img src="/assets/logo.svg" alt="" width="18" height="18"> start</a>
+        <a class="desk-start" href="/games/" tabindex="-1"><img src="/assets/logo.svg" alt="" width="18" height="18"> start<span class="visually-hidden"> menu: all games</span></a>
         <span class="desk-chip">cpu <b id="desk-cpu" class="num">61°C</b><i class="cpu-meter"><i id="desk-cpu-bar"></i></i></span>
         <span class="desk-chip desk-cooked">cooked <b id="desk-cooked" class="num">0</b>×</span>
         <span class="desk-clock num" id="desk-clock">--:--</span>
@@ -113,7 +114,7 @@
   </main>
 
   <footer class="footer">
-    <p>© 2026 Computer Cooked</p>
+    <p>© 2026 Computer Cooked · <span class="made-by">made by <a href="https://bushgrowth.com/projects">Bush Development &amp; Growth</a></span></p>
     <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/merch/">merch</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
   </footer>
   <nav class="deck" aria-label="main">
