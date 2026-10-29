@@ -126,6 +126,8 @@ export async function exportData(env, user) {
     dares: await q("SELECT id, game, score, from_name, opens, beats, created_at FROM dares WHERE from_user = ? ORDER BY created_at"),
     joined_from_dare: await q("SELECT dare_id, created_at, credited_at FROM referrals WHERE new_user = ?"),
     players_brought_in: await q("SELECT created_at, credited_at FROM referrals WHERE sender = ? ORDER BY created_at"),
+    recovery_codes: (await env.DB.prepare("SELECT COUNT(*) n FROM recovery_codes WHERE user_id = ? AND used_at IS NULL").bind(user.id).first("n")) + " unused (codes are stored hashed and can't be shown)",
+    passkeys: await q("SELECT label, created_at, last_used FROM passkeys WHERE user_id = ? ORDER BY created_at"),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: {

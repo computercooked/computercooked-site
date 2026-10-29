@@ -4,6 +4,7 @@ import { json, bad, readJson, now, b64, unb64, randomToken, sha256, safeEqual, l
 import { levelOf, totalXp, replayGuest } from "./xp.js";
 import { noteReferral } from "./referrals.js";
 import { avatarLevel } from "./cosmetics.js";
+import { newCodes } from "./recovery.js";
 
 // Workers' WebCrypto caps PBKDF2 at 100,000 iterations.
 const ITERATIONS = 100000;
@@ -55,12 +56,28 @@ export function ageOk(year, month) {
   return age >= 13;
 }
 
-async function startSession(env, userId, req, body) {
+export async function startSession(env, userId, req, body) {
   const token = randomToken(32);
   const t = now();
   await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)")
     .bind(await sha256(token), userId, t, t + SESSION_DAYS * 86400000).run();
   return json(body, 200, { "set-cookie": cookie(token, SESSION_DAYS * 86400, isSecure(req)) });
+}
+
+// K-0030 step 5: shared by sign-up, password change and recovery
+export function passwordError(pw, username) {
+  if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return "passwords need 8+ characters.";
+  if (pw.toLowerCase() === String(username).toLowerCase()) return "password can't be your username.";
+  return null;
+}
+export async function checkPassword(env, userId, password) {
+  const row = await env.DB.prepare("SELECT pass_hash, salt, iterations FROM users WHERE id = ?").bind(userId).first();
+  if (!row) return false;
+  return safeEqual(await hashPassword(String(password || ""), unb64(row.salt), row.iterations), row.pass_hash);
+}
+export async function setPassword(env, userId, pw) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  await env.DB.prepare("UPDATE users SET pass_hash = ?, salt = ?, iterations = ? WHERE id = ?").bind(await hashPassword(pw, salt, ITERATIONS), b64(salt), ITERATIONS, userId).run();
 }
 
 export async function signup(req, env, ip) {
@@ -91,7 +108,9 @@ export async function signup(req, env, ip) {
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, 'site', 'cc:signup', '{}', ?)").bind(now()).run();
   const xp = await linkAnon(env, id, b.anon_id || b.anon, b.username);
   await noteReferral(env, id, b.ref_dare);
-  return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar }, xp });
+  // K-0030 step 5: recovery codes, shown once, in place of an email reset
+  const recovery_codes = await newCodes(env, id);
+  return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar }, xp, recovery_codes });
 }
 
 export async function login(req, env, ip) {
@@ -228,13 +247,16 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("UPDATE feedback SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE reports SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM username_history WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM recovery_codes WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM passkeys WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM webauthn_challenges WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id),
   ]);
   return json({ ok: true, deleted: true }, 200, { "set-cookie": cookie("", 0, isSecure(req)) });
 }
 
 // Plays made on this device before signing up/in get credited to the account.
-async function linkAnon(env, userId, anon, username) {
+export async function linkAnon(env, userId, anon, username) {
   if (typeof anon !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) return null;
   // K-0030 step 1: the guest plays being moved over are replayed for real XP (src/xp.js replayGuest)
   const moving = (await env.DB.prepare("SELECT id FROM plays WHERE anon_id = ? AND user_id IS NULL ORDER BY started_at").bind(anon).all()).results.map((r) => r.id);

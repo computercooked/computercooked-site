@@ -632,6 +632,17 @@
           guestBox.hidden = true;
           showLevel(me, false);
           box.innerHTML = "<h2>saved</h2><p>you're <b>" + esc(me.username) + "</b>, level " + me.level + ". your xp now follows you to any device. <a href=\"/me/\">your profile</a></p>";
+          // K-0030 step 5: the recovery codes, shown once (there's no email reset)
+          var codes = res.recovery_codes || [];
+          if (codes.length) {
+            box.insertAdjacentHTML("beforeend", '<p class="cc-claim-why"><b>save these recovery codes.</b> if you forget your password, one gets you back in. each works once and we cannot show them again.</p>' +
+              '<ol class="cc-codes">' + codes.map(function (c) { return "<li><code>" + esc(c) + "</code></li>"; }).join("") + "</ol>" +
+              '<p class="cc-claim-acts"><button type="button" class="play-btn cc-codes-copy">copy codes</button></p>');
+            box.querySelector(".cc-codes-copy").addEventListener("click", function () {
+              var b = this, text = "computer cooked recovery codes for " + me.username + "\n" + codes.join("\n") + "\n";
+              (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { b.textContent = "copied"; }, function () { b.textContent = "write them down"; });
+            });
+          }
           if (window.ccToast) window.ccToast("level " + me.level + " saved to " + me.username);
           if (!board.hidden) loadBoard();
         });

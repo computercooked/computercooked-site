@@ -224,3 +224,18 @@
 
 /* K-0030 step 3 */
 .me-note { margin: 0; color: var(--text-dim); font-size: var(--fs-12); }
+
+/* K-0030 step 5: recovery codes + passkeys */
+.me-codes { border-color: var(--lime); margin-bottom: 16px; scroll-margin-top: 88px; }
+.me-codes h2 { margin: 0 0 8px; }
+.me-codes p { margin: 0 0 12px; }
+.me-codes-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0 0 16px; padding: 0 0 0 1.6em; }
+.me-codes-list code { font-size: var(--fs-16); letter-spacing: 0.04em; user-select: all; }
+@media (max-width: 420px) { .me-codes-list { grid-template-columns: 1fr; } }
+.me-link { min-height: 32px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+.me-link:hover, .me-link:focus-visible { color: var(--text); }
+.me-passkey-btn { width: 100%; }
+.me-keys { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.me-keys:empty { display: none; }
+.me-keys li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.me-keys small { color: var(--text-dim); font-size: var(--fs-12); }
