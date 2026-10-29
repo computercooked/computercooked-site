@@ -898,7 +898,7 @@
     if (world._critT <= 0) { world._critT = game.rng.range(8, 14); spawnCritters(world, game); }
 
     // grump nights
-    if (world.night && world.T.caves.length && SB.Game.spawnGrump && (game.tutorial.done || world.dayIndex >= 1)) {
+    if (world.night && world.T.caves.length && SB.Game.spawnGrump && (game.tutorial.done || world.dayIndex >= 1) && !(game.lantern && game.lantern.woke)) {
       world._grumpT -= dt;
       if (world._grumpT <= 0) {
         world._grumpT = game.rng.range(20, 30);

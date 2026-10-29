@@ -43,9 +43,43 @@ seeded(4400, () => {
   check("stage 1 takes 12% off the night", Math.abs(E.nightLight(game) - 0.12) < 1e-9, E.nightLight(game));
   check("never more than half", E.nightLight({ lantern: { stage: 9 } }) === 0.5);
 
-  console.log("4. saved with the island");
+  console.log("4. the story beats (P5)");
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "play", "js", "lantern.js"), "utf8"), ctx, { filename: "lantern.js" });
+  const Lt = SB.Lantern;
+  check("stage 1's film is queued once", Lt.moment(game, "stage1") && !Lt.moment(game, "stage1") && game.lantern.films.stage1 === 1);
+  game.tutorial.night = { pip: a.id, done: true };
+  const egg1 = SB.World.add(game.world, game, "egg", a.x, a.z, { genome: a.genome, genome2: b.genome, parents: [b.id, 999], gen: 2, progress: 0 });
+  SB.Game.hatch(game, egg1);
+  check("the first baby gets its film", game.lantern.films.baby === 1 && !game.lantern.films.growup);
+  const egg2 = SB.World.add(game.world, game, "egg", a.x, a.z, { genome: a.genome, genome2: b.genome, parents: [a.id, b.id], gen: 2, progress: 0 });
+  SB.Game.hatch(game, egg2);
+  check("Pip's own little one: Pip grows up", game.lantern.films.growup === 1);
+  // a smol dies alone in the dark, far from any fire: it gets up a grump
+  game.world.night = true;
+  const lost = SB.Game.smols(game).find(o => o !== a && o !== b) || b;
+  const far = { x: lost.x, z: lost.z };
+  const g0 = game.creatures.filter(o => o.species === "grump" && o.alive).length;
+  SB.World.nearestFire = () => null;
+  SB.bus.emit("death", { c: lost, cause: "hurt" });
+  const turned = game.creatures.filter(o => o.species === "grump" && o.alive);
+  check("its light goes out: a grump gets up where it fell", turned.length === g0 + 1 && turned.some(o => o.wasSmol === lost.name && SB.dist(o.x, o.z, far.x, far.z) < 0.5), turned.map(o => o.name).join(", "));
+  check("with the first grump's film", game.lantern.films.grump === 1);
+  SB.bus.emit("death", { c: a, cause: "hurt" });
+  check("only the first time", game.creatures.filter(o => o.species === "grump" && o.alive).length === g0 + 1);
+  console.log("5. fifty embers: the Hollow wakes");
+  const sp0 = game.sparks;
+  for (let i = 0; E.next(game) != null && i < 80; i++) E.add(game, "fill:" + i, "a memory");
+  check("four stages, the last is the finale", E.stage(game) === 4 && E.count(game) === 50 && E.next(game) === null, E.stage(game) + " / " + E.count(game));
+  check("the Lantern's sparks: +20 +30 +40", game.sparks - sp0 >= 89, (game.sparks - sp0).toFixed(1));
+  check("the Hollow woke: every grump goes home", E.woke(game) && game.creatures.filter(o => o.species === "grump" && o.alive).every(o => o.goingHome));
+  check("the finale's film", game.lantern.films.wake === 1);
+  check("the nights are nearly half as dark", Math.abs(E.nightLight(game) - 0.48) < 1e-9, E.nightLight(game));
+  SB.bus.emit("death", { c: SB.Game.smols(game)[0], cause: "hurt" });
+  check("no more grumps get up after it", game.creatures.filter(o => o.species === "grump" && o.alive).length === g0 + 1);
+
+  console.log("6. saved with the island");
   const back = SB.Save.revive(JSON.parse(JSON.stringify(SB.Save.snapshot(game))));
-  check("embers, stage and memories come back", back.lantern && back.lantern.embers === E.count(game) && back.lantern.stage === 1 && back.lantern.got.night1 === 1, back.lantern && JSON.stringify([back.lantern.embers, back.lantern.stage]));
+  check("embers, stage and memories come back", back.lantern && back.lantern.embers === E.count(game) && back.lantern.stage === E.stage(game) && back.lantern.got.night1 === 1 && back.lantern.woke && back.lantern.films.wake === 1, back.lantern && JSON.stringify([back.lantern.embers, back.lantern.stage]));
   check("an old save without a Lantern starts at 0", (() => { const s = JSON.parse(JSON.stringify(SB.Save.snapshot(game))); delete s.lantern; const g2 = SB.Save.revive(s); return E.count(g2) === 0 && E.stage(g2) === 0; })());
 });
 

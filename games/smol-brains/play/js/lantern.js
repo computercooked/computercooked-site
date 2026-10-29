@@ -40,6 +40,69 @@
     { at: 11, smol: "LUMI!", sub: "the Lantern catches. its light rolls down over the whole Hollow." },
     { at: 16.6, smol: "hollo… mm.", sub: "and under the island, the giant breathes in, as if it remembered something too." }
   ];
+  L.STAGE2 = [
+    { at: 0.5, smol: "lumi-a! lumi-a!", sub: "fifteen memories." },
+    { at: 5.4, smol: "", sub: "the embers fly up the hill, and the Lantern burns higher." },
+    { at: 11, smol: "LUMI!", sub: "its light reaches the edges of the island now." },
+    { at: 16.6, smol: "hollo… mm?", sub: "under the island, the giant stirs in its sleep." }
+  ];
+  L.STAGE3 = [
+    { at: 0.5, smol: "lumi vesh!", sub: "thirty memories." },
+    { at: 5.4, smol: "", sub: "more embers than the smols can count." },
+    { at: 11, smol: "LUMI!", sub: "the Lantern blazes. the night can barely touch the island." },
+    { at: 16.6, smol: "HOLLO.", sub: "the giant's eye flickers. it's nearly awake." }
+  ];
+  L.SCENES = {
+    dawn: { dur: L.DAWN_DUR, lines: L.DAWN, name: "dawn: the first ember" },
+    stage1: { dur: L.STAGE1_DUR, lines: L.STAGE1, stage: 1, name: "the Lantern: stage 1" },
+    stage2: { dur: L.STAGE1_DUR, lines: L.STAGE2, stage: 2, name: "the Lantern: stage 2" },
+    stage3: { dur: L.STAGE1_DUR, lines: L.STAGE3, stage: 3, name: "the Lantern: stage 3" },
+    lend: { dur: 10, name: "lend your light", lines: [
+      { at: 0.4, smol: "pip… pip-a?", sub: "Pip is frozen. something is watching from the dark." },
+      { at: 3.6, smol: "", sub: "your light can't touch the world. but it can lend itself." },
+      { at: 6.6, smol: "LUMI!", sub: "for a while, you are Pip." }] },
+    baby: { dur: 12, name: "the first baby", lines: [
+      { at: 0.5, smol: "mo? mo-mo!", sub: "an egg, nearly ready." },
+      { at: 5.6, smol: "pip-pa!", sub: "a new smol." },
+      { at: 8.4, smol: "", sub: "born remembering a little more than its parents did." }] },
+    grump: { dur: 14, name: "the first grump", lines: [
+      { at: 0.5, smol: "mo'pi…?", sub: "a smol, alone in the dark, far from any fire." },
+      { at: 5, smol: "", sub: "its light flickers. it can't remember the way back." },
+      { at: 9.6, smol: "GRUMPA.", sub: "its light went out. a grump: all it remembers is that it wants the light." }] },
+    growup: { dur: 13, name: "Pip grows up", lines: [
+      { at: 0.5, smol: "pip! pip-a!", sub: "Pip, the smallest smol, who made the wish." },
+      { at: 4.5, smol: "", sub: "isn't the smallest anymore." },
+      { at: 8, smol: "pip vesh lumi.", sub: "Pip has a little one now, and tells it about the Lantern." }] },
+    wake: { dur: 42, name: "the Hollow wakes", lines: [
+      { at: 0.5, smol: "lumi… LUMI!", sub: "fifty memories. the Lantern burns as bright as it did long ago." },
+      { at: 7, smol: "", sub: "its light runs down the hill and over the whole back of the Hollow…" },
+      { at: 14, smol: "hollo…?", sub: "…and the giant who sleeps beneath them opens its eye." },
+      { at: 22, smol: "grumpa… mo?", sub: "in the light, the grumps remember their names." },
+      { at: 29, smol: "pip-a vesh. zo'mi vesh.", sub: "the smols remember who they are. and so does the Hollow." },
+      { at: 35.5, smol: "", sub: "thank you for lending them your light." }] }
+  };
+  // a story film, once per island, when nothing else is on screen (not while you're in a body, not during the first night)
+  L.queue = [];
+  L.moment = function (game, id, opts) {
+    if (!game || !L.SCENES[id]) return false;
+    var l = game.lantern || (game.lantern = { embers: 0, stage: 0, got: {}, log: [] });
+    l.films = l.films || {};
+    if (l.films[id]) return false;
+    l.films[id] = 1;
+    if (game.headless || game.offline || typeof document === "undefined" || !document.createElement || (SB.Possess && SB.Possess.headless)) return true;
+    L.queue.push({ id: id, opts: opts || {} });
+    pump();
+    return true;
+  };
+  function pump() {
+    if (!L.queue.length || L.running || L.waiting) return;
+    var g = SB.Game && SB.Game.current;
+    var busy = (SB.Possess && SB.Possess.active) || (SB.Intro && SB.Intro.covering) || (g && SB.FirstNight && SB.FirstNight.active(g)) || (typeof document !== "undefined" && document.querySelector && document.querySelector(".modal-wrap"));
+    if (busy) { L.waiting = setTimeout(function () { L.waiting = null; pump(); }, 2000); return; }
+    var m = L.queue.shift();
+    L.play({ scene: m.id, noGate: true, col: m.opts.col, done: function () { if (m.opts.done) try { m.opts.done(); } catch (e) {} setTimeout(pump, 1500); } });
+  }
+  L.pump = pump;
   function store() { try { return window.localStorage; } catch (e) { return null; } }
   L.seen = function () { var s = store(); try { return !!(s && s.getItem(L.KEY)); } catch (e) { return false; } };
   L.markSeen = function () { var s = store(); try { if (s) s.setItem(L.KEY, "1"); } catch (e) {} };
@@ -63,8 +126,8 @@
 
   L.play = function (opts) {
     opts = opts || {};
-    var dawnScene = opts.scene === "dawn", stageScene = opts.scene === "stage1", short = dawnScene || stageScene;
-    var LINES = dawnScene ? L.DAWN : stageScene ? L.STAGE1 : L.LINES, DUR = dawnScene ? L.DAWN_DUR : stageScene ? L.STAGE1_DUR : L.DUR;
+    var SC = opts.scene ? L.SCENES[opts.scene] : null, short = !!SC, dawnScene = opts.scene === "dawn", stageN = SC && SC.stage || 0;
+    var LINES = SC ? SC.lines : L.LINES, DUR = SC ? SC.dur : L.DUR;
     var root = document.getElementById("ui") || document.body;
     var wrap = document.createElement("div"); wrap.className = "intro live lantern";
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.className = "introcv";
@@ -169,7 +232,7 @@
     }
     // stage 1: embers stream up from the smols into the Lantern; it catches, its light rolls down over the Hollow,
     // and the giant breathes in. drawn at the same 320×180 as the opening
-    function sceneStage1(t) {
+    function sceneStage(t, n) {
       var wash = t < 11 ? 0 : ease((t - 11) / 4);
       sky(t, Math.max(0, 0.8 - wash * 0.75));
       stars.forEach(function (s) { if (s.y < H) { ctx.globalAlpha = 0.6 * (1 - wash) * s.z; px(s.x, s.y * 0.6, 1, 1, s.c); } }); ctx.globalAlpha = 1;
@@ -184,19 +247,118 @@
       smols.forEach(function (s, i) {
         var x = s.x + Math.cos(t * 0.7 + s.ph) * 6, sx = x - camX; if (sx < -10 || sx > W + 10) return;
         var gy = gr(x) - 4; smol(sx, gy - (t > 11.5 ? Math.abs(Math.sin(t * 5 + i)) * 3 : 0), s.col, 0.35 + wash * 0.65, 2, x < LX ? 1 : -1);
-        if (i < 5) { // each of five smols gives an ember
+        if (i < 5) { // each of five smols gives an ember (more at the later stages)
           var t0e = 4.5 + i * 1.2, k = ease((t - t0e) / 2.6);
           if (t > t0e && k < 1) { var ex = lerp(sx, lsx, k), ey = lerp(gy - 8, lgy - 31, k) - Math.sin(k * Math.PI) * 34; glow(ex, ey, 7, "#ffb347", 1); px(ex - 1, ey - 1, 3, 3, "#fff6c0"); if (Math.random() < 0.5) bits.push({ x: ex, y: ey, vx: (Math.random() - 0.5) * 6, vy: 6, life: 0.5, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 1 }); }
           if (k >= 1) once("ein" + i, "pop", 0.5);
         }
       });
       if (t > 11) { once("catch", "achievement", 0.8, 3); if (!fired.catchB) { fired.catchB = 1; boom(lsx, lgy - 31, 50, 80, GLOW); } }
-      if (t > 13.5 && t < 21) text("the Lantern: stage 1 of 3", W / 2, 24, 10, "#ffd84a", ease((t - 13.5) / 1) * (1 - ease((t - 20) / 1)));
+      if (n >= 3 && t > 19.5 && t < 21.5) { var ex0 = 70 - camX + 26, ey0 = gr(70) - 8; oval(ex0, ey0, 5, Math.max(1, Math.round(3 * Math.abs(Math.sin((t - 19.5) * 3)))), "#ffb347"); px(ex0, ey0 - 1, 2, 2, "#140c1c"); } // the eye flickers
+      if (t > 13.5 && t < 21) text("the Lantern: stage " + n + " of 3", W / 2, 24, 10, "#ffd84a", ease((t - 13.5) / 1) * (1 - ease((t - 20) / 1)));
       if (t > DUR - 1.2) { ctx.fillStyle = "rgba(255,246,192," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); }
+    }
+    function fadeOut(t, col) { if (t > DUR - 1.2) { ctx.fillStyle = "rgba(" + (col || "255,246,192") + "," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); } }
+    function flat(t, k, base) { for (var xs = 0; xs < W; xs += 2) { var gy = (base || 140) + Math.round(Math.sin(xs / 37) * 3); px(xs, gy, 2, H - gy, "#251d36"); px(xs, gy, 2, 2, mix("#4f8a52", "#22382a", k)); } }
+    function starsAt(a) { stars.forEach(function (s) { if (s.y < H) { ctx.globalAlpha = a * s.z * 0.7; px(s.x, s.y * 0.6, 1, 1, s.c); } }); ctx.globalAlpha = 1; }
+    // lend your light: the spark (you) circles high over Pip, frozen with a grump's eyes in the dark, then dives in
+    function sceneLend(t) {
+      sky(t, 0.95); starsAt(1); flat(t, 1, 112);
+      var pipX = 150, pipY = 108, k = ease((t - 4) / 2.4), lit = t < 6.4 ? 0.15 : 1;
+      smol(pipX + (t < 6.4 ? Math.sin(t * 40) * 0.6 : 0), pipY, t < 6.4 ? "#8fd13a" : "#c5ff49", lit, 3, 1);
+      if (t >= 6.4) { px(pipX + 2, pipY - 4, 3, 3, "#fff6c0"); px(pipX + 7, pipY - 4, 3, 3, "#fff6c0"); }
+      var blink = Math.sin(t * 2.3) > -0.85; if (blink) { px(268, 98, 3, 2, "#ff3b4f"); px(276, 98, 3, 2, "#ff3b4f"); }
+      if (t > 6.4) grump(272, 106, 1.4, true);
+      var a0 = t * 2, sx = 160 + Math.cos(a0) * 70, sy = 34 + Math.sin(a0) * 10;
+      if (t < 6.4) {
+        var x = lerp(sx, pipX, k), y = lerp(sy, pipY - 2, k);
+        glow(x, y, 10, "#fff6c0", 1); px(x - 1, y - 1, 3, 3, "#ffffff");
+        if (Math.random() < 0.7) bits.push({ x: x, y: y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 0.5, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 1 });
+      } else { once("inpip", "achievement", 0.7, 2); if (!fired.inB) { fired.inB = 1; boom(pipX, pipY - 2, 34, 60, GLOW); } }
+      if (t > 6.4 && t < 7) { ctx.fillStyle = "rgba(255,246,192," + (7 - t) * 1.2 + ")"; ctx.fillRect(0, 0, W, H); }
+      if (t > 7.4) text("you are Pip", W / 2, 30, 12, "#c5ff49", ease((t - 7.4) / 0.8));
+      fadeOut(t, "0,0,0");
+    }
+    // the first baby: an egg wobbles, cracks, and a tiny smol pops out between its parents
+    function sceneBaby(t) {
+      sky(t, 0.05); flat(t, 0, 114);
+      var cx = 160, gy = 112, wob = t < 5.6 ? Math.sin(t * 18) * Math.min(1, t / 5) * 2 : 0;
+      smol(cx - 44, gy - 4, "#ffd84a", 0.8, 3, 1); smol(cx + 44, gy - 4, "#ff9fd0", 0.8, 3, -1);
+      if (t < 5.6) { oval(cx + wob, gy - 8, 7, 9, "#fff8e8"); oval(cx + wob - 2, gy - 11, 2, 2, "#ffffff"); if (t > 3.2) { px(cx - 3 + wob, gy - 10, 2, 1, "#5a4a3a"); px(cx - 1 + wob, gy - 9, 2, 1, "#5a4a3a"); px(cx + 1 + wob, gy - 10, 2, 1, "#5a4a3a"); } }
+      else {
+        once("pop", "pop", 0.9, 1); if (!fired.popB) { fired.popB = 1; boom(cx, gy - 8, 24, 40, ["#fff8e8", "#ffd84a", "#ffffff"]); }
+        oval(cx - 6, gy - 1, 5, 3, "#fff8e8"); oval(cx + 6, gy - 1, 5, 3, "#fff8e8");
+        smol(cx, gy - 5 - Math.abs(Math.sin(t * 6)) * 4, "#8fe6dc", 1, 2, 1);
+        if (t > 7) { text("♥", cx - 44, gy - 18 - (t - 7) * 3, 9, "#ff4f5e", 1 - ease((t - 9) / 1)); text("♥", cx + 44, gy - 18 - (t - 7.3) * 3, 9, "#ff4f5e", 1 - ease((t - 9.3) / 1)); }
+      }
+      lantern(286, 116, t, 0.6 + (t > 6 ? ease((t - 6) / 2) * 0.3 : 0));
+      fadeOut(t);
+    }
+    // the first grump: a smol alone in the dark, far from the fire; its light flickers out and it changes
+    function sceneGrump(t) {
+      sky(t, 1); starsAt(1); flat(t, 1, 112);
+      glow(26, 104, 22, "#ff9f43", 0.8 + Math.sin(t * 9) * 0.1); oval(26, 110, 4, 3, "#ff9f43"); oval(26, 109, 2, 2, "#fff6c0"); // the fire, far behind
+      var x = lerp(170, 220, ease(t / 6)), y = 108, fade = 1 - ease((t - 3) / 5);
+      var flick = t > 4 && t < 8.6 ? (Math.sin(t * 23) > 0.2 ? 1 : 0.3) : 1;
+      if (t < 9.6) {
+        var col = mix(opts.col || "#8fe6dc", "#2a1838", ease((t - 6.5) / 3));
+        smol(x, y, col, Math.max(0, fade * flick), 3, 1);
+        if (t > 7.6) for (var k = 0; k < 4; k++) px(x - 8 + k * 5, y - 7 - ease((t - 7.6) / 2) * 3, 1, 2 + Math.round(ease((t - 7.6) / 2) * 2), "#140c1c");
+      } else {
+        once("growl", "grump", 0.9, 2); grump(x, y - 2, 1.8, Math.sin(t * 2.3) > -0.85);
+      }
+      fadeOut(t, "0,0,0");
+    }
+    // Pip grows up: Pip, big now, on the hill by the Lantern with a little one of its own
+    function sceneGrow(t) {
+      sky(t, 0.35); var camX = 360;
+      for (var xs = 0; xs < W; xs += 2) { var gy = ground(xs + camX, t); px(xs, gy, 2, H - gy, "#2b2440"); px(xs, gy, 2, 2, "#4f8a52"); }
+      var lsx = LX - camX, lgy = ground(LX, t); lantern(lsx, lgy, t, 1);
+      var pipX = 96, s = 1.5 + ease((t - 3.5) / 3) * 2.5, pipY = ground(pipX + camX, t) - 2 - s * 2;
+      smol(pipX, pipY, "#c5ff49", 1, s, 1); px(pipX - 1, pipY - 3 * s - 2, 3, 2 + Math.round(s), "#8fd13a");
+      if (t > 7.4) { var bx = pipX + 24 + Math.sin(t * 2) * 2, by = ground(bx + camX, t) - 4; smol(bx, by - Math.abs(Math.sin(t * 6)) * 2, "#8fe6dc", 1, 1.5, -1); if (t > 9) text("?", bx, by - 8, 7, "#ffffff", 1 - ease((t - 10.5) / 1)); }
+      smols.slice(0, 4).forEach(function (q, i) { var x = 30 + i * 22 + Math.sin(t + i) * 2; if (x > 90 && x < 140) return; smol(x, ground(x + camX, t) - 4, q.col, 0.7, 1.5, 1); });
+      fadeOut(t);
+    }
+    // the finale: the Lantern blazes, the light runs over the Hollow, the giant opens its eye and lifts its head,
+    // and in the light the grumps turn back into smols
+    function sceneWake(t) {
+      var wash = ease((t - 6) / 6), camX = t < 12 ? 360 : t < 16 ? lerp(360, 0, ease((t - 12) / 4)) : 0;
+      var lift = t > 18 ? ease((t - 18) / 6) * 18 : 0;
+      if (t > 18 && t < 24) shake = Math.max(shake, 1.2);
+      sky(t, Math.max(0, 0.9 - wash * 0.85)); starsAt(1 - wash * 0.6);
+      function gr(x) { return ground(x, t) - lift * Math.max(0, 1 - Math.abs(x - 70) / 260); }
+      var hx = 70 - camX, hy = gr(70) - lift * 0.5;
+      if (hx > -90) {
+        oval(hx, hy + 4, 60, 44, "#1e1830"); oval(hx + 2, hy + 2, 56, 40, mix("#2e2440", "#5a4d7a", wash));
+        var open = t < 15 ? 0 : ease((t - 15) / 3), ex = hx + 26, ey = hy - 8;
+        if (open < 0.05) for (var k = 0; k < 24; k++) px(hx + 14 + k, hy - 12 + Math.round(Math.pow((k - 12) / 12, 2) * 5), 1, 1, "#4a3d66");
+        else { oval(ex, ey, 11, Math.max(1, Math.round(8 * open)), "#ffd84a"); oval(ex, ey, 7, Math.max(1, Math.round(6 * open)), "#ffb347"); oval(ex + 1, ey, 3, Math.max(1, Math.round(5 * open)), "#140c1c"); px(ex - 4, ey - 3, 2, 2, "#fff6c0"); glow(ex, ey, 30, "#ffd84a", open * 0.6); }
+        if (t > 15) once("eye", "bigboom", 0.5, 3);
+      }
+      for (var xs = 0; xs < W; xs += 2) { var gx = xs + camX, gy = gr(gx), near = Math.min(1, Math.max(0, 1 - Math.abs(gx - LX) / (40 + wash * 900))); px(xs, gy, 2, H - gy, mix("#251d36", "#3a2f52", near * wash)); px(xs, gy, 2, 2, mix("#2c4a33", "#7ee07a", near)); }
+      var lsx = LX - camX, lgy = gr(LX);
+      if (lsx > -80 && lsx < W + 80) { lantern(lsx, lgy, t, 1.6); glow(lsx, lgy - 31, Math.round(60 + wash * 220), "#ffd84a", 0.5); }
+      if (t < 8 && Math.random() < 0.6) bits.push({ x: Math.random() * W, y: H, vx: (lsx - Math.random() * W) * 0.15, vy: -40 - Math.random() * 30, life: 2, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 2 });
+      // the grumps, and in the light at 24-28 s they turn back
+      [[150, "#ff9fd0"], [205, "#b59aff"], [255, "#ffd84a"]].forEach(function (q, i) {
+        if (t < 20) return;
+        var gx = q[0], gy = gr(gx + camX) - 4, turn = 24 + i * 1.3;
+        if (t < turn) { grump(gx, gy - 2, 1.4, true); if (t > turn - 1.5) glow(gx, gy, 16, "#fff6c0", ease((t - turn + 1.5) / 1.5)); }
+        else { once("back" + i, "pop", 0.8); if (!fired["bb" + i]) { fired["bb" + i] = 1; boom(gx, gy, 20, 40, GLOW); } smol(gx, gy - Math.abs(Math.sin(t * 5 + i)) * 2, q[1], 1, 2, i % 2 ? -1 : 1); }
+      });
+      smols.slice(0, 3).forEach(function (q, i) { var x = 40 + i * 30; smol(x, gr(x + camX) - 4 - (t > 28 ? Math.abs(Math.sin(t * 5 + i)) * 3 : 0), q.col, 0.4 + wash * 0.6, 2, 1); });
+      if (t > 31 && t < 39) text("THE HOLLOW WAKES", W / 2, 34, 14, "#ffd84a", ease((t - 31) / 1.2) * (1 - ease((t - 38) / 1)));
+      fadeOut(t);
     }
     function scene(t, dt) {
       if (dawnScene) { sceneDawn(t); return; }
-      if (stageScene) { sceneStage1(t); return; }
+      if (stageN) { sceneStage(t, stageN); return; }
+      if (opts.scene === "lend") { sceneLend(t); return; }
+      if (opts.scene === "baby") { sceneBaby(t); return; }
+      if (opts.scene === "grump") { sceneGrump(t); return; }
+      if (opts.scene === "growup") { sceneGrow(t); return; }
+      if (opts.scene === "wake") { sceneWake(t); return; }
       if (t < 0) { // (the heartbeat opening: the ark film opens the story now)
         // 1. black. a heartbeat. "every night, they forget a little more."
         var beat = t % 1.6;
