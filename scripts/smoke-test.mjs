@@ -98,7 +98,7 @@ ok(r.ok, "feedback");
 // challenge-a-friend links: made from your own accepted run, verified when someone beats it
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
 const dare = r;
-ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$/.test(r.long_url) && /can you beat 40 on CRASH\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
+ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$/.test(r.long_url) && /can you beat 40 on crash?\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
 r = await post("/api/dare", { play_id: p1, anon: "someone-else-" + rid() });
 ok(r.status === 404, "can't make a dare from someone else's run", r.status);
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
@@ -220,14 +220,14 @@ ok(r.ok, "a downloaded share card counts as a send method");
 let page = await (await get("/games/crash/")).text();
 ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
-ok(/property="og:title" content="can you beat 40 on CRASH\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
 // search: every game page carries VideoGame JSON-LD, a how-to-play card and a "games like X" row of links
 page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
 ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
 ok(/how to play fathom/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
-ok(/games like fathom/.test(like) && (like.match(/class="play-btn" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
+ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
 // installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
@@ -262,7 +262,7 @@ ok(r.ok && (await r.text()).includes('src="/games/crash/play/"'), "CRASH embeds 
 r = await get("/games/crash/play/");
 ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors *" && (await r.text()).includes("crash.js"), "CRASH /play/ is served and frameable");
 page = await (await get("/games/crash/")).text();
-ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play CRASH/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && page.includes('data-version="2"'),
+ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play crash/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && page.includes('data-version="2"'),
   "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2");
 r = await get("/games/crash/crash.js");
 ok(r.status === 404, "the old inline CRASH script is gone", r.status);
@@ -626,6 +626,23 @@ if (admin) {
   r = await (await get("/api/admin/challenge", { authorization: "Bearer " + admin })).json();
   const handLast = (await (await get("/api/admin/challenge?date=" + new Date(Date.now()).toISOString().slice(0, 10), { authorization: "Bearer " + admin })).json()).pick?.game;
   ok(r.ok && r.pick && r.pick.game && r.pick.target > 0 && r.pick.xp === 100 && (r.source !== "auto (not stored yet)" || r.pick.game !== handLast), "next week has a challenge (hand or auto, not this week's game)", r);
+}
+
+// email signup (K-0031): local only, so no smoke address ever lands in the live list
+if (local) {
+  ok((await post("/api/subscribe", { email: "nope", consent: true })).status === 400, "signup rejects a bad email");
+  ok((await post("/api/subscribe", { email: "smoke-" + rid() + "@example.com" })).status === 400, "signup needs consent");
+  const se = "smoke-" + rid() + "@example.com";
+  const s1 = await (await post("/api/subscribe", { email: se, source: "landing", consent: true })).json();
+  const s2 = await (await post("/api/subscribe", { email: se.toUpperCase(), source: "landing", consent: true })).json();
+  ok(s1.ok && s2.ok, "signup stores an email (a repeat answers the same)");
+  ok((await get("/api/unsubscribe?t=bad")).status === 400, "unsubscribe rejects a malformed link");
+  const un = await get("/api/unsubscribe?t=" + rid() + rid());
+  ok(un.status === 200 && /unsubscribed/.test(await un.text()), "unsubscribe page answers (no way to probe tokens)");
+  if (admin) {
+    const m = await (await get("/api/admin/metrics?since=2026-01-01", { authorization: "Bearer " + admin })).json();
+    ok(typeof m.totals?.subscribers === "number" && m.totals.subscribers >= 1, "admin metrics: subscriber count", m.totals?.subscribers);
+  }
 }
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

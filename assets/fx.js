@@ -47,29 +47,6 @@
   }
   window.ccSpotSlides = spotSlides;
 
-  /* ---------- card tilt + sheen ---------- */
-  if (finePointer && !reduceMotion) {
-    document.addEventListener("pointermove", function (e) {
-      var card = e.target.closest && e.target.closest(".game-card");
-      if (!card) return;
-      var r = card.getBoundingClientRect();
-      var x = (e.clientX - r.left) / r.width;
-      var y = (e.clientY - r.top) / r.height;
-      card.classList.add("is-tilting");
-      card.style.setProperty("--ry", ((x - 0.5) * 10).toFixed(2) + "deg");
-      card.style.setProperty("--rx", ((0.5 - y) * 8).toFixed(2) + "deg");
-      card.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
-      card.style.setProperty("--my", (y * 100).toFixed(1) + "%");
-    }, { passive: true });
-    document.addEventListener("pointerout", function (e) {
-      var card = e.target.closest && e.target.closest(".game-card");
-      if (!card || card.contains(e.relatedTarget)) return;
-      card.classList.remove("is-tilting");
-      card.style.removeProperty("--rx");
-      card.style.removeProperty("--ry");
-    });
-  }
-
   /* ---------- player page bits that need no data ---------- */
   var player = document.getElementById("player");
   var slugMatch = location.pathname.match(/^\/games\/([a-z0-9-]+)\/?$/);
@@ -272,12 +249,11 @@
     var list = more.querySelector("ul");
     if (!pick.length || !list || list.children.length) return; // the Worker already put "games like X" there
     list.innerHTML = pick.map(function (g) {
-      return '<li class="game-card"><div class="game-card-inner">' +
-        '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" loading="lazy" decoding="async">' +
-        '<div class="game-body"><h3 class="game-name">' + esc(g.title) + "</h3>" +
-        '<p class="game-pitch">' + esc(g.pitch) + "</p>" +
-        '<a class="play-btn" href="/games/' + encodeURIComponent(g.slug) + '/" aria-label="play ' + esc(g.title) + '">play ▶</a>' +
-        "</div></div></li>";
+      return '<li class="game-card"><a class="game-card-inner game-link" href="/games/' + encodeURIComponent(g.slug) + '/">' +
+        '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="400" loading="lazy" decoding="async">' +
+        '<span class="game-body"><h3 class="game-name">' + esc(g.title) + "</h3>" +
+        '<span class="game-pitch">' + esc(g.pitch) + "</span>" +
+        "</span></a></li>";
     }).join("");
     more.hidden = false;
   }
@@ -293,7 +269,7 @@
   }
 
   function slugOfCard(card) {
-    var a = card.querySelector(".play-btn");
+    var a = card.querySelector(".game-link");
     var m = a && (a.getAttribute("href") || "").match(/^\/games\/([a-z0-9-]+)\/$/);
     return m ? m[1] : null;
   }
@@ -331,7 +307,7 @@
       row.appendChild(b);
     });
     // 🎲: a random game, picked from the ones the current filter shows (audit P1 #17)
-    var dice = el('<button type="button" class="chip chip-random" aria-label="play a random game">🎲 random</button>');
+    var dice = el('<button type="button" class="chip chip-random" aria-label="play a random game">random</button>');
     dice.addEventListener("click", function () {
       var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
       var pool = shown.length ? shown : games.map(function (g) { return g.slug; });
@@ -446,7 +422,7 @@
       '<a class="play-btn cup-play" href="/games/' + encodeURIComponent(g.slug) + '/">enter the cup ▶</a></div>' +
       '<ol class="cup-board">' + (top.length ? top.map(function (r) {
         return '<li class="' + (r.rank === 1 ? "is-king" : "") + (r.me ? " is-me" : "") + '">' +
-          '<span class="cup-rank">' + (r.rank === 1 ? '<span aria-hidden="true">👑</span><span class="visually-hidden">1</span>' : esc(r.rank)) + "</span>" +
+          '<span class="cup-rank">' + (r.rank === 1 ? '<span aria-hidden="true">1</span><span class="visually-hidden">1</span>' : esc(r.rank)) + "</span>" +
           '<span class="cup-name">' + esc(r.name) + (r.me ? " (you)" : "") + '</span><span class="cup-score">' + esc(r.score) + "</span></li>";
       }).join("") : '<li class="cup-empty">no scores yet this week. the crown is just sitting there.</li>') + "</ol></section>";
     anchor.insertAdjacentHTML("afterend", html);

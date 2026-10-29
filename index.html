@@ -30,12 +30,13 @@
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://computercooked.com/#site","name":"Computer Cooked","url":"https://computercooked.com/","description":"free stupid-fun browser games. play one in 3 seconds, no downloads.","publisher":{"@id":"https://computercooked.com/#org"}},{"@type":"Organization","@id":"https://computercooked.com/#org","name":"Computer Cooked","url":"https://computercooked.com/","logo":"https://computercooked.com/assets/logo.svg","email":"hello@computercooked.com","sameAs":["https://www.tiktok.com/@computercooked","https://www.youtube.com/@computercooked","https://www.instagram.com/computercooked/","https://x.com/computercooked"]}]}</script>
 </head>
-<body data-deck-rest>
-  <main class="page">
+<body>
+  <main class="page page-wide">
     <header class="hero">
       <h1 class="brand-mark"><img src="/assets/brand/wordmark-480.webp" srcset="/assets/brand/wordmark-480.webp 480w, /assets/brand/wordmark-960.webp 960w" sizes="(min-width: 720px) 560px, min(66vw, 300px)" width="960" height="589" alt="computer cooked" fetchpriority="high"></h1>
       <p class="tagline">free stupid-fun games.<br>play one in 3 seconds.</p>
@@ -44,79 +45,31 @@
 
     <section class="start" aria-labelledby="start-heading">
       <h2 id="start-heading" class="section-label">start here</h2>
-      <ul class="start-grid">
-        <li><a class="start-tile" href="/games/one-percent-popup/?ref=landing"><img src="/assets/start/one-percent-popup-320.webp" alt="" width="320" height="180" loading="eager"><span class="start-name">only 1% can close this pop-up</span><span class="start-go" aria-hidden="true">play ▶</span></a></li>
-        <li><a class="start-tile" href="/games/keyboard-escape/?ref=landing"><img src="/assets/start/keyboard-escape-320.webp" alt="" width="320" height="180" loading="eager"><span class="start-name">+1 speed keyboard escape</span><span class="start-go" aria-hidden="true">play ▶</span></a></li>
-        <li><a class="start-tile" href="/games/crash-cheats/?ref=landing"><img src="/assets/start/crash-cheats-320.webp" alt="" width="320" height="180" loading="eager"><span class="start-name">crash cheats at tic tac toe</span><span class="start-go" aria-hidden="true">play ▶</span></a></li>
-        <li><a class="start-tile" href="/games/level-devil-exe/?ref=landing"><img src="/assets/start/level-devil-exe-320.webp" alt="" width="320" height="180" loading="eager"><span class="start-name">level devil.exe</span><span class="start-go" aria-hidden="true">play ▶</span></a></li>
+      <ul class="card-grid">
+        <li class="game-card"><a class="game-card-inner game-link" href="/games/one-percent-popup/?ref=landing"><img class="game-thumb" src="/games/one-percent-popup/play/thumb.png" alt="" width="640" height="400" loading="eager" decoding="async"><span class="game-body"><h3 class="game-name">only 1% can close this pop-up</h3><span class="game-pitch">30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.</span><span class="game-tags"><span>reflex</span><span>trick</span><span>challenge</span></span></span></a></li>
+        <li class="game-card"><a class="game-card-inner game-link" href="/games/keyboard-escape/?ref=landing"><img class="game-thumb" src="/games/keyboard-escape/play/thumb.png" alt="" width="640" height="400" loading="eager" decoding="async"><span class="game-body"><h3 class="game-name">+1 speed keyboard escape</h3><span class="game-pitch">every key is +1 speed. esc is further than you think.</span><span class="game-tags"><span>+1 speed</span><span>runner</span><span>obby</span></span></span></a></li>
+        <li class="game-card"><a class="game-card-inner game-link" href="/games/crash-cheats/?ref=landing"><img class="game-thumb" src="/games/crash-cheats/play/thumb.png" alt="" width="640" height="400" loading="eager" decoding="async"><span class="game-body"><h3 class="game-name">crash cheats at tic tac toe</h3><span class="game-pitch">beat crash at tic tac toe. he deletes your x&#x27;s, fakes lag, spills coffee and blue-screens when he&#x27;s losing. good luck.</span><span class="game-tags"><span>puzzle</span><span>rage</span><span>tic tac toe</span></span></span></a></li>
+        <li class="game-card"><a class="game-card-inner game-link" href="/games/level-devil-exe/?ref=landing"><img class="game-thumb" src="/games/level-devil-exe/play/thumb.png" alt="" width="640" height="400" loading="eager" decoding="async"><span class="game-body"><h3 class="game-name">level devil.exe</h3><span class="game-pitch">a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.</span><span class="game-tags"><span>platformer</span><span>troll</span><span>rage</span></span></span></a></li>
       </ul>
+      <p class="see-all"><a class="ghost-btn" href="/games/">all 16 games →</a></p>
     </section>
 
-    <a class="arcade-promo" href="/games/">
-      <span class="arcade-screen" aria-hidden="true">
-        <img src="/games/crash/thumb.svg" alt="" width="400" height="300" decoding="async">
-      </span>
-      <span class="arcade-copy">
-        <span class="promo-tag" aria-hidden="true"><span class="live-dot"></span>every game</span>
-        <span class="arcade-title">all the games</span>
-        <span class="promo-sub">rage games, puzzles, idle games, a fishing run and a whole island of tiny minds. free, no downloads, no sign-up.</span>
-      </span>
-      <span class="arcade-go">play ▶</span>
-    </a>
+    <section class="signup-block" aria-labelledby="signup-heading">
+      <h2 id="signup-heading" class="section-label">new games, in your inbox</h2>
+      <form class="signup" data-signup data-source="landing" novalidate>
+        <label class="visually-hidden" for="signup-email">email address</label>
+        <input id="signup-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required maxlength="254">
+        <button class="play-btn" type="submit">get new games</button>
+        <p class="signup-consent">one email when a new game drops, never more than once a week. we keep your address only to send that, and every email has an unsubscribe link. <a href="/privacy">privacy</a></p>
+        <p class="signup-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
 
     <section class="links" id="follow" aria-labelledby="follow-heading">
       <h2 id="follow-heading" class="section-label">follow the meltdown</h2>
-      <ul class="link-grid">
-        <li class="wide">
-          <a class="btn btn-primary" href="https://www.tiktok.com/@computercooked" rel="me noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
-            <span class="btn-label">TikTok</span>
-            <span class="btn-meta" aria-hidden="true">@computercooked ↗</span>
-          </a>
-        </li>
-        <li class="wide">
-          <a class="btn btn-primary" href="https://www.youtube.com/channel/UCsL1cRo3Az36HYwxapWiFgw" rel="me noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-            <span class="btn-label">YouTube</span>
-            <span class="btn-meta" aria-hidden="true">subscribe ↗</span>
-          </a>
-        </li>
-        <li>
-          <a class="btn" href="https://www.instagram.com/computercooked" rel="me noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2.1" y="2.1" width="19.8" height="19.8" rx="5.6"/><circle cx="12" cy="12" r="4.6"/></g><circle cx="17.7" cy="6.3" r="1.4" fill="currentColor"/></svg>
-            <span class="btn-label">Instagram</span>
-          </a>
-        </li>
-        <li>
-          <a class="btn" href="https://x.com/computercooked" rel="me noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
-            <span class="btn-label">X</span>
-          </a>
-        </li>
-        <li>
-          <a class="btn" href="https://www.threads.com/@computercooked" rel="me noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/></svg>
-            <span class="btn-label">Threads</span>
-          </a>
-        </li>
-        <li>
-          <a class="btn" href="https://bsky.app/profile/computercooked.bsky.social" rel="me noopener">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/></svg>
-            <span class="btn-label">Bluesky</span>
-          </a>
-        </li>
-      </ul>
+      <ul class="social-row"><li><a href="https://www.tiktok.com/@computercooked" rel="me noopener" aria-label="TikTok" title="TikTok"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a></li><li><a href="https://www.youtube.com/channel/UCsL1cRo3Az36HYwxapWiFgw" rel="me noopener" aria-label="YouTube" title="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a></li><li><a href="https://www.instagram.com/computercooked" rel="me noopener" aria-label="Instagram" title="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2.1" y="2.1" width="19.8" height="19.8" rx="5.6"/><circle cx="12" cy="12" r="4.6"/></g><circle cx="17.7" cy="6.3" r="1.4" fill="currentColor"/></svg></a></li><li><a href="https://x.com/computercooked" rel="me noopener" aria-label="X" title="X"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></a></li><li><a href="https://www.threads.com/@computercooked" rel="me noopener" aria-label="Threads" title="Threads"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/></svg></a></li><li><a href="https://bsky.app/profile/computercooked.bsky.social" rel="me noopener" aria-label="Bluesky" title="Bluesky"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/></svg></a></li></ul>
     </section>
 
-    <section class="terminal" aria-labelledby="status-heading">
-      <div class="terminal-bar" aria-hidden="true">
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        <span class="terminal-title">sys_status.exe</span>
-      </div>
-      <h2 id="status-heading" class="visually-hidden">system status</h2>
-      <p class="terminal-line"><span class="prompt" aria-hidden="true">&gt;</span> <span id="status-text">status: cooked</span><span class="cursor" aria-hidden="true"></span></p>
-      <p class="terminal-sub">diagnostics updated every few seconds. nothing is being fixed.</p>
-    </section>
   </main>
 
   <footer class="footer">
@@ -125,60 +78,17 @@
     <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
   </footer>
 
-  <script>
-    (function () {
-      var lines = [
-        "status: cooked",
-        "fans: spinning",
-        "ram: emotionally unavailable",
-        "cpu: 100% and blaming you",
-        "wifi: one bar, zero hope",
-        "cache: full of regrets",
-        "gpu: rendering a cry for help",
-        "updates: installing 2 of 847",
-        "battery: 3%, vibes immaculate",
-        "ai model: confidently wrong",
-        "tabs open: 147, all important",
-        "thermal paste: lore",
-        "disk: 0 bytes free, 0 thoughts",
-        "uptime: technically"
-      ];
-      var el = document.getElementById("status-text");
-      if (!el) return;
-      var i = 0;
-      setInterval(function () {
-        i = (i + 1) % lines.length;
-        el.classList.remove("swap");
-        void el.offsetWidth;
-        el.textContent = lines[i];
-        el.classList.add("swap");
-      }, 2800);
-    })();
-  </script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
-      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
-      </button>
-      <a class="deck-link" href="/" data-key="h">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
-      </a>
-      <a class="deck-link" href="/games/" data-key="g">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
-        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
-      </a>
-      <a class="deck-link" href="/#follow" data-key="f">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
-      </a>
-      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
-        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
-      </a>
+      <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
+      <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
+      <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
+      <a class="deck-link" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
+      <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>
   </nav>
+  <script src="/assets/signup.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
 </html>

@@ -83,7 +83,7 @@ function howTo(g) {
   const tips = (g.how_to || []).filter(Boolean);
   const facts = ["free", "no download", g.size_kb && `${g.size_kb} KB`, "phone, tablet or computer"];
   if (tagsOf(g).includes("daily")) facts.push("a new daily round at midnight, the same for everyone");
-  return `<h2>// how to play ${esc(g.title)}</h2>
+  return `<h2>how to play ${esc(g.title)}</h2>
           <p>${esc(g.pitch)}</p>
           ${steps.length ? `<ul class="how-steps">${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
           ${tips.length ? `<p><b>tips:</b></p><ul class="how-steps">${tips.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
@@ -91,7 +91,7 @@ function howTo(g) {
 }
 
 function card(g) {
-  return `<li class="game-card"><div class="game-card-inner"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="360" loading="lazy" decoding="async"><div class="game-body"><h3 class="game-name">${esc(g.title)}</h3><p class="game-pitch">${esc(g.pitch)}</p><a class="play-btn" href="/games/${encodeURIComponent(g.slug)}/" aria-label="play ${esc(g.title)}">play ▶</a></div></div></li>`;
+  return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
 }
 
 const PWA = `<link rel="manifest" href="/manifest.webmanifest"><script src="/assets/pwa.js" defer></script>`;

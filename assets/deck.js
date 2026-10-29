@@ -69,9 +69,7 @@
   var deck = document.querySelector(".deck");
   if (!deck) return;
 
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-
+  
   var TIKTOK = "https://www.tiktok.com/@computercooked";
   var COMMANDS = [
     { name: "home", hint: "the main page", href: "/" },
@@ -114,7 +112,7 @@
     "exit": "there is no exit. only esc.",
     "fix": "fixing is not on the roadmap.",
     "hello": "hi. the fans are loud today, sorry.",
-    "ls": "home  games  follow  ideas  regrets/"
+    "ls": "home  games  daily  me  regrets/"
   };
 
   /* ---------- active page ---------- */
@@ -125,18 +123,14 @@
     if (on) a.setAttribute("aria-current", "page");
   });
 
-  /* ---------- hover magnetism ---------- */
-  if (finePointer && !reduceMotion) {
-    deck.querySelectorAll(".deck-link, .deck-cmd").forEach(function (el) {
-      el.addEventListener("pointermove", function (e) {
-        var r = el.getBoundingClientRect();
-        var dx = (e.clientX - (r.left + r.width / 2)) / r.width;
-        var dy = (e.clientY - (r.top + r.height / 2)) / r.height;
-        el.style.translate = (dx * 8).toFixed(1) + "px " + (dy * 6).toFixed(1) + "px";
-      });
-      el.addEventListener("pointerleave", function () { el.style.translate = ""; });
-    });
+  /* ---------- account: "log in", or your name once the API says who you are ---------- */
+  var acct = deck.querySelector("[data-account-label]");
+  if (acct && !/^\/(admin)\//.test(path)) {
+    fetch("/api/me", { credentials: "same-origin" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (j && j.user && j.user.username) { acct.textContent = j.user.username; acct.closest("a").setAttribute("aria-label", "your account: " + j.user.username); }
+    }).catch(function () {});
   }
+
 
   /* ---------- command bar ---------- */
   var dialog = document.createElement("dialog");
@@ -247,18 +241,4 @@
     var a = keys[e.key.toLowerCase()];
     if (a) { e.preventDefault(); a.click(); }
   });
-
-  /* ---------- first screen of the hub and the landing (K-0020) ---------- */
-  // On wide screens the floating deck sat over the first row of game cards. While the page is at the very top it
-  // rests below the screen; any scroll, or tabbing into it, brings it back ("/" and the shortcut keys always work).
-  if (document.body.hasAttribute("data-deck-rest")) {
-    var rest = function () {
-      document.documentElement.classList.toggle("cc-deck-rest", window.innerWidth >= 1000 && window.scrollY < 40 && !deck.contains(document.activeElement));
-    };
-    window.addEventListener("scroll", rest, { passive: true });
-    window.addEventListener("resize", rest);
-    deck.addEventListener("focusin", rest);
-    deck.addEventListener("focusout", function () { setTimeout(rest, 0); });
-    rest();
-  }
 })();

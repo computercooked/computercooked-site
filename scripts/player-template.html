@@ -28,13 +28,14 @@
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/games/games.css">
 </head>
 <body>
   <main class="player-page">
-    <nav class="crumbs" aria-label="breadcrumb"><span class="crumb-prompt" aria-hidden="true">~/</span><a href="/games/">games</a><span aria-hidden="true">/</span><span aria-current="page">{{SLUG}}</span></nav>
+    <nav class="crumbs" aria-label="breadcrumb"><a href="/games/">games</a><span aria-hidden="true">/</span><span aria-current="page">{{SLUG}}</span></nav>
 
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
@@ -74,12 +75,12 @@
         <div class="ad-slot" data-slot="player-side" aria-hidden="true"></div>
         <div class="player-panel" id="cc-panel" data-game="{{SLUG}}"></div>
         <div class="about-card" data-how-to>
-          <h2>// {{TITLE}}</h2>
+          <h2>{{TITLE}}</h2>
           <p>{{PITCH}}</p>
           <p><b>controls:</b> {{CONTROLS}}</p>
         </div>
         <div class="about-card">
-          <h2>// made by computer cooked</h2>
+          <h2>made by computer cooked</h2>
           <p>got an idea for our next game? <a href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">dm us on tiktok</a>. more games on the <a href="/games/">games page</a>.</p>
         </div>
       </aside>
@@ -98,26 +99,12 @@
   <script src="/games/platform.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
-      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
-      </button>
-      <a class="deck-link" href="/" data-key="h">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
-      </a>
-      <a class="deck-link" href="/games/" data-key="g">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
-        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
-      </a>
-      <a class="deck-link" href="/#follow" data-key="f">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
-      </a>
-      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
-        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
-      </a>
+      <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
+      <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
+      <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
+      <a class="deck-link" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
+      <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>
   </nav>
   <script src="/assets/fx.js" defer></script>

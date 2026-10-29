@@ -1,6 +1,7 @@
 // Computer Cooked Games platform Worker.
 // Static files are served by the assets binding; /api/*, /u/* and /games/* run this code first (run_worker_first in
 // wrangler.jsonc). Game pages go through seo.js; other game files pass straight through to the assets.
+import { subscribe, unsubscribe } from "./subscribe.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
@@ -81,6 +82,8 @@ async function api(req, env, url) {
     case "GET /api/featured": return featured(env, await catalogOf(env, origin));
     case "GET /api/challenge": return challenge(env, user, await catalogOf(env, origin));
     case "POST /api/feedback": return feedback(req, env, ip, user);
+    case "POST /api/subscribe": return subscribe(req, env, ip);
+    case "GET /api/unsubscribe": return unsubscribe(url, env);
     case "GET /api/stats": return stats(env);
     case "POST /api/report": return report(req, env, ip, user);
     case "GET /api/community": return listCommunity(env);

@@ -132,7 +132,7 @@
       var s = e.data.state;
       if (saveNoted[s]) return;
       saveNoted[s] = true;
-      if (s === "cloud") toast("saved to your account ☁");
+      if (s === "cloud") toast("saved to your account");
       else if (s === "guest") toast("saved on this device. log in to keep it everywhere.");
     });
     window.addEventListener("message", function (e) {
