@@ -396,6 +396,7 @@
   // 20 s, the blob's day from the start), on the smol nearest the camera. a playtester without held keys needs it (K-0037)
   function testHook() {
     if (!SB.TEST || el.testBtn || !SB.Possess) return;
+    SB.Possess.noLock = true; // no mouse lock in a playtest: clicks walk, a drag looks, and one Esc leaves
     el.testBtn = root.appendChild(h("button", { class: "chipbtn glass live testbtn", title: "playtest: a fresh first possession", onclick: function () {
       var cs = SB.Game.smols(game).filter(function (c) { return c.alive && !c.held; });
       if (!cs.length) { toast("no smols yet: open the pod first"); return; }
@@ -405,7 +406,6 @@
       delete st.povHungry; delete st.povThreat; delete st.povBlobQuest; delete st.povQuest;
       try { localStorage.removeItem("smolbrains-blobquest"); localStorage.removeItem("smolbrains-firsttool"); } catch (e) {}
       game.sparks = Math.max(game.sparks || 0, 50);
-      closeModal(); closeSheet();
       SB.Possess.enter(game, c);
       toast("🧪 test possession: click the ground left or right of centre to walk that way", "", 6000);
     } }, "🧪 test possession"));
@@ -2206,6 +2206,8 @@
       tutDone("trick");
     });
     var waitT = 0;
+    on("possess", function () { el.heldSheet = state.sheet && state.sheet !== "smol" ? state.sheet : null; if (state.sheet) closeSheet(); });
+    on("unpossess", function (d) { var k = el.heldSheet; el.heldSheet = null; if (k && d.why !== "died") setTimeout(function () { if (!(SB.Possess && SB.Possess.active) && !state.sheet) openSheet(k); }, 450); });
     on("possess", function () { if (el.modal && el.modalArgs && !(el.modalOpts && el.modalOpts.pov)) { var a = el.modalArgs; closeModal(); povHeld.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]); } }); // hidden in first person, it paused the island (K-0037 "freeze")
     on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); toast("👀 <b>" + esc(d.c.name) + "</b> is thinking about it…", "", 4000); });
     on("trickNoBite", function (d) {

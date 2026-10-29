@@ -65,6 +65,7 @@
       pickT: 0, swing: 0, lastHp: c.chem.health, hurtT: 0, aim: null, target: null, opts: null, questT: 0
     };
     P.active = true; P.c = c;
+    S.yaw = openView(c, game, S.yaw); c.facing = S.yaw + Math.PI; // the body turns with the view
     P.input.fwd = P.input.side = 0; P.input.run = P.input.jump = P.input.use = false;
     game.speed = 1; // a smol lives in real time
     // what it carried as a creature goes into its inventory, and tool-users get their building plans
@@ -150,10 +151,16 @@
       else if (ad < (S.auto.reach || 1.6) || S.auto.stuck > 1.5) { var ref = S.auto.ref; S.auto = null; arrive(ref); }
       else { S.yaw += SB.angDiff(S.yaw, Math.atan2(-ax, -az)) * Math.min(1, dt * 5); f = 1; sd = 0; mag = 1; }
     }
-    if (((S.quest && S.quest.kind === "blob" && S.quest.i <= 1) || S.hungerClock) && ch.hunger > 0.5 && ch.hunger < 0.97) {
-      ch.hunger = Math.min(0.97, ch.hunger + dt * 0.006); // a drumstick about every 8 s until you've eaten (K-0027: "no timer")
-      if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
+    var lh = S.lastHun;
+    if (S.meal != null) { ch.hunger = Math.min(ch.hunger, Math.max(0, S.meal - P.MEAL)); S.meal = null; } // a meal in a smol's body is a quarter of the bar or more
+    else if (lh != null) {
+      var clock = ((S.quest && S.quest.kind === "blob" && S.quest.i <= 1) || S.hungerClock) && lh > 0.5 && lh < 0.97;
+      var hi = lh + dt * (clock ? P.HUNGER_CLOCK : P.HUNGER_MAX); // never faster than this, whatever the body's chemistry says
+      if (ch.hunger > hi) ch.hunger = hi;
+      else if (clock && ch.hunger >= lh && ch.hunger < hi) ch.hunger = Math.min(0.97, hi); // a drumstick every ~20 s until you've eaten (K-0027: "no timer")
+      if (clock && ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
+    S.lastHun = ch.hunger;
     if (S.hungerClock && ch.health < 0.25) ch.health = 0.25; // the first-possession hunger stings, but like the grump it never takes the last quarter
     scoutTick(dt);
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
@@ -759,7 +766,8 @@
      scent and comes for you.
      run home to the nest (hold shift, or push the stick all the way), or find two friends, and it gives up: +2 ✨.
      it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
-  P.SCOUT_AT = 20; P.SCOUT_MAX = 35;
+  P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13;
+  P.START_HUNGER = 0.68; P.HUNGER_CLOCK = 0.0025; P.HUNGER_MAX = 0.004; P.MEAL = 0.27;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
     if (st.povThreat === "done" || game.offline) return;
@@ -768,13 +776,15 @@
       if (st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return;
       var hm = SB.Society.home(game, 0), w = game.world, spot = null;
       for (var a = 0; a < 16 && !spot; a++) {
-        var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * 19, z = c.z - Math.cos(ang) * 19; // out in front, where you can see it come
+        var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * P.SCOUT_FAR, z = c.z - Math.cos(ang) * P.SCOUT_FAR; // out in front, where you can see it come
         if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 12) spot = { x: x, z: z };
       }
       if (!spot) return;
       var g = SB.Game.spawnGrump(game, spot.x, spot.z);
       g.name = "a hungry grump"; g.scout = { who: c.id, t: 0, hitT: 0 };
       S.scout = g.id; st.povThreat = "on";
+      var pals0 = 0; SB.World.creaturesNear(w, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals0++; });
+      S.scoutSafe0 = SB.dist(c.x, c.z, hm.x, hm.z) < 5 || pals0 >= 2; // already safe when it came: it gets one bite in first (K-0039: it gave up before you felt it)
       audio("grump", 0.9);
       say("👹 a grump spotted you! run home to the nest (hold shift to run): follow the green arrow");
       SB.bus.emit("scout", { c: c, g: g });
@@ -784,7 +794,7 @@
     if (!gr || !gr.alive || !gr.scout) { endScout(null); return; }
     var home = SB.Society.home(game, 0), pals = 0;
     SB.World.creaturesNear(game.world, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals++; });
-    var settled = gr.scout.t > 8; // a few seconds of it coming at you first, even if you're by the nest already
+    var settled = gr.scout.t > 8 && (!S.scoutSafe0 || (gr.scout.hits || 0) > 0); // a few seconds of it coming at you first, even if you're by the nest already
     if (settled && SB.dist(c.x, c.z, home.x, home.z) < 5) endScout("🏠 safe at the nest! the grump won't come this close. +2 ✨", 2);
     else if (settled && pals >= 2) endScout("🫂 safety in numbers! the grump backs off. +2 ✨", 2);
     else if (gr.chem.fear > 0.6 || gr.goingHome) endScout("👹 you scared it off! +2 ✨", 2);
@@ -796,16 +806,35 @@
     S.scout = null;
     (game.settings || (game.settings = {})).povThreat = "done";
     if (pay && SB.Game.addSparks) SB.Game.addSparks(game, pay, S.c);
-    if (msg) { say(msg); audio("chime"); }
+    if (gr && pay) { gr.chem.fear = 1; gr.goingHome = true; if (SB.Creature.emote) SB.Creature.emote(gr, "huh", 2.5); }
+    if (msg) { say(msg); audio(pay ? "achievement" : "chime"); }
+    if (pay && H() && H().beat) H().beat(msg.indexOf("nest") >= 0 ? "🏠 SAFE!" : "😤 you got away!", msg.replace(/^\S+\s/, ""), true);
     SB.bus.emit("scoutEnd", { c: S.c, ok: !!pay });
   }
-  P.walkToward = function (frac) { // frac: where the click was across the screen, -0.5 (left) .. 0.5 (right)
+  P.walkToward = function (frac, fy) { // frac: where the click was across the screen, -0.5 (left) .. 0.5 (right); fy: 0 top .. 1 bottom
     if (!S || S.dead) return false;
     S.yaw -= frac * (P.FOV || 1.2) * 1.4;
-    var c = S.c, d = 7;
+    S.pitch = -0.12; // level, a little down: you see where you're going
+    var c = S.c, d = fy == null || fy < 0.55 ? 7 : Math.max(2, 7 - (fy - 0.55) * 11); // lower on the screen is nearer
     S.auto = { x: c.x - Math.sin(S.yaw) * d, z: c.z - Math.cos(S.yaw) * d, t: 12, reach: 1 };
     return true;
   };
+  function openView(c, game, yaw0) {
+    var w = game.world, hm = SB.Society.home(game, 0), goal = null;
+    if (c.chem.hunger > 0.4 || !(game.settings && game.settings.povHungry)) goal = SB.World.nearestNode(w, c.x, c.z, 30, function (n) { return n.state === "ok" && (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds"); });
+    if (!goal && SB.dist(c.x, c.z, hm.x, hm.z) > 4) goal = hm;
+    var want = goal ? Math.atan2(-(goal.x - c.x), -(goal.z - c.z)) : yaw0, low = { bush: 1, roots: 1, gourds: 1, flowers: 1, grass: 1 };
+    var tries = [0, 0.35, -0.35, 0.7, -0.7, 1.1, -1.1, 1.6, -1.6, 2.2, -2.2, Math.PI];
+    for (var i = 0; i < tries.length; i++) {
+      var a = want + tries[i], ok = true;
+      for (var d = 1.2; d <= 6 && ok; d += 1.2) {
+        var x = c.x - Math.sin(a) * d, z = c.z - Math.cos(a) * d;
+        if (!SB.World.walkable(w, x, z) || SB.World.nearestNode(w, x, z, 1.4, function (n) { return n.state === "ok" && !low[n.kind]; })) ok = false;
+      }
+      if (ok) return a;
+    }
+    return want;
+  }
   P.scout = function () { return S && S.scout != null ? SB.Game.byId(S.game, S.scout) : null; };
   // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
   function arrive(ref) {
@@ -1068,7 +1097,7 @@
   function questStart() {
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
     S.quest = null;
-    if (!st.povHungry) { st.povHungry = 1; S.hungerClock = true; if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; } // per island, any smol, quest or not (K-0027 saw a full bar, K-0037 a tool-user)
+    if (!st.povHungry) { st.povHungry = 1; S.hungerClock = true; if (c.chem.hunger < P.START_HUNGER) c.chem.hunger = P.START_HUNGER; S.lastHun = c.chem.hunger; } // per island, any smol, quest or not (K-0027 saw a full bar, K-0037 a tool-user)
     if (c.tier < 2) {
       if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
       S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };
@@ -1195,8 +1224,15 @@
       if (S.quest) { S.quest.flags.chop = 1; questTick(); }
     });
     function blobFlag(d, k) { if (S && S.quest && S.quest.kind === "blob" && d && d.c === S.c) { S.quest.flags[k] = (S.quest.flags[k] || 0) + 1; questTick(); } }
-    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); if (S && d && d.c === S.c) S.hungerClock = false; });
-    SB.bus.on("nibble", function (d) { if (S && d && d.c === S.c) S.hungerClock = false; });
+    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); if (S && d && d.c === S.c) { S.hungerClock = false; S.meal = S.lastHun != null ? S.lastHun : d.c.chem.hunger; } });
+    SB.bus.on("nibble", function (d) { if (S && d && d.c === S.c) { S.hungerClock = false; S.meal = S.lastHun != null ? S.lastHun : d.c.chem.hunger; } });
+    // 1. a grump bite is felt: the screen jolts and goes red, you're knocked back, and it hurts (K-0039: "a banner, not a chase")
+    SB.bus.on("scoutHit", function (d) {
+      if (!S || !d || d.c !== S.c) return;
+      var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 3);
+      audio("bonk", 1); audio("grump", 0.8);
+      if (H()) { H().hurt(0.4); if (H().beat) H().beat("👹 OUCH! it bit you", "run for the nest: follow the green arrow"); }
+    });
     SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("nibble", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("sniff", function (d) { blobFlag(d, "sniff"); });

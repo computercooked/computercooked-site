@@ -429,6 +429,21 @@ Fun 5.5/10 (flat). The tester could only send single key taps, so the chase went
 - **Not reproduced**: the snow spawn with the pod off screen. Fresh "play now" islands put the pod on screen in our checks; the minimap fix covers getting back to it.
 - **Tests**: `possess.test.js` §3 seeded (it starts hungry now); `threat.test.js` §4 (a tool-user's first possession on an old island is hungry and gets a grump), §5 (a week away is one day of catch-up).
 
+## 0.36 What v4.8.11 fixed: the bot's v4.8.10 playtest (K-0039)
+
+Fun 5.5/10. "The grump has to be FELT, not a banner": the single biggest lever.
+
+- **The grump comes and bites**: it chased at 1.35× a blob's crawl (about 0.7 m/s) and never arrived. Now it sprints at 1.7 m/s or more from 13 m (after its 3 s growl), growling as it comes. A bite takes 15% of your hearts, knocks you back about 1.2 m, jolts the camera, flashes the screen red and shows "👹 OUCH!". Then it pauses a beat, which is your chance to run. Standing still, the first bite lands about 11 s after it appears.
+- **Escape is earned**: if you were already safe when it came (at the nest, or with 2 friends nearby, as a new island's hatchlings are), it gets one bite in before "safe" counts. Reaching safety shows a big "🏠 SAFE!" beat and the grump turns tail.
+- **Hunger tuned**: start at about a third full (hunger 0.68). Until you eat, the clock drains 0.0025/s (about 15% a minute); in a body hunger never rises faster than 0.004/s, whatever the chemistry says. One meal (a nibble or food) takes at least 27% off.
+- **The games page passes `?cctest=1` to the game frame**, so the test button shows from `/games/smol-brains/?cctest=1`.
+- **Your first view**: you open your eyes facing open ground toward food (or the nest), not a trunk, and the body turns with it. In a body the light starts 95% adjusted, with a lift by day too.
+- **Click to walk (test mode)**: a click on the crosshair uses; anywhere else walks there (lower on the screen is nearer), and the view levels out instead of tipping up. Test mode doesn't lock the mouse, so one Esc leaves.
+- **One Esc leaves**: outside test mode the browser spends the first Esc on the mouse lock, so a lock lost that way, with the window still focused, now leaves the body too.
+- **The card comes back**: the test button no longer closes the open window, and an open side panel (menu, settings…) is held and reopens when you leave.
+- **Version label**: 13 px and brighter.
+- **Tests**: `threat.test.js` §6 (a bite in under 16 s; 15% of hearts; knockback), §7 (starts a third full; a minute later some left; one meal ≥ 25%), §2b (one bite before safe at the nest).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

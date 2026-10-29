@@ -54,7 +54,7 @@ console.log("3. a blob's first day in your hands starts hungry");
   SB.Possess.enter(game, c);
   const q = SB.Possess.quest();
   check("the blob quest is on", !!q && q.kind === "blob", q && q.kind);
-  check("its tummy is rumbling (the food bar is low)", c.chem.hunger >= 0.72, c.chem.hunger.toFixed(2));
+  check("its tummy is rumbling (the food bar is low)", c.chem.hunger >= SB.Possess.START_HUNGER - 0.01, c.chem.hunger.toFixed(2));
   SB.Possess.leave();
 }
 
@@ -64,7 +64,7 @@ console.log("4. K-0027: G, G walks a blob to food it can eat, and it eats it whe
   const c = cs[0];
   delete game.settings.povBlobQuest; delete game.settings.povHungry;
   SB.Possess.enter(game, c);
-  check("first time in a blob on this island: hungry", c.chem.hunger >= 0.72, c.chem.hunger.toFixed(2));
+  check("first time in a blob on this island: hungry", c.chem.hunger >= SB.Possess.START_HUNGER - 0.01, c.chem.hunger.toFixed(2));
   SB.Possess.sniff();
   const sn = SB.Possess.sniffing();
   const tgt = sn && sn.ref && SB.Creature.resolve(game, sn.ref);

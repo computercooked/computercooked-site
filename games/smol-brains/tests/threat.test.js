@@ -72,8 +72,9 @@ seeded(904, () => {
   run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
   check("a grump within the first minute, by the nest too", !!SB.Possess.scout() && game.time > 0);
   let end = null; SB.bus.on("scoutEnd", d => { end = d; });
-  run(SB, game, 12);
-  check("...and you're safe at the nest once it has come at you", end && end.ok, end && JSON.stringify(end.ok));
+  let bit = 0; SB.bus.on("scoutHit", () => bit++);
+  run(SB, game, 25, () => !!end);
+  check("...it gets one bite in, then you're safe at the nest (K-0039: felt, not a banner)", end && end.ok && bit >= 1, bit + " bites");
   SB.Possess.leave();
 });
 
@@ -98,7 +99,7 @@ seeded(905, () => {
   const { SB, game, c } = island(95);
   const [t] = SB.Debug.spawnTier(2, 1); t.x = c.x; t.z = c.z; t.asleep = false; t.chem.hunger = 0.1; t.age = 900;
   SB.Possess.enter(game, t);
-  check("it starts hungry", t.chem.hunger >= 0.72, t.chem.hunger.toFixed(2));
+  check("it starts hungry", t.chem.hunger >= SB.Possess.START_HUNGER - 0.01, t.chem.hunger.toFixed(2));
   run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
   check("and a grump comes", !!SB.Possess.scout());
   SB.Possess.leave();
@@ -109,6 +110,38 @@ console.log("5. K-0037: coming back runs at most one island day");
   const SB = load().SB;
   check("a week away is one day of catch-up", SB.Game.offlineBudget(3600 * 24 * 7) === SB.DAY_LENGTH, SB.Game.offlineBudget(3600 * 24 * 7));
 }
+
+console.log("6. K-0039: it really comes, and a bite is felt");
+seeded(906, () => {
+  const { SB, game, c } = island(96);
+  SB.Possess.enter(game, c);
+  run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
+  const g = SB.Possess.scout();
+  const d0 = SB.dist(g.x, g.z, c.x, c.z);
+  let hit = null; SB.bus.on("scoutHit", d => { if (!hit) hit = { hp: d.c.chem.health, x: d.c.x, z: d.c.z, gd: SB.dist(d.g.x, d.g.z, d.c.x, d.c.z) }; });
+  const h0 = c.chem.health;
+  const t = run(SB, game, 16, () => !!hit); // standing still
+  check("it closes the gap fast: a bite inside 16 s", !!hit, "from " + d0.toFixed(1) + "m in " + t.toFixed(1) + " s");
+  check("a bite is a real chunk of hearts", hit && h0 - hit.hp >= 0.14, hit && (h0 - hit.hp).toFixed(2));
+  check("and knocks you back", hit && hit.gd > 1.6, hit && hit.gd.toFixed(2));
+  SB.Possess.leave();
+});
+
+console.log("7. K-0039: hunger is tense, not hopeless");
+seeded(907, () => {
+  const { SB, game, c } = island(97);
+  SB.Possess.enter(game, c);
+  run(SB, game, 1);
+  const h0 = c.chem.hunger;
+  check("it starts about a third full", h0 >= 0.64 && h0 <= 0.72, (1 - h0).toFixed(2) + " food");
+  run(SB, game, 60);
+  check("a minute later there's still some left", c.chem.hunger < 0.9 && c.chem.hunger > h0 + 0.1, "food " + (1 - c.chem.hunger).toFixed(2));
+  const before = c.chem.hunger;
+  SB.bus.emit("nibble", { c: c });
+  run(SB, game, 0.2);
+  check("one meal fills a quarter of the bar or more", before - c.chem.hunger >= 0.25, "+" + (before - c.chem.hunger).toFixed(2));
+  SB.Possess.leave();
+});
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);
