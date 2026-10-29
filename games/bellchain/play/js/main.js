@@ -264,13 +264,8 @@ function refreshGoals() {
     el.querySelector('em').style.width = Math.min(100, (100 * S.res) / g.cost).toFixed(1) + '%';
   });
 }
-// K-0038: after the first minute the empty placeholders fold away. Only while the pointer is off the shop, so the
-// list never moves under a click (K-0020).
-function compactSlots() {
-  const on = S.playSec > 60 && Object.keys(S.ups).length >= 3;
-  const ups = $('ups');
-  if (ups.classList.contains('compact') !== on && !$('pane-shop').matches(':hover')) ups.classList.toggle('compact', on);
-}
+// K-0040: after the first buy, empty slots go invisible but keep their place, so nothing reflows under a click
+function compactSlots() { $('ups').classList.toggle('bought', Object.keys(S.ups).length > 0); }
 function refreshShop(force) {
   fillSlots();
   compactSlots();
