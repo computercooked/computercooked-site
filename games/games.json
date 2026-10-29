@@ -396,6 +396,33 @@
       "added": "2026-10-29",
       "max_score_per_sec": 8.0,
       "max_score": 480.0
+    },
+    {
+      "slug": "cooked-sweeper",
+      "clip": "/assets/clips/cooked-sweeper.mp4",
+      "title": "cooked sweeper",
+      "pitch": "minesweeper.exe has a virus. the numbers are virus power, every virus is a fight, and KERNEL PANIC is waiting.",
+      "thumbnail": "/games/cooked-sweeper/cover.png?v=4",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "roguelite",
+        "sweeper",
+        "daily",
+        "mobile"
+      ],
+      "controls": "tap / click a tile to reveal it. right-click or long-press flags a guessed power. arrows + space or enter on a keyboard, f or 1-9 flag, l levels up, n new run, d today's disk, m mutes.",
+      "size_kb": 60,
+      "version": "1.0",
+      "added": "2026-10-29",
+      "max_score_per_sec": 25.0,
+      "max_score": 1000.0,
+      "how_to": [
+        "numbers show the TOTAL power of the viruses touching that tile.",
+        "revealing a virus is a fight: lose hp equal to its power, gain that much xp. 0 hp = bluescreen.",
+        "level up (full heal, +1 max hp) whenever you have the xp. beaten viruses drop ram (heal) and scans.",
+        "beat KERNEL PANIC (13) to win. today's infected disk is the same board for everyone."
+      ]
     }
   ]
 }
