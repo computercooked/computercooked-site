@@ -231,7 +231,14 @@
       ui = { hint: document.createElement("div"), timer: document.createElement("div"), lend: document.createElement("button") };
       ui.hint.className = "fnhint glass"; ui.timer.className = "fntimer glass"; ui.lend.className = "lendbtn";
       ui.lend.innerHTML = "🕯 lend your light<small>possess Pip</small>";
-      ui.lend.onclick = function (e) { e.stopPropagation(); FN.lend(SB.Game.current); };
+      ui.lend.onclick = function (e) {
+        e.stopPropagation();
+        var g = SB.Game.current; if (!g || ui.lend.dataset.busy) return;
+        ui.lend.dataset.busy = "1"; ui.lend.classList.remove("on");
+        var go = function () { delete ui.lend.dataset.busy; FN.lend(g); show(g); };
+        if (SB.Lantern && SB.Lantern.SCENES && !(g.lantern && g.lantern.films && g.lantern.films.lend)) { (g.lantern = g.lantern || { embers: 0, stage: 0, got: {}, log: [] }).films = g.lantern.films || {}; g.lantern.films.lend = 1; SB.Lantern.play({ scene: "lend", noGate: true, done: go }); }
+        else go();
+      };
       root.appendChild(ui.hint); root.appendChild(ui.timer); root.appendChild(ui.lend);
     }
     var s = n(game), step = s && !s.done ? s.s : "done";
@@ -239,7 +246,7 @@
     if (step === "hungry") { var p = FN.pip(game); h = "🫳 nudge Pip <span>(grab Pip, carry to the ✨ berries)</span>"; void p; }
     ui.hint.innerHTML = h || ""; ui.hint.classList.toggle("on", !!h);
     ui.timer.classList.toggle("on", step === "sunset");
-    ui.lend.classList.toggle("on", step === "lurk");
+    ui.lend.classList.toggle("on", step === "lurk" && !ui.lend.dataset.busy);
   }
   FN.ui = function () { return ui; };
   // the timer counts down every frame

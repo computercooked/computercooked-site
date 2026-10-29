@@ -1608,6 +1608,8 @@
       "<p><b class='lime'>👁 possess</b> (smol card, " + (SB.Possess ? SB.Possess.COST : 3) + " sparks): live as one smol, first person. survival-game rules: a 9-slot hotbar (1-9 or the wheel), a bag (tab) with crafting beside it, hearts and drumsticks to keep up. left click uses what you hold on what you point at (a tool chops trees and chips rock, paws only shake and punch), right click eats, plants, gives or places, f picks up, q drops, e does what the prompt says, b opens your building plans (r turns the ghost). put a stick, a vine (they hang off cliffs, rocks and riverbanks) and a rock together for your first tool. at zero hearts the smol dies for real, with everything it carried. phones: thumbstick on the left, drag the right side to look, the big button does what it says, tap a hotbar slot to hold it.</p>" +
       "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-6 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
     body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the last lantern (the intro)")]));
+    var gm = SB.Game.current, films = SB.Lantern && gm && gm.lantern && gm.lantern.films ? Object.keys(SB.Lantern.SCENES).filter(function (k) { return gm.lantern.films[k] || (k === "dawn" && gm.tutorial && gm.tutorial.night && gm.tutorial.night.done); }) : [];
+    if (films.length) body.appendChild(h("div", { class: "btnrow" }, films.map(function (k) { return h("button", { class: "btn", onclick: function () { closeModal(); closeSheet(); SB.Lantern.play({ scene: k, noGate: true }); } }, "🎞 " + SB.Lantern.SCENES[k].name); })));
   }
 
   /* ---------------- brain viewer ---------------- */
@@ -2232,10 +2234,12 @@
     on("ember", function (d) { var g = SB.Game.current; if (!g || g.offline) return; toast("🔥 <b>a memory ember</b>: " + esc(d.why) + (d.next ? " <span class=\"dim\">(" + d.n + "/" + d.next + ")</span>" : ""), "ember", 4500); });
     on("lantern", function (d) {
       var g = SB.Game.current; if (!g || !d.stage || g.offline) return; // stage 0 is the first night's ember
-      SB.Game.addSparks(g, 10 * d.stage);
-      if (SB.Game.note) SB.Game.note(g, "🏮 the Lantern caught: stage " + d.stage + ". the nights are a little less dark.");
-      function film() { if (SB.Possess && SB.Possess.active) return setTimeout(film, 3000); if (SB.Lantern && !g.headless) SB.Lantern.play({ scene: "stage1", noGate: true, done: function () { toast("🏮 <b>the Lantern: stage " + d.stage + "</b> · nights are less dark, +" + 10 * d.stage + " ✨. next stage at " + (SB.Embers.next(g) || "—") + " embers.", "ach", 7000); } }); }
-      film();
+      if (SB.Game.note && d.stage < SB.Embers.STAGES.length) SB.Game.note(g, "🏮 the Lantern caught: stage " + d.stage + ". the nights are a little less dark."); // (sparks: embers.js)
+    });
+    on("lanternShown", function (d) {
+      var g = SB.Game.current; if (!g) return;
+      if (d.stage >= SB.Embers.STAGES.length) toast("🌅 <b>the Hollow wakes</b> · the grumps remembered their names and went home. no more grump nights. +" + 10 * d.stage + " ✨. the island is yours to keep.", "ach", 10000);
+      else toast("🏮 <b>the Lantern: stage " + d.stage + "</b> · nights are less dark, +" + 10 * d.stage + " ✨. next stage at " + (SB.Embers.next(g) || "—") + " embers.", "ach", 7000);
     });
     on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); toast("👀 <b>" + esc(d.c.name) + "</b> is thinking about it…", "", 4000); });
     on("trickNoBite", function (d) {

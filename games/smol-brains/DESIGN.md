@@ -535,6 +535,28 @@ Every memory the smols win back is a **memory ember** (`embers.js`, state in `ga
 - **Measured in the browser**: four embers then a fifth; the chip read 4/5; the film ran, then stage 1, +10 ✨ and the toast; no errors.
 - **Tests**: `embers.test.js` (one ember per memory; tickle once; three words not four; five is stage 1 and the next is 15; ideas and couples; grumps give none; the night light; saved, and old saves start at 0).
 
+## 0.42 What v4.9.5 added: The Last Lantern, phase 5: the story films and the finale (K-0041)
+
+Every story beat now has its own film, drawn in code at 320×180 like the opening (`lantern.js`, `L.SCENES`). Each plays **once per island**, queued for a quiet moment: not while you're in a body, not during the first night, not over a window. All of them can be skipped. The ones you've seen are listed in Help ("🎞 …") to watch again.
+
+| film | when | length |
+|---|---|---|
+| lend your light | pressing "🕯 lend your light" on the first night; then you're Pip (the grump keeps waiting) | 10 s |
+| dawn: the first ember | surviving the first night (4.9.2) | 20 s |
+| the first baby | the first smol hatched on the island (not the founders) | 12 s |
+| the first grump | the first smol that dies alone in the dark, far from a fire | 14 s |
+| Pip grows up | Pip's own first little one hatches (or Pip turns elder) | 13 s |
+| the Lantern: stage 1, 2, 3 | 5, 15 and 30 memory embers | 24 s each |
+| the Hollow wakes | 50 memory embers: the finale | 42 s |
+
+- **The first grump (a new rule).** A smol that dies at night, away from any fire (8 m), while the Lantern is below stage 3, gets up as a grump where it fell ("grump (was Mo)"). It happens the first time only, and never to the smol you're in (you're knocked out instead) or of old age or drowning. Grumps were always "smols whose light went out"; now you see it happen once.
+- **Stages 2 and 3.** The same film as stage 1, with more embers. At stage 3 the giant's eye flickers. Each stage: +10 ✨ × stage, and 12% less night darkness.
+- **The finale (50 embers).** The Lantern blazes, its light runs over the Hollow, the giant opens its eye and lifts its head, and in the light the grumps turn back into smols. In the game:
+  - Every grump on the island goes home, and there are no more grump nights.
+  - Nights are 48% less dark, +40 ✨, and a "🌅 the Hollow wakes" toast. The island carries on.
+- **Measured in the browser**: the full first night with the lend film (button hidden while it plays, then you're Pip and the chase starts). Each film played with its captions and no errors (screenshots `v495-*`).
+- **Tests**: `embers.test.js` §4-5 (each film queued once; the first baby; Pip's little one is Pip growing up; a lonely death at night gets up a grump, only once; fifty embers is the finale; grumps go home; the night light; no more grumps after; saved).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

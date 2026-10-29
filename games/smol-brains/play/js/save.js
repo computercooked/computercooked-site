@@ -296,7 +296,7 @@
     game.nextId = Math.max(1, num(data.nextId, 1));
     var tools = ["grab", "tickle", "tap", "talk", "magic", "orders"];
     if (data.hand && tools.indexOf(data.hand.tool) >= 0) game.hand.tool = data.hand.tool;
-    game.family = obj(data.family); game.achievements = obj(data.achievements); game.tutorial = obj(data.tutorial); game.lantern = data.lantern && typeof data.lantern === "object" ? { embers: Math.max(0, data.lantern.embers | 0), stage: Math.max(0, data.lantern.stage | 0), got: obj(data.lantern.got), log: Array.isArray(data.lantern.log) ? data.lantern.log.slice(-60) : [] } : null; game.quests = data.quests && typeof data.quests === "object" ? data.quests : null; game.nest = data.nest && typeof data.nest === "object" ? { fluff: Math.max(0, data.nest.fluff | 0), cosy: Math.max(0, Math.min(3, data.nest.cosy | 0)) } : null;
+    game.family = obj(data.family); game.achievements = obj(data.achievements); game.tutorial = obj(data.tutorial); game.lantern = data.lantern && typeof data.lantern === "object" ? { embers: Math.max(0, data.lantern.embers | 0), stage: Math.max(0, data.lantern.stage | 0), got: obj(data.lantern.got), log: Array.isArray(data.lantern.log) ? data.lantern.log.slice(-60) : [], films: obj(data.lantern.films), woke: !!data.lantern.woke, turned: data.lantern.turned || null } : null; game.quests = data.quests && typeof data.quests === "object" ? data.quests : null; game.nest = data.nest && typeof data.nest === "object" ? { fluff: Math.max(0, data.nest.fluff | 0), cosy: Math.max(0, Math.min(3, data.nest.cosy | 0)) } : null;
     if (typeof game.tutorial.step !== "number") game.tutorial.step = 0;
     game.tutorial.done = !!game.tutorial.done;
     game.log = Array.isArray(data.log) ? data.log.slice(-40) : [];
