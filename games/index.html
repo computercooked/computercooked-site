@@ -92,11 +92,6 @@
     </section>
 
 
-    <section class="shelf hub-continue" id="hub-continue" hidden aria-labelledby="continue-h">
-      <h2 class="shelf-head" id="continue-h">jump back in</h2>
-      <ul class="continue-row" id="continue-row"></ul>
-    </section>
-
     <aside class="about-card install-card" id="install-card" aria-label="install" hidden>
       <p><b>keep the arcade on your phone.</b> add it to your home screen: it opens like an app, and the games you have played work offline.</p>
       <p class="install-how" data-install-how hidden>on iPhone or iPad: tap the share button <span aria-hidden="true">⬆︎</span>, then <b>add to home screen</b>.</p>
@@ -108,51 +103,11 @@
 
     <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
 
-    <section class="shelf hub-weekly" id="hub-weekly" hidden aria-labelledby="weekly-h">
-      <h2 class="shelf-head" id="weekly-h">weekly challenge <small id="weekly-ends"></small></h2>
-      <a class="about-card weekly-card" id="weekly-card" href="/games/">
-        <img id="weekly-thumb" src="/assets/logo.svg" alt="" width="120" height="90" loading="lazy">
-        <span class="weekly-body">
-          <b id="weekly-title"></b>
-          <span id="weekly-goal"></span>
-          <span class="weekly-meta" id="weekly-meta"></span>
-        </span>
-      </a>
-      <p class="weekly-event" id="weekly-event" hidden></p>
-    </section>
-
-    <section class="shelf" id="shelf-trending" hidden>
-      <h2 class="shelf-head">trending this week</h2>
-      <ul class="card-grid"></ul>
-    </section>
-
-    <section class="shelf" id="shelf-popular" hidden>
-      <h2 class="shelf-head">most played</h2>
-      <ul class="card-grid"></ul>
-    </section>
-
-    <section class="shelf" aria-labelledby="community-heading">
-      <h2 class="shelf-head" id="community-heading">community</h2>
-      <ul class="card-grid" id="shelf-community">
-        <li class="soon-card">
-          <span class="soon-badge">coming soon</span>
-          <h3>upload your own game</h3>
-          <p>made a little html5 game? soon you'll be able to post it here. get on the list and we'll tell you when the doors open.</p>
-          <!-- TODO(v2): real waitlist form once Workers + D1 exist. No backend yet, so this is a mailto. -->
-          <div class="waitlist">
-            <a class="btn" href="mailto:hello@computercooked.com?subject=game%20upload%20waitlist&amp;body=put%20me%20on%20the%20list.%20my%20game%20is%3A%20">join the waitlist</a>
-            <a class="btn" href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">pitch us on tiktok ↗</a>
-          </div>
-        </li>
-      </ul>
-    </section>
-
-    <div class="ad-slot" data-slot="games-hub-bottom" aria-hidden="true"></div>
   </main>
 
   <footer class="footer">
     <p>© 2026 Computer Cooked</p>
-    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
+    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
   </footer>
 
   <script src="/assets/follow.js" defer></script>
@@ -163,7 +118,9 @@
       <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
       <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
       <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
-      <a class="deck-link" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <a class="deck-link deck-daily" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <a class="deck-link" href="/lab/" data-key="l"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 15h10" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">lab</span></a>
+      <a class="deck-link" href="/gary/" data-key="y"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">gary</span></a>
       <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
       <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>

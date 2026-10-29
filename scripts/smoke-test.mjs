@@ -151,7 +151,7 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slides = typeof build === "function" ? build(ours, newest, feat) : [];
   const bad = slides.filter((s) => {
     const g = byTitle(s.title);
-    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title + " ▶" || s.art !== g.thumbnail;
+    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title || s.art !== g.thumbnail;
   });
   ok(slides.length >= 2 && bad.length === 0 && (!feat || slides[0].slug === feat.game), "hub spotlight: each slide's button href, link and art match its title's game", { slides: slides.map((s) => s.slug), bad: bad.map((s) => s.title) });
 }
@@ -628,8 +628,28 @@ if (admin) {
   ok(r.ok && r.pick && r.pick.game && r.pick.target > 0 && r.pick.xp === 100 && (r.source !== "auto (not stored yet)" || r.pick.game !== handLast), "next week has a challenge (hand or auto, not this week's game)", r);
 }
 
+// K-0031 phase two pages: the homepage, /lab and /gary are filled on the server from their JSON files
+{
+  const home = await (await get("/")).text();
+  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card"') && home.includes('class="lab-item"') && home.includes('class="gary-entry is-latest"'),
+    "homepage: one play button, featured game, lab strip, latest gary entry");
+  const labHtml = await (await get("/lab/")).text();
+  ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");
+  const garyHtml = await (await get("/gary/")).text();
+  ok((garyHtml.match(/class="gary-entry/g) || []).length >= 3, "/gary shows the disaster log");
+  const sup = await get("/support/");
+  ok(sup.ok && /coming soon/.test(await sup.text()), "/support is up (supporter tier marked coming soon)");
+}
+
 // email signup (K-0031): local only, so no smoke address ever lands in the live list
 if (local) {
+  // /lab vote: one per player, changeable; smoke voters are never counted
+  const voter = "smoke-" + rid();
+  const v0 = await (await get("/api/lab/votes?anon=" + voter)).json();
+  const v1 = await (await post("/api/lab/vote", { anon: voter, option: "microwave" })).json();
+  const v2 = await (await post("/api/lab/vote", { anon: voter, option: "checkout" })).json();
+  ok(v0.ok && v0.mine === null && v1.ok && v1.mine === "microwave" && v2.mine === "checkout" && v2.total === v0.total, "lab vote: changeable, smoke votes not counted", { v0: v0.total, v2: v2.total });
+  ok((await post("/api/lab/vote", { anon: voter, option: "nope" })).status === 400, "lab vote rejects an unknown option");
   ok((await post("/api/subscribe", { email: "nope", consent: true })).status === 400, "signup rejects a bad email");
   ok((await post("/api/subscribe", { email: "smoke-" + rid() + "@example.com" })).status === 400, "signup needs consent");
   const se = "smoke-" + rid() + "@example.com";

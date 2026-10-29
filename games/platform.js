@@ -33,7 +33,7 @@
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
     "</div>" +
     '<div class="about-card cc-fb" id="cc-feedback">' +
-      '<div class="cc-head"><h2>how was it?</h2>' +
+      '<div class="cc-head"><h2>rate it</h2>' +
         '<button type="button" class="cc-heart" aria-pressed="false" aria-label="favorite" hidden>♡</button></div>' +
       '<div class="cc-thumbs">' +
         '<button type="button" data-r="1" aria-pressed="false" aria-label="thumbs up"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 11v9H3v-9zM7 11l4-8c1.7 0 3 1.3 3 3v3h5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>' +
@@ -107,6 +107,7 @@
     b.addEventListener("click", function () {
       rating = rating === +b.dataset.r ? 0 : +b.dataset.r;
       fb.querySelectorAll(".cc-thumbs button").forEach(function (x) { x.setAttribute("aria-pressed", String(+x.dataset.r === rating)); });
+      fb.classList.add("is-open");
       if (rating && !ta.value.trim()) send(true);
     });
   });

@@ -83,10 +83,12 @@ function howTo(g) {
   const tips = (g.how_to || []).filter(Boolean);
   const facts = ["free", "no download", g.size_kb && `${g.size_kb} KB`, "phone, tablet or computer"];
   if (tagsOf(g).includes("daily")) facts.push("a new daily round at midnight, the same for everyone");
+  // K-0031: one list; the first 5 bullets show, the rest fold under "more tips"
+  const all = [...steps, ...tips].map((s) => `<li>${esc(s)}</li>`);
   return `<h2>how to play ${esc(g.title)}</h2>
           <p>${esc(g.pitch)}</p>
-          ${steps.length ? `<ul class="how-steps">${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
-          ${tips.length ? `<p><b>tips:</b></p><ul class="how-steps">${tips.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
+          ${all.length ? `<ul class="how-steps">${all.slice(0, 5).join("")}</ul>` : ""}
+          ${all.length > 5 ? `<details class="how-more"><summary>more tips</summary><ul class="how-steps">${all.slice(5).join("")}</ul></details>` : ""}
           <p class="how-facts">${facts.filter(Boolean).map(esc).join(" · ")}</p>`;
 }
 
@@ -109,7 +111,9 @@ export async function gamePage(req, env, url, slug) {
   const rw = new HTMLRewriter()
     // installable web app: every game page links the manifest and registers the offline service worker (assets/pwa.js)
     .on("head", { element(e) { e.append(jsonLd(g) + PWA, { html: true }); } })
-    .on("[data-how-to]", { element(e) { e.setInnerContent(howTo(g), { html: true }); if (embeddable(g)) e.after(embedCard(g), { html: true }); } })
+    // K-0031: the sidebar keeps only the leaderboard and rating; how-to (and the folded embed code) go under the game
+    .on("aside [data-how-to]", { element(e) { e.remove(); } })
+    .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })
     .on("[data-more-games] ul", { element(e) { e.setInnerContent(related(games, slug).map(card).join(""), { html: true }); } });

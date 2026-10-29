@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>the lab — Computer Cooked</title>
+  <meta name="description" content="what Computer Cooked is building right now, and a vote on which game gets made next.">
+  <link rel="canonical" href="https://computercooked.com/lab/">
+  <meta name="theme-color" content="#0E0F11">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Computer Cooked">
+  <meta property="og:title" content="the lab — Computer Cooked">
+  <meta property="og:description" content="what Computer Cooked is building right now, and a vote on which game gets made next.">
+  <meta property="og:url" content="https://computercooked.com/lab/">
+  <meta property="og:image" content="https://computercooked.com/assets/og.png?v=2">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/tokens.css">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/assets/deck.css">
+</head>
+<body>
+  <main class="page page-wide lab-page">
+    <header class="page-head">
+      <p class="eyebrow">the lab</p>
+      <h1>what we're cooking</h1>
+      <p class="lede">every game here started as a dumb idea. this is what's on the stove right now, and you get a say in what's next.</p>
+    </header>
+
+    <section aria-labelledby="pipe-heading">
+      <h2 id="pipe-heading" class="section-label">the pipeline</h2>
+      <ul class="lab-strip lab-pipeline" id="lab-pipeline"><li class="lab-item"><div><span class="stage stage-building">building</span><b>accounts that level up</b><span>guest xp from your first run, levels, and a face you build yourself.</span></div></li><li class="lab-item"><div><span class="stage stage-building">building</span><b>a new look for the arcade</b><span>the site you&#x27;re on. calmer, faster, fewer flashing boxes.</span></div></li><li class="lab-item"><div><span class="stage stage-next">up next</span><b>whatever wins the vote</b><span>the top idea below gets built next. one vote each, change it any time.</span></div></li><li class="lab-item"><a href="/games/reel-weird/"><span class="stage stage-shipped">shipped</span><b>reel weird</b><span>a 60-second fishing run in a cursed pond.</span></a></li><li class="lab-item"><a href="/games/smol-brains/"><span class="stage stage-shipped">shipped</span><b>smol brains</b><span>an island of tiny creatures with real neural-network brains.</span></a></li><li class="lab-item"><a href="/games/plus-one-ram/"><span class="stage stage-shipped">shipped</span><b>+1 ram every second</b><span>you gain +1 mb every second. eat smaller numbers.</span></a></li></ul>
+    </section>
+
+    <section class="poll-block" aria-labelledby="poll-q">
+      <h2 id="poll-q" class="section-label">which one should we build next?</h2>
+      <p class="poll-note">one vote each. tap another to change it. the numbers show once you've voted.</p>
+      <ol class="poll" id="poll" data-poll="next-game-1"><li><button type="button" class="poll-opt" data-option="gary-weather" aria-pressed="false"><span class="poll-text"><b>gary vs. the weather</b><span>pick a disaster, watch gary survive it for 0.4 seconds.</span></span><span class="poll-bar" aria-hidden="true"><span></span></span><span class="poll-n num" aria-hidden="true"></span></button></li><li><button type="button" class="poll-opt" data-option="microwave" aria-pressed="false"><span class="poll-text"><b>rate my microwave</b><span>hold to cook. let go before it explodes. every item has a secret perfect time.</span></span><span class="poll-bar" aria-hidden="true"><span></span></span><span class="poll-n num" aria-hidden="true"></span></button></li><li><button type="button" class="poll-opt" data-option="checkout" aria-pressed="false"><span class="poll-text"><b>unexpected item</b><span>a self-checkout that gets more unhinged with every scan.</span></span><span class="poll-bar" aria-hidden="true"><span></span></span><span class="poll-n num" aria-hidden="true"></span></button></li><li><button type="button" class="poll-opt" data-option="parallel-park" aria-pressed="false"><span class="poll-text"><b>parallel park hell</b><span>one tap to park. the space shrinks every time you make it.</span></span><span class="poll-bar" aria-hidden="true"><span></span></span><span class="poll-n num" aria-hidden="true"></span></button></li><li><button type="button" class="poll-opt" data-option="group-chat" aria-pressed="false"><span class="poll-text"><b>ghost your group chat</b><span>dodge every notification for 10 seconds without opening one.</span></span><span class="poll-bar" aria-hidden="true"><span></span></span><span class="poll-n num" aria-hidden="true"></span></button></li></ol>
+      <p class="poll-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="signup-block" aria-labelledby="signup-heading">
+      <h2 id="signup-heading" class="section-label">hear when the winner ships</h2>
+      <form class="signup" data-signup data-source="lab" novalidate>
+        <label class="visually-hidden" for="signup-email">email address</label>
+        <input id="signup-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required maxlength="254">
+        <button class="ghost-btn" type="submit">get new games</button>
+        <p class="signup-consent">one email when a new game drops, never more than once a week. we keep your address only to send that, and every email has an unsubscribe link. <a href="/privacy/">privacy</a></p>
+        <p class="signup-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Computer Cooked</p>
+    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
+  </footer>
+  <nav class="deck" aria-label="main">
+    <div class="deck-inner">
+      <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
+      <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
+      <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
+      <a class="deck-link deck-daily" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <a class="deck-link" href="/lab/" data-key="l"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 15h10" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">lab</span></a>
+      <a class="deck-link" href="/gary/" data-key="y"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">gary</span></a>
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
+      <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
+    </div>
+  </nav>
+  <script src="/assets/lab.js" defer></script>
+  <script src="/assets/signup.js" defer></script>
+  <script src="/assets/deck.js" defer></script>
+</body>
+</html>

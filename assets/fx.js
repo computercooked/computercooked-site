@@ -41,7 +41,7 @@
       return {
         slug: g.slug, title: g.title, pitch: g.pitch || "", art: g.thumbnail, href: href,
         tag: i === 0 ? (feat && g.slug === feat.game ? "game of the week" : "featured") : (newest.indexOf(g) >= 0 ? "new" : "featured"),
-        cta: { href: href, label: "play " + g.title + " ▶" }
+        cta: { href: href, label: "play " + g.title }
       };
     });
   }
@@ -236,7 +236,7 @@
             '<span class="daily-name">' + esc(g.title) + "</span>" +
             '<span class="daily-mode">' + esc(DAILY[g.slug] || "daily") + "</span>" +
             '<span class="daily-go" aria-hidden="true">▶</span></a></li>';
-        }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight. <a href=\"/games/daily/\">daily 3 streak ▶</a></p></section>";
+        }).join("") + "</ul><p class=\"strip-note\">same puzzle for everyone today. new one at midnight. <a href=\"/games/daily/\">daily 3 streak</a></p></section>";
     }
     html += "</div>";
     anchor.insertAdjacentHTML("afterend", html);
@@ -419,7 +419,7 @@
       '<div class="cup-copy"><p class="cup-eyebrow">this week</p>' +
       '<h2 class="cup-title" id="cup-heading">the cooked cup</h2>' +
       '<p class="cup-game">game: <b>' + esc(g.title) + '</b>. best score by sunday night gets the crown and a shoutout on <a href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">tiktok</a>.</p>' +
-      '<a class="play-btn cup-play" href="/games/' + encodeURIComponent(g.slug) + '/">enter the cup ▶</a></div>' +
+      '<a class="play-btn cup-play" href="/games/' + encodeURIComponent(g.slug) + '/">enter the cup</a></div>' +
       '<ol class="cup-board">' + (top.length ? top.map(function (r) {
         return '<li class="' + (r.rank === 1 ? "is-king" : "") + (r.me ? " is-me" : "") + '">' +
           '<span class="cup-rank">' + (r.rank === 1 ? '<span aria-hidden="true">1</span><span class="visually-hidden">1</span>' : esc(r.rank)) + "</span>" +
