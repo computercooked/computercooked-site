@@ -172,7 +172,8 @@
     var g = FN.grump(game); if (g && g.alive) { if (g.scout) g.scout.done = true; g.goingHome = true; }
     var pip = FN.pip(game);
     if (pip && pip.alive) { pip.chem.fear = 0; pip.chem.hunger = Math.min(pip.chem.hunger, 0.35); pip.speech = { text: "lumi!", t: 2.5, kind: "say" }; }
-    s.done = true; s.s = "done"; s.ember = 1; // the first memory ember (P4 gathers more)
+    s.done = true; s.s = "done"; s.ember = 1; // the first memory ember
+    if (SB.Embers) SB.Embers.add(game, "night1", "Pip remembered fire", pip);
     if (game.dir) game.dir.nextT = Math.min(game.dir.nextT || 0, game.time + 240);
     game.podT = Math.min(game.podT || 1e9, game.time + 600);
     if (SB.Game.note) SB.Game.note(game, "🏮 Pip remembers fire. the first memory ember flew to the Lantern.");
