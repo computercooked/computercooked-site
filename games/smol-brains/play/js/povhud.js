@@ -158,6 +158,7 @@
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
     "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
+    "#pov .qdone.beat{top:38%;font-size:30px}#pov .qdone.beat.bad{color:#ff4f5e}",
     "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:12px 22px;font:700 22px var(--mono,monospace);color:var(--lime);text-align:center;animation:povgain 2.6s forwards}#pov .qdone small{display:block;margin-top:4px;font-size:14px;color:#f5f3ed}",
     // the bag
     "#pov .bag{position:absolute;inset:0;background:rgba(8,6,14,.55);display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:3}",
@@ -391,6 +392,12 @@
     setTimeout(function () { d.remove(); }, 2700);
     HUD.quest();
   };
+  HUD.beat = function (big, small, good) {
+    if (!hud) return;
+    if (hud.beatEl) hud.beatEl.remove();
+    var d = hud.beatEl = hud.root.appendChild(el("div", "qdone beat panel" + (good ? "" : " bad"), esc(big) + (small ? "<small>" + esc(small) + "</small>" : "")));
+    setTimeout(function () { d.remove(); if (hud && hud.beatEl === d) hud.beatEl = null; }, 2700);
+  };
   // while a grump is after you: a red marker on it, a banner that says how close, and the guide points home
   function threatMarker() {
     var s = S(), g = s && !s.dead && P().scout ? P().scout() : null;
@@ -443,7 +450,7 @@
     var b = d.appendChild(el("button", null, "back to the sky"));
     var done = false, go = function () { if (done) return; done = true; P().leave("died"); };
     b.addEventListener("click", go);
-    if (document.exitPointerLock && document.pointerLockElement) try { document.exitPointerLock(); } catch (e) {}
+    if (document.exitPointerLock && document.pointerLockElement) try { selfUnlockAt = performance.now(); document.exitPointerLock(); } catch (e) {}
     hud.deathT = setTimeout(go, 20000);
   };
 
@@ -458,7 +465,7 @@
       bag.el = hud.root.appendChild(el("div", "bag"));
       bag.el.addEventListener("pointerdown", function (e) { if (e.target === bag.el) closeBag(); e.stopPropagation(); });
       bag.el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-      if (document.exitPointerLock && document.pointerLockElement) try { document.exitPointerLock(); } catch (e) {}
+      if (document.exitPointerLock && document.pointerLockElement) try { selfUnlockAt = performance.now(); document.exitPointerLock(); } catch (e) {}
       P().input.fwd = P().input.side = 0; P().input.use = false; keys = {};
     } else bag.tab = tab;
     drawBag();
@@ -841,7 +848,7 @@
 
   /* ---------------- desktop and phone controls ---------------- */
   var lockHinted = false;
-  var lockAt = 0;
+  var lockAt = 0, blurAt = 0, selfUnlockAt = 0;
   function locked() { return typeof document !== "undefined" && !!document.pointerLockElement; }
   function canvasEl() { return document.getElementById("view"); }
   function bind() {
@@ -869,12 +876,13 @@
         if (k.indexOf("arrow") === 0) e.preventDefault();
       },
       keyup: function (e) { keys[e.key.toLowerCase()] = false; },
-      blur: function () { keys = {}; P().input.use = false; },
+      blur: function () { keys = {}; P().input.use = false; blurAt = performance.now(); },
       down: function (e) {
         var s = S();
         if (!s || s.dead || bag || e.pointerType !== "mouse") return;
         if (!locked() && cv.requestPointerLock && !P().noLock) { try { var pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(function () { if (h.lockErr) h.lockErr(); }); } catch (er) { if (h.lockErr) h.lockErr(); } }
         if (locked()) { press(e.button); return; }
+        if (P().noLock && e.button === 0) { drag = { x: e.clientX, y: e.clientY, moved: 0, b: 0 }; return; }
         drag = { x: e.clientX, y: e.clientY, moved: 0, b: e.button };
       },
       move: function (e) {
@@ -889,8 +897,9 @@
       up: function (e) {
         P().input.use = false;
         if (drag && drag.moved < 6) {
-          var used = press(drag.b, true);
-          if (!used && drag.b === 0 && SB.TEST) P().walkToward((e.clientX / window.innerWidth) - 0.5); // ?cctest=1: click to walk that way
+          var fx = e.clientX / window.innerWidth - 0.5, fy = e.clientY / window.innerHeight;
+          if (SB.TEST && drag.b === 0 && (Math.abs(fx) > 0.06 || Math.abs(fy - 0.5) > 0.08)) P().walkToward(fx, fy); // ?cctest=1: a click on the crosshair uses, anywhere else walks there (K-0039)
+          else press(drag.b, true);
         }
         drag = null;
         void e;
@@ -919,7 +928,16 @@
     // the mouse can't always be locked (some browsers, iframes, a recent Esc): say how to look without it (K-0021)
     h.lockErr = function () { if (S() && !lockHinted) { lockHinted = true; HUD.say("🖱 the mouse couldn't lock here: hold a button and drag to look, or use the arrow keys"); } };
     document.addEventListener("pointerlockerror", h.lockErr);
-    document.addEventListener("pointerlockchange", function () { lockAt = performance.now(); });
+    h.lockChange = function () {
+      lockAt = performance.now();
+      if (locked() || lockAt - selfUnlockAt < 400) return;
+      setTimeout(function () { // the lock went without us asking: that was Esc (or the window losing focus: then stay)
+        var s = S();
+        if (!s || s.dead || bag || s.ghost || locked() || performance.now() - blurAt < 500 || (document.hasFocus && !document.hasFocus())) return;
+        if (P().active) P().leave();
+      }, 90);
+    };
+    document.addEventListener("pointerlockchange", h.lockChange);
     window.addEventListener("keydown", h.keydown);
     window.addEventListener("keyup", h.keyup);
     window.addEventListener("blur", h.blur);
@@ -937,6 +955,7 @@
     if (!bound) return;
     var h = bound.h, cv = bound.cv;
     document.removeEventListener("pointerlockerror", h.lockErr);
+    document.removeEventListener("pointerlockchange", h.lockChange);
     window.removeEventListener("keydown", h.keydown);
     window.removeEventListener("keyup", h.keyup);
     window.removeEventListener("blur", h.blur);
