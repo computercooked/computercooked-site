@@ -1125,7 +1125,7 @@
     // first person: the eyes adjust. a smol's own view at night or under storm cloud is dim, never black
     // (eased over about 1.5 s, like real eyes, instead of switching on: K-0021 saw "dark, then suddenly bright")
     var povTo = cam && cam.pov ? 1 : 0;
-    if (povTo === 1 && povAdj < 0.95) povAdj = 0.95; // in: adjusted from the first frame (K-0037/K-0039: dim and murky at the start)
+    if (povTo === 1) povAdj = 1; // in: adjusted from the first frame (K-0037/K-0039: dim and murky at the start)
     povAdj = snap || !(dt > 0) ? povTo : povAdj + (povTo - povAdj) * (1 - Math.exp(-dt / 1.5));
     if (povAdj > 0.002) {
       var dk = (Math.max(env.night, oc * 0.6) * 1.3 + 0.3) * povAdj, add = [0.1, 0.11, 0.17]; // a smol's eyes: a lift by day too

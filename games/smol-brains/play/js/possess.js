@@ -40,8 +40,10 @@
   // the first time is on the house: it's the best thing in the game, so nobody should miss it
   P.cost = function (game) { return game && !(game.stats && game.stats.possessed) ? 0 : P.COST; };
 
+  P.cooldown = function () { return Math.max(0, (P.cooldownUntil || 0) - Date.now() / 1000); };
   P.canEnter = function (game, c) {
     if (!game || !c || !c.alive || c.type !== "creature") return "nobody there";
+    if (P.cooldown() > 0) return "your light is gathering itself: " + Math.ceil(P.cooldown()) + " s";
     if (c.species !== "smol") return "only smols can be possessed";
     if (c.heldBy || c.dying || c.corpse) return "not right now";
     if (P.active) return "you're already someone";
@@ -158,15 +160,17 @@
     var lh = S.lastHun;
     if (S.meal != null) { ch.hunger = Math.min(ch.hunger, Math.max(0, S.meal - P.MEAL)); S.meal = null; } // a meal in a smol's body is a quarter of the bar or more
     else if (lh != null) {
-      var clock = ((S.quest && S.quest.kind === "blob" && S.quest.i <= 1) || S.hungerClock) && lh > 0.5 && lh < 0.97;
-      var hi = lh + dt * (clock ? P.HUNGER_CLOCK : P.HUNGER_MAX); // never faster than this, whatever the body's chemistry says
-      if (ch.hunger > hi) ch.hunger = hi;
-      else if (clock && ch.hunger >= lh && ch.hunger < hi) ch.hunger = Math.min(0.97, hi); // a drumstick every ~20 s until you've eaten (K-0027: "no timer")
-      if (clock && ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
+      var hi = lh + dt * P.HUNGER_POV; // in a body the bar runs down at one steady rate, whatever the chemistry says: full to empty in 3 minutes
+      if (ch.hunger > hi || ch.hunger >= lh) ch.hunger = Math.min(1, hi);
+      if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
     S.lastHun = ch.hunger;
     if (S.hungerClock && ch.health < 0.25) ch.health = 0.25; // the first-possession hunger stings, but like the grump it never takes the last quarter
     scoutTick(dt);
+    if ((S.cueT = (S.cueT || 0) - dt) <= 0) {
+      S.cueT = 0.5;
+      SB.World.creaturesNear(game.world, game, c.x, c.z, P.CUE_AT, function (o) { if (o.species === "grump" && o.alive && !o.goingHome && (!o._cueAt || game.time - o._cueAt > 12)) { o._cueAt = game.time; audio("grump", 0.8); if (!o.scout) say("👹 a grump, close by!"); } });
+    }
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
     var running = inp.run && mag > 0.08 && c.stage >= 1 && S.stam > 0.04;
@@ -772,7 +776,8 @@
      run home to the nest (hold shift, or push the stick all the way), or find two friends, and it gives up: +2 ✨.
      it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
   P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13; P.SCOUT_OUT = 12; P.SCOUT_WAIT = 40;
-  P.START_HUNGER = 0.68; P.HUNGER_CLOCK = 0.0025; P.HUNGER_MAX = 0.004; P.MEAL = 0.27;
+  P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 180; P.MEAL = 0.25; // K-0041 P3: a full bar lasts ~3 min possessed; a berry or a nibble is a quarter of it
+  P.KO_COOLDOWN = 30; P.FADE_IN = 2; P.CUE_AT = 10;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
     if (st.povThreat === "done" || game.offline) return;
@@ -853,6 +858,18 @@
     return true;
   };
   P.setGoal = function (goal) { if (S) S.goal = goal || null; };
+  P.ko = function (c, cause) {
+    if (!S || S.c !== c || S.dead || cause === "old" || cause === "drowned") return false;
+    var game = S.game, items = [];
+    c.chem.health = 0.2; c.chem.pain = 0;
+    if (c.inv && c.inv.s) { c.inv.s.forEach(function (sl) { if (sl && sl.k !== "plans") { items.push({ k: sl.k, n: sl.n }); Sv().spawn(game, sl.k, sl.n, c.x + (Math.random() - 0.5) * 0.8, c.z + (Math.random() - 0.5) * 0.8, { w: sl.w }); } }); c.inv.s = c.inv.s.filter(function (sl) { return sl && sl.k === "plans"; }); }
+    if (S.scout != null) endScout(null);
+    P.cooldownUntil = Date.now() / 1000 + P.KO_COOLDOWN;
+    SB.bus.emit("knockout", { c: c, cause: cause, items: items });
+    P.leave("ko");
+    c.asleep = true; c.action = null; // out cold for a while
+    return true;
+  };
   P.scout = function () { return S && S.scout != null ? SB.Game.byId(S.game, S.scout) : null; };
   // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
   function arrive(ref) {

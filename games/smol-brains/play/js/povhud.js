@@ -159,6 +159,8 @@
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
     "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
+    "#pov .fadein{position:absolute;inset:0;background:#000;pointer-events:none;animation:povfade 2s ease-out forwards}@keyframes povfade{from{opacity:1}to{opacity:0}}",
+    "#pov .testnums{position:absolute;left:8px;bottom:130px;font:700 12px system-ui,Arial,sans-serif;color:#c5ff49;background:rgba(0,0,0,.6);padding:4px 8px;white-space:pre;pointer-events:none}",
     "#pov .qdone.beat{top:38%;font-size:30px}#pov .qdone.beat.bad{color:#ff4f5e}",
     "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:12px 22px;font:700 22px var(--mono,monospace);color:var(--lime);text-align:center;animation:povgain 2.6s forwards}#pov .qdone small{display:block;margin-top:4px;font-size:14px;color:#f5f3ed}",
     // the bag
@@ -294,6 +296,8 @@
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
     }
     setTimeout(fadeIntro, 4000);
+    var fade = root.appendChild(el("div", "fadein")); setTimeout(function () { fade.remove(); }, (P().FADE_IN || 2) * 1000 + 100);
+    if (SB.TEST) hud.nums = root.appendChild(el("div", "testnums"));
     document.body.appendChild(root);
     document.body.classList.add("pov");
     bind();
@@ -413,7 +417,17 @@
     hud.threat.classList.add("on");
     return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };
   }
+  function testNums() {
+    if (!hud || !hud.nums || (hud.numT = (hud.numT || 0) - 1) > 0) return;
+    hud.numT = 20;
+    var s = S(); if (!s) return;
+    var c = s.c, g = P().scout ? P().scout() : null, run = SB.Creature.runSpeed ? SB.Creature.runSpeed(c) : 0;
+    hud.nums.textContent = "🧪 food " + Math.round((1 - c.chem.hunger) * 100) + "%  −" + (P().HUNGER_POV * 100).toFixed(2) + "%/s (full bar " + Math.round(1 / P().HUNGER_POV) + " s)\n" +
+      "🧪 your sprint " + run.toFixed(2) + " m/s" + (g ? " · grump " + (g.scout && g.scout.speedK ? (run * g.scout.speedK).toFixed(2) + " m/s (" + Math.round(g.scout.speedK * 100) + "%)" : "chasing") + (g.scout && g.scout.wind > 0 ? " · WIND-UP" : "") : "") + "\n" +
+      "🧪 pounce " + Math.round(SB.Creature.LUNGE_DMG * 100) + "% after " + SB.Creature.LUNGE_WIND + " s · fire scares at " + SB.Creature.FIRE_SCARE + " m · KO cooldown " + P().KO_COOLDOWN + " s";
+  }
   function questMarker() {
+    testNums();
     var home = threatMarker();
     var s = S(), q = s && s.quest, t = (s && s.goal) || home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }

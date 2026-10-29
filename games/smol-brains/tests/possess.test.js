@@ -142,16 +142,18 @@ console.log("5. the brain learns from what you choose");
   check("leaving reports what it learned", left && left.lessons === 25);
 }
 
-console.log("6. dying while possessed brings you home");
+console.log("6. K-0041 P3: hitting zero in a body knocks it out (not dead), and brings you home");
 {
   const { g, cs } = fresh(47, 2);
   const c = cs[0];
   P.enter(g, c, { free: true });
-  let died = 0; SB.bus.on("possessedDeath", () => died++);
+  let ko = 0; SB.bus.on("knockout", () => ko++);
   c.chem.health = 0.0001; c.chem.hunger = 1; c.chem.pain = 1;
   let ok = true;
   try { run(g, 5); } catch (e) { ok = false; console.log(e); }
-  check("death noticed", died === 1 && !c.alive);
+  check("knocked out, and still alive", ko === 1 && c.alive, ko + " KOs, alive " + c.alive);
+  check("your light needs about 30 s", P.cooldown() > 25 && /gathering/.test(P.canEnter(g, cs[1])), P.canEnter(g, cs[1]));
+  P.cooldownUntil = 0;
   check("back in god mode", !P.active && !c._pov && ok);
   try { run(g, 10); } catch (e) { ok = false; console.log(e); }
   check("the island carries on", ok);
