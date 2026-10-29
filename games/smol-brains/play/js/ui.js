@@ -170,7 +170,7 @@
     game.world.items.forEach(function (o) { if (o.kind === "egg" && o.heldBy == null) { x.fillStyle = "#fff6d6"; x.beginPath(); x.arc(o.x * k, o.z * k, Math.max(1.6, 1.2 * k), 0, 6.283); x.fill(); } });
     game.creatures.forEach(function (c) {
       if (!c.alive || !SB.World.isSeen(game.world, c.x, c.z)) return;
-      var sel = c.id === game.selectedId, r = (sel ? 2.6 : 1.7) * Math.max(1, k * 0.9);
+      var sel = c.id === game.selectedId, r = (c.species === "grump" ? 2.8 + Math.sin(performance.now() / 160) * 0.8 : sel ? 2.6 : 1.7) * Math.max(1, k * 0.9); // grumps pulse, big and red
       x.fillStyle = c.species === "grump" ? "#ff5f5f" : sel ? "#ffffff" : "#c5ff49";
       x.beginPath(); x.arc(c.x * k, c.z * k, r, 0, 6.283); x.fill();
       if (sel) { x.strokeStyle = "#101114"; x.lineWidth = 1; x.stroke(); }
@@ -447,7 +447,7 @@
   /* story cards: the first time something big happens, the game pauses and explains it (what happened,
      why, what you can do). Later times are just a quick moment. */
   var cardQ = [];
-  UI.QUIET_START = 240; // real seconds into an island when story cards stop being toasts
+  UI.QUIET_START = 300; // real seconds into an island when story cards stop being toasts
   function storyCard(key, icon, title, paras, fallback) {
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
     if (game.offlineRunning) return; // the "welcome back" card sums up the catch-up
@@ -2222,6 +2222,7 @@
     on("possess", function () { el.heldSheet = state.sheet && state.sheet !== "smol" ? state.sheet : null; if (state.sheet) closeSheet(); });
     on("unpossess", function (d) { var k = el.heldSheet; el.heldSheet = null; if (k && d.why !== "died") setTimeout(function () { if (!(SB.Possess && SB.Possess.active) && !state.sheet) openSheet(k); }, 450); });
     on("possess", function () { if (el.modal && el.modalArgs && !(el.modalOpts && el.modalOpts.pov)) { var a = el.modalArgs; closeModal(); povHeld.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]); } }); // hidden in first person, it paused the island (K-0037 "freeze")
+    on("knockout", function (d) { toast("💫 <b>" + esc(d.c.name) + "</b> was knocked out" + (d.items.length ? " and dropped what it carried" : "") + ". your light needs " + (SB.Possess ? SB.Possess.KO_COOLDOWN : 30) + " s to gather itself.", "", 7000); });
     on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); toast("👀 <b>" + esc(d.c.name) + "</b> is thinking about it…", "", 4000); });
     on("trickNoBite", function (d) {
       toast("🤷 <b>" + esc(d.c.name) + "</b> isn't biting: " + esc(d.why) + ". press <b>set it up</b> to try again" + (/hungry/.test(d.why) ? ", or wait till it's hungrier" : "") + ".", "", 7000);

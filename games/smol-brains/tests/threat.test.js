@@ -148,12 +148,13 @@ seeded(907, () => {
   run(SB, game, 1);
   const h0 = c.chem.hunger;
   check("it starts about a third full", h0 >= 0.64 && h0 <= 0.72, (1 - h0).toFixed(2) + " food");
-  run(SB, game, 60);
-  check("a minute later there's still some left", c.chem.hunger < 0.9 && c.chem.hunger > h0 + 0.1, "food " + (1 - c.chem.hunger).toFixed(2));
+  run(SB, game, 30);
+  const rate = (c.chem.hunger - h0) / 30;
+  check("K-0041 P3: it runs down steadily, a full bar in about 3 minutes", Math.abs(1 / rate - 180) < 15, (1 / rate).toFixed(0) + " s for a full bar");
   const before = c.chem.hunger;
   SB.bus.emit("nibble", { c: c });
   run(SB, game, 0.2);
-  check("one meal fills a quarter of the bar or more", before - c.chem.hunger >= 0.25, "+" + (before - c.chem.hunger).toFixed(2));
+  check("one meal (a berry, a nibble) fills a quarter of the bar", before - c.chem.hunger >= 0.245, "+" + (before - c.chem.hunger).toFixed(2));
   SB.Possess.leave();
 });
 

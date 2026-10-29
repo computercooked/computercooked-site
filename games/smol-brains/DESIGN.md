@@ -499,6 +499,20 @@ The tutorial is the story: on a new guided island the first minutes are Pip's fi
 - **Measured in the browser**: the whole night ran with 0 windows and no errors; dawn on day 2, then "4/7 reward it".
 - **Tests**: `firstnight.test.js` (the steps in order; dark in 40 s; the grump waits while you watch; 90% of your speed; a wind-up then a pounce; two sticks light the nest; the light drives it off; morning on day 2; Pip survives; the first ember).
 
+## 0.40 What v4.9.3 changed: The Last Lantern, phase 3: the numbers (K-0041)
+
+- **Hunger.** In a body the food bar runs down at one steady rate: full to empty in 180 s (0.56%/s), whatever the chemistry says. The first possession starts at 32%. In the sim a full bar lasts about 4-5 minutes (the base rate went from 0.0015 to 0.0034 per second, up to about 0.005 when a smol runs out of sugar). A berry or a bush nibble is 25% (berries were 28%), and cooked food is 60% (was 70%).
+- **The grump.**
+  - Every scout grump winds up for 1.5 s and pounces for 25% (from 4.9.2), and its approach follows the path finder.
+  - A growl plays when any grump comes within 10 m of the smol you're in ("👹 a grump, close by!").
+  - Grumps are big pulsing red dots on the map.
+  - Torches and lit fires (the nest fire from the first night included) scare grumps from 6.5 m (was 4.5).
+- **Possession start.** Full daylight from the first frame (no eye adjustment), facing the objective (food or the nest; the grump on the first night), with a 2 s fade in from black.
+- **Popups.** Nothing for the first 5 minutes (story cards are toasts until 300 s, was 240), on top of the first night's no-windows rule. Event windows still come one at a time.
+- **Knocked out, not dead.** A possessed smol at 0 hearts (hurt, starved, sick or cold; not old age or deep water) is knocked out: it keeps its life and its ideas, drops what it carried where it fell, and lies there out cold. Your light goes back to the sky and needs 30 s before it can lend itself again ("your light is gathering itself: 26 s"). Nothing is wiped.
+- **Checkable in a playtest**: with `?cctest=1` a possessed smol shows the numbers: food and its rate, your sprint and the grump's speed (and its wind-up), the pounce, the fire distance and the KO cooldown.
+- **Tests**: `threat.test.js` §7 (a full bar in about 3 minutes; a meal is a quarter). `possess.test.js` §6 and `survival.test.js` §8 (knocked out, alive, items dropped, ideas kept, 30 s before you can go in again).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

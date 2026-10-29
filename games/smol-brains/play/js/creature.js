@@ -835,6 +835,7 @@
   }
   C.speedOf = speedOf;
   C.runSpeed = function (c) { return speedOf(c, null) * 1.75 * (c.tier === 0 ? 1.1 : 1); }; // a possessed smol's sprint (possess.js)
+  C.FIRE_SCARE = 6.5; // torches and the nest fire keep grumps off from here (was 4.5)
   C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
 
@@ -1640,6 +1641,7 @@
 
   function die(c, game, cause) {
     if (!c.alive) return;
+    if (c._pov && c.species === "smol" && SB.Possess && SB.Possess.ko && SB.Possess.ko(c, cause)) return; // K-0041: a possessed smol is knocked out, not killed
     c.alive = false; c.dying = true; c.fade = 0; c.asleep = false;
     if (c.plan) endPlan(c, game, false);
     dropAll(c, game);
@@ -1864,7 +1866,7 @@
     if (c.species === "grump" && c.scout && c.scout.done) { c.scout = null; c.goingHome = true; }
     // grumps go home at dawn (or when shooed, or when they see fire)
     if (c.species === "grump") {
-      var fire = SB.World.nearestFire(w, c.x, c.z, 4.5);
+      var fire = SB.World.nearestFire(w, c.x, c.z, C.FIRE_SCARE);
       if (fire && c.raider && SB.Threats && SB.Threats.gear(game).torches) fire = null; // raiders with torches of their own aren't scared of your fire
       var spear = false;
       SB.World.creaturesNear(w, game, c.x, c.z, 2.5, function (o) { if (o.species === "smol" && o.tool != null) { var t = SB.Game.byId(game, o.tool); if (t && (t.kind === "spear" || t.kind === "torch")) spear = true; } });

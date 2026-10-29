@@ -218,13 +218,15 @@ console.log("8. dying with a pack");
   P.enter(g, c, { free: true });
   S.add(c, "stick", 5); S.add(c, "primtool", 1);
   c.ideas.secretthing = 1; // (not a real idea: ignored)
-  let info = null; SB.bus.on("possessedDeath", d => { info = d.info; });
+  let info = null; SB.bus.on("knockout", d => { info = d; });
   const n0 = g.world.items.length;
   c.chem.health = 0.0001; c.chem.hunger = 0.95;
   run(g, 2);
-  check("it really dies", !c.alive && info);
-  check("the death says how", info && info.cause === "starved" && /starved/.test(info.why), info && info.why);
-  check("and what was lost", info && info.items.some(x => x.k === "stick" && x.n === 5) && info.items.some(x => x.k === "primtool"));
+  check("K-0041 P3: knocked out, not killed", c.alive && info);
+  check("it says how", info && info.cause === "starved", info && info.cause);
+  check("and drops what it carried", info && info.items.some(x => x.k === "stick" && x.n === 5) && info.items.some(x => x.k === "primtool"));
+  check("its ideas stay with it", c.ideas.secretthing === 1);
+  P.cooldownUntil = 0;
   check("the pack lands where it fell", g.world.items.length >= n0 + 2);
   check("back in the sky", !P.active);
 }
