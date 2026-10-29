@@ -7,7 +7,7 @@
   "controls": "tap / click an item to scan it. space or enter scans the item nearest the bag, and starts or retries. m mutes.",
   "size_kb": 24,
   "tags": ["reflex", "spooky", "short", "halloween", "mobile"],
-  "version": "1.0",
+  "version": "1.1",
   "max_score_per_sec": 8,
   "max_score": 480
 }

@@ -1,9 +1,11 @@
 {
-  "updated": "2026-10-28",
+  "updated": "2026-10-29",
   "pipeline": [
-    { "stage": "building", "title": "accounts that level up", "note": "guest xp from your first run, levels, and a face you build yourself." },
-    { "stage": "building", "title": "a new look for the arcade", "note": "the site you're on. calmer, faster, fewer flashing boxes." },
+    { "stage": "building", "title": "goose court", "note": "a goose is on trial. you are the judge. the goose has a lawyer." },
     { "stage": "next", "title": "whatever wins the vote", "note": "the top idea below gets built next. one vote each, change it any time." },
+    { "stage": "shipped", "title": "haunted self-checkout", "slug": "haunted-self-checkout", "note": "scan the groceries. never scan the ones with eyes." },
+    { "stage": "shipped", "title": "a new look for the arcade", "note": "a living crt desktop homepage, the computer everywhere, glowing new game pages." },
+    { "stage": "shipped", "title": "accounts that level up", "note": "guest xp from your first run, levels, faces, weekly xp board." },
     { "stage": "shipped", "title": "reel weird", "slug": "reel-weird", "note": "a 60-second fishing run in a cursed pond." },
     { "stage": "shipped", "title": "smol brains", "slug": "smol-brains", "note": "an island of tiny creatures with real neural-network brains." },
     { "stage": "shipped", "title": "+1 ram every second", "slug": "plus-one-ram", "note": "you gain +1 mb every second. eat smaller numbers." }
