@@ -175,7 +175,15 @@
     if (!s) return true;
     var d = T.BY[s.id], want = d.avoid ? -1 : 1;
     if (sign !== want) return true; // the other hand isn't part of this trick: it lands as usual
-    if (T.doing(c, game, d)) { s.until = Math.max(s.until, game.time + 8); return true; }
+    if (T.doing(c, game, d)) {
+      s.until = Math.max(s.until, game.time + 8);
+      // the right hand at the right moment is a lesson, whatever the net's numbers do (a well-worn habit barely
+      // moves, and the bot saw a good tickle not count). once per go at the thing
+      if (!c.tricks) T.seed(c, game);
+      var r = c.tricks && c.tricks[d.id];
+      if (r && !r.on && game.time - (s.repT == null ? -99 : s.repT) > 1.5) { r.n = (r.n || 0) + 1; s.repT = game.time; }
+      return true;
+    }
     SB.bus.emit("trickWait", { c: c, trick: d });
     return false;
   };
@@ -208,6 +216,7 @@
     // it should leave alone), counts as one repetition of it
     for (var i = 0; i < T.LIST.length; i++) {
       var tr = T.LIST[i], r = c.tricks[tr.id];
+      if (c.trickSession && c.trickSession.id === tr.id && T.session(c, g)) continue; // in a set-up lesson the gate does the counting (once per go)
       if (!r || r.on || d.verb !== SB.V[tr.verb || tr.avoid] || (d.noun >= 0 && d.noun !== SB.N[tr.noun])) continue;
       if (tr.avoid ? d.delta < 0 : d.delta > 0) r.n = (r.n || 0) + 1;
     }

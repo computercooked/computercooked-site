@@ -365,6 +365,18 @@ The bot's top ask in K-0025 and K-0027: "possession has no stakes… a real thre
 - **Getting away**: get back to the nest (within 5 steps), or next to two friends, or scare it (it goes home when frightened), and it gives up: +2 ✨. After 35 s (`P.SCOUT_MAX`) it gets bored anyway, with no sparks and a "next time, run for the nest" hint. Leaving the body ends it too. Once per island (`settings.povThreat`).
 - **Tests**: `threat.test.js` (not straight away, then a grump about 15 steps off; it catches you if you stand still but never takes the last quarter; it gets bored; the nest pays +2 and sends it home; once per island; leaving the body ends it).
 
+## 0.30 What v4.8.5 fixed: the rest of the open list (K-0025, K-0027)
+
+Played through the items the bot hadn't reached yet, at 1280×800:
+
+- **Tricks: a good tickle always counts.** A lesson used to count only if the net's score for the thing went up. On a well-worn habit (a hungry blob eating) a well-timed tickle can barely move it, and in play one in three good tickles didn't count. Now, during "set it up", the right hand at the right moment (while it does the thing, or up to 2.5 s after) is a lesson, once per go. Mashing still does nothing: a second tickle on the same go doesn't count, and a tickle before it does the thing is held back. The trick is only learned when the brain's own bar gets there too.
+- **Checked, no change needed**:
+  - [ mid-skip from 8× stops the skip at 8×.
+  - Dragging the camera while an egg is laid: the camera stays with your drag.
+  - A falling pod is one map, then the rescue question about 20 s later, never on top of the map.
+- **Play now** says the island you were on stays in 📂 load game ("a fresh island. x stays safe in 📂 load game"): it never overwrites.
+- **Tests**: `firstminutes.test.js` §6 (a tickle before the thing is held back; two good tickles are two lessons; not twice for the same go).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
