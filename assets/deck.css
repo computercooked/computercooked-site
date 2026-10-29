@@ -101,7 +101,7 @@ body { padding-top: var(--topbar-h); }
   .deck-link:hover, .deck-cmd:hover { background: none; }
   .deck-link[aria-current="page"] { color: var(--accent); }
   .deck-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* phones: home, games, lab, gary, log in (daily lives on the games page; search is the / key) */
+  /* phones: home, games, lab, log, log in (daily lives on the games page; search is the / key) */
   .deck .deck-daily, .deck .deck-cmd { display: none; }
 }
 
@@ -332,7 +332,7 @@ html.cc-stage body::before {
 }
 
 /* page heads read like a prompt: C:\COOKED> the lab_ */
-.page-head h1, .games-title, .gary-head h1 { text-shadow: var(--text-glow); }
+.page-head h1, .games-title, .gary-head h1, .log-head h1 { text-shadow: var(--text-glow); }
 .eyebrow {
   overflow: hidden;
   white-space: nowrap;

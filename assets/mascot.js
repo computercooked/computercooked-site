@@ -71,8 +71,8 @@
         var r = s.getBoundingClientRect();
         if (!r.width) return;
         var cx = r.left + r.width * 0.43, cy = r.top + r.height * 0.52;
-        var dx = Math.max(-1, Math.min(1, (x - cx) / Math.max(120, r.width))), dy = Math.max(-1, Math.min(1, (y - cy) / Math.max(120, r.height)));
-        face.style.transform = "translate(" + Math.round(dx * 2) + "px," + Math.round(dy * 1.5) + "px)";
+        var dx = Math.max(-1, Math.min(1, (x - cx) / Math.max(80, r.width * 0.55))), dy = Math.max(-1, Math.min(1, (y - cy) / Math.max(80, r.height * 0.45)));  // K-0048: bigger tracking
+        face.style.transform = "translate(" + Math.round(dx * 4) + "px," + Math.round(dy * 3) + "px)";
       }
     };
     // blinks now and then, only with the resting face

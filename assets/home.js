@@ -102,9 +102,9 @@
   // a little window with the game's clip, next to the icon under the pointer
   var peek = document.createElement("div");
   peek.className = "desk-win desk-peek";
-  peek.innerHTML = '<div class="win-bar"><span class="win-title"></span><span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="win-body"><video muted loop playsinline preload="none"></video><p></p></div>';
+  peek.innerHTML = '<div class="win-bar"><span class="win-title"></span><span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="win-body"><video muted loop playsinline preload="none"></video><img class="peek-still" alt="" hidden><p></p></div>';
   desk.appendChild(peek);
-  var pv = peek.querySelector("video");
+  var pv = peek.querySelector("video"), pimg = peek.querySelector(".peek-still");
   function showPeek(a) {
     if (!wide() || reduce || !fine) return;
     var li = a.parentNode, x = li.offsetLeft + 124, y = li.offsetTop - 20;
@@ -113,8 +113,9 @@
     peek.querySelector(".win-title").textContent = a.querySelector(".lbl").textContent;
     peek.querySelector("p").textContent = a.dataset.pitch || "";
     var clip = a.dataset.clip;
-    if (clip) { if (pv.getAttribute("src") !== clip) { pv.src = clip; pv.poster = a.querySelector("img").src; } pv.hidden = false; pv.play().catch(function () {}); }
-    else { pv.hidden = true; }
+    // games with a clip play it; games without one yet (K-0048: the window opened empty) show their cover, gently panning
+    if (clip) { if (pv.getAttribute("src") !== clip) { pv.src = clip; pv.poster = a.querySelector("img").src; } pv.hidden = false; pimg.hidden = true; pv.play().catch(function () {}); }
+    else { try { pv.pause(); } catch (e) {} pv.hidden = true; pimg.src = a.querySelector("img").src; pimg.hidden = false; }
     peek.classList.add("on");
     if (pc) { pc.react("happy", 1600); }
     if (a.dataset.line) say(a.dataset.line, 2200);

@@ -837,7 +837,7 @@ a {
 /* K-0031: the landing grid uses the full 1200 width (the old start tiles were capped at 760) */
 .page-wide .start { max-width: none; }
 
-/* ---------- K-0031 phase two: homepage, lab, gary, support ---------- */
+/* ---------- K-0031 phase two: homepage, lab, gary (now the cooked log), support ---------- */
 .eyebrow { margin: 0 0 var(--s-2); font-size: var(--fs-12); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--beige); }
 .text-link { color: var(--text-dim); font-weight: 600; text-decoration: none; }
 .text-link:hover, .text-link:focus-visible { color: var(--text); text-decoration: underline; }
@@ -891,16 +891,16 @@ a {
 .gary-latest { display: flex; align-items: center; gap: var(--s-6); padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .gary-sprite { flex: none; image-rendering: pixelated; }
 .gary-latest .gary-sprite { width: 100px; height: auto; }
-.gary-entry h3 { margin: var(--s-1) 0 var(--s-2); font-family: var(--display); font-weight: 600; font-size: var(--fs-28); line-height: 1.15; }
-.gary-entry p { margin: 0; max-width: 65ch; }
-.gary-date { font-size: var(--fs-14); color: var(--text-dim); }
-.gary-date a { color: var(--text-dim); }
+.gary-entry h3, .log-entry h3 { margin: var(--s-1) 0 var(--s-2); font-family: var(--display); font-weight: 600; font-size: var(--fs-28); line-height: 1.15; }
+.gary-entry p, .log-entry p { margin: 0; max-width: 65ch; }
+.gary-date, .log-date { font-size: var(--fs-14); color: var(--text-dim); }
+.gary-date a, .log-date a { color: var(--text-dim); }
 @media (max-width: 599px) { .gary-latest { flex-direction: column; align-items: flex-start; gap: var(--s-4); } .gary-latest .gary-sprite { width: 64px; } }
 
 .page-head { padding: var(--s-6) 0 var(--s-2); }
-.page-head h1, .gary-head h1 { margin: 0; font-size: var(--fs-40); line-height: 1.1; }
+.page-head h1, .gary-head h1, .log-head h1 { margin: 0; font-size: var(--fs-40); line-height: 1.1; }
 .lede { max-width: 60ch; margin: var(--s-3) 0 0; font-size: var(--fs-20); color: var(--text-dim); }
-@media (max-width: 599px) { .page-head h1, .gary-head h1 { font-size: var(--fs-28); } .lede { font-size: var(--fs-16); } }
+@media (max-width: 599px) { .page-head h1, .gary-head h1, .log-head h1 { font-size: var(--fs-28); } .lede { font-size: var(--fs-16); } }
 
 .poll-block { max-width: 760px; }
 .poll-note { margin: var(--s-2) 0 var(--s-4); color: var(--text-dim); }
@@ -918,14 +918,15 @@ a {
 .poll-n { grid-column: 2; grid-row: 1; color: var(--text-dim); font-size: var(--fs-14); }
 .poll-status { min-height: 1.55em; margin: var(--s-3) 0 0; color: var(--text-dim); }
 
-.gary-page, .support-page { max-width: 760px; padding-left: var(--gutter); padding-right: var(--gutter); }
-.gary-head { display: flex; align-items: center; gap: var(--s-6); padding: var(--s-6) 0 var(--s-4); }
-.gary-head .gary-sprite { width: 128px; height: auto; }
-@media (max-width: 599px) { .gary-head { flex-direction: column; align-items: flex-start; } .gary-head .gary-sprite { width: 80px; } }
-.gary-log { display: grid; gap: var(--s-4); margin-top: var(--s-4); }
-.gary-log .gary-entry { padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
-.gary-log .gary-entry.is-latest { border-color: var(--text-dim); }
-.gary-page > .signup-block, .lab-page > .signup-block { margin-top: var(--s-8); text-align: left; }
+.gary-page, .log-page, .support-page { max-width: 760px; padding-left: var(--gutter); padding-right: var(--gutter); }
+.gary-head, .log-head { display: flex; align-items: center; gap: var(--s-6); padding: var(--s-6) 0 var(--s-4); }
+.gary-head .gary-sprite, .log-sprite { width: 128px; height: auto; }
+.log-sprite { flex: none; image-rendering: pixelated; }
+@media (max-width: 599px) { .gary-head, .log-head { flex-direction: column; align-items: flex-start; } .gary-head .gary-sprite, .log-sprite { width: 80px; } }
+.gary-log, .log-list { display: grid; gap: var(--s-4); margin-top: var(--s-4); }
+.gary-log .gary-entry, .log-list .log-entry { padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.gary-log .gary-entry.is-latest, .log-list .log-entry.is-latest { border-color: var(--text-dim); }
+.gary-page > .signup-block, .log-page > .signup-block, .lab-page > .signup-block { margin-top: var(--s-8); text-align: left; }
 
 .support-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gutter); margin-top: var(--s-5); }
 .support-card { display: flex; flex-direction: column; padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
@@ -944,7 +945,7 @@ a {
 /* K-0032 phase three: the game art is pixel art at 320x200, so it scales without blur */
 .game-thumb, .spotlight img, .continue-card img, .daily img, .d3-card img, .weekly-card img { image-rendering: pixelated; }
 
-/* ---------- K-0032 phase three: about ("meet gary + the lab") and the merch stub ---------- */
+/* ---------- K-0032 phase three: about ("meet the computer + the lab") and the merch stub ---------- */
 .cast, .merch-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); margin: var(--s-6) 0 0; padding: 0; list-style: none; }
 .cast-card, .merch-card { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .cast-card h2, .merch-card h2 { margin: var(--s-3) 0 0; font-size: var(--fs-28); }

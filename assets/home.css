@@ -77,6 +77,9 @@
 .desk-peek.on { opacity: 1; transform: none; }
 .desk-peek .win-body { padding: 0; }
 .desk-peek video, .desk-peek img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #000; image-rendering: pixelated; }
+.desk-peek .peek-still { animation: peek-pan 6s ease-in-out infinite alternate; transform-origin: 30% 50%; }
+.desk-peek .win-body { overflow: hidden; }
+@keyframes peek-pan { from { transform: scale(1.04); } to { transform: scale(1.18) translateX(-4%); } }
 .desk-peek p { margin: 0; padding: 8px 10px 10px; font-size: var(--fs-14); color: var(--text-dim); line-height: 1.35; }
 
 /* taskbar */
