@@ -88,5 +88,26 @@ console.log("5. K-0027: a day-1 birthday doesn't end a skip; coming of age does"
   check("a new adult: stops", !game.skip);
 }
 
+console.log("6. a tickle at the right moment in a lesson always counts (even when the net barely moves)");
+{
+  const { SB, game, cs } = tribe(86, 1);
+  const c = cs[0], T = SB.Tricks, d = T.LIST.find(x => x.practice && !x.avoid && !x.practice.say);
+  c.chem.hunger = 0.6;
+  if (!c.tricks) T.seed(c, game);
+  c.tricks[d.id].on = 0; c.tricks[d.id].n = 0;
+  T.practice(game, c, d.id);
+  const n = () => c.tricks[d.id].n || 0;
+  SB.Creature.tickle(c, game); // too early: held back
+  check("a tickle before it does the thing is held back", n() === 0, n() + "/3");
+  for (let k = 0; k < 2; k++) {
+    game.time += 3;
+    c.lastDone = { a: SB.V[d.verb], t: game.time, x: new Float32Array(c.brain.nIn) }; // it just did the thing
+    SB.Creature.tickle(c, game);
+  }
+  check("two good tickles: two lessons", n() === 2, n() + "/3");
+  SB.Creature.tickle(c, game);
+  check("but not twice for the same go", n() === 2, n() + "/3");
+}
+
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);

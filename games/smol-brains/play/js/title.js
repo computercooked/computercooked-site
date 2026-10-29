@@ -219,7 +219,7 @@
   function mainMenu() {
     var ws = SB.Save.worlds(), last = ws[0], recent = last && Date.now() - (last.savedAt || 0) < 12 * 3600 * 1000; // an old island isn't the default (K-0025)
     var cont = last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), recent ? "go big" : "small", function () { play(last.id); }) : null;
-    var now = btn("▶ play now", last ? "a fresh island, playing in seconds" : "jump straight in: a fresh island, ready in seconds", recent ? "" : "go big", function () { createWorld({ quick: true }); });
+    var now = btn("▶ play now", last ? "a fresh island. " + esc(last.name) + " stays safe in 📂 load game" : "jump straight in: a fresh island, ready in seconds", recent ? "" : "go big", function () { createWorld({ quick: true }); });
     setPane([
       recent ? cont : now, recent ? now : cont,
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
