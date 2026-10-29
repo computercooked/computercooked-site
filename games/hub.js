@@ -39,7 +39,7 @@
           '<a class="cc-landing-play" href="' + esc(href) + '">' +
             '<span class="cc-landing-art"><img src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" fetchpriority="high"></span>' +
             '<span class="cc-landing-title" id="cc-landing-title">' + esc(g.title) + "</span>" +
-            '<span class="cc-landing-go">tap to play ▶</span>' +
+            '<span class="cc-landing-go">tap to play</span>' +
           "</a>" +
           (g.pitch ? '<p class="cc-landing-pitch">' + esc(g.pitch) + "</p>" : "") +
           '<button type="button" class="cc-landing-more">more games ↓</button>' +
@@ -109,15 +109,6 @@
   }
   tipUrl().then(function (url) {
     if (!url) return;
-    // right under the first row of games (the grid comes first above the fold); and again in the footer
-    var grid = document.getElementById("shelf-computer-cooked");
-    var top = (grid && grid.closest("section")) || document.querySelector(".games-hero");
-    if (top && !document.querySelector(".cc-tip-top")) {
-      top.insertAdjacentHTML("afterend", window.ccTipThanks
-        ? '<p class="cc-tip cc-tip-top cc-tip-thanks">thank you for the tip. the computer is slightly less cooked.</p>'
-        : tipLine(url, "hub-top"));
-      bindTip(top.nextElementSibling);
-    }
     var foot = document.querySelector(".footer");
     if (foot && !foot.querySelector(".cc-tip")) { foot.insertAdjacentHTML("afterbegin", tipLine(url, "hub-footer")); bindTip(foot); }
   });
@@ -125,8 +116,6 @@
   // follow loop (assets/follow.js): the house card in the bottom slot (below every shelf, so it never pushes a
   // play button down) and a compact follow row in the footer
   if (window.ccFollow) {
-    var slot = document.querySelector('.ad-slot[data-slot="games-hub-bottom"]');
-    if (slot && !slot.firstChild) { slot.innerHTML = ccFollow.card("hub-card"); slot.removeAttribute("aria-hidden"); ccFollow.bind(slot); }
     var footRow = document.querySelector(".footer");
     if (footRow && !footRow.querySelector(".cc-follow-row")) { footRow.insertAdjacentHTML("beforeend", ccFollow.row("hub-footer")); ccFollow.bind(footRow); }
   }
@@ -262,8 +251,9 @@
       (sum.saves || []).forEach(function (s) { cloud[s.game] = s.updated_at; touch(s.game, s.updated_at); });
     }
     var list = Object.keys(seen).sort(function (a, b) { return seen[b] - seen[a]; }).slice(0, 4);
-    if (!list.length) return;
-    document.getElementById("continue-row").innerHTML = list.map(function (slug) {
+    var row = document.getElementById("continue-row");
+    if (!list.length || !row) return; // K-0031: "jump back in" left the hub
+    row.innerHTML = list.map(function (slug) {
       var g = byslug[slug], c = cloud[slug], l = local[slug], meta, cls = "";
       if (c && (!l || c > l + 5000)) { meta = "newer save from another device · " + ago(c); cls = " is-sync"; }
       else if (c) meta = "saved to your account · " + ago(c);
@@ -280,6 +270,7 @@
   function weekly(r) {
     if (!r || !r.ok || (!r.challenge && !r.events.length)) return;
     var sec = document.getElementById("hub-weekly"), c = r.challenge;
+    if (!sec) return; // K-0031: the weekly challenge left the hub
     var card = document.getElementById("weekly-card");
     if (c) {
       var days = Math.max(0, Math.ceil((Date.parse(c.ends_at) - Date.now()) / 86400000));

@@ -101,6 +101,8 @@ body { padding-top: var(--topbar-h); }
   .deck-link:hover, .deck-cmd:hover { background: none; }
   .deck-link[aria-current="page"] { color: var(--accent); }
   .deck-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* phones: home, games, lab, gary, log in (daily lives on the games page; search is the / key) */
+  .deck .deck-daily, .deck .deck-cmd { display: none; }
 }
 
 /* game pages, phones: the tab bar slides away while a run is going (games/player.js sets .cc-playing) */

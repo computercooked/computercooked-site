@@ -2,6 +2,8 @@
 // Static files are served by the assets binding; /api/*, /u/* and /games/* run this code first (run_worker_first in
 // wrangler.jsonc). Game pages go through seo.js; other game files pass straight through to the assets.
 import { subscribe, unsubscribe } from "./subscribe.js";
+import { labVotes, labVote } from "./lab.js";
+import { homePage, labPage, garyPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
@@ -34,6 +36,10 @@ export default {
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
     // the hub: the grid, spotlight and ticker rendered from games.json (crawlers and link previews see every game)
     if (url.pathname === "/games/" || url.pathname === "/games/index.html") return hubPage(req, env, url);
+    // homepage, /lab and /gary: filled from games.json, /lab/lab.json and /gary/log.json (src/pages.js)
+    if (url.pathname === "/" || url.pathname === "/index.html") return homePage(req, env, url);
+    if (url.pathname === "/lab/") return labPage(req, env, url);
+    if (url.pathname === "/gary/") return garyPage(req, env, url);
     // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
     const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
     if (dl) return dareLink(env, url, dl[1]);
@@ -84,6 +90,8 @@ async function api(req, env, url) {
     case "POST /api/feedback": return feedback(req, env, ip, user);
     case "POST /api/subscribe": return subscribe(req, env, ip);
     case "GET /api/unsubscribe": return unsubscribe(url, env);
+    case "GET /api/lab/votes": return labVotes(url, env, user);
+    case "POST /api/lab/vote": return labVote(req, env, url, ip, user);
     case "GET /api/stats": return stats(env);
     case "POST /api/report": return report(req, env, ip, user);
     case "GET /api/community": return listCommunity(env);

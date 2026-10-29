@@ -2443,3 +2443,14 @@ html[data-landing-ready] { overflow: hidden; }
 .cc-tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
 .cc-send { background: transparent; color: var(--text); border: 1px solid var(--line); }
 .tool-brag { border-color: var(--line); color: var(--text); }
+
+/* ---------- K-0031 phase two: game pages. Sidebar = leaderboard + rate; how-to and embed under the game ---------- */
+.player-below { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; gap: var(--s-4); margin-top: var(--s-5); }
+@media (max-width: 999px) { .player-below { grid-template-columns: 1fr; } }
+.player-below .about-card { margin: 0; }
+.how-more > summary, .embed-card > summary { display: flex; align-items: center; min-height: 44px; color: var(--text-dim); font-weight: 600; cursor: pointer; list-style: none; }
+.how-more > summary::-webkit-details-marker, .embed-card > summary::-webkit-details-marker { display: none; }
+.how-more > summary::after, .embed-card > summary::after { content: "+"; margin-left: var(--s-2); }
+.how-more[open] > summary::after, .embed-card[open] > summary::after { content: "\2212"; }
+.how-more > summary:hover, .embed-card > summary:hover, .embed-card[open] > summary { color: var(--text); }
+.cc-fb:not(.is-open) .cc-label, .cc-fb:not(.is-open) textarea, .cc-fb:not(.is-open) .cc-row { display: none; }
