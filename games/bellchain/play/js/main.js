@@ -25,6 +25,15 @@ if ((freshAsked(location.search) || freshAsked(parentQ)) && store.get(SAVE_KEY))
   if (!store.get(UNDO_KEY)) store.set(UNDO_KEY, store.get(SAVE_KEY));
   store.del(SAVE_KEY);
 }
+// K-0036: the flag comes off the URL straight away (here and on the game page), so reloading keeps this run's progress
+const unfresh = (w) => {
+  try {
+    if (!freshAsked(w.location.search)) return;
+    const u = new URL(w.location.href); u.searchParams.delete('fresh');
+    w.history.replaceState(w.history.state, '', u.pathname + (u.search === '?' ? '' : u.search) + u.hash);
+  } catch (e) { /* other origin */ }
+};
+unfresh(window); if (window.parent !== window) unfresh(window.parent);
 let S = E.deserialize(store.get(SAVE_KEY) || '') || E.newState();
 const firstVisit = !store.get(SAVE_KEY);
 if (firstVisit && store.get('bellchain.save.v1')) { S.veteran = true; E.earn(S, 500); }
@@ -84,7 +93,7 @@ $('cv').addEventListener('pointerdown', (e) => {
   const r = $('cv').getBoundingClientRect();
   tapAt(e.clientX - r.left, e.clientY - r.top);
 });
-window.addEventListener('keydown', (e) => {
+function onKey(e) {
   if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
   // K-0029: Space and the scroll keys are the game's; a page around it (the embed's host) must not scroll
   if (e.code === 'Space' || /^(Arrow(Up|Down|Left|Right)|PageUp|PageDown)$/.test(e.key)) e.preventDefault();
@@ -94,7 +103,19 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === 'm' || e.key === 'M') toggleMute();
   if (e.key === 'Escape') closeModals();
-});
+}
+window.addEventListener('keydown', onKey);
+// K-0036: on /games/bellchain/ the keyboard focus is usually the page, not this iframe. Same origin, so listen there
+// too, but only while the game is on screen and the key isn't meant for something on the page.
+try {
+  const host = window.parent !== window && window.frameElement ? window.parent : null;
+  if (host) host.document.addEventListener('keydown', (e) => {
+    if (e.target && (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
+    const fr = window.frameElement.getBoundingClientRect();
+    if (fr.height < 50 || fr.bottom < 50 || fr.top > host.innerHeight - 50) return;
+    onKey(e);
+  });
+} catch (e) { /* other origin: keys only reach the game once it has focus */ }
 
 // ---------- golden bells ----------
 // K-0028: the first golden bell of a first run comes early and always pays out, a payoff inside the first 30 s.
@@ -106,8 +127,9 @@ let goldenIn = goldenStart();
 function spawnGolden() {
   const m = stage.bs * 1.6;
   const g = { x: m + Math.random() * (stage.w - 2 * m), y: 70 + Math.random() * Math.max(10, stage.h - 140), t: 0, life: E.CFG.goldenLife, scale: 1.35 };
-  // the first one (a first run's early payoff) is big, sits clear of the great bell and stays the full 13 s
-  if (firstGolden()) { g.life = 20; g.scale = 1.9; g.x = stage.cx + (Math.random() < 0.5 ? -1 : 1) * Math.min(stage.w * 0.3, stage.gs * 2.6); g.y = Math.max(90, stage.cy - stage.gs * 1.2); }
+  // K-0036: the first one (a first run's early payoff) pops in right over the great bell and waits there until it's
+  // rung, so the next tap or Space press anywhere on the bell catches it
+  if (firstGolden()) { g.life = Infinity; g.scale = 2.2; g.pop = true; g.x = stage.cx; g.y = stage.cy - stage.gs * 0.15; }
   stage.golden = g;
   // a bright little arpeggio so you hear it even while looking at the shop (K-0034)
   [9, 11, 13].forEach((d, i) => music.play('crystal', d, now() + i * 0.08, 0.9));
@@ -120,7 +142,7 @@ function catchGolden() {
   if (ef.kind === 'lucky') { E.earn(S, ef.gain); if (gb) stage.tapGreat(gb.x, gb.y, '+' + E.fmt(ef.gain), true); refreshShop(); }
   else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); }
   [0, 2, 4, 7, 9].forEach((d, i) => music.play('glock', d + 7, now() + i * 0.06, 0.9));
-  stage.showBanner(ef.label, 'golden bell', '#ffe14a', 2.4); stage.flash = 0.3;
+  stage.showBanner(ef.label, 'golden bell', '#ffe14a', gb && gb.pop ? 3.5 : 2.4); stage.flash = 0.3;
   sdk((c) => c.event && c.event('golden', { kind: ef.kind }));
   buzz(25);
 }
@@ -491,7 +513,7 @@ function frame(tms) {
     } else music.tempoMult = 1;
     // golden bell
     if (stage.golden) { if (stage.golden.t > stage.golden.life) { stage.golden = null; if (firstGolden()) goldenIn = 20; } }
-    else if ((S.taps > 0 || S.goldenClicks > 0 || S.ascensions > 0) && (goldenIn -= dt) <= 0) { if (firstGolden()) toast('a golden bell! tap it.'); spawnGolden(); goldenIn = E.goldenDelay(S); }
+    else if ((S.taps > 0 || S.goldenClicks > 0 || S.ascensions > 0) && (goldenIn -= dt) <= 0) { if (firstGolden()) toast('a golden bell! ring it.'); spawnGolden(); goldenIn = E.goldenDelay(S); }
     // the band
     music.update(now(), S.owned);
     stage.bandIds = E.BUILDINGS.filter((b) => S.owned[b.id]).map((b) => b.id);

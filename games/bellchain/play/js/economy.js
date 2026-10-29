@@ -78,6 +78,8 @@ for (const b of BUILDINGS) {
   UPGRADES.push({ id: `mallet_${i}`, name: ['foam mallet', 'wooden mallet', 'rubber mallet', 'brass mallet', 'sledgehammer'][i], cost,
     desc: 'taps +1 base resonance', req: (s) => s.earnedRun >= cost * 0.3, kind: 'mallet' });
 });
+// K-0036: a second early buy, so there's something every few taps before the handbell (its own id keeps old saves right)
+UPGRADES.push({ id: 'mallet_felt', name: 'felt mallet', cost: 9, desc: 'taps +1 base resonance', req: (s) => !!s.ups.mallet_0, kind: 'mallet' });
 [150, 900, 5000, 2.5e4, 1.2e5].forEach((cost, i) => {
   UPGRADES.push({ id: `practice_${i}`, name: ['band practice', 'metronome', 'sheet music', 'rehearsal room', 'a real manager'][i], cost,
     desc: 'everything +5%', req: (s) => s.earnedRun >= cost * 0.3, kind: 'global', mult: 1.05 });
