@@ -2665,3 +2665,109 @@ html[data-landing-ready] { overflow: hidden; }
   .spot-bezel::after { right: 9px; bottom: 3px; width: 5px; height: 5px; }
   .spot-screen { border-radius: 6px; }
 }
+
+
+/* ======================================================================================================
+   Overhaul phase 4: the wrapper around a run (games/platform.js and player.js markup, restyled only).
+   After a run the side panel answers in the brand computer's moods: happy for a level-up, trophy for a
+   new best, gamer for any other finished run. Pause and in-run screens are drawn by each game itself.
+   ====================================================================================================== */
+
+/* results boxes power on like a CRT and wear the computer's mood */
+.cc-levelup {
+  position: relative;
+  border-color: rgb(var(--phosphor) / .6);
+  background: linear-gradient(180deg, rgb(var(--phosphor) / .07), transparent 70%), var(--surface);
+  box-shadow: var(--glow-md);
+  animation: cc-result-on .45s var(--ease-boot) both;
+}
+.cc-levelup::before {
+  content: "";
+  order: -1;
+  flex: none;
+  width: 34px;
+  height: 46px;
+  background: url("/assets/mascot/happy.svg") center / contain no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 8px rgb(var(--phosphor) / .4));
+}
+.cc-dare-box::before { background-image: url("/assets/mascot/gamer.svg"); }
+.cc-dare-box.is-best::before { width: 40px; height: 52px; background-image: url("/assets/mascot/trophy.svg"); }
+.cc-dare-box.is-best { border-color: var(--accent); box-shadow: 0 0 0 1px rgb(var(--phosphor) / .4), 0 0 40px -6px rgb(var(--phosphor) / .55); }
+.cc-dare-kicker { text-shadow: var(--text-glow); }
+.cc-levelup b { text-shadow: var(--text-glow); }
+@keyframes cc-result-on {
+  0% { transform: scaleY(.04); filter: brightness(3); opacity: .6; }
+  55% { transform: scaleY(1.03); filter: brightness(1.4); opacity: 1; }
+  100% { transform: none; filter: none; }
+}
+
+/* level and xp: a segmented pixel bar that glows as it fills */
+.cc-level { position: relative; }
+.cc-level-bar {
+  height: 10px;
+  padding: 2px;
+  border: 1px solid rgb(var(--phosphor) / .35);
+  border-radius: 2px;
+  background: #07080a;
+}
+.cc-level-bar span {
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px);
+  filter: drop-shadow(0 0 4px rgb(var(--phosphor) / .6));
+  transition: width .9s steps(24, end);
+}
+
+/* leaderboard: rows load in like a printout, the podium glows, your row is lit */
+.cc-tabs button[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--accent), var(--glow-sm); color: var(--accent); }
+.cc-rows li { animation: cc-row-in .3s var(--ease-boot) both; }
+.cc-rows li:nth-child(2) { animation-delay: 40ms; }
+.cc-rows li:nth-child(3) { animation-delay: 80ms; }
+.cc-rows li:nth-child(4) { animation-delay: 120ms; }
+.cc-rows li:nth-child(n+5) { animation-delay: 160ms; }
+@keyframes cc-row-in { from { opacity: 0; transform: translateX(-8px); filter: brightness(2); } to { opacity: 1; transform: none; filter: none; } }
+.cc-rows li:nth-child(1) .cc-rank { color: var(--accent); text-shadow: var(--text-glow); }
+.cc-rows li:nth-child(2) .cc-rank { color: var(--beige); }
+.cc-rows li:nth-child(3) .cc-rank { color: rgb(var(--heat)); }
+.cc-rows li:nth-child(1):not(.cc-empty):not(.cc-gap) .cc-name::after {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 16px;
+  margin-left: 6px;
+  vertical-align: -2px;
+  background: url("/assets/mascot/trophy.svg") center / contain no-repeat;
+}
+.cc-rows li.is-me {
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 18px -6px rgb(var(--phosphor) / .6);
+  text-shadow: var(--text-glow);
+}
+.cc-rows li:not(.cc-gap):not(.cc-empty):hover { background: rgb(var(--phosphor) / .06); }
+
+/* the board napping: the sleeping computer breathes */
+.cc-nap img { animation: cc-breathe 3s ease-in-out infinite; }
+@keyframes cc-breathe { 50% { transform: translateY(-2px) scale(1.03); } }
+
+/* play next: a lit rim and a channel flick on hover */
+.cc-next-card { transition: border-color var(--fast), box-shadow var(--fast), transform var(--fast); }
+.cc-next-card:hover, .cc-next-card:focus-visible { box-shadow: 0 0 22px -6px rgb(var(--phosphor) / .5); transform: translateY(-2px); }
+.cc-next-card:hover img { animation: cc-flicker .45s steps(3) 1; }
+
+/* toasts are a line on the terminal */
+.toast {
+  border: 1px solid rgb(var(--phosphor) / .6);
+  background: #07080a;
+  color: var(--accent);
+  font-family: var(--mono);
+  text-shadow: var(--text-glow);
+  box-shadow: var(--glow-md);
+}
+.toast::before { content: "C:\\COOKED> "; color: var(--text-dim); text-shadow: none; }
+.toast.show { animation: cc-result-on .35s var(--ease-boot) both; }
+.toast { white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .toast::before { content: "> "; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-levelup, .cc-rows li, .cc-nap img, .toast.show { animation: none; }
+  .cc-level-bar span { transition: none; }
+}
