@@ -1312,6 +1312,9 @@
   white-space: nowrap; /* 360px: "log in" broke onto two lines */
   flex-shrink: 0;
 }
+/* hidden until the API answers, but its space is kept, so the hub header doesn't grow when it shows (CLS) */
+.cc-chip[hidden] { display: inline-block; visibility: hidden; }
+.hub-filters.is-placeholder .chip, .hub-filters.is-placeholder input { pointer-events: none; }
 
 .cc-chip.is-in {
   border-color: var(--lime);

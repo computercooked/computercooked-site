@@ -300,7 +300,7 @@
 
   function filters(games, isNew) {
     var grid = document.getElementById("shelf-computer-cooked");
-    if (!grid || games.length < 6) return;
+    if (!grid || games.length < 6) { var t = document.querySelector(".hub-filters.is-placeholder"); if (t) t.remove(); return; }
     var meta = {};
     games.forEach(function (g) {
       meta[g.slug] = {
@@ -339,7 +339,9 @@
     });
     row.appendChild(dice);
     var section = grid.closest(".shelf");
-    section.querySelector(".shelf-head").insertAdjacentElement("afterend", bar);
+    var twin = section.querySelector(".hub-filters.is-placeholder"); // games/index.html holds the space (no layout shift)
+    if (twin) twin.replaceWith(bar);
+    else section.querySelector(".shelf-head").insertAdjacentElement("afterend", bar);
 
     var empty = bar.querySelector(".hub-empty");
     var live = bar.querySelector('[role="status"]');
