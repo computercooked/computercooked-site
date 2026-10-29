@@ -68,6 +68,8 @@
     S.yaw = openView(c, game, S.yaw); c.facing = S.yaw + Math.PI; // the body turns with the view
     var bump = SB.World.nearestNode(game.world, c.x, c.z, 1.2, function (n) { return n.state === "ok"; });
     if (bump) { var ba = Math.atan2(c.x - bump.x, c.z - bump.z), bx = bump.x + Math.sin(ba) * 1.5, bz = bump.z + Math.cos(ba) * 1.5; if (SB.World.walkable(game.world, bx, bz)) { c.x = bx; c.z = bz; } } // K-0042: "pressed against a bush"
+    if (opts.face) { S.yaw = Math.atan2(-(opts.face.x - c.x), -(opts.face.z - c.z)); c.facing = S.yaw + Math.PI; }
+    S.firstNight = !!opts.firstNight;
     P.input.fwd = P.input.side = 0; P.input.run = P.input.jump = P.input.use = false;
     game.speed = 1; // a smol lives in real time
     // what it carried as a creature goes into its inventory, and tool-users get their building plans
@@ -85,7 +87,7 @@
     }
     if (SB.Game.select) SB.Game.select(game, null);
     hookBus();
-    questStart();
+    if (!S.firstNight) questStart();
     if (!P.headless && SB.PovHud) SB.PovHud.build(S);
     SB.bus.emit("possess", { c: c });
     return true;
@@ -776,7 +778,7 @@
     if (st.povThreat === "done" || game.offline) return;
     S.threatT = (S.threatT || 0) + dt;
     if (!S.scout) {
-      if (st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return;
+      if (S.firstNight || st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return; // the first night brings its own grump
       var hm = SB.Society.home(game, 0), w = game.world, spot = null, out = SB.dist(c.x, c.z, hm.x, hm.z);
       if (out < P.SCOUT_OUT && S.threatT < P.SCOUT_AT + P.SCOUT_WAIT) return; // by the nest: it waits for you to go out for food (K-0042: "SAFE!" without moving)
       var away = out > 2 ? Math.atan2(-(c.x - hm.x), -(c.z - hm.z)) : S.yaw; // the far side from home: it chases you back there
@@ -800,6 +802,7 @@
     var home = SB.Society.home(game, 0), pals = 0;
     SB.World.creaturesNear(game.world, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals++; });
     var settled = gr.scout.t > 8 && (!S.scoutSafe0 || (gr.scout.hits || 0) > 0); // a few seconds of it coming at you first, even if you're by the nest already
+    if (S.firstNight) { if (gr.chem.fear > 0.6 || gr.goingHome) endScout("🔥 the light scared it off! +2 ✨", 2); return; } // only light drives it off tonight
     if (settled && SB.dist(c.x, c.z, home.x, home.z) < 5) endScout("🏠 safe at the nest! the grump won't come this close. +2 ✨", 2);
     else if (settled && pals >= 2) endScout("🫂 safety in numbers! the grump backs off. +2 ✨", 2);
     else if (gr.chem.fear > 0.6 || gr.goingHome) endScout("👹 you scared it off! +2 ✨", 2);
@@ -840,6 +843,16 @@
     }
     return want;
   }
+  // the first night: its lurking grump comes for you the moment you lend your light
+  P.adoptScout = function (g) {
+    if (!S || !g || !g.scout) return false;
+    S.scout = g.id; g.scout.hold = false; g.scout.t = 0;
+    (S.game.settings || (S.game.settings = {})).povThreat = "on";
+    audio("grump", 0.9);
+    SB.bus.emit("scout", { c: S.c, g: g });
+    return true;
+  };
+  P.setGoal = function (goal) { if (S) S.goal = goal || null; };
   P.scout = function () { return S && S.scout != null ? SB.Game.byId(S.game, S.scout) : null; };
   // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
   function arrive(ref) {

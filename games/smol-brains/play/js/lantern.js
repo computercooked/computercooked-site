@@ -26,6 +26,13 @@
     { at: 46.6, smol: "", sub: "you are that spark. watch over them. lend them your light." }
   ];
 
+  L.DAWN_DUR = 20;
+  L.DAWN = [
+    { at: 0.5, smol: "lumi… lumi!", sub: "dawn. Pip made it through the night." },
+    { at: 5.2, smol: "", sub: "a memory comes back: fire. light keeps the dark away." },
+    { at: 10.2, smol: "", sub: "it flies to the Lantern: the first memory ember. the flame grows a little." },
+    { at: 15, smol: "pip-a vesh!", sub: "Pip remembers. and what one smol remembers, the others can learn." }
+  ];
   function store() { try { return window.localStorage; } catch (e) { return null; } }
   L.seen = function () { var s = store(); try { return !!(s && s.getItem(L.KEY)); } catch (e) { return false; } };
   L.markSeen = function () { var s = store(); try { if (s) s.setItem(L.KEY, "1"); } catch (e) {} };
@@ -49,6 +56,7 @@
 
   L.play = function (opts) {
     opts = opts || {};
+    var dawnScene = opts.scene === "dawn", LINES = dawnScene ? L.DAWN : L.LINES, DUR = dawnScene ? L.DAWN_DUR : L.DUR;
     var root = document.getElementById("ui") || document.body;
     var wrap = document.createElement("div"); wrap.className = "intro live lantern";
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.className = "introcv";
@@ -65,11 +73,11 @@
     if (SB.Intro) SB.Intro.covering = true;
     L.running = true;
     var started = false, done = false, t0 = performance.now(), lastF = 0, lineI = -1, typed = 0, cur = null;
-    gate.onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (started) return; started = true; if (SB.Music && SB.Music.play) try { SB.Music.play("bigthought"); } catch (er) {} gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
+    gate.onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); if (started) return; started = true; if (SB.Music && SB.Music.play) try { SB.Music.play(dawnScene ? "firstlight" : "bigthought"); } catch (er) {} gate.classList.add("out"); setTimeout(function () { gate.remove(); }, 600); t0 = performance.now(); requestAnimationFrame(frame); };
     function finish() {
       if (done) return;
       done = true; L.running = false;
-      L.markSeen();
+      if (!dawnScene) L.markSeen();
       if (SB.Intro) SB.Intro.covering = false;
       wrap.classList.add("out");
       setTimeout(function () { wrap.remove(); }, 700);
@@ -132,7 +140,27 @@
       for (var y = 0; y < H; y += 4) { var f = y / H; ctx.fillStyle = mix(mix("#3a2a5e", "#ff9f6a", f * f), mix("#0b0918", "#1d1636", f), k); ctx.fillRect(0, y, W, 4); }
     }
 
+    // the dawn: Pip, glowing again by the hill; an ember rises off Pip and flies into the Lantern, and it grows
+    function sceneDawn(t) {
+      sky(t, Math.max(0.05, 0.75 - t / 14));
+      var camX = 360, lit = t < 9.5 ? 0.3 + Math.sin(t * 9) * 0.05 : 0.3 + ease((t - 9.5) / 2.5) * 0.5;
+      for (var xs = 0; xs < W; xs += 2) { var gy = ground(xs + camX, t); px(xs, gy, 2, H - gy, "#2b2440"); px(xs, gy, 2, 2, "#4f8a52"); }
+      var lsx = LX - camX, lgy = ground(LX, t);
+      lantern(lsx, lgy, t, lit);
+      smols.forEach(function (s) { var x = s.x + Math.cos(t * 0.6 + s.ph) * 5, sx = x - camX; if (sx < -10 || sx > W + 10) return; smol(sx, ground(x, t) - 4, s.col, Math.min(1, 0.4 + t / 12), 2, 1); });
+      var pipX = 120, pipY = ground(pipX + camX, t) - 4;
+      smol(pipX, pipY - Math.abs(Math.sin(t * 3)) * 2, "#c5ff49", Math.min(1, 0.5 + t / 6), 2, 1); px(pipX - 1, pipY - 10, 3, 2, "#8fd13a");
+      if (t > 5 && t < 10.5) { // the ember's flight
+        var k = ease((t - 5) / 5), ex = lerp(pipX, lsx, k), ey = lerp(pipY - 8, lgy - 31, k) - Math.sin(k * Math.PI) * 40;
+        glow(ex, ey, 9, "#ffb347", 1); px(ex - 1, ey - 1, 3, 3, "#fff6c0");
+        if (Math.random() < 0.7) bits.push({ x: ex, y: ey, vx: (Math.random() - 0.5) * 6, vy: 6 + Math.random() * 6, life: 0.5, t: 0, c: GLOW[Math.floor(Math.random() * 4)], w: 1 });
+      }
+      if (t > 10.5) { once("emberin", "achievement", 0.7, 1); if (!fired.burst2) { fired.burst2 = 1; boom(lsx, lgy - 31, 26, 50, GLOW); } }
+      if (t > 13) text("1 memory ember", W / 2, 24, 10, "#ffd84a", ease((t - 13) / 1));
+      if (t > DUR - 1.2) { ctx.fillStyle = "rgba(255,255,255," + Math.min(1, (t - DUR + 1.2) / 1.2) + ")"; ctx.fillRect(0, 0, W, H); }
+    }
     function scene(t, dt) {
+      if (dawnScene) { sceneDawn(t); return; }
       if (t < 0) { // (the heartbeat opening: the ark film opens the story now)
         // 1. black. a heartbeat. "every night, they forget a little more."
         var beat = t % 1.6;
@@ -235,7 +263,7 @@
       lastF = now;
       if (opts.speed) t *= opts.speed; // tests
       L.t = t;
-      if (t > L.DUR) { finish(); return; }
+      if (t > DUR) { finish(); return; }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#07060d"; ctx.fillRect(0, 0, W, H);
       if (shake > 0.05) { ctx.setTransform(1, 0, 0, 1, Math.round((r() - 0.5) * shake * 2), Math.round((r() - 0.5) * shake * 2)); shake *= Math.pow(0.02, dt); } else shake = 0;
@@ -243,9 +271,9 @@
       bits = bits.filter(function (b) { b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.97; b.vy *= 0.97; if (b.t > b.life) return false; px(b.x, b.y, b.w, b.w, b.c); return true; });
       // captions: smol-speak typed out word by word, then the subtitle
       var li = -1;
-      for (var q = 0; q < L.LINES.length; q++) if (t >= L.LINES[q].at) li = q;
-      if (li >= 0 && li < L.LINES.length - 1 && t > L.LINES[li].at + 5.6) li = -2; // a line holds 5.6 s (the last one to the end)
-      if (li !== lineI) { lineI = li; cur = li >= 0 ? L.LINES[li] : null; typed = 0; subEl.textContent = ""; smolEl.textContent = ""; cap.classList.toggle("on", !!cur); }
+      for (var q = 0; q < LINES.length; q++) if (t >= LINES[q].at) li = q;
+      if (li >= 0 && li < LINES.length - 1 && t > LINES[li].at + 5.6) li = -2; // a line holds 5.6 s (the last one to the end)
+      if (li !== lineI) { lineI = li; cur = li >= 0 ? LINES[li] : null; typed = 0; subEl.textContent = ""; smolEl.textContent = ""; cap.classList.toggle("on", !!cur); }
       if (cur) {
         var words = cur.smol ? cur.smol.split(" ") : [];
         var should = Math.min(words.length, Math.floor((t - cur.at) / 0.22) + 1);

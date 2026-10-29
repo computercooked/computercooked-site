@@ -834,6 +834,7 @@
     return base;
   }
   C.speedOf = speedOf;
+  C.runSpeed = function (c) { return speedOf(c, null) * 1.75 * (c.tier === 0 ? 1.1 : 1); }; // a possessed smol's sprint (possess.js)
   C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
 
@@ -1841,7 +1842,7 @@
           }
           positionHeld(c, game); finishTick(c, game, gy); return;
         }
-        walkToward(c, prey.x, prey.z, dt, sc.speed || Math.max(1.7, speedOf(prey, null) * 1.2), game, 0.9);
+        walkToward(c, prey.x, prey.z, dt, sc.speedK ? C.runSpeed(prey) * sc.speedK : Math.max(1.7, speedOf(prey, null) * 1.2), game, 0.9);
         sc.growlT = (sc.growlT || 0) - dt;
         if (sc.growlT <= 0) { sc.growlT = 3 + Math.random() * 2; emote(c, "angry", 1); SB.bus.emit("scoutGrowl", { c: prey, g: c }); }
         if (SB.dist(c.x, c.z, prey.x, prey.z) < C.LUNGE_AT && !sc.hitT) { sc.wind = C.LUNGE_WIND; emote(c, "angry", 1.6); SB.bus.emit("scoutWindup", { c: prey, g: c }); }

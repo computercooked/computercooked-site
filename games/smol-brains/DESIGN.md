@@ -480,6 +480,25 @@ Fun 6/10 (up from 5.5): "the grump is a real visible threat, eating feels good."
 7. **Test mode skips naming the founders** (they keep their random names; a toast says who).
 - **Tests**: `threat.test.js` §2b (by the nest it waits for you to go out, but still comes), §5b (it comes from further out than you, so home is away from it).
 
+## 0.39 What v4.9.2 added: The Last Lantern, phase 2: the first night (K-0041)
+
+The tutorial is the story: on a new guided island the first minutes are Pip's first night (`firstnight.js`), with no windows. Only what's on the island (a pulse, a growl, Pip's fear) and one two-word hint at a time. State lives in `game.tutorial.night`, saved with the tutorial.
+
+1. **The pod.** The founders' pod (the one that knocked the Lantern down) is there to open, and so is Pip, who made the wish (a Hollow blob). The founders keep their names (no naming window; rename them from their cards).
+2. **Hungry.** Pip is hungry and won't eat alone yet. The nearest berry bush sparkles, and the hint says "🫳 nudge Pip" (grab Pip and carry it over). When Pip eats, the founders copy it: they head to the same bush ("pip-a!"). After 90 s Pip finds it alone.
+3. **Sunset.** The sun goes down over 40 s, with a "🌙 night falls in 0:37" timer. 14 s before dark a grump appears 17-21 m out on the far side from the nest and growls. Pip freezes in fear.
+4. **Lend your light.** The only glowing thing on screen is a big pulsing "🕯 lend your light" button. The grump waits, growling, until you press it.
+5. **The chase.** You're Pip, facing the grump (a "you are Pip" beat, not a card over it).
+   - The grump comes at 90% of your running speed (it follows Pip's own sprint, so running is how you get away).
+   - Within 2.4 m it winds up for 1.5 s ("👹 it's about to pounce! MOVE!"), then pounces 2.6 m: 25% of your hearts if it lands (you can dodge it), never the last quarter.
+   - Three sticks lie on the way home ("🪵 grab sticks", walk over them: your light lends Pip hands it doesn't have yet). With two, the marker says "🔥 light the nest". Reaching the nest lights a campfire, and a grump within 9 m of it turns tail: "🔥 the light scared it off! +2 ✨".
+6. **Dawn** (cutscene 2, 20 s, drawn in code): Pip glowing again by the hill. An ember rises off Pip and flies into the Lantern, which grows: "1 memory ember". The rest of the night passes, and it's morning on day 2. Then the god lessons carry on (reward, words, tricks).
+
+- **Nothing else that night**: no incidents, strangers or second pods. Story cards, banners and tips wait. Achievement toasts arrive after dawn.
+- **The pounce is every scout grump's now**: a 1.5 s wind-up you can see and dodge, then 25% (K-0041's numbers; the rest of P3 tunes the others).
+- **Measured in the browser**: the whole night ran with 0 windows and no errors; dawn on day 2, then "4/7 reward it".
+- **Tests**: `firstnight.test.js` (the steps in order; dark in 40 s; the grump waits while you watch; 90% of your speed; a wind-up then a pounce; two sticks light the nest; the light drives it off; morning on day 2; Pip survives; the first ember).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
