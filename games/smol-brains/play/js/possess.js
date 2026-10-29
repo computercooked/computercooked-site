@@ -766,10 +766,9 @@
     if (!S.scout) {
       if (st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return;
       var hm = SB.Society.home(game, 0), w = game.world, spot = null;
-      if (SB.dist(c.x, c.z, hm.x, hm.z) < 7) return; // safe by the nest: it waits for you to go out (for food, say)
       for (var a = 0; a < 16 && !spot; a++) {
         var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * 19, z = c.z - Math.cos(ang) * 19; // out in front, where you can see it come
-        if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 10) spot = { x: x, z: z };
+        if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 12) spot = { x: x, z: z };
       }
       if (!spot) return;
       var g = SB.Game.spawnGrump(game, spot.x, spot.z);
@@ -784,8 +783,9 @@
     if (!gr || !gr.alive || !gr.scout) { endScout(null); return; }
     var home = SB.Society.home(game, 0), pals = 0;
     SB.World.creaturesNear(game.world, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals++; });
-    if (SB.dist(c.x, c.z, home.x, home.z) < 5) endScout("🏠 safe at the nest! the grump gives up. +2 ✨", 2);
-    else if (pals >= 2) endScout("🫂 safety in numbers! the grump backs off. +2 ✨", 2);
+    var settled = gr.scout.t > 8; // a few seconds of it coming at you first, even if you're by the nest already
+    if (settled && SB.dist(c.x, c.z, home.x, home.z) < 5) endScout("🏠 safe at the nest! the grump won't come this close. +2 ✨", 2);
+    else if (settled && pals >= 2) endScout("🫂 safety in numbers! the grump backs off. +2 ✨", 2);
     else if (gr.chem.fear > 0.6 || gr.goingHome) endScout("👹 you scared it off! +2 ✨", 2);
     else if (gr.scout.t > P.SCOUT_MAX) endScout("😮‍💨 the grump got bored and wandered off. next time, run for the nest", 0);
   }
@@ -1088,7 +1088,7 @@
     var list = P.questList(), step = list[q.i], ok = false;
     switch (q.kind === "blob" ? "b:" + step.id : step.id) {
       case "b:eat": ok = !!q.flags.eat; break;
-      case "b:sniff": ok = !!q.flags.sniff; break;
+      case "b:sniff": ok = !!q.flags.sniff || !!q.flags.eat; break; // found it yourself and ate it: that's finding food
       case "b:tug": ok = !!q.flags.tug || Surv.count(c, "leaves", true) > 0; break;
       case "b:nest": ok = (q.flags.lined || 0) >= 3 || Surv.nest(game).cosy >= Surv.NEST_MAX; break;
       case "b:share": ok = !!q.flags.share; break;

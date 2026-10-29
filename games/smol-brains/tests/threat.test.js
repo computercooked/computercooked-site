@@ -53,12 +53,27 @@ seeded(902, () => {
   const s0 = game.sparks || 0;
   let end = null; SB.bus.on("scoutEnd", d => { end = d; });
   c.x = h.x + 2; c.z = h.z; // made it home
-  run(SB, game, 1);
+  run(SB, game, 4);
+  check("not straight away: it comes at you for a few seconds first", !end && !!SB.Possess.scout());
+  run(SB, game, 6);
   check("safe at the nest: it gives up", end && end.ok && !SB.Possess.scout());
   check("+2 sparks", (game.sparks || 0) >= s0 + 2 - 0.01, ((game.sparks || 0) - s0).toFixed(1));
   run(SB, game, 3);
   const g = game.creatures.find(o => o.species === "grump");
   check("the grump heads off", !g || !g.alive || g.goingHome);
+  SB.Possess.leave();
+});
+
+console.log("2b. K-0035: it comes even if you never leave the nest");
+seeded(904, () => {
+  const { SB, game, c, h } = island(94);
+  c.x = h.x + 1; c.z = h.z;
+  SB.Possess.enter(game, c);
+  run(SB, game, SB.Possess.SCOUT_AT + 2, () => !!SB.Possess.scout());
+  check("a grump within the first minute, by the nest too", !!SB.Possess.scout() && game.time > 0);
+  let end = null; SB.bus.on("scoutEnd", d => { end = d; });
+  run(SB, game, 12);
+  check("...and you're safe at the nest once it has come at you", end && end.ok, end && JSON.stringify(end.ok));
   SB.Possess.leave();
 });
 

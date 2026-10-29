@@ -189,12 +189,11 @@ console.log("9. a small body's day (v4.6): mouth, leaves, the nest, sniffing, sh
   const ve = P.options(g, b, { type: "item", id: berry.id });
   check("a blob eats food on the ground", ve.use && /eat/.test(ve.use.label) && P.act("use", { type: "item", id: berry.id }));
   run(g, 0.4);
-  check("…the guide still asks you to find food first", P.questStep() && P.questStep().id === "sniff", P.questStep() && P.questStep().id);
-  // sniff
+  check("K-0035: finding food and eating it yourself counts for both: on to carry food home to a hungry friend", P.questStep() && P.questStep().id === "share", P.questStep() && P.questStep().id);
+  // the nose still works
   SB.World.add(g.world, g, "apple", b.x + 9, b.z + 2, {});
   check("G sniffs out food and points the marker at it", P.sniff() && P.sniffing() && SB.dist(P.sniffing().x, P.sniffing().z, b.x + 9, b.z + 2) < 12);
   run(g, 0.4);
-  check("…then the eating counts too, and on to: carry food home to a hungry friend", P.questStep() && P.questStep().id === "share", P.questStep() && P.questStep().id);
   check("each step pays a spark", g.sparks >= sp0 + 2, (g.sparks - sp0) + " sparks");
   check("the friend at home really is hungry", friend.chem.hunger >= 0.7, friend.chem.hunger.toFixed(2));
   // share

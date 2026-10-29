@@ -408,6 +408,16 @@ Fun 5.5/10 (up from 5): "possession finally has a loop: hungry, walk out, eat, g
 - **Not a bug**: the clock moves in 10-minute steps (about 8 s of play at 1×), so 08:10 → 08:20 after a G is the clock, not a jump.
 - **Tests**: `possess.test.js` follows the new order (the friend is hungry, feeding pays two). `threat.test.js`: it growls first, and starts well off.
 
+## 0.34 What v4.8.9 fixed: the bot's v4.8.8 playtest (K-0035)
+
+Fun 5.5/10 (flat). The tester could only send single key taps, so the chase went untested.
+
+- **Vitals scale with the window and say their number**: hearts and food are `clamp(26px, 3.8vh, 40px)` (30 px at 800 tall, 40 on a 1080p+ screen), each with its percentage beside it in big type, red when low. (Measured live: 30 px icons at 1280×800, and the label matches the bar.)
+- **Eating is finding**: food you found and ate yourself (a right click on a bush, say) completes "find food" and "eat it" together. Only a G sniff counted before, so the guide sat on "find food".
+- **Every first possession gets its grump**: no longer only once you're out past the nest. About 20 s in, wherever you are, it appears about 19 steps off and comes. "Safe at the nest" and "safety in numbers" count once it has been coming at you for 8 s, so you see it come even if you never left home.
+- **The trick nudge shows where you look**: at 8 s a toast says "👀 Wady is thinking about it…", as well as the bubble over the smol (which can be off screen).
+- **Tests**: `threat.test.js` §2b (a grump by the nest too; safe there once it has come at you), §2 (not straight away). `possess.test.js`: eating first counts for both steps.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
