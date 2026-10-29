@@ -1,0 +1,62 @@
+# Site checks on every pull request and push to main (audit P1 #27). Runs the Worker locally (wrangler dev, local
+# D1, a throwaway admin token) and checks it three ways:
+#   1. scripts/smoke-test.mjs: the API end to end, accounts included (local only, by the script's own rule)
+#   2. Lighthouse (mobile, one run per page): performance >= 65 and accessibility >= 90. The local Worker on a shared
+#      runner scores well under the live site, so 65 catches real regressions without flaking; reports are kept on the landing, hub and two games
+#   3. scripts/page-check.mjs: landing, hub, daily 3 and every game page at 390 and 1280 wide, no console errors,
+#      screenshots kept as an artifact for eyeballing (pixel-diff baselines are a later step)
+# Nothing here deploys; Cloudflare Workers Builds still deploys main as before.
+# Everything the job writes goes to $RUNNER_TEMP, never the repo: the repo is the Worker's asset folder, wrangler dev
+# reloads on every new file there, and its own log file in the repo kept it reloading forever (the first run hung).
+name: checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: start the site locally
+        run: |
+          OUT="$RUNNER_TEMP/site-checks"; echo "OUT=$OUT" >> "$GITHUB_ENV"
+          mkdir -p "$OUT"
+          TOKEN=$(openssl rand -hex 24)
+          echo "::add-mask::$TOKEN"
+          echo "ADMIN_TOKEN=$TOKEN" > .dev.vars
+          echo "ADMIN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          npx --yes wrangler@4 d1 migrations apply DB --local > "$OUT/migrations.log" 2>&1
+          npx --yes wrangler@4 dev --local --port 8787 > "$OUT/wrangler.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf -m 5 http://127.0.0.1:8787/api/health && break; sleep 2; done
+          curl -sf -m 5 http://127.0.0.1:8787/api/health || { tail -40 "$OUT/wrangler.log"; exit 1; }
+      - name: API smoke test
+        timeout-minutes: 5
+        run: node scripts/smoke-test.mjs http://127.0.0.1:8787 "$ADMIN_TOKEN"
+      - name: Lighthouse budgets
+        timeout-minutes: 15
+        working-directory: ${{ runner.temp }}
+        run: npx --yes @lhci/cli@0.14.0 autorun --config="$GITHUB_WORKSPACE/.github/lighthouserc.json"
+      - name: pages at 390 and 1280
+        timeout-minutes: 8
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw" && npm init -y > /dev/null && npm i --no-save playwright@1.57.0
+          npx playwright install --with-deps chromium
+          cd "$GITHUB_WORKSPACE"
+          PLAYWRIGHT="$RUNNER_TEMP/pw" PAGE_CHECK_OUT="$OUT/page-check" node scripts/page-check.mjs http://127.0.0.1:8787
+      - name: keep screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-checks
+          path: |
+            ${{ runner.temp }}/site-checks/
+            ${{ runner.temp }}/.lighthouseci/
+          if-no-files-found: ignore
+          include-hidden-files: true

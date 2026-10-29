@@ -1,0 +1,21 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://127.0.0.1:8787/",
+        "http://127.0.0.1:8787/games/",
+        "http://127.0.0.1:8787/games/one-percent-popup/",
+        "http://127.0.0.1:8787/games/reel-weird/"
+      ],
+      "numberOfRuns": 1,
+      "settings": { "chromeFlags": "--no-sandbox", "maxWaitForLoad": 30000 }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.65 }],
+        "categories:accessibility": ["error", { "minScore": 0.9 }]
+      }
+    },
+    "upload": { "target": "filesystem", "outputDir": ".lighthouseci" }
+  }
+}
