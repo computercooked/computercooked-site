@@ -49,3 +49,15 @@ table(
   ["game", "plays", "players", "completion %", "auto %"],
   d.games.map((g) => [g.game, g.plays, g.players, dash(g.completion_pct), dash(g.auto_pct)])
 );
+
+if (d.rows[0] && d.rows[0].site) {
+  console.log("\nsite visits (visitors = browsers seen that day; returning = seen on an earlier day; time = visible time per page)");
+  table(
+    ["day", "page views", "visitors", "returning", "returning %", "avg time s"],
+    d.rows.map((r) => [r.date + (r.partial ? "*" : ""), r.site.page_views, r.site.visitors, r.site.returning, dash(r.site.returning_pct), dash(r.site.avg_time_s)])
+  );
+}
+if (d.game_pages && d.game_pages.length) {
+  console.log("\ngame pages (whole window)");
+  table(["game", "page views", "avg time s"], d.game_pages.map((g) => [g.game, g.views, dash(g.avg_time_s)]));
+}
