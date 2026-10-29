@@ -66,6 +66,8 @@
     };
     P.active = true; P.c = c;
     S.yaw = openView(c, game, S.yaw); c.facing = S.yaw + Math.PI; // the body turns with the view
+    var bump = SB.World.nearestNode(game.world, c.x, c.z, 1.2, function (n) { return n.state === "ok"; });
+    if (bump) { var ba = Math.atan2(c.x - bump.x, c.z - bump.z), bx = bump.x + Math.sin(ba) * 1.5, bz = bump.z + Math.cos(ba) * 1.5; if (SB.World.walkable(game.world, bx, bz)) { c.x = bx; c.z = bz; } } // K-0042: "pressed against a bush"
     P.input.fwd = P.input.side = 0; P.input.run = P.input.jump = P.input.use = false;
     game.speed = 1; // a smol lives in real time
     // what it carried as a creature goes into its inventory, and tool-users get their building plans
@@ -297,9 +299,10 @@
         var it = SB.Game.byId(game, o.holding);
         if (it && it.noun === "food" && SB.Creature.startAction(o, game, V.give, { type: "creature", id: c.id })) { SB.Creature.say(o, "here. food", game); continue; }
       }
-      if (d > 4 && !busy) {
-        var a = Math.atan2(o.x - c.x, o.z - c.z) + (Math.random() - 0.5);
-        SB.Creature.sendTo(o, c.x + Math.sin(a) * 2, c.z + Math.cos(a) * 2, game, 10);
+      if (d > 5 && !busy) {
+        var a = Math.atan2(o.x - c.x, o.z - c.z) + (Math.random() - 0.5), back = S.yaw; // tag along beside or behind you, never in your face (K-0042)
+        if (Math.abs(SB.angDiff(a, back)) > 1.4) a = back + (Math.random() < 0.5 ? 1.4 : -1.4);
+        SB.Creature.sendTo(o, c.x + Math.sin(a) * 3, c.z + Math.cos(a) * 3, game, 10);
         if (Math.random() < 0.3) SB.Creature.say(o, Math.random() < 0.5 ? "wait me!" : c.name.toLowerCase() + "!", game);
       }
     }
@@ -470,7 +473,7 @@
         if (tier >= 1) o.use = pw > 0 ? op((rk.ore ? "mine the " : "chip the ") + nm + (toolName ? "" : " with your paws"), function () { return hitNode(n, hk); }, V.use) : no(rk.crystal ? "too hard: needs a pick, and a builder's know-how" : rk.ore ? "copper ore! dig it out with a stone pick" : "punch it? ouch");
         if (gat && tier >= 2) o.pick = op(gat.verb, function () { return gather(n); }, V.pickup);
       } else if (n === game.world.T.nest) {
-        o.place = op("sleep in the nest", function () { return sleepAt(t); }, V.sleep);
+        o.ctx = op("sleep in the nest", function () { return sleepAt(t); }, V.sleep);
         if (held && Surv.SOFT[hk]) o.use = Surv.nest(game).cosy >= Surv.NEST_MAX ? no("the nest is as cosy as it gets") : op("line the nest with your " + kl(hk), function () { return lineNest(); }, V.drop, { nestLine: 1 });
       } else if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds" || n.kind === "hive" || n.kind === "cactus") {
         o.use = op((n.kind === "roots" ? "pull at the " : "shake the ") + nm, function () { return shakeNode(n); }, V.play);
@@ -496,7 +499,7 @@
         o.place = op("sit by the fire", function () { return sit(); }, V.idle);
         if (hk && Surv.edible(hk) && K[hk].raw && d.lit) o.place = op("cook your " + kl(hk), function () { return cook(hk); }, V.make);
       } else if (st.kind === "hut" || st.kind === "leanto" || st.kind === "house") {
-        o.place = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
+        o.ctx = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
       } else if (st.kind === "farm") {
         o.use = tier >= 2 ? op(d.grow > 0.6 ? "harvest" : "check the crop", function () { return creatureAct(V.use, t); }, V.use) : null;
       } else if (st.kind === "totem" || st.kind === "observatory") {
@@ -766,7 +769,7 @@
      scent and comes for you.
      run home to the nest (hold shift, or push the stick all the way), or find two friends, and it gives up: +2 ✨.
      it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
-  P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13;
+  P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13; P.SCOUT_OUT = 12; P.SCOUT_WAIT = 40;
   P.START_HUNGER = 0.68; P.HUNGER_CLOCK = 0.0025; P.HUNGER_MAX = 0.004; P.MEAL = 0.27;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
@@ -774,9 +777,11 @@
     S.threatT = (S.threatT || 0) + dt;
     if (!S.scout) {
       if (st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return;
-      var hm = SB.Society.home(game, 0), w = game.world, spot = null;
+      var hm = SB.Society.home(game, 0), w = game.world, spot = null, out = SB.dist(c.x, c.z, hm.x, hm.z);
+      if (out < P.SCOUT_OUT && S.threatT < P.SCOUT_AT + P.SCOUT_WAIT) return; // by the nest: it waits for you to go out for food (K-0042: "SAFE!" without moving)
+      var away = out > 2 ? Math.atan2(-(c.x - hm.x), -(c.z - hm.z)) : S.yaw; // the far side from home: it chases you back there
       for (var a = 0; a < 16 && !spot; a++) {
-        var ang = S.yaw + (a % 2 ? 1 : -1) * (0.45 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * P.SCOUT_FAR, z = c.z - Math.cos(ang) * P.SCOUT_FAR; // out in front, where you can see it come
+        var ang = (out >= P.SCOUT_OUT ? away : S.yaw) + (a % 2 ? 1 : -1) * (0.2 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * P.SCOUT_FAR, z = c.z - Math.cos(ang) * P.SCOUT_FAR; // out past you, away from home
         if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 12) spot = { x: x, z: z };
       }
       if (!spot) return;
