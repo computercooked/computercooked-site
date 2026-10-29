@@ -38,7 +38,7 @@ const LINES = {
   "keyboard-escape": "every key makes it faster. don't.", "tab-hoarder": "this is literally my life.", "desktop-jam": "please clean my desktop.",
   fathom: "a submarine. i get seasick.", bellchain: "it plays actual music. i hum along.", "pixel-purge": "my pictures got corrupted. help.",
   "crash-cheats": "i cheat at tic tac toe. sue me.", "overdue-notice": "smash the bills. i can't pay them either.", "plus-one-ram": "+1 mb a second. i'm gaining.",
-  "smol-brains": "tiny creatures. tinier brains.", "reel-weird": "the pond keeps the rod.", "haunted-self-checkout": "unexpected item in bagging area.", "handbag-havoc": "granny is faster than you.", "crash-test-daily": "a new puzzle every day.",
+  "smol-brains": "tiny creatures. tinier brains.", "reel-weird": "the pond keeps the rod.", "haunted-self-checkout": "unexpected item in bagging area.", "cooked-sweeper": "minesweeper has a virus. so do i.", "handbag-havoc": "granny is faster than you.", "crash-test-daily": "a new puzzle every day.",
 };
 const isNew = (g) => g.added && Date.now() - Date.parse(g.added) < 7 * 86400000;
 export function deskIcon(g) {

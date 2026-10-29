@@ -410,11 +410,89 @@ def checkout(c):
     c.rect(c.W - 22, by - 14, 14, 13, "#c9a36a"); c.rect(c.W - 22, by - 14, 14, 2, "#a9844d")
 
 
+CS_SKULL = """
+..kkkkkk..
+.kWWWWWWk.
+kWWWWWWWWk
+kWkkWWkkWk
+kWkEWWEkWk
+kWWWkkWWWk
+.kWWWWWWk.
+..kWkWkWk.
+..kkkkkkk.
+"""
+CS_WORM = """
+......kk..
+.....kGGk.
+.....kGEk.
+..kk.kGGk.
+.kGGkkGgk.
+kGgGGGGk..
+kGGgGgk...
+.kkkkk....
+"""
+CS_POPUP = """
+kkkkkkkkkk
+kBBBBBBkRk
+kkkkkkkkkk
+kWWWWWWWWk
+kWYYYYYYWk
+kWWWWWWWWk
+kWWGGGGWWk
+kkkkkkkkkk
+"""
+CS_PAL = {"k": "#120c08", "W": "#fffaf0", "E": "#ff2a2a", "G": "#5fbf3a", "g": "#2f7a1c", "B": "#3d6be0", "R": "#e5302a", "Y": "#f6d84a"}
+CS_DIG = {"1": [".k.", "kk.", ".k.", ".k.", "kkk"], "3": ["kk.", "..k", ".k.", "..k", "kk."], "4": ["k.k", "k.k", "kkk", "..k", "..k"],
+          "7": ["kkk", "..k", ".k.", ".k.", ".k."], "9": [".k.", "k.k", ".kk", "..k", "kk."]}
+
+
+def sweeper(c):
+    # an overheating 95-style window on a hot backdrop: a fried grid, a few viruses, the computer as the smiley button
+    for y in range(c.H):
+        k = y / c.H
+        c.rect(0, y, c.W, 1, "#%02x%02x%02x" % (int(30 + 110 * k), int(12 + 30 * k), 8))
+    wx, wy, ww, wh = c.cx - 50, 6, 100, c.H - 10
+    c.rect(wx - 1, wy - 1, ww + 2, wh + 2, "#120c08"); c.rect(wx, wy, ww, wh, "#f3ead2")
+    for x in range(ww - 2):
+        t = x / (ww - 2)
+        c.rect(wx + 1 + x, wy + 1, 1, 5, "#%02x%02x%02x" % (int(122 + 133 * t), int(29 + 130 * t), int(10 + 40 * t)))
+    for i in range(3): c.rect(wx + ww - 6 - i * 5, wy + 2, 4, 3, "#f3ead2")
+    c.rect(wx + 3, wy + 8, ww - 6, 16, "#8f7f5c"); c.rect(wx + 4, wy + 9, ww - 8, 14, "#f3ead2")
+    c.rect(wx + 6, wy + 11, 26, 10, "#160a06"); c.rect(wx + 8, wy + 17, 18, 2, "#ff6a2a")
+    c.rect(wx + ww - 32, wy + 11, 26, 10, "#160a06"); c.rect(wx + ww - 30, wy + 17, 12, 2, "#a8d533")
+    c.computer(c.cx - 11, wy + 5, scale=1)
+    gx, gy, t = wx + 4, wy + 27, 8
+    cols, rows = 11, (wh - 31) // t
+    opened = {(4, 1), (5, 1), (6, 1), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (4, 3), (5, 3), (6, 3), (5, 4)}
+    nums = {(4, 1): "3", (6, 1): "1", (3, 2): "4", (7, 2): "7", (5, 4): "9", (4, 3): "1"}
+    for j in range(rows):
+        for i in range(cols):
+            x, y = gx + i * t + 2, gy + j * t
+            if (i, j) in opened:
+                c.rect(x, y, t, t, "#dccfae")
+                d = nums.get((i, j))
+                if d:
+                    col = {"1": "#1f47b8", "3": "#1f47b8", "4": "#1d7a2a", "7": "#b51d1d", "9": "#b51d1d"}[d]
+                    for yy, row in enumerate(CS_DIG[d]):
+                        for xx, ch in enumerate(row):
+                            if ch == "k": c.px(x + 3 + xx, y + 2 + yy, col)
+            else:
+                c.rect(x, y, t, t, "#fffaf0"); c.rect(x + 1, y + 1, t - 1, t - 1, "#8f7f5c"); c.rect(x + 1, y + 1, t - 2, t - 2, "#f3ead2")
+    c.rect(gx + 9 * t + 2, gy + 4 * t, t, t, "#2a0a0a"); c.sprite(CS_SKULL, gx + 9 * t + 1, gy + 4 * t - 1, CS_PAL)
+    c.rect(gx + 2 * t + 2, gy + 5 * t, t, t, "#ffd9c9"); c.sprite(CS_WORM, gx + 2 * t + 1, gy + 5 * t, CS_PAL)
+    c.sprite(CS_POPUP, gx + 7 * t + 1, gy + 0 * t, CS_PAL)
+    # steam and heat
+    for i, (x, y) in enumerate([(-38, 2), (-20, 0), (14, 1), (34, 3), (46, 0)]):
+        c.disc(c.cx + x, y + 2, 2, "#f6e9d8")
+    for i in range(10): c.px(wx - 4 - (i % 3), wy + 10 + i * 7, "#ff8a2a"); c.px(wx + ww + 3 + (i % 3), wy + 14 + i * 6, "#ff8a2a")
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout,
+    "cooked-sweeper": sweeper,
 }
 
 
