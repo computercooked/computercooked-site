@@ -15,12 +15,12 @@ export function snippet(g) {
 }
 
 export function embedCard(g) {
-  return `<div class="about-card embed-card">
-          <h2>// embed this game</h2>
-          <p>put ${esc(g.title)} on your site or blog. it's free, plays right in the page and links back here.</p>
+  return `<details class="about-card embed-card" id="cc-embed">
+          <summary>embed ${esc(g.title)} on your site</summary>
+          <p>it's free, plays right in the page and links back here.</p>
           <textarea class="embed-code" readonly rows="5" aria-label="embed code for ${esc(g.title)}">${esc(snippet(g))}</textarea>
           <button class="tool embed-copy" type="button" data-copy-embed><span class="tool-text">copy code</span></button>
-        </div>`;
+        </details>`;
 }
 
 const icon = {
@@ -44,6 +44,7 @@ function page(g) {
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/games/games.css">
 </head>

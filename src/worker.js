@@ -1,9 +1,12 @@
 // Computer Cooked Games platform Worker.
 // Static files are served by the assets binding; /api/*, /u/* and /games/* run this code first (run_worker_first in
 // wrangler.jsonc). Game pages go through seo.js; other game files pass straight through to the assets.
+import { subscribe, unsubscribe } from "./subscribe.js";
+import { labVotes, labVote } from "./lab.js";
+import { homePage, labPage, logPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
-import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll } from "./auth.js";
+import { currentUser, signup, login, logout, setAvatar, deleteAccount, changePassword, logoutAll, changeUsername, renameInfo } from "./auth.js";
 import { getMyProfile, saveMyProfile, setEmail, exportData, publicProfile } from "./profile.js";
 import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
@@ -21,18 +24,33 @@ import { digest } from "./digest.js";
 import { followClick } from "./follow.js";
 import { hit } from "./hits.js";
 import { uploadGame, listCommunity, adminUploads, reviewUpload } from "./uploads.js";
+import { recover, recoveryInfo, remakeCodes } from "./recovery.js";
+import { weeklyXp } from "./weekly.js";
+import { loginOptions as passkeyLoginOptions, loginFinish as passkeyLogin, registerOptions, registerFinish, listPasskeys, deletePasskey } from "./passkeys.js";
 
 const CONSENT_COUNTRIES = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    // one address for search engines: www.computercooked.com → computercooked.com (permanent). Covers every path this
+    // Worker runs first on (home, /games/*, /lab/, /log/, /gary/, /u/*, /d/*, /api/*); static pages carry a canonical tag.
+    if (url.hostname === "www.computercooked.com" && (req.method === "GET" || req.method === "HEAD")) {
+      url.hostname = "computercooked.com";
+      return Response.redirect(url.toString(), 301);
+    }
     // /u/<username> is one static page that reads the name from the URL
     // (usernames are letters, digits and _, so the page's own /u/u.js and /u/u.css never match)
     if (/^\/u\/[A-Za-z0-9_]{3,16}\/?$/.test(url.pathname)) return env.ASSETS.fetch(new Request(url.origin + "/u/", req));
     // game pages get JSON-LD, how-to-play and related games (and dare preview tags); other game files go straight to the assets
     // the hub: the grid, spotlight and ticker rendered from games.json (crawlers and link previews see every game)
     if (url.pathname === "/games/" || url.pathname === "/games/index.html") return hubPage(req, env, url);
+    // homepage, /lab and /log: filled from games.json, /lab/lab.json and /log/log.json (src/pages.js)
+    if (url.pathname === "/" || url.pathname === "/index.html") return homePage(req, env, url);
+    if (url.pathname === "/lab/") return labPage(req, env, url);
+    if (url.pathname === "/log/") return logPage(req, env, url);
+    // K-0048: Gary's disaster log became the cooked log, the computer's own
+    if (/^\/gary(\/|\/index\.html)?$/.test(url.pathname)) return Response.redirect(url.origin + "/log/", 301);
     // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
     const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
     if (dl) return dareLink(env, url, dl[1]);
@@ -81,6 +99,10 @@ async function api(req, env, url) {
     case "GET /api/featured": return featured(env, await catalogOf(env, origin));
     case "GET /api/challenge": return challenge(env, user, await catalogOf(env, origin));
     case "POST /api/feedback": return feedback(req, env, ip, user);
+    case "POST /api/subscribe": return subscribe(req, env, ip);
+    case "GET /api/unsubscribe": return unsubscribe(url, env);
+    case "GET /api/lab/votes": return labVotes(url, env, user);
+    case "POST /api/lab/vote": return labVote(req, env, url, ip, user);
     case "GET /api/stats": return stats(env);
     case "POST /api/report": return report(req, env, ip, user);
     case "GET /api/community": return listCommunity(env);
@@ -88,6 +110,10 @@ async function api(req, env, url) {
     case "POST /api/auth/signup": return signup(req, env, ip);
     case "POST /api/auth/login": return login(req, env, ip);
     case "POST /api/auth/logout": return logout(req, env);
+    case "GET /api/xp/week": return weeklyXp(env, user);
+    case "POST /api/auth/recover": return recover(req, env, ip);
+    case "POST /api/auth/passkey/options": return passkeyLoginOptions(req, env, ip);
+    case "POST /api/auth/passkey": return passkeyLogin(req, env, ip);
     case "GET /api/me": return json({ ok: true, user: user && { ...user, ...levelOf(await totalXp(env, user.id)) } });
   }
 
@@ -104,6 +130,14 @@ async function api(req, env, url) {
       case "POST /api/me/profile": return saveMyProfile(req, env, user, origin);
       case "POST /api/me/email": return setEmail(req, env, user);
       case "POST /api/me/password": return changePassword(req, env, user, ip);
+      case "POST /api/me/username": return changeUsername(req, env, user, ip);
+      case "GET /api/me/username": return json({ ok: true, username: user.username, ...(await renameInfo(env, user)) });
+      case "GET /api/me/recovery": return recoveryInfo(env, user);
+      case "POST /api/me/recovery": return remakeCodes(req, env, user, ip);
+      case "GET /api/me/passkeys": return listPasskeys(env, user);
+      case "POST /api/me/passkey/options": return registerOptions(req, env, user, ip);
+      case "POST /api/me/passkey": return registerFinish(req, env, user);
+      case "POST /api/me/passkey/delete": return deletePasskey(req, env, user);
       case "POST /api/me/logout-all": return logoutAll(req, env, user);
       case "GET /api/me/export": return exportData(env, user);
       case "GET /api/me/friends": return listFriends(env, user);

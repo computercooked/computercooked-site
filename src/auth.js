@@ -1,9 +1,10 @@
 // Accounts: username + password (PBKDF2-SHA256, per-user salt), httpOnly session cookie.
 // 13+ only, checked with a neutral birth month/year gate; the birth date itself is never stored.
 import { json, bad, readJson, now, b64, unb64, randomToken, sha256, safeEqual, limited, nameClean, str, HttpError } from "./util.js";
-import { levelOf, totalXp } from "./xp.js";
+import { levelOf, totalXp, replayGuest } from "./xp.js";
 import { noteReferral } from "./referrals.js";
 import { avatarLevel } from "./cosmetics.js";
+import { newCodes } from "./recovery.js";
 
 // Workers' WebCrypto caps PBKDF2 at 100,000 iterations.
 const ITERATIONS = 100000;
@@ -55,12 +56,28 @@ export function ageOk(year, month) {
   return age >= 13;
 }
 
-async function startSession(env, userId, req, body) {
+export async function startSession(env, userId, req, body) {
   const token = randomToken(32);
   const t = now();
   await env.DB.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)")
     .bind(await sha256(token), userId, t, t + SESSION_DAYS * 86400000).run();
   return json(body, 200, { "set-cookie": cookie(token, SESSION_DAYS * 86400, isSecure(req)) });
+}
+
+// K-0030 step 5: shared by sign-up, password change and recovery
+export function passwordError(pw, username) {
+  if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return "passwords need 8+ characters.";
+  if (pw.toLowerCase() === String(username).toLowerCase()) return "password can't be your username.";
+  return null;
+}
+export async function checkPassword(env, userId, password) {
+  const row = await env.DB.prepare("SELECT pass_hash, salt, iterations FROM users WHERE id = ?").bind(userId).first();
+  if (!row) return false;
+  return safeEqual(await hashPassword(String(password || ""), unb64(row.salt), row.iterations), row.pass_hash);
+}
+export async function setPassword(env, userId, pw) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  await env.DB.prepare("UPDATE users SET pass_hash = ?, salt = ?, iterations = ? WHERE id = ?").bind(await hashPassword(pw, salt, ITERATIONS), b64(salt), ITERATIONS, userId).run();
 }
 
 export async function signup(req, env, ip) {
@@ -70,7 +87,7 @@ export async function signup(req, env, ip) {
   if (ok === null) return bad("pick your birth month and year.");
   // Under 13: no account, no data kept. The page tells them they can just play.
   if (!ok) return json({ ok: false, under13: true });
-  const err = usernameError(b.username);
+  const err = usernameError(b.username) || (await heldName(env, b.username, 0));
   if (err) return bad(err);
   const pw = b.password;
   if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) return bad("passwords need 8+ characters.");
@@ -89,9 +106,11 @@ export async function signup(req, env, ip) {
   }
   const id = res.meta.last_row_id;
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, 'site', 'cc:signup', '{}', ?)").bind(now()).run();
-  await linkAnon(env, id, b.anon_id || b.anon, b.username);
+  const xp = await linkAnon(env, id, b.anon_id || b.anon, b.username);
   await noteReferral(env, id, b.ref_dare);
-  return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar } });
+  // K-0030 step 5: recovery codes, shown once, in place of an email reset
+  const recovery_codes = await newCodes(env, id);
+  return startSession(env, id, req, { ok: true, user: { id, username: b.username, avatar }, xp, recovery_codes });
 }
 
 export async function login(req, env, ip) {
@@ -106,8 +125,8 @@ export async function login(req, env, ip) {
   const salt = row ? unb64(row.salt) : new Uint8Array(16);
   const hash = await hashPassword(String(b.password || ""), salt, row ? row.iterations : ITERATIONS);
   if (!row || !safeEqual(hash, row.pass_hash) || row.status === "banned") return bad("wrong username or password.", 401);
-  await linkAnon(env, row.id, b.anon_id || b.anon, row.username);
-  return startSession(env, row.id, req, { ok: true, user: { id: row.id, username: row.username, avatar: row.avatar } });
+  const xp = await linkAnon(env, row.id, b.anon_id || b.anon, row.username);
+  return startSession(env, row.id, req, { ok: true, user: { id: row.id, username: row.username, avatar: row.avatar }, xp });
 }
 
 export async function logout(req, env) {
@@ -117,7 +136,7 @@ export async function logout(req, env) {
 }
 
 // built avatars: "x:<mood>-<face 0-7>-<body 0-4>-<accessory>" (rendered by assets/avatars.js)
-export const AVATAR_RE = /^x:(tired|happy|flat|angry|x)-[0-7]-[0-4]-(none|headphones|cap|witch|bow|glasses|steam|antenna|crown|halo|flames|chef)$/;
+export const AVATAR_RE = /^x:(tired|happy|flat|angry|x|smug|shock|sleepy|wink)-(1[01]|[0-9])-[0-6]-(none|headphones|cap|witch|bow|glasses|steam|antenna|crown|halo|flames|chef|beanie|shades|party|bandana|tophat|horns|visor|wizard)$/;
 export const avatarOk = (a) => typeof a === "string" && (AVATARS.includes(a) || AVATAR_RE.test(a));
 
 // POST /api/me/password {current, next}: also signs out every other device
@@ -138,6 +157,49 @@ export async function changePassword(req, env, user, ip) {
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").bind(user.id, keep),
   ]);
   return json({ ok: true });
+}
+
+// K-0030 step 3: change your username, at most once every 30 days. Needs the current password. The old name stays
+// held for you for 30 days (nobody else can take it, and /u/<old> points to the new one); boards show the new name.
+const RENAME_DAYS = 30;
+async function heldName(env, name, userId) {
+  const r = await env.DB.prepare("SELECT 1 FROM username_history WHERE old_name = ? AND user_id != ? AND changed_at > ? LIMIT 1")
+    .bind(String(name), userId, now() - RENAME_DAYS * 86400000).first();
+  return r ? "that username is taken." : null;
+}
+export async function renameInfo(env, user) {
+  const last = await env.DB.prepare("SELECT MAX(changed_at) t FROM username_history WHERE user_id = ?").bind(user.id).first("t");
+  return { last_change: last || null, next_change: last ? last + RENAME_DAYS * 86400000 : null };
+}
+export async function changeUsername(req, env, user, ip) {
+  if (limited("rename:" + ip, 10, 600000)) return bad("too many tries. wait a few minutes.", 429);
+  const b = await readJson(req, 4096);
+  const name = typeof b.username === "string" ? b.username.trim() : "";
+  const row = await env.DB.prepare("SELECT username, pass_hash, salt, iterations FROM users WHERE id = ?").bind(user.id).first();
+  if (!row) return bad("no such account", 404);
+  const hash = await hashPassword(String(b.password || ""), unb64(row.salt), row.iterations);
+  if (!safeEqual(hash, row.pass_hash)) return bad("password is wrong.", 401);
+  if (name === row.username) return bad("that's already your username.");
+  const info = await renameInfo(env, user);
+  // a change of capitals only (Sam -> sam) is always allowed; a new name waits 30 days from the last one
+  const caseOnly = name.toLowerCase() === row.username.toLowerCase();
+  if (!caseOnly && info.next_change && info.next_change > now()) {
+    const days = Math.ceil((info.next_change - now()) / 86400000);
+    return bad(`you can change it again in ${days} day${days === 1 ? "" : "s"}.`, 429);
+  }
+  const err = usernameError(name) || (await heldName(env, name, user.id));
+  if (err) return bad(err);
+  try {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET username = ? WHERE id = ?").bind(name, user.id),
+      env.DB.prepare("UPDATE scores SET name = ? WHERE user_id = ?").bind(name, user.id),
+      ...(caseOnly ? [] : [env.DB.prepare("INSERT INTO username_history (user_id, old_name, new_name, changed_at) VALUES (?, ?, ?, ?)").bind(user.id, row.username, name, now())]),
+    ]);
+  } catch (e) {
+    if (/UNIQUE/i.test(String(e))) return bad("that username is taken.");
+    throw e;
+  }
+  return json({ ok: true, username: name, ...(await renameInfo(env, user)) });
 }
 
 // POST /api/me/logout-all: ends every session, this one included
@@ -184,18 +246,25 @@ export async function deleteAccount(req, env, user, ip) {
     env.DB.prepare("UPDATE plays SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE feedback SET user_id = NULL WHERE user_id = ?").bind(id),
     env.DB.prepare("UPDATE reports SET user_id = NULL WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM username_history WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM recovery_codes WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM passkeys WHERE user_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM webauthn_challenges WHERE user_id = ?").bind(id),
     env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id),
   ]);
   return json({ ok: true, deleted: true }, 200, { "set-cookie": cookie("", 0, isSecure(req)) });
 }
 
 // Plays made on this device before signing up/in get credited to the account.
-async function linkAnon(env, userId, anon, username) {
-  if (typeof anon !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) return;
+export async function linkAnon(env, userId, anon, username) {
+  if (typeof anon !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(anon)) return null;
+  // K-0030 step 1: the guest plays being moved over are replayed for real XP (src/xp.js replayGuest)
+  const moving = (await env.DB.prepare("SELECT id FROM plays WHERE anon_id = ? AND user_id IS NULL ORDER BY started_at").bind(anon).all()).results.map((r) => r.id);
   await env.DB.batch([
     env.DB.prepare("UPDATE plays SET user_id = ? WHERE anon_id = ? AND user_id IS NULL").bind(userId, anon),
     env.DB.prepare("UPDATE scores SET user_id = ?, player = ?, name = ? WHERE player = ? AND user_id IS NULL").bind(userId, "u:" + userId, username, "a:" + anon),
   ]);
+  try { return await replayGuest(env, userId, moving); } catch (e) { console.error("guest xp replay", e && e.stack || e); return null; }
 }
 
 export { HttpError };

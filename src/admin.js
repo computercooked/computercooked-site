@@ -4,6 +4,7 @@ import { games } from "./db.js";
 import { FOLLOW_PLATFORMS } from "./follow.js";
 import { TIP_SLOTS } from "./hits.js";
 import { rankWinners } from "./winners.js";
+import { subscriberCount } from "./subscribe.js";
 
 export function isAdmin(req, env, ip) {
   const h = req.headers.get("authorization") || "";
@@ -239,6 +240,7 @@ export async function metrics(url, env, origin) {
       plays: out.reduce((s, g) => s + g.plays, 0),
       accounts: users.n || 0, new_accounts: users.new || 0,
       uploads_pending: pending || 0, open_reports: reports || 0,
+      subscribers: await subscriberCount(env),
     },
     funnel: site_funnel,
     ad_slots,

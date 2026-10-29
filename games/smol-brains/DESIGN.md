@@ -356,6 +356,227 @@ The bot's v4.8.2 playtest: popups and skip banners were much better (5/10). Poss
 - **Skip stops worth it**: growing up stops a skip only when a smol comes of age (a day-1 "now a kid" doesn't). An incident is named ("☄️ a star fell!", not "something's happening"). The orders panel tucks itself away 3 s after a rally or explore flag lands; the flag's label keeps the count.
 - **Tests**: `firstminutes.test.js` §4 (G, G walks a blob to food it can eat and eats it) and §5 (a kid birthday doesn't end a skip, coming of age does). `skip.test.js` §1 now uses teens.
 
+## 0.29 What v4.8.4 added: a grump in the first minute
+
+The bot's top ask in K-0025 and K-0027: "possession has no stakes… a real threat in the first minute is the biggest lever." 4.8.3 gave it a hunger clock; this adds a chase.
+
+- **The scout grump** (`possess.js` `scoutTick`, `creature.js` scout branch): the first time you're in a blob on an island, once you're 20 s in (`P.SCOUT_AT`) and out more than 7 steps from the nest (looking for food, say), "a hungry grump" catches your scent. It turns up about 15 steps away, off to one side of where you're looking, and comes straight for you, day or night.
+- **It's faster than you walk, slower than you run** (1.35× your walking speed; running is 1.75×). If it catches you it stings: a tenth of your hearts every 1.6 s, the red screen edge, fear. It never takes the last quarter, so a first possession can't end in a death.
+- **Getting away**: get back to the nest (within 5 steps), or next to two friends, or scare it (it goes home when frightened), and it gives up: +2 ✨. After 35 s (`P.SCOUT_MAX`) it gets bored anyway, with no sparks and a "next time, run for the nest" hint. Leaving the body ends it too. Once per island (`settings.povThreat`).
+- **Tests**: `threat.test.js` (not straight away, then a grump about 15 steps off; it catches you if you stand still but never takes the last quarter; it gets bored; the nest pays +2 and sends it home; once per island; leaving the body ends it).
+
+## 0.30 What v4.8.5 fixed: the rest of the open list (K-0025, K-0027)
+
+Played through the items the bot hadn't reached yet, at 1280×800:
+
+- **Tricks: a good tickle always counts.** A lesson used to count only if the net's score for the thing went up. On a well-worn habit (a hungry blob eating) a well-timed tickle can barely move it, and in play one in three good tickles didn't count. Now, during "set it up", the right hand at the right moment (while it does the thing, or up to 2.5 s after) is a lesson, once per go. Mashing still does nothing: a second tickle on the same go doesn't count, and a tickle before it does the thing is held back. The trick is only learned when the brain's own bar gets there too.
+- **Checked, no change needed**:
+  - [ mid-skip from 8× stops the skip at 8×.
+  - Dragging the camera while an egg is laid: the camera stays with your drag.
+  - A falling pod is one map, then the rescue question about 20 s later, never on top of the map.
+- **Play now** says the island you were on stays in 📂 load game ("a fresh island. x stays safe in 📂 load game"): it never overwrites.
+- **Tests**: `firstminutes.test.js` §6 (a tickle before the thing is held back; two good tickles are two lessons; not twice for the same go).
+
+## 0.31 What v4.8.6 fixed: a set-up never leaves you waiting
+
+In a 4.8.5 play-through, a "set it up" lesson sat for 25 s with the smol ignoring the food and nothing on screen saying why.
+
+- **8 s in** (`Tricks.NUDGE`): if it hasn't gone for the thing yet, it looks at it again (the lure is renewed and it rethinks). A "👀 hmm?" floats over it.
+- **16 s in** (`Tricks.NO_BITE`): the lesson ends and a toast says why: "🤷 Wady isn't biting: it isn't hungry enough. press set it up to try again, or wait till it's hungrier" (or "it fell asleep", or "its brain picked something else this time"). The cue is cleared and the panel is ready for another go.
+- Once it has done the thing in a session, none of this applies: the usual 30 s window stays.
+- **Tests**: `firstminutes.test.js` §7.
+
+## 0.32 What v4.8.7 added: you can see the grump coming
+
+In 4.8.4 the first-minute grump was announced in a line that faded after 3 s, and nothing pointed at it: in a play-through the first sign was the red screen edge.
+
+- **A banner while it's after you** (`povhud.js` `threatMarker`): "👹 a grump is after you · 9m · 🏠 nest 14m", red, under the compass. When it's on you: "👹 it's got you! run!".
+- **A red marker on the grump** (or a red arrow at the screen edge when it's behind you, stacked under the other arrow).
+- **The guide points home**: while the chase is on, the lime marker points at the nest instead of the next quest step.
+- The marker code is shared now (`mark()`), so the guide and the grump place their arrows the same way.
+
+## 0.33 What v4.8.8 fixed: the bot's v4.8.5 playtest (K-0033)
+
+Fun 5.5/10 (up from 5): "possession finally has a loop: hungry, walk out, eat, grump. It still feels like ticking quest boxes more than surviving."
+
+- **Vitals you can read at a glance**: in first person, hearts and food are 26 px icons (17 on phones), up from 18 (13). Warmth and pep sit smaller underneath. A drop flashes the row, a nearly empty row glows red and shakes, and low food rumbles (a sound every 6 s).
+- **The grump gives warning**: it turns up about 19 steps away, in view, then stands and growls for 3 s ("👹 a grump spotted you! run!") before it comes. The banner (moved below the speech line) and the green arrow home are from 4.8.7.
+- **A reason to stay in the body**: right after "eat it", the blob's day goes "carry food home to your hungry friend". Your friend really is hungry and says so. The marker points at food, then at your friend once you're carrying it, and it pays +2 ✨. Then the leaves and the nest, as before.
+- **Esc keeps fullscreen**: while you're in a body in fullscreen, Esc is locked to the game (Chrome's keyboard lock), so it leaves the body but not fullscreen. Hold Esc to leave fullscreen.
+- **A click selects, a drag carries**: with the grab tool, picking up a smol now needs a real drag (12 px, or a 0.18 s hold), so a click on a blob under a tree opens its card instead of carrying it off.
+- **A version label**: "v4.8.8", small, bottom right.
+- **Not a bug**: the clock moves in 10-minute steps (about 8 s of play at 1×), so 08:10 → 08:20 after a G is the clock, not a jump.
+- **Tests**: `possess.test.js` follows the new order (the friend is hungry, feeding pays two). `threat.test.js`: it growls first, and starts well off.
+
+## 0.34 What v4.8.9 fixed: the bot's v4.8.8 playtest (K-0035)
+
+Fun 5.5/10 (flat). The tester could only send single key taps, so the chase went untested.
+
+- **Vitals scale with the window and say their number**: hearts and food are `clamp(26px, 3.8vh, 40px)` (30 px at 800 tall, 40 on a 1080p+ screen), each with its percentage beside it in big type, red when low. (Measured live: 30 px icons at 1280×800, and the label matches the bar.)
+- **Eating is finding**: food you found and ate yourself (a right click on a bush, say) completes "find food" and "eat it" together. Only a G sniff counted before, so the guide sat on "find food".
+- **Every first possession gets its grump**: no longer only once you're out past the nest. About 20 s in, wherever you are, it appears about 19 steps off and comes. "Safe at the nest" and "safety in numbers" count once it has been coming at you for 8 s, so you see it come even if you never left home.
+- **The trick nudge shows where you look**: at 8 s a toast says "👀 Wady is thinking about it…", as well as the bubble over the smol (which can be off screen).
+- **Tests**: `threat.test.js` §2b (a grump by the nest too; safe there once it has come at you), §2 (not straight away). `possess.test.js`: eating first counts for both steps.
+
+## 0.35 What v4.8.10 fixed: the bot's v4.8.9 playtest (K-0037)
+
+- **Coming back runs at most one island day**: the catch-up for time away is capped at `SB.DAY_LENGTH` (it was 75 sim minutes, so day 1 came back as day 8). The catch-up shows no story cards or banners; the "welcome back" card sums it up.
+- **Eyes start mostly adjusted**: going into a body starts the light adaptation at 70%, then eases the rest in. It read almost black for 3-5 s at dusk.
+- **No more freeze on possess**: a window open when you went into a body stayed open but hidden, and paused the island. It now closes, waits, and comes straight back when you leave (not after the usual 25 s event gap).
+- **Every first possession gets its stakes**: any smol, on any island including old saves, starts hungry (food 28%) with the hunger clock running, and gets the grump at about 20 s. Before, only a blob on a fresh island did. Until you've eaten, hunger stings but can't take the last quarter of your hearts (a smol left idle starved to death in about 2 minutes).
+- **The minimap always moves the camera**: a tap on it cancels a camera flight that would carry on over the top of it.
+- **Playtest hook (`?cctest=1` only)**: a "🧪 test possession" button bottom left drops you into a fresh first possession of the smol nearest the camera (hungry, a grump at 20 s, the quest from the start). While possessed, a left click on empty ground walks you about 7 steps that way, for testers who can't hold keys.
+- **Not reproduced**: the snow spawn with the pod off screen. Fresh "play now" islands put the pod on screen in our checks; the minimap fix covers getting back to it.
+- **Tests**: `possess.test.js` §3 seeded (it starts hungry now); `threat.test.js` §4 (a tool-user's first possession on an old island is hungry and gets a grump), §5 (a week away is one day of catch-up).
+
+## 0.36 What v4.8.11 fixed: the bot's v4.8.10 playtest (K-0039)
+
+Fun 5.5/10. "The grump has to be FELT, not a banner": the single biggest lever.
+
+- **The grump comes and bites**: it chased at 1.35× a blob's crawl (about 0.7 m/s) and never arrived. Now it sprints at 1.7 m/s or more from 13 m (after its 3 s growl), growling as it comes. A bite takes 15% of your hearts, knocks you back about 1.2 m, jolts the camera, flashes the screen red and shows "👹 OUCH!". Then it pauses a beat, which is your chance to run. Standing still, the first bite lands about 11 s after it appears.
+- **Escape is earned**: if you were already safe when it came (at the nest, or with 2 friends nearby, as a new island's hatchlings are), it gets one bite in before "safe" counts. Reaching safety shows a big "🏠 SAFE!" beat and the grump turns tail.
+- **Hunger tuned**: start at about a third full (hunger 0.68). Until you eat, the clock drains 0.0025/s (about 15% a minute); in a body hunger never rises faster than 0.004/s, whatever the chemistry says. One meal (a nibble or food) takes at least 27% off.
+- **The games page passes `?cctest=1` to the game frame**, so the test button shows from `/games/smol-brains/?cctest=1`.
+- **Your first view**: you open your eyes facing open ground toward food (or the nest), not a trunk, and the body turns with it. In a body the light starts 95% adjusted, with a lift by day too.
+- **Click to walk (test mode)**: a click on the crosshair uses; anywhere else walks there (lower on the screen is nearer), and the view levels out instead of tipping up. Test mode doesn't lock the mouse, so one Esc leaves.
+- **One Esc leaves**: outside test mode the browser spends the first Esc on the mouse lock, so a lock lost that way, with the window still focused, now leaves the body too.
+- **The card comes back**: the test button no longer closes the open window, and an open side panel (menu, settings…) is held and reopens when you leave.
+- **Version label**: 13 px and brighter.
+- **Tests**: `threat.test.js` §6 (a bite in under 16 s; 15% of hearts; knockback), §7 (starts a third full; a minute later some left; one meal ≥ 25%), §2b (one bite before safe at the nest).
+
+## 0.37 What v4.9.0 added: "The Last Lantern", phase 1 (K-0041)
+
+Ashton wants smol brains built out into a full, story-driven game: lore for why you're the god in the sky, real cutscenes, and a tutorial that teaches through play. It ships in phases (K-0041 P1-P5), building on the current game, not rewriting it.
+
+**The lore.** The smols are tiny, forgetful creatures living on the back of a sleeping giant, the Hollow. Long ago they lit a Lantern to remember who they are. Each night it burns lower, and as it fades their memories fade too: that's why their brains are smol. **You are the Lantern's last spark**, lifted into the sky by Pip's wish. You can watch and nudge, but you can only touch the world by **lending your light** to one smol (possession). **Grumps** are smols whose light went out; they hunt the light. The long goal (P4-P5): memory embers relight the Lantern in stages, and the finale reveals that the Hollow is waking.
+
+- **The opening** (K-0045: keep the ark battle and the crash pods, and build the lore around them). The ark film (`intro.js`, 22 s) plays first: the smol ark is caught by a grump warship and its pods scatter, one falling toward an unknown world. Then "The Last Lantern" (`lantern.js`, 52 s, pixel art drawn in code at 320×180, smol-speak with subtitles):
+  1. Dusk on the Hollow's back: smols walking in circles, putting berries down and forgetting them, and the Lantern on its hill.
+  2. The pod streaks across the sky and slams into the hill. The Lantern gutters nearly out, and every smol's glow dims with it.
+  3. Pip runs up with the last berry; a grump follows to the edge of the light; Pip trips and the berry rolls into the flame.
+  4. Close up, Pip wishes: "somebody… remember us."
+  5. The flame bursts, and its last spark climbs into the stars: "you are that spark."
+
+  Then the camera drops onto the island (5.5 s), and you have control at about 80 s (measured: 77 s). The crashed pod you open first is that same pod.
+- **When it plays**: always on a device's first new island, even from "play now". After that, "create world" tells the story again and "play now" goes straight in. It can't be skipped the first time (it's the why of the game). After that, or with `?cctest=1`, skipping the ark skips the whole opening.
+- **Mood music** (K-0045): two new layers in the soundtrack's own notation and instruments.
+  - "something out there" (A minor, driving pluck bass, strings) crossfades in over 1.5 s when a grump is near the smol you're in, when the first-minute grump is after you, when your hearts are under 30%, during a raid, for 25 s at nightfall and for 30 s when a grump turns up.
+  - "the sky is strange" (D dorian, bells and music box over a harp) plays for 25 s after a pod crash, an evolution era, a new biome, the big thought, and (coming) the Lantern stages.
+  - Each loops while its moment lasts, then the island's song fades back.
+- **Lore text**: ❓ help opens with the story and has "🏮 watch the last lantern". The tutorial's "why you're here" is rewritten for the spark, and the island title card says "the Hollow. one last Lantern."
+- **Next**: P2 makes the first minutes Pip's scripted first night.
+- **Tests**: `lantern.test.js` (fresh save plays it and can't skip; a repeat can; a playtest can always skip; ark + Lantern + camera drop ≤ 90 s; the story beats, the pod included). `mood.test.js` (both layers are real cues; which moments want which layer).
+
+## 0.38 What v4.9.1 fixed: the bot's v4.8.11 playtest (K-0042)
+
+Fun 6/10 (up from 5.5): "the grump is a real visible threat, eating feels good."
+
+1. **A chase you run home from.** By the nest, the first-minute grump now waits until you're 12 m out (or 40 s more) before it comes. When you're out, it appears on the far side from home, so running from it means running home. The test button starts you 25-40 m from the nest.
+2. **The way home is a big green arrow.** While the grump is after you, the guide marker is a 28 px green diamond labelled "🏠 home 34m" (an arrow at the screen edge when home is behind you).
+3. **No dark start.** It was the "you are …" card: a full-screen 60% dimmer for 4 s. Now it's a small panel up top that doesn't dim the view, gone after 4 s. You never open your eyes inside a bush (you're stepped 1.5 m clear), and friends tag along beside or behind you, not in your face.
+4. **The test button in the games page**: it was there, but the founders dialog sat over it. Now it's lime and bolder, and test mode skips the dialog (item 7).
+5. **Readability.** The vitals numbers are in a plain bold face, 18-26 px, white (the pixel font's 2, 3 and 8 looked alike: "28" read as "87"); low shows as a red badge. The version label is 16 px on a dark chip.
+6. **Sleep is E, not right click**: sleeping in the nest or a hut moved off the click you eat with.
+7. **Test mode skips naming the founders** (they keep their random names; a toast says who).
+- **Tests**: `threat.test.js` §2b (by the nest it waits for you to go out, but still comes), §5b (it comes from further out than you, so home is away from it).
+
+## 0.39 What v4.9.2 added: The Last Lantern, phase 2: the first night (K-0041)
+
+The tutorial is the story: on a new guided island the first minutes are Pip's first night (`firstnight.js`), with no windows. Only what's on the island (a pulse, a growl, Pip's fear) and one two-word hint at a time. State lives in `game.tutorial.night`, saved with the tutorial.
+
+1. **The pod.** The founders' pod (the one that knocked the Lantern down) is there to open, and so is Pip, who made the wish (a Hollow blob). The founders keep their names (no naming window; rename them from their cards).
+2. **Hungry.** Pip is hungry and won't eat alone yet. The nearest berry bush sparkles, and the hint says "🫳 nudge Pip" (grab Pip and carry it over). When Pip eats, the founders copy it: they head to the same bush ("pip-a!"). After 90 s Pip finds it alone.
+3. **Sunset.** The sun goes down over 40 s, with a "🌙 night falls in 0:37" timer. 14 s before dark a grump appears 17-21 m out on the far side from the nest and growls. Pip freezes in fear.
+4. **Lend your light.** The only glowing thing on screen is a big pulsing "🕯 lend your light" button. The grump waits, growling, until you press it.
+5. **The chase.** You're Pip, facing the grump (a "you are Pip" beat, not a card over it).
+   - The grump comes at 90% of your running speed (it follows Pip's own sprint, so running is how you get away).
+   - Within 2.4 m it winds up for 1.5 s ("👹 it's about to pounce! MOVE!"), then pounces 2.6 m: 25% of your hearts if it lands (you can dodge it), never the last quarter.
+   - Three sticks lie on the way home ("🪵 grab sticks", walk over them: your light lends Pip hands it doesn't have yet). With two, the marker says "🔥 light the nest". Reaching the nest lights a campfire, and a grump within 9 m of it turns tail: "🔥 the light scared it off! +2 ✨".
+6. **Dawn** (cutscene 2, 20 s, drawn in code): Pip glowing again by the hill. An ember rises off Pip and flies into the Lantern, which grows: "1 memory ember". The rest of the night passes, and it's morning on day 2. Then the god lessons carry on (reward, words, tricks).
+
+- **Nothing else that night**: no incidents, strangers or second pods. Story cards, banners and tips wait. Achievement toasts arrive after dawn.
+- **The pounce is every scout grump's now**: a 1.5 s wind-up you can see and dodge, then 25% (K-0041's numbers; the rest of P3 tunes the others).
+- **Measured in the browser**: the whole night ran with 0 windows and no errors; dawn on day 2, then "4/7 reward it".
+- **Tests**: `firstnight.test.js` (the steps in order; dark in 40 s; the grump waits while you watch; 90% of your speed; a wind-up then a pounce; two sticks light the nest; the light drives it off; morning on day 2; Pip survives; the first ember).
+
+## 0.40 What v4.9.3 changed: The Last Lantern, phase 3: the numbers (K-0041)
+
+- **Hunger.** In a body the food bar runs down at one steady rate: full to empty in 180 s (0.56%/s), whatever the chemistry says. The first possession starts at 32%. In the sim a full bar lasts about 4-5 minutes (the base rate went from 0.0015 to 0.0034 per second, up to about 0.005 when a smol runs out of sugar). A berry or a bush nibble is 25% (berries were 28%), and cooked food is 60% (was 70%).
+- **The grump.**
+  - Every scout grump winds up for 1.5 s and pounces for 25% (from 4.9.2), and its approach follows the path finder.
+  - A growl plays when any grump comes within 10 m of the smol you're in ("👹 a grump, close by!").
+  - Grumps are big pulsing red dots on the map.
+  - Torches and lit fires (the nest fire from the first night included) scare grumps from 6.5 m (was 4.5).
+- **Possession start.** Full daylight from the first frame (no eye adjustment), facing the objective (food or the nest; the grump on the first night), with a 2 s fade in from black.
+- **Popups.** Nothing for the first 5 minutes (story cards are toasts until 300 s, was 240), on top of the first night's no-windows rule. Event windows still come one at a time.
+- **Knocked out, not dead.** A possessed smol at 0 hearts (hurt, starved, sick or cold; not old age or deep water) is knocked out: it keeps its life and its ideas, drops what it carried where it fell, and lies there out cold. Your light goes back to the sky and needs 30 s before it can lend itself again ("your light is gathering itself: 26 s"). Nothing is wiped.
+- **Checkable in a playtest**: with `?cctest=1` a possessed smol shows the numbers: food and its rate, your sprint and the grump's speed (and its wind-up), the pounce, the fire distance and the KO cooldown.
+- **Tests**: `threat.test.js` §7 (a full bar in about 3 minutes; a meal is a quarter). `possess.test.js` §6 and `survival.test.js` §8 (knocked out, alive, items dropped, ideas kept, 30 s before you can go in again).
+
+## 0.41 What v4.9.4 added: The Last Lantern, phase 4: memory embers and stage 1 (K-0041)
+
+Every memory the smols win back is a **memory ember** (`embers.js`, state in `game.lantern`, saved with the island). The same memory only counts once. Embers relight the Lantern a stage at a time: 5 for stage 1, then 15, 30 and 50 (the finale, P5).
+
+- **What counts.**
+  - Surviving the first night (Pip remembers fire), and each dawn with smols alive.
+  - The first tickle.
+  - The first 3 words and the first 3 tricks.
+  - Each idea discovered, and the first building of each kind.
+  - The first 5 babies and the first 3 couples.
+  - The blob day and the first tool made while possessed.
+- **About 15 minutes to stage 1.** The guided start alone reaches it: the first night and its dawn (2), the reward lesson (a tickle, 3), the first word (4) and the first trick (5).
+- **Feedback.**
+  - Each ember is a toast that says why ("🔥 a memory ember: a word remembered: “mo” (3/5)").
+  - A 🏮 chip by the sparks shows n/next. Tapping it shows the last few memories.
+- **Stage 1.**
+  - A 24 s film, drawn in code like the opening: five embers fly up from the smols into the Lantern, it catches, its light rolls down over the Hollow, and the giant breathes in.
+  - The danger and strange music cue on "lantern". The film waits until you leave a body, and it can always be skipped.
+  - Rewards: +10 ✨, and nights are less dark (12% per stage: warmer, lighter night light; at most 50%).
+- **Measured in the browser**: four embers then a fifth; the chip read 4/5; the film ran, then stage 1, +10 ✨ and the toast; no errors.
+- **Tests**: `embers.test.js` (one ember per memory; tickle once; three words not four; five is stage 1 and the next is 15; ideas and couples; grumps give none; the night light; saved, and old saves start at 0).
+
+## 0.42 What v4.9.5 added: The Last Lantern, phase 5: the story films and the finale (K-0041)
+
+Every story beat now has its own film, drawn in code at 320×180 like the opening (`lantern.js`, `L.SCENES`). Each plays **once per island**, queued for a quiet moment: not while you're in a body, not during the first night, not over a window. All of them can be skipped. The ones you've seen are listed in Help ("🎞 …") to watch again.
+
+| film | when | length |
+|---|---|---|
+| lend your light | pressing "🕯 lend your light" on the first night; then you're Pip (the grump keeps waiting) | 10 s |
+| dawn: the first ember | surviving the first night (4.9.2) | 20 s |
+| the first baby | the first smol hatched on the island (not the founders) | 12 s |
+| the first grump | the first smol that dies alone in the dark, far from a fire | 14 s |
+| Pip grows up | Pip's own first little one hatches (or Pip turns elder) | 13 s |
+| the Lantern: stage 1, 2, 3 | 5, 15 and 30 memory embers | 24 s each |
+| the Hollow wakes | 50 memory embers: the finale | 42 s |
+
+- **The first grump (a new rule).** A smol that dies at night, away from any fire (8 m), while the Lantern is below stage 3, gets up as a grump where it fell ("grump (was Mo)"). It happens the first time only, and never to the smol you're in (you're knocked out instead) or of old age or drowning. Grumps were always "smols whose light went out"; now you see it happen once.
+- **Stages 2 and 3.** The same film as stage 1, with more embers. At stage 3 the giant's eye flickers. Each stage: +10 ✨ × stage, and 12% less night darkness.
+- **The finale (50 embers).** The Lantern blazes, its light runs over the Hollow, the giant opens its eye and lifts its head, and in the light the grumps turn back into smols. In the game:
+  - Every grump on the island goes home, and there are no more grump nights.
+  - Nights are 48% less dark, +40 ✨, and a "🌅 the Hollow wakes" toast. The island carries on.
+- **Measured in the browser**: the full first night with the lend film (button hidden while it plays, then you're Pip and the chase starts). Each film played with its captions and no errors (screenshots `v495-*`).
+- **Tests**: `embers.test.js` §4-5 (each film queued once; the first baby; Pip's little one is Pip growing up; a lonely death at night gets up a grump, only once; fifty embers is the finale; grumps go home; the night light; no more grumps after; saved).
+
+## 0.43 What v4.9.6 changed: the K-0048 playtest fixes
+
+1. **A bite reads.** When a scout grump's pounce lands:
+   - you're thrown back 2.2 m (was 1.2), and the grump staggers 1.6 m back off your face
+   - it stands there for 2.1 s before it can wind up again (was 0.9 s)
+   - a full-screen red "OUCH! −25% ❤" flash and a bigger camera shake
+   Pounces can't come back to back any more: about one every 5-6 s if you stand still, and you can run.
+2. **Lantern stage 3 is its own beat.** Its film (28 s) has the giant's eye opening a crack, big and bright, with the ground shaking. A new line follows ("the nest glows with the Lantern's light now. grumps won't come near it.") and a shot of a grump turning away from the glowing nest. In the game, from stage 3 the nest scares grumps off from 12 m, like a fire.
+3. **Lend your light, centred.** The spark circles, then dives into Pip in the middle of the shot (3-5 s). A flash, then Pip glows and "you are Pip" holds for 4 s (11 s film).
+4. **Films and windows.** A film that starts while a window is open puts the window aside and brings it back afterwards. A window that wants to open during a film waits for it. Event windows never count as ready while a film plays.
+5. **Embers.**
+   - Each one toasts "🔥 memory ember +1: <why> (n of 5)". The toast waits out a film, jumps the toast queue and is never dropped when the queue is full.
+   - The chip reads "🏮 n / 5 embers" in a plain font (the pixel font made 5 look like 8) and pulses on each ember.
+6. **The opening.** A close shot of the crash (story 17.5-21.4 s) shows the pod nose-first in the Lantern's hill, earth thrown up and the Lantern knocked crooked and guttering. The slow stretches play faster: the pan ×1.45, Pip's run ×1.5, the climb ×1.35. The film runs 41.7 s (was 52), and each caption holds until the next.
+7. **Marker labels stay on screen.** A label that would run off an edge is slid back in ("🪵 grab sticks 30m" at the screen edge).
+8. The canvases that read pixels back (icons, survival art) set `willReadFrequently`.
+
+- **Music, self-checked in the browser** (the bot had no audio): a grump arriving brings the danger layer in. Sampled at 0.3 / 0.8 / 1.3 / 2.0 s, the layer went 0.18 → 0.52 → 0.86 → 1.0 while the song went 0.82 → 0.48 → 0.14 → 0: a 1.5 s crossfade. `SB.Music.levels()` is a probe for that.
+- **Tests**: `firstnight.test.js` (after a bite you're ≥3 m apart, and there's no wind-up for 1.8 s). `embers.test.js` §4b (a grump 8 m from the stage-3 nest turns for home).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

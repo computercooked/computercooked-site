@@ -10,7 +10,9 @@
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="preload" href="/assets/fonts/pixelify-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/games/games.css">
@@ -18,50 +20,40 @@
 <body>
   <main class="games-page" style="max-width:720px">
     <header class="games-hero">
-      <p class="eyebrow">last updated 2026-10-19</p>
+      <p class="eyebrow">last updated 2026-10-28</p>
       <h1 class="games-title">privacy <span>(the short version)</span></h1>
     </header>
     <div class="about-card legal">
-      <h2>// playing</h2>
-      <p>you never need an account to play. when you play, your browser keeps a random id (in localStorage, not a cookie) so we can count plays and keep your guest scores together. it also keeps a short list of the games you opened on this device, only to show "jump back in" on the games page; that list never leaves your browser. we record which game, when, how long, your score, whether you finished, what kind of device (phone / tablet / desktop) and roughly where you came from (e.g. "tiktok" or "direct"), plus the campaign name if you arrived through one of our tagged links. we also count page views on this site: which page, where the visit came from and that campaign name, with no player id attached.</p>
+      <h2>playing</h2>
+      <p>you never need an account to play. when you play, your browser keeps a random id (in localStorage, not a cookie) so we can count plays and keep your guest scores together. it also keeps a short list of the games you opened on this device, only to show "jump back in" on the games page; that list never leaves your browser. your guest xp, level and badges are worked out and kept in your browser too; if you make an account or log in, we work out the real xp from the plays we already counted. we record which game, when, how long, your score, whether you finished, what kind of device (phone / tablet / desktop) and roughly where you came from (e.g. "tiktok" or "direct"), plus the campaign name if you arrived through one of our tagged links. we also count page views on this site: which page, where the visit came from and that campaign name, with no player id attached.</p>
       <p>we don't store your ip address, don't fingerprint your device, don't use third-party trackers, analytics companies or ad scripts, and don't sell anything to anyone.</p>
-      <h2>// accounts (13+)</h2>
-      <p>accounts are for people 13 and older. we ask your birth month and year only to check that, and we don't keep it. an account stores your username, a scrambled (hashed) password, your face, favorites, plays, xp, badges and any game saves you make. if you fill them in: a display name, a short bio, a favorite game, an avatar frame and an email address. email is optional, is only for getting back into your account and (if you tick the box) news about new games, and we don't send anything until it's verified. no real names. your profile page at /u/your-name shows your name, face (and frame), level, badges, favorite game and best scores; switch it to private and only your name, face, frame and level show. leaderboards show your display name and link to that page. if you make a "challenge a friend" link, it carries your display name (or guest name) and that run's score, and we count whether it was sent and how many people open and beat it. if you make an account after opening someone's challenge link, we note which link brought you in, and its sender gets xp once you've played a run (they see a count, not your name). if you play one of our games embedded on another site, it runs from computercooked.com inside that page: we count it as a play "from an embed" (not which site), and the other site can't read your scores or saves. if you add friends, we store who you added, who added you and who you blocked; friends can see your scores on a friends leaderboard and, unless your profile is private, your new badges, level-ups, weekly challenge wins and new bests in their friends list. blocking someone is never shown to them. your activity list on /me (badges, weekly challenges, and a few game moments like words your smols learn) is only shown to you. one cookie keeps you logged in; it's only used for that. if you add the games to your home screen (or just play them), your browser keeps copies of the game pages you've opened on your device so they work offline; that copy stays on your device, and clearing site data removes it. plays from the home-screen app are counted as "from the app".</p>
-      <h2>// feedback and leaderboards</h2>
+      <h2>accounts (13+)</h2>
+      <p>accounts are for people 13 and older. we ask your birth month and year only to check that, and we don't keep it. an account stores your username, a scrambled (hashed) password, your face, favorites, plays, xp, badges and any game saves you make. if you fill them in: a display name, a short bio, a favorite game, an avatar frame and an email address. email is optional, is only for getting back into your account and (if you tick the box) news about new games, and we don't send anything until it's verified. no real names. you can change your username once every 30 days; we keep the old one for 30 days so nobody else can grab it, and links to your old profile go to the new one. when you make an account we show you 8 one-time recovery codes for getting back in if you forget your password; we keep only a scrambled (hashed) copy of each, so we can't show them again. if you add a passkey, the secret part stays on your device and we store only its public key, a name like "iphone", and when it was added and last used. your profile page at /u/your-name shows your name, face (and frame), level, badges, favorite game and best scores; switch it to private and only your name, face, frame and level show. leaderboards show your display name and link to that page. if you make a "challenge a friend" link, it carries your display name (or guest name) and that run's score, and we count whether it was sent and how many people open and beat it. if you make an account after opening someone's challenge link, we note which link brought you in, and its sender gets xp once you've played a run (they see a count, not your name). if you play one of our games embedded on another site, it runs from computercooked.com inside that page: we count it as a play "from an embed" (not which site), and the other site can't read your scores or saves. if you add friends, we store who you added, who added you and who you blocked; friends can see your scores on a friends leaderboard and, unless your profile is private, your new badges, level-ups, weekly challenge wins and new bests in their friends list. blocking someone is never shown to them. your activity list on /me (badges, weekly challenges, and a few game moments like words your smols learn) is only shown to you. one cookie keeps you logged in; it's only used for that. if you add the games to your home screen (or just play them), your browser keeps copies of the game pages you've opened on your device so they work offline; that copy stays on your device, and clearing site data removes it. plays from the home-screen app are counted as "from the app".</p>
+      <h2>new-game emails</h2>
+      <p>if you put your email in the "new games, in your inbox" box (no account needed), we keep that address, which page you signed up on, when, and the wording you agreed to, in our own database and nowhere else. it's only for one email when a new game drops, never more than once a week. every email has an unsubscribe link; unsubscribing stops them straight away. want the address removed completely? email <a href="mailto:hello@computercooked.com">hello@computercooked.com</a>.</p>
+      <h2>feedback and leaderboards</h2>
       <p>feedback you send and names on leaderboards are stored with the game. don't put personal info in them. leaderboard names are filtered and can be reported; we hide anything nasty.</p>
-      <h2>// uploads</h2>
+      <h2>uploads</h2>
       <p>games you upload are checked by a person before anyone else can see them, and run in a locked-down sandbox on a separate site.</p>
-      <h2>// deleting stuff</h2>
-      <p>want a copy of your data, or your account gone? on <a href="/me/">your profile</a> you can download everything we store about you, or delete your account and all of it for good (challenge links you already shared stop working as dares, though a name typed into a link stays in that link). locked out? email <a href="mailto:hello@computercooked.com">hello@computercooked.com</a> with your username and we'll help. clearing your browser's site data removes your guest id.</p>
-      <h2>// ads</h2>
+      <h2>deleting stuff</h2>
+      <p>want a copy of your data, or your account gone? on <a href="/me/">your profile</a> you can download everything we store about you, or delete your account and all of it for good (challenge links you already shared stop working as dares, though a name typed into a link stays in that link). forgot your password? use one of your recovery codes on <a href="/me/">your profile</a> page. no codes left? email <a href="mailto:hello@computercooked.com">hello@computercooked.com</a> with your username and we'll help. clearing your browser's site data removes your guest id.</p>
+      <h2>ads</h2>
       <p>there are no ads yet. if that changes, this page changes first, and any ads will use child-safe settings.</p>
-      <h2>// tips</h2>
+      <h2>tips</h2>
       <p>if a "tip the computer" link shows, it opens Stripe's own payment page in a new tab. tips are for adults (18+, or ask a parent). we never see card details. we count taps on the link and returns from a finished tip (which page, where the visit came from), but not who tapped or how much.</p>
     </div>
   </main>
-  <footer class="footer"><p>© 2026 Computer Cooked · <a href="/about/">about</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p></footer>
+  <footer class="footer"><p>© 2026 Computer Cooked · <span class="made-by">made by <a href="https://bushgrowth.com/projects">Bush Development &amp; Growth</a></span> · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/merch/">merch</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p></footer>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
-      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
-      </button>
-      <a class="deck-link" href="/" data-key="h">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
-      </a>
-      <a class="deck-link" href="/games/" data-key="g">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
-        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
-      </a>
-      <a class="deck-link" href="/#follow" data-key="f">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
-      </a>
-      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
-        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
-      </a>
+      <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
+      <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
+      <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
+      <a class="deck-link deck-daily" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <a class="deck-link" href="/lab/" data-key="l"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 15h10" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">lab</span></a>
+      <a class="deck-link" href="/log/" data-key="k"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">log</span></a>
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
+      <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>
   </nav>
   <script src="/assets/deck.js" defer></script>

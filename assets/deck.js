@@ -8,7 +8,7 @@
   // outside referrer (so tiktok.com → hub → game still counts as tiktok). Tags come off the URL once read.
   (function () {
     var TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
-      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky" };
+      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal" };
     try {
       var u = new URL(location.href), q = u.searchParams;
       var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
@@ -61,7 +61,17 @@
           fetch("/api/hit", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
         } catch (err) {}
       };
-      hit("pageview");
+      // first page view of the day says whether this browser is new or back (only the last-seen day is kept)
+      var day = new Date().toDateString(), last = localStorage.getItem("cc-seen");
+      if (last !== day) localStorage.setItem("cc-seen", day);
+      hit("pageview", last === day ? null : { vis: last ? "back" : "new" });
+      // time on page: visible time only, sent once when the tab is hidden or closed
+      var shown = document.visibilityState === "visible" ? Date.now() : 0, seen = 0, left = false;
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") { shown = Date.now(); return; }
+        if (shown) { seen += Date.now() - shown; shown = 0; }
+        if (!left) { left = true; hit("leave", { ms: seen }); }
+      });
       if (thanks && !sessionStorage.getItem("cc-tipped")) { sessionStorage.setItem("cc-tipped", "1"); hit("tip_success"); window.ccTipThanks = true; }
     } catch (e) {}
   })();
@@ -69,9 +79,7 @@
   var deck = document.querySelector(".deck");
   if (!deck) return;
 
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-
+  
   var TIKTOK = "https://www.tiktok.com/@computercooked";
   var COMMANDS = [
     { name: "home", hint: "the main page", href: "/" },
@@ -114,29 +122,27 @@
     "exit": "there is no exit. only esc.",
     "fix": "fixing is not on the roadmap.",
     "hello": "hi. the fans are loud today, sorry.",
-    "ls": "home  games  follow  ideas  regrets/"
+    "ls": "home  games  daily  me  regrets/"
   };
 
   /* ---------- active page ---------- */
-  var path = location.pathname;
+  // the longest matching link wins, so /games/daily/ lights "daily", not "games" too
+  var path = location.pathname, best = null, bestLen = -1;
   deck.querySelectorAll(".deck-link").forEach(function (a) {
     var href = a.getAttribute("href");
     var on = href === "/" ? (path === "/" || path === "/index.html") : (href.charAt(0) === "/" && href.indexOf("#") < 0 && path.indexOf(href) === 0);
-    if (on) a.setAttribute("aria-current", "page");
+    if (on && href.length > bestLen) { best = a; bestLen = href.length; }
   });
+  if (best) best.setAttribute("aria-current", "page");
 
-  /* ---------- hover magnetism ---------- */
-  if (finePointer && !reduceMotion) {
-    deck.querySelectorAll(".deck-link, .deck-cmd").forEach(function (el) {
-      el.addEventListener("pointermove", function (e) {
-        var r = el.getBoundingClientRect();
-        var dx = (e.clientX - (r.left + r.width / 2)) / r.width;
-        var dy = (e.clientY - (r.top + r.height / 2)) / r.height;
-        el.style.translate = (dx * 8).toFixed(1) + "px " + (dy * 6).toFixed(1) + "px";
-      });
-      el.addEventListener("pointerleave", function () { el.style.translate = ""; });
-    });
+  /* ---------- account: "log in", or your name once the API says who you are ---------- */
+  var acct = deck.querySelector("[data-account-label]");
+  if (acct && !/^\/(admin)\//.test(path)) {
+    fetch("/api/me", { credentials: "same-origin" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (j && j.user && j.user.username) { acct.textContent = j.user.username; acct.closest("a").setAttribute("aria-label", "your account: " + j.user.username); }
+    }).catch(function () {});
   }
+
 
   /* ---------- command bar ---------- */
   var dialog = document.createElement("dialog");
@@ -247,18 +253,61 @@
     var a = keys[e.key.toLowerCase()];
     if (a) { e.preventDefault(); a.click(); }
   });
+})();
 
-  /* ---------- first screen of the hub and the landing (K-0020) ---------- */
-  // On wide screens the floating deck sat over the first row of game cards. While the page is at the very top it
-  // rests below the screen; any scroll, or tabbing into it, brings it back ("/" and the shortcut keys always work).
-  if (document.body.hasAttribute("data-deck-rest")) {
-    var rest = function () {
-      document.documentElement.classList.toggle("cc-deck-rest", window.innerWidth >= 1000 && window.scrollY < 40 && !deck.contains(document.activeElement));
-    };
-    window.addEventListener("scroll", rest, { passive: true });
-    window.addEventListener("resize", rest);
-    deck.addEventListener("focusin", rest);
-    deck.addEventListener("focusout", function () { setTimeout(rest, 0); });
-    rest();
+/* K-0044 redesign: any game card on any page (hub, game pages, search) plays the game's clip over its thumbnail on
+   hover or keyboard focus. Clips come from games.json, fetched on the first hover. Off for reduced motion and touch. */
+(function () {
+  "use strict";
+  if (!window.matchMedia || matchMedia("(prefers-reduced-motion: reduce)").matches || !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  var clips = null, asked = false;
+  function load(cb) {
+    if (clips) return cb();
+    if (asked) return;
+    asked = true;
+    fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
+      clips = {};
+      (d.games || []).forEach(function (g) { if (g.clip) clips[g.slug] = g.clip; });
+      cb();
+    }).catch(function () { clips = {}; });
   }
+  var cur = null;
+  function start(a) {
+    var m = /\/games\/([a-z0-9-]+)\/?/.exec(a.getAttribute("href") || ""), img = a.querySelector("img.game-thumb");
+    if (!m || !img) return;
+    load(function () {
+      var src = clips[m[1]];
+      if (!src || cur !== a) return;
+      var v = a.querySelector("video.cc-peek");
+      if (!v) {
+        v = document.createElement("video");
+        v.className = "cc-peek"; v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute("aria-hidden", "true"); v.src = src;
+        v.style.cssText = "position:absolute;left:" + img.offsetLeft + "px;top:" + img.offsetTop + "px;width:" + img.offsetWidth + "px;height:" + img.offsetHeight + "px;object-fit:cover;image-rendering:pixelated;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .2s";
+        if (getComputedStyle(a).position === "static") a.style.position = "relative";
+        a.appendChild(v);
+      }
+      v.play().then(function () { if (cur === a) v.style.opacity = "1"; }).catch(function () {});
+    });
+  }
+  function stop(a) { var v = a && a.querySelector("video.cc-peek"); if (v) { v.style.opacity = "0"; try { v.pause(); } catch (e) {} } }
+  function over(e) {
+    var a = e.target.closest && e.target.closest(".game-card a.game-link, a.game-card-inner");
+    if (a === cur) return;
+    stop(cur); cur = a;
+    if (a) start(a);
+  }
+  document.addEventListener("pointerover", over, { passive: true });
+  document.addEventListener("focusin", over);
+})();
+
+// The stage (assets/stage.js): embers, the phosphor glow, lit card rims and boot-in. Loaded once the page is idle so
+// it never slows the first paint; it skips itself on home, in game players and under reduced motion.
+(function () {
+  if (window.self !== window.top || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  function go() {
+    var s = document.createElement("script"); s.src = "/assets/stage.js"; s.async = true;
+    document.head.appendChild(s);
+  }
+  function idle() { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 2500 }) : setTimeout(go, 1200); }
+  document.readyState === "complete" ? idle() : addEventListener("load", idle);
 })();

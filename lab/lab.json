@@ -1,0 +1,25 @@
+{
+  "updated": "2026-10-29",
+  "pipeline": [
+    { "stage": "building", "title": "goose court", "note": "a goose is on trial. you are the judge. the goose has a lawyer." },
+    { "stage": "next", "title": "whatever wins the vote", "note": "the top idea below gets built next. one vote each, change it any time." },
+    { "stage": "shipped", "title": "cooked sweeper", "slug": "cooked-sweeper", "note": "minesweeper.exe has a virus. the numbers are virus power." },
+    { "stage": "shipped", "title": "haunted self-checkout", "slug": "haunted-self-checkout", "note": "scan the groceries. never scan the ones with eyes." },
+    { "stage": "shipped", "title": "a new look for the arcade", "note": "a living crt desktop homepage, the computer everywhere, glowing new game pages." },
+    { "stage": "shipped", "title": "accounts that level up", "note": "guest xp from your first run, levels, faces, weekly xp board." },
+    { "stage": "shipped", "title": "reel weird", "slug": "reel-weird", "note": "a 60-second fishing run in a cursed pond." },
+    { "stage": "shipped", "title": "smol brains", "slug": "smol-brains", "note": "an island of tiny creatures with real neural-network brains." },
+    { "stage": "shipped", "title": "+1 ram every second", "slug": "plus-one-ram", "note": "you gain +1 mb every second. eat smaller numbers." }
+  ],
+  "poll": {
+    "id": "next-game-1",
+    "question": "which one should we build next?",
+    "options": [
+      { "id": "gary-weather", "title": "the computer vs. the weather", "pitch": "pick a disaster, watch the computer survive it for 0.4 seconds." },
+      { "id": "microwave", "title": "rate my microwave", "pitch": "hold to cook. let go before it explodes. every item has a secret perfect time." },
+      { "id": "checkout", "title": "unexpected item", "pitch": "a self-checkout that gets more unhinged with every scan." },
+      { "id": "parallel-park", "title": "parallel park hell", "pitch": "one tap to park. the space shrinks every time you make it." },
+      { "id": "group-chat", "title": "ghost your group chat", "pitch": "dodge every notification for 10 seconds without opening one." }
+    ]
+  }
+}

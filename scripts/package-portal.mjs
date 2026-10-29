@@ -4,7 +4,8 @@
 // Makes dist/portals/<portal>/<slug>/ and dist/portals/<portal>/<slug>.zip:
 //   the game's play/ folder + cc-sdk.js + native/portal.js (the adapter), relative paths only, plus the portal's
 //   own SDK script for CrazyGames and Poki (GameDistribution's is loaded by portal.js, after its options).
-// itch.io and Newgrounds need no SDK: the adapter runs as "none" and links stay allowed there.
+// itch.io and Newgrounds need no SDK: the adapter runs as "none" and links stay allowed there. On those two only, after
+// a run, a small card offers "xp, levels and boards: play on computercooked.com" (K-0030 step 7); ad portals get none.
 // Nothing is uploaded: accounts and submissions are Ashton's (docs/portals.md, "waiting on Ashton").
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -34,7 +35,7 @@ cpSync(join(ROOT, "games/cc-sdk.js"), join(out, "cc-sdk.js"));
 cpSync(join(ROOT, "native/portal.js"), join(out, "portal.js"));
 
 let html = readFileSync(join(out, "index.html"), "utf8");
-const cfg = JSON.stringify({ name: DRIVER[portal], gdGameId: gdId || undefined });
+const cfg = JSON.stringify({ name: DRIVER[portal], portal, slug, gdGameId: gdId || undefined });
 const sdkTag = html.match(/<script src="\/games\/cc-sdk\.js"([^>]*)><\/script>/);
 if (!sdkTag) { console.error("index.html doesn't load /games/cc-sdk.js; check it by hand"); process.exit(1); }
 // the adapter loads the same way the SDK did (defer or not), straight after it, so the game sees both in order

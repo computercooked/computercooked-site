@@ -25,6 +25,15 @@ if ((freshAsked(location.search) || freshAsked(parentQ)) && store.get(SAVE_KEY))
   if (!store.get(UNDO_KEY)) store.set(UNDO_KEY, store.get(SAVE_KEY));
   store.del(SAVE_KEY);
 }
+// K-0036: the flag comes off the URL straight away (here and on the game page), so reloading keeps this run's progress
+const unfresh = (w) => {
+  try {
+    if (!freshAsked(w.location.search)) return;
+    const u = new URL(w.location.href); u.searchParams.delete('fresh');
+    w.history.replaceState(w.history.state, '', u.pathname + (u.search === '?' ? '' : u.search) + u.hash);
+  } catch (e) { /* other origin */ }
+};
+unfresh(window); if (window.parent !== window) unfresh(window.parent);
 let S = E.deserialize(store.get(SAVE_KEY) || '') || E.newState();
 const firstVisit = !store.get(SAVE_KEY);
 if (firstVisit && store.get('bellchain.save.v1')) { S.veteran = true; E.earn(S, 500); }
@@ -84,7 +93,7 @@ $('cv').addEventListener('pointerdown', (e) => {
   const r = $('cv').getBoundingClientRect();
   tapAt(e.clientX - r.left, e.clientY - r.top);
 });
-window.addEventListener('keydown', (e) => {
+function onKey(e) {
   if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
   // K-0029: Space and the scroll keys are the game's; a page around it (the embed's host) must not scroll
   if (e.code === 'Space' || /^(Arrow(Up|Down|Left|Right)|PageUp|PageDown)$/.test(e.key)) e.preventDefault();
@@ -94,29 +103,47 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === 'm' || e.key === 'M') toggleMute();
   if (e.key === 'Escape') closeModals();
-});
+}
+window.addEventListener('keydown', onKey);
+// K-0036: on /games/bellchain/ the keyboard focus is usually the page, not this iframe. Same origin, so listen there
+// too, but only while the game is on screen and the key isn't meant for something on the page.
+try {
+  const host = window.parent !== window && window.frameElement ? window.parent : null;
+  if (host) host.document.addEventListener('keydown', (e) => {
+    if (e.target && (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
+    const fr = window.frameElement.getBoundingClientRect();
+    if (fr.height < 50 || fr.bottom < 50 || fr.top > host.innerHeight - 50) return;
+    onKey(e);
+  });
+} catch (e) { /* other origin: keys only reach the game once it has focus */ }
 
 // ---------- golden bells ----------
-// K-0028: the first golden bell of a first run comes early and always pays out, a payoff inside the first 30 s
+// K-0028: the first golden bell of a first run comes early and always pays out, a payoff inside the first 30 s.
+// K-0034: its clock starts at the first tap (not page load, so a slow start can't miss it), it stays longer, and
+// one that slips away uncaught on a first run comes back sooner.
 const firstGolden = () => S.goldenClicks === 0 && S.ascensions === 0;
-const goldenStart = () => (firstGolden() ? 18 : Math.min(40, E.goldenDelay(S)));
+const goldenStart = () => (firstGolden() ? 12 : Math.min(40, E.goldenDelay(S)));
 let goldenIn = goldenStart();
 function spawnGolden() {
   const m = stage.bs * 1.6;
   const g = { x: m + Math.random() * (stage.w - 2 * m), y: 70 + Math.random() * Math.max(10, stage.h - 140), t: 0, life: E.CFG.goldenLife, scale: 1.35 };
-  // the first one (a first run's early payoff) is big, sits clear of the great bell and stays the full 13 s
-  if (firstGolden()) { g.scale = 1.9; g.x = stage.cx + (Math.random() < 0.5 ? -1 : 1) * Math.min(stage.w * 0.3, stage.gs * 2.6); g.y = Math.max(90, stage.cy - stage.gs * 1.2); }
+  // K-0036: the first one (a first run's early payoff) pops in right over the great bell and waits there until it's
+  // rung, so the next tap or Space press anywhere on the bell catches it
+  if (firstGolden()) { g.life = Infinity; g.scale = 2.2; g.pop = true; g.x = stage.cx; g.y = stage.cy - stage.gs * 0.15; }
   stage.golden = g;
+  // a bright little arpeggio so you hear it even while looking at the shop (K-0034)
+  [9, 11, 13].forEach((d, i) => music.play('crystal', d, now() + i * 0.08, 0.9));
 }
 function catchGolden() {
   const gb = stage.golden;
   stage.golden = null;
   const ef = firstGolden() ? { kind: 'lucky', gain: 100, label: 'lucky · +100' } : E.goldenEffect(S);
   S.goldenClicks++;
-  if (ef.kind === 'lucky') { E.earn(S, ef.gain); if (gb) stage.tapGreat(gb.x, gb.y, '+' + E.fmt(ef.gain), true); refreshShop(); }
-  else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); }
+  if (ef.kind === 'lucky') { E.earn(S, ef.gain); stage.goldBurst('+' + E.fmt(ef.gain)); refreshShop(); }
+  else { buffs = buffs.filter((b) => b.kind !== ef.kind); buffs.push({ kind: ef.kind, mult: ef.mult, until: S.playSec + ef.dur, label: ef.label.split(' · ')[0] }); stage.goldBurst(ef.label.split(' · ')[0]); }
+  toast(`golden bell! ${ef.label}`, 3500);
   [0, 2, 4, 7, 9].forEach((d, i) => music.play('glock', d + 7, now() + i * 0.06, 0.9));
-  stage.showBanner(ef.label, 'golden bell', '#ffe14a', 2.4); stage.flash = 0.3;
+  stage.showBanner(ef.label, 'golden bell', '#ffe14a', gb && gb.pop ? 3.5 : 2.4); stage.flash = 0.3;
   sdk((c) => c.event && c.event('golden', { kind: ef.kind }));
   buzz(25);
 }
@@ -132,7 +159,14 @@ document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('cli
 document.querySelectorAll('.amt button').forEach((b) => b.addEventListener('click', () => { S.buyAmt = +b.dataset.amt; document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on', x === b)); refreshShop(true); }));
 document.querySelectorAll('.amt button').forEach((x) => x.classList.toggle('on', +x.dataset.amt === S.buyAmt));
 
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
+// a long toast (the golden bell's) isn't cut short: anything shown meanwhile waits its turn (K-0038)
+function toast(msg, ms) {
+  const wait = (toast.lock || 0) - Date.now();
+  if (wait > 0 && !ms) { setTimeout(() => toast(msg), wait + 50); return; }
+  const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h);
+  if (ms) toast.lock = Date.now() + ms;
+  toast.h = setTimeout(() => t.classList.remove('on'), ms || 2200);
+}
 
 // shop
 const bldEls = {};
@@ -209,8 +243,33 @@ function pulseNext() {
   document.querySelectorAll('#pane-shop .pulse').forEach((el) => { if (el !== best) el.classList.remove('pulse'); });
   if (best) best.classList.add('pulse');
 }
+// K-0034: always something to aim for. The two cheapest things you can't afford yet (an upgrade in the slots, a bell
+// you've seen, or the next mallet / acoustics upgrade before it unlocks), with how close you are.
+const goalEls = [...document.querySelectorAll('#goal .goal')];
+function refreshGoals() {
+  const cands = [];
+  for (const el of upSlots) { const u = E.UP_BY_ID[el.dataset.id || '']; if (u) cands.push({ name: u.name, cost: u.cost }); }
+  for (const b of E.BUILDINGS) { const el = bldEls[b.id]; if (!el.hidden && !el.classList.contains('mystery')) cands.push({ name: b.name, cost: E.costOf(S, b.id, 1) }); }
+  for (const kind of ['mallet', 'echo']) {
+    const u = E.UPGRADES.find((x) => x.kind === kind && !S.ups[x.id] && !x.req(S));
+    if (u) cands.push({ name: u.name, cost: u.cost });
+  }
+  const next = cands.filter((x) => x.cost > S.res).sort((a, b) => a.cost - b.cost).slice(0, 2);
+  goalEls.forEach((el, i) => {
+    const g = next[i];
+    el.style.visibility = g ? '' : 'hidden';
+    if (!g) return;
+    el.querySelector('b').textContent = g.name;
+    el.querySelector('i').textContent = E.fmt(g.cost);
+    el.querySelector('em').style.width = Math.min(100, (100 * S.res) / g.cost).toFixed(1) + '%';
+  });
+}
+// K-0040: after the first buy, empty slots go invisible but keep their place, so nothing reflows under a click
+function compactSlots() { $('ups').classList.toggle('bought', Object.keys(S.ups).length > 0); }
 function refreshShop(force) {
   fillSlots();
+  compactSlots();
+  refreshGoals();
   upSlots.forEach((el) => { const u = E.UP_BY_ID[el.dataset.id || '']; el.classList.toggle('poor', !!u && S.res < u.cost); });
   let shownNext = false;
   for (const b of E.BUILDINGS) {
@@ -464,8 +523,8 @@ function frame(tms) {
       music.tempoMult = buffs.some((b) => b.kind === 'frenzy') ? 1.25 : buffs.some((b) => b.kind === 'encore') ? 1.12 : 1;
     } else music.tempoMult = 1;
     // golden bell
-    if (stage.golden) { if (stage.golden.t > stage.golden.life) stage.golden = null; }
-    else if ((goldenIn -= dt) <= 0) { if (firstGolden()) toast('a golden bell! tap it.'); spawnGolden(); goldenIn = E.goldenDelay(S); }
+    if (stage.golden) { if (stage.golden.t > stage.golden.life) { stage.golden = null; if (firstGolden()) goldenIn = 20; } }
+    else if ((S.taps > 0 || S.goldenClicks > 0 || S.ascensions > 0) && (goldenIn -= dt) <= 0) { if (firstGolden()) toast('a golden bell! ring it.'); spawnGolden(); goldenIn = E.goldenDelay(S); }
     // the band
     music.update(now(), S.owned);
     stage.bandIds = E.BUILDINGS.filter((b) => S.owned[b.id]).map((b) => b.id);

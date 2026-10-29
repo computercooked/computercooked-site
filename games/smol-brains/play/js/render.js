@@ -1114,6 +1114,12 @@
     }
     env.sun = lit.sun.slice(); env.sky = lit.sky.slice(); env.gnd = lit.gnd.slice(); env.fog = lit.fog.slice();
     env.sunDir = lit.sunDir.slice(); env.night = lit.night;
+    var ll = SB.Embers && SB.Game && SB.Game.current ? SB.Embers.nightLight(SB.Game.current) : 0; // the Lantern's light: nights get less dark, a stage at a time
+    if (ll > 0 && env.night > 0.01) {
+      var lk = env.night * ll, warm = [0.42, 0.36, 0.26];
+      env.sun = SB.mixC(env.sun, warm, lk); env.gnd = SB.mixC(env.gnd, warm.map(function (v) { return v * 0.6; }), lk); env.sky = SB.mixC(env.sky, [0.16, 0.14, 0.22], lk * 0.6);
+      env.night = lit.night * (1 - ll);
+    }
     env.cloud = lit.cloud; env.rain = lit.rain; env.wind = lit.wind;
     env.snow = world ? world.snowCover || 0 : 0; env.autumn = world ? world.autumn || 0 : 0; env.freeze = world ? world.freeze || 0 : 0;
     env.wet += ((env.rain > 0.1 ? 1 : 0) - env.wet) * (dt > 0 ? 1 - Math.exp(-dt * 0.6) : 0);
@@ -1125,9 +1131,10 @@
     // first person: the eyes adjust. a smol's own view at night or under storm cloud is dim, never black
     // (eased over about 1.5 s, like real eyes, instead of switching on: K-0021 saw "dark, then suddenly bright")
     var povTo = cam && cam.pov ? 1 : 0;
+    if (povTo === 1) povAdj = 1; // in: adjusted from the first frame (K-0037/K-0039: dim and murky at the start)
     povAdj = snap || !(dt > 0) ? povTo : povAdj + (povTo - povAdj) * (1 - Math.exp(-dt / 1.5));
     if (povAdj > 0.002) {
-      var dk = Math.max(env.night, oc * 0.6) * povAdj, add = [0.1, 0.11, 0.17];
+      var dk = (Math.max(env.night, oc * 0.6) * 1.3 + 0.3) * povAdj, add = [0.1, 0.11, 0.17]; // a smol's eyes: a lift by day too
       env.sky = env.sky.map(function (v, i) { return v + dk * add[i]; });
       env.gnd = env.gnd.map(function (v, i) { return v + dk * add[i] * 0.5; });
     }

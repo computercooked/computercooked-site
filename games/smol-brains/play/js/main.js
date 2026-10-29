@@ -494,6 +494,7 @@
     if (SB.Funeral) SB.Funeral.tick(game, dt);
     if (SB.Orders) SB.Orders.tick(game, dt);
     if (SB.FirstHour) SB.FirstHour.tick(game, dt);
+    if (SB.FirstNight) SB.FirstNight.tick(game, dt);
     if (SB.Tricks && !game.offline) SB.Tricks.tick(game, dt);
     if (SB.Quests && !game.offline) SB.Quests.tick(game, dt);
     if (SB.Civ) SB.Civ.tick(game, dt);
@@ -655,11 +656,11 @@
 
   /* ---------------- offline progress ---------------- */
 
-  // how much sim time to grant for real time away: 1:1 for 10 minutes, then much slower, max 75 sim minutes
+  // how much sim time to grant for real time away: 1:1 for 10 minutes, then much slower, max one island day (20 sim minutes)
   Game.offlineBudget = function (awaySec) {
     if (!(awaySec > 60)) return 0;
     var a = Math.min(awaySec, 3600 * 12);
-    return Math.min(4500, Math.min(a, 600) + Math.max(0, a - 600) / 8);
+    return Math.min(SB.DAY_LENGTH, Math.min(a, 600) + Math.max(0, a - 600) / 8);
   };
   // run the sim fast (coarse step, chunked so the page stays responsive). cb(report) at the end.
   Game.OFFLINE_WALL_MS = 8000; // real-time cap on the catch-up (tests lift it so a busy machine still sims it all)

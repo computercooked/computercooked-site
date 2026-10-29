@@ -834,6 +834,11 @@
     return base;
   }
   C.speedOf = speedOf;
+  C.runSpeed = function (c) { return speedOf(c, null) * 1.75 * (c.tier === 0 ? 1.1 : 1); }; // a possessed smol's sprint (possess.js)
+  C.FIRE_SCARE = 6.5; // torches and the nest fire keep grumps off from here (was 4.5)
+  C.BITE_HOLD = 2.1; C.BITE_KNOCK = 2.2; // after a bite: how long it stands there, how far you're thrown (K-0048: "a beat of knockback so the player can still run")
+  C.NEST_GLOW = 12; // Lantern stage 3: grumps won't come within this of the nest
+  C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
 
   // step toward (tx, tz); steer around water and cliffs; returns true when arrived
@@ -1638,6 +1643,7 @@
 
   function die(c, game, cause) {
     if (!c.alive) return;
+    if (c._pov && c.species === "smol" && SB.Possess && SB.Possess.ko && SB.Possess.ko(c, cause)) return; // K-0041: a possessed smol is knocked out, not killed
     c.alive = false; c.dying = true; c.fade = 0; c.asleep = false;
     if (c.plan) endPlan(c, game, false);
     dropAll(c, game);
@@ -1818,9 +1824,54 @@
       }
     }
 
+    // a scout grump (possess.js: the first minute in a blob) chases the smol you're in, day or night. it stings,
+    // but it never takes the last quarter of a heart bar, and it gives up when possess.js says so
+    if (c.species === "grump" && c.scout && !c.scout.done) {
+      var sc = c.scout, prey = SB.Game.byId(game, sc.who);
+      sc.t += dt; sc.hitT = Math.max(0, (sc.hitT || 0) - dt);
+      if (!prey || !prey.alive) sc.done = true;
+      else {
+        c.asleep = false; c.action = null; c.goingHome = false;
+        if (sc.hold) { sc.t = 0; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); if (Math.random() < dt * 0.4) emote(c, "angry", 1.2); positionHeld(c, game); finishTick(c, game, gy); return; } // lurking: eyes in the dark, waiting
+        if (sc.t < 3) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); emote(c, "angry", 0.5); positionHeld(c, game); finishTick(c, game, gy); return; } // it spots you and growls first (K-0033: "appeared in my face")
+        if (sc.hitT > 0.9) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); positionHeld(c, game); finishTick(c, game, gy); return; } // a beat after a bite: your chance to run
+        if (sc.wind > 0) { // the tell: it crouches and shakes for 1.5 s, then pounces at where you are
+          sc.wind -= dt; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); c.anim.squash = 0.25;
+          if (sc.wind <= 0) {
+            var gap = SB.dist(c.x, c.z, prey.x, prey.z), jump = Math.min(C.LUNGE_REACH, Math.max(0, gap - 0.8)), ja = Math.atan2(prey.x - c.x, prey.z - c.z);
+            var jx = c.x + Math.sin(ja) * jump, jz = c.z + Math.cos(ja) * jump;
+            if (SB.World.walkable(w, jx, jz)) { c.x = jx; c.z = jz; }
+            if (SB.dist(c.x, c.z, prey.x, prey.z) < 1.5) bite();
+            else { sc.hitT = 1.0; SB.bus.emit("scoutMiss", { c: prey, g: c }); } // dodged it
+          }
+          positionHeld(c, game); finishTick(c, game, gy); return;
+        }
+        walkToward(c, prey.x, prey.z, dt, sc.speedK ? C.runSpeed(prey) * sc.speedK : Math.max(1.7, speedOf(prey, null) * 1.2), game, 0.9);
+        sc.growlT = (sc.growlT || 0) - dt;
+        if (sc.growlT <= 0) { sc.growlT = 3 + Math.random() * 2; emote(c, "angry", 1); SB.bus.emit("scoutGrowl", { c: prey, g: c }); }
+        if (SB.dist(c.x, c.z, prey.x, prey.z) < C.LUNGE_AT && !sc.hitT) { sc.wind = C.LUNGE_WIND; emote(c, "angry", 1.6); SB.bus.emit("scoutWindup", { c: prey, g: c }); }
+        positionHeld(c, game); finishTick(c, game, gy);
+        return;
+      }
+      function bite() {
+        {
+          sc.hitT = C.BITE_HOLD + 0.9; sc.hits = (sc.hits || 0) + 1;
+          prey.chem.health = Math.max(0.25, prey.chem.health - (sc.dmg || C.LUNGE_DMG));
+          var ka = Math.atan2(prey.x - c.x, prey.z - c.z), kx = prey.x + Math.sin(ka) * C.BITE_KNOCK, kz = prey.z + Math.cos(ka) * C.BITE_KNOCK; // knocked back
+          if (SB.World.walkable(w, kx, kz)) { prey.x = kx; prey.z = kz; }
+          var bx = c.x - Math.sin(ka) * 1.6, bz = c.z - Math.cos(ka) * 1.6; // and it staggers back, off your face (K-0048)
+          if (SB.World.walkable(w, bx, bz)) { c.x = bx; c.z = bz; }
+          SB.Chem.apply(prey.chem, { fear: 0.3, pain: 0.2 });
+          emote(c, "angry", 1);
+          SB.bus.emit("scoutHit", { c: prey, g: c });
+        }
+      }
+    }
+    if (c.species === "grump" && c.scout && c.scout.done) { c.scout = null; c.goingHome = true; }
     // grumps go home at dawn (or when shooed, or when they see fire)
     if (c.species === "grump") {
-      var fire = SB.World.nearestFire(w, c.x, c.z, 4.5);
+      var fire = SB.World.nearestFire(w, c.x, c.z, C.FIRE_SCARE);
+      if (!fire && game.lantern && game.lantern.stage >= 3 && w.T && w.T.nest && SB.dist(c.x, c.z, w.T.nest.x, w.T.nest.z) < C.NEST_GLOW) fire = w.T.nest; // the Lantern's light on the nest
       if (fire && c.raider && SB.Threats && SB.Threats.gear(game).torches) fire = null; // raiders with torches of their own aren't scared of your fire
       var spear = false;
       SB.World.creaturesNear(w, game, c.x, c.z, 2.5, function (o) { if (o.species === "smol" && o.tool != null) { var t = SB.Game.byId(game, o.tool); if (t && (t.kind === "spear" || t.kind === "torch")) spear = true; } });

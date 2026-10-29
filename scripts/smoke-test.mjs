@@ -98,7 +98,7 @@ ok(r.ok, "feedback");
 // challenge-a-friend links: made from your own accepted run, verified when someone beats it
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
 const dare = r;
-ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$/.test(r.long_url) && /can you beat 40 on CRASH\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
+ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$/.test(r.long_url) && /can you beat 40 on crash?\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
 r = await post("/api/dare", { play_id: p1, anon: "someone-else-" + rid() });
 ok(r.status === 404, "can't make a dare from someone else's run", r.status);
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
@@ -151,7 +151,7 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slides = typeof build === "function" ? build(ours, newest, feat) : [];
   const bad = slides.filter((s) => {
     const g = byTitle(s.title);
-    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title + " ▶" || s.art !== g.thumbnail;
+    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title || s.art !== g.thumbnail;
   });
   ok(slides.length >= 2 && bad.length === 0 && (!feat || slides[0].slug === feat.game), "hub spotlight: each slide's button href, link and art match its title's game", { slides: slides.map((s) => s.slug), bad: bad.map((s) => s.title) });
 }
@@ -220,14 +220,14 @@ ok(r.ok, "a downloaded share card counts as a send method");
 let page = await (await get("/games/crash/")).text();
 ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
-ok(/property="og:title" content="can you beat 40 on CRASH\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
 // search: every game page carries VideoGame JSON-LD, a how-to-play card and a "games like X" row of links
 page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
 ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
 ok(/how to play fathom/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
-ok(/games like fathom/.test(like) && (like.match(/class="play-btn" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
+ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
 // installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
@@ -262,7 +262,7 @@ ok(r.ok && (await r.text()).includes('src="/games/crash/play/"'), "CRASH embeds 
 r = await get("/games/crash/play/");
 ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors *" && (await r.text()).includes("crash.js"), "CRASH /play/ is served and frameable");
 page = await (await get("/games/crash/")).text();
-ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play CRASH/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && page.includes('data-version="2"'),
+ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play crash/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && page.includes('data-version="2"'),
   "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2");
 r = await get("/games/crash/crash.js");
 ok(r.status === 404, "the old inline CRASH script is gone", r.status);
@@ -282,7 +282,7 @@ ok(r.ok && r.featured?.game && r.featured.title && r.featured.game !== chNow?.ga
 
 if (!local) console.log("SKIP (live: no accounts) signup, login, xp, profiles, saves, friends, dares by accounts, referrals, delete account");
 else {
-  const u = "smoke" + Math.floor(Math.random() * 1e6);
+  let u = "smoke" + Math.floor(Math.random() * 1e6);
   r = await (await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2015, birth_month: 1 })).json();
   ok(r.under13 === true, "under-13 gets no account", r);
   r = await post("/api/auth/signup", { username: "fuckface", password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1 });
@@ -290,19 +290,112 @@ else {
   r = await post("/api/auth/signup", { username: u, password: "pw-for-smoke-1", birth_year: 2000, birth_month: 1, anon });
   let cookie = (r.headers.get("set-cookie") || "").split(";")[0];
   ok(r.ok && /HttpOnly/i.test(r.headers.get("set-cookie") || ""), "signup sets httpOnly cookie");
+  // K-0030 step 5: recovery codes (8, shown once at sign-up, each works once) and passkeys
+  {
+    const sb = await r.json();
+    const codes = sb.recovery_codes || [];
+    ok(codes.length === 8 && codes.every((c) => /^[0-9a-hjkmnp-tv-z]{4}-[0-9a-hjkmnp-tv-z]{4}-[0-9a-hjkmnp-tv-z]{4}$/.test(c)) && new Set(codes).size === 8, "signup returns 8 recovery codes", codes.length);
+    let rc = await (await get("/api/me/recovery", { cookie })).json();
+    ok(rc.ok && rc.left === 8, "8 recovery codes left", rc);
+    rc = await post("/api/auth/recover", { username: u, code: "0000-0000-0000", password: "pw-for-smoke-1" });
+    ok(rc.status === 401, "recover: wrong code refused", rc.status);
+    rc = await post("/api/auth/recover", { username: u, code: " " + codes[0].toUpperCase().replace(/-/g, " ") + " ", password: "pw-for-smoke-1" });
+    const rcBody = await rc.json();
+    ok(rc.ok && rcBody.left === 7 && /HttpOnly/i.test(rc.headers.get("set-cookie") || ""), "recover: a code (any case/spacing) resets the password and logs in", rcBody);
+    ok((await (await get("/api/me", { cookie })).json()).user === null, "recover: logs out other sessions");
+    cookie = (rc.headers.get("set-cookie") || "").split(";")[0];
+    rc = await post("/api/auth/recover", { username: u, code: codes[0], password: "pw-for-smoke-1" });
+    ok(rc.status === 401, "recover: a used code stops working", rc.status);
+    rc = await post("/api/me/recovery", { password: "wrong-password" }, { cookie });
+    ok(rc.status === 401, "new recovery codes need the password", rc.status);
+    rc = await (await post("/api/me/recovery", { password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(rc.ok && rc.codes.length === 8 && !rc.codes.includes(codes[1]), "new recovery codes made", rc.codes && rc.codes.length);
+    rc = await post("/api/auth/recover", { username: u, code: codes[1], password: "pw-for-smoke-1" });
+    ok(rc.status === 401, "recover: old codes stop working after new ones are made", rc.status);
+    rc = await (await get("/api/me/export", { cookie })).json();
+    ok(/^8 unused/.test(rc.recovery_codes) && !JSON.stringify(rc).includes(codes[2]), "export counts recovery codes without showing them", rc.recovery_codes);
+
+    // passkeys: a software P-256 key plays the authenticator
+    const { generateKeyPairSync, createHash, sign } = await import("node:crypto");
+    const b64u = (b) => Buffer.from(b).toString("base64url");
+    const sha = (b) => createHash("sha256").update(b).digest();
+    const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+    const credId = b64u(Buffer.from(rid()));
+    const host = new URL(base).hostname, origin = new URL(base).origin;
+    const authData = (flags, count) => { const c = Buffer.alloc(4); c.writeUInt32BE(count); return Buffer.concat([sha(host), Buffer.from([flags]), c]); };
+    let pk = await post("/api/me/passkey/options", { password: "wrong-password" }, { cookie });
+    ok(pk.status === 401, "adding a passkey needs the password", pk.status);
+    pk = await (await post("/api/me/passkey/options", { password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(pk.ok && pk.publicKey.rp.id === host && pk.publicKey.authenticatorSelection.residentKey === "required", "passkey options", pk.publicKey && pk.publicKey.rp);
+    const regCd = b64u(JSON.stringify({ type: "webauthn.create", challenge: pk.publicKey.challenge, origin }));
+    const reg = { id: credId, clientDataJSON: regCd, authenticatorData: b64u(authData(0x45, 0)), publicKey: b64u(publicKey.export({ type: "spki", format: "der" })), alg: -7, label: "smoke key" };
+    pk = await (await post("/api/me/passkey", reg, { cookie })).json();
+    ok(pk.ok && pk.passkeys.length === 1 && pk.passkeys[0].label === "smoke key", "passkey added", pk);
+    pk = await post("/api/me/passkey", reg, { cookie });
+    ok(pk.status === 400, "a passkey challenge works once", pk.status);
+    const assertion = async (count, tamper) => {
+      const o = await (await post("/api/auth/passkey/options", {})).json();
+      const cd = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: o.publicKey.challenge, origin }));
+      const ad = authData(0x05, count);
+      const sig = sign("sha256", Buffer.concat([ad, sha(cd)]), privateKey); // DER, like a real authenticator
+      return { id: credId, clientDataJSON: b64u(cd), authenticatorData: b64u(tamper ? authData(0x05, count + 1) : ad), signature: b64u(sig) };
+    };
+    let as = await assertion(1);
+    pk = await post("/api/auth/passkey", as);
+    const pkBody = await pk.json();
+    ok(pk.ok && pkBody.user?.username === u && /HttpOnly/i.test(pk.headers.get("set-cookie") || ""), "passkey log-in", pkBody.user);
+    pk = await post("/api/auth/passkey", as);
+    ok(pk.status === 401, "a passkey log-in can't be replayed", pk.status);
+    pk = await post("/api/auth/passkey", await assertion(5, true));
+    ok(pk.status === 401, "a passkey log-in with a bad signature is refused", pk.status);
+    pk = await post("/api/auth/passkey", await assertion(1));
+    ok(pk.status === 401, "a passkey counter that doesn't go up is refused", pk.status);
+    pk = await (await post("/api/me/passkey/delete", { id: credId }, { cookie })).json();
+    ok(pk.ok && pk.passkeys.length === 0, "passkey removed", pk);
+    pk = await post("/api/auth/passkey", await assertion(9));
+    ok(pk.status === 401, "a removed passkey can't log in", pk.status);
+  }
   r = await (await get("/api/me", { cookie })).json();
   ok(r.user?.username === u, "me after signup");
-  // level unlocks: a level 1 account can't wear or use locked cosmetics
+  // K-0030 step 3: username changes: password needed, once per 30 days, old name held and redirected, boards follow
+  {
+    const nu = "smokeR" + Math.floor(Math.random() * 1e6);
+    r = await post("/api/me/username", { username: nu, password: "wrong-password" }, { cookie });
+    ok(r.status === 401, "rename needs the password", r.status);
+    r = await (await post("/api/me/username", { username: nu, password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(r.ok && r.username === nu && r.next_change > Date.now() + 29 * 86400000, "rename works and sets the 30-day wait", r);
+    const old = u; u = nu;
+    r = await (await get("/api/u/" + old)).json();
+    ok(r.moved === nu, "old profile link points to the new name", r);
+    r = await post("/api/me/username", { username: nu + "x", password: "pw-for-smoke-1" }, { cookie });
+    ok(r.status === 429, "a second rename within 30 days waits", r.status);
+    r = await (await post("/api/me/username", { username: nu.toLowerCase(), password: "pw-for-smoke-1" }, { cookie })).json();
+    ok(r.ok, "changing only capitals is always allowed", r);
+    u = r.username || u;
+    r = await (await get("/api/me", { cookie })).json();
+    ok(r.user?.username === u, "me shows the new name");
+  }
+  // level unlocks: an account can't wear or use cosmetics above its level (sign-up replays this device's guest runs, K-0030 step 1)
   r = await (await get("/api/me/profile", { cookie })).json();
-  ok(r.level === 1 && r.cosmetics?.length >= 5 && r.cosmetics.every((c) => !c.unlocked), "cosmetics listed, all locked at level 1", r.cosmetics?.map((c) => c.id + "@" + c.level));
-  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-crown" }, { cookie });
+  ok(r.level >= 1 && r.level < 8 && r.cosmetics?.length >= 5 && r.cosmetics.every((c) => c.unlocked === (c.level <= r.level)), "cosmetics listed, unlocked up to the account's level", r.cosmetics?.map((c) => c.id + "@" + c.level));
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-halo" }, { cookie });
   ok(r.status === 403, "locked accessory refused", r.status);
   r = await post("/api/me/avatar", { avatar: "x:happy-1-0-cap" }, { cookie });
   ok(r.ok, "free accessory still works");
+  // K-0030 step 4: new free parts work, new locked parts (moods, colours) wait for their level
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-beanie" }, { cookie });
+  ok(r.ok, "new free accessory (beanie) works");
+  r = await post("/api/me/avatar", { avatar: "x:sleepy-0-0-none" }, { cookie });
+  ok(r.status === 403, "locked mood refused (sleepy, level 22)", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-11-0-none" }, { cookie });
+  ok(r.status === 403, "locked screen colour refused (sky, level 23)", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-12-0-none" }, { cookie });
+  ok(r.status === 400, "unknown screen colour refused", r.status);
+  r = await post("/api/me/avatar", { avatar: "x:happy-1-0-cap" }, { cookie });
   r = await post("/api/me/profile", { theme: "gold" }, { cookie });
   ok(r.status === 403, "locked profile color refused", r.status);
-  r = await post("/api/me/profile", { frame: "pixel" }, { cookie });
-  ok(r.status === 403, "locked avatar frame refused at level 1", r.status);
+  r = await post("/api/me/profile", { frame: "golden" }, { cookie });
+  ok(r.status === 403, "locked avatar frame refused", r.status);
   r = await post("/api/me/profile", { frame: "sparkly" }, { cookie });
   ok(r.status === 400, "unknown avatar frame refused", r.status);
   r = await (await post("/api/me/favorite", { game: "crash", on: true }, { cookie })).json();
@@ -312,14 +405,41 @@ else {
   ok(typeof r.streak_saved === "boolean", "summary says whether a streak saver was used", r.streak_saved);
   r = await post("/api/auth/login", { username: u, password: "wrong-password" });
   ok(r.status === 401, "wrong password refused");
-  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1" });
-  ok(r.ok, "login");
+  // K-0030 step 1: a guest's runs on another device earn real xp when they log in there (the server replays the plays)
+  const anon2 = "smoke-" + rid(), g2 = rid();
+  await post("/api/events", { anon: anon2, events: [{ t: "start", id: g2, game: "crash", v: "1" }] });
+  const g2r = await (await post("/api/events", { anon: anon2, events: [{ t: "end", id: g2, game: "crash", score: 40, dur: 12000, completed: true }] })).json();
+  ok(g2r.results?.[g2]?.xp === undefined && g2r.results?.[g2]?.players >= 1, "guest run: no server xp, but rank and players for the device preview", g2r.results?.[g2]);
+  r = await post("/api/auth/login", { username: u, password: "pw-for-smoke-1", anon: anon2 });
+  const lx = (await r.clone().json()).xp;
+  ok(r.ok && lx && lx.replayed === 1 && lx.gained >= 10, "login replays guest plays for real xp", lx && { gained: lx.gained, replayed: lx.replayed, level: lx.level });
+  // K-0030 step 6: Daily 3 pays +60 once a day when all three are finished; weekly xp board across games
+  {
+    const run = async (game) => {
+      const id = rid();
+      await post("/api/events", { anon, events: [{ t: "start", id, game, v: "1" }] }, { cookie });
+      return (await (await post("/api/events", { anon, events: [{ t: "end", id, game, dur: 15000, completed: true }] }, { cookie })).json()).results?.[id]?.xp;
+    };
+    const d3 = (x) => (x?.parts || []).find((p) => p.kind === "daily3");
+    const a1 = await run("crash-test-daily"), a2 = await run("desktop-jam");
+    ok(a1 && a2 && !d3(a1) && !d3(a2), "daily 3: no bonus before all three are done");
+    const a3 = await run("fathom");
+    ok(d3(a3)?.xp === 60, "daily 3: finishing all three pays +60", a3?.parts);
+    const a4 = await run("fathom");
+    ok(a4 && !d3(a4), "daily 3: the bonus pays once a day");
+    let wk = await (await get("/api/xp/week", { cookie })).json();
+    const mine = wk.rows?.find((x) => x.me);
+    ok(wk.ok && /^\d{4}-W\d\d$/.test(wk.week) && wk.resets_at > Date.now() && (mine ? mine.xp >= 60 && mine.u === u : wk.you?.xp >= 60), "weekly xp board shows this account", mine || wk.you);
+    wk = await (await get("/api/xp/week")).json();
+    ok(wk.ok && wk.you === null && wk.rows.every((x) => !x.me && x.u && typeof x.level === "number"), "weekly xp board for guests: rows, no 'you'");
+  }
   // XP and levels (slice B): a logged-in 12s run of CRASH
   const ev = (events) => post("/api/events", { anon, events }, { cookie }).then((x) => x.json());
   const run = async (dur, score) => { const id = rid(); await ev([{ t: "start", id, game: "crash" }]); return { id, r: await ev([{ t: "end", id, game: "crash", score, dur, completed: true }]) }; };
   let x = await run(12000, 40);
   const xp1 = x.r.results?.[x.id]?.xp;
-  ok(xp1 && xp1.gained >= 10 + 25 + 5 && xp1.parts.some((p) => p.kind === "first") && xp1.parts.some((p) => p.kind === "streak"), "xp: base + first play + streak", xp1 && { gained: xp1.gained, level: xp1.level, title: xp1.title, parts: xp1.parts.map((p) => p.kind + ":" + p.xp) });
+  // first-play and today's streak xp were already paid by the replay above, so this run pays the play xp
+  ok(xp1 && xp1.gained >= 10 && xp1.parts.some((p) => p.kind === "play") && !xp1.parts.some((p) => p.kind === "first"), "xp: base for the run (first + streak not paid twice)", xp1 && { gained: xp1.gained, level: xp1.level, title: xp1.title, parts: xp1.parts.map((p) => p.kind + ":" + p.xp) });
   r = await ev([{ t: "end", id: x.id, game: "crash", score: 40, dur: 12000, completed: true }]);
   ok(!r.results?.[x.id], "xp: an ended play can't be paid twice");
   x = await run(4000, 10);
@@ -365,7 +485,7 @@ else {
   ok(r.profile.frame === "pixel" && r.cosmetics.some((c) => c.kind === "frame" && c.id === "pixel" && c.unlocked), "avatar frame read back, listed as unlocked");
   r = await (await post("/api/me/avatar", { avatar: "x:happy-2-0-cap" }, { cookie })).json();
   ok(r.ok, "avatar: built face accepted");
-  r = await post("/api/me/avatar", { avatar: "x:happy-9-0-cap" }, { cookie });
+  r = await post("/api/me/avatar", { avatar: "x:happy-12-0-cap" }, { cookie });
   ok(r.status === 400, "avatar: bad built face refused", r.status);
   r = await (await get("/api/u/" + u)).json();
   ok(r.ok && r.display_name === "Smoke Tester" && r.badges[0]?.id === "rate_game" && r.highs.some((h) => h.game === "crash") && r.level >= 1 && r.frame === "pixel", "public profile (with frame)", { level: r.level, title: r.title, badges: r.badges?.length, highs: r.highs?.length });
@@ -626,6 +746,56 @@ if (admin) {
   r = await (await get("/api/admin/challenge", { authorization: "Bearer " + admin })).json();
   const handLast = (await (await get("/api/admin/challenge?date=" + new Date(Date.now()).toISOString().slice(0, 10), { authorization: "Bearer " + admin })).json()).pick?.game;
   ok(r.ok && r.pick && r.pick.game && r.pick.target > 0 && r.pick.xp === 100 && (r.source !== "auto (not stored yet)" || r.pick.game !== handLast), "next week has a challenge (hand or auto, not this week's game)", r);
+}
+
+// K-0031 phase two pages: the homepage, /lab and /log are filled on the server from their JSON files
+{
+  const home = await (await get("/")).text();
+  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('class="card2') && !home.includes("gary-entry"),
+    "homepage: one play button, featured game, lab strip, cooked desktop, no gary");
+  const labHtml = await (await get("/lab/")).text();
+  ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");
+  // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
+  const logHtml = await (await get("/log/")).text();
+  ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
+  const gr = await fetch(base + "/gary/", { redirect: "manual" });
+  ok(gr.status === 301 && new URL(gr.headers.get("location"), base).pathname === "/log/", "/gary/ redirects to /log/", gr.status);
+  const sup = await get("/support/");
+  ok(sup.ok && /coming soon/.test(await sup.text()), "/support is up (supporter tier marked coming soon)");
+  // phase three: about = meet the computer + the lab (K-0048: gary is out), merch is a stub with nothing for sale, every game has its pixel cover
+  const ab = await (await get("/about/")).text();
+  ok(/meet the computer and the lab/.test(ab) && !/gary/i.test(ab) && (ab.match(/class="cast-card"/g) || []).length === 3, "/about introduces the computer, the cooked log and the lab, no gary");
+  ok(!/href="\/gary\/"/.test(home + ab + labHtml) && /href="\/log\/" data-key="k"/.test(home), "the nav links the cooked log, not gary");
+  const mr = await (await get("/merch/")).text();
+  ok(/not open yet/.test(mr) && !/checkout|add to cart|buy\.stripe/i.test(mr), "/merch is a stub with nothing for sale");
+  const cat = (await (await get("/games/games.json")).json()).games.filter((g) => g.made_by === "computer-cooked");
+  const covers = await Promise.all(cat.map((g) => get(g.thumbnail).then((r) => r.ok && /png/.test(r.headers.get("content-type") || ""))));
+  ok(cat.every((g) => /\/cover\.png(\?v=\d+)?$/.test(g.thumbnail)) && covers.every(Boolean), "every game uses its pixel-art cover", cat.length);
+  ok((await get("/assets/daily-card.js")).ok, "daily 3 result card script is served");
+}
+
+// email signup (K-0031): local only, so no smoke address ever lands in the live list
+if (local) {
+  // /lab vote: one per player, changeable; smoke voters are never counted
+  const voter = "smoke-" + rid();
+  const v0 = await (await get("/api/lab/votes?anon=" + voter)).json();
+  const v1 = await (await post("/api/lab/vote", { anon: voter, option: "microwave" })).json();
+  const v2 = await (await post("/api/lab/vote", { anon: voter, option: "checkout" })).json();
+  ok(v0.ok && v0.mine === null && v1.ok && v1.mine === "microwave" && v2.mine === "checkout" && v2.total === v0.total, "lab vote: changeable, smoke votes not counted", { v0: v0.total, v2: v2.total });
+  ok((await post("/api/lab/vote", { anon: voter, option: "nope" })).status === 400, "lab vote rejects an unknown option");
+  ok((await post("/api/subscribe", { email: "nope", consent: true })).status === 400, "signup rejects a bad email");
+  ok((await post("/api/subscribe", { email: "smoke-" + rid() + "@example.com" })).status === 400, "signup needs consent");
+  const se = "smoke-" + rid() + "@example.com";
+  const s1 = await (await post("/api/subscribe", { email: se, source: "landing", consent: true })).json();
+  const s2 = await (await post("/api/subscribe", { email: se.toUpperCase(), source: "landing", consent: true })).json();
+  ok(s1.ok && s2.ok, "signup stores an email (a repeat answers the same)");
+  ok((await get("/api/unsubscribe?t=bad")).status === 400, "unsubscribe rejects a malformed link");
+  const un = await get("/api/unsubscribe?t=" + rid() + rid());
+  ok(un.status === 200 && /unsubscribed/.test(await un.text()), "unsubscribe page answers (no way to probe tokens)");
+  if (admin) {
+    const m = await (await get("/api/admin/metrics?since=2026-01-01", { authorization: "Bearer " + admin })).json();
+    ok(typeof m.totals?.subscribers === "number" && m.totals.subscribers >= 1, "admin metrics: subscriber count", m.totals?.subscribers);
+  }
 }
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

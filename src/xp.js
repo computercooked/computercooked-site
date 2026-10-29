@@ -43,6 +43,16 @@ export const SITE_ACH = {
   dare_beat: { name: "took the bait", desc: "beat someone's dare", xp: 40 },
 };
 
+// K-0030 step 6: finishing all three Daily 3 games in a day (UTC) pays a bonus, once a day
+export const DAILY3 = ["crash-test-daily", "desktop-jam", "fathom"];
+export const DAILY3_XP = 60;
+async function daily3Days(env, userId) {
+  const { results } = await env.DB.prepare(
+    `SELECT day FROM plays WHERE user_id = ? AND completed = 1 AND ended_at IS NOT NULL AND duration_ms >= ? AND game IN (${DAILY3.map(() => "?").join(",")}) GROUP BY day HAVING COUNT(DISTINCT game) = ?`
+  ).bind(userId, 10000, ...DAILY3, DAILY3.length).all();
+  return new Set(results.map((r) => r.day));
+}
+
 export const RULES = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
 
 // one row per grant; (user_id, kind, ref) is unique, so a retried request never pays twice
@@ -109,6 +119,17 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
     if (g) parts.push({ kind: "challenge", xp: g, week: ch.week });
   }
 
+  if (DAILY3.includes(play.game)) {
+    const { results } = await env.DB.prepare(
+      `SELECT DISTINCT game FROM plays WHERE user_id = ? AND day = ? AND completed = 1 AND duration_ms >= ? AND game IN (${DAILY3.map(() => "?").join(",")})`
+    ).bind(user.id, day, RULES.minMs, ...DAILY3).all();
+    const got = new Set(results.map((r) => r.game).concat(play.game));
+    if (DAILY3.every((x) => got.has(x))) {
+      g = await grant(env, user.id, "daily3", null, day, DAILY3_XP, t);
+      if (g) parts.push({ kind: "daily3", xp: g });
+    }
+  }
+
   const unlocked = [];
   const firsts = await env.DB.prepare("SELECT COUNT(*) n FROM xp_events WHERE user_id = ? AND kind = 'first'").bind(user.id).first("n");
   if (firsts >= 5) unlocked.push(await unlock(env, user.id, "site", "play_5", t));
@@ -132,6 +153,95 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
 
   const gained = parts.reduce((s, p) => s + p.xp, 0);
   return progress(before, gained, { parts, achievements: achs });
+}
+
+// K-0030 step 1: guests see XP on their device straight away (games/platform.js works it out with these RULES).
+// When they sign up or log in, their guest plays move to the account (auth.js linkAnon) and this pays the real XP
+// from those plays, in order, from server data only: nothing the device claims is trusted. Pays play XP (base +
+// how the score ranks on today's all-time board, with the per-game daily cap), first-time and streak XP, then
+// the site badges those plays earned. Grants are unique per (user, kind, ref), so it never pays twice.
+export async function replayGuest(env, userId, playIds) {
+  if (!playIds.length) return null;
+  const before = await totalXp(env, userId);
+  const ids = playIds.slice(-300);
+  const plays = [];
+  for (let i = 0; i < ids.length; i += 90) {
+    const chunk = ids.slice(i, i + 90);
+    const { results } = await env.DB.prepare(
+      `SELECT id, game, score, duration_ms, ended_at, day FROM plays WHERE user_id = ? AND completed = 1 AND ended_at IS NOT NULL AND duration_ms >= ? AND id IN (${chunk.map(() => "?").join(",")})`
+    ).bind(userId, RULES.minMs, ...chunk).all();
+    plays.push(...results);
+  }
+  if (!plays.length) return null;
+  plays.sort((a, b) => a.ended_at - b.ended_at);
+
+  // boards (all players' bests) for the games involved, to rank each replayed score
+  const boards = {};
+  for (const g of [...new Set(plays.map((p) => p.game))]) {
+    const { results } = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player").bind(g).all();
+    boards[g] = results.map((r) => r.b);
+  }
+  const scored = new Set();
+  for (let i = 0; i < plays.length; i += 90) {
+    const chunk = plays.slice(i, i + 90).map((p) => p.id);
+    const { results } = await env.DB.prepare(`SELECT play_id FROM scores WHERE hidden = 0 AND play_id IN (${chunk.map(() => "?").join(",")})`).bind(...chunk).all();
+    results.forEach((r) => scored.add(r.play_id));
+  }
+  const days = new Set((await env.DB.prepare("SELECT DISTINCT day FROM plays WHERE user_id = ?").bind(userId).all()).results.map((r) => r.day));
+  const used = {};
+  for (const r of (await env.DB.prepare("SELECT day, game, SUM(amount) x FROM xp_events WHERE user_id = ? AND kind = 'play' GROUP BY day, game").bind(userId).all()).results) used[r.day + "|" + r.game] = r.x;
+  const hadFirst = new Set((await env.DB.prepare("SELECT ref FROM xp_events WHERE user_id = ? AND kind = 'first'").bind(userId).all()).results.map((r) => r.ref));
+
+  const rows = [], bests = {};
+  let maxStreak = 0, bestRank = Infinity, newBest = false, marathon = false;
+  for (const p of plays) {
+    let pct = 0;
+    if (p.score != null && scored.has(p.id)) {
+      const board = boards[p.game] || [];
+      const rank = board.filter((b) => b > p.score).length + 1;
+      bestRank = Math.min(bestRank, rank);
+      pct = Math.round(RULES.pctMax * (1 - (rank - 1) / Math.max(1, board.length)));
+      if (bests[p.game] != null && p.score > bests[p.game]) newBest = true;
+      bests[p.game] = Math.max(bests[p.game] ?? -Infinity, p.score);
+    }
+    const k = p.day + "|" + p.game;
+    const playXp = Math.min(RULES.base + pct, Math.max(0, RULES.perGameDayCap - (used[k] || 0)));
+    used[k] = (used[k] || 0) + playXp;
+    if (playXp > 0) rows.push(["play", p.game, p.id, playXp, p]);
+    if (!hadFirst.has(p.game)) { hadFirst.add(p.game); rows.push(["first", p.game, p.game, RULES.first, p]); }
+    const streak = streakFrom(days, p.day).n;
+    maxStreak = Math.max(maxStreak, streak);
+    rows.push(["streak", null, p.day, RULES.streakStep * Math.min(streak, RULES.streakMax), p]);
+    if (p.duration_ms >= 600000) marathon = true;
+  }
+  // Daily 3 days these plays completed (counting the account's own plays that day too)
+  const replayDays = new Set(plays.map((p) => p.day));
+  for (const d of await daily3Days(env, userId)) {
+    if (replayDays.has(d)) rows.push(["daily3", null, d, DAILY3_XP, { day: d, ended_at: Date.parse(d + "T12:00:00Z") }]);
+  }
+  for (let i = 0; i < rows.length; i += 50) {
+    await env.DB.batch(rows.slice(i, i + 50).map(([kind, game, ref, amount, p]) =>
+      env.DB.prepare("INSERT OR IGNORE INTO xp_events (user_id, kind, game, ref, amount, day, ts) VALUES (?,?,?,?,?,?,?)")
+        .bind(userId, kind, game, String(ref), Math.round(amount), p.day, p.ended_at)));
+  }
+
+  const t = now();
+  const firsts = await env.DB.prepare("SELECT COUNT(*) n FROM xp_events WHERE user_id = ? AND kind = 'first'").bind(userId).first("n");
+  const runs = await env.DB.prepare("SELECT COUNT(*) n FROM plays WHERE user_id = ? AND ended_at IS NOT NULL AND completed = 1").bind(userId).first("n");
+  const earned = [
+    ["first_run", runs >= 1], ["play_5", firsts >= 5], ["play_10", firsts >= 10], ["play_15", firsts >= 15],
+    ["streak_3", maxStreak >= 3], ["streak_7", maxStreak >= 7], ["streak_30", maxStreak >= 30],
+    ["runs_25", runs >= 25], ["runs_100", runs >= 100],
+    ["top_10", bestRank <= 10], ["top_3", bestRank <= 3], ["rank_1", bestRank === 1],
+    ["new_best", newBest], ["marathon", marathon],
+  ];
+  const achs = [];
+  for (const [id, ok] of earned) if (ok) { const a = await unlock(env, userId, "site", id, t); if (a) achs.push(a); }
+  let total = await totalXp(env, userId);
+  for (const [id, L] of [["level_5", 5], ["level_10", 10]]) {
+    if (levelOf(total).level >= L) { const a = await unlock(env, userId, "site", id, t); if (a) { achs.push(a); total += a.xp; } }
+  }
+  return progress(before, total - before, { achievements: achs, replayed: plays.length });
 }
 
 export function progress(before, gained, extra = {}) {

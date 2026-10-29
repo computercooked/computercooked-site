@@ -9,15 +9,15 @@ import { pickFeatured } from "./featured.js";
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 export function hubCard(g, i) {
-  const tags = (g.tags || []).map((t) => `<li>${esc(t)}</li>`).join("");
+  const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
   const isNew = g.added && Date.now() - Date.parse(g.added) < 14 * 86400000;
-  return `<li class="game-card"><div class="game-card-inner">` +
-    `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="400" height="300" loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
-    `<div class="game-body">` + (isNew ? `<span class="game-new">new</span>` : "") +
-    `<h3 class="game-name">${esc(g.title)}</h3><p class="game-pitch">${esc(g.pitch)}</p>` +
-    (tags ? `<ul class="game-tags" aria-label="tags">${tags}</ul>` : "") +
-    `<a class="play-btn" href="/games/${encodeURIComponent(g.slug)}/" aria-label="play ${esc(g.title)}">play ▶</a>` +
-    `</div></div></li>`;
+  // K-0031: the whole card is the link; no per-card button
+  return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/">` +
+    `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
+    `<span class="game-body">` + (isNew ? `<span class="game-new">new</span>` : "") +
+    `<h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span>` +
+    (tags ? `<span class="game-tags">${tags}</span>` : "") +
+    `</span></a></li>`;
 }
 
 export async function hubPage(req, env, url) {
@@ -58,7 +58,7 @@ export async function hubPage(req, env, url) {
       .on(".spot-screen img", { element(e) { e.setAttribute("src", feat.thumbnail); } })
       .on(".spot-name", txt(feat.title))
       .on(".spot-pitch", txt(feat.pitch))
-      .on("a.hero-play", { element(e) { e.setAttribute("href", href); e.setInnerContent(`play ${feat.title} ▶`); } });
+      .on("a.hero-play", { element(e) { e.setAttribute("href", href); e.setInnerContent(`play ${feat.title}`); } });
   }
   return rw.transform(page);
 }

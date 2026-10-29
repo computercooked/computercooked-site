@@ -11,7 +11,7 @@ import { relation } from "./friends.js";
 import { needLevel, cosmeticsFor, FRAMES } from "./cosmetics.js";
 import { eventDef } from "./social.js";
 
-export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper", "mint", "pink", "gold", "chrome"];
+export const THEMES = ["lime", "lilac", "hot", "ice", "cooked", "paper", "mint", "pink", "gold", "chrome", "sunset", "grape", "aqua", "rose", "lemon", "ember"];
 const BADGE_RE = /^[a-z0-9-]{1,40}:[a-z0-9_-]{1,40}$/;
 
 async function row(env, userId) {
@@ -126,6 +126,8 @@ export async function exportData(env, user) {
     dares: await q("SELECT id, game, score, from_name, opens, beats, created_at FROM dares WHERE from_user = ? ORDER BY created_at"),
     joined_from_dare: await q("SELECT dare_id, created_at, credited_at FROM referrals WHERE new_user = ?"),
     players_brought_in: await q("SELECT created_at, credited_at FROM referrals WHERE sender = ? ORDER BY created_at"),
+    recovery_codes: (await env.DB.prepare("SELECT COUNT(*) n FROM recovery_codes WHERE user_id = ? AND used_at IS NULL").bind(user.id).first("n")) + " unused (codes are stored hashed and can't be shown)",
+    passkeys: await q("SELECT label, created_at, last_used FROM passkeys WHERE user_id = ? ORDER BY created_at"),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: {
@@ -138,6 +140,13 @@ export async function exportData(env, user) {
 export async function publicProfile(env, username, origin, viewer) {
   if (typeof username !== "string" || !/^[A-Za-z0-9_]{3,16}$/.test(username)) return bad("no such player", 404);
   const u = await env.DB.prepare("SELECT id, username, avatar, status, created_at FROM users WHERE username = ?").bind(username).first();
+  if (!u) {
+    // K-0030 step 3: a name changed in the last 30 days points to the new one
+    const m = await env.DB.prepare(
+      "SELECT u.username FROM username_history h JOIN users u ON u.id = h.user_id WHERE h.old_name = ? AND h.changed_at > ? AND u.status = 'active' ORDER BY h.changed_at DESC LIMIT 1"
+    ).bind(username, Date.now() - 30 * 86400000).first("username");
+    if (m) return json({ ok: false, error: "this player has a new name", moved: m }, 404);
+  }
   if (!u || u.status !== "active") return bad("no such player", 404);
   const p = shape(await row(env, u.id));
   const xp = levelOf(await totalXp(env, u.id));

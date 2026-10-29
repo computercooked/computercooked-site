@@ -73,11 +73,13 @@ for (const b of BUILDINGS) {
   UPGRADES.push({ id: `cresc_${i}`, name: ['crescendo', 'fortissimo', 'sforzando', 'too loud'][i], cost,
     desc: `each echo hop +${Math.round(CFG.crescStep * 100)}%`, req: (s) => s.earnedRun >= cost * 0.3, kind: 'cresc' });
 });
-// the first mallet is the first buy (K-0020, K-0029): 5, about 5 taps, doubles a tap inside the first 10 seconds
-[5, 250, 1200, 6000, 3e4].forEach((cost, i) => {
+// the first mallet is the first buy (K-0020, K-0029, K-0034): 4, so the 4th tap affords it, doubling a tap in the first seconds
+[4, 250, 1200, 6000, 3e4].forEach((cost, i) => {
   UPGRADES.push({ id: `mallet_${i}`, name: ['foam mallet', 'wooden mallet', 'rubber mallet', 'brass mallet', 'sledgehammer'][i], cost,
     desc: 'taps +1 base resonance', req: (s) => s.earnedRun >= cost * 0.3, kind: 'mallet' });
 });
+// K-0036: a second early buy, so there's something every few taps before the handbell (its own id keeps old saves right)
+UPGRADES.push({ id: 'mallet_felt', name: 'felt mallet', cost: 9, desc: 'taps +1 base resonance', req: (s) => !!s.ups.mallet_0, kind: 'mallet' });
 [150, 900, 5000, 2.5e4, 1.2e5].forEach((cost, i) => {
   UPGRADES.push({ id: `practice_${i}`, name: ['band practice', 'metronome', 'sheet music', 'rehearsal room', 'a real manager'][i], cost,
     desc: 'everything +5%', req: (s) => s.earnedRun >= cost * 0.3, kind: 'global', mult: 1.05 });

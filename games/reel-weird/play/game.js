@@ -87,30 +87,47 @@
   };
 
   // ---------- sprites: 16x16 → outlined canvas, cached ----------
+  // at most 3 new sprites a frame (same idea as the text budget), so the first frames stay short
   const SP = 16, cache = {};
+  let spriteBudget = 2;
   function sprite(it, mode) {
     const key = it.id + (mode || 'n');
     if (cache[key]) return cache[key];
-    const cv2 = document.createElement('canvas'); cv2.width = cv2.height = SP + 2;
-    const g = cv2.getContext('2d');
-    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(x) + 1, Math.round(y) + 1, Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
+    if (spriteBudget <= 0) return null;
+    spriteBudget--;
+    // drawn into a plain pixel array first (outline and silhouette worked out in JS), then painted once: reading the
+    // canvas back with getImageData was the slowest part of the game's first frames
+    const n = SP + 2, px = new Array(n * n).fill(null);
+    const R = (x, y, w, h, col) => {
+      const x0 = Math.round(x) + 1, y0 = Math.round(y) + 1, x1 = x0 + Math.max(1, Math.round(w)), y1 = y0 + Math.max(1, Math.round(h));
+      for (let yy = Math.max(0, y0); yy < Math.min(n, y1); yy++) for (let xx = Math.max(0, x0); xx < Math.min(n, x1); xx++) px[yy * n + xx] = col;
+    };
     const P = (x, y, col) => R(x, y, 1, 1, col);
     const Ci = (cx, cy, r, col) => { const m = Math.ceil(r); for (let y = -m; y <= m; y++) for (let x = -m; x <= m; x++) if (x * x + y * y <= r * r + 0.3) P(cx + x, cy + y, col); };
     it.draw(R, Ci, P);
-    const n = SP + 2, im = g.getImageData(0, 0, n, n), a = im.data, edge = [];
+    const on = (xx, yy) => xx >= 0 && yy >= 0 && xx < n && yy < n && px[yy * n + xx] !== null;
+    const out = px.slice();
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      if (a[(y * n + x) * 4 + 3]) continue;
-      const on = (xx, yy) => xx >= 0 && yy >= 0 && xx < n && yy < n && a[(yy * n + xx) * 4 + 3] > 0;
-      if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) edge.push(y * n + x);
+      if (px[y * n + x] !== null) { if (mode === 's') out[y * n + x] = '#2e313a'; continue; }
+      if (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) out[y * n + x] = mode === 's' ? '#2e313a' : '#101114';
     }
-    for (const i of edge) { a[i * 4] = 16; a[i * 4 + 1] = 17; a[i * 4 + 2] = 20; a[i * 4 + 3] = 255; }
-    if (mode === 's') for (let i = 0; i < n * n; i++) if (a[i * 4 + 3]) { a[i * 4] = 46; a[i * 4 + 1] = 49; a[i * 4 + 2] = 58; }
-    g.putImageData(im, 0, 0);
+    const cv2 = document.createElement('canvas'); cv2.width = cv2.height = n;
+    const g = cv2.getContext('2d');
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n;) {
+        const col = out[y * n + x];
+        if (col === null) { x++; continue; }
+        let e = x + 1; while (e < n && out[y * n + e] === col) e++;
+        g.fillStyle = col; g.fillRect(x, y, e - x, 1); x = e;
+      }
+    }
     return (cache[key] = cv2);
   }
   function drawSprite(g, it, x, y, size, mode) {
     g.imageSmoothingEnabled = false;
-    g.drawImage(sprite(it, mode), Math.round(x - size / 2), Math.round(y - size / 2), Math.round(size), Math.round(size));
+    const sp = sprite(it, mode);
+    if (!sp) return;
+    g.drawImage(sp, Math.round(x - size / 2), Math.round(y - size / 2), Math.round(size), Math.round(size));
   }
 
   // ---------- storage ----------
@@ -140,7 +157,8 @@
   function resize() {
     const r = cv.getBoundingClientRect();
     W = r.width || window.innerWidth; H = r.height || window.innerHeight;
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const phone = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    dpr = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
     cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
     S = Math.max(0.7, Math.min(1.6, Math.min(W / 420, H / 640)));
     waterY = Math.round(H * 0.4);
@@ -473,14 +491,36 @@
     const d = e.data;
     if (!d || typeof d !== 'object') return;
     if (d.type === 'cc-mute') { hostMuted = !!d.muted; applyMute(); }
-    else if (d.type === 'cc-restart') startRun();
+    else if (d.type === 'cc-restart') { wake(); startRun(); }
     else if (d.type === 'cc-pause') { if (isActive()) paused = d.paused === undefined ? true : !!d.paused; }
   });
 
   // ---------- drawing helpers ----------
+  // fillText re-rasterises every glyph every frame, which was most of the page's blocking time on phones. Each
+  // string is drawn once into a small canvas at device resolution and blitted after that (same look, same baseline).
+  // New strings are capped per frame, so the first frame's dozen or so don't land in one long task (they appear over
+  // a few frames instead).
+  const textCache = new Map(); let textDpr = 0, textBudget = 2;
   function text(s, x, y, size, col, align, weight) {
-    ctx.font = (weight || '800') + ' ' + Math.round(size) + 'px ' + FONT;
-    ctx.textAlign = align || 'left'; ctx.fillStyle = col; ctx.fillText(s, x, y);
+    s = String(s); size = Math.round(size);
+    if (textDpr !== dpr || textCache.size > 400) { textCache.clear(); textDpr = dpr; }
+    const key = (weight || '800') + '|' + size + '|' + col + '|' + s;
+    let t = textCache.get(key);
+    if (!t) {
+      if (textBudget <= 0) return;
+      textBudget--;
+      const font = (weight || '800') + ' ' + size + 'px ' + FONT, pad = Math.ceil(size * 0.25);
+      ctx.font = font;
+      const w = ctx.measureText(s).width, c2 = document.createElement('canvas');
+      c2.width = Math.max(1, Math.ceil((w + pad * 2) * dpr)); c2.height = Math.max(1, Math.ceil(size * 1.5 * dpr));
+      const g = c2.getContext('2d');
+      g.scale(dpr, dpr); g.font = font; g.fillStyle = col; g.fillText(s, pad, size * 1.15);
+      t = { c: c2, w, pad, asc: size * 1.15 };
+      textCache.set(key, t);
+    }
+    const ox = align === 'center' ? t.w / 2 : align === 'right' ? t.w : 0;
+    const dx = Math.round((x - ox - t.pad) * dpr) / dpr, dy = Math.round((y - t.asc) * dpr) / dpr;
+    ctx.drawImage(t.c, dx, dy, t.c.width / dpr, t.c.height / dpr);
   }
   function roundRect(x, y, w, h, r) {
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -491,7 +531,17 @@
     roundRect(x, y, w, h, 8 * S); ctx.fillStyle = fill; ctx.fill();
     text(label, x + w / 2, y + h * 0.66, Math.round(14 * S), ink || COL.carbon, 'center');
   }
+  const wrapCache = new Map();
   function wrap(s, size, maxW) {
+    const key = Math.round(size) + '|' + Math.round(maxW) + '|' + s;
+    const hit = wrapCache.get(key);
+    if (hit) return hit;
+    if (wrapCache.size > 200) wrapCache.clear();
+    const lines = wrapNow(s, size, maxW);
+    wrapCache.set(key, lines);
+    return lines;
+  }
+  function wrapNow(s, size, maxW) {
     ctx.font = '700 ' + Math.round(size) + 'px ' + FONT;
     const out = []; let cur = '';
     for (const w of s.split(' ')) { const n = cur ? cur + ' ' + w : w; if (ctx.measureText(n).width > maxW && cur) { out.push(cur); cur = w; } else cur = n; }
@@ -500,36 +550,58 @@
   }
 
   // ---------- scene ----------
-  function drawScene() {
-    // sky
-    let gr = ctx.createLinearGradient(0, 0, 0, waterY);
+  // The still parts of the pond (sky, moon, shore, water, depth zones) are painted once per size into an offscreen
+  // canvas and blitted each frame: two full-screen gradients a frame were most of the game's paint cost on phones.
+  let bgCanvas = null, bgKey = '';
+  function background() {
+    const key = W + 'x' + H + '@' + dpr;
+    if (bgCanvas && bgKey === key) return bgCanvas;
+    bgKey = key;
+    bgCanvas = bgCanvas || document.createElement('canvas');
+    bgCanvas.width = Math.max(1, Math.round(W * dpr)); bgCanvas.height = Math.max(1, Math.round(H * dpr));
+    const g = bgCanvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    let gr = g.createLinearGradient(0, 0, 0, waterY);
     gr.addColorStop(0, COL.sky1); gr.addColorStop(1, COL.sky2);
-    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, waterY);
-    for (const s of stars) { ctx.globalAlpha = 0.35 + 0.4 * Math.abs(Math.sin(t * 0.8 + s.s * 9)); ctx.fillStyle = COL.paper; ctx.fillRect(s.x * W, s.y * waterY * 0.8, s.s > 0.8 ? 2 : 1, s.s > 0.8 ? 2 : 1); }
-    ctx.globalAlpha = 1;
+    g.fillStyle = gr; g.fillRect(0, 0, W, waterY);
     // moon (a little too green)
     const mx = W * 0.82, my = waterY * 0.28, mr = 26 * S;
-    ctx.fillStyle = '#e9f5c9'; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(160,190,120,0.5)'; ctx.beginPath(); ctx.arc(mx - mr * 0.3, my - mr * 0.2, mr * 0.22, 0, Math.PI * 2); ctx.arc(mx + mr * 0.35, my + mr * 0.25, mr * 0.15, 0, Math.PI * 2); ctx.fill();
+    g.fillStyle = '#e9f5c9'; g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(160,190,120,0.5)'; g.beginPath(); g.arc(mx - mr * 0.3, my - mr * 0.2, mr * 0.22, 0, Math.PI * 2); g.arc(mx + mr * 0.35, my + mr * 0.25, mr * 0.15, 0, Math.PI * 2); g.fill();
     // far shore
-    ctx.fillStyle = '#141a2c';
-    ctx.beginPath(); ctx.moveTo(0, waterY);
-    for (let x = 0; x <= W; x += 20) ctx.lineTo(x, waterY - 14 * S - Math.abs(Math.sin(x * 0.013) * 22 * S) - Math.abs(Math.sin(x * 0.041)) * 8 * S);
-    ctx.lineTo(W, waterY); ctx.fill();
+    g.fillStyle = '#141a2c';
+    g.beginPath(); g.moveTo(0, waterY);
+    for (let x = 0; x <= W; x += 20) g.lineTo(x, waterY - 14 * S - Math.abs(Math.sin(x * 0.013) * 22 * S) - Math.abs(Math.sin(x * 0.041)) * 8 * S);
+    g.lineTo(W, waterY); g.fill();
     // water
-    gr = ctx.createLinearGradient(0, waterY, 0, H);
+    gr = g.createLinearGradient(0, waterY, 0, H);
     gr.addColorStop(0, COL.water1); gr.addColorStop(1, COL.water2);
-    ctx.fillStyle = gr; ctx.fillRect(0, waterY, W, H - waterY);
+    g.fillStyle = gr; g.fillRect(0, waterY, W, H - waterY);
+    // depth zones (the farther the cast, the deeper the hook)
+    const zones = ['shallow', 'murky', 'deep', '???'];
+    g.textAlign = 'right'; g.font = '700 ' + Math.round(10 * S) + 'px ' + FONT;
+    for (let i = 0; i < 4; i++) {
+      const y = depthY((i + 0.5) / 4);
+      g.fillStyle = 'rgba(245,243,237,0.05)'; g.fillRect(castMinX(), depthY(i / 4), castMaxX() - castMinX(), 1);
+      g.fillStyle = i === 3 ? 'rgba(181,154,255,0.55)' : 'rgba(245,243,237,0.25)'; g.fillText(zones[i], W - 8 * S, y);
+    }
+    return bgCanvas;
+  }
+
+  function drawScene() {
+    ctx.drawImage(background(), 0, 0, W, H);
+    const mx = W * 0.82, my = waterY * 0.28, mr = 26 * S;
+    // stars twinkle (not over the moon)
+    ctx.fillStyle = COL.paper;
+    for (const s of stars) {
+      const x = s.x * W, y = s.y * waterY * 0.8;
+      if ((x - mx) ** 2 + (y - my) ** 2 < mr * mr * 1.2) continue;
+      ctx.globalAlpha = 0.35 + 0.4 * Math.abs(Math.sin(t * 0.8 + s.s * 9)); ctx.fillRect(x, y, s.s > 0.8 ? 2 : 1, s.s > 0.8 ? 2 : 1);
+    }
+    ctx.globalAlpha = 1;
     // moon reflection
     ctx.fillStyle = 'rgba(233,245,201,0.12)';
     for (let i = 0; i < 6; i++) ctx.fillRect(mx - (18 - i * 2) * S + Math.sin(t * 2 + i) * 4 * S, waterY + 6 * S + i * 9 * S, (36 - i * 4) * S, 2 * S);
-    // depth zones (the farther the cast, the deeper the hook)
-    const zones = ['shallow', 'murky', 'deep', '???'];
-    for (let i = 0; i < 4; i++) {
-      const y = depthY((i + 0.5) / 4);
-      ctx.fillStyle = 'rgba(245,243,237,0.05)'; ctx.fillRect(castMinX(), depthY(i / 4), castMaxX() - castMinX(), 1);
-      text(zones[i], W - 8 * S, y, 10 * S, i === 3 ? 'rgba(181,154,255,0.55)' : 'rgba(245,243,237,0.25)', 'right', '700');
-    }
     // things swimming down there
     for (const s of shadows) {
       const x = s.x * W, y = depthY(s.d);
@@ -757,6 +829,7 @@
     return `reel weird: ${score} pts · ${catches.length} catches${top ? ' · best catch: ' + top.it.name + ' (' + TIERS[top.it.tier].name + ')' : ''}\ncan you fish up something weirder? computercooked.com/games/reel-weird`;
   }
   function card() {
+    spriteBudget = 1e9; // drawn once, all sprites at once
     const cvs = document.createElement('canvas'); cvs.width = 1080; cvs.height = 1350;
     const g = cvs.getContext('2d');
     let gr = g.createLinearGradient(0, 0, 0, 1350); gr.addColorStop(0, COL.sky1); gr.addColorStop(0.42, COL.sky2); gr.addColorStop(0.42, COL.water1); gr.addColorStop(1, COL.water2);
@@ -795,9 +868,12 @@
 
   // ---------- loop ----------
   let last = performance.now();
+  // menus (title, results, collection book) only twinkle, so they repaint at 30 fps; a run is always full speed
   function frame(now) {
+    if (!isActive() && !paused && now - last < 30) { requestAnimationFrame(frame); return; }
+    frames++;
     const dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
+    last = now; textBudget = 2; spriteBudget = 2;
     update(dt);
     btns = { mute: btns.mute };
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -817,12 +893,26 @@
     if (state === 'over') drawOver();
     if (state === 'book') drawBook();
     if (paused) { ctx.fillStyle = 'rgba(16,17,20,0.7)'; ctx.fillRect(0, 0, W, H); text('paused', W / 2, H / 2, 30 * S, COL.lime, 'center', '900'); text('tap / space to keep fishing', W / 2, H / 2 + 26 * S, 12 * S, COL.paper, 'center', '700'); }
+    // asleep on the title until the first tap/key or 3 s after the page loaded (see wake below)
+    if (!awake && state === 'title' && frames > 3 && textBudget > 0 && spriteBudget > 0) { running = false; return; } // everything drawn
     requestAnimationFrame(frame);
   }
+  // The page around the game paints its loader while this frame boots, on the same main thread. So the title is
+  // drawn until a frame has nothing new left to draw, then the loop sleeps until someone touches the game or 3 s after
+  // the page has loaded. Gameplay is unchanged; only the first seconds of title twinkle wait.
+  let awake = false, running = true, frames = 0;
+  function wake() {
+    awake = true;
+    if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+  }
+  ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, wake, true));
+  const wakeLater = () => setTimeout(wake, 3000);
+  if (document.readyState === 'complete') wakeLater(); else window.addEventListener('load', wakeLater);
   requestAnimationFrame(frame);
 
   // hub thumbnail / link-preview art, made from the game's own sprites (RW.poster(640, 360) in the console)
   function poster(w, h) {
+    spriteBudget = 1e9; // drawn once, all sprites at once
     const cvs = document.createElement('canvas'); cvs.width = w; cvs.height = h;
     const g = cvs.getContext('2d'), u = h / 360, wy = h * 0.52;
     let gr = g.createLinearGradient(0, 0, 0, wy); gr.addColorStop(0, COL.sky1); gr.addColorStop(1, COL.sky2);

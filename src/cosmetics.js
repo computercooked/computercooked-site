@@ -16,12 +16,39 @@ export const UNLOCKS = [
   { kind: "frame", id: "holo", name: "holo frame", level: 18 },
   { kind: "acc", id: "chef", name: "chef hat", level: 20 },
   { kind: "frame", id: "golden", name: "golden frame", level: 25 },
-];
+  // K-0030 step 4: more face parts, so something new unlocks every level or two (beanie and shades are free)
+  { kind: "mood", id: "smug", name: "smug face", level: 2 },
+  { kind: "face", id: "8", name: "lime screen", level: 3 },
+  { kind: "acc", id: "party", name: "party hat", level: 4 },
+  { kind: "mood", id: "wink", name: "wink", level: 5 },
+  { kind: "body", id: "6", name: "graphite case", level: 6 },
+  { kind: "acc", id: "bandana", name: "bandana", level: 7 },
+  { kind: "face", id: "9", name: "beige screen", level: 9 },
+  { kind: "mood", id: "shock", name: "shocked face", level: 10 },
+  { kind: "acc", id: "tophat", name: "top hat", level: 11 },
+  { kind: "body", id: "5", name: "walnut case", level: 13 },
+  { kind: "acc", id: "horns", name: "horns", level: 15 },
+  { kind: "face", id: "10", name: "alarm red screen", level: 17 },
+  { kind: "acc", id: "visor", name: "visor", level: 19 },
+  { kind: "mood", id: "sleepy", name: "sleepy face", level: 22 },
+  { kind: "face", id: "11", name: "sky screen", level: 23 },
+  { kind: "acc", id: "wizard", name: "wizard hat", level: 30 },
+  // K-0030 step 6: every level from 2 to 30 now unlocks something
+  { kind: "theme", id: "sunset", name: "sunset profile color", level: 21 },
+  { kind: "theme", id: "grape", name: "grape profile color", level: 24 },
+  { kind: "theme", id: "aqua", name: "aqua profile color", level: 26 },
+  { kind: "theme", id: "rose", name: "rose profile color", level: 27 },
+  { kind: "theme", id: "lemon", name: "lemon profile color", level: 28 },
+  { kind: "theme", id: "ember", name: "ember profile color", level: 29 },
+].sort((a, b) => a.level - b.level);
 // profile frames (avatar border on /me and /u/): "none" is free, the rest are level unlocks above
 export const FRAMES = ["none", ...UNLOCKS.filter((u) => u.kind === "frame").map((u) => u.id)];
 
 export const needLevel = (kind, id) => UNLOCKS.find((u) => u.kind === kind && u.id === id)?.level || 1;
 // level needed for a built avatar key's accessory (presets and free accessories: 1)
-export const avatarLevel = (a) => needLevel("acc", (/-([a-z]+)$/.exec(typeof a === "string" && a.startsWith("x:") ? a : "") || [])[1]);
+export const avatarLevel = (a) => {
+  const m = /^x:([a-z]+)-(\d+)-(\d+)-([a-z]+)$/.exec(typeof a === "string" ? a : "");
+  return m ? Math.max(needLevel("mood", m[1]), needLevel("face", m[2]), needLevel("body", m[3]), needLevel("acc", m[4])) : 1;
+};
 export const unlocksBetween = (from, to) => UNLOCKS.filter((u) => u.level > from && u.level <= to);
 export const cosmeticsFor = (level) => UNLOCKS.map((u) => ({ ...u, unlocked: level >= u.level }));

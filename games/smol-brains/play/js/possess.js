@@ -40,8 +40,10 @@
   // the first time is on the house: it's the best thing in the game, so nobody should miss it
   P.cost = function (game) { return game && !(game.stats && game.stats.possessed) ? 0 : P.COST; };
 
+  P.cooldown = function () { return Math.max(0, (P.cooldownUntil || 0) - Date.now() / 1000); };
   P.canEnter = function (game, c) {
     if (!game || !c || !c.alive || c.type !== "creature") return "nobody there";
+    if (P.cooldown() > 0) return "your light is gathering itself: " + Math.ceil(P.cooldown()) + " s";
     if (c.species !== "smol") return "only smols can be possessed";
     if (c.heldBy || c.dying || c.corpse) return "not right now";
     if (P.active) return "you're already someone";
@@ -65,6 +67,11 @@
       pickT: 0, swing: 0, lastHp: c.chem.health, hurtT: 0, aim: null, target: null, opts: null, questT: 0
     };
     P.active = true; P.c = c;
+    S.yaw = openView(c, game, S.yaw); c.facing = S.yaw + Math.PI; // the body turns with the view
+    var bump = SB.World.nearestNode(game.world, c.x, c.z, 1.2, function (n) { return n.state === "ok"; });
+    if (bump) { var ba = Math.atan2(c.x - bump.x, c.z - bump.z), bx = bump.x + Math.sin(ba) * 1.5, bz = bump.z + Math.cos(ba) * 1.5; if (SB.World.walkable(game.world, bx, bz)) { c.x = bx; c.z = bz; } } // K-0042: "pressed against a bush"
+    if (opts.face) { S.yaw = Math.atan2(-(opts.face.x - c.x), -(opts.face.z - c.z)); c.facing = S.yaw + Math.PI; }
+    S.firstNight = !!opts.firstNight;
     P.input.fwd = P.input.side = 0; P.input.run = P.input.jump = P.input.use = false;
     game.speed = 1; // a smol lives in real time
     // what it carried as a creature goes into its inventory, and tool-users get their building plans
@@ -82,7 +89,7 @@
     }
     if (SB.Game.select) SB.Game.select(game, null);
     hookBus();
-    questStart();
+    if (!S.firstNight) questStart();
     if (!P.headless && SB.PovHud) SB.PovHud.build(S);
     SB.bus.emit("possess", { c: c });
     return true;
@@ -90,6 +97,7 @@
 
   P.leave = function (why) {
     if (!S) return;
+    if (S.scout) endScout(null); // leaving the body: the grump loses the scent
     var s = S, c = s.c, game = s.game;
     S = null; P.active = false; P.c = null;
     c._pov = false; c._povMove = false;
@@ -149,9 +157,19 @@
       else if (ad < (S.auto.reach || 1.6) || S.auto.stuck > 1.5) { var ref = S.auto.ref; S.auto = null; arrive(ref); }
       else { S.yaw += SB.angDiff(S.yaw, Math.atan2(-ax, -az)) * Math.min(1, dt * 5); f = 1; sd = 0; mag = 1; }
     }
-    if (S.quest && S.quest.kind === "blob" && S.quest.i <= 1 && ch.hunger > 0.5 && ch.hunger < 0.97) {
-      ch.hunger = Math.min(0.97, ch.hunger + dt * 0.006); // a drumstick about every 8 s until you've eaten (K-0027: "no timer")
+    var lh = S.lastHun;
+    if (S.meal != null) { ch.hunger = Math.min(ch.hunger, Math.max(0, S.meal - P.MEAL)); S.meal = null; } // a meal in a smol's body is a quarter of the bar or more
+    else if (lh != null) {
+      var hi = lh + dt * P.HUNGER_POV; // in a body the bar runs down at one steady rate, whatever the chemistry says: full to empty in 3 minutes
+      if (ch.hunger > hi || ch.hunger >= lh) ch.hunger = Math.min(1, hi);
       if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
+    }
+    S.lastHun = ch.hunger;
+    if (S.hungerClock && ch.health < 0.25) ch.health = 0.25; // the first-possession hunger stings, but like the grump it never takes the last quarter
+    scoutTick(dt);
+    if ((S.cueT = (S.cueT || 0) - dt) <= 0) {
+      S.cueT = 0.5;
+      SB.World.creaturesNear(game.world, game, c.x, c.z, P.CUE_AT, function (o) { if (o.species === "grump" && o.alive && !o.goingHome && (!o._cueAt || game.time - o._cueAt > 12)) { o._cueAt = game.time; audio("grump", 0.8); if (!o.scout) say("👹 a grump, close by!"); } });
     }
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
     var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
@@ -287,9 +305,10 @@
         var it = SB.Game.byId(game, o.holding);
         if (it && it.noun === "food" && SB.Creature.startAction(o, game, V.give, { type: "creature", id: c.id })) { SB.Creature.say(o, "here. food", game); continue; }
       }
-      if (d > 4 && !busy) {
-        var a = Math.atan2(o.x - c.x, o.z - c.z) + (Math.random() - 0.5);
-        SB.Creature.sendTo(o, c.x + Math.sin(a) * 2, c.z + Math.cos(a) * 2, game, 10);
+      if (d > 5 && !busy) {
+        var a = Math.atan2(o.x - c.x, o.z - c.z) + (Math.random() - 0.5), back = S.yaw; // tag along beside or behind you, never in your face (K-0042)
+        if (Math.abs(SB.angDiff(a, back)) > 1.4) a = back + (Math.random() < 0.5 ? 1.4 : -1.4);
+        SB.Creature.sendTo(o, c.x + Math.sin(a) * 3, c.z + Math.cos(a) * 3, game, 10);
         if (Math.random() < 0.3) SB.Creature.say(o, Math.random() < 0.5 ? "wait me!" : c.name.toLowerCase() + "!", game);
       }
     }
@@ -460,7 +479,7 @@
         if (tier >= 1) o.use = pw > 0 ? op((rk.ore ? "mine the " : "chip the ") + nm + (toolName ? "" : " with your paws"), function () { return hitNode(n, hk); }, V.use) : no(rk.crystal ? "too hard: needs a pick, and a builder's know-how" : rk.ore ? "copper ore! dig it out with a stone pick" : "punch it? ouch");
         if (gat && tier >= 2) o.pick = op(gat.verb, function () { return gather(n); }, V.pickup);
       } else if (n === game.world.T.nest) {
-        o.place = op("sleep in the nest", function () { return sleepAt(t); }, V.sleep);
+        o.ctx = op("sleep in the nest", function () { return sleepAt(t); }, V.sleep);
         if (held && Surv.SOFT[hk]) o.use = Surv.nest(game).cosy >= Surv.NEST_MAX ? no("the nest is as cosy as it gets") : op("line the nest with your " + kl(hk), function () { return lineNest(); }, V.drop, { nestLine: 1 });
       } else if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds" || n.kind === "hive" || n.kind === "cactus") {
         o.use = op((n.kind === "roots" ? "pull at the " : "shake the ") + nm, function () { return shakeNode(n); }, V.play);
@@ -486,7 +505,7 @@
         o.place = op("sit by the fire", function () { return sit(); }, V.idle);
         if (hk && Surv.edible(hk) && K[hk].raw && d.lit) o.place = op("cook your " + kl(hk), function () { return cook(hk); }, V.make);
       } else if (st.kind === "hut" || st.kind === "leanto" || st.kind === "house") {
-        o.place = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
+        o.ctx = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
       } else if (st.kind === "farm") {
         o.use = tier >= 2 ? op(d.grow > 0.6 ? "harvest" : "check the crop", function () { return creatureAct(V.use, t); }, V.use) : null;
       } else if (st.kind === "totem" || st.kind === "observatory") {
@@ -751,6 +770,107 @@
     }
   }
   // G: a small body's nose. points the marker at the nearest food for a while
+  /* ---------------- the first minute's grump (K-0025 / K-0027: "possession has no stakes") ----------------
+     the first time you're in a blob on an island, once you're 20 s in and out past the nest, a grump catches your
+     scent and comes for you.
+     run home to the nest (hold shift, or push the stick all the way), or find two friends, and it gives up: +2 ✨.
+     it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
+  P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13; P.SCOUT_OUT = 12; P.SCOUT_WAIT = 40;
+  P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 180; P.MEAL = 0.25; // K-0041 P3: a full bar lasts ~3 min possessed; a berry or a nibble is a quarter of it
+  P.KO_COOLDOWN = 30; P.FADE_IN = 2; P.CUE_AT = 10;
+  function scoutTick(dt) {
+    var c = S.c, game = S.game, st = game.settings || (game.settings = {});
+    if (st.povThreat === "done" || game.offline) return;
+    S.threatT = (S.threatT || 0) + dt;
+    if (!S.scout) {
+      if (S.firstNight || st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return; // the first night brings its own grump
+      var hm = SB.Society.home(game, 0), w = game.world, spot = null, out = SB.dist(c.x, c.z, hm.x, hm.z);
+      if (out < P.SCOUT_OUT && S.threatT < P.SCOUT_AT + P.SCOUT_WAIT) return; // by the nest: it waits for you to go out for food (K-0042: "SAFE!" without moving)
+      var away = out > 2 ? Math.atan2(-(c.x - hm.x), -(c.z - hm.z)) : S.yaw; // the far side from home: it chases you back there
+      for (var a = 0; a < 16 && !spot; a++) {
+        var ang = (out >= P.SCOUT_OUT ? away : S.yaw) + (a % 2 ? 1 : -1) * (0.2 + Math.floor(a / 2) * 0.3), x = c.x - Math.sin(ang) * P.SCOUT_FAR, z = c.z - Math.cos(ang) * P.SCOUT_FAR; // out past you, away from home
+        if (SB.World.walkable(w, x, z) && SB.World.depthAt(w, x, z) < 0.05 && SB.dist(x, z, hm.x, hm.z) > 12) spot = { x: x, z: z };
+      }
+      if (!spot) return;
+      var g = SB.Game.spawnGrump(game, spot.x, spot.z);
+      g.name = "a hungry grump"; g.scout = { who: c.id, t: 0, hitT: 0 };
+      S.scout = g.id; st.povThreat = "on";
+      var pals0 = 0; SB.World.creaturesNear(w, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals0++; });
+      S.scoutSafe0 = SB.dist(c.x, c.z, hm.x, hm.z) < 5 || pals0 >= 2; // already safe when it came: it gets one bite in first (K-0039: it gave up before you felt it)
+      audio("grump", 0.9);
+      say("👹 a grump spotted you! run home to the nest (hold shift to run): follow the green arrow");
+      SB.bus.emit("scout", { c: c, g: g });
+      return;
+    }
+    var gr = SB.Game.byId(game, S.scout);
+    if (!gr || !gr.alive || !gr.scout) { endScout(null); return; }
+    var home = SB.Society.home(game, 0), pals = 0;
+    SB.World.creaturesNear(game.world, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals++; });
+    var settled = gr.scout.t > 8 && (!S.scoutSafe0 || (gr.scout.hits || 0) > 0); // a few seconds of it coming at you first, even if you're by the nest already
+    if (S.firstNight) { if (gr.chem.fear > 0.6 || gr.goingHome) endScout("🔥 the light scared it off! +2 ✨", 2); return; } // only light drives it off tonight
+    if (settled && SB.dist(c.x, c.z, home.x, home.z) < 5) endScout("🏠 safe at the nest! the grump won't come this close. +2 ✨", 2);
+    else if (settled && pals >= 2) endScout("🫂 safety in numbers! the grump backs off. +2 ✨", 2);
+    else if (gr.chem.fear > 0.6 || gr.goingHome) endScout("👹 you scared it off! +2 ✨", 2);
+    else if (gr.scout.t > P.SCOUT_MAX) endScout("😮‍💨 the grump got bored and wandered off. next time, run for the nest", 0);
+  }
+  function endScout(msg, pay) {
+    var game = S.game, gr = S.scout != null ? SB.Game.byId(game, S.scout) : null;
+    if (gr && gr.scout) gr.scout.done = true;
+    S.scout = null;
+    (game.settings || (game.settings = {})).povThreat = "done";
+    if (pay && SB.Game.addSparks) SB.Game.addSparks(game, pay, S.c);
+    if (gr && pay) { gr.chem.fear = 1; gr.goingHome = true; if (SB.Creature.emote) SB.Creature.emote(gr, "huh", 2.5); }
+    if (msg) { say(msg); audio(pay ? "achievement" : "chime"); }
+    if (pay && H() && H().beat) H().beat(msg.indexOf("nest") >= 0 ? "🏠 SAFE!" : "😤 you got away!", msg.replace(/^\S+\s/, ""), true);
+    SB.bus.emit("scoutEnd", { c: S.c, ok: !!pay });
+  }
+  P.walkToward = function (frac, fy) { // frac: where the click was across the screen, -0.5 (left) .. 0.5 (right); fy: 0 top .. 1 bottom
+    if (!S || S.dead) return false;
+    S.yaw -= frac * (P.FOV || 1.2) * 1.4;
+    S.pitch = -0.12; // level, a little down: you see where you're going
+    var c = S.c, d = fy == null || fy < 0.55 ? 7 : Math.max(2, 7 - (fy - 0.55) * 11); // lower on the screen is nearer
+    S.auto = { x: c.x - Math.sin(S.yaw) * d, z: c.z - Math.cos(S.yaw) * d, t: 12, reach: 1 };
+    return true;
+  };
+  function openView(c, game, yaw0) {
+    var w = game.world, hm = SB.Society.home(game, 0), goal = null;
+    if (c.chem.hunger > 0.4 || !(game.settings && game.settings.povHungry)) goal = SB.World.nearestNode(w, c.x, c.z, 30, function (n) { return n.state === "ok" && (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds"); });
+    if (!goal && SB.dist(c.x, c.z, hm.x, hm.z) > 4) goal = hm;
+    var want = goal ? Math.atan2(-(goal.x - c.x), -(goal.z - c.z)) : yaw0, low = { bush: 1, roots: 1, gourds: 1, flowers: 1, grass: 1 };
+    var tries = [0, 0.35, -0.35, 0.7, -0.7, 1.1, -1.1, 1.6, -1.6, 2.2, -2.2, Math.PI];
+    for (var i = 0; i < tries.length; i++) {
+      var a = want + tries[i], ok = true;
+      for (var d = 1.2; d <= 6 && ok; d += 1.2) {
+        var x = c.x - Math.sin(a) * d, z = c.z - Math.cos(a) * d;
+        if (!SB.World.walkable(w, x, z) || SB.World.nearestNode(w, x, z, 1.4, function (n) { return n.state === "ok" && !low[n.kind]; })) ok = false;
+      }
+      if (ok) return a;
+    }
+    return want;
+  }
+  // the first night: its lurking grump comes for you the moment you lend your light
+  P.adoptScout = function (g) {
+    if (!S || !g || !g.scout) return false;
+    S.scout = g.id; g.scout.hold = false; g.scout.t = 0;
+    (S.game.settings || (S.game.settings = {})).povThreat = "on";
+    audio("grump", 0.9);
+    SB.bus.emit("scout", { c: S.c, g: g });
+    return true;
+  };
+  P.setGoal = function (goal) { if (S) S.goal = goal || null; };
+  P.ko = function (c, cause) {
+    if (!S || S.c !== c || S.dead || cause === "old" || cause === "drowned") return false;
+    var game = S.game, items = [];
+    c.chem.health = 0.2; c.chem.pain = 0;
+    if (c.inv && c.inv.s) { c.inv.s.forEach(function (sl) { if (sl && sl.k !== "plans") { items.push({ k: sl.k, n: sl.n }); Sv().spawn(game, sl.k, sl.n, c.x + (Math.random() - 0.5) * 0.8, c.z + (Math.random() - 0.5) * 0.8, { w: sl.w }); } }); c.inv.s = c.inv.s.filter(function (sl) { return sl && sl.k === "plans"; }); }
+    if (S.scout != null) endScout(null);
+    P.cooldownUntil = Date.now() / 1000 + P.KO_COOLDOWN;
+    SB.bus.emit("knockout", { c: c, cause: cause, items: items });
+    P.leave("ko");
+    c.asleep = true; c.action = null; // out cold for a while
+    return true;
+  };
+  P.scout = function () { return S && S.scout != null ? SB.Game.byId(S.game, S.scout) : null; };
   // there: face it and eat it (K-0027: the walk ended next to food and nothing happened)
   function arrive(ref) {
     var c = S.c, game = S.game, r = ref ? SB.Creature.resolve(game, ref) : null;
@@ -1004,15 +1124,15 @@
     // find food, eat it, get paid: one loop you can read at a glance (the bot's K-0022 top three)
     { id: "sniff", text: "find food", tip: "press G to sniff: the 👃 marker points at food. press G again and you walk there by yourself" },
     { id: "eat", text: "eat it", tip: "right click a berry bush to nibble it, or left click food on the ground" },
+    { id: "share", text: "carry food home to your hungry friend", tip: "pick food up with F (shake a bush with a left click to drop some), find your friend and right click them. +2 ✨" },
     { id: "tug", text: "tug leaves off a plant", tip: "look at a bush or a tree and press F. the leaves go in your mouth" },
     { id: "nest", text: "line the nest", tip: "carry leaves to the nest (follow the marker) and left click it. a cosy nest hatches eggs faster" },
-    { id: "share", text: "bring a friend some food", tip: "pick food up with F, walk to a friend and right click them" }
   ];
   function questStore(key) { try { return localStorage.getItem(key || QKEY); } catch (e) { return null; } }
   function questStart() {
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
     S.quest = null;
-    if (c.tier < 2 && !st.povHungry) { st.povHungry = 1; if (c.chem.hunger < 0.72) c.chem.hunger = 0.72; } // per island, quest or not (K-0027 saw a full bar)
+    if (!st.povHungry) { st.povHungry = 1; S.hungerClock = true; if (c.chem.hunger < P.START_HUNGER) c.chem.hunger = P.START_HUNGER; S.lastHun = c.chem.hunger; } // per island, any smol, quest or not (K-0027 saw a full bar, K-0037 a tool-user)
     if (c.tier < 2) {
       if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
       S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };
@@ -1040,7 +1160,7 @@
     var list = P.questList(), step = list[q.i], ok = false;
     switch (q.kind === "blob" ? "b:" + step.id : step.id) {
       case "b:eat": ok = !!q.flags.eat; break;
-      case "b:sniff": ok = !!q.flags.sniff; break;
+      case "b:sniff": ok = !!q.flags.sniff || !!q.flags.eat; break; // found it yourself and ate it: that's finding food
       case "b:tug": ok = !!q.flags.tug || Surv.count(c, "leaves", true) > 0; break;
       case "b:nest": ok = (q.flags.lined || 0) >= 3 || Surv.nest(game).cosy >= Surv.NEST_MAX; break;
       case "b:share": ok = !!q.flags.share; break;
@@ -1055,7 +1175,8 @@
     if (ok) {
       q.i++;
       audio("chime");
-      if (q.kind === "blob" && SB.Game.addSparks) SB.Game.addSparks(game, 1, c); // every step of a blob's day pays a spark
+      if (q.kind === "blob" && SB.Game.addSparks) SB.Game.addSparks(game, step.id === "share" ? 2 : 1, c); // every step of a blob's day pays a spark (feeding a friend, two)
+      if (q.kind === "blob" && list[q.i] && list[q.i].id === "share") hungryFriend(game, c);
       if (q.i >= list.length) { questDone(); return; }
       if (list[q.i].id === "leanto" && !Id.known(c, "leanto") && !Id.canHold(c, "leanto")) { questDone(); return; }
       if (H()) H().questStep(list[q.i - 1], list[q.i]);
@@ -1065,6 +1186,15 @@
     // the campfire step changes if the tribe can't make fire yet: rub sticks on leaves first
     q.fireFirst = step.id === "fire" && !Id.known(c, "campfire");
     q.target = questTarget(step.id);
+  }
+  // the friend waiting at home really is hungry, and says so (K-0033: "a reason to stay in the body")
+  function hungryFriend(game, c) {
+    var f = null, fd = 1e9;
+    SB.Game.smols(game).forEach(function (o) { if (o !== c && o.alive) { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < fd) { fd = d; f = o; } } });
+    if (!f) return;
+    if (f.chem.hunger < 0.7) f.chem.hunger = 0.7;
+    SB.Creature.say(f, "so hungry…", game);
+    S.quest.friend = f.id;
   }
   function questDone() {
     var game = S.game;
@@ -1110,7 +1240,7 @@
       if (id === "eat") t = node(function (n) { return n.kind === "bush" && n.state === "ok"; }) || food();
       else if (id === "tug") t = plant();
       else if (id === "nest") t = hk && Surv.SOFT[hk] ? w.T.nest : plant();
-      else if (id === "share") t = food();
+      else if (id === "share") { var fr = S.quest && S.quest.friend != null ? SB.Game.byId(S.game, S.quest.friend) : null; t = hk && Surv.edible(hk) && fr && fr.alive ? { type: "creature", x: fr.x, z: fr.z, y: fr.y } : food(); } // food first, then the way to your friend
       return t ? { x: t.x, z: t.z, y: (t.type === "item" ? t.y : SB.World.groundY(w, t.x, t.z)) + (t.type === "node" && Surv.isTree(t) ? 2.4 : 1.1) } : null;
     }
     if (id === "stick") t = item("stick") || node(function (n) { return n.state === "ok" && Sv().isTree(n) && n.kind !== "shroomtree"; });
@@ -1129,7 +1259,15 @@
       if (S.quest) { S.quest.flags.chop = 1; questTick(); }
     });
     function blobFlag(d, k) { if (S && S.quest && S.quest.kind === "blob" && d && d.c === S.c) { S.quest.flags[k] = (S.quest.flags[k] || 0) + 1; questTick(); } }
-    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); });
+    SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); if (S && d && d.c === S.c) { S.hungerClock = false; S.meal = S.lastHun != null ? S.lastHun : d.c.chem.hunger; } });
+    SB.bus.on("nibble", function (d) { if (S && d && d.c === S.c) { S.hungerClock = false; S.meal = S.lastHun != null ? S.lastHun : d.c.chem.hunger; } });
+    // 1. a grump bite is felt: the screen jolts and goes red, you're knocked back, and it hurts (K-0039: "a banner, not a chase")
+    SB.bus.on("scoutHit", function (d) {
+      if (!S || !d || d.c !== S.c) return;
+      var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 5);
+      audio("bonk", 1); audio("grump", 0.8);
+      if (H()) { H().hurt(0.4); if (H().ouch) H().ouch(Math.round((d.g && d.g.scout && d.g.scout.dmg || SB.Creature.LUNGE_DMG) * 100)); if (H().beat) H().beat("👹 OUCH! it bit you", "run for the nest: follow the green arrow"); }
+    });
     SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("nibble", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("sniff", function (d) { blobFlag(d, "sniff"); });

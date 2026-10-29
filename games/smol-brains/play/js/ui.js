@@ -23,6 +23,7 @@
   UI.eventReady = function () {
     var t = now();
     if (el.modal || pointerDown) return false;
+    if (SB.Lantern && SB.Lantern.running) return false; // never behind a film
     if (SB.Possess && SB.Possess.active) return false;
     return t - lastEventClose >= UI.EVENT_GAP && t - lastPovOut >= UI.POV_GRACE && t - lastPointer >= UI.CLICK_GRACE;
   };
@@ -33,7 +34,8 @@
   }
   // called every frame: show the next waiting event window when it's time
   function pumpEvents() {
-    if ((!popQ.length && !cardQ.length) || !UI.eventReady()) return;
+    var back = popQ[0] && popQ[0][2] && popQ[0][2].resume && !el.modal && !(SB.Lantern && SB.Lantern.running) && !(SB.Possess && SB.Possess.active) && now() - lastPovOut >= 1; // the window you had open comes straight back
+    if ((!popQ.length && !cardQ.length) || !(back || UI.eventReady())) return;
     var m = popQ.shift();
     if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
   }
@@ -69,6 +71,7 @@
   /* ---------------- init ---------------- */
 
   UI.init = function (g, opts) {
+    setTimeout(function () { try { versionLabel(); } catch (e) {} }, 0);
     game = g; opts = opts || {};
     try { if (/[?&]nostory=1/.test(location.search)) UI.noStory = true; } catch (e) {} // for testing: skip the opening story
     root = document.getElementById("ui");
@@ -110,6 +113,7 @@
     };
     var look = function (p) {
       var c = R.camera; c.follow = null; c.vx = c.vz = 0;
+      if (c.intro && !c.intro.cine) c.intro = null; // a camera flight would carry on over the top of you (K-0037: "clicking the minimap didn't move the camera")
       c.x = p.x - (mini.drag ? mini.drag.dx : 0); c.z = p.z - (mini.drag ? mini.drag.dz : 0);
     };
     cv.addEventListener("pointerdown", function (e) {
@@ -167,7 +171,7 @@
     game.world.items.forEach(function (o) { if (o.kind === "egg" && o.heldBy == null) { x.fillStyle = "#fff6d6"; x.beginPath(); x.arc(o.x * k, o.z * k, Math.max(1.6, 1.2 * k), 0, 6.283); x.fill(); } });
     game.creatures.forEach(function (c) {
       if (!c.alive || !SB.World.isSeen(game.world, c.x, c.z)) return;
-      var sel = c.id === game.selectedId, r = (sel ? 2.6 : 1.7) * Math.max(1, k * 0.9);
+      var sel = c.id === game.selectedId, r = (c.species === "grump" ? 2.8 + Math.sin(performance.now() / 160) * 0.8 : sel ? 2.6 : 1.7) * Math.max(1, k * 0.9); // grumps pulse, big and red
       x.fillStyle = c.species === "grump" ? "#ff5f5f" : sel ? "#ffffff" : "#c5ff49";
       x.beginPath(); x.arc(c.x * k, c.z * k, r, 0, 6.283); x.fill();
       if (sel) { x.strokeStyle = "#101114"; x.lineWidth = 1; x.stroke(); }
@@ -201,7 +205,7 @@
     } });
     // autosave: a 💾 blinks by the menu each time the island is saved (every 20 s and when you leave)
     el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
-    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
+    el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.lantern = h("button", { class: "chipbtn glass live lanternchip", title: "the Lantern: memory embers relight it", onclick: function () { lanternSheet(); } }); el.hud.appendChild(el.lantern); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
     el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); } });
     root.appendChild(el.goals);
@@ -227,6 +231,7 @@
     if (best) prog = tierProgress(best);
     el.era.innerHTML = '<span class="ico">' + SB.TIERS[maxT].icon + '</span><span><span class="long">' + SB.TIERS[maxT].name + " · </span>gen " + gen + " · " + smols.length + ' 🐣</span><span class="bar"><i style="width:' + Math.round(prog * 100) + '%"></i></span>';
     el.sparks.innerHTML = '<span class="ico">✨</span><b>' + Math.floor(game.sparks || 0) + "</b>";
+    if (el.lantern && SB.Embers) { var en = SB.Embers.count(game), nx = SB.Embers.next(game); el.lantern.style.display = en > 0 ? "" : "none"; el.lantern.innerHTML = '<span class="ico">🏮</span><b>' + en + (nx ? " / " + nx : "") + "</b><small>embers</small>"; }
     var np = (game.prayers || []).filter(function (p) { return !p.answered && SB.Game.prayerLive(game, p); }).length;
     el.pray.classList.toggle("hide", !np);
     if (np) el.pray.innerHTML = '<span class="ico">🙏</span><b>' + np + "</b>";
@@ -376,10 +381,21 @@
   function buildToasts() { el.toasts = h("div", { class: "toasts" }); root.appendChild(el.toasts); }
   // at most two toasts on screen; the rest wait their turn (repeats are dropped, old news falls off)
   var toastQ = [];
+  var nightHeld = [];
+  function lanternSheet() {
+    var g = SB.Game.current; if (!g || !SB.Embers) return;
+    var l = SB.Embers.state(g), nx = SB.Embers.next(g);
+    toast("🏮 <b>the Lantern</b> · stage " + l.stage + " · " + l.embers + " memory embers" + (nx ? ", the next stage at " + nx : "") + ".<br>" + l.log.slice(-4).reverse().map(function (e) { return "🔥 " + esc(e.why); }).join("<br>"), "", 7000);
+  }
   function toast(html, cls, ms) {
+    if (game && SB.FirstNight && SB.FirstNight.active(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
-    if (live.length >= 2) { toastQ.push([html, cls, ms]); if (toastQ.length > 5) toastQ.shift(); return; }
+    if (live.length >= 2) { // a full queue drops its oldest ordinary toast; memory embers go first and are never dropped (K-0048)
+      if (cls === "ember") toastQ.unshift([html, cls, ms]); else toastQ.push([html, cls, ms]);
+      if (toastQ.length > 5) { var dk = toastQ.findIndex(function (q) { return q[1] !== "ember"; }); if (dk >= 0) toastQ.splice(dk, 1); }
+      return;
+    }
     var t = h("div", { class: "toast glass " + (cls || ""), html: html });
     t._html = html;
     el.toasts.appendChild(t);
@@ -389,8 +405,36 @@
     }, ms || 4200);
   }
   UI.toast = toast;
+  // ?cctest=1: "🧪 test possession" drops you into a first possession as a new player gets it (hungry, a grump at
+  // 20 s, the blob's day from the start), on the smol nearest the camera. a playtester without held keys needs it (K-0037)
+  function testHook() {
+    if (!SB.TEST || el.testBtn || !SB.Possess) return;
+    SB.Possess.noLock = true; // no mouse lock in a playtest: clicks walk, a drag looks, and one Esc leaves
+    el.testBtn = root.appendChild(h("button", { class: "chipbtn glass live testbtn", title: "playtest: a fresh first possession", onclick: function () {
+      var cs = SB.Game.smols(game).filter(function (c) { return c.alive && !c.held; });
+      if (!cs.length) { toast("no smols yet: open the pod first"); return; }
+      var cam = R.camera;
+      cs.sort(function (a, b) { return (a.tier - b.tier) * 1000 + SB.dist(a.x, a.z, cam.x, cam.z) - SB.dist(b.x, b.z, cam.x, cam.z); });
+      var c = cs[0], st = game.settings || (game.settings = {}), hm = SB.Society.home(game, 0);
+      if (SB.dist(c.x, c.z, hm.x, hm.z) < 25) for (var k = 0; k < 40; k++) { var a = k * 0.9, rr = 28 + (k % 4) * 3, x = hm.x + Math.sin(a) * rr, z = hm.z + Math.cos(a) * rr; if (SB.World.walkable(game.world, x, z) && SB.World.depthAt(game.world, x, z) < 0.05) { c.x = x; c.z = z; c.action = null; break; } } // K-0042: out 25-40 m, so the grump means a run home
+      delete st.povHungry; delete st.povThreat; delete st.povBlobQuest; delete st.povQuest;
+      try { localStorage.removeItem("smolbrains-blobquest"); localStorage.removeItem("smolbrains-firsttool"); } catch (e) {}
+      game.sparks = Math.max(game.sparks || 0, 50);
+      SB.Possess.enter(game, c);
+      toast("🧪 test possession: click the ground left or right of centre to walk that way", "", 6000);
+    } }, "🧪 test possession"));
+  }
+  function versionLabel() {
+    testHook();
+    if (el.ver) return;
+    var v = document.documentElement.getAttribute("data-version");
+    if (v) el.ver = root.appendChild(h("div", { class: "verlbl" }, "v" + v)); // K-0033: which build am I on?
+  }
+  UI.versionLabel = versionLabel;
   var momentQ = [], momentBusy = false;
   function moment(icon, big, sub, cls, first) {
+    if (game && game.offlineRunning) return;
+    if (game && SB.FirstNight && SB.FirstNight.active(game)) return; // the first night speaks through the island
     if (first) momentQ.unshift([icon, big, sub, cls]); else momentQ.push([icon, big, sub, cls]); // big news (a new era) skips the queue
     if (!momentBusy) nextMoment();
   }
@@ -414,12 +458,13 @@
   /* story cards: the first time something big happens, the game pauses and explains it (what happened,
      why, what you can do). Later times are just a quick moment. */
   var cardQ = [];
-  UI.QUIET_START = 240; // real seconds into an island when story cards stop being toasts
+  UI.QUIET_START = 300; // real seconds into an island when story cards stop being toasts
   function storyCard(key, icon, title, paras, fallback) {
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
+    if (game.offlineRunning) return; // the "welcome back" card sums up the catch-up
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
-    if ((game.playTime || 0) < UI.QUIET_START && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
+    if (((game.playTime || 0) < UI.QUIET_START || (SB.FirstNight && SB.FirstNight.active(game))) && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
     if (cardQ.length >= 2) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 6500); return; } // too many waiting: a toast instead
     cardQ.push([icon, title, paras]);
   }
@@ -1133,6 +1178,7 @@
   function modal(title, body, opts) {
     opts = opts || {};
     if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld.push([title, body, opts]); return; } // no god windows in a smol's eyes: shown on the way out
+    if (SB.Lantern && SB.Lantern.running && !opts.live) { popQ.push([title, body, opts]); return; } // a film is playing: it waits (K-0048)
     // an event card (story, stranger, storyteller…) never replaces another one: it waits its turn
     if ((opts.story || opts.sticky) && !opts.paced && !opts.now && !UI.eventReady()) { popQ.push([title, body, opts]); return; }
     if (el.modal && el.modalOpts && (opts.story || opts.sticky) && (el.modalOpts.story || el.modalOpts.sticky)) { popQ.push([title, body, opts]); return; }
@@ -1146,7 +1192,7 @@
     ]);
     wrap.appendChild(m);
     root.appendChild(wrap);
-    el.modal = wrap; el.modalBody = m.querySelector(".mb"); el.modalOpts = opts;
+    el.modal = wrap; el.modalBody = m.querySelector(".mb"); el.modalOpts = opts; el.modalArgs = [title, body, opts];
     root.classList.add("hasmodal");
     return wrap;
   }
@@ -1158,6 +1204,12 @@
     state.brainC = null;
   }
   UI.closeModal = closeModal;
+  // a film is starting: the window on screen steps aside and comes back after it
+  UI.holdForFilm = function () {
+    if (!el.modal || !el.modalArgs || (el.modalOpts && el.modalOpts.live)) return;
+    var a = el.modalArgs; closeModal();
+    popQ.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]);
+  };
   UI.modal = modal;
 
   /* ---------------- menu / smolpedia ---------------- */
@@ -1505,7 +1557,7 @@
       R.hd ? h("button", { class: "btn", onclick: function () { var q = R.quality; q.fx = !q.fx; q.fxPinned = true; try { window.localStorage.setItem("smolbrains-hdfx", q.fx ? "1" : "0"); } catch (e) {} R.resize(); openMenu("settings"); } }, R.quality.fx ? "🌅 soft focus & glow on" : "🔋 soft focus & glow off") : null,
       h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off"),
       h("button", { class: "btn", onclick: function () { var set = game.settings = game.settings || {}; set.guide = !guideOn(); if (set.guide) set.cards = {}; openMenu("settings"); toast(set.guide ? "🧭 tutorial tips on. explanations will show again as things happen." : "🧭 tutorial tips off."); } }, guideOn() ? "🧭 tutorial tips on" : "🧭 tutorial tips off"),
-      h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🚀 watch the opening again"),
+      h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the opening again"),
       game.ended ? h("button", { class: "btn", onclick: function () { closeModal(); SB.Intro.play({ scene: "end", noGate: true }); } }, "🌟 watch the ending again") : null
     ]));
     // the soundtrack: a volume, and a jukebox of every song you've heard so far
@@ -1558,7 +1610,8 @@
   }
 
   function tabHelp(body) {
-    body.innerHTML = "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
+    body.innerHTML = "<p><b class='lime'>the last lantern</b>: the smols are tiny, forgetful creatures living on the back of a sleeping giant, the Hollow. long ago they lit a Lantern to remember who they are. every night it burns a little lower, and as it fades their memories fade with it: that's why their brains are smol. <b>you are the Lantern's last spark.</b> Pip, the smallest smol, made one last wish into the dying flame, and it lifted you into the sky. you can watch over them and nudge them, but you can't touch the world. you can only <b>lend your light</b> to one smol at a time (👁 possess): while you're inside it remembers everything and is brave. <b>grumps</b> are smols whose light went out completely. they hunt the light, and that includes you.</p>" +
+      "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
       "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
       "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
       "<p>✋ <b>grab</b>: tap a smol to see inside it, drag smols and things around, throw them (gently: the dotted arc shows where they'll land). grab a tree and wiggle it side to side to shake fruit down. drag empty ground to move the camera.<br>🪶 <b>tickle</b>: a reward. tap or rub a smol right after it does something good.<br>👆 <b>tap</b>: a scolding. it stops and learns not to.<br>💬 <b>talk</b>: the word book. pick a word, then show it: tap a thing for its name, or tap a smol and ask it to do something. one lesson per smol every few seconds. words most of the tribe knows make everyone smarter and become 📣 calls.<br>📜 <b>story</b>: every smol remembers who hit it, who shared food, who taught it things. friends stick together, rivals shove and brawl, and builders and up hold real conversations (gossip spreads grudges). tap a smol, then 📜 story. a gift of food mends a grudge; 👆 tap ends a tantrum; 🪶 tickle comforts the grieving.<br>✨ <b>magic</b>: spend sparks on miracles. sparks come from smols learning, discovering, hatching and praying.<br>🚩 <b>orders</b>: signs from the sky. after the tutorial even blobs follow a rally flag (\"go there\") and keep to home and no-go zones; tool-users add an explore beacon, work marks, building blueprints and a stockpile. smols follow if they trust you; 📋 jobs nudges what each one likes doing.</p>" +
@@ -1566,6 +1619,9 @@
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
       "<p><b class='lime'>👁 possess</b> (smol card, " + (SB.Possess ? SB.Possess.COST : 3) + " sparks): live as one smol, first person. survival-game rules: a 9-slot hotbar (1-9 or the wheel), a bag (tab) with crafting beside it, hearts and drumsticks to keep up. left click uses what you hold on what you point at (a tool chops trees and chips rock, paws only shake and punch), right click eats, plants, gives or places, f picks up, q drops, e does what the prompt says, b opens your building plans (r turns the ghost). put a stick, a vine (they hang off cliffs, rocks and riverbanks) and a rock together for your first tool. at zero hearts the smol dies for real, with everything it carried. phones: thumbstick on the left, drag the right side to look, the big button does what it says, tap a hotbar slot to hold it.</p>" +
       "<p>camera: drag to pan, pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-6 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
+    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the last lantern (the intro)")]));
+    var gm = SB.Game.current, films = SB.Lantern && gm && gm.lantern && gm.lantern.films ? Object.keys(SB.Lantern.SCENES).filter(function (k) { return gm.lantern.films[k] || (k === "dawn" && gm.tutorial && gm.tutorial.night && gm.tutorial.night.done); }) : [];
+    if (films.length) body.appendChild(h("div", { class: "btnrow" }, films.map(function (k) { return h("button", { class: "btn", onclick: function () { closeModal(); closeSheet(); SB.Lantern.play({ scene: k, noGate: true }); } }, "🎞 " + SB.Lantern.SCENES[k].name); })));
   }
 
   /* ---------------- brain viewer ---------------- */
@@ -1725,16 +1781,18 @@
     el.hud.classList.add("hide"); el.tools.classList.add("hide");
     // from the hub's "tap to play" card (cc.autostart): that tap was the start, so go straight to the island
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
-    if (SB.Intro && !UI.noStory && !game.ngPlus && !auto && !SB.Game.quickStart) { SB.Intro.play({ done: landing, noGate: !!SB.Game.fromTitle }); return; } // the "create world" tap already let the sound start
+    // the opening film, "The Last Lantern" (K-0041): always the first time on a device, even from "play now"; after that when you asked for the story
+    // K-0045: the ark battle and its falling pod open it, then the pod knocks the Lantern down and Pip makes the wish
+    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.play({ noGate: true, done: landing }); } }); return; } // the "create world" tap already let the sound start
     landing();
   }
-  UI.replayIntro = function () { closeModal(); if (SB.Intro) SB.Intro.play({ noGate: true }); };
+  UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Intro) SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } }); };
   // after the story: the camera falls with the pod onto the island
   function landing() {
     var T = game.world.T, nest = T.nest;
     // the island's name, and its quirk (a "surprise me" quirk is revealed right here)
     var qk = ((game.settings && game.settings.world && game.settings.world.quirks) || []).map(function (k) { return SB.QUIRKS && SB.QUIRKS[k]; }).filter(Boolean)[0];
-    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "welcome to " + game.wname + "." : "an island of tiny minds. one escape pod."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
+    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "the Hollow: " + game.wname + "." : "the Hollow. one last Lantern."), h("p", { class: "quirk" }, "you are its last spark. watch over them."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
     root.appendChild(title);
     R.camera.x = T.N / 2; R.camera.z = T.N / 2 + 20; R.camera.zoom = R.camera.tZoom = 95; R.camera.yaw = R.camera.tYaw = -0.9;
     R.cinematic({ dur: SB.Game.quickStart ? 2.4 : 5.5, x0: T.N / 2, zz0: T.N / 2 + 20, x1: nest.x, zz1: nest.z, z0: 95, z1: 5.5, yaw0: -0.9, yaw1: 0.35, skippable: true, done: function () {
@@ -1747,6 +1805,7 @@
   // the first question: guided or not. the guide is the opening steps plus tips for the whole game
   function askTutorial() {
     var st = game.tutorial, set = game.settings = game.settings || {};
+    if (SB.FirstNight && SB.FirstNight.wants(game)) { set.guide = true; st.step = 0; SB.FirstNight.start(game); tutShow(); return; }
     if (game.ngPlus || st.done || set.guide != null) { st.step = st.step || 0; tutShow(); return; }
     if (SB.Game.quickStart) { set.guide = true; st.step = 0; tutShow(); return; } // play now: the guide starts by itself ("skip tutorial" is always on its card)
     modal("🐣 play the tutorial?", h("div", null, [
@@ -1759,13 +1818,15 @@
     ]), { sticky: true, now: true });
   }
   UI.askTutorial = askTutorial;
+  // after the first night: the god's tools (reward, words, tricks) as the next lessons
+  UI.afterNight = function () { var held = nightHeld; nightHeld = []; held.forEach(function (t, k) { setTimeout(function () { toast(t[0], t[1], t[2]); }, 2500 + k * 1500); }); var st = game.tutorial; if (st.done) return; var i = TUT.map(function (d) { return d.id; }).indexOf("tickle"); st.step = i >= 0 ? i : st.step; tutShow(); };
   function guideOn() { return !game.settings || game.settings.guide !== false; }
   // the tutorial walks through every mechanic. "do" steps wait for you to try the thing; "read" steps
   // have a next button. it never blocks taps on the island, and it can be skipped at any point.
   var TUT = [
     { id: "pod", t: "tap the crashed pod", s: "something's moving in that pod. tap it a few times to open it." },
     { id: "name", t: "they're out!", s: "" },
-    { id: "why", read: 1, t: "why you're here", s: "these two are the last smols. you're the sky above their island: you can't control them, but you can feed, teach, protect and bless them. raise them from blobs into a people clever enough to build <b>the big thought</b> and call their lost ark home." },
+    { id: "why", read: 1, t: "why you're here", s: "you're the Lantern's last spark, lifted into the sky by Pip's wish. you can't touch the world, but you can watch over the smols: feed, teach, protect and bless them, or <b>lend your light</b> to one (👁 possess) and live as it. raise them from blobs into a people clever enough to remember who they are." },
     { id: "look", t: "look around", s: "drag to move, pinch or scroll to zoom. <b>tap one of your smols</b> to pick it: it stops still for a few seconds so you can teach it, and its card shows what it's thinking." },
     { id: "food", t: "it's hungry", s: "smols learn by trying things and remembering what felt good. they find food on their own, but you can help: with ✋ grab, <b>drag the apple next to a smol</b>." },
     { id: "tickle", t: "reward it", hl: '[data-tool="tickle"]', s: "🪶 tickle means “yes, more of that”. pick tickle and <b>tap a smol</b> while it eats. 👆 tap means “no, stop that”. rewards and scoldings are how you shape its brain." },
@@ -1781,6 +1842,7 @@
     [].forEach.call(document.querySelectorAll(".tutglow"), function (n) { n.classList.remove("tutglow"); });
     var st = game.tutorial;
     if (st.done) { state.tutStep = -1; return; }
+    if (SB.FirstNight && SB.FirstNight.active(game) && st.step >= 1) { state.tutStep = -1; return; } // the first night teaches by itself
     state.tutStep = st.step;
     if (st.step === 1) return; // name prompt handles it
     var d = TUT[st.step];
@@ -1910,6 +1972,7 @@
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
     ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
+    if (SB.TEST || (SB.FirstNight && SB.FirstNight.active(game))) { ok(); toast("🧪 test mode: the founders keep their names (" + esc(c.name) + (twin ? " & " + esc(twin.name) : "") + ")"); return; }
     modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true, now: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }
@@ -2176,6 +2239,30 @@
       tutDone("trick");
     });
     var waitT = 0;
+    on("possess", function () { el.heldSheet = state.sheet && state.sheet !== "smol" ? state.sheet : null; if (state.sheet) closeSheet(); });
+    on("unpossess", function (d) { var k = el.heldSheet; el.heldSheet = null; if (k && d.why !== "died") setTimeout(function () { if (!(SB.Possess && SB.Possess.active) && !state.sheet) openSheet(k); }, 450); });
+    on("possess", function () { if (el.modal && el.modalArgs && !(el.modalOpts && el.modalOpts.pov)) { var a = el.modalArgs; closeModal(); povHeld.unshift([a[0], a[1], Object.assign({}, a[2], { resume: true })]); } }); // hidden in first person, it paused the island (K-0037 "freeze")
+    on("knockout", function (d) { toast("💫 <b>" + esc(d.c.name) + "</b> was knocked out" + (d.items.length ? " and dropped what it carried" : "") + ". your light needs " + (SB.Possess ? SB.Possess.KO_COOLDOWN : 30) + " s to gather itself.", "", 7000); });
+    on("ember", function (d) {
+      var g = SB.Game.current; if (!g || g.offline) return;
+      var html = "🔥 <b>memory ember +1</b>: " + esc(d.why) + (d.next ? " <span class=\"dim\">(" + d.n + " of " + d.next + ")</span>" : "");
+      (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast(html, "ember", 5500); if (el.lantern) { el.lantern.classList.remove("pulse"); void el.lantern.offsetWidth; el.lantern.classList.add("pulse"); } })();
+    });
+    on("lantern", function (d) {
+      var g = SB.Game.current; if (!g || !d.stage || g.offline) return; // stage 0 is the first night's ember
+      if (SB.Game.note && d.stage < SB.Embers.STAGES.length) SB.Game.note(g, "🏮 the Lantern caught: stage " + d.stage + ". the nights are a little less dark."); // (sparks: embers.js)
+    });
+    on("lanternShown", function (d) {
+      var g = SB.Game.current; if (!g) return;
+      if (d.stage >= SB.Embers.STAGES.length) toast("🌅 <b>the Hollow wakes</b> · the grumps remembered their names and went home. no more grump nights. +" + 10 * d.stage + " ✨. the island is yours to keep.", "ach", 10000);
+      else toast("🏮 <b>the Lantern: stage " + d.stage + "</b> · nights are less dark, +" + 10 * d.stage + " ✨. next stage at " + (SB.Embers.next(g) || "—") + " embers.", "ach", 7000);
+    });
+    on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); toast("👀 <b>" + esc(d.c.name) + "</b> is thinking about it…", "", 4000); });
+    on("trickNoBite", function (d) {
+      toast("🤷 <b>" + esc(d.c.name) + "</b> isn't biting: " + esc(d.why) + ". press <b>set it up</b> to try again" + (/hungry/.test(d.why) ? ", or wait till it's hungrier" : "") + ".", "", 7000);
+      if (trCue.c === d.c) trCue.c = null;
+      if (state.sheet === "tricks") renderTricks(true);
+    });
     on("trickWait", function (d) {
       if (performance.now() - waitT < 1800) return;
       waitT = performance.now();

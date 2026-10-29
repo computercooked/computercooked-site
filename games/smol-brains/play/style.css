@@ -79,6 +79,11 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .toast.out { opacity: 0; transform: translateY(-6px); transition: 0.5s; }
 .toast.ach { border-color: var(--lime); }
 .toast.ach b { color: var(--lime); }
+.toast.ember { border-color: #ffb347; }
+.lanternchip b { font: 800 15px/1 system-ui, Arial, sans-serif; color: #ffd84a; }
+.lanternchip small { font: 600 10px/1 system-ui, Arial, sans-serif; opacity: .75; }
+.lanternchip.pulse { animation: emberpulse 1.2s ease-out; } @keyframes emberpulse { 0% { box-shadow: 0 0 0 0 rgba(255,179,71,.9); filter: brightness(1.8); } 100% { box-shadow: 0 0 0 16px rgba(255,179,71,0); filter: none; } }
+.toast.ember b { color: #ffd84a; }
 @keyframes tin { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
 .moment { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; animation: mom 3.4s ease-out forwards; width: min(90vw, 520px); }
 .moment .big { font: 700 clamp(26px, 7vw, 44px)/1.05 var(--mono); color: var(--lime); text-shadow: 0 3px 0 #101114, 0 0 30px rgba(197, 255, 73, 0.4); letter-spacing: -0.02em; }
@@ -464,6 +469,17 @@ body.titling #overlay { opacity: 0; }
 @media (max-width: 420px) { .tools.six .tool { width: 51px; } }
 @media (max-width: 360px) { .tools.six .tool { width: 46px; font-size: 10px; } }
 .tool.hide { display: none; }
+.fnhint { position: fixed; left: 50%; bottom: calc(96px + var(--sab)); transform: translateX(-50%); padding: 10px 16px; font: 800 18px var(--sans); color: var(--paper); display: none; z-index: 6; text-align: center; animation: tin 0.3s; }
+.fnhint.on { display: block; }
+.fnhint span { display: block; font: 600 13px var(--sans); color: var(--dim); margin-top: 2px; }
+.fntimer { position: fixed; left: 50%; top: calc(56px + var(--sat)); transform: translateX(-50%); padding: 8px 14px; font: 800 18px system-ui, Arial, sans-serif; color: #ffd84a; display: none; z-index: 6; }
+.fntimer.on { display: block; }
+.lendbtn { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); padding: 14px 26px; font: 800 22px var(--sans); color: #101114; background: #ffd84a; border: 0; box-shadow: 0 0 0 3px #000, 0 0 32px #ffd84a; cursor: pointer; display: none; z-index: 8; pointer-events: auto; animation: lendpulse 1.2s ease-in-out infinite; }
+.lendbtn.on { display: block; }
+.lendbtn small { display: block; font: 700 12px var(--sans); opacity: 0.7; }
+@keyframes lendpulse { 50% { box-shadow: 0 0 0 3px #000, 0 0 56px #ffd84a; transform: translateX(-50%) scale(1.05); } }
+.testbtn { position: fixed; left: 8px; bottom: 6px; z-index: 7; font-size: 14px; padding: 8px 12px; background: var(--lime); color: #101114; font-weight: 800; }
+.verlbl { position: fixed; right: 8px; bottom: 6px; font: 800 16px/1 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color: #fff; background: rgba(0, 0, 0, 0.55); padding: 3px 6px; opacity: 0.95; pointer-events: none; z-index: 5; }
 .tool.locked { opacity: 0.35; filter: grayscale(1); }
 .podmap .podwhy { display: block; margin-top: 6px; font-size: 12px; opacity: 0.85; }
 #ui:has(.sheet[data-kind="orders"]:not(.hide)) .guide { display: none; } /* placing orders needs the whole sheet */

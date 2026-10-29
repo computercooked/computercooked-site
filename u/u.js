@@ -3,7 +3,7 @@
   "use strict";
   var $ = function (s) { return document.querySelector(s); };
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var THEME = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED", mint: "#7dffb0", pink: "#ff6bd6", gold: "#ffd84d", chrome: "#d9e2ec" };
+  var THEME = { lime: "#C5FF49", lilac: "#B59AFF", hot: "#ff8a7d", ice: "#5bc8ff", cooked: "#ffb84d", paper: "#F5F3ED", mint: "#7dffb0", pink: "#ff6bd6", gold: "#ffd84d", chrome: "#d9e2ec", sunset: "#ff9f43", grape: "#8f5bff", aqua: "#2ee6d6", rose: "#ff9ec4", lemon: "#fff35c", ember: "#ff4d2e" };
   var name = decodeURIComponent((/^\/u\/([^/]+)/.exec(location.pathname) || [])[1] || "");
   var catalog = {};
 
@@ -41,10 +41,11 @@
 
   Promise.all([
     fetch("/games/games.json").then(function (r) { return r.json(); }).catch(function () { return { games: [] }; }),
-    fetch("/api/u/" + encodeURIComponent(name)).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    fetch("/api/u/" + encodeURIComponent(name)).then(function (r) { return r.json().catch(function () { return null; }); }).catch(function () { return null; })
   ]).then(function (res) {
     (res[0].games || []).forEach(function (g) { catalog[g.slug] = g; });
     var p = res[1];
+    if (p && p.moved && /^[A-Za-z0-9_]{3,16}$/.test(p.moved)) { location.replace("/u/" + p.moved); return; } // renamed in the last 30 days
     if (!p || !p.ok) return missing();
     var shown = p.display_name || p.username;
     document.title = shown + " — Computer Cooked Games";

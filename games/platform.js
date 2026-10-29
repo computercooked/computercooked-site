@@ -21,7 +21,7 @@
 
   panel.innerHTML =
     '<div class="about-card cc-board" hidden>' +
-      '<div class="cc-head"><h2>// leaderboard</h2>' +
+      '<div class="cc-head"><h2><img class="cc-trophy" src="/assets/mascot/trophy.svg" alt="" width="31" height="40">leaderboard</h2>' +
         '<div class="cc-tabs" role="tablist" aria-label="leaderboard period">' +
           '<button type="button" role="tab" data-p="day" aria-selected="true">today</button>' +
           '<button type="button" role="tab" data-p="week" aria-selected="false">week</button>' +
@@ -33,16 +33,104 @@
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
     "</div>" +
     '<div class="about-card cc-fb" id="cc-feedback">' +
-      '<div class="cc-head"><h2>// how was it?</h2>' +
+      '<div class="cc-head"><h2>rate it</h2>' +
         '<button type="button" class="cc-heart" aria-pressed="false" aria-label="favorite" hidden>♡</button></div>' +
       '<div class="cc-thumbs">' +
-        '<button type="button" data-r="1" aria-pressed="false" aria-label="thumbs up">👍</button>' +
-        '<button type="button" data-r="-1" aria-pressed="false" aria-label="thumbs down">👎</button>' +
+        '<button type="button" data-r="1" aria-pressed="false" aria-label="thumbs up"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 11v9H3v-9zM7 11l4-8c1.7 0 3 1.3 3 3v3h5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>' +
+        '<button type="button" data-r="-1" aria-pressed="false" aria-label="thumbs down"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="transform:rotate(180deg)"><path d="M7 11v9H3v-9zM7 11l4-8c1.7 0 3 1.3 3 3v3h5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>' +
       "</div>" +
       '<label class="cc-label" for="cc-fb-text">what would make this better?</label>' +
       '<textarea id="cc-fb-text" maxlength="1000" rows="3" placeholder="be honest. the computer can take it. (it cannot)"></textarea>' +
       '<div class="cc-row"><button type="button" class="cc-send">send</button><span class="cc-msg" role="status"></span></div>' +
     "</div>";
+
+  /* ---------- K-0030 step 1: XP for guests on this device, and a level bar for everyone ----------
+     The same rules as src/xp.js (RULES, the level curve, the site badges a run can earn). For guests it's a
+     preview kept in localStorage: at sign-up or log-in the server replays their plays for the real XP
+     (src/xp.js replayGuest), so nothing here can be faked into an account. Keep the numbers in step with xp.js. */
+  var DAILY3 = ["crash-test-daily", "desktop-jam", "fathom"], DAILY3_XP = 60;
+  var XP = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
+  var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
+  var BADGES = { first_run: ["boot sequence", 10], play_5: ["sampler platter", 50], play_10: ["tab hopper", 75], play_15: ["the whole arcade", 150],
+    streak_3: ["three-peat", 30], streak_7: ["seven day uptime", 100], streak_30: ["always online", 100], runs_25: ["regular", 40], runs_100: ["can't stop", 100],
+    top_10: ["leaderboard material", 75], top_3: ["podium", 100], rank_1: ["king of the hill", 100], new_best: ["personal record", 15], marathon: ["marathon", 40],
+    level_5: ["promoted", 50], level_10: ["senior engineer", 100] };
+  function xpFor(L) { return Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6)); }
+  function levelOf(x) {
+    var L = 1;
+    while (xpFor(L + 1) <= x && L < 999) L++;
+    return { level: L, title: TITLES.filter(function (t) { return t[0] <= L; }).pop()[1], xp: x, floor: xpFor(L), next: xpFor(L + 1) };
+  }
+  var GKEY = "cc-guest-xp";
+  function gRead() { try { return JSON.parse(localStorage.getItem(GKEY) || "null") || {}; } catch (e) { return {}; } }
+  function gWrite(s) { try { localStorage.setItem(GKEY, JSON.stringify(s)); } catch (e) {} }
+  function dayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  // src/util.js streakFrom: days in a row, with one missed day forgiven per 7
+  function streakOf(days, from) {
+    var set = {}; days.forEach(function (d) { set[d] = 1; });
+    var n = 0, t = new Date(from + "T12:00:00"), i = 0, lastSave = -Infinity;
+    for (;;) {
+      var prev = new Date(t); prev.setDate(prev.getDate() - 1);
+      if (set[dayKey(t)]) n++;
+      else if (n > 0 && i - lastSave >= 7 && set[dayKey(prev)]) lastSave = i;
+      else break;
+      t.setDate(t.getDate() - 1); i++;
+    }
+    return n;
+  }
+  function guestAward(d) {
+    var dur = d.durationMs || 0;
+    if (d.completed === false || dur < XP.minMs) return null;
+    var s = gRead();
+    s.xp = s.xp || 0; s.runs = s.runs || 0; s.games = s.games || {}; s.days = s.days || []; s.used = s.used || {}; s.badges = s.badges || {};
+    var before = s.xp, parts = [], achs = [], day = dayKey(new Date()), r = d.result;
+    var pct = r && r.accepted ? Math.round(XP.pctMax * (1 - (r.rank - 1) / Math.max(1, r.players || 1))) : 0;
+    var k = day + "|" + d.game, playXp = Math.min(XP.base + pct, Math.max(0, XP.perGameDayCap - (s.used[k] || 0)));
+    var used = {}; used[k] = (s.used[k] || 0) + playXp; s.used = used; // only today's caps matter
+    if (playXp) parts.push({ kind: "play", xp: playXp });
+    if (playXp < XP.base + pct) parts.push({ kind: "cap", xp: 0 });
+    if (!s.games[d.game]) { s.games[d.game] = 1; parts.push({ kind: "first", xp: XP.first }); }
+    var firstToday = s.days.indexOf(day) < 0;
+    if (firstToday) { s.days.push(day); s.days = s.days.slice(-60); }
+    var streak = streakOf(s.days, day);
+    if (firstToday) parts.push({ kind: "streak", xp: XP.streakStep * Math.min(streak, XP.streakMax), days: streak });
+    // K-0030 step 6: all three Daily 3 games finished today (same bonus the server pays accounts)
+    if (DAILY3.indexOf(d.game) >= 0) {
+      if (!s.d3 || s.d3.day !== day) s.d3 = { day: day, g: [] };
+      if (s.d3.g.indexOf(d.game) < 0) s.d3.g.push(d.game);
+      if (!s.d3.paid && DAILY3.every(function (g) { return s.d3.g.indexOf(g) >= 0; })) { s.d3.paid = 1; parts.push({ kind: "daily3", xp: DAILY3_XP }); }
+    }
+    s.runs++;
+    var n = Object.keys(s.games).length, ok = r && r.accepted;
+    function give(id) { if (s.badges[id]) return; s.badges[id] = 1; var b = BADGES[id]; achs.push({ id: id, name: b[0], xp: b[1] }); parts.push({ kind: "achievement", xp: b[1], id: id }); }
+    [["first_run", true], ["play_5", n >= 5], ["play_10", n >= 10], ["play_15", n >= 15], ["streak_3", streak >= 3], ["streak_7", streak >= 7], ["streak_30", streak >= 30],
+     ["runs_25", s.runs >= 25], ["runs_100", s.runs >= 100], ["top_10", ok && r.rank <= 10], ["top_3", ok && r.rank <= 3], ["rank_1", ok && r.rank === 1],
+     ["new_best", ok && r.prev_best != null && d.score > r.prev_best], ["marathon", dur >= 600000]].forEach(function (e) { if (e[1]) give(e[0]); });
+    function sum() { return parts.reduce(function (a, p) { return a + p.xp; }, 0); }
+    if (levelOf(before + sum()).level >= 5) give("level_5");
+    if (levelOf(before + sum()).level >= 10) give("level_10");
+    s.xp = before + sum(); gWrite(s);
+    var a = levelOf(before), b = levelOf(s.xp);
+    b.gained = s.xp - before; b.parts = parts; b.achievements = achs; b.leveled_up = b.level > a.level; b.guest = true;
+    return b;
+  }
+  var lvl = el('<div class="cc-level" hidden><div class="cc-level-row"><b class="cc-level-n"></b> <span class="cc-level-t"></span><span class="cc-level-x num"></span></div>' +
+    '<div class="cc-level-bar" aria-hidden="true"><span></span></div><p class="cc-level-note" hidden>saved on this device. <a href="/me/">make an account</a> to keep it.</p></div>');
+  panel.insertBefore(lvl, panel.firstChild);
+  function showLevel(L, guest) {
+    if (!L || !L.level) return;
+    var fc = lvl.querySelector(".cc-level-face");
+    if (!guest && me && me.avatar && window.ccAvatar) {
+      if (!fc) { fc = document.createElement("span"); fc.className = "cc-level-face"; fc.setAttribute("aria-hidden", "true"); lvl.querySelector(".cc-level-row").insertBefore(fc, lvl.querySelector(".cc-level-n")); }
+      fc.innerHTML = window.ccAvatar(me.avatar);
+    } else if (fc) fc.remove();
+    lvl.querySelector(".cc-level-n").textContent = "level " + L.level;
+    lvl.querySelector(".cc-level-t").textContent = L.title;
+    lvl.querySelector(".cc-level-x").textContent = (L.xp - L.floor) + " / " + (L.next - L.floor) + " xp";
+    lvl.querySelector(".cc-level-bar span").style.width = Math.max(2, Math.min(100, 100 * (L.xp - L.floor) / Math.max(1, L.next - L.floor))) + "%";
+    lvl.querySelector(".cc-level-note").hidden = !guest;
+    lvl.hidden = false;
+  }
 
   /* ---------- this device's recently played list, for "jump back in" on the hub ---------- */
   try {
@@ -51,10 +139,8 @@
     localStorage.setItem("cc-recent", JSON.stringify(rec.slice(0, 12)));
   } catch (e) {}
 
-  /* ---------- account chip (next to the breadcrumbs) ---------- */
-  var crumbs = document.querySelector(".crumbs");
+  /* ---------- account chip: K-0031 the top bar's "log in" covers this now, so it stays off the page ---------- */
   var chip = el('<a class="cc-chip" href="/me/">log in</a>');
-  if (crumbs) crumbs.appendChild(chip);
 
   /* ---------- leaderboard ---------- */
   var board = panel.querySelector(".cc-board");
@@ -66,7 +152,7 @@
     var friends = period === "friends";
     var url = "/api/leaderboard?game=" + encodeURIComponent(game) + "&period=" + (friends ? "all&friends=1" : period) + "&player=" + encodeURIComponent("a:" + cc._anon);
     api(url).then(function (r) {
-      if (!r.ok) { rows.innerHTML = '<li class="cc-empty">leaderboard is napping. try later.</li>'; return; }
+      if (!r.ok) { rows.innerHTML = '<li class="cc-empty cc-nap"><img src="/assets/mascot/sleep.svg" alt="" width="45" height="68">leaderboard is napping. try later.</li>'; return; }
       if (!r.rows.length) {
         rows.innerHTML = friends
           ? '<li class="cc-empty">no friend scores yet. <a href="/me/#friends">add friends</a> and dare them.</li>'
@@ -74,7 +160,9 @@
         return;
       }
       rows.innerHTML = r.rows.map(function (x) {
-        var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + esc(x.name) + "</a>" : esc(x.name);
+        // K-0030 step 4: accounts show their face next to their name
+        var face = x.a && window.ccAvatar ? '<span class="cc-face" aria-hidden="true">' + window.ccAvatar(x.a) + "</span>" : "";
+        var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + face + esc(x.name) + "</a>" : esc(x.name);
         return '<li class="' + (x.me ? "is-me" : "") + '"><span class="cc-rank">' + x.rank + '</span><span class="cc-name">' + name +
           '</span><span class="cc-score">' + fmt(x.score) + '</span><button type="button" class="cc-flag" data-id="' + x.id + '" aria-label="report ' + esc(x.name) + '" title="report">⚑</button></li>';
       }).join("") + (r.you
@@ -109,6 +197,7 @@
     b.addEventListener("click", function () {
       rating = rating === +b.dataset.r ? 0 : +b.dataset.r;
       fb.querySelectorAll(".cc-thumbs button").forEach(function (x) { x.setAttribute("aria-pressed", String(+x.dataset.r === rating)); });
+      fb.classList.add("is-open");
       if (rating && !ta.value.trim()) send(true);
     });
   });
@@ -145,10 +234,19 @@
       prefetchFriends();
       heart.hidden = false;
       api("/api/me/summary").then(function (s) { if (s.ok) setHeart(s.favorites.indexOf(game) >= 0); });
+      showLevel(me, false);
     } else {
       guestBox.hidden = false;
+      showLevel(levelOf(gRead().xp || 0), true);
     }
   });
+
+  if (!window.ccAvatar) {
+    var avs = document.createElement("script");
+    avs.src = "/assets/avatars.js"; avs.defer = true;
+    avs.onload = function () { if (!board.hidden) loadBoard(); if (me) showLevel(me, false); };
+    document.head.appendChild(avs);
+  }
 
   /* ---------- does this game have a leaderboard? ---------- */
   fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
@@ -369,7 +467,7 @@
     tipUrl().then(function (url) {
       if (!url || !box.isConnected || box.querySelector(".cc-tip-pb")) return;
       try { sessionStorage.setItem("cc-tip-pb", "1"); } catch (e) {}
-      box.insertAdjacentHTML("beforeend", '<p class="cc-tip cc-tip-pb"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-best">☕ new best? buy the computer a coffee ↗</a> <small>18+ / ask a parent</small></p>');
+      box.insertAdjacentHTML("beforeend", '<p class="cc-tip cc-tip-pb"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-tip="post-best">new best? buy the computer a coffee ↗</a> <small>18+ / ask a parent</small></p>');
       box.querySelector(".cc-tip-pb a").addEventListener("click", function () { if (window.ccHit) window.ccHit("tip_click", { slot: "post-best", game: game }); });
     });
   }
@@ -424,7 +522,7 @@
         picks.push(seen[g.slug] ? take(g, "similar", "play again") : take(g, "new", "you haven't tried"));
       });
       if (document.getElementById("cc-next")) return;
-      var rail = el('<nav class="cc-next" id="cc-next" aria-label="play next"><h2>// play next</h2><div class="cc-next-row">' +
+      var rail = el('<nav class="cc-next" id="cc-next" aria-label="play next"><h2>play next</h2><div class="cc-next-row">' +
         picks.slice(0, 3).map(function (p) {
           return '<a class="cc-next-card" href="/games/' + encodeURIComponent(p.g.slug) + '/?src=next&amp;slot=' + p.slot + '">' +
             '<img src="' + esc(p.g.thumbnail || "") + '" alt="" loading="lazy" width="160" height="90">' +
@@ -446,7 +544,7 @@
     if (["crash-test-daily", "desktop-jam", "fathom"].indexOf(slug) < 0) return;
     var go = function () {
       var r = window.ccDaily3 && window.ccDaily3.mark(slug);
-      if (r && window.ccToast) window.ccToast(r.done < r.of ? "daily 3: " + r.done + "/" + r.of + " today" : "daily 3 done" + (r.streak ? " · 🔥" + r.streak : ""));
+      if (r && window.ccToast) window.ccToast(r.done < r.of ? "daily 3: " + r.done + "/" + r.of + " today" : "daily 3 done" + (r.streak ? " · " + r.streak + "-day streak" : ""));
     };
     if (window.ccDaily3) return go();
     var s = document.createElement("script"); s.src = "/assets/daily3.js"; s.onload = go; document.head.appendChild(s);
@@ -475,6 +573,90 @@
     });
   }
 
+  /* ---------- K-0030 step 2: "save your level": after a proud moment, a guest signs up right here ----------
+     Same sign-up as /me/ (13+ check, username rules, hashed password, no email). The server replays this
+     device's guest plays for real xp (step 1). "not now" hides it for 3 days. */
+  var MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  function claimCard(why) {
+    if (me || document.getElementById("cc-claim")) return;
+    try {
+      if (Date.now() - (+localStorage.getItem("cc-claim-later") || 0) < 3 * 86400000) return;
+      if (Date.now() - (+localStorage.getItem("cc-noacct") || 0) < 86400000) return;
+    } catch (e) {}
+    var L = levelOf(gRead().xp || 0), y = new Date().getFullYear(), years = "";
+    for (var i = y - 5; i >= y - 100; i--) years += '<option value="' + i + '">' + i + "</option>";
+    var guess = "";
+    try { guess = (localStorage.getItem("cc-guest-name") || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 16); } catch (e) {}
+    if (guess.length < 3) guess = "";
+    var box = el('<div class="about-card cc-claim" id="cc-claim" role="region" aria-labelledby="cc-claim-h">' +
+      '<h2 id="cc-claim-h">save your level ' + L.level + '</h2>' +
+      '<p class="cc-claim-why">' + esc(why) + ". right now it only lives on this device.</p>" +
+      '<p class="cc-claim-acts"><button type="button" class="play-btn cc-claim-go">claim it</button> <button type="button" class="cc-claim-later">not now</button></p>' +
+      '<form class="cc-claim-form" hidden novalidate>' +
+        '<fieldset><legend>when were you born?</legend><div class="cc-claim-two">' +
+          '<label>month <select name="birth_month" required><option value="" selected disabled>month</option>' + MONTHS.map(function (m, j) { return '<option value="' + (j + 1) + '">' + m + "</option>"; }).join("") + "</select></label>" +
+          '<label>year <select name="birth_year" required><option value="" selected disabled>year</option>' + years + "</select></label></div></fieldset>" +
+        '<label>username <input name="username" autocomplete="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" spellcheck="false" autocapitalize="off" value="' + esc(guess) + '"><small>3-16 letters, numbers or _. not your real name.</small></label>' +
+        '<label>password <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200"><small>8+ characters. no email needed.</small></label>' +
+        '<button class="play-btn" type="submit">save my level</button>' +
+        '<p class="cc-claim-msg" role="alert"></p>' +
+        '<p class="cc-claim-fine">we store your username, a scrambled (hashed) password and your plays. <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a> · have an account? <a href="/me/">log in</a></p>' +
+      "</form></div>");
+    var lvlEl = document.querySelector(".cc-level");
+    if (lvlEl && lvlEl.nextSibling) panel.insertBefore(box, lvlEl.nextSibling); else panel.insertBefore(box, panel.firstChild);
+    var form = box.querySelector("form"), msg = box.querySelector(".cc-claim-msg");
+    box.querySelector(".cc-claim-go").addEventListener("click", function () {
+      box.querySelector(".cc-claim-acts").hidden = true; form.hidden = false; form.querySelector("select").focus();
+    });
+    box.querySelector(".cc-claim-later").addEventListener("click", function () {
+      try { localStorage.setItem("cc-claim-later", String(Date.now())); } catch (e) {}
+      box.remove();
+    });
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var d = Object.fromEntries(new FormData(form).entries());
+      if (!d.birth_month || !d.birth_year) { msg.textContent = "pick your birth month and year."; return; }
+      if (!/^[A-Za-z0-9_]{3,16}$/.test(d.username || "")) { msg.textContent = "usernames are 3-16 letters, numbers or _."; return; }
+      if ((d.password || "").length < 8) { msg.textContent = "passwords need 8+ characters."; return; }
+      var refDare;
+      try { var rd = JSON.parse(localStorage.getItem("cc-ref-dare") || "null"); refDare = rd && Date.now() - rd.t < 30 * 86400000 ? rd.d : undefined; } catch (e) {}
+      d.anon_id = cc._anon || (function () { try { return localStorage.getItem("cc-anon"); } catch (e) { return null; } })();
+      d.ref_dare = refDare;
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true; msg.textContent = "…";
+      api("/api/auth/signup", d).then(function (res) {
+        btn.disabled = false;
+        if (res.under13) {
+          try { localStorage.setItem("cc-noacct", String(Date.now())); } catch (e) {}
+          box.innerHTML = "<h2>keep playing</h2><p>accounts are for 13 and up, so we didn't save anything. your level stays on this device, and every game still works.</p>";
+          return;
+        }
+        if (!res.ok) { msg.textContent = res.error || "that didn't work."; return; }
+        try { localStorage.removeItem(GKEY); localStorage.setItem("cc-user-change", String(Date.now())); } catch (e) {}
+        api("/api/me").then(function (m) {
+          me = m && m.user;
+          if (!me) return;
+          guestBox.hidden = true;
+          showLevel(me, false);
+          box.innerHTML = "<h2>saved</h2><p>you're <b>" + esc(me.username) + "</b>, level " + me.level + ". your xp now follows you to any device. <a href=\"/me/\">your profile</a></p>";
+          // K-0030 step 5: the recovery codes, shown once (there's no email reset)
+          var codes = res.recovery_codes || [];
+          if (codes.length) {
+            box.insertAdjacentHTML("beforeend", '<p class="cc-claim-why"><b>save these recovery codes.</b> if you forget your password, one gets you back in. each works once and we cannot show them again.</p>' +
+              '<ol class="cc-codes">' + codes.map(function (c) { return "<li><code>" + esc(c) + "</code></li>"; }).join("") + "</ol>" +
+              '<p class="cc-claim-acts"><button type="button" class="play-btn cc-codes-copy">copy codes</button></p>');
+            box.querySelector(".cc-codes-copy").addEventListener("click", function () {
+              var b = this, text = "computer cooked recovery codes for " + me.username + "\n" + codes.join("\n") + "\n";
+              (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { b.textContent = "copied"; }, function () { b.textContent = "write them down"; });
+            });
+          }
+          if (window.ccToast) window.ccToast("level " + me.level + " saved to " + me.username);
+          if (!board.hidden) loadBoard();
+        });
+      });
+    });
+  }
+
   /* ---------- after a run ---------- */
   document.addEventListener("cc:end", function (e) {
     try { sessionStorage.setItem("cc-runs", String(visitRuns() + 1)); } catch (err) {}
@@ -494,14 +676,23 @@
     nextRail();
     adsReady().then(function (a) { if (a) a.runEnded(game); });
     var x = r && r.xp;
+    if (!x && !me) x = guestAward(e.detail); // K-0030 step 1: guests earn xp on this device
+    if (x && x.level) showLevel(x, !!x.guest);
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
+      if (x.parts && x.parts.some(function (p) { return p.kind === "daily3"; })) say("daily 3 done: +" + DAILY3_XP + " xp");
+      if (x.guest) (x.achievements || []).forEach(function (a) { say("unlocked: " + a.name + " · +" + a.xp + " xp"); });
       if (x.leveled_up) levelUp(x);
+      if (x.guest) {
+        // K-0030 step 2: a proud moment is when we ask
+        var bestNow = r && r.accepted && r.prev_best != null && e.detail.score > r.prev_best;
+        var why = x.leveled_up ? "you just hit level " + x.level : x.achievements && x.achievements.length ? "you unlocked " + x.achievements[0].name : bestNow ? "new personal best" : "";
+        if (why) claimCard(why);
+        else if (!nudged()) say("your xp is saved on this device. make an account to keep it.");
+      }
     } else if (x && x.parts && x.parts.some(function (p) { return p.kind === "cap"; })) {
       say("daily xp for this game maxed. try another one.");
-    } else if (r && !x && !me && !nudged()) {
-      say("log in to earn xp and levels for runs like that.");
     }
   });
   document.addEventListener("cc:achieve", function (e) {

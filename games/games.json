@@ -3,9 +3,9 @@
     {
       "slug": "crash",
       "clip": "/assets/clips/crash.mp4",
-      "title": "CRASH",
+      "title": "crash",
       "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
-      "thumbnail": "/games/crash/thumb.svg",
+      "thumbnail": "/games/crash/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "arcade",
@@ -27,9 +27,9 @@
     {
       "slug": "handbag-havoc",
       "clip": "/assets/clips/handbag-havoc.mp4",
-      "title": "Handbag Havoc",
+      "title": "handbag havoc",
       "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
-      "thumbnail": "/games/handbag-havoc/play/thumb.png",
+      "thumbnail": "/games/handbag-havoc/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "arcade",
@@ -49,7 +49,7 @@
       "featured_rank": 2,
       "title": "only 1% can close this pop-up",
       "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
-      "thumbnail": "/games/one-percent-popup/play/thumb.png",
+      "thumbnail": "/games/one-percent-popup/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "reflex",
@@ -69,9 +69,9 @@
       "slug": "keyboard-escape",
       "clip": "/assets/clips/keyboard-escape.mp4",
       "featured_rank": 3,
-      "title": "+1 Speed Keyboard Escape",
+      "title": "+1 speed keyboard escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
-      "thumbnail": "/games/keyboard-escape/play/thumb.png",
+      "thumbnail": "/games/keyboard-escape/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "+1 speed",
@@ -92,7 +92,7 @@
       "clip": "/assets/clips/desktop-jam.mp4",
       "title": "desktop jam",
       "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
-      "thumbnail": "/games/desktop-jam/play/thumb.png",
+      "thumbnail": "/games/desktop-jam/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -114,7 +114,7 @@
       "clip": "/assets/clips/fathom.mp4",
       "title": "fathom",
       "pitch": "submarine duel against a computer with opinions. every miss tells you how close you were. decoys lie.",
-      "thumbnail": "/games/fathom/play/thumb.png",
+      "thumbnail": "/games/fathom/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "strategy",
@@ -134,7 +134,7 @@
       "clip": "/assets/clips/tab-hoarder.mp4",
       "title": "tab hoarder",
       "pitch": "stack browser tabs on a tired computer. perfect drops stack a multiplier. free_ram_download.exe is a trap.",
-      "thumbnail": "/games/tab-hoarder/play/thumb.png",
+      "thumbnail": "/games/tab-hoarder/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "arcade",
@@ -154,7 +154,7 @@
       "clip": "/assets/clips/crash-test-daily.mp4",
       "title": "crash test (daily)",
       "pitch": "a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your 🟩🟨🟥 grid.",
-      "thumbnail": "/games/crash-test-daily/play/thumb.png",
+      "thumbnail": "/games/crash-test-daily/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "daily",
@@ -175,7 +175,7 @@
       "clip": "/assets/clips/bellchain.mp4",
       "title": "bellchain",
       "pitch": "an idle game that plays actual music. buy a cowbell. then 200 more.",
-      "thumbnail": "/games/bellchain/play/thumb.png",
+      "thumbnail": "/games/bellchain/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "idle",
@@ -185,7 +185,7 @@
       ],
       "controls": "tap or click anywhere to ring (space works too). buy bells and upgrades in the panel. m mutes.",
       "size_kb": 79,
-      "version": "2.6",
+      "version": "2.9.1",
       "added": "2026-10-19",
       "max_score_per_sec": 100
     },
@@ -195,7 +195,7 @@
       "featured_rank": 5,
       "title": "level devil.exe",
       "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
-      "thumbnail": "/games/level-devil-exe/play/thumb.png",
+      "thumbnail": "/games/level-devil-exe/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "platformer",
@@ -223,7 +223,7 @@
       "clip": "/assets/clips/pixel-purge.mp4",
       "title": "pixel purge",
       "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
-      "thumbnail": "/games/pixel-purge/play/thumb.png",
+      "thumbnail": "/games/pixel-purge/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -252,7 +252,7 @@
       "featured_rank": 4,
       "title": "crash cheats at tic tac toe",
       "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
-      "thumbnail": "/games/crash-cheats/play/thumb.png",
+      "thumbnail": "/games/crash-cheats/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -274,7 +274,7 @@
       "clip": "/assets/clips/overdue-notice.mp4",
       "title": "overdue notice",
       "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
-      "thumbnail": "/games/overdue-notice/play/thumb.png",
+      "thumbnail": "/games/overdue-notice/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "incremental",
@@ -296,7 +296,7 @@
       "clip": "/assets/clips/plus-one-ram.mp4",
       "title": "+1 ram every second",
       "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
-      "thumbnail": "/games/plus-one-ram/play/thumb.png",
+      "thumbnail": "/games/plus-one-ram/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "io",
@@ -314,7 +314,7 @@
       "slug": "smol-brains",
       "title": "smol brains",
       "pitch": "an island of tiny pixel creatures with real neural-network brains. they crash-land, evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
-      "thumbnail": "/games/smol-brains/play/thumb.png",
+      "thumbnail": "/games/smol-brains/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "sim",
@@ -324,8 +324,8 @@
         "pixel art"
       ],
       "controls": "drag to pan, pinch or wheel to zoom, twist or right-drag to rotate, slide two fingers (or r/v) to tilt, tap or drag the map to jump. tools: grab (carry, throw, shake trees), tickle (reward), tap (scold), talk (the word book), magic (miracles), orders. possess a smol from its card: wasd + mouse, left click uses what you hold, right click places or eats, f picks up, q drops, e does what the prompt says, 1-9 or the wheel pick a hotbar slot, tab opens the bag and crafting, b the building plans, r turns a building, esc leaves (phones: thumbstick, look pad, an action button that says what it does). wasd pan, q/e rotate, 1-6 tools, space pause, [ ] speed, n skips ahead to the next interesting thing, b brain viewer, m map.",
-      "size_kb": 2127,
-      "version": "4.8.3",
+      "size_kb": 2232,
+      "version": "4.9.6",
       "added": "2026-10-19",
       "how_to": [
         "tap the crashed pod open. two blobs climb out, a girl and a boy: the last smols. name them.",
@@ -353,7 +353,7 @@
       "featured_rank": 1,
       "title": "reel weird",
       "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
-      "thumbnail": "/games/reel-weird/play/thumb.png",
+      "thumbnail": "/games/reel-weird/cover.png?v=4",
       "made_by": "computer-cooked",
       "tags": [
         "fishing",
@@ -375,6 +375,53 @@
         "hold to reel, let go before the tension hits the red.",
         "catches in a row stack a streak multiplier (up to 3x).",
         "today's rare is worth 2x. new book entries pay 1.5x."
+      ]
+    },
+    {
+      "slug": "haunted-self-checkout",
+      "title": "haunted self-checkout",
+      "pitch": "scan the groceries. never scan the ones with eyes. a 60-second shift at the cursed till.",
+      "thumbnail": "/games/haunted-self-checkout/cover.png?v=4",
+      "made_by": "computer-cooked",
+      "tags": [
+        "reflex",
+        "spooky",
+        "short",
+        "halloween",
+        "mobile"
+      ],
+      "controls": "tap / click an item to scan it. space or enter scans the item nearest the bag, and starts or retries. m mutes.",
+      "size_kb": 24,
+      "version": "1.0",
+      "added": "2026-10-29",
+      "max_score_per_sec": 8.0,
+      "max_score": 480.0
+    },
+    {
+      "slug": "cooked-sweeper",
+      "clip": "/assets/clips/cooked-sweeper.mp4",
+      "title": "cooked sweeper",
+      "pitch": "minesweeper.exe has a virus. the numbers are virus power, every virus is a fight, and KERNEL PANIC is waiting.",
+      "thumbnail": "/games/cooked-sweeper/cover.png?v=4",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "roguelite",
+        "sweeper",
+        "daily",
+        "mobile"
+      ],
+      "controls": "tap / click a tile to reveal it. right-click or long-press flags a guessed power. arrows + space or enter on a keyboard, f or 1-9 flag, l levels up, n new run, d today's disk, m mutes.",
+      "size_kb": 60,
+      "version": "1.0",
+      "added": "2026-10-29",
+      "max_score_per_sec": 25.0,
+      "max_score": 1000.0,
+      "how_to": [
+        "numbers show the TOTAL power of the viruses touching that tile.",
+        "revealing a virus is a fight: lose hp equal to its power, gain that much xp. 0 hp = bluescreen.",
+        "level up (full heal, +1 max hp) whenever you have the xp. beaten viruses drop ram (heal) and scans.",
+        "beat KERNEL PANIC (13) to win. today's infected disk is the same board for everyone."
       ]
     }
   ]

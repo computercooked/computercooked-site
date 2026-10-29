@@ -1,0 +1,141 @@
+/* Computer Cooked design tokens. Loaded first on every page; everything else uses these.
+   Overhaul (Oct 2026, Ashton: "as beautiful and animated as bushgrowth.com"): the site is a cooked CRT. Surfaces
+   glow like phosphor, the pointer lights what it touches, embers drift up behind everything (assets/stage.js).
+   This replaces the K-0031 "quiet UI, no glows" rule on purpose. Same palette, same fonts, one accent. */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/assets/fonts/inter-latin-wght.woff2") format("woff2");
+}
+/* Arial sized to Inter's metrics: text laid out before Inter arrives keeps its line breaks when it swaps in (no CLS) */
+@font-face {
+  font-family: "Inter fallback";
+  src: local("Arial"), local("ArialMT"), local("Helvetica");
+  size-adjust: 107.1%;
+  ascent-override: 90.4%;
+  descent-override: 22.5%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/assets/fonts/pixelify-sans-latin-wght.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/assets/fonts/jetbrains-mono-latin-800-normal.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: dark;
+
+  /* colour */
+  --bg: #0e0f11;
+  --surface: #17181c;
+  --surface-2: #202228;
+  --line: #2a2d34;
+  --text: #f3f1ea;
+  --text-dim: #a3a09a;
+  --accent: #b8f23a;
+  --on-accent: #0e0f11;
+  --beige: #e8d9b5;
+  --alarm: #ff5a4e;
+
+  /* type: one pixel display face for h1/h2/game titles, Inter for everything else, mono only for numbers */
+  --display: "Pixelify Sans", "Inter", "Inter fallback", system-ui, sans-serif;
+  --sans: "Inter", "Inter fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-20: 1.25rem;
+  --fs-28: 1.75rem;
+  --fs-40: 2.5rem;
+  --fs-64: 4rem;
+
+  /* space: a 4px scale */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+
+  /* shape */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-pill: 999px;
+
+  /* layout */
+  --max: 1200px;
+  --gutter: 24px;
+  --topbar-h: 56px;
+  --tabbar-h: 64px;
+
+  /* motion */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-boot: cubic-bezier(.16, 1, .3, 1);
+  --fast: 150ms;
+  --slow: 420ms;
+
+  /* phosphor: the glow a lit CRT surface gives off (lime), and the heat under it (the fire ramp's orange) */
+  --phosphor: 184 242 58;            /* the accent as an rgb triple, for rgb(var(--phosphor) / a) */
+  --heat: 255 150 90;
+  --glow-sm: 0 0 12px rgb(var(--phosphor) / .18);
+  --glow-md: 0 0 28px rgb(var(--phosphor) / .16), 0 0 2px rgb(var(--phosphor) / .5);
+  --text-glow: 0 0 18px rgb(var(--phosphor) / .35);
+  --rim: rgb(var(--phosphor) / .55);  /* the lit edge of a card under the pointer */
+
+  /* older names, kept so existing rules pick up the new palette */
+  --carbon: var(--bg);
+  --carbon-2: var(--surface);
+  --carbon-3: var(--surface-2);
+  --lime: var(--accent);
+  --lilac: var(--beige);
+  --paper: var(--text);
+  --paper-dim: var(--text-dim);
+  --line-2: var(--line);
+  --radius: var(--r-md);
+  --radius-lg: var(--r-md);
+  --glow-lime: var(--glow-md);
+  --ease-spring: var(--ease-out);
+}
+
+html { background: var(--bg); }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-16);
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+h1, h2 { font-family: var(--display); font-weight: 600; letter-spacing: 0; line-height: 1.1; }
+h3, h4, h5, h6 { font-family: var(--sans); font-weight: 600; }
+b, strong { font-weight: 600; }
+kbd, code, samp { font-family: var(--mono); font-size: var(--fs-12); }
+
+/* numbers and scores are the only mono text */
+.num, .score, .lb-score, .game-plays, time { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* long text never runs wider than 65 characters */
+.prose p, .prose li, .legal p, .legal li { max-width: 65ch; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

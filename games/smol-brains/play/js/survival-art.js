@@ -184,7 +184,7 @@
     if (!rows || typeof document === "undefined" || !document.createElement) return (cache[name] = null);
     try {
       var cv = document.createElement("canvas"); cv.width = cv.height = 18;
-      var ctx = cv.getContext("2d");
+      var ctx = cv.getContext("2d", { willReadFrequently: true });
       rows.forEach(function (r, y) { for (var x = 0; x < r.length; x++) { var col = PAL[r[x]]; if (col) { ctx.fillStyle = col; ctx.fillRect(x + 1, y + 1, 1, 1); } } });
       outline(ctx, 18);
       return (cache[name] = cv.toDataURL());

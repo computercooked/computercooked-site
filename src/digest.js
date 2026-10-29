@@ -6,7 +6,7 @@ import { FOLLOW_PLATFORMS } from "./follow.js";
 
 const TZ = "America/Los_Angeles";
 const PLAYER = "COALESCE('u' || user_id, 'a' || anon_id)";
-const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "other", "direct", "internal", "app", "embed"];
+const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "other", "direct", "internal", "app", "embed", "portal"];
 
 // ms offset of Pacific time from UTC at instant t (negative: -7h or -8h)
 const fmt = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -79,6 +79,28 @@ export async function digest(url, env) {
     `SELECT ${dayOf("created_at")} d, COUNT(*) n FROM users WHERE created_at >= ? AND created_at < ? GROUP BY 1`
   ).bind(start, end).all()).results;
 
+  // site visits (K-0047): page views, daily visitors new/back and visible time on page, from POST /api/hit rows
+  const views = (await db.prepare(
+    `SELECT ${dayOf("ts")} d, COUNT(*) views, SUM(json_extract(data, '$.vis') = 'new') fresh, SUM(json_extract(data, '$.vis') = 'back') back
+     FROM events WHERE name = 'cc:pageview' AND ts >= ? AND ts < ? GROUP BY 1`
+  ).bind(start, end).all()).results;
+  const stays = (await db.prepare(
+    `SELECT ${dayOf("ts")} d, COUNT(*) n, AVG(json_extract(data, '$.ms')) ms FROM events WHERE name = 'cc:leave' AND ts >= ? AND ts < ? GROUP BY 1`
+  ).bind(start, end).all()).results;
+  // per game page, whole window: views and average visible time
+  const pageRows = (await db.prepare(
+    `SELECT json_extract(data, '$.path') path, name, COUNT(*) n, AVG(json_extract(data, '$.ms')) ms FROM events
+     WHERE name IN ('cc:pageview', 'cc:leave') AND ts >= ? AND ts < ? AND json_extract(data, '$.path') LIKE '/games/_%' GROUP BY 1, 2`
+  ).bind(start, end).all()).results;
+  const pages = {};
+  for (const r of pageRows) {
+    const m = /^\/games\/([a-z0-9-]+)\/?$/.exec(r.path || "");
+    if (!m) continue;
+    const g = pages[m[1]] || (pages[m[1]] = { game: m[1], views: 0, timed: 0, ms: 0 });
+    if (r.name === "cc:pageview") g.views += r.n; else { g.ms = (g.ms * g.timed + r.ms * r.n) / (g.timed + r.n); g.timed += r.n; }
+  }
+  const secs = (ms) => (ms == null ? null : Math.round(ms / 1000));
+
   const at = (rows, i) => rows.find((r) => r.d === i) || {};
   const pct = (v) => (v == null ? null : Math.round(v * 100));
   const shape = (g) => ({ game: g.game, plays: g.plays, players: g.players, completion_pct: pct(g.completion), auto_pct: pct(g.auto) });
@@ -102,9 +124,14 @@ export async function digest(url, env) {
       follow_clicks: Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, follows.filter((r) => r.d === i && r.p === p).reduce((s, r) => s + r.n, 0)])),
       dares: { made: dr.made || 0, sent: dr.sent || 0, opened: dr.opened || 0, beaten: dr.beaten || 0 },
       new_accounts: at(accounts, i).n || 0,
+      site: (() => {
+        const v = at(views, i), st = at(stays, i), vis = (v.fresh || 0) + (v.back || 0);
+        return { page_views: v.views || 0, visitors: vis, returning: v.back || 0, returning_pct: vis ? Math.round(((v.back || 0) / vis) * 100) : null, avg_time_s: secs(st.ms) };
+      })(),
       games: perGame.filter((g) => g.d === i).map(shape),
     };
   });
 
-  return json({ ok: true, tz: TZ, days: n, from: dates[0], to: dates[dates.length - 1], generated_at: new Date().toISOString(), rows, games: gameTotals.map(shape) });
+  return json({ ok: true, tz: TZ, days: n, from: dates[0], to: dates[dates.length - 1], generated_at: new Date().toISOString(), rows, games: gameTotals.map(shape),
+    game_pages: Object.values(pages).sort((a, b) => b.views - a.views).map((g) => ({ game: g.game, views: g.views, avg_time_s: secs(g.timed ? g.ms : null) })) });
 }

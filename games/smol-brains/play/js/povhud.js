@@ -109,8 +109,12 @@
     // the bottom: vitals rows over the hotbar
     "#pov .bottom{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}",
     "#pov .vit{display:grid;grid-template-columns:auto auto;column-gap:24px;row-gap:2px;width:100%;justify-content:space-between}",
-    "#pov .vrow{display:flex;gap:0;height:18px;align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
-    "#pov .vrow i{width:18px;height:18px;background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}",
+    "#pov .vrow{display:flex;gap:0;height:clamp(26px,3.8vh,40px);align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
+    "#pov .vrow b{font:800 clamp(18px,3vh,26px)/1 system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#fff;text-shadow:2px 2px 0 #000;margin:0 8px;min-width:3em;padding:2px 6px;text-align:center}#pov .vrow.low b{background:#c8233a;text-shadow:none}",
+    "#pov .vrow i{width:clamp(26px,3.8vh,40px);height:clamp(26px,3.8vh,40px);background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
+    "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
+    "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
+    "#pov .vrow.low{filter:drop-shadow(0 0 6px #ff4f5e)}",
     "#pov .vrow.r i.h{transform:scaleX(-1)}",
     "#pov .vrow.low i{animation:povjit .32s steps(2) infinite}#pov .vrow.low i:nth-child(odd){animation-delay:-.16s}",
     "@keyframes povjit{0%{translate:0 -2px}50%{translate:0 1px}}",
@@ -138,6 +142,7 @@
     "#pov .paws .item{position:absolute;right:56px;bottom:84px;transform-origin:80% 90%}",
     // edges
     "#pov .edge{position:absolute;inset:0;transition:box-shadow .4s}#pov .edge.red{box-shadow:inset 0 0 130px rgba(255,40,60,.5)}#pov .edge.blue{box-shadow:inset 0 0 140px rgba(90,170,255,.55)}",
+    "#pov .ouch{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(255,30,50,.15),rgba(255,20,40,.55));animation:povouch 1.1s ease-out forwards}#pov .ouch b{font:900 64px system-ui,Arial,sans-serif;color:#fff;text-shadow:3px 3px 0 #a0001a,0 0 24px #ff2040}#pov .ouch span{font:800 26px system-ui,Arial,sans-serif;color:#ffd0d6;text-shadow:2px 2px 0 #000}@keyframes povouch{0%{opacity:1;transform:scale(1.15)}60%{opacity:1;transform:scale(1)}100%{opacity:0}}",
     "#pov .edge.hit{box-shadow:inset 0 0 160px rgba(255,20,40,.75);transition:none}",
     // quest
     "#pov .quest{position:absolute;right:14px;top:64px;width:300px;padding:12px 14px;pointer-events:auto}",
@@ -151,7 +156,13 @@
     "#pov .qmark i{position:absolute;left:-9px;top:-22px;width:18px;height:18px;background:var(--lime);transform:rotate(45deg);box-shadow:0 0 0 2px var(--px);animation:povbob 1s ease-in-out infinite}",
     "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 11px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
+    "#pov .qmark.home i{width:28px;height:28px;left:-14px;top:-34px;box-shadow:0 0 0 3px #000,0 0 18px var(--lime)}#pov .qmark.home span{font:800 15px system-ui,Arial,sans-serif;top:4px;background:rgba(0,0,0,.6);padding:2px 6px}",
+    "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
+    "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
+    "#pov .fadein{position:absolute;inset:0;background:#000;pointer-events:none;animation:povfade 2s ease-out forwards}@keyframes povfade{from{opacity:1}to{opacity:0}}",
+    "#pov .testnums{position:absolute;left:8px;bottom:130px;font:700 12px system-ui,Arial,sans-serif;color:#c5ff49;background:rgba(0,0,0,.6);padding:4px 8px;white-space:pre;pointer-events:none}",
+    "#pov .qdone.beat{top:38%;font-size:30px}#pov .qdone.beat.bad{color:#ff4f5e}",
     "#pov .qdone{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:12px 22px;font:700 22px var(--mono,monospace);color:var(--lime);text-align:center;animation:povgain 2.6s forwards}#pov .qdone small{display:block;margin-top:4px;font-size:14px;color:#f5f3ed}",
     // the bag
     "#pov .bag{position:absolute;inset:0;background:rgba(8,6,14,.55);display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:3}",
@@ -183,8 +194,8 @@
     "#pov .death .lost{padding:10px 14px;max-width:min(520px,92vw)}#pov .death .lost h4{margin:0 0 6px;font:700 13px var(--mono,monospace);opacity:.8}",
     "#pov .death .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}#pov .death .items span{display:flex;align-items:center;gap:3px;font:700 12px var(--mono,monospace)}",
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
-    "#pov .intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,18,.6);transition:opacity 1.2s;text-align:center;gap:10px;padding:16px}",
-    "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 32px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
+    "#pov .intro{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
+    "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 24px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
     "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:6px 12px;font-size:13px;white-space:nowrap}",
     // phone
     "#pov .touch{display:none}#pov.phone .touch{display:block}#pov.phone .lockhint{display:none}",
@@ -198,7 +209,7 @@
     "#pov .pbtns button.act[disabled],#pov .pbtns button.off{opacity:.45}",
     "#pov .pbtns button.on{color:var(--lime);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--lime)}",
     "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:38px;height:38px}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
-    "#pov.phone .vrow i{width:13px;height:13px}#pov.phone .vrow{height:13px}#pov.phone .vit{column-gap:8px}",
+    "#pov.phone .vrow i{width:17px;height:17px}#pov.phone .vrow{height:17px}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
     "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
     "#pov.phone .quest{top:58px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
     "#pov.phone .prompt{font-size:12px;top:calc(50% + 24px)}#pov.phone .prompt kbd{display:none}#pov.phone .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}",
@@ -212,6 +223,7 @@
   /* ---------------- building and removing ---------------- */
 
   HUD.build = function (s) {
+    escLock(true); // K-0033: Esc to leave the body also left fullscreen
     HUD.remove();
     if (typeof document === "undefined" || !document.body) return;
     if (!document.getElementById("pov-css")) { var st = el("style"); st.id = "pov-css"; st.textContent = CSS; document.head.appendChild(st); }
@@ -224,6 +236,8 @@
     hud.paw = hud.paws.appendChild(el("div", "paw")); hud.paw.style.background = col; hud.col = col;
     hud.item = hud.paws.appendChild(el("div", "item"));
     hud.qmark = root.appendChild(el("div", "qmark", "<i></i><span></span>"));
+    hud.gmark = root.appendChild(el("div", "qmark gmark", "<i></i><span></span>")); // the first minute's grump (possess.js scoutTick)
+    hud.threat = root.appendChild(el("div", "threat", ""));
     hud.cross = root.appendChild(el("div", "cross", "<i></i><i></i><i></i><i></i><b></b>"));
     hud.tname = root.appendChild(el("div", "tname"));
     hud.prompt = root.appendChild(el("div", "prompt panel"));
@@ -241,10 +255,11 @@
     var bot = hud.bottom = root.appendChild(el("div", "bottom"));
     var vit = bot.appendChild(el("div", "vit"));
     hud.rows = {};
-    [["heart", ""], ["food", "r"], ["warm", ""], ["pep", "r"]].forEach(function (v) {
+    [["heart", ""], ["food", "r"], ["warm", "small"], ["pep", "r small"]].forEach(function (v) { // hearts and food big, the rest smaller
       var row = vit.appendChild(el("div", "vrow " + v[1]));
       row.title = { heart: "health", food: "food", warm: "warmth", pep: "pep (running, swinging)" }[v[0]];
       for (var i = 0; i < 10; i++) row.appendChild(el("i"));
+      if (v[0] === "heart" || v[0] === "food") row.appendChild(el("b", "", "")); // the number, readable at a glance (K-0035)
       hud.rows[v[0]] = { el: row, key: "" };
     });
     hud.hot = bot.appendChild(el("div", "hot panel"));
@@ -276,9 +291,14 @@
     hud.bAct2 = null;
     var intro = isPhone ? "left thumb walks · drag the right side to look · the big button does what it says · tap a hotbar slot to hold it"
       : "<kbd>WASD</kbd>walk <kbd>mouse</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
+    if (s.firstNight) setTimeout(function () { HUD.beat("you are " + c.name, "run! grab sticks, light the nest", true); }, 400); // the first night: a beat, not a card over the grump
+    else {
     hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
-    setTimeout(fadeIntro, 3800);
+    }
+    setTimeout(fadeIntro, 4000);
+    var fade = root.appendChild(el("div", "fadein")); setTimeout(function () { fade.remove(); }, (P().FADE_IN || 2) * 1000 + 100);
+    if (SB.TEST) hud.nums = root.appendChild(el("div", "testnums"));
     document.body.appendChild(root);
     document.body.classList.add("pov");
     bind();
@@ -286,7 +306,16 @@
     update(true);
   };
   function fadeIntro() { if (hud && hud.intro) { var i = hud.intro; hud.intro = null; i.classList.add("out"); setTimeout(function () { i.remove(); }, 1300); } }
+  function escLock(on) {
+    try {
+      var kb = navigator.keyboard;
+      if (!kb || !kb.lock) return;
+      if (on && document.fullscreenElement) { var pr = kb.lock(["Escape"]); if (pr && pr.catch) pr.catch(function () {}); }
+      else if (!on) kb.unlock();
+    } catch (e) {}
+  }
   HUD.remove = function () {
+    escLock(false);
     unbind();
     if (typeof document !== "undefined" && document.body && document.body.classList) document.body.classList.remove("pov");
     if (hud && hud.root) hud.root.remove();
@@ -311,6 +340,11 @@
     while (hud.gains.children.length > 5) hud.gains.firstChild.remove();
     setTimeout(function () { g.remove(); }, 2500);
     hud.hotKey = null;
+  };
+  HUD.ouch = function (n) { // a red flash and the damage, big, so a bite reads (K-0048)
+    if (!hud || !hud.edge || !hud.edge.parentNode) return;
+    var o = el("div", "ouch"); o.innerHTML = "<b>OUCH!</b><span>−" + n + "% ❤</span>";
+    hud.edge.parentNode.appendChild(o); setTimeout(function () { o.remove(); }, 1100);
   };
   HUD.hurt = function (amt) {
     if (!hud) return;
@@ -372,21 +406,66 @@
     setTimeout(function () { d.remove(); }, 2700);
     HUD.quest();
   };
+  HUD.beat = function (big, small, good) {
+    if (!hud) return;
+    if (hud.beatEl) hud.beatEl.remove();
+    var d = hud.beatEl = hud.root.appendChild(el("div", "qdone beat panel" + (good ? "" : " bad"), esc(big) + (small ? "<small>" + esc(small) + "</small>" : "")));
+    setTimeout(function () { d.remove(); if (hud && hud.beatEl === d) hud.beatEl = null; }, 2700);
+  };
+  // while a grump is after you: a red marker on it, a banner that says how close, and the guide points home
+  function threatMarker() {
+    var s = S(), g = s && !s.dead && P().scout ? P().scout() : null;
+    if (!g) { hud.gmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
+    var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z);
+    mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0);
+    var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
+    if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
+    hud.threat.classList.add("on");
+    return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };
+  }
+  function testNums() {
+    if (!hud || !hud.nums || (hud.numT = (hud.numT || 0) - 1) > 0) return;
+    hud.numT = 20;
+    var s = S(); if (!s) return;
+    var c = s.c, g = P().scout ? P().scout() : null, run = SB.Creature.runSpeed ? SB.Creature.runSpeed(c) : 0;
+    hud.nums.textContent = "🧪 food " + Math.round((1 - c.chem.hunger) * 100) + "%  −" + (P().HUNGER_POV * 100).toFixed(2) + "%/s (full bar " + Math.round(1 / P().HUNGER_POV) + " s)\n" +
+      "🧪 your sprint " + run.toFixed(2) + " m/s" + (g ? " · grump " + (g.scout && g.scout.speedK ? (run * g.scout.speedK).toFixed(2) + " m/s (" + Math.round(g.scout.speedK * 100) + "%)" : "chasing") + (g.scout && g.scout.wind > 0 ? " · WIND-UP" : "") : "") + "\n" +
+      "🧪 pounce " + Math.round(SB.Creature.LUNGE_DMG * 100) + "% after " + SB.Creature.LUNGE_WIND + " s · fire scares at " + SB.Creature.FIRE_SCARE + " m · KO cooldown " + P().KO_COOLDOWN + " s";
+  }
   function questMarker() {
-    var s = S(), q = s && s.quest, t = s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target, R = SB.Render; // the nose, then home at night, then the guide
+    testNums();
+    var home = threatMarker();
+    var s = S(), q = s && s.quest, t = (s && s.goal) || home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
+    hud.qmark.classList.toggle("home", !!home || !!(s && s.goal));
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
+    mark(hud.qmark, t, d, 1.4);
+    if (home || s.goal) { var sp = hud.qmark.querySelector("span"), lb = (s.goal ? s.goal.label : "🏠 home") + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
+    keepLabel(hud.qmark);
+  }
+  // a marker's label never runs off the screen edge (K-0048: "o sticks 2m")
+  function keepLabel(m) {
+    var sp = m.querySelector("span"); if (!sp) return;
+    var w = sp.offsetWidth, x = parseFloat(m.style.left) || 0, W = window.innerWidth, sh = 0;
+    if (x - w / 2 < 6) sh = 6 - (x - w / 2); else if (x + w / 2 > W - 6) sh = W - 6 - (x + w / 2);
+    var tf = "translateX(calc(-50% + " + Math.round(sh) + "px))";
+    if (sp.style.transform !== tf) sp.style.transform = tf;
+  }
+  function mark(m, t, d, minD) {
+    var s = S(), c = s.c, R = SB.Render;
+    if (d < minD) { m.classList.remove("on"); return; }
     var bearing = Math.atan2(-(t.x - c.x), -(t.z - c.z)), diff = SB.angDiff(s.yaw, bearing);
     var p = R.project(t.x, t.y, t.z), W = window.innerWidth, H = window.innerHeight, x, y, edge = false;
     if (Math.abs(diff) < 0.75 && p.on) { x = SB.clamp(p.x, 24, W - 24); y = SB.clamp(p.y, 60, H - 140); }
-    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5; }
-    hud.qmark.classList.add("on");
-    hud.qmark.classList.toggle("edge", edge);
-    hud.qmark.style.left = x + "px"; hud.qmark.style.top = y + "px";
-    var sp = hud.qmark.querySelector("span"), lbl = Math.round(d) + "m";
+    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5 + (m === hud.gmark ? 46 : 0); } // two arrows on one side: stacked
+    m.classList.add("on");
+    m.classList.toggle("edge", edge);
+    m.style.left = x + "px"; m.style.top = y + "px";
+    var sp = m.querySelector("span"), lbl = Math.round(d) + "m";
     if (sp.textContent !== lbl) sp.textContent = lbl;
-    var ic = hud.qmark.querySelector("i");
+    keepLabel(m);
+    var ic = m.querySelector("i");
     ic.style.transform = edge ? "rotate(" + (diff > 0 ? -45 : 135) + "deg)" : "rotate(45deg)";
   }
 
@@ -407,7 +486,7 @@
     var b = d.appendChild(el("button", null, "back to the sky"));
     var done = false, go = function () { if (done) return; done = true; P().leave("died"); };
     b.addEventListener("click", go);
-    if (document.exitPointerLock && document.pointerLockElement) try { document.exitPointerLock(); } catch (e) {}
+    if (document.exitPointerLock && document.pointerLockElement) try { selfUnlockAt = performance.now(); document.exitPointerLock(); } catch (e) {}
     hud.deathT = setTimeout(go, 20000);
   };
 
@@ -422,7 +501,7 @@
       bag.el = hud.root.appendChild(el("div", "bag"));
       bag.el.addEventListener("pointerdown", function (e) { if (e.target === bag.el) closeBag(); e.stopPropagation(); });
       bag.el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-      if (document.exitPointerLock && document.pointerLockElement) try { document.exitPointerLock(); } catch (e) {}
+      if (document.exitPointerLock && document.pointerLockElement) try { selfUnlockAt = performance.now(); document.exitPointerLock(); } catch (e) {}
       P().input.fwd = P().input.side = 0; P().input.use = false; keys = {};
     } else bag.tab = tab;
     drawBag();
@@ -647,7 +726,9 @@
       ch[i].className = mode === 1 ? "h" : "";
     }
     r.el.classList.toggle("low", !!low);
+    if (ch[10]) ch[10].textContent = Math.round(SB.clamp(v, 0, 1) * 100) + "%";
     if (prev != null && halves > prev + 1) { r.el.classList.remove("pulse"); void r.el.offsetWidth; r.el.classList.add("pulse"); }
+    if (prev != null && halves < prev && (name === "food" || name === "heart")) { r.el.classList.add("drop"); clearTimeout(r.dropT); r.dropT = setTimeout(function () { r.el.classList.remove("drop"); }, 260); } // you see it go down
   }
   function update(force) {
     var s = S(), c = s.c, game = s.game, w = game.world, ch = c.chem;
@@ -667,6 +748,7 @@
     if (w.night && !s.nightWarned) { s.nightWarned = true; HUD.say("🌙 night. grumps come out: find a fire or a roof"); }
     if (!w.night) s.nightWarned = false;
     if (ch.hunger > 0.75 && !s.hungryWarned) { s.hungryWarned = true; HUD.say("🍗 so hungry… hold food and right click to eat"); }
+    if (ch.hunger > 0.78 && (s.lowT = (s.lowT || 0) - 0.1) <= 0) { s.lowT = 6; if (SB.Audio && SB.Audio.play) SB.Audio.play("sick", { vol: 0.7 }); } // a tummy rumble every few seconds while it's nearly empty
     if (ch.hunger < 0.6) s.hungryWarned = false;
     if (cold > 0.5 && !s.coldWarned) { s.coldWarned = true; HUD.say("❄ freezing! get to a fire or under a roof"); }
     if (cold < 0.3) s.coldWarned = false;
@@ -802,7 +884,7 @@
 
   /* ---------------- desktop and phone controls ---------------- */
   var lockHinted = false;
-  var lockAt = 0;
+  var lockAt = 0, blurAt = 0, selfUnlockAt = 0;
   function locked() { return typeof document !== "undefined" && !!document.pointerLockElement; }
   function canvasEl() { return document.getElementById("view"); }
   function bind() {
@@ -830,12 +912,13 @@
         if (k.indexOf("arrow") === 0) e.preventDefault();
       },
       keyup: function (e) { keys[e.key.toLowerCase()] = false; },
-      blur: function () { keys = {}; P().input.use = false; },
+      blur: function () { keys = {}; P().input.use = false; blurAt = performance.now(); },
       down: function (e) {
         var s = S();
         if (!s || s.dead || bag || e.pointerType !== "mouse") return;
         if (!locked() && cv.requestPointerLock && !P().noLock) { try { var pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(function () { if (h.lockErr) h.lockErr(); }); } catch (er) { if (h.lockErr) h.lockErr(); } }
         if (locked()) { press(e.button); return; }
+        if (P().noLock && e.button === 0) { drag = { x: e.clientX, y: e.clientY, moved: 0, b: 0 }; return; }
         drag = { x: e.clientX, y: e.clientY, moved: 0, b: e.button };
       },
       move: function (e) {
@@ -849,7 +932,11 @@
       },
       up: function (e) {
         P().input.use = false;
-        if (drag && drag.moved < 6) press(drag.b, true);
+        if (drag && drag.moved < 6) {
+          var fx = e.clientX / window.innerWidth - 0.5, fy = e.clientY / window.innerHeight;
+          if (SB.TEST && drag.b === 0 && (Math.abs(fx) > 0.06 || Math.abs(fy - 0.5) > 0.08)) P().walkToward(fx, fy); // ?cctest=1: a click on the crosshair uses, anywhere else walks there (K-0039)
+          else press(drag.b, true);
+        }
         drag = null;
         void e;
       },
@@ -870,14 +957,23 @@
       lookUp: function (e) { if (!lookP || e.pointerId !== lookP.id) return; if (lookP.moved < 8 && performance.now() - lookP.t < 300) P().act("ctx"); lookP = null; }
     };
     function press(button, click) {
-      if (button === 0) { P().act("use"); if (!click) P().input.use = true; }
+      if (button === 0) { var r = P().act("use"); if (!click) P().input.use = true; return r; }
       else if (button === 2) P().act("place");
       else if (button === 1) P().act("pick");
     }
     // the mouse can't always be locked (some browsers, iframes, a recent Esc): say how to look without it (K-0021)
     h.lockErr = function () { if (S() && !lockHinted) { lockHinted = true; HUD.say("🖱 the mouse couldn't lock here: hold a button and drag to look, or use the arrow keys"); } };
     document.addEventListener("pointerlockerror", h.lockErr);
-    document.addEventListener("pointerlockchange", function () { lockAt = performance.now(); });
+    h.lockChange = function () {
+      lockAt = performance.now();
+      if (locked() || lockAt - selfUnlockAt < 400) return;
+      setTimeout(function () { // the lock went without us asking: that was Esc (or the window losing focus: then stay)
+        var s = S();
+        if (!s || s.dead || bag || s.ghost || locked() || performance.now() - blurAt < 500 || (document.hasFocus && !document.hasFocus())) return;
+        if (P().active) P().leave();
+      }, 90);
+    };
+    document.addEventListener("pointerlockchange", h.lockChange);
     window.addEventListener("keydown", h.keydown);
     window.addEventListener("keyup", h.keyup);
     window.addEventListener("blur", h.blur);
@@ -895,6 +991,7 @@
     if (!bound) return;
     var h = bound.h, cv = bound.cv;
     document.removeEventListener("pointerlockerror", h.lockErr);
+    document.removeEventListener("pointerlockchange", h.lockChange);
     window.removeEventListener("keydown", h.keydown);
     window.removeEventListener("keyup", h.keyup);
     window.removeEventListener("blur", h.blur);

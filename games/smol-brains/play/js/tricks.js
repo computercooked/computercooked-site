@@ -138,12 +138,12 @@
     if (p.drop) {
       var a = (c.facing || 0) + (game.rng() - 0.5) * 0.8, x = c.x + Math.sin(a) * 0.9, z = c.z + Math.cos(a) * 0.9;
       var it = SB.World.walkable(game.world, x, z) ? SB.World.add(game.world, game, p.drop, x, z) : SB.World.add(game.world, game, p.drop, c.x + 0.5, c.z);
-      c.lure = { id: it.id, t: game.time + 20 }; // it looks at the thing; what it does with it is up to its brain
+      c.lure = { id: it.id, t: game.time + 20 }; var lureId = it.id; // it looks at the thing; what it does with it is up to its brain
       c.thinkT = Math.min(c.thinkT || 0, 0.3);
       if (c.action && !c.plan && (c.action.verb === SB.V.idle || c.action.verb === SB.V.wander)) c.action = null;
     } else if (p.say) SB.Creature.hear(c, p.say, game, { call: true });
     game.stats.practices = (game.stats.practices || 0) + 1;
-    c.trickSession = { id: id, until: game.time + 30, from: T.shown(c, d) };
+    c.trickSession = { id: id, until: game.time + 30, from: T.shown(c, d), t0: game.time, lure: typeof lureId === "number" ? lureId : null };
     return true;
   };
   // the trick it's being set up for, if the session is still on
@@ -175,7 +175,15 @@
     if (!s) return true;
     var d = T.BY[s.id], want = d.avoid ? -1 : 1;
     if (sign !== want) return true; // the other hand isn't part of this trick: it lands as usual
-    if (T.doing(c, game, d)) { s.until = Math.max(s.until, game.time + 8); return true; }
+    if (T.doing(c, game, d)) {
+      s.until = Math.max(s.until, game.time + 8);
+      // the right hand at the right moment is a lesson, whatever the net's numbers do (a well-worn habit barely
+      // moves, and the bot saw a good tickle not count). once per go at the thing
+      if (!c.tricks) T.seed(c, game);
+      var r = c.tricks && c.tricks[d.id];
+      if (r && !r.on && game.time - (s.repT == null ? -99 : s.repT) > 1.5) { r.n = (r.n || 0) + 1; s.repT = game.time; }
+      return true;
+    }
     SB.bus.emit("trickWait", { c: c, trick: d });
     return false;
   };
@@ -193,7 +201,31 @@
   // after any lesson (tickle, tap, "good"/"bad", a possessed choice), and every few seconds as brains
   // drift from living, look again
   var t = 0;
+  /* a set-up that goes nowhere shouldn't leave you waiting (4.8.5 playtest: 25 s of nothing): 8 s in, if it
+     hasn't gone for it, it looks at the thing again; 16 s in, it's over, and the game says why */
+  T.NUDGE = 8; T.NO_BITE = 16;
+  function sessions(game) {
+    SB.Game.smols(game).forEach(function (c) {
+      var s = c.trickSession;
+      if (!s || s.t0 == null) return;
+      var d = T.BY[s.id];
+      if (!d || !T.session(c, game)) return;
+      if (T.doing(c, game, d)) { s.seen = true; return; }
+      if (s.seen) return;
+      var since = game.time - s.t0;
+      if (since > T.NUDGE && !s.nudged) {
+        s.nudged = true;
+        if (s.lure != null && SB.Game.byId(game, s.lure)) { c.lure = { id: s.lure, t: game.time + 10 }; c.thinkT = 0; if (c.action && !c.plan && (c.action.verb === SB.V.idle || c.action.verb === SB.V.wander)) c.action = null; }
+        SB.bus.emit("trickNudge", { c: c, trick: d });
+      } else if (since > T.NO_BITE) {
+        c.trickSession = null;
+        var low = d.drive && c.chem[d.drive] != null && c.chem[d.drive] < 0.45;
+        SB.bus.emit("trickNoBite", { c: c, trick: d, why: low ? "it isn't " + (d.drive === "hunger" ? "hungry" : d.drive) + " enough" : c.asleep ? "it fell asleep" : "its brain picked something else this time" });
+      }
+    });
+  }
   T.tick = function (game, dt) {
+    sessions(game);
     t -= dt;
     if (t > 0) return;
     t = 3;
@@ -208,6 +240,7 @@
     // it should leave alone), counts as one repetition of it
     for (var i = 0; i < T.LIST.length; i++) {
       var tr = T.LIST[i], r = c.tricks[tr.id];
+      if (c.trickSession && c.trickSession.id === tr.id && T.session(c, g)) continue; // in a set-up lesson the gate does the counting (once per go)
       if (!r || r.on || d.verb !== SB.V[tr.verb || tr.avoid] || (d.noun >= 0 && d.noun !== SB.N[tr.noun])) continue;
       if (tr.avoid ? d.delta < 0 : d.delta > 0) r.n = (r.n || 0) + 1;
     }

@@ -14,18 +14,20 @@
   <meta property="og:title" content="Computer Cooked Games">
   <meta property="og:description" content="free browser games from a computer that is not handling it well.">
   <meta property="og:url" content="https://computercooked.com/games/">
-  <meta property="og:image" content="https://computercooked.com/assets/og.png?v=2">
+  <meta property="og:image" content="https://computercooked.com/assets/og.png?v=4">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@computercooked">
   <meta name="twitter:title" content="Computer Cooked Games">
   <meta name="twitter:description" content="free browser games from a computer that is not handling it well.">
-  <meta name="twitter:image" content="https://computercooked.com/assets/og.png?v=2">
+  <meta name="twitter:image" content="https://computercooked.com/assets/og.png?v=4">
 
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preload" href="/assets/fonts/pixelify-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/games/games.css">
@@ -51,29 +53,28 @@
     })();
   </script>
 </head>
-<body data-deck-rest>
+<body>
   <main class="games-page">
     <header class="games-hero">
-      <div class="hero-floor" aria-hidden="true"></div>
       <div class="hero-copy">
-        <p class="eyebrow hub-top"><span class="live-dot" aria-hidden="true"></span> arcade online · computercooked.com/games <a class="cc-chip" id="hub-chip" href="/me/" hidden>log in</a></p>
+        <p class="eyebrow hub-top">free browser games</p>
         <h1 class="games-title"><img class="games-brand" src="/assets/brand/wordmark-480.webp" srcset="/assets/brand/wordmark-480.webp 480w, /assets/brand/wordmark-960.webp 960w" sizes="(min-width: 900px) 170px, 150px" width="960" height="589" alt="computer cooked" fetchpriority="high"> <span>games</span></h1>
         <p class="games-sub">free little browser games. no downloads, no account needed, works on your phone. <span class="only-keys">press <kbd>/</kbd> to go anywhere.</span></p>
         <div class="hero-ctas">
-          <a class="play-btn hero-play" href="/games/crash/">play CRASH ▶</a>
-          <a class="ghost-btn" href="#ours-heading">browse games ↓</a>
+          <a class="play-btn hero-play" href="/games/crash/">play crash</a>
+          <a class="ghost-btn" href="#ours-heading">browse games</a>
         </div>
       </div>
 
-      <a class="spotlight" href="/games/crash/" aria-label="featured game: CRASH. dodge the tasks, drink the coffee, don't get cooked.">
+      <a class="spotlight" href="/games/crash/" aria-label="featured game: crash. dodge the tasks, drink the coffee, don't get cooked.">
         <span class="spot-bezel">
           <span class="spot-screen">
-            <img src="/games/crash/thumb.svg" alt="" width="400" height="300" fetchpriority="high">
+            <img src="/games/crash/cover.png" alt="" width="400" height="300" fetchpriority="high">
           </span>
         </span>
         <span class="spot-meta" aria-hidden="true">
           <span class="spot-tag">featured</span>
-          <span class="spot-name">CRASH</span>
+          <span class="spot-name">crash</span>
           <span class="spot-pitch">dodge the tasks, drink the coffee, don't get cooked.</span>
         </span>
       </a>
@@ -84,33 +85,13 @@
       <!-- the filter bar's twin: assets/fx.js swaps in the working one at the same height, so the grid never jumps (CLS) -->
       <div class="hub-filters is-placeholder" aria-hidden="true" inert>
         <label class="hub-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.4"/></svg><input type="search" placeholder="search games" tabindex="-1"></label>
-        <div class="chip-row"><button type="button" class="chip" aria-pressed="true">all</button><button type="button" class="chip">new</button><button type="button" class="chip">arcade</button><button type="button" class="chip">puzzle</button><button type="button" class="chip">chill</button><button type="button" class="chip">60s or less</button><button type="button" class="chip">rage</button><button type="button" class="chip">daily</button><button type="button" class="chip chip-random">🎲 random</button></div>
+        <div class="chip-row"><button type="button" class="chip" aria-pressed="true">all</button><button type="button" class="chip">new</button><button type="button" class="chip">arcade</button><button type="button" class="chip">puzzle</button><button type="button" class="chip">chill</button><button type="button" class="chip">60s or less</button><button type="button" class="chip">rage</button><button type="button" class="chip">daily</button><button type="button" class="chip chip-random">random</button></div>
       </div>
       <ul class="card-grid" id="shelf-computer-cooked">
-        <li class="game-card">
-          <div class="game-card-inner">
-            <img class="game-thumb" src="/games/crash/thumb.svg" alt="" width="400" height="300">
-            <div class="game-body">
-              <h3 class="game-name">CRASH</h3>
-              <p class="game-pitch">dodge the tasks, drink the coffee, don't get cooked.</p>
-              <a class="play-btn" href="/games/crash/" aria-label="play CRASH">play ▶</a>
-            </div>
-          </div>
-        </li>
+        <li class="game-card"><a class="game-card-inner game-link" href="/games/crash/"><img class="game-thumb" src="/games/crash/cover.png" alt="" width="640" height="400"><span class="game-body"><h3 class="game-name">crash</h3><span class="game-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span></a></li>
       </ul>
     </section>
 
-    <div class="ticker" aria-hidden="true">
-      <div class="ticker-track">
-        <span>CRASH</span><span>tab hoarder</span><span>bellchain</span><span>handbag havoc</span><span>fathom</span><span>more cooking</span>
-        <span>CRASH</span><span>tab hoarder</span><span>bellchain</span><span>handbag havoc</span><span>fathom</span><span>more cooking</span>
-      </div>
-    </div>
-
-    <section class="shelf hub-continue" id="hub-continue" hidden aria-labelledby="continue-h">
-      <h2 class="shelf-head" id="continue-h">jump back in</h2>
-      <ul class="continue-row" id="continue-row"></ul>
-    </section>
 
     <aside class="about-card install-card" id="install-card" aria-label="install" hidden>
       <p><b>keep the arcade on your phone.</b> add it to your home screen: it opens like an app, and the games you have played work offline.</p>
@@ -123,51 +104,11 @@
 
     <div class="ad-slot" data-slot="games-hub-top" aria-hidden="true"></div>
 
-    <section class="shelf hub-weekly" id="hub-weekly" hidden aria-labelledby="weekly-h">
-      <h2 class="shelf-head" id="weekly-h">weekly challenge <small id="weekly-ends"></small></h2>
-      <a class="about-card weekly-card" id="weekly-card" href="/games/">
-        <img id="weekly-thumb" src="/assets/logo.svg" alt="" width="120" height="90" loading="lazy">
-        <span class="weekly-body">
-          <b id="weekly-title"></b>
-          <span id="weekly-goal"></span>
-          <span class="weekly-meta" id="weekly-meta"></span>
-        </span>
-      </a>
-      <p class="weekly-event" id="weekly-event" hidden></p>
-    </section>
-
-    <section class="shelf" id="shelf-trending" hidden>
-      <h2 class="shelf-head">trending this week</h2>
-      <ul class="card-grid"></ul>
-    </section>
-
-    <section class="shelf" id="shelf-popular" hidden>
-      <h2 class="shelf-head">most played</h2>
-      <ul class="card-grid"></ul>
-    </section>
-
-    <section class="shelf" aria-labelledby="community-heading">
-      <h2 class="shelf-head" id="community-heading">community</h2>
-      <ul class="card-grid" id="shelf-community">
-        <li class="soon-card">
-          <span class="soon-badge">coming soon</span>
-          <h3>upload your own game</h3>
-          <p>made a little html5 game? soon you'll be able to post it here. get on the list and we'll tell you when the doors open.</p>
-          <!-- TODO(v2): real waitlist form once Workers + D1 exist. No backend yet, so this is a mailto. -->
-          <div class="waitlist">
-            <a class="btn" href="mailto:hello@computercooked.com?subject=game%20upload%20waitlist&amp;body=put%20me%20on%20the%20list.%20my%20game%20is%3A%20">join the waitlist ✉</a>
-            <a class="btn" href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">pitch us on tiktok ↗</a>
-          </div>
-        </li>
-      </ul>
-    </section>
-
-    <div class="ad-slot" data-slot="games-hub-bottom" aria-hidden="true"></div>
   </main>
 
   <footer class="footer">
-    <p>© 2026 Computer Cooked</p>
-    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
+    <p>© 2026 Computer Cooked · <span class="made-by">made by <a href="https://bushgrowth.com/projects">Bush Development &amp; Growth</a></span></p>
+    <p><a href="mailto:hello@computercooked.com">hello@computercooked.com</a> · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/merch/">merch</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p>
   </footer>
 
   <script src="/assets/follow.js" defer></script>
@@ -175,26 +116,14 @@
   <script src="/assets/fx.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
-      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
-      </button>
-      <a class="deck-link" href="/" data-key="h">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
-      </a>
-      <a class="deck-link" href="/games/" data-key="g">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
-        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
-      </a>
-      <a class="deck-link" href="/#follow" data-key="f">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
-      </a>
-      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
-        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
-      </a>
+      <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
+      <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
+      <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
+      <a class="deck-link deck-daily" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <a class="deck-link" href="/lab/" data-key="l"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 15h10" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">lab</span></a>
+      <a class="deck-link" href="/log/" data-key="k"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">log</span></a>
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
+      <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>
   </nav>
   <script src="/assets/pwa.js" defer></script>

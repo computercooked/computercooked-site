@@ -1,0 +1,510 @@
+"""K-0032 phase three: one pixel-art scene per game, on the token palette, Gary or the computer in each, no text.
+Each scene draws on a W x H logical canvas (props placed from the centre), so the same scene renders as the
+320x200 thumbnail (160x100 at x2) and the 1200x630 share image (200x105 at x6)."""
+import os, sys
+from PIL import Image
+import pix
+_MD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "mascot")
+MINI = {h: Image.open(os.path.join(_MD, f"mini-{h}.png")).convert("RGBA") for h in (30, 40)}
+
+T = {  # tokens
+    "bg": "#0E0F11", "surface": "#17181C", "s2": "#202228", "line": "#2A2D34", "text": "#F3F1EA",
+    "dim": "#A3A09A", "accent": "#B8F23A", "beige": "#E8D9B5", "alarm": "#FF5A4E",
+    "shade": "#C9B791", "deep": "#121317", "acc2": "#7FA82A", "beige2": "#8C7F63",
+}
+def rgb(c): c = T.get(c, c).lstrip("#"); return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
+
+COMPUTER = """
+.BBBBBBBBBBBBBBBBBB.
+BBBBBBBBBBBBBBBBBBBB
+BBKKKKKKKKKKKKKKKKBB
+BBKKKKKKKKKKKKKKKKBB
+BBKKAKKKKKKKKXKXKKBB
+BBKKKAKKKKKKKKXKKKBB
+BBKKAKKKKKKKKXKXKKBB
+BBKKKKKKKKKKKKKKKKBB
+BBKKKKKAAAAKKKKKKKBB
+BBKKKKKKKKKKKKKKKKBB
+BBBBBBBBBBBBBBBBBBBB
+ssssssssssssssssssss
+ssssssssssssssAsAsss
+........ssss........
+......ssssssss......
+"""
+CPAL = {"B": T["beige"], "s": T["shade"], "K": T["bg"], "A": T["accent"], "X": T["accent"]}
+
+GNOME = """
+..R..
+.RRR.
+RRRRR
+.SSS.
+WWWWW
+.BBB.
+"""
+GPAL = {"R": T["alarm"], "S": T["beige"], "W": T["text"], "B": T["line"]}
+
+BELL = """
+..bb..
+.BBBB.
+.BBBB.
+BBBBBB
+BBBBBB
+..BB..
+"""
+COIN = """
+.AA.
+AAAA
+AAAA
+.AA.
+"""
+FLOPPY = """
+DDDDDD
+DLLLLD
+DLLLLD
+DDDDDD
+DSSSSD
+DSSSSD
+"""
+BOOT = """
+.BBB..
+.BBB..
+.BBB..
+.BBBBB
+BBBBBB
+"""
+PIG = """
+....BB.B..
+..BBBBBBB.
+.BBBBBBBBB
+BBKBBBBBBB
+.BBBBBBBB.
+..B.B..B.B
+"""
+CURSOR = """
+K....
+KK...
+KWK..
+KWWK.
+KWWWK
+KWWKK
+KKWK.
+...K.
+"""
+SUB = """
+....BB......
+....BB......
+.BBBBBBBBBB.
+BBKBBKBBBBBB
+.BBBBBBBBBB.
+"""
+CREATURE = """
+.A.
+AAA
+A.A
+"""
+
+
+class Canvas:
+    def __init__(s, W, H, bg="bg"):
+        s.W, s.H = W, H
+        s.im = Image.new("RGBA", (W, H), rgb(bg))
+        s.cx, s.cy = W // 2, H // 2
+
+    def px(s, x, y, c):
+        if 0 <= x < s.W and 0 <= y < s.H: s.im.putpixel((x, y), rgb(c))
+
+    def rect(s, x, y, w, h, c):
+        for yy in range(y, y + h):
+            for xx in range(x, x + w): s.px(xx, yy, c)
+
+    def box(s, x, y, w, h, c):  # 1px outline
+        s.rect(x, y, w, 1, c); s.rect(x, y + h - 1, w, 1, c); s.rect(x, y, 1, h, c); s.rect(x + w - 1, y, 1, h, c)
+
+    def window(s, x, y, w, h, title="line", body="surface", close=True):
+        s.rect(x, y, w, h, body); s.box(x, y, w, h, "line"); s.rect(x + 1, y + 1, w - 2, 3, title)
+        if close: s.rect(x + w - 4, y + 1, 2, 2, "alarm")
+
+    def line(s, x0, y0, x1, y1, c):
+        dx, dy = abs(x1 - x0), -abs(y1 - y0); sx = 1 if x0 < x1 else -1; sy = 1 if y0 < y1 else -1; e = dx + dy
+        while True:
+            s.px(x0, y0, c)
+            if x0 == x1 and y0 == y1: break
+            e2 = 2 * e
+            if e2 >= dy: e += dy; x0 += sx
+            if e2 <= dx: e += dx; y0 += sy
+
+    def disc(s, x, y, r, c):
+        for yy in range(-r, r + 1):
+            for xx in range(-r, r + 1):
+                if xx * xx + yy * yy <= r * r + r * 0.6: s.px(x + xx, y + yy, c)
+
+    def ring(s, x, y, r, c):
+        for yy in range(-r - 1, r + 2):
+            for xx in range(-r - 1, r + 2):
+                d = (xx * xx + yy * yy) ** 0.5
+                if abs(d - r) < 0.55: s.px(x + xx, y + yy, c)
+
+    def sprite(s, art, x, y, pal, flip=False, scale=1):
+        rows = pix.grid(art)
+        for j, row in enumerate(rows):
+            if flip: row = row[::-1]
+            for i, ch in enumerate(row):
+                if ch in pal:
+                    for a in range(scale):
+                        for b in range(scale): s.px(x + i * scale + a, y + j * scale + b, pal[ch])
+
+    # K-0044: the one mascot everywhere is the Computer Cooked computer (scripts/mascot/mini.py). Gary is retired:
+    # both old call sites now draw the computer, bottom-centred where the old sprite stood.
+    def mascot(s, cx, bottom, h=30, flip=False):
+        im = MINI[h].transpose(Image.FLIP_LEFT_RIGHT) if flip else MINI[h]
+        s.im.alpha_composite(im, (cx - im.size[0] // 2, bottom - im.size[1]))
+    def gary(s, x, y, flip=False): s.mascot(x + 10, y + 22, 30, flip)
+    def computer(s, x, y, flip=False, scale=1): s.mascot(x + 10 * scale, y + 15 * scale, 30 if scale == 1 else 40, flip)
+
+    def grid(s, step, c="deep"):
+        for x in range(0, s.W, step): s.rect(x, 0, 1, s.H, c)
+        for y in range(0, s.H, step): s.rect(0, y, s.W, 1, c)
+
+    def floor(s, y, c="s2", top="line"):
+        s.rect(0, y, s.W, s.H - y, c); s.rect(0, y, s.W, 1, top)
+
+
+def bell_pal(gold=False): return {"B": T["accent"] if gold else T["beige"], "b": T["shade"]}
+
+
+# ---------------- scenes ----------------
+def crash(c):
+    c.grid(10)
+    c.floor(c.H - 18)
+    for i, (dx, dy) in enumerate([(-58, 10), (-34, 26), (30, 8), (50, 30), (-10, 4)]):
+        c.window(c.cx + dx, dy, 22, 14)
+        c.rect(c.cx + dx + 3, dy + 7, 14, 1, "dim"); c.rect(c.cx + dx + 3, dy + 10, 10, 1, "dim")
+    c.computer(c.cx - 20, c.H - 18 - 30, scale=2)
+    c.rect(c.cx + 26, c.H - 26, 7, 8, "beige"); c.rect(c.cx + 33, c.H - 24, 2, 4, "beige")  # coffee
+    for i in range(3): c.rect(c.cx + 27 + i * 2, c.H - 31 - (i % 2) * 2, 1, 3, "dim")
+
+
+def handbag(c):
+    c.rect(0, 0, c.W, c.H, "#1B2414")
+    for y in range(0, c.H, 6): c.rect(0, y, c.W, 3, "#202C17")
+    c.gary(c.cx - 10, c.H - 32)
+    for dx, dy, f in [(-52, 18, False), (-30, 52, True), (36, 22, False), (58, 56, True), (22, 6, True)]:
+        c.sprite(GNOME, c.cx + dx, dy, GPAL)
+        c.line(c.cx + dx + (6 if f else -2), dy + 3, c.cx + dx + (12 if f else -8), dy + 1, "dim")
+    c.rect(c.cx - 40, c.H - 22, 9, 7, "alarm"); c.rect(c.cx - 38, c.H - 25, 5, 1, "alarm"); c.rect(c.cx - 38, c.H - 25, 1, 3, "alarm"); c.rect(c.cx - 34, c.H - 25, 1, 3, "alarm")
+
+
+def popup(c):
+    c.grid(12)
+    for i in range(6):
+        c.window(c.cx - 50 + i * 12, 10 + i * 9, 54, 32, title="beige" if i == 5 else "line")
+        c.rect(c.cx - 44 + i * 12, 20 + i * 9, 30, 2, "line"); c.rect(c.cx - 44 + i * 12, 25 + i * 9, 22, 2, "line")
+    c.rect(c.cx + 42, 56, 9, 9, "alarm"); c.line(c.cx + 44, 58, c.cx + 48, 62, "text"); c.line(c.cx + 48, 58, c.cx + 44, 62, "text")
+    c.sprite(CURSOR, c.cx + 54, 50, {"K": T["bg"], "W": T["text"]})
+    c.gary(c.cx - 70, c.H - 24)
+
+
+def keyboard(c):
+    c.rect(0, 0, c.W, c.H, "surface")
+    for row in range(4):
+        y = c.H - 40 + row * 10
+        for k in range(-1, c.W // 12 + 2):
+            x = k * 12 + (row * 4) % 12 - 6
+            c.rect(x, y, 10, 8, "s2"); c.rect(x, y, 10, 1, "line"); c.rect(x, y + 7, 10, 1, "deep")
+    ex = c.W - 28
+    c.rect(ex, c.H - 62, 20, 18, "accent"); c.rect(ex, c.H - 45, 20, 2, "acc2")
+    c.gary(c.cx - 34, c.H - 64)
+    for i in range(4): c.rect(c.cx - 50 - i * 6, c.H - 56 + i * 4, 10, 1, "dim")
+
+
+def desktop(c):
+    c.rect(0, 0, c.W, c.H, "#141A22")
+    c.rect(0, c.H - 8, c.W, 8, "s2"); c.rect(2, c.H - 6, 10, 4, "accent")
+    spots = [(-70, 8), (-70, 30), (-50, 52), (40, 10), (60, 34), (28, 50), (-20, 12), (8, 30)]
+    for i, (dx, dy) in enumerate(spots):
+        x, y = c.cx + dx, dy
+        if i % 2: c.rect(x, y + 2, 12, 9, "beige"); c.rect(x, y, 5, 3, "beige"); c.rect(x, y + 3, 12, 1, "shade")
+        else: c.rect(x, y, 10, 12, "text"); c.rect(x + 2, y + 3, 6, 1, "dim"); c.rect(x + 2, y + 6, 6, 1, "dim"); c.rect(x + 7, y, 3, 3, "dim")
+    c.computer(c.cx - 20, c.H - 40, scale=2)
+
+
+def fathom(c):
+    c.rect(0, 0, c.W, c.H, "deep")
+    for y in range(8, c.H, 9):
+        for x in range((y * 3) % 14, c.W, 14): c.rect(x, y, 5, 1, "line")
+    c.ring(c.cx + 30, c.cy - 4, 10, "accent"); c.ring(c.cx + 30, c.cy - 4, 18, "acc2"); c.rect(c.cx + 29, c.cy - 5, 3, 3, "alarm")
+    c.sprite(SUB, c.cx - 46, c.cy + 6, {"B": T["beige"], "K": T["bg"]}, scale=2)
+    c.computer(c.cx - 44, c.cy - 26)
+    for i in range(4): c.rect(c.cx - 20 + i * 3, c.cy - 30 - i * 5, 2, 2, "dim")
+
+
+def tabs(c):
+    c.grid(10)
+    c.floor(c.H - 10)
+    c.computer(c.cx - 10, c.H - 25)
+    y = c.H - 25
+    for i in range(7):
+        w = 34 - (i % 3) * 4; off = [-1, 3, -4, 2, -2, 5, -6][i]
+        y -= 8
+        c.rect(c.cx - w // 2 + off, y, w, 7, "surface"); c.box(c.cx - w // 2 + off, y, w, 7, "line")
+        c.rect(c.cx - w // 2 + off + 2, y - 2, 10, 3, "beige" if i % 2 else "dim")
+    c.rect(c.cx + 18, 4, 2, 6, "alarm"); c.rect(c.cx + 18, 12, 2, 2, "alarm")
+
+
+def slide(c):
+    c.rect(0, 0, c.W, c.H, "surface")
+    gx, gy, s = c.cx - 32, 12, 15
+    c.rect(gx - 2, gy - 2, s * 4 + 3, s * 4 + 3, "line")
+    tiles = {(0, 0): "beige", (1, 0): "s2", (3, 0): "s2", (0, 1): "s2", (1, 1): "accent", (2, 1): "accent", (3, 1): "s2",
+             (0, 2): "beige", (2, 2): "s2", (3, 2): "beige", (0, 3): "s2", (1, 3): "s2", (2, 3): "beige"}
+    for (x, y), col in tiles.items():
+        c.rect(gx + x * s, gy + y * s, s - 1, s - 1, col); c.rect(gx + x * s, gy + y * s + s - 2, s - 1, 1, "deep")
+    c.computer(c.cx + 36, c.H - 34, scale=2)
+
+
+def bells(c):
+    c.grid(12)
+    for r in range(3):
+        for k in range(-4, 5):
+            x = c.cx + k * 16 - 3; y = 10 + r * 20
+            if abs(k) > 3 and r == 1: continue
+            c.sprite(BELL, x, y, bell_pal(gold=(k, r) == (1, 1)), scale=1 if (k, r) != (1, 1) else 2)
+    c.ring(c.cx + 22, 36, 12, "accent")
+    c.rect(c.cx - 66, c.H - 18, 22, 4, "beige2"); c.rect(c.cx - 46, c.H - 22, 6, 12, "beige")  # mallet
+    c.computer(c.cx - 20, c.H - 32, scale=2)
+
+
+def devil(c):
+    c.rect(0, 0, c.W, c.H, "bg")
+    c.grid(8, "deep")
+    y = c.H - 22
+    c.rect(0, y, c.cx - 16, 22, "s2"); c.rect(c.cx + 16, y, c.W, 22, "s2")
+    for x in range(0, c.W, 8):
+        if not (c.cx - 16 <= x < c.cx + 16): c.rect(x, y, 7, 1, "line")
+    for i in range(6): c.rect(c.cx - 14 + i * 5, c.H - 3, 1, 1, "alarm"); c.line(c.cx - 16 + i * 5, c.H - 1, c.cx - 14 + i * 5, c.H - 4, "alarm"); c.line(c.cx - 12 + i * 5, c.H - 1, c.cx - 14 + i * 5, c.H - 4, "alarm")
+    c.box(c.W - 26, y - 20, 12, 20, "accent"); c.rect(c.W - 17, y - 10, 2, 2, "accent")
+    c.gary(c.cx - 10, y - 14)
+    c.sprite(CURSOR, c.cx + 24, 14, {"K": T["bg"], "W": T["text"]})
+
+
+def purge(c):
+    c.rect(0, 0, c.W, c.H, "surface")
+    for i in range(5): c.sprite(FLOPPY, 8, 8 + i * 17, {"D": T["s2"], "L": T["beige"], "S": T["dim"]}, scale=2)
+    for i in range(5): c.rect(22, 13 + i * 17, 16, 1, "accent")
+    import random; rnd = random.Random(7)
+    bx, by = c.cx + 26, c.cy - 4
+    for _ in range(140):
+        x, y = bx + rnd.randint(-16, 16), by + rnd.randint(-16, 16)
+        if (x - bx) ** 2 + (y - by) ** 2 < 260: c.rect(x, y, 2, 2, rnd.choice(["alarm", "accent", "beige", "dim"]))
+    c.computer(c.cx - 30, c.H - 34, scale=2)
+
+
+def cheats(c):
+    c.rect(0, 0, c.W, c.H, "surface")
+    gx, gy, s = c.cx - 34, 12, 22
+    for i in (1, 2): c.rect(gx + i * s, gy, 2, s * 3, "line"); c.rect(gx, gy + i * s, s * 3, 2, "line")
+    def X(x, y): c.line(x + 5, y + 5, x + 16, y + 16, "accent"); c.line(x + 16, y + 5, x + 5, y + 16, "accent"); c.line(x + 6, y + 5, x + 17, y + 16, "accent"); c.line(x + 17, y + 5, x + 6, y + 16, "accent")
+    def O(x, y): c.ring(x + 11, y + 11, 6, "beige"); c.ring(x + 11, y + 11, 5, "beige")
+    X(gx, gy); O(gx + s, gy); X(gx + 2 * s, gy + s); O(gx + s, gy + s); O(gx, gy + 2 * s)
+    c.rect(gx + 2 * s + 2, gy + 2 * s + 10, 18, 6, "beige2"); c.rect(gx + 2 * s + 6, gy + 2 * s + 15, 8, 3, "beige2")  # coffee spill
+    c.computer(c.cx + 38, c.H - 34, scale=2)
+
+
+def overdue(c):
+    c.grid(12)
+    c.window(c.cx - 66, 8, 40, 26); c.rect(c.cx - 60, 18, 26, 2, "alarm"); c.rect(c.cx - 60, 23, 18, 2, "line")
+    c.window(c.cx + 30, 14, 40, 24); c.rect(c.cx + 36, 24, 26, 2, "line")
+    c.sprite(PIG, c.cx + 10, c.H - 30, {"B": T["beige"], "K": T["bg"]}, scale=2)
+    for dx, dy in [(-10, 40), (2, 30), (40, 46), (26, 36)]: c.sprite(COIN, c.cx + dx, dy, {"A": T["accent"]})
+    c.gary(c.cx - 40, c.H - 24)
+
+
+def ram(c):
+    c.rect(0, 0, c.W, c.H, "deep")
+    c.grid(10, "surface")
+    c.disc(c.cx - 6, c.cy + 4, 14, "accent"); c.rect(c.cx - 12, c.cy, 3, 3, "bg"); c.rect(c.cx - 1, c.cy, 3, 3, "bg")
+    for dx, dy, r in [(-50, -26, 4), (-30, -34, 3), (24, -30, 3), (-62, 0, 2), (30, 30, 3)]: c.disc(c.cx + dx, c.cy + dy, r, "beige")
+    c.disc(c.cx + 52, c.cy - 6, 22, "alarm"); c.rect(c.cx + 42, c.cy - 12, 4, 4, "bg"); c.rect(c.cx + 54, c.cy - 12, 4, 4, "bg")
+    c.computer(c.cx - 76, c.H - 32, scale=2)
+
+
+def smol(c):
+    c.rect(0, 0, c.W, c.H, "deep")
+    for y in range(6, c.H, 8):
+        for x in range((y * 5) % 16, c.W, 16): c.rect(x, y, 6, 1, "line")
+    c.disc(c.cx, c.cy + 8, 40, "beige"); c.disc(c.cx, c.cy + 6, 34, "acc2"); c.disc(c.cx - 4, c.cy + 4, 26, "accent")
+    for dx, dy in [(-20, -6), (-6, 12), (10, -2), (18, 16), (-14, 22), (4, 26)]: c.sprite(CREATURE, c.cx + dx, c.cy + dy, {"A": T["bg"]})
+    c.rect(c.cx + 20, c.cy - 20, 3, 10, "beige2"); c.disc(c.cx + 21, c.cy - 22, 5, "acc2")
+    c.gary(c.cx - 12, c.cy - 26)
+
+
+def reel(c):
+    c.rect(0, 0, c.W, c.H, "bg")
+    c.disc(c.W - 26, 18, 8, "beige")
+    for i in range(18): c.px((i * 37) % c.W, (i * 13) % 40, "dim")
+    wy = c.H - 30
+    c.rect(0, wy, c.W, 30, "s2")
+    for y in range(wy + 4, c.H, 6):
+        for x in range((y * 7) % 18, c.W, 18): c.rect(x, y, 6, 1, "line")
+    c.rect(0, wy - 6, c.cx - 24, 4, "beige2"); c.rect(10, wy - 2, 2, 10, "beige2"); c.rect(c.cx - 36, wy - 2, 2, 10, "beige2")
+    c.gary(c.cx - 52, wy - 28)
+    c.line(c.cx - 34, wy - 24, c.cx + 10, wy - 46, "dim"); c.line(c.cx + 10, wy - 46, c.cx + 28, wy + 10, "text")
+    c.sprite(BOOT, c.cx + 24, wy + 10, {"B": T["beige2"]}, scale=2)
+    c.ring(c.cx + 29, wy + 2, 4, "line")
+
+HSC_BANANA = """
+.........kk.
+........kyk.
+........kYk.
+.......kYYk.
+.......kYYk.
+......kYYyk.
+.....kYYYk..
+...kkYYYyk..
+.kkYYYYyk...
+kYYYYyyk....
+.kkkkkk.....
+"""
+HSC_APPLE = """
+.....k......
+......k.kk..
+......kkGGk.
+...kkkkkkk..
+..kRRRkRRRk.
+.kRRRRRRRRrk
+.kWWRRRWWRrk
+.kWERRRWERrk
+.kRRRRRRRrrk
+..kRRRRRrrk.
+...kkrkrkk..
+"""
+HSC_GHOST = """
+....kkkk....
+...kWWWWk...
+..kWWWWWWk..
+.kWWkWWkWWk.
+.kWWkWWkWWk.
+.kWWWWWWWWk.
+.kWWWWWWWWk.
+.kWWWWWWWwk.
+.kWWwWWwWWk.
+.kWk.kWk.kk.
+"""
+HSC_PAL = {"k": "#0b0c0e", "Y": "#f6d84a", "y": "#c9a628", "R": "#e5484d", "r": "#9e2a2e", "G": "#5fbf3a", "W": "#f4f1e6", "w": "#c9c6bb", "E": "#ff3344"}
+
+
+def checkout(c):
+    c.rect(0, 0, c.W, c.H, "#14150f")
+    for i in range(14): c.px((i * 41) % c.W, (i * 17) % 34, "line")
+    by = c.H - 24
+    c.rect(0, by, c.W, 10, "#23261d")
+    for x in range(0, c.W, 8): c.rect(x, by, 3, 10, "#3a3f2e")
+    c.rect(0, by - 1, c.W, 1, "deep")
+    c.computer(c.cx - 70, by - 30, scale=2)
+    c.sprite(HSC_BANANA, c.cx - 26, by - 22, HSC_PAL, scale=2)
+    c.disc(c.cx + 22, by - 11, 15, "#2a2140")
+    c.sprite(HSC_APPLE, c.cx + 10, by - 23, HSC_PAL, scale=2)
+    c.sprite(HSC_GHOST, c.cx + 46, by - 58, HSC_PAL, scale=2)
+    c.window(c.cx - 44, 8, 60, 22, title="alarm")
+    c.rect(c.cx - 40, 18, 44, 1, "text"); c.rect(c.cx - 40, 22, 30, 1, "dim")
+    c.rect(c.W - 22, by - 14, 14, 13, "#c9a36a"); c.rect(c.W - 22, by - 14, 14, 2, "#a9844d")
+
+
+CS_SKULL = """
+..kkkkkk..
+.kWWWWWWk.
+kWWWWWWWWk
+kWkkWWkkWk
+kWkEWWEkWk
+kWWWkkWWWk
+.kWWWWWWk.
+..kWkWkWk.
+..kkkkkkk.
+"""
+CS_WORM = """
+......kk..
+.....kGGk.
+.....kGEk.
+..kk.kGGk.
+.kGGkkGgk.
+kGgGGGGk..
+kGGgGgk...
+.kkkkk....
+"""
+CS_POPUP = """
+kkkkkkkkkk
+kBBBBBBkRk
+kkkkkkkkkk
+kWWWWWWWWk
+kWYYYYYYWk
+kWWWWWWWWk
+kWWGGGGWWk
+kkkkkkkkkk
+"""
+CS_PAL = {"k": "#120c08", "W": "#fffaf0", "E": "#ff2a2a", "G": "#5fbf3a", "g": "#2f7a1c", "B": "#3d6be0", "R": "#e5302a", "Y": "#f6d84a"}
+CS_DIG = {"1": [".k.", "kk.", ".k.", ".k.", "kkk"], "3": ["kk.", "..k", ".k.", "..k", "kk."], "4": ["k.k", "k.k", "kkk", "..k", "..k"],
+          "7": ["kkk", "..k", ".k.", ".k.", ".k."], "9": [".k.", "k.k", ".kk", "..k", "kk."]}
+
+
+def sweeper(c):
+    # an overheating 95-style window on a hot backdrop: a fried grid, a few viruses, the computer as the smiley button
+    for y in range(c.H):
+        k = y / c.H
+        c.rect(0, y, c.W, 1, "#%02x%02x%02x" % (int(30 + 110 * k), int(12 + 30 * k), 8))
+    wx, wy, ww, wh = c.cx - 50, 6, 100, c.H - 10
+    c.rect(wx - 1, wy - 1, ww + 2, wh + 2, "#120c08"); c.rect(wx, wy, ww, wh, "#f3ead2")
+    for x in range(ww - 2):
+        t = x / (ww - 2)
+        c.rect(wx + 1 + x, wy + 1, 1, 5, "#%02x%02x%02x" % (int(122 + 133 * t), int(29 + 130 * t), int(10 + 40 * t)))
+    for i in range(3): c.rect(wx + ww - 6 - i * 5, wy + 2, 4, 3, "#f3ead2")
+    c.rect(wx + 3, wy + 8, ww - 6, 16, "#8f7f5c"); c.rect(wx + 4, wy + 9, ww - 8, 14, "#f3ead2")
+    c.rect(wx + 6, wy + 11, 26, 10, "#160a06"); c.rect(wx + 8, wy + 17, 18, 2, "#ff6a2a")
+    c.rect(wx + ww - 32, wy + 11, 26, 10, "#160a06"); c.rect(wx + ww - 30, wy + 17, 12, 2, "#a8d533")
+    c.computer(c.cx - 11, wy + 5, scale=1)
+    gx, gy, t = wx + 4, wy + 27, 8
+    cols, rows = 11, (wh - 31) // t
+    opened = {(4, 1), (5, 1), (6, 1), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (4, 3), (5, 3), (6, 3), (5, 4)}
+    nums = {(4, 1): "3", (6, 1): "1", (3, 2): "4", (7, 2): "7", (5, 4): "9", (4, 3): "1"}
+    for j in range(rows):
+        for i in range(cols):
+            x, y = gx + i * t + 2, gy + j * t
+            if (i, j) in opened:
+                c.rect(x, y, t, t, "#dccfae")
+                d = nums.get((i, j))
+                if d:
+                    col = {"1": "#1f47b8", "3": "#1f47b8", "4": "#1d7a2a", "7": "#b51d1d", "9": "#b51d1d"}[d]
+                    for yy, row in enumerate(CS_DIG[d]):
+                        for xx, ch in enumerate(row):
+                            if ch == "k": c.px(x + 3 + xx, y + 2 + yy, col)
+            else:
+                c.rect(x, y, t, t, "#fffaf0"); c.rect(x + 1, y + 1, t - 1, t - 1, "#8f7f5c"); c.rect(x + 1, y + 1, t - 2, t - 2, "#f3ead2")
+    c.rect(gx + 9 * t + 2, gy + 4 * t, t, t, "#2a0a0a"); c.sprite(CS_SKULL, gx + 9 * t + 1, gy + 4 * t - 1, CS_PAL)
+    c.rect(gx + 2 * t + 2, gy + 5 * t, t, t, "#ffd9c9"); c.sprite(CS_WORM, gx + 2 * t + 1, gy + 5 * t, CS_PAL)
+    c.sprite(CS_POPUP, gx + 7 * t + 1, gy + 0 * t, CS_PAL)
+    # steam and heat
+    for i, (x, y) in enumerate([(-38, 2), (-20, 0), (14, 1), (34, 3), (46, 0)]):
+        c.disc(c.cx + x, y + 2, 2, "#f6e9d8")
+    for i in range(10): c.px(wx - 4 - (i % 3), wy + 10 + i * 7, "#ff8a2a"); c.px(wx + ww + 3 + (i % 3), wy + 14 + i * 6, "#ff8a2a")
+
+
+SCENES = {
+    "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
+    "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
+    "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
+    "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout,
+    "cooked-sweeper": sweeper,
+}
+
+
+def render(slug, W, H, scale):
+    c = Canvas(W, H); SCENES[slug](c)
+    return c.im.resize((W * scale, H * scale), Image.NEAREST).convert("RGB")
+
+
+if __name__ == "__main__":
+    out = sys.argv[1]
+    os.makedirs(out, exist_ok=True)
+    for slug in SCENES:
+        render(slug, 160, 100, 2).save(os.path.join(out, slug + "-cover.png"), optimize=True)
+        render(slug, 200, 105, 6).save(os.path.join(out, slug + "-og.png"), optimize=True)
+    print("rendered", len(SCENES))

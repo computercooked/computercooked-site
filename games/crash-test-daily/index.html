@@ -15,26 +15,29 @@
   <meta property="og:title" content="crash test (daily) — Computer Cooked Games">
   <meta property="og:description" content="a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your &#129001;&#129000;&#128997; grid.">
   <meta property="og:url" content="https://computercooked.com/games/crash-test-daily/">
-  <meta property="og:image" content="https://computercooked.com/games/crash-test-daily/og.png">
+  <meta property="og:image" content="https://computercooked.com/games/crash-test-daily/og.png?v=4">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@computercooked">
   <meta name="twitter:title" content="crash test (daily) — Computer Cooked Games">
   <meta name="twitter:description" content="a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your &#129001;&#129000;&#128997; grid.">
-  <meta name="twitter:image" content="https://computercooked.com/games/crash-test-daily/og.png">
+  <meta name="twitter:image" content="https://computercooked.com/games/crash-test-daily/og.png?v=4">
 
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/mascot/sleep.svg" as="image" fetchpriority="high">
+  <link rel="preload" href="/assets/fonts/pixelify-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/jetbrains-mono-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/games/games.css">
 </head>
 <body>
   <main class="player-page">
-    <nav class="crumbs" aria-label="breadcrumb"><span class="crumb-prompt" aria-hidden="true">~/</span><a href="/games/">games</a><span aria-hidden="true">/</span><span aria-current="page">crash-test-daily</span></nav>
+    <nav class="crumbs" aria-label="breadcrumb"><a href="/games/">games</a><span aria-hidden="true">/</span><span aria-current="page">crash-test-daily</span></nav>
 
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
@@ -46,7 +49,7 @@
             <span class="boot-text">booting crash test (daily)<span class="boot-dots"></span></span>
             <span class="boot-bar"><span></span></span>
           </div>
-          <iframe id="game-frame" src="/games/crash-test-daily/play/" title="crash test (daily)" allow="fullscreen; autoplay" loading="eager"></iframe>
+          <iframe id="game-frame" data-src="/games/crash-test-daily/play/" title="crash test (daily)" allow="fullscreen; autoplay" loading="eager"></iframe><script>/* start the game once the boot screen (and its sprite) has painted, so the page shows before the game loads; 600 ms at most */(function(f){function go(){if(!f.src)f.src=f.dataset.src}var i=new Image();i.src="/assets/mascot/sleep.svg";(i.decode?i.decode():Promise.resolve()).then(function(){requestAnimationFrame(function(){setTimeout(go,0)})},go);setTimeout(go,600)})(document.getElementById("game-frame"))</script>
         </div>
 
         <div class="player-bar">
@@ -74,13 +77,9 @@
         <div class="ad-slot" data-slot="player-side" aria-hidden="true"></div>
         <div class="player-panel" id="cc-panel" data-game="crash-test-daily"></div>
         <div class="about-card" data-how-to>
-          <h2>// crash test (daily)</h2>
+          <h2>crash test (daily)</h2>
           <p>a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your &#129001;&#129000;&#128997; grid.</p>
           <p><b>controls:</b> drag parts &#183; tab + arrows &#183; u undo &#183; r restart</p>
-        </div>
-        <div class="about-card">
-          <h2>// made by computer cooked</h2>
-          <p>got an idea for our next game? <a href="https://www.tiktok.com/@computercooked" target="_blank" rel="noopener">dm us on tiktok</a>. more games on the <a href="/games/">games page</a>.</p>
         </div>
       </aside>
     </div>
@@ -98,26 +97,14 @@
   <script src="/games/platform.js" defer></script>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
-      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="open command bar (press /)" title="command bar ( / )">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M3 4h18v13H3z"/><path fill="#0d0e11" d="M5 6h14v9H5z"/><path d="M7.5 8.5l2 2-2 2M11 12.5h3" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="currentColor" d="M9 18h6v2H9z"/></svg>
-      </button>
-      <a class="deck-link" href="/" data-key="h">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        <span class="deck-label">home</span><kbd class="deck-key" aria-hidden="true">H</kbd>
-      </a>
-      <a class="deck-link" href="/games/" data-key="g">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="10.5" r="1.3" fill="currentColor"/><circle cx="18" cy="13" r="1.3" fill="currentColor"/></svg>
-        <span class="deck-label">games</span><kbd class="deck-key" aria-hidden="true">G</kbd>
-      </a>
-      <a class="deck-link" href="/#follow" data-key="f">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">follow</span><kbd class="deck-key" aria-hidden="true">F</kbd>
-      </a>
-      <a class="deck-link" href="https://www.tiktok.com/@computercooked" data-key="i" target="_blank" rel="noopener" title="dm us what we should cook next">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 9.5h8M8 12.5h5" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="deck-label">ideas</span><kbd class="deck-key" aria-hidden="true">I</kbd>
-        <span class="visually-hidden">: dm us what we should cook next (opens TikTok)</span>
-      </a>
+      <a class="deck-brand" href="/" aria-label="computer cooked: home"><img src="/assets/logo.svg" alt="" width="28" height="28"><span>computer cooked</span></a>
+      <a class="deck-link deck-home" href="/" data-key="h"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="deck-label">home</span></a>
+      <a class="deck-link" href="/games/" data-key="g"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 7h12a4 4 0 0 1 4 4v2a4 4 0 0 1-7 2.6L14 14h-4l-1 1.6A4 4 0 0 1 2 13v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 9.5v4M5 11.5h4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">games</span></a>
+      <a class="deck-link deck-daily" href="/games/daily/" data-key="d"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">daily</span></a>
+      <a class="deck-link" href="/lab/" data-key="l"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 15h10" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">lab</span></a>
+      <a class="deck-link" href="/log/" data-key="k"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">log</span></a>
+      <button class="deck-cmd" type="button" data-cmd-open aria-haspopup="dialog" aria-label="search (press /)" title="search ( / )"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label">search</span><kbd class="deck-key" aria-hidden="true">/</kbd></button>
+      <a class="deck-link deck-account" href="/me/" data-key="m"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="deck-label" data-account-label>log in</span></a>
     </div>
   </nav>
   <script src="/assets/fx.js" defer></script>

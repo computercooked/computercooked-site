@@ -255,7 +255,7 @@
   // Links we post carry ?ref=<channel> (or utm_source=): in-app browsers (TikTok, Instagram) often send no
   // referrer, so the tag decides. Same map as assets/deck.js, which does this on pages without the SDK (the hub).
   var REF_TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
-    x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky" };
+    x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal" };
   function refTag() {
     var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
     if (!v || v === "app") return null; // ?ref=app is the installed web app's start URL (isApp below)
@@ -373,7 +373,7 @@
     if (!beacon) try { beacon = document.visibilityState === "hidden"; } catch (e) {}
     var done = flush(beacon).then(function (res) {
       var r = res && res.results ? res.results[p.id] || null : null;
-      document.dispatchEvent(new CustomEvent("cc:end", { detail: { game: game, playId: p.id, score: sc, result: r } }));
+      document.dispatchEvent(new CustomEvent("cc:end", { detail: { game: game, playId: p.id, score: sc, result: r, durationMs: Math.round(dur), completed: o.completed !== false } }));
       return r;
     });
     lastPlayId = p.id;

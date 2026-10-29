@@ -1,197 +1,115 @@
-/* ---------- control deck (site nav) ----------
-   A floating CRT dock pinned to the bottom of every page, plus a "/" command bar.
-   Shared by every page: <link rel="stylesheet" href="/assets/deck.css"> + /assets/deck.js */
+/* ---------- site nav (K-0031) ----------
+   One <nav class="deck"> on every page. Desktop: a solid top bar (logo, games, daily, search, log in).
+   Phones: a bottom tab bar (home, games, daily, search, me); the body pads for whichever one shows.
+   assets/deck.js keeps the shortcuts (h g d m /), the active page and the "/" command bar. */
 
-@view-transition {
-  navigation: auto;
-}
-
-@property --deck-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-body {
-  /* room so the dock never covers the footer */
-  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-}
+body { padding-top: var(--topbar-h); }
 
 .deck {
   position: fixed;
-  left: 50%;
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
-  width: min(calc(100% - 20px), 520px);
-  translate: -50% 0;
-  padding: 2px;
-  border-radius: 20px;
-  background: conic-gradient(from var(--deck-angle), var(--lime), var(--lilac), #2c2f38 35%, #2c2f38 65%, var(--lilac), var(--lime));
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 30px rgba(197, 255, 73, 0.12);
-  view-transition-name: control-deck;
-  animation: deck-spin 6s linear infinite, deck-boot 0.9s cubic-bezier(.2, .8, .2, 1) both;
-}
-
-@keyframes deck-spin {
-  to { --deck-angle: 360deg; }
-}
-
-/* CRT power-on: a thin bright line, then the picture opens up */
-@keyframes deck-boot {
-  0%   { transform: scale(0.02, 0.02); filter: brightness(4); opacity: 0; }
-  30%  { transform: scale(1, 0.04); filter: brightness(3); opacity: 1; }
-  60%  { transform: scale(1, 1.06); filter: brightness(1.6); }
-  100% { transform: none; filter: none; }
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--topbar-h);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
 }
 
 .deck-inner {
-  position: relative;
   display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 6px;
-  border-radius: 18px;
-  background: rgba(13, 14, 17, 0.94);
-  overflow: hidden;
-}
-
-@supports (backdrop-filter: blur(1px)) {
-  .deck-inner {
-    background: rgba(13, 14, 17, 0.82);
-    backdrop-filter: blur(14px) saturate(1.3);
-  }
-}
-
-/* scanlines + a slow refresh bar inside the screen */
-.deck-inner::before,
-.deck-inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.deck-inner::before {
-  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px);
-}
-
-.deck-inner::after {
-  background: linear-gradient(to bottom, transparent, rgba(197, 255, 73, 0.10), transparent);
-  height: 40%;
-  animation: deck-refresh 4.5s linear infinite;
-}
-
-@keyframes deck-refresh {
-  from { transform: translateY(-100%); }
-  to   { transform: translateY(260%); }
-}
-
-.deck-cmd,
-.deck-link {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-height: 52px;
+  gap: var(--s-1);
+  max-width: var(--max);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.deck-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-right: auto;
+  color: var(--text);
+  font-family: var(--display);
+  font-size: var(--fs-20);
+  font-weight: 600;
+  text-decoration: none;
+}
+.deck-brand img { width: 28px; height: 28px; }
+
+.deck-link,
+.deck-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 40px;
+  padding: 0 var(--s-3);
   border: 0;
-  border-radius: 13px;
-  background: transparent;
-  color: var(--paper);
-  font-family: var(--mono);
-  font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: -0.01em;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-dim);
+  font: 600 var(--fs-14)/1 var(--sans);
   text-decoration: none;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.15s ease, color 0.15s ease, translate 0.18s ease-out;
+  transition: color var(--fast) ease, background-color var(--fast) ease;
 }
-
-.deck-link {
-  flex: 1;
-  min-width: 0;
-  padding: 0 4px;
-}
-
-.deck-cmd {
-  flex: none;
-  width: 52px;
-  background: var(--carbon-3);
-  color: var(--lime);
-}
-
-.deck-cmd svg,
-.deck-link svg {
-  width: 20px;
-  height: 20px;
-  flex: none;
-}
-
-.deck-cmd svg {
-  width: 26px;
-  height: 26px;
-}
-
-.deck-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
+.deck-link svg, .deck-cmd svg { width: 18px; height: 18px; flex: none; }
+.deck-link svg { display: none; }
+.deck-home { display: none; }
 .deck-key {
-  display: none;
-  font-size: 0.62rem;
-  color: var(--paper-dim);
-  border: 1px solid #3a3c44;
-  border-radius: 4px;
-  padding: 0 4px;
-  line-height: 1.4;
+  padding: 0 var(--s-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-12);
+  line-height: 18px;
+}
+.deck-link:hover, .deck-cmd:hover { color: var(--text); background: var(--surface); }
+.deck-link[aria-current="page"] { color: var(--text); }
+.deck-account { margin-left: var(--s-2); border: 1px solid var(--line); color: var(--text); }
+
+/* phones: a bottom tab bar */
+@media (max-width: 767px) {
+  body { padding-top: 0; padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
+  .deck {
+    top: auto;
+    bottom: 0;
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+  }
+  .deck-inner { padding: 0; gap: 0; }
+  .deck-brand, .deck-key { display: none; }
+  .deck-home { display: inline-flex; }
+  .deck-link, .deck-cmd, .deck-account {
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--s-1);
+    height: var(--tabbar-h);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font-size: var(--fs-12);
+    color: var(--text-dim);
+  }
+  .deck-link svg, .deck-cmd svg { display: block; width: 22px; height: 22px; }
+  .deck-link:hover, .deck-cmd:hover { background: none; }
+  .deck-link[aria-current="page"] { color: var(--accent); }
+  .deck-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* phones: home, games, lab, log, log in (daily lives on the games page; search is the / key) */
+  .deck .deck-daily, .deck .deck-cmd { display: none; }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .deck-key { display: inline-block; }
-  .deck-link { flex-direction: row; gap: 8px; }
-}
-
-.deck-link:hover,
-.deck-cmd:hover {
-  background: var(--carbon-3);
-  color: var(--lime);
-}
-
-.deck-link[aria-current="page"] {
-  background: var(--lime);
-  color: var(--carbon);
-}
-
-.deck-link[aria-current="page"] .deck-key {
-  color: var(--carbon);
-  border-color: rgba(16, 17, 20, 0.4);
-}
-
-.deck-link:focus-visible,
-.deck-cmd:focus-visible {
-  outline: 3px solid var(--lilac);
-  outline-offset: -3px;
-}
-
-/* glitch flicker on items as the deck boots */
-.deck-link {
-  animation: deck-item 0.5s steps(4, end) both;
-}
-.deck-link:nth-of-type(2) { animation-delay: 0.45s; }
-.deck-link:nth-of-type(3) { animation-delay: 0.55s; }
-.deck-link:nth-of-type(4) { animation-delay: 0.65s; }
-.deck-link:nth-of-type(1) { animation-delay: 0.35s; }
-
-@keyframes deck-item {
-  0%   { opacity: 0; transform: translateX(-6px); text-shadow: 3px 0 var(--lilac); }
-  50%  { opacity: 1; transform: translateX(4px); text-shadow: -3px 0 var(--lilac); }
-  100% { opacity: 1; transform: none; text-shadow: none; }
+/* game pages, phones: the tab bar slides away while a run is going (games/player.js sets .cc-playing) */
+@media (max-width: 767px) {
+  .deck { transition: translate 0.25s ease; }
+  .cc-playing .deck { translate: 0 100%; pointer-events: none; }
+  .cc-playing body { padding-bottom: 0; }
 }
 
 /* ---------- command bar ---------- */
@@ -201,17 +119,16 @@ body {
   max-height: 70vh;
   margin: 12vh auto auto;
   padding: 0;
-  border: 2px solid var(--lime);
-  border-radius: 16px;
-  background: #0b0c0f;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
   color: var(--paper);
-  box-shadow: 0 0 0 1px rgba(181, 154, 255, 0.3), 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(197, 255, 73, 0.15);
+  box-shadow: none;
   overflow: hidden;
 }
 
 .cmd::backdrop {
   background: rgba(8, 9, 11, 0.72);
-  backdrop-filter: blur(4px);
 }
 
 .cmd[open] {
@@ -219,20 +136,20 @@ body {
 }
 
 @keyframes cmd-in {
-  from { transform: translateY(8px) scale(0.98); opacity: 0; filter: brightness(2); }
-  to   { transform: none; opacity: 1; filter: none; }
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
 }
 
 .cmd-form {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--carbon-3);
 }
 
 .cmd-prompt {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-weight: 800;
   color: var(--lilac);
 }
@@ -244,9 +161,9 @@ body {
   outline: 0;
   background: transparent;
   color: var(--lime);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size:var(--fs-16);
   caret-color: var(--lime);
 }
 
@@ -255,21 +172,21 @@ body {
 }
 
 .cmd-esc {
-  border: 1px solid #3a3c44;
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--paper-dim);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-weight: 800;
-  font-size: 0.7rem;
-  padding: 6px 8px;
+  font-size:var(--fs-12);
+  padding: 4px 8px;
   cursor: pointer;
 }
 
 .cmd-list {
   list-style: none;
   margin: 0;
-  padding: 6px;
+  padding: 4px;
   max-height: 46vh;
   overflow-y: auto;
 }
@@ -277,12 +194,12 @@ body {
 .cmd-opt {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: 10px;
-  font-family: var(--mono);
+  gap: 8px;
+  padding: 12px 12px;
+  border-radius: var(--r-md);
+  font-family: var(--sans);
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size:var(--fs-16);
   cursor: pointer;
 }
 
@@ -295,22 +212,22 @@ body {
   margin-left: auto;
   font-family: var(--sans);
   font-weight: 500;
-  font-size: 0.78rem;
+  font-size:var(--fs-12);
   color: var(--paper-dim);
   text-align: right;
 }
 
 .cmd-opt[aria-selected="true"] {
   background: var(--carbon-3);
-  box-shadow: inset 3px 0 0 var(--lime);
+  box-shadow: none;
 }
 
 .cmd-say {
   margin: 0;
-  padding: 10px 18px 14px;
-  font-family: var(--mono);
+  padding: 8px 16px 12px;
+  font-family: var(--sans);
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size:var(--fs-14);
   color: var(--lilac);
   min-height: 1.4em;
 }
@@ -319,22 +236,183 @@ body {
   display: none;
 }
 
-/* ---------- motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  @view-transition {
-    navigation: none;
-  }
-  .deck,
-  .deck-link,
-  .deck-inner::after,
-  .cmd[open] {
-    animation: none !important;
-  }
+  .deck, .cmd[open] { transition: none; animation: none; }
 }
 
-/* game pages: the deck slides away while a run is going (games/player.js sets .cc-playing) and comes back when the
-   run ends or the game scrolls off screen. All screen sizes (audit P1 #20): on desktop it sat over the game too. */
-.deck { transition: translate 0.25s ease, opacity 0.25s ease; }
-.cc-playing .deck { translate: -50% calc(100% + 24px); opacity: 0; pointer-events: none; }
-.cc-deck-rest .deck { translate: -50% calc(100% + 24px); opacity: 0; pointer-events: none; }
+/* ======================================================================================================
+   The cooked CRT (overhaul, Oct 2026). Every page: scanlines and a vignette (static, also under reduced
+   motion), a glowing nav, CRT power-off/on page transitions, and the stage (assets/stage.js) that adds the
+   embers, the phosphor glow, lit card rims and boot-in.
+   ====================================================================================================== */
+
+/* scanlines and vignette over everything; never catch the pointer */
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 40%, transparent 60%, rgb(0 0 0 / .38) 100%),
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / .022) 0 1px, transparent 1px 3px);
+}
+
+/* never over a game: game pages keep the frame clean (the wrapper's own look is phase 3) */
+html:has(#game-frame)::after { display: none; }
+
+/* the stage paints behind the page: body lets it show through (html keeps the colour) */
+html.cc-stage body { background-color: transparent; }
+.cc-embers {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+/* the heat under the page: a low orange glow along the bottom edge that breathes */
+html.cc-stage body::before {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  height: 38vh;
+  background: radial-gradient(70% 100% at 50% 100%, rgb(var(--heat) / .09), rgb(255 90 78 / .04) 45%, transparent 75%);
+  pointer-events: none;
+  animation: cc-heat 6s ease-in-out infinite alternate;
+}
+@keyframes cc-heat { from { opacity: .65; } to { opacity: 1; } }
+.cc-phosphor {
+  position: fixed;
+  left: -360px;
+  top: -360px;
+  z-index: -1;
+  width: 720px;
+  height: 720px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--phosphor) / .075), rgb(var(--phosphor) / .025) 55%, transparent);
+  pointer-events: none;
+  will-change: transform;
+}
+@media (pointer: coarse) { .cc-phosphor { display: none; } }
+
+/* nav: dark glass with a phosphor line under it */
+.deck {
+  /* near-opaque instead of a backdrop blur: a blur would be recomputed every frame over the moving embers */
+  background: rgb(14 15 17 / .985);
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 rgb(var(--phosphor) / .14), 0 8px 24px -16px rgb(var(--phosphor) / .35);
+  view-transition-name: deck;
+}
+.deck-brand span { text-shadow: var(--text-glow); }
+.deck-brand img { transition: transform var(--slow) var(--ease-boot), filter var(--fast); }
+.deck-brand:hover img { transform: rotate(-8deg) scale(1.12); filter: drop-shadow(0 0 6px rgb(var(--phosphor) / .6)); }
+.deck-link { position: relative; }
+.deck-link[aria-current="page"] { color: var(--accent); text-shadow: var(--text-glow); }
+.deck-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: 6px;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+.deck-account { border-color: rgb(var(--phosphor) / .35); }
+.deck-account:hover { border-color: var(--accent); box-shadow: var(--glow-sm); }
+@media (max-width: 767px) {
+  .deck { box-shadow: 0 -1px 0 rgb(var(--phosphor) / .14), 0 -8px 24px -16px rgb(var(--phosphor) / .35); }
+  .deck-link[aria-current="page"]::after { left: 30%; right: 30%; top: 0; bottom: auto; }
+}
+
+/* page heads read like a prompt: C:\COOKED> the lab_ */
+.page-head h1, .games-title, .gary-head h1, .log-head h1 { text-shadow: var(--text-glow); }
+.eyebrow {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+.eyebrow::before { content: "C:\\COOKED> "; color: var(--text-dim); text-transform: none; }
+.eyebrow::after { content: "_"; margin-left: 2px; animation: cc-caret 1s steps(2) infinite; }
+@keyframes cc-caret { 50% { opacity: 0; } }
+@media (max-width: 480px) { .eyebrow::before { content: "> "; } }
+
+/* cards: phosphor rim under the pointer (stage.js sets --mx/--my), a lift and a glow */
+.cc-lit { position: relative; }
+.cc-lit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%), var(--rim), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.game-card-inner:hover, .card2:hover, .feature-card:hover, .lab-item > a:hover, .d3-card:hover,
+.weekly-card:hover, .continue-card:hover, .start-tile:hover {
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / .8), 0 0 24px -6px rgb(var(--phosphor) / .28);
+}
+.play-btn, .btn-primary { box-shadow: 0 0 0 0 rgb(var(--phosphor) / 0); transition: box-shadow var(--fast), background-color var(--fast), transform var(--fast); }
+.play-btn:hover, .btn-primary:hover { box-shadow: var(--glow-md); }
+.play-btn:active, .btn-primary:active { transform: translateY(1px) scale(.98); }
+
+/* boot-in: below-the-fold blocks power on as they arrive (stage.js) */
+.cc-boot { opacity: 0; transform: translateY(16px) scaleY(.92); filter: brightness(2.2) saturate(.4); }
+.cc-boot.cc-in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: opacity var(--slow) ease-out, transform var(--slow) var(--ease-boot), filter .6s ease-out;
+}
+
+/* footer: a pixel rule, the sleeping computer, and who makes it */
+.footer { position: relative; padding-top: var(--s-7); }
+.footer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: var(--s-4);
+  width: min(560px, 80%);
+  height: 2px;
+  translate: -50% 0;
+  background: repeating-linear-gradient(90deg, rgb(var(--phosphor) / .5) 0 4px, transparent 4px 8px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+}
+.footer .made-by { color: var(--text-dim); }
+.footer .made-by a { color: var(--beige); }
+
+/* between our pages: the old one switches off like a CRT, the new one powers on. The nav stays put. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: cc-crt-off .18s cubic-bezier(.6, 0, .9, .4) both; }
+::view-transition-new(root) { animation: cc-crt-on .34s var(--ease-boot) both; }
+@keyframes cc-crt-off {
+  60% { transform: scaleY(.012) scaleX(.96); filter: brightness(2.5); opacity: 1; }
+  100% { transform: scaleY(.004) scaleX(0); filter: brightness(4); opacity: 0; }
+}
+@keyframes cc-crt-on {
+  0% { transform: scaleY(.006) scaleX(.6); filter: brightness(4); opacity: .8; }
+  45% { transform: scaleY(1.01) scaleX(1); filter: brightness(1.5); opacity: 1; }
+  100% { transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .eyebrow::after { animation: none; }
+  .cc-boot { opacity: 1; transform: none; filter: none; }
+}
