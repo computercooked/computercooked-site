@@ -11,7 +11,7 @@ export class Stage {
     this.cv = canvas; this.c = canvas.getContext('2d');
     this.bells = Array.from({ length: 8 }, () => ({ swing: 0, vel: 0, glow: 0, color: '#fff' }));
     this.great = { swing: 0, vel: 0, pulse: 0 };
-    this.notes = []; this.pops = []; this.sparks = []; this.lights = {};
+    this.notes = []; this.pops = []; this.sparks = []; this.lights = {}; this.waves = [];
     this.golden = null; this.banner = null; this.chain = null; this.flash = 0; this.shake = 0;
     this.theme = null; this.lite = false; this.t = 0; this.stars = Array.from({ length: 40 }, () => [Math.random(), Math.random(), Math.random()]);
     this.seq = { song: null, step: 0 };
@@ -38,6 +38,14 @@ export class Stage {
       const p = this.bellPos(i);
       this.notes.push({ x: p.x + (Math.random() - 0.5) * 10, y: p.y - this.bs * 0.6, vy: -40 - Math.random() * 30, life: 1.4, t: 0, col, ch: Math.random() < 0.5 ? '♪' : '♫', size: strong ? 18 : 13 });
     }
+  }
+  // K-0038: a golden bell's payout. Three gold shockwaves roll out from the great bell and a long "+N" floats up.
+  goldBurst(text) {
+    const x = this.cx, y = this.cy;
+    this.great.vel += 22; this.great.pulse = 1; this.shake = 0.5;
+    for (let k = 0; k < 3; k++) this.waves.push({ x, y, t: -k * 0.18, life: 1.4 });
+    this.pops.push({ x, y: y - this.gs * 0.6, text, t: 0, life: 2.6, big: true });
+    if (!this.lite) for (let k = 0; k < 28; k++) { const a = Math.random() * TAU, s = 120 + Math.random() * 260; this.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.9, t: 0 }); }
   }
   tapGreat(x, y, text, big) {
     this.great.vel += 10 * (Math.random() < 0.5 ? -1 : 1); this.great.pulse = 1;
@@ -144,6 +152,15 @@ export class Stage {
         c.globalAlpha = 1;
       }
     }
+    // golden shockwaves (K-0038)
+    this.waves = this.waves.filter((w) => (w.t += dt) < w.life);
+    for (const w of this.waves) {
+      if (w.t < 0) continue;
+      const k = w.t / w.life;
+      c.globalAlpha = (1 - k) * 0.9; c.strokeStyle = '#ffe14a'; c.lineWidth = 10 * (1 - k) + 2;
+      c.beginPath(); c.arc(w.x, w.y, this.gs * (0.8 + k * 4), 0, TAU); c.stroke();
+    }
+    c.globalAlpha = 1;
     if (this.flash > 0) { this.flash -= dt; c.fillStyle = `rgba(245,243,237,${Math.min(0.5, this.flash)})`; c.fillRect(0, 0, this.w, this.h); }
     c.restore();
   }
