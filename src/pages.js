@@ -19,11 +19,14 @@ export function labItem(p) {
   return `<li class="lab-item">${p.slug ? `<a href="/games/${encodeURIComponent(p.slug)}/">${inner}</a>` : `<div>${inner}</div>`}</li>`;
 }
 
+// the cooked log as a timeline: each entry in its game's own colour (themeAttr), with the game's cover
 export function logEntry(e, catalog, first) {
   const g = e.game && catalog && catalog.get(e.game);
-  return `<article class="log-entry${first ? " is-latest" : ""}" id="log-${esc(e.date)}">` +
-    `<p class="log-date"><time class="num" datetime="${esc(e.date)}">${esc(day(e.date))}</time>${g ? ` · <a href="/games/${encodeURIComponent(g.slug)}/">${esc(g.title)}</a>` : ""}</p>` +
-    `<h3>${esc(e.title)}</h3><p>${esc(e.text)}</p></article>`;
+  const href = g ? `/games/${encodeURIComponent(g.slug)}/` : "";
+  return `<article class="log-entry${first ? " is-latest" : ""}${g && g.thumbnail ? "" : " no-thumb"}"${g ? themeAttr(g) : ""} id="log-${esc(e.date)}">` +
+    (g && g.thumbnail ? `<a class="log-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="${esc(g.thumbnail)}" alt="" width="160" height="100"${first ? "" : ' loading="lazy"'} decoding="async"></a>` : "") +
+    `<div class="log-body"><p class="log-date"><time class="num" datetime="${esc(e.date)}">${esc(day(e.date))}</time>${first ? '<span class="log-new">newest</span>' : ""}${g ? ` · <a href="${href}">${esc(g.title)}</a>` : ""}</p>` +
+    `<h3>${esc(e.title)}</h3><p>${esc(e.text)}</p></div></article>`;
 }
 
 export function garyEntry(e, catalog, first) {

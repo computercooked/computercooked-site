@@ -152,6 +152,7 @@
     var friends = period === "friends";
     var url = "/api/leaderboard?game=" + encodeURIComponent(game) + "&period=" + (friends ? "all&friends=1" : period) + "&player=" + encodeURIComponent("a:" + cc._anon);
     api(url).then(function (r) {
+      if (r.ok) showEpic(r.epic);
       if (!r.ok) { rows.innerHTML = '<li class="cc-empty cc-nap"><img src="/assets/mascot/sleep.svg" alt="" width="45" height="68">leaderboard is napping. try later.</li>'; return; }
       if (!r.rows.length) {
         rows.innerHTML = friends
@@ -164,12 +165,27 @@
         var face = x.a && window.ccAvatar ? '<span class="cc-face" aria-hidden="true">' + window.ccAvatar(x.a) + "</span>" : "";
         var name = x.u ? '<a href="/u/' + encodeURIComponent(x.u) + '">' + face + esc(x.name) + "</a>" : esc(x.name);
         return '<li class="' + (x.me ? "is-me" : "") + '"><span class="cc-rank">' + x.rank + '</span><span class="cc-name">' + name +
-          '</span><span class="cc-score">' + fmt(x.score) + '</span><button type="button" class="cc-flag" data-id="' + x.id + '" aria-label="report ' + esc(x.name) + '" title="report">⚑</button></li>';
+          "</span>" + (x.epic ? EPIC : "") + '<span class="cc-score">' + fmt(x.score) + '</span><button type="button" class="cc-flag" data-id="' + x.id + '" aria-label="report ' + esc(x.name) + '" title="report">⚑</button></li>';
       }).join("") + (r.you
         // not in the top rows: show where you are anyway
         ? '<li class="cc-gap" aria-hidden="true">⋯</li><li class="is-me cc-you"><span class="cc-rank">' + r.you.rank + '</span><span class="cc-name">you</span><span class="cc-score">' + fmt(r.you.score) + '</span></li>'
         : "");
     });
+  }
+  // K-0053: EPIC GAMER, the all-time #1 on this game. The server works it out from the live board on every load,
+  // so the title moves by itself; it rides on that player's row and sits at the end of the breadcrumb line
+  // (a line that is already there, so nothing below it moves)
+  var EPIC = '<span class="cc-epic" title="#1 all time on this game">EPIC GAMER</span>';
+  var crumbs = document.querySelector(".player-page .crumbs");
+  var champ = null;
+  function showEpic(e) {
+    if (!crumbs) return;
+    if (!e) { if (champ) champ.hidden = true; return; }
+    if (!champ) { champ = el('<span class="cc-epic-champ"></span>'); crumbs.appendChild(champ); }
+    var who = e.me ? "you" : esc(e.name);
+    champ.innerHTML = EPIC + " " + (e.u && !e.me ? '<a href="/u/' + encodeURIComponent(e.u) + '">' + who + "</a>" : "<b>" + who + "</b>");
+    champ.title = (e.me ? "you are" : e.name + " is") + " #1 all time on this game with " + fmt(e.score);
+    champ.hidden = false;
   }
   panel.querySelectorAll(".cc-tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
