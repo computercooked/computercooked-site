@@ -218,9 +218,9 @@ r = await (await post("/api/dare/" + bestDare + "/shared", { how: "download" }))
 ok(r.ok, "a downloaded share card counts as a send method");
 // link previews: game pages carry a card; dare links get "can you beat N?" tags from the dare itself
 let page = await (await get("/games/crash/")).text();
-ok(page.includes('/games/crash/og.png"') && !page.includes("can you beat"), "game page has its og card");
+ok(/\/games\/crash\/og\.png(\?v=\d+)?"/.test(page) && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
-ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && page.includes('/games/crash/og-vs.png"'), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && /\/games\/crash\/og-vs\.png(\?v=\d+)?"/.test(page), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
 // search: every game page carries VideoGame JSON-LD, a how-to-play card and a "games like X" row of links
 page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
