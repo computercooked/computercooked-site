@@ -28,6 +28,11 @@
       // the campaign of the first tagged link this visit (utm_campaign), sent with page views, plays and tips
       var camp = (q.get("utm_campaign") || "").trim().toLowerCase();
       if (/^[a-z0-9_.-]{1,40}$/.test(camp) && !sessionStorage.getItem("cc-campaign")) sessionStorage.setItem("cc-campaign", camp);
+      // and its raw utm_source / utm_medium (K-0050a: Chip tags every post), kept as typed so a post is attributable
+      // even when the source isn't one of the channels above. Same cleaning as the campaign; first tagged link wins.
+      var us = (q.get("utm_source") || "").trim().toLowerCase(), um = (q.get("utm_medium") || "").trim().toLowerCase();
+      var tagOk = function (v) { return /^[a-z0-9_.-]{1,40}$/.test(v) ? v : null; };
+      if ((tagOk(us) || tagOk(um)) && !sessionStorage.getItem("cc-utm")) sessionStorage.setItem("cc-utm", JSON.stringify({ s: tagOk(us), m: tagOk(um) }));
       // team test mode: ?cctest=1 gives this browser a "smoke-" anonymous id, which every count already leaves out
       // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. Param removed.
       var tm = q.get("cctest");
@@ -55,8 +60,9 @@
       // one page view per load, and the tip success: no cookies, no player id stored (POST /api/hit, src/hits.js)
       var hit = window.ccHit = function (kind, extra) {
         try {
+          var utm = JSON.parse(sessionStorage.getItem("cc-utm") || "{}");
           var body = { kind: kind, path: location.pathname, ref: sessionStorage.getItem("cc-ref") || "direct",
-            campaign: sessionStorage.getItem("cc-campaign"), anon: localStorage.getItem("cc-anon") };
+            campaign: sessionStorage.getItem("cc-campaign"), src: utm.s || null, medium: utm.m || null, anon: localStorage.getItem("cc-anon") };
           for (var k in extra || {}) body[k] = extra[k];
           fetch("/api/hit", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
         } catch (err) {}
