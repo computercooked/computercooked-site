@@ -19,7 +19,7 @@ function cleanGuest(name, anon) {
   return guestName(anon);
 }
 
-// POST /api/events  {anon, tester, ref, campaign, name, events:[{t:'start'|'end'|'event', id, game, v, score, dur, completed, auto, name, data}]}
+// POST /api/events  {anon, tester, ref, campaign, src, medium, name, events:[{t:'start'|'end'|'event', id, game, v, score, dur, completed, auto, name, data}]}
 export async function events(req, env, ip, user, origin) {
   if (limited("events:" + ip, 240, 60000)) return bad("slow down", 429);
   const b = await readJson(req, 32 * 1024);
@@ -29,6 +29,7 @@ export async function events(req, env, ip, user, origin) {
   const tester = str(b.tester, 32);
   const ref = refOk(b.ref);
   const campaign = campaignOk(b.campaign);
+  const src = campaignOk(b.src), medium = campaignOk(b.medium);
   const device = deviceOf(req.headers.get("user-agent") || "");
   const catalog = await games(env, origin);
   const results = {};
@@ -43,6 +44,8 @@ export async function events(req, env, ip, user, origin) {
       ).bind(e.id, e.game, str(e.v, 16) || "1", anon, user ? user.id : null, tester, t, ref, device, dayOf(t), e.auto ? 1 : 0).run();
       // the utm_campaign this visit arrived with (plays.referrer already holds the channel)
       if (campaign) await env.DB.prepare("INSERT OR IGNORE INTO play_tags (play_id, campaign) VALUES (?, ?)").bind(e.id, campaign).run();
+      // and the raw utm_source / utm_medium (K-0050a)
+      if (src || medium) await env.DB.prepare("INSERT OR IGNORE INTO play_utm (play_id, source, medium) VALUES (?, ?, ?)").bind(e.id, src, medium).run();
       // started from the "play next" rail after a run on another game: one cc:next event per play (admin metrics)
       if (e.src === "next") {
         const slot = ["challenge", "similar", "new"].includes(e.slot) ? e.slot : "other";

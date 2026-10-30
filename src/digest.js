@@ -101,6 +101,30 @@ export async function digest(url, env) {
   }
   const secs = (ms) => (ms == null ? null : Math.round(ms / 1000));
 
+  // K-0050a: every tagged link, whole window. One row per utm_source / utm_medium / utm_campaign: page views,
+  // visitors (first view of the day in a browser) and plays that arrived with it
+  const utmViews = (await db.prepare(
+    `SELECT json_extract(data, '$.src') s, json_extract(data, '$.medium') m, json_extract(data, '$.campaign') c,
+       COUNT(*) views, SUM(json_extract(data, '$.vis') IN ('new', 'back')) visitors
+     FROM events WHERE name = 'cc:pageview' AND ts >= ? AND ts < ?
+       AND (json_extract(data, '$.src') IS NOT NULL OR json_extract(data, '$.medium') IS NOT NULL OR json_extract(data, '$.campaign') IS NOT NULL)
+     GROUP BY 1, 2, 3`
+  ).bind(start, end).all()).results;
+  const P = (sql) => sql.replace(/\b(anon_id|user_id)\b/g, "p.$1");
+  const utmPlays = (await db.prepare(
+    `SELECT u.source s, u.medium m, t.campaign c, COUNT(*) plays, GROUP_CONCAT(DISTINCT p.game) games
+     FROM plays p LEFT JOIN play_utm u ON u.play_id = p.id LEFT JOIN play_tags t ON t.play_id = p.id
+     WHERE p.started_at >= ? AND p.started_at < ? AND ${P(REAL)} AND (u.play_id IS NOT NULL OR t.play_id IS NOT NULL)
+     GROUP BY 1, 2, 3`
+  ).bind(start, end).all()).results;
+  const utmRows = {};
+  const utmKey = (r) => [r.s || "-", r.m || "-", r.c || "-"].join("|");
+  for (const r of utmViews) utmRows[utmKey(r)] = { source: r.s, medium: r.m, campaign: r.c, page_views: r.views, visitors: r.visitors || 0, plays: 0, games: [] };
+  for (const r of utmPlays) {
+    const row = utmRows[utmKey(r)] || (utmRows[utmKey(r)] = { source: r.s, medium: r.m, campaign: r.c, page_views: 0, visitors: 0, plays: 0, games: [] });
+    row.plays += r.plays; row.games = (r.games || "").split(",").filter(Boolean);
+  }
+
   const at = (rows, i) => rows.find((r) => r.d === i) || {};
   const pct = (v) => (v == null ? null : Math.round(v * 100));
   const shape = (g) => ({ game: g.game, plays: g.plays, players: g.players, completion_pct: pct(g.completion), auto_pct: pct(g.auto) });
@@ -117,6 +141,8 @@ export async function digest(url, env) {
     return {
       date, partial: i === dates.length - 1,
       plays: p.plays || 0, players: p.players || 0, new_players: newbies.length,
+      // played that day, and had played before (any game, any earlier day)
+      returning_players: Math.max(0, (p.players || 0) - newbies.length),
       d1_return: d1Known ? { back, of: newbies.length, pct: newbies.length ? Math.round((back / newbies.length) * 100) : null } : null,
       ref,
       next: { plays: nextPlays, per_run: p.ended ? Math.round((nextPlays / p.ended) * 1000) / 1000 : null },
@@ -133,5 +159,6 @@ export async function digest(url, env) {
   });
 
   return json({ ok: true, tz: TZ, days: n, from: dates[0], to: dates[dates.length - 1], generated_at: new Date().toISOString(), rows, games: gameTotals.map(shape),
+    utm: Object.values(utmRows).sort((a, b) => b.plays - a.plays || b.page_views - a.page_views),
     game_pages: Object.values(pages).sort((a, b) => b.views - a.views).map((g) => ({ game: g.game, views: g.views, avg_time_s: secs(g.timed ? g.ms : null) })) });
 }

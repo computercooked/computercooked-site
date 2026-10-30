@@ -57,6 +57,15 @@ if (d.rows[0] && d.rows[0].site) {
     d.rows.map((r) => [r.date + (r.partial ? "*" : ""), r.site.page_views, r.site.visitors, r.site.returning, dash(r.site.returning_pct), dash(r.site.avg_time_s)])
   );
 }
+if (d.rows[0] && d.rows[0].returning_players != null) {
+  console.log("\nplayers (returning = had played before that day)");
+  table(["day", "players", "new", "returning"], d.rows.map((r) => [r.date + (r.partial ? "*" : ""), r.players, r.new_players, r.returning_players]));
+}
+if (d.utm && d.utm.length) {
+  console.log("\ntagged links (utm_source / utm_medium / utm_campaign, whole window)");
+  table(["source", "medium", "campaign", "page views", "visitors", "plays", "games played"],
+    d.utm.map((u) => [dash(u.source), dash(u.medium), dash(u.campaign), u.page_views, u.visitors, u.plays, u.games.join(" ") || "-"]));
+}
 if (d.game_pages && d.game_pages.length) {
   console.log("\ngame pages (whole window)");
   table(["game", "page views", "avg time s"], d.game_pages.map((g) => [g.game, g.views, dash(g.avg_time_s)]));

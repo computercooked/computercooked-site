@@ -1,4 +1,4 @@
-// POST /api/hit {kind, path, game?, slot?, ref, campaign, anon}: site measurement with no player id stored.
+// POST /api/hit {kind, path, game?, slot?, ref, campaign, src, medium, anon}: site measurement with no player id stored.
 //   pageview     one per page load on pages with the control deck (assets/deck.js). The first one of the day in a
 //                browser carries vis "new" (never seen before) or "back" (seen on an earlier day): daily visitors and
 //                returning visitors without storing any id (the browser keeps only its last-seen day)
@@ -6,7 +6,8 @@
 //   tip_click    a click on a "tip the computer" link (games/hub.js, games/platform.js)
 //   tip_success  a page opened with ?tip=thanks (the Stripe Payment Link's after-payment redirect), once per visit
 //   ad_slot      a moment an ad would show under the assets/ads.js caps (interstitial / rewarded), counted before any network
-// Stored as events rows named cc:<kind>, data {path, ref, campaign, slot}; read in /api/admin/metrics.
+// Stored as events rows named cc:<kind>, data {path, ref, campaign, src, medium, slot}; src / medium are the visit's raw
+// utm_source / utm_medium. Read in /api/admin/metrics and /api/admin/digest.
 // Smoke traffic is answered but not stored, like /api/follow.
 import { json, bad, readJson, now, limited, slugOk, refOk, campaignOk, isTestAnon } from "./util.js";
 
@@ -26,6 +27,9 @@ export async function hit(req, env, ip) {
   const path = pathOk(b.path);
   if (!path) return bad("path?", 400);
   const data = { path, ref: refOk(b.ref), campaign: campaignOk(b.campaign) };
+  const src = campaignOk(b.src), medium = campaignOk(b.medium);
+  if (src) data.src = src;
+  if (medium) data.medium = medium;
   if (b.kind === "tip_click") data.slot = TIP_SLOTS.includes(b.slot) ? b.slot : "other";
   if (b.kind === "pageview" && (b.vis === "new" || b.vis === "back")) data.vis = b.vis;
   if (b.kind === "leave") {
