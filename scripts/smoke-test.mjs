@@ -227,7 +227,7 @@ const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/
 ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
 ok(/how to play fathom/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
-ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link" href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
+ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
 // installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
