@@ -612,6 +612,14 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Golden hour.** A warmer key light, a lower sun for long raking light on block edges, cooler lilac fill and a warm haze.
 - **Fixes folded in (K-0052).** Possessed hunger now lasts 5 minutes for a full bar (was 3), and the first night stays 40% slower on top of that. The opening film and the fast title (4.9.7) were checked again on a fresh device.
 
+## 0.46 What v4.10.1 added: soft sun shadows (K-0052, milestone 2)
+
+- **A shadow map from the sun.** In the voxel look, terrain, trees, rocks, huts, the Lantern, the giant and anything loose cast into a 2048² depth map. It is fitted to the view (up to 64 units out in god view, a 30-unit box ahead of you in first person) and snapped to its texels so edges don't crawl.
+- **Who receives it.** Everything lit by the shared light code takes 5 soft taps from the map: the ground, objects, water and the voxel smols. Smols cast only their blob shadows.
+- **When it fades.** Shadows fade at the edge of the box, at night (the moon's are faint), under cloud and rain, and when zoomed out past 34.
+- **Cheap when nothing moves.** The map is kept while the view box doesn't change and redrawn every 4th frame for falling trees and carried things.
+- **Holding 60 fps.** In this look, dynamic resolution steps down 10% once frames run over 19 ms for 2 s, and back up under 15 ms. The voxel look draws half the grass and flowers, which read bigger as cubes. Settings → "soft focus, glow & shadows" turns all three off, as does a weak phone or 4 s under 25 fps.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
