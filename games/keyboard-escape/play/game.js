@@ -393,6 +393,44 @@
       ? { bg1: '#140d1c', bg2: '#22102a', cap: '#ff9a3c', capHit: C.lime, side: '#8a3d0e', txt: '#2a0f05', glow: 'rgba(255,154,60,0.18)', gate: C.lilac }
       : { bg1: '#101114', bg2: '#17181d', cap: C.paper, capHit: C.lime, side: '#9b978a', txt: C.carbon, glow: 'rgba(181,154,255,0.14)', gate: C.lilac };
   }
+  // Pixel font (5x7 with two descender rows), drawn with fillRect. The first canvas fillText in a document resolves
+  // the font stack (~100 ms on a phone, the long task left after 1.3), so every in-game string is drawn from this
+  // table instead and the canvas never touches a font. Each glyph: width digit, then one hex byte per row.
+  const PF = {'A':'50e11111f111111','B':'51e11111e11111e','C':'50e11101010110e','D':'51e11111111111e','E':'51f10101e10101f','F':'51f10101e101010','G':'50e11101711110f','H':'51111111f111111','I':'51f04040404041f','J':'50702020212120c','K':'511121418141211','L':'51010101010101f','M':'5111b1515111111','N':'511191513111111','O':'50e11111111110e','P':'51e11111e101010','Q':'50e11111115120d','R':'51e11111e141211','S':'50f10100e01011e','T':'51f040404040404','U':'51111111111110e','V':'511111111110a04','W':'511111115151b11','X':'511110a040a1111','Y':'511110a04040404','Z':'51f01020408101f','0':'50e11131519110e','1':'5040c040404040e','2':'50e11010204081f','3':'51e01010e01011e','4':'51111111f010101','5':'51f101e0101110e','6':'50e10101e11110e','7':'51f010204080808','8':'50e11110e11110e','9':'50e11110f01010e','a':'500000e010f110f','b':'510101e1111111e','c':'500000e1010100e','d':'501010f1111110f','e':'500000e111f100e','f':'506081e08080808','g':'500000f1111110f010e','h':'510101e11111111','i':'504000c0404040e','j':'502000602020202120c','k':'510101214181412','l':'50c04040404040e','m':'500001a15151515','n':'500001e11111111','o':'500000e1111110e','p':'500001e1111111e1010','q':'500000f1111110f0101','r':'500001619101010','s':'500000f100e011e','t':'508081e08080906','u':'50000111111110f','v':'500001111110a04','w':'50000111115150a','x':'50000110a040a11','y':'50000111111110f010e','z':'500001f0204081f',' ':'30000','.':'100000000000001',',':'20000000000010102',':':'100000100000100','\'':'1010100','’':'1010100','-':'300000000070000','+':'5000004041f0404','!':'101010101010001','?':'50e110204040004','/':'501010204081010','·':'100000000010000','✓':'500010214080000','→':'5000004021f0204','↖':'5001e1814120100','…':'500000000000015','(':'301020404040201',')':'304020101010204','🎃':'70c3e5d7f55633e','👻':'73e7f6b7f7f7f55','🦇':'700416b7f3e1400'};
+  const PFG = {};
+  function pfGlyph(ch) {
+    let g = PFG[ch];
+    if (g) return g;
+    const s = PF[ch] || PF['?'], w = +s[0], runs = [];
+    for (let r = 0; 1 + r * 2 < s.length; r++) {
+      const b = parseInt(s.substr(1 + r * 2, 2), 16);
+      for (let x = 0; x < w;) {
+        if (!((b >> (w - 1 - x)) & 1)) { x++; continue; }
+        let e = x + 1; while (e < w && ((b >> (w - 1 - e)) & 1)) e++;
+        runs.push(r, x, e - x); x = e;
+      }
+    }
+    return (PFG[ch] = { w, runs });
+  }
+  function pxWidth(str, px) { let n = 0; for (const ch of str) n += pfGlyph(ch).w + 1; return Math.max(0, n - 1) * px / 10; }
+  // same arguments as fillText with a monospace font of size px (cap height ~0.7 px, advance 0.6 px); k = device pixels
+  // per unit, so cell edges land on whole pixels (no seams between rows)
+  function pxText(g, str, x, y, px, col, align, base, k) {
+    str = String(str); k = k || dpr;
+    const q = (v) => Math.round(v * k) / k;
+    const u = px / 10, w = pxWidth(str, px);
+    let gx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+    const top = base === 'top' ? y + u : base === 'bottom' ? y - 7 * u : y - 3.5 * u;
+    g.fillStyle = col;
+    for (const ch of str) {
+      const gl = pfGlyph(ch), r = gl.runs;
+      for (let i = 0; i < r.length; i += 3) {
+        const x0 = q(gx + r[i + 1] * u), y0 = q(top + r[i] * u);
+        g.fillRect(x0, y0, q(gx + (r[i + 1] + r[i + 2]) * u) - x0, q(top + (r[i] + 1) * u) - y0);
+      }
+      gx += (gl.w + 1) * u;
+    }
+  }
   function rr(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
   function drawKeycap(g, x, y, w, h, label, kind, sc, P) {
     P = P || pal();
@@ -401,14 +439,13 @@
     g.fillStyle = top; rr(g, x + 5 * sc, y - 2 * sc, w - 10 * sc, h - 16 * sc, 8 * sc); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.25)'; rr(g, x + 9 * sc, y + 1 * sc, w - 18 * sc, 6 * sc, 3 * sc); g.fill();
     if (label) {
-      g.fillStyle = P.txt; g.font = `800 ${Math.round((label.length > 3 ? 18 : 26) * sc)}px ${MONO}`; g.textAlign = 'left'; g.textBaseline = 'top';
-      g.fillText(label, x + 14 * sc, y + 8 * sc);
+      pxText(g, label, x + 14 * sc, y + 8 * sc, Math.round((label.length > 3 ? 18 : 26) * sc), P.txt, 'left', 'top', dpr * scale); // labels are only drawn into the atlas (res = dpr * scale)
     }
   }
   // Paint caches (perf): repainting every keycap's rounded rects and label, a full-screen gradient and ~60 parallax
   // caps every frame kept phones busy while the page loaded. Each is painted once and blitted (same look).
-  // One shared atlas canvas: a fresh canvas per bitmap paid the font set-up again on its first fillText, so every
-  // cached keycap and label is packed (shelf by shelf) into the same canvas instead. Full = cleared and re-warmed.
+  // One shared atlas canvas: every cached keycap and label is packed (shelf by shelf) into the same canvas.
+  // Full = cleared and re-warmed.
   const ATLAS = 1024, atlas = document.createElement('canvas'); atlas.width = atlas.height = ATLAS;
   const atx = atlas.getContext('2d');
   let ax = 0, ay = 0, arow = 0;
@@ -423,8 +460,8 @@
     return slot;
   }
   const capCache = new Map();
-  let capBudget = 1; // new text rasterisations per frame (keycaps and labels share it: each new font size costs ~20-40 ms on a
-  // slow phone the first time); keycaps over budget draw label-less until cached, labels a frame or two later
+  let capBudget = 4; // new keycap/label bitmaps per frame (pixel text is cheap, but a fresh keyboard has dozens of caps);
+  // keycaps over budget draw label-less until cached, labels a frame or two later
   function keycapImage(w, h, label, kind, P) {
     const res = dpr * scale, key = w + '|' + h + '|' + label + '|' + kind + '|' + P.cap + P.side + P.capHit + P.txt + '|' + res;
     let c = capCache.get(key);
@@ -447,11 +484,10 @@
     if (!t) {
       if (capBudget <= 0) return;
       capBudget--;
-      const font = `800 ${px}px ${MONO}`;
-      atx.setTransform(1, 0, 0, 1, 0, 0); atx.font = font; const w = atx.measureText(str).width;
+      const w = pxWidth(str, px);
       const pad = Math.ceil(px * 0.3), cw = Math.ceil((w + pad * 2) * res), ch = Math.ceil(px * 1.6 * res), slot = alloc(cw, ch);
       if (!slot) return;
-      atx.setTransform(res, 0, 0, res, slot.x, slot.y); atx.font = font; atx.fillStyle = col; atx.textAlign = 'left'; atx.textBaseline = 'middle'; atx.fillText(str, pad, px * 0.8);
+      atx.setTransform(res, 0, 0, res, slot.x, slot.y); pxText(atx, str, pad, px * 0.8, px, col, 'left', 'middle', res);
       t = { x: slot.x, y: slot.y, cw, ch, w, pad, h: px * 1.6, res };
       txtCache.set(key, t);
     }
@@ -484,7 +520,7 @@
   }
   function render(dt) {
     const P = pal();
-    capBudget = 1;
+    capBudget = 4;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // backdrop
     ctx.drawImage(backdrop(P), 0, 0, vw, vh);
@@ -566,7 +602,7 @@
     if (banner && screen === 'play') {
       banner.t -= dt;
       if (banner.t <= 0) banner = null;
-      else { ctx.globalAlpha = Math.min(1, banner.t * 3); ctx.fillStyle = 'rgba(16,17,20,0.7)'; ctx.fillRect(0, vh * 0.3 - 30, vw, 60); ctx.fillStyle = C.lime; ctx.font = `800 ${Math.round(Math.min(34, vw / 14))}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(banner.txt, vw / 2, vh * 0.3); ctx.globalAlpha = 1; }
+      else { ctx.globalAlpha = Math.min(1, banner.t * 3); ctx.fillStyle = 'rgba(16,17,20,0.7)'; ctx.fillRect(0, vh * 0.3 - 30, vw, 60); pxText(ctx, banner.txt, vw / 2, vh * 0.3, Math.round(Math.min(34, vw / 14)), C.lime, 'center', 'middle'); ctx.globalAlpha = 1; }
     }
     if (screen !== 'title') drawHud();
     if (booting > 0 && screen === 'play') drawBoot();
@@ -597,29 +633,27 @@
     const spd = Math.round(speed);
     const pulse = 1 + (p && p.ground && p.ground.press ? p.ground.press * 0.12 : 0);
     ctx.save(); ctx.translate(vw / 2, top); ctx.scale(pulse, pulse);
-    ctx.font = `800 ${Math.round(54 * s)}px ${MONO}`; ctx.fillStyle = C.carbon; ctx.fillText(spd, 3, 3);
-    ctx.fillStyle = C.lime; ctx.fillText(spd, 0, 0);
+    pxText(ctx, spd, 3, 3, Math.round(54 * s), C.carbon, 'center', 'top');
+    pxText(ctx, spd, 0, 0, Math.round(54 * s), C.lime, 'center', 'top');
     ctx.restore();
-    ctx.font = `800 ${Math.round(12 * s)}px ${MONO}`; ctx.fillStyle = C.paper; ctx.fillText(course && course.cap && speed > course.cap && screen === 'play' ? 'limiter: ' + course.cap + ' · reboot to go faster' : 'speed · x' + save.mult, vw / 2, top + 56 * s);
+    pxText(ctx, course && course.cap && speed > course.cap && screen === 'play' ? 'limiter: ' + course.cap + ' · reboot to go faster' : 'speed · x' + save.mult, vw / 2, top + 56 * s, Math.round(12 * s), C.paper, 'center', 'top');
     // progress bar to esc
     if (course && p) {
       const bw = Math.min(vw - 120 * s, 360 * s), bx = vw / 2 - bw / 2, by = top + 76 * s;
       ctx.fillStyle = 'rgba(245,243,237,0.12)'; rr(ctx, bx, by, bw, 8 * s, 4 * s); ctx.fill();
       const pr = Math.max(0, Math.min(1, p.x / course.len));
       ctx.fillStyle = C.lime; rr(ctx, bx, by, Math.max(8 * s, bw * pr), 8 * s, 4 * s); ctx.fill();
-      ctx.fillStyle = C.lilac; ctx.font = `800 ${Math.round(11 * s)}px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('esc', bx + bw + 6 * s, by + 4 * s);
+      pxText(ctx, 'esc', bx + bw + 6 * s, by + 4 * s, Math.round(11 * s), C.lilac, 'left', 'middle');
     }
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(245,243,237,0.8)'; ctx.font = `700 ${Math.round(13 * s)}px ${MONO}`;
-    ctx.fillText(fmt(runT * 1000), 14 * s, top);
-    ctx.fillText('kb ' + save.loop + ' · falls ' + falls, 14 * s, top + 18 * s);
+    pxText(ctx, fmt(runT * 1000), 14 * s, top, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
+    pxText(ctx, 'kb ' + save.loop + ' · falls ' + falls, 14 * s, top + 18 * s, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
   }
   function drawBoot() {
     const a = Math.min(1, booting / 0.25);
     ctx.fillStyle = `rgba(16,17,20,${0.7 * a})`; ctx.fillRect(0, 0, vw, vh);
-    ctx.globalAlpha = a; ctx.fillStyle = C.lime; ctx.font = `800 ${Math.round(Math.min(26, vw / 18))}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(falls ? 'back to boot…' : 'booting crash os…', vw / 2, vh * 0.5);
-    ctx.font = `700 ${Math.round(Math.min(15, vw / 28))}px ${MONO}`; ctx.fillStyle = C.paper;
-    ctx.fillText(falls ? 'speed kept: ' + Math.round(speed) : 'tap to jump. that\'s the whole job.', vw / 2, vh * 0.5 + 34);
+    ctx.globalAlpha = a;
+    pxText(ctx, falls ? 'back to boot…' : 'booting crash os…', vw / 2, vh * 0.5, Math.round(Math.min(26, vw / 18)), C.lime, 'center', 'middle');
+    pxText(ctx, falls ? 'speed kept: ' + Math.round(speed) : 'tap to jump. that\'s the whole job.', vw / 2, vh * 0.5 + 34, Math.round(Math.min(15, vw / 28)), C.paper, 'center', 'middle');
     ctx.globalAlpha = 1;
   }
 
