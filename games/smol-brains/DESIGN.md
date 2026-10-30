@@ -577,6 +577,26 @@ Every story beat now has its own film, drawn in code at 320×180 like the openin
 - **Music, self-checked in the browser** (the bot had no audio): a grump arriving brings the danger layer in. Sampled at 0.3 / 0.8 / 1.3 / 2.0 s, the layer went 0.18 → 0.52 → 0.86 → 1.0 while the song went 0.82 → 0.48 → 0.14 → 0: a 1.5 s crossfade. `SB.Music.levels()` is a probe for that.
 - **Tests**: `firstnight.test.js` (after a bite you're ≥3 m apart, and there's no wind-up for 1.8 s). `embers.test.js` §4b (a grump 8 m from the stage-3 nest turns for home).
 
+## 0.44 What v4.9.7 changed: the K-0051 playtest fixes
+
+1. **The opening.**
+   - A playtest (`?cctest=1`) always gets the opening films on a new island. Skipping the ark film goes on to the Lantern film (the crash close shot); skip again to land.
+   - The title menu has "🎬 watch the intro" (third button).
+   - Restart from the site's button while you're in a body now leaves the body first, so the "new world?" window shows. It used to wait, unseen, for you to leave.
+2. **First-night hunger.** In a body on the first night, food drains at 60% of the normal rate (0.33%/s), and Pip starts the chase at 92% full ("Pip ate at the bush").
+3. **The title is clickable at once.**
+   - The menu is built under "computer cooked games presents". That card plays once per device, at 1.4 + 1.2 s (was 3.6 + 3.4), and never in a playtest.
+   - The title city is built after the card, so it doesn't stall it.
+   - The site's page loads the game frame once in a playtest (it used to load it twice).
+   - Measured: the game page is clickable as soon as it loads (1.3 s locally).
+4. **A bite you can see.**
+   - You're thrown 3.6 m (was 2.2), and your view is shoved aside 0.45 rad and up 0.22, so the grump is off-centre.
+   - The grump spins for 1.2 s, reeling, with a "huh" bubble, then glares. It waits 3 s in all before it can wind up again.
+5. **Turning without the mouse.** The hint is bigger, lime-bordered and pulses 3 times: "click: look with the mouse · ← →: turn". It goes away once you've turned. Q and E were already drop and use, so the arrows are the keys.
+6. **Playtests can reach `SB` from the site's page** (`window.top.SB` when same-origin and `?cctest=1`). The `sw.js` "Failed to fetch" is the site's service worker re-throwing a failed request: not smol brains' file, flagged to the site.
+
+- **Tests**: `firstnight.test.js` (Pip starts the chase ≤8% hungry; the first night drains at 60%), plus the 4.9.6 bite checks with the new numbers.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

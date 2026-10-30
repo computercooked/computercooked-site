@@ -196,7 +196,7 @@
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
     "#pov .intro{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
     "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 24px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
-    "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:6px 12px;font-size:13px;white-space:nowrap}",
+    "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:8px 14px;font:700 16px system-ui,Arial,sans-serif;white-space:nowrap;border:2px solid var(--lime);animation:povhint 1.6s ease-in-out 3}@keyframes povhint{50%{box-shadow:0 0 18px var(--lime)}}",
     // phone
     "#pov .touch{display:none}#pov.phone .touch{display:block}#pov.phone .lockhint{display:none}",
     "#pov .stickzone{position:absolute;left:0;bottom:0;width:42vw;height:60vh;pointer-events:auto}",
@@ -250,7 +250,7 @@
     hud.toast = root.appendChild(el("div", "toast panel"));
     hud.gains = root.appendChild(el("div", "gains"));
     hud.iname = root.appendChild(el("div", "iname"));
-    hud.lockhint = root.appendChild(el("div", "lockhint panel", "<kbd class='g'>click</kbd>to look around with the mouse"));
+    hud.lockhint = root.appendChild(el("div", "lockhint panel", "<kbd class='g'>click</kbd> look with the mouse &nbsp;·&nbsp; <kbd class='g'>← →</kbd> turn"));
     // bottom: vitals over the hotbar
     var bot = hud.bottom = root.appendChild(el("div", "bottom"));
     var vit = bot.appendChild(el("div", "vit"));
@@ -290,7 +290,7 @@
     hud.bJump = btn("hop", "", function () { P().input.jump = true; });
     hud.bAct2 = null;
     var intro = isPhone ? "left thumb walks · drag the right side to look · the big button does what it says · tap a hotbar slot to hold it"
-      : "<kbd>WASD</kbd>walk <kbd>mouse</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
+      : "<kbd>WASD</kbd>walk <kbd>mouse</kbd> / <kbd>← →</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
     if (s.firstNight) setTimeout(function () { HUD.beat("you are " + c.name, "run! grab sticks, light the nest", true); }, 400); // the first night: a beat, not a card over the grump
     else {
     hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
@@ -428,7 +428,7 @@
     hud.numT = 20;
     var s = S(); if (!s) return;
     var c = s.c, g = P().scout ? P().scout() : null, run = SB.Creature.runSpeed ? SB.Creature.runSpeed(c) : 0;
-    hud.nums.textContent = "🧪 food " + Math.round((1 - c.chem.hunger) * 100) + "%  −" + (P().HUNGER_POV * 100).toFixed(2) + "%/s (full bar " + Math.round(1 / P().HUNGER_POV) + " s)\n" +
+    hud.nums.textContent = "🧪 food " + Math.round((1 - c.chem.hunger) * 100) + "%  −" + (P().hungerRate() * 100).toFixed(2) + "%/s (full bar " + Math.round(1 / P().hungerRate()) + " s)\n" +
       "🧪 your sprint " + run.toFixed(2) + " m/s" + (g ? " · grump " + (g.scout && g.scout.speedK ? (run * g.scout.speedK).toFixed(2) + " m/s (" + Math.round(g.scout.speedK * 100) + "%)" : "chasing") + (g.scout && g.scout.wind > 0 ? " · WIND-UP" : "") : "") + "\n" +
       "🧪 pounce " + Math.round(SB.Creature.LUNGE_DMG * 100) + "% after " + SB.Creature.LUNGE_WIND + " s · fire scares at " + SB.Creature.FIRE_SCARE + " m · KO cooldown " + P().KO_COOLDOWN + " s";
   }
@@ -756,7 +756,7 @@
     who(c, s);
     clockCompass(c, s, w, game);
     target(s);
-    if (hud.lockhint) hud.lockhint.style.display = locked() || hud.phone || bag ? "none" : "";
+    if (hud.lockhint) hud.lockhint.style.display = locked() || hud.phone || bag || hud.looked ? "none" : "";
     HUD.quest();
   }
   function hotbar(force) {
@@ -1004,7 +1004,7 @@
   }
   function keyLook(dt) {
     var tx = (keys.arrowright ? 1 : 0) - (keys.arrowleft ? 1 : 0), ty = (keys.arrowdown ? 1 : 0) - (keys.arrowup ? 1 : 0);
-    if (tx || ty) P().look2(tx * 620 * dt, ty * 380 * dt);
+    if (tx || ty) { P().look2(tx * 620 * dt, ty * 380 * dt); hud.looked = true; }
   }
   function readKeys() {
     if (!bound) return;
