@@ -3,6 +3,7 @@
 // computer's own). K-0048: /gary/ now 301s to /log/; gary/log.json and garyEntry/garyPage stay, unused.
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
 import { ensureSchema, games as catalogOf } from "./db.js";
+import { themeAttr } from "./util.js";
 import { pickFeatured } from "./featured.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -41,13 +42,15 @@ const LINES = {
   "smol-brains": "tiny creatures. tinier brains.", "reel-weird": "the pond keeps the rod.", "haunted-self-checkout": "unexpected item in bagging area.", "goose-court": "the goose has a lawyer.", "elevator-full-of-fish": "please fling responsibly.", "sandwich-tower": "the fridge gave me a sock.", "microwave-panic": "never microwave the fork.", "cooked-sweeper": "minesweeper has a virus. so do i.", "handbag-havoc": "granny is faster than you.", "crash-test-daily": "a new puzzle every day.",
 };
 const isNew = (g) => g.added && Date.now() - Date.parse(g.added) < 7 * 86400000;
+export const newest = (list, n = 6) => list.filter((g) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
+  .map((g, i) => [g, i]).sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map((x) => x[0]).slice(0, n);
 export function deskIcon(g) {
-  return `<li><a class="desk-icon" href="/games/${encodeURIComponent(g.slug)}/?ref=desk" data-slug="${esc(g.slug)}" data-pitch="${esc(g.pitch)}"` +
+  return `<li><a class="desk-icon"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=desk" data-slug="${esc(g.slug)}" data-pitch="${esc(g.pitch)}"` +
     `${g.clip ? ` data-clip="${esc(g.clip)}"` : ""} data-line="${esc(LINES[g.slug] || "ooh. " + g.title + ".")}">` +
     `<span class="ico"><img src="${esc(g.thumbnail)}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
 }
-export function card2(g) {
-  return `<li><a class="card2" href="/games/${encodeURIComponent(g.slug)}/?ref=shelf">${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
+export function card2(g, ref = "shelf") {
+  return `<li><a class="card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=${ref}">${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
     `<span class="thumb"><img src="${esc(g.thumbnail)}" alt="" width="320" height="200" loading="lazy" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="meta"><b>${esc(g.title)}</b><small>${esc(g.pitch)}</small></span></a></li>`;
@@ -55,7 +58,7 @@ export function card2(g) {
 
 function featuredCard(g) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
-  return `<a class="feature-card card2" href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
+  return `<a class="feature-card card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
     `<span class="thumb"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">${esc(g.title)}</h3>` +
@@ -86,7 +89,13 @@ export async function homePage(req, env, url) {
     const order = mine.slice().sort((a, b) => (isNew(b) ? 1 : 0) - (isNew(a) ? 1 : 0));
     const desk = (feat ? [feat] : []).concat(order.filter((g) => !feat || g.slug !== feat.slug)).slice(0, 8);
     rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
-      .on("#home-shelf", { element(e) { e.setInnerContent(order.map(card2).join(""), { html: true }); } });
+      .on("#home-shelf", { element(e) { e.setInnerContent(order.map((g) => card2(g)).join(""), { html: true }); } });
+    // K-0050 item 5: the "just cooked" shelf, the newest launches (two weeks at most), newest first
+    const fresh = newest(mine);
+    if (fresh.length) {
+      rw.on("#home-new-sec", { element(e) { e.removeAttribute("hidden"); } })
+        .on("#home-new", { element(e) { e.setInnerContent(fresh.map((g) => card2(g, "new")).join(""), { html: true }); } });
+    }
   }
   const out = rw.transform(page);
   return new Response(out.body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" } });

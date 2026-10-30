@@ -63,13 +63,19 @@
 
   var stats = {}, me = null, favs = [];
 
+  // the game's own colour on its card (games.json "theme.accent"; the same as src/util.js themeVars)
+  function theme(g) {
+    var a = g.theme && g.theme.accent;
+    if (!a || !/^#[0-9a-f]{6}$/i.test(a)) return "";
+    return ' style="--accent:' + a + ";--phosphor:" + [1, 3, 5].map(function (i) { return parseInt(a.slice(i, i + 2), 16); }).join(" ") + '"';
+  }
   function card(g) {
     var tags = (g.tags || []).slice(0, 3).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
     var isNew = g.added && (Date.now() - Date.parse(g.added)) < 14 * 86400000;
     var s = stats[g.slug];
     var count = s && s.total > 100 ? '<span class="game-plays">' + plays(s.total) + "</span>" : "";
     var heart = me ? '<button type="button" class="cc-heart game-heart" data-game="' + esc(g.slug) + '" aria-pressed="' + (favs.indexOf(g.slug) >= 0) + '" aria-label="favorite ' + esc(g.title) + '">' + (favs.indexOf(g.slug) >= 0 ? "♥" : "♡") + "</button>" : "";
-    return '<li class="game-card">' + heart + '<a class="game-card-inner game-link" href="/games/' + encodeURIComponent(g.slug) + '/">' +
+    return '<li class="game-card">' + heart + '<a class="game-card-inner game-link"' + theme(g) + ' href="/games/' + encodeURIComponent(g.slug) + '/">' +
       '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="400" loading="lazy">' +
       '<span class="game-body">' +
         (isNew ? '<span class="game-new">new</span>' : "") +
@@ -202,6 +208,14 @@
     var popular = games.filter(function (g) { return stats[g.slug] && stats[g.slug].total >= 20; })
       .sort(function (a, b) { return stats[b.slug].total - stats[a.slug].total; }).slice(0, 3);
     shelf("shelf-popular", "most played", "all time", popular);
+
+    // just cooked (K-0050 item 5): the newest launches from the last two weeks, newest first
+    var fresh = ours.filter(function (g) { return g.added && Date.now() - Date.parse(g.added) < 14 * 86400000; })
+      .map(function (g, i) { return [g, i]; })
+      .sort(function (a, b) { return b[0].added.localeCompare(a[0].added) || a[1] - b[1]; })
+      .map(function (x) { return x[0]; }).slice(0, 6);
+    shelf("shelf-new", "just cooked", "new this fortnight", fresh);
+    if (fresh.length) clips(document.querySelector("#shelf-new .card-grid"), fresh);
 
     var mine = document.getElementById("shelf-computer-cooked");
     if (mine && ours.length) { mine.innerHTML = ours.map(card).join(""); clips(mine, ours); }

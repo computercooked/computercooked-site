@@ -4,6 +4,7 @@
 // Everything comes from games.json, so a game added with add-game.ps1 gets it with no extra step.
 import { dareTags } from "./dares.js";
 import { embeddable, embedCard } from "./embed.js";
+import { themeAttr, themeVars } from "./util.js";
 
 const SITE = "https://computercooked.com";
 // keep in step with VIBES / FALLBACK in assets/fx.js (the hub filter chips)
@@ -93,7 +94,7 @@ function howTo(g) {
 }
 
 function card(g) {
-  return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
+  return `<li class="game-card"><a class="game-card-inner game-link"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
 }
 
 const PWA = `<link rel="manifest" href="/manifest.webmanifest"><script src="/assets/pwa.js" defer></script>`;
@@ -110,7 +111,7 @@ export async function gamePage(req, env, url, slug) {
 
   const rw = new HTMLRewriter()
     // installable web app: every game page links the manifest and registers the offline service worker (assets/pwa.js)
-    .on("head", { element(e) { e.append(jsonLd(g) + PWA, { html: true }); } })
+    .on("head", { element(e) { e.append(jsonLd(g) + PWA + (themeVars(g) ? `<style>:root{${themeVars(g)}}</style>` : ""), { html: true }); } })
     // K-0031: the sidebar keeps only the leaderboard and rating; how-to (and the folded embed code) go under the game
     .on("aside [data-how-to]", { element(e) { e.remove(); } })
     .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })

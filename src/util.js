@@ -73,6 +73,14 @@ export const isTestAnon = (anon) => typeof anon === "string" && anon.toLowerCase
 export const isTestPlayer = (key) => typeof key === "string" && key.toLowerCase().startsWith("a:smoke");
 // SQL: rows (plays or feedback) that are not smoke-test traffic. Needs user_id and anon_id columns in scope.
 export const REAL = "NOT (user_id IS NULL AND COALESCE(anon_id, '') LIKE 'smoke%')";
+// K-0050 item 4: a game's own colour (games.json "theme.accent") as an inline style. On a card it recolours that
+// card's hover, rim glow, new tag and stripe; on a game page (seo.js) the whole page's accent.
+export const themeVars = (g) => {
+  const a = g && g.theme && g.theme.accent;
+  if (typeof a !== "string" || !/^#[0-9a-f]{6}$/i.test(a)) return "";
+  return `--accent:${a};--phosphor:${[1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16)).join(" ")}`;
+};
+export const themeAttr = (g) => { const v = themeVars(g); return v ? ` style="${v}"` : ""; };
 export const idOk = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(s);
 
 export function b64(buf) {
