@@ -6,6 +6,10 @@
       "title": "crash",
       "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
       "thumbnail": "/games/crash/cover.png?v=4",
+      "theme": {
+        "accent": "#c5ff49",
+        "bg": "#0f150a"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "arcade",
@@ -30,6 +34,10 @@
       "title": "handbag havoc",
       "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
       "thumbnail": "/games/handbag-havoc/cover.png?v=4",
+      "theme": {
+        "accent": "#ff5fa8",
+        "bg": "#1d0a16"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "arcade",
@@ -50,6 +58,10 @@
       "title": "only 1% can close this pop-up",
       "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
       "thumbnail": "/games/one-percent-popup/cover.png?v=4",
+      "theme": {
+        "accent": "#3d7bff",
+        "bg": "#070f26"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "reflex",
@@ -72,6 +84,10 @@
       "title": "+1 speed keyboard escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
       "thumbnail": "/games/keyboard-escape/cover.png?v=4",
+      "theme": {
+        "accent": "#48e0ff",
+        "bg": "#051a20"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "+1 speed",
@@ -93,6 +109,10 @@
       "title": "desktop jam",
       "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
       "thumbnail": "/games/desktop-jam/cover.png?v=4",
+      "theme": {
+        "accent": "#ffd84d",
+        "bg": "#191608"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -115,6 +135,10 @@
       "title": "fathom",
       "pitch": "submarine duel against a computer with opinions. every miss tells you how close you were. decoys lie.",
       "thumbnail": "/games/fathom/cover.png?v=4",
+      "theme": {
+        "accent": "#2ee6c6",
+        "bg": "#031714"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "strategy",
@@ -135,6 +159,10 @@
       "title": "tab hoarder",
       "pitch": "stack browser tabs on a tired computer. perfect drops stack a multiplier. free_ram_download.exe is a trap.",
       "thumbnail": "/games/tab-hoarder/cover.png?v=4",
+      "theme": {
+        "accent": "#a77bff",
+        "bg": "#110b22"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "arcade",
@@ -155,6 +183,10 @@
       "title": "crash test (daily)",
       "pitch": "a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your 🟩🟨🟥 grid.",
       "thumbnail": "/games/crash-test-daily/cover.png?v=4",
+      "theme": {
+        "accent": "#e3ff6b",
+        "bg": "#14170a"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "daily",
@@ -176,6 +208,10 @@
       "title": "bellchain",
       "pitch": "an idle game that plays actual music. buy a cowbell. then 200 more.",
       "thumbnail": "/games/bellchain/cover.png?v=4",
+      "theme": {
+        "accent": "#ffc93a",
+        "bg": "#1a1406"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "idle",
@@ -196,6 +232,10 @@
       "title": "level devil.exe",
       "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
       "thumbnail": "/games/level-devil-exe/cover.png?v=4",
+      "theme": {
+        "accent": "#ff3b3b",
+        "bg": "#1c0606"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "platformer",
@@ -224,6 +264,10 @@
       "title": "pixel purge",
       "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
       "thumbnail": "/games/pixel-purge/cover.png?v=4",
+      "theme": {
+        "accent": "#ff3df0",
+        "bg": "#19061a"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -253,6 +297,10 @@
       "title": "crash cheats at tic tac toe",
       "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
       "thumbnail": "/games/crash-cheats/cover.png?v=4",
+      "theme": {
+        "accent": "#e8e4d8",
+        "bg": "#161616"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -275,6 +323,10 @@
       "title": "overdue notice",
       "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
       "thumbnail": "/games/overdue-notice/cover.png?v=4",
+      "theme": {
+        "accent": "#3ddc84",
+        "bg": "#06170e"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "incremental",
@@ -297,6 +349,10 @@
       "title": "+1 ram every second",
       "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
       "thumbnail": "/games/plus-one-ram/cover.png?v=4",
+      "theme": {
+        "accent": "#ff6f61",
+        "bg": "#1c0c0a"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "io",
@@ -315,6 +371,10 @@
       "title": "smol brains",
       "pitch": "an island of tiny pixel creatures with real neural-network brains. they crash-land, evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
       "thumbnail": "/games/smol-brains/cover.png?v=4",
+      "theme": {
+        "accent": "#7fd96a",
+        "bg": "#0b1708"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "sim",
@@ -354,6 +414,10 @@
       "title": "reel weird",
       "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
       "thumbnail": "/games/reel-weird/cover.png?v=4",
+      "theme": {
+        "accent": "#5aa9ff",
+        "bg": "#06111f"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "fishing",
@@ -383,6 +447,10 @@
       "title": "haunted self-checkout",
       "pitch": "scan the groceries. never scan the ones with eyes. a 60-second shift at the cursed till.",
       "thumbnail": "/games/haunted-self-checkout/cover.png?v=4",
+      "theme": {
+        "accent": "#b48cff",
+        "bg": "#0f0a1c"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "reflex",
@@ -404,6 +472,10 @@
       "title": "cooked sweeper",
       "pitch": "minesweeper.exe has a virus. the numbers are virus power, every virus is a fight, and KERNEL PANIC is waiting.",
       "thumbnail": "/games/cooked-sweeper/cover.png?v=4",
+      "theme": {
+        "accent": "#ff5a1f",
+        "bg": "#1a0d08"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "puzzle",
@@ -431,6 +503,10 @@
       "title": "goose court",
       "pitch": "a goose is on trial. you are the judge. guilty if the beak holds the evidence. the goose has a lawyer.",
       "thumbnail": "/games/goose-court/cover.png?v=4",
+      "theme": {
+        "accent": "#d9a45a",
+        "bg": "#17110a"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "reflex",
@@ -452,6 +528,10 @@
       "title": "elevator full of fish",
       "pitch": "get to floor 9. at every floor the doors open and fish leap in. fling them out before the car gets too heavy to move.",
       "thumbnail": "/games/elevator-full-of-fish/cover.png?v=4",
+      "theme": {
+        "accent": "#f6d84a",
+        "bg": "#14141c"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "reflex",
@@ -473,6 +553,10 @@
       "title": "sandwich tower",
       "pitch": "the computer is cooking. tap to drop each ingredient on the stack. whatever hangs over gets sliced off. the fridge sometimes hands over a sock.",
       "thumbnail": "/games/sandwich-tower/cover.png?v=4",
+      "theme": {
+        "accent": "#ff9f4a",
+        "bg": "#1a1008"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "stacking",
@@ -494,6 +578,10 @@
       "title": "microwave panic",
       "pitch": "the computer is a microwave now. hold to cook, let go when it's done. read the popcorn, the egg, the burrito. never microwave the fork.",
       "thumbnail": "/games/microwave-panic/cover.png?v=4",
+      "theme": {
+        "accent": "#ffb02e",
+        "bg": "#16120a"
+      },
       "made_by": "computer-cooked",
       "tags": [
         "timing",
