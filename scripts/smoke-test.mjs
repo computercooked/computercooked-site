@@ -78,6 +78,10 @@ ok(r.ok && !r.rows.some((x) => x.me || x.name === "smokey") && r.you?.score === 
   ok(!r.rows.some((x) => x.me) && r.you?.score === 2 && r.you.rank >= 1, "a weak run gets its own rank row", { rows: r.rows.length, you: r.you });
   r = await (await get("/api/leaderboard?game=crash&period=day&player=a:nobody-" + rid())).json();
   ok(r.you === null, "no rank row for someone with no score");
+  // K-0053 EPIC GAMER: the all-time #1, read off the live board (none on an empty board, never a test run)
+  r = await (await get("/api/leaderboard?game=crash&period=all&player=a:" + low)).json();
+  ok(r.epic === null ? !r.rows.length : r.rows[0]?.epic === true && r.rows[0].score === r.epic.score && !r.epic.me && r.rows.filter((x) => x.epic).length === 1,
+    "epic gamer is the all-time #1 row, only that row", { epic: r.epic, top: r.rows?.[0] });
 }
 
 if (local) {
