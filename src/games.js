@@ -146,13 +146,24 @@ export async function leaderboard(url, env, user) {
       you = { rank: above + 1, score: mine };
     }
   }
+  // EPIC GAMER (K-0053): whoever holds the all-time #1 on this game, worked out from the live board every time so the
+  // title moves on its own when someone passes them. A tie goes to whoever set that score first.
+  const champ = await env.DB.prepare("SELECT player, user_id, name, score FROM scores WHERE game = ? AND hidden = 0 ORDER BY score DESC, ts ASC LIMIT 1").bind(game).first();
+  if (champ && period === "all" && !friendsOnly) {
+    // the all-time board lists the champion first even when someone has tied their score since
+    const at = results.findIndex((r) => r.player === champ.player);
+    if (at > 0 && results[at].score === results[0].score) results.unshift(results.splice(at, 1)[0]);
+  }
   // account rows show the current display name and link to /u/<username>
-  const who = await people(env, results.map((r) => r.user_id).filter(Boolean));
+  const who = await people(env, results.map((r) => r.user_id).concat(champ ? [champ.user_id] : []).filter(Boolean));
+  const cp = champ && champ.user_id && who.get(champ.user_id);
   return json({
     ok: true, game, period, friends: friendsOnly, you,
+    epic: champ ? { name: cp ? cp.name : champ.name, u: cp ? cp.username : undefined, score: champ.score, me: champ.player === me } : null,
     rows: results.map((r, i) => {
       const p = r.user_id && who.get(r.user_id);
-      return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, a: p ? p.avatar : undefined, score: r.score, id: r.id, me: r.player === me };
+      return { rank: i + 1, name: p ? p.name : r.name, u: p ? p.username : undefined, a: p ? p.avatar : undefined, score: r.score, id: r.id, me: r.player === me,
+        epic: champ ? r.player === champ.player || undefined : undefined };
     }),
   }, 200, { "cache-control": "no-store" });
 }
