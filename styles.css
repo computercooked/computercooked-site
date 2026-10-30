@@ -692,6 +692,9 @@ a {
   transform: translateY(-2px);
   border-color: var(--text-dim);
 }
+/* K-0050 item 4: a card with its game's colour (style="--accent") wears a stripe of it and its rim on hover */
+.game-card-inner[style] .game-body { box-shadow: inset 0 3px 0 var(--accent); }
+.game-card-inner[style]:hover, .game-card-inner[style]:focus-visible { border-color: var(--accent); }
 
 .game-thumb {
   display: block;
