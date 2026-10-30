@@ -535,13 +535,55 @@ def goosecourt(c):
     c.window(8, 6, 66, 18, title="alarm")
     c.rect(12, 15, 30, 1, "text"); c.rect(46, 13, 9, 5, "#d79b52")
 
+EF_FISH = """
+....KKKKKK....K.
+..KK111111KK.K1K
+.K1w11111111K11K
+K1ee1111111111K.
+K11111222222K11K
+.K122222222K.K1K
+..KK222222KK..K.
+....KKKKKK......
+"""
+
+
+def ef_pal(a, b): return {"K": "#0b0c0e", "w": "#f4f1e6", "e": "#0b0c0e", "1": a, "2": b}
+
+
+def elevator(c):
+    # inside the car: steel walls, open doors on a fish-market hallway, the computer as the floor display, fish everywhere
+    c.rect(0, 0, c.W, c.H, "#2b2f36")
+    bl, br, bt, bb = 34, c.W - 34, 26, 66
+    for y in range(c.H):
+        k = y / c.H
+        c.rect(0, y, int(bl * min(1, 0.2 + k)), 1, "#3a3f47"); c.rect(c.W - int(bl * min(1, 0.2 + k)), y, int(bl * min(1, 0.2 + k)), 1, "#3a3f47")
+    c.rect(bl, bt, br - bl, bb - bt, "#4c535d")
+    dl, dr, dt = c.cx - 24, c.cx + 24, bt + 4
+    c.rect(dl, dt, dr - dl, bb - dt, "#20403a"); c.rect(dl, bb - 10, dr - dl, 10, "#2c5a50")
+    c.rect(dl, dt, 7, bb - dt, "#8b939e"); c.rect(dr - 7, dt, 7, bb - dt, "#8b939e")
+    c.rect(dl - 2, dt - 2, dr - dl + 4, 2, "#0b0c0e")
+    for y in range(bb, c.H):
+        k = (y - bb) / (c.H - bb)
+        x0 = int(bl * (1 - k)); c.rect(x0, y, c.W - 2 * x0, 1, "#5b2a3a" if (y - bb) % 7 else "#4a2230")
+    c.rect(br + 4, bt + 4, 6, 30, "#0b0c0e"); c.rect(br + 5, bt + 12, 4, 21, "#ff4d5e")
+    c.rect(c.cx - 26, 1, 52, 22, "#0b0c0e"); c.rect(c.cx - 25, 2, 50, 20, "#e6d596"); c.rect(c.cx + 21, 2, 4, 20, "#a6975d")
+    c.rect(c.cx - 22, 5, 41, 14, "#0b0c0e")
+    for (x, y) in [(-19, 8), (-18, 8), (-13, 8), (-12, 8), (-18, 14), (-17, 14), (-16, 14), (-15, 14), (-14, 14)]: c.px(c.cx + x, y, "#a8d533")
+    nine = ["kkk", "k.k", "kkk", "..k", "kkk"]
+    for yy, row in enumerate(nine):
+        for xx, ch in enumerate(row):
+            if ch == "k": c.rect(c.cx + 4 + xx * 2, 7 + yy * 2, 2, 2, "#a8d533")
+    fish = [("#9fb3c8", "#5f7387", 14, 76, 2, False), ("#7fbf5a", "#4f8a32", 104, 80, 2, True), ("#f6d84a", "#c9a628", 62, 70, 2, False),
+            ("#f29bb0", "#c4637c", c.cx - 8, 36, 1, True), ("#e8c06a", "#b08a3c", 40, 50, 1, False), ("#9fb3c8", "#5f7387", 118, 54, 1, True)]
+    for a, b, x, y, sc, fl in fish: c.sprite(EF_FISH, x, y, ef_pal(a, b), flip=fl, scale=sc)
+
 
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
-    "cooked-sweeper": sweeper,
+    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator,
 }
 
 

@@ -1,0 +1,13 @@
+{
+  "slug": "elevator-full-of-fish",
+  "title": "elevator full of fish",
+  "pitch": "get to floor 9. at every floor the doors open and fish leap in. fling them out before the car gets too heavy to move.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap a fish while the doors are open to fling it out. sharks take three taps, don't tap a pufferfish twice. space flings the nearest fish. m mutes.",
+  "size_kb": 29,
+  "tags": ["reflex", "tapping", "short", "funny", "mobile"],
+  "version": "1.0",
+  "max_score_per_sec": 15,
+  "max_score": 2000
+}
