@@ -135,7 +135,8 @@
   // ------------------------------------------------------------------ state
   let vw = 0, vh = 0, dpr = 1, scale = 1;
   function resize() {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const phone = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    dpr = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
     vw = window.innerWidth; vh = window.innerHeight;
     canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
     scale = Math.min(vh / 520, vw / 560);
@@ -404,12 +405,89 @@
       g.fillText(label, x + 14 * sc, y + 8 * sc);
     }
   }
+  // Paint caches (perf): repainting every keycap's rounded rects and label, a full-screen gradient and ~60 parallax
+  // caps every frame kept phones busy while the page loaded. Each is painted once and blitted (same look).
+  // One shared atlas canvas: a fresh canvas per bitmap paid the font set-up again on its first fillText, so every
+  // cached keycap and label is packed (shelf by shelf) into the same canvas instead. Full = cleared and re-warmed.
+  const ATLAS = 1024, atlas = document.createElement('canvas'); atlas.width = atlas.height = ATLAS;
+  const atx = atlas.getContext('2d');
+  let ax = 0, ay = 0, arow = 0;
+  function resetAtlas() { atx.setTransform(1, 0, 0, 1, 0, 0); atx.clearRect(0, 0, ATLAS, ATLAS); ax = ay = arow = 0; capCache.clear(); txtCache.clear(); }
+  function alloc(w, h) {
+    w = Math.ceil(w) + 2; h = Math.ceil(h) + 2;
+    if (w > ATLAS || h > ATLAS) return null;
+    if (ax + w > ATLAS) { ax = 0; ay += arow; arow = 0; }
+    if (ay + h > ATLAS) resetAtlas();
+    const slot = { x: ax, y: ay };
+    ax += w; arow = Math.max(arow, h);
+    return slot;
+  }
+  const capCache = new Map();
+  let capBudget = 1; // new text rasterisations per frame (keycaps and labels share it: each new font size costs ~20-40 ms on a
+  // slow phone the first time); keycaps over budget draw label-less until cached, labels a frame or two later
+  function keycapImage(w, h, label, kind, P) {
+    const res = dpr * scale, key = w + '|' + h + '|' + label + '|' + kind + '|' + P.cap + P.side + P.capHit + P.txt + '|' + res;
+    let c = capCache.get(key);
+    if (c) return c;
+    if (capBudget <= 0) return null;
+    capBudget--;
+    const pad = 4, cw = Math.ceil((w + pad * 2) * res), ch = Math.ceil((h + pad * 2) * res), slot = alloc(cw, ch);
+    if (!slot) return null;
+    atx.setTransform(res, 0, 0, res, slot.x + pad * res, slot.y + pad * res);
+    drawKeycap(atx, 0, 0, w, h, label, kind, 1, P);
+    c = { x: slot.x, y: slot.y, w: cw, h: ch, pad, res };
+    capCache.set(key, c);
+    return c;
+  }
+  // in-world labels (CAPS, speed gates, the exit, popups): each string rasterised once, at most 2 new a frame
+  const txtCache = new Map();
+  function wtext(str, x, y, px, col, align, base) {
+    const res = dpr * scale, key = str + '|' + px + '|' + col + '|' + res;
+    let t = txtCache.get(key);
+    if (!t) {
+      if (capBudget <= 0) return;
+      capBudget--;
+      const font = `800 ${px}px ${MONO}`;
+      atx.setTransform(1, 0, 0, 1, 0, 0); atx.font = font; const w = atx.measureText(str).width;
+      const pad = Math.ceil(px * 0.3), cw = Math.ceil((w + pad * 2) * res), ch = Math.ceil(px * 1.6 * res), slot = alloc(cw, ch);
+      if (!slot) return;
+      atx.setTransform(res, 0, 0, res, slot.x, slot.y); atx.font = font; atx.fillStyle = col; atx.textAlign = 'left'; atx.textBaseline = 'middle'; atx.fillText(str, pad, px * 0.8);
+      t = { x: slot.x, y: slot.y, cw, ch, w, pad, h: px * 1.6, res };
+      txtCache.set(key, t);
+    }
+    const ox = align === 'center' ? t.w / 2 : align === 'right' ? t.w : 0;
+    const oy = base === 'top' ? 0 : base === 'bottom' ? t.h * 0.9 : t.h / 2;
+    ctx.drawImage(atlas, t.x, t.y, t.cw, t.ch, x - ox - t.pad, y - oy, t.cw / t.res, t.ch / t.res);
+  }
+  let bgCache = null, bgKey = '', parCache = null, parKey = '';
+  function backdrop(P) {
+    const key = vw + 'x' + vh + '@' + dpr + P.bg1 + P.bg2;
+    if (bgCache && bgKey === key) return bgCache;
+    bgKey = key; bgCache = bgCache || document.createElement('canvas');
+    bgCache.width = Math.max(1, Math.round(vw * dpr)); bgCache.height = Math.max(1, Math.round(vh * dpr));
+    const g = bgCache.getContext('2d'), grd = g.createLinearGradient(0, 0, 0, bgCache.height);
+    grd.addColorStop(0, P.bg2); grd.addColorStop(1, P.bg1);
+    g.fillStyle = grd; g.fillRect(0, 0, bgCache.width, bgCache.height);
+    return bgCache;
+  }
+  function parallaxStrip(col) {
+    const key = vw + '|' + scale + '|' + dpr + '|' + col;
+    if (parCache && parKey === key) return parCache;
+    parKey = key; parCache = parCache || document.createElement('canvas');
+    const w = vw + 180 * scale, h = 40 * scale;
+    parCache.width = Math.max(1, Math.ceil(w * dpr)); parCache.height = Math.max(1, Math.ceil(h * dpr));
+    const g = parCache.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = col;
+    for (let xx = 0; xx < w; xx += 60 * scale) { rr(g, xx, 0, 50 * scale, 38 * scale, 6 * scale); g.fill(); }
+    parCache.cssW = w; parCache.cssH = h;
+    return parCache;
+  }
   function render(dt) {
     const P = pal();
+    capBudget = 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // backdrop
-    const grd = ctx.createLinearGradient(0, 0, 0, vh); grd.addColorStop(0, P.bg2); grd.addColorStop(1, P.bg1);
-    ctx.fillStyle = grd; ctx.fillRect(0, 0, vw, vh);
+    ctx.drawImage(backdrop(P), 0, 0, vw, vh);
     // camera
     const vnow = p ? Math.max(0, p.vx) : 0;
     wz += (Math.max(0.6, Math.min(1, 1 - (vnow - 380) / 1500)) - wz) * Math.min(1, dt * 2);
@@ -419,12 +497,12 @@
     if (shake > 0) { shake -= dt; sx = (Math.random() - 0.5) * 12 * shake * 10; sy = (Math.random() - 0.5) * 12 * shake * 10; }
     // distant parallax keyboard rows
     ctx.save();
-    ctx.globalAlpha = 0.07; ctx.fillStyle = spooky ? '#ff9a3c' : C.lilac;
-    const par = cam.x * 0.15 * scale;
+    ctx.globalAlpha = 0.07;
+    const par = cam.x * 0.15 * scale, strip = parallaxStrip(spooky ? '#ff9a3c' : C.lilac);
     for (let row = 0; row < 4; row++) {
       const yy = vh * 0.18 + row * 46 * scale;
       const off = (par + row * 23 * scale) % (60 * scale);
-      for (let xx = -off - 60 * scale; xx < vw + 60 * scale; xx += 60 * scale) { rr(ctx, xx, yy, 50 * scale, 38 * scale, 6 * scale); ctx.fill(); }
+      ctx.drawImage(strip, -off - 60 * scale, yy, strip.cssW, strip.cssH);
     }
     ctx.restore();
     if (spooky) { ctx.fillStyle = 'rgba(255,230,180,0.85)'; ctx.beginPath(); ctx.arc(vw * 0.82, vh * 0.16, 34 * scale, 0, 6.29); ctx.fill(); ctx.fillStyle = P.bg2; ctx.beginPath(); ctx.arc(vw * 0.82 + 14 * scale, vh * 0.16 - 8 * scale, 30 * scale, 0, 6.29); ctx.fill(); }
@@ -446,7 +524,9 @@
         if (spooky && k.type === 'key' && (k.x | 0) % 5 === 0) label = SPOOK[(k.x | 0) % SPOOK.length];
         if (k.type === 'space') { ctx.fillStyle = 'rgba(197,255,73,0.18)'; ctx.fillRect(k.x + 10, y + KH - 6, k.w - 20, 600); }
         if (k.type === 'del') { ctx.fillStyle = 'rgba(255,70,70,0.35)'; ctx.fillRect(k.x + 6, y + KH - 8, k.w - 12, 14); }
-        drawKeycap(ctx, k.x, y, k.w, h, label, kind, 1, P);
+        const cap = keycapImage(k.w, h, label, kind, P);
+        if (cap) ctx.drawImage(atlas, cap.x, cap.y, cap.w, cap.h, k.x - cap.pad, y - cap.pad, cap.w / cap.res, cap.h / cap.res);
+        else drawKeycap(ctx, k.x, y, k.w, h, null, kind, 1, P); // label arrives a frame or two later, once cached
         if (k.type === 'del') { ctx.strokeStyle = 'rgba(16,17,20,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(k.x + k.w * 0.55, y); ctx.lineTo(k.x + k.w * 0.48, y + 18); ctx.lineTo(k.x + k.w * 0.62, y + 30); ctx.lineTo(k.x + k.w * 0.56, y + 44); ctx.stroke(); }
         if (k.type === 'move') { ctx.fillStyle = C.lilac; ctx.fillRect(k.x + k.w / 2 - 3, y + KH - 10, 6, 20 + k.amp); }
         if (k.crumble > 0) ctx.restore();
@@ -454,18 +534,16 @@
           const wx = k.wall.x, wt = k.y - k.wall.h;
           ctx.fillStyle = '#6f58c4'; rr(ctx, wx, wt, k.wall.w, k.wall.h + 6, 8); ctx.fill();
           ctx.fillStyle = C.lilac; rr(ctx, wx + 4, wt - 2, k.wall.w - 8, k.wall.h - 10, 6); ctx.fill();
-          ctx.fillStyle = C.carbon; ctx.font = `800 13px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-          ctx.fillText('CAPS', wx + k.wall.w / 2, wt + 10);
+          wtext('CAPS', wx + k.wall.w / 2, wt + 7, 13, C.carbon, 'center', 'top');
           ctx.fillStyle = C.lime; ctx.beginPath(); ctx.arc(wx + k.wall.w / 2, wt + 34, 4, 0, 6.29); ctx.fill();
         }
         if (k.gateNeed) {
           const gx = k.x + k.w - 4, ok = speed >= k.gateNeed;
-          ctx.fillStyle = ok ? C.lime : C.lilac; ctx.font = `800 20px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-          ctx.fillText((ok ? 'fast enough ✓ ' : 'need ') + k.gateNeed + ' spd →', gx, k.y - 70);
-          ctx.fillRect(gx - 2, k.y - 66, 4, 66);
+          wtext((ok ? 'fast enough ✓ ' : 'need ') + k.gateNeed + ' spd →', gx, k.y - 70, 20, ok ? C.lime : C.lilac, 'right', 'bottom');
+          ctx.fillStyle = ok ? C.lime : C.lilac; ctx.fillRect(gx - 2, k.y - 66, 4, 66);
           if (!k.passed) { const fx = k.x + k.w + 62; ctx.globalAlpha = 0.35 + 0.2 * Math.sin(runT * 12); ctx.fillStyle = ok ? C.lime : '#ff5a5a'; ctx.fillRect(fx - 3, k.y - 420, 6, 520); ctx.globalAlpha = 1; }
         }
-        if (k.type === 'esc') { ctx.fillStyle = C.lime; ctx.font = `800 22px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('↖ the exit. allegedly.', k.x + 8, k.y - 18); }
+        if (k.type === 'esc') wtext('↖ the exit. allegedly.', k.x + 8, k.y - 18, 22, C.lime, 'left', 'bottom');
       }
       // particles
       for (let i = parts.length - 1; i >= 0; i--) { const q = parts[i]; q.t -= dt; if (q.t <= 0) { parts.splice(i, 1); continue; } q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; ctx.globalAlpha = q.t / 0.4; ctx.fillStyle = q.c; ctx.fillRect(q.x - 3, q.y - 3, 6, 6); }
@@ -480,7 +558,7 @@
       if (p) drawCrash(p);
       // popups
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (let i = popups.length - 1; i >= 0; i--) { const q = popups[i]; q.t -= dt; if (q.t <= 0) { popups.splice(i, 1); continue; } q.y -= 70 * dt; ctx.globalAlpha = Math.min(1, q.t * 2); ctx.font = `800 ${q.big ? 26 : 22}px ${MONO}`; ctx.fillStyle = q.big ? C.lilac : C.lime; ctx.fillText(q.txt, q.x, q.y); }
+      for (let i = popups.length - 1; i >= 0; i--) { const q = popups[i]; q.t -= dt; if (q.t <= 0) { popups.splice(i, 1); continue; } q.y -= 70 * dt; ctx.globalAlpha = Math.min(1, q.t * 2); wtext(q.txt, q.x, q.y, q.big ? 26 : 22, q.big ? C.lilac : C.lime, 'center', 'middle'); }
       ctx.globalAlpha = 1;
     }
     ctx.restore();
@@ -575,8 +653,17 @@
 
   // ------------------------------------------------------------------ loop
   let last = performance.now();
+  // the title's attract demo draws a few frames, then waits for a tap/key or 3 s after the page loaded, so the player
+  // page's boot screen isn't competing with it; play always runs every frame
+  let frames = 0, awake = false, running = true;
+  function wake() { awake = true; if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); } }
+  ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, wake, true));
+  try { if (window.frameElement) window.parent.document.addEventListener('keydown', wake, true); } catch (e) { /* other origin */ }
+  const wakeLater = () => setTimeout(wake, 3000);
+  if (document.readyState === 'complete') wakeLater(); else window.addEventListener('load', wakeLater);
   function frame(now) {
-    requestAnimationFrame(frame);
+    frames++;
+    if (!awake && screen === 'title' && frames > 4) running = false; else requestAnimationFrame(frame);
     let dt = (now - last) / 1000; last = now;
     if (dt > 0.05) dt = 0.05;
     try {
