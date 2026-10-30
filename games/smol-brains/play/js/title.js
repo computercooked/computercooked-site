@@ -34,7 +34,7 @@
       h("div", { class: "pcard pcc" }, [h("div", { class: "pcc-mark", html: "<i></i><i></i><i></i>" }), h("div", { class: "pcc-name", html: "computer cooked<br><b>games</b>" }), h("div", { class: "pcc-sub", text: "presents" })]),
       h("div", { class: "pcard ptitle" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", { text: "tiny minds · one island · a whole civilisation" })])
     ];
-    steps = [3.6, 3.4];
+    steps = [1.4, 1.2]; // K-0051: clickable within about 2 s
     cards.forEach(function (c) { wrap.appendChild(c); });
     wrap.appendChild(h("div", { class: "pskip", text: "tap to skip" }));
     root().appendChild(wrap);
@@ -59,7 +59,7 @@
     function key(e) { if (e.key === "Escape" || e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); next(); } }
     wrap.addEventListener("pointerdown", function (e) { e.preventDefault(); next(); });
     document.addEventListener("keydown", key, true);
-    setTimeout(next, 350);
+    setTimeout(next, 150);
     return { skip: finish };
   };
 
@@ -142,6 +142,10 @@
   /* ---------------- the title screen ---------------- */
   var ts = null, show = null, raf = 0, ang = 0, opts = {};
   TI.open = function () { return !!ts; };
+  TI.watchIntro = function () { // the opening films over the title, then back to the menu
+    if (!SB.Intro || !SB.Intro.play) return;
+    SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } });
+  };
   // o: { onPlay(data|null, info), onNew(settings), shareSeed }
   TI.show = function (o) {
     opts = o || {};
@@ -223,6 +227,7 @@
     setPane([
       recent ? cont : now, recent ? now : cont,
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
+      btn("🎬 watch the intro", "the last lantern: how the smols lost their light", "small", function () { TI.watchIntro(); }),
       btn("📂 load game", ws.length ? ws.length + " island" + (ws.length === 1 ? "" : "s") + " saved" : "nothing saved yet", ws.length ? "" : "dim", function () { loadGame(); }),
       btn("⚙ settings", "text size · sound", "small", function () { settings(); })
     ], "menu");

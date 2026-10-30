@@ -40,15 +40,16 @@
     <div class="ad-slot" data-slot="player-top" aria-hidden="true"></div>
 
     <div class="player-layout">
-      <section class="player" id="player" aria-label="smol brains game" data-title="smol brains" data-url="https://computercooked.com/games/smol-brains/" data-version="4.9.6">
+      <section class="player" id="player" aria-label="smol brains game" data-title="smol brains" data-url="https://computercooked.com/games/smol-brains/" data-version="4.9.7">
         <div class="player-stage">
           <div class="stage-boot" aria-hidden="true">
             <span class="boot-logo"></span>
             <span class="boot-text">booting smol brains<span class="boot-dots"></span></span>
             <span class="boot-bar"><span></span></span>
           </div>
-          <iframe id="game-frame" src="/games/smol-brains/play/" title="smol brains" allow="fullscreen; autoplay" loading="eager"></iframe>
-          <script>(function () { var q = location.search; if (/[?&]cctest=1/.test(q)) document.getElementById("game-frame").src = "/games/smol-brains/play/?cctest=1"; })();</script>
+          <iframe id="game-frame" title="smol brains" allow="fullscreen; autoplay" loading="eager"></iframe>
+          <script>(function () { var q = location.search; document.getElementById("game-frame").src = "/games/smol-brains/play/" + (/[?&]cctest=1/.test(q) ? "?cctest=1" : ""); })();</script>
+          <noscript><iframe src="/games/smol-brains/play/" title="smol brains"></iframe></noscript>
         </div>
 
         <div class="player-bar">

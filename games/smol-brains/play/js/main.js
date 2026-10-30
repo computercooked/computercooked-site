@@ -733,7 +733,13 @@
       });
     };
     if (flag === "title" || /[?&]nopresents=1/.test(q)) { SB.Title.prepare(); title(); }
-    else { hideSplash(); SB.Title.presents(title); setTimeout(function () { SB.Title.prepare(); }, 900); }
+    else {
+      // "computer cooked games presents" plays once per device, over a menu that's already there (K-0051: the title took ~15 s)
+      var seen = false; try { seen = !!window.localStorage.getItem("smolbrains-presented"); window.localStorage.setItem("smolbrains-presented", "1"); } catch (e) {}
+      hideSplash(); title();
+      if (!seen && !SB.TEST) { SB.Title.presents(); setTimeout(function () { SB.Title.prepare(); }, 2900); } // the city is built after it, so the cards don't stall (playtests skip it)
+      else setTimeout(function () { SB.Title.prepare(); }, 900);
+    }
   }
   function hideSplash() { var sp = document.getElementById("splash"); if (sp) { sp.classList.add("gone"); setTimeout(function () { sp.remove(); }, 800); } }
   // reloads that should skip the title (switching islands from inside the game) or land on it
@@ -823,6 +829,7 @@
       else if (m.type === "cc-restart" && Game.current && !Game.current.showcase) SB.UI && SB.UI.confirmRestart && SB.UI.confirmRestart();
     });
     window.ccGameActive = true;
+    if (SB.TEST) try { if (window.top !== window && window.top.location.origin === window.location.origin) window.top.SB = SB; } catch (e) {} // K-0051: SB on the top window in cctest mode
   }
   Game.boot = boot;
 

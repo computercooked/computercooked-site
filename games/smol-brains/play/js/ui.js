@@ -1515,7 +1515,10 @@
     SB.Game.reloadTo("title");
   }
   UI.toTitle = function () { try { SB.Save.save(game); } catch (e) {} SB.Game.reloadTo("title"); };
-  UI.confirmRestart = function () { confirmNew(SB.newSeed()); };
+  UI.confirmRestart = function () { // from the menu or the site's restart button (K-0051: "restart did nothing visible": a window in a body waits for you to leave)
+    if (SB.Possess && SB.Possess.active) SB.Possess.leave("menu");
+    confirmNew(SB.newSeed());
+  };
 
   function importSmol(code) {
     try {
@@ -1783,7 +1786,7 @@
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
     // the opening film, "The Last Lantern" (K-0041): always the first time on a device, even from "play now"; after that when you asked for the story
     // K-0045: the ark battle and its falling pod open it, then the pod knocks the Lantern down and Pip makes the wish
-    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.play({ noGate: true, done: landing }); } }); return; } // the "create world" tap already let the sound start
+    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { if (SB.TEST) return SB.Lantern.play({ noGate: true, done: landing }); SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.play({ noGate: true, done: landing }); } }); return; } // playtests: skipping the ark film goes on to the Lantern's (the crash), skip again to land // the "create world" tap already let the sound start
     landing();
   }
   UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Intro) SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } }); };

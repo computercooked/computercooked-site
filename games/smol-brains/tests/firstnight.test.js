@@ -51,6 +51,8 @@ seeded(4100, () => {
   console.log("4. lend your light: the chase");
   check("lend your light possesses Pip", FN.lend(game) && P.active && P.c === pip);
   check("you face the grump", Math.abs(SB.angDiff(P.state ? 0 : 0, 0)) === 0);
+  check("Pip starts the chase nearly full", pip.chem.hunger <= 0.08, Math.round((1 - pip.chem.hunger) * 100) + "%");
+  check("and food drains 40% slower on the first night", Math.abs(P.hungerRate() - P.HUNGER_POV * 0.6) < 1e-9, (P.hungerRate() * 100).toFixed(2) + "%/s");
   check("chase on, sticks out", FN.state(game).s === "chase" && FN.state(game).stickIds.length >= 2);
   check("it runs at 90% of your running speed", g.scout.speedK === 0.9, (SB.Creature.runSpeed(pip) * g.scout.speedK).toFixed(2) + " vs your " + SB.Creature.runSpeed(pip).toFixed(2) + " m/s");
   let wind = 0, hits = 0; SB.bus.on("scoutWindup", () => wind++); SB.bus.on("scoutHit", () => hits++);

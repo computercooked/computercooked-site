@@ -124,7 +124,7 @@
   // of the game), then only when you asked for the story (create world). an island you load never replays it
   L.shouldPlay = function (game, quick, auto) {
     if (!game || game.ngPlus) return false;
-    if (!L.seen()) return true;
+    if (!L.seen() || SB.TEST) return true; // playtests always get it (K-0051: "the opening film never played"); skippable there
     return !quick && !auto;
   };
   L.skippable = function () { return L.seen() || !!SB.TEST; };

@@ -276,6 +276,14 @@
     if (/^[a-z0-9_.-]{1,40}$/.test(qc) && !sessionStorage.getItem("cc-campaign")) sessionStorage.setItem("cc-campaign", qc);
     campaign = sessionStorage.getItem("cc-campaign");
   } catch (e) {}
+  // its raw utm_source / utm_medium too (assets/deck.js stores them on the page around this frame)
+  var utm = {};
+  try {
+    var tagOk = function (v) { v = (v || "").trim().toLowerCase(); return /^[a-z0-9_.-]{1,40}$/.test(v) ? v : null; };
+    var us = tagOk(q.get("utm_source")), um = tagOk(q.get("utm_medium"));
+    if ((us || um) && !sessionStorage.getItem("cc-utm")) sessionStorage.setItem("cc-utm", JSON.stringify({ s: us, m: um }));
+    utm = JSON.parse(sessionStorage.getItem("cc-utm") || "{}") || {};
+  } catch (e) {}
   // tags come off the URL once read (shared or reloaded links don't carry them on)
   try {
     var tu = new URL(location.href), tagged = false;
@@ -304,7 +312,7 @@
   var timer = null;
 
   function payload(evts) {
-    return JSON.stringify({ anon: anon, tester: tester || null, ref: ref, campaign: campaign, name: ls("cc-guest-name") || null, events: evts });
+    return JSON.stringify({ anon: anon, tester: tester || null, ref: ref, campaign: campaign, src: utm.s || null, medium: utm.m || null, name: ls("cc-guest-name") || null, events: evts });
   }
 
   // The platform API may not be live yet; ask once and stay quiet if it is not.

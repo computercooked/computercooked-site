@@ -160,7 +160,7 @@
     var lh = S.lastHun;
     if (S.meal != null) { ch.hunger = Math.min(ch.hunger, Math.max(0, S.meal - P.MEAL)); S.meal = null; } // a meal in a smol's body is a quarter of the bar or more
     else if (lh != null) {
-      var hi = lh + dt * P.HUNGER_POV; // in a body the bar runs down at one steady rate, whatever the chemistry says: full to empty in 3 minutes
+      var hi = lh + dt * P.hungerRate(); // in a body the bar runs down at one steady rate, whatever the chemistry says: full to empty in 3 minutes
       if (ch.hunger > hi || ch.hunger >= lh) ch.hunger = Math.min(1, hi);
       if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
@@ -777,6 +777,9 @@
      it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
   P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13; P.SCOUT_OUT = 12; P.SCOUT_WAIT = 40;
   P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 180; P.MEAL = 0.25; // K-0041 P3: a full bar lasts ~3 min possessed; a berry or a nibble is a quarter of it
+  P.SHOVE_YAW = 0.45; P.SHOVE_PITCH = 0.22;
+  P.NIGHT1_HUNGER = 0.6; // K-0051: the first night's chase drains food 40% slower
+  P.hungerRate = function () { return P.HUNGER_POV * (S && S.firstNight ? P.NIGHT1_HUNGER : 1); };
   P.KO_COOLDOWN = 30; P.FADE_IN = 2; P.CUE_AT = 10;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
@@ -1264,7 +1267,8 @@
     // 1. a grump bite is felt: the screen jolts and goes red, you're knocked back, and it hurts (K-0039: "a banner, not a chase")
     SB.bus.on("scoutHit", function (d) {
       if (!S || !d || d.c !== S.c) return;
-      var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 5);
+      var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 6);
+      S.yaw += (Math.random() < 0.5 ? -1 : 1) * P.SHOVE_YAW; S.pitch = SB.clamp(S.pitch + P.SHOVE_PITCH, -1.25, 1.2); // the camera shove (K-0051)
       audio("bonk", 1); audio("grump", 0.8);
       if (H()) { H().hurt(0.4); if (H().ouch) H().ouch(Math.round((d.g && d.g.scout && d.g.scout.dmg || SB.Creature.LUNGE_DMG) * 100)); if (H().beat) H().beat("👹 OUCH! it bit you", "run for the nest: follow the green arrow"); }
     });
