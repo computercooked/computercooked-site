@@ -1,0 +1,13 @@
+{
+  "slug": "sandwich-tower",
+  "title": "sandwich tower",
+  "pitch": "the computer is cooking. tap to drop each ingredient on the stack. whatever hangs over gets sliced off. the fridge sometimes hands over a sock.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "tap (or space / enter) to drop the sliding ingredient. land it dead on for a perfect; three perfects in a row grow the sandwich back. m mutes.",
+  "size_kb": 29,
+  "tags": ["stacking", "one-tap", "timing", "funny", "mobile"],
+  "version": "1.0",
+  "max_score_per_sec": 12,
+  "max_score": 5000
+}

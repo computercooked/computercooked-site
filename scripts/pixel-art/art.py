@@ -578,12 +578,42 @@ def elevator(c):
     for a, b, x, y, sc, fl in fish: c.sprite(EF_FISH, x, y, ef_pal(a, b), flip=fl, scale=sc)
 
 
+def sandwich(c):
+    # a kitchen wall, the computer in a chef's hat, a sandwich tower with a sock in it and one slice flying off
+    c.rect(0, 0, c.W, c.H, "#1a1c1a")
+    for y in range(0, c.H, 12):
+        for x in range(-6 * ((y // 12) % 2), c.W, 12): c.rect(x + 1, y + 1, 10, 10, "#202321" if ((x // 12) + (y // 12)) % 2 else "#1d1f1d")
+    c.rect(0, c.H - 12, c.W, 12, "#3b2a1c"); c.rect(0, c.H - 12, c.W, 2, "#5a4029")
+    c.rect(c.cx - 34, c.H - 15, 68, 4, "#0b0c0e"); c.rect(c.cx - 33, c.H - 15, 66, 2, "#e9e6dc")
+    layers = [("#8a5a2b", "#d9a35b", 6), ("#3f7f22", "#6fbf3a", 3), ("#9e2a2e", "#e5484d", 4), ("#c99a1e", "#f6c945", 3),
+              ("#c4637c", "#f29bb0", 3), ("sock", None, 4), ("#3f7f22", "#6fbf3a", 3), ("#2f5e1c", "#4f8a32", 3),
+              ("#c99a1e", "#f6c945", 3), ("#9e2a2e", "#e5484d", 4), ("#8a5a2b", "#d9a35b", 6), ("#c4637c", "#f29bb0", 3), ("#3f7f22", "#6fbf3a", 3)]
+    y, w, x = c.H - 15, 50, c.cx - 25
+    for i, (a, b, h) in enumerate(layers):
+        y -= h
+        off = [0, 1, -1, 2, 0, -2, 1, 3, 2, 0, 1, 4, 3][i]
+        if a == "sock":
+            for k in range(0, w, 4): c.rect(x + off + k, y, min(4, w - k), h, "#e5484d" if (k // 4) % 2 else "#f4f1e6")
+        else:
+            c.rect(x + off, y, w, h, a); c.rect(x + off, y, w, h - 1, b)
+        if i > 8: w -= 3
+    # the falling trimmed slice
+    c.rect(c.cx + 30, y + 6, 10, 3, "#c99a1e"); c.rect(c.cx + 30, y + 6, 10, 2, "#f6c945")
+    # the next ingredient sliding in
+    c.rect(c.cx + 12, y - 9, 34, 3, "#9e2a2e"); c.rect(c.cx + 12, y - 9, 34, 2, "#e5484d")
+    # the chef
+    c.mascot(29, 54, 40)
+    c.rect(18, 13, 22, 11, "#0b0c0e"); c.rect(19, 14, 20, 9, "#f4f1e6"); c.rect(19, 21, 20, 2, "#d8d3c4")
+    c.rect(c.W - 30, 14, 22, 18, "#0b0c0e"); c.rect(c.W - 28, 16, 18, 14, "#14203a")
+    for (a, b) in [(4, 3), (12, 9), (7, 11)]: c.px(c.W - 28 + a, 16 + b, "#e9e1c0")
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
-    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator,
+    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich,
 }
 
 
