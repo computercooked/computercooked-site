@@ -43,6 +43,24 @@
       <p class="poll-status" role="status" aria-live="polite"></p>
     </section>
 
+    <section class="ideas-block" id="ideas" aria-labelledby="ideas-heading">
+      <h2 id="ideas-heading" class="section-label">what should we make next?</h2>
+      <p class="poll-note">got a better idea than the list above? tell the computer. no account needed. we read every one.</p>
+      <form class="ideas" data-ideas data-page="lab" novalidate>
+        <label class="visually-hidden" for="idea-text">your game idea</label>
+        <textarea id="idea-text" name="text" rows="3" maxlength="280" required placeholder="a game where the printer fights back…"></textarea>
+        <div class="ideas-row">
+          <label class="visually-hidden" for="idea-handle">your handle (optional)</label>
+          <input id="idea-handle" name="handle" type="text" maxlength="31" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="@handle (optional)">
+          <span class="ideas-left num" aria-hidden="true">280</span>
+          <button class="ghost-btn" type="submit">send idea</button>
+        </div>
+        <div class="ideas-trap" aria-hidden="true"><label for="idea-website">leave this empty</label><input id="idea-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <p class="signup-consent">short ideas only, no links. your handle is only so we can credit you. don't put personal info in here. <a href="/privacy/">privacy</a></p>
+        <p class="ideas-status signup-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
     <section class="signup-block" aria-labelledby="signup-heading">
       <h2 id="signup-heading" class="section-label">hear when the winner ships</h2>
       <form class="signup" data-signup data-source="lab" novalidate>
@@ -73,6 +91,7 @@
   </nav>
   <script src="/assets/lab.js" defer></script>
   <script src="/assets/signup.js" defer></script>
+  <script src="/assets/ideas.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
 </html>

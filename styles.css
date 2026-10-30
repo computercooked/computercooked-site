@@ -821,6 +821,25 @@ a {
 .signup-status.is-bad { color: var(--alarm); }
 @media (max-width: 479px) { .signup { grid-template-columns: 1fr; } }
 
+/* "what should we make next?" (K-0050a): ideas go to our own database only (src/ideas.js) */
+.ideas-block { max-width: 640px; margin-left: auto; margin-right: auto; }
+.ideas { display: grid; gap: var(--s-2); }
+.ideas textarea, .ideas input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 var(--fs-16) var(--sans);
+}
+.ideas textarea { min-height: 96px; padding: var(--s-3) var(--s-4); resize: vertical; }
+.ideas input { min-height: 48px; padding: 0 var(--s-4); }
+.ideas textarea:focus, .ideas input:focus { outline: none; border-color: var(--text-dim); }
+.ideas-row { display: grid; grid-template-columns: 1fr auto auto; gap: var(--s-2); align-items: center; }
+.ideas-left { color: var(--text-dim); font-size: var(--fs-14); min-width: 3ch; text-align: right; }
+.ideas-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+@media (max-width: 479px) { .ideas-row { grid-template-columns: 1fr auto; } .ideas-row button { grid-column: 1 / -1; } }
+
 /* socials: a quiet icon row */
 .social-row { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
 .social-row a {

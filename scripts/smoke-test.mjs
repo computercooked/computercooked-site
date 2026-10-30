@@ -783,6 +783,14 @@ if (local) {
   const v2 = await (await post("/api/lab/vote", { anon: voter, option: "checkout" })).json();
   ok(v0.ok && v0.mine === null && v1.ok && v1.mine === "microwave" && v2.mine === "checkout" && v2.total === v0.total, "lab vote: changeable, smoke votes not counted", { v0: v0.total, v2: v2.total });
   ok((await post("/api/lab/vote", { anon: voter, option: "nope" })).status === 400, "lab vote rejects an unknown option");
+  // "what should we make next?" (K-0050a): checked like a real idea, never stored for smoke ids
+  const idea = (o) => post("/api/ideas", { text: "a game where the printer fights back", handle: "", page: "lab", ms: 5000, website: "", anon: voter, ...o });
+  const i1 = await (await idea({})).json();
+  ok(i1.ok && i1.test, "ideas: a smoke idea is accepted and not stored", i1);
+  ok((await idea({ text: "see https://spam.example" })).status === 400 && (await idea({ text: "a" })).status === 400, "ideas: rejects links and too-short ideas");
+  ok((await idea({ handle: "bad handle!" })).status === 400, "ideas: rejects a malformed handle");
+  const bot = await (await idea({ website: "http://bot", anon: null })).json();
+  ok(bot.ok && !bot.test, "ideas: the honeypot answers ok (and drops it)");
   ok((await post("/api/subscribe", { email: "nope", consent: true })).status === 400, "signup rejects a bad email");
   ok((await post("/api/subscribe", { email: "smoke-" + rid() + "@example.com" })).status === 400, "signup needs consent");
   const se = "smoke-" + rid() + "@example.com";

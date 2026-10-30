@@ -103,6 +103,7 @@ async function fromNetwork(req, url, e) {
       const off = await caches.match("/games/offline");
       if (off) return new Response(await off.blob(), { headers: { "content-type": "text/html; charset=utf-8" } });
     }
-    throw err;
+    // answered as a network error: the page's own fetch fails the same way, with no uncaught rejection in here
+    return Response.error();
   }
 }

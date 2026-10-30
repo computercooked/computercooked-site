@@ -101,7 +101,7 @@
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
     { name: "follow", hint: "all the socials", href: "/#follow" },
-    { name: "ideas", hint: "dm us what we should cook next", href: TIKTOK, ext: true },
+    { name: "ideas", hint: "tell us what we should cook next", href: "/lab/#ideas" },
     { name: "tiktok", hint: "@computercooked", href: TIKTOK, ext: true },
     { name: "youtube", hint: "subscribe", href: "https://www.youtube.com/channel/UCsL1cRo3Az36HYwxapWiFgw", ext: true },
     { name: "instagram", hint: "@computercooked", href: "https://www.instagram.com/computercooked", ext: true },
