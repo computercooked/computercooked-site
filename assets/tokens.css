@@ -33,6 +33,16 @@
   font-display: swap;
   src: url("/assets/fonts/jetbrains-mono-latin-800-normal.woff2") format("woff2");
 }
+/* Courier New has JetBrains Mono's advance (0.6em), so mono text laid out before the font arrives keeps its line
+   breaks when it swaps in. Without it Windows used Consolas (0.55em) and dates in the cooked log re-wrapped (CLS). */
+@font-face {
+  font-family: "JetBrains Mono fallback";
+  src: local("Courier New"), local("CourierNewPSMT");
+  size-adjust: 100%;
+  ascent-override: 102%;
+  descent-override: 30%;
+  line-gap-override: 0%;
+}
 
 :root {
   color-scheme: dark;
@@ -52,7 +62,7 @@
   /* type: one pixel display face for h1/h2/game titles, Inter for everything else, mono only for numbers */
   --display: "Pixelify Sans", "Inter", "Inter fallback", system-ui, sans-serif;
   --sans: "Inter", "Inter fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --mono: "JetBrains Mono", "JetBrains Mono fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --fs-12: 0.75rem;
   --fs-14: 0.875rem;
   --fs-16: 1rem;
