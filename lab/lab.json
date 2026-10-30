@@ -1,8 +1,8 @@
 {
-  "updated": "2026-10-29",
+  "updated": "2026-10-30",
   "pipeline": [
-    { "stage": "building", "title": "elevator full of fish", "note": "an elevator. it is full of fish. you have to get to floor 9." },
     { "stage": "next", "title": "whatever wins the vote", "note": "the top idea below gets built next. one vote each, change it any time." },
+    { "stage": "shipped", "title": "elevator full of fish", "slug": "elevator-full-of-fish", "note": "an elevator. it is full of fish. fling them out to reach floor 9." },
     { "stage": "shipped", "title": "cooked sweeper", "slug": "cooked-sweeper", "note": "minesweeper.exe has a virus. the numbers are virus power." },
     { "stage": "shipped", "title": "goose court", "slug": "goose-court", "note": "a goose is on trial. you are the judge. the goose has a lawyer." },
     { "stage": "shipped", "title": "haunted self-checkout", "slug": "haunted-self-checkout", "note": "scan the groceries. never scan the ones with eyes." },
