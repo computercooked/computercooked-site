@@ -17,6 +17,42 @@ const BASE = process.env.BASE || "http://localhost:8798";
 const req = createRequire(process.env.PLAYWRIGHT ? join(resolve(process.env.PLAYWRIGHT), "x.js") : import.meta.url);
 const { chromium } = req("playwright");
 const W = 640, H = 360, FPS = 12, SECS = 3;
+// Games where random taps and keys make a dull clip get a small in-page player instead (it drives the game through
+// its read-only test hook, so the clip shows the game being played well). Everything else gets the random pokes.
+const DRIVE = {
+  "elevator-full-of-fish": () => setInterval(() => {
+    const s = window.__eff && window.__eff.state();
+    if (!s || s.state !== "play" || s.door < 0.6 || !s.fish.length) return;
+    const f = s.fish[(Math.random() * s.fish.length) | 0];
+    document.getElementById("c").dispatchEvent(new PointerEvent("pointerdown", { clientX: f.x, clientY: f.y, bubbles: true }));
+  }, 170),
+  "sandwich-tower": () => {
+    let want = null, last = -1;
+    const tick = () => {
+      const s = window.__st && window.__st.state();
+      if (s && s.state === "play" && s.mover && !s.mover.drop) {
+        if (s.layers !== last) { last = s.layers; want = s.top.x + (Math.random() - 0.5) * 16; }
+        if (Math.abs(s.mover.x - want) < 10) window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  },
+  "microwave-panic": () => {
+    let target = null, last = -1;
+    const key = (type) => window.dispatchEvent(new KeyboardEvent(type, { key: " " }));
+    const tick = () => {
+      const s = window.__mp && window.__mp.state();
+      if (s && s.state === "play") {
+        if (s.round !== last) { last = s.round; target = s.cursed ? 0.25 : s.T + (Math.random() - 0.5) * 0.2; }
+        if (s.phase === "ready" && s.slide <= 0) key("keydown");
+        if (s.phase === "cook" && s.cookT >= target) key("keyup");
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  },
+};
 
 const gj = join(ROOT, "games/games.json");
 const data = JSON.parse(readFileSync(gj, "utf8"));
@@ -38,13 +74,14 @@ for (const g of list) {
     await page.goto(`${BASE}/games/${g.slug}/play/?cctest=1`, { waitUntil: "load", timeout: 20000 });
     await page.waitForTimeout(1200);
     // start: a tap in the middle and the usual start keys
+    const drive = DRIVE[g.slug];
     await page.mouse.click(W / 2, H / 2);
-    await page.keyboard.press("Space");
-    await page.keyboard.press("Enter");
+    if (!drive) { await page.keyboard.press("Space"); await page.keyboard.press("Enter"); } // a driven game starts on the tap alone
     await page.waitForTimeout(900);
+    if (drive) await page.evaluate(drive);
     const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "Space", "ArrowRight", "ArrowLeft"];
     for (let i = 0; i < FPS * SECS; i++) {
-      if (i % 4 === 0) {
+      if (!drive && i % 4 === 0) {
         await page.mouse.click(W * (0.3 + 0.4 * Math.random()), H * (0.35 + 0.4 * Math.random()));
         await page.keyboard.press(keys[(i / 4) % keys.length]);
       }

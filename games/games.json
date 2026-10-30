@@ -379,6 +379,7 @@
     },
     {
       "slug": "haunted-self-checkout",
+      "clip": "/assets/clips/haunted-self-checkout.mp4",
       "title": "haunted self-checkout",
       "pitch": "scan the groceries. never scan the ones with eyes. a 60-second shift at the cursed till.",
       "thumbnail": "/games/haunted-self-checkout/cover.png?v=4",
@@ -426,6 +427,7 @@
     },
     {
       "slug": "goose-court",
+      "clip": "/assets/clips/goose-court.mp4",
       "title": "goose court",
       "pitch": "a goose is on trial. you are the judge. guilty if the beak holds the evidence. the goose has a lawyer.",
       "thumbnail": "/games/goose-court/cover.png?v=4",
@@ -446,6 +448,7 @@
     },
     {
       "slug": "elevator-full-of-fish",
+      "clip": "/assets/clips/elevator-full-of-fish.mp4",
       "title": "elevator full of fish",
       "pitch": "get to floor 9. at every floor the doors open and fish leap in. fling them out before the car gets too heavy to move.",
       "thumbnail": "/games/elevator-full-of-fish/cover.png?v=4",
@@ -466,6 +469,7 @@
     },
     {
       "slug": "sandwich-tower",
+      "clip": "/assets/clips/sandwich-tower.mp4",
       "title": "sandwich tower",
       "pitch": "the computer is cooking. tap to drop each ingredient on the stack. whatever hangs over gets sliced off. the fridge sometimes hands over a sock.",
       "thumbnail": "/games/sandwich-tower/cover.png?v=4",
@@ -486,6 +490,7 @@
     },
     {
       "slug": "microwave-panic",
+      "clip": "/assets/clips/microwave-panic.mp4",
       "title": "microwave panic",
       "pitch": "the computer is a microwave now. hold to cook, let go when it's done. read the popcorn, the egg, the burrito. never microwave the fork.",
       "thumbnail": "/games/microwave-panic/cover.png?v=4",
