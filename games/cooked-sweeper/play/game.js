@@ -1,8 +1,8 @@
 /* cooked sweeper (minesweeper.exe has a virus) — computer cooked games.
    Tap a tile to reveal it. Numbers are the TOTAL power of the viruses touching that tile.
-   A virus is a fight: lose hp equal to its power, gain the same in xp. Spend xp to level up (full heal, +1 max hp).
+   A virus is a fight: lose hp equal to its power, gain the same in xp (popups are free: 0 hp, 1 xp). Spend xp to level up (full heal, +1 max hp).
    Beaten viruses drop ram (heal) or a scan (shows a clean tile). Beat KERNEL PANIC (13) to win. 0 hp = bluescreen.
-   Right-click / long-press flags a tile with a guessed power. Keys: arrows move, space/enter reveal, f or 1-9 flag,
+   Right-click / long-press / flag mode flags a tile with a guessed power. Keys: arrows move, space/enter reveal, f or 1-9 flag,
    l level up, n new run, d today's disk, m mute. The rules live in core.js. */
 (function () {
   "use strict";
@@ -87,7 +87,8 @@
     // steam off the top when it's hot
     if (m === "nervous" || melt) { g.globalAlpha = 0.7; for (let i = 0; i < 3; i++) { const y = ((t * 8 + i * 3) % 4); r(7 + i * 4 + (Math.sin(t * 5 + i) > 0 ? 1 : 0), 1 - y + sag, 1, 1, "#fff"); } g.globalAlpha = 1; }
   }
-  function setMood(m, ms) { mood = m; moodT = ms ? ms / 1000 : 0; }
+  // the face button grows and shakes when the computer is nervous or melting, so it reads mid-fight
+  function setMood(m, ms) { mood = m; moodT = ms ? ms / 1000 : 0; const f = $("face"); if (f) f.dataset.mood = m; }
 
   // ---------- sound: tiny web audio, same chiptune family as the other games ----------
   let actx = null, master = null, muted = store.get("muted", false), paused = false;
@@ -198,6 +199,7 @@
       quip("today's disk: same board for everyone." + (att.date === today() && att.tries ? " attempt " + (att.tries + 1) + "." : " boot sector recovered."), "good");
     } else {
       quip(store.get("runs", 0) ? "tap any tile. numbers = total virus power touching it." : "tap any tile to boot. numbers = total virus power nearby. popups are free xp.");
+      if (!store.get("rules", false)) showRules();
     }
     hud();
   }
@@ -286,7 +288,7 @@
     win.classList.toggle("hot", started && !run.over && h >= 0.5 && h < 0.8 && !reduce);
     win.classList.toggle("cooking", started && !run.over && h >= 0.8 && !reduce);
     win.classList.toggle("warm", started && !run.won && h > 0);
-    if (!run.over && moodT <= 0) setMood(started && (run.hp <= 2 || h >= 0.6) ? "nervous" : "happy");
+    if (!run.over && moodT <= 0) setMood(started && (run.hp <= 2 || h >= 0.5) ? "nervous" : "happy");
   }
 
   // ---------- status line ----------
@@ -295,10 +297,10 @@
   const TIPS = [
     "numbers = the total power of the viruses touching that tile.",
     "a fight costs hp equal to the virus's power. power ≥ hp = bluescreen.",
-    "popups always show themselves: 1 hp, 1 xp. eat them.",
+    "popups always show themselves: 0 hp, 1 xp. free. eat them.",
     "weak viruses are free xp. eat them first.",
     "level up = full heal and +1 max hp. spend it when you're hurt.",
-    "right-click / long-press: flag a tile with your guess.",
+    "right-click, long-press or ⚑ flag mode: flag a tile with your guess.",
     "tap a number when its flags + beaten viruses add up: opens the rest.",
     "KERNEL PANIC is 13. you need 14 hp to survive it.",
   ];
@@ -356,7 +358,7 @@
         paint(e.i, true);
         shake();
         if (e.p === CS.BOSS) sfx.boss(); else sfx.hit(e.p);
-        floatAt(e.i, "-" + e.p + " hp", "#ff5a3a");
+        floatAt(e.i, e.hp ? "-" + e.hp + " hp" : "free!", e.hp ? "#ff5a3a" : "#7fd8ff");
         if (!e.dead) {
           setTimeout(() => { floatAt(e.i, "+" + e.p + " xp", LIME2); sfx.xp(); }, 260);
           setMood("ouch", 600);
@@ -373,6 +375,7 @@
     if (!run || run.over || i < 0) return;
     closePicker();
     const c = run.cells[i];
+    if (flagMode && !c.open && !c.seen) { openPicker(i); return; }
     if (!started) begin();
     if (c.open) {
       if (c.dead && c.drop) {
@@ -562,9 +565,11 @@
     picker.innerHTML = '<div class="ph">flag it: guessed power</div>' + opts.map((p) => '<button type="button" data-p="' + p + '"' + (p === 13 ? ' class="k"' : "") + ">" + (p === 13 ? "K" : p) + "</button>").join("") +
       '<button type="button" class="x" data-p="0" aria-label="clear flag">✕</button><button type="button" class="w" data-p="-1">fight it</button>';
     picker.hidden = false;
+    // above the tile (a finger covers what's below it), below only when there's no room up there
     const r = tiles[i].getBoundingClientRect(), pw = picker.offsetWidth, ph = picker.offsetHeight;
-    let left = r.left + r.width / 2 - pw / 2, top = r.bottom + 4;
-    if (top + ph > window.innerHeight - 4) top = r.top - ph - 4;
+    let left = r.left + r.width / 2 - pw / 2, top = r.top - ph - 8;
+    if (top < 4) top = r.bottom + 8;
+    if (top + ph > window.innerHeight - 4) top = window.innerHeight - ph - 4;
     left = Math.max(4, Math.min(window.innerWidth - pw - 4, left)); top = Math.max(4, top);
     picker.style.left = left + "px"; picker.style.top = top + "px";
     sfx.flag();
@@ -587,6 +592,23 @@
     if (p === -1) { const c = run.cells[i]; c.flag = null; confirmFight = { i: -1, t: 0 }; tap(i); return; }
     setFlag(i, p);
   });
+
+  // ---------- flag mode: on a phone, taps flag instead of fight (long-press alone is hard to find) ----------
+  let flagMode = false;
+  const flagBtn = $("flagmode");
+  function setFlagMode(on) {
+    flagMode = on; flagBtn.setAttribute("aria-pressed", on ? "true" : "false"); win.classList.toggle("flagging", on);
+    if (on) quip("flag mode: tap a tile to flag your guess. tap ⚑ again to fight.", "good");
+  }
+  flagBtn.addEventListener("click", (e) => { e.stopPropagation(); setFlagMode(!flagMode); sfx.flag(); });
+
+  // ---------- the rules, inside the window, on the first run (and from the ? button) ----------
+  const rules = $("rules");
+  function showRules() { rules.hidden = false; }
+  function hideRules() { if (rules.hidden) return; rules.hidden = true; store.set("rules", true); focusMe(); }
+  rules.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); });
+  rules.addEventListener("click", (e) => { e.stopPropagation(); hideRules(); });
+  $("help").addEventListener("click", (e) => { e.stopPropagation(); rules.hidden ? showRules() : hideRules(); });
 
   // ---------- input: tap, right-click, long-press ----------
   let press = null;
@@ -626,6 +648,7 @@
     const k = e.key;
     const nav = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k];
     if (nav || k === " " || e.code === "Space") e.preventDefault(); // never scroll the page around the game
+    if (!rules.hidden) { if (nav || k === " " || k === "Enter" || k === "Escape" || e.code === "Space") { e.preventDefault(); hideRules(); } return; }
     if (!picker.hidden) {
       if (k === "Escape") { closePicker(); return; }
       const n = k === "k" || k === "K" ? 13 : /^[0-9]$/.test(k) ? +k : null;
@@ -643,6 +666,7 @@
     if (k === "n" || k === "N") { newRun(); return; }
     if (k === "d" || k === "D") { newRun(mode === "daily" ? "endless" : "daily"); return; }
     if (k === "l" || k === "L") { levelUp(); return; }
+    if (k === "?" || k === "h" || k === "H") { showRules(); return; }
     if (!run) return;
     if (nav) {
       if (cursor < 0) cursor = ((run.rows / 2) | 0) * run.cols + ((run.cols / 2) | 0);
@@ -687,7 +711,8 @@
   let last = performance.now(), lastDraw = 0, lastSec = -1, lastFace = "";
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    moodT -= dt;
+    // a short mood (ouch, a level-up grin) ends: back to how the hp actually feels
+    if (moodT > 0 && (moodT -= dt) <= 0 && run) hud();
     if (now - lastDraw > 83) {
       lastDraw = now;
       const animated = mood === "nervous" || mood === "melt" || mood === "cool";
@@ -710,5 +735,5 @@
   newRun("endless");
   requestAnimationFrame(frame);
   // test hook for the smoke/screenshot scripts (no effect on play)
-  window.__cs = { run: () => run, tap, levelUp, newRun, flag: setFlag, finish: (w) => finish(w) };
+  window.__cs = { run: () => run, tap, levelUp, newRun, flag: setFlag, finish: (w) => finish(w), flagMode: setFlagMode, hideRules, mood: () => mood };
 })();
