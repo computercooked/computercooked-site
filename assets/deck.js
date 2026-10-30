@@ -37,11 +37,19 @@
         localStorage.removeItem("cc-anon");
       }
       if (tm !== null) q.delete("cctest");
+      // test mode sticks to this browser (localStorage) until ?cctest=0 or a tap on the badge: a clean visitor never
+      // has a smoke id, so never sees it, and every one of their visits is counted
       if (/^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
-        var badge = document.createElement("div");
-        badge.textContent = "test mode: not counted";
-        badge.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:9999;padding:2px 8px;border-radius:6px;" +
-          "font:11px ui-monospace,monospace;background:#c6ff3d;color:#0e120c;opacity:.85;pointer-events:none";
+        var badge = document.createElement("button");
+        badge.type = "button";
+        badge.textContent = "test mode: not counted · tap to leave";
+        badge.title = "this browser was put in team test mode by a ?cctest=1 link. tap to count it again.";
+        badge.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:9999;padding:2px 8px;border:0;border-radius:6px;" +
+          "font:11px ui-monospace,monospace;background:#c6ff3d;color:#0e120c;opacity:.85;cursor:pointer";
+        badge.onclick = function () {
+          try { if (/^smoke/i.test(localStorage.getItem("cc-anon") || "")) localStorage.removeItem("cc-anon"); } catch (e) {}
+          badge.remove();
+        };
         (document.body || document.documentElement).appendChild(badge);
       }
       // back from a Stripe tip (the Payment Link redirects to ?tip=thanks): counted once per visit, param removed
@@ -278,6 +286,8 @@
     load(function () {
       var src = clips[m[1]];
       if (!src || cur !== a) return;
+      // the games hub plays its own clips in the grids it marks (games/hub.js): one video per card, not two
+      if (a.closest("[data-hub-clips]")) return;
       var v = a.querySelector("video.cc-peek");
       if (!v) {
         v = document.createElement("video");

@@ -149,6 +149,7 @@
     var bySlug = {};
     games.forEach(function (g) { if (g.clip) bySlug[g.slug] = g.clip; });
     var touch = mq("(hover: none)");
+    grid.setAttribute("data-hub-clips", "");
     var play = function (li) {
       var img = li.querySelector(".game-thumb"), a = li.querySelector(".game-link");
       var m = a && /^\/games\/([a-z0-9-]+)\/$/.exec(a.getAttribute("href") || "");

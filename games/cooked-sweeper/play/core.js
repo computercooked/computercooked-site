@@ -20,7 +20,7 @@
   // ---------- the viruses ----------
   // p = power: the hp a fight costs and the xp it pays. KERNEL PANIC is the boss: beat it to win.
   const VIRUSES = {
-    1: { id: "popup", name: "popup", quips: ["popup: you won a free ipad! (1 hp)", "popup: hot singles in your ram", "popup: click here to close (it was a lie)"] },
+    1: { id: "popup", name: "popup", quips: ["popup: you won a free ipad! (0 hp)", "popup: hot singles in your ram", "popup: click here to close (it was a lie)"] },
     2: { id: "adware", name: "adware", quips: ["adware: this hit was sponsored", "adware: skip ad in 2 hp", "adware: have you tried toolbar?"] },
     3: { id: "worm", name: "worm", quips: ["worm: wriggled 3 hp out of you", "worm: i brought friends", "worm: squish. ow."] },
     4: { id: "keylogger", name: "keylogger", quips: ["keylogger: saw you type that", "keylogger: your password is password", "keylogger: 4 hp, logged"] },
@@ -32,6 +32,10 @@
     13: { id: "kernel", name: "KERNEL PANIC", quips: ["KERNEL PANIC: fatal exception 0E at C00C:ED", "KERNEL PANIC: the computer is cooked"] },
   };
   const BOSS = 13;
+  // what a fight costs: popups are free xp (they still count in the numbers)
+  const dmg = (p) => (p === 1 ? 0 : p);
+  // the first patch is fair: no number around it above this, and nothing stronger than a worm near the first tap
+  const FIRST_CAP = 6, CALM_R = 3.2;
   // how many of each power (1..9) per 100 tiles; scaled to the board, the boss is always 1
   const MIX = [7, 6, 5, 4, 3, 2, 2, 1, 1];
   const START_HP = 5;
@@ -103,7 +107,7 @@
         const weights = [];
         let sum = 0;
         for (let i = 0; i < n; i++) {
-          if (v[i] || banned.has(i)) { weights.push(0); continue; }
+          if (v[i] || banned.has(i) || (p >= 4 && dist(i, safe) < CALM_R)) { weights.push(0); continue; }
           let w = 0.05;
           const dBoss = dist(i, boss);
           w += (p >= 6 ? 3 : p >= 4 ? 1.2 : 0.4) * Math.exp(-(dBoss * dBoss) / (p >= 6 ? 5 : 9));
@@ -116,13 +120,33 @@
         if (pick < 0) { ok = false; break; }
         v[pick] = p;
       }
-      if (!ok && tries < 50) continue;
+      if (!ok && tries < 400) continue;
       for (let i = 0; i < n; i++) run.cells[i].v = v[i];
       for (let i = 0; i < n; i++) run.cells[i].n = nbrs(run, i).reduce((s, j) => s + v[j], 0);
-      // the first tap must open a real patch; reroll the layout (same seed stream) until it does
-      const size = floodSize(run, safe);
-      if (size < Math.min(14, n * 0.14) && tries < 50) continue;
+      // the first tap must open a real patch with small numbers round it; reroll (same seed stream) until it does
+      const patch = flood(run, safe);
+      if (patch.length < Math.min(14, n * 0.14) && tries < 400) continue;
+      if (Math.max(...patch.map((i) => run.cells[i].n)) > FIRST_CAP && tries < 400) continue;
       break;
+    }
+    // a rare board that never rerolled fair: the strongest viruses round the hottest edge tile go, until it is
+    for (let guard = 0; guard < 40; guard++) {
+      const patch = flood(run, safe);
+      const hot = patch.reduce((m, i) => (run.cells[i].n > run.cells[m].n ? i : m), patch[0]);
+      if (run.cells[hot].n <= FIRST_CAP) break;
+      const vs = nbrs(run, hot).filter((j) => run.cells[j].v && run.cells[j].v !== BOSS).sort((x, y) => run.cells[y].v - run.cells[x].v);
+      if (vs.length) run.cells[vs[0]].v = 0;
+      else {
+        // only the boss is left touching it: it moves to the empty tile farthest from the first tap, clear of the patch
+        const b = nbrs(run, hot).find((j) => run.cells[j].v === BOSS);
+        if (b === undefined) break;
+        const near = new Set(patch.flatMap((i) => [i, ...nbrs(run, i)]));
+        let to = -1;
+        for (let i = 0; i < n; i++) if (!run.cells[i].v && !near.has(i) && (to < 0 || dist(i, safe) > dist(to, safe))) to = i;
+        if (to < 0) break;
+        run.cells[b].v = 0; run.cells[to].v = BOSS;
+      }
+      for (let i = 0; i < n; i++) run.cells[i].n = nbrs(run, i).reduce((s, j) => s + run.cells[j].v, 0);
     }
     // drops: decided now so a daily board is the same for everyone. popups pop up: they're visible from the start
     for (let i = 0; i < n; i++) {
@@ -136,14 +160,15 @@
     return run;
   }
 
-  function floodSize(run, from) {
+  // the clean tiles the first tap opens (zeros cascade; the numbered edge stops it)
+  function flood(run, from) {
     const seen = new Set([from]), q = [from];
     while (q.length) {
       const i = q.shift();
       if (run.cells[i].n !== 0) continue;
       for (const j of nbrs(run, i)) if (!seen.has(j) && !run.cells[j].v) { seen.add(j); q.push(j); }
     }
-    return seen.size;
+    return [...seen];
   }
 
   // reveal a tile: a clean one opens (and cascades from zeros); a virus is a fight
@@ -156,15 +181,15 @@
     if (c.v) {
       c.open = true; c.dead = true; c.flag = null;
       run.lastHp = run.hp;
-      run.hp -= c.v;
+      run.hp -= dmg(c.v);
       if (run.hp <= 0) {
         run.hp = 0; run.over = true; run.cause = c.v; run.killedBy = i; c.dead = false;
-        ev.push({ type: "fight", i, p: c.v, dead: true });
+        ev.push({ type: "fight", i, p: c.v, hp: dmg(c.v), dead: true });
         ev.push({ type: "lose", p: c.v });
         return ev;
       }
       run.xp += c.v; run.xpTotal += c.v; run.killed++;
-      ev.push({ type: "fight", i, p: c.v });
+      ev.push({ type: "fight", i, p: c.v, hp: dmg(c.v) });
       if (c.v === BOSS) { run.over = true; run.won = true; ev.push({ type: "win" }); }
       return ev;
     }
@@ -238,7 +263,7 @@
     return s;
   }
 
-  const api = { hashStr, mulberry32, VIRUSES, BOSS, START_HP, RAM_HEAL, cost, mixFor, nbrs, newRun, generate, reveal, chord, collect, scanTarget, canLevel, levelUp, score };
+  const api = { hashStr, mulberry32, VIRUSES, BOSS, START_HP, RAM_HEAL, FIRST_CAP, dmg, cost, mixFor, nbrs, newRun, generate, flood, reveal, chord, collect, scanTarget, canLevel, levelUp, score };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.CS = api;
 })(typeof self !== "undefined" ? self : this);

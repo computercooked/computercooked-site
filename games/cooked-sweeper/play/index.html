@@ -45,6 +45,11 @@
   #face { width: 48px; height: 48px; padding: 0; display: grid; place-items: center; cursor: pointer; background: var(--cream); border: 2px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); }
   #face:active { border-color: var(--ink) var(--hi) var(--hi) var(--ink); }
   #face canvas { width: 40px; height: 40px; image-rendering: pixelated; }
+  #face { position: relative; z-index: 6; transition: transform .2s; }
+  #face[data-mood="ouch"] { transform: scale(1.18); }
+  #face[data-mood="nervous"] { transform: scale(1.45); background: #ffd0a0; box-shadow: 0 0 14px 2px rgba(255, 90, 31, .85); animation: jitter .16s steps(2) infinite; }
+  #face[data-mood="melt"] { transform: scale(1.7) translateY(4px); background: #ff9a7a; box-shadow: 0 0 22px 6px rgba(255, 60, 20, .9); }
+  @keyframes jitter { 50% { translate: 1px -1px; rotate: -3deg; } }
   #lvl { font: inherit; font-size: 11px; margin-top: 3px; padding: 1px 6px; cursor: pointer; color: var(--ink); background: var(--lime); border: 2px solid; border-color: #e2ff9a #3d5410 #3d5410 #e2ff9a; display: none; }
   #lvl.on { display: inline-block; animation: pulse .7s ease-in-out infinite alternate; }
   @keyframes pulse { to { filter: brightness(1.25); transform: scale(1.06); } }
@@ -75,8 +80,16 @@
   @keyframes scanned { 0%, 40% { box-shadow: inset 0 0 0 3px var(--lime), 0 0 10px var(--lime); } 100% { box-shadow: none; } }
   .n1, .n2, .n3 { color: #1f47b8; } .n4, .n5, .n6 { color: #1d7a2a; } .n7, .n8, .n9 { color: #b51d1d; }
   .n10, .n11, .n12, .n13, .n14 { color: #7a0d3f; } .nX { color: #4a0d7a; } .nB { color: #fff; background: #7a1d0a !important; }
-  .status { margin-top: 4px; padding: 2px 6px; height: 22px; display: flex; align-items: center; gap: 8px; font-size: 12px; border: 1px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); white-space: nowrap; overflow: hidden; }
-  .status .q { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .status { margin-top: 4px; padding: 3px 6px 4px; font-size: 12px; border: 1px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  /* the hint gets two full lines at a readable size; the height never changes, so the board never jumps */
+  .status .q { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; height: 2.5em; font-size: 14px; line-height: 1.25; }
+  .status .sb { display: flex; align-items: center; gap: 6px; margin-top: 3px; white-space: nowrap; }
+  .status .sp { flex: 1; }
+  .sbtn { font: inherit; font-size: 13px; height: 28px; padding: 0 10px; cursor: pointer; color: var(--ink); background: var(--cream); border: 2px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); }
+  .sbtn:active, .sbtn[aria-pressed="true"] { border-color: var(--ink) var(--hi) var(--hi) var(--ink); }
+  #flagmode[aria-pressed="true"] { color: #fff; background: var(--red); }
+  .win.flagging .board { border-color: var(--red); }
+  .win.flagging .c.h { cursor: crosshair; }
   .status .q.bad { color: var(--red); }
   .status .q.good { color: #2f6b0c; }
   .status .tm { color: #6b5a3a; }
@@ -89,20 +102,29 @@
   .shake { animation: shake .3s linear; }
   @keyframes shake { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 1px); } }
   /* flag picker */
-  #picker { position: absolute; z-index: 40; display: grid; grid-template-columns: repeat(4, 34px); gap: 3px; padding: 5px; background: var(--cream); border: 2px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); box-shadow: 3px 3px 0 rgba(0,0,0,.4); }
+  #picker { position: absolute; z-index: 40; display: grid; grid-template-columns: repeat(4, 48px); gap: 4px; padding: 6px; background: var(--cream); border: 2px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); box-shadow: 3px 3px 0 rgba(0,0,0,.4); }
   #picker[hidden] { display: none; }
-  #picker .ph { grid-column: 1 / -1; font-size: 11px; padding: 0 2px 2px; }
-  #picker button { font: inherit; font-size: 14px; height: 30px; cursor: pointer; color: var(--ink); background: var(--cream); border: 2px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); }
+  #picker .ph { grid-column: 1 / -1; font-size: 13px; padding: 0 2px 2px; }
+  #picker button { font: inherit; font-size: 19px; height: 44px; cursor: pointer; color: var(--ink); background: var(--cream); border: 2px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); }
   #picker button:hover, #picker button:focus-visible { background: #ffe2c4; outline: none; }
   #picker .k { color: #fff; background: #7a1d0a; }
   #picker .x { color: var(--red); }
-  #picker .w { grid-column: span 2; font-size: 12px; }
+  #picker .w { grid-column: span 2; font-size: 14px; }
+  /* the rules: three lines over the board on the first run */
+  .bwrap { position: relative; }
+  #rules { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; padding: 8px; background: rgba(18, 12, 8, .82); cursor: pointer; }
+  #rules[hidden] { display: none; }
+  #rules .card { max-width: 340px; background: var(--cream); padding: 10px 12px; border: 2px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); font-size: 14px; line-height: 1.35; }
+  #rules h3 { margin: 0 0 6px; font-size: 15px; color: #7a1d0a; }
+  #rules ol { margin: 0; padding-left: 20px; }
+  #rules li { margin-bottom: 5px; }
+  #rules .go { margin-top: 8px; text-align: center; color: #2f6b0c; }
   /* bluescreen */
   #bsod { position: absolute; inset: 0; z-index: 50; background: #0000aa; color: #fff; display: grid; place-items: center; padding: 20px; text-align: left; font-size: 14px; line-height: 1.5; }
   #bsod[hidden] { display: none; }
   #bsod .in { max-width: 520px; }
   #bsod .tag { display: inline-block; background: #aaa; color: #0000aa; padding: 0 6px; margin-bottom: 14px; }
-  #bsod canvas { width: 72px; height: 72px; image-rendering: pixelated; float: right; margin: 0 0 8px 12px; }
+  #bsod canvas { width: 132px; height: 132px; image-rendering: pixelated; float: right; margin: 0 0 8px 12px; }
   /* receipt */
   #receipt { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(10, 4, 2, .72); padding: 12px; }
   #receipt[hidden] { display: none; }
@@ -129,7 +151,13 @@
   .short .lcd { padding: 1px 5px; font-size: 11px; }
   .short #face { width: 34px; height: 34px; }
   .short #face canvas { width: 28px; height: 28px; }
-  .short .status { height: 18px; margin-top: 2px; font-size: 11px; }
+  .short .status { display: flex; align-items: center; gap: 6px; margin-top: 2px; padding: 2px 4px; }
+  .short .status .sb { display: contents; }
+  .short .status .q { order: 1; flex: 1; height: auto; font-size: 12px; -webkit-line-clamp: 1; }
+  .short .status .sp, .short #help { display: none; }
+  .short #flagmode { order: 0; height: 22px; padding: 0 6px; font-size: 12px; }
+  .short .status .tm, .short #mute { order: 2; }
+  .short #rules .card { font-size: 12px; padding: 6px 10px; }
   .short .tb { display: none; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important; } .puff { display: none; } }
 </style>
@@ -148,8 +176,15 @@
       <button id="face" type="button" aria-label="new run"><canvas id="mascot" width="24" height="24"></canvas></button>
       <div class="lcd xp">lv <b id="lvv">1</b> · xp <b id="xpv">0/3</b><div class="meter" id="xpm"><i></i></div><button id="lvl" type="button">level up ▲</button></div>
     </div>
-    <div class="board" id="board" role="grid" aria-label="fried memory: tap a tile to reveal it" tabindex="0"></div>
-    <div class="status"><span class="q" id="quip" aria-live="polite">tap any tile.</span><span class="tm" id="tm">0:00</span><button id="mute" type="button" aria-label="mute">♪ on</button></div>
+    <div class="bwrap">
+      <div class="board" id="board" role="grid" aria-label="fried memory: tap a tile to reveal it" tabindex="0"></div>
+      <div id="rules" hidden role="dialog" aria-label="how to play"><div class="card"><h3>how to play</h3><ol>
+        <li>a number is the <b>total power</b> of the viruses touching that tile.</li>
+        <li>opening a virus is a fight: it costs hp equal to its power and pays that much xp. popups are free.</li>
+        <li>level up to heal fully. beat KERNEL PANIC (13) to win.</li>
+      </ol><div class="go">tap to start</div></div></div>
+    </div>
+    <div class="status"><span class="q" id="quip" aria-live="polite">tap any tile.</span><div class="sb"><button class="sbtn" id="flagmode" type="button" aria-pressed="false" aria-label="flag mode: taps flag tiles">⚑ flag</button><button class="sbtn" id="help" type="button" aria-label="how to play">? rules</button><span class="sp"></span><span class="tm" id="tm">0:00</span><button id="mute" type="button" aria-label="mute">♪ on</button></div></div>
   </div>
   <div id="picker" hidden role="dialog" aria-label="flag this tile with a guessed power"></div>
   <div id="bsod" hidden></div>
