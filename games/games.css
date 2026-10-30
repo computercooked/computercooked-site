@@ -2785,6 +2785,39 @@ html[data-landing-ready] { overflow: hidden; }
 .player-panel:empty { min-height: 258px; }
 .player-panel > .cc-level[hidden] { display: block !important; visibility: hidden; min-height: 113px; }
 
+/* ---------- today's dailies as tiles (beautify pass) ----------
+   each tile in its game's colour (fx.js sets --accent/--phosphor), a big cover with scanlines, the mode as a tag,
+   and a live countdown to the next puzzle in the head */
+.strip-box.dailies { border-color: rgb(var(--phosphor) / .22); box-shadow: inset 0 0 40px -18px rgb(var(--phosphor) / .35); }
+.dailies .strip-head { flex-wrap: wrap; align-items: center; font-family: var(--display); font-weight: 600; font-size: var(--fs-20); text-shadow: var(--text-glow); }
+.dailies .strip-head small { margin-left: var(--s-2); padding: 1px 8px; border: 1px solid rgb(var(--phosphor) / .5); border-radius: var(--r-pill); font-family: var(--mono); text-shadow: none; }
+.daily-next { margin-left: auto; font-family: var(--mono); font-size: var(--fs-12); font-weight: 400; color: var(--paper-dim); text-shadow: none; }
+.daily-next b { color: var(--lime); font-weight: 800; }
+.dailies .daily-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-3); }
+.dailies .daily { --rim: rgb(var(--phosphor) / .55); position: relative; display: flex; flex-direction: column; gap: 2px; min-height: 0; padding: 0 0 var(--s-3);
+  overflow: hidden; border-color: rgb(var(--phosphor) / .25); background: linear-gradient(180deg, transparent 55%, rgb(var(--phosphor) / .08)), var(--carbon);
+  transition: border-color var(--fast) ease, transform var(--fast) ease, box-shadow var(--fast) ease; }
+.dailies .daily::before { content: ""; position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 16 / 10; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgb(0 0 0 / .18) 0 1px, transparent 1px 3px); }
+.dailies .daily img { width: 100%; height: auto; aspect-ratio: 16 / 10; margin: 0 0 var(--s-2); border-radius: 0; border-bottom: 2px solid var(--accent);
+  image-rendering: pixelated; transition: transform var(--slow) ease; }
+.dailies .daily-name, .dailies .daily-mode { padding: 0 var(--s-3); }
+.dailies .daily-name { color: var(--accent); font-size: var(--fs-14); }
+.dailies .daily-mode { font-family: var(--mono); font-size: 11px; }
+.dailies .daily-go { position: absolute; z-index: 2; top: var(--s-2); right: var(--s-2); display: grid; place-items: center; width: 30px; height: 30px;
+  border-radius: 50%; background: var(--accent); color: #0e0f11; font-size: 12px; opacity: 0; transform: scale(.6);
+  transition: opacity var(--fast) ease, transform var(--fast) var(--ease-spring); }
+.dailies .daily:hover, .dailies .daily:focus-visible { transform: translateY(-3px); border-color: rgb(var(--phosphor) / .7);
+  box-shadow: 0 12px 28px -14px rgb(0 0 0 / .9), 0 0 22px -6px rgb(var(--phosphor) / .45); }
+.dailies .daily:hover img { transform: scale(1.05); }
+.dailies .daily:hover .daily-go, .dailies .daily:focus-visible .daily-go { opacity: 1; transform: none; }
+@media (max-width: 599px) { .dailies .daily-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .daily-next { margin-left: 0; width: 100%; } }
+@media (hover: none) { .dailies .daily-go { opacity: 1; transform: none; width: 26px; height: 26px; } }
+@media (prefers-reduced-motion: reduce) {
+  .dailies .daily, .dailies .daily img, .dailies .daily-go { transition: none; }
+  .dailies .daily:hover, .dailies .daily:hover img { transform: none; }
+}
+
 /* K-0053: EPIC GAMER, the all-time #1 on each game (games/platform.js). A small lit tag on that player's board row and
    at the end of the breadcrumb line. Both spots are a fixed-height line already, so the tag never moves anything.
    A phosphor sweep runs across it; with reduced motion it just sits there, lit. */

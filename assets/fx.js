@@ -229,9 +229,9 @@
     var html = '<div class="hub-strip">';
     if (dailies.length) {
       html += '<section class="strip-box dailies" aria-labelledby="dailies-heading">' +
-        '<h2 class="strip-head" id="dailies-heading">today\'s dailies <small>' + esc(today) + "</small></h2>" +
+        '<h2 class="strip-head" id="dailies-heading">today\'s dailies <small>' + esc(today) + '</small><span class="daily-next" hidden>new puzzles in <b class="num" data-daily-next></b></span></h2>' +
         '<ul class="daily-list">' + dailies.map(function (g) {
-          return '<li><a class="daily" href="/games/' + encodeURIComponent(g.slug) + '/">' +
+          return '<li><a class="daily"' + theme(g) + ' href="/games/' + encodeURIComponent(g.slug) + '/">' +
             '<img src="' + esc(g.thumbnail) + '" alt="" width="64" height="36" loading="lazy" decoding="async">' +
             '<span class="daily-name">' + esc(g.title) + "</span>" +
             '<span class="daily-mode">' + esc(DAILY[g.slug] || "daily") + "</span>" +
@@ -240,6 +240,27 @@
     }
     html += "</div>";
     anchor.insertAdjacentHTML("afterend", html);
+    nextPuzzle();
+  }
+  // each daily tile in its game's colour (games.json theme.accent, as src/util.js themeVars does on the server)
+  function theme(g) {
+    var a = g && g.theme && g.theme.accent;
+    if (typeof a !== "string" || !/^#[0-9a-f]{6}$/i.test(a)) return "";
+    return ' style="--accent:' + a + ";--phosphor:" + [1, 3, 5].map(function (i) { return parseInt(a.slice(i, i + 2), 16); }).join(" ") + '"';
+  }
+  // "new puzzles in 05:12:33": a countdown to local midnight, once a second while the tab is visible
+  function nextPuzzle() {
+    var out = document.querySelector("[data-daily-next]");
+    if (!out) return;
+    out.parentNode.hidden = false;
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function tick() {
+      var now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      var s = Math.max(0, Math.floor((mid - now) / 1000));
+      out.textContent = pad(Math.floor(s / 3600)) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60);
+    }
+    tick();
+    setInterval(function () { if (!document.hidden) tick(); }, 1000);
   }
 
   function moreGames(games, slug) {

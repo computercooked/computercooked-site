@@ -37,6 +37,8 @@ export async function hubPage(req, env, url) {
   if (!ours.length) return page;
 
   const txt = (v) => ({ element(e) { e.setInnerContent(v); } });
+  const fresh = ours.map((g, i) => [g, i]).filter(([g]) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
+    .sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map(([g]) => g).slice(0, 6);
   // structured data: the hub as an ItemList of VideoGames (rich results), "<" escaped so a title can't close the script
   const ld = JSON.stringify({
     "@context": "https://schema.org", "@type": "ItemList", name: "Computer Cooked Games",
@@ -50,6 +52,11 @@ export async function hubPage(req, env, url) {
     .on("head", { element(e) { e.append(`<script type="application/ld+json">${ld}</script>`, { html: true }); } })
     .on("title", txt("free online games, no download — Computer Cooked Games"))
     .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map(hubCard).join(""), { html: true }); } })
+    // "just cooked" (K-0050 item 5) on the server too, picked as games/hub.js picks it: it used to appear only after
+    // games.json loaded and pushed the whole page down (CLS 0.57)
+    .on("#shelf-new", { element(e) { if (fresh.length) e.removeAttribute("hidden"); } })
+    .on("#shelf-new #new-heading", { element(e) { if (fresh.length) e.setInnerContent(`just cooked <small>new this fortnight</small>`, { html: true }); } })
+    .on("#shelf-new .card-grid", { element(e) { if (fresh.length) e.setInnerContent(fresh.map(hubCard).join(""), { html: true }); } })
     .on("#ours-heading [data-count]", txt(String(ours.length)))
     .on(".ticker-track", { element(e) { const t = ours.map((g) => `<span>${esc(g.title)}</span>`).join(""); e.setInnerContent(t + t, { html: true }); } });
   if (feat) {
