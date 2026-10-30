@@ -47,8 +47,23 @@
     "  fc *= 0.55 + 0.45 * (1.0 - uNight * 0.7);",
     "  return mix(fc, c, s);",
     "}",
+    // sun shadows (the voxel look): a depth map from the sun, 9 soft taps, faded out at the edge of its box
+    "uniform sampler2D uShadow; uniform mat4 uShadowM; uniform vec4 uShadowK;", // (5 taps in a rotated cross)
+    "float sunShadow(vec3 w, vec3 n) {",
+    "  if (uShadowK.x <= 0.0) return 1.0;",
+    "  vec4 p = uShadowM * vec4(w + n * 0.07, 1.0);",
+    "  vec3 q = p.xyz * 0.5 + 0.5;",
+    "  if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0 || q.z > 1.0) return 1.0;",
+    "  float s = 0.0, t = uShadowK.y;",
+    "  s += step(q.z - uShadowK.z, texture2D(uShadow, q.xy).r);",
+    "  s += step(q.z - uShadowK.z, texture2D(uShadow, q.xy + vec2(t, t * 0.4)).r) + step(q.z - uShadowK.z, texture2D(uShadow, q.xy - vec2(t, t * 0.4)).r);",
+    "  s += step(q.z - uShadowK.z, texture2D(uShadow, q.xy + vec2(-t * 0.4, t)).r) + step(q.z - uShadowK.z, texture2D(uShadow, q.xy + vec2(t * 0.4, -t)).r);",
+    "  vec2 e = min(q.xy, 1.0 - q.xy);",
+    "  return mix(1.0, s / 5.0, uShadowK.x * smoothstep(0.0, 0.08, min(e.x, e.y)));",
+    "}",
     "vec3 shade(vec3 col, vec3 n, vec3 w, float em, float fog) {",
     "  float sd = max(dot(n, uSunDir), 0.0);",
+    "  if (sd > 0.0) sd *= sunShadow(w, n);",
     "  float cl = texture2D(uCloud, w.xz * uCloudP.z + uCloudP.xy).r;",
     "  sd *= 1.0 - uCloudP.w * smoothstep(0.42, 0.72, cl);",
     "  vec3 amb = mix(uGndCol, uSkyCol, n.y * 0.5 + 0.5);",
@@ -880,6 +895,7 @@
     c.decor = {};
     var dl = {}, D = WG.decorChunk(T, c.ci, c.cj);
     for (var di = 0; di < D.length; di += 5) {
+      if (R.voxel && (di / 5) % 2) continue; // the voxel look: half the grass and flowers (each is a few cubes, and they read bigger)
       var dx = D[di], dz = D[di + 1];
       if (!SB.World.isSeen(game.world, dx, dz)) continue;
       var type = D[di + 2], sc = D[di + 3] * (R.voxel ? 0.75 : 1), rot = D[di + 4]; // voxel flowers read bigger: a touch smaller
@@ -1234,8 +1250,9 @@
     perf.ft += (dt * 1000 - perf.ft) * 0.05;
     if (R.hd || R.voxel) SB.HD.adapt(perf, dt, quality); // hd and voxel looks: drop the blur and glow if frames run slow
     if (quality.fixed || (R.pixel && !R.voxel)) return; // pixel mode is already cheap
-    if (perf.ft > 38) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < 22) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
-    if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - 0.15); perf.slowT = 0; R.resize(); }
+    var slow = R.voxel ? 19 : 38, fast = R.voxel ? 15 : 22; // the voxel look holds 60 fps: it gives up pixels as soon as frames slip
+    if (perf.ft > slow) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < fast) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
+    if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - (R.voxel ? 0.1 : 0.15)); perf.slowT = 0; R.resize(); }
     else if (perf.fastT > 6 && quality.scale < (quality.max || 1)) { quality.scale = Math.min(quality.max || 1, quality.scale + 0.1); perf.fastT = 0; R.resize(); }
     if (perf.ft > 45 && quality.decor && perf.slowT > 1.5 && quality.scale <= 0.5) quality.decor = false;
   }
@@ -1289,6 +1306,7 @@
       lightCols[li * 3] = L[4] * nk; lightCols[li * 3 + 1] = L[5] * nk; lightCols[li * 3 + 2] = L[6] * nk;
     }
 
+    if (R.voxel && T) drawShadowMap(); // the sun's shadow map first
     var P = ensurePost();
     gl.bindFramebuffer(gl.FRAMEBUFFER, P ? P.fb : null);
     gl.viewport(0, 0, BW, BH);
@@ -1375,6 +1393,92 @@
     }
     gl.uniformMatrix4fv(p.u.uVP, false, VP);
     if (p.u.uHdK) SB.HD.uniforms(gl, p, cam, BH);
+    if (p.u.uShadowK) {
+      if (shadow && shadow.on) {
+        gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, shadow.dep); gl.uniform1i(p.u.uShadow, 7); gl.activeTexture(gl.TEXTURE0);
+        gl.uniformMatrix4fv(p.u.uShadowM, false, shadow.m);
+        gl.uniform4f(p.u.uShadowK, shadow.k, 1.6 / SHADOW_N, 0.0005, 0);
+      } else gl.uniform4f(p.u.uShadowK, 0, 0, 0, 0);
+    }
+  }
+
+  /* ---- sun shadows (the voxel look): terrain, trees, rocks, huts and loose things cast into a depth map ---- */
+  var SHADOW_N = 2048, shadow = null, SVP = M4.create(), SV = M4.create(), SP = M4.create();
+  var VS_SD_T = "attribute vec3 aPos; uniform mat4 uVP; void main() { gl_Position = uVP * vec4(aPos, 1.0); }";
+  var VS_SD_O = "attribute vec3 aPos; attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; uniform mat4 uVP; void main() { vec4 p = vec4(aPos, 1.0); gl_Position = uVP * vec4(dot(iM0, p), dot(iM1, p), dot(iM2, p), 1.0); }";
+  var FS_SD = "precision mediump float; void main() { gl_FragColor = vec4(1.0); }";
+  function ensureShadow() {
+    if (shadow && (shadow.failed || shadow.fb)) return shadow.failed ? null : shadow;
+    try {
+      if (!(ctx.v2 || gl.getExtension("WEBGL_depth_texture"))) { shadow = { failed: true }; return null; }
+      var sh = { m: new Float32Array(16), on: false, k: 0 };
+      sh.pT = GL.program(ctx, VS_SD_T, FS_SD); sh.pO = GL.program(ctx, VS_SD_O, FS_SD);
+      sh.dep = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, sh.dep);
+      if (ctx.v2) gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, SHADOW_N, SHADOW_N, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, SHADOW_N, SHADOW_N, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(function (k) { gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST); });
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      sh.rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, sh.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA4, SHADOW_N, SHADOW_N);
+      sh.fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fb);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, sh.rb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sh.dep, 0);
+      var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      shadow = ok ? sh : { failed: true };
+      return ok ? sh : null;
+    } catch (e) { shadow = { failed: true }; return null; }
+  }
+  function drawShadowMap() {
+    var was = shadow && shadow.on;
+    if (shadow) shadow.on = false;
+    if (!R.voxel || !quality.fx || quality.shadows === false || !T) return;
+    var sd = env.sunDir, k = SB.clamp01((sd[1] - 0.08) / 0.2) * (1 - env.night * 0.75) * (1 - SB.clamp01(env.cloud * 0.9 + env.rain) * 0.6);
+    var half, cx, cz;
+    if (cam.pov) { half = 30; cx = cam.eye[0] + cam.fwdXZ[0] * 18; cz = cam.eye[2] + cam.fwdXZ[1] * 18; }
+    else {
+      half = Math.min(64, Math.max(cam.halfW, cam.halfH / Math.max(0.3, Math.sin(cam.pitch))) * 1.15); cx = cam.x; cz = cam.z;
+      k *= 1 - SB.smooth(SB.clamp01((cam.zoom - 34) / 16));
+    }
+    if (k < 0.02) return;
+    var sh = ensureShadow(); if (!sh) return;
+    var snap = half * 2 / SHADOW_N * 4; cx = Math.round(cx / snap) * snap; cz = Math.round(cz / snap) * snap; // steadier edges as the view moves
+    var cy = cam.pov ? cam.eye[1] : cam.y;
+    // the same box as last frame: keep last frame's map (smols don't cast into it, so only falling trees and
+    // carried things change it) and redraw it every 4th frame. Saves the whole pass most frames.
+    var key = cx + "," + cz + "," + half.toFixed(1) + "," + sd[0].toFixed(3) + "," + sd[1].toFixed(3);
+    sh.age = (sh.age || 0) + 1;
+    if (was && sh.key === key && sh.age < 4) { sh.on = true; sh.k = k * 0.78; return; }
+    sh.key = key; sh.age = 0;
+    M4.lookAt(SV, cx + sd[0] * 150, cy + sd[1] * 150, cz + sd[2] * 150, cx, cy, cz, Math.abs(sd[1]) > 0.95 ? 1 : 0, Math.abs(sd[1]) > 0.95 ? 0 : 1, 0);
+    M4.ortho(SP, -half, half, -half, half, 1, 300);
+    M4.mul(SVP, SP, SV);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fb);
+    gl.viewport(0, 0, SHADOW_N, SHADOW_N);
+    gl.colorMask(false, false, false, false);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+    // casters: the chunks under the box (whatever terrain and static things they have built)
+    var S = SB.CHUNK, list = [], i;
+    for (i = 0; i < chunks.length; i++) { var c = chunks[i]; if (c.ci * S + S < cx - half - 8 || c.ci * S > cx + half + 8 || c.cj * S + S < cz - half - 8 || c.cj * S > cz + half + 8) continue; list.push(c); }
+    GL.resetAttribs(ctx);
+    gl.useProgram(sh.pT.prog); gl.uniformMatrix4fv(sh.pT.u.uVP, false, SVP);
+    for (i = 0; i < list.length; i++) {
+      var L = list[i].lod[list[i].drawStep || 1] || list[i].lod[1] || list[i].lod[2] || list[i].lod[4];
+      if (!L) continue;
+      GL.attribs(ctx, L.buf, [[sh.pT.a.aPos, 3]], SB.Vox.STRIDE, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, L.count);
+    }
+    GL.resetAttribs(ctx);
+    var p = sh.pO;
+    gl.useProgram(p.prog); gl.uniformMatrix4fv(p.u.uVP, false, SVP);
+    for (i = 0; i < list.length; i++) { var gr = list[i].groups; if (gr) for (var key in gr) drawInstanced(p, key, gr[key].buf, gr[key].n); }
+    for (var dk in frameDyn) { var dd = frameDyn[dk]; if (dd.n) drawInstanced(p, dk, GL.stream(ctx, dynHolders[dk] || (dynHolders[dk] = {}), dd.data, dd.n * ISTRIDE), dd.n); } // (this frame's moving things)
+    gl.colorMask(true, true, true, true);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    for (i = 0; i < 16; i++) sh.m[i] = SVP[i]; // world -> shadow clip, for the shaders
+    sh.on = true; sh.k = k * 0.78;
+    perf.draws += list.length * 2;
   }
 
   function drawTerrain(vis) {
