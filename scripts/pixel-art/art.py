@@ -608,12 +608,41 @@ def sandwich(c):
     for (a, b) in [(4, 3), (12, 9), (7, 11)]: c.px(c.W - 28 + a, 16 + b, "#e9e1c0")
 
 
+def microwave(c):
+    # the computer as a microwave: lit window with a puffed popcorn bag and flying kernels, face and timer on the display
+    c.rect(0, 0, c.W, c.H, "#1b1d22")
+    for y in range(0, c.H, 6): c.rect(0, y, c.W, 3, "#1d1f24")
+    c.rect(0, c.H - 14, c.W, 14, "#3b2a1c"); c.rect(0, c.H - 14, c.W, 2, "#5a4029")
+    mx, my, mw, mh = 14, 16, 132, 72
+    c.rect(mx - 1, my - 1, mw + 2, mh + 2, "#0b0c0e"); c.rect(mx, my, mw, mh, "#e6d596"); c.rect(mx, my + mh - 4, mw, 4, "#a6975d")
+    wx, wy, ww, wh = mx + 6, my + 7, 84, 58
+    c.rect(wx - 2, wy - 2, ww + 4, wh + 4, "#0b0c0e"); c.rect(wx, wy, ww, wh, "#6b6236")
+    c.rect(wx + 8, wy, 8, wh, "#776d3e")
+    c.rect(wx + 12, wy + wh - 6, ww - 24, 3, "#2a2a24")
+    bx, by = wx + ww // 2 - 13, wy + wh - 6
+    c.rect(bx - 1, by - 27, 28, 27, "#0b0c0e")
+    for i in range(6): c.rect(bx + i * 26 // 6, by - 26, 26 // 6 + 1, 26, "#e5484d" if i % 2 else "#f4f1e6")
+    c.rect(bx + 4, by - 31, 18, 5, "#f4f1e6")
+    for (x, y) in [(-22, -30), (-16, -40), (-6, -44), (8, -46), (18, -38), (26, -28), (-28, -18), (30, -14)]: c.rect(wx + ww // 2 + x, by + y, 3, 3, "#f4f1e6")
+    c.rect(wx + ww + 3, wy + 10, 3, wh - 20, "#0b0c0e")
+    px = wx + ww + 9
+    c.rect(px, wy, mx + mw - px - 5, 22, "#0b0c0e")
+    face = ["................", "................", "...##......##...", "..#..#....#..#..", "................", "................", "...#........#...", "....########....", ".....######.....", "................"]
+    for j, row in enumerate(face):
+        for i, ch in enumerate(row):
+            if ch == "#": c.px(px + 4 + i, wy + 2 + j, "#a8d533")
+    c.rect(px + 9, wy + 15, 2, 5, "#a8d533"); c.rect(px + 13, wy + 15, 4, 1, "#a8d533"); c.rect(px + 16, wy + 15, 1, 5, "#a8d533"); c.rect(px + 13, wy + 17, 4, 1, "#a8d533"); c.rect(px + 13, wy + 19, 4, 1, "#a8d533")
+    for j in range(3):
+        for i in range(3): c.rect(px + 1 + i * 8, wy + 27 + j * 7, 6, 5, "#0b0c0e"); c.rect(px + 1 + i * 8, wy + 27 + j * 7, 6, 4, "#d6c784")
+    c.rect(px + 1, wy + 49, 22, 6, "#0b0c0e"); c.rect(px + 1, wy + 49, 22, 5, "#a8d533")
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
-    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich,
+    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave,
 }
 
 

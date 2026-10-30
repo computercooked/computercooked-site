@@ -2,6 +2,7 @@
   "updated": "2026-10-30",
   "pipeline": [
     { "stage": "next", "title": "whatever wins the vote", "note": "the top idea below gets built next. one vote each, change it any time." },
+    { "stage": "shipped", "title": "microwave panic", "slug": "microwave-panic", "note": "the computer is a microwave now. hold to cook, let go when it is done. never the fork." },
     { "stage": "shipped", "title": "sandwich tower", "slug": "sandwich-tower", "note": "the computer is cooking. stack the sandwich. the fridge sometimes hands over a sock." },
     { "stage": "shipped", "title": "elevator full of fish", "slug": "elevator-full-of-fish", "note": "an elevator. it is full of fish. fling them out to reach floor 9." },
     { "stage": "shipped", "title": "cooked sweeper", "slug": "cooked-sweeper", "note": "minesweeper.exe has a virus. the numbers are virus power." },
