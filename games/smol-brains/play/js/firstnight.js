@@ -133,6 +133,7 @@
   FN.lend = function (game) {
     var s = n(game), pip = FN.pip(game), g = FN.grump(game);
     if (!s || s.s !== "lurk" || !pip || !SB.Possess) return false;
+    pip.chem.hunger = Math.min(pip.chem.hunger, 0.08); // Pip ate at the bush: the chase starts nearly full (K-0051)
     return SB.Possess.enter(game, pip, { free: true, firstNight: true, face: g ? { x: g.x, z: g.z } : null });
   };
   function sticks(game, pip) {

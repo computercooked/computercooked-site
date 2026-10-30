@@ -836,7 +836,7 @@
   C.speedOf = speedOf;
   C.runSpeed = function (c) { return speedOf(c, null) * 1.75 * (c.tier === 0 ? 1.1 : 1); }; // a possessed smol's sprint (possess.js)
   C.FIRE_SCARE = 6.5; // torches and the nest fire keep grumps off from here (was 4.5)
-  C.BITE_HOLD = 2.1; C.BITE_KNOCK = 2.2; // after a bite: how long it stands there, how far you're thrown (K-0048: "a beat of knockback so the player can still run")
+  C.BITE_HOLD = 3; C.BITE_KNOCK = 3.6; C.BITE_REEL = 1.2; // K-0051: bigger, and the grump visibly reels // after a bite: how long it stands there, how far you're thrown (K-0048: "a beat of knockback so the player can still run")
   C.NEST_GLOW = 12; // Lantern stage 3: grumps won't come within this of the nest
   C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
@@ -1834,7 +1834,11 @@
         c.asleep = false; c.action = null; c.goingHome = false;
         if (sc.hold) { sc.t = 0; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); if (Math.random() < dt * 0.4) emote(c, "angry", 1.2); positionHeld(c, game); finishTick(c, game, gy); return; } // lurking: eyes in the dark, waiting
         if (sc.t < 3) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); emote(c, "angry", 0.5); positionHeld(c, game); finishTick(c, game, gy); return; } // it spots you and growls first (K-0033: "appeared in my face")
-        if (sc.hitT > 0.9) { c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); positionHeld(c, game); finishTick(c, game, gy); return; } // a beat after a bite: your chance to run
+        if (sc.hitT > 0.9) { // a beat after a bite: your chance to run. first it reels, spinning, then it glares
+          if (sc.reel > 0) { sc.reel -= dt; c.facing += dt * 11; c.anim.squash = 0.3 * Math.sin(sc.reel * 20); }
+          else c.facing = Math.atan2(prey.x - c.x, prey.z - c.z);
+          positionHeld(c, game); finishTick(c, game, gy); return;
+        }
         if (sc.wind > 0) { // the tell: it crouches and shakes for 1.5 s, then pounces at where you are
           sc.wind -= dt; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); c.anim.squash = 0.25;
           if (sc.wind <= 0) {
@@ -1855,14 +1859,14 @@
       }
       function bite() {
         {
-          sc.hitT = C.BITE_HOLD + 0.9; sc.hits = (sc.hits || 0) + 1;
+          sc.hitT = C.BITE_HOLD + 0.9; sc.reel = C.BITE_REEL; sc.hits = (sc.hits || 0) + 1;
           prey.chem.health = Math.max(0.25, prey.chem.health - (sc.dmg || C.LUNGE_DMG));
           var ka = Math.atan2(prey.x - c.x, prey.z - c.z), kx = prey.x + Math.sin(ka) * C.BITE_KNOCK, kz = prey.z + Math.cos(ka) * C.BITE_KNOCK; // knocked back
           if (SB.World.walkable(w, kx, kz)) { prey.x = kx; prey.z = kz; }
           var bx = c.x - Math.sin(ka) * 1.6, bz = c.z - Math.cos(ka) * 1.6; // and it staggers back, off your face (K-0048)
           if (SB.World.walkable(w, bx, bz)) { c.x = bx; c.z = bz; }
           SB.Chem.apply(prey.chem, { fear: 0.3, pain: 0.2 });
-          emote(c, "angry", 1);
+          emote(c, "huh", 1.2);
           SB.bus.emit("scoutHit", { c: prey, g: c });
         }
       }
