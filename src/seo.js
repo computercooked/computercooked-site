@@ -48,7 +48,7 @@ function jsonLd(g) {
         name: g.title,
         url,
         description: g.pitch,
-        image: `${url}og.png`,
+        image: `${url}og.png?v=5`,
         thumbnailUrl: g.thumbnail && g.thumbnail.startsWith("/") ? SITE + g.thumbnail : undefined,
         genre: (g.tags || []).filter((t) => t !== "halloween"),
         gamePlatform: ["Web browser", "Mobile web browser"],
@@ -126,7 +126,7 @@ export async function gamePage(req, env, url, slug) {
     rw.on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
       .on('meta[property="og:title"], meta[name="twitter:title"]', set(title))
       .on('meta[property="og:description"], meta[name="twitter:description"]', set("a friend dared you. free browser game: no download, plays on your phone."))
-      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png`));
+      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png?v=5`));
     cache = "public, max-age=300";
   } else {
     // search-intent title: what people type ("<game> online free no download")

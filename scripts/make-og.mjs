@@ -52,38 +52,50 @@ function titleLines(title) {
 
 function thumbFor(g) {
   const hi = join(root, "games", g.slug, "assets", "thumbnail-640x360.png");
-  const path = existsSync(hi) ? hi : join(root, g.thumbnail.replace(/^\//, ""));
+  const path = existsSync(hi) ? hi : join(root, g.thumbnail.replace(/^\//, "").replace(/\?.*$/, "")); // covers carry a ?v= cache-buster
   const mime = path.endsWith(".svg") ? "image/svg+xml" : "image/png";
   return `data:${mime};base64,${readFileSync(path).toString("base64")}`;
 }
 
+// each game's own colours (games.json "theme": a bright accent and a dark background), else the brand lime
+const BRAND = { accent: "#C5FF49", bg: "#121317" };
+const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+const mix = (a, b, t) => "#" + hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * t).toString(16).padStart(2, "0")).join("");
+// the brand computer, bottom right of the shot: happy on cards, gamer on dares
+const mascot = (vs) => `data:image/png;base64,${readFileSync(join(root, "assets/mascot", vs ? "gamer.png" : "happy.png")).toString("base64")}`;
+
 function card(g, vs) {
+  const th = g.theme && /^#[0-9a-f]{6}$/i.test(g.theme.accent) && /^#[0-9a-f]{6}$/i.test(g.theme.bg) ? g.theme : BRAND;
+  const A = th.accent, BG = th.bg, SHADOW = mix(A, BG, 0.62), SOFT = mix(A, "#ffffff", 0.55);
   const { size, lines } = titleLines(g.title);
   const lh = Math.round(size * 1.08);
   const top = 315 - (lines.length * lh) / 2 + size * 0.78 - (vs ? 10 : 30);
   const title = lines.map((l, i) => {
     const y = Math.round(top + i * lh);
-    return `<text x="664" y="${y + 5}" fill="#8f7cff">${esc(l)}</text><text x="660" y="${y}" fill="#C5FF49">${esc(l)}</text>`;
+    return `<text x="665" y="${y + 6}" fill="${SHADOW}">${esc(l)}</text><text x="660" y="${y}" fill="${A}">${esc(l)}</text>`;
   }).join("");
   const subY = Math.round(top + (lines.length - 1) * lh + 62);
   const sub = vs ? "a friend dared you. play free" : "play free in your browser";
   const tri = 660 + Math.round(sub.length * 0.6 * 27) + 14; // the font subset has no ▶, so draw one
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16190f"/><stop offset=".45" stop-color="#121317"/><stop offset="1" stop-color="#17151f"/></linearGradient>
-    <radialGradient id="glow" cx=".25" cy=".5" r=".45"><stop offset="0" stop-color="#C5FF49" stop-opacity=".16"/><stop offset="1" stop-color="#C5FF49" stop-opacity="0"/></radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${mix(BG, A, 0.1)}"/><stop offset=".5" stop-color="${BG}"/><stop offset="1" stop-color="${mix(BG, "#000000", 0.35)}"/></linearGradient>
+    <radialGradient id="glow" cx=".27" cy=".5" r=".5"><stop offset="0" stop-color="${A}" stop-opacity=".22"/><stop offset="1" stop-color="${A}" stop-opacity="0"/></radialGradient>
+    <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" opacity=".22"/></pattern>
     <clipPath id="clip"><rect x="64" y="${H / 2 - 158}" width="560" height="315" rx="18"/></clipPath>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
   <rect width="${W}" height="${H}" fill="url(#glow)"/>
   <g font-family="${FAMILY}, JetBrains Mono">
-    <text x="64" y="74" font-size="24" fill="#B59AFF" letter-spacing="2">COMPUTER COOKED GAMES</text>
-    <rect x="52" y="${H / 2 - 170}" width="584" height="339" rx="26" fill="#0b0c0f" stroke="#C5FF49" stroke-width="4"/>
+    <text x="64" y="74" font-size="24" fill="${SOFT}" letter-spacing="2">COMPUTER COOKED GAMES</text>
+    <rect x="52" y="${H / 2 - 170}" width="584" height="339" rx="26" fill="#0b0c0f" stroke="${A}" stroke-width="5"/>
     <image x="64" y="${H / 2 - 158}" width="560" height="315" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip)" xlink:href="${thumbFor(g)}"/>
-    ${vs ? `<rect x="660" y="${Math.round(top - size - 52)}" width="372" height="52" rx="26" fill="#C5FF49"/><text x="846" y="${Math.round(top - size - 17)}" font-size="26" fill="#111" text-anchor="middle">CAN YOU BEAT IT?</text>` : ""}
+    <rect x="64" y="${H / 2 - 158}" width="560" height="315" fill="url(#scan)" clip-path="url(#clip)"/>
+    <image x="506" y="${H / 2 + 60}" width="130" height="151" xlink:href="${mascot(vs)}" style="image-rendering:pixelated"/>
+    ${vs ? `<rect x="660" y="${Math.round(top - size - 52)}" width="372" height="52" rx="26" fill="${A}"/><text x="846" y="${Math.round(top - size - 17)}" font-size="26" fill="#111" text-anchor="middle">CAN YOU BEAT IT?</text>` : ""}
     <g font-size="${size}">${title}</g>
-    <text x="660" y="${subY}" font-size="27" fill="#F5F3ED">${esc(sub)}</text><path d="M${tri} ${subY - 21}l18 10.5-18 10.5z" fill="#C5FF49"/>
-    <text x="1140" y="590" font-size="26" fill="#B59AFF" text-anchor="end">computercooked.com</text>
+    <text x="660" y="${subY}" font-size="27" fill="#F5F3ED">${esc(sub)}</text><path d="M${tri} ${subY - 21}l18 10.5-18 10.5z" fill="${A}"/>
+    <text x="1140" y="590" font-size="26" fill="${SOFT}" text-anchor="end">computercooked.com</text>
   </g>
 </svg>`;
 }

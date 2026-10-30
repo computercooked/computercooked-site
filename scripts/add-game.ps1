@@ -52,6 +52,10 @@ $item = [ordered]@{
   tags = @($entry.tags | Where-Object { $_ }); controls = "$($entry.controls)"; size_kb = $entry.size_kb
   version = $(if ($entry.version) { "$($entry.version)" } else { "1" }); added = $added
 }
+# the card colours (accent + dark bg, used by the og cards, cards and the game page) and the hover clip: from
+# entry.json when it has them, else whatever games.json already had (re-running this never drops them)
+if ($entry.theme) { $item.theme = [ordered]@{ accent = "$($entry.theme.accent)"; bg = "$($entry.theme.bg)" } } elseif ($old -and $old.theme) { $item.theme = $old.theme }
+if ($old -and $old.clip) { $item.clip = "$($old.clip)" }
 if ($entry.max_score_per_sec) { $item.max_score_per_sec = [double]$entry.max_score_per_sec }
 if ($entry.max_score) { $item.max_score = [double]$entry.max_score }
 if ($entry.score_slack) { $item.score_slack = [double]$entry.score_slack }
