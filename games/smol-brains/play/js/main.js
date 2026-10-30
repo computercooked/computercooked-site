@@ -713,8 +713,9 @@
     SB.Music && SB.Music.init && SB.Music.init();
     var canvas = document.getElementById("view"), ov = document.getElementById("overlay");
     var look = null; try { look = window.localStorage.getItem("smolbrains-look"); } catch (e) {}
-    if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel"; else if (/[?&]look=hd/.test(location.search)) look = "hd";
-    if (!SB.Render.init(canvas, ov, { pixel: look !== "3d", hd: look === "hd" })) { SB.UI.noWebGL(); return; }
+    if (/[?&]look=3d/.test(location.search)) look = "3d"; else if (/[?&]look=pixel/.test(location.search)) look = "pixel"; else if (/[?&]look=hd/.test(location.search)) look = "hd"; else if (/[?&]look=voxel/.test(location.search)) look = "voxel";
+    if (look !== "3d" && look !== "pixel" && look !== "hd") look = "voxel"; // the voxel look is the default (4.10)
+    if (!SB.Render.init(canvas, ov, { pixel: look !== "3d", hd: look === "hd", voxel: look === "voxel" })) { SB.UI.noWebGL(); return; }
     try { if (/[?&]perf=1/.test(location.search)) SB.Render.perf.show = true; } catch (e) {}
     hookPage();
     if (window.cc && cc.start) try { cc.start(); } catch (e) {}

@@ -96,6 +96,7 @@
     if (up) {
       // ---- a little person: legs, torso, a block head
       var tw = S.tw, th = S.th, hr = S.hr, hry = S.hry;
+      if (R.voxel) { hr = hr * 1.3; hry = hry * 1.3; } // the voxel look: big block heads, like the ad
       bodyRX = Math.max(2, tw / 2 - 0.5); bodyRY = th / 2; bodyRZ = tw / 2; bodyCY = legH + th / 2;
       var gap = tw >= 6 ? 1 : 0;
       box(-1, 0, -2 - gap, 2, legH + 1, 2, base, P_LEGA); box(-1, 0, gap, 2, legH + 1, 2, base, P_LEGB);
@@ -103,7 +104,7 @@
       piv(P_LEGA, 0, legH + 0.5, -1 - gap); piv(P_LEGB, 0, legH + 0.5, 1 + gap);
       blob(0, bodyCY, 0, bodyRX, bodyRY, bodyRZ, VX.SHAPE.torso, skin(0, bodyCY, bodyRX, bodyRY), P_BODY);
       headRX = hr * 0.92; headRY = hry; headRZ = hr; headCY = legH + th + hry - 1;
-      blob(0, headCY, 0, headRX, headRY, headRZ, VX.SHAPE.head, skin(0, headCY, headRX, headRY, true), P_HEAD);
+      blob(0, headCY, 0, headRX, headRY, headRZ, R.voxel ? 9 : VX.SHAPE.head, skin(0, headCY, headRX, headRY, true), P_HEAD);
       headPart = P_HEAD;
       // arms hang from the shoulders (2x2 blocks with a lighter hand)
       var az = Math.ceil(bodyRZ), aLen = Math.max(3, th - 1), ay = legH + th - 1;
@@ -121,7 +122,7 @@
     } else {
       // ---- a round block body that is also the head (blobs, critters, tool-users, grumps)
       bodyRX = S.bw / 2 * 0.9; bodyRY = S.bh / 2; bodyRZ = S.bw / 2 * 0.92; bodyCY = legH + S.bh / 2 - (legs ? 0.5 : 0);
-      blob(0, bodyCY, 0, bodyRX, bodyRY, bodyRZ, VX.SHAPE.blob, skin(0, bodyCY, bodyRX, bodyRY), P_BODY);
+      blob(0, bodyCY, 0, bodyRX, bodyRY, bodyRZ, R.voxel ? 6 : VX.SHAPE.blob, skin(0, bodyCY, bodyRX, bodyRY), P_BODY);
       headRX = bodyRX; headRY = bodyRY; headRZ = bodyRZ; headCY = bodyCY; headPart = P_BODY;
       if (legs) {
         var lz = Math.max(1, Math.round(bodyRZ * 0.45)), lx = Math.max(1, Math.round(bodyRX * 0.42));
@@ -235,6 +236,7 @@
     var o = { e1: g.e1, e2: g.e2, ey: g.ey, es: g.es, mx: g.mx, my: g.my, grown: S.grown, face: mood || S.face || "neutral", eyeT: S.eyeT, elder: S.elder, cheeks: S.lk.cheeks, dark: S.dark, outline: S.outline, grump: S.grump, glasses: S.tier === 5 && !S.grump };
     if (model.upright) PX.paintFace(fr, fi, o); else PX.cuteFace(fr, fi, o);
     if (o.glasses) PX.glasses(fr, g.e1, g.e2, g.ey, g.es);
+    if (R.voxel) glowEyes(f, F, g, fi, S);
     var q = [], EPS = 0.06;
     for (var y = 0; y < F; y++) for (var x = 0; x < F; x++) {
       var i = (y * F + x) * 4;
@@ -258,6 +260,22 @@
     }
     return { verts: verts, index: index, quads: n };
   };
+
+  // the voxel look: simple glowing eyes. Each open eye becomes a solid block of light (warm white, grumps red),
+  // whatever the painter drew there; shut eyes (blink, sleep, a happy squint) stay as the painter's lines
+  var EYE_GLOW = [255, 247, 214], EYE_GRUMP = [255, 64, 52];
+  function glowEyes(f, F, g, fi, S) {
+    var FR = SB.Pixel.FR;
+    if (fi === FR.blink || fi === FR.sleep || fi === FR.happy) return;
+    var c = S.grump ? EYE_GRUMP : EYE_GLOW, h = Math.max(2, g.es), y0 = fi === FR.scared ? g.ey - 1 : g.ey;
+    [g.e1, g.e2].forEach(function (ex) {
+      for (var y = y0; y < g.ey + h; y++) for (var x = ex; x < ex + 2; x++) {
+        if (x < 0 || y < 0 || x >= F || y >= F) continue;
+        var i = (y * F + x) * 4;
+        f.d[i] = c[0]; f.d[i + 1] = c[1]; f.d[i + 2] = c[2]; f.d[i + 3] = 255; f.tag[y * F + x] = 9;
+      }
+    });
+  }
 
   /* ---------------- meshing ---------------- */
   var VS = 11; // floats per vertex: pos 3, normal 3, colour 3, glow 1, part 1
@@ -314,6 +332,7 @@
   VX.lookKey = lookKey;
   var cache = {}, cacheN = 0, frameNo = 0, budget = 0, faceBudget = 0;
   VX.MAX_CACHE = 48;
+  function maxCache() { return R.voxel ? 200 : VX.MAX_CACHE; }
   VX.stats = { built: 0, faces: 0, buildMs: 0, drawn: 0, cache: 0, sprites: 0 };
   // the model for a smol (built now if the frame still has budget; null = draw the sprite this frame)
   VX.modelFor = function (c, force) {
@@ -327,7 +346,7 @@
       m = cache[key] = VX.build(c);
       m.key = key; m.faces = {}; cacheN++;
       VX.stats.built++; VX.stats.buildMs += (typeof performance !== "undefined" ? performance.now() : 0) - t0;
-      if (cacheN > VX.MAX_CACHE) evict();
+      if (cacheN > maxCache()) evict();
     }
     m.used = frameNo;
     return m;
@@ -346,7 +365,7 @@
   function freeGpu(o) { if (o && o.gpu && ctxRef) { ctxRef.gl.deleteBuffer(o.gpu.vb); ctxRef.gl.deleteBuffer(o.gpu.ib); o.gpu = null; } }
   function evict() {
     var keys = Object.keys(cache).sort(function (a, b) { return cache[a].used - cache[b].used; });
-    for (var i = 0; i < keys.length && cacheN > VX.MAX_CACHE * 0.75; i++) {
+    for (var i = 0; i < keys.length && cacheN > maxCache() * 0.75; i++) {
       var m = cache[keys[i]];
       if (m.used >= frameNo - 2) break;
       freeGpu(m); for (var k in m.faces) freeGpu(m.faces[k]);
@@ -355,7 +374,7 @@
   }
   VX.flush = function () { for (var k in cache) { freeGpu(cache[k]); for (var f in cache[k].faces) freeGpu(cache[k].faces[f]); } cache = {}; cacheN = 0; };
   VX.cacheSize = function () { return cacheN; };
-  VX.tick = function () { frameNo++; budget = VX.BUILD_PER_FRAME; faceBudget = VX.BUILD_PER_FRAME * 3; };
+  VX.tick = function () { frameNo++; budget = VX.BUILD_PER_FRAME + (R.voxel ? 2 : 0); faceBudget = budget * 3; };
   VX.BUILD_PER_FRAME = 2;
 
   /* ---------------- when to use them ---------------- */
@@ -367,12 +386,13 @@
     if (/[?&]smols=3d/.test((window.location && window.location.search) || "")) VX.god = true;
     if (/[?&]smols=flat/.test((window.location && window.location.search) || "")) VX.god = false;
   } catch (e) {}
-  VX.godOn = function () { return VX.god == null ? !!R.hd : VX.god; };
+  VX.godOn = function () { return R.voxel || (VX.god == null ? !!R.hd : VX.god); };
   VX.setGod = function (on) { VX.god = !!on; try { window.localStorage.setItem("smolbrains-smols", on ? "3d" : "flat"); } catch (e) {} };
   VX.enabled = true; // (perf comparisons: false draws sprites everywhere, as before)
   VX.POV_FAR = 26; // first person: voxels out to here, sprites beyond
   VX.POV_LOD = 0.7; // ...and only while a sprite pixel would still be at least this many art pixels (~13 units in the pixel look)
   VX.MAX_DRAWN = 48;
+  VX.MAX_DRAWN_VOXEL = 160; // the voxel look draws every smol as voxels (two draws each)
   // how solid a smol is in first person at distance d from the eye to its body (fades over the last ~0.4)
   VX.nearAlpha = function (d) { var t = SB.clamp((d - 0.04) / 0.4, 0, 1); return t * t * (3 - 2 * t); };
   // distance from the eye to a smol's body (a vertical capsule)
@@ -387,7 +407,7 @@
   VX.creature = function (c, x, y, z, t, mo) {
     var cam = R.camera, pov = !!cam.pov, scale = UNIT;
     if (!VX.enabled || !R.gl || !R.gl() || !SB.Pixel) return false;
-    if (list.length >= VX.MAX_DRAWN) return false;
+    if (list.length >= (R.voxel ? VX.MAX_DRAWN_VOXEL : VX.MAX_DRAWN)) return false;
     var alpha = 1;
     if (pov) {
       var e = cam.eye, dd = Math.hypot(x - e[0], z - e[2]);
@@ -396,11 +416,16 @@
       if (pp && pp * UNIT < VX.POV_LOD) return false;
     } else {
       if (!R.pixel || !VX.godOn()) return false;
-      // the same size on screen as the sprite would be (sprites top out at 2x up close: no giants)
-      var cs = R.canvasSize(), ppu = cs.h / (2 * cam.halfH), ratio = 0.38 * 2.2 * ppu / 16;
-      if (ratio < (VX.god ? 0.75 : 1.6)) return false;
-      var k = ratio < 0.8 ? ratio : Math.min(2, Math.max(1, Math.floor(ratio + 0.3)));
-      scale = UNIT * k / ratio;
+      if (R.voxel) { // the voxel look: every smol in view at its true size; only specks far out stay sprites
+        var vcs = R.canvasSize(), vppu = vcs.h / (2 * cam.halfH);
+        if (0.38 * 2.2 * vppu / 16 < 0.22) return false;
+      } else {
+        // the same size on screen as the sprite would be (sprites top out at 2x up close: no giants)
+        var cs = R.canvasSize(), ppu = cs.h / (2 * cam.halfH), ratio = 0.38 * 2.2 * ppu / 16;
+        if (ratio < (VX.god ? 0.75 : 1.6)) return false;
+        var k = ratio < 0.8 ? ratio : Math.min(2, Math.max(1, Math.floor(ratio + 0.3)));
+        scale = UNIT * k / ratio;
+      }
     }
     var m = VX.modelFor(c);
     if (!m) return false;
