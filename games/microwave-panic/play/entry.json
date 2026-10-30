@@ -1,0 +1,13 @@
+{
+  "slug": "microwave-panic",
+  "title": "microwave panic",
+  "pitch": "the computer is a microwave now. hold to cook, let go when it's done. read the popcorn, the egg, the burrito. never microwave the fork.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "controls": "hold anywhere (or hold space / enter) to cook, let go when the food is done. popcorn pops slow down, the egg wobbles, the fish stinks. metal: let go at once. m mutes.",
+  "size_kb": 33,
+  "tags": ["timing", "hold-and-release", "short", "funny", "mobile"],
+  "version": "1.0",
+  "max_score_per_sec": 15,
+  "max_score": 6000
+}
