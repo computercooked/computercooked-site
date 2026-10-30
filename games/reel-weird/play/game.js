@@ -497,30 +497,45 @@
 
   // ---------- drawing helpers ----------
   // fillText re-rasterises every glyph every frame, which was most of the page's blocking time on phones. Each
-  // string is drawn once into a small canvas at device resolution and blitted after that (same look, same baseline).
+  // string is drawn once at device resolution and blitted after that (same look, same baseline)...
   // New strings are capped per frame, so the first frame's dozen or so don't land in one long task (they appear over
   // a few frames instead).
-  const textCache = new Map(); let textDpr = 0, textBudget = 2;
+  // ...all packed into one shared atlas canvas: a fresh canvas per string paid the font set-up again on its first
+  // fillText, which was most of what was left of the first frames' cost. Full atlas = cleared and re-warmed.
+  const ATLAS = 1024, atlas = document.createElement('canvas'); atlas.width = atlas.height = ATLAS;
+  const atx = atlas.getContext('2d');
+  let ax = 0, ay = 0, arow = 0;
+  const textCache = new Map(); let textDpr = 0, textBudget = 1;
+  function resetAtlas() { atx.setTransform(1, 0, 0, 1, 0, 0); atx.clearRect(0, 0, ATLAS, ATLAS); ax = ay = arow = 0; textCache.clear(); }
+  function alloc(w, h) {
+    w = Math.ceil(w) + 2; h = Math.ceil(h) + 2;
+    if (w > ATLAS || h > ATLAS) return null;
+    if (ax + w > ATLAS) { ax = 0; ay += arow; arow = 0; }
+    if (ay + h > ATLAS) resetAtlas();
+    const slot = { x: ax, y: ay };
+    ax += w; arow = Math.max(arow, h);
+    return slot;
+  }
   function text(s, x, y, size, col, align, weight) {
     s = String(s); size = Math.round(size);
-    if (textDpr !== dpr || textCache.size > 400) { textCache.clear(); textDpr = dpr; }
+    if (textDpr !== dpr) { resetAtlas(); textDpr = dpr; }
     const key = (weight || '800') + '|' + size + '|' + col + '|' + s;
     let t = textCache.get(key);
     if (!t) {
       if (textBudget <= 0) return;
       textBudget--;
       const font = (weight || '800') + ' ' + size + 'px ' + FONT, pad = Math.ceil(size * 0.25);
-      ctx.font = font;
-      const w = ctx.measureText(s).width, c2 = document.createElement('canvas');
-      c2.width = Math.max(1, Math.ceil((w + pad * 2) * dpr)); c2.height = Math.max(1, Math.ceil(size * 1.5 * dpr));
-      const g = c2.getContext('2d');
-      g.scale(dpr, dpr); g.font = font; g.fillStyle = col; g.fillText(s, pad, size * 1.15);
-      t = { c: c2, w, pad, asc: size * 1.15 };
+      atx.setTransform(1, 0, 0, 1, 0, 0); atx.font = font;
+      const w = atx.measureText(s).width, cw = Math.ceil((w + pad * 2) * dpr), ch = Math.ceil(size * 1.5 * dpr), slot = alloc(cw, ch);
+      if (!slot) return;
+      atx.setTransform(dpr, 0, 0, dpr, slot.x, slot.y); atx.font = font; atx.fillStyle = col; atx.textAlign = 'left'; atx.textBaseline = 'alphabetic';
+      atx.fillText(s, pad, size * 1.15);
+      t = { x: slot.x, y: slot.y, cw, ch, w, pad, asc: size * 1.15 };
       textCache.set(key, t);
     }
     const ox = align === 'center' ? t.w / 2 : align === 'right' ? t.w : 0;
     const dx = Math.round((x - ox - t.pad) * dpr) / dpr, dy = Math.round((y - t.asc) * dpr) / dpr;
-    ctx.drawImage(t.c, dx, dy, t.c.width / dpr, t.c.height / dpr);
+    ctx.drawImage(atlas, t.x, t.y, t.cw, t.ch, dx, dy, t.cw / dpr, t.ch / dpr);
   }
   function roundRect(x, y, w, h, r) {
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -873,7 +888,7 @@
     if (!isActive() && !paused && now - last < 30) { requestAnimationFrame(frame); return; }
     frames++;
     const dt = Math.min(0.05, (now - last) / 1000);
-    last = now; textBudget = 2; spriteBudget = 2;
+    last = now; textBudget = 1; spriteBudget = 2;
     update(dt);
     btns = { mute: btns.mute };
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
