@@ -187,7 +187,9 @@ console.log("6. the village defends itself: the armed and brave fight, kids and 
 
 console.log("7. raids never wipe out a colony (answered sensibly, or not at all)");
 {
-  for (const [seed, choice] of [[71, "hide"], [72, "fight"], [73, null], [74, null]]) {
+  // seeded like the rest (the game uses Math.random for small things): unseeded, about one run in seven lost a
+  // fourth smol to bad luck and failed the suite for no reason
+  for (const [seed, choice] of [[71, "hide"], [72, "fight"], [73, null], [74, null]]) seeded(seed, () => {
     const { SB, game } = village(seed, 4);
     game.time = 4 * 3600; game.ngPlus = 1; // as strong as grumps get, short of later rounds
     ["raid", "raid", "raid"].forEach(() => SB.bus.emit("incidentEnd", { inc: { id: "raid", walled: true }, ok: true, text: "" }));
@@ -202,7 +204,7 @@ console.log("7. raids never wipe out a colony (answered sensibly, or not at all)
     }
     const pop1 = smols(SB, game).filter(c => c.captive == null).length;
     check("three strong raids, " + (choice || "hands off") + ": the colony stands", pop1 >= pop0 * 0.75 && deaths <= 2, pop0 + " → " + pop1 + " (deaths " + deaths + ", grabbed " + grabs + ")");
-  }
+  });
 }
 
 console.log("8. natural disasters: every one, every choice, plays out and leaves a mark");

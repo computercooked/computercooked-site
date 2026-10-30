@@ -36,10 +36,10 @@
     "uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uSkyCol; uniform vec3 uGndCol; uniform vec3 uFogCol;",
     "uniform vec4 uFog; uniform vec4 uLP[8]; uniform vec3 uLC[8]; uniform float uNight; uniform float uNL;",
     "uniform sampler2D uCloud; uniform vec4 uCloudP;",
-    "uniform sampler2D uSeen; uniform vec2 uSeenK;",
+    "uniform sampler2D uSeen; uniform vec2 uSeenK; float gNoFow = 0.0;",
     // fog of war: unexplored land sits under a soft, slowly drifting sea of cloud
     "vec3 fow(vec3 c, vec3 w) {",
-    "  if (uSeenK.y < 0.5) return c;",
+    "  if (uSeenK.y < 0.5 || gNoFow > 0.5) return c;",
     "  float s = smoothstep(0.2, 0.8, texture2D(uSeen, w.xz * uSeenK.x).r);",
     "  if (s > 0.999) return c;",
     "  float n = texture2D(uCloud, w.xz * 0.035 + uCloudP.xy * 0.6).r;",
@@ -47,8 +47,23 @@
     "  fc *= 0.55 + 0.45 * (1.0 - uNight * 0.7);",
     "  return mix(fc, c, s);",
     "}",
+    // sun shadows (the voxel look): a depth map from the sun, 9 soft taps, faded out at the edge of its box
+    "uniform sampler2D uShadow; uniform mat4 uShadowM; uniform vec4 uShadowK;", // (5 taps in a rotated cross)
+    "float sunShadow(vec3 w, vec3 n) {",
+    "  if (uShadowK.x <= 0.0) return 1.0;",
+    "  vec4 p = uShadowM * vec4(w + n * 0.07, 1.0);",
+    "  vec3 q = p.xyz * 0.5 + 0.5;",
+    "  if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0 || q.z > 1.0) return 1.0;",
+    "  float s = 0.0, t = uShadowK.y;",
+    "  s += step(q.z - uShadowK.z, texture2D(uShadow, q.xy).r);",
+    "  s += step(q.z - uShadowK.z, texture2D(uShadow, q.xy + vec2(t, t * 0.4)).r) + step(q.z - uShadowK.z, texture2D(uShadow, q.xy - vec2(t, t * 0.4)).r);",
+    "  s += step(q.z - uShadowK.z, texture2D(uShadow, q.xy + vec2(-t * 0.4, t)).r) + step(q.z - uShadowK.z, texture2D(uShadow, q.xy + vec2(t * 0.4, -t)).r);",
+    "  vec2 e = min(q.xy, 1.0 - q.xy);",
+    "  return mix(1.0, s / 5.0, uShadowK.x * smoothstep(0.0, 0.08, min(e.x, e.y)));",
+    "}",
     "vec3 shade(vec3 col, vec3 n, vec3 w, float em, float fog) {",
     "  float sd = max(dot(n, uSunDir), 0.0);",
+    "  if (sd > 0.0) sd *= sunShadow(w, n);",
     "  float cl = texture2D(uCloud, w.xz * uCloudP.z + uCloudP.xy).r;",
     "  sd *= 1.0 - uCloudP.w * smoothstep(0.42, 0.72, cl);",
     "  vec3 amb = mix(uGndCol, uSkyCol, n.y * 0.5 + 0.5);",
@@ -227,10 +242,11 @@
     "    }",
     "  }",
     "#endif",
+    "  gNoFow = step(1.5, vIdHi.y);", // iExt.w = 2: scenery past the coast (the voxel look's giant), never under the fog of war
     "  vec3 c = shade(base, n, vW, vEm, vFog);",
     // a soft sky-coloured rim lifts every silhouette off the ground behind it; pickups get a stronger, warmer one
     // and a little glint that sweeps over them every few seconds
-    "  float hi = vIdHi.y;",
+    "  float hi = vIdHi.y * (1.0 - gNoFow);",
     "  c += (uSkyCol * 0.5 + uSunCol * 0.15) * rim * (0.22 + hi * 0.5) * (1.0 - vFog) * (1.0 - uNight * 0.6);",
     "  float glint = pow(max(sin(uTime * 1.6 + vIdHi.z), 0.0), 30.0) * hi;",
     "  c = mix(c, vec3(1.0, 0.98, 0.9), glint * (0.35 + rim * 0.5) * smoothstep(-0.2, 0.6, n.y));",
@@ -321,7 +337,7 @@
   var VS_POST = "attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }";
   var FS_POST = [
     PREC,
-    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk; uniform vec3 uPersp;",
+    "uniform sampler2D uCol; uniform sampler2D uDep; uniform vec2 uTexel; uniform float uThr; uniform vec3 uInk; uniform vec3 uPersp; uniform float uInkK;",
     "varying vec2 vUv;",
     // a perspective depth buffer isn't linear: turn it back into distance (uPersp: on, near, far)
     "float D(vec2 uv) { float z = texture2D(uDep, uv).r; if (uPersp.x < 0.5) return z; float n = uPersp.y, f = uPersp.z; return 2.0 * n * f / (f + n - (z * 2.0 - 1.0) * (f - n)); }",
@@ -353,8 +369,8 @@
     "  best *= far * step(0.003, me.a);", // never ink over a sprite (they carry their own outline)
     "  edge *= step(0.003, me.a);",
     "  vec3 ink = mix(uInk, src.rgb * 0.32, 0.45);",
-    "  c = mix(c, c * 0.3 + uInk * 0.7, edge * 0.8 * (1.0 - best));",
-    "  c = mix(c, ink, best * 0.92);",
+    "  c = mix(c, c * 0.3 + uInk * 0.7, edge * 0.8 * (1.0 - best) * uInkK);",
+    "  c = mix(c, ink, best * 0.92 * uInkK);",
     "  gl_FragColor = vec4(c, 1.0);",
     "}"
   ].join("\n");
@@ -423,7 +439,7 @@
   }
   function drawPost(P) {
     // hd look: the outlined picture goes to one more buffer, and hd.js blurs, blooms and grades it onto the canvas
-    var hdT = R.hd && SB.HD ? SB.HD.target(ctx, P) : null;
+    var hdT = (R.hd || R.voxel) && SB.HD ? SB.HD.target(ctx, P) : null;
     gl.bindFramebuffer(gl.FRAMEBUFFER, hdT);
     gl.viewport(0, 0, P.w, P.h);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
@@ -437,6 +453,7 @@
     if (cam.pov) gl.uniform3f(p.u.uPersp, 1, 0.04, (cam.pov.far || 80) + 20); else gl.uniform3f(p.u.uPersp, 0, 0, 0);
     var ink = SB.mixC([0.12, 0.1, 0.16], [0.03, 0.03, 0.08], env.night);
     gl.uniform3f(p.u.uInk, ink[0], ink[1], ink[2]);
+    gl.uniform1f(p.u.uInkK, R.voxel ? 0.55 : 1); // the voxel look: a softer ink, it reads as light on blocks
     GL.attribs(ctx, P.quad, [[p.a.aPos, 2]], 2, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.activeTexture(gl.TEXTURE0);
@@ -453,7 +470,8 @@
     // pixel-art mode: the 3D scene renders at ~240 px tall and the browser scales it up with hard edges
     R.pixel = opts.pixel !== false;
     R.hd = !!(opts.hd && R.pixel && SB.HD); // the hd pixel look (hd.js) builds on the pixel look
-    canvas.classList.toggle("pixel", R.pixel);
+    R.voxel = !!(opts.voxel && R.pixel && !R.hd && SB.Vox && SB.HD); // the voxel look (vox.js): the pixel pipeline at full resolution
+    canvas.classList.toggle("pixel", R.pixel && !R.voxel);
     ctx = GL.create(canvas, { antialias: !lowEnd && !R.pixel });
     if (!ctx) return false;
     gl = ctx.gl;
@@ -467,6 +485,7 @@
     cloudTex = makeCloudTexture(); seenTex = null;
     art.blank = GL.texture(ctx, 1, 1, new Uint8Array([128, 128, 128, 255]), { nearest: true });
     if (R.hd) SB.HD.init(ctx); // starts loading the hd art (nothing is fetched in the other looks)
+    else if (R.voxel) SB.HD.initPost(ctx); // the voxel look borrows only the last pass (blur, glow, grade)
     buildMeshes();
     // phones: flat-shaded low-poly reads fine at ~1.6x, and it's a lot fewer pixels than 2x or 3x.
     // labels and UI stay crisp because the overlay canvas keeps the full device ratio.
@@ -477,7 +496,7 @@
     if (quality.fx == null) quality.fx = !lowEnd; // hd look: depth of field and bloom (off on weak phones)
     R.resize();
     canvas.addEventListener("webglcontextlost", function (e) { e.preventDefault(); R.lost = true; }, false);
-    canvas.addEventListener("webglcontextrestored", function () { R.lost = false; post = null; R.init(canvas, overlay, { pixel: R.pixel, hd: R.hd }); if (game) R.setWorld(game); }, false);
+    canvas.addEventListener("webglcontextrestored", function () { R.lost = false; post = null; R.init(canvas, overlay, { pixel: R.pixel, hd: R.hd, voxel: R.voxel }); if (game) R.setWorld(game); }, false);
     return true;
   };
 
@@ -485,7 +504,8 @@
     if (!canvas) return;
     var rect = canvas.getBoundingClientRect();
     W = Math.max(1, rect.width | 0); H = Math.max(1, rect.height | 0);
-    if (R.pixel) {
+    if (R.voxel) { R.pixelSize = 1; dpr = Math.min(window.devicePixelRatio || 1, 2) * quality.scale; }
+    else if (R.pixel) {
       // whole CSS pixels per art pixel, so every art pixel is the same size on screen (a little finer in hd)
       R.pixelSize = Math.max(2, Math.round(Math.min(W, H) / (R.hd ? SB.HD.ROWS : 240)));
       dpr = 1 / R.pixelSize;
@@ -523,6 +543,8 @@
   }
 
   function upload(m, key) {
+    // the voxel look: shapes become blocks (vox.js), the first time each one is drawn
+    if (R.voxel) { var vo = SB.Vox.voxOpts(key); if (vo) return { lazy: m, vo: vo, count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad }; }
     var u = { buf: GL.buffer(ctx, m.data), count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad };
     if (R.hd) u.mat = GL.buffer(ctx, SB.HD.materials(key, m.data, m.count, STRIDE)); // which hd tile each vertex wears
     return u;
@@ -553,6 +575,7 @@
     for (var cj = 0; cj < nc; cj++) for (var ci = 0; ci < nc; ci++) chunks.push({ ci: ci, cj: cj, lod: {}, wat: {}, groups: null, decor: null, dirty: true, minY: 0, maxY: 0, used: 0 });
     computeAO();
     biomeCols();
+    if (R.voxel) SB.Vox.setWorld(T, ctx);
     // the island's height range (land and water), for the tap-to-ground ray march
     var hiY = SB.SEA, loY = SB.SEA, NONE = T.NONE;
     for (var hk = 0; hk < T.h.length; hk++) {
@@ -701,7 +724,7 @@
   }
   // a chunk's terrain and water at one level of detail (step 1 = every tile, 2 and 4 for far zooms)
   function buildChunkTerrain(c, step) {
-    c.lod[step] = buildTerrainLOD(c, step);
+    c.lod[step] = R.voxel ? SB.Vox.terrainLOD(c, step, ctx) : buildTerrainLOD(c, step);
     // water: quads where all four corners have a water level and at least one is actually wet
     var S = SB.CHUNK, V = T.V, i0 = c.ci * S, j0 = c.cj * S, NONE = T.NONE;
     var out = [];
@@ -751,6 +774,13 @@
   }
 
   /* ---- static instances per chunk: nodes, structures and decor ---- */
+  // the drawn ground: the block tops in the voxel look (the sim's smooth heightfield otherwise)
+  function GH(x, z) { return R.voxel ? SB.Vox.groundAt(x, z) : WG.heightAt(T, x, z); }
+  R.gh = function (x, z) { return T ? GH(x, z) : 0; };
+  // how far above the sim's ground the drawn ground is here (0 outside the voxel look and in water)
+  R.vdy = function (x, z) { return R.voxel && T ? SB.Vox.dy(x, z) : 0; };
+  R.vertexColor = function (i, j, out) { return vertexColor(i, j, out); };
+  R.aoAt = function (k) { return aoMap ? aoMap[k] || 0 : 0; };
   var tmpM = new Float32Array(12);
   // write a 3x4 transform: translate(x,y,z) * rotY(a) * scale(sx,sy,sz)
   function trs(out, o, x, y, z, a, sx, sy, sz) {
@@ -795,7 +825,7 @@
       if (nd.x < x0 || nd.x >= x0 + S || nd.z < z0 || nd.z >= z0 + S) continue;
       if (!SB.World.isSeen(game.world, nd.x, nd.z)) continue; // under the fog of war
       if (nd._anim || nd.state === "gone") continue; // shaking / mined out (survival.js draws the moving ones)
-      var y = WG.heightAt(T, nd.x, nd.z) - 0.04;
+      var y = GH(nd.x, nd.z) - 0.04;
       var key = "n:" + nd.kind + ":" + (nd.id % 3);
       if (nd.state === "stump") key = "n:stump";
       else if (nd.state === "burnt") key = "n:burnt";
@@ -812,7 +842,11 @@
       if (ps.gone || ps.x < x0 || ps.x >= x0 + S || ps.z < z0 || ps.z >= z0 + S || !SB.World.isSeen(game.world, ps.x, ps.z)) continue;
       var pk = ps.kind === "pod" ? "s:site_wreck" : ps.kind === "cave" ? "n:cave:0" : ps.kind === "nest" ? "n:nest:0" : ps.kind === "camp" && ps.done ? "s:site_campdone" : "s:site_" + ps.kind;
       if (!meshes[pk]) continue;
-      var py = WG.heightAt(T, ps.x, ps.z) - 0.03, psc = ps.kind === "nest" ? 1.8 : ps.kind === "cave" ? 1.3 : ps.kind === "wreck" || ps.kind === "pod" ? 1.3 : 1.6;
+      var py = GH(ps.x, ps.z) - 0.03, psc = ps.kind === "nest" ? 1.8 : ps.kind === "cave" ? 1.3 : ps.kind === "wreck" || ps.kind === "pod" ? 1.3 : 1.6;
+      if (R.voxel && (ps.kind === "pod" || ps.kind === "wreck")) { // the voxel look: half-buried, with its wreckage thrown about
+        py -= (meshes[pk].maxY || 1) * psc * 0.32;
+        SB.Vox.debris(ps.x, ps.z, ps.id || pi + 1, ps.kind === "wreck" ? 1.6 : 1).forEach(function (d) { push(d.key, d.x, GH(d.x, d.z) - 0.02, d.z, d.rot, d.s, d.s, d.s, [1, 1, 1], 0, 0); });
+      }
       push(pk, ps.x, py, ps.z, ps.rot || 0, psc, psc, psc, [1, 1, 1], 0, ps.kind === "ruin" && !ps.found ? 0.3 : 0);
     }
     var sts = game.world.structures || [];
@@ -823,8 +857,8 @@
       var sk = "s:" + (st.done ? st.kind : "plot");
       if (!meshes[sk]) continue;
       // sit on the highest ground under the footprint, so nothing sinks into a slope
-      var sr = (SB.STRUCTS[st.kind] ? SB.STRUCTS[st.kind].r : 0.8) * 0.8, ys = WG.heightAt(T, st.x, st.z);
-      for (var q = 0; q < 4; q++) ys = Math.max(ys, WG.heightAt(T, st.x + (q & 1 ? sr : -sr), st.z + (q & 2 ? sr : -sr)));
+      var sr = (SB.STRUCTS[st.kind] ? SB.STRUCTS[st.kind].r : 0.8) * 0.8, ys = GH(st.x, st.z);
+      if (!R.voxel) for (var q = 0; q < 4; q++) ys = Math.max(ys, WG.heightAt(T, st.x + (q & 1 ? sr : -sr), st.z + (q & 2 ? sr : -sr)));
       ys -= 0.02;
       push(sk, st.x, ys, st.z, st.rot || 0, st.s || 1, st.s || 1, st.s || 1, st.tint || [1, 1, 1], 0, 0);
       if (st.done && st.kind === "farm") {
@@ -845,7 +879,7 @@
         if (!rv || !SB.World.isSeen(game.world, ri + 0.5, rj + 0.5)) continue;
         var rx = ri + 0.5, rz = rj + 0.5;
         if (WG.waterAt(T, rx, rz) > WG.heightAt(T, rx, rz) + 0.05) continue; // the bridge covers it
-        var ry = Math.max(WG.heightAt(T, rx - 0.45, rz - 0.45), WG.heightAt(T, rx + 0.45, rz - 0.45), WG.heightAt(T, rx - 0.45, rz + 0.45), WG.heightAt(T, rx + 0.45, rz + 0.45)) - 0.015;
+        var ry = R.voxel ? GH(rx, rz) + 0.01 : Math.max(WG.heightAt(T, rx - 0.45, rz - 0.45), WG.heightAt(T, rx + 0.45, rz - 0.45), WG.heightAt(T, rx - 0.45, rz + 0.45), WG.heightAt(T, rx + 0.45, rz + 0.45)) - 0.015;
         var rh = SB.hash(ri, rj, 3);
         push("s:road", rx, ry, rz, 0, 1, 1, 1, rv === 2 ? [0.78 + rh * 0.08, 0.74 + rh * 0.08, 0.7 + rh * 0.06] : [0.6 + rh * 0.06, 0.47 + rh * 0.05, 0.33], 0, 0);
       }
@@ -861,12 +895,13 @@
     c.decor = {};
     var dl = {}, D = WG.decorChunk(T, c.ci, c.cj);
     for (var di = 0; di < D.length; di += 5) {
+      if (R.voxel && (di / 5) % 2) continue; // the voxel look: half the grass and flowers (each is a few cubes, and they read bigger)
       var dx = D[di], dz = D[di + 1];
       if (!SB.World.isSeen(game.world, dx, dz)) continue;
-      var type = D[di + 2], sc = D[di + 3], rot = D[di + 4];
+      var type = D[di + 2], sc = D[di + 3] * (R.voxel ? 0.75 : 1), rot = D[di + 4]; // voxel flowers read bigger: a touch smaller
       var L = dl[type] || (dl[type] = []), o = L.length;
       L.length += ISTRIDE;
-      trs(L, o, dx, WG.heightAt(T, dx, dz) - 0.02, dz, rot, sc, sc, sc);
+      trs(L, o, dx, GH(dx, dz) - 0.02, dz, rot, sc, sc, sc);
       var t = SB.hash(dx * 7.1, dz * 3.3, 2);
       var tint = type === 1 || type === 11 ? SB.hsl([0, 45, 200, 280, 330, 50][(t * 6) | 0], 0.75, 0.72).map(function (v) { return v * 1.1; }) : [0.9 + t * 0.2, 0.95 + t * 0.1, 0.9];
       if (type === 0 || type === 3) { var bmc = SB.hex(SB.BIOMES[WG.biomeAt(T, dx, dz)].c[1]); tint = [bmc[0] / 0.5 * (0.8 + t * 0.3), bmc[1] / 0.75 * (0.85 + t * 0.2), bmc[2] / 0.35 * (0.8 + t * 0.2)].map(function (v) { return Math.min(1.4, v); }); }
@@ -1139,6 +1174,7 @@
       env.gnd = env.gnd.map(function (v, i) { return v + dk * add[i] * 0.5; });
     }
     if (R.hd) SB.HD.env(env); // hd look: warmer sun, cooler shadows
+    else if (R.voxel) SB.Vox.env(env); // voxel look: golden hour
     if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky
     if (env.flash > 0) {
       env.flash = Math.max(0, env.flash - (dt > 0 ? dt * 3 : 0.05)); // fades in real time (was 0.05 a frame: longer on slow phones)
@@ -1194,7 +1230,7 @@
     var o = shadowN * 36, corners = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
     for (var i = 0; i < 6; i++) {
       var px = x + corners[i][0] * r, pz = z + corners[i][1] * r;
-      var py = Math.max(WG.heightAt(T, px, pz), WG.waterAt(T, px, pz)) + 0.04;
+      var py = Math.max(R.voxel ? SB.Vox.groundAt(x, z) : WG.heightAt(T, px, pz), WG.waterAt(T, px, pz)) + 0.04;
       shadowV[o++] = px; shadowV[o++] = py; shadowV[o++] = pz; shadowV[o++] = corners[i][0]; shadowV[o++] = corners[i][1]; shadowV[o++] = a == null ? 0.35 : a;
     }
     shadowN++;
@@ -1212,10 +1248,11 @@
   function adapt(dt) {
     if (!(dt > 0) || dt > 0.25) return;
     perf.ft += (dt * 1000 - perf.ft) * 0.05;
-    if (R.hd) SB.HD.adapt(perf, dt, quality); // hd look: drops its blur and glow if frames run slow
-    if (quality.fixed || R.pixel) return; // pixel mode is already cheap
-    if (perf.ft > 38) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < 22) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
-    if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - 0.15); perf.slowT = 0; R.resize(); }
+    if (R.hd || R.voxel) SB.HD.adapt(perf, dt, quality); // hd and voxel looks: drop the blur and glow if frames run slow
+    if (quality.fixed || (R.pixel && !R.voxel)) return; // pixel mode is already cheap
+    var slow = R.voxel ? 19 : 38, fast = R.voxel ? 15 : 22; // the voxel look holds 60 fps: it gives up pixels as soon as frames slip
+    if (perf.ft > slow) { perf.slowT += dt; perf.fastT = 0; } else if (perf.ft < fast) { perf.fastT += dt; perf.slowT = 0; } else { perf.slowT = 0; perf.fastT = 0; }
+    if (perf.slowT > 2 && quality.scale > 0.5) { quality.scale = Math.max(0.5, quality.scale - (R.voxel ? 0.1 : 0.15)); perf.slowT = 0; R.resize(); }
     else if (perf.fastT > 6 && quality.scale < (quality.max || 1)) { quality.scale = Math.min(quality.max || 1, quality.scale + 0.1); perf.fastT = 0; R.resize(); }
     if (perf.ft > 45 && quality.decor && perf.slowT > 1.5 && quality.scale <= 0.5) quality.decor = false;
   }
@@ -1269,6 +1306,7 @@
       lightCols[li * 3] = L[4] * nk; lightCols[li * 3 + 1] = L[5] * nk; lightCols[li * 3 + 2] = L[6] * nk;
     }
 
+    if (R.voxel && T) drawShadowMap(); // the sun's shadow map first
     var P = ensurePost();
     gl.bindFramebuffer(gl.FRAMEBUFFER, P ? P.fb : null);
     gl.viewport(0, 0, BW, BH);
@@ -1355,6 +1393,92 @@
     }
     gl.uniformMatrix4fv(p.u.uVP, false, VP);
     if (p.u.uHdK) SB.HD.uniforms(gl, p, cam, BH);
+    if (p.u.uShadowK) {
+      if (shadow && shadow.on) {
+        gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, shadow.dep); gl.uniform1i(p.u.uShadow, 7); gl.activeTexture(gl.TEXTURE0);
+        gl.uniformMatrix4fv(p.u.uShadowM, false, shadow.m);
+        gl.uniform4f(p.u.uShadowK, shadow.k, 1.6 / SHADOW_N, 0.0005, 0);
+      } else gl.uniform4f(p.u.uShadowK, 0, 0, 0, 0);
+    }
+  }
+
+  /* ---- sun shadows (the voxel look): terrain, trees, rocks, huts and loose things cast into a depth map ---- */
+  var SHADOW_N = 2048, shadow = null, SVP = M4.create(), SV = M4.create(), SP = M4.create();
+  var VS_SD_T = "attribute vec3 aPos; uniform mat4 uVP; void main() { gl_Position = uVP * vec4(aPos, 1.0); }";
+  var VS_SD_O = "attribute vec3 aPos; attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; uniform mat4 uVP; void main() { vec4 p = vec4(aPos, 1.0); gl_Position = uVP * vec4(dot(iM0, p), dot(iM1, p), dot(iM2, p), 1.0); }";
+  var FS_SD = "precision mediump float; void main() { gl_FragColor = vec4(1.0); }";
+  function ensureShadow() {
+    if (shadow && (shadow.failed || shadow.fb)) return shadow.failed ? null : shadow;
+    try {
+      if (!(ctx.v2 || gl.getExtension("WEBGL_depth_texture"))) { shadow = { failed: true }; return null; }
+      var sh = { m: new Float32Array(16), on: false, k: 0 };
+      sh.pT = GL.program(ctx, VS_SD_T, FS_SD); sh.pO = GL.program(ctx, VS_SD_O, FS_SD);
+      sh.dep = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, sh.dep);
+      if (ctx.v2) gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, SHADOW_N, SHADOW_N, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, SHADOW_N, SHADOW_N, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(function (k) { gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST); });
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      sh.rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, sh.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA4, SHADOW_N, SHADOW_N);
+      sh.fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fb);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, sh.rb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sh.dep, 0);
+      var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      shadow = ok ? sh : { failed: true };
+      return ok ? sh : null;
+    } catch (e) { shadow = { failed: true }; return null; }
+  }
+  function drawShadowMap() {
+    var was = shadow && shadow.on;
+    if (shadow) shadow.on = false;
+    if (!R.voxel || !quality.fx || quality.shadows === false || !T) return;
+    var sd = env.sunDir, k = SB.clamp01((sd[1] - 0.08) / 0.2) * (1 - env.night * 0.75) * (1 - SB.clamp01(env.cloud * 0.9 + env.rain) * 0.6);
+    var half, cx, cz;
+    if (cam.pov) { half = 30; cx = cam.eye[0] + cam.fwdXZ[0] * 18; cz = cam.eye[2] + cam.fwdXZ[1] * 18; }
+    else {
+      half = Math.min(64, Math.max(cam.halfW, cam.halfH / Math.max(0.3, Math.sin(cam.pitch))) * 1.15); cx = cam.x; cz = cam.z;
+      k *= 1 - SB.smooth(SB.clamp01((cam.zoom - 34) / 16));
+    }
+    if (k < 0.02) return;
+    var sh = ensureShadow(); if (!sh) return;
+    var snap = half * 2 / SHADOW_N * 4; cx = Math.round(cx / snap) * snap; cz = Math.round(cz / snap) * snap; // steadier edges as the view moves
+    var cy = cam.pov ? cam.eye[1] : cam.y;
+    // the same box as last frame: keep last frame's map (smols don't cast into it, so only falling trees and
+    // carried things change it) and redraw it every 4th frame. Saves the whole pass most frames.
+    var key = cx + "," + cz + "," + half.toFixed(1) + "," + sd[0].toFixed(3) + "," + sd[1].toFixed(3);
+    sh.age = (sh.age || 0) + 1;
+    if (was && sh.key === key && sh.age < 4) { sh.on = true; sh.k = k * 0.78; return; }
+    sh.key = key; sh.age = 0;
+    M4.lookAt(SV, cx + sd[0] * 150, cy + sd[1] * 150, cz + sd[2] * 150, cx, cy, cz, Math.abs(sd[1]) > 0.95 ? 1 : 0, Math.abs(sd[1]) > 0.95 ? 0 : 1, 0);
+    M4.ortho(SP, -half, half, -half, half, 1, 300);
+    M4.mul(SVP, SP, SV);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fb);
+    gl.viewport(0, 0, SHADOW_N, SHADOW_N);
+    gl.colorMask(false, false, false, false);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+    // casters: the chunks under the box (whatever terrain and static things they have built)
+    var S = SB.CHUNK, list = [], i;
+    for (i = 0; i < chunks.length; i++) { var c = chunks[i]; if (c.ci * S + S < cx - half - 8 || c.ci * S > cx + half + 8 || c.cj * S + S < cz - half - 8 || c.cj * S > cz + half + 8) continue; list.push(c); }
+    GL.resetAttribs(ctx);
+    gl.useProgram(sh.pT.prog); gl.uniformMatrix4fv(sh.pT.u.uVP, false, SVP);
+    for (i = 0; i < list.length; i++) {
+      var L = list[i].lod[list[i].drawStep || 1] || list[i].lod[1] || list[i].lod[2] || list[i].lod[4];
+      if (!L) continue;
+      GL.attribs(ctx, L.buf, [[sh.pT.a.aPos, 3]], SB.Vox.STRIDE, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, L.count);
+    }
+    GL.resetAttribs(ctx);
+    var p = sh.pO;
+    gl.useProgram(p.prog); gl.uniformMatrix4fv(p.u.uVP, false, SVP);
+    for (i = 0; i < list.length; i++) { var gr = list[i].groups; if (gr) for (var key in gr) drawInstanced(p, key, gr[key].buf, gr[key].n); }
+    for (var dk in frameDyn) { var dd = frameDyn[dk]; if (dd.n) drawInstanced(p, dk, GL.stream(ctx, dynHolders[dk] || (dynHolders[dk] = {}), dd.data, dd.n * ISTRIDE), dd.n); } // (this frame's moving things)
+    gl.colorMask(true, true, true, true);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    for (i = 0; i < 16; i++) sh.m[i] = SVP[i]; // world -> shadow clip, for the shaders
+    sh.on = true; sh.k = k * 0.78;
+    perf.draws += list.length * 2;
   }
 
   function drawTerrain(vis) {
@@ -1373,6 +1497,13 @@
     frameNo++; terrBudget = 6;
     if (frameNo % 120 === 0) evictChunks();
     var want = R.terrainStep();
+    if (R.voxel) { // block terrain (vox.js): its own shader, no culling (every face it makes is an outside face)
+      gl.disable(gl.CULL_FACE);
+      var vl = [];
+      for (var vi = 0; vi < vis.length; vi++) { var vc = vis[vi], vs = chunkLOD(vc, want); vc.drawStep = vs; if (vc.lod[vs]) { vc.lod[vs].step = vs; vl.push(vc.lod[vs]); } }
+      SB.Vox.drawTerrain(gl, ctx, vl, setLightUniforms, env, cam, perf);
+      return;
+    }
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i], st = chunkLOD(c, want), L = c.lod[st];
       c.drawStep = st;
@@ -1401,9 +1532,11 @@
     gl.disable(gl.BLEND);
   }
 
+  function realize(u) { var v = SB.Vox.voxelize(u.lazy, u.vo); u.buf = GL.buffer(ctx, v.data); u.count = v.count; u.lazy = null; }
   function drawInstanced(p, meshKey, buf, n) {
     var m = meshes[meshKey];
     if (!m || !n) return;
+    if (m.lazy) realize(m);
     perf.draws++; perf.tris += m.count / 3 * n;
     GL.attribs(ctx, m.buf, [[p.a.aPos, 3], [p.a.aNrm, 3], [p.a.aCol, 4], [p.a.aExt, 2]], STRIDE, 0);
     if (m.mat && p.a.aMat != null) GL.attribs(ctx, m.mat, [[p.a.aMat, 1]], 1, 0);
@@ -1497,7 +1630,7 @@
     gl.uniform3fv(p.u.uEye, cam.eye);
     gl.uniform1f(p.u.uFreeze, env.freeze);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.depthMask(!!(R.hd && cam.pov)); // hd first person: the surface is what the depth of field should focus on, not the lake bed
+    gl.depthMask(!!((R.hd || R.voxel) && cam.pov)); // hd first person: the surface is what the depth of field should focus on, not the lake bed
     for (var i = 0; i < vis.length; i++) {
       var c = vis[i];
       var wt = c.wat[c.drawStep || 1];

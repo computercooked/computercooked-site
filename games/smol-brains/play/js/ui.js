@@ -1552,12 +1552,12 @@
       h("button", { class: "btn", onclick: function () { SB.Audio.setMuted(!SB.Audio.isUserMuted(), "user"); openMenu("settings"); } }, muted ? "🔇 sound off" : "🔊 sound on"),
       h("button", { class: "btn", onclick: function () { SB.Bodies.labels = !SB.Bodies.labels; openMenu("settings"); } }, SB.Bodies.labels ? "🏷 names on" : "🏷 names off"),
       h("button", { class: "btn", onclick: function () {
-        // the look is chosen when the 3D view starts, so switching saves and reloads: pixel art → hd pixel → classic 3D
-        try { window.localStorage.setItem("smolbrains-look", R.hd ? "3d" : R.pixel ? "hd" : "pixel"); } catch (e) {}
+        // the look is chosen when the 3D view starts, so switching saves and reloads: voxel → pixel art → hd pixel → classic 3D
+        try { window.localStorage.setItem("smolbrains-look", R.voxel ? "pixel" : R.hd ? "3d" : R.pixel ? "hd" : "voxel"); } catch (e) {}
         SB.Save.save(game); location.reload();
-      } }, R.hd ? "✨ hd pixel (tap for classic 3D)" : R.pixel ? "👾 pixel art (tap for hd pixel)" : "🧊 classic 3D (tap for pixel art)"),
-      R.pixel ? null : h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
-      R.hd ? h("button", { class: "btn", onclick: function () { var q = R.quality; q.fx = !q.fx; q.fxPinned = true; try { window.localStorage.setItem("smolbrains-hdfx", q.fx ? "1" : "0"); } catch (e) {} R.resize(); openMenu("settings"); } }, R.quality.fx ? "🌅 soft focus & glow on" : "🔋 soft focus & glow off") : null,
+      } }, R.voxel ? "🧱 voxel (tap for pixel art)" : R.hd ? "✨ hd pixel (tap for classic 3D)" : R.pixel ? "👾 pixel art (tap for hd pixel)" : "🧊 classic 3D (tap for voxel)"),
+      R.pixel && !R.voxel ? null : h("button", { class: "btn", onclick: function () { var q = R.quality; q.scale = q.scale >= 1 ? 0.6 : 1; R.resize(); openMenu("settings"); } }, R.quality.scale >= 1 ? "🖥 sharp" : "🔋 battery saver"),
+      R.hd || R.voxel ? h("button", { class: "btn", onclick: function () { var q = R.quality; q.fx = !q.fx; q.fxPinned = true; try { window.localStorage.setItem("smolbrains-hdfx", q.fx ? "1" : "0"); } catch (e) {} R.resize(); openMenu("settings"); } }, R.quality.fx ? (R.voxel ? "🌅 soft focus, glow & shadows on" : "🌅 soft focus & glow on") : (R.voxel ? "🔋 soft focus, glow & shadows off" : "🔋 soft focus & glow off")) : null,
       h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off"),
       h("button", { class: "btn", onclick: function () { var set = game.settings = game.settings || {}; set.guide = !guideOn(); if (set.guide) set.cards = {}; openMenu("settings"); toast(set.guide ? "🧭 tutorial tips on. explanations will show again as things happen." : "🧭 tutorial tips off."); } }, guideOn() ? "🧭 tutorial tips on" : "🧭 tutorial tips off"),
       h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the opening again"),

@@ -597,6 +597,29 @@ Every story beat now has its own film, drawn in code at 320×180 like the openin
 
 - **Tests**: `firstnight.test.js` (Pip starts the chase ≤8% hungry; the first night drains at 60%), plus the 4.9.6 bite checks with the new numbers.
 
+## 0.45 What v4.10 changed: the voxel look (K-0052)
+
+Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than the game"), so the game now looks like it. The voxel look (`vox.js`) is the new default; settings → look still cycles voxel → pixel art → hd pixel → classic 3D (`smolbrains-look`, `?look=voxel|pixel|hd|3d`). A saved choice of the old looks is kept.
+
+- **Pipeline.** It is the pixel look's pipeline (voxel smols, the outline pass, sprites only for specks far out) rendered at full resolution with dynamic resolution, a softer ink (0.55), and hd.js's last pass for a tilt-shift depth of field in god view (focus on the crosshair in first person), bloom and a warmer grade (`HD.initPost`: no hd art is fetched).
+- **Block terrain.** Half-unit cubes (1 and 2 units for the far zooms). Each column's top is the heightfield at its middle, rounded to the cube, plus the giant's bones. Tops are greedy-meshed and walls merged along each edge, so a chunk is a few thousand quads (fewer triangles than the smooth terrain). Colour comes from a texture of the island's vertex colours, filled chunk by chunk. The shader adds grass tops over earth and stone, a ragged grass fringe, mossy patches, a bevel per cube and per-cube jitter.
+- **The sim never changes.** It still walks the smooth heightfield. Drawing uses `R.gh` (the block top) and `R.vdy` (block top minus the sim's ground, 0 in water), eased per smol and for the first-person eye, so smols, trees, huts and items stand on the blocks.
+- **The giant's back.** A spine with a vertebra every 6 units runs down the island's long axis, with ribs every 18. They are visual only, mossy stone, and kept off the nest's hill. Past the coast, the Hollow's head lies face up in the sea, asleep. It has shut eyes, mossy hair and brows, a nose and ears, and a hand rests beside it. It is made of 2-unit cubes, breathes slowly and is never hidden by the fog of war.
+- **Everything is blocks.** Every meshes.js shape (trees, rocks, huts, items, grass and flowers) is voxelized the first time it's drawn: triangles are sampled into a grid, the outside is found by flood fill, and the faces are greedy-meshed per slice.
+- **Smols** are voxels everywhere in view (up to 160, a 200-model cache). Upright smols get 1.3× block heads. Open eyes are solid glowing blocks: warm white, red on grumps.
+- **The Lantern** is a voxel lamp by the nest: a stone plinth, an iron cage and a glowing amber heart. It is a real light (radius 10 + 3 per stage, flickering), and the bloom catches it.
+- **Crash pods** sit a third buried with 11 pieces of wreckage round them: hull plates, struts, a box with a light still on and scorched clods. This covers the escape pod and every pod site.
+- **Golden hour.** A warmer key light, a lower sun for long raking light on block edges, cooler lilac fill and a warm haze.
+- **Fixes folded in (K-0052).** Possessed hunger now lasts 5 minutes for a full bar (was 3), and the first night stays 40% slower on top of that. The opening film and the fast title (4.9.7) were checked again on a fresh device.
+
+## 0.46 What v4.10.1 added: soft sun shadows (K-0052, milestone 2)
+
+- **A shadow map from the sun.** In the voxel look, terrain, trees, rocks, huts, the Lantern, the giant and anything loose cast into a 2048² depth map. It is fitted to the view (up to 64 units out in god view, a 30-unit box ahead of you in first person) and snapped to its texels so edges don't crawl.
+- **Who receives it.** Everything lit by the shared light code takes 5 soft taps from the map: the ground, objects, water and the voxel smols. Smols cast only their blob shadows.
+- **When it fades.** Shadows fade at the edge of the box, at night (the moon's are faint), under cloud and rain, and when zoomed out past 34.
+- **Cheap when nothing moves.** The map is kept while the view box doesn't change and redrawn every 4th frame for falling trees and carried things.
+- **Holding 60 fps.** In this look, dynamic resolution steps down 10% once frames run over 19 ms for 2 s, and back up under 15 ms. The voxel look draws half the grass and flowers, which read bigger as cubes. Settings → "soft focus, glow & shadows" turns all three off, as does a weak phone or 4 s under 25 fps.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
@@ -661,7 +684,7 @@ Custom WebGL (WebGL2, or WebGL1 + instancing extension; GLSL ES 1.00) with no li
 - Smol codes: `SMOL2:` (genes, trained brain, words, ideas); `SMOL1:` codes still import.
 
 ## 3. Module map
-Load order: `core, icons, genome, collect, brain, chemistry, lang, ideas, words, worldgen, world, creature, mind, species, society, strangers, social, funeral, orders, firsthour, tricks, quests, economy, civ, director, sites, threats, survival, gl, meshes, render, voxel, pixel, hd, fx, bodies, input, audio, music, save, intro, title, possess, survival-art, povhud, ui, cards, main`. All plain scripts on `window.SB`, no build step.
+Load order: `core, icons, genome, collect, brain, chemistry, lang, ideas, words, worldgen, world, creature, mind, species, society, strangers, social, funeral, orders, firsthour, tricks, quests, economy, civ, director, sites, threats, survival, gl, meshes, render, vox, voxel, pixel, hd, fx, bodies, input, audio, music, save, intro, title, possess, survival-art, povhud, ui, cards, main`. All plain scripts on `window.SB`, no build step.
 
 `SB.Surv` (survival.js): the inventory (`inv`, `add`, `take`, `move`, `select`, `held`), piles (`spawn`, `split`, `pickup`), recipes (`recipes`, `match`, `combine`, `craft`), hit points (`hitNode`, `fell`, `gather`, `setBlock`), planting, building (`canPlace`, `place`, `deliver`, `needs`), fires, `onDeath`, and the vines. `SB.Possess` (possess.js): entering and leaving, `drive`, `look`, `options` (what use / place / pick / E would do on a target), `act`, `drop`, `select`, building ghosts, and the first-time quest. `SB.PovHud` (povhud.js): the screen and the input listeners. `SB.SurvArt` (survival-art.js): meshes for vines, the lean-to and the new items, the topple and shake animations, piles, and the 16×16 item icons.
 

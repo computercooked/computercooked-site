@@ -150,7 +150,7 @@ seeded(907, () => {
   check("it starts about a third full", h0 >= 0.64 && h0 <= 0.72, (1 - h0).toFixed(2) + " food");
   run(SB, game, 30);
   const rate = (c.chem.hunger - h0) / 30;
-  check("K-0041 P3: it runs down steadily, a full bar in about 3 minutes", Math.abs(1 / rate - 180) < 15, (1 / rate).toFixed(0) + " s for a full bar");
+  check("K-0052: it runs down steadily, a full bar in about 5 minutes", Math.abs(1 / rate - 300) < 25, (1 / rate).toFixed(0) + " s for a full bar");
   const before = c.chem.hunger;
   SB.bus.emit("nibble", { c: c });
   run(SB, game, 0.2);

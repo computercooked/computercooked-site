@@ -30,6 +30,11 @@
     } catch (e) {}
   };
   HD.ready = function () { return !!tilesTex; };
+  // the voxel look (vox.js) uses only the last pass: no tiles or sprites are fetched
+  HD.initPost = function (ctx) {
+    ctxRef = ctx; tilesTex = itemsTex = null; itemIdx = null; prog = null; post = null;
+    try { var fx = window.localStorage.getItem("smolbrains-hdfx"); if (fx === "0" || fx === "1") { R.quality.fx = fx === "1"; R.quality.fxPinned = true; } } catch (e) {}
+  };
 
   /* ---------------- which tile each mesh vertex wears ---------------- */
   // From the vertex colour (meshes.js paints parts in flat colours) and what the mesh is. 0 = no tile.
@@ -244,7 +249,8 @@
     gl.activeTexture(gl.TEXTURE0);
     var night = env.night;
     gl.uniform1f(pc.u.uFx, fx ? 1 : 0);
-    gl.uniform4f(pc.u.uGrade, 1.0, 1.05, 0, 0.5 + night * 0.4);
+    if (R.voxel) gl.uniform4f(pc.u.uGrade, 1.08, 1.06, 0, 0.75 + night * 0.5); // voxel: a richer grade, the Lantern and eyes bloom
+    else gl.uniform4f(pc.u.uGrade, 1.0, 1.05, 0, 0.5 + night * 0.4);
     gl.uniform2f(pc.u.uVig, 0.45, HD.debug || 0);
     quadDraw(gl, ctx, pc);
     if (R.perf) R.perf.draws += fx ? (cam.pov ? 5 : 3) : 1;
