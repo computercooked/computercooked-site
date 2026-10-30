@@ -160,7 +160,7 @@
     var lh = S.lastHun;
     if (S.meal != null) { ch.hunger = Math.min(ch.hunger, Math.max(0, S.meal - P.MEAL)); S.meal = null; } // a meal in a smol's body is a quarter of the bar or more
     else if (lh != null) {
-      var hi = lh + dt * P.hungerRate(); // in a body the bar runs down at one steady rate, whatever the chemistry says: full to empty in 3 minutes
+      var hi = lh + dt * P.hungerRate(); // in a body the bar runs down at one steady rate, whatever the chemistry says: full to empty in 5 minutes
       if (ch.hunger > hi || ch.hunger >= lh) ch.hunger = Math.min(1, hi);
       if (ch.hunger > 0.86 && !S.starveWarned) { S.starveWarned = true; say("🍗 your tummy hurts! eat soon or you'll lose hearts (G sniffs, G again walks there)"); }
     }
@@ -776,7 +776,7 @@
      run home to the nest (hold shift, or push the stick all the way), or find two friends, and it gives up: +2 ✨.
      it hurts, but it never takes the last quarter of your hearts. after 35 s it gets bored anyway. */
   P.SCOUT_AT = 20; P.SCOUT_MAX = 35; P.SCOUT_FAR = 13; P.SCOUT_OUT = 12; P.SCOUT_WAIT = 40;
-  P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 180; P.MEAL = 0.25; // K-0041 P3: a full bar lasts ~3 min possessed; a berry or a nibble is a quarter of it
+  P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 300; P.MEAL = 0.25; // a full bar lasts 5 min possessed (K-0052: 3 min drained too fast); a berry or a nibble is a quarter of it
   P.SHOVE_YAW = 0.45; P.SHOVE_PITCH = 0.22;
   P.NIGHT1_HUNGER = 0.6; // K-0051: the first night's chase drains food 40% slower
   P.hungerRate = function () { return P.HUNGER_POV * (S && S.firstNight ? P.NIGHT1_HUNGER : 1); };
@@ -1311,6 +1311,7 @@
     var bob = Math.sin(S.bob * Math.PI) * 0.035 * S.bobK * (1 + (c.stage || 0) * 0.2);
     var eyeH = eyeY(c) - c.y;
     if (c.asleep) eyeH *= 0.45;
+    if (SB.Render.voxel) { var vd = SB.Render.vdy(x, z); S.vdy = S.vdy == null ? vd : S.vdy + (vd - S.vdy) * Math.min(1, dt * 12); y += S.vdy; } // the voxel look: your eyes ride the blocks, eased
     cm.pov.x = x; cm.pov.z = z; cm.pov.y = y + eyeH + Math.abs(bob);
     // a hit lands with a tiny kick of the view; being hurt shakes it
     var kick = S.swing > 0.6 ? (S.swing - 0.6) * 0.02 : 0, hurt = S.hurtT > 0 ? Math.sin(S.t * 60) * S.hurtT * 0.012 : 0;

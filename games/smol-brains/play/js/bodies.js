@@ -82,6 +82,8 @@
     return c._cols;
   }
 
+  // the drawn ground or water surface (the block tops in the voxel look)
+  function GY(w, x, z) { return SB.World.groundY(w, x, z) + R.vdy(x, z); }
   var EXT = [0, 0, 0], EXT_GLOW = [0, 0.7, 0], HI = [[0, 0, 0, 1], [0, 0.7, 0, 1]];
   var SEL = [0.77, 1, 0.29];
 
@@ -93,6 +95,7 @@
     var x = c.px + (c.x - c.px) * alpha, z = c.pz + (c.z - c.pz) * alpha;
     var y = c.y;
     if (c.py && Math.abs(c.y - c.py) < 2) y = c.py + (c.y - c.py) * alpha;
+    if (R.voxel) { var vd = R.vdy(x, z); c._vdy = c._vdy == null || c.heldBy ? vd : c._vdy + (vd - c._vdy) * 0.3; y += c._vdy; } // the voxel look: up and down the blocks, with a little ease
     var cam = R.camera;
     if (Math.abs(x - cam.x) > cam.halfW * 1.4 + 3 || Math.abs(z - cam.z) > cam.halfH * 2.2 + 3) return;
     var lk = c.look, an = c.anim, cols = lookCols(c);
@@ -106,7 +109,7 @@
       // up close (first person, the hd look, or "3D smols" on) a voxel model built from the same pixel art
       if (!(SB.Voxel && SB.Voxel.creature(c, x, y, z, t, mo))) SB.Pixel.creature(c, x, y, z, t, alpha);
       if (lk.glow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
-      if (game.selectedId === c.id) { setBase(x, SB.World.groundY(game.world, x, z) + 0.03, z, t * 0.6, 1); part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]); }
+      if (game.selectedId === c.id) { setBase(x, GY(game.world, x, z) + 0.03, z, t * 0.6, 1); part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]); }
       return;
     }
     if (cam.pov && SB.Voxel && SB.Voxel.creature(c, x, y, z, t, mo)) { // first person: the voxel smol (fades up close instead of clipping)
@@ -245,7 +248,7 @@
     if (tierGlow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
     // selection ring
     if (game.selectedId === c.id) {
-      setBase(x, SB.World.groundY(game.world, x, z) + 0.03, z, t * 0.6, 1);
+      setBase(x, GY(game.world, x, z) + 0.03, z, t * 0.6, 1);
       part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]);
     }
   }
@@ -287,7 +290,7 @@
       if (o.heldBy == null && !SB.World.isSeen(game.world, o.x, o.z)) continue;
       if (Math.abs(o.x - cam.x) > cam.halfW * 1.4 + 2 || Math.abs(o.z - cam.z) > cam.halfH * 2.2 + 2) continue;
       if (zoomFar && !o.heldBy && o.kind !== "egg" && !K[o.kind].glow) continue;
-      var def = K[o.kind], s = 1, rx = 0, rz = 0, ry = o.rot || 0, y = o.y;
+      var def = K[o.kind], s = 1, rx = 0, rz = 0, ry = o.rot || 0, y = o.y + R.vdy(o.x, o.z);
       var ext = def.glow ? EXT_GLOW : EXT;
       // things lying about to pick up read from the god view: a bit bigger, a slow bob, and (in the shader) a
       // bright rim, a glint every few seconds and an outline (pixel look) or a dark shell (3D look)
@@ -302,6 +305,10 @@
         rz = wob; s = 1 + (o.data.progress || 0) * 0.15;
         var eg = o.data.genome, tint = eg && eg.genes ? SB.mixC([1, 1, 1], SB.hsl(eg.genes.hue * 360, 0.6, 0.7), 0.35) : null;
         if (o.data.starter && !o.data.progress) ext = [0, 0.25 + Math.sin(t * 3) * 0.15, 0, loose ? 1 : 0];
+        if (o.data.pod && R.voxel && o.heldBy == null) { // the voxel look: the pod sits half-buried in its crater, wreckage all round
+          y -= 0.28;
+          SB.Vox.debris(o.x, o.z, o.id, 0.8).forEach(function (d) { R.instTRS(d.key, d.x, R.gh(d.x, d.z) - 0.02, d.z, d.rot, d.s); });
+        }
         setBase(o.x, y, o.z, ry, 1);
         if (o.data.pod) { // the escape pod: rattles when you tap it, smokes until it opens
           part("i:pod", 0, 0, 0, 0.6, 0, rz * 0.4, 1.1, 1.1, 1.1, null, o.data.progress ? [0, 0.2 + o.data.progress * 0.5, 0] : ext);
@@ -338,7 +345,7 @@
     for (var i = 0; i < sts.length; i++) {
       var s = sts[i];
       if (Math.abs(s.x - cam.x) > cam.halfW * 1.4 + 6 || Math.abs(s.z - cam.z) > cam.halfH * 2.2 + 6) continue;
-      var gy = SB.World.heightAt(w, s.x, s.z);
+      var gy = R.gh(s.x, s.z);
       if (!s.done) {
         var tot = 0, left = 0;
         for (var k in SK[s.kind].cost) { tot += SK[s.kind].cost[k]; left += s.need[k] || 0; }
@@ -361,7 +368,7 @@
     // burning trees
     (w.burning || []).forEach(function (n) {
       if (Math.abs(n.x - cam.x) > cam.halfW * 1.4 + 6 || Math.abs(n.z - cam.z) > cam.halfH * 2.2 + 6) return;
-      var gy2 = SB.World.heightAt(w, n.x, n.z), fl2 = 1 + Math.sin(t * 11 + n.id) * 0.15;
+      var gy2 = R.gh(n.x, n.z), fl2 = 1 + Math.sin(t * 11 + n.id) * 0.15;
       setBase(n.x, gy2 + 1.2 * n.s, n.z, t * 1.5 + n.id, 1);
       part("s:flame", 0, 0, 0, 0, 0, 0, 1.6 * n.s, 2.2 * n.s * fl2, 1.6 * n.s, null, [0, 0.2, 0]);
       R.light(n.x, gy2 + 2, n.z, 9, 1, 0.5, 0.2);
@@ -387,7 +394,7 @@
     // the god hand's ground marker
     var h = game.hand;
     if (h.visible && h.marker) {
-      setBase(h.x, SB.World.groundY(game.world, h.x, h.z) + 0.03, h.z, t, 1);
+      setBase(h.x, GY(game.world, h.x, h.z) + 0.03, h.z, t, 1);
       part("p:ring", 0, 0, 0, 0, 0, 0, 0.35, 0.2, 0.35, h.tool === "tap" ? [1, 0.4, 0.4] : h.tool === "tickle" ? [1, 0.6, 0.8] : SEL, [0, 0.9, 0]);
     }
   });
