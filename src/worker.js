@@ -3,6 +3,7 @@
 // wrangler.jsonc). Game pages go through seo.js; other game files pass straight through to the assets.
 import { subscribe, unsubscribe } from "./subscribe.js";
 import { labVotes, labVote } from "./lab.js";
+import { postIdea, listIdeas } from "./ideas.js";
 import { homePage, labPage, logPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
@@ -103,6 +104,7 @@ async function api(req, env, url) {
     case "GET /api/unsubscribe": return unsubscribe(url, env);
     case "GET /api/lab/votes": return labVotes(url, env, user);
     case "POST /api/lab/vote": return labVote(req, env, url, ip, user);
+    case "POST /api/ideas": return postIdea(req, env, ip);
     case "GET /api/stats": return stats(env);
     case "POST /api/report": return report(req, env, ip, user);
     case "GET /api/community": return listCommunity(env);
@@ -168,6 +170,7 @@ async function api(req, env, url) {
     switch (route) {
       case "GET /api/admin/metrics": return metrics(url, env, origin);
       case "GET /api/admin/digest": return digest(url, env);
+      case "GET /api/admin/ideas": return listIdeas(url, env);
       case "GET /api/admin/reports": return listReports(env);
       case "GET /api/admin/featured": return previewFeatured(url, env, await catalogOf(env, origin));
       case "GET /api/admin/challenge": return previewChallenge(url, env, await catalogOf(env, origin));
