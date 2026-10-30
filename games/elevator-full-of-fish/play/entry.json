@@ -7,7 +7,7 @@
   "controls": "tap a fish while the doors are open to fling it out. sharks take three taps, don't tap a pufferfish twice. space flings the nearest fish. m mutes.",
   "size_kb": 29,
   "tags": ["reflex", "tapping", "short", "funny", "mobile"],
-  "version": "1.0",
+  "version": "1.1",
   "max_score_per_sec": 15,
   "max_score": 2000
 }

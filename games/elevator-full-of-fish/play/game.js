@@ -13,7 +13,6 @@
 
   const cv = document.getElementById("c"), cx = cv.getContext("2d");
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const MONO = "ui-monospace, Menlo, Consolas, monospace";
   const RIDE = 75, CAP = 10, GOAL = 9;
 
   // ---------- palette ----------
@@ -299,28 +298,77 @@
   }
 
   // ---------- draw ----------
-  function text(s, x, y, size, col, align, weight) { cx.font = (weight || 800) + " " + Math.round(size) + "px " + MONO; cx.fillStyle = col; cx.textAlign = align || "left"; cx.textBaseline = "middle"; cx.fillText(s, x, y); }
+  // Pixel font (5x7 with two descender rows, the same table as keyboard escape), drawn with fillRect. The first canvas
+  // fillText in a document resolves the font stack (~100 ms on a phone), so the game never calls it.
+  const PF = {'A':'50e11111f111111','B':'51e11111e11111e','C':'50e11101010110e','D':'51e11111111111e','E':'51f10101e10101f','F':'51f10101e101010','G':'50e11101711110f','H':'51111111f111111','I':'51f04040404041f','J':'50702020212120c','K':'511121418141211','L':'51010101010101f','M':'5111b1515111111','N':'511191513111111','O':'50e11111111110e','P':'51e11111e101010','Q':'50e11111115120d','R':'51e11111e141211','S':'50f10100e01011e','T':'51f040404040404','U':'51111111111110e','V':'511111111110a04','W':'511111115151b11','X':'511110a040a1111','Y':'511110a04040404','Z':'51f01020408101f','0':'50e11131519110e','1':'5040c040404040e','2':'50e11010204081f','3':'51e01010e01011e','4':'51111111f010101','5':'51f101e0101110e','6':'50e10101e11110e','7':'51f010204080808','8':'50e11110e11110e','9':'50e11110f01010e','a':'500000e010f110f','b':'510101e1111111e','c':'500000e1010100e','d':'501010f1111110f','e':'500000e111f100e','f':'506081e08080808','g':'500000f1111110f010e','h':'510101e11111111','i':'504000c0404040e','j':'502000602020202120c','k':'510101214181412','l':'50c04040404040e','m':'500001a15151515','n':'500001e11111111','o':'500000e1111110e','p':'500001e1111111e1010','q':'500000f1111110f0101','r':'500001619101010','s':'500000f100e011e','t':'508081e08080906','u':'50000111111110f','v':'500001111110a04','w':'50000111115150a','x':'50000110a040a11','y':'50000111111110f010e','z':'500001f0204081f',' ':'30000','.':'100000000000001',',':'20000000000010102',':':'100000100000100','\'':'1010100','’':'1010100','-':'300000000070000','+':'5000004041f0404','!':'101010101010001','?':'50e110204040004','/':'501010204081010','·':'100000000010000','✓':'500010214080000','→':'5000004021f0204','↖':'5001e1814120100','…':'500000000000015','•':'40000060f0f0600','(':'301020404040201','▲':'50000040e1f0000','∞':'500000a150a0000',')':'304020101010204','🎃':'70c3e5d7f55633e','👻':'73e7f6b7f7f7f55','🦇':'700416b7f3e1400'};
+  const PFG = {};
+  function pfGlyph(ch) {
+    let g = PFG[ch];
+    if (g) return g;
+    const s = PF[ch] || PF["?"], w = +s[0], runs = [];
+    for (let r = 0; 1 + r * 2 < s.length; r++) {
+      const b = parseInt(s.substr(1 + r * 2, 2), 16);
+      for (let x = 0; x < w;) {
+        if (!((b >> (w - 1 - x)) & 1)) { x++; continue; }
+        let e = x + 1; while (e < w && ((b >> (w - 1 - e)) & 1)) e++;
+        runs.push(r, x, e - x); x = e;
+      }
+    }
+    return (PFG[ch] = { w, runs });
+  }
+  // like fillText with a monospace font of this size, middle baseline; heavy = strokes half a cell wider; cell edges
+  // snap to device pixels so rows never show seams
+  function text(str, x, y, size, col, align, weight) {
+    str = String(str);
+    const u = size / 10, heavy = (weight || 800) >= 800 ? u * 0.45 : 0, q = (v) => Math.round(v * DPR) / DPR;
+    let n = 0; for (const ch of str) n += pfGlyph(ch).w + 1;
+    const w = Math.max(0, n - 1) * u + heavy;
+    let gx = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+    const top = y - 3.5 * u;
+    cx.fillStyle = col;
+    for (const ch of str) {
+      const gl = pfGlyph(ch), r = gl.runs;
+      for (let i = 0; i < r.length; i += 3) {
+        const x0 = q(gx + r[i + 1] * u), y0 = q(top + r[i] * u);
+        cx.fillRect(x0, y0, Math.max(1 / DPR, q(gx + (r[i + 1] + r[i + 2]) * u + heavy) - x0), q(top + (r[i] + 1) * u) - y0);
+      }
+      gx += (gl.w + 1) * u;
+    }
+  }
   function drawFace(x, y, w, h, name) {
     const F = FACES[name] || FACES.sad, cw = w / 16, ch = h / 10;
     cx.fillStyle = LIME;
     for (let j = 0; j < 10; j++) for (let i = 0; i < 16; i++) if (F[j][i] === "#") cx.fillRect(Math.round(x + i * cw), Math.round(y + j * ch), Math.ceil(cw), Math.ceil(ch));
   }
+  // the car's walls, rails, carpet and back wall never change for a given size: painted once, then blitted
+  let carCache = null, carKey = "";
+  function carShell() {
+    const key = W + "x" + H + "@" + DPR;
+    if (carCache && carKey === key) return carCache;
+    carKey = key; carCache = carCache || document.createElement("canvas");
+    carCache.width = Math.max(1, Math.round(W * DPR)); carCache.height = Math.max(1, Math.round(H * DPR));
+    const g = carCache.getContext("2d");
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.fillStyle = "#121315"; g.fillRect(0, 0, W, H);
+    // walls in perspective
+    g.fillStyle = STEEL2; g.fillRect(0, L.top, W, H - L.top);
+    g.fillStyle = STEEL; g.beginPath(); g.moveTo(0, L.top); g.lineTo(L.backL, L.backT); g.lineTo(L.backL, L.backB); g.lineTo(0, H); g.fill();
+    g.beginPath(); g.moveTo(W, L.top); g.lineTo(L.backR, L.backT); g.lineTo(L.backR, L.backB); g.lineTo(W, H); g.fill();
+    // handrails
+    g.fillStyle = BRASS;
+    g.beginPath(); g.moveTo(0, L.top + L.carH * 0.5); g.lineTo(L.backL, L.backT + (L.backB - L.backT) * 0.62); g.lineTo(L.backL, L.backT + (L.backB - L.backT) * 0.62 + 3); g.lineTo(0, L.top + L.carH * 0.5 + 6); g.fill();
+    g.beginPath(); g.moveTo(W, L.top + L.carH * 0.5); g.lineTo(L.backR, L.backT + (L.backB - L.backT) * 0.62); g.lineTo(L.backR, L.backT + (L.backB - L.backT) * 0.62 + 3); g.lineTo(W, L.top + L.carH * 0.5 + 6); g.fill();
+    // floor (carpet)
+    g.fillStyle = CARPET; g.beginPath(); g.moveTo(0, H); g.lineTo(L.backL, L.backB); g.lineTo(L.backR, L.backB); g.lineTo(W, H); g.fill();
+    g.fillStyle = CARPET2; for (let i = 1; i < 6; i++) { const y = L.backB + (H - L.backB) * (i / 6) ** 1.4; g.fillRect(0, y, W, 2); }
+    // back wall
+    g.fillStyle = STEEL3; g.fillRect(L.backL, L.backT, L.backR - L.backL, L.backB - L.backT);
+    return carCache;
+  }
   function drawCar(time) {
     const jx = phase === "travel" && state === "play" && !reduce ? Math.sin(time * 50) * 1.5 : 0;
     cx.save(); cx.translate(jx, 0);
-    // walls in perspective
-    cx.fillStyle = STEEL2; cx.fillRect(0, L.top, W, H - L.top);
-    cx.fillStyle = STEEL; cx.beginPath(); cx.moveTo(0, L.top); cx.lineTo(L.backL, L.backT); cx.lineTo(L.backL, L.backB); cx.lineTo(0, H); cx.fill();
-    cx.beginPath(); cx.moveTo(W, L.top); cx.lineTo(L.backR, L.backT); cx.lineTo(L.backR, L.backB); cx.lineTo(W, H); cx.fill();
-    // handrails
-    cx.fillStyle = BRASS;
-    cx.beginPath(); cx.moveTo(0, L.top + L.carH * 0.5); cx.lineTo(L.backL, L.backT + (L.backB - L.backT) * 0.62); cx.lineTo(L.backL, L.backT + (L.backB - L.backT) * 0.62 + 3); cx.lineTo(0, L.top + L.carH * 0.5 + 6); cx.fill();
-    cx.beginPath(); cx.moveTo(W, L.top + L.carH * 0.5); cx.lineTo(L.backR, L.backT + (L.backB - L.backT) * 0.62); cx.lineTo(L.backR, L.backT + (L.backB - L.backT) * 0.62 + 3); cx.lineTo(W, L.top + L.carH * 0.5 + 6); cx.fill();
-    // floor (carpet)
-    cx.fillStyle = CARPET; cx.beginPath(); cx.moveTo(0, H); cx.lineTo(L.backL, L.backB); cx.lineTo(L.backR, L.backB); cx.lineTo(W, H); cx.fill();
-    cx.fillStyle = CARPET2; for (let i = 1; i < 6; i++) { const y = L.backB + (H - L.backB) * (i / 6) ** 1.4; cx.fillRect(0, y, W, 2); }
-    // back wall
-    cx.fillStyle = STEEL3; cx.fillRect(L.backL, L.backT, L.backR - L.backL, L.backB - L.backT);
+    cx.drawImage(carShell(), 0, 0, W, H);
     // the hallway beyond the doors
     const dw = L.doorR - L.doorL, dh = L.backB - L.doorT;
     const hue = (floor * 47) % 360;
@@ -422,7 +470,7 @@
   function draw(time) {
     cx.save();
     if (shake > 0) cx.translate((Math.random() - 0.5) * 12 * shake, (Math.random() - 0.5) * 12 * shake);
-    cx.fillStyle = "#121315"; cx.fillRect(0, 0, W, H);
+    if (shake > 0 || (phase === "travel" && state === "play")) { cx.fillStyle = "#121315"; cx.fillRect(-12, -12, W + 24, H + 24); }
     drawCar(time);
     drawFish();
     drawPanel(time);
@@ -431,19 +479,18 @@
     if (state !== "play") overlay();
   }
 
-  // the title draws until it has settled, then waits for a tap/key or 3 s after the page loaded; play always runs
+  // the title draws one frame, then waits for a tap or key (no demo running while the page loads); play always runs
   let last = performance.now(), frames = 0, awake = false, running = true;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; frames++;
     update(dt); draw(now / 1000);
-    if (!awake && state === "title" && frames > 3) { running = false; return; }
+    if (!awake && state === "title" && frames > 1) { running = false; return; }
     requestAnimationFrame(frame);
   }
   function wake() { awake = true; if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); } }
   ["pointerdown", "keydown"].forEach((ev) => window.addEventListener(ev, wake, true));
   try { if (window.frameElement) window.parent.document.addEventListener("keydown", wake, true); } catch (e) {}
-  const wakeLater = () => setTimeout(wake, 3000);
-  if (document.readyState === "complete") wakeLater(); else window.addEventListener("load", wakeLater);
+  window.addEventListener("resize", () => { if (!running) draw(performance.now() / 1000); });
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
