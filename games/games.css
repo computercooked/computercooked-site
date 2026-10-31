@@ -2859,3 +2859,13 @@ html[data-landing-ready] { overflow: hidden; }
 }
 @keyframes cc-epic-sweep { 0%, 35% { background-position: 250% 0, 0 0; } 100% { background-position: -150% 0, 0 0; } }
 @keyframes cc-epic-glow { to { box-shadow: 0 0 14px rgb(var(--phosphor) / .8); } }
+
+/* K-0057: share on the game itself at game over (platform.js stageShare) */
+.cc-stage-share { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; padding: 8px 16px; border: 0;
+  border-radius: 999px; background: #C5FF49; color: #101114; font: 800 14px/1 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  box-shadow: 0 4px 18px rgba(0,0,0,.45); cursor: pointer; animation: cc-stage-share-in .35s ease-out; }
+.cc-stage-share:hover { filter: brightness(1.08); }
+.cc-stage-share:focus-visible { outline: 3px solid #B59AFF; outline-offset: 2px; }
+.cc-stage-share[hidden] { display: none; }
+@keyframes cc-stage-share-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .cc-stage-share { animation: none; } }

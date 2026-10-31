@@ -13,6 +13,7 @@
   var SB = window.SB = window.SB || {};
   var FN = SB.FirstNight = {};
   FN.SUNSET = 40;      // real seconds of visible sunset
+  FN.DAY1 = 160;       // real seconds of free day after Pip eats, before the sunset starts (K-0057: night came a minute after the tutorial)
   FN.EYES_AT = 14;     // the grump's eyes show this long before dark
   FN.FALLBACK = 90;    // Pip finds the berries alone after this long
   FN.GRUMP_K = 0.9;    // the grump runs at 90% of your running speed
@@ -67,7 +68,10 @@
       if (b && (s.pulseT = (s.pulseT || 0) - dt) <= 0) { s.pulseT = 1.2; if (SB.FX) SB.FX.burst("sparkle", b.x, W().groundY(w, b.x, b.z) + 0.9, b.z, 6); }
       if (s.t > FN.FALLBACK && b && !s.fallback) { s.fallback = true; SB.Creature.sendTo(pip, b.x, b.z, game, 20); } // it finds them itself in the end
     } else if (s.s === "fed") {
-      if (s.t > 4) { s.sunEnd = game.time; go(game, "sunset"); }
+      // the day waits for the sunset, even sped up: the sun stays up until the script brings the dark
+      var late = Math.floor(game.time / SB.DAY_LENGTH) * SB.DAY_LENGTH + 0.72 * SB.DAY_LENGTH;
+      if (game.time > late) { game.time = late; game.world.time = game.time; }
+      if (s.t > FN.DAY1) { s.sunEnd = game.time; go(game, "sunset"); }
     } else if (s.s === "sunset") {
       var dusk = Math.floor(game.time / SB.DAY_LENGTH) * SB.DAY_LENGTH + 0.83 * SB.DAY_LENGTH, left = FN.SUNSET - s.t;
       if (game.time < dusk) game.time = Math.min(dusk, game.time + Math.max(0, (dusk - game.time) / Math.max(0.5, left) - 1) * dt); // the sun goes down fast

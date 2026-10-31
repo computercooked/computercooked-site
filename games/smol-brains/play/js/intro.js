@@ -14,6 +14,19 @@
     { at: 16.4, smol: "nua… nua mola?", sub: "one pod falls toward a world no smol has ever seen." }
   ];
   var DUR = 22;
+  // the opening plays faster than it was drawn (K-0057: about 12 s real): [story from, to, speed]
+  var WARP = [[0, 9.9, 1.4], [9.9, 16, 2.4], [16, 22, 2.4]];
+  function warp(r) {
+    var st = 0;
+    for (var i = 0; i < WARP.length; i++) {
+      var a = WARP[i][0], b = WARP[i][1], k = WARP[i][2];
+      if (r <= a - st) return st + r;
+      r -= a - st;
+      if (r <= (b - a) / k) return a + r * k;
+      r -= (b - a) / k; st = b;
+    }
+    return st + r;
+  }
   // the ending: the spire's signal reaches the old ark, and it comes back for them
   var END = [
     { at: 0.6, smol: "brrrm… zo'mi tak. zo'mi TAK!", sub: "every smol mind on the island thinks one thought, all at once." },
@@ -172,15 +185,24 @@
       }
     }
 
-    var lastF = 0;
+    var lastF = 0, lastT = 0;
+    // a small "sound on" hint for the story's first seconds (K-0057): the smol voices tell half of it
+    if (!ending && !podFall) {
+      var snd = document.createElement("div"); snd.className = "introsound"; snd.textContent = "🔊 sound on";
+      snd.style.cssText = "position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:5px 12px;border-radius:999px;background:rgba(16,17,20,.72);color:#f5f3ed;font:700 13px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em;pointer-events:none;opacity:0;transition:opacity .5s;z-index:3";
+      wrap.appendChild(snd);
+      setTimeout(function () { snd.style.opacity = "1"; }, 250);
+      setTimeout(function () { snd.style.opacity = "0"; setTimeout(function () { snd.remove(); }, 600); }, 4200);
+    }
     function frame() {
       if (done) return;
       try { draw(); } catch (e) { if (window.console) console.warn("[smol] intro", e); finish(); } // never leave the island hidden
     }
     function draw() {
       var now = performance.now(), t = (now - t0) / 1000;
-      var dt = lastF ? Math.min(0.1, (now - lastF) / 1000) : 1 / 60; // real time, so slow devices keep pace
-      lastF = now;
+      if (!ending && !podFall) t = warp(t);
+      var dt = lastF ? Math.min(0.1, Math.max(0, t - lastT)) : 1 / 60; // story time from the clock, so slow devices keep pace
+      lastF = now; lastT = t;
       if (t > dur) { finish(); return; }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#07060d"; ctx.fillRect(0, 0, W, H);

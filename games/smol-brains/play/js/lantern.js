@@ -10,23 +10,24 @@
   var L = SB.Lantern = {};
   var W = 320, H = 180;
   L.KEY = "smolbrains-lantern";
-  L.DUR = 52; // after the ark film (intro.js, 22 s), then the camera drop onto the island (ui.js landing, 5.5 s): control at about 80 s
+  L.DUR = 52; // story seconds. After the ark film (intro.js, about 12 s real), then the camera drop onto the island (ui.js
+  // landing, 4.5 s). K-0057 cut the whole opening from about 65 s to about 37 s: this film plays in about 20 s real (L.WARP)
 
   L.LINES = [
-    { at: 0.6, smol: "hollo… hollo mumu.", sub: "below, on the back of the Hollow, a giant who sleeps, live smols who forget a little more every night." },
-    { at: 5.4, smol: "pip-a? mo… mo'pi?", sub: "what they were doing. where they put the berry." },
-    { at: 9.6, smol: "lumi! lumi vesh.", sub: "long ago they lit a Lantern on the hill, so they would remember who they are." },
+    { at: 0.6, smol: "hollo… lumi vesh.", sub: "on the back of the Hollow, a sleeping giant, live the smols. only their Lantern helps them remember who they are." },
     { at: 14.6, smol: "pip-pod?!", sub: "then the pod fell out of the sky." },
-    { at: 18.4, smol: "lumi… lumi nua!", sub: "it hit the hill. the Lantern guttered, nearly out, and as it fades, so do the smols." },
-    { at: 22.6, smol: "pip! pip go go!", sub: "Pip, the smallest of them, runs up the hill with the last berry of the day." },
+    { at: 18.4, smol: "lumi… lumi nua!", sub: "it hit the hill. the Lantern nearly went out, and the smols' memories with it." },
+    { at: 22.6, smol: "pip! pip go go!", sub: "Pip, the smallest of them, runs up the hill with the last berry." },
     { at: 28.4, smol: "GRUMPA! shoo! shoo!", sub: "a grump: a smol whose light went out. grumps hunt the light." },
-    { at: 33.4, smol: "wa—!", sub: "" },
     { at: 36.5, smol: "mo'pi… nua zo'mi.", sub: "“somebody… remember us.”" },
     { at: 43.4, smol: "", sub: "the wish lifts the Lantern's last spark into the sky." },
     { at: 46.6, smol: "", sub: "you are that spark. watch over them. lend them your light." }
   ];
 
-  L.WARP = [[0, 14, 1.45], [22, 36, 1.5], [43, 52, 1.35]]; // [story from, to, speed]
+  // [story from, to, speed]; Infinity is a cut. K-0057: the first session's opening runs about 37 s, so the film keeps the
+  // crash, Pip's run from the grump, the wish and the spark, and cuts the slow walk along the ridge
+  L.WARP = [[0, 5.4, 1.35], [5.4, 14.6, Infinity], [14.6, 21.4, 1.5], [21.4, 22, Infinity], [22, 33.6, 2.2], [33.6, 36.3, Infinity],
+    [36.3, 40.5, 1.4], [40.5, 43, Infinity], [43, 52, 2.1]];
   L.warp = function (r) { // real seconds into the opening → story seconds
     var st = 0, segs = L.WARP;
     for (var i = 0; i < segs.length; i++) {

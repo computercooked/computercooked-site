@@ -36,7 +36,9 @@ seeded(4100, () => {
   check("the founders head for the same bush", others.every(o => o.chem.hunger >= 0.6));
 
   console.log("3. the sun sets on a timer you can see, and the eyes come");
-  run(5);
+  run(FN.DAY1 - 5);
+  check("a long free day first (K-0057)", FN.state(game).s === "fed" && !game.world.night, FN.state(game).s);
+  run(10);
   check("sunset", FN.state(game).s === "sunset");
   const t0 = game.time;
   const took = run(FN.SUNSET + 2, () => FN.state(game).s === "lurk");

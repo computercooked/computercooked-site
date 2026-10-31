@@ -974,6 +974,16 @@
     }
     c.zoom = SB.clamp(c.zoom, c.minZoom, c.maxZoom);
     if (T) { c.x = SB.clamp(c.x, -10, T.N + 10); c.z = SB.clamp(c.z, -10, T.N + 10); }
+    // a pan or a fling can't leave the explored island for the cloud (K-0057): the view's centre stays within
+    // a few tiles of what the smols have seen. Films and following a smol go where they need to
+    if (T && !c.intro && !c.follow && game && game.world && game.world.seen) {
+      var bx = seenBox(game.world), m = 6;
+      if (bx) {
+        var nx = SB.clamp(c.x, bx[0] - m, bx[2] + m), nz = SB.clamp(c.z, bx[1] - m, bx[3] + m);
+        if (nx !== c.x) { c.x = nx; c.vx = 0; }
+        if (nz !== c.z) { c.z = nz; c.vz = 0; }
+      }
+    }
     // pitch eases from a low, cinematic angle up close to a map-like angle far out
     var zt = SB.clamp((Math.log(c.zoom) - Math.log(4)) / (Math.log(70) - Math.log(4)), 0, 1);
     // plus the player's own tilt (right-drag / two-finger drag / R,F): lower to look across the land, higher for a map
@@ -1000,6 +1010,20 @@
     c.pxPerUnit = H / (2 * c.halfH);
   }
   R.updateCamera = updateCamera;
+  // the explored area's bounds [x0, z0, x1, z1] in tiles, worked out again only when more of it is seen
+  var sbox = null, sboxV = -1, sboxW = null;
+  function seenBox(world) {
+    var v = world._miniSeenV || 0;
+    if (sboxW === world && sboxV === v) return sbox;
+    sboxW = world; sboxV = v;
+    var S = SB.World.SEEN_N, f = SB.WORLD_N / S, s = world.seen, x0 = S, z0 = S, x1 = -1, z1 = -1;
+    for (var j = 0; j < S; j++) for (var i = 0; i < S; i++) if (s[j * S + i]) {
+      if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < z0) z0 = j; if (j > z1) z1 = j;
+    }
+    sbox = x1 < 0 ? null : [x0 * f, z0 * f, (x1 + 1) * f, (z1 + 1) * f];
+    return sbox;
+  }
+  R.seenBox = function () { return game && game.world && game.world.seen ? seenBox(game.world) : null; };
 
   // world units per screen pixel on the ground, for panning
   // a screen drag of (dx, dy) px, as ground movement: the drag in camera space slid along the view ray

@@ -1,7 +1,8 @@
 /* smol brains 2 — input.js
    Touch first, mouse and keyboard too. One finger: drag empty ground to pan, drag a smol or a thing to
    carry and throw it, tap to use the current tool. Two fingers: pinch to zoom, twist to rotate.
-   Mouse: wheel zooms at the cursor, right-drag (or shift-drag) rotates and tilts. Keys: WASD/arrows pan, Q/E rotate, R/V tilt,
+   Mouse: wheel zooms at the cursor, right-drag (or shift-drag) rotates and tilts, middle-drag pans. With the hand (grab) a
+   left-drag that misses doesn't pan: it reaches, and only pans when pushed to the screen edge (K-0057). Keys: WASD/arrows pan, Q/E rotate, R/V tilt,
    +/- zoom, 1-6 tools, space pause, [ ] speed, F follow, B brain, Esc closes things. */
 (function () {
   "use strict";
@@ -63,7 +64,13 @@
     }
     if (opts.creaturesOnly) return best;
     var its = game.world.items;
-    for (i = 0; i < its.length; i++) { var o = its[i]; if (o.inBag && o.heldBy != null) continue; if (o.heldBy != null && o.heldBy !== "hand") continue; test("item", o, o.x, o.y + 0.15, o.z, Math.max(0.25, o.r * 1.5), 12); }
+    // things are drawn where the look puts them (the voxel look lifts them onto the blocks), so test there: taps on the
+    // first pod used to miss it in the voxel look (K-0057: "46% then 68% after lots of fast taps"). A pod is big
+    for (i = 0; i < its.length; i++) {
+      var o = its[i]; if (o.inBag && o.heldBy != null) continue; if (o.heldBy != null && o.heldBy !== "hand") continue;
+      var oy = o.y + (o.heldBy == null && R.vdy ? R.vdy(o.x, o.z) : 0), pod = o.data && o.data.pod;
+      test("item", o, o.x, oy + (pod ? 0.45 : 0.15), o.z, pod ? 1.1 : Math.max(0.25, o.r * 1.5), pod ? 30 : 12);
+    }
     if (opts.carryable) return best;
     var sts = game.world.structures;
     for (i = 0; i < sts.length; i++) { var s = sts[i]; test("struct", s, s.x, SB.World.heightAt(game.world, s.x, s.z) + 0.5, s.z, SB.STRUCTS[s.kind].r, 0); }
@@ -75,6 +82,14 @@
     return best;
   };
 
+  // what the hand would take from here: the thing under it, else the nearest smol close by (smols are small and
+  // wander: about 40 px with a mouse at the default zoom, more for a finger) (K-0056, K-0057)
+  function grabHit(x, y, touch) {
+    var hit = IN.pick(x, y, { touch: touch, carryable: true });
+    if (!hit) hit = IN.pick(x, y, { touch: touch, creaturesOnly: true, pad: touch ? 56 : 40 });
+    return hit && (hit.type === "creature" || hit.type === "item") ? hit : null;
+  }
+  function setHover(hit) { game.hand.hoverId = hit && hit.type === "creature" ? hit.ref.id : null; }
   // when the input happened (the event's own time): on a slow frame, moves and the release are handled late and
   // bunched together, and handler times made every throw look like "held still, just drop it" (K-0056)
   function ts(e) { var t = e && e.timeStamp; return t > 0 && t < 1e12 ? t : performance.now(); }
@@ -106,20 +121,23 @@
     if (nPtr === 2) { startPinch(); drag = null; return; }
     if (nPtr > 2) return;
     var touch = e.pointerType !== "mouse";
-    var rotate = e.button === 2 || e.button === 1 || e.shiftKey;
-    drag = { id: e.pointerId, mode: rotate ? "rotate" : "pending", touch: touch, hist: [{ x: p.x, y: p.y, t: ts(e) }] };
+    var rotate = e.button === 2 || e.shiftKey, mpan = e.button === 1;
+    drag = { id: e.pointerId, mode: rotate ? "rotate" : mpan ? "pan" : "pending", touch: touch, hist: [{ x: p.x, y: p.y, t: ts(e) }] };
+    if (mpan && R.camera.follow) R.camera.follow = null;
     var tool = game.hand.tool;
-    if (!rotate && tool === "grab") {
-      var hit = IN.pick(p.x, p.y, { touch: touch, carryable: true });
-      // a smol walking out from under the finger still gets picked up (K-0056): the nearest one close by, rather than a pan
-      if (!hit) hit = IN.pick(p.x, p.y, { touch: touch, creaturesOnly: true, pad: touch ? 48 : 30 });
-      if (hit && (hit.type === "creature" || hit.type === "item")) drag.target = hit;
+    if (!rotate && !mpan && tool === "grab") {
+      // a smol walking out from under the finger still gets picked up: the nearest one close by, rather than a pan
+      var hit = grabHit(p.x, p.y, touch);
+      if (hit) drag.target = hit;
       else if (SB.FirstHour) { // grabbing a tree: wiggle it side to side to shake fruit loose
         var gp = R.pickGround(p.x, p.y), tn = gp && SB.World.nearestNode(game.world, gp.x, gp.z, 1.4, SB.FirstHour.canShake);
         if (tn && SB.World.isSeen(game.world, tn.x, tn.z)) drag.shake = { n: tn, dir: 0, flips: 0, t: performance.now() };
       }
     }
-    if (!rotate && (tool === "tickle")) {
+    // a mouse drag with the hand that starts on bare ground reaches instead of panning (K-0057: misses flew the
+    // camera off the island). Fingers still pan: two fingers do too, but one is what phones expect
+    if (!rotate && !mpan && tool === "grab" && !touch && !drag.target && !drag.shake) drag.reach = true;
+    if (!rotate && !mpan && (tool === "tickle")) {
       var hc = IN.pick(p.x, p.y, { touch: touch, creaturesOnly: true });
       if (hc) drag.rub = hc.ref;
     }
@@ -132,7 +150,11 @@
     var p = local(e), ptr = ptrs[e.pointerId];
     if (!ptr) {
       // hover (mouse only): the hand follows the cursor
-      if (e.pointerType === "mouse" && !(SB.UI && SB.UI.modalOpen) && e.target === el) { setHand(p.x, p.y, true); game.hand.hover = true; }
+      // (the stage is a box of canvases: the event lands on one of them)
+      if (e.pointerType === "mouse" && !(SB.UI && SB.UI.modalOpen) && (e.target === el || el.contains(e.target))) {
+        setHand(p.x, p.y, true); game.hand.hover = true;
+        setHover(game.hand.tool === "grab" && !game.hand.heldId ? grabHit(p.x, p.y, false) : null); // a ring on the smol a press would take
+      } else if (e.pointerType === "mouse") setHover(null);
       return;
     }
     var dx = p.x - ptr.x, dy = p.y - ptr.y;
@@ -144,14 +166,15 @@
     var moved = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
     var cre = drag.target && drag.target.type === "creature", held = performance.now() - ptr.t0;
     if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5) && (!cre || moved > (drag.touch ? 16 : 12) || held > 180)) {
-      drag.mode = drag.target ? "carry" : drag.rub ? "rub" : drag.shake ? "shake" : "pan";
-      if (drag.mode === "carry") pickUp(drag.target);
+      drag.mode = drag.target ? "carry" : drag.rub ? "rub" : drag.shake ? "shake" : drag.reach ? "reach" : "pan";
+      if (drag.mode === "carry") { pickUp(drag.target); setHover(null); }
       if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;
     }
     if (drag.mode === "pan") R.panBy(dx, dy);
     else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
     else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist, ts(e))); }
     else if (drag.mode === "shake") shakeMove(p, ptr, dx);
+    else if (drag.mode === "reach") { setHand(p.x, p.y, true); drag.at = p; }
     else if (drag.mode === "rub") {
       setHand(p.x, p.y, true);
       tickleRub += Math.hypot(dx, dy);
@@ -202,7 +225,7 @@
     }
     if (tool === "grab") {
       if (hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); }
-      else if (hit && hit.type === "item" && hit.ref.kind === "egg") { SB.World.warmEgg(game.world, game, hit.ref, hit.ref.data.starter ? 0.36 : 0.06); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 5); }
+      else if (hit && hit.type === "item" && hit.ref.kind === "egg") { SB.World.warmEgg(game.world, game, hit.ref, hit.ref.data.starter ? SB.World.POD_TAP : 0.06); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 5); }
       else if (hit) { if (SB.UI) SB.UI.inspect(hit); }
       else { SB.Game.select(game, null); if (SB.UI) SB.UI.inspect(null); }
     } else if (tool === "tickle" || tool === "tap") {
@@ -368,6 +391,12 @@
     if (keys.s || keys.arrowdown) py -= s;
     if (keys.a || keys.arrowleft) px += s;
     if (keys.d || keys.arrowright) px -= s;
+    // a hand reaching past the screen edge drags the view along (K-0057: mouse pan with the hand out)
+    if (drag && drag.mode === "reach" && drag.at && el) {
+      var EW = 36, ew = el.clientWidth, eh = el.clientHeight, ax = drag.at.x, ay = drag.at.y, es = 700 * dt;
+      if (ax < EW) px += es * (1 - ax / EW); else if (ax > ew - EW) px -= es * (1 - (ew - ax) / EW);
+      if (ay < EW) py += es * (1 - ay / EW); else if (ay > eh - EW) py -= es * (1 - (eh - ay) / EW);
+    }
     if (px || py) { R.camera.follow = null; R.panBy(px, py); }
   };
 })();

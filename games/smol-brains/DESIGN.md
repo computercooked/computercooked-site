@@ -626,6 +626,15 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Picked where it's drawn.** Picking uses the eased voxel lift (`c._vdy`), so the zone sits on the drawn body, not the sim's smooth ground.
 - **Throws on slow frames.** The flick reads the input events' own times (`e.timeStamp`) and the speed over the last ~60 ms. It used to compare handler times, so on a slow frame (the voxel look on a weaker device) the moves and the release arrived bunched and every throw counted as "held still": the smol just dropped.
 
+## 0.48 What v4.10.3 changed: the hand, the opening, day 1 (K-0057)
+
+- **The camera stays over the island.** A pan, a fling or WASD can't take the view's centre more than 6 tiles past what the smols have explored (`R.seenBox`, worked out again only when more is seen). Films and following a smol aren't held back.
+- **A mouse with the hand doesn't pan by accident.** With ✋ grab, a left-drag that starts on bare ground reaches instead of panning: the hand follows the cursor and, pushed to within 36 px of the screen edge, drags the view along. Middle-drag pans, right-drag (or shift-drag) still rotates and tilts, and WASD pans. Fingers still pan with one finger, as phones expect.
+- **Bigger reach, and you see what you'll grab.** The near-miss pick is 40 px with a mouse, 56 px with a finger. Hovering with the hand puts a white ring on the smol a press would take. (Mouse hover had never run: the check wanted the stage `div`, and the events land on its canvases.)
+- **The opening is about 38 s, not 65.** The ark film plays faster (`WARP` in intro.js, about 12 s), the Lantern film cuts the slow walk along the ridge and keeps the crash, Pip's run from the grump, the wish and the spark (`L.WARP`, Infinity is a cut, about 21 s), and the camera drop is 4.5 s. A "🔊 sound on" pill shows for the first 4 s.
+- **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
+- **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
