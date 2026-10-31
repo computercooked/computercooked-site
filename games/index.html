@@ -98,12 +98,24 @@
     </section>
 
 
-    <aside class="about-card install-card" id="install-card" aria-label="install" hidden>
-      <p><b>keep the arcade on your phone.</b> add it to your home screen: it opens like an app, and the games you have played work offline.</p>
-      <p class="install-how" data-install-how hidden>on iPhone or iPad: tap the share button <span aria-hidden="true">⬆︎</span>, then <b>add to home screen</b>.</p>
-      <div class="install-row">
-        <button class="play-btn" type="button" data-install hidden>add to home screen</button>
-        <button class="ghost-btn" type="button" data-install-close>not now</button>
+    <!-- a little phone (CSS only) where the arcade's icon drops into the home screen and "installs" -->
+    <aside class="about-card install-card" id="install-card" aria-labelledby="install-title" hidden>
+      <div class="install-phone" aria-hidden="true">
+        <span class="install-screen">
+          <span class="install-apps"><i></i><i></i><i></i><i></i><i></i><i></i><img src="/assets/icon-192.png" alt="" width="192" height="192" decoding="async"></span>
+          <span class="install-bar"><span></span></span>
+        </span>
+      </div>
+      <div class="install-copy">
+        <p class="install-eyebrow">install.exe</p>
+        <h2 id="install-title">keep the arcade on your phone</h2>
+        <p>add it to your home screen: it opens like an app, and the games you have played work offline.</p>
+        <ul class="install-perks"><li>opens like an app</li><li>works offline</li><li>no app store</li></ul>
+        <p class="install-how" data-install-how hidden>on iPhone or iPad: tap the share button <span aria-hidden="true">⬆︎</span>, then <b>add to home screen</b>.</p>
+        <div class="install-row">
+          <button class="play-btn" type="button" data-install hidden>add to home screen</button>
+          <button class="ghost-btn" type="button" data-install-close>not now</button>
+        </div>
       </div>
     </aside>
 
