@@ -492,6 +492,11 @@ a {
   margin: 4px 0;
 }
 
+/* K-0055: the follow icons in the homepage footer */
+.footer-follow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+.footer-follow span { margin-right: 4px; }
+.footer-follow a { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; }
+.footer-follow svg { width: 18px; height: 18px; }
 .footer a {
   display: inline-block;
   padding: 8px 4px;

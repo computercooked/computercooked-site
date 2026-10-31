@@ -7,7 +7,12 @@
 //   plays       game runs that started with the tags (play_utm source / medium, play_tags campaign), smoke left out
 //   players     distinct players among those plays
 // Smoke traffic (?cctest=1) is never stored by /api/hit, and REAL leaves it out of plays.
+//   shares        K-0055: runs sent from the game-over Share buttons, per game and how (card, clip, link, copy,
+//                 download): dares sent (dare_funnel) plus "share this game" sends (cc:share). The visits and plays
+//                 those links bring are the rows with utm_source share / utm_medium player / utm_campaign <game>.
+//   follow_clicks K-0055: clicks on the follow links (cc:follow_click) per game and platform, and where they were
 import { json, now, REAL } from "./util.js";
+import { FOLLOW_PLATFORMS } from "./follow.js";
 
 export async function utmReport(url, env) {
   const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get("days"), 10) || 7));
@@ -52,10 +57,35 @@ export async function utmReport(url, env) {
     s.campaigns += r.campaign ? 1 : 0;
     for (const k of ["sessions", "visitors", "page_views", "plays"]) s[k] += r[k];
   }
+  const shareRows = (await db.prepare(
+    `SELECT d.game game, f.shared_how how, COUNT(*) n FROM dare_funnel f JOIN dares d ON d.id = f.dare_id
+     WHERE f.shared_at >= ? AND f.shared_at < ? AND d.from_player NOT LIKE 'a:smoke%' GROUP BY 1, 2
+     UNION ALL
+     SELECT game, json_extract(data, '$.how') how, COUNT(*) n FROM events WHERE name = 'cc:share' AND ts >= ? AND ts < ? GROUP BY 1, 2`
+  ).bind(start, end, start, end).all()).results;
+  const shares = {};
+  for (const r of shareRows) {
+    const s = shares[r.game] || (shares[r.game] = { game: r.game, total: 0, by_how: {} });
+    s.total += r.n; s.by_how[r.how || "other"] = (s.by_how[r.how || "other"] || 0) + r.n;
+  }
+  const followRows = (await db.prepare(
+    `SELECT game, json_extract(data, '$.platform') platform, json_extract(data, '$.slot') slot, COUNT(*) n
+     FROM events WHERE name = 'cc:follow_click' AND ts >= ? AND ts < ? GROUP BY 1, 2, 3`
+  ).bind(start, end).all()).results;
+  const follows = {}, bySlot = {}, byPlatform = Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, 0]));
+  for (const r of followRows) {
+    const f = follows[r.game] || (follows[r.game] = { game: r.game, total: 0, ...Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, 0])) });
+    f.total += r.n; f[r.platform] = (f[r.platform] || 0) + r.n;
+    byPlatform[r.platform] = (byPlatform[r.platform] || 0) + r.n;
+    bySlot[r.slot] = (bySlot[r.slot] || 0) + r.n;
+  }
   return json({
     ok: true, days, from: new Date(start).toISOString(), to: new Date(end).toISOString(),
     site: { sessions: all.sessions || 0, page_views: all.page_views || 0, plays: allPlays.n || 0 },
     sources: Object.values(bySource).sort((a, b) => b.plays - a.plays || b.sessions - a.sessions),
     rows: list,
+    shares: Object.values(shares).sort((a, b) => b.total - a.total),
+    follow_clicks: { total: followRows.reduce((a, r) => a + r.n, 0), by_platform: byPlatform, by_slot: bySlot,
+      games: Object.values(follows).sort((a, b) => b.total - a.total) },
   });
 }

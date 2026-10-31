@@ -34,3 +34,9 @@ table(["utm_source", "campaigns", "sessions", "plays", "page views", "visitors"]
 console.log("");
 table(["utm_source", "utm_campaign", "medium", "sessions", "plays", "players", "landed on", "games played"],
   d.rows.map((r) => [dash(r.source), dash(r.campaign), dash(r.medium), r.sessions, r.plays, r.players, r.landing_pages.join(" ") || "-", r.games.join(" ") || "-"]));
+const HOWS = ["card", "clip", "clip-download", "download", "share", "copy"];
+console.log("\ngame-over shares (K-0055)");
+table(["game", "total", ...HOWS], (d.shares || []).map((s) => [s.game, s.total, ...HOWS.map((h) => s.by_how[h] || 0)]));
+const fc = d.follow_clicks || { games: [], by_slot: {}, total: 0 };
+console.log(`\nfollow link clicks: ${fc.total} (${Object.entries(fc.by_slot).map(([k, v]) => k + " " + v).join(", ") || "none"})`);
+table(["page", "total", "tiktok", "instagram", "x", "youtube"], fc.games.map((f) => [f.game, f.total, f.tiktok, f.instagram, f.x, f.youtube]));

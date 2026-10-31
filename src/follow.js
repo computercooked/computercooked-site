@@ -4,7 +4,7 @@
 import { json, bad, readJson, now, limited, slugOk, isTestAnon } from "./util.js";
 
 export const FOLLOW_PLATFORMS = ["tiktok", "youtube", "instagram", "x"];
-const SLOTS = ["hub-card", "hub-footer", "post-run"];
+const SLOTS = ["hub-card", "hub-footer", "post-run", "home-follow", "home-footer"];
 
 export async function followClick(req, env, ip) {
   if (limited("follow:" + ip, 60, 3600000)) return bad("slow down", 429);

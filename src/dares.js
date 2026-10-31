@@ -44,10 +44,10 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
   return json({ ok: true, id: row.id, url, long_url: origin + dareUrl({ id: row.id, game: run.game, score: run.score, from_name: row.from_name }), text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
 }
 
-// where a dare link lands: the game page with the dare banner (platform.js) and dare preview tags (seo.js), tagged so
-// plays it brings show under the "dare" campaign
+// where a dare link lands: the game page with the dare banner (platform.js) and dare preview tags (seo.js), tagged
+// like every player share (K-0055): utm_source=share, utm_medium=player, utm_campaign=<game>
 export function dareUrl(d) {
-  return `/games/${encodeURIComponent(d.game)}/?vs=${encodeURIComponent(d.score)}&from=${encodeURIComponent(d.from_name)}&d=${d.id}&utm_source=dare&utm_medium=share&utm_campaign=dare`;
+  return `/games/${encodeURIComponent(d.game)}/?vs=${encodeURIComponent(d.score)}&from=${encodeURIComponent(d.from_name)}&d=${d.id}&utm_source=share&utm_medium=player&utm_campaign=${encodeURIComponent(d.game)}`;
 }
 
 // GET /d/:id (outside /api): a 302 to dareUrl(). Unknown or broken ids go to the hub. Cached briefly at the edge.
@@ -60,13 +60,14 @@ export async function dareLink(env, url, id) {
   return new Response(null, { status: 302, headers: { location: url.origin + to, "cache-control": "public, max-age=300" } });
 }
 
-// POST /api/dare/:id/shared {how: share|copy|card|download}: the sender really sent it (share sheet finished,
-// link copied, share card shared, or the card downloaded).
+// POST /api/dare/:id/shared {how: share|copy|card|download|clip|clip-download}: the sender really sent it (share
+// sheet finished, link copied, share card or clip shared, or the card or clip downloaded).
 // Only the first one counts; it feeds the made → sent → opened → beaten funnel in /api/admin/metrics.
+export const SHARE_HOW = ["share", "copy", "card", "download", "clip", "clip-download"];
 export async function sharedDare(req, env, ip, id) {
   if (limited("dare-shared:" + ip, 60, 3600000)) return bad("slow down", 429);
   const b = await readJson(req, 256);
-  const how = ["share", "copy", "card", "download"].includes(b.how) ? b.how : null;
+  const how = SHARE_HOW.includes(b.how) ? b.how : null;
   if (!how) return bad("how?", 400);
   const d = await env.DB.prepare("SELECT id FROM dares WHERE id = ?").bind(id).first();
   if (!d) return bad("no such dare", 404);
@@ -136,7 +137,7 @@ export async function dareTags(env, url, slug) {
 export async function sharedGame(req, env, ip, catalog) {
   if (limited("game-share:" + ip, 30, 3600000)) return bad("slow down", 429);
   const b = await readJson(req, 256);
-  const how = ["share", "copy", "card", "download"].includes(b.how) ? b.how : null;
+  const how = SHARE_HOW.includes(b.how) ? b.how : null;
   if (!how) return bad("how?", 400);
   if (!slugOk(b.game) || !catalog.has(b.game)) return bad("no such game", 404);
   if (isTestAnon(b.anon)) return json({ ok: true, test: true });
