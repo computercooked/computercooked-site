@@ -34,14 +34,15 @@
       var tagOk = function (v) { return /^[a-z0-9_.-]{1,40}$/.test(v) ? v : null; };
       if ((tagOk(us) || tagOk(um)) && !sessionStorage.getItem("cc-utm")) sessionStorage.setItem("cc-utm", JSON.stringify({ s: tagOk(us), m: tagOk(um) }));
       // team test mode: ?cctest=1 gives this browser a "smoke-" anonymous id, which every count already leaves out
-      // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. Param removed.
+      // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. ?cctest=1 stays in
+      // the address (K-0057: it vanished on arrival, so test runs looked counted); ?cctest=0 comes off.
       var tm = q.get("cctest");
       if (tm === "1" && !/^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
         localStorage.setItem("cc-anon", "smoke-team-" + Math.random().toString(36).slice(2, 12));
       } else if (tm === "0" && /^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
         localStorage.removeItem("cc-anon");
       }
-      if (tm !== null) q.delete("cctest");
+      if (tm !== null && tm !== "1") q.delete("cctest");
       // test mode sticks to this browser (localStorage) until ?cctest=0 or a tap on the badge: a clean visitor never
       // has a smoke id, so never sees it, and every one of their visits is counted. The badge shows on a local dev
       // server only (K-0056): on the live site it ended up in the team's screen recordings; ?cctest=0 still leaves
@@ -65,7 +66,7 @@
       ["ref", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"].forEach(function (k) {
         if (q.has(k) && !(k === "ref" && q.get(k) === "app")) { q.delete(k); tagged = true; }
       });
-      if (tagged || thanks || tm !== null) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      if (tagged || thanks || (tm !== null && tm !== "1")) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
       // one page view per load, and the tip success: no cookies, no player id stored (POST /api/hit, src/hits.js)
       var hit = window.ccHit = function (kind, extra) {
         try {

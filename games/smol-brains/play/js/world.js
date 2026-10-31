@@ -695,10 +695,11 @@
 
   /* ---------------- eggs ---------------- */
 
+  W.POD_TAP = 0.5; // the first pod opens in two taps (K-0057: three felt slow), or one and a little wait
   W.warmEgg = function (world, game, egg, amount) {
     if (!egg || egg.kind !== "egg") return 0;
     var d = egg.data;
-    var amt = amount != null ? amount : d.starter ? 0.36 : 0.05; // the pod opens in three taps
+    var amt = amount != null ? amount : d.starter ? W.POD_TAP : 0.05;
     d.progress = Math.min(1, (d.progress || 0) + amt);
     d.wobble = 1;
     emit("eggWarm", { obj: egg, progress: d.progress });

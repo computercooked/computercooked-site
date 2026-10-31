@@ -402,6 +402,7 @@
       "<div><a class=\"tool cc-card-dl\" download>download card</a><button type=\"button\" class=\"tool cc-card-copy\">copy link</button>" +
       "<p class=\"cc-card-tip\">post the card, paste the link.</p></div></div>";
     if (best) pbTip(box);
+    stageShare(box);
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
     // what gets sent: a dare for this exact run, or (no score) just the game
     var make = !scored
@@ -789,6 +790,27 @@
         });
       });
     });
+  }
+
+  // K-0057: the share card was only in the box under the game, so phone players never scrolled to it. At game over
+  // a "share" button sits on the game itself (every game, top centre, clear of its own "play again"); it presses the
+  // box's share card button inside the same tap (so the share sheet can open), and where there's no share sheet it
+  // brings the box into view with the card. It goes when the next run starts.
+  function stageShare(box) {
+    var stage = document.querySelector(".player-stage");
+    if (!stage) return;
+    var b = stage.querySelector(".cc-stage-share");
+    if (!b) {
+      b = el('<button type="button" class="cc-stage-share">📤 share</button>');
+      stage.appendChild(b);
+      document.addEventListener("cc:start", function () { b.hidden = true; });
+    }
+    b.hidden = false;
+    b.onclick = function () {
+      var c = box.isConnected && box.querySelector(".cc-dare-card");
+      if (c) c.click();
+      if (!navigator.share || !(navigator.canShare && matchMedia("(pointer: coarse)").matches)) box.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
   }
 
   /* ---------- after a run ---------- */

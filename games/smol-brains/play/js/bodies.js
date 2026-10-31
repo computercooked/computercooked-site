@@ -85,7 +85,7 @@
   // the drawn ground or water surface (the block tops in the voxel look)
   function GY(w, x, z) { return SB.World.groundY(w, x, z) + R.vdy(x, z); }
   var EXT = [0, 0, 0], EXT_GLOW = [0, 0.7, 0], HI = [[0, 0, 0, 1], [0, 0.7, 0, 1]];
-  var SEL = [0.77, 1, 0.29];
+  var SEL = [0.77, 1, 0.29], HOV = [1, 1, 1];
 
   /* ---------------- creatures ---------------- */
 
@@ -110,6 +110,7 @@
       if (!(SB.Voxel && SB.Voxel.creature(c, x, y, z, t, mo))) SB.Pixel.creature(c, x, y, z, t, alpha);
       if (lk.glow > 0.5 && !c.far) R.light(x, y + Rr * 2, z, 3 + Rr * 4, 0.6, 0.55, 1);
       if (game.selectedId === c.id) { setBase(x, GY(game.world, x, z) + 0.03, z, t * 0.6, 1); part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]); }
+      else if (game.hand.hoverId === c.id) hoverRing(c, x, z, Rr, t, game);
       return;
     }
     if (cam.pov && SB.Voxel && SB.Voxel.creature(c, x, y, z, t, mo)) { // first person: the voxel smol (fades up close instead of clipping)
@@ -250,7 +251,13 @@
     if (game.selectedId === c.id) {
       setBase(x, GY(game.world, x, z) + 0.03, z, t * 0.6, 1);
       part("p:ring", 0, 0, 0, 0, 0, 0, Rr * 1.6, Rr * 0.6, Rr * 1.6, SEL, [0, 0.9, 0]);
-    }
+    } else if (game.hand.hoverId === c.id) hoverRing(c, x, z, Rr, t, game);
+  }
+  // the smol a press of the hand would pick up (K-0057): a white ring that breathes a little
+  function hoverRing(c, x, z, Rr, t, game) {
+    var k = 1.75 + Math.sin(t * 6) * 0.12;
+    setBase(x, GY(game.world, x, z) + 0.04, z, -t * 0.8, 1);
+    part("p:ring", 0, 0, 0, 0, 0, 0, Rr * k, Rr * 0.6, Rr * k, HOV, [0, 0.6, 0]);
   }
 
   // brows and mouth for a tribe-and-on face (3D look). Brows tilt with the mood (angry: in and down; sad,
