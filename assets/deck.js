@@ -81,6 +81,18 @@
       if (last !== day) { localStorage.setItem("cc-seen", day); pv.vis = last ? "back" : "new"; }
       if (!sessionStorage.getItem("cc-landed")) { sessionStorage.setItem("cc-landed", "1"); pv.land = 1; }
       hit("pageview", pv);
+      // K-0055: every follow link on any page (a[data-follow]: assets/follow.js rows and cards, the homepage row and
+      // footer) counts one click: POST /api/follow → cc:follow_click, read in /admin and /api/admin/utm
+      window.ccFollowAll = true;
+      document.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[data-follow]");
+        if (!a) return;
+        var gm = /^\/games\/([a-z0-9-]+)\//.exec(location.pathname);
+        try {
+          fetch("/api/follow", { method: "POST", keepalive: true, headers: { "content-type": "application/json" },
+            body: JSON.stringify({ platform: a.dataset.follow, slot: a.dataset.slot, game: gm ? gm[1] : null, anon: localStorage.getItem("cc-anon") }) }).catch(function () {});
+        } catch (err) {}
+      });
       // time on page: visible time only, sent once when the tab is hidden or closed
       var shown = document.visibilityState === "visible" ? Date.now() : 0, seen = 0, left = false;
       document.addEventListener("visibilitychange", function () {

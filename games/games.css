@@ -2087,6 +2087,9 @@
 /* share card fallback (no file sharing): the card itself with download + copy link */
 .cc-card-out { flex-basis: 100%; display: flex; gap: 12px; align-items: center; }
 .cc-card-out[hidden] { display: none; }
+/* K-0055: the clip button, and the follow row under the share box */
+.cc-dare-clip[disabled] { opacity: 0.6; cursor: progress; }
+.cc-dare-box .cc-follow-row { flex-basis: 100%; margin: 4px 0 0; }
 .cc-card-out img { width: 108px; height: 192px; border-radius: var(--r-sm); border: 1px solid rgba(232, 217, 181, 0.3); background: var(--bg); flex: none; }
 .cc-card-out > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
 .cc-card-out a.tool { text-decoration: none; }

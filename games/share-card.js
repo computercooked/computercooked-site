@@ -33,8 +33,8 @@
 
   window.ccShareCard = function (o) {
     var font = document.fonts && document.fonts.load ? document.fonts.load("800 80px \"JetBrains Mono\"").catch(function () {}) : Promise.resolve();
-    return Promise.all([load(o.art), load("/assets/logo.svg"), font]).then(function (res) {
-      var art = res[0], logo = res[1];
+    return Promise.all([load(o.art), load("/assets/logo.svg"), font, load("/assets/mascot/" + (o.best ? "trophy" : "happy") + ".png")]).then(function (res) {
+      var art = res[0], logo = res[1], mascot = res[3];
       var cv = document.createElement("canvas"); cv.width = W; cv.height = H;
       var g = cv.getContext("2d");
       g.textBaseline = "alphabetic";
@@ -52,6 +52,8 @@
       if (logo) g.drawImage(logo, 80, 90, 96, 96);
       g.fillStyle = C.lilac; g.font = "800 38px " + MONO; g.textAlign = "left";
       g.fillText("computer cooked games", 200, 152);
+      // the mascot in the top corner (K-0055), pixel art kept sharp
+      if (mascot) { g.imageSmoothingEnabled = false; g.drawImage(mascot, W - 80 - 150, 46, 150, 174); g.imageSmoothingEnabled = true; }
 
       // game art in a rounded frame
       var ax = 90, ay = 250, aw = W - 180, ah = Math.round(aw * 0.75);
@@ -94,7 +96,7 @@
       g.fillStyle = C.lilac; var url = o.link || "computercooked.com/games/" + (o.slug || "");
       fit(g, url, 40, W - 160); g.fillText(url, W / 2, 1730);
       g.fillStyle = C.dim; g.font = "800 30px " + MONO;
-      g.fillText("free · no download · plays on your phone", W / 2, 1800);
+      g.fillText("@computercooked · free · plays on your phone", W / 2, 1800);
 
       return new Promise(function (ok, bad) { cv.toBlob(function (b) { b ? ok(b) : bad(new Error("no image")); }, "image/png"); });
     });

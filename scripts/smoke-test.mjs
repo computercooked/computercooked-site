@@ -102,7 +102,7 @@ ok(r.ok, "feedback");
 // challenge-a-friend links: made from your own accepted run, verified when someone beats it
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
 const dare = r;
-ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$/.test(r.long_url) && /can you beat 40 on crash?\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
+ok(r.ok && /\/d\/[A-Za-z0-9_-]+$/.test(r.url) && /\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=dare&utm_medium=share&utm_campaign=dare$|\/games\/crash\/\?vs=40&from=smokey&d=[A-Za-z0-9_-]+&utm_source=share&utm_medium=player&utm_campaign=crash$/.test(r.long_url) && /can you beat 40 on crash?\? from smokey/.test(r.text), "dare link from a run (short /d/ link + long_url)", r);
 r = await post("/api/dare", { play_id: p1, anon: "someone-else-" + rid() });
 ok(r.status === 404, "can't make a dare from someone else's run", r.status);
 r = await (await post("/api/dare", { play_id: p1, anon })).json();
@@ -729,6 +729,7 @@ if (admin) {
   const ur = await (await get("/api/admin/utm?days=7", { authorization: "Bearer " + admin })).json();
   ok(ur.ok && ur.days === 7 && Array.isArray(ur.rows) && Array.isArray(ur.sources) && typeof ur.site?.sessions === "number", "admin utm report", ur.site);
   ok((await get("/api/admin/utm")).status === 401, "admin utm report needs the token");
+  ok(Array.isArray(ur.shares) && ur.follow_clicks && typeof ur.follow_clicks.total === "number" && "tiktok" in ur.follow_clicks.by_platform, "admin utm report: game-over shares and follow clicks (K-0055)", ur.follow_clicks);
   await post("/api/events", { anon, events: [{ t: "start", id: rid(), game: "crash", v: "1" }] });
   const dg2 = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
   ok(dg2.rows[2].plays === dRow.plays, "admin digest leaves smoke plays out", { before: dRow.plays, after: dg2.rows[2].plays });

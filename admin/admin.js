@@ -125,6 +125,13 @@
         ["landed on", function (r) { return esc(r.landing_pages.join(" ")) || "–"; }, "wrap"],
         ["games played", function (r) { return esc(r.games.join(" ")) || "–"; }, "wrap"]
       ], u.rows);
+      var hows = ["card", "clip", "clip-download", "download", "share", "copy"];
+      table($("#utm-shares"), [["game", function (s) { return esc(s.game); }], ["total", function (s) { return s.total; }, "n"]]
+        .concat(hows.map(function (h) { return [h, function (s) { return s.by_how[h] || 0; }, "n"]; })), u.shares || []);
+      var fc = u.follow_clicks || { games: [], by_slot: {} };
+      $("#utm-follow-sum").textContent = "· " + (fc.total || 0) + " in all · " + Object.keys(fc.by_slot).map(function (k) { return k + " " + fc.by_slot[k]; }).join(", ");
+      table($("#utm-follows"), [["page", function (f) { return esc(f.game); }], ["total", function (f) { return f.total; }, "n"]]
+        .concat(["tiktok", "instagram", "x", "youtube"].map(function (p) { return [p, function (f) { return f[p] || 0; }, "n"]; })), fc.games);
     });
 
     api("/api/admin/reports").then(function (r) {

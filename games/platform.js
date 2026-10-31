@@ -315,6 +315,55 @@
   document.addEventListener("cc:start", function () {
     if (dare && !dareOpened) { dareOpened = true; cc.event("challenge_open", { d: dare.id }); }
   });
+
+  /* ---------- K-0055: the last seconds of a run, for the share clip ----------
+     While a run is on: 10 small JPEG copies a second of the game's canvas (the biggest one in the game frame), the
+     last 8 s kept (about 1 MB). The copy is 480 px at most and the JPEG is encoded off the main thread. After the
+     run games/share-clip.js (loaded only then) turns them into a 9:16 video. A game drawn without a canvas, or a
+     canvas that can't be read: no clip, the card still works. */
+  var clipFrames = [], clipOn = false;
+  function clipCanvas() {
+    try {
+      var f = document.getElementById("game-frame"), d = f && f.contentDocument, best = null, area = 0;
+      if (!d) return null;
+      Array.prototype.forEach.call(d.querySelectorAll("canvas"), function (c) {
+        var a = c.width * c.height;
+        if (a > area && c.offsetWidth) { best = c; area = a; }
+      });
+      return best && area >= 40000 ? { c: best, w: f.contentWindow } : null;
+    } catch (e) { return null; }
+  }
+  document.addEventListener("cc:start", function () {
+    clipFrames = [];
+    if (clipOn || !window.MediaRecorder || !window.createImageBitmap) return;
+    var src = clipCanvas();
+    if (!src) return;
+    clipOn = true;
+    var tmp = document.createElement("canvas"), tg = tmp.getContext("2d"), lastT = 0, busy = false;
+    // in the game's own animation frame, after it draws
+    function grab() {
+      if (!clipOn) return;
+      src.w.requestAnimationFrame(grab);
+      var t = performance.now();
+      if (t - lastT < 100 || busy || document.hidden) return;
+      lastT = t;
+      var c = src.c, s = Math.min(1, 480 / c.width, 720 / c.height);
+      if (!c.width || !c.height) return;
+      tmp.width = Math.round(c.width * s); tmp.height = Math.round(c.height * s);
+      try { tg.drawImage(c, 0, 0, tmp.width, tmp.height); } catch (e) { clipOn = false; return; }
+      busy = true;
+      try {
+        tmp.toBlob(function (b) {
+          busy = false;
+          if (!b) return;
+          clipFrames.push({ t: t, blob: b });
+          while (clipFrames.length && clipFrames[0].t < t - 8000) clipFrames.shift();
+        }, "image/jpeg", 0.72);
+      } catch (e) { clipOn = false; busy = false; } // a canvas with outside images can't be read: no clip
+    }
+    src.w.requestAnimationFrame(grab);
+  });
+  document.addEventListener("cc:end", function () { clipOn = false; });
   function dareResult(e) {
     var r = e.detail && e.detail.result;
     if (!dare || !r || !r.accepted || !e.detail.playId) return;
@@ -356,7 +405,7 @@
     var playId = e.detail.playId, out = box.querySelector(".cc-dare-say");
     // what gets sent: a dare for this exact run, or (no score) just the game
     var make = !scored
-      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/?utm_source=share&utm_medium=" + (navigator.share ? "native" : "link") + "&utm_campaign=share" }); }
+      ? function () { return Promise.resolve({ ok: true, text: "come play " + info.title + " with me. free, no download.", url: location.origin + "/games/" + game + "/?utm_source=share&utm_medium=player&utm_campaign=" + game }); }
       : function () { return api("/api/dare", { play_id: playId, anon: cc._anon, source: best ? "best" : "button" }); };
     var ready = best || !scored ? make() : null, dare = null;
     if (ready) ready.then(function (d) { if (d && d.ok) dare = d; });
@@ -445,6 +494,51 @@
       o.querySelector(".cc-card-dl").onclick = function () { sent("download"); };
       o.querySelector(".cc-card-copy").onclick = function () { copy(d); };
     }
+
+    // K-0055: the clip, the run's last seconds as a 9:16 video (games/share-clip.js, loaded now the run is over).
+    // Share sheet with the video where the browser takes files, else it downloads, with the link to paste.
+    var frames = clipFrames;
+    clipFrames = [];
+    if (box._clipUrl) { URL.revokeObjectURL(box._clipUrl); box._clipUrl = null; }
+    if (frames.length < 15) return;
+    var cb = el('<button type="button" class="tool cc-dare-clip" disabled>making clip…</button>'), clipFile = null, clipName = "";
+    box.querySelector(".cc-dare-btns").appendChild(cb);
+    loadClipMaker().then(function (make) {
+      return make({ frames: frames, title: info && info.title, slug: game, score: scored ? e.detail.score : null, best: best });
+    }).then(function (v) {
+      if (!v || !cb.isConnected) { cb.remove(); return; }
+      clipName = game + (scored ? "-" + String(Math.round(e.detail.score)) : "") + "." + v.ext;
+      try { clipFile = new File([v.blob], clipName, { type: v.type }); } catch (err) { clipFile = null; }
+      box._clipUrl = URL.createObjectURL(v.blob);
+      cb.disabled = false;
+      cb.textContent = "share clip ▶";
+    }, function () { cb.remove(); });
+    cb.addEventListener("click", function () {
+      if (cb.disabled) return;
+      if (dare) { sendClip(dare); return; }
+      out.textContent = "one sec…";
+      getDare().then(function (d) { if (d) sendClip(d); });
+    });
+    function sendClip(d) {
+      // the share sheet on phones and tablets; a download on desktop (K-0055)
+      var files = false;
+      try { files = !!(clipFile && matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [clipFile] })); } catch (err) {}
+      if (files) {
+        navigator.share({ files: [clipFile], title: info && info.title, text: d.text + " " + d.url }).then(function () { sent("clip"); done(); }, function (err) {
+          if (err && err.name === "NotAllowedError") out.textContent = "clip ready. tap share clip again.";
+          else if (!err || err.name !== "AbortError") saveClip(d);
+        });
+        return;
+      }
+      saveClip(d);
+    }
+    function saveClip(d) {
+      var a = document.createElement("a");
+      a.href = box._clipUrl; a.download = clipName;
+      document.body.appendChild(a); a.click(); a.remove();
+      sent("clip-download");
+      out.textContent = "clip saved. post it with this link: " + d.url;
+    }
   }
   var follow = null;
   function loadFollow() {
@@ -457,6 +551,30 @@
       document.head.appendChild(s);
     });
     return follow;
+  }
+  var clipMaker = null;
+  function loadClipMaker() {
+    if (!clipMaker) clipMaker = new Promise(function (ok, bad) {
+      if (window.ccShareClip) return ok(window.ccShareClip);
+      var s = document.createElement("script");
+      s.src = "/games/share-clip.js";
+      s.onload = function () { window.ccShareClip ? ok(window.ccShareClip) : bad(new Error("no clip")); };
+      s.onerror = function () { clipMaker = null; bad(new Error("no clip")); };
+      document.head.appendChild(s);
+    });
+    return clipMaker;
+  }
+  // K-0055: follow links on every game-over screen: a compact row under the share box (tiktok, instagram, x,
+  // youtube; clicks counted by deck.js). It replaces the rail's follow card, so the links show once.
+  function followRow() {
+    loadFollow().then(function (f) {
+      var host = document.getElementById("cc-dare") || document.getElementById("cc-next");
+      if (!host || host.querySelector(".cc-follow-row")) return;
+      var card = document.querySelector("#cc-next .cc-follow");
+      if (card) card.remove();
+      host.insertAdjacentHTML("beforeend", f.row("post-run"));
+      f.bind(host);
+    }, function () {});
   }
   var cardMaker = null;
   function loadCardMaker() {
@@ -576,7 +694,7 @@
     var follow = function () {
       if (d && d.classList.contains("is-best")) return;
       loadFollow().then(function (f) {
-        if (rail.querySelector(".cc-follow")) return;
+        if (rail.querySelector(".cc-follow") || document.querySelector(".cc-follow-row")) return; // K-0055 row has them
         var t = rail.querySelector(".cc-tip"); if (t) t.remove();
         rail.insertAdjacentHTML("beforeend", f.card("post-run", visitRuns() >= 3 ? "this game came from a tiktok trend. follow for the next one" : null));
         f.bind(rail);
@@ -690,6 +808,7 @@
     dareResult(e);
     dareButton(e);
     nextRail();
+    followRow();
     adsReady().then(function (a) { if (a) a.runEnded(game); });
     var x = r && r.xp;
     if (!x && !me) x = guestAward(e.detail); // K-0030 step 1: guests earn xp on this device
