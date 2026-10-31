@@ -135,7 +135,7 @@
   layout();
 
   // ---------- state ----------
-  let state = "title", elapsed = 0, score = 0, best = 0, prevBest = 0, combo = 0, mult = 1, strikes = 0, judged = 0, correct = 0;
+  let state = "title", elapsed = 0, score = 0, best = 0, prevBest = 0, combo = 0, mult = 1, strikes = 0, judged = 0, correct = 0, docket = 0;
   let kase = null, fb = null, fx = [], line = pick(LINES.hello), lineT = 0, face = "stern", faceT = 0, shake = 0, startAt = 0, endAt = 0;
   try { best = +localStorage.getItem("gc-best") || 0; } catch (e) {}
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
@@ -153,7 +153,7 @@
     if (guilty) item = pick(charges);
     else item = Math.random() < 0.25 ? null : pick(ITEMS.filter((i) => !charges.includes(i)));
     const dur = lerp(3.4, 1.45, k) + (doubleCharge ? 0.4 : 0);
-    const c = { charges, item, dur, t: 0, n: judged + 1, disguise: elapsed > 15 && Math.random() < 0.3, swap: null, objection: null, enter: 0 };
+    const c = { charges, item, dur, t: 0, n: ++docket, disguise: elapsed > 15 && Math.random() < 0.3, swap: null, objection: null, enter: 0 };
     // sleight of beak: the goose swaps what it's holding partway through (judge the final item)
     if (elapsed > 30 && Math.random() < 0.25) {
       const target = Math.random() < 0.5 ? pick(charges) : (Math.random() < 0.3 ? null : pick(ITEMS.filter((i) => !charges.includes(i))));
@@ -168,7 +168,7 @@
   function objectionUp(c) { return c.objection && !c.objection.cleared && c.t >= c.objection.at && c.t < c.objection.at + c.objection.len; }
 
   function start() {
-    state = "play"; elapsed = 0; score = 0; combo = 0; mult = 1; strikes = 0; judged = 0; correct = 0; fx = []; fb = null;
+    state = "play"; elapsed = 0; score = 0; combo = 0; mult = 1; strikes = 0; judged = 0; correct = 0; docket = 0; fx = []; fb = null;
     startAt = performance.now(); say("hello", true); react("stern", 0.8); sfx.gavel();
     sdk((c) => c.start && c.start());
     newCase();
@@ -185,6 +185,9 @@
   function verdict(guiltyCall) {
     if (state !== "play" || !kase || fb) return;
     const c = kase;
+    // a case is on screen before it can be judged (K-0056): a double tap or a held key from the last verdict used to
+    // land on the next goose the moment it appeared, so that case went by unseen (case 1, then case 3)
+    if (c.t < 0.15) return;
     if (c.swap && !c.swap.done && c.t < c.swap.at) { /* judged before the swap: the pre-swap item counts */ }
     const isGuilty = c.charges.includes(finalItem(c));
     const ok = guiltyCall === isGuilty;

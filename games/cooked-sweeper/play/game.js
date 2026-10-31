@@ -162,7 +162,7 @@
   // ---------- state ----------
   const board = $("board"), win = $("win"), app = $("app");
   let mode = "endless", run = null, tiles = [], startAt = 0, endAt = 0, started = false, cursor = -1, ended = false;
-  let confirmFight = { i: -1, t: 0 }, pickerFor = -1;
+  let confirmFight = { i: -1, t: 0 }, pickerFor = -1, taps = 0;
   const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
   const heat = () => (run ? Math.max(0, Math.min(1, 1 - run.hp / run.max)) : 0);
   const portrait = () => window.innerWidth < window.innerHeight * 0.95;
@@ -179,7 +179,7 @@
     const d = dims();
     const seed = mode === "daily" ? "disk-" + today() : "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     run = CS.newRun({ cols: d.cols, rows: d.rows, seed, daily: mode === "daily" });
-    started = false; ended = false; startAt = 0; cursor = -1; confirmFight = { i: -1, t: 0 };
+    started = false; ended = false; startAt = 0; cursor = -1; confirmFight = { i: -1, t: 0 }; taps = 0;
     $("m-endless").setAttribute("aria-pressed", mode === "endless" ? "true" : "false");
     $("m-daily").setAttribute("aria-pressed", mode === "daily" ? "true" : "false");
     $("m-toggle").textContent = mode === "daily" ? "endless" : "today's disk";
@@ -401,6 +401,8 @@
     }
     confirmFight = { i: -1, t: 0 };
     if (!run.placed) { CS.generate(run, i); render(); } // the board is built around the first tap; popups show up
+    // the opening is never fatal (K-0056): your first few taps can't land on something that cooks you
+    if (taps++ < CS.GRACE_TAPS && CS.spare(run, i)) render();
     apply(CS.reveal(run, i), i);
   }
 

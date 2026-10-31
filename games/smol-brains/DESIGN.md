@@ -620,6 +620,12 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Cheap when nothing moves.** The map is kept while the view box doesn't change and redrawn every 4th frame for falling trees and carried things.
 - **Holding 60 fps.** In this look, dynamic resolution steps down 10% once frames run over 19 ms for 2 s, and back up under 15 ms. The voxel look draws half the grass and flowers, which read bigger as cubes. Settings → "soft focus, glow & shadows" turns all three off, as does a weak phone or 4 s under 25 fps.
 
+## 0.47 What v4.10.2 fixed: the hand grabs and throws again (K-0056)
+
+- **Near misses pick up.** With ✋ grab, a press that misses every smol and item now takes the nearest smol within 48 px (touch) or 30 px (mouse) before it falls back to panning. A smol walking out from under the finger used to turn the drag into a camera pan.
+- **Picked where it's drawn.** Picking uses the eased voxel lift (`c._vdy`), so the zone sits on the drawn body, not the sim's smooth ground.
+- **Throws on slow frames.** The flick reads the input events' own times (`e.timeStamp`) and the speed over the last ~60 ms. It used to compare handler times, so on a slow frame (the voxel look on a weaker device) the moves and the release arrived bunched and every throw counted as "held still": the smol just dropped.
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:

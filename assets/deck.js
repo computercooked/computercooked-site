@@ -43,8 +43,9 @@
       }
       if (tm !== null) q.delete("cctest");
       // test mode sticks to this browser (localStorage) until ?cctest=0 or a tap on the badge: a clean visitor never
-      // has a smoke id, so never sees it, and every one of their visits is counted
-      if (/^smoke/i.test(localStorage.getItem("cc-anon") || "")) {
+      // has a smoke id, so never sees it, and every one of their visits is counted. The badge shows on a local dev
+      // server only (K-0056): on the live site it ended up in the team's screen recordings; ?cctest=0 still leaves
+      if (/^smoke/i.test(localStorage.getItem("cc-anon") || "") && /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(location.hostname)) {
         var badge = document.createElement("button");
         badge.type = "button";
         badge.textContent = "test mode: not counted · tap to leave";
