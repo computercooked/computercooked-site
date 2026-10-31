@@ -1,7 +1,8 @@
 // POST /api/hit {kind, path, game?, slot?, ref, campaign, src, medium, anon}: site measurement with no player id stored.
 //   pageview     one per page load on pages with the control deck (assets/deck.js). The first one of the day in a
 //                browser carries vis "new" (never seen before) or "back" (seen on an earlier day): daily visitors and
-//                returning visitors without storing any id (the browser keeps only its last-seen day)
+//                returning visitors without storing any id (the browser keeps only its last-seen day). The first one in
+//                a tab carries land 1: one per visit, the sessions in /api/admin/utm (src/utm.js)
 //   leave        once per page load when the tab is hidden or closed, with ms = time the page was visible (time on page)
 //   tip_click    a click on a "tip the computer" link (games/hub.js, games/platform.js)
 //   tip_success  a page opened with ?tip=thanks (the Stripe Payment Link's after-payment redirect), once per visit
@@ -32,6 +33,7 @@ export async function hit(req, env, ip) {
   if (medium) data.medium = medium;
   if (b.kind === "tip_click") data.slot = TIP_SLOTS.includes(b.slot) ? b.slot : "other";
   if (b.kind === "pageview" && (b.vis === "new" || b.vis === "back")) data.vis = b.vis;
+  if (b.kind === "pageview" && b.land === 1) data.land = 1;
   if (b.kind === "leave") {
     const ms = Math.round(Number(b.ms));
     if (!(ms >= 0)) return bad("ms?", 400);

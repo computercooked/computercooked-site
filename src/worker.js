@@ -4,6 +4,7 @@
 import { subscribe, unsubscribe } from "./subscribe.js";
 import { labVotes, labVote } from "./lab.js";
 import { postIdea, listIdeas } from "./ideas.js";
+import { utmReport } from "./utm.js";
 import { homePage, labPage, logPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
@@ -171,6 +172,7 @@ async function api(req, env, url) {
       case "GET /api/admin/metrics": return metrics(url, env, origin);
       case "GET /api/admin/digest": return digest(url, env);
       case "GET /api/admin/ideas": return listIdeas(url, env);
+      case "GET /api/admin/utm": return utmReport(url, env);
       case "GET /api/admin/reports": return listReports(env);
       case "GET /api/admin/featured": return previewFeatured(url, env, await catalogOf(env, origin));
       case "GET /api/admin/challenge": return previewChallenge(url, env, await catalogOf(env, origin));

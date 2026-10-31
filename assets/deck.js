@@ -75,10 +75,12 @@
           fetch("/api/hit", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
         } catch (err) {}
       };
-      // first page view of the day says whether this browser is new or back (only the last-seen day is kept)
-      var day = new Date().toDateString(), last = localStorage.getItem("cc-seen");
-      if (last !== day) localStorage.setItem("cc-seen", day);
-      hit("pageview", last === day ? null : { vis: last ? "back" : "new" });
+      // first page view of the day says whether this browser is new or back (only the last-seen day is kept), and the
+      // first page of a tab says land: one session per visit for the tagged-links report (K-0054, src/utm.js)
+      var day = new Date().toDateString(), last = localStorage.getItem("cc-seen"), pv = {};
+      if (last !== day) { localStorage.setItem("cc-seen", day); pv.vis = last ? "back" : "new"; }
+      if (!sessionStorage.getItem("cc-landed")) { sessionStorage.setItem("cc-landed", "1"); pv.land = 1; }
+      hit("pageview", pv);
       // time on page: visible time only, sent once when the tab is hidden or closed
       var shown = document.visibilityState === "visible" ? Date.now() : 0, seen = 0, left = false;
       document.addEventListener("visibilitychange", function () {
