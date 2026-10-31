@@ -291,7 +291,7 @@
     hud.bAct2 = null;
     var intro = isPhone ? "left thumb walks · drag the right side to look · the big button does what it says · tap a hotbar slot to hold it"
       : "<kbd>WASD</kbd>walk <kbd>mouse</kbd> / <kbd>← →</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
-    if (s.firstNight) setTimeout(function () { HUD.beat("you are " + c.name, "run! grab sticks, light the nest", true); }, 400); // the first night: a beat, not a card over the grump
+    if (s.firstNight || s.nightChase) setTimeout(function () { HUD.beat("you are " + c.name, s.firstNight ? "run! grab sticks, light the nest" : "run for light: a fire, a torch, the nest", true); }, 400); // the first night and night chases: a beat, not a card over the grump
     else {
     hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
@@ -416,9 +416,10 @@
   function threatMarker() {
     var s = S(), g = s && !s.dead && P().scout ? P().scout() : null;
     if (!g) { hud.gmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
-    var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z);
+    var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z), lit = null;
+    if (s.nightChase) { lit = SB.World.nearestFire(s.game.world, c.x, c.z, dh); if (lit) { hm = lit; dh = SB.dist(lit.x, lit.z, c.x, c.z); } } // a night chase: the nearest light, if it's nearer than the nest
     mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0);
-    var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + " · 🏠 nest " + Math.round(dh) + "m";
+    var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + (lit ? " · 🔥 light " : " · 🏠 nest ") + Math.round(dh) + "m";
     if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
     hud.threat.classList.add("on");
     return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };

@@ -502,6 +502,7 @@
     if (SB.Director) SB.Director.tick(game, dt);
     if (SB.Sites && !game.offline) SB.Sites.tick(game, dt);
     if (SB.Threats) SB.Threats.tick(game, dt);
+    if (SB.NightChase) SB.NightChase.tick(game, dt);
     if (SB.Surv) SB.Surv.tick(game, dt); // v4.4: hit-point animations, rocks and vines growing back, packs
     SB.Ideas.nurse(game, dt);
     if (SB.Strangers) { game.strT = (game.strT || 0) + dt; if (game.strT >= 1) { SB.Strangers.tick(game, game.strT); game.strT = 0; } }
@@ -615,7 +616,7 @@
     var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning;
     if (!paused) {
       farFlags(game);
-      acc += dtReal * game.speed * Game.pace(game);
+      acc += dtReal * game.speed * Game.pace(game) * (SB.NightChase ? SB.NightChase.slow(game) : 1); // a night chase's "lend your light" moment runs slow
       var steps = 0;
       var ts0 = performance.now();
       while (acc >= SB.TICK && steps < 24) { Game.step(game, SB.TICK); acc -= SB.TICK; steps++; }
@@ -626,6 +627,7 @@
     var alpha = paused ? 1 : acc / SB.TICK;
     if (!(SB.Intro && SB.Intro.covering)) SB.Render.frame(game, dtReal, alpha); // the opening story covers the screen: skip drawing the island under it
     if (SB.Threats && SB.Threats.frame && !paused) SB.Threats.frame(game, dtReal);
+    if (SB.NightChase) SB.NightChase.frame(game);
     if (SB.UI && SB.UI.frame) SB.UI.frame(game, dtReal);
     saveT += dtReal;
     if (saveT > 20) { saveT = 0; try { SB.Save.save(game); } catch (e) {} }

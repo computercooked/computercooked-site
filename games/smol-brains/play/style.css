@@ -477,6 +477,8 @@ body.titling #overlay { opacity: 0; }
 .lendbtn { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); padding: 14px 26px; font: 800 22px var(--sans); color: #101114; background: #ffd84a; border: 0; box-shadow: 0 0 0 3px #000, 0 0 32px #ffd84a; cursor: pointer; display: none; z-index: 8; pointer-events: auto; animation: lendpulse 1.2s ease-in-out infinite; }
 .lendbtn.on { display: block; }
 .lendbtn small { display: block; font: 700 12px var(--sans); opacity: 0.7; }
+.ncbtn { bottom: calc(250px + var(--sab)); } /* above the notes that stack at the bottom left */
+.ncbtn::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: calc(var(--nc, 1) * 100%); background: #101114; opacity: 0.55; }
 @keyframes lendpulse { 50% { box-shadow: 0 0 0 3px #000, 0 0 56px #ffd84a; transform: translateX(-50%) scale(1.05); } }
 .testbtn { position: fixed; left: 8px; bottom: 6px; z-index: 7; font-size: 14px; padding: 8px 12px; background: var(--lime); color: #101114; font-weight: 800; }
 .verlbl { position: fixed; right: 8px; bottom: 6px; font: 800 16px/1 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color: #fff; background: rgba(0, 0, 0, 0.55); padding: 3px 6px; opacity: 0.95; pointer-events: none; z-index: 5; }

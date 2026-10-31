@@ -635,6 +635,20 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.49 What v4.11 added: night chases (K-0057 item 4)
+
+The first night's chase was the best minute in the game, and it never came back: after the tutorial, night grumps hunted on their own and you could only watch. Now any night can give you that minute again (`nightchase.js`, `SB.NightChase`).
+
+- **The moment.** When a night grump comes within 7 units (`NC.SPOT`) of a smol that's out alone in the dark (no fire within 6, not in a hut or shelter, more than 7 from the nest, not held, carried or captive), time slows to 0.3 (`NC.slow`, applied in main.js's frame loop), the camera follows that smol and zooms in, ⏭ skip stops, and fast-forward drops to 1×. The grump glares and waits (`scout.hold`), the smol freezes with fear, and one glowing button shows: "🕯 lend your light · <name> is cornered: be them, run for light", with a bar counting down 6 real seconds (`NC.PROMPT`).
+- **Let it go** and the grump goes back to its own night. Another prompt can come 30 s later, at most two a night (`NC.PROMPTS`).
+- **Lend your light** and you're that smol, free of sparks, in possess.js's scout chase: the grump runs at 90% of your running speed, winds up for 1.5 s and pounces. The first-possession controls card is skipped for a short "you are <name> · run for light" beat, and there are no quests in a chase. The red banner and green marker point to the nearest light if it's nearer than the nest ("🔥 light 12m").
+- **Win:** get within about 5.5 of any fire (a campfire, a wildfire, a torch lying down or a friend holding one), carry a torch yourself, reach the nest (within 5), or scare it off (it flees fire on its own). That's +3 ✨, the smol's fear drops to 0, `c.braveNights` goes up (saved, and noted in the chronicle), and the first win of the island is a memory ember ("<name> outran the dark", key `nightchase`).
+- **Lose:** three bites (`NC.BITES`) and it caught you: you're thrown out and the smol is hurt (pain and fear). Bites never take the last quarter of the hearts, so a chase never kills. Holding out 35 s means it loses you in the dark (+1 ✨, not a win). Leaving the body ends the chase, and the grump loses the scent.
+- **Once a night.** After a chase ends there's no other chase that night. You stay in the body for 3 s (`NC.LEAVE`), then you're back in the sky.
+- **Never** during the first night, a film, a window, while you're already possessing someone, offline catch-up or the title screen, and never against raiders (they come for buildings). Settings → "🕯 night chases on/off" (`game.settings.nightChase`). Counts live in `game.settings.chase` and save with the settings.
+- **possess.js:** `opts.nightChase` → `S.nightChase`; `scoutTick` runs for a night chase even after the first-minute grump is done and spawns nothing of its own; `endScout(msg, pay, why)` (exposed as `P.endScout`) doesn't touch `povThreat` in a night chase, and `scoutEnd` now carries `why`; `adoptScout(g, { keep: true })` leaves `povThreat` alone.
+- **Tests:** `tests/nightchase.test.js` (30 checks): no chase by day, in the first night or with the setting off; the prompt, the slow-down and the waiting grump; a missed prompt; lending; the nest win with sparks, ember and bravery; three bites; leaving mid-chase; and a save. `tricks.test.js`'s hungry-blob check is seeded (PR #198).
+
 ## 1. The ladder
 
 A smol's tier comes from its genes (`SB.Genome.tierOf`), and each tier needs the body *and* the brain:
@@ -702,6 +716,8 @@ Custom WebGL (WebGL2, or WebGL1 + instancing extension; GLSL ES 1.00) with no li
 Load order: `core, icons, genome, collect, brain, chemistry, lang, ideas, words, worldgen, world, creature, mind, species, society, strangers, social, funeral, orders, firsthour, tricks, quests, economy, civ, director, sites, threats, survival, gl, meshes, render, vox, voxel, pixel, hd, fx, bodies, input, audio, music, save, intro, title, possess, survival-art, povhud, ui, cards, main`. All plain scripts on `window.SB`, no build step.
 
 `SB.Surv` (survival.js): the inventory (`inv`, `add`, `take`, `move`, `select`, `held`), piles (`spawn`, `split`, `pickup`), recipes (`recipes`, `match`, `combine`, `craft`), hit points (`hitNode`, `fell`, `gather`, `setBlock`), planting, building (`canPlace`, `place`, `deliver`, `needs`), fires, `onDeath`, and the vines. `SB.Possess` (possess.js): entering and leaving, `drive`, `look`, `options` (what use / place / pick / E would do on a target), `act`, `drop`, `select`, building ghosts, and the first-time quest. `SB.PovHud` (povhud.js): the screen and the input listeners. `SB.SurvArt` (survival-art.js): meshes for vines, the lean-to and the new items, the topple and shake animations, piles, and the 16×16 item icons.
+
+`SB.NightChase` (nightchase.js, loaded after firstnight.js): `tick` (spots a grump and a lone smol, `find`), `offer`, `lend`, `safe` (asked by possess.js each tick of the chase), `slow` (the frame loop's time factor), `state` (`game.settings.chase`), `on` (the setting), `ui`/`frame` (the button and its countdown).
 
 `SB.Tricks` (tricks.js): `LIST` (data), `chance`/`meter` (read from the net), `check`/`seed` (learned and forgotten, emits `trickLearned`/`trickForgot`), `practice` (set it up), `colony`/`best`. `SB.Quests` (quests.js): `CHAPTERS` (data), `board`, `tick` (emits `questDone`/`chapterDone`), `count`.
 
