@@ -101,6 +101,32 @@
       ], fb.slice(0, 50));
     }).catch(function () { $("#msg").textContent = "couldn't reach the api"; });
 
+    // K-0054: plays and sessions by utm_source and utm_campaign, last 7 days (src/utm.js)
+    api("/api/admin/utm?days=7").then(function (u) {
+      if (!u.ok) return;
+      var dash = function (v) { return v ? esc(v) : "–"; };
+      $("#utm-site").textContent = "whole site, same 7 days: " + u.site.sessions + " sessions, " + u.site.plays + " plays.";
+      table($("#utm-sources"), [
+        ["utm_source", function (s) { return dash(s.source); }],
+        ["campaigns", function (s) { return s.campaigns; }, "n"],
+        ["sessions", function (s) { return s.sessions; }, "n"],
+        ["plays", function (s) { return s.plays; }, "n"],
+        ["page views", function (s) { return s.page_views; }, "n"],
+        ["visitors", function (s) { return s.visitors; }, "n"]
+      ], u.sources);
+      table($("#utm-table"), [
+        ["utm_source", function (r) { return dash(r.source); }],
+        ["utm_campaign", function (r) { return dash(r.campaign); }],
+        ["medium", function (r) { return dash(r.medium); }],
+        ["sessions", function (r) { return r.sessions; }, "n"],
+        ["plays", function (r) { return r.plays; }, "n"],
+        ["players", function (r) { return r.players; }, "n"],
+        ["page views", function (r) { return r.page_views; }, "n"],
+        ["landed on", function (r) { return esc(r.landing_pages.join(" ")) || "–"; }, "wrap"],
+        ["games played", function (r) { return esc(r.games.join(" ")) || "–"; }, "wrap"]
+      ], u.rows);
+    });
+
     api("/api/admin/reports").then(function (r) {
       if (!r.ok) return;
       table($("#reports-table"), [

@@ -725,6 +725,10 @@ if (admin) {
     "admin digest: 3 Pacific days with refs, next, shares, dares, games", dRow && { date: dRow.date, plays: dRow.plays });
   ok(dRow.follow_clicks && "tiktok" in dRow.follow_clicks && "x" in dRow.follow_clicks, "admin digest: follow clicks by platform", dRow.follow_clicks);
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
+  // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
+  const ur = await (await get("/api/admin/utm?days=7", { authorization: "Bearer " + admin })).json();
+  ok(ur.ok && ur.days === 7 && Array.isArray(ur.rows) && Array.isArray(ur.sources) && typeof ur.site?.sessions === "number", "admin utm report", ur.site);
+  ok((await get("/api/admin/utm")).status === 401, "admin utm report needs the token");
   await post("/api/events", { anon, events: [{ t: "start", id: rid(), game: "crash", v: "1" }] });
   const dg2 = await (await get("/api/admin/digest?days=3", { authorization: "Bearer " + admin })).json();
   ok(dg2.rows[2].plays === dRow.plays, "admin digest leaves smoke plays out", { before: dRow.plays, after: dg2.rows[2].plays });
