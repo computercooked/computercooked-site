@@ -596,6 +596,101 @@
       "added": "2026-10-30",
       "max_score_per_sec": 15.0,
       "max_score": 6000.0
+    },
+    {
+      "slug": "ant-farm",
+      "title": "ant farm",
+      "pitch": "a glass ant farm on your screen. drop crumbs, plan tunnels, raise a colony that digs itself deeper. watch out for the kid with the magnifying glass.",
+      "thumbnail": "/games/ant-farm/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "idle",
+        "sim",
+        "ants",
+        "builder",
+        "deep",
+        "mobile"
+      ],
+      "controls": "feed: tap the grass to drop crumbs. dig: drag on dirt next to a tunnel to plan it. look: tap an ant to meet it. drag or scroll to move. tap the magnifying glass to shoo the kid. 1/2/3 tools, c colony, m mutes.",
+      "size_kb": 90,
+      "version": "1.0",
+      "added": "2026-10-31",
+      "theme": {
+        "accent": "#c5ff49",
+        "bg": "#17120d"
+      },
+      "max_score_per_sec": 100.0,
+      "how_to": [
+        "food becomes eggs, eggs become ants",
+        "more tunnel = more room for ants",
+        "plan tunnels toward the buried curios",
+        "at 50 ants, send a new queen flying for royal jelly"
+      ],
+      "achievements": [
+        {
+          "id": "first_hatch",
+          "name": "it's alive",
+          "desc": "hatch your first ant",
+          "xp": 10,
+          "secret": false
+        },
+        {
+          "id": "pop_25",
+          "name": "small business",
+          "desc": "grow to 25 ants",
+          "xp": 20,
+          "secret": false
+        },
+        {
+          "id": "pop_100",
+          "name": "megacolony",
+          "desc": "grow to 100 ants",
+          "xp": 60,
+          "secret": false
+        },
+        {
+          "id": "deep_60",
+          "name": "way down",
+          "desc": "dig 60 tiles deep",
+          "xp": 40,
+          "secret": false
+        },
+        {
+          "id": "curio_6",
+          "name": "collector",
+          "desc": "find 6 different curios",
+          "xp": 40,
+          "secret": false
+        },
+        {
+          "id": "shoo",
+          "name": "go away kid",
+          "desc": "shoo the kid with the magnifying glass",
+          "xp": 25,
+          "secret": false
+        },
+        {
+          "id": "spider_slayer",
+          "name": "arachnophobe",
+          "desc": "beat a spider",
+          "xp": 30,
+          "secret": false
+        },
+        {
+          "id": "raid_survivor",
+          "name": "red alert",
+          "desc": "survive a red ant raid",
+          "xp": 30,
+          "secret": false
+        },
+        {
+          "id": "first_flight",
+          "name": "long live the queen",
+          "desc": "send a new queen on her nuptial flight",
+          "xp": 50,
+          "secret": false
+        }
+      ]
     }
   ]
 }

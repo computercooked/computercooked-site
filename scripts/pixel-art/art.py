@@ -637,12 +637,70 @@ def microwave(c):
     c.rect(px + 1, wy + 49, 22, 6, "#0b0c0e"); c.rect(px + 1, wy + 49, 22, 5, "#a8d533")
 
 
+def antfarm(c):
+    # a glass ant farm on a desk: sky, grass, a dirt mound, tunnels and chambers full of ants, the queen with her crown,
+    # a buried sugar cube, and a magnifying glass burning a hot spot on the grass; the computer watches from the side
+    c.rect(0, 0, c.W, c.H, "#211a13")
+    c.rect(0, c.H - 8, c.W, 8, "#3b2a1c"); c.rect(0, c.H - 8, c.W, 2, "#5a4029")
+    fx, fy, fw, fh = c.cx - 52, 6, 104, c.H - 16
+    c.rect(fx - 4, fy - 2, fw + 8, fh + 4, "#6b4a2b"); c.rect(fx - 4, fy - 2, 2, fh + 4, "#8a6239"); c.rect(fx + fw + 2, fy - 2, 2, fh + 4, "#8a6239")
+    sky = 20
+    for j in range(sky): c.rect(fx, fy + j, fw, 1, "#7cc4ff" if j < 8 else "#a6d8ff" if j < 14 else "#d6f0ff")
+    c.rect(fx + fw - 18, fy + 3, 7, 7, "#fff3b0")
+    c.rect(fx + 8, fy + 5, 12, 3, "#ffffff"); c.rect(fx + 11, fy + 3, 6, 2, "#ffffff")
+    gy = fy + sky
+    c.rect(fx, gy, fw, fh - sky, "#8b5e3c")
+    c.rect(fx, gy + 26, fw, fh - sky - 26, "#a0623a")
+    c.rect(fx, gy + 52, fw, fh - sky - 52, "#76503a")
+    for k in range(70):
+        x, y = fx + (k * 37) % fw, gy + 3 + (k * 23) % (fh - sky - 4)
+        c.px(x, y, "#7a5133" if k % 2 else "#9d6c46")
+    for i in range(10): c.rect(fx + 30 + i * 2 - (i // 3), gy - 1 - min(i, 9 - i) // 2, 2, 1 + min(i, 9 - i) // 2, "#8a6544")
+    c.rect(fx, gy, fw, 2, "#4f9a37")
+    for i in range(0, fw, 5): c.px(fx + i + 1, gy - 1, "#6cc04a")
+    T = "#2a1a10"
+    sx = fx + fw // 2
+    c.rect(sx, gy, 3, 22, T)
+    c.rect(sx - 22, gy + 20, 47, 3, T)
+    c.rect(sx - 10, gy + 18, 24, 6, T)
+    c.rect(sx - 22, gy + 20, 3, 22, T); c.rect(sx - 40, gy + 40, 21, 3, T)
+    c.rect(sx + 22, gy + 20, 3, 34, T); c.rect(sx + 8, gy + 52, 30, 3, T); c.rect(sx + 14, gy + 50, 14, 6, T)
+    c.rect(sx - 40, gy + 40, 3, 20, T)
+    # the queen (a big ant with a crown) and eggs
+    c.rect(sx - 6, gy + 21, 6, 2, "#3a1d12"); c.rect(sx, gy + 21, 2, 2, "#3a1d12"); c.rect(sx + 3, gy + 21, 2, 2, "#3a1d12")
+    c.rect(sx - 5, gy + 19, 1, 1, "#ffd23e"); c.rect(sx - 3, gy + 18, 1, 2, "#ffd23e"); c.rect(sx - 1, gy + 19, 1, 1, "#ffd23e"); c.rect(sx - 5, gy + 20, 5, 1, "#ffd23e")
+    for (x, y) in [(8, 22), (10, 23), (12, 22)]: c.px(sx + x, gy + y, "#ffffff")
+    for (x, y) in [(18, 54), (21, 53), (24, 54)]: c.px(sx + x, gy + y, "#ffffff")
+    # ants: 3px long, some carrying a crumb
+    ants = [(sx + 1, gy + 4, 0, 1), (sx + 1, gy + 12, 0, 0), (sx - 17, gy + 21, 1, 1), (sx + 18, gy + 21, 1, 0), (sx - 21, gy + 30, 0, 0),
+            (sx - 32, gy + 41, 1, 1), (sx + 23, gy + 34, 0, 1), (sx + 12, gy + 53, 1, 0), (sx - 39, gy + 52, 0, 0), (sx + 30, gy + 53, 1, 1)]
+    for (x, y, h, carry) in ants:
+        if h: c.rect(x, y, 3, 1, "#161210"); c.px(x + 1, y - 1 if (x // 3) % 2 else y + 1, "#161210")
+        else: c.rect(x, y, 1, 3, "#161210")
+        if carry: c.px(x + (3 if h else 0), y - (0 if h else 1), "#f1d39a")
+    # surface ants marching to a crumb, the hot spot and the lens
+    for i in range(5): c.rect(fx + 10 + i * 6, gy - 2, 3, 1, "#161210")
+    c.rect(fx + 6, gy - 3, 3, 2, "#f1d39a")
+    hx = fx + 76
+    c.rect(hx - 2, gy - 2, 5, 2, "#ffd23e"); c.px(hx, gy - 3, "#ffffff")
+    for j in range(8): c.rect(hx - 4 + j // 2, gy - 12 + j, 9 - j, 1, "#fff6c8")
+    lx, ly = hx + 2, fy + 5
+    c.rect(lx - 6, ly - 1, 13, 9, "#333333"); c.rect(lx - 5, ly, 11, 7, "#bfe6ff"); c.rect(lx - 4, ly + 1, 3, 1, "#ffffff")
+    for i in range(6): c.rect(lx + 6 + i * 2, ly - 2 - i, 2, 2, "#6b3f1f")
+    # a buried sugar cube and a floppy, glimpsed through the glass
+    c.rect(fx + 12, gy + 34, 5, 5, "#e6e1d6"); c.rect(fx + 13, gy + 35, 3, 3, "#ffffff")
+    c.rect(fx + fw - 14, gy + 62, 6, 6, "#1b1714"); c.rect(fx + fw - 13, gy + 63, 3, 2, "#d0d0cb"); c.rect(fx + fw - 13, gy + 66, 4, 1, "#ffffff")
+    # glass glare
+    for j in range(fh): c.px(fx + 6 + (j // 10) % 2, fy + j, "#ffffff") if j % 9 == 0 else None
+    c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
-    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave,
+    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
 }
 
 

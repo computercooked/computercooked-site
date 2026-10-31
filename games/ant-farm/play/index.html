@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17120d">
+<meta name="description" content="ant farm: a glass ant farm on your screen. drop crumbs, plan tunnels, raise a colony that digs itself deeper. watch out for the kid with the magnifying glass. from computer cooked games.">
+<title>ant farm · computer cooked games</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #17120d; overflow: hidden; color: #f5f3ed; font: 700 13px ui-monospace, Menlo, Consolas, monospace; }
+  body { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+  canvas { display: block; width: 100%; height: 100%; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  #hud { position: fixed; left: 0; right: 0; top: 0; padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: linear-gradient(#17120dee, #17120d00); pointer-events: none; z-index: 2; }
+  .chip { background: #0008; border: 1px solid #ffffff22; border-radius: 6px; padding: 4px 7px; white-space: nowrap; }
+  .chip b { color: #c5ff49; }
+  #hud .grow { flex: 1; }
+  #hud button { pointer-events: auto; background: #0008; border: 1px solid #ffffff33; border-radius: 6px; padding: 4px 8px; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; justify-content: center; background: linear-gradient(#17120d00, #17120df0 40%); z-index: 2; }
+  #bar button { min-width: 54px; padding: 8px 9px; background: #2a2119; border: 2px solid #4a3a2a; border-radius: 8px; line-height: 1.1; }
+  #bar button small { display: block; font-size: 10px; opacity: .8; font-weight: 700; }
+  #bar button.on { border-color: #c5ff49; background: #34401a; }
+  #bar button.ping { animation: ping 1s ease-in-out infinite; }
+  @keyframes ping { 50% { border-color: #c5ff49; } }
+  #toast { position: fixed; left: 50%; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); justify-content: flex-end; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; gap: 4px; align-items: center; pointer-events: none; width: min(92vw, 440px); }
+  #toast div { background: #101114ee; border: 1px solid #c5ff4966; border-radius: 8px; padding: 6px 10px; text-align: center; animation: tin .25s ease-out; }
+  #toast div.bad { border-color: #ff5a4a; }
+  #toast div.coach { border-color: #b59aff; color: #e4dbff; }
+  @keyframes tin { from { opacity: 0; transform: translateY(-6px); } }
+  .sheet { position: fixed; inset: 0; z-index: 5; background: #000a; display: flex; align-items: flex-end; justify-content: center; }
+  .sheet[hidden], .over[hidden] { display: none; }
+  .panel { width: min(100%, 520px); max-height: 82vh; overflow: auto; background: #1e1812; border: 2px solid #4a3a2a; border-bottom: 0; border-radius: 14px 14px 0 0; padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px)); touch-action: pan-y; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 10px; position: sticky; top: -12px; background: #1e1812; padding: 4px 0; }
+  .tabs button { flex: 1; padding: 7px 4px; background: #2a2119; border: 1px solid #4a3a2a; border-radius: 6px; }
+  .tabs button.on { border-color: #c5ff49; color: #c5ff49; }
+  .tabs .x { flex: 0 0 38px; }
+  .row { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid #3a2e22; border-radius: 8px; margin-bottom: 6px; background: #241d16; }
+  .row .t { flex: 1; min-width: 0; }
+  .row .t div:first-child { color: #f5f3ed; }
+  .row .t div + div { font-weight: 500; opacity: .75; font-size: 12px; margin-top: 2px; }
+  .row button { padding: 8px 10px; border-radius: 6px; background: #34401a; border: 1px solid #c5ff49; color: #e9ffbd; min-width: 78px; }
+  .row button:disabled { background: #2a2119; border-color: #4a3a2a; color: #8a7a66; cursor: default; }
+  .lvl { color: #b59aff; font-size: 11px; }
+  .muted { opacity: .7; font-weight: 500; }
+  input[type=range] { width: 100%; accent-color: #c5ff49; }
+  .cur { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+  .cur div { padding: 8px; border: 1px solid #3a2e22; border-radius: 8px; background: #241d16; font-size: 12px; }
+  .cur div.no { opacity: .4; }
+  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: radial-gradient(#17120dcc, #0b0806f2); padding: 20px; text-align: center; }
+  .over .box { max-width: 420px; }
+  .over h1 { font-size: clamp(40px, 13vw, 72px); margin: 0 0 4px; letter-spacing: -2px; color: #f5f3ed; text-shadow: 4px 4px 0 #6b4a2b; }
+  .over h2 { font-size: 26px; margin: 0 0 8px; color: #c5ff49; }
+  .over p { font-weight: 500; line-height: 1.45; opacity: .9; }
+  .over .go { margin-top: 14px; padding: 13px 22px; font-size: 17px; background: #c5ff49; color: #101114; border: 0; border-radius: 10px; box-shadow: 0 4px 0 #6f8f25; }
+  .over .alt { margin: 10px 4px 0; padding: 9px 14px; background: transparent; border: 1px solid #ffffff44; border-radius: 8px; }
+  .credit { margin-top: 18px; font-size: 11px; opacity: .55; }
+</style>
+<script src="/games/cc-sdk.js"></script>
+</head>
+<body>
+<canvas id="c" aria-label="ant farm: a glass ant farm. ants forage food from the surface and dig the tunnels you plan."></canvas>
+<div id="hud">
+  <span class="chip">food <b id="hFood">0</b></span>
+  <span class="chip">ants <b id="hAnts">0</b><span class="muted" id="hCap"></span></span>
+  <span class="chip">eggs <b id="hEggs">0</b></span>
+  <span class="chip" id="hJellyC" hidden>jelly <b id="hJelly">0</b></span>
+  <span class="grow"></span>
+  <button id="mute" type="button" aria-label="mute">sound on</button>
+</div>
+<div id="toast" aria-live="polite"></div>
+<div id="bar">
+  <button id="tFeed" type="button" class="on">🍞<small>feed</small></button>
+  <button id="tDig" type="button">⛏<small>dig</small></button>
+  <button id="tLook" type="button">🔍<small>look</small></button>
+  <button id="tSpeed" type="button">⏩<small>1x</small></button>
+  <button id="tColony" type="button">🏠<small>colony</small></button>
+</div>
+<div class="sheet" id="sheet" hidden>
+  <div class="panel" role="dialog" aria-label="colony">
+    <div class="tabs">
+      <button type="button" data-tab="up" class="on">upgrades</button>
+      <button type="button" data-tab="jobs">jobs</button>
+      <button type="button" data-tab="cur">curios</button>
+      <button type="button" data-tab="fly">queen</button>
+      <button type="button" class="x" id="close" aria-label="close">✕</button>
+    </div>
+    <div id="pane"></div>
+  </div>
+</div>
+<div class="over" id="title">
+  <div class="box">
+    <h1>ant farm</h1>
+    <p>a glass ant farm lives in your browser now.<br>drop crumbs. plan tunnels. grow the colony.<br>don't let the kid near the magnifying glass.</p>
+    <button class="go" id="start" type="button">tap to start</button>
+    <div class="credit">computer cooked games</div>
+  </div>
+</div>
+<div class="over" id="over" hidden><div class="box" id="overBox"></div></div>
+<script src="game.js"></script>
+</body>
+</html>
