@@ -47,10 +47,10 @@
     }
     // creatures: anywhere on the body counts, plus a forgiving ring around it. a tap right on the body
     // beats a nearby item; a tap in the ring loses to an item that's actually under the finger.
-    var cs = game.creatures, pad = opts.touch ? 24 : 14;
+    var cs = game.creatures, pad = opts.pad || (opts.touch ? 24 : 14);
     for (var i = 0; i < cs.length; i++) {
       var c = cs[i]; if (!c.alive || c.far || (c.heldBy == null && !SB.World.isSeen(game.world, c.x, c.z))) continue;
-      R.project(c.x, c.y, c.z, pp);
+      R.project(c.x, c.y + (R.voxel && c._vdy ? c._vdy : 0), c.z, pp);
       if (!pp.on) continue;
       var r = SB.Creature.radius(c), fx = pp.x, fy = pp.y;
       var hpx = R.pixel && c._pxH ? c._pxH : r * (2.4 + (c.look.legs ? 1.2 : 0)) * ppu;
@@ -75,6 +75,9 @@
     return best;
   };
 
+  // when the input happened (the event's own time): on a slow frame, moves and the release are handled late and
+  // bunched together, and handler times made every throw look like "held still, just drop it" (K-0056)
+  function ts(e) { var t = e && e.timeStamp; return t > 0 && t < 1e12 ? t : performance.now(); }
   function local(e) {
     var r = el.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -104,10 +107,12 @@
     if (nPtr > 2) return;
     var touch = e.pointerType !== "mouse";
     var rotate = e.button === 2 || e.button === 1 || e.shiftKey;
-    drag = { id: e.pointerId, mode: rotate ? "rotate" : "pending", touch: touch, hist: [{ x: p.x, y: p.y, t: performance.now() }] };
+    drag = { id: e.pointerId, mode: rotate ? "rotate" : "pending", touch: touch, hist: [{ x: p.x, y: p.y, t: ts(e) }] };
     var tool = game.hand.tool;
     if (!rotate && tool === "grab") {
       var hit = IN.pick(p.x, p.y, { touch: touch, carryable: true });
+      // a smol walking out from under the finger still gets picked up (K-0056): the nearest one close by, rather than a pan
+      if (!hit) hit = IN.pick(p.x, p.y, { touch: touch, creaturesOnly: true, pad: touch ? 48 : 30 });
       if (hit && (hit.type === "creature" || hit.type === "item")) drag.target = hit;
       else if (SB.FirstHour) { // grabbing a tree: wiggle it side to side to shake fruit loose
         var gp = R.pickGround(p.x, p.y), tn = gp && SB.World.nearestNode(game.world, gp.x, gp.z, 1.4, SB.FirstHour.canShake);
@@ -134,8 +139,8 @@
     ptr.x = p.x; ptr.y = p.y;
     if (pinch) { updatePinch(); return; }
     if (!drag || drag.id !== e.pointerId) return;
-    drag.hist.push({ x: p.x, y: p.y, t: performance.now() });
-    if (drag.hist.length > 6) drag.hist.shift();
+    drag.hist.push({ x: p.x, y: p.y, t: ts(e) });
+    if (drag.hist.length > 10) drag.hist.shift();
     var moved = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
     var cre = drag.target && drag.target.type === "creature", held = performance.now() - ptr.t0;
     if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5) && (!cre || moved > (drag.touch ? 16 : 12) || held > 180)) {
@@ -145,7 +150,7 @@
     }
     if (drag.mode === "pan") R.panBy(dx, dy);
     else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
-    else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist)); }
+    else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist, ts(e))); }
     else if (drag.mode === "shake") shakeMove(p, ptr, dx);
     else if (drag.mode === "rub") {
       setHand(p.x, p.y, true);
@@ -169,7 +174,11 @@
       // fling
       var h = drag.hist, a = h[0], b = h[h.length - 1], dt = (b.t - a.t) / 1000;
       if (dt > 0 && dt < 0.25 && h.length > 2) R.panVelocity((b.x - a.x) / dt * 0.6, (b.y - a.y) / dt * 0.6);
-    } else if (drag.mode === "carry") release(drag);
+    } else if (drag.mode === "carry") {
+      var hl = drag.hist[drag.hist.length - 1];
+      if (Math.hypot(p.x - hl.x, p.y - hl.y) > 2) drag.hist.push({ x: p.x, y: p.y, t: ts(e) }); // the last bit of the flick
+      release(drag, ts(e));
+    }
     drag = null;
     if (ptr.type !== "mouse") { game.hand.visible = false; game.hand.marker = false; }
   }
@@ -233,10 +242,13 @@
     if (ref.type === "creature") { ref.px = ref.x; ref.pz = ref.z; ref.py = ref.y; ref.onGround = false; }
   }
   // the flick's screen velocity as ground velocity (same mapping as panning, so it flies where you threw it)
-  function flick(hist) {
-    var a = hist[0], b = hist[hist.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
+  function flick(hist, now) {
+    // the speed over the last ~60 ms of the drag (older history is a slow carry, not the throw)
+    var b = hist[hist.length - 1], a = hist[0];
+    for (var i = hist.length - 2; i >= 0; i--) { a = hist[i]; if (b.t - a.t >= 60) break; }
+    var dt = Math.max(0.016, (b.t - a.t) / 1000);
     var gv = R.groundDelta((b.x - a.x) / dt, (b.y - a.y) / dt), gx = gv[0], gz = gv[1];
-    if (b.t - a.t < 1 || performance.now() - b.t > 90) { gx = 0; gz = 0; } // held still before letting go: just drop it
+    if (b.t - a.t < 1 || (now != null ? now : performance.now()) - b.t > 90) { gx = 0; gz = 0; } // held still before letting go: just drop it
     var sp = Math.hypot(gx, gz), cap = 9;
     if (sp > cap) { gx *= cap / sp; gz *= cap / sp; sp = cap; }
     return { gx: gx, gz: gz, sp: sp };
@@ -255,11 +267,11 @@
     }
     h.aim = { pts: pts, t: performance.now() };
   }
-  function release(d) {
+  function release(d, now) {
     var h = game.hand, ref = SB.Game.byId(game, h.heldId);
     h.heldId = null; h.aim = null;
     if (!ref) return;
-    var f = flick(d.hist), gx = f.gx, gz = f.gz, sp = f.sp;
+    var f = flick(d.hist, now), gx = f.gx, gz = f.gz, sp = f.sp;
     if (ref.type === "creature") {
       ref.heldBy = null; ref.vx = gx * 0.8; ref.vz = gz * 0.8; ref.vy = 2 + Math.min(6, sp * 0.3); ref.onGround = false;
       if (sp > 6 && ref.species === "smol") { SB.Chem.apply(ref.chem, { fear: 0.15 }); }

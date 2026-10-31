@@ -2,7 +2,10 @@
    The computer has become a microwave. Hold anywhere to cook, let go when the food is done. Every item tells you in its
    own way: popcorn pops slow down, the burrito thaws from icy blue, the egg wobbles harder and harder, coffee starts
    to bubble, the fish starts to stink. Let go too early: cold in the middle (streak lost). Too late: burnt, a strike.
-   Never microwave the fork: let go at once. Three strikes and the fire alarm wins. Space (hold) cooks too, M mutes. */
+   Never microwave the fork: let go at once. Three strikes and the fire alarm wins. Space (hold) cooks too, M mutes.
+   Haunted microwave (K-0056, a Halloween mode): the 🎃 button or H on the title. Cursed things join the menu (a
+   pumpkin, candy corn, a cursed doll you must not cook), bats, a purple glow, and a light ghost scare when you fail.
+   Offered Oct 15 to Nov 7 (or with ?haunted=1); on by default on Oct 31 until the player turns it off. */
 (function () {
   "use strict";
   // ---------- platform sdk: optional, every call guarded ----------
@@ -72,10 +75,23 @@
     fork: { name: "A FORK", tip: "metal! let go right now", cursed: true },
     phone: { name: "someone's phone", tip: "that's not how charging works. let go", cursed: true },
   };
+  ITEMS.pumpkin = { name: "a cursed pumpkin", tip: "let go when it glows" };
+  ITEMS.candycorn = { name: "candy corn (haunted)", tip: "it melts from the tip. let go before the white goes" };
+  ITEMS.doll = { name: "A CURSED DOLL", tip: "it's watching. let go right now", cursed: true };
   const NORMAL = ["popcorn", "burrito", "egg", "coffee", "fish", "soup"];
+  const SPOOKY = NORMAL.concat(["pumpkin", "pumpkin", "candycorn", "candycorn"]);
+
+  // ---------- haunted mode ----------
+  const now0 = new Date(), md = (now0.getMonth() + 1) * 100 + now0.getDate();
+  const hauntParam = /[?&]haunted=1/.test(location.search) || /[?&]haunted=1/.test((() => { try { return window.parent.location.search; } catch (e) { return ""; } })());
+  const hauntSeason = hauntParam || (md >= 1015 && md <= 1107);
+  let haunted = false;
+  try { const v = localStorage.getItem("mp-haunted"); haunted = hauntSeason && (v === "1" || (v === null && (md === 1031 || hauntParam))); } catch (e) { haunted = hauntParam; }
+  let scare = null; // the ghost: { t } while it's up
   const LINES = {
     hello: ["the computer is a microwave now.", "hold to cook. trust your nose."],
     perfect: ["perfect.", "ding! nailed it.", "restaurant quality (gas station)."],
+    boo: ["BOO.", "the microwave is haunted now.", "something cooked YOU."],
     good: ["edible.", "close enough.", "it's food."],
     cold: ["cold in the middle.", "still frozen. classic.", "lava outside, ice inside."],
     burnt: ["BURNT.", "the smoke alarm is awake.", "that's charcoal now."],
@@ -94,6 +110,15 @@
   function toggleMute() { muted = !muted; try { localStorage.setItem("mp-muted", muted ? "1" : "0"); } catch (e) {} syncMute(); if (muted) humOff(); }
   muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
   muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  const hauntBtn = document.getElementById("haunt");
+  function syncHaunt() { if (!hauntBtn) return; hauntBtn.hidden = !hauntSeason || state === "play"; hauntBtn.textContent = haunted ? "🎃 haunted: on" : "🎃 haunted: off"; hauntBtn.setAttribute("aria-pressed", haunted ? "true" : "false"); }
+  function toggleHaunt() {
+    if (!hauntSeason || state === "play") return;
+    haunted = !haunted; try { localStorage.setItem("mp-haunted", haunted ? "1" : "0"); } catch (e) {}
+    syncHaunt(); if (haunted) sfx.boo(true);
+    if (!running) draw(performance.now() / 1000);
+  }
+  if (hauntBtn) { hauntBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHaunt(); }); hauntBtn.addEventListener("pointerdown", (e) => e.stopPropagation()); }
   function ac() { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
   function tone(freq, dur, type, vol, slide, delay) {
     if (muted) return;
@@ -118,6 +143,8 @@
     burnt: () => { tone(2600, 0.12, "square", 0.05); tone(2600, 0.12, "square", 0.05, 0, 0.2); tone(2600, 0.12, "square", 0.05, 0, 0.4); },
     zap: () => tone(1800 + Math.random() * 1200, 0.04, "sawtooth", 0.03),
     end: () => tone(260, 0.8, "sawtooth", 0.06, 40),
+    // a ghostly wail, short and not too loud (soft = the toggle's little hello)
+    boo: (soft) => { tone(soft ? 520 : 700, soft ? 0.35 : 0.6, "sine", soft ? 0.04 : 0.07, soft ? 380 : 260); if (!soft) tone(1400, 0.5, "triangle", 0.03, 500, 0.05); },
   };
 
   // ---------- layout: a microwave, front on ----------
@@ -175,21 +202,22 @@
     round++;
     let kind;
     if (round === 1) kind = "popcorn";
-    else if (round >= 4 && Math.random() < 0.16) kind = Math.random() < 0.65 ? "fork" : "phone";
-    else { do { kind = pick(NORMAL); } while (item && kind === item.kind); }
+    else if (round >= 4 && Math.random() < (haunted ? 0.2 : 0.16)) kind = haunted && Math.random() < 0.5 ? "doll" : Math.random() < 0.65 ? "fork" : "phone";
+    else { do { kind = pick(haunted ? SPOOKY : NORMAL); } while (item && kind === item.kind); }
     const T = kind === "popcorn" && round === 1 ? 2.6 : 1.5 + Math.random() * 2.6;
     const hw = Math.max(0.22, 0.6 - round * 0.02);
     item = { kind, T, hw, slide: 1 };
     phase = "ready"; phaseT = 0; cookT = 0; popAcc = 0; parts = []; verdict = null;
   }
   function start() {
-    state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null;
-    startAt = performance.now(); say("hello", true); react("happy", 0.8);
+    state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null; scare = null;
+    startAt = performance.now(); say("hello", true); react("happy", 0.8); syncHaunt();
     sdk((c) => c.start && c.start());
+    if (haunted) sdk((c) => c.event && c.event("haunted_run", {}));
     nextItem();
   }
   function end() {
-    state = "over"; endAt = performance.now(); prevBest = best; humOff();
+    state = "over"; endAt = performance.now(); prevBest = best; humOff(); syncHaunt();
     if (score > best) { best = score; try { localStorage.setItem("mp-best", String(best)); } catch (e) {} }
     say("end", true); react("cooked", 99); sfx.end();
     const dur = Math.round(performance.now() - startAt);
@@ -212,10 +240,10 @@
     else if (v === "good") { streak++; pts = 5 + Math.min(10, streak); sfx.ding(); react("happy", 0.6); }
     else if (v === "safe") { pts = 8; sfx.ding(); react("happy", 0.6); }
     else if (v === "cold") { streak = 0; pts = 1; sfx.cold(); react("sad", 0.9); }
-    else { streak = 0; strikes++; sfx.burnt(); react("shock", 1); shake = reduce ? 0 : 0.35; }
+    else { streak = 0; strikes++; sfx.burnt(); react("shock", 1); shake = reduce ? 0 : 0.35; if (haunted) { scare = { t: 0 }; sfx.boo(); } }
     bestStreak = Math.max(bestStreak, streak);
     score += pts;
-    say(v === "good" ? "good" : v, true);
+    say(scare && scare.t === 0 ? "boo" : v === "good" ? "good" : v, true);
     verdict = { v, pts };
     fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy - 18,
       col: v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : v === "cold" ? "#9fc3e0" : BAD, life: 1.1, max: 1.1, big: v === "perfect" });
@@ -236,6 +264,7 @@
   function onKey(e) {
     if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     if (e.type === "keydown" && (e.key === "m" || e.key === "M")) { toggleMute(); return; }
+    if (e.type === "keydown" && (e.key === "h" || e.key === "H")) { toggleHaunt(); return; }
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; if (e.type === "keydown") down(); else up(); }
   }
   window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKey);
@@ -259,6 +288,7 @@
     lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt);
     for (const f of fx) f.life -= dt;
     fx = fx.filter((f) => f.life > 0);
+    if (scare && (scare.t += dt) > 0.75) scare = null;
     for (const q of parts) { q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; if (q.y > M.wy + M.wh * 0.86) { q.y = M.wy + M.wh * 0.86; q.vy *= -0.3; q.vx *= 0.6; } }
     parts = parts.filter((q) => q.life > 0);
     if (faceT <= 0) face = state === "play" && phase === "cook" && item && (ITEMS[item.kind].cursed || cookT > item.T + item.hw * 0.5) ? "shock" : "happy";
@@ -351,6 +381,27 @@
         for (let i = 0; i < 4; i++) R("#c9d1d9", x + s * 0.12, y - s * 0.13 + i * s * 0.035, s * 0.46, s * 0.02);
         break;
       }
+      case "pumpkin": {
+        const col = burnt ? "#2a1a0e" : p < 1 ? mix("#7a4a1c", "#ff9a2e", p) : mix("#ff9a2e", "#5a2a0e", over * 2);
+        text("🎃", x, y - s * 0.42, s * 1.15, col, "center", 600);
+        if (!burnt && p > 0.75) { cx.globalAlpha = Math.min(1, (p - 0.75) * 3) * (0.6 + 0.4 * Math.sin(time * 9)); R("#fff2a0", x - s * 0.2, y - s * 0.52, s * 0.1, s * 0.1); R("#fff2a0", x + s * 0.1, y - s * 0.52, s * 0.1, s * 0.1); cx.globalAlpha = 1; }
+        break;
+      }
+      case "candycorn": {
+        // three bands, widest at the bottom; the white tip melts away as it cooks
+        const melt = Math.max(0, Math.min(1, (p - 0.55) / 0.6)), bh = s * 0.2;
+        const bands = [[0.42, burnt ? "#3a2410" : "#f6c945"], [0.28, burnt ? "#2a1a0e" : "#ff8a2e"], [0.14 * (1 - melt), burnt ? "#2a1a0e" : "#f7f1df"]];
+        bands.forEach((b, i) => { if (b[0] <= 0.01) return; R(INK, x - s * b[0] - 2, y - bh * (i + 1) - 1, s * b[0] * 2 + 4, bh + 2); R(b[1], x - s * b[0], y - bh * (i + 1), s * b[0] * 2, bh); });
+        if (!burnt && melt > 0) R("#f7f1df", x - s * 0.3, y - s * 0.03, s * 0.6 * melt, s * 0.03);
+        break;
+      }
+      case "doll": {
+        R(INK, x - s * 0.2, y - s * 0.72, s * 0.4, s * 0.72); R("#d9c7b0", x - s * 0.18, y - s * 0.7, s * 0.36, s * 0.3); R("#7a2a3a", x - s * 0.18, y - s * 0.4, s * 0.36, s * 0.38);
+        const blink = Math.sin(time * 3) > 0.92;
+        R(blink ? "#d9c7b0" : "#ff4d5e", x - s * 0.1, y - s * 0.6, s * 0.06, s * 0.06); R(blink ? "#d9c7b0" : "#ff4d5e", x + s * 0.04, y - s * 0.6, s * 0.06, s * 0.06);
+        R("#3a2410", x - s * 0.2, y - s * 0.74, s * 0.4, s * 0.08);
+        break;
+      }
       case "phone": {
         R(INK, x - s * 0.32, y - s * 0.12, s * 0.64, s * 0.12); R("#1a1b1f", x - s * 0.3, y - s * 0.1, s * 0.6, s * 0.08); R("#3d6be0", x - s * 0.24, y - s * 0.09, s * 0.48, s * 0.05);
         break;
@@ -368,12 +419,16 @@
   function draw(time) {
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
     cx.drawImage(shell(), 0, 0, W, H);
+    if (haunted) {
+      cx.globalAlpha = 0.28; R("#2a0f3a", 0, 0, W, H); cx.globalAlpha = 1;
+      if (!reduce) for (let i = 0; i < 3; i++) { const k = (time * (0.06 + i * 0.025) + i * 0.37) % 1; text("🦇", k * (W + 60) - 30, 70 + i * 34 + Math.sin(time * 5 + i) * 10, 16 + i * 4, "#6a4a8a", "center", 600); }
+    }
     cx.save();
     if (shake > 0) cx.translate((Math.random() - 0.5) * 14 * shake, (Math.random() - 0.5) * 14 * shake);
     // the window: dark when off, lit while cooking
     const on = state === "play" && phase === "cook";
     R(on ? "#3a3418" : "#14140f", M.wx, M.wy, M.ww, M.wh);
-    if (on) { cx.globalAlpha = 0.25 + 0.05 * Math.sin(time * 20); R("#ffe9a0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
+    if (on) { cx.globalAlpha = 0.25 + 0.05 * Math.sin(time * 20); R(haunted ? "#b89aff" : "#ffe9a0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
     // the turntable
     const ty = M.wy + M.wh * 0.86;
     R("#2a2a24", M.wx + M.ww * 0.15, ty, M.ww * 0.7, M.wh * 0.06); R("#47463c", M.wx + M.ww * 0.17, ty, M.ww * 0.66, 3);
@@ -414,19 +469,29 @@
       text(phase === "ready" ? "hold to cook · " + it.tip : it.tip, W / 2, ny + 22, Math.max(11, Math.min(14, W / 34)), it.cursed ? WARN : "#c9c4a8", "center", 700);
       if (lineT > 0) text(line, W / 2, M.my + M.mh + 40, Math.max(12, Math.min(16, W / 28)), /[A-Z]{4}/.test(line) ? BAD : PAPER, "center", 700);
     }
+    // the scare: a ghost bursts out of the window, the screen flashes once (no flash with reduced motion)
+    if (scare) {
+      const k = scare.t / 0.75, grow = reduce ? 1 : Math.min(1, scare.t / 0.12);
+      if (!reduce && scare.t < 0.08) { cx.globalAlpha = 0.5; R(PAPER, 0, 0, W, H); cx.globalAlpha = 1; }
+      cx.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
+      text("👻", M.wx + M.ww / 2 + (reduce ? 0 : Math.sin(scare.t * 40) * 4), M.wy + M.wh * 0.45, Math.min(W, H) * 0.42 * grow, PAPER, "center", 600);
+      text("BOO", M.wx + M.ww / 2, M.wy + M.wh * 0.45 + Math.min(W, H) * 0.26 * grow, 26 * grow, BAD, "center", 900);
+      cx.globalAlpha = 1;
+    }
     if (state === "title" || state === "over") overlay();
   }
   function overlay() {
     R("rgba(8, 9, 7, 0.82)", 0, 0, W, H);
     const big = Math.round(Math.max(28, Math.min(52, W / 9))), mid = H * 0.42;
     if (state === "title") {
-      text("microwave", W / 2, mid - big * 2.2, big, CASE, "center", 900);
-      text("panic", W / 2, mid - big * 1.1, big, LIME, "center", 900);
-      text("the computer is a microwave now.", W / 2, mid - big * 0.2, Math.max(12, Math.min(16, W / 30)), "#c9c4a8", "center", 700);
+      text(haunted ? "haunted" : "microwave", W / 2, mid - big * 2.2, big, haunted ? "#ff9a2e" : CASE, "center", 900);
+      text(haunted ? "microwave" : "panic", W / 2, mid - big * 1.1, big, haunted ? "#b89aff" : LIME, "center", 900);
+      text(haunted ? "something is in the microwave. it's hungry." : "the computer is a microwave now.", W / 2, mid - big * 0.2, Math.max(12, Math.min(16, W / 30)), "#c9c4a8", "center", 700);
       text("hold to cook. let go when it's done.", W / 2, mid + 30, Math.max(13, Math.min(17, W / 26)), LIME2, "center", 800);
       text("popcorn slows down. the egg wobbles. the fish stinks.", W / 2, mid + 56, Math.max(11, Math.min(14, W / 36)), "#c9c4a8", "center", 700);
       text("burnt = strike. never microwave the fork.", W / 2, mid + 80, Math.max(11, Math.min(14, W / 34)), WARN, "center", 700);
       text("tap to plug it in", W / 2, Math.min(H - 40, mid + 132), 18, LIME, "center", 900);
+      if (hauntSeason) text(haunted ? "🎃 haunted mode · H to turn it off" : "🎃 H for the haunted microwave", W / 2, Math.min(H - 14, mid + 160), 13, "#ff9a2e", "center", 700);
     } else {
       text("fire alarm", W / 2, mid - big * 1.6, big, BAD, "center", 900);
       text(round + " things microwaved", W / 2, mid - big * 0.7, Math.round(big * 0.55), PAPER, "center", 800);
@@ -451,8 +516,9 @@
   ["pointerdown", "keydown"].forEach((ev) => window.addEventListener(ev, wake, true));
   try { if (window.frameElement) window.parent.document.addEventListener("keydown", wake, true); } catch (e) {}
   window.addEventListener("resize", () => { if (!running) draw(performance.now() / 1000); });
+  syncHaunt();
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__mp = { state: () => ({ state, score, round, streak, strikes, phase, cookT, kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed) }) };
+  window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed) }) };
 })();

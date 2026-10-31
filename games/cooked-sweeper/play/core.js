@@ -34,8 +34,11 @@
   const BOSS = 13;
   // what a fight costs: popups are free xp (they still count in the numbers)
   const dmg = (p) => (p === 1 ? 0 : p);
-  // the first patch is fair: no number around it above this, and nothing stronger than a worm near the first tap
-  const FIRST_CAP = 6, CALM_R = 3.2;
+  // the first patch is fair: no number around it above this, and nothing stronger than a worm near the first tap.
+  // Anything that can cook a fresh 5 hp computer in one hit stays further out still (K-0056)
+  const FIRST_CAP = 6, CALM_R = 3.2, FAR_R = 4.5;
+  // the opening is never fatal: for the player's first few taps, a virus that would cook you moves away instead
+  const GRACE_TAPS = 3;
   // how many of each power (1..9) per 100 tiles; scaled to the board, the boss is always 1
   const MIX = [7, 6, 5, 4, 3, 2, 2, 1, 1];
   const START_HP = 5;
@@ -107,7 +110,7 @@
         const weights = [];
         let sum = 0;
         for (let i = 0; i < n; i++) {
-          if (v[i] || banned.has(i) || (p >= 4 && dist(i, safe) < CALM_R)) { weights.push(0); continue; }
+          if (v[i] || banned.has(i) || (p >= 4 && dist(i, safe) < CALM_R) || (p >= START_HP && dist(i, safe) < FAR_R)) { weights.push(0); continue; }
           let w = 0.05;
           const dBoss = dist(i, boss);
           w += (p >= 6 ? 3 : p >= 4 ? 1.2 : 0.4) * Math.exp(-(dBoss * dBoss) / (p >= 6 ? 5 : 9));
@@ -208,6 +211,26 @@
     return ev;
   }
 
+  // the opening grace (K-0056): a tapped virus that would cook you goes to the hidden clean tile farthest away that
+  // touches nothing you can see, so no number on screen changes unless it was next to the tap. Returns true if it moved.
+  function spare(run, i) {
+    const c = run.cells[i];
+    if (!run.placed || run.over || c.open || !c.v || dmg(c.v) < run.hp) return false;
+    const cols = run.cols, dist = (a, b) => Math.hypot((a % cols) - (b % cols), ((a / cols) | 0) - ((b / cols) | 0));
+    let to = -1;
+    for (let j = 0; j < run.cells.length; j++) {
+      const cj = run.cells[j];
+      if (j === i || cj.v || cj.open || nbrs(run, j).some((k) => k === i || run.cells[k].open)) continue;
+      if (to < 0 || dist(j, i) > dist(to, i)) to = j;
+    }
+    if (to < 0) return false;
+    const t = run.cells[to];
+    t.v = c.v; t.drop = c.drop; t.seen = c.seen; t.flag = null;
+    c.v = 0; c.drop = null; c.seen = false;
+    for (let j = 0; j < run.cells.length; j++) run.cells[j].n = nbrs(run, j).reduce((s, k) => s + run.cells[k].v, 0);
+    return true;
+  }
+
   // tapping an open number: when the beaten viruses plus your flags around it add up to it, open the rest
   function chord(run, i) {
     const c = run.cells[i];
@@ -263,7 +286,7 @@
     return s;
   }
 
-  const api = { hashStr, mulberry32, VIRUSES, BOSS, START_HP, RAM_HEAL, FIRST_CAP, dmg, cost, mixFor, nbrs, newRun, generate, flood, reveal, chord, collect, scanTarget, canLevel, levelUp, score };
+  const api = { hashStr, mulberry32, VIRUSES, BOSS, START_HP, RAM_HEAL, FIRST_CAP, GRACE_TAPS, dmg, cost, mixFor, nbrs, newRun, generate, spare, flood, reveal, chord, collect, scanTarget, canLevel, levelUp, score };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.CS = api;
 })(typeof self !== "undefined" ? self : this);
