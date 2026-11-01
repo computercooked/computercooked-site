@@ -801,6 +801,7 @@
     SB.Render.setWorld(g);
     SB.UI.init(g, { fresh: o.fresh, migrated: o.migrated });
     Game.start(g);
+    if (SB.TEST) setTimeout(function () { testJump(g); }, 600);
     try { SB.Save.save(g); } catch (e) {}
     SB.Save.cloud && SB.Save.cloud();
     // offline progress
@@ -851,8 +852,47 @@
     ideas: function (c, list) { (list || SB.Ideas.LIST.map(function (d) { return d.id; })).forEach(function (id) { if (SB.Ideas.canHold(c, id)) SB.Ideas.discover(c, id, Game.current); }); },
     reveal: function () { var w = Game.current.world; w.seen.fill(255); w.seenDirty = true; w.seenChunks = {}; for (var i = 0; i < (SB.WORLD_N / SB.CHUNK) * (SB.WORLD_N / SB.CHUNK); i++) w.seenChunks[i] = 1; },
     build: function (kind, x, z) { var g = Game.current, sp = SB.Society.home(g, 0); return SB.World.addStructure(g.world, g, kind, x == null ? sp.x + 3 : x, z == null ? sp.z : z, { done: true }); },
-    skip: function (sec) { var g = Game.current; for (var t = 0; t < sec; t += SB.TICK) Game.step(g, SB.TICK); }
+    skip: function (sec) { var g = Game.current; for (var t = 0; t < sec; t += SB.TICK) Game.step(g, SB.TICK); },
+    // straight to night N (2+), tutorial and first night done: a little before dark, or with chase, a smol already out
+    // alone in the dark with a grump closing in, so the "lend your light" prompt comes in seconds (?cctest=1&night=2&chase=1)
+    night: function (n, chase) {
+      var g = Game.current, w = g.world, D = SB.DAY_LENGTH, st = g.tutorial, hm = SB.Society.home(g, 0);
+      n = Math.max(2, n | 0);
+      if (st) { st.done = true; st.night = st.night || {}; st.night.done = true; st.night.s = "done"; }
+      if (SB.UI && SB.UI.closeModal) SB.UI.closeModal();
+      if (SB.UI && SB.UI.tutRefresh) SB.UI.tutRefresh();
+      if (SB.FirstNight && SB.FirstNight.refresh) SB.FirstNight.refresh(g);
+      g.speed = 1; g.time = (n - 1 + (chase ? 0.86 : 0.8)) * D; w.time = g.time;
+      if (w.weather) { w.weather.rain = 0; w.weather.cloud = 0.1; }
+      if (g.settings && g.settings.chase) { g.settings.chase.done = false; g.settings.chase.nextT = 0; }
+      if (!chase) return true;
+      var spot = null;
+      for (var a = 0; a < 96 && !spot; a++) {
+        var r = 16 + (a % 3) * 3, x = hm.x + Math.sin(a * 0.7) * r, z = hm.z + Math.cos(a * 0.7) * r;
+        if (SB.World.walkable(w, x, z) && SB.World.walkable(w, x + 4.5, z) && !SB.World.nearestFire(w, x, z, 10) && !SB.World.shelterAt(w, x, z)) spot = { x: x, z: z };
+      }
+      if (!spot) return false;
+      var c = Game.smols(g).filter(function (o) { return o.stage >= 2 && !o.inBed && !o.heldBy && !o.pip; })[0] || SB.Debug.spawnTier(2, 1)[0];
+      c.x = spot.x; c.z = spot.z; c.asleep = false; c.action = null; c.plan = null;
+      g.creatures.forEach(function (o) { if (o.species === "grump" && o.alive) { o.alive = false; o.gone = true; } });
+      Game.spawnGrump(g, spot.x + 4.5, spot.z);
+      if (SB.Input && SB.Input.follow) SB.Input.follow(c);
+      return c;
+    }
   };
+  // ?cctest=1&night=2 (&chase=1): a tester jumps to that night in one sitting (K-0058)
+  function testJump(g) {
+    var q = null; try { q = new URLSearchParams(location.search); } catch (e) { return; }
+    var n = parseInt(q.get("night"), 10), chase = q.get("chase") === "1", tries = 0;
+    if (!(n >= 2) || g.showcase || g.time >= (n - 1 + 0.8) * SB.DAY_LENGTH) return;
+    (function wait() {
+      if (Game.current !== g) return;
+      [].forEach.call(document.querySelectorAll(".introskip, .introgate"), function (b) { b.click(); });
+      if ((SB.Intro && SB.Intro.covering) || (SB.Lantern && SB.Lantern.running)) { if (++tries < 200) setTimeout(wait, 300); return; }
+      SB.Debug.night(n, chase);
+      if (SB.UI && SB.UI.toast) SB.UI.toast("🧪 test: jumped to night " + n + (chase ? ", a grump is closing on a smol" : ""));
+    })();
+  }
 
   if (typeof document !== "undefined" && document.getElementById) {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

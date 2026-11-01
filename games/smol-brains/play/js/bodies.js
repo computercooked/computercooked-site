@@ -85,7 +85,7 @@
   // the drawn ground or water surface (the block tops in the voxel look)
   function GY(w, x, z) { return SB.World.groundY(w, x, z) + R.vdy(x, z); }
   var EXT = [0, 0, 0], EXT_GLOW = [0, 0.7, 0], HI = [[0, 0, 0, 1], [0, 0.7, 0, 1]];
-  var SEL = [0.77, 1, 0.29], HOV = [1, 1, 1];
+  var SEL = [0.77, 1, 0.29], HOV = [1, 0.95, 0.55]; // hover: warm and bright, so it reads on grass and sand (K-0058)
 
   /* ---------------- creatures ---------------- */
 
@@ -255,8 +255,9 @@
   }
   // the smol a press of the hand would pick up (K-0057): a white ring that breathes a little
   function hoverRing(c, x, z, Rr, t, game) {
-    var k = 1.75 + Math.sin(t * 6) * 0.12;
+    var k = 2.1 + Math.sin(t * 6) * 0.18;
     setBase(x, GY(game.world, x, z) + 0.04, z, -t * 0.8, 1);
+    Rr = Math.max(Rr, 0.3); // a blob's ring was too small to see (K-0058)
     part("p:ring", 0, 0, 0, 0, 0, 0, Rr * k, Rr * 0.6, Rr * k, HOV, [0, 0.6, 0]);
   }
 

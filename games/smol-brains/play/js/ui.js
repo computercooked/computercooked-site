@@ -1841,6 +1841,7 @@
   function tutIs(id) { var d = TUT[state.tutStep]; return !!d && d.id === id && !game.tutorial.done; }
   function tutDone(id) { if (tutIs(id)) tutAdvance(); }
   UI.tutIs = tutIs;
+  UI.tutRefresh = function () { tutShow(); };
   function tutShow() {
     if (el.coach) { el.coach.remove(); el.coach = null; }
     [].forEach.call(document.querySelectorAll(".tutglow"), function (n) { n.classList.remove("tutglow"); });

@@ -158,6 +158,7 @@
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
     "#pov .qmark.home i{width:28px;height:28px;left:-14px;top:-34px;box-shadow:0 0 0 3px #000,0 0 18px var(--lime)}#pov .qmark.home span{font:800 15px system-ui,Arial,sans-serif;top:4px;background:rgba(0,0,0,.6);padding:2px 6px}",
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
+    "#pov .nmark i{background:#ffc94a;box-shadow:0 0 0 3px #000,0 0 18px #ffc94a}#pov .nmark span{color:#ffc94a}", // the nest (or the nearest light) in a chase: its own marker (K-0058)
     "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
     "#pov .fadein{position:absolute;inset:0;background:#000;pointer-events:none;animation:povfade 2s ease-out forwards}@keyframes povfade{from{opacity:1}to{opacity:0}}",
@@ -237,6 +238,7 @@
     hud.item = hud.paws.appendChild(el("div", "item"));
     hud.qmark = root.appendChild(el("div", "qmark", "<i></i><span></span>"));
     hud.gmark = root.appendChild(el("div", "qmark gmark", "<i></i><span></span>")); // the first minute's grump (possess.js scoutTick)
+    hud.nmark = root.appendChild(el("div", "qmark home nmark", "<i></i><span></span>")); // and where safety is while it hunts you
     hud.threat = root.appendChild(el("div", "threat", ""));
     hud.cross = root.appendChild(el("div", "cross", "<i></i><i></i><i></i><i></i><b></b>"));
     hud.tname = root.appendChild(el("div", "tname"));
@@ -415,14 +417,17 @@
   // while a grump is after you: a red marker on it, a banner that says how close, and the guide points home
   function threatMarker() {
     var s = S(), g = s && !s.dead && P().scout ? P().scout() : null;
-    if (!g) { hud.gmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
+    if (!g) { hud.gmark.classList.remove("on"); hud.nmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
     var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z), lit = null;
     if (s.nightChase) { lit = SB.World.nearestFire(s.game.world, c.x, c.z, dh); if (lit) { hm = lit; dh = SB.dist(lit.x, lit.z, c.x, c.z); } } // a night chase: the nearest light, if it's nearer than the nest
-    mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0);
+    mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0, "👹 grump ");
+    var goal = s.goal, dup = goal && SB.dist(goal.x, goal.z, hm.x, hm.z) < 3; // the first night's own goal is the nest once Pip has the sticks: one marker, not two
+    if (dup) hud.nmark.classList.remove("on");
+    else mark(hud.nmark, { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.6, z: hm.z }, dh, 1.4, (lit ? "🔥 light " : "🏠 nest "), s.firstNight && goal ? " · bring 2 sticks" : "");
     var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + (lit ? " · 🔥 light " : " · 🏠 nest ") + Math.round(dh) + "m";
     if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
     hud.threat.classList.add("on");
-    return { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.2, z: hm.z };
+    return true; // the way to safety has its own marker now; the green one is only for a goal (the first night's sticks)
   }
   function testNums() {
     if (!hud || !hud.nums || (hud.numT = (hud.numT || 0) - 1) > 0) return;
@@ -435,14 +440,14 @@
   }
   function questMarker() {
     testNums();
-    var home = threatMarker();
-    var s = S(), q = s && s.quest, t = (s && s.goal) || home || (s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
+    var chased = threatMarker();
+    var s = S(), q = s && s.quest, t = (s && s.goal) || (chased ? null : s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
-    hud.qmark.classList.toggle("home", !!home || !!(s && s.goal));
+    hud.qmark.classList.toggle("home", !!(s && s.goal && !s.goal.small));
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
     mark(hud.qmark, t, d, 1.4);
-    if (home || s.goal) { var sp = hud.qmark.querySelector("span"), lb = (s.goal ? s.goal.label : "🏠 home") + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
+    if (s.goal) { var sp = hud.qmark.querySelector("span"), lb = s.goal.label + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
     keepLabel(hud.qmark);
   }
   // a marker's label never runs off the screen edge (K-0048: "o sticks 2m")
@@ -453,17 +458,17 @@
     var tf = "translateX(calc(-50% + " + Math.round(sh) + "px))";
     if (sp.style.transform !== tf) sp.style.transform = tf;
   }
-  function mark(m, t, d, minD) {
+  function mark(m, t, d, minD, pre, post) {
     var s = S(), c = s.c, R = SB.Render;
     if (d < minD) { m.classList.remove("on"); return; }
     var bearing = Math.atan2(-(t.x - c.x), -(t.z - c.z)), diff = SB.angDiff(s.yaw, bearing);
     var p = R.project(t.x, t.y, t.z), W = window.innerWidth, H = window.innerHeight, x, y, edge = false;
     if (Math.abs(diff) < 0.75 && p.on) { x = SB.clamp(p.x, 24, W - 24); y = SB.clamp(p.y, 60, H - 140); }
-    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5 + (m === hud.gmark ? 46 : 0); } // two arrows on one side: stacked
+    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5 + (m === hud.gmark ? 46 : m === hud.nmark ? -52 : 0); } // arrows on one side: stacked
     m.classList.add("on");
     m.classList.toggle("edge", edge);
     m.style.left = x + "px"; m.style.top = y + "px";
-    var sp = m.querySelector("span"), lbl = Math.round(d) + "m";
+    var sp = m.querySelector("span"), lbl = (pre || "") + Math.round(d) + "m" + (post || "");
     if (sp.textContent !== lbl) sp.textContent = lbl;
     keepLabel(m);
     var ic = m.querySelector("i");

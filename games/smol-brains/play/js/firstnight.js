@@ -19,6 +19,7 @@
   FN.GRUMP_K = 0.9;    // the grump runs at 90% of your running speed
   FN.STICKS = 2;
   FN.FIRE_SCARE = 9;   // a grump this close to the lit nest fire turns tail
+  FN.BITES = 3;        // three bites and Pip is caught: the founders come running with fire (K-0058: the chase never ended)
 
   var ui = null; // the few things on screen: a hint, the sky timer, the lend-your-light button
   function n(game) { return game && game.tutorial && game.tutorial.night; }
@@ -68,9 +69,11 @@
       if (b && (s.pulseT = (s.pulseT || 0) - dt) <= 0) { s.pulseT = 1.2; if (SB.FX) SB.FX.burst("sparkle", b.x, W().groundY(w, b.x, b.z) + 0.9, b.z, 6); }
       if (s.t > FN.FALLBACK && b && !s.fallback) { s.fallback = true; SB.Creature.sendTo(pip, b.x, b.z, game, 20); } // it finds them itself in the end
     } else if (s.s === "fed") {
-      // the day waits for the sunset, even sped up: the sun stays up until the script brings the dark
+      // the day waits for the sunset, even sped up: the sun reaches late afternoon just as the free day ends. it keeps
+      // moving all the while (K-0058: a clock stuck at 17:16 for minutes read as paused)
       var late = Math.floor(game.time / SB.DAY_LENGTH) * SB.DAY_LENGTH + 0.72 * SB.DAY_LENGTH;
-      if (game.time > late) { game.time = late; game.world.time = game.time; }
+      if (s.fedT0 == null) s.fedT0 = Math.min(game.time, late);
+      game.time = s.fedT0 + (late - s.fedT0) * Math.min(1, s.t / FN.DAY1); game.world.time = game.time;
       if (s.t > FN.DAY1) { s.sunEnd = game.time; go(game, "sunset"); }
     } else if (s.s === "sunset") {
       var dusk = Math.floor(game.time / SB.DAY_LENGTH) * SB.DAY_LENGTH + 0.83 * SB.DAY_LENGTH, left = FN.SUNSET - s.t;
@@ -153,13 +156,14 @@
   function nearestStick(game, pip) {
     var s = n(game), best = null, bd = 1e9;
     s.stickIds.forEach(function (id) { var it = byId(game, id); if (!it || it.gone) return; var d = SB.dist(it.x, it.z, pip.x, pip.z); if (d < bd) { bd = d; best = it; } });
-    return best ? { x: best.x, z: best.z, y: (best.y || W().groundY(game.world, best.x, best.z)) + 0.6, label: "🪵 grab sticks" } : null;
+    return best ? { x: best.x, z: best.z, y: (best.y || W().groundY(game.world, best.x, best.z)) + 0.6, label: "🪵 stick " + Math.min(s.sticks + 1, FN.STICKS) + "/" + FN.STICKS, small: true } : null; // a small marker: the nest's is the big one (K-0058)
   }
-  function light(game, pip) {
+  function light(game, pip, quiet) {
     var s = n(game), w = game.world, nest = w.T.nest;
     var st = W().addStructure(w, game, "campfire", nest.x + 1.4, nest.z + 0.4, { done: true, data: { fuel: 1 } });
     s.lit = st.id; s.sticks -= FN.STICKS;
     if (SB.FX) SB.FX.burst("sparkle", st.x, W().groundY(w, st.x, st.z) + 0.8, st.z, 30);
+    if (quiet) return; // the founders lit it: Pip was caught
     if (SB.Audio && SB.Audio.play && !game.headless) SB.Audio.play("achievement", { vol: 0.8 });
     if (SB.PovHud && SB.PovHud.beat) SB.PovHud.beat("🔥 light!", "grumps hate light: lead it here", true);
     SB.bus.emit("firstNightFire", { st: st });
@@ -219,9 +223,15 @@
       var g = FN.grump(game); if (g && g.scout) { g.scout.hold = true; g.scout.wind = 0; } // you let go: it waits for your light again
       go(game, "lurk");
     });
+    SB.bus.on("scoutHit", function (d) {
+      var game = SB.Game.current, s = n(game);
+      if (!s || s.done || s.s !== "chase" || !d || !d.c || d.c.id !== s.pip || !d.g || !d.g.scout) return;
+      if ((d.g.scout.hits || 0) >= FN.BITES && SB.Possess && SB.Possess.endScout) SB.Possess.endScout("👹 it caught Pip! the founders came running with fire and drove it off", 0, "caught");
+    });
     SB.bus.on("scoutEnd", function (d) {
       var game = SB.Game.current, s = n(game);
-      if (!s || s.done || s.s !== "chase" || !d || !d.ok) return;
+      if (!s || s.done || s.s !== "chase" || !d || !(d.ok || d.why === "caught")) return;
+      if (d.why === "caught") { var pip = FN.pip(game); if (!s.lit && pip) { s.sticks = FN.STICKS; light(game, pip, true); } if (pip) SB.Chem.apply(pip.chem, { pain: 0.3 }); }
       go(game, "won");
     });
   };
@@ -234,6 +244,7 @@
     var root = document.getElementById("ui"); if (!root) return;
     if (!ui) {
       ui = { hint: document.createElement("div"), timer: document.createElement("div"), lend: document.createElement("button") };
+      ui.hint.onclick = function (e) { var g = SB.Game.current, s = n(g); if (s && e.target && e.target.classList && e.target.classList.contains("fnok")) { e.stopPropagation(); s.freeOk = 1; show(g); } };
       ui.hint.className = "fnhint glass"; ui.timer.className = "fntimer glass"; ui.lend.className = "lendbtn";
       ui.lend.innerHTML = "🕯 lend your light<small>possess Pip</small>";
       ui.lend.onclick = function (e) {
@@ -249,15 +260,18 @@
     var s = n(game), step = s && !s.done ? s.s : "done";
     var h = HINTS[step];
     if (step === "hungry") { var p = FN.pip(game); h = "🫳 nudge Pip <span>(grab Pip, carry to the ✨ berries)</span>"; void p; }
+    if (step === "fed" && !s.freeOk) h = "🌞 Pip ate! the island is yours till dusk<span>explore, feed the others, grab things. the clock is running: you'll be called back at nightfall</span><button class='btn go fnok'>ok, let me play ▸</button>"; // the hand-off to free play (K-0058)
     ui.hint.innerHTML = h || ""; ui.hint.classList.toggle("on", !!h);
-    ui.timer.classList.toggle("on", step === "sunset");
+    ui.timer.classList.toggle("on", step === "sunset" || step === "fed");
     ui.lend.classList.toggle("on", step === "lurk" && !ui.lend.dataset.busy);
   }
   FN.ui = function () { return ui; };
+  FN.refresh = function (game) { show(game); };
   // the timer counts down every frame
   FN.frame = function (game) {
     var s = n(game);
     if (!ui || !s || s.done) return;
-    if (s.s === "sunset") { var left = Math.max(0, Math.ceil(FN.SUNSET - s.t)); ui.timer.textContent = "🌙 night falls in 0:" + (left < 10 ? "0" : "") + left; }
+    // real seconds (day 1 runs slow), not sim seconds
+    if (s.s === "sunset" || s.s === "fed") { var rate = Math.max(0.1, (game.speed || 1) * (SB.Game.pace ? SB.Game.pace(game) : 1)), left = Math.max(0, Math.ceil((FN.SUNSET - s.t + (s.s === "fed" ? FN.DAY1 : 0)) / rate)), mm = Math.floor(left / 60), ss = left % 60, txt = "🌙 night falls in " + mm + ":" + (ss < 10 ? "0" : "") + ss; if (ui.timer.textContent !== txt) ui.timer.textContent = txt; }
   };
 })();

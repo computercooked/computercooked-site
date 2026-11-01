@@ -32,12 +32,14 @@ seeded(4100, () => {
   pip.x = b.x + 0.8; pip.z = b.z; // you carried Pip over
   SB.bus.emit("nibble", { c: pip, node: b });
   check("Pip ate: fed", FN.state(game).s === "fed");
+  const tFed = game.time;
   const others = SB.Game.smols(game).filter(o => o !== pip);
   check("the founders head for the same bush", others.every(o => o.chem.hunger >= 0.6));
 
   console.log("3. the sun sets on a timer you can see, and the eyes come");
   run(FN.DAY1 - 5);
   check("a long free day first (K-0057)", FN.state(game).s === "fed" && !game.world.night, FN.state(game).s);
+  check("the clock keeps moving through the free day (K-0058: it looked paused)", game.time > tFed + 0.02 * SB.DAY_LENGTH, ((game.time - tFed) / SB.DAY_LENGTH).toFixed(3) + " days");
   run(10);
   check("sunset", FN.state(game).s === "sunset");
   const t0 = game.time;
@@ -82,6 +84,23 @@ seeded(4100, () => {
   check("the first memory ember", FN.state(game).ember === 1);
   check("the steps went in order", steps.join(",") === "pod,hungry,fed,sunset,lurk,chase,won,dawn,done", steps.join(","));
   check("the grump goes home", !g.alive || g.goingHome);
+
+  console.log("7. a second island: stand still, three bites and Pip is caught; the founders bring fire (K-0058)");
+  const g2 = SB.Game.newGame(42); SB.Game.current = g2; g2.headless = true;
+  function run2(s, until) { for (let t = 0; t < s; t += SB.TICK) { SB.Game.step(g2, SB.TICK); if (until && until()) return t; } return s; }
+  const pip2 = FN.start(g2);
+  SB.Game.hatch(g2, g2.world.items.find(o => o.data && o.data.pod)); run2(1);
+  const b2 = FN.bush(g2); pip2.x = b2.x + 0.8; pip2.z = b2.z; SB.bus.emit("nibble", { c: pip2, node: b2 });
+  run2(FN.DAY1 + FN.SUNSET + 5, () => FN.state(g2).s === "lurk");
+  FN.lend(g2);
+  FN.state(g2).stickIds.forEach(id => { const it = SB.Game.byId(g2, id); if (it) SB.World.remove(g2.world, it); }); // no sticks: no way to light it yourself
+  let bites = 0; const onBite = d => { if (d.c === pip2) bites++; }; SB.bus.on("scoutHit", onBite);
+  run2(80, () => FN.state(g2).s !== "chase");
+  check("caught on the third bite", bites === FN.BITES && (FN.state(g2).s === "won" || FN.state(g2).done), bites + " bites, " + FN.state(g2).s);
+  check("hurt, never killed", pip2.alive && pip2.chem.health >= 0.25 && pip2.chem.health < 1, pip2.chem.health.toFixed(2));
+  check("the nest is lit for Pip", FN.state(g2).lit != null);
+  run2(6, () => FN.state(g2).done);
+  check("back to the sky, and on to dawn", FN.state(g2).done && !P.active);
 });
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
