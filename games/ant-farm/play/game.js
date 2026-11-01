@@ -80,11 +80,11 @@
       v: 1, seed: (Math.random() * 1e9) | 0, gen: prev ? prev.gen + 1 : 1, jelly: prev ? prev.jelly : 0, food: 30, lay: true,
       up: {}, digShare: 0.5, solShare: 0.25, curios: prev ? prev.curios : {}, ach: prev ? prev.ach : {},
       life: prev ? prev.life : { hauled: 0, dug: 0, hatched: 0, flights: 0, kills: 0 },
-      gs: { peak: 0, hauled: 0, born: Date.now(), maxDepth: 0 }, tut: prev ? 9 : 0, qhp: 12, nextEv: 90
+      gs: { peak: 0, hauled: 0, born: Date.now(), maxDepth: 0 }, tut: prev ? 9 : 0, qhp: 12, nextEv: 100, evN: 0
     };
   }
   const jm = () => 1 + 0.04 * G.jelly;
-  const halloween = (() => { if (qs.get("haunted") === "1") return true; const d = new Date(), m = d.getMonth(), day = d.getDate(); return (m === 9 && day >= 24) || (m === 10 && day <= 1); })();
+  const halloween = (() => { if (qs.get("haunted") === "1") return true; const d = new Date(), m = d.getMonth(), day = d.getDate(); return m === 9 && day >= 24; })();
 
   // ---------- entities ----------
   let ants = [], eggs = [], piles = [], reds = [], spider = null, lens = null, rain = 0, fx = [], bubbles = [];
@@ -143,7 +143,7 @@
     homeCells = homeCells.length ? homeCells : [QCELL];
     dirty.home = dirty.dig = dirty.surf = dirty.food = true;
   }
-  const capacity = () => 4 + Math.floor((tunCount / 3) * (1 + 0.25 * (G.up.rooms || 0)));
+  const capacity = () => 4 + Math.floor((tunCount / 2.5) * (1 + 0.25 * (G.up.rooms || 0)));
 
   // ---------- fields ----------
   const Q = new Int32Array(N);
@@ -165,6 +165,7 @@
     if (dirty.home) { bfs(Fh, (add) => homeCells.forEach(add)); dirty.home = false; }
     if (dirty.surf) { bfs(Fs, (add) => { for (let x = 0; x < COLS; x++) add(ix(x, SURF)); }); dirty.surf = false; }
     if (dirty.dig) {
+      if (!(drag && drag.k === "paint")) connectMarks();
       digSources = 0;
       bfs(Fd, (add) => {
         for (let i = 0; i < N; i++) {
@@ -181,6 +182,64 @@
       dirty.food = false;
     }
   }
+  // marks painted out in the dirt, away from any tunnel, get a path marked to them from the nearest tunnel
+  const par = new Int32Array(N), okm = new Uint8Array(N);
+  function nbrs(c) { const x = c % COLS, o = []; if (x > 0) o.push(c - 1); if (x < COLS - 1) o.push(c + 1); if (c >= COLS) o.push(c - COLS); if (c < N - COLS) o.push(c + COLS); return o; }
+  let bridgeT = -99;
+  function connectMarks() {
+    for (let pass = 0; pass < 8; pass++) {
+      okm.fill(0);
+      let h = 0, t = 0;
+      for (let i = 0; i < N; i++) if (mark[i] && diggable(i) && nbrs(i).some((n) => walk[n])) { okm[i] = 1; Q[t++] = i; }
+      while (h < t) { const c = Q[h++]; for (const n of nbrs(c)) if (!okm[n] && mark[n] && diggable(n)) { okm[n] = 1; Q[t++] = n; } }
+      let lost = -1;
+      for (let i = 0; i < N; i++) if (mark[i] && diggable(i) && !okm[i]) { lost = i; break; }
+      if (lost < 0) return;
+      // shortest path through diggable dirt from any walkable cell
+      par.fill(-2); h = 0; t = 0;
+      for (let i = SURF * COLS; i < N; i++) if (walk[i]) { par[i] = -1; Q[t++] = i; }
+      while (h < t && par[lost] === -2) { const c = Q[h++]; for (const n of nbrs(c)) if (par[n] === -2 && !walk[n] && diggable(n)) { par[n] = c; Q[t++] = n; } }
+      if (par[lost] === -2) {
+        // walled in by stone: drop that patch and say why
+        Q[0] = lost; h = 0; t = 1; mark[lost] = 0;
+        while (h < t) { const c = Q[h++]; for (const n of nbrs(c)) if (mark[n] && !okm[n]) { mark[n] = 0; Q[t++] = n; } }
+        toast("stone walls that spot off. rock chewers (colony) can get through.", "bad");
+        continue;
+      }
+      for (let c = par[lost]; c >= 0 && !walk[c]; c = par[c]) mark[c] = 1;
+      if (simT - bridgeT > 20) { bridgeT = simT; toast("ants will dig a path to that spot"); }
+    }
+  }
+  // when the nest is full and nothing is marked, the ants start a new room on their own
+  let autoT = 0;
+  function autoExpand(dt) {
+    autoT -= dt;
+    if (autoT > 0) return;
+    autoT = 3;
+    if (digSources || G.lay === false || ants.length < 3 || ants.length + eggs.length < capacity() - 1) return;
+    const tun = [];
+    for (let i = SKY * COLS; i < N; i++) if (type[i] === T_TUN) tun.push(i);
+    tun.sort((a, b) => b - a);
+    for (let tries = 0; tries < 30; tries++) {
+      const from = tun[(R() * Math.max(1, Math.ceil(tun.length * 0.35))) | 0];
+      const dir = R() < 0.5 ? COLS : R() < 0.5 ? -1 : 1, len = 3 + ((R() * 4) | 0), cells = [];
+      let c = from, ok = true;
+      for (let k = 0; k < len; k++) {
+        const n = c + dir, x = n % COLS, y = (n / COLS) | 0;
+        if (n < 0 || n >= N || Math.abs(x - (c % COLS)) > 1 || x < 1 || x > COLS - 2 || y > ROWS - 4) { ok = false; break; }
+        if (type[n] !== T_DIRT) { ok = false; break; }
+        cells.push(n); c = n;
+      }
+      if (!ok || cells.length < 3) continue;
+      // a room at the end of the corridor
+      const ex = c % COLS, ey = (c / COLS) | 0, w = dir === COLS ? 2 : 1;
+      for (let y = ey - (dir === COLS ? 0 : 1); y <= ey + (dir === COLS ? 1 : 0); y++) for (let x = ex - w; x <= ex + w; x++) { const i = ix(x, y); if (x >= 0 && x < COLS && y < ROWS - 2 && type[i] === T_DIRT) cells.push(i); }
+      for (const i of cells) mark[i] = 1;
+      dirty.dig = true;
+      if (!G.autoTip) { G.autoTip = 1; toast("the nest is full, so the ants started a new room. paint ⛏ marks to choose where."); }
+      return;
+    }
+  }
   let enemyT = 0;
   function updateEnemyField(dt) {
     enemyT -= dt;
@@ -193,7 +252,7 @@
   const speed = () => 3.4 * (1 + 0.12 * (G.up.legs || 0)) * jm();
   const digRate = () => 0.6 * (1 + 0.35 * (G.up.jaws || 0)) * jm();
   const carryN = () => 2 + (G.up.carry || 0);
-  const eggEvery = () => (7 / (1 + 0.15 * (G.up.queen || 0))) / jm();
+  const eggEvery = () => (12 / (1 + 0.15 * (G.up.queen || 0))) / jm();
   const EGG_COST = 6, HATCH = 14;
 
   // ---------- ant brains ----------
@@ -419,6 +478,7 @@
     // jobs
     recountT -= dt;
     if (recountT <= 0) { recountT = 1.5; recount(); rebalance(); recount(); }
+    autoExpand(dt);
     // events
     events(dt);
     // peak and achievements
@@ -458,7 +518,7 @@
     const px = x != null ? x : Math.floor(R() * COLS);
     const ex = piles.find((p) => p.x === px);
     let u = def.u[0] + Math.floor(R() * (def.u[1] - def.u[0] + 1));
-    if (!kind) u = Math.round(u * (1 + ants.length / 40));
+    if (!kind) u = Math.round(u * (1 + ants.length / 60));
     if (ex) { ex.u += u; ex.max = Math.max(ex.max, ex.u); ex.age = 0; }
     else piles.push({ x: px, u, max: u, k: def.k, age: 0, drop: x != null ? 1 : 0 });
     dirty.food = true;
@@ -489,14 +549,22 @@
       const s = spider;
       s.t += dt; s.cd -= dt;
       const surf = ants.filter((a) => a.cy === SURF);
-      let tx = s.dir > 0 ? COLS + 2 : -3;
-      for (const a of surf) if (!a.sol && Math.abs(a.x - s.x) < 6 && a.task !== "flee") a.task = "flee";
-      if (s.t < 30 && surf.length) { let b = surf[0]; for (const a of surf) if (Math.abs(a.x - s.x) < Math.abs(b.x - s.x)) b = a; if (Math.abs(b.x - s.x) < 14) tx = b.x; }
-      else if (s.t < 30) tx = s.x + Math.sin(s.t * 0.7) * 3;
-      s.x += clamp(tx - s.x, -1, 1) * dt * 1.7; s.ph += dt * 8;
-      if (s.cd <= 0) for (const a of surf) if (Math.abs(a.x - s.x) < 0.9) { a.hp -= a.sol ? 4 : 99; s.cd = 3.5; sfx("bite"); if (a.hp <= 0) puff(a.x, a.y, "#222", 5); break; }
+      for (const a of surf) if (!a.sol && Math.abs(a.x - s.x) < 5 && a.task !== "flee") a.task = "flee";
+      let tx, sp = 1.8;
+      if (s.t >= s.stay) tx = s.x < COLS / 2 ? -4 : COLS + 4;
+      else {
+        // hunt the nearest ant on the grass, lunge when close; with nobody up top, prowl the grass
+        let b = null;
+        for (const a of surf) if (!b || Math.abs(a.x - s.x) < Math.abs(b.x - s.x)) b = a;
+        if (b && Math.abs(b.x - s.x) < 12) { tx = b.x; if (Math.abs(b.x - s.x) < 3) sp = 5; }
+        else { if (s.x < 3) s.pd = 1; else if (s.x > COLS - 3) s.pd = -1; tx = s.x + s.pd * 2; }
+      }
+      const mv = clamp(tx - s.x, -1, 1);
+      s.x += mv * dt * sp; s.ph += dt * 8 * Math.abs(mv) + dt;
+      if (Math.abs(mv) > 0.2) s.dir = mv > 0 ? 1 : -1;
+      if (s.cd <= 0) for (const a of surf) if (Math.abs(a.x - s.x) < 1) { a.hp -= a.sol ? 4 : 99; s.cd = 3; sfx("bite"); fx.push({ k: "txt", x: s.x, y: SURF - 1.5, s: "chomp", life: 0.9 }); if (a.hp <= 0) puff(a.x, a.y, "#222", 5); break; }
       if (s.hp <= 0) { toast("the spider is now a buffet. +60 food (on the grass)"); spawnPile("spider", clamp(Math.round(s.x - 0.5), 0, COLS - 1), 60); ach("spider_slayer"); G.life.kills++; spider = null; dirty.food = true; }
-      else if (s.x < -3 || s.x > COLS + 3) { spider = null; dirty.food = true; for (const a of ants) if (a.task === "flee" && rain <= 0) assign(a); }
+      else if (s.t >= s.stay && (s.x < -3 || s.x > COLS + 3)) { spider = null; dirty.food = true; for (const a of ants) if (a.task === "flee" && rain <= 0) assign(a); }
       if (Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) dirty.food = true;
     }
     // red ants
@@ -531,19 +599,29 @@
       if (rain <= 0) { toast("rain's over. a worm washed up! +25"); spawnPile("worm", Math.floor(R() * COLS), 25); for (const a of ants) if (a.task === "flee") assign(a); }
     }
     // schedule
-    if (ants.length >= 8 && !lens && !spider && !reds.length && rain <= 0) {
+    // the kid always comes first (about 100 s in), a spider second, then a mix every minute or two
+    if (ants.length >= 3 && !lens && !spider && !reds.length && rain <= 0) {
       G.nextEv -= dt;
-      if (G.nextEv <= 0) { G.nextEv = 70 + R() * 80; startEvent(); }
+      if (G.nextEv <= 0) { G.nextEv = 60 + R() * 50; startEvent(); }
     }
   }
   function startEvent(force) {
-    const opts = ["lens", "rain"];
-    if (ants.length >= 15) opts.push("spider", "spider");
-    if (ants.length >= 30) opts.push("raid", "raid");
-    const k = force || pick(opts);
+    const n = G.evN || 0;
+    let k = force;
+    if (!k) {
+      if (n === 0) k = "lens";
+      else if (n === 1) k = ants.length >= 8 ? "spider" : "rain";
+      else {
+        const opts = ["lens", "lens", "rain"];
+        if (ants.length >= 8) opts.push("spider", "spider");
+        if (ants.length >= 25) opts.push("raid", "raid", "raid");
+        do k = pick(opts); while (k === G.lastEv && R() < 0.8);
+      }
+    }
+    G.evN = n + 1; G.lastEv = k;
     if (k === "lens") { lens = { x: R() < 0.5 ? 2 : COLS - 2, t: 0, hp: 5, shake: 0 }; toast("☀ a kid found a magnifying glass. tap the lens!", "bad"); sfx("alert"); }
     if (k === "rain") { rain = 18; piles.length = 0; dirty.food = true; toast("🌧 rain! everyone inside."); for (const a of ants) if (a.cy <= SKY && !a.carry) a.task = "flee"; }
-    if (k === "spider") { const d = R() < 0.5 ? 1 : -1; spider = { x: d > 0 ? -2 : COLS + 2, dir: d, t: 0, hp: 25 + 8 * G.gen, max: 25 + 8 * G.gen, cd: 0, ph: 0 }; toast(G.up.soldier ? "🕷 a spider! soldiers are on it." : "🕷 a spider! (soldiers would help)", "bad"); sfx("alert"); dirty.food = true; }
+    if (k === "spider") { const d = R() < 0.5 ? 1 : -1; const hp = (ants.length < 15 ? 14 : 25) + 8 * (G.gen - 1); spider = { x: d > 0 ? -1.5 : COLS + 1.5, dir: d, pd: d, t: 0, stay: 30, hp, max: hp, cd: 1.5, ph: 0 }; toast(G.up.soldier ? "🕷 a spider! soldiers are on it." : "🕷 a spider! (soldiers would help)", "bad"); sfx("alert"); dirty.food = true; }
     if (k === "raid") {
       const n = Math.min(24, 3 + G.gen + Math.floor(ants.length / 15));
       const side = R() < 0.5 ? 0 : COLS - 1;
@@ -911,7 +989,7 @@
   const tools = { feed: $("tFeed"), dig: $("tDig"), look: $("tLook") };
   function setTool(t) { tool = t; for (const k in tools) tools[k].classList.toggle("on", k === t); tools.dig.classList.remove("ping"); if (t !== "look") sel = null; }
   tools.feed.onclick = () => setTool("feed");
-  tools.dig.onclick = () => { setTool("dig"); if (G.tut === 2) coach("drag on the dirt next to a tunnel. ants dig what you paint."); };
+  tools.dig.onclick = () => { setTool("dig"); if (G.tut === 2) coach("drag on the dirt to plan a tunnel. ants dig a path to it."); };
   tools.look.onclick = () => setTool("look");
   $("tSpeed").onclick = () => { spd = spd === 1 ? 2 : spd === 2 ? 3 : 1; $("tSpeed").querySelector("small").textContent = spd + "x"; };
   $("tColony").onclick = () => openSheet();
@@ -1054,6 +1132,7 @@
     if (!ptrs.has(e.pointerId)) return;
     ptrs.delete(e.pointerId);
     if (drag && drag.k === "tap" && !drag.moved && ptrs.size === 0) tap(drag.sx, drag.sy);
+    if (drag && drag.k === "paint") dirty.dig = true;
     if (ptrs.size === 0) drag = null;
   }
   cv.addEventListener("pointerup", up);
@@ -1143,6 +1222,7 @@
   }
   function restore(d) {
     G = d.G;
+    if (G.evN == null) { G.evN = 0; G.nextEv = Math.min(G.nextEv || 60, 60); }
     G.up = G.up || {}; G.curios = G.curios || {}; G.ach = G.ach || {}; G.life = G.life || { hauled: 0, dug: 0, hatched: 0, flights: 0, kills: 0 }; G.gs = G.gs || { peak: 0, hauled: 0, born: Date.now(), maxDepth: 0 };
     const w = d.w;
     unrle(w.type, type, 0); mark.fill(0); tre.fill(-1); prog.fill(0); trail.fill(0);
@@ -1254,11 +1334,11 @@
 
   // test hook
   window.__af = {
-    state: () => ({ food: G.food, ants: ants.length, cap: capacity(), eggs: eggs.length, tun: tunCount, gen: G.gen, jelly: G.jelly, depth: G.gs.maxDepth, digSources, foodSources, jobs: jobCounts, piles: piles.length, reds: reds.length, spider: !!spider, lens: !!lens, rain, over, tut: G.tut, sess: sentScore, curios: Object.keys(G.curios).length }),
+    state: () => ({ food: G.food, ants: ants.length, cap: capacity(), eggs: eggs.length, tun: tunCount, gen: G.gen, jelly: G.jelly, depth: G.gs.maxDepth, digSources, foodSources, jobs: jobCounts, piles: piles.length, reds: reds.length, spider: !!spider, spiderX: spider ? +spider.x.toFixed(1) : null, lens: !!lens, rain, over, tut: G.tut, sess: sentScore, curios: Object.keys(G.curios).length, hatched: G.life.hatched }),
     ff: (sec) => { for (let k = 0; k < sec * 30; k++) sim(STEP); },
     give: (n) => { G.food += n; },
     event: (k) => startEvent(k),
     mark: (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = ix(x, y); if (type[i] !== T_TUN) mark[i] = 1; } dirty.dig = true; },
-    begin, save, crumb: dropCrumb, render: (dt) => { draw(dt || 0); updHud(); }, cam: (y) => { camY = clampCam(y); }, setTool
+    begin, save, crumb: dropCrumb, cell: (x, y) => type[ix(x, y)], render: (dt) => { draw(dt || 0); updHud(); }, cam: (y) => { camY = clampCam(y); }, setTool
   };
 })();
