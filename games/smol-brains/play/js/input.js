@@ -86,10 +86,15 @@
   // wander: about 40 px with a mouse at the default zoom, more for a finger) (K-0056, K-0057)
   function grabHit(x, y, touch) {
     var hit = IN.pick(x, y, { touch: touch, carryable: true });
-    if (!hit) hit = IN.pick(x, y, { touch: touch, creaturesOnly: true, pad: touch ? 56 : 40 });
+    if (!hit) hit = IN.pick(x, y, { touch: touch, creaturesOnly: true, pad: touch ? 80 : 60 }); // K-0058: wider again
     return hit && (hit.type === "creature" || hit.type === "item") ? hit : null;
   }
-  function setHover(hit) { game.hand.hoverId = hit && hit.type === "creature" ? hit.ref.id : null; }
+  function setHover(hit) {
+    game.hand.hoverId = hit && hit.type === "creature" ? hit.ref.id : null;
+    var cur = game.hand.heldId ? "grabbing" : hit ? "grab" : ""; // the cursor says it too (K-0058: no highlight before grabbing)
+    if (el && el.style.cursor !== cur) el.style.cursor = cur;
+  }
+  IN.THROW_MIN = 3.5; // a release slower than this (ground units/s) just sets it down: only a real flick throws (K-0058: 4 of 6 drags threw)
   // when the input happened (the event's own time): on a slow frame, moves and the release are handled late and
   // bunched together, and handler times made every throw look like "held still, just drop it" (K-0056)
   function ts(e) { var t = e && e.timeStamp; return t > 0 && t < 1e12 ? t : performance.now(); }
@@ -128,7 +133,7 @@
     if (!rotate && !mpan && tool === "grab") {
       // a smol walking out from under the finger still gets picked up: the nearest one close by, rather than a pan
       var hit = grabHit(p.x, p.y, touch);
-      if (hit) drag.target = hit;
+      if (hit) { drag.target = hit; setHover(hit); } // fingers have no hover: the ring shows on the press
       else if (SB.FirstHour) { // grabbing a tree: wiggle it side to side to shake fruit loose
         var gp = R.pickGround(p.x, p.y), tn = gp && SB.World.nearestNode(game.world, gp.x, gp.z, 1.4, SB.FirstHour.canShake);
         if (tn && SB.World.isSeen(game.world, tn.x, tn.z)) drag.shake = { n: tn, dir: 0, flips: 0, t: performance.now() };
@@ -166,6 +171,7 @@
     var moved = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
     var cre = drag.target && drag.target.type === "creature", held = performance.now() - ptr.t0;
     if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5) && (!cre || moved > (drag.touch ? 16 : 12) || held > 180)) {
+      if (!drag.target && !drag.rub && game.hand.tool === "grab") { var late = grabHit(p.x, p.y, drag.touch); if (late) { drag.target = late; drag.shake = null; } } // it walked under the drag: take it rather than pan
       drag.mode = drag.target ? "carry" : drag.rub ? "rub" : drag.shake ? "shake" : drag.reach ? "reach" : "pan";
       if (drag.mode === "carry") { pickUp(drag.target); setHover(null); }
       if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;
@@ -203,6 +209,7 @@
       release(drag, ts(e));
     }
     drag = null;
+    setHover(null);
     if (ptr.type !== "mouse") { game.hand.visible = false; game.hand.marker = false; }
   }
 
@@ -273,6 +280,7 @@
     var gv = R.groundDelta((b.x - a.x) / dt, (b.y - a.y) / dt), gx = gv[0], gz = gv[1];
     if (b.t - a.t < 1 || (now != null ? now : performance.now()) - b.t > 90) { gx = 0; gz = 0; } // held still before letting go: just drop it
     var sp = Math.hypot(gx, gz), cap = 9;
+    if (sp < IN.THROW_MIN) { gx = 0; gz = 0; sp = 0; } // a carry that drifts as you let go is a set-down, not a throw
     if (sp > cap) { gx *= cap / sp; gz *= cap / sp; sp = cap; }
     return { gx: gx, gz: gz, sp: sp };
   }
@@ -317,6 +325,9 @@
     // heading off without wiggling back (or a long drag away): it was a pan after all, so catch the camera up
     var far = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
     if ((!s.flips && !s.shook && far > 40) || far > 110) {
+      var hit = grabHit(p.x, p.y, drag.touch);
+      if (hit) { drag.target = hit; drag.mode = "carry"; pickUp(hit); setHover(null); return; } // a straight drag past a tree to a smol: the smol
+      if (!drag.touch) { drag.mode = "reach"; drag.at = p; return; } // a mouse drag with the hand never pans (K-0058: quick straight drags still panned)
       drag.mode = "pan"; if (R.camera.follow) R.camera.follow = null;
       R.panBy(p.x - ptr.x0, p.y - ptr.y0);
       return;

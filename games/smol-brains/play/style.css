@@ -1,6 +1,6 @@
 /* smol brains 2 — UI chrome. The island is bright and alive; this is the dark glassy stuff floating on top. */
-@font-face { font-family: "Pixelify"; src: url("fonts/pixelify-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400 600; font-display: swap; }
-@font-face { font-family: "Pixelify"; src: url("fonts/pixelify-sans-latin-700-normal.woff2") format("woff2"); font-weight: 700 900; font-display: swap; }
+@font-face { font-family: "Pixelify"; src: url("fonts/pixelify-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400 600; font-display: swap; unicode-range: U+0000-002F, U+003A-FFFF; } /* Pixelify's digits muddle (2 and 3 read as 8, 5 as S): numbers come from JBM */
+@font-face { font-family: "Pixelify"; src: url("fonts/pixelify-sans-latin-700-normal.woff2") format("woff2"); font-weight: 700 900; font-display: swap; unicode-range: U+0000-002F, U+003A-FFFF; }
 @font-face {
   font-family: "JBM";
   src: url("fonts/jetbrains-mono-latin-800-normal.woff2") format("woff2");
@@ -472,6 +472,7 @@ body.titling #overlay { opacity: 0; }
 .fnhint { position: fixed; left: 50%; bottom: calc(96px + var(--sab)); transform: translateX(-50%); padding: 10px 16px; font: 800 18px var(--sans); color: var(--paper); display: none; z-index: 6; text-align: center; animation: tin 0.3s; }
 .fnhint.on { display: block; }
 .fnhint span { display: block; font: 600 13px var(--sans); color: var(--dim); margin-top: 2px; }
+.fnhint .fnok { margin-top: 10px; padding: 8px 14px; font-size: 14px; pointer-events: auto; }
 .fntimer { position: fixed; left: 50%; top: calc(56px + var(--sat)); transform: translateX(-50%); padding: 8px 14px; font: 800 18px system-ui, Arial, sans-serif; color: #ffd84a; display: none; z-index: 6; }
 .fntimer.on { display: block; }
 .lendbtn { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); padding: 14px 26px; font: 800 22px var(--sans); color: #101114; background: #ffd84a; border: 0; box-shadow: 0 0 0 3px #000, 0 0 32px #ffd84a; cursor: pointer; display: none; z-index: 8; pointer-events: auto; animation: lendpulse 1.2s ease-in-out infinite; }
