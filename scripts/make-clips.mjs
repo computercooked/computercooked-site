@@ -52,7 +52,11 @@ const DRIVE = {
     };
     requestAnimationFrame(tick);
   },
+  // the colony plays itself: ?shot=1 grows it, hides the chrome and leaves the ants working (K-0058)
+  "ant-farm": () => {},
 };
+// extra query for a game's clip run
+const QUERY = { "ant-farm": "&shot=1" };
 
 const gj = join(ROOT, "games/games.json");
 const data = JSON.parse(readFileSync(gj, "utf8"));
@@ -71,7 +75,7 @@ for (const g of list) {
     try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: slug, t: Date.now() })); } catch (e) {}
   }, g.slug);
   try {
-    await page.goto(`${BASE}/games/${g.slug}/play/?cctest=1`, { waitUntil: "load", timeout: 20000 });
+    await page.goto(`${BASE}/games/${g.slug}/play/?cctest=1${QUERY[g.slug] || ""}`, { waitUntil: "load", timeout: 20000 });
     await page.waitForTimeout(1200);
     // start: a tap in the middle and the usual start keys
     const drive = DRIVE[g.slug];
