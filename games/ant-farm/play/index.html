@@ -22,6 +22,9 @@
   #bar button small { display: block; font-size: 10px; opacity: .8; font-weight: 700; }
   #bar button.on { border-color: #c5ff49; background: #34401a; }
   #bar button.ping { animation: ping 1s ease-in-out infinite; }
+  #bar button { position: relative; }
+  #upN { position: absolute; top: -7px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #c5ff49; color: #101114; font: 800 11px/18px ui-monospace, Menlo, Consolas, monospace; font-style: normal; }
+  #upN[hidden] { display: none; }
   @keyframes ping { 50% { border-color: #c5ff49; } }
   #toast { position: fixed; left: 50%; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); justify-content: flex-end; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; gap: 4px; align-items: center; pointer-events: none; width: min(92vw, 440px); }
   #toast div { background: #101114ee; border: 1px solid #c5ff4966; border-radius: 8px; padding: 6px 10px; text-align: center; animation: tin .25s ease-out; }
@@ -77,7 +80,7 @@
   <button id="tDig" type="button">⛏<small>dig</small></button>
   <button id="tLook" type="button">🔍<small>look</small></button>
   <button id="tSpeed" type="button">⏩<small>1x</small></button>
-  <button id="tColony" type="button">🏠<small>colony</small></button>
+  <button id="tColony" type="button">⬆<small>upgrades</small><i id="upN" hidden></i></button>
 </div>
 <div class="sheet" id="sheet" hidden>
   <div class="panel" role="dialog" aria-label="colony">

@@ -7,7 +7,7 @@
   "controls": "feed: tap the grass to drop crumbs. dig: drag on dirt to plan a tunnel; ants dig a path to it. look: tap an ant to meet it. drag or scroll to move. tap the magnifying glass to shoo the kid. 1/2/3 tools, c colony, m mutes.",
   "size_kb": 90,
   "tags": ["idle", "sim", "ants", "builder", "deep", "mobile"],
-  "version": "1.1",
+  "version": "1.2",
   "theme": { "accent": "#c5ff49", "bg": "#17120d" },
   "max_score_per_sec": 100,
   "how_to": [

@@ -69,7 +69,10 @@
     { id: "soldier", name: "soldier caste", desc: "big heads, bigger bites. they guard the nest", base: 80, mul: 1, max: 1 },
     { id: "armor", name: "soldier training", desc: "soldiers bite harder and last longer", base: 90, mul: 1.9, max: 4, need: "soldier" },
     { id: "fungus", name: "fungus garden", desc: "food every second; more ants, more fungus", base: 150, mul: 2.2, max: 4 },
-    { id: "drill", name: "rock chewers", desc: "dig through stone", base: 200, mul: 1, max: 1 }
+    { id: "drill", name: "rock chewers", desc: "dig through stone", base: 200, mul: 1, max: 1 },
+    // K-0060: more to spend food on mid-game
+    { id: "chamber", name: "queen's chamber", desc: "eggs hatch 30% faster and the queen heals quicker", base: 60, mul: 1.9, max: 4 },
+    { id: "feast", name: "royal feast", desc: "turn food into +1 royal jelly, kept forever", base: 400, mul: 1.45, max: 99 }
   ];
   const upCost = (u) => Math.round(u.base * Math.pow(u.mul, G.up[u.id] || 0));
 
@@ -454,7 +457,7 @@
     }
     for (let k = eggs.length - 1; k >= 0; k--) {
       const e = eggs[k]; e.t += dt;
-      if (e.t >= HATCH) {
+      if (e.t >= HATCH / (1 + 0.3 * (G.up.chamber || 0))) {
         eggs.splice(k, 1);
         const a = newAnt(e.x, e.y, e.sol);
         assign(a);
@@ -463,7 +466,7 @@
         if (R() < 0.12) bubbleOn(a, pick(["hello world", "i'm new here", "where's the break room", "i was born 1 second ago. i'm ready"]));
       }
     }
-    if (G.qhp < 12) G.qhp = Math.min(12, G.qhp + dt * 0.15);
+    if (G.qhp < 12) G.qhp = Math.min(12, G.qhp + dt * 0.15 * (1 + 0.5 * (G.up.chamber || 0)));
     // upkeep and fungus
     upkeep += dt * (ants.length / 60 + 1 / 40);
     while (upkeep >= 1) {
@@ -541,8 +544,9 @@
       if (surf.length) { let b = surf[0]; for (const a of surf) if (Math.abs(a.x - lens.x) < Math.abs(b.x - lens.x)) b = a; tx = b.x; }
       lens.x += clamp(tx - lens.x, -1, 1) * dt * 2.2 + Math.sin(lens.t * 3) * dt * 0.6;
       lens.x = clamp(lens.x, 1, COLS - 1);
+      for (const a of surf) if (!a.sol && Math.abs(a.x - lens.x) < 2.5 && a.heat > 0.25 && a.task !== "flee") a.task = "flee"; // K-0060: scorched ants run for it
       for (const a of surf) if (Math.abs(a.x - lens.x) < 0.9) { a.heat += dt; if (a.heat > 1.1) { a.hp = 0; puff(a.x, a.y, "#444", 6); fx.push({ k: "txt", x: a.x, y: a.y - 1, s: "toasted", life: 1.4 }); sfx("sizzle"); } } else a.heat = Math.max(0, a.heat - dt);
-      if (lens.t > 16 || lens.hp <= 0) { if (lens.hp <= 0) { toast("the kid got bored. good job."); ach("shoo"); } lens = null; }
+      if (lens.t > 16 || lens.hp <= 0) { if (lens.hp <= 0) { toast("the kid got bored. good job."); ach("shoo"); } lens = null; for (const a of ants) if (a.task === "flee" && rain <= 0 && !spider) assign(a); if (camY < -topPad()) camGo = -topPad(); }
     }
     // spider
     if (spider) {
@@ -619,7 +623,7 @@
       }
     }
     G.evN = n + 1; G.lastEv = k;
-    if (k === "lens") { lens = { x: R() < 0.5 ? 2 : COLS - 2, t: 0, hp: 5, shake: 0 }; toast("☀ a kid found a magnifying glass. tap the lens!", "bad"); sfx("alert"); }
+    if (k === "lens") { lens = { x: R() < 0.5 ? 3 : COLS - 3, t: 0, hp: 5, shake: 0 }; toast("☀ a kid found a magnifying glass. tap the glass 5 times to shoo him!", "bad"); sfx("alert"); camGo = -topPad(); } // K-0060: the camera goes up to watch
     if (k === "rain") { rain = 18; piles.length = 0; dirty.food = true; toast("🌧 rain! everyone inside."); for (const a of ants) if (a.cy <= SKY && !a.carry) a.task = "flee"; }
     if (k === "spider") { const d = R() < 0.5 ? 1 : -1; const hp = (ants.length < 15 ? 14 : 25) + 8 * (G.gen - 1); spider = { x: d > 0 ? -1.5 : COLS + 1.5, dir: d, pd: d, t: 0, stay: 30, hp, max: hp, cd: 1.5, ph: 0 }; toast(G.up.soldier ? "🕷 a spider! soldiers are on it." : "🕷 a spider! (soldiers would help)", "bad"); sfx("alert"); dirty.food = true; }
     if (k === "raid") {
@@ -662,7 +666,7 @@
   }
 
   // ---------- view ----------
-  let W = 0, H = 0, DPR = 1, P = 8, ts = 8, offX = 0, camY = 0, phone = false;
+  let W = 0, H = 0, DPR = 1, P = 8, ts = 8, offX = 0, camY = 0, phone = false, camGo = null;
   const tcv = document.createElement("canvas"), tc = tcv.getContext("2d");
   function resize() {
     W = innerWidth; H = innerHeight;
@@ -676,7 +680,8 @@
     if (tcv.width !== COLS * P) { tcv.width = COLS * P; tcv.height = ROWS * P; if (G) paintAll(); }
     camY = clampCam(old ? (camY / old) * ts : 0);
   }
-  const topPad = () => 44, botPad = () => 70;
+  // K-0060: while the kid is here the camera may rise above the farm so the whole glass and its label fit on screen
+  const topPad = () => 44 + (lens ? Math.max(0, lensR() * 2 + 34 + ts * 4.5 - SKY * ts) : 0), botPad = () => 70;
   const clampCam = (y) => clamp(y, -topPad(), Math.max(-topPad(), ROWS * ts - H + botPad()));
 
   // terrain cache
@@ -881,18 +886,25 @@
     cx.fillStyle = "#ff3b3b"; cx.fillRect(px + s.dir * z * 0.28 - 1, py - z * 0.32, 2, 2); cx.fillRect(px + s.dir * z * 0.2 - 1, py - z * 0.35, 2, 2);
     const w = ts * 2.4; cx.fillStyle = "#0009"; cx.fillRect(px - w / 2, py - z * 1.2, w, 3); cx.fillStyle = "#ff5a4a"; cx.fillRect(px - w / 2, py - z * 1.2, w * Math.max(0, s.hp) / s.max, 3);
   }
-  function lensPos() { return { x: offX + lens.x * ts + Math.sin(lens.shake * 40) * lens.shake * 10, y: (SURF - 3.2) * ts - camY }; }
+  // K-0060: the glass is big (at least 34px across on a phone) and the beam is bright: it's the clip moment
+  const lensR = () => Math.max(ts * 3.2, 34);
+  function lensPos() { return { x: offX + lens.x * ts + Math.sin(lens.shake * 40) * lens.shake * 10, y: (SURF + 0.7) * ts - camY - lensR() - ts * 4.5 }; }
   function drawLens() {
-    const { x, y } = lensPos(), r = ts * 2.2, gy = (SURF + 0.7) * ts - camY;
-    // beam
-    cx.fillStyle = "rgba(255,240,170,.18)"; cx.beginPath(); cx.moveTo(x - r * 0.8, y); cx.lineTo(x + r * 0.8, y); cx.lineTo(x + ts * 0.3, gy); cx.lineTo(x - ts * 0.3, gy); cx.fill();
-    const hot = cx.createRadialGradient(x, gy, 0, x, gy, ts * 1.1); hot.addColorStop(0, "rgba(255,255,220,.95)"); hot.addColorStop(0.4, "rgba(255,200,60,.6)"); hot.addColorStop(1, "rgba(255,120,0,0)");
-    cx.fillStyle = hot; cx.beginPath(); cx.arc(x, gy, ts * 1.1, 0, 6.3); cx.fill();
-    // handle + lens
-    cx.strokeStyle = "#6b3f1f"; cx.lineWidth = ts * 0.6; cx.beginPath(); cx.moveTo(x + r * 0.7, y - r * 0.7); cx.lineTo(x + r * 2.2, y - r * 2.6); cx.stroke();
-    cx.fillStyle = "rgba(190,230,255,.35)"; cx.strokeStyle = "#333"; cx.lineWidth = ts * 0.35; cx.beginPath(); cx.arc(x, y, r, 0, 6.3); cx.fill(); cx.stroke();
-    cx.fillStyle = "rgba(255,255,255,.6)"; cx.fillRect(x - r * 0.5, y - r * 0.5, r * 0.25, r * 0.12);
-    label("tap!", x, y - r - 8, 0.6 + 0.4 * Math.sin(simT * 8), "#fff");
+    const { x, y } = lensPos(), r = lensR(), gy = (SURF + 0.7) * ts - camY, fl = 0.85 + 0.15 * Math.sin(simT * 23);
+    // beam: a cone of light from the glass to a white-hot spot on the grass
+    const beam = cx.createLinearGradient(0, y, 0, gy); beam.addColorStop(0, "rgba(255,245,180,.12)"); beam.addColorStop(1, `rgba(255,220,90,${0.55 * fl})`);
+    cx.fillStyle = beam; cx.beginPath(); cx.moveTo(x - r * 0.95, y); cx.lineTo(x + r * 0.95, y); cx.lineTo(x + ts * 0.45, gy); cx.lineTo(x - ts * 0.45, gy); cx.fill();
+    const hr = ts * 2 * fl, hot = cx.createRadialGradient(x, gy, 0, x, gy, hr); hot.addColorStop(0, "rgba(255,255,235,1)"); hot.addColorStop(0.3, "rgba(255,210,70,.8)"); hot.addColorStop(1, "rgba(255,110,0,0)");
+    cx.fillStyle = hot; cx.beginPath(); cx.arc(x, gy, hr, 0, 6.3); cx.fill();
+    if (R() < 0.3 && fx.length < 300) fx.push({ k: "s", x: lens.x + (R() - 0.5) * 0.8, y: SURF + 0.4, c: pick(["#777", "#555", "#ffd23e"]), life: 0.6 }); // smoke
+    // the kid's hand on the handle, coming in from the top
+    const hx = x + r * 1.9, hy = y - r * 2.1;
+    cx.strokeStyle = "#6b3f1f"; cx.lineWidth = Math.max(5, ts * 0.8); cx.lineCap = "round"; cx.beginPath(); cx.moveTo(x + r * 0.7, y - r * 0.7); cx.lineTo(hx, hy); cx.stroke();
+    cx.strokeStyle = "#f2b48a"; cx.lineWidth = Math.max(14, r * 0.8); cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(hx + r * 1.4, hy - r * 2.4); cx.stroke(); cx.lineCap = "butt";
+    cx.fillStyle = "#3d7bf0"; cx.fillRect(hx + r * 1.0, hy - r * 2.9, r * 1.2, r * 0.9); // sleeve
+    cx.fillStyle = "rgba(190,230,255,.38)"; cx.strokeStyle = "#2b2b2b"; cx.lineWidth = Math.max(3, ts * 0.45); cx.beginPath(); cx.arc(x, y, r, 0, 6.3); cx.fill(); cx.stroke();
+    cx.fillStyle = "rgba(255,255,255,.7)"; cx.fillRect(x - r * 0.55, y - r * 0.5, r * 0.3, r * 0.14);
+    label(`tap the glass! ${"●".repeat(Math.max(0, lens.hp))}`, x, y - r - 10, 0.6 + 0.4 * Math.sin(simT * 8), "#fff");
     if (lens.shake > 0) lens.shake = Math.max(0, lens.shake - 0.05);
   }
   function label(s, x, y, a, col) {
@@ -906,8 +918,9 @@
     cx.beginPath(); cx.moveTo(x - 4, y - 6); cx.lineTo(x + 4, y - 6); cx.lineTo(x, y); cx.fill();
     cx.fillStyle = "#101114"; cx.fillText(s, bx, y - h / 2 - 6); cx.globalAlpha = 1;
   }
-  const MINI_W = 10;
-  function miniRect() { const h = Math.min(H - 140, 260), x = W - MINI_W - 6, y = 54; return { x, y, w: MINI_W, h }; }
+  // K-0060: the depth bar is the way to scroll on a phone, so it's wider there (and its touch zone wider still)
+  const miniW = () => (phone ? 18 : 10);
+  function miniRect() { const w = miniW(), h = Math.min(H - 150, phone ? 320 : 260), x = W - w - 6, y = 58; return { x, y, w, h }; }
   function drawMini() {
     const m = miniRect(), sy = m.h / ROWS, sx = m.w / COLS;
     cx.fillStyle = "rgba(0,0,0,.55)"; cx.fillRect(m.x - 2, m.y - 2, m.w + 4, m.h + 4);
@@ -999,15 +1012,20 @@
     $("hCap").textContent = "/" + capacity();
     $("hEggs").textContent = eggs.length;
     $("hJellyC").hidden = !G.jelly; $("hJelly").textContent = G.jelly;
-    const canBuy = UPS.some((u) => avail(u) && G.food >= upCost(u));
-    $("tColony").classList.toggle("ping", canBuy && G.tut >= 4);
+    // K-0060: the ping no longer waits for the dig tutorial (players who never dug never found upgrades), a badge
+    // counts what you can afford, and a nudge fires when food piles up unspent
+    const n = UPS.filter((u) => avail(u) && G.food >= upCost(u)).length;
+    $("tColony").classList.toggle("ping", n > 0 && (G.tut >= 4 || G.food >= 60) && sheet.hidden);
+    $("upN").hidden = !n; $("upN").textContent = n;
+    if (n && sheet.hidden && G.food >= 150 && simT - nudgeT > 90) { nudgeT = simT; toast(`${fmt(G.food)} food banked. spend it in ⬆ upgrades.`, "coach"); }
   }
+  let nudgeT = -60;
   const avail = (u) => (G.up[u.id] || 0) < u.max && (!u.need || G.up[u.need]);
 
   // colony sheet
   const sheet = $("sheet"), pane = $("pane");
   let tab = "up";
-  function openSheet(t) { if (t) tab = t; sheet.hidden = false; renderPane(); if (G.tut === 4) { G.tut = 5; } }
+  function openSheet(t) { if (t) tab = t; sheet.hidden = false; renderPane(); nudgeT = simT; if (G.tut === 4) { G.tut = 5; } }
   function closeSheet() { sheet.hidden = true; }
   $("close").onclick = closeSheet;
   sheet.addEventListener("pointerdown", (e) => { if (e.target === sheet) closeSheet(); });
@@ -1020,7 +1038,7 @@
       for (const u of UPS) {
         if (u.need && !G.up[u.need]) continue;
         const lv = G.up[u.id] || 0, maxed = lv >= u.max, c = upCost(u);
-        h += `<div class="row"><div class="t"><div>${u.name} ${u.max > 1 ? `<span class="lvl">lv ${lv}/${u.max}</span>` : ""}</div><div>${u.desc}</div></div><button type="button" data-buy="${u.id}" ${maxed || G.food < c ? "disabled" : ""}>${maxed ? "done" : fmt(c) + " food"}</button></div>`;
+        h += `<div class="row"><div class="t"><div>${u.name} ${u.max > 20 ? (lv ? `<span class="lvl">×${lv} bought</span>` : "") : u.max > 1 ? `<span class="lvl">lv ${lv}/${u.max}</span>` : ""}</div><div>${u.desc}</div></div><button type="button" data-buy="${u.id}" ${maxed || G.food < c ? "disabled" : ""}>${maxed ? "done" : fmt(c) + " food"}</button></div>`;
       }
     } else if (tab === "jobs") {
       const w = ants.filter((a) => !a.sol).length, s = ants.length - w;
@@ -1045,7 +1063,7 @@
   }
   pane.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.buy) { const u = UPS.find((x) => x.id === b.dataset.buy), c = upCost(u); if (G.food >= c && avail(u)) { G.food -= c; G.up[u.id] = (G.up[u.id] || 0) + 1; sfx("buy"); if (u.id === "drill" || u.id === "rooms") dirty.dig = true; if (u.id === "armor") for (const a of ants) if (a.sol) a.hp = solHp(); toast(`${u.name}: ${u.desc}`); save(); } renderPane(); }
+    if (b.dataset.buy) { const u = UPS.find((x) => x.id === b.dataset.buy), c = upCost(u); if (G.food >= c && avail(u)) { G.food -= c; G.up[u.id] = (G.up[u.id] || 0) + 1; sfx("buy"); if (u.id === "drill" || u.id === "rooms") dirty.dig = true; if (u.id === "armor") for (const a of ants) if (a.sol) a.hp = solHp(); if (u.id === "feast") { G.jelly++; sparkle(QX + 0.5, QY - 1); toast(`royal feast: +1 royal jelly (${G.jelly}). every ant is now ${4 * G.jelly}% better.`); } else toast(`${u.name}: ${u.desc}`); save(); } renderPane(); }
     if (b.dataset.lay) { G.lay = G.lay === false; renderPane(); }
     if (b.dataset.clear) { mark.fill(0); dirty.dig = true; toast("marks cleared"); }
     if (b.dataset.fly) { closeSheet(); flight(); }
@@ -1075,10 +1093,10 @@
     if (G.tut >= 9) return;
     tutT += 1 / 30;
     if (G.tut === 0 && tutT > 1) { coach("tap the grass to drop crumbs. your ants will haul them to the queen."); G.tut = 1; tutT = 0; }
-    else if (G.tut === 1 && (G.tCrumbs || 0) >= 3 && G.life.hatched >= 1) { coach("food becomes eggs. eggs become ants. now pick ⛏ dig."); tools.dig.classList.add("ping"); G.tut = 2; tutT = 0; }
+    else if (G.tut === 1 && (G.tCrumbs || 0) >= 1 && tutT > 4) { coach("food becomes eggs, eggs become ants. try ⛏ dig: drag squares on the dirt to plan tunnels."); tools.dig.classList.add("ping"); G.tut = 2; tutT = 0; } // K-0060: right after the first crumb
     else if (G.tut === 1 && tutT > 25) { coach("tap anywhere above the dirt to drop a crumb"); tutT = 0; }
     else if (G.tut === 2 && digSources && tutT > 2) { coach("good. more tunnel = more room for ants (see ants n/room up top)."); G.tut = 3; tutT = 0; }
-    else if (G.tut === 3 && G.food >= 30) { coach("you can afford an upgrade. open 🏠 colony."); G.tut = 4; tutT = 0; }
+    else if (G.tut === 3 && G.food >= 30) { coach("you can afford an upgrade. open ⬆ upgrades."); G.tut = 4; tutT = 0; }
     else if (G.tut === 5 && tutT > 20) { coach("deeper dirt hides curios. 🔍 look lets you tap an ant to meet it."); G.tut = 9; }
   }
 
@@ -1086,9 +1104,9 @@
   const ptrs = new Map();
   let drag = null;
   function cellAt(sx, sy) { return { x: Math.floor((sx - offX) / ts), y: Math.floor((sy + camY) / ts) }; }
-  function inMini(sx, sy) { const m = miniRect(); return sx >= m.x - 10 && sx <= m.x + m.w + 6 && sy >= m.y - 4 && sy <= m.y + m.h + 4; }
+  function inMini(sx, sy) { const m = miniRect(), pad = phone ? 18 : 10; return sx >= m.x - pad && sx <= m.x + m.w + 6 && sy >= m.y - 6 && sy <= m.y + m.h + 6; }
   function miniScroll(sy) { const m = miniRect(); camY = clampCam(((sy - m.y) / m.h) * ROWS * ts - H / 2); }
-  function hitLens(sx, sy) { if (!lens) return false; const p = lensPos(); return Math.hypot(sx - p.x, sy - p.y) < ts * 3.2; }
+  function hitLens(sx, sy) { if (!lens) return false; const p = lensPos(); return Math.hypot(sx - p.x, sy - p.y) < lensR() * 1.35; }
   function paint(sx, sy, erase) {
     const c = cellAt(sx, sy);
     const rad = ts < 9 ? 1 : 0;
@@ -1111,6 +1129,7 @@
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (ptrs.size === 2) { drag = { k: "pan2", y: avgY(), cam: camY }; return; }
     const sx = e.clientX, sy = e.clientY;
+    camGo = null;
     if (hitLens(sx, sy)) { lens.hp--; lens.shake = 1; sfx("shoo"); fx.push({ k: "txt", x: lens.x, y: SURF - 5.5, s: pick(["hey!", "stop it", "go away kid", "shoo!"]), life: 0.9 }); drag = { k: "none" }; return; }
     if (inMini(sx, sy)) { drag = { k: "mini" }; miniScroll(sy); return; }
     if (tool === "dig") { const c = cellAt(sx, sy); const i = c.x >= 0 && c.x < COLS && c.y >= 0 && c.y < ROWS ? ix(c.x, c.y) : -1; const erase = i >= 0 && !!mark[i]; drag = { k: "paint", erase }; paint(sx, sy, erase); return; }
@@ -1139,7 +1158,7 @@
   }
   cv.addEventListener("pointerup", up);
   cv.addEventListener("pointercancel", up);
-  cv.addEventListener("wheel", (e) => { e.preventDefault(); camY = clampCam(camY + e.deltaY); }, { passive: false });
+  cv.addEventListener("wheel", (e) => { e.preventDefault(); camGo = null; camY = clampCam(camY + e.deltaY); }, { passive: false });
   function tap(sx, sy) {
     const c = cellAt(sx, sy);
     if (tool === "feed") {
@@ -1280,6 +1299,7 @@
       pushScore(raw);
       if (performance.now() - lastSave > 30000) save();
     }
+    if (camGo != null) { camY = clampCam(camY + (camGo - camY) * Math.min(1, raw * 5)); if (Math.abs(camGo - camY) < 1) camGo = null; } // K-0060
     if (G) draw(paused || over ? 0 : raw * spd);
     hudT -= raw;
     if (G && hudT <= 0) { hudT = 0.2; updHud(); if (!sheet.hidden && tab !== "jobs") renderPaneSoft(); }

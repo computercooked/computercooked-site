@@ -5,7 +5,10 @@
    Never microwave the fork: let go at once. Three strikes and the fire alarm wins. Space (hold) cooks too, M mutes.
    Haunted microwave (K-0056, a Halloween mode): the 🎃 button or H on the title. Cursed things join the menu (a
    pumpkin, candy corn, a cursed doll you must not cook), bats, a purple glow, and a light ghost scare when you fail.
-   Offered Oct 15 to Nov 7 (or with ?haunted=1); on by default on Oct 31 until the player turns it off. */
+   Offered Oct 15 to Nov 7 (or with ?haunted=1); on by default on Oct 31 until the player turns it off.
+   K-0060: overcooking now pays off. The moment an item goes over (or is let go too late) it blows up or chars in a
+   short burn moment (flash, smoke, debris, shake, a boom), then the strike lands, then the next item. Holds are
+   owned by the press that started them (a pointer, touch, Space or Enter), so a press in the burn moment never cooks. */
 (function () {
   "use strict";
   // ---------- platform sdk: optional, every call guarded ----------
@@ -108,7 +111,7 @@
   function syncMute() { muteBtn.textContent = muted ? "sound off" : "sound on"; muteBtn.setAttribute("aria-pressed", muted ? "true" : "false"); }
   syncMute();
   function toggleMute() { muted = !muted; try { localStorage.setItem("mp-muted", muted ? "1" : "0"); } catch (e) {} syncMute(); if (muted) humOff(); }
-  muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
+  muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); muteBtn.blur(); }); // K-0060: blur, so Space goes back to cooking
   muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
   const hauntBtn = document.getElementById("haunt");
   function syncHaunt() { if (!hauntBtn) return; hauntBtn.hidden = !hauntSeason || state === "play"; hauntBtn.textContent = haunted ? "🎃 haunted: on" : "🎃 haunted: off"; hauntBtn.setAttribute("aria-pressed", haunted ? "true" : "false"); }
@@ -118,7 +121,7 @@
     syncHaunt(); if (haunted) sfx.boo(true);
     if (!running) draw(performance.now() / 1000);
   }
-  if (hauntBtn) { hauntBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHaunt(); }); hauntBtn.addEventListener("pointerdown", (e) => e.stopPropagation()); }
+  if (hauntBtn) { hauntBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHaunt(); hauntBtn.blur(); }); hauntBtn.addEventListener("pointerdown", (e) => e.stopPropagation()); }
   function ac() { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
   function tone(freq, dur, type, vol, slide, delay) {
     if (muted) return;
@@ -135,6 +138,17 @@
     try { const a = ac(), o = a.createOscillator(), g = a.createGain(); o.type = "sawtooth"; o.frequency.value = 60; g.gain.value = 0.018; o.connect(g); g.connect(a.destination); o.start(); hum = { o, g }; } catch (e) {}
   }
   function humOff() { if (!hum) return; try { hum.o.stop(); } catch (e) {} hum = null; }
+  // K-0060: a burst of filtered noise (the boom / the sizzle), made in code like the rest
+  function noise(dur, vol, from, to) {
+    if (muted) return;
+    try {
+      const a = ac(), n = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0), t = a.currentTime;
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+      const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+      s.buffer = b; f.type = "lowpass"; f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(to, t + dur); g.gain.value = vol;
+      s.connect(f); f.connect(g); g.connect(a.destination); s.start(t);
+    } catch (e) {}
+  }
   const sfx = {
     pop: () => tone(900 + Math.random() * 500, 0.03, "square", 0.04),
     ding: () => tone(1480, 0.5, "sine", 0.08),
@@ -143,6 +157,8 @@
     burnt: () => { tone(2600, 0.12, "square", 0.05); tone(2600, 0.12, "square", 0.05, 0, 0.2); tone(2600, 0.12, "square", 0.05, 0, 0.4); },
     zap: () => tone(1800 + Math.random() * 1200, 0.04, "sawtooth", 0.03),
     end: () => tone(260, 0.8, "sawtooth", 0.06, 40),
+    // K-0060: the burn moment. boom = it blew up (thump + blast), else it chars (a hiss and a low groan)
+    boom: (big) => { if (big) { noise(0.7, 0.22, 2600, 120); tone(140, 0.45, "sine", 0.14, 35); } else { noise(0.8, 0.12, 6000, 900); tone(190, 0.6, "sawtooth", 0.04, 70); } },
     // a ghostly wail, short and not too loud (soft = the toggle's little hello)
     boo: (soft) => { tone(soft ? 520 : 700, soft ? 0.35 : 0.6, "sine", soft ? 0.04 : 0.07, soft ? 380 : 260); if (!soft) tone(1400, 0.5, "triangle", 0.03, 500, 0.05); },
   };
@@ -194,6 +210,11 @@
   // ---------- state ----------
   let state = "title", score = 0, best = 0, prevBest = 0, round = 0, streak = 0, bestStreak = 0, strikes = 0, perfects = 0;
   let item = null, phase = "ready", phaseT = 0, cookT = 0, holding = false, parts = [], fx = [], line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, popAcc = 0, verdict = null;
+  // K-0060: the burn moment ({ t, v, boom, word } while it plays), its smoke, and the press that owns the hold
+  let burn = null, smoke = [], owner = null;
+  const BURN_T = reduce ? 0.55 : 0.85;
+  const BOOMS = { popcorn: 1, egg: 1, soup: 1, coffee: 1, pumpkin: 1, candycorn: 1 };
+  const DEBRIS = { popcorn: [PAPER, "#5a3a1e", "#e5484d"], egg: ["#f7f1df", "#f6c945", PAPER], soup: ["#e8863a", "#ffb06a", "#3d6be0"], coffee: ["#4a2c17", "#e9e6dc", "#7a5232"], pumpkin: ["#ff9a2e", "#5a2a0e", "#f6c945"], candycorn: ["#f6c945", "#ff8a2e", "#f7f1df"] };
   try { best = +localStorage.getItem("mp-best") || 0; } catch (e) {}
   function say(kind, force) { if (force || lineT <= 0.5) { line = pick(LINES[kind]); lineT = 2; } }
   function react(f, s) { face = f; faceT = s; }
@@ -208,9 +229,11 @@
     const hw = Math.max(0.22, 0.6 - round * 0.02);
     item = { kind, T, hw, slide: 1 };
     phase = "ready"; phaseT = 0; cookT = 0; popAcc = 0; parts = []; verdict = null;
+    burn = null; smoke = []; owner = null; holding = false; // K-0060: every item needs a fresh press
   }
   function start() {
     state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null; scare = null;
+    burn = null; smoke = []; owner = null; // K-0060
     startAt = performance.now(); say("hello", true); react("happy", 0.8); syncHaunt();
     sdk((c) => c.start && c.start());
     if (haunted) sdk((c) => c.event && c.event("haunted_run", {}));
@@ -227,7 +250,7 @@
 
   // ---------- cooking ----------
   function judge(forced) {
-    holding = false; humOff();
+    holding = false; owner = null; humOff();
     const it = item, cur = ITEMS[it.kind].cursed, d = cookT - it.T;
     let v;
     if (cur) v = cookT < 0.6 && !forced ? "safe" : "sparks";
@@ -240,35 +263,79 @@
     else if (v === "good") { streak++; pts = 5 + Math.min(10, streak); sfx.ding(); react("happy", 0.6); }
     else if (v === "safe") { pts = 8; sfx.ding(); react("happy", 0.6); }
     else if (v === "cold") { streak = 0; pts = 1; sfx.cold(); react("sad", 0.9); }
-    else { streak = 0; strikes++; sfx.burnt(); react("shock", 1); shake = reduce ? 0 : 0.35; if (haunted) { scare = { t: 0 }; sfx.boo(); } }
+    else streak = 0; // K-0060: burnt / sparks: the burn moment plays first, the strike lands in finishBurn
     bestStreak = Math.max(bestStreak, streak);
     score += pts;
-    say(scare && scare.t === 0 ? "boo" : v === "good" ? "good" : v, true);
     verdict = { v, pts };
-    fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy - 18,
-      col: v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : v === "cold" ? "#9fc3e0" : BAD, life: 1.1, max: 1.1, big: v === "perfect" });
+    if (v === "burnt" || v === "sparks") { startBurn(v); sdkScore(score); return; }
+    say(v === "good" ? "good" : v, true);
+    verdictFx(v, pts);
     phase = "result"; phaseT = 0;
     sdkScore(score);
   }
+  // K-0060: the payoff for overcooking, BURN_T long. Blow-up foods burst into debris (BOOM!), the burrito and the fish
+  // char in a hiss of smoke and embers (FWOOSH), metal throws a shower of sparks (ZZZAP!). The window flashes, the screen
+  // shakes (not with reduced motion), and the microwave's face panics. Input is ignored until the next item is in.
+  function startBurn(v) {
+    const kind = item.kind, boom = v === "sparks" || !!BOOMS[kind];
+    burn = { t: 0, v, boom, word: v === "sparks" ? "ZZZAP!" : boom ? "BOOM!" : "FWOOSH" };
+    phase = "burn"; phaseT = 0;
+    react("shock", BURN_T + 1); say(v, true);
+    shake = reduce ? 0 : 0.55;
+    sfx.boom(boom); if (v === "sparks") { sfx.zap(); sfx.zap(); }
+    const x0 = M.wx + M.ww / 2, y0 = M.wy + M.wh * 0.72, n = reduce ? 10 : boom ? 30 : 16, cols = DEBRIS[kind] || ["#ff9a2e", WARN, BAD];
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      if (v === "sparks") parts.push({ x: x0, y: y0, vx: (r - 0.5) * 1000, vy: -150 - Math.random() * 600, life: 0.5 + Math.random() * 0.3, c: i % 2 ? LIME2 : "#7fd4ff", s: 3 * U });
+      else if (boom) parts.push({ x: x0 + (r - 0.5) * 30, y: y0, vx: (r - 0.5) * 900, vy: -250 - Math.random() * 550, life: 0.7 + Math.random() * 0.5, c: cols[i % cols.length], s: (3 + Math.random() * 5) * U });
+      else parts.push({ x: x0 + (r - 0.5) * M.ww * 0.3, y: y0, vx: (r - 0.5) * 160, vy: -300 - Math.random() * 300, life: 0.5 + Math.random() * 0.4, c: cols[i % cols.length], s: (2 + Math.random() * 2) * U });
+    }
+    for (let i = 0; i < (reduce ? 4 : 10); i++) puff(0.8);
+  }
+  function puff(a) { smoke.push({ x: M.wx + M.ww * (0.36 + Math.random() * 0.28), y: M.wy + M.wh * 0.7, vx: (Math.random() - 0.5) * 50, vy: -70 - Math.random() * 100, r: (6 + Math.random() * 9) * U, life: 1 + Math.random() * 0.5, max: 1.5, a }); }
+  function finishBurn() {
+    const v = burn.v; burn = null;
+    strikes++; sfx.burnt(); react("shock", 1);
+    if (haunted) { scare = { t: 0 }; sfx.boo(); }
+    say(scare ? "boo" : v, true);
+    verdictFx(v, 0);
+    phase = "result"; phaseT = 0;
+  }
+  function verdictFx(v, pts) {
+    fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy - 18,
+      col: v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : v === "cold" ? "#9fc3e0" : BAD, life: 1.1, max: 1.1, big: v === "perfect" });
+  }
 
   // ---------- input ----------
-  function down() {
+  // K-0060: src names the press ("p<pointerId>", "k " for Space, "kEnter"). The press that starts a hold owns it and
+  // only its release lets go. A press only counts while an item waits (phase "ready"); one made as the item slides in
+  // starts cooking when it lands; one made during the burn moment or the result does nothing (press again).
+  function beginCook() { holding = true; phase = "cook"; humOn(); }
+  function down(src) {
+    if (src === owner) return; // a release we missed: still the same hold
     if (state === "title" || (state === "over" && performance.now() - endAt > 700)) { start(); return; }
-    if (state === "play" && phase === "ready" && item.slide <= 0) { holding = true; phase = "cook"; humOn(); }
+    if (state === "play" && phase === "ready" && !owner) { owner = src; if (item.slide <= 0) beginCook(); }
   }
-  function up() { if (state === "play" && phase === "cook" && holding) judge(false); }
-  cv.addEventListener("pointerdown", (e) => { e.preventDefault(); try { window.focus(); cv.setPointerCapture(e.pointerId); } catch (err) {} down(); });
-  cv.addEventListener("pointerup", (e) => { e.preventDefault(); up(); });
-  cv.addEventListener("pointercancel", () => up());
+  function up(src) {
+    if (src !== owner) return;
+    owner = null;
+    if (state === "play" && phase === "cook" && holding) judge(false);
+  }
+  const pUp = (e) => up("p" + e.pointerId);
+  cv.addEventListener("pointerdown", (e) => { if (e.button > 0) return; e.preventDefault(); try { window.focus(); cv.setPointerCapture(e.pointerId); } catch (err) {} down("p" + e.pointerId); });
+  cv.addEventListener("pointerup", (e) => { e.preventDefault(); pUp(e); });
+  cv.addEventListener("pointercancel", pUp);
+  cv.addEventListener("lostpointercapture", pUp);
+  window.addEventListener("pointerup", pUp); // if capture failed and the finger left the canvas
   cv.addEventListener("contextmenu", (e) => e.preventDefault());
   function onKey(e) {
     if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     if (e.type === "keydown" && (e.key === "m" || e.key === "M")) { toggleMute(); return; }
     if (e.type === "keydown" && (e.key === "h" || e.key === "H")) { toggleHaunt(); return; }
-    if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; if (e.type === "keydown") down(); else up(); }
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; if (e.type === "keydown") down("k" + e.key); else up("k" + e.key); }
   }
   window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKey);
-  window.addEventListener("blur", () => up());
+  window.addEventListener("blur", () => { if (owner) up(owner); });
   try {
     const host = window.parent !== window && window.frameElement ? window.parent : null;
     if (host) {
@@ -291,20 +358,29 @@
     if (scare && (scare.t += dt) > 0.75) scare = null;
     for (const q of parts) { q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; if (q.y > M.wy + M.wh * 0.86) { q.y = M.wy + M.wh * 0.86; q.vy *= -0.3; q.vx *= 0.6; } }
     parts = parts.filter((q) => q.life > 0);
+    for (const m of smoke) { m.x += m.vx * dt; m.y += m.vy * dt; m.vy *= 1 - dt * 0.7; m.r += dt * 16 * U; m.life -= dt; } // K-0060
+    smoke = smoke.filter((m) => m.life > 0);
     if (faceT <= 0) face = state === "play" && phase === "cook" && item && (ITEMS[item.kind].cursed || cookT > item.T + item.hw * 0.5) ? "shock" : "happy";
     if (state !== "play") return;
     phaseT += dt;
     if (item.slide > 0) item.slide = Math.max(0, item.slide - dt * 4);
+    if (phase === "ready" && owner && item.slide <= 0) beginCook(); // K-0060: pressed while it slid in
     if (phase === "cook") {
       cookT += dt;
       const it = item, p = cookT / it.T, cur = ITEMS[it.kind].cursed;
       if (cur) { if (Math.random() < dt * 30) { sfx.zap(); spark(); } if (cookT > 1.4) judge(true); }
       else {
         if (it.kind === "popcorn") { popAcc += popRate(p) * dt; while (popAcc >= 1) { popAcc--; sfx.pop(); kernel(); } }
-        if (cookT > it.T + it.hw + 0.9) judge(true);
+        // K-0060: past done it starts to smoke, and a beat later it goes up (was a silent strike 0.9 s past done)
+        if (cookT > it.T + it.hw && Math.random() < dt * 16) puff(0.5);
+        if (cookT > it.T + it.hw + 0.3) judge(true);
       }
+    } else if (phase === "burn") { // K-0060
+      burn.t += dt;
+      if (!burn.boom && !reduce && Math.random() < dt * 18) puff(0.7);
+      if (phaseT > BURN_T) finishBurn();
     } else if (phase === "result") {
-      if (phaseT > 1.05) { if (strikes >= 3) end(); else nextItem(); }
+      if (phaseT > (verdict && (verdict.v === "burnt" || verdict.v === "sparks") ? 0.8 : 1.05)) { if (strikes >= 3) end(); else nextItem(); }
     }
   }
   function kernel() { parts.push({ x: M.wx + M.ww * (0.35 + Math.random() * 0.3), y: M.wy + M.wh * 0.55, vx: (Math.random() - 0.5) * 260, vy: -200 - Math.random() * 260, life: 1.4, c: PAPER, s: 4 * U }); }
@@ -426,9 +502,10 @@
     cx.save();
     if (shake > 0) cx.translate((Math.random() - 0.5) * 14 * shake, (Math.random() - 0.5) * 14 * shake);
     // the window: dark when off, lit while cooking
-    const on = state === "play" && phase === "cook";
-    R(on ? "#3a3418" : "#14140f", M.wx, M.wy, M.ww, M.wh);
+    const on = state === "play" && phase === "cook", hot = state === "play" && phase === "burn" && burn; // K-0060
+    R(on ? "#3a3418" : hot ? "#2a0f08" : "#14140f", M.wx, M.wy, M.ww, M.wh);
     if (on) { cx.globalAlpha = 0.25 + 0.05 * Math.sin(time * 20); R(haunted ? "#b89aff" : "#ffe9a0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
+    if (hot) { cx.globalAlpha = reduce ? 0.35 : 0.3 + 0.35 * (1 - burn.t / BURN_T) + 0.08 * Math.sin(time * 45); R(burn.v === "sparks" ? "#3d8bd0" : "#e0461e", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
     // the turntable
     const ty = M.wy + M.wh * 0.86;
     R("#2a2a24", M.wx + M.ww * 0.15, ty, M.ww * 0.7, M.wh * 0.06); R("#47463c", M.wx + M.ww * 0.17, ty, M.ww * 0.66, 3);
@@ -438,8 +515,19 @@
       cx.save(); cx.beginPath(); cx.rect(M.wx, M.wy, M.ww, M.wh); cx.clip();
       drawItem(item.kind, M.wx + M.ww / 2 + sway - slideX, ty, s, item.T ? cookT / item.T : 0, time);
       for (const q of parts) { R(q.c, q.x - q.s / 2, q.y - q.s / 2, q.s, q.s); }
+      // K-0060: the burn moment's flash (white-hot, fading fast; none with reduced motion) and its word
+      if (hot) {
+        if (!reduce && burn.t < 0.16) { cx.globalAlpha = 1 - burn.t / 0.16; R(burn.v === "sparks" ? "#e6f6ff" : "#fff2c0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
+        const k = burn.t / BURN_T, sz = Math.min(M.ww * 0.17, 60) * (reduce ? 1 : Math.min(1, 0.45 + burn.t * 5)), wx = M.wx + M.ww / 2, wy = M.wy + M.wh * 0.36;
+        cx.globalAlpha = k > 0.8 ? (1 - k) / 0.2 : 1;
+        text(burn.word, wx + 3, wy + 3, sz, INK, "center", 900); text(burn.word, wx, wy, sz, burn.v === "sparks" ? "#7fd4ff" : WARN, "center", 900);
+        cx.globalAlpha = 1;
+      }
       cx.restore();
     }
+    // K-0060: smoke billows out over the door (drawn unclipped, chunky like the rest)
+    for (const m of smoke) { cx.globalAlpha = m.a * Math.min(1, m.life / m.max * 1.4); R("#4a4c52", m.x - m.r, m.y - m.r, m.r * 2, m.r * 2); R("#2c2d31", m.x - m.r * 0.55, m.y - m.r * 0.55, m.r * 1.1, m.r * 1.1); }
+    cx.globalAlpha = 1;
     // glass glare and the mesh dots
     cx.globalAlpha = 0.07; R(PAPER, M.wx + M.ww * 0.08, M.wy, M.ww * 0.12, M.wh); R(PAPER, M.wx + M.ww * 0.24, M.wy, M.ww * 0.04, M.wh); cx.globalAlpha = 1;
     // the display: face and the timer
@@ -540,5 +628,6 @@
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed) }) };
+  window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, burn: burn && burn.word, owner, holding, smoke: smoke.length, // K-0060
+ kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed) }) };
 })();
