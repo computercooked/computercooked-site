@@ -567,8 +567,10 @@ function draw() {
   }
   drawHud();
   drawPad();
+  tipWant = null;
   if (mode === 'menu') drawMenu();
   else if (mode === 'end') drawEnd();
+  tipSync(paused ? null : tipWant); // K-0059: shared tip button (assets/tip.js)
   if (paused && mode !== 'menu') { ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('paused', W / 2, H / 2 - 10); ctx.fillStyle = PAPER; ctx.font = 'bold 13px ' + FONT; ctx.fillText('tap or press a key', W / 2, H / 2 + 16); }
   if (toastT > 0) { ctx.font = 'bold 13px ' + FONT; const tw = ctx.measureText(toastMsg).width + 28; rr(W / 2 - tw / 2, H * 0.4, tw, 34, 10); ctx.fillStyle = LILAC; ctx.fill(); ctx.fillStyle = CARBON; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(toastMsg, W / 2, H * 0.4 + 17); }
 }
@@ -626,6 +628,25 @@ function drawMenu() {
   ctx.fillStyle = 'rgba(245,243,237,0.45)'; ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText('keys: ←→/a d move · ↑/w/space jump · r restart · esc menu', p.x + 16, Math.min(y, p.y + p.h - 18));
 }
+// K-0059: shared tip button (assets/tip.js). the end screen is drawn on the canvas, so the button lives in a
+// small DOM box laid over it under the end-screen buttons, visible only while that screen is up (draw() hides it otherwise).
+let tipWant = null, tipBox = null;
+function tipSync(at) {
+  if (!window.ccTip) return;
+  if (!tipBox) {
+    tipBox = document.createElement('div');
+    tipBox.style.cssText = 'position:absolute;left:0;top:0;width:0;display:flow-root;visibility:hidden;pointer-events:none;z-index:3;color:#F5F3ED';
+    document.body.appendChild(tipBox);
+    window.ccTip.mount(tipBox, { game: 'level-devil-exe', slot: 'game-over' });
+  }
+  const st = tipBox.style;
+  if (!at || !tipBox.firstChild) { if (st.visibility !== 'hidden') { st.visibility = 'hidden'; st.pointerEvents = 'none'; } return; }
+  st.left = at.x + 'px'; st.width = at.w + 'px'; st.top = at.y + 'px';
+  if (at.y + tipBox.offsetHeight > H) { st.visibility = 'hidden'; st.pointerEvents = 'none'; return; } // no room: skip it, never cover the game
+  st.visibility = 'visible'; st.pointerEvents = 'auto';
+}
+// height the button needs at width w (0 while tips are off / not loaded), so the end card can make room for it
+function tipHeight(w) { if (!tipBox || !tipBox.firstChild) return 0; tipBox.style.width = w + 'px'; return tipBox.offsetHeight; }
 function drawEnd() {
   btns = [];
   const p = panel(); let y = p.y + 22;
@@ -643,6 +664,7 @@ function drawEnd() {
   button(p.x + 20, y, p.w - 40, bh, 'share card', share, { primary: true }); y += bh + 10;
   button(p.x + 20, y, p.w - 40, bh, 'new speedrun', newRun); y += bh + 10;
   button(p.x + 20, y, p.w - 40, bh, 'levels', openMenu);
+  tipWant = { x: p.x + 20, y: y + bh, w: p.w - 40 }; // K-0059: shared tip button (assets/tip.js)
 }
 function openMenu() { if (mode === 'menu') return; menuFrom = mode === 'end' ? 'end' : 'play'; mode = 'menu'; }
 function closeMenu() { mode = menuFrom === 'end' ? 'end' : 'play'; }

@@ -785,6 +785,8 @@
     setState("over");
     overAt = performance.now();
     document.getElementById("btn-again").focus({ preventScroll: true });
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount(document.querySelector("#ov-over .ov-card"), { game: "crash", slot: "game-over" });
 
     var rankEl = document.getElementById("go-rank");
     rankEl.hidden = true;

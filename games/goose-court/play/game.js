@@ -448,6 +448,24 @@
     cx.fillStyle = "#211b12"; cx.fillRect(0, L.floorY, W, H - L.floorY);
     cx.fillStyle = INK; cx.fillRect(0, L.floorY - 2, W, 3);
   }
+  // K-0059: shared tip button (assets/tip.js)
+  // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
+  // index.html) placed just under the "tap to ... again" line, shown only while that line is, hidden once a run starts.
+  // Taps on the box's empty space fall through to the canvas (restart as usual); taps on the pill never reach it.
+  let tipBox = null, tipY = -1;
+  function tipSync(y) {
+    const show = y >= 0;
+    if (show && !tipBox && window.ccTip) {
+      tipBox = document.createElement("div"); tipBox.id = "cc-tip-box"; tipBox.hidden = true;
+      document.body.appendChild(tipBox);
+      // after a click the link would keep focus and swallow Space/Enter; hand the keys back to the game
+      tipBox.addEventListener("click", () => setTimeout(() => { const a = document.activeElement; if (a && tipBox.contains(a)) a.blur(); }, 0), true);
+      try { Promise.resolve(window.ccTip.mount(tipBox, { game: "goose-court", slot: "game-over" })).catch(() => {}); } catch (e) {}
+    }
+    if (!tipBox) return;
+    if (tipBox.hidden === show) tipBox.hidden = !show;
+    if (show) { const t = Math.round(Math.max(0, Math.min(y, H - 72))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
+  }
   function overlay(time) {
     cx.fillStyle = "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
     const mid = H * 0.42, big = Math.round(Math.max(28, Math.min(52, W / 9)));
@@ -474,7 +492,7 @@
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first trial logged. now beat it.")
         : score === prevBest ? "tied your best. one more verdict next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       text(nudge, W / 2, mid + big * 0.85 + 26, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
-      if (performance.now() - endAt > 700) text("tap to take another case", W / 2, mid + big * 0.85 + 70, 18, LIME, "center", 900);
+      if (performance.now() - endAt > 700) { text("tap to take another case", W / 2, mid + big * 0.85 + 70, 18, LIME, "center", 900); tipY = mid + big * 0.85 + 90; }
     }
   }
   function draw(time) {
@@ -488,7 +506,9 @@
     drawFx();
     if (state === "play") drawHud();
     cx.restore();
+    tipY = -1;
     if (state !== "play") overlay(time);
+    tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
   }
 
   // the title draws until it has settled, then waits for a tap/key or 3 s after the page loaded (keeps the player page's

@@ -219,6 +219,8 @@
       share, stats: () => showStats(), hard: () => setMode('hard'), rand: () => playRandom(), x: closeModal
     });
     tickCountdown();
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount($('box').querySelector('.in'), { game: 'crash-test-daily', slot: 'game-over' });
   }
   function tickCountdown() {
     const el = $('cd'); if (!el) return;

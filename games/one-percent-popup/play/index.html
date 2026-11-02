@@ -107,6 +107,9 @@
   .card .opt { margin-top: 10px; background: none; border: 0; color: var(--muted); font: 700 12px var(--mono); cursor: pointer; text-decoration: underline; }
   .card .cc { margin-top: 12px; font: 800 12px var(--mono); color: var(--muted); }
   .card .cc b { color: var(--lime); }
+  /* K-0059: shared tip button (assets/tip.js) */
+  .card .cc-tipjar { margin: 12px 0 0; font: 12px/1.4 var(--mono); color: var(--muted); }
+  .card .cc-tipjar img { display: inline; width: 22px; height: 32px; max-height: none; margin: 0; border: 0; border-radius: 0; }
   #toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); background: var(--paper); color: var(--carbon); font: 800 13px var(--mono); padding: 8px 12px; border-radius: 8px; z-index: 80; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
   #toast.on { opacity: 1; }
   @media (max-height: 620px) {
@@ -119,6 +122,8 @@
   @media (prefers-reduced-motion: reduce) { .wob { animation-duration: 1.4s !important; } #stage.shake { animation: none; } }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
+<!-- K-0059: shared tip button (assets/tip.js) -->
+<script src="/assets/tip.js" defer></script>
 </head>
 <body>
 <div id="app">

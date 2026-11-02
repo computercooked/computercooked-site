@@ -810,6 +810,25 @@
     } else wrap('tap a tile. ★ = today\'s rare. legendaries live in the ??? zone.', 11 * S, pw).forEach((ln, i) => text(ln, px, sy + i * 15 * S, 11 * S, COL.dim, 'left', '700'));
   }
 
+  // K-0059: shared tip button (assets/tip.js)
+  // The results card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
+  // index.html) placed just under the card once it takes input, hidden in the book and once a run starts.
+  // Taps on the box's empty space fall through to the canvas (restart as usual); taps on the pill never reach it.
+  let tipBox = null, tipjarY = -1;
+  function tipSync(y) {
+    const show = y >= 0;
+    if (show && !tipBox && window.ccTip) {
+      tipBox = document.createElement('div'); tipBox.id = 'cc-tip-box'; tipBox.hidden = true;
+      document.body.appendChild(tipBox);
+      // after a click the link would keep focus and swallow Space/Enter; hand the keys back to the canvas
+      tipBox.addEventListener('click', () => setTimeout(() => { const a = document.activeElement; if (a && tipBox.contains(a)) { a.blur(); cv.focus({ preventScroll: true }); } }, 0), true);
+      try { Promise.resolve(window.ccTip.mount(tipBox, { game: 'reel-weird', slot: 'game-over' })).catch(() => {}); } catch (e) { /* ignore */ }
+    }
+    if (!tipBox) return;
+    if (tipBox.hidden === show) tipBox.hidden = !show;
+    if (show) { const tp = Math.round(Math.max(0, Math.min(y, H - 72))) + 'px'; if (tipBox.style.top !== tp) tipBox.style.top = tp; }
+  }
+
   function drawOver() {
     const k = Math.min(1, (performance.now() - overAt) / 300), e = 1 - Math.pow(1 - k, 3);
     ctx.fillStyle = 'rgba(16,17,20,' + (0.7 * e) + ')'; ctx.fillRect(0, 0, W, H);
@@ -835,6 +854,7 @@
     button('book', 'book (b)', bx + bw + 16 * S, by + 50 * S, bw, 34 * S, COL.paper);
     btns.next = { x: bx, y: by + 92 * S, w: cw - 32 * S, h: 26 * S };
     text('play next ▸', W / 2, by + 110 * S, 13 * S, COL.lime, 'center', '900');
+    if (performance.now() - overAt >= LOCK_MS) tipjarY = cy + ch + 8 * S; // K-0059: tip pill under the card
     ctx.globalAlpha = 1;
   }
 
@@ -905,7 +925,9 @@
     drawPrompt();
     if (state === 'catch') drawReveal();
     if (state === 'title') drawTitle();
+    tipjarY = -1;
     if (state === 'over') drawOver();
+    tipSync(tipjarY); // K-0059: shared tip button (assets/tip.js)
     if (state === 'book') drawBook();
     if (paused) { ctx.fillStyle = 'rgba(16,17,20,0.7)'; ctx.fillRect(0, 0, W, H); text('paused', W / 2, H / 2, 30 * S, COL.lime, 'center', '900'); text('tap / space to keep fishing', W / 2, H / 2 + 26 * S, 12 * S, COL.paper, 'center', '700'); }
     // asleep on the title until the first tap/key or 3 s after the page loaded (see wake below)

@@ -507,6 +507,8 @@
       <div class="stats"><span>days survived</span><b>${S.day}</b><span>earned this run</span><b>${fmt(S.runEarned)}</b><span>late fees</span><b>${fmt(S.lateFees)}</b><span>best combo</span><b>×${(S.comboBest || 1).toFixed(1)}</b><span>popups closed</span><b>${S.popsClosed}</b><span>credit points</span><b>+${o.gain}</b></div>
       <div class="acts"><button class="btn alt" data-m="share">share</button><button class="btn" data-m="again">new run</button></div></div>`, bank ? 'bad' : 'lilac', () => modalHandlers.again());
     $('cardSlot').appendChild(shareCanvas);
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount(el.box.querySelector('.in'), { game: 'overdue-notice', slot: 'game-over' });
     modalHandlers.share = share;
     modalHandlers.again = () => { if (performance.now() - modalAt < 800) return; closeModal(); newRun(); setTab('fresh'); if (meta.cp > 0) toast('spend your credit points on perks →'); };
   }

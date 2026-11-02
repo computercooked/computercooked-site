@@ -649,9 +649,11 @@ function draw() {
   ctx.fillStyle = 'rgba(245,243,237,0.32)'; ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillText('computer cooked games', W / 2, H - 3);
 
+  tipWant = null;
   if (mode === 'win') drawWin();
   else if (mode === 'lose') drawLose();
   else if (mode === 'menu') drawMenu();
+  tipSync(paused ? null : tipWant); // K-0059: shared tip button (assets/tip.js)
   if (paused && mode !== 'menu') { ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('paused', W / 2, H / 2 - 12); ctx.fillStyle = PAPER; ctx.font = 'bold 13px ' + FONT; ctx.fillText('tap to resume', W / 2, H / 2 + 16); }
   if (toastT > 0) { ctx.globalAlpha = clamp(toastT / 0.3, 0, 1); ctx.font = 'bold 13px ' + FONT; const tw = ctx.measureText(toastMsg).width + 28; rr(ctx, W / 2 - tw / 2, H * 0.42, tw, 34, 10); ctx.fillStyle = LILAC; ctx.fill(); ctx.fillStyle = CARBON; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(toastMsg, W / 2, H * 0.42 + 17); ctx.globalAlpha = 1; }
 }
@@ -753,9 +755,28 @@ function drawLanes() {
   }
 }
 
-function cardRect() { const x = L.cx + L.pad, w = L.cw - 2 * L.pad; if (mode === 'lose') { const y = Math.max(8, L.gy - 4), h = L.benchY - 10 - y; if (h >= 190) return { x, y, w, h }; } const y = Math.max(L.benchY - 4, H * 0.42), h = H - y - 16; return { x, y, w, h }; }
+function cardRect(lift = 0) { const x = L.cx + L.pad, w = L.cw - 2 * L.pad; if (mode === 'lose') { const y = Math.max(8, L.gy - 4), h = L.benchY - 10 - y; if (h >= 190) return { x, y, w, h }; } const y = Math.max(8, Math.max(L.benchY - 4, H * 0.42) - lift), h = H - y - 16; return { x, y, w, h }; }
+// K-0059: shared tip button (assets/tip.js). the end screen is drawn on the canvas, so the button lives in a
+// small DOM box laid over it under the end-screen buttons, visible only while that screen is up (draw() hides it otherwise).
+let tipWant = null, tipBox = null;
+function tipSync(at) {
+  if (!window.ccTip) return;
+  if (!tipBox) {
+    tipBox = document.createElement('div');
+    tipBox.style.cssText = 'position:absolute;left:0;top:0;width:0;display:flow-root;visibility:hidden;pointer-events:none;z-index:3;color:#F5F3ED';
+    document.body.appendChild(tipBox);
+    window.ccTip.mount(tipBox, { game: 'pixel-purge', slot: 'game-over' });
+  }
+  const st = tipBox.style;
+  if (!at || !tipBox.firstChild) { if (st.visibility !== 'hidden') { st.visibility = 'hidden'; st.pointerEvents = 'none'; } return; }
+  st.left = at.x + 'px'; st.width = at.w + 'px'; st.top = at.y + 'px';
+  if (at.y + tipBox.offsetHeight > H) { st.visibility = 'hidden'; st.pointerEvents = 'none'; return; } // no room: skip it, never cover the game
+  st.visibility = 'visible'; st.pointerEvents = 'auto';
+}
+// height the button needs at width w (0 while tips are off / not loaded), so the end card can make room for it
+function tipHeight(w) { if (!tipBox || !tipBox.firstChild) return 0; tipBox.style.width = w + 'px'; return tipBox.offsetHeight; }
 function drawCard(title, lines, btns) {
-  const r = cardRect();
+  const r = cardRect(tipHeight(L.cw - 2 * L.pad - 28)); // K-0059: a taller card makes room for the tip button
   ctx.fillStyle = 'rgba(16,17,20,0.94)'; rr(ctx, r.x, r.y, r.w, r.h, 14); ctx.fill();
   ctx.strokeStyle = mode === 'lose' ? 'rgba(255,79,160,0.7)' : LIME; ctx.lineWidth = 2; ctx.stroke();
   let y = r.y + 14;
@@ -763,9 +784,12 @@ function drawCard(title, lines, btns) {
   ctx.fillText(title, r.x + r.w / 2, y); y += 28;
   ctx.font = 'bold 13px ' + FONT;
   for (const ln of lines) { const parts2 = wrap(ctx, ln.t, r.w - 28); ctx.fillStyle = ln.c || 'rgba(245,243,237,0.85)'; for (const p of parts2) { ctx.fillText(p, r.x + r.w / 2, y); y += 18; } y += 3; }
-  const bh = Math.min(44, Math.max(34, (r.y + r.h - y - 14) / 2 - 4));
   const rows = btns.length > 2 ? 2 : 1;
-  const by = Math.max(y + 4, r.y + r.h - 12 - rows * bh - (rows - 1) * 8);
+  let th = tipHeight(r.w - 28); // K-0059: shared tip button (assets/tip.js): room for it under the buttons
+  if (r.y + r.h - 12 - th - rows * 34 - (rows - 1) * 8 < y + 4) th = 0;
+  const bh = Math.min(44, Math.max(34, (r.y + r.h - th - y - 14) / 2 - 4));
+  const by = Math.max(y + 4, r.y + r.h - 12 - th - rows * bh - (rows - 1) * 8);
+  if (th) tipWant = { x: r.x + 14, y: by + rows * bh + (rows - 1) * 8, w: r.w - 28 };
   const bw = (r.w - 28 - 8) / 2;
   if (btns.length === 1) btn(r.x + 14, by, r.w - 28, bh, btns[0].l, btns[0].f, { primary: true });
   else {

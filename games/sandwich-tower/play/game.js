@@ -371,7 +371,9 @@
     cx.globalAlpha = 1;
     cx.restore();
     drawHud(time);
+    tipY = -1;
     if (state === "title" || state === "over") overlay();
+    tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
   }
   function drawHud(time) {
     // the chef: the computer cooked computer in a chef's hat, top centre
@@ -389,6 +391,24 @@
     text(layers + " layers" + (orders ? " · " + orders + " order" + (orders > 1 ? "s" : "") : ""), 14, 44, 12, "#8a8e80", "left", 700);
     if (combo >= 2 && state === "play") text("perfect x" + combo, W - 14, 64, 13, LIME2, "right", 800);
     if (lineT > 0 || state === "play") text(line, W / 2, py + ph + 16, Math.max(11, Math.min(15, W / 30)), PAPER, "center", 700);
+  }
+  // K-0059: shared tip button (assets/tip.js)
+  // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
+  // index.html) placed just under the "tap to ... again" line, shown only while that line is, hidden once a run starts.
+  // Taps on the box's empty space fall through to the canvas (restart as usual); taps on the pill never reach it.
+  let tipBox = null, tipY = -1;
+  function tipSync(y) {
+    const show = y >= 0;
+    if (show && !tipBox && window.ccTip) {
+      tipBox = document.createElement("div"); tipBox.id = "cc-tip-box"; tipBox.hidden = true;
+      document.body.appendChild(tipBox);
+      // after a click the link would keep focus and swallow Space/Enter; hand the keys back to the game
+      tipBox.addEventListener("click", () => setTimeout(() => { const a = document.activeElement; if (a && tipBox.contains(a)) a.blur(); }, 0), true);
+      try { Promise.resolve(window.ccTip.mount(tipBox, { game: "sandwich-tower", slot: "game-over" })).catch(() => {}); } catch (e) {}
+    }
+    if (!tipBox) return;
+    if (tipBox.hidden === show) tipBox.hidden = !show;
+    if (show) { const t = Math.round(Math.max(0, Math.min(y, H - 72))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
   }
   function overlay() {
     cx.fillStyle = "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
@@ -411,7 +431,7 @@
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first sandwich logged. now beat it.")
         : score === prevBest ? "tied your best. one more layer next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
-      if (performance.now() - endAt > 700) text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900);
+      if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
     }
   }
 

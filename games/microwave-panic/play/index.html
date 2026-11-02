@@ -14,8 +14,14 @@
   #haunt { position: fixed; left: 10px; top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 2; background: rgba(0,0,0,.45); color: #ff9a2e; border: 1px solid #5a3a1e; font: 700 12px ui-monospace, Menlo, Consolas, monospace; padding: 6px 9px; border-radius: 6px; cursor: pointer; }
   #haunt[hidden] { display: none; }
   #mute { position: fixed; right: 10px; top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 2; background: rgba(0,0,0,.45); color: #c9c4a8; border: 1px solid #3a3d33; font: 700 12px ui-monospace, Menlo, Consolas, monospace; padding: 6px 9px; border-radius: 6px; cursor: pointer; }
+  /* K-0059: shared tip button (assets/tip.js): game.js shows this box just under the game-over card */
+  #cc-tip-box { position: fixed; left: 0; right: 0; z-index: 3; display: flex; justify-content: center; padding: 0 12px; color: #c9c4a8; pointer-events: none; }
+  #cc-tip-box[hidden] { display: none; }
+  #cc-tip-box .cc-tipjar { margin: 0; pointer-events: none; }
+  #cc-tip-box .cc-tipjar a { pointer-events: auto; }
 </style>
 <script src="/games/cc-sdk.js"></script>
+<script src="/assets/tip.js" defer></script>
 </head>
 <body>
 <canvas id="c" aria-label="microwave panic game: hold anywhere to run the microwave, let go when the food is done. burnt food is a strike."></canvas>

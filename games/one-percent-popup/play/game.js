@@ -497,6 +497,8 @@
     o.querySelector('#again').addEventListener('click', () => { audio(); startRun(); });
     o.querySelector('#share').addEventListener('click', () => share(reached, won));
     try { o.querySelector('#cardImg').src = drawCard(reached, won).toDataURL('image/png'); } catch (e) { o.querySelector('#cardImg').remove(); }
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount(o.querySelector('.card'), { game: 'one-percent-popup', slot: 'game-over' });
   }
 
   // ---------- share card ----------
