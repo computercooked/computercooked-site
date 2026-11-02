@@ -263,6 +263,8 @@ A small "keep the games free: tip the computer ↗" link with "18+ / ask a paren
 - **Add it:** `<script src="/assets/tip.js" defer></script>`, then on the game-over screen `ccTip.mount(el, { game: "<slug>", slot: "game-over" })`. It appends the button to `el` once and resolves to it, or to `null` while tips are off (then nothing shows).
 - **The link** is still only `TIP_URL`. The button adds `?ref=tipjar-<game>&client_reference_id=tipjar-<game>`; Stripe shows `client_reference_id` on each payment, so tips can be told apart by game.
 - **Clicks** are `tip_click` with slot `game-over` or `home-footer` and the game's slug (admin metrics `clicks_by_slot`). Test-mode browsers aren't stored.
+- **The note** ("keeps the games free · 18+ / ask a parent") takes the surrounding text colour. Where that doesn't read, set `--cc-tip-note: <colour>` on the panel.
+- **Slots:** `game-over` for any game; Smol Brains uses `smol-death` and `smol-ending`. Any other slot is stored as `other`.
 - **Never in the way:** it opens Stripe in a new tab, no popup, and taps or keys on it stop at the button, so they can't restart the game underneath. It hides itself in the native app builds.
 
 ## Share-your-run card
