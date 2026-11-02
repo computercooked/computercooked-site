@@ -141,6 +141,11 @@
   .paper button { font: inherit; padding: 8px 4px; cursor: pointer; color: var(--ink); background: var(--cream); border: 2px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); }
   .paper button.go { background: var(--lime); }
   .paper button:focus-visible { outline: 2px dashed var(--hot); outline-offset: 1px; }
+  /* K-0059: the shared tip button (assets/tip.js), recoloured for the paper */
+  .paper .cc-tipjar { margin: 8px 0 0; }
+  .paper .cc-tipjar a { color: var(--ink); border-color: var(--ink); background: var(--lime); border-radius: 0; box-shadow: none; }
+  .paper .cc-tipjar a:hover, .paper .cc-tipjar a:focus-visible { background: #d8ff7a; box-shadow: none; outline-color: var(--hot); }
+  .paper .cc-tipjar small { color: #6b5a3a; opacity: 1; }
   .paper .foot { text-align: center; color: #8a7b5a; font-size: 11px; margin-top: 8px; }
   /* short screens (a phone on its side, small embeds): slimmer chrome, the mode switch moves into the title bar */
   #m-toggle { display: none; font: inherit; font-size: 11px; color: var(--ink); background: var(--cream); border: 1px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); padding: 0 5px; height: 16px; cursor: pointer; white-space: nowrap; }
@@ -162,6 +167,7 @@
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important; } .puff { display: none; } }
 </style>
 <script src="/games/cc-sdk.js"></script>
+<script src="/assets/tip.js" defer></script>
 </head>
 <body>
 <div id="app">
