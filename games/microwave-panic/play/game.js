@@ -138,16 +138,12 @@
     try { const a = ac(), o = a.createOscillator(), g = a.createGain(); o.type = "sawtooth"; o.frequency.value = 60; g.gain.value = 0.018; o.connect(g); g.connect(a.destination); o.start(); hum = { o, g }; } catch (e) {}
   }
   function humOff() { if (!hum) return; try { hum.o.stop(); } catch (e) {} hum = null; }
-  // K-0060: a burst of filtered noise (the boom / the sizzle), made in code like the rest
-  function noise(dur, vol, from, to) {
-    if (muted) return;
-    try {
-      const a = ac(), n = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0), t = a.currentTime;
-      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
-      const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-      s.buffer = b; f.type = "lowpass"; f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(to, t + dur); g.gain.value = vol;
-      s.connect(f); f.connect(g); g.connect(a.destination); s.start(t);
-    } catch (e) {}
+  // K-0061: the team's audio rule is no code-made sound for new work, so the burn moment is a silent hook. Chef supplies
+  // recorded files later: put each file's URL in FILES ("boom" = it blew up, "char" = it burnt) and it plays, at once.
+  const FILES = { boom: "", char: "" };
+  function play(name, vol) {
+    if (muted || !FILES[name]) return;
+    try { const a = new Audio(FILES[name]); a.volume = vol; a.play().catch(() => {}); } catch (e) {}
   }
   const sfx = {
     pop: () => tone(900 + Math.random() * 500, 0.03, "square", 0.04),
@@ -157,8 +153,8 @@
     burnt: () => { tone(2600, 0.12, "square", 0.05); tone(2600, 0.12, "square", 0.05, 0, 0.2); tone(2600, 0.12, "square", 0.05, 0, 0.4); },
     zap: () => tone(1800 + Math.random() * 1200, 0.04, "sawtooth", 0.03),
     end: () => tone(260, 0.8, "sawtooth", 0.06, 40),
-    // K-0060: the burn moment. boom = it blew up (thump + blast), else it chars (a hiss and a low groan)
-    boom: (big) => { if (big) { noise(0.7, 0.22, 2600, 120); tone(140, 0.45, "sine", 0.14, 35); } else { noise(0.8, 0.12, 6000, 900); tone(190, 0.6, "sawtooth", 0.04, 70); } },
+    // K-0060: the burn moment. boom = it blew up, else it chars (a silent hook until the files come, K-0061)
+    boom: (big) => play(big ? "boom" : "char", big ? 0.8 : 0.6),
     // a ghostly wail, short and not too loud (soft = the toggle's little hello)
     boo: (soft) => { tone(soft ? 520 : 700, soft ? 0.35 : 0.6, "sine", soft ? 0.04 : 0.07, soft ? 380 : 260); if (!soft) tone(1400, 0.5, "triangle", 0.03, 500, 0.05); },
   };
