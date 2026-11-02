@@ -36,7 +36,7 @@
     ".cc-tipjar img{width:22px;height:32px;image-rendering:pixelated;flex:none}" +
     ".cc-tipjar a:hover,.cc-tipjar a:focus-visible{background:#1b2513;box-shadow:0 0 14px rgba(198,255,61,.35);outline:none}" +
     ".cc-tipjar a:focus-visible{outline:2px solid var(--lime,#c6ff3d);outline-offset:2px}" +
-    ".cc-tipjar small{font-size:11px;opacity:.7;white-space:nowrap}" +
+    ".cc-tipjar small{font-size:12px;white-space:nowrap}" +
     "@media (prefers-reduced-motion:no-preference){.cc-tipjar a{transition:transform .15s ease,box-shadow .15s ease,background .15s ease}" +
     ".cc-tipjar a:hover{transform:translateY(-1px)}.cc-tipjar a:active{transform:scale(.97)}" +
     ".cc-tipjar img{transform-origin:50% 100%;animation:cc-tipjar-bob 2.4s ease-in-out infinite}" +
