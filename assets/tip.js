@@ -7,6 +7,7 @@
      ccTip.ready()                                                     -> Promise<url | null> (null: tips are off)
    The link carries ?ref=tipjar-<game> and client_reference_id=tipjar-<game> (Stripe shows that one on each payment).
    A click is counted as tip_click {slot, game} (POST /api/hit; test-mode browsers are answered but not stored).
+   The note under it takes the surrounding text colour; a game can set --cc-tip-note on any ancestor to change it.
    Never a popup: it opens Stripe's own page in a new tab. Taps and keys on it don't reach the game underneath, so it
    can't trigger a restart. Hidden in the native app builds (App Store 3.1.1: no outside payment links). */
 (function () {
@@ -36,7 +37,7 @@
     ".cc-tipjar img{width:22px;height:32px;image-rendering:pixelated;flex:none}" +
     ".cc-tipjar a:hover,.cc-tipjar a:focus-visible{background:#1b2513;box-shadow:0 0 14px rgba(198,255,61,.35);outline:none}" +
     ".cc-tipjar a:focus-visible{outline:2px solid var(--lime,#c6ff3d);outline-offset:2px}" +
-    ".cc-tipjar small{font-size:12px;white-space:nowrap}" +
+    ".cc-tipjar small{font-size:12px;white-space:nowrap;color:var(--cc-tip-note,inherit)}" +
     "@media (prefers-reduced-motion:no-preference){.cc-tipjar a{transition:transform .15s ease,box-shadow .15s ease,background .15s ease}" +
     ".cc-tipjar a:hover{transform:translateY(-1px)}.cc-tipjar a:active{transform:scale(.97)}" +
     ".cc-tipjar img{transform-origin:50% 100%;animation:cc-tipjar-bob 2.4s ease-in-out infinite}" +
