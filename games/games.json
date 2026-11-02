@@ -692,6 +692,95 @@
           "secret": false
         }
       ]
+    },
+    {
+      "slug": "thin-ice",
+      "clip": "/assets/clips/thin-ice.mp4",
+      "title": "thin ice",
+      "pitch": "cozy ice fishing under the aurora. fight the fish, fill the bucket, and haul it to shore before the ice gives out.",
+      "thumbnail": "/games/thin-ice/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "fishing",
+        "cozy",
+        "push your luck",
+        "collection",
+        "deep",
+        "mobile"
+      ],
+      "controls": "hold anywhere to drop the line, let go to stop. on a bite: hold to reel, let go when the fish runs. haul the bucket to shore before the ice breaks. space works too. h hauls, r reels in, l opens the fish log, m mutes.",
+      "size_kb": 60,
+      "version": "1.0",
+      "added": "2026-11-02",
+      "theme": {
+        "accent": "#9ae6ff",
+        "bg": "#070b1e"
+      },
+      "max_score_per_sec": 100.0,
+      "how_to": [
+        "hold to drop your line, let go to wait for a bite",
+        "hold to reel, let go when the fish runs",
+        "every fish loads the ice: haul to shore before it breaks",
+        "the bait shop sells longer line for the deeper layers"
+      ],
+      "achievements": [
+        {
+          "id": "first_catch",
+          "name": "first bite",
+          "desc": "land your first fish",
+          "xp": 10,
+          "secret": false
+        },
+        {
+          "id": "trophy",
+          "name": "wall mount",
+          "desc": "land a trophy-size fish",
+          "xp": 25,
+          "secret": false
+        },
+        {
+          "id": "log_12",
+          "name": "naturalist",
+          "desc": "log 12 different fish",
+          "xp": 40,
+          "secret": false
+        },
+        {
+          "id": "dunked",
+          "name": "sploosh",
+          "desc": "break the ice under your hut",
+          "xp": 15,
+          "secret": false
+        },
+        {
+          "id": "haul_50",
+          "name": "heavy sled",
+          "desc": "haul 50 lb to shore in one trip",
+          "xp": 30,
+          "secret": false
+        },
+        {
+          "id": "deep",
+          "name": "under the deep",
+          "desc": "drop your line past 36 m",
+          "xp": 30,
+          "secret": false
+        },
+        {
+          "id": "otter",
+          "name": "staff",
+          "desc": "hire an otter",
+          "xp": 20,
+          "secret": false
+        },
+        {
+          "id": "warden",
+          "name": "the warden",
+          "desc": "meet what lives under the lake",
+          "xp": 80,
+          "secret": false
+        }
+      ]
     }
   ]
 }

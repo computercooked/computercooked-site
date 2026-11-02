@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b1e">
+<meta name="description" content="thin ice: cozy ice fishing under the aurora. drop your line through five layers of a frozen lake, fight the fish, and haul your bucket to shore before the ice gives out. from computer cooked games.">
+<title>thin ice · computer cooked games</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #070b1e; overflow: hidden; color: #e8f6ff; font: 700 13px ui-monospace, Menlo, Consolas, monospace; }
+  body { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  #hud { position: fixed; left: 0; right: 0; top: 0; padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: linear-gradient(#070b1ee6, #070b1e00); pointer-events: none; z-index: 2; }
+  .chip { background: #0b1430b3; border: 1px solid #9ae6ff33; border-radius: 6px; padding: 4px 7px; white-space: nowrap; }
+  .chip b { color: #9ae6ff; }
+  .chip.warm b { color: #ffb35a; }
+  #iceC { display: flex; align-items: center; gap: 6px; }
+  #iceBar { width: 54px; height: 7px; background: #ffffff1a; border-radius: 4px; overflow: hidden; }
+  #iceBar i { display: block; height: 100%; width: 100%; background: #9ae6ff; transition: width .3s, background .3s; }
+  #iceC.warn #iceBar i { background: #ffb35a; }
+  #iceC.bad #iceBar i { background: #ff5a5a; }
+  #iceC.bad { animation: shake .25s linear infinite; }
+  @keyframes shake { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+  #hud .grow { flex: 1; }
+  #hud button { pointer-events: auto; background: #0b1430b3; border: 1px solid #9ae6ff44; border-radius: 6px; padding: 4px 8px; }
+  #acts { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; z-index: 2; pointer-events: none; }
+  #acts button { pointer-events: auto; padding: 10px 14px; border-radius: 10px; background: #0f1d40e6; border: 2px solid #9ae6ff66; line-height: 1.15; }
+  #acts button small { display: block; font-size: 10px; opacity: .8; }
+  #acts button.hot { border-color: #ffb35a; background: #3a2410e6; color: #ffd9a8; animation: glow 1.1s ease-in-out infinite; }
+  #acts button[hidden] { display: none; }
+  @keyframes glow { 50% { box-shadow: 0 0 14px #ffb35a88; } }
+  #hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 2; pointer-events: none; text-align: center; width: min(92vw, 420px); text-shadow: 0 2px 0 #000a; opacity: .92; }
+  #toast { position: fixed; left: 50%; top: calc(92px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; gap: 4px; align-items: center; pointer-events: none; width: min(92vw, 440px); }
+  #toast div { background: #0b1430ee; border: 1px solid #9ae6ff66; border-radius: 8px; padding: 6px 10px; text-align: center; animation: tin .25s ease-out; }
+  #toast div.bad { border-color: #ff7a5a; color: #ffd0c4; }
+  #toast div.warm { border-color: #ffb35a; color: #ffe2bd; }
+  @keyframes tin { from { opacity: 0; transform: translateY(-6px); } }
+  /* the catch card: small, never in the way (taps pass through it) */
+  #catch { position: fixed; left: 50%; top: 56%; transform: translateX(-50%); z-index: 3; pointer-events: none; width: min(86vw, 320px); background: #0b1430f2; border: 2px solid #9ae6ff88; border-radius: 12px; padding: 10px 12px 12px; text-align: center; animation: pop .3s cubic-bezier(.2,1.6,.4,1); }
+  #catch[hidden] { display: none; }
+  #catch canvas { width: 160px; height: 64px; image-rendering: pixelated; margin: 0 auto 2px; }
+  #catch .nm { font-size: 17px; color: #fff; }
+  #catch .wt { color: #ffb35a; margin: 2px 0 6px; }
+  #catch .ln { font-weight: 500; opacity: .85; line-height: 1.4; }
+  #catch .new { display: inline-block; background: #9ae6ff; color: #071026; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-bottom: 4px; }
+  @keyframes pop { from { opacity: 0; transform: translate(-50%, 10px) scale(.92); } }
+  /* full-screen panels: title, shop, log, end of night */
+  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: radial-gradient(#0b1434f7, #050816); padding: 18px; text-align: center; overflow: auto; touch-action: pan-y; }
+  .over[hidden] { display: none; }
+  #log { z-index: 7; }
+  .box { width: min(100%, 440px); margin: auto; }
+  .over h1 { font-size: clamp(42px, 14vw, 76px); margin: 0 0 4px; letter-spacing: -2px; color: #e8f6ff; text-shadow: 0 0 18px #9ae6ff66, 4px 4px 0 #13306a; }
+  .over h2 { font-size: 24px; margin: 0 0 8px; color: #9ae6ff; }
+  .over h2.warm { color: #ffb35a; }
+  .over p { font-weight: 500; line-height: 1.5; opacity: .92; }
+  .go { margin-top: 12px; padding: 13px 22px; font-size: 17px; background: #ffb35a; color: #1a0e02; border: 0; border-radius: 10px; box-shadow: 0 4px 0 #a8641c; }
+  .alt { margin: 10px 4px 0; padding: 9px 14px; background: transparent; border: 1px solid #9ae6ff55; border-radius: 8px; }
+  .credit { margin-top: 18px; font-size: 11px; opacity: .55; }
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; text-align: left; margin: 10px auto; max-width: 300px; font-weight: 500; }
+  .stats b { color: #9ae6ff; text-align: right; }
+  /* the bait shop */
+  .keeper { display: flex; gap: 10px; align-items: flex-start; text-align: left; margin: 4px 0 12px; }
+  .keeper img { width: 56px; height: 80px; flex: none; image-rendering: pixelated; }
+  .keeper .say { background: #f4f0e2; color: #1d1a12; border-radius: 10px; padding: 8px 10px; font-weight: 600; line-height: 1.4; position: relative; }
+  .keeper .say::before { content: ""; position: absolute; left: -7px; top: 14px; border: 7px solid transparent; border-left: 0; border-right-color: #f4f0e2; }
+  .row { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid #9ae6ff22; border-radius: 8px; margin-bottom: 6px; background: #0e1a3a; text-align: left; }
+  .row .t { flex: 1; min-width: 0; }
+  .row .t div + div { font-weight: 500; opacity: .75; font-size: 12px; margin-top: 2px; }
+  .row .lv { color: #9ae6ff; font-size: 11px; }
+  .row button { padding: 8px 10px; border-radius: 6px; background: #3a2410; border: 1px solid #ffb35a; color: #ffe2bd; min-width: 76px; }
+  .row button:disabled { background: #0b1430; border-color: #ffffff22; color: #7a8aa8; cursor: default; }
+  .cash { color: #ffb35a; }
+  /* the fish log */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 6px; text-align: left; }
+  .grid div { padding: 6px; border: 1px solid #9ae6ff22; border-radius: 8px; background: #0e1a3a; font-size: 11px; }
+  .grid div.no { opacity: .45; }
+  .grid canvas { width: 100%; height: 34px; image-rendering: pixelated; display: block; }
+  .grid b { display: block; font-size: 12px; color: #e8f6ff; }
+  .grid span { font-weight: 500; opacity: .8; }
+  .lyr { margin: 12px 0 6px; text-align: left; color: #9ae6ff; font-size: 12px; }
+  #tipSlot .cc-tipjar { margin-top: 14px; }
+</style>
+<script src="/games/cc-sdk.js"></script>
+<script src="/assets/tip.js" defer></script>
+</head>
+<body>
+<canvas id="c" aria-label="thin ice: an ice-fishing hut on a frozen lake at night. hold to drop the line, hold to reel."></canvas>
+<div id="hud">
+  <span class="chip">night <b id="hNight">1</b> · <b id="hClock">8:00 pm</b></span>
+  <span class="chip warm">$<b id="hCash">0</b></span>
+  <span class="chip">🪣 <b id="hBucket">0</b> lb</span>
+  <span class="chip" id="iceC">ice <span id="iceBar"><i></i></span></span>
+  <span class="grow"></span>
+  <button id="logBtn" type="button" aria-label="fish log">📖</button>
+  <button id="mute" type="button" aria-label="mute">sound on</button>
+</div>
+<div id="toast" aria-live="polite"></div>
+<div id="hint"></div>
+<div id="acts">
+  <button id="bReel" type="button" hidden>⤒ reel in<small>try another depth</small></button>
+  <button id="bHole" type="button" hidden>🌀 new hole<small>fresh ice</small></button>
+  <button id="bHaul" type="button" hidden>🛷 haul to shore<small id="haulS">0 lb</small></button>
+</div>
+<div id="catch" hidden></div>
+<div class="over" id="title">
+  <div class="box">
+    <h1>thin ice</h1>
+    <p>a hut, a hole, a frozen lake and a long night.<br>drop your line. fight the fish.<br>haul your bucket to shore before the ice gives out.</p>
+    <button class="go" id="start" type="button">tap to start</button>
+    <div class="credit">computer cooked games</div>
+  </div>
+</div>
+<div class="over" id="shop" hidden><div class="box" id="shopBox"></div></div>
+<div class="over" id="log" hidden><div class="box" id="logBox"></div></div>
+<div class="over" id="end" hidden><div class="box" id="endBox"></div></div>
+<script src="game.js"></script>
+</body>
+</html>

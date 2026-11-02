@@ -54,6 +54,8 @@ const DRIVE = {
   },
   // the colony plays itself: ?shot=1 grows it, hides the chrome and leaves the ants working (K-0058)
   "ant-farm": () => {},
+  // the aurora, a pike on the line and the ice cracking outward in cyan (K-0061)
+  "thin-ice": () => { if (window.__ti) window.__ti.clip(); },
 };
 // extra query for a game's clip run
 const QUERY = { "ant-farm": "&shot=1" };
