@@ -2099,28 +2099,11 @@
     UI.tipLink(body, "smol-ending");
   }
   UI.endCard = endCard;
-  // K-0059 tip jar: a small "tip the chef" link on the end screens (this ending card, the possess death screen).
-  // The site keeps the one public Stripe Payment Link (TIP_URL, read from /api/tip); off when that's empty or not a
-  // buy.stripe.com link. A plain link out in a new tab: never a popup, never in the way of playing on.
-  var tipP = null;
-  UI.tipUrl = function () {
-    if (!tipP) tipP = (typeof fetch === "function" ? fetch("/api/tip").then(function (r) { return r.ok ? r.json() : null; }) : Promise.resolve(null))
-      .then(function (j) { return j && typeof j.url === "string" && /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]+$/.test(j.url) ? j.url + "?ref=tipjar-smol-brains" : null; })
-      .catch(function () { tipP = null; return null; });
-    return tipP;
-  };
-  // fills `host` with the link once the url is known; slot says which screen it was (counted as tip_click)
+  // K-0059 tip jar: the site's shared "Tip the chef" button (/assets/tip.js) on the end screens (this ending card, the
+  // possess death screen). It brings the one Payment Link, ?ref=tipjar-smol-brains, the click count and its own
+  // styles, and shows nothing while tips are off. A plain link out in a new tab: never a popup, never in the way.
   UI.tipLink = function (host, slot) {
-    if (!host) return;
-    UI.tipUrl().then(function (url) {
-      if (!url || !host.isConnected || host.querySelector(".sbtip")) return;
-      host.insertAdjacentHTML("beforeend", '<p class="sbtip"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">☕ tip the chef ↗</a> <small>keeps the games free · 18+ / ask a parent</small></p>');
-      host.querySelector(".sbtip a").addEventListener("click", function (e) {
-        e.stopPropagation();
-        var hit = window.ccHit; try { if (!hit && parent !== window) hit = parent.ccHit; } catch (err) {}
-        if (hit) try { hit("tip_click", { slot: slot, game: "smol-brains" }); } catch (err) {}
-      });
-    });
+    if (host && window.ccTip) try { window.ccTip.mount(host, { game: "smol-brains", slot: slot }); } catch (e) {}
   };
   function civCard() {
     SB.Game.unlock(game, "card");
