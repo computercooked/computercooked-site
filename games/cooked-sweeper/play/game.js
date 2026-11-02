@@ -501,6 +501,9 @@
     if ($("r-next")) $("r-next").onclick = playNext;
     if ($("r-close")) $("r-close").onclick = () => { $("receipt").hidden = true; };
     setTimeout(() => { try { $("r-again").focus({ preventScroll: true }); } catch (e) {} }, 60);
+    // K-0059: the shared tip button (assets/tip.js) under the buttons; nothing shows while tips are off
+    const paper = $("receipt").querySelector(".paper");
+    if (window.ccTip) window.ccTip.mount(paper, { game: "cooked-sweeper", slot: "game-over" }).then((p) => { if (p && p.parentNode === paper) paper.insertBefore(p, paper.querySelector(".foot")); });
   }
 
   function playNext() {
