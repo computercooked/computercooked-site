@@ -635,6 +635,19 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.51 v4.11.2: a tip jar on the end screens (K-0059)
+
+Chef's tip jar ask: a small, friendly "tip the chef" link on Smol Brains' end screens. Smol Brains has no single game over, so it goes on the two places a run ends:
+
+- **the possess death screen** ("Pip was hurt too badly"), under "back to the sky";
+- **the ending card** ("you raised a civilisation"), under keep playing / share / new game+.
+
+How it works (`UI.tipLink` in ui.js):
+- The url is the site's one public Stripe Payment Link (`TIP_URL` in wrangler.jsonc, read from `/api/tip`), with `?ref=tipjar-smol-brains` added. Only a `https://buy.stripe.com/<id>` link turns it on; otherwise nothing shows.
+- It is a plain link in a new tab: never a popup, never over a button, and the death screen still returns to the sky on its own.
+- A click counts as `tip_click` (slots `smol-death` and `smol-ending`) through the site's `ccHit`.
+- When the cc-games site's shared tip button lands, `UI.tipLink` is the one place to swap it in.
+
 ## 0.50 What v4.11.1 fixed: Chef's 4.11.0 playtest (K-0058)
 
 - **The night clock read "80:10".** It wasn't the clock math: Pixelify's digits muddle at UI sizes (2 and 3 read as 8, 5 as S). Both Pixelify faces now carry `unicode-range: U+0000-002F, U+003A-FFFF`, so every number in the UI (clocks, sparks, hearts, distances) comes from JetBrains Mono and the letters stay pixel.

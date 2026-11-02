@@ -194,6 +194,7 @@
     "#pov .death h2{margin:0;font:700 34px var(--mono,monospace);text-shadow:3px 3px 0 #000}#pov .death .how{font-size:16px;opacity:.9;max-width:460px;line-height:1.5}",
     "#pov .death .lost{padding:10px 14px;max-width:min(520px,92vw)}#pov .death .lost h4{margin:0 0 6px;font:700 13px var(--mono,monospace);opacity:.8}",
     "#pov .death .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}#pov .death .items span{display:flex;align-items:center;gap:3px;font:700 12px var(--mono,monospace)}",
+    "#pov .death .sbtip{margin:2px 0 0}",
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
     "#pov .intro{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
     "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 24px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
@@ -492,6 +493,7 @@
     var b = d.appendChild(el("button", null, "back to the sky"));
     var done = false, go = function () { if (done) return; done = true; P().leave("died"); };
     b.addEventListener("click", go);
+    if (SB.UI && SB.UI.tipLink) SB.UI.tipLink(d, "smol-death");
     if (document.exitPointerLock && document.pointerLockElement) try { selfUnlockAt = performance.now(); document.exitPointerLock(); } catch (e) {}
     hud.deathT = setTimeout(go, 20000);
   };
