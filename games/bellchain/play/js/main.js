@@ -109,12 +109,19 @@ window.addEventListener('keydown', onKey);
 // too, but only while the game is on screen and the key isn't meant for something on the page.
 try {
   const host = window.parent !== window && window.frameElement ? window.parent : null;
-  if (host) host.document.addEventListener('keydown', (e) => {
+  // K-0060: taken off again when this frame goes away. The hover previews on the hub and the "more games" cards load
+  // this page in an iframe and drop it on pointer-out; the listener left on the page kept every dropped bellchain
+  // (its whole window, canvas and audio) alive, one more per hover.
+  const hostDoc = host && host.document;
+  const hostKey = (e) => {
+    if (!window.frameElement) { unhook(); return; }
     if (e.target && (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     const fr = window.frameElement.getBoundingClientRect();
     if (fr.height < 50 || fr.bottom < 50 || fr.top > host.innerHeight - 50) return;
     onKey(e);
-  });
+  };
+  const unhook = () => { try { hostDoc.removeEventListener('keydown', hostKey); } catch (e) { /* page already gone */ } };
+  if (hostDoc) { hostDoc.addEventListener('keydown', hostKey); window.addEventListener('pagehide', unhook); }
 } catch (e) { /* other origin: keys only reach the game once it has focus */ }
 
 // ---------- golden bells ----------
@@ -371,19 +378,26 @@ function renderRecast() {
     $('nodes').appendChild(el);
   }
 }
-$('recastBtn').addEventListener('click', () => {
-  const g = E.otGain(S); if (g < 1) return;
+// K-0060: test-only. With ?cctest=1 (on this frame or on /games/bellchain/ around it) a small "test: recast card" button
+// opens this card without the 3.00M resonance, so the end of a run (and its tip button) can be checked. It never writes
+// to the save: under 1 overtone the card's recast button only says so and nothing changes.
+const TEST = /[?&]cctest=1(&|$)/.test(location.search) || /[?&]cctest=1(&|$)/.test(parentQ);
+let testCard = false;
+$('recastBtn').addEventListener('click', () => openRecast(false));
+function openRecast(test) {
+  const g = E.otGain(S); if (g < 1 && !test) return;
+  testCard = g < 1;
   const th = themeFor(S.ascensions + 1);
-  $('recastGain').textContent = `+${g} overtones`;
-  $('recastNext').textContent = `next run: ${th.name} bells, ${th.mode} scale.`;
+  $('recastGain').textContent = testCard ? 'test: +0 overtones' : `+${g} overtones`;
+  $('recastNext').textContent = (testCard ? 'test preview, recast changes nothing. ' : '') + `next run: ${th.name} bells, ${th.mode} scale.`;
   $('recastModal').classList.add('open');
   // K-0059: shared tip button (assets/tip.js) (an idle game has no game over: a recast is the end of a run)
   if (window.ccTip) window.ccTip.mount($('recastModal').querySelector('.card'), { game: 'bellchain', slot: 'game-over' });
-});
+}
 $('recastNo').addEventListener('click', closeModals);
 $('recastGo').addEventListener('click', () => {
   const g = E.ascend(S); closeModals();
-  if (!g) return;
+  if (!g) { if (testCard) toast('test card: not enough resonance for a real recast. nothing changed.'); return; }
   buffs = []; stage.golden = null; goldenIn = 30;
   applySong();
   const th = themeFor(S.ascensions);
@@ -579,6 +593,15 @@ if (firstVisit) {
   onboarding = true; stage.showBanner('tap the bell', 'every tap plays the next note', null, 600);
 }
 if (!store.ok) toast('saving is blocked here. export a code before you leave.');
+// K-0060: the ?cctest=1 shortcut to the recast card (see openRecast); never shown to players
+if (TEST) {
+  const tb = document.createElement('button');
+  tb.id = 'testRecast'; tb.type = 'button'; tb.textContent = '🧪 test: recast card';
+  tb.title = 'test mode (?cctest=1) only: opens the recast card without the resonance. changes nothing.';
+  tb.style.cssText = 'position:fixed;right:6px;bottom:6px;z-index:19;padding:3px 8px;border:1px dashed #ff6b9a;border-radius:6px;background:#101114e6;color:#ff6b9a;font:700 11px ui-monospace,Menlo,Consolas,monospace;cursor:pointer';
+  tb.addEventListener('click', (e) => { e.stopPropagation(); tb.blur(); openRecast(true); });
+  document.body.appendChild(tb);
+}
 save();
 requestAnimationFrame((t) => { last = t; frame(t); });
 

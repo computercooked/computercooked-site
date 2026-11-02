@@ -221,7 +221,7 @@
       ],
       "controls": "tap or click anywhere to ring (space works too). buy bells and upgrades in the panel. m mutes.",
       "size_kb": 79,
-      "version": "2.9.1",
+      "version": "2.9.2",
       "added": "2026-10-19",
       "max_score_per_sec": 100
     },
@@ -592,7 +592,7 @@
       ],
       "controls": "hold anywhere (or hold space / enter) to cook, let go when the food is done. popcorn pops slow down, the egg wobbles, the fish stinks. metal: let go at once. m mutes.",
       "size_kb": 33,
-      "version": "1.0",
+      "version": "1.1",
       "added": "2026-10-30",
       "max_score_per_sec": 15.0,
       "max_score": 6000.0
@@ -614,7 +614,7 @@
       ],
       "controls": "feed: tap the grass to drop crumbs. dig: drag on dirt to plan a tunnel; ants dig a path to it. look: tap an ant to meet it. drag or scroll to move. tap the magnifying glass to shoo the kid. 1/2/3 tools, c colony, m mutes.",
       "size_kb": 90,
-      "version": "1.1",
+      "version": "1.2",
       "added": "2026-10-31",
       "theme": {
         "accent": "#c5ff49",
