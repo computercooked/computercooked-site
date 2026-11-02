@@ -251,11 +251,19 @@ Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that pag
 
 ## Tip jar (off by default)
 
-A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's off in the repo: `"vars": { "TIP_URL": "" }` in `wrangler.jsonc`.
+A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's set in `wrangler.jsonc` (`TIP_URL`, Chef's $3 pay-what-you-want Payment Link since Oct 23); empty means off.
 - **To switch it on:** put the public Stripe Payment Link in `TIP_URL` and merge. Only `https://buy.stripe.com/<id>` is accepted; any other value (wrong host, http, extra path or query) is treated as off.
 - `GET /api/tip` → `{ok, url}`, with `url: null` when it's off. It's cached 5 minutes, so the change shows within 5 minutes of the deploy.
 - The link opens in a new tab with `rel="noopener noreferrer"` and no referrer. Clicks aren't logged, and nothing about payments touches our server.
 - The privacy page has a "tips" line.
+
+### The shared "Tip the chef" button (K-0059)
+
+`assets/tip.js` is the one button for every other place: the homepage footer and the games' own game-over screens. It brings its own styles, so it works inside a `play/` page too.
+- **Add it:** `<script src="/assets/tip.js" defer></script>`, then on the game-over screen `ccTip.mount(el, { game: "<slug>", slot: "game-over" })`. It appends the button to `el` once and resolves to it, or to `null` while tips are off (then nothing shows).
+- **The link** is still only `TIP_URL`. The button adds `?ref=tipjar-<game>&client_reference_id=tipjar-<game>`; Stripe shows `client_reference_id` on each payment, so tips can be told apart by game.
+- **Clicks** are `tip_click` with slot `game-over` or `home-footer` and the game's slug (admin metrics `clicks_by_slot`). Test-mode browsers aren't stored.
+- **Never in the way:** it opens Stripe in a new tab, no popup, and taps or keys on it stop at the button, so they can't restart the game underneath. It hides itself in the native app builds.
 
 ## Share-your-run card
 

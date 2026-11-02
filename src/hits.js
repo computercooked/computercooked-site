@@ -4,7 +4,8 @@
 //                returning visitors without storing any id (the browser keeps only its last-seen day). The first one in
 //                a tab carries land 1: one per visit, the sessions in /api/admin/utm (src/utm.js)
 //   leave        once per page load when the tab is hidden or closed, with ms = time the page was visible (time on page)
-//   tip_click    a click on a "tip the computer" link (games/hub.js, games/platform.js)
+//   tip_click    a click on a "tip the computer" link (games/hub.js, games/platform.js) or the shared "Tip the chef"
+//                button (assets/tip.js: home-footer, game-over), with the game's slug when it's on a game
 //   tip_success  a page opened with ?tip=thanks (the Stripe Payment Link's after-payment redirect), once per visit
 //   ad_slot      a moment an ad would show under the assets/ads.js caps (interstitial / rewarded), counted before any network
 // Stored as events rows named cc:<kind>, data {path, ref, campaign, src, medium, slot}; src / medium are the visit's raw
@@ -13,7 +14,7 @@
 import { json, bad, readJson, now, limited, slugOk, refOk, campaignOk, isTestAnon } from "./util.js";
 
 const KINDS = ["pageview", "tip_click", "tip_success", "ad_slot", "leave"];
-export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run", "post-best", "support"];
+export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run", "post-best", "support", "home-footer", "game-over"];
 
 const pathOk = (p) => {
   if (typeof p !== "string" || p[0] !== "/" || p.length > 120) return null;

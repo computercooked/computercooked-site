@@ -223,3 +223,6 @@
     cards.forEach(function (c) { io.observe(c); });
   }
 })();
+
+// the tip jar in the footer (K-0059): the shared button from assets/tip.js, only while TIP_URL is a Stripe link
+if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "home", slot: "home-footer" });
