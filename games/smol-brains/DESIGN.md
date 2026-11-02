@@ -635,6 +635,23 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.52 What v4.11.4 fixed: Chef's 4.11.3 chase playtest (K-0060)
+
+1. **No dream or choice over a chase.** `SB.Director.danger(game)` is true while a night chase is offered, run or just over, and while a grump is on your possessed smol. During that time the storyteller deals no card, a card already asking stops its auto-answer clock, and `UI.eventReady` holds every event window, so "Saro had a dream" waits until it's over.
+2. **Every chase ends on a beat you can read.**
+   - The chase banner keeps the count: "bites 1/3".
+   - The end shows in the body ("🔥 Saro made it to the light!", "👹 Saro was caught · hurt, but alive", "😮‍💨 lost it in the dark"). Back in the sky, the camera stays on the smol and the outcome's note waits as a toast.
+   - The third bite's "OUCH" no longer covers the "caught" beat.
+3. **Steering.**
+   - Arrow keys turn about 1.5–2.5× faster, and quicker the longer they're held.
+   - In a chase with the mouse not captured, A/D steer as well as strafe, so W+D curves right.
+   - At night a soft warm light follows the possessed smol, so the ground reads.
+4. **A beacon.** In a chase, a pillar of light (12 m, glowing, pulsing) stands over the way to safety: the nearest fire if it's nearer, else the nest. It's drawn over the view, so a cliff or the night fog can't swallow it (a 3D pillar was lost in the fog in testing), and a warm light sits on the spot itself.
+5. **This morning's notes.**
+   - Event cards wait while a miracle is being aimed and for 3 s after a cast, so the night card no longer cuts into a lightning bolt.
+   - A reaching hand pans the view only after resting 0.4 s at the screen edge, so a quick missed drag no longer moves the camera.
+   - The "test mode: the founders keep their names" toast shows only with `?cctest=1`. Before, it also showed in any first night.
+
 ## 0.51 v4.11.2–4.11.3: a tip jar on the end screens (K-0059)
 
 Chef's tip jar ask: a small, friendly "tip the chef" link on Smol Brains' end screens. Smol Brains has no single game over, so it goes on the two places a run ends:

@@ -141,9 +141,17 @@
     } else if (why === "caught") {
       s.losses++;
       if (c && c.alive) { SB.Chem.apply(c.chem, { pain: 0.3, fear: 0.4 }); if (SB.Game.note) SB.Game.note(game, "👹 the grump caught " + c.name + ". hurt, but alive."); }
-    }
+    } else if (why === "bored" && c && SB.Game.note) SB.Game.note(game, "😮‍💨 " + c.name + " lost the grump in the dark. safe, just.");
     s.leaveT = NC.LEAVE; s.leaving = live.c;
-    SB.bus.emit("nightChase", { step: ok ? "won" : why || "lost", c: c });
+    // every chase ends on a beat you can read (K-0060): in the body for NC.LEAVE seconds, then again from the sky
+    var nm = c ? c.name : "your smol", big, small;
+    if (ok) { big = "🔥 " + nm + " made it to the light!"; small = "+" + NC.PAY + " ✨ · braver for it"; }
+    else if (why === "caught") { big = "👹 " + nm + " was caught"; small = "hurt, but alive · back to the sky"; }
+    else if (why === "bored") { big = "😮‍💨 " + nm + " lost it in the dark"; small = "+1 ✨ · safe, just"; }
+    else { big = ""; small = ""; s.leaveT = 0; } // you left the body: that's its own way out
+    s.beat = big ? { big: big, small: small, good: why !== "caught" } : null;
+    if (big && SB.PovHud && SB.PovHud.on && SB.PovHud.on() && SB.PovHud.beat) SB.PovHud.beat(big, small, why !== "caught");
+    SB.bus.emit("nightChase", { step: ok ? "won" : why || "lost", c: c, big: big });
     show(game);
   }
   // after it's over: a beat in the body, then back to the sky
@@ -152,8 +160,12 @@
     if (s.leaving == null) return;
     if ((s.leaveT -= dt) > 0) return;
     var P = SB.Possess;
+    var c = byId(game, s.leaving);
     if (P && P.active && P.c && P.c.id === s.leaving) P.leave("chase");
     s.leaving = null;
+    // and from the sky: the camera stays on the smol (the outcome's note is waiting there as a toast)
+    if (s.beat && !game.headless && c && c.alive && SB.Input && SB.Input.follow) SB.Input.follow(c);
+    s.beat = null;
   };
 
   var hooked = false;

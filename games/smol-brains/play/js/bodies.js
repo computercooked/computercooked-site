@@ -405,6 +405,14 @@
       setBase(h.x, GY(game.world, h.x, h.z) + 0.03, h.z, t, 1);
       part("p:ring", 0, 0, 0, 0, 0, 0, 0.35, 0.2, 0.35, h.tool === "tap" ? [1, 0.4, 0.4] : h.tool === "tickle" ? [1, 0.6, 0.8] : SEL, [0, 0.9, 0]);
     }
+    // K-0060: in a smol's body at night, a soft light around it so the ground reads; in a chase, a glow on the way to
+    // safety (povhud.js stands the pillar of light over it, where fog and cliffs can't hide it)
+    var P = SB.Possess, pc = P && P.active && P.c;
+    if (pc && pc.alive) {
+      if (R.env && R.env.night > 0.25) R.light(pc.x, GY(game.world, pc.x, pc.z) + 1.4, pc.z, 6.5, 0.78, 0.72, 0.6);
+      var goal = P.safeGoal && P.safeGoal();
+      if (goal) R.light(goal.x, GY(game.world, goal.x, goal.z) + 2.5, goal.z, 7, 1, 0.82, 0.4);
+    }
   });
 
   /* ---------------- overlay ---------------- */

@@ -615,6 +615,13 @@
   /* ---------------- running it ---------------- */
 
   var acc = 0;
+  // danger (K-0060): a night chase being offered, run or just over, or a grump on your heels. No new
+  // card is dealt then, and one already asking waits (its clock stops), so a dream never pops up over "lend your light"
+  D.danger = function (game) {
+    var s = game && game.settings && game.settings.chase;
+    if (s && (s.prompt || s.live || s.leaving != null)) return true;
+    return !!(game && SB.Possess && SB.Possess.active && SB.Possess.scout && SB.Possess.scout());
+  };
   D.tick = function (game, dt) {
     acc += dt;
     if (acc < 1) return;
@@ -622,7 +629,9 @@
     if (game.offline || !game.tutorial || !game.tutorial.done) return;
     var d = D.state(game);
     var inc = d.active;
+    var risky = D.danger(game);
     if (inc) {
+      if (inc.phase === "ask" && risky) inc.t0 += step; // nobody's answering a card mid-chase
       if (inc.phase === "ask" && game.time - inc.t0 > AUTO) D.choose(game, inc, D.freeChoice(inc));
       else if (inc.phase === "warn" && game.time >= inc.t1) { inc.phase = "on"; D[inc.id].begin(game, inc); }
       else if (inc.phase === "on" && D[inc.id].tick) D[inc.id].tick(game, inc, step);
@@ -635,6 +644,7 @@
     // at 8–16× the island races, but you still get at least a minute and a half of your own time between cards
     if (game.playTime > 0 && game.playTime - (d.realT || -1e9) < 90) return;
     if (SB.Strangers && SB.Strangers.pending(game)) { d.nextT = game.time + 30; return; }
+    if (risky) { d.nextT = game.time + 20; return; }
     D.fire(game);
   };
 

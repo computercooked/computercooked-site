@@ -158,6 +158,7 @@
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
     "#pov .qmark.home i{width:28px;height:28px;left:-14px;top:-34px;box-shadow:0 0 0 3px #000,0 0 18px var(--lime)}#pov .qmark.home span{font:800 15px system-ui,Arial,sans-serif;top:4px;background:rgba(0,0,0,.6);padding:2px 6px}",
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
+    "#pov .beam{position:absolute;width:22px;transform:translateX(-50%);pointer-events:none;display:none;border-radius:8px;background:linear-gradient(to top,rgba(255,214,110,.95),rgba(255,201,74,.55) 40%,rgba(255,201,74,0));box-shadow:0 0 22px 6px rgba(255,190,60,.35);filter:blur(1px);animation:povbeam 1.6s ease-in-out infinite}#pov .beam.on{display:block}@keyframes povbeam{50%{opacity:.7}}",
     "#pov .nmark i{background:#ffc94a;box-shadow:0 0 0 3px #000,0 0 18px #ffc94a}#pov .nmark span{color:#ffc94a}", // the nest (or the nearest light) in a chase: its own marker (K-0058)
     "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
@@ -238,6 +239,7 @@
     hud.item = hud.paws.appendChild(el("div", "item"));
     hud.qmark = root.appendChild(el("div", "qmark", "<i></i><span></span>"));
     hud.gmark = root.appendChild(el("div", "qmark gmark", "<i></i><span></span>")); // the first minute's grump (possess.js scoutTick)
+    hud.beam = root.appendChild(el("div", "beam", "")); // K-0060: a pillar of light standing on the way to safety
     hud.nmark = root.appendChild(el("div", "qmark home nmark", "<i></i><span></span>")); // and where safety is while it hunts you
     hud.threat = root.appendChild(el("div", "threat", ""));
     hud.cross = root.appendChild(el("div", "cross", "<i></i><i></i><i></i><i></i><b></b>"));
@@ -417,14 +419,16 @@
   // while a grump is after you: a red marker on it, a banner that says how close, and the guide points home
   function threatMarker() {
     var s = S(), g = s && !s.dead && P().scout ? P().scout() : null;
-    if (!g) { hud.gmark.classList.remove("on"); hud.nmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
+    if (!g) { hud.beam.classList.remove("on"); hud.gmark.classList.remove("on"); hud.nmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
     var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z), lit = null;
     if (s.nightChase) { lit = SB.World.nearestFire(s.game.world, c.x, c.z, dh); if (lit) { hm = lit; dh = SB.dist(lit.x, lit.z, c.x, c.z); } } // a night chase: the nearest light, if it's nearer than the nest
     mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0, "👹 grump ");
     var goal = s.goal, dup = goal && SB.dist(goal.x, goal.z, hm.x, hm.z) < 3; // the first night's own goal is the nest once Pip has the sticks: one marker, not two
     if (dup) hud.nmark.classList.remove("on");
     else mark(hud.nmark, { x: hm.x, y: SB.World.groundY(s.game.world, hm.x, hm.z) + 1.6, z: hm.z }, dh, 1.4, (lit ? "🔥 light " : "🏠 nest "), s.firstNight && goal ? " · bring 2 sticks" : "");
-    var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + (lit ? " · 🔥 light " : " · 🏠 nest ") + Math.round(dh) + "m";
+    beam(s, P().safeGoal && P().safeGoal());
+    var bites = s.firstNight || s.nightChase ? " · bites " + Math.min(3, g.scout && g.scout.hits || 0) + "/3" : ""; // K-0060: the count stays on screen
+    var txt = (g.scout && g.scout.wind > 0 ? "👹 it's about to pounce! MOVE!" : g.scout && g.scout.t < 3 ? "👹 a grump spotted you! run!" : dg < 2.5 ? "👹 it's got you! run!" : "👹 a grump is after you · " + Math.round(dg) + "m") + (lit ? " · 🔥 light " : " · 🏠 nest ") + Math.round(dh) + "m" + bites;
     if (hud.threat.textContent !== txt) hud.threat.textContent = txt;
     hud.threat.classList.add("on");
     return true; // the way to safety has its own marker now; the green one is only for a goal (the first night's sticks)
@@ -457,6 +461,18 @@
     if (x - w / 2 < 6) sh = 6 - (x - w / 2); else if (x + w / 2 > W - 6) sh = W - 6 - (x + w / 2);
     var tf = "translateX(calc(-50% + " + Math.round(sh) + "px))";
     if (sp.style.transform !== tf) sp.style.transform = tf;
+  }
+  // the beacon: from the goal's ground up 12 m, drawn over the view so a cliff or the night fog can't swallow it
+  function beam(s, goal) {
+    var R = SB.Render, b = hud.beam;
+    if (!goal || !R.project) { b.classList.remove("on"); return; }
+    var c = s.c, gy = SB.World.groundY(s.game.world, goal.x, goal.z), bearing = Math.atan2(-(goal.x - c.x), -(goal.z - c.z));
+    var lo = R.project(goal.x, gy, goal.z), hi = R.project(goal.x, gy + 12, goal.z);
+    if (Math.abs(SB.angDiff(s.yaw, bearing)) > 0.9 || !lo.on && !hi.on || SB.dist(goal.x, goal.z, c.x, c.z) < 2.5) { b.classList.remove("on"); return; }
+    var H = window.innerHeight, top = SB.clamp(Math.min(lo.y, hi.y), -40, H), bot = SB.clamp(Math.max(lo.y, hi.y), top + 60, H);
+    b.style.left = lo.x + "px"; b.style.top = top + "px"; b.style.height = (bot - top) + "px";
+    b.style.background = goal.fire ? "linear-gradient(to top,rgba(255,150,60,.95),rgba(255,120,40,.5) 40%,rgba(255,120,40,0))" : "";
+    b.classList.add("on");
   }
   function mark(m, t, d, minD, pre, post) {
     var s = S(), c = s.c, R = SB.Render;
@@ -1009,9 +1025,15 @@
     bound = null;
     if (bag) { bag = null; }
   }
+  // arrow keys turn, quicker the longer they're held (K-0060: "arrow-key turning is slow"). In a chase with the mouse
+  // not captured, A/D steer as well as strafe, so W+D curves right the way a run should
+  var turnHeld = 0;
   function keyLook(dt) {
     var tx = (keys.arrowright ? 1 : 0) - (keys.arrowleft ? 1 : 0), ty = (keys.arrowdown ? 1 : 0) - (keys.arrowup ? 1 : 0);
-    if (tx || ty) { P().look2(tx * 620 * dt, ty * 380 * dt); hud.looked = true; }
+    var steer = !locked() && P().scout && P().scout() ? (keys.d ? 1 : 0) - (keys.a ? 1 : 0) : 0;
+    turnHeld = tx || steer ? turnHeld + dt : 0;
+    var rate = 900 + 700 * Math.min(1, turnHeld * 2.5);
+    if (tx || ty || steer) { P().look2((tx || steer * 0.75) * rate * dt, ty * 380 * dt); hud.looked = true; }
   }
   function readKeys() {
     if (!bound) return;
