@@ -579,8 +579,3 @@ body.titling #overlay { opacity: 0; }
   .sheet.side .thought { font-size: 14px; }
   .sheet.side .sec { margin-top: 12px; }
 }
-/* K-0059 tip jar link on the end screens: small and quiet, under the buttons */
-.sbtip { margin: 10px 0 0; font-size: 13px; opacity: .85; text-align: center; }
-.sbtip a { color: var(--lime, #c6f432); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
-.sbtip a:hover { opacity: 1; }
-.sbtip small { display: block; font-size: 11px; opacity: .7; margin-top: 2px; }

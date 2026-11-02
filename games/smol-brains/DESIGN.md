@@ -635,18 +635,18 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
-## 0.51 v4.11.2: a tip jar on the end screens (K-0059)
+## 0.51 v4.11.2–4.11.3: a tip jar on the end screens (K-0059)
 
 Chef's tip jar ask: a small, friendly "tip the chef" link on Smol Brains' end screens. Smol Brains has no single game over, so it goes on the two places a run ends:
 
 - **the possess death screen** ("Pip was hurt too badly"), under "back to the sky";
 - **the ending card** ("you raised a civilisation"), under keep playing / share / new game+.
 
-How it works (`UI.tipLink` in ui.js):
-- The url is the site's one public Stripe Payment Link (`TIP_URL` in wrangler.jsonc, read from `/api/tip`), with `?ref=tipjar-smol-brains` added. Only a `https://buy.stripe.com/<id>` link turns it on; otherwise nothing shows.
+How it works (`UI.tipLink` in ui.js, since v4.11.3): it mounts the site's shared "Tip the chef" button (`/assets/tip.js`, `ccTip.mount` with game `smol-brains` and slot `smol-death` / `smol-ending`).
+- That button brings the one public Stripe Payment Link (`TIP_URL`, from `/api/tip`), `?ref=tipjar-smol-brains`, the `tip_click` count and its own styles.
+- It shows nothing while tips are off, and it hides itself in the native app builds.
 - It is a plain link in a new tab: never a popup, never over a button, and the death screen still returns to the sky on its own.
-- A click counts as `tip_click` (slots `smol-death` and `smol-ending`) through the site's `ccHit`.
-- When the cc-games site's shared tip button lands, `UI.tipLink` is the one place to swap it in.
+- v4.11.2 shipped a game-local link first; v4.11.3 swapped it for the shared button as soon as that landed.
 
 ## 0.50 What v4.11.1 fixed: Chef's 4.11.0 playtest (K-0058)
 
