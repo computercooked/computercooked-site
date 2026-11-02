@@ -109,6 +109,8 @@
   .stat span { font-size: 10px; color: var(--muted); letter-spacing: .1em; }
   #grid { font-size: 17px; line-height: 1.1; letter-spacing: 1px; margin: 0; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
   .sub { color: var(--muted); font-size: 12px; }
+  /* K-0059: shared tip button (assets/tip.js) */
+  #over .cc-tipjar { margin: 0; }
   .hide { display: none !important; }
   #taunt { position: fixed; z-index: 9; left: 50%; top: calc(env(safe-area-inset-top) + 50px); transform: translate(-50%, -6px); opacity: 0; pointer-events: none;
     background: var(--panel); box-shadow: inset 0 0 0 2px var(--lilac), 0 4px 0 #050507; padding: 6px 12px; font-size: 12px; max-width: min(92vw, 460px); width: max-content;
@@ -121,6 +123,8 @@
   @media (max-height: 640px) { .big { padding: 12px 36px; min-height: 52px; } #title { gap: 10px; } }
 </style>
 <script src="/games/cc-sdk.js"></script>
+<!-- K-0059: shared tip button (assets/tip.js) -->
+<script src="/assets/tip.js" defer></script>
 </head>
 <body>
 <canvas id="bg" class="px"></canvas>
@@ -907,6 +911,7 @@
     setRematchButtons();
     $('over').classList.add('on');
     show('over');
+    mountTip();
   }
   function cap(s) { return s[0].toUpperCase() + s.slice(1); }
   function drawOverTitle(text, col) {
@@ -1069,7 +1074,10 @@
     $('btnSeeBoard').classList.add('hide');
     for (const id of ['btnAgain', 'btnAgain2']) { $(id).textContent = 'quick dive'; $(id).disabled = false; $(id).classList.remove('pulse'); }
     $('over').classList.add('on');
+    mountTip();
   }
+  // K-0059: shared tip button (assets/tip.js)
+  function mountTip() { if (window.ccTip) window.ccTip.mount($('over').querySelector('.card'), { game: 'fathom', slot: 'game-over' }); }
 
   // ---------------------------------------------------------------- online play: not in the static port
   const conn = null;

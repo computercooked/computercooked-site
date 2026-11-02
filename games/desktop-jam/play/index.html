@@ -51,6 +51,8 @@
   @keyframes bob { 50% { transform: translateY(-5px); } }
   .credit { font-size: 11px; letter-spacing: .14em; color: var(--dim); font-weight: 800; }
   .credit b { color: var(--lime); }
+  /* K-0059: shared tip button (assets/tip.js) */
+  #end .cc-tipjar { margin: 0; }
   .stars { font-size: 26px; letter-spacing: 6px; color: var(--lime); min-height: 30px; }
   .stars .off { color: var(--line); }
   .stars:empty { display: none; }
@@ -70,6 +72,8 @@
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
+<!-- K-0059: shared tip button (assets/tip.js) -->
+<script src="/assets/tip.js" defer></script>
 </head>
 <body>
 <div id="app">

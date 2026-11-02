@@ -415,6 +415,24 @@
       }
     }
   }
+  // K-0059: shared tip button (assets/tip.js)
+  // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
+  // index.html) placed just under the "tap to ... again" line, shown only while that line is, hidden once a run starts.
+  // Taps on the box's empty space fall through to the canvas (restart as usual); taps on the pill never reach it.
+  let tipBox = null, tipY = -1;
+  function tipSync(y) {
+    const show = y >= 0;
+    if (show && !tipBox && window.ccTip) {
+      tipBox = document.createElement("div"); tipBox.id = "cc-tip-box"; tipBox.hidden = true;
+      document.body.appendChild(tipBox);
+      // after a click the link would keep focus and swallow Space/Enter; hand the keys back to the game
+      tipBox.addEventListener("click", () => setTimeout(() => { const a = document.activeElement; if (a && tipBox.contains(a)) a.blur(); }, 0), true);
+      try { Promise.resolve(window.ccTip.mount(tipBox, { game: "haunted-self-checkout", slot: "game-over" })).catch(() => {}); } catch (e) {}
+    }
+    if (!tipBox) return;
+    if (tipBox.hidden === show) tipBox.hidden = !show;
+    if (show) { const t = Math.round(Math.max(0, Math.min(y, H - 112))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
+  }
   function overlay(time) {
     cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, top - 4, W, H - top + 4);
     cx.textAlign = "center"; cx.textBaseline = "middle";
@@ -444,7 +462,7 @@
         : score === prevBest ? "tied your best. one more scan next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       cx.font = "800 15px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = score > prevBest ? LIME2 : "#ffb340";
       cx.fillText(nudge, W / 2, mid + big * 0.95 + 46);
-      if (performance.now() - endAt > 700) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, mid + big * 0.95 + 80); }
+      if (performance.now() - endAt > 700) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, mid + big * 0.95 + 80); tipY = mid + big * 0.95 + 100; }
     }
     if (state === "title") { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to start your shift", W / 2, Math.min(H - 40, mid + big * 0.6 + 44 + Math.min(S, 60) + 40)); }
   }
@@ -461,7 +479,9 @@
     for (const it of items) drawItem(it, time);
     drawFx();
     if (state === "play") drawHud();
+    tipY = -1;
     if (state !== "play") overlay(time);
+    tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
     if (flash > 0) { cx.globalAlpha = flash * 0.9; cx.fillStyle = flashCol; cx.fillRect(0, 0, W, 6); cx.fillRect(0, H - 6, W, 6); cx.fillRect(0, 0, 6, H); cx.fillRect(W - 6, 0, 6, H); cx.globalAlpha = 1; }
     cx.restore();
   }

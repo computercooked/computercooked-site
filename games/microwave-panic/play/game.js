@@ -478,7 +478,27 @@
       text("BOO", M.wx + M.ww / 2, M.wy + M.wh * 0.45 + Math.min(W, H) * 0.26 * grow, 26 * grow, BAD, "center", 900);
       cx.globalAlpha = 1;
     }
+    tipY = -1;
     if (state === "title" || state === "over") overlay();
+    tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
+  }
+  // K-0059: shared tip button (assets/tip.js)
+  // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
+  // index.html) placed just under the "tap to ... again" line, shown only while that line is, hidden once a run starts.
+  // Taps on the box's empty space fall through to the canvas (restart as usual); taps on the pill never reach it.
+  let tipBox = null, tipY = -1;
+  function tipSync(y) {
+    const show = y >= 0;
+    if (show && !tipBox && window.ccTip) {
+      tipBox = document.createElement("div"); tipBox.id = "cc-tip-box"; tipBox.hidden = true;
+      document.body.appendChild(tipBox);
+      // after a click the link would keep focus and swallow Space/Enter; hand the keys back to the game
+      tipBox.addEventListener("click", () => setTimeout(() => { const a = document.activeElement; if (a && tipBox.contains(a)) a.blur(); }, 0), true);
+      try { Promise.resolve(window.ccTip.mount(tipBox, { game: "microwave-panic", slot: "game-over" })).catch(() => {}); } catch (e) {}
+    }
+    if (!tipBox) return;
+    if (tipBox.hidden === show) tipBox.hidden = !show;
+    if (show) { const t = Math.round(Math.max(0, Math.min(y, H - 72))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
   }
   function overlay() {
     R("rgba(8, 9, 7, 0.82)", 0, 0, W, H);
@@ -500,7 +520,7 @@
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first shift logged. now beat it.")
         : score === prevBest ? "tied your best. one more perfect next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : WARN, "center", 800);
-      if (performance.now() - endAt > 700) text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900);
+      if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
     }
   }
 

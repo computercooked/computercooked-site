@@ -428,6 +428,8 @@
       .map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
     $('bNext').textContent = r.mode === 'daily' ? 'play levels' : r.won ? (allDone ? 'replay all' : 'next') : 'retry';
     $('end').classList.add('on');
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount($('end').querySelector('.card'), { game: 'desktop-jam', slot: 'game-over' });
     setTimeout(() => $('bNext').focus(), 50);
   }
 

@@ -425,6 +425,8 @@
     $('earnTxt').textContent = earned;
     try { $('card').src = drawCard(lastResult).toDataURL('image/png'); } catch (e) { /* ignore */ }
     show('over', true);
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount($('overTip'), { game: 'plus-one-ram', slot: 'game-over' });
   }
   const fmtT = (t) => Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2);
   function setPause(on) {

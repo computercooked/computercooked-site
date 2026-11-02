@@ -9,8 +9,14 @@
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;background:#101114;overflow:hidden}
   canvas{display:block;width:100%;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;cursor:pointer;outline:none}
+  /* K-0059: shared tip button (assets/tip.js): game.js shows this box just under the game-over card */
+  #cc-tip-box { position: fixed; left: 0; right: 0; z-index: 3; display: flex; justify-content: center; padding: 0 12px; color: rgba(245,243,237,.7); pointer-events: none; }
+  #cc-tip-box[hidden] { display: none; }
+  #cc-tip-box .cc-tipjar { margin: 0; pointer-events: none; }
+  #cc-tip-box .cc-tipjar a { pointer-events: auto; }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
+<script src="/assets/tip.js" defer></script>
 </head>
 <body>
 <canvas id="c" tabindex="0" aria-label="reel weird fishing game. hold tap or space to charge a cast, let go to cast, tap on the big bite, hold to reel and let go to ease the line."></canvas>

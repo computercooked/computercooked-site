@@ -293,6 +293,8 @@
     $('shareBtn').style.display = navigator.share && (!P || P.allowShare) ? 'inline-block' : 'none';
     upLock = performance.now() + 300;
     show('summary', true);
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount(document.querySelector('#summary .panel'), { game: 'handbag-havoc', slot: 'game-over' });
     setTimeout(() => { try { $('againBtn').focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 50);
   }
 

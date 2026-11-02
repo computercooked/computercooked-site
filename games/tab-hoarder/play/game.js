@@ -175,6 +175,7 @@
     debris = []; parts = []; toasts = [];
     score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
     state = toState;
+    hideTip(); // K-0059: shared tip button (assets/tip.js)
     spawn();
     updateFan();
   }
@@ -282,6 +283,26 @@
     cc('end', { score, durationMs: Math.round(performance.now() - runStart) });
     cc('event', 'run_over', { tabs: tabsN, bestCombo, powersUsed });
     updateFan();
+    showTip();
+  }
+  // K-0059: shared tip button (assets/tip.js)
+  // the game over card is drawn on the canvas, so the button gets its own small DOM box under the card,
+  // shown once the card has faded in and hidden again as soon as the next run (or the menu) starts.
+  let tipBox = null, tipTimer = 0, tipTop = -1;
+  function showTip() {
+    if (!window.ccTip) return;
+    if (!tipBox) { tipBox = document.createElement('div'); tipBox.id = 'tipjar'; tipBox.hidden = true; document.body.appendChild(tipBox); }
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => {
+      if (state !== 'over') return;
+      window.ccTip.mount(tipBox, { game: 'tab-hoarder', slot: 'game-over' }).then((p) => { if (p && state === 'over') tipBox.hidden = false; });
+    }, 900);
+  }
+  function hideTip() { clearTimeout(tipTimer); if (tipBox) tipBox.hidden = true; }
+  function placeTip(cardBottom) {
+    if (!tipBox || tipBox.hidden) return;
+    const top = Math.round(Math.max(8, Math.min(cardBottom + 10, H - tipBox.offsetHeight - 10)));
+    if (top !== tipTop) { tipTop = top; tipBox.style.top = top + 'px'; tipBox.style.bottom = 'auto'; }
   }
   function collapse() {
     // the whole tower gives up at once
@@ -703,6 +724,7 @@
     const cx = (W - cw) / 2;
     const cy = Math.max(12, Math.min(H * 0.1, (H - ch) * 0.35)) + (1 - e) * 30;
     ctx.globalAlpha = e;
+    placeTip(cy + ch); // K-0059: shared tip button (assets/tip.js)
     // card: looks like a browser window
     roundRect(cx, cy, cw, ch, 12 * u);
     ctx.fillStyle = COL.carbon; ctx.fill();

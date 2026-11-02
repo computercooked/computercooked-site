@@ -377,6 +377,8 @@ $('recastBtn').addEventListener('click', () => {
   $('recastGain').textContent = `+${g} overtones`;
   $('recastNext').textContent = `next run: ${th.name} bells, ${th.mode} scale.`;
   $('recastModal').classList.add('open');
+  // K-0059: shared tip button (assets/tip.js) (an idle game has no game over: a recast is the end of a run)
+  if (window.ccTip) window.ccTip.mount($('recastModal').querySelector('.card'), { game: 'bellchain', slot: 'game-over' });
 });
 $('recastNo').addEventListener('click', closeModals);
 $('recastGo').addEventListener('click', () => {

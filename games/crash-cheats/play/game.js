@@ -1029,12 +1029,34 @@
     return yy;
   }
 
+  // K-0059: shared tip button (assets/tip.js). the end screen is drawn on the canvas, so the button lives in a
+  // small DOM box laid over it under the end-screen buttons, visible only while that screen is up (draw() hides it otherwise).
+  let tipWant = null, tipBox = null;
+  function tipSync(at) {
+    if (!window.ccTip) return;
+    if (!tipBox) {
+      tipBox = document.createElement('div');
+      tipBox.style.cssText = 'position:absolute;left:0;top:0;width:0;display:flow-root;visibility:hidden;pointer-events:none;z-index:3;color:#F5F3ED';
+      document.body.appendChild(tipBox);
+      window.ccTip.mount(tipBox, { game: 'crash-cheats', slot: 'game-over' });
+    }
+    const st = tipBox.style;
+    if (!at || !tipBox.firstChild) { if (st.visibility !== 'hidden') { st.visibility = 'hidden'; st.pointerEvents = 'none'; } return; }
+    st.left = at.x + 'px'; st.width = at.w + 'px'; st.top = at.y + 'px';
+    if (at.y + tipBox.offsetHeight > H) { st.visibility = 'hidden'; st.pointerEvents = 'none'; return; } // no room: skip it, never cover the game
+    st.visibility = 'visible'; st.pointerEvents = 'auto';
+  }
+  // height the button needs at width w (0 while tips are off / not loaded), so the end card can make room for it
+  function tipHeight(w) { if (!tipBox || !tipBox.firstChild) return 0; tipBox.style.width = w + 'px'; return tipBox.offsetHeight; }
   function drawOver() {
     if (phase !== 'over') return;
     const k = Math.min(1, overT / 0.3), e = 1 - Math.pow(1 - k, 3);
     ctx.fillStyle = 'rgba(16,17,20,' + (0.7 * e) + ')'; ctx.fillRect(0, 0, W, H);
-    const cw = Math.min(W - 32, 380 * u), ch = Math.min(H - 110 * u, 390 * u);
-    const cx = (W - cw) / 2, cy = Math.max(12, (H - ch - 64 * u) / 2) + (1 - e) * 30;
+    const cw = Math.min(W - 32, 380 * u);
+    let th = tipHeight(cw); // K-0059: shared tip button (assets/tip.js): room for it under the buttons
+    if (H - 110 * u - th < 250 * u) th = 0;
+    const ch = Math.min(H - 110 * u - th, 390 * u);
+    const cx = (W - cw) / 2, cy = Math.max(12, (H - ch - 64 * u - th) / 2) + (1 - e) * 30;
     ctx.globalAlpha = e;
     drawCard(ctx, cx, cy, cw, ch, u * Math.min(1, ch / (390 * u)), false);
     // buttons
@@ -1047,6 +1069,7 @@
     if (overT > 0.5) {
       btn(cx, 'share', COL.lilac, COL.carbon, share);
       btn(cx + bw + gap, 'rematch', COL.lime, COL.carbon, () => { if (overT > 0.8) newMatch(); });
+      if (th) tipWant = { x: cx, y: by + bh, w: cw }; // K-0059: shared tip button (assets/tip.js)
     }
     ctx.globalAlpha = 1;
   }
@@ -1086,7 +1109,7 @@
     requestAnimationFrame(frame);
   }
   function render() {
-    buttons = [];
+    buttons = []; tipWant = null;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.textBaseline = 'alphabetic';
     drawBackground();
@@ -1103,6 +1126,7 @@
     drawBsod();
     drawToast();
     drawPause();
+    tipSync(paused ? null : tipWant); // K-0059: shared tip button (assets/tip.js)
   }
 
   if (/[?&]debug/.test(location.search) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__ccDebug = { get cells() { return cells; }, get blocked() { return blocked; }, get phase() { return phase; }, get round() { return round; }, get score() { return [youPts, crashPts, draws, cheats]; }, get result() { return result; }, get sus() { return sus; }, get tokens() { return tokens; }, get canUndo() { return !!undoSnap; }, get undoWins() { if (!undoSnap) return false; const c = cells, d = diagBan; cells = undoSnap.cells; diagBan = undoSnap.diagBan; const w = !!lineFor('X'); cells = c; diagBan = d; return w; }, get firewall() { return firewall; }, get caught() { return caughtN; }, useTool, move: playerMove, newMatch, set timeScale(v) { timeScale = v; }, step(sec) { for (let k = 0; k < sec * 60; k++) update(1 / 60); render(); } };

@@ -338,6 +338,8 @@
     try { $('card').src = drawCard(lastResult).toDataURL('image/png'); } catch (e) { /* ignore */ }
     winLock = performance.now() + 600;
     show('win', true);
+    // K-0059: shared tip button (assets/tip.js)
+    if (window.ccTip) window.ccTip.mount(document.querySelector('#win .panel'), { game: 'keyboard-escape', slot: 'game-over' });
   }
   function reboot() {
     save.mult += 1; save.loop += 1; persist();

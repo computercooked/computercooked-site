@@ -1060,10 +1060,12 @@
   // overlays
   const overEl = $("over"), overBox = $("overBox");
   function showOver(h2, p, btn, fn) {
-    overBox.innerHTML = `<h2>${h2}</h2><p>${p}</p><button class="go" type="button" id="ovGo">${btn}</button><br><button class="alt" type="button" id="ovShare">share</button><div class="credit">computer cooked games</div>`;
+    overBox.innerHTML = `<h2>${h2}</h2><p>${p}</p><button class="go" type="button" id="ovGo">${btn}</button><br><button class="alt" type="button" id="ovShare">share</button><div id="ovTip"></div><div class="credit">computer cooked games</div>`;
     overEl.hidden = false;
     $("ovGo").onclick = () => { overEl.hidden = true; fn(); };
     $("ovShare").onclick = () => share();
+    // K-0059: shared tip button (assets/tip.js), under the restart + share buttons; the box is rebuilt each time
+    if (window.ccTip) { try { Promise.resolve(window.ccTip.mount($("ovTip"), { game: "ant-farm", slot: "game-over" })).catch(() => {}); } catch (e) {} }
   }
 
   // tutorial
