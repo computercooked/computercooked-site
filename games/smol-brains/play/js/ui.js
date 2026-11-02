@@ -20,11 +20,14 @@
   UI.EVENT_GAP = 25; UI.POV_GRACE = 4; UI.CLICK_GRACE = 0.8;
   var lastEventClose = -1e9, lastPovOut = -1e9, lastPointer = -1e9, pointerDown = false;
   function now() { return (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000; }
+  var lastCast = -1e9; UI.CAST_GRACE = 3; // seconds a miracle (a lightning bolt, a meteor) has to play out before a card
   UI.eventReady = function () {
     var t = now();
     if (el.modal || pointerDown) return false;
     if (SB.Lantern && SB.Lantern.running) return false; // never behind a film
     if (SB.Possess && SB.Possess.active) return false;
+    if (SB.Director && SB.Director.danger && SB.Director.danger(game)) return false; // no dream or choice over a chase (K-0060)
+    if (UI.armed || t - lastCast < UI.CAST_GRACE) return false; // nor over a miracle you're aiming or one still playing out (K-0060)
     return t - lastEventClose >= UI.EVENT_GAP && t - lastPovOut >= UI.POV_GRACE && t - lastPointer >= UI.CLICK_GRACE;
   };
   if (typeof window !== "undefined" && window.addEventListener) {
@@ -921,6 +924,7 @@
   function disarm() { UI.armed = null; if (el.magicInfo) updateMagic(); }
   UI.castAt = function (x, z) { var m = UI.armed; if (!m) return; cast(m, x, z); };
   function cast(m, x, z) {
+    lastCast = now();
     if (m.id === "bless") { blessChooser(m); return; }
     if (m.id === "spawn") {
       var made = SB.Game.sandboxSpawn(game, m.what, x, z);
@@ -1977,7 +1981,8 @@
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
     ]) : h("div", null, [h("p", null, "it's a smol! a blob, for now. what's it called?"), h("div", { class: "namebox" }, [inp, h("button", { class: "btn go", onclick: ok }, "name it"), h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")])]);
-    if (SB.TEST || (SB.FirstNight && SB.FirstNight.active(game))) { ok(); toast("🧪 test mode: the founders keep their names (" + esc(c.name) + (twin ? " & " + esc(twin.name) : "") + ")"); return; }
+    // the first night names nobody (no window over the guided night), and only a ?cctest=1 run says it's a test (K-0060)
+    if (SB.TEST || (SB.FirstNight && SB.FirstNight.active(game))) { ok(); if (SB.TEST) toast("🧪 test mode: the founders keep their names (" + esc(c.name) + (twin ? " & " + esc(twin.name) : "") + ")"); return; }
     modal(twin ? "🐣 the founders" : "🐣 hello, world", body, { sticky: true, now: true });
     setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) { } }, 50);
   }

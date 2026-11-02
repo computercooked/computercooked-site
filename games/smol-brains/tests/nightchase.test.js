@@ -18,7 +18,7 @@ seeded(5700, () => {
   const w = game.world, hm = SB.Society.home(game, 0);
   function run(s, until) { for (let t = 0; t < s; t += SB.TICK) { SB.Game.step(game, SB.TICK); if (until && until()) return t; } return s; }
   function night(d) { game.time = (d + 0.9) * SB.DAY_LENGTH; w.time = game.time; run(0.2); }
-  const steps = []; SB.bus.on("nightChase", d => steps.push(d.step));
+  const steps = [], bigs = []; SB.bus.on("nightChase", d => { steps.push(d.step); if (d.big) bigs.push(d.big); });
   // a smol out alone, well away from the nest and any fire, and a grump near it
   function spot(r) {
     for (let a = 0; a < 64; a++) {
@@ -54,6 +54,9 @@ seeded(5700, () => {
   check("time runs slow", NC.slow(game) === NC.SLOW);
   check("the grump glares and waits", g.scout && g.scout.hold && g.scout.nc);
   check("the smol is frozen with fear", c.chem.fear >= 0.8 && !c.action);
+  // K-0060: no dream or choice card while it's up (the director waits, a card already asking stops its clock)
+  check("danger: no story card is dealt", SB.Director.danger(game));
+  if (game.dir) { const dc = game.dir.count; game.dir.nextT = 0; game.dir.realT = -1e9; SB.Director.tick(game, 1.1); check("the director held its card", game.dir.count === dc && !game.dir.active); }
   const gx = g.x; run(0.5);
   check("still waiting while you decide", Math.abs(g.x - gx) < 0.3 && c.alive);
 
@@ -78,6 +81,7 @@ seeded(5700, () => {
   run(4);
   c.x = hm.x + 1.5; c.z = hm.z; run(0.5, () => !NC.state(game).live);
   check("safe: the chase is won", !NC.state(game).live && NC.state(game).wins === 1, steps.join(","));
+  check("it ends on a beat you can read", /made it to the light/.test(bigs[bigs.length - 1] || ""), bigs.join(" / "));
   check("sparks", game.sparks >= sp0 + NC.PAY, sp0 + " → " + game.sparks);
   check("the smol is braver for it", c.braveNights === 1 && c.chem.fear === 0);
   check("the first win is a memory ember", !game.lantern || game.lantern.embers === embers0 + 1 || game.lantern.got.nightchase);
@@ -95,9 +99,11 @@ seeded(5700, () => {
   let hits = 0; SB.bus.on("scoutHit", () => hits++);
   run(40, () => !NC.state(game).live);
   check("caught after " + NC.BITES + " bites", NC.state(game).losses === 1 && hits === NC.BITES, hits + " bites, " + steps.slice(-2).join(","));
+  check("caught: it says so", /was caught/.test(bigs[bigs.length - 1] || ""), bigs.join(" / "));
   check("hurt, never killed", c.alive && c.chem.health >= 0.25 && c.chem.health < 1, c.chem.health.toFixed(2));
   run(NC.LEAVE + 0.5);
   check("thrown out of the body", !P.active);
+  check("no danger once it's over: cards can come again", !SB.Director.danger(game));
 
   console.log("7. leaving mid-chase ends it");
   night(2); g = setUp();

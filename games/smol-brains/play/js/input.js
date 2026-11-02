@@ -94,6 +94,7 @@
     var cur = game.hand.heldId ? "grabbing" : hit ? "grab" : ""; // the cursor says it too (K-0058: no highlight before grabbing)
     if (el && el.style.cursor !== cur) el.style.cursor = cur;
   }
+  IN.EDGE_DWELL = 0.4; // seconds a reaching hand rests at the screen edge before the view follows it
   IN.THROW_MIN = 3.5; // a release slower than this (ground units/s) just sets it down: only a real flick throws (K-0058: 4 of 6 drags threw)
   // when the input happened (the event's own time): on a slow frame, moves and the release are handled late and
   // bunched together, and handler times made every throw look like "held still, just drop it" (K-0056)
@@ -405,6 +406,9 @@
     // a hand reaching past the screen edge drags the view along (K-0057: mouse pan with the hand out)
     if (drag && drag.mode === "reach" && drag.at && el) {
       var EW = 36, ew = el.clientWidth, eh = el.clientHeight, ax = drag.at.x, ay = drag.at.y, es = 700 * dt;
+      var edge = ax < EW || ax > ew - EW || ay < EW || ay > eh - EW;
+      drag.edgeT = edge ? (drag.edgeT || 0) + dt : 0; // only a hand held at the edge (K-0060: a quick miss flung past it still panned)
+      if (drag.edgeT < IN.EDGE_DWELL) es = 0;
       if (ax < EW) px += es * (1 - ax / EW); else if (ax > ew - EW) px -= es * (1 - (ew - ax) / EW);
       if (ay < EW) py += es * (1 - ay / EW); else if (ay > eh - EW) py -= es * (1 - (eh - ay) / EW);
     }
