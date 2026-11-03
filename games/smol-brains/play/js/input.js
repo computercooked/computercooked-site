@@ -94,6 +94,7 @@
     var cur = game.hand.heldId ? "grabbing" : hit ? "grab" : ""; // the cursor says it too (K-0058: no highlight before grabbing)
     if (el && el.style.cursor !== cur) el.style.cursor = cur;
   }
+  IN.LATE_GRAB_MS = 450; IN.LATE_GRAB_PX = 90; // a touch drag this young and this short can still turn into a grab
   IN.EDGE_DWELL = 0.4; // seconds a reaching hand rests at the screen edge before the view follows it
   IN.THROW_MIN = 3.5; // a release slower than this (ground units/s) just sets it down: only a real flick throws (K-0058: 4 of 6 drags threw)
   // when the input happened (the event's own time): on a slow frame, moves and the release are handled late and
@@ -177,7 +178,15 @@
       if (drag.mode === "carry") { pickUp(drag.target); setHover(null); }
       if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;
     }
-    if (drag.mode === "pan") R.panBy(dx, dy);
+    if (drag.mode === "pan") {
+      // a finger that missed but runs onto a smol in the first moments of the drag takes it, and the view goes back to
+      // where it was (K-0062: "a missed grab still pans the camera sometimes"): a miss only pans once it's clearly a pan
+      if (drag.touch && game.hand.tool === "grab" && !game.hand.heldId && held < IN.LATE_GRAB_MS && moved < IN.LATE_GRAB_PX) {
+        var late2 = grabHit(p.x, p.y, true);
+        if (late2) { R.panBy(-(drag.px || 0), -(drag.py || 0)); drag.target = late2; drag.mode = "carry"; pickUp(late2); setHover(null); setHand(p.x, p.y, true); return; }
+      }
+      R.panBy(dx, dy); drag.px = (drag.px || 0) + dx; drag.py = (drag.py || 0) + dy;
+    }
     else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
     else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist, ts(e))); }
     else if (drag.mode === "shake") shakeMove(p, ptr, dx);

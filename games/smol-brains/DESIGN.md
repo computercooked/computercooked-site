@@ -635,6 +635,13 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.53 What v4.11.5 fixed: Chef's clip-run notes (K-0062 item 12)
+
+- **The opening film and "play now".** On a device that has never seen it, "play now" already plays the film, from the game page and the hub page alike (checked on live with fresh storage). It's skipped once a device has seen it, and in the `?night=` test jumps. Two changes:
+  - first-timers now get a skip button (`Lantern.skippable()` is always true; skipping marks it seen);
+  - the "play now" card says "a fresh island, after a short story (skip any time)" until the film has been seen, instead of "jump straight in".
+- **A missed grab on a phone.** One-finger drags that miss still pan, because phones need that. A pan younger than 450 ms and shorter than 90 px that runs onto a smol now takes it, and the view goes back to where it was. A mouse drag already never pans; it pans only after resting 0.4 s at the screen edge (4.11.4).
+
 ## 0.52 What v4.11.4 fixed: Chef's 4.11.3 chase playtest (K-0060)
 
 1. **No dream or choice over a chase.** `SB.Director.danger(game)` is true while a night chase is offered, run or just over, and while a grump is on your possessed smol. During that time the storyteller deals no card, a card already asking stops its auto-answer clock, and `UI.eventReady` holds every event window, so "Saro had a dream" waits until it's over.

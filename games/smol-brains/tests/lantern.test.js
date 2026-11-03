@@ -19,7 +19,7 @@ console.log("1. a fresh save gets the film, a repeat can skip it");
 {
   const L = load(false), g = {};
   check("first time: it plays, even from play now", L.shouldPlay(g, true, false) && L.shouldPlay(g, false, true));
-  check("first time: no skip", !L.skippable());
+  check("first time: it plays, but with a skip button (K-0062)", L.skippable());
   L.markSeen();
   check("after that: skippable", L.skippable());
   check("after that: play now goes straight in", !L.shouldPlay(g, true, false));

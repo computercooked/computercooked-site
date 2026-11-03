@@ -128,7 +128,7 @@
     if (!L.seen() || SB.TEST) return true; // playtests always get it (K-0051: "the opening film never played"); skippable there
     return !quick && !auto;
   };
-  L.skippable = function () { return L.seen() || !!SB.TEST; };
+  L.skippable = function () { return true; }; // K-0062: the first time on a device still plays it, but a skip button is fine (it was forced through)
 
   function rng(seed) { var s = seed >>> 0; return function () { s = (s + 0x6d2b79f5) >>> 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function ease(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
