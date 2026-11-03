@@ -55,10 +55,13 @@ const DRIVE = {
   // the colony plays itself: ?shot=1 grows it, hides the chrome and leaves the ants working (K-0058)
   "ant-farm": () => {},
   // the aurora, a pike on the line and the ice cracking outward in cyan (K-0061)
-  "thin-ice": () => { if (window.__ti) window.__ti.clip(); },
+  // K-0062: the pike fight, reeled in pulses so the line, the fish and the cracking ice visibly move
+  "thin-ice": () => { if (!window.__ti) return; window.__ti.clip(); let on = false; setInterval(() => { on = !on; window.__ti.hold(on); }, 380); },
 };
 // extra query for a game's clip run
 const QUERY = { "ant-farm": "&shot=1" };
+// a closer frame for games whose action is small in the wide shot (ffmpeg crop on the 640x360 grab: w:h:x:y)
+const CROP = { "thin-ice": "400:225:130:95" };
 
 const gj = join(ROOT, "games/games.json");
 const data = JSON.parse(readFileSync(gj, "utf8"));
@@ -96,7 +99,7 @@ for (const g of list) {
     }
     const out = join(ROOT, "assets/clips", g.slug + ".mp4");
     execFileSync("ffmpeg", ["-v", "error", "-y", "-framerate", String(FPS), "-i", join(tmp, "%03d.png"),
-      "-vf", "scale=320:180:flags=lanczos,format=yuv420p", "-c:v", "libx264", "-preset", "veryslow", "-crf", "30",
+      "-vf", (CROP[g.slug] ? "crop=" + CROP[g.slug] + "," : "") + "scale=320:180:flags=lanczos,format=yuv420p", "-c:v", "libx264", "-preset", "veryslow", "-crf", "30",
       "-movflags", "+faststart", "-an", out]);
     const kb = Math.round(statSync(out).size / 1024);
     made.push(g.slug);
