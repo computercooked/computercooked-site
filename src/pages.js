@@ -91,10 +91,13 @@ export async function homePage(req, env, url) {
     // newest first, then the catalog's order; the desktop gets eight, the shelf gets everything
     const order = mine.slice().sort((a, b) => (isNew(b) ? 1 : 0) - (isNew(a) ? 1 : 0));
     const desk = (feat ? [feat] : []).concat(order.filter((g) => !feat || g.slug !== feat.slug)).slice(0, 8);
-    rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
-      .on("#home-shelf", { element(e) { e.setInnerContent(order.map((g) => card2(g)).join(""), { html: true }); } });
     // K-0050 item 5: the "just cooked" shelf, the newest launches (two weeks at most), newest first
     const fresh = newest(mine);
+    // K-0062: a game on "just cooked" isn't repeated on the shelf right under it (it read as a duplicate link)
+    const onNew = new Set(fresh.map((g) => g.slug));
+    const rest = order.filter((g) => !onNew.has(g.slug));
+    rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
+      .on("#home-shelf", { element(e) { e.setInnerContent((rest.length ? rest : order).map((g) => card2(g)).join(""), { html: true }); } });
     if (fresh.length) {
       rw.on("#home-new-sec", { element(e) { e.removeAttribute("hidden"); } })
         .on("#home-new", { element(e) { e.setInnerContent(fresh.map((g) => card2(g, "new")).join(""), { html: true }); } });
