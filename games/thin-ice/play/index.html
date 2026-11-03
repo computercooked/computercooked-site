@@ -17,7 +17,9 @@
   .chip b { color: #9ae6ff; }
   .chip.warm b { color: #ffb35a; }
   #iceC { display: flex; align-items: center; gap: 6px; }
-  #iceBar { width: 54px; height: 7px; background: #ffffff1a; border-radius: 4px; overflow: hidden; }
+  #iceBar { position: relative; width: 74px; height: 9px; background: #ffffff1a; border-radius: 4px; overflow: hidden; }
+  /* the scar: ice a haul could not heal, hatched at the far end until you drill a new hole */
+  #iceScar { position: absolute; right: 0; top: 0; bottom: 0; width: 0; background: repeating-linear-gradient(135deg, #ff7a5acc 0 2px, #3a1410 2px 4px); transition: width .3s; }
   #iceBar i { display: block; height: 100%; width: 100%; background: #9ae6ff; transition: width .3s, background .3s; }
   #iceC.warn #iceBar i { background: #ffb35a; }
   #iceC.bad #iceBar i { background: #ff5a5a; }
@@ -47,7 +49,7 @@
   #catch .new { display: inline-block; background: #9ae6ff; color: #071026; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-bottom: 4px; }
   @keyframes pop { from { opacity: 0; transform: translate(-50%, 10px) scale(.92); } }
   /* full-screen panels: title, shop, log, end of night */
-  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: radial-gradient(#0b1434f7, #050816); padding: 18px; text-align: center; overflow: auto; touch-action: pan-y; }
+  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: radial-gradient(#0b1434, #050816); padding: 18px; text-align: center; overflow: auto; touch-action: pan-y; }
   .over[hidden] { display: none; }
   #log { z-index: 7; }
   .box { width: min(100%, 440px); margin: auto; }
@@ -81,6 +83,15 @@
   .grid span { font-weight: 500; opacity: .8; }
   .lyr { margin: 12px 0 6px; text-align: left; color: #9ae6ff; font-size: 12px; }
   #tipSlot .cc-tipjar { margin-top: 14px; }
+  /* the coach: one-time cards for the first cast, the first bite and the first creak */
+  #coach { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 18px; background: #050816b3; }
+  #coach[hidden] { display: none; }
+  #coachBox { width: min(100%, 380px); background: #0b1430; border: 2px solid #ffb35a; border-radius: 14px; padding: 14px 16px 16px; text-align: center; box-shadow: 0 10px 40px #000a; animation: pop2 .3s cubic-bezier(.2,1.6,.4,1); }
+  #coachBox .ct { font-size: 20px; color: #ffb35a; margin-bottom: 6px; }
+  #coachBox p { margin: 0; font-weight: 500; line-height: 1.55; text-align: left; }
+  #coachBox b { color: #9ae6ff; }
+  #coachBox b.r { color: #ff6a4a; }
+  @keyframes pop2 { from { opacity: 0; transform: scale(.9); } }
 </style>
 <script src="/games/cc-sdk.js"></script>
 <script src="/assets/tip.js" defer></script>
@@ -91,8 +102,8 @@
   <span class="chip">night <b id="hNight">1</b> · <b id="hClock">8:00 pm</b></span>
   <span class="chip warm">$<b id="hCash">0</b></span>
   <span class="chip">🪣 <b id="hBucket">0</b> lb</span>
-  <span class="chip" id="iceC">ice <span id="iceBar"><i></i></span></span>
   <span class="grow"></span>
+  <span class="chip" id="iceC" title="ice: every lb in the bucket loads it">ice <span id="iceBar"><i></i><s id="iceScar"></s></span></span>
   <button id="logBtn" type="button" aria-label="fish log">📖</button>
   <button id="mute" type="button" aria-label="mute">sound on</button>
 </div>
@@ -104,6 +115,7 @@
   <button id="bHaul" type="button" hidden>🛷 haul to shore<small id="haulS">0 lb</small></button>
 </div>
 <div id="catch" hidden></div>
+<div id="coach" hidden><div id="coachBox"></div></div>
 <div class="over" id="title">
   <div class="box">
     <h1>thin ice</h1>
