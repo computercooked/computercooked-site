@@ -172,7 +172,13 @@
   function spawnMover() {
     const tp = top(), kind = nextKind(), h = KIND[kind].h * LH;
     const fromLeft = layers % 2 === 0, speed = Math.min(W * 1.25, W * (0.42 + layers * 0.025)) * (0.9 + Math.random() * 0.2);
-    mover = { kind, w: tp.w, h, x: fromLeft ? -tp.w * 0.6 : W - tp.w * 0.4, y: tp.y - h - LH * 1.8, vx: fromLeft ? speed : -speed, drop: false, vy: 0 };
+    // Chef: "the first tap bounces back to the title screen". On a wide screen the ingredient used to start off the
+    // left edge, a long way from the stack, so a quick first drop missed the sandwich completely and the run ended
+    // at once. It now enters already over the stack (30% overlap) and slides on toward it, so no drop can whiff
+    // just because it came early.
+    const near = tp.w * 0.7;
+    const x = fromLeft ? Math.max(-tp.w * 0.6, tp.x - near) : Math.min(W - tp.w * 0.4, tp.x + near);
+    mover = { kind, w: tp.w, h, x, y: tp.y - h - LH * 1.8, vx: fromLeft ? speed : -speed, drop: false, vy: 0 };
     if (CURSED.includes(kind)) { say(kind, true); react("shock", 0.8); sfx.cursed(); }
   }
   function start() {
@@ -230,7 +236,8 @@
   // ---------- input ----------
   function press() {
     if (state === "title" || (state === "over" && performance.now() - endAt > 700)) { start(); return; }
-    if (state === "play" && mover && !mover.drop) { mover.drop = true; mover.vy = LH * 30; }
+    // the tap that started the run (or a double-fired one right behind it) never also drops the first layer
+    if (state === "play" && mover && !mover.drop && performance.now() - startAt > 220) { mover.drop = true; mover.vy = LH * 30; }
   }
   cv.addEventListener("pointerdown", (e) => { e.preventDefault(); try { window.focus(); } catch (err) {} press(); });
   function onKey(e) {

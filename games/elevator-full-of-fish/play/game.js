@@ -116,6 +116,13 @@
     goal: () => { [880, 1100, 1320, 1760].forEach((f, i) => tone(f, 0.12, "square", 0.05, 0, i * 0.09)); },
     end: () => tone(240, 0.7, "sawtooth", 0.06, 50),
   };
+  // optional recorded sounds for the crash (house rule: no new code-made audio). An empty URL plays nothing.
+  const FILES = { snap: "" };
+  const fileCache = {};
+  function play(name) {
+    const url = FILES[name]; if (!url || muted) return;
+    try { const a = fileCache[name] || (fileCache[name] = new Audio(url)); a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
 
   // ---------- layout: a front view of the car ----------
   let W = 0, H = 0, DPR = 1, U = 1, L = {};
@@ -142,6 +149,9 @@
   // ---------- state ----------
   let state = "title", t = 0, floor = 1, score = 0, best = 0, prevBest = 0, flung = 0, fish = [], fx = [];
   let phase = "open", phaseT = 0, door = 0, overloads = 0, reachedGoal = false, line = pick(LINES.hello), lineT = 0, face = "sad", faceT = 0, shake = 0, startAt = 0, endAt = 0, travel = 0;
+  // the crash at the buzzer: shudder, the cables snap, the car drops, the fish fly, a stamp, then the card
+  const FAIL = reduce ? 1.2 : 1.7, SNAP = 0.4;
+  let failT = 0, failAt = 0, failWhy = "time", fallen = false, snapped = false, flashT = 0;
   try { best = +localStorage.getItem("eff-best") || 0; } catch (e) {}
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
   function say(kind, force) { if (force || lineT <= 0.4) { line = pick(LINES[kind]); lineT = 2.2; } }
@@ -171,30 +181,81 @@
 
   function start() {
     state = "play"; t = 0; floor = 1; score = 0; flung = 0; fish = []; fx = []; overloads = 0; reachedGoal = false; travel = 0;
-    phase = "open"; phaseT = 0; door = 0;
+    phase = "open"; phaseT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
     startAt = performance.now(); say("hello", true); react("happy", 0.6); sfx.ding();
     sdk((c) => c.start && c.start());
     spawnFish();
   }
+  // the ride is over: the score is final and reported now; the crash plays, then the card (showCard)
   function end() {
-    state = "over"; endAt = performance.now(); prevBest = best;
+    state = "fail"; failT = 0; failAt = performance.now(); fallen = true; snapped = false; prevBest = best;
+    failWhy = weight() > CAP ? "over" : reachedGoal ? "goal" : "time";
     if (score > best) { best = score; try { localStorage.setItem("eff-best", String(best)); } catch (e) {} }
-    say("end", true); react("cooked", 99); sfx.end();
-    const dur = Math.round(performance.now() - startAt);
+    say("end", true); react(failWhy === "over" ? "shock" : "cooked", 99); sfx.end();
+    fish = fish.filter((f) => f.delay <= 0 && !f.out);
+    shake = reduce ? 0 : 0.5;
+    const dur = Math.round(failAt - startAt);
     sdk((c) => c.score && c.score(score));
     sdk((c) => c.end && c.end({ score, durationMs: dur, completed: reachedGoal }));
   }
+  function showCard() {
+    state = "over"; endAt = performance.now(); react("cooked", 99);
+    fish = []; fx = fx.filter((f) => f.type !== "spark");
+  }
+  const cableXs = () => [W * 0.25, W * 0.75];
+  function snap() {
+    snapped = true; play("snap");
+    if (reduce) return;
+    shake = 0.9; flashT = 0.35;
+    for (const f of fish) { f.fly = true; f.vx = (Math.random() - 0.5) * W * 1.6; f.vy = -H * (0.9 + Math.random() * 0.8); f.spin = (Math.random() - 0.5) * 18; f.rot = 0; }
+    for (const x of cableXs()) for (let i = 0; i < 14; i++) {
+      const life = 0.35 + Math.random() * 0.45;
+      fx.push({ type: "spark", x, y: L.top * 0.45, vx: (Math.random() - 0.5) * W * 0.9, vy: -Math.random() * H * 0.7, life, max: life });
+    }
+  }
+  function updateFail(dt) {
+    failT += dt;
+    if (!snapped && failT >= SNAP) snap();
+    if (snapped && !reduce) {
+      for (const f of fish) if (f.fly) { f.vy += H * 1.6 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; }
+    } else updateFish(dt);
+    if (failT >= FAIL) showCard();
+  }
+  // how far the car has fallen down the shaft
+  function carDrop() {
+    if (!fallen || reduce) return 0;
+    if (state === "over") return H * 1.2;
+    const p = Math.max(0, Math.min(1, (failT - SNAP) / 0.85));
+    return H * 1.2 * p * p;
+  }
 
   // ---------- input ----------
+  // Hit test, built for a crowded car: each fish is an ellipse a bit bigger than its sprite (never smaller than a
+  // fingertip), tested against where it is now AND where it was over the last ~150 ms (flopping fish move fast; the
+  // finger lands where the eye saw it). Puffed puffers (unflingable) only take the tap if nothing else is there, and
+  // among close calls the fish drawn on top (lowest on screen) wins.
+  const TOUCH = 26;
+  function hitR(f) {
+    const k = KINDS[f.kind], s = L.fish * f.size * (f.puffT > 0 ? 1.4 : 1) * (0.8 + 0.3 * f.rest);
+    const hw = s * (k.spr.width / 16) / 2, hh = hw * k.spr.height / k.spr.width;
+    return [Math.max(hw * 1.15, TOUCH), Math.max(hh * 1.9, TOUCH)];
+  }
   function fishAt(px, py) {
-    let best = null, bd = Infinity;
+    const c = [];
     for (const f of fish) {
       if (f.out || f.delay > 0) continue;
-      const s = L.fish * f.size * (f.puffT > 0 ? 1.4 : 1);
-      const d = Math.hypot(px - f.x, (py - f.y) * 1.3);
-      if (d < s * 0.75 && d < bd) { bd = d; best = f; }
+      const [rx, ry] = hitR(f);
+      let d = Math.hypot((px - f.x) / rx, (py - f.y) / ry);
+      if (f.tr) for (const p of f.tr) d = Math.min(d, Math.hypot((px - p[0]) / rx, (py - p[1]) / ry));
+      if (d <= 1.35) c.push({ f, d, ok: !(f.puffT > 0) });
     }
-    return best;
+    if (!c.length) return null;
+    let pool = c.filter((e) => e.d <= 1); if (!pool.length) pool = c; // near-miss assist
+    if (pool.some((e) => e.ok)) pool = pool.filter((e) => e.ok);
+    const bd = Math.min(...pool.map((e) => e.d));
+    let best = null;
+    for (const e of pool) if (e.d <= bd + 0.2 && (!best || e.f.y > best.f.y)) best = e;
+    return best.f;
   }
   function tapFish(f) {
     const k = KINDS[f.kind];
@@ -209,18 +270,25 @@
       return;
     }
     f.hits++;
-    if (f.hits < k.taps) { f.vy = -H * 0.35; sfx.slap(); fx.push({ type: "text", x: f.x, y: f.y - 30, s: (k.taps - f.hits) + " more", col: PAPER, life: 0.5, max: 0.5 }); return; }
+    if (f.hits < k.taps) { f.vy = -H * 0.14; f.vx *= 0.3; /* a small hop: the shark stays under the finger */ sfx.slap(); fx.push({ type: "text", x: f.x, y: f.y - 30, s: (k.taps - f.hits) + " more", col: PAPER, life: 0.5, max: 0.5 }); return; }
     f.out = true; f.outT = 0; f.ox = f.x; f.oy = f.y;
     flung++; score += k.pts; sfx.fling();
     fx.push({ type: "text", x: f.x, y: f.y - 30, s: "+" + k.pts, col: f.kind === "golden" ? "#f6d84a" : LIME2, life: 0.6, max: 0.6 });
     sdkScore(score);
   }
   function press(px, py) {
+    if (state === "fail") return; // the crash is playing; the card comes next
     if (state !== "play") { if (state === "over" && performance.now() - endAt < 700) return; start(); return; }
     const f = fishAt(px, py);
     if (f) tapFish(f);
   }
-  cv.addEventListener("pointerdown", (e) => { e.preventDefault(); try { window.focus(); } catch (err) {} press(e.clientX, e.clientY); });
+  // client coordinates -> game (CSS px) coordinates, from the canvas's real on-screen box
+  cv.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); try { window.focus(); } catch (err) {}
+    const r = cv.getBoundingClientRect();
+    const px = r.width ? (e.clientX - r.left) * W / r.width : e.clientX, py = r.height ? (e.clientY - r.top) * H / r.height : e.clientY;
+    press(px, py);
+  });
   function onKey(e) {
     if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     if (e.key === "m" || e.key === "M") { toggleMute(); return; }
@@ -245,7 +313,7 @@
 
   // ---------- update ----------
   function updateFish(dt) {
-    const g = H * 2.2, left = W * 0.06, right = W * 0.94;
+    const g = H * 2.2, left = W * 0.06, right = W * 0.94, now = performance.now() / 1000;
     for (const f of fish) {
       if (f.delay > 0) { f.delay -= dt; continue; }
       if (f.out) { f.outT += dt; continue; }
@@ -255,6 +323,8 @@
       if (f.y > floorY) { f.y = floorY; f.vy = -Math.abs(f.vy) * 0.35; f.vx *= 0.8; if (Math.abs(f.vy) < 40) f.vy = 0; }
       if (f.x < left) { f.x = left; f.vx = Math.abs(f.vx) * 0.6; }
       if (f.x > right) { f.x = right; f.vx = -Math.abs(f.vx) * 0.6; }
+      // recent positions, for the hit test
+      const tr = f.tr || (f.tr = []); tr.push([f.x, f.y, now]); while (tr.length && now - tr[0][2] > 0.15) tr.shift();
       f.flopIn -= dt;
       if (f.flopIn <= 0 && f.y >= floorY - 1) {
         f.flopIn = 0.5 + Math.random() * 1.2;
@@ -265,9 +335,10 @@
     fish = fish.filter((f) => !(f.out && f.outT > 0.5));
   }
   function update(dt) {
-    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt);
-    for (const f of fx) f.life -= dt;
+    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flashT = Math.max(0, flashT - dt);
+    for (const f of fx) { f.life -= dt; if (f.type === "spark") { f.vy += H * 2 * dt; f.x += f.vx * dt; f.y += f.vy * dt; } }
     fx = fx.filter((f) => f.life > 0);
+    if (state === "fail") { updateFail(dt); return; }
     if (state !== "play") { updateFish(dt); door = Math.max(0, door - dt * 3); return; }
     t += dt;
     if (t >= RIDE) { end(); return; }
@@ -432,7 +503,7 @@
       if (f.out) { const p = Math.min(1, f.outT / 0.45); x = lerp(f.ox, W / 2, p); y = lerp(f.oy, L.doorT + (L.backB - L.doorT) * 0.6, p) - Math.sin(p * Math.PI) * 80; s *= 1 - p * 0.75; alpha = 1 - p * 0.6; }
       const sw = s * (k.spr.width / 16), sh = sw * k.spr.height / k.spr.width;
       cx.globalAlpha = alpha;
-      cx.save(); cx.translate(Math.round(x), Math.round(y)); if (f.flip) cx.scale(-1, 1);
+      cx.save(); cx.translate(Math.round(x), Math.round(y)); if (f.rot) cx.rotate(f.rot); if (f.flip) cx.scale(-1, 1);
       if (f.puffT > 0) { cx.fillStyle = "rgba(255,179,64,0.25)"; cx.beginPath(); cx.arc(0, 0, sw * 0.55, 0, Math.PI * 2); cx.fill(); }
       cx.drawImage(k.spr, Math.round(-sw / 2), Math.round(-sh / 2), Math.round(sw), Math.round(sh));
       cx.restore();
@@ -441,7 +512,10 @@
     cx.globalAlpha = 1;
   }
   function drawFx() {
-    for (const f of fx) { const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k; text(f.s, Math.max(40, Math.min(W - 40, f.x)), f.y - k * 24, f.big ? 26 : 15, f.col, "center", 900); }
+    for (const f of fx) {
+      const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k;
+      if (f.type === "spark") { cx.fillStyle = k < 0.4 ? LIME2 : "#ffb340"; cx.fillRect(f.x - 2, f.y - 2, 4, 4); continue; }
+      text(f.s, Math.max(40, Math.min(W - 40, f.x)), f.y - k * 24, f.big ? 26 : 15, f.col, "center", 900); }
     cx.globalAlpha = 1;
   }
   // K-0059: shared tip button (assets/tip.js)
@@ -475,7 +549,7 @@
       text("over " + CAP + " kg of fish and the car won't move.", W / 2, mid + s * 0.9 + 34, Math.max(11, Math.min(14, W / 32)), "#ffb340", "center", 700);
       text("tap to press the button", W / 2, Math.min(H - 40, mid + s * 0.9 + 84), 18, LIME, "center", 900);
     } else {
-      text(reachedGoal ? "you made it" : "out of time", W / 2, mid - big * 1.6, big, reachedGoal ? LIME : BAD, "center", 900);
+      text(reachedGoal ? "you made it" : failWhy === "over" ? "overloaded" : "out of time", W / 2, mid - big * 1.6, big, reachedGoal ? LIME : BAD, "center", 900);
       text("floor " + floor, W / 2, mid - big * 0.7, Math.round(big * 0.7), PAPER, "center", 800);
       text(String(score), W / 2, mid + big * 0.35, Math.round(big * 1.3), CASE, "center", 900);
       text("best " + best + "  ·  " + flung + " fish flung  ·  " + overloads + " overloads", W / 2, mid + big * 1.25, 14, "#c9c4a8", "center", 700);
@@ -485,17 +559,67 @@
       if (performance.now() - endAt > 700) { text("tap to ride again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
     }
   }
+  // the empty shaft the car falls down
+  function drawShaft() {
+    cx.fillStyle = "#0a0b0c"; cx.fillRect(-12, -12, W + 24, H + 24);
+    cx.fillStyle = STEEL2; cx.fillRect(W * 0.06 - 4, -12, 8, H + 24); cx.fillRect(W * 0.94 - 4, -12, 8, H + 24);
+    cx.fillStyle = "#1a1c20"; for (let i = 0; i < 3; i++) cx.fillRect(0, H * (0.2 + i * 0.33), W, 10);
+  }
+  // the hoist cables above the car: whole, straining, or snapped (the top halves whip up, the bottom halves ride down)
+  function drawCables(time, part) {
+    const cut = L.top * 0.45;
+    cx.fillStyle = "#59606a";
+    for (const x of cableXs()) {
+      if (!snapped) {
+        if (part !== "car") continue;
+        const wob = state === "fail" && !reduce ? Math.sin(time * 90 + x) * 2.5 : 0;
+        cx.fillRect(x - 1.5 + wob, -20, 3, L.top + 20);
+      } else if (part === "car") {
+        const whip = reduce ? 0 : Math.sin(time * 40 + x) * 6 * Math.max(0, 1 - (failT - SNAP));
+        cx.fillRect(x - 1.5 + whip, cut, 3, L.top - cut);
+      } else {
+        const p = reduce ? 0 : Math.min(1, (failT - SNAP) / 0.4), up = (1 - (1 - p) * (1 - p)) * cut * 1.2;
+        cx.fillRect(x - 1.5, -20, 3, Math.max(0, cut - up + 20));
+      }
+    }
+  }
+  function drawStamp() {
+    const k = failT - (reduce ? 0.15 : SNAP + 0.12);
+    if (k < 0) return;
+    const p = reduce ? 1 : Math.min(1, k / 0.2), sc = 1 + (1 - p) * 1.8;
+    const word = failWhy === "over" ? "OVERLOADED" : failWhy === "goal" ? "RIDE OVER" : "OUT OF TIME", col = failWhy === "goal" ? LIME : BAD;
+    const size = Math.max(22, Math.min(64, (W * 0.78) / (word.length * 0.6))), tw = (word.length * 6 - 1) * size / 10;
+    const bw = tw + size * 0.9, bh = size * 1.6;
+    cx.save(); cx.translate(W / 2, H * 0.44); cx.rotate(-0.12); cx.scale(sc, sc); cx.globalAlpha = p;
+    cx.fillStyle = INK; cx.fillRect(-bw / 2 - 6, -bh / 2 - 6, bw + 12, bh + 12);
+    cx.fillStyle = col; cx.fillRect(-bw / 2, -bh / 2, bw, bh);
+    cx.fillStyle = INK; cx.fillRect(-bw / 2 + 5, -bh / 2 + 5, bw - 10, bh - 10);
+    text(word, 0, 0, size, col, "center", 900);
+    cx.restore(); cx.globalAlpha = 1;
+  }
   function draw(time) {
     cx.save();
     if (shake > 0) cx.translate((Math.random() - 0.5) * 12 * shake, (Math.random() - 0.5) * 12 * shake);
     if (shake > 0 || (phase === "travel" && state === "play")) { cx.fillStyle = "#121315"; cx.fillRect(-12, -12, W + 24, H + 24); }
+    const drop = carDrop(), flying = snapped && !reduce;
+    if (drop > 0) drawShaft();
+    cx.save(); cx.translate(0, drop);
     drawCar(time);
-    drawFish();
+    drawCables(time, "car");
+    if (!flying) drawFish();
     drawPanel(time);
+    cx.restore();
+    if (snapped) drawCables(time, "sky");
+    if (flying) drawFish();
     drawFx();
     cx.restore();
+    if (state === "fail") {
+      if (failT < SNAP && !reduce) { cx.fillStyle = "rgba(255,77,94," + (0.1 + 0.1 * Math.sin(time * 40)).toFixed(3) + ")"; cx.fillRect(0, 0, W, H); }
+      if (flashT > 0) { cx.fillStyle = "rgba(255,255,240," + (0.85 * flashT / 0.35).toFixed(3) + ")"; cx.fillRect(0, 0, W, H); }
+      drawStamp();
+    }
     tipY = -1;
-    if (state !== "play") overlay();
+    if (state !== "play" && state !== "fail") overlay();
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
   }
 

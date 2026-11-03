@@ -15,7 +15,11 @@
   const qs = new URLSearchParams(location.search);
   // test mode: ?cctest=1 on this frame or on /games/thin-ice/ around it (jumps to night 3 and the deep layer, saves apart)
   let parentQ = ""; try { if (window.parent !== window) parentQ = window.parent.location.search; } catch (e) { /* not same-origin */ }
-  const TEST = qs.get("cctest") === "1" || /[?&]cctest=1(&|$)/.test(parentQ);
+  const flag = (k) => qs.get(k) === "1" || new RegExp(`[?&]${k}=1(&|$)`).test(parentQ);
+  const TEST = flag("cctest");
+  // test shortcuts (K-0062): &dunk=1 starts night 1 with a heavy bucket on ice that's about to go; &warden=1 starts
+  // night 3 under the deep after midnight with the warden on the next bite
+  const T_DUNK = TEST && flag("dunk"), T_WARDEN = TEST && flag("warden");
   const R = Math.random, clamp = (v, a, b) => (v < a ? a : v > b ? b : v), lerp = (a, b, t) => a + (b - a) * t;
   const pick = (a) => a[(R() * a.length) | 0];
   const rr = (a, b) => a + R() * (b - a);
@@ -121,7 +125,7 @@
   // ---------- save ----------
   const KEY = TEST ? "thinice-test" : "thinice-1";
   let S = null;
-  function freshS() { return { v: 1, night: 1, cash: 0, up: {}, log: {}, ach: {}, arc: {}, best: 0, seen: Date.now() }; }
+  function freshS() { return { v: 1, night: 1, cash: 0, up: {}, log: {}, ach: {}, arc: {}, tut: {}, best: 0, seen: Date.now() }; }
   function save() { if (!S) return; S.seen = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* fine */ } if (!TEST) sdk((c) => c.save && c.save("main", S)); }
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.v === 1) return s; } catch (e) { /* fine */ }
@@ -129,6 +133,7 @@
   }
   S = (!TEST && load()) || freshS();
   if (qs.get("fresh") === "1") S = freshS();
+  if (!S.tut) S.tut = Object.keys(S.log).length ? { cast: 1, fight: 1, ice: 1 } : {}; // 1.0 saves: old hands skip the coach
   const lv = (id) => S.up[id] || 0;
   function ach(id) { if (S.ach[id]) return; S.ach[id] = 1; sdk((c) => c.achieve && c.achieve(id)); }
 
@@ -234,8 +239,11 @@
 
   // ---------- the night ----------
   let state = "title", N = null, hold = false;
-  const nightLen = () => 330 + 40 * lv("heater");
+  const nightLen = () => (S.night <= 1 ? 390 : 330) + 40 * lv("heater"); // night 1 runs long: room to get greedy, then haul
   const thickFor = (n) => (n <= 1 ? 30 : n === 2 ? 27 : 24);
+  // how many lb the ice holds comfortably: night 1 about 15 lb. Later nights the ice is thinner but the fish are far
+  // heavier, so the comfort load grows (K-0062: a greedy night 1 of 3-4 min should end in a dunk)
+  const iceCap = () => N.thick * (0.5 + 0.25 * Math.min(3, N.n - 1));
   function newCracks(seed) {
     // a branching crack pattern on the ice plane around the hut, revealed in order as the ice weakens
     let a = (seed * 9301 + 49297) % 233280; const rnd = () => ((a = (a * 9301 + 49297) % 233280) / 233280);
@@ -261,16 +269,17 @@
       n, t: TEST ? nightLen() * 0.42 : 0, len: nightLen(), bucket: [], lure: { m: 0, mode: "up" }, biteT: 0, fight: null,
       c: 0, thick: thickFor(n), cracks: newCracks((R() * 1e5) | 0), hot: -1, haul: null, drill: null, dunk: null,
       best: 0, caught: 0, hauledLb: 0, earned: 0, news: 0, lost: 0, warned: 0, endWarn: false, otT: [], fx: [], amb: [], warden: false,
-      lastFind: null, breath: 1.5, lineEndSaid: false, ottersEarned: 0
+      lastFind: null, breath: 1.5, lineEndSaid: false, ottersEarned: 0, scar: 0, forceWarden: false
     };
     for (let k = 0; k < lv("otter"); k++) N.otT.push(rr(8, 20));
     state = "night";
     camY = surfCam();
     if (!SHOT) { sdk((c) => c.start && c.start()); sdk((c) => c.event && c.event("night_start", { night: n })); }
-    if (TEST) { N.lure.m = Math.min(38, LINE_M[lv("line")]); N.lure.mode = "wait"; N.biteT = 2; }
+    if (TEST && !T_DUNK) { N.lure.m = Math.min(38, LINE_M[lv("line")]); N.lure.mode = "wait"; N.biteT = 2; }
     loopsOn();
     toast(n === 1 ? "night 1. hold anywhere to drop your line." : `night ${n}. the ice is ${N.thick >= 27 ? "thick" : "thinner"} tonight.`);
     if (!SHOT) save();
+    if (!SHOT && !TEST && !S.tut.cast) coach("cast");
   }
 
   // ---------- fishing ----------
@@ -280,11 +289,14 @@
   function rollCatch(m) {
     const L = layerOf(m), frac = N.t / N.len;
     // the story: the lantern on night 2+, the warden under the deep on night 3+ after midnight
+    if (N.forceWarden && L === 4) { N.forceWarden = false; return { fish: WARDEN, w: Math.round(rr(150, 220) * 10) / 10 }; }
     if (N.n >= 2 && !S.arc.lantern && L >= 2 && N.t > 15) return { weird: WEIRD[2] };
     if (N.n >= 3 && !N.warden && L === 4 && frac > 0.4 && R() < 0.4) return { fish: WARDEN, w: Math.round(rr(150, 220) * 10) / 10 };
     const odd = WEIRD.filter((w) => w.L === L && w.id !== "lantern");
-    if (odd.length && R() < (odd.some((w) => !S.log[w.id]) ? 0.07 : 0.02)) return { weird: pick(odd) };
-    const pool = FISH.filter((f) => f.L === L);
+    // never junk for the very first catch: the first bite is a real fish with a real fight
+    if (Object.keys(S.log).length && odd.length && R() < (odd.some((w) => !S.log[w.id]) ? 0.07 : 0.02)) return { weird: pick(odd) };
+    let pool = FISH.filter((f) => f.L === L);
+    if (!Object.keys(S.log).length) pool = pool.filter((f) => f.pow <= 3); // the very first fish is a gentle one to learn on
     const boost = (f) => f.rar * (f.rar < 3 ? 1 + 0.5 * lv("lantern") + (N.hot === L ? 1 : 0) : 1);
     let tot = 0; for (const f of pool) tot += boost(f);
     let r = R() * tot, f = pool[0];
@@ -297,14 +309,15 @@
     play("plunk");
     N.fx.push({ k: "bang", life: 0.7 });
     if (navigator.vibrate) try { navigator.vibrate(25); } catch (e) { /* fine */ }
-    if (got.weird) { // no fight for junk: it just comes up
-      N.lure.mode = "land"; N.landing = got; return;
+    if (got.weird) { // bycatch: junk snags the hook and just comes up, no fight
+      N.lure.mode = "land"; N.landing = got; toast("snagged something. bycatch: it comes up without a fight."); return;
     }
     const f = got.fish, big = f === WARDEN;
     const st = big ? 46 : 4 + f.pow * 1.4 + Math.sqrt(got.w) * 0.6;
     N.fight = { f, w: got.w, d: N.lure.m, S: st, Smax: st, ten: 0, run: false, warn: false, ph: rr(1.2, 2.2), wob: 0 };
     N.lure.mode = "fight";
     if (big) { shake = 1; toast("something enormous took the bait.", "warm"); sdk((c) => c.event && c.event("warden_hooked", {})); }
+    if (!S.tut.fight) { N.fight.ph = 3; coach("fight"); } // the first fish waits for the coach, then gives a calm few seconds
   }
   function stepFight(dt) {
     const F = N.fight, tired = F.S <= 0, pw = tired ? F.f.pow * 0.3 : F.f.pow;
@@ -345,7 +358,7 @@
     if (!got.weird && w > N.best) { N.best = w; sdk((c) => c.score && c.score(Math.round(N.best * 10))); }
     if (!got.weird && w > S.best) S.best = w;
     // the ice feels it
-    N.c = Math.min(0.999, N.c + 0.03 * (1 + w / N.thick));
+    N.c = Math.min(0.999, N.c + 0.015 + 0.12 * Math.min(1, w / iceCap()));
     play("splash", 0.5);
     showCatch(it, w, isNew, !got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8);
     ach("first_catch");
@@ -361,7 +374,7 @@
     if (w > N.best) { N.best = w; sdk((c) => c.score && c.score(Math.round(N.best * 10))); }
     if (w > S.best) S.best = w;
     S.cash += 300; N.earned += 300;
-    N.c = 0; N.cracks = newCracks((R() * 1e5) | 0); // the lake hums and the ice seals
+    N.c = 0; N.scar = 0; N.warned = 0; N.cracks = newCracks((R() * 1e5) | 0); // the lake hums and the ice seals
     ach("warden");
     sdk((c) => c.event && c.event("warden", { night: N.n, w }));
     save();
@@ -373,18 +386,20 @@
   // ---------- the ice ----------
   function stepIce(dt) {
     const load = N.bucket.reduce((s, f) => s + f.w, 0);
-    let rate = 0.0035 * Math.pow(load / N.thick, 2);
+    let rate = 0.005 * Math.pow(load / iceCap(), 2);
     if (N.fight) rate += 0.0012 * N.fight.f.pow / 5;
     N.c = Math.min(1, N.c + rate * dt);
-    const lvl = N.c >= 0.85 ? 3 : N.c >= 0.6 ? 2 : N.c >= 0.35 ? 1 : 0;
+    const lvl = warnLvl(N.c);
     if (lvl > N.warned) {
       N.warned = lvl;
       play(lvl >= 2 ? "crack" : "creak");
       shake = 0.4 + lvl * 0.2;
       toast(["", "the ice creaks under the bucket.", "the ice groans. cracks are spreading.", "cracks race outward. haul it now?"][lvl], lvl >= 2 ? "bad" : "warm");
+      if (lvl === 1 && !S.tut.ice && !TEST) coach("ice");
     }
     if (N.c >= 1) dunk();
   }
+  const warnLvl = (c) => (c >= 0.85 ? 3 : c >= 0.6 ? 2 : c >= 0.35 ? 1 : 0);
   function dunk() {
     N.fight = null; N.haul = null; N.drill = null; N.lure.mode = "up"; N.lure.m = 0;
     N.lost = N.bucket.length; N.lostLb = N.bucket.reduce((s, f) => s + f.w, 0);
@@ -411,6 +426,11 @@
     const lb = N.bucket.reduce((s, f) => s + f.w, 0), v = N.bucket.reduce((s, f) => s + f.v, 0);
     S.cash += v; N.earned += v; N.hauledLb += lb; N.bucket = []; N.haul = null;
     toast(`sold at the bait shop: ${lb.toFixed(1)} lb for $${v}`, "warm");
+    // with the weight gone the ice settles, but it remembers: a scar stays on the meter until you drill a new hole
+    const was = N.c;
+    N.scar = Math.max(N.scar, was * 0.4);
+    N.c = N.scar; N.warned = warnLvl(N.c);
+    if (was > 0.2) toast(N.scar > 0.15 ? "the ice settles. it remembers, though (the scar on the meter)." : "the ice settles.");
     if (lb >= 50) ach("haul_50");
     sdk((c) => c.event && c.event("haul", { lb: Math.round(lb), v }));
     save();
@@ -421,7 +441,7 @@
     N.drill = { t: 0, dur: 5 };
   }
   function drillDone() {
-    N.drill = null; N.c = 0; N.warned = 0; N.cracks = newCracks((R() * 1e5) | 0);
+    N.drill = null; N.c = 0; N.scar = 0; N.warned = 0; N.cracks = newCracks((R() * 1e5) | 0);
     N.thick = Math.round(rr(17, 34));
     N.hot = (R() * 5) | 0;
     toast(`fresh hole. ${N.thick >= 28 ? "thick ice here." : N.thick <= 21 ? "thin ice here. careful." : "the ice feels ok."} the ${LAYERS[N.hot].n} is busy at this spot.`);
@@ -442,7 +462,7 @@
   function sim(dt) {
     if (SHOT) { if (N) { stepFx(dt); if (N.grow) N.c = Math.min(0.97, N.c + dt * 0.2); if (N.fight) N.fight.wob += dt * 14; } return; }
     if (state === "dunk") { N.dunk.t += dt; stepFx(dt); if (N.dunk.t > 2.8) endNight("ice"); return; }
-    if (state !== "night") return;
+    if (state !== "night" || coachOn) return;
     N.t += dt;
     stepFx(dt);
     stepOtters(dt);
@@ -450,15 +470,20 @@
     else if (N.drill) { N.drill.t += dt; if (N.drill.t >= N.drill.dur) drillDone(); }
     else {
       const L = N.lure;
-      if (L.mode === "up" && hold) { L.mode = "drop"; }
+      if (L.mode === "up" && hold) { L.mode = "drop"; L.from = null; }
       if (L.mode === "drop") {
         if (hold) {
           L.m = Math.min(maxLine(), L.m + 7 * dt);
-          if (L.m >= maxLine() && !N.lineEndSaid) { N.lineEndSaid = true; toast(lv("line") < 3 ? "that's all your line. the bait shop sells longer." : "the bottom of the lake.", "warm"); }
+          if (L.m >= maxLine() && !N.lineEndSaid) { N.lineEndSaid = true; toast(lv("line") < 3 ? `that's all your line (${maxLine()} m). the bait shop sells longer.` : "the bottom of the lake.", "warm"); }
           if (L.m >= 36) ach("deep");
-        } else { L.mode = L.m < 0.6 ? "up" : "wait"; N.biteT = rr(2.5, 6.5) * (1 - 0.18 * lv("lantern")) * (1 + layerOf(L.m) * 0.08); }
+        } else {
+          L.mode = L.m < 0.6 ? "up" : "wait";
+          // a fresh wait; nudging the line a little keeps the bite that was coming (night 2's taps shouldn't reset it)
+          const nb = rr(2, 5) * (1 - 0.15 * lv("lantern"));
+          N.biteT = L.from != null && Math.abs(L.m - L.from) < 3 && N.biteT > 0 ? Math.min(N.biteT, nb) : nb;
+        }
       } else if (L.mode === "wait") {
-        if (hold) L.mode = "drop";
+        if (hold) { L.mode = "drop"; L.from = L.m; }
         else { N.biteT -= dt; if (N.biteT <= 0) bite(); }
       } else if (L.mode === "reel") {
         L.m -= 10 * dt; if (L.m <= 0) { L.m = 0; L.mode = "up"; }
@@ -780,21 +805,36 @@
       if (f.k === "otter") { const k = f.i, ox = hx() + (k % 2 ? 1 : -1) * (30 + ((k / 2) | 0) * 22) + 5; cx.textAlign = "center"; cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#ffb35a"; cx.fillText(f.s, ox * PS, px(-20 - ((k / 2) | 0) * 6) - (1.6 - f.life) * 14); }
     }
     if (N.dunk && N.dunk.t > 0.4) { cx.textAlign = "center"; cx.font = "800 34px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#9ae6ff"; cx.globalAlpha = Math.min(1, (N.dunk.t - 0.4) * 3); cx.fillText("SPLOOSH", W / 2, H * 0.3); cx.globalAlpha = 1; }
-    // the fight: tension and stamina, just above the buttons
+    // the fight: big tension and stamina bars, just above the buttons (K-0062: bigger, with the danger zone in red)
     if (F) {
-      const w = Math.min(280, W - 40), x = (W - w) / 2, y = H - 118;
-      cx.fillStyle = "#0b1430d9"; cx.fillRect(x - 8, y - 26, w + 16, 52);
-      cx.textAlign = "left"; cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#e8f6ff";
-      cx.fillText(F.f === WARDEN ? "???" : F.f.n, x, y - 16);
-      cx.textAlign = "right"; cx.fillText(`${F.d.toFixed(0)} m`, x + w, y - 16);
-      cx.fillStyle = "#ffffff1f"; cx.fillRect(x, y - 6, w, 10);
-      cx.fillStyle = F.ten > 0.75 ? "#ff5a4a" : F.ten > 0.45 ? "#ffb35a" : "#9ae6ff"; cx.fillRect(x, y - 6, w * Math.min(1, F.ten), 10);
-      cx.fillStyle = "#ff5a4a55"; cx.fillRect(x + w * 0.8, y - 6, 1, 10);
-      cx.fillStyle = "#ffffff1f"; cx.fillRect(x, y + 10, w, 4);
-      cx.fillStyle = "#c5ff49"; cx.fillRect(x, y + 10, w * clamp(F.S / F.Smax, 0, 1), 4);
-      cx.textAlign = "center"; cx.font = "800 15px ui-monospace, Menlo, Consolas, monospace";
-      if (F.warn || F.run) { cx.fillStyle = F.run ? "#ff6a4a" : "#ffb35a"; cx.fillText(F.run ? "it's running! let go" : "it's about to run…", W / 2, y - 40); }
-      else if (F.S <= 0) { cx.fillStyle = "#c5ff49"; cx.fillText("it's tired. reel!", W / 2, y - 40); }
+      const w = Math.min(340, W - 32), x = (W - w) / 2, y = H - 150;
+      cx.fillStyle = "#0b1430e6"; cx.fillRect(x - 10, y - 30, w + 20, 92);
+      cx.strokeStyle = "#9ae6ff44"; cx.lineWidth = 1; cx.strokeRect(x - 9.5, y - 29.5, w + 19, 91);
+      cx.textAlign = "left"; cx.font = "800 13px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#e8f6ff";
+      cx.fillText(F.f === WARDEN ? "???" : F.f.n, x, y - 17);
+      cx.textAlign = "right"; cx.fillText(`${F.d.toFixed(0)} m down`, x + w, y - 17);
+      // tension: 0-45% safe, 45-75% careful, 75-100% the line can snap
+      const ty = y - 4, th = 18;
+      cx.fillStyle = "#ffffff14"; cx.fillRect(x, ty, w, th);
+      cx.fillStyle = "#ffb35a2e"; cx.fillRect(x + w * 0.45, ty, w * 0.3, th);
+      cx.fillStyle = "#ff3b3b55"; cx.fillRect(x + w * 0.75, ty, w * 0.25, th);
+      const tc = F.ten > 0.75 ? "#ff5a4a" : F.ten > 0.45 ? "#ffb35a" : "#9ae6ff";
+      cx.fillStyle = tc; cx.fillRect(x, ty + 3, w * Math.min(1, F.ten), th - 6);
+      cx.fillStyle = "#ff5a4a"; cx.fillRect(x + w * 0.75, ty - 2, 2, th + 4);
+      cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.textAlign = "left"; cx.fillStyle = "#e8f6ffcc";
+      cx.fillText("line tension", x + 4, ty + th / 2);
+      cx.textAlign = "right"; cx.fillStyle = "#ff8a7a"; cx.fillText("snap", x + w - 4, ty + th / 2);
+      // stamina: empty it and the fish gives up
+      const sy = ty + th + 8, sh = 12;
+      cx.fillStyle = "#ffffff14"; cx.fillRect(x, sy, w, sh);
+      cx.fillStyle = "#c5ff49"; cx.fillRect(x, sy, w * clamp(F.S / F.Smax, 0, 1), sh);
+      cx.textAlign = "left"; cx.fillStyle = "#0b1430"; cx.font = "800 10px ui-monospace, Menlo, Consolas, monospace";
+      if (F.S / F.Smax > 0.3) cx.fillText("fish stamina", x + 4, sy + sh / 2 + 1);
+      else { cx.fillStyle = "#c5ff49"; cx.fillText("fish stamina", x + w * clamp(F.S / F.Smax, 0, 1) + 4, sy + sh / 2 + 1); }
+      cx.textAlign = "center"; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace";
+      if (F.warn || F.run) { cx.fillStyle = F.run ? "#ff6a4a" : "#ffb35a"; cx.fillText(F.run ? "it's running! let go" : "it's about to run…", W / 2, y - 46); }
+      else if (F.S <= 0) { cx.fillStyle = "#c5ff49"; cx.fillText("it's tired. reel!", W / 2, y - 46); }
+      else if (F.ten > 0.75) { cx.fillStyle = "#ff6a4a"; cx.fillText("too tight! let go a moment", W / 2, y - 46); }
     }
   }
 
@@ -815,6 +855,7 @@
     $("hBucket").textContent = lb.toFixed(1);
     const ice = N ? 1 - N.c : 1;
     $("iceBar").firstElementChild.style.width = Math.round(ice * 100) + "%";
+    $("iceScar").style.width = Math.round((N ? N.scar : 0) * 100) + "%";
     $("iceC").className = "chip" + (ice < 0.25 ? " bad" : ice < 0.55 ? " warn" : "");
     const live = N && state === "night" && !N.haul && !N.drill;
     const canAct = live && !N.fight && N.lure.mode !== "land";
@@ -838,7 +879,7 @@
   let catchT = 0;
   function showCatch(f, w, isNew, trophy) {
     const c = $("catch");
-    c.innerHTML = `${isNew ? '<div class="new">new in the log</div>' : ""}<canvas width="80" height="32"></canvas><div class="nm">${f.n}</div><div class="wt">${f.weird ? "a weird find" : w.toFixed(1) + " lb"}${trophy ? " · trophy!" : ""}</div><div class="ln">${f.t}</div>`;
+    c.innerHTML = `${isNew ? '<div class="new">new in the log</div>' : ""}<canvas width="80" height="32"></canvas><div class="nm">${f.n}</div><div class="wt">${f.weird ? "bycatch · a weird find, no fight" : w.toFixed(1) + " lb"}${trophy ? " · trophy!" : ""}</div><div class="ln">${f.t}</div>`;
     const g = c.querySelector("canvas").getContext("2d");
     g.imageSmoothingEnabled = false;
     const sp = f.weird ? weirdSprite(f.id) : fishSprite(f, f === WARDEN ? 64 : clamp(10 + Math.sqrt(w) * 4, 12, 44));
@@ -847,7 +888,30 @@
     c.hidden = false;
     clearTimeout(catchT); catchT = setTimeout(() => (c.hidden = true), 3200);
   }
-  function panel(id, html) { const p = $(id); p.querySelector(".box").innerHTML = html; p.hidden = false; }
+  function panel(id, html) {
+    // nothing from the night shows through a panel (K-0062: a fading catch card sat behind the tip button)
+    $("catch").hidden = true; clearTimeout(catchT); toastBox.textContent = "";
+    const p = $(id); p.querySelector(".box").innerHTML = html; p.hidden = false;
+  }
+
+  // the coach: three one-time cards (first cast, first bite, first creak). The night waits while one is up.
+  let coachOn = null;
+  const COACH = {
+    cast: ["drop your line", `<b>hold anywhere</b> (or space) and the line spools down. <b>let go</b> to stop at that depth and wait for a bite.<br>tonight your line reaches <b>${LINE_M[0]} m</b>: one short hold is enough. deeper water has bigger fish; the bait shop sells longer line.`],
+    fight: ["a bite! the fight", `<b>hold to reel</b> the fish up. when it shouts <b class="r">it's running</b>, <b>let go</b>: reeling against a run fills the <b>tension</b> bar, and in the red zone the line snaps.<br>the green bar is the fish's <b>stamina</b>. every run tires it out. when it's empty, just reel.`],
+    ice: ["the ice is talking", `every pound in your bucket loads the ice. watch the <b>ice</b> meter up top: it creaks, then groans, then breaks, and the bucket goes in the lake.<br><b>🛷 haul to shore</b> sells the bucket and lets the ice settle. or push your luck.`]
+  };
+  function coach(k) {
+    if (coachOn || S.tut[k]) return;
+    S.tut[k] = 1; save();
+    coachOn = k; hold = false; holdPtr = null; keyHold = false;
+    const [t, body] = COACH[k];
+    $("coachBox").innerHTML = `<div class="ct">${t}</div><p>${body}</p><button class="go" id="cGo" type="button">got it</button>`;
+    $("coach").hidden = false;
+    $("cGo").onclick = coachDone;
+    try { $("cGo").focus({ preventScroll: true }); } catch (e) { /* fine */ }
+  }
+  function coachDone() { if (!coachOn) return; coachOn = null; $("coach").hidden = true; hold = false; }
   function fishCanvasHTML(f, len) { return `<canvas class="pf" data-id="${f.id}" data-len="${len}" width="96" height="40" style="width:192px;height:80px;image-rendering:pixelated"></canvas>`; }
   function drawPanelFish() {
     document.querySelectorAll("canvas.pf").forEach((c) => {
@@ -932,6 +996,7 @@
   addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
     if (state === "title" && (k === "enter" || k === " ")) { e.preventDefault(); begin(); return; }
+    if (coachOn) { if (k === "enter" || k === " ") { e.preventDefault(); if (!e.repeat) coachDone(); } return; }
     if (k === "m") setMute(!muted);
     if (state !== "night") return;
     if (k === " " || k === "enter") { e.preventDefault(); if (!e.repeat) { keyHold = true; hold = true; } }
@@ -958,7 +1023,18 @@
       const got = Math.floor(mins * lv("otter") * 0.8);
       if (got >= 5) { S.cash += got; awayNote = `your otters kept fishing while you were gone. they sold $${got} of perch. they want a raise.`; }
     }
-    if (TEST) { S.night = 3; S.cash = Math.max(S.cash, 500); S.up = Object.assign({ line: 3, reel: 2, lantern: 1 }, S.up); startNight(); return; }
+    if (T_DUNK) { // night 1, an hour in, a heavy bucket, the ice at its last groan
+      S.night = 1; startNight();
+      N.t = 60; N.c = 0.8; N.warned = 2;
+      N.bucket = [{ id: "pike", w: 7.4, v: 22 }, { id: "bass", w: 4.1, v: 12 }, { id: "perch", w: 1.2, v: 2 }, { id: "bluegill", w: 0.9, v: 2 }, { id: "crappie", w: 1.8, v: 4 }];
+      toast("test: heavy bucket, the ice is about to go. keep fishing (or haul).", "bad");
+      return;
+    }
+    if (TEST) {
+      S.night = 3; S.cash = Math.max(S.cash, 500); S.up = Object.assign({ line: 3, reel: 2, lantern: 1 }, S.up); startNight();
+      if (T_WARDEN) { N.t = N.len * 0.5; N.lure.m = 42; N.biteT = 1.5; N.forceWarden = true; toast("test: under the deep after midnight. the warden bites next.", "warm"); }
+      return;
+    }
     if (S.night === 1 && !Object.keys(S.log).length) startNight(); else openShop();
   }
   $("start").onclick = begin;
@@ -1001,12 +1077,13 @@
 
   // test hook
   window.__ti = {
-    state: () => ({ state, night: N ? N.n : S.night, t: N ? +N.t.toFixed(1) : 0, len: N ? N.len : 0, mode: N ? N.lure.mode : null, m: N ? +N.lure.m.toFixed(1) : 0, c: N ? +N.c.toFixed(3) : 0, bucket: N ? N.bucket.length : 0, cash: S.cash, caught: N ? N.caught : 0, fight: N && N.fight ? { id: N.fight.f.id, d: +N.fight.d.toFixed(1), ten: +N.fight.ten.toFixed(2), S: +N.fight.S.toFixed(1), run: N.fight.run } : null, log: Object.keys(S.log).length, up: S.up }),
+    state: () => ({ state, night: N ? N.n : S.night, t: N ? +N.t.toFixed(1) : 0, len: N ? N.len : 0, mode: N ? N.lure.mode : null, m: N ? +N.lure.m.toFixed(1) : 0, c: N ? +N.c.toFixed(3) : 0, bucket: N ? N.bucket.length : 0, lb: N ? +N.bucket.reduce((q, f) => q + f.w, 0).toFixed(1) : 0, cash: S.cash, caught: N ? N.caught : 0, fight: N && N.fight ? { id: N.fight.f.id, d: +N.fight.d.toFixed(1), ten: +N.fight.ten.toFixed(2), S: +N.fight.S.toFixed(1), run: N.fight.run } : null, log: Object.keys(S.log).length, up: S.up }),
     hold: (v) => { hold = !!v; },
     ff: (sec, fn) => { for (let k = 0; k < sec * 60; k++) { if (fn) fn(); sim(STEP); } },
     give: (n) => { S.cash += n; },
     begin, startNight, openShop, haul, drill, buy,
     crack: (v) => { if (N) N.c = v; },
+    coach: () => coachOn, coachDone, scar: () => (N ? N.scar : 0),
     bite: () => { if (N) { N.lure.m = Math.max(N.lure.m, 3); bite(); } },
     S: () => S,
     clip: () => scene(true)
