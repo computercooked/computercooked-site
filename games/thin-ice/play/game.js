@@ -18,8 +18,9 @@
   const flag = (k) => qs.get(k) === "1" || new RegExp(`[?&]${k}=1(&|$)`).test(parentQ);
   const TEST = flag("cctest");
   // test shortcuts (K-0062): &dunk=1 starts night 1 with a heavy bucket on ice that's about to go; &warden=1 starts
-  // night 3 under the deep after midnight with the warden on the next bite
-  const T_DUNK = TEST && flag("dunk"), T_WARDEN = TEST && flag("warden");
+  // night 3 under the deep after midnight with the warden on the next bite. &reset=1 (K-0063) starts a brand-new save on
+  // night 1 with every coach card, the way a first-time player sees it
+  const T_DUNK = TEST && flag("dunk"), T_WARDEN = TEST && flag("warden"), T_RESET = TEST && flag("reset");
   const R = Math.random, clamp = (v, a, b) => (v < a ? a : v > b ? b : v), lerp = (a, b, t) => a + (b - a) * t;
   const pick = (a) => a[(R() * a.length) | 0];
   const rr = (a, b) => a + R() * (b - a);
@@ -279,7 +280,7 @@
     loopsOn();
     toast(n === 1 ? "night 1. hold anywhere to drop your line." : `night ${n}. the ice is ${N.thick >= 27 ? "thick" : "thinner"} tonight.`);
     if (!SHOT) save();
-    if (!SHOT && !TEST && !S.tut.cast) coach("cast");
+    if (!SHOT && (!TEST || T_RESET) && !S.tut.cast) coach("cast");
   }
 
   // ---------- fishing ----------
@@ -395,7 +396,7 @@
       play(lvl >= 2 ? "crack" : "creak");
       shake = 0.4 + lvl * 0.2;
       toast(["", "the ice creaks under the bucket.", "the ice groans. cracks are spreading.", "cracks race outward. haul it now?"][lvl], lvl >= 2 ? "bad" : "warm");
-      if (lvl === 1 && !S.tut.ice && !TEST) coach("ice");
+      if (lvl === 1 && !S.tut.ice && (!TEST || T_RESET)) coach("ice");
     }
     if (N.c >= 1) dunk();
   }
@@ -532,12 +533,75 @@
     if (!dawn) rows.splice(3, 0, ["lost with the bucket", `${N.lost} (${(N.lostLb || 0).toFixed(1)} lb)`]);
     panel("end", (dawn
       ? `<h2>dawn</h2><p>${soldLb ? `you walked the bucket in at sunrise: ${soldLb.toFixed(1)} lb for $${soldV}.` : "the sun comes up over the lake."}<br>night ${night} is done.</p>`
-      : `<h2 class="warm">the ice broke</h2><p>the hut went in with a crunch and a sploosh.<br>you climbed out soaked. your gear's fine. the bucket is gone.</p>`) +
+      : `<h2 class="warm">the ice broke</h2><canvas id="plate" width="160" height="72" role="img" aria-label="the hut tipped into the hole, the bucket floating, the shopkeeper shaking its head"></canvas><p>the hut went in with a crunch and a sploosh.<br>you climbed out soaked. your gear's fine. the bucket is gone.</p>`) +
       `<div class="stats">${rows.map((r) => `<span>${r[0]}</span><b>${r[1]}</b>`).join("")}</div>` +
       `<button class="go" id="eGo" type="button">to the bait shop</button><div id="tipSlot"></div><div class="credit">computer cooked games</div>`);
     $("eGo").onclick = () => { $("end").hidden = true; openShop(); };
+    if (!dawn) plate($("plate"), N.lost);
     // the shared tip button (assets/tip.js); nothing shows while tips are off
     if (window.ccTip) { try { Promise.resolve(window.ccTip.mount($("tipSlot"), { game: "thin-ice", slot: "game-over" })).catch(() => {}); } catch (e) { /* fine */ } }
+  }
+
+  // the ice-broke plate (K-0063): the hut tipped into the hole, the bucket bobbing, the catch swimming off and the
+  // shopkeeper on the ice shaking its head. Pixel art on its own little canvas, animated while the card is up.
+  function plate(c, lost) {
+    // a side cut like the game: sky, the ice sheet with a hole in it, the lake under it
+    const g = c.getContext("2d"), W2 = c.width, H2 = c.height, ICE = 34, TH = 7, WL = ICE + 3, HX = 62, HW = 19;
+    const stars = Array.from({ length: 26 }, () => [(R() * W2) | 0, (R() * (ICE - 6)) | 0, R() * 6]);
+    const edge = Array.from({ length: 12 }, () => (R() * 3) | 0); // the hole's broken edges
+    const t0 = performance.now();
+    const p = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), w, h); };
+    const MOON = ["..###", ".##..", "##...", "##...", "##...", ".##..", "..###"];
+    const FOLK = ["#ffb35a", "#6fd16a", "#c8d4e0"];
+    function fr(now) {
+      if (!c.isConnected || c.closest("[hidden]")) return;
+      const t = (now - t0) / 1000;
+      p("#0b1434", 0, 0, W2, ICE); p("#122454", 0, ICE - 10, W2, 10);
+      for (const [x, y, ph] of stars) if (Math.sin(t * 2 + ph) > -0.4) p("#e8f6ff", x, y, 1, 1);
+      MOON.forEach((r, y) => [...r].forEach((ch, x) => ch === "#" && p("#ffe9b0", 140 + x, 5 + y, 1, 1)));
+      // the lake, then the hut going in, then the water over it
+      p("#0d2a4a", 0, WL, W2, H2 - WL); p("#081c34", 0, ICE + 22, W2, H2 - ICE - 22);
+      for (let k = 0; k < 3; k++) { g.globalAlpha = 0.08; p("#9ae6ff", HX - 10 + k * 8 + Math.sin(t + k) * 2, ICE + TH, 3, H2); } g.globalAlpha = 1;
+      g.save(); g.translate(HX - 3, WL + 3 + Math.sin(t * 1.3) * 0.6); g.rotate(-0.42 + Math.sin(t * 1.1) * 0.04);
+      p("#3a2216", -11, -16, 22, 16); for (let k = -11; k < 11; k += 4) p("#4e2e1c", k, -16, 1, 16);
+      g.fillStyle = "#e8f6ff"; g.beginPath(); g.moveTo(-14, -15); g.lineTo(0, -24); g.lineTo(14, -15); g.fill();
+      p("#6a3a24", -13, -16, 26, 2); p("#1a1210", -8, -12, 5, 4); p("#1a1210", 1, -11, 7, 11);
+      g.restore();
+      g.globalAlpha = 0.6; p("#0d2a4a", 0, WL, W2, H2 - WL); g.globalAlpha = 1;
+      // the ice sheet, broken open around the hut
+      for (const [x0, x1, side] of [[0, HX - HW, 0], [HX + HW, W2, 1]]) {
+        p("#9ac8e0", x0, ICE, x1 - x0, TH); p("#e8f6ff", x0, ICE - 1, x1 - x0, 1); p("#cfe9f5", x0, ICE, x1 - x0, 2);
+        for (let k = 0; k < 6; k++) { const ex = side ? x0 + k : x1 - 1 - k, d = edge[k + side * 6]; if (k < 3) p("#0d2a4a", ex, ICE + TH - 1 - d, 1, d + 1); }
+      }
+      g.strokeStyle = "#5a8aaa"; g.lineWidth = 1; g.beginPath();
+      for (const [x, d] of [[HX - HW - 1, -14], [HX - HW - 1, -30], [HX + HW, 12], [HX + HW, 27]]) { g.moveTo(x + 0.5, ICE + 1.5); g.lineTo(x + d + 0.5, ICE + 3.5 + (d % 3)); g.lineTo(x + d * 1.3 + 0.5, ICE + TH - 0.5); }
+      g.stroke();
+      // the water line in the hole, rippling, and a floating ice chunk
+      for (let x = HX - HW; x < HX + HW; x++) p((x + ((t * 6) | 0)) % 4 ? "#3d7aa8" : "#9ae6ff", x, WL + Math.round(Math.sin(x * 0.7 + t * 4) * 0.6), 1, 1);
+      p("#cfe9f5", HX + 9 + Math.sin(t) * 1.5, WL - 1, 6, 2); p("#9ac8e0", HX + 9 + Math.sin(t) * 1.5, WL + 1, 6, 1);
+      // the bucket, upside down and bobbing
+      const bx = HX + 2 + Math.sin(t * 0.8) * 2, by = WL - 3 + Math.round(Math.sin(t * 2.2));
+      p("#8a9aaa", bx - 1, by + 3, 8, 1); p("#6a7a8a", bx, by, 6, 3); p("#4a5a6a", bx + 2, by - 1, 2, 1);
+      // bubbles up from the hut, and the catch swimming off under the ice
+      for (let k = 0; k < 5; k++) { const q = (t * 0.5 + k * 0.2) % 1; p("#9ae6ff", HX - 8 + k * 4 + Math.sin(t * 3 + k), H2 - 8 - q * (H2 - WL - 8), 1, 1); }
+      for (let k = 0; k < Math.min(3, lost || 1); k++) {
+        const dir = k % 2 ? -1 : 1, fx = HX + dir * ((10 + k * 6 + t * (8 + k * 3)) % (W2 * 0.6)), fy = ICE + 14 + k * 6 + Math.sin(t * 3 + k) * 1.5, col = FOLK[k];
+        p(col, fx - 3, fy - 1, 7, 3); p(col, fx + dir * 4, fy, 1, 1); p(col, fx - dir * 5 - 1, fy - 2, 2, 2); p(col, fx - dir * 5 - 1, fy + 1, 2, 2); p("#06101e", fx + dir * 2, fy - 1, 1, 1);
+      }
+      // you, on the ice: soaked, orange hat, dripping
+      const yx = HX - HW - 12;
+      p("#1a1210", yx, ICE - 7, 4, 6); p("#ff7a2a", yx, ICE - 9, 4, 2); p("#c8a070", yx + 1, ICE - 7, 2, 1);
+      p("#9ae6ff", yx + 1 + ((t * 2) | 0) % 3, ICE - 5 + ((t * 8) % 5), 1, 1);
+      // the shopkeeper: a beige crt with a green face, shaking its head
+      const sx = 128 + Math.round(Math.sin(t * 8) * (Math.sin(t * 0.9) > -0.3 ? 1.5 : 0)), sy = ICE - 16;
+      p("#b8ac90", sx + 4, sy + 14, 8, 2); p("#e8dcc0", sx, sy, 16, 14); p("#f4ecd4", sx, sy, 16, 1);
+      p("#2a2a24", sx + 2, sy + 2, 12, 9);
+      p("#6fd16a", sx + 4, sy + 4, 2, 1); p("#6fd16a", sx + 10, sy + 4, 2, 1); // flat, unimpressed eyes
+      p("#6fd16a", sx + 5, sy + 8, 6, 1); p("#6fd16a", sx + 4, sy + 9, 1, 1); p("#6fd16a", sx + 11, sy + 9, 1, 1); // the frown
+      g.globalAlpha = 0.2; p("#6fd16a", sx + 2, sy + 2 + ((t * 20) % 9), 12, 1); g.globalAlpha = 1;
+      requestAnimationFrame(fr);
+    }
+    requestAnimationFrame(fr);
   }
 
   // ---------- drawing ----------
@@ -942,10 +1006,16 @@
     panel("shop", `<h2 class="warm">the bait shop</h2>
       <div class="keeper"><img src="/assets/mascot-happy.svg" alt="the shopkeeper, a beige crt with a green face"><div class="say">${awayNote || keeperSays()}</div></div>
       <div style="margin-bottom:8px">you have <b class="cash">$${Math.floor(S.cash)}</b></div>${ups}
-      <button class="go" id="sGo" type="button">start night ${S.night}</button><br><button class="alt" id="sLog" type="button">📖 fish log</button>`);
+      <button class="go" id="sGo" type="button">start night ${S.night}</button><br><button class="alt" id="sLog" type="button">📖 fish log</button><button class="alt" id="sNew" type="button">new save</button>`);
     awayNote = "";
     $("sGo").onclick = () => { $("shop").hidden = true; startNight(); };
     $("sLog").onclick = () => openLog(true);
+    // a fresh start (K-0063), two taps so nobody wipes a winter by accident
+    $("sNew").onclick = () => {
+      const bt = $("sNew");
+      if (!bt.dataset.sure) { bt.dataset.sure = "1"; bt.textContent = "tap again: wipe the save, back to night 1"; return; }
+      S = freshS(); save(); $("shop").hidden = true; startNight();
+    };
     $("shopBox").querySelectorAll("[data-buy]").forEach((bt) => (bt.onclick = () => buy(bt.dataset.buy)));
   }
   function buy(id) {
@@ -1030,6 +1100,7 @@
       toast("test: heavy bucket, the ice is about to go. keep fishing (or haul).", "bad");
       return;
     }
+    if (T_RESET) { S = freshS(); save(); toast("test: a brand-new save. night 1, coach cards and all.", "warm"); startNight(); return; }
     if (TEST) {
       S.night = 3; S.cash = Math.max(S.cash, 500); S.up = Object.assign({ line: 3, reel: 2, lantern: 1 }, S.up); startNight();
       if (T_WARDEN) { N.t = N.len * 0.5; N.lure.m = 42; N.biteT = 1.5; N.forceWarden = true; toast("test: under the deep after midnight. the warden bites next.", "warm"); }

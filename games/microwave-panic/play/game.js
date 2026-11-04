@@ -208,6 +208,9 @@
   let item = null, phase = "ready", phaseT = 0, cookT = 0, holding = false, parts = [], fx = [], line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, popAcc = 0, verdict = null;
   // K-0060: the burn moment ({ t, v, boom, word } while it plays), its smoke, and the press that owns the hold
   let burn = null, smoke = [], owner = null;
+  // K-0063: a press made while no item waits (the burn moment, the result) and still held. It never cooks the item that
+  // burnt, but once the next item has landed and sat a beat it takes over the hold, so a long hold cooks through
+  let held = null;
   const BURN_T = reduce ? 0.55 : 0.85;
   const BOOMS = { popcorn: 1, egg: 1, soup: 1, coffee: 1, pumpkin: 1, candycorn: 1 };
   const DEBRIS = { popcorn: [PAPER, "#5a3a1e", "#e5484d"], egg: ["#f7f1df", "#f6c945", PAPER], soup: ["#e8863a", "#ffb06a", "#3d6be0"], coffee: ["#4a2c17", "#e9e6dc", "#7a5232"], pumpkin: ["#ff9a2e", "#5a2a0e", "#f6c945"], candycorn: ["#f6c945", "#ff8a2e", "#f7f1df"] };
@@ -225,11 +228,12 @@
     const hw = Math.max(0.22, 0.6 - round * 0.02);
     item = { kind, T, hw, slide: 1 };
     phase = "ready"; phaseT = 0; cookT = 0; popAcc = 0; parts = []; verdict = null;
+    held = owner || held; // K-0063: a hold that burnt the last item is still down: it waits for this one
     burn = null; smoke = []; owner = null; holding = false; // K-0060: every item needs a fresh press
   }
   function start() {
     state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null; scare = null;
-    burn = null; smoke = []; owner = null; // K-0060
+    burn = null; smoke = []; owner = null; held = null; // K-0060
     startAt = performance.now(); say("hello", true); react("happy", 0.8); syncHaunt();
     sdk((c) => c.start && c.start());
     if (haunted) sdk((c) => c.event && c.event("haunted_run", {}));
@@ -246,6 +250,7 @@
 
   // ---------- cooking ----------
   function judge(forced) {
+    if (forced && owner) held = owner; // K-0063: still pressed: it waits for the next item
     holding = false; owner = null; humOff();
     const it = item, cur = ITEMS[it.kind].cursed, d = cookT - it.T;
     let v;
@@ -305,14 +310,17 @@
   // ---------- input ----------
   // K-0060: src names the press ("p<pointerId>", "k " for Space, "kEnter"). The press that starts a hold owns it and
   // only its release lets go. A press only counts while an item waits (phase "ready"); one made as the item slides in
-  // starts cooking when it lands; one made during the burn moment or the result does nothing (press again).
+  // starts cooking when it lands; one made during the burn moment or the result waits, and cooks the next item a beat
+  // after it lands if it's still held (K-0063).
   function beginCook() { holding = true; phase = "cook"; humOn(); }
   function down(src) {
     if (src === owner) return; // a release we missed: still the same hold
     if (state === "title" || (state === "over" && performance.now() - endAt > 700)) { start(); return; }
     if (state === "play" && phase === "ready" && !owner) { owner = src; if (item.slide <= 0) beginCook(); }
+    else if (state === "play" && !owner) held = src;
   }
   function up(src) {
+    if (src === held) held = null;
     if (src !== owner) return;
     owner = null;
     if (state === "play" && phase === "cook" && holding) judge(false);
@@ -331,7 +339,7 @@
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; if (e.type === "keydown") down("k" + e.key); else up("k" + e.key); }
   }
   window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKey);
-  window.addEventListener("blur", () => { if (owner) up(owner); });
+  window.addEventListener("blur", () => { held = null; if (owner) up(owner); });
   try {
     const host = window.parent !== window && window.frameElement ? window.parent : null;
     if (host) {
@@ -361,6 +369,7 @@
     phaseT += dt;
     if (item.slide > 0) item.slide = Math.max(0, item.slide - dt * 4);
     if (phase === "ready" && owner && item.slide <= 0) beginCook(); // K-0060: pressed while it slid in
+    if (phase === "ready" && !owner && held && item.slide <= 0 && phaseT >= 0.5) { owner = held; held = null; beginCook(); } // K-0063
     if (phase === "cook") {
       cookT += dt;
       const it = item, p = cookT / it.T, cur = ITEMS[it.kind].cursed;
@@ -624,6 +633,6 @@
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, burn: burn && burn.word, owner, holding, smoke: smoke.length, // K-0060
+  window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, burn: burn && burn.word, owner, held, holding, smoke: smoke.length, // K-0060
  kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed) }) };
 })();
