@@ -49,17 +49,23 @@
     // creatures: anywhere on the body counts, plus a forgiving ring around it. a tap right on the body
     // beats a nearby item; a tap in the ring loses to an item that's actually under the finger.
     var cs = game.creatures, pad = opts.pad || (opts.touch ? 24 : 14);
-    for (var i = 0; i < cs.length; i++) {
-      var c = cs[i]; if (!c.alive || c.far || (c.heldBy == null && !SB.World.isSeen(game.world, c.x, c.z))) continue;
-      R.project(c.x, c.y + (R.voxel && c._vdy ? c._vdy : 0), c.z, pp);
-      if (!pp.on) continue;
+    // a walking smol counts where it was over the last moment too (K-0063: misses on fast walkers): the eye and the
+    // hand both run a little behind the body, so the press is tested against its recent trail as well
+    function body(c, x, y, z) {
+      R.project(x, y + (R.voxel && c._vdy ? c._vdy : 0), z, pp);
+      if (!pp.on) return 1e9;
       var r = SB.Creature.radius(c), fx = pp.x, fy = pp.y;
       var hpx = R.pixel && c._pxH ? c._pxH : r * (2.4 + (c.look.legs ? 1.2 : 0)) * ppu;
       hpx = Math.max(hpx, opts.touch ? 22 : 14);
       var hw = Math.max(hpx * 0.38, 8), ox = Math.max(0, Math.abs(sx - fx) - hw);
       var oy = sy > fy + 2 ? sy - fy - 2 : sy < fy - hpx ? fy - hpx - sy : 0, d = Math.hypot(ox, oy);
-      if (d > pad) continue;
-      var score = d === 0 ? Math.hypot(sx - fx, sy - (fy - hpx / 2)) * 0.3 - 40 : d - 6;
+      if (d > pad) return 1e9;
+      return d === 0 ? Math.hypot(sx - fx, sy - (fy - hpx / 2)) * 0.3 - 40 : d - 6;
+    }
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i]; if (!c.alive || c.far || (c.heldBy == null && !SB.World.isSeen(game.world, c.x, c.z))) continue;
+      var score = body(c, c.x, c.y, c.z), tr = c.heldBy == null && c._trail;
+      if (tr) for (var k = 0; k < tr.length; k++) score = Math.min(score, body(c, tr[k].x, tr[k].y, tr[k].z) + 4); // the live body wins a tie
       if (score < bd) { bd = score; best = { type: "creature", ref: c }; }
     }
     if (opts.creaturesOnly) return best;
@@ -91,10 +97,22 @@
   }
   function setHover(hit) {
     game.hand.hoverId = hit && hit.type === "creature" ? hit.ref.id : null;
-    var cur = game.hand.heldId ? "grabbing" : hit ? "grab" : ""; // the cursor says it too (K-0058: no highlight before grabbing)
+    var cur = SB.UI && SB.UI.armed ? "crosshair" : game.hand.heldId ? "grabbing" : hit ? "grab" : ""; // the cursor says it too (K-0058: no highlight before grabbing; K-0063: a crosshair while a miracle is armed)
     if (el && el.style.cursor !== cur) el.style.cursor = cur;
   }
-  IN.LATE_GRAB_MS = 450; IN.LATE_GRAB_PX = 90; // a touch drag this young and this short can still turn into a grab
+  IN.LATE_GRAB_MS = 450; IN.LATE_GRAB_PX = 90; // a drag this young and this short can still turn into a grab
+  IN.TRAIL_MS = 150; // how far back a walking smol's body still counts for a grab (K-0063, as Elevator 1.2 does)
+  // each frame: where every walking smol has just been, newest last
+  function trail(now) {
+    var cs = game.creatures;
+    for (var i = 0; i < cs.length; i++) {
+      var c = cs[i]; if (!c.alive || c.far || c.species !== "smol" && c.species !== "grump") { c._trail = null; continue; }
+      var tr = c._trail || (c._trail = []), last = tr[tr.length - 1];
+      if (!last || Math.abs(last.x - c.x) + Math.abs(last.z - c.z) > 0.02) tr.push({ x: c.x, y: c.y, z: c.z, t: now });
+      while (tr.length && now - tr[0].t > IN.TRAIL_MS) tr.shift();
+      if (tr.length > 12) tr.shift();
+    }
+  }
   IN.EDGE_DWELL = 0.4; // seconds a reaching hand rests at the screen edge before the view follows it
   IN.THROW_MIN = 3.5; // a release slower than this (ground units/s) just sets it down: only a real flick throws (K-0058: 4 of 6 drags threw)
   // when the input happened (the event's own time): on a slow frame, moves and the release are handled late and
@@ -190,7 +208,11 @@
     else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
     else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist, ts(e))); }
     else if (drag.mode === "shake") shakeMove(p, ptr, dx);
-    else if (drag.mode === "reach") { setHand(p.x, p.y, true); drag.at = p; }
+    else if (drag.mode === "reach") {
+      setHand(p.x, p.y, true); drag.at = p;
+      // a mouse press that just missed and runs onto a smol in the first moments takes it (K-0063: 2 of 4 drags)
+      if (!game.hand.heldId && held < IN.LATE_GRAB_MS && moved < IN.LATE_GRAB_PX) { var late3 = grabHit(p.x, p.y, false); if (late3) { drag.target = late3; drag.mode = "carry"; drag.edgeT = 0; pickUp(late3); setHover(null); } }
+    }
     else if (drag.mode === "rub") {
       setHand(p.x, p.y, true);
       tickleRub += Math.hypot(dx, dy);
@@ -236,7 +258,9 @@
     if (tool === "orders" && SB.UI && SB.UI.orderTap && !dbl) { SB.UI.orderTap(g, hit); return; } // a sign from the sky (orders.js)
     if (hit && hit.type === "creature") SB.Creature.hold(hit.ref, game, 3); // hold still so you can work with it
     if (dbl && hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); R.camera.follow = followFn(hit.ref); if (R.camera.tZoom > 9) R.camera.tZoom = 7; return; }
-    if (dbl && !hit && g) { R.flyTo(g.x, g.z, Math.max(R.camera.minZoom, R.camera.tZoom * 0.6), 0.5); return; }
+    // a double tap on bare ground zooms in there, but not two quick clicks that just missed a smol (K-0063: the camera
+    // moved on a miss): with a smol close by, or the hand out, the view holds still
+    if (dbl && !hit && g && !(tool === "grab" && grabHit(sx, sy, touch))) { R.flyTo(g.x, g.z, Math.max(R.camera.minZoom, R.camera.tZoom * 0.6), 0.5); return; }
     if (hit && hit.type === "item" && hit.ref.kind === "egg" && hit.ref.data.starter && !hit.ref.data.progress) {
       SB.World.warmEgg(game.world, game, hit.ref); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 8); return;
     }
@@ -314,7 +338,7 @@
     if (!ref) return;
     var f = flick(d.hist, now), gx = f.gx, gz = f.gz, sp = f.sp;
     if (ref.type === "creature") {
-      ref.heldBy = null; ref.vx = gx * 0.8; ref.vz = gz * 0.8; ref.vy = 2 + Math.min(6, sp * 0.3); ref.onGround = false;
+      ref.heldBy = null; ref.vx = gx * 0.8; ref.vz = gz * 0.8; ref.vy = 2 + Math.min(6, sp * 0.3); ref.onGround = false; ref._handDrop = true; // the landing knows you let go (K-0063: a dunk gets a beat)
       if (sp > 6 && ref.species === "smol") { SB.Chem.apply(ref.chem, { fear: 0.15 }); }
       if (ref.species === "smol") { SB.Chem.apply(ref.chem, { lonely: -0.05 }); }
     } else {
@@ -407,6 +431,7 @@
   // continuous WASD panning (called every frame)
   IN.frame = function (dt) {
     if (!game || !god()) return;
+    trail(performance.now());
     var px = 0, py = 0, s = 520 * dt;
     if (keys.w || keys.arrowup) py += s;
     if (keys.s || keys.arrowdown) py -= s;

@@ -116,6 +116,15 @@ seeded(5700, () => {
   const g2 = SB.Save.revive(JSON.parse(JSON.stringify(SB.Save.snapshot(game))));
   const c2 = g2.creatures.find(k => k.id === c.id);
   check("counts and bravery survive a save", g2.settings.chase && g2.settings.chase.wins === 1 && g2.settings.chase.losses === 1 && c2 && c2.braveNights === 1);
+
+  console.log("9. ?cctest=1&chase=1 drops a tester straight into one (K-0063)");
+  const g3 = SB.Game.newGame(63); SB.Game.current = g3; g3.headless = true;
+  const hc = SB.Debug.night(2, true), s3 = NC.state(g3), d3 = SB.Director.state(g3);
+  check("a smol is cornered and the button is up", !!hc && !!s3.prompt && s3.prompt.c === hc.id);
+  check("a few grown smols at the nest", SB.Game.smols(g3).filter(o => o.stage >= 2).length >= 4);
+  check("no card, storm or stranger for a while", !d3.active && d3.nextT >= g3.time + 300 && g3.strangerT >= 600);
+  check("lending the light starts the chase", NC.lend(g3) && !!s3.live);
+  P.leave(); SB.Game.current = game;
 });
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");

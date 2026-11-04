@@ -635,6 +635,20 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.54 What v4.11.6 fixed: Chef's 4.11.5 run (K-0063)
+
+1. **Miracles stay armed.** A picked miracle no longer drops after one cast. Every tap on the world casts it again, until you press ✕ or Esc, close the magic book, pick another tool, or can't afford another.
+   - A small tag under the top bar says what a tap will do ("⚡ armed: lightning · ✨10 · tap the world") and has its own ✕. The cursor is a crosshair while a miracle is armed.
+   - Sunshine and rain still cast at once from the button and then stay armed. A second cast on a sky that's already that way costs nothing and says so.
+   - An armed miracle holds back event cards only while it's in use (20 s since the last pick or cast), so leaving one armed doesn't stall the story.
+2. **Grabbing walkers, and misses.**
+   - A smol counts for a grab where it was over the last 150 ms as well as where it is now (`IN.TRAIL_MS`, as Elevator 1.2 does). The live body wins a tie.
+   - A mouse press that just missed and runs onto a smol within 450 ms and 90 px takes it, as a finger already did.
+   - Two quick clicks that miss next to a smol no longer zoom the camera in. A double-click on bare ground still zooms in when no smol is within reach, so this was the likely "camera moved on a miss".
+3. **`?cctest=1&chase=1`** drops a tester straight into a grump chase on the next night still ahead (night 2 on a new island). It sets up four grown smols at the nest, holds back cards, storms and strangers for 10 minutes, clears anything queued, and shows "lend your light". The chase starts on its own 1.5 s later. `&night=N&chase=1` still only shows the button.
+4. **A dunk reads as meant.** A smol you drop in water lands with a big splash and a line ("brr!", "blub!", "sploosh"), then swims. The `dunk` bus event is the hook for a splash sound file; no sound is synthesized.
+5. **A smaller smol card.** On desktop the side card is 320 px wide (was 360), with smaller header buttons so the name gets more room than before. On a phone it takes at most 34% of the screen height (was 46%). A ▾ button folds it down to its name row anywhere. Folding is remembered, and a folded card doesn't push the camera aside.
+
 ## 0.53 What v4.11.5 fixed: Chef's clip-run notes (K-0062 item 12)
 
 - **The opening film and "play now".** On a device that has never seen it, "play now" already plays the film, from the game page and the hub page alike (checked on live with fresh storage). It's skipped once a device has seen it, and in the `?night=` test jumps. Two changes:
