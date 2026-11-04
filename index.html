@@ -45,6 +45,9 @@
   <script>try{if(!localStorage.getItem('cc-booted')&&!/[?&]from=bushgrowth(&|$)/.test(location.search)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cc-bootseq');localStorage.setItem('cc-booted','1')}catch(e){}</script>
   <style>html.cc-bootseq::before{content:"";position:fixed;inset:0;z-index:2147483640;background:#050605;animation:cc-cover-out 0s 2.4s forwards}@keyframes cc-cover-out{to{visibility:hidden}}</style>
   <script src="/assets/boot.js" async></script>
+  <!-- K-0064: a returning player (play history on this device, or ?ccdesk=demo) gets the "your desk" row; the class
+       makes room for it before the first paint, so it never pushes the page. First visits: no class, page as before -->
+  <script>(function(){try{var h=localStorage.getItem('cc-history');if(/[?&]ccdesk=demo(&|$)/.test(location.search)||(h?Object.keys(JSON.parse(h)||{}).length:JSON.parse(localStorage.getItem('cc-recent')||'[]').length))document.documentElement.classList.add('cc-desk')}catch(e){}})()</script>
 </head>
 <body>
   <main class="home2">
@@ -83,6 +86,15 @@
         <span class="desk-clock num" id="desk-clock">--:--</span>
       </div>
       <div class="desk-scan" aria-hidden="true"></div>
+    </section>
+
+    <!-- K-0064: "your desk", returning players only (assets/home.js fills it from this device's history) -->
+    <section class="home-sec desk-row" id="home-desk" aria-labelledby="desk-heading" hidden>
+      <div class="sec-head"><h2 id="desk-heading" class="section-label">your desk. <span>the computer remembers.</span></h2><button type="button" class="text-link desk-clear" id="desk-clear">clear</button></div>
+      <div class="desk-row-in">
+        <p class="desk-row-pc"><img src="/assets/mascot-happy.svg" alt="" width="46" height="66" decoding="async"><span class="desk-row-say" id="desk-say"></span></p>
+        <ul class="desk-strip" id="desk-strip" aria-label="games you played"></ul>
+      </div>
     </section>
 
     <section class="home-sec" aria-labelledby="feat-heading">

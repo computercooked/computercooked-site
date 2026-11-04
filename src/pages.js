@@ -53,7 +53,8 @@ export function deskIcon(g) {
     `<span class="ico"><img src="${esc(g.thumbnail)}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
 }
 export function card2(g, ref = "shelf") {
-  return `<li><a class="card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=${ref}">${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
+  // data-slug / data-added: the "your desk" row (assets/home.js, K-0064) builds its cards from these
+  return `<li><a class="card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=${ref}" data-slug="${esc(g.slug)}"${g.added ? ` data-added="${esc(g.added)}"` : ""}>${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
     `<span class="thumb"><img src="${esc(g.thumbnail)}" alt="" width="320" height="200" loading="lazy" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="meta"><b>${esc(g.title)}</b><small>${esc(g.pitch)}</small></span></a></li>`;

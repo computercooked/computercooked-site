@@ -249,6 +249,15 @@ After every run (scored or not), the shared player (`games/platform.js`) shows *
 
 Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that page, `cc-sdk.js` counts its plays as referrer `internal`, tags its first run's start event with `src: "next", slot`, and takes the params off the URL, so a reload doesn't count again. The server stores one `events` row per play, `name = 'cc:next'`, `data = {"slot": …}` (no migration). `cc:*` event names are reserved for the platform: `cc.event` calls using them are dropped. Admin metrics `next` gives plays started from the rail per run ended, by slot.
 
+## "Your desk" (returning players, K-0064)
+
+The homepage shows a **your desk** row above game of the week, but only to a browser that has played something.
+- **History:** `games/platform.js` keeps `cc-history` in localStorage on every game page: `{slug: {t, n, b}}`. `t` is the last visit, `n` counts visits that started a run, and `b` is the best score from an accepted run (the board's own MAX). There's no server, account or cookie. Browsers from before this only have `cc-recent`, which is used until `cc-history` exists.
+- **The row** (`assets/home.js`): up to 6 cards, cloned from the shelf cards on the page, so no fetch. It shows the most recent game first, with "pick up where you left off", then up to 2 games added since the last homepage visit (`cc-desk-seen`), then the rest of the history. Each card has a sticker: `best: 41`, `played 3x`, `new since you left`, or `today's daily is fresh` on Crash Test daily when it hasn't been played today. The CRT mascot says a random line. **clear** wipes `cc-history` and `cc-recent`.
+- **No layout shift:** a tiny `<head>` script adds `html.cc-desk` only when there's history, and CSS reserves the row's height from the first paint. First visits get the page exactly as before.
+- **Counted:** `POST /api/hit` kinds `desk_shown` (once per load) and `desk_click` (`game`, `slot` `resume` or `card`), stored as `cc:desk_shown` / `cc:desk_click` events.
+- **Playtest:** `/?ccdesk=demo` fills the row with made-up history (nothing stored or counted).
+
 ## Tip jar (off by default)
 
 A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's set in `wrangler.jsonc` (`TIP_URL`, Chef's $3 pay-what-you-want Payment Link since Oct 23); empty means off.
