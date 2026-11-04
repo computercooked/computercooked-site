@@ -866,6 +866,14 @@
       if (w.weather) { w.weather.rain = 0; w.weather.cloud = 0.1; }
       if (g.settings && g.settings.chase) { g.settings.chase.done = false; g.settings.chase.nextT = 0; }
       if (!chase) return true;
+      // a quiet night for the test (K-0063: "a storm modal, a pod landing and a stranger, 0 smols, no chase"): no cards,
+      // storms or strangers for a while, nothing queued, and a few grown smols at the nest to run home to
+      var dir = SB.Director && SB.Director.state && SB.Director.state(g);
+      if (dir) { dir.active = null; dir.nextT = g.time + 600; }
+      g.strangerT = Math.max(g.strangerT || 0, 600); g.forceWeather = "clear";
+      if (SB.UI && SB.UI.dropQueued) SB.UI.dropQueued();
+      var grown = Game.smols(g).filter(function (o) { return o.stage >= 2 && !o.stranger; }).length;
+      if (grown < 4) SB.Debug.spawnTier(2, 4 - grown);
       var spot = null;
       for (var a = 0; a < 96 && !spot; a++) {
         var r = 16 + (a % 3) * 3, x = hm.x + Math.sin(a * 0.7) * r, z = hm.z + Math.cos(a * 0.7) * r;
@@ -875,15 +883,23 @@
       var c = Game.smols(g).filter(function (o) { return o.stage >= 2 && !o.inBed && !o.heldBy && !o.pip; })[0] || SB.Debug.spawnTier(2, 1)[0];
       c.x = spot.x; c.z = spot.z; c.asleep = false; c.action = null; c.plan = null;
       g.creatures.forEach(function (o) { if (o.species === "grump" && o.alive) { o.alive = false; o.gone = true; } });
-      Game.spawnGrump(g, spot.x + 4.5, spot.z);
+      var gr = Game.spawnGrump(g, spot.x + 4.5, spot.z);
       if (SB.Input && SB.Input.follow) SB.Input.follow(c);
+      // straight into it: the "lend your light" button shows, and with go, you're in the smol a moment later
+      if (gr && SB.NightChase && SB.NightChase.offer) {
+        var s = SB.NightChase.state(g); s.done = false; s.prompts = 0; s.night = Math.floor(w.time / D);
+        SB.NightChase.offer(g, gr, c);
+        if (chase === "go") setTimeout(function () { if (Game.current === g && s.prompt) SB.NightChase.lend(g); }, 1500);
+      }
       return c;
     }
   };
-  // ?cctest=1&night=2 (&chase=1): a tester jumps to that night in one sitting (K-0058)
+  // ?cctest=1&night=2 (&chase=1): a tester jumps to that night in one sitting (K-0058). ?cctest=1&chase=1 alone drops
+  // you straight into a grump chase on night 2, a few smols at the nest (K-0063)
   function testJump(g) {
     var q = null; try { q = new URLSearchParams(location.search); } catch (e) { return; }
     var n = parseInt(q.get("night"), 10), chase = q.get("chase") === "1", tries = 0;
+    if (chase && !(n >= 2)) { n = Math.max(2, Math.ceil(g.time / SB.DAY_LENGTH - 0.86) + 1); chase = "go"; } // the next night that's still ahead
     if (!(n >= 2) || g.showcase || g.time >= (n - 1 + 0.8) * SB.DAY_LENGTH) return;
     (function wait() {
       if (Game.current !== g) return;

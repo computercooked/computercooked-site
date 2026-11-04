@@ -20,14 +20,14 @@
   UI.EVENT_GAP = 25; UI.POV_GRACE = 4; UI.CLICK_GRACE = 0.8;
   var lastEventClose = -1e9, lastPovOut = -1e9, lastPointer = -1e9, pointerDown = false;
   function now() { return (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000; }
-  var lastCast = -1e9; UI.CAST_GRACE = 3; // seconds a miracle (a lightning bolt, a meteor) has to play out before a card
+  var lastCast = -1e9, armT = -1e9; UI.CAST_GRACE = 3; UI.ARM_HOLD = 20; // a miracle left armed and idle this long lets cards through again // seconds a miracle (a lightning bolt, a meteor) has to play out before a card
   UI.eventReady = function () {
     var t = now();
     if (el.modal || pointerDown) return false;
     if (SB.Lantern && SB.Lantern.running) return false; // never behind a film
     if (SB.Possess && SB.Possess.active) return false;
     if (SB.Director && SB.Director.danger && SB.Director.danger(game)) return false; // no dream or choice over a chase (K-0060)
-    if (UI.armed || t - lastCast < UI.CAST_GRACE) return false; // nor over a miracle you're aiming or one still playing out (K-0060)
+    if (UI.armed && t - armT < UI.ARM_HOLD || t - lastCast < UI.CAST_GRACE) return false; // nor over a miracle you're aiming or one still playing out (K-0060)
     return t - lastEventClose >= UI.EVENT_GAP && t - lastPovOut >= UI.POV_GRACE && t - lastPointer >= UI.CLICK_GRACE;
   };
   if (typeof window !== "undefined" && window.addEventListener) {
@@ -43,6 +43,7 @@
     if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
   }
   UI.pendingEvents = function () { return popQ.length + cardQ.length; };
+  UI.dropQueued = function () { popQ.length = 0; cardQ.length = 0; }; // test jumps: nothing waiting to pop up (K-0063)
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -529,6 +530,7 @@
     el.sheet.classList.remove("hide");
     el.sheet.classList.toggle("side", kind === "smol" || kind === "inspect" || kind === "tricks");
     el.sheet.classList.toggle("talkside", kind === "talk"); // the word book sits at the side, so the island stays in view
+    el.sheet.classList.toggle("mini", kind === "smol" && cardMini()); // folded down to its name row (K-0063: "covers a third of the screen")
     sheetT = 0;
     renderSheet(true);
     frameSheet();
@@ -536,10 +538,11 @@
   // the followed smol shouldn't sit under the panel: frame it in the part of the screen still visible
   function frameSheet() {
     var cs = window.getComputedStyle(el.sheet), W = window.innerWidth || 1;
-    if (cs.position === "fixed") { R.camera.shift = 0; R.camera.shiftX = Math.min(0.6, (el.sheet.offsetWidth + 10) / W); }
-    else { R.camera.shiftX = 0; R.camera.shift = state.sheet === "smol" || state.sheet === "inspect" || state.sheet === "tricks" ? (W < 600 ? 0.45 : 0) : 0.4; }
+    var mini = el.sheet.classList.contains("mini");
+    if (cs.position === "fixed") { R.camera.shift = 0; R.camera.shiftX = mini ? 0 : Math.min(0.6, (el.sheet.offsetWidth + 10) / W); }
+    else { R.camera.shiftX = 0; R.camera.shift = mini ? 0.1 : state.sheet === "smol" || state.sheet === "inspect" || state.sheet === "tricks" ? (W < 600 ? 0.36 : 0) : 0.4; }
   }
-  function closeSheet() { state.sheet = null; el.sheet.classList.add("hide"); clear(el.sheet); R.camera.shift = 0; R.camera.shiftX = 0; }
+  function closeSheet() { if (UI.armed && state.sheet === "magic") disarm(); state.sheet = null; el.sheet.classList.add("hide"); clear(el.sheet); R.camera.shift = 0; R.camera.shiftX = 0; }
   UI.closeSheet = closeSheet;
   var sheetT = 0, sheetKey = "";
   function renderSheet(force) {
@@ -645,6 +648,7 @@
 
   /* ---- the smol card ---- */
   var cardMore = false;
+  function cardMini() { return !!(game.settings && game.settings.cardMini); }
   function renderSmol(force) {
     var c = SB.Game.byId(game, game.selectedId);
     if (!c || !c.alive || c.type !== "creature") { closeSheet(); return; }
@@ -656,6 +660,7 @@
       h("div", { style: "min-width:0;flex:1" }, [el.cName = h("div", { class: "nm" }), el.cSub = h("div", { class: "sub2" })]),
       SB.Possess && c.species === "smol" ? h("button", { class: "ibtn", title: "possess: see through its eyes", onclick: function () { SB.Possess.enter(game, c); } }, "👁") : h("button", { class: "ibtn", title: "follow with the camera (f)", onclick: function () { var on = !R.camera.follow; SB.Input.follow(on ? c : null); this.classList.toggle("on", on); } }, "🎥"),
       h("button", { class: "ibtn", title: "brain viewer (b)", onclick: function () { openBrain(c); } }, "🧠"),
+      h("button", { class: "ibtn fold", title: "fold the card down (or open it up)", onclick: function () { var m = !cardMini(); (game.settings = game.settings || {}).cardMini = m; el.sheet.classList.toggle("mini", m); frameSheet(); } }, ""),
       h("button", { class: "ibtn", title: "close", onclick: function () { SB.Game.select(game, null); closeSheet(); } }, "✕")
     ]);
     el.sheet.appendChild(head);
@@ -913,16 +918,32 @@
     var wt = warn.join("<br>");
     if (el.magicWarn && el.magicWarn._t !== wt) { el.magicWarn._t = wt; el.magicWarn.innerHTML = wt; el.magicWarn.classList.toggle("hide", !wt); }
   }
+  // a picked miracle stays armed: every tap on the world casts it again, until you close it, pick another, or run
+  // out of sparks (K-0063: "miracles deselect after every cast"). The sky ones cast at once and stay armed too
   function arm(m) {
     var mc = SB.Game.miracleCost(game, m.cost);
     if ((game.sparks || 0) < mc) { toast("not enough sparks ✨ (" + mc + " needed)"); return; }
-    if (m.id === "rain" || m.id === "sun" || m.id === "bless") { cast(m, R.camera.x, R.camera.z); return; }
-    UI.armed = UI.armed === m ? null : m;
+    if (m.id === "bless") { disarm(); cast(m, R.camera.x, R.camera.z); return; }
+    if (m.id === "rain" || m.id === "sun") { UI.armed = m; armT = now(); cast(m, R.camera.x, R.camera.z); return; }
+    UI.armed = UI.armed === m ? null : m; armT = now();
     el.magicInfo.textContent = UI.armed ? m.e + " " + m.desc + ". tap where." : "pick a miracle, then tap the world.";
-    updateMagic();
+    updateMagic(); armTag();
   }
-  function disarm() { UI.armed = null; if (el.magicInfo) updateMagic(); }
-  UI.castAt = function (x, z) { var m = UI.armed; if (!m) return; cast(m, x, z); };
+  function disarm() { UI.armed = null; if (el.magicInfo) { updateMagic(); el.magicInfo.textContent = "pick a miracle, then tap the world."; } armTag(); }
+  UI.disarm = disarm;
+  UI.castAt = function (x, z) { var m = UI.armed; if (!m) return; armT = now(); cast(m, x, z); };
+  // the small "armed" tag under the top bar: what a tap on the world will do, and an ✕ to put it away
+  function armTag() {
+    var m = UI.armed;
+    if (!el.armTag) {
+      if (!m || !root) return;
+      el.armTag = h("div", { class: "armtag glass hide" }, [el.armTxt = h("span"), h("button", { class: "ibtn", title: "stop (esc)", onclick: function () { disarm(); } }, "✕")]);
+      root.appendChild(el.armTag);
+    }
+    el.armTag.classList.toggle("hide", !m);
+    if (m) el.armTxt.textContent = m.e + " armed: " + m.name + (m.id === "spawn" ? "" : " · ✨" + SB.Game.miracleCost(game, m.cost)) + " · tap the world";
+  }
+  UI.armTag = armTag;
   function cast(m, x, z) {
     lastCast = now();
     if (m.id === "bless") { blessChooser(m); return; }
@@ -933,7 +954,11 @@
       if (SB.Audio) SB.Audio.play("pop", { vol: 0.4 });
       return; // stays armed: tap again for another
     }
-    if (!SB.Game.spend(game, SB.Game.miracleCost(game, m.cost))) { toast("not enough sparks ✨"); return; }
+    var wx = game.world.weather.kind;
+    if (m.id === "sun" && (game.forceWeather === "clear" || !game.forceWeather && wx === "clear") || m.id === "rain" && (game.forceWeather === "rain" || !game.forceWeather && wx === "rain")) {
+      toast(m.id === "sun" ? "☀️ the sky is already clear" : "🌧 it's already raining"); armTag(); return; // no sparks for a sky that's already that way
+    }
+    if (!SB.Game.spend(game, SB.Game.miracleCost(game, m.cost))) { toast("not enough sparks ✨"); disarm(); return; }
     SB.Game.usedMiracle(game, m.id);
     SB.Game.spoilFrom(game, m.id);
     var w = game.world, r = game.rng, gy = SB.World.groundY(w, x, z);
@@ -973,9 +998,10 @@
       if (!c || p.answered) return;
       if (SB.dist(c.x, c.z, x, z) < 7 && (m.answers[p.need] || m.id === "heal" && p.need === "nothing")) SB.Creature.prayerAnswered(c, game, "miracle");
     });
-    UI.armed = null;
-    updateMagic();
-    if (el.magicInfo) el.magicInfo.textContent = m.e + " done. pick another or close.";
+    var more = (game.sparks || 0) >= SB.Game.miracleCost(game, m.cost);
+    if (!more) UI.armed = null;
+    updateMagic(); armTag();
+    if (el.magicInfo) el.magicInfo.textContent = more ? m.e + " done. tap again for another, or ✕ to stop." : m.e + " done. that's your last ✨ for now.";
   }
   var BLESS = [
     { e: "🦵", name: "legs", genes: { limbs: 0.18, senses: 0.09 } },

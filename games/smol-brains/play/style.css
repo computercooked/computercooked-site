@@ -107,13 +107,20 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .sheet { width: min(560px, 100%); padding: 12px; border-radius: 0; max-height: 46vh; overflow: auto; overscroll-behavior: contain; animation: tin 0.25s ease-out; }
 .sheet::-webkit-scrollbar { width: 6px; } .sheet::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 0; }
 @media (min-width: 900px) and (min-height: 560px) {
-  .sheet.side { position: fixed; right: calc(10px + var(--sar)); top: calc(56px + var(--sat)); bottom: calc(80px + var(--sab)); width: 360px; max-height: none; }
+  .sheet.side { position: fixed; right: calc(10px + var(--sar)); top: calc(56px + var(--sat)); bottom: calc(80px + var(--sab)); width: 320px; max-height: none; } /* K-0063: narrower (was 360) */
+  .sheet.side.mini { bottom: auto; }
   /* the coach moves into the space left of an open side panel instead of sitting under it */
-  #ui:has(.sheet.side:not(.hide)) .toasts { right: calc(380px + var(--sar)); } /* toasts never cover the card */
+  #ui:has(.sheet.side:not(.hide)) .toasts { right: calc(340px + var(--sar)); } /* toasts never cover the card */
   #ui:has(.sheet.side:not(.hide)) .guide { display: none; } /* tips wait while a card is open */
   #ui:has(.sheet.side:not(.hide)) .coach { left: max(10px, calc(50% - 400px)); transform: none; width: min(420px, calc(100% - 400px)); }
 }
 .row { display: flex; gap: 8px; align-items: center; }
+/* K-0063: the smol card folds down to its name row, and on a phone it takes less of the screen */
+.sheet.mini > :not(:first-child) { display: none; }
+.sheet.mini { max-height: none; overflow: visible; }
+.sheet.side > .row:first-child { gap: 5px; } .sheet.side > .row:first-child .ibtn { width: 32px; height: 32px; font-size: 15px; } /* room for the name */
+.ibtn.fold::before { content: "▾"; } .sheet.mini .ibtn.fold::before { content: "▴"; }
+@media (max-width: 899px), (max-height: 559px) { .sheet.side:not(.mini) { max-height: 34vh; } }
 .row.wrap { flex-wrap: wrap; }
 .sp { flex: 1; }
 .av { width: 44px; height: 44px; border-radius: 0; display: grid; place-items: center; font-size: 22px; flex: none; box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.18); }
@@ -168,6 +175,9 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .mir.on { background: var(--lime); color: var(--carbon); }
 .mir.on .c { color: var(--carbon); }
 .mir.poor { opacity: 0.4; }
+/* K-0063: the armed miracle, under the top bar */
+.armtag { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; font-size: 12px; white-space: nowrap; pointer-events: auto; z-index: 5; }
+.armtag .ibtn { width: 24px; height: 24px; }
 @media (max-width: 380px) { .miracles { grid-template-columns: repeat(4, 1fr); } .mir { font-size: 10px; } }
 
 /* ---------- modal panels ---------- */

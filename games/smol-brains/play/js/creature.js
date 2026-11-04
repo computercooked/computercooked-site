@@ -1786,7 +1786,18 @@
       if (c.y <= gy + hover) {
         if (c.vy < -9 && c.species === "smol") { SB.Chem.apply(ch, { pain: 0.12 + (-c.vy - 9) / 40, fear: 0.1 }); emote(c, "ouch", 1.2); }
         c.y = gy; c.vy = 0; c.vx = 0; c.vz = 0; c.onGround = true; an.squash = 0.35;
-        if (SB.World.depthAt(w, c.x, c.z) > 0.5 && !c.far && SB.FX) SB.FX.burst("splash", c.x, gy, c.z, 14, { r: 0.4 });
+        var dk = SB.World.depthAt(w, c.x, c.z);
+        if (dk > 0.5 && !c.far && SB.FX) SB.FX.burst("splash", c.x, gy, c.z, 14, { r: 0.4 });
+        // dropped in the water from your hand: a big splash and a shiver, so the swim reads as meant (K-0063). "dunk" is
+        // the hook for a splash sound file when one comes; nothing is synthesized here
+        if (c._handDrop && dk > 0.25 && c.species === "smol" && !game.headless) {
+          if (SB.FX) { SB.FX.burst("splash", c.x, gy + 0.1, c.z, 26, { r: 0.8, scale: 1.4 }); SB.FX.burst("splash", c.x, gy + 0.3, c.z, 10, { r: 0.3 }); }
+          SB.Chem.apply(ch, { cold: 0.08 });
+          c.speech = { text: game.rng.pick(["brr!", "brrr…", "cold!!", "blub!", "sploosh"]), t: 2.2, kind: "say" };
+          emote(c, "ouch", 0.8); an.squash = 0.6;
+          SB.bus.emit("dunk", { c: c, x: c.x, z: c.z });
+        }
+        c._handDrop = false;
       } else { c.onGround = false; positionHeld(c, game); return; }
     }
 
