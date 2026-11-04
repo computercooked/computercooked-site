@@ -138,6 +138,23 @@
     rec.unshift({ g: game, t: Date.now() });
     localStorage.setItem("cc-recent", JSON.stringify(rec.slice(0, 12)));
   } catch (e) {}
+  /* K-0064: this device's play history, for the homepage's "your desk" row (assets/home.js). One shared key,
+     cc-history {slug: {t: last played (ms), n: visits with a run, b: best score}}. No server, no cookie. The best is
+     the board's own (MAX, from an accepted run), so it never disagrees with the leaderboard. */
+  function hist(fn) {
+    try {
+      var h = JSON.parse(localStorage.getItem("cc-history") || "{}") || {}, e = h[game] || { t: 0, n: 0 };
+      fn(e); h[game] = e;
+      localStorage.setItem("cc-history", JSON.stringify(h));
+    } catch (err) {}
+  }
+  hist(function (e) { e.t = Date.now(); });
+  var histRun = false;
+  document.addEventListener("cc:start", function () { if (!histRun) { histRun = true; hist(function (e) { e.n = (e.n || 0) + 1; e.t = Date.now(); }); } });
+  document.addEventListener("cc:end", function (ev) {
+    var r = ev.detail && ev.detail.result;
+    if (r && r.accepted && typeof r.best === "number") hist(function (e) { e.b = r.best; });
+  });
 
   /* ---------- account chip: K-0031 the top bar's "log in" covers this now, so it stays off the page ---------- */
   var chip = el('<a class="cc-chip" href="/me/">log in</a>');

@@ -6,6 +6,86 @@
    - a pixel trail follows the pointer
    - shelf cards play their clip on hover (on phones: the card in the middle of the screen)
    Everything still works without this file. prefers-reduced-motion turns off the trail, tilt, clips and dragging. */
+
+/* K-0064: "your desk", a returning player's row above game of the week. Built from this device's history (cc-history,
+   written on every game page by games/platform.js; visits from before it only have cc-recent) and the shelf cards
+   already on the page, so there's no fetch. Up to 6 games, most recent first, each with a sticker (best / played Nx /
+   new since you left / today's daily is fresh); the newest gets "pick up where you left off". ?ccdesk=demo fills it
+   with made-up history for playtesting (nothing stored). First visits never see it: <head> only makes room when
+   there's history (html.cc-desk). It runs before the shelf code below, so its cards get the same hover clips. */
+(function () {
+  "use strict";
+  var root = document.documentElement, sec = document.getElementById("home-desk"), strip = document.getElementById("desk-strip");
+  if (!sec || !strip || !root.classList.contains("cc-desk")) return;
+  var demo = /[?&]ccdesk=demo(&|$)/.test(location.search), DAY = 86400000, DAILY = "crash-test-daily", now = Date.now();
+  function off() { root.classList.remove("cc-desk"); sec.hidden = true; }
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  // every card the server put on the page, by slug (the shelves hold all of our games)
+  var cards = {};
+  [].forEach.call(document.querySelectorAll("#home-new .card2, #home-shelf .card2"), function (a) { if (a.dataset.slug && !cards[a.dataset.slug]) cards[a.dataset.slug] = a; });
+  var added = function (s) { return Date.parse(cards[s].dataset.added || "") || 0; };
+  var hist = {}, prev = 0;
+  if (demo) {
+    // two older games played, the daily played yesterday, and everything from the last 5 days is "new since you left"
+    var old = Object.keys(cards).filter(function (s) { return added(s) < now - 6 * DAY && s !== DAILY; });
+    if (old[0]) hist[old[0]] = { t: now - 2 * 3600000, n: 3, b: 41 };
+    if (cards[DAILY]) hist[DAILY] = { t: now - DAY, n: 5 };
+    if (old[1]) hist[old[1]] = { t: now - 2 * DAY, n: 1 };
+    if (old[2]) hist[old[2]] = { t: now - 4 * DAY, n: 2, b: 1280 };
+    prev = now - 5 * DAY;
+  } else {
+    try { hist = JSON.parse(get("cc-history") || "null"); } catch (e) { hist = null; }
+    if (!hist) { hist = {}; try { JSON.parse(get("cc-recent") || "[]").forEach(function (x) { if (x && x.g && !hist[x.g]) hist[x.g] = { t: x.t, n: 0 }; }); } catch (e) {} }
+    prev = +get("cc-desk-seen") || 0; // when this device last saw the homepage
+    set("cc-desk-seen", String(now));
+  }
+  var played = Object.keys(hist).filter(function (s) { return cards[s] && hist[s] && hist[s].t; }).sort(function (a, b) { return hist[b].t - hist[a].t; });
+  if (!played.length) { off(); return; }
+  var fresh = prev ? Object.keys(cards).filter(function (s) { return !hist[s] && added(s) > prev; }).sort(function (a, b) { return added(b) - added(a); }).slice(0, 2) : [];
+  var row = [played[0]].concat(fresh, played.slice(1)).slice(0, 6);
+  var today = new Date().toDateString();
+  function sticker(s) {
+    var h = hist[s];
+    if (!h) return ["new since you left", "is-new"];
+    if (s === DAILY && new Date(h.t).toDateString() !== today) return ["today's daily is fresh", "is-hot"];
+    if (typeof h.b === "number") return ["best: " + (Math.round(h.b * 10) / 10).toLocaleString("en-US"), ""];
+    return [h.n > 1 ? "played " + h.n + "x" : "played once", ""];
+  }
+  strip.innerHTML = "";
+  row.forEach(function (s, i) {
+    var li = cards[s].parentNode.cloneNode(true), a = li.firstChild, k = sticker(s), tag = a.querySelector(".tag-new");
+    if (tag) tag.remove();
+    a.href = a.getAttribute("href").replace(/([?&]ref=)[^&#]*/, "$1desk");
+    a.setAttribute("data-desk", i ? "card" : "resume");
+    a.insertAdjacentHTML("afterbegin", '<span class="desk-stk ' + k[1] + '"></span>');
+    a.firstChild.textContent = k[0];
+    if (!i) {
+      a.classList.add("is-resume");
+      a.querySelector(".meta").insertAdjacentHTML("beforeend", '<span class="desk-go">pick up where you left off ▶</span>');
+    }
+    strip.appendChild(li);
+  });
+  var LINES = ["welcome back.", "i kept your seat warm.", "the goo has grown.", "you came back. i'm not crying, it's coolant.", "your games missed you. i didn't. (i did.)"];
+  var say = document.getElementById("desk-say");
+  if (say) say.textContent = LINES[Math.floor(Math.random() * LINES.length)];
+  sec.hidden = false;
+  // counted with the site's other hits (assets/deck.js runs after this file); a playtest with ?ccdesk=demo isn't
+  function hit(kind, extra) { if (!demo && window.ccHit) window.ccHit(kind, extra); }
+  document.addEventListener("DOMContentLoaded", function () { hit("desk_shown"); });
+  strip.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[data-desk]");
+    if (a) hit("desk_click", { game: a.dataset.slug, slot: a.dataset.desk });
+  });
+  var clear = document.getElementById("desk-clear");
+  if (clear) clear.addEventListener("click", function () {
+    if (!demo) { set("cc-history", "{}"); set("cc-recent", null); }
+    off();
+    var h = document.getElementById("feat-heading");
+    if (h) { h.setAttribute("tabindex", "-1"); h.focus(); }
+  });
+})();
+
 (function () {
   "use strict";
   var $ = function (s, r) { return (r || document).querySelector(s); };
