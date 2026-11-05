@@ -87,22 +87,32 @@ A "new games drop on our tiktok first / follow **@computercooked**" house card w
 `GET /api/admin/digest?days=7` (Bearer token, `days` 1–31, default 7). One row per **Pacific-time** day (America/Los_Angeles, DST handled), oldest first. The last row is today so far (`partial: true`). Smoke traffic is left out, as in metrics.
 
 ```json
-{ "ok": true, "tz": "America/Los_Angeles", "days": 7, "from": "2026-10-14", "to": "2026-10-20", "generated_at": "…",
+{ "ok": true, "version": 2, "tz": "America/Los_Angeles", "days": 7, "from": "2026-10-14", "to": "2026-10-20", "generated_at": "…",
   "rows": [{
     "date": "2026-10-20", "partial": true,
     "plays": 0, "players": 0, "new_players": 0,          // new = first play ever that day
     "d1_return": { "back": 0, "of": 0, "pct": null },     // of that day's new players, how many played the next day (null for today)
     "ref": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0, "threads": 0, "bluesky": 0, "search": 0, "other": 0, "direct": 0, "internal": 0, "app": 0, "embed": 0 },
     "next": { "plays": 0, "per_run": null },             // play-next plays / runs ended that day
+    "runs_ended": 0,                                     // game overs (plays that reported an end)
     "game_shares": 0,                                    // "share this game" sends
+    "tip_clicks": 0,                                     // "Tip the chef" / tip link clicks (outbound to Stripe)
+    "desk": { "shown": 0, "clicks": 0, "resume": 0 },    // homepage "your desk" row: shown, cards opened, of which the pick-up card
     "follow_clicks": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0 },   // follow button clicks
     "dares": { "made": 0, "sent": 0, "opened": 0, "beaten": 0 },   // dares made that day, and what became of them
     "new_accounts": 0,
     "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]   // games played that day
   }],
-  "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0 }]     // whole window
+  "games": [{ "game": "crash", "plays": 0, "players": 0, "completion_pct": 95, "auto_pct": 0,       // whole window
+    "runs_ended": 0, "avg_session_s": 41, "avg_score": 12.5, "best_score": 80 }],   // game over: ended runs, their average length and score
+  "desk": { "shown": 0, "clicks": 0, "resume": 0, "by_game": { "crash": 0 } }        // whole window; by_game = cards opened
+  // also: each row's site {page_views, visitors, returning, returning_pct, avg_time_s}, and utm and game_pages (views per game page)
 }
 ```
+
+Version 2 (K-0065) added `runs_ended`, `tip_clicks` and `desk` to the rows, game-over stats to `games`, and the whole-window `desk`. Admin metrics has the same `desk` block.
+
+**Daily file for readers without the token:** `node scripts/export-analytics.mjs https://computercooked.com <token file> <folder> [days]` saves the digest as `cc-analytics-latest.json` and `cc-analytics-<date>.json` in that folder (counts only: no player ids, names or feedback text). The token is read from the file and never printed or written.
 
 **As a table:** `node scripts/digest.mjs https://computercooked.com "$TOKEN" [days] [--json]`. It prints the day rows (today is marked `*`), the totals (plays, plays from social, game shares, dares sent, new accounts) and the per-game table. The token goes only in the Authorization header and is never printed; a failed request prints the HTTP status and exits 1.
 

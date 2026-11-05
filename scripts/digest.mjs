@@ -46,9 +46,13 @@ console.log(`\ntotal: ${tot.plays} plays (${tot.social} from social), ${tot.shar
 
 console.log("by game (whole window)");
 table(
-  ["game", "plays", "players", "completion %", "auto %"],
-  d.games.map((g) => [g.game, g.plays, g.players, dash(g.completion_pct), dash(g.auto_pct)])
+  ["game", "plays", "players", "completion %", "auto %", "runs ended", "avg run s", "avg score", "best"],
+  d.games.map((g) => [g.game, g.plays, g.players, dash(g.completion_pct), dash(g.auto_pct), dash(g.runs_ended), dash(g.avg_session_s), dash(g.avg_score), dash(g.best_score)])
 );
+if (d.rows[0] && d.rows[0].desk) {
+  console.log("\ntip clicks and the homepage \"your desk\" row (shown / cards opened / pick-up card)");
+  table(["day", "tip clicks", "desk shown", "desk opens", "resume"], d.rows.map((r) => [r.date + (r.partial ? "*" : ""), r.tip_clicks, r.desk.shown, r.desk.clicks, r.desk.resume]));
+}
 
 if (d.rows[0] && d.rows[0].site) {
   console.log("\nsite visits (visitors = browsers seen that day; returning = seen on an earlier day; time = visible time per page)");

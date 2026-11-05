@@ -724,6 +724,9 @@ if (admin) {
   ok(dg.ok && dg.tz === "America/Los_Angeles" && dg.rows.length === 3 && dRow.partial && "tiktok" in dRow.ref && "per_run" in dRow.next && Array.isArray(dRow.games) && Array.isArray(dg.games),
     "admin digest: 3 Pacific days with refs, next, shares, dares, games", dRow && { date: dRow.date, plays: dRow.plays });
   ok(dRow.follow_clicks && "tiktok" in dRow.follow_clicks && "x" in dRow.follow_clicks, "admin digest: follow clicks by platform", dRow.follow_clicks);
+  ok(dg.version === 2 && typeof dRow.tip_clicks === "number" && dRow.desk && "resume" in dRow.desk && dg.desk && "by_game" in dg.desk &&
+    dg.games.every((g) => "runs_ended" in g && "avg_session_s" in g && "best_score" in g),
+    "admin digest v2: tip clicks, desk row, game-over stats per game", { version: dg.version, desk: dg.desk });
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
   // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
   const ur = await (await get("/api/admin/utm?days=7", { authorization: "Bearer " + admin })).json();

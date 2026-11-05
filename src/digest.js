@@ -6,6 +6,9 @@ import { FOLLOW_PLATFORMS } from "./follow.js";
 
 const TZ = "America/Los_Angeles";
 const PLAYER = "COALESCE('u' || user_id, 'a' || anon_id)";
+// game over (K-0065): runs that ended, their average length, and the average / best score of ended runs that had one
+const OVER = `SUM(ended_at IS NOT NULL) ended, AVG(CASE WHEN ended_at IS NOT NULL THEN duration_ms END) ms,
+       AVG(CASE WHEN ended_at IS NOT NULL THEN score END) avg_score, MAX(CASE WHEN ended_at IS NOT NULL THEN score END) best_score`;
 const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "other", "direct", "internal", "app", "embed", "portal"];
 
 // ms offset of Pacific time from UTC at instant t (negative: -7h or -8h)
@@ -43,12 +46,12 @@ export async function digest(url, env) {
   ).bind(start, end).all()).results;
   const perGame = (await db.prepare(
     `SELECT ${dayOf("started_at")} d, game, COUNT(*) plays, COUNT(DISTINCT ${PLAYER}) players,
-       AVG(CASE WHEN ended_at IS NOT NULL THEN completed END) completion, AVG(auto) auto
+       AVG(CASE WHEN ended_at IS NOT NULL THEN completed END) completion, AVG(auto) auto, ${OVER}
      FROM plays WHERE started_at >= ? AND started_at < ? AND ${REAL} GROUP BY 1, 2 ORDER BY plays DESC`
   ).bind(start, end).all()).results;
   const gameTotals = (await db.prepare(
     `SELECT game, COUNT(*) plays, COUNT(DISTINCT ${PLAYER}) players,
-       AVG(CASE WHEN ended_at IS NOT NULL THEN completed END) completion, AVG(auto) auto
+       AVG(CASE WHEN ended_at IS NOT NULL THEN completed END) completion, AVG(auto) auto, ${OVER}
      FROM plays WHERE started_at >= ? AND started_at < ? AND ${REAL} GROUP BY game ORDER BY plays DESC`
   ).bind(start, end).all()).results;
 
@@ -87,6 +90,17 @@ export async function digest(url, env) {
   const stays = (await db.prepare(
     `SELECT ${dayOf("ts")} d, COUNT(*) n, AVG(json_extract(data, '$.ms')) ms FROM events WHERE name = 'cc:leave' AND ts >= ? AND ts < ? GROUP BY 1`
   ).bind(start, end).all()).results;
+  // K-0065: "Tip the chef" clicks, and the homepage "your desk" row (K-0064): times shown, cards opened (resume = the
+  // pick-up card), per day and per game opened
+  const outs = (await db.prepare(
+    `SELECT ${dayOf("ts")} d, name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events
+     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
+  ).bind(start, end).all()).results;
+  const outN = (f) => outs.filter(f).reduce((s, r) => s + r.n, 0);
+  const deskOf = (f) => ({ shown: outN((r) => f(r) && r.name === "cc:desk_shown"), clicks: outN((r) => f(r) && r.name === "cc:desk_click"),
+    resume: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "resume") });
+  const deskGames = {};
+  for (const r of outs) if (r.name === "cc:desk_click") deskGames[r.game] = (deskGames[r.game] || 0) + r.n;
   // per game page, whole window: views and average visible time
   const pageRows = (await db.prepare(
     `SELECT json_extract(data, '$.path') path, name, COUNT(*) n, AVG(json_extract(data, '$.ms')) ms FROM events
@@ -127,7 +141,9 @@ export async function digest(url, env) {
 
   const at = (rows, i) => rows.find((r) => r.d === i) || {};
   const pct = (v) => (v == null ? null : Math.round(v * 100));
-  const shape = (g) => ({ game: g.game, plays: g.plays, players: g.players, completion_pct: pct(g.completion), auto_pct: pct(g.auto) });
+  const num = (v) => (v == null ? null : Math.round(v * 10) / 10);
+  const shape = (g) => ({ game: g.game, plays: g.plays, players: g.players, completion_pct: pct(g.completion), auto_pct: pct(g.auto),
+    runs_ended: g.ended || 0, avg_session_s: secs(g.ms), avg_score: num(g.avg_score), best_score: g.best_score });
 
   const rows = dates.map((date, i) => {
     const p = at(plays, i);
@@ -146,7 +162,10 @@ export async function digest(url, env) {
       d1_return: d1Known ? { back, of: newbies.length, pct: newbies.length ? Math.round((back / newbies.length) * 100) : null } : null,
       ref,
       next: { plays: nextPlays, per_run: p.ended ? Math.round((nextPlays / p.ended) * 1000) / 1000 : null },
+      runs_ended: p.ended || 0,
       game_shares: at(shares, i).n || 0,
+      tip_clicks: outN((r) => r.d === i && r.name === "cc:tip_click"),
+      desk: deskOf((r) => r.d === i),
       follow_clicks: Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, follows.filter((r) => r.d === i && r.p === p).reduce((s, r) => s + r.n, 0)])),
       dares: { made: dr.made || 0, sent: dr.sent || 0, opened: dr.opened || 0, beaten: dr.beaten || 0 },
       new_accounts: at(accounts, i).n || 0,
@@ -158,7 +177,8 @@ export async function digest(url, env) {
     };
   });
 
-  return json({ ok: true, tz: TZ, days: n, from: dates[0], to: dates[dates.length - 1], generated_at: new Date().toISOString(), rows, games: gameTotals.map(shape),
+  return json({ ok: true, version: 2, tz: TZ, days: n, from: dates[0], to: dates[dates.length - 1], generated_at: new Date().toISOString(), rows, games: gameTotals.map(shape),
     utm: Object.values(utmRows).sort((a, b) => b.plays - a.plays || b.page_views - a.page_views),
+    desk: { ...deskOf(() => true), by_game: Object.fromEntries(Object.entries(deskGames).sort((a, b) => b[1] - a[1])) },
     game_pages: Object.values(pages).sort((a, b) => b.views - a.views).map((g) => ({ game: g.game, views: g.views, avg_time_s: secs(g.timed ? g.ms : null) })) });
 }

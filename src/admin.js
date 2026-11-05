@@ -232,6 +232,12 @@ export async function metrics(url, env, origin) {
     shared: dares.sent + game_shares.sent, dares_opened: opened || 0,
     followed: follow_clicks.total, tip_clicks: tips.clicks, signups: users.new || 0,
   };
+  // the homepage "your desk" row (K-0064): times shown, cards opened (resume = the pick-up card), opens per game
+  const dk = (await db.prepare(
+    "SELECT name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events WHERE name IN ('cc:desk_shown', 'cc:desk_click') AND ts >= ? GROUP BY 1, 2, 3"
+  ).bind(Date.parse(since)).all()).results;
+  const clicks = dk.filter((r) => r.name === "cc:desk_click");
+  const desk = { shown: total(dk.filter((r) => r.name === "cc:desk_shown")), clicks: total(clicks), resume: total(clicks.filter((r) => r.slot === "resume")), by_game: tally(clicks, "game") };
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
   const reports = await db.prepare("SELECT COUNT(*) n FROM reports WHERE resolved = 0").first("n");
   return json({
@@ -249,6 +255,7 @@ export async function metrics(url, env, origin) {
     follow_clicks,
     pageviews,
     tips,
+    desk,
     plays_by_ref,
     campaigns,
     next,
