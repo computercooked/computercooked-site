@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b120c">
+<meta name="description" content="prove you're human: the computer got cooked and now it thinks you're a bot. pass its absurd captchas, but not too perfectly. humans hesitate. from computer cooked games.">
+<title>prove you're human · computer cooked games</title>
+<style>
+  @font-face { font-family: "Pixelify"; src: url("/assets/fonts/pixelify-sans-latin-wght.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+  * { box-sizing: border-box; }
+  :root { --beige: #e6d9b4; --beige2: #cbbd92; --beige3: #a8996a; --ink: #14140f; --green: #7dff6a; --green2: #3fbf3a; --glow: #7dff6a55; --red: #ff3b3b; --bg: #0b120c; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body { font: 600 15px/1.35 "Pixelify", ui-monospace, Menlo, Consolas, monospace; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; touch-action: manipulation; overscroll-behavior: none; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; padding: calc(8px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: radial-gradient(ellipse at 50% 30%, #16301a 0%, #0b120c 70%); }
+  /* the crt: the only mascot. its face and speech sit on top, the suspicion meter under them */
+  #top { width: min(100%, 460px); display: flex; gap: 10px; align-items: center; flex: none; }
+  #crt { width: 96px; height: 88px; flex: none; image-rendering: pixelated; filter: drop-shadow(0 0 10px var(--glow)); }
+  #say { flex: 1; min-height: 58px; background: #0d1a0e; border: 2px solid var(--green2); border-radius: 6px; padding: 7px 9px; color: var(--green); font-size: 14px; text-shadow: 0 0 6px var(--glow); position: relative; display: flex; align-items: center; }
+  #say::before { content: ""; position: absolute; left: -9px; top: 22px; border: 8px solid transparent; border-left: 0; border-right-color: var(--green2); }
+  #meter { width: min(100%, 460px); margin: 8px 0 6px; flex: none; display: flex; align-items: center; gap: 8px; color: var(--green); font-size: 12px; letter-spacing: 1px; }
+  #meter .lab { flex: none; }
+  #meter .bar { flex: 1; height: 12px; border: 2px solid var(--green2); background: #050a05; position: relative; overflow: hidden; }
+  #meter .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: repeating-linear-gradient(90deg, var(--green) 0 6px, #2a8a26 6px 8px); transition: width .25s, background .25s; }
+  #meter.hot .bar i { background: repeating-linear-gradient(90deg, #ffb33b 0 6px, #a86a10 6px 8px); }
+  #meter.red .bar i { background: repeating-linear-gradient(90deg, var(--red) 0 6px, #8a1a1a 6px 8px); }
+  #meter .rn { flex: none; min-width: 64px; text-align: right; }
+  /* the security dialog: old-os window chrome */
+  #dlg { width: min(100%, 460px); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--beige); border: 2px solid var(--ink); box-shadow: inset -3px -3px 0 var(--beige3), inset 3px 3px 0 #fff8e0, 6px 6px 0 #000a; position: relative; }
+  #dlg .tb { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 6px; background: linear-gradient(90deg, #2d5a2a, #4f8f3a); color: #f4f8e8; font-size: 13px; letter-spacing: .5px; }
+  #dlg .tb b { flex: 1; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #dlg .tb span { width: 18px; height: 16px; background: var(--beige); border: 1px solid var(--ink); color: var(--ink); font-size: 11px; line-height: 13px; text-align: center; box-shadow: inset -1px -1px 0 var(--beige3); }
+  #ask { flex: none; padding: 10px 12px 6px; font-size: 17px; font-weight: 700; text-align: center; min-height: 52px; }
+  #ask small { display: block; font-size: 12px; font-weight: 500; opacity: .7; margin-top: 2px; }
+  #area { flex: 1 1 auto; min-height: 0; position: relative; margin: 0 10px; background: #f7f0da; border: 2px solid; border-color: var(--beige3) #fff8e0 #fff8e0 var(--beige3); overflow: hidden; touch-action: none; }
+  #foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; }
+  #tbar { flex: 1; height: 10px; border: 2px solid var(--ink); background: #fff8e0; position: relative; overflow: hidden; }
+  #tbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #4f8f3a; }
+  #tbar.low i { background: var(--red); }
+  .btn { padding: 8px 14px; background: var(--beige); border: 2px solid var(--ink); box-shadow: inset -2px -2px 0 var(--beige3), inset 2px 2px 0 #fff8e0; font-weight: 700; }
+  .btn:active, .btn.on { box-shadow: inset 2px 2px 0 var(--beige3), inset -2px -2px 0 #fff8e0; }
+  .btn.go { background: #cfe8b0; }
+  .btn[disabled] { opacity: .45; }
+  #verify { min-width: 92px; }
+  #verify[hidden] { display: none; }
+  /* the stamp after each captcha */
+  #stamp { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%) rotate(-8deg); z-index: 4; pointer-events: none; padding: 6px 14px; border: 4px solid; font-size: 30px; font-weight: 700; letter-spacing: 2px; background: #f7f0dacc; white-space: nowrap; }
+  #stamp[hidden] { display: none; }
+  #stamp.ok { color: #2d7a24; border-color: #2d7a24; }
+  #stamp.bad { color: #c41e1e; border-color: #c41e1e; }
+  #stamp.sus { color: #b86a00; border-color: #b86a00; }
+  #stamp { animation: stampIn .22s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes stampIn { from { transform: translate(-50%, -50%) rotate(-8deg) scale(1.8); opacity: 0; } }
+  /* captcha widgets */
+  .grid { position: absolute; inset: 8px; display: grid; gap: 6px; }
+  .tile { display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid var(--beige3); font-size: clamp(34px, 12vw, 60px); line-height: 1; position: relative; padding: 0; }
+  .tile.sel { border-color: #2d6fd6; background: #dbe8ff; }
+  .tile.sel::after { content: "✓"; position: absolute; left: 3px; top: 1px; font-size: 14px; color: #fff; background: #2d6fd6; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; }
+  .tile.bad { border-color: var(--red); background: #ffd6d6; }
+  .tile small { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 10px; text-align: center; opacity: .7; }
+  .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 12px; text-align: center; }
+  .slider { width: 86%; height: 44px; position: relative; touch-action: none; }
+  .slider .rail { position: absolute; left: 0; right: 0; top: 18px; height: 8px; background: var(--beige2); border: 2px solid var(--ink); }
+  .slider .knob { position: absolute; top: 4px; width: 30px; height: 36px; margin-left: -15px; background: var(--beige); border: 2px solid var(--ink); box-shadow: inset -2px -2px 0 var(--beige3), inset 2px 2px 0 #fff; }
+  .slider .ends { position: absolute; left: 0; right: 0; top: 46px; display: flex; justify-content: space-between; font-size: 12px; opacity: .75; }
+  .feel { font-size: 40px; min-height: 48px; }
+  .cbx { position: absolute; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fff; border: 2px solid var(--beige3); font-size: 15px; transition: left .14s ease-out, top .14s ease-out; white-space: nowrap; }
+  .cbx i { width: 26px; height: 26px; border: 2px solid var(--ink); background: #fff; display: inline-block; flex: none; position: relative; }
+  .cbx.on i::after { content: "✓"; position: absolute; inset: 0; text-align: center; line-height: 22px; color: #2d7a24; font-size: 20px; font-style: normal; }
+  .word { width: 92%; height: 92px; image-rendering: pixelated; }
+  .type { width: 86%; padding: 9px 10px; border: 2px solid var(--ink); background: #fff; font-size: 18px; text-align: center; user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+  .fish { width: 180px; height: 180px; touch-action: none; cursor: grab; }
+  .hold { width: 150px; height: 150px; border-radius: 50%; font-size: 18px; touch-action: none; }
+  .hold.on { background: #cfe8b0; }
+  .lights { position: absolute; inset: 0; overflow: hidden; }
+  .lights .tile { position: absolute; }
+  .draw { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  .bait { font-size: 22px; padding: 18px 26px; background: #ffe066; animation: wob 1s ease-in-out infinite; }
+  @keyframes wob { 50% { transform: scale(1.06) rotate(-2deg); } }
+  .qs { display: flex; flex-direction: column; gap: 10px; width: 80%; }
+  .appl { position: absolute; inset: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .appl .tile small { font-size: 11px; }
+  .none { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; text-decoration: underline; background: none; border: 0; padding: 6px; color: #2d4fa8; }
+  /* the glitch: scanlines always, tears and jitter as suspicion rises */
+  #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8; }
+  body.g2 #dlg { animation: jit .18s steps(2) infinite; }
+  body.g3 #dlg { animation: jit .09s steps(2) infinite; filter: hue-rotate(-12deg) saturate(1.2); }
+  @keyframes jit { 50% { transform: translate(1px, -1px); } }
+  /* panels: title, end, daily */
+  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: calc(64px + env(safe-area-inset-top, 0px)) 14px 14px; background: radial-gradient(ellipse at 50% 30%, #16301aee, #0b120cf5 70%); overflow: auto; touch-action: pan-y; }
+  .over[hidden] { display: none; }
+  .card { width: min(100%, 420px); margin: auto; background: var(--beige); border: 2px solid var(--ink); box-shadow: inset -3px -3px 0 var(--beige3), inset 3px 3px 0 #fff8e0, 8px 8px 0 #000a; text-align: center; }
+  .card .tb { display: flex; padding: 4px 8px; background: linear-gradient(90deg, #2d5a2a, #4f8f3a); color: #f4f8e8; font-size: 13px; text-align: left; }
+  .card .in { padding: 14px 16px 16px; }
+  .card h1 { margin: 2px 0 6px; font-size: clamp(30px, 9vw, 40px); line-height: 1.05; letter-spacing: -.5px; }
+  .card h2 { margin: 2px 0 6px; font-size: 26px; line-height: 1.1; }
+  .card p { margin: 6px 0; font-weight: 500; }
+  .card .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  .card .big { font-size: 18px; padding: 12px 18px; }
+  .card .small { font-size: 12px; opacity: .75; }
+  .card .diary { margin: 10px 0 0; padding: 8px 10px; background: #0d1a0e; color: var(--green); text-align: left; font-size: 13px; border: 2px solid var(--green2); }
+  .card .diary b { display: block; font-size: 11px; opacity: .7; letter-spacing: 1px; }
+  .card canvas.share { width: 100%; height: auto; display: block; border: 2px solid var(--ink); margin: 6px 0 2px; image-rendering: auto; }
+  .card .verdict { font-size: 15px; font-weight: 600; }
+  .denied { position: relative; }
+  .denied .stampbig { display: inline-block; margin: 8px 0; padding: 6px 12px; border: 5px solid var(--red); color: var(--red); font-size: clamp(22px, 7vw, 30px); font-weight: 700; transform: rotate(-6deg); letter-spacing: 1px; animation: stampIn .3s cubic-bezier(.2, 1.6, .4, 1); }
+  #tipSlot .cc-tipjar { margin-top: 12px; }
+  @media (prefers-reduced-motion: reduce) { body.g2 #dlg, body.g3 #dlg, .bait, #stamp, .denied .stampbig { animation: none; } }
+  @media (min-height: 760px) { #ask { font-size: 19px; } }
+</style>
+<script src="/games/cc-sdk.js"></script>
+<script src="/assets/tip.js" defer></script>
+</head>
+<body>
+<div id="app">
+  <div id="top"><canvas id="crt" width="48" height="44" role="img" aria-label="the security computer: a beige crt with a green face"></canvas><div id="say" aria-live="polite">…</div></div>
+  <div id="meter" aria-label="suspicion"><span class="lab">SUSPICION</span><span class="bar"><i id="susp"></i></span><span class="rn" id="rn"></span></div>
+  <section id="dlg" aria-label="security check">
+    <div class="tb"><b id="ttl">SECURITY CHECK</b><span aria-hidden="true">_</span><span aria-hidden="true">×</span></div>
+    <div id="ask"></div>
+    <div id="area"></div>
+    <div id="foot"><div id="tbar" aria-hidden="true"><i></i></div><button class="btn go" id="verify" type="button" hidden>VERIFY</button></div>
+    <div id="stamp" hidden></div>
+  </section>
+</div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="over" id="title"><div class="card"><div class="tb">security.exe</div><div class="in" id="titleIn"></div></div></div>
+<div class="over" id="end" hidden><div class="card"><div class="tb" id="endTb">verdict.txt</div><div class="in" id="endIn"></div></div></div>
+<script src="game.js"></script>
+</body>
+</html>
