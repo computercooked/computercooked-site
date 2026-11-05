@@ -97,10 +97,11 @@ export async function digest(url, env) {
      WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
   ).bind(start, end).all()).results;
   const outN = (f) => outs.filter(f).reduce((s, r) => s + r.n, 0);
-  const deskOf = (f) => ({ shown: outN((r) => f(r) && r.name === "cc:desk_shown"), clicks: outN((r) => f(r) && r.name === "cc:desk_click"),
+  const deskOf = (f) => ({ shown: outN((r) => f(r) && r.name === "cc:desk_shown"), clicks: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot !== "nudge"),
+    nudge: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "nudge"),
     resume: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "resume") });
   const deskGames = {};
-  for (const r of outs) if (r.name === "cc:desk_click") deskGames[r.game] = (deskGames[r.game] || 0) + r.n;
+  for (const r of outs) if (r.name === "cc:desk_click" && r.slot !== "nudge") deskGames[r.game] = (deskGames[r.game] || 0) + r.n;
   // per game page, whole window: views and average visible time
   const pageRows = (await db.prepare(
     `SELECT json_extract(data, '$.path') path, name, COUNT(*) n, AVG(json_extract(data, '$.ms')) ms FROM events

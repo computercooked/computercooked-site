@@ -236,8 +236,8 @@ export async function metrics(url, env, origin) {
   const dk = (await db.prepare(
     "SELECT name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events WHERE name IN ('cc:desk_shown', 'cc:desk_click') AND ts >= ? GROUP BY 1, 2, 3"
   ).bind(Date.parse(since)).all()).results;
-  const clicks = dk.filter((r) => r.name === "cc:desk_click");
-  const desk = { shown: total(dk.filter((r) => r.name === "cc:desk_shown")), clicks: total(clicks), resume: total(clicks.filter((r) => r.slot === "resume")), by_game: tally(clicks, "game") };
+  const clicks = dk.filter((r) => r.name === "cc:desk_click" && r.slot !== "nudge");
+  const desk = { shown: total(dk.filter((r) => r.name === "cc:desk_shown")), clicks: total(clicks), nudge: total(dk.filter((r) => r.slot === "nudge")), resume: total(clicks.filter((r) => r.slot === "resume")), by_game: tally(clicks, "game") };
   const pending = await db.prepare("SELECT COUNT(*) n FROM uploads WHERE status = 'pending'").first("n");
   const reports = await db.prepare("SELECT COUNT(*) n FROM reports WHERE resolved = 0").first("n");
   return json({

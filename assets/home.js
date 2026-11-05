@@ -77,6 +77,16 @@
     var a = e.target.closest && e.target.closest("a[data-desk]");
     if (a) hit("desk_click", { game: a.dataset.slug, slot: a.dataset.desk });
   });
+  // K-0066: the hero's "your desk is warm" nudge (shown by CSS while html.cc-desk is on) scrolls down to the row
+  var nudge = document.getElementById("desk-nudge");
+  if (nudge) nudge.addEventListener("click", function (e) {
+    e.preventDefault();
+    var calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    sec.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+    var h = document.getElementById("desk-heading");
+    if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+    hit("desk_click", { slot: "nudge" });
+  });
   var clear = document.getElementById("desk-clear");
   if (clear) clear.addEventListener("click", function () {
     if (!demo) { set("cc-history", "{}"); set("cc-recent", null); }
