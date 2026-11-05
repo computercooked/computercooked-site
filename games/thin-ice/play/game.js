@@ -276,7 +276,7 @@
     state = "night";
     camY = surfCam();
     if (!SHOT) { sdk((c) => c.start && c.start()); sdk((c) => c.event && c.event("night_start", { night: n })); }
-    if (TEST && !T_DUNK) { N.lure.m = Math.min(38, LINE_M[lv("line")]); N.lure.mode = "wait"; N.biteT = 2; }
+    if (TEST && !T_DUNK && !T_RESET) { N.lure.m = Math.min(38, LINE_M[lv("line")]); N.lure.mode = "wait"; N.biteT = 2; }
     loopsOn();
     toast(n === 1 ? "night 1. hold anywhere to drop your line." : `night ${n}. the ice is ${N.thick >= 27 ? "thick" : "thinner"} tonight.`);
     if (!SHOT) save();
@@ -535,9 +535,9 @@
       ? `<h2>dawn</h2><p>${soldLb ? `you walked the bucket in at sunrise: ${soldLb.toFixed(1)} lb for $${soldV}.` : "the sun comes up over the lake."}<br>night ${night} is done.</p>`
       : `<h2 class="warm">the ice broke</h2><canvas id="plate" width="160" height="72" role="img" aria-label="the hut tipped into the hole, the bucket floating, the shopkeeper shaking its head"></canvas><p>the hut went in with a crunch and a sploosh.<br>you climbed out soaked. your gear's fine. the bucket is gone.</p>`) +
       `<div class="stats">${rows.map((r) => `<span>${r[0]}</span><b>${r[1]}</b>`).join("")}</div>` +
-      `<button class="go" id="eGo" type="button">to the bait shop</button><div id="tipSlot"></div><div class="credit">computer cooked games</div>`);
+      `<button class="go" id="eGo" type="button">to the bait shop</button>${dawn ? "" : `<br><button class="alt" id="eAgain" type="button">fish again: night ${night + 1}, skip the shop</button>`}<div id="tipSlot"></div><div class="credit">computer cooked games</div>`);
     $("eGo").onclick = () => { $("end").hidden = true; openShop(); };
-    if (!dawn) plate($("plate"), N.lost);
+    if (!dawn) { $("eAgain").onclick = () => { $("end").hidden = true; startNight(); }; plate($("plate"), N.lost); }
     // the shared tip button (assets/tip.js); nothing shows while tips are off
     if (window.ccTip) { try { Promise.resolve(window.ccTip.mount($("tipSlot"), { game: "thin-ice", slot: "game-over" })).catch(() => {}); } catch (e) { /* fine */ } }
   }
@@ -578,20 +578,34 @@
       g.stroke();
       // the water line in the hole, rippling, and a floating ice chunk
       for (let x = HX - HW; x < HX + HW; x++) p((x + ((t * 6) | 0)) % 4 ? "#3d7aa8" : "#9ae6ff", x, WL + Math.round(Math.sin(x * 0.7 + t * 4) * 0.6), 1, 1);
-      p("#cfe9f5", HX + 9 + Math.sin(t) * 1.5, WL - 1, 6, 2); p("#9ac8e0", HX + 9 + Math.sin(t) * 1.5, WL + 1, 6, 1);
-      // the bucket, upside down and bobbing
-      const bx = HX + 2 + Math.sin(t * 0.8) * 2, by = WL - 3 + Math.round(Math.sin(t * 2.2));
-      p("#8a9aaa", bx - 1, by + 3, 8, 1); p("#6a7a8a", bx, by, 6, 3); p("#4a5a6a", bx + 2, by - 1, 2, 1);
-      // bubbles up from the hut, and the catch swimming off under the ice
-      for (let k = 0; k < 5; k++) { const q = (t * 0.5 + k * 0.2) % 1; p("#9ae6ff", HX - 8 + k * 4 + Math.sin(t * 3 + k), H2 - 8 - q * (H2 - WL - 8), 1, 1); }
+      p("#cfe9f5", HX - 15 + Math.sin(t) * 1.5, WL - 1, 6, 2); p("#9ac8e0", HX - 15 + Math.sin(t) * 1.5, WL + 1, 6, 1);
+      // bubbles up from the hut (2x2, bright, with a glint), popping at the water line
+      for (let k = 0; k < 7; k++) {
+        const q = (t * 0.45 + k / 7) % 1, x = HX - 10 + k * 3 + Math.sin(t * 3 + k) * 1.5, y = H2 - 6 - q * (H2 - WL - 6), r = k % 3 ? 2 : 3;
+        p("#cff4ff", x, y, r, r); p("#ffffff", x, y, 1, 1);
+      }
+      // the bucket, upside down and bobbing: big, shiny, outlined, half under (K-0066: it has to read)
+      const bx = HX + 11 + Math.round(Math.sin(t * 0.8) * 1.5), by = WL - 6 + Math.round(Math.sin(t * 2.2));
+      for (let r = 0; r < 8; r++) { const half = 3 + (r >> 1); p("#1a0c06", bx - half - 1, by + r, half * 2 + 2, 1); p(r < 2 ? "#ff9a5a" : r === 4 ? "#ffd9a8" : "#e8573a", bx - half, by + r, half * 2, 1); }
+      p("#1a0c06", bx - 4, by - 1, 8, 1); p("#ffffff", bx - 2, by + 1, 1, 3); p("#b03a22", bx - 7, by + 7, 14, 2); // base, glint, rim
+      g.strokeStyle = "#1a0c06"; g.beginPath(); g.arc(bx + 0.5, by + 9.5, 5, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke(); // the handle, hanging
+      g.globalAlpha = 0.5; p("#0d2a4a", bx - 8, WL + 1, 16, 9); g.globalAlpha = 1; // the half under water
+      for (let x = bx - 8; x < bx + 8; x += 2) p("#9ae6ff", x + ((t * 4) | 0) % 2, WL, 1, 1);
+      // the catch swimming off under the ice
       for (let k = 0; k < Math.min(3, lost || 1); k++) {
         const dir = k % 2 ? -1 : 1, fx = HX + dir * ((10 + k * 6 + t * (8 + k * 3)) % (W2 * 0.6)), fy = ICE + 14 + k * 6 + Math.sin(t * 3 + k) * 1.5, col = FOLK[k];
         p(col, fx - 3, fy - 1, 7, 3); p(col, fx + dir * 4, fy, 1, 1); p(col, fx - dir * 5 - 1, fy - 2, 2, 2); p(col, fx - dir * 5 - 1, fy + 1, 2, 2); p("#06101e", fx + dir * 2, fy - 1, 1, 1);
       }
-      // you, on the ice: soaked, orange hat, dripping
-      const yx = HX - HW - 12;
-      p("#1a1210", yx, ICE - 7, 4, 6); p("#ff7a2a", yx, ICE - 9, 4, 2); p("#c8a070", yx + 1, ICE - 7, 2, 1);
-      p("#9ae6ff", yx + 1 + ((t * 2) | 0) % 3, ICE - 5 + ((t * 8) % 5), 1, 1);
+      // you, on the ice: soaked, orange hat, dripping, shivering (K-0066: twice the size, outlined)
+      const yx = HX - HW - 16 + (reduce ? 0 : Math.round(Math.sin(t * 30) * 0.5)), yy = ICE - 15;
+      p("#06101e", yx - 1, yy - 1, 10, 16);
+      p("#ff7a2a", yx, yy, 8, 3); p("#ffb35a", yx + 1, yy, 6, 1); p("#ff7a2a", yx + 3, yy - 1, 2, 1); // the hat
+      p("#e8c49a", yx + 1, yy + 3, 6, 3); p("#06101e", yx + 2, yy + 4, 1, 1); p("#06101e", yx + 5, yy + 4, 1, 1); // face
+      p("#2f5fa8", yx, yy + 6, 8, 6); p("#4a7ac8", yx + 1, yy + 6, 2, 6); p("#1a3a6a", yx + 3, yy + 7, 2, 5); // soaked coat
+      p("#1a1210", yx + 1, yy + 12, 2, 3); p("#1a1210", yx + 5, yy + 12, 2, 3); // boots
+      p("#9ae6ff", yx - 2, yy + 8, 1, 3); p("#9ae6ff", yx + 9, yy + 7, 1, 3); // water running off
+      for (let k = 0; k < 3; k++) { const q = (t * 1.6 + k / 3) % 1; p("#cff4ff", yx + 1 + k * 3, yy + 12 + q * 4, 1, 2); } // drips
+      if (((t * 1.2) | 0) % 2) { p("#cff4ff", yx + 6, ICE - 1, 4, 1); } // the puddle
       // the shopkeeper: a beige crt with a green face, shaking its head
       const sx = 128 + Math.round(Math.sin(t * 8) * (Math.sin(t * 0.9) > -0.3 ? 1.5 : 0)), sy = ICE - 16;
       p("#b8ac90", sx + 4, sy + 14, 8, 2); p("#e8dcc0", sx, sy, 16, 14); p("#f4ecd4", sx, sy, 16, 1);
@@ -971,11 +985,11 @@
     coachOn = k; hold = false; holdPtr = null; keyHold = false;
     const [t, body] = COACH[k];
     $("coachBox").innerHTML = `<div class="ct">${t}</div><p>${body}</p><button class="go" id="cGo" type="button">got it</button>`;
-    $("coach").hidden = false;
+    $("coach").hidden = false; document.body.classList.add("coaching");
     $("cGo").onclick = coachDone;
     try { $("cGo").focus({ preventScroll: true }); } catch (e) { /* fine */ }
   }
-  function coachDone() { if (!coachOn) return; coachOn = null; $("coach").hidden = true; hold = false; }
+  function coachDone() { if (!coachOn) return; coachOn = null; $("coach").hidden = true; document.body.classList.remove("coaching"); hold = false; }
   function fishCanvasHTML(f, len) { return `<canvas class="pf" data-id="${f.id}" data-len="${len}" width="96" height="40" style="width:192px;height:80px;image-rendering:pixelated"></canvas>`; }
   function drawPanelFish() {
     document.querySelectorAll("canvas.pf").forEach((c) => {
@@ -1095,9 +1109,9 @@
     }
     if (T_DUNK) { // night 1, an hour in, a heavy bucket, the ice at its last groan
       S.night = 1; startNight();
-      N.t = 60; N.c = 0.8; N.warned = 2;
+      N.t = 60; N.c = 0.985; N.warned = 3; // K-0066: breaks in ~3 s, no 30 s wait
       N.bucket = [{ id: "pike", w: 7.4, v: 22 }, { id: "bass", w: 4.1, v: 12 }, { id: "perch", w: 1.2, v: 2 }, { id: "bluegill", w: 0.9, v: 2 }, { id: "crappie", w: 1.8, v: 4 }];
-      toast("test: heavy bucket, the ice is about to go. keep fishing (or haul).", "bad");
+      toast("test: heavy bucket, the ice goes in a few seconds (or haul).", "bad");
       return;
     }
     if (T_RESET) { S = freshS(); save(); toast("test: a brand-new save. night 1, coach cards and all.", "warm"); startNight(); return; }

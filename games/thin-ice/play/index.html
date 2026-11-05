@@ -51,6 +51,10 @@
   /* full-screen panels: title, shop, log, end of night */
   .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: radial-gradient(#0b1434, #050816); padding: 18px; text-align: center; overflow: auto; touch-action: pan-y; }
   .over[hidden] { display: none; }
+  /* K-0066: the platform's share pill sits top centre (about 10-50px) at game over; keep panel titles under it */
+  .over { padding-top: calc(64px + env(safe-area-inset-top, 0px)); }
+  /* nothing from the night shows under a coach card */
+  body.coaching #hint, body.coaching #acts { visibility: hidden; }
   #log { z-index: 7; }
   .box { width: min(100%, 440px); margin: auto; }
   .over h1 { font-size: clamp(42px, 14vw, 76px); margin: 0 0 4px; letter-spacing: -2px; color: #e8f6ff; text-shadow: 0 0 18px #9ae6ff66, 4px 4px 0 #13306a; }

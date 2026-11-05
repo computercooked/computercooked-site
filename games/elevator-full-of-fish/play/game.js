@@ -1,6 +1,6 @@
 /* elevator full of fish — computer cooked games.
    Get to floor 9. At every floor the doors open and fish leap in. Tap a fish to fling it out of the open doors.
-   The car only moves when the fish weigh less than the limit; over it, OVERLOAD, the doors stay open and the clock
+   The car only moves when the fish weigh less than the limit; over it, OVERLOAD: the doors stay open, a 4 s fuse burns and the cables snap if it runs out; the clock
    keeps running. Golden fish are worth more, pufferfish puff up if you tap them twice (heavier, unflingable for a
    moment), sharks take three taps. The ride is 75 seconds; floor 9 is the goal and the building keeps going.
    Space flings the fish nearest the doors (and starts / retries), M mutes. */
@@ -13,7 +13,7 @@
 
   const cv = document.getElementById("c"), cx = cv.getContext("2d");
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const RIDE = 75, CAP = 10, GOAL = 9;
+  const RIDE = 75, CAP = 10, GOAL = 9, FUSE = 4; // FUSE: seconds over the limit before the cables give (K-0066)
 
   // ---------- palette ----------
   const CASE = "#e6d596", SIDE = "#a6975d", INK = "#0b0c0e", LIME = "#a8d533", LIME2 = "#dcff7a", BAD = "#ff4d5e", PAPER = "#f4f1e6";
@@ -148,7 +148,7 @@
 
   // ---------- state ----------
   let state = "title", t = 0, floor = 1, score = 0, best = 0, prevBest = 0, flung = 0, fish = [], fx = [];
-  let phase = "open", phaseT = 0, door = 0, overloads = 0, reachedGoal = false, line = pick(LINES.hello), lineT = 0, face = "sad", faceT = 0, shake = 0, startAt = 0, endAt = 0, travel = 0;
+  let phase = "open", phaseT = 0, overT = 0, door = 0, overloads = 0, reachedGoal = false, line = pick(LINES.hello), lineT = 0, face = "sad", faceT = 0, shake = 0, startAt = 0, endAt = 0, travel = 0;
   // the crash at the buzzer: shudder, the cables snap, the car drops, the fish fly, a stamp, then the card
   const FAIL = reduce ? 1.2 : 1.7, SNAP = 0.4;
   let failT = 0, failAt = 0, failWhy = "time", fallen = false, snapped = false, flashT = 0;
@@ -160,7 +160,7 @@
   const openTime = () => Math.max(1.7, 3.3 - floor * 0.11);
 
   function spawnFish() {
-    const n = Math.min(9, 2 + Math.floor(floor / 1.6) + (Math.random() < 0.4 ? 1 : 0));
+    const n = Math.min(9, 2 + Math.floor(floor / 1.6) + (Math.random() < 0.4 ? 1 : 0) - (floor <= 3 ? 1 : 0)); // floors 1-3: one fish fewer (K-0066)
     let sharks = fish.filter((f) => f.kind === "shark" && !f.out).length;
     for (let i = 0; i < n; i++) {
       let kind = "trout";
@@ -181,7 +181,7 @@
 
   function start() {
     state = "play"; t = 0; floor = 1; score = 0; flung = 0; fish = []; fx = []; overloads = 0; reachedGoal = false; travel = 0;
-    phase = "open"; phaseT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
+    phase = "open"; phaseT = 0; overT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
     startAt = performance.now(); say("hello", true); react("happy", 0.6); sfx.ding();
     sdk((c) => c.start && c.start());
     spawnFish();
@@ -346,11 +346,13 @@
     if (phase === "open") {
       door = Math.min(1, door + dt * 3);
       if (phaseT >= openTime()) {
-        if (weight() > CAP) { phase = "over"; phaseT = 0; overloads++; say("over", true); react("shock", 0.9); sfx.over(); shake = reduce ? 0 : 0.25; }
+        if (weight() > CAP) { phase = "over"; phaseT = 0; overT = 0; overloads++; say("over", true); react("shock", 0.9); sfx.over(); shake = reduce ? 0 : 0.25; }
         else { phase = "close"; phaseT = 0; }
       }
     } else if (phase === "over") {
-      if (phaseT >= 1) { if (weight() > CAP) { phaseT = 0; sfx.over(); say("over"); } else { phase = "close"; phaseT = 0; } }
+      // the fuse burns only while the car is over the limit; fling it under and the doors close (K-0066: no long stall)
+      if (weight() > CAP) { overT += dt; if (overT >= FUSE) { end(); return; } }
+      if (phaseT >= 1) { if (weight() > CAP) { phaseT = 0; sfx.over(); say("over"); } else { phase = "close"; phaseT = 0; overT = 0; } }
     } else if (phase === "close") {
       door = Math.max(0, door - dt * 3);
       if (door <= 0) { phase = "travel"; phaseT = 0; sfx.up(); say("up"); }
@@ -491,6 +493,12 @@
     if (phase === "over" && state === "play") {
       const pulse = reduce ? 1 : 0.6 + 0.4 * Math.abs(Math.sin(time * 8));
       cx.globalAlpha = pulse; const oy = L.backB - (L.backB - L.doorT) * 0.18, os = Math.max(24, 34 * U); cx.fillStyle = INK; cx.fillRect(L.doorL - 30, oy - os * 0.65, L.doorR - L.doorL + 60, os * 1.3); text("OVERLOAD", W / 2, oy, os, BAD, "center", 900); cx.globalAlpha = 1;
+      // the hot prompt and the fuse, for the whole wait
+      const fs = Math.max(16, 22 * U), fy = oy + os * 0.65 + fs * 0.9, fw = L.doorR - L.doorL, k = Math.max(0, 1 - overT / FUSE);
+      cx.fillStyle = INK; cx.fillRect(L.doorL - 6, fy - fs * 0.7, fw + 12, fs * 1.4 + 12);
+      text("FLING FISH! " + Math.ceil(FUSE - overT) + "s", W / 2, fy, fs, overT > FUSE - 1.5 ? BAD : "#ffb340", "center", 900);
+      cx.fillStyle = STEEL2; cx.fillRect(L.doorL, fy + fs * 0.6, fw, 6);
+      cx.fillStyle = k < 0.4 ? BAD : "#ffb340"; cx.fillRect(L.doorL, fy + fs * 0.6, fw * k, 6);
     }
   }
   function drawFish() {
@@ -638,5 +646,5 @@
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__eff = { state: () => ({ state, t, floor, score, flung, weight: weight(), phase, door, overloads, reachedGoal, fish: fish.filter((f) => !f.out && f.delay <= 0).map((f) => ({ x: Math.round(f.x), y: Math.round(f.y), kind: f.kind, puff: f.puffT > 0 })) }) };
+  window.__eff = { state: () => ({ state, t, floor, score, flung, weight: weight(), phase, overT, door, overloads, reachedGoal, fish: fish.filter((f) => !f.out && f.delay <= 0).map((f) => ({ x: Math.round(f.x), y: Math.round(f.y), kind: f.kind, puff: f.puffT > 0 })) }) };
 })();
