@@ -1,7 +1,7 @@
 # Adds (or updates) an iframe-hosted game on the site from a self-contained folder
 # that has index.html + entry.json (slug, title, pitch, thumbnail, made_by, controls, size_kb).
 #
-#   pwsh scripts/add-game.ps1 "C:\path\to\site-ports\bellchain"
+#   pwsh scripts/add-game.ps1 "C:\path\to\Game sources\bellchain"
 #
 # Result: the game is copied to games/<slug>/play/, a player page is generated at
 # games/<slug>/index.html from scripts/player-template.html, and games.json + sitemap.xml
