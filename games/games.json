@@ -542,7 +542,7 @@
       ],
       "controls": "tap a fish while the doors are open to fling it out. sharks take three taps, don't tap a pufferfish twice. space flings the nearest fish. m mutes.",
       "size_kb": 29,
-      "version": "1.2",
+      "version": "1.3",
       "added": "2026-10-30",
       "max_score_per_sec": 15.0,
       "max_score": 2000.0
@@ -592,7 +592,7 @@
       ],
       "controls": "hold anywhere (or hold space / enter) to cook, let go when the food is done. popcorn pops slow down, the egg wobbles, the fish stinks. metal: let go at once. m mutes.",
       "size_kb": 33,
-      "version": "1.1.2",
+      "version": "1.1.3",
       "added": "2026-10-30",
       "max_score_per_sec": 15.0,
       "max_score": 6000.0
@@ -710,7 +710,7 @@
       ],
       "controls": "hold anywhere to drop the line, let go to stop. on a bite: hold to reel, let go when the fish runs. haul the bucket to shore before the ice breaks. space works too. h hauls, r reels in, l opens the fish log, m mutes.",
       "size_kb": 60,
-      "version": "1.2",
+      "version": "1.3",
       "added": "2026-11-02",
       "theme": {
         "accent": "#9ae6ff",

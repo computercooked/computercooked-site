@@ -523,16 +523,20 @@
       // K-0060: the burn moment's flash (white-hot, fading fast; none with reduced motion) and its word
       if (hot) {
         if (!reduce && burn.t < 0.16) { cx.globalAlpha = 1 - burn.t / 0.16; R(burn.v === "sparks" ? "#e6f6ff" : "#fff2c0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
-        const k = burn.t / BURN_T, sz = Math.min(M.ww * 0.17, 60) * (reduce ? 1 : Math.min(1, 0.45 + burn.t * 5)), wx = M.wx + M.ww / 2, wy = M.wy + M.wh * 0.36;
-        cx.globalAlpha = k > 0.8 ? (1 - k) / 0.2 : 1;
-        text(burn.word, wx + 3, wy + 3, sz, INK, "center", 900); text(burn.word, wx, wy, sz, burn.v === "sparks" ? "#7fd4ff" : WARN, "center", 900);
-        cx.globalAlpha = 1;
       }
       cx.restore();
     }
     // K-0060: smoke billows out over the door (drawn unclipped, chunky like the rest)
     for (const m of smoke) { cx.globalAlpha = m.a * Math.min(1, m.life / m.max * 1.4); R("#4a4c52", m.x - m.r, m.y - m.r, m.r * 2, m.r * 2); R("#2c2d31", m.x - m.r * 0.55, m.y - m.r * 0.55, m.r * 1.1, m.r * 1.1); }
     cx.globalAlpha = 1;
+    if (burn && state === "play" && item) { // K-0066: the word sits over the smoke, on its own dark plate
+      const k = burn.t / BURN_T, sz = Math.min(M.ww * 0.17, 60) * (reduce ? 1 : Math.min(1, 0.45 + burn.t * 5)), wx = M.wx + M.ww / 2, wy = M.wy + M.wh * 0.36;
+      cx.globalAlpha = k > 0.8 ? (1 - k) / 0.2 : 1;
+      let gw = 0; for (const ch of burn.word) gw += pfGlyph(ch).w + 1; const bw = Math.min(M.ww, (gw - 1) * sz / 10 + sz * 0.8);
+      cx.globalAlpha *= 0.85; R(INK, wx - bw / 2, wy - sz * 0.62, bw, sz * 1.24); cx.globalAlpha = k > 0.8 ? (1 - k) / 0.2 : 1;
+      text(burn.word, wx + 3, wy + 3, sz, INK, "center", 900); text(burn.word, wx, wy, sz, burn.v === "sparks" ? "#7fd4ff" : WARN, "center", 900);
+      cx.globalAlpha = 1;
+    }
     // glass glare and the mesh dots
     cx.globalAlpha = 0.07; R(PAPER, M.wx + M.ww * 0.08, M.wy, M.ww * 0.12, M.wh); R(PAPER, M.wx + M.ww * 0.24, M.wy, M.ww * 0.04, M.wh); cx.globalAlpha = 1;
     // the display: face and the timer
@@ -559,7 +563,7 @@
     if (state === "play" && item) {
       const it = ITEMS[item.kind], ny = M.my - 46 * Math.min(1.2, U);
       text(it.name, W / 2, ny, Math.max(14, Math.min(22, W / 22)), it.cursed ? BAD : CASE, "center", 900);
-      text(phase === "ready" ? "hold to cook · " + it.tip : it.tip, W / 2, ny + 22, Math.max(11, Math.min(14, W / 34)), it.cursed ? WARN : "#c9c4a8", "center", 700);
+      if (!burn && phase !== "result") text(phase === "ready" ? "hold to cook · " + it.tip : it.tip, W / 2, ny + 22, Math.max(11, Math.min(14, W / 34)), it.cursed ? WARN : "#c9c4a8", "center", 700);
       if (lineT > 0) text(line, W / 2, M.my + M.mh + 40, Math.max(12, Math.min(16, W / 28)), /[A-Z]{4}/.test(line) ? BAD : PAPER, "center", 700);
     }
     // the scare: a ghost bursts out of the window, the screen flashes once (no flash with reduced motion)
@@ -591,11 +595,12 @@
     }
     if (!tipBox) return;
     if (tipBox.hidden === show) tipBox.hidden = !show;
-    if (show) { const t = Math.round(Math.max(0, Math.min(y, H - 72))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
+    if (show) { const t = Math.round(Math.max(0, Math.min(y, H - tipBox.offsetHeight - 6))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
   }
   function overlay() {
     R("rgba(8, 9, 7, 0.82)", 0, 0, W, H);
-    const big = Math.round(Math.max(28, Math.min(52, W / 9))), mid = H * 0.42;
+    const big = Math.round(Math.max(28, Math.min(52, W / 9))), tipH = (tipBox && tipBox.offsetHeight) || 64;
+    const mid = state === "over" ? Math.max(big * 1.6 + 96, Math.min(H * 0.42, H - big * 1.25 - 86 - tipH - 8)) : H * 0.42; // K-0066
     if (state === "title") {
       text(haunted ? "haunted" : "microwave", W / 2, mid - big * 2.2, big, haunted ? "#ff9a2e" : CASE, "center", 900);
       text(haunted ? "microwave" : "panic", W / 2, mid - big * 1.1, big, haunted ? "#b89aff" : LIME, "center", 900);
