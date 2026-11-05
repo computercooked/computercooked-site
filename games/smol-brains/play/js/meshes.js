@@ -930,6 +930,7 @@
     leaf: function () { return ME.builder().sides(true).color(0xffffff, 1).leaf(1, 1, 0.15).finish(); },
     ring: function () { return ME.builder().smoothShade(true).color(0xffffff, 1).torus(1, 0.12, 16, 5).finish(); },
     halo: function () { return ME.builder().smoothShade(true).color(0xffffff, 1).glow(1).torus(1, 0.12, 16, 5).finish(); },
+    beacon: function () { var b = ME.builder().smoothShade(true).color(0xffffff, 1).glow(1); b.cyl(10, 1, 0.35, 1, false); return b.finish(); }, // K-0066: the chase's pillar of light
     disc: function () { var b = ME.builder().color(0xffffff, 1); b.cyl(24, 1, 1, 0.02, true); return b.finish(); },
     brain: function () { var b = ME.builder().color(0xffffff, 1); b.push().scale(1, 0.75, 1.1).blob(2, 0.18, 7).pop(); b.color(0xd06a8a, 1).push().translate(0, 0.62, 0).scale(0.06, 0.18, 1.0).sphere(1).pop(); return b.finish(); },
     mouth: function () { return ME.builder().color(0x3a1520).push().scale(1, 0.55, 0.4).sphere(0).pop().finish(); },

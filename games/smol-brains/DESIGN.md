@@ -635,6 +635,14 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.55 What v4.11.7 fixed: Chef's 4.11.6 phone playtest (K-0066)
+
+1. **The HUD comes back after a chase on a phone.** Taking a body cleared the camera's running move without its ending. On a slow phone the landing film (the fall onto the island) was still running when `?chase=1` lent the light, so its ending never ran: the island's title card stayed up and the top bar and toolbar stayed hidden after the chase. `Possess.enter` now finishes a running camera move, ending and all, and the `?chase=1` jump waits for the landing film before it starts. Test: `nightchase.test.js` section 10.
+2. **A narrower smol card on a phone.** Below 900 px wide (or under 560 px tall) the card sits at the bottom right, 70% of the width between 196 and 300 px (44% on a phone on its side), with smaller header buttons and the name cut short with "…". The avatar hides below 360 px. Fold (▾) is unchanged. Measured: 280 px of 400 (24% of the screen), 196 of 267, 300 of 844 landscape.
+3. **An in-world nest beacon.** In a chase (and the first night) the way to safety, the nest or the nearest fire, now has a pillar of light in the world itself: a 14 m glowing column (`p:beacon` in meshes.js) with a ring at its foot and its top, drawn by bodies.js. It pulses and is warm orange over a fire. The overlay pillar and the edge arrow ("nest 16m") stay for when it's behind you or lost in fog.
+
+No new sounds.
+
 ## 0.54 What v4.11.6 fixed: Chef's 4.11.5 run (K-0063)
 
 1. **Miracles stay armed.** A picked miracle no longer drops after one cast. Every tap on the world casts it again, until you press ✕ or Esc, close the magic book, pick another tool, or can't afford another.
