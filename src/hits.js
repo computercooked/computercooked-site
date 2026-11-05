@@ -9,7 +9,8 @@
 //   tip_success  a page opened with ?tip=thanks (the Stripe Payment Link's after-payment redirect), once per visit
 //   ad_slot      a moment an ad would show under the assets/ads.js caps (interstitial / rewarded), counted before any network
 //   desk_shown   the homepage's "your desk" row was shown to a returning player (K-0064, assets/home.js), once per load
-//   desk_click   a card in that row was opened, with the game's slug; slot "resume" (the pick-up card) or "card"
+//   desk_click   a card in that row was opened, with the game's slug; slot "resume" (the pick-up card) or "card";
+//                slot "nudge" (no game) = the hero's "your desk is warm" link down to the row (K-0066)
 // Stored as events rows named cc:<kind>, data {path, ref, campaign, src, medium, slot}; src / medium are the visit's raw
 // utm_source / utm_medium. Read in /api/admin/metrics and /api/admin/digest.
 // Smoke traffic is answered but not stored, like /api/follow.
@@ -43,7 +44,7 @@ export async function hit(req, env, ip) {
     data.ms = Math.min(ms, 30 * 60000);
   }
   if (b.kind === "ad_slot") data.slot = b.slot === "rewarded" ? "rewarded" : "interstitial";
-  if (b.kind === "desk_click") data.slot = b.slot === "resume" ? "resume" : "card";
+  if (b.kind === "desk_click") data.slot = b.slot === "resume" || b.slot === "nudge" ? b.slot : "card";
   const game = slugOk(b.game) ? b.game : "site";
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, ?, ?, ?)")
     .bind(game, "cc:" + b.kind, JSON.stringify(data), now()).run();

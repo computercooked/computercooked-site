@@ -133,6 +133,19 @@
    html.cc-desk is set in <head> when this device has play history: the row shows and holds its height from the first
    paint, so filling it moves nothing. The strip swipes sideways on its own; the page never does. */
 html.cc-desk .desk-row[hidden] { display: block; }
+.desk-row { scroll-margin-top: var(--s-5); }
+/* K-0066: the nudge in the hero window, returning players only; the hero window is positioned, so the page doesn't move */
+.desk-nudge-p { display: none; margin: var(--s-4) 0 0; }
+html.cc-desk .desk-nudge-p { display: block; }
+.desk-nudge { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 12px 4px 8px; border: 1px dashed var(--accent);
+  border-radius: 999px; color: var(--accent); font: 700 var(--fs-14) var(--mono); text-decoration: none; }
+.desk-nudge img { width: 14px; height: 20px; image-rendering: pixelated; }
+.desk-nudge:hover, .desk-nudge:focus-visible { border-style: solid; background: rgba(184, 242, 58, .08); }
+@media (prefers-reduced-motion: no-preference) {
+  .desk-nudge img { animation: desk-bob 2.4s ease-in-out infinite; }
+  .desk-nudge span { display: inline-block; animation: desk-nudge-dip 1.6s ease-in-out infinite; }
+  @keyframes desk-nudge-dip { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+}
 .desk-row .section-label span { color: var(--text-dim); font: 700 var(--fs-14) var(--mono); letter-spacing: 0; white-space: nowrap; }
 .desk-clear { padding: 4px 0; border: 0; background: none; font: inherit; font-size: var(--fs-14); cursor: pointer; }
 .desk-row-in { display: flex; align-items: flex-start; gap: var(--s-3); }

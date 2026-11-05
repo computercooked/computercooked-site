@@ -97,7 +97,7 @@ A "new games drop on our tiktok first / follow **@computercooked**" house card w
     "runs_ended": 0,                                     // game overs (plays that reported an end)
     "game_shares": 0,                                    // "share this game" sends
     "tip_clicks": 0,                                     // "Tip the chef" / tip link clicks (outbound to Stripe)
-    "desk": { "shown": 0, "clicks": 0, "resume": 0 },    // homepage "your desk" row: shown, cards opened, of which the pick-up card
+    "desk": { "shown": 0, "clicks": 0, "nudge": 0, "resume": 0 },   // homepage "your desk" row: shown, cards opened (of which the pick-up card), hero nudge clicks
     "follow_clicks": { "tiktok": 0, "youtube": 0, "instagram": 0, "x": 0 },   // follow button clicks
     "dares": { "made": 0, "sent": 0, "opened": 0, "beaten": 0 },   // dares made that day, and what became of them
     "new_accounts": 0,
@@ -264,8 +264,9 @@ Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that pag
 The homepage shows a **your desk** row above game of the week, but only to a browser that has played something.
 - **History:** `games/platform.js` keeps `cc-history` in localStorage on every game page: `{slug: {t, n, b}}`. `t` is the last visit, `n` counts visits that started a run, and `b` is the best score from an accepted run (the board's own MAX). There's no server, account or cookie. Browsers from before this only have `cc-recent`, which is used until `cc-history` exists.
 - **The row** (`assets/home.js`): up to 6 cards, cloned from the shelf cards on the page, so no fetch. It shows the most recent game first, with "pick up where you left off", then up to 2 games added since the last homepage visit (`cc-desk-seen`), then the rest of the history. Each card has a sticker: `best: 41`, `played 3x`, `new since you left`, or `today's daily is fresh` on Crash Test daily when it hasn't been played today. The CRT mascot says a random line. **clear** wipes `cc-history` and `cc-recent`.
+- **The nudge** (K-0066): returning players also get a "your desk is warm ▾" link under the hero buttons, since the row sits below the fold on desktop. It scrolls down to the row and focuses its heading. It's hidden on first visits, like the row.
 - **No layout shift:** a tiny `<head>` script adds `html.cc-desk` only when there's history, and CSS reserves the row's height from the first paint. First visits get the page exactly as before.
-- **Counted:** `POST /api/hit` kinds `desk_shown` (once per load) and `desk_click` (`game`, `slot` `resume` or `card`), stored as `cc:desk_shown` / `cc:desk_click` events.
+- **Counted:** `POST /api/hit` kinds `desk_shown` (once per load) and `desk_click` (`game`, `slot` `resume` or `card`; `slot` `nudge` with no game for the hero link), stored as `cc:desk_shown` / `cc:desk_click` events.
 - **Playtest:** `/?ccdesk=demo` fills the row with made-up history (nothing stored or counted).
 
 ## Tip jar (off by default)
