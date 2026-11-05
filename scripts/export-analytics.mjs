@@ -11,8 +11,20 @@ if (!base || !tokenFile || !outDir) {
   console.error("usage: node scripts/export-analytics.mjs <base> <token file> <out dir> [days]");
   process.exit(2);
 }
-const token = readFileSync(tokenFile, "utf8").trim();
-const res = await fetch(base.replace(/\/$/, "") + "/api/admin/digest?days=" + encodeURIComponent(days), { headers: { authorization: "Bearer " + token } });
+// the file may have # comment lines; the token is the one line left. Errors never include it.
+const lines = readFileSync(tokenFile, "utf8").split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const token = lines.length === 1 && /^[A-Za-z0-9_-]{24,200}$/.test(lines[0]) ? lines[0] : null;
+if (!token) {
+  console.error("token file: expected one token line (comments with # are skipped)");
+  process.exit(2);
+}
+let res;
+try {
+  res = await fetch(base.replace(/\/$/, "") + "/api/admin/digest?days=" + encodeURIComponent(days), { headers: { authorization: "Bearer " + token } });
+} catch (e) {
+  console.error("digest failed: network error");
+  process.exit(1);
+}
 if (!res.ok) {
   console.error("digest failed: HTTP " + res.status);
   process.exit(1);
