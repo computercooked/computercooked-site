@@ -781,6 +781,59 @@
           "secret": false
         }
       ]
+    },
+    {
+      "slug": "prove-youre-human",
+      "clip": "/assets/clips/prove-youre-human.mp4",
+      "title": "prove you're human",
+      "pitch": "the arcade's security computer got cooked and now it thinks you're a bot. pass its absurd captchas, but not too perfectly: humans hesitate.",
+      "thumbnail": "/games/prove-youre-human/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "funny",
+        "daily",
+        "short",
+        "reflex",
+        "mobile"
+      ],
+      "controls": "tap, drag, type and hold to pass each captcha, then press verify (enter works too). too fast or too perfect raises suspicion. a full meter is access denied. one new daily gauntlet every day.",
+      "size_kb": 66,
+      "version": "1.0",
+      "added": "2026-11-05",
+      "theme": {
+        "accent": "#7dff6a",
+        "bg": "#0b120c"
+      },
+      "max_score_per_sec": 120.0,
+      "how_to": [
+        "pass each captcha before the timer runs out",
+        "too fast or too perfect makes the computer suspicious: humans hesitate",
+        "a full suspicion meter is access denied",
+        "the daily gauntlet is the same 10 checks for everyone, come back tomorrow for a streak"
+      ],
+      "achievements": [
+        {
+          "id": "so_human",
+          "name": "suspiciously human",
+          "desc": "finish a run at 90% human or more",
+          "xp": 20,
+          "secret": false
+        },
+        {
+          "id": "three_days",
+          "name": "creature of habit",
+          "desc": "a 3-day daily gauntlet streak",
+          "xp": 30,
+          "secret": false
+        },
+        {
+          "id": "bot_detected",
+          "name": "beep boop",
+          "desc": "get access denied",
+          "xp": 5,
+          "secret": true
+        }
+      ]
     }
   ]
 }

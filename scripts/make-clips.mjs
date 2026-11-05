@@ -57,9 +57,11 @@ const DRIVE = {
   // the aurora, a pike on the line and the ice cracking outward in cyan (K-0061)
   // K-0062: the pike fight, reeled in pulses so the line, the fish and the cracking ice visibly move
   "thin-ice": () => { if (!window.__ti) return; window.__ti.clip(); let on = false; setInterval(() => { on = !on; window.__ti.hold(on); }, 380); },
+  // a soup check solved on camera (VERIFIED), then the next captcha (solve() works in test mode only)
+  "prove-youre-human": () => { const go = () => { const s = window.__pyh && window.__pyh.state(); if (s && s.state === "play") window.__pyh.solve(); }; setTimeout(go, 300); setInterval(go, 2400); },
 };
 // extra query for a game's clip run
-const QUERY = { "ant-farm": "&shot=1" };
+const QUERY = { "ant-farm": "&shot=1", "prove-youre-human": "&round=1" };
 // a closer frame for games whose action is small in the wide shot (ffmpeg crop on the 640x360 grab: w:h:x:y)
 const CROP = { "thin-ice": "400:225:130:95" };
 
