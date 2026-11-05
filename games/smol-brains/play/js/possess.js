@@ -84,7 +84,10 @@
     var cm = cam();
     if (cm) {
       S.cam = { x: cm.x, z: cm.z, zoom: cm.zoom, tZoom: cm.tZoom, yaw: cm.yaw, tYaw: cm.tYaw, follow: cm.follow };
-      cm.follow = null; cm.intro = null;
+      // K-0066: a camera move still running (the landing film on a slow phone) ends now, done and all: dropping it left
+      // the island's title card up and the top bar hidden for good
+      if (cm.intro) { var cb = cm.intro.done; cm.intro = null; if (cb) try { cb(); } catch (e) {} }
+      cm.follow = null;
       cm.pov = { x: c.x, y: c.y + 1, z: c.z, yaw: S.yaw, pitch: S.pitch, fov: P.FOV, far: farFor() };
       hookRender();
     }

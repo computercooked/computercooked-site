@@ -904,7 +904,8 @@
     (function wait() {
       if (Game.current !== g) return;
       [].forEach.call(document.querySelectorAll(".introskip, .introgate"), function (b) { b.click(); });
-      if ((SB.Intro && SB.Intro.covering) || (SB.Lantern && SB.Lantern.running)) { if (++tries < 200) setTimeout(wait, 300); return; }
+      var cine = SB.Render && SB.Render.camera && SB.Render.camera.intro && SB.Render.camera.intro.cine; // K-0066: and the landing film's fall onto the island
+      if ((SB.Intro && SB.Intro.covering) || (SB.Lantern && SB.Lantern.running) || cine) { if (++tries < 200) setTimeout(wait, 300); return; }
       SB.Debug.night(n, chase);
       if (SB.UI && SB.UI.toast) SB.UI.toast("🧪 test: jumped to night " + n + (chase ? ", a grump is closing on a smol" : ""));
     })();

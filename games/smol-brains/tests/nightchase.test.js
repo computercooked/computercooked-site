@@ -125,6 +125,17 @@ seeded(5700, () => {
   check("no card, storm or stranger for a while", !d3.active && d3.nextT >= g3.time + 300 && g3.strangerT >= 600);
   check("lending the light starts the chase", NC.lend(g3) && !!s3.live);
   P.leave(); SB.Game.current = game;
+
+  console.log("10. a body taken mid-film ends the film, done and all (K-0066: the phone's HUD never came back)");
+  const g4 = SB.Game.newGame(66); SB.Game.current = g4; g4.headless = true;
+  const hadR = SB.Render, ran = [];
+  if (!SB.Render) SB.Render = {};
+  const cm = SB.Render.camera = SB.Render.camera || { x: 0, z: 0, y: 0, zoom: 8, tZoom: 8, yaw: 0, tYaw: 0 };
+  cm.intro = { t: 0, dur: 4.5, cine: true, done: () => ran.push("landing") };
+  SB.Debug.night(2, true); NC.lend(g4);
+  check("the landing's ending ran once", ran.length === 1, ran.join());
+  check("and the film is gone", !cm.intro);
+  P.leave(); SB.Game.current = game; if (!hadR) delete SB.Render;
 });
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
