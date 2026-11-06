@@ -133,7 +133,9 @@
    html.cc-desk is set in <head> when this device has play history: the row shows and holds its height from the first
    paint, so filling it moves nothing. The strip swipes sideways on its own; the page never does. */
 html.cc-desk .desk-row[hidden] { display: block; }
-.desk-row { scroll-margin-top: var(--s-5); }
+/* K-0068: land below the fixed top bar (desktop); phones have the bar at the bottom */
+.desk-row { scroll-margin-top: calc(var(--topbar-h) + var(--s-5)); }
+@media (max-width: 767px) { .desk-row { scroll-margin-top: var(--s-5); } }
 /* K-0066: the nudge in the hero window, returning players only; the hero window is positioned, so the page doesn't move */
 .desk-nudge-p { display: none; margin: var(--s-4) 0 0; }
 html.cc-desk .desk-nudge-p { display: block; }
