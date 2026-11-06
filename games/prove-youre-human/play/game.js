@@ -131,7 +131,7 @@
   function bSoup(api, r) {
     const amb = pickR(r, AMBIG), nSoup = 2 + (r() < 0.5 ? 1 : 0);
     const items = shuffleR(r, [...Array.from({ length: nSoup }, () => ({ e: pickR(r, SOUP), soup: 1 })), { e: amb.e, amb: 1 }, ...shuffleR(r, NOTSOUP).slice(0, 8 - nSoup).map((e) => ({ e }))]);
-    const grid = el(`<div class="grid" style="grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)"></div>`);
+    const grid = el(`<div class="grid" style="grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,minmax(0,1fr))"></div>`);
     items.forEach((it) => { const b = el(`<button class="tile" type="button">${it.e}</button>`); b.onclick = () => { it.sel = !it.sel; b.classList.toggle("sel", it.sel); api.touch(); }; grid.appendChild(b); it.b = b; });
     area.appendChild(grid);
     api.verify(() => {
@@ -292,13 +292,13 @@
     const wrap = el(`<div class="lights"></div>`);
     area.appendChild(wrap);
     const need = 3 + (api.round >= 10 ? 1 : 0), OTHER = ["🚗", "🚌", "🌳", "🚲", "🏠", "🐦", "🛑", "🚕", "🌭", "🦆"];
-    const B = box(), cols = 3, s = Math.floor(B.width / cols) - 8, speed = (B.height / 3.2) * (1 + Math.min(0.8, api.round * 0.03));
+    const B = box(), cols = 3, s = Math.max(40, Math.floor(Math.min(B.width / cols - 8, (B.height - 16) / 3.1 - 8))), x0 = Math.round((B.width - cols * (s + 8) + 8) / 2), speed = (B.height / 3.2) * (1 + Math.min(0.8, api.round * 0.03));
     let got = 0, y = 0, rows = [], nextRow = 0, k = 0;
     function addRow(top) {
       const lightCol = r() < 0.8 ? Math.floor(r() * cols) : -1;
       for (let c2 = 0; c2 < cols; c2++) {
         const light = c2 === lightCol, e = light ? "🚦" : pickR(r, OTHER);
-        const t = el(`<button class="tile" type="button" style="width:${s}px;height:${s}px;left:${c2 * (s + 8) + 4}px;font-size:${Math.round(s * 0.55)}px">${e}</button>`);
+        const t = el(`<button class="tile" type="button" style="width:${s}px;height:${s}px;left:${x0 + c2 * (s + 8)}px;font-size:${Math.round(s * 0.55)}px">${e}</button>`);
         t._y = top; t._light = light; t._e = e;
         t.addEventListener("pointerdown", (ev) => {
           ev.preventDefault(); api.touch();
@@ -596,7 +596,7 @@
     const verdict = verdictOf(h, denied), card = shareCard(h, denied, verdict), daily = mode === "daily";
     $("endTb").textContent = denied ? "ACCESS_DENIED.txt" : "verdict.txt";
     $("endIn").innerHTML = `${denied ? `<div class="denied"><div class="stampbig">ACCESS DENIED: BOT DETECTED</div></div>` : ""}
-      <h2>I am ${h}% human</h2>
+      ${denied ? "" : `<h2>I am ${h}% human</h2>`}
       <p class="verdict">"${verdict}"</p>
       <div id="cardSlot"></div>
       <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? "" : ` · score ${score()}`}</p>
@@ -638,7 +638,8 @@
     fg.fillStyle = "rgba(0, 0, 0, .10)"; for (let y = 0; y < h; y += 3) fg.fillRect(0, y, w, 1);
     if (reduce || susp < 40) return;
     const k = (susp - 40) / 60;
-    if (Math.random() < k * 0.35) tears.push({ y: Math.random() * h, hh: 2 + Math.random() * 14 * k, life: 0.06 + Math.random() * 0.12, dx: (Math.random() - 0.5) * 30 * k, col: Math.random() < 0.5 ? "125, 255, 106" : "255, 59, 120" });
+    const head = !$("end").hidden && $("endIn").querySelector(".denied, h2"), hb = head && head.getBoundingClientRect(), y0 = hb ? hb.top - 30 : 0, y1 = hb ? hb.bottom + 14 : -1;
+    if (Math.random() < k * 0.35) { let ty = Math.random() * h; if (ty + 16 > y0 && ty < y1) ty = Math.random() < 0.5 ? Math.max(0, y0 - 16 - Math.random() * 40) : y1 + Math.random() * (h - y1); tears.push({ y: ty, hh: 2 + Math.random() * 14 * k, life: 0.06 + Math.random() * 0.12, dx: (Math.random() - 0.5) * 30 * k, col: Math.random() < 0.5 ? "125, 255, 106" : "255, 59, 120" }); }
     for (const tr of tears) { tr.life -= 1 / 60; fg.fillStyle = `rgba(${tr.col}, ${0.18 + 0.2 * k})`; fg.fillRect(tr.dx, tr.y, w, tr.hh); }
     tears = tears.filter((tr) => tr.life > 0);
   }

@@ -35,7 +35,7 @@
   #dlg .tb span { width: 18px; height: 16px; background: var(--beige); border: 1px solid var(--ink); color: var(--ink); font-size: 11px; line-height: 13px; text-align: center; box-shadow: inset -1px -1px 0 var(--beige3); }
   #ask { flex: none; padding: 10px 12px 6px; font-size: 17px; font-weight: 700; text-align: center; min-height: 52px; }
   #ask small { display: block; font-size: 12px; font-weight: 500; opacity: .7; margin-top: 2px; }
-  #area { flex: 1 1 auto; min-height: 0; position: relative; margin: 0 10px; background: #f7f0da; border: 2px solid; border-color: var(--beige3) #fff8e0 #fff8e0 var(--beige3); overflow: hidden; touch-action: none; }
+  #area { flex: 1 1 auto; min-height: 0; position: relative; margin: 0 10px; background: #f7f0da; border: 2px solid; border-color: var(--beige3) #fff8e0 #fff8e0 var(--beige3); overflow: hidden; touch-action: none; container-type: size; }
   #foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; }
   #tbar { flex: 1; height: 10px; border: 2px solid var(--ink); background: #fff8e0; position: relative; overflow: hidden; }
   #tbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #4f8f3a; }
@@ -55,8 +55,8 @@
   #stamp { animation: stampIn .22s cubic-bezier(.2, 1.6, .4, 1); }
   @keyframes stampIn { from { transform: translate(-50%, -50%) rotate(-8deg) scale(1.8); opacity: 0; } }
   /* captcha widgets */
-  .grid { position: absolute; inset: 8px; display: grid; gap: 6px; }
-  .tile { display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid var(--beige3); font-size: clamp(34px, 12vw, 60px); line-height: 1; position: relative; padding: 0; }
+  .grid { position: absolute; inset: 8px; display: grid; gap: 6px; grid-auto-rows: minmax(0, 1fr); }
+  .tile { display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid var(--beige3); font-size: clamp(22px, min(12cqw, 16cqh), 60px); line-height: 1; position: relative; padding: 0; min-width: 0; min-height: 0; overflow: hidden; }
   .tile.sel { border-color: #2d6fd6; background: #dbe8ff; }
   .tile.sel::after { content: "✓"; position: absolute; left: 3px; top: 1px; font-size: 14px; color: #fff; background: #2d6fd6; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; }
   .tile.bad { border-color: var(--red); background: #ffd6d6; }
@@ -75,13 +75,13 @@
   .fish { width: 180px; height: 180px; touch-action: none; cursor: grab; }
   .hold { width: 150px; height: 150px; border-radius: 50%; font-size: 18px; touch-action: none; }
   .hold.on { background: #cfe8b0; }
-  .lights { position: absolute; inset: 0; overflow: hidden; }
+  .lights { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 9%, #000 91%, transparent); mask-image: linear-gradient(transparent, #000 9%, #000 91%, transparent); }
   .lights .tile { position: absolute; }
   .draw { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
   .bait { font-size: 22px; padding: 18px 26px; background: #ffe066; animation: wob 1s ease-in-out infinite; }
   @keyframes wob { 50% { transform: scale(1.06) rotate(-2deg); } }
   .qs { display: flex; flex-direction: column; gap: 10px; width: 80%; }
-  .appl { position: absolute; inset: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .appl { position: absolute; inset: 8px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .appl .tile small { font-size: 11px; }
   .none { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; text-decoration: underline; background: none; border: 0; padding: 6px; color: #2d4fa8; }
   /* the glitch: scanlines always, tears and jitter as suspicion rises */
