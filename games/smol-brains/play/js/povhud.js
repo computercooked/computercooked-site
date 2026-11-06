@@ -158,7 +158,8 @@
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
     "#pov .qmark.home i{width:28px;height:28px;left:-14px;top:-34px;box-shadow:0 0 0 3px #000,0 0 18px var(--lime)}#pov .qmark.home span{font:800 15px system-ui,Arial,sans-serif;top:4px;background:rgba(0,0,0,.6);padding:2px 6px}",
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
-    "#pov .beam{position:absolute;width:22px;transform:translateX(-50%);pointer-events:none;display:none;border-radius:8px;background:linear-gradient(to top,rgba(255,214,110,.95),rgba(255,201,74,.55) 40%,rgba(255,201,74,0));box-shadow:0 0 22px 6px rgba(255,190,60,.35);filter:blur(1px);animation:povbeam 1.6s ease-in-out infinite}#pov .beam.on{display:block}@keyframes povbeam{50%{opacity:.7}}",
+    // K-0068: a hot core in a dark rim, so it reads against a pale sky as well as the night
+    "#pov .beam{position:absolute;width:24px;transform:translateX(-50%);pointer-events:none;display:none;border-radius:8px;background:linear-gradient(90deg,rgba(255,170,20,.95),#fff6c8 42%,#fff6c8 58%,rgba(255,170,20,.95));-webkit-mask:linear-gradient(to top,#000 55%,transparent);mask:linear-gradient(to top,#000 55%,transparent);box-shadow:0 0 0 2px rgba(20,10,0,.75),0 0 26px 8px rgba(255,170,30,.6);animation:povbeam 1.2s ease-in-out infinite}#pov .beam.on{display:block}#pov .beam.fire{background:linear-gradient(90deg,rgba(255,80,20,.95),#ffe0b0 42%,#ffe0b0 58%,rgba(255,80,20,.95));box-shadow:0 0 0 2px rgba(20,0,0,.75),0 0 26px 8px rgba(255,90,30,.6)}@keyframes povbeam{50%{opacity:.8}}",
     "#pov .nmark i{background:#ffc94a;box-shadow:0 0 0 3px #000,0 0 18px #ffc94a}#pov .nmark span{color:#ffc94a}", // the nest (or the nearest light) in a chase: its own marker (K-0058)
     "#pov .threat{position:absolute;left:50%;top:132px;transform:translateX(-50%);padding:7px 14px;font:700 15px var(--mono,monospace);color:#fff;background:rgba(150,20,35,.85);box-shadow:0 0 0 2px #ff4f5e;white-space:nowrap;display:none;animation:povbob 1s ease-in-out infinite}#pov .threat.on{display:block}",
     "@keyframes povbob{50%{translate:0 -5px}}",
@@ -211,7 +212,7 @@
     "#pov .pbtns button.act[disabled],#pov .pbtns button.off{opacity:.45}",
     "#pov .pbtns button.on{color:var(--lime);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--lime)}",
     "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:38px;height:38px}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
-    "#pov.phone .vrow i{width:17px;height:17px}#pov.phone .vrow{height:17px}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
+    "#pov.phone .vrow i{width:min(17px,3.4vw);height:min(17px,3.4vw)}#pov.phone .vrow{height:min(17px,3.4vw)}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
     "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
     "#pov.phone .quest{top:58px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
     "#pov.phone .prompt{font-size:12px;top:calc(50% + 24px)}#pov.phone .prompt kbd{display:none}#pov.phone .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}",
@@ -219,6 +220,15 @@
     "#pov.phone .bag .grid{grid-template-columns:repeat(9,34px);gap:3px}#pov.phone .bag .slot{width:34px;height:34px}#pov.phone .bag .slot .ic{width:24px!important;height:24px!important}#pov.phone .bag h3{flex-wrap:wrap;gap:4px}#pov.phone .bag .win{flex-direction:column;padding:10px;gap:8px}#pov.phone .side{width:auto}",
     "#pov.phone .leave{padding:7px 9px;font-size:12px;right:8px;top:8px}",
     "@media (max-width:700px){#pov .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}#pov .gains{left:10px;bottom:auto;top:110px}}",
+    // K-0068: a narrow window (a phone, or a desktop window ~400 px wide): everything fits on the screen and nothing sits on anything else
+    "@media (max-width:700px){#pov .threat{white-space:normal;max-width:94vw;width:max-content;text-align:center;font-size:13px;padding:5px 10px}"
+    + "#pov .bottom{max-width:100vw}#pov .vit{column-gap:8px}#pov .vrow,#pov .vrow i{height:min(17px,3.4vw)}#pov .vrow i{width:min(17px,3.4vw)}#pov .vrow.small,#pov .vrow.small i{height:12px}#pov .vrow.small i{width:12px}"
+    + "#pov .vrow b{font-size:14px;min-width:2.6em;margin:0 4px;padding:1px 3px}#pov .slot{width:38px;height:38px}#pov .slot .ic{width:26px!important;height:26px!important}#pov .hot{gap:3px;padding:2px}"
+    + "#pov:not(.phone) .compass{width:44vw}#pov:not(.phone) .clock{top:46px;font-size:11px}#pov:not(.phone) .leave{padding:7px 9px;font-size:12px;right:8px;top:8px}#pov:not(.phone) .leave kbd{display:none}"
+    + "#pov:not(.phone) .who{left:8px;top:46px;padding:4px 8px 4px 4px;gap:6px;max-width:30vw}#pov:not(.phone) .who .face{width:26px;height:26px;font-size:16px}#pov:not(.phone) .who .nm{font-size:13px}#pov:not(.phone) .who .tr{font-size:11px}#pov:not(.phone) .who small,#pov:not(.phone) .who .learn{display:none}"
+    + "#pov:not(.phone) .leave.bagbtn{left:8px;right:auto;top:94px;bottom:auto}#pov:not(.phone) .paws{display:none}"
+    + "#pov .lockhint{white-space:normal;max-width:90vw;text-align:center;font-size:13px;bottom:196px}#pov .testnums{font-size:10px;white-space:pre-wrap;max-width:calc(100vw - 16px)}#pov.phone .testnums{bottom:auto;top:168px}}",
+    "@media (max-width:380px){#pov .compass,#pov.phone .compass{width:40vw}}",
     "@media (max-height:500px){#pov.phone .quest{display:none}#pov.phone .pbtns{bottom:70px;grid-template-rows:repeat(2,50px);grid-template-columns:repeat(3,50px)}#pov.phone .pbtns button{width:50px;height:50px}#pov.phone .pbtns button.act{height:108px}}"
   ].join("\n");
 
@@ -468,10 +478,12 @@
     if (!goal || !R.project) { b.classList.remove("on"); return; }
     var c = s.c, gy = SB.World.groundY(s.game.world, goal.x, goal.z), bearing = Math.atan2(-(goal.x - c.x), -(goal.z - c.z));
     var lo = R.project(goal.x, gy, goal.z), hi = R.project(goal.x, gy + 12, goal.z);
-    if (Math.abs(SB.angDiff(s.yaw, bearing)) > 0.9 || !lo.on && !hi.on || SB.dist(goal.x, goal.z, c.x, c.z) < 2.5) { b.classList.remove("on"); return; }
-    var H = window.innerHeight, top = SB.clamp(Math.min(lo.y, hi.y), -40, H), bot = SB.clamp(Math.max(lo.y, hi.y), top + 60, H);
-    b.style.left = lo.x + "px"; b.style.top = top + "px"; b.style.height = (bot - top) + "px";
-    b.style.background = goal.fire ? "linear-gradient(to top,rgba(255,150,60,.95),rgba(255,120,40,.5) 40%,rgba(255,120,40,0))" : "";
+    // K-0068: anywhere in front of you it stays on the screen, pinned to the side it's on (Chef: "often off the edge");
+    // further round, the arrow takes over
+    if (Math.abs(SB.angDiff(s.yaw, bearing)) > 1.1 || SB.dist(goal.x, goal.z, c.x, c.z) < 2.5) { b.classList.remove("on"); return; }
+    var W = window.innerWidth, H = window.innerHeight, top = SB.clamp(Math.min(lo.y, hi.y), -40, H - 60), bot = SB.clamp(Math.max(lo.y, hi.y), top + 60, H);
+    b.style.left = SB.clamp(lo.x, 18, W - 18) + "px"; b.style.top = top + "px"; b.style.height = (bot - top) + "px";
+    b.classList.toggle("fire", !!goal.fire);
     b.classList.add("on");
   }
   function mark(m, t, d, minD, pre, post) {

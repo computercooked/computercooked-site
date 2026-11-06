@@ -635,6 +635,18 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.56 What v4.11.8 fixed: Chef's 4.11.7 playtest (K-0068)
+
+1. **The chase HUD fits a narrow window.** Below 700 px wide (a phone, or a desktop window about 400 px wide) nothing in a body's view sits on anything else or runs off the screen. Before, at 400 px the smol panel covered the compass, the "look with the mouse" hint sat on the test numbers, the hearts and hunger row was 790 px wide and "bag Tab" was off the right edge.
+   - The compass is 44% of the width, and "leave body" drops its Esc key, so the two no longer meet. The smol panel is smaller (face, name and tier only) and sits under the top bar on the left. The bag button sits below it.
+   - The red "grump spotted you" line wraps instead of running off both sides.
+   - The hearts, hunger and stamina icons are at most 3.4% of the width, so the rows fit in 360 px. The hotbar slots are 38 px.
+   - The mouse hint wraps and sits higher, clear of the test numbers. On a phone the test numbers move up under the red line, clear of the touch buttons.
+   - Below 380 px wide the compass is 40% of the width. Measured at 400 and 360 px, mouse and touch: nothing overlaps or leaves the screen. Wide windows are unchanged.
+2. **A nest beacon that reads.** The pillar in the world is deep gold (deep orange over a fire), not cream, and wider. The pillar drawn over the view has a white-hot core in a gold body with a dark rim, so it reads against a pale sky as well as the night. It now shows whenever the nest is anywhere in front of you (within 63° of where you look, was 52°). When the nest is off to the side it stays pinned to that edge of the screen, not past it. The edge arrow stays.
+
+No new sounds. Grab input is untouched.
+
 ## 0.55 What v4.11.7 fixed: Chef's 4.11.6 phone playtest (K-0066)
 
 1. **The HUD comes back after a chase on a phone.** Taking a body cleared the camera's running move without its ending. On a slow phone the landing film (the fall onto the island) was still running when `?chase=1` lent the light, so its ending never ran: the island's title card stayed up and the top bar and toolbar stayed hidden after the chase. `Possess.enter` now finishes a running camera move, ending and all, and the `?chase=1` jump waits for the landing film before it starts. Test: `nightchase.test.js` section 10.
