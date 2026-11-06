@@ -412,11 +412,12 @@
       if (R.env && R.env.night > 0.25) R.light(pc.x, GY(game.world, pc.x, pc.z) + 1.4, pc.z, 6.5, 0.78, 0.72, 0.6);
       var goal = P.safeGoal && P.safeGoal();
       if (goal) {
-        var gy = GY(game.world, goal.x, goal.z), pu = 0.85 + 0.15 * Math.sin(t * 4), bt = goal.fire ? [1, 0.6, 0.3] : [1, 0.85, 0.4];
+        var gy = GY(game.world, goal.x, goal.z), pu = 0.85 + 0.15 * Math.sin(t * 4), bt = goal.fire ? [1, 0.35, 0.08] : [1, 0.62, 0.05]; // K-0068: deep gold, not cream
         R.light(goal.x, gy + 2.5, goal.z, 7, 1, 0.82, 0.4);
         // K-0066: a beacon standing in the world, not just an arrow on the screen: a pillar of light 14 m up, and a ring on the ground
         setBase(goal.x, gy, goal.z, t * 0.6, 1);
-        part("p:beacon", 0, 0, 0, 0, 0, 0, 0.42 * pu, 14, 0.42 * pu, bt, [0, 1, 0]);
+        part("p:beacon", 0, 0, 0, 0, 0, 0, 0.6 * pu, 14, 0.6 * pu, bt, [0, 1, 0]);
+        part("p:beacon", 0, 0, 0, 0, 0, 0, 0.2, 14.2, 0.2, [1, 0.97, 0.8], [0, 1, 0]); // a white-hot core
         part("p:halo", 0, 0.15, 0, 0, 0, 0, 1.6 * pu, 1, 1.6 * pu, bt, [0, 1, 0]);
         part("p:halo", 0, 14, 0, 0, 0, 0, 0.9, 1, 0.9, bt, [0, 1, 0]);
       }
