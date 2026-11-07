@@ -51,7 +51,7 @@ Every page has a floating CRT-style dock at the bottom (`<nav class="deck">`, co
 Games built elsewhere (a folder with `index.html`, relative paths, `thumb.png` and an `entry.json` with slug, title, pitch, thumbnail, made_by, controls, size_kb) are added with one command:
 
 ```
-pwsh scripts/add-game.ps1 "C:\Bush Growth\Projects\Computer Cooked\Games\Game sources\bellchain"
+pwsh scripts/add-game.ps1 "C:\Users\Ashton Bush\Bush Growth\Projects\Computer Cooked\Games\Game sources\bellchain"
 ```
 
 It copies the folder to `games/<slug>/play/`, generates the player page `games/<slug>/index.html` from `scripts/player-template.html`, and adds the entry to `games.json` (CRASH stays first) and `sitemap.xml`. The player page frames the game in an iframe and drives it with `postMessage`: `{type:"cc-mute", muted}`, `{type:"cc-restart"}`, and `{type:"cc-pause"}` when the command bar opens. `_headers` allows same-origin framing for `/games/:slug/play/*` only. Re-run the script to update a game.

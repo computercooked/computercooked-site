@@ -1,7 +1,7 @@
 from PIL import Image
 import sys, json
 P = int(sys.argv[1]) if len(sys.argv) > 1 else 12
-im = Image.open(r'C:\Bush Growth\Team Communication\assets\pfp-computer.png').convert('RGB')
+im = Image.open(r'C:\Users\Ashton Bush\Bush Growth\Office\Mail Room\assets\pfp-computer.png').convert('RGB')
 x0, y0, x1, y1 = 232, 118, 792, 918
 W, H = (x1 - x0) // P, (y1 - y0) // P
 q = im.crop((x0, y0, x0 + W * P, y0 + H * P)).quantize(colors=12, method=Image.Quantize.MEDIANCUT)
