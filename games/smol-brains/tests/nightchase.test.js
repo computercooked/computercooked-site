@@ -136,6 +136,18 @@ seeded(5700, () => {
   check("the landing's ending ran once", ran.length === 1, ran.join());
   check("and the film is gone", !cm.intro);
   P.leave(); SB.Game.current = game; if (!hadR) delete SB.Render;
+
+  console.log("11. ?chase=1 quiets the island's cards (K-0070: a saved island stacked a hatch, a pod's log and a guide tip)");
+  const g5 = SB.Game.newGame(70); SB.Game.current = g5; g5.headless = true;
+  const hadUI = SB.UI, calls = [];
+  SB.UI = Object.assign({}, hadUI || {}, { quiet: s => calls.push(s), dropQueued: () => calls.push("drop") });
+  SB.Debug.night(2, true);
+  check("the chase jump quiets cards for 10 minutes", calls.indexOf(600) >= 0, calls.join());
+  P.leave(); SB.Game.current = game; SB.UI = hadUI;
+  const ui = fs.readFileSync(path.join(__dirname, "..", "play", "js", "ui.js"), "utf8");
+  check("story cards, event windows, guide tips, hatch reveals and big moments all wait on it",
+    /offlineRunning \|\| quiet\(\)\) return/.test(ui) && /\(opts\.story \|\| opts\.sticky\) && quiet\(\)\) return/.test(ui) &&
+    /guideOn\(\) && !quiet\(\)/.test(ui) && /revealSkip === d\.c\.id \|\| quiet\(\)\) return/.test(ui) && /offlineRunning \|\| quiet\(\)\) return;\r?\n/.test(ui));
 });
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");

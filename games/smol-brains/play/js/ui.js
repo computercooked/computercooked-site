@@ -44,6 +44,17 @@
   }
   UI.pendingEvents = function () { return popQ.length + cardQ.length; };
   UI.dropQueued = function () { popQ.length = 0; cardQ.length = 0; }; // test jumps: nothing waiting to pop up (K-0063)
+  // K-0070: ?chase=1 on a saved island: no event cards, hatch reveals or guide tips for a while, so chase QA is one click.
+  // Skipped, not saved for later (a story card isn't marked seen, so it still comes the next time)
+  var quietUntil = 0;
+  function quiet() { return performance.now() < quietUntil; }
+  UI.quiet = function (sec) {
+    quietUntil = performance.now() + sec * 1000; popQ.length = 0; cardQ.length = 0; povHeld.length = 0;
+    if (el.modal && el.modalOpts && (el.modalOpts.story || el.modalOpts.sticky)) closeModal();
+    if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; }
+    if (revealEl) { revealEl.remove(); revealEl = null; }
+  };
+  UI.isQuiet = quiet;
   UI.armed = null;
 
   /* ---------------- dom helpers ---------------- */
@@ -437,7 +448,7 @@
   UI.versionLabel = versionLabel;
   var momentQ = [], momentBusy = false;
   function moment(icon, big, sub, cls, first) {
-    if (game && game.offlineRunning) return;
+    if (game && game.offlineRunning || quiet()) return;
     if (game && SB.FirstNight && SB.FirstNight.active(game)) return; // the first night speaks through the island
     if (first) momentQ.unshift([icon, big, sub, cls]); else momentQ.push([icon, big, sub, cls]); // big news (a new era) skips the queue
     if (!momentBusy) nextMoment();
@@ -465,7 +476,7 @@
   UI.QUIET_START = 300; // real seconds into an island when story cards stop being toasts
   function storyCard(key, icon, title, paras, fallback) {
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
-    if (game.offlineRunning) return; // the "welcome back" card sums up the catch-up
+    if (game.offlineRunning || quiet()) return; // the "welcome back" card sums up the catch-up
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
     if (((game.playTime || 0) < UI.QUIET_START || (SB.FirstNight && SB.FirstNight.active(game))) && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
@@ -1207,6 +1218,7 @@
   /* ---------------- modals ---------------- */
   function modal(title, body, opts) {
     opts = opts || {};
+    if ((opts.story || opts.sticky) && quiet()) return null; // K-0070
     if (SB.Possess && SB.Possess.active && !opts.pov) { povHeld.push([title, body, opts]); return; } // no god windows in a smol's eyes: shown on the way out
     if (SB.Lantern && SB.Lantern.running && !opts.live) { popQ.push([title, body, opts]); return; } // a film is playing: it waits (K-0048)
     // an event card (story, stranger, storyteller…) never replaces another one: it waits its turn
@@ -1966,7 +1978,7 @@
   function updateGuide(dt) {
     if ((guideT -= dt) > 0) return;
     guideT = 1;
-    var on = guideOn() && game.tutorial.done && !state.introRunning && !(SB.Intro && SB.Intro.covering) && !el.modal && !state.sheet;
+    var on = guideOn() && !quiet() && game.tutorial.done && !state.introRunning && !(SB.Intro && SB.Intro.covering) && !el.modal && !state.sheet;
     var now = performance.now(), tip = on ? guideTips().filter(function (x) { return !(snooze[x.key] > now); })[0] : null;
     if (!tip) { if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; } return; }
     if (tip.key === guideKey && el.guide) return;
@@ -2228,7 +2240,7 @@
     if (!SB.FirstHour) return;
     on("hatch", function (d) {
       var dd = d.obj && d.obj.data;
-      if (!dd || dd.starter || !(dd.parents || []).length || d.c.far || state.introRunning || revealSkip === d.c.id) return;
+      if (!dd || dd.starter || !(dd.parents || []).length || d.c.far || state.introRunning || revealSkip === d.c.id || quiet()) return;
       hatchReveal(d.c, dd);
     });
     on("tierUp", function (d) {

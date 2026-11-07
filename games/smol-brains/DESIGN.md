@@ -635,6 +635,19 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.57 What v4.11.9 fixed: chase QA on a saved island (K-0070)
+
+Chef scored the 4.11.8 chase 9/10 on mobile and desktop. One fix:
+
+- **`?cctest=1&chase=1` is one click on a saved island too.** Continuing an island that had been played for a while stacked a hatch reveal, a pod's log and guide tips (drowning, starving, a pod down) before the chase screen was clear. The chase jump now quiets the island for 10 minutes (`UI.quiet(600)`, called from `Debug.night` with a chase):
+  - story cards and event windows are skipped, not saved for later; a story card isn't marked seen, so it still comes the next time;
+  - guide tips, hatch reveals and big moment banners don't show;
+  - anything already queued or on screen is cleared.
+
+  Normal play is unchanged. Test: `nightchase.test.js` section 11. Checked headless: a saved island continued into `?chase=1` went straight into the chase with nothing on screen, where it showed guide tips before.
+
+No new sounds. Grab input is untouched.
+
 ## 0.56 What v4.11.8 fixed: Chef's 4.11.7 playtest (K-0068)
 
 1. **The chase HUD fits a narrow window.** Below 700 px wide (a phone, or a desktop window about 400 px wide) nothing in a body's view sits on anything else or runs off the screen. Before, at 400 px the smol panel covered the compass, the "look with the mouse" hint sat on the test numbers, the hearts and hunger row was 790 px wide and "bag Tab" was off the right edge.
