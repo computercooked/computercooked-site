@@ -872,6 +872,7 @@
       if (dir) { dir.active = null; dir.nextT = g.time + 600; }
       g.strangerT = Math.max(g.strangerT || 0, 600); g.forceWeather = "clear";
       if (SB.UI && SB.UI.dropQueued) SB.UI.dropQueued();
+      if (SB.UI && SB.UI.quiet) SB.UI.quiet(600); // K-0070: and nothing new pops up over the chase (a hatch, a pod's log, a guide tip)
       var grown = Game.smols(g).filter(function (o) { return o.stage >= 2 && !o.stranger; }).length;
       if (grown < 4) SB.Debug.spawnTier(2, 4 - grown);
       var spot = null;
