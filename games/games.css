@@ -633,6 +633,11 @@
   box-shadow: none;
 }
 
+/* K-0070: games/player.js adds .title-row when the title won't fit beside the tools: the title then gets its own
+   row above them (wrapping if it has to) instead of an ellipsis. Without JS it stays one row with the ellipsis */
+.player-bar.title-row { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+.player-bar.title-row .player-title { flex: 1 0 calc(100% - 4px); margin-right: 0; white-space: normal; line-height: 1.15; text-wrap: balance; }
+
 .tool {
   display: inline-flex;
   align-items: center;
