@@ -7,7 +7,7 @@
   "controls": "tap, drag, type and hold to pass each captcha, then press verify (enter works too). too fast or too perfect raises suspicion. a full meter is access denied. one new daily gauntlet every day.",
   "size_kb": 66,
   "tags": ["funny", "daily", "short", "reflex", "mobile"],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "added": "2026-11-05",
   "theme": { "accent": "#7dff6a", "bg": "#0b120c" },
   "max_score_per_sec": 120,
