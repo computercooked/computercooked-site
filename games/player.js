@@ -178,4 +178,23 @@
   }
 
   setMuted(muted);
+
+  // K-0070: a title too long to sit beside the tools gets its own row above them (.title-row in games.css)
+  // instead of an ellipsis ("elevator full of f…" on phones). Re-checked when the bar's width changes.
+  var bar = player.querySelector(".player-bar");
+  var tEl = bar && bar.querySelector(".player-title");
+  if (bar && tEl) {
+    var barW = -1;
+    var fitTitle = function (force) {
+      var w = bar.clientWidth;
+      if (w === barW && force !== true) return;
+      barW = w;
+      bar.classList.remove("title-row");
+      if (tEl.scrollWidth > tEl.clientWidth + 1) bar.classList.add("title-row");
+    };
+    fitTitle();
+    if (window.ResizeObserver) new ResizeObserver(function () { fitTitle(); }).observe(bar);
+    else addEventListener("resize", fitTitle);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fitTitle(true); });
+  }
 })();
