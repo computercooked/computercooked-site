@@ -4,7 +4,7 @@
 # 2. applies migrations/ to the live database
 # 3. creates a random ADMIN_TOKEN Worker secret and saves a copy outside the repo for the automation
 # Then commit wrangler.jsonc and merge: the next deploy turns accounts, leaderboards and feedback on.
-param([string]$TokenFile = "C:\Bush Growth\Projects\Computer Cooked\Games\Studio\operations\.metrics-token")
+param([string]$TokenFile = "C:\Users\Ashton Bush\Bush Growth\Projects\Computer Cooked\Games\Studio\operations\.metrics-token")
 $ErrorActionPreference = "Stop"
 $repo = Split-Path $PSScriptRoot -Parent
 Set-Location $repo
