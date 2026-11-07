@@ -7,3 +7,4 @@ node_modules/
 wrangler.local.jsonc
 scripts/.og-tools/
 dist/
+__pycache__/
