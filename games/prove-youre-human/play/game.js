@@ -5,7 +5,8 @@
    Two modes: the DAILY GAUNTLET (the same seeded 10 rounds for everyone each UTC day, a daily streak, diary lines)
    and ENDLESS (rounds speed up, the computer gets more paranoid, glitchier, and starts asking personal questions).
    Silent: audio is file hooks only (FILES), no code-made sound. Art is drawn in code.
-   Test links: ?cctest=1&round=N (start on captcha type N, 1-11), &daily=reset (clear the streak and today's run),
+   Test links: ?cctest=1&round=N (start on captcha type N, 1-11) or &type=<id> (soup, slider, checkbox, word, human,
+   fish, sigh, lights, circle, wait, question), &hold=1 (that first check's timer waits for your first touch), &daily=reset (clear the streak and today's run),
    &deny=1 (straight to the bot-detected ending), ?shot=1 (the cover scene). */
 (function () {
   "use strict";
@@ -197,7 +198,7 @@
     inp.addEventListener("input", () => { if (!first) first = now(); api.touch(); });
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("verify").click(); } });
     if (matchMedia("(pointer: fine)").matches) setTimeout(() => { try { inp.focus({ preventScroll: true }); } catch (e) {} }, 60);
-    const seeds = [...word].map(() => [r() * 6, r() * 6, r() * 0.5 + 0.5]);
+    const seeds = [...word].map(() => [r() * 6, r() * 6, r() * 0.5 + 0.5]), calm = api.round <= 3 ? 0.45 : 1;
     api.tick((k) => {
       const DPR = Math.min(2, devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
       if (cv.width !== Math.round(w * DPR)) { cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR); }
@@ -205,8 +206,8 @@
       const t = now(), size = Math.min(40, w / (word.length * 0.75)), x0 = w / 2 - word.length * size * 0.32;
       g.font = `700 ${size}px Pixelify, ui-monospace, monospace`; g.textBaseline = "middle"; g.textAlign = "center";
       [...word].forEach((ch, i) => {
-        const [a, b, sp] = seeds[i], x = x0 + i * size * 0.64 + Math.sin(t * 3 * sp + a) * 3, melt = k * k * (14 + b * 10), y = h * 0.38 + Math.sin(t * 2.4 + b) * 4 + melt;
-        g.save(); g.translate(x, y); g.rotate(Math.sin(t * 2 + a) * 0.28); g.scale(1, 1 + k * 0.5);
+        const [a, b, sp] = seeds[i], x = x0 + i * size * 0.64 + Math.sin(t * 3 * sp + a) * 3 * calm, melt = (calm < 1 ? k * k * k * 0.6 : k * k) * (14 + b * 10), y = h * 0.38 + Math.sin(t * 2.4 + b) * 4 * calm + melt;
+        g.save(); g.translate(x, y); g.rotate(Math.sin(t * 2 + a) * 0.28 * calm); g.scale(1, 1 + k * 0.5);
         g.fillStyle = `rgba(30, 60, 30, ${1 - k * 0.55})`; g.fillText(ch, 0, 0); g.restore();
         // drips
         g.fillStyle = `rgba(30, 60, 30, ${0.7 - k * 0.4})`; g.fillRect(x - 1, y + size * 0.3, 2, k * (10 + b * 14));
@@ -383,7 +384,10 @@
   let state = "title", mode = "endless", round = 0, susp = 0, passes = 0, fails = 0, robotic = 0, runT0 = 0, order = [], seed = 0, paused = false;
   let cur = null, evN = 0, runLog = [], lastHumanity = 0;
   const DAILY_N = 10;
-  const ROUNDS_FIRST = TEST && +param("round") >= 1 && +param("round") <= TYPES.length ? TYPES[+param("round") - 1].id : null;
+  const ROUNDS_FIRST = !TEST ? null : BYID[param("type")] ? param("type") : +param("round") >= 1 && +param("round") <= TYPES.length ? TYPES[+param("round") - 1].id : null;
+  const HOLD = TEST && flag("hold");
+  // the first two checks are gentle ones: nothing to read against the clock, nothing that punishes a slow first tap
+  const GENTLE = ["soup", "slider", "checkbox", "fish", "circle"], EASY_N = 2;
   function ev(name, data, always) { if (!always && evN >= 14) return; evN++; sdk((c) => c.event && c.event(name, data || {})); }
 
   function setSusp(v) {
@@ -399,6 +403,7 @@
     seed = m === "daily" ? hash("pyh-" + dayKey()) : (Math.random() * 2 ** 32) >>> 0;
     const base = TYPES.filter((t) => !t.late).map((t) => t.id);
     order = m === "daily" ? shuffleR(mulberry(seed), base) : [];
+    if (m === "daily") { const g = order.filter((id) => GENTLE.includes(id)).slice(0, EASY_N); order = [...g, ...order.filter((id) => !g.includes(id))]; }
     $("title").hidden = true; $("end").hidden = true; state = "play"; runT0 = now();
     S.runs++; save();
     sdk((c) => c.start && c.start());
@@ -412,6 +417,7 @@
     if (mode === "daily") return order[round - 1];
     if (round === 1 && ROUNDS_FIRST) return ROUNDS_FIRST;
     if (!bag.length) { bag = shuffleR(Math.random, TYPES.filter((t) => !t.late || round >= 11).map((t) => t.id)); if (cur && bag[0] === cur.type.id) bag.push(bag.shift()); }
+    if (round <= EASY_N) { const i = bag.findIndex((id) => GENTLE.includes(id) && !(cur && cur.type.id === id)); if (i > 0) bag.unshift(bag.splice(i, 1)[0]); }
     return bag.shift();
   }
   function nextRound() {
@@ -419,7 +425,7 @@
     round++; hud();
     const type = BYID[nextType()], r = mulberry(seed + round * 7919);
     const speed = mode === "daily" ? 1 : Math.max(0.55, 1 - (round - 1) * 0.03);
-    const T = type.id === "wait" ? 3 : type.T * speed * (type.id === "word" && matchMedia("(pointer: coarse)").matches ? 1.25 : 1);
+    const T = type.id === "wait" ? 3 : type.T * speed * (type.id === "word" && matchMedia("(pointer: coarse)").matches ? 1.25 : 1) * (round <= EASY_N ? 1.6 : 1);
     area.innerHTML = ""; $("stamp").hidden = true;
     $("ttl").textContent = `SECURITY CHECK ${mode === "daily" ? "· DAILY " + round + "/" + DAILY_N : "#" + round}`;
     $("ask").innerHTML = `${type.ask}<small>${type.sub}</small>`;
@@ -427,7 +433,7 @@
     const api = {
       round, live: () => cur === c && !c.done,
       t: () => now() - c.t0 - c.pausedFor,
-      touch: () => { c.touched = true; },
+      touch: () => { c.touched = true; }, touched: () => !!c.touched,
       verify: (fn) => { const v = $("verify"); v.hidden = false; v.onclick = () => { if (!api.live()) return; fn(); }; },
       tick: (fn) => c.ticks.push(fn),
       pass: (o) => resolve(c, true, o || {}),
@@ -454,7 +460,7 @@
       say(o.line && (o.perfect || o.why) ? o.line : pickR(Math.random, L.fast), "squint", 2);
       ev("captcha_fail", { type: c.type.id, reason: "too_fast" });
     } else {
-      fails++; setSusp(susp + 26);
+      fails++; setSusp(susp + (round <= EASY_N ? 16 : 26));
       st.className = "bad"; st.textContent = o.reason === "timeout" ? "TIME OUT" : "WRONG"; play("fail");
       say(o.line || pickR(Math.random, o.reason === "timeout" ? L.timeout : L.fail), "shock", 2);
       ev("captcha_fail", { type: c.type.id, reason: o.reason === "timeout" ? "timeout" : "wrong" });
@@ -638,8 +644,10 @@
     fg.fillStyle = "rgba(0, 0, 0, .10)"; for (let y = 0; y < h; y += 3) fg.fillRect(0, y, w, 1);
     if (reduce || susp < 40) return;
     const k = (susp - 40) / 60;
-    const head = !$("end").hidden && $("endIn").querySelector(".denied, h2"), hb = head && head.getBoundingClientRect(), y0 = hb ? hb.top - 30 : 0, y1 = hb ? hb.bottom + 14 : -1;
-    if (Math.random() < k * 0.35) { let ty = Math.random() * h; if (ty + 16 > y0 && ty < y1) ty = Math.random() < 0.5 ? Math.max(0, y0 - 16 - Math.random() * 40) : y1 + Math.random() * (h - y1); tears.push({ y: ty, hh: 2 + Math.random() * 14 * k, life: 0.06 + Math.random() * 0.12, dx: (Math.random() - 0.5) * 30 * k, col: Math.random() < 0.5 ? "125, 255, 106" : "255, 59, 120" }); }
+    const cardEl = !$("end").hidden && $("end").querySelector(".card"), cb = cardEl && cardEl.getBoundingClientRect(), y0 = cb ? cb.top - 18 : 0, y1 = cb ? cb.bottom + 4 : -1;
+    if (cb) tears = tears.filter((tr) => tr.y + tr.hh < y0 || tr.y > y1);
+    const room = cb ? [[0, y0 - 16], [y1, h - 16]].filter(([a, b]) => b - a > 8) : [[0, h]];
+    if (room.length && Math.random() < k * 0.35) { const [a, b] = room[Math.floor(Math.random() * room.length)], ty = a + Math.random() * (b - a); tears.push({ y: ty, hh: 2 + Math.random() * 14 * k, life: 0.06 + Math.random() * 0.12, dx: (Math.random() - 0.5) * 30 * k, col: Math.random() < 0.5 ? "125, 255, 106" : "255, 59, 120" }); }
     for (const tr of tears) { tr.life -= 1 / 60; fg.fillStyle = `rgba(${tr.col}, ${0.18 + 0.2 * k})`; fg.fillRect(tr.dx, tr.y, w, tr.hh); }
     tears = tears.filter((tr) => tr.life > 0);
   }
@@ -649,6 +657,7 @@
   function frame() {
     const t = now(), dt = Math.min(0.1, t - lastT); lastT = t;
     if (paused && cur && !cur.done) cur.pausedFor += dt;
+    else if (HOLD && round === 1 && cur && !cur.done && !cur.api.touched()) cur.pausedFor += dt;
     if (state === "play" && cur && !cur.done && !paused) {
       const k = clamp(cur.api.t() / cur.T, 0, 1);
       $("tbar").firstChild.style.width = ((1 - k) * 100).toFixed(1) + "%"; $("tbar").classList.toggle("low", k > 0.7 && cur.type.id !== "wait");
