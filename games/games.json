@@ -461,7 +461,7 @@
       ],
       "controls": "tap / click an item to scan it. space or enter scans the item nearest the bag, and starts or retries. m mutes.",
       "size_kb": 24,
-      "version": "1.0",
+      "version": "1.2",
       "added": "2026-10-29",
       "max_score_per_sec": 8.0,
       "max_score": 480.0
@@ -798,7 +798,7 @@
       ],
       "controls": "tap, drag, type and hold to pass each captcha, then press verify (enter works too). too fast or too perfect raises suspicion. a full meter is access denied. one new daily gauntlet every day.",
       "size_kb": 66,
-      "version": "1.0.2",
+      "version": "1.0.3",
       "added": "2026-11-05",
       "theme": {
         "accent": "#7dff6a",

@@ -7,6 +7,7 @@
    Silent: audio is file hooks only (FILES), no code-made sound. Art is drawn in code.
    Test links: ?cctest=1&round=N (start on captcha type N, 1-11) or &type=<id> (soup, slider, checkbox, word, human,
    fish, sigh, lights, circle, wait, question), &hold=1 (that first check's timer waits for your first touch), &daily=reset (clear the streak and today's run),
+   &end=daily (a finished daily gauntlet: straight to its end card; it counts as today's run, so add &daily=reset to replay),
    &deny=1 (straight to the bot-detected ending), ?shot=1 (the cover scene). */
 (function () {
   "use strict";
@@ -293,7 +294,7 @@
     const wrap = el(`<div class="lights"></div>`);
     area.appendChild(wrap);
     const need = 3 + (api.round >= 10 ? 1 : 0), OTHER = ["🚗", "🚌", "🌳", "🚲", "🏠", "🐦", "🛑", "🚕", "🌭", "🦆"];
-    const B = box(), cols = 3, s = Math.max(40, Math.floor(Math.min(B.width / cols - 8, (B.height - 16) / 3.1 - 8))), x0 = Math.round((B.width - cols * (s + 8) + 8) / 2), speed = (B.height / 3.2) * (1 + Math.min(0.8, api.round * 0.03));
+    const B = box(), cols = 3, s = Math.max(34, Math.floor(Math.min(B.width / cols - 8, 96, (B.height - 16) / 3.6 - 8))), x0 = Math.round((B.width - cols * (s + 8) + 8) / 2), speed = (B.height / 3.6) * (1 + Math.min(0.8, api.round * 0.03));
     let got = 0, y = 0, rows = [], nextRow = 0, k = 0;
     function addRow(top) {
       const lightCol = r() < 0.8 ? Math.floor(r() * cols) : -1;
@@ -311,8 +312,8 @@
         wrap.appendChild(t); rows.push(t);
       }
     }
-    for (let i = 0; i < 4; i++) addRow(B.height * 0.25 + i * (s + 8));
-    nextRow = B.height * 0.25 + 4 * (s + 8);
+    for (let i = 0; i < 4; i++) addRow(B.height * 0.1 + i * (s + 8));
+    nextRow = B.height * 0.1 + 4 * (s + 8);
     let lt = now();
     api.tick(() => {
       const t = now(), dt = Math.min(0.05, t - lt); lt = t; y += speed * dt;
@@ -387,7 +388,8 @@
   const ROUNDS_FIRST = !TEST ? null : BYID[param("type")] ? param("type") : +param("round") >= 1 && +param("round") <= TYPES.length ? TYPES[+param("round") - 1].id : null;
   const HOLD = TEST && flag("hold");
   // the first two checks are gentle ones: nothing to read against the clock, nothing that punishes a slow first tap
-  const GENTLE = ["soup", "slider", "checkbox", "fish", "circle"], EASY_N = 2;
+  // (K-0071: not the circle: drawing against a clock is the fiddliest first 10 s)
+  const GENTLE = ["soup", "slider", "checkbox", "fish"], EASY_N = 2, WARM_N = 4;
   function ev(name, data, always) { if (!always && evN >= 14) return; evN++; sdk((c) => c.event && c.event(name, data || {})); }
 
   function setSusp(v) {
@@ -410,6 +412,7 @@
     ev("game_start", { mode: m }, true);
     say(pickR(Math.random, L.hello), "squint", 1.4);
     if (TEST && flag("deny")) { passes = 2; round = 3; robotic = 1; fails = 2; setSusp(100); return finish(true); }
+    if (TEST && m === "daily" && param("end") === "daily") { passes = 8; round = DAILY_N; robotic = 1; fails = 1; setSusp(34); return finish(false); }
     setTimeout(nextRound, 700);
   }
   let bag = [];
@@ -425,7 +428,7 @@
     round++; hud();
     const type = BYID[nextType()], r = mulberry(seed + round * 7919);
     const speed = mode === "daily" ? 1 : Math.max(0.55, 1 - (round - 1) * 0.03);
-    const T = type.id === "wait" ? 3 : type.T * speed * (type.id === "word" && matchMedia("(pointer: coarse)").matches ? 1.25 : 1) * (round <= EASY_N ? 1.6 : 1);
+    const T = type.id === "wait" ? 3 : type.T * speed * (type.id === "word" && matchMedia("(pointer: coarse)").matches ? 1.25 : 1) * (round <= EASY_N ? 1.6 : round <= WARM_N ? 1.3 : 1);
     area.innerHTML = ""; $("stamp").hidden = true;
     $("ttl").textContent = `SECURITY CHECK ${mode === "daily" ? "· DAILY " + round + "/" + DAILY_N : "#" + round}`;
     $("ask").innerHTML = `${type.ask}<small>${type.sub}</small>`;
@@ -450,17 +453,18 @@
     const tooFast = ok && !!(o.fast || o.perfect);
     const st = $("stamp");
     if (ok && !tooFast) {
-      passes++; setSusp(susp - (o.relief ? 12 : 7) + (mode === "endless" && round > 10 ? round * 0.35 : 0));
+      passes++; setSusp(susp - (o.relief ? 12 : 7) - (round <= WARM_N ? 3 : 0) + (mode === "endless" && round > 10 ? round * 0.35 : 0));
       st.className = "ok"; st.textContent = "VERIFIED"; play("pass");
       say(o.line || pickR(Math.random, L.pass), "happy", 1.4);
       ev("captcha_pass", { type: c.type.id });
     } else if (tooFast) {
-      passes++; robotic++; setSusp(susp + 17);
+      passes++; robotic++; setSusp(susp + (round <= WARM_N ? 10 : 17));
       st.className = "sus"; st.textContent = o.perfect ? "TOO PERFECT" : "TOO FAST"; play("sus");
       say(o.line && (o.perfect || o.why) ? o.line : pickR(Math.random, L.fast), "squint", 2);
       ev("captcha_fail", { type: c.type.id, reason: "too_fast" });
     } else {
-      fails++; setSusp(susp + (round <= EASY_N ? 16 : 26));
+      // a careful human who freezes early should still reach the mean rounds (K-0071)
+      fails++; setSusp(susp + (round <= EASY_N ? 12 : round <= WARM_N ? 17 : 26));
       st.className = "bad"; st.textContent = o.reason === "timeout" ? "TIME OUT" : "WRONG"; play("fail");
       say(o.line || pickR(Math.random, o.reason === "timeout" ? L.timeout : L.fail), "shock", 2);
       ev("captcha_fail", { type: c.type.id, reason: o.reason === "timeout" ? "timeout" : "wrong" });
@@ -605,8 +609,7 @@
       ${denied ? "" : `<h2>I am ${h}% human</h2>`}
       <p class="verdict">"${verdict}"</p>
       <div id="cardSlot"></div>
-      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? "" : ` · score ${score()}`}</p>
-      ${daily ? `<p class="small">daily streak <b>${S.streak.n}</b> · come back in ${untilTomorrow()} for a new gauntlet</p>` : ""}
+      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? ` · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : ` · score ${score()}`}</p>
       ${newDiary ? `<div class="diary"><b>NEW DIARY ENTRY · DAY ${newDiary[0]}</b>${newDiary[1]}</div>` : ""}
       <div class="row"><button class="btn go big" id="eShare" type="button">share my humanity</button><button class="btn big" id="eAgain" type="button">${daily ? "play endless" : "again"}</button></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="eTitle" type="button">back to the door</button></div>
@@ -690,7 +693,8 @@
     bag = ["soup"]; round = 3; nextRound(); cur.T = 1e9; setSusp(62); say("you look like a toaster to me.", "squint", 1e9);
     const tiles = area.querySelectorAll(".tile"); if (tiles[1]) tiles[1].classList.add("sel"); if (tiles[3]) tiles[3].classList.add("sel");
     paused = true; $("tbar").firstChild.style.width = "38%";
-  } else if (TEST && (flag("deny") || ROUNDS_FIRST)) start("endless");
+  } else if (TEST && param("end") === "daily") start("daily");
+  else if (TEST && (flag("deny") || ROUNDS_FIRST)) start("endless");
   else if (window.cc && cc.autostart && cc.autostart()) start(doneToday() ? "endless" : "daily");
   else showTitle();
 })();
