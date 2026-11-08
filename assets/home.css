@@ -136,6 +136,9 @@ html.cc-desk .desk-row[hidden] { display: block; }
 /* K-0068: land below the fixed top bar (desktop); phones have the bar at the bottom */
 .desk-row { scroll-margin-top: calc(var(--topbar-h) + var(--s-5)); }
 @media (max-width: 767px) { .desk-row { scroll-margin-top: var(--s-5); } }
+/* K-0071: on phones the hero stacks and its three desktop icons push "your desk" a screen down; a returning player's
+   own row is the better list, so it takes their place right under the welcome window */
+@media (max-width: 899px) { html.cc-desk .desk-icons { display: none; } }
 /* K-0066: the nudge in the hero window, returning players only; the hero window is positioned, so the page doesn't move */
 .desk-nudge-p { display: none; margin: var(--s-4) 0 0; }
 html.cc-desk .desk-nudge-p { display: block; }
