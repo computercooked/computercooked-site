@@ -75,7 +75,7 @@
   .fish { width: 180px; height: 180px; touch-action: none; cursor: grab; }
   .hold { width: 150px; height: 150px; border-radius: 50%; font-size: 18px; touch-action: none; }
   .hold.on { background: #cfe8b0; }
-  .lights { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 9%, #000 91%, transparent); mask-image: linear-gradient(transparent, #000 9%, #000 91%, transparent); }
+  .lights { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 13%, #000 84%, transparent); mask-image: linear-gradient(transparent, #000 13%, #000 84%, transparent); }
   .lights .tile { position: absolute; }
   .draw { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
   .bait { font-size: 22px; padding: 18px 26px; background: #ffe066; animation: wob 1s ease-in-out infinite; }
@@ -91,7 +91,8 @@
   body.g3 #dlg { animation: jit .09s steps(2) infinite; filter: hue-rotate(-12deg) saturate(1.2); }
   @keyframes jit { 50% { transform: translate(1px, -1px); } }
   /* panels: title, end, daily */
-  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: calc(64px + env(safe-area-inset-top, 0px)) 14px 14px; background: radial-gradient(ellipse at 50% 30%, #16301aee, #0b120cf5 70%); overflow: auto; touch-action: pan-y; }
+  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: calc(64px + env(safe-area-inset-top, 0px)) 14px 14px; background: radial-gradient(ellipse at 50% 30%, #16301aee, #0b120cf5 70%); overflow: auto; touch-action: pan-y; scrollbar-width: none; }
+  .over::-webkit-scrollbar { display: none; }
   .over[hidden] { display: none; }
   .card { width: min(100%, 420px); margin: auto; background: var(--beige); border: 2px solid var(--ink); box-shadow: inset -3px -3px 0 var(--beige3), inset 3px 3px 0 #fff8e0, 8px 8px 0 #000a; text-align: center; }
   .card .tb { display: flex; padding: 4px 8px; background: linear-gradient(90deg, #2d5a2a, #4f8f3a); color: #f4f8e8; font-size: 13px; text-align: left; }
@@ -104,7 +105,25 @@
   .card .small { font-size: 12px; opacity: .75; }
   .card .diary { margin: 10px 0 0; padding: 8px 10px; background: #0d1a0e; color: var(--green); text-align: left; font-size: 13px; border: 2px solid var(--green2); }
   .card .diary b { display: block; font-size: 11px; opacity: .7; letter-spacing: 1px; }
-  .card canvas.share { width: 100%; height: auto; display: block; border: 2px solid var(--ink); margin: 6px 0 2px; image-rendering: auto; }
+  .card canvas.share { width: auto; max-width: 100%; max-height: max(90px, calc(100vh - 500px)); height: auto; display: block; border: 2px solid var(--ink); margin: 6px auto 2px; image-rendering: auto; }
+  @media (max-height: 640px) {
+    .over { padding-top: calc(52px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
+    .card .in { padding: 8px 12px 10px; }
+    .card h2 { font-size: 22px; margin: 0 0 2px; }
+    .card p { margin: 3px 0; }
+    .card .verdict { font-size: 13px; }
+    .card .row { margin-top: 6px; }
+    .card .big { font-size: 16px; padding: 8px 14px; }
+    .card .diary { margin-top: 6px; padding: 5px 8px; font-size: 12px; }
+    #tipSlot .cc-tipjar { margin-top: 6px; }
+  }
+  @media (max-height: 520px) {
+    .card canvas.share { display: none; }
+    .card h2 { font-size: 20px; }
+    .card .big { font-size: 14px; padding: 7px 10px; }
+    .card .btn { padding-top: 6px; padding-bottom: 6px; }
+    .card .row + .row { margin-top: 4px !important; }
+  }
   .card .verdict { font-size: 15px; font-weight: 600; }
   .denied { position: relative; }
   .denied .stampbig { display: inline-block; margin: 8px 0; padding: 6px 12px; border: 5px solid var(--red); color: var(--red); font-size: clamp(22px, 7vw, 30px); font-weight: 700; transform: rotate(-6deg); letter-spacing: 1px; animation: stampIn .3s cubic-bezier(.2, 1.6, .4, 1); }

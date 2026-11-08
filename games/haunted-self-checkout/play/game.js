@@ -1,7 +1,10 @@
 /* haunted self-checkout — computer cooked games.
    Groceries ride the belt. Tap (or click) one to scan it. Possessed items have eyes: never scan those.
    Missed groceries and scanned ghosts fill the "assistance needed" meter; full meter = the till is cooked.
-   A shift is 60 seconds. Space / Enter scans the item nearest the bag (and starts / retries), M mutes. */
+   A shift is 60 seconds. Space / Enter scans the item nearest the bag that isn't looking at you (and starts / retries), M mutes.
+   1.2 (K-0071): misses fill the meter less (and the intro and meter say so); Space skips open-eyed items and flashes them;
+   closed lanes say what opens them (scanned-item milestones) and unlock with a flash; streak counter + "perfect" bursts
+   every 10 in a row; possessed items pulse harder as the belt speeds up. Test link: ?cctest=1 (the platform's test mode). */
 (function () {
   "use strict";
   // ---------- platform sdk: optional, every call guarded ----------
@@ -114,9 +117,18 @@
 
   // ---------- state ----------
   let state = "title", t = 0, items = [], fx = [], meter = 0, score = 0, combo = 0, mult = 1, spawnIn = 0, best = 0, line = pick(LINES.hello), lineT = 0;
-  let prevBest = 0, warnT = 0, face = "sad", faceT = 0, shake = 0, flash = 0, flashCol = BAD, startAt = 0, endAt = 0, scanned = 0, wrongs = 0, misses = 0, won = false, total = 0;
+  let bestStreak = 0, prevBest = 0, warnT = 0, face = "sad", faceT = 0, shake = 0, flash = 0, flashCol = BAD, startAt = 0, endAt = 0, scanned = 0, wrongs = 0, misses = 0, won = false, total = 0;
   try { best = +localStorage.getItem("hsc-best") || 0; } catch (e) {}
-  const lanesOpen = () => (t < 14 ? 1 : t < 34 ? 2 : 3);
+  const LANE_AT = [0, 10, 25], LANE_T = [0, 24, 42]; let lanes = 1;
+  const lanesOpen = () => lanes;
+  function checkLanes() {
+    while (lanes < 3 && (scanned >= LANE_AT[lanes] || t >= LANE_T[lanes])) {
+      lanes++;
+      fx.push({ type: "text", x: W / 2, y: lanesY[lanes - 1], s: "lane " + lanes + " open!", col: LIME2, life: 1.3, max: 1.3, big: true });
+      fx.push({ type: "burst", x: W / 2, y: lanesY[lanes - 1], life: 0.6, max: 0.6, col: LIME });
+      flash = 0.3; flashCol = LIME;
+    }
+  }
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
 
   function bump(n) {
@@ -127,7 +139,7 @@
   function react(f, ms) { face = f; faceT = ms / 1000; }
 
   function start() {
-    state = "play"; t = 0; items = []; fx = []; meter = 0; score = 0; combo = 0; mult = 1; spawnIn = 0.35; scanned = 0; wrongs = 0; misses = 0; won = false; total = 0;
+    state = "play"; t = 0; items = []; fx = []; meter = 0; score = 0; combo = 0; mult = 1; spawnIn = 0.35; scanned = 0; wrongs = 0; misses = 0; won = false; total = 0; lanes = 1; bestStreak = 0;
     startAt = performance.now(); say("hello", true); react("happy", 700); sfx.start();
     sdk((c) => c.start && c.start());
   }
@@ -173,6 +185,13 @@
       fx.push({ type: "fly", kind: it.kind, x: it.x, y: cyp - S / 2, life: 0.45, max: 0.45 });
       fx.push({ type: "text", x: cxp, y: cyp - S * 0.65, s: mult > 1 ? "+" + mult : "beep", col: mult > 1 ? LIME2 : CASE, life: 0.6, max: 0.6 });
       if (combo > 0 && combo % 5 === 0 && mult <= 4) fx.push({ type: "text", x: W / 2, y: top + 14, s: "x" + mult + " combo", col: LIME, life: 0.9, max: 0.9, big: true });
+      bestStreak = Math.max(bestStreak, combo);
+      if (combo % 10 === 0) { // a perfect run of ten: a lime burst where it happened, the till beams, the frame glows
+        fx.push({ type: "burst", x: cxp, y: cyp, life: 0.7, max: 0.7, col: LIME2 });
+        fx.push({ type: "text", x: Math.max(80, Math.min(W - 80, cxp)), y: cyp - S * 1.1, s: "PERFECT " + combo, col: LIME2, life: 1.1, max: 1.1, big: true });
+        react("happy", 900); flash = Math.max(flash, 0.25); flashCol = LIME;
+      }
+      checkLanes();
       sdkScore(score);
     }
   }
@@ -204,8 +223,17 @@
       e.preventDefault(); // Space must never scroll the page around the game
       if (e.repeat) return;
       if (state !== "play") { press(-1, -1); return; }
-      let r = null;
-      for (const it of items) if (!it.gone && (!r || it.x > r.x)) r = it;
+      const now = performance.now() / 1000;
+      let r = null, eyed = null;
+      for (const it of items) {
+        if (it.gone) continue;
+        if (eyesOpen(it, now)) { if (!eyed || it.x > eyed.x) eyed = it; continue; }
+        if (!r || it.x > r.x) r = it;
+      }
+      if (eyed && (!r || eyed.x > r.x) && !eyed.warned) { // the nearest one is looking at you: warn, don't scan it
+        eyed.warned = true; eyed.redT = 0.45;
+        fx.push({ type: "text", x: eyed.x + S / 2, y: lanesY[eyed.lane] - S * 0.7, s: "eyes! skipped", col: BAD, life: 0.7, max: 0.7 });
+      }
       if (r) scan(r);
     }
   }
@@ -231,6 +259,7 @@
     if (state !== "play") return;
     t += dt;
     if (t >= SHIFT) { end(meter < 100); return; }
+    checkLanes();
     const k = t / SHIFT;
     spawnIn -= dt;
     if (spawnIn <= 0) { spawn(); spawnIn = lerp(0.95, 0.36, k) * (0.75 + Math.random() * 0.5); }
@@ -238,12 +267,13 @@
     for (const it of items) {
       if (it.gone) continue;
       it.x += speed * dt;
+      if (it.redT) it.redT = Math.max(0, it.redT - dt);
       if (it.x > W) {
         it.gone = true;
         if (!it.possessed) {
           misses++; combo = 0; mult = 1;
           react("sad", 500); say("miss"); sfx.miss(); flash = 0.2; flashCol = "#ffb340";
-          bump(14);
+          bump(9);
           if (state !== "play") return;
         }
       }
@@ -259,6 +289,7 @@
 
   // ---------- draw ----------
   function px(x) { return Math.round(x); }
+  function eyesOpen(it, time) { return it.possessed && (!it.sneaky || Math.sin(time * 2.3 + it.seed * 3) > 0.35); }
   function drawFace(x, y, w, h, name) {
     const F = FACES[name] || FACES.sad, cw = w / 16, ch = h / 10;
     cx.fillStyle = LIME;
@@ -327,7 +358,7 @@
       cx.globalAlpha = pulse; cx.fillText("!! the till is about to cook !!", W / 2, my + 14); cx.globalAlpha = 1;
     }
     cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.textBaseline = "bottom"; cx.textAlign = "left"; cx.fillStyle = "#8a8e80";
-    cx.fillText("assistance needed", mx, my - 3);
+    cx.fillText(W >= 380 ? "assistance needed · misses + eyes fill it" : "assistance · misses + eyes fill it", mx, my - 3);
     // score, combo and time on the meter row, right side
     cx.textAlign = "right"; cx.textBaseline = "bottom";
     const info = (mult > 1 ? "x" + mult + "  " : "") + Math.max(0, Math.ceil(SHIFT - t)) + "s";
@@ -337,6 +368,10 @@
     cx.font = "800 22px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = CASE;
     cx.fillText(String(score), W - 14 - iw - 10, my - 1);
     // combo badge: big and on the belt side, so it's seen while tapping
+    if (combo >= 3 && mult === 1) {
+      cx.font = "800 13px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = LIME; cx.textAlign = "left"; cx.textBaseline = "top";
+      cx.fillText("streak " + combo, 14, my + (meter >= 75 ? 32 : 18));
+    }
     if (mult > 1) {
       const txt = "x" + mult + " combo", by = my + (meter >= 75 ? 32 : 18);
       cx.font = "800 " + Math.round(Math.min(26, W / 15)) + "px ui-monospace, Menlo, Consolas, monospace";
@@ -345,7 +380,7 @@
       cx.fillStyle = mult >= 4 ? LIME2 : LIME; cx.fillRect(16, by + 2, tw - 4, th - 4);
       cx.fillStyle = INK; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText(txt, 14 + tw / 2, by + th / 2 + 1);
       cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#8a8e80"; cx.textAlign = "left"; cx.textBaseline = "middle";
-      cx.fillText(combo + " in a row", 14 + tw + 8, by + th / 2);
+      cx.fillText("streak " + combo + (combo >= 10 ? "  ·  perfect" : ""), 14 + tw + 8, by + th / 2);
     }
   }
   function drawBelts(time) {
@@ -359,7 +394,11 @@
       const off = reduce ? 0 : (time * (W * 0.3)) % 28;
       for (let x = -28 + off; x < W; x += 28) cx.fillRect(px(x), y - 4, 10, bh);
       cx.fillStyle = INK; cx.fillRect(0, y - 6, W, 3);
-      if (!on && state === "play") { cx.fillStyle = "#3a3d33"; cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("lane closed (for now)", W / 2, lanesY[i]); }
+      if (!on && state === "play") {
+        const next = i === open; // only the next lane to open counts up
+        cx.fillStyle = next ? "#6f7560" : "#3a3d33"; cx.font = "700 " + (next ? 12 : 11) + "px ui-monospace, Menlo, Consolas, monospace"; cx.textAlign = "center"; cx.textBaseline = "middle";
+        cx.fillText("lane " + (i + 1) + " opens at " + LANE_AT[i] + " scanned" + (next ? "  (" + scanned + "/" + LANE_AT[i] + ")" : ""), W / 2, lanesY[i]);
+      }
     }
     // the bag at the end
     const bw = S * 0.7, bh2 = S * 0.62, bx = W - bw - 10, by = top - 4;
@@ -370,18 +409,21 @@
   }
   function drawItem(it, time) {
     const x = it.x, y = it.y != null ? it.y : lanesY[it.lane] - S / 2;
-    const bob = it.possessed && !reduce ? Math.sin(time * 7 + it.seed) * S * 0.05 : 0;
+    const heat = state === "play" ? Math.min(1, t / SHIFT) : 0;
+    const bob = it.possessed && !reduce ? Math.sin(time * (7 + heat * 5) + it.seed) * S * (0.05 + heat * 0.06) : 0;
     const jit = it.possessed && !reduce ? (Math.sin(time * 31 + it.seed) > 0.92 ? 2 : 0) : 0;
-    const eyesOpen = it.possessed && (!it.sneaky || Math.sin(time * 2.3 + it.seed * 3) > 0.35);
-    if (eyesOpen) {
-      cx.fillStyle = "rgba(180, 140, 255, 0.18)";
-      cx.beginPath(); cx.ellipse(x + S / 2, y + S / 2 + bob, S * 0.62, S * 0.55, 0, 0, Math.PI * 2); cx.fill();
+    const eyes = eyesOpen(it, time);
+    if (eyes) {
+      const pulse = reduce ? 0 : (0.5 + 0.5 * Math.sin(time * (6 + heat * 8) + it.seed)) * heat;
+      cx.fillStyle = it.redT ? "rgba(255, 77, 94, " + (0.25 + it.redT) + ")" : "rgba(180, 140, 255, " + (0.18 + pulse * 0.3) + ")";
+      const g = 1 + pulse * 0.18;
+      cx.beginPath(); cx.ellipse(x + S / 2, y + S / 2 + bob, S * 0.62 * g, S * 0.55 * g, 0, 0, Math.PI * 2); cx.fill();
     }
     cx.imageSmoothingEnabled = false;
     cx.drawImage(sprites[it.kind], px(x + jit), px(y + bob), S, S);
     if (it.possessed && it.kind !== "ghost") {
       // eyes: open, or for sneaky ones only now and then
-      const open = eyesOpen;
+      const open = eyes;
       const e = S / 12, ey = y + bob + S * 0.42, ex1 = x + S * 0.3, ex2 = x + S * 0.58;
       if (open) {
         cx.fillStyle = "#fff"; cx.fillRect(px(ex1), px(ey), Math.ceil(e * 2), Math.ceil(e * 2)); cx.fillRect(px(ex2), px(ey), Math.ceil(e * 2), Math.ceil(e * 2));
@@ -409,6 +451,10 @@
         cx.globalAlpha = 1 - k; cx.fillStyle = f.col; cx.textAlign = "center"; cx.textBaseline = "middle";
         cx.font = "800 " + (f.big ? 22 : 16) + "px ui-monospace, Menlo, Consolas, monospace";
         cx.fillText(f.s, f.x, f.y - k * 26); cx.globalAlpha = 1;
+      } else if (f.type === "burst") {
+        cx.globalAlpha = 1 - k; cx.fillStyle = f.col;
+        for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2, d = S * (0.3 + k * 1.3); cx.fillRect(px(f.x + Math.cos(a) * d - 3), px(f.y + Math.sin(a) * d - 3), 6, 6); }
+        cx.globalAlpha = 1;
       } else if (f.type === "spirit") {
         cx.globalAlpha = 1 - k; cx.imageSmoothingEnabled = false;
         cx.drawImage(sprites.ghost, px(f.x - S * 0.4 + Math.sin(k * 12) * 6), px(f.y - S * 0.5 - k * S * 1.6), S * 0.8, S * 0.8); cx.globalAlpha = 1;
@@ -436,35 +482,47 @@
   function overlay(time) {
     cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, top - 4, W, H - top + 4);
     cx.textAlign = "center"; cx.textBaseline = "middle";
-    const mid = top + (H - top) * 0.42, big = Math.round(Math.max(24, Math.min(44, W / 11)));
+    const big = Math.round(Math.max(24, Math.min(44, W / 11)));
+    const mid = top + (H - top) * 0.42;
     if (state === "title") {
       cx.fillStyle = CASE; cx.font = "800 " + big + "px ui-monospace, Menlo, Consolas, monospace";
       cx.fillText("haunted", W / 2, mid - big * 1.6); cx.fillText("self-checkout", W / 2, mid - big * 0.55);
       cx.font = "700 " + Math.round(Math.max(13, Math.min(17, W / 26))) + "px ui-monospace, Menlo, Consolas, monospace";
       cx.fillStyle = LIME; cx.fillText("tap groceries to scan them.", W / 2, mid + big * 0.6);
       cx.fillStyle = BAD; cx.fillText("never scan the ones with eyes.", W / 2, mid + big * 0.6 + 24);
+      cx.fillStyle = "#ffb340"; cx.font = "700 " + Math.round(Math.max(11, Math.min(14, W / 32))) + "px ui-monospace, Menlo, Consolas, monospace";
+      cx.fillText("misses fill the meter too.", W / 2, mid + big * 0.6 + 46);
       // demo sprites: a normal one and a possessed one
       cx.imageSmoothingEnabled = false;
-      const d = Math.min(S, 60);
-      cx.drawImage(sprites.banana, W / 2 - d * 1.4, mid + big * 0.6 + 44, d, d);
-      drawItem({ kind: "apple", lane: 0, x: W / 2 + d * 0.3, y: mid + big * 0.6 + 44 - (S - d) / 2, possessed: true, sneaky: false, seed: 1 }, time);
+      const d = Math.max(26, Math.min(S, 60, H - 34 - 40 - (mid + big * 0.6 + 62)));
+      cx.drawImage(sprites.banana, W / 2 - d * 1.4, mid + big * 0.6 + 62, d, d);
+      drawItem({ kind: "apple", lane: 0, x: W / 2 + d * 0.3, y: mid + big * 0.6 + 62 - (S - d) / 2, possessed: true, sneaky: false, seed: 1 }, time);
     } else {
-      cx.fillStyle = won ? LIME : BAD; cx.font = "800 " + big + "px ui-monospace, Menlo, Consolas, monospace";
-      cx.fillText(won ? "shift survived" : "till cooked", W / 2, mid - big * 1.65);
-      if (!won) { cx.font = "700 13px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#ffb340"; cx.fillText("the assistance meter filled up. nobody came.", W / 2, mid - big * 1.05); }
-      cx.fillStyle = CASE; cx.font = "800 " + Math.round(big * 1.4) + "px ui-monospace, Menlo, Consolas, monospace";
-      cx.fillText(String(score), W / 2, mid);
-      cx.font = "700 14px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#c9c4a8";
-      cx.fillText("best " + best + "  ·  " + scanned + " scanned  ·  receipt $" + total.toFixed(2), W / 2, mid + big * 0.95);
-      cx.fillText(wrongs + " possessed scanned  ·  " + misses + " got away", W / 2, mid + big * 0.95 + 22);
+      // the end card fits above the tip pill (tipSync keeps it at least 112px off the bottom): in a short player frame
+      // it climbs over the till and tightens up, and every line shrinks to the width (K-0071)
+      let b = big, c = 1, y0 = top;
+      const need = (bb, cc) => 3.1 * bb + 100 * cc + 4;
+      if (need(b, 1) > H - 112 - y0) { y0 = 8; c = 0.8; }
+      if (need(b, c) > H - 112 - y0) b = Math.max(18, Math.floor((H - 112 - y0 - 4 - 100 * c) / 3.1));
+      const m = Math.max(y0 + 2.15 * b + 4, Math.min(y0 + (H - y0) * 0.42, H - 112 - 0.95 * b - 100 * c));
+      if (y0 < top) { cx.fillStyle = "rgba(8, 9, 7, 0.86)"; cx.fillRect(0, 0, W, top - 4); }
+      const fit = (wt, size, s) => { let f = size; do { cx.font = wt + " " + f + "px ui-monospace, Menlo, Consolas, monospace"; } while (cx.measureText(s).width > W - 16 && --f > 9); };
+      const head = won ? "shift survived" : "till cooked";
+      cx.fillStyle = won ? LIME : BAD; fit(800, b, head); cx.fillText(head, W / 2, m - b * 1.65);
+      if (!won) { const why = misses * 9 > wrongs * 30 ? "the meter filled up: too many got away." : "the meter filled up: you scanned the haunted ones."; fit(700, 13, why); cx.fillStyle = "#ffb340"; cx.fillText(why, W / 2, m - b * 1.05); }
+      cx.fillStyle = CASE; cx.font = "800 " + Math.round(b * 1.4) + "px ui-monospace, Menlo, Consolas, monospace";
+      cx.fillText(String(score), W / 2, m);
+      const s1 = "best " + best + "  ·  " + scanned + " scanned  ·  receipt $" + total.toFixed(2), s2 = wrongs + " possessed scanned  ·  " + misses + " got away  ·  best streak " + bestStreak;
+      cx.fillStyle = "#c9c4a8"; fit(700, 14, s1.length > s2.length ? s1 : s2);
+      cx.fillText(s1, W / 2, m + b * 0.95); cx.fillText(s2, W / 2, m + b * 0.95 + 22 * c);
       // the nudge: how far from the best, or how far past it
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first shift logged. now beat it.")
         : score === prevBest ? "tied your best. one more scan next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
-      cx.font = "800 15px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = score > prevBest ? LIME2 : "#ffb340";
-      cx.fillText(nudge, W / 2, mid + big * 0.95 + 46);
-      if (performance.now() - endAt > 700) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, mid + big * 0.95 + 80); tipY = mid + big * 0.95 + 100; }
+      fit(800, 15, nudge); cx.fillStyle = score > prevBest ? LIME2 : "#ffb340";
+      cx.fillText(nudge, W / 2, m + b * 0.95 + 46 * c);
+      if (performance.now() - endAt > 700) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, m + b * 0.95 + 76 * c); tipY = m + b * 0.95 + 100 * c; }
     }
-    if (state === "title") { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to start your shift", W / 2, Math.min(H - 40, mid + big * 0.6 + 44 + Math.min(S, 60) + 40)); }
+    if (state === "title") { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to start your shift", W / 2, Math.min(H - 34, mid + big * 0.6 + 62 + Math.max(26, Math.min(S, 60, H - 34 - 40 - (mid + big * 0.6 + 62))) + 40)); }
   }
   function draw(time) {
     cx.save();
@@ -494,5 +552,5 @@
   }
   requestAnimationFrame(frame);
   // test hook for the smoke/screenshot scripts (no effect on play)
-  window.__hsc = { state: () => ({ state, t, score, meter, won, scanned, wrongs, misses, items: items.length }) };
+  window.__hsc = { state: () => ({ state, t, score, meter, won, scanned, wrongs, misses, items: items.length, lanes, combo, bestStreak }) };
 })();
