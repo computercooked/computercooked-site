@@ -424,7 +424,7 @@
       live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
     }
     row.addEventListener("click", function (e) {
-      var b = e.target.closest(".chip");
+      var b = e.target.closest(".chip[data-vibe]"); // not the random or sort chips
       if (!b) return;
       vibe = b.dataset.vibe;
       row.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
