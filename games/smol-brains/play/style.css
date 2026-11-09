@@ -598,3 +598,17 @@ body.titling #overlay { opacity: 0; }
   .sheet.side .thought { font-size: 14px; }
   .sheet.side .sec { margin-top: 12px; }
 }
+
+/* the Lantern journal (4.14) */
+.journal .small { font-size: 11px; margin-top: 6px; }
+.journal .dim { color: var(--dim); }
+.jbar { height: 8px; margin: 8px 0 4px; background: rgba(255,255,255,.08); box-shadow: 0 0 0 2px var(--px, #000); }
+.jbar i { display: block; height: 100%; background: linear-gradient(90deg, #ff9a3c, #ffd36a); }
+.jpage { margin-top: 6px; padding: 6px 8px; background: rgba(255,214,120,.06); box-shadow: inset 0 0 0 2px rgba(255,214,120,.18); }
+.jpage summary { cursor: pointer; font-weight: 700; color: #ffd36a; }
+.jpage p { margin: 6px 0 2px; font-size: 13px; line-height: 1.45; }
+.jpage.new summary::after { content: " new"; color: var(--lime); font-size: 10px; }
+.toast.day { border-color: #ffd36a; }
+.toast.day b { color: #ffd36a; }
+/* 4.14: while "lend your light" is up, the guide card steps aside (they sat on top of each other) */
+#ui:has(.lendbtn.on) .guide { display: none; }

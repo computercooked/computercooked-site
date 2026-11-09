@@ -674,6 +674,28 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.60 What v4.14.0 added: the Lantern journal, a day on the Hollow, and pacing for one sitting (complete-game goal, steps 2-4)
+
+- **The lore journal (`embers.js` E.LORE, `ui.js` lanternSheet).** Tapping 🏮 now opens the Lantern's journal instead of a toast. It shows the stage, a bar to the next stage, how embers are earned, the latest embers, and **16 pages of lore that come back with the embers** (at 1, 3, 5, 7, 10, 12, 15, 18, 21, 24, 27, 30, 35, 40, 45 and 50).
+  - The pages, in order: a tune, the hill (the Hollow is a giant's curled hand), who lit it (Oru), why brains are smol, the long dark, what grumps are, the sky ships, the warship (it was an ark once), the pods, Pip, the giant's dreams (the seasons), the spire, names, the other lights, why the Hollow sleeps, and the waking.
+  - Each new page shows a card ("a memory came back: …, tap 🏮 to read it"). The newest page opens first, marked new.
+- **A day on the Hollow (`days.js`, new).** Like Stardew Valley's end of day: everything worth telling between one dawn and the next is tallied. That covers hatches, words, tricks, ideas, buildings, embers, new species, grump chases won and smols lost.
+  - At dawn one small card, never a window, sums up yesterday ("☀️ day 3 · yesterday: a smol hatched · 4 words learned · 2 memory embers") and gives today's one goal, the next open quest.
+  - The tally saves with the quest board (`game.quests.day`). Offline catch-up neither counts nor shows a card.
+- **Pacing for one sitting: the Lantern's pull (`main.js` Game.lanternPull).** The Lantern is the smols' memory, so each egg now leans toward what its more evolved parent's next tier still needs. The pull is 0.12 of the way to the top per egg, ×1.5 at Lantern stage 1, ×2 at stage 2 and ×2.5 at stage 3, so progress and the story speed each other up. Grumps don't get it. Measured with a new engaged-player bot (`smol-brains-handover/tools/engaged.js`: teaches, tickles, feeds, blesses toward the next tier, inspires; 120 sim min):
+
+  | island | tribe | first building | village | Lantern stage 2 | the Hollow wakes |
+  |---|---|---|---|---|---|
+  | seed 1, 4.13 | 54 min | none in 120 | none | 70 | no |
+  | seed 1, pull 0.07 | 16 | 69 | 109 | 24 | no |
+  | seed 2, pull 0.07 | 50 | 85 | none | 63 | no |
+  | seed 2, pull 0.12 | 16 | 40 | 57 | 24 | 116 min |
+  | seed 4, pull 0.12 | 24 | 64 | 96 | 35 | 124 min |
+
+  An engaged player now sees the whole arc, from blob to village to the Hollow waking, in about two hours.
+- Fixes found by a 16× browser run: the "lend your light" button sat on top of a wish card (the guide card now steps aside while it's up). The dawn card waits for the first night to hand over and is never dropped from a busy toast queue.
+- Tests: `embers.test.js` 5b (16 pages in ember order, each announced once, all back at the finale) and `days.test.js` (new: the tally, the recap and its goal, a quiet day, saving, offline, and the load order), and 5c (the pull nudges a needed gene, more at a higher stage, never for grumps).
+
 ## 0.59 What v4.13.0 changed: pixel art by default (Ashton's complete-game goal, step 1)
 
 - **The hd pixel look is now the default.** It has the low-res scene, 1 px outlines, the Higgsfield pixel-art textures, painted pixel smols and warm light. The voxel look (the default in 4.10–4.12) and classic 3D are still in settings → look. A player who picked a look in settings keeps it.

@@ -85,6 +85,34 @@ seeded(4400, () => {
   SB.bus.emit("death", { c: SB.Game.smols(game)[0], cause: "hurt" });
   check("no more grumps get up after it", game.creatures.filter(o => o.species === "grump" && o.alive).length === gBefore);
 
+  console.log("5b. the lore journal (4.14): pages come back with the embers");
+  check("16 pages, in ember order, the last at the finale", E.LORE.length === 16 && E.LORE.every((p, i) => !i || p[0] > E.LORE[i - 1][0]) && E.LORE[15][0] === E.STAGES[E.STAGES.length - 1]);
+  check("every page has a title and real text", E.LORE.every(p => p[1] && p[2].length > 80));
+  check("at 50 embers every page is back", E.pages(game).length === 16 && E.nextPage(game) === null);
+  {
+    const g9 = SB.Game.newGame(909); const seen = []; const off = SB.bus.on("lorePage", d => seen.push(d.page[1]));
+    check("a fresh island: no pages yet, the first at 1 ember", E.pages(g9).length === 0 && E.nextPage(g9)[0] === 1);
+    for (let i = 0; i < 12; i++) E.add(g9, "lore:" + i, "a memory");
+    check("12 embers: 6 pages, each announced once", E.pages(g9).length === 6 && seen.length === 6, seen.join(", "));
+    if (typeof off === "function") off();
+  }
+
+  console.log("5c. the Lantern's pull (4.14): eggs lean toward the next tier, more with each stage");
+  {
+    const g8 = SB.Game.newGame(808), G = SB.Genome;
+    const par = SB.Game.smols(g8)[0] || SB.Game.spawnSmol(g8, { x: g8.world.T.spawn.x, z: g8.world.T.spawn.z });
+    const need = G.nextNeeds(par.genome).map(x => x.gene === "neurons" ? "cortex" : x.gene).filter(k => par.genome.genes[k] != null)[0];
+    const kid = () => JSON.parse(JSON.stringify(par.genome));
+    const a = kid(), b = kid(); const v0 = a.genes[need];
+    const n0 = SB.Game.lanternPull(g8, a, par.genome, par.genome);
+    g8.lantern = { embers: 30, stage: 3, got: {}, log: [] };
+    SB.Game.lanternPull(g8, b, par.genome, par.genome);
+    check("a needed gene goes up", n0 > 0 && a.genes[need] > v0, need + " " + v0.toFixed(3) + " → " + a.genes[need].toFixed(3));
+    check("and further at Lantern stage 3", b.genes[need] > a.genes[need], a.genes[need].toFixed(3) + " vs " + b.genes[need].toFixed(3));
+    const gr = kid(); gr.species = "grump"; const gv = JSON.stringify(gr.genes);
+    check("grumps don't get it", SB.Game.lanternPull(g8, gr, par.genome, par.genome) === 0 && JSON.stringify(gr.genes) === gv);
+  }
+
   console.log("6. saved with the island");
   const back = SB.Save.revive(JSON.parse(JSON.stringify(SB.Save.snapshot(game))));
   check("embers, stage and memories come back", back.lantern && back.lantern.embers === E.count(game) && back.lantern.stage === E.stage(game) && back.lantern.got.night1 === 1 && back.lantern.woke && back.lantern.films.wake === 1, back.lantern && JSON.stringify([back.lantern.embers, back.lantern.stage]));

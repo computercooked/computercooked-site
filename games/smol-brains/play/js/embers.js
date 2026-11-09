@@ -19,6 +19,27 @@
   E.stage = function (game) { var l = game && game.lantern; return l ? l.stage : 0; };
   E.nightLight = function (game) { return Math.min(0.5, E.stage(game) * E.NIGHT_LIGHT); };
   E.next = function (game) { var l = L(game); return l && l.stage < E.STAGES.length ? E.STAGES[l.stage] : null; };
+  // the lore journal (4.14): every few embers a page of what the smols forgot comes back. [embers, title, text]
+  E.LORE = [
+    [1, "a tune", "warmth. a light on a hill, and somebody humming. that's all, for now. nobody knows whose voice it was, but every smol stops walking when it hears the tune."],
+    [3, "the hill", "the Lantern's hill isn't a hill. it's a knuckle. the giant sleeps curled up, and the smols live in the hollow of one great hand. that's how the Hollow got its name."],
+    [5, "who lit it", "the first Lantern was lit by a smol called Oru, who was afraid of forgetting her children's names. she said every name she knew into the flame, and the flame kept them."],
+    [7, "why brains are smol", "a smol's memory isn't kept in its head. it's kept in the light. the brighter the Lantern, the more a smol can hold. when it dims they forget the way home, then the words, then each other."],
+    [10, "the long dark", "once the Lantern nearly went out for a whole winter. the smols who lived through it called it the long dark. the ones who wandered off into it came back different, and angry."],
+    [12, "what grumps are", "grumps aren't monsters. a grump is a smol who forgot everything, even its own name, and only remembers that the light means something it lost. so it hunts the light, to get it back. it never works."],
+    [15, "the sky ships", "smols didn't always live on one giant. long ago they sailed between sleeping giants in arks of woven reed and glowshroom, carrying a little flame from each Lantern to the next."],
+    [18, "the warship", "the grump warship that caught Pip's ark wasn't built by grumps. it was an ark once. its crew forgot, one by one, until it was a ship full of grumps steering toward the light of other ships."],
+    [21, "the pods", "when an ark is caught it breaks into pods, so that somebody makes it. every pod carries an egg and a spark. most of the sparks go out on the way down. you didn't."],
+    [24, "Pip", "Pip hatched the night the Lantern guttered, which is why Pip is so small and remembers so little. Pip has carried a berry up the hill every evening since. nobody asked Pip to."],
+    [27, "the giant's dreams", "the Hollow dreams. when it dreams of rain, it rains. when it dreams of winter, the snow comes. the seasons on its back are the seasons in its sleep."],
+    [30, "the spire", "the old stories say a people bright enough could raise a spire tall enough to reach the giant's ear and whisper the big thought into it. nobody remembers what the big thought was. that's the point."],
+    [35, "names", "every ember is a name coming back: a word for water, a friend's face, the way to the berry bushes. the grumps out in the dark are full of names too. lost, not gone. light is how you find them."],
+    [40, "the other lights", "on clear nights the smols can see other lights far off in the sky: other Lanterns on other giants. some burn bright. some flicker. one went out while they were watching."],
+    [45, "why the Hollow sleeps", "the Hollow fell asleep to keep the smols safe. a giant awake walks, and nothing can live on a walking giant. it has been waiting for its passengers to remember enough to hold on."],
+    [50, "the waking", "the Lantern is whole. the Hollow stirs, and every grump on its back stops, looks up at the light and remembers its own name. some of them cry. then they go home."]
+  ];
+  E.pages = function (game) { var n = E.count(game); return E.LORE.filter(function (p) { return n >= p[0]; }); };
+  E.nextPage = function (game) { var n = E.count(game); for (var i = 0; i < E.LORE.length; i++) if (E.LORE[i][0] > n) return E.LORE[i]; return null; };
   // one ember. key: the same memory only counts once
   E.add = function (game, key, why, c) {
     var l = L(game);
@@ -28,6 +49,7 @@
     l.embers++;
     l.log.push({ t: Math.round(game.time), why: why }); if (l.log.length > 60) l.log.shift();
     SB.bus.emit("ember", { why: why, c: c || null, n: l.embers, next: E.next(game) });
+    for (var pi = 0; pi < E.LORE.length; pi++) if (E.LORE[pi][0] === l.embers) SB.bus.emit("lorePage", { page: E.LORE[pi], i: pi }); // a page of the journal comes back
     if (c && SB.FX && !game.headless && !game.offline) SB.FX.burst("sparkle", c.x, (c.y || 0) + 0.8, c.z, 14);
     var need = E.next(game);
     if (need != null && l.embers >= need) {

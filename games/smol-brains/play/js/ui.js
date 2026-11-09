@@ -397,18 +397,37 @@
   // at most two toasts on screen; the rest wait their turn (repeats are dropped, old news falls off)
   var toastQ = [];
   var nightHeld = [];
-  function lanternSheet() {
+  // the Lantern and its journal (4.14): the stage, the embers so far, and the pages of lore they've brought back
+  function lanternSheet(open) {
     var g = SB.Game.current; if (!g || !SB.Embers) return;
-    var l = SB.Embers.state(g), nx = SB.Embers.next(g);
-    toast("🏮 <b>the Lantern</b> · stage " + l.stage + " · " + l.embers + " memory embers" + (nx ? ", the next stage at " + nx : "") + ".<br>" + l.log.slice(-4).reverse().map(function (e) { return "🔥 " + esc(e.why); }).join("<br>"), "", 7000);
+    var E = SB.Embers, l = E.state(g), nx = E.next(g), ST = E.STAGES, body = h("div", { class: "journal" });
+    var prev = l.stage ? ST[l.stage - 1] : 0, frac = nx ? SB.clamp01((l.embers - prev) / (nx - prev)) : 1;
+    body.appendChild(h("p", { class: "note" }, E.woke(g) ? "🌅 the Lantern is whole and the Hollow is awake. every memory is back." :
+      "stage " + l.stage + " of " + ST.length + " · " + l.embers + " memory embers · " + (nx ? "the next stage at " + nx + "." : "")));
+    body.appendChild(h("div", { class: "jbar" }, [h("i", { style: "width:" + Math.round(frac * 100) + "%" })]));
+    body.appendChild(h("p", { class: "dim small" }, "embers come from memories won back: surviving a night, a first word, a first trick, a baby, a discovery, a first building, a new couple. each stage makes the nights less dark."));
+    var pages = E.pages(g), np = E.nextPage(g);
+    body.appendChild(h("div", { class: "sec" }, [h("span", null, "memories"), h("span", { class: "dim" }, pages.length + " of " + E.LORE.length)]));
+    pages.slice().reverse().forEach(function (p, i) {
+      var d = h("details", { class: "jpage" + (i === 0 ? " new" : "") }, [h("summary", null, p[1]), h("p", null, p[2])]);
+      if (i === 0 && open !== false) d.open = true;
+      body.appendChild(d);
+    });
+    if (np) body.appendChild(h("p", { class: "dim small" }, "🔒 the next memory comes back at " + np[0] + " embers."));
+    if (l.log.length) {
+      body.appendChild(h("div", { class: "sec" }, [h("span", null, "🔥 latest embers")]));
+      body.appendChild(h("p", { class: "dim small" }, l.log.slice(-5).reverse().map(function (e) { return esc(e.why); }).join(" · ")));
+    }
+    modal("🏮 the Lantern", body);
   }
+  UI.lanternSheet = lanternSheet;
   function toast(html, cls, ms) {
     if (game && SB.FirstNight && SB.FirstNight.active(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
     if (live.length >= 2) { // a full queue drops its oldest ordinary toast; memory embers go first and are never dropped (K-0048)
       if (cls === "ember") toastQ.unshift([html, cls, ms]); else toastQ.push([html, cls, ms]);
-      if (toastQ.length > 5) { var dk = toastQ.findIndex(function (q) { return q[1] !== "ember"; }); if (dk >= 0) toastQ.splice(dk, 1); }
+      if (toastQ.length > 5) { var dk = toastQ.findIndex(function (q) { return q[1] !== "ember" && q[1] !== "day"; }); if (dk >= 0) toastQ.splice(dk, 1); }
       return;
     }
     var t = h("div", { class: "toast glass " + (cls || ""), html: html });
@@ -2302,6 +2321,18 @@
       var g = SB.Game.current; if (!g || g.offline) return;
       var html = "🔥 <b>memory ember +1</b>: " + esc(d.why) + (d.next ? " <span class=\"dim\">(" + d.n + " of " + d.next + ")</span>" : "");
       (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast(html, "ember", 5500); if (el.lantern) { el.lantern.classList.remove("pulse"); void el.lantern.offsetWidth; el.lantern.classList.add("pulse"); } })();
+    });
+    // a day on the Hollow (4.15): at dawn, yesterday in one small card and one thing to do today
+    on("dayRecap", function (r) {
+      var g = SB.Game.current; if (!g || g.offline || g.showcase || (UI.isQuiet && UI.isQuiet())) return;
+      var html = "☀️ <b>day " + (r.day + 1) + "</b> · " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
+        (r.goal ? "<br><span class=\"dim\">today:</span> " + r.goal.icon + " " + esc(r.goal.t) : "");
+      var tries = 0; // waits for a film, and for the first night to hand over (its own toasts only until then)
+      (function show() { if (((SB.Lantern && SB.Lantern.running) || (SB.FirstNight && SB.FirstNight.active(g))) && ++tries < 40) return setTimeout(show, 1500); toast(html, "day", 9000); })();
+    });
+    on("lorePage", function (d) {
+      var g = SB.Game.current; if (!g || g.offline) return;
+      (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast("🏮 <b>a memory came back</b>: “" + esc(d.page[1]) + "”. tap 🏮 to read it.", "ember", 7000); })();
     });
     on("lantern", function (d) {
       var g = SB.Game.current; if (!g || !d.stage || g.offline) return; // stage 0 is the first night's ember
