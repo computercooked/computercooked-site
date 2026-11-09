@@ -289,6 +289,7 @@ All in the browser, from `cc-history` (`assets/fx.js` `filters()`); a first visi
 - **Count:** the heading reads "25 games · 3 played" when that fits on the same lines; on narrow screens it stays as it was so nothing moves.
 - **"not played N" chip:** shows only the games not yet played. Hidden for first visits and once everything is played.
 - **Random** picks a game not yet played while there is one in the current filter.
+- **Sort chip** (`.chip-sort`): steps through featured, newest, a to z and (once something is played) your recent. The cards are moved in the page, and the choice is kept on the device in `cc-hub-sort`.
 
 ## Game page: your runs
 

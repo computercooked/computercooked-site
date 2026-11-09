@@ -343,6 +343,34 @@
       location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
     });
     row.appendChild(dice);
+    // sort: one chip that steps through the orders. Remembered on this device (cc-hub-sort).
+    var SORTS = [["featured", "featured"], ["newest", "newest"], ["az", "a to z"]].concat(done ? [["recent", "your recent"]] : []);
+    var sort = "featured";
+    try { var saved = localStorage.getItem("cc-hub-sort"); if (SORTS.some(function (x) { return x[0] === saved; })) sort = saved; } catch (e) {}
+    var rank = {};
+    function ranks() {
+      var list = games.map(function (g, i) { return { g: g, i: i }; });
+      if (sort === "newest") list.sort(function (a, b) { return String(b.g.added || "").localeCompare(String(a.g.added || "")) || a.i - b.i; });
+      else if (sort === "az") list.sort(function (a, b) { return String(a.g.title).localeCompare(String(b.g.title)); });
+      else if (sort === "recent") list.sort(function (a, b) { return ((hist[b.g.slug] || {}).t || 0) - ((hist[a.g.slug] || {}).t || 0) || a.i - b.i; });
+      rank = {};
+      list.forEach(function (x, n) { rank[x.g.slug] = n; });
+    }
+    ranks();
+    var sorter = el('<button type="button" class="chip chip-sort"></button>');
+    function sortLabel() {
+      var name = SORTS.filter(function (x) { return x[0] === sort; })[0][1];
+      sorter.textContent = "sort: " + name;
+      sorter.setAttribute("aria-label", "sort order: " + name + ". press to change");
+    }
+    sortLabel();
+    sorter.addEventListener("click", function () {
+      var at = SORTS.map(function (x) { return x[0]; }).indexOf(sort);
+      sort = SORTS[(at + 1) % SORTS.length][0];
+      try { localStorage.setItem("cc-hub-sort", sort); } catch (e) {}
+      ranks(); sortLabel(); apply();
+    });
+    row.appendChild(sorter);
     var section = grid.closest(".shelf");
     var twin = section.querySelector(".hub-filters.is-placeholder"); // games/index.html holds the space (no layout shift)
     if (twin) twin.replaceWith(bar);
@@ -351,6 +379,7 @@
     var empty = bar.querySelector(".hub-empty");
     var live = bar.querySelector('[role="status"]');
     var vibe = "all";
+    var watch = new MutationObserver(function () { apply(); });
 
     // "27 games · 7 played" beside the heading (only when it fits on the same lines, so nothing moves)
     function tally() {
@@ -380,6 +409,16 @@
           if (body) { body.appendChild(tag); card.classList.add("is-played"); }
         }
       });
+      // put the cards in the chosen order (moved in the page itself, so keyboard and screen readers follow it too)
+      var cards = [].slice.call(grid.children), want = cards.slice().sort(function (a, b) {
+        var x = rank[slugOfCard(a)], y = rank[slugOfCard(b)];
+        return (x == null ? 1e9 : x) - (y == null ? 1e9 : y);
+      });
+      if (want.some(function (c, i) { return c !== cards[i]; })) {
+        watch.disconnect();
+        want.forEach(function (c) { grid.appendChild(c); });
+        watch.observe(grid, { childList: true });
+      }
       tally();
       empty.hidden = shown > 0;
       live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
@@ -397,7 +436,7 @@
       row.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.vibe === "all")); });
       apply(); q.focus();
     });
-    new MutationObserver(apply).observe(grid, { childList: true });
+    watch.observe(grid, { childList: true });
     apply();
   }
 
