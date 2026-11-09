@@ -31,6 +31,7 @@
       '<p class="cc-challenge" hidden></p>' +
       '<ol class="cc-rows" aria-live="polite"><li class="cc-empty">loading…</li></ol>' +
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
+      '<div class="cc-runs" hidden></div>' +
     "</div>" +
     '<div class="about-card cc-fb" id="cc-feedback">' +
       '<div class="cc-head"><h2>rate it</h2>' +
@@ -153,8 +154,33 @@
   document.addEventListener("cc:start", function () { if (!histRun) { histRun = true; hist(function (e) { e.n = (e.n || 0) + 1; e.t = Date.now(); }); } });
   document.addEventListener("cc:end", function (ev) {
     var r = ev.detail && ev.detail.result;
-    if (r && r.accepted && typeof r.best === "number") hist(function (e) { e.b = r.best; });
+    if (r && r.accepted && typeof r.best === "number") hist(function (e) {
+      e.b = r.best;
+      // the last 12 accepted scores on this device, for the "your runs" bars under the board
+      if (typeof ev.detail.score === "number" && isFinite(ev.detail.score)) e.r = (e.r || []).concat(ev.detail.score).slice(-12);
+    });
+    showRuns();
   });
+  /* "your runs": a bar for each of your last 12 scores here, the newest on the right, your best one lit.
+     Kept in cc-history on this device only. Shows from the second run on; bars are sized between your own
+     lowest and highest, so it reads the same for games where a lower score wins. */
+  function showRuns() {
+    var box = panel.querySelector(".cc-runs"), e = null;
+    try { e = (JSON.parse(localStorage.getItem("cc-history") || "{}") || {})[game]; } catch (err) {}
+    var r = e && Array.isArray(e.r) ? e.r.filter(function (x) { return typeof x === "number" && isFinite(x); }) : [];
+    if (!box || r.length < 2) return;
+    var lo = Math.min.apply(null, r), hi = Math.max.apply(null, r), last = r[r.length - 1];
+    var best = typeof e.b === "number" ? e.b : hi, off = Math.abs(best - last);
+    box.innerHTML = '<p class="cc-runs-head"><b>your last ' + r.length + " runs</b> <span>" +
+      (off ? esc(fmt(off)) + " off your best" : "that one is your best") + "</span></p>" +
+      '<div class="cc-runs-bars" role="img" aria-label="your last ' + r.length + " scores, oldest first: " + esc(r.map(fmt).join(", ")) + '">' +
+      r.map(function (x, i) {
+        var h = hi > lo ? 18 + Math.round(82 * (x - lo) / (hi - lo)) : 60;
+        return '<i class="' + (x === best ? "is-best" : "") + (i === r.length - 1 ? " is-last" : "") + '" style="height:' + h + '%" title="' + esc(fmt(x)) + '"></i>';
+      }).join("") + "</div>";
+    box.hidden = false;
+  }
+  showRuns();
 
   /* ---------- account chip: K-0031 the top bar's "log in" covers this now, so it stays off the page ---------- */
   var chip = el('<a class="cc-chip" href="/me/">log in</a>');
