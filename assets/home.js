@@ -145,7 +145,8 @@
     }
   }
   function heat(n) { temp = Math.min(100, temp + n); showTemp(); }
-  setInterval(function () { temp = Math.max(58, temp - 0.8); showTemp(); }, 250);
+  // cools back to 58 and then leaves the DOM alone: an idle page does no style or layout work for the meter
+  setInterval(function () { if (temp > 58) { temp = Math.max(58, temp - 0.8); showTemp(); } }, 250);
   var lastX = 0, lastY = 0;
   desk.addEventListener("pointermove", function (e) {
     var d = Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY); lastX = e.clientX; lastY = e.clientY;
