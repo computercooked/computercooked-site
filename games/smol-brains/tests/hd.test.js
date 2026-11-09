@@ -47,7 +47,7 @@ check("tiles, items and the item index ship", ["tiles.png", "items.png", "items.
 check("hd art stays under 2.5 MB", bytes < 2.5e6, (bytes / 1024).toFixed(0) + " KB");
 const png = (f) => { const b = fs.readFileSync(path.join(ART, f)); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
 const tp = png("tiles.png");
-check("tile atlas is 4x4 of 64px", tp.w === 256 && tp.h === 256, tp.w + "x" + tp.h);
+check("texture atlas (4.12): 4x4 tiles of 256 px, four smaller levels and the averages under them", tp.w === 1024 && tp.h === 1536, tp.w + "x" + tp.h);
 const idx = JSON.parse(fs.readFileSync(path.join(ART, "items.json"), "utf8")), ip = png("items.png");
 check("item index matches its atlas", idx.w === ip.w && idx.h === ip.h);
 const want = ["apple", "berry", "cherry", "stick", "stone", "clay", "egg", "ore", "flint", "shroom", "grain", "carrot", "pumpkin"];
@@ -59,13 +59,17 @@ check("every sprite cell (32, 16 and 12 px) sits inside the atlas", inside);
 
 console.log("3. switching looks");
 HD.init({ gl: null });
-check("hd art is only requested by HD.init", !!loaded && /art\/hd\/tiles\.png/.test(loaded.hdTiles.url));
+check("hd art is requested by HD.init", !!loaded && /art\/hd\/tiles\.png/.test(loaded.hdTiles.url));
+loaded = null; HD.initPost({ gl: null });
+check("the voxel look loads the textures too, but not the item sprites (4.12)", !!loaded && !!loaded.hdTiles && !loaded.hdItems);
 const main = fs.readFileSync(path.join(PLAY, "js", "main.js"), "utf8");
 check("default look is still the pixel look", /pixel: look !== "3d", hd: look === "hd"/.test(main));
 const html = fs.readFileSync(path.join(PLAY, "index.html"), "utf8");
 check("hd.js loads after pixel.js and before bodies.js", html.indexOf("js/pixel.js") < html.indexOf("js/hd.js") && html.indexOf("js/hd.js") < html.indexOf("js/bodies.js"));
 const render = fs.readFileSync(path.join(PLAY, "js", "render.js"), "utf8");
-check("hd shader code only compiles with #define HD", (render.match(/#ifdef HD/g) || []).length >= 5 && /R\.hd \? "#define HD\\n" : ""/.test(render));
+check("texture shader code only compiles with #define HD (the hd and voxel looks)", (render.match(/#ifdef HD/g) || []).length >= 5 && /R\.hd \|\| R\.voxel \? "#define HD\\n" : ""/.test(render));
+const vox = fs.readFileSync(path.join(PLAY, "js", "vox.js"), "utf8");
+check("the voxel terrain wears the textures on its tops and sides", (vox.match(/hdGround\(/g) || []).length >= 2 && /R\.HD_GLSL/.test(vox));
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall hd tests passed");
 process.exit(failed ? 1 : 0);

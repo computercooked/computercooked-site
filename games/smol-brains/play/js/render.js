@@ -80,22 +80,60 @@
     "}"
   ].join("\n");
 
-  // the "hd pixel" look (hd.js): programs are compiled with "#define HD". Generated pixel-art tiles live in one
-  // 4x4 atlas as detail maps (tile / its own average, so 0.5 = no change) that multiply the usual colours, so
-  // biomes, seasons, snow and fog keep working. uHdK: x = strength, y = art px per world unit (orthographic;
-  // 0 in first person, then uHdE.w = px per unit at distance 1), z = ground tiles per unit, w = object tiles per unit.
-  // Far away (more texels than pixels) the detail fades to flat so it never shimmers.
+  // textures (4.12, the hd and voxel looks): programs are compiled with "#define HD". The Higgsfield pixel-art
+  // textures (grass, dirt, sand, rock, snow, farmland, water, bark, four leaves, brick, thatch, planks, roof) live
+  // in one atlas (art/hd/tiles.png, built by smol-brains-handover/tools/tiles/build_tiles.py): 256 px tiles 4x4 at
+  // the top, the same at 128, 64, 32 and 16 px in a row under them, and each tile's average colour as one texel.
+  // The level is picked by how many texels land on a screen pixel, so it's crisp pixel art up close and its own
+  // calm average far away (no shimmer, no mipmaps needed). hdApply puts a tile on a colour: the tile's pattern and
+  // palette, at the colour's brightness and partly its hue, so biomes, seasons, snow and fog keep working.
+  // uHdK: x = strength, y = buffer px per world unit (orthographic; 0 in first person, then uHdE.w = px per unit at
+  // distance 1), z = ground tiles per unit, w = object tiles per unit.
   var HD_GLSL = [
     "#ifdef HD",
     "uniform sampler2D uTiles; uniform vec4 uHdK; uniform vec4 uHdE;",
-    "vec3 hdTile(float id, vec2 uv) {",
-    "  vec2 cell = vec2(mod(id, 4.0), floor(id / 4.0 + 0.01));",
-    "  vec2 f = clamp(fract(uv), 0.5 / 64.0, 1.0 - 0.5 / 64.0);",
-    "  return texture2D(uTiles, (cell + f) * 0.25).rgb;",
+    "vec3 hdLevel(float id, vec2 f, float L) {",
+    "  float s = 1024.0 / exp2(L), t = s * 0.25;",
+    "  vec2 o = L < 0.5 ? vec2(0.0) : vec2(1024.0 - 2.0 * s, 1024.0);",
+    "  vec2 px = o + vec2(mod(id, 4.0), floor(id / 4.0 + 0.01)) * t + clamp(f * t, 0.5, t - 0.5);",
+    "  return texture2D(uTiles, px / vec2(1024.0, 1536.0)).rgb;",
     "}",
-    "float hdFar(vec3 w, float tilesPerUnit) {",
+    "vec3 hdTile(float id, vec2 uv, vec3 w, float tpu) {",
     "  float ppu = uHdK.y > 0.0 ? uHdK.y : uHdE.w / max(distance(w, uHdE.xyz), 0.05);",
-    "  return smoothstep(1.3, 3.2, 64.0 * tilesPerUnit / max(ppu, 0.001));",
+    "  float l = clamp(log2(max(256.0 * tpu / max(ppu, 0.001), 1.0)) - 0.4, 0.0, 4.0), l0 = floor(l);",
+    "  vec2 f = fract(uv); vec3 a = hdLevel(id, f, l0);",
+    "  return l0 > 3.5 ? a : mix(a, hdLevel(id, f, l0 + 1.0), smoothstep(0.5, 1.0, l - l0));",
+    "}",
+    "vec3 hdMean(float id) { return texture2D(uTiles, (vec2(960.0 + mod(id, 4.0), 1024.0 + floor(id / 4.0 + 0.01)) + 0.5) / vec2(1024.0, 1536.0)).rgb; }",
+    // two ways to put a tile on a colour: the colour with the tile's light and dark (always safe), and the tile's
+    // own palette at the colour's brightness (richer). The closer the colour's hue is to the tile's, the more of
+    // the second: a green meadow gets the art's own greens, a white birch or an autumn tree keeps its colour.
+    "vec3 hdApply(vec3 base, vec3 tex, vec3 mean, float k) {",
+    "  vec3 L = vec3(0.3, 0.59, 0.11);",
+    "  float lb = dot(base, L), lm = max(dot(mean, L), 0.03), lt = dot(tex, L);",
+    "  vec3 shaded = base * clamp(lt / lm, 0.25, 2.2);",
+    "  vec3 own = tex * clamp(lb / lm, 0.4, 2.0);",
+    "  float sim = 1.0 - clamp(length(base / max(lb, 0.03) - mean / lm) * 0.9, 0.0, 1.0);",
+    "  return mix(base, min(mix(shaded, own, sim * 0.75), vec3(1.2)), k);",
+    "}",
+    // ground: which tile, from the colour (green = grass, pale gold = sand, grey or steep = rock, white = snow,
+    // anything else = dirt); only the tiles that matter here are sampled
+    "vec3 hdGround(vec3 col, float ny, vec2 uv, vec2 uvr, vec3 w, float tpu, float k) {",
+    "  float mx = max(col.r, max(col.g, col.b)), mn = min(col.r, min(col.g, col.b)), sat = (mx - mn) / max(mx, 0.001), lum = dot(col, vec3(0.3, 0.59, 0.11));",
+    "  float wr = max(smoothstep(0.8, 0.62, ny), smoothstep(0.2, 0.08, sat) * smoothstep(0.92, 0.8, lum));",
+    "  float ws = smoothstep(0.8, 0.9, lum) * smoothstep(0.2, 0.1, sat);",
+    "  float wg = smoothstep(0.0, 0.07, col.g - max(col.r, col.b) * 0.92) * (1.0 - wr);",
+    "  float wa = smoothstep(0.55, 0.68, lum) * step(col.b, col.g) * smoothstep(0.15, 0.3, sat) * (1.0 - wg) * (1.0 - wr);",
+    "  ws *= 1.0 - wr * 0.5;",
+    "  float wd = max(0.0, 1.0 - wg - wa - wr - ws);",
+    "  vec3 d = vec3(0.0), m = vec3(0.0);",
+    "  if (wg > 0.01) { d += hdTile(0.0, uv, w, tpu) * wg; m += hdMean(0.0) * wg; }",
+    "  if (wd > 0.01) { d += hdTile(1.0, uv, w, tpu) * wd; m += hdMean(1.0) * wd; }",
+    "  if (wa > 0.01) { d += hdTile(2.0, uv, w, tpu) * wa; m += hdMean(2.0) * wa; }",
+    "  if (wr > 0.01) { d += hdTile(3.0, uvr, w, tpu) * wr; m += hdMean(3.0) * wr; }",
+    "  if (ws > 0.01) { d += hdTile(4.0, uv, w, tpu) * ws; m += hdMean(4.0) * ws; }",
+    "  float tw = max(wg + wd + wa + wr + ws, 0.001);",
+    "  return hdApply(col, d / tw, m / tw, k);",
     "}",
     "#endif"
   ].join("\n");
@@ -122,25 +160,9 @@
     "#ifdef HD",
     // which ground this is, from its colour: green = grass, pale gold = sand, grey or steep = rock, white = snow,
     // anything else (browns, reds, ash) = dirt. Only the tiles that matter here are sampled.
-    "  float fadeD = hdFar(vW, uHdK.z);",
-    "  if (uHdK.x > 0.0 && fadeD < 0.999) {",
-    "    float mx = max(col.r, max(col.g, col.b)), mn = min(col.r, min(col.g, col.b)), sat = (mx - mn) / max(mx, 0.001), lum = dot(col, vec3(0.3, 0.59, 0.11));",
-    "    float wr = max(smoothstep(0.8, 0.62, n.y), smoothstep(0.2, 0.08, sat) * smoothstep(0.92, 0.8, lum));",
-    "    float ws = smoothstep(0.8, 0.9, lum) * smoothstep(0.2, 0.1, sat);",
-    "    float wg = smoothstep(0.0, 0.07, col.g - max(col.r, col.b) * 0.92) * (1.0 - wr);",
-    "    float wa = smoothstep(0.55, 0.68, lum) * step(col.b, col.g) * smoothstep(0.15, 0.3, sat) * (1.0 - wg) * (1.0 - wr);",
-    "    ws *= 1.0 - wr * 0.5;",
-    "    float wd = max(0.0, 1.0 - wg - wa - wr - ws);",
-    "    vec2 uv = vW.xz * uHdK.z;",
+    "  if (uHdK.x > 0.0) {",
     "    vec3 an = abs(n); vec2 uvr = (an.y > 0.75 ? vW.xz : an.x > an.z ? vW.zy : vW.xy) * uHdK.z;",
-    "    vec3 d = vec3(0.0);",
-    "    if (wg > 0.01) d += hdTile(0.0, uv) * wg;",
-    "    if (wd > 0.01) d += hdTile(1.0, uv) * wd;",
-    "    if (wa > 0.01) d += hdTile(2.0, uv) * wa;",
-    "    if (wr > 0.01) d += hdTile(3.0, uvr) * wr;",
-    "    if (ws > 0.01) d += hdTile(4.0, uv) * ws;",
-    "    d /= max(wg + wd + wa + wr + ws, 0.001);",
-    "    col *= mix(vec3(1.0), d * 2.0, uHdK.x * 0.55 * (1.0 - fadeD));",
+    "    col = hdGround(col, n.y, vW.xz * uHdK.z, uvr, vW, uHdK.z, uHdK.x);",
     "  }",
     "#endif",
     // art hook: a tiling ground texture (R.loadArt "ground"), grey 0.5 = no change. Off (k = 0) until one is loaded
@@ -148,7 +170,7 @@
     "  float s = smoothstep(0.28, 0.62, vMisc.x * uSnow + (n.y - 1.0) * 0.6);",
     "  col = mix(col, vec3(0.93, 0.95, 0.98), s);",
     "#ifdef HD",
-    "  if (uHdK.x > 0.0 && s > 0.01 && fadeD < 0.999) col *= mix(vec3(1.0), hdTile(4.0, vW.xz * uHdK.z) * 2.0, s * uHdK.x * (1.0 - fadeD));",
+    "  if (uHdK.x > 0.0 && s > 0.01) col = mix(col, hdApply(col, hdTile(4.0, vW.xz * uHdK.z, vW, uHdK.z), hdMean(4.0), 1.0), s * uHdK.x);",
     "#endif",
     "#ifdef HD",
     "  col *= mix(vec3(1.0), vec3(0.58, 0.62, 0.8), min(1.0, vMisc.y * 1.1));", // hd: deeper, cooler shade under trees
@@ -232,14 +254,11 @@
     // a material tile (bark, leaves, brick, thatch, planks, roof...), projected along the part's own main axis
     "  if (vMat > 0.5 && uHdK.x > 0.0) {",
     "    float id = floor(vMat - 0.5), tpu = uHdK.w * (id > 7.5 && id < 11.5 ? 1.5 : 1.0);",
-    "    float fo = hdFar(vW, tpu);",
-    "    if (fo < 0.999) {",
-    "      vec3 an = abs(normalize(vLN));",
+    "    vec3 an = abs(normalize(vLN));",
     // thatch and roof tiles always run in rows by height (rings round a cone roof, courses up a gable)
-    "      bool rows = id > 12.5 && (id < 13.5 || id > 14.5);",
-    "      vec2 uv = (an.y > max(an.x, an.z) && !rows ? vLP.xz : an.x > an.z ? vLP.zy : vLP.xy) * tpu;",
-    "      base *= mix(vec3(1.0), hdTile(id, uv) * 2.0, uHdK.x * (1.0 - fo));",
-    "    }",
+    "    bool rows = id > 12.5 && (id < 13.5 || id > 14.5);",
+    "    vec2 uv = (an.y > max(an.x, an.z) && !rows ? vLP.xz : an.x > an.z ? vLP.zy : vLP.xy) * tpu;",
+    "    base = hdApply(base, hdTile(id, uv, vW, tpu), hdMean(id), uHdK.x);",
     "  }",
     "#endif",
     "  gNoFow = step(1.5, vIdHi.y);", // iExt.w = 2: scenery past the coast (the voxel look's giant), never under the fog of war
@@ -282,8 +301,7 @@
     "  vec3 col = mix(shallow, deep, smoothstep(0.0, 3.2, d));",
     "  vec3 nrm = normalize(vec3((n1 - 0.5) * 0.5, 1.0, (n2 - 0.5) * 0.5));",
     "#ifdef HD",
-    "  float fw = hdFar(vW, uHdK.z * 0.5);",
-    "  if (uHdK.x > 0.0 && fw < 0.999) col *= mix(vec3(1.0), hdTile(6.0, vW.xz * uHdK.z * 0.5 + flow * 2.0) * 2.0, uHdK.x * 0.8 * (1.0 - fw));",
+    "  if (uHdK.x > 0.0) col = hdApply(col, hdTile(6.0, vW.xz * uHdK.z * 0.5 + flow * 2.0, vW, uHdK.z * 0.5), hdMean(6.0), uHdK.x * 0.7);",
     "#endif",
     "  vec3 lit = shade(col, nrm, vW, 0.0, 0.0);",
     "  float seenW = uSeenK.y < 0.5 ? 1.0 : smoothstep(0.2, 0.8, texture2D(uSeen, vW.xz * uSeenK.x).r);",
@@ -475,7 +493,7 @@
     ctx = GL.create(canvas, { antialias: !lowEnd && !R.pixel });
     if (!ctx) return false;
     gl = ctx.gl;
-    var def = R.hd ? "#define HD\n" : "";
+    var def = R.hd || R.voxel ? "#define HD\n" : ""; // textures in the hd and voxel looks
     progs.terrain = GL.program(ctx, def + VS_TERRAIN, def + FS_TERRAIN);
     progs.obj = GL.program(ctx, def + VS_OBJ, def + FS_OBJ);
     progs.water = GL.program(ctx, def + VS_WATER, def + FS_WATER);
@@ -544,9 +562,9 @@
 
   function upload(m, key) {
     // the voxel look: shapes become blocks (vox.js), the first time each one is drawn
-    if (R.voxel) { var vo = SB.Vox.voxOpts(key); if (vo) return { lazy: m, vo: vo, count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad }; }
+    if (R.voxel) { var vo = SB.Vox.voxOpts(key); if (vo) return { lazy: m, key: key, vo: vo, count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad }; }
     var u = { buf: GL.buffer(ctx, m.data), count: m.count, minY: m.minY, maxY: m.maxY, rad: m.rad };
-    if (R.hd) u.mat = GL.buffer(ctx, SB.HD.materials(key, m.data, m.count, STRIDE)); // which hd tile each vertex wears
+    if (R.hd || R.voxel) u.mat = GL.buffer(ctx, SB.HD.materials(key, m.data, m.count, STRIDE)); // which texture each vertex wears
     return u;
   }
   function buildMeshes() {
@@ -1556,7 +1574,7 @@
     gl.disable(gl.BLEND);
   }
 
-  function realize(u) { var v = SB.Vox.voxelize(u.lazy, u.vo); u.buf = GL.buffer(ctx, v.data); u.count = v.count; u.lazy = null; }
+  function realize(u) { var v = SB.Vox.voxelize(u.lazy, u.vo); u.buf = GL.buffer(ctx, v.data); u.count = v.count; u.lazy = null; u.mat = GL.buffer(ctx, SB.HD.materials(u.key, v.data, v.count, STRIDE)); }
   function drawInstanced(p, meshKey, buf, n) {
     var m = meshes[meshKey];
     if (!m || !n) return;
@@ -1754,7 +1772,7 @@
   };
   R.quality = quality;
   R.setLightUniforms = function (p) { setLightUniforms(p); };
-  R.LIGHT_GLSL = LIGHT_GLSL; R.PREC = PREC;
+  R.LIGHT_GLSL = LIGHT_GLSL; R.PREC = PREC; R.HD_GLSL = HD_GLSL;
   R.canvasSize = function () { return { w: BW, h: BH }; }; // the scene buffer (sprites snap to its pixels)
   R.canvasScale = function () { return canvas ? BW / W : 1; };
   R.time = function () { return time; };
