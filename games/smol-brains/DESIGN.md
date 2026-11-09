@@ -8,6 +8,45 @@ No Creatures names, art, code or assets are used. Everything here is original.
 
 ---
 
+## The complete game (Ashton's goal, Nov 9 2026)
+
+Ashton: "Make it a complete, thought out, proper game that will become a hit … Look at games like stardew valley, rimworld, sims, creatures, minecraft, terraria, starbound … full of lore, story, gameplay, different things … I am shooting for pixel art style." The target is a build he can play through, enjoy and give real feedback on. It freezes Mon Nov 9, 15:00 PT.
+
+**What those games do that we must too** (and where smol brains already has it):
+
+| game | what makes it stick | smol brains |
+|---|---|---|
+| Stardew Valley | the day as a unit, with a small win every day and a season calendar; clear long goals (the Community Center); cosy pixel art | day/season clock and seasons exist. **Gap:** nothing marks the end of a day or says what you won. **Plan:** a dawn recap. |
+| RimWorld | stories emerge from colonists with traits, needs and moods; a storyteller paces the events | smols have traits, minds, opinions and grief; `director.js` deals the story cards; raids and strangers exist. |
+| The Sims | you care about one small person's day; needs bars; relationships | the possession "small body's day", needs, friends, rivals and couples all exist. |
+| Creatures | real learning brains you teach; genetics across generations | this is the core: brains, words, tricks, genes, echoes, evolution. |
+| Minecraft / Terraria | first-person survival: gather, craft, build, survive the night, then discover deeper things | possession survival: gather, craft, campfire, lean-to, night chases, caves and ores. |
+| Starbound / Terraria | lore you find in the world; a story arc with a finale | the Last Lantern arc: memory embers relight it in 4 stages, then the Hollow wakes; pods, ruins and logs. **Gap:** the lore is only in the films. **Plan:** a lore journal. |
+
+**The core loop (minute to minute):** watch the island → spot a need (hungry, a wish, a prayer, a grump, an egg) → act with the hand, a miracle or by lending your light → the smols learn from it → sparks and embers.
+
+**The day loop (6 min):** dawn recap, then the morning goals; work through the day; at nightfall the grumps come and maybe a chase; you survive the night and get an ember.
+
+**The long goals:** the quest chapters (6, from first sparks to the big thought); the evolution ladder (blob to ascended, 7 tiers); the Lantern (5/15/30/50 embers: three stages, then the Hollow wakes); the town grows to a city; the spire is the end; new game+.
+
+**The lore:** the smols live on the back of the Hollow, a sleeping giant. Their Lantern keeps their memories, and grumps are smols whose light went out. You are the Lantern's last spark. Each memory won back is an ember, and every few embers bring back a page of what the smols forgot: who lit the Lantern, what the ark was running from, why the Hollow sleeps, what grumps were. The finale: the Hollow wakes and the grumps remember their names.
+
+**The pixel-art direction:** the hd pixel look becomes the default.
+- The 3D scene is rendered low-res with 1 px outlines.
+- The Higgsfield pixel-art textures (4.12) cover the ground, trees, buildings and water.
+- Item icons are pixel art, and the smols are painted pixel sprites.
+- The light is warm and there is a soft focus.
+- The voxel and classic 3D looks stay in settings.
+
+**The build order (ship each as its own PR):**
+1. **4.13: pixel art by default.** The hd look is the default. Its first person is crisper (less blur), and the title screen backdrop is redrawn in the pixel look.
+2. **4.14: the lore journal.** 📖 memories from the Lantern: 16 short pages of lore unlocked by embers, read in a journal, with the embers and stages on the same page.
+3. **4.15: a day on the Hollow.** At dawn, a small corner card sums up yesterday (hatches, words, tricks, ideas, embers) and gives today's one suggested goal. It never blocks play.
+4. **4.16: pacing for one sitting.** An engaged player sees critters in ~10 min, hands within the first hour, a village and Lantern stage 2 within ~2 hours. Tuned from headless sims and measured.
+5. **Start-to-finish test.** Headless runs through every chapter, every Lantern stage, the finale and new game+. Chaos runs on phone and desktop. Then a final live check, and the link to Ashton.
+
+---
+
 ## 0. The twists (what nobody else does)
 
 1. **Echoes.** Evolution is steered by how you raise them. What parents *practise* during their lives (walking, carrying things, talking, being taught, planning, building, swimming, being cold) nudges their babies' genes in that direction. Teach a smol a lot and its kids are born with bigger brains. That turns ordinary pet-sim care into the evolution game.
@@ -634,6 +673,13 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **The opening is about 38 s, not 65.** The ark film plays faster (`WARP` in intro.js, about 12 s), the Lantern film cuts the slow walk along the ridge and keeps the crash, Pip's run from the grump, the wish and the spark (`L.WARP`, Infinity is a cut, about 21 s), and the camera drop is 4.5 s. A "🔊 sound on" pill shows for the first 4 s.
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
+
+## 0.59 What v4.13.0 changed: pixel art by default (Ashton's complete-game goal, step 1)
+
+- **The hd pixel look is now the default.** It has the low-res scene, 1 px outlines, the Higgsfield pixel-art textures, painted pixel smols and warm light. The voxel look (the default in 4.10–4.12) and classic 3D are still in settings → look. A player who picked a look in settings keeps it.
+- **First person is crisper.** The soft focus is gentler (half strength, and it starts further out), so the world reads as sharp pixel art instead of a blur.
+- **Fix: action buttons no longer cut off the thing's name.** A long label like "shake the berry bush" used to keep its first two words ("shake the"). It now drops "the", "a" and "some" first, then keeps the verb and the thing ("shake berry bush").
+- The title screen's live island renders in the pixel look too.
 
 ## 0.58 What v4.12.0 added: the Higgsfield textures in the game (Ashton)
 

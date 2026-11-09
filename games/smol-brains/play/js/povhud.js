@@ -907,7 +907,13 @@
       setBtn(hud.bPlace, o.place && !o.place.locked ? short(o.place.label) : "place", !o.place || o.place.locked);
     }
   }
-  function short(l) { return l.length > 16 ? l.split(" ").slice(0, 2).join(" ") : l; }
+  // a label for a 58 px button: drop "the", "a" and "some" first, then keep the verb and the thing (4.13: it used to
+  // keep the first two words, so "shake the berry bush" read "shake the")
+  function short(l) {
+    if (l.length <= 16) return l;
+    var w = l.split(" ").filter(function (x) { return x !== "the" && x !== "a" && x !== "an" && x !== "some"; }), s = w.join(" ");
+    return s.length <= 18 || w.length < 3 ? s : w[0] + " " + w[w.length - 1];
+  }
   function setBtn(b, txt, off) { if (!b) return; if (b._t !== txt) { b._t = txt; b.textContent = txt; } b.classList.toggle("off", !!off); }
   function paws(dt, s) {
     var b = s.bobK || 0, sw = Math.sin(s.bob * Math.PI), sw2 = s.swing || 0, busy = s.busy || s.work ? Math.abs(Math.sin(hud.t * 9)) : 0;
