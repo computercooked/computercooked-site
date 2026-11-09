@@ -207,6 +207,21 @@
   // and each child gets more of what its parents practised and leans harder toward the more evolved parent
   Game.CARE_MOMENTUM = [0.3, 0.65]; // before the tribe, from the tribe on (fewer births: each child has to carry more of the line)
   Game.GLOW_ECHO = 1.25;
+  // the Lantern's pull (4.16, pacing for one sitting): the Lantern is the smols' memory, so each egg leans a little
+  // toward what its more evolved parent's next tier still needs, and more with every stage the Lantern has
+  // relit. Measured (engaged-player bot, tools/engaged.js): buildings at 40-64 min and a village at 57-96 min, where 4.13 had them at 70-110 and 100-112 or never.
+  Game.LANTERN_PULL = 0.12;
+  Game.lanternPull = function (game, child, ga, gb) {
+    var G = SB.Genome; if (!G || !child || !child.genes || child.species === "grump") return 0;
+    var top = G.tierOf(ga) >= G.tierOf(gb) ? ga : gb, needs = G.nextNeeds(top), st = SB.Embers ? SB.Embers.stage(game) : 0;
+    var k = Game.LANTERN_PULL * (1 + 0.5 * st), n = 0;
+    needs.forEach(function (x) {
+      var gk = x.gene === "neurons" ? "cortex" : x.gene; // neurons come from the cortex (and layers, head)
+      if (child.genes[gk] == null) return;
+      child.genes[gk] = Math.round(SB.clamp01(child.genes[gk] + k * (1.05 - child.genes[gk])) * 255) / 255; n++; // (genes are stored in 1/255 steps)
+    });
+    return n;
+  };
   Game.care = function (game) { return ((game.stats && game.stats.maxTier) || 0) >= 3 ? 1.8 : 1; };
   Game.layEgg = function (game, a, b, x, z) {
     var ga = a.genome || a, gb = b.genome || b;
@@ -224,6 +239,7 @@
     if (bless) { game.blessing.uses--; if (game.blessing.uses <= 0) game.blessing = null; }
     var child = SB.Genome.cross(ga, gb, game.rng, echo, bless, Game.CARE_MOMENTUM[Game.care(game) <= 1 ? 0 : 1]);
     child.gen = Math.max(a.gen || 1, b.gen || 1) + 1;
+    Game.lanternPull(game, child, ga, gb);
     if (a.clade != null) child.clade = game.rng.chance(0.5) ? a.clade : b.clade;
     var egg = SB.World.add(game.world, game, "egg", x, z, {
       genome: child, parents: [a.id, b.id].filter(function (v) { return v != null; }), gen: child.gen, progress: 0,
