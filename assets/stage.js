@@ -63,11 +63,23 @@
   }, { passive: true });
   document.addEventListener("pointerleave", function () { px = py = -1e3; });
 
-  var last = 0, run = true;
-  document.addEventListener("visibilitychange", function () { run = !document.hidden; if (run) requestAnimationFrame(frame); });
+  // The loop stops while nobody can see it: tab hidden, or (home) the desk still covers (nearly) the whole viewport, since the
+  // desk paints over the canvas. It starts again the moment the desk's bottom edge scrolls into view.
+  var last = 0, raf = 0, desk = document.getElementById("desk"), covered = false, lgx = -1, lgy = -1;
+  function live() { return !document.hidden && !covered; }
+  function kick() { if (!raf && live()) raf = requestAnimationFrame(frame); }
+  function cover() {
+    var was = covered;
+    covered = !!desk && desk.getBoundingClientRect().bottom >= innerHeight * .9;   // a sliver under the desk isn't worth 30 fps
+    if (covered && !was) ctx.clearRect(0, 0, cols, rows);
+    kick();
+  }
+  if (desk) { cover(); addEventListener("scroll", cover, { passive: true }); addEventListener("resize", cover); }
+  document.addEventListener("visibilitychange", kick);
   function frame(t) {
-    if (!run) return;
-    requestAnimationFrame(frame);
+    raf = 0;
+    if (!live()) return;
+    raf = requestAnimationFrame(frame);
     if (t - last < 32) return;            // 30 fps is plenty for drifting pixels
     last = t;
     ctx.clearRect(0, 0, cols, rows);
@@ -89,10 +101,14 @@
       if (e.big || e.max < 100) ctx.fillRect(e.x | 0, (e.y | 0) + 1, 1, 1);  // sparks and some embers are taller
     }
     // the phosphor glow eases after the pointer
+    if (!fine) return;                     // touch screens hide the glow (deck.css)
     gx += (tx - gx) * .12; gy += (ty - gy) * .12;
-    glow.style.transform = "translate3d(" + (gx | 0) + "px," + (gy | 0) + "px,0)";
+    if ((gx | 0) !== lgx || (gy | 0) !== lgy) {
+      lgx = gx | 0; lgy = gy | 0;
+      glow.style.transform = "translate3d(" + lgx + "px," + lgy + "px,0)";
+    }
   }
-  requestAnimationFrame(frame);
+  kick();
 
   rimsAndBoot();
 
