@@ -73,9 +73,12 @@
     ] }
   ];
   Q.BY = {};
+  // 4.16: the story never waits on one skill. once the island has outgrown a chapter (its smols evolved past it) and it has
+  // been open a whole day, the story moves on; its unfinished quests stay on the board as "left behind" and still pay.
+  Q.OUTGROWN = [2, 2, 3, 4, 99, 99];
   Q.CHAPTERS.forEach(function (ch, i) { ch.i = i; ch.quests.forEach(function (q) { q.ch = i; Q.BY[q.id] = q; }); });
 
-  function st(g) { var s = g.quests || (g.quests = { ch: 0, done: {}, n: {} }); s.done = s.done || {}; s.n = s.n || {}; return s; }
+  function st(g) { var s = g.quests || (g.quests = { ch: 0, done: {}, n: {} }); s.done = s.done || {}; s.n = s.n || {}; s.left = s.left || []; return s; }
   Q.state = st;
   Q.chapter = function (g) { var s = st(g); return Q.CHAPTERS[s.ch] || null; };
   Q.progress = function (g, q) { try { var r = q.get(g); return { have: r[0], need: r[1], frac: SB.clamp01(r[0] / r[1]) }; } catch (e) { return { have: 0, need: 1, frac: 0 }; } };
@@ -83,7 +86,8 @@
   Q.board = function (g) {
     var s = st(g), ch = Q.CHAPTERS[s.ch];
     if (!ch) return null;
-    return { ch: ch, n: s.ch + 1, of: Q.CHAPTERS.length, quests: ch.quests.map(function (q) { var p = Q.progress(g, q); return { q: q, done: !!s.done[q.id], have: p.have, need: p.need, frac: s.done[q.id] ? 1 : p.frac }; }) };
+    function row(q) { var p = Q.progress(g, q); return { q: q, done: !!s.done[q.id], have: p.have, need: p.need, frac: s.done[q.id] ? 1 : p.frac }; }
+    return { ch: ch, n: s.ch + 1, of: Q.CHAPTERS.length, quests: ch.quests.map(row), left: s.left.map(function (id) { return Q.BY[id]; }).filter(Boolean).map(row) };
   };
   Q.count = function (g, k, by) { var s = st(g); s.n[k] = (s.n[k] || 0) + (by == null ? 1 : by); };
 
@@ -94,21 +98,29 @@
     if (t > 0) return;
     t = 1;
     var s = st(g), ch = Q.CHAPTERS[s.ch];
-    if (!ch || (g.tutorial && !g.tutorial.done)) return;
+    if (g.tutorial && !g.tutorial.done) return;
+    function tryQ(q) {
+      if (s.done[q.id]) return true;
+      if (Q.progress(g, q).frac < 1) return false;
+      s.done[q.id] = Math.round(g.time);
+      SB.Game.addSparks(g, q.pay, null);
+      SB.bus.emit("questDone", { q: q, ch: Q.CHAPTERS[q.ch] });
+      return true;
+    }
+    s.left = s.left.filter(function (id) { return Q.BY[id] && !tryQ(Q.BY[id]); });
+    if (!ch) return;
+    if (s.since == null) s.since = g.time;
     var all = true;
-    ch.quests.forEach(function (q) {
-      if (s.done[q.id]) return;
-      var p = Q.progress(g, q);
-      if (p.frac >= 1) {
-        s.done[q.id] = Math.round(g.time);
-        SB.Game.addSparks(g, q.pay, null);
-        SB.bus.emit("questDone", { q: q, ch: ch });
-      } else all = false;
-    });
+    ch.quests.forEach(function (q) { if (!tryQ(q)) all = false; });
     if (all) {
-      s.ch++;
+      s.ch++; s.since = g.time;
       SB.Game.addSparks(g, ch.bonus, null);
       SB.bus.emit("chapterDone", { ch: ch, next: Q.CHAPTERS[s.ch] || null });
+    } else if (maxTier(g) >= Q.OUTGROWN[s.ch] && g.time - s.since >= SB.DAY_LENGTH) {
+      var left = ch.quests.filter(function (q) { return !s.done[q.id]; }).map(function (q) { return q.id; });
+      s.left = s.left.concat(left);
+      s.ch++; s.since = g.time;
+      SB.bus.emit("chapterDone", { ch: ch, next: Q.CHAPTERS[s.ch] || null, outgrown: left.length });
     }
   };
 

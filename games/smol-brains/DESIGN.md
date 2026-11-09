@@ -674,6 +674,12 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.62 What v4.16.0 added: the story never stalls (complete-game goal, step 6)
+
+- **Found by the live 18-minute runs on 4.15.** Both islands reached the Hollow waking at about game minute 200, with 0 errors at 60 fps on desktop and phone. But both were still on **chapter 1** at day 13. Chapter 1 asks you to possess a smol, and the chapters run strictly in order, so a player who never tries possession never sees chapters 2 to 6, the spire included, even with a village of thinkers.
+- **Fix (`quests.js`).** A chapter now moves on when two things are true: the smols have evolved past it (`Q.OUTGROWN`: tool-users for chapters 1 and 2, a tribe for chapter 3, builders for chapter 4), and it has been open a whole day. Its unfinished quests stay on the board under **left behind** (up to 3 shown) and still pay their sparks when done. The card reads "chapter N is behind you · your smols outgrew it", and there is no chapter bonus, which still needs every quest done. The builders chapter and the spire are never skipped, because their quests come by themselves. The journal lists left-behind quests under their chapter.
+- Tests: `chapters.test.js` (new).
+
 ## 0.61 What v4.15.0 added: an ending you can feel, and a soft-lock fixed (complete-game goal, step 5)
 
 - **The Hollow wakes on a real card.** Before, the end of the Lantern story was a 10-second toast. Now a card (`ui.js` wakeCard) tells the waking and lists what you did: days on the Hollow, smols hatched, generations, highest tier, ideas, villages and memories back. It points at the one story left, the spire in chapter 6, and offers keep playing, read the last memory, or the civilisation card.

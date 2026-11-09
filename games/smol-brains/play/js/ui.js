@@ -364,7 +364,7 @@
     var qb = SB.Quests && !game.showcase ? SB.Quests.board(game) : null;
     var list = goalsList();
     if (qb) list = list.filter(function (g) { return !/first word|tickle a smol/.test(g.t); }).slice(0, 2);
-    var qs = qb ? qb.quests.map(function (x) { return [x.q.id, x.done ? 1 : 0, x.have, x.need]; }) : null;
+    var qs = qb ? qb.quests.concat(qb.left).map(function (x) { return [x.q.id, x.done ? 1 : 0, x.have, x.need]; }) : null;
     var key = JSON.stringify([list, qs, qb && qb.n]);
     if (key === goalKey) return;
     goalKey = key;
@@ -376,6 +376,10 @@
         var p = x.done ? "✓" : x.need > 1 ? x.have + "/" + x.need : "";
         return '<div class="g q' + (x.done ? " done" : "") + '" data-q="' + x.q.id + '"><span class="e">' + x.q.icon + '</span><span class="t">' + esc(x.q.t) + '</span><span class="p">' + p + '</span><span class="r">+' + x.q.pay + "✨</span></div>";
       }).join("");
+      if (qb.left.length) {
+        html += '<div class="head sub"><span>left behind</span></div>';
+        html += qb.left.slice(0, 3).map(function (x) { return '<div class="g q" data-q="' + x.q.id + '"><span class="e">' + x.q.icon + '</span><span class="t">' + esc(x.q.t) + '</span><span class="p"></span><span class="r">+' + x.q.pay + "✨</span></div>"; }).join("");
+      }
       if (list.length) html += '<div class="head sub"><span>also</span></div>';
     } else html += '<div class="head"><span>next</span><span>' + (el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
     html += list.map(function (g) { return '<div class="g' + (g.done ? " done" : "") + '"><span class="t">' + esc(g.t) + '</span><span class="p">' + esc(g.p) + "</span></div>"; }).join("");
@@ -1522,6 +1526,9 @@
       SB.Quests.CHAPTERS.forEach(function (ch, i) {
         var state2 = i < qs.ch ? "done" : i === qs.ch ? "now" : "later";
         body.appendChild(h("h4", { class: "qch " + state2 }, (state2 === "done" ? "✓ " : state2 === "now" ? "▸ " : "🔒 ") + "chapter " + (i + 1) + " · " + ch.name));
+        if (state2 === "done" && qb) qb.left.filter(function (x) { return x.q.ch === i; }).forEach(function (x) {
+          body.appendChild(h("div", { class: "qrow", onclick: function () { closeModal(); questHelp(x.q.id); } }, [h("span", null, x.q.icon + " " + x.q.t + " (left behind)"), h("span", { class: "dim" }, "+" + x.q.pay + "✨")]));
+        });
         if (state2 !== "now" || !qb) return;
         qb.quests.forEach(function (x) {
           var p = x.done ? "✓" : x.need > 1 ? x.have + "/" + x.need : "";
@@ -2381,7 +2388,7 @@
     });
     on("trickForgot", function (d) { toast("💭 " + esc(d.c.name) + " forgot how to " + esc(d.trick.name) + ". lessons can undo each other."); });
     on("questDone", function (d) { toast("✅ <b>" + esc(d.q.t) + "</b> · +" + d.q.pay + " ✨", "ach", 4500); if (SB.Audio && SB.Audio.play) SB.Audio.play("chime"); goalKey = ""; });
-    on("chapterDone", function (d) { moment("📖", "chapter " + (d.ch.i + 1) + " done!", (d.next ? "next: " + d.next.name : "every chapter finished") + " · +" + d.ch.bonus + " ✨", "", true); goalKey = ""; });
+    on("chapterDone", function (d) { moment("📖", "chapter " + (d.ch.i + 1) + (d.outgrown ? " is behind you" : " done!"), (d.next ? "next: " + d.next.name : "every chapter finished") + (d.outgrown ? " · your smols outgrew it" : " · +" + d.ch.bonus + " ✨"), "", true); goalKey = ""; });
     on("learnWord", function (d) {
       if (d.c.species !== "smol") return;
       if (game.stats.wordsTaught === 1) moment("💬", "first word!", "“" + d.word + "!” " + d.c.name + " learned a word. you did that.");
