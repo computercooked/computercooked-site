@@ -834,6 +834,64 @@
           "secret": true
         }
       ]
+    },
+    {
+      "slug": "desktop-takeover",
+      "clip": "/assets/clips/desktop-takeover.mp4",
+      "title": "desktop takeover",
+      "pitch": "you're a rogue folder. drag cursors at other folders and take the whole desktop from the bot programs. you get to empty the bin on them once.",
+      "thumbnail": "/games/desktop-takeover/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "strategy",
+        "campaign",
+        "daily"
+      ],
+      "controls": "drag from your folder to another folder. drag the bin onto theirs.",
+      "size_kb": 60,
+      "version": "1.0.0",
+      "added": "2026-11-09",
+      "theme": {
+        "accent": "#b6ff3c",
+        "bg": "#0d1030"
+      },
+      "max_score_per_sec": 120.0,
+      "how_to": [
+        "your folders grow cursors. drag from one to any other folder to send half.",
+        "more cursors than the folder holds = it's yours. drag across several of your folders to send from all of them.",
+        "take folders to fill the bin, then drag the bin onto their folders to wipe them. once per match.",
+        "own the most desktop when the clock runs out, or delete every bot."
+      ],
+      "achievements": [
+        {
+          "id": "first_takeover",
+          "name": "new owner",
+          "desc": "win a desktop",
+          "xp": 20,
+          "secret": false
+        },
+        {
+          "id": "bin_day",
+          "name": "bin day",
+          "desc": "wipe 3 folders with one bin",
+          "xp": 30,
+          "secret": false
+        },
+        {
+          "id": "clean_sweep",
+          "name": "select all",
+          "desc": "win holding 100% of the desktop",
+          "xp": 40,
+          "secret": false
+        },
+        {
+          "id": "whole_desktop",
+          "name": "the whole desktop",
+          "desc": "beat level 5",
+          "xp": 60,
+          "secret": false
+        }
+      ]
     }
   ]
 }

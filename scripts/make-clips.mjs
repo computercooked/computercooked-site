@@ -59,9 +59,11 @@ const DRIVE = {
   "thin-ice": () => { if (!window.__ti) return; window.__ti.clip(); let on = false; setInterval(() => { on = !on; window.__ti.hold(on); }, 380); },
   // a soup check solved on camera (VERIFIED), then the next captcha (solve() works in test mode only)
   "prove-youre-human": () => { const go = () => { const s = window.__pyh && window.__pyh.state(); if (s && s.state === "play") window.__pyh.solve(); }; setTimeout(go, 300); setInterval(go, 2400); },
+  // the auto-player takes level 4, joined 14 seconds in so every program is already fighting
+  "desktop-takeover": () => { const d = window.__dt; if (d && d.state().state === "play") { d.auto(true); d.skip(14); } },
 };
 // extra query for a game's clip run
-const QUERY = { "ant-farm": "&shot=1", "prove-youre-human": "&round=1" };
+const QUERY = { "ant-farm": "&shot=1", "prove-youre-human": "&round=1", "desktop-takeover": "&level=4" };
 // a closer frame for games whose action is small in the wide shot (ffmpeg crop on the 640x360 grab: w:h:x:y)
 const CROP = { "thin-ice": "400:225:130:95" };
 
@@ -82,7 +84,7 @@ for (const g of list) {
     try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: slug, t: Date.now() })); } catch (e) {}
   }, g.slug);
   try {
-    await page.goto(`${BASE}/games/${g.slug}/play/?cctest=1${QUERY[g.slug] || ""}`, { waitUntil: "load", timeout: 20000 });
+    await page.goto(`${BASE}/games/${g.slug}/play/?cctest=1${QUERY[g.slug] || ""}`, { waitUntil: "load", timeout: 90000 });
     await page.waitForTimeout(1200);
     // start: a tap in the middle and the usual start keys
     const drive = DRIVE[g.slug];
