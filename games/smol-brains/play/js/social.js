@@ -294,7 +294,7 @@
     var w = game.world, age = Math.round(c.age / 60);
     var title = c.title ? " the " + c.title : "";
     var deeds = (c.diary || []).filter(function (d) { return /invented|became known|chased|taught|joined/.test(d[2]); }).slice(-2).map(function (d) { return d[2]; });
-    var why = { starved: "starved", sick: "fell sick", hurt: "was hurt", old: "grew old", cold: "froze", drowned: "drowned" }[cause] || "passed";
+    var why = { starved: "starved", sick: "fell sick", hurt: "was hurt", old: "grew old", cold: "froze", hot: "overheated", tired: "wore out", drowned: "drowned" }[cause] || "passed";
     var epitaph = "here lies " + c.name + title + ". " + why + " at " + age + " minutes old." + (deeds.length ? " " + deeds.join(". ") + "." : "");
     if (c.body) c.body.epitaph = epitaph; // funeral.js lays it to rest later, with the tribe's own rite
     else try {
@@ -557,7 +557,8 @@
   };
   SO.convoTick = function (game, c, dt) {
     var cv = c.convo;
-    if (!cv || cv.a !== c) return; // the first speaker drives it
+    if (!cv) return;
+    if (cv.a !== c) { if (!cv.a.alive || cv.a.gone || cv.a.convo !== cv) endConvo(game, cv, true); return; } // the first speaker drives it; if they're gone, the listener is let go
     var a = cv.a, b = cv.b;
     if (!a.alive || !b.alive || a.asleep || b.asleep || SB.dist(a.x, a.z, b.x, b.z) > 4.5 || (a.chem.fear > 0.7) || (b.chem.fear > 0.7)) return endConvo(game, cv, true);
     cv.t -= dt;
@@ -597,7 +598,7 @@
     var ch = c.chem;
     if (c.tantrum && game.time > c.tantrum) { c.tantrum = null; SO.log(game, c, "😌", "calmed down"); }
     if (c.grief && game.time > c.grief.until) c.grief = null;
-    if (c.tantrum || c.stage < 1) return;
+    if (c.tantrum || c.stage < 1 || c.asleep || c.captive != null || c.carriedBy != null) return;
     var worst = Math.max(ch.hunger, ch.lonely, ch.bored, ch.anger, ch.pain, ch.cold);
     c._bad = worst > 0.8 ? (c._bad || 0) + 2 : Math.max(0, (c._bad || 0) - 4);
     if (ch.anger > 0.75 || c._bad > 60) {
@@ -610,12 +611,85 @@
     }
     // a happy, rested smol sometimes has a flash of inspiration (ideas come 3× faster for a minute)
     var best = Math.max(ch.hunger, ch.lonely, ch.bored, ch.pain, ch.fear, ch.cold, ch.sick);
-    if (best < 0.25 && c.tier >= 2 && !c.inspired && game.rng.chance(0.004)) {
+    if (best < 0.25 && c.tier >= 2 && !(c.inspired > 0) && game.rng.chance(0.004)) {
       c.inspired = 60;
       SO.log(game, c, "💡", "felt inspired");
       SB.bus.emit("inspired", { c: c });
     }
   }
+
+  /* ---------------- little moments (4.17): pure charm, nothing in the sim depends on these ----------------
+     Friends greet each other by name, yawns catch, sleepers mumble their dreams, kids show off to their parents,
+     elders tell fireside stories and everyone has an opinion about rain. Only for smols near the camera, and it
+     rolls its own dice (Math.random), so the seeded sim stream is exactly what it was. */
+  function quiet(c) { return !c.far && !c.speech && !c.convo && !c.tantrum && !c.heldBy && c.captive == null && c.carriedBy == null && !c._pov; }
+  function sayC(c, text, kind, emo) { c.speech = { text: text, t: 2.2, kind: kind || "say" }; if (emo) SB.Creature.emote(c, emo, 1.6); }
+  function rp(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function charmTick(game, c, sm) {
+    if (game.headless || game.offline || game.offlineRunning || c.far) return;
+    var w = game.world, now = game.time, i, o;
+    if (c._reply) { // the other half of a little moment, one beat later
+      var r = c._reply; c._reply = null;
+      if (now - r.at < 5 && !c.asleep && quiet(c)) sayC(c, r.text, r.kind, r.emo);
+      return;
+    }
+    if (c.asleep) { // dream talk
+      if (w.night && !c.speech && Math.random() < 0.012) {
+        var pn = SO.partnerOf(game, c);
+        sayC(c, "z… " + rp(["berries…", "so many sticks…", "the big light…", "i can fly…", "warm…", "one more bite…", (pn ? pn.name : "mama") + "…"]), "think");
+      }
+      return;
+    }
+    if (!quiet(c) || c.stage < 1) return;
+    var talk = (c.tier || 0) >= 3;
+    // contagious yawns
+    if (c.chem.sleepy > 0.62 && Math.random() < 0.05) {
+      sayC(c, "*yaaawn*", "say", "zzz");
+      for (i = 0; i < sm.length; i++) { o = sm[i]; if (o !== c && !o.asleep && !o.far && SB.dist(o.x, o.z, c.x, c.z) < 3.5 && Math.random() < 0.6) o._reply = { at: now, text: "*yawn*", emo: "zzz" }; }
+      return;
+    }
+    // rain opinions
+    if (w.rain > 0.5 && w.season !== 3 && Math.random() < 0.012) { sayC(c, rp(talk ? ["drip. drip.", "soggy!", "my toes are wet", "i like the rain", "puddles!!"] : ["wet!", "drip!", "blub"]), "say"); return; }
+    // an elder's fireside story
+    if (w.night && c.stage >= 4 && talk && Math.random() < 0.06) {
+      var fire = null; (w.fires || []).forEach(function (f) { if (f.kind === "campfire" && SB.dist(c.x, c.z, f.x, f.z) < 5) fire = f; });
+      if (fire) {
+        var ears = sm.filter(function (x) { return x !== c && !x.asleep && !x.far && SB.dist(x.x, x.z, fire.x, fire.z) < 5.5; });
+        if (ears.length >= 2) {
+          sayC(c, rp(["when i was smol…", "back in my day…", "the pod was so cold…", "i remember the first fire…", "we had three sticks. three!", "the Lantern was brighter then…"]), "say", "proud");
+          ears.slice(0, 3).forEach(function (x) { x._reply = { at: now, text: rp(x.stage <= 2 ? ["wow!", "then what??", "no way!"] : ["mm.", "ha!", "it's true."]), emo: x.stage <= 2 ? "huh" : null }; });
+          return;
+        }
+      }
+    }
+    if (!SO.free(c)) return;
+    // kids show off to a parent
+    if (c.stage <= 2 && c.parents && Math.random() < 0.035) {
+      for (i = 0; i < sm.length; i++) {
+        o = sm[i];
+        if (o !== c && !o.asleep && c.parents.indexOf(o.id) >= 0 && SB.dist(o.x, o.z, c.x, c.z) < 3.5) {
+          sayC(c, talk ? "watch this, " + o.name + "!" : "look! look!", "say", "proud");
+          SB.Creature.emote(c, "proud", 2);
+          o._reply = { at: now, text: rp((o.tier || 0) >= 3 ? ["so good!", "that's my smol!", "careful!"] : ["ooh!"]), emo: "love" };
+          return;
+        }
+      }
+    }
+    // friends say hi
+    if (now - (c._hiT || -999) > 80 && Math.random() < 0.3) {
+      for (i = 0; i < sm.length; i++) {
+        o = sm[i];
+        if (o === c || o.asleep || o.far || o.stage < 1 || SB.dist(o.x, o.z, c.x, c.z) > 2.4 || SO.opinion(game, c, o) < SO.FRIEND) continue;
+        c._hiT = now; o._hiT = now;
+        sayC(c, talk ? rp(["hi " + o.name + "!", "hey " + o.name + "!", o.name + "!!"]) : "hi!", "say", "happy");
+        o._reply = { at: now, text: (o.tier || 0) >= 3 ? rp(["hi " + c.name + "!", "oh! hi!", "hey you!"]) : "hi!", emo: "happy" };
+        return;
+      }
+    }
+  }
+  SO._charm = charmTick;
+  // a smol on its way to a ritual doesn't stop for a chat (4.17: chatter could stall the rain dance for good)
+  function onRite(c) { return !!(c._mt && c._mt.mp && c._mt.mp.k === "rite"); }
 
   /* ---------------- tick (every 2 s) ---------------- */
   var acc = 0;
@@ -627,6 +701,7 @@
     for (var i = 0; i < sm.length; i++) {
       var c = sm[i];
       moodTick(game, c);
+      charmTick(game, c, sm);
       SO.checkTitle(game, c);
       driftApart(game, c);
       // smitten and free: spending time near someone they could love counts as courting (social.js court)
@@ -643,16 +718,16 @@
       if (SO.free(c) && c.stage >= 1 && game.rng.chance(0.2) && game.time - (c._fightT || -999) > 120) {
         for (var k = 0; k < sm.length; k++) {
           var r = sm[k], op;
-          if (r === c || r.heldBy || SB.dist(r.x, r.z, c.x, c.z) > 5 || (op = SO.opinion(game, c, r)) > SO.RIVAL) continue;
+          if (r === c || r.heldBy || r.asleep || r.captive != null || r.carriedBy != null || SB.dist(r.x, r.z, c.x, c.z) > 5 || (op = SO.opinion(game, c, r)) > SO.RIVAL) continue;
           // the deeper the hate, the shorter the fuse
           if (!game.rng.chance(0.125 + c.chem.anger * 0.6 + (op <= SO.ENEMY ? 0.3 : 0))) break;
           if (SB.Creature.provoke(c, r, game)) { c._fightT = game.time - 90; /* a whiff can retry soon; a landed blow resets the full cooldown in onHit */ if (!c.far) c.speech = { text: game.rng.pick(c.tier >= 4 ? ["you again!", "that's it, " + r.name + "!", "you asked for it!"] : ["grr!", "you!", "hmph!"]), t: 1.8, kind: "say" }; break; }
         }
       }
       // strike up a conversation (tribe and up)
-      if (c.tier >= 3 && SO.free(c) && game.rng.chance(0.05 + g(c, "chattiness") * 0.06)) {
+      if (c.tier >= 3 && SO.free(c) && !onRite(c) && game.rng.chance(0.05 + g(c, "chattiness") * 0.06)) {
         var mate = null, md = 4;
-        for (var j = 0; j < sm.length; j++) { var o = sm[j]; if (o === c || o.tier < 3 || !SO.free(o)) continue; if (SO.opinion(game, c, o) <= SO.RIVAL && game.rng.chance(0.7)) continue; var d = SB.dist(o.x, o.z, c.x, c.z); if (d < md) { md = d; mate = o; } }
+        for (var j = 0; j < sm.length; j++) { var o = sm[j]; if (o === c || o.tier < 3 || !SO.free(o) || onRite(o)) continue; if (SO.opinion(game, c, o) <= SO.RIVAL && game.rng.chance(0.7)) continue; var d = SB.dist(o.x, o.z, c.x, c.z); if (d < md) { md = d; mate = o; } }
         if (mate) SO.startConvo(game, c, mate);
       }
     }

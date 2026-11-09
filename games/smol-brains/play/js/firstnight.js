@@ -92,7 +92,7 @@
       // sticks: walk over them (light lends Pip hands it doesn't have yet)
       s.stickIds.forEach(function (id) {
         var it = byId(game, id);
-        if (!it || it.gone || s.sticks >= FN.STICKS + 1) return;
+        if (!it || it.gone || s.sticks >= FN.STICKS) return;
         if (SB.dist(it.x, it.z, pip.x, pip.z) < 1.4) { W().remove(w, it); s.sticks++; if (SB.PovHud && SB.PovHud.gain) SB.PovHud.gain("stick", 1); if (SB.Audio && SB.Audio.play) SB.Audio.play("pop", { vol: 0.6 }); }
       });
       if (!s.lit) {
@@ -182,10 +182,10 @@
     var pip = FN.pip(game);
     if (pip && pip.alive) { pip.chem.fear = 0; pip.chem.hunger = Math.min(pip.chem.hunger, 0.35); pip.speech = { text: "lumi!", t: 2.5, kind: "say" }; }
     s.done = true; s.s = "done"; s.ember = 1; // the first memory ember
-    if (SB.Embers) SB.Embers.add(game, "night1", "Pip remembered fire", pip);
+    if (SB.Embers) SB.Embers.add(game, "night1", pip && pip.alive ? "Pip remembered fire" : "the smols remembered fire", pip);
     if (game.dir) game.dir.nextT = Math.min(game.dir.nextT || 0, game.time + 240);
     game.podT = Math.min(game.podT || 1e9, game.time + 600);
-    if (SB.Game.note) SB.Game.note(game, "🏮 Pip remembers fire. the first memory ember flew to the Lantern.");
+    if (SB.Game.note) SB.Game.note(game, (pip && pip.alive ? "🏮 Pip remembers fire." : "🏮 the smols remember fire.") + " a memory ember flew to the Lantern.");
     SB.bus.emit("firstNight", { step: "done" });
     SB.bus.emit("lantern", { stage: 0, ember: 1 });
     show(game);
@@ -259,7 +259,7 @@
     }
     var s = n(game), step = s && !s.done ? s.s : "done";
     var h = HINTS[step];
-    if (step === "hungry") { var p = FN.pip(game); h = "🫳 nudge Pip <span>(grab Pip, carry to the ✨ berries)</span>"; void p; }
+    if (step === "hungry") { var p = FN.pip(game); h = "🫳 nudge Pip <span>(grab Pip, carry to the ✨ food)</span>"; void p; }
     if (step === "fed" && !s.freeOk) h = "🌞 Pip ate! the island is yours till dusk<span>explore, feed the others, grab things. the clock is running: you'll be called back at nightfall</span><button class='btn go fnok'>ok, let me play ▸</button>"; // the hand-off to free play (K-0058)
     ui.hint.innerHTML = h || ""; ui.hint.classList.toggle("on", !!h);
     ui.timer.classList.toggle("on", step === "sunset" || step === "fed");

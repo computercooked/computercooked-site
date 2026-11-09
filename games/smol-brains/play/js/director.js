@@ -55,7 +55,7 @@
   // --- grump raid: a war party comes in daylight, bigger as the village grows
   card({
     id: "raid", bad: true, minTier: 1, w: 4, gap: 600,
-    ok: function (game) { return smols(game).length >= 4 && game.time > 900; },
+    ok: function (game) { return smols(game).length >= 4 && game.time > 900 && !(SB.Embers && SB.Embers.woke && SB.Embers.woke(game)); }, // the Hollow woke: the grumps went home, for good
     start: function (game) {
       var hm = home(game), caves = game.world.T.caves || [], ang = null;
       if (caves.length) { var cv = caves.reduce(function (b, c) { return SB.dist(c.x, c.z, hm.x, hm.z) < SB.dist(b.x, b.z, hm.x, hm.z) ? c : b; }); ang = Math.atan2(cv.x - hm.x, cv.z - hm.z); }
@@ -307,7 +307,8 @@
         return D.end(game, inc, true);
       }
       if (inc.choice === "exile") {
-        b.stranger = { state: "leaving", t: game.time, x0: b.x + (b.x - SB.Society.home(game, 0).x) * 2, z0: b.z + (b.z - SB.Society.home(game, 0).z) * 2, exiled: true };
+        var hx = SB.Society.home(game, 0), away = spot(game, 34, Math.atan2(b.x - hx.x, b.z - hx.z)) || { x: hx.x + 34, z: hx.z }; // a real walk out of the village (a smol stood by the fire used to blink out on the spot)
+        b.stranger = { state: "leaving", t: game.time, x0: away.x, z0: away.z, exiled: true };
         if (b.partner) { var pt = SB.Game.byId(game, b.partner); if (pt) SO.remember(game, pt, a, "exiled", -30, "got my partner exiled", 3600); }
         return D.end(game, inc, true);
       }
@@ -347,16 +348,17 @@
     return best;
   }
 
-  // --- a kid wanders off into the fog chasing a butterfly
+  // --- a kid wanders off into the fog chasing a butterfly (never one in your hand, in bed, caught, or being lived in)
+  function lostOk(c) { return c.stage === 1 && !c.asleep && !c.heldBy && !c._pov && !c.inBed && c.captive == null && c.carriedBy == null; }
   card({
     id: "lost", minTier: 0, w: 2, gap: 1200,
-    ok: function (game) { return smols(game).some(function (c) { return c.stage === 1 && !c.asleep; }); },
+    ok: function (game) { return !game.world.night && game.world.season !== 3 && smols(game).some(lostOk); },
     start: function (game) {
-      var kids = smols(game).filter(function (c) { return c.stage === 1 && !c.asleep; });
+      var kids = smols(game).filter(lostOk);
       if (!kids.length) return null;
       var k = game.rng.pick(kids), hm = home(game), at = spot(game, 26, Math.atan2(k.x - hm.x, k.z - hm.z));
       if (!at) return null;
-      k.x = at.x; k.z = at.z; k.y = SB.World.groundY(game.world, at.x, at.z); k.lost = true;
+      k.x = at.x; k.z = at.z; k.y = SB.World.groundY(game.world, at.x, at.z);
       SB.Chem.apply(k.chem, { fear: 0.7, lonely: 0.6 });
       var mum = (k.parents || []).map(function (id) { return SB.Game.byId(game, id); }).filter(function (p) { return p && p.alive; })[0];
       return {
@@ -399,7 +401,7 @@
     finish: function (game, inc) {
       var k = SB.Game.byId(game, inc.kid), s = inc.seeker && SB.Game.byId(game, inc.seeker);
       if (!k) return "";
-      k.lost = false;
+      k.lostKid = false;
       SB.Chem.apply(k.chem, { fear: -0.6, lonely: -0.5 });
       if (s && inc.found) {
         SB.Social.remember(game, k, s, "rescued", 40, "found me when i was lost", 5400);
@@ -416,7 +418,7 @@
   // --- a feast: autumn, food to spare. everyone gathers at the fire
   card({
     id: "feast", minTier: 3, w: 2, gap: 2000,
-    ok: function (game) { return game.world.season === 2 && !!campfire(game) && SB.Game.foodPerSmol(game) > 1.4; },
+    ok: function (game) { return game.world.season === 2 && !game.world.night && !!campfire(game) && SB.Game.foodPerSmol(game) > 1.4; },
     start: function (game) {
       var f = campfire(game);
       if (!f) return null;
@@ -441,9 +443,9 @@
       if (inc.choice !== "yes") return "they grumble a little, but winter will be easier.";
       var cs = smols(game).filter(function (c) { return SB.dist(c.x, c.z, inc.x, inc.z) < 9; });
       cs.forEach(function (c) { SB.Chem.apply(c.chem, { bored: -0.8, lonely: -0.8, hunger: -0.4, love: c.stage === 3 ? 0.4 : 0 }); diary(game, c, "🎉", "danced at the harvest feast"); cs.forEach(function (o) { if (o !== c) SB.Social.remember(game, c, o, "feast", 5, "the feast", 3600, 10); }); });
-      chron(game, "🎉", "the great harvest feast (" + cs.length + " smols danced till dawn)");
+      chron(game, "🎉", "the great harvest feast (" + cs.length + " smols danced till they dropped)");
       SB.Game.addSparks(game, 5);
-      return "what a night! everyone's closer now. +5 ✨";
+      return "what a feast! everyone's closer now. +5 ✨";
     }
   });
 
@@ -462,7 +464,7 @@
       var armed = smols(game).filter(function (c) { return c.tool != null && c.stage >= 2; }).length;
       return {
         icon: "⛺", title: "a grump camp!", x: s.x, z: s.z, site: s.id, warn: 0,
-        text: [(SB.Threats && SB.Threats.captives(game, s).length ? "the grumps are holding " + SB.Threats.captives(game, s).map(function (c) { return c.name; }).join(" and ") + " at their camp, along with " : "out in the wild there's a grump camp: spiky fences, a smoky fire, and smols in a cage. ") + "survivors from another pod, by the look of them." + (SB.Threats && SB.Threats.campSize(game, s) > 1 ? " it's grown: " + (2 + SB.Threats.campSize(game, s)) + " grumps guard it now." : ""),
+        text: [(SB.Threats && SB.Threats.captives(game, s).length ? "the grumps are holding " + SB.Threats.captives(game, s).map(function (c) { return c.name; }).join(" and ") + (SB.Sites.freedBefore && SB.Sites.freedBefore(game, s) ? " at their camp. " : " at their camp, along with ") : "out in the wild there's a grump camp: spiky fences, a smoky fire, and smols in a cage. ") + (SB.Sites.freedBefore && SB.Sites.freedBefore(game, s) ? "" : "survivors from another pod, by the look of them.") + (SB.Threats && SB.Threats.campSize(game, s) > 1 ? " it's grown: " + (2 + SB.Threats.campSize(game, s)) + " grumps guard it now." : ""),
           armed ? armed + " of your smols carry clubs or spears. grumps run from a good whack." : "nobody in your tribe has a weapon. bare paws won't scare grumps off: clubs and spears will."],
         choices: [
           { key: "burn", label: "⚡ burn the camp", cost: 16, hint: "lightning scatters the grumps and smashes the cage" },
@@ -579,7 +581,7 @@
       opts = opts.slice(0, 3);
       return {
         icon: "💭", title: d.c.name + " had a dream", x: d.c.x, z: d.c.z, who: d.c.id, warn: 0,
-        text: [d.c.name + " woke up with three ideas tangled together, and can only hold on to one.", "which one should it be?"],
+        text: [d.c.name + " woke up with a few ideas tangled together, and can only hold on to one.", "which one should it be?"],
         choices: opts.map(function (x) { return { key: x.id, label: x.icon + " " + x.name, hint: x.desc }; })
       };
     },
@@ -631,7 +633,7 @@
     var inc = d.active;
     var risky = D.danger(game);
     if (inc) {
-      if (inc.phase === "ask" && risky) inc.t0 += step; // nobody's answering a card mid-chase
+      if (inc.phase === "ask" && (risky || (SB.Possess && SB.Possess.active))) inc.t0 += step; // nobody's answering a card mid-chase, or while living as a smol (the card waits for you)
       if (inc.phase === "ask" && game.time - inc.t0 > AUTO) D.choose(game, inc, D.freeChoice(inc));
       else if (inc.phase === "warn" && game.time >= inc.t1) { inc.phase = "on"; D[inc.id].begin(game, inc); }
       else if (inc.phase === "on" && D[inc.id].tick) D[inc.id].tick(game, inc, step);

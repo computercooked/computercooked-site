@@ -1792,7 +1792,7 @@
   function nextPod() {
     var s = podQ[0];
     if (!s) return;
-    if (el.modal || state.introRunning || (SB.Intro && SB.Intro.covering) || (R.camera.intro)) { setTimeout(nextPod, 1500); return; }
+    if (el.modal || state.introRunning || (SB.Intro && SB.Intro.covering) || (R.camera.intro) || (SB.Possess && SB.Possess.active)) { setTimeout(nextPod, 1500); return; } // a pod never crashes while you live as a smol (the camera move froze the game)
     if (game.skip) SB.Game.skipStop(game, { why: "🛸 a pod came down", c: null });
     var sp = game.speed || 1; game.speed = 0;
     // back where you were: the first time, a word on what pods are; then straight to "send a rescue party?"
@@ -1899,7 +1899,7 @@
   var TUT = [
     { id: "pod", t: "tap the crashed pod", s: "something's moving in that pod. tap it a few times to open it." },
     { id: "name", t: "they're out!", s: "" },
-    { id: "why", read: 1, t: "why you're here", s: "you're the Lantern's last spark, lifted into the sky by Pip's wish. you can't touch the world, but you can watch over the smols: feed, teach, protect and bless them, or <b>lend your light</b> to one (👁 possess) and live as it. raise them from blobs into a people clever enough to remember who they are." },
+    { id: "why", read: 1, t: "why you're here", s: "you're the Lantern's last spark, lifted into the sky by Pip's wish. from up here you can only nudge the world, but you can watch over the smols: feed, teach, protect and bless them, or <b>lend your light</b> to one (👁 possess) and live as it. raise them from blobs into a people clever enough to remember who they are." },
     { id: "look", t: "look around", s: "drag to move (with a mouse: wasd or middle-drag), pinch or scroll to zoom. <b>tap one of your smols</b> to pick it: it stops still for a few seconds so you can teach it, and its card shows what it's thinking." },
     { id: "food", t: "it's hungry", s: "smols learn by trying things and remembering what felt good. they find food on their own, but you can help: with ✋ grab, <b>drag the apple next to a smol</b>." },
     { id: "tickle", t: "reward it", hl: '[data-tool="tickle"]', s: "🪶 tickle means “yes, more of that”. pick tickle and <b>tap a smol</b> while it eats. 👆 tap means “no, stop that”. rewards and scoldings are how you shape its brain." },
@@ -1922,7 +1922,7 @@
     var d = TUT[st.step];
     if (!d) { st.done = true; state.tutStep = -1; return; }
     var last = st.step === TUT.length - 1;
-    el.coach = h("div", { class: "coach glass" }, [
+    el.coach = h("div", { class: "coach glass" + (d.id === "pod" ? " pod" : "") }, [ // the pod card stays small and clear of the pod itself
       h("div", { class: "t" }, [st.step >= 2 ? h("span", { class: "n" }, (st.step - 1) + "/" + (TUT.length - 2) + " ") : null, d.t]), // the pod comes before step 1 (it read "-1/7")
       d.s ? h("div", { class: "s", html: d.s }) : null,
       h("div", { class: "row" }, [
@@ -1957,7 +1957,7 @@
     [/idea/, "tool-users invent by fiddling with things. ✋ hand them sticks and stones, or ✨ magic → 💡 inspire one."],
     [/building/, "builders build by themselves when they need something (huts for cold, farms for food). keep them fed and give them sticks and stones."],
     [/village/, "builders put huts round the campfire when the tribe grows. more smols, more huts."],
-    [/big thought|spire/, "the last project: follow the steps in the next list. ascended smols do the work."]
+    [/big thought|spire/, "the last project: the steps are in the goals list (top left). ascended smols do the work."]
   ];
   function guideTips() {
     var g = game, out = [], smols = SB.Game.smols(g), idle = performance.now() - lastAct > 20000;
@@ -1989,7 +1989,7 @@
     if (sick) out.push({ key: "sick" + sick.id, icon: "🤢", t: sick.name + " is sick", s: "✨ magic → 💚 heal cures it. sick smols pass it on, and herb-lore smols can nurse them.", go: function () { fly(sick, 6); setTool("magic", true); } });
     var egg = g.world.items.filter(function (o) { return o.kind === "egg" && o.data && o.data.wild && o.heldBy == null && (o.data.progress || 0) < 1; })[0];
     if (egg) out.push({ key: "egg" + egg.id, icon: "🥚", t: "a wild egg is out there", s: "✋ carry it home and keep it by the fire or in a hut. a baby from outside your family is gold.", go: function () { fly(egg, 6); setTool("grab", true); } });
-    if (!idle) return out;
+    if (!idle || !smols.length) return out; // nobody home yet (the pod is still shut): nothing to suggest but the pod itself
     // idle: what to do next, and how
     var site = (g.sites || []).filter(function (x) { return !x.gone && !x.found && SB.World.isSeen(g.world, x.x, x.z); })[0];
     if (site) out.push({ key: "site" + site.id, icon: "❓", t: "something's out in the fog", s: "that ? marker is a place nobody's visited. smols explore on their own; ✋ carry one over there to look sooner.", go: function () { fly(site, 9); setTool("grab", true); } });
@@ -2057,7 +2057,7 @@
   /* ---------------- strangers ---------------- */
   function strangerCard(c) {
     if (!c.alive || !c.stranger || c.stranger.state !== "waiting") return;
-    if (el.modal) { setTimeout(function () { strangerCard(c); }, 3000); return; } // wait for the current card
+    if (el.modal || (SB.Possess && SB.Possess.active)) { setTimeout(function () { strangerCard(c); }, 3000); return; } // wait for the current card (and for you to come back from a smol)
     autoFly(c.x, c.z, 6, 1.0);
     var t = SB.TIERS[c.tier], s = c.stranger, idea = s.brings && SB.Ideas.BY_ID[s.brings];
     var lines = [
@@ -2157,7 +2157,7 @@
     var mins = Math.round((g.playTime || 0) / 60), lvl = (g.ngPlus || 0) + 1;
     var body = h("div", { class: "story" }, [
       h("div", { class: "icon" }, "🌟"), h("h3", null, "you raised a civilisation"),
-      h("p", { html: "from one cold egg to the stars: <b>" + pl(days, "day") + "</b>, <b>" + pl(s.maxGen || 1, "generation") + "</b>, <b>" + pl(ideas, "idea") + "</b>, " + pl(s.hatched, "smol") + " hatched, " + pl(s.built || 0, "building") + ", " + pl(s.prayersAnswered || 0, "prayer") + " answered" + (mins ? ", in " + fmtTime(mins * 60) + " of your time" : "") + "." }),
+      h("p", { html: "from one cold pod to the stars: <b>" + pl(days, "day") + "</b>, <b>" + pl(s.maxGen || 1, "generation") + "</b>, <b>" + pl(ideas, "idea") + "</b>, " + pl(s.hatched, "smol") + " hatched, " + pl(s.built || 0, "building") + ", " + pl(s.prayersAnswered || 0, "prayer") + " answered" + (mins ? ", in " + fmtTime(mins * 60) + " of your time" : "") + "." }),
       h("p", { html: "score <b>" + SB.Game.score(g) + "</b>" + (g.ngPlus ? " · new game+ " + g.ngPlus : "") + ". the smols who stayed get a lasting boost: they all think faster now." }),
       h("p", { html: champs.length ? "<b>new game+</b>: a new island, harder storyteller, and " + names + "'s descendants in the pod. they keep their looks and personalities, but start again as tool-users." : "" }),
       h("div", { class: "btnrow" }, [
@@ -2352,7 +2352,8 @@
     // a day on the Hollow (4.15): at dawn, yesterday in one small card and one thing to do today
     on("dayRecap", function (r) {
       var g = SB.Game.current; if (!g || g.offline || g.showcase || (UI.isQuiet && UI.isQuiet())) return;
-      var html = "☀️ <b>day " + (r.day + 1) + "</b> · " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
+      var ww = g.world || {}, sky = ww.season === 3 ? ["❄️", "a frosty winter morning"] : ww.kind === "storm" ? ["⛈", "a stormy morning"] : ww.rain > 0.5 ? ["🌧", "a rainy " + SB.SEASONS[ww.season || 0] + " morning"] : ww.cloud > 0.6 ? ["⛅", "a grey " + SB.SEASONS[ww.season || 0] + " morning"] : ["☀️", "a bright " + SB.SEASONS[ww.season || 0] + " morning"];
+      var html = sky[0] + " <b>day " + (r.day + 1) + "</b> · <span class=\"dim\">" + sky[1] + ".</span> " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
         (r.goal ? "<br><span class=\"dim\">today:</span> " + r.goal.icon + " " + esc(r.goal.t) : "");
       var tries = 0; // waits for a film, and for the first night to hand over (its own toasts only until then)
       (function show() { if (((SB.Lantern && SB.Lantern.running) || (SB.FirstNight && SB.FirstNight.active(g))) && ++tries < 40) return setTimeout(show, 1500); toast(html, "day", 9000); })();
@@ -2422,9 +2423,9 @@
     on("death", function (d) {
       if (d.c.species !== "smol" || d.c.stranger) return;
       // a founder's death is a moment, not a footnote
-      if (d.c.gen === 1 && !(d.c.parents || []).length) {
+      if (d.c.gen === 1 && !(d.c.parents || []).length && !d.c.pip && (d.c.founder || !game.stats.founderFlag)) { // the two from the pod (older saves: any first-generation smol)
         var f = game.family[d.c.id], kids = f && f.kids ? f.kids.length : 0, days = Math.max(1, Math.round((game.time - (f ? f.born : game.time)) / SB.DAY_LENGTH));
-        moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + ". everyone here comes from them.", "lilac");
+        moment("🕯", "farewell, " + d.c.name, "a founder of your tribe. " + days + (days === 1 ? " day" : " days") + ", " + kids + (kids === 1 ? " kid" : " kids") + (kids ? ". everyone here comes from them." : ". the tribe won't forget them."), "lilac");
         autoFly(d.c.x, d.c.z, Math.min(R.camera.tZoom, 9), 1.4);
       }
       storyCard("grave", "🕯", "goodbye, " + esc(d.c.name), ["when a smol dies, its body stays where it fell (look for the 🕯). in a little while the tribe gathers to say goodbye, the way their culture knows how.",

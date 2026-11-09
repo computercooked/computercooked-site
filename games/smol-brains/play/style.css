@@ -228,6 +228,8 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .coach { display: flex; flex-direction: column; min-height: 172px; } /* steps are one height, so "next" stays under your finger */
 #ui.hasmodal .coach, #ui.hasmodal .guide { visibility: hidden; } /* one thing at a time: tips wait behind a window */
 .coach.top { bottom: auto; top: calc(100px + var(--sat)); }
+.coach.pod { min-height: 0; }
+@media (max-height: 520px) { .coach.pod { left: calc(10px + var(--sal, 0px)); transform: none; bottom: auto; top: calc(64px + var(--sat)); width: min(250px, 38%); } }
 
 /* intro title */
 .title { position: absolute; left: 0; right: 0; top: 18%; text-align: center; pointer-events: none; animation: titlein 1.2s ease-out; }

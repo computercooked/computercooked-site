@@ -7,7 +7,7 @@
   "use strict";
   var SB = window.SB;
   var TI = (SB.Title = {});
-  TI.NEWS = "new: pixel art · the Lantern's 16 memories · a day on the Hollow · the Hollow wakes"; // the title's footer: what changed lately (4.15)
+  TI.NEWS = "new: smols greet friends, yawn and dream out loud · a tidier story · phone controls for nap and turn"; // the title's footer: what changed lately (4.17)
 
   function h(tag, attrs, kids) {
     var e = document.createElement(tag);

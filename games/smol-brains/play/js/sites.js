@@ -241,9 +241,14 @@
   };
 
   // freeing a camp's captives: survivors from other pods, grateful, and not related to anyone
+  S.freedBefore = function (game, s) { return !!(game.stats && game.stats["freedCamp" + s.id]); };
   S.free = function (game, s) {
     s.done = true; mark(s);
     var hm = SB.Society.home(game, 0), r = game.rng, n = 2 + (r.chance(0.4) ? 1 : 0), out = [];
+    // the survivors are found once: a camp that fills up again later only holds your own smols
+    var room = (SB.Game.JOIN_CAP || SB.Game.POP_CAP || 99) - game.creatures.filter(function (o) { return o.alive && o.species === "smol"; }).length;
+    if (S.freedBefore(game, s)) n = 0; else n = Math.max(0, Math.min(n, room));
+    game.stats["freedCamp" + s.id] = 1;
     var top = 0; game.creatures.forEach(function (c) { if (c.alive && c.species === "smol" && c.tier > top) top = c.tier; });
     for (var i = 0; i < n; i++) {
       var g = SB.Genome.forTier(r, Math.max(0, Math.min(4, top - (r.chance(0.5) ? 1 : 0))));
@@ -255,7 +260,7 @@
       if (SB.Social) game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && SB.dist(o.x, o.z, s.x, s.z) < 15) SB.Social.remember(game, c, o, "freed", 35, "freed me from the grumps", 7200); });
       out.push(c);
     }
-    chron(game, "⛓", out.map(function (c) { return c.name; }).join(", ") + " were freed from the grump camp and joined the tribe");
+    if (out.length) chron(game, "⛓", out.map(function (c) { return c.name; }).join(", ") + " were freed from the grump camp and joined the tribe");
     return out;
   };
 })();

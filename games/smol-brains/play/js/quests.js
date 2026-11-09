@@ -24,7 +24,7 @@
       { id: "possess", icon: "👁", t: "see the island through a smol's eyes", pay: 2, go: "possess",
         how: "tap a smol → 👁 possess. the first time is free. wasd or the thumbstick to walk.", get: function (g) { return [Math.min(1, n(g, "possess")), 1]; } },
       { id: "poveat", icon: "😋", t: "eat something while possessing a smol", pay: 2, go: "possess",
-        how: "possess a smol, look at food and right click (or the action button). what you do, it learns.", get: function (g) { return [Math.min(1, n(g, "povEat")), 1]; } }
+        how: "possess a smol, walk up to food and press E (or the big button). what you do, it learns.", get: function (g) { return [Math.min(1, n(g, "povEat")), 1]; } }
     ] },
     { id: "grow", name: "growing up", bonus: 6, quests: [
       { id: "tricks3", icon: "🎓", t: "your smols know 3 different tricks", pay: 4, go: "tricks",
@@ -32,17 +32,15 @@
       { id: "explore2", icon: "🧭", t: "find 2 new places", pay: 3,
         how: "smols clear the cloud as they wander. possess one and walk into the fog, or teach it “explore”.", get: function (g) { return [Math.min(2, n(g, "biomes")), 2]; } },
       { id: "wish2", icon: "⭐", t: "grant 2 wishes", pay: 3,
-        how: "little smols wish for things (the ⭐ bubble). do what it asks with ✋ grab.", get: function (g) { return [Math.min(2, g.stats.wishes || 0), 2]; } },
+        how: "little smols wish for things (the 💭 bubble). do what it asks with ✋ grab.", get: function (g) { return [Math.min(2, g.stats.wishes || 0), 2]; } },
       { id: "egg1", icon: "🥚", t: "a new smol hatches", pay: 4,
-        how: "grown-ups who are fed, rested and happy fall in love. a wild egg may turn up too.", get: function (g) { return [Math.min(1, Math.max(0, (g.stats.hatched || 0) - 2)), 1]; } }
+        how: "grown-ups who are fed, rested and happy fall in love. a wild egg may turn up too.", get: function (g) { return [Math.min(1, Math.max(g.stats.born || 0, (g.stats.hatched || 0) - 2)), 1]; } }
     ] },
     { id: "family", name: "a family", bonus: 8, quests: [
       { id: "smart5", icon: "🧠", t: "one smol knows 5 tricks", pay: 5, go: "tricks",
         how: "pick your cleverest smol and keep training it. watch the meters: lessons can undo each other.", get: function (g) { return [Math.min(5, tricks() ? tricks().best(g) : 0), 5]; } },
       { id: "critter", icon: "🦎", t: "evolve into critters", pay: 5,
         how: "kids inherit a mix of their parents plus what the parents practised (the +🤲 pips).", get: function (g) { return [maxTier(g) >= 1 ? 1 : 0, 1]; } },
-      { id: "prayer1", icon: "🙏", t: "answer a prayer with the right miracle", pay: 4,
-        how: "when a smol prays (🙏 at the top), ✨ magic has the miracle it needs.", get: function (g) { return [Math.min(1, g.stats.prayersAnswered || 0), 1]; } },
       { id: "gen3", icon: "🌳", t: "a grandchild hatches", pay: 5,
         how: "generation 3: the kids of your first kids.", get: function (g) { return [(g.stats.maxGen || 1) >= 3 ? 1 : 0, 1]; } }
     ] },
@@ -59,6 +57,8 @@
     { id: "builders", name: "builders", bonus: 12, quests: [
       { id: "tribe", icon: "🔥", t: "become a tribe", pay: 6,
         how: "tribe smols talk, pray and pass ideas on.", get: function (g) { return [maxTier(g) >= 3 ? 1 : 0, 1]; } },
+      { id: "prayer1", icon: "🙏", t: "answer a prayer with the right miracle", pay: 5,
+        how: "when a smol prays (🙏 at the top), ✨ magic has the miracle it needs.", get: function (g) { return [Math.min(1, g.stats.prayersAnswered || 0), 1]; } },
       { id: "builder", icon: "🛖", t: "evolve into builders", pay: 8,
         how: "builders need planning: teach them, and let them work things out.", get: function (g) { return [maxTier(g) >= 4 ? 1 : 0, 1]; } },
       { id: "built", icon: "🏗", t: "finish a building", pay: 6,
@@ -69,7 +69,7 @@
     { id: "thought", name: "the big thought", bonus: 20, quests: [
       { id: "thinker", icon: "🤓", t: "evolve into thinkers", pay: 8, get: function (g) { return [maxTier(g) >= 5 ? 1 : 0, 1]; }, how: "big brains: lots of teaching, writing and story poles." },
       { id: "ascended", icon: "🌟", t: "evolve into the ascended", pay: 10, get: function (g) { return [maxTier(g) >= 6 ? 1 : 0, 1]; }, how: "the last step. bless eggs toward 🌟 glow." },
-      { id: "spire", icon: "✨", t: "raise the spire", pay: 20, get: function (g) { return [A(g, "bigthought"), 1]; }, how: "follow the steps in the next list." }
+      { id: "spire", icon: "✨", t: "raise the spire", pay: 20, get: function (g) { return [A(g, "bigthought"), 1]; }, how: "the steps are listed under “also”, below these goals." }
     ] }
   ];
   Q.BY = {};
@@ -126,7 +126,7 @@
 
   // counters the game doesn't already keep
   function cur() { return SB.Game.current; }
-  SB.bus.on("possess", function () { var g = cur(); if (g) Q.count(g, "possess"); });
+  SB.bus.on("possess", function (d) { var g = cur(); if (g && !(d && d.firstNight)) Q.count(g, "possess"); }); // the first night is the story's possession, not yours
   SB.bus.on("eat", function (d) { var g = cur(); if (g && d && d.c && d.c._pov) Q.count(g, "povEat"); }); // nibbling a bush, drinking
   SB.bus.on("povEat", function () { var g = cur(); if (g) Q.count(g, "povEat"); });                        // eating from the ground or the bag
   SB.bus.on("newBiome", function () { var g = cur(); if (g && !g.offline) Q.count(g, "biomes"); });

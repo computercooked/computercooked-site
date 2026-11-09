@@ -28,7 +28,7 @@
   function st(game) { var s = game.settings || (game.settings = {}); return s.chase || (s.chase = { night: -1, prompts: 0, wins: 0, losses: 0 }); }
   NC.state = function (game) { return st(game); };
   NC.on = function (game) { return !(game.settings && game.settings.nightChase === false); };
-  function nightIdx(game) { return Math.floor(game.world.time / SB.DAY_LENGTH); }
+  function nightIdx(game) { return Math.floor(game.world.time / SB.DAY_LENGTH + 0.5); } // one whole night, dusk to dawn
   function byId(game, id) { return id == null ? null : SB.Game.byId(game, id); }
   function busy(game) {
     return (SB.Possess && SB.Possess.active) || (SB.Intro && SB.Intro.covering) || (SB.FirstNight && SB.FirstNight.active(game)) ||

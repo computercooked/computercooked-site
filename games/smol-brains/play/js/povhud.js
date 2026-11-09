@@ -211,7 +211,7 @@
     "#pov .pbtns button.act{grid-column:3;grid-row:1 / span 2;height:124px;background:var(--lime);color:#101114;font-size:12px}",
     "#pov .pbtns button.act[disabled],#pov .pbtns button.off{opacity:.45}",
     "#pov .pbtns button.on{color:var(--lime);box-shadow:0 0 0 2px var(--px),inset 0 0 0 2px var(--lime)}",
-    "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:38px;height:38px}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
+    "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:min(38px,calc((100vw - 34px) / 9));height:min(38px,calc((100vw - 34px) / 9))}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
     "#pov.phone .vrow i{width:min(17px,3.4vw);height:min(17px,3.4vw)}#pov.phone .vrow{height:min(17px,3.4vw)}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
     "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
     "#pov.phone .quest{top:58px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
@@ -302,6 +302,10 @@
     hud.bAct = btn("act", "act", function () { P().act("ctx"); });
     btn("🎒<br>bag", "", function () { HUD.openBag(); });
     hud.bJump = btn("hop", "", function () { P().input.jump = true; });
+    if (isPhone) { // a phone has no Z or R: sleep and turn-the-building get buttons of their own
+      btn("💤<br>nap", "", function () { P().sleep(); });
+      hud.bTurn = btn("↻<br>turn", "off", function () { var st = P().state(); if (st && st.ghost) P().rotateGhost(); });
+    }
     hud.bAct2 = null;
     var intro = isPhone ? "left thumb walks · drag the right side to look · the big button does what it says · tap a hotbar slot to hold it"
       : "<kbd>WASD</kbd>walk <kbd>mouse</kbd> / <kbd>← →</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
@@ -338,8 +342,12 @@
 
   /* ---------------- messages ---------------- */
   var toastT = null;
+  var PHONE_WORDS = [[/[(]G sniffs, G again walks there[)]/g, "(tap sniff, then tap it again to walk there)"], [/press G again/g, "tap sniff again"], [/press G to sniff/g, "tap sniff"], [/\(?hold left click\)?/g, "(hold use)"], [/hold right click/g, "hold the big button"], [/right[- ]click/g, "tap the big button"], [/left[- ]click/g, "tap use"], [/press (E|e)\b/g, "tap the big button"], [/\s*\((Q|E|F|R|Z|G|Tab|Esc|shift)\)/g, ""], [/press Z\b/g, "tap 💤"], [/press R\b/g, "tap ↻"], [/press Q\b/g, "open the bag"], [/press Tab\b/g, "tap 🎒"], [/press Esc\b/g, "tap leave body"], [/shift-click/g, "tap"]];
+  function phoneWords(msg) { PHONE_WORDS.forEach(function (p) { msg = msg.replace(p[0], p[1]); }); return msg; }
+  HUD._phoneWords = phoneWords;
   HUD.say = function (msg) {
     if (!hud) return;
+    if (hud.phone && typeof msg === "string") msg = phoneWords(msg); // no keys or mouse on a phone
     hud.toast.textContent = msg; hud.toast.classList.add("on");
     clearTimeout(toastT); toastT = setTimeout(function () { if (hud) hud.toast.classList.remove("on"); }, 2800);
   };
@@ -399,7 +407,7 @@
       var txt = i === q.i ? cur.text : st.text;
       html += "<div class='st " + cls + "'><b>" + (i < q.i ? "✓" : i === q.i ? "▸" : "·") + "</b><span>" + esc(txt) + "</span></div>";
     });
-    html += "<div class='tip'>" + esc(cur.tip) + "</div>";
+    html += "<div class='tip'>" + esc(hud.phone ? phoneWords(cur.tip || "") : cur.tip) + "</div>";
     if (hud.questKey !== html) {
       hud.questKey = html;
       hud.quest.innerHTML = html;
@@ -905,6 +913,7 @@
       setBtn(hud.bAct, ctx ? ctx.label : "…", !ctx);
       setBtn(hud.bUse, o.use && !o.use.locked ? short(o.use.label) : "use", !o.use || o.use.locked);
       setBtn(hud.bPlace, o.place && !o.place.locked ? short(o.place.label) : "place", !o.place || o.place.locked);
+      if (hud.bTurn) hud.bTurn.classList.toggle("off", !(P().state() && P().state().ghost));
     }
   }
   // a label for a 58 px button: drop "the", "a" and "some" first, then keep the verb and the thing (4.13: it used to

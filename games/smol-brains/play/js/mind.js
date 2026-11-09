@@ -1129,7 +1129,7 @@
     return true;
   }
   // a death that wasn't old age makes the spot taboo for whoever saw or loved the one who died
-  var DIED = { drowned: "drowned", starved: "starved", hurt: "was killed", cold: "froze", sick: "got sick and died", old: "died of old age" };
+  var DIED = { drowned: "drowned", starved: "starved", hurt: "was killed", cold: "froze", hot: "got too hot", tired: "wore out", sick: "got sick and died", old: "died of old age" };
   function taboo(game, dead, cause, mourners) {
     if (!cause || cause === "old" || cause === "sick" || !isFinite(dead.x)) return;
     var lm = landmark(game, dead.x, dead.z), claim = "taboo:" + lm.key, how = DIED[cause] || "died", n = 0;

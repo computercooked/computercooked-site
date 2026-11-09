@@ -99,7 +99,7 @@
   function start(game, f) {
     var list = bodiesOf(game, f);
     if (!list.length) { f.phase = "done"; return; }
-    var live = smols(game).filter(function (c) { return !c.heldBy && !(c.chem.hunger > 0.85) && !(c.drownT > 0) && !c.raider; });
+    var live = smols(game).filter(function (c) { return !c.heldBy && !(c.chem.hunger > 0.85) && !(c.drownT > 0) && !c.raider && c.captive == null && c.carriedBy == null; });
     if (!live.length) { f.at = game.time + 120; return; } // nobody can come right now; try again later
     var R = F.riteFor(game);
     f.rite = R.rite; f.fire = R.fire; f.song = R.song;
@@ -193,6 +193,7 @@
     var b = list[game.rng.int(list.length)], nm = b.name.toLowerCase(), t;
     if (f.song && game.rng.chance(0.55)) t = "♪ " + game.rng.pick(["la lu " + nm + ", la lu", "sleep now, " + nm, "the sky takes " + nm + " home", "loo-ree, loo-ree", nm + ", " + nm + "..."]) + " ♪";
     else if (c.stage < 2) t = game.rng.pick(["...", "*sniff*", "😢", "?", "hm."]);
+    else if (SB.Social && SB.Social.opinion && SB.Social.opinion(game, c, b) < 0) t = game.rng.pick(["bye " + nm, "hm.", "we never got on", "...sorry, " + nm, "rest now"]); // a rival keeps it short
     else t = game.rng.pick(["bye " + nm, "*sniff*", nm + " was nice", "i miss you already", "we'll remember", "😢", nm + " shared food with me once"]);
     SB.Creature.say(c, t, game);
     if (/♪/.test(t)) SB.bus.emit("funeralSong", { f: f, c: c });

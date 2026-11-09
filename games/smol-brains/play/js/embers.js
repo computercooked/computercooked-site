@@ -118,13 +118,12 @@
       film(g, "grump");
     });
     on("ideaLearned", function (d) { var g = cur(); if (g && smol(d.c)) E.add(g, "idea:" + d.id, "a discovery: " + ((SB.Ideas && SB.Ideas.BY_ID[d.id] && SB.Ideas.BY_ID[d.id].name) || d.id), d.c); });
-    on("built", function (d) { var g = cur(); if (g && d.st && g.tutorial && g.tutorial.night && g.tutorial.night.lit !== d.st.id) E.add(g, "built:" + d.st.kind, "a first " + d.st.kind); });
+    on("built", function (d) { var g = cur(); if (g && d.st && g.tutorial && g.tutorial.night && g.tutorial.night.lit !== d.st.id) E.add(g, "built:" + d.st.kind, "a first " + ((SB.STRUCTS[d.st.kind] && SB.STRUCTS[d.st.kind].label) || d.st.kind)); });
     on("partners", function (d) {
       var g = cur(), l = L(g); if (!g) return;
       var n = Object.keys(l.got).filter(function (k) { return k.indexOf("pair:") === 0; }).length;
       if (n < 3 && d.a && d.b) E.add(g, "pair:" + Math.min(d.a.id, d.b.id) + "-" + Math.max(d.a.id, d.b.id), d.a.name + " and " + d.b.name + " found each other", d.a);
     });
-    on("grow", function (d) { var g = cur(); if (g && d.c && g.tutorial && g.tutorial.night && d.c.id === g.tutorial.night.pip && d.c.stage >= 4) film(g, "growup"); });
     on("povBlobQuestDone", function () { var g = cur(); if (g) E.add(g, "quest:blob", "a small body's day, lived"); });
     on("povQuestDone", function () { var g = cur(); if (g) E.add(g, "quest:tool", "a first tool, made by your light"); });
   };
