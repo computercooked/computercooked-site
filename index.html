@@ -120,6 +120,26 @@
       </div>
     </section>
 
+    <!-- "happening now": the weekly challenge and the week's chart are filled in by src/pages.js (hidden when there is
+         nothing to show); the dailies card is static and assets/home.js adds today's progress and the countdowns. -->
+    <section class="home-sec now" id="home-now" aria-labelledby="now-heading">
+      <div class="sec-head"><h2 id="now-heading" class="section-label">happening now</h2></div>
+      <div class="now-grid">
+        <a class="now-card now-ch" id="home-ch" href="/games/" hidden></a>
+        <a class="now-card now-daily" id="home-daily" href="/games/daily/">
+          <span class="now-dots" id="now-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="now-tag">daily 3</span>
+          <strong class="now-title">three quick ones. new every midnight.</strong>
+          <span class="now-meta" id="now-daily-meta">play all three to start a streak.</span>
+          <span class="now-count">new ones in <b class="num" data-until="midnight">a few hours</b></span>
+        </a>
+        <div class="now-card now-top" id="home-top" hidden>
+          <span class="now-tag">top this week</span>
+          <ol class="now-chart" id="home-chart"></ol>
+        </div>
+      </div>
+    </section>
+
     <section class="home-sec" aria-labelledby="feat-heading">
       <div class="sec-head"><h2 id="feat-heading" class="section-label">game of the week</h2></div>
       <div id="home-featured"><a class="feature-card" href="/games/crash/?ref=landing"><img class="game-thumb" src="/games/crash/cover.png" alt="" width="640" height="400" decoding="async"><span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">crash</h3><span class="feature-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span></a></div>
@@ -177,6 +197,7 @@
   </nav>
   <script src="/assets/mascot.js" defer></script>
   <script src="/assets/tip.js" defer></script>
+  <script src="/assets/daily3.js" defer></script>
   <script src="/assets/home.js" defer></script>
   <script src="/assets/signup.js" defer></script>
   <script src="/assets/deck.js" defer></script>

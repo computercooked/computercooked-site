@@ -3,8 +3,9 @@
 // computer's own). K-0048: /gary/ now 301s to /log/; gary/log.json and garyEntry/garyPage stay, unused.
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
 import { ensureSchema, games as catalogOf } from "./db.js";
-import { themeAttr } from "./util.js";
+import { themeAttr, now, dayOf, REAL } from "./util.js";
 import { pickFeatured } from "./featured.js";
+import { challengeFor, weekEnd } from "./social.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const STAGE = { building: "building", next: "up next", shipped: "shipped" };
@@ -60,6 +61,54 @@ export function card2(g, ref = "shelf") {
     `<span class="meta"><b>${esc(g.title)}</b><small>${esc(g.pitch)}</small></span></a></li>`;
 }
 
+// "happening now" on the homepage: this week's challenge and the week's chart. The chart ranks our games by unique
+// players over the last 7 days (plays break ties) and shows how each moved against the 7 days before; it stays hidden
+// until three games have players, and it never prints the counts. Both are cached for five minutes per isolate.
+const PLAYER = "COALESCE('u' || user_id, 'a' || anon_id)";
+let nowCache = { at: 0, v: null };
+export async function homeNow(env, catalog, t = now()) {
+  if (nowCache.v && t - nowCache.at < 300000 && t >= nowCache.at) return nowCache.v;
+  const v = { ch: null, top: [] };
+  const c = await challengeFor(env, t, catalog);
+  if (c && catalog.has(c.game)) {
+    const n = await env.DB.prepare("SELECT COUNT(*) n FROM xp_events WHERE kind = 'challenge' AND ref = ?").bind(c.week).first("n");
+    v.ch = { game: c.game, goal: c.goal, xp: c.xp, finishers: n || 0, ends: new Date(weekEnd(t)).toISOString() };
+  }
+  const wk = dayOf(t - 7 * 86400000), prev = dayOf(t - 14 * 86400000);
+  const { results } = await env.DB.prepare(
+    `SELECT game, SUM(day >= ?) plays,
+       COUNT(DISTINCT CASE WHEN day >= ? THEN ${PLAYER} END) players,
+       COUNT(DISTINCT CASE WHEN day < ? THEN ${PLAYER} END) before
+     FROM plays WHERE ${REAL} AND day >= ? GROUP BY game`
+  ).bind(wk, wk, wk, prev).all();
+  v.top = chart((results || []).filter((r) => catalog.get(r.game)?.made_by === "computer-cooked"));
+  nowCache = { at: t, v };
+  return v;
+}
+// rows {game, plays, players, before} -> the top five [{game, move}], move: places climbed (+), dropped (-), 0, "new", or null when there is no week before to compare with
+export function chart(rows, n = 5) {
+  const cur = rows.filter((r) => r.players > 0).sort((a, b) => b.players - a.players || b.plays - a.plays || a.game.localeCompare(b.game));
+  if (cur.length < 3) return [];
+  const old = rows.filter((r) => r.before > 0).sort((a, b) => b.before - a.before || a.game.localeCompare(b.game)).map((r) => r.game);
+  return cur.slice(0, n).map((r, i) => { const was = old.indexOf(r.game); return { game: r.game, move: !old.length ? null : was < 0 ? "new" : was - i }; });
+}
+const nf = (n) => Number(n).toLocaleString("en-US");
+function challengeCard(c, g) {
+  return `<img class="now-thumb" src="${esc(g.thumbnail)}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
+    `<span class="now-tag">weekly challenge <b>+${nf(c.xp)} xp</b></span>` +
+    `<strong class="now-title">${esc(g.title)}: ${esc(c.goal)}</strong>` +
+    `<span class="now-meta">${c.finishers ? `${nf(c.finishers)} ${c.finishers === 1 ? "player has" : "players have"} done it.` : "nobody has done it yet. be first."}</span>` +
+    `<span class="now-count">ends in <b class="num" data-until="${esc(c.ends)}">this week</b></span>`;
+}
+function chartRow(r, g, i) {
+  const m = r.move, mv = m == null ? "" : m === "new" ? '<span class="mv mv-new">new</span>'
+    : m > 0 ? `<span class="mv mv-up"><span aria-hidden="true">▲</span><span class="visually-hidden">up </span>${m}</span>`
+    : m < 0 ? `<span class="mv mv-down"><span aria-hidden="true">▼</span><span class="visually-hidden">down </span>${-m}</span>`
+    : '<span class="mv" aria-hidden="true">–</span>';
+  return `<li><a${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=now"><span class="rank num">${i + 1}</span>` +
+    `<img src="${esc(g.thumbnail)}" alt="" width="48" height="30" loading="lazy" decoding="async"><span class="nm">${esc(g.title)}</span>${mv}</a></li>`;
+}
+
 function featuredCard(g) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
   return `<a class="feature-card card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
@@ -103,6 +152,20 @@ export async function homePage(req, env, url) {
       rw.on("#home-new-sec", { element(e) { e.removeAttribute("hidden"); } })
         .on("#home-new", { element(e) { e.setInnerContent(fresh.map((g) => card2(g, "new")).join(""), { html: true }); } });
     }
+  }
+  // "happening now": the weekly challenge and the week's chart (each card stays hidden when there's nothing to show)
+  let live = null;
+  try { if (env.DB && catalog.size) live = await homeNow(env, catalog); } catch (e) { /* no database: the dailies card alone */ }
+  if (live && live.ch) {
+    const g = catalog.get(live.ch.game);
+    rw.on("a#home-ch", { element(e) {
+      e.removeAttribute("hidden"); e.setAttribute("href", `/games/${encodeURIComponent(g.slug)}/?ref=now`);
+      e.setInnerContent(challengeCard(live.ch, g), { html: true });
+    } });
+  }
+  if (live && live.top.length) {
+    rw.on("#home-top", { element(e) { e.removeAttribute("hidden"); } })
+      .on("#home-chart", { element(e) { e.setInnerContent(live.top.map((r, i) => chartRow(r, catalog.get(r.game), i)).join(""), { html: true }); } });
   }
   const out = rw.transform(page);
   return new Response(out.body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" } });
