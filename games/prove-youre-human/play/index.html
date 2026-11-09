@@ -91,7 +91,7 @@
   body.g3 #dlg { animation: jit .09s steps(2) infinite; filter: hue-rotate(-12deg) saturate(1.2); }
   @keyframes jit { 50% { transform: translate(1px, -1px); } }
   /* panels: title, end, daily */
-  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: calc(64px + env(safe-area-inset-top, 0px)) 14px 14px; background: radial-gradient(ellipse at 50% 30%, #16301aee, #0b120cf5 70%); overflow: auto; touch-action: pan-y; scrollbar-width: none; }
+  .over { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: calc(64px + env(safe-area-inset-top, 0px)) 18px 20px 14px; background: radial-gradient(ellipse at 50% 30%, #16301aee, #0b120cf5 70%); overflow: auto; touch-action: pan-y; scrollbar-width: none; }
   .over::-webkit-scrollbar { display: none; }
   .over[hidden] { display: none; }
   .card { width: min(100%, 420px); margin: auto; background: var(--beige); border: 2px solid var(--ink); box-shadow: inset -3px -3px 0 var(--beige3), inset 3px 3px 0 #fff8e0, 8px 8px 0 #000a; text-align: center; }
@@ -107,7 +107,7 @@
   .card .diary b { display: block; font-size: 11px; opacity: .7; letter-spacing: 1px; }
   .card canvas.share { width: auto; max-width: 100%; max-height: max(90px, calc(100vh - 500px)); height: auto; display: block; border: 2px solid var(--ink); margin: 6px auto 2px; image-rendering: auto; }
   @media (max-height: 640px) {
-    .over { padding-top: calc(52px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
+    .over { padding-top: calc(52px + env(safe-area-inset-top, 0px)); padding-bottom: 16px; }
     .card .in { padding: 8px 12px 10px; }
     .card h2 { font-size: 22px; margin: 0 0 2px; }
     .card p { margin: 3px 0; }
@@ -125,6 +125,13 @@
     .card .row + .row { margin-top: 4px !important; }
   }
   .card .verdict { font-size: 15px; font-weight: 600; }
+  .card .note { min-height: 0; margin: 6px 0 0; font-size: 14px; font-weight: 700; color: var(--green2); }
+  .card .note:empty { display: none; }
+  .card .note.flash { animation: noteIn .35s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes noteIn { from { transform: scale(.7); opacity: 0; } }
+  .card .risk { color: var(--red); }
+  .btn.nope { animation: nope .35s; }
+  @keyframes nope { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
   .denied { position: relative; }
   .denied .stampbig { display: inline-block; margin: 8px 0; padding: 6px 12px; border: 5px solid var(--red); color: var(--red); font-size: clamp(22px, 7vw, 30px); font-weight: 700; transform: rotate(-6deg); letter-spacing: 1px; animation: stampIn .3s cubic-bezier(.2, 1.6, .4, 1); }
   #tipSlot .cc-tipjar { margin-top: 12px; }
