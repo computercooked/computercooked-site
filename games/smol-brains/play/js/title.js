@@ -7,6 +7,7 @@
   "use strict";
   var SB = window.SB;
   var TI = (SB.Title = {});
+  TI.NEWS = "new: pixel art · the Lantern's 16 memories · a day on the Hollow · the Hollow wakes"; // the title's footer: what changed lately (4.15)
 
   function h(tag, attrs, kids) {
     var e = document.createElement(tag);
@@ -159,7 +160,7 @@
     var pane = h("div", { class: "ts-pane" });
     box.appendChild(pane);
     ts.appendChild(box);
-    ts.appendChild(h("div", { class: "ts-foot" }, [h("span", { text: "computer cooked games" }), h("span", { text: "v" + (document.documentElement.getAttribute("data-version") || window.SB_VERSION || "3.6") })]));
+    ts.appendChild(h("div", { class: "ts-foot" }, [h("span", { text: "computer cooked games" }), h("span", { class: "ts-news", text: TI.NEWS }), h("span", { text: "v" + (document.documentElement.getAttribute("data-version") || window.SB_VERSION || "3.6") })]));
     root().appendChild(ts);
     TI.pane = pane;
     // the first tap anywhere on the title is also what lets the browser start the music
