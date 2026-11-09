@@ -343,7 +343,7 @@
     world.bolts.push(bolt);
     emit("lightning", { x: tx, z: tz, node: best });
     var dry = 1 - world.weather.rain * 0.5;
-    if (best && (forced || game.rng.chance(0.55 * dry))) W.ignite(world, game, best);
+    if (best && (forced || (world.season !== 3 && game.rng.chance(0.55 * dry)))) W.ignite(world, game, best); // snow doesn't burn
     // anyone nearby gets a fright
     game.creatures.forEach(function (c) {
       if (!c.alive) return;

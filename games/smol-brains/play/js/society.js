@@ -40,7 +40,7 @@
       var near = SB.Game.smols(game).filter(function (c) { return !c.asleep && SB.dist(c.x, c.z, f.x, f.z) < 5; });
       var singer = near.filter(function (c) { return SB.Ideas.known(c, "song"); })[0];
       if (!singer || near.length < 3) return;
-      near.forEach(function (c) { SB.Chem.apply(c.chem, { bored: -0.2, lonely: -0.2, fear: -0.1 }); if (!c.far) c.speech = { text: game.rng.pick(["la la ♪", "♪ ♫", "laaa ♪", "mm mm ♪"]), t: 2, kind: "say" }; });
+      near.forEach(function (c) { SB.Chem.apply(c.chem, { bored: -0.2, lonely: -0.2, fear: -0.1 }); if (!c.far && !c.convo) c.speech = { text: game.rng.pick(["la la ♪", "♪ ♫", "laaa ♪", "mm mm ♪"]), t: 2, kind: "say" }; });
       SB.Game.unlock(game, "song");
       SB.bus.emit("song", { c: singer, n: near.length });
     });

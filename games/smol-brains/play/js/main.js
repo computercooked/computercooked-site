@@ -270,14 +270,17 @@
       twin = Game.spawnSmol(game, { genome: d.genome2, x: egg.x + 0.7, z: egg.z + 0.3, gen: 1, parents: [], tribe: d.tribe, sex: "m", how: "hatch" });
       d.twin = twin;
     }
+    if (d.starter) game.stats.founderFlag = 1;
     if (d.starter) [c, twin].forEach(function (s) {
       if (!s) return;
+      s.founder = true;
       s.chem.hunger = 0.72; s.chem.bored = 0.15;
       SB.Brain.dream(s.brain, [{ drive: SB.D.hunger, noun: SB.N.food, verb: SB.V.eat, s: 1 }], 80, game.rng);
     });
     if (SB.Render && SB.Render.camera) c.facing = Math.atan2(SB.Render.camera.eye[0] - c.x, SB.Render.camera.eye[2] - c.z) || 0;
     SB.World.remove(game.world, egg);
     game.stats.hatched++;
+    if (!d.starter) game.stats.born = (game.stats.born || 0) + 1; // real eggs, not the crashed pod
     if (c.gen > game.stats.maxGen) game.stats.maxGen = c.gen;
     if (c.tier > (game.stats.maxTier || 0)) {
       for (var ti = (game.stats.maxTier || 0) + 1; ti <= c.tier; ti++) if (ti >= 1) Game.unlock(game, SB.TIERS[ti].id); // a skipped tier still counts

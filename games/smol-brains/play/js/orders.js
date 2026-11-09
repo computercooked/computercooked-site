@@ -121,7 +121,7 @@
     od.placed++;
     if (kind === "rally") { od.rallies = (od.rallies || 0) + 1; if (od.rallies <= 2) o.first = 1; } // the first two always work (see decide)
     heatUp(game, K.cost);
-    if (kind === "rally") SB.Game.smols(game).forEach(function (c) { if (c.alive && !c.held && SB.dist(c.x, c.z, x, z) < 90) decide(c, game, o); }); // the chip says "N going, M nah" at once (K-0025)
+    if (kind === "rally") SB.Game.smols(game).forEach(function (c) { if (c.alive && !c.heldBy && SB.dist(c.x, c.z, x, z) < 90) decide(c, game, o); }); // the chip says "N going, M nah" at once (K-0025)
     SB.Game.unlock && SB.Game.unlock(game, "order");
     SB.bus.emit("order", { o: o });
     return o;
@@ -181,7 +181,7 @@
     var out = [], smols = SB.Game.smols(game);
     SB.Ideas.LIST.forEach(function (d) {
       if (d.kind !== "build" || d.build === "bridge" || d.pov) return;
-      if (smols.some(function (c) { return SB.Ideas.known(c, d.id) || (d.build === "spire" && c.tier >= 6 && SB.Ideas.known(c, "resonance")); })) out.push({ kind: d.build, idea: d.id, e: SB.STRUCTS[d.build].emoji, name: SB.STRUCTS[d.build].label });
+      if (smols.some(function (c) { return SB.Ideas.known(c, d.id) || (d.build === "spire" && c.tier >= 6 && SB.Ideas.known(c, "resonance") && game.culture && game.culture.found && game.culture.found.bigthought); })) out.push({ kind: d.build, idea: d.id, e: SB.STRUCTS[d.build].emoji, name: SB.STRUCTS[d.build].label });
     });
     return out;
   };

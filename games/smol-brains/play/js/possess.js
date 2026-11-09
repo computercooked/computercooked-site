@@ -47,7 +47,7 @@
     if (c.species !== "smol") return "only smols can be possessed";
     if (c.heldBy || c.dying || c.corpse) return "not right now";
     if (P.active) return "you're already someone";
-    if ((game.sparks || 0) < P.cost(game)) return "possessing a smol costs " + P.COST + " sparks ✨";
+    if ((game.sparks || 0) < P.cost(game)) return "possessing a smol costs " + P.cost(game) + " sparks ✨";
     return "";
   };
 
@@ -56,7 +56,8 @@
     var why = opts.free ? (c && c.alive && c.species === "smol" && !P.active ? "" : "nope") : P.canEnter(game, c);
     if (why) { if (SB.UI && SB.UI.toast) SB.UI.toast(why); return false; }
     if (!opts.free) SB.Game.spend(game, P.cost(game));
-    game.stats.possessed = (game.stats.possessed || 0) + 1;
+    if (!opts.firstNight) game.stats.possessed = (game.stats.possessed || 0) + 1; // Pip's first night is the story's, not yours: your first real possession stays free
+    if (game.skip && SB.Game.skipStop) SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); // never live a life at skip speed
     var C = SB.Creature;
     if (c.plan) C.endPlan(c, game, false);
     c.action = null; c.asleep = false; c.inBed = false; c.called = null; c.callVerb = null;
@@ -95,7 +96,7 @@
     hookBus();
     if (!S.firstNight && !S.nightChase) questStart();
     if (!P.headless && SB.PovHud) SB.PovHud.build(S);
-    SB.bus.emit("possess", { c: c });
+    SB.bus.emit("possess", { c: c, firstNight: !!opts.firstNight });
     return true;
   };
 
@@ -109,7 +110,7 @@
     // the plans are yours, not the smol's
     if (c.inv && c.inv.s) c.inv.s.forEach(function (sl, i) { if (sl && sl.k === "plans") c.inv.s[i] = null; });
     if (c.alive) { Sv().release(c, game); if (!c.action) c.thinkT = 0.3; }
-    game.speed = s.speed || 1;
+    game.speed = s.speed != null ? s.speed : 1; // paused before? still paused
     if (SB.Input) SB.Input.mode = "god";
     var cm = cam();
     if (cm) {
@@ -938,7 +939,7 @@
     if (!got.length) return false;
     SB.Creature.emote(c, "proud", 1.2); audio("build");
     var need = Sv().needs(st);
-    say(need.length ? "still needs " + need.map(function (x) { return x.n + " " + kl(x.k); }).join(", ") : "it has everything: now build it (hold left click)");
+    say(need.length ? "still needs " + need.map(function (x) { return x.n + " " + kl(x.k) + (x.n > 1 && !/s$/.test(kl(x.k)) ? "s" : ""); }).join(", ") : "it has everything: now build it (hold left click)");
     if (I().siteReady(st)) S.work = { id: st.id, t: 3 };
     return true;
   }
@@ -1391,6 +1392,6 @@
     var st = g.settings || (g.settings = {});
     if (st.povTip) return;
     st.povTip = 1;
-    setTimeout(function () { if (SB.UI && SB.UI.toast && !P.active) SB.UI.toast("👁 tap a smol, then <b>possess</b> on its card to live as it: a hotbar, a bag, your own two paws (" + P.COST + " ✨)", "", 7000); }, 9000);
+    setTimeout(function () { if (SB.UI && SB.UI.toast && !P.active) SB.UI.toast("👁 tap a smol, then <b>possess</b> on its card to live as it: a hotbar, a bag, your own two paws (" + (P.cost(SB.Game.current) ? P.COST + " ✨" : "the first time is free") + ")", "", 7000); }, 9000);
   });
 })();

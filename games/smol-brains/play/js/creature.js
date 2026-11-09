@@ -354,7 +354,7 @@
     if (c.convo) { startAction(c, game, V.idle, null, null, null); c.action.dur = 1.2; return; } // mid-conversation
     if (c.tantrum && c.species === "smol") { // lashing out: shove whoever's nearest, or stomp about
       var vic = null, vd = 4;
-      game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && !o.heldBy) { var dd = SB.dist(o.x, o.z, c.x, c.z); if (dd < vd) { vd = dd; vic = o; } } });
+      game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && !o.heldBy && o.stage >= 1 && !o.asleep) { var dd = SB.dist(o.x, o.z, c.x, c.z); if (dd < vd) { vd = dd; vic = o; } } });
       if (vic && rng.chance(0.45)) { var vt = { type: "creature", id: vic.id }, vr = resolve(game, vt); if (vr) { startAction(c, game, V.hit, vt, vr, "smol"); return; } }
       startAction(c, game, V.wander, null, null, null); c.action.dur = 2.5;
       if (!c.far && rng.chance(0.3)) say(c, rng.pick(["grr!", "hmph!", "BAD!", "no no no"]), game);
@@ -1282,7 +1282,7 @@
     if (a.eggCooldown > 0 || b.eggCooldown > 0) return;
     if (a.sex === b.sex) return;
     if (SB.Social && (SB.Social.opinion(game, a, b) < -10 || SB.Social.opinion(game, b, a) < -10)) { emote(a, "huh", 1.2); return; } // not with someone you can't stand
-    if (a.partner && a.partner !== b.id && SB.Game.byId(game, a.partner) && SB.Game.byId(game, a.partner).alive) return; // already taken
+    if (a.partner && a.partner !== b.id && SB.Game.byId(game, a.partner) && SB.Game.byId(game, a.partner).alive && SB.Game.byId(game, a.partner).stage !== 4) return; // already taken (an elder's partner may start again)
     // family can't have kids together (parents, brothers and sisters, cousins): a colony needs newcomers
     if (SB.Game.related && SB.Game.related(game, a, b)) { a.chem.love *= 0.5; b.chem.love *= 0.5; if (!a.far) say(a, "we family!", game); SB.bus.emit("kin", { a: a, b: b }); return; }
     if (SB.Species && !SB.Species.compatible(a, b)) { emote(a, "huh", 1.5); SB.bus.emit("incompatible", { a: a, b: b }); return; }
@@ -1324,7 +1324,13 @@
       SB.World.itemsNear(game.world, (a.x + b.x) / 2, (a.z + b.z) / 2, 9, function (o) { if (eat.length < need && food(o) && o.heldBy == null && !o.reserved && !(SB.Ideas && SB.Ideas.claimed(o, game))) eat.push(o); });
       eat.forEach(function (o) { SB.World.remove(game.world, o); need--; });
     }
-    if (need > 0 && (a.chem.hunger > 0.45 || b.chem.hunger > 0.45)) return false;
+    if (need > 0 && (a.chem.hunger > 0.45 || b.chem.hunger > 0.45)) {
+      // not enough put by: what they did find fed them instead, and they wait a while before trying again
+      var ate = 2 - need;
+      if (ate > 0) { SB.Chem.apply(a.chem, { hunger: -0.15 * ate }); SB.Chem.apply(b.chem, { hunger: -0.15 * ate }); }
+      a.eggCooldown = Math.max(a.eggCooldown || 0, 75); b.eggCooldown = Math.max(b.eggCooldown || 0, 75);
+      return false;
+    }
     // what nobody could find comes out of the parents
     SB.Chem.apply(mum.chem, { fat: -0.25, hunger: 0.06 * need });
     SB.Chem.apply((mum === a ? b : a).chem, { hunger: 0.06 * need });
@@ -1652,7 +1658,7 @@
     game.stats.deaths++;
     var f = game.family[c.id];
     if (f) { f.died = game.time; f.cause = cause; f.name = c.name; f.ideas = Object.keys(c.ideas).filter(function (k) { return c.ideas[k] >= 1; }); }
-    var why = { starved: "starved 😢", sick: "got too sick", hurt: "got hurt too badly", old: "passed away of old age, surrounded by snacks", cold: "got too cold", drowned: "drowned. smols without fins can't swim 🌊" }[cause] || "died";
+    var why = { starved: "starved 😢", sick: "got too sick", hurt: "got hurt too badly", old: "passed away of old age, surrounded by snacks", cold: "got too cold", hot: "got too hot", tired: "wore itself out", drowned: "drowned. smols without fins can't swim 🌊" }[cause] || "died";
     SB.Game.note(game, c.name + " " + why + ".");
     if (cause === "old") SB.Game.unlock(game, "goodbye");
     if (game.selectedId === c.id) game.selectedId = null;
@@ -1664,6 +1670,8 @@
     if (ch.hunger > 0.9) return "starved";
     if (ch.sick > 0.4 || ch.toxin > 0.2) return "sick";
     if (ch.cold > 0.8) return "cold";
+    if (ch.hot > 0.8) return "hot";
+    if (ch.tired > 0.9) return "tired";
     return "hurt";
   }
 
@@ -1904,7 +1912,8 @@
     }
 
     if (c.asleep) {
-      if ((ch.sleepy < 0.05 && ch.tired < 0.1) || ch.pain > 0.45 || ch.fear > 0.55 || ch.hunger > 0.85) {
+      // at night a rested smol dozes on a while longer (thinkers and up still get up to watch the stars)
+      if ((ch.sleepy < 0.05 && ch.tired < 0.1 && !(game.world.night && c.tier < 5 && !c._pov && !game.rng.chance(dt * 0.012))) || ch.pain > 0.45 || ch.fear > 0.55 || ch.hunger > 0.85) {
         c.asleep = false; c.inBed = false;
         if (c.action && c.action.verb === V.sleep) complete(c, game, c.action, null);
         emote(c, "happy", 1);

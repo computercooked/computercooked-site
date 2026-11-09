@@ -674,6 +674,16 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.63 What v4.17.0 added: the whole-game logic pass, and little moments (owner: "find all the weird things… really fun and detailed")
+
+Four audits (controls and possession, the creature sim, story and text, village and world) plus a start-to-finish play. What changed:
+
+- **Little moments (`social.js` charmTick).** Friends greet each other by name and get a "hi" back, yawns catch, sleepers mumble their dreams, kids show off to a parent, elders tell fireside stories at night and smols have opinions about rain. Cosmetic only: near the camera, own dice (`Math.random`), so the seeded sim is untouched. The dawn card opens with the morning's weather.
+- **Story order.** The pod coach card no longer covers the pod (and on a landscape phone sits top-left). No idle tips before the pod opens. The first night no longer counts as a possession, doesn't finish the "see through a smol's eyes" goal early, and its ember text matches whether Pip lived. `prayer1` moved to the builders chapter (prayers need a tribe). The spire needs the big thought on both paths. The founders' farewell only fires for the real pod twins. No "growing up" film at elder age.
+- **Things that made no sense.** Raids after the Hollow woke; lightning fires in winter; lost-kid cards for a held, sleeping or possessed kid, at night or in winter; a feast at night; a freed camp handing out new survivors every time it was freed; cards auto-answering while you're in a body; a conversation with a dead smol; tantrums at sleeping smols; rivals brawling in their sleep; mourners who were captive; rivals giving warm eulogies; "died of ???" for heat and exhaustion; rested smols wandering all night (they doze till dawn now); an egg the tribe couldn't pay for eating the food anyway; chatter stalling a ritual walk for good.
+- **Phone.** Possession hints say "tap" not "press E / left click"; two new buttons, 💤 nap and ↻ turn; the hotbar fits nine slots on a narrow screen.
+- **Saves.** Leaving a body restores the speed you had; saving mid-possession keeps it too.
+
 ## 0.62 What v4.16.0 added: the story never stalls (complete-game goal, step 6)
 
 - **Found by the live 18-minute runs on 4.15.** Both islands reached the Hollow waking at about game minute 200, with 0 errors at 60 fps on desktop and phone. But both were still on **chapter 1** at day 13. Chapter 1 asks you to possess a smol, and the chapters run strictly in order, so a player who never tries possession never sees chapters 2 to 6, the spire included, even with a village of thinkers.

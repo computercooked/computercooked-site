@@ -37,7 +37,7 @@
   var WINDOW = 12000, SPACING = 1200, CAP = 6;
   function recent(list, now) { while (list.length && now - list[0] > WINDOW) list.shift(); return list; }
   function capOk(list, now) { recent(list, now); return list.length < CAP && (!list.length || now - list[list.length - 1] >= SPACING); }
-  T.grabOk = function (game) { return capOk(T.state(game).grabT, game.time); };
+  T.grabOk = function (game) { return capOk(T.state(game).grabT, game.time) && !(SB.Embers && SB.Embers.woke && SB.Embers.woke(game)); }; // once the Hollow wakes, nobody is taken again
   T.campCardOk = function (game) { return capOk(T.state(game).campCards, game.time); };
   T.campCard = function (game) { T.state(game).campCards.push(game.time); };
   // when the next camp card may be dealt (so a blocked camp doesn't keep knocking on the storyteller's door)
@@ -264,7 +264,7 @@
           if (o.stage <= 1 || o.asleep) vic = o;
         });
         // at most one smol taken per raid, and one per night: a threat, not a massacre
-        var night = Math.floor(w.time / SB.DAY_LENGTH);
+        var night = Math.floor(w.time / SB.DAY_LENGTH + 0.5); // one whole night, dusk to dawn (it used to tick over at midnight)
         var allowed = (g.raider ? !(raid && raid.grabs) : s.grabNight !== night) && T.grabOk(game);
         var grabK = topTier(game) <= 4 ? 0.06 : 0.12; // until thinkers can guard their kids, go easier on them
         if (vic && allowed && r.chance(Math.min(0.5, grabK * (g.str || 1) * step))) { var wasRaider = !!g.raider; grab(game, g, vic); if (raid && wasRaider) raid.grabs = 1; else s.grabNight = night; }
