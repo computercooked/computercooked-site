@@ -63,7 +63,7 @@ check("hd art is requested by HD.init", !!loaded && /art\/hd\/tiles\.png/.test(l
 loaded = null; HD.initPost({ gl: null });
 check("the voxel look loads the textures too, but not the item sprites (4.12)", !!loaded && !!loaded.hdTiles && !loaded.hdItems);
 const main = fs.readFileSync(path.join(PLAY, "js", "main.js"), "utf8");
-check("default look is still the pixel look", /pixel: look !== "3d", hd: look === "hd"/.test(main));
+check("the hd pixel look is the default (4.13)", /pixel: look !== "3d", hd: look === "hd"/.test(main) && /look !== "voxel"\) look = "hd"/.test(main));
 const html = fs.readFileSync(path.join(PLAY, "index.html"), "utf8");
 check("hd.js loads after pixel.js and before bodies.js", html.indexOf("js/pixel.js") < html.indexOf("js/hd.js") && html.indexOf("js/hd.js") < html.indexOf("js/bodies.js"));
 const render = fs.readFileSync(path.join(PLAY, "js", "render.js"), "utf8");

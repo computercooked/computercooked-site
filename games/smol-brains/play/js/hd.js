@@ -205,7 +205,8 @@
     if (cam.pov) {
       // first person: focus on what the crosshair is on (at least an arm's length out); the distance goes soft
       var far = (cam.pov.far || 80) + 20;
-      gl.uniform4f(p.u.uDof, fx ? 1 : 0, 1, 0.04, far); gl.uniform3f(p.u.uFoc, 0, 1.5, 3.4);
+      // (4.13: gentler, now that this is the default look: only the far distance goes soft, and only partly)
+      gl.uniform4f(p.u.uDof, fx ? 0.5 : 0, 1, 0.04, far); gl.uniform3f(p.u.uFoc, 0, 2.6, 7.0);
     } else {
       // god view: a gentle tilt-shift. The middle of the screen is sharp, far ground softens a little;
       // zoomed out to a map it switches off so everything stays readable
