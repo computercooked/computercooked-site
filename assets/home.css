@@ -47,7 +47,7 @@
 .desk-ctas .play-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
 
 /* the computer */
-.desk-pc { position: absolute; z-index: 4; right: max(var(--gutter), calc(50% - 600px)); top: 50%; transform: translateY(-54%); width: clamp(220px, 26vw, 330px); }
+.desk-pc { position: absolute; z-index: 4; right: max(var(--gutter), calc(50% - 600px)); top: calc(50% - 86px); transform: translateY(-50%); width: min(clamp(220px, 26vw, 330px), calc((100svh - 270px) * .66)); }
 .desk-mascot { position: relative; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .6)); }
 .desk-mascot img, .desk-mascot svg { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .desk-shadow { height: 18px; margin: -6px auto 0; width: 70%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, .6), transparent); }
@@ -59,18 +59,31 @@
 .desk-bubble.on { opacity: 1; translate: 0 0; }
 .desk-bubble::after { content: ""; position: absolute; right: 24px; bottom: -16px; border: 8px solid transparent; border-top-color: var(--text); }
 
-/* desktop icons */
-.desk-icons { position: absolute; z-index: 2; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
-.desk-icons li { position: absolute; pointer-events: auto; }
-.desk-icon { display: grid; justify-items: center; gap: 6px; width: 112px; padding: 8px 6px; border-radius: 8px; color: var(--text); text-decoration: none; touch-action: none; user-select: none; -webkit-user-drag: none; }
-.desk-icon .ico { display: block; width: 84px; height: 56px; overflow: hidden; border: 2px solid #000; border-radius: 6px; box-shadow: 3px 3px 0 #000; background: var(--surface); transition: transform .18s var(--ease-out), box-shadow .18s var(--ease-out); }
+/* the quick-launch dock: every game icon in one tidy row above the taskbar (it used to be loose icons scattered round
+   the welcome window). home.js swells the icons near the pointer and runs "surprise me". */
+.desk-dock { position: absolute; z-index: 4; left: max(var(--gutter), calc(50% - 600px)); right: max(var(--gutter), calc(50% - 600px)); bottom: 58px; padding: 10px 10px 8px; background: rgba(23, 24, 28, .88); border: 2px solid #3a3f2a; border-radius: 0 12px 12px 12px; box-shadow: 0 0 0 1px #000, 6px 6px 0 rgba(0, 0, 0, .55); backdrop-filter: blur(6px); }
+.dock-tab { position: absolute; left: -2px; bottom: 100%; margin: 0; height: 24px; padding: 0 12px; display: flex; align-items: center; border: 2px solid #3a3f2a; border-bottom: 0; border-radius: 8px 8px 0 0; background: linear-gradient(90deg, #26301a, #1b1e16); font: 800 11px var(--mono); color: var(--accent); letter-spacing: .02em; white-space: nowrap; }
+.dock-row { display: flex; align-items: flex-end; gap: 2px; }
+.desk-icons { display: contents; margin: 0; padding: 0; list-style: none; }
+.desk-icons li, .desk-dice { flex: 1 1 0; min-width: 0; list-style: none; }
+.desk-icon { display: grid; justify-items: center; gap: 6px; width: 100%; padding: 4px 4px 2px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; text-decoration: none; cursor: pointer; user-select: none; -webkit-user-drag: none; }
+.desk-icon .ico { display: block; width: min(84px, 100%); aspect-ratio: 3 / 2; overflow: hidden; border: 2px solid #000; border-radius: 6px; box-shadow: 3px 3px 0 #000; background: var(--surface); transform-origin: 50% 100%; transform: scale(var(--mag, 1)); transition: transform .14s var(--ease-out), box-shadow .14s var(--ease-out); }
 .desk-icon img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; pointer-events: none; }
-.desk-icon .lbl { max-width: 100%; padding: 1px 5px; border-radius: 3px; font: 700 12px/1.25 var(--mono); text-align: center; text-shadow: 0 1px 0 #000, 0 0 6px #000; overflow-wrap: anywhere; }
-.desk-icon:hover .ico, .desk-icon:focus-visible .ico { transform: translateY(-4px) rotate(-2deg); box-shadow: 5px 7px 0 #000; }
+.desk-icon .lbl { max-width: 100%; padding: 1px 5px; border-radius: 3px; font: 700 12px/1.25 var(--mono); text-align: center; text-shadow: 0 1px 0 #000, 0 0 6px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-icon:hover .ico, .desk-icon:focus-visible .ico { --mag: 1.2; box-shadow: 4px 5px 0 #000; }
 .desk-icon:hover .lbl, .desk-icon:focus-visible .lbl, .desk-icon.is-picked .lbl { background: var(--accent); color: var(--on-accent); text-shadow: none; }
 .desk-icon:focus-visible { outline: 2px dashed var(--accent); outline-offset: 2px; }
-.desk-icon.is-dragging { cursor: grabbing; z-index: 9; }
-.desk-icon.is-dragging .ico { transform: scale(1.08) rotate(3deg); box-shadow: 10px 12px 0 rgba(0, 0, 0, .7); }
+.desk-icon.is-picked .ico { --mag: 1.28; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 4px 6px 0 #000; }
+.desk-icon.is-won .ico { animation: dock-won .5s steps(4) 2; }
+@keyframes dock-won { 50% { box-shadow: 0 0 0 5px var(--accent), 0 0 30px 6px rgba(184, 242, 58, .6); } }
+/* surprise me: the last tile, a dice that spins the dock */
+.desk-dice { margin-left: 6px; padding-left: 10px; border-left: 2px dashed #3a3f2a; border-radius: 0 8px 8px 0; }
+.desk-dice .ico { display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.desk-dice .ico b { font: 800 30px/1 var(--pixel, var(--mono)); }
+.desk.is-spinning .desk-dice .ico b { animation: dice-roll .32s steps(4) infinite; }
+@keyframes dice-roll { to { transform: rotate(360deg); } }
+/* short screens: the dock drops its labels so the welcome window keeps its room */
+@media (min-width: 900px) and (max-height: 760px) { .desk-dock .lbl, .dock-tab { display: none; } .desk-dock { padding-bottom: 10px; border-radius: 12px; } }
 
 /* hover preview window: the game's clip */
 .desk-peek { position: absolute; z-index: 5; width: 260px; pointer-events: none; opacity: 0; transform: translateY(6px) scale(.97); transition: opacity .15s, transform .15s var(--ease-out); }
@@ -83,8 +96,25 @@
 .desk-peek p { margin: 0; padding: 8px 10px 10px; font-size: var(--fs-14); color: var(--text-dim); line-height: 1.35; }
 
 /* taskbar */
-.desk-bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: var(--s-2); height: 40px; padding: 0 var(--s-3); background: rgba(14, 15, 17, .92); border-top: 2px solid #3a3f2a; font: 700 12px var(--mono); color: var(--text-dim); }
-.desk-start { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 2px solid #000; border-radius: 5px; background: var(--accent); color: var(--on-accent); font-weight: 800; text-decoration: none; box-shadow: 2px 2px 0 #000; }
+.desk-bar { position: absolute; z-index: 7; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: var(--s-2); height: 40px; padding: 0 var(--s-3); background: rgba(14, 15, 17, .92); border-top: 2px solid #3a3f2a; font: 700 12px var(--mono); color: var(--text-dim); }
+.desk-start { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 2px solid #000; border-radius: 5px; background: var(--accent); color: var(--on-accent); font-weight: 800; text-decoration: none; box-shadow: 2px 2px 0 #000; cursor: pointer; }
+.desk-start[aria-expanded="true"] { transform: translate(2px, 2px); box-shadow: none; }
+.desk-start:focus-visible { outline: 2px dashed var(--text); outline-offset: 2px; }
+/* the start menu */
+.desk-menu { position: absolute; z-index: 7; left: var(--s-3); bottom: 46px; display: flex; width: min(270px, calc(100% - 2 * var(--s-3))); background: #17181c; border: 2px solid #3a3f2a; border-radius: 10px 10px 10px 0; box-shadow: 0 0 0 1px #000, 8px 8px 0 rgba(0, 0, 0, .6); overflow: hidden; }
+.desk-menu[hidden] { display: none; }
+.menu-side { margin: 0; padding: 10px 5px; writing-mode: vertical-rl; transform: rotate(180deg); background: linear-gradient(#26301a, #3d5212); font: 800 13px var(--mono); color: var(--accent); letter-spacing: .08em; text-align: left; }
+.menu-side b { margin-top: 6px; color: var(--text); }
+.desk-menu ul { flex: 1; margin: 0; padding: 6px; list-style: none; }
+.desk-menu a, .desk-menu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font: 700 14px var(--mono); text-align: left; text-decoration: none; cursor: pointer; }
+.desk-menu i { flex: none; width: 20px; font-style: normal; text-align: center; color: var(--accent); }
+.desk-menu a:hover, .desk-menu button:hover, .desk-menu a:focus-visible, .desk-menu button:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+.desk-menu a:hover i, .desk-menu button:hover i, .desk-menu a:focus-visible i, .desk-menu button:focus-visible i { color: inherit; }
+.menu-sep { margin-top: 6px; padding-top: 6px; border-top: 2px solid #2a2d34; }
+/* "shut down…": the screen folds to a line, then the computer refuses */
+.desk-off { position: absolute; inset: 0; z-index: 9; background: #000; pointer-events: none; }
+.desk-off::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 100%; background: #dfe8cf; transform: translateY(-50%) scaleY(1); animation: crt-off 1.5s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes crt-off { 0% { transform: translateY(-50%) scaleY(1); opacity: .25; } 28% { transform: translateY(-50%) scaleY(.004); opacity: 1; } 55% { transform: translateY(-50%) scale(.002, .004); opacity: 1; } 70% { transform: translateY(-50%) scale(.002, .004); opacity: 0; } 100% { transform: translateY(-50%) scaleY(1); opacity: 0; } }
 .desk-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
 .desk-chip b { color: var(--text); }
 .cpu-meter { display: inline-block; width: 46px; height: 8px; border: 1px solid #000; background: #0e0f11; }
@@ -93,17 +123,50 @@
 .desk.is-hot .desk-chip:first-of-type { border-color: var(--alarm); color: var(--alarm); animation: desk-blink .4s steps(2) infinite; }
 @keyframes desk-blink { 50% { opacity: .5; } }
 
-/* phones and narrow screens: everything stacks, icons become a grid */
+/* "happening now": the weekly challenge, today's dailies and the week's chart, under the desktop */
+.now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: var(--s-4); }
+.now-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text); text-decoration: none; }
+.now-card[hidden] { display: none; }
+a.now-card { transition: transform .16s var(--ease-out), border-color .16s, box-shadow .16s; }
+a.now-card:hover, a.now-card:focus-visible { transform: translate(-2px, -2px); border-color: var(--accent); box-shadow: 4px 4px 0 #000; outline: none; }
+.now-tag { font: 800 12px var(--mono); color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
+.now-tag b { margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--accent); color: var(--on-accent); }
+.now-title { max-width: 26ch; font: 800 var(--fs-18, 18px)/1.25 var(--sans, inherit); text-wrap: balance; }
+.now-meta { color: var(--text-dim); font-size: var(--fs-14, 14px); }
+.now-count { margin-top: auto; padding-top: 6px; font: 700 12px var(--mono); color: var(--text-dim); }
+.now-count b { color: var(--text); }
+.now-thumb { position: absolute; top: var(--s-4); right: var(--s-4); width: 72px; height: 45px; object-fit: cover; border: 2px solid #000; border-radius: 6px; box-shadow: 3px 3px 0 #000; image-rendering: pixelated; }
+.now-ch .now-tag, .now-ch .now-title { max-width: calc(100% - 88px); }
+.now-dots { position: absolute; top: var(--s-4); right: var(--s-4); display: flex; gap: 6px; }
+.now-dots i { width: 14px; height: 14px; border: 2px solid var(--line); border-radius: 4px; background: var(--bg); }
+.now-dots i.on { border-color: #000; background: var(--accent); box-shadow: 0 0 10px rgba(184, 242, 58, .5); }
+.now-chart { width: 100%; margin: 4px 0 0; padding: 0; list-style: none; }
+.now-chart a { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 6px; border-radius: 6px; color: var(--text); text-decoration: none; }
+.now-chart a:hover, .now-chart a:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+.now-chart .rank { flex: none; width: 18px; font: 800 15px var(--mono); color: var(--accent); text-align: center; }
+.now-chart li:first-child .rank { font-size: 19px; }
+.now-chart a:hover .rank, .now-chart a:focus-visible .rank, .now-chart a:hover .mv, .now-chart a:focus-visible .mv { color: inherit; }
+.now-chart img { flex: none; width: 48px; height: 30px; object-fit: cover; border: 2px solid #000; border-radius: 4px; image-rendering: pixelated; }
+.now-chart .nm { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now-chart .mv { flex: none; font: 800 11px var(--mono); color: var(--text-dim); }
+.now-chart .mv-up, .now-chart .mv-new { color: var(--accent); }
+.now-chart .mv-down { color: #ff8a7a; }
+
+/* phones and narrow screens: everything stacks, the dock becomes a row you swipe */
 @media (max-width: 899px) {
-  .desk { height: auto; min-height: 0; padding: var(--s-5) var(--gutter) 64px; display: grid; gap: var(--s-5); }
+  .desk { height: auto; min-height: 0; padding: var(--s-5) var(--gutter) 64px; display: grid; gap: var(--s-5); grid-template-columns: minmax(0, 1fr); }
   .desk-hello { position: relative; left: auto; top: auto; width: auto; order: 2; }
   .win-body { padding: var(--s-4) var(--s-4) var(--s-5); }
   .desk-pc { position: relative; right: auto; top: auto; transform: none; order: 1; width: 150px; margin: 0 auto; }
   .desk-bubble { left: auto; right: -6px; top: 30%; transform: translate(100%, -50%); width: 104px; padding: 7px 8px; font-size: 11px; }
   .desk-bubble::after { right: auto; bottom: auto; top: 50%; left: -16px; margin-top: -8px; border-top-color: transparent; border-right-color: var(--text); }
-  .desk-icons { position: relative; inset: auto; order: 3; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--s-2); pointer-events: auto; }
-  .desk-icons li { position: static; }
-  .desk-icon { width: auto; }
+  /* phones: the dock is one row you swipe sideways */
+  .desk-dock { position: relative; left: auto; right: auto; bottom: auto; order: 3; margin-top: 24px; padding: 10px 0 6px; }
+  .dock-row { align-items: flex-start; gap: 4px; padding: 0 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .dock-row::-webkit-scrollbar { display: none; }
+  .desk-icons li, .desk-dice { flex: 0 0 96px; scroll-snap-align: start; }
+  .desk-dice { margin-left: 2px; padding-left: 8px; }
+  .desk-menu { bottom: 50px; }
   .desk-glow { right: -30%; top: -10%; }
   .desk-peek { display: none; }
 }
@@ -138,7 +201,7 @@ html.cc-desk .desk-row[hidden] { display: block; }
 @media (max-width: 767px) { .desk-row { scroll-margin-top: var(--s-5); } }
 /* K-0071: on phones the hero stacks and its three desktop icons push "your desk" a screen down; a returning player's
    own row is the better list, so it takes their place right under the welcome window */
-@media (max-width: 899px) { html.cc-desk .desk-icons { display: none; } }
+@media (max-width: 899px) { html.cc-desk .desk-dock { display: none; } }
 /* K-0066: the nudge in the hero window, returning players only; the hero window is positioned, so the page doesn't move */
 .desk-nudge-p { display: none; margin: var(--s-4) 0 0; }
 html.cc-desk .desk-nudge-p { display: block; }
@@ -190,7 +253,8 @@ html.cc-desk .desk-nudge-p { display: block; }
 @view-transition { navigation: auto; }
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
-  .desk-icon .ico, .card2, .desk-bubble, .desk-peek { transition: none; }
+  .desk-icon .ico, .card2, .desk-bubble, .desk-peek, a.now-card { transition: none; }
+  .desk-icon.is-won .ico, .desk.is-spinning .desk-dice .ico b, .desk-off::before { animation: none; }
   .caret { animation: none; }
 }
 @media (prefers-reduced-motion: no-preference) {

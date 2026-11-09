@@ -81,7 +81,7 @@ export const eventsLive = (t) => EVENTS.filter((e) => dayOf(t) >= e.from && dayO
 export const eventDef = (id) => EVENTS.find((e) => e.id === id) || null;
 
 // Monday 00:00 UTC after the week of t
-function weekEnd(t) {
+export function weekEnd(t) {
   const d = new Date(t), dow = d.getUTCDay() || 7;
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 8 - dow);
 }

@@ -1,11 +1,12 @@
 /* K-0044 redesign, phase 1: the cooked desktop on the homepage.
    - the computer (assets/mascot.js) watches the cursor, talks, and gets cooked when you click it (a count is kept here)
-   - game icons can be dragged around the desktop (positions kept on this device) and open on a click;
-     hovering one opens a little window playing the game's clip
+   - the games sit in one quick-launch dock: icons swell under the pointer, hovering one opens a little window playing
+     the game's clip, and "surprise me" spins the dock and launches whatever it lands on
+   - the start button opens a start menu (games, dailies, search, lab, log, account, and a shut down that won't)
    - a cpu meter heats up as you move and click, and the computer panics at 100°C
    - a pixel trail follows the pointer
    - shelf cards play their clip on hover (on phones: the card in the middle of the screen)
-   Everything still works without this file. prefers-reduced-motion turns off the trail, tilt, clips and dragging. */
+   Everything still works without this file. prefers-reduced-motion turns off the trail, tilt, clips, the swell and the spin. */
 
 /* K-0064: "your desk", a returning player's row above game of the week. Built from this device's history (cc-history,
    written on every game page by games/platform.js; visits from before it only have cc-recent) and the shelf cards
@@ -114,7 +115,7 @@
     clearTimeout(bubbleT); bubbleT = setTimeout(function () { bubble.classList.remove("on"); }, ms || 2600);
   }
   var POKES = ["ow.", "that's a fan, not a button.", "please. i have 3 tabs open.", "i'm at 98°C, kevin.", "stop. ok one more.", "you're cooking me.", "error: feelings.exe", "i felt that in my ram."];
-  var IDLE = ["hover a game. i'll show you.", "drag the icons. i don't care. (i care.)", "click a game. it takes 3 seconds.", "is it hot in here or is it me. it's me."];
+  var IDLE = ["hover a game. i'll show you.", "press surprise me. i dare you.", "click a game. it takes 3 seconds.", "is it hot in here or is it me. it's me."];
   var cooked = +ls("cc-cooked") || 0, cookedEl = $("#desk-cooked");
   if (cookedEl) cookedEl.textContent = cooked;
   function mountPc() {
@@ -156,99 +157,145 @@
   function tick() { if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase(); }
   tick(); setInterval(tick, 15000);
 
-  /* ---------- icons: free layout, drag, hover peek ---------- */
-  var icons = [].slice.call(document.querySelectorAll(".desk-icon"));
-  var KEY = "cc-desk-v1", saved = {};
-  try { saved = JSON.parse(ls(KEY) || "{}") || {}; } catch (e) { saved = {}; }
-  function slots() {
-    var W = desk.clientWidth, H = desk.clientHeight, hello = $(".desk-hello").getBoundingClientRect(), d = desk.getBoundingClientRect();
-    var pcR = $("#desk-pc").getBoundingClientRect();
-    var out = [], hx = hello.left - d.left, hb = hello.bottom - d.top, hr = hello.right - d.left;
-    // a row under the welcome window
-    for (var x = hx; x + 112 < Math.min(W, pcR.left - d.left - 20) && out.length < 4; x += 124) out.push([x, Math.min(H - 170, hb + 28)]);
-    // a column between the window and the computer
-    var cx = hr + 36;
-    if (cx + 112 < pcR.left - d.left - 10) for (var y = 70; y + 110 < H - 60 && out.length < 9; y += 118) out.push([cx, y]);
-    // otherwise along the right edge
-    for (var y2 = 70; out.length < 9 && y2 + 110 < H - 60; y2 += 118) out.push([W - 140, y2]);
-    return out;
-  }
-  function place() {
-    if (!wide()) { icons.forEach(function (a) { a.parentNode.style.left = a.parentNode.style.top = ""; }); return; }
-    var W = desk.clientWidth, H = desk.clientHeight, s = slots();
-    icons.forEach(function (a, i) {
-      var li = a.parentNode, p = saved[a.dataset.slug], x, y;
-      if (p) { x = p[0] * W; y = p[1] * H; } else if (s[i]) { x = s[i][0]; y = s[i][1]; } else { x = 24 + (i % 6) * 120; y = H - 170; }
-      li.style.left = Math.max(4, Math.min(W - 116, x)) + "px";
-      li.style.top = Math.max(4, Math.min(H - 150, y)) + "px";
-    });
-  }
-  place();
-  // the welcome window grows once the pixel font loads; lay the icons out again then
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
-  addEventListener("load", place);
-  var rt; addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(place, 120); });
+  /* ---------- the dock: hover peek, the swell, surprise me ---------- */
+  var icons = [].slice.call(document.querySelectorAll("a.desk-icon"));
+  var dock = $("#desk-dock"), dice = $("#desk-dice");
+  try { localStorage.removeItem("cc-desk-v1"); } catch (e) {} // the old dragged-icon positions
 
-  // a little window with the game's clip, next to the icon under the pointer
+  // a little window with the game's clip, above the icon under the pointer
   var peek = document.createElement("div");
   peek.className = "desk-win desk-peek";
   peek.innerHTML = '<div class="win-bar"><span class="win-title"></span><span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="win-body"><video muted loop playsinline preload="none"></video><img class="peek-still" alt="" hidden><p></p></div>';
   desk.appendChild(peek);
-  var pv = peek.querySelector("video"), pimg = peek.querySelector(".peek-still");
+  var pv = peek.querySelector("video"), pimg = peek.querySelector(".peek-still"), spinning = false;
   function showPeek(a) {
-    if (!wide() || reduce || !fine) return;
-    var li = a.parentNode, x = li.offsetLeft + 124, y = li.offsetTop - 20;
-    if (x + 270 > desk.clientWidth) x = li.offsetLeft - 270;
-    peek.style.left = Math.max(8, x) + "px"; peek.style.top = Math.max(8, Math.min(desk.clientHeight - 260, y)) + "px";
+    if (!wide() || reduce || !fine || spinning) return;
+    var d = desk.getBoundingClientRect(), r = a.getBoundingClientRect(), top = (dock ? dock.getBoundingClientRect().top : r.top) - d.top;
     peek.querySelector(".win-title").textContent = a.querySelector(".lbl").textContent;
     peek.querySelector("p").textContent = a.dataset.pitch || "";
     var clip = a.dataset.clip;
     // games with a clip play it; games without one yet (K-0048: the window opened empty) show their cover, gently panning
     if (clip) { if (pv.getAttribute("src") !== clip) { pv.src = clip; pv.poster = a.querySelector("img").src; } pv.hidden = false; pimg.hidden = true; pv.play().catch(function () {}); }
     else { try { pv.pause(); } catch (e) {} pv.hidden = true; pimg.src = a.querySelector("img").src; pimg.hidden = false; }
+    peek.style.left = Math.max(8, Math.min(desk.clientWidth - 268, r.left - d.left + r.width / 2 - 130)) + "px";
+    peek.style.top = Math.max(8, top - peek.offsetHeight - 44) + "px";
     peek.classList.add("on");
     if (pc) { pc.react("happy", 1600); }
     if (a.dataset.line) say(a.dataset.line, 2200);
   }
   function hidePeek() { peek.classList.remove("on"); try { pv.pause(); } catch (e) {} }
-
   icons.forEach(function (a) {
-    var li = a.parentNode, sx = 0, sy = 0, ox = 0, oy = 0, drag = false, down = false, moved = false;
-    a.addEventListener("pointerenter", function () { if (!down) showPeek(a); });
-    a.addEventListener("pointerleave", function () { if (!down) hidePeek(); });
+    a.addEventListener("pointerenter", function () { showPeek(a); });
+    a.addEventListener("pointerleave", hidePeek);
     a.addEventListener("focus", function () { showPeek(a); });
     a.addEventListener("blur", hidePeek);
     a.addEventListener("dragstart", function (e) { e.preventDefault(); });
-    if (reduce) return;
-    a.addEventListener("pointerdown", function (e) {
-      if (!wide() || e.button !== 0) return;
-      down = true; moved = false; sx = e.clientX; sy = e.clientY; ox = li.offsetLeft; oy = li.offsetTop;
-      a.setPointerCapture(e.pointerId);
-    });
-    a.addEventListener("pointermove", function (e) {
-      if (!down) return;
-      var dx = e.clientX - sx, dy = e.clientY - sy;
-      if (!drag && Math.abs(dx) + Math.abs(dy) > 6) { drag = true; moved = true; a.classList.add("is-dragging"); li.style.zIndex = 8; hidePeek(); if (pc) pc.react("shock", 700); }
-      if (!drag) return;
-      li.style.left = Math.max(4, Math.min(desk.clientWidth - 116, ox + dx)) + "px";
-      li.style.top = Math.max(4, Math.min(desk.clientHeight - 150, oy + dy)) + "px";
-      heat(0.3);
-    });
-    function up() {
-      if (!down) return;
-      down = false;
-      if (drag) {
-        drag = false; a.classList.remove("is-dragging"); li.style.zIndex = 4;
-        saved[a.dataset.slug] = [li.offsetLeft / desk.clientWidth, li.offsetTop / desk.clientHeight];
-        ls(KEY, JSON.stringify(saved));
-        say(["new spot. bold.", "feng shui: cooked.", "i liked it there.", "fine. there."][Math.floor(Math.random() * 4)], 1600);
-      }
-    }
-    a.addEventListener("pointerup", up);
-    a.addEventListener("pointercancel", up);
-    // a drag isn't a click
-    a.addEventListener("click", function (e) { if (moved) { e.preventDefault(); moved = false; } });
   });
+
+  // the swell: icons grow the nearer the pointer is, like a dock should
+  if (dock && fine && !reduce) (function () {
+    var tiles = [].slice.call(dock.querySelectorAll(".desk-icon")), mids = [], mx = 0, raf = 0;
+    function measure() { mids = tiles.map(function (t) { var r = t.getBoundingClientRect(); return r.left + r.width / 2; }); }
+    function draw() {
+      raf = 0;
+      tiles.forEach(function (t, i) {
+        var k = Math.max(0, 1 - Math.abs(mx - mids[i]) / 170);
+        t.firstElementChild.style.setProperty("--mag", (1 + 0.42 * k * k).toFixed(3));
+      });
+    }
+    dock.addEventListener("pointerenter", measure);
+    dock.addEventListener("pointermove", function (e) { if (!wide() || spinning) return; mx = e.clientX; if (!mids.length) measure(); if (!raf) raf = requestAnimationFrame(draw); }, { passive: true });
+    dock.addEventListener("pointerleave", function () { if (raf) { cancelAnimationFrame(raf); raf = 0; } tiles.forEach(function (t) { t.firstElementChild.style.removeProperty("--mag"); }); });
+    addEventListener("resize", function () { mids = []; });
+  })();
+
+  // surprise me: the highlight runs along the dock, slows down, and lands on a game (one you haven't played, if any)
+  function played() { try { return JSON.parse(ls("cc-history") || "{}") || {}; } catch (e) { return {}; } }
+  function spin() {
+    if (spinning || !icons.length) return;
+    var h = played(), fresh = icons.filter(function (a) { return !h[a.dataset.slug]; }), pool = fresh.length ? fresh : icons;
+    var target = pool[Math.floor(Math.random() * pool.length)], ti = icons.indexOf(target);
+    if (reduce) { location.href = target.href; return; }
+    spinning = true; desk.classList.add("is-spinning"); hidePeek();
+    icons.forEach(function (a) { a.firstElementChild.style.removeProperty("--mag"); });
+    say("spinning. no refunds.", 2400);
+    var n = icons.length, steps = 2 * n + ti, i = 0, wait = 55, row = dock && dock.querySelector(".dock-row");
+    (function step() {
+      icons.forEach(function (a) { a.classList.remove("is-picked"); });
+      var a = icons[i % n]; a.classList.add("is-picked");
+      // phones: the row follows the highlight (sideways only, so the page doesn't jump)
+      if (!wide() && row) row.scrollLeft = a.parentNode.offsetLeft - row.offsetLeft - (row.clientWidth - a.parentNode.offsetWidth) / 2;
+      if (i === steps) {
+        a.classList.add("is-won");
+        if (pc) pc.react("happy", 1500);
+        say("it's " + a.querySelector(".lbl").textContent + ". good luck.", 2400);
+        setTimeout(function () { location.href = a.href; }, 800);
+        return;
+      }
+      i++; if (steps - i < 9) wait *= 1.3;
+      setTimeout(step, wait);
+    })();
+  }
+  function unspin() { spinning = false; desk.classList.remove("is-spinning"); icons.forEach(function (a) { a.classList.remove("is-picked", "is-won"); }); }
+  addEventListener("pageshow", function (e) { if (e.persisted) unspin(); }); // back from the game: the dock is ready again
+  if (dice && icons.length > 1) { dice.hidden = false; dice.addEventListener("click", spin); }
+
+  /* ---------- the start menu ---------- */
+  var start = $("#desk-start"), menu = $("#desk-menu");
+  if (start && menu) (function () {
+    start.setAttribute("role", "button"); start.setAttribute("aria-expanded", "false");
+    function open(on) {
+      menu.hidden = !on; start.setAttribute("aria-expanded", String(on));
+      if (on) { var f = menu.querySelector("a, button"); if (f) f.focus({ preventScroll: true }); say("ooh. the menu.", 1600); }
+    }
+    start.addEventListener("click", function (e) { e.preventDefault(); open(menu.hidden); });
+    start.addEventListener("keydown", function (e) { if (e.key === " ") { e.preventDefault(); open(menu.hidden); } });
+    document.addEventListener("pointerdown", function (e) { if (!menu.hidden && !menu.contains(e.target) && !start.contains(e.target)) open(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !menu.hidden) { open(false); start.focus(); } });
+    menu.addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      var items = [].slice.call(menu.querySelectorAll("a, button")), at = items.indexOf(document.activeElement);
+      e.preventDefault(); items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+    });
+    menu.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-act]"); if (!b) return;
+      var act = b.dataset.act; open(false);
+      if (act === "dice") spin();
+      else if (act === "search") { var s = document.querySelector("[data-cmd-open]"); if (s) s.click(); }
+      else if (act === "off") shutDown();
+    });
+  })();
+  function shutDown() {
+    if (reduce) { say("nice try. i don't have an off switch.", 3000); return; }
+    var off = document.createElement("div"); off.className = "desk-off"; desk.appendChild(off);
+    setTimeout(function () { off.remove(); if (pc) pc.react("shock", 1400); say("nice try. i don't have an off switch.", 3200); heat(30); }, 1500);
+  }
+
+  /* ---------- "happening now": today's dailies and the countdowns ---------- */
+  (function () {
+    var d3 = window.ccDaily3, dots = document.querySelectorAll("#now-dots i"), meta = $("#now-daily-meta");
+    if (d3 && meta) {
+      var done = d3.today().length, of = d3.GAMES.length, streak = d3.streak();
+      for (var i = 0; i < dots.length; i++) dots[i].classList.toggle("on", i < done);
+      meta.textContent = done >= of ? "all three done. " + (streak > 1 ? streak + " days in a row." : "see you after midnight.")
+        : done ? done + " of " + of + " done today. " + (of - done) + " to go."
+        : streak ? streak + "-day streak. don't break it." : "play all three to start a streak.";
+    }
+    var outs = [].slice.call(document.querySelectorAll("[data-until]"));
+    if (!outs.length) return;
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function tick() {
+      if (document.hidden) return;
+      var t = new Date();
+      outs.forEach(function (o) {
+        var u = o.getAttribute("data-until"), end = u === "midnight" ? new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1) : new Date(u);
+        var s = Math.max(0, Math.floor((end - t) / 1000)), d = Math.floor(s / 86400);
+        o.textContent = isNaN(s) ? "" : (d ? d + "d " : "") + pad(Math.floor(s / 3600) % 24) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60);
+      });
+    }
+    tick(); setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+  })();
 
   /* ---------- pixel trail ---------- */
   var cv = $("#desk-fx");
