@@ -110,5 +110,9 @@ console.log("6. palisades hold grumps back");
   }
 }
 
+{
+  const ui = require("fs").readFileSync(require("path").join(__dirname, "..", "play", "js", "ui.js"), "utf8");
+  check("4.15: a storyteller card whose moment has passed always closes, and is dropped from the queue", /if \(inc\.phase !== "ask"\) \{ closeModal\(\); return; \}/.test(ui) && /m\[2\]\.inc && m\[2\]\.inc\.phase !== "ask"\) return;/.test(ui));
+}
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);

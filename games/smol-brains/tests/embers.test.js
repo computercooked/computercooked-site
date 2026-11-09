@@ -113,6 +113,11 @@ seeded(4400, () => {
     check("grumps don't get it", SB.Game.lanternPull(g8, gr, par.genome, par.genome) === 0 && JSON.stringify(gr.genes) === gv);
   }
 
+  {
+    const ui = fs.readFileSync(path.join(__dirname, "..", "play", "js", "ui.js"), "utf8");
+    check("the waking ends on a real card (4.15): what you did, the spire still ahead, keep playing", /d\.stage >= SB\.Embers\.STAGES\.length\) wakeCard\(g\)/.test(ui) && /function wakeCard\(g\)[\s\S]{0,2500}keep playing/.test(ui));
+  }
+
   console.log("6. saved with the island");
   const back = SB.Save.revive(JSON.parse(JSON.stringify(SB.Save.snapshot(game))));
   check("embers, stage and memories come back", back.lantern && back.lantern.embers === E.count(game) && back.lantern.stage === E.stage(game) && back.lantern.got.night1 === 1 && back.lantern.woke && back.lantern.films.wake === 1, back.lantern && JSON.stringify([back.lantern.embers, back.lantern.stage]));

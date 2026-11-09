@@ -612,3 +612,5 @@ body.titling #overlay { opacity: 0; }
 .toast.day b { color: #ffd36a; }
 /* 4.14: while "lend your light" is up, the guide card steps aside (they sat on top of each other) */
 #ui:has(.lendbtn.on) .guide { display: none; }
+.ts-news { color: #ffd36a; text-align: center; padding: 0 8px; }
+@media (max-width: 600px) { .ts-foot .ts-news { display: none; } }

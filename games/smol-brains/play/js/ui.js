@@ -40,6 +40,7 @@
     var back = popQ[0] && popQ[0][2] && popQ[0][2].resume && !el.modal && !(SB.Lantern && SB.Lantern.running) && !(SB.Possess && SB.Possess.active) && now() - lastPovOut >= 1; // the window you had open comes straight back
     if ((!popQ.length && !cardQ.length) || !(back || UI.eventReady())) return;
     var m = popQ.shift();
+    if (m && m[2] && m[2].inc && m[2].inc.phase !== "ask") return; // 4.15: a storyteller card whose moment has passed is dropped, not shown
     if (m) modal(m[0], m[1], Object.assign({}, m[2], { paced: true })); else nextCard();
   }
   UI.pendingEvents = function () { return popQ.length + cardQ.length; };
@@ -2076,12 +2077,13 @@
       h("div", { class: "choices" }, inc.choices.map(function (c) {
         var poor = c.cost && (game.sparks || 0) < c.cost;
         return h("button", { class: "choice" + (poor ? " poor" : ""), onclick: function () {
+          if (inc.phase !== "ask") { closeModal(); return; } // 4.15: already decided or over (a copy that waited its turn): never a card you can't close
           if (poor) { toast("not enough sparks ✨ (" + c.cost + " needed)"); return; }
           if (SB.Director.choose(game, inc, c.key)) closeModal();
         } }, [h("span", { class: "cl" }, c.label), c.cost ? h("span", { class: "cc" }, "✨" + c.cost) : null, h("span", { class: "ch" }, c.hint)]);
       }))
     ]);
-    modal("", body, { story: true, sticky: true });
+    modal("", body, { story: true, sticky: true, inc: inc });
     if (SB.Audio && SB.Audio.play) try { SB.Audio.play(inc.id === "raid" || inc.id === "storm" ? "alert" : "chime"); } catch (e) {}
   }
   UI.incidentCard = incidentCard;
@@ -2167,6 +2169,24 @@
   UI.tipLink = function (host, slot) {
     if (host && window.ccTip) try { window.ccTip.mount(host, { game: "smol-brains", slot: slot }); } catch (e) {}
   };
+  // the end of the story (4.15): the Hollow wakes. what you did, what's still out there, and you keep playing
+  function wakeCard(g) {
+    var s = g.stats, T = SB.TIERS[s.maxTier || 0], body = h("div", { class: "journal" });
+    body.appendChild(h("p", null, "the Lantern is whole. the Hollow stirs, and every grump on its back looks up at the light and remembers its own name. then they go home. no more grump nights, ever."));
+    body.appendChild(h("p", { class: "dim small" }, "you were the last spark of a dying Lantern. now look at them."));
+    [["days on the Hollow", SB.World.clock(g.world).day], ["smols hatched", s.hatched || 0], ["generations", s.maxGen || 1], ["highest tier", T.icon + " " + T.name],
+     ["ideas discovered", Object.keys(g.culture.found).length + " / " + SB.Ideas.LIST.length], ["villages", (g.villages || []).length], ["memories back", SB.Embers.pages(g).length + " / " + SB.Embers.LORE.length]
+    ].forEach(function (r) { body.appendChild(h("div", { class: "stat" }, [h("span", null, r[0]), h("b", null, String(r[1]))])); });
+    body.appendChild(h("p", { class: "note" }, g.achievements && g.achievements.bigthought ? "they even raised the spire. there's nothing left to prove: just enjoy them." :
+      "the island is yours to keep. one story is left: the old tales say a people bright enough can raise a spire and whisper the big thought into the giant's ear (chapter 6)."));
+    body.appendChild(h("div", { class: "btnrow" }, [
+      h("button", { class: "btn go", onclick: closeModal }, "keep playing"),
+      h("button", { class: "btn", onclick: function () { closeModal(); lanternSheet(); } }, "🏮 read the last memory"),
+      h("button", { class: "btn", onclick: function () { closeModal(); civCard(); } }, "🪪 civilisation card")
+    ]));
+    modal("🌅 the Hollow wakes", body, { sticky: true, now: true });
+  }
+  UI.wakeCard = wakeCard;
   function civCard() {
     SB.Game.unlock(game, "card");
     // frame the tribe's home for the photo, then put the camera back
@@ -2340,7 +2360,7 @@
     });
     on("lanternShown", function (d) {
       var g = SB.Game.current; if (!g) return;
-      if (d.stage >= SB.Embers.STAGES.length) toast("🌅 <b>the Hollow wakes</b> · the grumps remembered their names and went home. no more grump nights. +" + 10 * d.stage + " ✨. the island is yours to keep.", "ach", 10000);
+      if (d.stage >= SB.Embers.STAGES.length) wakeCard(g);
       else toast("🏮 <b>the Lantern: stage " + d.stage + "</b> · nights are less dark, +" + 10 * d.stage + " ✨. next stage at " + (SB.Embers.next(g) || "—") + " embers.", "ach", 7000);
     });
     on("trickNudge", function (d) { if (!d.c.far) float(d.c, "👀 hmm?", "wait"); toast("👀 <b>" + esc(d.c.name) + "</b> is thinking about it…", "", 4000); });

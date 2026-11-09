@@ -674,6 +674,14 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.61 What v4.15.0 added: an ending you can feel, and a soft-lock fixed (complete-game goal, step 5)
+
+- **The Hollow wakes on a real card.** Before, the end of the Lantern story was a 10-second toast. Now a card (`ui.js` wakeCard) tells the waking and lists what you did: days on the Hollow, smols hatched, generations, highest tier, ideas, villages and memories back. It points at the one story left, the spire in chapter 6, and offers keep playing, read the last memory, or the civilisation card.
+- **Fix: a storyteller card you couldn't close.** A storm or sniffles card could come up after its moment had passed: a copy waited in the queue, or the event had already been decided. Its choices then did nothing, and the card is sticky with no ✕, so the game was stuck behind it. Found by the 16× browser runs, which stuck at game minute 29 on desktop and 52 on phone. Now any choice on a stale card closes it, and stale cards are dropped from the queue. After the fix the same run went to game minute 116 (thinkers, 20 buildings, Lantern stage 2) with 0 errors at 60 fps.
+- **The title says what's new:** "new: pixel art · the Lantern's 16 memories · a day on the Hollow · the Hollow wakes" (desktop only).
+- **Tools:** `smol-brains-handover/tools/long.cjs` (+ `long-start.js`, `long-tick.js`) plays a fresh island in a real browser at 16× with an engaged player for N real minutes, with screenshots, a state line and every console error.
+- Tests: `embers.test.js` (the waking's card), `director.test.js` (stale cards close and are dropped).
+
 ## 0.60 What v4.14.0 added: the Lantern journal, a day on the Hollow, and pacing for one sitting (complete-game goal, steps 2-4)
 
 - **The lore journal (`embers.js` E.LORE, `ui.js` lanternSheet).** Tapping 🏮 now opens the Lantern's journal instead of a toast. It shows the stage, a bar to the next stage, how embers are earned, the latest embers, and **16 pages of lore that come back with the embers** (at 1, 3, 5, 7, 10, 12, 15, 18, 21, 24, 27, 30, 35, 40, 45 and 50).
