@@ -269,6 +269,18 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Counted:** `POST /api/hit` kinds `desk_shown` (once per load) and `desk_click` (`game`, `slot` `resume` or `card`; `slot` `nudge` with no game for the hero link), stored as `cc:desk_shown` / `cc:desk_click` events.
 - **Playtest:** `/?ccdesk=demo` fills the row with made-up history (nothing stored or counted).
 
+## Homepage: quick launch dock and "happening now"
+
+- **Quick launch dock** (`index.html` `#desk-dock`, `assets/home.js`): the hero's game icons sit in one row under the welcome window, not scattered around it. Hover or focus shows a peek window with the game's cover. On phones the row scrolls sideways. Dock links carry `?ref=desk`.
+- **surprise me.exe** (`#desk-dice`): spins through the dock like a slot machine and opens a game, preferring ones this browser hasn't played (`cc-history`). With reduced motion it opens the game straight away.
+- **Start menu** (`#desk-start` opens `#desk-menu`): all games, today's dailies, surprise me, search, the lab, the cooked log, my account, and "shut down…" (a joke CRT power-off; a click or key brings the page back). Esc and a click outside close it; arrow keys move through it.
+- **Happening now** (`#home-now`, above game of the week): three cards.
+  - *Weekly challenge* (`#home-ch`): this week's game, goal, XP and how many players have done it, with a countdown to the week's end. Filled on the server.
+  - *Daily 3* (`#home-daily`): three dots for today's three games and the streak, from `window.ccDaily3` in the browser, with a countdown to local midnight.
+  - *Top this week* (`#home-top`): the 5 games with the most players over the last 7 days, with places moved against the 7 days before ("new" for a game that wasn't on the chart). Hidden until 3 games have plays. No play counts are shown.
+- **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
+- **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
+
 ## Tip jar (off by default)
 
 A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's set in `wrangler.jsonc` (`TIP_URL`, Chef's $3 pay-what-you-want Payment Link since Oct 23); empty means off.

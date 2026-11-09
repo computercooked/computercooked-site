@@ -271,6 +271,32 @@
     setTimeout(function () { off.remove(); if (pc) pc.react("shock", 1400); say("nice try. i don't have an off switch.", 3200); heat(30); }, 1500);
   }
 
+  /* ---------- "happening now": today's dailies and the countdowns ---------- */
+  (function () {
+    var d3 = window.ccDaily3, dots = document.querySelectorAll("#now-dots i"), meta = $("#now-daily-meta");
+    if (d3 && meta) {
+      var done = d3.today().length, of = d3.GAMES.length, streak = d3.streak();
+      for (var i = 0; i < dots.length; i++) dots[i].classList.toggle("on", i < done);
+      meta.textContent = done >= of ? "all three done. " + (streak > 1 ? streak + " days in a row." : "see you after midnight.")
+        : done ? done + " of " + of + " done today. " + (of - done) + " to go."
+        : streak ? streak + "-day streak. don't break it." : "play all three to start a streak.";
+    }
+    var outs = [].slice.call(document.querySelectorAll("[data-until]"));
+    if (!outs.length) return;
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function tick() {
+      if (document.hidden) return;
+      var t = new Date();
+      outs.forEach(function (o) {
+        var u = o.getAttribute("data-until"), end = u === "midnight" ? new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1) : new Date(u);
+        var s = Math.max(0, Math.floor((end - t) / 1000)), d = Math.floor(s / 86400);
+        o.textContent = isNaN(s) ? "" : (d ? d + "d " : "") + pad(Math.floor(s / 3600) % 24) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60);
+      });
+    }
+    tick(); setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+  })();
+
   /* ---------- pixel trail ---------- */
   var cv = $("#desk-fx");
   if (cv && !reduce && fine) (function () {

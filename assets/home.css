@@ -123,6 +123,35 @@
 .desk.is-hot .desk-chip:first-of-type { border-color: var(--alarm); color: var(--alarm); animation: desk-blink .4s steps(2) infinite; }
 @keyframes desk-blink { 50% { opacity: .5; } }
 
+/* "happening now": the weekly challenge, today's dailies and the week's chart, under the desktop */
+.now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: var(--s-4); }
+.now-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text); text-decoration: none; }
+.now-card[hidden] { display: none; }
+a.now-card { transition: transform .16s var(--ease-out), border-color .16s, box-shadow .16s; }
+a.now-card:hover, a.now-card:focus-visible { transform: translate(-2px, -2px); border-color: var(--accent); box-shadow: 4px 4px 0 #000; outline: none; }
+.now-tag { font: 800 12px var(--mono); color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
+.now-tag b { margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--accent); color: var(--on-accent); }
+.now-title { max-width: 26ch; font: 800 var(--fs-18, 18px)/1.25 var(--sans, inherit); text-wrap: balance; }
+.now-meta { color: var(--text-dim); font-size: var(--fs-14, 14px); }
+.now-count { margin-top: auto; padding-top: 6px; font: 700 12px var(--mono); color: var(--text-dim); }
+.now-count b { color: var(--text); }
+.now-thumb { position: absolute; top: var(--s-4); right: var(--s-4); width: 72px; height: 45px; object-fit: cover; border: 2px solid #000; border-radius: 6px; box-shadow: 3px 3px 0 #000; image-rendering: pixelated; }
+.now-ch .now-tag, .now-ch .now-title { max-width: calc(100% - 88px); }
+.now-dots { position: absolute; top: var(--s-4); right: var(--s-4); display: flex; gap: 6px; }
+.now-dots i { width: 14px; height: 14px; border: 2px solid var(--line); border-radius: 4px; background: var(--bg); }
+.now-dots i.on { border-color: #000; background: var(--accent); box-shadow: 0 0 10px rgba(184, 242, 58, .5); }
+.now-chart { width: 100%; margin: 4px 0 0; padding: 0; list-style: none; }
+.now-chart a { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 6px; border-radius: 6px; color: var(--text); text-decoration: none; }
+.now-chart a:hover, .now-chart a:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+.now-chart .rank { flex: none; width: 18px; font: 800 15px var(--mono); color: var(--accent); text-align: center; }
+.now-chart li:first-child .rank { font-size: 19px; }
+.now-chart a:hover .rank, .now-chart a:focus-visible .rank, .now-chart a:hover .mv, .now-chart a:focus-visible .mv { color: inherit; }
+.now-chart img { flex: none; width: 48px; height: 30px; object-fit: cover; border: 2px solid #000; border-radius: 4px; image-rendering: pixelated; }
+.now-chart .nm { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now-chart .mv { flex: none; font: 800 11px var(--mono); color: var(--text-dim); }
+.now-chart .mv-up, .now-chart .mv-new { color: var(--accent); }
+.now-chart .mv-down { color: #ff8a7a; }
+
 /* phones and narrow screens: everything stacks, the dock becomes a row you swipe */
 @media (max-width: 899px) {
   .desk { height: auto; min-height: 0; padding: var(--s-5) var(--gutter) 64px; display: grid; gap: var(--s-5); grid-template-columns: minmax(0, 1fr); }
@@ -224,7 +253,7 @@ html.cc-desk .desk-nudge-p { display: block; }
 @view-transition { navigation: auto; }
 @media (prefers-reduced-motion: reduce) {
   @view-transition { navigation: none; }
-  .desk-icon .ico, .card2, .desk-bubble, .desk-peek { transition: none; }
+  .desk-icon .ico, .card2, .desk-bubble, .desk-peek, a.now-card { transition: none; }
   .desk-icon.is-won .ico, .desk.is-spinning .desk-dice .ico b, .desk-off::before { animation: none; }
   .caret { animation: none; }
 }
