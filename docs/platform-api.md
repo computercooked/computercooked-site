@@ -290,6 +290,10 @@ All in the browser, from `cc-history` (`assets/fx.js` `filters()`); a first visi
 - **"not played N" chip:** shows only the games not yet played. Hidden for first visits and once everything is played.
 - **Random** picks a game not yet played while there is one in the current filter.
 
+## Game page: your runs
+
+`games/platform.js` keeps the last 12 accepted scores per game on the device (`cc-history[slug].r`). From the second run on, the leaderboard card shows a bar for each (`.cc-runs`), newest on the right, the best one lit, with how far the last run was off the best. Bars are sized between the player's own lowest and highest score, so it also reads right where a lower score wins. Nothing is sent to the server.
+
 ## Tip jar (off by default)
 
 A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's set in `wrangler.jsonc` (`TIP_URL`, Chef's $3 pay-what-you-want Payment Link since Oct 23); empty means off.

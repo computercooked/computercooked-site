@@ -1100,6 +1100,15 @@
   color: var(--carbon);
 }
 
+/* "your runs": bars for your last 12 scores on this device (games/platform.js showRuns) */
+.cc-runs { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--line); }
+.cc-runs-head { display: flex; justify-content: space-between; gap: var(--s-2); margin: 0 0 var(--s-2); font-size: var(--fs-12); color: var(--paper-dim); }
+.cc-runs-head b { color: var(--paper); }
+.cc-runs-bars { display: flex; align-items: flex-end; gap: 3px; height: 44px; }
+.cc-runs-bars i { flex: 1 1 0; max-width: 22px; min-height: 4px; border-radius: 2px 2px 0 0; background: var(--line); }
+.cc-runs-bars i.is-last { background: var(--paper-dim); }
+.cc-runs-bars i.is-best { background: var(--lime); }
+
 .cc-rows {
   list-style: none;
   margin: 0;
