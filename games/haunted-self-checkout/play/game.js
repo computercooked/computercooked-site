@@ -188,7 +188,7 @@
       bestStreak = Math.max(bestStreak, combo);
       if (combo % 10 === 0) { // a perfect run of ten: a lime burst where it happened, the till beams, the frame glows
         fx.push({ type: "burst", x: cxp, y: cyp, life: 0.7, max: 0.7, col: LIME2 });
-        fx.push({ type: "text", x: Math.max(80, Math.min(W - 80, cxp)), y: cyp - S * 1.1, s: "PERFECT " + combo, col: LIME2, life: 1.1, max: 1.1, big: true });
+        fx.push({ type: "text", x: Math.max(80, Math.min(W - 80, cxp)), y: cyp - S * 1.1, s: "PERFECT " + combo, col: LIME2, life: 1.4, max: 1.4, big: true });
         react("happy", 900); flash = Math.max(flash, 0.25); flashCol = LIME;
       }
       checkLanes();
@@ -209,7 +209,7 @@
 
   function press(px, py) {
     if (state !== "play") {
-      if (state === "over" && performance.now() - endAt < 700) return;
+      if (state === "over" && performance.now() - endAt < 1200) return;
       start(); return;
     }
     const it = hitTest(px, py);
@@ -232,7 +232,7 @@
       }
       if (eyed && (!r || eyed.x > r.x) && !eyed.warned) { // the nearest one is looking at you: warn, don't scan it
         eyed.warned = true; eyed.redT = 0.45;
-        fx.push({ type: "text", x: eyed.x + S / 2, y: lanesY[eyed.lane] - S * 0.7, s: "eyes! skipped", col: BAD, life: 0.7, max: 0.7 });
+        fx.push({ type: "text", x: eyed.x + S / 2, y: lanesY[eyed.lane] - S * 0.7, s: "eyes! skipped", col: "#ff4d5e", life: 1.1, max: 1.1, mid: true });
       }
       if (r) scan(r);
     }
@@ -448,9 +448,13 @@
         const x = f.x + (tx - f.x) * k, y = f.y + (ty - f.y) * k - Math.sin(k * Math.PI) * S * 1.2, s = S * (1 - k * 0.6);
         cx.globalAlpha = 1 - k * 0.5; cx.drawImage(sprites[f.kind], px(x), px(y), s, s); cx.globalAlpha = 1;
       } else if (f.type === "text") {
-        cx.globalAlpha = 1 - k; cx.fillStyle = f.col; cx.textAlign = "center"; cx.textBaseline = "middle";
-        cx.font = "800 " + (f.big ? 22 : 16) + "px ui-monospace, Menlo, Consolas, monospace";
-        cx.fillText(f.s, f.x, f.y - k * 26); cx.globalAlpha = 1;
+        const fs = f.big ? Math.round(Math.max(30, Math.min(44, W / 14))) : f.mid ? Math.round(Math.max(20, Math.min(26, W / 22))) : 16;
+        const pop = (f.big || f.mid) ? 1 + Math.max(0, 0.25 - k) * 1.2 : 1;
+        cx.globalAlpha = (f.big || f.mid) ? Math.min(1, (1 - k) * 2) : 1 - k; cx.textAlign = "center"; cx.textBaseline = "middle";
+        cx.font = "900 " + Math.round(fs * pop) + "px ui-monospace, Menlo, Consolas, monospace";
+        const tx = (f.big || f.mid) ? Math.max(fs * 3.2, Math.min(W - fs * 3.2, f.x)) : f.x, ty = f.y - k * 26;
+        if (f.big || f.mid) { cx.lineJoin = "round"; cx.lineWidth = Math.max(4, fs * 0.22); cx.strokeStyle = "#08090a"; cx.strokeText(f.s, tx, ty); cx.shadowColor = f.col; cx.shadowBlur = 14; }
+        cx.fillStyle = f.col; cx.fillText(f.s, tx, ty); cx.shadowBlur = 0; cx.globalAlpha = 1;
       } else if (f.type === "burst") {
         cx.globalAlpha = 1 - k; cx.fillStyle = f.col;
         for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2, d = S * (0.3 + k * 1.3); cx.fillRect(px(f.x + Math.cos(a) * d - 3), px(f.y + Math.sin(a) * d - 3), 6, 6); }
@@ -520,7 +524,7 @@
         : score === prevBest ? "tied your best. one more scan next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       fit(800, 15, nudge); cx.fillStyle = score > prevBest ? LIME2 : "#ffb340";
       cx.fillText(nudge, W / 2, m + b * 0.95 + 46 * c);
-      if (performance.now() - endAt > 700) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, m + b * 0.95 + 76 * c); tipY = m + b * 0.95 + 100 * c; }
+      if (performance.now() - endAt > 1200) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, m + b * 0.95 + 76 * c); tipY = m + b * 0.95 + 100 * c; }
     }
     if (state === "title") { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to start your shift", W / 2, Math.min(H - 34, mid + big * 0.6 + 62 + Math.max(26, Math.min(S, 60, H - 34 - 40 - (mid + big * 0.6 + 62))) + 40)); }
   }
@@ -534,7 +538,7 @@
     cx.fillStyle = g; cx.fillRect(0, 0, W, H);
     drawTill(time);
     drawBelts(time);
-    for (const it of items) drawItem(it, time);
+    if (state !== "over") for (const it of items) drawItem(it, time);
     drawFx();
     if (state === "play") drawHud();
     tipY = -1;
@@ -553,4 +557,9 @@
   requestAnimationFrame(frame);
   // test hook for the smoke/screenshot scripts (no effect on play)
   window.__hsc = { state: () => ({ state, t, score, meter, won, scanned, wrongs, misses, items: items.length, lanes, combo, bestStreak }) };
+  // test-only hooks (?cctest=1): pop the two hook texts, end the shift
+  if (/[?&]cctest=1/.test(location.search + (() => { try { return parent.location.search; } catch (e) { return ""; } })())) Object.assign(window.__hsc, {
+    pop: () => { fx.push({ type: "text", x: W - 20, y: lanesY[0] - S * 1.1, s: "PERFECT 10", col: LIME2, life: 1.4, max: 1.4, big: true }); fx.push({ type: "text", x: W / 2, y: lanesY[lanesY.length - 1] - S * 0.7, s: "eyes! skipped", col: "#ff4d5e", life: 1.1, max: 1.1, mid: true }); },
+    end: (w) => { if (state === "play") end(!!w); },
+  });
 })();

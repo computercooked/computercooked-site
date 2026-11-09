@@ -534,7 +534,7 @@
     if (!TEST) sdk((c) => { if (!c.achieve) return; if (denied) c.achieve("bot_detected"); else if (h >= 90) c.achieve("so_human"); if (S.streak.n >= 3) c.achieve("three_days"); });
     save();
     ev("run_end", { humanity: h, rounds: round, mode, denied: denied ? 1 : 0 }, true);
-    sdk((c) => c.end && c.end({ score: score(), durationMs: Math.round((now() - runT0) * 1000), completed: !denied }));
+    sdk((c) => c.end && c.end({ score: passes > 0 ? score() : 0, durationMs: Math.round((now() - runT0) * 1000), completed: !denied }));
     if (denied) { play("denied"); say("ACCESS DENIED. BOT DETECTED.", "denied", 99); } else say(h >= 75 ? "fine. you may pass. i'm still watching." : "you may pass. barely.", h >= 75 ? "happy" : "squint", 99);
     const font = document.fonts && document.fonts.load ? document.fonts.load("700 40px Pixelify").catch(() => {}) : null;
     setTimeout(() => Promise.resolve(font).then(() => { if (state === "end") showEnd(denied, h, newDiary); }), denied ? 900 : 500);
@@ -570,8 +570,8 @@
   function wrap(g, text, x, y, w, lh) { let line = ""; for (const word of text.split(" ")) { const t = line ? line + " " + word : word; if (g.measureText(t).width > w && line) { g.fillText(line, x, y); y += lh; line = word; } else line = t; } if (line) g.fillText(line, x, y); }
   async function doShare(card, h, denied) {
     const url = "https://computercooked.com/games/prove-youre-human/";
-    const text = denied ? `the computer says i'm a bot (${h}% human). prove you're human:` : `i am ${h}% human. the computer is still suspicious. prove you're human:`;
-    let how = "copy";
+    const text = denied ? `the computer says i'm a bot (${h}% human). bet you can't do better:` : mode === "daily" ? `i'm ${h}% human on today's gauntlet. beat that:` : `i am ${h}% human. the computer is still suspicious. prove you're human:`;
+    let how = "copy", copied = false;
     try {
       const blob = await new Promise((res) => card.toBlob(res, "image/png"));
       const file = blob && new File([blob], `i-am-${h}-percent-human.png`, { type: "image/png" });
@@ -580,11 +580,14 @@
       else if (blob) {
         how = "download";
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-        try { await navigator.clipboard.writeText(text + " " + url); } catch (e) {}
-      }
-    } catch (e) { /* cancelled */ }
+        try { await navigator.clipboard.writeText(text + " " + url); copied = true; } catch (e) {}
+      } else { try { await navigator.clipboard.writeText(text + " " + url); copied = true; } catch (e) {} }
+    } catch (e) { how = how === "share" ? "cancel" : how; }
+    shareNote(how === "download" ? (copied ? "saved the picture + copied a challenge link ✓" : "saved the picture ✓") : how === "share" ? "shared ✓" : how === "cancel" ? "" : copied ? "copied a challenge link ✓" : "couldn't share from here. screenshot it?");
     ev("share_click", { how }, true);
   }
+
+  function shareNote(s) { const n = $("eNote"); if (!n || !s) return; n.textContent = s; n.classList.remove("flash"); void n.offsetWidth; n.classList.add("flash"); }
 
   // ---------- panels ----------
   function showTitle() {
@@ -594,9 +597,14 @@
     $("titleIn").innerHTML = `<h1>prove you're human</h1>
       <p>the arcade's security computer got cooked. now it thinks everyone is a bot. pass its captchas, but not too perfectly: <b>humans hesitate.</b></p>
       <div class="row"><button class="btn go big" id="tDaily" type="button">${done ? "today: " + d.humanity + "% human ✓" : "daily gauntlet"}</button><button class="btn big" id="tEndless" type="button">endless</button></div>
-      <p class="small">${done ? "next gauntlet in " + untilTomorrow() + ". same 10 checks for everyone." : "10 checks, the same for everyone today."}${st.n ? ` · streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}` : ""}${S.bestEndless ? " · endless best " + S.bestEndless : ""}</p>
+      <p class="small">${done ? "next gauntlet in " + untilTomorrow() + ". same 10 checks for everyone." : "10 checks, the same for everyone today."}${st.n ? ` · streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}` : ""}${!done && st.n && st.last === yesterday() ? ` · <b class="risk">streak at risk: play today to keep it</b>` : ""}${S.bestEndless ? " · endless best " + S.bestEndless : ""}</p>
       ${diary ? `<div class="diary"><b>CRT DIARY · ${diary[0]}</b>${diary[1]}</div>` : ""}`;
-    $("tDaily").onclick = () => { if (doneToday()) { say("you already proved it today. come back tomorrow. i'll be suspicious again by then.", "squint", 2); return; } start("daily"); };
+    $("tDaily").onclick = () => {
+      if (!doneToday()) return start("daily");
+      say("you already proved it today. come back tomorrow. i'll be suspicious again by then.", "squint", 2);
+      const b = $("tDaily"); b.textContent = "come back tomorrow · " + untilTomorrow(); b.classList.remove("nope"); void b.offsetWidth; b.classList.add("nope");
+      clearTimeout(b._t); b._t = setTimeout(() => { if (b.isConnected) b.textContent = "today: " + S.daily.humanity + "% human ✓"; }, 2600);
+    };
     $("tEndless").onclick = () => start("endless");
     $("title").hidden = false;
     say(done ? "back again? suspicious." : pickR(Math.random, L.hello), "squint", 2);
@@ -612,6 +620,7 @@
       <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? ` · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : ` · score ${score()}`}</p>
       ${newDiary ? `<div class="diary"><b>NEW DIARY ENTRY · DAY ${newDiary[0]}</b>${newDiary[1]}</div>` : ""}
       <div class="row"><button class="btn go big" id="eShare" type="button">share my humanity</button><button class="btn big" id="eAgain" type="button">${daily ? "play endless" : "again"}</button></div>
+      <p class="note" id="eNote" role="status" aria-live="polite"></p>
       <div class="row" style="margin-top:6px"><button class="btn" id="eTitle" type="button">back to the door</button></div>
       <div id="tipSlot"></div>`;
     card.className = "share"; card.setAttribute("role", "img"); card.setAttribute("aria-label", `share card: I am ${h}% human`);
