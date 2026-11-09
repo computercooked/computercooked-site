@@ -635,6 +635,26 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.58 What v4.12.0 added: the Higgsfield textures in the game (Ashton)
+
+Ashton asked for the pixel-art textures made in Higgsfield on Oct 21 to show in the game, the way the Higgsfield mock-ups looked. Until now the hd look used them only as small grey 64 px detail maps, and the default voxel look didn't use them at all.
+
+- **The art:** the 16 textures are grass, dirt, sand, rock, snow, farmland, water, bark, broadleaf leaves, pine needles, blossom, palm, stone brick, thatch, planks and clay roof. They are re-pulled at full size from the Higgsfield history.
+  - Each one is cropped to the size that repeats best, so bricks, roof rows and planks keep their rhythm. The organic ones also get a ragged cut to a half-shifted copy, so no seam shows.
+  - They are packed into `play/art/hd/tiles.png` at 1024×1536, 685 KB, with 256 colours. The top holds 256 px tiles; under them sit the same tiles at 128, 64, 32 and 16 px, plus each tile's average colour as one texel.
+  - Builder: `smol-brains-handover/tools/tiles/build_tiles.py`.
+- **The shader (`render.js` HD_GLSL):**
+  - `hdTile` picks a level by how many texels land on a screen pixel. Up close it's crisp pixel art; far away it settles to the tile's own average, so nothing shimmers and no mipmaps are needed.
+  - `hdApply` puts a tile on the game's colour. It blends the colour with the tile's light and dark, and the tile's own palette at the colour's brightness. The closer the hues, the more of the tile's palette shows, so a meadow gets the art's greens while a white birch or an autumn tree keeps its colour.
+  - Biomes, seasons, snow, night and fog all keep working.
+- **Where it shows:**
+  - The voxel look (the default) now has textures. Block tops get grass, sand, dirt, rock or snow from their colour; block sides get earth, rock and the grass lip (`vox.js`). Trees, rocks and buildings get bark, leaves, needles, blossom, palm, brick, thatch, planks and roof, and water gets the water texture.
+  - The hd look uses the same full-colour art.
+  - Pixel and classic 3D are unchanged.
+- **Cost:** one more 685 KB image, loaded once. Headless at 1280×800 and 400×800 it holds 60 fps, the same as 4.11.9.
+
+Test: `hd.test.js` covers the atlas size, the voxel look loading the tiles, and the shader wiring. No new sounds. Grab input is untouched.
+
 ## 0.57 What v4.11.9 fixed: chase QA on a saved island (K-0070)
 
 Chef scored the 4.11.8 chase 9/10 on mobile and desktop. One fix:

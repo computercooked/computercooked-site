@@ -33,6 +33,7 @@
   // the voxel look (vox.js) uses only the last pass: no tiles or sprites are fetched
   HD.initPost = function (ctx) {
     ctxRef = ctx; tilesTex = itemsTex = null; itemIdx = null; prog = null; post = null;
+    R.loadArt({ hdTiles: { url: HD.BASE + "tiles.png" } }, function (art) { tilesTex = art.tex.hdTiles || null; }); // 4.12: the textures too
     try { var fx = window.localStorage.getItem("smolbrains-hdfx"); if (fx === "0" || fx === "1") { R.quality.fx = fx === "1"; R.quality.fxPinned = true; } } catch (e) {}
   };
 
@@ -92,8 +93,8 @@
   /* ---------------- per-frame uniforms and light ---------------- */
   var GROUND_TPU = 0.25, GROUND_TPU_POV = 0.6, OBJ_TPU = 0.3; // tiles per world unit (from above a ground tile covers 4x4 world tiles; finer underfoot in first person)
   HD.uniforms = function (gl, p, cam, bh) {
-    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, tilesTex || R.art.blank); gl.uniform1i(p.u.uTiles, 6); gl.activeTexture(gl.TEXTURE0);
-    gl.uniform4f(p.u.uHdK, tilesTex ? 0.85 : 0, cam.pov ? 0 : bh / (2 * cam.halfH), cam.pov ? GROUND_TPU_POV : GROUND_TPU, OBJ_TPU);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, tilesTex || R.art.blank); gl.uniform1i(p.u.uTiles, 3); gl.activeTexture(gl.TEXTURE0);
+    gl.uniform4f(p.u.uHdK, tilesTex ? 1 : 0, cam.pov ? 0 : bh / (2 * cam.halfH), cam.pov ? GROUND_TPU_POV : GROUND_TPU, OBJ_TPU);
     if (p.u.uHdE) gl.uniform4f(p.u.uHdE, cam.eye[0], cam.eye[1], cam.eye[2], cam.povK || 1);
   };
   // warm late-afternoon sun, cooler sky fill (the shadows lean lilac), a softer warm haze in the day

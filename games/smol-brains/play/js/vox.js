@@ -178,6 +178,7 @@
   function fsSrc() {
     return [R.PREC, R.LIGHT_GLSL,
       "uniform sampler2D uTA; uniform sampler2D uTB; uniform vec4 uTK; uniform float uSnow; uniform float uWet;",
+      R.HD_GLSL || "",
       "varying vec3 vN; varying vec3 vW; varying float vTop; varying float vFog;",
       "float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }",
       "void main() {",
@@ -193,7 +194,12 @@
       // mossy patches (darker, bluer green) drift across the grass, and every cube is a shade off its neighbours
       "  float moss = smoothstep(0.42, 0.62, texture2D(uCloud, (cid.xz + 0.5) * cs * 0.045).r) * green;",
       "  top = mix(top, top * vec3(0.74, 0.88, 0.7), moss);",
-      "  if (n.y > 0.5) col = top * (0.9 + 0.16 * j);",
+      "  if (n.y > 0.5) {",
+      "    col = top * (0.9 + 0.16 * j);",
+      "#ifdef HD",
+      "    if (uHdK.x > 0.0) col = hdGround(col, 1.0, vW.xz * uHdK.z, vW.xz * uHdK.z, vW, uHdK.z, uHdK.x);", // 4.12: the Higgsfield textures on top
+      "#endif",
+      "  }",
       "  else {",
       // under grass is earth, under sand more sand, under rock and bone more rock; deeper down it is all stone
       "    vec3 soil = mix(top * 0.8, vec3(0.47, 0.33, 0.22), green * 0.9);",
@@ -202,6 +208,10 @@
       "    float fr = 0.06 + 0.1 * hash(vec3(floor((qp.x + qp.z) * 10.0), cid.y, 3.0));", // the grass hangs over the edge, ragged
       "    col = mix(col, top * 0.95, green * (1.0 - step(fr, depth)));",
       "    col *= (0.9 + 0.1 * j) * (1.0 - smoothstep(0.0, 3.0, depth) * 0.22);",
+      "#ifdef HD",
+      "    vec2 uvs = (abs(n.x) > abs(n.z) ? vW.zy : vW.xy) * uHdK.z;", // and down the sides: earth, rock, the grass lip
+      "    if (uHdK.x > 0.0) col = hdGround(col, 1.0, uvs, uvs, vW, uHdK.z, uHdK.x);",
+      "#endif",
       "  }",
       // a faint bevel round every cube (fades out zoomed far away, where it would shimmer)
       "  vec3 f = fract(qp / cs); vec3 e = min(f, 1.0 - f);",
@@ -216,7 +226,7 @@
   }
   var prog = null, progCtx = null;
   V.drawTerrain = function (gl, ctx, list, setLight, env, cam, perf) {
-    if (progCtx !== ctx) { prog = GL.program(ctx, VS, fsSrc()); progCtx = ctx; }
+    if (progCtx !== ctx) { var def = R.HD_GLSL ? "#define HD\n" : ""; prog = GL.program(ctx, def + VS, def + fsSrc()); progCtx = ctx; }
     var p = prog;
     GL.resetAttribs(ctx);
     gl.useProgram(p.prog);
