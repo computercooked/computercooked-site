@@ -281,6 +281,15 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## Hub: your collection
+
+All in the browser, from `cc-history` (`assets/fx.js` `filters()`); a first visit sees the hub exactly as before.
+
+- **Played sticker** (`.game-played`): games this device has played get "✓ best 1,840" (or "✓ played" with no score) over the cover. It is positioned over the art, so cards keep their size.
+- **Count:** the heading reads "25 games · 3 played" when that fits on the same lines; on narrow screens it stays as it was so nothing moves.
+- **"not played N" chip:** shows only the games not yet played. Hidden for first visits and once everything is played.
+- **Random** picks a game not yet played while there is one in the current filter.
+
 ## Tip jar (off by default)
 
 A small "keep the games free: tip the computer ↗" link with "18+ / ask a parent" next to it. It shows in the hub footer and at the end of the play-next rail after a run, **only when `TIP_URL` is set**. It's set in `wrangler.jsonc` (`TIP_URL`, Chef's $3 pay-what-you-want Payment Link since Oct 23); empty means off.

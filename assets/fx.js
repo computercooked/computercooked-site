@@ -309,6 +309,12 @@
       .filter(function (c) {
         return c.id === "all" || games.some(function (g) { return meta[g.slug].vibes.indexOf(c.id) >= 0; });
       });
+    // the collection: games this device has played (cc-history, kept by games/platform.js) get a "played" sticker,
+    // the heading counts them, and a "not played" chip shows the rest. First visits see the hub exactly as before.
+    var hist = {};
+    try { hist = JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { hist = {}; }
+    var done = games.filter(function (g) { return hist[g.slug] && hist[g.slug].n > 0; }).length;
+    if (done && done < games.length) chips.push({ id: "unplayed", label: "not played " + (games.length - done) });
 
     var bar = el('<div class="hub-filters">' +
       '<label class="hub-search"><span class="visually-hidden">search games</span>' +
@@ -332,6 +338,8 @@
     dice.addEventListener("click", function () {
       var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
       var pool = shown.length ? shown : games.map(function (g) { return g.slug; });
+      var fresh = pool.filter(function (x) { return !(hist[x] && hist[x].n > 0); }); // a game you haven't tried, while there is one
+      if (fresh.length) pool = fresh;
       location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
     });
     row.appendChild(dice);
@@ -344,16 +352,35 @@
     var live = bar.querySelector('[role="status"]');
     var vibe = "all";
 
+    // "27 games · 7 played" beside the heading (only when it fits on the same lines, so nothing moves)
+    function tally() {
+      var c = section.querySelector("[data-count]");
+      if (!c || !done) return;
+      var want = games.length + " games \u00b7 " + (done >= games.length ? "all played. cooked." : done + " played");
+      if (c.textContent === want) return;
+      var head = c.parentNode, was = c.textContent, tall = head.offsetHeight;
+      c.textContent = want;
+      if (head.offsetHeight !== tall) c.textContent = was; // would wrap (phones): leave the heading alone, the chip has the count
+    }
     function apply() {
       var term = q.value.trim().toLowerCase();
       var shown = 0;
       grid.querySelectorAll(".game-card").forEach(function (card) {
         var slug = slugOfCard(card);
         var info = slug && meta[slug];
-        var ok = !info || ((vibe === "all" || info.vibes.indexOf(vibe) >= 0) && (!term || info.text.indexOf(term) >= 0));
+        var h = slug && hist[slug], was = !!(h && h.n > 0);
+        var ok = !info || ((vibe === "all" || (vibe === "unplayed" ? !was : info.vibes.indexOf(vibe) >= 0)) && (!term || info.text.indexOf(term) >= 0));
         card.hidden = !ok;
         if (ok) shown++;
+        if (was && info && !card.querySelector(".game-played")) {
+          var tag = document.createElement("span");
+          tag.className = "game-played";
+          tag.textContent = typeof h.b === "number" && h.b > 0 ? "\u2713 best " + Math.round(h.b).toLocaleString("en-US") : "\u2713 played";
+          var body = card.querySelector(".game-body");
+          if (body) { body.appendChild(tag); card.classList.add("is-played"); }
+        }
       });
+      tally();
       empty.hidden = shown > 0;
       live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
     }
