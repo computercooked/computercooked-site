@@ -302,6 +302,7 @@
         rows.push([k, l && l.hasAttribute("data-account-label") ? "your account" : "go to " + (l ? l.textContent : keys[k].getAttribute("href"))]);
       });
       if (document.getElementById("tv-guide")) rows.push(["← →", "flip channels"], ["enter", "play this channel"], ["a", "auto surf on or off"]);
+      if (window.ccHop && window.ccHop.any()) rows.push(["← ↑ ↓ →", "hop between games once one has focus. a controller works too"]);
       rows.push(["?", "this list"], ["esc", "close"]);
       var head = document.createElement("div"); head.className = "keys-head";
       var h = document.createElement("h2"); h.textContent = "keys the computer knows";
@@ -475,4 +476,98 @@
     return t || "green";
   };
   document.addEventListener("cc:tint", window.ccTint);
+})();
+
+/* Couch mode: move between game cards like a console menu. With a card focused (tab to one), the arrow keys hop to the
+   nearest card in that direction. A plugged-in controller does the same from anywhere: d-pad or left stick moves,
+   A opens the game, B goes back a page. Games own the keys and the controller while they run (window.ccGameActive),
+   and the surf page keeps its own arrows. html.pad-nav (assets/tokens.css) draws the focus ring; a mouse press clears it. */
+(function () {
+  "use strict";
+  var SEL = "a.game-link, a.cc-next-card, a.continue-card, a.weekly-card, a.spotlight";
+  var root = document.documentElement;
+  function cards() {
+    return Array.prototype.filter.call(document.querySelectorAll(SEL), function (a) { var r = a.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+  }
+  function busy() { return window.ccGameActive || document.getElementById("tv-guide") || document.querySelector("dialog[open]"); }
+  function mid(a) { var r = a.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+  function go(a) {
+    root.classList.add("pad-nav");
+    a.focus({ preventScroll: true });
+    a.scrollIntoView({ block: "nearest", inline: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  /* the nearest card from `from` in direction (dx, dy); distance across the direction counts triple so rows and columns hold */
+  function hop(from, dx, dy) {
+    var list = cards(), c = mid(from), best = null, bestScore = Infinity;
+    list.forEach(function (a) {
+      if (a === from) return;
+      var m = mid(a), along = (m.x - c.x) * dx + (m.y - c.y) * dy, across = Math.abs((m.x - c.x) * dy) + Math.abs((m.y - c.y) * dx);
+      if (along < 8) return;
+      var score = along + across * 3;
+      if (score < bestScore) { bestScore = score; best = a; }
+    });
+    if (best) go(best);
+    return !!best;
+  }
+  function first() { // the first card on screen, or failing that the first on the page
+    var list = cards(), h = window.innerHeight, on = list.filter(function (a) { var r = a.getBoundingClientRect(); return r.top >= 0 && r.bottom <= h; })[0];
+    if (on || list[0]) go(on || list[0]);
+  }
+  function here() { var a = document.activeElement; return a && a.matches && a.matches(SEL) ? a : null; }
+  window.ccHop = { any: function () { return !document.getElementById("tv-guide") && cards().length > 0; } };
+
+  var DIR = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  document.addEventListener("keydown", function (e) {
+    var d = DIR[e.key];
+    if (!d || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || busy()) return;
+    var a = here();
+    if (a && hop(a, d[0], d[1])) e.preventDefault();
+  });
+  document.addEventListener("pointerdown", function () { root.classList.remove("pad-nav"); }, true);
+
+  /* the controller: polled only while one is plugged in and the tab is showing */
+  if (!navigator.getGamepads) return;
+  var raf = 0, held = "", since = 0, last = 0, hello = false;
+  function read() {
+    var pads = navigator.getGamepads(), p = null;
+    for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { p = pads[i]; break; }
+    if (!p) return "";
+    var b = function (n) { return p.buttons[n] && p.buttons[n].pressed; }, x = p.axes[0] || 0, y = p.axes[1] || 0;
+    if (b(0)) return "a";
+    if (b(1)) return "b";
+    if (b(14) || x < -0.6) return "ArrowLeft";
+    if (b(15) || x > 0.6) return "ArrowRight";
+    if (b(12) || y < -0.6) return "ArrowUp";
+    if (b(13) || y > 0.6) return "ArrowDown";
+    return "";
+  }
+  function act(k) {
+    var a = here();
+    if (k === "a") { if (a) a.click(); else first(); return; }
+    if (k === "b") { if (a) { a.blur(); root.classList.remove("pad-nav"); } else if (history.length > 1) history.back(); return; }
+    if (!a) first(); else hop(a, DIR[k][0], DIR[k][1]);
+  }
+  function tick(t) {
+    raf = requestAnimationFrame(tick);
+    if (document.hidden || busy()) { held = "x"; return; } // "x": whatever is down when the game ends must be let go first
+    var k = read();
+    if (!k) { held = ""; return; }
+    if (held === "x") return;
+    if (k !== held) { held = k; since = last = t; act(k); return; }
+    if (DIR[k] && t - since > 380 && t - last > 150) { last = t; act(k); } // holding a direction keeps moving
+  }
+  function plugged() {
+    var pads = navigator.getGamepads();
+    for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) return true;
+    return false;
+  }
+  function start() {
+    if (!raf && plugged() && cards().length) raf = requestAnimationFrame(tick);
+    if (raf && !hello && window.ccToast) { hello = true; window.ccToast("controller found. d-pad picks, A plays."); }
+  }
+  window.addEventListener("gamepadconnected", start);
+  window.addEventListener("gamepaddisconnected", function () {
+    if (!plugged() && raf) { cancelAnimationFrame(raf); raf = 0; }
+  });
+  window.addEventListener("load", function () { setTimeout(start, 1200); }); // cards drawn after load (the hub) still count
 })();

@@ -786,6 +786,10 @@ if (admin) {
     const pj = await (await get("/games/player.js")).text(), gc = await (await get("/games/games.css")).text();
     ok(pj.includes('b.id = "btn-lights"') && pj.includes('"cc-lights"') && gc.includes("html.lights-off .lights-veil"), "lights off: the lamp button in the player and its dimming rule");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text(), tok = await (await get("/assets/tokens.css")).text();
+    ok(dk.includes("window.ccHop") && dk.includes("gamepadconnected") && tok.includes("html.pad-nav a:focus"), "couch mode: arrow keys and a controller hop between game cards");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
