@@ -145,6 +145,19 @@
 .now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: var(--s-4); }
 .now-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text); text-decoration: none; }
 .now-card[hidden] { display: none; }
+/* latest crowns: the three newest #1 scores, under the cards (filled on the server, hidden when there are none) */
+.now-crowns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-4); }
+.now-crowns[hidden] { display: none; }
+.crown-row { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.crown-row li { min-width: 0; max-width: 100%; }
+.crown-chip { display: block; max-width: 100%; padding: 6px var(--s-3); border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--text-dim); font-size: var(--fs-12); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: border-color .16s, color .16s; }
+.crown-chip b { color: var(--text); font-weight: 600; }
+.crown-chip .num { color: #ffcf40; font-weight: 700; }
+.crown-ico { color: #ffcf40; }
+.crown-chip:hover, .crown-chip:focus-visible { border-color: rgb(255 207 64 / .6); color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .crown-chip { transition: none; } }
 a.now-card { transition: transform .16s var(--ease-out), border-color .16s, box-shadow .16s; }
 a.now-card:hover, a.now-card:focus-visible { transform: translate(-2px, -2px); border-color: var(--accent); box-shadow: 4px 4px 0 #000; outline: none; }
 .now-tag { font: 800 12px var(--mono); color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
