@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Snap (save a picture of the game)
+
+The camera button in the game bar (`#btn-snap`, added by `games/player.js`) saves a PNG of the game as it looks right now: the biggest canvas inside the game frame, scaled up in whole steps to at least 640px wide so pixel art stays crisp, with the game's title and "computercooked.com" along the bottom. The file is named `<slug>-<stamp>.png` and goes to the browser's downloads. If the screen is empty or can't be read, a toast says so instead. A short white flash (`.player.is-snapped` in `games/games.css`, off with reduced motion) marks the shot. Games need to do nothing, but a WebGL game must draw with `preserveDrawingBuffer: true` to be readable. Nothing is uploaded or stored.
+
 ## Wide mode
 
 On screens 1000px and wider, every game page has a "wide" button next to the lamp (`#btn-wide`, added by `games/player.js`). It puts `wide-game` on `<html>`, and `games/games.css` gives the game the whole row: the side column drops below it and the screen grows taller. The choice is kept in localStorage `cc-wide` so it carries from game to game. Nothing is sent.

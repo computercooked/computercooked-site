@@ -813,6 +813,10 @@ if (admin) {
     const pj = await (await get("/games/player.js")).text(), gc = await (await get("/games/games.css")).text();
     ok(pj.includes('b.id = "btn-wide"') && pj.includes('"cc-wide"') && gc.includes("html.wide-game .player-layout"), "wide mode: the button in the player and its layout rule");
   }
+  {
+    const pj = await (await get("/games/player.js")).text(), gc = await (await get("/games/games.css")).text();
+    ok(pj.includes('b.id = "btn-snap"') && pj.includes("toDataURL") && gc.includes(".player.is-snapped"), "snap: the camera button saves a picture of the game");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

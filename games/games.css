@@ -3053,3 +3053,8 @@ html.lights-off .player:not(:fullscreen):not(.is-pseudo-fs) { z-index: 40; box-s
   html.wide-game .player-layout { grid-template-columns: 1fr; }
   html.wide-game .player:not(.is-mini):not(.is-pseudo-fs) .player-stage { height: min(100dvh - 150px, 940px); }
 }
+
+/* ---------- snap: the camera flash when a picture of the game is saved (games/player.js) ---------- */
+.player.is-snapped .player-stage::after { content: ""; position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none; animation: snap-flash .35s ease-out forwards; }
+@keyframes snap-flash { from { opacity: .7; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .player.is-snapped .player-stage::after { display: none; } }
