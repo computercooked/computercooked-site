@@ -283,6 +283,13 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## Channel surf (`/surf/`)
+
+- A static page with a little TV: one game per channel (games.json order, so a game keeps its number). The screen shows the cover, then the game's 3 second clip; title, pitch, tags and "your best" sit under it.
+- Flip with the back / next buttons, the left and right arrow keys, a sideways swipe on the screen, or the channel guide strip. Enter or a tap on the screen plays the game (`?ref=surf`).
+- Opens on `/surf/#<slug>` when the link has one, otherwise on a random game this device hasn't played. Played games get a tick in the guide (`cc-history`). Nothing is sent or stored.
+- Reduced motion: no clip and no static burst, covers only. `assets/surf.js` + `assets/surf.css`; linked from the homepage mood heading and the command bar ("channel surf").
+
 ## The wall of epic gamers (`/champs/`)
 
 - One crown per game: whoever holds the all time #1 score (same rule as the EPIC GAMER tag: highest score, a tie goes to whoever set it first). Built on the server by `src/champs.js` from `scores` (hidden rows never count) and kept 5 minutes per isolate.

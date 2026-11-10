@@ -779,6 +779,10 @@ if (admin) {
   const champs = await get("/champs/");
   const champsHtml = await champs.text();
   ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="champ-(card|empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
+  // channel surf: the static page with its tv, and the catalogue it reads has clips
+  const surf = await get("/surf/");
+  const surfHtml = await surf.text();
+  ok(surf.status === 200 && surfHtml.includes('id="tv-guide"') && surfHtml.includes("/assets/surf.js") && home.includes('href="/surf/"'), "/surf/ has the channel surf tv, linked from home", surf.status);
   const gr = await fetch(base + "/gary/", { redirect: "manual" });
   ok(gr.status === 301 && new URL(gr.headers.get("location"), base).pathname === "/log/", "/gary/ redirects to /log/", gr.status);
   const sup = await get("/support/");
