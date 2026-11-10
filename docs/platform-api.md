@@ -283,6 +283,10 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## Keyboard shortcuts list
+
+Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the command bar) opens a small dialog listing every key that works there. `assets/deck.js` builds it on first open from the deck's own `data-key` links, plus the channel surf keys on `/surf/`. It stays out of the way while a game is running (`window.ccGameActive`) and while typing in a field.
+
 ## Instant pages
 
 `assets/deck.js` adds a Speculation Rules block on every page: resting on or pressing a same-site link prefetches that page (prefetch only, so no page script runs early and nothing is counted). `/api/*`, `/admin/*`, `/d/*`, download and new-tab links are left out; add `data-no-prefetch` to a link to opt it out. Skipped in embeds and under Save-Data. Browsers without the API navigate as before.
