@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Mini player
+
+On a game page, scrolling down past the game shrinks the cabinet into the bottom right corner (`.player.is-mini`, styled in `games/games.css`), still running, so the scores and the rest of the page can be read with the game in view. `games/player.js` owns it: only the styles change, so the game never reloads, and a same-height stand-in (`.player-ghost`) holds the page still. Clicking the mini player scrolls back to the game; the x sends it away until the game is scrolled back into view. It is for screens 760px and wider, and never docks in fullscreen. Nothing is stored or sent.
+
 ## Daily spin
 
 Once a day a reel runs through the games and lands on one: your game for today on this device. `assets/deck.js` owns it: `window.ccSpin.open()` shows the dialog (`dialog.spin`, styled in `assets/deck.css`), opened by the hub's "daily spin" chip (`assets/fx.js`) and the command bar's "daily spin". The result is kept for the day in localStorage `cc-spin` (`{d: "2026-11-10", slug}`, local date); opening it again that day shows the same game with a "play it" link (`?ref=spin`), and a new spin unlocks at local midnight. Games the device hasn't played (`cc-history`) are picked first. With reduced motion it lands at once. Nothing is sent.
