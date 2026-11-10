@@ -60,6 +60,13 @@
       <canvas class="desk-fx" id="desk-fx" aria-hidden="true"></canvas>
       <div class="desk-glow" aria-hidden="true"></div>
 
+      <!-- the computer comes before the hello window on purpose: on a phone it sits above the window, and if the page paints while it is still arriving the window must not jump down to make room -->
+      <div class="desk-pc" id="desk-pc">
+        <div class="desk-bubble" id="desk-bubble" role="status" aria-live="polite">hi. please don't click me.</div>
+        <div class="desk-mascot" id="desk-mascot"><img src="/assets/mascot.svg" alt="the computer cooked computer, steaming" width="230" height="330"></div>
+        <div class="desk-shadow" aria-hidden="true"></div>
+      </div>
+
       <div class="desk-win desk-hello" role="presentation">
         <div class="win-bar"><span class="win-title">C:\COOKED\welcome.exe</span><span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
         <div class="win-body">
@@ -76,12 +83,6 @@
           <!-- K-0066: returning players only (html.cc-desk), a nudge down to "your desk" -->
           <p class="desk-nudge-p"><a class="desk-nudge" id="desk-nudge" href="#home-desk"><img src="/assets/mascot-happy.svg" alt="" width="14" height="20" decoding="async">your desk is warm <span aria-hidden="true">▾</span></a></p>
         </div>
-      </div>
-
-      <div class="desk-pc" id="desk-pc">
-        <div class="desk-bubble" id="desk-bubble" role="status" aria-live="polite">hi. please don't click me.</div>
-        <div class="desk-mascot" id="desk-mascot"><img src="/assets/mascot.svg" alt="the computer cooked computer, steaming" width="230" height="330"></div>
-        <div class="desk-shadow" aria-hidden="true"></div>
       </div>
 
       <nav class="desk-dock" id="desk-dock" aria-label="quick launch">
