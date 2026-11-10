@@ -264,6 +264,7 @@
       if (act === "dice") spin();
       else if (act === "search") { var s = document.querySelector("[data-cmd-open]"); if (s) s.click(); }
       else if (act === "off") shutDown();
+      else if (act === "saver") document.dispatchEvent(new Event("cc:saver"));
     });
   })();
   function shutDown() {
@@ -458,4 +459,95 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
   win.addEventListener("click", function (e) { if (e.target === win) bye(); }); // the backdrop
   win.addEventListener("cancel", function (e) { e.preventDefault(); bye(); }); // Esc
   win.addEventListener("close", shut);
+})();
+
+/* The screensaver: after a minute with no mouse, key, touch or scroll on the homepage (or from the start menu), the
+   screen goes dark and a game cover bounces around it, swapping to another game at every wall. Click the cover to
+   play that game (?ref=saver); click anywhere else or press a key to go back. It counts corner hits, because of
+   course it does. Never starts while a window or the game window is open, in a hidden tab, or under reduced motion
+   (the menu item stays hidden there). Nothing is sent or stored. */
+(function () {
+  "use strict";
+  if (!window.fetch || !window.requestAnimationFrame) return;
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var IDLE = 60000, SPEED = 120, timer = 0, box = null, raf = 0, games = null, back = null;
+  var item = document.getElementById("menu-saver"); if (item) item.hidden = false;
+  var reel = document.getElementById("desk-reel");
+  function busy() {
+    var a = document.activeElement;
+    return document.hidden || document.querySelector("dialog[open]") || document.documentElement.classList.contains("cc-bootseq") || (a && a.tagName === "IFRAME");
+  }
+  function arm() { clearTimeout(timer); if (!box) timer = setTimeout(function () { if (busy()) arm(); else start(); }, IDLE); }
+  function stop() {
+    if (!box) return;
+    cancelAnimationFrame(raf); box.remove(); box = null;
+    if (reel) reel.dispatchEvent(new Event("cc:release"));
+    if (back && back.focus) try { back.focus({ preventScroll: true }); } catch (e) {}
+    arm();
+  }
+  function run(list) {
+    if (box || !list.length) return;
+    for (var i = list.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = list[i]; list[i] = list[j]; list[j] = t; }
+    back = document.activeElement;
+    box = document.createElement("div"); box.className = "saver"; box.tabIndex = -1;
+    box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "screensaver. press any key to go back.");
+    var tile = document.createElement("a"); tile.className = "saver-tile";
+    var img = document.createElement("img"); img.alt = ""; img.width = 320; img.height = 200;
+    var name = document.createElement("b"), go = document.createElement("span"); go.textContent = "play ▶";
+    tile.appendChild(img); tile.appendChild(name); tile.appendChild(go);
+    var hint = document.createElement("p"); hint.className = "saver-hint";
+    var hits = 0, n = document.createElement("b"); n.textContent = "0";
+    hint.appendChild(document.createTextNode("screensaver. click the game to play it, anywhere else to go back. corner hits: ")); hint.appendChild(n);
+    box.appendChild(tile); box.appendChild(hint); document.body.appendChild(box);
+    var at = -1;
+    function next() {
+      at = (at + 1) % list.length;
+      var g = list[at];
+      img.src = g.thumbnail; name.textContent = g.title;
+      tile.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=saver";
+      tile.setAttribute("aria-label", "play " + g.title);
+      tile.style.setProperty("--saver-accent", (g.theme && /^#[0-9a-f]{3,8}$/i.test(g.theme.accent || "")) ? g.theme.accent : "");
+      var pre = new Image(); pre.src = list[(at + 1) % list.length].thumbnail;
+    }
+    next();
+    var W = innerWidth, H = innerHeight, w = tile.offsetWidth, h = tile.offsetHeight || w * .9;
+    var x = Math.random() * Math.max(1, W - w), y = Math.random() * Math.max(1, H - h);
+    var vx = Math.random() < .5 ? SPEED : -SPEED, vy = Math.random() < .5 ? SPEED * .8 : -SPEED * .8, last = 0;
+    function step(now) {
+      raf = requestAnimationFrame(step);
+      var dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
+      W = innerWidth; H = innerHeight; w = tile.offsetWidth; h = tile.offsetHeight;
+      x += vx * dt; y += vy * dt;
+      var bx = false, by = false;
+      if (x <= 0) { x = 0; vx = Math.abs(vx); bx = true; } else if (x >= W - w) { x = Math.max(0, W - w); vx = -Math.abs(vx); bx = true; }
+      if (y <= 0) { y = 0; vy = Math.abs(vy); by = true; } else if (y >= H - h) { y = Math.max(0, H - h); vy = -Math.abs(vy); by = true; }
+      if (bx || by) next();
+      if (bx && by) { hits++; n.textContent = hits; box.classList.remove("is-corner"); void box.offsetWidth; box.classList.add("is-corner"); }
+      tile.style.transform = "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0)";
+    }
+    raf = requestAnimationFrame(step);
+    box.addEventListener("click", function (e) { if (!tile.contains(e.target)) stop(); });
+    box.addEventListener("keydown", function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Enter" && document.activeElement === tile) return; // enter on the cover plays it
+      if (e.key === "Tab") { e.preventDefault(); tile.focus(); return; }
+      e.preventDefault(); e.stopPropagation(); stop();
+    });
+    if (reel) reel.dispatchEvent(new Event("cc:hold"));
+    box.focus({ preventScroll: true });
+  }
+  function start() {
+    if (box) return;
+    if (games) { run(games); return; }
+    fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
+      games = ((d && d.games) || []).filter(function (g) { return g && g.slug && g.title && g.thumbnail; });
+      if (!busy() || document.querySelector(".saver")) run(games);
+    }).catch(function () { arm(); });
+  }
+  ["pointermove", "pointerdown", "keydown", "wheel", "touchstart", "scroll"].forEach(function (ev) { window.addEventListener(ev, arm, { passive: true, capture: true }); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) stop(); else arm(); });
+  window.addEventListener("pagehide", function () { clearTimeout(timer); });
+  window.addEventListener("pageshow", function (e) { if (e.persisted) { stop(); arm(); } });
+  document.addEventListener("cc:saver", function () { clearTimeout(timer); start(); });
+  arm();
 })();

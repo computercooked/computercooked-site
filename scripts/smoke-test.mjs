@@ -773,6 +773,7 @@ if (admin) {
   const home = await (await get("/")).text();
   ok(home.includes('id="play-win"') && home.includes('id="play-win-stage"'), "home has the play-it-here window");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
+  ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
   ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/\?vibe=quick&amp;ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('id="home-crown-list"') && home.includes('class="card2') && !home.includes("gary-entry"),
     "homepage: one play button, featured game, lab strip, cooked desktop with dock and start menu, happening now, no gary");
   const labHtml = await (await get("/lab/")).text();
