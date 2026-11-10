@@ -778,7 +778,7 @@ if (admin) {
   // the wall of epic gamers: served by the Worker, with the list (or its empty state) in place
   const champs = await get("/champs/");
   const champsHtml = await champs.text();
-  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && /class="champ-(card|empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
+  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="champ-(card|empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
   const gr = await fetch(base + "/gary/", { redirect: "manual" });
   ok(gr.status === 301 && new URL(gr.headers.get("location"), base).pathname === "/log/", "/gary/ redirects to /log/", gr.status);
   const sup = await get("/support/");
