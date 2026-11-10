@@ -782,6 +782,10 @@ if (admin) {
     ok(home.includes("localStorage.getItem('cc-tint')") && hubPage.includes("localStorage.getItem('cc-tint')") && home.includes('data-act="tint"') && tok.includes('html[data-tint="amber"]') && dk.includes("window.ccTint"),
       "screen colour: set before paint on home and hub, in the start menu, the tokens and the command bar");
   }
+  {
+    const pj = await (await get("/games/player.js")).text(), gc = await (await get("/games/games.css")).text();
+    ok(pj.includes('b.id = "btn-lights"') && pj.includes('"cc-lights"') && gc.includes("html.lights-off .lights-veil"), "lights off: the lamp button in the player and its dimming rule");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
