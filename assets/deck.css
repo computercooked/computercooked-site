@@ -512,3 +512,21 @@ html.is-boss { overflow: hidden; }
 .boss-foot span { padding: 8px 14px; color: #5f6368; }
 .boss-foot span.is-on { background: #fff; color: #188038; font-weight: 700; }
 .boss-back { margin-left: auto; min-height: 32px; padding: 0 8px; border: 0; background: none; color: #9aa0a6; font: inherit; font-size: 11px; cursor: pointer; }
+
+/* ---------- play timer: the countdown pill and the "time's up" note (assets/deck.js, window.ccTimer) ---------- */
+.ptimer { position: fixed; left: 12px; bottom: 12px; z-index: 2147482000; min-height: 32px; padding: 0 12px; border: 1px solid var(--accent); border-radius: 999px;
+  background: rgba(8, 9, 11, 0.9); color: var(--accent); font: 700 13px/1 var(--mono); font-variant-numeric: tabular-nums; cursor: pointer; }
+.ptimer:hover, .ptimer:focus-visible { background: var(--accent); color: #0b0d0a; }
+.ptimer.is-low { border-color: #ff6b5e; color: #ff6b5e; }
+.ptimer-done { position: fixed; left: 50%; bottom: 20px; z-index: 2147482000; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px;
+  width: max-content; max-width: calc(100% - 24px); padding: 12px 16px; transform: translateX(-50%); border: 2px solid var(--accent); border-radius: 12px;
+  background: rgba(8, 9, 11, 0.96); color: var(--paper); font: 500 14px/1.3 var(--mono); box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.9); animation: ptimer-in .3s ease-out; }
+.ptimer-done strong { color: var(--accent); font-weight: 800; }
+.ptimer-more, .ptimer-ok { min-height: 40px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 8px; font: 700 13px/1 var(--mono); cursor: pointer; }
+.ptimer-more { background: none; color: var(--accent); }
+.ptimer-ok { background: var(--accent); color: #0b0d0a; }
+@keyframes ptimer-in { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translateX(-50%); } }
+/* the home page has a taskbar along the bottom: sit above it, clear of the start button */
+body:has(.desk-bar) .ptimer { left: 50%; bottom: 4px; transform: translateX(-50%); } /* in the taskbar's empty middle */
+body:has(.desk-bar) .ptimer-done { bottom: 56px; }
+@media (prefers-reduced-motion: reduce) { .ptimer-done { animation: none; } }
