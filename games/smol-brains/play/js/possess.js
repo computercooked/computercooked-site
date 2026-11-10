@@ -177,10 +177,12 @@
       SB.World.creaturesNear(game.world, game, c.x, c.z, P.CUE_AT, function (o) { if (o.species === "grump" && o.alive && !o.goingHome && (!o._cueAt || game.time - o._cueAt > 12)) { o._cueAt = game.time; audio("grump", 0.8); if (!o.scout) say("👹 a grump, close by!"); } });
     }
     // pep: running and swinging use it up, standing still brings it back. tiredness caps it
-    var pepMax = SB.clamp(1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2, 0.15, 1);
+    var Bd = SB.Body; // body.js: thirst and bruises cap your pep, a cosy morning brings it back faster, a runner spends less
+    var pepMax = SB.clamp((1 - (ch.tired || 0) * 0.7 - (ch.sleepy || 0) * 0.2) * (Bd ? Bd.pepCap(c) : 1), 0.15, 1);
     var running = inp.run && mag > 0.08 && c.stage >= 1 && S.stam > 0.04;
-    if (running) S.stam = Math.max(0, S.stam - dt * 0.11);
-    else S.stam = Math.min(pepMax, S.stam + dt * (mag > 0.08 ? 0.05 : 0.14));
+    S.running = running;
+    if (running) S.stam = Math.max(0, S.stam - dt * 0.11 * (Bd ? Bd.runCost(c) : 1));
+    else S.stam = Math.min(pepMax, S.stam + dt * (mag > 0.08 ? 0.05 : 0.14) * (Bd ? Bd.pepGain(c, game) : 1));
     if (S.stam > pepMax) S.stam = pepMax;
     if (mag > 0.08) {
       if (mag > 1) { f /= mag; sd /= mag; mag = 1; }
@@ -248,6 +250,8 @@
     if (inp.use && S.swingT <= 0 && !S.busy) P.act("use", undefined, true);
     // walking over your own drops (and anything loose at your feet) picks them up
     if ((S.pickT -= dt) <= 0) { S.pickT = 0.2; autoPickup(c, game); }
+    if (S.ff) { S.ff = false; if (game.speed === P.SLEEP_SPEED) game.speed = 1; if (!game.world.night) say("☀️ morning! you slept through the night"); } // awake again: the night stops flying by
+    if (Bd) Bd.tick(game, c, S, dt, say);
     // damage and cold, for the screen: a flash when hurt
     if (ch.health < S.lastHp - 0.004) { S.hurtT = 0.6; if (H()) H().hurt(S.lastHp - ch.health); }
     S.lastHp = ch.health; S.hurtT = Math.max(0, S.hurtT - dt);
@@ -518,12 +522,13 @@
       }
     } else if (r && r.type === "water") {
       if (tier >= 2 && (hk === "rod" || hk === "spear")) o.use = op("fish", function () { return fish(hk); }, V.use);
-      o.place = op("drink", function () { return creatureAct(V.eat, t); }, V.eat);
+      o.place = op("drink", function () { var ok = creatureAct(V.eat, t); if (ok && SB.Body) { var th = SB.Body.of(c).thirst; SB.Body.drink(c); if (th > 0.25) say("💧 ahh. that's better"); } return ok; }, V.eat);
       if (!o.use) o.use = o.place;
     }
     // things in your hand that don't need a target
     if (held && !o.place) {
       if (hk === "plans") o.place = op("open your building plans", function () { if (H()) H().openBag("build"); return true; }, null);
+      else if (hk === "leaves" && SB.Body && SB.Body.has(c, "cut")) o.place = op("bind your cut with leaves", function () { return bindCut(); }, null);
       else if (Surv.edible(hk)) o.place = op("eat your " + kl(hk), function () { return eatHeld(); }, V.eat);
       else if (hk === "nut" && (Surv.has(c, "stone") || Surv.has(c, "hammer") || Surv.has(c, "primtool"))) o.place = op("crack your nut", function () { return crackHeld(); }, V.use);
       else if (hk === "sapling" || hk === "seed") {
@@ -565,6 +570,26 @@
   P.say = say;
   function swingAnim() { if (S) { S.swing = 1; S.swingT = P.SWING; } }
   function tired(amount) { if (S) S.stam = Math.max(0, S.stam - amount); }
+  function skill(id) { return SB.Body ? SB.Body.bonus(S.c, id) : 0; }
+  function xp(id, n) { if (SB.Body) SB.Body.xp(S.c, id, n); }
+  function bindCut() {
+    var c = S.c, v = Sv().inv(c), sl = v.s[v.sel];
+    if (!sl || sl.k !== "leaves" || !SB.Body) return false;
+    Sv().removeAt(c, v.sel, 1); SB.Body.heal(c, "cut"); SB.Body.count(c, "bound");
+    say("🩹 you bound the cut. it stops bleeding"); audio("tap", 0.6);
+    return true;
+  }
+  // asleep, the creature's tick never reaches drive(): the body still gets thirsty and mends, and a quiet night flies by
+  P.SLEEP_SPEED = 8; P.SLEEP_WAKE = 11;
+  P.asleepTick = function (c, dt, game) {
+    if (!S || S.c !== c || S.dead) return;
+    if (SB.Body) SB.Body.tick(game, c, S, dt, say);
+    if (S.firstNight || S.nightChase || !game.world.night) return;
+    var near = false;
+    SB.World.creaturesNear(game.world, game, c.x, c.z, P.SLEEP_WAKE, function (o) { if (o.species === "grump" && o.alive) near = true; });
+    if (near) { c.asleep = false; c.inBed = false; c.action = null; say("👹 something woke you. a grump is close!"); return; }
+    if (!S.ff && game.speed === 1) { S.ff = true; game.speed = P.SLEEP_SPEED; say("💤 the night flies by while you sleep (move to wake up)"); }
+  };
   function creatureAct(verb, t) {
     var C = SB.Creature;
     if (!C.startAction(S.c, S.game, verb, t)) return false;
@@ -595,7 +620,7 @@
     // weapons from your inventory hurt more (club and spear as the AI's do; a rock-on-a-stick, an axe, a pick a bit)
     if (o.species === "grump" && pw.dmg > 0 && o.alive) {
       SB.Chem.apply(o.chem, { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) });
-      o.whacked = (o.whacked || 0) + pw.dmg;
+      o.whacked = (o.whacked || 0) + pw.dmg * (1 + skill("fight")); xp("fight", 1);
       if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) {
         o.alive = false; o.gone = true; o.dying = false;
         if (SB.FX && SB.FX.burst) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] });
@@ -619,7 +644,7 @@
   function spearCritter(it) {
     var c = S.c, game = S.game;
     swingAnim();
-    if (game.rng.chance(0.55)) {
+    if (game.rng.chance(0.55 + Math.min(0.35, skill("hunt") * 0.7))) {
       var x = it.x, z = it.z;
       SB.World.remove(game.world, it);
       Sv().spawn(game, "meat", 1, x, z, { by: c.id });
@@ -627,7 +652,7 @@
       SB.bus.emit("hunt", { c: c });
       say("got it!");
       wear();
-    } else { it.data.flee = 2; say("missed"); }
+    } else { it.data.flee = 2; say("missed"); xp("hunt", 1); }
     return true;
   }
   function crackNut(it) {
@@ -691,26 +716,29 @@
     if (!g) return false;
     if (!Sv().room(c, g.kind)) { say("your bag is full"); return false; }
     if (S.busy) return false;
-    S.busy = { t: 0, dur: g.secs, label: g.verb, done: function () {
+    S.busy = { t: 0, dur: g.secs * (1 - skill("forage")), label: g.verb, done: function () {
       if (!S) return;
       var r = Sv().gather(c, game, n);
-      if (r && r.kind && !r.full) { gain(1, r.kind); if (n.kind === "vines") audio("snap", 0.6); }
+      if (r && r.kind && !r.full) { gain(1, r.kind); xp("forage", 1); if (n.kind === "vines") audio("snap", 0.6); }
     } };
     return true;
   }
   function hitNode(n, hk) {
     var c = S.c, game = S.game, Surv = Sv();
     if (S.swingT > 0) return false;
-    swingAnim(); tired(0.025);
+    swingAnim();
     var tk = hk && K[hk] && K[hk].tool ? hk : "paws";
     var res = Surv.hitNode(c, game, n, tk);
+    var sk = res.kind === "chop" || res.kind === "split" ? "chop" : res.kind === "chip" || res.kind === "mine" ? "mine" : "forage";
+    tired(0.025 * (1 - skill(sk)));
+    if (res.ok) xp(sk, 1);
     if (res.kind === "chop" || res.kind === "split") audio("chop");
     else if (res.kind === "chip" || res.kind === "mine") audio(res.gave.length ? "crumble" : "mine", res.gave.length ? 0.7 : 1);
     else if (res.kind === "shake" || res.kind === "punch") audio("tap", 0.6);
     if (res.felled) { audio("timber"); say("timber! a " + NK[n.kind].label + " comes down"); }
     else if (res.gone) say(res.msg);
     else if (res.msg && (res.kind === "shake" || res.kind === "punch" || !res.ok || res.kind === "split" && res.gave.length)) say(res.msg);
-    if (res.ok && tk !== "paws") wear();
+    if (res.ok && tk !== "paws" && !(SB.Body && SB.Body.roll(c, sk))) wear(); // a practised paw is kinder to its tools
     return res.ok;
   }
   function wear() {
@@ -784,7 +812,7 @@
   P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 300; P.MEAL = 0.25; // a full bar lasts 5 min possessed (K-0052: 3 min drained too fast); a berry or a nibble is a quarter of it
   P.SHOVE_YAW = 0.45; P.SHOVE_PITCH = 0.22;
   P.NIGHT1_HUNGER = 0.6; // K-0051: the first night's chase drains food 40% slower
-  P.hungerRate = function () { return P.HUNGER_POV * (S && S.firstNight ? P.NIGHT1_HUNGER : 1); };
+  P.hungerRate = function () { return P.HUNGER_POV * (S && S.firstNight ? P.NIGHT1_HUNGER : 1) * (S && SB.Body ? SB.Body.hungerMul(S.c, S.game) : 1); };
   P.KO_COOLDOWN = 30; P.FADE_IN = 2; P.CUE_AT = 10;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
@@ -963,15 +991,18 @@
     if (!I().known(c, "cook")) { say("you hold it over the fire… and drop it. too hot!"); return false; }
     if (!Sv().take(c, hk, 1).length) return false;
     if (Sv().add(c, "cooked", 1)) Sv().spawn(S.game, "cooked", 1, c.x, c.z, { by: c.id });
-    say("cooked! " + K.cooked.emoji); audio("craft");
+    var extra = SB.Body && SB.Body.roll(c, "cook");
+    if (extra && Sv().add(c, "cooked", 1)) Sv().spawn(S.game, "cooked", 1, c.x, c.z, { by: c.id });
+    xp("cook", 2); if (SB.Body) SB.Body.count(c, "cooked");
+    say(extra ? "cooked! and you made it stretch: a second helping " + K.cooked.emoji : "cooked! " + K.cooked.emoji); audio("craft");
     I().observe(c, "cook", S.game);
     return true;
   }
   function fish(hk) {
     var c = S.c, game = S.game;
     swingAnim();
-    if (game.rng.chance(hk === "rod" ? 0.45 : 0.35)) { Sv().spawn(game, "fish", 1, c.x, c.z, { by: c.id }); say(hk === "rod" ? "a bite!" : "fish!"); SB.bus.emit("fish", { c: c }); wear(); }
-    else say(hk === "rod" ? "…nothing yet" : "splash");
+    if (game.rng.chance((hk === "rod" ? 0.45 : 0.35) + Math.min(0.4, skill("fish") * 0.8))) { Sv().spawn(game, "fish", 1, c.x, c.z, { by: c.id }); say(hk === "rod" ? "a bite!" : "fish!"); SB.bus.emit("fish", { c: c }); wear(); }
+    else { say(hk === "rod" ? "…nothing yet" : "splash"); xp("fish", 1); }
     return true;
   }
   function give(o) {
@@ -1036,6 +1067,9 @@
       SB.Creature.emote(S.c, r.learned ? "idea" : "proud", 2);
       audio(r.learned ? "eureka" : "craft");
       if (r.out) gain(1, r.out);
+      // a practised maker's tools last longer
+      var cb = skill("craft");
+      if (cb && r.out && K[r.out] && K[r.out].tool) { var mv = Sv().inv(S.c); for (var mi = 0; mi < mv.s.length; mi++) if (mv.s[mi] && mv.s[mi].k === r.out && mv.s[mi].w == null) { mv.s[mi].w = Math.round(Sv().uses(r.out) * (1 + cb)); break; } }
     }
     if (r.msg) say(r.msg);
   }
@@ -1280,6 +1314,12 @@
       if (!S || d.c !== S.c) return;
       felledHook(d.node);
       if (S.quest) { S.quest.flags.chop = 1; questTick(); }
+    });
+    SB.bus.on("skillUp", function (d) {
+      if (!S || !d || d.c !== S.c || !SB.Body) return;
+      var sk = SB.Body.BY_ID[d.id];
+      say("⭐ " + sk.label + " level " + d.level + "! " + sk.perk); audio("chime");
+      SB.Creature.emote(S.c, "proud", 2);
     });
     function blobFlag(d, k) { if (S && S.quest && S.quest.kind === "blob" && d && d.c === S.c) { S.quest.flags[k] = (S.quest.flags[k] || 0) + 1; questTick(); } }
     SB.bus.on("povEat", function (d) { blobFlag(d, "eat"); if (S && d && d.c === S.c) { S.hungerClock = false; S.meal = S.lastHun != null ? S.lastHun : d.c.chem.hunger; } });

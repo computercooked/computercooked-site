@@ -41,5 +41,18 @@ const ui = fs.readFileSync(path.join(__dirname, "..", "play", "js", "ui.js"), "u
 check("ui.js shows it as a small card, never a window", /on\("dayRecap"[\s\S]{0,1200}toast\(html, "day"/.test(ui));
 check("days.js loads after embers.js", html.indexOf("js/embers.js") < html.indexOf("js/days.js") && html.indexOf("js/days.js") < html.indexOf("js/ui.js"));
 
+console.log("4. the population timeline (4.18): the island is counted every dawn");
+const pop = game.quests.pop, alive = SB.Game.smols(game).filter(s => s.alive).length;
+check("each dawn left a row", Array.isArray(pop) && pop.length >= 1, JSON.stringify(pop));
+const lastRow = D.census(game);
+check("a row is [day, one count per tier] and adds up to the living smols", lastRow.length === SB.TIERS.length + 1 && lastRow.slice(1).reduce((a, b) => a + b, 0) === alive, JSON.stringify(lastRow));
+const n0 = game.quests.pop.length; D.census(game);
+check("the same day is counted once", game.quests.pop.length === n0);
+for (let i = 0; i < D.POP_KEEP + 30; i++) { game.time += SB.DAY_LENGTH; D.census(game); }
+check("it keeps the last " + D.POP_KEEP + " days", game.quests.pop.length === D.POP_KEEP);
+const back2 = SB.Save.revive(JSON.parse(JSON.stringify(SB.Save.snapshot(game))));
+check("and it survives a save", back2.quests.pop.length === D.POP_KEEP && back2.quests.pop[5].length === SB.TIERS.length + 1);
+check("ui.js draws it in the evolution tab", /population over time/.test(ui) && /function drawPop/.test(ui));
+
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);
