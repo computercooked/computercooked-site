@@ -362,3 +362,23 @@ html.cc-desk .desk-nudge-p { display: block; }
   .reel-screen, .reel-screen video { transition: none; }
   .desk-reel:hover .reel-screen, .desk-reel:focus-visible .reel-screen { transform: none; }
 }
+
+/* ---------- "play it here": the reel's game in a window on the desktop (big screens; assets/home.js) ---------- */
+.reel-here { display: none; font: 700 11px var(--mono); color: var(--text-dim); }
+html.cc-playhere .reel-here { display: block; }
+html.cc-playhere .desk-reel:hover .reel-here, html.cc-playhere .desk-reel:focus-visible .reel-here { color: var(--text); }
+.play-win { width: min(94vw, 980px); max-width: none; max-height: none; padding: 0; overflow: visible; border: 2px solid #3a3f2a; border-radius: 10px; background: #0b0c0e; color: var(--text);
+  box-shadow: 0 0 0 1px #000, 10px 10px 0 rgb(0 0 0 / .6); }
+.play-win::backdrop { background: rgb(5 6 5 / .72); backdrop-filter: blur(3px); }
+.play-win[open] { animation: play-win-in .22s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes play-win-in { from { opacity: 0; transform: scale(.9) translateY(18px); } }
+.play-win .win-bar { height: 36px; }
+.play-win-tools { display: flex; align-items: center; gap: var(--s-3); }
+.play-win-full { font: 700 12px var(--mono); color: var(--text-dim); text-decoration: none; }
+.play-win-full:hover, .play-win-full:focus-visible { color: var(--accent); }
+.play-win-x { width: 26px; height: 22px; padding: 0; border: 2px solid #6d2620; border-radius: 4px; background: var(--alarm); color: #0b0c0e; font: 800 12px/1 var(--mono); cursor: pointer; }
+.play-win-x:hover, .play-win-x:focus-visible { filter: brightness(1.2); }
+.play-win-stage { position: relative; height: min(76vh, 640px); border-radius: 0 0 8px 8px; overflow: hidden; background: #07080a; }
+.play-win-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.play-win-load { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font: 700 var(--fs-14) var(--mono); color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .play-win[open] { animation: none; } }
