@@ -351,3 +351,21 @@
   function idle() { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 2500 }) : setTimeout(go, 1200); }
   document.readyState === "complete" ? idle() : addEventListener("load", idle);
 })();
+
+// Instant pages: when a visitor rests on (or presses) a same-site link, the browser fetches that page ahead of the click
+// (Speculation Rules, prefetch only: no page script runs early, so nothing is counted or started). Browsers without it
+// just navigate as before. Skipped inside embeds and when the visitor asked to save data. Never touches /api, /admin or /d links.
+(function () {
+  if (window.self !== window.top) return;
+  var c = navigator.connection;
+  if (c && c.saveData) return;
+  if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports("speculationrules"))) return;
+  var s = document.createElement("script");
+  s.type = "speculationrules";
+  s.textContent = JSON.stringify({ prefetch: [{ where: { and: [
+    { href_matches: "/*" },
+    { not: { href_matches: ["/api/*", "/admin/*", "/d/*"] } },
+    { not: { selector_matches: "[download], [target=_blank], [rel~=nofollow], [data-no-prefetch]" } }
+  ] }, eagerness: "moderate" }] });
+  document.head.appendChild(s);
+})();
