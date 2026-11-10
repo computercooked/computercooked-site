@@ -124,6 +124,24 @@
 @keyframes desk-blink { 50% { opacity: .5; } }
 
 /* "happening now": the weekly challenge, today's dailies and the week's chart, under the desktop */
+/* pick a mood: five tiles to the filtered hub. The cover strip keeps its height with or without covers (no layout shift). */
+.mood-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-3); }
+.mood[hidden] { display: none; }
+.mood { --mood: var(--accent); position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text); text-decoration: none; overflow: hidden; transition: transform .16s var(--ease-out), border-color .16s, box-shadow .16s; }
+.mood::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--mood); }
+.mood:hover, .mood:focus-visible { transform: translate(-2px, -2px); border-color: var(--mood); box-shadow: 4px 4px 0 #000; outline: none; }
+.mood-quick { --mood: #ffd84a; } .mood-arcade { --mood: #b8f23a; } .mood-puzzle { --mood: #7ad7ff; } .mood-chill { --mood: #c9a8ff; } .mood-rage { --mood: #ff8a7a; }
+.mood-art { display: flex; height: 42px; margin-bottom: 8px; }
+.mood-art img { flex: none; width: 64px; height: 40px; object-fit: cover; border: 2px solid #000; border-radius: 4px; background: var(--bg); image-rendering: pixelated; box-shadow: 2px 2px 0 #000; transition: transform .18s var(--ease-out); }
+.mood-art img + img { margin-left: -18px; }
+.mood:hover .mood-art img:nth-child(1), .mood:focus-visible .mood-art img:nth-child(1) { transform: rotate(-6deg) translateY(-2px); }
+.mood:hover .mood-art img:nth-child(3), .mood:focus-visible .mood-art img:nth-child(3) { transform: rotate(6deg) translateY(-2px); }
+.mood-name { font: 800 var(--fs-18, 18px)/1.2 var(--sans, inherit); color: var(--mood); }
+.mood-line { color: var(--text-dim); font-size: var(--fs-14, 14px); line-height: 1.35; }
+.mood-n { margin-top: auto; padding-top: 6px; font: 700 12px var(--mono); color: var(--text); white-space: nowrap; }
+@media (max-width: 1023px) { .mood-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .mood:nth-child(n+4) { grid-column: span 1; } }
+@media (max-width: 639px) { .mood-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mood:first-child { grid-column: 1 / -1; } .mood-art img { width: 54px; height: 34px; } .mood-art img + img { margin-left: -20px; } }
+@media (prefers-reduced-motion: reduce) { .mood, .mood-art img { transition: none; } .mood:hover, .mood:focus-visible, .mood:hover .mood-art img, .mood:focus-visible .mood-art img { transform: none; } }
 .now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: var(--s-4); }
 .now-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface); color: var(--text); text-decoration: none; }
 .now-card[hidden] { display: none; }

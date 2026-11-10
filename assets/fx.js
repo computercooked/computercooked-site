@@ -426,6 +426,14 @@
     function pick(id) {
       vibe = id;
       row.querySelectorAll(".chip[data-vibe]").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.vibe === id)); });
+      // on phones the chips scroll sideways: bring the pressed one into view, so a filter link shows which filter is on
+      try {
+        var on = row.querySelector('.chip[data-vibe][aria-pressed="true"]');
+        if (on && row.scrollWidth > row.clientWidth) {
+          var a = on.getBoundingClientRect(), b = row.getBoundingClientRect();
+          if (a.left < b.left || a.right > b.right) row.scrollLeft += a.left - b.left - (b.width - a.width) / 2;
+        }
+      } catch (e) {}
     }
     // the filter lives in the address (/games/?vibe=quick&q=fish), so a filtered hub can be linked, shared and reloaded.
     // replaceState, so the back button still leaves the hub in one press. Other parameters (ref, utm) are kept.

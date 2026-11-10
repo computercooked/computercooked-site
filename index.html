@@ -145,6 +145,43 @@
       <div id="home-featured"><a class="feature-card" href="/games/crash/?ref=landing"><img class="game-thumb" src="/games/crash/cover.png" alt="" width="640" height="400" decoding="async"><span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">crash</h3><span class="feature-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span></a></div>
     </section>
 
+    <!-- pick a mood: each tile opens the hub with that filter on (/games/?vibe=...). src/pages.js adds covers and counts -->
+    <section class="home-sec" id="home-moods" aria-labelledby="mood-heading">
+      <div class="sec-head"><h2 id="mood-heading" class="section-label">what are you in the mood for?</h2></div>
+      <div class="mood-grid">
+        <a class="mood mood-quick" href="/games/?vibe=quick&amp;ref=mood" data-mood="quick">
+          <span class="mood-art" aria-hidden="true"></span>
+          <strong class="mood-name">got 60 seconds?</strong>
+          <span class="mood-line">one run. in and out.</span>
+          <span class="mood-n">see the games ▶</span>
+        </a>
+        <a class="mood mood-arcade" href="/games/?vibe=arcade&amp;ref=mood" data-mood="arcade">
+          <span class="mood-art" aria-hidden="true"></span>
+          <strong class="mood-name">fast hands</strong>
+          <span class="mood-line">dodge things. panic a little.</span>
+          <span class="mood-n">see the games ▶</span>
+        </a>
+        <a class="mood mood-puzzle" href="/games/?vibe=puzzle&amp;ref=mood" data-mood="puzzle">
+          <span class="mood-art" aria-hidden="true"></span>
+          <strong class="mood-name">big brain</strong>
+          <span class="mood-line">think hard. the computer won't.</span>
+          <span class="mood-n">see the games ▶</span>
+        </a>
+        <a class="mood mood-chill" href="/games/?vibe=chill&amp;ref=mood" data-mood="chill">
+          <span class="mood-art" aria-hidden="true"></span>
+          <strong class="mood-name">low power mode</strong>
+          <span class="mood-line">nothing chases you here.</span>
+          <span class="mood-n">see the games ▶</span>
+        </a>
+        <a class="mood mood-rage" href="/games/?vibe=rage&amp;ref=mood" data-mood="rage">
+          <span class="mood-art" aria-hidden="true"></span>
+          <strong class="mood-name">feeling brave?</strong>
+          <span class="mood-line">unfair on purpose. you'll retry.</span>
+          <span class="mood-n">see the games ▶</span>
+        </a>
+      </div>
+    </section>
+
     <section class="home-sec" id="home-new-sec" aria-labelledby="new-heading" hidden>
       <div class="sec-head"><h2 id="new-heading" class="section-label">just cooked</h2><a class="text-link" href="/games/">every game →</a></div>
       <ul class="shelf2" id="home-new"></ul>

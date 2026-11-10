@@ -278,6 +278,7 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
   - *Weekly challenge* (`#home-ch`): this week's game, goal, XP and how many players have done it, with a countdown to the week's end. Filled on the server.
   - *Daily 3* (`#home-daily`): three dots for today's three games and the streak, from `window.ccDaily3` in the browser, with a countdown to local midnight.
   - *Top this week* (`#home-top`): the 5 games with the most players over the last 7 days, with places moved against the 7 days before ("new" for a game that wasn't on the chart). Hidden until 3 games have plays. No play counts are shown.
+- **Pick a mood** (`#home-moods`, under game of the week): five tiles (60 seconds, arcade, puzzle, chill, rage) that open the hub with that filter on (`/games/?vibe=<id>&ref=mood`). `homePage()` adds three covers and the game count to each from the same vibe rules as the hub (`vibesOf` in `src/seo.js`); a mood with no games is hidden. On the hub, the pressed chip scrolls into view on phones.
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
