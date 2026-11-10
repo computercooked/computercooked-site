@@ -171,6 +171,15 @@ body { padding-top: var(--topbar-h); }
   color: #6b6d75;
 }
 
+.keys { width: min(calc(100% - 24px), 420px); max-height: 80vh; overflow-y: auto; }
+.keys-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.keys-head h2 { margin: 0; font-family: var(--display); font-size: var(--fs-16); line-height: 1.2; color: var(--paper); }
+.keys-list { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; align-items: center; margin: 0; padding: 16px; }
+.keys-list dt { display: flex; gap: 4px; }
+.keys-list dd { margin: 0; font-size: var(--fs-14); color: var(--paper-dim); }
+.keys-list kbd { min-width: 28px; padding: 3px 8px; border: 1px solid var(--line); border-bottom-width: 3px; border-radius: var(--r-sm); background: rgba(8, 9, 11, 0.5);
+  font-family: var(--mono); font-size: var(--fs-12); font-weight: 800; text-align: center; color: var(--paper); }
+
 .cmd-esc {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);

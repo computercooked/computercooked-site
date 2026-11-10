@@ -132,7 +132,8 @@
     { name: "x", hint: "@computercooked", href: "https://x.com/computercooked", ext: true },
     { name: "threads", hint: "@computercooked", href: "https://www.threads.com/@computercooked", ext: true },
     { name: "bluesky", hint: "computercooked.bsky.social", href: "https://bsky.app/profile/computercooked.bsky.social", ext: true },
-    { name: "help", hint: "list everything", say: "type a page name. tab completes, enter goes, esc leaves." }
+    { name: "keyboard shortcuts", hint: "every key the computer knows (or press ?)", help: true, keys: "hotkeys keys keyboard ?" },
+    { name: "help", hint: "list everything", say: "type a page name. tab completes, enter goes, esc leaves. press ? for every shortcut." }
   ];
   /* every game in games.json becomes a "play <title>" command (tags are searchable too) */
   var gamesLoaded = false;
@@ -236,6 +237,7 @@
       return;
     }
     if (c.say) { say.textContent = c.say; return; }
+    if (c.help) { dialog.close(); openHelp(); return; }
     if (c.random) {
       var pool = GAMES.filter(function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") !== 0; });
       if (!pool.length) { say.textContent = "still loading the games. try again in a sec."; loadGames(); return; }
@@ -282,12 +284,48 @@
   var keys = {};
   deck.querySelectorAll(".deck-link[data-key]").forEach(function (a) { keys[a.dataset.key] = a; });
 
+  /* "?" lists every shortcut that works on this page. Built when first opened, from the deck's own data-key links. */
+  var help = null;
+  function openHelp() {
+    if (help && help.open) return;
+    if (!help) {
+      help = document.createElement("dialog");
+      help.className = "cmd keys";
+      help.setAttribute("aria-label", "keyboard shortcuts");
+      var rows = [["/", "search and jump anywhere"]];
+      Object.keys(keys).forEach(function (k) {
+        var l = keys[k].querySelector(".deck-label");
+        rows.push([k, l && l.hasAttribute("data-account-label") ? "your account" : "go to " + (l ? l.textContent : keys[k].getAttribute("href"))]);
+      });
+      if (document.getElementById("tv-guide")) rows.push(["← →", "flip channels"], ["enter", "play this channel"], ["a", "auto surf on or off"]);
+      rows.push(["?", "this list"], ["esc", "close"]);
+      var head = document.createElement("div"); head.className = "keys-head";
+      var h = document.createElement("h2"); h.textContent = "keys the computer knows";
+      var x = document.createElement("button"); x.type = "button"; x.className = "cmd-esc"; x.textContent = "esc";
+      x.addEventListener("click", function () { help.close(); });
+      head.appendChild(h); head.appendChild(x);
+      var dl = document.createElement("dl"); dl.className = "keys-list";
+      rows.forEach(function (r) {
+        var dt = document.createElement("dt");
+        r[0].split(" ").forEach(function (k) { var kb = document.createElement("kbd"); kb.textContent = k; dt.appendChild(kb); });
+        var dd = document.createElement("dd"); dd.textContent = r[1];
+        dl.appendChild(dt); dl.appendChild(dd);
+      });
+      help.appendChild(head); help.appendChild(dl);
+      help.addEventListener("click", function (e) { if (e.target === help) help.close(); });
+      document.body.appendChild(help);
+    }
+    help.showModal();
+  }
+
   document.addEventListener("keydown", function (e) {
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || dialog.open) return;
     var t = e.target;
     if (t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))) return;
+    if (help && help.open) { if (e.key === "?") { e.preventDefault(); help.close(); } return; }
     if (e.key === "/") { e.preventDefault(); open(); return; }
     if (window.ccGameActive) return; // games own the keyboard while running
+    if (e.key === "?") { e.preventDefault(); openHelp(); return; }
     var a = keys[e.key.toLowerCase()];
     if (a) { e.preventDefault(); a.click(); }
   });
