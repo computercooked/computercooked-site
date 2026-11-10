@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "boss key", hint: "hide everything behind a boring spreadsheet", boss: true, keys: "hide panic work spreadsheet teacher parent cover disguise excel sheet look busy" },
     { name: "face-off", hint: "this or that, until one game wins", duel: true, keys: "this or that versus vs bracket tournament pick choose favourite favorite would you rather" },
     { name: "daily spin", hint: "one spin a day picks your game", spin: true, keys: "wheel slot machine roulette today lucky game of the day" },
     { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
@@ -263,6 +264,7 @@
       }
       return;
     }
+    if (c.boss) { dialog.close(); window.ccBoss.toggle(); return; }
     if (c.duel) { dialog.close(); window.ccDuel.open(); return; }
     if (c.spin) { dialog.close(); window.ccSpin.open(); return; }
     if (c.feature) { say.textContent = "picking three. no refunds."; window.ccFeature.start(); return; }
@@ -327,6 +329,7 @@
       });
       if (document.getElementById("tv-guide")) rows.push(["← →", "flip channels"], ["enter", "play this channel"], ["a", "auto surf on or off"]);
       if (window.ccHop && window.ccHop.any()) rows.push(["← ↑ ↓ →", "hop between games once one has focus. a controller works too"]);
+      rows.push(["`", "boss key: hide behind a spreadsheet"]);
       rows.push(["?", "this list"], ["esc", "close"]);
       var head = document.createElement("div"); head.className = "keys-head";
       var h = document.createElement("h2"); h.textContent = "keys the computer knows";
@@ -782,4 +785,65 @@
     }).catch(function () { q(".duel-say").textContent = "the bracket fell over. try again in a sec."; });
   }
   window.ccDuel = { open: open };
+})();
+
+/* Boss key: someone walking up? The ` key (top left, under esc) covers the whole page with a very boring spreadsheet,
+   mutes a running game and renames the tab. ` or esc brings everything back as it was. Also "boss key" in the command
+   bar. The key is heard inside a running game too (the game frame is same-origin; only a listener is added to it).
+   window.ccBoss.toggle(). Styled in assets/deck.css (.boss). Nothing is kept or sent. */
+(function () {
+  "use strict";
+  var cover = null, on = false, oldTitle = "", unmute = false, hadFocus = null;
+  var ROWS = [["item", "owner", "q1", "q2", "q3", "q4", "status"], ["printer ink", "facilities", 412, 398, 455, 470, "over"], ["meetings that could be emails", "everyone", 96, 104, 118, 131, "rising"],
+    ["snacks (strategic)", "ops", 220, 245, 238, 260, "approved"], ["chairs, squeaky", "facilities", 12, 12, 14, 15, "open"], ["synergy", "leadership", 0, 0, 0, 1, "pending"],
+    ["reply-all incidents", "it", 7, 9, 4, 11, "review"], ["coffee", "everyone", 880, 910, 905, 990, "critical"], ["pens, missing", "unknown", 61, 58, 72, 70, "ongoing"],
+    ["passwords on sticky notes", "it", 34, 31, 36, 29, "improving"], ["cake, birthday", "hr", 18, 22, 16, 24, "approved"], ["stapler, red", "milton", 1, 1, 1, 0, "escalated"]];
+  function build() {
+    cover = document.createElement("div"); cover.className = "boss"; cover.tabIndex = -1; cover.setAttribute("role", "dialog"); cover.setAttribute("aria-label", "boss key cover. press escape to go back");
+    var h = '<div class="boss-top"><b>q4_budget_final_v7</b><span>file</span><span>edit</span><span>view</span><span>insert</span><span>data</span><span>help</span></div>' +
+      '<div class="boss-fx"><i>fx</i><span>=SUM(C2:F13)</span></div><div class="boss-grid"><table><thead><tr><th></th>';
+    "ABCDEFGHIJKL".split("").forEach(function (c) { h += "<th>" + c + "</th>"; });
+    h += "</tr></thead><tbody>";
+    for (var r = 0; r < 40; r++) {
+      h += "<tr><th>" + (r + 1) + "</th>";
+      for (var c = 0; c < 12; c++) { var v = ROWS[r] && ROWS[r][c] !== undefined ? ROWS[r][c] : ""; h += "<td" + (typeof v === "number" ? ' class="n"' : "") + (r === 0 && v !== "" ? ' class="h"' : "") + ">" + v + "</td>"; }
+      h += "</tr>";
+    }
+    h += '</tbody></table></div><div class="boss-foot"><span class="is-on">budget</span><span>headcount</span><span>snacks</span><button type="button" class="boss-back">` or esc: back to it</button></div>';
+    cover.innerHTML = h;
+    cover.querySelector(".boss-back").addEventListener("click", hide);
+    document.body.appendChild(cover);
+  }
+  function show() {
+    if (!cover) build();
+    on = true; hadFocus = document.activeElement;
+    oldTitle = document.title; document.title = "q4_budget_final_v7";
+    var m = document.getElementById("btn-mute");
+    unmute = !!m && m.getAttribute("aria-pressed") !== "true";
+    if (unmute) m.click();
+    cover.hidden = false; document.documentElement.classList.add("is-boss"); cover.focus();
+  }
+  function hide() {
+    if (!on) return;
+    on = false; cover.hidden = true; document.documentElement.classList.remove("is-boss");
+    document.title = oldTitle;
+    if (unmute) { var m = document.getElementById("btn-mute"); if (m && m.getAttribute("aria-pressed") === "true") m.click(); }
+    try { if (hadFocus && hadFocus.focus) hadFocus.focus({ preventScroll: true }); } catch (e) {}
+  }
+  function toggle() { if (on) hide(); else show(); }
+  function key(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (on && e.key === "Escape") { e.preventDefault(); e.stopPropagation(); hide(); return; }
+    if (e.key !== "`") return;
+    var t = e.target, tag = t && t.tagName;
+    if (!on && (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (t && t.isContentEditable))) return; // typing a ` somewhere
+    e.preventDefault(); e.stopPropagation(); toggle();
+  }
+  document.addEventListener("keydown", key, true);
+  var frame = document.getElementById("game-frame");
+  if (frame) {
+    var hook = function () { try { frame.contentWindow.addEventListener("keydown", key, true); } catch (e) {} };
+    frame.addEventListener("load", hook); hook();
+  }
+  window.ccBoss = { toggle: toggle };
 })();
