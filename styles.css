@@ -1205,6 +1205,9 @@ a.champ-who { text-decoration: underline; text-decoration-color: rgb(255 207 64 
 .champ-score { color: #ffcf40; font-weight: 700; }
 .champ-meta { margin: var(--s-1, 4px) 0 0; font-size: var(--fs-12); color: var(--text-dim); }
 .champ-meta .champ-who { font-weight: 500; color: inherit; }
+.champ-you { margin: var(--s-1, 4px) 0 0; font-family: var(--mono); font-size: var(--fs-12); color: var(--text-dim); }
+.champ-you.is-close { color: var(--accent); }
+.champ-you.is-there { color: #ffcf40; }
 .champ-cta { position: relative; z-index: 1; padding: var(--s-2) var(--s-3); border: 1px solid rgb(255 207 64 / .5); border-radius: var(--r-sm);
   font-family: var(--mono); font-size: var(--fs-12); font-weight: 600; color: #ffcf40; text-decoration: none; white-space: nowrap; }
 .champ-cta:hover, .champ-cta:focus-visible { background: #ffcf40; color: #14110a; }

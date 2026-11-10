@@ -286,6 +286,7 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 
 - One crown per game: whoever holds the all time #1 score (same rule as the EPIC GAMER tag: highest score, a tie goes to whoever set it first). Built on the server by `src/champs.js` from `scores` (hidden rows never count) and kept 5 minutes per isolate.
 - Each card: cover, game, the holder (linked to `/u/<username>` when they have an account), the score, the date they took it, this week's leader, and a "take the crown" link (`?ref=champs`). Newest crowns first; one taken in the last 48 hours gets a "new crown" badge.
+- `assets/champs.js` shows the dates in the visitor's own time zone ("today", "yesterday", then "nov 9"; the server writes UTC) and, for games this device has played, adds "your best: 1,200. 2,358 to go." from `cc-history`. Nothing is sent or stored.
 - "Most crowns" lists players holding more than one. Games with no scores are left off. No play counts are shown.
 - With no database or no scores the static page (`champs/index.html`) shows its empty state. Linked from the homepage "happening now" heading and the command bar ("epic gamers").
 

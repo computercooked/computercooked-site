@@ -1,6 +1,7 @@
 // /champs/: the wall of epic gamers. One crown per game: whoever holds the all-time #1 (the same rule as the EPIC GAMER
 // tag on each game's leaderboard: highest score, a tie goes to whoever set it first), plus this week's leader.
 // Rendered on the server from the live boards and kept for 5 minutes per isolate. No play counts are shown.
+// assets/champs.js then puts the dates in the visitor's time zone and adds "your best" from this device's history.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { now, weekOf, themeAttr } from "./util.js";
 import { people } from "./friends.js";
@@ -45,11 +46,13 @@ function card(x, g, t) {
   const week = !x.week ? "nobody yet. it's open."
     : same ? `${esc(x.champ.name)} again, <span class="num">${fmt(x.week.score)}</span>`
     : `${person(x.week)} <span class="num">${fmt(x.week.score)}</span>`;
-  return `<li class="champ-card${fresh ? " is-fresh" : ""}"${themeAttr(g)}>` +
+  return `<li class="champ-card${fresh ? " is-fresh" : ""}" data-slug="${esc(g.slug)}" data-score="${Number(x.champ.score) || 0}"${themeAttr(g)}>` +
     `<a class="champ-cover" href="${href}" tabindex="-1" aria-hidden="true"><img src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="lazy" decoding="async"></a>` +
     `<div class="champ-body"><h2 class="champ-game"><a href="${href}">${esc(g.title)}</a>${fresh ? ' <span class="champ-new">new crown</span>' : ""}</h2>` +
     `<p class="champ-line"><span class="champ-crown" aria-hidden="true">♛</span> ${person(x.champ)} <span class="champ-score num">${fmt(x.champ.score)}</span></p>` +
-    `<p class="champ-meta">#1 since <time datetime="${new Date(x.champ.ts).toISOString().slice(0, 10)}">${dateOf(x.champ.ts)}</time> · this week: ${week}</p></div>` +
+    `<p class="champ-meta">#1 since <time datetime="${new Date(x.champ.ts).toISOString()}">${dateOf(x.champ.ts)}</time> · this week: ${week}</p>` +
+    // filled by assets/champs.js from this device's own best (cc-history); stays hidden for a game you haven't played
+    `<p class="champ-you" hidden></p></div>` +
     `<a class="champ-cta" href="${href}" aria-label="take the crown on ${esc(g.title)}">take the crown ▶</a></li>`;
 }
 
