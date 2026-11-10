@@ -7,6 +7,7 @@ import { themeAttr, now, dayOf, REAL } from "./util.js";
 import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
 import { vibesOf } from "./seo.js";
+import { champsData } from "./champs.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const STAGE = { building: "building", next: "up next", shipped: "shipped" };
@@ -181,6 +182,17 @@ export async function homePage(req, env, url) {
   if (live && live.top.length) {
     rw.on("#home-top", { element(e) { e.removeAttribute("hidden"); } })
       .on("#home-chart", { element(e) { e.setInnerContent(live.top.map((r, i) => chartRow(r, catalog.get(r.game), i)).join(""), { html: true }); } });
+  }
+  // "latest crowns": the three newest #1 scores from the wall of epic gamers (src/champs.js, same 5 minute cache)
+  let crowns = null;
+  try { if (env.DB && catalog.size) crowns = (await champsData(env, catalog)).list.slice(0, 3); } catch (e) { /* the strip stays hidden */ }
+  if (crowns && crowns.length) {
+    rw.on("#home-crowns", { element(e) { e.removeAttribute("hidden"); } })
+      .on("#home-crown-list", { element(e) {
+        e.setInnerContent(crowns.map((x) => { const g = catalog.get(x.game);
+          return `<li><a class="crown-chip" href="/games/${encodeURIComponent(g.slug)}/?ref=crown"><span class="crown-ico" aria-hidden="true">♛</span> <b>${esc(x.champ.name)}</b> holds <b>${esc(g.title)}</b> <span class="num">${Math.round(x.champ.score).toLocaleString("en-US")}</span></a></li>`;
+        }).join(""), { html: true });
+      } });
   }
   const out = rw.transform(page);
   return new Response(out.body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=0, must-revalidate" } });
