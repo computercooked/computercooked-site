@@ -782,7 +782,7 @@ if (admin) {
   // channel surf: the static page with its tv, and the catalogue it reads has clips
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
-  ok(surf.status === 200 && surfHtml.includes('id="tv-guide"') && surfHtml.includes("/assets/surf.js") && home.includes('href="/surf/"'), "/surf/ has the channel surf tv, linked from home", surf.status);
+  ok(surf.status === 200 && surfHtml.includes('id="tv-guide"') && surfHtml.includes('id="tv-auto"') && surfHtml.includes("/assets/surf.js") && home.includes('href="/surf/"'), "/surf/ has the channel surf tv, linked from home", surf.status);
   // 404 page: the picks the computer "found instead"
   const lost = await get("/no-such-page-" + Date.now());
   const lostHtml = await lost.text();
