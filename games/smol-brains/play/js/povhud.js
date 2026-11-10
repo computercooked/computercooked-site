@@ -666,7 +666,9 @@
     var T = [["felled", "🌳", "trees felled"], ["mined", "🪨", "rocks broken"], ["made", "🛠", "things made"], ["cooked", "🍖", "meals cooked"], ["fish", "🐟", "fish caught"], ["hunted", "🏹", "hunts"], ["grumps", "👹", "grumps chased off"], ["nights", "🌙", "safe nights"], ["cosy", "☀️", "cosy mornings"], ["drinks", "💧", "drinks"]];
     var tl = T.filter(function (t) { return b.n[t[0]]; }).map(function (t) { return "<span title='" + t[2] + "'>" + t[1] + " " + t[2] + ": " + b.n[t[0]] + "</span>"; });
     if (tl.length) h += "<div class='sep'></div><div class='lbl'>so far</div><div class='tally'>" + tl.join("") + "</div>";
-    h += "<div class='help'>hover a skill to see what it gives. each level is worth 5%.</div></div>";
+    h += "<div class='help'>hover a skill to see what it gives. each level is worth 5%.</div>";
+    if (SB.Wilds) h += SB.Wilds.youHtml(s.game, c);
+    h += "</div>";
     return h;
   }
   function buildHtml() {
@@ -686,6 +688,7 @@
     var root = bag.el, s = S(), c = s.c;
     root.querySelectorAll("[data-tab]").forEach(function (b) { b.addEventListener("click", function () { bag.tab = b.getAttribute("data-tab"); drawBag(); }); });
     var cl = root.querySelector("[data-close]"); if (cl) cl.addEventListener("click", closeBag);
+    if (SB.Wilds) SB.Wilds.wire(root, s.game, drawBag);
     root.querySelectorAll("[data-make]").forEach(function (b) { b.addEventListener("click", function () { P().craft(b.getAttribute("data-make")); drawBag(); }); });
     root.querySelectorAll("[data-build]").forEach(function (b) { b.addEventListener("click", function () { P().startBuild(b.getAttribute("data-build")); }); });
     var cb = root.querySelector("[data-combine]");
@@ -805,7 +808,7 @@
     vrow("warm", warm, cold > 0.35 ? "cold" : "warm", warm < 0.3);
     vrow("pep", s.stam, "pep", s.stam < 0.2);
     if (SB.Body) {
-      var bd = SB.Body.of(c), sts = SB.Body.status(c, game), sk = sts.map(function (x) { return x.k + x.label; }).join("|");
+      var bd = SB.Body.of(c), sts = SB.Body.status(c, game).concat(SB.Wilds ? SB.Wilds.chips(game, c, s) : []), sk = sts.map(function (x) { return x.k + x.label; }).join("|");
       vrow("water", 1 - bd.thirst, "water", bd.thirst > 0.72);
       if (sk !== hud.statKey) { hud.statKey = sk; hud.stat.innerHTML = sts.filter(function (x) { return x.k !== "thirst"; }).map(function (x) { return "<span class='" + (x.bad ? "bad" : "good") + "' title='" + esc(x.tip) + "'>" + x.e + " " + x.label + "</span>"; }).join(""); }
     } else hud.rows.water.el.style.display = "none";

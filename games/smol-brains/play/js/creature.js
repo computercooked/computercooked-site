@@ -1879,7 +1879,7 @@
       function bite() {
         {
           sc.hitT = C.BITE_HOLD + 0.9; sc.reel = C.BITE_REEL; sc.hits = (sc.hits || 0) + 1;
-          prey.chem.health = Math.max(0.25, prey.chem.health - (sc.dmg || C.LUNGE_DMG));
+          prey.chem.health = Math.max(sc.lethal ? 0 : 0.25, prey.chem.health - (sc.dmg || C.LUNGE_DMG) * (SB.Wilds ? SB.Wilds.biteMul(game, prey) : 1)); // a prowler's bite can end you (wilds.js)
           var ka = Math.atan2(prey.x - c.x, prey.z - c.z), kx = prey.x + Math.sin(ka) * C.BITE_KNOCK, kz = prey.z + Math.cos(ka) * C.BITE_KNOCK; // knocked back
           if (SB.World.walkable(w, kx, kz)) { prey.x = kx; prey.z = kz; }
           var bx = c.x - Math.sin(ka) * 1.6, bz = c.z - Math.cos(ka) * 1.6; // and it staggers back, off your face (K-0048)

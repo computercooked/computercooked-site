@@ -674,6 +674,20 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.65 What v4.19.0 added: the island after dark (owner: "Yes, batch 2")
+
+Second batch of the survival pass. Everything here lives in one new file, `wilds.js` (`SB.Wilds`), and only matters while you are inside a smol.
+
+- **How hard the island bites.** Three settings in the bag's "you" tab: cosy, normal and harsh (`game.settings.wilds`, normal by default). They scale how fast hunger and thirst run (0.75x, 1x, 1.3x), how much a bite hurts you (0.7x, 1x, 1.4x), how dark the night gets and how many prowlers a night can send (0, 1, 2). Only the smol you are in is affected; the rest of the island runs as before.
+- **True darkness.** A night seen through a smol's eyes is properly dark now (the god view is untouched). A held torch throws warm light about nine tiles around you; a lit fire or any roof also counts as light. Blobs and critters, who can't carry a torch, get half the dark. A chip under the vitals says "in the dark" or "torch lit". Never during the first night or a night chase.
+- **The prowler, a second night creature.** Stand in the dark for 25 seconds as a tool-user or better and a small, fast grump comes for you (a warning comes at the halfway mark). Light sends it off: hold a torch, reach a fire or step under a roof. It gives up after 45 seconds or at dawn, and there is a minute of quiet after one leaves. Unlike a scout grump, its bite can take you all the way down. It only appears after the first grump lesson is done, and never on cosy.
+- **A bed.** Sleep under a lean-to, hut, house or hall, or build one, and it becomes your bed. If you fall, you wake there at half health with your pack left where you fell and a marker pointing back to it. With no bed, a fall still sends you back to the sky as before.
+- **A survival run, the survival-only mode.** "Start a survival run" in the "you" tab counts the days you last in one body. The difficulty locks while it runs and a chip shows the day. It ends when you go back to the sky; on harsh there is one life, so a bed will not save you. Your best run and the setting it was on are kept with the save.
+- **An iron tier.** The last chunk of an ore vein, mined with a pick, gives iron ore. Ore and a log at a kiln make an iron bar (needs the smelting idea). Iron makes an iron axe, an iron pick and an iron sword: they chop, dig and hit harder than stone and last much longer. Five new item kinds with meshes and icons.
+- No dice were added to the seeded sim (the prowler's spot uses `Math.random`, and nothing changes worldgen or the ideas list). No new sounds: the existing grump, chime and achievement files are reused.
+- **Not yet:** a look at the bag on narrow phones (the right-hand tabs sit off to the side and need a sideways scroll), and from NeuraQuarium brain surgery and parent/child trait comparison.
+- Tests: `wilds.test.js` (new, 70 checks).
+
 ## 0.64 What v4.18.0 added: a body worth keeping alive (owner: "make the survival aspect really thorough… lots of fun features")
 
 First batch of the survival pass, plus the first thing taken from NeuraQuarium (a neural-net fish tank on itch.io whose players loved watching populations and brains change over time).
