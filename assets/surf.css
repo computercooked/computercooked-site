@@ -1,0 +1,60 @@
+/* /surf/: channel surf. One game per channel on a little TV (assets/surf.js fills it from /games/games.json). */
+.surf-page { max-width: 760px; padding-left: var(--gutter); padding-right: var(--gutter); }
+.tv { --tv-accent: var(--accent); margin-top: var(--s-6); }
+.tv[hidden] { display: none; }
+.tv-screen { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; border: 2px solid var(--line); border-radius: var(--r-md);
+  background: #07080a; box-shadow: 0 0 0 1px rgb(0 0 0 / .6), 0 24px 60px -30px var(--tv-accent); cursor: pointer; touch-action: pan-y;
+  transition: border-color .2s ease, box-shadow .2s ease; }
+.tv-screen:hover, .tv-screen:focus-visible { border-color: var(--tv-accent); }
+.tv-screen img, .tv-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tv-screen video { opacity: 0; transition: opacity .25s ease; }
+.tv-screen video.is-on { opacity: 1; }
+/* scanlines, always on; the burst of static only while flipping */
+.tv-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0) 0 2px, rgb(0 0 0 / .16) 2px 3px); }
+.tv-static { position: absolute; inset: 0; z-index: 1; opacity: 0; pointer-events: none;
+  background: repeating-radial-gradient(#0b0c0e 0 .0001%, #e9e6dc 0 .0002%) 50% 0 / 2500px 2500px, repeating-conic-gradient(#0b0c0e 0 .0001%, #e9e6dc 0 .0002%) 60% 60% / 2500px 2500px;
+  background-blend-mode: difference; }
+.tv.is-flipping .tv-static { animation: tv-static .22s steps(4) 1; }
+@keyframes tv-static { 0% { opacity: .9; background-position: 50% 0, 60% 60%; } 50% { opacity: .7; background-position: 48% 3%, 63% 58%; } 100% { opacity: 0; background-position: 52% 1%, 58% 62%; } }
+.tv-ch { position: absolute; z-index: 2; top: var(--s-3); right: var(--s-3); padding: 2px 8px; border-radius: var(--r-sm); background: rgb(7 8 10 / .78);
+  font-family: var(--mono); font-size: var(--fs-14); font-weight: 800; letter-spacing: .06em; color: var(--tv-accent); text-shadow: 0 0 10px var(--tv-accent); }
+.tv-seen { position: absolute; z-index: 2; top: var(--s-3); left: var(--s-3); padding: 2px 8px; border-radius: var(--r-sm); background: rgb(7 8 10 / .78);
+  font-family: var(--mono); font-size: var(--fs-12); letter-spacing: .04em; color: var(--text-dim); }
+.tv-seen[hidden] { display: none; }
+.tv-info { min-height: 7.5em; margin-top: var(--s-4); }
+.tv-title { margin: 0; font-family: var(--display); font-size: var(--fs-28); line-height: 1.15; color: var(--text); }
+.tv-pitch { margin: var(--s-2) 0 0; font-size: var(--fs-16); color: var(--text-dim); }
+.tv-tags { margin: var(--s-2) 0 0; font-family: var(--mono); font-size: var(--fs-12); letter-spacing: .04em; color: var(--tv-accent); }
+.tv-best { margin: var(--s-1, 4px) 0 0; font-family: var(--mono); font-size: var(--fs-12); color: #ffcf40; }
+.tv-best[hidden] { display: none; }
+.tv-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-3); margin-top: var(--s-4); }
+.tv-btn, .tv-play { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 var(--s-4); border: 2px solid var(--line);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-family: var(--mono); font-size: var(--fs-14); font-weight: 800;
+  text-decoration: none; cursor: pointer; transition: border-color .14s ease, background-color .14s ease, color .14s ease, transform .14s ease; }
+.tv-btn:hover, .tv-btn:focus-visible { border-color: var(--tv-accent); }
+.tv-btn:active, .tv-play:active { transform: translateY(1px); }
+.tv-play { display: block; padding: 0 var(--s-3); line-height: 48px; text-align: center; border-color: var(--tv-accent); background: var(--tv-accent); color: #0b0c0e; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tv-play:hover, .tv-play:focus-visible { filter: brightness(1.1); }
+.tv-hint { margin: var(--s-3) 0 0; font-family: var(--mono); font-size: var(--fs-12); color: var(--text-dim); }
+.tv-guide { display: flex; gap: var(--s-2); margin: var(--s-4) 0 0; padding: 0 0 var(--s-2); list-style: none; overflow-x: auto; scrollbar-width: thin; }
+.tv-guide li { flex: none; }
+.tv-guide button { position: relative; display: block; width: 96px; padding: 0; border: 2px solid var(--line); border-radius: var(--r-sm); overflow: hidden;
+  background: #07080a; cursor: pointer; opacity: .6; transition: opacity .14s ease, border-color .14s ease; }
+.tv-guide button:hover, .tv-guide button:focus-visible { opacity: 1; }
+.tv-guide button[aria-current="true"] { opacity: 1; border-color: var(--tv-accent); }
+.tv-guide img { display: block; width: 100%; aspect-ratio: 8 / 5; object-fit: cover; }
+.tv-guide span { position: absolute; left: 3px; bottom: 3px; padding: 0 4px; border-radius: 3px; background: rgb(7 8 10 / .8);
+  font-family: var(--mono); font-size: 10px; font-weight: 800; color: var(--text); }
+.tv-guide .is-seen::after { content: "✓"; position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 800; color: var(--accent); text-shadow: 0 0 4px #000; }
+.tv-foot { margin-top: var(--s-6); font-size: var(--fs-12); color: var(--text-dim); }
+@media (max-width: 599px) {
+  .tv-title { font-size: var(--fs-20); }
+  .tv-info { min-height: 9em; }
+  .tv-btn { padding: 0 var(--s-3); }
+  .tv-hint .tv-hint-keys { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv.is-flipping .tv-static { animation: none; }
+  .tv-screen, .tv-screen video, .tv-btn, .tv-play, .tv-guide button { transition: none; }
+}
