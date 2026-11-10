@@ -475,7 +475,8 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
   var reel = document.getElementById("desk-reel");
   function busy() {
     var a = document.activeElement;
-    return document.hidden || document.querySelector("dialog[open]") || document.documentElement.classList.contains("cc-bootseq") || (a && a.tagName === "IFRAME");
+    return document.hidden || document.querySelector("dialog[open]") || document.documentElement.classList.contains("cc-bootseq") || (a && a.tagName === "IFRAME") ||
+      (reel && reel.matches(":hover")); // someone is watching the reel's clip
   }
   function arm() { clearTimeout(timer); if (!box) timer = setTimeout(function () { if (busy()) arm(); else start(); }, IDLE); }
   function stop() {
@@ -549,5 +550,8 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
   window.addEventListener("pagehide", function () { clearTimeout(timer); });
   window.addEventListener("pageshow", function (e) { if (e.persisted) { stop(); arm(); } });
   document.addEventListener("cc:saver", function () { clearTimeout(timer); start(); });
+  // a window closing (the game window, search) starts a fresh minute, however it was closed
+  document.addEventListener("close", arm, true);
+  if (reel) reel.addEventListener("cc:release", arm);
   arm();
 })();

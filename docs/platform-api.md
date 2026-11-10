@@ -293,7 +293,7 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 ## Screensaver
 
-After 60 seconds with no mouse, key, touch or scroll on the homepage, `assets/home.js` darkens the screen (`div.saver`) and bounces a game cover around it; the cover swaps to another game at every wall and links to that game with `?ref=saver`. It counts corner hits. A click anywhere else or any key goes back. The start menu's "screensaver" item starts it right away. It never starts while a dialog (the game window, the command bar) is open, while focus is in a frame, during the first-visit boot sequence or in a hidden tab, and it does not exist under reduced motion (the menu item stays hidden). Covers come from `/games/games.json`. Nothing is sent or stored.
+After 60 seconds with no mouse, key, touch or scroll on the homepage, `assets/home.js` darkens the screen (`div.saver`) and bounces a game cover around it; the cover swaps to another game at every wall and links to that game with `?ref=saver`. It counts corner hits. A click anywhere else or any key goes back. The start menu's "screensaver" item starts it right away. It never starts while a dialog (the game window, the command bar) is open, while focus is in a frame, while the pointer rests on the hero reel, during the first-visit boot sequence or in a hidden tab; closing a window starts a fresh minute, and it does not exist under reduced motion (the menu item stays hidden). Covers come from `/games/games.json`. Nothing is sent or stored.
 
 ## Easter egg: the konami code
 
