@@ -830,6 +830,10 @@ if (admin) {
     const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text();
     ok(dk.includes("window.ccTimer") && dk.includes("mins: 10") && dc.includes(".ptimer-done"), "play timer: the countdown, its styles and the commands");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text();
+    ok(dk.includes("the computer misses you") && dk.includes("visibilitychange"), "tab-away title: the tab asks you back while you are on another tab");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
