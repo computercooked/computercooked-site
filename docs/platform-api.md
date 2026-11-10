@@ -283,6 +283,10 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## Instant pages
+
+`assets/deck.js` adds a Speculation Rules block on every page: resting on or pressing a same-site link prefetches that page (prefetch only, so no page script runs early and nothing is counted). `/api/*`, `/admin/*`, `/d/*`, download and new-tab links are left out; add `data-no-prefetch` to a link to opt it out. Skipped in embeds and under Save-Data. Browsers without the API navigate as before.
+
 ## 404 page picks
 
 `404.html` shows three games "the computer found instead" (`assets/lost.js`, `assets/lost.css`): picked at random from `/games/games.json`, games this device hasn't played first (`cc-history`), cover plus the 3 second clip on hover, links tagged `?ref=404`, and a link to `/surf/`. Hidden without JavaScript; the plain links underneath stay.

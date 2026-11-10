@@ -19,7 +19,7 @@
       a.className = "lost-pick"; a.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=404";
       if (g.theme && /^#[0-9a-f]{3,8}$/i.test(g.theme.accent || "")) a.style.setProperty("--pick-accent", g.theme.accent);
       var shot = document.createElement("span"); shot.className = "lost-pick-shot";
-      var im = document.createElement("img"); im.src = g.thumbnail; im.alt = ""; im.width = 320; im.height = 200; im.loading = "lazy";
+      var im = document.createElement("img"); im.src = g.thumbnail; im.alt = ""; im.width = 320; im.height = 200;
       shot.appendChild(im);
       if (g.clip && !still) {
         var v = document.createElement("video");
