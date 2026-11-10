@@ -382,3 +382,17 @@ html.cc-playhere .desk-reel:hover .reel-here, html.cc-playhere .desk-reel:focus-
 .play-win-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .play-win-load { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font: 700 var(--fs-14) var(--mono); color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .play-win[open] { animation: none; } }
+
+/* ---------- the screensaver: a game cover bounces around a dark screen after a minute idle (assets/home.js) ---------- */
+.saver { position: fixed; inset: 0; z-index: 2147483000; overflow: hidden; background: rgb(4 5 4 / .95); cursor: pointer; animation: saver-in .6s ease; outline: 0; }
+@keyframes saver-in { from { opacity: 0; } }
+.saver-tile { --saver-accent: var(--accent); position: absolute; left: 0; top: 0; display: block; width: min(46vw, 240px); border: 2px solid var(--saver-accent); border-radius: 10px; overflow: hidden;
+  background: #0b0c0e; color: var(--text); text-decoration: none; box-shadow: 0 0 34px -6px var(--saver-accent); will-change: transform; }
+.saver-tile img { display: block; width: 100%; aspect-ratio: 8 / 5; object-fit: cover; }
+.saver-tile b { display: block; padding: 6px 10px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--display); font-size: var(--fs-16); }
+.saver-tile span { display: block; padding: 0 10px 8px; font: 800 12px var(--mono); color: var(--saver-accent); }
+.saver-tile:hover, .saver-tile:focus-visible { filter: brightness(1.15); }
+.saver-hint { position: absolute; left: 0; right: 0; bottom: var(--s-4); margin: 0; padding: 0 var(--s-4); text-align: center; font: 700 12px var(--mono); color: var(--text-dim); pointer-events: none; }
+.saver-hint b { color: var(--accent); }
+.saver.is-corner { animation: saver-corner .7s ease; }
+@keyframes saver-corner { 30% { background: rgb(60 70 20 / .95); } }
