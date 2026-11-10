@@ -1215,6 +1215,7 @@
       env.sky = env.sky.map(function (v, i) { return v + dk * add[i]; });
       env.gnd = env.gnd.map(function (v, i) { return v + dk * add[i] * 0.5; });
     }
+    if (SB.Wilds && SB.Wilds.env) SB.Wilds.env(env, povAdj); // a night in a body is properly dark (wilds.js)
     if (R.hd) SB.HD.env(env); // hd look: warmer sun, cooler shadows
     else if (R.voxel) SB.Vox.env(env); // voxel look: golden hour
     if (SB.Threats && SB.Threats.env) SB.Threats.env(env); // disasters tint the sky

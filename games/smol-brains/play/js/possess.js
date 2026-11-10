@@ -172,6 +172,7 @@
     S.lastHun = ch.hunger;
     if (S.hungerClock && ch.health < 0.25) ch.health = 0.25; // the first-possession hunger stings, but like the grump it never takes the last quarter
     scoutTick(dt);
+    if (SB.Wilds && S) SB.Wilds.tick(game, c, S, dt);
     if ((S.cueT = (S.cueT || 0) - dt) <= 0) {
       S.cueT = 0.5;
       SB.World.creaturesNear(game.world, game, c.x, c.z, P.CUE_AT, function (o) { if (o.species === "grump" && o.alive && !o.goingHome && (!o._cueAt || game.time - o._cueAt > 12)) { o._cueAt = game.time; audio("grump", 0.8); if (!o.scout) say("👹 a grump, close by!"); } });
@@ -584,6 +585,7 @@
   P.asleepTick = function (c, dt, game) {
     if (!S || S.c !== c || S.dead) return;
     if (SB.Body) SB.Body.tick(game, c, S, dt, say);
+    if (SB.Wilds) SB.Wilds.tick(game, c, S, dt);
     if (S.firstNight || S.nightChase || !game.world.night) return;
     var near = false;
     SB.World.creaturesNear(game.world, game, c.x, c.z, P.SLEEP_WAKE, function (o) { if (o.species === "grump" && o.alive) near = true; });
@@ -812,7 +814,7 @@
   P.START_HUNGER = 0.68; P.HUNGER_POV = 1 / 300; P.MEAL = 0.25; // a full bar lasts 5 min possessed (K-0052: 3 min drained too fast); a berry or a nibble is a quarter of it
   P.SHOVE_YAW = 0.45; P.SHOVE_PITCH = 0.22;
   P.NIGHT1_HUNGER = 0.6; // K-0051: the first night's chase drains food 40% slower
-  P.hungerRate = function () { return P.HUNGER_POV * (S && S.firstNight ? P.NIGHT1_HUNGER : 1) * (S && SB.Body ? SB.Body.hungerMul(S.c, S.game) : 1); };
+  P.hungerRate = function () { return P.HUNGER_POV * (S && S.firstNight ? P.NIGHT1_HUNGER : 1) * (S && SB.Body ? SB.Body.hungerMul(S.c, S.game) : 1) * (S && SB.Wilds ? SB.Wilds.needMul(S.game) : 1); };
   P.KO_COOLDOWN = 30; P.FADE_IN = 2; P.CUE_AT = 10;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
@@ -908,6 +910,7 @@
     c.chem.health = 0.2; c.chem.pain = 0;
     if (c.inv && c.inv.s) { c.inv.s.forEach(function (sl) { if (sl && sl.k !== "plans") { items.push({ k: sl.k, n: sl.n }); Sv().spawn(game, sl.k, sl.n, c.x + (Math.random() - 0.5) * 0.8, c.z + (Math.random() - 0.5) * 0.8, { w: sl.w }); } }); c.inv.s = c.inv.s.filter(function (sl) { return sl && sl.k === "plans"; }); }
     if (S.scout != null) endScout(null);
+    if (SB.Wilds && SB.Wilds.respawn(game, c, cause, items)) return true; // you wake at your bed
     P.cooldownUntil = Date.now() / 1000 + P.KO_COOLDOWN;
     SB.bus.emit("knockout", { c: c, cause: cause, items: items });
     P.leave("ko");

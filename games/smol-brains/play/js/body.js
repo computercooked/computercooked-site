@@ -123,7 +123,7 @@
 
     // thirst
     if (!lesson) {
-      var rate = B.THIRST * (S.running ? 1.5 : 1) * ((ch.hot || 0) > 0.3 ? 1.5 : 1) * (c.asleep ? 0.3 : 1);
+      var rate = B.THIRST * (S.running ? 1.5 : 1) * ((ch.hot || 0) > 0.3 ? 1.5 : 1) * (c.asleep ? 0.3 : 1) * (SB.Wilds ? SB.Wilds.needMul(game) : 1);
       b.thirst = Math.min(1, b.thirst + dt * rate);
       if (b.thirst > 0.72 && !S.thirstWarned) { S.thirstWarned = true; say("💧 thirsty. look at water and right click to drink"); }
       if (b.thirst < 0.5) S.thirstWarned = false;

@@ -239,6 +239,11 @@
     sharpstone: { noun: "stone", label: "sharp stone", emoji: "🗡", r: 0.13, color: 0x8a8694, mat: 1, desc: "a rock knocked against another rock until it has an edge." },
     primtool: { noun: "tool", label: "rock-on-a-stick", emoji: "⚒", r: 0.15, color: 0x8a6a48, tool: "whack", desc: "a rock tied to a stick with a vine. chops, chips and bonks, badly. your first tool." },
     stonepick: { noun: "tool", label: "stone pick", emoji: "⛏", r: 0.15, color: 0x8a8694, tool: "mine", desc: "two sharp stones on a handle. breaks rocks fast and digs copper ore out of a vein." },
+    ironore: { noun: "material", label: "iron ore", emoji: "🪨", r: 0.13, color: 0x5a4a4a, mat: 1, desc: "dark, heavy rock from the heart of an ore vein. smelt it with a log in a lit kiln." },
+    iron: { noun: "material", label: "iron", emoji: "🔩", r: 0.12, color: 0xa9adb8, mat: 1, desc: "grey and hard. makes the best tools on the island." },
+    ironaxe: { noun: "tool", label: "iron axe", emoji: "🪓", r: 0.15, color: 0xa9adb8, tool: "chop", desc: "fells a tree in a few swings and lasts for ages." },
+    ironpick: { noun: "tool", label: "iron pick", emoji: "⛏", r: 0.15, color: 0xa9adb8, tool: "mine", desc: "breaks any rock fast, crystal included." },
+    sword: { noun: "tool", label: "iron sword", emoji: "🗡", r: 0.15, color: 0xc9cdd8, tool: "whack", desc: "nothing on the island hits harder. grumps and prowlers think twice." },
     sapling: { noun: "crop", label: "sapling", emoji: "🌱", r: 0.12, color: 0x6fbf4a, mat: 1, desc: "a baby tree from a felled one. plant it and it grows." }
   };
 

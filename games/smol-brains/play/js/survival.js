@@ -70,7 +70,11 @@
     spear: { wood: 0, stone: 0, ore: 0, dmg: 1, uses: 150 },
     blade: { wood: 0.5, stone: 0, ore: 0, dmg: 0.5, uses: 120 },
     pokestick: { wood: 0, stone: 0, ore: 0, dmg: 0.25, uses: 100 },
-    torch: { wood: 0, stone: 0, ore: 0, dmg: 0.5, uses: 60 }
+    torch: { wood: 0, stone: 0, ore: 0, dmg: 0.5, uses: 60 },
+    // the iron tier (4.19): past copper
+    ironaxe: { wood: 7, stone: 0.5, ore: 0, dmg: 1.25, uses: 700 },
+    ironpick: { wood: 0.5, stone: 4, ore: 2.5, dmg: 1, uses: 700 },
+    sword: { wood: 0.3, stone: 0, ore: 0, dmg: 2, uses: 500 }
   };
   S.uses = function (kind) { return (S.TOOL[kind] && S.TOOL[kind].uses) || 100; };
   S.power = function (kind) { return S.TOOL[kind] || S.TOOL.paws; };
@@ -244,7 +248,7 @@
   };
   // leaving: the body goes back to its brain. its best tool goes on its belt (so the AI uses it), the rest
   // stays in the pack; S.tick lets the smol eat from it and bring materials to the tribe's building sites
-  var TOOL_RANK = { axe: 9, stoneaxe: 8, spear: 7, club: 6, stonepick: 5, blade: 5, hammer: 4, pokestick: 3, rod: 3, primtool: 2, torch: 1, cloak: 6, lens: 6, basket: 0, pot: 2 };
+  var TOOL_RANK = { sword: 12, ironaxe: 11, ironpick: 10, axe: 9, stoneaxe: 8, spear: 7, club: 6, stonepick: 5, blade: 5, hammer: 4, pokestick: 3, rod: 3, primtool: 2, torch: 1, cloak: 6, lens: 6, basket: 0, pot: 2 };
   S.release = function (c, game) {
     if (c.tier < 2 || !c.inv) return null;
     var v = S.inv(c), best = -1, bv = -1;
@@ -286,15 +290,25 @@
   /* ---------------- recipes ---------------- */
 
   // vague words for what's missing, so a close recipe reads as a riddle, not a shopping list
-  var VAGUE = { vine: "something bendy", stone: "something hard", stick: "something long and straight", leaves: "something dry and leafy", sharpstone: "something sharp", fiber: "something stringy", flint: "a sharp kind of rock", blade: "a blade", hammer: "a hammerstone", clay: "something squishy", fur: "something soft", metal: "something shiny", crystal: "something glowing" };
+  var VAGUE = { vine: "something bendy", stone: "something hard", stick: "something long and straight", leaves: "something dry and leafy", sharpstone: "something sharp", fiber: "something stringy", flint: "a sharp kind of rock", blade: "a blade", hammer: "a hammerstone", clay: "something squishy", fur: "something soft", metal: "something shiny", crystal: "something glowing", ironore: "a darker, heavier ore", iron: "grey metal", log: "a chunk of tree" };
   // the fire drill isn't an item: two sticks spun on dry leaves teach fire itself
   S.FIREDRILL = { id: "firedrill", name: "fire drill", icon: "🔥", in: { stick: 2, leaves: 1 }, teaches: "fire", hint: "spin a stick on another stick… on something dry" };
+  // the iron tier (4.19): recipes that aren't ideas of their own. anyone who knows smelting can work them out
+  S.EXTRA = [
+    { id: "iron", name: "iron", icon: "🔩", in: { ironore: 1, log: 1 }, at: "kiln", out: "iron", idea: "smelt", hint: "dark ore and a log, in a lit kiln" },
+    { id: "ironaxe", name: "iron axe", icon: "🪓", in: { iron: 1, stick: 1 }, out: "ironaxe", idea: "smelt", hint: "iron and a stick" },
+    { id: "ironpick", name: "iron pick", icon: "⛏", in: { iron: 1, stick: 1, vine: 1 }, out: "ironpick", idea: "smelt", hint: "iron, a stick and something bendy" },
+    { id: "sword", name: "iron sword", icon: "🗡", in: { iron: 2, stick: 1 }, out: "sword", idea: "smelt", hint: "two iron and a stick" }
+  ];
+  var EX = {}; S.EXTRA.forEach(function (r) { EX[r.id] = r; });
+  function ideaOf(id) { return id === "firedrill" ? "fire" : EX[id] ? EX[id].idea : id; }
   function recipeOf(d) { return d.id === "firedrill" ? S.FIREDRILL : { id: d.id, name: d.name, icon: d.icon, in: d.make.in, tool: d.make.tool, at: d.make.at, out: d.make.out, d: d }; }
   // every recipe a pair of paws could ever make (the ideas web's crafts, tier 2 and up, plus the fire drill)
   S.allRecipes = function () {
     var out = [];
     I().LIST.forEach(function (d) { if (d.kind === "craft" && d.make && d.tier <= 6) out.push(recipeOf(d)); });
     out.push(S.FIREDRILL);
+    S.EXTRA.forEach(function (r) { out.push(r); });
     return out;
   };
   function haveFor(c, rc) {
@@ -306,8 +320,8 @@
   S.nearFire = function (c, game, r) { return !!SB.World.nearestFire(game.world, c.x, c.z, r || 3.2); };
   S.nearKiln = function (c, game) { return SB.World.structsNear(game.world, c.x, c.z, 3.6, function (s) { return s.kind === "kiln" && s.done && s.data.lit; }).length > 0; };
   function stationOk(c, game, rc) { return !rc.at || (rc.at === "fire" ? S.nearFire(c, game) || S.has(c, "torch") : rc.at === "kiln" ? S.nearKiln(c, game) : true); }
-  function canHoldIdea(c, id) { return id === "firedrill" ? I().canHold(c, "fire") : I().canHold(c, id); }
-  function knowsIdea(c, id) { return id === "firedrill" ? I().known(c, "fire") : I().known(c, id); }
+  function canHoldIdea(c, id) { return I().canHold(c, ideaOf(id)); }
+  function knowsIdea(c, id) { return I().known(c, ideaOf(id)); }
   // what the crafting panel lists: known recipes (with have / lack), and "???" riddles for ones you're close to
   S.recipes = function (c, game) {
     var out = [];
@@ -349,7 +363,7 @@
   // make something (by recipe id), or try a combination (kinds from the crafting grid).
   // returns {ok, out, idea, learned, msg}
   S.craft = function (c, game, id) {
-    var rc = id === "firedrill" ? S.FIREDRILL : I().BY_ID[id] && I().BY_ID[id].make ? recipeOf(I().BY_ID[id]) : null;
+    var rc = id === "firedrill" ? S.FIREDRILL : EX[id] ? EX[id] : I().BY_ID[id] && I().BY_ID[id].make ? recipeOf(I().BY_ID[id]) : null;
     if (!rc) return { ok: false, msg: "that's not a recipe" };
     return make(c, game, rc);
   };
@@ -363,7 +377,7 @@
     if (c.tier < 2) return { ok: false, msg: "you need hands to make things" };
     var known = knowsIdea(c, rc.id);
     if (!known && !canHoldIdea(c, rc.id)) {
-      var d0 = rc.d || I().BY_ID[rc.teaches];
+      var d0 = rc.d || I().BY_ID[rc.teaches || rc.idea];
       return { ok: false, msg: "your brain can't quite see how… (" + (d0 ? SB.TIERS[d0.tier].name + "s" : "a bigger brain") + " might)" };
     }
     var h = haveFor(c, rc);
@@ -372,7 +386,7 @@
     // the ingredients go (the tool stays); the fire drill burns one stick and the leaves
     var used = [];
     for (var k in rc.in) used = used.concat(S.take(c, k, rc.id === "firedrill" && k === "stick" ? 1 : rc.in[k]));
-    var res = { ok: true, idea: rc.id === "firedrill" ? "fire" : rc.id, used: used, learned: false };
+    var res = { ok: true, idea: ideaOf(rc.id), used: used, learned: false };
     if (!known) {
       // a eureka in your own paws: the idea goes into this smol's head (a first for the island, or not)
       var iid = res.idea;
@@ -490,10 +504,12 @@
       if (tk === "paws") { SB.Chem.apply(c.chem, { pain: 0.025 }); res.msg = "ow. it chips… slowly. a tool would help"; }
       while (n.hp <= 0 && n.left > 0) {
         n.hp += rk.hp; n.left--;
-        drop(game, c, n, rk.item, 1); res.gave.push(rk.item);
+        // the heart of a vein is iron, for a smol you're inside who digs it out with a pick (4.19)
+        var it = rk.item === "ore" && n.left === 0 && c._pov && tk !== "hammer" && tk !== "paws" ? "ironore" : rk.item;
+        drop(game, c, n, it, 1); res.gave.push(it);
         SB.World.markNode(w, n);
       }
-      if (res.gave.length) res.msg = "a " + K[rk.item].label + " broke off!";
+      if (res.gave.length) res.msg = res.gave[res.gave.length - 1] === "ironore" ? "the heart of the vein: iron ore!" : "a " + K[rk.item].label + " broke off!";
       else if (!res.msg) res.msg = rk.ore ? "tink" : "tok";
       if (n.left <= 0) { n.state = "gone"; n.regrowT = 1500; n.hp = null; SB.World.markNode(w, n); res.gone = true; res.msg = "the " + NK[n.kind].label + " crumbled away"; emit("rockGone", { c: c, node: n }); }
       return res;
