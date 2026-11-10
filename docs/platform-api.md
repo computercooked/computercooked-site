@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## New-best confetti
+
+When an accepted run beats the player's previous best (the same moment the dare box says "new best"), `games/platform.js` drops a short burst of pixel confetti over the page (`div.cc-confetti`, styled in `games/games.css`). It is a see-through layer (`pointer-events: none`) that removes itself after a few seconds, is placed inside a fullscreen game so it still shows, and is skipped under reduced motion. A first-ever run does not count as a new best. Games need to do nothing.
+
 ## Old tv mode
 
 "old tv mode" in the command bar lays scanlines and dark corners over the running game, like a tube telly. It is only a see-through layer above the game frame (`html.is-crt .player-stage::before` in `games/games.css`, `pointer-events: none`): the game is not touched and needs to do nothing. `assets/deck.js` owns it: `window.ccCrt.toggle()` returns the new state. The choice is kept on the device in localStorage `cc-crt` and carries from game to game. Snap pictures do not include the layer. Nothing is sent.

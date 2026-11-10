@@ -425,11 +425,27 @@
   // A run with no accepted score (games without a board, or a run that didn't count) gets the same box as
   // "share this game": the card without a score, and a plain link to the game (no dare). Those sends are
   // counted by POST /api/share (admin metrics game_shares).
+  // A new personal best gets a burst of pixel confetti over the page (styled in games.css, .cc-confetti). It is a
+  // see-through layer that removes itself; skipped for people who asked for reduced motion.
+  function confetti() {
+    if (document.querySelector(".cc-confetti") || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+    var layer = document.createElement("div"), cols = ["var(--accent)", "#b9ff3c", "#ff6b5e", "#ffd23c", "#7ad7ff", "#f4efe2"], h = "";
+    layer.className = "cc-confetti"; layer.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < 60; i++) {
+      var size = 6 + Math.floor(Math.random() * 3) * 2;
+      h += '<i style="left:' + (Math.random() * 100).toFixed(1) + "%;width:" + size + "px;height:" + size + "px;background:" + cols[i % cols.length] +
+        ";animation-delay:" + (Math.random() * 0.5).toFixed(2) + "s;animation-duration:" + (1.6 + Math.random() * 1.2).toFixed(2) + "s;--dx:" + Math.round(Math.random() * 160 - 80) + 'px"></i>';
+    }
+    layer.innerHTML = h;
+    (document.fullscreenElement || document.body).appendChild(layer);
+    setTimeout(function () { layer.remove(); }, 3600);
+  }
   function dareButton(e) {
     var r = e.detail && e.detail.result;
     var scored = !!(r && r.accepted && e.detail.playId);
     if (!scored && !info) return;
     var best = scored && r.prev_best != null && e.detail.score > r.prev_best;
+    if (best) confetti();
     var box = document.getElementById("cc-dare");
     if (!box) { box = document.createElement("div"); box.id = "cc-dare"; (document.getElementById("cc-next") || board).insertAdjacentElement("beforebegin", box); }
     box.className = "cc-levelup cc-dare-box" + (best ? " is-best" : "");
