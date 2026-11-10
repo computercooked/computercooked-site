@@ -287,6 +287,10 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 
 The welcome window on the homepage has a little screen (`a#desk-reel`) showing a game. In the HTML it is a plain link to the game of the week with its cover (`src/pages.js` fills it in; link tag `?ref=reel`). About a second after load `assets/home.js` plays that game's clip, then flips to another game every 4.5 seconds, updating the link, title and pitch. It loads at most 4 clips on phones and 6 on bigger screens and loops those. It waits while hovered or focused, off screen, or in a hidden tab. Under reduced motion or data saver it stays a still link.
 
+## Play it here (the homepage game window)
+
+On screens at least 900 px wide and 560 px tall, clicking the hero reel opens that game in a window on the homepage (`dialog#play-win`, `assets/home.js`) instead of leaving the page. The window frames `/games/:slug/window/`: the embed player without the credit link, sent with `frame-ancestors 'self'` so only our own pages can frame it. Because its path is not `/embed/`, `cc-sdk.js` counts those plays under the visit's own ref, not "embed". "full page" links to the game page with `?ref=reel`. The x, Esc or a click outside closes the window and removes the frame, so the game stops. Phones, small windows, modified clicks and browsers without `<dialog>` keep the plain link.
+
 ## Easter egg: the konami code
 
 Typing up up down down left right left right b a on any page with `assets/deck.js` opens a fake blue crash screen ("your computer is cooked") with a link to channel surf and a button back. It is a modal `<dialog class="cooked">`, so esc closes it. Ignored while typing in a field and while a game is running. The command bar answers `konami` and `cheats` with a hint. It is left out of the `?` list on purpose.

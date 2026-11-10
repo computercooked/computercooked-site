@@ -64,6 +64,9 @@ export default {
     // the embed player other sites can iframe
     const em = /^\/games\/([a-z0-9-]+)\/embed\/?$/.exec(url.pathname);
     if (em) return embedPage(env, url, em[1]);
+    // the same bare player for the homepage's "play it here" window (only our own pages may frame it)
+    const wn = /^\/games\/([a-z0-9-]+)\/window\/?$/.exec(url.pathname);
+    if (wn) return embedPage(env, url, wn[1], true);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
       return await api(req, env, url);

@@ -414,8 +414,48 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
       var hold = function (on) { return function () { held = on; arm(); }; };
       reel.addEventListener("pointerenter", hold(true)); reel.addEventListener("pointerleave", hold(false));
       reel.addEventListener("focus", hold(true)); reel.addEventListener("blur", hold(false));
+      reel.addEventListener("cc:hold", function () { held = true; clip.pause(); arm(); });
+      reel.addEventListener("cc:release", function () { held = false; sync(); });
     }).catch(function () { /* the plain link stays */ });
   }
   if (document.readyState === "complete") setTimeout(start, 900);
   else window.addEventListener("load", function () { setTimeout(start, 900); });
+})();
+
+/* "play it here": on a big screen, clicking the hero reel opens that game in a window on this desktop instead of
+   leaving the page (the bare player at /games/<slug>/window/, framed). "full page" goes to the game's own page;
+   the x, Esc or a click outside closes it and the game stops. Phones, small windows, modified clicks and browsers
+   without <dialog> keep the plain link. Nothing is sent or stored here; the player counts the play as usual. */
+(function () {
+  "use strict";
+  var reel = document.getElementById("desk-reel"), win = document.getElementById("play-win"), stage = document.getElementById("play-win-stage");
+  if (!reel || !win || !stage || !win.showModal) return;
+  var big = function () { return innerWidth >= 900 && innerHeight >= 560; };
+  var title = document.getElementById("play-win-title"), full = document.getElementById("play-win-full"), frame = null;
+  var mark = function () { document.documentElement.classList.toggle("cc-playhere", big()); };
+  mark(); window.addEventListener("resize", mark);
+  function shut() {
+    if (frame) { frame.remove(); frame = null; }
+    reel.dispatchEvent(new Event("cc:release"));
+  }
+  reel.addEventListener("click", function (e) {
+    if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !big()) return;
+    var slug = (/\/games\/([a-z0-9-]+)\//.exec(reel.getAttribute("href") || "") || [])[1];
+    if (!slug) return;
+    e.preventDefault();
+    var name = (document.getElementById("reel-title") || {}).textContent || slug;
+    title.textContent = "C:\\COOKED\\" + name + ".exe";
+    full.href = "/games/" + slug + "/?ref=reel";
+    frame = document.createElement("iframe");
+    frame.title = name; frame.allow = "fullscreen; autoplay"; frame.src = "/games/" + slug + "/window/";
+    stage.appendChild(frame);
+    reel.dispatchEvent(new Event("cc:hold"));
+    win.showModal();
+    frame.focus();
+  });
+  var bye = function () { if (win.open) win.close(); shut(); };
+  document.getElementById("play-win-x").addEventListener("click", bye);
+  win.addEventListener("click", function (e) { if (e.target === win) bye(); }); // the backdrop
+  win.addEventListener("cancel", function (e) { e.preventDefault(); bye(); }); // Esc
+  win.addEventListener("close", shut);
 })();

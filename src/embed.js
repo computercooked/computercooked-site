@@ -31,7 +31,9 @@ const icon = {
 };
 
 // player.js drives this page the same way it drives the full player (it needs every id below)
-function page(g) {
+// own = the homepage's "play it here" window (/games/<slug>/window/): same player, no "more free games" credit.
+// Its path doesn't end in /embed/, so cc-sdk.js counts those plays under the visit's own ref, not "embed".
+function page(g, own) {
   const url = `${SITE}/games/${g.slug}/`;
   return `<!doctype html>
 <html lang="en">
@@ -59,7 +61,7 @@ function page(g) {
       <button class="tool" id="btn-mute" type="button" aria-label="mute" aria-pressed="false">${icon.mute}<span class="tool-text">sound on</span></button>
       <button class="tool" id="btn-share" type="button" aria-label="share link">${icon.share}<span class="tool-text">share</span></button>
       <button class="tool" id="btn-fs" type="button" aria-label="fullscreen" aria-pressed="false">${icon.fs}<span class="tool-text">fullscreen</span></button>
-      <a class="embed-brand" href="${SITE}/games/" target="_blank" rel="noopener">more<span class="embed-brand-long"> free games</span> ▶</a>
+      ${own ? "" : `<a class="embed-brand" href="${SITE}/games/" target="_blank" rel="noopener">more<span class="embed-brand-long"> free games</span> ▶</a>`}
     </div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -69,19 +71,19 @@ function page(g) {
 </html>`;
 }
 
-export async function embedPage(env, url, slug) {
+export async function embedPage(env, url, slug, own) {
   let g = null;
   try {
     const list = await (await env.ASSETS.fetch(new Request(url.origin + "/games/games.json"))).json();
     g = (list.games || []).find((x) => x.slug === slug);
   } catch (e) { /* treated as unknown */ }
   if (!embeddable(g)) return new Response("no such game to embed", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
-  return new Response(page(g), {
+  return new Response(page(g, own), {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "public, max-age=300",
       // the one page any site may frame (the rest of the site sends X-Frame-Options: DENY via _headers)
-      "content-security-policy": "frame-ancestors *",
+      "content-security-policy": own ? "frame-ancestors 'self'" : "frame-ancestors *",
       "x-content-type-options": "nosniff",
       "referrer-policy": "strict-origin-when-cross-origin",
     },

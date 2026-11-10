@@ -68,7 +68,7 @@
                then flips through a few more clips (not under reduced motion or data saver). src/pages.js fills in the game. -->
           <a class="desk-reel" id="desk-reel" href="/games/crash/?ref=reel">
             <span class="reel-screen"><img id="reel-cover" src="/games/crash/cover.png" alt="" width="320" height="200" decoding="async" fetchpriority="low"><video id="reel-clip" muted loop playsinline preload="none" aria-hidden="true"></video><i class="reel-bar" aria-hidden="true"></i></span>
-            <span class="reel-cap"><span class="reel-tag">now showing</span><b class="reel-title" id="reel-title">crash</b><span class="reel-pitch" id="reel-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span>
+            <span class="reel-cap"><span class="reel-tag">now showing</span><span class="reel-here" aria-hidden="true">click to play here</span><b class="reel-title" id="reel-title">crash</b><span class="reel-pitch" id="reel-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span>
           </a>
           <p class="desk-ctas"><a class="play-btn" id="home-play" href="/games/crash/?ref=landing">play crash ▶</a><a class="ghost-btn" href="/games/" data-games-count>all 16 games</a></p>
           <!-- K-0066: returning players only (html.cc-desk), a nudge down to "your desk" -->
@@ -93,6 +93,12 @@
           <button type="button" class="desk-icon desk-dice" id="desk-dice" hidden><span class="ico" aria-hidden="true"><b>?</b></span><span class="lbl">surprise me.exe</span></button>
         </div>
       </nav>
+
+      <!-- "play it here": clicking the reel on a big screen opens the game in a window on this desktop (assets/home.js) -->
+      <dialog class="play-win" id="play-win" aria-labelledby="play-win-title">
+        <div class="win-bar"><span class="win-title" id="play-win-title">C:\COOKED\game.exe</span><span class="play-win-tools"><a class="play-win-full" id="play-win-full" href="/games/">full page ↗</a><button type="button" class="play-win-x" id="play-win-x" aria-label="close the game">✕</button></span></div>
+        <div class="play-win-stage" id="play-win-stage"><p class="play-win-load" aria-hidden="true">C:\COOKED&gt; loading<b class="caret">_</b></p></div>
+      </dialog>
 
       <div class="desk-menu" id="desk-menu" hidden>
         <p class="menu-side" aria-hidden="true">cooked<b>98</b></p>

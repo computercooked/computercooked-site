@@ -275,6 +275,9 @@ ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/
   "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2");
 r = await get("/games/crash/crash.js");
 ok(r.status === 404, "the old inline CRASH script is gone", r.status);
+r = await get("/games/crash/window/");
+page = await r.text();
+ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors 'self'" && page.includes('src="/games/crash/play/"') && !page.includes("embed-brand"), "play-it-here window player: only our pages may frame it, no credit link", r.status);
 r = await get("/games/nope-not-a-game/embed/");
 ok(r.status === 404, "unknown games have no embed", r.status);
 r = await (await post("/api/events", { anon: "smokee" + rid(), ref: "embed", events: [{ t: "start", id: rid(), game: "fathom", v: "1" }] })).json();
@@ -768,6 +771,7 @@ if (admin) {
 // K-0031 phase two pages: the homepage, /lab and /log are filled on the server from their JSON files
 {
   const home = await (await get("/")).text();
+  ok(home.includes('id="play-win"') && home.includes('id="play-win-stage"'), "home has the play-it-here window");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/\?vibe=quick&amp;ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('id="home-crown-list"') && home.includes('class="card2') && !home.includes("gary-entry"),
     "homepage: one play button, featured game, lab strip, cooked desktop with dock and start menu, happening now, no gary");
