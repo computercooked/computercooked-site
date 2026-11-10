@@ -462,7 +462,9 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
 /* The hero reel: the little screen in the welcome window. It starts as a link to the game of the week with its cover;
    a moment after the page loads it plays that game's 3 second clip, then flips through a few more games (4 on phones,
    6 on bigger screens, so it never pulls much data), updating the link as it goes. It waits while you hover or focus it,
-   while it is off screen and while the tab is hidden. Not under reduced motion or data saver. Nothing is sent or stored. */
+   while it is off screen and while the tab is hidden. Not under reduced motion or data saver. Nothing is sent or stored.
+   Each clip is downloaded once and kept in memory for the visit, the next one fetched while the current one plays, so
+   after the first pass the reel loops without touching the network. */
 (function () {
   "use strict";
   var reel = document.getElementById("desk-reel"), clip = document.getElementById("reel-clip");
@@ -479,20 +481,30 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
     void reel.offsetWidth; reel.classList.add("is-rolling");
     timer = setTimeout(function () { show(at + 1); }, STEP);
   }
+  function ready(g) { // the clip as an in-memory url, downloaded once (falls back to the plain file if that fails)
+    return g.got || (g.got = fetch(g.clip).then(function (r) { return r.ok ? r.blob() : Promise.reject(r.status); })
+      .then(function (b) { return URL.createObjectURL(b); }).catch(function () { return g.clip; }));
+  }
+  var turn = 0;
   function show(i) {
-    at = i % list.length;
-    var g = list[at];
+    var n = ++turn, g = list[i % list.length];
+    clearTimeout(timer);
+    ready(g).then(function (src) { if (n === turn) put(i % list.length, g, src); });
+  }
+  function put(i, g, src) {
+    at = i;
     clip.classList.remove("is-on");
-    clip.src = g.clip;
+    clip.src = src;
     if (cover) cover.style.visibility = g.slug === first ? "" : "hidden"; // the cover is the first game's
     reel.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=reel";
     reel.style.setProperty("--reel-accent", (g.theme && /^#[0-9a-f]{3,8}$/i.test(g.theme.accent || "")) ? g.theme.accent : "");
     if (title) title.textContent = g.title;
     if (pitch) pitch.textContent = g.pitch || "";
     play(); arm();
+    if (list.length > 1 && inView && !document.hidden) ready(list[(i + 1) % list.length]); // have the next one waiting
   }
   function sync() {
-    if (at < 0) { if (inView && !document.hidden) show(0); return; }
+    if (at < 0) { if (inView && !document.hidden && !turn) show(0); return; }
     if (inView && !document.hidden) play(); else clip.pause();
     arm();
   }
