@@ -456,6 +456,15 @@
     } catch (e) {}
     watch.observe(grid, { childList: true });
     apply();
+    // a filter link (/games/?vibe=puzzle, from the command bar or a game page) should land on the filtered games,
+    // not on the hero above them. Only when the visitor hasn't scrolled yet.
+    if (vibe !== "all" || q.value) {
+      try {
+        var deck = document.querySelector(".deck"), dr = deck && deck.getBoundingClientRect();
+        var under = dr && dr.top < 10 && getComputedStyle(deck).position === "fixed" ? dr.bottom : 0; // top bar on desktop; phones dock it at the bottom
+        if (window.scrollY < 40) window.scrollTo(0, Math.max(0, section.getBoundingClientRect().top + window.scrollY - under - 12));
+      } catch (e) {}
+    }
   }
 
   /* ---------- live previews: hover a card (desktop) and the game's attract screen plays in it ----------

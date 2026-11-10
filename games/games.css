@@ -766,6 +766,36 @@
   color: var(--paper-dim);
 }
 
+/* "more like this" under the how-to: the game's vibes, linking to the hub with that filter on (src/seo.js) */
+.about-card .how-vibes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+  font-size: var(--fs-14);
+  color: var(--paper-dim);
+}
+
+.vibe-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--s-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--paper);
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.vibe-link:hover,
+.vibe-link:focus-visible {
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
 .about-card kbd {
   font-family: var(--mono);
   font-weight: 800;
