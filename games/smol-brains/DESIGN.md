@@ -674,6 +674,23 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.64 What v4.18.0 added: a body worth keeping alive (owner: "make the survival aspect really thorough… lots of fun features")
+
+First batch of the survival pass, plus the first thing taken from NeuraQuarium (a neural-net fish tank on itch.io whose players loved watching populations and brains change over time).
+
+- **A body (`body.js`, new, `SB.Body`).** A possessed smol now has more than hunger, warmth and pep. All of it lives on the creature (`c.body`), so it saves and stays with that smol.
+  - **Thirst.** A fifth row on the vitals, a water drop. It drains in about 7 minutes; drinking from any pond, river or the sea fills it. Dry (over 70%) caps your pep, parched caps it hard.
+  - **Wet fur.** Rain with no roof, or wading deeper than your knees, soaks you. Wet fur loses warmth faster. A fire or a roof dries it.
+  - **Wounds.** A grump's hit leaves a bruise (less pep for a while). Every third hit is a cut, which bleeds a little until you bind it with leaves (hold leaves, right click), eat a herb or drink a potion.
+  - **Cosy mornings.** Sleep through a night under a roof and you wake cosy: hunger 25% slower and pep back 50% faster for most of the day. Sleeping in the open gives nothing.
+  - **Status chips** under the vitals say what is wrong (or right) in one word: wet, cut, bruised, sick, cosy.
+- **Nine skills that grow by doing:** chopping, mining, foraging, crafting, cooking, fishing, hunting, fighting and running. Ten levels each, 5% a level. Chopping and mining cost less pep and sometimes spare the tool; foraging is quicker; crafted tools last longer; a cook sometimes gets a second helping; fishing and spear throws land more often; fighting hits harder; running costs less pep. A level-up says what it gave and plays the existing chime. No dice were added to the seeded sim: perks that "sometimes" happen use a counter, not `game.rng`.
+- **The night flies by.** A possessed smol asleep at night now sleeps until dawn and the clock runs at 8x while it does. A grump within 11 tiles wakes you at normal speed. Never during the first night or a night chase.
+- **The paw journal.** A third tab in the bag, "you": how the body is doing with a plain tip for each problem, the nine skill bars, and a running tally (trees felled, rocks broken, meals cooked, fish, hunts, grumps chased off, safe nights, cosy mornings).
+- **Population over time (`days.js` census, `ui.js` drawPop).** Every dawn the island is counted by tier and kept for 120 days. The evolution tab draws it as stacked bands, one colour per tier, so you can watch blobs give way to critters and tool-users. Saved with the quest board.
+- **Not yet (next batches):** a survival-only mode, true darkness and torches, a second night creature, waking at your lean-to after a death, an iron tier, difficulty presets, and from NeuraQuarium brain surgery and parent/child trait comparison.
+- Tests: `body.test.js` (new, 42 checks), `days.test.js` (the census).
+
 ## 0.63 What v4.17.0 added: the whole-game logic pass, and little moments (owner: "find all the weird things… really fun and detailed")
 
 Four audits (controls and possession, the creature sim, story and text, village and world) plus a start-to-finish play. What changed:

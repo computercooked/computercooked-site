@@ -44,11 +44,24 @@
     }
     return { day: t.n, lines: lines, goal: goal, quiet: !lines.length };
   };
+  // the population timeline: every dawn, how many smols of each tier are alive. [day, blobs, critters, ...]
+  D.POP_KEEP = 120;
+  D.census = function (game) {
+    if (!game || !game.quests) return null;
+    var row = [D.day(game)], i;
+    for (i = 0; i < SB.TIERS.length; i++) row.push(0);
+    (game.creatures || []).forEach(function (c) { if (c.alive && c.species === "smol") row[1 + Math.min(SB.TIERS.length - 1, c.tier | 0)]++; });
+    var pop = game.quests.pop = Array.isArray(game.quests.pop) ? game.quests.pop : [];
+    if (pop.length && pop[pop.length - 1][0] === row[0]) pop[pop.length - 1] = row; else pop.push(row);
+    if (pop.length > D.POP_KEEP) pop.splice(0, pop.length - D.POP_KEEP);
+    return row;
+  };
   // dawn: sum up, then start a fresh tally for the new day
   D.dawn = function (game) {
     if (!game) return null;
     var r = D.recap(game);
     game.quests.day = { n: D.day(game), c: {} };
+    D.census(game);
     if (!game.offlineRunning && !game.headlessQuiet) SB.bus.emit("dayRecap", r);
     return r;
   };

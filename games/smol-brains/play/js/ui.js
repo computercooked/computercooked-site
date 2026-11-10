@@ -1404,6 +1404,37 @@
     body.appendChild(h("div", { class: "sec" }, "the ladder"));
     body.appendChild(ladder);
     body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { openMenu("tree"); } }, "🌿 see the tree of life (" + SB.Species.count(game) + " species)")]));
+    // the population timeline: one band per tier, a column per day
+    var pop = (game.quests && game.quests.pop) || [];
+    body.appendChild(h("div", { class: "sec" }, [h("span", null, "population over time"), h("span", { class: "dim" }, pop.length ? "day " + pop[0][0] + " to " + pop[pop.length - 1][0] : "")]));
+    if (pop.length < 2) body.appendChild(h("p", { class: "note" }, "the island is counted every dawn. come back after a couple of days to see who is taking over."));
+    else {
+      var pcv = h("canvas", { class: "treecv popcv" });
+      body.appendChild(pcv);
+      var seen = SB.TIERS.map(function (t, i) { return pop.some(function (r) { return r[i + 1]; }); });
+      body.appendChild(h("div", { class: "note" }, SB.TIERS.map(function (t, i) { return seen[i] ? h("span", { style: "color:" + t.color + ";margin-right:10px;white-space:nowrap" }, "■ " + t.name) : null; }).filter(Boolean)));
+      requestAnimationFrame(function () { drawPop(pcv, pop); });
+    }
+  }
+  function drawPop(cv, pop) {
+    var w = Math.max(240, cv.clientWidth || 600), hgt = 150, dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = w * dpr; cv.height = hgt * dpr; cv.style.height = hgt + "px";
+    var g = cv.getContext("2d"); g.scale(dpr, dpr);
+    var top = 1;
+    pop.forEach(function (r) { var s = 0; for (var i = 1; i < r.length; i++) s += r[i]; if (s > top) top = s; });
+    var pad = 22, cw = (w - pad - 4) / pop.length, ch = hgt - 18;
+    pop.forEach(function (r, x) {
+      var y = ch;
+      for (var i = 1; i < r.length; i++) {
+        if (!r[i]) continue;
+        var bh = r[i] / top * (ch - 6);
+        g.fillStyle = SB.TIERS[i - 1].color; g.fillRect(pad + x * cw, y - bh, Math.ceil(cw), bh); y -= bh;
+      }
+    });
+    g.fillStyle = "rgba(255,255,255,.7)"; g.font = "10px monospace"; g.textBaseline = "top";
+    g.fillText(String(top), 2, 2); g.fillText("0", 2, ch - 10);
+    g.fillText("day " + pop[0][0], pad, ch + 4);
+    var last = "day " + pop[pop.length - 1][0]; g.fillText(last, w - 4 - g.measureText(last).width, ch + 4);
   }
   // the tree of life gets a whole tab, sized to fit the menu so you can see every branch at once
   function tabTree(body) {

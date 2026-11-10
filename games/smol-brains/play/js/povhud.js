@@ -47,6 +47,7 @@
     food: ["....kkkk.", "...kssssk", "..ksswsSk", "..kssssSk", "..kssSSk.", ".kkkSSk..", "kwkkkk...", "kwwk.....", ".kk......"],
     warm: ["....k....", "...kok...", "..koyok..", "..koyok.k", ".koyyyokk", "koyyyyyok", "koyywyyok", ".koyyyok.", "..kkkkk.."],
     cold: ["....k....", ".k.kbk.k.", "..kbbbk..", ".kbkBkbk.", "kbbBwBbbk", ".kbkBkbk.", "..kbbbk..", ".k.kbk.k.", "....k...."],
+    water: ["....k....", "...kbk...", "...kbk...", "..kbbbk..", ".kbwbbBk.", ".kbwbbBk.", ".kbbbBBk.", "..kBBBk..", "...kkk..."],
     pep: ["....kkkk.", "...kllLk.", "..kllLk..", ".klllLkk.", "kllllllk.", ".kkkllLk.", "...kllk..", "..klLk...", "..kkk...."]
   };
   var vcache = {};
@@ -114,6 +115,10 @@
     "#pov .vrow i{width:clamp(26px,3.8vh,40px);height:clamp(26px,3.8vh,40px);background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
     "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
     "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
+    "#pov .vstat{display:flex;gap:4px;justify-content:flex-end;align-items:center;min-height:16px;font:700 11px/1 var(--mono,monospace);color:#fff;white-space:nowrap}#pov .vstat span{background:rgba(16,17,20,.78);padding:2px 5px;box-shadow:0 0 0 1px var(--px)}#pov .vstat span.bad{color:#ffb3bd}#pov .vstat span.good{color:#c5ff49}",
+    "#pov .you .st{display:flex;gap:8px;align-items:flex-start;margin:0 0 6px;font-size:12px;line-height:1.35}#pov .you .st b{white-space:nowrap}#pov .you .st.bad b{color:#ffb3bd}#pov .you .st.good b{color:#c5ff49}",
+    "#pov .you .sk{display:grid;grid-template-columns:22px 74px 1fr 34px;gap:6px;align-items:center;font-size:12px;margin:3px 0}#pov .you .sk .bar{height:8px;background:rgba(255,255,255,.1);box-shadow:0 0 0 1px var(--px)}#pov .you .sk .bar b{display:block;height:100%;background:var(--lime)}#pov .you .sk em{font-style:normal;text-align:right;opacity:.85}#pov .you .sk.zero{opacity:.55}",
+    "#pov .you .tally{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;opacity:.9}",
     "#pov .vrow.low{filter:drop-shadow(0 0 6px #ff4f5e)}",
     "#pov .vrow.r i.h{transform:scaleX(-1)}",
     "#pov .vrow.low i{animation:povjit .32s steps(2) infinite}#pov .vrow.low i:nth-child(odd){animation-delay:-.16s}",
@@ -269,13 +274,14 @@
     var bot = hud.bottom = root.appendChild(el("div", "bottom"));
     var vit = bot.appendChild(el("div", "vit"));
     hud.rows = {};
-    [["heart", ""], ["food", "r"], ["warm", "small"], ["pep", "r small"]].forEach(function (v) { // hearts and food big, the rest smaller
+    [["heart", ""], ["food", "r"], ["warm", "small"], ["pep", "r small"], ["water", "small"]].forEach(function (v) { // hearts and food big, the rest smaller
       var row = vit.appendChild(el("div", "vrow " + v[1]));
-      row.title = { heart: "health", food: "food", warm: "warmth", pep: "pep (running, swinging)" }[v[0]];
+      row.title = { heart: "health", food: "food", warm: "warmth", pep: "pep (running, swinging)", water: "water (drink from any pond, river or the sea)" }[v[0]];
       for (var i = 0; i < 10; i++) row.appendChild(el("i"));
       if (v[0] === "heart" || v[0] === "food") row.appendChild(el("b", "", "")); // the number, readable at a glance (K-0035)
       hud.rows[v[0]] = { el: row, key: "" };
     });
+    hud.stat = vit.appendChild(el("div", "vstat")); hud.statKey = ""; // body.js: wet, cut, bruised, sick, cosy
     hud.hot = bot.appendChild(el("div", "hot panel"));
     hud.hot.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
     var bagb = root.appendChild(el("button", "leave bagbtn", "bag<kbd>Tab</kbd>"));
@@ -579,8 +585,8 @@
     html += "</div>";
     if (bag.detail >= 0 && v.s[bag.detail]) html += detailHtml(v.s[bag.detail], bag.detail);
     html += "<div class='help'>" + (Sv().cap(c) ? "bags get bigger as the tribe's brains do, and a basket adds 9 slots" : "") + "</div></div>";
-    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button></div>";
-    html += bag.tab === "build" ? buildHtml() : makeHtml();
+    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + "</div>";
+    html += bag.tab === "build" ? buildHtml() : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
     html += "<div style='display:flex;justify-content:flex-end;margin-top:10px'><button class='btn' data-close>close " + (hud.phone ? "" : "(Tab)") + "</button></div></div></div>";
     bag.el.innerHTML = html;
     wireBag();
@@ -644,6 +650,23 @@
       }
     });
     h += "</div>";
+    return h;
+  }
+  // the paw journal: how your body is doing, what it's getting good at, and what it has done
+  function youHtml() {
+    var s = S(), c = s.c, B = SB.Body, b = B.of(c), st = B.status(c, s.game), h = "<div class='you'>";
+    h += "<div class='lbl'>" + esc(c.name) + "'s body</div>";
+    if (!st.length) h += "<div class='st good'><b>🙂 fine</b><span>fed, dry and in one piece. keep it that way: drink, sleep under a roof, cook your food.</span></div>";
+    st.forEach(function (x) { h += "<div class='st " + (x.bad ? "bad" : "good") + "'><b>" + x.e + " " + x.label + "</b><span>" + esc(x.tip) + "</span></div>"; });
+    h += "<div class='sep'></div><div class='lbl'>skills · they grow as you do things, and " + esc(c.name) + " keeps them</div>";
+    B.SKILLS.forEach(function (k) {
+      var lv = B.level(c, k.id), p = B.progress(c, k.id);
+      h += "<div class='sk" + (lv || p ? "" : " zero") + "' title='" + esc(k.perk) + (lv ? " (+" + Math.round(lv * B.STEP * 100) + "%)" : "") + "'><span>" + k.emoji + "</span><span>" + k.label + "</span><span class='bar'><b style='width:" + Math.round(p * 100) + "%'></b></span><em>" + (lv >= B.MAX ? "max" : "lv " + lv) + "</em></div>";
+    });
+    var T = [["felled", "🌳", "trees felled"], ["mined", "🪨", "rocks broken"], ["made", "🛠", "things made"], ["cooked", "🍖", "meals cooked"], ["fish", "🐟", "fish caught"], ["hunted", "🏹", "hunts"], ["grumps", "👹", "grumps chased off"], ["nights", "🌙", "safe nights"], ["cosy", "☀️", "cosy mornings"], ["drinks", "💧", "drinks"]];
+    var tl = T.filter(function (t) { return b.n[t[0]]; }).map(function (t) { return "<span title='" + t[2] + "'>" + t[1] + " " + t[2] + ": " + b.n[t[0]] + "</span>"; });
+    if (tl.length) h += "<div class='sep'></div><div class='lbl'>so far</div><div class='tally'>" + tl.join("") + "</div>";
+    h += "<div class='help'>hover a skill to see what it gives. each level is worth 5%.</div></div>";
     return h;
   }
   function buildHtml() {
@@ -781,6 +804,11 @@
     var cold = ch.cold || 0, hot = ch.hot || 0, warm = 1 - Math.max(cold, hot);
     vrow("warm", warm, cold > 0.35 ? "cold" : "warm", warm < 0.3);
     vrow("pep", s.stam, "pep", s.stam < 0.2);
+    if (SB.Body) {
+      var bd = SB.Body.of(c), sts = SB.Body.status(c, game), sk = sts.map(function (x) { return x.k + x.label; }).join("|");
+      vrow("water", 1 - bd.thirst, "water", bd.thirst > 0.72);
+      if (sk !== hud.statKey) { hud.statKey = sk; hud.stat.innerHTML = sts.filter(function (x) { return x.k !== "thirst"; }).map(function (x) { return "<span class='" + (x.bad ? "bad" : "good") + "' title='" + esc(x.tip) + "'>" + x.e + " " + x.label + "</span>"; }).join(""); }
+    } else hud.rows.water.el.style.display = "none";
     // the screen edge: red when hurt or hunted, blue when freezing
     var g = null, gd = 12;
     game.creatures.forEach(function (o) { if (o.alive && o.species === "grump") { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < gd) { gd = d; g = o; } } });

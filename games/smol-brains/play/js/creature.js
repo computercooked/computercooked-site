@@ -1913,13 +1913,14 @@
 
     if (c.asleep) {
       // at night a rested smol dozes on a while longer (thinkers and up still get up to watch the stars)
-      if ((ch.sleepy < 0.05 && ch.tired < 0.1 && !(game.world.night && c.tier < 5 && !c._pov && !game.rng.chance(dt * 0.012))) || ch.pain > 0.45 || ch.fear > 0.55 || ch.hunger > 0.85) {
+      if ((ch.sleepy < 0.05 && ch.tired < 0.1 && !(c._pov && game.world.night && SB.Body) && !(game.world.night && c.tier < 5 && !c._pov && !game.rng.chance(dt * 0.012))) || ch.pain > 0.45 || ch.fear > 0.55 || ch.hunger > 0.85) {
         c.asleep = false; c.inBed = false;
         if (c.action && c.action.verb === V.sleep) complete(c, game, c.action, null);
         emote(c, "happy", 1);
       } else {
         if (Math.random() < dt * 0.4 && !c.far) emote(c, "zzz", 1.5);
         if (M() && c.species === "smol") M().sleep(c, game, dt); // dreams: the day's experiences replayed
+        if (c._pov && SB.Possess && SB.Possess.asleepTick) SB.Possess.asleepTick(c, dt, game); // body.js: thirst, mending, and the night flying by
         positionHeld(c, game); finishTick(c, game, gy);
         return;
       }
