@@ -47,7 +47,8 @@ jobs:
         timeout-minutes: 8
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw" && npm init -y > /dev/null && npm i --no-save playwright@1.57.0
-          npx playwright install --with-deps chromium
+          # the apt step can hang when the runner's Ubuntu mirror is down; the image already has the libraries Chromium needs
+          timeout 150 npx playwright install --with-deps chromium || npx playwright install chromium
           cd "$GITHUB_WORKSPACE"
           PLAYWRIGHT="$RUNNER_TEMP/pw" PAGE_CHECK_OUT="$OUT/page-check" node scripts/page-check.mjs http://127.0.0.1:8787
       - name: keep screenshots and logs
