@@ -777,6 +777,11 @@ if (admin) {
   const home = await (await get("/")).text();
   ok(home.includes('id="play-win"') && home.includes('id="play-win-stage"'), "home has the play-it-here window");
   ok(home.includes('data-act="wall"') && home.includes("localStorage.getItem('cc-wall')"), "home start menu has change wallpaper, and the saved one is applied before paint");
+  {
+    const tok = await (await get("/assets/tokens.css")).text(), dk = await (await get("/assets/deck.js")).text(), hubPage = await (await get("/games/")).text();
+    ok(home.includes("localStorage.getItem('cc-tint')") && hubPage.includes("localStorage.getItem('cc-tint')") && home.includes('data-act="tint"') && tok.includes('html[data-tint="amber"]') && dk.includes("window.ccTint"),
+      "screen colour: set before paint on home and hub, in the start menu, the tokens and the command bar");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

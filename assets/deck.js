@@ -132,6 +132,7 @@
     { name: "x", hint: "@computercooked", href: "https://x.com/computercooked", ext: true },
     { name: "threads", hint: "@computercooked", href: "https://www.threads.com/@computercooked", ext: true },
     { name: "bluesky", hint: "computercooked.bsky.social", href: "https://bsky.app/profile/computercooked.bsky.social", ext: true },
+    { name: "screen colour", hint: "green, amber, ice or pink. enter flips to the next", tint: true, keys: "theme color colour tint accent skin amber ice pink green dark mode" },
     { name: "keyboard shortcuts", hint: "every key the computer knows (or press ?)", help: true, keys: "hotkeys keys keyboard ?" },
     { name: "help", hint: "list everything", say: "type a page name. tab completes, enter goes, esc leaves. press ? for every shortcut." }
   ];
@@ -240,6 +241,7 @@
     }
     if (c.say) { say.textContent = c.say; return; }
     if (c.help) { dialog.close(); openHelp(); return; }
+    if (c.tint) { say.textContent = "screen colour: " + (window.ccTint ? window.ccTint() : "green") + ". enter for the next one."; return; }
     if (c.random) {
       var pool = GAMES.filter(function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") !== 0; });
       if (!pool.length) { say.textContent = "still loading the games. try again in a sec."; loadGames(); return; }
@@ -457,4 +459,20 @@
     else at = 0;
     if (at === SEQ.length) { at = 0; cook(); }
   });
+})();
+
+/* Screen colour: the site's one accent in four phosphors (green, amber, ice, pink; rules in assets/tokens.css).
+   window.ccTint() steps to the next one and returns its name; a "cc:tint" event on document does the same, and
+   "cc:tinted" (detail: the name) is sent after every change. Kept on this device only (localStorage "cc-tint"). */
+(function () {
+  "use strict";
+  var TINTS = ["", "amber", "ice", "pink"];
+  window.ccTint = function () {
+    var root = document.documentElement, t = TINTS[(TINTS.indexOf(root.dataset.tint || "") + 1) % TINTS.length];
+    if (t) root.dataset.tint = t; else delete root.dataset.tint;
+    try { if (t) localStorage.setItem("cc-tint", t); else localStorage.removeItem("cc-tint"); } catch (e) {}
+    document.dispatchEvent(new CustomEvent("cc:tinted", { detail: t || "green" }));
+    return t || "green";
+  };
+  document.addEventListener("cc:tint", window.ccTint);
 })();

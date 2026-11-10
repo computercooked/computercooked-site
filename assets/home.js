@@ -300,12 +300,14 @@
     else if (act === "off") shutDown();
     else if (act === "saver") document.dispatchEvent(new Event("cc:saver"));
     else if (act === "wall") nextWall();
+    else if (act === "tint") document.dispatchEvent(new Event("cc:tint")); // assets/deck.js flips it and answers with cc:tinted
     else if (act === "fresh") { if (!reduce) { desk.classList.remove("is-fresh"); void desk.offsetWidth; desk.classList.add("is-fresh"); } say("refreshed. i feel exactly the same.", 2600); sfx("fresh"); }
   }
 
   /* ---------- wallpapers: four desktop backgrounds, picked from the start menu or the right-click menu ----------
      The choice is kept on this device only (localStorage "cc-wall"); an inline script in index.html applies it
      before the first paint. */
+  document.addEventListener("cc:tinted", function (e) { say("screen colour: " + e.detail + ".", 2000); sfx("wall"); });
   var WALLS = ["", "sunset", "sea", "hills"], WALL_NAMES = { "": "the usual", sunset: "sunset", sea: "deep sea", hills: "night hills" };
   function nextWall() {
     var root = document.documentElement, w = WALLS[(WALLS.indexOf(root.dataset.wall || "") + 1) % WALLS.length];
@@ -330,6 +332,7 @@
         '<li role="none"><button type="button" role="menuitem" data-act="search"><i aria-hidden="true">/</i>find a game</button></li>' +
         '<li role="none"><a role="menuitem" href="/surf/"><i aria-hidden="true">≋</i>channel surf</a></li>' +
         '<li role="none" class="menu-sep"><button type="button" role="menuitem" data-act="wall"><i aria-hidden="true">▧</i>next wallpaper</button></li>' +
+        '<li role="none"><button type="button" role="menuitem" data-act="tint"><i aria-hidden="true">◐</i>screen colour</button></li>' +
         (saver && !saver.hidden ? '<li role="none"><button type="button" role="menuitem" data-act="saver"><i aria-hidden="true">☾</i>screensaver</button></li>' : "") +
         '<li role="none"><button type="button" role="menuitem" data-act="fresh"><i aria-hidden="true">↻</i>refresh</button></li></ul>';
       desk.appendChild(ctx); sfx("pop");
@@ -340,7 +343,7 @@
     });
     desk.addEventListener("click", function (e) {
       if (!ctx || !ctx.contains(e.target)) return;
-      var b = e.target.closest("[data-act]"), keep = b && b.dataset.act === "wall"; // stays open so you can flip through wallpapers
+      var b = e.target.closest("[data-act]"), keep = b && /^(wall|tint)$/.test(b.dataset.act); // stays open so you can flip through wallpapers
       if (b) run(b.dataset.act);
       if (!keep) shut();
     });
@@ -399,17 +402,20 @@
       if (parts.length > 160) parts.splice(0, parts.length - 160);
       if (!raf && on) raf = requestAnimationFrame(frame);
     }, { passive: true });
+    var PH = "184,242,58"; // the screen colour as r,g,b (the --phosphor token), re-read when it changes
+    function readPh() { var v = getComputedStyle(document.documentElement).getPropertyValue("--phosphor").trim(); if (v) PH = v.replace(/\s+/g, ","); }
+    readPh(); document.addEventListener("cc:tinted", readPh);
     var last = performance.now();
     function frame(t) {
       raf = 0;
       var dt = Math.min(0.05, (t - last) / 1000); last = t;
       c.clearRect(0, 0, W, H);
-      c.fillStyle = "rgba(184,242,58,.18)";
+      c.fillStyle = "rgba(" + PH + ",.18)";
       for (var i = 0; i < dust.length; i++) { var d = dust[i]; d.y -= d.v * dt; if (d.y < -4) { d.y = H + 4; d.x = Math.random() * W; } c.fillRect(Math.round(d.x), Math.round(d.y), d.s, d.s); }
       for (var j = parts.length - 1; j >= 0; j--) {
         var p = parts[j]; p.t += dt; p.y += 18 * dt;
         if (p.t > p.l) { parts.splice(j, 1); continue; }
-        c.fillStyle = "rgba(184,242,58," + (1 - p.t / p.l).toFixed(2) + ")";
+        c.fillStyle = "rgba(" + PH + "," + (1 - p.t / p.l).toFixed(2) + ")";
         c.fillRect(Math.round(p.x / 4) * 4, Math.round(p.y / 4) * 4, p.s, p.s);
       }
       if (on && !document.hidden) raf = requestAnimationFrame(frame);
