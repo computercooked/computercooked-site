@@ -396,3 +396,30 @@ html.cc-playhere .desk-reel:hover .reel-here, html.cc-playhere .desk-reel:focus-
 .saver-hint b { color: var(--accent); }
 .saver.is-corner { animation: saver-corner .7s ease; }
 @keyframes saver-corner { 30% { background: rgb(60 70 20 / .95); } }
+
+/* ---------- wallpapers (html[data-wall], set by assets/home.js) and the desktop right-click menu ---------- */
+html[data-wall="sunset"] .desk { background:
+  radial-gradient(900px 420px at 72% 108%, #ff7a3d 0%, #b8324a 34%, transparent 68%),
+  radial-gradient(900px 500px at 12% 0%, #2a1740 0%, transparent 62%),
+  linear-gradient(#140d1f, #2a1024 62%, #3a1420); }
+html[data-wall="sea"] .desk { background:
+  radial-gradient(1100px 520px at 68% -6%, #14506a 0%, transparent 62%),
+  radial-gradient(800px 480px at 8% 96%, #0f2a4a 0%, transparent 62%),
+  linear-gradient(#071a26, #050d18); }
+html[data-wall="hills"] .desk { background:
+  radial-gradient(64% 62% at 24% 108%, #2c5a1c 0 62%, transparent 62.4%),
+  radial-gradient(84% 72% at 82% 116%, #1f4416 0 62%, transparent 62.4%),
+  radial-gradient(5px 5px at 16% 18%, #fff 40%, transparent 60%), radial-gradient(3px 3px at 38% 9%, #fff 40%, transparent 60%),
+  radial-gradient(4px 4px at 58% 22%, #fff 40%, transparent 60%), radial-gradient(3px 3px at 86% 12%, #fff 40%, transparent 60%),
+  linear-gradient(#0a1230, #14285a 70%, #1c3a6a); }
+html[data-wall="sunset"] .desk::before { background-image: linear-gradient(rgba(255, 160, 90, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 160, 90, .06) 1px, transparent 1px); }
+html[data-wall="sea"] .desk::before { background-image: linear-gradient(rgba(90, 210, 255, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(90, 210, 255, .06) 1px, transparent 1px); }
+html[data-wall="hills"] .desk::before { display: none; }
+html[data-wall="sunset"] .desk-glow { background: radial-gradient(circle, rgba(255, 150, 90, .18), transparent 65%); }
+html[data-wall="sea"] .desk-glow { background: radial-gradient(circle, rgba(90, 210, 255, .16), transparent 65%); }
+html[data-wall="hills"] .desk-glow { background: radial-gradient(circle, rgba(255, 255, 230, .14), transparent 65%); }
+.desk-ctx { left: 0; top: 0; bottom: auto; z-index: 8; width: 214px; border-radius: 8px; animation: desk-ctx-in .12s ease-out; }
+@keyframes desk-ctx-in { from { opacity: 0; transform: translateY(-4px); } }
+.desk.is-fresh > .desk-win, .desk.is-fresh > .desk-pc, .desk.is-fresh > .desk-dock { animation: desk-fresh .32s steps(2, jump-none); }
+@keyframes desk-fresh { 0% { opacity: 0; } 50% { opacity: 1; } 75% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .desk-ctx { animation: none; } }
