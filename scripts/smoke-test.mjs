@@ -783,6 +783,10 @@ if (admin) {
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
   ok(surf.status === 200 && surfHtml.includes('id="tv-guide"') && surfHtml.includes("/assets/surf.js") && home.includes('href="/surf/"'), "/surf/ has the channel surf tv, linked from home", surf.status);
+  // 404 page: the picks the computer "found instead"
+  const lost = await get("/no-such-page-" + Date.now());
+  const lostHtml = await lost.text();
+  ok(lost.status === 404 && lostHtml.includes('id="lost-pick-list"') && lostHtml.includes("/assets/lost.js"), "404 page offers three games to play", lost.status);
   const gr = await fetch(base + "/gary/", { redirect: "manual" });
   ok(gr.status === 301 && new URL(gr.headers.get("location"), base).pathname === "/log/", "/gary/ redirects to /log/", gr.status);
   const sup = await get("/support/");

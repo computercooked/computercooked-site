@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
+  <link rel="stylesheet" href="/assets/lost.css">
 </head>
 <body class="is-404">
   <main class="page">
@@ -26,6 +27,12 @@
     </header>
 
     <p class="see-all"><a class="play-btn" href="/">take me home</a></p>
+
+    <section class="lost-picks" id="lost-picks" aria-labelledby="lost-picks-heading" hidden>
+      <h2 id="lost-picks-heading" class="section-label">the computer found these instead</h2>
+      <ul class="lost-pick-list" id="lost-pick-list"></ul>
+      <p class="lost-surf"><a class="text-link" href="/surf/">none of these? channel surf →</a></p>
+    </section>
 
     <nav class="lost-links" aria-labelledby="lost-heading">
       <h2 id="lost-heading" class="section-label">or lose more time here</h2>
@@ -53,6 +60,7 @@
     </div>
   </nav>
   <script src="/assets/deck.js" defer></script>
+  <script src="/assets/lost.js" defer></script>
   
 </body>
 </html>
