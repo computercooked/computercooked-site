@@ -795,6 +795,11 @@ if (admin) {
     ok(dk.includes("window.ccFeature") && dk.includes('feature: true') && fx.includes("chip-triple") && hubPage.includes("chip-triple") && gc.includes(".feature-bar"),
       "triple feature: the hub chip, the command and the strip on game pages");
   }
+  {
+    const pj = await (await get("/games/player.js")).text(), dk = await (await get("/assets/deck.js")).text(), gc = await (await get("/games/games.css")).text();
+    ok(pj.includes('"cc-time"') && pj.includes('line.className = "play-time"') && dk.includes("time: true") && gc.includes(".about-card p.play-time"),
+      "play time: the per-game clock in the player, its line in the about card and the command");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
