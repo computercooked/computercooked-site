@@ -36,6 +36,17 @@ jobs:
           npx --yes wrangler@4 dev --local --port 8787 > "$OUT/wrangler.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf -m 5 http://127.0.0.1:8787/api/health && break; sleep 2; done
           curl -sf -m 5 http://127.0.0.1:8787/api/health || { tail -40 "$OUT/wrangler.log"; exit 1; }
+      - name: diag
+        timeout-minutes: 12
+        working-directory: ${{ runner.temp }}
+        run: |
+          for i in 1 2 3 4; do
+            npx --yes lighthouse@12.1.0 http://127.0.0.1:8787/ --only-categories=performance --form-factor=mobile --quiet --chrome-flags="--headless=new --no-sandbox" --save-assets --output=json --output-path=./d$i.json || true
+            node -e "const j=require('./d$i.json');console.log('RUN $i score',j.categories.performance.score,'cls',j.audits['cumulative-layout-shift'].numericValue,'tbt',j.audits['total-blocking-time'].numericValue)"
+          done
+          ls
+          node "$GITHUB_WORKSPACE/scripts/diag-trace.mjs" ./d*trace.json
+          exit 1
       - name: API smoke test
         timeout-minutes: 5
         run: node scripts/smoke-test.mjs http://127.0.0.1:8787 "$ADMIN_TOKEN"

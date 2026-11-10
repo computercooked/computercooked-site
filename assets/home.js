@@ -495,6 +495,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
       var games = ((d && d.games) || []).filter(function (g) { return g && g.slug && g.title && g.clip; });
       var head = games.filter(function (g) { return g.slug === first; }), rest = games.filter(function (g) { return g.slug !== first; });
       for (var i = rest.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = rest[i]; rest[i] = rest[j]; rest[j] = t; }
+      rest.sort(function (x, y) { return (y.slug === 'level-devil-exe') - (x.slug === 'level-devil-exe'); });
       list = head.concat(rest).slice(0, MAX);
       if (!list.length) return;
       new IntersectionObserver(function (es) { inView = es[es.length - 1].isIntersecting; sync(); }, { threshold: .5 }).observe(reel);
