@@ -805,6 +805,10 @@ if (admin) {
     ok(dk.includes("window.ccSpin") && dk.includes("spin: true") && dc.includes(".spin-reel") && fx.includes("chip-spin") && hubPage.includes("chip-spin"),
       "daily spin: the reel, its styles, the hub chip and the command");
   }
+  {
+    const pj = await (await get("/games/player.js")).text(), gc = await (await get("/games/games.css")).text();
+    ok(pj.includes('"mini-back"') && pj.includes('"player-ghost"') && gc.includes(".player.is-mini"), "mini player: the game docks in the corner when scrolled past");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

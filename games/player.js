@@ -106,6 +106,47 @@
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
 
+  /* Mini player: scroll down past the game (to the scores, the how-to, more games) and the cabinet shrinks into the
+     bottom right corner, still running, so you can keep an eye on it. Click it to go back up; the x sends it away until
+     you scroll back to the game. Only the styles change (.player.is-mini in games.css), so the game never reloads; a
+     same-height stand-in (.player-ghost) keeps the page from jumping. Wide screens only, and never in fullscreen. */
+  (function () {
+    if (!window.matchMedia) return;
+    var wide = matchMedia("(min-width: 760px)"), ghost = null, sent = false, queued = false, stageH = 0;
+    var stage = player.querySelector(".player-stage");
+    var back = document.createElement("button"); back.type = "button"; back.className = "mini-back"; back.hidden = true;
+    back.innerHTML = '<span>back to the game \u2191</span>';
+    var x = document.createElement("button"); x.type = "button"; x.className = "mini-x"; x.hidden = true; x.textContent = "\u00d7"; x.setAttribute("aria-label", "close the mini player");
+    player.appendChild(back); player.appendChild(x);
+    function dock(on) {
+      if (on === !!ghost) return;
+      if (on) {
+        ghost = document.createElement("div"); ghost.className = "player-ghost"; ghost.style.height = player.offsetHeight + "px";
+        player.parentNode.insertBefore(ghost, player);
+      } else { ghost.remove(); ghost = null; }
+      player.classList.toggle("is-mini", on); back.hidden = x.hidden = !on;
+    }
+    function check() {
+      queued = false;
+      if (!ghost) stageH = stage.offsetHeight;
+      var r = (ghost || player).getBoundingClientRect(), gone = r.top + stageH - 60 < stageH * 0.25; // under a quarter of the screen still shows below the site nav
+      if (!gone) sent = false; // back at the game: the x no longer counts
+      dock(gone && !sent && wide.matches && !document.fullscreenElement && !player.classList.contains("is-pseudo-fs") && !!frame.src);
+    }
+    function soon() { if (!queued) { queued = true; setTimeout(check, 80); } }
+    window.addEventListener("scroll", soon, { passive: true });
+    window.addEventListener("resize", soon);
+    document.addEventListener("fullscreenchange", soon);
+    back.addEventListener("click", function () {
+      if (!ghost) return;
+      var top = ghost.getBoundingClientRect().top + window.pageYOffset - 80;
+      sent = true; dock(false); // stays undocked on the way up; cleared once the game is back in view
+      window.scrollTo({ top: Math.max(0, top), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      frame.focus({ preventScroll: true });
+    });
+    x.addEventListener("click", function () { sent = true; dock(false); });
+  })();
+
   /* Play time: the seconds a run is actually going with the tab showing are added up per game on this device
      (localStorage "cc-time": {slug: seconds}). The about card shows "you've played this for 12 min", a toast marks
      10 minutes, 30 minutes and an hour, and the command bar's "time played" (assets/deck.js) reads the totals.
