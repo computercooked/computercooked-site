@@ -119,6 +119,9 @@
     { name: "boss key", hint: "hide everything behind a boring spreadsheet", boss: true, keys: "hide panic work spreadsheet teacher parent cover disguise excel sheet look busy" },
     { name: "face-off", hint: "this or that, until one game wins", duel: true, keys: "this or that versus vs bracket tournament pick choose favourite favorite would you rather" },
     { name: "daily spin", hint: "one spin a day picks your game", spin: true, keys: "wheel slot machine roulette today lucky game of the day" },
+    { name: "play timer: 10 minutes", hint: "a nudge when time's up", mins: 10, keys: "break alarm limit homework stop remind countdown bedtime ten" },
+    { name: "play timer: 20 minutes", hint: "a nudge when time's up", mins: 20, keys: "break alarm limit homework stop remind countdown bedtime twenty" },
+    { name: "play timer: off", hint: "stop the countdown", mins: 0, keys: "cancel clear alarm countdown" },
     { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
     { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
     { name: "arcade games", hint: "dodge, run, shoot", href: "/games/?vibe=arcade" },
@@ -264,6 +267,7 @@
       }
       return;
     }
+    if (c.mins !== undefined) { dialog.close(); window.ccTimer.set(c.mins); return; }
     if (c.boss) { dialog.close(); window.ccBoss.toggle(); return; }
     if (c.duel) { dialog.close(); window.ccDuel.open(); return; }
     if (c.spin) { dialog.close(); window.ccSpin.open(); return; }
@@ -802,11 +806,12 @@
     cover = document.createElement("div"); cover.className = "boss"; cover.tabIndex = -1; cover.setAttribute("role", "dialog"); cover.setAttribute("aria-label", "boss key cover. press escape to go back");
     var h = '<div class="boss-top"><b>q4_budget_final_v7</b><span>file</span><span>edit</span><span>view</span><span>insert</span><span>data</span><span>help</span></div>' +
       '<div class="boss-fx"><i>fx</i><span>=SUM(C2:F13)</span></div><div class="boss-grid"><table><thead><tr><th></th>';
-    "ABCDEFGHIJKL".split("").forEach(function (c) { h += "<th>" + c + "</th>"; });
+    var COLS = 40, A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; // enough to fill a very wide screen; the grid clips the rest
+    for (var k = 0; k < COLS; k++) h += "<th>" + (k < 26 ? A[k] : A[Math.floor(k / 26) - 1] + A[k % 26]) + "</th>";
     h += "</tr></thead><tbody>";
-    for (var r = 0; r < 40; r++) {
+    for (var r = 0; r < 100; r++) {
       h += "<tr><th>" + (r + 1) + "</th>";
-      for (var c = 0; c < 12; c++) { var v = ROWS[r] && ROWS[r][c] !== undefined ? ROWS[r][c] : ""; h += "<td" + (typeof v === "number" ? ' class="n"' : "") + (r === 0 && v !== "" ? ' class="h"' : "") + ">" + v + "</td>"; }
+      for (var c = 0; c < COLS; c++) { var v = ROWS[r] && ROWS[r][c] !== undefined ? ROWS[r][c] : ""; h += "<td" + (typeof v === "number" ? ' class="n"' : "") + (r === 0 && v !== "" ? ' class="h"' : "") + ">" + v + "</td>"; }
       h += "</tr>";
     }
     h += '</tbody></table></div><div class="boss-foot"><span class="is-on">budget</span><span>headcount</span><span>snacks</span><button type="button" class="boss-back">` or esc: back to it</button></div>';
@@ -846,4 +851,47 @@
     frame.addEventListener("load", hook); hook();
   }
   window.ccBoss = { toggle: toggle };
+})();
+
+/* Play timer: "one more game" with an end. The command bar's "play timer: 10 minutes" (or 20) starts a countdown shown
+   as a small pill in the bottom left corner; it follows you from page to page in this tab (sessionStorage "cc-timer":
+   the end time in ms). When it runs out a note says so, with "5 more" and "ok". Clicking the pill, or "play timer: off",
+   stops it. window.ccTimer.set(minutes). Styled in assets/deck.css (.ptimer). Nothing is sent. */
+(function () {
+  "use strict";
+  var KEY = "cc-timer", pill = null, note = null, tick = 0;
+  function end() { try { return +sessionStorage.getItem(KEY) || 0; } catch (e) { return 0; } }
+  function keep(ms) { try { if (ms) sessionStorage.setItem(KEY, String(ms)); else sessionStorage.removeItem(KEY); } catch (e) {} }
+  function home() { return document.fullscreenElement || document.body; } // a fullscreen game would hide anything outside it
+  function clear() { clearInterval(tick); tick = 0; if (pill) { pill.remove(); pill = null; } }
+  function done() {
+    clear(); keep(0);
+    if (note) note.remove();
+    note = document.createElement("div"); note.className = "ptimer-done"; note.setAttribute("role", "alert");
+    note.innerHTML = '<strong>time\u2019s up.</strong><span>that was the plan. the games will still be here.</span><button type="button" class="ptimer-more">5 more</button><button type="button" class="ptimer-ok">ok</button>';
+    note.querySelector(".ptimer-more").addEventListener("click", function () { set(5); });
+    note.querySelector(".ptimer-ok").addEventListener("click", function () { note.remove(); note = null; });
+    home().appendChild(note);
+  }
+  function draw() {
+    var left = Math.ceil((end() - Date.now()) / 1000);
+    if (left <= 0) { done(); return; }
+    var m = Math.floor(left / 60), s = left % 60, t = m + ":" + (s < 10 ? "0" : "") + s;
+    if (!pill) {
+      pill = document.createElement("button"); pill.type = "button"; pill.className = "ptimer"; pill.title = "play timer. click to stop it";
+      pill.addEventListener("click", function () { set(0); });
+    }
+    if (pill.parentNode !== home()) home().appendChild(pill);
+    pill.textContent = "\u23f1 " + t;
+    pill.setAttribute("aria-label", "play timer: " + (m ? m + " min " : "") + s + " sec left. click to stop it");
+    pill.classList.toggle("is-low", left <= 60);
+  }
+  function run() { clear(); if (!end()) return; draw(); if (end()) tick = setInterval(draw, 1000); }
+  function set(mins) {
+    if (note) { note.remove(); note = null; }
+    keep(mins > 0 ? Date.now() + mins * 60000 : 0);
+    run();
+  }
+  window.ccTimer = { set: set, end: end };
+  run();
 })();

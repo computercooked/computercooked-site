@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Play timer
+
+"One more game" with an end. The command bar's "play timer: 10 minutes" (or 20) starts a countdown shown as a small pill in the bottom left corner (`button.ptimer`, styled in `assets/deck.css`). It follows the player from page to page in the tab: sessionStorage `cc-timer` holds the end time in ms. When it runs out a note (`div.ptimer-done`, `role="alert"`) says so, with "5 more" and "ok". Clicking the pill or "play timer: off" stops it. `assets/deck.js` owns it: `window.ccTimer.set(minutes)` (0 stops). In a fullscreen game the pill and the note are placed inside the fullscreen element so they still show. Nothing is sent.
+
 ## Boss key
 
 The `` ` `` key (or "boss key" in the command bar) covers the whole page with a boring spreadsheet (`div.boss`, styled in `assets/deck.css`), mutes a running game (by pressing the player's own mute button, and un-pressing it after) and renames the tab. `` ` `` or esc brings everything back. `assets/deck.js` owns it: `window.ccBoss.toggle()`. The key is also heard inside a running game: a keydown listener is added to the same-origin game frame, so games should not use the `` ` `` key. It is ignored while typing in a field. Nothing is kept or sent.
