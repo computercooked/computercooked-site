@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Tab-away title
+
+While the tab is in the background its name changes to a short line asking the player back ("the computer misses you"; on a game page sometimes "<game> is still running"), a different one each time. Coming back restores the real title. `assets/deck.js` owns it (a `visibilitychange` listener); it is skipped while the boss key cover is up. Nothing is kept or sent.
+
 ## Play timer
 
 "One more game" with an end. The command bar's "play timer: 10 minutes" (or 20) starts a countdown shown as a small pill in the bottom left corner (`button.ptimer`, styled in `assets/deck.css`). It follows the player from page to page in the tab: sessionStorage `cc-timer` holds the end time in ms. When it runs out a note (`div.ptimer-done`, `role="alert"`) says so, with "5 more" and "ok". Clicking the pill or "play timer: off" stops it. `assets/deck.js` owns it: `window.ccTimer.set(minutes)` (0 stops). In a fullscreen game the pill and the note are placed inside the fullscreen element so they still show. Nothing is sent.

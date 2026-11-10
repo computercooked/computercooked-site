@@ -895,3 +895,21 @@
   window.ccTimer = { set: set, end: end };
   run();
 })();
+
+/* Tab-away title: switch to another tab and this one's name changes to a short line asking you back ("the computer
+   misses you"), a different one each time. Coming back puts the real title back. On a game page the line names the
+   game. Skipped while the boss key cover is up (it has its own boring title). Nothing is kept or sent. */
+(function () {
+  "use strict";
+  var LINES = ["the computer misses you", "still cooking over here", "psst. one more game?", "your high score is getting lonely", "this tab is feeling ignored", "come back. it’s warm in here"];
+  var real = null, n = Math.floor(Math.random() * LINES.length);
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (real !== null || document.documentElement.classList.contains("is-boss")) return;
+      real = document.title;
+      var h = document.getElementById("game-frame") && document.querySelector("h1"), game = h && h.textContent.trim().toLowerCase();
+      n = (n + 1) % LINES.length;
+      document.title = "▸ " + (game && n % 2 ? game + " is still running" : LINES[n]);
+    } else if (real !== null) { document.title = real; real = null; }
+  });
+})();
