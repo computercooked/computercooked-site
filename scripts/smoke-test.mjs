@@ -822,6 +822,10 @@ if (admin) {
     ok(dk.includes("window.ccDuel") && dk.includes("duel: true") && dc.includes(".duel-pair") && fx.includes("chip-duel") && hubPage.includes("chip-duel"),
       "face-off: the bracket, its styles, the hub chip and the command");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text();
+    ok(dk.includes("window.ccBoss") && dk.includes("boss: true") && dc.includes(".boss-grid"), "boss key: the spreadsheet cover, its styles and the command");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

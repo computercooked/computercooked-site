@@ -491,3 +491,24 @@ html.cc-stage body::before {
 .duel [hidden] { display: none; }
 @media (max-width: 480px) { .duel-pair { grid-template-columns: 1fr; } .duel-pick img { aspect-ratio: 16 / 7; } }
 @media (prefers-reduced-motion: reduce) { .duel-win { animation: none; } .duel-pick { transition: none; } .duel-pick:hover, .duel-pick:focus-visible { transform: none; } }
+
+/* ---------- boss key: the boring spreadsheet that covers the page (assets/deck.js, window.ccBoss) ---------- */
+html.is-boss { overflow: hidden; }
+.boss { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; background: #fff; color: #202124; font: 13px/1.3 Arial, Helvetica, sans-serif; outline: 0; }
+.boss[hidden] { display: none; }
+.boss-top { display: flex; align-items: center; gap: 16px; padding: 8px 12px; background: #f1f3f4; border-bottom: 1px solid #dadce0; white-space: nowrap; overflow: hidden; }
+.boss-top b { font-size: 15px; font-weight: 400; margin-right: 8px; }
+.boss-fx { display: flex; align-items: center; gap: 10px; padding: 5px 12px; border-bottom: 1px solid #dadce0; }
+.boss-fx i { color: #80868b; font-style: italic; }
+.boss-grid { flex: 1; min-height: 0; overflow: hidden; }
+.boss table { border-collapse: collapse; table-layout: fixed; }
+.boss th, .boss td { height: 22px; padding: 0 6px; border: 1px solid #e1e3e6; white-space: nowrap; overflow: hidden; text-align: left; font-weight: 400; }
+.boss th { min-width: 40px; background: #f8f9fa; color: #5f6368; text-align: center; }
+.boss td { width: 104px; min-width: 104px; max-width: 104px; }
+.boss td:first-of-type { width: 220px; min-width: 220px; max-width: 220px; }
+.boss td.n { text-align: right; }
+.boss td.h { background: #e8f0fe; font-weight: 700; }
+.boss-foot { display: flex; align-items: center; gap: 4px; padding: 0 8px; background: #f1f3f4; border-top: 1px solid #dadce0; }
+.boss-foot span { padding: 8px 14px; color: #5f6368; }
+.boss-foot span.is-on { background: #fff; color: #188038; font-weight: 700; }
+.boss-back { margin-left: auto; min-height: 32px; padding: 0 8px; border: 0; background: none; color: #9aa0a6; font: inherit; font-size: 11px; cursor: pointer; }
