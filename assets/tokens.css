@@ -157,3 +157,6 @@ kbd, code, samp { font-family: var(--mono); font-size: var(--fs-12); }
 html[data-tint="amber"] { --accent: #ffb52e; --phosphor: 255 181 46; }
 html[data-tint="ice"] { --accent: #6fd8ff; --phosphor: 111 216 255; }
 html[data-tint="pink"] { --accent: #ff7ac8; --phosphor: 255 122 200; }
+
+/* ---------- couch mode: the focus ring while hopping between game cards by arrow keys or controller (assets/deck.js) ---------- */
+html.pad-nav a:focus { outline: 3px solid var(--accent); outline-offset: 4px; }
