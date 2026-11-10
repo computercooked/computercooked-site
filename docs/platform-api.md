@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Daily spin
+
+Once a day a reel runs through the games and lands on one: your game for today on this device. `assets/deck.js` owns it: `window.ccSpin.open()` shows the dialog (`dialog.spin`, styled in `assets/deck.css`), opened by the hub's "daily spin" chip (`assets/fx.js`) and the command bar's "daily spin". The result is kept for the day in localStorage `cc-spin` (`{d: "2026-11-10", slug}`, local date); opening it again that day shows the same game with a "play it" link (`?ref=spin`), and a new spin unlocks at local midnight. Games the device hasn't played (`cc-history`) are picked first. With reduced motion it lands at once. Nothing is sent.
+
 ## Play time
 
 `games/player.js` adds up the seconds a run is actually going (between a game's start and end, or from the first input for a game without SDK hooks) while the tab is showing. Totals are kept per game on the device in localStorage `cc-time` (`{slug: seconds}`), written every 15 seconds and when the page is hidden or left. Once a game has a minute, its about card shows "you've played this for 12 min" (`p.play-time`), and a toast marks 10 minutes, 30 minutes and an hour. The command bar's "time played" (`assets/deck.js`) reads the same totals and names the most-played game. Nothing is sent.

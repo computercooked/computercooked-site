@@ -350,6 +350,10 @@
       if (window.ccFeature) window.ccFeature.start(shown.length >= 3 ? shown : null);
     });
     row.appendChild(triple);
+    // the once-a-day reel (assets/deck.js)
+    var spinChip = el('<button type="button" class="chip chip-random chip-spin" aria-label="daily spin: one spin a day picks your game">daily spin</button>');
+    spinChip.addEventListener("click", function () { if (window.ccSpin) window.ccSpin.open(); });
+    row.appendChild(spinChip);
     // sort: one chip that steps through the orders. Remembered on this device (cc-hub-sort).
     var SORTS = [["featured", "featured"], ["newest", "newest"], ["az", "a to z"]].concat(done ? [["recent", "your recent"]] : []);
     var sort = "featured";

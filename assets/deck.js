@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "daily spin", hint: "one spin a day picks your game", spin: true, keys: "wheel slot machine roulette today lucky game of the day" },
     { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
     { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
     { name: "arcade games", hint: "dodge, run, shoot", href: "/games/?vibe=arcade" },
@@ -249,10 +250,19 @@
       try { times = JSON.parse(localStorage.getItem("cc-time")) || {}; } catch (e) {}
       Object.keys(times).forEach(function (k) { var s = Math.floor(+times[k]) || 0; if (s <= 0) return; sum += s; if (!top || s > times[top]) top = k; });
       var span = function (s) { var mins = Math.floor(s / 60), h = Math.floor(mins / 60); return h ? h + " h " + (mins % 60) + " min" : mins ? mins + " min" : s + " sec"; };
-      var named = GAMES.filter(function (g) { return g.slug === top; })[0];
-      say.textContent = sum ? "you've played " + span(sum) + " on this device. most: " + String(named ? named.title : top).toLowerCase() + " (" + span(Math.floor(+times[top])) + ")." : "nothing on the clock yet. go play something.";
+      if (!sum) { say.textContent = "nothing on the clock yet. go play something."; return; }
+      var tell = function (games) { // the title, not the web name; a game no longer listed falls back to its web name with spaces
+        var named = games.filter(function (g) { return g.slug === top; })[0];
+        say.textContent = "you've played " + span(sum) + " on this device. most: " + String(named ? named.title : top.replace(/-/g, " ")).toLowerCase() + " (" + span(Math.floor(+times[top])) + ").";
+      };
+      if (GAMES.length) tell(GAMES);
+      else { // the command bar was only just opened: the game list is still on its way
+        say.textContent = "checking the clock.";
+        fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) { tell(d.games || []); }).catch(function () { tell([]); });
+      }
       return;
     }
+    if (c.spin) { dialog.close(); window.ccSpin.open(); return; }
     if (c.feature) { say.textContent = "picking three. no refunds."; window.ccFeature.start(); return; }
     if (c.random) {
       var pool = GAMES.filter(function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") !== 0; });
@@ -632,4 +642,75 @@
   x.addEventListener("click", function () { end(); bar.remove(); });
   bar.appendChild(tag); bar.appendChild(dots); bar.appendChild(where); bar.appendChild(next); bar.appendChild(x);
   layout.parentNode.insertBefore(bar, layout);
+})();
+
+/* Daily spin: once a day a reel runs through the games and lands on one, your game for today on this device.
+   window.ccSpin.open() shows it (the hub's "daily spin" chip in assets/fx.js, and the command bar). The result is kept
+   for the day (localStorage "cc-spin": {d: "2026-11-10", slug}); opening it again that day shows the same game, and a
+   new spin unlocks at midnight local time. Games this device hasn't played (cc-history) are picked first.
+   Styled in assets/deck.css (.spin). Nothing is sent. */
+(function () {
+  "use strict";
+  var KEY = "cc-spin", dlg = null, games = null, timer = 0;
+  function today() { var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+  function kept() { try { var v = JSON.parse(localStorage.getItem(KEY)); return v && v.d === today() && v.slug ? v : null; } catch (e) { return null; } }
+  function played() { try { return JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { return {}; } }
+  function build() {
+    dlg = document.createElement("dialog"); dlg.className = "spin"; dlg.setAttribute("aria-labelledby", "spin-tag");
+    dlg.innerHTML = '<p class="spin-tag" id="spin-tag">daily spin</p>' +
+      '<div class="spin-reel"><img class="spin-cover" alt="" width="640" height="400" hidden><span class="spin-name">?</span></div>' +
+      '<p class="spin-say" role="status"></p>' +
+      '<div class="spin-row"><button type="button" class="spin-go">spin</button><a class="spin-play" hidden>play it \u2192</a><button type="button" class="spin-close">close</button></div>';
+    document.body.appendChild(dlg);
+    dlg.querySelector(".spin-close").addEventListener("click", function () { dlg.close(); });
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener("close", function () { clearTimeout(timer); dlg.classList.remove("is-spinning"); });
+    dlg.querySelector(".spin-go").addEventListener("click", spin);
+  }
+  function q(s) { return dlg.querySelector(s); }
+  function land(g, fresh) {
+    var img = q(".spin-cover"), play = q(".spin-play");
+    dlg.classList.remove("is-spinning"); dlg.classList.add("is-landed");
+    img.src = g.thumbnail || "/games/" + g.slug + "/cover.png"; img.hidden = false;
+    q(".spin-name").textContent = String(g.title).toLowerCase();
+    q(".spin-say").textContent = (fresh ? "today's game: " + String(g.title).toLowerCase() + ". " : "you already spun today. ") + "a fresh spin unlocks tomorrow.";
+    q(".spin-go").hidden = true;
+    play.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=spin"; play.hidden = false;
+    if (fresh) play.focus();
+  }
+  function ready() {
+    dlg.classList.remove("is-landed", "is-spinning");
+    q(".spin-cover").hidden = true; q(".spin-name").textContent = "?";
+    q(".spin-say").textContent = "one spin a day. whatever it lands on is your game for today.";
+    q(".spin-go").hidden = false; q(".spin-go").disabled = false; q(".spin-play").hidden = true;
+  }
+  function spin() {
+    if (!games || !games.length || kept()) return;
+    var hist = played(), fresh = games.filter(function (g) { return !hist[g.slug]; }), pool = fresh.length ? fresh : games;
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    try { localStorage.setItem(KEY, JSON.stringify({ d: today(), slug: pick.slug })); } catch (e) {}
+    q(".spin-go").disabled = true;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { land(pick, true); return; }
+    dlg.classList.add("is-spinning"); q(".spin-say").textContent = "spinning.";
+    var n = 0, steps = 20, name = q(".spin-name"), last = "";
+    (function step() { // the reel flips through names, slowing down, then lands
+      if (n >= steps) { land(pick, true); return; }
+      var g; do { g = games[Math.floor(Math.random() * games.length)]; } while (games.length > 1 && g.slug === last);
+      last = g.slug; name.textContent = String(g.title).toLowerCase();
+      n++; timer = setTimeout(step, 60 + n * n * 0.9);
+    })();
+  }
+  function open() {
+    if (!dlg) build();
+    if (dlg.open) return;
+    ready();
+    dlg.showModal();
+    (games ? Promise.resolve() : fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
+      games = (d.games || []).filter(function (g) { return g.slug && g.made_by !== "community"; });
+    })).then(function () {
+      var k = kept(), g = k && games.filter(function (x) { return x.slug === k.slug; })[0];
+      if (g) land(g, false);
+    }).catch(function () { q(".spin-say").textContent = "the reel is jammed. try again in a sec."; });
+  }
+  window.ccSpin = { open: open, today: kept };
 })();
