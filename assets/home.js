@@ -114,6 +114,35 @@
     bubble.textContent = t; bubble.classList.add("on");
     clearTimeout(bubbleT); bubbleT = setTimeout(function () { bubble.classList.remove("on"); }, ms || 2600);
   }
+  /* ---------- desktop sounds: tiny square-wave blips for the menu, the dice, wallpapers and friends ----------
+     Off until the speaker on the taskbar is switched on; the choice is kept on this device (localStorage "cc-sfx").
+     Made in the browser (Web Audio), so there are no sound files to download. Sounds only ever follow a click or a key. */
+  var AC = window.AudioContext || window.webkitAudioContext, ac = null, sndOn = ls("cc-sfx") === "1", sndBtn = $("#desk-snd");
+  var TUNES = { tick: [[880, .03]], pop: [[520, .05], [780, .06]], shut: [[420, .05]], poke: [[196, .07]], fresh: [[988, .04], [1319, .05]],
+    wall: [[392, .06], [523, .06], [659, .09]], win: [[523, .08], [659, .08], [784, .08], [1047, .16]], off: [[440, .1], [330, .1], [220, .2]], on: [[659, .07], [988, .12]] };
+  function sfx(name) {
+    var notes = TUNES[name];
+    if (!sndOn || !AC || !notes) return;
+    try {
+      ac = ac || new AC(); if (ac.state === "suspended") ac.resume();
+      var t = ac.currentTime + .01;
+      notes.forEach(function (n) {
+        var o = ac.createOscillator(), g = ac.createGain();
+        o.type = "square"; o.frequency.value = n[0];
+        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.045, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + n[1]);
+        o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + n[1] + .02); t += n[1];
+      });
+    } catch (e) {}
+  }
+  if (sndBtn && AC) {
+    var sndShow = function () { sndBtn.setAttribute("aria-pressed", String(sndOn)); sndBtn.title = sndOn ? "desktop sounds: on" : "desktop sounds: off"; };
+    sndBtn.hidden = false; sndShow();
+    sndBtn.addEventListener("click", function () {
+      sndOn = !sndOn; try { if (sndOn) localStorage.setItem("cc-sfx", "1"); else localStorage.removeItem("cc-sfx"); } catch (e) {}
+      sndShow(); sfx("on"); say(sndOn ? "sounds on. you asked for this." : "sounds off. bliss.", 2200);
+    });
+  }
+  document.addEventListener("cc:sfx", function (e) { sfx(e.detail); }); // the game window (below) asks from its own block
   var POKES = ["ow.", "that's a fan, not a button.", "please. i have 3 tabs open.", "i'm at 98°C, kevin.", "stop. ok one more.", "you're cooking me.", "error: feelings.exe", "i felt that in my ram."];
   var IDLE = ["hover a game. i'll show you.", "press surprise me. i dare you.", "click a game. it takes 3 seconds.", "is it hot in here or is it me. it's me."];
   var cooked = +ls("cc-cooked") || 0, cookedEl = $("#desk-cooked");
@@ -125,7 +154,7 @@
       cooked++; ls("cc-cooked", String(cooked));
       if (cookedEl) cookedEl.textContent = cooked;
       heat(14);
-      say(POKES[(cooked - 1) % POKES.length], 1800);
+      say(POKES[(cooked - 1) % POKES.length], 1800); sfx("poke");
     });
   }
   if (window.ccMascot) mountPc(); else addEventListener("load", mountPc);
@@ -223,7 +252,7 @@
     var n = icons.length, steps = 2 * n + ti, i = 0, wait = 55, row = dock && dock.querySelector(".dock-row");
     (function step() {
       icons.forEach(function (a) { a.classList.remove("is-picked"); });
-      var a = icons[i % n]; a.classList.add("is-picked");
+      var a = icons[i % n]; a.classList.add("is-picked"); sfx(i === steps ? "win" : "tick");
       // phones: the row follows the highlight (sideways only, so the page doesn't jump)
       if (!wide() && row) row.scrollLeft = a.parentNode.offsetLeft - row.offsetLeft - (row.clientWidth - a.parentNode.offsetWidth) / 2;
       if (i === steps) {
@@ -246,6 +275,7 @@
   if (start && menu) (function () {
     start.setAttribute("role", "button"); start.setAttribute("aria-expanded", "false");
     function open(on) {
+      if (menu.hidden === on) sfx(on ? "pop" : "shut");
       menu.hidden = !on; start.setAttribute("aria-expanded", String(on));
       if (on) { var f = menu.querySelector("a, button"); if (f) f.focus({ preventScroll: true }); say("ooh. the menu.", 1600); }
     }
@@ -270,7 +300,7 @@
     else if (act === "off") shutDown();
     else if (act === "saver") document.dispatchEvent(new Event("cc:saver"));
     else if (act === "wall") nextWall();
-    else if (act === "fresh") { if (!reduce) { desk.classList.remove("is-fresh"); void desk.offsetWidth; desk.classList.add("is-fresh"); } say("refreshed. i feel exactly the same.", 2600); }
+    else if (act === "fresh") { if (!reduce) { desk.classList.remove("is-fresh"); void desk.offsetWidth; desk.classList.add("is-fresh"); } say("refreshed. i feel exactly the same.", 2600); sfx("fresh"); }
   }
 
   /* ---------- wallpapers: four desktop backgrounds, picked from the start menu or the right-click menu ----------
@@ -281,7 +311,7 @@
     var root = document.documentElement, w = WALLS[(WALLS.indexOf(root.dataset.wall || "") + 1) % WALLS.length];
     if (w) root.dataset.wall = w; else delete root.dataset.wall;
     try { if (w) localStorage.setItem("cc-wall", w); else localStorage.removeItem("cc-wall"); } catch (e) {}
-    say("wallpaper: " + WALL_NAMES[w] + ".", 2000);
+    say("wallpaper: " + WALL_NAMES[w] + ".", 2000); sfx("wall");
   }
 
   /* ---------- right-click the desktop: a little desktop menu ----------
@@ -302,7 +332,7 @@
         '<li role="none" class="menu-sep"><button type="button" role="menuitem" data-act="wall"><i aria-hidden="true">▧</i>next wallpaper</button></li>' +
         (saver && !saver.hidden ? '<li role="none"><button type="button" role="menuitem" data-act="saver"><i aria-hidden="true">☾</i>screensaver</button></li>' : "") +
         '<li role="none"><button type="button" role="menuitem" data-act="fresh"><i aria-hidden="true">↻</i>refresh</button></li></ul>';
-      desk.appendChild(ctx);
+      desk.appendChild(ctx); sfx("pop");
       var r = desk.getBoundingClientRect(), w = ctx.offsetWidth, h = ctx.offsetHeight;
       ctx.style.left = Math.max(4, Math.min(e.clientX - r.left, r.width - w - 4)) + "px";
       ctx.style.top = Math.max(4, Math.min(e.clientY - r.top, r.height - h - 44)) + "px";
@@ -326,7 +356,7 @@
   })();
   function shutDown() {
     if (reduce) { say("nice try. i don't have an off switch.", 3000); return; }
-    var off = document.createElement("div"); off.className = "desk-off"; desk.appendChild(off);
+    var off = document.createElement("div"); off.className = "desk-off"; desk.appendChild(off); sfx("off");
     setTimeout(function () { off.remove(); if (pc) pc.react("shock", 1400); say("nice try. i don't have an off switch.", 3200); heat(30); }, 1500);
   }
 
@@ -509,6 +539,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
     stage.appendChild(frame);
     reel.dispatchEvent(new Event("cc:hold"));
     win.showModal();
+    document.dispatchEvent(new CustomEvent("cc:sfx", { detail: "pop" }));
     frame.focus();
   });
   var bye = function () { if (win.open) win.close(); shut(); };

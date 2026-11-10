@@ -423,3 +423,12 @@ html[data-wall="hills"] .desk-glow { background: radial-gradient(circle, rgba(25
 .desk.is-fresh > .desk-win, .desk.is-fresh > .desk-pc, .desk.is-fresh > .desk-dock { animation: desk-fresh .32s steps(2, jump-none); }
 @keyframes desk-fresh { 0% { opacity: 0; } 50% { opacity: 1; } 75% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .desk-ctx { animation: none; } }
+
+/* ---------- the taskbar speaker: desktop sounds on or off (assets/home.js) ---------- */
+.desk-snd { position: relative; display: inline-grid; place-items: center; flex: none; width: 32px; height: 28px; margin-left: auto; padding: 0; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--surface); color: var(--text-dim); font: 800 14px/1 var(--mono); cursor: pointer; }
+.desk-snd[hidden] { display: none; }
+.desk-snd:not([hidden]) + .desk-clock { margin-left: 0; }
+.desk-snd[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.desk-snd[aria-pressed="false"]::after { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; background: currentColor; transform: rotate(-38deg); }
+.desk-snd:hover, .desk-snd:focus-visible { color: var(--text); }
