@@ -817,6 +817,11 @@ if (admin) {
     const pj = await (await get("/games/player.js")).text(), gc = await (await get("/games/games.css")).text();
     ok(pj.includes('b.id = "btn-snap"') && pj.includes("toDataURL") && gc.includes(".player.is-snapped"), "snap: the camera button saves a picture of the game");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text(), fx = await (await get("/assets/fx.js")).text(), hubPage = await (await get("/games/")).text();
+    ok(dk.includes("window.ccDuel") && dk.includes("duel: true") && dc.includes(".duel-pair") && fx.includes("chip-duel") && hubPage.includes("chip-duel"),
+      "face-off: the bracket, its styles, the hub chip and the command");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

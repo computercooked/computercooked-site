@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "face-off", hint: "this or that, until one game wins", duel: true, keys: "this or that versus vs bracket tournament pick choose favourite favorite would you rather" },
     { name: "daily spin", hint: "one spin a day picks your game", spin: true, keys: "wheel slot machine roulette today lucky game of the day" },
     { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
     { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
@@ -262,6 +263,7 @@
       }
       return;
     }
+    if (c.duel) { dialog.close(); window.ccDuel.open(); return; }
     if (c.spin) { dialog.close(); window.ccSpin.open(); return; }
     if (c.feature) { say.textContent = "picking three. no refunds."; window.ccFeature.start(); return; }
     if (c.random) {
@@ -713,4 +715,71 @@
     }).catch(function () { q(".spin-say").textContent = "the reel is jammed. try again in a sec."; });
   }
   window.ccSpin = { open: open, today: kept };
+})();
+
+/* Face-off: can't pick a game? Eight random games go head to head, two at a time. You pick one of each pair, the
+   winners meet, and after seven picks one game is left: play that one. window.ccDuel.open() shows it (the hub's
+   "face-off" chip in assets/fx.js, and the command bar). Styled in assets/deck.css (.duel). Nothing is kept or sent. */
+(function () {
+  "use strict";
+  var dlg = null, games = null, round = [], next = [], at = 0, picks = 0, total = 0;
+  function q(s) { return dlg.querySelector(s); }
+  function low(g) { return String(g.title).toLowerCase(); }
+  function build() {
+    dlg = document.createElement("dialog"); dlg.className = "duel"; dlg.setAttribute("aria-labelledby", "duel-tag");
+    dlg.innerHTML = '<p class="duel-tag" id="duel-tag">face-off</p><p class="duel-say" role="status"></p>' +
+      '<div class="duel-pair"><button type="button" class="duel-pick"><img alt="" width="640" height="400"><span></span></button><i aria-hidden="true">vs</i>' +
+      '<button type="button" class="duel-pick"><img alt="" width="640" height="400"><span></span></button></div>' +
+      '<div class="duel-win" hidden><img alt="" width="640" height="400"><strong></strong></div>' +
+      '<div class="duel-row"><a class="duel-play" hidden>play it \u2192</a><button type="button" class="duel-again" hidden>go again</button><button type="button" class="duel-close">close</button></div>';
+    document.body.appendChild(dlg);
+    q(".duel-close").addEventListener("click", function () { dlg.close(); });
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+    q(".duel-again").addEventListener("click", start);
+    [].forEach.call(dlg.querySelectorAll(".duel-pick"), function (b, i) { b.addEventListener("click", function () { pick(i); }); });
+  }
+  function cover(g) { return g.thumbnail || "/games/" + g.slug + "/cover.png"; }
+  function show() {
+    var names = { 8: "round one", 4: "semi-final", 2: "the final" };
+    q(".duel-say").textContent = (names[round.length] || "face-off") + ". pick " + (picks + 1) + " of " + total + ". which one?";
+    [].forEach.call(dlg.querySelectorAll(".duel-pick"), function (b, i) {
+      var g = round[at + i];
+      b.querySelector("img").src = cover(g); b.querySelector("span").textContent = low(g);
+      b.setAttribute("aria-label", "pick " + low(g));
+    });
+  }
+  function pick(i) {
+    next.push(round[at + i]); at += 2; picks++;
+    if (at >= round.length) { round = next; next = []; at = 0; }
+    if (round.length === 1) { crown(round[0]); return; }
+    show();
+  }
+  function crown(g) {
+    q(".duel-pair").hidden = true; q(".duel-win").hidden = false;
+    q(".duel-win img").src = cover(g); q(".duel-win strong").textContent = low(g);
+    q(".duel-say").textContent = "the winner, by your own hand: " + low(g) + ".";
+    var play = q(".duel-play"); play.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=faceoff"; play.hidden = false;
+    q(".duel-again").hidden = false; play.focus();
+  }
+  function start() {
+    var pool = games.slice(), n = pool.length >= 8 ? 8 : pool.length >= 4 ? 4 : 2;
+    for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+    round = pool.slice(0, n); next = []; at = 0; picks = 0; total = n - 1;
+    q(".duel-pair").hidden = false; q(".duel-win").hidden = true; q(".duel-play").hidden = true; q(".duel-again").hidden = true;
+    show();
+  }
+  function open() {
+    if (!dlg) build();
+    if (dlg.open) return;
+    q(".duel-pair").hidden = true; q(".duel-win").hidden = true; q(".duel-play").hidden = true; q(".duel-again").hidden = true;
+    q(".duel-say").textContent = "lining them up.";
+    dlg.showModal();
+    (games ? Promise.resolve() : fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
+      games = (d.games || []).filter(function (g) { return g.slug && g.made_by !== "community"; });
+    })).then(function () {
+      if (games.length < 2) { q(".duel-say").textContent = "not enough games for a fight."; return; }
+      start();
+    }).catch(function () { q(".duel-say").textContent = "the bracket fell over. try again in a sec."; });
+  }
+  window.ccDuel = { open: open };
 })();

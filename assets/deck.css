@@ -465,3 +465,29 @@ html.cc-stage body::before {
 .spin-close { border-color: var(--line); background: none; color: var(--paper); }
 .spin [hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .spin.is-landed .spin-name { animation: none; } }
+
+/* ---------- face-off: pick between two games until one is left (assets/deck.js, window.ccDuel) ---------- */
+.duel { width: min(calc(100% - 24px), 560px); margin: auto; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--paper); text-align: center; }
+.duel::backdrop { background: rgba(8, 9, 11, 0.72); }
+.duel-tag { margin: 0 0 8px; color: var(--accent); font: 700 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.duel-say { min-height: 1.4em; margin: 0 0 12px; color: var(--paper); opacity: .8; font: 500 13px/1.4 var(--mono); }
+.duel-pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.duel-pair i { color: var(--accent); font: 800 14px/1 var(--mono); font-style: normal; }
+.duel-pick { display: block; min-width: 0; padding: 0; overflow: hidden; border: 2px solid var(--line); border-radius: 10px; background: #0b0d0a; color: var(--paper); cursor: pointer;
+  transition: transform .12s ease-out, border-color .12s ease-out; }
+.duel-pick img, .duel-win img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
+.duel-pick span { display: block; padding: 8px 6px; font: 700 13px/1.2 var(--mono); overflow-wrap: anywhere; }
+.duel-pick:hover, .duel-pick:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+.duel-win { max-width: 320px; margin: 0 auto; overflow: hidden; border: 2px solid var(--accent); border-radius: 10px; background: #0b0d0a; animation: duel-win .35s ease-out; }
+.duel-win strong { display: block; padding: 10px 8px; font: 800 18px/1.2 var(--mono); overflow-wrap: anywhere; }
+@keyframes duel-win { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+.duel-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
+.duel-play, .duel-again, .duel-close { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--accent); border-radius: 8px;
+  font: 700 14px/1 var(--mono); text-decoration: none; cursor: pointer; }
+.duel-play { background: var(--accent); color: #0b0d0a; }
+.duel-again { background: none; color: var(--accent); }
+.duel-close { border-color: var(--line); background: none; color: var(--paper); }
+.duel [hidden] { display: none; }
+@media (max-width: 480px) { .duel-pair { grid-template-columns: 1fr; } .duel-pick img { aspect-ratio: 16 / 7; } }
+@media (prefers-reduced-motion: reduce) { .duel-win { animation: none; } .duel-pick { transition: none; } .duel-pick:hover, .duel-pick:focus-visible { transform: none; } }
