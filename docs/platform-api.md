@@ -293,6 +293,8 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 
 ## Channel surf (`/surf/`)
 
+**Auto surf** (`#tv-auto`, or the `a` key): flips to the next channel every 5 seconds with a timer bar under the controls. Any manual flip restarts the timer; it pauses while the tab is hidden and is not offered under reduced motion.
+
 - A static page with a little TV: one game per channel (games.json order, so a game keeps its number). The screen shows the cover, then the game's 3 second clip; title, pitch, tags and "your best" sit under it.
 - Flip with the back / next buttons, the left and right arrow keys, a sideways swipe on the screen, or the channel guide strip. Enter or a tap on the screen plays the game (`?ref=surf`).
 - Opens on `/surf/#<slug>` when the link has one, otherwise on a random game this device hasn't played. Played games get a tick in the guide (`cc-history`). Nothing is sent or stored.

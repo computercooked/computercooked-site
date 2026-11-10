@@ -1,5 +1,6 @@
 /* /surf/: channel surf. One game per channel: its 3 second clip on a little TV, flip with the buttons, the arrow keys
    or a swipe, enter (or a tap on the screen) plays it. Channels follow games.json order, so a game keeps its number.
+   "auto surf" (the button, or the a key) flips by itself every 5 seconds; it is not offered under reduced motion.
    Opens on #<slug> when the link has one, otherwise on a random game this device hasn't played yet.
    Reads cc-history (kept by games/platform.js) for "played" marks and your best. Nothing is sent or stored. */
 (function () {
@@ -13,6 +14,19 @@
   var hist = {};
   try { hist = JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { hist = {}; }
   var games = [], at = -1, flipTimer = 0;
+  // auto surf: flips to the next channel every few seconds until you turn it off, play something or leave the tab
+  var AUTO_MS = 5000, autoBtn = $("tv-auto"), bar = $("tv-timer-bar"), autoOn = false, autoTimer = 0;
+  function autoArm() {
+    clearTimeout(autoTimer);
+    if (bar) { bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = ""; }
+    if (autoOn && !document.hidden) autoTimer = setTimeout(function () { show(at + 1); }, AUTO_MS);
+  }
+  function autoSet(on) {
+    autoOn = !!on;
+    tv.classList.toggle("is-auto", autoOn);
+    if (autoBtn) { autoBtn.setAttribute("aria-pressed", autoOn ? "true" : "false"); autoBtn.textContent = "auto surf: " + (autoOn ? "on" : "off"); }
+    autoArm();
+  }
   var pad = function (n) { return (n < 10 ? "0" : "") + n; };
   var fmt = function (n) { return Math.round(n).toLocaleString("en-US"); };
   var href = function (g) { return "/games/" + encodeURIComponent(g.slug) + "/?ref=surf"; };
@@ -54,6 +68,7 @@
     }
     var next = games[(i + 1) % n];
     if (next) { var im = new Image(); im.src = next.thumbnail; }
+    autoArm();
   }
 
   fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
@@ -88,7 +103,14 @@
       if (e.key === "ArrowRight") { e.preventDefault(); show(at + 1); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); show(at - 1); }
       else if (e.key === "Enter" && !(t && /^(a|button)$/i.test(t.tagName))) { e.preventDefault(); location.href = play.href; }
+      else if ((e.key === "a" || e.key === "A") && autoBtn && !autoBtn.hidden) { e.preventDefault(); autoSet(!autoOn); }
     });
+    if (autoBtn && !still) {
+      autoBtn.hidden = false;
+      autoBtn.addEventListener("click", function () { autoSet(!autoOn); });
+      document.addEventListener("visibilitychange", autoArm);
+      window.addEventListener("pagehide", function () { clearTimeout(autoTimer); });
+    }
     // swipe the screen sideways to flip; a swipe never counts as a tap on the screen
     var x0 = null, y0 = 0, swiped = false;
     screen.addEventListener("touchstart", function (e) { var p = e.touches[0]; x0 = p.clientX; y0 = p.clientY; swiped = false; }, { passive: true });

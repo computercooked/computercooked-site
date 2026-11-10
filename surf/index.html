@@ -51,7 +51,8 @@
         <a class="tv-play" id="tv-play" href="/games/">play ▶</a>
         <button type="button" class="tv-btn" id="tv-next" aria-label="next channel">next ▶</button>
       </div>
-      <p class="tv-hint"><span class="tv-hint-keys">← → flip · enter plays · </span>swipe the screen to flip · tap it to play</p>
+      <div class="tv-timer" aria-hidden="true"><span id="tv-timer-bar"></span></div>
+      <p class="tv-hint"><button type="button" class="tv-auto" id="tv-auto" aria-pressed="false" hidden>auto surf: off</button><span class="tv-hint-keys">← → flip · enter plays · </span>swipe the screen to flip · tap it to play</p>
       <ol class="tv-guide" id="tv-guide" aria-label="all channels"></ol>
     </section>
     <p class="tv-foot" id="tv-empty">the tv needs javascript. <a href="/games/">see every game instead →</a></p>
