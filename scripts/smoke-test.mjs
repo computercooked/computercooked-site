@@ -768,7 +768,7 @@ if (admin) {
 // K-0031 phase two pages: the homepage, /lab and /log are filled on the server from their JSON files
 {
   const home = await (await get("/")).text();
-  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('class="card2') && !home.includes("gary-entry"),
+  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/\?vibe=quick&amp;ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('class="card2') && !home.includes("gary-entry"),
     "homepage: one play button, featured game, lab strip, cooked desktop with dock and start menu, happening now, no gary");
   const labHtml = await (await get("/lab/")).text();
   ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");

@@ -6,6 +6,7 @@ import { ensureSchema, games as catalogOf } from "./db.js";
 import { themeAttr, now, dayOf, REAL } from "./util.js";
 import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
+import { vibesOf } from "./seo.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const STAGE = { building: "building", next: "up next", shipped: "shipped" };
@@ -148,6 +149,20 @@ export async function homePage(req, env, url) {
     const rest = order.filter((g) => !onNew.has(g.slug));
     rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
       .on("#home-shelf", { element(e) { e.setInnerContent((rest.length ? rest : order).map((g) => card2(g)).join(""), { html: true }); } });
+    // pick a mood: each tile gets three covers and its count (the cover strip's height is reserved, so nothing moves)
+    let mood = [];
+    const shown = new Set(); // a cover appears on one tile only while there are others to show
+    rw.on("a.mood", { element(e) {
+      const v = e.getAttribute("data-mood");
+      mood = order.filter((g) => vibesOf(g).includes(v));
+      if (!mood.length) e.setAttribute("hidden", "");
+    } })
+      .on("a.mood .mood-art", { element(e) {
+        const pick = mood.filter((g) => !shown.has(g.slug)).concat(mood.filter((g) => shown.has(g.slug))).slice(0, 3);
+        pick.forEach((g) => shown.add(g.slug));
+        e.setInnerContent(pick.map((g) => `<img src="${esc(g.thumbnail)}" alt="" width="64" height="40" loading="lazy" decoding="async">`).join(""), { html: true });
+      } })
+      .on("a.mood .mood-n", { element(e) { if (mood.length) e.setInnerContent(`${mood.length} game${mood.length === 1 ? "" : "s"} ▶`); } });
     if (fresh.length) {
       rw.on("#home-new-sec", { element(e) { e.removeAttribute("hidden"); } })
         .on("#home-new", { element(e) { e.setInnerContent(fresh.map((g) => card2(g, "new")).join(""), { html: true }); } });
