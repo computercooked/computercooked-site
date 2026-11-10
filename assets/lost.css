@@ -1,0 +1,25 @@
+/* 404 page: three games the computer found instead (assets/lost.js fills them). */
+.lost-picks { max-width: 760px; margin: var(--s-6) auto 0; padding: 0 var(--gutter); text-align: center; }
+.lost-picks[hidden] { display: none; }
+.lost-pick-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); margin: var(--s-4) 0 0; padding: 0; list-style: none; text-align: left; }
+.lost-pick { --pick-accent: var(--accent); display: block; height: 100%; padding: 0 0 var(--s-3); border: 2px solid var(--line); border-radius: var(--r-md); overflow: hidden;
+  background: var(--surface); color: var(--text); text-decoration: none; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+.lost-pick:hover, .lost-pick:focus-visible { border-color: var(--pick-accent); transform: translateY(-3px); box-shadow: 0 18px 40px -26px var(--pick-accent); }
+.lost-pick-shot { position: relative; display: block; aspect-ratio: 8 / 5; background: #07080a; overflow: hidden; }
+.lost-pick-shot img, .lost-pick-shot video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.lost-pick-shot video { opacity: 0; transition: opacity .2s ease; }
+.lost-pick-shot video.is-on { opacity: 1; }
+.lost-pick-title { display: block; margin: var(--s-3) var(--s-3) 0; font-family: var(--display); font-size: var(--fs-16); line-height: 1.2; }
+.lost-pick-pitch { display: -webkit-box; margin: var(--s-1, 4px) var(--s-3) 0; font-size: var(--fs-12); color: var(--text-dim); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lost-surf { margin: var(--s-4) 0 0; font-size: var(--fs-14); }
+@media (max-width: 599px) {
+  .lost-pick-list { grid-template-columns: minmax(0, 1fr); }
+  .lost-pick { display: grid; grid-template-columns: 120px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: var(--s-3); padding: 0; }
+  .lost-pick-shot { grid-row: 1 / 3; height: 100%; min-height: 75px; aspect-ratio: auto; }
+  .lost-pick-title { margin: var(--s-2) var(--s-3) 0 0; }
+  .lost-pick-pitch { margin: 2px var(--s-3) var(--s-2) 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lost-pick, .lost-pick-shot video { transition: none; }
+  .lost-pick:hover, .lost-pick:focus-visible { transform: none; }
+}

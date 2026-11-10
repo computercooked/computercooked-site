@@ -283,6 +283,10 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## 404 page picks
+
+`404.html` shows three games "the computer found instead" (`assets/lost.js`, `assets/lost.css`): picked at random from `/games/games.json`, games this device hasn't played first (`cc-history`), cover plus the 3 second clip on hover, links tagged `?ref=404`, and a link to `/surf/`. Hidden without JavaScript; the plain links underneath stay.
+
 ## Channel surf (`/surf/`)
 
 - A static page with a little TV: one game per channel (games.json order, so a game keeps its number). The screen shows the cover, then the game's 3 second clip; title, pitch, tags and "your best" sit under it.
