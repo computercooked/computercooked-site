@@ -65,6 +65,9 @@ function page(g, own) {
     </div>
   </section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  ${own ? `<script>/* our own pages frame this player. cc-sdk.js treats a same-site frame as a game talking to a player above it, so
+     point "parent" at this window: the SDK then runs here in full (plays, scores and saves count as on the game page). */
+  try { window.parent = window; } catch (e) {}</script>` : ""}
   <script src="/games/cc-sdk.js"></script>
   <script src="/games/player.js"></script>
 </body>

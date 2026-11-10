@@ -277,7 +277,11 @@ r = await get("/games/crash/crash.js");
 ok(r.status === 404, "the old inline CRASH script is gone", r.status);
 r = await get("/games/crash/window/");
 page = await r.text();
-ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors 'self'" && page.includes('src="/games/crash/play/"') && !page.includes("embed-brand"), "play-it-here window player: only our pages may frame it, no credit link", r.status);
+ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors 'self'" && page.includes('src="/games/crash/play/"') && !page.includes("embed-brand") && page.includes("window.parent = window"), "play-it-here window player: only our pages may frame it, no credit link", r.status);
+{
+  const hubHtml = await (await get("/games/")).text(), qp = await get("/assets/quickplay.js"), qpSrc = await qp.text();
+  ok(hubHtml.includes('src="/assets/quickplay.js"') && qp.ok && qpSrc.includes("/window/") && qpSrc.includes("showModal"), "hub loads quick play (try a game in a window)", qp.status);
+}
 r = await get("/games/nope-not-a-game/embed/");
 ok(r.status === 404, "unknown games have no embed", r.status);
 r = await (await post("/api/events", { anon: "smokee" + rid(), ref: "embed", events: [{ t: "start", id: rid(), game: "fathom", v: "1" }] })).json();
