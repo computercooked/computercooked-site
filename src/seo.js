@@ -90,7 +90,16 @@ function howTo(g) {
           <p>${esc(g.pitch)}</p>
           ${all.length ? `<ul class="how-steps">${all.slice(0, 5).join("")}</ul>` : ""}
           ${all.length > 5 ? `<details class="how-more"><summary>more tips</summary><ul class="how-steps">${all.slice(5).join("")}</ul></details>` : ""}
-          <p class="how-facts">${facts.filter(Boolean).map(esc).join(" · ")}</p>`;
+          <p class="how-facts">${facts.filter(Boolean).map(esc).join(" · ")}</p>${vibeLinks(g)}`;
+}
+
+// "more like this": the game's vibes as links to the hub with that filter on (/games/?vibe=puzzle, read by assets/fx.js)
+const VIBE_NAMES = { arcade: "arcade games", puzzle: "puzzle games", chill: "chill games", quick: "60 second games", rage: "rage games" };
+function vibeLinks(g) {
+  const links = vibesOf(g).map((v) => `<a class="vibe-link" href="/games/?vibe=${v}">${VIBE_NAMES[v]}</a>`);
+  if (tagsOf(g).includes("daily")) links.push(`<a class="vibe-link" href="/games/daily/">daily games</a>`);
+  return links.length ? `
+          <p class="how-vibes"><span>more like this:</span> ${links.join(" ")}</p>` : "";
 }
 
 function card(g) {
