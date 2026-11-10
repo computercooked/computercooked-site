@@ -64,6 +64,12 @@
           <p class="desk-prompt" aria-hidden="true"><span>C:\COOKED&gt;</span> run games<b class="caret">_</b></p>
           <h1 class="desk-title">stupid-fun games.<br><span>play one in 3 seconds.</span></h1>
           <p class="desk-sub">free in your browser. no downloads, no sign-up, works on your phone. the computer is not handling it well.</p>
+          <!-- the reel: one game playing on a little screen. Works as a plain link to the game of the week; assets/home.js
+               then flips through a few more clips (not under reduced motion or data saver). src/pages.js fills in the game. -->
+          <a class="desk-reel" id="desk-reel" href="/games/crash/?ref=reel">
+            <span class="reel-screen"><img id="reel-cover" src="/games/crash/cover.png" alt="" width="320" height="200" decoding="async" fetchpriority="low"><video id="reel-clip" muted loop playsinline preload="none" aria-hidden="true"></video><i class="reel-bar" aria-hidden="true"></i></span>
+            <span class="reel-cap"><span class="reel-tag">now showing</span><b class="reel-title" id="reel-title">crash</b><span class="reel-pitch" id="reel-pitch">dodge the tasks, drink the coffee, don't get cooked.</span></span>
+          </a>
           <p class="desk-ctas"><a class="play-btn" id="home-play" href="/games/crash/?ref=landing">play crash ▶</a><a class="ghost-btn" href="/games/" data-games-count>all 16 games</a></p>
           <!-- K-0066: returning players only (html.cc-desk), a nudge down to "your desk" -->
           <p class="desk-nudge-p"><a class="desk-nudge" id="desk-nudge" href="#home-desk"><img src="/assets/mascot-happy.svg" alt="" width="14" height="20" decoding="async">your desk is warm <span aria-hidden="true">▾</span></a></p>

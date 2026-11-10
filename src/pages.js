@@ -134,7 +134,11 @@ export async function homePage(req, env, url) {
   const rw = new HTMLRewriter();
   if (feat) {
     rw.on("#home-featured", { element(e) { e.setInnerContent(featuredCard(feat), { html: true }); } })
-      .on("a#home-play", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=landing`); e.setInnerContent(`play ${feat.title} ▶`); } });
+      .on("a#home-play", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=landing`); e.setInnerContent(`play ${feat.title} ▶`); } })
+      .on("a#desk-reel", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=reel`); } })
+      .on("#reel-cover", { element(e) { e.setAttribute("src", feat.thumbnail); } })
+      .on("#reel-title", { element(e) { e.setInnerContent(feat.title); } })
+      .on("#reel-pitch", { element(e) { e.setInnerContent(feat.pitch || ""); } });
   }
   if (ours) rw.on("[data-games-count]", { element(e) { e.setInnerContent(`all ${ours} games`); } });
   if (lab && lab.pipeline) rw.on("#home-lab", { element(e) { e.setInnerContent(lab.pipeline.slice(0, 4).map(labItem).join(""), { html: true }); } });

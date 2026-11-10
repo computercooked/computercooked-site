@@ -283,6 +283,10 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## Hero reel
+
+The welcome window on the homepage has a little screen (`a#desk-reel`) showing a game. In the HTML it is a plain link to the game of the week with its cover (`src/pages.js` fills it in; link tag `?ref=reel`). About a second after load `assets/home.js` plays that game's clip, then flips to another game every 4.5 seconds, updating the link, title and pitch. It loads at most 4 clips on phones and 6 on bigger screens and loops those. It waits while hovered or focused, off screen, or in a hidden tab. Under reduced motion or data saver it stays a still link.
+
 ## Easter egg: the konami code
 
 Typing up up down down left right left right b a on any page with `assets/deck.js` opens a fake blue crash screen ("your computer is cooked") with a link to channel surf and a button back. It is a modal `<dialog class="cooked">`, so esc closes it. Ignored while typing in a field and while a game is running. The command bar answers `konami` and `cheats` with a hint. It is left out of the `?` list on purpose.
