@@ -122,6 +122,7 @@
     { name: "quick games", hint: "60 seconds or less", href: "/games/?vibe=quick" },
     { name: "rage games", hint: "you will blame the computer", href: "/games/?vibe=rage" },
     { name: "new games", hint: "fresh out of the oven", href: "/games/?vibe=new" },
+    { name: "epic gamers", hint: "who holds #1 on every game", href: "/champs/", keys: "champions crowns wall leaderboard high scores hall of fame" },
     { name: "follow", hint: "all the socials", href: "/#follow" },
     { name: "ideas", hint: "tell us what we should cook next", href: "/lab/#ideas" },
     { name: "tiktok", hint: "@computercooked", href: TIKTOK, ext: true },

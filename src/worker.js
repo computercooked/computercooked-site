@@ -18,6 +18,7 @@ import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { hubPage } from "./hub.js";
+import { champsPage } from "./champs.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
 import { events, leaderboard, feedback, stats, report, meSummary, favorite } from "./games.js";
@@ -51,6 +52,8 @@ export default {
     if (url.pathname === "/" || url.pathname === "/index.html") return homePage(req, env, url);
     if (url.pathname === "/lab/") return labPage(req, env, url);
     if (url.pathname === "/log/") return logPage(req, env, url);
+    // the wall of epic gamers: who holds #1 on every game (src/champs.js)
+    if (url.pathname === "/champs/") return champsPage(req, env, url);
     // K-0048: Gary's disaster log became the cooked log, the computer's own
     if (/^\/gary(\/|\/index\.html)?$/.test(url.pathname)) return Response.redirect(url.origin + "/log/", 301);
     // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
