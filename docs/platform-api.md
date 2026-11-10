@@ -283,6 +283,10 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## Easter egg: the konami code
+
+Typing up up down down left right left right b a on any page with `assets/deck.js` opens a fake blue crash screen ("your computer is cooked") with a link to channel surf and a button back. It is a modal `<dialog class="cooked">`, so esc closes it. Ignored while typing in a field and while a game is running. The command bar answers `konami` and `cheats` with a hint. It is left out of the `?` list on purpose.
+
 ## Keyboard shortcuts list
 
 Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the command bar) opens a small dialog listing every key that works there. `assets/deck.js` builds it on first open from the deck's own `data-key` links, plus the channel surf keys on `/surf/`. It stays out of the way while a game is running (`window.ccGameActive`) and while typing in a field.
