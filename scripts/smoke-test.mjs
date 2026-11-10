@@ -225,6 +225,11 @@ let page = await (await get("/games/crash/")).text();
 ok(/\/games\/crash\/og\.png(\?v=\d+)?"/.test(page) && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
 ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && /\/games\/crash\/og-vs\.png(\?v=\d+)?"/.test(page), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+// filter links: /games/?vibe=puzzle arrives filtered, with its own title and link preview
+page = await (await get("/games/?vibe=puzzle")).text();
+ok(/<title>puzzle games: free online/.test(page) && /property="og:title" content="\d+ free puzzle games/.test(page) && /<li class="game-card" hidden><a class="game-card-inner game-link" href="\/games\/crash\/"/.test(page) && /<li class="game-card"><a class="game-card-inner game-link" href="\/games\/fathom\/"/.test(page), "hub filter link is filtered on the server");
+page = await (await get("/games/?vibe=nope")).text();
+ok(/<title>free online games/.test(page) && !/<li class="game-card" hidden>/.test(page), "unknown vibe serves the plain hub");
 // search: every game page carries VideoGame JSON-LD, a how-to-play card and a "games like X" row of links
 page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
