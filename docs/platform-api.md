@@ -282,6 +282,13 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Server side:** `homeNow()` in `src/pages.js` builds the challenge and chart from `plays` and caches them for 5 minutes per isolate. The cards stay hidden if it fails, so the homepage never breaks on it. Links carry `?ref=now`.
 - **Countdowns:** any element with `data-until="midnight"` or `data-until="<ISO date>"` is ticked each second by `assets/home.js`.
 
+## The wall of epic gamers (`/champs/`)
+
+- One crown per game: whoever holds the all time #1 score (same rule as the EPIC GAMER tag: highest score, a tie goes to whoever set it first). Built on the server by `src/champs.js` from `scores` (hidden rows never count) and kept 5 minutes per isolate.
+- Each card: cover, game, the holder (linked to `/u/<username>` when they have an account), the score, the date they took it, this week's leader, and a "take the crown" link (`?ref=champs`). Newest crowns first; one taken in the last 48 hours gets a "new crown" badge.
+- "Most crowns" lists players holding more than one. Games with no scores are left off. No play counts are shown.
+- With no database or no scores the static page (`champs/index.html`) shows its empty state. Linked from the homepage "happening now" heading and the command bar ("epic gamers").
+
 ## Hub: your collection
 
 All in the browser, from `cc-history` (`assets/fx.js` `filters()`); a first visit sees the hub exactly as before.

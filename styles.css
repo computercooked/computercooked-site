@@ -1174,3 +1174,47 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, textarea:focus-v
   .log-list .log-entry, .log-thumb img { transition: none; }
   .log-list .log-entry:hover, .log-entry:hover .log-thumb img { transform: none; }
 }
+
+/* ---------- /champs/: the wall of epic gamers (src/champs.js) ---------- */
+.champs-page { max-width: 860px; padding-left: var(--gutter); padding-right: var(--gutter); }
+.champ-count { min-height: 1.5em; margin: var(--s-3) 0 0; font-family: var(--mono); font-size: var(--fs-12); letter-spacing: .04em; color: var(--accent); }
+.champ-most { margin-top: var(--s-6); }
+.champ-most .section-label { font-size: var(--fs-12); font-family: var(--mono); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: var(--s-3); }
+.champ-most-list { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
+.champ-most-list li { display: inline-flex; align-items: baseline; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: var(--fs-12); }
+.champ-most-list .num { color: var(--text-dim); }
+.champ-list { display: grid; gap: var(--s-3); margin: var(--s-6) 0 0; padding: 0; list-style: none; }
+.champ-card { position: relative; display: grid; grid-template-columns: 152px minmax(0, 1fr) auto; gap: var(--s-4); align-items: center;
+  padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.champ-card:hover, .champ-card:focus-within { transform: translateY(-2px); border-color: rgb(255 207 64 / .55);
+  box-shadow: 0 12px 30px -14px rgb(0 0 0 / .8), 0 0 26px -8px rgb(255 207 64 / .35); }
+.champ-card.is-fresh { border-color: rgb(255 207 64 / .5); }
+.champ-cover { display: block; aspect-ratio: 8 / 5; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-sm); background: #07080a; }
+.champ-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.champ-body { min-width: 0; }
+.champ-game { margin: 0; font-family: var(--display); font-weight: 600; font-size: var(--fs-18, 18px); line-height: 1.2; }
+.champ-game a { color: var(--text); text-decoration: none; }
+.champ-game a::after { content: ""; position: absolute; inset: 0; }
+.champ-new { display: inline-block; margin-left: var(--s-2); padding: 1px 6px; border-radius: var(--r-sm); background: #ffcf40; color: #14110a;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.champ-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2); margin: var(--s-2) 0 0; font-size: var(--fs-16, 16px); }
+.champ-crown { color: #ffcf40; text-shadow: 0 0 12px rgb(255 207 64 / .6); }
+.champ-who { position: relative; z-index: 1; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+a.champ-who { text-decoration: underline; text-decoration-color: rgb(255 207 64 / .5); text-underline-offset: 3px; }
+.champ-score { color: #ffcf40; font-weight: 700; }
+.champ-meta { margin: var(--s-1, 4px) 0 0; font-size: var(--fs-12); color: var(--text-dim); }
+.champ-meta .champ-who { font-weight: 500; color: inherit; }
+.champ-cta { position: relative; z-index: 1; padding: var(--s-2) var(--s-3); border: 1px solid rgb(255 207 64 / .5); border-radius: var(--r-sm);
+  font-family: var(--mono); font-size: var(--fs-12); font-weight: 600; color: #ffcf40; text-decoration: none; white-space: nowrap; }
+.champ-cta:hover, .champ-cta:focus-visible { background: #ffcf40; color: #14110a; }
+.champ-empty { padding: var(--s-6); border: 1px dashed var(--line); border-radius: var(--r-md); color: var(--text-dim); }
+.champ-foot { margin-top: var(--s-6); font-size: var(--fs-12); color: var(--text-dim); }
+@media (max-width: 639px) {
+  .champ-card { grid-template-columns: 96px minmax(0, 1fr); gap: var(--s-3); align-items: start; }
+  .champ-cta { grid-column: 1 / -1; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .champ-card { transition: none; }
+  .champ-card:hover, .champ-card:focus-within { transform: none; }
+}
