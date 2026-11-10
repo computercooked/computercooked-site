@@ -161,7 +161,9 @@
     "exit": "there is no exit. only esc.",
     "fix": "fixing is not on the roadmap.",
     "hello": "hi. the fans are loud today, sorry.",
-    "ls": "home  games  daily  me  regrets/"
+    "ls": "home  games  daily  me  regrets/",
+    "konami": "up up down down left right left right b a. on the keyboard, not in here.",
+    "cheats": "there is one. it involves a lot of arrow keys."
   };
 
   /* ---------- active page ---------- */
@@ -406,4 +408,53 @@
     { not: { selector_matches: "[download], [target=_blank], [rel~=nofollow], [data-no-prefetch]" } }
   ] }, eagerness: "moderate" }] });
   document.head.appendChild(s);
+})();
+
+/* Easter egg: the konami code (up up down down left right left right b a) cooks the computer: a fake crash screen with
+   a way back and a way into a random game. Never while typing in a field or while a game owns the keyboard. Nothing is sent. */
+(function () {
+  "use strict";
+  if (!window.HTMLDialogElement) return;
+  var SEQ = ["arrowup", "arrowup", "arrowdown", "arrowdown", "arrowleft", "arrowright", "arrowleft", "arrowright", "b", "a"];
+  var at = 0, box = null, pct = null, timer = 0;
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; }
+  function cook() {
+    if (!box) {
+      box = el("dialog", "cooked");
+      box.setAttribute("aria-label", "the computer is cooked");
+      var inner = el("div", "cooked-in");
+      inner.appendChild(el("p", "cooked-face", ":("));
+      inner.appendChild(el("h2", "cooked-title", "your computer is cooked."));
+      inner.appendChild(el("p", "cooked-text", "it ran into a cheat code and needs a minute. we are collecting 0% of your data and 100% of its regrets."));
+      pct = el("p", "cooked-pct", "cooking: 0% complete");
+      pct.setAttribute("aria-hidden", "true");
+      inner.appendChild(pct);
+      inner.appendChild(el("p", "cooked-code", "stop code: KONAMI_CODE_ACCEPTED"));
+      var row = el("p", "cooked-row"), go = el("a", "cooked-go", "play something random →"), back = el("button", "cooked-back", "esc: back to normal");
+      go.href = "/surf/"; back.type = "button";
+      back.addEventListener("click", function () { box.close(); });
+      row.appendChild(go); row.appendChild(back);
+      inner.appendChild(row); box.appendChild(inner);
+      box.addEventListener("close", function () { clearInterval(timer); });
+      document.body.appendChild(box);
+    }
+    if (box.open) return;
+    box.showModal();
+    clearInterval(timer);
+    var n = 0, still = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var set = function () { pct.textContent = "cooking: " + n + "% complete" + (n >= 100 ? ". well done." : ""); };
+    if (still) { n = 100; set(); return; }
+    set();
+    timer = setInterval(function () { n = Math.min(100, n + 1 + Math.floor(Math.random() * 4)); set(); if (n >= 100) clearInterval(timer); }, 70);
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || window.ccGameActive) { at = 0; return; }
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))) { at = 0; return; }
+    var k = String(e.key).toLowerCase();
+    if (k === SEQ[at]) at++;
+    else if (k === "arrowup") at = at === 2 ? 2 : 1; // a third "up" still counts as the first two
+    else at = 0;
+    if (at === SEQ.length) { at = 0; cook(); }
+  });
 })();

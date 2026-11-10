@@ -788,6 +788,7 @@ if (admin) {
   const lostHtml = await lost.text();
   ok(lost.status === 404 && lostHtml.includes('id="lost-pick-list"') && lostHtml.includes("/assets/lost.js"), "404 page offers three games to play", lost.status);
   const deckJs = await (await get("/assets/deck.js")).text();
+  ok(deckJs.includes("KONAMI_CODE_ACCEPTED") && deckJs.includes('"arrowup", "arrowup", "arrowdown"'), "deck.js has the konami code easter egg");
   ok(deckJs.includes('e.key === "?"') && deckJs.includes("keys-list"), "deck.js lists every keyboard shortcut on ?");
   ok(deckJs.includes("speculationrules") && deckJs.includes("/api/*"), "deck.js prefetches same-site pages on hover, never /api");
   const gr = await fetch(base + "/gary/", { redirect: "manual" });

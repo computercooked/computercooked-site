@@ -425,3 +425,21 @@ html.cc-stage body::before {
   .eyebrow::after { animation: none; }
   .cc-boot { opacity: 1; transform: none; filter: none; }
 }
+
+/* the konami code crash screen (assets/deck.js) */
+.cooked { width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: #0a3aa8; color: #fff; overflow-y: auto; }
+.cooked::backdrop { background: #0a3aa8; }
+.cooked[open] { display: grid; place-items: center; animation: cooked-in .18s steps(3) 1; }
+@keyframes cooked-in { 0% { filter: invert(1); transform: translateX(6px); } 50% { filter: none; transform: translateX(-4px); } 100% { transform: none; } }
+.cooked-in { width: min(100% - 48px, 620px); padding: 24px 0; font-family: var(--mono); text-align: left; }
+.cooked-face { margin: 0; font-size: clamp(64px, 14vw, 120px); line-height: 1; }
+.cooked-title { margin: 24px 0 0; font-family: var(--display); font-size: clamp(20px, 4.4vw, 32px); line-height: 1.2; color: #fff; }
+.cooked-text, .cooked-pct, .cooked-code { margin: 16px 0 0; font-size: var(--fs-16); line-height: 1.5; color: #fff; }
+.cooked-code { font-size: var(--fs-12); opacity: .8; }
+.cooked-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 0; }
+.cooked-go, .cooked-back { display: inline-flex; align-items: center; min-height: 48px; padding: 0 16px; border: 2px solid #fff; border-radius: var(--r-sm);
+  font-family: var(--mono); font-size: var(--fs-14); font-weight: 800; text-decoration: none; cursor: pointer; }
+.cooked-go { background: #fff; color: #0a3aa8; }
+.cooked-back { background: transparent; color: #fff; }
+.cooked-go:focus-visible, .cooked-back:focus-visible { outline: 3px solid #ffcf40; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .cooked[open] { animation: none; } }
