@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Wide mode
+
+On screens 1000px and wider, every game page has a "wide" button next to the lamp (`#btn-wide`, added by `games/player.js`). It puts `wide-game` on `<html>`, and `games/games.css` gives the game the whole row: the side column drops below it and the screen grows taller. The choice is kept in localStorage `cc-wide` so it carries from game to game. Nothing is sent.
+
 ## Mini player
 
 On a game page, scrolling down past the game shrinks the cabinet into the bottom right corner (`.player.is-mini`, styled in `games/games.css`), still running, so the scores and the rest of the page can be read with the game in view. `games/player.js` owns it: only the styles change, so the game never reloads, and a same-height stand-in (`.player-ghost`) holds the page still. Clicking the mini player scrolls back to the game; the x sends it away until the game is scrolled back into view. It is for screens 760px and wider, and never docks in fullscreen. Nothing is stored or sent.

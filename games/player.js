@@ -204,6 +204,25 @@
     set(saved, true);
   })();
 
+  /* Wide mode: a button next to the lamp gives the game the whole row on big screens (html.wide-game, styled in
+     games.css): the side column drops below and the screen grows taller. Shown from 1000px wide, where the side
+     column exists. The choice is kept on this device (localStorage "cc-wide") so it carries from game to game. */
+  (function () {
+    var root = document.documentElement, b = document.createElement("button");
+    b.className = "tool"; b.id = "btn-wide"; b.type = "button";
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM8 10l-2 2 2 2M16 10l2 2-2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg><span class="tool-text">wide</span>';
+    function set(on, quiet) {
+      root.classList.toggle("wide-game", on);
+      b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "back to the normal size" : "make the game wider");
+      try { if (on) localStorage.setItem("cc-wide", "1"); else localStorage.removeItem("cc-wide"); } catch (e) {}
+      if (!quiet) toast(on ? "wide mode. room to breathe." : "back to normal size.");
+    }
+    btnFs.parentNode.insertBefore(b, btnFs);
+    b.addEventListener("click", function () { set(!root.classList.contains("wide-game")); });
+    var saved = false; try { saved = localStorage.getItem("cc-wide") === "1"; } catch (e) {}
+    set(saved, true);
+  })();
+
   // "embed this game" card (added by the Worker): copy the snippet
   var embedBtn = document.querySelector("[data-copy-embed]");
   if (embedBtn) {
