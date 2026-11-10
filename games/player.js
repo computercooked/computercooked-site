@@ -223,6 +223,59 @@
     set(saved, true);
   })();
 
+  /* Snap: a camera button saves a picture of the game as it looks right now (a PNG download), with the game's name and
+     the site along the bottom. It copies the biggest canvas inside the game frame; small pixel screens are scaled up
+     in whole steps so they stay crisp. A game whose screen can't be read (nothing drawn yet) gets a toast instead.
+     Nothing is uploaded or stored. */
+  (function () {
+    var b = document.createElement("button");
+    b.className = "tool"; b.id = "btn-snap"; b.type = "button"; b.setAttribute("aria-label", "save a picture of the game");
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="tool-text">snap</span>';
+    var before = document.getElementById("btn-wide") || btnFs;
+    before.parentNode.insertBefore(b, before);
+    function screen() { // the biggest canvas the game is showing
+      var doc; try { doc = frame.contentDocument; } catch (e) { return null; }
+      if (!doc) return null;
+      var best = null, area = 0;
+      [].forEach.call(doc.querySelectorAll("canvas"), function (c) {
+        var r = c.getBoundingClientRect(), a = r.width * r.height;
+        if (c.width && c.height && a > area) { area = a; best = c; }
+      });
+      return best;
+    }
+    function blank(c) { // every sampled pixel the same: nothing was drawn (or the screen can't be read)
+      try {
+        var t = document.createElement("canvas"); t.width = t.height = 16;
+        var x = t.getContext("2d"); x.drawImage(c, 0, 0, 16, 16);
+        var d = x.getImageData(0, 0, 16, 16).data;
+        for (var i = 4; i < d.length; i++) if (d[i] !== d[i % 4]) return false;
+        return true;
+      } catch (e) { return true; }
+    }
+    b.addEventListener("click", function () {
+      var src = screen();
+      if (!src || blank(src)) { toast("nothing to snap yet. start the game first."); return; }
+      var k = Math.max(1, Math.ceil(640 / src.width)), w = src.width * k, h = src.height * k, foot = Math.max(28, Math.round(w / 22));
+      var c = document.createElement("canvas"); c.width = w; c.height = h + foot;
+      var x = c.getContext("2d");
+      x.fillStyle = "#0b0d0a"; x.fillRect(0, 0, w, h + foot);
+      x.imageSmoothingEnabled = false; x.drawImage(src, 0, 0, w, h);
+      x.font = "700 " + Math.round(foot * 0.46) + "px ui-monospace, Menlo, Consolas, monospace"; x.textBaseline = "middle";
+      x.fillStyle = "#f4efe4"; x.textAlign = "left"; x.fillText(String(title).toLowerCase(), foot * 0.4, h + foot / 2, w * 0.55);
+      x.fillStyle = "#ff9f43"; x.textAlign = "right"; x.fillText("computercooked.com", w - foot * 0.4, h + foot / 2, w * 0.4);
+      var m = /^\/games\/([^/]+)\//.exec(location.pathname), name = (m ? m[1] : "game") + "-" + Date.now().toString(36) + ".png";
+      try {
+        var bin = atob(c.toDataURL("image/png").split(",")[1]), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        var a = document.createElement("a"), u = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+        a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+        player.classList.add("is-snapped"); setTimeout(function () { player.classList.remove("is-snapped"); }, 350);
+        toast("snap. saved to your downloads.");
+      } catch (e) { toast("couldn't take that picture."); }
+    });
+  })();
+
   // "embed this game" card (added by the Worker): copy the snippet
   var embedBtn = document.querySelector("[data-copy-embed]");
   if (embedBtn) {
