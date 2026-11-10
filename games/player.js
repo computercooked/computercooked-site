@@ -106,6 +106,29 @@
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
 
+  /* Lights off: a lamp button next to fullscreen dims everything on the page except the game (html.lights-off, styled
+     in games.css). The veil lets clicks through, so the rest of the page still works, just in the dark. Esc or the button turns
+     them back on. The choice is kept on this device (localStorage "cc-lights") so it carries from game to game. */
+  (function () {
+    var root = document.documentElement, b = document.createElement("button");
+    b.className = "tool"; b.id = "btn-lights"; b.type = "button";
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-4 10.5c.8.8 1.2 1.6 1.3 2.5h5.4c.1-.9.5-1.7 1.3-2.5A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="tool-text">lights</span>';
+    function set(on, quiet) {
+      root.classList.toggle("lights-off", on);
+      b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "turn the lights on" : "turn the lights off");
+      try { if (on) localStorage.setItem("cc-lights", "1"); else localStorage.removeItem("cc-lights"); } catch (e) {}
+      if (!quiet) toast(on ? "lights off. just you and the game." : "lights on.");
+    }
+    btnFs.parentNode.insertBefore(b, btnFs);
+    var veil = document.createElement("div"); veil.className = "lights-veil"; veil.setAttribute("aria-hidden", "true"); document.body.appendChild(veil);
+    b.addEventListener("click", function () { set(!root.classList.contains("lights-off")); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !e.defaultPrevented && root.classList.contains("lights-off") && !document.fullscreenElement && !document.querySelector("dialog[open]")) set(false);
+    });
+    var saved = false; try { saved = localStorage.getItem("cc-lights") === "1"; } catch (e) {}
+    set(saved, true);
+  })();
+
   // "embed this game" card (added by the Worker): copy the snippet
   var embedBtn = document.querySelector("[data-copy-embed]");
   if (embedBtn) {

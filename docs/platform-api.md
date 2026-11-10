@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Lights off
+
+Every game page has a lamp button next to fullscreen (`#btn-lights`, added by `games/player.js`). It puts `lights-off` on `<html>`, and `games/games.css` dims the page with a click-through veil (`.lights-veil`) and lifts `.player` above it, so links still work and the site nav stays lit. The button or Esc turns the lights back on. The choice is kept on the device in localStorage `cc-lights` (`"1"` = off) so it carries from game to game. It does nothing in fullscreen. Nothing is sent.
+
 ## Screen colour
 
 The site's accent comes in four phosphors: green (default), amber, ice and pink (`html[data-tint]`, rules at the end of `assets/tokens.css`; everything that uses `--accent` or `--phosphor` follows). Pick it from the command bar ("screen colour", enter flips to the next), the homepage start menu, or a right-click on the homepage desktop. The choice is kept on the device in localStorage `cc-tint`, and a one-line script in each page's head applies it before the first paint (new pages should copy that line, just above the `tokens.css` link). `assets/deck.js` owns it: `window.ccTint()` steps to the next colour and returns its name, a `cc:tint` event on `document` does the same, and `cc:tinted` (detail: the name) fires after each change. Games themselves are not recoloured. Nothing is sent.
