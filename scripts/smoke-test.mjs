@@ -800,6 +800,11 @@ if (admin) {
     ok(pj.includes('"cc-time"') && pj.includes('line.className = "play-time"') && dk.includes("time: true") && gc.includes(".about-card p.play-time"),
       "play time: the per-game clock in the player, its line in the about card and the command");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text(), fx = await (await get("/assets/fx.js")).text(), hubPage = await (await get("/games/")).text();
+    ok(dk.includes("window.ccSpin") && dk.includes("spin: true") && dc.includes(".spin-reel") && fx.includes("chip-spin") && hubPage.includes("chip-spin"),
+      "daily spin: the reel, its styles, the hub chip and the command");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
