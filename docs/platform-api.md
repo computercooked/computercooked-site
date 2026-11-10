@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Desktop sounds
+
+The homepage taskbar has a speaker button (`#desk-snd`). Sounds are off until someone switches them on; the choice is kept on the device in localStorage `cc-sfx` (`"1"` = on). When on, `assets/home.js` plays short square-wave blips made with Web Audio (no sound files) for the start menu, the right-click menu, surprise me (a tick per step and a little win tune), wallpaper changes, refresh, poking the computer, shut down and the game window opening. Other blocks can ask for a sound with `document.dispatchEvent(new CustomEvent("cc:sfx", { detail: "pop" }))`. Sounds only follow a click or key press. Nothing is sent.
+
 ## Wallpapers and the desktop right-click menu
 
 The homepage desktop has four wallpapers: the usual green one, sunset, deep sea and night hills (`html[data-wall]`, CSS only, in `assets/home.css`). "change wallpaper" in the start menu steps to the next one; the choice is kept on the device in localStorage `cc-wall` and an inline script in `index.html` applies it before the first paint. On a computer with a mouse, right-clicking empty desktop opens a small desktop menu (`div.desk-ctx`, `assets/home.js`): surprise me, find a game, channel surf, next wallpaper, screensaver, refresh. Links, buttons and the game window keep the browser's own menu, and shift + right-click always gives the browser's menu. Nothing is sent.
