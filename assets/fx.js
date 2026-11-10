@@ -343,6 +343,13 @@
       location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
     });
     row.appendChild(dice);
+    // three random games back to back, from the ones the current filter shows (assets/deck.js runs it)
+    var triple = el('<button type="button" class="chip chip-random chip-triple" aria-label="triple feature: three random games in a row">3 in a row</button>');
+    triple.addEventListener("click", function () {
+      var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
+      if (window.ccFeature) window.ccFeature.start(shown.length >= 3 ? shown : null);
+    });
+    row.appendChild(triple);
     // sort: one chip that steps through the orders. Remembered on this device (cc-hub-sort).
     var SORTS = [["featured", "featured"], ["newest", "newest"], ["az", "a to z"]].concat(done ? [["recent", "your recent"]] : []);
     var sort = "featured";

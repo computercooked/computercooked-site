@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
     { name: "arcade games", hint: "dodge, run, shoot", href: "/games/?vibe=arcade" },
     { name: "puzzle games", hint: "use the brain. sorry.", href: "/games/?vibe=puzzle" },
     { name: "chill games", hint: "low stakes, low heart rate", href: "/games/?vibe=chill" },
@@ -242,6 +243,7 @@
     if (c.say) { say.textContent = c.say; return; }
     if (c.help) { dialog.close(); openHelp(); return; }
     if (c.tint) { say.textContent = "screen colour: " + (window.ccTint ? window.ccTint() : "green") + ". enter for the next one."; return; }
+    if (c.feature) { say.textContent = "picking three. no refunds."; window.ccFeature.start(); return; }
     if (c.random) {
       var pool = GAMES.filter(function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") !== 0; });
       if (!pool.length) { say.textContent = "still loading the games. try again in a sec."; loadGames(); return; }
@@ -570,4 +572,54 @@
     if (!plugged() && raf) { cancelAnimationFrame(raf); raf = 0; }
   });
   window.addEventListener("load", function () { setTimeout(start, 1200); }); // cards drawn after load (the hub) still count
+})();
+
+/* Triple feature: three random games, back to back. window.ccFeature.start(slugs) picks three (from `slugs` when given,
+   otherwise from every game), keeps the line-up for this tab (sessionStorage "cc-feature") and opens the first one.
+   On a game page that is in the line-up, a strip above the game shows where you are and links the next one; after the
+   last game it offers three more. Started from the hub's "3 in a row" chip (assets/fx.js) or the command bar. */
+(function () {
+  "use strict";
+  var KEY = "cc-feature";
+  function get() { try { var v = JSON.parse(sessionStorage.getItem(KEY)); return v && v.length ? v : null; } catch (e) { return null; } }
+  function end() { try { sessionStorage.removeItem(KEY); } catch (e) {} }
+  function here() { var m = /^\/games\/([^/]+)\/$/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
+  function url(slug) { return "/games/" + encodeURIComponent(slug) + "/?ref=feature"; }
+  function start(slugs) {
+    return fetch("/games/games.json").then(function (r) { return r.json(); }).then(function (d) {
+      var now = here(), pool = d.games.filter(function (g) {
+        return g.slug && g.made_by !== "community" && g.slug !== now && (!slugs || slugs.indexOf(g.slug) >= 0);
+      });
+      if (pool.length < 3) pool = d.games.filter(function (g) { return g.slug && g.made_by !== "community" && g.slug !== now; }); // a filter with under three games: pick from them all
+      for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+      var list = pool.slice(0, 3).map(function (g) { return { slug: g.slug, title: g.title }; });
+      if (!list.length) return;
+      try { sessionStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
+      location.href = url(list[0].slug);
+    }).catch(function () {});
+  }
+  window.ccFeature = { start: start, get: get, end: end };
+
+  var list = get(), slug = here(), layout = document.querySelector(".player-layout");
+  if (!list || !slug || !layout) return;
+  var at = -1;
+  list.forEach(function (g, i) { if (g.slug === slug) at = i; });
+  if (at < 0) return;
+  var bar = document.createElement("div"); bar.className = "feature-bar"; bar.setAttribute("role", "group"); bar.setAttribute("aria-label", "triple feature");
+  var tag = document.createElement("span"); tag.className = "feature-tag"; tag.textContent = "triple feature";
+  var dots = document.createElement("span"); dots.className = "feature-dots"; dots.setAttribute("aria-hidden", "true");
+  list.forEach(function (g, i) { var d = document.createElement("i"); if (i <= at) d.className = "is-on"; dots.appendChild(d); });
+  var where = document.createElement("span"); where.className = "feature-where"; where.textContent = "game " + (at + 1) + " of " + list.length;
+  var next;
+  if (at < list.length - 1) {
+    next = document.createElement("a"); next.className = "feature-next"; next.href = url(list[at + 1].slug);
+    next.textContent = "next: " + String(list[at + 1].title).toLowerCase() + " \u2192";
+  } else {
+    next = document.createElement("button"); next.type = "button"; next.className = "feature-next"; next.textContent = "last one. three more \u2192";
+    next.addEventListener("click", function () { next.disabled = true; start(); });
+  }
+  var x = document.createElement("button"); x.type = "button"; x.className = "feature-end"; x.textContent = "\u00d7"; x.setAttribute("aria-label", "end the triple feature");
+  x.addEventListener("click", function () { end(); bar.remove(); });
+  bar.appendChild(tag); bar.appendChild(dots); bar.appendChild(where); bar.appendChild(next); bar.appendChild(x);
+  layout.parentNode.insertBefore(bar, layout);
 })();
