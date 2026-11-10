@@ -41,6 +41,8 @@
   <script>if(/[?&]from=bushgrowth(&|$)/.test(location.search)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cc-arrive')</script>
   <style>html.cc-arrive::after{content:"";position:fixed;inset:0;z-index:2147483646;background:linear-gradient(to top,#ecffaa,#ffd678 10%,#ff965a 26%,#ff5a4e 44%,#8c1e24 66%,#34101a 86%,#120609)}</style>
   <script src="/assets/arrive.js" defer></script>
+  <!-- the desktop wallpaper this device picked (start menu or right-click the desktop; assets/home.js), set before the first paint -->
+  <script>try{var w=localStorage.getItem('cc-wall');if(/^(sunset|sea|hills)$/.test(w))document.documentElement.dataset.wall=w}catch(e){}</script>
   <!-- first visit on this device: the computer boots (assets/boot.js); skipped from bushgrowth, repeat visits, reduced motion -->
   <script>try{if(!localStorage.getItem('cc-booted')&&!/[?&]from=bushgrowth(&|$)/.test(location.search)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cc-bootseq');localStorage.setItem('cc-booted','1')}catch(e){}</script>
   <style>html.cc-bootseq::before{content:"";position:fixed;inset:0;z-index:2147483640;background:#050605;animation:cc-cover-out 0s 2.4s forwards}@keyframes cc-cover-out{to{visibility:hidden}}</style>
@@ -107,6 +109,7 @@
           <li><a href="/games/daily/"><i aria-hidden="true">☀</i>today's dailies</a></li>
           <li><button type="button" data-act="dice"><i aria-hidden="true">?</i>surprise me</button></li>
           <li><button type="button" data-act="search"><i aria-hidden="true">/</i>find a game</button></li>
+          <li><button type="button" data-act="wall"><i aria-hidden="true">▧</i>change wallpaper</button></li>
           <li id="menu-saver" hidden><button type="button" data-act="saver"><i aria-hidden="true">☾</i>screensaver</button></li>
           <li><a href="/lab/"><i aria-hidden="true">⚗</i>the lab</a></li>
           <li><a href="/log/"><i aria-hidden="true">≡</i>the cooked log</a></li>

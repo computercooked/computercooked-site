@@ -261,11 +261,68 @@
     menu.addEventListener("click", function (e) {
       var b = e.target.closest("[data-act]"); if (!b) return;
       var act = b.dataset.act; open(false);
-      if (act === "dice") spin();
-      else if (act === "search") { var s = document.querySelector("[data-cmd-open]"); if (s) s.click(); }
-      else if (act === "off") shutDown();
-      else if (act === "saver") document.dispatchEvent(new Event("cc:saver"));
+      run(act);
     });
+  })();
+  function run(act) {
+    if (act === "dice") spin();
+    else if (act === "search") { var s = document.querySelector("[data-cmd-open]"); if (s) s.click(); }
+    else if (act === "off") shutDown();
+    else if (act === "saver") document.dispatchEvent(new Event("cc:saver"));
+    else if (act === "wall") nextWall();
+    else if (act === "fresh") { if (!reduce) { desk.classList.remove("is-fresh"); void desk.offsetWidth; desk.classList.add("is-fresh"); } say("refreshed. i feel exactly the same.", 2600); }
+  }
+
+  /* ---------- wallpapers: four desktop backgrounds, picked from the start menu or the right-click menu ----------
+     The choice is kept on this device only (localStorage "cc-wall"); an inline script in index.html applies it
+     before the first paint. */
+  var WALLS = ["", "sunset", "sea", "hills"], WALL_NAMES = { "": "the usual", sunset: "sunset", sea: "deep sea", hills: "night hills" };
+  function nextWall() {
+    var root = document.documentElement, w = WALLS[(WALLS.indexOf(root.dataset.wall || "") + 1) % WALLS.length];
+    if (w) root.dataset.wall = w; else delete root.dataset.wall;
+    try { if (w) localStorage.setItem("cc-wall", w); else localStorage.removeItem("cc-wall"); } catch (e) {}
+    say("wallpaper: " + WALL_NAMES[w] + ".", 2000);
+  }
+
+  /* ---------- right-click the desktop: a little desktop menu ----------
+     Only on a mouse, only on empty desktop (links, buttons, form fields, videos and the game window keep the
+     browser's own menu), and holding shift always gives the browser's menu. */
+  if (desk && window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches) (function () {
+    var ctx = null;
+    function shut() { if (ctx) { ctx.remove(); ctx = null; } }
+    desk.addEventListener("contextmenu", function (e) {
+      if (e.shiftKey || e.target.closest("a, button, input, textarea, video, iframe, dialog, .desk-menu")) { shut(); return; }
+      e.preventDefault(); shut();
+      ctx = document.createElement("div"); ctx.className = "desk-menu desk-ctx"; ctx.setAttribute("role", "menu"); ctx.setAttribute("aria-label", "desktop menu");
+      var saver = document.getElementById("menu-saver");
+      ctx.innerHTML = '<ul role="none">' +
+        '<li role="none"><button type="button" role="menuitem" data-act="dice"><i aria-hidden="true">?</i>surprise me</button></li>' +
+        '<li role="none"><button type="button" role="menuitem" data-act="search"><i aria-hidden="true">/</i>find a game</button></li>' +
+        '<li role="none"><a role="menuitem" href="/surf/"><i aria-hidden="true">≋</i>channel surf</a></li>' +
+        '<li role="none" class="menu-sep"><button type="button" role="menuitem" data-act="wall"><i aria-hidden="true">▧</i>next wallpaper</button></li>' +
+        (saver && !saver.hidden ? '<li role="none"><button type="button" role="menuitem" data-act="saver"><i aria-hidden="true">☾</i>screensaver</button></li>' : "") +
+        '<li role="none"><button type="button" role="menuitem" data-act="fresh"><i aria-hidden="true">↻</i>refresh</button></li></ul>';
+      desk.appendChild(ctx);
+      var r = desk.getBoundingClientRect(), w = ctx.offsetWidth, h = ctx.offsetHeight;
+      ctx.style.left = Math.max(4, Math.min(e.clientX - r.left, r.width - w - 4)) + "px";
+      ctx.style.top = Math.max(4, Math.min(e.clientY - r.top, r.height - h - 44)) + "px";
+      ctx.querySelector("button").focus({ preventScroll: true });
+    });
+    desk.addEventListener("click", function (e) {
+      if (!ctx || !ctx.contains(e.target)) return;
+      var b = e.target.closest("[data-act]"), keep = b && b.dataset.act === "wall"; // stays open so you can flip through wallpapers
+      if (b) run(b.dataset.act);
+      if (!keep) shut();
+    });
+    desk.addEventListener("keydown", function (e) {
+      if (!ctx || !ctx.contains(e.target)) return;
+      if (e.key === "Escape") { e.stopPropagation(); shut(); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      var items = [].slice.call(ctx.querySelectorAll("a, button")), at = items.indexOf(document.activeElement);
+      e.preventDefault(); items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+    });
+    document.addEventListener("pointerdown", function (e) { if (ctx && !ctx.contains(e.target)) shut(); });
+    addEventListener("scroll", shut, { passive: true }); addEventListener("blur", shut); addEventListener("resize", shut);
   })();
   function shutDown() {
     if (reduce) { say("nice try. i don't have an off switch.", 3000); return; }
