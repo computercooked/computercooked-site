@@ -364,3 +364,58 @@
 
 // the tip jar in the footer (K-0059): the shared button from assets/tip.js, only while TIP_URL is a Stripe link
 if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "home", slot: "home-footer" });
+
+/* The hero reel: the little screen in the welcome window. It starts as a link to the game of the week with its cover;
+   a moment after the page loads it plays that game's 3 second clip, then flips through a few more games (4 on phones,
+   6 on bigger screens, so it never pulls much data), updating the link as it goes. It waits while you hover or focus it,
+   while it is off screen and while the tab is hidden. Not under reduced motion or data saver. Nothing is sent or stored. */
+(function () {
+  "use strict";
+  var reel = document.getElementById("desk-reel"), clip = document.getElementById("reel-clip");
+  if (!reel || !clip || !window.fetch || !window.IntersectionObserver) return;
+  var conn = navigator.connection;
+  if ((window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (conn && conn.saveData)) return;
+  var cover = document.getElementById("reel-cover"), title = document.getElementById("reel-title"), pitch = document.getElementById("reel-pitch");
+  var STEP = 4500, MAX = innerWidth < 900 ? 4 : 6, list = [], at = -1, timer = 0, inView = false, held = false;
+  var first = (/\/games\/([^/]+)\//.exec(reel.getAttribute("href") || "") || [])[1] || "";
+  function play() { var p = clip.play(); if (p && p.then) p.then(function () { clip.classList.add("is-on"); }).catch(function () {}); }
+  function arm() {
+    clearTimeout(timer); reel.classList.remove("is-rolling");
+    if (!inView || held || document.hidden || list.length < 2) return;
+    void reel.offsetWidth; reel.classList.add("is-rolling");
+    timer = setTimeout(function () { show(at + 1); }, STEP);
+  }
+  function show(i) {
+    at = i % list.length;
+    var g = list[at];
+    clip.classList.remove("is-on");
+    clip.src = g.clip;
+    if (cover) cover.style.visibility = g.slug === first ? "" : "hidden"; // the cover is the first game's
+    reel.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=reel";
+    reel.style.setProperty("--reel-accent", (g.theme && /^#[0-9a-f]{3,8}$/i.test(g.theme.accent || "")) ? g.theme.accent : "");
+    if (title) title.textContent = g.title;
+    if (pitch) pitch.textContent = g.pitch || "";
+    play(); arm();
+  }
+  function sync() {
+    if (at < 0) { if (inView && !document.hidden) show(0); return; }
+    if (inView && !document.hidden) play(); else clip.pause();
+    arm();
+  }
+  function start() {
+    fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
+      var games = ((d && d.games) || []).filter(function (g) { return g && g.slug && g.title && g.clip; });
+      var head = games.filter(function (g) { return g.slug === first; }), rest = games.filter(function (g) { return g.slug !== first; });
+      for (var i = rest.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = rest[i]; rest[i] = rest[j]; rest[j] = t; }
+      list = head.concat(rest).slice(0, MAX);
+      if (!list.length) return;
+      new IntersectionObserver(function (es) { inView = es[es.length - 1].isIntersecting; sync(); }, { threshold: .5 }).observe(reel);
+      document.addEventListener("visibilitychange", sync);
+      var hold = function (on) { return function () { held = on; arm(); }; };
+      reel.addEventListener("pointerenter", hold(true)); reel.addEventListener("pointerleave", hold(false));
+      reel.addEventListener("focus", hold(true)); reel.addEventListener("blur", hold(false));
+    }).catch(function () { /* the plain link stays */ });
+  }
+  if (document.readyState === "complete") setTimeout(start, 900);
+  else window.addEventListener("load", function () { setTimeout(start, 900); });
+})();
