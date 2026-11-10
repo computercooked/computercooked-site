@@ -5,6 +5,7 @@
 // (stats, hearts, "new" badges), so this only has to match its markup.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { pickFeatured } from "./featured.js";
+import { vibesOf, VIBE_NAMES } from "./seo.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -59,6 +60,18 @@ export async function hubPage(req, env, url) {
     .on("#shelf-new .card-grid", { element(e) { if (fresh.length) e.setInnerContent(fresh.map(hubCard).join(""), { html: true }); } })
     .on("#ours-heading [data-count]", txt(String(ours.length)))
     .on(".ticker-track", { element(e) { const t = ours.map((g) => `<span>${esc(g.title)}</span>`).join(""); e.setInnerContent(t + t, { html: true }); } });
+  // a filter link (/games/?vibe=puzzle): the page arrives already filtered and says so in its title and link preview.
+  // assets/fx.js reads the same parameter and takes over the chips. The canonical address stays /games/.
+  const vibe = url.searchParams.get("vibe");
+  const match = vibe && Object.hasOwn(VIBE_NAMES, vibe) ? ours.filter((g) => vibesOf(g).includes(vibe)) : [];
+  if (match.length) {
+    const name = VIBE_NAMES[vibe], keep = new Set(match);
+    const set = (v) => ({ element(e) { e.setAttribute("content", v); } });
+    rw.on("title", txt(`${name}: free online, no download — Computer Cooked Games`))
+      .on('meta[property="og:title"], meta[name="twitter:title"]', set(`${match.length} free ${name} — Computer Cooked`))
+      .on('meta[property="og:description"], meta[name="twitter:description"], meta[name="description"]', set(`${match.length} free ${name} from a computer that is not handling it well: ${match.slice(0, 4).map((g) => g.title).join(", ")}${match.length > 4 ? " and more" : ""}. no download, plays on your phone.`))
+      .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map((g, i) => keep.has(g) ? hubCard(g, i) : hubCard(g, i).replace('<li class="game-card">', '<li class="game-card" hidden>')).join(""), { html: true }); } });
+  }
   if (feat) {
     const href = `/games/${encodeURIComponent(feat.slug)}/`;
     rw.on("a.spotlight", { element(e) { e.setAttribute("href", href); e.setAttribute("aria-label", `featured game: ${feat.title}. ${feat.pitch}`); } })

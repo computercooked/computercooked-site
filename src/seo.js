@@ -20,7 +20,7 @@ const VAGUE = new Set(["1 player", "halloween", "casual", "mobile", "funny"]); /
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const tagsOf = (g) => (g.tags || []).map((t) => String(t).toLowerCase());
-const vibesOf = (g) => {
+export const vibesOf = (g) => {
   const tags = tagsOf(g);
   const v = Object.keys(VIBES).filter((k) => VIBES[k].some((t) => tags.includes(t)));
   return v.length ? v : FALLBACK[g.slug] || [];
@@ -94,7 +94,7 @@ function howTo(g) {
 }
 
 // "more like this": the game's vibes as links to the hub with that filter on (/games/?vibe=puzzle, read by assets/fx.js)
-const VIBE_NAMES = { arcade: "arcade games", puzzle: "puzzle games", chill: "chill games", quick: "60 second games", rage: "rage games" };
+export const VIBE_NAMES = { arcade: "arcade games", puzzle: "puzzle games", chill: "chill games", quick: "60 second games", rage: "rage games" };
 function vibeLinks(g) {
   const links = vibesOf(g).map((v) => `<a class="vibe-link" href="/games/?vibe=${v}">${VIBE_NAMES[v]}</a>`);
   if (tagsOf(g).includes("daily")) links.push(`<a class="vibe-link" href="/games/daily/">daily games</a>`);
