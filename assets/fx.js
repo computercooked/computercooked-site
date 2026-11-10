@@ -423,19 +423,37 @@
       empty.hidden = shown > 0;
       live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
     }
+    function pick(id) {
+      vibe = id;
+      row.querySelectorAll(".chip[data-vibe]").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.vibe === id)); });
+    }
+    // the filter lives in the address (/games/?vibe=quick&q=fish), so a filtered hub can be linked, shared and reloaded.
+    // replaceState, so the back button still leaves the hub in one press. Other parameters (ref, utm) are kept.
+    function remember() {
+      try {
+        var u = new URL(location.href), term = q.value.trim();
+        if (vibe === "all") u.searchParams.delete("vibe"); else u.searchParams.set("vibe", vibe);
+        if (term) u.searchParams.set("q", term); else u.searchParams.delete("q");
+        if (u.href !== location.href) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      } catch (e) {}
+    }
     row.addEventListener("click", function (e) {
       var b = e.target.closest(".chip[data-vibe]"); // not the random or sort chips
       if (!b) return;
-      vibe = b.dataset.vibe;
-      row.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
-      apply();
+      pick(b.dataset.vibe);
+      apply(); remember();
     });
-    q.addEventListener("input", apply);
+    var typing = 0;
+    q.addEventListener("input", function () { apply(); clearTimeout(typing); typing = setTimeout(remember, 400); });
     bar.querySelector(".hub-reset").addEventListener("click", function () {
-      q.value = ""; vibe = "all";
-      row.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.vibe === "all")); });
-      apply(); q.focus();
+      q.value = ""; pick("all");
+      apply(); remember(); q.focus();
     });
+    try {
+      var from = new URLSearchParams(location.search), v0 = from.get("vibe"), q0 = (from.get("q") || "").slice(0, 40);
+      if (v0 && chips.some(function (c) { return c.id === v0; })) pick(v0);
+      if (q0) q.value = q0;
+    } catch (e) {}
     watch.observe(grid, { childList: true });
     apply();
   }
