@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "old tv mode", hint: "scanlines over the game, on or off", crt: true, keys: "crt scanlines retro filter screen lines vintage television arcade monitor" },
     { name: "boss key", hint: "hide everything behind a boring spreadsheet", boss: true, keys: "hide panic work spreadsheet teacher parent cover disguise excel sheet look busy" },
     { name: "face-off", hint: "this or that, until one game wins", duel: true, keys: "this or that versus vs bracket tournament pick choose favourite favorite would you rather" },
     { name: "daily spin", hint: "one spin a day picks your game", spin: true, keys: "wheel slot machine roulette today lucky game of the day" },
@@ -268,6 +269,7 @@
       return;
     }
     if (c.mins !== undefined) { dialog.close(); window.ccTimer.set(c.mins); return; }
+    if (c.crt) { var tv = window.ccCrt.toggle(), onGame = !!document.getElementById("game-frame"); say.textContent = tv ? "old tv mode on." + (onGame ? "" : " open a game to see it.") : "old tv mode off."; if (onGame) dialog.close(); return; }
     if (c.boss) { dialog.close(); window.ccBoss.toggle(); return; }
     if (c.duel) { dialog.close(); window.ccDuel.open(); return; }
     if (c.spin) { dialog.close(); window.ccSpin.open(); return; }
@@ -912,4 +914,20 @@
       document.title = "▸ " + (game && n % 2 ? game + " is still running" : LINES[n]);
     } else if (real !== null) { document.title = real; real = null; }
   });
+})();
+
+/* Old tv mode: "old tv mode" in the command bar lays scanlines and dark corners over the game, like a tube telly. It is
+   only a see-through layer above the game frame (html.is-crt .player-stage::before in games/games.css): clicks pass
+   through and the game is not touched. The choice is kept on this device (localStorage "cc-crt") and carries from game
+   to game. window.ccCrt.toggle() returns the new state. Nothing is sent. */
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  function set(on) {
+    root.classList.toggle("is-crt", on);
+    try { if (on) localStorage.setItem("cc-crt", "1"); else localStorage.removeItem("cc-crt"); } catch (e) {}
+    return on;
+  }
+  try { if (localStorage.getItem("cc-crt") === "1") root.classList.add("is-crt"); } catch (e) {}
+  window.ccCrt = { toggle: function () { var on = set(!root.classList.contains("is-crt")); if (window.ccToast) window.ccToast(on ? "old tv mode on. mind the static." : "old tv mode off."); return on; } };
 })();

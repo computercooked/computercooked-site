@@ -3058,3 +3058,7 @@ html.lights-off .player:not(:fullscreen):not(.is-pseudo-fs) { z-index: 40; box-s
 .player.is-snapped .player-stage::after { content: ""; position: absolute; inset: 0; z-index: 5; background: #fff; pointer-events: none; animation: snap-flash .35s ease-out forwards; }
 @keyframes snap-flash { from { opacity: .7; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .player.is-snapped .player-stage::after { display: none; } }
+
+/* ---------- old tv mode: scanlines and dark corners over the game (assets/deck.js, window.ccCrt) ---------- */
+html.is-crt .player-stage::before { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgb(0 0 0 / .24) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 58%, rgb(0 0 0 / .5) 100%); }
