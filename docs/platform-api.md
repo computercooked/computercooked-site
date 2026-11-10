@@ -291,6 +291,10 @@ The welcome window on the homepage has a little screen (`a#desk-reel`) showing a
 
 On screens at least 900 px wide and 560 px tall, clicking the hero reel opens that game in a window on the homepage (`dialog#play-win`, `assets/home.js`) instead of leaving the page. The window frames `/games/:slug/window/`: the embed player without the credit link, sent with `frame-ancestors 'self'` so only our own pages can frame it. Because its path is not `/embed/`, `cc-sdk.js` counts those plays under the visit's own ref, not "embed". "full page" links to the game page with `?ref=reel`. The x, Esc or a click outside closes the window and removes the frame, so the game stops. Phones, small windows, modified clicks and browsers without `<dialog>` keep the plain link.
 
+## Hub quick play
+
+On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
+
 ## Screensaver
 
 After 60 seconds with no mouse, key, touch or scroll on the homepage, `assets/home.js` darkens the screen (`div.saver`) and bounces a game cover around it; the cover swaps to another game at every wall and links to that game with `?ref=saver`. It counts corner hits. A click anywhere else or any key goes back. The start menu's "screensaver" item starts it right away. It never starts while a dialog (the game window, the command bar) is open, while focus is in a frame, while the pointer rests on the hero reel, during the first-visit boot sequence or in a hidden tab; closing a window starts a fresh minute, and it does not exist under reduced motion (the menu item stays hidden). Covers come from `/games/games.json`. Nothing is sent or stored.
