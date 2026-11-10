@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Play time
+
+`games/player.js` adds up the seconds a run is actually going (between a game's start and end, or from the first input for a game without SDK hooks) while the tab is showing. Totals are kept per game on the device in localStorage `cc-time` (`{slug: seconds}`), written every 15 seconds and when the page is hidden or left. Once a game has a minute, its about card shows "you've played this for 12 min" (`p.play-time`), and a toast marks 10 minutes, 30 minutes and an hour. The command bar's "time played" (`assets/deck.js`) reads the same totals and names the most-played game. Nothing is sent.
+
 ## Triple feature (three games in a row)
 
 The hub's "3 in a row" chip and the command bar's "triple feature" pick three random games and play them back to back. `assets/deck.js` owns it: `window.ccFeature.start(slugs)` picks three (from `slugs` when given, which is how the hub chip respects the current filter; from every game otherwise, and never the game you are on), keeps the line-up for this tab in sessionStorage `cc-feature` (a list of `{slug, title}`) and opens the first with `?ref=feature`. On a game page in the line-up, a strip above the game (`.feature-bar`, styled in `games/games.css`) shows "game 2 of 3" and a link to the next; on the last game it offers three more. The × ends it (`ccFeature.end()`). Closing the tab ends it too. Nothing is sent.

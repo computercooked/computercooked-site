@@ -106,6 +106,40 @@
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
 
+  /* Play time: the seconds a run is actually going with the tab showing are added up per game on this device
+     (localStorage "cc-time": {slug: seconds}). The about card shows "you've played this for 12 min", a toast marks
+     10 minutes, 30 minutes and an hour, and the command bar's "time played" (assets/deck.js) reads the totals.
+     Nothing is sent. */
+  (function () {
+    var m = /\/games\/([a-z0-9-]+)\//.exec(location.pathname);
+    if (!m) return;
+    var slug = m[1], add = 0, card = document.querySelector(".about-card.how-to, [data-how-to]") /* the worker moves the about card under the game (src/seo.js) */, line = null;
+    function read() { try { var v = JSON.parse(localStorage.getItem("cc-time")); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } }
+    var total = Math.max(0, Math.floor(+read()[slug]) || 0);
+    function fmt(s) { var mins = Math.floor(s / 60), h = Math.floor(mins / 60); return h ? h + " h " + (mins % 60) + " min" : mins + " min"; }
+    function show() {
+      if (total < 60 || !card) return;
+      if (!line) { line = document.createElement("p"); line.className = "play-time"; card.appendChild(line); }
+      line.textContent = "you've played this for " + fmt(total) + ".";
+    }
+    function flush() { // another tab may have added time too, so add to what is stored now
+      if (!add) return;
+      var all = read(); all[slug] = Math.max(0, Math.floor(+all[slug]) || 0) + add; add = 0;
+      save("cc-time", JSON.stringify(all));
+    }
+    var MARKS = { 600: "ten minutes on " + title + ". the computer noticed.", 1800: "half an hour on " + title + ". respect.", 3600: "one hour on " + title + ". are you okay? (keep going.)" };
+    setInterval(function () {
+      if (!running || document.hidden) return;
+      add++; total++;
+      if (total % 60 === 0) show();
+      if (MARKS[total]) toast(MARKS[total]);
+      if (add >= 15) flush();
+    }, 1000);
+    document.addEventListener("visibilitychange", function () { if (document.hidden) flush(); });
+    window.addEventListener("pagehide", flush);
+    show();
+  })();
+
   /* Lights off: a lamp button next to fullscreen dims everything on the page except the game (html.lights-off, styled
      in games.css). The veil lets clicks through, so the rest of the page still works, just in the dark. Esc or the button turns
      them back on. The choice is kept on this device (localStorage "cc-lights") so it carries from game to game. */

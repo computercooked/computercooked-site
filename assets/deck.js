@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
     { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
     { name: "arcade games", hint: "dodge, run, shoot", href: "/games/?vibe=arcade" },
     { name: "puzzle games", hint: "use the brain. sorry.", href: "/games/?vibe=puzzle" },
@@ -243,6 +244,15 @@
     if (c.say) { say.textContent = c.say; return; }
     if (c.help) { dialog.close(); openHelp(); return; }
     if (c.tint) { say.textContent = "screen colour: " + (window.ccTint ? window.ccTint() : "green") + ". enter for the next one."; return; }
+    if (c.time) { // totals kept on this device by games/player.js (localStorage "cc-time")
+      var times = {}, sum = 0, top = "";
+      try { times = JSON.parse(localStorage.getItem("cc-time")) || {}; } catch (e) {}
+      Object.keys(times).forEach(function (k) { var s = Math.floor(+times[k]) || 0; if (s <= 0) return; sum += s; if (!top || s > times[top]) top = k; });
+      var span = function (s) { var mins = Math.floor(s / 60), h = Math.floor(mins / 60); return h ? h + " h " + (mins % 60) + " min" : mins ? mins + " min" : s + " sec"; };
+      var named = GAMES.filter(function (g) { return g.slug === top; })[0];
+      say.textContent = sum ? "you've played " + span(sum) + " on this device. most: " + String(named ? named.title : top).toLowerCase() + " (" + span(Math.floor(+times[top])) + ")." : "nothing on the clock yet. go play something.";
+      return;
+    }
     if (c.feature) { say.textContent = "picking three. no refunds."; window.ccFeature.start(); return; }
     if (c.random) {
       var pool = GAMES.filter(function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") !== 0; });
