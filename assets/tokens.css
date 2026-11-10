@@ -149,3 +149,11 @@ kbd, code, samp { font-family: var(--mono); font-size: var(--fs-12); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- screen colour: the one accent, in four phosphors ----------
+   Picked from the command bar ("screen colour"), the homepage start menu or a right-click on the desktop
+   (assets/deck.js). Kept on the device in localStorage "cc-tint"; a one-line script in each page's head sets
+   html[data-tint] before the first paint. Green is the default and has no attribute. */
+html[data-tint="amber"] { --accent: #ffb52e; --phosphor: 255 181 46; }
+html[data-tint="ice"] { --accent: #6fd8ff; --phosphor: 111 216 255; }
+html[data-tint="pink"] { --accent: #ff7ac8; --phosphor: 255 122 200; }

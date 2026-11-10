@@ -16,12 +16,12 @@
 /* faint pixel grid, like a desktop pattern */
 .desk::before {
   content: ""; position: absolute; inset: 0; z-index: -1; opacity: .5;
-  background-image: linear-gradient(rgba(184, 242, 58, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(184, 242, 58, .05) 1px, transparent 1px);
+  background-image: linear-gradient(rgb(var(--phosphor) / .05) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--phosphor) / .05) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: radial-gradient(ellipse at 60% 45%, #000 30%, transparent 80%);
 }
 .desk-fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-.desk-glow { position: absolute; width: 520px; height: 520px; right: 8%; top: 12%; z-index: 0; border-radius: 50%; background: radial-gradient(circle, rgba(184, 242, 58, .16), transparent 65%); filter: blur(10px); pointer-events: none; }
+.desk-glow { position: absolute; width: 520px; height: 520px; right: 8%; top: 12%; z-index: 0; border-radius: 50%; background: radial-gradient(circle, rgb(var(--phosphor) / .16), transparent 65%); filter: blur(10px); pointer-events: none; }
 .desk-scan { position: absolute; inset: 0; z-index: 6; pointer-events: none; background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); mix-blend-mode: overlay; }
 .desk::after { content: ""; position: absolute; inset: 0; z-index: 6; pointer-events: none; box-shadow: inset 0 0 160px 40px rgba(0, 0, 0, .55); }
 
@@ -39,7 +39,7 @@
 .desk-prompt span { color: var(--accent); }
 .caret { margin-left: 2px; color: var(--accent); }
 .desk-title { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(2rem, 3.4vw, 3rem); line-height: 1.02; letter-spacing: -.01em; text-wrap: balance; }
-.desk-title span { color: var(--accent); text-shadow: 0 0 24px rgba(184, 242, 58, .35); }
+.desk-title span { color: var(--accent); text-shadow: 0 0 24px rgb(var(--phosphor) / .35); }
 .desk-sub { margin: var(--s-4) 0 0; max-width: 44ch; color: var(--text-dim); font-size: var(--fs-16); line-height: 1.5; }
 .desk-ctas { display: flex; flex-wrap: wrap; gap: var(--s-3); margin: var(--s-5) 0 0; }
 .desk-ctas .play-btn { box-shadow: 4px 4px 0 #000; transition: transform var(--fast) var(--ease-out), box-shadow var(--fast) var(--ease-out); }
@@ -75,7 +75,7 @@
 .desk-icon:focus-visible { outline: 2px dashed var(--accent); outline-offset: 2px; }
 .desk-icon.is-picked .ico { --mag: 1.28; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 4px 6px 0 #000; }
 .desk-icon.is-won .ico { animation: dock-won .5s steps(4) 2; }
-@keyframes dock-won { 50% { box-shadow: 0 0 0 5px var(--accent), 0 0 30px 6px rgba(184, 242, 58, .6); } }
+@keyframes dock-won { 50% { box-shadow: 0 0 0 5px var(--accent), 0 0 30px 6px rgb(var(--phosphor) / .6); } }
 /* surprise me: the last tile, a dice that spins the dock */
 .desk-dice { margin-left: 6px; padding-left: 10px; border-left: 2px dashed #3a3f2a; border-radius: 0 8px 8px 0; }
 .desk-dice .ico { display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
@@ -170,7 +170,7 @@ a.now-card:hover, a.now-card:focus-visible { transform: translate(-2px, -2px); b
 .now-ch .now-tag, .now-ch .now-title { max-width: calc(100% - 88px); }
 .now-dots { position: absolute; top: var(--s-4); right: var(--s-4); display: flex; gap: 6px; }
 .now-dots i { width: 14px; height: 14px; border: 2px solid var(--line); border-radius: 4px; background: var(--bg); }
-.now-dots i.on { border-color: #000; background: var(--accent); box-shadow: 0 0 10px rgba(184, 242, 58, .5); }
+.now-dots i.on { border-color: #000; background: var(--accent); box-shadow: 0 0 10px rgb(var(--phosphor) / .5); }
 .now-chart { width: 100%; margin: 4px 0 0; padding: 0; list-style: none; }
 .now-chart a { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 6px; border-radius: 6px; color: var(--text); text-decoration: none; }
 .now-chart a:hover, .now-chart a:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
@@ -239,7 +239,7 @@ html.cc-desk .desk-nudge-p { display: block; }
 .desk-nudge { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 12px 4px 8px; border: 1px dashed var(--accent);
   border-radius: 999px; color: var(--accent); font: 700 var(--fs-14) var(--mono); text-decoration: none; }
 .desk-nudge img { width: 14px; height: 20px; image-rendering: pixelated; }
-.desk-nudge:hover, .desk-nudge:focus-visible { border-style: solid; background: rgba(184, 242, 58, .08); }
+.desk-nudge:hover, .desk-nudge:focus-visible { border-style: solid; background: rgb(var(--phosphor) / .08); }
 @media (prefers-reduced-motion: no-preference) {
   .desk-nudge img { animation: desk-bob 2.4s ease-in-out infinite; }
   .desk-nudge span { display: inline-block; animation: desk-nudge-dip 1.6s ease-in-out infinite; }
