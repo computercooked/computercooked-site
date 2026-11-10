@@ -252,7 +252,7 @@
         return true;
       } catch (e) { return true; }
     }
-    b.addEventListener("click", function () {
+    function shoot() {
       var src = screen();
       if (!src || blank(src)) { toast("nothing to snap yet. start the game first."); return; }
       var k = Math.max(1, Math.ceil(640 / src.width)), w = src.width * k, h = src.height * k, foot = Math.max(28, Math.round(w / 22));
@@ -273,6 +273,12 @@
         player.classList.add("is-snapped"); setTimeout(function () { player.classList.remove("is-snapped"); }, 350);
         toast("snap. saved to your downloads.");
       } catch (e) { toast("couldn't take that picture."); }
+    }
+    b.addEventListener("click", function () {
+      // right after the game's own frame is drawn: a WebGL screen can only be read then. the timer covers a paused game
+      var done = false, go = function () { if (!done) { done = true; shoot(); } };
+      try { frame.contentWindow.requestAnimationFrame(go); } catch (e) {}
+      setTimeout(go, 250);
     });
   })();
 

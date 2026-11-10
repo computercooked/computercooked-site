@@ -354,6 +354,10 @@
     var spinChip = el('<button type="button" class="chip chip-random chip-spin" aria-label="daily spin: one spin a day picks your game">daily spin</button>');
     spinChip.addEventListener("click", function () { if (window.ccSpin) window.ccSpin.open(); });
     row.appendChild(spinChip);
+    // this or that until one game is left (assets/deck.js)
+    var duelChip = el('<button type="button" class="chip chip-random chip-duel" aria-label="face-off: pick between two games until one wins">face-off</button>');
+    duelChip.addEventListener("click", function () { if (window.ccDuel) window.ccDuel.open(); });
+    row.appendChild(duelChip);
     // sort: one chip that steps through the orders. Remembered on this device (cc-hub-sort).
     var SORTS = [["featured", "featured"], ["newest", "newest"], ["az", "a to z"]].concat(done ? [["recent", "your recent"]] : []);
     var sort = "featured";
