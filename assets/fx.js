@@ -359,7 +359,11 @@
     duelChip.addEventListener("click", function () { if (window.ccDuel) window.ccDuel.open(); });
     row.appendChild(duelChip);
     // sort: one chip that steps through the orders. Remembered on this device (cc-hub-sort).
-    var SORTS = [["featured", "featured"], ["newest", "newest"], ["az", "a to z"]].concat(done ? [["recent", "your recent"]] : []);
+    // play time per game on this device (games/player.js keeps it in cc-time, in seconds): "your most played" once a game has a minute
+    var secs = {};
+    try { secs = JSON.parse(localStorage.getItem("cc-time")) || {}; } catch (e) { secs = {}; }
+    var timed = games.some(function (g) { return (+secs[g.slug] || 0) >= 60; });
+    var SORTS = [["featured", "featured"], ["newest", "newest"], ["az", "a to z"]].concat(done ? [["recent", "your recent"]] : [], timed ? [["most", "your most played"]] : []);
     var sort = "featured";
     try { var saved = localStorage.getItem("cc-hub-sort"); if (SORTS.some(function (x) { return x[0] === saved; })) sort = saved; } catch (e) {}
     var rank = {};
@@ -368,6 +372,7 @@
       if (sort === "newest") list.sort(function (a, b) { return String(b.g.added || "").localeCompare(String(a.g.added || "")) || a.i - b.i; });
       else if (sort === "az") list.sort(function (a, b) { return String(a.g.title).localeCompare(String(b.g.title)); });
       else if (sort === "recent") list.sort(function (a, b) { return ((hist[b.g.slug] || {}).t || 0) - ((hist[a.g.slug] || {}).t || 0) || a.i - b.i; });
+      else if (sort === "most") list.sort(function (a, b) { return (+secs[b.g.slug] || 0) - (+secs[a.g.slug] || 0) || a.i - b.i; });
       rank = {};
       list.forEach(function (x, n) { rank[x.g.slug] = n; });
     }
