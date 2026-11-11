@@ -945,8 +945,8 @@
     { t: "press <kbd>/</kbd> anywhere to open the command bar. everything on the site is in there." },
     { t: "someone coming? press <kbd>`</kbd> (under esc) and the whole page turns into a very boring spreadsheet.", go: function () { window.ccBoss.toggle(); } },
     { t: "can’t pick a game? face-off puts eight of them head to head until one wins.", go: function () { window.ccDuel.open(); } },
-    { t: "“old tv mode” in the command bar puts scanlines over every game, like a tube telly.", go: function () { window.ccCrt.toggle(); } },
-    { t: "one more game, honest: “play timer” in the command bar counts down and tells you when time’s up.", go: function () { window.ccTimer.set(10); } },
+    { t: "“old tv mode” in the command bar puts scanlines over every game, like a tube telly.", go: function () { return window.ccCrt.toggle() ? "old tv mode is on. open any game to see it. try it again to turn it off." : "old tv mode is off."; } },
+    { t: "one more game, honest: “play timer” in the command bar counts down and tells you when time’s up.", go: function () { window.ccTimer.set(10); return "ten minutes on the clock, bottom left. click the clock to stop it."; } },
     { t: "the daily spin picks one game a day for you. no take-backs until tomorrow.", go: function () { window.ccSpin.open(); } },
     { t: "press <kbd>?</kbd> on any page for the full list of keyboard shortcuts." },
     { t: "scroll down past a running game and it shrinks into the corner, still playing." },
@@ -960,7 +960,7 @@
     tryB.hidden = !tip.go; nextB.hidden = false;
     try { localStorage.setItem("cc-dyk", String((n + 1) % TIPS.length)); } catch (e) {}
   }
-  tryB.addEventListener("click", function () { var tip = TIPS[n]; if (tip.go) tip.go(); });
+  tryB.addEventListener("click", function () { var tip = TIPS[n]; var told = tip.go && tip.go(); if (told) say.textContent = told; }); // some tries have nothing to show on this page, so say what happened
   nextB.addEventListener("click", function () { n = (n + 1) % TIPS.length; show(); });
   show();
 })();
