@@ -854,6 +854,10 @@ if (admin) {
     const pj = await (await get("/games/player.js")).text();
     ok(pj.includes("navigator.canShare({ files: [file] })") && pj.includes('"(pointer: coarse)"'), "snap: phones get the share sheet, with the download as the fallback");
   }
+  {
+    const pf = await (await get("/games/platform.js")).text();
+    ok(pf.includes('"welcome back. last played "') && pf.includes("your best to beat: "), "welcome back: the returning-player toast on game pages");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

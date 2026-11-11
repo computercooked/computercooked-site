@@ -149,6 +149,18 @@
       localStorage.setItem("cc-history", JSON.stringify(h));
     } catch (err) {}
   }
+  // welcome back: coming back to a game played here before (after a break of half an hour or more), a toast says
+  // when you last played and the best to beat. Read before this visit is stamped below.
+  (function () {
+    var e = null;
+    try { e = (JSON.parse(localStorage.getItem("cc-history") || "{}") || {})[game]; } catch (err) {}
+    if (!e || !e.n || !e.t) return;
+    var gap = Date.now() - e.t, min = 60000, hr = 60 * min, day = 24 * hr;
+    if (gap < 30 * min) return;
+    var ago = gap < hr ? "half an hour ago" : gap < 2 * hr ? "an hour ago" : gap < day ? Math.floor(gap / hr) + " hours ago" : gap < 2 * day ? "yesterday" : gap < 60 * day ? Math.floor(gap / day) + " days ago" : "a while ago";
+    var msg = "welcome back. last played " + ago + (typeof e.b === "number" ? ". your best to beat: " + fmt(e.b) + "." : ".");
+    setTimeout(function () { if (window.ccToast) window.ccToast(msg); }, 1200);
+  })();
   hist(function (e) { e.t = Date.now(); });
   var histRun = false;
   document.addEventListener("cc:start", function () { if (!histRun) { histRun = true; hist(function (e) { e.n = (e.n || 0) + 1; e.t = Date.now(); }); } });
