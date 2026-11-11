@@ -674,6 +674,10 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.66 What v4.19.1 fixed: the bag fits a phone (owner: "Yes, fix it")
+
+- In a window under 700 px wide (a phone, or a narrow desktop window) the bag now stacks: slots and hotbar on top, then the make, build and you tabs, then the tab's content. Nothing sits off to the side, so there is no sideways scrolling; the bag scrolls up and down, and the tab buttons stay pinned while it does. Slots shrink to fit 9 across. Wider screens look the same as before.
+
 ## 0.65 What v4.19.0 added: the island after dark (owner: "Yes, batch 2")
 
 Second batch of the survival pass. Everything here lives in one new file, `wilds.js` (`SB.Wilds`), and only matters while you are inside a smol.

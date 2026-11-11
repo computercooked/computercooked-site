@@ -233,6 +233,11 @@
     + "#pov:not(.phone) .who{left:8px;top:46px;padding:4px 8px 4px 4px;gap:6px;max-width:30vw}#pov:not(.phone) .who .face{width:26px;height:26px;font-size:16px}#pov:not(.phone) .who .nm{font-size:13px}#pov:not(.phone) .who .tr{font-size:11px}#pov:not(.phone) .who small,#pov:not(.phone) .who .learn{display:none}"
     + "#pov:not(.phone) .leave.bagbtn{left:8px;right:auto;top:94px;bottom:auto}#pov:not(.phone) .paws{display:none}"
     + "#pov .lockhint{white-space:normal;max-width:90vw;text-align:center;font-size:13px;bottom:196px}#pov .testnums{font-size:10px;white-space:pre-wrap;max-width:calc(100vw - 16px)}#pov.phone .testnums{bottom:auto;top:168px}}",
+    // 4.19.1: the bag in a narrow window stacks its tabs (make · build · you) under the slots instead of off to the side
+    "@media (max-width:700px){#pov .bag{align-items:flex-start;padding-top:6px}#pov .bag .win{flex-direction:column;padding:10px;gap:8px;max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);box-sizing:border-box}"
+    + "#pov .bag .win>*{max-width:100%;min-width:0}#pov .side{width:auto;min-height:0}#pov .bag h3{flex-wrap:wrap;gap:4px}#pov .bag .help{overflow-wrap:anywhere}"
+    + "#pov .bag .grid{grid-template-columns:repeat(9,minmax(0,34px));gap:3px}#pov .bag .slot{width:auto;max-width:34px;aspect-ratio:1;height:auto}#pov .bag .slot .ic{width:24px!important;height:24px!important}"
+    + "#pov .bag .tabs{position:sticky;top:-10px;z-index:1;background:rgba(22,18,34,.96);padding:6px 0;margin:-6px 0 6px}#pov .rlist{max-height:none}}",
     "@media (max-width:380px){#pov .compass,#pov.phone .compass{width:40vw}}",
     "@media (max-height:500px){#pov.phone .quest{display:none}#pov.phone .pbtns{bottom:70px;grid-template-rows:repeat(2,50px);grid-template-columns:repeat(3,50px)}#pov.phone .pbtns button{width:50px;height:50px}#pov.phone .pbtns button.act{height:108px}}"
   ].join("\n");
