@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## My stats (player card)
+
+"my stats" in the command bar (also a did-you-know tip) opens a player card for this device (`dialog.stats`, styled in `assets/deck.css`): level, title and xp, a bar for how many games have been tried out of all of them, six numbers (games tried, runs, time played, games with a best, badges, longest speedrun), the top three games by time and a grid of the last 8 weeks of play days. It reads only what the site already keeps in localStorage: `cc-history`, `cc-time`, `cc-guest-xp` (its level maths copies `xpFor`/`TITLES` from `games/platform.js`, so change both together) and `cc-watch-best`. A logged-in player's account xp isn't in it. "copy" puts a one-line summary on the clipboard. `assets/deck.js` owns it: `window.ccStats.open()`. Nothing is sent; the only request is `/games/games.json` for titles.
+
 ## Play on your phone
 
 On screens 900px and wider, the game bar has a phone button (`#btn-phone`, added by `games/player.js`) that shows a QR code of the game's page tagged `?ref=qr` (`dialog.qrbox`, styled in `games/games.css`), so a phone camera can pick the game up there. The code is drawn in the page by `assets/qr.js` (`window.ccQr(text)` returns an SVG; byte mode, level L, versions 1 to 5, about 100 characters at most), which loads on the first click. Narrower screens (phones) don't get the button. Nothing is sent.
