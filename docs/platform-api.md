@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Play on your phone
+
+On screens 900px and wider, the game bar has a phone button (`#btn-phone`, added by `games/player.js`) that shows a QR code of the game's page tagged `?ref=qr` (`dialog.qrbox`, styled in `games/games.css`), so a phone camera can pick the game up there. The code is drawn in the page by `assets/qr.js` (`window.ccQr(text)` returns an SVG; byte mode, level L, versions 1 to 5, about 100 characters at most), which loads on the first click. Narrower screens (phones) don't get the button. Nothing is sent.
+
 ## Next game key
 
 On any page, **n** (while the page, not a game, has the keyboard) goes straight to a random game this device hasn't played yet (`cc-history`), or any other game once every one has been played. The link carries `?ref=next`. It is listed in the `?` help and the hub's did-you-know box; `assets/deck.js` owns it (`nextGame()`), and a page's own `n` navigation key would win. Nothing is sent beyond the normal page view.

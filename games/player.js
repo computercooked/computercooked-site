@@ -181,6 +181,36 @@
     show();
   })();
 
+  /* Play on your phone: a phone button in the game bar (screens 900px and wider; hidden below that in games.css) shows a
+     QR code of this game's page, tagged ?ref=qr, so a phone camera can pick the game up there. The code is drawn on
+     this page by /assets/qr.js, loaded on the first click; nothing is sent. */
+  (function () {
+    var b = document.createElement("button"), dlg = null;
+    b.className = "tool"; b.id = "btn-phone"; b.type = "button"; b.setAttribute("aria-label", "play this on your phone");
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 18h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="tool-text">phone</span>';
+    btnFs.parentNode.insertBefore(b, btnFs);
+    function show() {
+      var url = location.origin + location.pathname + "?ref=qr", svg = window.ccQr && window.ccQr(url);
+      if (!svg) { toast("couldn't make the code. the link is in the share button."); return; }
+      if (!dlg) {
+        dlg = document.createElement("dialog"); dlg.className = "qrbox"; dlg.setAttribute("aria-labelledby", "qrbox-tag");
+        dlg.innerHTML = '<p class="qrbox-tag" id="qrbox-tag">play it on your phone</p><div class="qrbox-code"></div><p class="qrbox-say"></p><button type="button" class="qrbox-close">done</button>';
+        dlg.querySelector(".qrbox-close").addEventListener("click", function () { dlg.close(); });
+        dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+        document.body.appendChild(dlg);
+      }
+      dlg.querySelector(".qrbox-code").innerHTML = svg; // drawn by assets/qr.js from this page's own address
+      dlg.querySelector(".qrbox-say").textContent = "point your phone's camera at this and " + String(title).toLowerCase() + " opens there. no app, no account.";
+      (document.fullscreenElement ? document.exitFullscreen() : Promise.resolve()).catch(function () {}).then(function () { dlg.showModal(); });
+    }
+    b.addEventListener("click", function () {
+      if (window.ccQr) { show(); return; }
+      var s = document.createElement("script"); s.src = "/assets/qr.js";
+      s.onload = show; s.onerror = function () { toast("couldn't load the code. try again in a sec."); };
+      document.head.appendChild(s);
+    });
+  })();
+
   /* Lights off: a lamp button next to fullscreen dims everything on the page except the game (html.lights-off, styled
      in games.css). The veil lets clicks through, so the rest of the page still works, just in the dark. Esc or the button turns
      them back on. The choice is kept on this device (localStorage "cc-lights") so it carries from game to game. */
