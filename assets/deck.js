@@ -1147,7 +1147,13 @@
     (games || []).forEach(function (x) { names[x.slug] = String(x.title || x.slug).toLowerCase(); });
     var nm = function (slug) { return names[slug] || slug.replace(/-/g, " "); };
     var tried = 0, runs = 0, bests = 0, secs = 0, longest = 0;
-    Object.keys(hist).forEach(function (k) { var e = hist[k] || {}; if (e.n > 0) { tried++; runs += e.n; } if (e.b != null) bests++; });
+    // "tried": a run started (cc-history), time on the clock (cc-time) or a run the xp tracker counted (cc-guest-xp)
+    var seen = {};
+    Object.keys(hist).forEach(function (k) { var e = hist[k] || {}; if (e.n > 0) { seen[k] = 1; runs += e.n; } if (e.b != null) bests++; });
+    Object.keys(times).forEach(function (k) { if (+times[k] > 0) seen[k] = 1; });
+    Object.keys(g.games || {}).forEach(function (k) { seen[k] = 1; });
+    tried = Object.keys(seen).length;
+    if (games && games.length) { var listed = {}; games.forEach(function (x) { listed[x.slug] = 1; }); tried = Object.keys(seen).filter(function (k) { return listed[k]; }).length; }
     var top = Object.keys(times).map(function (k) { return [k, Math.floor(+times[k]) || 0]; }).filter(function (x) { return x[1] > 0; });
     top.forEach(function (x) { secs += x[1]; });
     top.sort(function (a, b) { return b[1] - a[1]; });
