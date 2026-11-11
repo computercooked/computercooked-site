@@ -866,6 +866,10 @@ if (admin) {
     const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text();
     ok(dk.includes("window.ccPnp") && dk.includes("pnp: true") && dc.includes(".pnp-ask"), "pass and play: the command, the match bar and its styles");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text();
+    ok(dk.includes("window.ccWatch") && dk.includes("watch: true") && dc.includes(".swatch-s"), "speedrun timer: the command, the stopwatch and its styles");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

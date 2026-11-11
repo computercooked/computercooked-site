@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "speedrun timer", hint: "a stopwatch on every run, on or off", watch: true, keys: "stopwatch clock time run speedrun splits streamer timer how long seconds" },
     { name: "pass and play", hint: "two players, one device, one run each", pnp: true, keys: "versus vs two player 2p friend couch hot seat turns duel compete against together" },
     { name: "ask the computer", hint: "yes or no questions only. it knows.", ask: true, keys: "magic 8 ball eight fortune oracle question should i decide yes no answer predict future" },
     { name: "old tv mode", hint: "scanlines over the game, on or off", crt: true, keys: "crt scanlines retro filter screen lines vintage television arcade monitor" },
@@ -271,6 +272,7 @@
       return;
     }
     if (c.mins !== undefined) { dialog.close(); window.ccTimer.set(c.mins); return; }
+    if (c.watch) { var sw = window.ccWatch.toggle(), onPage = !!document.getElementById("game-frame"); say.textContent = sw ? "speedrun timer on." + (onPage ? " it starts with your next run." : " open a game to see it.") : "speedrun timer off."; if (onPage) dialog.close(); return; }
     if (c.pnp) { if (window.ccPnp && window.ccPnp.ready()) { dialog.close(); window.ccPnp.open(); } else say.textContent = "open a game first, then pass and play."; return; }
     if (c.ask) { // a magic 8-ball: think of a yes or no question, run it again for a second opinion
       var ANS = ["yes. obviously.", "no. and don’t ask again.", "signs point to one more game.", "the computer says yes, the computer is often wrong.", "ask again after a snack.", "not a chance. bold of you to ask.",
@@ -970,6 +972,8 @@
     { t: "one more game, honest: “play timer” in the command bar counts down and tells you when time’s up.", go: function () { window.ccTimer.set(10); return "ten minutes on the clock, bottom left. click the clock to stop it."; } },
     { t: "the daily spin picks one game a day for you. no take-backs until tomorrow.", go: function () { window.ccSpin.open(); } },
     { t: "press <kbd>?</kbd> on any page for the full list of keyboard shortcuts." },
+    { t: "two people, one device? \u201cpass and play\u201d in the command bar on any game: one run each, the computer picks the winner." },
+    { t: "racing yourself? \u201cspeedrun timer\u201d in the command bar puts a stopwatch on every run.", go: function () { return window.ccWatch.toggle() ? "speedrun timer on. open any game and it starts with your run. try it again to turn it off." : "speedrun timer off."; } },
     { t: "big decision? open the command bar and “ask the computer”. yes or no questions only." },
     { t: "scroll down past a running game and it shrinks into the corner, still playing." },
     { t: "the camera button under a game saves a picture of the screen. the lamp next to it turns the lights off." }
@@ -1051,4 +1055,56 @@
   });
   document.addEventListener("fullscreenchange", function () { if (bar) (document.fullscreenElement || document.body).appendChild(bar); });
   show();
+})();
+
+/* Speedrun timer: "speedrun timer" in the command bar puts a stopwatch in the bottom right of the game (inside the stage,
+   so it shows in fullscreen too). It starts when a run starts (cc:start), freezes when it ends (cc:end) and shows that
+   run's time, plus this device's longest run on this game. On or off is kept on the device (localStorage "cc-watch"),
+   longest runs in "cc-watch-best" ({slug: ms}). window.ccWatch.toggle(). Styled in assets/deck.css (.swatch). Nothing is sent. */
+(function () {
+  "use strict";
+  var stage = document.querySelector(".player-stage");
+  var m = /^\/games\/([^/]+)\/$/.exec(location.pathname), game = m && m[1];
+  var el = null, t0 = 0, tick = 0, last = null;
+  function on() { try { return localStorage.getItem("cc-watch") === "1"; } catch (e) { return false; } }
+  function bests() { try { return JSON.parse(localStorage.getItem("cc-watch-best")) || {}; } catch (e) { return {}; } }
+  function fmt(ms) {
+    var cs = Math.floor(ms / 10) % 100, s = Math.floor(ms / 1000), mm = Math.floor(s / 60);
+    return mm + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + "." + (cs < 10 ? "0" : "") + cs;
+  }
+  function draw(ms, done) {
+    if (!el) return;
+    var b = game && bests()[game];
+    el.innerHTML = '<span class="swatch-t">' + fmt(ms) + "</span>" + (done ? '<span class="swatch-s">' + (b && b > ms ? "longest " + fmt(b) : "that\u2019s your longest") + "</span>" : "");
+    el.classList.toggle("is-done", !!done);
+  }
+  function mount() {
+    if (!stage || !game) return;
+    if (!on()) { if (el) { el.remove(); el = null; } clearInterval(tick); tick = 0; return; }
+    if (!el) { el = document.createElement("div"); el.className = "swatch"; el.setAttribute("aria-hidden", "true"); stage.appendChild(el); }
+    if (tick) return;
+    if (last !== null) draw(last, true); else draw(0, false);
+  }
+  document.addEventListener("cc:start", function () {
+    if (!el) return;
+    clearInterval(tick); t0 = Date.now(); last = null;
+    tick = setInterval(function () { draw(Date.now() - t0, false); }, 47); // a little under 50ms so the hundredths roll
+    draw(0, false);
+  });
+  document.addEventListener("cc:end", function (e) {
+    if (!el || !tick) return;
+    clearInterval(tick); tick = 0;
+    var d = e.detail && typeof e.detail.durationMs === "number" && isFinite(e.detail.durationMs) ? e.detail.durationMs : Date.now() - t0;
+    last = d;
+    var all = bests(), first = !all[game] || d > all[game];
+    if (first) { all[game] = d; try { localStorage.setItem("cc-watch-best", JSON.stringify(all)); } catch (err) {} }
+    draw(d, true);
+  });
+  window.ccWatch = { toggle: function () {
+    var now = !on();
+    try { if (now) localStorage.setItem("cc-watch", "1"); else localStorage.removeItem("cc-watch"); } catch (e) {}
+    mount();
+    return now;
+  } };
+  mount();
 })();

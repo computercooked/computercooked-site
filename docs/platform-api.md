@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Speedrun timer
+
+"speedrun timer" in the command bar puts a stopwatch in the bottom right of the game (`div.swatch` inside `.player-stage`, so it shows in fullscreen too; styled in `assets/deck.css`). It starts on `cc:start`, freezes on `cc:end` (using the run's own `durationMs`) and then shows that run's time and the device's longest run on this game. On or off is kept in localStorage `cc-watch` (carries from game to game); longest runs in `cc-watch-best` (`{slug: ms}`). `assets/deck.js` owns it: `window.ccWatch.toggle()`. Games need to do nothing. Nothing is sent.
+
 ## Pass and play
 
 Two people, one device. On a game page, "pass and play" in the command bar asks for two names (`dialog.pnp-ask`); each player gets one run, a bar near the top (`div.pnp`, styled in `assets/deck.css`) says whose turn it is, and after both runs it names the winner (higher score wins) with "rematch" (the order swaps) and "done". Scores come from the normal end-of-run event (`cc:end`), so games need to do nothing; a run without a number score doesn't count. The match is kept in sessionStorage `cc-pnp` (`{g: slug, n: [a, b], s: [scores]}`) so a reload doesn't lose it. `assets/deck.js` owns it: `window.ccPnp.open()`. Nothing extra is sent.
