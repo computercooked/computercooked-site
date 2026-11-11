@@ -931,3 +931,36 @@
   try { if (localStorage.getItem("cc-crt") === "1") root.classList.add("is-crt"); } catch (e) {}
   window.ccCrt = { toggle: function () { var on = set(!root.classList.contains("is-crt")); if (window.ccToast) window.ccToast(on ? "old tv mode on. mind the static." : "old tv mode off."); return on; } };
 })();
+
+/* Did you know: a small box near the bottom of the games hub (aside#dyk in games/index.html) that teaches one hidden
+   feature per visit: the boss key, old tv mode, the play timer, face-off and friends. "try it" does the thing there and
+   then; "another one" shows the next. Which one comes next is kept on this device (localStorage "cc-dyk": a number).
+   Without scripts the box keeps its first line. Styled in assets/deck.css (.dyk). Nothing is sent. */
+(function () {
+  "use strict";
+  var box = document.getElementById("dyk");
+  if (!box) return;
+  var say = document.getElementById("dyk-say"), tryB = box.querySelector(".dyk-try"), nextB = box.querySelector(".dyk-next");
+  var TIPS = [
+    { t: "press <kbd>/</kbd> anywhere to open the command bar. everything on the site is in there." },
+    { t: "someone coming? press <kbd>`</kbd> (under esc) and the whole page turns into a very boring spreadsheet.", go: function () { window.ccBoss.toggle(); } },
+    { t: "can’t pick a game? face-off puts eight of them head to head until one wins.", go: function () { window.ccDuel.open(); } },
+    { t: "“old tv mode” in the command bar puts scanlines over every game, like a tube telly.", go: function () { window.ccCrt.toggle(); } },
+    { t: "one more game, honest: “play timer” in the command bar counts down and tells you when time’s up.", go: function () { window.ccTimer.set(10); } },
+    { t: "the daily spin picks one game a day for you. no take-backs until tomorrow.", go: function () { window.ccSpin.open(); } },
+    { t: "press <kbd>?</kbd> on any page for the full list of keyboard shortcuts." },
+    { t: "scroll down past a running game and it shrinks into the corner, still playing." },
+    { t: "the camera button under a game saves a picture of the screen. the lamp next to it turns the lights off." }
+  ];
+  var n = 0;
+  try { n = (parseInt(localStorage.getItem("cc-dyk"), 10) || 0) % TIPS.length; } catch (e) {}
+  function show() {
+    var tip = TIPS[n];
+    say.innerHTML = tip.t; // fixed text from the list above, never anything typed or fetched
+    tryB.hidden = !tip.go; nextB.hidden = false;
+    try { localStorage.setItem("cc-dyk", String((n + 1) % TIPS.length)); } catch (e) {}
+  }
+  tryB.addEventListener("click", function () { var tip = TIPS[n]; if (tip.go) tip.go(); });
+  nextB.addEventListener("click", function () { n = (n + 1) % TIPS.length; show(); });
+  show();
+})();

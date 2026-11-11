@@ -530,3 +530,15 @@ html.is-boss { overflow: hidden; }
 @media (min-width: 900px) and (max-height: 960px) { body:has(.desk-bar) .ptimer { left: 50%; bottom: 4px; transform: translateX(-50%); } } /* the taskbar is along the bottom of the window here: sit in its empty middle. taller windows keep the corner */
 body:has(.desk-bar) .ptimer-done { bottom: 56px; }
 @media (prefers-reduced-motion: reduce) { .ptimer-done { animation: none; } }
+
+/* ---------- did you know: one hidden feature per visit, near the bottom of the hub (assets/deck.js) ---------- */
+.dyk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-height: 64px; margin: 32px 0 0; padding: 12px 16px; border: 1px dashed var(--line); border-radius: var(--r-md);
+  background: var(--surface); color: var(--paper); font: 500 14px/1.45 var(--mono); }
+.dyk-tag { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+.dyk-say { flex: 1 1 260px; margin: 0; }
+.dyk kbd { padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; background: #0b0d0a; color: var(--accent); font: inherit; }
+.dyk-row { display: flex; gap: 8px; }
+.dyk-try, .dyk-next { min-height: 40px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 8px; font: 700 13px/1 var(--mono); cursor: pointer; white-space: nowrap; }
+.dyk-try { background: var(--accent); color: #0b0d0a; }
+.dyk-next { background: none; color: var(--accent); }
+.dyk [hidden] { display: none; }
