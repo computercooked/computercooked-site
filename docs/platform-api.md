@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Next game key
+
+On any page, **n** (while the page, not a game, has the keyboard) goes straight to a random game this device hasn't played yet (`cc-history`), or any other game once every one has been played. The link carries `?ref=next`. It is listed in the `?` help and the hub's did-you-know box; `assets/deck.js` owns it (`nextGame()`), and a page's own `n` navigation key would win. Nothing is sent beyond the normal page view.
+
 ## Hub list view
 
 The games hub's filter row has a "view" chip (`.chip-view`, `assets/fx.js`) that switches the main grid (`#shelf-computer-cooked`) between the usual cards and a compact list: one line per game with a small cover, the name and a one-line pitch (`.is-list`, styled in `games/games.css`). The choice is kept on the device in localStorage `cc-hub-view` ("list" or absent). The placeholder row in `games/index.html` carries the same chip so the bar keeps its height (no layout shift). Nothing is sent.

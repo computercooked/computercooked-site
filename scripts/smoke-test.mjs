@@ -878,6 +878,10 @@ if (admin) {
     const fx = await (await get("/assets/fx.js")).text();
     ok(fx.includes('["most", "your most played"]') && fx.includes('sort === "most"'), "hub sort: your most played, from this device's play time");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text();
+    ok(dk.includes("function nextGame()") && dk.includes('/?ref=next"'), "n key: next, a game this device hasn't played");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

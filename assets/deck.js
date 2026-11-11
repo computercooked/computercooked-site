@@ -151,12 +151,23 @@
   /* every game in games.json becomes a "play <title>" command (tags are searchable too) */
   var gamesLoaded = false;
   var GAMES = [];
-  function loadGames() {
-    if (gamesLoaded) return;
+  // n: straight to a game this device hasn't played (cc-history), any other game once every one has been played
+  function nextGame() {
+    if (!GAMES.length) { loadGames(nextGame); return; }
+    var hist = {};
+    try { hist = JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) {}
+    var here = function (g) { return location.pathname.indexOf("/games/" + g.slug + "/") === 0; };
+    var fresh = GAMES.filter(function (g) { return !here(g) && !(hist[g.slug] && hist[g.slug].n > 0); });
+    var pool = fresh.length ? fresh : GAMES.filter(function (g) { return !here(g); });
+    if (pool.length) location.href = "/games/" + pool[Math.floor(Math.random() * pool.length)].slug + "/?ref=next";
+  }
+  function loadGames(then) {
+    if (gamesLoaded) { if (then && GAMES.length) then(); return; }
     gamesLoaded = true;
     fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
       if (!d || !d.games) return;
       GAMES = d.games.filter(function (g) { return g.slug && g.made_by !== "community"; });
+      if (then) setTimeout(then, 0);
       var at = 3; // after home, games, play crash
       GAMES.forEach(function (g) {
         var name = "play " + String(g.title).toLowerCase();
@@ -350,6 +361,7 @@
       if (document.getElementById("tv-guide")) rows.push(["← →", "flip channels"], ["enter", "play this channel"], ["a", "auto surf on or off"]);
       if (window.ccHop && window.ccHop.any()) rows.push(["← ↑ ↓ →", "hop between games once one has focus. a controller works too"]);
       Object.keys(GAMEKEYS).forEach(function (k) { if (document.getElementById(GAMEKEYS[k][0])) rows.push([k, GAMEKEYS[k][1]]); });
+      if (!keys.n) rows.push(["n", "next: a game you haven\u2019t played yet"]);
       rows.push(["`", "boss key: hide behind a spreadsheet"]);
       rows.push(["?", "this list"], ["esc", "close"]);
       var head = document.createElement("div"); head.className = "keys-head";
@@ -381,6 +393,7 @@
     if (e.key === "?") { e.preventDefault(); openHelp(); return; }
     var a = keys[e.key.toLowerCase()];
     if (a) { e.preventDefault(); a.click(); return; }
+    if (e.key.toLowerCase() === "n" && !keys.n && !document.querySelector("dialog[open]")) { e.preventDefault(); nextGame(); return; }
     var gk = GAMEKEYS[e.key.toLowerCase()], gb = gk && !keys[e.key.toLowerCase()] && document.getElementById(gk[0]);
     if (gb && !document.querySelector("dialog[open]")) {
       e.preventDefault(); gb.click();
@@ -972,6 +985,7 @@
     { t: "one more game, honest: “play timer” in the command bar counts down and tells you when time’s up.", go: function () { window.ccTimer.set(10); return "ten minutes on the clock, bottom left. click the clock to stop it."; } },
     { t: "the daily spin picks one game a day for you. no take-backs until tomorrow.", go: function () { window.ccSpin.open(); } },
     { t: "press <kbd>?</kbd> on any page for the full list of keyboard shortcuts." },
+    { t: "press <kbd>n</kbd> on any page to jump straight to a game you haven\u2019t played yet." },
     { t: "two people, one device? \u201cpass and play\u201d in the command bar on any game: one run each, the computer picks the winner." },
     { t: "racing yourself? \u201cspeedrun timer\u201d in the command bar puts a stopwatch on every run.", go: function () { return window.ccWatch.toggle() ? "speedrun timer on. open any game and it starts with your run. try it again to turn it off." : "speedrun timer off."; } },
     { t: "big decision? open the command bar and “ask the computer”. yes or no questions only." },
