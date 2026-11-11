@@ -326,6 +326,9 @@
   /* ---------- keyboard shortcuts ---------- */
   var keys = {};
   deck.querySelectorAll(".deck-link[data-key]").forEach(function (a) { keys[a.dataset.key] = a; });
+  // on a game page: f fullscreen, r restart, w wide (the player's own buttons). Only while the page has the keys:
+  // once the game itself has focus, every key is the game's
+  var GAMEKEYS = { f: ["btn-fs", "fullscreen"], r: ["btn-restart", "restart the game"], w: ["btn-wide", "wide mode on or off"] };
 
   /* "?" lists every shortcut that works on this page. Built when first opened, from the deck's own data-key links. */
   var help = null;
@@ -342,6 +345,7 @@
       });
       if (document.getElementById("tv-guide")) rows.push(["← →", "flip channels"], ["enter", "play this channel"], ["a", "auto surf on or off"]);
       if (window.ccHop && window.ccHop.any()) rows.push(["← ↑ ↓ →", "hop between games once one has focus. a controller works too"]);
+      Object.keys(GAMEKEYS).forEach(function (k) { if (document.getElementById(GAMEKEYS[k][0])) rows.push([k, GAMEKEYS[k][1]]); });
       rows.push(["`", "boss key: hide behind a spreadsheet"]);
       rows.push(["?", "this list"], ["esc", "close"]);
       var head = document.createElement("div"); head.className = "keys-head";
@@ -372,7 +376,13 @@
     if (window.ccGameActive) return; // games own the keyboard while running
     if (e.key === "?") { e.preventDefault(); openHelp(); return; }
     var a = keys[e.key.toLowerCase()];
-    if (a) { e.preventDefault(); a.click(); }
+    if (a) { e.preventDefault(); a.click(); return; }
+    var gk = GAMEKEYS[e.key.toLowerCase()], gb = gk && !keys[e.key.toLowerCase()] && document.getElementById(gk[0]);
+    if (gb && !document.querySelector("dialog[open]")) {
+      e.preventDefault(); gb.click();
+      var fr = document.getElementById("game-frame"); // hand the keys to the game, so the next press plays
+      if (fr && gk[0] !== "btn-wide") try { fr.focus({ preventScroll: true }); } catch (err) {}
+    }
   });
 })();
 
