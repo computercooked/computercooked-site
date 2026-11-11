@@ -882,6 +882,10 @@ if (admin) {
     const dk = await (await get("/assets/deck.js")).text();
     ok(dk.includes("function nextGame()") && dk.includes('/?ref=next"'), "n key: next, a game this device hasn't played");
   }
+  {
+    const pj = await (await get("/games/player.js")).text(), qr = await get("/assets/qr.js"), qt = await qr.text();
+    ok(pj.includes('b.id = "btn-phone"') && qr.ok && qt.includes("window.ccQr"), "play on your phone: the button and the QR maker");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
