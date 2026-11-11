@@ -890,6 +890,7 @@ if (admin) {
     const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text();
     ok(dk.includes("window.ccStats") && dk.includes("stats: true") && dc.includes(".stats-days"), "my stats: the command, the player card and its styles");
   }
+  ok(home.includes('id="desk-stats"') && home.includes('data-act="stats"'), "home: my stats in the your-desk row and the start menu");
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

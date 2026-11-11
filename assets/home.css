@@ -432,3 +432,7 @@ html[data-wall="hills"] .desk-glow { background: radial-gradient(circle, rgba(25
 .desk-snd[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .desk-snd[aria-pressed="false"]::after { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; background: currentColor; transform: rotate(-38deg); }
 .desk-snd:hover, .desk-snd:focus-visible { color: var(--text); }
+
+/* your desk: "my stats" next to "clear" (opens the player card from assets/deck.js) */
+.desk-row-acts { display: flex; gap: var(--s-4); align-items: baseline; }
+.desk-stats { padding: 4px 0; border: 0; background: none; font: inherit; font-size: var(--fs-14); cursor: pointer; }

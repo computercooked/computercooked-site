@@ -111,6 +111,7 @@
           <li><a href="/games/daily/"><i aria-hidden="true">☀</i>today's dailies</a></li>
           <li><button type="button" data-act="dice"><i aria-hidden="true">?</i>surprise me</button></li>
           <li><button type="button" data-act="search"><i aria-hidden="true">/</i>find a game</button></li>
+          <li><button type="button" data-act="stats"><i aria-hidden="true">★</i>my stats</button></li>
           <li><button type="button" data-act="wall"><i aria-hidden="true">▧</i>change wallpaper</button></li>
           <li><button type="button" data-act="tint"><i aria-hidden="true">◐</i>screen colour</button></li>
           <li id="menu-saver" hidden><button type="button" data-act="saver"><i aria-hidden="true">☾</i>screensaver</button></li>
@@ -133,7 +134,7 @@
 
     <!-- K-0064: "your desk", returning players only (assets/home.js fills it from this device's history) -->
     <section class="home-sec desk-row" id="home-desk" aria-labelledby="desk-heading" hidden>
-      <div class="sec-head"><h2 id="desk-heading" class="section-label">your desk. <span>the computer remembers.</span></h2><button type="button" class="text-link desk-clear" id="desk-clear">clear</button></div>
+      <div class="sec-head"><h2 id="desk-heading" class="section-label">your desk. <span>the computer remembers.</span></h2><span class="desk-row-acts"><button type="button" class="text-link desk-stats" id="desk-stats">my stats</button><button type="button" class="text-link desk-clear" id="desk-clear">clear</button></span></div>
       <div class="desk-row-in">
         <p class="desk-row-pc"><img src="/assets/mascot-happy.svg" alt="" width="46" height="66" decoding="async"><span class="desk-row-say" id="desk-say"></span></p>
         <ul class="desk-strip" id="desk-strip" aria-label="games you played"></ul>
