@@ -386,6 +386,22 @@
       ranks(); sortLabel(); apply();
     });
     row.appendChild(sorter);
+    // view: the usual cards, or a compact list (one line per game, quicker to scan). Remembered on this device (cc-hub-view).
+    var view = "grid";
+    try { if (localStorage.getItem("cc-hub-view") === "list") view = "list"; } catch (e) {}
+    var viewer = el('<button type="button" class="chip chip-sort chip-view"></button>');
+    function setView() {
+      grid.classList.toggle("is-list", view === "list");
+      viewer.textContent = "view: " + view;
+      viewer.setAttribute("aria-label", "layout: " + (view === "list" ? "compact list" : "cards") + ". press to change");
+    }
+    setView();
+    viewer.addEventListener("click", function () {
+      view = view === "list" ? "grid" : "list";
+      try { if (view === "list") localStorage.setItem("cc-hub-view", "list"); else localStorage.removeItem("cc-hub-view"); } catch (e) {}
+      setView();
+    });
+    row.appendChild(viewer);
     var section = grid.closest(".shelf");
     var twin = section.querySelector(".hub-filters.is-placeholder"); // games/index.html holds the space (no layout shift)
     if (twin) twin.replaceWith(bar);
