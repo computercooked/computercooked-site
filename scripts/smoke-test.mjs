@@ -842,6 +842,10 @@ if (admin) {
     const pf = await (await get("/games/platform.js")).text(), gc = await (await get("/games/games.css")).text();
     ok(pf.includes("if (best) confetti();") && gc.includes("@keyframes cc-confetti"), "new best: pixel confetti and its styles");
   }
+  {
+    const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text(), hubPage = await (await get("/games/")).text();
+    ok(dk.includes('"cc-dyk"') && dc.includes(".dyk-say") && hubPage.includes('id="dyk-say"'), "did you know: the hub box, its styles and its script");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");

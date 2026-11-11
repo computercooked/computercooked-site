@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Did you know
+
+A small box near the bottom of the games hub (`aside#dyk` in `games/index.html`, styled in `assets/deck.css`) teaches one hidden feature per visit: the command bar, boss key, face-off, old tv mode, play timer, daily spin and so on. "try it" does the thing there and then; "another one" shows the next. `assets/deck.js` owns the list (add a line there when a new feature ships); which one comes next is kept in localStorage `cc-dyk` (a number). Without scripts the box keeps its first line. Nothing is sent.
+
 ## New-best confetti
 
 When an accepted run beats the player's previous best (the same moment the dare box says "new best"), `games/platform.js` drops a short burst of pixel confetti over the page (`div.cc-confetti`, styled in `games/games.css`). It is a see-through layer (`pointer-events: none`) that removes itself after a few seconds, is placed inside a fullscreen game so it still shows, and is skipped under reduced motion. A first-ever run does not count as a new best. Games need to do nothing.
