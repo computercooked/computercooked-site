@@ -88,6 +88,8 @@
     if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
     hit("desk_click", { slot: "nudge" });
   });
+  var stats = document.getElementById("desk-stats"); // the player card (assets/deck.js window.ccStats)
+  if (stats) stats.addEventListener("click", function () { if (window.ccStats) window.ccStats.open(); });
   var clear = document.getElementById("desk-clear");
   if (clear) clear.addEventListener("click", function () {
     if (!demo) { set("cc-history", "{}"); set("cc-recent", null); }
@@ -297,6 +299,7 @@
   function run(act) {
     if (act === "dice") spin();
     else if (act === "search") { var s = document.querySelector("[data-cmd-open]"); if (s) s.click(); }
+    else if (act === "stats") { if (window.ccStats) window.ccStats.open(); } // the player card, assets/deck.js
     else if (act === "off") shutDown();
     else if (act === "saver") document.dispatchEvent(new Event("cc:saver"));
     else if (act === "wall") nextWall();
