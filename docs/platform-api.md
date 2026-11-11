@@ -437,7 +437,7 @@ All in the browser, from `cc-history` (`assets/fx.js` `filters()`); a first visi
 - **"not played N" chip:** shows only the games not yet played. Hidden for first visits and once everything is played.
 - **Random** picks a game not yet played while there is one in the current filter.
 - **Filter links:** the chosen chip and search term live in the address (`/games/?vibe=quick&q=fish`), so a filtered hub can be linked, shared and reloaded. Written with `replaceState` (back still leaves the hub in one press); other parameters such as `ref` are kept. An unknown `vibe` is ignored. A filter link lands on the filtered games, not the hero. Game pages show the game's vibes as these links under the how-to ("more like this", `vibeLinks()` in `src/seo.js`). With a known `vibe`, the Worker (`hubPage()` in `src/hub.js`) sends the grid already filtered and names the vibe in the title and link preview; the canonical address stays `/games/`.
-- **Sort chip** (`.chip-sort`): steps through featured, newest, a to z and (once something is played) your recent. The cards are moved in the page, and the choice is kept on the device in `cc-hub-sort`.
+- **Sort chip** (`.chip-sort`): steps through featured, newest, a to z, (once something is played) your recent and (once a game has a minute of play time in `cc-time`) your most played. The cards are moved in the page, and the choice is kept on the device in `cc-hub-sort`.
 
 ## Game page: your runs
 
