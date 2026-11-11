@@ -674,6 +674,16 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.67 What v4.20.0 added: a child next to its parents (owner: "Continue doing all the work you have planned")
+
+The second idea taken from NeuraQuarium (players loved comparing a fish with the fish it came from), plus two leftovers from the 4.17 playthrough list.
+
+- **Vs its parents.** A smol's card, under "genes & more", now has a "vs its parents" section: its parents' names (✝ if gone), then up to six chips for the genes that moved most from the parents' average (legs ▲ 12, bravery ▼ 20 …), and a line naming anything it has more or less of than either parent. On the evolution gene bars, a pink mark shows where its mother sat and a blue mark its father. The comparison covers the 15 evolution genes and 11 everyday ones (bravery, sociability, playfulness, grumpiness, obedience, chattiness, affection, curiosity, size, walk speed, toughness).
+- **The family tree keeps genes.** Every new smol's family record now stores those 26 genes as a 52-character string (`gx`, `SB.Genome.snap`/`unsnap`) and its sex, so a child can be compared with a parent who has died. Parents gone before 4.20 have no snapshot; their card says so.
+- **The drowning card let go.** A smol dragged out of deep water by the hand never paddled ashore, so its drowning timer was never reset and the "is drowning!" card and scared face stayed on it while it stood on land. The timer now resets whenever it is out of deep water.
+- **The pod card moves aside on laptop-height screens.** The "tap the crashed pod" card now moves to the top-left on any window up to 680 px tall (it was 520 px), so it never sits on the pod.
+- No dice added to the seeded sim. Tests: `family-genes.test.js` (new, 16 checks).
+
 ## 0.66 What v4.19.1 fixed: the bag fits a phone (owner: "Yes, fix it")
 
 - In a window under 700 px wide (a phone, or a narrow desktop window) the bag now stacks: slots and hotbar on top, then the make, build and you tabs, then the tab's content. Nothing sits off to the side, so there is no sideways scrolling; the bag scrolls up and down, and the tab buttons stay pinned while it does. Slots shrink to fit 9 across. Wider screens look the same as before.

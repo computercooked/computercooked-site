@@ -777,8 +777,36 @@
     }
     return out.join(" · ");
   }
+  // 4.20: its parents' genes, from the living or from the family tree's snapshot (parents gone before 4.20 have none)
+  function parentGenes(c) {
+    var fam = game.family || {}, f = fam[c.id];
+    return (c.parents || (f && f.parents) || []).slice(0, 2).map(function (id) {
+      var p = SB.Game.byId(game, id), r = fam[id];
+      if (p && p.genome) return { name: p.name, sex: p.sex, genes: p.genome.genes, alive: p.alive };
+      var gs = r && SB.Genome.unsnap ? SB.Genome.unsnap(r.gx) : null;
+      return r ? { name: r.name, sex: r.sex, genes: gs, alive: false } : null;
+    }).filter(Boolean);
+  }
+  UI.parentGenes = function (c) { return parentGenes(c); };
+  // the "vs its parents" lines: what it got more of, what less, and anything past both parents
+  function parentsHTML(c, ps) {
+    var withG = ps.filter(function (p) { return p.genes; });
+    if (!ps.length) return "";
+    var h0 = '<div class="sec"><span>vs its parents</span><span class="dim">' + ps.map(function (p) { return (p.sex === "f" ? "♀ " : p.sex === "m" ? "♂ " : "") + esc(p.name) + (p.alive ? "" : " ✝"); }).join(" & ") + "</span></div>";
+    if (!withG.length) return h0 + '<div class="note">its parents left before the family tree kept genes, so there is nothing to compare.</div>';
+    var cmp = SB.Genome.compare(c.genome.genes, withG.map(function (p) { return p.genes; }));
+    var big = cmp.filter(function (x) { return Math.abs(x.d) >= 0.06; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); }).slice(0, 6);
+    var past = cmp.filter(function (x) { return x.beyond; });
+    var line = big.length ? big.map(function (x) { return '<span class="chip ' + (x.d > 0 ? "lime" : "dim") + '" title="it ' + x.me.toFixed(2) + " · parents " + x.ps.map(function (v) { return v.toFixed(2); }).join(" & ") + '">' + esc(x.label) + " " + (x.d > 0 ? "▲" : "▼") + " " + Math.round(Math.abs(x.d) * 100) + "</span>"; }).join("") : '<span class="note">a close copy of its parents: nothing moved much.</span>';
+    var more = past.filter(function (x) { return x.beyond > 0; }).map(function (x) { return x.label; }), less = past.filter(function (x) { return x.beyond < 0; }).map(function (x) { return x.label; });
+    var say = [];
+    if (more.length) say.push("more " + more.slice(0, 4).map(esc).join(", ") + " than either parent");
+    if (less.length) say.push("less " + less.slice(0, 4).map(esc).join(", ") + " than either parent");
+    return h0 + '<div class="chips pcmp">' + line + "</div>" + '<div class="note">' + (say.length ? "🧬 " + say.join(" · ") + ". " : "") + "on the evolution bars above, the pink and blue marks are its parents.</div>";
+  }
   function renderMore(c) {
     if (!el.cMore) return;
+    var ps = parentGenes(c), pg = ps.filter(function (p) { return p.genes; });
     var g = c.genome.genes, needs = SB.Genome.nextNeeds(c.genome), needMap = {};
     needs.forEach(function (n) { needMap[n.gene] = n.need; });
     var layers = SB.Genome.layers(c.genome);
@@ -787,12 +815,13 @@
     html += '<div class="sec"><span>evolution genes</span><span class="dim">' + (needs.length ? "next: " + SB.TIERS[c.tier + 1].name : c.tier >= 6 ? "ascended" : "ready") + "</span></div><div class='genes'>";
     SB.Genome.EVO_GENES.forEach(function (k) {
       var v = g[k] || 0;
-      html += '<div class="gene"><div class="row"><span>' + SB.Genome.GENE_LABELS[k] + '</span><span class="sp"></span><span class="dim mono">' + v.toFixed(2) + '</span></div><div class="b"><i style="width:' + Math.round(v * 100) + '%"></i>' + (needMap[k] ? '<u style="left:' + Math.round(needMap[k] * 100) + '%"></u>' : "") + "</div></div>";
+      html += '<div class="gene"><div class="row"><span>' + SB.Genome.GENE_LABELS[k] + '</span><span class="sp"></span><span class="dim mono">' + v.toFixed(2) + '</span></div><div class="b"><i style="width:' + Math.round(v * 100) + '%"></i>' + (needMap[k] ? '<u style="left:' + Math.round(needMap[k] * 100) + '%"></u>' : "") + pg.map(function (p) { var pv = p.genes[k]; return pv == null ? "" : '<s class="' + (p.sex === "f" ? "pf" : "pm") + '" title="' + esc(p.name) + " " + pv.toFixed(2) + '" style="left:' + Math.round(SB.clamp01(pv) * 100) + '%"></s>'; }).join("") + "</div></div>";
     });
     html += "</div>";
     if (needs.length) html += '<div class="note">to evolve into a ' + SB.TIERS[c.tier + 1].name + ": " + needs.map(function (n) { return n.label + " " + (n.gene === "neurons" || n.gene === "layers" ? n.have + "/" + n.need : n.have.toFixed(2) + "/" + n.need); }).join(", ") + ". genes change through kids. what parents practise echoes in their babies.</div>";
     var echo = SB.Creature.echo(c), top = Object.keys(echo).filter(function (k) { return echo[k] > 0.15; }).sort(function (a, b) { return echo[b] - echo[a]; }).slice(0, 4);
     if (top.length) html += '<div class="note">💫 echoes for its kids: ' + top.map(function (k) { return SB.Genome.GENE_LABELS[k] + " +" + Math.round(echo[k] * 100) + "%"; }).join(", ") + "</div>";
+    html += parentsHTML(c, ps);
     html += '<div class="sec"><span>traits</span></div><div class="chips">' + SB.Genome.traits(c.genome).map(function (t) { return '<span class="chip">' + esc(t) + "</span>"; }).join("") + "</div>";
     if (c.genome.mutated && c.genome.mutated.length) html += '<div class="note">born with: ' + c.genome.mutated.slice(0, 6).map(esc).join(", ") + "</div>";
     var ch = c.chem;

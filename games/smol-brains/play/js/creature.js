@@ -1813,6 +1813,7 @@
     // c.lost is also how a smol that's wedged somewhere (a pocket of shallows, a ledge) scrambles out.
     var depth = SB.World.depthAt(w, c.x, c.z);
     var deep = depth > 0.5 && !swim(c) && !SB.World.bridgeAt(w, c.x, c.z);
+    if (!deep && c.drownT) { c.drownT = 0; c.drownNoted = false; } // 4.20: dragged out by a paw it's safe, even though it never paddled ashore (the "drowning" card used to stick)
     if (!deep && !c.lost && c.onGround && c.species === "smol" && !SB.World.walkable(w, c.x, c.z, swim(c))) c.lost = true; // perched somewhere impossible
     if (deep || c.lost) {
       c.asleep = false; c.inBed = false; c.action = null;

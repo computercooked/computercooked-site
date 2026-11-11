@@ -164,7 +164,7 @@
 
   Game.familyAdd = function (game, c) {
     if (c.species !== "smol") return;
-    var f = (game.family[c.id] = { id: c.id, name: c.name, gen: c.gen, parents: (c.parents || []).slice(), born: game.time, died: null, cause: null, look: c.look, tier: c.tier, clade: c.clade, kids: [] });
+    var f = (game.family[c.id] = { id: c.id, name: c.name, gen: c.gen, parents: (c.parents || []).slice(), born: game.time, died: null, cause: null, look: c.look, tier: c.tier, clade: c.clade, kids: [], sex: c.sex, gx: SB.Genome.snap ? SB.Genome.snap(c.genome) : "" });
     f.parents.forEach(function (pid) { var p = game.family[pid]; if (p && p.kids.indexOf(c.id) < 0) p.kids.push(c.id); });
   };
 
