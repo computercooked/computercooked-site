@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "ask the computer", hint: "yes or no questions only. it knows.", ask: true, keys: "magic 8 ball eight fortune oracle question should i decide yes no answer predict future" },
     { name: "old tv mode", hint: "scanlines over the game, on or off", crt: true, keys: "crt scanlines retro filter screen lines vintage television arcade monitor" },
     { name: "boss key", hint: "hide everything behind a boring spreadsheet", boss: true, keys: "hide panic work spreadsheet teacher parent cover disguise excel sheet look busy" },
     { name: "face-off", hint: "this or that, until one game wins", duel: true, keys: "this or that versus vs bracket tournament pick choose favourite favorite would you rather" },
@@ -269,6 +270,12 @@
       return;
     }
     if (c.mins !== undefined) { dialog.close(); window.ccTimer.set(c.mins); return; }
+    if (c.ask) { // a magic 8-ball: think of a yes or no question, run it again for a second opinion
+      var ANS = ["yes. obviously.", "no. and don’t ask again.", "signs point to one more game.", "the computer says yes, the computer is often wrong.", "ask again after a snack.", "not a chance. bold of you to ask.",
+        "yes, but you won’t like how.", "outlook cooked.", "it is certain. ish.", "computing… computing… no.", "absolutely. tell no one.", "the fans are spinning. that means maybe."];
+      var pick; do { pick = ANS[Math.floor(Math.random() * ANS.length)]; } while (pick === say.textContent.replace(/^the computer says: /, ""));
+      say.textContent = "the computer says: " + pick; return;
+    }
     if (c.crt) { var tv = window.ccCrt.toggle(), onGame = !!document.getElementById("game-frame"); say.textContent = tv ? "old tv mode on." + (onGame ? "" : " open a game to see it.") : "old tv mode off."; if (onGame) dialog.close(); return; }
     if (c.boss) { dialog.close(); window.ccBoss.toggle(); return; }
     if (c.duel) { dialog.close(); window.ccDuel.open(); return; }
@@ -894,6 +901,8 @@
     keep(mins > 0 ? Date.now() + mins * 60000 : 0);
     run();
   }
+  // going in or out of fullscreen: move the clock and the note to where they can be seen straight away
+  document.addEventListener("fullscreenchange", function () { if (pill) home().appendChild(pill); if (note) home().appendChild(note); });
   window.ccTimer = { set: set, end: end };
   run();
 })();
@@ -949,6 +958,7 @@
     { t: "one more game, honest: “play timer” in the command bar counts down and tells you when time’s up.", go: function () { window.ccTimer.set(10); return "ten minutes on the clock, bottom left. click the clock to stop it."; } },
     { t: "the daily spin picks one game a day for you. no take-backs until tomorrow.", go: function () { window.ccSpin.open(); } },
     { t: "press <kbd>?</kbd> on any page for the full list of keyboard shortcuts." },
+    { t: "big decision? open the command bar and “ask the computer”. yes or no questions only." },
     { t: "scroll down past a running game and it shrinks into the corner, still playing." },
     { t: "the camera button under a game saves a picture of the screen. the lamp next to it turns the lights off." }
   ];
