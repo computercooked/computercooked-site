@@ -267,11 +267,22 @@
       try {
         var bin = atob(c.toDataURL("image/png").split(",")[1]), bytes = new Uint8Array(bin.length);
         for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        var a = document.createElement("a"), u = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
-        a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+        var blob = new Blob([bytes], { type: "image/png" });
+        var save = function () {
+          var a = document.createElement("a"), u = URL.createObjectURL(blob);
+          a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+          toast("snap. saved to your downloads.");
+        };
         player.classList.add("is-snapped"); setTimeout(function () { player.classList.remove("is-snapped"); }, 350);
-        toast("snap. saved to your downloads.");
+        // on a phone a download is hard to find: open the share sheet instead (save to photos, send to a friend).
+        // if the phone says no (or can't share pictures), fall back to the download; a cancel just closes the sheet
+        var file = null;
+        try { if (window.matchMedia && matchMedia("(pointer: coarse)").matches && navigator.share && navigator.canShare && typeof File === "function") file = new File([blob], name, { type: "image/png" }); } catch (e) { file = null; }
+        if (file && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: String(title).toLowerCase(), text: String(title).toLowerCase() + " on computercooked.com" })
+            .then(function () { toast("snap. sent."); }, function (err) { if (!err || err.name !== "AbortError") save(); });
+        } else save();
       } catch (e) { toast("couldn't take that picture."); }
     }
     b.addEventListener("click", function () {
