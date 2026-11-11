@@ -335,6 +335,32 @@
     return out;
   };
 
+  // 4.20: what a child is compared with its parents on (the NeuraQuarium idea: see how a family changes).
+  // G.snap keeps just these genes as 2 hex chars each, so the family tree remembers a parent's genes after it's gone.
+  G.CMP = EVO.concat(["bravery", "sociability", "playfulness", "grumpiness", "obedience", "chattiness", "affection", "curiosity", "size", "speed", "toughness"]);
+  G.snap = function (g) {
+    var s = "";
+    for (var i = 0; i < G.CMP.length; i++) { var v = Math.round(SB.clamp01(g.genes[G.CMP[i]] || 0) * 255); s += (v < 16 ? "0" : "") + v.toString(16); }
+    return s;
+  };
+  G.unsnap = function (s) {
+    if (typeof s !== "string" || s.length < 2) return null;
+    var out = {};
+    for (var i = 0; i < G.CMP.length && i * 2 + 1 < s.length; i++) { var v = parseInt(s.substr(i * 2, 2), 16); if (!isNaN(v)) out[G.CMP[i]] = v / 255; }
+    return out;
+  };
+  // child vs parents: [{gene, label, me, ps, avg, d, beyond}] on the compared genes. parents: [genes, genes]
+  G.compare = function (me, parents) {
+    var ps = (parents || []).filter(Boolean);
+    if (!ps.length) return [];
+    return G.CMP.map(function (k) {
+      var vs = ps.map(function (p) { return p[k]; }).filter(function (v) { return v != null; });
+      if (!vs.length) return null;
+      var avg = vs.reduce(function (a, b) { return a + b; }, 0) / vs.length, v = me[k] || 0;
+      return { gene: k, label: G.GENE_LABELS[k], me: v, ps: vs, avg: avg, d: v - avg, beyond: v > Math.max.apply(null, vs) + 0.02 ? 1 : v < Math.min.apply(null, vs) - 0.02 ? -1 : 0 };
+    }).filter(Boolean);
+  };
+
   // genetic distance 0..1 (species splits use it)
   G.distance = function (a, b) {
     var s = 0, n = 0;

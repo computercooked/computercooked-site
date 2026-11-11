@@ -160,6 +160,9 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .gene .b { height: 5px; background: var(--faint); border-radius: 0; position: relative; margin-top: 2px; }
 .gene .b i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0; background: var(--lilac); }
 .gene .b u { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--lime); }
+.gene .b s { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #ffb3d9; opacity: 0.9; text-decoration: none; } /* 4.20: where its parents sat */
+.gene .b s.pm { background: #8fd3ff; }
+.chips.pcmp { margin-top: 4px; }
 .btnrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .btn { padding: 9px 13px; border-radius: 0; background: var(--faint); font: 700 13px var(--mono); display: inline-flex; gap: 6px; align-items: center; }
 .btn:hover { background: rgba(245, 243, 237, 0.18); }
@@ -229,7 +232,7 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 #ui.hasmodal .coach, #ui.hasmodal .guide { visibility: hidden; } /* one thing at a time: tips wait behind a window */
 .coach.top { bottom: auto; top: calc(100px + var(--sat)); }
 .coach.pod { min-height: 0; }
-@media (max-height: 520px) { .coach.pod { left: calc(10px + var(--sal, 0px)); transform: none; bottom: auto; top: calc(64px + var(--sat)); width: min(250px, 38%); } }
+@media (max-height: 680px) { .coach.pod { left: calc(10px + var(--sal, 0px)); transform: none; bottom: auto; top: calc(64px + var(--sat)); width: min(250px, 38%); } }
 
 /* intro title */
 .title { position: absolute; left: 0; right: 0; top: 18%; text-align: center; pointer-events: none; animation: titlein 1.2s ease-out; }
