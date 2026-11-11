@@ -126,6 +126,7 @@
     { name: "play timer: 10 minutes", hint: "a nudge when time's up", mins: 10, keys: "break alarm limit homework stop remind countdown bedtime ten" },
     { name: "play timer: 20 minutes", hint: "a nudge when time's up", mins: 20, keys: "break alarm limit homework stop remind countdown bedtime twenty" },
     { name: "play timer: off", hint: "stop the countdown", mins: 0, keys: "cancel clear alarm countdown" },
+    { name: "my stats", hint: "your player card: games, time, bests, days", stats: true, keys: "stats profile player card me my report summary wrapped progress collection level xp record history" },
     { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
     { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
     { name: "arcade games", hint: "dodge, run, shoot", href: "/games/?vibe=arcade" },
@@ -282,6 +283,7 @@
       }
       return;
     }
+    if (c.stats) { dialog.close(); window.ccStats.open(); return; }
     if (c.mins !== undefined) { dialog.close(); window.ccTimer.set(c.mins); return; }
     if (c.watch) { var sw = window.ccWatch.toggle(), onPage = !!document.getElementById("game-frame"); say.textContent = sw ? "speedrun timer on." + (onPage ? " it starts with your next run." : " open a game to see it.") : "speedrun timer off."; if (onPage) dialog.close(); return; }
     if (c.pnp) { if (window.ccPnp && window.ccPnp.ready()) { dialog.close(); window.ccPnp.open(); } else say.textContent = "open a game first, then pass and play."; return; }
@@ -988,6 +990,7 @@
     { t: "press <kbd>n</kbd> on any page to jump straight to a game you haven\u2019t played yet." },
     { t: "two people, one device? \u201cpass and play\u201d in the command bar on any game: one run each, the computer picks the winner." },
     { t: "racing yourself? \u201cspeedrun timer\u201d in the command bar puts a stopwatch on every run.", go: function () { return window.ccWatch.toggle() ? "speedrun timer on. open any game and it starts with your run. try it again to turn it off." : "speedrun timer off."; } },
+    { t: "\u201cmy stats\u201d in the command bar shows your player card: games tried, time played, bests and the days you played.", go: function () { window.ccStats.open(); return "there\u2019s your card. it lives on this device only."; } },
     { t: "big decision? open the command bar and “ask the computer”. yes or no questions only." },
     { t: "scroll down past a running game and it shrinks into the corner, still playing." },
     { t: "the camera button under a game saves a picture of the screen. the lamp next to it turns the lights off." }
@@ -1121,4 +1124,89 @@
     return now;
   } };
   mount();
+})();
+
+/* My stats: "my stats" in the command bar (or its did-you-know tip) opens a player card for this device, built only from
+   what the site already keeps in localStorage: cc-history (games tried, runs, bests), cc-time (seconds per game),
+   cc-guest-xp (xp, level, badges and the days played; the level maths copies games/platform.js xpFor/TITLES) and
+   cc-watch-best (longest speedrun). Shows a grid of numbers, the top three games by time and the last 8 weeks of
+   play days. "copy" puts a short text summary on the clipboard. window.ccStats.open(). Styled in assets/deck.css
+   (.stats). Nothing is sent: the only request is /games/games.json for the titles. */
+(function () {
+  "use strict";
+  var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
+  function xpFor(L) { return Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6)); }
+  function read(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function span(s) { var m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + "h " + (m % 60) + "m" : m ? m + " min" : s + " sec"; }
+  function dayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  var dlg = null, games = null, text = "";
+  function gather() {
+    var hist = read("cc-history", {}), times = read("cc-time", {}), g = read("cc-guest-xp", {}), sw = read("cc-watch-best", {});
+    var names = {};
+    (games || []).forEach(function (x) { names[x.slug] = String(x.title || x.slug).toLowerCase(); });
+    var nm = function (slug) { return names[slug] || slug.replace(/-/g, " "); };
+    var tried = 0, runs = 0, bests = 0, secs = 0, longest = 0;
+    Object.keys(hist).forEach(function (k) { var e = hist[k] || {}; if (e.n > 0) { tried++; runs += e.n; } if (e.b != null) bests++; });
+    var top = Object.keys(times).map(function (k) { return [k, Math.floor(+times[k]) || 0]; }).filter(function (x) { return x[1] > 0; });
+    top.forEach(function (x) { secs += x[1]; });
+    top.sort(function (a, b) { return b[1] - a[1]; });
+    Object.keys(sw).forEach(function (k) { if (+sw[k] > longest) longest = +sw[k]; });
+    var xp = +g.xp || 0, L = 1;
+    while (xpFor(L + 1) <= xp && L < 999) L++;
+    var title = TITLES.filter(function (t) { return t[0] <= L; }).pop()[1];
+    var days = {}; (g.days || []).forEach(function (d) { days[d] = 1; });
+    var total = (games || []).length;
+    return { tried: tried, total: total, runs: Math.max(runs, +g.runs || 0), bests: bests, secs: secs, top: top.slice(0, 3).map(function (x) { return [nm(x[0]), x[1]]; }),
+      longest: longest, xp: xp, level: L, title: title, badges: Object.keys(g.badges || {}).length, days: days };
+  }
+  function draw() {
+    var s = gather();
+    if (!s.tried && !s.secs && !s.xp) {
+      dlg.querySelector(".stats-body").innerHTML = '<p class="stats-empty">nothing here yet. play a game and this card fills itself in.</p>';
+      dlg.querySelector(".stats-copy").hidden = true; return;
+    }
+    dlg.querySelector(".stats-copy").hidden = false;
+    // the last 8 weeks, a column per week (Monday on top), today last
+    var today = new Date(); today.setHours(12, 0, 0, 0);
+    var start = new Date(today); start.setDate(start.getDate() - ((today.getDay() + 6) % 7) - 7 * 7);
+    var cells = "", played = 0;
+    for (var d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+      var on = !!s.days[dayKey(d)]; if (on) played++;
+      cells += '<i class="' + (on ? "on" : "") + '" title="' + dayKey(d) + (on ? ": played" : "") + '"></i>';
+    }
+    var pct = s.total ? Math.min(100, Math.round(s.tried / s.total * 100)) : 0;
+    var nums = [[s.tried + (s.total ? " / " + s.total : ""), "games tried"], [s.runs, "runs"], [s.secs ? span(s.secs) : "0 min", "time played"],
+      [s.bests, "games with a best"], [s.badges, "badges"], [s.longest ? (Math.floor(s.longest / 60000) + ":" + String(Math.floor(s.longest / 1000) % 60).padStart(2, "0")) : "off", "longest speedrun"]];
+    dlg.querySelector(".stats-body").innerHTML =
+      '<p class="stats-lvl"><b>level ' + s.level + "</b> " + esc(s.title) + ' <span class="num">' + s.xp + " xp</span></p>" +
+      (s.total ? '<div class="stats-bar" role="img" aria-label="' + pct + '% of the games tried"><span style="width:' + pct + '%"></span></div>' : "") +
+      '<div class="stats-grid">' + nums.map(function (n) { return '<div><b class="num">' + esc(n[0]) + "</b><span>" + n[1] + "</span></div>"; }).join("") + "</div>" +
+      (s.top.length ? '<p class="stats-h">most played</p><ol class="stats-top">' + s.top.map(function (t) { return "<li><span>" + esc(t[0]) + '</span><b class="num">' + span(t[1]) + "</b></li>"; }).join("") + "</ol>" : "") +
+      '<p class="stats-h">days played, last 8 weeks <span class="num">' + played + '</span></p><div class="stats-days" role="img" aria-label="played on ' + played + ' of the last 8 weeks of days">' + cells + "</div>";
+    text = "my computer cooked card: level " + s.level + " " + s.title + ", " + s.tried + (s.total ? " of " + s.total : "") + " games tried, " + s.runs + " runs, " +
+      (s.secs ? span(s.secs) : "0 min") + " played" + (s.top.length ? ", most played: " + s.top[0][0] : "") + ". computercooked.com/games/";
+  }
+  function open() {
+    if (!dlg) {
+      dlg = document.createElement("dialog"); dlg.className = "stats"; dlg.setAttribute("aria-labelledby", "stats-tag");
+      dlg.innerHTML = '<p class="stats-tag" id="stats-tag">your player card</p><div class="stats-body"></div><p class="stats-note">kept on this device only.</p>' +
+        '<div class="stats-row"><button type="button" class="stats-copy">copy</button><button type="button" class="stats-close">done</button></div>';
+      dlg.querySelector(".stats-close").addEventListener("click", function () { dlg.close(); });
+      dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+      dlg.querySelector(".stats-copy").addEventListener("click", function () {
+        var b = this, done = function (ok) { b.textContent = ok ? "copied" : "couldn\u2019t copy"; setTimeout(function () { b.textContent = "copy"; }, 1600); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        else done(false);
+      });
+      document.body.appendChild(dlg);
+    }
+    draw();
+    if (!dlg.open) dlg.showModal();
+    if (!games) fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      games = ((d && d.games) || []).filter(function (g) { return g.slug && g.made_by !== "community"; });
+      if (dlg.open) draw();
+    }).catch(function () {});
+  }
+  window.ccStats = { open: open };
 })();
