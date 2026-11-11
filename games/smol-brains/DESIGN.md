@@ -674,6 +674,18 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.68 What v4.21.0 added: brain surgery (owner: "Continue doing all the work you have planned to make this the best game ever!")
+
+The last NeuraQuarium idea: let the player reach into a creature's brain and change it. New file `surgery.js` (`SB.Surgery`).
+
+- **A "brain surgery" button in the brain viewer** opens a window listing the smol's instincts as plain sentences ("when 🍎 hungry and it sees 🔥 fire → 👣 come"), strongest first, each with its strength and how the net treats it right now ("does it", "sometimes", "rarely": the action's rank among everything it could do in that moment).
+- **Operations:** make an instinct 20% stronger or weaker, cut it out, add a new one (pick a feeling, a thing and an action; actions its tier can't do yet are not offered), or make it care more or less about a feeling (that drive's weight in its rewards, 0.3 to 1.9, steps of 0.25). Up to 16 instincts.
+- **It really rewires the net.** After each operation the brain rehearses the changed instinct 220 times, the same "dream" that wires instincts in before hatching (a cut rehearses it at zero). In tests an added instinct moves the net's answer for that moment from about 0.2 to 0.5, and cutting it brings it back to about 0.
+- **Its kids inherit it.** Instincts and drive weights live in the genome, so they pass down through eggs like any other gene.
+- **Costs:** 4 sparks per operation (it follows miracle heat and the 8x/16x doubling, like miracles), at most 3 operations per smol per day, and it comes out sleepy. Not while you're inside it, not on eggs or grumps.
+- No dice added to the seeded sim: the retraining uses its own `SB.rng` seeded from `Math.random`, and a test spies on `game.rng` to check that no roll is made.
+- Tests: `surgery.test.js` (new, 24 checks).
+
 ## 0.67 What v4.20.0 added: a child next to its parents (owner: "Continue doing all the work you have planned")
 
 The second idea taken from NeuraQuarium (players loved comparing a fish with the fish it came from), plus two leftovers from the 4.17 playthrough list.
