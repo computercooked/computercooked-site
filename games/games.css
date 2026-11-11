@@ -3068,3 +3068,15 @@ html.is-crt .player-stage::before { content: ""; position: absolute; inset: 0; z
 .cc-confetti i { position: absolute; top: -16px; display: block; opacity: 0; animation: cc-confetti 2s cubic-bezier(.3, .2, .6, 1) forwards; }
 @keyframes cc-confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 0), 105vh) rotate(540deg); } }
 @media (prefers-reduced-motion: reduce) { .cc-confetti { display: none; } }
+
+/* ---------- hub list view: one compact line per game (assets/fx.js, the "view" chip) ---------- */
+#shelf-computer-cooked.is-list { grid-template-columns: 1fr; gap: var(--s-2); }
+@media (min-width: 1000px) { #shelf-computer-cooked.is-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2) var(--s-3); } }
+#shelf-computer-cooked.is-list .game-card-inner { flex-direction: row; align-items: stretch; }
+#shelf-computer-cooked.is-list .game-thumb { flex: none; width: 128px; height: auto; aspect-ratio: 16 / 10; align-self: center; }
+#shelf-computer-cooked.is-list .game-body { flex: 1; min-width: 0; justify-content: center; gap: 2px; padding: var(--s-2) var(--s-3); }
+#shelf-computer-cooked.is-list .game-card-inner[style] .game-body { box-shadow: inset 3px 0 0 var(--accent); }
+#shelf-computer-cooked.is-list .game-name { font-size: var(--fs-16); }
+#shelf-computer-cooked.is-list .game-pitch { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; font-size: var(--fs-14); }
+#shelf-computer-cooked.is-list .game-tags { display: none; }
+#shelf-computer-cooked.is-list .game-played { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }

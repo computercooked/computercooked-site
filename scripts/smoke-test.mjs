@@ -870,6 +870,10 @@ if (admin) {
     const dk = await (await get("/assets/deck.js")).text(), dc = await (await get("/assets/deck.css")).text();
     ok(dk.includes("window.ccWatch") && dk.includes("watch: true") && dc.includes(".swatch-s"), "speedrun timer: the command, the stopwatch and its styles");
   }
+  {
+    const fx = await (await get("/assets/fx.js")).text(), gc = await (await get("/games/games.css")).text(), hubPage = await (await get("/games/")).text();
+    ok(fx.includes('"cc-hub-view"') && gc.includes("#shelf-computer-cooked.is-list") && hubPage.includes("chip-view"), "hub list view: the chip, its placeholder twin and the styles");
+  }
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
