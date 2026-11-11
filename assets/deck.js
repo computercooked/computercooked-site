@@ -116,6 +116,7 @@
     { name: "games", hint: "computer cooked games", href: "/games/" },
     { name: "play crash", hint: "dodge tasks. stay cool.", href: "/games/crash/" },
     { name: "random game", hint: "let the computer pick. it will pick wrong.", random: true },
+    { name: "pass and play", hint: "two players, one device, one run each", pnp: true, keys: "versus vs two player 2p friend couch hot seat turns duel compete against together" },
     { name: "ask the computer", hint: "yes or no questions only. it knows.", ask: true, keys: "magic 8 ball eight fortune oracle question should i decide yes no answer predict future" },
     { name: "old tv mode", hint: "scanlines over the game, on or off", crt: true, keys: "crt scanlines retro filter screen lines vintage television arcade monitor" },
     { name: "boss key", hint: "hide everything behind a boring spreadsheet", boss: true, keys: "hide panic work spreadsheet teacher parent cover disguise excel sheet look busy" },
@@ -270,6 +271,7 @@
       return;
     }
     if (c.mins !== undefined) { dialog.close(); window.ccTimer.set(c.mins); return; }
+    if (c.pnp) { if (window.ccPnp && window.ccPnp.ready()) { dialog.close(); window.ccPnp.open(); } else say.textContent = "open a game first, then pass and play."; return; }
     if (c.ask) { // a magic 8-ball: think of a yes or no question, run it again for a second opinion
       var ANS = ["yes. obviously.", "no. and don’t ask again.", "signs point to one more game.", "the computer says yes, the computer is often wrong.", "ask again after a snack.", "not a chance. bold of you to ask.",
         "yes, but you won’t like how.", "outlook cooked.", "it is certain. ish.", "computing… computing… no.", "absolutely. tell no one.", "the fans are spinning. that means maybe."];
@@ -982,5 +984,71 @@
   }
   tryB.addEventListener("click", function () { var tip = TIPS[n]; var told = tip.go && tip.go(); if (told) say.textContent = told; }); // some tries have nothing to show on this page, so say what happened
   nextB.addEventListener("click", function () { n = (n + 1) % TIPS.length; show(); });
+  show();
+})();
+
+/* Pass and play: two people, one device. On a game page, "pass and play" in the command bar asks for two names; each
+   player gets one run, the site says whose turn it is, and after both runs it names the winner (higher score wins)
+   with "rematch" and "done". The match lives in sessionStorage "cc-pnp" ({g: slug, n: [a, b], s: [scores]}) so a
+   reload doesn't lose it. Scores come from the normal end-of-run event (cc:end); nothing extra is sent.
+   window.ccPnp.open(). Styled in assets/deck.css (.pnp). */
+(function () {
+  "use strict";
+  var frame = document.getElementById("game-frame"), restart = document.getElementById("btn-restart");
+  var m = /^\/games\/([^/]+)\/$/.exec(location.pathname), game = m && m[1];
+  var KEY = "cc-pnp", dlg = null, bar = null;
+  function ready() { return !!(frame && restart && game); }
+  function get() { try { var v = JSON.parse(sessionStorage.getItem(KEY)); return v && v.g === game && v.n && v.n.length === 2 ? v : null; } catch (e) { return null; } }
+  function put(v) { try { if (v) sessionStorage.setItem(KEY, JSON.stringify(v)); else sessionStorage.removeItem(KEY); } catch (e) {} }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
+  function fmt(n) { return (Math.round(n * 10) / 10).toLocaleString("en-US"); }
+  function play() { restart.click(); try { frame.focus({ preventScroll: true }); } catch (e) {} }
+  function show() {
+    var v = get();
+    if (!v) { if (bar) { bar.remove(); bar = null; } return; }
+    if (!bar) { bar = document.createElement("div"); bar.className = "pnp"; bar.setAttribute("role", "status"); }
+    var s = v.s || [], h;
+    if (s.length === 0) h = "<p><b>" + esc(v.n[0]) + "</b>, you\u2019re up. one run.</p><button type=\"button\" data-go>play</button>";
+    else if (s.length === 1) h = "<p><b>" + esc(v.n[0]) + "</b> got <b>" + fmt(s[0]) + "</b>. pass it to <b>" + esc(v.n[1]) + "</b>.</p><button type=\"button\" data-go>" + esc(v.n[1]) + ", play</button>";
+    else {
+      var d = s[0] - s[1], w = d > 0 ? v.n[0] : v.n[1];
+      h = "<p>" + (d === 0 ? "a tie at <b>" + fmt(s[0]) + "</b>. nobody wins. everybody loses." : "<b>" + esc(w) + "</b> wins, " + fmt(Math.max(s[0], s[1])) + " to " + fmt(Math.min(s[0], s[1])) + ".") + "</p>" +
+        "<button type=\"button\" data-again>rematch</button>";
+    }
+    bar.innerHTML = h + "<button type=\"button\" class=\"pnp-x\" data-done aria-label=\"end pass and play\">done</button>";
+    (document.fullscreenElement || document.body).appendChild(bar);
+  }
+  function open() {
+    if (!ready()) return;
+    if (!dlg) {
+      dlg = document.createElement("dialog"); dlg.className = "pnp-ask"; dlg.setAttribute("aria-labelledby", "pnp-tag");
+      dlg.innerHTML = '<form method="dialog"><p class="pnp-tag" id="pnp-tag">pass and play</p><p class="pnp-say">two players, one run each. higher score wins.</p>' +
+        '<label>player 1<input name="a" maxlength="16" autocomplete="off" placeholder="player 1"></label><label>player 2<input name="b" maxlength="16" autocomplete="off" placeholder="player 2"></label>' +
+        '<div class="pnp-row"><button value="go" class="pnp-start">start</button><button value="no" class="pnp-cancel">cancel</button></div></form>';
+      document.body.appendChild(dlg);
+      dlg.querySelector("form").addEventListener("submit", function (e) { // the submit event comes at once (the dialog's close event can lag)
+        if (!e.submitter || e.submitter.value !== "go") return;
+        var a = dlg.querySelector("[name=a]").value.trim() || "player 1", b = dlg.querySelector("[name=b]").value.trim() || "player 2";
+        put({ g: game, n: [a, b], s: [] }); show(); play();
+      });
+    }
+    dlg.showModal(); dlg.querySelector("[name=a]").focus();
+  }
+  window.ccPnp = { ready: ready, open: open };
+  if (!ready()) return;
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest(".pnp [data-go], .pnp [data-again], .pnp [data-done]");
+    if (!t) return;
+    var v = get();
+    if (t.hasAttribute("data-done")) { put(null); show(); return; }
+    if (t.hasAttribute("data-again") && v) { v.s = []; v.n = [v.n[1], v.n[0]]; put(v); show(); } // swap who goes first
+    play();
+  });
+  document.addEventListener("cc:end", function (e) {
+    var v = get(), sc = e.detail && e.detail.score;
+    if (!v || typeof sc !== "number" || !isFinite(sc) || (v.s || []).length >= 2) return;
+    v.s = (v.s || []).concat(sc); put(v); show();
+  });
+  document.addEventListener("fullscreenchange", function () { if (bar) (document.fullscreenElement || document.body).appendChild(bar); });
   show();
 })();

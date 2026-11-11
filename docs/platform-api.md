@@ -295,6 +295,10 @@ On screens at least 900 px wide and 560 px tall, clicking the hero reel opens th
 
 On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), pointing at or tabbing to a game card adds a "try it here" button (`assets/quickplay.js`, styles in `games/games.css`). It opens the game in a window over the hub: the same `/games/:slug/window/` player the homepage window uses, so plays count under the visit's own ref. "next game" loads the next visible card's game in the same window; "full page" goes to the game page; the x, Esc or a click outside closes it and removes the frame. Touch screens, small windows and browsers without `<dialog>` keep the plain card links.
 
+## Pass and play
+
+Two people, one device. On a game page, "pass and play" in the command bar asks for two names (`dialog.pnp-ask`); each player gets one run, a bar near the top (`div.pnp`, styled in `assets/deck.css`) says whose turn it is, and after both runs it names the winner (higher score wins) with "rematch" (the order swaps) and "done". Scores come from the normal end-of-run event (`cc:end`), so games need to do nothing; a run without a number score doesn't count. The match is kept in sessionStorage `cc-pnp` (`{g: slug, n: [a, b], s: [scores]}`) so a reload doesn't lose it. `assets/deck.js` owns it: `window.ccPnp.open()`. Nothing extra is sent.
+
 ## Game page keys
 
 On a game page, while the page (not the game) has the keyboard: **f** fullscreen, **r** restart, **w** wide mode. They press the player's own buttons (`#btn-fs`, `#btn-restart`, `#btn-wide`), then hand focus to the game frame (except wide), and are listed in the `?` help. `assets/deck.js` owns them; the site's navigation letters win if one ever clashes. Once the game has focus every key is the game's, so games need to do nothing.
