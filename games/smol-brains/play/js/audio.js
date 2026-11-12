@@ -11,6 +11,9 @@
   var ac = null, master = null, musicBus = null, sfxBus = null, voiceBus = null, ambBus = null, noiseBuf = null;
   var mutedHost = false, mutedUser = false, ambOn = true, hooked = false, busHooked = false;
   var MASTER = 0.5, KEY = "smolbrains-muted";
+  // 4.21.1 (owner, Nov 12: "a slider for the regular sound and the music"): the sound slider scales every non-music bus
+  var SFXKEY = "smolbrains-sound", sfxVol = 1, BUS0 = { sfx: 0.9, voice: 0.75, amb: 0.5 };
+  try { var sv0 = localStorage.getItem(SFXKEY); if (sv0 != null && sv0 !== "") sfxVol = Math.max(0, Math.min(1, +sv0)); if (isNaN(sfxVol)) sfxVol = 1; } catch (e) {}
   var sfxEnds = [], voiceEnds = [], lastVoice = 0, lastByName = {}, musicUntil = 0;
   var MAX_SFX = 10, MAX_VOICES = 3;
 
@@ -28,9 +31,9 @@
     var comp = ac.createDynamicsCompressor();
     comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
     master.connect(comp); comp.connect(ac.destination);
-    sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
-    voiceBus = ac.createGain(); voiceBus.gain.value = 0.75; voiceBus.connect(master);
-    ambBus = ac.createGain(); ambBus.gain.value = 0.5; ambBus.connect(master);
+    sfxBus = ac.createGain(); sfxBus.gain.value = BUS0.sfx * sfxVol; sfxBus.connect(master);
+    voiceBus = ac.createGain(); voiceBus.gain.value = BUS0.voice * sfxVol; voiceBus.connect(master);
+    ambBus = ac.createGain(); ambBus.gain.value = BUS0.amb * sfxVol; ambBus.connect(master);
     musicBus = ac.createGain(); musicBus.gain.value = 1; musicBus.connect(master);
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     var d = noiseBuf.getChannelData(0);
@@ -72,6 +75,39 @@
   // the soundtrack (music.js) plays through its own bus under the master, so every mute covers it
   A.musicOut = function () { return live() ? { ac: ac, out: musicBus, noise: noiseBuf } : null; };
   A.isUserMuted = function () { return mutedUser; };
+  // the sound slider: effects, voices and the rain/wind bed (0..1, saved on the device). music has its own (SB.Music.setVolume)
+  A.soundVolume = function () { return sfxVol; };
+  A.setSoundVolume = function (v) {
+    sfxVol = Math.max(0, Math.min(1, +v || 0));
+    try { localStorage.setItem(SFXKEY, String(sfxVol)); } catch (e) {}
+    if (ac && sfxBus) { var t = ac.currentTime; [[sfxBus, BUS0.sfx], [voiceBus, BUS0.voice], [ambBus, BUS0.amb]].forEach(function (b) { b[0].gain.setTargetAtTime(b[1] * sfxVol, t, 0.03); }); }
+  };
+  // two sliders, "sound" and "music", for any settings page (title.js and ui.js both use this)
+  A.sliders = function () {
+    var box = document.createElement("div");
+    box.className = "volsl";
+    var css = document.createElement("style");
+    css.textContent = ".volsl{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px;max-width:420px}.volsl .vr{display:flex;align-items:center;gap:10px}"
+      + ".volsl .vr b{min-width:58px;font:700 13px var(--mono,monospace)}.volsl .vr input{flex:1;min-width:0;accent-color:#c5ff49;height:28px;cursor:pointer}"
+      + ".volsl .vr span{min-width:44px;text-align:right;font:600 12px var(--mono,monospace);opacity:.8}";
+    box.appendChild(css);
+    function row(label, get, set, preview) {
+      var r = document.createElement("div"), b = document.createElement("b"), inp = document.createElement("input"), pct = document.createElement("span");
+      r.className = "vr"; b.textContent = label;
+      inp.type = "range"; inp.min = "0"; inp.max = "100"; inp.step = "5"; inp.value = String(Math.round(get() * 100));
+      inp.setAttribute("aria-label", label + " volume");
+      function show() { pct.textContent = +inp.value === 0 ? "off" : inp.value + "%"; }
+      show();
+      inp.addEventListener("input", function () { set(+inp.value / 100); show(); });
+      inp.addEventListener("change", function () { set(+inp.value / 100); show(); if (preview) preview(+inp.value / 100); });
+      r.appendChild(b); r.appendChild(inp); r.appendChild(pct);
+      return r;
+    }
+    box.appendChild(row("🔊 sound", A.soundVolume, A.setSoundVolume, function (v) { if (v > 0) A.play("pop"); }));
+    var M = SB.Music;
+    if (M && M.volume) box.appendChild(row("♪ music", M.volume, M.setVolume, function (v) { if (v > 0 && !(M.now && M.now()) && M.play) M.play("smolbrains"); }));
+    return box;
+  };
 
   /* ---------------- voice management ---------------- */
   function prune(arr) { var t = T(); for (var i = arr.length - 1; i >= 0; i--) if (arr[i] < t) arr.splice(i, 1); }
