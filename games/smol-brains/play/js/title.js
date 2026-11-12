@@ -143,7 +143,7 @@
   /* ---------------- the title screen ---------------- */
   var ts = null, show = null, raf = 0, ang = 0, opts = {};
   TI.open = function () { return !!ts; };
-  TI.watchIntro = function () { // the opening films over the title, then back to the menu
+  TI.watchIntro = function () { // (no button calls this since Nov 12: the intro plays when you make a new world)
     if (!SB.Intro || !SB.Intro.play) return;
     SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } });
   };
@@ -224,11 +224,10 @@
   function mainMenu() {
     var ws = SB.Save.worlds(), last = ws[0], recent = last && Date.now() - (last.savedAt || 0) < 12 * 3600 * 1000; // an old island isn't the default (K-0025)
     var cont = last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), recent ? "go big" : "small", function () { play(last.id); }) : null;
-    var now = btn("▶ play now", last ? "a fresh island. " + esc(last.name) + " stays safe in 📂 load game" : (SB.Lantern && !SB.Lantern.seen() ? "a fresh island, after a short story (skip any time)" : "jump straight in: a fresh island, ready in seconds"), recent ? "" : "go big", function () { createWorld({ quick: true }); });
+    var now = btn("▶ play now", last ? "a fresh island. " + esc(last.name) + " stays safe in 📂 load game" : (SB.Lantern ? "a fresh island, after a short story (skip any time)" : "jump straight in: a fresh island, ready in seconds"), recent ? "" : "go big", function () { createWorld({ quick: true }); });
     setPane([
       recent ? cont : now, recent ? now : cont,
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),
-      btn("🎬 watch the intro", "the last lantern: how the smols lost their light", "small", function () { TI.watchIntro(); }),
       btn("📂 load game", ws.length ? ws.length + " island" + (ws.length === 1 ? "" : "s") + " saved" : "nothing saved yet", ws.length ? "" : "dim", function () { loadGame(); }),
       btn("⚙ settings", "text size · sound", "small", function () { settings(); })
     ], "menu");
@@ -350,7 +349,7 @@
     setPane([
       h("h2", { text: "settings" }),
       h("div", { class: "ts-opt" }, [h("label", { text: "text & menu size" }), h("div", { class: "ts-seg" }, sizes.map(function (o) { return h("button", { class: o[0] === cur ? "on" : "", onclick: function () { TI.setUiScale(o[0]); settings(); } }, o[1]); })), h("small", { text: "auto makes everything bigger on big screens. you can also change this in the game's settings." })]),
-      h("div", { class: "ts-opt" }, [h("label", { text: "music" }), h("div", { class: "ts-seg" }, [["0", "off"], ["0.4", "quiet"], ["0.8", "normal"], ["1", "loud"]].map(function (o) { return h("button", { class: Math.abs(+o[0] - vol) < 0.05 ? "on" : "", onclick: function () { if (SB.Music) SB.Music.setVolume(+o[0]); if (+o[0] > 0 && SB.Music && !(SB.Music.now && SB.Music.now())) SB.Music.play("smolbrains"); settings(); } }, o[1]); }))]),
+      SB.Audio && SB.Audio.sliders ? h("div", { class: "ts-opt" }, [h("label", { text: "volume" }), SB.Audio.sliders()]) : null,
       h("div", { class: "ts-row" }, [btn("‹ back", null, "small", mainMenu)])
     ], "wide");
   }

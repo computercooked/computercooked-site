@@ -22,7 +22,7 @@ console.log("1. a fresh save gets the film, a repeat can skip it");
   check("first time: it plays, but with a skip button (K-0062)", L.skippable());
   L.markSeen();
   check("after that: skippable", L.skippable());
-  check("after that: play now goes straight in", !L.shouldPlay(g, true, false));
+  check("after that: play now still plays it (every new world gets the intro)", L.shouldPlay(g, true, false) && L.shouldPlay(g, false, true));
   check("after that: create world still tells the story", L.shouldPlay(g, false, false));
   check("new game+ never", !L.shouldPlay({ ngPlus: 1 }, false, false));
   check("a playtest (?cctest=1) can always skip", load(true).skippable());
@@ -36,6 +36,9 @@ console.log("2. control within 90 s");
   const ark = +(fs.readFileSync(path.join(__dirname, "..", "play", "js", "intro.js"), "utf8").match(/var DUR = ([\d.]+);/) || [0, 99])[1];
   check("the ark film + the Lantern film + the camera drop <= 90 s", ark + L.DUR + drop <= 90, ark + " + " + L.DUR + " + " + drop + " s");
   check("ui.js plays it for a new island", /SB\.Lantern\.shouldPlay\(game/.test(ui));
+  const title = fs.readFileSync(path.join(__dirname, "..", "play", "js", "title.js"), "utf8");
+  check("owner, Nov 12: no 'watch the intro' button on the home screen", !/watch the intro/.test(title) && !/TI\.watchIntro\(\); \}\)/.test(title));
+  check("and none in settings or help", !/watch the opening again/.test(ui) && !/watch the last lantern/.test(ui) && !/onclick: function \(\) \{ UI\.replayIntro\(\)/.test(ui));
   check("K-0045: the ark battle and its pod still open the story, then the Lantern film", /SB\.Intro\.play\(\{[^\n]*SB\.Lantern\.play\(/.test(ui));
 }
 

@@ -125,8 +125,7 @@
   // of the game), then only when you asked for the story (create world). an island you load never replays it
   L.shouldPlay = function (game, quick, auto) {
     if (!game || game.ngPlus) return false;
-    if (!L.seen() || SB.TEST) return true; // playtests always get it (K-0051: "the opening film never played"); skippable there
-    return !quick && !auto;
+    return true; // owner, Nov 12: every new world gets the intro, no matter what (play now, custom island, the hub's tap to play). no replay buttons anywhere
   };
   L.skippable = function () { return true; }; // K-0062: the first time on a device still plays it, but a skip button is fine (it was forced through)
 

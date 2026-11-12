@@ -1690,16 +1690,14 @@
       h("button", { class: "btn", onclick: function () { R.quality.decor = !R.quality.decor; openMenu("settings"); } }, R.quality.decor ? "🌼 grass & flowers on" : "🌼 grass off"),
       h("button", { class: "btn", onclick: function () { var set = game.settings = game.settings || {}; set.guide = !guideOn(); if (set.guide) set.cards = {}; openMenu("settings"); toast(set.guide ? "🧭 tutorial tips on. explanations will show again as things happen." : "🧭 tutorial tips off."); } }, guideOn() ? "🧭 tutorial tips on" : "🧭 tutorial tips off"),
       h("button", { class: "btn", onclick: function () { var set = game.settings = game.settings || {}; set.nightChase = set.nightChase === false; openMenu("settings"); toast(set.nightChase === false ? "🕯 night chases off: grumps hunt without asking you." : "🕯 night chases on: when a grump corners a smol, you can lend your light."); } }, game.settings && game.settings.nightChase === false ? "🕯 night chases off" : "🕯 night chases on"),
-      h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the opening again"),
       game.ended ? h("button", { class: "btn", onclick: function () { closeModal(); SB.Intro.play({ scene: "end", noGate: true }); } }, "🌟 watch the ending again") : null
     ]));
     // the soundtrack: a volume, and a jukebox of every song you've heard so far
     if (SB.Music) {
       var MU = SB.Music, mv = MU.volume(), np = MU.now();
-      body.appendChild(h("div", { class: "sec" }, "music: songs for small minds"));
-      body.appendChild(h("div", { class: "btnrow" }, [["off", 0], ["quiet", 0.4], ["normal", 0.8], ["loud", 1]].map(function (o) {
-        return h("button", { class: "btn" + (Math.abs(mv - o[1]) < 0.05 ? " go" : ""), onclick: function () { MU.setVolume(o[1]); openMenu("settings"); } }, "♪ " + o[0]);
-      }).concat([np ? h("button", { class: "btn", onclick: function () { MU.skip(); setTimeout(function () { openMenu("settings"); }, 300); } }, "⏭ next song") : null])));
+      body.appendChild(h("div", { class: "sec" }, "sound & music"));
+      if (SB.Audio && SB.Audio.sliders) body.appendChild(SB.Audio.sliders()); // 4.21.1: sound and music sliders
+      if (np) body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { MU.skip(); setTimeout(function () { openMenu("settings"); }, 300); } }, "⏭ next song")]));
       var nHeard = MU.SONGS.filter(function (s) { return MU.heard(s.id); }).length;
       body.appendChild(h("p", { class: "note", html: (np ? "now playing: <b class='lime'>" + np.title + "</b>. " : "") + "you've heard " + nHeard + " of " + MU.SONGS.length + " songs. some only play in one season, at night, in the rain, or once the smols get clever." }));
       body.appendChild(h("div", { class: "jukebox" }, MU.SONGS.map(function (s, i) {
@@ -1752,7 +1750,6 @@
       "<p><b class='lilac'>ideas</b>: tool-users discover crafts (poke sticks, fire, spears…), tribes teach each other and pray to you, builders make huts, farms and villages, thinkers write ideas on story poles so nothing is forgotten.</p>" +
       "<p><b class='lime'>👁 possess</b> (smol card, " + (SB.Possess ? SB.Possess.COST : 3) + " sparks): live as one smol, first person. survival-game rules: a 9-slot hotbar (1-9 or the wheel), a bag (tab) with crafting beside it, hearts and drumsticks to keep up. left click uses what you hold on what you point at (a tool chops trees and chips rock, paws only shake and punch), right click eats, plants, gives or places, f picks up, q drops, e does what the prompt says, b opens your building plans (r turns the ghost). put a stick, a vine (they hang off cliffs, rocks and riverbanks) and a rock together for your first tool. at zero hearts the smol dies for real, with everything it carried. phones: thumbstick on the left, drag the right side to look, the big button does what it says, tap a hotbar slot to hold it.</p>" +
       "<p>camera: drag to pan (with a mouse and the ✋ hand: middle-drag, wasd, or push the hand to the screen edge), pinch or wheel to zoom, twist with two fingers (or right-drag, or q/e) to rotate, slide two fingers up or down (or right-drag up/down, or r/v) to tilt and look across the land. the map (bottom left) jumps anywhere: tap it or drag the white box. keys: wasd pan, 1-6 tools, space pause, [ ] speed, f follow, b brain, m map, esc close.</p>";
-    body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { UI.replayIntro(); } }, "🏮 watch the last lantern (the intro)")]));
     var gm = SB.Game.current, films = SB.Lantern && gm && gm.lantern && gm.lantern.films ? Object.keys(SB.Lantern.SCENES).filter(function (k) { return gm.lantern.films[k] || (k === "dawn" && gm.tutorial && gm.tutorial.night && gm.tutorial.night.done); }) : [];
     if (films.length) body.appendChild(h("div", { class: "btnrow" }, films.map(function (k) { return h("button", { class: "btn", onclick: function () { closeModal(); closeSheet(); SB.Lantern.play({ scene: k, noGate: true }); } }, "🎞 " + SB.Lantern.SCENES[k].name); })));
   }

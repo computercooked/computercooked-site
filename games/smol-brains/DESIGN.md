@@ -674,6 +674,14 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.69 What v4.21.1 changed: the intro comes with every new world, and volume sliders (owner: "I don't want there to be a 'watch the intro' button on the home screen. I don't want it to be on the settings page. If you create a new world, you get the intro no matter what")
+
+- **Every new world plays the intro.** "Play now", a custom island and the site's tap-to-play all open with the ark film and the Last Lantern, every time, not only the first time on a device (`SB.Lantern.shouldPlay` now always says yes). Its skip button stays. Continuing or loading a saved island doesn't play it, and new game+ still doesn't either (that's the same family carrying on, not a new world).
+- **No replay buttons.** "🎬 watch the intro" is gone from the home screen, "🏮 watch the opening again" from settings, and "🏮 watch the last lantern (the intro)" from the help tab. "Watch the ending again" stays.
+- The "play now" line on the home screen now always says it starts after a short story.
+- **Sound and music sliders** (owner: "there should be a slider for sounds ... just create one for now for the regular sound and music sound"). The home screen's settings and the game's settings (now headed "sound & music") each have two sliders, 0 to 100% in steps of 5: **sound** (every effect, the smols' voices and the rain and wind bed; `SB.Audio.setSoundVolume`, saved as `smolbrains-sound`) and **music** (the soundtrack; it replaces the off/quiet/normal/loud buttons). Letting go of the sound slider plays a short pop at the new level. Both are remembered on the device. The site's sound on/off button still mutes everything.
+- Tests: `lantern.test.js` (play now still plays it after the first time; no intro button on the home screen, in settings or in help), `volume.test.js` (new, 11 checks).
+
 ## 0.68 What v4.21.0 added: brain surgery (owner: "Continue doing all the work you have planned to make this the best game ever!")
 
 The last NeuraQuarium idea: let the player reach into a creature's brain and change it. New file `surgery.js` (`SB.Surgery`).
