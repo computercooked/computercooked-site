@@ -236,6 +236,11 @@
     clearTimeout(savedT); savedT = setTimeout(function () { el.saved.classList.remove("on"); }, 1400);
   });
   var hudT = 0;
+  // the dawn card's last line: today's three jobs (mine.js), or the next quest on an island without them
+  function todayHTML(g, r) {
+    var jb = SB.Mine && SB.Mine.board ? SB.Mine.board(g) : null;
+    return jb ? '<br><span class="dim">today:</span> ' + jb.rows.map(function (x) { return x.icon + " " + esc(x.t); }).join(" · ") : r.goal ? '<br><span class="dim">today:</span> ' + r.goal.icon + " " + esc(r.goal.t) : "";
+  }
   var mineT = 0, mineKey = "";
   function updateMine(dt) {
     if (!el.mine || !SB.Mine) return;
@@ -2475,7 +2480,7 @@
       var g = SB.Game.current; if (!g || g.offline || g.showcase || (UI.isQuiet && UI.isQuiet())) return;
       var ww = g.world || {}, sky = ww.season === 3 ? ["❄️", "a frosty winter morning"] : ww.kind === "storm" ? ["⛈", "a stormy morning"] : ww.rain > 0.5 ? ["🌧", "a rainy " + SB.SEASONS[ww.season || 0] + " morning"] : ww.cloud > 0.6 ? ["⛅", "a grey " + SB.SEASONS[ww.season || 0] + " morning"] : ["☀️", "a bright " + SB.SEASONS[ww.season || 0] + " morning"];
       var html = sky[0] + " <b>day " + (r.day + 1) + "</b> · <span class=\"dim\">" + sky[1] + ".</span> " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
-        (function () { var jb = SB.Mine && SB.Mine.board ? SB.Mine.board(g) : null; return jb ? "<br><span class=\"dim\">today:</span> " + jb.rows.map(function (x) { return x.icon + " " + esc(x.t); }).join(" · ") : r.goal ? "<br><span class=\"dim\">today:</span> " + r.goal.icon + " " + esc(r.goal.t) : ""; })();
+        todayHTML(g, r);
       var tries = 0; // waits for a film, and for the first night to hand over (its own toasts only until then)
       (function show() { if (((SB.Lantern && SB.Lantern.running) || (SB.FirstNight && SB.FirstNight.active(g))) && ++tries < 40) return setTimeout(show, 1500); toast(html, "day", 9000); })();
     });
