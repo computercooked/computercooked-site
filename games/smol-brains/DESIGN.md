@@ -711,6 +711,15 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.75 What v4.27.0 changed: the captains guard the ending, and what a live run showed
+
+After 4.26 went live, a fresh island was run on the real site through day 4 with every toast, window and event logged. It held together (your smol passed from Pip to an heir, the daily jobs rolled over, Gloom woke with the first tool-user and was found the next day, no errors), and it showed four things:
+- **The beacon now needs the three captains.** The spire is the light they stole, so nobody starts it until all three are beaten (`Bosses.gates`, asked by `Ideas.buildNeed`); the goals list says "the beacon needs the light the three grump captains stole: beat them · n/3". This makes the fights part of the story's spine and the ending something you earned by hand. An island that had already started its spire carries on, and an island too young for captains isn't gated.
+- **"day 2" on day 3.** The dawn card counted from the tally's own day, which fell a day behind after the first night. It shows the day it is.
+- **"Rare hatch" wasn't rare.** The big banner (it covers the goals list for twelve seconds) came up four times in one day. It's kept for the really special hatches; a plain rare is a toast you can tap to go and see.
+- **The pod logs told the old story** (a warship after "the thought engine", "the big thought is a signal"). They now tell this one: grumps that can't stand a light, the long sleep, the three captains sitting on what they stole, and the beacon.
+- Tests: `bosses.test.js` (now 46 checks).
+
 ## 0.74 What v4.26.0 added: the captains of the dark (build-order steps 4 and 5, the Terraria side; `bosses.js`)
 
 The tool ladder was already there (paws, a rock-on-a-stick, stone, copper, iron, a sword) and so was the duel (a grump winds up, pounces, reels). What was missing was a reason to climb the ladder and somewhere to take it. Now there is one, three times.

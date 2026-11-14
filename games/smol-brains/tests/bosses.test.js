@@ -114,6 +114,14 @@ seeded(4260, () => {
   check("a captain lost from a save is put back", (murk.alive = false, murk.gone = true, run(1), !!B.creature(game, B.LIST[1])));
   const sv = JSON.parse(JSON.stringify(game.quests.boss));
   check("who's beaten and where they live saves with the quest board", sv.placed && sv.list.gloom.beaten && !sv.list.murk.beaten && sv.list.night.x === s.list.night.x);
+  console.log("5b. the beacon waits for all three");
+  const builder = SB.Game.smols(game)[0];
+  check("with captains still out there, nobody starts the spire", B.gates(game) === false && SB.Ideas.buildNeed(builder, "spire", game) === 0);
+  B.win(game, B.LIST[1], me); B.win(game, B.LIST[2], me);
+  check("all three beaten: the beacon can be raised", B.gates(game) === true && B.beaten(game) === 3 && SB.Ideas.buildNeed(builder, "spire", game) > 0);
+  check("nothing left on the goals list", B.next(game) == null);
+  const early = SB.Game.newGame(92); early.headless = true;
+  check("an island too young for captains isn't gated", B.gates(early) === true);
   P.leave();
 });
 

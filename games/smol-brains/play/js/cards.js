@@ -342,7 +342,10 @@
     var c = d && d.c, x = c && c._cxNew;
     if (!x || !x.info) return;
     if (d.obj && d.obj.data && d.obj.data.starter) return; // the founders have their own moment
-    if (x.info.tier >= 2) setTimeout(function () { rareHatch(c, x.info); }, 900);
+    // 4.27: the big banner is for the really special ones. A plain "rare" turned up several times a day on a busy
+    // island and covered the goals each time; it's a toast now (tap it to go and see)
+    if (x.info.tier >= 3) setTimeout(function () { rareHatch(c, x.info); }, 900);
+    else if (x.info.tier >= 2) { if (SB.UI && SB.UI.toast) SB.UI.toast("✨ <b>" + x.info.rarity.name + " hatch</b>: " + c.name + " (" + x.info.rarest.name + " · " + x.info.rarest.oddsText + ")", "ach", 6500, c); }
     else if (x.fresh.length) toast("📖 new in the smoldex: <b>" + x.fresh.map(function (t) { return t.name; }).join(", ") + "</b> (" + x.fresh[0].oddsText + ")");
   });
 })();
