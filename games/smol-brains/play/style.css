@@ -510,6 +510,7 @@ body.titling #overlay { opacity: 0; }
 .fntimer.on { display: block; }
 .fntimer { white-space: nowrap; }
 .fnhint { width: max-content; max-width: calc(100% - 24px); }
+.fnhint { bottom: calc(196px + var(--sab)); font-size: 15px; } /* 4.23: above the step-into-Pip button */
 /* 4.22: on a phone the goals list is as wide as the screen, so the chips that live top-centre sit under it (ui.js keeps --goalsH) */
 @media (max-width: 700px) {
   .fntimer { top: calc(58px + var(--goalsH, 0px) + var(--sat)); font-size: 15px; padding: 6px 12px; }

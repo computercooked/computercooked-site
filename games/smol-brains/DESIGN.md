@@ -8,6 +8,43 @@ No Creatures names, art, code or assets are used. Everything here is original.
 
 ---
 
+## The game it is becoming (Ashton's goal, Nov 14 2026)
+
+Ashton: "I want to take the likes of rimworld, sims, creatures, minecraft, stardew valley, and terraria, and I want to combine all of these games into one, that's what I want smol brains to be ... make it fun from start to finish, I honestly feel like the beginning of the game is weird and hard to understand and not fun. Also I want a whole revamp on the lore and story, and I want a whole revamp on the cutscenes, honestly, none of it makes sense to me ... beautify the game, make it cleaner, make everything better." His three picks the same hour: the story is a **crashed ark**; a new game **starts in a smol's body**; the main play is **both, switching freely** between a body and the colony.
+
+**The honest read after playing it (Nov 14).** The skeleton is strong and nothing else has it: real learning brains, genes, a living colony, and a first person you can step into. What was wrong: (1) two stories glued together (an ark and its pods, and a sleeping giant with a Lantern and a wish), told in a made-up language with the readable line in small print; (2) the first ten minutes were a film, then a pod you tap, a smol you drag, five idle minutes, then a chase: you watched more than you played, and never learned who you were; (3) the sky view asks you to care for a crowd before you have cared about one; (4) the colony runs itself, so it is easy to feel like a spectator; (5) screens pile up (cards, toasts, lists) and nothing says which matters.
+
+**The one-line pitch.** You are the Lantern, the guiding light of a crashed ark. Step into any smol to gather, craft, build and fight with your own hands; step back to run the whole colony. What you do by hand, they learn, keep doing, and pass to their children. Wake the pods, raise a people, and build a beacon to call the others home.
+
+**What each game gives it, and the loop that has to work** (the bar for "combined"):
+
+| from | the hook | the loop in smol brains | state |
+|---|---|---|---|
+| Minecraft | the first day: punch a tree, eat, a shelter before dark | wake as Pip: eat, open the pod, sticks, a fire, the night (4.23). After that: gather, craft a tool, build, go further from home | opening done; mid-game crafting exists, needs goals that pull you outward |
+| Terraria | gear tiers and bosses that gate the next place | better tools open harder rock and deeper caves; named night threats to beat; each beaten one opens a biome or an idea | ores, picks and caves exist. **No bosses, no gates yet** |
+| Stardew Valley | the day as a unit, a small win every day, seasons, gifts and friendships, a cosy farm | dawn card with yesterday and one goal; farms and seasons; smols have friends and partners. **You can't befriend one yet, and there is no "my smol"** | day card and seasons exist |
+| The Sims | you care about one small person: needs, wants, a home | any smol's card shows needs, wishes, family and brain; you can be it | exists; the card is busy and needs a clean-up |
+| RimWorld | a storyteller deals trouble; colonists with traits make the story | the director's incidents, raids, strangers, pods, funerals, feuds | exists, and after 4.22 big towns hold together |
+| Creatures | you teach a real brain, and breed what you taught | tickle and tap, tricks, words, echoes into the genes, brain surgery | this is the core, and nothing else has it |
+
+**The rules for every release from here.**
+- **Play, don't watch.** A film is under 20 seconds and says one thing. Anything that can be done with your own hands is done with your own hands.
+- **One body first, then the sky.** New things are met in a smol's eyes, then handed to the colony ("they saw you do it").
+- **Always one clear next thing** on screen, in plain words, with a marker.
+- **Plain English first.** Smol-speak is the voice under the line, never the line.
+- **The colony needs you.** Your hands, your lessons and your choices should be the fastest way to anything; left alone, smols get by, slowly.
+
+**The build order from here** (each its own tested release):
+1. **4.23: wake up.** The story rewritten on the ark; one opening film; the first day played as Pip. *(this release)*
+2. **4.24: the look and the clean-up.** One visual language for every panel, card and list; fewer things on screen at once; the smol card and the menus tidied; phone layouts.
+3. **4.25: your smol, your home (Stardew + Sims).** A favourite smol you follow from the sky and return to; gifts and friendship with the sky; a home plot you build by hand; a daily to-do that pays.
+4. **4.26: go further (Minecraft + Terraria).** Tool tiers that open the island outward; caves worth going down; chests and a base; a reason to explore each biome.
+5. **4.27: the things in the dark (Terraria + RimWorld).** Named grump bosses, each guarding something; a fight you prepare for; the storyteller builds toward them.
+6. **4.28: the long game.** The beacon as a real building project with stages; the other pods as quests; an ending that is played.
+7. Then a start-to-finish hand playthrough, and whatever it finds.
+
+---
+
 ## The complete game (Ashton's goal, Nov 9 2026)
 
 Ashton: "Make it a complete, thought out, proper game that will become a hit … Look at games like stardew valley, rimworld, sims, creatures, minecraft, terraria, starbound … full of lore, story, gameplay, different things … I am shooting for pixel art style." The target is a build he can play through, enjoy and give real feedback on. It freezes Mon Nov 9, 15:00 PT.
@@ -673,6 +710,27 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **The opening is about 38 s, not 65.** The ark film plays faster (`WARP` in intro.js, about 12 s), the Lantern film cuts the slow walk along the ridge and keeps the crash, Pip's run from the grump, the wish and the spark (`L.WARP`, Infinity is a cut, about 21 s), and the camera drop is 4.5 s. A "🔊 sound on" pill shows for the first 4 s.
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
+
+## 0.71 What v4.23.0 changed: wake up (owner: "the beginning of the game is weird and hard to understand and not fun ... a whole revamp on the lore and story ... on the cutscenes, honestly, none of it makes sense to me")
+
+**The story, rewritten.** One premise, in plain words: the ark *Lantern* carried the last smols, asleep in pods, toward a new home. Grumps live in the dark between the stars and hate light; the ark was the brightest light there was, so they caught it above this island and it broke apart. **You are the Lantern**, the ark's guiding light: the ship is gone, so you have no body, but you can lend your light to a smol and act with its hands. The long sleep took everything the smols knew (that's why their brains are smol); every memory they win back is an ember that makes you burn brighter. The goal is a beacon tall enough to call the other arks. The sleeping giant ("the Hollow"), the wish and "the last spark" are gone from everything a player reads.
+- **All 16 lore pages** are new (`embers.js`): waking, the Lantern, the sleepers, why brains are smol, the dark, what grumps want, the old home, the night it broke, the pods, Pip, the island, the beacon, names, the others, hands, somewhere green.
+- **Every film's captions** are new (`intro.js`, `lantern.js`): the ark film, dawn, the Lantern's three stages, the first baby, the first grump, Pip grown up, the Lantern whole, the ending. The line you can read is now the big one; what the smols say sits under it, small, in quotes.
+- **Redrawn**: the mound at the foot of the hill is the wreck of the ark (its windows come on stage by stage, and its great lamp sends a beam up in the last film) where it was a giant's brow and eye; in the last film the grumps run for the dark where they used to turn back into smols; the first-grump film shows eyes opening in the dark ahead of a smol who wandered from the fire, not a smol turning into one. The voxel look no longer draws a giant in the sea.
+- The help page, the ending card, the sky's first lesson ("who you are") and the landing title all tell the same story.
+
+**The ark film had not played for weeks.** A variable inside it was named `warp`, which hid the function of that name, so the film threw on its first frame and the game went straight on to the next one. Nobody had seen the ark, the grump ship or the pods scatter since the opening was shortened. It plays now, at about 16 seconds (it was meant to be 12, which was too fast to read).
+
+**The first day is played, not watched** (`firstnight.js`, rewritten). The old opening was a second film, then a sky view where you tapped a pod, dragged Pip to a bush, waited five minutes and pressed "lend your light". Now the ark film ends and **you wake as Pip, in Pip's eyes**, with one list on screen:
+1. **find something to eat** (a marker on the nearest bush; a hungry little body now eats with the plain click)
+2. **wake the others** (walk back to the pod and knock on it: two knocks, and the two founders climb out)
+3. **gather 2 sticks** (walk over them; the sun starts to drop)
+4. **light a fire at the nest** (carry them home)
+5. **make it to morning** (dusk falls in 18 seconds, a grump comes out of the trees; by the fire it turns and runs, away from it you have to lead it there, and with no fire at all three bites bring the others running with one)
+
+Then dawn, the first memory ember, and you rise to the sky, where the guide starts with who you are. The day moves when you do (the clock waits at each step), "skip" on the list goes straight to morning, and if you let go of Pip a "step into Pip" button puts you back; left alone, Pip muddles through the daytime steps by itself. An island saved in the old opening carries over to the matching step.
+
+- Tests: `firstnight.test.js` (rewritten, 53 checks), `story423.test.js` (new, 19 checks), `playtest422.test.js` and `lantern.test.js` brought up to date.
 
 ## 0.70 What v4.22.0 fixed: holes found by playing a fresh island by hand (owner: "play test the game yourself, find all the holes in the gameplay ... go through the whole game just like a player would")
 

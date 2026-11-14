@@ -16,7 +16,7 @@
   ];
   var DUR = 22;
   // the opening plays faster than it was drawn (K-0057: about 12 s real): [story from, to, speed]
-  var WARP = [[0, 9.9, 1.4], [9.9, 16, 2.4], [16, 22, 2.4]];
+  var WARP = [[0, 9.9, 1.15], [9.9, 16, 1.7], [16, 22, 1.5]]; // 4.23: about 16 s, so each line can be read
   function warp(r) {
     var st = 0;
     for (var i = 0; i < WARP.length; i++) {
@@ -209,9 +209,9 @@
       ctx.fillStyle = "#07060d"; ctx.fillRect(0, 0, W, H);
       // impacts shake the camera
       if (shake > 0.05) { ctx.setTransform(1, 0, 0, 1, Math.round((r() - 0.5) * shake * 2), Math.round((r() - 0.5) * shake * 2)); shake *= Math.pow(0.02, dt); } else shake = 0;
-      var warp = ending ? (t > 6 && t < 12 ? 2.5 : 0.4) : t < 16 ? 1 : 1 + (t - 16) * 0.6;
+      var drift = ending ? (t > 6 && t < 12 ? 2.5 : 0.4) : t < 16 ? 1 : 1 + (t - 16) * 0.6; // (4.23: this was called warp, which hid the function of that name: the ark film threw on its first frame and never played)
       stars.forEach(function (s) {
-        var x = ((s.x - t * 9 * s.z * warp) % W + W) % W;
+        var x = ((s.x - t * 9 * s.z * drift) % W + W) % W;
         ctx.fillStyle = s.c; ctx.globalAlpha = Math.min(1, 0.35 + s.z * 0.5);
         ctx.fillRect(Math.round(x), Math.round(s.y), s.z > 1.2 ? 2 : 1, 1);
       });
