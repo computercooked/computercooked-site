@@ -222,7 +222,7 @@
     "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
     "#pov.phone .quest{top:58px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
     "#pov.phone .prompt{font-size:12px;top:calc(50% + 24px)}#pov.phone .prompt kbd{display:none}#pov.phone .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}",
-    "#pov.phone .toast{top:auto;bottom:236px;max-width:84vw;font-size:13px}#pov.phone .gains{left:10px;bottom:auto;top:110px}#pov.phone .iname{bottom:84px}",
+    "#pov.phone .toast{top:226px;bottom:auto;max-width:84vw;font-size:13px}#pov.phone:has(.threat.on) .quest{display:none}#pov.phone .gains{left:10px;bottom:auto;top:110px}#pov.phone .iname{bottom:84px}",
     "#pov.phone .bag .grid{grid-template-columns:repeat(9,34px);gap:3px}#pov.phone .bag .slot{width:34px;height:34px}#pov.phone .bag .slot .ic{width:24px!important;height:24px!important}#pov.phone .bag h3{flex-wrap:wrap;gap:4px}#pov.phone .bag .win{flex-direction:column;padding:10px;gap:8px}#pov.phone .side{width:auto}",
     "#pov.phone .leave{padding:7px 9px;font-size:12px;right:8px;top:8px}",
     "@media (max-width:700px){#pov .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}#pov .gains{left:10px;bottom:auto;top:110px}}",
@@ -358,7 +358,7 @@
 
   /* ---------------- messages ---------------- */
   var toastT = null;
-  var PHONE_WORDS = [[/[(]G sniffs, G again walks there[)]/g, "(tap sniff, then tap it again to walk there)"], [/press G again/g, "tap sniff again"], [/press G to sniff/g, "tap sniff"], [/\(?hold left click\)?/g, "(hold use)"], [/hold right click/g, "hold the big button"], [/right[- ]click/g, "tap the big button"], [/left[- ]click/g, "tap use"], [/press (E|e)\b/g, "tap the big button"], [/\s*\((Q|E|F|R|Z|G|Tab|Esc|shift)\)/g, ""], [/press Z\b/g, "tap 💤"], [/press R\b/g, "tap ↻"], [/press Q\b/g, "open the bag"], [/press Tab\b/g, "tap 🎒"], [/press Esc\b/g, "tap leave body"], [/shift-click/g, "tap"]];
+  var PHONE_WORDS = [[/(and |to )?press F\b/g, "$1tap the big button"], [/, then F\b/g, ", then tap the big button"], [/with F\b/g, "with the big button"], [/\s*\((B|1–9)\)/g, ""], [/[(]G sniffs, G again walks there[)]/g, "(tap sniff, then tap it again to walk there)"], [/press G again/g, "tap sniff again"], [/press G to sniff/g, "tap sniff"], [/\(?hold left click\)?/g, "(hold use)"], [/hold right click/g, "hold the big button"], [/right[- ]click/g, "tap the big button"], [/left[- ]click/g, "tap use"], [/press (E|e)\b/g, "tap the big button"], [/\s*\((Q|E|F|R|Z|G|Tab|Esc|shift)\)/g, ""], [/press Z\b/g, "tap 💤"], [/press R\b/g, "tap ↻"], [/press Q\b/g, "open the bag"], [/press Tab\b/g, "tap 🎒"], [/press Esc\b/g, "tap leave body"], [/shift-click/g, "tap"]];
   function phoneWords(msg) { PHONE_WORDS.forEach(function (p) { msg = msg.replace(p[0], p[1]); }); return msg; }
   HUD._phoneWords = phoneWords;
   HUD.say = function (msg) {
@@ -491,7 +491,7 @@
     var chased = threatMarker();
     var s = S(), q = s && s.quest, t = (s && s.goal) || (chased ? null : s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render, lair = null;
     // 4.28: nothing else to point at: the way to the next grump captain's lair (it's a long walk, and "to the east" isn't enough)
-    var bw = !t && !chased && s && !s.dead && SB.Game.beaconWaiting ? SB.Game.beaconWaiting(s.game) : null;
+    var bw = !chased && s && !s.dead && !s.goal && !s.sniff && !s.night && SB.Game.beaconWaiting ? SB.Game.beaconWaiting(s.game) : null;
     if (bw) { lair = { boss: { icon: "✨", name: "light the beacon" } }; t = { x: bw.x, z: bw.z, y: SB.World.groundY(s.game.world, bw.x, bw.z) + 3 }; } // 4.28: the last walk
     if (!t && !chased && s && !s.dead && !s.firstNight && SB.Bosses && SB.Bosses.next) { var bn = SB.Bosses.next(s.game); if (bn) { lair = bn; t = { x: bn.x, z: bn.z, y: SB.World.groundY(s.game.world, bn.x, bn.z) + 2 }; } } // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }

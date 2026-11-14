@@ -298,7 +298,7 @@
     windmill: { noun: "crop", label: "windmill", emoji: "🌬", r: 0.8, cost: { stick: 6, stone: 3, metal: 1 }, work: 26, desc: "turns wind into bread. every farm nearby grows faster." },
     observatory: { noun: "totem", label: "star dome", emoji: "🔭", r: 1.0, cost: { stone: 8, crystal: 1, metal: 1 }, work: 30, desc: "thinkers watch the sky and get ideas. forecasts the weather." },
     bridge: { noun: "material", label: "bridge", emoji: "🌉", r: 1.0, cost: { stick: 8 }, work: 12, desc: "walk over water like it's nothing." },
-    spire: { noun: "wonder", label: "the big thought", emoji: "✨", r: 2.0, cost: { crystal: 6, metal: 4, stone: 12 }, work: 60, desc: "a crystal spire tuned to every smol mind at once. what happens when it's finished? nobody knows." },
+    spire: { noun: "wonder", label: "the beacon", emoji: "✨", r: 2.0, cost: { crystal: 6, metal: 4, stone: 12 }, work: 60, desc: "a crystal spire tuned to every smol mind at once. what happens when it's finished? nobody knows." },
     // from village to city (civ.js, economy.js)
     stall: { noun: "material", label: "market stall", emoji: "🏪", r: 0.7, cost: { stick: 4, fiber: 1 }, work: 8, desc: "a counter and an awning. a smol sells what it has spare, at a price it made up." },
     house: { noun: "shelter", label: "house", emoji: "🏠", r: 1.1, cost: { stick: 6, stone: 4 }, work: 20, desc: "stone walls, a tiled roof, a window. more room than a hut: more smols can live on the island." },

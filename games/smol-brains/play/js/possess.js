@@ -413,7 +413,7 @@
 
   function label(r) {
     if (!r) return "";
-    if (r.type === "creature") return r.ref.species === "smol" ? r.ref.name : r.ref.species;
+    if (r.type === "creature") return r.ref.species === "smol" || r.ref.boss ? r.ref.name : r.ref.species;
     if (r.type === "water") return "water";
     if (r.type === "item" && r.ref && r.ref.data && r.ref.data.pod) return "the pod";
     var d = r.type === "item" ? K[r.kind] : r.type === "node" ? NK[r.kind] : SK[r.kind];
@@ -447,7 +447,7 @@
     }
     if (r && r.type === "creature") {
       var cr = r.ref;
-      if (cr.species === "grump") o.use = op("hit the grump" + (toolName ? " with your " + toolName : ""), function () { return attack(cr); }, V.hit);
+      if (cr.species === "grump") o.use = op("hit " + (cr.boss && cr.name ? cr.name : "the grump") + (toolName ? " with your " + toolName : ""), function () { return attack(cr); }, V.hit);
       else if (cr.species !== "smol") o.use = op("pounce on the " + nm, function () { return attack(cr); }, V.hit);
       else {
         o.use = op("talk to " + cr.name, function () { return creatureAct(V.talk, t); }, V.talk);
@@ -852,7 +852,7 @@
       var pals0 = 0; SB.World.creaturesNear(w, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals0++; });
       S.scoutSafe0 = SB.dist(c.x, c.z, hm.x, hm.z) < 5 || pals0 >= 2; // already safe when it came: it gets one bite in first (K-0039: it gave up before you felt it)
       audio("grump", 0.9);
-      say("👹 a grump spotted you! run home to the nest (hold shift to run): follow the green arrow");
+      say("👹 a grump spotted you! run home to the nest (" + (SB.PovHud && SB.PovHud.phone && SB.PovHud.phone() ? "push the stick all the way" : "hold shift") + " to run): follow the green arrow");
       SB.bus.emit("scout", { c: c, g: g });
       return;
     }

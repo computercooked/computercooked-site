@@ -711,6 +711,27 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.77 What v4.29.0 changed: the whole road on a phone
+
+The game was played at phone size (375 wide, then 340 and 320) from a new island through all three captains to lighting the beacon and the ending film. The fights, the lairs and the ending all worked; the screen around them did not.
+
+**What a phone could not see or reach**
+- **The menu button was off the right edge of the screen.** Since the ember counter joined the top bar, the bar was 78 px wider than a 375 px phone, and the skip and menu buttons were the ones pushed off. The bar now fits down to 320 px (the word "embers" drops, the chips tighten).
+- **The story's next step was hidden.** On a phone the goals list hides everything under "today", which is where "Gloom lairs to the east" and "the spire is up: light the beacon" were. Those lines now lead the list, above today's jobs, on every screen.
+- **The menu's twelve tabs were a sideways scroll** with no sign it scrolled: goals, settings and help were out of sight. On a phone they are a three-wide grid. The order is now what you came for first (goals, smols, family, ideas), the reference books after, settings and help last, and the menu opens on goals.
+- Your smol's chip sat on top of the map, and toasts sat on both. The chip is beside the map and toasts sit above them.
+- In a body: messages landed on the action buttons, and the chase/duel banner landed on the guide. Messages moved above the crosshair; the guide hides while something is after you.
+
+**Words**
+- A captain was "grump" on the target label and "hit the grump" on the button. They say Gloom, Murk, the Long Night.
+- Phone hints said "press F", "(B)", "(1-9)" and "hold shift". They say what to tap.
+- The spire's name was still "the big thought" in three places (so an ember read "a first the big thought" and a smol was "using the the big thought"). It is "the beacon", and the doubled "the" can't happen.
+- With the beacon waiting, the in-body marker pointed at a tutorial stick. The beacon wins.
+
+**Measured, left alone**
+- Standing still and swinging with the right weapon, a script glued to each captain beat Gloom in 7 hits, Murk in 14 and the Long Night in 19, taking one or two bites. A hand does about a third of that rate (walking back in after each knock-back), which puts the fights at roughly 20, 25 and 35 seconds: left as tuned in 4.28.
+- Tests: `phone429.test.js` (new, 18 checks).
+
 ## 0.76 What v4.28.0 changed: the road to the lair, a fairer fight, and an ending you light yourself
 
 An island was grown the normal way to day 3 (a tribe, six ideas, Gloom awake), and a tribe smol was walked from the nest toward the lair and fought Gloom twice, with the weapon a new tool-user really has (a rock-on-a-stick).

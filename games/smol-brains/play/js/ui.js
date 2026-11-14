@@ -8,7 +8,7 @@
   var SB = window.SB;
   var UI = (SB.UI = {});
   var R = SB.Render;
-  var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "evolution" };
+  var game = null, root = null, el = {}, state = { tool: "grab", sheet: null, inspect: null, talkTarget: null, armed: null, menuTab: "goals" };
   UI.modalOpen = false;
   var povHeld = []; // god windows that came up while possessing (see modal), shown in order on the way out
   // leaving a body: the held windows join the event queue (they wait out the grace period like the rest)
@@ -322,10 +322,10 @@
   /* ---------------- goals ---------------- */
   function goalsList() {
     var g = game, out = [], A = g.achievements, smols = SB.Game.smols(g);
-    function add(t, p, done) { out.push({ t: t, p: p, done: done }); }
-    if (SB.Game.beaconWaiting && SB.Game.beaconWaiting(g)) add("✨ the spire is up! step into a smol (your smol's 👁), walk to it and light the beacon", ""); // 4.28
+    function add(t, p, done, big) { out.push({ t: t, p: p, done: done, big: big }); }
+    if (SB.Game.beaconWaiting && SB.Game.beaconWaiting(g)) add("✨ the spire is up! step into a smol (your smol's 👁), walk to it and light the beacon", "", false, 1); // 4.28 (4.29: big = shown first, phones too)
     var bn = SB.Bosses && SB.Bosses.next ? SB.Bosses.next(g) : null; // 4.26: the next grump captain
-    if (bn) add(bn.boss.icon + " " + bn.boss.name + ", a grump captain, " + (bn.found ? "lairs to the " + bn.where : "is dug in somewhere to the " + bn.where) + ". f\u200cight it as a smol, with " + bn.boss.needs, bn.tries ? "tries: " + bn.tries : "");
+    if (bn) add(bn.boss.icon + " " + bn.boss.name + ", a grump captain, " + (bn.found ? "lairs to the " + bn.where : "is dug in somewhere to the " + bn.where) + ". f\u200cight it as a smol, with " + bn.boss.needs, bn.tries ? "tries: " + bn.tries : "", false, 1);
     if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
     else if (!A.word1 && !g.ngPlus) add("teach a first word: 💬 talk, pick “food”, tap food near a smol (a few times, slowly)", "");
     if (A.hatch && !A.tickle && !g.ngPlus) add("tickle a smol when it does something good 🪶", "");
@@ -406,6 +406,8 @@
     goalKey = key;
     el.goals.classList.toggle("hide", !list.length && !qb && !jb);
     var html = "";
+    var bigs = list.filter(function (g) { return g.big; }); list = list.filter(function (g) { return !g.big; }); // 4.29: the story's next step leads the list (a phone hides everything under "today")
+    html += bigs.map(function (g) { return '<div class="g big"><span class="t">' + esc(g.t) + '</span><span class="p">' + esc(g.p) + "</span></div>"; }).join("");
     if (jb) { // 4.25: three small jobs a day (mine.js)
       html += '<div class="head today"><span>today' + (jb.bonus ? " · all done ⭐" : "") + "</span><span>" + (el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
       html += jb.rows.map(function (x) { return '<div class="g q' + (x.done ? " done" : "") + '" data-j="' + x.id + '"><span class="e">' + x.icon + '</span><span class="t">' + esc(x.t) + '</span><span class="p">' + (x.done ? "✓" : x.need > 1 ? x.have + "/" + x.need : "") + '</span><span class="r">+' + SB.Mine.JOB_PAY + "✨</span></div>"; }).join("");
@@ -1439,13 +1441,14 @@
       v.laws.slice().reverse().forEach(function (l) { body.appendChild(h("div", { class: "it list" }, "📜 " + l.text + (l.misread ? " (misread)" : "") + " · " + (l.act === "tap" ? l.broken + " told off" : l.kept + " praised"))); });
     } else body.appendChild(h("p", { class: "note" }, "cities get a council, a leader voted in each season, and laws the scribe reads off your taps and tickles."));
   }
-  var TABS = [["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["ideas", "💡 ideas"], ["civ", "🏛 civilization"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["dex", "✨ smoldex"], ["chronicle", "📜 chronicle"], ["goals", "🏆 goals"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
+  // 4.29: what you came for first (what to do, who you have), the reference books after, settings and help last
+  var TABS = [["goals", "🏆 goals"], ["smols", "🐣 smols"], ["family", "🌳 family"], ["ideas", "💡 ideas"], ["evolution", "🧬 evolution"], ["tree", "🌿 tree of life"], ["civ", "🏛 civilization"], ["dex", "✨ smoldex"], ["chronicle", "📜 chronicle"], ["world", "🏝 world"], ["settings", "⚙️ settings"], ["help", "❓ help"]];
   function openMenu(tab, arg) {
-    state.menuTab = tab || "evolution";
+    state.menuTab = tab || "goals";
     var tabs = h("div", { class: "tabs" });
     TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
-    modal("smolpedia", body, { tabs: tabs, big: true });
+    modal("menu", body, { tabs: tabs, big: true });
     ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, civ: tabCiv, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
@@ -2077,7 +2080,7 @@
     [/idea/, "tool-users invent by fiddling with things. ✋ hand them sticks and stones, or ✨ magic → 💡 inspire one."],
     [/building/, "builders build by themselves when they need something (huts for cold, farms for food). keep them fed and give them sticks and stones."],
     [/village/, "builders put huts round the campfire when the tribe grows. more smols, more huts."],
-    [/big thought|spire/, "the last project: the steps are in the goals list (top left). ascended smols do the work."]
+    [/big thought|beacon|spire/, "the last project: the steps are in the goals list (top left). ascended smols do the work."]
   ];
   function guideTips() {
     var g = game, out = [], smols = SB.Game.smols(g), idle = performance.now() - lastAct > 20000;
