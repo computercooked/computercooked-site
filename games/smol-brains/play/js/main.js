@@ -404,12 +404,33 @@
   };
 
   // the spire is finished: the end of the long thought (the first time), and every mind left thinks faster
+  // 4.28: the ending is something you do. The smols raise the spire; then you step into one, walk up to it and light
+  // it. (With nobody to do that, a headless run or an island caught up offline, or if you leave it a day, the smols
+  // light it themselves at dawn.) "Waiting" is read off the world, so it survives a save: a finished spire on an
+  // island that hasn't had its ending.
+  Game.beaconWaiting = function (g) {
+    if (!g || g.ended || (g.achievements && g.achievements.bigthought)) return null;
+    var ss = g.world.structures;
+    for (var i = 0; i < ss.length; i++) if (ss[i].kind === "spire" && ss[i].done) return ss[i];
+    return null;
+  };
+  Game.lightBeacon = function (g, st, c) {
+    if (!g || !st || st.kind !== "spire" || !st.done) return false;
+    Game.unlock(g, "bigthought"); g.culture.spireBoost = true;
+    SB.bus.emit("bigThought", { st: st, first: !g.ended, c: c || null });
+    g.ended = true;
+    return true;
+  };
   SB.bus.on("built", function (d) {
     var g = Game.current;
     if (!g || d.st.kind !== "spire" || !d.st.done) return;
-    Game.unlock(g, "bigthought"); g.culture.spireBoost = true;
-    SB.bus.emit("bigThought", { st: d.st, first: !g.ended });
-    g.ended = true;
+    if (g.ended || !SB.Possess || g.headless || g.offline || g.offlineRunning) { Game.lightBeacon(g, d.st, null); return; }
+    (d.st.data || (d.st.data = {})).beaconT = g.time;
+    SB.bus.emit("beaconReady", { st: d.st });
+  });
+  SB.bus.on("dawn", function () {
+    var g = Game.current, st = g && Game.beaconWaiting(g);
+    if (st && g.time - ((st.data && st.data.beaconT) || 0) > SB.DAY_LENGTH * 0.9) Game.lightBeacon(g, st, null); // nobody came: the smols light it themselves
   });
 
   /* ---------------- loop ---------------- */

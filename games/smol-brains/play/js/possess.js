@@ -525,6 +525,9 @@
         o.ctx = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
       } else if (st.kind === "farm") {
         o.use = tier >= 2 ? op(d.grow > 0.6 ? "harvest" : "check the crop", function () { return creatureAct(V.use, t); }, V.use) : null;
+      } else if (st.kind === "spire" && SB.Game.beaconWaiting && SB.Game.beaconWaiting(game) === st) { // 4.28: the ending, by your own hand
+        o.use = op("light the beacon", function () { return lightBeacon(st); }, null);
+        o.place = o.use;
       } else if (st.kind === "totem" || st.kind === "observatory") {
         o.use = tier >= 2 ? op("study the " + nm, function () { return creatureAct(V.use, t); }, V.use) : null;
       }
@@ -633,7 +636,7 @@
     }
     if (o.species === "grump" && pw.dmg > 0 && o.alive) {
       SB.Chem.apply(o.chem, o.boss ? { pain: 0.05 } : { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) }); // (a captain doesn't scare)
-      o.whacked = (o.whacked || 0) + pw.dmg * (1 + skill("fight")); xp("fight", 1);
+      o.whacked = (o.whacked || 0) + pw.dmg * (1 + skill("fight")) * (o.boss && SB.Bosses && SB.Bosses.reeling(o) ? SB.Bosses.REEL : 1); xp("fight", 1);
       if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) {
         o.alive = false; o.gone = true; o.dying = false;
         if (SB.FX && SB.FX.burst) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] });
@@ -983,6 +986,16 @@
     for (var i = 0; i < items.length; i++) if (items[i].id === id) { it = items[i]; break; }
     if (!it || it.gone || it.heldBy != null || (it.data && it.data.rotten)) { S.fell = null; return null; }
     return SB.dist(it.x, it.z, S.c.x, S.c.z) < P.REACH + 1 ? it : null;
+  }
+  function lightBeacon(st) {
+    var game = S.game, c = S.c;
+    if (SB.dist(st.x, st.z, c.x, c.z) > SK[st.kind].r * (st.s || 1) + 3) { say("get closer"); return false; }
+    swingAnim(); audio("achievement", 0.9);
+    if (SB.FX) SB.FX.burst("sparkle", st.x, SB.World.groundY(game.world, st.x, st.z) + 2, st.z, 40);
+    say("✨ you lit the beacon");
+    SB.Game.lightBeacon(game, st, c);
+    setTimeout(function () { if (S && S.c === c) P.leave(); }, 2200); // back to the sky for what comes next
+    return true;
   }
   function knockPod(it) {
     var game = S.game;
@@ -1393,7 +1406,7 @@
       var cm = cam(); if (cm) cm.shake = Math.max(cm.shake || 0, 6);
       S.yaw += (Math.random() < 0.5 ? -1 : 1) * P.SHOVE_YAW; S.pitch = SB.clamp(S.pitch + P.SHOVE_PITCH, -1.25, 1.2); // the camera shove (K-0051)
       audio("bonk", 1); audio("grump", 0.8);
-      if (H()) { H().hurt(0.4); if (H().ouch) H().ouch(Math.round((d.g && d.g.scout && d.g.scout.dmg || SB.Creature.LUNGE_DMG) * 100)); if (H().beat && !over) { var cap = S.firstNight || S.nightChase ? 3 : 0, n = d.g && d.g.scout && d.g.scout.hits || 1; H().beat(cap ? "👹 OUCH! bite " + Math.min(n, cap) + " of " + cap : "👹 OUCH! it bit you", (S.nightChase ? "run for light: follow 🔥" : "run for the nest: follow 🏠") + (n === 1 ? " · Esc leaves the body" : "")); } }
+      if (H()) { H().hurt(0.4); if (H().ouch) H().ouch(Math.round((d.g && d.g.scout && d.g.scout.dmg || SB.Creature.LUNGE_DMG) * 100)); if (H().beat && !over) { var cap = S.firstNight || S.nightChase ? 3 : 0, n = d.g && d.g.scout && d.g.scout.hits || 1; H().beat(cap ? "👹 OUCH! bite " + Math.min(n, cap) + " of " + cap : "👹 OUCH! it bit you", (d.g && d.g.boss ? "back off when it crouches · hit it while it reels" : (S.nightChase ? "run for light: follow 🔥" : "run for the nest: follow 🏠") + (n === 1 ? " · Esc leaves the body" : ""))); } }
     });
     SB.bus.on("eat", function (d) { blobFlag(d, "eat"); });
     SB.bus.on("nibble", function (d) { blobFlag(d, "eat"); });

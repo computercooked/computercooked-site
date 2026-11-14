@@ -92,8 +92,24 @@ seeded(4260, () => {
   check("back for another go", P.scout() === g && e.tries === 2);
   me.chem.health = 0.25; run(1);
   check("beaten down: you crawl away, alive", !P.scout() && me.alive && g.alive);
+  me.chem.health = 1; run(2);
+  check("it gives you a breather before it starts again", !P.scout() && e.tries === 2);
+  me.chem.health = 0.4; game.time += B.REST + 1; run(2);
+  check("and it won't start on a smol that's still hurt", !P.scout() && e.tries === 2);
+  // a dodge opens it up
+  me.chem.health = 1; run(1.2);
+  check("mended, and it's on again", P.scout() === g && e.tries === 3);
+  g.whacked = 0; g.scout.hitT = 0; g.scout.open = false;
+  SB.bus.emit("scoutMiss", { c: me, g: g });
+  check("dodge its pounce and it stumbles", B.reeling(g) && g.scout.hitT > 2);
+  near(); P.act("use", ref);
+  const dbl = g.whacked; run(0.6);
+  SB.bus.emit("scoutHit", { c: me, g: g });
+  check("after it bites you there's no bonus", !B.reeling(g));
+  g.scout.hitT = 0; me.chem.health = 1; near(); P.act("use", ref); run(0.6);
+  check("a hit while it stumbles counts double", Math.abs(dbl - 2 * (g.whacked - dbl)) < 0.05 && dbl > 0, dbl.toFixed(2) + " then " + (g.whacked - dbl).toFixed(2));
   // win
-  me.chem.health = 1; me.x = e.x + 5; me.z = e.z; run(1);
+  me.chem.health = 1;
   let beaten = null; SB.bus.on("bossBeaten", d => { beaten = d; });
   const em0 = SB.Embers ? SB.Embers.count(game) : 0, sp0 = game.sparks;
   for (let i = 0; i < 80 && g.alive; i++) { me.chem.health = 1; hit(); }
@@ -128,7 +144,7 @@ seeded(4260, () => {
 console.log("6. the files");
 const ui = js("ui.js"), po = js("possess.js"), ph = js("povhud.js"), main = js("main.js"), html = fs.readFileSync(path.join(__dirname, "..", "play", "index.html"), "utf8");
 check("bosses.js is loaded and ticked", /<script defer src="js\/bosses\.js"><\/script>/.test(html) && /SB\.Bosses\.tick\(game, dt\)/.test(main));
-check("a duel has its own banner: name, a bar, when to move", /boss\.icon \+ " " \+ boss\.name \+ " " \+ bar/.test(ph) && /it's reeling: hit it now!/.test(ph));
+check("a duel has its own banner: name, a bar, when to move", /boss\.icon \+ " " \+ boss\.name \+ " " \+ bar/.test(ph) && /it missed! hit it now: double/.test(ph));
 check("possess.js asks bosses.js how a duel ends, and what bounces", /SB\.Bosses\.duel\(game, c, gr\)/.test(po) && /SB\.Bosses\.blocks\(o, pw\.dmg/.test(po));
 check("the next captain is on the goals list", /SB\.Bosses\.next\(g\)/.test(ui) && /a grump captain/.test(ui));
 check("finding one and beating one are told", /on\("bossFound"/.test(ui) && /on\("bossBeaten"/.test(ui));
