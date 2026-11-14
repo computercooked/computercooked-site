@@ -190,6 +190,9 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 /* K-0063: the armed miracle, under the top bar */
 .armtag { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; font-size: 12px; white-space: nowrap; pointer-events: auto; z-index: 5; }
 .armtag .ibtn { width: 24px; height: 24px; }
+@media (min-width: 700px) { #ui:has(.sheet.talkside:not(.hide)) .toasts { right: calc(318px + var(--sar)); } } /* 4.22: toasts never cover the word book */
+.toast.go { pointer-events: auto; cursor: pointer; } .toast.go .goto { color: var(--lime); font-weight: 700; } /* 4.22: tap a toast about a smol to fly to it */
+.armtag.low { top: calc(96px + var(--sat)); } /* 4.22: a timer chip is up there: the armed miracle sits under it */
 @media (max-width: 380px) { .miracles { grid-template-columns: repeat(4, 1fr); } .mir { font-size: 10px; } }
 
 /* ---------- modal panels ---------- */
@@ -230,8 +233,9 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .coach .row { margin-top: auto; padding-top: 8px; }
 .coach { display: flex; flex-direction: column; min-height: 172px; } /* steps are one height, so "next" stays under your finger */
 #ui.hasmodal .coach, #ui.hasmodal .guide { visibility: hidden; } /* one thing at a time: tips wait behind a window */
-.coach.top { bottom: auto; top: calc(100px + var(--sat)); }
+.coach.top { bottom: auto; top: calc(206px + var(--sat)); } /* 4.22: under the goals list and the toasts, which now show beside the guide */
 .coach.pod { min-height: 0; }
+.coach.lift { bottom: calc(304px + var(--sab)); } /* 4.22: the miracles are open under it */
 @media (max-height: 680px) { .coach.pod { left: calc(10px + var(--sal, 0px)); transform: none; bottom: auto; top: calc(64px + var(--sat)); width: min(250px, 38%); } }
 
 /* intro title */
@@ -280,7 +284,7 @@ canvas.treecv, canvas.braincv, canvas.ideacv { display: block; width: 100%; bord
 .incident .choice .ch { grid-column: 1 / -1; font-size: 12px; color: var(--dim); }
 .incident .choice.poor { opacity: 0.5; }
 .incident .choice.poor .cc { color: var(--pink); }
-.alert { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%); z-index: 6; padding: 7px 14px; font: 700 13px var(--mono); color: var(--paper); background: var(--panel); border: 2px solid var(--lilac); cursor: pointer; pointer-events: auto; white-space: nowrap; }
+.alert { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%); z-index: 4; padding: 7px 14px; font: 700 13px var(--mono); color: var(--paper); background: var(--panel); border: 2px solid var(--lilac); cursor: pointer; pointer-events: auto; white-space: nowrap; }
 .alert.bad { border-color: var(--pink); animation: alertpulse 1.2s steps(2) infinite; }
 @keyframes alertpulse { 50% { border-color: var(--orange); } }
 @media (max-width: 600px) { .alert { top: calc(96px + var(--sat)); font-size: 12px; } }
@@ -497,8 +501,17 @@ body.titling #overlay { opacity: 0; }
 .fnhint.on { display: block; }
 .fnhint span { display: block; font: 600 13px var(--sans); color: var(--dim); margin-top: 2px; }
 .fnhint .fnok { margin-top: 10px; padding: 8px 14px; font-size: 14px; pointer-events: auto; }
-.fntimer { position: fixed; left: 50%; top: calc(56px + var(--sat)); transform: translateX(-50%); padding: 8px 14px; font: 800 18px system-ui, Arial, sans-serif; color: #ffd84a; display: none; z-index: 6; }
+.fntimer { position: fixed; left: 50%; top: calc(56px + var(--sat)); transform: translateX(-50%); padding: 8px 14px; font: 800 18px system-ui, Arial, sans-serif; color: #ffd84a; display: none; z-index: 4; } /* 4.22: under windows and the menu, never on top of them */
 .fntimer.on { display: block; }
+.fntimer { white-space: nowrap; }
+.fnhint { width: max-content; max-width: calc(100% - 24px); }
+/* 4.22: on a phone the goals list is as wide as the screen, so the chips that live top-centre sit under it (ui.js keeps --goalsH) */
+@media (max-width: 700px) {
+  .fntimer { top: calc(58px + var(--goalsH, 0px) + var(--sat)); font-size: 15px; padding: 6px 12px; }
+  .alert { top: calc(58px + var(--goalsH, 0px) + var(--sat)); }
+  .armtag { top: calc(58px + var(--goalsH, 0px) + var(--sat)); }
+  .armtag.low { top: calc(100px + var(--goalsH, 0px) + var(--sat)); }
+}
 .lendbtn { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); padding: 14px 26px; font: 800 22px var(--sans); color: #101114; background: #ffd84a; border: 0; box-shadow: 0 0 0 3px #000, 0 0 32px #ffd84a; cursor: pointer; display: none; z-index: 8; pointer-events: auto; animation: lendpulse 1.2s ease-in-out infinite; }
 .lendbtn.on { display: block; }
 .lendbtn small { display: block; font: 700 12px var(--sans); opacity: 0.7; }

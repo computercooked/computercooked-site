@@ -174,6 +174,7 @@
   function free2love(game, c) { var p = SO.partnerOf(game, c); return (!p || (p.stage >= 4 && c.stage === 3)) && !(c.widowT && game.time < c.widowT); }
   // how many good moments a courtship takes (a hug, a gift, a shared meal, a good talk, a game)
   // (a builder or thinker is a catch: two)
+  SO.COURT_KEEP = 900; // seconds a half-finished courtship is remembered
   SO.courtSteps = function (a, b) { return Math.max(a.tier || 0, b.tier || 0) >= 4 ? 2 : 3; };
   SO.court = function (game, a, b, how) {
     if (!SO.eligible(game, a, b) || Math.min(a.tier, b.tier) < 3) return false; // courting is for talkers (tribe and on)
@@ -193,10 +194,16 @@
       SB.bus.emit("turnedDown", { a: a, b: b });
       return false;
     }
-    var k = a.court && a.court.id === b.id ? a.court : b.court && b.court.id === a.id ? b.court : null;
+    // 4.22: the good moments are counted per pair (`courts`), and kept for a while. They used to live only in `court`,
+    // which is whoever you last had a moment with, so in a town of twenty a hug with anyone else wiped the count and
+    // hardly anyone ever got to three: forty pairs who could have married, and one or two couples
+    var ca = a.courts || (a.courts = {}), cb = b.courts || (b.courts = {});
+    var k = ca[b.id] || cb[a.id] || (a.court && a.court.id === b.id ? a.court : b.court && b.court.id === a.id ? b.court : null);
+    if (k && game.time - k.t > SO.COURT_KEEP) k = null; // a courtship left alone that long has cooled
     if (k && game.time - k.t < 20) return false; // one good moment at a time
     var n = (k ? k.n : 0) + 1;
     a.court = { id: b.id, n: n, t: game.time }; b.court = { id: a.id, n: n, t: game.time };
+    ca[b.id] = { n: n, t: game.time }; cb[a.id] = { n: n, t: game.time };
     var what = { cuddle: "a cuddle", give: "a gift", meal: "a meal", talk: "a long talk", play: "a game" }[how] || "time together";
     SO.log(game, a, "🌸", "courting " + b.name + " (" + what + ")"); SO.log(game, b, "🌸", a.name + " is courting me (" + what + ")");
     SO.remember(game, a, b, "courting", 4, "sweet on them", 2400, 16); SO.remember(game, b, a, "courted", 4, "sweet on me", 2400, 16);
@@ -207,7 +214,7 @@
   SO.bond = function (game, a, b) {
     var old = [a, b].map(function (c) { return SO.partnerOf(game, c); });
     old.forEach(function (o, i) { if (o) SO.breakUp(game, [a, b][i], o, "quiet"); });
-    a.partner = b.id; b.partner = a.id; a.court = b.court = null; a.jealous = b.jealous = null;
+    a.partner = b.id; b.partner = a.id; a.court = b.court = null; a.courts = b.courts = null; a.jealous = b.jealous = null;
     SO.log(game, a, "💕", "became partners with " + b.name); SO.log(game, b, "💕", "became partners with " + a.name);
     if (Math.min(a.tier, b.tier) >= 3) SO.chronicle(game, "💕", a.name + " and " + b.name + " are partners now");
     if (SB.Creature && SB.Creature.emote) { SB.Creature.emote(a, "love", 2.4); SB.Creature.emote(b, "love", 2.4); }

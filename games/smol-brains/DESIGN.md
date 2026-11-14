@@ -674,6 +674,37 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.70 What v4.22.0 fixed: holes found by playing a fresh island by hand (owner: "play test the game yourself, find all the holes in the gameplay ... go through the whole game just like a player would")
+
+A fresh island was played from the title screen: the opening, the pod, Pip's first meal, the free first day (a trick taught, a body lent), the first night, dawn, then days 3 to 10 at speed with every toast, window and goal logged, a builder's night in first person, and the same screens again at phone width. Hands-off islands were also run headless for two weeks. What that found, and what changed:
+
+**The first night**
+- **It could get stuck for good.** Let go of Pip mid-chase (Esc) and the grump wandered off; lend your light again and there was nothing to chase you, so lighting the nest never ended the night. Now a new grump finds Pip when you come back, and a lit nest with nothing chasing wins the night (`firstnight.js`).
+- **Loading a save made mid-night showed no timer and no "lend your light" button**, so the night could never end. The first-night screen now rebuilds itself on the first frame after a load. A save made mid-chase goes back to "lend your light", and one made during the dawn film wakes up in the morning.
+- **A chase that ran past midnight skipped a whole day**: dawn landed on day 3, the "day 2" morning note disagreed with the clock, and a third of the first season was gone. Dawn is now always the next morning.
+- **The free first day was silent.** From "ok, let me play" until dusk (about five minutes) there was no goals list, quests didn't count and every toast was swallowed, including the "tickle now!" cues of a trick you were teaching. The goals list, the quests and the toasts now open with the free day (`FN.free`, `Quests.open`) and stay open after the first night whatever step the guide is on.
+
+**Films and windows**
+- **The island kept running behind story films**, at whatever speed you'd set: a smol hatched and evolved, unseen, during the dawn film. The island now waits while a film plays (`main.js`).
+- **The "night falls in" timer and the raid/storm chip floated on top of every window**, covering two tabs of the menu. They now sit under windows. An armed miracle's tag no longer hides behind them.
+- **Stale windows**: "a grump grabbed X!" could arrive hours after X was gone, and "X is sick" after X was well. A story card is now asked whether its moment has passed when its turn comes (`storyCard(..., still)`), and is kept for next time if it has.
+- The guide's card no longer sits on top of the miracles, the goals list or the word book's toasts.
+- On a phone the timer and alert chips sit under the goals list (it's as wide as the screen there) and the timer stays on one line.
+
+**In a smol's eyes**
+- The "you are …" card was a dark curtain down the whole screen (it shared a class name with the opening film). It's a card again.
+- **Sniff and walk (G, G) ended with your nose inside the bush.** It stops a step short.
+- **After shaking a bush, F tugged leaves off it** while the berries you'd shaken loose lay at your feet. F now picks up what you just shook down.
+- Nibbling a bush while possessing a smol now counts for "eat something while possessing a smol".
+
+**The island**
+- **Tap a toast to fly there.** Toasts about a smol (drowning, a tantrum, a fight, a prayer) carry a ➜ and take you to it. Before, a toast named a smol and left you to hunt for it.
+- "X is drowning!" only fires for a smol that has been in deep water for three seconds, not for every splash (five alarms in four days, no drownings).
+- **The town that emptied.** Hands-off islands boomed to their cap around day 6, then fell to about ten smols as that generation aged out together, lost their most evolved families and stayed there. A headless look at one such town found ten to sixteen grown-ups, forty pairs who could have married, and one or two couples. The cause was in courtship: it takes two or three good moments with the same smol, but the count lived in `court`, which is whoever you last had a moment with, so in a town of twenty a hug with anyone else wiped it and hardly anyone got to three. The moments are now counted per pair (`courts`, kept for `Social.COURT_KEEP` = 15 minutes, dropped when they become partners). Three smaller changes go with it. A stranger nobody answers now stays when the tribe is short of couples and well under its room (`Strangers.shortOfCouples`: fewer than three couples and under 60% of the cap), not only when the band is under eight; three in four used to be sent away while nobody was looking. A tribe couple's egg gap follows the room there is (`eggGap`: under a quarter, 45% and 65% of the cap, where it used to be under 6, 10 and 14 smols), and love grows on the same scale (`loveK`). A full town is as slow as before.
+- The home screen's "new:" line was two versions old.
+
+- Tests: `playtest422.test.js` (new, 51 checks).
+
 ## 0.69 What v4.21.1 changed: the intro comes with every new world, and volume sliders (owner: "I don't want there to be a 'watch the intro' button on the home screen. I don't want it to be on the settings page. If you create a new world, you get the intro no matter what")
 
 - **Every new world plays the intro.** "Play now", a custom island and the site's tap-to-play all open with the ark film and the Last Lantern, every time, not only the first time on a device (`SB.Lantern.shouldPlay` now always says yes). Its skip button stays. Continuing or loading a saved island doesn't play it, and new game+ still doesn't either (that's the same family carrying on, not a new world).

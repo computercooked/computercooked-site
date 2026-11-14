@@ -202,7 +202,7 @@
     "#pov .death .lost{padding:10px 14px;max-width:min(520px,92vw)}#pov .death .lost h4{margin:0 0 6px;font:700 13px var(--mono,monospace);opacity:.8}",
     "#pov .death .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}#pov .death .items span{display:flex;align-items:center;gap:3px;font:700 12px var(--mono,monospace)}",
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
-    "#pov .intro{position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
+    "#pov .intro{position:absolute;left:50%;top:18%;bottom:auto;height:auto;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
     "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 24px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
     "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:8px 14px;font:700 16px system-ui,Arial,sans-serif;white-space:nowrap;border:2px solid var(--lime);animation:povhint 1.6s ease-in-out 3}@keyframes povhint{50%{box-shadow:0 0 18px var(--lime)}}",
     // phone

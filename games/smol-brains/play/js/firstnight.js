@@ -25,6 +25,8 @@
   function n(game) { return game && game.tutorial && game.tutorial.night; }
   FN.active = function (game) { var s = n(game); return !!s && !s.done; };
   FN.state = function (game) { return n(game); };
+  // 4.22: the free first day (Pip has eaten, "ok, let me play" pressed, the sun still up): the island is yours, so toasts, goals and quests all work
+  FN.free = function (game) { var s = n(game); return !!s && !s.done && s.s === "fed" && !!s.freeOk; };
   // a brand-new island, guided, not new game+: it gets the first night
   FN.wants = function (game) {
     var st = game && game.tutorial;
@@ -87,6 +89,7 @@
       if (g && (s.growlT = (s.growlT || 0) - dt) <= 0) { s.growlT = 7; if (SB.Audio && SB.Audio.play && !game.headless) SB.Audio.play("grump", { vol: 0.7 }); }
     } else if (s.s === "chase") {
       var P = SB.Possess;
+      if (P && !P.active && s.t > 1) { var lg = FN.grump(game); if (lg && lg.scout) { lg.scout.hold = true; lg.scout.wind = 0; } go(game, "lurk"); return; } // 4.22: an island saved mid-chase and loaded again: back to "lend your light"
       if (!P || !P.active || P.c !== pip) return;
       var gr = FN.grump(game), nest = w.T.nest;
       // sticks: walk over them (light lends Pip hands it doesn't have yet)
@@ -100,9 +103,12 @@
         else P.setGoal(s.sticks < FN.STICKS ? nearestStick(game, pip) : { x: nest.x, z: nest.z, y: W().groundY(w, nest.x, nest.z) + 1, label: "🔥 light the nest" });
       } else {
         P.setGoal(null);
+        if ((!gr || !gr.alive || P.scout && !P.scout()) && s.t > 2) { go(game, "won"); return; } // 4.22: nothing left to chase you (you let go and came back): the fire is lit, the night is won
         var f = byId(game, s.lit);
         if (gr && gr.alive && f && SB.dist(gr.x, gr.z, f.x, f.z) < FN.FIRE_SCARE) gr.chem.fear = 1; // possess.js ends the chase: "the light scared it off!"
       }
+    } else if (s.s === "dawn") {
+      if (s.t > 2 && !(SB.Lantern && (SB.Lantern.running || SB.Lantern.waiting))) finish(game); // 4.22: loaded mid-dawn: the film is gone, the morning still comes
     } else if (s.s === "won") {
       if (s.t > 3 && !s.leaving) { s.leaving = true; if (SB.Possess && SB.Possess.active) SB.Possess.leave(); dawn(game); }
     }
@@ -177,7 +183,7 @@
     var s = n(game);
     if (!s || s.done) return;
     var day = Math.floor(game.time / SB.DAY_LENGTH);
-    if (s.s === "dawn") { game.time = (day + 1) * SB.DAY_LENGTH + 0.21 * SB.DAY_LENGTH; game.world.time = game.time; } // the rest of the night passes
+    if (s.s === "dawn") { var tod = game.time / SB.DAY_LENGTH - day; game.time = (day + (tod < 0.21 ? 0 : 1)) * SB.DAY_LENGTH + 0.21 * SB.DAY_LENGTH; game.world.time = game.time; } // the rest of the night passes (4.22: a chase that ran past midnight wakes the same morning, not a day later)
     var g = FN.grump(game); if (g && g.alive) { if (g.scout) g.scout.done = true; g.goingHome = true; }
     var pip = FN.pip(game);
     if (pip && pip.alive) { pip.chem.fear = 0; pip.chem.hunger = Math.min(pip.chem.hunger, 0.35); pip.speech = { text: "lumi!", t: 2.5, kind: "say" }; }
@@ -213,6 +219,7 @@
       var game = SB.Game.current, s = n(game);
       if (!s || s.done || !d || !d.c || d.c.id !== s.pip || s.s !== "lurk") return;
       var g = FN.grump(game);
+      if (!g || !g.alive) { s.grump = null; eyes(game, d.c); g = FN.grump(game); } // 4.22: the grump wandered off while you were away: another finds Pip
       sticks(game, d.c);
       go(game, "chase");
       if (g && SB.Possess.adoptScout) SB.Possess.adoptScout(g);
@@ -270,6 +277,7 @@
   // the timer counts down every frame
   FN.frame = function (game) {
     var s = n(game);
+    if (!ui && s && !s.done) show(game); // 4.22: an island loaded mid-night gets its timer and its "lend your light" button back
     if (!ui || !s || s.done) return;
     // real seconds (day 1 runs slow), not sim seconds
     if (s.s === "sunset" || s.s === "fed") { var rate = Math.max(0.1, (game.speed || 1) * (SB.Game.pace ? SB.Game.pace(game) : 1)), left = Math.max(0, Math.ceil((FN.SUNSET - s.t + (s.s === "fed" ? FN.DAY1 : 0)) / rate)), mm = Math.floor(left / 60), ss = left % 60, txt = "🌙 night falls in " + mm + ":" + (ss < 10 ? "0" : "") + ss; if (ui.timer.textContent !== txt) ui.timer.textContent = txt; }

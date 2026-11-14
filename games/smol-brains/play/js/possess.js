@@ -495,6 +495,8 @@
         o.use = op((n.kind === "roots" ? "pull at the " : "shake the ") + nm, function () { return shakeNode(n); }, V.play);
         if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds") o.place = op("nibble the " + nm, function () { return creatureAct(V.eat, t); }, V.eat);
         if (tier < 2 && n.kind !== "hive" && n.kind !== "cactus") o.pick = tugOpt(n);
+        var fi = fellItem();
+        if (fi && !Surv.whyNot(c, fi.kind)) o.pick = op("pick up the " + kl(fi.kind), function () { return pickItem(fi); }, V.pickup);
       } else if (gat) {
         o.pick = tier >= 2 ? op(gat.verb, function () { return gather(n); }, V.pickup) : Surv.canTug(game, n) ? tugOpt(n) : no("you need hands for that");
         o.use = o.pick.locked ? null : o.pick;
@@ -950,7 +952,7 @@
     if (!t) { say("sniff sniff… nothing tasty nearby"); return true; }
     var d = Math.min(d1, d2);
     var isIt = t === it;
-    S.sniff = { x: t.x, z: t.z, y: (isIt ? t.y : SB.World.groundY(w, t.x, t.z)) + 1.1, t: 14, ref: { type: isIt ? "item" : "node", id: t.id }, reach: isIt ? 1.2 : NK[t.kind].r * (t.s || 1) + 1.0 };
+    S.sniff = { x: t.x, z: t.z, y: (isIt ? t.y : SB.World.groundY(w, t.x, t.z)) + 1.1, t: 14, ref: { type: isIt ? "item" : "node", id: t.id }, reach: isIt ? 1.2 : NK[t.kind].r * (t.s || 1) + 1.7 }; // 4.22: stop short of the bush, not with your nose inside it
     say("sniff sniff… something tasty, " + Math.round(d) + "m that way. press G again to walk there");
     audio("tap", 0.4);
     SB.bus.emit("sniff", { c: c });
@@ -959,8 +961,16 @@
   function shakeNode(n) {
     var o = SB.World.shake(S.game.world, S.game, n, false);
     swingAnim();
-    if (o) { o.data.by = S.c.id; say("something fell out!"); } else say("nothing ripe right now");
+    if (o) { o.data.by = S.c.id; S.fell = { id: o.id, t: S.game.time }; say("something fell out! press F to pick it up"); } else say("nothing ripe right now");
     return true;
+  }
+  // 4.22: what you just shook loose, while it still lies within reach: F takes it even though you're still looking at the bush
+  function fellItem() {
+    if (!S || !S.fell || S.game.time - S.fell.t > 30) return null;
+    var id = S.fell.id, it = null, items = S.game.world.items;
+    for (var i = 0; i < items.length; i++) if (items[i].id === id) { it = items[i]; break; }
+    if (!it || it.gone || it.heldBy != null || (it.data && it.data.rotten)) { S.fell = null; return null; }
+    return SB.dist(it.x, it.z, S.c.x, S.c.z) < P.REACH + 1 ? it : null;
   }
   function putBlock(n) { if (!Sv().setBlock(S.c, S.game, n)) return false; say("now hit it with an axe or a rock-on-a-stick"); audio("build", 0.6); return true; }
   function deliver(st) {

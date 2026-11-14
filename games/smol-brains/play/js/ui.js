@@ -223,7 +223,7 @@
     el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
     el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.lantern = h("button", { class: "chipbtn glass live lanternchip", title: "the Lantern: memory embers relight it", onclick: function () { lanternSheet(); } }); el.hud.appendChild(el.lantern); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
-    el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); } });
+    el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); goalsH(); } });
     root.appendChild(el.goals);
   }
   var savedT = null;
@@ -360,7 +360,7 @@
   }
   var goalKey = "";
   function updateGoals() {
-    if (state.introRunning || (game.tutorial && !game.tutorial.done)) { el.goals.classList.add("hide"); goalKey = ""; return; }
+    if (state.introRunning || (game.tutorial && !game.tutorial.done && !(SB.Quests && SB.Quests.open(game)))) { el.goals.classList.add("hide"); goalKey = ""; goalsH(); return; } // 4.22: the goals show from the free first day on
     var qb = SB.Quests && !game.showcase ? SB.Quests.board(game) : null;
     var list = goalsList();
     if (qb) list = list.filter(function (g) { return !/first word|tickle a smol/.test(g.t); }).slice(0, 2);
@@ -384,6 +384,13 @@
     } else html += '<div class="head"><span>next</span><span>' + (el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
     html += list.map(function (g) { return '<div class="g' + (g.done ? " done" : "") + '"><span class="t">' + esc(g.t) + '</span><span class="p">' + esc(g.p) + "</span></div>"; }).join("");
     el.goals.innerHTML = html;
+    goalsH();
+  }
+  // how tall the goals list is right now, for the phone layout (the timer and alert chips sit under it)
+  function goalsH() {
+    if (typeof document === "undefined" || !document.documentElement || !document.documentElement.style.setProperty) return;
+    var hgt = el.goals && !el.goals.classList.contains("hide") ? el.goals.offsetHeight || 0 : 0;
+    document.documentElement.style.setProperty("--goalsH", hgt + "px");
   }
   // tapping a quest: what to do, and a shortcut where there is one
   function questHelp(id) {
@@ -426,21 +433,27 @@
     modal("🏮 the Lantern", body);
   }
   UI.lanternSheet = lanternSheet;
-  function toast(html, cls, ms) {
-    if (game && SB.FirstNight && SB.FirstNight.active(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
+  function toast(html, cls, ms, at) { // at (4.22): a smol or a spot. the toast can then be tapped to fly there
+    if (game && SB.FirstNight && SB.FirstNight.active(game) && !SB.FirstNight.free(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
     if (live.length >= 2) { // a full queue drops its oldest ordinary toast; memory embers go first and are never dropped (K-0048)
-      if (cls === "ember") toastQ.unshift([html, cls, ms]); else toastQ.push([html, cls, ms]);
+      if (cls === "ember") toastQ.unshift([html, cls, ms, at]); else toastQ.push([html, cls, ms, at]);
       if (toastQ.length > 5) { var dk = toastQ.findIndex(function (q) { return q[1] !== "ember" && q[1] !== "day"; }); if (dk >= 0) toastQ.splice(dk, 1); }
       return;
     }
-    var t = h("div", { class: "toast glass " + (cls || ""), html: html });
+    var t = h("div", { class: "toast glass " + (cls || "") + (at ? " go" : ""), html: html + (at ? ' <span class="goto">➜</span>' : "") });
     t._html = html;
+    if (at) t.onclick = function () {
+      if (at.alive === false || at.gone) return;
+      if (at.species === "smol" && at.id != null) SB.Game.select(game, at);
+      R.flyTo(at.x, at.z, 7, 0.7);
+      t.classList.add("out");
+    };
     el.toasts.appendChild(t);
     setTimeout(function () {
       t.classList.add("out");
-      setTimeout(function () { t.remove(); var q = toastQ.shift(); if (q) toast(q[0], q[1], q[2]); }, 500);
+      setTimeout(function () { t.remove(); var q = toastQ.shift(); if (q) toast(q[0], q[1], q[2], q[3]); }, 500);
     }, ms || 4200);
   }
   UI.toast = toast;
@@ -498,17 +511,18 @@
      why, what you can do). Later times are just a quick moment. */
   var cardQ = [];
   UI.QUIET_START = 300; // real seconds into an island when story cards stop being toasts
-  function storyCard(key, icon, title, paras, fallback) {
+  function storyCard(key, icon, title, paras, fallback, still) { // still(): 4.22, asked when the card's turn comes: false = its moment has passed, drop it
     var seen = (game.settings = game.settings || {}).cards || (game.settings.cards = {});
     if (game.offlineRunning || quiet()) return; // the "welcome back" card sums up the catch-up
     if (seen[key] || game.settings.guide === false) { if (fallback) moment(fallback[0], fallback[1], fallback[2], fallback[3]); return; }
     seen[key] = 1;
     if (((game.playTime || 0) < UI.QUIET_START || (SB.FirstNight && SB.FirstNight.active(game))) && !game.ngPlus) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 9000); return; } // the first minutes: no windows
     if (cardQ.length >= 2) { toast(icon + " <b>" + esc(title) + "</b>: " + paras[0], "", 6500); return; } // too many waiting: a toast instead
-    cardQ.push([icon, title, paras]);
+    cardQ.push([icon, title, paras, still, key]);
   }
   function nextCard() {
     var c = cardQ.shift();
+    while (c && c[3] && !c[3]()) { if (game.settings && game.settings.cards) delete game.settings.cards[c[4]]; c = cardQ.shift(); } // stale: it can teach another time
     if (!c) return;
     var body = h("div", { class: "story" }, [h("div", { class: "icon" }, c[0]), h("h3", null, c[1])].concat(c[2].map(function (p) { return h("p", { html: p }); })).concat([h("div", { class: "row" }, [h("span", { class: "sp" }), h("button", { class: "btn go", onclick: function () { closeModal(); } }, "got it")])]));
     modal("", body, { story: true, paced: true });
@@ -1005,6 +1019,7 @@
       root.appendChild(el.armTag);
     }
     el.armTag.classList.toggle("hide", !m);
+    el.armTag.classList.toggle("low", !!(el.alert && !el.alert.classList.contains("hide")) || !!document.querySelector(".fntimer.on"));
     if (m) el.armTxt.textContent = m.e + " armed: " + m.name + (m.id === "spawn" ? "" : " · ✨" + SB.Game.miracleCost(game, m.cost)) + " · tap the world";
   }
   UI.armTag = armTag;
@@ -2468,9 +2483,9 @@
       storyCard("brawl", "👊", "a brawl!", ["<b>" + esc(d.a.name) + "</b> and <b>" + esc(d.b.name) + "</b> can't stand each other, and it came to blows.",
         "smols remember who hit them, who shared food, who taught them things. tap a smol and open 📜 story to see who they love and who they've got a grudge against, and why.",
         "a gift of food mends a grudge. 👆 tap scolds a bully."], ["👊", "brawl!", esc(d.a.name) + " vs " + esc(d.b.name)]);
-      if (performance.now() - brawlT > 20000) { brawlT = performance.now(); toast("👊 " + esc(d.a.name) + " and " + esc(d.b.name) + " are fighting!"); }
+      if (performance.now() - brawlT > 20000) { brawlT = performance.now(); toast("👊 " + esc(d.a.name) + " and " + esc(d.b.name) + " are fighting!", "", 0, d.a); }
     });
-    on("tantrum", function (d) { toast("😤 " + esc(d.c.name) + " is throwing a tantrum!"); });
+    on("tantrum", function (d) { toast("😤 " + esc(d.c.name) + " is throwing a tantrum! a firm 👆 tap calms it", "", 0, d.c); });
     on("title", function (d) { toast("🏆 " + esc(d.c.name) + " is now known as <b>" + esc(d.c.name) + " the " + esc(d.title) + "</b>", "ach"); });
     on("inspired", function (d) { if (!d.c.far) toast("💡 " + esc(d.c.name) + " feels inspired! ideas come faster for a minute."); });
     on("convo", function (d) {
@@ -2584,7 +2599,7 @@
     on("pray", function (d) {
       if (!game.settings || !game.settings.cards || !game.settings.cards.pray) storyCard("pray", "🙏", esc(d.c.name) + " is praying to you", ["smols pray when they need something they can't fix themselves. this one needs <b>" + esc(NEED_TEXT[d.need] || d.need) + "</b>.", "answer with ✨ magic: 🍎 bounty for hunger, 💚 heal for sickness, ☀️ sun for cold. answered prayers earn sparks, and smols remember that you listen."]);
     });
-    on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + (d.need !== "nothing" ? " prays for " + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + esc(NEED_TEXT[d.need] || d.need) : " says thank you to the sky") + (/lonely|love|bored|fear/.test(d.need) ? ". it just wants you: 🪶 tickle it." : ". the right ✨ miracle nearby answers it. (tap 🙏 up top to find it)")); });
+    on("pray", function (d) { if (!d.c.far) toast("🙏 " + esc(d.c.name) + (d.need !== "nothing" ? " prays for " + SB.DRIVE_EMOJI[SB.D[d.need]] + " " + esc(NEED_TEXT[d.need] || d.need) : " says thank you to the sky") + (/lonely|love|bored|fear/.test(d.need) ? ". it just wants you: 🪶 tickle it." : ". the right ✨ miracle nearby answers it. (tap this to find it)"), "", 0, d.c); });
     on("dusk", function () {
       var lit = game.world.fires.some(function (f) { return f.kind === "campfire"; }), day = SB.World.clock(game.world).day;
       if (day <= 3 || !lit) toast("🌙 night is falling. grumps prowl in the dark: " + (lit ? "smols near the fire are safe." : "a campfire or a hut keeps smols safe."));
@@ -2592,7 +2607,7 @@
     on("prayerAnswered", function (d) { if (SB.FX) SB.FX.burst("magic", d.c.x, d.c.y + 1, d.c.z, 14); });
     on("select", function (d) { if (d.c) { tutDone("look"); state.talkTarget = d.c; if (state.tool === "talk") updateTalk(true); else openSheet(state.sheet === "tricks" ? "tricks" : "smol"); } else if (state.sheet === "smol") closeSheet(); });
     on("wildEgg", function (d) { autoFly(d.obj.x, d.obj.z, 7, 1.4); });
-    on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab"); });
+    on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab", "", 6000, d.c); });
     on("bigThought", function (d) {
       moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac");
       if (!d.first) return;
@@ -2605,7 +2620,7 @@
       }, 3600);
     });
     on("dusk", function () { if (game.tutorial.done) storyCard("night", "🌙", "the first night", ["night falls, and <b>grumps</b> come out of the caves. they steal food and shove smols around.", "👆 tap a grump 3 times and it gives up and goes home. smols near a <b>fire</b> or in a hut are safe, so the first idea worth hoping for is fire."]); });
-    on("sick", function (d) { if (d.c.species === "smol") storyCard("sick", "🤢", d.c.name + " is sick", ["smols catch the sniffles from bad food, cold and each other. sick smols get weak and can pass it on.", "✨ magic → 💚 heal cures one. later, smols with herb lore pick healroot and nurse their friends."]); });
+    on("sick", function (d) { if (d.c.species === "smol") storyCard("sick", "🤢", d.c.name + " is sick", ["smols catch the sniffles from bad food, cold and each other. sick smols get weak and can pass it on.", "✨ magic → 💚 heal cures one. later, smols with herb lore pick healroot and nurse their friends."], null, function () { return d.c.alive && d.c.chem.sick > 0.12; }); });
     on("season", function (d) { if (d.season === "winter") storyCard("winter", "❄️", "winter", ["it's cold: food grows slowly, ponds freeze, and smols far from a fire start to shiver (🥶 above their heads).", "keep them near fires and huts, stock up grain from farms, and later, fur cloaks keep the cold off. ✨ ☀️ sun warms a spot when it's bad."]); });
     on("incident", function () { setTimeout(function () { if (!game.settings.cards || !game.settings.cards.incident) { storyCard("incident", "📜", "story cards", ["every few minutes something happens on the island: raids, storms, sickness, falling stars, feuds, lost kids, visions. the storyteller asks what you want to do.", "answers with ✨ cost sparks. if you don't answer in time, the free one happens. you can make the storyteller calmer or wilder in settings."]); } }, 200); });
     on("lightning", function () { R.flash(0.9); R.camera.shake = Math.max(R.camera.shake, 0.3); });
@@ -2624,7 +2639,7 @@
     });
     on("grumpGrab", function (d) {
       if (!d.c.far || game.selectedId === d.c.id) autoFly(d.g.x, d.g.z, 8, 1.0);
-      storyCard("grab", "👺", "a grump grabbed " + d.c.name + "!", ["grumps carry off kids and sleepers caught out in the open. 👆 tap the grump, or let a smol with a club whack it, and it drops them.", "if it gets away, " + d.c.name + " is held at a grump camp until you free them (or they escape on their own, eventually). huts keep kids safe at night."]);
+      storyCard("grab", "👺", "a grump grabbed " + d.c.name + "!", ["grumps carry off kids and sleepers caught out in the open. 👆 tap the grump, or let a smol with a club whack it, and it drops them.", "if it gets away, " + d.c.name + " is held at a grump camp until you free them (or they escape on their own, eventually). huts keep kids safe at night."], null, (function (t0) { return function () { return d.c.alive && game.time - t0 < 200; }; })(game.time));
     });
     on("wrecked", function (d) {
       if (!d.st || (game.dir && game.dir.active)) return; // raids and disasters report their own damage
@@ -2682,6 +2697,7 @@
     drawBrain(dt);
     updateTrickCue();
     if (el.coach) el.coach.classList.toggle("top", !!state.sheet && state.sheet !== "talk" && state.sheet !== "magic" || state.sheet === "smol");
+    if (el.coach) el.coach.classList.toggle("lift", state.sheet === "magic" || state.sheet === "orders");
     // tutorial: egg warmed
     if (state.tutStep === 0) { var egg = game.world.items.filter(function (o) { return o.kind === "egg" && o.data.starter; })[0]; if (egg && egg.data.progress > 0 && el.coach) { el.coach.querySelector(".s").textContent = "keep tapping! it's hatching… " + Math.round(egg.data.progress * 100) + "%"; } }
     if (game.hand.hover === false) game.hand.visible = false;

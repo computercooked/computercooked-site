@@ -32,6 +32,11 @@
   };
   // pairs that count for "the colony is running out of futures"
   function chances(game) { return (game.stats.maxTier || 0) >= 3 ? ST.couples(game) : ST.breedablePairs(game); }
+  ST.shortOfCouples = function (game, n) {
+    if ((game.stats.maxTier || 0) < 3) return false;
+    var cap = SB.Civ && SB.Civ.popCap ? SB.Civ.popCap(game) : (SB.Game.POP_CAP || 36);
+    return n < cap * 0.6 && ST.couples(game) < 3;
+  };
   ST.pending = function (game) { return game.creatures.filter(function (c) { return c.alive && c.stranger && c.stranger.state === "waiting"; })[0] || null; };
 
   function nextIn(game) {
@@ -58,7 +63,10 @@
     game.creatures.forEach(function (c) {
       var s = c.stranger;
       if (!c.alive || !s) return;
-      if (s.state === "waiting" && game.time - s.t > WAIT) ST.decide(game, c, all.length < 8 || ST.breedablePairs(game) === 0, true);
+      // nobody answered: a band of a few, or one with nobody left to pair up, takes them in anyway. 4.22: so does a tribe
+      // that is short of couples and well under its room (a town left alone used to send every newcomer away, then
+      // dwindle to cousins who couldn't marry)
+      if (s.state === "waiting" && game.time - s.t > WAIT) ST.decide(game, c, all.length < 8 || ST.breedablePairs(game) === 0 || ST.shortOfCouples(game, all.length), true);
       if (s.state === "leaving" && (game.time - s.t > 70 || SB.dist(c.x, c.z, s.x0, s.z0) < 3)) { c.alive = false; c.gone = true; c.dying = false; }
     });
     // a small band that's all cousins draws newcomers sooner (checked now and then: pairs is a full scan)
