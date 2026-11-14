@@ -92,7 +92,7 @@
       tags: ["any", "day"],
       A: { ch: "1 4 2 5", mel: "1 1 3 . 5 5 3 . | 4 . 6 . 1' . 6 . | 6 5 4 . 2 . 4 . | 5 . . . 7, . . ." },
       B: { ch: "6 3 4 5", mel: "3 . 1 . 6, . 1 . | 3 . 5 . 7 . 5 . | 4 . 6 . 1' . 4' . | 2' . . . 7 . 5 ." } },
-    { id: "bigthought", title: "the big thought", root: 62, scale: "major", bpm: 68, bar: 8, lead: "piano", lead2: "flute", acc: "arp", accI: "piano", strings: 1, bellTop: 1,
+    { id: "bigthought", title: "the beacon", root: 62, scale: "major", bpm: 68, bar: 8, lead: "piano", lead2: "flute", acc: "arp", accI: "piano", strings: 1, bellTop: 1,
       tags: ["late", "ending"],
       A: { ch: "1 5 6 3 4 1 4 5", mel: "3' . . . 2' . . . | 2' . . . 7 . . . | 1' . . . 6 . 1' . | 7 . . . 5 . . . | 6 . . . 1' . 6 . | 5 . . . 3 . 1 . | 2 . 4 . 6 . 1' . | 7 . . . . . . ." },
       B: { ch: "4 5 3 6 2 5 1 1", mel: "6 . 1' . 4' . 6' . | 5' . . . 2' . 7 . | 5 . 7 . 3' . 5' . | 3' . . . 1' . 6 . | 6 . 1' . 4' . 2' . | 7 . . . 2' . 5' . | 3' . . . 2' . 1' . | 1' . . . . . . ." } }

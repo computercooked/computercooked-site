@@ -2029,11 +2029,11 @@
   function thingName(c, game) {
     var t = c.action && c.action.target ? resolve(game, c.action.target) : null;
     if (!t) return c.action && c.action.noun ? (SB.NOUN_WORDS[N[c.action.noun]] || c.action.noun) : "something";
-    if (t.type === "creature") return t.ref.species === "smol" ? t.ref.name : "a grump";
+    if (t.type === "creature") return t.ref.species === "smol" || t.ref.boss ? t.ref.name : "a grump";
     if (t.type === "hand") return "the sky hand";
     if (t.type === "water") return "the water";
     var def = t.type === "node" ? NK[t.kind] : t.type === "struct" ? SK[t.kind] : K[t.kind];
-    return def ? "the " + def.label : "something";
+    return def ? "the " + def.label.replace(/^the /, "") : "something";
   }
   C.thought = function (c, game, raw) {
     var t0 = thought0(c, game);

@@ -53,6 +53,7 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .era .bar i { display: block; height: 100%; background: var(--lime); border-radius: 0; }
 .speed { font: 700 13px/1 var(--mono); }
 @media (max-width: 480px) { .hud .long { display: none; } .chipbtn { padding: 0 9px; gap: 5px; } .era .bar { width: 30px; } }
+@media (max-width: 480px) { .hud { gap: 4px; } .hud .chipbtn { padding: 0 6px; gap: 4px; font-size: 12px; } .hud .lanternchip small { display: none; } } @media (max-width: 400px) { .hud { gap: 3px; } .hud .chipbtn { padding: 0 4px; gap: 3px; } } @media (max-width: 350px) { .hud .savedot { display: none; } .hud .chipbtn { padding: 0 3px; font-size: 11px; } } /* 4.29: the whole bar fits a phone: the menu button had slid off the right edge */
 .speed.paused { color: var(--pink); }
 .ordobey { font-size: 13px; }
 .ordobey b { font-size: 20px; }
@@ -205,8 +206,9 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .minechip .tx i.bad { color: var(--pink); } .minechip .tx i.hearts, .hearts { color: #ff7aa8; letter-spacing: 1px; font-style: normal; }
 .minechip .in { width: 34px; height: auto; flex: none; }
 .goals .head.today { color: var(--lime); }
+.goals .g.big { color: #fff; font-weight: 700; padding: 2px 0 6px; margin-bottom: 5px; border-bottom: 2px solid rgba(197, 255, 73, 0.35); align-items: flex-start; }
 .btn.on { border-color: var(--lime); color: var(--lime); }
-@media (max-width: 700px) { .minechip { bottom: calc(86px + var(--sab)); left: calc(8px + var(--sal)); max-width: 170px; } .minechip .tx i.hearts { display: none; } }
+@media (max-width: 700px) { .minechip { bottom: calc(84px + var(--sab)); left: calc(108px + var(--sal)); max-width: 170px; } .minechip .tx i.hearts { display: none; } }
 #ui:has(.lendbtn.on) .minechip, #ui:has(.modal-wrap) .minechip { display: none; }
 .toast.go { pointer-events: auto; cursor: pointer; } .toast.go .goto { color: var(--lime); font-weight: 700; } /* 4.22: tap a toast about a smol to fly to it */
 .armtag.low { top: calc(96px + var(--sat)); } /* 4.22: a timer chip is up there: the armed miracle sits under it */
@@ -224,6 +226,7 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .tabs { display: flex; gap: 4px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 @media (min-width: 700px) { .tabs { flex-wrap: wrap; overflow-x: visible; } } /* desktop: every tab visible, no hidden scroll */
+@media (max-width: 699px) { .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: visible; } .tabs .tab { padding: 7px 3px; font-size: 12px; text-align: center; overflow: hidden; text-overflow: ellipsis; } } /* 4.29: phones too: the tabs were a sideways scroll nobody knew was there */
 .tab { padding: 7px 11px; border-radius: 0; font: 700 13px var(--mono); color: var(--dim); white-space: nowrap; background: var(--faint); }
 .tab.on { background: var(--lime); color: var(--carbon); }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
@@ -324,7 +327,7 @@ input { border-radius: 0; border: 0; background: #120e1c; box-shadow: inset 0 0 
 input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 #ui:has(.modal-wrap) .toasts { display: none; }
 @media (max-width: 600px) {
-  .toasts { top: auto; bottom: calc(96px + var(--sab)); right: 50%; transform: translateX(50%); align-items: center; width: calc(100% - 24px); }
+  .toasts { top: auto; bottom: calc(184px + var(--sab)); right: 50%; /* 4.29: above the map and your smol's chip, not on them */ transform: translateX(50%); align-items: center; width: calc(100% - 24px); }
 }
 @media (max-width: 600px) { #ui:has(.sheet:not(.hide)) .toasts { bottom: auto; top: calc(58px + var(--sat)); } }
 
