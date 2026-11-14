@@ -22,33 +22,32 @@ seeded(4220, () => {
     return { game, run, pip };
   }
 
-  console.log("1. the free first day: goals, quests and toasts are open");
+  // (4.23 moved the whole first day into Pip's body; these are the same promises on the new opening)
+  function toChase(I) { // eat, open the pod, dawdle until dark
+    const g = I.game; FN.begin(g);
+    SB.bus.emit("nibble", { c: I.pip, node: FN.bush(g) });
+    if (FN.pod(g)) SB.Game.hatch(g, FN.pod(g)); I.run(1);
+    I.run(FN.STICK_TIME + FN.SUNSET + 8, () => FN.state(g).s === "chase");
+  }
+  console.log("1. the first day: quests wait for the morning, then open");
   const A = island(51), game = A.game, run = A.run, pip = A.pip;
-  check("before Pip eats, the story holds the screen", !FN.free(game) && !Q.open(game));
-  const b = FN.bush(game); pip.x = b.x + 0.8; pip.z = b.z; SB.bus.emit("nibble", { c: pip, node: b });
-  check("fed, but not free until you press “ok, let me play”", FN.state(game).s === "fed" && !FN.free(game));
-  FN.state(game).freeOk = 1;
-  check("then the day is yours", FN.free(game) && Q.open(game));
-  Q.count(game, "possess");
-  run(1.5);
-  check("a quest done in the free day pays right away", !!Q.state(game).done.possess, JSON.stringify(Q.state(game).done));
+  check("during the first day nothing is “free”: the story holds the screen", !FN.free(game) && !Q.open(game));
+  FN.begin(game);
   pip._pov = true; const n0 = Q.state(game).n.povEat || 0;
-  SB.bus.emit("nibble", { c: pip, node: b }); pip._pov = false;
-  check("a bush nibbled through a smol's eyes counts as eating", (Q.state(game).n.povEat || 0) === n0 + 1);
+  SB.bus.emit("nibble", { c: pip, node: FN.bush(game) });
+  check("a bush nibbled through a smol's eyes counts as eating", (Q.state(game).n.povEat || 0) >= n0 + 1);
+  P.leave();
 
   console.log("2. let go of Pip mid-chase, come back: the night still ends");
-  run(FN.DAY1 + FN.SUNSET + 5, () => FN.state(game).s === "lurk");
-  check("night: a grump lurks", FN.state(game).s === "lurk" && !!FN.grump(game));
-  check("not free any more", !FN.free(game));
-  FN.lend(game);
-  check("the chase is on", FN.state(game).s === "chase");
-  P.leave();
-  check("you let go: back to lurking", FN.state(game).s === "lurk" && !P.active);
+  toChase(A);
+  check("the chase is on", FN.state(game).s === "chase" && !!FN.grump(game));
+  P.leave(); run(0.3);
+  check("you let go: back to waiting", FN.state(game).s === "lurk" && !P.active);
   const g1 = FN.grump(game); if (g1) { g1.alive = false; g1.gone = true; } // it wandered off while you were away
   run(0.5);
-  FN.lend(game);
+  FN.begin(game);
   const g2 = FN.grump(game);
-  check("lend your light again: another grump finds Pip", FN.state(game).s === "chase" && g2 && g2.alive && g2 !== g1);
+  check("step back in: another grump finds Pip", FN.state(game).s === "chase" && g2 && g2.alive && g2 !== g1);
   check("and it's the one chasing you", P.scout() === g2);
   // light the nest, then lose the grump altogether: nothing is left to end the chase
   FN.state(game).stickIds.forEach(id => { const it = SB.Game.byId(game, id); if (!it || it.gone || FN.state(game).sticks >= 2) return; pip.x = it.x; pip.z = it.z; run(0.2); });
@@ -59,13 +58,13 @@ seeded(4220, () => {
   check("with the fire lit and nothing chasing, the night is won", FN.state(game).s === "won" || FN.state(game).s === "dawn" || FN.state(game).done, FN.state(game).s + " after " + took.toFixed(1) + " s");
   run(6, () => FN.state(game).done);
   check("dawn comes", !!FN.state(game).done && !P.active);
-  check("and the quests stay open after the first night, whatever the guide is doing", game.tutorial.done !== true ? Q.open(game) : true);
+  check("and the quests are open from that morning, whatever the guide is doing", Q.open(game));
+  Q.count(game, "possess"); run(1.5);
+  check("a quest done now pays right away", !!Q.state(game).done.possess);
 
   console.log("3. a chase that runs past midnight wakes the same morning");
   const B = island(52), gb = B.game;
-  const bb = FN.bush(gb); B.pip.x = bb.x + 0.8; B.pip.z = bb.z; SB.bus.emit("nibble", { c: B.pip, node: bb });
-  B.run(FN.DAY1 + FN.SUNSET + 5, () => FN.state(gb).s === "lurk");
-  FN.lend(gb);
+  toChase(B);
   gb.time = SB.DAY_LENGTH * 1.02; gb.world.time = gb.time; // 00:30 on day 2: the chase ran long
   SB.bus.emit("scoutEnd", { c: B.pip, ok: true });
   B.run(8, () => FN.state(gb).done);
@@ -73,9 +72,7 @@ seeded(4220, () => {
   const day = gb.time / SB.DAY_LENGTH;
   check("it's the morning of day 2, not day 3", day > 1.2 && day < 1.3, "day " + (day + 1).toFixed(2));
   const C = island(53), gc = C.game;
-  const bc = FN.bush(gc); C.pip.x = bc.x + 0.8; C.pip.z = bc.z; SB.bus.emit("nibble", { c: C.pip, node: bc });
-  C.run(FN.DAY1 + FN.SUNSET + 5, () => FN.state(gc).s === "lurk");
-  FN.lend(gc);
+  toChase(C);
   SB.bus.emit("scoutEnd", { c: C.pip, ok: true }); // won before midnight
   C.run(8, () => FN.state(gc).done);
   const dayC = gc.time / SB.DAY_LENGTH;
@@ -83,11 +80,10 @@ seeded(4220, () => {
 
   console.log("3b. an island saved mid-night and loaded again still finishes");
   const E = island(55), ge = E.game;
-  const be = FN.bush(ge); E.pip.x = be.x + 0.8; E.pip.z = be.z; SB.bus.emit("nibble", { c: E.pip, node: be });
-  E.run(FN.DAY1 + FN.SUNSET + 5, () => FN.state(ge).s === "lurk");
+  toChase(E); P.leave(); E.run(0.3);
   FN.state(ge).s = "chase"; FN.state(ge).t = 0; // as loaded: the chase was on, but nobody is in Pip's body
   E.run(2.5);
-  check("mid-chase: back to “lend your light”", FN.state(ge).s === "lurk", FN.state(ge).s);
+  check("mid-chase: back to the “step into Pip” button", FN.state(ge).s === "lurk", FN.state(ge).s);
   FN.state(ge).s = "dawn"; FN.state(ge).t = 0; // as loaded: the dawn film was playing
   E.run(3.5);
   check("mid-dawn: the morning still comes", !!FN.state(ge).done, FN.state(ge).s);
@@ -104,7 +100,7 @@ seeded(4220, () => {
   const before = P.options(gd, c, ref);
   check("before a shake, F on a bush tugs leaves (or nothing)", !before.pick || /tug/.test(before.pick.label), before.pick && before.pick.label);
   let fell = null;
-  for (let i = 0; i < 6 && !fell; i++) { bush.dropT = 0; P.act("use", ref); fell = gd.world.items.find(o => o.data && o.data.by === c.id && !o.gone); D.run(0.6); }
+  for (let i = 0; i < 6 && !fell; i++) { bush.dropT = 0; c.chem.hunger = 0.2; P.act("use", ref); fell = gd.world.items.find(o => o.data && o.data.by === c.id && !o.gone); D.run(0.6); }
   check("a shake drops food", !!fell, fell && fell.kind);
   if (fell) {
     fell.x = c.x + 0.4; fell.z = c.z + 0.3;

@@ -203,6 +203,7 @@
     "#pov .death .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}#pov .death .items span{display:flex;align-items:center;gap:3px;font:700 12px var(--mono,monospace)}",
     "#pov .death button{font:700 15px var(--mono,monospace);padding:10px 18px;border:0;background:var(--lime);color:#101114;cursor:pointer;box-shadow:0 0 0 2px var(--px),0 4px 0 2px var(--px)}",
     "#pov .intro{position:absolute;left:50%;top:18%;bottom:auto;height:auto;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;align-items:center;background:rgba(10,8,18,.72);box-shadow:0 0 0 2px #000;transition:opacity .8s;text-align:center;gap:6px;padding:10px 14px}",
+    "@media (min-width:701px){#pov .intro{left:calc((100% - 260px)/2);width:min(560px,calc(100% - 300px))}}@media (max-width:700px){#pov .intro{top:30%}}", // 4.23: clear of the list on the right
     "#pov .intro{pointer-events:none}#pov .intro.out{opacity:0}#pov .intro h2{margin:0;font:700 24px var(--mono,monospace);color:var(--lime);text-shadow:3px 3px 0 #000}#pov .intro p{margin:0;opacity:.9;max-width:540px;line-height:1.7}",
     "#pov .lockhint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);padding:8px 14px;font:700 16px system-ui,Arial,sans-serif;white-space:nowrap;border:2px solid var(--lime);animation:povhint 1.6s ease-in-out 3}@keyframes povhint{50%{box-shadow:0 0 18px var(--lime)}}",
     // phone
@@ -320,9 +321,12 @@
     hud.bAct2 = null;
     var intro = isPhone ? "left thumb walks · drag the right side to look · the big button does what it says · tap a hotbar slot to hold it"
       : "<kbd>WASD</kbd>walk <kbd>mouse</kbd> / <kbd>← →</kbd>look <kbd class='g'>left click</kbd>use what you hold <kbd class='m'>right click</kbd>place / eat <kbd>F</kbd>pick up <kbd>Q</kbd>drop <kbd>Tab</kbd>bag <kbd>1–9</kbd>hotbar <kbd>Esc</kbd>leave";
-    if (s.firstNight || s.nightChase) setTimeout(function () { HUD.beat("you are " + c.name, s.firstNight ? "run! grab sticks, light the nest" : "run for light: a fire, a torch, the nest", true); }, 400); // the first night and night chases: a beat, not a card over the grump
+    var fns = s.firstNight && SB.FirstNight && SB.FirstNight.state(s.game), fnChase = !!fns && (fns.s === "lurk" || fns.s === "chase" || fns.s === "dusk");
+    if (fnChase || s.nightChase) setTimeout(function () { HUD.beat("you are " + c.name, fnChase ? (fns.lit ? "get back to the fire!" : "run! grab sticks, light the nest") : "run for light: a fire, a torch, the nest", true); }, 400); // the first night and night chases: a beat, not a card over the grump
     else {
-    hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
+    var introP = s.firstNight ? "your pod came down hard, and you were thrown clear. you've slept longer than anyone can count, and you're starving. <b>the list on the right says what to do.</b>"
+      : "no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.";
+    hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>" + introP + "</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
     }
     setTimeout(fadeIntro, 4000);
@@ -411,8 +415,8 @@
     var s = S(), q = s && s.quest;
     if (!q) { hud.quest.style.display = "none"; if (!s || (!s.sniff && !s.night)) hud.qmark.classList.remove("on"); return; }
     hud.quest.style.display = "";
-    var steps = P().questList(), cur = P().questText(), title = q.kind === "blob" ? "🫧 a small body's day" : "🪨 f&zwnj;irst tool";
-    var html = "<h4><span>" + title + "</span><button class='skip' title='hide the guide for good'>skip ✕</button></h4>";
+    var steps = P().questList(), cur = P().questText(), title = q.kind === "open" ? "🌅 the f&zwnj;irst day" : q.kind === "blob" ? "🫧 a small body's day" : "🪨 f&zwnj;irst tool";
+    var html = "<h4><span>" + title + "</span><button class='skip' title='" + (q.kind === "open" ? "skip the first day: straight to morning" : "hide the guide for good") + "'>skip ✕</button></h4>";
     steps.forEach(function (st, i) {
       var cls = i < q.i ? "done" : i === q.i ? "now" : "";
       var txt = i === q.i ? cur.text : st.text;
@@ -826,7 +830,7 @@
     if (!g) s.grumpWarned = false;
     if (w.night && !s.nightWarned) { s.nightWarned = true; HUD.say("🌙 night. grumps come out: find a fire or a roof"); }
     if (!w.night) s.nightWarned = false;
-    if (ch.hunger > 0.75 && !s.hungryWarned) { s.hungryWarned = true; HUD.say("🍗 so hungry… hold food and right click to eat"); }
+    if (ch.hunger > 0.75 && !s.hungryWarned) { s.hungryWarned = true; if (!s.firstNight) HUD.say("🍗 so hungry… hold food and right click to eat"); }
     if (ch.hunger > 0.78 && (s.lowT = (s.lowT || 0) - 0.1) <= 0) { s.lowT = 6; if (SB.Audio && SB.Audio.play) SB.Audio.play("sick", { vol: 0.7 }); } // a tummy rumble every few seconds while it's nearly empty
     if (ch.hunger < 0.6) s.hungryWarned = false;
     if (cold > 0.5 && !s.coldWarned) { s.coldWarned = true; HUD.say("❄ freezing! get to a fire or under a roof"); }

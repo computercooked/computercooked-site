@@ -7,7 +7,7 @@
   "use strict";
   var SB = window.SB;
   var TI = (SB.Title = {});
-  TI.NEWS = "new: goals from the first day · tap a toast to fly to its smol · the island waits while a film plays"; // the title's footer: what changed lately (4.17)
+  TI.NEWS = "new: a new story and a new start. you wake up as Pip at the crash and play your first day by hand"; // the title's footer: what changed lately (4.17)
 
   function h(tag, attrs, kids) {
     var e = document.createElement(tag);
@@ -145,7 +145,7 @@
   TI.open = function () { return !!ts; };
   TI.watchIntro = function () { // (no button calls this since Nov 12: the intro plays when you make a new world)
     if (!SB.Intro || !SB.Intro.play) return;
-    SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } });
+    SB.Intro.play({ noGate: true });
   };
   // o: { onPlay(data|null, info), onNew(settings), shareSeed }
   TI.show = function (o) {
@@ -224,7 +224,7 @@
   function mainMenu() {
     var ws = SB.Save.worlds(), last = ws[0], recent = last && Date.now() - (last.savedAt || 0) < 12 * 3600 * 1000; // an old island isn't the default (K-0025)
     var cont = last ? btn("▶ continue", esc(last.name) + " · " + metaLine(last), recent ? "go big" : "small", function () { play(last.id); }) : null;
-    var now = btn("▶ play now", last ? "a fresh island. " + esc(last.name) + " stays safe in 📂 load game" : (SB.Lantern ? "a fresh island, after a short story (skip any time)" : "jump straight in: a fresh island, ready in seconds"), recent ? "" : "go big", function () { createWorld({ quick: true }); });
+    var now = btn("▶ play now", last ? "a fresh island. " + esc(last.name) + " stays safe in 📂 load game" : (SB.Lantern ? "a fresh island. a short film, then you wake up on it" : "jump straight in: a fresh island, ready in seconds"), recent ? "" : "go big", function () { createWorld({ quick: true }); });
     setPane([
       recent ? cont : now, recent ? now : cont,
       btn("🌱 custom island", "pick the size, shape, climate, grumps…", "small", function () { createWorld({}); }),

@@ -332,6 +332,11 @@ input:focus { box-shadow: inset 0 0 0 2px var(--lime); outline: none; }
 .introcv { width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.8vh; image-rendering: pixelated; image-rendering: crisp-edges; }
 .introcap { position: absolute; left: 50%; bottom: calc(5vh + var(--sab)); transform: translateX(-50%); width: min(760px, calc(100% - 24px)); text-align: center; opacity: 0; transition: opacity 0.4s; background: rgba(7, 6, 13, 0.72); padding: 12px 16px 14px; box-shadow: 0 -3px 0 #000, 0 3px 0 #000, -3px 0 0 #000, 3px 0 0 #000; }
 .introcap.on { opacity: 1; }
+/* 4.23: the line you can read is the big one; what the smols say sits under it, small */
+.introcap { display: flex; flex-direction: column-reverse; }
+.introcap .sub { margin: 0 !important; font: 700 clamp(17px, 3.3vw, 26px)/1.3 var(--sans) !important; color: var(--paper) !important; }
+.introcap .smol { margin-top: 6px; font: 400 clamp(12px, 2vw, 15px)/1.2 var(--sans) !important; color: var(--lilac) !important; opacity: 0.85; min-height: 1.2em; }
+.introcap .smol:not(:empty)::before { content: "“"; } .introcap .smol:not(:empty)::after { content: "”"; }
 .introcap .smol { font: 700 clamp(20px, 4.4vw, 34px)/1.2 var(--sans); color: var(--lime); text-shadow: 0 3px 0 #000; min-height: 1.2em; }
 .introcap .sub { margin-top: 8px; font: 400 clamp(14px, 2.6vw, 19px)/1.35 var(--sans); color: var(--paper); text-shadow: 0 2px 0 #000; min-height: 1.35em; }
 .introskip { position: absolute; top: calc(12px + var(--sat)); right: calc(14px + var(--sar)); font: 700 14px var(--sans); color: var(--dim); padding: 8px 12px; }
@@ -505,6 +510,7 @@ body.titling #overlay { opacity: 0; }
 .fntimer.on { display: block; }
 .fntimer { white-space: nowrap; }
 .fnhint { width: max-content; max-width: calc(100% - 24px); }
+.fnhint { bottom: calc(196px + var(--sab)); font-size: 15px; } /* 4.23: above the step-into-Pip button */
 /* 4.22: on a phone the goals list is as wide as the screen, so the chips that live top-centre sit under it (ui.js keeps --goalsH) */
 @media (max-width: 700px) {
   .fntimer { top: calc(58px + var(--goalsH, 0px) + var(--sat)); font-size: 15px; padding: 6px 12px; }

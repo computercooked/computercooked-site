@@ -94,7 +94,7 @@
     }
     if (SB.Game.select) SB.Game.select(game, null);
     hookBus();
-    if (!S.firstNight && !S.nightChase) questStart();
+    if (S.firstNight) openStart(); else if (!S.nightChase) questStart();
     if (!P.headless && SB.PovHud) SB.PovHud.build(S);
     SB.bus.emit("possess", { c: c, firstNight: !!opts.firstNight });
     return true;
@@ -415,6 +415,7 @@
     if (!r) return "";
     if (r.type === "creature") return r.ref.species === "smol" ? r.ref.name : r.ref.species;
     if (r.type === "water") return "water";
+    if (r.type === "item" && r.ref && r.ref.data && r.ref.data.pod) return "the pod";
     var d = r.type === "item" ? K[r.kind] : r.type === "node" ? NK[r.kind] : SK[r.kind];
     if (r.type === "node" && r.ref.state === "stump") return "stump";
     return d ? d.label : r.kind;
@@ -455,7 +456,10 @@
       }
     } else if (r && r.type === "item") {
       var it = r.ref, def = K[it.kind] || {}, pn = Surv.pileN(it), why = Surv.whyNot(c, it.kind);
-      if (def.critter) {
+      if (it.data && it.data.pod) { // 4.23: the crashed pod opens from down here too
+        o.use = op("knock on the pod", function () { return knockPod(it); }, null);
+        o.pick = o.use;
+      } else if (def.critter) {
         if (hk === "spear") o.use = op("spear the " + nm, function () { return spearCritter(it); }, V.use);
         else o.use = op("pounce on the " + nm, function () { return pounce(it); }, V.hit);
       } else {
@@ -495,6 +499,7 @@
         o.use = op((n.kind === "roots" ? "pull at the " : "shake the ") + nm, function () { return shakeNode(n); }, V.play);
         if (n.kind === "bush" || n.kind === "roots" || n.kind === "gourds") o.place = op("nibble the " + nm, function () { return creatureAct(V.eat, t); }, V.eat);
         if (tier < 2 && n.kind !== "hive" && n.kind !== "cactus") o.pick = tugOpt(n);
+        if (tier < 2 && o.place && c.chem.hunger > 0.45) { var sw = o.use; o.use = o.place; o.place = sw; } // 4.23: a hungry little body eats with the plain click; shaking moves to the other button
         var fi = fellItem();
         if (fi && !Surv.whyNot(c, fi.kind)) o.pick = op("pick up the " + kl(fi.kind), function () { return pickItem(fi); }, V.pickup);
       } else if (gat) {
@@ -972,6 +977,15 @@
     if (!it || it.gone || it.heldBy != null || (it.data && it.data.rotten)) { S.fell = null; return null; }
     return SB.dist(it.x, it.z, S.c.x, S.c.z) < P.REACH + 1 ? it : null;
   }
+  function knockPod(it) {
+    var game = S.game;
+    swingAnim();
+    audio("tap", 0.8);
+    if (SB.FX) SB.FX.burst("sparkle", it.x, it.y + 0.5, it.z, 8);
+    SB.World.warmEgg(game.world, game, it, SB.World.POD_TAP);
+    say(it.data.progress >= 1 ? "it's opening!" : "knock knock… something moved in there");
+    return true;
+  }
   function putBlock(n) { if (!Sv().setBlock(S.c, S.game, n)) return false; say("now hit it with an axe or a rock-on-a-stick"); audio("build", 0.6); return true; }
   function deliver(st) {
     var c = S.c, game = S.game;
@@ -1198,6 +1212,22 @@
     { id: "tug", text: "tug leaves off a plant", tip: "look at a bush or a tree and press F. the leaves go in your mouth" },
     { id: "nest", text: "line the nest", tip: "carry leaves to the nest (follow the marker) and left click it. a cosy nest hatches eggs faster" },
   ];
+  // 4.23: the first day, played in Pip's eyes (firstnight.js drives it; this is the list on screen)
+  P.OPEN_QUEST = [
+    { id: "eat", text: "find something to eat", tip: "you slept for a very long time and you're starving. follow the marker to the berry bush and click it" },
+    { id: "pod", text: "wake the others", tip: "two more sleepers are still inside the pod. walk back to it and click it until it opens" },
+    { id: "sticks", text: "gather 2 sticks", tip: "the sun is getting low. walk over the sticks (follow the markers)" },
+    { id: "fire", text: "light a fire at the nest", tip: "carry the sticks to the nest. things in the dark are afraid of light" },
+    { id: "night", text: "make it to morning", tip: "stay close to the fire. if something comes for you, lead it into the light" }
+  ];
+  function openStart() {
+    var FN = SB.FirstNight, st = FN && FN.state(S.game);
+    S.quest = null;
+    if (!st || st.done) return;
+    S.quest = { i: 0, kind: "open", started: S.game.time, flags: {} };
+    questTick();
+  }
+  P.questPoke = function () { if (S && S.quest && S.quest.kind === "open") { questTick(); if (H()) H().quest(); } };
   function questStore(key) { try { return localStorage.getItem(key || QKEY); } catch (e) { return null; } }
   function questStart() {
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
@@ -1213,10 +1243,11 @@
     questTick();
   }
   P.quest = function () { return S && S.quest; };
-  P.questList = function () { return S && S.quest && S.quest.kind === "blob" ? P.BLOB_QUEST : P.QUEST; };
+  P.questList = function () { return S && S.quest && S.quest.kind === "open" ? P.OPEN_QUEST : S && S.quest && S.quest.kind === "blob" ? P.BLOB_QUEST : P.QUEST; };
   P.questStep = function () { return S && S.quest ? P.questList()[S.quest.i] : null; };
   P.skipQuest = function () {
     if (!S || !S.quest) return;
+    if (S.quest.kind === "open") { var og = S.game; S.quest = null; if (H()) H().quest(); if (SB.FirstNight && SB.FirstNight.skip) SB.FirstNight.skip(og); return; } // skipping the first day ends it: straight to morning
     var blob = S.quest.kind === "blob";
     S.quest = null;
     (S.game.settings || (S.game.settings = {}))[blob ? "povBlobQuest" : "povQuest"] = "skipped";
@@ -1228,7 +1259,13 @@
     if (!q) return;
     var c = S.c, game = S.game, Surv = Sv(), Id = I(), made = Id.known(c, "lashing") || q.flags.craft;
     var list = P.questList(), step = list[q.i], ok = false;
-    switch (q.kind === "blob" ? "b:" + step.id : step.id) {
+    var fs = q.kind === "open" && SB.FirstNight ? SB.FirstNight.state(game) : null, fst = fs ? fs.s : "done";
+    switch (q.kind === "open" ? "o:" + step.id : q.kind === "blob" ? "b:" + step.id : step.id) {
+      case "o:eat": ok = fst !== "wake"; break;
+      case "o:pod": ok = fst !== "wake" && fst !== "pod"; break;
+      case "o:sticks": ok = !fs || !!fs.lit || fs.sticks >= SB.FirstNight.STICKS || fst === "won" || fst === "dawn" || fst === "done"; break;
+      case "o:fire": ok = !fs || !!fs.lit || fst === "done"; break;
+      case "o:night": ok = fst === "won" || fst === "dawn" || fst === "done"; break;
       case "b:eat": ok = !!q.flags.eat; break;
       case "b:sniff": ok = !!q.flags.sniff || !!q.flags.eat; break; // found it yourself and ate it: that's finding food
       case "b:tug": ok = !!q.flags.tug || Surv.count(c, "leaves", true) > 0; break;
@@ -1268,6 +1305,7 @@
   }
   function questDone() {
     var game = S.game;
+    if (S.quest && S.quest.kind === "open") { S.quest = null; if (H()) H().quest(); return; }
     if (S.quest && S.quest.kind === "blob") {
       (game.settings || (game.settings = {})).povBlobQuest = "done";
       try { localStorage.setItem(BKEY, "done"); } catch (e) {}
@@ -1301,6 +1339,10 @@
     var t = null, Surv = Sv(), q = S.quest, held = Surv.held(c), hk = held && held.k;
     function food() { return SB.World.nearestItem(w, c.x, c.z, 30, function (o) { return o.heldBy == null && Surv.edible(o.kind) && !(o.data && (o.data.rotten || o.data.pod)) && !(K[o.kind] && K[o.kind].critter); }); }
     function plant() { return node(function (n) { return Surv.canTug(S.game, n) && (n.kind === "bush" || Surv.isTree(n)); }); }
+    if (q && q.kind === "open") { // sticks and the nest are firstnight.js's own markers (P.setGoal)
+      var FNq = SB.FirstNight, tq = id === "eat" ? FNq.bush(S.game) : id === "pod" ? FNq.pod(S.game) : null;
+      return tq ? { x: tq.x, z: tq.z, y: SB.World.groundY(w, tq.x, tq.z) + 1.3 } : null;
+    }
     if (q && q.kind === "blob") {
       if (id === "share" && hk && Surv.edible(hk)) { // the nearest friend
         var f = null, fd = 1e9;

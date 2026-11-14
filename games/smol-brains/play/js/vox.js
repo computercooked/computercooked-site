@@ -467,7 +467,7 @@
     return best;
   }
   R.addHook(function (game) {
-    if (!R.voxel || !game || !T || !R.hasMesh("v:giant")) return;
+    if (!V.SHOW_GIANT || !R.voxel || !game || !T || !R.hasMesh("v:giant")) return; // 4.23: the story has no sleeping giant any more (V.SHOW_GIANT stays off)
     if (giantWorld !== T) { giantWorld = T; giantAt = placeGiant(T); }
     if (!giantAt) return;
     var br = 1 + Math.sin(R.time() * 0.35) * 0.012; // it breathes, slowly

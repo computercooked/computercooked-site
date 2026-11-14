@@ -414,7 +414,7 @@
     var g = SB.Game.current; if (!g || !SB.Embers) return;
     var E = SB.Embers, l = E.state(g), nx = E.next(g), ST = E.STAGES, body = h("div", { class: "journal" });
     var prev = l.stage ? ST[l.stage - 1] : 0, frac = nx ? SB.clamp01((l.embers - prev) / (nx - prev)) : 1;
-    body.appendChild(h("p", { class: "note" }, E.woke(g) ? "🌅 the Lantern is whole and the Hollow is awake. every memory is back." :
+    body.appendChild(h("p", { class: "note" }, E.woke(g) ? "🌅 the Lantern is whole. every memory is back, and the grumps have gone back to the dark." :
       "stage " + l.stage + " of " + ST.length + " · " + l.embers + " memory embers · " + (nx ? "the next stage at " + nx + "." : "")));
     body.appendChild(h("div", { class: "jbar" }, [h("i", { style: "width:" + Math.round(frac * 100) + "%" })]));
     body.appendChild(h("p", { class: "dim small" }, "embers come from memories won back: surviving a night, a first word, a first trick, a baby, a discovery, a first building, a new couple. each stage makes the nights less dark."));
@@ -1756,7 +1756,7 @@
   }
 
   function tabHelp(body) {
-    body.innerHTML = "<p><b class='lime'>the last lantern</b>: the smols are tiny, forgetful creatures living on the back of a sleeping giant, the Hollow. long ago they lit a Lantern to remember who they are. every night it burns a little lower, and as it fades their memories fade with it: that's why their brains are smol. <b>you are the Lantern's last spark.</b> Pip, the smallest smol, made one last wish into the dying flame, and it lifted you into the sky. you can watch over them and nudge them, but you can't touch the world. you can only <b>lend your light</b> to one smol at a time (👁 possess): while you're inside it remembers everything and is brave. <b>grumps</b> are smols whose light went out completely. they hunt the light, and that includes you.</p>" +
+    body.innerHTML = "<p><b class='lime'>the story so far</b>: the ark <b>Lantern</b> was carrying the last smols, fast asleep in pods, toward a new home. grumps live in the dark between the stars and hate light, and the ark was the brightest light there was. they caught it above this island, and it broke apart. <b>you are the Lantern</b>: the ark's guiding light. the ship is gone, so you have no body, but one pod came down in one piece. the long sleep took everything the smols knew (that's why their brains are smol), so you teach them again. you can watch over them from the sky and nudge them, or <b>lend your light</b> to one smol at a time (👁 possess) and do things with its hands; what you do in there, it remembers. every memory a smol wins back is an <b>ember</b> that makes you burn brighter. <b>grumps</b> came down with the wreck too. they hunt at night, and they can't stand a fire. the goal: wake the other pods, raise a people, and build a <b>beacon</b> tall enough to be seen from the sky.</p>" +
       "<p><b class='lime'>smol brains</b> is an island of tiny creatures with real neural-network brains. you don't control them. you raise them.</p>" +
       "<p><b class='lime'>your role</b>: you're their god. smols decide everything themselves, by trial and error. you nudge: reward the good stuff, scold the bad, teach words, move things around, and spend sparks on miracles when they pray. the goals list (top left) always says what's next.</p>" +
       "<p><b class='lime'>food & survival</b>: smols forage berries, apples, sunroots, gourds, honey and more. hunger, cold, sickness, grumps at night and deep water can kill them. once they're builders, farms feed the colony through winter. when food runs short, they stop having babies.</p>" +
@@ -1928,16 +1928,16 @@
     var auto = false; try { auto = !!(window.cc && cc.autostart && cc.autostart()); } catch (e) {}
     // the opening film, "The Last Lantern" (K-0041): always the first time on a device, even from "play now"; after that when you asked for the story
     // K-0045: the ark battle and its falling pod open it, then the pod knocks the Lantern down and Pip makes the wish
-    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { if (SB.TEST) return SB.Lantern.play({ noGate: true, done: landing }); SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.play({ noGate: true, done: landing }); } }); return; } // playtests: skipping the ark film goes on to the Lantern's (the crash), skip again to land // the "create world" tap already let the sound start
+    if (SB.Lantern && !UI.noStory && SB.Lantern.shouldPlay(game, !!SB.Game.quickStart, auto)) { SB.Intro.play({ noGate: !!SB.Game.fromTitle || auto, noSkip: !SB.Lantern.skippable(), skipped: function () { SB.Lantern.markSeen(); landing(); }, done: function () { SB.Lantern.markSeen(); landing(); } }); return; } // 4.23: one film (the ark), then you wake up in it // playtests: skipping the ark film goes on to the Lantern's (the crash), skip again to land // the "create world" tap already let the sound start
     landing();
   }
-  UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Intro) SB.Intro.play({ noGate: true, done: function () { if (SB.Lantern) SB.Lantern.play({ noGate: true }); } }); };
+  UI.replayIntro = function () { closeModal(); closeSheet(); if (SB.Intro) SB.Intro.play({ noGate: true }); };
   // after the story: the camera falls with the pod onto the island
   function landing() {
     var T = game.world.T, nest = T.nest;
     // the island's name, and its quirk (a "surprise me" quirk is revealed right here)
     var qk = ((game.settings && game.settings.world && game.settings.world.quirks) || []).map(function (k) { return SB.QUIRKS && SB.QUIRKS[k]; }).filter(Boolean)[0];
-    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? "the Hollow: " + game.wname + "." : "the Hollow. one last Lantern."), h("p", { class: "quirk" }, "you are its last spark. watch over them."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
+    var title = h("div", { class: "title" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", null, game.wname ? game.wname + ": an island on no map." : "an island on no map."), h("p", { class: "quirk" }, "one pod came down in one piece. wake them."), qk ? h("p", { class: "quirk", html: qk.icon + " <b>" + esc(qk.name) + "</b>: " + esc(qk.desc) }) : null]);
     root.appendChild(title);
     R.camera.x = T.N / 2; R.camera.z = T.N / 2 + 20; R.camera.zoom = R.camera.tZoom = 95; R.camera.yaw = R.camera.tYaw = -0.9;
     R.cinematic({ dur: SB.Game.quickStart ? 2.4 : 4.5, x0: T.N / 2, zz0: T.N / 2 + 20, x1: nest.x, zz1: nest.z, z0: 95, z1: 5.5, yaw0: -0.9, yaw1: 0.35, skippable: true, done: function () {
@@ -1950,7 +1950,8 @@
   // the first question: guided or not. the guide is the opening steps plus tips for the whole game
   function askTutorial() {
     var st = game.tutorial, set = game.settings = game.settings || {};
-    if (SB.FirstNight && SB.FirstNight.wants(game)) { set.guide = true; st.step = 0; SB.FirstNight.start(game); tutShow(); return; }
+    // 4.23: a new island opens in Pip's eyes (firstnight.js: eat, wake the others, sticks, a fire, the night); the sky comes after
+    if (SB.FirstNight && SB.FirstNight.wants(game)) { set.guide = true; st.step = 2; SB.FirstNight.start(game); tutShow(); setTimeout(function () { if (SB.Game.current === game) SB.FirstNight.begin(game); }, 250); return; }
     if (game.ngPlus || st.done || set.guide != null) { st.step = st.step || 0; tutShow(); return; }
     if (SB.Game.quickStart) { set.guide = true; st.step = 0; tutShow(); return; } // play now: the guide starts by itself ("skip tutorial" is always on its card)
     modal("🐣 play the tutorial?", h("div", null, [
@@ -1964,15 +1965,15 @@
   }
   UI.askTutorial = askTutorial;
   // after the first night: the god's tools (reward, words, tricks) as the next lessons
-  UI.afterNight = function () { var held = nightHeld; nightHeld = []; held.forEach(function (t, k) { setTimeout(function () { toast(t[0], t[1], t[2]); }, 2500 + k * 1500); }); var st = game.tutorial; if (st.done) return; var i = TUT.map(function (d) { return d.id; }).indexOf("tickle"); st.step = i >= 0 ? i : st.step; tutShow(); };
+  UI.afterNight = function () { if (game.selectedId != null) { SB.Game.select(game, null); closeSheet(); } var held = nightHeld; nightHeld = []; held.forEach(function (t, k) { setTimeout(function () { toast(t[0], t[1], t[2]); }, 2500 + k * 1500); }); var st = game.tutorial; if (st.done) return; var i = TUT.map(function (d) { return d.id; }).indexOf("why"); st.step = i >= 0 ? i : st.step; tutShow(); };
   function guideOn() { return !game.settings || game.settings.guide !== false; }
   // the tutorial walks through every mechanic. "do" steps wait for you to try the thing; "read" steps
   // have a next button. it never blocks taps on the island, and it can be skipped at any point.
   var TUT = [
     { id: "pod", t: "tap the crashed pod", s: "something's moving in that pod. tap it a few times to open it." },
     { id: "name", t: "they're out!", s: "" },
-    { id: "why", read: 1, t: "why you're here", s: "you're the Lantern's last spark, lifted into the sky by Pip's wish. from up here you can only nudge the world, but you can watch over the smols: feed, teach, protect and bless them, or <b>lend your light</b> to one (👁 possess) and live as it. raise them from blobs into a people clever enough to remember who they are." },
-    { id: "look", t: "look around", s: "drag to move (with a mouse: wasd or middle-drag), pinch or scroll to zoom. <b>tap one of your smols</b> to pick it: it stops still for a few seconds so you can teach it, and its card shows what it's thinking." },
+    { id: "why", read: 1, t: "who you are", s: "you're <b>the Lantern</b>: the ark's guiding light. the ship is gone, so you have no body of your own. you just played as Pip by lending it your light, and you can do that with any smol (tap one → 👁 possess). from up here you look after all of them at once. the long sleep took everything they knew, so <b>teach them again</b>, keep them alive, and help them build a beacon tall enough to call the other pods home." },
+    { id: "look", t: "the sky view", s: "this is the island from above. your smols carry on by themselves down there, doing what you showed them. drag to move (with a mouse: wasd or middle-drag), pinch or scroll to zoom. <b>tap one of your smols</b> to pick it: it stops still for a few seconds so you can teach it, and its card shows what it's thinking." },
     { id: "food", t: "it's hungry", s: "smols learn by trying things and remembering what felt good. they find food on their own, but you can help: with ✋ grab, <b>drag the apple next to a smol</b>." },
     { id: "tickle", t: "reward it", hl: '[data-tool="tickle"]', s: "🪶 tickle means “yes, more of that”. pick tickle and <b>tap a smol</b> while it eats. 👆 tap means “no, stop that”. rewards and scoldings are how you shape its brain." },
     { id: "word", t: "teach it a word", hl: '[data-tool="talk"]', s: "💬 talk opens the word book at the side. pick “food”, then <b>tap the apple</b> while your smol can see it. one lesson every few seconds. words the whole tribe knows make everyone smarter." },
@@ -2251,19 +2252,19 @@
   // the end of the story (4.15): the Hollow wakes. what you did, what's still out there, and you keep playing
   function wakeCard(g) {
     var s = g.stats, T = SB.TIERS[s.maxTier || 0], body = h("div", { class: "journal" });
-    body.appendChild(h("p", null, "the Lantern is whole. the Hollow stirs, and every grump on its back looks up at the light and remembers its own name. then they go home. no more grump nights, ever."));
-    body.appendChild(h("p", { class: "dim small" }, "you were the last spark of a dying Lantern. now look at them."));
-    [["days on the Hollow", SB.World.clock(g.world).day], ["smols hatched", s.hatched || 0], ["generations", s.maxGen || 1], ["highest tier", T.icon + " " + T.name],
+    body.appendChild(h("p", null, "the Lantern is whole. your light reaches the edge of the island and past it, and the grumps can't stand it: they go back to the dark. no more grump nights, ever."));
+    body.appendChild(h("p", { class: "dim small" }, "you were a ship's light with no ship. now look at them."));
+    [["days on the island", SB.World.clock(g.world).day], ["smols hatched", s.hatched || 0], ["generations", s.maxGen || 1], ["highest tier", T.icon + " " + T.name],
      ["ideas discovered", Object.keys(g.culture.found).length + " / " + SB.Ideas.LIST.length], ["villages", (g.villages || []).length], ["memories back", SB.Embers.pages(g).length + " / " + SB.Embers.LORE.length]
     ].forEach(function (r) { body.appendChild(h("div", { class: "stat" }, [h("span", null, r[0]), h("b", null, String(r[1]))])); });
     body.appendChild(h("p", { class: "note" }, g.achievements && g.achievements.bigthought ? "they even raised the spire. there's nothing left to prove: just enjoy them." :
-      "the island is yours to keep. one story is left: the old tales say a people bright enough can raise a spire and whisper the big thought into the giant's ear (chapter 6)."));
+      "the island is yours to keep. one thing is left: the old crew drew up a spire to carry your light high enough for the other arks to see (chapter 6)."));
     body.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn go", onclick: closeModal }, "keep playing"),
       h("button", { class: "btn", onclick: function () { closeModal(); lanternSheet(); } }, "🏮 read the last memory"),
       h("button", { class: "btn", onclick: function () { closeModal(); civCard(); } }, "🪪 civilisation card")
     ]));
-    modal("🌅 the Hollow wakes", body, { sticky: true, now: true });
+    modal("🌅 the Lantern is whole", body, { sticky: true, now: true });
   }
   UI.wakeCard = wakeCard;
   function civCard() {
