@@ -100,7 +100,7 @@
     { id: "seed", icon: "🌱", name: "world builder", desc: "copy a world code to share." },
     { id: "migrate", icon: "🛶", name: "old friends", desc: "smols from the old valley found the island." },
     { id: "stranger", icon: "🧳", name: "newcomer", desc: "welcome a stranger into your tribe." },
-    { id: "bigthought", icon: "🌟", name: "the big thought", desc: "finish the spire." }
+    { id: "bigthought", icon: "🌟", name: "the beacon", desc: "raise the spire that carries your light into the sky." }
   ];
   var ACH = {};
   SB.ACHIEVEMENTS.forEach(function (a) { ACH[a.id] = a; });

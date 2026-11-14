@@ -711,6 +711,16 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.72 What v4.24.0 changed: a first pass at the clean-up (owner: "beautify the game, make it cleaner")
+
+The first slice of build-order step 2 ("the look and the clean-up"); the rest of that step (menus, the bag, phone passes) follows.
+- **The smol card puts what you can do first.** 👁 possess, 🎓 tricks and 💬 talk are one row right under the smol's mood. They used to be at the bottom of a long card, below the fold on a laptop. 🧠 brain, genes, story, card, code and family stay at the bottom.
+- **Every need bar has a word on it** (hungry, sleepy, bored, lonely, health…). They were seven coloured bars with a tiny icon each.
+- **A toast diet.** With more than six smols, "X is now a kid / teen / adult / elder" stays in the chronicle and off the screen, and so does each new branch of the family tree once there are more than four. Evolution to a new tier still gets its card.
+- **The end-game is "the beacon" everywhere** (the last chapter, its quest, the idea, the milestone, the goal line), to match the story; it was "the big thought".
+- The founders' naming window says "two more sleepers climbed out of the pod" (it said "the last smols"). The landing title's two lines sit on a line each.
+- Tests: `clean424.test.js` (new, 9 checks).
+
 ## 0.71 What v4.23.0 changed: wake up (owner: "the beginning of the game is weird and hard to understand and not fun ... a whole revamp on the lore and story ... on the cutscenes, honestly, none of it makes sense to me")
 
 **The story, rewritten.** One premise, in plain words: the ark *Lantern* carried the last smols, asleep in pods, toward a new home. Grumps live in the dark between the stars and hate light; the ark was the brightest light there was, so they caught it above this island and it broke apart. **You are the Lantern**, the ark's guiding light: the ship is gone, so you have no body, but you can lend your light to a smol and act with its hands. The long sleep took everything the smols knew (that's why their brains are smol); every memory they win back is an ember that makes you burn brighter. The goal is a beacon tall enough to call the other arks. The sleeping giant ("the Hollow"), the wish and "the last spark" are gone from everything a player reads.

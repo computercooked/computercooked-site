@@ -324,7 +324,7 @@
         var got = ["astronomy", "resonance", "bigthought"].filter(function (k) { return F[k]; }).length;
         var tips = { astronomy: "🔭 astronomy (thinkers with lenses stargazing at night)", resonance: "💠 resonance (ascended smols holding thought crystals)", bigthought: "✨ the idea itself (ascended friends together by the story pole, or holding crystals)" };
         var nextK = ["astronomy", "resonance", "bigthought"].filter(function (k) { return !F[k]; })[0];
-        add("the big thought ✨ needs " + tips[nextK] + (nextK === "bigthought" ? "" : ", then more"), got + "/3");
+        add("the beacon ✨ needs " + tips[nextK] + (nextK === "bigthought" ? "" : ", then more"), got + "/3");
       } else if (!sp) add("ascended smols will raise the spire ✨ (needs " + Object.keys(SK.cost).map(function (k) { return SK.cost[k] + " " + k; }).join(", ") + ")", "");
       else if (!SB.Ideas.siteReady(sp)) {
         var miss = Object.keys(sp.need).filter(function (k) { return sp.need[k] > 0; }).map(function (k) { return (SK.cost[k] - sp.need[k]) + "/" + SK.cost[k] + " " + k; });
@@ -541,7 +541,7 @@
     3: "tribes talk in sentences, <b>teach each other</b>, share food, and <b>pray to you</b> when they need help (🙏 answer with ✨ magic).",
     4: "builders make <b>huts, farms and villages</b>. farms are the big one: they feed everybody, even in winter.",
     5: "thinkers carve ideas into story poles so they're never forgotten, and study the sky.",
-    6: "ascended smols glow and float, and can start on the big thought. you made this."
+    6: "ascended smols glow and float, and can start on the beacon. you made this."
   };
 
   /* ---------------- dock ---------------- */
@@ -714,6 +714,12 @@
     ]);
     el.sheet.appendChild(head);
     el.sheet.appendChild(el.cThought = h("div", { class: "thought" }));
+    // 4.24: the three things you do with a smol sit right under its mood, not at the bottom of a long card
+    if (c.species === "smol") el.sheet.appendChild(h("div", { class: "btnrow main3" }, [
+      SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes and use its hands (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess" + (SB.Possess.cost && SB.Possess.cost(game) === 0 ? " · free" : "")) : null,
+      SB.Tricks ? h("button", { class: "btn go", title: "train it: every bar is read from its brain", onclick: function () { openSheet("tricks"); } }, "🎓 tricks " + SB.Tricks.count(c) + "/" + SB.Tricks.LIST.length) : null,
+      h("button", { class: "btn go", title: "teach it words", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk")
+    ]));
     if (c.species === "smol") el.sheet.appendChild(el.cWho = h("div", { class: "who note" })); else el.cWho = null;
     if (c.species !== "grump") el.sheet.appendChild(el.cPeople = h("div", { class: "chips people" }));
     el.sheet.appendChild(el.cDrives = h("div", { class: "drives" }));
@@ -730,11 +736,8 @@
       return;
     }
     el.sheet.appendChild(h("div", { class: "btnrow" }, [
-      SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess" + (SB.Possess.cost && SB.Possess.cost(game) === 0 ? " · free" : "")) : null,
-      SB.Tricks ? h("button", { class: "btn go", title: "train it: every bar is read from its brain", onclick: function () { openSheet("tricks"); } }, "🎓 tricks " + SB.Tricks.count(c) + "/" + SB.Tricks.LIST.length) : null,
-      h("button", { class: "btn go", title: "watch its neural net think and learn, live (b)", onclick: function () { openBrain(c); } }, "🧠 brain"),
+      h("button", { class: "btn", title: "watch its neural net think and learn, live (b)", onclick: function () { openBrain(c); } }, "🧠 brain"),
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
-      h("button", { class: "btn", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk"),
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
       SB.Cards ? h("button", { class: "btn", onclick: function () { SB.Cards.open(c); } }, "✨ card") : null,
       h("button", { class: "btn", onclick: function () { shareSmol(c); } }, "📤 code"),
@@ -762,8 +765,8 @@
     el.cThought.innerHTML = mood + " <b>" + esc(SB.Creature.thought(c, game)) + "</b>" + (SB.Mind && SB.Mind.cardLine ? SB.Mind.cardLine(c, game) : "");
     // drives: the 6 strongest
     var ds = SB.DRIVES.map(function (d, i) { return { i: i, v: c.chem[d] }; }).sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
-    el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +
-      '<div class="drive" title="health"><span class="e">❤️</span><span class="b"><i style="width:' + Math.round(c.chem.health * 100) + '%;background:#c5ff49"></i></span></div>';
+    el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="l">' + SB.DRIVE_WORDS[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +
+      '<div class="drive" title="health"><span class="e">❤️</span><span class="l">health</span><span class="b"><i style="width:' + Math.round(c.chem.health * 100) + '%;background:#c5ff49"></i></span></div>';
     if (el.cKids) el.cKids.innerHTML = kidsHTML(c);
     if (el.cWho) el.cWho.innerHTML = whoHTML(c);
     var ids = Object.keys(c.ideas).filter(function (k) { return SB.Ideas.BY_ID[k]; });
@@ -2114,7 +2117,7 @@
     }
     var rnd = function (i) { return function () { i.value = SB.makeName(SB.rng((Date.now() + i.value.length * 77) >>> 0), game); }; };
     var body = twin ? h("div", null, [
-      h("p", null, game.ngPlus ? "a girl and a boy climbed out of the pod: the great-great-grandkids of your best smols, on a brand new island. what are they called?" : "two little blobs climbed out of the pod: a girl and a boy. the last smols. what are they called?"),
+      h("p", null, game.ngPlus ? "a girl and a boy climbed out of the pod: the great-great-grandkids of your best smols, on a brand new island. what are they called?" : "two more sleepers climbed out of the pod: a girl and a boy. what are they called?"),
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♀"), inp, h("button", { class: "btn", title: "random name", onclick: rnd(inp) }, "🎲")]),
       h("div", { class: "namebox" }, [h("span", { class: "sexi" }, "♂"), inp2, h("button", { class: "btn", title: "random name", onclick: rnd(inp2) }, "🎲")]),
       h("div", { class: "btnrow" }, [h("button", { class: "btn go", onclick: ok }, "name them")])
@@ -2388,7 +2391,13 @@
     wired = true;
     var on = SB.bus.on;
     wireFirstHour(on);
-    on("note", function (d) { toast(esc(d.text)); });
+    // 4.24: a toast diet. With more than a handful of smols, growing up and yet another branch of the family tree stay in the chronicle and off the screen
+    on("note", function (d) {
+      var t = d.text || "", many = SB.Game.smols(game).length > 6;
+      if (many && / is now an? (kid|teen|adult|elder)!$/.test(t)) return;
+      if (/^a new species!/.test(t) && game.clades && Object.keys(game.clades).length > 4) return;
+      toast(esc(t));
+    });
     on("achievement", function (d) { toast(d.a.icon + " <b>" + esc(d.a.name) + "</b> · " + esc(d.a.desc), "ach", 5000); });
     on("hatch", function (d) {
       if (d.obj && d.obj.data && d.obj.data.starter) {
@@ -2610,7 +2619,7 @@
     on("wildEgg", function (d) { autoFly(d.obj.x, d.obj.z, 7, 1.4); });
     on("drowning", function (d) { if (!d.c.far || game.selectedId === d.c.id) toast("🌊 <b>" + esc(d.c.name) + "</b> is drowning! drag it out with ✋ grab", "", 6000, d.c); });
     on("bigThought", function (d) {
-      moment("🌟", "the big thought", "every smol mind on the island, thinking one thought. it's beautiful. it's about snacks.", "lilac");
+      moment("🌟", "the beacon", "your light, on top of a spire, where the whole sky can see it. the smols are fairly sure it's about snacks.", "lilac");
       if (!d.first) return;
       setTimeout(function () {
         if (!SB.Intro || UI.noStory) { endCard(); return; }
