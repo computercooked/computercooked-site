@@ -1309,7 +1309,10 @@
   C.eggGap = function (game, a, b) {
     var pop = SB.Game.smols(game).length, young = 0;
     game.creatures.forEach(function (k) { if (k.alive && k.species === "smol" && k.stage < 3 && k.parents && (k.parents.indexOf(a.id) >= 0 || k.parents.indexOf(b.id) >= 0)) young++; });
-    var band = Math.min(a.tier, b.tier) < 3 ? 0.19 : pop < 6 ? 0.3 : pop < 10 ? 0.5 : pop < 14 ? 0.75 : 1; // a pair of blobs, critters or tool-users: about every 3 min, as before
+    // 4.22: "a few" follows the room there is (the cap grows with the ages), so a town whose boom generation ages out all
+    // at once refills before it has shrunk to a hamlet (it used to fall from 30 to 10 before the eggs sped up)
+    var cap = SB.Civ && SB.Civ.popCap ? SB.Civ.popCap(game) : (SB.Game.POP_CAP || 36);
+    var band = Math.min(a.tier, b.tier) < 3 ? 0.19 : pop < Math.max(6, cap * 0.25) ? 0.3 : pop < Math.max(10, cap * 0.45) ? 0.5 : pop < Math.max(14, cap * 0.65) ? 0.75 : 1; // a pair of blobs, critters or tool-users: about every 3 min, as before
     return Math.round(C.EGG_GAP * band + 40 * Math.min(4, young) * band);
   };
   // an egg costs food: two bites from the granary or what the couple has to hand (or lying near), and the mother's
@@ -1354,7 +1357,8 @@
     if (settled) {
       k = C.LOVE_SEASON[game.world.season || 0] || 1;
       var pop = game._smolN != null && game._smolNT === Math.floor(game.time) ? game._smolN : (game._smolNT = Math.floor(game.time), game._smolN = SB.Game.smols(game).length);
-      k *= pop < 6 ? 3 : pop < 10 ? 2 : pop < 14 ? 1.4 : 1;
+      var lcap = SB.Civ && SB.Civ.popCap ? SB.Civ.popCap(game) : (SB.Game.POP_CAP || 36); // 4.22: "a small band" follows the room there is, like the egg gap
+      k *= pop < Math.max(6, lcap * 0.25) ? 3 : pop < Math.max(10, lcap * 0.45) ? 2 : pop < Math.max(14, lcap * 0.65) ? 1.4 : 1;
       if (top >= 4 && SB.Game.cultureKnows(game, "hut") && !game.world.structures.some(function (s) { return s.done && (s.kind === "hut" || s.kind === "house") && s.tribe === c.tribe; })) k *= 0.6;
     }
     return (c._lk = k);
@@ -1833,7 +1837,7 @@
         ch.health -= dt * (c.drownT > 6 ? 0.05 : 0.03);
         if (!c.far && SB.FX && Math.random() < dt * 3) SB.FX.burst("splash", c.x + (Math.random() - 0.5) * 0.4, SB.World.groundY(w, c.x, c.z), c.z + (Math.random() - 0.5) * 0.4, 3, { r: 0.2 });
         if (Math.random() < dt * 0.6) { emote(c, "huh", 1); if (c.species === "smol" && game.rng.chance(0.3)) say(c, knows(c, "help") ? "help!" : "blub!", game); }
-        if (c.drownT > 0.5 && !c.drownNoted && c.species === "smol") { c.drownNoted = true; SB.bus.emit("drowning", { c: c }); }
+        if (c.drownT > 3 && !c.drownNoted && c.species === "smol") /* 4.22: a smol that splashes straight back out isn't an alarm */ { c.drownNoted = true; SB.bus.emit("drowning", { c: c }); }
         if (ch.health <= 0) { die(c, game, "drowned"); return; }
       } else { c.drownT = 0; c.drownNoted = false; }
       if (!deep && (!sh || SB.World.pathOpen(w, c.x, c.z) || SB.dist(c.x, c.z, sh.x, sh.z) < 0.4)) { c.lost = false; c.shore = null; c.stuckT = 0; }

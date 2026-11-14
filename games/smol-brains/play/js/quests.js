@@ -89,6 +89,14 @@
     function row(q) { var p = Q.progress(g, q); return { q: q, done: !!s.done[q.id], have: p.have, need: p.need, frac: s.done[q.id] ? 1 : p.frac }; }
     return { ch: ch, n: s.ch + 1, of: Q.CHAPTERS.length, quests: ch.quests.map(row), left: s.left.map(function (id) { return Q.BY[id]; }).filter(Boolean).map(row) };
   };
+  // 4.22: quests open with the free first day and stay open after the first night, whatever the guide's own steps are doing
+  Q.open = function (g) {
+    var t = g.tutorial;
+    if (!t || t.done) return true;
+    var FN = SB.FirstNight, n = t.night;
+    if (n && n.done) return true;
+    return !!(FN && FN.free && FN.free(g));
+  };
   Q.count = function (g, k, by) { var s = st(g); s.n[k] = (s.n[k] || 0) + (by == null ? 1 : by); };
 
   var t = 0;
@@ -98,7 +106,7 @@
     if (t > 0) return;
     t = 1;
     var s = st(g), ch = Q.CHAPTERS[s.ch];
-    if (g.tutorial && !g.tutorial.done) return;
+    if (!Q.open(g)) return;
     function tryQ(q) {
       if (s.done[q.id]) return true;
       if (Q.progress(g, q).frac < 1) return false;
@@ -128,6 +136,7 @@
   function cur() { return SB.Game.current; }
   SB.bus.on("possess", function (d) { var g = cur(); if (g && !(d && d.firstNight)) Q.count(g, "possess"); }); // the first night is the story's possession, not yours
   SB.bus.on("eat", function (d) { var g = cur(); if (g && d && d.c && d.c._pov) Q.count(g, "povEat"); }); // nibbling a bush, drinking
+  SB.bus.on("nibble", function (d) { var g = cur(); if (g && d && d.c && d.c._pov) Q.count(g, "povEat"); }); // 4.22: a bush nibbled through a smol's eyes is eating too
   SB.bus.on("povEat", function () { var g = cur(); if (g) Q.count(g, "povEat"); });                        // eating from the ground or the bag
   SB.bus.on("newBiome", function () { var g = cur(); if (g && !g.offline) Q.count(g, "biomes"); });
   SB.bus.on("povQuestDone", function () { var g = cur(); if (g) Q.count(g, "povTool"); });

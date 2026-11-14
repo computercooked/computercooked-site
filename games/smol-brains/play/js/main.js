@@ -632,7 +632,7 @@
     requestAnimationFrame(frame);
     var dtReal = Math.max(0, Math.min(0.1, (now - last) / 1000 || 0)); // never backwards: a negative step makes the camera easing blow up
     last = now;
-    var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning;
+    var paused = game.speed === 0 || Game.hostPaused || (SB.UI && SB.UI.modalOpen) || game.offlineRunning || (SB.Lantern && SB.Lantern.running); // 4.22: the island waits while a story film plays
     if (!paused) {
       farFlags(game);
       acc += dtReal * game.speed * Game.pace(game) * (SB.NightChase ? SB.NightChase.slow(game) : 1); // a night chase's "lend your light" moment runs slow
