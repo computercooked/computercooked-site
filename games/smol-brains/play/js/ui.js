@@ -223,7 +223,10 @@
     el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
     el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.lantern = h("button", { class: "chipbtn glass live lanternchip", title: "the Lantern: memory embers relight it", onclick: function () { lanternSheet(); } }); el.hud.appendChild(el.lantern); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
-    el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } el.goals.classList.toggle("min"); goalsH(); } });
+    el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } var jq = e.target.closest && e.target.closest("[data-j]"); if (jq && SB.Mine) { var jd = SB.Mine.JOB[jq.getAttribute("data-j")]; if (jd) toast(jd.icon + " <b>" + esc(jd.t) + "</b><br>" + esc(jd.how), "", 6500); return; } el.goals.classList.toggle("min"); goalsH(); } });
+    // 4.25: your smol's chip (mine.js): who, how it feels, what it needs; tap to go to it, 👁 to step in
+    el.mine = h("div", { class: "minechip glass live hide" });
+    root.appendChild(el.mine);
     root.appendChild(el.goals);
   }
   var savedT = null;
@@ -233,6 +236,29 @@
     clearTimeout(savedT); savedT = setTimeout(function () { el.saved.classList.remove("on"); }, 1400);
   });
   var hudT = 0;
+  var mineT = 0, mineKey = "";
+  function updateMine(dt) {
+    if (!el.mine || !SB.Mine) return;
+    if ((mineT -= dt) > 0) return;
+    mineT = 0.5;
+    var M = SB.Mine, open = M.open(game) && !state.introRunning;
+    if (open && M.state(game).id == null) M.adopt(game); // an island with no first day (or an older save): the first founder is yours
+    var c = open ? M.get(game) : null;
+    el.mine.classList.toggle("hide", !c);
+    if (!c) { mineKey = ""; return; }
+    var need = M.need(c), mood = SB.Chem.MOOD_EMOJI[SB.Chem.mood(c.chem)] || "🙂", tier = SB.TIERS[c.tier];
+    var line = c.asleep ? "💤 asleep" : need ? need.emoji + " " + need.word : mood + " doing fine";
+    var key = c.id + "|" + c.name + "|" + line + "|" + c.tier + "|" + M.heartsText(c);
+    if (key === mineKey) return;
+    mineKey = key;
+    clear(el.mine);
+    var who = h("button", { class: "who", title: "your smol: tap to go to it", onclick: function () { var m = SB.Mine.get(game); if (!m) return; SB.Game.select(game, m.id); SB.Input.follow(m); if (R.camera.tZoom > 12) R.camera.tZoom = 9; } }, [
+      avatar(c.look, c.tier),
+      h("span", { class: "tx" }, [h("b", null, "⭐ " + c.name), h("i", { class: need && need.v > 0.7 ? "bad" : "" }, line), h("i", { class: "hearts" }, M.heartsText(c) + " " + tier.icon)])
+    ]);
+    el.mine.appendChild(who);
+    if (SB.Possess) el.mine.appendChild(h("button", { class: "ibtn in", title: "step into " + c.name + " (free: it's your smol)", onclick: function () { var m = SB.Mine.get(game); if (m) SB.Possess.enter(game, m); } }, "👁"));
+  }
   function updateHud(dt) {
     hudT -= dt;
     if (hudT > 0) return;
@@ -365,18 +391,26 @@
     var list = goalsList();
     if (qb) list = list.filter(function (g) { return !/first word|tickle a smol/.test(g.t); }).slice(0, 2);
     var qs = qb ? qb.quests.concat(qb.left).map(function (x) { return [x.q.id, x.done ? 1 : 0, x.have, x.need]; }) : null;
-    var key = JSON.stringify([list, qs, qb && qb.n]);
+    var jb = SB.Mine && SB.Mine.board ? SB.Mine.board(game) : null;
+    var key = JSON.stringify([list, qs, qb && qb.n, jb]);
     if (key === goalKey) return;
     goalKey = key;
-    el.goals.classList.toggle("hide", !list.length && !qb);
+    el.goals.classList.toggle("hide", !list.length && !qb && !jb);
     var html = "";
+    if (jb) { // 4.25: three small jobs a day (mine.js)
+      html += '<div class="head today"><span>today' + (jb.bonus ? " · all done ⭐" : "") + "</span><span>" + (el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
+      html += jb.rows.map(function (x) { return '<div class="g q' + (x.done ? " done" : "") + '" data-j="' + x.id + '"><span class="e">' + x.icon + '</span><span class="t">' + esc(x.t) + '</span><span class="p">' + (x.done ? "✓" : x.need > 1 ? x.have + "/" + x.need : "") + '</span><span class="r">+' + SB.Mine.JOB_PAY + "✨</span></div>"; }).join("");
+    }
     if (qb) {
-      html += '<div class="head"><span>chapter ' + qb.n + " · " + esc(qb.ch.name) + "</span><span>" + (el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
-      html += qb.quests.map(function (x) {
+      html += '<div class="head' + (jb ? " sub" : "") + '"><span>chapter ' + qb.n + " · " + esc(qb.ch.name) + "</span><span>" + (jb ? "" : el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
+      var qrows = qb.quests, qmore = 0;
+      if (jb) { var undone = qrows.filter(function (x) { return !x.done; }); qmore = Math.max(0, undone.length - 2); qrows = undone.slice(0, 2); } // 4.25: with today's jobs on the list, the chapter shows its next two (the rest are in the menu's goals tab)
+      html += qrows.map(function (x) {
         var p = x.done ? "✓" : x.need > 1 ? x.have + "/" + x.need : "";
         return '<div class="g q' + (x.done ? " done" : "") + '" data-q="' + x.q.id + '"><span class="e">' + x.q.icon + '</span><span class="t">' + esc(x.q.t) + '</span><span class="p">' + p + '</span><span class="r">+' + x.q.pay + "✨</span></div>";
       }).join("");
-      if (qb.left.length) {
+      if (qmore) html += '<div class="g more"><span class="t dim">+' + qmore + " more in ☰ → goals</span></div>";
+      if (qb.left.length && !jb) {
         html += '<div class="head sub"><span>left behind</span></div>';
         html += qb.left.slice(0, 3).map(function (x) { return '<div class="g q" data-q="' + x.q.id + '"><span class="e">' + x.q.icon + '</span><span class="t">' + esc(x.q.t) + '</span><span class="p"></span><span class="r">+' + x.q.pay + "✨</span></div>"; }).join("");
       }
@@ -446,7 +480,7 @@
     t._html = html;
     if (at) t.onclick = function () {
       if (at.alive === false || at.gone) return;
-      if (at.species === "smol" && at.id != null) SB.Game.select(game, at);
+      if (at.species === "smol" && at.id != null) SB.Game.select(game, at.id);
       R.flyTo(at.x, at.z, 7, 0.7);
       t.classList.add("out");
     };
@@ -716,7 +750,7 @@
     el.sheet.appendChild(el.cThought = h("div", { class: "thought" }));
     // 4.24: the three things you do with a smol sit right under its mood, not at the bottom of a long card
     if (c.species === "smol") el.sheet.appendChild(h("div", { class: "btnrow main3" }, [
-      SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes and use its hands (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess" + (SB.Possess.cost && SB.Possess.cost(game) === 0 ? " · free" : "")) : null,
+      SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes and use its hands (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess" + (SB.Possess.cost && SB.Possess.cost(game, c) === 0 ? " · free" : "")) : null,
       SB.Tricks ? h("button", { class: "btn go", title: "train it: every bar is read from its brain", onclick: function () { openSheet("tricks"); } }, "🎓 tricks " + SB.Tricks.count(c) + "/" + SB.Tricks.LIST.length) : null,
       h("button", { class: "btn go", title: "teach it words", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk")
     ]));
@@ -741,7 +775,8 @@
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
       SB.Cards ? h("button", { class: "btn", onclick: function () { SB.Cards.open(c); } }, "✨ card") : null,
       h("button", { class: "btn", onclick: function () { shareSmol(c); } }, "📤 code"),
-      h("button", { class: "btn", onclick: function () { openMenu("family", c); } }, "🌳 family")
+      h("button", { class: "btn", onclick: function () { openMenu("family", c); } }, "🌳 family"),
+      SB.Mine && !c.stranger ? h("button", { class: "btn" + (SB.Mine.is(game, c) ? " on" : ""), title: "your smol: a chip on screen, free to step into, and an heir when it's gone", onclick: function () { if (SB.Mine.is(game, c)) { toast("⭐ " + esc(c.name) + " is already your smol"); return; } SB.Mine.set(game, c); el.sheet.dataset.id = ""; renderSmol(true); } }, SB.Mine.is(game, c) ? "⭐ your smol" : "☆ make it mine") : null
     ]));
     renderMore(c);
     updateSmol(c, true);
@@ -768,7 +803,7 @@
     el.cDrives.innerHTML = ds.map(function (d) { return '<div class="drive" title="' + SB.DRIVES[d.i] + '"><span class="e">' + SB.DRIVE_EMOJI[d.i] + '</span><span class="l">' + SB.DRIVE_WORDS[d.i] + '</span><span class="b"><i style="width:' + Math.round(d.v * 100) + "%;background:" + SB.DRIVE_COLORS[d.i] + '"></i></span></div>'; }).join("") +
       '<div class="drive" title="health"><span class="e">❤️</span><span class="l">health</span><span class="b"><i style="width:' + Math.round(c.chem.health * 100) + '%;background:#c5ff49"></i></span></div>';
     if (el.cKids) el.cKids.innerHTML = kidsHTML(c);
-    if (el.cWho) el.cWho.innerHTML = whoHTML(c);
+    if (el.cWho) el.cWho.innerHTML = (SB.Mine && !c.stranger ? '<span class="hearts" title="how much it trusts you. tickles, answered prayers and granted wishes fill them; taps and ignored prayers empty them">' + SB.Mine.heartsText(c) + "</span> " + (SB.Mine.is(game, c) ? '<b class="lime">⭐ your smol</b> · ' : "") : "") + whoHTML(c);
     var ids = Object.keys(c.ideas).filter(function (k) { return SB.Ideas.BY_ID[k]; });
     el.cIdeaN.textContent = SB.Ideas.count(c) + (c.tier < 2 ? " · needs hands" : "");
     el.cIdeas.innerHTML = ids.length ? ids.map(function (k) { var d = SB.Ideas.BY_ID[k], v = c.ideas[k]; return '<span class="chip ' + (v >= 1 ? "lime" : "dim") + '" title="' + esc(d.desc) + '">' + d.icon + " " + esc(game.culture.words[k] || d.name) + (v < 1 ? " " + Math.round(v * 100) + "%" : "") + "</span>"; }).join("") : '<span class="note">' + (c.tier < 2 ? "blobs and critters can't hold ideas yet. evolve hands." : "nothing yet. curious smols discover things by fiddling.") + "</span>";
@@ -2432,11 +2467,15 @@
       (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast(html, "ember", 5500); if (el.lantern) { el.lantern.classList.remove("pulse"); void el.lantern.offsetWidth; el.lantern.classList.add("pulse"); } })();
     });
     // a day on the Hollow (4.15): at dawn, yesterday in one small card and one thing to do today
+    on("jobDone", function (d) { toast("✅ <b>" + esc(d.job.t) + "</b> · +" + d.pay + " ✨", "ach", 3800); goalKey = ""; });
+    on("jobsDone", function (d) { toast("🌟 <b>all three of today's jobs!</b> +" + d.pay + " ✨" + (d.days > 1 ? " · " + d.days + " full days so far" : ""), "ach", 5500); if (SB.Audio && SB.Audio.play) SB.Audio.play("achievement"); goalKey = ""; });
+    on("mineHeir", function (d) { toast("⭐ <b>" + esc(d.c.name) + "</b> is your smol now" + (d.kin ? ": " + esc(d.was) + "'s child carries on" : ", after " + esc(d.was)), "ach", 8000, d.c); mineT = 0; });
+    on("mine", function (d) { if (d.how === "picked") toast("⭐ <b>" + esc(d.c.name) + "</b> is your smol now. stepping into it is always free", "", 5000); mineT = 0; mineKey = ""; });
     on("dayRecap", function (r) {
       var g = SB.Game.current; if (!g || g.offline || g.showcase || (UI.isQuiet && UI.isQuiet())) return;
       var ww = g.world || {}, sky = ww.season === 3 ? ["❄️", "a frosty winter morning"] : ww.kind === "storm" ? ["⛈", "a stormy morning"] : ww.rain > 0.5 ? ["🌧", "a rainy " + SB.SEASONS[ww.season || 0] + " morning"] : ww.cloud > 0.6 ? ["⛅", "a grey " + SB.SEASONS[ww.season || 0] + " morning"] : ["☀️", "a bright " + SB.SEASONS[ww.season || 0] + " morning"];
       var html = sky[0] + " <b>day " + (r.day + 1) + "</b> · <span class=\"dim\">" + sky[1] + ".</span> " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
-        (r.goal ? "<br><span class=\"dim\">today:</span> " + r.goal.icon + " " + esc(r.goal.t) : "");
+        (function () { var jb = SB.Mine && SB.Mine.board ? SB.Mine.board(g) : null; return jb ? "<br><span class=\"dim\">today:</span> " + jb.rows.map(function (x) { return x.icon + " " + esc(x.t); }).join(" · ") : r.goal ? "<br><span class=\"dim\">today:</span> " + r.goal.icon + " " + esc(r.goal.t) : ""; })();
       var tries = 0; // waits for a film, and for the first night to hand over (its own toasts only until then)
       (function show() { if (((SB.Lantern && SB.Lantern.running) || (SB.FirstNight && SB.FirstNight.active(g))) && ++tries < 40) return setTimeout(show, 1500); toast(html, "day", 9000); })();
     });
@@ -2695,6 +2734,7 @@
       if ((perfT -= dt) < 0) { perfT = 0.5; perfEl.textContent = Math.round(1000 / R.perf.ft) + " fps · " + R.perf.ft.toFixed(1) + " ms · " + R.perf.draws + " draws · " + Math.round(R.perf.tris / 1000) + "k tris · res " + R.quality.scale.toFixed(2) + " · sim " + (SB.Game.stepMs || 0).toFixed(2) + " ms · " + game.creatures.length + " creatures · " + game.world.items.length + " items"; }
     }
     updateHud(dt);
+    updateMine(dt);
     updateAlert(dt);
     if (el.coach && game.tutorial.done) { el.coach.remove(); el.coach = null; }
     if (!el.coach) updateGuide(dt); else if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; }
