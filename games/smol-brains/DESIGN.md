@@ -711,6 +711,25 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.76 What v4.28.0 changed: the road to the lair, a fairer fight, and an ending you light yourself
+
+An island was grown the normal way to day 3 (a tribe, six ideas, Gloom awake), and a tribe smol was walked from the nest toward the lair and fought Gloom twice, with the weapon a new tool-user really has (a rock-on-a-stick).
+
+**The road**
+- **In a body there was nothing pointing at the lair.** The goals list said "to the east" and the lair was 112 steps away. When nothing else needs the marker, it now points at the next captain's lair with its name and the distance.
+- **A lair could be somewhere you can't walk to.** They were placed on dry ground, but not on ground joined to the nest. Each lair now needs a walking path from the nest (`World.findPath`), and on an island from 4.26 or 4.27 a lair nobody has found yet moves if it had none.
+- The "you are …" card sat on top of the bag when you opened it. Opening the bag closes the card.
+
+**The fight**
+- **Losing looped.** Beaten down inside the lair's range, the duel started again at once: thirteen times in a row. A captain now leaves you alone for fifteen seconds after a duel ends, and won't start on a smol with under half its hearts ("eat, rest, and come back").
+- **Too long for a first boss.** With the entry weapon Gloom took 24 hits; it now takes 14 (7 with a club). Murk and the Long Night came down in step (15 and 27 good hits, were 21 and 36), with slightly softer bites. The second fight ran 24 seconds and ended with Gloom on its last sliver and the smol beaten: close, which is right for trading blows without dodging once.
+- **Dodging now pays.** Get out of the way of a pounce and it stumbles for about two and a half seconds; hits landed then count double, and the banner says "it missed! hit it now: double". (After it bites you it only glares: no bonus for being bitten.)
+- The bite message during a duel said "run for the nest". It says what to do in a duel.
+
+**The ending**
+- **You light the beacon.** When the smols finish the spire the game no longer ends by itself: a toast and the goals list send you to step into a smol, walk to the spire (the marker points at it) and light it. That is the ending, and it knows whose hand it was. If nobody comes for a day the smols light it themselves at dawn, and an island with nobody watching (headless, or caught up offline) lights it at once as before. "Waiting" is read off the world, so it survives a save.
+- Tests: `beacon.test.js` (new, 13 checks), `bosses.test.js` (now 52).
+
 ## 0.75 What v4.27.0 changed: the captains guard the ending, and what a live run showed
 
 After 4.26 went live, a fresh island was run on the real site through day 4 with every toast, window and event logged. It held together (your smol passed from Pip to an heir, the daily jobs rolled over, Gloom woke with the first tool-user and was found the next day, no errors), and it showed four things:
@@ -725,7 +744,7 @@ After 4.26 went live, a fresh island was run on the real site through day 4 with
 The tool ladder was already there (paws, a rock-on-a-stick, stone, copper, iron, a sword) and so was the duel (a grump winds up, pounces, reels). What was missing was a reason to climb the ladder and somewhere to take it. Now there is one, three times.
 - **Three grump captains**, dug in at lairs far from the nest, a third of a turn apart: **Gloom**, **Murk** and **the Long Night** (the one that caught the ark). They don't raid; they wait. The same island always puts them in the same places (their own dice, seeded from the island).
 - **You go to them, in a smol's body.** Within nine steps of a lair it comes for you: the night-chase duel, with a banner that names it, shows how much fight it has left, and says when to move ("it's about to pounce!") and when to hit ("it's reeling: hit it now!").
-- **Each one's hide turns a weaker weapon**, which is what the tool tiers are for: Gloom needs a club, a spear or any real tool (paws and a poke stick bounce off); Murk needs a proper weapon or an axe (a rock-on-a-stick bounces off); the Long Night needs iron. They take 12, 21 and 36 good hits. Hitting with the wrong thing tells you what it needs.
+- **Each one's hide turns a weaker weapon**, which is what the tool tiers are for: Gloom needs a club, a spear or any real tool (paws and a poke stick bounce off); Murk needs a proper weapon or an axe (a rock-on-a-stick bounces off); the Long Night needs iron. They take 12, 21 and 36 good hits (retuned in 4.28: 7, 15 and 27). Hitting with the wrong thing tells you what it needs.
 - **Walk away and it lets you go** (26 steps from its lair), and mends in about twenty seconds. **Lose** (down to under a third of your hearts) and you crawl away alive. **Win** and the light it was sitting on comes home: 2, 3 and 5 embers and 15, 25 and 40 sparks, and the dark around its lair lifts on the map.
 - They wake as the island grows the hands to fight them (tool-users, the tribe, builders), one at a time: the next only after the last has fallen. The next captain is the first line under "also" on the goals list (which way it lies and what to bring), a smol wandering within forty steps finds the lair (a toast you can tap to fly there), and beating one gets a card.
 - Tests: `bosses.test.js` (new, 42 checks).

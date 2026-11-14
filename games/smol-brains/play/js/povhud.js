@@ -338,6 +338,7 @@
     HUD.quest();
     update(true);
   };
+  HUD.fadeIntro = function () { fadeIntro(); };
   function fadeIntro() { if (hud && hud.intro) { var i = hud.intro; hud.intro = null; i.classList.add("out"); setTimeout(function () { i.remove(); }, 1300); } }
   function escLock(on) {
     try {
@@ -460,7 +461,7 @@
       mark(hud.gmark, { x: g.x, y: g.y + 2.2, z: g.z }, dg, 0, boss.icon + " " + boss.name + " ");
       hud.nmark.classList.remove("on"); hud.beam.classList.remove("on");
       var hp = SB.Bosses.hp(s.game, boss), bar = ""; for (var bi = 0; bi < 10; bi++) bar += bi < Math.ceil(hp * 10) ? "█" : "░";
-      var btxt = boss.icon + " " + boss.name + " " + bar + " · " + (g.scout && g.scout.wind > 0 ? "it's about to pounce! MOVE!" : g.scout && g.scout.hitT > 0.9 ? "it's reeling: hit it now!" : "hit it between pounces") + " · walk away to give up";
+      var btxt = boss.icon + " " + boss.name + " " + bar + " · " + (g.scout && g.scout.wind > 0 ? "it's about to pounce! MOVE!" : SB.Bosses.reeling(g) ? "it missed! hit it now: double" : g.scout && g.scout.hitT > 0.9 ? "it's glaring: get back in" : "dodge the pounce, then hit") + " · walk away to give up";
       if (hud.threat._t !== btxt) { hud.threat._t = btxt; hud.threat.textContent = btxt; }
       hud.threat.classList.add("on"); hud.threat.classList.toggle("wind", !!(g.scout && g.scout.wind > 0));
       return g;
@@ -488,13 +489,18 @@
   function questMarker() {
     testNums();
     var chased = threatMarker();
-    var s = S(), q = s && s.quest, t = (s && s.goal) || (chased ? null : s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render; // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
+    var s = S(), q = s && s.quest, t = (s && s.goal) || (chased ? null : s && s.sniff ? s.sniff : s && s.night ? s.night : q && q.target), R = SB.Render, lair = null;
+    // 4.28: nothing else to point at: the way to the next grump captain's lair (it's a long walk, and "to the east" isn't enough)
+    var bw = !t && !chased && s && !s.dead && SB.Game.beaconWaiting ? SB.Game.beaconWaiting(s.game) : null;
+    if (bw) { lair = { boss: { icon: "✨", name: "light the beacon" } }; t = { x: bw.x, z: bw.z, y: SB.World.groundY(s.game.world, bw.x, bw.z) + 3 }; } // 4.28: the last walk
+    if (!t && !chased && s && !s.dead && !s.firstNight && SB.Bosses && SB.Bosses.next) { var bn = SB.Bosses.next(s.game); if (bn) { lair = bn; t = { x: bn.x, z: bn.z, y: SB.World.groundY(s.game.world, bn.x, bn.z) + 2 }; } } // the first night's goal first // the way home from a grump, the nose, home at night, then the guide
     if (!t || !R || !R.project || s.dead) { hud.qmark.classList.remove("on"); return; }
     var c = s.c, d = SB.dist(t.x, t.z, c.x, c.z);
     hud.qmark.classList.toggle("home", !!(s && s.goal && !s.goal.small));
     if (d < 1.4) { hud.qmark.classList.remove("on"); return; }
     mark(hud.qmark, t, d, 1.4);
     if (s.goal) { var sp = hud.qmark.querySelector("span"), lb = s.goal.label + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
+    else if (lair) { var sp2 = hud.qmark.querySelector("span"), lb2 = lair.boss.icon + " " + lair.boss.name + " " + Math.round(d) + "m"; if (sp2 && sp2.textContent !== lb2) sp2.textContent = lb2; }
     keepLabel(hud.qmark);
   }
   // a marker's label never runs off the screen edge (K-0048: "o sticks 2m")
@@ -561,6 +567,7 @@
   /* ---------------- the bag (inventory + crafting + building) ---------------- */
   var bag = null; // {el, tab, pick: slot index picked up by a tap, grid: [kinds], detail}
   HUD.openBag = function (tab) {
+    fadeIntro(); // 4.28: the “you are …” card never sits on top of the bag
     if (!hud) return;
     var s = S(); if (!s || s.dead) return;
     if (bag && (!tab || tab === bag.tab)) { closeBag(); return; }

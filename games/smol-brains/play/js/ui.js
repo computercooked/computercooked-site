@@ -323,6 +323,7 @@
   function goalsList() {
     var g = game, out = [], A = g.achievements, smols = SB.Game.smols(g);
     function add(t, p, done) { out.push({ t: t, p: p, done: done }); }
+    if (SB.Game.beaconWaiting && SB.Game.beaconWaiting(g)) add("✨ the spire is up! step into a smol (your smol's 👁), walk to it and light the beacon", ""); // 4.28
     var bn = SB.Bosses && SB.Bosses.next ? SB.Bosses.next(g) : null; // 4.26: the next grump captain
     if (bn) add(bn.boss.icon + " " + bn.boss.name + ", a grump captain, " + (bn.found ? "lairs to the " + bn.where : "is dug in somewhere to the " + bn.where) + ". f\u200cight it as a smol, with " + bn.boss.needs, bn.tries ? "tries: " + bn.tries : "");
     if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
@@ -2475,6 +2476,7 @@
       (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast(html, "ember", 5500); if (el.lantern) { el.lantern.classList.remove("pulse"); void el.lantern.offsetWidth; el.lantern.classList.add("pulse"); } })();
     });
     // a day on the Hollow (4.15): at dawn, yesterday in one small card and one thing to do today
+    on("beaconReady", function (d) { goalKey = ""; toast("✨ <b>the spire is up.</b> it needs lighting, and that's yours to do: step into a smol, walk to it and light the beacon.", "ach", 14000, { x: d.st.x, z: d.st.z }); if (SB.Audio && SB.Audio.play) SB.Audio.play("achievement"); });
     on("bossFound", function (d) { toast(d.boss.icon + " <b>" + esc(d.c.name) + " found " + esc(d.boss.name) + "'s lair</b>. " + esc(d.boss.line) + " step into a smol and go and f\u200cight it, with " + esc(d.boss.needs) + ".", "ach", 11000, { x: d.x, z: d.z }); goalKey = ""; });
     on("bossBeaten", function (d) {
       goalKey = "";
