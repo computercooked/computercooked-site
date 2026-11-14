@@ -21,22 +21,22 @@
   E.next = function (game) { var l = L(game); return l && l.stage < E.STAGES.length ? E.STAGES[l.stage] : null; };
   // the lore journal (4.14): every few embers a page of what the smols forgot comes back. [embers, title, text]
   E.LORE = [
-    [1, "a tune", "warmth. a light on a hill, and somebody humming. that's all, for now. nobody knows whose voice it was, but every smol stops walking when it hears the tune."],
-    [3, "the hill", "the Lantern's hill isn't a hill. it's a knuckle. the giant sleeps curled up, and the smols live in the hollow of one great hand. that's how the Hollow got its name."],
-    [5, "who lit it", "the first Lantern was lit by a smol called Oru, who was afraid of forgetting her children's names. she said every name she knew into the flame, and the flame kept them."],
-    [7, "why brains are smol", "a smol's memory isn't kept in its head. it's kept in the light. the brighter the Lantern, the more a smol can hold. when it dims they forget the way home, then the words, then each other."],
-    [10, "the long dark", "once the Lantern nearly went out for a whole winter. the smols who lived through it called it the long dark. the ones who wandered off into it came back different, and angry."],
-    [12, "what grumps are", "grumps aren't monsters. a grump is a smol who forgot everything, even its own name, and only remembers that the light means something it lost. so it hunts the light, to get it back. it never works."],
-    [15, "the sky ships", "smols didn't always live on one giant. long ago they sailed between sleeping giants in arks of woven reed and glowshroom, carrying a little flame from each Lantern to the next."],
-    [18, "the warship", "the grump warship that caught Pip's ark wasn't built by grumps. it was an ark once. its crew forgot, one by one, until it was a ship full of grumps steering toward the light of other ships."],
-    [21, "the pods", "when an ark is caught it breaks into pods, so that somebody makes it. every pod carries an egg and a spark. most of the sparks go out on the way down. you didn't."],
-    [24, "Pip", "Pip hatched the night the Lantern guttered, which is why Pip is so small and remembers so little. Pip has carried a berry up the hill every evening since. nobody asked Pip to."],
-    [27, "the giant's dreams", "the Hollow dreams. when it dreams of rain, it rains. when it dreams of winter, the snow comes. the seasons on its back are the seasons in its sleep."],
-    [30, "the spire", "the old stories say a people bright enough could raise a spire tall enough to reach the giant's ear and whisper the big thought into it. nobody remembers what the big thought was. that's the point."],
-    [35, "names", "every ember is a name coming back: a word for water, a friend's face, the way to the berry bushes. the grumps out in the dark are full of names too. lost, not gone. light is how you find them."],
-    [40, "the other lights", "on clear nights the smols can see other lights far off in the sky: other Lanterns on other giants. some burn bright. some flicker. one went out while they were watching."],
-    [45, "why the Hollow sleeps", "the Hollow fell asleep to keep the smols safe. a giant awake walks, and nothing can live on a walking giant. it has been waiting for its passengers to remember enough to hold on."],
-    [50, "the waking", "the Lantern is whole. the Hollow stirs, and every grump on its back stops, looks up at the light and remembers its own name. some of them cry. then they go home."]
+    [1, "waking", "a hum. warmth. a light somewhere above. that's all there is, at first. you don't know your own name yet, but the little ones stop walking when they hear the hum."],
+    [3, "the Lantern", "you are the Lantern. not a lamp: a ship. the ark's light, the voice that sang the sleepers through the dark. the ship is in pieces at the foot of the hill, but the light is still on. the light is you."],
+    [5, "the sleepers", "smols are small because sleeping takes less room. the ark carried every one of them that was left, curled up in pods, dreaming. you promised to wake them when you found somewhere green."],
+    [7, "why brains are smol", "the long sleep took nearly everything. they woke as blobs with room for one thought at a time. but each one raised in your light keeps a little more, and hands it on to its children. brains grow back."],
+    [10, "the dark", "between the stars it's dark for a very long way, and things live in that dark that have never seen a morning. the old crew called them grumps, because that was the nicest word they had."],
+    [12, "what grumps want", "grumps hate light. it hurts their eyes, and it shows them to each other. the ark was the brightest thing in the sky, so they came to put it out. they're still trying. to a grump, a campfire is a very small ark."],
+    [15, "the old home", "there was a first home, with two suns and rivers the colour of tea. it's in the log, but the pictures are gone. the smols left it when the grumps came, and they've been looking for the next one ever since."],
+    [18, "the night it broke", "the grumps caught the ark right above this island. you couldn't outrun them and you couldn't fight. so you did the last thing an ark can do: you let go of every pod at once, and hoped."],
+    [21, "the pods", "an ark breaks into pods so that somebody makes it. each one holds sleepers and a little of your light to steer by. most came down hard, far apart. they're still out there, waiting for a knock."],
+    [24, "Pip", "Pip was the last one tucked in and the first one thrown clear. Pip woke up alone in the grass before you'd even found your own voice, and went looking for breakfast anyway. keep an eye on Pip."],
+    [27, "the island", "the island isn't on any chart. it has four seasons, soft ground and berries. the last line in the log before the crash reads: “green. finally.” you were trying to land here all along."],
+    [30, "the beacon", "an ark can't be rebuilt out of sticks. a light can. the old crew drew up a spire, taller than any tree, to carry your light high enough that every lost pod could see it. the plan is still in the log."],
+    [35, "names", "every ember is something a smol got back: a word for water, a friend's face, how fire works. each one comes back to you too. you are their memory, and they are yours."],
+    [40, "the others", "on clear nights there are lights moving, far off in the sky. other arks. one of them has been slowing down. it's looking for something, and it can't see an island with no light on it."],
+    [45, "hands", "you can't touch the island. a light has no hands. but you can lend yourself to a smol for a while and see through its eyes, and it remembers everything the two of you did. that's how you teach."],
+    [50, "somewhere green", "the Lantern is whole. your light reaches the edge of the island and past it, and the grumps go back to the dark, where it doesn't hurt. this is the somewhere green. you kept your promise."]
   ];
   E.pages = function (game) { var n = E.count(game); return E.LORE.filter(function (p) { return n >= p[0]; }); };
   E.nextPage = function (game) { var n = E.count(game); for (var i = 0; i < E.LORE.length; i++) if (E.LORE[i][0] > n) return E.LORE[i]; return null; };
@@ -67,7 +67,7 @@
     var l = L(game); if (!l || l.woke) return false;
     l.woke = true;
     game.creatures.forEach(function (c) { if (c.species === "grump" && c.alive) { c.goingHome = true; if (c.scout) c.scout.done = true; if (SB.FX && !game.headless && !game.offline) SB.FX.burst("sparkle", c.x, (c.y || 0) + 0.8, c.z, 30); } });
-    if (SB.Game.note) SB.Game.note(game, "🌅 the Hollow wakes. the grumps remembered their names and went home.");
+    if (SB.Game.note) SB.Game.note(game, "🌅 the Lantern is whole. the grumps couldn't stand the light and went back to the dark.");
     return true;
   };
   E.woke = function (game) { return !!(game && game.lantern && game.lantern.woke); };

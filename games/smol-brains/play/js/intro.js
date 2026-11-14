@@ -1,5 +1,6 @@
-// smol brains — the opening. Year 3127: the smol ark is caught by a grump warship, breaks apart, and its
-// escape pods scatter. One falls toward an island no smol has ever seen. All pixel art drawn in code at
+// smol brains — the opening (story rewritten in 4.23). The ark Lantern carries the last smols, asleep, toward a
+// new home. Grumps, who live in the dark and hate light, catch it; it breaks apart and its pods scatter. You are
+// the Lantern, the ark's guiding light; one pod lands whole on an island on no map. All pixel art drawn in code at
 // 320×180, captions in smol-speak with subtitles, each word blipped by the smol voice. Tap to skip.
 (function () {
   "use strict";
@@ -8,10 +9,10 @@
   var W = 320, H = 180;
 
   var LINES = [
-    { at: 0.6, smol: "zo'mi tak… smol-ark nua vesh.", sub: "the year 3127. the smol ark carries the last smols, far from home." },
-    { at: 6.2, smol: "GRUMPA! grumpa vesh!!", sub: "a grump warship found them." },
-    { at: 11.4, smol: "pip-pods! pip-pods go go!", sub: "the ark is lost. its escape pods scatter into the dark." },
-    { at: 16.4, smol: "nua… nua mola?", sub: "one pod falls toward a world no smol has ever seen." }
+    { at: 0.6, smol: "zo'mi tak… smol-ark nua vesh.", sub: "the ark Lantern carries the last smols, fast asleep, toward a new home." },
+    { at: 6.2, smol: "GRUMPA! grumpa vesh!!", sub: "grumps live in the dark and hate the light. they found the brightest light there was." },
+    { at: 11.4, smol: "pip-pods! pip-pods go go!", sub: "the ark is lost. its pods scatter, the sleepers still inside." },
+    { at: 16.4, smol: "nua… nua mola?", sub: "you are the Lantern: the ark's guiding light. one pod lands in one piece. wake them." }
   ];
   var DUR = 22;
   // the opening plays faster than it was drawn (K-0057: about 12 s real): [story from, to, speed]
@@ -29,14 +30,14 @@
   }
   // the ending: the spire's signal reaches the old ark, and it comes back for them
   var END = [
-    { at: 0.6, smol: "brrrm… zo'mi tak. zo'mi TAK!", sub: "every smol mind on the island thinks one thought, all at once." },
-    { at: 6.4, smol: "smol-ark? smol-ark nua!", sub: "far out in the dark, the old ark hears it. and turns around." },
-    { at: 12.6, smol: "mola… mola nua.", sub: "some smols fly home. some stay. the island is theirs now." },
-    { at: 18.6, smol: "vesh nua, pip.", sub: "you raised a civilisation, from one cold egg." }
+    { at: 0.6, smol: "brrrm… zo'mi tak. zo'mi TAK!", sub: "every smol on the island looks up at the beacon they built, burning with your light." },
+    { at: 6.4, smol: "smol-ark? smol-ark nua!", sub: "far out in the dark, another ark sees it. and turns around." },
+    { at: 12.6, smol: "mola… mola nua.", sub: "some smols fly on. some stay. the island is theirs now." },
+    { at: 18.6, smol: "vesh nua, pip.", sub: "you woke them, taught them, and brought them home. well done, Lantern." }
   ];
   var END_DUR = 24;
   // another of the ark's pods falls out of orbit (sites.js crashes one): a quick shot of it streaking down
-  var POD = [{ at: 0.3, smol: "pip-pod! nua pip-pod!", sub: "another escape pod is falling out of the sky!" }];
+  var POD = [{ at: 0.3, smol: "pip-pod! nua pip-pod!", sub: "another of the ark's pods is falling out of the sky!" }];
   var POD_DUR = 4.6;
 
   function rng(seed) { var s = seed >>> 0; return function () { s = (s + 0x6d2b79f5) >>> 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }

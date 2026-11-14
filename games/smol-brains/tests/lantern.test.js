@@ -39,7 +39,7 @@ console.log("2. control within 90 s");
   const title = fs.readFileSync(path.join(__dirname, "..", "play", "js", "title.js"), "utf8");
   check("owner, Nov 12: no 'watch the intro' button on the home screen", !/watch the intro/.test(title) && !/TI\.watchIntro\(\); \}\)/.test(title));
   check("and none in settings or help", !/watch the opening again/.test(ui) && !/watch the last lantern/.test(ui) && !/onclick: function \(\) \{ UI\.replayIntro\(\)/.test(ui));
-  check("K-0045: the ark battle and its pod still open the story, then the Lantern film", /SB\.Intro\.play\(\{[^\n]*SB\.Lantern\.play\(/.test(ui));
+  check("4.23: one film (the ark), then you wake up in it: no second film", /SB\.Intro\.play\(\{[^\n]*done: function \(\) \{ SB\.Lantern\.markSeen\(\); landing\(\); \}/.test(ui) && !/SB\.Intro\.play\(\{[^\n]*SB\.Lantern\.play\(/.test(ui));
 }
 
 console.log("3. the story beats (K-0041)");
