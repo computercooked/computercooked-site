@@ -38,7 +38,7 @@
   /* ---------------- entering and leaving ---------------- */
 
   // the first time is on the house: it's the best thing in the game, so nobody should miss it
-  P.cost = function (game) { return game && !(game.stats && game.stats.possessed) ? 0 : P.COST; };
+  P.cost = function (game, c) { return game && (!(game.stats && game.stats.possessed) || (c && SB.Mine && SB.Mine.is(game, c))) ? 0 : P.COST; }; // 4.25: stepping into your own smol is always free
 
   P.cooldown = function () { return Math.max(0, (P.cooldownUntil || 0) - Date.now() / 1000); };
   P.canEnter = function (game, c) {
@@ -47,7 +47,7 @@
     if (c.species !== "smol") return "only smols can be possessed";
     if (c.heldBy || c.dying || c.corpse) return "not right now";
     if (P.active) return "you're already someone";
-    if ((game.sparks || 0) < P.cost(game)) return "possessing a smol costs " + P.cost(game) + " sparks ✨";
+    if ((game.sparks || 0) < P.cost(game, c)) return "possessing a smol costs " + P.cost(game, c) + " sparks ✨";
     return "";
   };
 
@@ -55,7 +55,7 @@
     opts = opts || {};
     var why = opts.free ? (c && c.alive && c.species === "smol" && !P.active ? "" : "nope") : P.canEnter(game, c);
     if (why) { if (SB.UI && SB.UI.toast) SB.UI.toast(why); return false; }
-    if (!opts.free) SB.Game.spend(game, P.cost(game));
+    if (!opts.free) SB.Game.spend(game, P.cost(game, c));
     if (!opts.firstNight) game.stats.possessed = (game.stats.possessed || 0) + 1; // Pip's first night is the story's, not yours: your first real possession stays free
     if (game.skip && SB.Game.skipStop) SB.Game.skipStop(game, { why: "⏭ stopped", c: null }); // never live a life at skip speed
     var C = SB.Creature;

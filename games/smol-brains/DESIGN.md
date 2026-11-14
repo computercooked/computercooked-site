@@ -711,6 +711,17 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.73 What v4.25.0 added: your smol (build-order step 3, the Stardew and Sims side; `mine.js`)
+
+The honest gap after the new opening: you play a whole day as Pip, then rise to the sky and Pip becomes one dot among many. Stardew and The Sims work because there is one small person whose day is yours, and a short list of things to do today.
+- **Your smol.** One smol is yours: Pip, from the morning after the first night. It has a chip above the minimap (its face, how it feels or what it needs most, its hearts); tap the chip to go to it, 👁 to step in. **Stepping into your own smol is always free**, so playing by hand is never rationed. Any smol can be made yours from its card ("☆ make it mine").
+- **Heirs.** When your smol dies the name passes on: to its child who trusts you most, else its partner, else whoever trusts you most. The line (Pip → … ) is kept. There is always a "you" down there, and a family behind it.
+- **Hearts.** How much a smol trusts the sky was a hidden number (orders.js); it's now five hearts on every card and on the chip, the way Stardew shows friendship. Tickles, answered prayers and granted wishes fill them (a granted wish is now worth half a heart); taps and ignored prayers empty them.
+- **Today's jobs.** Three small jobs at the top of the goals list every day: one done with your own hands in a body (eat a meal, pick up 3 things, make something), one of teaching (reward 3 times, teach a word, finish a trick), one for the island (a hatching, a wish, somewhere new, an idea, a prayer, a building). 2 ✨ each and 4 ✨ for all three. They change every day, fit what the island can do, and are picked with their own dice (seeded from the island and the day), so the island's own random stream is untouched. Tap one to see how. With jobs on the list, the chapter shows its next two quests and "+N more in ☰ → goals".
+- **"waking the island…"**: building or loading an island now says so instead of showing a black screen.
+- Fixed from 4.22: tapping a toast to fly to a smol flew there but selected nobody.
+- Tests: `mine.test.js` (new, 32 checks).
+
 ## 0.72 What v4.24.0 changed: a first pass at the clean-up (owner: "beautify the game, make it cleaner")
 
 The first slice of build-order step 2 ("the look and the clean-up"); the rest of that step (menus, the bag, phone passes) follows.

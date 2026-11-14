@@ -750,8 +750,8 @@
       hideSplash();
       SB.Title.show({
         shareSeed: seedFromUrl || 0,
-        onPlay: function (d) { SB.Title.hide(); enterData(d); },
-        onNew: function (o) { SB.Title.hide(); enterNew(o); }
+        onPlay: function (d) { SB.Title.hide(); var off = veil("🏮 waking the island…"); setTimeout(function () { try { enterData(d); } finally { off(); } }, 40); },
+        onNew: function (o) { SB.Title.hide(); var off = veil("🌊 looking for an island…"); setTimeout(function () { try { enterNew(o); } finally { off(); } }, 40); }
       });
     };
     if (flag === "title" || /[?&]nopresents=1/.test(q)) { SB.Title.prepare(); title(); }
@@ -763,6 +763,13 @@
       else setTimeout(function () { SB.Title.prepare(); }, 900);
     }
   }
+  // 4.25: building or loading an island takes a few seconds of solid work; say so instead of showing a black screen
+  function veil(text) {
+    if (typeof document === "undefined" || !document.body) return function () {};
+    var v = document.createElement("div"); v.className = "loadveil"; v.textContent = text; document.body.appendChild(v);
+    return function () { var raf = window.requestAnimationFrame || function (f) { setTimeout(f, 16); }; raf(function () { raf(function () { v.classList.add("out"); setTimeout(function () { v.remove(); }, 600); }); }); };
+  }
+  Game._veil = veil;
   function hideSplash() { var sp = document.getElementById("splash"); if (sp) { sp.classList.add("gone"); setTimeout(function () { sp.remove(); }, 800); } }
   // reloads that should skip the title (switching islands from inside the game) or land on it
   Game.reloadTo = function (where) {
