@@ -139,6 +139,9 @@
     return true;
   };
   B.beaten = function (game) { var s = st(game); return B.LIST.filter(function (d) { return s.list[d.id] && s.list[d.id].beaten; }).length; };
+  // may the beacon be started? Only with all three captains' light back (an island that began its spire before 4.27
+  // carries on: ideas.js only asks before a new site)
+  B.gates = function (game) { return !B.open(game) ? true : B.beaten(game) >= B.LIST.length; };
   // the next one, for the goals list: { boss, found, where, x, z } or null
   B.next = function (game) {
     if (!B.open(game)) return null;

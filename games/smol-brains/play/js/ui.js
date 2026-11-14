@@ -358,7 +358,8 @@
         var tips = { astronomy: "🔭 astronomy (thinkers with lenses stargazing at night)", resonance: "💠 resonance (ascended smols holding thought crystals)", bigthought: "✨ the idea itself (ascended friends together by the story pole, or holding crystals)" };
         var nextK = ["astronomy", "resonance", "bigthought"].filter(function (k) { return !F[k]; })[0];
         add("the beacon ✨ needs " + tips[nextK] + (nextK === "bigthought" ? "" : ", then more"), got + "/3");
-      } else if (!sp) add("ascended smols will raise the spire ✨ (needs " + Object.keys(SK.cost).map(function (k) { return SK.cost[k] + " " + k; }).join(", ") + ")", "");
+      } else if (!sp && SB.Bosses && SB.Bosses.gates && !SB.Bosses.gates(g)) add("the beacon ✨ needs the light the three grump captains stole: beat them", SB.Bosses.beaten(g) + "/3"); // 4.27
+      else if (!sp) add("ascended smols will raise the spire ✨ (needs " + Object.keys(SK.cost).map(function (k) { return SK.cost[k] + " " + k; }).join(", ") + ")", "");
       else if (!SB.Ideas.siteReady(sp)) {
         var miss = Object.keys(sp.need).filter(function (k) { return sp.need[k] > 0; }).map(function (k) { return (SK.cost[k] - sp.need[k]) + "/" + SK.cost[k] + " " + k; });
         add("bring the spire " + miss.join(" · ") + (miss.some(function (m) { return / crystal/.test(m); }) ? " (💎 crystal caves, fallen stars)" : "") + (miss.some(function (m) { return / metal/.test(m); }) ? " (ascended pull copper out of ore rocks)" : ""), "");
@@ -2487,7 +2488,7 @@
     on("dayRecap", function (r) {
       var g = SB.Game.current; if (!g || g.offline || g.showcase || (UI.isQuiet && UI.isQuiet())) return;
       var ww = g.world || {}, sky = ww.season === 3 ? ["❄️", "a frosty winter morning"] : ww.kind === "storm" ? ["⛈", "a stormy morning"] : ww.rain > 0.5 ? ["🌧", "a rainy " + SB.SEASONS[ww.season || 0] + " morning"] : ww.cloud > 0.6 ? ["⛅", "a grey " + SB.SEASONS[ww.season || 0] + " morning"] : ["☀️", "a bright " + SB.SEASONS[ww.season || 0] + " morning"];
-      var html = sky[0] + " <b>day " + (r.day + 1) + "</b> · <span class=\"dim\">" + sky[1] + ".</span> " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
+      var html = sky[0] + " <b>day " + (SB.Days && SB.Days.day ? SB.Days.day(g) : r.day + 1) + "</b> · <span class=\"dim\">" + sky[1] + ".</span> " + (r.quiet ? "yesterday was a quiet one." : "yesterday: " + r.lines.map(esc).join(" · ")) +
         todayHTML(g, r);
       var tries = 0; // waits for a film, and for the first night to hand over (its own toasts only until then)
       (function show() { if (((SB.Lantern && SB.Lantern.running) || (SB.FirstNight && SB.FirstNight.active(g))) && ++tries < 40) return setTimeout(show, 1500); toast(html, "day", 9000); })();

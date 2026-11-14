@@ -16,13 +16,13 @@
   };
   // the ark's logs, found one by one in the wrecks: the story of how the smols got here, and how they get home
   S.LOGS = [
-    "ark log, day 1: four thousand smols asleep in the pods. the new world is three hundred years away. sweet dreams, everyone.",
-    "ark log, day 211: a grump warship is following us. they want the thought engine. grumps think brains are a waste of food.",
-    "ark log, day 212: they caught us. pods away! scatter! whoever lands, remember: you were clever once.",
-    "pod 7 log: crashed in a swamp. three of us made it out. we're already forgetting words. ba... bana... the yellow thing.",
-    "pod 12 log: the island is changing us. our kids are simpler. smaller brains. they'll have to grow them back, one generation at a time.",
-    "pod 2 log: the old ones say that if enough smols think hard enough, all at once, the ark's engine will hear them.",
-    "captain's log, last entry: the big thought isn't a building. it's a signal. build it, and the ark will know where you are. come home."
+    "ark log, day 1: four thousand smols asleep in the pods. the new world is three hundred years away. sweet dreams, everyone. signed, the Lantern.",
+    "ark log, day 211: grumps behind us. they live in the dark and they can't stand a light. we are the brightest thing for a very long way.",
+    "ark log, day 212: they caught us above a green island that's on no chart. pods away! scatter! whoever lands: you were clever once. you will be again.",
+    "pod 7 log: came down in a swamp. three of us made it out. we're already forgetting words. ba... bana... the yellow thing.",
+    "pod 12 log: the long sleep took most of what we knew. our kids start smaller. they'll have to grow their brains back, one generation at a time.",
+    "pod 2 log: three grump captains came down with the wreck. they sit on the light they stole and wait. somebody will have to go and get it back.",
+    "ark log, last entry: you can't rebuild an ark out of sticks. but a light, on a spire, taller than any tree: the others would see that. build the beacon."
   ];
 
   function rng(seed) { return SB.rng((seed * 7919 + 1337) >>> 0); }

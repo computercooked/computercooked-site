@@ -621,7 +621,7 @@
       case "workshop": return count("workshop") < 1 ? 0.4 : 0;
       case "windmill": return count("farm") >= 2 && count("windmill") < 1 ? 0.4 : 0;
       case "observatory": return count("observatory") < 1 ? 0.45 : 0;
-      case "spire": return count("spire", 200) < 1 ? 0.7 : 0;
+      case "spire": return count("spire", 200) < 1 && (!SB.Bosses || !SB.Bosses.gates || SB.Bosses.gates(game)) ? 0.7 : 0; // 4.27: the beacon burns the light the three captains stole (bosses.js)
       default: return SB.Civ ? SB.Civ.buildNeed(c, kind, game, count, pop) : 0;
     }
     return 0;
