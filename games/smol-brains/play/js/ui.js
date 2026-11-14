@@ -323,6 +323,8 @@
   function goalsList() {
     var g = game, out = [], A = g.achievements, smols = SB.Game.smols(g);
     function add(t, p, done) { out.push({ t: t, p: p, done: done }); }
+    var bn = SB.Bosses && SB.Bosses.next ? SB.Bosses.next(g) : null; // 4.26: the next grump captain
+    if (bn) add(bn.boss.icon + " " + bn.boss.name + ", a grump captain, " + (bn.found ? "lairs to the " + bn.where : "is dug in somewhere to the " + bn.where) + ". f\u200cight it as a smol, with " + bn.boss.needs, bn.tries ? "tries: " + bn.tries : "");
     if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
     else if (!A.word1 && !g.ngPlus) add("teach a first word: 💬 talk, pick “food”, tap food near a smol (a few times, slowly)", "");
     if (A.hatch && !A.tickle && !g.ngPlus) add("tickle a smol when it does something good 🪶", "");
@@ -770,7 +772,7 @@
     el.sheet.appendChild(el.cWords = h("div", { class: "chips" }));
     el.sheet.appendChild(el.cMore = h("div", { class: cardMore ? "" : "hide" }));
     if (c.species === "grump") { // grumps get a short card: no words, no family, no code
-      el.sheet.appendChild(h("div", { class: "note" }, "a grump. they came down with the warship and never stopped being grumpy. a club or a spear chases them off; fire and palisades keep them out."));
+      el.sheet.appendChild(h("div", { class: "note" }, c.boss && SB.Bosses && SB.Bosses.of(c) ? SB.Bosses.of(c).name + ", a grump captain. " + SB.Bosses.of(c).line + " it won't leave its lair: step into a smol and f\u200cight it, with " + SB.Bosses.of(c).needs + "." : "a grump. they came down with the warship and never stopped being grumpy. a club or a spear chases them off; fire and palisades keep them out."));
       updateSmol(c, true);
       return;
     }
@@ -2472,6 +2474,12 @@
       (function show() { if (SB.Lantern && SB.Lantern.running) return setTimeout(show, 1500); toast(html, "ember", 5500); if (el.lantern) { el.lantern.classList.remove("pulse"); void el.lantern.offsetWidth; el.lantern.classList.add("pulse"); } })();
     });
     // a day on the Hollow (4.15): at dawn, yesterday in one small card and one thing to do today
+    on("bossFound", function (d) { toast(d.boss.icon + " <b>" + esc(d.c.name) + " found " + esc(d.boss.name) + "'s lair</b>. " + esc(d.boss.line) + " step into a smol and go and f\u200cight it, with " + esc(d.boss.needs) + ".", "ach", 11000, { x: d.x, z: d.z }); goalKey = ""; });
+    on("bossBeaten", function (d) {
+      goalKey = "";
+      storyCard("boss-" + d.boss.id, d.boss.icon, d.boss.name + " is beaten!", [(d.c ? "<b>" + esc(d.c.name) + "</b>" : "your smols") + " beat " + esc(d.boss.name) + ". the light it was sitting on has come home to the Lantern: <b>+" + d.boss.embers + " embers</b> and <b>+" + d.boss.sparks + " ✨</b>.", d.last ? "that was the last of the three captains. the grumps that are left have nobody to follow." : "there are " + (2 - d.boss.i) + " more captains out there. the next one's hide is thicker: you'll need better than what beat this one."], [d.boss.icon, d.boss.name + " is beaten!", "+" + d.boss.embers + " embers", "lime"]);
+      if (SB.Audio && SB.Audio.play) SB.Audio.play("achievement");
+    });
     on("jobDone", function (d) { toast("✅ <b>" + esc(d.job.t) + "</b> · +" + d.pay + " ✨", "ach", 3800); goalKey = ""; });
     on("jobsDone", function (d) { toast("🌟 <b>all three of today's jobs!</b> +" + d.pay + " ✨" + (d.days > 1 ? " · " + d.days + " full days so far" : ""), "ach", 5500); if (SB.Audio && SB.Audio.play) SB.Audio.play("achievement"); goalKey = ""; });
     on("mineHeir", function (d) { toast("⭐ <b>" + esc(d.c.name) + "</b> is your smol now" + (d.kin ? ": " + esc(d.was) + "'s child carries on" : ", after " + esc(d.was)), "ach", 8000, d.c); mineT = 0; });

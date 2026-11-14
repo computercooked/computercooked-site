@@ -627,14 +627,19 @@
     if (SB.dist(o.x, o.z, c.x, c.z) > SB.Creature.radius(c) + SB.Creature.radius(o) + 1.2) { say("too far: get closer"); return false; }
     SB.Creature._hitFx(c, o, game);
     // weapons from your inventory hurt more (club and spear as the AI's do; a rock-on-a-stick, an axe, a pick a bit)
+    if (o.species === "grump" && o.boss && o.alive && SB.Bosses) { // 4.26: a captain's hide turns anything too soft
+      var bounce = SB.Bosses.blocks(o, pw.dmg, hk && K[hk] && K[hk].tool ? K[hk].label : null);
+      if (bounce) { say(bounce); audio("bonk", 0.4); return true; }
+    }
     if (o.species === "grump" && pw.dmg > 0 && o.alive) {
-      SB.Chem.apply(o.chem, { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) });
+      SB.Chem.apply(o.chem, o.boss ? { pain: 0.05 } : { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) }); // (a captain doesn't scare)
       o.whacked = (o.whacked || 0) + pw.dmg * (1 + skill("fight")); xp("fight", 1);
       if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) {
         o.alive = false; o.gone = true; o.dying = false;
         if (SB.FX && SB.FX.burst) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] });
-        SB.Game.note(game, c.name + " chased a grump off for good! 🏏"); SB.bus.emit("grumpChased", { c: c, g: o });
-        say("the grump runs off for good!");
+        if (!o.boss) SB.Game.note(game, c.name + " chased a grump off for good! 🏏");
+        SB.bus.emit("grumpChased", { c: c, g: o });
+        say(o.boss ? "it's down!" : "the grump runs off for good!");
       } else { o.action = null; o.thinkT = 0; }
       wear();
     }
@@ -825,7 +830,8 @@
   P.KO_COOLDOWN = 30; P.FADE_IN = 2; P.CUE_AT = 10;
   function scoutTick(dt) {
     var c = S.c, game = S.game, st = game.settings || (game.settings = {});
-    if ((st.povThreat === "done" && !S.nightChase) || game.offline) return;
+    var sg0 = S.scout != null ? SB.Game.byId(game, S.scout) : null;
+    if ((st.povThreat === "done" && !S.nightChase && !(sg0 && sg0.boss)) || game.offline) return; // (a captain's duel runs whatever the first-minute lesson's state)
     S.threatT = (S.threatT || 0) + dt;
     if (!S.scout) {
       if (S.firstNight || S.nightChase || st.povThreat || S.threatT < P.SCOUT_AT || S.dead) return; // the first night (and a night chase) brings its own grump
@@ -849,6 +855,7 @@
     }
     var gr = SB.Game.byId(game, S.scout);
     if (!gr || !gr.alive || !gr.scout) { endScout(null); return; }
+    if (gr.boss && SB.Bosses) { var bend = SB.Bosses.duel(game, c, gr); if (bend) endScout(bend[0], 0, bend[1]); return; } // 4.26: a captain's duel ends when you walk away, lose, or win (bosses.js)
     var home = SB.Society.home(game, 0), pals = 0;
     SB.World.creaturesNear(game.world, game, c.x, c.z, 5, function (o) { if (o !== c && o.species === "smol" && o.alive) pals++; });
     var settled = gr.scout.t > 8 && (!S.scoutSafe0 || (gr.scout.hits || 0) > 0); // a few seconds of it coming at you first, even if you're by the nest already

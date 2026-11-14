@@ -455,6 +455,16 @@
     if (!g) { hud.beam.classList.remove("on"); hud.gmark.classList.remove("on"); hud.nmark.classList.remove("on"); hud.threat.classList.remove("on"); return null; }
     var c = s.c, hm = SB.Society.home(s.game, 0), dg = SB.dist(g.x, g.z, c.x, c.z), dh = SB.dist(hm.x, hm.z, c.x, c.z), lit = null;
     if (s.nightChase) { lit = SB.World.nearestFire(s.game.world, c.x, c.z, dh); if (lit) { hm = lit; dh = SB.dist(lit.x, lit.z, c.x, c.z); } } // a night chase: the nearest light, if it's nearer than the nest
+    var boss = g.boss && SB.Bosses ? SB.Bosses.of(g) : null;
+    if (boss) { // 4.26: a captain's duel: its name, how much fight is left in it, and when to move
+      mark(hud.gmark, { x: g.x, y: g.y + 2.2, z: g.z }, dg, 0, boss.icon + " " + boss.name + " ");
+      hud.nmark.classList.remove("on"); hud.beam.classList.remove("on");
+      var hp = SB.Bosses.hp(s.game, boss), bar = ""; for (var bi = 0; bi < 10; bi++) bar += bi < Math.ceil(hp * 10) ? "█" : "░";
+      var btxt = boss.icon + " " + boss.name + " " + bar + " · " + (g.scout && g.scout.wind > 0 ? "it's about to pounce! MOVE!" : g.scout && g.scout.hitT > 0.9 ? "it's reeling: hit it now!" : "hit it between pounces") + " · walk away to give up";
+      if (hud.threat._t !== btxt) { hud.threat._t = btxt; hud.threat.textContent = btxt; }
+      hud.threat.classList.add("on"); hud.threat.classList.toggle("wind", !!(g.scout && g.scout.wind > 0));
+      return g;
+    }
     mark(hud.gmark, { x: g.x, y: g.y + 1.3, z: g.z }, dg, 0, "👹 grump ");
     var goal = s.goal, dup = goal && SB.dist(goal.x, goal.z, hm.x, hm.z) < 3; // the first night's own goal is the nest once Pip has the sticks: one marker, not two
     if (dup) hud.nmark.classList.remove("on");

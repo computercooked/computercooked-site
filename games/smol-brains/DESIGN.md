@@ -711,6 +711,16 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.74 What v4.26.0 added: the captains of the dark (build-order steps 4 and 5, the Terraria side; `bosses.js`)
+
+The tool ladder was already there (paws, a rock-on-a-stick, stone, copper, iron, a sword) and so was the duel (a grump winds up, pounces, reels). What was missing was a reason to climb the ladder and somewhere to take it. Now there is one, three times.
+- **Three grump captains**, dug in at lairs far from the nest, a third of a turn apart: **Gloom**, **Murk** and **the Long Night** (the one that caught the ark). They don't raid; they wait. The same island always puts them in the same places (their own dice, seeded from the island).
+- **You go to them, in a smol's body.** Within nine steps of a lair it comes for you: the night-chase duel, with a banner that names it, shows how much fight it has left, and says when to move ("it's about to pounce!") and when to hit ("it's reeling: hit it now!").
+- **Each one's hide turns a weaker weapon**, which is what the tool tiers are for: Gloom needs a club, a spear or any real tool (paws and a poke stick bounce off); Murk needs a proper weapon or an axe (a rock-on-a-stick bounces off); the Long Night needs iron. They take 12, 21 and 36 good hits. Hitting with the wrong thing tells you what it needs.
+- **Walk away and it lets you go** (26 steps from its lair), and mends in about twenty seconds. **Lose** (down to under a third of your hearts) and you crawl away alive. **Win** and the light it was sitting on comes home: 2, 3 and 5 embers and 15, 25 and 40 sparks, and the dark around its lair lifts on the map.
+- They wake as the island grows the hands to fight them (tool-users, the tribe, builders), one at a time: the next only after the last has fallen. The next captain is the first line under "also" on the goals list (which way it lies and what to bring), a smol wandering within forty steps finds the lair (a toast you can tap to fly there), and beating one gets a card.
+- Tests: `bosses.test.js` (new, 42 checks).
+
 ## 0.73 What v4.25.0 added: your smol (build-order step 3, the Stardew and Sims side; `mine.js`)
 
 The honest gap after the new opening: you play a whole day as Pip, then rise to the sky and Pip becomes one dot among many. Stardew and The Sims work because there is one small person whose day is yours, and a short list of things to do today.
