@@ -144,6 +144,9 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 .who { margin: -2px 0 8px; font-size: 13px; line-height: 1.45; }
 .drives { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
 .drive { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.drive .l { width: 48px; flex: none; color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; } /* 4.24: a word on every bar */
+.btnrow.main3 { margin: 8px 0 10px; } .btnrow.main3 { flex-wrap: nowrap; } .btnrow.main3 .btn { flex: 1 1 0; min-width: 0; text-align: center; padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 12px; }
+.title p.quirk { display: table; margin-left: auto; margin-right: auto; } /* 4.24: one line each */
 .drive .e { width: 16px; text-align: center; font-family: system-ui, "apple color emoji"; }
 .drive .b { flex: 1; height: 7px; background: var(--faint); border-radius: 0; overflow: hidden; }
 .drive .b i { display: block; height: 100%; border-radius: 0; }

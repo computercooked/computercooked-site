@@ -7,7 +7,7 @@
   "use strict";
   var SB = window.SB;
   var TI = (SB.Title = {});
-  TI.NEWS = "new: a new story and a new start. you wake up as Pip at the crash and play your first day by hand"; // the title's footer: what changed lately (4.17)
+  TI.NEWS = "new: a new story and a new start: you wake up as Pip at the crash · a cleaner smol card · fewer pop-ups"; // the title's footer: what changed lately (4.17)
 
   function h(tag, attrs, kids) {
     var e = document.createElement(tag);

@@ -66,10 +66,10 @@
       { id: "village", icon: "🏘", t: "found a village", pay: 8,
         how: "huts around a campfire.", get: function (g) { return [A(g, "village"), 1]; } }
     ] },
-    { id: "thought", name: "the big thought", bonus: 20, quests: [
+    { id: "thought", name: "the beacon", bonus: 20, quests: [
       { id: "thinker", icon: "🤓", t: "evolve into thinkers", pay: 8, get: function (g) { return [maxTier(g) >= 5 ? 1 : 0, 1]; }, how: "big brains: lots of teaching, writing and story poles." },
       { id: "ascended", icon: "🌟", t: "evolve into the ascended", pay: 10, get: function (g) { return [maxTier(g) >= 6 ? 1 : 0, 1]; }, how: "the last step. bless eggs toward 🌟 glow." },
-      { id: "spire", icon: "✨", t: "raise the spire", pay: 20, get: function (g) { return [A(g, "bigthought"), 1]; }, how: "the steps are listed under “also”, below these goals." }
+      { id: "spire", icon: "✨", t: "raise the beacon", pay: 20, get: function (g) { return [A(g, "bigthought"), 1]; }, how: "the steps are listed under “also”, below these goals." }
     ] }
   ];
   Q.BY = {};

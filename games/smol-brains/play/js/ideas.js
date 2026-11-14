@@ -48,7 +48,7 @@
     { id: "lens", name: "lenses", icon: "🔮", tier: 5, needs: ["smelt"], kind: "craft", make: { in: { crystal: 1, metal: 1 }, out: "lens", time: 8 }, desc: "a thought crystal in a copper ring. thinking through it makes ideas come faster.", hint: "a thought crystal and copper" },
     { id: "astronomy", name: "astronomy", icon: "🔭", tier: 5, needs: ["lens", "writing"], kind: "build", build: "observatory", desc: "a dome for watching the sky. thinkers get ideas from the stars and know when it'll rain.", hint: "a lens and a night sky" },
     { id: "resonance", name: "resonance", icon: "💠", tier: 6, needs: ["lens"], kind: "skill", desc: "ascended smols near thought crystals think together, as one big brain.", hint: "an ascended smol meets a thought crystal" },
-    { id: "bigthought", name: "the big thought", icon: "✨", tier: 6, needs: ["resonance", "astronomy"], kind: "build", build: "spire", desc: "a spire that joins every smol mind at once. build it to finish the long thought.", hint: "everything." },
+    { id: "bigthought", name: "the beacon", icon: "✨", tier: 6, needs: ["resonance", "astronomy"], kind: "build", build: "spire", desc: "a spire tall enough to carry the Lantern's light into the sky, where the other arks can see it. build it to call them home.", hint: "everything." },
     // from village to city: these have no trigger moment; civ.js and economy.js notice when the island is ready for them
     // (appended at the end so the older ideas keep their words)
     { id: "market", name: "markets", icon: "🏪", tier: 4, needs: ["share"], kind: "build", build: "stall", civ: true, desc: "a stall where a smol puts what it has spare and asks for something back. prices are made up, then argued about.", hint: "a village with more stuff than it needs" },
