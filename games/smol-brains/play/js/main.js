@@ -514,6 +514,7 @@
     if (SB.Orders) SB.Orders.tick(game, dt);
     if (SB.FirstHour) SB.FirstHour.tick(game, dt);
     if (SB.FirstNight) SB.FirstNight.tick(game, dt);
+    if (SB.Bosses) SB.Bosses.tick(game, dt);
     if (SB.Tricks && !game.offline) SB.Tricks.tick(game, dt);
     if (SB.Quests && !game.offline) SB.Quests.tick(game, dt);
     if (SB.Civ) SB.Civ.tick(game, dt);

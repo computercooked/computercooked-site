@@ -7,7 +7,7 @@
   "use strict";
   var SB = window.SB;
   var TI = (SB.Title = {});
-  TI.NEWS = "new: your own smol (and its heirs) · three small jobs every day · hearts · you wake up as Pip at the crash"; // the title's footer: what changed lately (4.17)
+  TI.NEWS = "new: three grump captains to f\u200cight by hand · your own smol and its heirs · three small jobs a day"; // the title's footer: what changed lately (4.17)
 
   function h(tag, attrs, kids) {
     var e = document.createElement(tag);
