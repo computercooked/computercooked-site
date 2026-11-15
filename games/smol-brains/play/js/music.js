@@ -1,5 +1,6 @@
 /* smol brains — music.js
-   The soundtrack: "songs for small minds", 20 little pieces synthesized live in WebAudio (no files).
+   The soundtrack: two albums synthesized live in WebAudio (no files): "songs for small minds" (20 pieces) and,
+   since 4.31, "the long way home" (16 more, further down).
    Each song is written by hand as a melody in scale degrees plus a chord per bar; the engine adds the
    band (an accompaniment pattern, a bass, soft strings, a little percussion), plays the tune twice with
    a harmony the second time, and runs it all through a warm hall reverb.
@@ -97,6 +98,82 @@
       A: { ch: "1 5 6 3 4 1 4 5", mel: "3' . . . 2' . . . | 2' . . . 7 . . . | 1' . . . 6 . 1' . | 7 . . . 5 . . . | 6 . . . 1' . 6 . | 5 . . . 3 . 1 . | 2 . 4 . 6 . 1' . | 7 . . . . . . ." },
       B: { ch: "4 5 3 6 2 5 1 1", mel: "6 . 1' . 4' . 6' . | 5' . . . 2' . 7 . | 5 . 7 . 3' . 5' . | 3' . . . 1' . 6 . | 6 . 1' . 4' . 2' . | 7 . . . 2' . 5' . | 3' . . . 2' . 1' . | 1' . . . . . . ." } }
   ];
+  /* ---------------- the second album (4.31): "the long way home" ----------------
+     Sixteen more pieces, written for the game the island became: waking in a pod, a first roof, a home with a hearth,
+     the three captains, the beacon. Same notation and the same band engine, with new voices (kalimba, whistle, cello,
+     glass, choir), new scales (lydian, mixolydian, phrygian, harmonic minor) and new ways for the band to play
+     (drone, pulse, march, lull, roll). They join the playlist beside the first twenty: nothing is replaced.
+     New tags: "deep" only plays while you are in a smol's body; "jukebox" is never picked by the island. */
+  var ALBUM2 = [
+    { id: "lanternwakes", title: "the lantern wakes", root: 65, scale: "lydian", bpm: 70, bar: 8, lead: "glass", lead2: "whistle", acc: "drone", accI: "glass", strings: 1,
+      tags: ["any"],
+      A: { ch: "1 2 6 5", mel: "3 . . 4 5 . . . | 6 . . 4 2 . . . | 1' . . 7 6 . 3 . | 5 . . . . . 2 ." },
+      B: { ch: "6 3 2 5", mel: "6 . 1' . 3' . 2' . | 7 . . 5 3 . . . | 4 . 6 . 2' . 1' 6 | 5 . . . . . - ." } },
+    { id: "firststeps", title: "pip's first steps", root: 67, scale: "major", bpm: 100, bar: 8, lead: "kalimba", lead2: "whistle", acc: "bounce", accI: "kalimba", perc: 1,
+      tags: ["any", "day"],
+      A: { ch: "1 5 6 4", mel: "1 . 3 . 5 3 1 . | 2 . 5 . 7 5 2 . | 3 . 6 . 1' 6 3 . | 4 . 6 5 4 . 2 ." },
+      B: { ch: "4 1 2 5", mel: "6 . 6 5 4 . 1' . | 5 . 5 3 1 . 3 . | 4 . 4 2 6 . 4 . | 5 . . . 7 . 2' ." } },
+    { id: "roofofleaves", title: "a roof of leaves", root: 62, scale: "major", bpm: 80, bar: 6, lead: "cello", lead2: "flute", acc: "lull", accI: "pluck", strings: 1,
+      tags: ["any", "night"],
+      A: { ch: "1 1 4 4 6 5 1 1", mel: "3 . . 2 1 . | 5 . . . 3 . | 6 . . 5 4 . | 1' . . . 6 . | 1' . 7 . 6 . | 5 . 4 . 2 . | 3 . . . . . | 1 . . . . ." },
+      B: { ch: "4 5 3 6 2 5 1 1", mel: "6 . . 1' 6 . | 7 . . 2' 7 . | 5 . . 7 5 . | 6 . . . 3 . | 4 . 6 . 2' . | 7 . 5 . 2 . | 3 . . . 1 . | 1 . . . - ." } },
+    { id: "smalllight", title: "home is a small light", root: 64, scale: "major", bpm: 74, bar: 8, lead: "piano", lead2: "cello", acc: "arp", accI: "kalimba", strings: 1,
+      tags: ["any", "night"],
+      A: { ch: "1 6 4 5", mel: "5 . 3 . 1 . 3 . | 6 . . 5 3 . 1 . | 4 . 6 . 1' . 6 . | 5 . . . 2 . 7, ." },
+      B: { ch: "6 4 1 5", mel: "1' . . 7 6 . 3 . | 6 . . 5 4 . 1 . | 3 . 5 . 1' . 3' . | 2' . . . 7 . 5 ." } },
+    { id: "sticksbeforedark", title: "sticks before dark", root: 62, scale: "mixo", bpm: 116, bar: 8, lead: "whistle", lead2: "pluck", acc: "march", accI: "pluck", perc: 1,
+      tags: ["any", "day"],
+      A: { ch: "1 7 4 1", mel: "1 . 1 2 3 . 5 . | 7, . 2 . 4 . 2 . | 6 . 4 . 1' . 6 . | 5 . 3 . 1 . . ." },
+      B: { ch: "4 1 7 5", mel: "6 . 6 . 1' . 6 4 | 5 . 3 . 1 . 3 5 | 7 . 4 . 2 . 4 . | 5 . . . 2 . 5 ." } },
+    { id: "podonthehill", title: "the pod on the hill", root: 64, scale: "dorian", bpm: 66, bar: 8, lead: "glass", lead2: "bell", acc: "drone", accI: "glass", strings: 1, bellTop: 1,
+      tags: ["any"],
+      A: { ch: "1 4M 7 1", mel: "5 . . . 1' . . 7 | 6 . . . 4 . . . | 7 . . . 2' . . 7 | 5 . . . . . 1 ." },
+      B: { ch: "3 7 4M 1", mel: "3' . . . 7 . 5 . | 2' . . . 7 . 4 . | 1' . . 6 4 . 6 . | 5 . . . . . - ." } },
+    { id: "gloom", title: "gloom", root: 57, scale: "phrygian", bpm: 92, bar: 8, lead: "cello", lead2: "synth", acc: "march", accI: "pluck", strings: 1,
+      tags: ["deep", "night"],
+      A: { ch: "1 2 1 7", mel: "1 . . 1 2 . 1 . | 2 . . 4 3 . 2 . | 1 . 3 . 5 . 4 3 | 7, . . . 1 . . ." },
+      B: { ch: "6 7 6 1", mel: "6 . 5 . 3 . 1 . | 7 . 5 . 2 . 4 . | 6 . . 5 6 . 1' . | 5 . . . 1 . . ." } },
+    { id: "duel", title: "dodge, then swing", root: 62, scale: "hminor", bpm: 152, bar: 8, lead: "synth", lead2: "brass", acc: "drive", accI: "pluck", drums: 1, strings: 1,
+      tags: ["jukebox", "mood"],
+      A: { ch: "1 6 4 5", mel: "1 . 5 . 1' . 7 5 | 6 . 4 . 1 . 3 . | 4 . 6 . 1' . 6 4 | 5 . 7 . 2' . 7 5" },
+      B: { ch: "4 1 6 5", mel: "4 . 4 6 1' . 6 . | 5 . 3 . 1 . 3 5 | 6 . 1' . 3' . 1' 6 | 7 . . . 5 . . ." } },
+    { id: "emberssaid", title: "what the embers said", root: 69, scale: "major", bpm: 60, bar: 6, lead: "box", lead2: "choir", acc: "lull", accI: "glass", strings: 1,
+      tags: ["any", "night"],
+      A: { ch: "1 5 6 3 4 1 5 5", mel: "5 . . . 3 . | 2 . . . 5 . | 1 . . . 3 . | 5 . . . . . | 6 . . . 4 . | 3 . . . 1 . | 2 . . . 4 . | 2 . . . . ." },
+      B: { ch: "4 5 3 6 4 5 1 1", mel: "6 . 1' . 6 . | 7 . 2' . 7 . | 5 . 7 . 5 . | 1' . . . 6 . | 4 . 6 . 1' . | 2' . 7 . 5 . | 1' . . . . . | - . . . . ." } },
+    { id: "berrypatch", title: "berry patch morning", root: 72, scale: "major", bpm: 104, bar: 6, lead: "whistle", lead2: "kalimba", acc: "jig", accI: "kalimba", perc: 1,
+      tags: ["spring", "summer", "day"],
+      A: { ch: "1 4 1 5 1 4 5 1", mel: "5 . 3 1 . 3 | 6 . 4 1' . 6 | 5 . 3 5 . 1' | 7 . 5 2 . . | 5 . 3 1 . 3 | 6 . 1' 4' . 1' | 7 . 2' 5 . 7 | 1' . . . . ." },
+      B: { ch: "6 3 4 1 2 5 1 1", mel: "1' . 6 3 . 6 | 7 . 5 3 . 5 | 6 . 4 1 . 4 | 5 . . 3 . . | 4 . 2 6 . 4 | 5 . 7 2' . 7 | 1' . . 5 . 3 | 1 . . . . ." } },
+    { id: "chestbydoor", title: "the chest by the door", root: 60, scale: "major", bpm: 88, bar: 8, lead: "marimba", lead2: "piano", acc: "block", accI: "piano",
+      tags: ["any", "day"],
+      A: { ch: "1 4 6 5", mel: "3 . 3 2 1 . 5 . | 6 . 6 5 4 . 1' . | 1' . 7 6 3 . 6 . | 5 . . 4 2 . . ." },
+      B: { ch: "2 5 1 6", mel: "4 . 6 . 2' . 6 . | 7 . 5 . 2 . 5 . | 3 . 5 . 1' . 5 . | 6 . . . 3 . . ." } },
+    { id: "murk", title: "murk", root: 59, scale: "dorian", bpm: 84, bar: 8, lead: "cello", lead2: "glass", acc: "pulse", accI: "pluck", strings: 1,
+      tags: ["autumn", "winter", "night"],
+      A: { ch: "1 7 4M 1", mel: "1 . . 3 5 . . 4 | 2 . . 4 7 . . 5 | 6 . 4 . 1 . 4 . | 5 . . . 3 . 1 ." },
+      B: { ch: "3 4M 7 1", mel: "3 . 5 . 7 . 5 . | 4 . 6 . 1' . 6 . | 2' . 7 . 5 . 2 . | 1 . . . . . . ." } },
+    { id: "snowhearth", title: "snow on the hearth", root: 67, scale: "major", bpm: 68, bar: 8, lead: "box", lead2: "cello", acc: "arp", accI: "kalimba", strings: 1,
+      tags: ["winter"],
+      A: { ch: "1 3 4 5", mel: "3 . . 5 1' . . 7 | 5 . . 7 3' . . 2' | 1' . . 6 4 . 6 . | 5 . . . 2 . . ." },
+      B: { ch: "6 4 2 5", mel: "6 . 1' . 3' . 1' . | 4 . 6 . 1' . 6 . | 2 . 4 . 6 . 2' . | 7 . . . 5 . - ." } },
+    { id: "looksup", title: "every smol looks up", root: 62, scale: "lydian", bpm: 72, bar: 8, lead: "choir", lead2: "whistle", acc: "roll", accI: "kalimba", strings: 1, bellTop: 1,
+      tags: ["late"],
+      A: { ch: "1 2 6 5", mel: "1 . . 3 5 . . 1' | 2' . . 6 4 . . 6 | 1' . . 6 3 . 1 . | 2 . . . 5 . . ." },
+      B: { ch: "6 2 5 1", mel: "3' . 1' . 6 . 1' . | 2' . 6 . 4 . 6 . | 7 . 5 . 2' . 7 . | 1' . . . . . . ." } },
+    { id: "longnight", title: "the long night", root: 57, scale: "hminor", bpm: 76, bar: 6, lead: "cello", lead2: "choir", acc: "lull", accI: "pluck", strings: 1,
+      tags: ["autumn", "winter", "night"],
+      A: { ch: "1 1 6 6 4 4 5 5", mel: "5 . . . 3 . | 1 . . . 3 . | 6 . . . 4 . | 1 . . . . . | 4 . . . 6 . | 1' . . . 6 . | 7 . . 5 2 . | 5 . . . . ." },
+      B: { ch: "6 3 4 1 6 4 5 1", mel: "1' . . 6 3 . | 7 . . 5 3 . | 6 . . 4 1 . | 5 . . . 3 . | 6 . 1' . 3' . | 4' . 1' . 6 . | 7 . . . 2' . | 1' . . . . ." } },
+    { id: "longwayhome", title: "the long way home", root: 65, scale: "major", bpm: 82, bar: 8, lead: "whistle", lead2: "piano", acc: "strum", accI: "pluck", strings: 1, bellTop: 1,
+      tags: ["any"],
+      A: { ch: "1 5 6 4", mel: "5, . 1 . 3 . 5 . | 5 . . 2 7, . 2 . | 3 . 1 . 6, . 1 . | 4 . . 3 1 . 6, ." },
+      B: { ch: "4 1 5 6", mel: "6 . 4 . 1' . 6 . | 5 . 3 . 1 . 3 . | 2 . 5 . 7 . 2' . | 1' . . 6 3 . . ." } }
+  ];
+  M.ALBUM2 = ALBUM2;
+  M.ALBUMS = [{ id: 1, title: "songs for small minds", songs: SONGS }, { id: 2, title: "the long way home", songs: ALBUM2 }];
+  function ALL() { return SONGS.concat(ALBUM2); }
+  M.all = ALL;
   // cues: music for one scene, never picked by the playlist or listed in the jukebox (v3.6: the ark battle)
   var CUES = [
     { id: "arkfight", title: "the ark falls", root: 69, scale: "minor", bpm: 148, bar: 8, lead: "synth", lead2: "brass", acc: "drive", accI: "pluck", drums: 1, strings: 1,
@@ -117,7 +194,8 @@
       B: { ch: "4 2 7 5", mel: "6 . . . 1' . . . | 3' . . . . . 2' . | 7 . . . 5 . . . | #4 . . . . . . ." } }
   );
   M.CUES = CUES;
-  var SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10] };
+  var SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10],
+    lydian: [0, 2, 4, 6, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10], phrygian: [0, 1, 3, 5, 7, 8, 10], hminor: [0, 2, 3, 5, 7, 8, 11] }; // 4.31
   var FORM = ["A", "A", "B", "A"];
   M.SONGS = SONGS;
 
@@ -188,6 +266,11 @@
       else if (a === "strum") { [0, 4, 6].forEach(function (s4, k) { tones.concat([tones[0] + 12]).forEach(function (m, j) { add(I, t0 + s4 * step + j * 0.02, m + 12, step * 3, vA * (k === 0 ? 0.65 : 0.4)); }); }); }
       else if (a === "bounce") { [1, 3, 5, 7].forEach(function (s5) { tones.forEach(function (m, j) { add(I, t0 + s5 * step + j * 0.006, m + 12, step * 0.7, vA * 0.45); }); }); }
       else if (a === "block") { [0, 3, 6].forEach(function (s6, k) { tones.forEach(function (m, j) { add(I, t0 + s6 * step + j * 0.015, m + 12, step * (k === 2 ? 2 : 3), vA * (k ? 0.4 : 0.6)); }); }); }
+      else if (a === "drone") { [tones[0], tones[2]].forEach(function (m) { add(I, t0, m, barLen * 1.05, vA * 0.6); }); add(I, t0 + (n / 2) * step, tones[1] + 12, barLen * 0.55, vA * 0.4); } // 4.31: a held fifth, and the third answering halfway
+      else if (a === "pulse") { for (var s8 = 0; s8 < n; s8++) add(I, t0 + s8 * step, s8 % 2 ? tones[2] : tones[0], step * 0.9, vA * (s8 % 4 ? 0.38 : 0.6)); }
+      else if (a === "march") { [2, 6].forEach(function (s9) { tones.forEach(function (m, j) { add(I, t0 + s9 * step + j * 0.006, m + 12, step * 0.8, vA * 0.5); }); }); if (pass >= 0) [0, 4].forEach(function (sA, k) { add("tom", t0 + sA * step, 0, 0.25, k ? 0.5 : 0.75); }); }
+      else if (a === "lull") { var lp2 = [0, 1, 2, 1, 2, 1, 0, 2]; for (var sB = 0; sB < n; sB++) add(I, t0 + sB * step, tones[lp2[sB % 8]] + (sB === n - 1 ? 12 : 0), step * 3, vA * (sB ? 0.5 : 0.75)); }
+      else if (a === "roll") { var rp = [tones[0], tones[1], tones[2], tones[0] + 12, tones[1] + 12, tones[0] + 12, tones[2], tones[1]]; for (var sC = 0; sC < n; sC++) add(I, t0 + sC * step, rp[sC % 8] + 12, step * 2.5, vA * (sC % 4 ? 0.5 : 0.7)); }
       if (song.strings && (pass || last)) tones.forEach(function (m) { add("strings", t0, m + 12, barLen * 1.02, 0.32); });
       if (song.perc && pass >= 0) {
         for (var p = 0; p < n; p++) add("shaker", t0 + p * step, 0, 0.05, p % 2 ? 0.35 : 0.55);
@@ -343,6 +426,40 @@
       var n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain(); n.buffer = noiseBuf; n.loop = true; hp.type = "highpass"; hp.frequency.value = 5000;
       env(g, t, 0.003, v * 0.14, [0.0001, 0.5], t + d); n.connect(hp); hp.connect(g); g.connect(out); n.start(t, Math.random() * 0.5); n.stop(t + d + 0.5);
     },
+    kalimba: function (t, f, d, v, out) { // 4.31: a thumb piano: a round sine with a woody knock and a faint buzz
+      var g = ctx.createGain(); env(g, t, 0.003, v * 0.36, [0.0001, 0.34], t + 1.3); g.connect(out); osc("sine", f, t, t + 1.5, g);
+      var g2 = ctx.createGain(); env(g2, t, 0.002, v * 0.1, [0.0001, 0.05], t + 0.18); g2.connect(out); osc("sine", f * 3.02, t, t + 0.25, g2);
+      var g3 = ctx.createGain(); env(g3, t, 0.002, v * 0.025, [0.0001, 0.12], t + 0.4); g3.connect(out); osc("square", f * 2, t, t + 0.5, g3);
+    },
+    whistle: function (t, f, d, v, out) { // a tin whistle: a pure tone with a breath at the front and a quick vibrato
+      var g = ctx.createGain(), end = t + d * 0.94 + 0.04; env(g, t, 0.035, v * 0.2, null, end); g.connect(out);
+      var o = osc("sine", f * 2, t, end, g), hg = ctx.createGain(); hg.gain.value = 0.18; hg.connect(g); osc("sine", f * 4, t, end, hg);
+      if (d > 0.3) { var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 6; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.012, t + 0.3); lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(end + 0.4); }
+      if (noiseBuf) { var n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), ng = ctx.createGain(); n.buffer = noiseBuf; bp.type = "bandpass"; bp.frequency.value = f * 4; bp.Q.value = 3; env(ng, t, 0.01, v * 0.06, [0.0001, 0.04], t + 0.15); n.connect(bp); bp.connect(ng); ng.connect(out); n.start(t, Math.random() * 0.5); n.stop(t + 0.25); }
+    },
+    cello: function (t, f, d, v, out) { // a bowed string an octave down: slow to speak, warm, with a vibrato that arrives late
+      var g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 1.2; lp.frequency.value = Math.min(2600, f * 2.2);
+      var end = t + d * 0.98 + 0.06; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v * 0.17, t + Math.min(0.14, d * 0.4)); g.gain.setTargetAtTime(0.0001, end, 0.12);
+      lp.connect(g); g.connect(out);
+      var o = osc("sawtooth", f / 2, t, end + 0.3, lp), o2 = osc("sawtooth", f / 2, t, end + 0.3, lp, 6);
+      if (d > 0.4) { var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 5; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.004, t + 0.5); lfo.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency); lfo.start(t); lfo.stop(end + 0.5); }
+    },
+    glass: function (t, f, d, v, out) { // a glass pad: sines that swell in and hang in the air
+      var g = ctx.createGain(), end = t + Math.max(d, 0.8); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v * 0.16, t + Math.min(0.3, d * 0.5)); g.gain.setTargetAtTime(0.0001, end, 0.5);
+      g.connect(out); osc("sine", f, t, end + 2, g, -4); osc("sine", f, t, end + 2, g, 4);
+      var g2 = ctx.createGain(); g2.gain.value = 0.25; g2.connect(g); osc("sine", f * 2, t, end + 2, g2, 3);
+    },
+    choir: function (t, f, d, v, out) { // a small "ooh": three voices through two soft formants
+      var g = ctx.createGain(), end = t + d + 0.05; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v * 0.2, t + Math.min(0.18, d * 0.4)); g.gain.setTargetAtTime(0.0001, end, 0.2);
+      g.connect(out);
+      var f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(); f1.type = "bandpass"; f1.frequency.value = 480; f1.Q.value = 1.6; f2.type = "bandpass"; f2.frequency.value = 900; f2.Q.value = 2.2;
+      var g2 = ctx.createGain(); g2.gain.value = 0.5; f1.connect(g); f2.connect(g2); g2.connect(g);
+      [-9, 0, 8].forEach(function (det) { var o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(f, t); o.detune.value = det; o.connect(f1); o.connect(f2); o.start(t); o.stop(end + 0.8); });
+    },
+    tom: function (t, f, d, v, out) {
+      var g = ctx.createGain(), o = ctx.createOscillator(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(80, t + 0.16);
+      env(g, t, 0.004, v * 0.28, [0.0001, 0.09], t + 0.26); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.35);
+    },
     kick: function (t, f, d, v, out) {
       var g = ctx.createGain(), o = ctx.createOscillator(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
       env(g, t, 0.003, v * 0.35, [0.0001, 0.06], t + 0.2); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.3);
@@ -368,7 +485,7 @@
     stopCur(2.5);
     var sc = score(song), g = ctx.createGain(); g.gain.value = mood ? 0.0001 : 1; g.connect(bus); // under a mood layer it waits silent
     cur = { song: song, ev: sc.ev, dur: sc.dur, i: 0, t0: ctx.currentTime + 0.25, gain: g };
-    recent.push(song.id); if (recent.length > 6) recent.shift();
+    recent.push(song.id); if (recent.length > 10) recent.shift(); // (10, was 6: there are 36 songs now)
     if (!heard[song.id]) { heard[song.id] = 1; try { localStorage.setItem(HEARD, JSON.stringify(heard)); } catch (e) {} }
     if (SB.bus) SB.bus.emit("song", { id: song.id, title: song.title });
     return true;
@@ -387,7 +504,7 @@
   // which songs fit right now
   function fits(song, game) {
     var w = game && game.world, tags = song.tags;
-    if (!w) return tags.indexOf("title") >= 0;
+    if (!w) return tags.indexOf("title") >= 0 && tags.indexOf("jukebox") < 0;
     var season = SB.SEASONS[w.season], night = !!w.night, rain = w.weather ? w.weather.rain || 0 : 0;
     var grieving = (game.playTime || 0) - griefT < 240;
     if (tags.some(function (x) { return SB.SEASONS.indexOf(x) >= 0; }) && tags.indexOf(season) < 0) return false; // season-only songs
@@ -395,12 +512,14 @@
     if (tags.indexOf("night") >= 0 && !night && !(tags.indexOf("grief") >= 0 && grieving)) return false;
     if (song.needRain && rain < 0.25) return false;
     if (tags.indexOf("late") >= 0 && !((game.stats && game.stats.maxTier) >= 5)) return false;
+    if (tags.indexOf("jukebox") >= 0) return false; // 4.31: only ever asked for by name
+    if (tags.indexOf("deep") >= 0 && !(SB.Possess && SB.Possess.active)) return false; // only heard from inside a smol
     return true;
   }
   function pick(game) {
     var w = game && game.world, rain = w && w.weather ? w.weather.rain || 0 : 0;
-    var pool = SONGS.filter(function (s) { return fits(s, game) && recent.indexOf(s.id) < 0; });
-    if (!pool.length) pool = SONGS.filter(function (s) { return fits(s, game); });
+    var pool = ALL().filter(function (s) { return fits(s, game) && recent.indexOf(s.id) < 0; });
+    if (!pool.length) pool = ALL().filter(function (s) { return fits(s, game); });
     if (!pool.length) return null;
     var tot = 0, wts = pool.map(function (s) {
       var k = 1;
@@ -422,7 +541,7 @@
     if (P && P.active && P.c && P.c.alive) {
       var c = P.c;
       if (c.chem && c.chem.health < 0.3) return "danger";
-      if (P.scout && P.scout()) return "danger";
+      if (P.scout && P.scout()) return P.scout().boss ? "duel" : "danger"; // 4.31: a captain's fight has its own music
       var near = false;
       if (SB.World && SB.World.creaturesNear) SB.World.creaturesNear(w, game, c.x, c.z, 15, function (o) { if (o.species === "grump" && o.alive && !o.goingHome) near = true; });
       if (near) return "danger";
@@ -438,6 +557,7 @@
     if (cur) { var cg = cur.gain.gain; cg.cancelScheduledValues(now); cg.setValueAtTime(Math.max(0.0001, cg.value), now); cg.linearRampToValueAtTime(id ? 0.0001 : 1, now + XFADE); }
     if (!id) { M.mood = null; return; }
     var song = M.byId(id), sc = score(song), g = ctx.createGain();
+    if (!heard[id] && ALBUM2.indexOf(song) >= 0) { heard[id] = 1; try { localStorage.setItem(HEARD, JSON.stringify(heard)); } catch (e) {} } // an album piece first met as a mood still counts as heard
     g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(1, now + XFADE); g.connect(bus);
     mood = { id: id, ev: sc.ev, dur: sc.dur, i: 0, t0: now + 0.1, gain: g };
     M.mood = id;
@@ -502,7 +622,7 @@
     return sc.dur;
   };
   M._fits = fits; M._pick = pick; M._grief = function (t) { griefT = t; }; // for tests
-  M.byId = function (id) { var all = SONGS.concat(CUES); for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; };
+  M.byId = function (id) { var all = SONGS.concat(ALBUM2, CUES); for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; };
   // cue a song now (the title card, the ending, the jukebox)
   M.play = function (id, opts) {
     var s = M.byId(id);

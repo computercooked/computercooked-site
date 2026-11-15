@@ -1768,13 +1768,16 @@
       body.appendChild(h("div", { class: "sec" }, "sound & music"));
       if (SB.Audio && SB.Audio.sliders) body.appendChild(SB.Audio.sliders()); // 4.21.1: sound and music sliders
       if (np) body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { MU.skip(); setTimeout(function () { openMenu("settings"); }, 300); } }, "⏭ next song")]));
-      var nHeard = MU.SONGS.filter(function (s) { return MU.heard(s.id); }).length;
-      body.appendChild(h("p", { class: "note", html: (np ? "now playing: <b class='lime'>" + np.title + "</b>. " : "") + "you've heard " + nHeard + " of " + MU.SONGS.length + " songs. some only play in one season, at night, in the rain, or once the smols get clever." }));
-      body.appendChild(h("div", { class: "jukebox" }, MU.SONGS.map(function (s, i) {
-        var got = MU.heard(s.id);
-        return h("button", { class: "track" + (np && np.id === s.id ? " on" : "") + (got ? "" : " locked"), disabled: got ? null : "disabled", onclick: function () { if (!MU.volume()) MU.setVolume(0.8); MU.play(s.id, { pin: true }); setTimeout(function () { openMenu("settings"); }, 300); } },
-          (i + 1) + ". " + (got ? s.title : "???"));
-      })));
+      var allSongs = MU.all ? MU.all() : MU.SONGS, nHeard = allSongs.filter(function (s) { return MU.heard(s.id); }).length;
+      body.appendChild(h("p", { class: "note", html: (np ? "now playing: <b class='lime'>" + np.title + "</b>. " : "") + "you've heard " + nHeard + " of " + allSongs.length + " songs. some only play in one season, at night, in the rain, from inside a smol, or once the smols get clever." }));
+      (MU.ALBUMS || [{ id: 1, title: "songs for small minds", songs: MU.SONGS }]).forEach(function (al) { // 4.31: two albums
+        body.appendChild(h("div", { class: "sec" }, [h("span", null, "album " + al.id + " · " + al.title), h("span", { class: "dim" }, al.songs.filter(function (s) { return MU.heard(s.id); }).length + "/" + al.songs.length)]));
+        body.appendChild(h("div", { class: "jukebox" }, al.songs.map(function (s, i) {
+          var got = MU.heard(s.id);
+          return h("button", { class: "track" + (np && np.id === s.id ? " on" : "") + (got ? "" : " locked"), disabled: got ? null : "disabled", onclick: function () { if (!MU.volume()) MU.setVolume(0.8); MU.play(s.id, { pin: true }); setTimeout(function () { openMenu("settings"); }, 300); } },
+            (i + 1) + ". " + (got ? s.title : "???"));
+        })));
+      });
     }
     // the storyteller: how often trouble (and luck) comes, and how hard
     var ST = [["calm", "🌿 calm", "fewer, gentler events. for watching your smols grow."], ["balanced", "⚖️ balanced", "the way it's meant to be played."], ["wild", "🔥 wild", "more raids, more storms, more chaos."]];
