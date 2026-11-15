@@ -544,7 +544,7 @@ function grove(game){
 var Wi=SB.Wilds,n=0;
 if(!Wi||!Wi.grove)return 0;
 game.creatures.forEach(function(g){
-if(!g.alive||g.species!=="grump"||g.heldBy)return;
+if(!g.alive||g.species!=="grump"||g.heldBy||g.boss)return;
 var t=Wi.grove(game,g.x,g.z);
 if(!t)return;
 var d=dist(g.x,g.z,t.x,t.z)||1;

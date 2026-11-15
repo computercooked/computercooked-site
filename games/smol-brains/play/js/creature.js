@@ -267,7 +267,7 @@ function consider(n,t,d){if(n==null)return;if(d<nearestD[n]){nearestD[n]=d;neare
 var smol=c.species==="smol",see=smol&&Mn()?Mn().sees(c,game):null;
 SB.World.itemsNear(w,c.x,c.z,R,function(o,d2){
 if(o.heldBy===c.id)return;
-if(smol&&(o.data.forbid||(see&&!see(o.x,o.z,o))))return;
+if(smol&&((o.data&&o.data.forbid)||(see&&!see(o.x,o.z,o))))return;
 if(o.hid!=null&&M()&&!M().canSee(c,o))return;
 if(c.unreach&&isUnreachable(c,o.id,game))return;
 var d=Math.sqrt(d2);

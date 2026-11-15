@@ -303,7 +303,7 @@
     var smol = c.species === "smol", see = smol && Mn() ? Mn().sees(c, game) : null; // minds3.js: its area, its diet, what it faces
     SB.World.itemsNear(w, c.x, c.z, R, function (o, d2) {
       if (o.heldBy === c.id) return;
-      if (smol && (o.data.forbid || (see && !see(o.x, o.z, o)))) return;
+      if (smol && ((o.data && o.data.forbid) || (see && !see(o.x, o.z, o)))) return;
       if (o.hid != null && M() && !M().canSee(c, o)) return; // hidden food: only its owner and whoever watched know it's there
       if (c.unreach && isUnreachable(c, o.id, game)) return;
       var d = Math.sqrt(d2);

@@ -291,8 +291,16 @@ seeded(3301, () => {
     check("stones match the stone pile; a ball matches nothing", Mn.matchFor(game, "stone") === "z" + z2.id && Mn.matchFor(game, "ball") === null);
     Mn.cmd(game, s, "sorter");
     check("sorting switched on", s.sorter === 1 && /class='btn go' data-mn='sorter'/.test(Mn.html(game, s)));
-    runFed(SB, game, 150);
-    check("the loose stones are filed in the stone pile", Mn._count(game, "z" + z2.id, "stone") >= 2 && s.sorted >= 2, "in pile " + Mn._count(game, "z" + z2.id, "stone"));
+    grid(SB, game); s.convo = null; calm(SB, game);
+    check("it goes to a loose stone", Mn.think(s, game) === true && (SB.dist(s.action.tx, s.action.tz, st1.x, st1.z) < 0.5 || SB.dist(s.action.tx, s.action.tz, st2.x, st2.z) < 0.5));
+    s.x = s.action.tx + 0.5; s.z = s.action.tz;
+    check("picks it up for the matching pile", Mn.think(s, game) === true && s.load && s.load.k === "stone" && s.sortTo === "z" + z2.id && (st1.gone || st2.gone || game.world.items.filter(o => o.kind === "stone" && (o === st1 || o === st2)).length === 1));
+    Mn.think(s, game);
+    check("and carries it there", s.action && s.action.called && SB.dist(s.action.tx, s.action.tz, z2.x, z2.z) < 3);
+    s.x = z2.x + 1; s.z = z2.z; Mn.think(s, game); grid(SB, game);
+    check("the stone is filed in the stone pile", Mn._count(game, "z" + z2.id, "stone") === 1 && !s.load && s.sorted === 1);
+    s.area = null; runFed(SB, game, 120);
+    check("a filed stone is not picked up again", Mn._count(game, "z" + z2.id, "stone") >= 1 && s.sorted >= 1, "in pile " + Mn._count(game, "z" + z2.id, "stone"));
     check("the ball stays where it was", !toy.gone && SB.dist(toy.x, toy.z, z2.x, z2.z) > z2.r);
     Mn.cmd(game, s, "sorter");
     check("and off", !s.sorter);
@@ -370,6 +378,9 @@ seeded(3301, () => {
     check("the dark does not count there", SB.Wilds.lit(game, c) === "grove");
     game.world.night = true; game.settings = game.settings || {};
     check("and the body says so", SB.Wilds.chips(game, c, { c: c }).some(k => k.k === "grove") || c.tier < 2);
+    const boss = SB.Game.spawnGrump(game, p.x + 2, p.z - 2); boss.boss = "test";
+    check("a captain is left to its fight", Mn._grove(game) === 0);
+    boss.alive = false;
     const g = SB.Game.spawnGrump(game, p.x + 3, p.z + 1);
     check("a grump in the grove is turned out", Mn._grove(game) === 1 && g.action && SB.dist(g.action.tx, g.action.tz, p.x, p.z) > SB.Wilds.GROVE_R);
     g.x = p.x + 30; g.z = p.z;
@@ -393,6 +404,14 @@ seeded(3301, () => {
     check("two minutes on, most of the tribe is at the new nest", there >= 4, there + "/6 (old home " + cs.filter(o => SB.dist(o.x, o.z, h0.x, h0.z) < 10).length + ")");
     Mn.cmd(game, c, "nomad");
     check("the tribe follows me: switched on", Mn.state(game).nomad === 1);
+    const p2 = spotAway(SB, game, { x: p.x, z: p.z }, 36);
+    SB.Possess = { state: () => ({ c: c, game: game }), headless: true };
+    c.x = p2.x; c.z = p2.z;
+    Mn.tick(game, 5.1);
+    check("walk 30 m off in a body and the nest comes after you", SB.dist(SB.Society.home(game, 0).x, SB.Society.home(game, 0).z, p2.x, p2.z) < 0.1 && game.tribes[0].moved === 2);
+    c.x += 6; Mn.tick(game, 5.1);
+    check("a few steps do not move it again", game.tribes[0].moved === 2);
+    SB.Possess = null;
   });
 
   sec(15, "a second village you run; boarding school; moving between them", () => {
