@@ -404,6 +404,49 @@
   /* ---------------- per-frame draw list ---------------- */
   var list = [], ctxRef = null, prog = null;
   // called by bodies.js for each creature; returns true when it will be drawn as voxels
+  // what the body adds for what the smol is doing right now: {sq, lean, hop, ear, wag, arms|null}
+  // (pure numbers from the smol's own state, so it costs nothing and never touches the island's dice)
+  var POSE0 = { sq: 0, lean: 0, hop: 0, ear: 0, wag: 0, arms: null };
+  VX.pose = function (c, t, moving, legs) {
+    var an = c.anim || {}, a = c.action, V = SB.V || {}, id = c.id || 0, o = { sq: 0, lean: 0, hop: 0, ear: 0, wag: 0, arms: null };
+    if (c.corpse || c.heldBy === "hand") return POSE0;
+    if (c.asleep) { // asleep: sunk down, slow deep breaths, ears flopped
+      o.sq = Math.sin(t * 1.3 + id) * 0.035; o.ear = -0.28; o.lean = 0.12;
+      return o;
+    }
+    var doing = a && a.phase === "do" ? a.verb : null, em = an.emote;
+    if (an.flash > 0 || em === "ouch") { // hurt: a flinch back and a squash, ears flat
+      var fk = Math.min(1, (an.flash || 0.5) * 2);
+      o.sq += 0.14 * fk; o.lean -= 0.3 * fk; o.ear -= 0.3; o.arms = [0.9, 0.9];
+    } else if (doing === V.hit) { // a swing: wind up behind, whip through, lean into it
+      var sw = (t * 2.6 + id * 0.37) % 1, k = sw < 0.45 ? sw / 0.45 : 1 - (sw - 0.45) / 0.55;
+      o.arms = [0.4, 2.7 * k - 0.5]; o.lean += 0.28 * (sw < 0.45 ? -k * 0.6 : (1 - k)); o.sq += sw > 0.45 && sw < 0.6 ? 0.08 : 0;
+    } else if (doing === V.eat || an.mouth === "chew") { // eating: nodding into the food, paws up to the mouth
+      var ch = Math.abs(Math.sin(t * 9 + id));
+      o.lean += 0.1 + ch * 0.14; o.sq += ch * 0.05; o.arms = [1.25 + ch * 0.2, 1.25 + ch * 0.2]; o.wag += 0.25;
+    } else if (doing === V.talk || c.convo) { // talking: a little bounce on each word and one paw waving it about
+      var tk = Math.sin(t * 7 + id);
+      o.sq += Math.max(0, tk) * 0.05; o.arms = [0.5 + tk * 0.5, 0.2]; o.ear += tk * 0.06;
+    } else if (doing === V.cuddle) { o.arms = [1.5, 1.5]; o.lean += 0.16; o.sq += Math.sin(t * 2.2) * 0.03; o.wag += 0.3; }
+    else if (doing === V.play) { var pl = Math.abs(Math.sin(t * 6 + id)); o.hop += pl * (legs ? 1.6 : 0.6); o.arms = [2.2 + pl * 0.5, 2.2 - pl * 0.5]; o.wag += 0.35; }
+    else if (doing === V.pickup || doing === V.use) { var rk = Math.sin(t * 8 + id); o.lean += 0.22; o.arms = [1.0 + rk * 0.35, 1.0 - rk * 0.35]; }
+    else if (doing === V.flee || em === "sad" && moving) { o.lean += 0.22; o.ear -= 0.32; o.arms = [-0.9, -0.9]; }
+    if (em === "happy" || em === "proud" || em === "yum" || em === "love" || em === "idea") { // a cheer: a hop, both paws up, tail going
+      var cz = Math.abs(Math.sin(t * 8 + id));
+      o.hop += cz * (em === "idea" ? 2.2 : 1.4); o.sq -= cz * 0.06; o.wag += 0.4; o.ear += 0.12;
+      if (!o.arms && !moving) o.arms = [2.5 + Math.sin(t * 9) * 0.3, 2.5 - Math.sin(t * 9) * 0.3];
+    } else if (em === "angry") { o.sq += Math.abs(Math.sin(t * 16)) * 0.05; o.lean += 0.14; o.ear -= 0.2; if (!o.arms) o.arms = [0.7, 0.7]; }
+    else if (em === "huh") { o.lean -= 0.1; o.ear += 0.22; o.sq -= 0.04; }
+    else if (em === "sick") { o.lean += 0.2; o.sq += 0.08 + Math.sin(t * 2) * 0.03; o.ear -= 0.25; }
+    if (moving && legs) o.sq += Math.abs(Math.sin((an.walk || 0) * 1.6)) * 0.035 - 0.015; // a footfall you can see
+    if (!moving && !doing && !em) { // idle life: now and then a stretch, a look about, a shake
+      var ph = (t * 0.11 + id * 0.173) % 1;
+      if (ph < 0.06) { var st = Math.sin(ph / 0.06 * Math.PI); o.sq -= st * 0.1; o.arms = [2.8 * st, 2.8 * st]; }          // stretch
+      else if (ph > 0.45 && ph < 0.52) { o.lean += Math.sin((ph - 0.45) / 0.07 * Math.PI * 2) * 0.14; o.ear += 0.1; }     // look about
+      else if (ph > 0.8 && ph < 0.83) { o.wag += Math.sin(t * 40) * 0.5; o.sq += Math.sin(t * 40) * 0.03; }               // shake
+    }
+    return o;
+  };
   VX.creature = function (c, x, y, z, t, mo) {
     var cam = R.camera, pov = !!cam.pov, scale = UNIT;
     if (!VX.enabled || !R.gl || !R.gl() || !SB.Pixel) return false;
@@ -463,7 +506,12 @@
       if (dep > 0.15) { cut = SB.World.groundY(w, x, z); y = cut - Math.min(0.55, (dep - 0.15) * 0.6 + ((c.drownT || 0) > 0 ? 0.25 : 0)) * m.height * scale; }
     }
     var face = mo ? mo.face : c.facing;
-    list.push({ m: m, f: fm, x: x, y: y + hop * scale, z: z, face: face, s: scale, a: [legSw, wag, flap, ear], arm: [armL, armR], b: [SB.clamp(sq, -0.35, 0.45), mo ? mo.ln * 0.9 : 0, bob, 0],
+    // 4.34: poses. The rig already swings legs, arms, tail, wings and ears; these say what a smol is DOING with them.
+    // Each is a small, readable change (a nod, a wind-up, a flinch, a cheer), layered on the walk and the breathing.
+    var lean = mo ? mo.ln * 0.9 : 0, P = VX.pose(c, t, moving, legs);
+    sq += P.sq; lean += P.lean; hop += P.hop; ear += P.ear; wag += P.wag;
+    if (P.arms) { armL = P.arms[0]; armR = P.arms[1]; }
+    list.push({ m: m, f: fm, x: x, y: y + hop * scale, z: z, face: face, s: scale, a: [legSw, wag, flap, ear], arm: [armL, armR], b: [SB.clamp(sq, -0.35, 0.45), SB.clamp(lean, -0.6, 0.6), bob, 0],
       alpha: alpha, cut: cut, glow: c.look.glow ? 0.35 + c.look.glow * 0.4 : 0, flash: an.flash || 0, grey: c.corpse ? 1 : 0,
       id: (6 + Math.floor(SB.hash(c.id, 3, 9) * 240)) / 255 });
     // where its head is on screen (speech bubbles and names sit above it)
