@@ -711,6 +711,10 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.84 What v4.35.1 changed: a system that spoke too early switched itself off
+
+Seen on the live 4.35.0 page: `deep.js` found a place on the title screen's island and called `SB.UI.toast` before the sky's screen had been built. `toast` read `el.toasts.children` of nothing and threw, and `ext.js` did what it is meant to do with a handler that throws: it switched deep.js's tick off for the rest of the session (no places found, no caves, no map events). `toast` now says nothing when there is no screen yet. Any plug-in system could have hit this; deep.js was the one that did. `tests/ui435.test.js` calls a toast before the screen exists.
+
 ## 0.83 What v4.35.0 changed: round three (the rows that needed the core files), and a new skin
 
 After 4.34 the ledger had 178 rows left. Rounds one and two could not do them from a plug-in file: they needed the game's core files, or they were visual. Round three handed the core files out, one owner per group, seven groups at once. The ledger (`smol-brains-handover\FEATURE-MAP.md`) now reads **3,073 built or already there, 220 not possible (each with its reason), 1 open** (more languages: the language pack system is built and Spanish ships for the title, new-island and settings screens; the in-game lines are not translated). The row-by-row account is in `smol-brains-handover\builders\verdict3-<name>.md`. **What has and has not been seen in a browser is at the end, and most of this round has not.**
