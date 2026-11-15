@@ -345,12 +345,10 @@
     var s = st(game), cs = game.creatures || [], n = cs.length, c, i;
     if (n) { rr = (rr + 1) % n; c = cs[rr]; if (c && c.alive && c.species === "smol") X.visit(game, c, 1.5 * n); }
     c = me(game);
-    if (c) {
-      (game.sites || []).forEach(function (o) { if (o.found && !o.gone && SB.dist(c.x, c.z, o.x, o.z) < 7) X.find(game, "s" + o.id); });
-      n = Object.keys(game.achievements || {}).length;
-      for (i = X.MOUSE.length - 1; i >= 0; i--) if (n >= X.MOUSE[i][0] && hat(game, X.MOUSE[i][1], "🐭 the hat mouse left you a hat", s.mouse === day(game))) s.mouse = day(game);
-      if (SB.Dark && SB.Dark.feast && SB.Dark.feast(game)) hat(game, "party", "it's a feast");
-    }
+    if (c) (game.sites || []).forEach(function (o) { if (o.found && !o.gone && SB.dist(c.x, c.z, o.x, o.z) < 7) X.find(game, "s" + o.id); });
+    n = Object.keys(game.achievements || {}).length;
+    for (i = X.MOUSE.length - 1; i >= 0; i--) if (n >= X.MOUSE[i][0] && hat(game, X.MOUSE[i][1], "🐭 the hat mouse left you a hat", s.mouse === day(game))) s.mouse = day(game);
+    if (SB.Dark && SB.Dark.feast && SB.Dark.feast(game)) hat(game, "party", "it's a feast");
     if (s.mural !== day(game)) { s.mural = day(game); X.mural(game); }
   };
   X.vitals = function (game, c) {

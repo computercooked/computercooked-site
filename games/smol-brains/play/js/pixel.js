@@ -95,7 +95,7 @@ var tw=clamp(Math.round(bw*0.55)+(grown?1:0),5,grown?9:8),th=clamp(Math.round(bh
 var hr=clamp(Math.round(bw*0.36)+(tier>=5?1:0),4,grown&&tier<5?5:6),hry=hr*0.9;
 if(grown&&hr>=6&&lk.ears===2)legH--;
 var fit=!grump&&c.fit?Math.round(c.fit):0;
-if(fit){bw+=fit;tw=clamp(tw+fit,4,10);}
+if(fit){bw+=fit*2;tw=clamp(tw+fit,4,10);}
 return{lk:lk,grump:grump,tier:tier,st:st,elder:elder,pat:pat,eyeT:eyeT,acc:acc,pal:pal,fluffF:fluffF,hue:hue,hue2:hue2,sat:sat,lig:lig,
 base:base,light:light,dark:dark,second:second,belly:belly,outline:outline,seed:seed,special:special,patternAt:patternAt,classic:classic,
 bw:bw,bh:bh,upright:upright,grown:grown,face:face,legs:legs,legH:legH,hasArms:hasArms,tw:tw,th:th,hr:hr,hry:hry};

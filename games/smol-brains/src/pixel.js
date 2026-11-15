@@ -123,7 +123,7 @@
     if (grown && hr >= 6 && lk.ears === 2) legH--; // a big thinker head with tall ears: no room to stand taller
     // well fed and idle: a rounder body. always busy: a leaner one (c.fit, -1..1, wardrobe3.js)
     var fit = !grump && c.fit ? Math.round(c.fit) : 0;
-    if (fit) { bw += fit; tw = clamp(tw + fit, 4, 10); }
+    if (fit) { bw += fit * 2; tw = clamp(tw + fit, 4, 10); }
     return { lk: lk, grump: grump, tier: tier, st: st, elder: elder, pat: pat, eyeT: eyeT, acc: acc, pal: pal, fluffF: fluffF, hue: hue, hue2: hue2, sat: sat, lig: lig,
       base: base, light: light, dark: dark, second: second, belly: belly, outline: outline, seed: seed, special: special, patternAt: patternAt, classic: classic,
       bw: bw, bh: bh, upright: upright, grown: grown, face: face, legs: legs, legH: legH, hasArms: hasArms, tw: tw, th: th, hr: hr, hry: hry };
