@@ -251,13 +251,13 @@ seeded(4360, () => {
   check("at night each grave has a light in its colour", lg && lg2 && lg[6] > lg[4] && lg2[4] > lg2[6], lg && lg.slice(4).join());
   SB.Render.env.night = 0; frame();
   check("and none by day", !lights.some(l => Math.abs(l[0] - 40) < 0.01 && Math.abs(l[2] - 40) < 0.01));
-  check("a funeral's grave remembers the cause", /cause: b\.body && b\.body\.cause/.test(js("funeral.js")) && (() => { game.bodies = [{ id: 7, name: "dot", x: 50, z: 50, body: { t: 1, cause: "cold" } }]; const sv = F.serialize(game); F.revive(game, sv); const g2 = game.world.structures.filter(b => b.kind === "grave" && b.data && b.data.name === "dot")[0]; return sv[0].c === "cold" && g2 && g2.data.cause === "cold"; })());
+  check("a funeral's grave remembers the cause", (() => { game.bodies = [{ id: 7, name: "dot", x: 50, z: 50, body: { t: 1, cause: "cold" } }]; const sv = F.serialize(game); F.revive(game, sv); const g2 = game.world.structures.filter(b => b.kind === "grave" && b.data && b.data.name === "dot")[0]; return sv[0].c === "cold" && g2 && g2.data.cause === "cold"; })());
 
   console.log("13. buildings: paint, skins, a tribe's roof piece, murals");
   const hut = SB.World.addStructure(game.world, game, "hut", me.x + 1.5, me.z, { done: true, rot: 0 });
   give("dye_red");
   r = H.paint(game, me, hut, "dye_red");
-  check("ALREADY: a dye paints a building (harvest.js H.paint sets the tint the renderer reads)", r.ok && hut.tint && hut.tint.join() === H.DYE.dye_red.rgb.join() && /st\.tint \|\| \[1, 1, 1\]/.test(js("render.js")));
+  check("ALREADY: a dye paints a building (harvest.js H.paint sets the tint the renderer reads)", r.ok && hut.tint && hut.tint.join() === H.DYE.dye_red.rgb.join() && /st\.tint\s*\|\|\s*\[1,\s*1,\s*1\]/.test(js("render.js")));
   let dx = X.deco(game, hut);
   check("a hut carries its tribe's roof piece, in the tribe's colour", dx && dx.length >= 1 && dx[0][2] > 1.5 && Math.abs(dx[0][9][0] - W.style(game, null)[1][0] / 255) < 0.01);
   const n0 = dx.length;
