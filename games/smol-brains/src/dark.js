@@ -1393,7 +1393,7 @@
     B("furybunny", "a furious bunny", "🐇", "has had enough", 0.4, 0.04, 1.4, 0.45, 0, 0, { only: 1 }),
     // the big ones (called, woken or met). none of them is a captain
     B("kingblob", "the king blob", "👑", "hops, and splits into three when beaten", 3, 0.13, 0.8, 2, 16, 2, { big: 1, split: ["blob", 3], sparks: 12 }),
-    B("queenblob", "the queen blob", "💎", "splits into three, and each of those splits again", 4.5, 0.15, 1, 2.1, 20, 3, { big: 1, ng: 1, split: ["blob", 3], sparks: 20, call: { jelly: 3 } }),
+    B("queenblob", "the queen blob", "💎", "splits into three, and each of those splits again", 4.5, 0.15, 1, 2.1, 20, 3, { big: 1, ng: 1, split: ["blob", 3], sparks: 20, call: { bugjelly: 3 } }),
     B("nighteye", "the night eye", "👁‍🗨", "came by itself to watch the village. its stare is a fright from any distance", 3, 0.1, 0.7, 1.8, 16, 3, { big: 1, night: 1, ranged: 5, shot: 0.03, shotChem: { fear: 0.4 }, always: 1, sparks: 12 }),
     B("chain", "the grump chain", "⛓", "is many grumps moving as one. it splits where you break it", 3, 0.12, 1, 1.7, 18, 3, { big: 1, split: ["chainlink", 2], sparks: 14, call: { gloomstone: 2 } }),
     B("chainlink", "half a grump chain", "⛓", "splits again", 1.5, 0.1, 1, 1.2, 0, 0, { child: 1, split: ["bloblet", 2] }),
@@ -2731,7 +2731,7 @@
     return { ok: true, msg: o.icon + " done, and it's there for good: " + o.does + ". +6 ✨" };
   };
   D.MAKES = [
-    { id: "grumpmask", cost: { gloomstone: 1, fiber: 2 } }, { id: "tripwire", cost: { vine: 2 } }, { id: "taunt", cost: { stick: 2, fur: 1 } }, { id: "glowbait", cost: { glowcap: 1, jelly: 1 } },
+    { id: "grumpmask", cost: { gloomstone: 1, fiber: 2 } }, { id: "tripwire", cost: { vine: 2 } }, { id: "taunt", cost: { stick: 2, fur: 1 } }, { id: "glowbait", cost: { glowcap: 1, bugjelly: 1 } },
     { id: "darkidol", cost: { gloomstone: 3, crystal: 1 } }, { id: "duskkey", cost: { duskshard: 1, metal: 1 } }, { id: "firework", cost: { mote: 1, stick: 1 }, thinker: 1 },
     { id: "snowsmol", cost: { stick: 2, stone: 2 }, place: "snowsmol", winter: 1, label: "a snow smol", emoji: "⛄", desc: "winter only. it stands where you build it and pelts raiders with snowballs until the thaw." }
   ];
