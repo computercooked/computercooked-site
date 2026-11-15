@@ -11,7 +11,7 @@ function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name
 const dir = path.join(__dirname, "..", "play", "js");
 const html = fs.readFileSync(path.join(__dirname, "..", "play", "index.html"), "utf8");
 const order = (html.match(/src="js\/([a-z0-9-]+)\.js"/g) || []).map(s => s.slice(8, -4));
-const EXTRA = ["ext", "bosses", "body", "possess", "home", "loot", "friends", "town", "dark", "powers", "fight", "deep", "harvest", "animals", "qol", "wear", "shapes"];
+const EXTRA = ["ext", "bosses", "body", "possess", "home", "loot", "friends", "town", "dark", "powers", "fight", "deep", "harvest", "animals", "qol", "wear", "shapes", "wardrobe3", "motion3", "world3", "helpers3", "arrivals3", "minds3"];
 const r3 = v => typeof v === "number" ? Math.round(v * 1000) / 1000 : v;
 function run(compact, seed, steps) {
   if (compact) process.env.SB_COMPACT = "1"; else delete process.env.SB_COMPACT;
