@@ -61,7 +61,8 @@ st(game).got[id]=day(game);
 SB.bus.emit("homeThing",{thing:t,c:c,st:H.get(game),n:H.count(game),all:H.count(game)===H.THINGS.length});
 return{ok:true,msg:t.icon+" "+t.name+"! "+t.perk};
 };
-H.chest=function(game){var s=st(game);while(s.chest.length<H.CHEST)s.chest.push(null);return s.chest;};
+H.slots=function(game){return H.CHEST+(SB.World3&&SB.World3.hold?SB.World3.hold(game):0);};
+H.chest=function(game){var s=st(game),n=H.slots(game);while(s.chest.length<n)s.chest.push(null);return s.chest;};
 function stackOf(k){return Sv().stackOf?Sv().stackOf(k):8;}
 H.put=function(game,kind,n,w){
 var ch=H.chest(game),mx=Math.max(1,stackOf(kind)),i,t;

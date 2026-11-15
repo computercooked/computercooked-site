@@ -253,7 +253,18 @@ S.EXTRA=[
 {id:"ironpick",name:"iron pick",icon:"⛏",in:{iron:1,stick:1,vine:1},out:"ironpick",idea:"smelt",hint:"iron, a stick and something bendy"},
 {id:"sword",name:"iron sword",icon:"🗡",in:{iron:2,stick:1},out:"sword",idea:"smelt",hint:"two iron and a stick"}
 ];
-var EX={};S.EXTRA.forEach(function(r){EX[r.id]=r;});S.EXTRA.push=function(r){if(r&&r.id)EX[r.id]=r;return Array.prototype.push.call(S.EXTRA,r);};
+var EX={};S.EXTRA.forEach(function(r){EX[r.id]=r;});
+S.EXTRA.push=function(r){
+if(r&&r.shape&&!r.in){r.in={};r.shape.forEach(function(k){r.in[k]=(r.in[k]||0)+1;});}
+if(r&&r.id)EX[r.id]=r;
+return Array.prototype.push.call(S.EXTRA,r);
+};
+function shaped(rc,ks){if(ks.length!==rc.shape.length)return false;for(var i=0;i<ks.length;i++)if(ks[i]!==rc.shape[i])return false;return true;}
+S.misfit=function(kinds){
+var ks=kinds.filter(Boolean),a=ks.slice().sort().join(",");
+for(var i=0;i<S.EXTRA.length;i++){var rc=S.EXTRA[i];if(rc.shape&&!shaped(rc,ks)&&rc.shape.slice().sort().join(",")===a)return rc;}
+return null;
+};
 function ideaOf(id){return id==="firedrill"?"fire":EX[id]?EX[id].idea:id;}
 function recipeOf(d){return d.id==="firedrill"?S.FIREDRILL:{id:d.id,name:d.name,icon:d.icon,in:d.make.in,tool:d.make.tool,at:d.make.at,out:d.make.out,d:d};}
 S.allRecipes=function(){
@@ -298,6 +309,7 @@ kinds.forEach(function(k){if(k)bag[k]=(bag[k]||0)+1;});
 var list=S.allRecipes();
 for(var i=0;i<list.length;i++){
 var rc=list[i],ok=true,used=0;
+if(rc.shape){if(shaped(rc,kinds.filter(Boolean)))return rc;continue;}
 for(var w in rc.in){
 var n=rc.in[w],got=0;
 for(var k in bag)if(matches(k,w))got+=bag[k];
@@ -312,11 +324,13 @@ return null;
 S.craft=function(c,game,id){
 var rc=id==="firedrill"?S.FIREDRILL:EX[id]?EX[id]:I().BY_ID[id]&&I().BY_ID[id].make?recipeOf(I().BY_ID[id]):null;
 if(!rc)return{ok:false,msg:"that's not a recipe"};
+if(rc.shape&&!(c.shp&&c.shp[rc.id]))return{ok:false,msg:"lay this one out on the grid the first time: "+(rc.hint||"the order matters")};
 return make(c,game,rc);
 };
 S.combine=function(c,game,kinds){
 if(c.tier<2)return{ok:false,msg:"you need hands to put things together"};
 var rc=S.match(kinds);
+if(!rc&&S.misfit(kinds))return{ok:false,msg:"the right things, the wrong way round. try another order"};
 if(!rc)return{ok:false,msg:!kinds.filter(Boolean).length?"put some things in first":kinds.filter(Boolean).length<2?"nothing happens. maybe with something else?":"nothing happens. these don't go together… yet"};
 return make(c,game,rc);
 };
@@ -333,6 +347,7 @@ if(!stationOk(c,game,rc))return{ok:false,msg:"do this by a "+(rc.at==="kiln"?"li
 var used=[];
 for(var k in rc.in)used=used.concat(S.take(c,k,rc.id==="firedrill"&&k==="stick"?1:rc.in[k]));
 var res={ok:true,idea:ideaOf(rc.id),used:used,learned:false};
+if(rc.shape)(c.shp||(c.shp={}))[rc.id]=1;
 if(!known){
 var iid=res.idea;
 if(!I().known(c,iid)){if(!game.culture.found[iid])I().discover(c,iid,game);else I().learn(c,iid,1,game,"figured out");}
@@ -520,6 +535,7 @@ S.add(c,g.kind,1);
 return{kind:g.kind,n:1};
 };
 var BIOME_TREE={meadow:"oak",forest:"oak",jungle:"palm",savanna:"oak",swamp:"birch",taiga:"pine",tundra:"pine",mountain:"pine",beach:"palm",blossom:"sakura",maple:"maple",mangrove:"mangrove",bamboo:"bamboo",flowers:"birch",desert:"palm",mesa:"deadtree",ash:"deadtree",shroom:"shroomtree",crystal:"pine"};
+S.PLANTS={seed:"bush",glowcap:"shrooms"};
 S.plantSpot=function(game,x,z){
 var w=game.world;
 if(!SB.World.walkable(w,x,z)||SB.World.depthAt(w,x,z)>0.02||!SB.World.isSeen(w,x,z))return false;
@@ -538,8 +554,8 @@ if(kind==="sapling"){
 var b=SB.BIOMES[SB.World.biomeAt(w,x,z)];
 nk=(b&&BIOME_TREE[b.id])||"oak";
 if(!NK[nk]||!(SB.Meshes&&SB.Meshes.NODE_BUILDERS?SB.Meshes.NODE_BUILDERS[nk]:true))nk="oak";
-}else if(kind==="seed")nk="bush";
-else return null;
+}else nk=S.PLANTS[kind];
+if(!nk||!NK[nk])return null;
 if(!S.take(c,kind,1).length)return null;
 var n=SB.World.addNode(w,game,nk,x,z,0.85+Math.random()*0.3);
 if(!n){S.add(c,kind,1);return null;}
@@ -547,8 +563,16 @@ n.grow=0;SB.World.markNode(w,n);
 emit("planted",{c:c,node:n});
 return n;
 };
+S.wetSpot=function(game,x,z,rad){
+var w=game.world,Wd=SB.World,d=Wd.depthAt(w,x,z),b=SB.BIOMES[Wd.biomeAt(w,x,z)],free=true;
+if(!Wd.inBounds(w,x,z)||!Wd.isSeen(w,x,z)||d>0.48||(d<0.03&&!(b&&(b.id==="swamp"||b.id==="mangrove"))))return false;
+Wd.eachNodeNear(w,x,z,rad+0.8,function(n){if(n.kind!=="herbs"&&n.kind!=="reeds"&&!n.nop&&n.state!=="gone")free=false;});
+for(var i=0;free&&i<w.structures.length;i++)if(SB.dist(x,z,w.structures[i].x,w.structures[i].z)<rad+SK[w.structures[i].kind].r+0.6)free=false;
+return free;
+};
 S.canPlace=function(game,kind,x,z){
 var def=SK[kind];
+if(def&&def.wet)return S.wetSpot(game,x,z,def.r);
 if(!def||!SB.World.isSeen(game.world,x,z)||!SB.World.siteFree(game.world,x,z,def.r))return false;
 var vine=false;
 SB.World.eachNodeNear(game.world,x,z,def.r+0.8,function(n){if(n.nop)vine=true;});

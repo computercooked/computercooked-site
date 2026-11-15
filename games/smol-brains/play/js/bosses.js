@@ -142,6 +142,79 @@ return B.awake(game,d)?{boss:d,found:e.found,where:B.where(game,d),x:e.x,z:e.z,t
 }
 return null;
 };
+B.MZ=5;
+var MZC={},DX=[0,1,0,-1],DY=[-1,0,1,0],FINDS=["crystal","flint","iron","glowcap","ore","honey"];
+if(SB.KINDS&&!SB.KINDS.arkcore)SB.KINDS.arkcore={noun:"material",label:"ark core",emoji:"🔷",r:0.16,color:0x6fd0ff,mat:1,glow:1,desc:"a humming piece of the ark's heart, from the maze under a captain's lair. fit it to a raft."};
+B.mazeOf=function(game,id){
+var key=(game.seed>>>0)+":"+id;
+if(MZC[key])return MZC[key];
+var n=B.MZ,r=SB.rng(((game.seed>>>0)^(0x3a2e+B.BY[id].i*7919))>>>0),open=[],seen=[],stack=[],start=(n-1)*n+(n>>1),i,k;
+for(i=0;i<n*n;i++){open.push(0);seen.push(0);}
+stack.push(start);seen[start]=1;
+while(stack.length){
+var cur=stack[stack.length-1],x=cur%n,y=(cur/n)|0,opts=[];
+for(k=0;k<4;k++){var nx=x+DX[k],ny=y+DY[k];if(nx>=0&&ny>=0&&nx<n&&ny<n&&!seen[ny*n+nx])opts.push(k);}
+if(!opts.length){stack.pop();continue;}
+k=opts[(r()*opts.length)|0];
+var nb=(y+DY[k])*n+x+DX[k];
+open[cur]|=1<<k;open[nb]|=1<<((k+2)%4);seen[nb]=1;stack.push(nb);
+}
+var dist=[],q=[start],heart=start,dead={};
+for(i=0;i<n*n;i++)dist.push(-1);
+dist[start]=0;
+while(q.length){cur=q.shift();if(dist[cur]>dist[heart])heart=cur;for(k=0;k<4;k++)if(open[cur]&(1<<k)){nb=cur+DY[k]*n+DX[k];if(dist[nb]<0){dist[nb]=dist[cur]+1;q.push(nb);}}}
+for(i=0;i<n*n;i++)if(i!==start&&i!==heart&&(open[i]===1||open[i]===2||open[i]===4||open[i]===8))dead[i]=FINDS[(r()*FINDS.length)|0];
+return(MZC[key]={open:open,start:start,heart:heart,dead:dead,far:dist[heart]});
+};
+function mz(game,id){var e=st(game).list[id];if(!e)return null;if(!e.mz)e.mz={on:0,p:0,d:0,seen:0,got:0,core:0};return e.mz;}
+B.mazeState=mz;
+B.mazeAt=function(game,c){
+if(!game||!c||!game.quests||!game.quests.boss)return null;
+var l=st(game).list;
+for(var id in l)if(l[id].beaten&&B.BY[id]&&SB.dist(c.x,c.z,l[id].x,l[id].z)<5)return id;
+return null;
+};
+B.mazeIn=function(game){if(!game||!game.quests||!game.quests.boss)return null;var l=st(game).list;for(var id in l)if(l[id].mz&&l[id].mz.on)return id;return null;};
+function lit(c){var Sv=SB.Survival||SB.Surv,K=SB.KINDS;return!!Sv&&Sv.list(c).some(function(o){return o.k==="torch"||(K[o.k]&&K[o.k].glow);});}
+B.mazeEnter=function(game,c,id){
+var e=st(game).list[id],m=mz(game,id);
+if(!e||!e.beaten)return{ok:false,msg:"its captain is still at home"};
+if(!lit(c))return{ok:false,msg:"too dark to go in. bring a torch, or anything that glows"};
+var M=B.mazeOf(game,id);
+m.on=1;m.p=M.start;m.d=0;m.seen|=1<<M.start;
+SB.bus.emit("mazeIn",{c:c,boss:B.BY[id]});
+return{ok:true,msg:"🕯 you squeeze in under the lair. tunnels, every way. pick one"};
+};
+B.mazeLeave=function(game,id){var m=mz(game,id);if(m&&m.on){m.on=0;return true;}return false;};
+B.mazeLook=function(game,id){
+var m=mz(game,id),M=B.mazeOf(game,id),o=M.open[m.p],out=null;
+function way(t){var d=(m.d+t+4)%4;if(m.p===M.start&&d===2){out=t;return true;}return!!(o&(1<<d));}
+var L={ahead:way(0),left:way(-1),right:way(1),heart:m.p===M.heart};
+way(2);L.out=out;
+return L;
+};
+B.mazeMove=function(game,c,id,turn){
+var m=mz(game,id),M=B.mazeOf(game,id),n=B.MZ;
+if(!m||!m.on)return{ok:false,msg:"you're not in a maze"};
+var d=(m.d+turn+4)%4;
+if(m.p===M.start&&d===2){m.on=0;return{ok:true,out:true,msg:"you climb back out into the air"};}
+if(!(M.open[m.p]&(1<<d)))return{ok:false,msg:"a wall"};
+m.p+=DY[d]*n+DX[d];m.d=d;m.seen|=1<<m.p;
+var Sv=SB.Survival||SB.Surv,res={ok:true,msg:""},bit=1<<m.p;
+function give(k){if(Sv&&SB.KINDS[k]&&Sv.add(c,k,1)&&Sv.spawn)Sv.spawn(game,k,1,c.x,c.z);}
+if(M.dead[m.p]&&!(m.got&bit)){m.got|=bit;give(M.dead[m.p]);res.found=M.dead[m.p];res.msg="a dead end… with a "+SB.KINDS[M.dead[m.p]].label+" in it";}
+else if(m.p===M.heart&&!m.core){
+m.core=1;give("arkcore");res.heart=true;res.msg="🔷 the heart of the maze: "+B.BY[id].name+"'s piece of the ark's core!";
+SB.bus.emit("mazeHeart",{c:c,boss:B.BY[id]});
+}else res.msg=M.dead[m.p]?"a dead end. turn back":m.p===M.heart?"the empty heart of the maze":m.p===M.start?"the way out is behind you":"";
+return res;
+};
+B.mazeMap=function(game,id){
+var m=mz(game,id),M=B.mazeOf(game,id),n=B.MZ,rows=[];
+for(var y=0;y<n;y++){var s="";for(var x=0;x<n;x++){var i=y*n+x;s+=m.on&&i===m.p?"◆":!(m.seen&(1<<i))?"■":i===M.heart?"★":"□";}rows.push(s);}
+return rows;
+};
+B.mazeDone=function(game,id){var m=mz(game,id),M=B.mazeOf(game,id),all=!!m.core;for(var i in M.dead)if(!(m.got&(1<<i)))all=false;return all;};
 var hooked=false;
 B.hook=function(){
 if(hooked||!SB.bus)return;hooked=true;

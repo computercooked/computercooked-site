@@ -78,7 +78,8 @@
   };
 
   /* ---- the chest ---- */
-  H.chest = function (game) { var s = st(game); while (s.chest.length < H.CHEST) s.chest.push(null); return s.chest; };
+  H.slots = function (game) { return H.CHEST + (SB.World3 && SB.World3.hold ? SB.World3.hold(game) : 0); }; // 4.36: a raft home with ark cores holds more
+  H.chest = function (game) { var s = st(game), n = H.slots(game); while (s.chest.length < n) s.chest.push(null); return s.chest; };
   function stackOf(k) { return Sv().stackOf ? Sv().stackOf(k) : 8; }
   // put n of a kind into the chest; returns how many did not fit
   H.put = function (game, kind, n, w) {
