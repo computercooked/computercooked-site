@@ -6,12 +6,16 @@ var B=(SB.Brain={});
 var NB=SB.N_IN,NO=SB.N_VERBS,ND=SB.N_DRIVES,NN=SB.N_NOUNS,NA=ND+1;
 var IN=SB.IN;
 var NTR=4,WMAX=4,AMAX=3,W1INIT=0.3,BSTEP=0.05;
+var NX=4,PAT=0,TAP=1,BUMP=2,SCENT=3;
+B.SENSES=["a pat","a tap","a bump","smells food"];
 var exp=Math.exp,abs=Math.abs;
 function tanh(s){return s>3?1:s<-3?-1:s*(27+s*s)/(27+9*s*s);}
 function alloc(hidden,nMem){
-var nIn=NB+nMem,sizes=[nIn].concat(hidden).concat([NO]);
+var nIn=NB+nMem+NX,sizes=[nIn].concat(hidden).concat([NO]);
 var b={
-nIn:nIn,nMem:nMem,nOut:NO,hidden:hidden.slice(),sizes:sizes,nHid:hidden[0],
+nIn:nIn,nMem:nMem,nX:NX,nOut:NO,hidden:hidden.slice(),sizes:sizes,nHid:hidden[0],
+sx:new Float32Array(NX),fire:null,S:null,T:null,tract:0,t0:0,t1:0,
+trK:0.5,forget:0,pruneAt:0.002,naps:0,pruned:0,regrown:0,seedP:12345+nIn,
 W:[],Bs:[],dW:[],
 acts:[],_acts:[],_g:[],
 att:new Float32Array(NN*NA),cmd:new Float32Array(NO*NO),nv:new Float32Array(NN*NO),
@@ -40,7 +44,22 @@ b.temp=0.08+0.27*v("curiosity",0.5);
 b.attnLr=0.02+0.1*v("attnLearn",0.5);
 b.instinct=v("instinctStrength",0.5);
 b.memKeep=0.3+0.6*v("memory",0.5);
+var Ge=SB.Genome;
+b.trK=0.5+(Ge.rule(genome,"trace")-0.5)*0.4;
+b.forget=Ge.rule(genome,"forget")*0.3;
+b.pruneAt=0.002+0.03*Ge.rule(genome,"prune");
+setTract(b,Ge.tract(genome));
 }
+function setTract(b,t){
+var o=NB+b.nMem;
+b.tract=t;
+b.t0=t===1?IN.DRIVE0:t===2?IN.NOUN0:t===3?IN.HEARD0:o;
+b.t1=t===1?ND:t===2?IN.NOUN0+NN:t===3?IN.HEARDNOUN+1:o+NX;
+if(!t)b.T=null;else if(!b.T)b.T=new Float32Array(NO*b.nIn);
+}
+B.setTract=setTract;
+B.retune=params;
+function settle(b){b.S=b.W.map(function(w){return Float32Array.from(w);});return b;}
 B.create=function(genome,rng){
 var hidden=SB.Genome.layers(genome),nMem=SB.Genome.memUnits(genome);
 var b=alloc(hidden,nMem);
@@ -49,12 +68,14 @@ var L=b.W.length;
 for(var l=0;l<L;l++){
 var W=b.W[l],fanIn=b.sizes[l],last=l===L-1;
 var sc=last?0.1:l===0?W1INIT:1/Math.sqrt(fanIn);
-for(var i=0;i<W.length;i++)W[i]=(rng()*2-1)*sc;
+var i;
+if(l===0){for(var j=0,nOld=NB+b.nMem;j<b.sizes[1];j++)for(i=0;i<nOld;i++)W[j*b.nIn+i]=(rng()*2-1)*sc;}
+else for(i=0;i<W.length;i++)W[i]=(rng()*2-1)*sc;
 var bs=b.Bs[l];
 for(i=0;i<bs.length;i++)bs[i]=last?-0.02:(rng()*2-1)*0.1;
 }
 if(genome&&genome.instincts&&genome.instincts.length)B.dream(b,genome.instincts,500+40*(L-1),rng);
-return b;
+return settle(b);
 };
 B.input=function(b,ctx){
 var x=b.x,i;
@@ -73,6 +94,11 @@ x[IN.RAIN]=ctx.rain?1:0;
 x[IN.HOME]=ctx.home?1:0;
 x[IN.BIAS]=1;
 for(i=0;i<b.nMem;i++)x[NB+i]=b.mem[i];
+var o=NB+b.nMem,s=b.sx;
+for(i=0;i<NX;i++)x[o+i]=s[i];
+for(i=0;i<SCENT;i++)s[i]=s[i]<0.1?0:s[i]*0.5;
+if(b.fire){x[b.fire.i]=b.fire.v;if(--b.fire.n<=0)b.fire=null;}
+if(!hooked&&SB.Ext){hooked=true;SB.Ext.on("tick",function(game,dt){if((smT-=dt)<=0){smT=1;B.smell(game);}});}
 return x;
 };
 var nzI=new Int32Array(128),nzV=new Float32Array(128);
@@ -107,6 +133,10 @@ for(i=0;i<NN;i++)if(x[IN.NOUN0+i]>0.5){n=i;break;}
 for(i=0;i<NO;i++)if(x[IN.HEARD0+i]>0.5){hv=i;break;}
 if(n>=0)for(i=0;i<NO;i++)q[i]+=b.nv[n*NO+i];
 if(hv>=0)for(i=0;i<NO;i++)q[i]+=b.cmd[hv*NO+i];
+if(b.T){
+var T=b.T,nI=b.nIn;
+for(i=b.t0;i<b.t1;i++){var xi=x[i];if(xi!==0)for(var a=0;a<NO;a++)q[a]+=T[a*nI+i]*xi;}
+}
 }
 function sample(b,vals,n,temp,mask,rng){
 if(b._p.length<n)b._p=new Float32Array(n*2);
@@ -126,7 +156,7 @@ if(bias)for(var k=0;k<NO;k++)b.q[k]+=bias[k];
 tables(b,b.x,b.q);
 var a=sample(b,b.q,NO,b.temp*(tempScale||1),mask,rng);
 if(a<0)a=0;
-for(var t=0;t<NTR;t++)b.traces[t].e*=0.5;
+for(var t=0;t<NTR;t++)b.traces[t].e*=b.trK;
 var tr=b.traces[b.traceHead];
 b.traceHead=(b.traceHead+1)%NTR;
 tr.x.set(b.x);
@@ -186,7 +216,10 @@ for(i=0;i<sizes[l-1];i++)xx+=inA[i]*inA[i];
 for(j=0;j<sizes[l];j++)nrm+=gg[j]*gg[j]*xx;
 }
 }
+var T=b.T,ti,tk=a*b.nIn;
+if(T)for(ti=b.t0;ti<b.t1;ti++)if(x[ti]!==0){err-=T[tk+ti]*x[ti];nrm+=x[ti]*x[ti];}
 var step=frac*err/nrm;
+if(T)for(ti=b.t0;ti<b.t1;ti++)if(x[ti]!==0){var tw=T[tk+ti]+step*x[ti];T[tk+ti]=tw>WMAX?WMAX:tw<-WMAX?-WMAX:tw;}
 for(j=0;j<nH;j++){
 var dw=step*A[L-1][j],nw=Wo[p+j]+dw;
 Wo[p+j]=nw>WMAX?WMAX:nw<-WMAX?-WMAX:nw;
@@ -246,8 +279,55 @@ if(!x||x.length!==b.nIn||a<0||a>=NO)return 0;
 reward=reward>1?1:reward<-1?-1:reward||0;
 var err=train(b,x,a,reward,frac==null?b.lr*0.35:frac,true);
 b.updates++;
+if(++b.naps%6===0)B.nap(b,x);
 return err;
 };
+B.nap=function(b,x){
+if(!b.S)settle(b);
+var l,i,W,S,f=b.forget,d;
+for(l=0;l<b.W.length;l++){
+W=b.W[l];S=b.S[l];
+for(i=0;i<W.length;i++){d=W[i]-S[i];if(d!==0){if(f)W[i]-=d*f;S[i]+=(W[i]-S[i])*0.5;}}
+}
+W=b.W[0];S=b.S[0];
+var nI=b.nIn,thr=b.pruneAt,cut=0,nz=0,w;
+if(x)for(i=0;i<nI;i++)if(x[i]!==0&&i!==IN.BIAS)nzI[nz++]=i;
+for(i=0;i<W.length&&cut<12;i++){
+w=W[i];
+if(w===0||w>=thr||w<=-thr)continue;
+W[i]=S[i]=0;cut++;b.pruned++;
+if(!nz)continue;
+b.seedP=(Math.imul(b.seedP,1664525)+1013904223)>>>0;
+var k=i-(i%nI)+nzI[(b.seedP>>>8)%nz];
+if(W[k]<0.02&&W[k]>-0.02){W[k]=S[k]=W[k]<0||(W[k]===0&&b.seedP&1)?-0.02:0.02;b.regrown++;}
+}
+};
+B.shortTerm=function(b){
+if(!b.S)return 0;
+var d=0,t=0;
+for(var l=0;l<b.W.length;l++)for(var W=b.W[l],S=b.S[l],i=0;i<W.length;i++){d+=abs(W[i]-S[i]);t+=abs(W[i]);}
+return t?d/t:0;
+};
+var hooked=false,smT=0,smP=0;
+B.sense=function(b,k,v){if(b&&b.sx&&k>=0&&k<NX&&v>b.sx[k])b.sx[k]=v>1?1:v;};
+function isFood(o){return o.noun==="food"&&o.heldBy==null&&!(o.data&&o.data.rotten);}
+B.smell=function(game,all){
+var cs=game&&game.creatures,Wd=SB.World;
+if(!cs||!Wd||!Wd.nearestItem||!game.world)return;
+for(var i=all?0:smP;i<cs.length;i+=all?1:4){
+var c=cs[i];
+if(!c||!c.alive||!c.brain||!c.brain.sx||c.species!=="smol")continue;
+var g=c.genome&&c.genome.genes,R=10+12*(g&&g.senses!=null?g.senses:0.3);
+var it=Wd.nearestItem(game.world,c.x,c.z,R,isFood);
+c.brain.sx[SCENT]=it?Math.max(0,1-SB.dist(it.x,it.z,c.x,c.z)/R):0;
+}
+smP=(smP+1)%4;
+};
+if(SB.bus){
+SB.bus.on("tickle",function(e){if(e&&e.c)B.sense(e.c.brain,PAT,1);});
+SB.bus.on("tap",function(e){if(e&&e.c)B.sense(e.c.brain,TAP,1);});
+SB.bus.on("hit",function(e){if(e&&e.target)B.sense(e.target.brain,BUMP,1);});
+}
 function heardVerb(x){for(var i=0;i<NO;i++)if(x[IN.HEARD0+i]>0.5)return i;return-1;}
 B.teach=function(b,x,a,delta,boost){
 fwd(b,x,b._acts);
@@ -327,7 +407,65 @@ for(i=0;i<SB.GOOD.length;i++){r=SB.GOOD[i];if(probe(b,SB.D[r.drive],SB.N[r.noun]
 for(i=0;i<SB.BAD.length;i++){r=SB.BAD[i];if(probe(b,SB.D[r.drive],SB.N[r.noun])!==SB.V[r.verb])bad++;}
 return{good:g/SB.GOOD.length,bad:bad/SB.BAD.length};
 };
-B.inputLabel=function(b,i){return i<NB?SB.INPUT_LABELS[i]:"memory "+(i-NB+1);};
+B.inputLabel=function(b,i){return i<NB?SB.INPUT_LABELS[i]:i<NB+b.nMem?"memory "+(i-NB+1):B.SENSES[i-NB-b.nMem];};
+B.lobes=function(b,genome){
+var g=(genome&&genome.genes)||{},o=NB+b.nMem,L=[],nc=b.hidden.length+2,i;
+function v(n){return g[n]!=null?g[n]:0.3;}
+function act(A,from,to){var s=0;for(var k=from;k<to;k++)s+=abs(A[k]);return to>from?Math.min(1,s/(to-from)):0;}
+function add(id,name,col,n,a,size){L.push({id:id,name:name,col:col,n:n,act:a,size:0.4+0.6*SB.clamp01(size)});}
+add("drive","drive lobe",0,ND,act(b.x,0,ND),v("appetite"));
+add("vision","vision lobe",0,NN,act(b.x,IN.NOUN0,IN.NOUN0+NN)*8,v("senses"));
+add("hearing","hearing lobe",0,NO+1,act(b.x,IN.HEARD0,IN.HEARDNOUN+1)*8,v("social"));
+add("sense","general sense lobe",0,IN.BIAS-IN.NEAR,act(b.x,IN.NEAR,IN.BIAS),v("curiosity"));
+add("touch","touch and smell lobe",0,NX,act(b.x,o,o+NX),v("senses")*0.8);
+if(b.nMem)add("memory","memory lobe",0,b.nMem,act(b.x,NB,o),v("recall"));
+var HN=["concept lobe","thinking lobe","planning lobe"],HG=["cortex","layers","planning"];
+for(i=0;i<b.hidden.length;i++)add("hidden"+(i+1),HN[i]||"deep lobe",i+1,b.hidden[i],act(b.acts[i+1],0,b.hidden[i]),v(HG[i]||"cortex"));
+add("decision","decision lobe",nc-1,NO,act(b.q,0,NO),v("planning"));
+add("word","word lobe",nc-1,NN+NO,act(b.cmd,0,b.cmd.length)*4+act(b.nv,0,b.nv.length)*4,v("social")*0.7);
+add("attention","attention lobe",nc-1,NN,act(b.att,0,b.att.length)*4,v("attnLearn")*0.6);
+if(b.T)add("tract",SB.Genome.TRACTS[b.tract]+" tract",nc-1,b.t1-b.t0,act(b.T,0,b.T.length)*20,0.2);
+for(var c=0;c<nc;c++){
+var col=L.filter(function(x){return x.col===c;}).sort(function(p,r){return r.size-p.size;});
+for(i=0;i<col.length;i++){col[i].x=(c+0.5)/nc;col[i].y=(i+0.5)/col.length;}
+}
+return L;
+};
+B.situations=function(b,n){
+var W=b.W[0],nI=b.nIn,nH=b.sizes[1],h=b.acts[1],L=b.W.length,out=[],order=[],j,i,l,k;
+for(j=0;j<nH;j++)order.push(j);
+order.sort(function(p,r){return abs(h[r])-abs(h[p])||p-r;});
+for(var c=0;c<order.length&&out.length<(n||4);c++){
+j=order[c];
+var o=j*nI,i1=-1,i2=-1,w1=0,w2=0;
+for(i=0;i<nI;i++){
+if(i===IN.BIAS)continue;
+var w=W[o+i];
+if(w>w1){i2=i1;w2=w1;i1=i;w1=w;}else if(w>w2){i2=i;w2=w;}
+}
+if(i1<0)continue;
+var cur=[1],idx=[j];
+for(l=1;l<L;l++){
+var Wl=b.W[l],nIl=b.sizes[l],nOl=b.sizes[l+1],nx=[],ni=[];
+for(k=0;k<nOl;k++){var s=0;for(i=0;i<cur.length;i++)s+=Wl[k*nIl+idx[i]]*cur[i];nx.push(s);ni.push(k);}
+cur=nx;idx=ni;
+}
+var bv=1,sg=h[j]<0?-1:1;
+for(k=1;k<NO;k++)if(cur[k]*sg>cur[bv]*sg)bv=k;
+out.push({j:j,act:h[j],when:i2>=0?[B.inputLabel(b,i1),B.inputLabel(b,i2)]:[B.inputLabel(b,i1)],verb:bv,pull:cur[bv]*sg});
+}
+return out;
+};
+B.poke=function(b,i,v){
+var x=b._x,k,q0=new Float32Array(NO),bi=0,bd=-1e9;
+for(k=0;k<b.nIn;k++)x[k]=0;
+x[IN.BIAS]=1;
+for(k=0;k<NO;k++)q0[k]=B.qOf(b,x,k);
+x[i]=v==null?1:v;
+for(k=0;k<NO;k++){var d=B.qOf(b,x,k)-q0[k];if(d>bd){bd=d;bi=k;}}
+return{verb:bi,d:bd,q:B.qOf(b,x,bi)};
+};
+B.fire=function(b,i,v,n){if(i>=0&&i<b.nIn)b.fire={i:i,v:v==null?1:v,n:n||3};};
 B.explain=function(b,verb){
 var x=b.x,L=b.W.length,A=b._acts,Gs=b._g,sizes=b.sizes,out=[],i,j,l;
 fwd(b,x,A);
@@ -373,7 +511,8 @@ return arr;
 B.serialize=function(b){
 return{
 v:2,hidden:b.hidden,nMem:b.nMem,lr:b.lr,temp:b.temp,attnLr:b.attnLr,updates:b.updates,
-W:b.W.map(packArr),Bs:b.Bs.map(packArr),att:packArr(b.att),cmd:packArr(b.cmd),nv:packArr(b.nv),mem:packArr(b.mem)
+W:b.W.map(packArr),Bs:b.Bs.map(packArr),att:packArr(b.att),cmd:packArr(b.cmd),nv:packArr(b.nv),mem:packArr(b.mem),
+nx:b.nX,T:b.T?packArr(b.T):null,pr:[b.pruned,b.regrown]
 };
 };
 function v1Input(i){
@@ -389,9 +528,18 @@ var b=alloc(o.hidden&&o.hidden.length?o.hidden:SB.Genome.layers(genome),o.nMem||
 params(b,genome);
 if(o.lr!=null)b.lr=o.lr;if(o.temp!=null)b.temp=o.temp;if(o.attnLr!=null)b.attnLr=o.attnLr;
 b.updates=o.updates||0;
-for(var l=0;l<b.W.length;l++){unpackArr(o.W&&o.W[l],b.W[l]);unpackArr(o.Bs&&o.Bs[l],b.Bs[l]);}
+var nWas=NB+b.nMem+(o.nx||0),n1=b.sizes[1];
+for(var l=0;l<b.W.length;l++){
+if(l===0&&nWas!==b.nIn){
+var old=unpackArr(o.W&&o.W[0],new Float32Array(n1*nWas));
+for(var hj=0;hj<n1;hj++)for(var hi=0;hi<nWas&&hi<b.nIn;hi++)b.W[0][hj*b.nIn+hi]=old[hj*nWas+hi];
+}else unpackArr(o.W&&o.W[l],b.W[l]);
+unpackArr(o.Bs&&o.Bs[l],b.Bs[l]);
+}
 unpackArr(o.att,b.att);unpackArr(o.cmd,b.cmd);unpackArr(o.nv,b.nv);unpackArr(o.mem,b.mem);
-return b;
+if(b.T&&o.T&&nWas===b.nIn)unpackArr(o.T,b.T);
+if(o.pr){b.pruned=o.pr[0]||0;b.regrown=o.pr[1]||0;}
+return settle(b);
 }
 var nHid=o.nHid||12;
 var nb=alloc([nHid],0);
@@ -402,7 +550,7 @@ var r=rng||SB.rng(nHid*31+7),i,j;
 var w1=unpackArr(o.w1,new Float32Array(nHid*45)),b1=unpackArr(o.b1,new Float32Array(nHid));
 var w2=unpackArr(o.w2,new Float32Array(12*nHid)),b2=unpackArr(o.b2,new Float32Array(12));
 var W0=nb.W[0],NI2=nb.nIn;
-for(i=0;i<W0.length;i++)W0[i]=(r()*2-1)*0.05;
+for(j=0;j<nHid;j++)for(i=0;i<NB;i++)W0[j*NI2+i]=(r()*2-1)*0.05;
 for(j=0;j<nHid;j++)for(i=0;i<45;i++){var ni=v1Input(i);if(ni>=0)W0[j*NI2+ni]=w1[j*45+i];}
 nb.Bs[0].set(b1);
 var W1=nb.W[1];
@@ -417,13 +565,16 @@ for(i=0;i<NA;i++)nb.att[n2*NA+i]=att1[n1*NA+i];
 for(i=0;i<12;i++)nb.nv[n2*NO+i]=nv1[n1*12+i];
 }
 for(j=0;j<12;j++)for(i=0;i<12;i++)nb.cmd[j*NO+i]=cmd1[j*12+i];
-return nb;
+return settle(nb);
 };
 B.clone=function(b){
 var c=alloc(b.hidden,b.nMem);
 for(var l=0;l<b.W.length;l++){c.W[l].set(b.W[l]);c.Bs[l].set(b.Bs[l]);}
 c.att.set(b.att);c.cmd.set(b.cmd);c.nv.set(b.nv);c.mem.set(b.mem);
 c.lr=b.lr;c.temp=b.temp;c.attnLr=b.attnLr;c.updates=b.updates;c.instinct=b.instinct;c.memKeep=b.memKeep;
-return c;
+c.trK=b.trK;c.forget=b.forget;c.pruneAt=b.pruneAt;c.pruned=b.pruned;c.regrown=b.regrown;
+setTract(c,b.tract);
+if(b.T)c.T.set(b.T);
+return settle(c);
 };
 })();
