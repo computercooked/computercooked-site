@@ -16,11 +16,11 @@
   var SB = window.SB = window.SB || {};
   var B = SB.Bosses = {};
   B.LIST = [
-    { id: "gloom", name: "Gloom", icon: "🌑", tier: 2, tough: 2.3, armour: 0.5, dmg: 0.2, speed: 0.8, size: 1.5, embers: 2, sparks: 15,
+    { id: "gloom", name: "Gloom", icon: "🌑", tier: 2, tough: 2.3, armour: 0.5, dmg: 0.15, lock: 0.7, speed: 0.8, size: 1.5, embers: 2, sparks: 15,
       needs: "a club, a spear or a stone tool", line: "the first of the three captains. slow, and not as tough as it looks." },
-    { id: "murk", name: "Murk", icon: "🌘", tier: 3, tough: 5, armour: 1, dmg: 0.22, speed: 0.9, size: 1.8, embers: 3, sparks: 25,
+    { id: "murk", name: "Murk", icon: "🌘", tier: 3, tough: 5, armour: 1, dmg: 0.22, lock: 0.55, speed: 0.9, size: 1.8, embers: 3, sparks: 25,
       needs: "a club, a spear or an axe (a rock-on-a-stick bounces off)", line: "the second captain. it has eaten a lot of campfires." },
-    { id: "night", name: "the Long Night", icon: "🌚", tier: 4, tough: 9, armour: 1.25, dmg: 0.25, speed: 1, size: 2.2, embers: 5, sparks: 40,
+    { id: "night", name: "the Long Night", icon: "🌚", tier: 4, tough: 9, armour: 1.25, dmg: 0.25, lock: 0.45, speed: 1, size: 2.2, embers: 5, sparks: 40,
       needs: "iron: an iron axe or a sword", line: "the one that caught the ark. nothing softer than iron marks it." }
   ];
   B.BY = {}; B.LIST.forEach(function (d, i) { d.i = i; B.BY[d.id] = d; });
@@ -84,7 +84,7 @@
     var g = SB.Game.spawnGrump(game, e.x, e.z);
     g.name = d.name; g.boss = d.id; g.tough = d.tough; g.whacked = e.hurt || 0;
     if (g.look) g.look.size = (g.look.size || 1) * d.size;
-    g.scout = { who: null, t: 0, hitT: 0, hold: true, speedK: d.speed, dmg: d.dmg, boss: d.id };
+    g.scout = { who: null, t: 0, hitT: 0, hold: true, speedK: d.speed, dmg: d.dmg, lock: d.lock, boss: d.id };
     e.cid = g.id;
     return g;
   }
@@ -105,7 +105,8 @@
       if (e.beaten || !B.awake(game, d)) return;
       var g = B.creature(game, d) || spawn(game, d);
       var dueling = !!(me && P.scout && P.scout() === g);
-      if (!g.scout || g.scout.done) g.scout = { who: null, t: 0, hitT: 0, hold: true, speedK: d.speed, dmg: d.dmg, boss: d.id };
+      if (g.scout) { g.scout.lock = d.lock; g.scout.dmg = d.dmg; } // (a captain from an older save learns the new numbers)
+      if (!g.scout || g.scout.done) g.scout = { who: null, t: 0, hitT: 0, hold: true, speedK: d.speed, dmg: d.dmg, lock: d.lock, boss: d.id };
       if (!dueling) { // at home, waiting, mending
         var who = anyone(game, e.x, e.z);
         g.scout.who = who ? who.id : null; g.scout.hold = true;

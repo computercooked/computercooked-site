@@ -123,6 +123,7 @@
     if (SB.World.nearestFire(w, c.x, c.z, NC.SAFE + 2)) return "🔥 into the light! the grump won't follow.";
     if (SB.Surv && SB.Surv.has && SB.Surv.has(c, "torch")) return "🔥 you held up your torch: the grump turned tail!";
     if (SB.dist(c.x, c.z, hm.x, hm.z) < 5) return "🏠 home to the nest! the grump won't come this close.";
+    if (SB.Home && SB.Home.has(game, "hearth") && SB.dist(c.x, c.z, SB.Home.get(game).x, SB.Home.get(game).z) < SB.Home.SAFE) return "🔥 home to your own hearth! the grump won't come near it."; // 4.30
     return "";
   };
 

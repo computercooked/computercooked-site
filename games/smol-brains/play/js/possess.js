@@ -18,6 +18,7 @@
 
   P.COST = 3;           // sparks, like a small miracle
   P.FOV = 70 * Math.PI / 180;
+  P.BOSS_REACH = 0.9;   // extra swing reach against a grump captain (walked up to one, its body stops you right at the edge of a normal swing)
   P.REACH = 4.2;        // how far away you can point at something and act on it
   P.LEARN_RATE = 0.15;  // how hard each of your choices pulls on the brain
   P.SWING = 0.42;       // seconds between swings
@@ -523,6 +524,10 @@
         if (hk && Surv.edible(hk) && K[hk].raw && d.lit) o.place = op("cook your " + kl(hk), function () { return cook(hk); }, V.make);
       } else if (st.kind === "hut" || st.kind === "leanto" || st.kind === "house") {
         o.ctx = op("sleep in the " + nm, function () { return sleepAt(t); }, V.sleep);
+        if (SB.Home) { // 4.30: a home of your own
+          if (SB.Home.is(game, st)) { o.use = op("open your home", function () { if (H()) H().openBag("home"); return true; }, null); o.place = o.ctx; }
+          else if (SB.Home.canClaim(game, st)) o.place = op(SB.Home.get(game) ? "move your home here" : "make this your home", function () { var ok = SB.Home.claim(game, st, c); if (ok) { audio("achievement", 0.7); say("🏠 this " + nm + " is your home now. open it to fit it out: a bed, a chest, a hearth, a berry patch"); } return ok; }, null);
+        }
       } else if (st.kind === "farm") {
         o.use = tier >= 2 ? op(d.grow > 0.6 ? "harvest" : "check the crop", function () { return creatureAct(V.use, t); }, V.use) : null;
       } else if (st.kind === "spire" && SB.Game.beaconWaiting && SB.Game.beaconWaiting(game) === st) { // 4.28: the ending, by your own hand
@@ -610,7 +615,9 @@
   function sit() { var C = SB.Creature; C.startAction(S.c, S.game, V.idle, null); S.c.action.dur = 8; C.emote(S.c, "happy", 1.5); return true; }
   function sleepAt(t) {
     var c = S.c, ch = c.chem;
+    var r0 = SB.Creature.resolve(S.game, t), bed = !!(SB.Home && r0 && SB.Home.is(S.game, r0.ref) && SB.Home.has(S.game, "bed")); // 4.30
     if (ch.sleepy < 0.12 && ch.tired < 0.2 && !S.game.world.night) { say("not sleepy yet. come back tonight"); return false; }
+    if (bed) { SB.Creature.startAction(c, S.game, V.sleep, t); say("🛏 your own bed. zzz… (move to wake up)"); return true; }
     SB.Creature.startAction(c, S.game, V.sleep, t);
     say("zzz… (move to wake up)");
     return true;
@@ -627,7 +634,7 @@
     var c = S.c, game = S.game, Surv = Sv(), hk = Surv.heldKind(c), pw = Surv.power(hk && K[hk] && K[hk].tool ? hk : "paws");
     if (S.swingT > 0) return false;
     swingAnim(); tired(0.03);
-    if (SB.dist(o.x, o.z, c.x, c.z) > SB.Creature.radius(c) + SB.Creature.radius(o) + 1.2) { say("too far: get closer"); return false; }
+    if (SB.dist(o.x, o.z, c.x, c.z) > SB.Creature.radius(c) + SB.Creature.radius(o) + 1.2 + (o.boss ? P.BOSS_REACH : 0)) { say("too far: get closer"); return false; } // 4.30: a captain's own bulk kept you at arm's length
     SB.Creature._hitFx(c, o, game);
     // weapons from your inventory hurt more (club and spear as the AI's do; a rock-on-a-stick, an axe, a pick a bit)
     if (o.species === "grump" && o.boss && o.alive && SB.Bosses) { // 4.26: a captain's hide turns anything too soft
@@ -799,6 +806,8 @@
     });
     var n = w.T.nest, dn = n ? SB.dist(n.x, n.z, c.x, c.z) : 1e9;
     if (n && (dn < bd || !best)) { best = n; bd = dn; }
+    var hm = SB.Home ? SB.Home.get(game) : null, dh = hm ? SB.dist(hm.x, hm.z, c.x, c.z) : 1e9; // 4.30: your own home, unless another roof is much nearer
+    if (hm && dh < bd + 25) return { x: hm.x, z: hm.z, y: SB.World.groundY(w, hm.x, hm.z) + 1.4, d: dh, kind: "home" };
     return best ? { x: best.x, z: best.z, y: SB.World.groundY(w, best.x, best.z) + 1.4, d: bd, kind: best === n ? "nest" : best.kind } : null;
   };
   P.nightGoal = function () { return S ? S.night : null; };

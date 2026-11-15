@@ -711,6 +711,31 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.78 What v4.30.0 changed: a home of your own, and captain fights that work on foot
+
+Three things were still open after the phone pass: a home you make by hand, the bag screen, and a captain fight played with real walking instead of a script that teleports. All three are in this release.
+
+**A home of your own** (`home.js`, the Sims and Stardew side)
+- **The first hut, house or lean-to you finish with your own hands is your home.** Or look at any finished one in a body and choose "make this your home" (or "move your home here": what's in it comes with you).
+- **You fit it out by hand, at the door, out of your bag.** Four things, each of which does something:
+  - a bed of leaves (4 leaves): wake at home at dawn with every heart back, and sleep there whenever it's dark;
+  - a chest (4 sticks, a vine): twelve slots that stay at home, for you and for whichever smol you are next;
+  - a hearth (4 rocks, 2 sticks): a grump hunting you gives up at your door, and in a night chase home counts as light;
+  - a berry patch (2 seeds): berries waiting every morning (in the chest if there is one).
+- The bag has a **home** tab: what the home has, what the next thing costs against what you carry, the chest, and what you can put away. Look at your home and the button is "open your home".
+- At night the marker leads to your own home unless another roof is much nearer. The goals list asks for a home once the tribe has hands, then for the next thing it lacks.
+- It lives with the island, not the smol: an heir, or any smol you step into, finds the same home and the same chest.
+
+**The bag, tidied**
+- It said the same thing three ways and told a blob about bags it can't have. One line of how-to, shown only to a body it applies to; the heading is "Pip's mouth", "hands" or "bag" as the case is.
+
+**Captain fights, walked** (found by fighting Gloom with real movement: forward, turn, swing)
+- **The starting weapon could not reach.** A captain's own body stops you about 2.1 from its middle and a swing reached 2.15, so most swings were "too far". Lost twice, landing 0 and then 4 hits against 4 bites. A swing at a captain now reaches 0.9 further.
+- **No step could dodge.** The pounce tracked you until the frame it jumped, and a smol walks too slowly to leave its reach in the 1.5 s wind-up: backing away and side-stepping were both bitten every time. A captain now **commits**: in the last beat of its wind-up it fixes on where you stand and jumps there, so one step aside in that beat makes it miss, stumble, and take double hits. The beat is 0.7 s for Gloom, 0.55 for Murk and 0.45 for the Long Night, so each asks for a later, sharper step. Ordinary night chases are unchanged.
+- Gloom's bite is a little softer (it is the first boss).
+- After the change, on foot with a rock-on-a-stick and stepping aside: Gloom beaten in about 30 seconds with no hearts lost. Standing still and trading blows it still wins against the starting weapon, which is right: bring a club, or learn the step.
+- Tests: `home.test.js` (new, 34 checks), `duel430.test.js` (new, 10 checks).
+
 ## 0.77 What v4.29.0 changed: the whole road on a phone
 
 The game was played at phone size (375 wide, then 340 and 320) from a new island through all three captains to lighting the beacon and the ending film. The fights, the lairs and the ending all worked; the screen around them did not.
