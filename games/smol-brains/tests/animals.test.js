@@ -1,0 +1,356 @@
+// 4.34: animals. Wild cluckers, woollies, lopers and glowbugs; taming with food, patience and tickles; pets that
+// follow, find, warn and fight; pens that give eggs, milk and young; riding a loper; and a grump whose light comes back.
+// node games/smol-brains/tests/animals.test.js
+"use strict";
+const fs = require("fs"), path = require("path"), vm = require("vm");
+const load = require("./_load.js"), seeded = load.seeded;
+let failed = 0, count = 0;
+function check(name, ok, extra) { count++; console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
+const js = f => fs.readFileSync(path.join(__dirname, "..", "play", "js", f), "utf8");
+
+seeded(4340, () => {
+  const ctx = load();
+  ["meshes.js", "ext.js", "bosses.js", "body.js", "possess.js", "home.js", "loot.js", "animals.js"].forEach(f => { if (!(f === "bosses.js" && ctx.SB.Bosses) && fs.existsSync(path.join(__dirname, "..", "play", "js", f))) vm.runInContext(js(f), ctx, { filename: f }); });
+  const SB = ctx.SB, P = SB.Possess, A = SB.Animals, Surv = SB.Surv || SB.Survival, W = SB.World, K = SB.KINDS; P.headless = true;
+  const game = SB.Game.newGame(133); SB.Game.current = game; game.tutorial.done = true; game.headless = true;
+  SB.Game.hatch(game, game.world.items.find(o => o.data && o.data.pod));
+  const me = SB.Game.smols(game)[0]; me.tier = 3; me.stage = 3;
+  const ev = []; ["tamed", "animalNip", "petWarn", "petFight", "petFound", "grumpChased", "grumpCaught", "grumpTurned", "grumpFlicker", "penBuilt", "penned", "animalBorn", "animalGrew", "animalLeft", "mounted", "thrown", "fetched", "animalsDawn", "goldBug", "strangerWon", "penSpooked"].forEach(n => SB.bus.on(n, d => ev.push(n)));
+  const step = (sec, dt) => { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) SB.Game.step(game, dt); };
+  const tick = (sec, dt) => { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) A.tick(game, dt); };
+  const ref = o => ({ type: o.type === "struct" ? "struct" : o.type === "item" ? "item" : "creature", id: o.id });
+  const opts = o => P.options(game, me, o ? ref(o) : null);
+  const hold = (k, n) => { const v = Surv.inv(me); for (let i = 0; i < v.s.length; i++) v.s[i] = null; Surv.add(me, k, n || 1); Surv.select(me, v.s.findIndex(x => x && x.k === k)); };
+  const give = (k, n) => Surv.add(me, k, n || 1);
+  const flat = (() => { // a dry, open spot to work on
+    const s = game.world.T.spawn; for (let r = 4; r < 40; r += 2) for (let a = 0; a < 6.28; a += 0.4) { const x = s.x + Math.sin(a) * r, z = s.z + Math.cos(a) * r; if (W.siteFree(game.world, x, z, 2.2) && W.siteFree(game.world, x + 4, z, 1) && W.siteFree(game.world, x - 4, z, 1)) return { x, z }; }
+    return { x: s.x, z: s.z };
+  })();
+  const put = (c, x, z) => { c.x = x; c.z = z; c.px = x; c.pz = z; };
+  put(me, flat.x, flat.z);
+  P.enter(game, me, { free: true });
+  step(0.3);
+
+  console.log("1. the new things exist");
+  check("cluckers, woollies and lopers are critters with coats and young", ["clucker", "clucker_blue", "clucker_gold", "woolly", "woolly_snow", "woolly_dusk", "loper", "loper_ember", "clucker_kid", "woolly_kid", "loper_kid", "hopper_kid", "glowbug"].every(k => K[k] && K[k].critter && K[k].an));
+  check("everything they like, give, find and cost is a real thing", Object.keys(A.SP).every(s => Object.keys(A.SP[s].likes).every(k => K[k]) && (A.SP[s].finds || []).every(x => K[x[0]]) && (A.SP[s].coat || []).every(x => K[x[0]]) && (!A.SP[s].daily || K[A.SP[s].daily])) && A.MAKES.every(m => K[m.out] && Object.keys(m.cost).every(k => K[k])) && Object.keys(A.PENS).every(p => SB.STRUCTS[p] && Object.keys(A.PENS[p].cost).every(k => K[k])));
+  check("eggs and milk are food, and not the kind a smol hatches from", Surv.edible("cluckegg") && Surv.edible("milk") && Surv.edible("cheese") && K.cluckegg.noun === "food" && !Surv.edible("feed"));
+  check("it plugs in through ext.js: a tab, and nothing else touched", !!SB.Ext.tabById("animals") && SB.Ext._handlers.options.indexOf(A.options) >= 0 && SB.Ext._handlers.tick.indexOf(A.tick) >= 0);
+  check("every animal, thing and pen has a model that builds", !!SB.Meshes && Object.keys(A.MESHES).length >= 30 && Object.keys(A.MESHES).every(k => { const m = SB.Meshes.itemMesh(k); return !!m && K[k]; }) && ["pen", "bigpen", "roofpen"].every(k => !!SB.Meshes.STRUCT_BUILDERS[k]()), Object.keys(A.MESHES).length + " models");
+  check("an island with none of this state is fine", (() => { delete game.quests.animals; A.tick(game, 0.1); return A.all(game).length === 0 && /no animals yet/.test(A.html(game, me)) && A.vitals(game, me).length === 0; })());
+
+  console.log("2. wild ones");
+  const cl = A.spawnWild(game, "clucker", me.x + 9, me.z, "", false);
+  check("a wild clucker is an item that hops", cl && cl.kind === "clucker" && cl.noun === "critter" && A.wildOf(cl));
+  check("you can't pocket one", !!Surv.whyNot(me, "clucker"));
+  put(me, cl.x + 2.5, cl.z); const d0 = SB.dist(me.x, me.z, cl.x, cl.z);
+  step(4);
+  check("walk at it and it runs", SB.dist(me.x, me.z, cl.x, cl.z) > d0 + 1.5, d0.toFixed(1) + " -> " + SB.dist(me.x, me.z, cl.x, cl.z).toFixed(1));
+  check("looking at it says what it likes", /watch the clucker/.test(opts(cl).pick.label) && (opts(cl).pick.go(), /grain/.test(A.last || P.state().lastSay)));
+  hold("grain", 6);
+  put(me, cl.x + 6, cl.z); const d1 = SB.dist(me.x, me.z, cl.x, cl.z);
+  step(5);
+  check("hold out grain and it comes to you", SB.dist(me.x, me.z, cl.x, cl.z) < d1 - 1.5, d1.toFixed(1) + " -> " + SB.dist(me.x, me.z, cl.x, cl.z).toFixed(1));
+  const herd = [0, 1, 2].map(i => A.spawnWild(game, "woolly", flat.x + 30 + i, flat.z + 20, "", false));
+  A.sync(game);
+  const far = { x: herd[0].x - 3, z: herd[0].z };
+  hold("spear", 1);
+  put(me, far.x, far.z);
+  const before = herd.map(o => ({ x: o.x, z: o.z }));
+  const hr = seeded(7, () => A.hunt(game, me, herd[0]));
+  step(2.5);
+  check("spear at one woolly and the whole herd bolts", herd.filter(o => !o.gone).every((o, i) => SB.dist(o.x, o.z, before[herd.indexOf(o)].x, before[herd.indexOf(o)].z) > 2) && /spear the woolly/.test((opts(herd[1]).use || {}).label || ""), hr.msg);
+  const lp0 = A.spawnWild(game, "loper", me.x + 2, me.z, "", false);
+  let kicked = null; for (let i = 0; i < 40 && !kicked; i++) { const r = seeded(100 + i, () => A.hunt(game, me, lp0)); if (r.kick) kicked = r; if (lp0.gone) break; lp0.x = me.x + 2; lp0.z = me.z; }
+  check("a loper kicks back when you miss", !!kicked || lp0.gone, kicked ? kicked.msg : "it was caught first");
+  if (!lp0.gone) W.remove(game.world, lp0);
+  herd.forEach(o => { if (!o.gone) W.remove(game.world, o); });
+  game.headless = false; A.tick(game, 0.1);
+  let made = 0; for (let i = 0; i < 60; i++) { const n0 = game.world.items.length; A.populate(game); made += game.world.items.length - n0; A.sync(game); }
+  game.headless = true;
+  const wildNow = game.world.items.filter(o => K[o.kind].an && !o.data.an);
+  check("the island fills up with them by itself, up to a cap", made > 0 && wildNow.filter(o => A.speciesOf(o.kind) === "clucker").length <= A.CAP.clucker + 1 && wildNow.filter(o => A.speciesOf(o.kind) === "loper").length <= A.CAP.loper, made + " came");
+  check("glowbugs only at night", !wildNow.some(o => o.kind === "glowbug") === !game.world.night);
+  wildNow.forEach(o => { if (o !== cl) W.remove(game.world, o); });
+  A.sync(game);
+
+  console.log("3. taming: food, patience, tickles");
+  put(me, cl.x + 1.5, cl.z);
+  hold("berry", 1); hold("stone", 1);
+  check("the wrong thing in your paw offers nothing", !opts(cl).place || !/offer/.test(opts(cl).place.label));
+  check("no tickling a wild thing that doesn't know you", !A.tickle(game, me, cl).ok);
+  hold("grain", 8);
+  check("the button offers your grain", /offer your grain to the clucker/.test(opts(cl).place.label));
+  const o1 = seeded(3, () => A.offer(game, me, cl));
+  check("it eats from your paw, and a grain is gone", o1.ok && !o1.nip && cl.data.tr > 0.3 && Surv.count(me, "grain", true) === 7, o1.msg);
+  check("patience: not again straight away", !A.offer(game, me, cl).ok && /patience/.test(A.offer(game, me, cl).msg));
+  let nip = null; for (let i = 0; i < 60 && !nip; i++) { const w0 = A.spawnWild(game, "clucker", me.x + 1, me.z + 1, "", false); const r = seeded(500 + i, () => A.offer(game, me, w0)); if (r.nip) nip = r; W.remove(game.world, w0); if (Surv.count(me, "grain", true) < 3) give("grain", 6); }
+  check("now and then one nips instead", !!nip && ev.indexOf("animalNip") >= 0, nip && nip.msg);
+  hold("grain", 8);
+  game.time += 4;
+  put(me, cl.x + 1.5, cl.z);
+  check("now it lets you tickle it", /tickle the clucker/.test(opts(cl).use.label) && A.tickle(game, me, cl).ok);
+  game.time += 4;
+  let t1 = null; for (let i = 0; i < 6 && A.wildOf(cl); i++) { t1 = seeded(3, () => A.offer(game, me, cl)); game.time += 4; }
+  const rc = A.byItem(game, cl);
+  check("tamed: it has a name, a trait, a bond, and it is yours", !!rc && !!rc.name && !!A.TRAITS[rc.trait] && rc.owner === me.id && ev.indexOf("tamed") >= 0 && cl.noun === "toy", t1 && t1.msg);
+  check("the first one follows you", rc.mode === "follow" && A.followers(game).length === 1);
+  put(me, cl.x + 10, cl.z);
+  step(7);
+  check("it keeps at your heels", SB.dist(me.x, me.z, cl.x, cl.z) < 4, SB.dist(me.x, me.z, cl.x, cl.z).toFixed(1));
+  put(me, flat.x, flat.z); step(1.5);
+  check("left far behind, it catches up", SB.dist(me.x, me.z, cl.x, cl.z) < 6);
+  check("nobody hunts a tame one: the buttons are pet and wait", /^pet /.test(opts(cl).use.label) && /wait here/.test(opts(cl).pick.label));
+
+  console.log("4. looking after a pet");
+  rc.hunger = 0.6; hold("grain", 3);
+  const b0 = rc.bond;
+  check("feed it from your paw", /feed .* your grain/.test(opts(cl).place.label) && (opts(cl).place.go(), rc.hunger < 0.2 && rc.bond > b0 && Surv.count(me, "grain", true) === 2));
+  const b1 = rc.bond; opts(cl).use.go();
+  check("pet it: the bond grows", rc.bond > b1);
+  check("a brush wants making first", !A.brush(game, me, rc).ok && !A.make(game, me, "brush").ok);
+  give("stick", 1); give("fiber", 2);
+  const m0 = rc.mood = 0.5;
+  check("make a brush, brush it, and it is happier (once a day)", A.make(game, me, "brush").ok && A.brush(game, me, rc).ok && rc.mood > m0 && !A.brush(game, me, rc).ok);
+  const h0 = rc.hunger; for (let i = 0; i < 100; i++) A.slow(game, 2);
+  check("it gets hungry as the day goes on", rc.hunger > h0 + 0.03, h0.toFixed(2) + " -> " + rc.hunger.toFixed(2));
+  rc.findT = 1; const n0 = game.world.items.length; A.slow(game, 2);
+  check("now and then it digs something up", ev.indexOf("petFound") >= 0 && game.world.items.length >= n0 && /dug up/.test(A.last));
+  check("tell it to wait, call it back", (opts(cl).pick.go(), rc.mode === "stay") && /to heel/.test(opts(cl).pick.label) && (opts(cl).pick.go(), rc.mode === "follow"));
+  const oldName = rc.name;
+  check("a new name is one button", A.act(game, me, "name", String(rc.id)).ok && rc.name !== oldName && !!rc.name);
+  check("the tab lists it, with what to do", /data-an='stay'/.test(A.html(game, me)) && A.html(game, me).indexOf(rc.name) > 0 && /data-an='make'/.test(A.html(game, me)));
+  check("a hungry follower shows by your hearts", (rc.hunger = 0.9, A.vitals(game, me).some(v => v.bad && /hungry/.test(v.text))) && (rc.hunger = 0.1, true));
+
+  console.log("5. it warns, and the fighting kind fights");
+  put(me, flat.x, flat.z); cl.x = me.x + 1; cl.z = me.z; A.sync(game);
+  const g1 = SB.Game.spawnGrump(game, me.x + 6, me.z);
+  W.rebuildCreatureGrid(game.world, game);
+  A.slow(game, 2);
+  check("a grump comes close: it warns you", ev.indexOf("petWarn") >= 0 && /grump/.test(A.last), A.last);
+  check("a clucker pecks at it", ev.indexOf("petFight") >= 0 && rc.fight === g1.id);
+  g1.x = cl.x + 0.5; g1.z = cl.z; W.rebuildCreatureGrid(game.world, game);
+  const wh0 = g1.whacked || 0; tick(4);
+  check("its pecks land, and it gets knocked about too", (g1.whacked || 0) > wh0 && rc.hurt > 0, "whacked " + (g1.whacked || 0).toFixed(2));
+  g1.whacked = 2.95; rc.hurt = 0; rc.hitT = 0; tick(2);
+  check("the last peck chases the grump off for good", !g1.alive && g1.gone && ev.indexOf("grumpChased") >= 0 && rc.fight == null && rc.wins === 1);
+  game.creatures = game.creatures.filter(c => !c.gone);
+
+  console.log("6. a pen");
+  check("a pen costs sticks and vine", /needs/.test(A.buildPen(game, me).msg) && A.pens(game).length === 0);
+  give("stick", 6); give("vine", 2);
+  put(me, flat.x, flat.z); me.facing = 0;
+  const bp = A.act(game, me, "build", "0");
+  const pen = bp.st;
+  check("built by hand, right there, and paid for", bp.ok && !!pen && pen.kind === "pen" && pen.done && Surv.count(me, "stick", true) === 0 && ev.indexOf("penBuilt") >= 0 && SB.dist(pen.x, pen.z, me.x, me.z) < 6, bp.msg);
+  cl.x = me.x + 1; cl.z = me.z;
+  check("looking at it: put your follower in", /put .* in the pen/.test(opts(pen).use.label) && (opts(pen).use.go(), rc.mode === "pen" && rc.pen === pen.id && ev.indexOf("penned") >= 0));
+  check("the pen wears a sign for who lives there", /clucker/.test(pen.name) && pen.data.sign === "clucker");
+  step(6);
+  check("it stays in the pen", SB.dist(cl.x, cl.z, pen.x, pen.z) < 2.2, SB.dist(cl.x, cl.z, pen.x, pen.z).toFixed(1));
+  check("hay is made from leaves", (give("leaves", 4), A.make(game, me, "feed").ok && A.make(game, me, "feed").ok && Surv.count(me, "feed", true) === 4));
+  hold("feed", 4);
+  check("fill the trough from your paw", /in the trough/.test(opts(pen).place.label) && (opts(pen).place.go(), pen.data.feed === 4 && Surv.count(me, "feed", true) === 0));
+  check("nothing to collect yet", !A.collect(game, me, pen).ok);
+  rc.hunger = 0.7; A.sync(game); A.slow(game, 2);
+  check("a peckish animal eats from the trough", rc.hunger < 0.3 && pen.data.feed === 3);
+  const dawn = () => { game.time += SB.DAY_LENGTH; A.dawn(game); };
+  rc.mood = 0.5; rc.hunger = 0.2; dawn();
+  const eggs1 = pen.data.out.cluckegg || 0;
+  check("in the morning there is an egg", eggs1 >= 1 && ev.indexOf("animalsDawn") >= 0 && /morning/.test(A.last), A.last);
+  check("only once a morning", (A.dawn(game), (pen.data.out.cluckegg || 0) === eggs1));
+  check("collect it with the pick-up button", /collect .*clucker egg/.test(opts(pen).pick.label) && (opts(pen).pick.go(), Surv.count(me, "cluckegg", true) === eggs1 && A.outN(pen) === 0));
+  rc.mood = 1; rc.hunger = 0; rc.brushed = Math.floor(game.time / SB.DAY_LENGTH) + 1; dawn();
+  const happy = pen.data.out.cluckegg || 0; pen.data.out = {};
+  rc.hunger = 0.99; rc.mood = 0.1; dawn();
+  check("a happy clucker lays two, a hungry glum one none", happy >= 2 && !(pen.data.out.cluckegg > 0), happy + " then " + (pen.data.out.cluckegg || 0));
+  rc.hunger = 0.1; rc.mood = 0.8; rc.bond = 0.6;
+
+  console.log("7. young");
+  const cl2 = A.spawnWild(game, "clucker", pen.x + 0.5, pen.z, "blue", false);
+  const rc2 = A.tame(game, me, cl2).rec;
+  check("a second clucker, a blue one, goes in too", A.intoPen(game, me, rc2, pen).ok && A.penAnimals(game, pen).length === 2 && rc2.coat === "blue");
+  give("berry", 4); give("seed", 2);
+  check("treats are berries and seeds", A.make(game, me, "treat").ok && Surv.count(me, "treat", true) === 2);
+  hold("treat", 2); cl.x = me.x + 1; cl.z = me.z; cl2.x = me.x - 1; cl2.z = me.z;
+  A.feed(game, me, rc); A.feed(game, me, rc2);
+  let born = false; for (let i = 0; i < 6 && !born; i++) { [rc, rc2].forEach(r => { r.hunger = 0.1; r.mood = 0.9; r.love = Math.floor(game.time / SB.DAY_LENGTH) + 1; }); dawn(); born = ev.indexOf("animalBorn") >= 0; }
+  const kid = A.all(game).find(r => r.kid);
+  check("a fed, happy pair that had treats has a little one", born && !!kid && kid.pen === pen.id && /_kid$/.test(A.body(game, kid).kind) && (kid.coat === "" || kid.coat === "blue" || kid.coat === "gold"), kid && kid.name + " " + A.body(game, kid).kind);
+  check("three is a full pen: no more young", (() => { const n = A.all(game).length; for (let i = 0; i < 3; i++) { [rc, rc2].forEach(r => { r.hunger = 0.1; r.mood = 0.9; r.love = Math.floor(game.time / SB.DAY_LENGTH) + 1; }); kid.hunger = 0; rc.age = rc2.age = 6; dawn(); } return A.all(game).length === n; })());
+  check("it grows up in a few days, and little ones give nothing until then", !kid.kid && !/_kid$/.test(A.body(game, kid).kind) && ev.indexOf("animalGrew") >= 0);
+  give("stick", 6); give("plank", 2);
+  check("the pen grows: a big pen holds five", A.upgradePen(game, me, pen).ok && pen.kind === "bigpen" && A.penCap(pen) === 5);
+  give("stick", 4); give("leaves", 6);
+  check("and then a roof", A.upgradePen(game, me, pen).ok && pen.kind === "roofpen" && !A.upgradePen(game, me, pen).ok);
+  SB.Game.smols(game).forEach(c => { c.tier = Math.max(c.tier, 3); });
+  const smolN = SB.Game.smols(game).length;
+  check("the tribe can mind a pen for you, if it is big enough to spare someone", A.setHerder(game, me, pen, true).ok === (smolN >= 3), smolN + " smols");
+
+  console.log("8. a woolly: milk and a coat");
+  const wo = A.spawnWild(game, "woolly", me.x + 1.5, me.z, "", false);
+  const rw = A.tame(game, me, wo).rec; rw.mood = 0.6; rw.hunger = 0.2;
+  A.intoPen(game, me, rw, pen); pen.data.out = {}; dawn(); dawn(); dawn();
+  check("a kept woolly gives milk", (pen.data.out.milk || 0) >= 1);
+  hold("stone", 1);
+  check("milk needs a pot to carry", Surv.count(me, "milk", true) === 0 && (A.collect(game, me, pen), Surv.count(me, "milk", true) === 0) && /pot/.test(A.collect(game, me, pen).msg || "pot"));
+  give("pot", 1); A.collect(game, me, pen);
+  check("with a pot, it's yours. two make a cheese", Surv.count(me, "milk", true) >= 1 && (give("milk", 2), A.make(game, me, "cheese").ok && Surv.has(me, "cheese")));
+  wo.x = me.x + 1; wo.z = me.z;
+  check("its coat grows back in three days", rw.coatT >= 1 && !A.shear(game, me, rw).ok);
+  hold("blade", 1);
+  check("shear it with a blade: fibre and fur, and nobody hurt", /shear/.test(opts(wo).use.label) && (opts(wo).use.go(), Surv.count(me, "fiber", true) === 2 && Surv.count(me, "fur", true) === 1 && rw.coatT === 0 && !!A.all(game).find(r => r === rw)));
+
+  console.log("9. a mount");
+  put(me, flat.x - 3, flat.z + 3);
+  const lp = A.spawnWild(game, "loper", me.x + 1.5, me.z, "ember", false);
+  hold("carrot", 8);
+  for (let i = 0; i < 8 && !(lp.data.tr >= 1); i++) { seeded(3, () => A.offer(game, me, lp)); game.time += 4; lp.x = me.x + 1.5; lp.z = me.z; }
+  check("food alone does not tame a loper", lp.data.tr >= 1 && A.wildOf(lp) && /hop on/.test(opts(lp).use.label));
+  opts(lp).use.go();
+  check("hop on: it bucks", !!lp.data.buck && /hold on/.test(opts(lp).use.label));
+  step(8);
+  check("do nothing and you are thrown", !lp.data.buck && ev.indexOf("thrown") >= 0 && A.wildOf(lp) && lp.data.tr < 1);
+  hold("carrot", 4); lp.x = me.x + 1.5; lp.z = me.z; lp.data.cd = 0; lp.data.calm = 40;
+  seeded(3, () => A.offer(game, me, lp)); lp.x = me.x + 1.5; lp.z = me.z;
+  opts(lp).use.go(); opts(lp).use.go(); opts(lp).use.go(); opts(lp).use.go();
+  const rl = A.byItem(game, lp);
+  check("hold on three times and it is yours, and you are riding it", !!rl && rl.k === "loper" && rl.coat === "ember" && A.mount(game) === rl && ev.indexOf("mounted") >= 0);
+  step(0.3);
+  const base = (() => { const r = me._ride; me._ride = 0; const v = SB.Creature.speedOf(me, null); me._ride = r; return v; })();
+  check("riding is faster", SB.Creature.speedOf(me, null) > base * 1.4, (SB.Creature.speedOf(me, null) / base).toFixed(2) + "x");
+  check("a swing from the saddle lands harder", SB.Ext.damage(game, me, {}, { hk: "club", dmg: 1 }) === A.RIDE_HIT);
+  check("it shows by your hearts, and looking at nothing lets you hop off", A.vitals(game, me).some(v => /riding/.test(v.text)) && /hop off/.test(opts(null).pick.label));
+  put(me, me.x + 3, me.z); step(0.3);
+  check("the loper is under you wherever you go", SB.dist(lp.x, lp.z, me.x, me.z) < 0.6);
+  opts(null).pick.go();
+  check("off again: back to your own legs", A.mount(game) == null && (step(0.2), !me._ride) && Math.abs(SB.Creature.speedOf(me, null) - base) < 1e-6);
+  give("basket", 1); give("fur", 1); give("vine", 1);
+  check("a basket saddle is made by hand", A.make(game, me, "saddle").ok);
+  hold("saddle", 1); lp.x = me.x + 1; lp.z = me.z;
+  check("saddle it: faster still, and six slots to carry", /saddle/.test(opts(lp).place.label) && (opts(lp).place.go(), rl.gear.saddle === 1 && A.packOf(rl).length === 6));
+  hold("stone", 5);
+  const si = Surv.inv(me).s.findIndex(x => x && x.k === "stone");
+  check("pack things on it, take them back", A.packPut(game, me, rl, si).ok && Surv.count(me, "stone", true) === 0 && A.packOf(rl)[0].n === 5 && A.packTake(game, me, rl, 0).ok && Surv.count(me, "stone", true) === 5);
+  A.ride(game, me, rl); step(0.2);
+  check("saddled beats bareback", me._ride > A.RIDE * 1.1, String(me._ride));
+  A.dismount(game);
+  check("a second follower needs the first to fully trust you, or a lead", (() => { rl.mode = "follow"; rl.bond = 0.5; const r0 = A.setMode(game, me, rw, "follow"); rl.bond = 0.95; const r1 = A.setMode(game, me, rw, "follow"); return !r0.ok && r1.ok; })());
+  A.intoPen(game, me, rw, pen) ; rw.mode = "pen"; rw.pen = pen.id;
+
+  console.log("10. tricks");
+  A.setMode(game, me, rl, "stay");
+  const bun = W.add(game.world, game, "hopper", me.x + 1.5, me.z, {});
+  hold("carrot", 6); bun.data.calm = 40;
+  for (let i = 0; i < 6 && A.wildOf(bun); i++) { seeded(3, () => A.offer(game, me, bun)); game.time += 4; }
+  const rb = A.byItem(game, bun);
+  check("a plain island bunny can be tamed too", !!rb && rb.k === "hopper" && rb.mode === "follow");
+  check("a trick costs a treat", !A.teach(game, me, rb, "fetch").ok);
+  give("treat", 6);
+  let learned = false; for (let i = 0; i < 6 && !learned; i++) learned = !!A.teach(game, me, rb, "fetch").learned;
+  check("a few treats and it knows fetch", learned && rb.tricks.fetch >= 1);
+  put(me, flat.x, flat.z); bun.x = me.x + 1.5; bun.z = me.z;
+  hold("stone", 1);
+  const toy = Surv.spawn(game, "berry", 1, me.x + 4, me.z + 3);
+  check("fetch! is a button", /fetch!/.test(opts(bun).place.label) && (opts(bun).place.go(), !!rb.fetch));
+  step(9);
+  check("it brings the thing to your feet", ev.indexOf("fetched") >= 0 && SB.dist(toy.x, toy.z, me.x, me.z) < 1.5, SB.dist(toy.x, toy.z, me.x, me.z).toFixed(1));
+  rb.mode = "stay"; bun.x = me.x + 20; A.sync(game);
+  check("call: your followers come running", (rb.mode = "follow", A.call(game, me).ok && SB.dist(bun.x, bun.z, me.x, me.z) < 3));
+
+  console.log("11. forgetting, collars, letting go, old age");
+  rb.hunger = 1; rb.bond = 0.2; dawn();
+  check("a forgotten, hungry pet goes back to the wild", !A.byItem(game, bun) && ev.indexOf("animalLeft") >= 0 && bun.noun === "critter" && A.wildOf(bun));
+  give("vine", 1); give("stone", 1); A.make(game, me, "collar"); hold("collar", 1);
+  wo.x = me.x + 1; wo.z = me.z;
+  check("a collar goes on with the place button", /collar/.test(opts(wo).place.label) && (opts(wo).place.go(), rw.tag === 1));
+  rw.hunger = 1; rw.bond = 0.13; pen.data.feed = 0; pen.data.herder = 0; game.world.season = 3; dawn();
+  check("a collared one never wanders off", A.all(game).indexOf(rw) >= 0);
+  game.world.season = 0; rw.hunger = 0.1; rw.bond = 0.6;
+  const n1 = A.all(game).length;
+  check("let one go from the tab", A.act(game, me, "free", String(kid.id)).ok && A.all(game).length === n1 - 1 && A.wildOf(A.body.length ? game.world.items.find(o => o.id === kid.item) : null));
+  rc2.age = 400; rc2.bond = 0.9; dawn();
+  check("an old pet goes gently, and is remembered", A.all(game).indexOf(rc2) < 0 && A.state(game).gone.some(g => g.name === rc2.name) && /remembered/.test(A.html(game, me)));
+
+  console.log("12. the grump");
+  const ownPen = W.addStructure(game.world, game, "pen", flat.x + 4, flat.z, { done: true, data: {} });
+  const g2 = SB.Game.spawnGrump(game, me.x + 2, me.z);
+  check("no lead, no catching", !A.canCapture(game, me, g2));
+  give("vine", 2); A.make(game, me, "lead");
+  g2.alive = false; g2.gone = true; SB.bus.emit("grumpChased", { c: me, g: g2 });
+  const gr = A.grump(game);
+  check("beat a small grump with a vine lead in your bag: it is tied, not chased off", !!gr && gr.mode === "led" && !gr.name && Surv.count(me, "lead", true) === 0 && ev.indexOf("grumpCaught") >= 0);
+  const gi = A.body(game, gr);
+  check("it is there to see, scowling, on your lead", gi.kind === "pengrump" && !!K.pengrump.critter && A.vitals(game, me).some(v => /lead/.test(v.text)));
+  check("a captain is never caught", !A.canCapture(game, me, { boss: 1 }));
+  hold("meat", 6);
+  check("it won't eat on the lead", !A.grumpFeed(game, me, gr).ok);
+  check("not in with the cluckers", !A.intoPen(game, me, gr, pen).ok && /pen of its own/.test(A.intoPen(game, me, gr, pen).msg));
+  put(me, ownPen.x - 2, ownPen.z); gi.x = me.x; gi.z = me.z + 1;
+  check("a pen of its own: the button puts it in", /put the grump in the pen/.test(opts(ownPen).use.label) && (opts(ownPen).use.go(), gr.mode === "pen" && gr.pen === ownPen.id));
+  const hp0 = me.chem.health = 1;
+  check("tickle a hungry grump and it snaps", /tickle the grump/.test(opts(gi).use.label) && A.grumpTickle(game, me, gr).snap && me.chem.health < hp0 && gr.light === 0);
+  check("feed it: it likes meat", /feed the grump your meat/.test(opts(gi).place.label) && (opts(gi).place.go(), gr.light > 0.15 && Surv.count(me, "meat", true) === 5));
+  A.grumpFeed(game, me, gr);
+  check("twice a day is all it will eat", !A.grumpFeed(game, me, gr).ok && Surv.count(me, "meat", true) === 4);
+  let tk = 0; for (let i = 0; i < 6; i++) { game.time += 5; if (A.grumpTickle(game, me, gr).ok) tk++; }
+  check("fed, it lets you tickle it: three times a day", tk >= 2 && tk <= 3 && gr.tickN === 3, tk + " tickles, light " + gr.light.toFixed(2));
+  check("halfway, its chest flickers and it looks different", gr.light >= 0.5 && gi.kind === "pengrump2" && ev.indexOf("grumpFlicker") >= 0);
+  check("it talks, a little", (opts(gi).pick.go(), /its light: \d+%/.test(P.state().lastSay)) && SB.Ext._handlers.goals.length > 0 && (() => { const l = []; A.goals(game, (t, p) => l.push(t + p)); return /light back/.test(l.join()); })());
+  check("one day is not enough", !gr.lit && gr.light < 1);
+  const sp0 = game.sparks || 0;
+  dawn();
+  let turned = null;
+  for (let i = 0; i < 4 && !turned; i++) { const r = A.grumpFeed(game, me, gr); if (r.turned) turned = r; }
+  for (let i = 0; i < 4 && !turned; i++) { game.time += 5; const r = A.grumpTickle(game, me, gr); if (r.turned) turned = r; }
+  check("the next day its light comes back", !!turned && gr.lit > 0 && ev.indexOf("grumpTurned") >= 0, turned && turned.msg);
+  check("it has a name again, and a new face", !!gr.name && A.GRUMP_NAMES.indexOf(gr.name) >= 0 && gi.kind === "tamegrump" && (game.sparks || 0) > sp0);
+  check("it guards, and the pen is free again", gr.mode === "guard" && gr.pen == null && A.grump(game) == null && A.penAnimals(game, ownPen).length === 0);
+  A.sync(game);
+  const g3 = SB.Game.spawnGrump(game, gi.x + 5, gi.z);
+  W.rebuildCreatureGrid(game.world, game);
+  A.slow(game, 2);
+  check("a grump comes near what it guards: it goes for it", gr.fight === g3.id);
+  g3.x = gi.x + 0.5; g3.z = gi.z; tick(8);
+  check("and sees it off, by itself", !g3.alive && g3.gone && gr.wins >= 1);
+  game.creatures = game.creatures.filter(c => !c.gone);
+  check("an old grump can come with you, and be patted", A.setMode(game, me, gr, "follow").ok && (gi.x = me.x + 1, gi.z = me.z, /^pat /.test(opts(gi).use.label)));
+  A.setMode(game, me, gr, "stay");
+  check("a grump left on the lead overnight slips it", (() => { const gx = SB.Game.spawnGrump(game, me.x + 2, me.z); give("vine", 2); A.make(game, me, "lead"); gx.alive = false; gx.gone = true; SB.bus.emit("grumpChased", { c: me, g: gx }); game.creatures = game.creatures.filter(c => !c.gone); const r = A.grump(game); dawn(); return !!r && !A.grump(game); })());
+
+  console.log("13. nights, strangers, gold");
+  const open = W.addStructure(game.world, game, "pen", flat.x - 4, flat.z, { done: true, data: {} });
+  const cl3 = A.spawnWild(game, "clucker", open.x, open.z, "", false), rc3 = A.tame(game, me, cl3).rec;
+  put(me, open.x + 1, open.z); A.intoPen(game, me, rc3, open); rc3.mood = 0.9;
+  gr.sx = flat.x + 60; gr.sz = flat.z; gi.x = gr.sx; gi.z = gr.sz; lp.x = flat.x + 60; lp.z = flat.z + 3; rl.sx = lp.x; rl.sz = lp.z;
+  const g4 = SB.Game.spawnGrump(game, open.x + 2, open.z); game.world.night = true;
+  W.rebuildCreatureGrid(game.world, game); A.sync(game); A.slow(game, 2);
+  check("at night a grump at an open pen shakes them up", ev.indexOf("penSpooked") >= 0 && rc3.mood < 0.7);
+  const sp1 = ev.filter(e => e === "penSpooked").length; pen.data.spook = 0; g4.x = pen.x + 2; g4.z = pen.z; W.rebuildCreatureGrid(game.world, game); A.slow(game, 2);
+  check("a roofed pen is left alone", ev.filter(e => e === "penSpooked").length === sp1);
+  g4.alive = false; g4.gone = true; game.creatures = game.creatures.filter(c => !c.gone); game.world.night = false;
+  const str = SB.Strangers && SB.Strangers.arrive ? SB.Strangers.arrive(game, {}) : null;
+  if (str) { str.stranger.state = "waiting"; put(str, me.x + 1.5, me.z); hold("berry", 3); }
+  check("a wild smol at the edge of the village is won with food, twice", !str || (/win .* over with your berries/.test(opts(str).place.label) && (opts(str).place.go(), !!str.stranger) && (opts(str).place.go(), !str.stranger && ev.indexOf("strangerWon") >= 0)));
+  const gb = W.add(game.world, game, "goldbug", me.x + 1, me.z, {});
+  const s0 = game.sparks || 0; let caught = false;
+  check("a golden bug is a button too", /catch the golden bug/.test(opts(gb).use.label));
+  for (let i = 0; i < 30 && !caught; i++) { gb.x = me.x + 1; gb.z = me.z; caught = seeded(900 + i, () => A.catchGold(game, me, gb)).ok; }
+  check("catch it and the Lantern pays", caught && gb.gone && (game.sparks || 0) > s0 && ev.indexOf("goldBug") >= 0);
+
+  console.log("14. it all survives a save");
+  A.sync(game);
+  const snap = JSON.parse(JSON.stringify(SB.Save.snapshot(game)));
+  const g2b = SB.Save.revive(snap);
+  SB.Game.current = g2b; P.leave && P.active && P.leave("test");
+  A.tick(g2b, 0.1);
+  const recs2 = A.all(g2b), gr2 = recs2.find(r => r.k === "grump"), rl2 = recs2.find(r => r.k === "loper");
+  check("the same animals, names and bonds", recs2.length === A.all(game).length && !!gr2 && gr2.name === gr.name && gr2.lit === gr.lit && !!rl2 && rl2.gear.saddle === 1 && rl2.name === rl.name);
+  check("each one has its body back, still tame", recs2.every(r => { const o = A.body(g2b, r); return o && !o.gone && o.noun === "toy" && o.data.an === r.id && g2b.world.items.indexOf(o) >= 0; }) && A.body(g2b, gr2).kind === "tamegrump");
+  check("the pens kept their troughs and signs", g2b.world.structures.filter(A.isPen).length === 3 && g2b.world.structures.some(b => b.kind === "roofpen" && b.data.sign === "clucker"));
+  check("a lost body is made again from the record", (() => { const o = A.body(g2b, rl2); W.remove(g2b.world, o); A.sync(g2b); const o2 = A.body(g2b, rl2); return o2 !== o && !o2.gone && o2.kind === "loper_ember" && rl2.item === o2.id; })());
+  check("nobody in a body, a headless island, an offline island: no trouble", (() => { g2b.headless = true; for (let i = 0; i < 30; i++) SB.Game.step(g2b, 0.1); A.dawn(g2b); g2b.offline = true; A.tick(g2b, 0.1); A.dawn(g2b); g2b.offline = false; return A.vitals(g2b, null).length >= 0 && typeof A.html(g2b, SB.Game.smols(g2b)[0]) === "string"; })());
+  check("no handler was switched off along the way", ["tick", "options", "vitals", "goals", "damage"].every(h => SB.Ext._handlers[h].every(f => !f._off)));
+});
+console.log(failed ? "\n" + failed + " of " + count + " failed" : "\nall " + count + " passed");
+process.exit(failed ? 1 : 0);
