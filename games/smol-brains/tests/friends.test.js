@@ -841,6 +841,19 @@ seeded(4341, () => {
   check("too many elbows: a quiet smol in a crowd minds", F.hasMood(game, sl, "crowded"));
   me.tier = 0; Math.random = () => 0.1; const ln = F.line(game, bo); Math.random = rnd; me.tier = 3;
   check("they talk to a blob as a blob", /^aw\. little blob\. /.test(ln), ln);
+  calm(meek); meek._frH = 0.8; F.rec(game, meek).gd = null; me.fr.m = []; ev = [];
+  r = F.gift(game, meek, "apple", me);
+  check("feeding a hungry smol is a kindness that shows", got("charity").length === 1 && F.hasMood(game, me, "charity") && /kindness/.test(r.msg));
+  const pz = mk("Paz", "m", 9, 9); pz.stranger = { state: "waiting", t: game.time }; ev = []; SB.bus.emit("give", { c: me, to: pz, item: { kind: "apple" } });
+  check("feed a stranger at the edge and it will write, wherever it ends up", got("charity").length === 1 && F.state2(game).pen.indexOf("Paz") >= 0);
+  pz.alive = false;
+  let projOk = true, projN = 0; ev = [];
+  for (let i = 0; i < 12; i++) { const k2 = mk("K" + i, "f", 8 + i * 0.1, 6, 80); k2.parents = [bo.id]; bo.x = nest.x + 8; bo.z = nest.z + 6; bo.asleep = false; const exp = F._x.dice(game, "proj:" + k2.id + ":" + F._x.day(game))() < 0.2; F.homework(game); if (!!(k2.fr && k2.fr.proj) !== exp) projOk = false; if (k2.fr && k2.fr.proj) projN++; k2.alive = false; }
+  check("now and then a kid makes a toy with a parent, and there it is", projOk && projN >= 1 && got("project").length >= projN && game.world.items.some(x => x.kind === got("project")[0][1].kind), projN);
+  [bo, cy, di].forEach(c => { c.asleep = false; c.far = false; c.plan = null; c.fr.m = []; });
+  const ba = SB.World.biomeAt, sd0 = game.seed; SB.World.biomeAt = () => SB.B.beach; game.seed = sd0 + 1; ev = [];
+  const bd = F.beachDay(game); SB.World.biomeAt = ba; game.seed = sd0;
+  check("a day at the beach, where there is one near the nest", bd && bd.n >= 1 && got("beachDay").length === 1 && SB.Game.smols(game).some(c => c.fr && F.hasMood(game, c, "beach")));
   console.log("40. the life tab, and the save");
   F._page2 = "me"; F._mir = true;
   let html = F.lifeHtml(game, me, () => "");
