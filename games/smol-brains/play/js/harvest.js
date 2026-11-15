@@ -298,6 +298,14 @@ for(var j=j0-1;j<=j0+1;j++)for(var i=i0-1;i<=i0+1;i++)if(i>=0&&j>=0&&i<T.V&&j<T.
 return"pond";
 };
 H.bubbling=function(game,x,z){return(hashKey("bub:"+Math.floor(x/5)+","+Math.floor(z/5)+":"+day(game))^(game.seed>>>0))%5===0;};
+H.bubbleNear=function(game,x,z,r){
+var W=SB.World,w=game.world,best=null,bd=r||60,n=Math.ceil(bd/5),cx=Math.floor(x/5),cz=Math.floor(z/5);
+for(var j=-n;j<=n;j++)for(var i=-n;i<=n;i++){
+var px=(cx+i)*5+2.5,pz=(cz+j)*5+2.5,d=SB.dist(px,pz,x,z);
+if(d<bd&&H.bubbling(game,px,pz)&&W.inBounds(w,px,pz)&&W.depthAt(w,px,pz)>0.05){bd=d;best={x:px,z:pz,d:d};}
+}
+return best;
+};
 H.fishHere=function(game,x,z,c,wkIs){
 var w=game.world,wk=wkIs||H.waterKind(game,x,z),se=season(game),night=!!w.night,rain=raining(game);
 var b1=biomeId(game,x,z),b2=c?biomeId(game,c.x,c.z):b1;
