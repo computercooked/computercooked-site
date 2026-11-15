@@ -525,7 +525,7 @@
       case "butterfly": b.sides(true).color(col, 1); b.push().rotY(-1.57).rotX(-1.27).leaf(0.16, 0.17).pop().push().rotY(1.57).rotX(-1.27).leaf(0.16, 0.17).pop(); b.sides(false).color(0x2a2522).push().scale(0.02, 0.02, 0.08).sphere(0).pop(); break;
       case "beetle": b.smoothShade(true).color(col).push().translate(0, 0.05, 0).scale(0.08, 0.05, 0.1).sphere(1).pop(); b.color(0x1a1a22).push().translate(0, 0.05, 0.08).scale(0.04).sphere(0).pop(); b.push().translate(0, 0.1, 0).scale(0.005, 0.005, 0.1).sphere(0).pop(); break;
       case "hopper": b.smoothShade(true).color(col).push().translate(0, 0.16, 0).scale(0.16, 0.15, 0.2).sphere(1).pop(); b.push().translate(0, 0.26, 0.15).scale(0.1).sphere(1).pop(); b.color(0xf5e8d8).push().translate(0, 0.17, -0.2).scale(0.07).sphere(0).pop(); b.color(col).push().translate(0.05, 0.38, 0.12).rotX(-0.2).scale(0.03, 0.12, 0.03).sphere(0).pop().push().translate(-0.05, 0.38, 0.12).rotX(-0.2).scale(0.03, 0.12, 0.03).sphere(0).pop(); b.color(0x1a1a22).push().translate(0.05, 0.28, 0.23).scale(0.018).sphere(0).pop().push().translate(-0.05, 0.28, 0.23).scale(0.018).sphere(0).pop(); break;
-      default: b.color(col).push().translate(0, 0.1, 0).scale(0.1).sphere(1).pop();
+      default: if (!(ME.generic && ME.generic(kind, k, b))) b.color(col).push().translate(0, 0.1, 0).scale(0.1).sphere(1).pop();
     }
     return b.finish();
   }
