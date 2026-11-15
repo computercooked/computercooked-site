@@ -17,7 +17,7 @@
   var SB = window.SB = window.SB || {};
   var W3 = SB.World3 = {};
   var K = SB.KINDS, NK = SB.NODES, SK = SB.STRUCTS, G = 48, GG = G * G, PER = 8, DAY = SB.DAY_LENGTH || 1200;
-  W3.G = G; W3.BARE = -4; W3.LUSH = 4; W3.TREES = 6; W3.CAPS = 5; W3.JADE_MAX = 30; W3.SEED_MAX = 80;
+  W3.G = G; W3.BARE = -4; W3.LUSH = 4; W3.TREES = 6; W3.CAPS = 5; W3.JADE_MAX = 30; W3.SEED_MAX = 40;
   W3.LIFE = { oak: 60, pine: 80, birch: 36, palm: 45, giant: 150, sakura: 40, maple: 55, bamboo: 16, mangrove: 70, shroomtree: 30 };
   var FLOWERS = { oak: 1, birch: 1, sakura: 1, giant: 1, maple: 1, mangrove: 1, palm: 1 };
   var GREEN = { meadow: 1, forest: 1, jungle: 1, swamp: 1, taiga: 1, blossom: 1, maple: 1, bamboo: 1, flowers: 1, mangrove: 1, shroom: 1 };
@@ -131,7 +131,7 @@
     if (game.focus) R.act.push(game.focus.x, game.focus.z);
     if (R.k++ % 12 === 0) { R.nj = 0; for (i = 0; i < w.nodes.length; i++) if (w.nodes[i].kind === "jadevein" && w.nodes[i].state === "ok") R.nj++; }
     var b = W3.raft(game); if (b) b.s = 1 + 0.2 * (s.raft.cores || 0);
-    if (s.yr !== year(game)) { s.yr = year(game); s.pk = {}; }
+    if (s.yr !== year(game)) { s.yr = year(game); s.pk = {}; s.ns = 0; }
     if (!s.jade) { s.jade = 1; sowJade(game, R); }
   }
   function near(R, x, z, d) { for (var i = 0; i < R.act.length; i += 2) { var dx = R.act[i] - x, dz = R.act[i + 1] - z; if (dx * dx + dz * dz < d * d) return true; } return false; }
@@ -303,7 +303,7 @@
       if (n.state !== "ok" || !def) return;
       if (n.kind === "jadevein") { if (on && (n.grow == null || n.grow >= 1) && Math.random() < sdt / (2 * DAY)) W3.spread(game, n); return; }
       if (n.kind === "shrooms" || n.kind === "shroomtree") { if (n.added) sh++; }
-      if (def.drops && n.dropT != null) { if (lush || soil > 0.7) n.dropT -= sdt * 0.5; else if (bare || soil < 0.22) n.dropT += sdt * 0.5; }
+      if (def.drops && n.dropT != null) { if (lush || soil > 0.7) n.dropT -= sdt * 0.5; else if (bare) n.dropT += sdt * 0.5; }
       if (!S.isTree(n)) return;
       if (n.added) pl++;
       if (n.grow != null && n.grow < 1) return;
