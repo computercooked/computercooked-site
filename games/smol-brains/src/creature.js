@@ -967,7 +967,7 @@
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
         beginDo(c, game, a, tgt);
-      } else if (a.t > (starvingFor(c, a) ? 90 : 25) || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > 7 || (c.noPath && game.time - c.noPath.t < 0.2)) {
+      } else if (a.t > (starvingFor(c, a) ? 90 : 25) || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > (c.path && starvingFor(c, a) ? 20 : 7) || (c.noPath && game.time - c.noPath.t < 0.2)) {
         // can't get there (cliff, water, going round in circles): remember that for a while
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);

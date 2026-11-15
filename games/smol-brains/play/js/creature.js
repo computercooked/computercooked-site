@@ -851,7 +851,7 @@ if(dist<=reach+0.05){
 a.phase="do";a.doT=0;
 c.facing=Math.atan2(tgt.x-c.x,tgt.z-c.z);
 beginDo(c,game,a,tgt);
-}else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>7||(c.noPath&&game.time-c.noPath.t<0.2)){
+}else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>(c.path&&starvingFor(c,a)?20:7)||(c.noPath&&game.time-c.noPath.t<0.2)){
 c.stuckT=0;
 if(a.target&&a.target.id!=null)unreachable(c,a.target.id,game);
 if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=3){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
