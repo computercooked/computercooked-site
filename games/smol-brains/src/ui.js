@@ -945,12 +945,13 @@
       var card = h("button", { class: "word" + (open ? "" : " locked") + (state.teach === b.w ? " on" : "") + (known ? " known" : ""), title: open ? WD.how(b.w) + (b.call ? ". once they know it: " + b.call : "") : "unlocks at " + SB.TIERS[b.tier].name,
         onclick: function () { if (!open) { toast("“" + b.w + "” unlocks when you have a " + SB.TIERS[b.tier].icon + " " + SB.TIERS[b.tier].name); return; } state.teach = state.teach === b.w ? null : b.w; updateTalk(true); } }, [
         h("span", { class: "wi" }, open ? WD.icon(b.w) : "🔒"),
-        h("span", { class: "ww" }, open ? b.w : "?"),
+        h("span", { class: "ww" }, open ? (WD.label ? WD.label(game, b.w) : b.w) : "?"),
         h("span", { class: "wb" }, [h("i", { style: "width:" + Math.round(WD.progress(game, b.w) * 100) + "%" })])
       ]);
       if (open && b.call && sh > 0) card.appendChild(h("span", { class: "call", title: "call: " + b.call, onclick: function (e) { e.stopPropagation(); callWord(b.w); } }, "📣"));
       el.talkWords.appendChild(card);
     });
+    if (!el.talkType && WD.mount && SB.Render && el.talkWords.parentNode) { el.talkType = h("div"); el.talkWords.parentNode.appendChild(el.talkType); WD.mount(el.talkType, game, SB.Render.camera, toast); }
     var t = state.teach;
     var tc = state.talkTarget && state.talkTarget.alive ? state.talkTarget : null, tv = tc && t ? Math.min(1, tc.vocab[t] || 0) : 0;
     el.talkInfo.innerHTML = (tc && t ? "<b>" + esc(tc.name) + "</b>: " + (tv >= 1 ? "knows “" + esc(t) + "”! ✔" : Math.round(tv * 100) + "% of the way to “" + esc(t) + "”") + "<br>" : "") + (t ? "teaching <b class='lime'>“" + esc(t) + "”</b>: " + esc(WD.how(t)) + (WD.byWord[t].call ? ". <span class='dim'>when they know it, 📣 " + esc(WD.byWord[t].call) + ".</span>" : "") :
@@ -1342,7 +1343,7 @@
     el.sheet.dataset.kind = "inspect"; el.sheet.dataset.id = "";
     clear(el.sheet);
     var ref = hit.ref, def, emoji, label, desc, extra = "";
-    if (hit.type === "item") { def = SB.KINDS[ref.kind]; emoji = def.emoji; label = def.label; desc = def.desc; if (ref.data.rotten) extra = "it's gone bad. smols who eat it get sick."; if (ref.kind === "egg") extra = "hatching: " + Math.round((ref.data.progress || 0) * 100) + "%" + (ref.data.genome ? " · gen " + ref.data.gen + " · " + SB.TIERS[SB.Genome.tierOf(ref.data.genome)].name : "") + (ref.data.blessed ? " · blessed 🧬" : ""); }
+    if (hit.type === "item") { def = SB.KINDS[ref.kind]; emoji = def.emoji; label = def.label; desc = def.desc; if (ref.data.rotten) extra = "it's gone bad. smols who eat it get sick."; if (ref.kind === "egg") extra = "hatching: " + Math.round((ref.data.progress || 0) * 100) + "%" + (ref.data.genome ? " · gen " + ref.data.gen + " · " + SB.TIERS[SB.Genome.tierOf(ref.data.genome)].name : "") + (ref.data.blessed ? " · blessed 🧬" : "") + (SB.Helpers3 && SB.Helpers3.eggLine && SB.Helpers3.eggLine(game, ref) ? " · " + SB.Helpers3.eggLine(game, ref) : ""); if (ref.data && ref.data.gol != null && SB.Helpers3 && SB.Helpers3.line) extra = SB.Helpers3.line(game, SB.Helpers3.byItem(game, ref)) || extra; }
     else if (hit.type === "node") { def = SB.NODES[ref.kind]; emoji = def.emoji; label = def.label; desc = def.desc; if (ref.state === "burning") extra = "it's on fire!"; if (ref.state === "stump") extra = "chopped. it'll grow back."; if (ref.state === "burnt") extra = "burnt. it'll grow back, slowly."; }
     else if (hit.type === "struct") {
       def = SB.STRUCTS[ref.kind]; emoji = def.emoji; label = def.label; desc = def.desc;
@@ -1793,7 +1794,7 @@
       if (np) body.appendChild(h("div", { class: "btnrow" }, [h("button", { class: "btn", onclick: function () { MU.skip(); setTimeout(function () { openMenu("settings"); }, 300); } }, "⏭ next song")]));
       var allSongs = MU.all ? MU.all() : MU.SONGS, nHeard = allSongs.filter(function (s) { return MU.heard(s.id); }).length;
       body.appendChild(h("p", { class: "note", html: (np ? "now playing: <b class='lime'>" + np.title + "</b>. " : "") + "you've heard " + nHeard + " of " + allSongs.length + " songs. some only play in one season, at night, in the rain, from inside a smol, or once the smols get clever." }));
-      (MU.ALBUMS || [{ id: 1, title: "songs for small minds", songs: MU.SONGS }]).forEach(function (al) { // 4.31: two albums
+      (MU.ALBUMS || [{ id: 1, title: "songs for small minds", songs: MU.SONGS }]).concat(MU.PLACES ? [{ id: 3, title: "songs of the map", songs: MU.PLACES }] : []).forEach(function (al) { // 4.31: two albums
         body.appendChild(h("div", { class: "sec" }, [h("span", null, "album " + al.id + " · " + al.title), h("span", { class: "dim" }, al.songs.filter(function (s) { return MU.heard(s.id); }).length + "/" + al.songs.length)]));
         body.appendChild(h("div", { class: "jukebox" }, al.songs.map(function (s, i) {
           var got = MU.heard(s.id);
