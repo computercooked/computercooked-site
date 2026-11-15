@@ -19,6 +19,8 @@
   L.MAX_HP = 5;      // heart-fruits one smol can use
   L.HP_STEP = 0.1;   // each takes this much off every hurt
   L.MOTE_SPARKS = 2;
+  L.SIZE = 0.55;     // how big a chest is drawn (building models are made large)
+  function dirty(b) { if (SB.Render && SB.Render.markDirty) SB.Render.markDirty(b.x, b.z); }
   L.SELL = 0.6;      // you sell at this share of the going price
   // what a chest can hold: [kind, least, most, weight]; shells: [least, most]; mote / fruit: the chance of one
   L.TABLES = {
@@ -56,6 +58,7 @@
       if (W.inBounds && !W.inBounds(w, px, pz)) continue;
       if (W.walkable && !W.walkable(w, px, pz, false)) continue;
       if (W.depthAt && W.depthAt(w, px, pz) > 0.02) continue;
+      if (t < 16 && W.groundY && Math.max(Math.abs(W.groundY(w, px + 1, pz) - W.groundY(w, px - 1, pz)), Math.abs(W.groundY(w, px, pz + 1) - W.groundY(w, px, pz - 1))) > 0.7) continue; // level ground first: a chest on a cliff face is one nobody finds
       return { x: Math.round(px * 10) / 10, z: Math.round(pz * 10) / 10 };
     }
     return { x: x + 1.5, z: z + 1 };
@@ -72,9 +75,10 @@
     var s = st(game);
     if (s.chests[key] || !L.TABLES[table] || !SB.STRUCTS.lootchest) return null;
     var p = spotNear(game, x, z, key);
-    var b = { id: SB.Game.newId(game), type: "struct", kind: "lootchest", noun: "wonder", x: p.x, z: p.z, rot: (hashKey(key) % 628) / 100, s: 1,
+    var b = { id: SB.Game.newId(game), type: "struct", kind: "lootchest", noun: "wonder", x: p.x, z: p.z, rot: (hashKey(key) % 628) / 100, s: L.SIZE,
       done: true, work: 0, need: {}, tribe: 0, builders: [], data: { loot: key, table: table }, born: game.time, name: null };
     game.world.structures.push(b);
+    dirty(b);
     s.chests[key] = { id: b.id, x: p.x, z: p.z, kind: table, open: 0 };
     SB.bus.emit("chestPlaced", { st: b, key: key, table: table });
     return b;
@@ -113,9 +117,9 @@
       if (left > 0 && Sv().spawn) { Sv().spawn(game, it.k, left, b.x + 0.9, b.z + 0.5); spilled += left; }
       parts.push(it.n + " " + label(it.k));
     });
-    if (got.shells > 0) { c.purse = Math.round(((c.purse || 0) + got.shells) * 100) / 100; parts.push(got.shells + " " + L.moneyWord(game)); }
+    if (got.shells > 0) { c.purse = Math.round(((c.purse || 0) + got.shells) * 100) / 100; parts.push(got.shells + " " + L.moneyIcon(game)); }
     e.open = day(game); e.by = c.name;
-    b.data.open = true;
+    b.data.open = true; dirty(b);
     if (L.TROPHY[e.kind]) { st(game).trophies[e.kind] = day(game); parts.push(L.TROPHY[e.kind][1] + " (a trophy for your home)"); }
     SB.bus.emit("chestOpened", { st: b, c: c, key: key, table: e.kind, got: got, spilled: spilled });
     return { ok: true, msg: "🧰 " + got.name + ": " + parts.join(", ") + (spilled ? " (your bag is full: the rest is on the ground)" : ""), got: got };
