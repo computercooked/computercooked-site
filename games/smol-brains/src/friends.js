@@ -69,7 +69,7 @@
   function tell(game, text, at) { if (quiet(game)) return; var P = SB.Possess; if (me() && P.say) P.say(text); else toast(game, text, at); }
   function sound(name, vol) { var P = SB.Possess; if (SB.Audio && SB.Audio.play && !(P && P.headless)) { try { SB.Audio.play(name, { vol: vol == null ? 0.7 : vol }); } catch (e) {} } }
   function fx(kind, c, n) { if (SB.FX && SB.FX.burst && c && !c.far) { try { SB.FX.burst(kind, c.x, (c.y || 0) + 1, c.z, n || 6); } catch (e) {} } }
-  function sendTo(c, x, z, game, dur) { if (!c || !c.alive || c._pov || c.heldBy != null || !SB.Creature || !SB.Creature.sendTo) return false; try { return SB.Creature.sendTo(c, x, z, game, dur || 14); } catch (e) { return false; } }
+  function sendTo(c, x, z, game, dur) { if (!c || !c.alive || c._pov || c.heldBy != null || !SB.Creature || !SB.Creature.sendTo) return false; try { return (SB.Creature.sendSoft || SB.Creature.sendTo)(c, x, z, game, dur || 14); } catch (e) { return false; } }
   function opinion(game, a, b) { return SB.Social && SB.Social.opinion ? SB.Social.opinion(game, a, b) : 0; }
   function remember(game, a, b, key, d, txt, life, stack) { if (SB.Social && SB.Social.remember) SB.Social.remember(game, a, b, key, d, txt, life || 2400, stack || 0); }
   function diary(game, c, icon, txt) { if (SB.Social && SB.Social.log) SB.Social.log(game, c, icon, txt); }

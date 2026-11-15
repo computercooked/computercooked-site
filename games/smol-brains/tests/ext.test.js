@@ -32,7 +32,7 @@ const o = { use: null }; X.on("options", (g, c, r, oo, x) => { oo.use = x.op("di
 X.options({}, {}, null, o, { op: (label, go, verb) => ({ label, go, verb }) });
 check("options can be changed", o.use && o.use.label === "did it");
 const po = js("possess.js"), ph = js("povhud.js");
-check("the game calls every hook", /SB\.Ext\.options\(game, c, r, o,/.test(po) && /SB\.Ext\.damage\(game, c, o,/.test(po) && /SB\.Ext\.key\(s\.game, s\.c, k, true, e\)/.test(ph) && /SB\.Ext\.shownTabs/.test(ph) && /SB\.Ext\.vitals\(game, c\)/.test(ph) && /SB\.Ext\.tick\(game, dt\)/.test(js("main.js")) && /SB\.Ext\.goals\(g, add\)/.test(js("ui.js")));
+check("the game calls every hook", /SB\.Ext\.options\(game, c, r, o,/.test(po) && /SB\.Ext\.damage\(game, c, o,/.test(po) && /SB\.Ext\.key\(s\.game, s\.c, k, true, e\)/.test(ph) && /SB\.Ext\.(shownTabs|layout)/.test(ph) && /SB\.Ext\.vitals\(game, c\)/.test(ph) && /SB\.Ext\.tick\(game, dt\)/.test(js("main.js")) && /SB\.Ext\.goals\(g, add\)/.test(js("ui.js")));
 check("ext.js loads before the systems that use it", (() => { const h = fs.readFileSync(path.join(__dirname, "..", "play", "index.html"), "utf8"); return h.indexOf("js/ext.js") > 0 && h.indexOf("js/ext.js") < h.indexOf("js/home.js"); })());
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);

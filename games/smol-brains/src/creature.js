@@ -33,6 +33,7 @@
   };
   // smols who talk (tribe and on) have fewer eggs and live longer: grown-up for longer, and two-fifths more life
   C.TALKER_LIFE = 1.4;
+  C.HUNGRY_AWAKE = 0.7; // 4.36: this hungry, a smol wakes, will not lie down, and its nose takes over
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
   function stageFor(age, c) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from * (i === 4 ? lifeK(c) : 1)) s = i; return s; }
@@ -523,7 +524,8 @@
     }
     if (mask[V.make]) mask[V.make] = knowsAny(c, "craft");
     if (mask[V.build]) mask[V.build] = knowsAny(c, "build");
-    mask[V.sleep] = ch.sleepy > 0.2 || ch.tired > 0.35;
+    // 4.36: a hungry smol does not lie down (they were starving in their sleep with food a few steps off)
+    mask[V.sleep] = (ch.sleepy > 0.2 || ch.tired > 0.35) && (ch.hunger < C.HUNGRY_AWAKE || c.species !== "smol");
     // prayers are for when something's really wrong, and not every minute
     if (mask[V.pray]) mask[V.pray] = game.time - (c.prayedAt || -999) > 90 && SB.Chem.top(ch).v > 0.55;
     if (c.species === "grump") { mask[V.cuddle] = false; mask[V.sleep] = false; mask[V.use] = false; }
@@ -662,6 +664,15 @@
     startAction(c, game, V.wander, null, null, null);
     c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
     return true;
+  };
+  // 4.36: the same, for company rather than need (a funeral, a story event, a friend's whim): a hungry smol eats
+  // first. These calls kept pulling starving smols off food a step away, again and again, until they died, and each
+  // death called another funeral. A call that matters (danger, the player's own word, a walk to a food stall) uses sendTo.
+  C.sendSoft = function (c, x, z, game, dur) {
+    if (c && c.species === "smol" && !c._pov && c.chem && c.chem.hunger > C.HUNGRY_AWAKE) return false;
+    var ok = C.sendTo(c, x, z, game, dur);
+    if (ok && c.action) c.action.soft = true;
+    return ok;
   };
   // do one thing on the sky's say-so (orders.js): skips the brain's choice, like provoke
   C.startOn = function (c, game, verb, tgt) {
@@ -964,6 +975,7 @@
     a.doT += dt;
     switch (a.verb) {
       case V.wander:
+        if (a.soft && c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) { finish(c, game); return; } // 4.36: called for company, but too hungry now: eat first
         if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * (a.called ? 1 : 0.8), game, a.called ? 1.2 : 0.3)) {
           if (a.called) { startAction(c, game, V.idle, null, null, null); c.action.dur = 3; emote(c, "happy", 1.5); return; } // here! waits to see what you want
           a.doT = a.dur;
@@ -1933,7 +1945,7 @@
 
     if (c.asleep) {
       // at night a rested smol dozes on a while longer (thinkers and up still get up to watch the stars)
-      if ((ch.sleepy < 0.05 && ch.tired < 0.1 && !(c._pov && game.world.night && SB.Body) && !(game.world.night && c.tier < 5 && !c._pov && !game.rng.chance(dt * 0.012))) || ch.pain > 0.45 || ch.fear > 0.55 || ch.hunger > 0.85) {
+      if ((ch.sleepy < 0.05 && ch.tired < 0.1 && !(c._pov && game.world.night && SB.Body) && !(game.world.night && c.tier < 5 && !c._pov && !game.rng.chance(dt * 0.012))) || ch.pain > 0.45 || ch.fear > 0.55 || ch.hunger > (c.species === "smol" ? C.HUNGRY_AWAKE : 0.85)) {
         c.asleep = false; c.inBed = false;
         if (c.action && c.action.verb === V.sleep) complete(c, game, c.action, null);
         emote(c, "happy", 1);

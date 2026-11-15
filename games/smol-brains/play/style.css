@@ -750,3 +750,6 @@ body #pov .rlist::-webkit-scrollbar-thumb, body #pov .bag .win::-webkit-scrollba
 body #pov .detail { box-shadow: inset 0 0 0 1px var(--hair); }
 body #pov .bag .lbl { color: var(--lilac); opacity: 0.9; letter-spacing: 0.06em; text-transform: uppercase; margin: 8px 0 5px; }
 @media (prefers-reduced-motion: reduce) { body #pov .bag, body #pov .bag .win.panel { animation: none; } }
+/* 4.36: the bag's plug-in tabs sit in four groups; the open group's own tabs are a second, smaller row */
+body #pov .bag .tabs.sub { margin: -4px 0 10px; padding: 6px; background: rgba(8, 6, 16, 0.4); box-shadow: inset 0 0 0 1px var(--hair); }
+body #pov .bag .tabs.sub button { font-size: 12px; padding: 5px 8px 7px; }

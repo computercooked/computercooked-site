@@ -491,11 +491,13 @@ b.color(0x8a5a36).push().translate(Math.cos(a2)*0.92,0.09,Math.sin(a2)*0.92).rot
 return b.finish();
 },
 flame:function(){
-var b=ME.builder().glow(0.9);
-b.color(0xe8501f).push().rotY(0.3).cone(5,0.26,0.62).pop();
-b.color(0xff8a2a).push().translate(0.08,0,0.05).rotY(1).cone(5,0.17,0.78).pop();
-b.color(0xffc04a).push().translate(-0.07,0,0.02).rotY(2).cone(4,0.13,0.55).pop();
-b.color(0xfff1a0).glow(1.2).push().translate(0,0,-0.03).cone(4,0.08,0.32).pop();
+var b=ME.builder().glow(0.45);
+b.color(0xc8371a).push().translate(0,0.1,0).scale(0.24,0.16,0.24).sphere(1).pop();
+b.color(0xe8501f).push().rotY(0.3).rotZ(0.06).cone(6,0.24,0.6).pop();
+b.glow(0.55).color(0xff8a2a).push().translate(0.08,0.02,0.05).rotY(1).rotZ(-0.12).cone(5,0.16,0.74).pop();
+b.color(0xff9a30).push().translate(-0.1,0.02,-0.06).rotY(2.4).rotZ(0.16).cone(4,0.1,0.46).pop();
+b.glow(0.7).color(0xffc04a).push().translate(-0.05,0.04,0.03).rotY(2).cone(4,0.11,0.5).pop();
+b.color(0xfff1a0).glow(0.9).push().translate(0,0.05,-0.02).cone(4,0.06,0.28).pop();
 return b.finish();
 },
 hut:function(){

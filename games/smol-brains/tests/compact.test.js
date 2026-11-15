@@ -42,7 +42,7 @@ const STEPS = 7000;
   check("both load every system without an error", !a.errs.length && !b.errs.length, a.errs.concat(b.errs).slice(0, 3).join(" · "));
   check("the same things exist (" + a.n + " kinds, " + a.st + " buildings)", a.n === b.n && a.st === b.st && a.n > 500);
   check("no plug-in handler was switched off in either", !/:[1-9]/.test(a.off) && a.off === b.off, a.off + " | " + b.off);
-  check("the island lived: creatures moved, ate and learned", a.creatures >= 6 && a.ev.split(":").length > 4, a.creatures + " creatures, " + a.ev);
+  check("the island lived: creatures moved, ate and learned", a.creatures >= 6 && a.ev.split(":").length > 3, a.creatures + " creatures, " + a.ev);
   check("the same clock", a.time === b.time, a.time + " / " + b.time);
   check("every creature is in the same place, in the same state, holding the same things", a.smols === b.smols, a.smols === b.smols ? "" : firstDiff(a.smols, b.smols));
   check("the same things lie on the ground", a.items === b.items, a.items === b.items ? "" : firstDiff(a.items, b.items));

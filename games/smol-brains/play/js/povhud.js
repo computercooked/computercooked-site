@@ -573,7 +573,13 @@ for(i=0;i<hn;i++)html+=slotHtml(v.s[i],i,hn);
 html+="</div>";
 if(bag.detail>=0&&v.s[bag.detail])html+=detailHtml(v.s[bag.detail],bag.detail);
 html+=(c.tier>=2&&Sv().cap(c)?"<div class='help'>a basket adds 9 slots, and a chest at home holds 12 more</div>":"")+"</div>";
-html+="<div class='side'><div class='tabs'><button data-tab='make' class='"+(bag.tab==="make"?"on":"")+"'>🛠 make</button><button data-tab='build' class='"+(bag.tab==="build"?"on":"")+"'>🏕 build</button>"+(SB.Body?"<button data-tab='you' class='"+(bag.tab==="you"?"on":"")+"'>🐾 you</button>":"")+(SB.Home&&c.tier>=2?"<button data-tab='home' class='"+(bag.tab==="home"?"on":"")+"'>🏠 home</button>":"")+(SB.Loot&&(bag.tab==="trade"||SB.Loot.partner(s.game,c))?"<button data-tab='trade' class='"+(bag.tab==="trade"?"on":"")+"'>"+SB.Loot.moneyIcon(s.game)+" trade</button>":"")+(SB.Ext?SB.Ext.shownTabs(s.game,c).map(function(t){return"<button data-tab='"+t.id+"' class='"+(bag.tab===t.id?"on":"")+"'>"+(typeof t.label==="function"?t.label(s.game,c):t.label)+"</button>";}).join(""):"")+"</div>";
+html+="<div class='side'><div class='tabs'><button data-tab='make' class='"+(bag.tab==="make"?"on":"")+"'>🛠 make</button><button data-tab='build' class='"+(bag.tab==="build"?"on":"")+"'>🏕 build</button>"+(SB.Body?"<button data-tab='you' class='"+(bag.tab==="you"?"on":"")+"'>🐾 you</button>":"")+(SB.Home&&c.tier>=2?"<button data-tab='home' class='"+(bag.tab==="home"?"on":"")+"'>🏠 home</button>":"")+(SB.Loot&&(bag.tab==="trade"||SB.Loot.partner(s.game,c))?"<button data-tab='trade' class='"+(bag.tab==="trade"?"on":"")+"'>"+SB.Loot.moneyIcon(s.game)+" trade</button>":"")+(function(){
+if(!SB.Ext)return"</div>";
+var L=SB.Ext.layout(s.game,c,bag.tab),lab=function(t){return typeof t.label==="function"?t.label(s.game,c):t.label;};
+var out=L.top.map(function(e){return e.group?"<button data-tab='"+e.first+"' data-grp='"+e.group.id+"' class='"+(e.on?"on":"")+"'>"+e.group.label+"</button>":"<button data-tab='"+e.id+"' class='"+(bag.tab===e.id?"on":"")+"'>"+lab(e)+"</button>";}).join("")+"</div>";
+if(L.sub.length>1)out+="<div class='tabs sub'>"+L.sub.map(function(t){return"<button data-tab='"+t.id+"' class='"+(bag.tab===t.id?"on":"")+"'>"+lab(t)+"</button>";}).join("")+"</div>";
+return out;
+})();
 var xt=SB.Ext?SB.Ext.tabById(bag.tab):null;
 html+=xt?xt.html(s.game,c,icon):bag.tab==="build"?buildHtml():bag.tab==="trade"&&SB.Loot?SB.Loot.html(s.game,c,icon):bag.tab==="home"&&SB.Home?SB.Home.html(s.game,c,icon):bag.tab==="you"&&SB.Body?youHtml():makeHtml();
 html+="<div style='display:flex;justify-content:flex-end;margin-top:10px'><button class='btn' data-close>close "+(hud.phone?"":"(Tab)")+"</button></div></div></div>";
@@ -671,7 +677,7 @@ return h;
 function wireBag(){
 var root=bag.el,s=S(),c=s.c;
 root.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){bag.tab=b.getAttribute("data-tab");drawBag();});});
-root.querySelectorAll(".tabs button[data-tab]").forEach(function(b){var tx=(b.textContent||"").trim(),sp=tx.indexOf(" ");if(sp>0){b.title=tx.slice(sp+1);if(!b.classList.contains("on")){b.textContent=tx.slice(0,sp);b.classList.add("ico");}}});
+root.querySelectorAll(".tabs:not(.sub) button[data-tab]").forEach(function(b){var tx=(b.textContent||"").trim(),sp=tx.indexOf(" ");if(sp>0){b.title=tx.slice(sp+1);if(!b.classList.contains("on")){b.textContent=tx.slice(0,sp);b.classList.add("ico");}}});
 var cl=root.querySelector("[data-close]");if(cl)cl.addEventListener("click",closeBag);
 if(SB.Wilds)SB.Wilds.wire(root,s.game,drawBag);
 if(SB.Home)SB.Home.wire(root,s.game,c,drawBag,HUD.say);

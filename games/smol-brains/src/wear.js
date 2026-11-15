@@ -110,16 +110,18 @@
     icon = icon || function () { return ""; };
     var X = SB.Wardrobe, top = X && X.html ? "<div class='row' style='display:flex;gap:4px;margin-bottom:4px'><button class='btn" + (page === "on" ? " go" : "") + "' data-wrpage='on'>wearing</button><button class='btn" + (page === "looks" ? " go" : "") + "' data-wrpage='looks'>looks</button></div>" : "";
     if (top && page === "looks") return top + X.html(game, c, icon);
-    var on = W.on(c), out = top + "<div class='lbl'>what " + esc(c.name || "this smol") + " is wearing</div><div class='rlist'>";
+    var bare = [], on = W.on(c), out = top + "<div class='lbl'>what " + esc(c.name || "this smol") + " is wearing</div><div class='rlist'>";
     W.PLACES.forEach(function (pl) {
       var here = on.filter(function (e) { return e.place === pl[0]; });
       if (pl[0] === "paw" && !here.length && !P()) return;
+      // 4.36: a row for each thing that is on; the bare places share one line (six rows of "nothing" was most of the page)
       for (var i = 0; i < W.ROOM[pl[0]]; i++) {
         var e = here[i];
-        out += "<div class='rc'><span class='big'>" + (e ? icon(e.kind, 28) : "·") + "</span><div class='t'>" + pl[1] + (W.ROOM[pl[0]] > 1 ? " " + (i + 1) : "") + ": " + (e ? esc(label(e.kind)) : "nothing") + (e ? "<small>" + esc(W.tip(e.kind)) + "</small>" : "") + "</div>" + (e ? "<button class='btn' data-wroff='" + e.sys + ":" + e.slot + "'>take off</button>" : "") + "</div>";
+        if (!e) { bare.push(pl[1] + (W.ROOM[pl[0]] > 1 && here.length ? " " + (i + 1) : "")); if (!here.length) break; continue; }
+        out += "<div class='rc'><span class='big'>" + icon(e.kind, 28) + "</span><div class='t'>" + pl[1] + ": " + esc(label(e.kind)) + "<small>" + esc(W.tip(e.kind)) + "</small></div><button class='btn' data-wroff='" + e.sys + ":" + e.slot + "'>take off</button></div>";
       }
     });
-    out += "</div>";
+    out += "</div>" + (bare.length ? "<p class='help'>" + (on.length ? "nothing on: " : "nothing on yet: ") + esc(bare.join(", ")) + ".</p>" : "");
     var seen = {}, btns = [];
     Sv().inv(c).s.forEach(function (sl) { if (sl && !seen[sl.k] && W.owner(sl.k) && !W.has(c, sl.k)) { seen[sl.k] = 1; btns.push("<button class='btn go' data-wron='" + sl.k + "'>" + icon(sl.k, 16) + " put on " + esc(label(sl.k)) + "</button>"); } });
     out += "<div class='lbl'>in your bag</div><div class='row' style='display:flex;flex-wrap:wrap;gap:4px'>" + (btns.length ? btns.join("") : "<span class='help'>nothing to wear in your bag yet. make something below.</span>") + "</div>";

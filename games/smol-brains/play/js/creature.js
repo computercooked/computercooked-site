@@ -23,6 +23,7 @@ var st=SB.STAGES[c.stage]||SB.STAGES[3];
 return BODY_R*st.scale*((c.look&&c.look.size)||1)*(c.species==="grump"?1.1:1)*(1+(c.species==="smol"?(c.tier||0)*0.045:0));
 };
 C.TALKER_LIFE=1.4;
+C.HUNGRY_AWAKE=0.7;
 function lifeK(c){return c&&c.species==="smol"&&(c.tier||0)>=3?C.TALKER_LIFE:1;}
 C.lifeK=lifeK;
 function stageFor(age,c){var s=0;for(var i=0;i<SB.STAGES.length;i++)if(age>=SB.STAGES[i].from*(i===4?lifeK(c):1))s=i;return s;}
@@ -463,7 +464,7 @@ if(c.holding==null)mask[V.give]=false;
 }
 if(mask[V.make])mask[V.make]=knowsAny(c,"craft");
 if(mask[V.build])mask[V.build]=knowsAny(c,"build");
-mask[V.sleep]=ch.sleepy>0.2||ch.tired>0.35;
+mask[V.sleep]=(ch.sleepy>0.2||ch.tired>0.35)&&(ch.hunger<C.HUNGRY_AWAKE||c.species!=="smol");
 if(mask[V.pray])mask[V.pray]=game.time-(c.prayedAt||-999)>90&&SB.Chem.top(ch).v>0.55;
 if(c.species==="grump"){mask[V.cuddle]=false;mask[V.sleep]=false;mask[V.use]=false;}
 if(c.stage===0)mask[V.hit]=mask[V.hit]&&rng.chance(0.3);
@@ -584,6 +585,12 @@ c.asleep=false;c.inBed=false;
 startAction(c,game,V.wander,null,null,null);
 c.action.tx=x;c.action.tz=z;c.action.dur=dur||20;c.action.called=true;
 return true;
+};
+C.sendSoft=function(c,x,z,game,dur){
+if(c&&c.species==="smol"&&!c._pov&&c.chem&&c.chem.hunger>C.HUNGRY_AWAKE)return false;
+var ok=C.sendTo(c,x,z,game,dur);
+if(ok&&c.action)c.action.soft=true;
+return ok;
 };
 C.startOn=function(c,game,verb,tgt){
 var r=tgt?resolve(game,tgt):null;
@@ -853,6 +860,7 @@ return;
 a.doT+=dt;
 switch(a.verb){
 case V.wander:
+if(a.soft&&c.species==="smol"&&!c._pov&&c.chem.hunger>C.HUNGRY_AWAKE){finish(c,game);return;}
 if(walkToward(c,a.tx,a.tz,dt,speedOf(c,a)*(a.called?1:0.8),game,a.called?1.2:0.3)){
 if(a.called){startAction(c,game,V.idle,null,null,null);c.action.dur=3;emote(c,"happy",1.5);return;}
 a.doT=a.dur;
@@ -1711,7 +1719,7 @@ return;
 }
 }
 if(c.asleep){
-if((ch.sleepy<0.05&&ch.tired<0.1&&!(c._pov&&game.world.night&&SB.Body)&&!(game.world.night&&c.tier<5&&!c._pov&&!game.rng.chance(dt*0.012)))||ch.pain>0.45||ch.fear>0.55||ch.hunger>0.85){
+if((ch.sleepy<0.05&&ch.tired<0.1&&!(c._pov&&game.world.night&&SB.Body)&&!(game.world.night&&c.tier<5&&!c._pov&&!game.rng.chance(dt*0.012)))||ch.pain>0.45||ch.fear>0.55||ch.hunger>(c.species==="smol"?C.HUNGRY_AWAKE:0.85)){
 c.asleep=false;c.inBed=false;
 if(c.action&&c.action.verb===V.sleep)complete(c,game,c.action,null);
 emote(c,"happy",1);
