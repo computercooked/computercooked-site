@@ -626,6 +626,14 @@
     chunks[cj * nc + ci].dirty = true;
   };
   R.markAllDirty = function () { chunks.forEach(function (c) { c.dirty = true; }); };
+  // 4.35: the ground itself changed here (a patch changed biome): throw away this chunk's baked terrain so it is baked again
+  R.markGround = function (x, z) {
+    if (!T || !gl) return;
+    var nc = T.N / SB.CHUNK, c = chunks[SB.clamp((z / SB.CHUNK) | 0, 0, nc - 1) * nc + SB.clamp((x / SB.CHUNK) | 0, 0, nc - 1)];
+    if (!c) return;
+    for (var s in c.lod) if (c.lod[s]) { gl.deleteBuffer(c.lod[s].buf); c.lod[s] = null; }
+    c.dirty = true;
+  };
 
   // ambient occlusion under tree canopies, baked per vertex
   var aoMap = null;

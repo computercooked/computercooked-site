@@ -9,7 +9,7 @@ let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 const dir = path.join(__dirname, "..", "play", "js");
 const js = f => fs.readFileSync(path.join(dir, f), "utf8");
-const SYSTEMS = ["home", "loot", "friends", "town", "dark", "powers", "fight", "deep", "harvest", "animals", "qol", "wear", "wardrobe3", "motion3"].filter(n => fs.existsSync(path.join(dir, n + ".js")));
+const SYSTEMS = ["home", "loot", "friends", "town", "dark", "powers", "fight", "deep", "harvest", "animals", "qol", "wear", "wardrobe3", "motion3", "world3"].filter(n => fs.existsSync(path.join(dir, n + ".js")));
 const BASE = ["ext.js", "body.js", "possess.js"];
 function keysOf(SB) {
   return { kinds: Object.keys(SB.KINDS), structs: Object.keys(SB.STRUCTS), tools: Object.keys((SB.Surv && SB.Surv.TOOL) || {}), nodes: Object.keys(SB.NODES || {}),

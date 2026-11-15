@@ -552,6 +552,13 @@ var nc=T.N/SB.CHUNK,ci=SB.clamp((x/SB.CHUNK)|0,0,nc-1),cj=SB.clamp((z/SB.CHUNK)|
 chunks[cj*nc+ci].dirty=true;
 };
 R.markAllDirty=function(){chunks.forEach(function(c){c.dirty=true;});};
+R.markGround=function(x,z){
+if(!T||!gl)return;
+var nc=T.N/SB.CHUNK,c=chunks[SB.clamp((z/SB.CHUNK)|0,0,nc-1)*nc+SB.clamp((x/SB.CHUNK)|0,0,nc-1)];
+if(!c)return;
+for(var s in c.lod)if(c.lod[s]){gl.deleteBuffer(c.lod[s].buf);c.lod[s]=null;}
+c.dirty=true;
+};
 var aoMap=null;
 function computeAO(){
 var V=T.V;
