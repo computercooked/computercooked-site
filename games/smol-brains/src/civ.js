@@ -403,6 +403,51 @@
       }
     }
   }
+  /* ---------------- the academy: a thinker studies one thing at the star dome or the council hall ---------------- */
+  Cv.MAJORS = {
+    stars: { e: "🔭", name: "the stars", at: "observatory", job: "teacher" },
+    law: { e: "📜", name: "the law", at: "hall", job: "trader" },
+    making: { e: "🔨", name: "making", at: "observatory", job: "smith", skill: "craft" },
+    growing: { e: "🌾", name: "growing", at: "hall", job: "farmer", skill: "forage" }
+  };
+  Cv.TERM = 240;
+  Cv.academyAt = function (game, m) {
+    var M = Cv.MAJORS[m], best = null, s = game.world.structures;
+    if (!M) return null;
+    for (var i = 0; i < s.length; i++) if (s[i].done && (s[i].kind === M.at || (!best && (s[i].kind === "hall" || s[i].kind === "observatory")))) { best = s[i]; if (best.kind === M.at) break; }
+    return best;
+  };
+  Cv.enroll = function (game, c, m) {
+    if (!m) { c.study = null; return { ok: true, msg: "" }; }
+    var M = Cv.MAJORS[m];
+    if (!M || !c || c.species !== "smol") return { ok: false, msg: "?" };
+    if (c.tier < 5) return { ok: false, msg: "only thinkers study at the academy" };
+    if (c.degree) return { ok: false, msg: c.name + " has a degree already" };
+    if (!Cv.academyAt(game, m)) return { ok: false, msg: "the academy needs a star dome or a council hall" };
+    c.study = { m: m, p: 0 };
+    if (SB.Social) SB.Social.log(game, c, "🎓", "started studying " + M.name);
+    return { ok: true, msg: "🎓 " + c.name + " will study " + M.name };
+  };
+  function academy(game, dt) {
+    for (var i = 0; i < game.creatures.length; i++) {
+      var c = game.creatures[i], st = c.study, M = st && Cv.MAJORS[st.m];
+      if (!st || !c.alive) continue;
+      var b = M && Cv.academyAt(game, st.m);
+      if (!b) { if (!M) c.study = null; continue; }
+      if (c.asleep || SB.dist(c.x, c.z, b.x, b.z) > 10) continue;
+      st.p = Math.min(100, st.p + dt / Cv.TERM * 100);
+      xp(c, M.job, dt * 0.02);
+      c.inspired = Math.max(c.inspired || 0, 20);
+      if (st.p < 100) continue;
+      c.study = null; c.degree = st.m; c.jobLean = M.job; c.inspired = Math.max(c.inspired || 0, 180);
+      xp(c, M.job, 6);
+      if (M.skill && SB.Body) SB.Body.xp(c, M.skill, 12);
+      if (SB.Social) SB.Social.log(game, c, "🎓", "took a degree in " + M.name);
+      SB.Game.note(game, "🎓 " + c.name + " finished at the academy: a degree in " + M.name);
+      SB.bus.emit("degree", { c: c, major: st.m });
+    }
+  }
+  Cv.academy = academy;
   // policies doing things
   function policies(game, dt) {
     var v = game.civ, p = v.council.policies || {}, w = game.world;
@@ -535,6 +580,7 @@
     ideas(game, step);
     council(game, step);
     policies(game, step);
+    academy(game, step);
     enforce(game);
     slow += step;
     if (slow >= 10) {

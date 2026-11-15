@@ -38,11 +38,16 @@ B.need=function(lv){return 4+lv*lv*3;};
 B.level=function(c,id){var b=c&&c.body,s=b&&b.sk&&b.sk[id];return s?s.l||0:0;};
 B.bonus=function(c,id){return B.level(c,id)*B.STEP;};
 B.progress=function(c,id){var b=c&&c.body,s=b&&b.sk&&b.sk[id];if(!s)return 0;return s.l>=B.MAX?1:SB.clamp((s.x||0)/B.need(s.l),0,1);};
+B.leans=function(c){
+var cl=c&&c.clade|0,n=B.SKILLS.length;
+return cl>0?{up:B.SKILLS[cl*7%n],down:B.SKILLS[(cl*7+4)%n]}:null;
+};
+B.lean=function(c,id){var l=B.leans(c);return!l?1:l.up.id===id?1.5:l.down.id===id?0.75:1;};
 B.xp=function(c,id,n){
 if(!B.BY_ID[id])return 0;
 var b=B.of(c),s=b.sk[id]||(b.sk[id]={l:0,x:0}),up=0;
 if(s.l>=B.MAX)return 0;
-s.x+=n==null?1:n;
+s.x+=(n==null?1:n)*B.lean(c,id);
 while(s.l<B.MAX&&s.x>=B.need(s.l)){s.x-=B.need(s.l);s.l++;up++;}
 if(s.l>=B.MAX)s.x=0;
 if(up)SB.bus.emit("skillUp",{c:c,id:id,level:s.l});
@@ -50,7 +55,7 @@ return up;
 };
 B.roll=function(c,id){
 var bn=B.bonus(c,id);if(!bn)return false;
-var b=B.of(c);b.acc[id]=(b.acc[id]||0)+bn;
+var b=B.of(c);b.acc[id]=(b.acc[id]||0)+bn*(SB.Minds?1+0.5*SB.Minds.luck(c):1);
 if(b.acc[id]>=1){b.acc[id]-=1;return true;}
 return false;
 };
