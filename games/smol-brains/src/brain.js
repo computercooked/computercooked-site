@@ -72,6 +72,7 @@
     if (!t) b.T = null; else if (!b.T) b.T = new Float32Array(NO * b.nIn);
   }
   B.setTract = setTract;
+  B.retune = params;
   // long-term weights: a copy the short-term ones are measured against (see B.nap)
   function settle(b) { b.S = b.W.map(function (w) { return Float32Array.from(w); }); return b; }
 
