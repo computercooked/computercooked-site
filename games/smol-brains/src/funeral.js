@@ -223,11 +223,14 @@
     var ep = b.body && b.body.epitaph || ("here lies " + b.name + ".");
     try {
       var gr = SB.World.addStructure(game.world, game, "grave", b.x, b.z, { done: true });
-      if (gr) { gr.data = { name: b.name, title: b.title || null, epitaph: ep, died: Math.round(b.body ? b.body.t : game.time), id: b.id, cairn: f.rite === "cairn" }; gr.name = b.name; }
+      if (gr) { gr.data = { name: b.name, title: b.title || null, epitaph: ep, died: Math.round(b.body ? b.body.t : game.time), id: b.id, cairn: f.rite === "cairn", cause: b.body && b.body.cause || null }; gr.name = b.name; }
       var graves = game.world.structures.filter(function (s) { return s.kind === "grave"; });
       if (graves.length > 30) SB.World.removeStructure(game.world, graves[0]);
     } catch (e) { }
   }
+  // 4.36: the light that comes to a grave at night is the colour of how its smol died
+  F.LIGHTS = { old: [1, 0.85, 0.45], starved: [1, 0.6, 0.25], sick: [0.6, 0.95, 0.45], hurt: [1, 0.4, 0.5], cold: [0.6, 0.85, 1], hot: [1, 0.45, 0.2], tired: [0.75, 0.6, 1], drowned: [0.3, 0.8, 0.9] };
+  F.lightOf = function (gr) { return F.LIGHTS[gr && gr.data && gr.data.cause] || [0.85, 0.9, 1]; };
   function endRite(game, f, list, crowd) {
     list.forEach(function (b) { if (f.rite === "pyre" && !b.gone2) b.gone2 = true; if ((f.rite === "burial" || f.rite === "cairn") && !b.gone2) { b.gone2 = true; restingPlace(game, f, b); } });
   }
@@ -278,13 +281,13 @@
   // bodies aren't saved as bodies: whoever is still waiting gets a quiet grave, so nobody is left lying around
   F.serialize = function (game) {
     var list = (game.bodies || []).filter(function (b) { return !b.drift && !b.gone2; });
-    return list.map(function (b) { return { id: b.id, name: b.name, title: b.title || null, x: Math.round(b.x * 10) / 10, z: Math.round(b.z * 10) / 10, t: Math.round(b.body.t), ep: b.body.epitaph || null }; });
+    return list.map(function (b) { return { id: b.id, name: b.name, title: b.title || null, x: Math.round(b.x * 10) / 10, z: Math.round(b.z * 10) / 10, t: Math.round(b.body.t), ep: b.body.epitaph || null, c: b.body.cause || null }; });
   };
   F.revive = function (game, arr) {
     game.bodies = []; game.funerals = [];
     (arr || []).forEach(function (b) {
       if (!b || typeof b.x !== "number" || typeof b.z !== "number") return;
-      restingPlace(game, { rite: "burial" }, { id: b.id, name: String(b.name || "a smol"), title: b.title, x: b.x, z: b.z, body: { t: b.t || 0, epitaph: b.ep } });
+      restingPlace(game, { rite: "burial" }, { id: b.id, name: String(b.name || "a smol"), title: b.title, x: b.x, z: b.z, body: { t: b.t || 0, epitaph: b.ep, cause: b.c || null } });
     });
   };
 })();
