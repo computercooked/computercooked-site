@@ -2079,10 +2079,11 @@
     ]);
     root.appendChild(el.coach);
     if (d.hl) [].forEach.call(document.querySelectorAll(d.hl), function (n) { n.classList.add("tutglow"); });
+    if (d.pt && R.flyTo && !(SB.Possess && SB.Possess.active)) { var tm = tutSmol(); if (tm) R.flyTo(tm.x, tm.z, Math.min(R.camera.tZoom || 8, 8), 0.8); }
   }
   // 4.32: the coach points. A bouncing arrow sits on the smol, the food or the button the step is about, so the words
   // can be short and nobody has to work out which apple. If there is no food about, one is put down beside the smol.
-  var tutFoodId = null;
+  var tutFoodId = null, tutFlyT = 0;
   function tutSmol() { var m = SB.Mine && SB.Mine.get ? SB.Mine.get(game) : null; if (m && m.alive) return m; return SB.Game.smols(game).filter(function (k) { return k.alive && !k.stranger; })[0] || null; }
   function tutTarget() {
     var d = TUT[state.tutStep];
@@ -2092,9 +2093,9 @@
     if (d.pt === "smol") return d.id === "look" && game.selectedId === me.id ? null : smolAt;
     if (d.pt === "trick") return state.sheet === "smol" || state.sheet === "tricks" ? null : smolAt;
     if (d.pt === "food") {
-      var K = SB.KINDS, best = null, bd = 16;
+      var K = SB.KINDS, best = null, bd = 5; // close by, or one is put down
       game.world.items.forEach(function (o) { var k = K[o.kind]; if (!k || !k.food || k.noun !== "food" || o.heldBy != null || (o.data && (o.data.pod || o.data.rotten))) return; var dd = SB.dist(o.x, o.z, me.x, me.z); if (o.id === tutFoodId) dd -= 6; if (dd < bd) { bd = dd; best = o; } });
-      if (!best && SB.World.add) { best = SB.World.add(game.world, game, "apple", me.x + 1.6, me.z + 1.1); }
+      if (!best && SB.World.add) { best = SB.World.add(game.world, game, "apple", me.x + 1.3, me.z - 1.5); }
       if (!best) return smolAt;
       tutFoodId = best.id;
       return { x: best.x, y: SB.World.groundY(game.world, best.x, best.z) + 0.9, z: best.z };
@@ -2110,6 +2111,8 @@
     el.tutpt.classList.add("on");
     el.tutpt.classList.toggle("off", !p.on);
     el.tutpt.style.left = SB.clamp(p.x, 20, W - 20) + "px"; el.tutpt.style.top = SB.clamp(p.y, 70, H - 150) + "px";
+    var off = !p.on || p.x < 20 || p.x > W - 20 || p.y < 70 || p.y > H - 150, nowT = Date.now(); // the thing has wandered off the screen: bring the camera to it (at most every four seconds, so a drag is not fought)
+    if (off && R.flyTo && nowT - tutFlyT > 4000 && !(game.hand && game.hand.held)) { tutFlyT = nowT; R.flyTo(t.x, t.z, Math.min(R.camera.tZoom || 8, 8), 0.8); }
   }
   function tutAdvance(to) {
     var st = game.tutorial;
@@ -2812,6 +2815,7 @@
     updateMine(dt);
     updateAlert(dt);
     if (el.coach && game.tutorial.done) { el.coach.remove(); el.coach = null; }
+    if (!el.coach && game.tutorial && !game.tutorial.done && game.tutorial.step >= 2 && state.tutStep !== game.tutorial.step && !state.introRunning && !el.modal && !(SB.Possess && SB.Possess.active)) tutShow(); // 4.32: an island loaded part-way through the lessons gets its coach back
     tutPoint();
     if (!el.coach) updateGuide(dt); else if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; }
     drawMinimap(dt);

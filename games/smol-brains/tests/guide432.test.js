@@ -36,7 +36,7 @@ check("seven lessons after the night", steps.filter(x => ["pod", "name"].indexOf
 check("each fits in two or three lines", !long.length, long.join(", "));
 check("every “do this” step has an arrow on the thing", ["look", "food", "tickle", "word", "trick"].every(id => new RegExp('id: "' + id + '", pt: "').test(tut)));
 check("the arrow follows the smol, the food or the card", /function tutTarget\(\)/.test(ui) && /class: "tutpt"/.test(ui) && /\.tutpt \{ position: absolute;/.test(css));
-check("no food about: one is put down beside the smol", /SB\.World\.add\(game\.world, game, "apple", me\.x \+ 1\.6, me\.z \+ 1\.1\)/.test(ui));
+check("no food about: one is put down beside the smol", /SB\.World\.add\(game\.world, game, "apple", me\.x \+ 1\.3, me\.z - 1\.5\)/.test(ui));
 check("the tricks button glows on its step", /"btn go" \+ \(tutIs\("trick"\) \? " tutglow" : ""\)/.test(ui));
 
 console.log("5. the goals list is one line until you ask");

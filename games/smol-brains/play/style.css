@@ -211,7 +211,8 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .tutpt.on { display: block; } .tutpt.off { opacity: 0.6; } @keyframes tutpt { 0%, 100% { margin-top: 0; } 50% { margin-top: -12px; } }
 #ui:has(.coach) .minechip { display: none; } /* the coach speaks alone */
 #ui.hasmodal .tutpt { display: none; }
-.coach { min-height: 0; } /* 4.32: the steps are short now */
+@media (max-width: 600px) { #ui:has(.coach) .toasts { bottom: auto; top: calc(58px + var(--sat)); } #ui:has(.coach) .minimap { display: none; } } /* 4.32: on a phone a first never lands on the coach */
+.coach { min-height: 0 !important; bottom: calc(104px + var(--sab)); } /* 4.32: the steps are short now, and the card sits low so the arrow and the smol are in the clear */
 .goals .g.big { color: #fff; font-weight: 700; padding: 2px 0 6px; margin-bottom: 5px; border-bottom: 2px solid rgba(197, 255, 73, 0.35); align-items: flex-start; }
 .btn.on { border-color: var(--lime); color: var(--lime); }
 @media (max-width: 700px) { .minechip { bottom: calc(84px + var(--sab)); left: calc(108px + var(--sal)); max-width: 170px; } .minechip .tx i.hearts { display: none; } }

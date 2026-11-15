@@ -711,6 +711,31 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.80 What v4.32.0 changed: fewer boxes, and a tutorial that points
+
+Ashton, Nov 14: "there is way too many text boxes on the screen, the game doesn't walk you through the tutorial well enough, it should be immersive." Wave 1 of `smol-brains-handover\FEATURE-PLAN.md`. Before changing anything, every piece of text that can be on screen was counted: about eleven boxes on the first frame in Pip's body, eight to ten on the first frame back in the sky, and the same instruction in up to three places at once.
+
+**In a smol's body: one guide line and a marker**
+- The quest panel was a title, five steps and a tip box. It is now **one line**: the step you are on. The how-to shows for the first nine seconds of a step, then folds away; tap the line to read it again.
+- **The marker says what it is for** ("find something to eat 5m"). It used to be a diamond and a distance.
+- The night's countdown is on the body's clock ("night in 0:45"). It was only shown from the sky, where you weren't.
+- The "you are Pip" card no longer sends you to "the list on the right"; it says follow the marker. The card with your own name and tier is put away for the first day.
+- **Said once.** Eating fired three boxes with the same sentence (a banner, a beat and the tip); the beat is gone.
+- **Nothing wrong.** The first night told you to "left click it with a weapon" when only light works that night; it and the ordinary nightfall lines are silent on the first night, and the weapon line is silent for captains and night chases, which have their own banner.
+
+**In the sky: the coach speaks alone**
+- After the first night the coach's seven lessons shared the screen with the goals list (eleven lines), your smol's chip, the day card, a parade of held "firsts" and general chatter. **While the coach is teaching it is the only voice**: firsts and embers still land, everything else waits. The goals list comes in on the last lesson, which is about it.
+- **The coach points.** Each lesson is one thing to do in two short lines, with a bouncing arrow on the smol, the food or the card button it is about, and the camera brought to it. If there is no food by your smol, an apple is put down beside it. The tricks button glows on its lesson.
+- The lessons' words are cut to about a third (the first was a 520-character paragraph).
+- Last night's firsts come back as one line with a count.
+- An island loaded part-way through the lessons gets its coach back (it used to vanish for good).
+
+**The goals list is one line**
+- Folded, which is now how it starts, the list is the next thing and a count ("eat a meal as a smol · +7"). Tap it for today's jobs, the chapter and the rest.
+
+Seen in a browser at desktop size: the first frame in Pip's body, the tip folding, the first frame back in the sky, and each lesson with its arrow. Also seen at phone size (the coach card, a first landing above it, the arrow). Nobody new to the game has tried it: that is the real test.
+- Tests: `guide432.test.js` (new, 23 checks).
+
 ## 0.79 What v4.31.0 changed: a second album, "the long way home"
 
 Ashton, Nov 14: "create a new song album for the smol brains game, then implement that new album into the game, ontop of the original, not a replacement." This is the first release of the widened goal (see `smol-brains-handover\FEATURE-PLAN.md`).
