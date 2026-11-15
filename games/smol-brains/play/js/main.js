@@ -537,6 +537,7 @@
     if (SB.FirstNight) SB.FirstNight.tick(game, dt);
     if (SB.Bosses) SB.Bosses.tick(game, dt);
     if (SB.Home) SB.Home.tick(game, dt);
+    if (SB.Loot) SB.Loot.tick(game, dt);
     if (SB.Tricks && !game.offline) SB.Tricks.tick(game, dt);
     if (SB.Quests && !game.offline) SB.Quests.tick(game, dt);
     if (SB.Civ) SB.Civ.tick(game, dt);

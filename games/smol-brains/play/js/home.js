@@ -168,6 +168,8 @@
         (have ? "<span class='ok'>✓</span>" : "<button class='btn go' data-homemake='" + t.id + "' " + (H.whyNot(game, c, t.id) ? "disabled" : "") + ">make</button>") + "</div>";
     });
     out += "</div>";
+    var tr = SB.Loot && SB.Loot.trophies ? SB.Loot.trophies(game) : []; // 4.33: what the captains left
+    if (tr.length) out += "<div class='lbl'>on the wall · " + tr.map(function (t) { return t.icon + " " + esc(t.name); }).join(" · ") + "</div>";
     if (s.got.chest) {
       var ch = H.chest(game), v = Sv().inv(c);
       out += "<div class='lbl'>the chest" + (at ? " · tap a thing to take it" : "") + "</div><div class='grid' style='grid-template-columns:repeat(6,minmax(0,40px))'>";

@@ -621,8 +621,8 @@
     html += "</div>";
     if (bag.detail >= 0 && v.s[bag.detail]) html += detailHtml(v.s[bag.detail], bag.detail);
     html += (c.tier >= 2 && Sv().cap(c) ? "<div class='help'>a basket adds 9 slots, and a chest at home holds 12 more</div>" : "") + "</div>";
-    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + (SB.Home && c.tier >= 2 ? "<button data-tab='home' class='" + (bag.tab === "home" ? "on" : "") + "'>🏠 home</button>" : "") + "</div>";
-    html += bag.tab === "build" ? buildHtml() : bag.tab === "home" && SB.Home ? SB.Home.html(s.game, c, icon) : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
+    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + (SB.Home && c.tier >= 2 ? "<button data-tab='home' class='" + (bag.tab === "home" ? "on" : "") + "'>🏠 home</button>" : "") + (SB.Loot && (bag.tab === "trade" || SB.Loot.partner(s.game, c)) ? "<button data-tab='trade' class='" + (bag.tab === "trade" ? "on" : "") + "'>" + SB.Loot.moneyIcon(s.game) + " trade</button>" : "") + "</div>";
+    html += bag.tab === "build" ? buildHtml() : bag.tab === "trade" && SB.Loot ? SB.Loot.html(s.game, c, icon) : bag.tab === "home" && SB.Home ? SB.Home.html(s.game, c, icon) : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
     html += "<div style='display:flex;justify-content:flex-end;margin-top:10px'><button class='btn' data-close>close " + (hud.phone ? "" : "(Tab)") + "</button></div></div></div>";
     bag.el.innerHTML = html;
     wireBag();
@@ -726,6 +726,7 @@
     var cl = root.querySelector("[data-close]"); if (cl) cl.addEventListener("click", closeBag);
     if (SB.Wilds) SB.Wilds.wire(root, s.game, drawBag);
     if (SB.Home) SB.Home.wire(root, s.game, c, drawBag, HUD.say);
+    if (SB.Loot) SB.Loot.wire(root, s.game, c, drawBag, HUD.say);
     root.querySelectorAll("[data-make]").forEach(function (b) { b.addEventListener("click", function () { P().craft(b.getAttribute("data-make")); drawBag(); }); });
     root.querySelectorAll("[data-build]").forEach(function (b) { b.addEventListener("click", function () { P().startBuild(b.getAttribute("data-build")); }); });
     var cb = root.querySelector("[data-combine]");
