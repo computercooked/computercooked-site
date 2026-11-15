@@ -324,6 +324,11 @@
     var g = game, out = [], A = g.achievements, smols = SB.Game.smols(g);
     function add(t, p, done, big) { out.push({ t: t, p: p, done: done, big: big }); }
     if (SB.Game.beaconWaiting && SB.Game.beaconWaiting(g)) add("✨ the spire is up! step into a smol (your smol's 👁), walk to it and light the beacon", "", false, 1); // 4.28 (4.29: big = shown first, phones too)
+    if (SB.Home && ((g.stats && g.stats.maxTier) || 0) >= 2 && !g.showcase) { // 4.30: a home of your own
+      var hn = SB.Home.next(g);
+      if (!SB.Home.get(g)) add("🏠 make a home: as a smol, build a hut or a lean-to with your own hands (or look at one and make it yours)", "");
+      else if (hn) add("🏠 your home could use " + hn.name + ": " + SB.Home.costText(hn) + ", made at your door", SB.Home.count(g) + "/" + SB.Home.THINGS.length);
+    }
     var bn = SB.Bosses && SB.Bosses.next ? SB.Bosses.next(g) : null; // 4.26: the next grump captain
     if (bn) add(bn.boss.icon + " " + bn.boss.name + ", a grump captain, " + (bn.found ? "lairs to the " + bn.where : "is dug in somewhere to the " + bn.where) + ". f\u200cight it as a smol, with " + bn.boss.needs, bn.tries ? "tries: " + bn.tries : "", false, 1);
     if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
@@ -2480,6 +2485,9 @@
     });
     // a day on the Hollow (4.15): at dawn, yesterday in one small card and one thing to do today
     on("beaconReady", function (d) { goalKey = ""; toast("✨ <b>the spire is up.</b> it needs lighting, and that's yours to do: step into a smol, walk to it and light the beacon.", "ach", 14000, { x: d.st.x, z: d.st.z }); if (SB.Audio && SB.Audio.play) SB.Audio.play("achievement"); });
+    on("homeClaimed", function (d) { goalKey = ""; toast("🏠 <b>" + (d.moved ? "your home has moved." : "you have a home.") + "</b> fit it out by hand: a bed, a chest, a hearth and a berry patch, each made at the door.", "ach", 9000, { x: d.st.x, z: d.st.z }); });
+    on("homeThing", function (d) { goalKey = ""; toast(d.thing.icon + " <b>your home has " + d.thing.name + ".</b> " + d.thing.perk + (d.all ? " that's everything: a proper home." : ""), d.all ? "ach" : "", 8000, { x: d.st.x, z: d.st.z }); });
+    on("homeRested", function (d) { if (!d.me) toast("🛏 " + d.c.name + " woke at home in its own bed: every heart back.", "", 5000); });
     on("bossFound", function (d) { toast(d.boss.icon + " <b>" + esc(d.c.name) + " found " + esc(d.boss.name) + "'s lair</b>. " + esc(d.boss.line) + " step into a smol and go and f\u200cight it, with " + esc(d.boss.needs) + ".", "ach", 11000, { x: d.x, z: d.z }); goalKey = ""; });
     on("bossBeaten", function (d) {
       goalKey = "";

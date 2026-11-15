@@ -838,6 +838,7 @@
   C.FIRE_SCARE = 6.5; // torches and the nest fire keep grumps off from here (was 4.5)
   C.BITE_HOLD = 3; C.BITE_KNOCK = 3.6; C.BITE_REEL = 1.2; // K-0051: bigger, and the grump visibly reels // after a bite: how long it stands there, how far you're thrown (K-0048: "a beat of knockback so the player can still run")
   C.NEST_GLOW = 12; // Lantern stage 3: grumps won't come within this of the nest
+  C.LOCK_BITE = 1.05; // how close a captain's committed pounce must land to bite (it lands 0.8 short of where you stood)
   C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
   var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
 
@@ -1865,11 +1866,16 @@
         }
         if (sc.wind > 0) { // the tell: it crouches and shakes for 1.5 s, then pounces at where you are
           sc.wind -= dt; c.facing = Math.atan2(prey.x - c.x, prey.z - c.z); c.anim.squash = 0.25;
+          // 4.30: a captain commits. In the last beat of its wind-up it fixes on where you are and jumps THERE, so a step
+          // aside in that beat is a dodge (walking was never fast enough to out-run a jump that tracked you to the end)
+          if (sc.lock && !sc.aim && sc.wind <= sc.lock) sc.aim = { x: prey.x, z: prey.z };
+          if (sc.aim) c.facing = Math.atan2(sc.aim.x - c.x, sc.aim.z - c.z);
           if (sc.wind <= 0) {
-            var gap = SB.dist(c.x, c.z, prey.x, prey.z), jump = Math.min(C.LUNGE_REACH, Math.max(0, gap - 0.8)), ja = Math.atan2(prey.x - c.x, prey.z - c.z);
+            var locked = !!sc.aim, ax = locked ? sc.aim.x : prey.x, az = locked ? sc.aim.z : prey.z; sc.aim = null;
+            var gap = SB.dist(c.x, c.z, ax, az), jump = Math.min(C.LUNGE_REACH, Math.max(0, gap - 0.8)), ja = Math.atan2(ax - c.x, az - c.z);
             var jx = c.x + Math.sin(ja) * jump, jz = c.z + Math.cos(ja) * jump;
             if (SB.World.walkable(w, jx, jz)) { c.x = jx; c.z = jz; }
-            if (SB.dist(c.x, c.z, prey.x, prey.z) < 1.5) bite();
+            if (SB.dist(c.x, c.z, prey.x, prey.z) < (locked ? C.LOCK_BITE : 1.5)) bite(); // a committed jump has to land on you: one step aside is enough
             else { sc.hitT = 1.0; SB.bus.emit("scoutMiss", { c: prey, g: c }); } // dodged it
           }
           positionHeld(c, game); finishTick(c, game, gy); return;
