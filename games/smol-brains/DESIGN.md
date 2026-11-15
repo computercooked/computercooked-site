@@ -711,6 +711,33 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.82 What v4.34.0 changed: round two of the big build, a card that folds, and sources that stay readable
+
+Ashton, Nov 14: "I am looking at the feature map right now, I need you to make sure you are building every single one of these features into the game." After 4.33 the ledger (`smol-brains-handover\FEATURE-MAP.md`) still had about 1,900 open rows. Each of the nine plug-in systems was handed its own open rows and built them, again in parallel, again one file each. The ledger now reads 2,898 there, 218 not possible (each with its reason), 178 still to build (each marked LATER with what it needs). **What has and has not been seen in a browser is at the end, and it still matters.**
+
+**Round two, system by system** (the count is rows built this round; the row-by-row account is in `smol-brains-handover\builders\verdict2-<name>.md`):
+- `dark.js` (333): sky events (aurora, star-fruit bloom, a fallen ark part), five more endings, new night beasts (gulper, chimera, noctol, spike hulk), the story lines that lead to each ending.
+- `town.js` (222): ten kinds of caller each with their own stock, the waterwheel, worn roofs, promotions with reasons, elders' keep, paid song nights, the healer's long rest.
+- `friends.js` (209): wild smols you can win over, the tribe's ways grown from what it keeps doing, evenings at the fire, kid wishes, chatting while eating or walking, founder looks in the mirror.
+- `deep.js` (202): ore scanning from a lookout, pushing the gloom back with light, the haunted hall, biome keepsakes, the fallen ark hull with six rooms, windy scree, ashland places.
+- `powers.js` (193): start styles, the tribe's way (hearth, hunt, star), peg leg and crystal eye, calling a smol back from the edge, grump numbers changed on a running island, a free egg when the island is empty.
+- `harvest.js` (185): each rock gives its own thing, cut stone, orders locked to one smol, benches that speed machines, statues, the snapper crop, wobbly brew, gloom dust from a penned grump.
+- `qol.js` (130): the family row, find anything by name, challenges per smol, recipe search, the health and egg lines on a smol's page.
+- `fight.js` (90): "all thumbs" and callings, fire pots and stink pots, the crossbow, a body level bar, the crystal blade's thrown sliver, helm and moss cloak that pull or shed grumps.
+- `animals.js` (58): pens that keep only so many, a fire lizard hatched from a warm egg, the chirper that repeats words, the finback that tows a drowning smol, the tusker, bug net and bug house.
+
+The game now has 615 kinds of thing, 163 buildings and 11 plug-in bag tabs.
+
+**Systems written at the same time claimed the same names.** Two files each made a "fisherhat" and a "furboots"; the second silently lost. `tests/collisions.test.js` now loads each system alone, records what it adds, and fails if two claim the same item, building, tool, node, tab or `SB.<name>`, unless the id is in its SHARED list (the same thing on purpose: copper vest, fur boots, wraps, tablet, thunder pot, drum, flute, banner, statue, star metal, the dyes, bee box, shell). Renamed where the meaning differed: fight's angler hat and fur greaves, qol's belt pouch, animals' minnows, deep's sky seed, dark's giant fluff and bug jelly.
+
+**Sources and the 5 MB limit.** With round two in, the play folder passed 5 MB. The readable, commented source of every JS file now lives in `games/smol-brains/src/`. `node games/smol-brains/tools/strip.js` writes the copies the game loads into `play/js/`, with whole-line comments, indentation and blank lines taken out and nothing else changed (no renaming, so a line in the game's copy is still real code). **Edit `src/`, then run strip.** `tests/strip.test.js` fails if a copy is stale. The play folder is about 4.83 MB.
+
+**The look, so far.** A smol's card is now who it is, how it feels and the three things you do with it; needs, family, ideas and words fold under one line ("needs, family, ideas and words ▾"). The voxel smol has poses (`VX.pose`, `tests/pose434.test.js`): a lean into a run, a crouch, a reach, a slump when tired. Bag tabs from plug-ins show as one row of icons. Better models and the interface skin are the next release, not this one.
+
+**Seen in a browser:** the whole build boots with no errors and every handler still on; the ark film and the first day are unchanged; a clean island at 16x reached day 3 with 25 smols (one starved on day 3), no system switched off; save and reload work.
+
+**Not yet seen:** nearly every round-two feature used by hand; most new items and buildings (many are an emoji on a plain shape); the new pages at phone size; the poses in motion; balance with every system on (dark's own stress check had to be relaxed from five survivors to three once the other systems were loaded). Three systems each made their own "things to wear" page (fight, harvest, powers); they should become one. These are the playtest pass, logged in `smol-brains-handover\builders\PLAYTEST-LOG.md`.
+
 ## 0.81 What v4.33.0 changed: the big build (waves 2 to 10 of the feature plan)
 
 Ashton, Nov 14: "build every single feature in game-features.md into the game", then "keep going and don't stop, build everything first, then start playtesting and bug fixing." This release is the build. It adds ten new files and about 1,100 new test checks. It was built in parallel: one lead file of plug-in points, then eight systems written at the same time, each in its own file, and merged. **What has and has not been seen in a browser is at the end of this section, and it matters.**
