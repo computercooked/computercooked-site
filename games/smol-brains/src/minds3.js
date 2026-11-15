@@ -96,7 +96,7 @@
       var ac = Mn.academy(game, c.study.m);
       if (ac && dist(c.x, c.z, ac.x, ac.z) > 7) return C().sendTo(c, ac.x + (h01(c.id, 7) - 0.5) * 5, ac.z + (h01(c.id, 8) - 0.5) * 5, game, 20);
     }
-    if (c.nav && c.nav.door > 0.3 && game.world.weather && game.world.weather.rain > 0.5 && !c.inBed && !(c.action && c.action.called)) {
+    if (c.nav && c.nav.door > 0.25 && game.world.weather && game.world.weather.rain > 0.5 && !c.inBed && !(c.action && c.action.called)) {
       var hut = W().structsNear(game.world, c.x, c.z, 20, function (s) { return s.done && (s.kind === "hut" || s.kind === "house"); })[0];
       if (hut && dist(hut.x, hut.z, c.x, c.z) > 2.2 && (!ar || dist(hut.x, hut.z, ar.x, ar.z) < ar.r)) { c._mt && (c._mt.why = "in through the door, out of the rain"); return C().sendTo(c, hut.x, hut.z, game, 12); }
     }
@@ -218,6 +218,16 @@
     };
   }
 
+  // a builder fetching what a plan needs passes a forbidden thing by too
+  if (SB.Ideas && SB.Ideas.findSource) {
+    var fs0 = SB.Ideas.findSource;
+    SB.Ideas.findSource = function (c, want, game, R) {
+      var r = fs0(c, want, game, R);
+      for (var n = 0; r && r.item && r.item.data && r.item.data.forbid && n < 4; n++) { (c.unreach || (c.unreach = {}))[r.item.id] = game.time + 40; r = fs0(c, want, game, R); }
+      return r && r.item && r.item.data && r.item.data.forbid ? null : r;
+    };
+  }
+
   /* ---------------- stores, hauler routes and the sorter ---------------- */
   // a store is named "z<order id>" (stockpile), "g" (the granary), "c" (your home chest) or "s<building id>" (stall, storehouse)
   function store(game, ref) {
@@ -257,10 +267,14 @@
   function takeFrom(game, s, n, ok, dry) {
     var got = null, i, sl;
     if (s.t === "z") {
-      W().itemsNear(game.world, s.x, s.z, s.o.r, function (o) { if (!got && o.heldBy == null && !o.gone && !o.reserved && !(o.data && (o.data.forbid || o.data.rotten)) && K[o.kind] && !K[o.kind].critter && ok(o.kind)) got = o; });
+      var all = [], m = 0;
+      W().itemsNear(game.world, s.x, s.z, s.o.r, function (o) { if (o.heldBy == null && !o.gone && !o.reserved && !(o.data && (o.data.forbid || o.data.rotten)) && K[o.kind] && !K[o.kind].critter && ok(o.kind) && (!got || o.kind === got.kind)) { got = o; all.push(o); } });
       if (!got) return null;
-      var m = Math.min(n, (got.data && got.data.n) || 1);
-      if (!dry) { if (((got.data && got.data.n) || 1) > m) got.data.n -= m; else W().remove(game.world, got); }
+      for (i = 0; i < all.length && m < n; i++) {
+        var have = (all[i].data && all[i].data.n) || 1, t = Math.min(n - m, have);
+        m += t;
+        if (!dry) { if (have > t) all[i].data.n = have - t; else W().remove(game.world, all[i]); }
+      }
       return { k: got.kind, n: m };
     }
     if (s.t === "g") { if ((game.civ.granary || 0) < 1 || !ok("grain")) return null; m = Math.min(n, Math.floor(game.civ.granary)); if (!dry) game.civ.granary -= m; return { k: "grain", n: m }; }
@@ -418,7 +432,7 @@
     var got = [];
     if (I) smols(game).forEach(function (a) {
       if ((a.tribe || 0) !== (c.tribe || 0) || a.stage < 3) return;
-      for (var id in a.ideas) if (got.length < 3 && a.ideas[id] >= 1 && !I.known(c, id) && I.canHold(c, id)) { I.learn(c, id, 1, game, "boarding school"); if (I.known(c, id)) got.push(I.BY_ID[id].name); }
+      for (var id in a.ideas) if (got.length < 3 && a.ideas[id] >= 1 && !I.known(c, id) && I.canHold(c, id)) { for (var n = 0; n < 3 && !I.known(c, id); n++) I.learn(c, id, 1, game, "boarding school"); if (I.known(c, id)) got.push(I.BY_ID[id].name); }
     });
     c.tribe = b.h; c.board = null; c.schooled = (c.schooled || 0) + 1;
     var h = homeOf(game, c);
@@ -541,7 +555,8 @@
     if (!g || !d || !d.kind || !K[d.kind] || d.where === "in your chest") return;
     var hm = SB.Home && SB.Home.get && SB.Home.get(g), at = hm || (SB.Mine && SB.Mine.get && SB.Mine.get(g)) || d.c;
     if (!at || (me && dist(me.x, me.z, at.x, at.z) < 12)) return; // you were there to get it
-    var it = W().nearestItem(g.world, at.x + 0.9, at.z + 0.7, 2.5, function (o) { return o.kind === d.kind && o.heldBy == null; });
+    var it = null, its = g.world.items; // dropped this tick, so not in the grid yet: look at the newest few
+    for (var i = its.length - 1; i >= Math.max(0, its.length - 40) && !it; i--) if (its[i].kind === d.kind && its[i].heldBy == null && !its[i].gone && dist(its[i].x, its[i].z, at.x + 0.9, at.z + 0.7) < 3) it = its[i];
     if (!it) return;
     if (((it.data && it.data.n) || 1) > 1) it.data.n--; else W().remove(g.world, it);
     Mn.lose(g, d.kind, 1, d.c ? d.c.name : null);
@@ -686,6 +701,8 @@
     s = (q.keep || []).map(function (o) { return "<span>" + o.n + " " + esc(label(o.k)) + "</span>" + btn("keep:" + o.k + ":0", "✕"); }).join(" ");
     if (hk && !(q.keep || []).some(function (o) { return o.k === hk; })) s += btn("keep:" + hk + ":3", "🔁 keep 3 " + esc(label(hk)) + " made");
     if (s) h += row("🔁 keep making", s);
+    var it = W().nearestItem(game.world, c.x, c.z, 2.5, function (o) { return o.heldBy == null && !o.gone && K[o.kind] && !K[o.kind].critter; });
+    if (it) h += row("🚫 this " + esc(label(it.kind)), btn("forbid:" + it.id, it.data.forbid ? "forbidden · allow it" : "forbid it: no smol will touch it", !!it.data.forbid));
     if (Mn.signNear(game, c)) h += row("📯 horn", btn("horn", "read the sign out to everyone"));
     if (q.lost && q.lost.length) h += row("📦 lost and found", q.lost.length + (q.lost.length === 1 ? " thing " : " things ") + btn("claim", "take", false, !Mn.atHome(game, c)));
     if (SB.Dark && SB.Dark.ASKS) h += row("🔀 asks", btn("remix", "shuffled offering sets", !!q.remix));
@@ -720,6 +737,7 @@
       case "pri": o = O.byId(game, +a); Mn.setPri(o, o && o.pri === +b ? 0 : +b); return "";
       case "gran1": q.gran1 = q.gran1 ? 0 : 1; return "";
       case "keep": Mn.keep(game, a, +b); return +b ? "🔁 the makers will keep " + b + " " + label(a) + " about" : "";
+      case "forbid": o = SB.Game.byId(game, +a); Mn.forbid(game, o, !(o && o.data && o.data.forbid)); return o && o.data.forbid ? "🚫 no smol will touch that " + label(o.kind) : "";
       case "horn": return Mn.horn(game, c).msg;
       case "claim": return Mn.claim(game, c).msg;
       case "remix": Mn.remix(game, !q.remix); return q.remix ? "🔀 the village will ask for other things" : "";
@@ -732,7 +750,8 @@
     root.querySelectorAll("[data-mn]").forEach(function (el) {
       el.addEventListener("click", function () {
         var m = Mn.cmd(game, c, el.getAttribute("data-mn"));
-        if (m && SB.Possess && SB.Possess.say) SB.Possess.say(m);
+        if (m && pov() && SB.Possess.say) SB.Possess.say(m);
+        else if (m && SB.UI && SB.UI.toast) SB.UI.toast(esc(m), "", 4000);
         if (redraw) redraw();
       });
     });
