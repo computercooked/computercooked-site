@@ -1446,9 +1446,9 @@
     }
     if (r && r.type === "struct" && r.ref) {
       var b = r.ref, ow = Q.ownerOf(game, b);
-      if (ow && !o.pick) o.pick = x.no(ow);
       // the eyedropper: holding your plans and looking at a finished building plans another like it
       if (hk === "plans" && b.done && !o.pick && P() && P().buildable && P().buildable().some(function (z) { return z.kind === b.kind && z.can; })) o.pick = x.op("plan another " + (SB.STRUCTS[b.kind].label || b.kind), function () { P().startBuild(b.kind); return true; }, null);
+      if (ow && !o.pick) o.pick = x.no(ow);
     }
     if (r && r.type === "item" && r.ref && r.ref.kind === "egg" && !o.pick) { var eg = Q.eggHint(game, r.ref); if (eg) o.pick = x.no(eg); }
   };

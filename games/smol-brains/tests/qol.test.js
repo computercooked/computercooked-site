@@ -359,6 +359,18 @@ seeded(4350, () => {
 
   console.log("19. looking at things");
   check("your plans and a finished building: plan another", (() => { const o = {}; Q.options(game, me, { type: "struct", ref: cs.st }, o, { hk: "club", op: (l, go) => ({ label: l, go }), no: l => ({ label: l, locked: true }), say() {} }); return o.pick && o.pick.locked && /made by/.test(o.pick.label); })());
+  check("holding your plans, a finished hut: plan another like it", (() => {
+    const d = SB.Ideas.LIST.find(x => x.build === "hut"); me.ideas[d.id] = 1;
+    const o = {}; Q.options(game, me, { type: "struct", ref: hut }, o, { hk: "plans", op: (l, go) => ({ label: l, go }), no: l => ({ label: l, locked: true }), say() {} });
+    const ok = o.pick && !o.pick.locked && /plan another/.test(o.pick.label) && o.pick.go() === true && P.state().ghost && P.state().ghost.kind === "hut";
+    P.cancelBuild(); return ok;
+  })());
+  check("without plans it just says whose it is", (() => { const o = {}; Q.options(game, me, { type: "struct", ref: hut }, o, { hk: "club", op: (l, go) => ({ label: l, go }), no: l => ({ label: l, locked: true }), say() {} }); return o.pick && o.pick.locked && o.pick.label === "🏠 yours"; })());
+  check("the grump that's after you gets a bar by the hearts", (() => {
+    const g = SB.Game.spawnGrump(game, me.x + 5, me.z); g.scout = { who: me.id, t: 0 }; P.state().scout = g.id; g.whacked = 1;
+    const v = Q.vitals(game, me); P.state().scout = null; g.alive = false; g.gone = true; game.creatures.splice(game.creatures.indexOf(g), 1);
+    return v.length === 1 && /^night hunter [▮▯]{5}$/.test(v[0].text) && v[0].bad;
+  })());
   const egg = { kind: "egg", data: { genome: me.genome, gen: 3, parents: [me.id, pal.id] } };
   check("an egg says what it will be like", (() => { const t = Q.eggHint(game, egg); return /🥚/.test(t) && /generation 3/.test(t) && t.indexOf("Biscuit") > 0; })(), Q.eggHint(game, egg));
   check("a pod with no genes says nothing", Q.eggHint(game, { kind: "egg", data: {} }) === "");
