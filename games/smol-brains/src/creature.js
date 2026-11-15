@@ -472,7 +472,7 @@
       return;
     }
     // starving: instinct takes over from the net. go straight for the nearest food you can smell
-    if (c.species === "smol" && ch.hunger > C.HUNGRY_AWAKE && !c.plan && rng.chance(ch.hunger > 0.85 ? 0.9 : 0.5)) {
+    if (c.species === "smol" && ch.hunger > 0.85 && !c.plan && rng.chance(0.7)) {
       var sf = sniffFood(c, game);
       if (sf) {
         var st = sf.kind && K[sf.kind] && K[sf.kind].noun === "food" && sf.heldBy !== undefined ? { type: "item", id: sf.id } : { type: "node", id: sf.id };
@@ -659,14 +659,20 @@
   // walk somewhere on the god's say-so (everyone home!, a search party): drops whatever the brain was doing
   C.sendTo = function (c, x, z, game, dur) {
     if (!c.alive || c.heldBy) return false;
-    // 4.36: a hungry smol eats first. funerals, story events and calls home kept pulling starving smols off their food
-    // a step from it, again and again, until they died, and each death called another funeral
-    if (c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) return false;
     if (c.plan && SB.Ideas) C.dropPlan(c, game);
     c.asleep = false; c.inBed = false;
     startAction(c, game, V.wander, null, null, null);
     c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
     return true;
+  };
+  // 4.36: the same, for company rather than need (a funeral, a story event, a friend's whim): a hungry smol eats
+  // first. These calls kept pulling starving smols off food a step away, again and again, until they died, and each
+  // death called another funeral. A call that matters (danger, the player's own word, a walk to a food stall) uses sendTo.
+  C.sendSoft = function (c, x, z, game, dur) {
+    if (c && c.species === "smol" && !c._pov && c.chem && c.chem.hunger > C.HUNGRY_AWAKE) return false;
+    var ok = C.sendTo(c, x, z, game, dur);
+    if (ok && c.action) c.action.soft = true;
+    return ok;
   };
   // do one thing on the sky's say-so (orders.js): skips the brain's choice, like provoke
   C.startOn = function (c, game, verb, tgt) {
@@ -969,7 +975,7 @@
     a.doT += dt;
     switch (a.verb) {
       case V.wander:
-        if (a.called && c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) { finish(c, game); return; } // 4.36: called, but too hungry now: eat first
+        if (a.soft && c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) { finish(c, game); return; } // 4.36: called for company, but too hungry now: eat first
         if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * (a.called ? 1 : 0.8), game, a.called ? 1.2 : 0.3)) {
           if (a.called) { startAction(c, game, V.idle, null, null, null); c.action.dur = 3; emote(c, "happy", 1.5); return; } // here! waits to see what you want
           a.doT = a.dur;

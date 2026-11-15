@@ -113,9 +113,9 @@ SB.bus.emit("funeral",{f:f,names:names(list),rite:f.rite,x:f.x,z:f.z,n:list.leng
 function ring(f,i,n){var a=i/Math.max(1,n)*6.283+0.4,r=2.6+(n>8?0.8:0);return{x:f.x+Math.sin(a)*r,z:f.z+Math.cos(a)*r};}
 function send(game,f,c,i,n){
 var bodyFor=(game.bodies||[]).filter(function(b){return b.bearer===c.id&&!b.carried&&!b.laid;})[0];
-if(bodyFor&&f.phase==="gather"){SB.Creature.sendTo(c,bodyFor.x,bodyFor.z,game,40);return;}
+if(bodyFor&&f.phase==="gather"){(SB.Creature.sendSoft||SB.Creature.sendTo)(c,bodyFor.x,bodyFor.z,game,40);return;}
 var p=ring(f,i,n);
-if(SB.dist(c.x,c.z,p.x,p.z)>1.2)SB.Creature.sendTo(c,p.x,p.z,game,30);
+if(SB.dist(c.x,c.z,p.x,p.z)>1.2)(SB.Creature.sendSoft||SB.Creature.sendTo)(c,p.x,p.z,game,30);
 else{c.facing=Math.atan2(f.x-c.x,f.z-c.z);c.moving=false;}
 }
 function laySpot(f,b,n){var off=(b.slot-(n-1)/2)*1.3;return{x:f.x+off,z:f.z+(f.rite==="burial"?0:0.2)};}
@@ -140,7 +140,7 @@ if(!br||!br.alive)b.bearer=null;
 if(b.carried&&br){
 b.x=br.x-Math.sin(br.facing)*0.55;b.z=br.z-Math.cos(br.facing)*0.55;
 if(SB.dist(br.x,br.z,f.x,f.z)<2.6){var s=laySpot(f,b,list.length);b.x=s.x;b.z=s.z;b.laid=true;b.carried=false;}
-}else if(br&&SB.dist(br.x,br.z,b.x,b.z)<1.5){b.carried=true;SB.Creature.sendTo(br,f.x,f.z,game,60);}
+}else if(br&&SB.dist(br.x,br.z,b.x,b.z)<1.5){b.carried=true;(SB.Creature.sendSoft||SB.Creature.sendTo)(br,f.x,f.z,game,60);}
 });
 if(resend)crowd.forEach(function(c,k){var mine=list.filter(function(b){return b.bearer===c.id&&b.carried;})[0];if(!mine)send(game,f,c,k,crowd.length);});
 var left=list.filter(function(b){return!b.laid;});

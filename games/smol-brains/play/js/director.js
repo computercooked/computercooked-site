@@ -238,7 +238,7 @@ var arrived=null;
 var c=SB.Game.byId(game,id);
 if(!c||!c.alive)return;
 if(SB.dist(c.x,c.z,inc.x,inc.z)<3.5)arrived=arrived||c;
-else if(!c.action||!c.action.called)SB.Creature.sendTo(c,inc.x,inc.z,game,60);
+else if(!c.action||!c.action.called)(SB.Creature.sendSoft||SB.Creature.sendTo)(c,inc.x,inc.z,game,60);
 });
 if(arrived){inc.finder=arrived.id;return D.end(game,inc,true);}
 if(game.time-inc.t1>inc.dur)return D.end(game,inc,false);
@@ -486,7 +486,7 @@ var c=SB.Game.byId(game,id);
 if(!c||!c.alive)return;
 if(c.chem.pain>0.75){c.rally=0;return;}
 fighters++;
-if(SB.dist(c.x,c.z,s.x,s.z)>8){if(!c.action||!c.action.called)SB.Creature.sendTo(c,s.x,s.z,game,80);return;}
+if(SB.dist(c.x,c.z,s.x,s.z)>8){if(!c.action||!c.action.called)(SB.Creature.sendSoft||SB.Creature.sendTo)(c,s.x,s.z,game,80);return;}
 if(c.action&&c.action.verb===SB.V.hit)return;
 var foe=guards.reduce(function(b,g){return!b||SB.dist(g.x,g.z,c.x,c.z)<SB.dist(b.x,b.z,c.x,c.z)?g:b;},null);
 if(foe&&game.rng.chance(0.6))SB.Creature.provoke(c,foe,game);

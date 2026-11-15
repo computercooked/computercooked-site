@@ -946,7 +946,7 @@
         var c = SB.Game.byId(game, inc.walker);
         if (!c || !c.alive) return DRend(game, inc, false);
         if (SB.dist(c.x, c.z, inc.x, inc.z) < 3.5) return DRend(game, inc, true);
-        if (!c.action || !c.action.called) SB.Creature.sendTo(c, inc.x, inc.z, game, 80);
+        if (!c.action || !c.action.called) (SB.Creature.sendSoft || SB.Creature.sendTo)(c, inc.x, inc.z, game, 80);
         if (game.time - inc.t1 > inc.dur) return DRend(game, inc, false);
       },
       finish: function (game, inc, ok) {
