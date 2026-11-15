@@ -102,10 +102,13 @@
     return r.sys === "powers" ? P().make2(game, c, r.id) : r.sys === "harvest" ? H().make(game, c, r.id) : F().make(game, c, r.id);
   };
   /* ---------------- the page ---------------- */
-  var showAll = false, group = "head";
+  var showAll = false, group = "head", page = "on";
+  W.page = function (p) { if (p) page = p; return page; };
   W.html = function (game, c, icon) {
     icon = icon || function () { return ""; };
-    var on = W.on(c), out = "<div class='lbl'>what " + esc(c.name || "this smol") + " is wearing</div><div class='rlist'>";
+    var X = SB.Wardrobe, top = X && X.html ? "<div class='row' style='display:flex;gap:4px;margin-bottom:4px'><button class='btn" + (page === "on" ? " go" : "") + "' data-wrpage='on'>wearing</button><button class='btn" + (page === "looks" ? " go" : "") + "' data-wrpage='looks'>looks</button></div>" : "";
+    if (top && page === "looks") return top + X.html(game, c, icon);
+    var on = W.on(c), out = top + "<div class='lbl'>what " + esc(c.name || "this smol") + " is wearing</div><div class='rlist'>";
     W.PLACES.forEach(function (pl) {
       var here = on.filter(function (e) { return e.place === pl[0]; });
       if (pl[0] === "paw" && !here.length && !P()) return;
@@ -136,13 +139,95 @@
   };
   W.wire = function (root, game, c, redraw, tell) {
     function each(sel, fn) { root.querySelectorAll(sel).forEach(function (b) { b.addEventListener("click", function () { fn(b); }); }); }
-    function done(r) { if (r && r.msg && tell) tell(r.msg); if (redraw) redraw(); }
+    function done(r) { W.fresh(c); if (r && r.msg && tell) tell(r.msg); if (redraw) redraw(); }
     each("[data-wroff]", function (b) { var a = b.getAttribute("data-wroff").split(":"); done(W.takeOff(game, c, a[0], a[1])); });
     each("[data-wron]", function (b) { done(W.putOn(game, c, b.getAttribute("data-wron"))); });
     each("[data-wrmake]", function (b) { done(W.make(game, c, b.getAttribute("data-wrmake"))); });
     each("[data-wrgrp]", function (b) { group = b.getAttribute("data-wrgrp"); if (redraw) redraw(); });
     each("[data-wrall]", function () { showAll = !showAll; if (redraw) redraw(); });
+    each("[data-wrpage]", function (b) { page = b.getAttribute("data-wrpage"); if (redraw) redraw(); });
+    if (page === "looks" && SB.Wardrobe && SB.Wardrobe.wire) SB.Wardrobe.wire(root, game, c, redraw, tell);
   };
+  /* ---------------- what shows on the body (4.36) ----------------
+     W.look(c) says what to draw on a smol: the worn hat, vest or cloak, boots and charm (with dyes, a trim, a
+     hidden piece left out, copper going green), a vanity hat, winter and feast dress, a grump mask, scars, body
+     paint, a painted mark, a rounder or leaner body, and how it walks. voxel.js, pixel.js and bodies.js draw it.
+     c.wd (saved with the smol): hide {place: 1}, dye {place: [r, g, b]}, hat, trim, cl, band, belt, paint, paints,
+     mark, on {kind: the day it was first worn}. */
+  function wd(c) { return c.wd && typeof c.wd === "object" ? c.wd : (c.wd = {}); }
+  W.wd = wd;
+  function rgb(v) { if (typeof v === "string") v = parseInt(v.replace("#", ""), 16); v = v || 0x9a8f80; return [v >> 16 & 255, v >> 8 & 255, v & 255]; }
+  function mixc(a, b, t) { return [a[0] + (b[0] - a[0]) * t | 0, a[1] + (b[1] - a[1]) * t | 0, a[2] + (b[2] - a[2]) * t | 0]; }
+  W.rgb = rgb;
+  // vanity hats: [label, shape, colour]
+  W.HATS = { party: ["party hat", "cone", 0xff5fa2], flower: ["flower crown", "band", 0xff9ac0], top: ["tall hat", "tall", 0x2a2630], acorn: ["acorn cap", "cap", 0x8a5a36], knit: ["knit cap", "cap", 0xd84a4a], ears: ["mouse ears", "ears", 0x9a9aa6], feather: ["feather cap", "brim", 0x4f8a40], crown: ["captain's crown", "band", 0xffd65c], lantern: ["lantern hood", "hood", 0xfff0a0] };
+  W.TRIMS = [null, ["wave", [240, 240, 230]], ["ember", [255, 120, 60]], ["moss", [110, 190, 90]], ["star", [255, 214, 92]]];
+  W.CLOAKS = ["plain", "striped", "starry", "checked"];
+  W.BANDS = [[240, 190, 60], [220, 80, 70], [90, 190, 240], [120, 200, 110], [190, 120, 230], [245, 240, 230]];
+  W.BAND_NAMES = ["gold", "red", "blue", "green", "violet", "white"];
+  W.PAINTS = [null, ["white clay", [245, 240, 230]], ["red ochre", [205, 80, 50]], ["blue woad", [70, 110, 210]], ["gold dust", [255, 214, 92]]];
+  // each tribe has a look of its own: the feather in its headbands, the trim on its cloth, what sits on its roofs
+  W.STYLES = [["reed", [156, 184, 90]], ["clay", [214, 120, 76]], ["moss", [80, 150, 96]], ["ember", [240, 120, 60]]];
+  W.style = function (game, c) { var s = 0, t = String(c && c.tribe != null ? c.tribe : ""); for (var i = 0; i < t.length; i++) s += t.charCodeAt(i); return W.STYLES[((game && game.seed | 0) + s) & 3]; };
+  var MAT = /copper|iron|fur|bark|leaf|moss|straw|hide|glow|gourd|thorn|cane|clam/, MATC = { copper: 0xe08a4a, iron: 0x9aa0aa, fur: 0xc8b48a, bark: 0x7a5230, leaf: 0x6aa84a, moss: 0x4f8a40, straw: 0xe8cf8a, hide: 0xa07850, glow: 0x67d4ff, gourd: 0xf59b2b, thorn: 0x5a9a4a, cane: 0xb8c46a, clam: 0xe8dccc };
+  W.shapeOf = function (k) { return /crown|wreath|band|circlet/.test(k) ? "band" : /hood|cowl/.test(k) ? "hood" : /helm|mask|copperhat/.test(k) ? "helm" : /hat|parasol/.test(k) ? "brim" : "cap"; };
+  W.fresh = function (c) { if (c) c._wl = null; };
+  W.look = function (c) {
+    if (!c || c.species === "grump" || !c.look) return null;
+    var n = c._wlN = (c._wlN || 0) + 1;
+    if (c._wl && n % 24) return c._wl;
+    var d = c.wd || {}, hide = d.hide || {}, game = cur(), L = { fit: c.fit ? Math.round(c.fit) : 0 }, dy = game ? Math.floor((game.time || 0) / (SB.DAY_LENGTH || 1200)) : 0;
+    W.on(c).forEach(function (e) {
+      var pl = e.place;
+      if (pl === "bound" || pl === "paw" || hide[pl] || L[pl]) return;
+      var kd = K()[e.kind] || {}, m = MAT.exec(e.kind), col = rgb(m && (!kd.color || kd.color === 0xb89a6a) ? MATC[m[0]] : kd.color), r = e.sys === "harvest" && c.wear[e.slot], dz = r && r.dye && H().DYE && H().DYE[r.dye];
+      if (dz) col = [dz.rgb[0] * 255 | 0, dz.rgb[1] * 255 | 0, dz.rgb[2] * 255 | 0];
+      if (d.dye && d.dye[pl]) col = d.dye[pl];
+      else if (/copper/.test(e.kind) && game) {
+        // copper goes green with the days it has been worn (a look only)
+        var on = d.on || (wd(c).on = {});
+        if (on[e.kind] == null) on[e.kind] = dy;
+        col = mixc(col, [96, 176, 150], Math.max(0, Math.min(0.75, (dy - on[e.kind]) / 12)));
+      }
+      L[pl] = { k: e.kind, col: col, sh: pl === "head" ? W.shapeOf(e.kind) : pl === "body" && /cloak|cape|robe/.test(e.kind) ? "cloak" : "" };
+    });
+    if (d.hat && W.HATS[d.hat]) L.head = { k: d.hat, col: d.dye && d.dye.hat || rgb(W.HATS[d.hat][2]), sh: W.HATS[d.hat][1] };
+    else if (!L.head && !hide.head && c.tier >= 3 && game && game.world) {
+      // nothing on its head: a party hat on a feast day, a knit cap in winter
+      if (SB.Dark && SB.Dark.feast && SB.Dark.feast(game)) L.head = { k: "party", col: rgb(W.HATS.party[2]), sh: "cone" };
+      else if (game.world.season === 3) L.head = { k: "knit", col: W.BANDS[(c.id || 0) % W.BANDS.length], sh: "cap" };
+    }
+    if (!hide.mask && Sv() && Sv().count(c, "grumpmask", true) > 0) L.mask = 1;
+    if (L.body) { L.body.trim = d.trim && W.TRIMS[d.trim] ? W.TRIMS[d.trim][1] : game ? W.style(game, c)[1] : null; L.body.pat = d.cl | 0; }
+    L.scars = P() && P().scars ? Math.min(3, P().scars(c)) : 0;
+    L.paint = d.paint && W.PAINTS[d.paint] ? d.paint : 0;
+    L.mark = d.mark | 0;
+    L.band = d.band == null ? null : d.band < 0 ? false : W.BANDS[d.band % W.BANDS.length];
+    L.belt = d.belt == null ? null : d.belt < 0 ? false : W.BANDS[d.belt % W.BANDS.length];
+    L.feather = game ? W.style(game, c)[1] : null;
+    // the big glow, coloured by a worn charm
+    L.big = P() && P().has && game && P().has(c, "bigglow", game) ? (L.charm ? L.charm.col : [255, 240, 170]) : null;
+    var g = c.genome && c.genome.genes || {}, an = c.anim || {};
+    L.gait = H() && H().has && game && c.buff && H().has(c, "tipsy", game) ? "tipsy" : (SB.Body && SB.Body.has(c, "cut")) || (P() && P().sprained && game && P().sprained(c, game)) ? "limp" : an.face === "tired" || (c.chem && c.chem.tired > 0.8) ? "trudge" : g.bravery > 0.66 ? "strut" : L.fit > 0 || c.look.body > 1.12 ? "waddle" : g.sociability > 0.6 ? "bouncy" : "";
+    L.key = JSON.stringify([L.head, L.body, L.feet, L.charm && L.charm.col, L.mask, L.scars, L.paint, L.mark, L.band, L.belt, L.feather, L.fit, c.leafy ? 1 : 0]);
+    return (c._wl = L);
+  };
+  // how a smol walks: bouncy, a waddle, a strut (its genes and its shape), a limp, a tired trudge, a tipsy sway
+  var GA = { hop: 0, lean: 0, roll: 0, leg: 1, arm: 1, ear: 0 };
+  W.gait = function (c, t, walk) {
+    var L = W.look(c), g = L && L.gait, s = Math.sin((walk || 0) * 1.6), id = c.id || 0;
+    GA.hop = GA.lean = GA.roll = GA.ear = 0; GA.leg = GA.arm = 1;
+    if (!g) return GA;
+    if (g === "tipsy") { GA.roll = Math.sin(t * 2.3 + id) * 0.2; GA.lean = Math.sin(t * 1.7 + id) * 0.1; }
+    else if (!walk) return GA;
+    else if (g === "limp") { GA.roll = Math.max(0, s) * 0.2; GA.hop = -Math.max(0, s) * 0.5; GA.leg = 0.55; }
+    else if (g === "trudge") { GA.lean = 0.2; GA.leg = 0.5; GA.arm = 0.2; GA.ear = -0.3; }
+    else if (g === "strut") { GA.lean = -0.12; GA.arm = 1.7; GA.hop = Math.abs(s) * 0.4; }
+    else if (g === "waddle") { GA.roll = s * 0.16; GA.leg = 0.8; }
+    else if (g === "bouncy") { GA.hop = Math.abs(s) * 1.5; GA.ear = 0.1; }
+    return GA;
+  };
+
   /* ---------------- joining the three ---------------- */
   W.join = function () {
     // a thing fight knows counts for fight when harvest or powers has it on (and the other way for harvest)
@@ -167,6 +252,7 @@
   W.join();
   function cur() { return SB.Game && SB.Game.current; }
   function onWorn(d, sys) {
+    W.fresh(d && d.c);
     if (!d || !d.c || d.off || !d.kind) return;
     var e = W.on(d.c).filter(function (x) { return x.kind === d.kind && (!sys || x.sys === sys) && (!d.slot || x.slot === d.slot); })[0];
     if (e) W.settle(cur(), d.c, e);
@@ -175,5 +261,5 @@
     SB.bus.on("worn", function (d) { onWorn(d, null); });
     SB.bus.on("wearOn", function (d) { onWorn(d, "harvest"); });
   }
-  if (SB.Ext) SB.Ext.tab({ id: "wear", label: function () { return "🧥 wear"; }, show: function (game, c) { return !!c && (c.tier >= 2 || W.on(c).length > 0); }, html: W.html, wire: W.wire });
+  if (SB.Ext) SB.Ext.tab({ id: "wear", label: function () { return "🧥 wear"; }, show: function (game, c) { return !!c && (c.tier >= 2 || W.on(c).length > 0 || !!SB.Wardrobe); }, html: W.html, wire: W.wire });
 })();
