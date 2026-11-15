@@ -1,0 +1,1042 @@
+/* smol brains 2 — meshes.js
+   Every 3D shape in the game is built here from code: low-poly trees, rocks, items, buildings, decorations
+   and creature body parts. A mesh is a Float32Array of non-indexed triangles with 12 floats per vertex:
+   position(3) normal(3) colour(4: rgb + tintMask) extra(2: wind flex, emissive).
+   tintMask 1 = the per-instance tint colour multiplies this vertex (leaves, bodies); 0 = keep vertex colour. */
+(function () {
+  "use strict";
+  var SB = window.SB;
+  var ME = (SB.Meshes = {});
+  var STRIDE = (ME.STRIDE = 12);
+
+  /* ---------------- builder ---------------- */
+
+  function Builder() {
+    this.v = [];
+    this.m = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]; // 3x3 linear (row-major) + translation
+    this.stack = [];
+    this.c = [1, 1, 1, 0];
+    this.fk = 0; this.f0 = 0; this.fa = 1; // flex = clamp((y - f0) * fk)^1.6 * fa
+    this.em = 0;
+    this.flatShade = true;
+    this.twoSided = false;
+  }
+  var BP = Builder.prototype;
+  BP.push = function () { this.stack.push(this.m.slice()); return this; };
+  BP.pop = function () { this.m = this.stack.pop(); return this; };
+  function mulLin(m, a) { // m = m * a (a is 3x3 row-major)
+    var r = [];
+    for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) r[i * 3 + j] = m[i * 3] * a[j] + m[i * 3 + 1] * a[3 + j] + m[i * 3 + 2] * a[6 + j];
+    for (var k = 0; k < 9; k++) m[k] = r[k];
+  }
+  BP.translate = function (x, y, z) {
+    var m = this.m;
+    m[9] += m[0] * x + m[1] * y + m[2] * z;
+    m[10] += m[3] * x + m[4] * y + m[5] * z;
+    m[11] += m[6] * x + m[7] * y + m[8] * z;
+    return this;
+  };
+  BP.scale = function (x, y, z) { if (y == null) { y = x; z = x; } mulLin(this.m, [x, 0, 0, 0, y, 0, 0, 0, z]); return this; };
+  BP.rotY = function (a) { var c = Math.cos(a), s = Math.sin(a); mulLin(this.m, [c, 0, s, 0, 1, 0, -s, 0, c]); return this; };
+  BP.rotX = function (a) { var c = Math.cos(a), s = Math.sin(a); mulLin(this.m, [1, 0, 0, 0, c, -s, 0, s, c]); return this; };
+  BP.rotZ = function (a) { var c = Math.cos(a), s = Math.sin(a); mulLin(this.m, [c, -s, 0, s, c, 0, 0, 0, 1]); return this; };
+  BP.color = function (hex, tint) { var c = typeof hex === "number" ? SB.hex(hex) : hex; this.c = [c[0], c[1], c[2], tint || 0]; return this; };
+  // wind flex: 0 at y0, growing (curved, so a trunk bends near the top more than at the root) to amp at
+  // y0 + 1/k and above. render.js sways each vertex by this weight, so the whole plant bends, not just its leaves
+  BP.flex = function (k, y0, amp) { this.fk = k; this.f0 = y0 || 0; this.fa = amp == null ? 1 : amp; return this; };
+  BP.glow = function (e) { this.em = e; return this; };
+  BP.smoothShade = function (on) { this.flatShade = !on; return this; };
+  BP.sides = function (two) { this.twoSided = !!two; return this; };
+  // soft vertical shading baked into the vertex colours: darker toward y0, full colour at y1 (k = how much
+  // darker). It's what makes a canopy read as a round, sunlit ball from a farm-sim camera. null turns it off
+  BP.shadeY = function (y0, y1, k) { this.gy = y0 == null ? null : [y0, y1, k == null ? 0.35 : k]; return this; };
+
+  BP.xf = function (p) {
+    var m = this.m;
+    return [m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[9], m[3] * p[0] + m[4] * p[1] + m[5] * p[2] + m[10], m[6] * p[0] + m[7] * p[1] + m[8] * p[2] + m[11]];
+  };
+  BP.xn = function (n) { // inverse-transpose of the linear part, then normalise
+    var m = this.m;
+    var a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h = m[7], i = m[8];
+    var A = e * i - f * h, Bc = -(d * i - f * g), C = d * h - e * g, D = -(b * i - c * h), E = a * i - c * g, Fc = -(a * h - b * g), G = b * f - c * e, H = -(a * f - c * d), I = a * e - b * d;
+    var x = A * n[0] + Bc * n[1] + C * n[2], y = D * n[0] + E * n[1] + Fc * n[2], z = G * n[0] + H * n[1] + I * n[2];
+    var l = Math.hypot(x, y, z) || 1;
+    return [x / l, y / l, z / l];
+  };
+  BP.vert = function (p, n) {
+    var c = this.c, f = this.fk ? Math.pow(SB.clamp01((p[1] - this.f0) * this.fk), 1.6) * this.fa : 0, m = 1;
+    if (this.gy) m = 1 - this.gy[2] * (1 - SB.clamp01((p[1] - this.gy[0]) / (this.gy[1] - this.gy[0] || 1)));
+    this.v.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0] * m, c[1] * m, c[2] * m, c[3], f, this.em);
+  };
+  // triangle in local coords; normals given (smooth) or computed (flat)
+  BP.tri = function (a, b, c, na, nb, nc) {
+    var A = this.xf(a), Bv = this.xf(b), C = this.xf(c);
+    var fn;
+    if (this.flatShade || !na) {
+      var ux = Bv[0] - A[0], uy = Bv[1] - A[1], uz = Bv[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, l = Math.hypot(nx, ny, nz) || 1;
+      fn = [nx / l, ny / l, nz / l];
+      this.vert(A, fn); this.vert(Bv, fn); this.vert(C, fn);
+      if (this.twoSided) { var bn = [-fn[0], -fn[1], -fn[2]]; this.vert(A, bn); this.vert(C, bn); this.vert(Bv, bn); }
+    } else {
+      this.vert(A, this.xn(na)); this.vert(Bv, this.xn(nb)); this.vert(C, this.xn(nc));
+    }
+    return this;
+  };
+  BP.quad = function (a, b, c, d) { this.tri(a, b, c); this.tri(a, c, d); return this; };
+
+  // unit icosphere (radius 1), sub = 0..3; disp(x,y,z) optional radial multiplier
+  var icoCache = {};
+  function icoTris(sub) {
+    if (icoCache[sub]) return icoCache[sub];
+    var t = (1 + Math.sqrt(5)) / 2;
+    var P = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(nrm);
+    var F = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+    var tris = F.map(function (f) { return [P[f[0]], P[f[1]], P[f[2]]]; });
+    for (var s = 0; s < sub; s++) {
+      var nt = [];
+      tris.forEach(function (tr) {
+        var a = tr[0], b = tr[1], c = tr[2];
+        var ab = nrm(mid(a, b)), bc = nrm(mid(b, c)), ca = nrm(mid(c, a));
+        nt.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+      });
+      tris = nt;
+    }
+    return (icoCache[sub] = tris);
+  }
+  function nrm(p) { var l = Math.hypot(p[0], p[1], p[2]); return [p[0] / l, p[1] / l, p[2] / l]; }
+  function mid(a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]; }
+
+  BP.sphere = function (sub, disp) {
+    var tris = icoTris(sub == null ? 1 : sub), self = this;
+    tris.forEach(function (tr) {
+      var p = tr.map(function (q) { var k = disp ? disp(q[0], q[1], q[2]) : 1; return [q[0] * k, q[1] * k, q[2] * k]; });
+      self.tri(p[0], p[1], p[2], tr[0], tr[1], tr[2]);
+    });
+    return this;
+  };
+  // lumpy flat-shaded blob (canopies, bushes, rocks). seed makes each one different.
+  BP.blob = function (sub, amp, seed, squashY) {
+    var s = seed || 1;
+    return this.sphere(sub, function (x, y, z) {
+      var n = Math.sin(x * 5.1 + s) * Math.cos(y * 4.3 + s * 1.7) + Math.sin(z * 6.7 - s * 0.7) * 0.6;
+      return 1 + n * amp * 0.5 + (squashY && y < 0 ? y * squashY : 0);
+    });
+  };
+  // cylinder / cone along +y from 0 to h, radius r0 at bottom, r1 at top
+  BP.cyl = function (segs, r0, r1, h, caps) {
+    for (var i = 0; i < segs; i++) {
+      var a0 = i / segs * Math.PI * 2, a1 = (i + 1) / segs * Math.PI * 2;
+      var c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+      var p00 = [c0 * r0, 0, s0 * r0], p10 = [c1 * r0, 0, s1 * r0], p01 = [c0 * r1, h, s0 * r1], p11 = [c1 * r1, h, s1 * r1];
+      if (r1 > 0.0001) this.quad(p00, p01, p11, p10); else this.tri(p00, p01, p10);
+      if (caps !== false) {
+        if (r1 > 0.0001) this.tri([0, h, 0], p01, p11);
+        this.tri([0, 0, 0], p00, p10);
+      }
+    }
+    return this;
+  };
+  BP.cone = function (segs, r, h) { return this.cyl(segs, r, 0, h, true); };
+  // a pitched roof along x: w wide (x), d deep (z), h tall, sitting on y = 0, with an overhang
+  BP.gable = function (w, h, d, over) {
+    var x = w / 2 + (over || 0), z = d / 2 + (over || 0), t = 0.06;
+    var A = [-x, 0, -z], Bq = [x, 0, -z], Cq = [x, 0, z], D = [-x, 0, z], E = [-x, h, 0], F = [x, h, 0];
+    this.quad(D, Cq, F, E); this.quad(Bq, A, E, F); // the two slopes
+    this.tri(A, D, E); this.tri(Cq, Bq, F); // gable ends
+    this.quad(A, Bq, [x, -t, -z], [-x, -t, -z]); this.quad([-x, -t, z], [x, -t, z], Cq, D); // eave thickness
+    this.quad([-x, -t, -z], [x, -t, -z], [x, -t, z], [-x, -t, z]); // underside
+    return this;
+  };
+  BP.box = function (w, h, d) {
+    var x = w / 2, z = d / 2;
+    var P = [[-x, 0, -z], [x, 0, -z], [x, 0, z], [-x, 0, z], [-x, h, -z], [x, h, -z], [x, h, z], [-x, h, z]];
+    this.quad(P[4], P[7], P[6], P[5]); this.quad(P[0], P[1], P[2], P[3]);
+    this.quad(P[3], P[2], P[6], P[7]); this.quad(P[1], P[0], P[4], P[5]);
+    this.quad(P[2], P[1], P[5], P[6]); this.quad(P[0], P[3], P[7], P[4]);
+    return this;
+  };
+  // flat leaf/fin/ear shape in the xy plane: a diamond pointing +y
+  BP.leaf = function (w, h, bend) {
+    var b = bend || 0;
+    this.tri([0, 0, 0], [w / 2, h * 0.45, b * 0.5], [0, h, b]);
+    this.tri([0, 0, 0], [0, h, b], [-w / 2, h * 0.45, b * 0.5]);
+    return this;
+  };
+  BP.torus = function (R, r, segs, sides) {
+    for (var i = 0; i < segs; i++) for (var j = 0; j < sides; j++) {
+      var u0 = i / segs * 6.2832, u1 = (i + 1) / segs * 6.2832, v0 = j / sides * 6.2832, v1 = (j + 1) / sides * 6.2832;
+      var P = function (u, v) { return [(R + r * Math.cos(v)) * Math.cos(u), r * Math.sin(v), (R + r * Math.cos(v)) * Math.sin(u)]; };
+      var N = function (u, v) { return [Math.cos(v) * Math.cos(u), Math.sin(v), Math.cos(v) * Math.sin(u)]; };
+      this.tri(P(u0, v0), P(u0, v1), P(u1, v1), N(u0, v0), N(u0, v1), N(u1, v1));
+      this.tri(P(u0, v0), P(u1, v1), P(u1, v0), N(u0, v0), N(u1, v1), N(u1, v0));
+    }
+    return this;
+  };
+  BP.finish = function () {
+    var a = new Float32Array(this.v);
+    var minY = 1e9, maxY = -1e9, rad = 0;
+    for (var i = 0; i < a.length; i += STRIDE) { if (a[i + 1] < minY) minY = a[i + 1]; if (a[i + 1] > maxY) maxY = a[i + 1]; rad = Math.max(rad, Math.hypot(a[i], a[i + 2])); }
+    return { data: a, count: a.length / STRIDE, minY: minY, maxY: maxY, rad: rad };
+  };
+  ME.builder = function () { return new Builder(); };
+
+  /* ---------------- palette ---------------- */
+  var C = {
+    bark: 0x8a5a36, barkDark: 0x5e3d26, birch: 0xf0e9dc, leaf: 0x6cc04a, leafDark: 0x4a9a3c, pine: 0x2f7c4e, palm: 0x62bc4c,
+    jungle: 0x34a052, rock: 0xa49e9a, rockDark: 0x837c7c, moss: 0x7cb84a, flint: 0x46526c, sand: 0xe0c890, clay: 0xb86b45, ore: 0xd9823e,
+    crystal: 0x9fe4ff, shroomCap: 0xb07ae0, shroomStem: 0xe8e0d0, red: 0xe0405a, straw: 0xd9b86a, twig: 0x8a6440,
+    reed: 0x9cb85a, white: 0xf5f3ed, dark: 0x1a1a22, lime: 0xc5ff49, lilac: 0xb59aff, fire: 0xffa640, ember: 0xff5a2a
+  };
+  ME.C = C;
+
+  /* ---------------- nodes (trees, bushes, rocks...) ---------------- */
+
+  // Every tree kind has its own silhouette and colour block, so it reads at a glance from the god view:
+  //   oak = a broad round crown with red apples · birch = a white trunk under a tall yellow-green flame
+  //   pine = a dark stacked cone · palm = a curved ringed trunk with drooping fronds and coconuts
+  //   sakura = a pink umbrella · maple = a tall red-orange teardrop · mangrove = a flat crown on arched stilt roots
+  //   bamboo = a clump of jointed canes. Crowns are smooth-shaded balls (darker underneath), and the whole
+  //   tree bends in the wind (flex from the ground up, strongest at the top).
+  function crown(b, x, y, z, sx, sy, sz, seed, amp) { b.push().translate(x, y, z).scale(sx, sy, sz).blob(1, amp == null ? 0.22 : amp, seed).pop(); }
+  function oak(seed) {
+    var b = ME.builder().flex(1 / 2.9, 0);
+    b.color(C.bark).shadeY(0, 1.4, 0.3).cyl(6, 0.22, 0.12, 1.45).shadeY(null);
+    b.push().translate(0, 1.05, 0).rotZ(0.65).cyl(5, 0.08, 0.045, 0.62).pop();
+    b.color(C.barkDark);
+    for (var r = 0; r < 3; r++) b.push().rotY(r * 2.1 + seed).translate(0.17, 0, 0).rotZ(-0.95).cyl(4, 0.08, 0.02, 0.3, false).pop();
+    b.color(C.leaf, 1).smoothShade(true).shadeY(1.15, 2.85, 0.5);
+    crown(b, 0, 2.1, 0, 1.2, 0.92, 1.2, seed);
+    crown(b, 0.62, 1.78, 0.25, 0.72, 0.6, 0.72, seed + 2);
+    crown(b, -0.48, 1.85, -0.38, 0.7, 0.6, 0.7, seed + 3);
+    b.shadeY(null).smoothShade(false);
+    // apples: bright, a touch bigger, sitting on the outside of the crown so they read from above
+    b.color(0xe8343f);
+    [[0.78, 2.02, 0.62], [-0.72, 1.7, 0.48], [0.28, 1.6, -0.92], [0.12, 2.62, 0.72], [-0.5, 2.3, -0.7]].forEach(function (p) { b.push().translate(p[0], p[1], p[2]).scale(0.12).sphere(0).pop(); });
+    return b.finish();
+  }
+
+  function birch(seed) {
+    var b = ME.builder().flex(1 / 3.0, 0);
+    b.color(C.birch).cyl(6, 0.13, 0.08, 2.3);
+    b.color(0x2e2a2a);
+    [0.35, 0.8, 1.25, 1.7].forEach(function (y, i) { b.push().translate(0, y, 0).rotY(i * 2 + seed).box(0.27, 0.05, 0.09).pop(); });
+    b.color(0xa8d65a, 1).smoothShade(true).shadeY(1.4, 3.1, 0.42);
+    crown(b, 0, 2.4, 0, 0.6, 1.08, 0.6, seed, 0.18);
+    crown(b, 0.2, 1.72, 0.12, 0.46, 0.6, 0.46, seed + 1, 0.18);
+    return b.shadeY(null).finish();
+  }
+
+  function pine(seed) {
+    // four crisp tiers, darker where each tucks under the one above, on a short dark trunk
+    var b = ME.builder().flex(1 / 3.0, 0);
+    b.color(C.barkDark).cyl(5, 0.15, 0.09, 0.9);
+    b.color(C.pine, 1);
+    [[0.5, 1.02, 1.15], [1.08, 0.84, 1.0], [1.6, 0.64, 0.88], [2.08, 0.42, 0.82]].forEach(function (t, i) {
+      b.shadeY(t[0], t[0] + t[2] * 0.75, 0.45).push().translate(0, t[0], 0).rotY(seed + i * 0.4).cyl(8, t[1], 0, t[2]).pop();
+    });
+    return b.shadeY(null).finish();
+  }
+
+  function palm(seed) {
+    // a curved trunk in rings of two browns, a fan of fronds that droop at the tips, and a cluster of coconuts
+    var b = ME.builder().flex(1 / 3.0, 0, 1.2), x = 0, y = 0, lean = 0.1;
+    for (var i = 0; i < 6; i++) {
+      b.color(i % 2 ? 0x9c7a4a : 0xb38c58).push().translate(x, y, 0).rotZ(-lean * (i + 1)).cyl(5, 0.12 - i * 0.011, 0.11 - i * 0.011, 0.47, false).pop();
+      x += Math.sin(lean * (i + 1)) * 0.47; y += Math.cos(lean * (i + 1)) * 0.45;
+    }
+    b.sides(true);
+    for (var k = 0; k < 8; k++) {
+      var a = k / 8 * 6.283 + seed;
+      b.color(k % 2 ? C.palm : 0x4fa83e, 1).push().translate(x, y, 0).rotY(a).rotX(1.0).leaf(0.36, 0.8, -0.12).translate(0, 0.78, -0.12).rotX(0.75).leaf(0.3, 0.6, -0.1).pop();
+    }
+    b.sides(false).color(0x6a4a2a);
+    [[0.12, -0.14, 0.06], [-0.1, -0.16, -0.06], [0.0, -0.18, 0.13]].forEach(function (c) { b.push().translate(x + c[0], y + c[1], c[2]).scale(0.11).sphere(0).pop(); });
+    return b.finish();
+  }
+  function giant(seed) {
+    var b = ME.builder().flex(1 / 4.0, 0, 0.8);
+    b.color(0x6a4a2e).cyl(7, 0.38, 0.22, 2.6);
+    for (var i = 0; i < 4; i++) b.push().rotY(i * 1.57 + seed).translate(0.3, 0, 0).rotZ(-0.7).color(0x6a4a2e).cyl(4, 0.12, 0.02, 0.6).pop();
+    b.color(C.jungle, 1).smoothShade(true).shadeY(2.4, 3.9, 0.45);
+    crown(b, 0, 2.9, 0, 1.6, 0.7, 1.6, seed, 0.35);
+    crown(b, 0.6, 3.4, 0.3, 1.0, 0.6, 1.0, seed + 1, 0.35);
+    crown(b, -0.5, 3.5, -0.4, 0.9, 0.55, 0.9, seed + 2, 0.35);
+    b.shadeY(null).smoothShade(false).sides(true).color(0x3fa85a, 1);
+    for (var v = 0; v < 5; v++) b.push().rotY(v * 1.26 + seed).translate(1.0, 2.7, 0).rotX(Math.PI).leaf(0.08, 1.0, 0.1).pop();
+    return b.finish();
+  }
+  function deadtree(seed) {
+    var b = ME.builder().flex(1 / 2.2, 0, 0.35);
+    b.color(0x6e5a4a).cyl(5, 0.14, 0.06, 1.9);
+    for (var i = 0; i < 4; i++) {
+      b.push().translate(0, 0.8 + i * 0.3, 0).rotY(i * 2.1 + seed).rotZ(0.9 - i * 0.1).cyl(4, 0.06, 0.015, 0.7 - i * 0.08).pop();
+    }
+    return b.finish();
+  }
+  function shroomtree(seed) {
+    var b = ME.builder();
+    b.color(C.shroomStem).cyl(7, 0.22, 0.16, 1.9);
+    b.flex(1 / 2.4, 0, 0.3).color(C.shroomCap, 1).glow(0.35);
+    b.push().translate(0, 1.8, 0).scale(1.3, 0.55, 1.3).sphere(1, function (x, y) { return y < -0.1 ? 0.2 : 1; }).pop();
+    b.color(0xf5f3ed).glow(0.8);
+    for (var i = 0; i < 7; i++) {
+      var a = i * 2.4 + seed, rr = 0.5 + (i % 3) * 0.25;
+      b.push().translate(Math.cos(a) * rr, 2.05 + (1 - rr) * 0.25, Math.sin(a) * rr).scale(0.1, 0.05, 0.1).sphere(0).pop();
+    }
+    return b.finish();
+  }
+  function cactus(seed) {
+    var b = ME.builder();
+    b.color(0x4f9a58, 1).cyl(7, 0.2, 0.18, 1.3);
+    b.push().translate(0, 1.3, 0).scale(0.18).sphere(0).pop();
+    b.push().translate(0.16, 0.6, 0).rotZ(-1.57).cyl(6, 0.1, 0.1, 0.3, false).pop();
+    b.push().translate(0.42, 0.6, 0).cyl(6, 0.1, 0.09, 0.4).translate(0, 0.4, 0).scale(0.09).sphere(0).pop();
+    b.color(0xff7eb6).push().translate(0, 1.45, 0).scale(0.09).sphere(0).pop();
+    return b.finish();
+  }
+  function bush(seed) {
+    // the berry bush: a low leafy dome studded with fat blue-violet berries (with a pale bloom on each), so it
+    // can't be mistaken for a fern, a healroot patch or a tree's crown
+    var b = ME.builder();
+    b.flex(1 / 0.85, 0, 0.45).color(0x4f9e46, 1).smoothShade(true).shadeY(0, 0.75, 0.45);
+    b.push().translate(0, 0.33, 0).scale(0.6, 0.44, 0.6).blob(1, 0.25, seed, 0.5).pop();
+    b.push().translate(0.32, 0.26, 0.12).scale(0.4, 0.31, 0.4).blob(1, 0.25, seed + 1, 0.5).pop();
+    b.shadeY(null).smoothShade(false);
+    for (var i = 0; i < 8; i++) { // on the upper half of the dome, where the god view can see them
+      var a = i * 2.2 + seed, ph = 0.25 + (i % 3) * 0.28, rr = 0.6 * Math.cos(ph) + 0.03, y = 0.33 + 0.44 * Math.sin(ph) + 0.02;
+      b.color(i % 3 ? 0x4a34c8 : 0x6b4fe6).push().translate(Math.cos(a) * rr, y, Math.sin(a) * rr * 0.95).scale(0.095).sphere(0).pop();
+    }
+    b.color(0xd8d0ff).push().translate(Math.cos(seed) * 0.42, 0.66, Math.sin(seed) * 0.32).scale(0.04).sphere(0).pop(); // a glint
+    return b.finish();
+  }
+
+  function reeds(seed) {
+    var b = ME.builder().sides(true).flex(1 / 1.1, 0, 1.1);
+    for (var i = 0; i < 9; i++) {
+      var a = i * 2.39 + seed, rr = 0.1 + (i % 4) * 0.08, hh = 0.7 + (i % 3) * 0.25;
+      b.color(i % 2 ? C.reed : 0x7f9e48, 1).push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).rotY(a).rotZ((i % 3 - 1) * 0.15).leaf(0.07, hh, 0.05).pop();
+    }
+    b.sides(false).color(0x7a5236);
+    for (i = 0; i < 3; i++) { var a2 = i * 2.1 + seed; b.push().translate(Math.cos(a2) * 0.12, 0.85 + i * 0.1, Math.sin(a2) * 0.12).scale(0.035, 0.12, 0.035).sphere(0).pop(); }
+    return b.finish();
+  }
+  function herbs(seed) {
+    var b = ME.builder().sides(true).flex(1 / 0.3, 0, 0.5);
+    for (var i = 0; i < 6; i++) b.color(0x5ed17a, 1).push().rotY(i * 1.05 + seed).rotX(0.6).leaf(0.16, 0.3, 0.05).pop();
+    b.sides(false).color(0xffffff).glow(0.2);
+    for (i = 0; i < 3; i++) b.push().translate(Math.cos(i * 2.1) * 0.12, 0.26, Math.sin(i * 2.1) * 0.12).scale(0.04).sphere(0).pop();
+    return b.finish();
+  }
+  function shrooms(seed) {
+    var b = ME.builder();
+    for (var i = 0; i < 6; i++) {
+      var a = i / 6 * 6.283 + seed, s = 0.7 + (i % 3) * 0.2;
+      b.push().translate(Math.cos(a) * 0.32, 0, Math.sin(a) * 0.32).scale(s);
+      b.color(C.shroomStem).cyl(5, 0.035, 0.03, 0.14);
+      b.color(i % 3 === 2 ? 0x5ab8ff : C.red).glow(i % 3 === 2 ? 0.4 : 0).push().translate(0, 0.14, 0).scale(0.11, 0.07, 0.11).sphere(0, function (x, y) { return y < 0 ? 0.3 : 1; }).pop().glow(0);
+      b.pop();
+    }
+    return b.finish();
+  }
+  function roots(seed) {
+    var b = ME.builder().sides(true).flex(1 / 0.35, 0, 0.5);
+    for (var i = 0; i < 5; i++) {
+      var a = i * 2.5 + seed, x = Math.cos(a) * 0.2, z = Math.sin(a) * 0.2;
+      for (var j = 0; j < 3; j++) b.color(j % 2 ? 0x6fbf4a : 0x58a83c, 1).push().translate(x, 0.04, z).rotY(a + j * 2.1).rotX(0.35).leaf(0.07, 0.34, 0.03).pop();
+      b.sides(false).color(0xff8a3d).push().translate(x, 0.03, z).scale(0.05, 0.04, 0.05).sphere(0).pop().sides(true);
+    }
+    return b.finish();
+  }
+  function gourds(seed) {
+    var b = ME.builder();
+    b.sides(true).flex(1 / 0.3, 0, 0.3).color(0x4f9a48, 1);
+    for (var i = 0; i < 7; i++) { var a = i * 0.9 + seed; b.push().translate(Math.cos(a) * 0.35, 0.03, Math.sin(a) * 0.35).rotY(a).rotX(1.3).leaf(0.16, 0.2, 0.02).pop(); }
+    b.sides(false).flex(0, 0).color(0x5a7a2a).push().translate(0, 0.02, 0).rotZ(1.57).translate(0, -0.45, 0).cyl(4, 0.02, 0.02, 0.9, false).pop();
+    b.color(0xf59b2b);
+    [[0.22, 0.12, 0.05, 0.16], [-0.25, 0.1, -0.12, 0.12], [0.02, 0.09, 0.3, 0.1]].forEach(function (g) { b.push().translate(g[0], g[1], g[2]).scale(g[3] * 1.2, g[3], g[3] * 1.2).sphere(1, function (x, y, z) { return 1 + 0.08 * Math.cos(Math.atan2(z, x) * 8); }).pop(); });
+    return b.finish();
+  }
+  function hive(seed) {
+    var b = ME.builder();
+    b.color(0x7a5236).cyl(5, 0.06, 0.05, 1.1);
+    b.push().translate(0, 1.0, 0).rotZ(1.2).cyl(4, 0.04, 0.03, 0.5, false).pop();
+    b.color(0xe8b04a);
+    for (var i = 0; i < 4; i++) b.push().translate(0.28, 0.82 - i * 0.09, 0).scale(0.17 - Math.abs(i - 1.3) * 0.03, 0.06, 0.17 - Math.abs(i - 1.3) * 0.03).sphere(0).pop();
+    b.color(0x3a2a1a).push().translate(0.28, 0.66, 0.13).scale(0.035).sphere(0).pop();
+    return b.finish();
+  }
+  function clams(seed) {
+    var b = ME.builder();
+    b.color(0xd8c9a0).push().translate(0, 0.0, 0).scale(0.45, 0.04, 0.4).sphere(1).pop();
+    b.color(0xc9c1b4);
+    for (var i = 0; i < 4; i++) { var a = i * 1.7 + seed; b.push().translate(Math.cos(a) * 0.22, 0.04, Math.sin(a) * 0.2).rotY(a).scale(0.07, 0.035, 0.06).sphere(0).pop(); }
+    b.color(0xeef6ff).glow(0.2);
+    for (i = 0; i < 3; i++) b.push().translate(Math.cos(i * 2.3) * 0.1, 0.06, Math.sin(i * 2.3) * 0.12).scale(0.025).sphere(0).pop();
+    return b.finish();
+  }
+  // rocks are cool greys; everything that gives a material wears that material's colour on the outside:
+  // ore veins are dark rock studded with bright copper chunks, flint is blue-black glassy shards, clay banks
+  // are a smooth orange mound with a wet sheen
+  function boulder(seed) {
+    var b = ME.builder();
+    b.color(C.rock, 1).shadeY(0, 0.7, 0.38).push().translate(0, 0.28, 0).scale(0.64, 0.46, 0.56).rotY(seed).blob(1, 0.4, seed, 0.3).pop();
+    b.color(C.rockDark, 1).push().translate(0.44, 0.12, 0.25).scale(0.24, 0.17, 0.21).blob(0, 0.3, seed + 1).pop();
+    // a cap of moss on the shady top
+    b.shadeY(null).color(C.moss).push().translate(-0.08, 0.6, -0.05).scale(0.42, 0.11, 0.36).blob(0, 0.35, seed + 2).pop();
+    b.color(0xf5e05a).push().translate(0.12, 0.69, 0.1).scale(0.035).sphere(0).pop(); // a tiny flower
+    return b.finish();
+  }
+
+  function flintrock(seed) {
+    var b = ME.builder();
+    for (var i = 0; i < 4; i++) {
+      var a = i * 1.9 + seed, hh = 0.55 + (i % 3) * 0.15;
+      b.color(i % 2 ? 0x3c4a6a : C.flint, 1).push().translate(Math.cos(a) * 0.22, 0, Math.sin(a) * 0.22).rotY(a).rotZ(0.25 * (i % 2 ? 1 : -1)).cyl(4, 0.18, 0.02, hh).pop();
+    }
+    b.color(0xb8c8ec).glow(0.15).push().translate(0, 0.02, 0).rotY(seed).cyl(4, 0.07, 0.0, 0.62).pop().glow(0); // a glassy glint up the middle
+    return b.finish();
+  }
+  function claybank(seed) {
+    var b = ME.builder();
+    b.smoothShade(true).color(0xc06a40, 1).shadeY(0, 0.2, 0.3).push().translate(0, 0.02, 0).scale(0.72, 0.17, 0.58).blob(1, 0.4, seed, 0.8).pop();
+    b.color(0xa85a36, 1).push().translate(0.32, 0.06, 0.22).scale(0.3, 0.12, 0.26).blob(0, 0.3, seed + 3).pop();
+    b.shadeY(null).color(0xe0946a).push().translate(-0.12, 0.13, -0.06).scale(0.32, 0.04, 0.22).sphere(0).pop(); // wet sheen on top
+    return b.finish();
+  }
+  function orevein(seed) {
+    var b = ME.builder();
+    b.color(0x6f6a76, 1).shadeY(0, 0.75, 0.3).push().translate(0, 0.22, 0).scale(0.64, 0.44, 0.56).blob(1, 0.3, seed, 0.3).pop().shadeY(null);
+    // chunky copper nuggets breaking out of the rock's upper half, faceted so they catch the light
+    for (var i = 0; i < 6; i++) {
+      var a = i * 1.05 + seed, up = i % 2, ph = 0.35 + up * 0.5;
+      b.color(up ? 0xf29a45 : 0xe0782e).glow(0.15).push().translate(Math.cos(a) * 0.62 * Math.cos(ph), 0.22 + 0.44 * Math.sin(ph) - 0.08, Math.sin(a) * 0.54 * Math.cos(ph)).rotY(a + 0.4).rotZ(0.5 + i * 0.7).rotX(0.6 + i * 0.3).box(0.24, 0.2, 0.22).pop();
+    }
+    b.color(0xffc27a).glow(0.25).push().translate(0.05, 0.56, 0.05).rotY(seed + 0.8).rotZ(0.75).rotX(0.5).box(0.22, 0.18, 0.2).pop();
+    b.glow(0);
+    return b.finish();
+  }
+  function crystals(seed) {
+    var b = ME.builder();
+    b.color(C.crystal, 1).glow(0.55);
+    for (var i = 0; i < 6; i++) {
+      var a = i * 1.7 + seed, rr = i ? 0.25 + (i % 2) * 0.15 : 0, hh = i ? 0.6 + (i % 3) * 0.25 : 1.3;
+      b.push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).rotY(a).rotZ(i ? 0.35 * (i % 2 ? 1 : -1) : 0).rotX(i ? 0.2 : 0);
+      b.cyl(6, 0.12 + (i ? 0 : 0.05), 0.12 + (i ? 0 : 0.05), hh * 0.75, false).translate(0, hh * 0.75, 0).cone(6, 0.12 + (i ? 0 : 0.05), hh * 0.3);
+      b.pop();
+    }
+    b.glow(0).color(C.rockDark).push().scale(0.55, 0.12, 0.55).blob(0, 0.3, seed).pop();
+    return b.finish();
+  }
+  function cave() {
+    var b = ME.builder();
+    b.color(0x6e6a76, 1);
+    b.push().translate(0, 0.6, 0).scale(1.6, 1.1, 1.3).blob(1, 0.35, 4, 0.2).pop();
+    b.color(0x5e5a66, 1).push().translate(1.0, 0.4, -0.5).scale(0.7, 0.6, 0.6).blob(1, 0.35, 5).pop();
+    b.color(0x08080c).push().translate(0, 0.45, 1.05).scale(0.62, 0.55, 0.32).sphere(1).pop();
+    b.color(0xff3355).glow(1);
+    b.push().translate(-0.16, 0.55, 1.33).scale(0.05).sphere(0).pop();
+    b.push().translate(0.16, 0.55, 1.33).scale(0.05).sphere(0).pop();
+    return b.finish();
+  }
+  function nest() {
+    var b = ME.builder();
+    b.color(C.twig);
+    for (var i = 0; i < 14; i++) {
+      var a = i / 14 * 6.283;
+      b.push().translate(Math.cos(a) * 0.55, 0.12, Math.sin(a) * 0.55).rotY(-a + 0.4).rotZ(1.45).cyl(4, 0.04, 0.035, 0.6, false).pop();
+    }
+    b.color(C.straw, 1).push().translate(0, 0.05, 0).scale(0.6, 0.12, 0.6).blob(1, 0.2, 2).pop();
+    return b.finish();
+  }
+
+  ME.NODE_BUILDERS = { oak: oak, birch: birch, pine: pine, palm: palm, giant: giant, deadtree: deadtree, shroomtree: shroomtree, cactus: cactus, bush: bush, reeds: reeds, herbs: herbs, shrooms: shrooms, boulder: boulder, flintrock: flintrock, claybank: claybank, orevein: orevein, crystals: crystals, cave: cave, nest: nest, roots: roots, gourds: gourds, hive: hive, clams: clams };
+  // trees that change colour in autumn
+  ME.DECIDUOUS = { oak: 1, birch: 1, bush: 1, giant: 0 };
+
+  // stump (felled tree) and charred tree
+  ME.stump = function () { var b = ME.builder(); b.color(C.bark).cyl(6, 0.18, 0.16, 0.25); b.color(0xd9b88a).push().translate(0, 0.25, 0).cyl(6, 0.155, 0.155, 0.005).pop(); return b.finish(); };
+  ME.burnt = function () { var b = ME.builder(); b.color(0x2a2522).cyl(5, 0.15, 0.06, 1.6); for (var i = 0; i < 3; i++) b.push().translate(0, 0.9 + i * 0.25, 0).rotY(i * 2.2).rotZ(0.8).cyl(4, 0.05, 0.01, 0.5).pop(); return b.finish(); };
+
+  /* ---------------- items ---------------- */
+
+  // the founders' escape pod: crashed, tilted, half dug into a scorched patch, window still glowing
+  ME.podMesh = function () {
+    var b = ME.builder();
+    b.color(0x2e2826, 1).cyl(12, 0.95, 1.05, 0.02);
+    b.color(0x7a5a3a, 1);
+    [[0.62, 0.3, 0.16], [-0.55, 0.42, 0.13], [0.2, -0.65, 0.14], [-0.3, -0.5, 0.1]].forEach(function (d, i) { b.push().translate(d[0], 0.04, d[1]).scale(d[2], d[2] * 0.6, d[2]).blob(0, 0.3, i + 2).pop(); });
+    b.smoothShade(true).color(0xe8e4f0, 1).push().translate(0, 0.33, 0).rotZ(0.55).scale(0.4, 0.6, 0.4).sphere(2).pop();
+    b.color(0x5fc9c0, 1).push().translate(0, 0.33, 0).rotZ(0.55).scale(0.415, 0.09, 0.415).sphere(1).pop();
+    b.color(0x9a96a8, 1).push().translate(0.27, 0.72, 0).rotZ(0.55).cyl(6, 0.08, 0.15, 0.12).pop();
+    b.color(0xc5ff49, 1).glow(0.9).push().translate(-0.06, 0.42, 0.34).scale(0.13, 0.13, 0.07).sphere(1).pop().glow(0);
+    b.color(0x9a96a8, 1).push().translate(-0.36, 0.1, 0.12).rotZ(1.1).box(0.26, 0.04, 0.16).pop();
+    b.push().translate(-0.32, 0.12, -0.16).rotZ(1.0).box(0.24, 0.04, 0.14).pop();
+    return b.finish();
+  };
+  function itemMesh(kind) {
+    var k = SB.KINDS[kind], b = ME.builder(), col = k.color || 0xffffff;
+    switch (kind) {
+      case "apple": b.smoothShade(true).color(col).push().translate(0, 0.14, 0).scale(0.15, 0.135, 0.15).sphere(1, function (x, y) { return y > 0.85 ? 0.82 : 1; }).pop().smoothShade(false); b.color(0x5a3b26).push().translate(0, 0.24, 0).rotZ(0.25).cyl(4, 0.016, 0.012, 0.08).pop(); b.sides(true).color(0x5fae4a).push().translate(0.03, 0.29, 0).rotZ(-1).leaf(0.07, 0.11, 0.02).pop().sides(false); break;
+      case "cherry": b.color(0x4f7a2a); b.push().translate(-0.05, 0.08, 0).rotZ(0.5).cyl(3, 0.008, 0.008, 0.19, false).pop().push().translate(0.05, 0.08, 0).rotZ(-0.5).cyl(3, 0.008, 0.008, 0.19, false).pop(); b.smoothShade(true).color(col); b.push().translate(-0.07, 0.07, 0).scale(0.075).sphere(1).pop().push().translate(0.07, 0.07, 0.02).scale(0.075).sphere(1).pop(); b.smoothShade(false); break;
+      case "berry": b.color(col); [[0, 0.07, 0], [0.08, 0.07, 0.03], [-0.06, 0.07, 0.06], [0.01, 0.14, 0.02], [0.02, 0.07, -0.08], [-0.07, 0.08, -0.04]].forEach(function (p, i) { b.color(i % 2 ? col : 0x4a34c8).push().translate(p[0], p[1], p[2]).scale(0.07).sphere(0).pop(); }); b.color(0xd8d0ff).push().translate(0.02, 0.2, 0.03).scale(0.02).sphere(0).pop(); break;
+      case "banana": b.color(col); for (var i = 0; i < 4; i++) b.push().translate(-0.12 + i * 0.07, 0.06 + Math.sin(i / 3 * 3.14) * 0.05, 0).rotZ(-0.9 + i * 0.55).scale(0.05, 0.08, 0.05).sphere(0).pop(); break;
+      case "nut": b.color(col).push().translate(0, 0.1, 0).scale(0.1, 0.12, 0.1).blob(0, 0.2, 3).pop(); b.color(0x6a4a2a).push().translate(0, 0.2, 0).scale(0.11, 0.04, 0.11).sphere(0).pop(); break;
+      case "fish": b.color(col).push().translate(0, 0.08, 0).scale(0.2, 0.08, 0.06).sphere(1).pop(); b.color(col).push().translate(-0.2, 0.08, 0).rotZ(1.57).sides(true).leaf(0.14, 0.1).sides(false).pop(); b.color(0x1a1a22).push().translate(0.13, 0.1, 0.05).scale(0.015).sphere(0).pop(); break;
+      case "meat": b.color(col).push().translate(0, 0.09, 0).scale(0.14, 0.09, 0.11).blob(0, 0.2, 2).pop(); b.color(0xf5f3ed).push().translate(0.12, 0.09, 0).rotZ(-1.57).cyl(4, 0.025, 0.025, 0.12).pop(); break;
+      case "cooked": b.color(0x8a5a33).push().translate(0, 0.02, 0).rotZ(1.57).translate(0, -0.18, 0).cyl(4, 0.012, 0.012, 0.36).pop(); b.color(col); for (var j = 0; j < 3; j++) b.push().translate(-0.1 + j * 0.1, 0.03, 0).scale(0.06).blob(0, 0.3, j).pop(); break;
+      case "bread": b.color(col).push().translate(0, 0.07, 0).scale(0.16, 0.09, 0.1).sphere(1).pop(); break;
+      case "grain": b.sides(true).color(col); for (var g = 0; g < 4; g++) b.push().rotY(g * 0.8).rotZ(0.2).leaf(0.06, 0.3).pop(); break;
+      case "carrot": b.color(col).push().translate(0, 0.05, 0).rotZ(1.45).cone(5, 0.05, 0.24).pop(); b.sides(true).color(0x6fbf4a); for (var cr = 0; cr < 3; cr++) b.push().translate(0.13, 0.05, 0).rotY(cr * 2.1).rotZ(-1.2).leaf(0.04, 0.13).pop(); b.sides(false); break;
+      case "pumpkin": b.color(col).push().translate(0, 0.15, 0).scale(0.24, 0.17, 0.24).sphere(1, function (x, y, z) { return 1 + 0.07 * Math.cos(Math.atan2(z, x) * 8); }).pop(); b.color(0x5a7a2a).push().translate(0, 0.3, 0).cyl(4, 0.025, 0.02, 0.07).pop(); break;
+      case "honey": b.color(col).glow(0.15).push().translate(0, 0.07, 0).cyl(6, 0.13, 0.13, 0.1).pop(); b.color(0xd99a20).glow(0); for (var hc = 0; hc < 6; hc++) b.push().translate(Math.cos(hc * 1.047) * 0.07, 0.175, Math.sin(hc * 1.047) * 0.07).scale(0.03, 0.006, 0.03).sphere(0).pop(); break;
+      case "pricklypear": b.color(col).push().translate(0, 0.09, 0).scale(0.09, 0.11, 0.09).sphere(1).pop(); b.color(0xfff0c0); for (var pp = 0; pp < 4; pp++) b.push().translate(Math.cos(pp * 1.57) * 0.09, 0.11, Math.sin(pp * 1.57) * 0.09).scale(0.012).sphere(0).pop(); break;
+      case "clam": b.color(col).push().translate(0, 0.04, 0).scale(0.13, 0.05, 0.11).sphere(1, function (x, y) { return y > 0 ? 1 : 0.6; }).pop(); b.color(0x9a9286).push().translate(0, 0.04, 0).scale(0.135, 0.008, 0.115).sphere(1).pop(); break;
+      case "glowcap": case "shroom": b.color(0xe8e0d0).cyl(5, 0.035, 0.03, 0.1); b.color(col).glow(kind === "glowcap" ? 0.8 : 0).push().translate(0, 0.1, 0).scale(0.12, 0.08, 0.12).sphere(1, function (x, y) { return y < 0 ? 0.25 : 1; }).pop(); if (kind === "shroom") { b.color(0xffffff).glow(0); b.push().translate(0.05, 0.16, 0.03).scale(0.025).sphere(0).pop(); b.push().translate(-0.04, 0.15, -0.04).scale(0.02).sphere(0).pop(); } break;
+      case "herb": b.sides(true).color(col); for (var h = 0; h < 4; h++) b.push().rotY(h * 1.57).rotX(0.5).leaf(0.08, 0.18).pop(); b.sides(false).color(0xc9a36a).push().scale(0.03, 0.08, 0.03).sphere(0).pop(); break;
+      case "potion": b.color(0xb0603a).cyl(6, 0.08, 0.06, 0.16); b.color(col).glow(0.5).push().translate(0, 0.16, 0).cyl(6, 0.055, 0.055, 0.01).pop(); break;
+      case "stoneaxe": b.color(0x8a5a35).push().translate(0, 0.04, 0).rotZ(1.5).cyl(4, 0.025, 0.022, 0.5).pop(); b.color(0x5d6d8e).push().translate(0.22, 0.05, 0).scale(0.09, 0.03, 0.07).blob(0, 0.2, 2).pop(); b.color(0xb8c46a).push().translate(0.2, 0.05, 0).scale(0.03, 0.035, 0.035).sphere(0).pop(); break;
+      case "club": b.color(0x7a5232).push().translate(0, 0.05, 0).rotZ(1.5).cyl(5, 0.035, 0.06, 0.45).pop(); b.color(0x8e8a96).push().translate(0.24, 0.07, 0).scale(0.08).blob(0, 0.3, 4).pop(); break;
+      case "rod": b.color(0xa07a50).push().translate(-0.2, 0.03, 0).rotZ(-1.45).cyl(4, 0.015, 0.008, 0.6).pop(); b.color(0xe8e4f0).push().translate(0.32, 0.03, 0.04).scale(0.035).sphere(0).pop(); b.color(0xff4f5e).push().translate(0.32, 0.06, 0.04).scale(0.03).sphere(0).pop(); break;
+      case "cloak": b.smoothShade(true).color(col).push().translate(0, 0.06, 0).scale(0.22, 0.06, 0.18).blob(1, 0.25, 5).pop(); b.color(0xffffff).push().translate(0.05, 0.1, 0.05).scale(0.08, 0.03, 0.06).sphere(0).pop(); break;
+      case "log": b.color(col).push().translate(0, 0.1, 0).rotZ(1.57).cyl(7, 0.1, 0.1, 0.5).pop(); b.color(0xd9b88a).push().translate(0.25, 0.1, 0).rotZ(1.57).cyl(7, 0.085, 0.085, 0.01).pop(); break;
+      case "fur": b.smoothShade(true).color(col).push().translate(0, 0.05, 0).scale(0.15, 0.05, 0.12).blob(1, 0.35, 7).pop(); break;
+      case "egg": b.smoothShade(true).color(col, 1).push().translate(0, 0.2, 0).scale(0.16, 0.21, 0.16).sphere(2).pop(); b.smoothShade(false).color(0xc8b8a0, 1); [[0.13, 0.26, 0.06, 0.035], [-0.08, 0.3, 0.11, 0.028], [0.02, 0.14, -0.15, 0.03], [-0.12, 0.16, -0.06, 0.025]].forEach(function (q) { b.push().translate(q[0], q[1], q[2]).scale(q[3], q[3], q[3] * 0.5).rotY(Math.atan2(q[0], q[2])).sphere(0).pop(); }); break;
+      case "stick": b.color(0x9a6a3c).push().translate(-0.24, 0.045, 0).rotZ(-1.5).cyl(5, 0.04, 0.03, 0.5).pop(); b.color(0x7a5230).push().translate(0.02, 0.055, 0).rotY(0.7).rotZ(-1.0).cyl(4, 0.022, 0.012, 0.16).pop(); b.color(0xd9b88a).push().translate(-0.245, 0.045, 0).rotZ(-1.5).cyl(5, 0.035, 0.035, 0.005).pop(); break;
+      case "stone": b.color(col).shadeY(0, 0.17, 0.35).push().translate(0, 0.08, 0).scale(0.14, 0.09, 0.12).blob(1, 0.3, 5).pop().shadeY(null); b.color(0xc4c0c8).push().translate(-0.02, 0.15, 0.01).scale(0.07, 0.025, 0.06).sphere(0).pop(); break;
+      case "flint": b.color(col).push().translate(0, 0.0, 0).rotZ(0.3).cyl(4, 0.1, 0.0, 0.2).pop(); b.color(0xb8c8ec).push().translate(0.01, 0.0, 0.0).rotZ(0.3).rotY(0.4).cyl(3, 0.04, 0.0, 0.19).pop(); break;
+      case "fiber": b.color(col); for (var f = 0; f < 5; f++) b.push().translate(0, 0.03 + f * 0.012, 0).rotY(f * 0.4).rotZ(1.57).translate(0, -0.18, 0).cyl(3, 0.01, 0.01, 0.36, false).pop(); break;
+      case "clay": b.smoothShade(true).color(0xc0663c).shadeY(0, 0.15, 0.3).push().translate(0, 0.06, 0).scale(0.14, 0.08, 0.12).blob(1, 0.3, 7).pop().shadeY(null).color(0xe2946a).push().translate(0.01, 0.125, 0).scale(0.08, 0.02, 0.07).sphere(0).pop().smoothShade(false); break;
+      case "ore": b.color(0x77727e).push().translate(0, 0.07, 0).scale(0.12, 0.08, 0.11).blob(0, 0.3, 8).pop(); b.color(0xf29a45).glow(0.12).push().translate(0.03, 0.09, 0.02).rotZ(0.6).rotX(0.4).box(0.1, 0.09, 0.09).pop().push().translate(-0.07, 0.07, -0.03).rotY(1).rotZ(0.9).box(0.07, 0.06, 0.06).pop().glow(0); break;
+      case "metal": b.color(col).push().translate(0, 0.03, 0).box(0.22, 0.06, 0.1).pop(); break;
+      case "crystal": b.color(col).glow(0.7).cyl(6, 0.06, 0.06, 0.15, false).translate(0, 0.15, 0).cone(6, 0.06, 0.1); break;
+      case "seed": b.color(col); for (var s = 0; s < 5; s++) b.push().translate(Math.cos(s * 1.3) * 0.05, 0.02, Math.sin(s * 1.3) * 0.05).scale(0.025, 0.018, 0.025).sphere(0).pop(); break;
+      case "ball": b.smoothShade(true).color(col).push().translate(0, 0.18, 0).scale(0.18).sphere(1).pop(); b.color(0xc5ff49).push().translate(0, 0.18, 0).scale(0.185, 0.04, 0.185).sphere(1).pop(); break;
+      case "plush": b.smoothShade(true).color(col).push().translate(0, 0.14, 0).scale(0.15, 0.14, 0.13).sphere(1).pop(); b.color(0x1a1a22).push().translate(0.06, 0.17, 0.11).scale(0.022).sphere(0).pop().push().translate(-0.06, 0.17, 0.11).scale(0.022).sphere(0).pop(); b.color(col).push().translate(0.09, 0.27, 0).scale(0.05).sphere(0).pop().push().translate(-0.09, 0.27, 0).scale(0.05).sphere(0).pop(); break;
+      case "pokestick": b.color(col).push().translate(-0.25, 0.04, 0).rotZ(-1.5).cyl(4, 0.03, 0.012, 0.52).pop(); break;
+      case "hammer": b.color(col).push().translate(0, 0.08, 0).scale(0.13, 0.09, 0.11).blob(0, 0.15, 2).pop(); break;
+      case "blade": b.color(col).push().translate(0, 0.02, 0).rotZ(-1.57).cyl(4, 0.04, 0.0, 0.26).pop(); b.color(0x8a5a33).push().translate(-0.06, 0.02, 0).rotZ(1.57).cyl(4, 0.025, 0.025, 0.08).pop(); break;
+      case "spear": b.color(col).push().translate(-0.35, 0.04, 0).rotZ(-1.53).cyl(4, 0.022, 0.02, 0.7).pop(); b.color(C.flint).push().translate(0.35, 0.06, 0).rotZ(-1.53).cyl(4, 0.04, 0.0, 0.14).pop(); break;
+      case "torch": b.color(0x7a5236).push().translate(-0.2, 0.04, 0).rotZ(-1.3).cyl(4, 0.03, 0.025, 0.42).pop(); b.color(0xffb050).glow(1).push().translate(0.2, 0.12, 0).scale(0.06, 0.09, 0.06).sphere(0).pop(); break;
+      case "basket": b.color(col).cyl(8, 0.12, 0.16, 0.16, false); b.color(0xa8804a).cyl(8, 0.12, 0.12, 0.005); break;
+      case "pot": b.color(col).push().scale(0.14, 0.18, 0.14).sphere(1, function (x, y) { return y > 0.7 ? 0.8 : 1; }).pop(); b.push().translate(0, 0.16, 0).cyl(8, 0.08, 0.1, 0.05, false).pop(); break;
+      case "axe": b.color(0x7a5236).push().translate(-0.2, 0.04, 0).rotZ(-1.5).cyl(4, 0.025, 0.025, 0.45).pop(); b.color(col).push().translate(0.18, 0.04, 0).box(0.1, 0.05, 0.16).pop(); break;
+      case "lens": b.color(0xc9a36a).push().translate(0, 0.02, 0).torus(0.09, 0.02, 10, 4).pop(); b.color(col).glow(0.6).push().translate(0, 0.02, 0).scale(0.085, 0.015, 0.085).sphere(1).pop(); break;
+      case "butterfly": b.sides(true).color(col, 1); b.push().rotY(-1.57).rotX(-1.27).leaf(0.16, 0.17).pop().push().rotY(1.57).rotX(-1.27).leaf(0.16, 0.17).pop(); b.sides(false).color(0x2a2522).push().scale(0.02, 0.02, 0.08).sphere(0).pop(); break;
+      case "beetle": b.smoothShade(true).color(col).push().translate(0, 0.05, 0).scale(0.08, 0.05, 0.1).sphere(1).pop(); b.color(0x1a1a22).push().translate(0, 0.05, 0.08).scale(0.04).sphere(0).pop(); b.push().translate(0, 0.1, 0).scale(0.005, 0.005, 0.1).sphere(0).pop(); break;
+      case "hopper": b.smoothShade(true).color(col).push().translate(0, 0.16, 0).scale(0.16, 0.15, 0.2).sphere(1).pop(); b.push().translate(0, 0.26, 0.15).scale(0.1).sphere(1).pop(); b.color(0xf5e8d8).push().translate(0, 0.17, -0.2).scale(0.07).sphere(0).pop(); b.color(col).push().translate(0.05, 0.38, 0.12).rotX(-0.2).scale(0.03, 0.12, 0.03).sphere(0).pop().push().translate(-0.05, 0.38, 0.12).rotX(-0.2).scale(0.03, 0.12, 0.03).sphere(0).pop(); b.color(0x1a1a22).push().translate(0.05, 0.28, 0.23).scale(0.018).sphere(0).pop().push().translate(-0.05, 0.28, 0.23).scale(0.018).sphere(0).pop(); break;
+      default: b.color(col).push().translate(0, 0.1, 0).scale(0.1).sphere(1).pop();
+    }
+    return b.finish();
+  }
+  ME.itemMesh = itemMesh;
+
+  /* ---------------- structures (built by smols) ---------------- */
+
+  ME.STRUCT_BUILDERS = {
+    campfire: function () { // a ring of stones, crossed logs, and three log seats round it
+      var b = ME.builder();
+      b.color(0x9a948e).shadeY(0, 0.15, 0.3);
+      for (var i = 0; i < 9; i++) { var a = i / 9 * 6.283; b.push().translate(Math.cos(a) * 0.42, 0.06, Math.sin(a) * 0.42).scale(0.12, 0.09, 0.1).blob(0, 0.3, i).pop(); }
+      b.shadeY(null).color(0x6a4a2e);
+      for (i = 0; i < 4; i++) b.push().rotY(i * 1.57 + 0.4).translate(0, 0.06, 0).rotZ(1.1).translate(0, -0.25, 0).cyl(4, 0.05, 0.04, 0.5).pop();
+      b.color(0x2a2522).push().translate(0, 0.03, 0).scale(0.3, 0.03, 0.3).sphere(0).pop();
+      for (i = 0; i < 3; i++) {
+        var a2 = i / 3 * 6.283 + 0.5;
+        b.color(0x8a5a36).push().translate(Math.cos(a2) * 0.92, 0.09, Math.sin(a2) * 0.92).rotY(-a2).rotX(1.5708).translate(0, -0.25, 0).cyl(6, 0.09, 0.09, 0.5).pop();
+      }
+      return b.finish();
+    },
+    flame: function () { // drawn on top of fires, scaled by fuel
+      var b = ME.builder().glow(0.9);
+      b.color(0xe8501f).push().rotY(0.3).cone(5, 0.26, 0.62).pop();
+      b.color(0xff8a2a).push().translate(0.08, 0, 0.05).rotY(1).cone(5, 0.17, 0.78).pop();
+      b.color(0xffc04a).push().translate(-0.07, 0, 0.02).rotY(2).cone(4, 0.13, 0.55).pop();
+      b.color(0xfff1a0).glow(1.2).push().translate(0, 0, -0.03).cone(4, 0.08, 0.32).pop();
+      return b.finish();
+    },
+    hut: function () {
+      // a cosy round cottage: a stone footing, timber walls, a door with a step, a warm window with a flower
+      // box, a layered thatch roof with an overhang, and a stone chimney (bodies.js puffs smoke from it)
+      var b = ME.builder();
+      b.color(0x9a8f86).cyl(10, 0.95, 0.93, 0.14);
+      b.color(0xc8925a).shadeY(0.1, 0.95, 0.25).push().translate(0, 0.12, 0).cyl(10, 0.87, 0.84, 0.8, false).pop().shadeY(null);
+      b.color(0x8a5a36);
+      for (var i = 0; i < 6; i++) { var a = 2.2 + i * 0.9; b.push().rotY(a).translate(0, 0.12, 0.855).cyl(4, 0.045, 0.045, 0.8, false).pop(); }
+      b.color(0xe2b862, 1).shadeY(0.8, 1.9, 0.3);
+      b.push().translate(0, 0.84, 0).cyl(10, 1.0, 0.07, 1.0).pop();
+      b.push().translate(0, 0.78, 0).cyl(10, 1.05, 0.96, 0.12).pop();
+      b.color(0xc99a48, 1).push().translate(0, 1.18, 0).cyl(10, 0.68, 0.48, 0.09, false).pop();
+      b.shadeY(null);
+      b.color(0x5e3d26).push().translate(0, 0.1, 0.84).box(0.44, 0.6, 0.07).pop();
+      b.color(0x7a5236).push().translate(0, 0.12, 0.865).box(0.36, 0.52, 0.05).pop();
+      b.color(0xffd84a).push().translate(0.11, 0.38, 0.9).scale(0.025).sphere(0).pop();
+      b.color(0x9a8f86).push().translate(0, 0, 1.0).box(0.5, 0.06, 0.22).pop();
+      // a window to the side, lit warm (much brighter at night)
+      b.push().rotY(0.85).translate(0, 0.46, 0.83);
+      b.color(0x5e3d26).box(0.34, 0.3, 0.06);
+      b.color(0xffcf6a).glow(0.75).push().translate(0, 0.04, 0.02).box(0.26, 0.22, 0.04).pop().glow(0);
+      b.color(0x5e3d26).push().translate(0, 0.04, 0.05).box(0.03, 0.22, 0.02).pop().push().translate(0, 0.14, 0.05).box(0.26, 0.03, 0.02).pop();
+      b.color(0x6aa84a).push().translate(0, -0.02, 0.07).box(0.36, 0.06, 0.1).pop();
+      b.color(0xff7eb6).push().translate(-0.09, 0.03, 0.09).scale(0.035).sphere(0).pop().color(0xffd84a).push().translate(0.08, 0.03, 0.09).scale(0.035).sphere(0).pop();
+      b.pop();
+      // chimney
+      b.color(0x8f8780).push().translate(-0.4, 1.0, -0.34).box(0.22, 0.85, 0.22).pop();
+      b.color(0x6e6862).push().translate(-0.4, 1.83, -0.34).box(0.27, 0.07, 0.27).pop();
+      return b.finish();
+    },
+    farm: function () {
+      // rich tilled soil in raised rows, a little fence with a gate gap at the front, and a scarecrow
+      var b = ME.builder();
+      b.color(0x6b4428).push().translate(0, 0.01, 0).box(1.9, 0.05, 1.9).pop();
+      b.color(0x84553a).shadeY(0.05, 0.12, 0.3);
+      for (var i = 0; i < 4; i++) b.push().translate(-0.7 + i * 0.47, 0.05, 0).box(0.26, 0.06, 1.72).pop();
+      b.shadeY(null).color(0xb08a5a);
+      var posts = [[-0.98, -0.98], [0, -0.98], [0.98, -0.98], [0.98, 0], [0.98, 0.98], [0.3, 0.98], [-0.3, 0.98], [-0.98, 0.98], [-0.98, 0]];
+      posts.forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.045, 0.04, 0.36).translate(0, 0.36, 0).cone(4, 0.045, 0.06).pop(); });
+      b.color(0xc8a06a);
+      [0.14, 0.27].forEach(function (y) {
+        b.push().translate(0, y, -0.98).box(1.96, 0.035, 0.03).pop();
+        b.push().translate(0.98, y, 0).rotY(1.5708).box(1.96, 0.035, 0.03).pop();
+        b.push().translate(-0.98, y, 0).rotY(1.5708).box(1.96, 0.035, 0.03).pop();
+        b.push().translate(0.64, y, 0.98).box(0.68, 0.035, 0.03).pop();
+        b.push().translate(-0.64, y, 0.98).box(0.68, 0.035, 0.03).pop();
+      });
+      // scarecrow in the corner
+      b.push().translate(0.74, 0, -0.74);
+      b.color(0x8a6440).cyl(3, 0.025, 0.025, 0.62).push().translate(0, 0.46, 0).rotZ(1.5708).translate(0, -0.2, 0).cyl(3, 0.02, 0.02, 0.4).pop();
+      b.color(0xd96a4a).push().translate(0, 0.32, 0).box(0.16, 0.18, 0.08).pop();
+      b.color(0xe8cf8a).push().translate(0, 0.6, 0).scale(0.07).sphere(0).pop();
+      b.color(0xd9b86a).push().translate(0, 0.64, 0).cyl(6, 0.12, 0.02, 0.08).pop();
+      b.pop();
+      return b.finish();
+    },
+    crop: function () { // one crop plant; drawn in rows on farms, scaled by growth: sprout, leafy, golden ears
+      var b = ME.builder().sides(true).flex(1 / 0.4, 0, 0.6);
+      for (var i = 0; i < 5; i++) b.color(i % 2 ? 0x8fd05a : 0x6fb84a, 1).push().rotY(i * 1.25).rotZ(0.3).leaf(0.08, 0.34).pop();
+      b.sides(false).color(0xf0c84a, 1);
+      b.push().translate(0.02, 0.3, 0).rotZ(-0.12).cyl(5, 0.035, 0.012, 0.16).pop();
+      b.push().translate(-0.05, 0.26, 0.03).rotZ(0.25).cyl(5, 0.03, 0.01, 0.13).pop();
+      return b.finish();
+    },
+    totem: function () {
+      var b = ME.builder();
+      var cols = [0x9c6a3d, 0xb07ae0, 0xc5ff49, 0xff9f43];
+      for (var i = 0; i < 4; i++) {
+        b.color(cols[i]).push().translate(0, i * 0.42, 0).cyl(6, 0.24 - i * 0.02, 0.22 - i * 0.02, 0.4).pop();
+        b.color(0x1a1a22).push().translate(0.07, i * 0.42 + 0.24, 0.21).scale(0.035).sphere(0).pop().push().translate(-0.07, i * 0.42 + 0.24, 0.21).scale(0.035).sphere(0).pop();
+      }
+      b.color(0xd9b86a).sides(true).push().translate(0, 1.4, 0).rotZ(1.2).leaf(0.25, 0.6).pop().push().translate(0, 1.4, 0).rotZ(-1.2).leaf(0.25, 0.6).pop();
+      return b.finish();
+    },
+    grave: function () { // a little rounded headstone on a grassy mound, a ring of flowers
+      var b = ME.builder();
+      b.color(0x6ea84a, 1).push().translate(0, 0, 0.18).scale(0.34, 0.09, 0.42).sphere(1).pop();
+      b.smoothShade(true).color(0xb0aab2).shadeY(0, 0.45, 0.3).push().translate(0, 0.22, -0.18).scale(0.22, 0.26, 0.07).sphere(2).pop();
+      b.push().translate(0, 0.1, -0.18).box(0.42, 0.22, 0.13).pop();
+      b.shadeY(null).smoothShade(false).color(0x8a8590).push().translate(0, 0.25, -0.11).box(0.16, 0.03, 0.01).pop();
+      var fl = [0xff9cc8, 0xffd84a, 0xffffff, 0xb59aff, 0xff7a5a];
+      for (var i = 0; i < 5; i++) {
+        var a = -0.9 + i * 0.45, x = Math.sin(a) * 0.32, z = 0.2 + Math.cos(a) * 0.2;
+        b.color(0x5fae4a).push().translate(x, 0.04, z).cyl(3, 0.01, 0.01, 0.07).pop();
+        b.color(fl[i]).glow(0.15).push().translate(x, 0.12, z).scale(0.045, 0.03, 0.045).sphere(0).pop().glow(0);
+      }
+      return b.finish();
+    },
+    school: function () { // a schoolhouse: plaster and timber, a red gable roof, a bell tower, a slate out front
+      var b = ME.builder();
+      b.color(0x9a8f86).push().box(2.3, 0.12, 1.5).pop();
+      b.color(0xf0dfbc).shadeY(0.1, 0.95, 0.22).push().translate(0, 0.12, 0).box(2.1, 0.8, 1.3).pop().shadeY(null);
+      b.color(0x8a5a36);
+      [-1.04, 1.04].forEach(function (x) { [-0.64, 0.64].forEach(function (z) { b.push().translate(x, 0.12, z).box(0.08, 0.8, 0.08).pop(); }); });
+      b.push().translate(0, 0.88, 0.655).box(2.14, 0.06, 0.04).pop();
+      b.color(0xc4523a, 1).shadeY(0.9, 1.65, 0.3).push().translate(0, 0.94, 0).gable(2.1, 0.7, 1.3, 0.14).pop().shadeY(null);
+      b.color(0x5e3d26).push().translate(0, 0.12, 0.66).box(0.42, 0.6, 0.06).pop();
+      b.color(0x7a5236).push().translate(0, 0.14, 0.685).box(0.34, 0.52, 0.04).pop();
+      [-0.62, 0.62].forEach(function (x) {
+        b.color(0x5e3d26).push().translate(x, 0.4, 0.66).box(0.36, 0.3, 0.05).pop();
+        b.color(0xffcf6a).glow(0.75).push().translate(x, 0.43, 0.68).box(0.28, 0.22, 0.03).pop().glow(0);
+        b.color(0x5e3d26).push().translate(x, 0.43, 0.70).box(0.03, 0.22, 0.02).pop();
+      });
+      // bell tower on the ridge
+      b.color(0xf0dfbc).push().translate(-0.6, 1.4, 0).box(0.36, 0.46, 0.36).pop();
+      b.color(0x2a1d14).push().translate(-0.6, 1.5, 0.17).box(0.2, 0.26, 0.03).pop();
+      b.color(0xe8b84a).glow(0.2).push().translate(-0.6, 1.56, 0.12).cyl(6, 0.08, 0.04, 0.16).pop().glow(0);
+      b.color(0xc4523a, 1).push().translate(-0.6, 1.86, 0).rotY(0.785).cyl(4, 0.32, 0, 0.36).pop();
+      b.color(0x6a4a2e).push().translate(-0.6, 2.2, 0).cyl(3, 0.012, 0.012, 0.32).pop();
+      b.color(0xc5ff49, 1).sides(true).push().translate(-0.6, 2.5, 0).rotZ(-1.57).leaf(0.12, 0.24).pop().sides(false);
+      // the slate
+      b.color(0x6a4a2e).push().translate(0.9, 0, 1.05).cyl(4, 0.03, 0.03, 0.55).pop().push().translate(1.4, 0, 1.05).cyl(4, 0.03, 0.03, 0.55).pop();
+      b.color(0x2e3b33).push().translate(1.15, 0.55, 1.05).box(0.62, 0.36, 0.04).pop();
+      b.color(0xf5f3ed).push().translate(1.05, 0.6, 1.08).box(0.18, 0.02, 0.01).pop().push().translate(1.2, 0.52, 1.08).box(0.24, 0.02, 0.01).pop();
+      return b.finish();
+    },
+    // places to find out in the fog (sites.js)
+    site_wreck: function () { // another escape pod, nose-down in the dirt, hull cracked open
+      var b = ME.builder();
+      b.color(0x2e2826, 1).cyl(10, 1.3, 1.4, 0.02);
+      b.smoothShade(true).color(0xb8b4c4, 1).push().translate(0.1, 0.25, 0).rotZ(1.05).rotY(0.3).scale(0.45, 0.7, 0.45).sphere(2).pop();
+      b.color(0x5fc9c0, 1).push().translate(0.1, 0.25, 0).rotZ(1.05).rotY(0.3).scale(0.46, 0.1, 0.46).sphere(1).pop();
+      b.smoothShade(false).color(0x9a96a8, 1);
+      [[-0.9, 0.3, 0.6], [0.8, -0.6, -0.4], [-0.4, -0.9, 1.2], [0.95, 0.55, 2.1]].forEach(function (d) { b.push().translate(d[0], 0.05, d[1]).rotY(d[2]).rotZ(0.3).box(0.3, 0.05, 0.18).pop(); });
+      b.color(0xff5fa2, 1).glow(0.8).push().translate(-0.25, 0.5, 0.25).scale(0.08).sphere(0).pop().glow(0);
+      return b.finish();
+    },
+    site_ruin: function () { // standing stones, one fallen, carvings glowing faintly
+      var b = ME.builder();
+      b.color(0x6f6a7c);
+      b.push().translate(-0.9, 0, 0).box(0.32, 1.25, 0.28).pop();
+      b.push().translate(0.9, 0, 0).box(0.32, 1.1, 0.28).pop();
+      b.push().translate(0, 1.2, 0).box(2.15, 0.26, 0.32).pop();
+      b.push().translate(0.2, 0.1, 0.95).rotY(0.4).rotZ(1.57).box(0.3, 1.1, 0.28).pop();
+      b.color(0x6a6474).push().translate(-0.5, 0, -0.8).scale(0.3, 0.2, 0.3).blob(0, 0.3, 4).pop();
+      b.color(0xc5ff49, 1).glow(0.7).push().translate(-0.9, 0.7, 0.15).box(0.12, 0.12, 0.02).pop().push().translate(0.9, 0.6, 0.15).box(0.12, 0.12, 0.02).pop().glow(0);
+      return b.finish();
+    },
+    site_camp: function () { // a ring of spikes, a lopsided tent, a smoky fire and a cage
+      var b = ME.builder();
+      b.color(0x3e2618);
+      for (var i = 0; i < 12; i++) { var a = i / 12 * 6.283; b.push().translate(Math.cos(a) * 1.6, 0, Math.sin(a) * 1.6).rotZ(Math.cos(a) * 0.25).rotX(-Math.sin(a) * 0.25).cyl(4, 0.07, 0.05, 0.8).translate(0, 0.8, 0).cone(4, 0.05, 0.14).pop(); }
+      b.color(0x4a5a3a, 1).push().translate(-0.6, 0, -0.4).cyl(4, 0.75, 0.04, 1.1).pop();
+      b.color(0x2a2522).push().translate(0.5, 0.03, -0.3).scale(0.28, 0.04, 0.28).sphere(0).pop();
+      b.color(0xff9f43, 1).glow(0.9).push().translate(0.5, 0.15, -0.3).scale(0.12, 0.2, 0.12).sphere(0).pop().glow(0);
+      b.color(0x3a3440);
+      for (var j = 0; j < 6; j++) { var a2 = j / 6 * 6.283; b.push().translate(0.45 + Math.cos(a2) * 0.4, 0, 0.6 + Math.sin(a2) * 0.4).cyl(3, 0.025, 0.025, 0.7).pop(); }
+      b.push().translate(0.45, 0.7, 0.6).cyl(6, 0.45, 0.45, 0.05).pop();
+      return b.finish();
+    },
+    site_campdone: function () { // a smashed camp: fallen spikes, an open cage
+      var b = ME.builder();
+      b.color(0x5a3b26);
+      for (var i = 0; i < 7; i++) { var a = i / 7 * 6.283 + 0.3; b.push().translate(Math.cos(a) * 1.5, 0.05, Math.sin(a) * 1.5).rotY(a).rotZ(1.45).cyl(4, 0.06, 0.05, 0.7).pop(); }
+      b.color(0x2a2522).push().translate(0.5, 0.02, -0.3).scale(0.3, 0.03, 0.3).sphere(0).pop();
+      b.color(0x3a3440);
+      for (var j = 0; j < 3; j++) b.push().translate(0.4 + j * 0.2, 0.03, 0.6).rotZ(1.5).cyl(3, 0.025, 0.025, 0.6).pop();
+      return b.finish();
+    },
+    wall: function () { // a palisade of uneven posts, lashed with two rails
+      var b = ME.builder();
+      var hs = [0.86, 1.02, 0.8, 0.95, 0.9, 1.06], rs = [0.1, 0.085, 0.11, 0.09, 0.1, 0.08], cs = [0x8a6440, 0x9a7048, 0x7e5a3a, 0x94693f, 0x86603c, 0x9c744c];
+      for (var i = 0; i < 6; i++) {
+        b.color(cs[i]).shadeY(0, hs[i], 0.25).push().translate(-0.75 + i * 0.3, 0, (i % 3 - 1) * 0.03).rotZ((i % 2 ? 1 : -1) * 0.04).cyl(5, rs[i], rs[i] * 0.85, hs[i]).translate(0, hs[i], 0).cone(5, rs[i] * 0.85, 0.16).pop();
+      }
+      b.shadeY(null).color(0x6a4a2e);
+      [0.32, 0.66].forEach(function (y) { b.push().translate(0, y, 0.09).rotZ(1.57).translate(0, -0.88, 0).cyl(4, 0.035, 0.035, 1.76).pop(); });
+      b.color(0xd9b86a);
+      [-0.6, 0.3].forEach(function (x) { b.push().translate(x, 0.28, 0.11).box(0.05, 0.1, 0.04).pop(); });
+      return b.finish();
+    },
+    kiln: function () { // a beehive kiln of red clay, brick bands, an ember-glowing mouth and a chimney
+      var b = ME.builder();
+      b.color(0x9a8f86).cyl(10, 0.86, 0.86, 0.08);
+      b.color(0xc0683e).shadeY(0, 1.0, 0.3).push().scale(0.8, 1.0, 0.8).sphere(1, function (x, y) { return y < 0 ? 0.1 : 1; }).pop();
+      b.shadeY(null).color(0x9a5032);
+      b.push().translate(0, 0.3, 0).cyl(10, 0.78, 0.76, 0.06, false).pop();
+      b.push().translate(0, 0.62, 0).cyl(10, 0.63, 0.59, 0.06, false).pop();
+      b.color(0x1a1210).push().translate(0, 0.2, 0.72).scale(0.26, 0.24, 0.1).sphere(0).pop();
+      b.color(0xff7a2a).glow(0.7).push().translate(0, 0.14, 0.72).scale(0.18, 0.08, 0.08).sphere(0).pop().glow(0);
+      b.color(0x8a4a2d).push().translate(0, 0.85, 0).cyl(6, 0.18, 0.14, 0.42).pop();
+      b.color(0x6e3a24).push().translate(0, 1.27, 0).cyl(6, 0.17, 0.17, 0.05).pop();
+      b.color(0x7a5236).push().translate(0.78, 0.0, 0.38).rotY(0.4).box(0.3, 0.12, 0.2).pop();
+      return b.finish();
+    },
+    workshop: function () { // an open shed: a blue shingle roof on posts, a workbench, an anvil and a chopping log
+      var b = ME.builder();
+      b.color(0x9a8f86).push().box(2.0, 0.06, 1.4).pop();
+      b.color(0x8a6440);
+      [[-0.9, -0.6, 1.3], [0.9, -0.6, 1.3], [0.9, 0.6, 1.08], [-0.9, 0.6, 1.08]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.06, 0.06, p[2]).pop(); });
+      b.color(0x4f7aa8, 1).push().translate(0, 1.18, 0).rotX(0.17).box(2.2, 0.07, 1.6).pop();
+      b.color(0x3f6890, 1);
+      for (var i = 0; i < 4; i++) b.push().translate(0, 1.27 - i * 0.065, -0.6 + i * 0.4).rotX(0.17).box(2.22, 0.02, 0.06).pop();
+      b.color(0x9c7a4a).push().translate(0, 0.45, -0.25).box(1.4, 0.08, 0.55).pop();
+      b.color(0x7a5236);
+      [[-0.6, -0.45], [0.6, -0.45], [-0.6, -0.05], [0.6, -0.05]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).box(0.07, 0.45, 0.07).pop(); });
+      b.color(0x8e8a96).push().translate(0.3, 0.53, -0.25).scale(0.12).blob(0, 0.3, 1).pop();
+      b.color(0xd9823e).push().translate(-0.3, 0.53, -0.3).box(0.22, 0.03, 0.06).pop();
+      // anvil
+      b.push().translate(0.55, 0, 0.95);
+      b.color(0x7a5236).cyl(6, 0.18, 0.18, 0.26);
+      b.color(0x4a4652).push().translate(0, 0.26, 0).box(0.16, 0.12, 0.12).pop().push().translate(0, 0.38, 0).box(0.36, 0.09, 0.15).pop();
+      b.push().translate(0.18, 0.425, 0).rotZ(-1.5708).cone(4, 0.045, 0.12).pop();
+      b.pop();
+      // chopping log with an axe in it
+      b.push().translate(-0.6, 0, 1.0);
+      b.color(0x8a5a36).cyl(7, 0.2, 0.2, 0.3);
+      b.color(0xd9b88a).push().translate(0, 0.3, 0).cyl(7, 0.18, 0.18, 0.005).pop();
+      b.color(0x7a5236).push().translate(0, 0.3, 0).rotZ(0.6).cyl(4, 0.02, 0.02, 0.36).pop();
+      b.color(0xb4b0bc).push().translate(0.02, 0.28, 0).box(0.03, 0.1, 0.14).pop();
+      b.pop();
+      return b.finish();
+    },
+    windmill: function () { // a whitewashed stone tower with a door, little lit windows and a wooden cap
+      var b = ME.builder();
+      b.color(0x9a8f86).cyl(8, 0.76, 0.74, 0.18);
+      b.color(0xf2ece0).shadeY(0, 2.4, 0.25).push().translate(0, 0.18, 0).cyl(8, 0.7, 0.45, 2.22, false).pop().shadeY(null);
+      b.color(0xb0603a, 1).shadeY(2.4, 3.1, 0.25).push().translate(0, 2.36, 0).cyl(8, 0.62, 0.58, 0.12).translate(0, 0.12, 0).cone(8, 0.6, 0.62).pop().shadeY(null);
+      b.color(0x5e3d26).push().translate(0, 0.16, 0.68).rotX(-0.11).box(0.36, 0.56, 0.08).pop();
+      b.color(0xffcf6a).glow(0.7);
+      b.push().translate(0, 1.3, 0.565).rotX(-0.11).box(0.18, 0.22, 0.05).pop();
+      b.push().rotY(2.2).translate(0, 0.9, 0.62).rotX(-0.11).box(0.18, 0.22, 0.05).pop();
+      b.glow(0).color(0x7a5236).push().translate(0, 2.6, 0.4).rotX(1.5708).cyl(6, 0.08, 0.08, 0.36).pop();
+      return b.finish();
+    },
+    blades: function () { // four lattice arms with sail cloth
+      var b = ME.builder().sides(true);
+      b.color(0xe8b04a).push().scale(0.13).sphere(0).pop();
+      for (var i = 0; i < 4; i++) {
+        b.push().rotZ(i * 1.5708);
+        b.color(0x7a5236).quad([0.05, -0.03, 0], [1.45, -0.03, 0], [1.45, 0.03, 0], [0.05, 0.03, 0]);
+        b.color(0xf5efe2).quad([0.22, 0.03, 0.01], [1.38, 0.03, 0.01], [1.38, 0.28, 0.01], [0.22, 0.24, 0.01]);
+        b.color(0x9c7a4a);
+        [0.5, 0.85, 1.2].forEach(function (x) { b.quad([x - 0.015, 0.03, 0.02], [x + 0.015, 0.03, 0.02], [x + 0.015, 0.28, 0.02], [x - 0.015, 0.27, 0.02]); });
+        b.pop();
+      }
+      return b.finish();
+    },
+    observatory: function () { // the star dome: a stone drum with lit windows, a dome with a slit, a brass telescope
+      var b = ME.builder();
+      b.color(0x9a8f86).cyl(12, 1.06, 1.06, 0.14);
+      b.color(0xe2dcd0).shadeY(0.1, 1.2, 0.22).push().translate(0, 0.14, 0).cyl(12, 1.0, 0.96, 1.06, false).pop().shadeY(null);
+      b.color(0xffcf6a).glow(0.7);
+      for (var i = 0; i < 4; i++) b.push().rotY(i * 1.5708 + 0.4).translate(0, 0.6, 0.97).box(0.16, 0.26, 0.04).pop();
+      b.glow(0).color(0xa892e8, 1).smoothShade(true).shadeY(1.2, 2.1, 0.3).push().translate(0, 1.2, 0).scale(1.0, 0.85, 1.0).sphere(2, function (x, y) { return y < 0 ? 0.05 : 1; }).pop().shadeY(null).smoothShade(false);
+      b.color(0x7e68c0, 1).push().translate(0, 1.18, 0).cyl(12, 1.02, 1.02, 0.07, false).pop();
+      b.color(0x1a1a2e).push().translate(0, 1.55, 0.55).rotX(0.9).box(0.3, 0.7, 0.12).pop();
+      b.color(0xd9a23e).push().translate(0, 1.7, 0.6).rotX(0.9).cyl(6, 0.09, 0.06, 0.95).pop();
+      b.color(0xffd84a).glow(0.4).push().translate(0, 2.05, 0).scale(0.07).sphere(0).pop().glow(0);
+      return b.finish();
+    },
+    bridge: function () {
+      var b = ME.builder().color(0x9c7a4a);
+      for (var i = 0; i < 9; i++) b.push().translate(0, 0.25, -1.6 + i * 0.4).box(1.2, 0.08, 0.36).pop();
+      b.color(0x6a4a2e);
+      [-0.6, 0.6].forEach(function (x) { b.push().translate(x, 0.6, 0).rotX(1.5708).translate(0, -1.8, 0).cyl(4, 0.04, 0.04, 3.6).pop(); for (var k = 0; k < 4; k++) b.push().translate(x, -0.6, -1.6 + k * 1.07).cyl(4, 0.06, 0.06, 1.25).pop(); });
+      return b.finish();
+    },
+    spire: function () { // the Big Thought: stepped stone tiers, a faceted crystal crown, crystal shards round its foot
+      var b = ME.builder();
+      b.color(0x4a4560).cyl(8, 2.05, 1.85, 0.4);
+      b.color(0x5a5476).push().translate(0, 0.4, 0).cyl(8, 1.75, 1.55, 0.4).pop();
+      b.color(0xc5ff49).glow(0.6);
+      for (var i = 0; i < 8; i++) b.push().rotY(i * 0.785 + 0.39).translate(0, 0.45, 1.66).box(0.18, 0.08, 0.04).pop();
+      b.glow(0).color(0xb59aff, 1).shadeY(0.8, 5.8, 0.35).push().translate(0, 0.8, 0).cyl(6, 1.25, 0.6, 5.0).pop().shadeY(null);
+      b.color(C.crystal).glow(0.8).push().translate(0, 5.8, 0).cyl(6, 0.62, 0.72, 0.5, false).translate(0, 0.5, 0).cyl(6, 0.72, 0.6, 0.8, false).translate(0, 0.8, 0).cone(6, 0.6, 1.8).pop();
+      b.color(0xe6f8ff).glow(1).push().translate(0, 6.27, 0).cyl(6, 0.735, 0.735, 0.06, false).pop();
+      for (i = 0; i < 7; i++) {
+        var a = i * 0.9 + 0.3, rr = 1.5 + (i % 2) * 0.3, hh = 0.5 + (i % 3) * 0.3;
+        b.color(i % 2 ? C.crystal : 0xd6c8ff).glow(0.6).push().translate(Math.cos(a) * rr, 0.75, Math.sin(a) * rr).rotY(a).rotZ(0.25 * (i % 2 ? 1 : -1)).cyl(5, 0.12, 0.12, hh * 0.6, false).translate(0, hh * 0.6, 0).cone(5, 0.12, hh * 0.4).pop();
+      }
+      b.color(0xc5ff49).glow(1);
+      for (i = 0; i < 6; i++) { var a2 = i * 1.047; b.push().translate(Math.cos(a2) * 1.0, 3.0, Math.sin(a2) * 1.0).scale(0.16).sphere(1).pop(); }
+      return b.finish();
+    },
+    // from village to city
+    stall: function () { // a counter under a striped awning on four poles
+      var b = ME.builder();
+      b.color(0x8a6440).push().translate(0, 0, 0.1).box(1.1, 0.45, 0.5).pop();
+      b.color(0xb08a5a).push().translate(0, 0.45, 0.1).box(1.2, 0.05, 0.6).pop();
+      b.color(0x6a4a2e);
+      [[-0.55, -0.3], [0.55, -0.3], [-0.55, 0.45], [0.55, 0.45]].forEach(function (p) { b.push().translate(p[0], 0, p[1]).cyl(4, 0.03, 0.03, 1.15).pop(); });
+      for (var i = 0; i < 5; i++) b.color(i % 2 ? 0xf5f3ed : 0xe5484d, 1).push().translate(-0.5 + i * 0.25, 1.15, 0.08).rotX(0.25).box(0.25, 0.04, 0.95).pop();
+      b.color(0xe8c45a, 1).push().translate(-0.25, 0.5, 0.15).scale(0.09).sphere(0).pop().push().translate(0, 0.5, 0.2).scale(0.08).sphere(0).pop();
+      b.color(0xe5484d, 1).push().translate(0.25, 0.5, 0.12).scale(0.09).sphere(0).pop();
+      return b.finish();
+    },
+    house: function () { // stone walls, a tiled roof, a chimney and a window
+      var b = ME.builder();
+      b.color(0xb8ad9c).push().box(1.6, 0.95, 1.3).pop();
+      b.color(0x8f8577).push().translate(0, 0, 0).box(1.66, 0.12, 1.36).pop();
+      b.color(0xb4573a, 1);
+      b.push().translate(0, 0.95, -0.36).rotX(0.62).box(1.8, 0.07, 0.95).pop();
+      b.push().translate(0, 0.95, 0.36).rotX(-0.62).box(1.8, 0.07, 0.95).pop();
+      b.color(0xa8a094).push().translate(0, 0.95, 0).cyl(3, 0.65, 0.01, 0.5).pop();
+      b.color(0x7a7268).push().translate(0.5, 1.0, -0.2).box(0.2, 0.6, 0.2).pop();
+      b.color(0x3a2a1c).push().translate(-0.35, 0, 0.66).box(0.36, 0.6, 0.04).pop();
+      b.color(0x2a3550).push().translate(0.38, 0.45, 0.66).box(0.34, 0.28, 0.03).pop();
+      return b.finish();
+    },
+    hall: function () { // a stone hall with columns, steps and a pediment
+      var b = ME.builder();
+      b.color(0xcfc6b4).push().box(2.4, 0.12, 1.9).pop().push().translate(0, 0.12, 0).box(2.2, 0.1, 1.7).pop();
+      b.color(0xd9d0be).push().translate(0, 0.22, -0.2).box(2.0, 1.2, 1.1).pop();
+      b.color(0xe6dfcf);
+      for (var i = 0; i < 5; i++) b.push().translate(-0.9 + i * 0.45, 0.22, 0.65).cyl(6, 0.09, 0.08, 1.2).pop();
+      b.color(0xcfc6b4).push().translate(0, 1.42, 0.05).box(2.3, 0.14, 1.6).pop();
+      b.color(0x9a8f7c, 1).push().translate(0, 1.56, 0.05).scale(1.25, 1, 0.85).cyl(4, 0.95, 0.01, 0.55).pop();
+      b.color(0x3a2a1c).push().translate(0, 0.22, 0.36).box(0.42, 0.75, 0.04).pop();
+      b.color(0xc5ff49, 1).sides(true).push().translate(0.95, 2.1, 0.05).rotZ(-1.57).leaf(0.14, 0.3).pop().sides(false);
+      b.color(0x6a4a2e).push().translate(0.95, 1.56, 0.05).cyl(3, 0.02, 0.02, 0.6).pop();
+      return b.finish();
+    },
+    mint: function () { // a squat stone workshop with a furnace glow and a stack of coins
+      var b = ME.builder();
+      b.color(0x8f8a96).push().box(1.4, 0.8, 1.1).pop();
+      b.color(0x6a6474, 1).push().translate(0, 0.8, 0).scale(1.1, 1, 0.85).cyl(4, 0.95, 0.4, 0.3).pop();
+      b.color(0x5a5560).push().translate(-0.4, 1.0, 0).cyl(6, 0.14, 0.12, 0.6).pop();
+      b.color(0xff8a2a, 1).glow(0.9).push().translate(0.3, 0.15, 0.56).box(0.36, 0.26, 0.02).pop().glow(0);
+      b.color(0xe08a4a, 1).glow(0.3);
+      for (var i = 0; i < 4; i++) b.push().translate(-0.3, i * 0.05, 0.75).cyl(8, 0.1, 0.1, 0.04).pop();
+      b.glow(0);
+      return b.finish();
+    },
+    granary: function () { // a round store on stilts with a conical thatched roof
+      var b = ME.builder();
+      b.color(0x6a4a2e);
+      for (var i = 0; i < 4; i++) { var a = i / 4 * 6.283 + 0.4; b.push().translate(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55).cyl(4, 0.06, 0.06, 0.5).pop(); }
+      b.color(0xc9a97a).push().translate(0, 0.5, 0).cyl(10, 0.75, 0.8, 0.9).pop();
+      b.color(0xd9b86a, 1).push().translate(0, 1.4, 0).cyl(10, 0.95, 0.04, 0.8).pop();
+      b.color(0x3a2a1c).push().translate(0, 0.7, 0.78).box(0.26, 0.4, 0.04).pop();
+      return b.finish();
+    },
+    road: function () { return ME.builder().color(0xffffff, 1).push().box(1.02, 0.03, 1.02).pop().finish(); }, // one tile of trail or paving, tinted per kind
+    winglow: function () { return ME.builder().color(0xffd27a, 1).glow(1.3).push().box(0.3, 0.24, 0.02).pop().finish(); }, // a lit window
+    plot: function () { // construction site
+      var b = ME.builder();
+      b.color(0xc5ff49).glow(0.4);
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (p) { b.push().translate(p[0] * 0.8, 0, p[1] * 0.8).cyl(4, 0.035, 0.03, 0.4).pop(); });
+      b.glow(0).color(0x8a6440).push().translate(0, 0.01, 0).box(1.6, 0.02, 1.6).pop();
+      return b.finish();
+    }
+  };
+
+  /* ---------------- decorations ---------------- */
+  ME.DECOR_BUILDERS = [
+    function grass() { var b = ME.builder().sides(true).flex(1 / 0.3, 0, 0.8); for (var i = 0; i < 4; i++) b.color(i % 2 ? 0x7fcf5f : 0x6aba50, 1).push().rotY(i * 0.8).rotZ((i - 1.5) * 0.25).leaf(0.05, 0.22 + (i % 2) * 0.08).pop(); return b.finish(); },
+    function flower() {
+      var b = ME.builder().flex(1 / 0.24, 0, 0.7); b.sides(true).color(0x6aba50, 1).leaf(0.03, 0.22); b.sides(false);
+      b.color(0xffffff, 1); for (var i = 0; i < 5; i++) b.push().translate(0, 0.22, 0).rotY(i * 1.2566).translate(0.04, 0, 0).scale(0.035, 0.012, 0.025).sphere(0).pop();
+      b.color(0xffd23f).push().translate(0, 0.23, 0).scale(0.022).sphere(0).pop(); return b.finish();
+    },
+    function pebble() { var b = ME.builder().color(0x8a8590, 1); b.push().translate(0, 0.02, 0).scale(0.08, 0.05, 0.07).blob(0, 0.3, 1).pop(); return b.finish(); },
+    function fern() { var b = ME.builder().sides(true).flex(1 / 0.4, 0, 0.6); for (var i = 0; i < 5; i++) b.color(0x3f8a3a, 1).push().rotY(i * 1.2566).rotX(1.0).leaf(0.12, 0.38, -0.08).pop(); return b.finish(); },
+    function snowtuft() { var b = ME.builder().color(0xf5f8fc); b.push().translate(0, 0.02, 0).scale(0.16, 0.06, 0.14).blob(0, 0.3, 2).pop(); return b.finish(); },
+    function cattail() { var b = ME.builder().sides(true).flex(1 / 0.55, 0, 0.9).color(0x7f9e48, 1); b.leaf(0.04, 0.5).push().rotY(1).leaf(0.04, 0.42).pop(); b.sides(false).color(0x6a4a2e).push().translate(0, 0.5, 0).scale(0.025, 0.07, 0.025).sphere(0).pop(); return b.finish(); },
+    function glowdot() { var b = ME.builder().color(0x9fe4ff, 1).glow(0.9); b.push().translate(0, 0.05, 0).scale(0.04).sphere(0).pop(); b.color(0xe8e0d0).glow(0).cyl(3, 0.008, 0.008, 0.05); return b.finish(); }
+  ];
+
+  /* ---------------- creature parts ---------------- */
+  ME.PARTS = {
+    body: function () { return ME.builder().smoothShade(true).color(0xffffff, 1).sphere(2).finish(); },
+    ball: function () { return ME.builder().smoothShade(true).color(0xffffff, 1).sphere(1).finish(); },
+    eye: function () { // white ball with a dark pupil and a sparkle, looking +z
+      var b = ME.builder().smoothShade(true);
+      b.color(0xffffff, 1).sphere(1);
+      b.color(0x14131a).push().translate(0, 0, 0.62).scale(0.62, 0.66, 0.45).sphere(1).pop();
+      b.color(0xffffff).glow(1).push().translate(0.18, 0.2, 0.93).scale(0.17).sphere(0).pop();
+      return b.finish();
+    },
+    cone: function () { return ME.builder().color(0xffffff, 1).cone(7, 1, 1).finish(); },
+    limb: function () { var b = ME.builder().smoothShade(true).color(0xffffff, 1); b.cyl(6, 1, 0.8, 1, false); b.push().translate(0, 1, 0).scale(0.8).sphere(0).pop(); return b.finish(); },
+    leaf: function () { return ME.builder().sides(true).color(0xffffff, 1).leaf(1, 1, 0.15).finish(); },
+    ring: function () { return ME.builder().smoothShade(true).color(0xffffff, 1).torus(1, 0.12, 16, 5).finish(); },
+    halo: function () { return ME.builder().smoothShade(true).color(0xffffff, 1).glow(1).torus(1, 0.12, 16, 5).finish(); },
+    beacon: function () { var b = ME.builder().smoothShade(true).color(0xffffff, 1).glow(1); b.cyl(10, 1, 0.35, 1, false); return b.finish(); }, // K-0066: the chase's pillar of light
+    disc: function () { var b = ME.builder().color(0xffffff, 1); b.cyl(24, 1, 1, 0.02, true); return b.finish(); },
+    brain: function () { var b = ME.builder().color(0xffffff, 1); b.push().scale(1, 0.75, 1.1).blob(2, 0.18, 7).pop(); b.color(0xd06a8a, 1).push().translate(0, 0.62, 0).scale(0.06, 0.18, 1.0).sphere(1).pop(); return b.finish(); },
+    mouth: function () { return ME.builder().color(0x3a1520).push().scale(1, 0.55, 0.4).sphere(0).pop().finish(); },
+    eye2: function () { // a grown-up's eye (tribe and on): a smaller pupil and no sparkle, looking +z
+      var b = ME.builder().smoothShade(true);
+      b.color(0xf4f1ea, 1).sphere(1);
+      b.color(0x14131a).push().translate(0, -0.02, 0.72).scale(0.4, 0.46, 0.34).sphere(1).pop();
+      return b.finish();
+    },
+    smile: function () { // a curved mouth, 1 wide: a smile as drawn, a frown upside down (rz = pi)
+      var b = ME.builder().smoothShade(true).color(0x3a1520);
+      for (var i = 0; i <= 6; i++) { var a = (i / 6 - 0.5) * 2.1; b.push().translate(Math.sin(a) * 0.5, 0.5 - Math.cos(a) * 0.5, 0).scale(0.11, 0.11, 0.09).sphere(0).pop(); }
+      return b.finish();
+    },
+    shadow: null // drawn by the blob-shadow pass
+  };
+  /* ---------------- v3.7 biomes: their trees, rocks and ground cover ---------------- */
+  (function () {
+    var NB = ME.NODE_BUILDERS;
+    NB.sakura = function (seed) { // blossom tree: a dark crooked trunk under a wide, flat-topped pink umbrella
+      var b = ME.builder().flex(1 / 2.6, 0);
+      b.color(0x4e3328).push().rotZ(0.12).cyl(6, 0.16, 0.1, 1.3).pop();
+      b.push().translate(0.15, 1.1, 0).rotZ(-0.85).cyl(5, 0.07, 0.04, 0.75).pop();
+      b.push().translate(0.1, 1.15, 0).rotZ(0.75).rotY(seed).cyl(5, 0.06, 0.03, 0.65).pop();
+      b.smoothShade(true).shadeY(1.35, 2.3, 0.4).color(0xf4b6cc, 1);
+      crown(b, 0.15, 1.9, 0, 1.4, 0.55, 1.3, seed, 0.3);
+      b.color(0xfad2e0, 1); crown(b, 0.62, 2.08, 0.3, 0.68, 0.38, 0.62, seed + 2, 0.3);
+      b.color(0xeea0bd, 1); crown(b, -0.5, 1.86, -0.32, 0.66, 0.4, 0.6, seed + 3, 0.3);
+      b.shadeY(null).smoothShade(false).color(0xd7263d);
+      [[0.75, 1.55, 0.55], [-0.5, 1.52, 0.42], [0.1, 1.5, -0.75]].forEach(function (p) { b.push().translate(p[0], p[1], p[2]).scale(0.075).sphere(0).pop(); });
+      return b.finish();
+    };
+    NB.maple = function (seed) { // a tall red-orange teardrop crown on a straight trunk, golden at the top
+      var b = ME.builder().flex(1 / 3.2, 0);
+      b.color(0x6a4a34).cyl(6, 0.16, 0.1, 1.4);
+      b.smoothShade(true).shadeY(1.2, 3.2, 0.45).color(0xd9542b, 1);
+      crown(b, 0, 2.05, 0, 0.95, 1.05, 0.95, seed, 0.3);
+      b.color(0xe8823a, 1); crown(b, 0.05, 2.85, 0.05, 0.55, 0.62, 0.55, seed + 4, 0.25);
+      b.color(0xb8402a, 1); crown(b, 0.44, 1.7, 0.2, 0.55, 0.5, 0.55, seed + 2, 0.3);
+      b.shadeY(null).smoothShade(false).color(0xf0b040, 1).push().translate(0.05, 3.42, 0.05).rotY(seed).cone(5, 0.2, 0.3).pop();
+      return b.finish();
+    };
+    NB.bamboo = function (seed) { // a clump of jointed green canes with leaf tufts that nod in the wind
+      var b = ME.builder();
+      for (var i = 0; i < 5; i++) {
+        var a = i * 2.39 + seed, rr = i ? 0.18 + (i % 2) * 0.1 : 0, hh = 2.0 + ((i * 7 + (seed | 0)) % 5) * 0.3;
+        b.flex(1 / hh, 0, 1.1).push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).rotZ((i % 3 - 1) * 0.06);
+        b.color(i % 2 ? 0x8cc63e : 0x7ab535, 1).cyl(5, 0.065, 0.055, hh, false);
+        b.color(0x5e8f2a);
+        for (var s = 1; s < 4; s++) b.push().translate(0, s * hh / 4, 0).cyl(5, 0.072, 0.072, 0.04, false).pop();
+        b.sides(true).color(0x6fbf4a, 1);
+        for (var k = 0; k < 3; k++) b.push().translate(0, hh - k * 0.3, 0).rotY(a + k * 2.1).rotX(1.1).leaf(0.14, 0.5, -0.12).pop();
+        b.sides(false);
+        b.pop();
+      }
+      return b.finish();
+    };
+    NB.mangrove = function (seed) { // a flat, dark crown held up on arched stilt roots
+      var b = ME.builder().flex(1 / 2.4, 0, 0.8);
+      b.color(0x6e5440);
+      for (var i = 0; i < 6; i++) {
+        var a = i / 6 * 6.283 + seed;
+        b.push().rotY(-a).translate(0.62, 0, 0).rotZ(0.25).cyl(4, 0.045, 0.04, 0.42, false).translate(0, 0.42, 0).rotZ(0.75).cyl(4, 0.04, 0.035, 0.55, false).pop();
+      }
+      b.push().translate(0, 0.5, 0).cyl(6, 0.14, 0.1, 1.05).pop();
+      b.smoothShade(true).shadeY(1.4, 2.1, 0.45).color(0x4f8a46, 1);
+      crown(b, 0, 1.78, 0, 1.25, 0.58, 1.25, seed, 0.3);
+      b.color(0x3f7a3e, 1); crown(b, 0.55, 1.62, -0.35, 0.65, 0.4, 0.65, seed + 1, 0.3);
+      return b.shadeY(null).finish();
+    };
+    NB.basalt = function (seed) { // black hexagonal columns
+      var b = ME.builder();
+      for (var i = 0; i < 6; i++) {
+        var a = i * 1.05 + seed, rr = i ? 0.28 : 0, hh = 0.5 + ((i * 5 + (seed | 0)) % 4) * 0.22;
+        b.color(i % 2 ? 0x34303a : 0x3e3944, 1).push().translate(Math.cos(a) * rr, 0, Math.sin(a) * rr).cyl(6, 0.16, 0.16, hh).pop();
+      }
+      return b.finish();
+    };
+    NB.vent = function (seed) { // a hot crack with a glowing mouth and an orange rim
+      var b = ME.builder();
+      b.color(0x4a4248, 1).push().translate(0, 0.12, 0).scale(0.7, 0.24, 0.6).blob(1, 0.4, seed, 0.6).pop();
+      b.color(0xff7a2a).glow(1).push().translate(0, 0.3, 0).scale(0.22, 0.05, 0.18).sphere(1).pop();
+      b.color(C.ore).glow(0.3);
+      for (var i = 0; i < 4; i++) { var a = i * 1.6 + seed; b.push().translate(Math.cos(a) * 0.45, 0.12, Math.sin(a) * 0.38).scale(0.1).blob(0, 0.3, i).pop(); }
+      b.glow(0).color(0xd8d4d0).push().translate(0, 0.32, 0).scale(0.08, 0.3, 0.08).sphere(0).pop();
+      return b.finish();
+    };
+    NB.redrock = function (seed) { // a striped red hoodoo
+      var b = ME.builder();
+      var cols = [0xb85a36, 0xd27a4a, 0xc0663e, 0xe09a64];
+      for (var i = 0; i < 4; i++) b.color(cols[i], 1).push().translate(0, i * 0.3, 0).rotY(seed + i).cyl(7, 0.5 - i * 0.07, 0.46 - i * 0.07, 0.3).pop();
+      b.color(0x9a4a2c, 1).push().translate(0, 1.2, 0).scale(0.42, 0.18, 0.4).blob(0, 0.3, seed).pop();
+      return b.finish();
+    };
+    ME.DECIDUOUS.maple = 1; ME.DECIDUOUS.mangrove = 0;
+    // ground cover types 7..11 (worldgen.js DECOR)
+    ME.DECOR_BUILDERS.push(
+      function petals() { var b = ME.builder().color(0xf6bcd0); for (var i = 0; i < 4; i++) b.push().translate(Math.cos(i * 1.7) * 0.1, 0.012, Math.sin(i * 1.7) * 0.1).scale(0.04, 0.008, 0.03).sphere(0).pop(); return b.finish(); },
+      function leafpile() { var b = ME.builder(); [0xd9542b, 0xe8823a, 0xf0b040].forEach(function (c, i) { b.color(c).push().translate(Math.cos(i * 2.1) * 0.06, 0.015 + i * 0.008, Math.sin(i * 2.1) * 0.06).scale(0.09, 0.012, 0.07).sphere(0).pop(); }); return b.finish(); },
+      function ember() { var b = ME.builder().color(0xff6a2a, 1).glow(1); b.push().translate(0, 0.02, 0).scale(0.05, 0.025, 0.04).sphere(0).pop(); b.glow(0).color(0x2a2522).push().translate(0.06, 0.015, 0).scale(0.06, 0.02, 0.05).blob(0, 0.3, 3).pop(); return b.finish(); },
+      function drygrass() { var b = ME.builder().sides(true).flex(1 / 0.26, 0, 0.8); for (var i = 0; i < 4; i++) b.color(i % 2 ? 0xd9b86a : 0xc8a050, 1).push().rotY(i * 0.8).rotZ((i - 1.5) * 0.35).leaf(0.04, 0.2 + (i % 2) * 0.06).pop(); return b.finish(); },
+      function tallflower() {
+        var b = ME.builder().flex(1 / 0.38, 0, 0.8); b.sides(true).color(0x5aaa48, 1).leaf(0.035, 0.36); b.sides(false);
+        b.color(0xffffff, 1); for (var i = 0; i < 6; i++) b.push().translate(0, 0.36, 0).rotY(i * 1.047).translate(0.05, 0, 0).scale(0.045, 0.014, 0.03).sphere(0).pop();
+        b.color(0x3a2a1a).push().translate(0, 0.37, 0).scale(0.03).sphere(0).pop(); return b.finish();
+      }
+    );
+  })();
+})();

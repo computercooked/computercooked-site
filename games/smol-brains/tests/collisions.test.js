@@ -26,7 +26,7 @@ SYSTEMS.forEach(n => {
   Object.keys(k).forEach(t => { added[n][t] = k[t].filter(x => base[t].indexOf(x) < 0); });
 });
 // ids two systems share ON PURPOSE (the same thing, defined by whichever loads first): each was read and judged
-const SHARED = { thunderpot: 1, drum: 1, flute: 1, banner: 1, statue: 1, starmetal: 1, dye_red: 1, dye_green: 1, dye_blue: 1, beebox: 1, shell: 1 };
+const SHARED = { coppervest: 1, furboots: 1, wraps: 1, tablet: 1, thunderpot: 1, drum: 1, flute: 1, banner: 1, statue: 1, starmetal: 1, dye_red: 1, dye_green: 1, dye_blue: 1, beebox: 1, shell: 1 };
 ["kinds", "structs", "tools", "nodes", "tabs", "mods"].forEach(t => {
   const owner = {}, clash = [];
   SYSTEMS.forEach(n => added[n][t].forEach(id => { if (SHARED[id]) return; if (owner[id] && owner[id] !== n) clash.push(id + " (" + owner[id] + " and " + n + ")"); else owner[id] = n; }));
