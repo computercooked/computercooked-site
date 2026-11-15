@@ -985,6 +985,30 @@ seeded(4341, () => {
   if (warmAt) { at(warmAt.x, warmAt.z); me.chem.cold = 0.5; w.night = false; D.tick(game, 0.6); D.tick(game, 0.6); check("a warm hollow takes the cold off you, and the map tab says where you stand", me.chem.cold < 0.5 && /where you stand: a warm hollow/.test(D.html(game, me, k => ""))); } else check("no clear warm hollow on this island", true);
   me.chem.cold = 0;
 
+  console.log("27c. small weather and ground rules");
+  if (D.cur(game)) D.up(game, me, D.cur(game), true);
+  empty(); w.night = false; w.season = 0; me.dp.curse = 0;
+  const dryAt = freeSpot(), biome0 = W.biomeAt;
+  at(dryAt.x, dryAt.z); w.weather.rain = 0; SB.Body.of(me).wet = 0; D.tick(game, 0.6);
+  W.biomeAt = () => SB.B.desert;
+  w.weather.rain = 0.7; SB.Body.of(me).wet = 0.6; D.tick(game, 0.6); D.tick(game, 0.6);
+  check("rain in the dry lands does not soak you", SB.Body.of(me).wet < 0.05 && D.hazards().dry === true);
+  W.biomeAt = biome0; w.weather.rain = 0; D.tick(game, 0.6);
+  W.biomeAt = () => SB.B.ash; me.chem.health = 1; me.sip = 3;
+  for (let i = 0; i < 220; i++) D.tick(game, 0.6);
+  check("the ashlands: a cough after a minute, and the water you carry boils off", D.hazards().ash === true && me.chem.health < 1 && me.chem.health >= 0.5 && me.sip < 3 && SB.Ext.vitals(game, me).some(v => /ash cough/.test(v.text)));
+  W.biomeAt = biome0; me.sip = 0; me.chem.health = 1;
+  for (let i = 0; i < 160; i++) D.tick(game, 0.6);
+  check("away from the ash it clears", !D.hazards().ash);
+  at(hiC.x, hiC.z); stam(1); me._povMove = true; D.tick(game, 0.6); D.tick(game, 0.6); me._povMove = false;
+  check("thin air: moving up there takes your wind", D.hazards().thin === true && P.state().stam < 1 && SB.Ext.vitals(game, me).some(v => /thin air/.test(v.text)));
+  const WGt = SB.WorldGen, steepM = cell((x, z) => W.biomeAt(w, x, z) === SB.B.mountain && WGt.slopeAt(w.T, x, z) >= 1.2 && WGt.slopeAt(w.T, x, z) < 2.8);
+  if (steepM) { empty(); me.chem.health = 1; let slid = 0; SB.bus.on("deepRockslide", () => slid++); seeded(2, () => { for (let i = 0; i < 30 && !slid; i++) SB.bus.emit("rockGone", { c: me, node: { x: steepM.x, z: steepM.z, kind: "boulder" } }); }); check("breaking rock on a steep mountain face can bring a rockslide", slid === 1 && cnt("stone") === 2 && me.chem.health < 1); } else check("no steep mountain face on this island", true);
+  const tpP = pois.find(p => p.kind === "tidepool"), tpB = goTo(tpP); empty();
+  let washed = 0; for (let d = 0; d < 60 && !washed; d++) { game.time = (Math.floor(game.time / SB.DAY_LENGTH) + 1) * SB.DAY_LENGTH + SB.DAY_LENGTH * 0.25; const o = D.poiOps(game, me, tpB, null).use; if (o.go) o.go(); washed = cnt("keyshard") + cnt("scrap"); }
+  check("now and then the tide washes a pod crate into a tide pool", washed >= 1 && cnt("torch") >= 1);
+  empty(); me.chem.health = 1;
+
   console.log("28. more sky, weekdays, twin ores, the tab, the save");
   empty(); const fr1 = freeSpot(); at(fr1.x, fr1.z); P.setGoal(null); w.night = true;
   const cr = D.starfall(game);
