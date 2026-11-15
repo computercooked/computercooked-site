@@ -628,6 +628,7 @@ if(!egg||egg.kind!=="egg")return 0;
 var d=egg.data;
 var amt=amount!=null?amount:d.starter?W.POD_TAP:0.05;
 d.progress=Math.min(1,(d.progress||0)+amt);
+if(!d.starter&&amount>0.05)d.rush=(d.rush||0)+amt;
 d.wobble=1;
 emit("eggWarm",{obj:egg,progress:d.progress});
 return d.progress;

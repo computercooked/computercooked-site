@@ -701,6 +701,7 @@
     var d = egg.data;
     var amt = amount != null ? amount : d.starter ? W.POD_TAP : 0.05;
     d.progress = Math.min(1, (d.progress || 0) + amt);
+    if (!d.starter && amount > 0.05) d.rush = (d.rush || 0) + amt; // hurried along by hand, not brooded (helpers3.js: it hatches small and hungry)
     d.wobble = 1;
     emit("eggWarm", { obj: egg, progress: d.progress });
     return d.progress;
