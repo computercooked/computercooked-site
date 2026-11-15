@@ -116,10 +116,14 @@ d.ask=SB.clamp(d.ask,p*0.4,p*3);
 d.ask=Math.round(d.ask*100)/100;
 }
 E.settled=function(st){var h=st.data.hist||[];if(h.length<4)return false;var lo=Math.min.apply(null,h),hi=Math.max.apply(null,h);return hi-lo<hi*0.15;};
+E.askOf=function(game,st){
+var d=st.data,k=SB.Minds?SB.Minds.moodMul(game,SB.Game.byId(game,d.owner)):1;
+return k===1?d.ask:Math.round(d.ask*k*100)/100;
+};
 E.buy=function(game,c,st){
 var d=st.data,seller=SB.Game.byId(game,d.owner),e=game.econ;
 if(!seller||d.stock<=0||seller===c)return false;
-var price=d.ask;
+var price=E.askOf(game,st);
 if(e.coins){
 if((c.purse||0)<price)return false;
 c.purse=Math.round((c.purse-price)*100)/100;
@@ -157,7 +161,7 @@ var d=s.data;
 if(d.owner===c.id)return;
 var dist=SB.dist(c.x,c.z,s.x,s.z);
 if(dist>40)return;
-var worth=E.valueFor(c,d.good,game),cost=d.ask+dist*0.02*E.moneyFactor(game);
+var worth=E.valueFor(c,d.good,game),cost=E.askOf(game,s)+dist*0.02*E.moneyFactor(game);
 if(game.econ.coins&&(c.purse||0)<d.ask)return;
 var gain=worth-cost;
 if(gain>bv){bv=gain;best=s;}

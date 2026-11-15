@@ -263,7 +263,11 @@
         c.plan = plan; c.action = null; c.ordOn = o.id;
         return true;
       }
-      // work marks
+      // work marks: its own list first, in order, no dice (O.queue)
+      if (c.jobs && c.jobs.length) {
+        var q0 = O.queueOf(game, c)[0];
+        if (q0 && doMark(c, game, q0)) { c.ordOn = q0.id; return true; }
+      }
       for (var j = 0; j < od.list.length; j++) {
         var m = od.list[j];
         if (m.kind !== "mark" || SB.dist(c.x, c.z, m.x, m.z) > 50) continue;
@@ -287,8 +291,12 @@
     // the stockpile: bring what you gathered
     var sp = c.tier >= 2 && !c.plan ? nearestZone(game, c, "stock", 60) : null;
     if (sp && ch.hunger < 0.55) {
-      var goods = cargo(c, game);
-      if (goods.length && decide(c, game, sp)) {
+      var goods = cargo(c, game), Mn = SB.Minds;
+      // minds3.js: food to the granary first if you said so, then the pile whose filter and fill order fit
+      if (Mn && goods.length && Mn.granFirst(c, game, goods)) return true;
+      var pk = Mn && goods.length ? Mn.stockFor(game, c, goods) : null;
+      if (pk) { sp = pk.z; goods = pk.goods; }
+      if (sp && goods.length && decide(c, game, sp)) {
         if (SB.dist(c.x, c.z, sp.x, sp.z) > sp.r * 0.6) { c.ordOn = sp.id; return SB.Creature.sendTo(c, sp.x + rng(game).range(-1, 1), sp.z + rng(game).range(-1, 1), game, 20); }
         goods.forEach(function (it) { SB.Creature.dropItem(c, it, game, 0.4); it.data.piled = 1; });
         sp.n = (sp.n || 0) + goods.length;
@@ -300,6 +308,28 @@
     }
     c.ordOn = null;
     return false;
+  };
+  // a list of work marks for one smol (c.jobs, saved with it): done in order, ahead of everyone's marks
+  O.queue = function (game, c, id) {
+    var o = O.byId(game, id);
+    if (!o || o.kind !== "mark" || !c || c.species !== "smol") return false;
+    c.jobs = c.jobs || [];
+    if (c.jobs.indexOf(id) < 0) c.jobs.push(id);
+    o.until = null;
+    return true;
+  };
+  O.unqueue = function (game, c, id) { if (!c.jobs) return; c.jobs = c.jobs.filter(function (j) { return j !== id; }); if (!c.jobs.length) c.jobs = null; };
+  O.bump = function (c, id, d) { var j = c.jobs, i = j ? j.indexOf(id) : -1, k = i + d; if (i < 0 || k < 0 || k >= j.length) return false; j[i] = j[k]; j[k] = id; return true; };
+  O.queueOf = function (game, c) {
+    if (!c.jobs) return [];
+    var out = c.jobs.map(function (id) { return O.byId(game, id); }).filter(Boolean);
+    c.jobs = out.length ? out.map(function (o) { return o.id; }) : null;
+    return out;
+  };
+  O.markNear = function (game, c, r) {
+    var best = null, bd = r || 10;
+    ((game.orders && game.orders.list) || []).forEach(function (o) { if (o.kind === "mark") { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < bd) { bd = d; best = o; } } });
+    return best;
   };
   // the nearest dry, walkable way out of a zone
   function exitOf(game, z, c) {
@@ -370,7 +400,7 @@
       a.tx = ng.x + Math.sin(ang) * r; a.tz = ng.z + Math.cos(ang) * r;
     }
     var hz = first(game, "home");
-    if (hz && SB.dist(c.x, c.z, hz.x, hz.z) > hz.r + 12 && rng(game).chance(0.35) && decide(c, game, hz)) {
+    if (hz && !c.tribe && SB.dist(c.x, c.z, hz.x, hz.z) > hz.r + 12 && rng(game).chance(0.35) && decide(c, game, hz)) {
       a.tx = hz.x + rng(game).range(-hz.r, hz.r) * 0.6; a.tz = hz.z + rng(game).range(-hz.r, hz.r) * 0.6;
     }
   };
@@ -381,7 +411,7 @@
     SB.Ideas.pickSite = function (c, kind, game) {
       var od = game.orders;
       if (!od || !od.list.length || kind === "bridge") return pickSite0(c, kind, game);
-      var hz = first(game, "home"), t = SB.Society.tribe(game, c.tribe), keep = t && t.home ? { x: t.home.x, z: t.home.z } : null;
+      var hz = c.tribe ? null : first(game, "home"), t = SB.Society.tribe(game, c.tribe), keep = t && t.home ? { x: t.home.x, z: t.home.z } : null;
       if (hz && keep && !(kind === "spire")) { t.home.x = hz.x; t.home.z = hz.z; }
       try {
         for (var i = 0; i < 4; i++) { var s = pickSite0(c, kind, game); if (!s || !O.zoneAt(game, s.x, s.z, "nogo")) return s; }

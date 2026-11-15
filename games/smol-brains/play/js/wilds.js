@@ -31,8 +31,11 @@ var Sv=SB.Surv,w=game.world;
 if(Sv&&Sv.heldKind&&c.inv&&Sv.heldKind(c)==="torch")return"torch";
 if(SB.Body&&SB.Body.litFireNear&&SB.Body.litFireNear(w,c,W.FIRE_R))return"fire";
 if(SB.World.shelterAt(w,c.x,c.z))return"roof";
+if(W.grove(game,c.x,c.z))return"grove";
 return"";
 };
+W.GROVE_R=7;
+W.grove=function(game,x,z){return SB.World.nearestNode(game.world,x,z,W.GROVE_R,function(n){return n.kind==="shroomtree"&&n.state!=="gone";});};
 W.darkness=function(game,s,night){
 if(!s||s.firstNight||s.nightChase)return 0;
 return W.cfg(game).dark*SB.clamp01(night)*(s.c.tier<2?0.5:1);
@@ -139,6 +142,7 @@ var g=SB.Game.byId(game,s.prowl);
 if(!g||!g.alive||!g.scout){var beat=!!g&&!g.alive;s.prowl=null;s.prowlGap=W.PROWL_GAP;s.darkT=0;SB.bus.emit("prowlEnd",{c:c,ok:beat});return;}
 var lit=g.scout.t>3?W.lit(game,c):"";
 if(lit==="roof")endProwl(game,s,"🏠 the prowler won't follow you under a roof",true);
+else if(lit==="grove")endProwl(game,s,"🍄 no grump sets foot among the glowshrooms",true);
 else if(lit)endProwl(game,s,"🔥 the prowler slinks away from the light",true);
 else if(!night)endProwl(game,s,"🌅 dawn. the prowler is gone",false);
 else if(g.scout.t>W.PROWL_MAX)endProwl(game,s,"😮‍💨 the prowler lost you in the dark",false);
@@ -179,7 +183,8 @@ if(st.run)out.push({k:"run",e:"🏕",label:"day "+(Math.floor(W.runDays(game))+1
 if(s&&s.prowl!=null)out.push({k:"prowl",e:"🌑",label:"prowler!",tip:"it hunts in the dark. hold a torch, or get to a fire or a roof",bad:true});
 else if(night&&s&&!s.firstNight&&!s.nightChase&&c.tier>=2){
 var lit=W.lit(game,c);
-if(lit==="torch")out.push({k:"torch",e:"🔥",label:"torch lit",tip:"nothing prowls near a lit torch",bad:false});
+if(lit==="grove")out.push({k:"grove",e:"🍄",label:"safe ground",tip:"no grump sets foot among the glowshrooms",bad:false});
+else if(lit==="torch")out.push({k:"torch",e:"🔥",label:"torch lit",tip:"nothing prowls near a lit torch",bad:false});
 else if(!lit&&W.cfg(game).prowlers)out.push({k:"dark",e:"🌑",label:"in the dark",tip:"prowlers hunt in the dark. hold a torch, or stay by a fire or under a roof",bad:true});
 }
 return out;
@@ -193,12 +198,17 @@ h+="<div class='st "+(bd?"good":"")+"'><b>🛏 bed</b><span>"+(bd?"your "+esc(be
 h+="<div class='sep'></div><div class='lbl'>survival run</div>";
 if(run)h+="<div class='st good'><b>🏕 day "+(Math.floor(W.runDays(game))+1)+"</b><span>on "+esc(run.level)+(run.falls?" · fell "+run.falls+(run.falls===1?" time":" times"):"")+". it ends when you go back to the sky"+(run.level==="harsh"?", or the first time you fall":"")+".</span></div>";
 else h+="<div><button class='btn go' data-run='start'>🏕 start a survival run</button></div><div class='help'>count the days you last in this body. it ends when you go back to the sky."+(st.runBest>0?" best so far: "+daysText(st.runBest)+" on "+esc(st.runBestLevel||"normal")+".":"")+"</div>";
+var ln=SB.Body&&SB.Body.leans?SB.Body.leans(c):null;
+if(ln)h+="<div class='help'>🧬 your kind takes to "+ln.up.label+" and is slow at "+ln.down.label+".</div>";
+if(SB.Minds)h+=SB.Minds.html(game,c);
 return h;
 };
 W.wire=function(root,game,redraw){
 if(!root||!root.querySelectorAll)return;
 root.querySelectorAll("[data-wilds]").forEach(function(b){b.addEventListener("click",function(){if(W.set(game,b.getAttribute("data-wilds")))redraw();});});
 root.querySelectorAll("[data-run]").forEach(function(b){b.addEventListener("click",function(){if(W.startRun(game))redraw();});});
+var s=PS();
+if(SB.Minds&&s&&s.c)SB.Minds.wire(root,game,s.c,redraw);
 };
 SB.bus.on("scoutHit",function(d){
 var s=PS();

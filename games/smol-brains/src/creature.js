@@ -11,6 +11,7 @@
   var K = SB.KINDS, NK = SB.NODES, SK = SB.STRUCTS;
   var I = function () { return SB.Ideas; };
   var M = function () { return SB.Mind; };
+  var Mn = function () { return SB.Minds; };
 
   var BODY_R = 0.32;
   var HEAR_T = 5;
@@ -299,8 +300,10 @@
     var R = c.viewR, w = game.world, i;
     for (i = 0; i < SB.N_NOUNS; i++) { nearestOf[i] = null; nearestD[i] = 1e9; }
     function consider(n, t, d) { if (n == null) return; if (d < nearestD[n]) { nearestD[n] = d; nearestOf[n] = t; } }
+    var smol = c.species === "smol", see = smol && Mn() ? Mn().sees(c, game) : null; // minds3.js: its area, its diet, what it faces
     SB.World.itemsNear(w, c.x, c.z, R, function (o, d2) {
       if (o.heldBy === c.id) return;
+      if (smol && (o.data.forbid || (see && !see(o.x, o.z, o)))) return;
       if (o.hid != null && M() && !M().canSee(c, o)) return; // hidden food: only its owner and whoever watched know it's there
       if (c.unreach && isUnreachable(c, o.id, game)) return;
       var d = Math.sqrt(d2);
@@ -309,14 +312,14 @@
       consider(N[o.noun], { type: "item", id: o.id }, d);
     });
     if (c.holding != null) { var h0 = SB.Game.byId(game, c.holding); if (h0) consider(N[h0.noun], { type: "item", id: h0.id }, 0.5); }
-    for (i = 0; i < c.bag.length; i++) { var bi = SB.Game.byId(game, c.bag[i]); if (bi && (bi.noun === "food" || bi.noun === "medicine")) consider(N[bi.noun], { type: "item", id: bi.id }, 0.6); }
-    SB.World.eachNodeNear(w, c.x, c.z, R * 0.85, function (n, d2) { if (n.nop || n.state === "gone") return; if (c.unreach && isUnreachable(c, n.id, game)) return; consider(N[n.noun], { type: "node", id: n.id }, Math.sqrt(d2) + 0.5); });
+    for (i = 0; i < c.bag.length; i++) { var bi = SB.Game.byId(game, c.bag[i]); if (bi && (bi.noun === "food" || bi.noun === "medicine") && !(see && !see(c.x, c.z, bi))) consider(N[bi.noun], { type: "item", id: bi.id }, 0.6); }
+    SB.World.eachNodeNear(w, c.x, c.z, R * 0.85, function (n, d2) { if (n.nop || n.state === "gone") return; if (c.unreach && isUnreachable(c, n.id, game)) return; if (see && !see(n.x, n.z, n)) return; consider(N[n.noun], { type: "node", id: n.id }, Math.sqrt(d2) + 0.5); });
     var sts = w.structures;
     for (i = 0; i < sts.length; i++) {
       var s = sts[i], ds = SB.dist(s.x, s.z, c.x, c.z);
       if (ds < R * 1.2) consider(N[s.noun], { type: "struct", id: s.id }, Math.max(0, ds - SK[s.kind].r));
     }
-    SB.World.creaturesNear(w, game, c.x, c.z, R, function (o, d2) { if (o !== c && o.alive && o.heldBy !== "hand") consider(N[o.species], { type: "creature", id: o.id }, Math.sqrt(d2)); });
+    SB.World.creaturesNear(w, game, c.x, c.z, R, function (o, d2) { if (o !== c && o.alive && o.heldBy !== "hand" && !(see && !see(o.x, o.z, o))) consider(N[o.species], { type: "creature", id: o.id }, Math.sqrt(d2)); });
     var hd = game.hand;
     if (hd.visible && SB.dist(hd.x, hd.z, c.x, c.z) < R) consider(N.hand, { type: "hand" }, SB.dist(hd.x, hd.z, c.x, c.z) * 0.8);
     var wp = SB.World.waterNear(w, c.x, c.z);
@@ -391,6 +394,7 @@
       if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
     }
     if (c.species === "smol" && SB.Orders && SB.Orders.think(c, game)) return; // the sky's orders (orders.js): followed if it trusts you
+    if (c.species === "smol" && Mn() && Mn().think(c, game)) return; // its own standing jobs (minds3.js): its area, a route, sorting, school
     // partners both ready for a baby (in love, rested from the last one) find each other at the end of a job, even in a
     // busy village: otherwise builders who work all day never meet. Not when hungry, scared or hurting
     if (c.species === "smol" && c.stage === 3 && c.partner != null && ch.love > 0.5 && c.eggCooldown <= 0 && Math.max(ch.hunger, ch.fear, ch.pain, ch.sick) < 0.5 && rng.chance(0.5)) {
@@ -423,6 +427,7 @@
       if (!prey) { c.attn = null; startAction(c, game, V.wander, null, null, null); if (c.raider) { c.action.tx = c.raider.x + rng.range(-3, 3); c.action.tz = c.raider.z + rng.range(-3, 3); c.action.dur = 8; } return; } // raiders march on the village
     }
     SB.Chem.drives(ch, drv);
+    var wayN = c.species === "smol" && Mn() ? Mn().wayNoun(c, game) : -1; // the tribe's food way (bug-loving, shroom-loving)
     // innate drive-directed attention: a hungry smol's eyes go to food, a cold one's to fire
     for (var ci = 0; ci < cands.length; ci++) {
       var gl = GOOD_BY_NOUN[cands[ci].noun], boost = 0;
@@ -431,6 +436,7 @@
       cands[ci].sal += boost;
       if (ch.love > 0.35 && cands[ci].t.type === "creature" && (c.partner != null ? cands[ci].t.id === c.partner && ch.love > 0.5 : c.court && cands[ci].t.id === c.court.id)) cands[ci].sal += 0.3 + ch.love * 0.5; // eyes for the one they love (or are courting)
       if (c.mind && c.tier >= 1) { var mv = c.mind.val[SB.NOUNS[cands[ci].noun]]; if (mv) cands[ci].sal += mv * 0.15; } // how things went last time
+      if (cands[ci].noun === wayN) cands[ci].sal += 0.45;
       if (c.lure && cands[ci].t.id === c.lure.id) cands[ci].sal += 3; // the sky set something down for it (tricks.js): its eyes go there, what it does is up to its brain
     }
     if (c.lure && game.time > c.lure.t) c.lure = null;
@@ -555,6 +561,7 @@
     }
     if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
     if (c.prio && SB.Orders && SB.Orders.bias(c, game, noun, mask, bias)) useBias = true; // job interests you nudged
+    if (c.species === "smol" && Mn() && Mn().bias(c, game, noun, mask, bias)) useBias = true; // a food way, a standing "keep making"
     if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
@@ -713,6 +720,7 @@
         var dz = c.species === "smol" && !a.why && M() ? M().dangerAt(c, game, a.tx, a.tz) : null;
         if (dz) { a.tx = c.x - Math.sin(ang) * dist; a.tz = c.z - Math.cos(ang) * dist; c._mt.why = dz.why || "not that way. that's where it hurt"; }
         if (c.species === "smol" && SB.Orders) SB.Orders.steer(c, game, a); // no-go and home zones
+        if (c.species === "smol" && Mn()) Mn().steer(c, game, a); // its own area, a nest on the move, a bridge it trusts
         break;
       }
       case V.sleep:
@@ -754,7 +762,7 @@
   function sniffFood(c, game) {
     // the hungrier, the further a smol's nose reaches (a starving one will cross the island)
     var reach = 32 + Math.max(0, c.chem.hunger - 0.6) * 110;
-    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && o.data.rotten) && !isUnreachable(c, o.id, game); });
+    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && (o.data.rotten || o.data.forbid)) && !(c.diet && c.diet[o.kind]) && !isUnreachable(c, o.id, game); });
     if (it) return it;
     // a plant only smells of food when it's nearly ready to drop some
     return SB.World.nearestNode(game.world, c.x, c.z, reach, function (n) { var d = NK[n.kind]; return d.drops && K[d.drops] && K[d.drops].noun === "food" && n.state === "ok" && n.kind !== "palm" && !d.stings && (n.dropT == null || n.dropT < d.every * 0.5) && !isUnreachable(c, n.id, game); });
@@ -769,6 +777,7 @@
 
   function findBed(c, game) {
     var w = game.world, best = null, bd = 1e9;
+    if (c.hut != null) { var own = SB.World.structById(w, c.hut); if (own && own.done && SB.dist(own.x, own.z, c.x, c.z) < 60) return { type: "struct", id: own.id }; } // the home it was given (minds3.js)
     w.structures.forEach(function (s) {
       if (!s.done || (s.kind !== "hut" && s.kind !== "house")) return;
       var d = SB.dist(s.x, s.z, c.x, c.z) + (s.tribe === c.tribe ? 0 : 10);
