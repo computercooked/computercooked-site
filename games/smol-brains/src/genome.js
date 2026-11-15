@@ -147,6 +147,7 @@
       clade: rng.chance(0.5) ? a.clade || 0 : b.clade || 0
     };
     G.mutate(child, rng, 0.05, echo, bless);
+    hered(child, a, b);
     if (SB.Collect) SB.Collect.inherit(child, a, b); // collectible traits (their own rng, seeded from the genes)
     return child;
   };
@@ -418,6 +419,7 @@
     var cl = g.clade || 0;
     b.push((cl >> 8) & 255, cl & 255);
     if (SB.Collect) SB.Collect.encodeInto(b, g);
+    encX(b, g);
     return G.b64enc(b);
   };
 
@@ -450,8 +452,126 @@
     var out = { v: 2, species: species, gen: gen || 1, genes: genes, driveW: driveW, instincts: instincts, mutated: [], clade: clade };
     var cx = SB.Collect && ver >= 2 ? SB.Collect.decodeFrom(b, p) : null;
     if (cx && species !== "grump") out.cx = cx;
+    if (ver >= 2) decX(b, b[p] === 0xc7 && SB.Collect ? p + 5 + SB.Collect.SLOTS.length : p, out);
     return out;
   };
+
+  /* ---------------- 4.36: rule genes, two copies of a gene, gene-made reactions ----------------
+     None of these is in G.GENES (that list is the byte layout of every old code, and G.random draws one number per
+     entry). They live in g.rule / g.alt / g.rx, ride in a block at the very end of a code, and a genome without
+     them is exactly the old game: a missing rule gene is its default, which is the number the code used to fix. */
+  var RULES = [
+    ["trace", "trace length", 0.5], ["forget", "forgetting", 0], ["prune", "pruning", 0], ["tract", "tract", 0],
+    ["hlFear", "fear half-life", 0.5], ["hlPain", "pain half-life", 0.5], ["hlAnger", "anger half-life", 0.5], ["hlReward", "reward half-life", 0.5],
+    ["hlToxin", "toxin half-life", 0.5], ["hlMedicine", "medicine half-life", 0.5], ["hlAntibody", "antibody half-life", 0.5],
+    ["thStarve", "starving point", 0.5], ["thPain", "pain point", 0.5], ["thTemp", "weather point", 0.5], ["thSick", "sickness point", 0.5], ["thLove", "love point", 0.5],
+    ["rxFat", "fat burning", 0.5], ["rxStore", "fat storing", 0.5]
+  ];
+  var RI = {};
+  G.RULES = RULES.map(function (r, i) { RI[r[0]] = i; return r[0]; });
+  G.RULE_LABELS = {};
+  RULES.forEach(function (r) { G.RULE_LABELS[r[0]] = r[1]; });
+  G.ruleDefault = function (n) { return RULES[RI[n]][2]; };
+  G.rule = function (g, n) { var r = g && g.rule; return r && r[n] != null ? r[n] : RULES[RI[n]][2]; };
+  G.setRule = function (g, n, v) {
+    if (RI[n] == null) return;
+    var r = g.rule || (g.rule = {});
+    if (byte(v) === byte(RULES[RI[n]][2])) delete r[n]; else r[n] = q(v);
+    if (g._ck) g._ck = null;
+  };
+  // a half-life gene as a multiplier on the old decay rate: 0.5 -> 1, 0 -> 2 (gone twice as fast), 1 -> 0.5
+  G.half = function (g, n) { return Math.pow(2, 1 - 2 * G.rule(g, n)); };
+  // a threshold gene: the old fixed number, moved up to span/2 either way
+  G.point = function (g, n, base, span) { return base + (G.rule(g, n) - 0.5) * span; };
+  // tracts: which input group is wired straight to the verbs (0 = none, the old brain)
+  G.TRACTS = ["", "feelings", "sights", "heard words", "touch and smell"];
+  G.tract = function (g) { var v = G.rule(g, "tract"); return v < 0.2 ? 0 : Math.min(4, 1 + Math.floor((v - 0.2) / 0.2)); };
+
+  // reactions a gene can add: [from, to, flags] (1 = uses the first one up, 2 = lowers the second instead of making it)
+  G.CHEMS = SB.DRIVES.concat(["glucose", "fat", "reward", "punish", "adrenaline", "toxin", "antigen", "antibody", "medicine"]);
+  var RXPOOL = [["adrenaline", "glucose", 0], ["reward", "pain", 2], ["glucose", "sleepy", 3], ["medicine", "antibody", 1], ["toxin", "pain", 0],
+    ["fat", "cold", 2], ["punish", "adrenaline", 0], ["reward", "bored", 2], ["adrenaline", "tired", 2], ["antigen", "sleepy", 0]];
+  G.RX_MAX = 4;
+  G.rxName = function (r) { return G.CHEMS[r.a] + (r.f & 2 ? " lowers " : " makes ") + G.CHEMS[r.b]; };
+  function rxOk(r) { return r && r.a >= 0 && r.a < G.CHEMS.length && r.b >= 0 && r.b < G.CHEMS.length && r.a !== r.b; }
+  G.rxFromPool = function (i, k) { var t = RXPOOL[i % RXPOOL.length]; return { a: G.CHEMS.indexOf(t[0]), b: G.CHEMS.indexOf(t[1]), f: t[2], k: q(k == null ? 0.5 : k) }; };
+  G.RX_POOL = RXPOOL.length;
+
+  // even genes show their higher copy, odd genes their lower one
+  G.dominant = function (n, x, y) { return G.GENES.indexOf(n) % 2 === 0 ? Math.max(x, y) : Math.min(x, y); };
+  // the hidden copies that differ from what shows: [{gene, label, v, shows}]
+  G.carried = function (g) {
+    var out = [], alt = (g && g.alt) || {};
+    for (var n in alt) if (g.genes[n] != null && Math.abs(alt[n] - g.genes[n]) > 0.15) out.push({ gene: n, label: G.GENE_LABELS[n], v: alt[n], shows: g.genes[n] });
+    out.sort(function (x, y) { return Math.abs(y.v - y.shows) - Math.abs(x.v - x.shows); });
+    return out;
+  };
+
+  // what a child gets beyond the old crossover. Its own dice (seeded from the child's genes), never the island's.
+  function hered(child, a, b) {
+    var h = 2166136261, i, n, notes = child.mutated;
+    for (i = 0; i < G.GENES.length; i++) h = Math.imul(h ^ byte(child.genes[G.GENES[i]]), 16777619);
+    var r = SB.rng(((h ^ (child.gen * 7919)) >>> 0) || 1), alt = {}, rule = {}, any = false;
+    function note(s) { if (notes.indexOf(s) < 0) notes.push(s); }
+    for (i = 0; i < G.GENES.length; i++) {
+      n = G.GENES[i];
+      if (EVO_SET[n]) continue;
+      var va = a.genes[n] != null ? a.genes[n] : 0.5, vb = b.genes[n] != null ? b.genes[n] : 0.5;
+      var ha = a.alt && a.alt[n], hb = b.alt && b.alt[n], e = child.genes[n], o;
+      var ca = ha != null && r.chance(0.35) ? ha : va, cb = hb != null && r.chance(0.35) ? hb : vb;
+      if (ca !== va || cb !== vb) {
+        // a hidden copy came down: the gene's dominant end shows, the other copy is carried
+        var d = q(G.dominant(n, ca, cb));
+        o = d === q(ca) ? cb : ca;
+        if (Math.abs(d - e) > 0.1) note("hidden gene showed: " + G.GENE_LABELS[n]);
+        child.genes[n] = e = d;
+      } else o = Math.abs(va - e) >= Math.abs(vb - e) ? va : vb;
+      if (Math.abs(o - e) > 0.12) alt[n] = q(o);
+    }
+    child.alt = alt;
+    for (i = 0; i < RULES.length; i++) {
+      n = RULES[i][0];
+      var v = r.chance(0.5) ? G.rule(a, n) : G.rule(b, n);
+      if (r.chance(0.06)) { v = q(v + r.gauss() * 0.15); note(RULES[i][1]); }
+      if (byte(v) !== byte(RULES[i][2])) { rule[n] = v; any = true; }
+    }
+    if (any) child.rule = rule;
+    var rx = [];
+    (a.rx || []).concat(b.rx || []).forEach(function (x) {
+      if (!rxOk(x) || rx.length >= G.RX_MAX || rx.some(function (y) { return y.a === x.a && y.b === x.b; }) || !r.chance(0.6)) return;
+      rx.push({ a: x.a, b: x.b, f: x.f & 3, k: x.k });
+    });
+    if (rx.length && r.chance(0.04)) note("lost reaction: " + G.rxName(rx.pop()));
+    if (rx.length < G.RX_MAX && r.chance(0.05)) {
+      var nw = G.rxFromPool(r.int(RXPOOL.length), r.range(0.2, 0.8));
+      if (!rx.some(function (y) { return y.a === nw.a && y.b === nw.b; })) { rx.push(nw); note("new reaction: " + G.rxName(nw)); }
+    }
+    if (rx.length) child.rx = rx;
+  }
+
+  // the extra block at the end of a code: 0xb3, length, rule genes (index, value), hidden copies (gene index, value), reactions
+  function encX(b, g) {
+    var p = [], i, n, at = 0, c = 0;
+    p.push(0);
+    for (i = 0; i < RULES.length; i++) { n = RULES[i][0]; if (g.rule && g.rule[n] != null && byte(g.rule[n]) !== byte(RULES[i][2])) { p.push(i, byte(g.rule[n])); c++; } }
+    p[at] = c; at = p.length; p.push(0); c = 0;
+    for (i = 0; i < G.GENES.length; i++) { n = G.GENES[i]; if (g.alt && g.alt[n] != null) { p.push(i, byte(g.alt[n])); c++; } }
+    p[at] = c;
+    var rx = (g.rx || []).filter(rxOk).slice(0, G.RX_MAX);
+    p.push(rx.length);
+    rx.forEach(function (x) { p.push(x.a, x.b, x.f & 3, byte(x.k)); });
+    if (p.length <= 3 || p.length > 255) return;
+    b.push(0xb3, p.length);
+    for (i = 0; i < p.length; i++) b.push(p[i]);
+  }
+  function decX(b, p, out) {
+    if (b[p] !== 0xb3 || p + 2 + b[p + 1] > b.length) return;
+    var end = p + 2 + b[p + 1], k, c;
+    p += 2;
+    for (c = b[p++]; c > 0 && p + 1 < end; c--, p += 2) if (RULES[b[p]] && b[p + 1] !== byte(RULES[b[p]][2])) (out.rule || (out.rule = {}))[RULES[b[p]][0]] = b[p + 1] / 255;
+    for (c = b[p++]; c > 0 && p + 1 < end; c--, p += 2) if (G.GENES[b[p]]) (out.alt || (out.alt = {}))[G.GENES[b[p]]] = b[p + 1] / 255;
+    for (c = b[p++]; c > 0 && p + 3 < end; c--, p += 4) { k = { a: b[p], b: b[p + 1], f: b[p + 2] & 3, k: b[p + 3] / 255 }; if (rxOk(k)) (out.rx || (out.rx = [])).push(k); }
+  }
 
   // Upgrade a plain genome object from a v1 save (noun indices change; new genes are filled in as a blob's).
   G.upgrade = function (g) {

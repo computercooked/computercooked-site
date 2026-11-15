@@ -23,11 +23,35 @@
   function gene(g, k, d) { return g && g.genes && g.genes[k] != null ? g.genes[k] : d; }
   var clamp01 = SB.clamp01;
 
+  // 4.36: half-life, threshold and reaction genes (genome.js RULES), worked out once per genome; G.setRule clears it.
+  // A genome with none of them gets ONE: every multiplier 1 and every threshold the number this file used to fix.
+  var ONE = { fear: 1, pain: 1, anger: 1, reward: 1, toxin: 1, med: 1, ab: 1, sick: 1, fat: 1, store: 1, starve: 0.92, painT: 0.8, temp: 0.85, love: 0.65, rx: null };
+  function K(g) {
+    if (!g || (!g.rule && !g.rx)) return ONE;
+    if (g._ck) return g._ck;
+    var G = SB.Genome, k = {
+      fear: G.half(g, "hlFear"), pain: G.half(g, "hlPain"), anger: G.half(g, "hlAnger"), reward: G.half(g, "hlReward"),
+      toxin: G.half(g, "hlToxin"), med: G.half(g, "hlMedicine"), ab: G.half(g, "hlAntibody"),
+      sick: 1 + (0.5 - G.rule(g, "thSick")) * 0.8, fat: 0.5 + G.rule(g, "rxFat"), store: 0.5 + G.rule(g, "rxStore"),
+      starve: G.point(g, "thStarve", 0.92, 0.12), painT: G.point(g, "thPain", 0.8, 0.2), temp: G.point(g, "thTemp", 0.85, 0.2), love: G.point(g, "thLove", 0.65, 0.3), rx: null
+    };
+    if (g.rx && g.rx.length) k.rx = g.rx.slice(0, G.RX_MAX).map(function (x) { return { a: G.CHEMS[x.a], b: G.CHEMS[x.b], f: x.f, k: x.k }; }).filter(function (x) { return x.a && x.b; });
+    Object.defineProperty(g, "_ck", { value: k, writable: true, enumerable: false, configurable: true });
+    return k;
+  }
+  Chem.rules = K;
+  // every reaction in this body, in words: the ones every smol has, then the ones its genes added
+  Chem.reactions = function (g) {
+    var out = ["glucose burns for energy", "low glucose pulls from fat", "spare glucose is stored as fat", "germs raise antibodies", "antibodies and medicine clear germs", "medicine clears toxin"];
+    (g && g.rx || []).forEach(function (x) { out.push(SB.Genome.rxName(x) + " (its own gene)"); });
+    return out;
+  };
+
   // env = {temp 0..1, dark, asleep, inBed, moving, nearFriends, stage, species}
   Chem.tick = function (c, dt, env, genome) {
     var grump = env.species === "grump";
     var stage = env.stage || 0;
-    var baby = stage === 0;
+    var baby = stage === 0, k = K(genome);
     var met = 0.6 + gene(genome, "metabolism", 0.5) * 0.8;
     if (baby) met *= 1.35;
     if (grump) met *= 0.7;
@@ -35,8 +59,8 @@
     // energy: glucose burns, fat tops it up, a shortage makes you hungry
     var burn = 0.0028 * met * (env.moving ? 1.4 : 1) * (env.asleep ? 0.55 : 1);
     c.glucose -= burn * dt;
-    if (c.glucose < 0.35 && c.fat > 0) { var conv = Math.min(c.fat, 0.006 * dt); c.fat -= conv; c.glucose += conv * 0.9; }
-    if (c.glucose > 0.9) { var store = (c.glucose - 0.9) * 0.05 * dt; c.glucose -= store; c.fat = Math.min(1, c.fat + store); }
+    if (c.glucose < 0.35 && c.fat > 0) { var conv = Math.min(c.fat, 0.006 * k.fat * dt); c.fat -= conv; c.glucose += conv * 0.9; }
+    if (c.glucose > 0.9) { var store = (c.glucose - 0.9) * 0.05 * k.store * dt; c.glucose -= store; c.fat = Math.min(1, c.fat + store); }
     c.glucose = clamp01(c.glucose);
     var appetite = 0.7 + gene(genome, "appetite", 0.5) * 0.6;
     c.hunger += dt * appetite * (0.0034 * met + 0.0045 * Math.max(0, 0.35 - c.glucose)) * (env.asleep ? 0.5 : 1);
@@ -70,48 +94,58 @@
     c.hot += (hotT - c.hot) * Math.min(1, 0.06 * dt);
 
     // fear, pain, anger fade; adrenaline follows fear
-    c.fear -= 0.035 * dt * (1 + gene(genome, "bravery", 0.5));
-    c.pain -= 0.025 * dt;
+    c.fear -= 0.035 * k.fear * dt * (1 + gene(genome, "bravery", 0.5));
+    c.pain -= 0.025 * k.pain * dt;
     c.adrenaline += (c.fear - c.adrenaline) * Math.min(1, 0.5 * dt);
-    c.anger -= 0.02 * dt;
+    c.anger -= 0.02 * k.anger * dt;
     c.anger += dt * c.pain * 0.02 * (0.3 + gene(genome, "grumpiness", 0.3));
     if (grump) c.anger += 0.004 * dt;
 
     // reinforcement chemicals are quick flashes
-    c.reward -= c.reward * Math.min(1, 0.6 * dt);
-    c.punish -= c.punish * Math.min(1, 0.6 * dt);
+    c.reward -= c.reward * Math.min(1, 0.6 * k.reward * dt);
+    c.punish -= c.punish * Math.min(1, 0.6 * k.reward * dt);
 
     // illness: toxins decay; germs multiply until antibodies catch them; medicine helps both
     var imm = 0.4 + gene(genome, "immunity", 0.5) * 1.2;
-    c.toxin -= dt * (0.006 + c.medicine * 0.03);
+    c.toxin -= dt * k.toxin * (0.006 + c.medicine * 0.03);
     c.antigen += dt * c.antigen * 0.008;
     c.antibody += dt * c.antigen * 0.015 * imm;
     var kill = Math.min(c.antigen, dt * (c.antibody * 0.03 + c.medicine * 0.06));
     c.antigen -= kill;
-    c.antibody -= dt * 0.002;
-    c.medicine -= dt * 0.02;
-    var sickT = clamp01(Math.max(c.toxin * 1.6, c.antigen * 1.4));
+    c.antibody -= dt * k.ab * 0.002;
+    c.medicine -= dt * k.med * 0.02;
+    var sickT = clamp01(Math.max(c.toxin * 1.6, c.antigen * 1.4) * k.sick);
     c.sick += (sickT - c.sick) * Math.min(1, 0.15 * dt);
+
+    // reactions this smol's own genes added: a little of one chemical makes, or lowers, another
+    if (k.rx) {
+      for (var ri = 0; ri < k.rx.length; ri++) {
+        var rx = k.rx[ri], amt = rx.k * 0.02 * dt * c[rx.a];
+        if (rx.f & 1) c[rx.a] -= amt;
+        c[rx.b] += rx.f & 2 ? -amt : amt;
+      }
+      c.glucose = clamp01(c.glucose);
+    }
 
     // love only in adults who are doing fine. With env.loveK (creature.js: settled, fed, warm, housed, the season)
     // it grows slowly, about 3.5 minutes to smitten in a settled village; without it, the old quick rate
     if (env.loveK != null && stage === 3 && !grump) { if (env.loveK > 0) c.love += dt * Chem.LOVE_RATE * env.loveK * (0.5 + gene(genome, "fertility", 0.5)); else c.love -= dt * 0.0015; }
-    else if (stage >= 3 && stage < 4 && !grump && c.hunger < 0.65 && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.009 * (0.5 + gene(genome, "fertility", 0.5));
+    else if (stage >= 3 && stage < 4 && !grump && c.hunger < k.love && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.009 * (0.5 + gene(genome, "fertility", 0.5));
     else if (stage !== 3 || grump) c.love -= dt * 0.01;
     else c.love -= dt * 0.0015; // a rough patch slows romance, it doesn't end it
 
     // health: starve, poison, germs, pain and extremes hurt; a calm, fed body heals
     var dmg = 0;
-    if (c.hunger > 0.92) dmg += 0.004;
+    if (c.hunger > k.starve) dmg += 0.004;
     dmg += c.toxin * 0.006 + c.antigen * 0.004;
-    if (c.pain > 0.8) dmg += 0.003;
-    if (c.cold > 0.85 || c.hot > 0.85) dmg += 0.002;
+    if (c.pain > k.painT) dmg += 0.003;
+    if (c.cold > k.temp || c.hot > k.temp) dmg += 0.002;
     if (c.tired > 0.95) dmg += 0.001;
     var heal = c.hunger < 0.65 && c.sick < 0.3 && c.pain < 0.4 ? 0.004 * (stage >= 4 ? 0.5 : 1) * (env.asleep ? 2 : 1) : 0;
     c.health += (heal - dmg) * dt;
 
     // clamp
-    for (var i = 0; i < DRIVES.length; i++) { var k = DRIVES[i]; c[k] = clamp01(c[k]); }
+    for (var i = 0; i < DRIVES.length; i++) { var dk = DRIVES[i]; c[dk] = clamp01(c[dk]); }
     c.fat = clamp01(c.fat); c.toxin = clamp01(c.toxin); c.antigen = clamp01(c.antigen);
     c.antibody = clamp01(c.antibody); c.medicine = clamp01(c.medicine); c.adrenaline = clamp01(c.adrenaline);
     c.reward = clamp01(c.reward); c.punish = clamp01(c.punish); c.health = clamp01(c.health);
