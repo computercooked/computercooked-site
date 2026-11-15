@@ -23,8 +23,23 @@ function sfx(n,v){if(SB.Audio&&SB.Audio.play)try{SB.Audio.play(n,{vol:v==null?1:
 function root(){return document.getElementById("ui")||document.body;}
 function store(k,v){try{if(v===undefined)return window.localStorage.getItem(k);window.localStorage.setItem(k,v);}catch(e){}return null;}
 var TR=(SB.Tr={lang:"en",packs:{en:{_name:"english"}}});
-TR.add=function(lang,name,table){var p=TR.packs[lang]||(TR.packs[lang]={});if(name)p._name=name;for(var k in table||{})p[k]=table[k];return p;};
-TR.t=function(line){var p=TR.packs[TR.lang];return TR.lang!=="en"&&p&&typeof p[line]==="string"?p[line]:line;};
+var pats={};
+TR.add=function(lang,name,table){
+var p=TR.packs[lang]||(TR.packs[lang]={});
+if(name)p._name=name;
+for(var k in table||{}){
+p[k]=table[k];
+if(k.indexOf("{}")>=0)(pats[lang]||(pats[lang]=[])).push([new RegExp("^"+k.replace(/[.*+?^$()|[\]\\]/g,"\\$&").replace(/\{\}/g,"(.+?)")+"$"),table[k]]);
+}
+return p;
+};
+TR.t=function(line){
+var p=TR.packs[TR.lang],ps=pats[TR.lang]||[],m,i;
+if(TR.lang==="en"||!p||typeof line!=="string")return line;
+if(typeof p[line]==="string")return p[line];
+for(i=0;i<ps.length;i++)if((m=ps[i][0].exec(line))){var n=1;return ps[i][1].replace(/\{\}/g,function(){return m[n++];});}
+return line;
+};
 TR.count=function(lang){var n=0;for(var k in TR.packs[lang]||{})if(k!=="_name")n++;return n;};
 TR.sweep=function(el){
 if(TR.lang==="en"||!el)return 0;
@@ -59,7 +74,9 @@ TR.add("es","español",{
 "woods":"bosque","shore":"orilla","dry lands":"tierras secas","snow":"nieve","jungle":"selva","far shore":"la orilla lejana","strangers":"desconocidos","sweethearts":"enamorados",
 "brother & sister":"hermano y hermana","as it comes":"como salga","hidden vale":"valle escondido","waking the island…":"despertando la isla…","no islands yet. start one!":"aún no hay islas. ¡empieza una!",
 "🗺 draw the island":"🗺 dibujar la isla","▾ more world options (land, food, grumps, weather, storyteller, quirks…)":"▾ más opciones (tierra, comida, gruñones, tiempo, narrador, rarezas…)","▴ fewer options":"▴ menos opciones",
-"🧳 a stranger approaches":"🧳 se acerca un forastero","🏠 welcome them":"🏠 darles la bienvenida","send them away":"que se vayan","🛏 let them stay a few days":"🛏 que se queden unos días"
+"🧳 a stranger approaches":"🧳 se acerca un forastero","🏠 welcome them":"🏠 darles la bienvenida","send them away":"que se vayan","🛏 let them stay a few days":"🛏 que se queden unos días",
+"spreading things":"cosas que se extienden","spread":"se extienden","stay put":"se quedan quietas","{} joined your smols! 🧳":"¡{} se unió a tus smols! 🧳","🛏 {} is your guest for {} days":"🛏 {} es tu huésped durante {} días",
+"{} is waiting to join":"{} espera para unirse","{} hatched! (gen {}, {})":"¡{} salió del huevo! (gen {}, {})","day {}":"día {}"
 });
 if(store("smolbrains-lang"))TR.lang=TR.packs[store("smolbrains-lang")]?store("smolbrains-lang"):"en";
 TI.SECRETS=["logo","cooked","version"];
@@ -328,12 +345,13 @@ site:["landing site",[["","best spot","the pod finds a mild meadow near fresh wa
 kin:["the founders",[["","strangers","a girl and a boy thrown together"],["sweethearts","sweethearts","partners from the first day"],["siblings","brother & sister","family can't have eggs together: they will need newcomers"]]],
 pip:["pip's look",[["","as it comes",""],["sky","sky blue",""],["sun","sunny",""],["rose","rosy",""],["moss","mossy",""],["snow","snowy",""]]],
 critter:["a starting critter",[["","none",""],["hopper","🐇 a hopper","climbs out of the pod with the founders, already tame"],["beetle","🪲 a beetle","climbs out of the pod with the founders, already tame"]]],
-secret:["secret places",[["","none",""],["vale","hidden vale","somewhere a ring of cliffs hides a glittering valley. find the glow-stone that hops you in"]]]
+secret:["secret places",[["","none",""],["vale","hidden vale","somewhere a ring of cliffs hides a glittering valley. find the glow-stone that hops you in"]]],
+spread:["spreading things",[["","spread","blight goes farm to farm, bug nests bud new nests"],["off","stay put","blight and bug nests stay where they start"]]]
 };
-var ORDER=["mode","size","shape","climate","land","peaks","food","grumps","storms","story","seasons","crew","site","kin","pip","critter","secret"];
+var ORDER=["mode","size","shape","climate","land","peaks","food","grumps","storms","story","seasons","crew","site","kin","pip","critter","secret","spread"];
 TI.worldOf=function(st,q){
 var w={gv:SB.WORLD_GV,arch:st.shape==="surprise"?undefined:st.shape,size:st.size,land:st.land,peaks:st.peaks,climate:st.climate,food:st.food,grumps:st.grumps,storms:st.storms,crew:st.crew,quirks:q||[],surprise:st.quirk==="surprise",mode:st.mode==="sandbox"?"sandbox":undefined};
-["site","kin","pip","critter"].forEach(function(k){if(st[k])w[k]=st[k];});
+["site","kin","pip","critter","spread"].forEach(function(k){if(st[k])w[k]=st[k];});
 if(st.secret==="vale")w.vale=1;
 if(st.pod)w.pod=st.pod;
 if(st.edits&&st.edits.length)w.edits=st.edits;
@@ -370,7 +388,7 @@ return cv;
 function islandName(r){var w=SB.makeName?SB.makeName(r):"smol";return(r()<0.5?w+" island":r()<0.5?"isle of "+w:w+" cove").toLowerCase();}
 function createWorld(pre){
 var r=SB.rng((Math.random()*1e9)>>>0);
-var st={mode:pre.mode||"normal",name:islandName(r),seed:pre.seed?SB.worldCode(pre.seed):"",size:pre.quick&&(window.innerWidth||1000)<700?"small":"normal",shape:"surprise",land:"island",peaks:"normal",climate:"temperate",food:"normal",grumps:"normal",storms:"normal",story:"balanced",seasons:"normal",crew:"pair",quirk:"surprise",site:"",kin:"",pip:"",critter:"",secret:"",pod:null,edits:[],tool:"pod"};
+var st={mode:pre.mode||"normal",name:islandName(r),seed:pre.seed?SB.worldCode(pre.seed):"",size:pre.quick&&(window.innerWidth||1000)<700?"small":"normal",shape:"surprise",land:"island",peaks:"normal",climate:"temperate",food:"normal",grumps:"normal",storms:"normal",story:"balanced",seasons:"normal",crew:"pair",quirk:"surprise",site:"",kin:"",pip:"",critter:"",secret:"",spread:"",pod:null,edits:[],tool:"pod"};
 var more=false,pv=null;
 function rowFor(k){
 var L=LABELS[k],cur=L[1].find(function(o){return o[0]===st[k];});

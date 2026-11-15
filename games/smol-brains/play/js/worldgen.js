@@ -55,7 +55,7 @@ WG.ARR_ID0=3e7;
 var Bn=function(s){var o={};s.split(" ").forEach(function(k){o[B[k]]=1;});return o;};
 WG.SITES={woods:Bn("forest maple blossom taiga bamboo"),shore:Bn("beach mangrove"),dunes:Bn("desert savanna mesa"),snow:Bn("tundra taiga"),jungle:Bn("jungle bamboo swamp"),far:Bn("meadow forest flowers blossom maple savanna taiga tundra desert jungle beach mesa bamboo swamp")};
 function vale(h,seed,feat){
-var r=SB.rng((seed*211+17)>>>0),R=11,m=36,DD=[[1,0],[-1,0],[0,1],[0,-1]];
+var r=SB.rng((seed*211+17)>>>0),R=12,m=36,DD=[[1,0],[-1,0],[0,1],[0,-1]];
 for(var t=0;t<600;t++){
 var cx=m+r.int(N-2*m),cz=m+r.int(N-2*m),b=h[cz*V+cx];
 if(b<1.2||b>7||Math.hypot(cx-N/2,cz-N/2)<N*0.14)continue;
@@ -65,13 +65,13 @@ if(!dir)continue;
 for(var dj=-R-3;dj<=R+3;dj++)for(var di=-R-3;di<=R+3;di++){
 var d=Math.hypot(di,dj),k=(cz+dj)*V+cx+di;
 if(d>R+3)continue;
-if(d<=R-4)h[k]=fl;
-else if(d<=R-2)h[k]=fl+(d-R+4)*3.2;
-else if(d<=R-1)h[k]=fl+6.4;
-else h[k]=Math.max(h[k],h[k]+(fl+6.4-h[k])*(1-(d-R+1)/4));
+if(d<=R-5)h[k]=fl;
+else if(d<=R-2)h[k]=fl+(d-R+5)*3.2;
+else if(d<=R-1)h[k]=fl+9.6;
+else h[k]=Math.max(h[k],h[k]+(fl+9.6-h[k])*(1-(d-R+1)/4));
 }
-for(var q=R-5;q<=R+3;q++)h[(cz+dir[1]*q)*V+cx+dir[0]*q]=fl-0.04*(q-R+6);
-feat.vale={x:cx,z:cz,r:R-4};
+for(var q=R-6;q<=R+3;q++)h[(cz+dir[1]*q)*V+cx+dir[0]*q]=fl-0.04*(q-R+7);
+feat.vale={x:cx,z:cz,r:R-5};
 return;
 }
 }
@@ -131,7 +131,7 @@ if(feat.flat&&hh>0.4)hh=0.4+(hh-0.4)*0.05;
 if(hh<-7)hh=-7+(hh+7)*0.3;
 h[j*V2+i]=hh;
 }
-var nStacks=Math.round(10*K*K);
+var nStacks=feat.flat?0:Math.round(10*K*K);
 for(var s=0,tries=0;s<nStacks&&tries<nStacks*60;tries++){
 var si=14+ra.int(Nn-28),sj=14+ra.int(Nn-28),hv=h[sj*V2+si];
 if(hv>-0.6||hv<-3.2)continue;

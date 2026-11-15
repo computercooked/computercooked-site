@@ -6,6 +6,7 @@
      the beacon lamp  light carried over to a new game+ once the beacon is lit: it clears the fog round it, calms
                       smols near it and sends grumps home
      waving           in a body, wave to someone passing through or to a guest
+     spreading off    the "stay put" world choice: blight stops going farm to farm and bug nests stop budding (dark.js)
    Models for the new world things (red shrub, shelf mushrooms, glow-stone, iceberg, sky gate) are at the bottom. */
 (function () {
   "use strict";
@@ -81,8 +82,18 @@
     if (Sv() && Sv().has) for (i = 0; i < cs.length; i++) if (cs[i].alive && cs[i].species === "smol" && cs[i].inv && Sv().has(cs[i], "beaconlamp")) out.push(cs[i]);
     return out;
   };
+  // "spreading things: stay put": the two things in dark.js that spread are held where they are. Blight counts s.t
+  // up to 20 before it jumps a farm, and a bug nest buds two days after p.spread: both are pinned here
+  AR.hold = function (game) {
+    var x = game.quests && game.quests.dark && game.quests.dark.x2, n = 0;
+    if (!x) return 0;
+    if (x.sky && x.sky.id === "blight") { x.sky.t = 0; n++; }
+    (x.places || []).forEach(function (p) { if (p && p.kind === "nest") { p.spread = 1e9; n++; } });
+    return n;
+  };
   AR.slow = function (game) {
     var w = game.world, T = w.T, want = w.season === 3 ? "ok" : "gone";
+    if (game.settings && game.settings.world && game.settings.world.spread === "off") AR.hold(game);
     if (T.ice && T._iceS !== want) { T._iceS = want; T.ice.forEach(function (n) { n.state = want; if (SB.World.markNode) SB.World.markNode(w, n); }); }
     AR.lamps(game).forEach(function (l) {
       if (SB.World.reveal) SB.World.reveal(w, l.x, l.z, 12);
@@ -141,8 +152,8 @@
       };
       ME.STRUCT_BUILDERS.skygate = function () { // two stone posts, a lintel, and a ring of light between them
         var b = ME.builder();
-        b.color(0x8f96a8).push().translate(-0.55, 0.7, 0).box(0.22, 1.4, 0.26).pop().push().translate(0.55, 0.7, 0).box(0.22, 1.4, 0.26).pop();
-        b.push().translate(0, 1.48, 0).box(1.5, 0.2, 0.3).pop();
+        b.color(0x8f96a8).push().translate(-0.55, 0, 0).box(0.22, 1.4, 0.26).pop().push().translate(0.55, 0, 0).box(0.22, 1.4, 0.26).pop();
+        b.push().translate(0, 1.38, 0).box(1.5, 0.2, 0.3).pop();
         b.color(0x9ad7ff).glow(0.9);
         for (var i = 0; i < 10; i++) { var a = i / 10 * 6.283; b.push().translate(Math.cos(a) * 0.36, 0.75 + Math.sin(a) * 0.5, 0).scale(0.07).sphere(0).pop(); }
         return b.glow(0).finish();

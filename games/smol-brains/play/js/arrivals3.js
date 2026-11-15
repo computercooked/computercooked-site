@@ -64,8 +64,16 @@ for(i=0;i<its.length;i++)if(its[i].kind==="beaconlamp")out.push(its[i]);
 if(Sv()&&Sv().has)for(i=0;i<cs.length;i++)if(cs[i].alive&&cs[i].species==="smol"&&cs[i].inv&&Sv().has(cs[i],"beaconlamp"))out.push(cs[i]);
 return out;
 };
+AR.hold=function(game){
+var x=game.quests&&game.quests.dark&&game.quests.dark.x2,n=0;
+if(!x)return 0;
+if(x.sky&&x.sky.id==="blight"){x.sky.t=0;n++;}
+(x.places||[]).forEach(function(p){if(p&&p.kind==="nest"){p.spread=1e9;n++;}});
+return n;
+};
 AR.slow=function(game){
 var w=game.world,T=w.T,want=w.season===3?"ok":"gone";
+if(game.settings&&game.settings.world&&game.settings.world.spread==="off")AR.hold(game);
 if(T.ice&&T._iceS!==want){T._iceS=want;T.ice.forEach(function(n){n.state=want;if(SB.World.markNode)SB.World.markNode(w,n);});}
 AR.lamps(game).forEach(function(l){
 if(SB.World.reveal)SB.World.reveal(w,l.x,l.z,12);
@@ -122,8 +130,8 @@ return b.smoothShade(false).glow(0).finish();
 };
 ME.STRUCT_BUILDERS.skygate=function(){
 var b=ME.builder();
-b.color(0x8f96a8).push().translate(-0.55,0.7,0).box(0.22,1.4,0.26).pop().push().translate(0.55,0.7,0).box(0.22,1.4,0.26).pop();
-b.push().translate(0,1.48,0).box(1.5,0.2,0.3).pop();
+b.color(0x8f96a8).push().translate(-0.55,0,0).box(0.22,1.4,0.26).pop().push().translate(0.55,0,0).box(0.22,1.4,0.26).pop();
+b.push().translate(0,1.38,0).box(1.5,0.2,0.3).pop();
 b.color(0x9ad7ff).glow(0.9);
 for(var i=0;i<10;i++){var a=i/10*6.283;b.push().translate(Math.cos(a)*0.36,0.75+Math.sin(a)*0.5,0).scale(0.07).sphere(0).pop();}
 return b.glow(0).finish();
