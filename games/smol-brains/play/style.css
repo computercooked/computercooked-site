@@ -110,6 +110,7 @@ input::placeholder { color: rgba(245, 243, 237, 0.4); }
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet.side { position: fixed; right: calc(10px + var(--sar)); top: calc(56px + var(--sat)); bottom: calc(80px + var(--sab)); width: 320px; max-height: none; } /* K-0063: narrower (was 360) */
   .sheet.side.mini { bottom: auto; }
+  .sheet.side:has(.carddet.hide) { bottom: auto; } /* 4.34: a folded card is only as tall as what it shows */
   /* the coach moves into the space left of an open side panel instead of sitting under it */
   #ui:has(.sheet.side:not(.hide)) .toasts { right: calc(340px + var(--sar)); } /* toasts never cover the card */
   #ui:has(.sheet.side:not(.hide)) .guide { display: none; } /* tips wait while a card is open */
@@ -206,6 +207,7 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .minechip .tx i.bad { color: var(--pink); } .minechip .tx i.hearts, .hearts { color: #ff7aa8; letter-spacing: 1px; font-style: normal; }
 .minechip .in { width: 34px; height: auto; flex: none; }
 .goals .head.today { color: var(--lime); }
+.detbtn { width: 100%; margin-top: 8px; text-align: left; color: var(--dim); background: var(--faint); } .carddet.hide { display: none; } /* 4.34: the smol card folds */
 .goals.min { padding: 6px 10px; cursor: pointer; } .goals .g.one { padding: 0; font-weight: 700; color: #fff; } .goals .g.one .r { color: var(--dim); } /* 4.32: folded, the goals list is one line */
 .tutpt { position: absolute; display: none; transform: translate(-50%, -100%); font: 900 30px/1 system-ui, Arial, sans-serif; color: var(--lime); text-shadow: 0 0 0 #000, 2px 2px 0 #000, -2px 2px 0 #000, 0 0 14px rgba(197, 255, 73, 0.9); pointer-events: none; z-index: 5; animation: tutpt 0.7s ease-in-out infinite; }
 .tutpt.on { display: block; } .tutpt.off { opacity: 0.6; } @keyframes tutpt { 0%, 100% { margin-top: 0; } 50% { margin-top: -12px; } }
