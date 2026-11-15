@@ -384,7 +384,7 @@
       else if (SB.dist(c.x, c.z, c.hideAt.x, c.hideAt.z) > 0.9) { C.sendTo(c, c.hideAt.x, c.hideAt.z, game, 10); return; }
       else { startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return; }
     }
-    if (c.shelterT > 0 && c.species === "smol" && !c.quarantine) {
+    if (c.shelterT > 0 && c.species === "smol" && !c.quarantine && ch.hunger <= 0.85) { // 4.37: starving beats sheltering: they sat the storm out beside food and died
       var hm = SB.Society.home(game, c.tribe || 0);
       if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12); return; }
       startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return;
@@ -770,6 +770,9 @@
     });
     return best;
   }
+  // 4.37: a starving smol on its way to food. its nose reaches across the island, but the walk used to give up after 25
+  // seconds (about twelve steps) and any word it overheard made it start again: it died walking between meals it never reached
+  function starvingFor(c, a) { return !!a && a.verb === V.eat && c.species === "smol" && !c._pov && c.chem.hunger > 0.85; }
   function sniffFood(c, game) {
     // the hungrier, the further a smol's nose reaches (a starving one will cross the island)
     var reach = 32 + Math.max(0, c.chem.hunger - 0.6) * 110;
@@ -860,7 +863,7 @@
   C.NEST_GLOW = 12; // Lantern stage 3: grumps won't come within this of the nest
   C.LOCK_BITE = 1.05; // how close a captain's committed pounce must land to bite (it lands 0.8 short of where you stood)
   C.LUNGE_AT = 2.4; C.LUNGE_WIND = 1.5; C.LUNGE_REACH = 2.6; C.LUNGE_DMG = 0.25; // a scout grump's pounce (K-0041: "25 damage per lunge with a 1.5s windup tell")
-  var swim = function (c) { return c.look && (c.look.fins || c.tier >= 6); };
+  var swim = function (c) { return (c.look && (c.look.fins || c.tier >= 6)) || c.wade > 0; }; // 4.37: c.wade: a starving smol cut off by water wades for it
 
   // step toward (tx, tz); steer around water and cliffs; returns true when arrived
   // walk toward (tx, tz); if the straight line is blocked for a moment, plan a route around (A*) and follow it
@@ -964,10 +967,12 @@
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
         beginDo(c, game, a, tgt);
-      } else if (a.t > 25 || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > 7 || (c.noPath && game.time - c.noPath.t < 0.2)) {
+      } else if (a.t > (starvingFor(c, a) ? 90 : 25) || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > 7 || (c.noPath && game.time - c.noPath.t < 0.2)) {
         // can't get there (cliff, water, going round in circles): remember that for a while
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
+        // 4.37: marooned (a patch cut off by a stream) and starving: after a few meals it could not walk to, it wades
+        if (starvingFor(c, a) && c.chem.hunger > 0.95 && !(c.wade > 0)) { var un = 0, uk; for (uk in c.unreach) if (c.unreach[uk] > game.time) un++; if (un >= 3) { c.wade = 60; c.unreach = {}; c.path = null; c.pathTried = false; } }
         finish(c, game);
       }
       return;
@@ -1633,7 +1638,7 @@
       c.heard.verb = lex.i; c.heard.t = now;
       if ((c.action && c.action.verb === lex.i) || (c.plan && c.plan.verb === lex.i)) learnWord(c, word, 0.4, game);
       else learnWord(c, word, 0.06, game);
-      if (!c.plan && (!c.action || c.action.phase === "go" || c.action.verb === V.idle || c.action.verb === V.wander)) { c.action = null; c.thinkT = 0.25; }
+      if (!c.plan && !starvingFor(c, c.action) && (!c.action || c.action.phase === "go" || c.action.verb === V.idle || c.action.verb === V.wander)) { c.action = null; c.thinkT = 0.25; }
       echo(c, word, game);
       return;
     }
@@ -1721,6 +1726,7 @@
   C.tick = function (c, dt, game) {
     if (c.dying) { c.fade += dt / 2.5; if (c.fade >= 1) c.gone = true; return; }
     var w = game.world, ch = c.chem, an = c.anim;
+    if (c.wade > 0) c.wade -= dt;
     c.px = c.x; c.pz = c.z; c.py = c.y;
     c.age += dt;
     c.moving = false;

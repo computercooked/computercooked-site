@@ -78,8 +78,9 @@ var roll=r()*tot,j=0;while(j<pool.length-1&&(roll-=pool[j][3])>0)j++;
 var it=pool.splice(j,1)[0];
 add(it[0],it[1]+Math.floor(r()*(it[2]-it[1]+1)));
 }
-if(T.motes)add("mote",T.motes);else if(r()<(T.mote||0))add("mote",1);
-if(T.fruits)add("heartfruit",T.fruits);else if(r()<(T.fruit||0))add("heartfruit",1);
+var who3=SB.Possess&&SB.Possess.active&&SB.Possess.c,lp=function(p){return who3&&SB.Minds&&SB.Minds.lucky?SB.Minds.lucky(who3,p,game):p;};
+if(T.motes)add("mote",T.motes);else if(r()<lp(T.mote||0))add("mote",1);
+if(T.fruits)add("heartfruit",T.fruits);else if(r()<lp(T.fruit||0))add("heartfruit",1);
 out.shells=T.shells[0]+Math.floor(r()*(T.shells[1]-T.shells[0]+1));
 return out;
 };

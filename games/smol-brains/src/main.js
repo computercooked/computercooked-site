@@ -664,7 +664,7 @@
   function wireBus() {
     SB.bus.on("eureka", function (d) { if (!game) return; if (d.first) Game.addSparks(game, 12, d.c); });
     SB.bus.on("learnWord", function () { if (game && Game.smols(game).length <= 6) Game.addSparks(game, 1, null); }); // a reward for the first lessons, not a fountain for a big tribe
-    SB.bus.on("newBiome", function (d) { if (!game) return; Game.addSparks(game, 4, null); Game.note(game, "your smols found " + (/^[aeiou]/.test(SB.BIOMES[d.biome].name) ? "an " : "a ") + SB.BIOMES[d.biome].name + "! 🧭"); });
+    SB.bus.on("newBiome", function (d) { if (!game) return; Game.addSparks(game, 4, null); Game.note(game, "your smols found " + (/s$/.test(SB.BIOMES[d.biome].name) ? "the " : /^[aeiou]/.test(SB.BIOMES[d.biome].name) ? "an " : "a ") + SB.BIOMES[d.biome].name + "! 🧭"); });
     SB.bus.on("teach", function (d) { if (d.learned && game) Game.unlock(game, "teach"); });
     SB.bus.on("lightning", function (d) { if (!game) return; var near = game.creatures.some(function (c) { return c.alive && c.species === "smol" && SB.dist(c.x, c.z, d.x, d.z) < 16; }); if (near) Game.unlock(game, "lightning"); });
     SB.bus.on("wildfire", function () { if (game) Game.unlock(game, "wildfire"); });
@@ -890,7 +890,7 @@
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {
         try { SB.Save.save(Game.current); } catch (e) {}
-        if (window.cc && cc.end && !Game.current.showcase) try { cc.end({ score: Game.score(Game.current) }); } catch (e) {}
+        if (window.cc && cc.end && Game.current && !Game.current.showcase) try { cc.end({ score: Game.score(Game.current) }); } catch (e) {} // 4.37: no island yet (the title screen): nothing to report
       }
     });
     window.addEventListener("pagehide", function () { try { SB.Save.save(Game.current); } catch (e) {} });

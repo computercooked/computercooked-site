@@ -2147,7 +2147,7 @@
     give(game, c, id, 1);
     if (c.stats) c.stats.crafted = (c.stats.crafted || 0) + 1;
     emit("craft", { c: c, id: "gear", item: { kind: id }, pov: !!inBody(c), remedy: true });
-    return ok("made a " + label(id) + ": " + K()[id].desc);
+    return ok("made " + (function (w) { return /[^s]s$/.test(w) ? "" : /^[aeiou]/.test(w) ? "an " : "a "; })(label(id)) + label(id) + ": " + K()[id].desc);
   };
 
   /* ---------------- coming back: downed, not gone; the call back; a new life at a grave ---------------- */

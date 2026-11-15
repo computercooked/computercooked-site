@@ -340,7 +340,7 @@ if(game.time>c.hideAt.t)c.hideAt=null;
 else if(SB.dist(c.x,c.z,c.hideAt.x,c.hideAt.z)>0.9){C.sendTo(c,c.hideAt.x,c.hideAt.z,game,10);return;}
 else{startAction(c,game,V.idle,null,null,null);c.action.dur=2;return;}
 }
-if(c.shelterT>0&&c.species==="smol"&&!c.quarantine){
+if(c.shelterT>0&&c.species==="smol"&&!c.quarantine&&ch.hunger<=0.85){
 var hm=SB.Society.home(game,c.tribe||0);
 if(SB.dist(c.x,c.z,hm.x,hm.z)>4){C.sendTo(c,hm.x+rng.range(-2,2),hm.z+rng.range(-2,2),game,12);return;}
 startAction(c,game,V.idle,null,null,null);c.action.dur=2;return;
@@ -680,6 +680,7 @@ if(s>bs){bs=s;best=o;}
 });
 return best;
 }
+function starvingFor(c,a){return!!a&&a.verb===V.eat&&c.species==="smol"&&!c._pov&&c.chem.hunger>0.85;}
 function sniffFood(c,game){
 var reach=32+Math.max(0,c.chem.hunger-0.6)*110;
 var it=SB.World.nearestItem(game.world,c.x,c.z,reach,function(o){return o.noun==="food"&&o.heldBy==null&&!(o.data&&(o.data.rotten||o.data.forbid))&&!(c.diet&&c.diet[o.kind])&&!isUnreachable(c,o.id,game);});
@@ -759,7 +760,7 @@ C.BITE_HOLD=3;C.BITE_KNOCK=3.6;C.BITE_REEL=1.2;
 C.NEST_GLOW=12;
 C.LOCK_BITE=1.05;
 C.LUNGE_AT=2.4;C.LUNGE_WIND=1.5;C.LUNGE_REACH=2.6;C.LUNGE_DMG=0.25;
-var swim=function(c){return c.look&&(c.look.fins||c.tier>=6);};
+var swim=function(c){return(c.look&&(c.look.fins||c.tier>=6))||c.wade>0;};
 function walkToward(c,tx,tz,dt,sp,game,arriveR){
 var d0=Math.hypot(tx-c.x,tz-c.z);
 if(d0<(arriveR||0.1)){c.path=null;return true;}
@@ -850,9 +851,10 @@ if(dist<=reach+0.05){
 a.phase="do";a.doT=0;
 c.facing=Math.atan2(tgt.x-c.x,tgt.z-c.z);
 beginDo(c,game,a,tgt);
-}else if(a.t>25||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>7||(c.noPath&&game.time-c.noPath.t<0.2)){
+}else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>7||(c.noPath&&game.time-c.noPath.t<0.2)){
 c.stuckT=0;
 if(a.target&&a.target.id!=null)unreachable(c,a.target.id,game);
+if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=3){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
 finish(c,game);
 }
 return;
@@ -1441,7 +1443,7 @@ if(lex.type==="verb"){
 c.heard.verb=lex.i;c.heard.t=now;
 if((c.action&&c.action.verb===lex.i)||(c.plan&&c.plan.verb===lex.i))learnWord(c,word,0.4,game);
 else learnWord(c,word,0.06,game);
-if(!c.plan&&(!c.action||c.action.phase==="go"||c.action.verb===V.idle||c.action.verb===V.wander)){c.action=null;c.thinkT=0.25;}
+if(!c.plan&&!starvingFor(c,c.action)&&(!c.action||c.action.phase==="go"||c.action.verb===V.idle||c.action.verb===V.wander)){c.action=null;c.thinkT=0.25;}
 echo(c,word,game);
 return;
 }
@@ -1518,6 +1520,7 @@ C.dutyTick=dutyTick;
 C.tick=function(c,dt,game){
 if(c.dying){c.fade+=dt/2.5;if(c.fade>=1)c.gone=true;return;}
 var w=game.world,ch=c.chem,an=c.anim;
+if(c.wade>0)c.wade-=dt;
 c.px=c.x;c.pz=c.z;c.py=c.y;
 c.age+=dt;
 c.moving=false;

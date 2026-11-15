@@ -2001,7 +2001,7 @@ for(var k in r.in)Sv().take(c,k,r.in[k]);
 give(game,c,id,1);
 if(c.stats)c.stats.crafted=(c.stats.crafted||0)+1;
 emit("craft",{c:c,id:"gear",item:{kind:id},pov:!!inBody(c),remedy:true});
-return ok("made a "+label(id)+": "+K()[id].desc);
+return ok("made "+(function(w){return/[^s]s$/.test(w)?"":/^[aeiou]/.test(w)?"an ":"a ";})(label(id))+label(id)+": "+K()[id].desc);
 };
 PW.bodyNear=function(game,x,z,r){var best=null,bd=r||8;(game.bodies||[]).forEach(function(b){if(b.gone2||b.alive)return;var d=SB.dist(b.x,b.z,x,z);if(d<bd){bd=d;best=b;}});return best;};
 PW.raise=function(game,c){

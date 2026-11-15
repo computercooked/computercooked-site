@@ -575,6 +575,13 @@
     // the big thought is everyone's: any ascended smol can help raise the spire
     // and town works (stalls, houses, the hall...) are everyone's too once they're started: any builder can carry stones
     // (and builders all lend a hand with homes: a hut someone has started, or anything the grumps or the weather wrecked)
+    // 4.37: whoever already has what a site is waiting for brings it over, builder or not. a wrecked hut used to stall two
+    // fibre short while that fibre sat in the paws of smols who had no plan for it, and the free fibre was ninety steps off
+    var held = I.inv(c, game), hs, hi;
+    for (hs = 0; hs < sites.length && held.length; hs++) for (hi = 0; hi < held.length; hi++) {
+      var hk = Object.keys(sites[hs].need).filter(function (k) { return sites[hs].need[k] > 0 && matches(held[hi].kind, k); })[0];
+      if (hk && I.forStruct[sites[hs].kind]) return { idea: I.forStruct[sites[hs].kind], kind: "build", site: sites[hs].id, steps: [{ do: "deliver", site: sites[hs].id }], i: 0, t: 0, fails: 0 };
+    }
     var mine = sites.filter(function (s) { var id = I.forStruct[s.kind]; return id && (I.known(c, id) || (s.kind === "spire" && c.tier >= 6) || (BY[id] && BY[id].civ && c.tier >= 4) || ((s.kind === "hut" || (s.data && s.data.wrecked)) && c.tier >= 4)); });
     if (mine.length) {
       mine.sort(function (a, b) { return SB.dist2(a.x, a.z, c.x, c.z) - SB.dist2(b.x, b.z, c.x, c.z); });

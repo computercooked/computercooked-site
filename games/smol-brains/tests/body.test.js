@@ -5,6 +5,9 @@
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const load = require("./_load.js");
 const ctx = load();
+// 4.37: seeded for the whole file. The game uses Math.random for small things, and unseeded this file failed about one
+// full run in ten and passed alone (the game context shares this Math).
+{ let s0 = 418; Math.random = () => { s0 = (s0 + 0x6D2B79F5) >>> 0; let t = s0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 ["possess.js", "body.js"].forEach(f => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "play", "js", f), "utf8"), ctx, { filename: f }));
 const SB = ctx.SB, P = SB.Possess, B = SB.Body, V = SB.V;
 P.headless = true;

@@ -358,7 +358,7 @@ if(rc.out){
 var left=S.add(c,rc.out,1);
 if(left)S.spawn(game,rc.out,left,c.x+Math.sin(c.facing)*0.5,c.z+Math.cos(c.facing)*0.5,{by:c.id});
 res.out=rc.out;
-res.msg=(res.learned?"you figured something out! ":"")+"made a "+K[rc.out].label;
+res.msg=(res.learned?"you figured something out! ":"")+"made "+(function(w){return/[^s]s$/.test(w)?"":/^[aeiou]/.test(w)?"an ":"a ";})(K[rc.out].label)+K[rc.out].label;
 }else res.msg=res.learned?"smoke… then a flame! you know fire now":"a wisp of smoke. you already know fire";
 I().observe(c,res.idea,game);
 if(res.idea==="fire")I().observe(c,"campfire",game);

@@ -711,6 +711,32 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.86 What v4.37.0 changed: the hand playtest, and smols that reach their food
+
+**How it was played.** In the browser, by hand where the hidden pane allowed (the first-day walk, the bush, the founders, the sky card), then with a fully grown smol and a full bag: every one of the twenty bag pages opened, and every button on them pressed once (185 presses). No page threw and no plug-in switched itself off. What it turned up is below. Not played: movement and camera feel, sound, and phone sizes (the pane freezes page timers at phone size while hidden).
+
+**Starving beside food, the rest of it.** 4.36 stopped funerals and story calls pulling starving smols off food. Nine islands, three days each, still lost smols to hunger, and a trace of what each starving smol was doing showed five more causes:
+- **the walk gave up.** A starving smol's nose reaches across the island, but the walk to a thing stopped after 25 seconds (about twelve steps) and marked the food unreachable. It now gets 90 seconds while it is starving (`starvingFor` in creature.js).
+- **any word stopped it.** Hearing a verb it knows cancels a walk, so a starving smol near chatty ones started over again and again. A starving smol on its way to food no longer stops to listen.
+- **more company calls.** The crashed-pod party in director.js (315 calls to starving smols on one island), the grump-moon pack and sleepwalking in dark.js now use `C.sendSoft`. The storm order ("everyone shelters at home") gives way above 0.85 hunger.
+- **marooned.** One smol sat on a patch cut off by a stream with every meal across the water. A starving smol that has failed to walk to three meals wades for a minute (`c.wade`, read by the same `swim` test fins use).
+- **travellers.** Strangers waiting at the edge, passing, leaving or living wild have no part in the tribe's food and starved a few steps from the village. Only a guest eats with the tribe now; the rest never get hungrier than 0.8 (strangers.js).
+
+Nine islands, three days: 4.36 lost smols to hunger on every one measured (3, 2, 2, 2, 1 on the five counted); now one island of nine loses any (two, both far from home), and the tribes are about twice the size (island 77: 7 alive, then 12 to 14). `tests/play437.test.js` holds the rules and runs islands 77 and 301 for three days with nobody starving.
+
+**The wrecked hut that was never rebuilt.** On some islands (seeds 5 and 8 of `threats.test.js`) a wrecked hut stalled two fibre short for good: the fibre near it was already in the paws of smols with no plan for it, and the free fibre was ninety steps off. `I.chooseBuild` now starts with: whoever is holding something an unfinished site of their tribe is waiting for brings it over, builder or not. Seeds 5, 6 and 8 all rebuild.
+
+**Small things seen in the bag.**
+- the bag's pop-in animation replayed on every tab and every redraw (the window is rebuilt each time). It plays once, on opening.
+- skill rows on the grow page had no layout (the rule was scoped to the "you" page): "running0".
+- 591 kinds have no picture of their own and many share a sign (eleven dyes, nine tonics, twenty-two seeds). Each now carries a corner of its own colour.
+- "made a climbing claws", "your smols found a mountains", "marked: follow the (icon) a grump camp's dark": reworded.
+- the builders' asks left over from round three: a smol's rules (minds3.js) on the sky's smol card, a mother carrying her egg shows it, a ghost is pale, and a smol's luck tilts foraging and the rare finds in chests.
+- `body.test.js` is seeded for the whole file (unseeded it failed about one full run in ten).
+- hiding the page on the title screen threw (no island yet).
+
+**Still open.** The two starvation cases far from home on one island; phone layouts; movement, camera and sound by hand; the thin rows the builders flagged; more languages than Spanish (the one open row in the ledger).
+
 ## 0.85 What v4.36.0 changed: a hungry smol eats first, and a bag you can read
 
 **Why smols starved beside food.** On some islands several smols starved in the first three days with food lying a step away (five test islands: 18 starved in three days). It looked like they starved in their sleep; that was a false lead (funeral.js marks a body asleep). What was happening: `C.sendTo`, the call that walks a smol somewhere on someone's say-so, is used by funerals, by the director's story events, by friends.js and by dark.js, and it drops whatever the smol was doing. A starving smol would start toward an apple, be called to a funeral a second later, walk back, start toward the apple again, and die there. Each death called another funeral. The fix, hung on one number, `C.HUNGRY_AWAKE = 0.7`:

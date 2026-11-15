@@ -806,6 +806,11 @@
       updateSmol(c, true);
       return;
     }
+    // 4.37: its rules (what it may eat, when it sleeps, what it works at) can be set from the sky too, not only from inside it
+    if (SB.Minds && SB.Minds.html && SB.Minds.wire && !c.stranger) {
+      var mr3 = h("div", { class: "minds3" }), drawM3 = function () { try { mr3.innerHTML = SB.Minds.html(game, c); SB.Minds.wire(mr3, game, c, drawM3); } catch (e) { mr3.innerHTML = ""; } };
+      drawM3(); det.appendChild(mr3);
+    }
     det.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn", title: "watch its neural net think and learn, live (b)", onclick: function () { openBrain(c); } }, "🧠 brain"),
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
