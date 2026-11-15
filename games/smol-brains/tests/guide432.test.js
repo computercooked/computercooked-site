@@ -2,6 +2,7 @@
 // for; in the sky the coach speaks alone until its lessons are done, with an arrow on the thing each step is about.
 // node games/smol-brains/tests/guide432.test.js
 "use strict";
+require("./_src.js");
 const fs = require("fs"), path = require("path");
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }

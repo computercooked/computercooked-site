@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+require("./_src.js");
 const MODULES = ["core", "genome", "collect", "brain", "chemistry", "lang", "ideas", "words", "worldgen", "world", "creature", "mind", "species", "society", "strangers", "social", "funeral", "firsthour", "tricks", "quests", "orders", "economy", "civ", "director", "sites", "threats", "survival", "save", "main"];
 module.exports = function load(only) {
   const dir = path.join(__dirname, "..", "play", "js");

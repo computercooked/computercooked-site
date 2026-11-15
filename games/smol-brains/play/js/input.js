@@ -1,393 +1,393 @@
 /* smol brains: input.js (built from src/input.js by tools/strip.js: edit that file, not this one) */
-(function () {
+(function(){
 "use strict";
-var SB = window.SB;
-var IN = (SB.Input = {});
-var R = SB.Render;
-var el = null, game = null;
-var ptrs = {}, nPtr = 0;
-var drag = null, pinch = null, keys = {}, lastTap = { t: 0, x: 0, y: 0 };
-var tickleRub = 0;
-IN.init = function (element, g) {
-el = element; game = g;
-el.addEventListener("pointerdown", function () { IN.touchedT = performance.now(); }, true); // when the player last took the camera (UI.autoFly waits)
-el.addEventListener("pointerdown", down);
-window.addEventListener("pointermove", move);
-window.addEventListener("pointerup", up);
-window.addEventListener("pointercancel", up);
-el.addEventListener("wheel", function () { IN.touchedT = performance.now(); }, { passive: true });
-el.addEventListener("wheel", wheel, { passive: false });
-el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-window.addEventListener("keydown", keydown);
-window.addEventListener("keyup", function (e) { keys[e.key.toLowerCase()] = false; });
-window.addEventListener("blur", function () { keys = {}; });
+var SB=window.SB;
+var IN=(SB.Input={});
+var R=SB.Render;
+var el=null,game=null;
+var ptrs={},nPtr=0;
+var drag=null,pinch=null,keys={},lastTap={t:0,x:0,y:0};
+var tickleRub=0;
+IN.init=function(element,g){
+el=element;game=g;
+el.addEventListener("pointerdown",function(){IN.touchedT=performance.now();},true);
+el.addEventListener("pointerdown",down);
+window.addEventListener("pointermove",move);
+window.addEventListener("pointerup",up);
+window.addEventListener("pointercancel",up);
+el.addEventListener("wheel",function(){IN.touchedT=performance.now();},{passive:true});
+el.addEventListener("wheel",wheel,{passive:false});
+el.addEventListener("contextmenu",function(e){e.preventDefault();});
+window.addEventListener("keydown",keydown);
+window.addEventListener("keyup",function(e){keys[e.key.toLowerCase()]=false;});
+window.addEventListener("blur",function(){keys={};});
 };
-IN.setGame = function (g) { game = g; };
-IN.mode = "god";
-function god() { return IN.mode === "god"; }
-var pp = {};
-IN.pick = function (sx, sy, opts) {
-opts = opts || {};
-var best = null, bd = 1e9, cam = R.camera, ppu = cam.pxPerUnit;
-function test(type, ref, x, y, z, rad, pri) {
-if (!(ref.heldBy != null) && !SB.World.isSeen(game.world, x, z)) return; // nothing to touch under the fog
-R.project(x, y, z, pp);
-if (!pp.on) return;
-var d = Math.hypot(pp.x - sx, pp.y - sy), lim = Math.max(opts.touch ? 26 : 16, rad * ppu * 1.25);
-if (d < lim && d - pri < bd) { bd = d - pri; best = { type: type, ref: ref }; }
+IN.setGame=function(g){game=g;};
+IN.mode="god";
+function god(){return IN.mode==="god";}
+var pp={};
+IN.pick=function(sx,sy,opts){
+opts=opts||{};
+var best=null,bd=1e9,cam=R.camera,ppu=cam.pxPerUnit;
+function test(type,ref,x,y,z,rad,pri){
+if(!(ref.heldBy!=null)&&!SB.World.isSeen(game.world,x,z))return;
+R.project(x,y,z,pp);
+if(!pp.on)return;
+var d=Math.hypot(pp.x-sx,pp.y-sy),lim=Math.max(opts.touch?26:16,rad*ppu*1.25);
+if(d<lim&&d-pri<bd){bd=d-pri;best={type:type,ref:ref};}
 }
-var cs = game.creatures, pad = opts.pad || (opts.touch ? 24 : 14);
-function body(c, x, y, z) {
-R.project(x, y + (R.voxel && c._vdy ? c._vdy : 0), z, pp);
-if (!pp.on) return 1e9;
-var r = SB.Creature.radius(c), fx = pp.x, fy = pp.y;
-var hpx = R.pixel && c._pxH ? c._pxH : r * (2.4 + (c.look.legs ? 1.2 : 0)) * ppu;
-hpx = Math.max(hpx, opts.touch ? 22 : 14);
-var hw = Math.max(hpx * 0.38, 8), ox = Math.max(0, Math.abs(sx - fx) - hw);
-var oy = sy > fy + 2 ? sy - fy - 2 : sy < fy - hpx ? fy - hpx - sy : 0, d = Math.hypot(ox, oy);
-if (d > pad) return 1e9;
-return d === 0 ? Math.hypot(sx - fx, sy - (fy - hpx / 2)) * 0.3 - 40 : d - 6;
+var cs=game.creatures,pad=opts.pad||(opts.touch?24:14);
+function body(c,x,y,z){
+R.project(x,y+(R.voxel&&c._vdy?c._vdy:0),z,pp);
+if(!pp.on)return 1e9;
+var r=SB.Creature.radius(c),fx=pp.x,fy=pp.y;
+var hpx=R.pixel&&c._pxH?c._pxH:r*(2.4+(c.look.legs?1.2:0))*ppu;
+hpx=Math.max(hpx,opts.touch?22:14);
+var hw=Math.max(hpx*0.38,8),ox=Math.max(0,Math.abs(sx-fx)-hw);
+var oy=sy>fy+2?sy-fy-2:sy<fy-hpx?fy-hpx-sy:0,d=Math.hypot(ox,oy);
+if(d>pad)return 1e9;
+return d===0?Math.hypot(sx-fx,sy-(fy-hpx/2))*0.3-40:d-6;
 }
-for (var i = 0; i < cs.length; i++) {
-var c = cs[i]; if (!c.alive || c.far || (c.heldBy == null && !SB.World.isSeen(game.world, c.x, c.z))) continue;
-var score = body(c, c.x, c.y, c.z), tr = c.heldBy == null && c._trail;
-if (tr) for (var k = 0; k < tr.length; k++) score = Math.min(score, body(c, tr[k].x, tr[k].y, tr[k].z) + 4); // the live body wins a tie
-if (score < bd) { bd = score; best = { type: "creature", ref: c }; }
+for(var i=0;i<cs.length;i++){
+var c=cs[i];if(!c.alive||c.far||(c.heldBy==null&&!SB.World.isSeen(game.world,c.x,c.z)))continue;
+var score=body(c,c.x,c.y,c.z),tr=c.heldBy==null&&c._trail;
+if(tr)for(var k=0;k<tr.length;k++)score=Math.min(score,body(c,tr[k].x,tr[k].y,tr[k].z)+4);
+if(score<bd){bd=score;best={type:"creature",ref:c};}
 }
-if (opts.creaturesOnly) return best;
-var its = game.world.items;
-for (i = 0; i < its.length; i++) {
-var o = its[i]; if (o.inBag && o.heldBy != null) continue; if (o.heldBy != null && o.heldBy !== "hand") continue;
-var oy = o.y + (o.heldBy == null && R.vdy ? R.vdy(o.x, o.z) : 0), pod = o.data && o.data.pod;
-test("item", o, o.x, oy + (pod ? 0.45 : 0.15), o.z, pod ? 1.1 : Math.max(0.25, o.r * 1.5), pod ? 30 : 12);
+if(opts.creaturesOnly)return best;
+var its=game.world.items;
+for(i=0;i<its.length;i++){
+var o=its[i];if(o.inBag&&o.heldBy!=null)continue;if(o.heldBy!=null&&o.heldBy!=="hand")continue;
+var oy=o.y+(o.heldBy==null&&R.vdy?R.vdy(o.x,o.z):0),pod=o.data&&o.data.pod;
+test("item",o,o.x,oy+(pod?0.45:0.15),o.z,pod?1.1:Math.max(0.25,o.r*1.5),pod?30:12);
 }
-if (opts.carryable) return best;
-var sts = game.world.structures;
-for (i = 0; i < sts.length; i++) { var s = sts[i]; test("struct", s, s.x, SB.World.heightAt(game.world, s.x, s.z) + 0.5, s.z, SB.STRUCTS[s.kind].r, 0); }
-var g = R.pickGround(sx, sy);
-if (g && !best) {
-var n = SB.World.nearestNode(game.world, g.x, g.z, 1.6);
-if (n) best = { type: "node", ref: n };
+if(opts.carryable)return best;
+var sts=game.world.structures;
+for(i=0;i<sts.length;i++){var s=sts[i];test("struct",s,s.x,SB.World.heightAt(game.world,s.x,s.z)+0.5,s.z,SB.STRUCTS[s.kind].r,0);}
+var g=R.pickGround(sx,sy);
+if(g&&!best){
+var n=SB.World.nearestNode(game.world,g.x,g.z,1.6);
+if(n)best={type:"node",ref:n};
 }
 return best;
 };
-function grabHit(x, y, touch) {
-var hit = IN.pick(x, y, { touch: touch, carryable: true });
-if (!hit) hit = IN.pick(x, y, { touch: touch, creaturesOnly: true, pad: touch ? 80 : 60 }); // K-0058: wider again
-return hit && (hit.type === "creature" || hit.type === "item") ? hit : null;
+function grabHit(x,y,touch){
+var hit=IN.pick(x,y,{touch:touch,carryable:true});
+if(!hit)hit=IN.pick(x,y,{touch:touch,creaturesOnly:true,pad:touch?80:60});
+return hit&&(hit.type==="creature"||hit.type==="item")?hit:null;
 }
-function setHover(hit) {
-game.hand.hoverId = hit && hit.type === "creature" ? hit.ref.id : null;
-var cur = SB.UI && SB.UI.armed ? "crosshair" : game.hand.heldId ? "grabbing" : hit ? "grab" : ""; // the cursor says it too (K-0058: no highlight before grabbing; K-0063: a crosshair while a miracle is armed)
-if (el && el.style.cursor !== cur) el.style.cursor = cur;
+function setHover(hit){
+game.hand.hoverId=hit&&hit.type==="creature"?hit.ref.id:null;
+var cur=SB.UI&&SB.UI.armed?"crosshair":game.hand.heldId?"grabbing":hit?"grab":"";
+if(el&&el.style.cursor!==cur)el.style.cursor=cur;
 }
-IN.LATE_GRAB_MS = 450; IN.LATE_GRAB_PX = 90; // a drag this young and this short can still turn into a grab
-IN.TRAIL_MS = 150; // how far back a walking smol's body still counts for a grab (K-0063, as Elevator 1.2 does)
-function trail(now) {
-var cs = game.creatures;
-for (var i = 0; i < cs.length; i++) {
-var c = cs[i]; if (!c.alive || c.far || c.species !== "smol" && c.species !== "grump") { c._trail = null; continue; }
-var tr = c._trail || (c._trail = []), last = tr[tr.length - 1];
-if (!last || Math.abs(last.x - c.x) + Math.abs(last.z - c.z) > 0.02) tr.push({ x: c.x, y: c.y, z: c.z, t: now });
-while (tr.length && now - tr[0].t > IN.TRAIL_MS) tr.shift();
-if (tr.length > 12) tr.shift();
+IN.LATE_GRAB_MS=450;IN.LATE_GRAB_PX=90;
+IN.TRAIL_MS=150;
+function trail(now){
+var cs=game.creatures;
+for(var i=0;i<cs.length;i++){
+var c=cs[i];if(!c.alive||c.far||c.species!=="smol"&&c.species!=="grump"){c._trail=null;continue;}
+var tr=c._trail||(c._trail=[]),last=tr[tr.length-1];
+if(!last||Math.abs(last.x-c.x)+Math.abs(last.z-c.z)>0.02)tr.push({x:c.x,y:c.y,z:c.z,t:now});
+while(tr.length&&now-tr[0].t>IN.TRAIL_MS)tr.shift();
+if(tr.length>12)tr.shift();
 }
 }
-IN.EDGE_DWELL = 0.4; // seconds a reaching hand rests at the screen edge before the view follows it
-IN.THROW_MIN = 3.5; // a release slower than this (ground units/s) just sets it down: only a real flick throws (K-0058: 4 of 6 drags threw)
-function ts(e) { var t = e && e.timeStamp; return t > 0 && t < 1e12 ? t : performance.now(); }
-function local(e) {
-var r = el.getBoundingClientRect();
-return { x: e.clientX - r.left, y: e.clientY - r.top };
+IN.EDGE_DWELL=0.4;
+IN.THROW_MIN=3.5;
+function ts(e){var t=e&&e.timeStamp;return t>0&&t<1e12?t:performance.now();}
+function local(e){
+var r=el.getBoundingClientRect();
+return{x:e.clientX-r.left,y:e.clientY-r.top};
 }
-function setHand(sx, sy, show) {
-var g = R.pickGround(sx, sy);
-var h = game.hand;
-if (!g) { h.visible = false; return null; }
-h.x = g.x; h.z = g.z; h.y = g.y + 1.0; h.visible = show !== false; h.marker = h.visible;
-h.sx = sx; h.sy = sy;
+function setHand(sx,sy,show){
+var g=R.pickGround(sx,sy);
+var h=game.hand;
+if(!g){h.visible=false;return null;}
+h.x=g.x;h.z=g.z;h.y=g.y+1.0;h.visible=show!==false;h.marker=h.visible;
+h.sx=sx;h.sy=sy;
 return g;
 }
-function down(e) {
-if (!game || !god() || (SB.UI && SB.UI.modalOpen)) return;
-try { if (el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch (err) { }
-var p = local(e);
-ptrs[e.pointerId] = { x: p.x, y: p.y, x0: p.x, y0: p.y, t0: performance.now(), type: e.pointerType, button: e.button };
-nPtr = Object.keys(ptrs).length;
-SB.Audio && SB.Audio.init && SB.Audio.init();
-if (SB.UI && SB.UI.userActed) SB.UI.userActed();
-R.camera.vx = R.camera.vz = 0;
-if (R.camera.intro && R.camera.intro.skippable) { R.camera.intro.t = R.camera.intro.dur; ptrs = {}; nPtr = 0; drag = null; return; }
-if (nPtr === 2) { startPinch(); drag = null; return; }
-if (nPtr > 2) return;
-var touch = e.pointerType !== "mouse";
-var rotate = e.button === 2 || e.shiftKey, mpan = e.button === 1;
-drag = { id: e.pointerId, mode: rotate ? "rotate" : mpan ? "pan" : "pending", touch: touch, hist: [{ x: p.x, y: p.y, t: ts(e) }] };
-if (mpan && R.camera.follow) R.camera.follow = null;
-var tool = game.hand.tool;
-if (!rotate && !mpan && tool === "grab") {
-var hit = grabHit(p.x, p.y, touch);
-if (hit) { drag.target = hit; setHover(hit); } // fingers have no hover: the ring shows on the press
-else if (SB.FirstHour) { // grabbing a tree: wiggle it side to side to shake fruit loose
-var gp = R.pickGround(p.x, p.y), tn = gp && SB.World.nearestNode(game.world, gp.x, gp.z, 1.4, SB.FirstHour.canShake);
-if (tn && SB.World.isSeen(game.world, tn.x, tn.z)) drag.shake = { n: tn, dir: 0, flips: 0, t: performance.now() };
+function down(e){
+if(!game||!god()||(SB.UI&&SB.UI.modalOpen))return;
+try{if(el.setPointerCapture)el.setPointerCapture(e.pointerId);}catch(err){}
+var p=local(e);
+ptrs[e.pointerId]={x:p.x,y:p.y,x0:p.x,y0:p.y,t0:performance.now(),type:e.pointerType,button:e.button};
+nPtr=Object.keys(ptrs).length;
+SB.Audio&&SB.Audio.init&&SB.Audio.init();
+if(SB.UI&&SB.UI.userActed)SB.UI.userActed();
+R.camera.vx=R.camera.vz=0;
+if(R.camera.intro&&R.camera.intro.skippable){R.camera.intro.t=R.camera.intro.dur;ptrs={};nPtr=0;drag=null;return;}
+if(nPtr===2){startPinch();drag=null;return;}
+if(nPtr>2)return;
+var touch=e.pointerType!=="mouse";
+var rotate=e.button===2||e.shiftKey,mpan=e.button===1;
+drag={id:e.pointerId,mode:rotate?"rotate":mpan?"pan":"pending",touch:touch,hist:[{x:p.x,y:p.y,t:ts(e)}]};
+if(mpan&&R.camera.follow)R.camera.follow=null;
+var tool=game.hand.tool;
+if(!rotate&&!mpan&&tool==="grab"){
+var hit=grabHit(p.x,p.y,touch);
+if(hit){drag.target=hit;setHover(hit);}
+else if(SB.FirstHour){
+var gp=R.pickGround(p.x,p.y),tn=gp&&SB.World.nearestNode(game.world,gp.x,gp.z,1.4,SB.FirstHour.canShake);
+if(tn&&SB.World.isSeen(game.world,tn.x,tn.z))drag.shake={n:tn,dir:0,flips:0,t:performance.now()};
 }
 }
-if (!rotate && !mpan && tool === "grab" && !touch && !drag.target && !drag.shake) drag.reach = true;
-if (!rotate && !mpan && (tool === "tickle")) {
-var hc = IN.pick(p.x, p.y, { touch: touch, creaturesOnly: true });
-if (hc) drag.rub = hc.ref;
+if(!rotate&&!mpan&&tool==="grab"&&!touch&&!drag.target&&!drag.shake)drag.reach=true;
+if(!rotate&&!mpan&&(tool==="tickle")){
+var hc=IN.pick(p.x,p.y,{touch:touch,creaturesOnly:true});
+if(hc)drag.rub=hc.ref;
 }
-setHand(p.x, p.y, true);
+setHand(p.x,p.y,true);
 e.preventDefault();
 }
-function move(e) {
-if (!game || !god()) return;
-var p = local(e), ptr = ptrs[e.pointerId];
-if (!ptr) {
-if (e.pointerType === "mouse" && !(SB.UI && SB.UI.modalOpen) && (e.target === el || el.contains(e.target))) {
-setHand(p.x, p.y, true); game.hand.hover = true;
-setHover(game.hand.tool === "grab" && !game.hand.heldId ? grabHit(p.x, p.y, false) : null); // a ring on the smol a press would take
-} else if (e.pointerType === "mouse") setHover(null);
+function move(e){
+if(!game||!god())return;
+var p=local(e),ptr=ptrs[e.pointerId];
+if(!ptr){
+if(e.pointerType==="mouse"&&!(SB.UI&&SB.UI.modalOpen)&&(e.target===el||el.contains(e.target))){
+setHand(p.x,p.y,true);game.hand.hover=true;
+setHover(game.hand.tool==="grab"&&!game.hand.heldId?grabHit(p.x,p.y,false):null);
+}else if(e.pointerType==="mouse")setHover(null);
 return;
 }
-var dx = p.x - ptr.x, dy = p.y - ptr.y;
-ptr.x = p.x; ptr.y = p.y;
-if (pinch) { updatePinch(); return; }
-if (!drag || drag.id !== e.pointerId) return;
-drag.hist.push({ x: p.x, y: p.y, t: ts(e) });
-if (drag.hist.length > 10) drag.hist.shift();
-var moved = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
-var cre = drag.target && drag.target.type === "creature", held = performance.now() - ptr.t0;
-if (drag.mode === "pending" && moved > (drag.touch ? 10 : 5) && (!cre || moved > (drag.touch ? 16 : 12) || held > 180)) {
-if (!drag.target && !drag.rub && game.hand.tool === "grab") { var late = grabHit(p.x, p.y, drag.touch); if (late) { drag.target = late; drag.shake = null; } } // it walked under the drag: take it rather than pan
-drag.mode = drag.target ? "carry" : drag.rub ? "rub" : drag.shake ? "shake" : drag.reach ? "reach" : "pan";
-if (drag.mode === "carry") { pickUp(drag.target); setHover(null); }
-if (drag.mode === "pan" && R.camera.follow) R.camera.follow = null;
+var dx=p.x-ptr.x,dy=p.y-ptr.y;
+ptr.x=p.x;ptr.y=p.y;
+if(pinch){updatePinch();return;}
+if(!drag||drag.id!==e.pointerId)return;
+drag.hist.push({x:p.x,y:p.y,t:ts(e)});
+if(drag.hist.length>10)drag.hist.shift();
+var moved=Math.hypot(p.x-ptr.x0,p.y-ptr.y0);
+var cre=drag.target&&drag.target.type==="creature",held=performance.now()-ptr.t0;
+if(drag.mode==="pending"&&moved>(drag.touch?10:5)&&(!cre||moved>(drag.touch?16:12)||held>180)){
+if(!drag.target&&!drag.rub&&game.hand.tool==="grab"){var late=grabHit(p.x,p.y,drag.touch);if(late){drag.target=late;drag.shake=null;}}
+drag.mode=drag.target?"carry":drag.rub?"rub":drag.shake?"shake":drag.reach?"reach":"pan";
+if(drag.mode==="carry"){pickUp(drag.target);setHover(null);}
+if(drag.mode==="pan"&&R.camera.follow)R.camera.follow=null;
 }
-if (drag.mode === "pan") {
-if (drag.touch && game.hand.tool === "grab" && !game.hand.heldId && held < IN.LATE_GRAB_MS && moved < IN.LATE_GRAB_PX) {
-var late2 = grabHit(p.x, p.y, true);
-if (late2) { R.panBy(-(drag.px || 0), -(drag.py || 0)); drag.target = late2; drag.mode = "carry"; pickUp(late2); setHover(null); setHand(p.x, p.y, true); return; }
+if(drag.mode==="pan"){
+if(drag.touch&&game.hand.tool==="grab"&&!game.hand.heldId&&held<IN.LATE_GRAB_MS&&moved<IN.LATE_GRAB_PX){
+var late2=grabHit(p.x,p.y,true);
+if(late2){R.panBy(-(drag.px||0),-(drag.py||0));drag.target=late2;drag.mode="carry";pickUp(late2);setHover(null);setHand(p.x,p.y,true);return;}
 }
-R.panBy(dx, dy); drag.px = (drag.px || 0) + dx; drag.py = (drag.py || 0) + dy;
+R.panBy(dx,dy);drag.px=(drag.px||0)+dx;drag.py=(drag.py||0)+dy;
 }
-else if (drag.mode === "rotate") { R.camera.tYaw += dx * 0.008; R.camera.yaw = R.camera.tYaw; tiltBy(dy * 0.004); }
-else if (drag.mode === "carry") { setHand(p.x, p.y, true); carryUpdate(); var held = SB.Game.byId(game, game.hand.heldId); if (held) aimArc(held, flick(drag.hist, ts(e))); }
-else if (drag.mode === "shake") shakeMove(p, ptr, dx);
-else if (drag.mode === "reach") {
-setHand(p.x, p.y, true); drag.at = p;
-if (!game.hand.heldId && held < IN.LATE_GRAB_MS && moved < IN.LATE_GRAB_PX) { var late3 = grabHit(p.x, p.y, false); if (late3) { drag.target = late3; drag.mode = "carry"; drag.edgeT = 0; pickUp(late3); setHover(null); } }
+else if(drag.mode==="rotate"){R.camera.tYaw+=dx*0.008;R.camera.yaw=R.camera.tYaw;tiltBy(dy*0.004);}
+else if(drag.mode==="carry"){setHand(p.x,p.y,true);carryUpdate();var held=SB.Game.byId(game,game.hand.heldId);if(held)aimArc(held,flick(drag.hist,ts(e)));}
+else if(drag.mode==="shake")shakeMove(p,ptr,dx);
+else if(drag.mode==="reach"){
+setHand(p.x,p.y,true);drag.at=p;
+if(!game.hand.heldId&&held<IN.LATE_GRAB_MS&&moved<IN.LATE_GRAB_PX){var late3=grabHit(p.x,p.y,false);if(late3){drag.target=late3;drag.mode="carry";drag.edgeT=0;pickUp(late3);setHover(null);}}
 }
-else if (drag.mode === "rub") {
-setHand(p.x, p.y, true);
-tickleRub += Math.hypot(dx, dy);
-if (tickleRub > 90 && drag.rub && drag.rub.alive) { tickleRub = 0; SB.Creature.tickle(drag.rub, game); if (SB.FX) SB.FX.burst("hearts", drag.rub.x, drag.rub.y + 0.8, drag.rub.z, 2); }
+else if(drag.mode==="rub"){
+setHand(p.x,p.y,true);
+tickleRub+=Math.hypot(dx,dy);
+if(tickleRub>90&&drag.rub&&drag.rub.alive){tickleRub=0;SB.Creature.tickle(drag.rub,game);if(SB.FX)SB.FX.burst("hearts",drag.rub.x,drag.rub.y+0.8,drag.rub.z,2);}
 }
-else setHand(p.x, p.y, true);
+else setHand(p.x,p.y,true);
 }
-function up(e) {
-if (!god()) { ptrs = {}; nPtr = 0; drag = null; pinch = null; return; }
-var ptr = ptrs[e.pointerId];
-if (!ptr) return;
+function up(e){
+if(!god()){ptrs={};nPtr=0;drag=null;pinch=null;return;}
+var ptr=ptrs[e.pointerId];
+if(!ptr)return;
 delete ptrs[e.pointerId];
-nPtr = Object.keys(ptrs).length;
-if (pinch) { if (nPtr < 2) pinch = null; drag = null; return; }
-if (!drag || drag.id !== e.pointerId) return;
-var p = local(e);
-if (drag.mode === "pending") tap(p.x, p.y, drag.touch);
-else if (drag.mode === "pan") {
-var h = drag.hist, a = h[0], b = h[h.length - 1], dt = (b.t - a.t) / 1000;
-if (dt > 0 && dt < 0.25 && h.length > 2) R.panVelocity((b.x - a.x) / dt * 0.6, (b.y - a.y) / dt * 0.6);
-} else if (drag.mode === "carry") {
-var hl = drag.hist[drag.hist.length - 1];
-if (Math.hypot(p.x - hl.x, p.y - hl.y) > 2) drag.hist.push({ x: p.x, y: p.y, t: ts(e) }); // the last bit of the flick
-release(drag, ts(e));
+nPtr=Object.keys(ptrs).length;
+if(pinch){if(nPtr<2)pinch=null;drag=null;return;}
+if(!drag||drag.id!==e.pointerId)return;
+var p=local(e);
+if(drag.mode==="pending")tap(p.x,p.y,drag.touch);
+else if(drag.mode==="pan"){
+var h=drag.hist,a=h[0],b=h[h.length-1],dt=(b.t-a.t)/1000;
+if(dt>0&&dt<0.25&&h.length>2)R.panVelocity((b.x-a.x)/dt*0.6,(b.y-a.y)/dt*0.6);
+}else if(drag.mode==="carry"){
+var hl=drag.hist[drag.hist.length-1];
+if(Math.hypot(p.x-hl.x,p.y-hl.y)>2)drag.hist.push({x:p.x,y:p.y,t:ts(e)});
+release(drag,ts(e));
 }
-drag = null;
+drag=null;
 setHover(null);
-if (ptr.type !== "mouse") { game.hand.visible = false; game.hand.marker = false; }
+if(ptr.type!=="mouse"){game.hand.visible=false;game.hand.marker=false;}
 }
-function tap(sx, sy, touch) {
-var now = performance.now();
-var dbl = now - lastTap.t < 320 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 30;
-lastTap = { t: now, x: sx, y: sy };
-var tool = game.hand.tool;
-var g = setHand(sx, sy, true);
-if (SB.UI && SB.UI.armed) { if (g) SB.UI.castAt(g.x, g.z); return; }
-var hit = IN.pick(sx, sy, { touch: touch });
-if (tool === "orders" && SB.UI && SB.UI.orderTap && !dbl) { SB.UI.orderTap(g, hit); return; } // a sign from the sky (orders.js)
-if (hit && hit.type === "creature") SB.Creature.hold(hit.ref, game, 3); // hold still so you can work with it
-if (dbl && hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); R.camera.follow = followFn(hit.ref); if (R.camera.tZoom > 9) R.camera.tZoom = 7; return; }
-if (dbl && !hit && g && !(tool === "grab" && grabHit(sx, sy, touch))) { R.flyTo(g.x, g.z, Math.max(R.camera.minZoom, R.camera.tZoom * 0.6), 0.5); return; }
-if (hit && hit.type === "item" && hit.ref.kind === "egg" && hit.ref.data.starter && !hit.ref.data.progress) {
-SB.World.warmEgg(game.world, game, hit.ref); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 8); return;
+function tap(sx,sy,touch){
+var now=performance.now();
+var dbl=now-lastTap.t<320&&Math.hypot(sx-lastTap.x,sy-lastTap.y)<30;
+lastTap={t:now,x:sx,y:sy};
+var tool=game.hand.tool;
+var g=setHand(sx,sy,true);
+if(SB.UI&&SB.UI.armed){if(g)SB.UI.castAt(g.x,g.z);return;}
+var hit=IN.pick(sx,sy,{touch:touch});
+if(tool==="orders"&&SB.UI&&SB.UI.orderTap&&!dbl){SB.UI.orderTap(g,hit);return;}
+if(hit&&hit.type==="creature")SB.Creature.hold(hit.ref,game,3);
+if(dbl&&hit&&hit.type==="creature"){SB.Game.select(game,hit.ref.id);R.camera.follow=followFn(hit.ref);if(R.camera.tZoom>9)R.camera.tZoom=7;return;}
+if(dbl&&!hit&&g&&!(tool==="grab"&&grabHit(sx,sy,touch))){R.flyTo(g.x,g.z,Math.max(R.camera.minZoom,R.camera.tZoom*0.6),0.5);return;}
+if(hit&&hit.type==="item"&&hit.ref.kind==="egg"&&hit.ref.data.starter&&!hit.ref.data.progress){
+SB.World.warmEgg(game.world,game,hit.ref);if(SB.FX)SB.FX.burst("sparkle",hit.ref.x,hit.ref.y+0.4,hit.ref.z,8);return;
 }
-if (tool === "grab") {
-if (hit && hit.type === "creature") { SB.Game.select(game, hit.ref.id); }
-else if (hit && hit.type === "item" && hit.ref.kind === "egg") { SB.World.warmEgg(game.world, game, hit.ref, hit.ref.data.starter ? SB.World.POD_TAP : 0.06); if (SB.FX) SB.FX.burst("sparkle", hit.ref.x, hit.ref.y + 0.4, hit.ref.z, 5); }
-else if (hit) { if (SB.UI) SB.UI.inspect(hit); }
-else { SB.Game.select(game, null); if (SB.UI) SB.UI.inspect(null); }
-} else if (tool === "tickle" || tool === "tap") {
-if (hit && hit.type === "creature") {
-if (tool === "tickle") { SB.Creature.tickle(hit.ref, game); if (SB.FX) SB.FX.burst("hearts", hit.ref.x, hit.ref.y + 0.8, hit.ref.z, 3); }
-else { SB.Creature.tap(hit.ref, game); if (SB.FX) SB.FX.burst("crumbs", hit.ref.x, hit.ref.y + 0.5, hit.ref.z, 4, { col: [1, 0.4, 0.4] }); }
-if (!game.selectedId) SB.Game.select(game, hit.ref.id);
+if(tool==="grab"){
+if(hit&&hit.type==="creature"){SB.Game.select(game,hit.ref.id);}
+else if(hit&&hit.type==="item"&&hit.ref.kind==="egg"){SB.World.warmEgg(game.world,game,hit.ref,hit.ref.data.starter?SB.World.POD_TAP:0.06);if(SB.FX)SB.FX.burst("sparkle",hit.ref.x,hit.ref.y+0.4,hit.ref.z,5);}
+else if(hit){if(SB.UI)SB.UI.inspect(hit);}
+else{SB.Game.select(game,null);if(SB.UI)SB.UI.inspect(null);}
+}else if(tool==="tickle"||tool==="tap"){
+if(hit&&hit.type==="creature"){
+if(tool==="tickle"){SB.Creature.tickle(hit.ref,game);if(SB.FX)SB.FX.burst("hearts",hit.ref.x,hit.ref.y+0.8,hit.ref.z,3);}
+else{SB.Creature.tap(hit.ref,game);if(SB.FX)SB.FX.burst("crumbs",hit.ref.x,hit.ref.y+0.5,hit.ref.z,4,{col:[1,0.4,0.4]});}
+if(!game.selectedId)SB.Game.select(game,hit.ref.id);
 }
-} else if (tool === "talk") {
-if (!hit && g && SB.World.depthAt(game.world, g.x, g.z) > 0.1) hit = { type: "water", ref: { x: g.x, z: g.z, noun: "water", id: null } }; // water isn't an object, but you can point at it
-if (hit && SB.UI) SB.UI.teachAt(hit);
+}else if(tool==="talk"){
+if(!hit&&g&&SB.World.depthAt(game.world,g.x,g.z)>0.1)hit={type:"water",ref:{x:g.x,z:g.z,noun:"water",id:null}};
+if(hit&&SB.UI)SB.UI.teachAt(hit);
 }
 }
-IN.tap = tap;
-function followFn(c) { return function () { return c.alive ? { x: c.x, z: c.z } : null; }; }
-IN.follow = function (c) { R.camera.follow = c ? followFn(c) : null; };
-function pickUp(t) {
-var h = game.hand, ref = t.ref;
-if (t.type === "creature") {
-if (ref.species === "grump") { /* you can carry grumps too, they hate it */ }
-ref.heldBy = "hand"; ref.asleep = false; ref.action = null;
-if (ref.plan) SB.Creature.endPlan(ref, game, false);
-} else {
-if (ref.heldBy != null && ref.heldBy !== "hand") { var cc = SB.Game.byId(game, ref.heldBy); if (cc) SB.Creature.release(cc, ref); }
-ref.heldBy = "hand"; ref.onGround = false; ref.inBag = false; ref.onBelt = false;
+IN.tap=tap;
+function followFn(c){return function(){return c.alive?{x:c.x,z:c.z}:null;};}
+IN.follow=function(c){R.camera.follow=c?followFn(c):null;};
+function pickUp(t){
+var h=game.hand,ref=t.ref;
+if(t.type==="creature"){
+if(ref.species==="grump"){}
+ref.heldBy="hand";ref.asleep=false;ref.action=null;
+if(ref.plan)SB.Creature.endPlan(ref,game,false);
+}else{
+if(ref.heldBy!=null&&ref.heldBy!=="hand"){var cc=SB.Game.byId(game,ref.heldBy);if(cc)SB.Creature.release(cc,ref);}
+ref.heldBy="hand";ref.onGround=false;ref.inBag=false;ref.onBelt=false;
 }
-h.heldId = ref.id; h.heldType = t.type;
-if (SB.Audio) SB.Audio.play("whoosh", { vol: 0.5 });
-SB.bus.emit("handGrab", { ref: ref });
+h.heldId=ref.id;h.heldType=t.type;
+if(SB.Audio)SB.Audio.play("whoosh",{vol:0.5});
+SB.bus.emit("handGrab",{ref:ref});
 }
-function carryUpdate() {
-var h = game.hand, ref = SB.Game.byId(game, h.heldId);
-if (!ref) { h.heldId = null; return; }
-ref.x = h.x; ref.z = h.z; ref.y = h.y + 0.2;
-if (ref.type === "creature") { ref.px = ref.x; ref.pz = ref.z; ref.py = ref.y; ref.onGround = false; }
+function carryUpdate(){
+var h=game.hand,ref=SB.Game.byId(game,h.heldId);
+if(!ref){h.heldId=null;return;}
+ref.x=h.x;ref.z=h.z;ref.y=h.y+0.2;
+if(ref.type==="creature"){ref.px=ref.x;ref.pz=ref.z;ref.py=ref.y;ref.onGround=false;}
 }
-function flick(hist, now) {
-var b = hist[hist.length - 1], a = hist[0];
-for (var i = hist.length - 2; i >= 0; i--) { a = hist[i]; if (b.t - a.t >= 60) break; }
-var dt = Math.max(0.016, (b.t - a.t) / 1000);
-var gv = R.groundDelta((b.x - a.x) / dt, (b.y - a.y) / dt), gx = gv[0], gz = gv[1];
-if (b.t - a.t < 1 || (now != null ? now : performance.now()) - b.t > 90) { gx = 0; gz = 0; } // held still before letting go: just drop it
-var sp = Math.hypot(gx, gz), cap = 9;
-if (sp < IN.THROW_MIN) { gx = 0; gz = 0; sp = 0; } // a carry that drifts as you let go is a set-down, not a throw
-if (sp > cap) { gx *= cap / sp; gz *= cap / sp; sp = cap; }
-return { gx: gx, gz: gz, sp: sp };
+function flick(hist,now){
+var b=hist[hist.length-1],a=hist[0];
+for(var i=hist.length-2;i>=0;i--){a=hist[i];if(b.t-a.t>=60)break;}
+var dt=Math.max(0.016,(b.t-a.t)/1000);
+var gv=R.groundDelta((b.x-a.x)/dt,(b.y-a.y)/dt),gx=gv[0],gz=gv[1];
+if(b.t-a.t<1||(now!=null?now:performance.now())-b.t>90){gx=0;gz=0;}
+var sp=Math.hypot(gx,gz),cap=9;
+if(sp<IN.THROW_MIN){gx=0;gz=0;sp=0;}
+if(sp>cap){gx*=cap/sp;gz*=cap/sp;sp=cap;}
+return{gx:gx,gz:gz,sp:sp};
 }
-function aimArc(ref, f) {
-var h = game.hand;
-if (f.sp < 1.5) { h.aim = null; return; }
-var cr = ref.type === "creature", vx = f.gx * (cr ? 0.8 : 0.9), vz = f.gz * (cr ? 0.8 : 0.9), vy = 2 + Math.min(6, f.sp * (cr ? 0.3 : 0.35)), gr = cr ? 20 : 18;
-var x = ref.x, y = ref.y, z = ref.z, pts = [], st = 1 / 30;
-for (var i = 0; i < 90; i++) {
-vy -= gr * st; x += vx * st; z += vz * st; y += vy * st;
-var gy = SB.World.groundY(game.world, x, z);
-if (y <= gy) { pts.push([x, gy, z]); break; }
-if (i % 3 === 2) pts.push([x, y, z]);
+function aimArc(ref,f){
+var h=game.hand;
+if(f.sp<1.5){h.aim=null;return;}
+var cr=ref.type==="creature",vx=f.gx*(cr?0.8:0.9),vz=f.gz*(cr?0.8:0.9),vy=2+Math.min(6,f.sp*(cr?0.3:0.35)),gr=cr?20:18;
+var x=ref.x,y=ref.y,z=ref.z,pts=[],st=1/30;
+for(var i=0;i<90;i++){
+vy-=gr*st;x+=vx*st;z+=vz*st;y+=vy*st;
+var gy=SB.World.groundY(game.world,x,z);
+if(y<=gy){pts.push([x,gy,z]);break;}
+if(i%3===2)pts.push([x,y,z]);
 }
-h.aim = { pts: pts, t: performance.now() };
+h.aim={pts:pts,t:performance.now()};
 }
-function release(d, now) {
-var h = game.hand, ref = SB.Game.byId(game, h.heldId);
-h.heldId = null; h.aim = null;
-if (!ref) return;
-var f = flick(d.hist, now), gx = f.gx, gz = f.gz, sp = f.sp;
-if (ref.type === "creature") {
-ref.heldBy = null; ref.vx = gx * 0.8; ref.vz = gz * 0.8; ref.vy = 2 + Math.min(6, sp * 0.3); ref.onGround = false; ref._handDrop = true; // the landing knows you let go (K-0063: a dunk gets a beat)
-if (sp > 6 && ref.species === "smol") { SB.Chem.apply(ref.chem, { fear: 0.15 }); }
-if (ref.species === "smol") { SB.Chem.apply(ref.chem, { lonely: -0.05 }); }
-} else {
-ref.heldBy = null; SB.World.toss(ref, gx * 0.9, gz * 0.9, sp ? 2 + Math.min(6, sp * 0.35) : 0.5);
-if (ref.noun === "food") game.creatures.forEach(function (c) { if (c.alive && c.species === "smol" && SB.dist(c.x, c.z, ref.x, ref.z) < 4 && !c.plan && c.chem.hunger > 0.3) { c.action = null; c.thinkT = 0.3; } });
+function release(d,now){
+var h=game.hand,ref=SB.Game.byId(game,h.heldId);
+h.heldId=null;h.aim=null;
+if(!ref)return;
+var f=flick(d.hist,now),gx=f.gx,gz=f.gz,sp=f.sp;
+if(ref.type==="creature"){
+ref.heldBy=null;ref.vx=gx*0.8;ref.vz=gz*0.8;ref.vy=2+Math.min(6,sp*0.3);ref.onGround=false;ref._handDrop=true;
+if(sp>6&&ref.species==="smol"){SB.Chem.apply(ref.chem,{fear:0.15});}
+if(ref.species==="smol"){SB.Chem.apply(ref.chem,{lonely:-0.05});}
+}else{
+ref.heldBy=null;SB.World.toss(ref,gx*0.9,gz*0.9,sp?2+Math.min(6,sp*0.35):0.5);
+if(ref.noun==="food")game.creatures.forEach(function(c){if(c.alive&&c.species==="smol"&&SB.dist(c.x,c.z,ref.x,ref.z)<4&&!c.plan&&c.chem.hunger>0.3){c.action=null;c.thinkT=0.3;}});
 }
-SB.bus.emit("handDrop", { ref: ref });
+SB.bus.emit("handDrop",{ref:ref});
 }
-var shakeNoteT = 0;
-function shakeMove(p, ptr, dx) {
-var s = drag.shake;
-setHand(p.x, p.y, true);
-var dir = dx > 1.5 ? 1 : dx < -1.5 ? -1 : 0;
-if (dir && dir !== s.dir) { if (s.dir) s.flips++; s.dir = dir; }
-var far = Math.hypot(p.x - ptr.x0, p.y - ptr.y0);
-if ((!s.flips && !s.shook && far > 40) || far > 110) {
-var hit = grabHit(p.x, p.y, drag.touch);
-if (hit) { drag.target = hit; drag.mode = "carry"; pickUp(hit); setHover(null); return; } // a straight drag past a tree to a smol: the smol
-if (!drag.touch) { drag.mode = "reach"; drag.at = p; return; } // a mouse drag with the hand never pans (K-0058: quick straight drags still panned)
-drag.mode = "pan"; if (R.camera.follow) R.camera.follow = null;
-R.panBy(p.x - ptr.x0, p.y - ptr.y0);
+var shakeNoteT=0;
+function shakeMove(p,ptr,dx){
+var s=drag.shake;
+setHand(p.x,p.y,true);
+var dir=dx>1.5?1:dx<-1.5?-1:0;
+if(dir&&dir!==s.dir){if(s.dir)s.flips++;s.dir=dir;}
+var far=Math.hypot(p.x-ptr.x0,p.y-ptr.y0);
+if((!s.flips&&!s.shook&&far>40)||far>110){
+var hit=grabHit(p.x,p.y,drag.touch);
+if(hit){drag.target=hit;drag.mode="carry";pickUp(hit);setHover(null);return;}
+if(!drag.touch){drag.mode="reach";drag.at=p;return;}
+drag.mode="pan";if(R.camera.follow)R.camera.follow=null;
+R.panBy(p.x-ptr.x0,p.y-ptr.y0);
 return;
 }
-if (s.flips >= 4) {
-s.flips = 1; s.shook = true;
-var o = SB.FirstHour.handShake(game, s.n);
-if (SB.FX) SB.FX.burst("leaves", s.n.x, SB.World.heightAt(game.world, s.n.x, s.n.z) + 1.6, s.n.z, o ? 10 : 4);
-if (!o && SB.UI && SB.UI.toast && performance.now() - shakeNoteT > 6000) { shakeNoteT = performance.now(); SB.UI.toast("🌳 nothing left to shake down. give it a little while."); }
+if(s.flips>=4){
+s.flips=1;s.shook=true;
+var o=SB.FirstHour.handShake(game,s.n);
+if(SB.FX)SB.FX.burst("leaves",s.n.x,SB.World.heightAt(game.world,s.n.x,s.n.z)+1.6,s.n.z,o?10:4);
+if(!o&&SB.UI&&SB.UI.toast&&performance.now()-shakeNoteT>6000){shakeNoteT=performance.now();SB.UI.toast("🌳 nothing left to shake down. give it a little while.");}
 }
 }
-function tiltBy(d) { R.camera.tilt = SB.clamp((R.camera.tilt || 0) + d, -0.22, 0.32); }
-IN.tiltBy = tiltBy;
-function startPinch() {
-var ids = Object.keys(ptrs), a = ptrs[ids[0]], b = ptrs[ids[1]];
-pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, zoom: R.camera.tZoom, yaw: R.camera.tYaw, mode: null };
-pinch.mx0 = pinch.mx; pinch.my0 = pinch.my;
-if (game.hand.heldId) { var ref = SB.Game.byId(game, game.hand.heldId); if (ref) { ref.heldBy = null; ref.onGround = false; } game.hand.heldId = null; }
+function tiltBy(d){R.camera.tilt=SB.clamp((R.camera.tilt||0)+d,-0.22,0.32);}
+IN.tiltBy=tiltBy;
+function startPinch(){
+var ids=Object.keys(ptrs),a=ptrs[ids[0]],b=ptrs[ids[1]];
+pinch={d:Math.hypot(a.x-b.x,a.y-b.y),ang:Math.atan2(b.y-a.y,b.x-a.x),mx:(a.x+b.x)/2,my:(a.y+b.y)/2,zoom:R.camera.tZoom,yaw:R.camera.tYaw,mode:null};
+pinch.mx0=pinch.mx;pinch.my0=pinch.my;
+if(game.hand.heldId){var ref=SB.Game.byId(game,game.hand.heldId);if(ref){ref.heldBy=null;ref.onGround=false;}game.hand.heldId=null;}
 }
-function updatePinch() {
-var ids = Object.keys(ptrs);
-if (ids.length < 2) return;
-var a = ptrs[ids[0]], b = ptrs[ids[1]];
-var d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
-var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-if (!pinch.mode) {
-var mdy = my - pinch.my0, mdx = mx - pinch.mx0, dd = Math.abs(d - pinch.d);
-if (Math.abs(mdy) > 14 && dd < 18 && Math.abs(mdx) < Math.abs(mdy) * 0.6) pinch.mode = "tilt";
-else if (dd > 18 || Math.abs(mdx) > 14 || Math.abs(SB.angDiff(pinch.ang, ang)) > 0.08) pinch.mode = "pinch";
+function updatePinch(){
+var ids=Object.keys(ptrs);
+if(ids.length<2)return;
+var a=ptrs[ids[0]],b=ptrs[ids[1]];
+var d=Math.hypot(a.x-b.x,a.y-b.y),ang=Math.atan2(b.y-a.y,b.x-a.x);
+var mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+if(!pinch.mode){
+var mdy=my-pinch.my0,mdx=mx-pinch.mx0,dd=Math.abs(d-pinch.d);
+if(Math.abs(mdy)>14&&dd<18&&Math.abs(mdx)<Math.abs(mdy)*0.6)pinch.mode="tilt";
+else if(dd>18||Math.abs(mdx)>14||Math.abs(SB.angDiff(pinch.ang,ang))>0.08)pinch.mode="pinch";
 }
-if (pinch.mode === "tilt") { tiltBy((my - pinch.my) * 0.005); pinch.mx = mx; pinch.my = my; return; }
-R.camera.tZoom = SB.clamp(pinch.zoom * pinch.d / Math.max(20, d), R.camera.minZoom, R.camera.maxZoom);
-R.camera.zoom = R.camera.tZoom;
-var da = SB.angDiff(pinch.ang, ang);
-if (Math.abs(da) > 0.08 || pinch.rotating) { pinch.rotating = true; R.camera.tYaw = pinch.yaw - da; R.camera.yaw = R.camera.tYaw; }
-R.panBy(mx - pinch.mx, my - pinch.my);
-pinch.mx = mx; pinch.my = my;
+if(pinch.mode==="tilt"){tiltBy((my-pinch.my)*0.005);pinch.mx=mx;pinch.my=my;return;}
+R.camera.tZoom=SB.clamp(pinch.zoom*pinch.d/Math.max(20,d),R.camera.minZoom,R.camera.maxZoom);
+R.camera.zoom=R.camera.tZoom;
+var da=SB.angDiff(pinch.ang,ang);
+if(Math.abs(da)>0.08||pinch.rotating){pinch.rotating=true;R.camera.tYaw=pinch.yaw-da;R.camera.yaw=R.camera.tYaw;}
+R.panBy(mx-pinch.mx,my-pinch.my);
+pinch.mx=mx;pinch.my=my;
 }
-function wheel(e) {
-if (!game || !god() || (SB.UI && SB.UI.modalOpen)) return;
+function wheel(e){
+if(!game||!god()||(SB.UI&&SB.UI.modalOpen))return;
 e.preventDefault();
-var p = local(e);
-var f = Math.exp((e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY) * 0.0016);
-if (e.ctrlKey) f = Math.exp(e.deltaY * 0.01); // trackpad pinch
-R.zoomAt(f, p.x, p.y);
+var p=local(e);
+var f=Math.exp((e.deltaMode===1?e.deltaY*16:e.deltaY)*0.0016);
+if(e.ctrlKey)f=Math.exp(e.deltaY*0.01);
+R.zoomAt(f,p.x,p.y);
 }
-function keydown(e) {
-if (!game || !god()) return;
-var t = e.target;
-if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
-var k = e.key.toLowerCase();
-keys[k] = true;
-if (SB.UI && SB.UI.key && SB.UI.key(e)) return;
-if (k === "r") tiltBy(-0.08);
-else if (k === "v") tiltBy(0.08);
-else if (k === "q") R.rotateBy(-Math.PI / 4);
-else if (k === "e") R.rotateBy(Math.PI / 4);
-else if (k === "+" || k === "=" || k === "z") R.zoomAt(0.8);
-else if (k === "-" || k === "_" || k === "x") R.zoomAt(1.25);
+function keydown(e){
+if(!game||!god())return;
+var t=e.target;
+if(t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"))return;
+var k=e.key.toLowerCase();
+keys[k]=true;
+if(SB.UI&&SB.UI.key&&SB.UI.key(e))return;
+if(k==="r")tiltBy(-0.08);
+else if(k==="v")tiltBy(0.08);
+else if(k==="q")R.rotateBy(-Math.PI/4);
+else if(k==="e")R.rotateBy(Math.PI/4);
+else if(k==="+"||k==="="||k==="z")R.zoomAt(0.8);
+else if(k==="-"||k==="_"||k==="x")R.zoomAt(1.25);
 }
-IN.frame = function (dt) {
-if (!game || !god()) return;
+IN.frame=function(dt){
+if(!game||!god())return;
 trail(performance.now());
-var px = 0, py = 0, s = 520 * dt;
-if (keys.w || keys.arrowup) py += s;
-if (keys.s || keys.arrowdown) py -= s;
-if (keys.a || keys.arrowleft) px += s;
-if (keys.d || keys.arrowright) px -= s;
-if (drag && drag.mode === "reach" && drag.at && el) {
-var EW = 36, ew = el.clientWidth, eh = el.clientHeight, ax = drag.at.x, ay = drag.at.y, es = 700 * dt;
-var edge = ax < EW || ax > ew - EW || ay < EW || ay > eh - EW;
-drag.edgeT = edge ? (drag.edgeT || 0) + dt : 0; // only a hand held at the edge (K-0060: a quick miss flung past it still panned)
-if (drag.edgeT < IN.EDGE_DWELL) es = 0;
-if (ax < EW) px += es * (1 - ax / EW); else if (ax > ew - EW) px -= es * (1 - (ew - ax) / EW);
-if (ay < EW) py += es * (1 - ay / EW); else if (ay > eh - EW) py -= es * (1 - (eh - ay) / EW);
+var px=0,py=0,s=520*dt;
+if(keys.w||keys.arrowup)py+=s;
+if(keys.s||keys.arrowdown)py-=s;
+if(keys.a||keys.arrowleft)px+=s;
+if(keys.d||keys.arrowright)px-=s;
+if(drag&&drag.mode==="reach"&&drag.at&&el){
+var EW=36,ew=el.clientWidth,eh=el.clientHeight,ax=drag.at.x,ay=drag.at.y,es=700*dt;
+var edge=ax<EW||ax>ew-EW||ay<EW||ay>eh-EW;
+drag.edgeT=edge?(drag.edgeT||0)+dt:0;
+if(drag.edgeT<IN.EDGE_DWELL)es=0;
+if(ax<EW)px+=es*(1-ax/EW);else if(ax>ew-EW)px-=es*(1-(ew-ax)/EW);
+if(ay<EW)py+=es*(1-ay/EW);else if(ay>eh-EW)py-=es*(1-(eh-ay)/EW);
 }
-if (px || py) { R.camera.follow = null; R.panBy(px, py); }
+if(px||py){R.camera.follow=null;R.panBy(px,py);}
 };
 })();

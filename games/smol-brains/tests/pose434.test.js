@@ -2,6 +2,7 @@
 // cuddling, playing, reaching, fleeing, cheering, angry, puzzled, sick, plus small idle life. Pure numbers, no dice.
 // node games/smol-brains/tests/pose434.test.js
 "use strict";
+require("./_src.js");
 const fs = require("fs"), path = require("path"), vm = require("vm");
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }

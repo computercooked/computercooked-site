@@ -2,6 +2,7 @@
 // skipped the first time (except in a playtest), can be after, and hands you the island within 90 s.
 // node games/smol-brains/tests/lantern.test.js
 "use strict";
+require("./_src.js");
 const fs = require("fs"), path = require("path"), vm = require("vm");
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (!ok) failed++; }
