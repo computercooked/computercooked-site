@@ -146,8 +146,11 @@ if(c.species!=="smol")return;
 var f=(game.family[c.id]={id:c.id,name:c.name,gen:c.gen,parents:(c.parents||[]).slice(),born:game.time,died:null,cause:null,look:c.look,tier:c.tier,clade:c.clade,kids:[],sex:c.sex,gx:SB.Genome.snap?SB.Genome.snap(c.genome):""});
 f.parents.forEach(function(pid){var p=game.family[pid];if(p&&p.kids.indexOf(c.id)<0)p.kids.push(c.id);});
 };
+Game.PIP={sky:{hue:0.58,hue2:0.52,sat:0.8},sun:{hue:0.13,hue2:0.08,sat:0.85},rose:{hue:0.94,hue2:0.88,sat:0.7},moss:{hue:0.31,hue2:0.37,sat:0.6},snow:{sat:0,light:1}};
 Game.spawnSmol=function(game,opts){
 opts=opts||{};
+var pl=opts.how==="story"&&opts.name==="Pip"&&opts.genome&&game.settings&&game.settings.world&&Game.PIP[game.settings.world.pip];
+if(pl)for(var pk in pl)opts.genome.genes[pk]=pl[pk];
 var c=SB.Creature.create(game,{
 species:"smol",genome:opts.genome||SB.Genome.random(game.rng,{species:"smol"}),
 name:opts.name||SB.makeName(game.rng,game,{parents:(opts.parents||[]).map(function(id){var f=game.family[id];return f&&f.name;}).filter(Boolean)}),x:opts.x,z:opts.z,gen:opts.gen||1,
@@ -230,11 +233,21 @@ return out;
 function inheritWords(a,b){return{};}
 Game.hatch=function(game,egg){
 var d=egg.data||{};
-var c=Game.spawnSmol(game,{genome:d.genome,x:egg.x,z:egg.z,gen:d.gen||1,parents:d.parents||[],name:d.name,tribe:d.tribe,ideas:d.ideas,sex:d.twins?"f":null,how:"hatch"});
+var sib=d.twins&&d.kin==="siblings"?[game.nextId++,game.nextId++]:null;
+var c=Game.spawnSmol(game,{genome:d.genome,x:egg.x,z:egg.z,gen:d.gen||1,parents:sib||d.parents||[],name:d.name,tribe:d.tribe,ideas:d.ideas,sex:d.twins?"f":null,how:"hatch"});
 var twin=null;
 if(d.twins&&d.genome2){
-twin=Game.spawnSmol(game,{genome:d.genome2,x:egg.x+0.7,z:egg.z+0.3,gen:1,parents:[],tribe:d.tribe,sex:"m",how:"hatch"});
+twin=Game.spawnSmol(game,{genome:d.genome2,x:egg.x+0.7,z:egg.z+0.3,gen:1,parents:sib||[],tribe:d.tribe,sex:"m",how:"hatch"});
 d.twin=twin;
+if(sib)sib.forEach(function(pid,i){game.family[pid]={id:pid,name:i?"a lost father":"a lost mother",gen:0,parents:[],born:0,died:0,cause:"lost with the ark",look:(i?twin:c).look,tier:0,clade:0,kids:[c.id,twin.id],sex:i?"m":"f",gx:""};});
+if(d.kin==="sweethearts"){c.partner=twin.id;twin.partner=c.id;}
+}
+var ck=d.starter&&game.settings&&game.settings.world&&game.settings.world.critter;
+if(ck&&SB.KINDS[ck]&&!game.stats.critterGift){
+game.stats.critterGift=1;
+var pet=SB.World.add(game.world,game,ck,egg.x-0.9,egg.z+0.6,{});
+pet.data.t=1e6;pet.data.gift=1;
+if(SB.Animals&&SB.Animals.tame)try{SB.Animals.tame(game,c,pet);}catch(e){}
 }
 if(d.starter)game.stats.founderFlag=1;
 if(d.starter)[c,twin].forEach(function(s){
@@ -283,6 +296,7 @@ Game.create=function(seed,n,wopts){
 seed=seed||SB.newSeed();
 SB.setWorldN(n||SB.WORLD_N_NEW);
 SB.WORLD_OPTS=SB.worldFx(wopts);
+SB.WORLD_OPTS.w=wopts||{};
 var game={
 v:2,seed:seed,time:0,speed:1,rng:SB.rng(seed^0x5bd1e995),nextId:1,
 world:null,creatures:[],selectedId:null,
@@ -305,6 +319,7 @@ var g=Game.create(seed,n,wopts);
 var nest=g.world.T.nest;
 for(var p=0;p<(SB.wopt(g,"crew")>=4?2:1);p++){
 var egg=SB.World.add(g.world,g,"egg",nest.x+p*2.4,nest.z-p*1.2,{genome:SB.Genome.random(g.rng,{species:"smol"}),genome2:SB.Genome.random(g.rng,{species:"smol"}),parents:[],gen:1,progress:0,starter:true,pod:true,twins:true});
+if(wopts&&(wopts.kin==="siblings"||wopts.kin==="sweethearts"))egg.data.kin=wopts.kin;
 [egg.data.genome,egg.data.genome2].forEach(function(gn){
 var ins=gn.instincts,hasEat=false;
 for(var i=0;i<ins.length;i++)if(ins[i].drive===SB.D.hunger&&ins[i].noun===SB.N.food&&ins[i].verb===SB.V.eat){ins[i].s=Math.max(ins[i].s,0.8);hasEat=true;}
@@ -343,6 +358,7 @@ var keep=SB.Ideas.LIST.filter(function(d){return prev.culture.found[d.id]&&d.tie
 egg.data.ideas={};keep.forEach(function(d){egg.data.ideas[d.id]=1;});
 }
 g.ngPlus=(prev.ngPlus||0)+1;
+if(prev.ended&&SB.KINDS.beaconlamp)for(var bl=0;bl<2;bl++)SB.World.add(g.world,g,"beaconlamp",g.world.T.nest.x-1.2-bl*0.5,g.world.T.nest.z-1.3,{});
 g.settings=JSON.parse(JSON.stringify(prev.settings||{}));
 g.tutorial.done=true;
 g.sparks+=10*Math.min(3,g.ngPlus);
