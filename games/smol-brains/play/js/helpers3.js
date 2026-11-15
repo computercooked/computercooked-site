@@ -693,7 +693,7 @@ o.pick=x.op(g.name+": next job",function(){x.say(H.setJob(game,g).msg);return tr
 else if(k==="weed")o.use=o.pick=x.op("pull the weed",run(H.pull,it),null);
 else if(k==="wisp"){o.use=o.pick=x.op("watch the light-motes",function(){x.say("✨ they live in the wreck. hold out food: they carry a gift to the nest by morning");return true;},null);if(hk&&Sv().edible(hk))o.place=x.op("offer your "+label(hk)+" to the motes",run(H.offer,it),null);}
 else if(k==="burrow")o.use=o.pick=x.no("somebody is asleep in here until spring");
-else if(k==="egg"){var el=H.eggLine(game,it);if(el)o.pick=x.no((o.pick&&o.pick.locked?o.pick.label+" · ":"🥚 ")+el);}
+else if(k==="egg"){var el=H.eggLine(game,it);if(el){if(o.pick&&!o.pick.locked)o.pick.label+=" · "+el;else o.pick=x.no((o.pick?o.pick.label+" · ":"🥚 ")+el);}}
 else if(A&&A.byItem){var rec=A.byItem(game,it);if(rec&&rec.k==="grump"&&!rec.lit&&rec.mode==="pen")o.pick=x.op("study the grump",run(H.study,rec),null);}
 }else if(r.type==="struct"){
 var b=ref,bk=b.kind;
@@ -703,7 +703,7 @@ else if(bk==="swapper")o.use=o.pick=x.op("work the ark swapper",function(){x.ope
 else if(bk==="arkstone")o.use=o.pick=x.op(b.data.stone==="maze"?"touch the humming stone":b.data.used?"the stone is dull":"touch the humming stone (it wants a thought crystal)",run(H.touch,b),null);
 else if(bk==="brokenbot")o.use=o.pick=x.op("mend the ark helper ("+costText(H.BOT_COST)+")",run(H.rebuild,b),null);
 }else if(r.type==="creature"&&ref.species==="smol"&&ref.alive&&!ref.stranger&&ref!==c){
-if(!o.pick&&frail(ref)&&H.freePod(game,ref))o.pick=x.op("tuck "+ref.name+" into the sleep pod",function(){var q=H.tuck(game,c,ref);x.say(q.msg);return true;},null);
+if(frail(ref)&&H.freePod(game,ref))o.pick=x.op("tuck "+ref.name+" into the sleep pod",function(){var q=H.tuck(game,c,ref);x.say(q.msg);return true;},null);
 if(rod(hk))o.place=x.op("ask "+ref.name+" where the fish bite",run(H.askFish,ref),null);
 }
 };
