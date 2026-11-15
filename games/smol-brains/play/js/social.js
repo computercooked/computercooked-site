@@ -167,7 +167,7 @@
   SO.intimate = function (game, a, b) { return !!a && !!b && (a.partner === b.id || b.partner === a.id || SO.parentOf(a, b) || SO.parentOf(b, a)); };
   // could these two ever be a couple?
   SO.eligible = function (game, a, b) {
-    return smol(a) && smol(b) && a !== b && a.alive && b.alive && a.stage === 3 && b.stage === 3 && a.sex !== b.sex && !a.stranger && !b.stranger &&
+    return smol(a) && smol(b) && a !== b && a.alive && b.alive && a.stage === 3 && b.stage === 3 && (a.sex !== b.sex || !!(SB.Friends && SB.Friends.pairOk && SB.Friends.pairOk(game, a, b))) && !a.stranger && !b.stranger &&
       !(SB.Game.related && SB.Game.related(game, a, b)) && !(SB.Species && SB.Species.compatible && !SB.Species.compatible(a, b));
   };
   // free to fall for someone: no partner (or one who has grown old: an adult can move on, kindly), and not newly widowed

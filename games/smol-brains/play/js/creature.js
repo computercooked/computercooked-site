@@ -1281,7 +1281,7 @@
     // the pair's love together, so two smols who keep cuddling (and relieving each other) still get there
     if (aLove + b.chem.love < 0.8 || Math.max(aLove, b.chem.love) < 0.5) return;
     if (a.eggCooldown > 0 || b.eggCooldown > 0) return;
-    if (a.sex === b.sex) return;
+    if (a.sex === b.sex && !(SB.Friends && SB.Friends.pairOk && SB.Friends.pairOk(game, a, b))) return; // (friends.js: a world option lets any two pair)
     if (SB.Social && (SB.Social.opinion(game, a, b) < -10 || SB.Social.opinion(game, b, a) < -10)) { emote(a, "huh", 1.2); return; } // not with someone you can't stand
     if (a.partner && a.partner !== b.id && SB.Game.byId(game, a.partner) && SB.Game.byId(game, a.partner).alive && SB.Game.byId(game, a.partner).stage !== 4) return; // already taken (an elder's partner may start again)
     // family can't have kids together (parents, brothers and sisters, cousins): a colony needs newcomers
