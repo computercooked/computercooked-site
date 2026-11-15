@@ -500,6 +500,7 @@
   function toast(html, cls, ms, at) { if (SB.Qol && SB.Qol.hush && SB.Qol.hush(html, cls)) return; // at (4.22): a smol or a spot. the toast can then be tapped to fly there
     if (coaching() && cls !== "ach" && cls !== "ember" && cls !== "night" && !/^🧪/.test(html)) return;
     if (game && SB.FirstNight && SB.FirstNight.active(game) && !SB.FirstNight.free(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
+    if (!el.toasts) return; // 4.35.1: a system spoke before the sky's screen was built (the title's island): say nothing, do not throw
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
     if (live.length >= 2) { // a full queue drops its oldest ordinary toast; memory embers go first and are never dropped (K-0048)

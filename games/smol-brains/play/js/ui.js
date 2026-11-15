@@ -455,6 +455,7 @@ UI.coaching=coaching;
 function toast(html,cls,ms,at){if(SB.Qol&&SB.Qol.hush&&SB.Qol.hush(html,cls))return;
 if(coaching()&&cls!=="ach"&&cls!=="ember"&&cls!=="night"&&!/^🧪/.test(html))return;
 if(game&&SB.FirstNight&&SB.FirstNight.active(game)&&!SB.FirstNight.free(game)&&cls!=="night"&&!/^🧪/.test(html)){if(cls==="ach")nightHeld.push([html,cls,ms]);return;}
+if(!el.toasts)return;
 var live=[].filter.call(el.toasts.children,function(t){return!t.classList.contains("out");});
 if(live.some(function(t){return t._html===html;})||toastQ.some(function(q){return q[0]===html;}))return;
 if(live.length>=2){
