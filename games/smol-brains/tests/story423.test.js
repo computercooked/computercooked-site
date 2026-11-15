@@ -24,7 +24,7 @@ check("slow enough to read: 14 to 20 seconds", real >= 14 && real <= 20, real.to
 console.log("2. one film, then you play");
 check("the opening no longer plays the old Lantern film after it", !/SB\.Intro\.play\(\{[^\n]*SB\.Lantern\.play\(/.test(ui) && !/SB\.Intro\.play\(\{[^\n]*SB\.Lantern\.play\(/.test(ti));
 check("a new island goes straight into Pip's eyes", /SB\.FirstNight\.start\(game\); tutShow\(\); setTimeout\(function \(\) \{ if \(SB\.Game\.current === game\) SB\.FirstNight\.begin\(game\); \}/.test(ui));
-check("the sky's first lesson says who you are", /you're <b>the Lantern<\/b>: the ark's guiding light/.test(ui) && /indexOf\("why"\)/.test(ui));
+check("the sky's first lesson says who you are", /t: "you are the Lantern", s: "the ark's guiding light/.test(ui) && /indexOf\("why"\)/.test(ui));
 
 console.log("3. no sleeping giant anywhere a player reads");
 const ctx = load(["core"]);
