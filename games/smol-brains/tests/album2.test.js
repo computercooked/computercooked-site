@@ -28,7 +28,7 @@ M.ALBUM2.forEach(s => {
     toks.forEach(t => { if (!/^([#b]?[1-7][',]*|\.|-)$/.test(t)) badLen.push(s.id + k + " token " + t); });
   });
   const sc = M._score(s);
-  sc.ev.forEach(e => { if (!(e.t >= 0) || !(e.d > 0) || !(e.v > 0) || (e.m !== 0 && !(e.m > 20 && e.m < 110)) || src.indexOf("    " + e.i + ": function") < 0) badEv.push(s.id + ":" + e.i + ":" + e.m); });
+  sc.ev.forEach(e => { if (!(e.t >= 0) || !(e.d > 0) || !(e.v > 0) || (e.m !== 0 && !(e.m > 20 && e.m < 110)) || !new RegExp("(^|\n)\s*" + e.i + ": function").test(src)) badEv.push(s.id + ":" + e.i + ":" + e.m); });
   if (sc.dur < 45 || sc.dur > 240) short.push(s.id + " " + Math.round(sc.dur) + "s");
   voices.add(s.lead); voices.add(s.lead2); scales.add(s.scale); accs.add(s.acc);
 });
