@@ -469,6 +469,7 @@
     s.posts.slice().forEach(function (p) {
       var def = postDef(p), g = postGrump(game, p) || spawnPost(game, p), duel = dueling(g);
       if (!g.scout || g.scout.done) g.scout = holdScout(def, p);
+      if (g.carry != null && SB.Threats && SB.Threats.drop) SB.Threats.drop(game, g, null); // a posted grump never walks off with a smol
       if (!duel) {
         var who = anyone(game, p.x, p.z);
         g.scout.who = who ? who.id : null; g.scout.hold = true;
