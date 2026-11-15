@@ -972,7 +972,7 @@
       if (ok && S1.water && !wetNear(game, x, z)) ok = false;
       if (!ok) { fails[sp] = (fails[sp] || 0) + 1; continue; }
       var n = S1.herd ? 3 : sp === "glowbug" ? 2 : 1, coat = coatFor(game, sp, bm, wr);
-      for (i = 0; i < n; i++) { var px = x + (wr() - 0.5) * 3, pz = z + (wr() - 0.5) * 3; if (dry(game, px, pz)) A.spawnWild(game, sp, px, pz, sp === "woolly" && i ? coatFor(game, sp, bm, wr) : coat, false); }
+      for (i = 0; i < n; i++) { var px = x + (wr() - 0.5) * 3, pz = z + (wr() - 0.5) * 3; if (dry(game, px, pz)) A.spawnWild(game, sp, px, pz, sp === "woolly" && i ? coatFor(game, sp, bm, wr) : coat, !!S1.wildKid && wr() < 0.3); }
     }
     if (!counts.goldbug && !w.night && wr() < 0.03) {
       var ga = wr() * 6.283, gx = focus.x + Math.sin(ga) * 14, gz = focus.z + Math.cos(ga) * 14;
@@ -2307,7 +2307,7 @@
       { col: 0x3ac46a, r: 0.11, home: ["jungle", "bamboo", "mangrove", "blossom"], cap: 2, desc: "a bright bird. tame, it rides your shoulder and repeats what smols say, so they learn the word.", model: beast({ h: 0.1, bx: 0.06, by: 0.07, bz: 0.09, hd: 0.055, legs: 0, wings: 0xf2c84a, nose: 0xff9a3d }) });
     species("nipper", { name: "nipper", icon: "🦟", move: "fly", shy: 0, notame: 1, ai: "pest", hp: 1, strict: 1, nohunt: 1, gone: " is swatted away", watch: "a small biter. a torch or a fire keeps it off, a net catches it, and frogs eat it" },
       { col: 0x554a5a, r: 0.07, home: ["swamp", "jungle", "mangrove"], cap: 3, model: function (col) { return bug(col, 0); } });
-    species("frog", { name: "frog", icon: "🐸", move: "hop", likes: { beetle: 1, butterfly: 0.8, berry: 0.4 }, shy: 3, pet: 1, small: 1, water: 1, strict: 1, kidName: "tadpole", kidLabel: "tadpole", life: 25,
+    species("frog", { name: "frog", icon: "🐸", move: "hop", likes: { beetle: 1, butterfly: 0.8, berry: 0.4 }, shy: 3, pet: 1, small: 1, water: 1, strict: 1, wildKid: 1, kidName: "tadpole", kidLabel: "tadpole", life: 25,
       coatFor: function (bm, r, B) { return bm === B.tundra || bm === B.taiga || bm === B.mountain ? "snow" : bm === B.jungle || bm === B.mangrove || bm === B.savanna || bm === B.desert ? "ember" : ""; } },
       { coats: [["", "", 0x5ab04a], ["snow", "snow ", 0xdfeef5], ["ember", "ember ", 0xe08a3a]], r: 0.12, home: ["swamp", "mangrove", "jungle", "meadow", "forest", "taiga", "tundra", "flowers"], cap: 3, desc: "it lives by water, and its colour is the weather it grew up in. it eats nippers.", model: beast({ h: 0.07, bx: 0.09, by: 0.06, bz: 0.1, hd: 0.07, legs: 0, belly: 0xf0eec0 }) });
     species("shelly", { name: "shelly", icon: "🐢", move: "crawl", likes: { clam: 1, herb: 0.7, berry: 0.5 }, shy: 0, pet: 1, strict: 1, water: 1, coat: [["shell", 1]], coatDays: 6, shed: 1, kidName: "hatchling", life: 120, nohunt: 1 },

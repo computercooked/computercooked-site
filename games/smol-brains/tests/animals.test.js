@@ -543,6 +543,11 @@ seeded(4350, () => {
   if (seaP) { put(me, seaP.x, seaP.z); me.drownT = 3; A.slow(game, 2); }
   check("a finback tows a drowning smol to the shore, once a day", !seaP || (had("finRescue") && W.depthAt(game.world, me.x, me.z) < 0.05 && !me.drownT && me.finDay != null && wildOnes().some(o => o.kind === "finback")), seaP ? "" : "no open sea on this island");
   sweep(); home();
+  const tad = A.spawnWild(game, "frog", me.x + 1.5, me.z, "ember", true), rt = A.tame(game, me, tad).rec; rt.tag = 1;
+  check("a tadpole is a little frog, in the colour of where it grew up", tad.kind === "frog_ember_kid" && K[tad.kind].label === "ember tadpole" && rt.kid && A.SP.frog.coatFor(SB.B.tundra, Math.random, SB.B) === "snow" && A.SP.frog.coatFor(SB.B.jungle, Math.random, SB.B) === "ember" && A.SP.frog.coatFor(SB.B.swamp, Math.random, SB.B) === "");
+  for (let i = 0; i < 3; i++) { rt.hunger = 0; dawn(); }
+  check("and it grows into a frog", !rt.kid && A.body(game, rt).kind === "frog_ember");
+  A.release(game, rt);
   const tn = A.turtleNest(game);
   check("turtles nest on a beach: hatchlings and a shell", !tn || (had("turtleNest") && near("shelly_kid", tn.x, tn.z, 4).length === 2 && near("shell", tn.x, tn.z, 4).length === 1), tn ? "" : "no beach near");
   check("each new season they come again", (() => { const s = A.state(game); s.season = -1; const n = times("turtleNest"); dawn(); return s.season === game.world.season && (!tn || times("turtleNest") === n + 1); })());
