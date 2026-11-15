@@ -378,7 +378,7 @@
     for (var i = all ? 0 : smP; i < cs.length; i += all ? 1 : 4) {
       var c = cs[i];
       if (!c || !c.alive || !c.brain || !c.brain.sx || c.species !== "smol") continue;
-      var g = c.genome && c.genome.genes, R = 8 + 12 * (g && g.senses != null ? g.senses : 0.3);
+      var g = c.genome && c.genome.genes, R = 10 + 12 * (g && g.senses != null ? g.senses : 0.3);
       var it = Wd.nearestItem(game.world, c.x, c.z, R, isFood);
       c.brain.sx[SCENT] = it ? Math.max(0, 1 - SB.dist(it.x, it.z, c.x, c.z) / R) : 0;
     }

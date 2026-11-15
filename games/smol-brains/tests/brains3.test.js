@@ -97,6 +97,9 @@ console.log("3. rule genes: learning rules, half-lives, thresholds, reactions");
   function painAfter(ge) { const ch = Chem.create(ge); ch.pain = 0.9; for (let i = 0; i < 60; i++) { ch.reward = 1; Chem.tick(ch, 0.1, { stage: 3, species: "smol" }, ge); } return ch.pain; }
   const numb = G.random(SB.rng(9)); numb.rx = [G.rxFromPool(1, 1)];
   check("a reaction gene: joy numbs pain in the smol that has it", painAfter(numb) < painAfter(plain) - 0.05, painAfter(numb).toFixed(3) + " < " + painAfter(plain).toFixed(3));
+  function loveAfter(ge) { const ch = Chem.create(ge); for (let i = 0; i < 300; i++) { ch.hunger = 0.2; Chem.tick(ch, 0.1, { stage: 3, species: "smol", loveK: 1 }, ge); } return ch.love; }
+  const romantic = G.random(SB.rng(9)); G.setRule(romantic, "thLove", 1);
+  check("the love point: one smol is smitten sooner than another in the same village", loveAfter(romantic) > loveAfter(plain) * 1.2, loveAfter(plain).toFixed(3) + " < " + loveAfter(romantic).toFixed(3));
   check("its reactions read in words, the gene's own last", Chem.reactions(plain).length === 6 && /reward lowers pain \(its own gene\)/.test(Chem.reactions(numb)[6]));
 }
 
@@ -234,6 +237,9 @@ console.log("8. your own words, and typing to a smol");
   WD.sync(game);
   check("taking your name off puts the old word back", WD.setWord(game, "come", "").ok && WD.mine(game, "come") === null && !SB.SYNONYMS.yoohoo);
   const tab = SB.Ext.tabById("words"), h = tab && tab.html(game, c);
+  const box = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+  WD.mount(box, game, { x: c.x, z: c.z }, () => {});
+  check("the same box can be put in the sky's word panel", /data-wdin='say'/.test(box.innerHTML));
   check("phones: a words tab in the bag with a box to type in", !!tab && /data-wdin='say'/.test(h) && /data-wd='name'/.test(h) && /<option>come<\/option>/.test(h));
 }
 

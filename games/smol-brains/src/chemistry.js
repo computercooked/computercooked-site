@@ -25,7 +25,7 @@
 
   // 4.36: half-life, threshold and reaction genes (genome.js RULES), worked out once per genome; G.setRule clears it.
   // A genome with none of them gets ONE: every multiplier 1 and every threshold the number this file used to fix.
-  var ONE = { fear: 1, pain: 1, anger: 1, reward: 1, toxin: 1, med: 1, ab: 1, sick: 1, fat: 1, store: 1, starve: 0.92, painT: 0.8, temp: 0.85, love: 0.65, rx: null };
+  var ONE = { fear: 1, pain: 1, anger: 1, reward: 1, toxin: 1, med: 1, ab: 1, sick: 1, fat: 1, store: 1, starve: 0.92, painT: 0.8, temp: 0.85, love: 0.65, loveG: 1, rx: null };
   function K(g) {
     if (!g || (!g.rule && !g.rx)) return ONE;
     if (g._ck) return g._ck;
@@ -33,7 +33,7 @@
       fear: G.half(g, "hlFear"), pain: G.half(g, "hlPain"), anger: G.half(g, "hlAnger"), reward: G.half(g, "hlReward"),
       toxin: G.half(g, "hlToxin"), med: G.half(g, "hlMedicine"), ab: G.half(g, "hlAntibody"),
       sick: 1 + (0.5 - G.rule(g, "thSick")) * 0.8, fat: 0.5 + G.rule(g, "rxFat"), store: 0.5 + G.rule(g, "rxStore"),
-      starve: G.point(g, "thStarve", 0.92, 0.12), painT: G.point(g, "thPain", 0.8, 0.2), temp: G.point(g, "thTemp", 0.85, 0.2), love: G.point(g, "thLove", 0.65, 0.3), rx: null
+      starve: G.point(g, "thStarve", 0.92, 0.12), painT: G.point(g, "thPain", 0.8, 0.2), temp: G.point(g, "thTemp", 0.85, 0.2), love: G.point(g, "thLove", 0.65, 0.3), loveG: 1 + (G.rule(g, "thLove") - 0.5) * 0.8, rx: null
     };
     if (g.rx && g.rx.length) k.rx = g.rx.slice(0, G.RX_MAX).map(function (x) { return { a: G.CHEMS[x.a], b: G.CHEMS[x.b], f: x.f, k: x.k }; }).filter(function (x) { return x.a && x.b; });
     Object.defineProperty(g, "_ck", { value: k, writable: true, enumerable: false, configurable: true });
@@ -129,8 +129,8 @@
 
     // love only in adults who are doing fine. With env.loveK (creature.js: settled, fed, warm, housed, the season)
     // it grows slowly, about 3.5 minutes to smitten in a settled village; without it, the old quick rate
-    if (env.loveK != null && stage === 3 && !grump) { if (env.loveK > 0) c.love += dt * Chem.LOVE_RATE * env.loveK * (0.5 + gene(genome, "fertility", 0.5)); else c.love -= dt * 0.0015; }
-    else if (stage >= 3 && stage < 4 && !grump && c.hunger < k.love && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.009 * (0.5 + gene(genome, "fertility", 0.5));
+    if (env.loveK != null && stage === 3 && !grump) { if (env.loveK > 0) c.love += dt * Chem.LOVE_RATE * k.loveG * env.loveK * (0.5 + gene(genome, "fertility", 0.5)); else c.love -= dt * 0.0015; }
+    else if (stage >= 3 && stage < 4 && !grump && c.hunger < k.love && c.health > 0.5 && c.sick < 0.35) c.love += dt * 0.009 * k.loveG * (0.5 + gene(genome, "fertility", 0.5));
     else if (stage !== 3 || grump) c.love -= dt * 0.01;
     else c.love -= dt * 0.0015; // a rough patch slows romance, it doesn't end it
 

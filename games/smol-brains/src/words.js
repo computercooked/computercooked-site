@@ -253,6 +253,11 @@
       + "</select><input class='inp' data-wdin='mine' maxlength='10' placeholder='your word' style='flex:1;min-width:0'><button class='btn' data-wd='name'>name it</button></div>"
       + (named.length ? "<div class='lbl'>" + named.join(" · ") + "</div>" : "");
   };
+  // the same box anywhere else (the sky's word panel): at is anything with x and z, say shows a line
+  WD.mount = function (root, game, at, say) {
+    function draw() { root.innerHTML = WD.html(game); WD.wire(root, game, at, draw, say); }
+    draw();
+  };
   WD.wire = function (root, game, c, redraw, say) {
     function val(k) { var e = root.querySelector("[data-wdin='" + k + "']"); return e ? e.value : ""; }
     root.querySelectorAll("[data-wd]").forEach(function (b) {
