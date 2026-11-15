@@ -184,7 +184,7 @@
     "#pov .bag h3 small{color:#f5f3ed;opacity:.6;font-weight:600;font-size:12px}",
     "#pov .bag .grid{display:grid;grid-template-columns:repeat(9,48px);gap:4px;padding:2px}",
     "#pov .bag .sep{height:10px}#pov .bag .lbl{font:600 11px var(--mono,monospace);opacity:.6;margin:2px 0 4px}",
-    "#pov .bag .tabs{display:flex;gap:4px;margin-bottom:8px}",
+    "#pov .bag .tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}#pov .bag .tabs button.ico{padding:6px 7px;font-size:16px;line-height:1}",
     "#pov .bag .tabs button,#pov .bag .btn{font:700 13px var(--mono,monospace);padding:7px 11px;border:0;background:rgba(255,255,255,.08);color:#f5f3ed;cursor:pointer;box-shadow:0 0 0 2px var(--px)}",
     "#pov .bag .tabs button.on{background:var(--lime);color:#101114}",
     "#pov .bag .btn.go{background:var(--lime);color:#101114}#pov .bag .btn[disabled]{background:#3a3346;color:#8a8496;cursor:default}",
@@ -724,6 +724,8 @@
   function wireBag() {
     var root = bag.el, s = S(), c = s.c;
     root.querySelectorAll("[data-tab]").forEach(function (b) { b.addEventListener("click", function () { bag.tab = b.getAttribute("data-tab"); drawBag(); }); });
+    // 4.33: twelve tabs in words filled four rows. The one you are on keeps its name; the rest are their icon (the name is the tooltip)
+    root.querySelectorAll(".tabs button[data-tab]").forEach(function (b) { var tx = (b.textContent || "").trim(), sp = tx.indexOf(" "); if (sp > 0) { b.title = tx.slice(sp + 1); if (!b.classList.contains("on")) { b.textContent = tx.slice(0, sp); b.classList.add("ico"); } } });
     var cl = root.querySelector("[data-close]"); if (cl) cl.addEventListener("click", closeBag);
     if (SB.Wilds) SB.Wilds.wire(root, s.game, drawBag);
     if (SB.Home) SB.Home.wire(root, s.game, c, drawBag, HUD.say);
