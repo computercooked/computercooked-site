@@ -1169,7 +1169,9 @@ updateSeen(game&&game.world);
 updateCamera(dt);
 for(var k in frameDyn){frameDyn[k].n=0;frameDyn[k].hi=false;}
 shadowN=0;lightList.length=0;
-for(var h=0;h<hooks.length;h++)hooks[h](game,alpha||0,dt);
+var own=cam.pov&&cam.pov.third&&SB.Possess&&SB.Possess.c;
+if(own)own._pov=false;
+try{for(var h=0;h<hooks.length;h++)hooks[h](game,alpha||0,dt);}finally{if(own&&SB.Possess.c===own)own._pov=true;}
 if(R.particles)R.particles.update(dt);
 var cx=cam.x,cz=cam.z;
 lightList.sort(function(a,b){return SB.dist2(a[0],a[2],cx,cz)-SB.dist2(b[0],b[2],cx,cz);});
