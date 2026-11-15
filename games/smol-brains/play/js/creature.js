@@ -1827,7 +1827,7 @@ var top=SB.Chem.top(c.chem);
 var feel=top.v>0.35?SB.DRIVE_WORDS[top.i]:"happy";
 if(c.tantrum)return"furious · throwing a tantrum!";
 if(c.convo){var o=c.convo.a===c?c.convo.b:c.convo.a;return feel+" · talking with "+o.name+" about "+c.convo.topic;}
-if(c.stranger)return"hopeful · waiting to be let in";
+if(c.stranger)return c.stranger.state==="guest"?"content · a guest for a few days":c.stranger.state==="passing"?"busy · just passing through":"hopeful · waiting to be let in";
 if(c.plan){
 var d=SB.Ideas.BY_ID[c.plan.idea],st=c.plan.steps[c.plan.i];
 var what=d?d.name:"something";
