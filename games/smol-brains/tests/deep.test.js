@@ -481,7 +481,7 @@ seeded(4341, () => {
   D.tick(game, 2);
 
   console.log("16. round 2: the new things exist");
-  const items2 = ["keyshard", "arkkey", "relic", "tablet", "starseed", "powercell", "stormglass", "brimstone", "peat", "statue", "figurine", "mask_scowl", "mask_grin", "mask_yawn", "mask_bone", "vinerope", "claws", "wraps", "sled", "snorkel", "stormrod", "wings", "reader", "rubbing", "scrap", "date", "cavefish", "bambooraft", "sandglass", "arkcutter", "sunsickle", "patientpick"];
+  const items2 = ["keyshard", "arkkey", "relic", "tablet", "skyseed", "powercell", "stormglass", "brimstone", "peat", "statue", "figurine", "mask_scowl", "mask_grin", "mask_yawn", "mask_bone", "vinerope", "claws", "wraps", "sled", "snorkel", "stormrod", "wings", "reader", "rubbing", "scrap", "date", "cavefish", "bambooraft", "sandglass", "arkcutter", "sunsickle", "patientpick"];
   check("32 more items, each with a label and a line about it", items2.every(k => K[k] && K[k].label && K[k].desc && K[k].emoji));
   const uk = Object.keys(SB.NODES).filter(k => k.indexOf("u_") === 0);
   check("ten more things to find in rooms and deep levels, all skipped by the smols' own eyes", uk.length === 10 && uk.every(k => SB.NODES[k].nop === 1 && (D.HAND[k] || Surv.ROCKS[k])));
@@ -692,16 +692,16 @@ seeded(4341, () => {
   const spT = game.sparks || 0;
   check("five gifts in all, then a tablet is only sparks", Object.keys(me.dp.perks).length === 5 && D.readTablet(game, me).ok && (game.sparks || 0) === spT + 3 && Object.keys(D.PERKS).every(k => me.dp.perks[k]));
   check("the gifts are saved with the smol", JSON.parse(JSON.stringify(me.dp)).perks.lungs > 0 && D.breathMax(me) > D.BREATH * 1.4);
-  empty(); Surv.add(me, "starseed", 4); hold("starseed");
+  empty(); Surv.add(me, "skyseed", 4); hold("skyseed");
   const hp0 = (me.body && me.body.hp) || 0;
   check("a star seed: a bigger heart for good", /swallow the star seed/.test(lab(P.options(game, me, null), "place")) && P.options(game, me, null).place.go() && me.body.hp === hp0 + 1 && me.dp.star === 1);
   D.eatStar(game, me); D.eatStar(game, me);
-  check("three is all a smol can hold", !D.eatStar(game, me).ok && me.dp.star === 3 && cnt("starseed") === 1);
+  check("three is all a smol can hold", !D.eatStar(game, me).ok && me.dp.star === 3 && cnt("skyseed") === 1);
   empty(); Surv.add(me, "relic", 2); hold("relic");
   check("two relic pieces are not enough", !/fit the three relic/.test(lab(P.options(game, me, null), "place")) && !D.joinRelics(game, me).ok);
   Surv.add(me, "relic", 1);
   const jr = P.options(game, me, null);
-  check("three fit together: a blessing or a curse", /fit the three relic pieces/.test(lab(jr, "place")) && jr.place.go() && cnt("relic") === 0 && ev.indexOf("deepRelic") >= 0 && (me.dp.curse === 1 || ["tablet", "starseed", "heartfruit"].some(k => cnt(k) >= 1)));
+  check("three fit together: a blessing or a curse", /fit the three relic pieces/.test(lab(jr, "place")) && jr.place.go() && cnt("relic") === 0 && ev.indexOf("deepRelic") >= 0 && (me.dp.curse === 1 || ["tablet", "skyseed", "heartfruit"].some(k => cnt(k) >= 1)));
   me.dp.curse = 0; empty(); P.setGoal(null);
   const fs0 = freeSpot(); at(fs0.x, fs0.z);
   let fig = null; for (let i = 0; i < 12 && !fig; i++) { Surv.add(me, "scrap", 1); const r = D.readScrap(game, me); if (r.map) fig = r.map; }
@@ -731,7 +731,7 @@ seeded(4341, () => {
   const stP = pois.find(p => p.kind === "statue"), stB = goTo(stP); empty();
   const oSt = P.options(game, me, sref(stB));
   check("an old statue: brush it clean, and carry the little one off", /brush the dust/.test(lab(oSt, "use")) && oSt.use.go() && /carry the little statue/.test(lab(oSt, "place")) && P.options(game, me, sref(stB)).place.go() && cnt("statue") === 1 && P.options(game, me, sref(stB)).place.locked);
-  if (K.honey) { Surv.add(me, "honey", 1); hold("honey"); check("something sweet in its paws: a star seed, once on the island", /leave your honey/.test(lab(P.options(game, me, sref(stB)), "use")) && P.options(game, me, sref(stB)).use.go() && cnt("starseed") === 1 && s().cannoli > 0 && !/leave your/.test((Surv.add(me, "honey", 1), hold("honey"), lab(P.options(game, me, sref(stB)), "use")))); } else check("no honey in this build", true);
+  if (K.honey) { Surv.add(me, "honey", 1); hold("honey"); check("something sweet in its paws: a star seed, once on the island", /leave your honey/.test(lab(P.options(game, me, sref(stB)), "use")) && P.options(game, me, sref(stB)).use.go() && cnt("skyseed") === 1 && s().cannoli > 0 && !/leave your/.test((Surv.add(me, "honey", 1), hold("honey"), lab(P.options(game, me, sref(stB)), "use")))); } else check("no honey in this build", true);
   const lkP = pois.find(p => p.kind === "locker"), lkB = goTo(lkP); empty();
   check("an ark locker is locked", P.options(game, me, sref(lkB)).use.locked && /key shard/.test(lab(P.options(game, me, sref(lkB)), "use")));
   Surv.add(me, "keyshard", 1); const unl = L.unopened(game);
@@ -775,7 +775,7 @@ seeded(4341, () => {
   check("the grumpy old tree swats whoever shakes it (and drops amber)", P.options(game, me, sref(otB)).use.go() && me.chem.health < 1 && cnt("amber") === 1 && P.options(game, me, sref(otB)).use.locked);
   const plP = pois.find(p => p.kind === "pool"), plB = goTo(plP); empty();
   const skA = JSON.stringify(me.body.sk || {});
-  check("the memory pool shows each smol one thing", P.options(game, me, sref(plB)).use.go() && JSON.stringify(me.body.sk || {}) !== skA && cnt("starseed") === 1 && P.options(game, me, sref(plB)).use.locked);
+  check("the memory pool shows each smol one thing", P.options(game, me, sref(plB)).use.go() && JSON.stringify(me.body.sk || {}) !== skA && cnt("skyseed") === 1 && P.options(game, me, sref(plB)).use.locked);
   const swP = pois.find(p => p.kind === "sword"), swB = goTo(swP); empty();
   const dcm = D.delve(game, cave).max; D.delve(game, cave).max = 2;
   check("the tool in the stone will not come for a tribe that has not seen the bottom of a cave", P.options(game, me, sref(swB)).use.locked);
@@ -973,7 +973,7 @@ seeded(4341, () => {
   check("all " + Object.keys(D.INS).length + " kinds of place with rooms can be walked to the last room", !thr29 && Object.keys(D.INS).every(k => walked[k] && walked[k].at === walked[k].max), thr29 ? String(thr29.stack).slice(0, 300) : notes29.filter(n => /stuck/.test(n)).join(" | "));
   check("and everything there is to do in their rooms can be done", notes29.filter(n => /:true$/.test(n)).length >= 3 && !notes29.some(n => /:false$/.test(n)), notes29.join(" "));
   check("the sinkhole, sealed, stays sealed", D.delve(game, walked.sink.anc).sealed > 0 && /sealed with stones/.test(D.gateWhy(game, me, walked.sink.anc)));
-  check("the hollow giant's root cellar had a guard, and the hull's last locker opened once all three captains were beaten", D.delve(game, walked.hollow.anc).keeper > 0 && walked.hull.max === 6 && L.roll(game, "delve6-" + walked.hull.anc.id).items.some(x => x.k === "starseed"));
+  check("the hollow giant's root cellar had a guard, and the hull's last locker opened once all three captains were beaten", D.delve(game, walked.hollow.anc).keeper > 0 && walked.hull.max === 6 && L.roll(game, "delve6-" + walked.hull.anc.id).items.some(x => x.k === "skyseed"));
   check("each has its chest at the end", ["shaft", "pyramid", "temple", "hall", "fort", "city", "sunk", "sewer", "crack", "pale"].every(k => { const m = walked[k].max; return !!L.state(game).chests["delve" + m + "-" + walked[k].anc.id] || !!L.TABLES[D.INS[k].rooms[m - 1].chest]; }));
   empty();
   const crateLoot = tier => { game.stats.maxTier = tier; empty(); for (let i = 1; i <= 40; i++) D.HAND.u_crate[1](game, me, { seed: i }); return cnt("iron") + cnt("silver"); };

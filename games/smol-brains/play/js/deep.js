@@ -1215,7 +1215,7 @@
   kind("arkkey", { noun: "material", label: "captain's key", emoji: "🔑", r: 0.11, color: 0xffd76a, glow: 1, desc: "a captain dropped it. it opens a sealed room, or any ark locker." });
   kind("relic", { noun: "material", label: "relic piece", emoji: "🏺", r: 0.12, color: 0xb98a5a, mat: 1, desc: "a piece of something old. hold three and fit them together: a blessing, most of the time." });
   kind("tablet", { noun: "material", label: "ark tablet", emoji: "📜", r: 0.13, color: 0xcfe6ff, glow: 1, desc: "hold it and read it. the smol that reads it keeps one gift for good." });
-  kind("starseed", { noun: "material", label: "star seed", emoji: "🌟", r: 0.1, color: 0xfff2a0, glow: 1, desc: "hold it and swallow it: a bigger heart, for good." });
+  kind("skyseed", { noun: "material", label: "star seed", emoji: "🌟", r: 0.1, color: 0xfff2a0, glow: 1, desc: "hold it and swallow it: a bigger heart, for good." });
   kind("powercell", { noun: "material", label: "power cell", emoji: "🔋", r: 0.13, color: 0x7dffb0, glow: 1, mat: 1, desc: "it still hums. old ark doors and lifts wake up for one." });
   kind("stormglass", { noun: "material", label: "storm glass", emoji: "⚡", r: 0.11, color: 0xfff7a8, glow: 1, mat: 1, desc: "lightning, caught by a storm rod. it wakes an old socket as well as a crystal does." });
   kind("brimstone", { noun: "material", label: "brimstone", emoji: "🟡", r: 0.12, color: 0xe6d24a, mat: 1, desc: "yellow rock from the hot places. burns hotter than coal." });
@@ -1373,21 +1373,21 @@
     tbl("shaft", { name: "the crew's strongbox", shells: [3, 6], mote: 0.3, fruit: 0.15, sure: [["keyshard", 1]], items: [["ironore", 2, 3, 2], ["coal", 2, 3, 2], ["torch", 2, 2, 2], ["scrap", 1, 1, 1]] });
     tbl("tomb", { name: "the barrow's treasure", shells: [6, 10], mote: 0.6, fruit: 0.4, sure: [["relic", 1], ["tablet", 1]], items: [["silver", 1, 1, 1], ["geode", 1, 2, 2], ["amber", 1, 2, 1]] });
     tbl("pyramid", { name: "the ark's cold store", shells: [6, 10], mote: 0.6, fruit: 0.3, sure: [["sandglass", 1], ["relic", 1]], items: [["opal", 1, 2, 2], ["powercell", 1, 1, 1], ["scrap", 1, 1, 1]] });
-    tbl("temple", { name: "the temple's heart", shells: [8, 12], motes: 1, fruit: 0.5, sure: [["tablet", 1], ["starseed", 1]], items: [["amber", 2, 3, 2], ["relic", 1, 1, 1], ["crystal", 1, 2, 1]] });
+    tbl("temple", { name: "the temple's heart", shells: [8, 12], motes: 1, fruit: 0.5, sure: [["tablet", 1], ["skyseed", 1]], items: [["amber", 2, 3, 2], ["relic", 1, 1, 1], ["crystal", 1, 2, 1]] });
     tbl("hall", { name: "the grump chief's hoard", shells: [8, 14], mote: 0.6, fruit: 0.3, sure: [["mask_scowl", 1]], items: [["cooked", 2, 4, 2], ["iron", 1, 2, 1], ["keyshard", 1, 1, 2], ["relic", 1, 1, 1]] });
     tbl("fort", { name: "the fort's strongroom", shells: [10, 16], motes: 1, fruit: 0.3, sure: [["mask_grin", 1], ["brimstone", 2]], items: [["silver", 1, 2, 2], ["keyshard", 1, 1, 2], ["starmetal", 1, 1, 1]] });
-    tbl("city", { name: "the deep vault of the old city", shells: [14, 22], motes: 2, fruits: 1, sure: [["mask_yawn", 1], ["tablet", 1], ["starseed", 1]], items: [["starmetal", 1, 2, 2], ["relic", 1, 2, 2], ["silver", 1, 2, 1]] });
+    tbl("city", { name: "the deep vault of the old city", shells: [14, 22], motes: 2, fruits: 1, sure: [["mask_yawn", 1], ["tablet", 1], ["skyseed", 1]], items: [["starmetal", 1, 2, 2], ["relic", 1, 2, 2], ["silver", 1, 2, 1]] });
     tbl("hull", { name: "the ark's memory chest", shells: [8, 12], motes: 1, fruit: 0.5, sure: [["tablet", 1], ["reader", 1]], items: [["powercell", 1, 1, 2], ["crystal", 1, 2, 2], ["scrap", 1, 2, 1]] });
-    tbl("hull2", { name: "the ark's last locker", shells: [14, 20], motes: 2, fruits: 1, sure: [["starseed", 1], ["starmetal", 2]], items: [["tablet", 1, 1, 1], ["relic", 1, 2, 1]] });
+    tbl("hull2", { name: "the ark's last locker", shells: [14, 20], motes: 2, fruits: 1, sure: [["skyseed", 1], ["starmetal", 2]], items: [["tablet", 1, 1, 1], ["relic", 1, 2, 1]] });
     tbl("sunk", { name: "the sunk pod's locker", shells: [5, 9], mote: 0.5, fruit: 0.3, sure: [["pearl", 2]], items: [["metal", 1, 2, 2], ["keyshard", 1, 1, 2], ["scrap", 1, 1, 1], ["relic", 1, 1, 1]] });
     tbl("hollow", { name: "a cache inside the giant", shells: [2, 5], mote: 0.3, fruit: 0.3, sure: [["amber", 1]], items: [["honey", 1, 2, 2], ["seed", 2, 3, 2], ["mapscrap", 1, 1, 1]] });
     tbl("sewer", { name: "what the cistern kept", shells: [4, 8], mote: 0.3, fruit: 0.2, sure: [["keyshard", 1]], items: [["iron", 1, 1, 1], ["scrap", 1, 1, 2], ["potion", 1, 1, 1]] });
     tbl("crack", { name: "a tiny hoard", shells: [3, 6], mote: 0.6, fruit: 0.3, sure: [["relic", 1]], items: [["pearl", 1, 1, 1], ["amber", 1, 1, 1], ["seed", 2, 3, 1]] });
     tbl("pale", { name: "the pale chest", shells: [5, 9], mote: 0.6, fruit: 0.4, sure: [["relic", 1]], items: [["icegem", 1, 2, 2], ["scrap", 1, 1, 1], ["silver", 1, 1, 1]] });
     tbl("locker", { name: "an ark locker", shells: [4, 8], mote: 0.5, fruit: 0.3, items: [["powercell", 1, 1, 2], ["iron", 1, 2, 2], ["tablet", 1, 1, 1], ["relic", 1, 1, 2], ["crystal", 1, 2, 2]] });
-    tbl("under", { name: "a locker in the under-dark", shells: [10, 16], motes: 1, fruit: 0.5, sure: [["starmetal", 1]], items: [["tablet", 1, 1, 1], ["starseed", 1, 1, 1], ["silver", 1, 2, 2], ["relic", 1, 2, 2]] });
+    tbl("under", { name: "a locker in the under-dark", shells: [10, 16], motes: 1, fruit: 0.5, sure: [["starmetal", 1]], items: [["tablet", 1, 1, 1], ["skyseed", 1, 1, 1], ["silver", 1, 2, 2], ["relic", 1, 2, 2]] });
     tbl("secret", { name: "a secret", shells: [3, 7], mote: 0.5, fruit: 0.3, items: [["scrap", 1, 1, 2], ["keyshard", 1, 1, 2], ["geode", 1, 2, 2], ["mapscrap", 1, 1, 1]] });
-    tbl("vault", { name: "the masters' reward", shells: [16, 24], motes: 2, fruits: 1, sure: [["tablet", 2], ["starseed", 1]], items: [["starmetal", 1, 2, 1]] });
+    tbl("vault", { name: "the masters' reward", shells: [16, 24], motes: 2, fruits: 1, sure: [["tablet", 2], ["skyseed", 1]], items: [["starmetal", 1, 2, 1]] });
     tbl("haunt", { name: "what the spirits kept", shells: [6, 10], mote: 0.6, fruit: 0.4, sure: [["sunsickle", 1], ["mask_bone", 1]], items: [["relic", 1, 1, 1], ["silver", 1, 1, 1]] });
   }
 
@@ -1823,9 +1823,9 @@
   };
   D.STAR_MAX = 3;
   D.eatStar = function (game, c) {
-    if (!has(c, "starseed")) return fail("no star seed");
+    if (!has(c, "skyseed")) return fail("no star seed");
     var d = dp(c); if ((d.star || 0) >= D.STAR_MAX) return fail("🌟 " + c.name + " has swallowed all the star a smol can hold");
-    Sv().take(c, "starseed", 1); d.star = (d.star || 0) + 1;
+    Sv().take(c, "skyseed", 1); d.star = (d.star || 0) + 1;
     if (!c.body) c.body = {}; c.body.hp = (c.body.hp || 0) + 1; c.chem.health = 1;
     SB.bus.emit("deepStar", { c: c, n: d.star });
     return ok("🌟 warm all the way down. " + c.name + "'s heart is bigger, for good (" + d.star + " of " + D.STAR_MAX + " star seeds)");
@@ -1835,7 +1835,7 @@
     Sv().take(c, "relic", 3);
     var n = count(game, "relics"), r = dice(game, "relic:" + n), roll = r();
     if (roll < 0.25) { dp(c).curse = 1; give(game, c, "geode", 2); SB.bus.emit("deepRelic", { c: c, curse: true }); return ok("🏺 the pieces snap together, and a cold breath comes out: a curse! (pep stays low until a shrine or a hot spring lifts it.) two geodes fell out as well", { curse: true }); }
-    var prize = roll < 0.5 ? "tablet" : roll < 0.75 ? "starseed" : "heartfruit"; if (!K[prize]) prize = "tablet";
+    var prize = roll < 0.5 ? "tablet" : roll < 0.75 ? "skyseed" : "heartfruit"; if (!K[prize]) prize = "tablet";
     give(game, c, prize, 1); sparks(game, 2, c);
     SB.bus.emit("deepRelic", { c: c, curse: false, prize: prize });
     return ok("🏺 the pieces fit, and the whole thing opens like a flower: a " + label(prize) + " · +2 ✨", { prize: prize });
@@ -1912,7 +1912,7 @@
       out.use = every(5, "pull logs off the fallen tree", function () { return ok("🪵 no axe needed: " + gives(game, c, [["log", wd === "logday" ? 3 : 2], ["stick", 1]])); }, "stripped bare. another will come down in time");
     } else if (k === "statue") {
       var sweet = hk === "honey" || (hk && K[hk] && K[hk].giant) ? hk : null;
-      if (sweet && !s.cannoli) out.use = act("leave your " + label(sweet) + " in the statue's paws", function () { Sv().take(c, sweet, 1); s.cannoli = today; give(game, c, "starseed", 1); return ok("🗿 the stone paws close. when they open again, a star seed is sitting there"); });
+      if (sweet && !s.cannoli) out.use = act("leave your " + label(sweet) + " in the statue's paws", function () { Sv().take(c, sweet, 1); s.cannoli = today; give(game, c, "skyseed", 1); return ok("🗿 the stone paws close. when they open again, a star seed is sitting there"); });
       else out.use = u && u.dust ? no("brushed clean. its paws are cupped, as if for something sweet") : act("brush the dust off the carving", function () {
         mark({ dust: today }); if (SB.Body && SB.Body.xp) SB.Body.xp(c, "craft", 4);
         var rd = has(c, "reader"); if (rd) give(game, c, "rubbing", 1);
@@ -2005,7 +2005,7 @@
         d0.pool = today;
         var B2 = SB.Body, low = null; if (B2 && B2.SKILLS) B2.SKILLS.forEach(function (sk) { if (!low || B2.level(c, sk.id) < B2.level(c, low.id)) low = sk; });
         if (low) B2.xp(c, low.id, 14);
-        var first = !u; if (first) { mark(); give(game, c, "starseed", 1); }
+        var first = !u; if (first) { mark(); give(game, c, "skyseed", 1); }
         return ok("🪞 not your face: a smol on the ark, long ago, " + (low ? low.label + " as if it were easy. " + c.name + " remembers how (" + low.label + " grows)" : "smiling") + (first ? ". something bright is lying on the bottom: a star seed" : ""));
       });
     } else if (k === "sword") {
@@ -2074,7 +2074,7 @@
   D.unpin = function (game, i) { var s = st(game); if (!s.pins || !s.pins[i]) return fail("no such pin"); s.pins.splice(i, 1); return ok("📍 pin pulled"); };
   D.wayTo = function (game, x, z, lbl) { if (!P() || !P().setGoal || !PS()) return fail("you can only follow a marker in a body"); P().setGoal({ x: x, z: z, label: lbl, small: true, deep: 1 }); return ok("🧭 marked: follow the " + lbl); };
   D.SHELF = ["amber", "opal", "icegem", "pearl", "crystal", "silver", "starmetal", "brimstone", "stormglass", "fossil", "relic", "statue", "figurine", "powercell", "mask_scowl", "mask_grin", "mask_yawn", "mask_bone"];
-  D.SHELF_PRIZES = [[4, [["mapscrap", 2]], "two map scraps"], [8, [["keyshard", 2]], "two key shards"], [12, [["arkkey", 1]], "a captain's key, for a door nothing else opens"], [18, [["starseed", 1]], "a star seed"]];
+  D.SHELF_PRIZES = [[4, [["mapscrap", 2]], "two map scraps"], [8, [["keyshard", 2]], "two key shards"], [12, [["arkkey", 1]], "a captain's key, for a door nothing else opens"], [18, [["skyseed", 1]], "a star seed"]];
   D.shelf = function (game) { var s = st(game); if (!s.shelf || typeof s.shelf !== "object") s.shelf = {}; return s.shelf; };
   D.shelfCount = function (game) { return Object.keys(D.shelf(game)).length; };
   D.donate = function (game, c, k) {
@@ -2266,7 +2266,7 @@
       var hk = r && r.type === "creature" ? null : x.hk, s = st(game), Su = Sv();
       function op(lbl, fn, snd) { return x.op(lbl, function () { var res = fn(); if (res && res.msg) x.say(res.msg); if (res && res.ok) x.audio(snd || "chime", 0.7); return !!(res && res.ok); }, null); }
       if (hk === "tablet") o.place = op("read the ark tablet", function () { return D.readTablet(game, c); }, "eureka");
-      else if (hk === "starseed") o.place = op("swallow the star seed", function () { return D.eatStar(game, c); }, "achievement");
+      else if (hk === "skyseed") o.place = op("swallow the star seed", function () { return D.eatStar(game, c); }, "achievement");
       else if (hk === "relic" && Su.count(c, "relic", true) >= 3) o.place = op("fit the three relic pieces together", function () { return D.joinRelics(game, c); }, "achievement");
       else if (hk === "scrap") o.place = op("read the journal scrap", function () { return D.readScrap(game, c); });
       else if (hk === "rubbing") o.place = op("study the rubbing", function () { return D.study(game, c); }, "eureka");
