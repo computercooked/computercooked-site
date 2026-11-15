@@ -711,6 +711,19 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.79 What v4.31.0 changed: a second album, "the long way home"
+
+Ashton, Nov 14: "create a new song album for the smol brains game, then implement that new album into the game, ontop of the original, not a replacement." This is the first release of the widened goal (see `smol-brains-handover\FEATURE-PLAN.md`).
+
+- **Sixteen new songs**, written by hand in the same notation and played by the same live band (no audio files, nothing added to the download but text): the lantern wakes, pip's first steps, a roof of leaves, home is a small light, sticks before dark, the pod on the hill, gloom, dodge then swing, what the embers said, berry patch morning, the chest by the door, murk, snow on the hearth, every smol looks up, the long night, the long way home. They are about the game the island became: waking in a pod, a first roof, a home, the three captains, the beacon.
+- **The first album is untouched.** All twenty of "songs for small minds" still play; the island now picks from thirty-six. A song is kept off repeat for ten picks (was six).
+- **New voices:** kalimba, tin whistle, cello, a glass pad, a small choir, and a tom. **New scales:** lydian, mixolydian, phrygian, harmonic minor. **New ways for the band to play:** drone, pulse, march, lull, roll.
+- **A captain's fight has its own music.** In a duel the danger layer gives way to "dodge, then swing"; an ordinary chase keeps the old one.
+- "gloom" only plays while you are inside a smol, at night. "every smol looks up" waits for thinkers, like "the beacon" does.
+- **The jukebox lists both albums** by name, each with its own heard count.
+- Checked by rendering every new song silently in a browser: each measures in the same loudness band as the first album (none silent, none clipping harder than the old ones). Nobody has listened to them with ears yet: that is Ashton's to judge.
+- Tests: `album2.test.js` (new, 22 checks); `music.test.js` unchanged and passing.
+
 ## 0.78 What v4.30.0 changed: a home of your own, and captain fights that work on foot
 
 Three things were still open after the phone pass: a home you make by hand, the bag screen, and a captain fight played with real walking instead of a script that teleports. All three are in this release.
