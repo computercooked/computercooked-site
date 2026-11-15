@@ -399,7 +399,7 @@
         setBase(s.x, gy + (s.kind === "kiln" ? 0.15 : 0.05), s.z, t * 2, 1);
         if (s.kind === "campfire") { part("s:flame", 0, 0, 0, 0, 0, 0, f, f * fl, f, null, [0, 0.15, 0]); part("s:flame", 0.12, 0, -0.08, 1.3, 0, 0.15, f * 0.6, f * 0.8 * (2 - fl), f * 0.6, null, [0, 0.15, 0]); }
         else part("s:flame", 0, 0.05, 0.72, 0, 0, 0, 0.5, 0.45 * fl, 0.4, null, [0, 0.15, 0]);
-        R.light(s.x, gy + 0.9, s.z, s.kind === "kiln" ? 4 : 5.5 + s.data.fuel * 3, 1, 0.58, 0.25);
+        R.light(s.x, gy + 0.9, s.z, s.kind === "kiln" ? 4 : 5 + s.data.fuel * 2.5, 0.6, 0.33, 0.13); // 4.36: was 1, 0.58, 0.25: it washed green ground to neon yellow
       }
       if (s.kind === "hut") hutLife(game, s, gy);
       if (s.kind === "windmill") { setBase(s.x, gy, s.z, s.rot || 0, 1); part("s:blades", 0, 2.6, 0.75, 0, 0, t * (0.8 + w.weather.wind * 2), 1, 1, 1, null, EXT); }
