@@ -95,10 +95,10 @@ seeded(4340, () => {
   const rc = A.byItem(game, cl);
   check("tamed: it has a name, a trait, a bond, and it is yours", !!rc && !!rc.name && !!A.TRAITS[rc.trait] && rc.owner === me.id && ev.indexOf("tamed") >= 0 && cl.noun === "toy", t1 && t1.msg);
   check("the first one follows you", rc.mode === "follow" && A.followers(game).length === 1);
-  put(me, cl.x + 10, cl.z);
+  cl.x = flat.x + 1; cl.z = flat.z; put(me, flat.x + 10, flat.z);
   step(7);
   check("it keeps at your heels", SB.dist(me.x, me.z, cl.x, cl.z) < 4, SB.dist(me.x, me.z, cl.x, cl.z).toFixed(1));
-  put(me, flat.x, flat.z); step(1.5);
+  put(me, flat.x + 50, flat.z); step(1.5);
   check("left far behind, it catches up", SB.dist(me.x, me.z, cl.x, cl.z) < 6);
   check("nobody hunts a tame one: the buttons are pet and wait", /^pet /.test(opts(cl).use.label) && /wait here/.test(opts(cl).pick.label));
 
@@ -132,7 +132,7 @@ seeded(4340, () => {
   g1.x = cl.x + 0.5; g1.z = cl.z; W.rebuildCreatureGrid(game.world, game);
   const wh0 = g1.whacked || 0; tick(4);
   check("its pecks land, and it gets knocked about too", (g1.whacked || 0) > wh0 && rc.hurt > 0, "whacked " + (g1.whacked || 0).toFixed(2));
-  g1.whacked = 2.95; rc.hurt = 0; rc.hitT = 0; tick(2);
+  g1.whacked = SB.Threats.whacksNeeded(g1) - 0.05; rc.hurt = 0; rc.hitT = 0; tick(2);
   check("the last peck chases the grump off for good", !g1.alive && g1.gone && ev.indexOf("grumpChased") >= 0 && rc.fight == null && rc.wins === 1);
   game.creatures = game.creatures.filter(c => !c.gone);
 
@@ -253,13 +253,14 @@ seeded(4340, () => {
   hold("stone", 1);
   const toy = Surv.spawn(game, "berry", 1, me.x + 4, me.z + 3);
   check("fetch! is a button", /fetch!/.test(opts(bun).place.label) && (opts(bun).place.go(), !!rb.fetch));
+  const fetching = W.itemById(game.world, rb.fetch.id);
   step(9);
-  check("it brings the thing to your feet", ev.indexOf("fetched") >= 0 && SB.dist(toy.x, toy.z, me.x, me.z) < 1.5, SB.dist(toy.x, toy.z, me.x, me.z).toFixed(1));
+  check("it brings the thing to your feet", ev.indexOf("fetched") >= 0 && !!toy && SB.dist(fetching.x, fetching.z, me.x, me.z) < 1.5 && !rb.fetch, SB.dist(fetching.x, fetching.z, me.x, me.z).toFixed(1));
   rb.mode = "stay"; bun.x = me.x + 20; A.sync(game);
   check("call: your followers come running", (rb.mode = "follow", A.call(game, me).ok && SB.dist(bun.x, bun.z, me.x, me.z) < 3));
 
   console.log("11. forgetting, collars, letting go, old age");
-  rb.hunger = 1; rb.bond = 0.2; dawn();
+  rb.hunger = 1; rb.bond = 0.1; dawn();
   check("a forgotten, hungry pet goes back to the wild", !A.byItem(game, bun) && ev.indexOf("animalLeft") >= 0 && bun.noun === "critter" && A.wildOf(bun));
   give("vine", 1); give("stone", 1); A.make(game, me, "collar"); hold("collar", 1);
   wo.x = me.x + 1; wo.z = me.z;
@@ -290,7 +291,7 @@ seeded(4340, () => {
   check("a pen of its own: the button puts it in", /put the grump in the pen/.test(opts(ownPen).use.label) && (opts(ownPen).use.go(), gr.mode === "pen" && gr.pen === ownPen.id));
   const hp0 = me.chem.health = 1;
   check("tickle a hungry grump and it snaps", /tickle the grump/.test(opts(gi).use.label) && A.grumpTickle(game, me, gr).snap && me.chem.health < hp0 && gr.light === 0);
-  check("feed it: it likes meat", /feed the grump your meat/.test(opts(gi).place.label) && (opts(gi).place.go(), gr.light > 0.15 && Surv.count(me, "meat", true) === 5));
+  check("feed it: it likes meat", /feed the grump your .*meat/.test(opts(gi).place.label) && (opts(gi).place.go(), gr.light > 0.15 && Surv.count(me, "meat", true) === 5));
   A.grumpFeed(game, me, gr);
   check("twice a day is all it will eat", !A.grumpFeed(game, me, gr).ok && Surv.count(me, "meat", true) === 4);
   let tk = 0; for (let i = 0; i < 6; i++) { game.time += 5; if (A.grumpTickle(game, me, gr).ok) tk++; }

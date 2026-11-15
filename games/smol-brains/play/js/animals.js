@@ -609,7 +609,7 @@
 
   /* ---------------- the grump ---------------- */
   A.grump = function (game) { var out = null; all(game).forEach(function (r) { if (r.k === "grump" && !r.lit) out = r; }); return out; };
-  A.canCapture = function (game, c, g) { return !!g && !g.boss && !(g.tough > 1.6) && !A.grump(game) && !!c && Sv().has(c, "lead"); };
+  A.canCapture = function (game, c, g) { return !!g && !g.boss && !A.grump(game) && !!c && Sv().has(c, "lead"); };
   A.capture = function (game, c, g) {
     if (!A.canCapture(game, c, g)) return null;
     var s = st(game), id = s.n++;
@@ -806,7 +806,7 @@
   }
   function driveWild(game, o, dt, me) {
     var d = o.data, def = K[o.kind], spk = spOf(o.kind), sp = A.SP[spk], W = SB.World;
-    if (o.gone || o.heldBy != null) return;
+    if (o.gone || o.heldBy != null || d.an != null) return;
     if (d.calm > 0) d.calm -= dt;
     if (d.buck) { // being ridden out
       var rider = SB.Game.byId(game, d.buck.who);
