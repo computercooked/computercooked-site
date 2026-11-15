@@ -711,6 +711,38 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.81 What v4.33.0 changed: the big build (waves 2 to 10 of the feature plan)
+
+Ashton, Nov 14: "build every single feature in game-features.md into the game", then "keep going and don't stop, build everything first, then start playtesting and bug fixing." This release is the build. It adds ten new files and about 1,100 new test checks. It was built in parallel: one lead file of plug-in points, then eight systems written at the same time, each in its own file, and merged. **What has and has not been seen in a browser is at the end of this section, and it matters.**
+
+**The plug-in points (`ext.js`).** possess.js, povhud.js, ui.js and main.js now call `SB.Ext` hooks (tick, options, damage, key, goals, vitals, bag tabs), so a system lives in one file and registers what it needs. A handler that throws is switched off for the session and logged, so one broken system cannot take the game down.
+
+**Trade and treasure (`loot.js`, wave 2).** A chest beside every found site and every beaten captain's lair, opened by hand, with contents that depend on the place; light motes dropped by beaten grumps (let one go for sparks); heart-fruit (that smol takes 10% less from every hurt, up to five); buying and selling at the smols' own stalls from inside a body, with that smol's purse; pedlars among the strangers; captain trophies that hang in your home; "find somewhere new" now counts a found site.
+
+**A real fight (`fight.js`, wave 3).** Hold to wind up a power swing; a bow and arrows; crouch and sneak for a first hit; brace to halve a bite; pit traps and snares; item quality from the maker's skill (shoddy to masterwork); crits, knockback and stagger; perks at fighting and hunting levels; a training dummy.
+
+**Friends and characters (`friends.js`, wave 4).** Gift tastes for every smol, found by giving; hearts with every smol, each level unlocking something; weddings; pranks; a lifetime wish per smol; a trait earned by how it was raised; calling a smol and two-word commands; matchmaking; a festival on the first day of each season.
+
+**Animals (`animals.js`, wave 5).** Taming with the right food and patience; named pets that follow, find things, warn and fight; a beaten grump tied, penned, fed and tickled until it turns; pens with kept animals that give something each morning; a rideable loper; treats, a brush, a collar, a whistle.
+
+**The farm, the kitchen and the water (`harvest.js`, wave 6).** Fish kinds by water, season, weather and hour, with a timed hook; bait; hand-made garden beds with growth stages, watering, quality and giant crops; named dishes with timed buffs shown by your hearts; a drying rack, smoker, crock, quern, bee box, crab pot, scarecrow and sprinkler; a recipe book and a record of catches.
+
+**The dark fights back (`dark.js`, wave 7).** Beating a captain changes the island; lesser named grumps with their own tricks and a bounty each; three storytellers to choose from, and mercy when the tribe is hurting; nine new event cards; a notice board of paid tasks; standing with the grumps, the far tribe and the wild smols; a light forge at a well of light.
+
+**A bigger world (`deep.js`, wave 8).** Delves: a cave mouth you go down level by level in place, each depth with its own ores and dangers (an abstraction: there is still no real underground); new materials and twelve recipes; a raft; eleven kinds of place to find (lookout, stone ring, hot spring, hermit, shrine, buried cache, waystone...); a map tab with what is found; fast travel between waystones; treasure maps; weather events.
+
+**Home and town (`town.js`, wave 9).** Twenty-two more things for the home with a comfort score that the sleeper feels; upgrading a lean-to to a hut, a house and a lodge; yard things; nineteen new buildings (well, inn, bakery, smithy, library, watchtower, shrine, storehouse, healer...) each with one real effect; keepers assigned to buildings; upkeep and repair; visitors and a guest book.
+
+**The Lantern's powers, health and difficulty (`powers.js`, wave 10).** A tree of powers bought with embers in three branches (light, life, mind), cast from a body or the sky; blessing stones; words of power in three levels; a perk choice at skill levels; named sicknesses with causes, symptoms and crafted cures; potions and a buff system other systems use; difficulty presets, a peaceful mode, a one-life mode and accessibility options.
+
+**The bag.** With eight new tabs the bag had twelve in four rows; the tab you are on keeps its name and the rest are icons in one row.
+
+**What was checked, and what was not.**
+- Each system has its own node test (friends 104 checks, town 103, dark 126, fight 142, deep 162, harvest 116, animals 124, powers 114, loot 52, ext 9) and all pass together on the merged build.
+- In a browser, on the merged build: the game starts and the first day plays; all eight systems register and none is switched off; every bag tab opens with content; three in-game days ran at 16 times speed with event cards auto-answered and no error; the systems placed their stones, board and places on a new island; a save reloads with everything in it; chests were found and opened by hand (wave 2); the lodge's model renders.
+- **Not yet seen in a browser:** almost every individual feature above being used by hand; most of the roughly sixty new building models and eighty-odd new items (items without art show an emoji icon and a plain shape); every new screen at phone size; balance of any of it. In one soak the player's first smol starved on day two after being pushed to a higher tier by the test: not yet reproduced or ruled out.
+- Known rough edges the builders reported are listed in `smol-brains-handover\builders\built-<name>.md`. The next releases are the playtest: one system at a time, by hand, fixing what is found, then the look pass (models, animations, skin).
+
 ## 0.80 What v4.32.0 changed: fewer boxes, and a tutorial that points
 
 Ashton, Nov 14: "there is way too many text boxes on the screen, the game doesn't walk you through the tutorial well enough, it should be immersive." Wave 1 of `smol-brains-handover\FEATURE-PLAN.md`. Before changing anything, every piece of text that can be on screen was counted: about eleven boxes on the first frame in Pip's body, eight to ten on the first frame back in the sky, and the same instruction in up to three places at once.

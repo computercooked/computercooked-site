@@ -452,6 +452,7 @@
       else if (cr.species !== "smol") o.use = op("pounce on the " + nm, function () { return attack(cr); }, V.hit);
       else {
         o.use = op("talk to " + cr.name, function () { return creatureAct(V.talk, t); }, V.talk);
+        if (SB.Loot && SB.Loot.isPedlar(cr)) o.use = op("trade with " + cr.name + " the pedlar", function () { if (H()) H().openBag("trade"); return true; }, null); // 4.33
         if (held && hk !== "plans") o.place = op((Surv.edible(hk) ? "share your " + kl(hk) + " with " + cr.name : "give " + cr.name + " your " + kl(hk)), function () { return give(cr); }, V.give);
         else o.place = op((cr.stage === 0 ? "pet " : "hug ") + cr.name, function () { return creatureAct(V.cuddle, t); }, V.cuddle);
       }
@@ -528,6 +529,13 @@
           if (SB.Home.is(game, st)) { o.use = op("open your home", function () { if (H()) H().openBag("home"); return true; }, null); o.place = o.ctx; }
           else if (SB.Home.canClaim(game, st)) o.place = op(SB.Home.get(game) ? "move your home here" : "make this your home", function () { var ok = SB.Home.claim(game, st, c); if (ok) { audio("achievement", 0.7); say("🏠 this " + nm + " is your home now. open it to fit it out: a bed, a chest, a hearth, a berry patch"); } return ok; }, null);
         }
+      } else if (st.kind === "lootchest" && SB.Loot) { // 4.33: treasure
+        if (SB.Loot.isOpen(game, st)) o.use = no("an empty chest");
+        else { o.use = op("open the chest", function () { var rr = SB.Loot.open(game, c, st); say(rr.msg); if (rr.ok) { audio("achievement", 0.7); swingAnim(); if (SB.FX && SB.FX.burst) SB.FX.burst("sparkle", st.x, SB.World.groundY(game.world, st.x, st.z) + 0.7, st.z, 24); } return rr.ok; }, null); o.place = o.use; }
+      } else if (st.kind === "stall" && SB.Loot) { // 4.33: trade at the smols' own stalls
+        var si = SB.Loot.stallInfo(game, st);
+        o.use = op("trade at " + (si && si.owner ? si.owner.name + "'s" : "the") + " stall", function () { if (H()) H().openBag("trade"); return true; }, null);
+        o.place = si && si.stock > 0 ? op("buy " + si.n + " " + kl(si.kind) + " (" + si.ask + " " + SB.Loot.moneyIcon(game) + ")", function () { var rb = SB.Loot.buy(game, c, st); say(rb.msg); if (rb.ok) audio("craft"); return rb.ok; }, null) : no("sold out");
       } else if (st.kind === "farm") {
         o.use = tier >= 2 ? op(d.grow > 0.6 ? "harvest" : "check the crop", function () { return creatureAct(V.use, t); }, V.use) : null;
       } else if (st.kind === "spire" && SB.Game.beaconWaiting && SB.Game.beaconWaiting(game) === st) { // 4.28: the ending, by your own hand
@@ -545,6 +553,7 @@
     if (held && !o.place) {
       if (hk === "plans") o.place = op("open your building plans", function () { if (H()) H().openBag("build"); return true; }, null);
       else if (hk === "leaves" && SB.Body && SB.Body.has(c, "cut")) o.place = op("bind your cut with leaves", function () { return bindCut(); }, null);
+      else if (hk === "mote" && SB.Loot) o.place = op("let the mote go (+" + SB.Loot.MOTE_SPARKS + " ✨)", function () { var rm = SB.Loot.release(game, c); say(rm.msg); if (rm.ok) { audio("chime"); if (SB.FX && SB.FX.burst) SB.FX.burst("sparkle", c.x, c.y + 1.2, c.z, 14); } return rm.ok; }, null); // 4.33
       else if (Surv.edible(hk)) o.place = op("eat your " + kl(hk), function () { return eatHeld(); }, V.eat);
       else if (hk === "nut" && (Surv.has(c, "stone") || Surv.has(c, "hammer") || Surv.has(c, "primtool"))) o.place = op("crack your nut", function () { return crackHeld(); }, V.use);
       else if (hk === "sapling" || hk === "seed") {
@@ -556,6 +565,7 @@
       }
     }
     if (!o.use && !r && held && K[hk] && K[hk].tool) o.use = op("swing your " + kl(hk), function () { swingAnim(); return true; }, null);
+    if (SB.Ext) SB.Ext.options(game, c, r, o, { op: op, no: no, say: say, audio: audio, held: held, hk: hk, kl: kl, swing: swingAnim, openBag: function (tab) { if (H()) H().openBag(tab); }, state: S }); // 4.33: plug-ins (ext.js)
     o.ctx = o.pick && !o.pick.locked ? o.pick : o.use && !o.use.locked && o.use.label !== "cancel" ? o.use : o.place && !o.place.locked ? o.place : null;
     if (o.use && o.use.nestLine) o.ctx = o.use;
     var hungryNose = tier < 2 && c.chem.hunger > 0.5 && !(o.ctx && o.ctx.verb === V.eat); // a hungry blob's big button is its nose, even by water (K-0027 phone)
@@ -643,7 +653,7 @@
     }
     if (o.species === "grump" && pw.dmg > 0 && o.alive) {
       SB.Chem.apply(o.chem, o.boss ? { pain: 0.05 } : { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) }); // (a captain doesn't scare)
-      o.whacked = (o.whacked || 0) + pw.dmg * (1 + skill("fight")) * (o.boss && SB.Bosses && SB.Bosses.reeling(o) ? SB.Bosses.REEL : 1); xp("fight", 1);
+      o.whacked = (o.whacked || 0) + pw.dmg * (SB.Ext ? SB.Ext.damage(game, c, o, { hk: hk, dmg: pw.dmg }) : 1) * (1 + skill("fight")) * (o.boss && SB.Bosses && SB.Bosses.reeling(o) ? SB.Bosses.REEL : 1); xp("fight", 1);
       if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) {
         o.alive = false; o.gone = true; o.dying = false;
         if (SB.FX && SB.FX.burst) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] });
@@ -722,6 +732,7 @@
     Sv().removeAt(c, v.sel, 1);
     var r = Sv().eat(c, game, k, null);
     if (r && r.msg) say(r.msg);
+    if (k === "heartfruit" && SB.Loot) { var rh = SB.Loot.heart(game, c); if (rh.msg) say(rh.msg); if (rh.ok) audio("achievement", 0.8); } // 4.33
     audio("eat");
     SB.bus.emit("povEat", { c: c, kind: k });
     return true;
@@ -1134,7 +1145,7 @@
     if (!S) return [];
     var c = S.c, game = S.game, Id = I(), out = [];
     Id.LIST.forEach(function (d) {
-      if (d.kind !== "build" || !d.build || d.build === "spire" || d.build === "grave") return;
+      if (d.kind !== "build" || !d.build || d.build === "spire" || d.build === "grave" || d.build === "lootchest") return;
       var known = Id.known(c, d.id), tribe = !known && game.creatures.some(function (o) { return o.alive && o.species === "smol" && o.tribe === c.tribe && Id.known(o, d.id); });
       // the first buildings come straight out of what you already know: a lean-to from lashing, a campfire from fire
       var near = !known && Id.canHold(c, d.id) && (d.id === "leanto" ? Id.known(c, "lashing") : d.id === "campfire" ? Id.known(c, "fire") : false);

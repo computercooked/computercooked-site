@@ -300,7 +300,7 @@
     { id: "ironpick", name: "iron pick", icon: "⛏", in: { iron: 1, stick: 1, vine: 1 }, out: "ironpick", idea: "smelt", hint: "iron, a stick and something bendy" },
     { id: "sword", name: "iron sword", icon: "🗡", in: { iron: 2, stick: 1 }, out: "sword", idea: "smelt", hint: "two iron and a stick" }
   ];
-  var EX = {}; S.EXTRA.forEach(function (r) { EX[r.id] = r; });
+  var EX = {}; S.EXTRA.forEach(function (r) { EX[r.id] = r; }); S.EXTRA.push = function (r) { if (r && r.id) EX[r.id] = r; return Array.prototype.push.call(S.EXTRA, r); }; // 4.34: a recipe a plug-in pushes on later is a real recipe too
   function ideaOf(id) { return id === "firedrill" ? "fire" : EX[id] ? EX[id].idea : id; }
   function recipeOf(d) { return d.id === "firedrill" ? S.FIREDRILL : { id: d.id, name: d.name, icon: d.icon, in: d.make.in, tool: d.make.tool, at: d.make.at, out: d.make.out, d: d }; }
   // every recipe a pair of paws could ever make (the ideas web's crafts, tier 2 and up, plus the fire drill)

@@ -872,7 +872,7 @@
       var st = sts[si];
       if (st.x < x0 || st.x >= x0 + S || st.z < z0 || st.z >= z0 + S) continue;
       if (!SB.World.isSeen(game.world, st.x, st.z)) continue;
-      var sk = "s:" + (st.done ? st.kind : "plot");
+      var sk = "s:" + (st.done ? (st.kind === "lootchest" && st.data && st.data.open ? "lootchest_open" : st.kind) : "plot");
       if (!meshes[sk]) continue;
       // sit on the highest ground under the footprint, so nothing sinks into a slope
       var sr = (SB.STRUCTS[st.kind] ? SB.STRUCTS[st.kind].r : 0.8) * 0.8, ys = GH(st.x, st.z);

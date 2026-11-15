@@ -201,6 +201,9 @@
     herb: { noun: "medicine", label: "healroot", emoji: "🌿", r: 0.12, color: 0x5ed17a, food: { sick: -0.4, pain: -0.2, hunger: -0.04 }, chem: { medicine: 0.5 }, rots: 500, desc: "grows in damp places. cures what ails a smol." },
     potion: { noun: "medicine", label: "brew", emoji: "🧪", r: 0.13, color: 0x8de0c0, food: { sick: -0.7, pain: -0.5 }, chem: { medicine: 0.9, antibody: 0.3 }, rots: 0, desc: "healroot boiled in a pot. thinker medicine." },
     egg: { noun: "egg", label: "egg", emoji: "🥚", r: 0.2, color: 0xf5f3ed, desc: "a smol in waiting. keep it warm: nests, fires, cuddles." },
+    // 4.33 (loot.js): what the island pays you for going somewhere
+    heartfruit: { noun: "food", label: "heart-fruit", emoji: "💗", r: 0.15, color: 0xff5a8a, food: { hunger: -0.2 }, chem: { glucose: 0.2 }, desc: "rare. eat it as a smol and that smol takes less from every hurt, for good." },
+    mote: { noun: "material", label: "light mote", emoji: "✨", r: 0.1, color: 0xfff2a0, mat: 1, glow: 1, desc: "a crumb of the Lantern's light a grump was carrying. let it go and it comes home as sparks." },
     stick: { noun: "stick", label: "stick", emoji: "🪵", r: 0.14, color: 0x8a5a33, mat: 1, desc: "falls from trees. the start of everything." },
     stone: { noun: "stone", label: "rock", emoji: "🪨", r: 0.14, color: 0x9a96a0, mat: 1, desc: "a good rock. bonks things." },
     flint: { noun: "stone", label: "flint", emoji: "🔷", r: 0.13, color: 0x4b5a78, mat: 1, desc: "sharp-edged rock from rocky places. knap it into blades." },
@@ -291,6 +294,7 @@
     farm: { noun: "crop", label: "farm", emoji: "🌾", r: 1.1, cost: { stick: 2, seed: 2 }, work: 10, desc: "grows grain, sunroots or gourds by itself: a harvest every couple of minutes. faster in the rain and near a windmill." },
     totem: { noun: "totem", label: "story pole", emoji: "🗿", r: 0.4, cost: { stick: 3, stone: 1 }, work: 12, desc: "ideas carved in wood. smols who study it learn what the tribe knows, even after the inventors are gone." },
     school: { noun: "totem", label: "school", emoji: "🏫", r: 1.2, cost: { stick: 8, stone: 3, fiber: 2 }, work: 22, desc: "a roof, a slate and a circle of kids. kids nearby pick up the tribe's words and ideas twice as fast." },
+    lootchest: { noun: "wonder", label: "chest", emoji: "🧰", r: 0.45, cost: {}, work: 1, desc: "left behind. open it with a smol's own paws." }, // 4.33: nobody builds these (loot.js puts them down)
     grave: { noun: "wonder", label: "grave", emoji: "🪦", r: 0.35, cost: {}, work: 1, desc: "where a smol rests. friends come here to remember." },
     wall: { noun: "shelter", label: "palisade", emoji: "🪵", r: 0.9, cost: { stick: 4 }, work: 7, desc: "pointy sticks in a row. grumps don't like walking through it." },
     kiln: { noun: "fire", label: "kiln", emoji: "🏺", r: 0.8, cost: { stone: 4, clay: 2 }, work: 14, desc: "a hot clay oven. fires pots and smelts ore into copper." },

@@ -184,7 +184,7 @@
     "#pov .bag h3 small{color:#f5f3ed;opacity:.6;font-weight:600;font-size:12px}",
     "#pov .bag .grid{display:grid;grid-template-columns:repeat(9,48px);gap:4px;padding:2px}",
     "#pov .bag .sep{height:10px}#pov .bag .lbl{font:600 11px var(--mono,monospace);opacity:.6;margin:2px 0 4px}",
-    "#pov .bag .tabs{display:flex;gap:4px;margin-bottom:8px}",
+    "#pov .bag .tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}#pov .bag .tabs button.ico{padding:6px 7px;font-size:16px;line-height:1}",
     "#pov .bag .tabs button,#pov .bag .btn{font:700 13px var(--mono,monospace);padding:7px 11px;border:0;background:rgba(255,255,255,.08);color:#f5f3ed;cursor:pointer;box-shadow:0 0 0 2px var(--px)}",
     "#pov .bag .tabs button.on{background:var(--lime);color:#101114}",
     "#pov .bag .btn.go{background:var(--lime);color:#101114}#pov .bag .btn[disabled]{background:#3a3346;color:#8a8496;cursor:default}",
@@ -621,8 +621,9 @@
     html += "</div>";
     if (bag.detail >= 0 && v.s[bag.detail]) html += detailHtml(v.s[bag.detail], bag.detail);
     html += (c.tier >= 2 && Sv().cap(c) ? "<div class='help'>a basket adds 9 slots, and a chest at home holds 12 more</div>" : "") + "</div>";
-    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + (SB.Home && c.tier >= 2 ? "<button data-tab='home' class='" + (bag.tab === "home" ? "on" : "") + "'>🏠 home</button>" : "") + "</div>";
-    html += bag.tab === "build" ? buildHtml() : bag.tab === "home" && SB.Home ? SB.Home.html(s.game, c, icon) : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
+    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + (SB.Home && c.tier >= 2 ? "<button data-tab='home' class='" + (bag.tab === "home" ? "on" : "") + "'>🏠 home</button>" : "") + (SB.Loot && (bag.tab === "trade" || SB.Loot.partner(s.game, c)) ? "<button data-tab='trade' class='" + (bag.tab === "trade" ? "on" : "") + "'>" + SB.Loot.moneyIcon(s.game) + " trade</button>" : "") + (SB.Ext ? SB.Ext.shownTabs(s.game, c).map(function (t) { return "<button data-tab='" + t.id + "' class='" + (bag.tab === t.id ? "on" : "") + "'>" + (typeof t.label === "function" ? t.label(s.game, c) : t.label) + "</button>"; }).join("") : "") + "</div>";
+    var xt = SB.Ext ? SB.Ext.tabById(bag.tab) : null;
+    html += xt ? xt.html(s.game, c, icon) : bag.tab === "build" ? buildHtml() : bag.tab === "trade" && SB.Loot ? SB.Loot.html(s.game, c, icon) : bag.tab === "home" && SB.Home ? SB.Home.html(s.game, c, icon) : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
     html += "<div style='display:flex;justify-content:flex-end;margin-top:10px'><button class='btn' data-close>close " + (hud.phone ? "" : "(Tab)") + "</button></div></div></div>";
     bag.el.innerHTML = html;
     wireBag();
@@ -723,9 +724,13 @@
   function wireBag() {
     var root = bag.el, s = S(), c = s.c;
     root.querySelectorAll("[data-tab]").forEach(function (b) { b.addEventListener("click", function () { bag.tab = b.getAttribute("data-tab"); drawBag(); }); });
+    // 4.33: twelve tabs in words filled four rows. The one you are on keeps its name; the rest are their icon (the name is the tooltip)
+    root.querySelectorAll(".tabs button[data-tab]").forEach(function (b) { var tx = (b.textContent || "").trim(), sp = tx.indexOf(" "); if (sp > 0) { b.title = tx.slice(sp + 1); if (!b.classList.contains("on")) { b.textContent = tx.slice(0, sp); b.classList.add("ico"); } } });
     var cl = root.querySelector("[data-close]"); if (cl) cl.addEventListener("click", closeBag);
     if (SB.Wilds) SB.Wilds.wire(root, s.game, drawBag);
     if (SB.Home) SB.Home.wire(root, s.game, c, drawBag, HUD.say);
+    if (SB.Loot) SB.Loot.wire(root, s.game, c, drawBag, HUD.say);
+    var xw = SB.Ext ? SB.Ext.tabById(bag.tab) : null; if (xw && xw.wire) xw.wire(root, s.game, c, drawBag, HUD.say);
     root.querySelectorAll("[data-make]").forEach(function (b) { b.addEventListener("click", function () { P().craft(b.getAttribute("data-make")); drawBag(); }); });
     root.querySelectorAll("[data-build]").forEach(function (b) { b.addEventListener("click", function () { P().startBuild(b.getAttribute("data-build")); }); });
     var cb = root.querySelector("[data-combine]");
@@ -845,7 +850,10 @@
     vrow("warm", warm, cold > 0.35 ? "cold" : "warm", warm < 0.3);
     vrow("pep", s.stam, "pep", s.stam < 0.2);
     if (SB.Body) {
-      var bd = SB.Body.of(c), sts = SB.Body.status(c, game).concat(SB.Wilds ? SB.Wilds.chips(game, c, s) : []), sk = sts.map(function (x) { return x.k + x.label; }).join("|");
+      var bd = SB.Body.of(c), sts = SB.Body.status(c, game).concat(SB.Wilds ? SB.Wilds.chips(game, c, s) : []);
+      if (SB.Loot && SB.Loot.hp(c)) sts.push({ k: "hp", e: "💗", label: "+" + SB.Loot.hp(c), tip: "a bigger heart: every hurt costs less" });
+      if (SB.Ext) SB.Ext.vitals(game, c).forEach(function (v, vi) { sts.push({ k: "x" + vi, e: v.icon || "", label: v.text, bad: !!v.bad, tip: v.tip || "" }); });
+      var sk = sts.map(function (x) { return x.k + x.label; }).join("|");
       vrow("water", 1 - bd.thirst, "water", bd.thirst > 0.72);
       if (sk !== hud.statKey) { hud.statKey = sk; hud.stat.innerHTML = sts.filter(function (x) { return x.k !== "thirst"; }).map(function (x) { return "<span class='" + (x.bad ? "bad" : "good") + "' title='" + esc(x.tip) + "'>" + x.e + " " + x.label + "</span>"; }).join(""); }
     } else hud.rows.water.el.style.display = "none";
@@ -1021,6 +1029,7 @@
         if (k === "tab" || k === "i" || k === "c") { e.preventDefault(); HUD.openBag(); return; }
         if (k === "b") { e.preventDefault(); HUD.openBag("build"); return; }
         if (bag) return;
+        if (!e.repeat && SB.Ext && SB.Ext.key(s.game, s.c, k, true, e)) { e.preventDefault(); return; } // 4.33: plug-ins may take a key
         keys[k] = true;
         if (k >= "1" && k <= "9") { P().select(+k - 1); return; }
         if (k === " ") { P().input.jump = true; e.preventDefault(); }
@@ -1032,7 +1041,7 @@
         else if (k === "g") P().sniff();
         if (k.indexOf("arrow") === 0) e.preventDefault();
       },
-      keyup: function (e) { keys[e.key.toLowerCase()] = false; },
+      keyup: function (e) { keys[e.key.toLowerCase()] = false; var su = S(); if (su && !su.dead && SB.Ext) SB.Ext.key(su.game, su.c, e.key.toLowerCase(), false, e); },
       blur: function () { keys = {}; P().input.use = false; blurAt = performance.now(); },
       down: function (e) {
         var s = S();
