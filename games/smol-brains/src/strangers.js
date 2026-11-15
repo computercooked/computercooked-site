@@ -70,6 +70,9 @@
     game.creatures.forEach(function (c) {
       var s = c.stranger;
       if (!c.alive || !s) return;
+      // 4.37: a traveller carries its own food. only a guest eats with the tribe; the ones waiting at the edge, passing
+      // through, leaving or living wild were starving a few steps from the village
+      if (s.state !== "guest" && c.chem && c.chem.hunger > 0.8 && !c._pov) c.chem.hunger = 0.8;
       // nobody answered: a band of a few, or one with nobody left to pair up, takes them in anyway. 4.22: so does a tribe
       // that is short of couples and well under its room (a town left alone used to send every newcomer away, then
       // dwindle to cousins who couldn't marry)

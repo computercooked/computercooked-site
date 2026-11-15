@@ -56,6 +56,7 @@ if(game.strangerT==null)game.strangerT=360;
 game.creatures.forEach(function(c){
 var s=c.stranger;
 if(!c.alive||!s)return;
+if(s.state!=="guest"&&c.chem&&c.chem.hunger>0.8&&!c._pov)c.chem.hunger=0.8;
 if(s.state==="waiting"&&game.time-s.t>WAIT)ST.decide(game,c,all.length<8||ST.breedablePairs(game)===0||ST.shortOfCouples(game,all.length),true);
 if((s.state==="leaving"&&(game.time-s.t>70||SB.dist(c.x,c.z,s.x0,s.z0)<3))||(s.state==="passing"&&(game.time-s.t>160||SB.dist(c.x,c.z,s.x1,s.z1)<3))){c.alive=false;c.gone=true;c.dying=false;}
 if(s.state==="guest"&&game.time>s.until)ST.guestOut(game,c);

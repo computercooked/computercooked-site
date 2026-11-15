@@ -244,6 +244,7 @@ if(!b)return out;
 ["food","drink"].forEach(function(slot){var x=b[slot];if(x&&x.until>t&&H.BUFFS[x.k])out.push({slot:slot,k:x.k,id:x.id,left:x.until-t,def:H.BUFFS[x.k]});});
 return out;
 };
+function luck3(c,game){return SB.Minds&&SB.Minds.luck&&c?0.1*SB.Minds.luck(c,game):0;}
 H.has=function(c,k,game){var b=c&&c.buff,t=game.time||0;return!!(b&&((b.food&&b.food.k===k&&b.food.until>t)||(b.drink&&b.drink.k===k&&b.drink.until>t)));};
 H.giveBuff=function(game,c,k,secs,slot,id){
 if(!H.BUFFS[k]||!c)return null;
@@ -720,7 +721,7 @@ H.forage=function(game,c,n){
 if(!H.canForage(game,n))return{ok:false,msg:"you've looked here today"};
 if(SB.dist(c.x,c.z,n.x,n.z)>4.5)return{ok:false,msg:"get closer"};
 dug(game).ids[n.id]=1;
-var se=season(game),r=rnd(game,"fg"+n.id+":"+day(game)),s=st(game),lucky=H.has(c,"lucky",game)?0.15:0,got=null;
+var se=season(game),r=rnd(game,"fg"+n.id+":"+day(game)),s=st(game),lucky=(H.has(c,"lucky",game)?0.15:0)+luck3(c,game),got=null;
 var fl=bonus(c,"forage");
 H.FORAGE.forEach(function(f){if(!got&&f.s===se&&f.nodes.indexOf(n.kind)>=0&&r()<f.p+lucky+fl*0.4)got=f.id;});
 if(!got&&H.SEED_NODE[n.kind]&&r()<0.4+lucky+fl*0.4)got=H.SEED_NODE[n.kind];
@@ -1639,7 +1640,7 @@ if(cr.biome&&cr.biome.indexOf(biomeId(game,b.x,b.z))<0)return cr.label+" only gr
 return"";
 };
 function forage2(game,c,n){
-var b=biomeId(game,n.x,n.z),r=rnd(game,"fg2"+n.id+":"+day(game)),got=null,lucky=H.has(c,"lucky",game)||H.worn(c,"shellcharm")?0.12:0;
+var b=biomeId(game,n.x,n.z),r=rnd(game,"fg2"+n.id+":"+day(game)),got=null,lucky=(H.has(c,"lucky",game)||H.worn(c,"shellcharm")?0.12:0)+luck3(c,game);
 H.FORAGE2.forEach(function(f){if(got||f.nodes.indexOf(n.kind)<0||(f.b&&f.b.indexOf(b)<0)||(f.need&&!f.need(game))||!K[f.id])return;if(r()<f.p+lucky)got=f.id;});
 return got;
 }

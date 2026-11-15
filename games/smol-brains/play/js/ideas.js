@@ -487,6 +487,11 @@ I.chooseBuild=function(c,game){
 if(c.tier<2)return null;
 var world=game.world;
 var sites=world.structures.filter(function(s){return!s.done&&s.tribe===c.tribe&&SB.dist(s.x,s.z,c.x,c.z)<40;});
+var held=I.inv(c,game),hs,hi;
+for(hs=0;hs<sites.length&&held.length;hs++)for(hi=0;hi<held.length;hi++){
+var hk=Object.keys(sites[hs].need).filter(function(k){return sites[hs].need[k]>0&&matches(held[hi].kind,k);})[0];
+if(hk&&I.forStruct[sites[hs].kind])return{idea:I.forStruct[sites[hs].kind],kind:"build",site:sites[hs].id,steps:[{do:"deliver",site:sites[hs].id}],i:0,t:0,fails:0};
+}
 var mine=sites.filter(function(s){var id=I.forStruct[s.kind];return id&&(I.known(c,id)||(s.kind==="spire"&&c.tier>=6)||(BY[id]&&BY[id].civ&&c.tier>=4)||((s.kind==="hut"||(s.data&&s.data.wrecked))&&c.tier>=4));});
 if(mine.length){
 mine.sort(function(a,b){return SB.dist2(a.x,a.z,c.x,c.z)-SB.dist2(b.x,b.z,c.x,c.z);});

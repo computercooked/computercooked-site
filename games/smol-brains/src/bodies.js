@@ -71,9 +71,10 @@
 
   var colCache = {};
   function lookCols(c) {
-    var lk = c.look, key = c.id + ":" + lk.hue + ":" + lk.hue2 + ":" + c.tier;
+    var lk = c.look, key = c.id + ":" + lk.hue + ":" + lk.hue2 + ":" + c.tier + (c.vessel === "ghost" ? ":g" : "");
     if (c._cols && c._colKey === key) return c._cols;
     var body = SB.hsl(lk.hue, lk.sat / 100, lk.light / 100);
+    if (c.vessel === "ghost") body = SB.mixC(body, [0.86, 0.94, 1], 0.7); // 4.37: a ghost (helpers3.js) is pale
     var second = SB.hsl(lk.hue2, Math.min(1, lk.sat / 100 + 0.1), Math.min(0.85, lk.light / 100 + 0.12));
     var belly = SB.mixC(body, [1, 0.97, 0.92], 0.55);
     var dark = SB.mixC(body, [0.1, 0.08, 0.12], 0.45);
@@ -156,6 +157,7 @@
     }
     // body
     part("p:body", 0, cy, 0, 0, 0, 0, sxz, sy, sxz * 0.96, cols.body, ext);
+    if (c.carrying != null) part("p:ball", 0, cy - 0.16 * sy, 0.36, 0, 0, 0, 0.8 * sxz, 0.78 * sy, 0.74, cols.belly, ext); // 4.37: a mother carrying her egg (helpers3.js) shows it
     // belly / spots / stripes
     if (lk.pattern === 1) part("p:ball", 0, cy - 0.12 * sy, 0.32, 0, 0, 0, 0.72 * sxz, 0.72 * sy, 0.66, cols.belly, ext);
     else if (lk.pattern === 2) {

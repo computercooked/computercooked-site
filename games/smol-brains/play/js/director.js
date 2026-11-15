@@ -539,13 +539,13 @@ if(!s)return D.end(game,inc,false);
 if(s.done)return D.end(game,inc,true);
 var party=inc.party.map(function(id){return SB.Game.byId(game,id);}).filter(function(c){return c&&c.alive;});
 if(!party.length||game.time-inc.t1>inc.dur)return D.end(game,inc,false);
-party.forEach(function(c){if(SB.dist(c.x,c.z,s.x,s.z)>2.2&&(!c.action||!c.action.called))SB.Creature.sendTo(c,s.x,s.z,game,90);});
+party.forEach(function(c){if(SB.dist(c.x,c.z,s.x,s.z)>2.2&&(!c.action||!c.action.called))(SB.Creature.sendSoft||SB.Creature.sendTo)(c,s.x,s.z,game,90);});
 var there=party.filter(function(c){return SB.dist(c.x,c.z,s.x,s.z)<2.6;});
 if(there.length){inc.res=SB.Sites.openPod(game,s,null,party);return D.end(game,inc,true);}
 },
 finish:function(game,inc,ok){
 var hm=home(game),res=inc.res;
-(inc.party||[]).forEach(function(id){var c=SB.Game.byId(game,id);if(c&&c.alive)SB.Creature.sendTo(c,hm.x,hm.z,game,60);});
+(inc.party||[]).forEach(function(id){var c=SB.Game.byId(game,id);if(c&&c.alive)(SB.Creature.sendSoft||SB.Creature.sendTo)(c,hm.x,hm.z,game,60);});
 if(inc.choice==="later")return"";
 if(!ok){var s=game.sites[inc.site];if(s&&!s.done){s.asked=true;s.againT=game.time+90;}return inc.party&&inc.party.length?"the rescue party couldn't reach the pod. it's still out there.":"nobody's fit to go right now. try again in a bit.";}
 if(!res)return"";

@@ -731,7 +731,8 @@ button.chipbtn:active { transform: translateY(2px); }
    (these rules are written with "body" in front so they win over the ones povhud.js adds at run time) */
 body #pov .panel { background: linear-gradient(180deg, rgba(49, 40, 76, 0.9) 0, rgba(28, 22, 44, 0.9) 40px, rgba(22, 18, 34, 0.9) 100%); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 1px var(--hair), inset 0 2px 0 1px rgba(255, 255, 255, 0.06), 0 7px 0 rgba(0, 0, 0, 0.3); }
 body #pov .bag { background: radial-gradient(ellipse at 50% 45%, rgba(12, 9, 22, 0.45) 0, rgba(6, 4, 12, 0.82) 100%); animation: fade 0.15s ease-out; }
-body #pov .bag .win.panel { background: linear-gradient(180deg, rgba(49, 40, 76, 0.98) 0, rgba(31, 25, 48, 0.98) 46px, rgba(24, 19, 38, 0.98) 100%); animation: modalin 0.18s steps(4); }
+body #pov .bag .win.panel { background: linear-gradient(180deg, rgba(49, 40, 76, 0.98) 0, rgba(31, 25, 48, 0.98) 46px, rgba(24, 19, 38, 0.98) 100%); }
+body #pov .bag.fresh .win.panel { animation: modalin 0.18s steps(4); }
 body #pov .bag h3 { text-shadow: 0 2px 0 var(--ink); padding-bottom: 8px; box-shadow: inset 0 -2px 0 var(--hair); }
 body #pov .bag .tabs { gap: 6px; margin-bottom: 10px; }
 body #pov .bag .tabs button, body #pov .bag .btn { background: var(--key); box-shadow: 0 0 0 2px var(--ink), inset 0 -3px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, 0.09); padding: 7px 11px 9px; transition: transform 0.06s steps(2), background 0.12s; }
