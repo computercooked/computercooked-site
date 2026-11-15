@@ -833,7 +833,7 @@ else out += "<div class='help'>🔒 level " + at + ": pick a style (" + F.STYLES
 F.SNEAK_PERKS.forEach(function (p) { out += "<div class='help'>" + (lv(c, "hunt") >= p.lv ? "✓ " : "🔒 hunting " + p.lv + ": ") + "<b>" + esc(p.name) + "</b> · " + esc(p.text) + "</div>"; });
 out += F.html2(game, c, icon);
 if (c.tier >= 2) {
-out += "<div class='lbl'>make</div>" + row(F.GROUPS.map(function (gp) { return btn("fgrp", gp[0], gp[1], tabG === gp[0]); }).join("")) + "<div class='rlist'>";
+out += "<div class='lbl'>make</div>" + row(F.GROUPS.filter(function (gp) { return !SB.Wear || (gp[0] !== "wear" && gp[0] !== "charms"); }).map(function (gp) { return btn("fgrp", gp[0], gp[1], tabG === gp[0]); }).join("")) + "<div class='rlist'>";
 F.RECIPES.forEach(function (rc) {
 if ((rc.g || "weapons") !== tabG || c.tier < rc.tier || !K[rc.out]) return;
 var miss = lacks(c, rc.cost);
@@ -1963,10 +1963,10 @@ for (var i = 0; i < v.s.length; i++) {
 var sl = v.s[i];
 if (!sl || seen[sl.k]) continue;
 seen[sl.k] = 1;
-if (F.GEAR[sl.k]) wear += btn("fwear", sl.k, (F.isWorn(c, sl.k) ? "✓ " : "") + esc(lab(sl.k)), F.isWorn(c, sl.k));
+if (F.GEAR[sl.k] && !SB.Wear) wear += btn("fwear", sl.k, (F.isWorn(c, sl.k) ? "✓ " : "") + esc(lab(sl.k)), F.isWorn(c, sl.k));
 if (F.OFFOK[sl.k] && c.tier >= 2 && (i !== v.sel || sl.n > 1)) offs += btn("foff", sl.k, (F.off(c) === sl.k ? "✓ " : "") + esc(lab(sl.k)), F.off(c) === sl.k);
 }
-if (wear) {
+if (wear || (SB.Wear && SB.Wear.on(c).length)) {
 var th = F.gearSum(c, "thorns");
 out += "<div class='lbl'>wear · armour " + pct(F.armour(game, c)) + "</div>" + row(wear) + help(set ? "✓ the whole " + set + " set, <b>" + esc(F.SETS[set].name) + "</b>: " + esc(F.SETS[set].text) + ". its move: " + esc(F.SETS[set].moveText) : "a hat, a cloak or vest, and boots. three of one kind (fur, bark, copper) is a set, with a bonus and a move" + (th ? ". your cloak pricks whatever bites you" : ""));
 }

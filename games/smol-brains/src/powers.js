@@ -3129,6 +3129,7 @@
     if (p.tabs.length) out += "<p class='help'>" + p.tabs.length + " carved tablet" + (p.tabs.length > 1 ? "s" : "") + ": " + esc(p.tabs.map(function (t) { return PW.IMB[t.id] ? PW.IMB[t.id].name : "?"; }).join(", ")) + ".</p>";
     out += "</div>";
     [["wear", "things to wear"], ["part", "parts a healer fits"], ["magic", "odds and ends"]].forEach(function (g) {
+      if (g[0] === "wear" && SB.Wear) return;
       out += lbl(g[1]) + "<div class='rlist'>";
       PW.RECIPES2.forEach(function (r) {
         if (r.group !== g[0] || !K()[r.id]) return;
