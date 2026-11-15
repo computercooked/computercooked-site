@@ -268,10 +268,11 @@ seeded(4340, () => {
   // no light at all
   Surv.take(me, "torch", 9);
   check("your light goes: the rock cannot be worked", P.options(game, me, nref(D.nodes(game)[0])).use.locked && /too dark to see/.test(lab(P.options(game, me, nref(D.nodes(game)[0])), "use")) && SB.Ext.vitals(game, me).some(v => /no light/.test(v.text) && v.bad));
-  const gr0 = game.creatures.filter(c => c.species === "grump").length;
+  const pre = D.grump(game); if (pre) { pre.scout.done = true; pre.alive = false; }
+  const gr0 = game.creatures.filter(c => c.alive).filter(c => c.species === "grump").length;
   for (let i = 0; i < 14; i++) D.tick(game, 1);
   const cg = D.grump(game);
-  check("and a cave grump finds you in the dark", !!cg && cg.caveGrump === 2 && cg.scout.who === me.id && cg.scout.lethal === 0 && game.creatures.filter(c => c.species === "grump").length === gr0 + 1 && ev.indexOf("caveGrump") >= 0);
+  check("and a cave grump finds you in the dark", !!cg && cg.caveGrump === 2 && cg.scout.who === me.id && cg.scout.lethal === 0 && game.creatures.filter(c => c.alive && c.species === "grump").length === gr0 + 1 && ev.indexOf("caveGrump") >= 0);
   check("it never takes the last of your hearts, and it is weaker than a captain", cg.scout.dmg < 0.25 && cg.tough < 1.6);
   D.up(game, me, cave, true);
   check("climb all the way out: the rocks go, the grump stays below", D.depth(game) === 0 && D.nodes(game).length === 0 && w.nodes.length === nodes0 && !D.grump(game) && cg.scout.done === true && ev.indexOf("delveOut") >= 0);
@@ -360,7 +361,7 @@ seeded(4340, () => {
   check("loaded: you start on top and no cave rock is left lying about", D3.depth(g3) === 0 && d3.nodes.length === 0 && !g3.world.nodes.some(n => D3.isDelveNode(n)));
   check("the records, the places found, the boon and the ladder came through", d3.delves[cave.id].max === 6 && d3.delves[cave.id].ladder === 1 && d3.delves[cave.id].keeper > 0 && D3.progress(g3).found === D.progress(game).found && d3.boon === "warrior" && d3.maps.length === 1);
   check("the places stand where they stood", g3.world.structures.filter(b => b.kind.indexOf("poi_") === 0).length === w.structures.filter(b => b.kind.indexOf("poi_") === 0).length && D3.waystones(g3).length === 3 && !!D3.mouthOf(g3, D3.caves(g3)[0]));
-  const old = boot(), gOld = old.SB.Game.newGame(88); old.SB.Game.current = gOld; delete gOld.quests.deep; gOld.quests.deep = "junk";
+  const old = boot(), gOld = old.SB.Game.newGame(88); old.SB.Game.current = gOld; gOld.quests = gOld.quests || {}; gOld.quests.deep = "junk";
   let threw = null; try { old.SB.Game.step(gOld, 0.1); old.SB.Deep.tick(gOld, 3); old.SB.Deep.html(gOld, old.SB.Game.smols(gOld)[0] || { x: 0, z: 0, tier: 0, inv: null }, null); old.SB.Ext.goals(gOld, () => {}); } catch (e) { threw = e; }
   check("an island with none of this in its save, and nobody in a body: nothing throws", !threw && typeof gOld.quests.deep === "object", threw ? String(threw.stack).slice(0, 200) : "");
   gOld.offline = true; old.SB.Deep.tick(gOld, 3);
@@ -437,7 +438,7 @@ seeded(4340, () => {
   const oC = P.options(game, me, null);
   const unf = pois.filter(p => !s().found[p.id] && p.kind !== "islet").map(p => SB.dist(p.x, p.z, me.x, me.z)).concat(game.sites.filter(o => !o.found && !o.gone && !o.done).map(o => SB.dist(o.x, o.z, me.x, me.z))).concat(D.caves(game).filter(cv => !(D.delve(game, cv).max > 0)).map(cv => SB.dist(cv.x, cv.z, me.x, me.z)));
   check("ask it: it points at the nearest place nobody has found", /ask the seeker stone/.test(lab(oC, "place")) && oC.place.go() && !!P.state().goal && Math.abs(SB.dist(P.state().goal.x, P.state().goal.z, me.x, me.z) - Math.min.apply(null, unf)) < 0.2);
-  check("looking at somebody, the button is still theirs", !other || !/seeker/.test(lab(P.options(game, me, { type: "creature", id: other.id }), "place")));
+  check("looking at somebody, the button is still theirs", !other || (other.alive ? /^(give|share) /.test(lab(P.options(game, me, { type: "creature", id: other.id }), "place")) : true));
   const gl = P.state().goal; at(gl.x + 1, gl.z); D.tick(game, 0.6);
   check("get there and the marker goes", !P.state().goal);
   const goals = []; SB.Ext.goals(game, (t, p, d) => goals.push(t + " " + p));

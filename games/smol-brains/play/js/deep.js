@@ -978,7 +978,7 @@
       }
       // standing on a map's X
       var m = D.mapHere(game, c);
-      if (m) { var dg = has(c, "shovel") ? x.op("dig for the treasure", go(function () { return D.digMap(game, c); }, "achievement"), null) : x.no("the X is right here. you need a digging stick"); o.pick = dg; if (!o.use) o.use = dg; }
+      if (m) { var dg = has(c, "shovel") ? x.op("dig for the treasure", go(function () { return D.digMap(game, c); }, "achievement"), null) : x.no("the X is right here. you need a digging stick"); o.pick = dg; if (!r) o.use = dg; }
     });
     SB.Ext.on("damage", function (game) { return st(game).boon === "warrior" ? 1.25 : 1; });
     SB.Ext.on("vitals", function (game, c) {
