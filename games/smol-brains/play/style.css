@@ -206,6 +206,12 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .minechip .tx i.bad { color: var(--pink); } .minechip .tx i.hearts, .hearts { color: #ff7aa8; letter-spacing: 1px; font-style: normal; }
 .minechip .in { width: 34px; height: auto; flex: none; }
 .goals .head.today { color: var(--lime); }
+.goals.min { padding: 6px 10px; cursor: pointer; } .goals .g.one { padding: 0; font-weight: 700; color: #fff; } .goals .g.one .r { color: var(--dim); } /* 4.32: folded, the goals list is one line */
+.tutpt { position: absolute; display: none; transform: translate(-50%, -100%); font: 900 30px/1 system-ui, Arial, sans-serif; color: var(--lime); text-shadow: 0 0 0 #000, 2px 2px 0 #000, -2px 2px 0 #000, 0 0 14px rgba(197, 255, 73, 0.9); pointer-events: none; z-index: 5; animation: tutpt 0.7s ease-in-out infinite; }
+.tutpt.on { display: block; } .tutpt.off { opacity: 0.6; } @keyframes tutpt { 0%, 100% { margin-top: 0; } 50% { margin-top: -12px; } }
+#ui:has(.coach) .minechip { display: none; } /* the coach speaks alone */
+#ui.hasmodal .tutpt { display: none; }
+.coach { min-height: 0; } /* 4.32: the steps are short now */
 .goals .g.big { color: #fff; font-weight: 700; padding: 2px 0 6px; margin-bottom: 5px; border-bottom: 2px solid rgba(197, 255, 73, 0.35); align-items: flex-start; }
 .btn.on { border-color: var(--lime); color: var(--lime); }
 @media (max-width: 700px) { .minechip { bottom: calc(84px + var(--sab)); left: calc(108px + var(--sal)); max-width: 170px; } .minechip .tx i.hearts { display: none; } }
