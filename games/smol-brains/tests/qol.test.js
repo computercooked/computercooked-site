@@ -175,6 +175,7 @@ seeded(4350, () => {
   check("a thing on the ground", Q.search(game, "honey", me).some(h => h.what === "on the ground" && h.d <= 5));
   check("a grump, by what it is", (() => { const g = SB.Game.spawnGrump(game, me.x + 12, me.z); const r = Q.search(game, "grump", me).some(h => h.ref === g && h.what === "a grump"); g.alive = false; g.gone = true; game.creatures.splice(game.creatures.indexOf(g), 1); return r; })());
   check("in the sky, a hit can be followed", (() => { Q.ui.q = "honey"; Q.ui.page = "smols"; const h = Q.html(game, null, null); Q.ui.q = ""; return /data-qol='follow'/.test(h) && Q.follow(null) === false; })());
+  check("following works for animals too (they are things, not creatures)", (() => { let got = null; SB.Input = { follow(o) { got = o; } }; P.active = false; const it = { x: 3, z: 4, gone: false }; const ok = Q.follow(it); P.active = true; delete SB.Input; const a = got && got.alive === true && got.x === 3; it.gone = true; return ok && a && got.alive === false; })());
   check("your own pin", Q.search(game, "best tree", me).some(h => h.what === "your pin"));
   Q.typed(game, me, "q", null, "honey");
   check("the page lists the hits with a button each", /data-qol='found'/.test(html("smols")) && /honey/.test(html("smols")));

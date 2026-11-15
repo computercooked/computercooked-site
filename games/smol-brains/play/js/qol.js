@@ -475,7 +475,7 @@
     return { ok: true, msg: c.name + " now works like " + clip.name };
   };
   Q.rulesText = function (c) { if (!SB.Orders) return ""; var out = []; SB.Orders.PRIO.forEach(function (p) { var v = c.prio && c.prio[p[0]] || 0; if (v) out.push(p[1] + (v > 0 ? "▲" : "▼")); }); return out.length ? out.join(" ") : "no rules"; };
-  Q.follow = function (o) { if (o && SB.Input && SB.Input.follow && !(P() && P().active)) { try { SB.Input.follow(o); if (SB.UI && SB.UI.modalOpen && SB.UI.closeModal) SB.UI.closeModal(); return true; } catch (e) {} } return false; };
+  Q.follow = function (o) { if (o && SB.Input && SB.Input.follow && !(P() && P().active)) { try { SB.Input.follow(o.alive === undefined ? Object.defineProperties({}, { alive: { get: function () { return !o.gone; } }, x: { get: function () { return o.x; } }, z: { get: function () { return o.z; } } }) : o); if (SB.UI && SB.UI.modalOpen && SB.UI.closeModal) SB.UI.closeModal(); return true; } catch (e) {} } return false; };
 
   /* ================= the island ================= */
   Q.calendar = function (game) {
