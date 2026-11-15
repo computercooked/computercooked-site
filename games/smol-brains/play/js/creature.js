@@ -580,6 +580,7 @@ return true;
 };
 C.sendTo=function(c,x,z,game,dur){
 if(!c.alive||c.heldBy)return false;
+if(c.species==="smol"&&!c._pov&&c.chem.hunger>C.HUNGRY_AWAKE)return false;
 if(c.plan&&SB.Ideas)C.dropPlan(c,game);
 c.asleep=false;c.inBed=false;
 startAction(c,game,V.wander,null,null,null);
@@ -854,6 +855,7 @@ return;
 a.doT+=dt;
 switch(a.verb){
 case V.wander:
+if(a.called&&c.species==="smol"&&!c._pov&&c.chem.hunger>C.HUNGRY_AWAKE){finish(c,game);return;}
 if(walkToward(c,a.tx,a.tz,dt,speedOf(c,a)*(a.called?1:0.8),game,a.called?1.2:0.3)){
 if(a.called){startAction(c,game,V.idle,null,null,null);c.action.dur=3;emote(c,"happy",1.5);return;}
 a.doT=a.dur;

@@ -659,6 +659,9 @@
   // walk somewhere on the god's say-so (everyone home!, a search party): drops whatever the brain was doing
   C.sendTo = function (c, x, z, game, dur) {
     if (!c.alive || c.heldBy) return false;
+    // 4.36: a hungry smol eats first. funerals, story events and calls home kept pulling starving smols off their food
+    // a step from it, again and again, until they died, and each death called another funeral
+    if (c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) return false;
     if (c.plan && SB.Ideas) C.dropPlan(c, game);
     c.asleep = false; c.inBed = false;
     startAction(c, game, V.wander, null, null, null);
@@ -966,6 +969,7 @@
     a.doT += dt;
     switch (a.verb) {
       case V.wander:
+        if (a.called && c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) { finish(c, game); return; } // 4.36: called, but too hungry now: eat first
         if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * (a.called ? 1 : 0.8), game, a.called ? 1.2 : 0.3)) {
           if (a.called) { startAction(c, game, V.idle, null, null, null); c.action.dur = 3; emote(c, "happy", 1.5); return; } // here! waits to see what you want
           a.doT = a.dur;
