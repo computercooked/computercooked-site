@@ -43,6 +43,37 @@ return(g[a]*(1-tx)+g[a+1]*tx)*(1-tz)+(g[a+res+1]*(1-tx)+g[a+res+2]*tx)*tz;
 var ARCHS=["classic","volcano","twin","crescent","mesa","delta","lakes","fjord"];
 WG.ARCHS=ARCHS;
 WG.ARCH_NAMES={classic:"one big island",volcano:"volcano island",twin:"twin islands",crescent:"crescent bay",mesa:"mesa country",delta:"river delta",lakes:"lake district",fjord:"fjord coast"};
+WG.ARCH_NAMES.islet="one small islet";
+SB.WORLD_CHOICES.peaks.none={mtn:0.02};
+var NK=SB.NODES;
+NK.redshrub={noun:"plant",label:"red shrub",emoji:"🍁",r:0.4,drops:"berry",every:70,desc:"a low red shrub of the maple woods. berries hide under the leaves."};
+NK.shelfcap={noun:"mushroom",label:"shelf mushrooms",emoji:"🍄",r:0.35,drops:"shroom",every:140,desc:"flat brown caps stacked up an old stump."};
+NK.glowstone={noun:"stone",label:"glow-stone",emoji:"🔆",r:0.5,nop:1,glow:1,desc:"a humming stone. step up to it in a body and it hops you to its twin."};
+NK.iceberg={noun:"stone",label:"iceberg",emoji:"🧊",r:1.2,nop:1,desc:"sea ice, drifting by in winter."};
+WG.ARR_ID0=3e7;
+var Bn=function(s){var o={};s.split(" ").forEach(function(k){o[B[k]]=1;});return o;};
+WG.SITES={woods:Bn("forest maple blossom taiga bamboo"),shore:Bn("beach mangrove"),dunes:Bn("desert savanna mesa"),snow:Bn("tundra taiga"),jungle:Bn("jungle bamboo swamp"),far:Bn("meadow forest flowers blossom maple savanna taiga tundra desert jungle beach mesa bamboo swamp")};
+function vale(h,seed,feat){
+var r=SB.rng((seed*211+17)>>>0),R=12,m=36,DD=[[1,0],[-1,0],[0,1],[0,-1]];
+for(var t=0;t<600;t++){
+var cx=m+r.int(N-2*m),cz=m+r.int(N-2*m),b=h[cz*V+cx];
+if(b<1.2||b>7||Math.hypot(cx-N/2,cz-N/2)<N*0.14)continue;
+var fl=b+4,dir=null,lo=fl-1;
+DD.forEach(function(d){var o=h[(cz+d[1]*(R+4))*V+cx+d[0]*(R+4)];if(o<lo&&o>0.3){lo=o;dir=d;}});
+if(!dir)continue;
+for(var dj=-R-3;dj<=R+3;dj++)for(var di=-R-3;di<=R+3;di++){
+var d=Math.hypot(di,dj),k=(cz+dj)*V+cx+di;
+if(d>R+3)continue;
+if(d<=R-5)h[k]=fl;
+else if(d<=R-2)h[k]=fl+(d-R+5)*3.2;
+else if(d<=R-1)h[k]=fl+9.6;
+else h[k]=Math.max(h[k],h[k]+(fl+9.6-h[k])*(1-(d-R+1)/4));
+}
+for(var q=R-6;q<=R+3;q++)h[(cz+dir[1]*q)*V+cx+dir[0]*q]=fl-0.04*(q-R+7);
+feat.vale={x:cx,z:cz,r:R-5};
+return;
+}
+}
 function segDist(px,pz,ax,az,bx,bz){
 var vx=bx-ax,vz=bz-az,t=((px-ax)*vx+(pz-az)*vz)/(vx*vx+vz*vz);
 t=t<0?0:t>1?1:t;
@@ -74,13 +105,14 @@ else if(arch==="crescent"){
 var gd=Math.abs(SB.angDiff(ang,gapA));
 d=Math.abs(rr-0.29)*5.2+0.2+SB.smooth(1-gd/0.75)*1.1;
 }
+else if(arch==="islet")d=rr*5.2;
 d+=warp*0.2+big*0.12+(arch==="classic"||arch==="volcano"||arch==="mesa"?Math.sin(ang*shape.lobes+shape.lobeA)*0.07:0);
 if(fjF){var mk0=SB.smooth((1.02-d)/0.42);if(mk0>0.1&&mk0<0.97){var fv=fjF(x,z);if(fv>0.7)d+=(fv-0.7)/0.3*1.1*(1.05-mk0);}}
 var mask=SB.smooth((1.02-d)/0.42)*shape.land;
 var e=fbm(nA,x*4.2*T2+shape.ox,z*4.2*T2+shape.oz,oct,2.05,0.5);
 var ridge=1-Math.abs(ridgeF(x,z)*1.4);ridge*=ridge;
 var mtnMask=SB.smooth((mtnF(x,z)+0.05+shape.tilt*(x-0.5))/0.4);
-var mtn=shape.mtn*(arch==="delta"?0.45:arch==="mesa"?0.6:1);
+var mtn=shape.mtn*(arch==="delta"||arch==="islet"?0.45:arch==="mesa"?0.6:1);
 var hh=(mask-0.42)*15+e*5*shape.rough+ridge*mtnMask*mask*17*mtn;
 if(hh>0.4&&hh<6)hh=0.4+(hh-0.4)*(arch==="delta"?0.5:0.72);
 if(arch==="volcano"){
@@ -94,10 +126,11 @@ hh=1.2+(Math.floor(v)+SB.smooth((f-0.72)/0.24))*st;
 var cv=canF(x,z);if(cv<0.06)hh-=(1-cv/0.06)*Math.min(5,hh-0.6);
 }
 if(lakeF&&mask>0.75){var lv=lakeF(x,z);if(lv>0.32)hh-=(lv-0.32)*14;}
+if(feat.flat&&hh>0.4)hh=0.4+(hh-0.4)*0.05;
 if(hh<-7)hh=-7+(hh+7)*0.3;
 h[j*V2+i]=hh;
 }
-var nStacks=Math.round(10*K*K);
+var nStacks=feat.flat?0:Math.round(10*K*K);
 for(var s=0,tries=0;s<nStacks&&tries<nStacks*60;tries++){
 var si=14+ra.int(Nn-28),sj=14+ra.int(Nn-28),hv=h[sj*V2+si];
 if(hv>-0.6||hv<-3.2)continue;
@@ -149,7 +182,9 @@ tilt:r.range(-0.25,0.25),lobes:r.int(3)+2,lobeA:r.range(0,6.28)
 var WO=SB.WORLD_OPTS||{};
 shape.land*=WO.land||1;shape.mtn*=WO.mtn||1;
 var G2=(WO.gv||1)>=2,arch=null,feat={};
-if(G2){arch=ARCHS.indexOf(WO.arch)>=0?WO.arch:ARCHS[SB.rng((seed*131+71)>>>0).int(ARCHS.length)];}
+var RW=WO.w||{};
+if(G2){arch=ARCHS.indexOf(WO.arch)>=0||WO.arch==="islet"?WO.arch:ARCHS[SB.rng((seed*131+71)>>>0).int(ARCHS.length)];}
+feat.flat=RW.peaks==="none";
 if(G2)heights2(h,seed,shape,arch,feat,nA,nB,nC,nD,nP);
 else{
 var warpF=coarse(function(x,z){return fbm(nC,x*3*K+shape.ox,z*3*K+shape.oz,3,2,0.5);},KR(64));
@@ -177,6 +212,19 @@ for(j=0;j<V;j++)for(i=0;i<V;i++){
 var edge=Math.min(i,j,N-i,N-j);
 if(edge<10)h[j*V+i]=Math.min(h[j*V+i],-1.5-(10-edge)*0.45);
 }
+var edits=Array.isArray(RW.edits)?RW.edits.slice(0,24):[];
+edits.forEach(function(e){
+var ex=SB.clamp(Math.round(e[1]*N),16,N-16),ez=SB.clamp(Math.round(e[2]*N),16,N-16),hill=e[0]==="hill",R=hill?10:6;
+if(!hill&&e[0]!=="lake")return;
+var base=Math.max(0.6,h[ez*V+ex]);
+for(var dj=-R;dj<=R;dj++)for(var di=-R;di<=R;di++){
+var f=SB.smooth(1-Math.hypot(di,dj)/R),kk=(ez+dj)*V+ex+di;
+if(f<=0)continue;
+h[kk]=hill?Math.max(h[kk],0.5)+f*8:Math.min(h[kk],base+0.2-f*3.4);
+}
+if(!hill)for(dj=-R-1;dj<=R+1;dj++)for(di=-R-1;di<=R+1;di++){var d2=Math.hypot(di,dj);if(d2>R-0.5&&d2<=R+1.5){kk=(ez+dj)*V+ex+di;h[kk]=Math.max(h[kk],base+0.2);}}
+});
+if(G2&&RW.vale)vale(h,seed,feat);
 var F=new Float32Array(V*V),done=new Uint8Array(V*V),heap=new Heap(V*V);
 for(j=0;j<V;j++)for(i=0;i<V;i++){
 if(i===0||j===0||i===N||j===N){k=j*V+i;F[k]=h[k];done[k]=1;heap.push(F[k],k);}
@@ -340,6 +388,7 @@ var bm;
 if(G2){
 bm=biome2(th,tt,mm,slope[t],W[a]===SB.SEA,oceanDist[a],varF(x,z),specF(x,z),reefF(x,z),feat,i,j);
 if(bm===B.ash)temp[t]=SB.clamp01(tt+0.14);
+if(feat.vale&&Math.hypot(i+0.5-feat.vale.x,j+0.5-feat.vale.z)<feat.vale.r+0.5)bm=B.crystal;
 biome[t]=bm;
 continue;
 }
@@ -363,6 +412,8 @@ seed:seed,N:N,V:V,h:h,W:W,NONE:NONE,river:river,acc:acc,wdist:wdist,oceanDist:oc
 biome:biome,temp:temp,moist:moist,slope:slope,tileH:tileH,warmSouth:warmSouth,
 nodes:[],decor:null,caves:[],spawn:null,gv:G2?2:1,arch:arch||"classic",volcano:feat.volcano||null
 };
+if(feat.vale)terrain.vale=feat.vale;
+terrain._rw={site:WG.SITES[RW.site]?RW.site:null,pod:Array.isArray(RW.pod)?RW.pod:null,edits:edits};
 placeNodes(terrain,r,nP);
 terrain.decor=null;
 terrain.genMs=Date.now()-t0;
@@ -504,13 +555,22 @@ if(!ok||!free(x,z,1.5))continue;
 caves.push(add("cave",x,z,1));
 }
 T.caves=caves;
-var best=null,bestS=-1e9;
-for(k=0;k<4000;k++){
+var best=null,bestS=-1e9,rw=T._rw||{},site=rw.site?WG.SITES[rw.site]:null,far=rw.site==="far";
+if(rw.pod){
+var ux=SB.clamp(rw.pod[0]*Nn,30,Nn-30),uz=SB.clamp(rw.pod[1]*Nn,30,Nn-30);
+for(var ur=0;ur<Nn/2&&!best;ur+=1.5)for(var ua=0;ua<16&&!best;ua++){
+var vx=ux+Math.cos(ua*0.3927)*ur,vz=uz+Math.sin(ua*0.3927)*ur,vt=(vz|0)*Nn+(vx|0);
+if(vx>30&&vz>30&&vx<Nn-30&&vz<Nn-30&&WG.walkable(T,vx,vz)&&WG.depthAt(T,vx,vz)===0&&T.slope[vt]<0.8&&T.biome[vt]!==B.ocean)best={x:vx,z:vz};
+}
+}
+for(k=0;k<4000&&!rw.pod;k++){
 x=30+r()*(Nn-60);z=30+r()*(Nn-60);
 var t4=(z|0)*Nn+(x|0),a4=(z|0)*T.V+(x|0),bm4=T.biome[t4];
-if(bm4!==B.meadow&&bm4!==B.forest&&bm4!==B.flowers&&bm4!==B.blossom&&bm4!==B.maple)continue;
+if(site?!site[bm4]:bm4!==B.meadow&&bm4!==B.forest&&bm4!==B.flowers&&bm4!==B.blossom&&bm4!==B.maple)continue;
 if(T.slope[t4]>0.6||WG.depthAt(T,x,z)>0)continue;
 var sc=0;
+if(far){var cn=1e9;for(c=0;c<caves.length;c++)cn=Math.min(cn,SB.dist(x,z,caves[c].x,caves[c].z));sc+=SB.dist(x,z,Nn/2,Nn/2)*0.4+(cn<14?-40:cn<45?(45-cn)*0.8:-cn*0.1);}
+if(site&&!far)sc+=Math.abs(T.temp[t4]-0.55)*20;
 sc-=Math.abs(T.wdist[a4]-7)*0.6;
 sc-=Math.abs(T.temp[t4]-0.55)*20;
 sc-=SB.dist(x,z,Nn/2,Nn/2)*0.05;
@@ -606,6 +666,38 @@ nodes.push(cnode);mark(qx,qz,SB.NODES.crystals.r*cnode.s);
 if(!cn)T._cry={x:qx,z:qz};
 cn++;
 }
+}
+var r4=SB.rng((T.seed*71+9973)>>>0),aid=WG.ARR_ID0;
+T.extra=[];
+function add4(kind,x,z,s){var n={id:aid++,kind:kind,x:x,z:z,s:s||1,rot:r4()*6.283,seed:(r4()*1e9)|0};(kind==="oak"?nodes:T.extra).push(n);mark(x,z,SB.NODES[kind].r*n.s);return n;}
+for(var mj=3;mj<Nn-3;mj+=2)for(var mi=3;mi<Nn-3;mi+=2){
+if(T.biome[mj*Nn+mi]!==B.maple)continue;
+var mx=mi+r4()*2,mz=mj+r4()*2,mt=(mz|0)*Nn+(mx|0),mp=r4();
+if(mp>0.06||T.biome[mt]!==B.maple||T.slope[mt]>1.6||WG.depthAt(T,mx,mz)>0.02||T.wdist[(mz|0)*T.V+(mx|0)]<1.5||!free(mx,mz,0.8))continue;
+add4(mp<0.038?"redshrub":"shelfcap",mx,mz,r4.range(0.85,1.15));
+}
+T.ice=[];
+for(k=0;k<900*KK*KK&&T.ice.length<12*KK*KK;k++){
+x=14+r4()*(Nn-28);z=14+r4()*(Nn-28);
+if(T.biome[(z|0)*Nn+(x|0)]!==B.ocean||Math.abs(WG.heightAt(T,x,z)+2)>0.2)continue;
+if(T.ice.some(function(o){return SB.dist2(o.x,o.z,x,z)<196;}))continue;
+var berg=add4("iceberg",x,z,1);berg.state="gone";T.ice.push(berg);
+}
+(rw.edits||[]).forEach(function(e){
+if(e[0]!=="grove")return;
+for(var gt=0,gn=0;gt<60&&gn<10;gt++){
+var ga=r4()*6.283,gd=r4()*7,gx=SB.clamp(e[1]*Nn+Math.cos(ga)*gd,4,Nn-4),gz=SB.clamp(e[2]*Nn+Math.sin(ga)*gd,4,Nn-4);
+if(WG.walkable(T,gx,gz)&&WG.depthAt(T,gx,gz)===0&&free(gx,gz,1)&&SB.dist2(gx,gz,best.x,best.z)>9){add4("oak",gx,gz,r4.range(0.8,1.2));gn++;}
+}
+});
+if(T.vale){
+var va=T.vale,vo=null;
+add4("glowstone",va.x+0.5,va.z+0.5,1);
+for(k=0;k<400&&!vo;k++){
+var wa=r4()*6.283,wd=r4.range(19,34),wx=va.x+Math.cos(wa)*wd,wz=va.z+Math.sin(wa)*wd;
+if(wx>6&&wz>6&&wx<Nn-6&&wz<Nn-6&&WG.walkable(T,wx,wz)&&WG.depthAt(T,wx,wz)===0&&T.slope[(wz|0)*Nn+(wx|0)]<1)vo=add4("glowstone",wx,wz,1);
+}
+if(!vo)add4("glowstone",best.x+4,best.z+3,1);
 }
 }
 WG.CRYSTAL_ID0=2e7;

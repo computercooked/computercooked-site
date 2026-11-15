@@ -786,7 +786,8 @@ if(tr.length)out.push("🎭 "+tr.map(esc).join(", "));
 var fam=game.family||{},f=fam[c.id];
 var ps=(c.parents||(f&&f.parents)||[]).map(function(id){var p=SB.Game.byId(game,id)||fam[id];return p&&p.name;}).filter(Boolean);
 out.push(ps.length?"👪 child of "+ps.map(esc).join(" & "):c.gen>1?"👪 parents unknown":"🥚 one of the first");
-if(c.stranger)out.push("🧳 a stranger");
+if(c.stranger)out.push(c.stranger.state==="guest"?"🛏 a guest, here a few days":c.stranger.state==="passing"?"🚶 "+esc(c.stranger.trait):"🧳 a stranger");
+if(c.came&&SB.Strangers&&SB.Strangers.cond(c.came))out.push(SB.Strangers.cond(c.came).icon+" came as "+SB.Strangers.cond(c.came).name);
 if(SB.Social){
 var rel=SB.Social.relations(game,c),best=rel.filter(function(r){return r.v>=25&&r.label!=="partner";})[0],foe=rel.filter(function(r){return r.v<=-25;}).sort(function(a,b){return a.v-b.v;})[0];
 var nm=function(r){var o=r.c||SB.Game.byId(game,r.id);return o&&o.name;};
@@ -868,12 +869,13 @@ var open=WD.unlocked(game,b),sh=WD.share(game,b.w),known=sh>=0.5;
 var card=h("button",{class:"word"+(open?"":" locked")+(state.teach===b.w?" on":"")+(known?" known":""),title:open?WD.how(b.w)+(b.call?". once they know it: "+b.call:""):"unlocks at "+SB.TIERS[b.tier].name,
 onclick:function(){if(!open){toast("“"+b.w+"” unlocks when you have a "+SB.TIERS[b.tier].icon+" "+SB.TIERS[b.tier].name);return;}state.teach=state.teach===b.w?null:b.w;updateTalk(true);}},[
 h("span",{class:"wi"},open?WD.icon(b.w):"🔒"),
-h("span",{class:"ww"},open?b.w:"?"),
+h("span",{class:"ww"},open?(WD.label?WD.label(game,b.w):b.w):"?"),
 h("span",{class:"wb"},[h("i",{style:"width:"+Math.round(WD.progress(game,b.w)*100)+"%"})])
 ]);
 if(open&&b.call&&sh>0)card.appendChild(h("span",{class:"call",title:"call: "+b.call,onclick:function(e){e.stopPropagation();callWord(b.w);}},"📣"));
 el.talkWords.appendChild(card);
 });
+if(!el.talkType&&WD.mount&&SB.Render&&el.talkWords.parentNode){el.talkType=h("div");el.talkWords.parentNode.appendChild(el.talkType);WD.mount(el.talkType,game,SB.Render.camera,toast);}
 var t=state.teach;
 var tc=state.talkTarget&&state.talkTarget.alive?state.talkTarget:null,tv=tc&&t?Math.min(1,tc.vocab[t]||0):0;
 el.talkInfo.innerHTML=(tc&&t?"<b>"+esc(tc.name)+"</b>: "+(tv>=1?"knows “"+esc(t)+"”! ✔":Math.round(tv*100)+"% of the way to “"+esc(t)+"”")+"<br>":"")+(t?"teaching <b class='lime'>“"+esc(t)+"”</b>: "+esc(WD.how(t))+(WD.byWord[t].call?". <span class='dim'>when they know it, 📣 "+esc(WD.byWord[t].call)+".</span>":""):
@@ -1244,7 +1246,7 @@ if(!force)return;
 el.sheet.dataset.kind="inspect";el.sheet.dataset.id="";
 clear(el.sheet);
 var ref=hit.ref,def,emoji,label,desc,extra="";
-if(hit.type==="item"){def=SB.KINDS[ref.kind];emoji=def.emoji;label=def.label;desc=def.desc;if(ref.data.rotten)extra="it's gone bad. smols who eat it get sick.";if(ref.kind==="egg")extra="hatching: "+Math.round((ref.data.progress||0)*100)+"%"+(ref.data.genome?" · gen "+ref.data.gen+" · "+SB.TIERS[SB.Genome.tierOf(ref.data.genome)].name:"")+(ref.data.blessed?" · blessed 🧬":"");}
+if(hit.type==="item"){def=SB.KINDS[ref.kind];emoji=def.emoji;label=def.label;desc=def.desc;if(ref.data.rotten)extra="it's gone bad. smols who eat it get sick.";if(ref.kind==="egg")extra="hatching: "+Math.round((ref.data.progress||0)*100)+"%"+(ref.data.genome?" · gen "+ref.data.gen+" · "+SB.TIERS[SB.Genome.tierOf(ref.data.genome)].name:"")+(ref.data.blessed?" · blessed 🧬":"")+(SB.Helpers3&&SB.Helpers3.eggLine&&SB.Helpers3.eggLine(game,ref)?" · "+SB.Helpers3.eggLine(game,ref):"");if(ref.data&&ref.data.gol!=null&&SB.Helpers3&&SB.Helpers3.line)extra=SB.Helpers3.line(game,SB.Helpers3.byItem(game,ref))||extra;}
 else if(hit.type==="node"){def=SB.NODES[ref.kind];emoji=def.emoji;label=def.label;desc=def.desc;if(ref.state==="burning")extra="it's on fire!";if(ref.state==="stump")extra="chopped. it'll grow back.";if(ref.state==="burnt")extra="burnt. it'll grow back, slowly.";}
 else if(hit.type==="struct"){
 def=SB.STRUCTS[ref.kind];emoji=def.emoji;label=def.label;desc=def.desc;
@@ -1600,6 +1602,9 @@ body.appendChild(h("div",{class:"sec"},"bring a smol in"));
 var imp=h("input",{type:"text",placeholder:"paste a SMOL code",style:"width:100%"});
 body.appendChild(imp);
 body.appendChild(h("div",{class:"btnrow"},[h("button",{class:"btn",onclick:function(){importSmol(imp.value);}},"🌌 bring it in")]));
+body.appendChild(h("p",{class:"note"},SB.Strangers.gate(game)?"it steps out of your 🌀 sky gate and waits there to be welcomed.":"it walks in from the edge as a stranger and waits to be welcomed. (a 🌀 sky gate brings it straight to the village: in a body, look at the nest holding 4 stone and 1 crystal.)"));
+var others=SB.Save.worlds().filter(function(m){return m.id!==(game.wid||"legacy")&&m.pop>0&&!SB.Strangers.state(game).merged[m.id];}).slice(0,4);
+if(others.length)body.appendChild(h("div",{class:"btnrow"},others.map(function(m){return h("button",{class:"btn",title:"up to six of its smols come here, with their family tree. that island stays as it is",onclick:function(){SB.Save.loadWorld(m.id).then(function(d){var r=SB.Strangers.merge(game,d);toast(esc(r.msg));if(r.ok)closeModal();});}},"🌀 call the smols of "+m.name);})));
 }
 function confirmNew(seed){
 var body=h("div",null,[h("p",null,"make world "+SB.worldCode(seed)+"? this island is saved and waits for you under 📂 load game. you'll pick a name, a size and the world settings next."),h("div",{class:"btnrow"},[h("button",{class:"btn go",onclick:function(){closeModal();newWorld(seed);}},"🌱 create world"),h("button",{class:"btn",onclick:closeModal},"cancel")])]);
@@ -1619,14 +1624,12 @@ function importSmol(code){
 try{
 var d=SB.Save.importSmol(code);
 if(SB.Collect&&d.key&&SB.Collect.seenImport(game,d.key,d.oid)){toast("🌌 "+esc(d.name)+" is already on this island. each smol can only come in once.");return;}
-var sp=SB.Society.home(game,0);
-var c=SB.Game.spawnSmol(game,{genome:d.genome,name:d.name,gen:d.gen,vocab:d.vocab,ideas:d.ideas,age:d.age,x:sp.x+1,z:sp.z+1,brain:d.brain?SB.Brain.deserialize(d.brain,d.genome,game.rng):null,how:"import"});
+closeModal();
+var c=SB.Strangers.land(game,d);
 if(SB.Collect&&d.key){if(d.oid)c.oid=d.oid;SB.Collect.markImport(game,d.key);}
 game.stats.imported++;
 SB.Game.unlock(game,"import");
-closeModal();SB.Game.select(game,c.id);R.flyTo(c.x,c.z,7,1);
-var ci=SB.Collect&&SB.Collect.info(c);
-moment("🌌",c.name+" arrived!",ci&&ci.tier>=2?"a "+ci.rarity.name+" smol from somewhere else ("+ci.rarest.name+")":"a smol from somewhere else","lilac");
+SB.Game.select(game,c.id);
 }catch(e){toast(e&&e.tampered?"that smol code has been changed or mistyped, so it won't work 🔒":"that's not a smol code 🤔");}
 }
 function shareSmol(c){
@@ -1663,7 +1666,7 @@ if(SB.Audio&&SB.Audio.sliders)body.appendChild(SB.Audio.sliders());
 if(np)body.appendChild(h("div",{class:"btnrow"},[h("button",{class:"btn",onclick:function(){MU.skip();setTimeout(function(){openMenu("settings");},300);}},"⏭ next song")]));
 var allSongs=MU.all?MU.all():MU.SONGS,nHeard=allSongs.filter(function(s){return MU.heard(s.id);}).length;
 body.appendChild(h("p",{class:"note",html:(np?"now playing: <b class='lime'>"+np.title+"</b>. ":"")+"you've heard "+nHeard+" of "+allSongs.length+" songs. some only play in one season, at night, in the rain, from inside a smol, or once the smols get clever."}));
-(MU.ALBUMS||[{id:1,title:"songs for small minds",songs:MU.SONGS}]).forEach(function(al){
+(MU.ALBUMS||[{id:1,title:"songs for small minds",songs:MU.SONGS}]).concat(MU.PLACES?[{id:3,title:"songs of the map",songs:MU.PLACES}]:[]).forEach(function(al){
 body.appendChild(h("div",{class:"sec"},[h("span",null,"album "+al.id+" · "+al.title),h("span",{class:"dim"},al.songs.filter(function(s){return MU.heard(s.id);}).length+"/"+al.songs.length)]));
 body.appendChild(h("div",{class:"jukebox"},al.songs.map(function(s,i){
 var got=MU.heard(s.id);
@@ -2075,14 +2078,15 @@ function strangerCard(c){
 if(!c.alive||!c.stranger||c.stranger.state!=="waiting")return;
 if(el.modal||(SB.Possess&&SB.Possess.active)){setTimeout(function(){strangerCard(c);},3000);return;}
 autoFly(c.x,c.z,6,1.0);
-var t=SB.TIERS[c.tier],s=c.stranger,idea=s.brings&&SB.Ideas.BY_ID[s.brings];
+var t=SB.TIERS[c.tier],s=c.stranger,idea=s.brings&&SB.Ideas.BY_ID[s.brings],guest=s.kind==="guest"&&!s.asked,role=s.role&&SB.Strangers.cond(s.role);
 var lines=[
 h("div",{class:"row"},[avatar(c.look,c.tier),h("div",{style:"flex:1;min-width:0"},[h("div",{class:"nm"},(c.sex==="f"?"♀ ":"♂ ")+c.name),h("div",{class:"sub2",html:'<span class="tierpill" style="color:'+t.color+'">'+t.icon+" "+t.name+"</span> · "+esc(s.trait)})])]),
-h("p",null,"a survivor from another escape pod has been living wild. now "+(c.sex==="f"?"she":"he")+"'s at the edge of your village, waiting."),
+h("p",null,s.imported?"a smol "+esc(s.trait)+(s.gate?" has stepped out of the sky gate":" has walked in from the edge")+", and waits to be let in.":guest?"a traveller, worn out. "+(c.sex==="f"?"she":"he")+" isn't looking for a tribe, only a few days' rest by your fire.":role?role.name+" "+role.why+", and has walked a long way to offer "+(c.sex==="f"?"her":"his")+" paws.":s.asked?"your guest liked it here, and asks to stay for good.":"a survivor from another escape pod has been living wild. now "+(c.sex==="f"?"she":"he")+"'s at the edge of your village, waiting."),
+s.look?h("p",{class:"note"},"look closer: "+s.look+"."):null,
 idea?h("p",{html:"they know something your smols don't: <b class='lime'>"+idea.icon+" "+esc(idea.name)+"</b>."}):null,
 h("p",{class:"note"},"not related to anyone in your tribe, so they could start a family. "+(s.trait==="grumpy"?"a bit grumpy, though.":s.trait==="hungry"?"they look hungry: one more mouth to feed.":"")),
 h("div",{class:"btnrow"},[
-h("button",{class:"btn go",onclick:function(){closeModal();SB.Strangers.decide(game,c,true);}},"🏠 welcome them"),
+h("button",{class:"btn go",onclick:function(){closeModal();SB.Strangers.decide(game,c,true);}},guest?"🛏 let them stay a few days":"🏠 welcome them"),
 h("button",{class:"btn",onclick:function(){closeModal();SB.Strangers.decide(game,c,false);}},"send them away")
 ])
 ];
@@ -2453,6 +2457,7 @@ storyCard("grave","🕯","goodbye, "+esc(d.c.name),["when a smol dies, its body 
 "friends and family grieve for a while: they get lonely and slow, and visit the place. a tickle comforts them. the 📜 chronicle in the menu remembers everyone."]);
 });
 on("stranger",function(d){setTimeout(function(){strangerCard(d.c);},400);});
+on("unmasked",function(d){toast("🎭 "+esc(d.c.name)+" was a grump in a smol suit!","bad",5000,d.g);});
 on("podCrash",function(d){podQ.push(d.site);if(podQ.length===1)setTimeout(nextPod,300);});
 on("funeral",function(d){
 var how={river:"carrying "+(d.n>1?"them":"the body")+" to the water",pyre:"gathering for a pyre",burial:"digging a grave",cairn:"piling stones"}[d.rite];

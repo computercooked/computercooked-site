@@ -154,6 +154,39 @@ B:{ch:"4 1 5 6",mel:"6 . 4 . 1' . 6 . | 5 . 3 . 1 . 3 . | 2 . 5 . 7 . 2' . | 1' 
 M.ALBUM2=ALBUM2;
 M.ALBUMS=[{id:1,title:"songs for small minds",songs:SONGS},{id:2,title:"the long way home",songs:ALBUM2}];
 function ALL(){return SONGS.concat(ALBUM2);}
+var PLACES=[
+{id:"marketmorning",title:"market morning",place:"town",root:67,scale:"major",bpm:104,bar:8,lead:"whistle",lead2:"kalimba",acc:"bounce",accI:"pluck",perc:1,tags:["place"],
+A:{ch:"1 4 5 1",mel:"1 . 3 5 6 . 5 . | 4 . 6 1' 6 . 4 . | 5 . 7 2' 7 . 5 . | 3 . 5 3 1 . . ."},
+B:{ch:"6 4 1 5",mel:"6 . 1' 6 3 . 6 . | 4 . 6 4 1 . 4 . | 3 . 5 1' 5 . 3 . | 2 . 5 . 7 . 2' ."}},
+{id:"undertheleaves",title:"under the leaves",place:"woods",root:62,scale:"dorian",bpm:78,bar:8,lead:"flute",lead2:"kalimba",acc:"arp",accI:"kalimba",strings:1,tags:["place"],
+A:{ch:"1 4 7 1",mel:"1 . . 3 5 . 4 . | 6 . . 4 1' . 6 . | 7 . 5 . 2 . 4 . | 5 . . . 1 . . ."},
+B:{ch:"3 7 4 1",mel:"5 . 7 . 3' . 7 . | 2' . 7 . 4 . 7 . | 6 . 4 . 1' . 6 . | 5 . . 3 1 . - ."}},
+{id:"lowtide",title:"low tide",place:"sea",root:60,scale:"lydian",bpm:66,bar:8,lead:"glass",lead2:"whistle",acc:"harp",accI:"glass",strings:1,tags:["place"],
+A:{ch:"1 2 1 5",mel:"5 . . . 3 . . 1 | 6 . . . 4 . . 2 | 5 . . 3 1' . . . | 7 . . . 5 . . ."},
+B:{ch:"6 2 5 1",mel:"1' . . 6 . . 3 . | 2' . . 6 . . 4 . | 7 . . 5 . . 2 . | 1 . . . . . . ."}},
+{id:"longshadows",title:"long shadows",place:"sand",root:57,scale:"phrygian",bpm:72,bar:8,lead:"cello",lead2:"pluck",acc:"pulse",accI:"pluck",tags:["place"],
+A:{ch:"1 2 1 7",mel:"1 . 2 1 . . 5 . | 2 . 4 2 . . 6 . | 1 . 3 5 . 4 3 . | 2 . . . 7, . . ."},
+B:{ch:"4 3 2 1",mel:"4 . 6 . 1' . 6 . | 3 . 5 . 7 . 5 . | 2 . 4 . 6 . 4 . | 1 . . . . . . ."}},
+{id:"whitequiet",title:"white quiet",place:"cold",root:64,scale:"minor",bpm:60,bar:8,lead:"box",lead2:"choir",acc:"drone",accI:"glass",strings:1,tags:["place"],
+A:{ch:"1 6 3 7",mel:"5 . . . 3 . . . | 6 . . . 1' . . . | 7 . . 5 3 . . . | 2 . . . . . . ."},
+B:{ch:"4 1 6 5",mel:"4 . . 6 1' . . . | 3 . . 5 1' . . . | 6 . . 1' 3' . . . | 2' . . . 7 . . ."}},
+{id:"frogchorus",title:"frog chorus",place:"wet",root:55,scale:"mixo",bpm:92,bar:8,lead:"marimba",lead2:"whistle",acc:"bounce",accI:"marimba",perc:1,tags:["place"],
+A:{ch:"1 7 1 4",mel:"1 . 1 3 5 . 3 . | 7, . 2 4 2 . 7, . | 1 . 3 5 1' . 5 . | 6 . 4 . 1 . . ."},
+B:{ch:"4 1 7 1",mel:"6 . 6 4 1 . 4 . | 5 . 5 3 1 . 3 . | 4 . 2 . 7, . 2 . | 1 . . . 5, . . ."}},
+{id:"glowcaps",title:"glowcaps",place:"odd",root:62,scale:"lydian",bpm:70,bar:8,lead:"bell",lead2:"glass",acc:"roll",accI:"kalimba",bellTop:1,tags:["place"],
+A:{ch:"1 2 6 1",mel:"3 . . 5 . . 1' . | 2' . . 6 . . 4 . | 1' . . 6 . . 3 . | 5 . . . . . . ."},
+B:{ch:"2 6 2 5",mel:"6 . 2' . 6 . 4 . | 3 . 6 . 1' . 6 . | 4 . 6 . 2' . 4' . | 5' . . . 2' . . ."}},
+{id:"clover",title:"clover",place:"field",root:65,scale:"major",bpm:88,bar:8,lead:"flute",lead2:"piano",acc:"strum",accI:"pluck",tags:["place"],
+A:{ch:"1 5 4 1",mel:"3 . 5 . 1' . 5 . | 2 . 5 . 7 . 5 . | 6 . 4 . 1' . 6 . | 5 . 3 . 1 . . ."},
+B:{ch:"4 1 2 5",mel:"6 . . 5 4 . 1' . | 5 . . 3 1 . 3 . | 2 . 4 . 6 . 4 . | 5 . . . 2 . . ."}}
+];
+M.PLACES=PLACES;
+M.placeOf=function(game,x,z){
+var A=SB.Audio;
+if(!A||!A.bedOf||!game||!game.world)return null;
+if(x==null){var at=A.listener(game);if(!at)return null;x=at.x;z=at.z;}
+return{bed:A.bedOf(game,x,z),town:(game.villages||[]).some(function(v){return SB.dist(v.x,v.z,x,z)<24;})};
+};
 M.all=ALL;
 var CUES=[
 {id:"arkfight",title:"the ark falls",root:69,scale:"minor",bpm:148,bar:8,lead:"synth",lead2:"brass",acc:"drive",accI:"pluck",drums:1,strings:1,
@@ -471,12 +504,14 @@ if(song.needRain&&rain<0.25)return false;
 if(tags.indexOf("late")>=0&&!((game.stats&&game.stats.maxTier)>=5))return false;
 if(tags.indexOf("jukebox")>=0)return false;
 if(tags.indexOf("deep")>=0&&!(SB.Possess&&SB.Possess.active))return false;
+if(song.place){var pl=M.placeOf(game);if(!pl||(song.place==="town"?!pl.town:pl.town||pl.bed!==song.place))return false;}
 return true;
 }
+M.fits=fits;
 function pick(game){
 var w=game&&game.world,rain=w&&w.weather?w.weather.rain||0:0;
-var pool=ALL().filter(function(s){return fits(s,game)&&recent.indexOf(s.id)<0;});
-if(!pool.length)pool=ALL().filter(function(s){return fits(s,game);});
+var all=ALL().concat(PLACES),pool=all.filter(function(s){return fits(s,game)&&recent.indexOf(s.id)<0;});
+if(!pool.length)pool=all.filter(function(s){return fits(s,game);});
 if(!pool.length)return null;
 var tot=0,wts=pool.map(function(s){
 var k=1;
@@ -484,6 +519,7 @@ if(s.tags.some(function(x){return SB.SEASONS.indexOf(x)>=0;}))k*=2.5;
 if(s.tags.indexOf("rain")>=0&&rain>0.25)k*=3;
 if(s.tags.indexOf("grief")>=0&&(game.playTime||0)-griefT<240)k*=8;
 if(s.tags.indexOf("title")>=0)k*=0.5;
+if(s.place)k*=s.place==="town"?8:5;
 tot+=k;return k;
 });
 var r=Math.random()*tot;
@@ -575,7 +611,7 @@ sc.ev.forEach(function(e){INST[e.i](e.t+0.05,hz(e.m),e.d,e.v,out);});
 return sc.dur;
 };
 M._fits=fits;M._pick=pick;M._grief=function(t){griefT=t;};
-M.byId=function(id){var all=SONGS.concat(ALBUM2,CUES);for(var i=0;i<all.length;i++)if(all[i].id===id)return all[i];return null;};
+M.byId=function(id){var all=SONGS.concat(ALBUM2,CUES,PLACES);for(var i=0;i<all.length;i++)if(all[i].id===id)return all[i];return null;};
 M.play=function(id,opts){
 var s=M.byId(id);
 if(!s)return;

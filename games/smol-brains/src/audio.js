@@ -276,34 +276,90 @@
     if (!out.length) out.push({ v: "a", hard: false });
     return { syl: out, ask: /\?\s*$/.test(s), excl: /!\s*$/.test(s) };
   }
-  A.voice = function (text, pitch) {
+  // 4.36: a syllable set for each tier and age. A blob only has round "o" and "u" sounds, a critter adds "a", a
+  // tool-user "e", and from the tribe on a smol has every vowel plus clicks on its hard consonants; thinkers and
+  // the ascended sing a second voice a fifth up. Babies babble two slow sounds; elders talk slower and trail off.
+  A.voiceSet = function (who) {
+    if (!who || who.tier == null) return null;
+    var t = who.tier, st = who.stage, slow = t <= 0 || st >= 4;
+    var s = { vowels: t <= 0 ? "ou" : t === 1 ? "aou" : t === 2 ? "aeou" : "aeiouy", max: t <= 0 ? 3 : t <= 2 ? 6 : 10, step: slow ? 0.11 : 0.085, len: slow ? 0.09 : 0.068,
+      type: t <= 0 ? "sine" : "triangle", clicks: t >= 3, choir: t >= 5, end: st >= 4 ? 0.9 : 1 };
+    if (st === 0) { s.vowels = "au"; s.max = 3; s.step = 0.13; s.len = 0.11; s.end = 1.12; s.clicks = s.choir = false; }
+    return s;
+  };
+  // what a line will sound like: [{v, hard, f, at, len}] (before the little random wobble each syllable gets)
+  A.voicePlan = function (text, pitch, who) {
+    pitch = pitch == null ? 0.5 : pitch;
+    var grump = pitch < 0, set = grump ? null : A.voiceSet(who);
+    var base = grump ? 95 + (pitch + 1) * 60 : 300 + Math.max(0, Math.min(1, pitch)) * 500;
+    var info = syllables(text), syl = info.syl, step = grump ? 0.12 : set ? set.step : 0.085, len = grump ? 0.1 : set ? set.len : 0.068, out = [];
+    for (var i = 0; i < syl.length && (!set || i < set.max); i++) {
+      var v = syl[i].v, last = i === syl.length - 1 || (set && i === set.max - 1);
+      if (set && set.vowels.indexOf(v) < 0) v = set.vowels.charAt("aeiouy".indexOf(v) % set.vowels.length);
+      var f = base * (VOWEL[v] || VOWEL.a)[0];
+      if (last && info.ask) f *= 1.3; else if (last && info.excl) f *= 1.15; else if (last) f *= 0.92;
+      out.push({ v: v, hard: syl[i].hard, f: f, at: i * step, len: len });
+    }
+    return { syl: out, step: step, set: set, grump: grump };
+  };
+  A.voice = function (text, pitch, who) {
     if (!live()) return;
     var t = T();
     prune(voiceEnds);
     if (voiceEnds.length >= MAX_VOICES || t - lastVoice < 0.12) return;
     lastVoice = t;
-    pitch = pitch == null ? 0.5 : pitch;
-    var grump = pitch < 0;
-    var base = grump ? 95 + (pitch + 1) * 60 : 300 + Math.max(0, Math.min(1, pitch)) * 500;
-    var info = syllables(text), syl = info.syl, step = grump ? 0.12 : 0.085, len = grump ? 0.1 : 0.068;
+    var plan = A.voicePlan(text, pitch, who), syl = plan.syl, step = plan.step, grump = plan.grump, set = plan.set;
     for (var i = 0; i < syl.length; i++) {
-      var sv = VOWEL[syl[i].v] || VOWEL.a, last = i === syl.length - 1;
-      var f = base * sv[0] * (0.94 + Math.random() * 0.12);
-      if (last && info.ask) f *= 1.3; else if (last && info.excl) f *= 1.15; else if (last) f *= 0.92;
-      var at = i * step;
+      var sv = VOWEL[syl[i].v] || VOWEL.a, len = syl[i].len;
+      var f = syl[i].f * (0.94 + Math.random() * 0.12);
+      var at = syl[i].at;
       if (grump) {
         tone(f, len, { delay: at, to: f * 0.85, vol: 0.2, type: "sawtooth", filter: "lowpass", ff: sv[1] * 0.6, q: 3, bus: voiceBus });
         noise(len, { delay: at, ff: 300, q: 2, vol: 0.06, bus: voiceBus });
       } else {
-        tone(f, len, { delay: at, to: f * (syl[i].hard ? 0.9 : 1.04), vol: 0.17, type: "triangle", filter: "bandpass", ff: sv[1], q: 1.2, bus: voiceBus });
+        tone(f, len, { delay: at, to: f * (syl[i].hard ? 0.9 : 1.04) * (set ? set.end : 1), vol: 0.17, type: set ? set.type : "triangle", filter: "bandpass", ff: sv[1], q: 1.2, bus: voiceBus });
         tone(f * 2, len * 0.8, { delay: at, vol: 0.03, type: "sine", bus: voiceBus });
+        if (set && set.clicks && syl[i].hard) noise(0.015, { delay: at, ff: 3200, q: 1, vol: 0.03, bus: voiceBus });
+        if (set && set.choir) tone(f * 1.5, len, { delay: at, vol: 0.035, type: "sine", bus: voiceBus });
       }
     }
     voiceEnds.push(t + syl.length * step + 0.1);
   };
 
   /* ---------------- ambience ---------------- */
-  var ambTimer = null, rainSrc = null, rainGain = null;
+  var ambTimer = null, rainSrc = null, rainGain = null, bedF = null, bedGain = null, bedId = "", bedT = 4;
+  // 4.36: every kind of place has its own bed (a filtered hiss: centre Hz, sharpness, loudness) and its own small
+  // call now and then; a cave has one too. Which bed plays follows the smol you are in, or the middle of the view.
+  var BEDS = { sea: [500, 0.6, 0.05], field: [1800, 0.5, 0.012], woods: [2600, 0.8, 0.02], sand: [900, 1.5, 0.03], wet: [700, 0.7, 0.02], cold: [350, 2, 0.045], odd: [3200, 4, 0.015], cave: [180, 1.2, 0.05] };
+  var BED_OF = { ocean: "sea", beach: "sea", mangrove: "sea", meadow: "field", blossom: "field", savanna: "field", forest: "woods", jungle: "woods", taiga: "woods", maple: "woods", bamboo: "woods",
+    desert: "sand", ash: "sand", swamp: "wet", tundra: "cold", mountain: "cold", shroom: "odd", crystal: "odd" };
+  A.BEDS = BEDS;
+  A.listener = function (game) {
+    var ps = SB.Possess && SB.Possess.active && SB.Possess.state && SB.Possess.state(), cam = SB.Render && SB.Render.camera;
+    if (ps && ps.c) return { x: ps.c.x, z: ps.c.z, inside: true };
+    return cam && cam.x != null ? { x: cam.x, z: cam.z } : null;
+  };
+  A.bedOf = function (game, x, z) {
+    if (!game || !game.world) return "";
+    if (SB.Deep && SB.Deep.depth && SB.Deep.depth(game) > 0) return "cave";
+    if (x == null) { var at = A.listener(game); if (!at) return ""; x = at.x; z = at.z; }
+    var W = SB.World, b = W && W.biomeAt && W.inBounds && W.inBounds(game.world, x, z) ? W.biomeAt(game.world, x, z) : 0;
+    return BED_OF[(SB.BIOMES[b] || {}).id] || "field";
+  };
+  // the call of a place: [kind, ...] tones and hisses, as data so it can be checked without a sound card
+  A.bedCall = function (id, r) {
+    r = r == null ? Math.random() : r;
+    if (id === "sea") return [["n", 1.8, { ff: 420, fTo: 900, vol: 0.05, attack: 0.9, filter: "lowpass" }]];
+    if (id === "woods") return [["n", 0.5, { ff: 3800, vol: 0.02, attack: 0.2 }], ["t", 900 + r * 300, 0.03, { delay: 0.6, vol: 0.02, type: "square" }], ["t", 900 + r * 300, 0.03, { delay: 0.68, vol: 0.02, type: "square" }]];
+    if (id === "sand") return [["n", 1.4, { ff: 1500 + r * 800, fTo: 2600, q: 6, vol: 0.025, attack: 0.6 }]];
+    if (id === "cold") return [["n", 2.2, { ff: 260, fTo: 520 + r * 200, q: 5, vol: 0.05, attack: 1 }]];
+    if (id === "wet") return [["t", 150 + r * 40, 0.09, { to: 110, vol: 0.03, type: "square" }], ["t", 150 + r * 40, 0.12, { delay: 0.16, to: 100, vol: 0.03, type: "square" }]];
+    if (id === "field") return [["t", 190 + r * 40, 0.6, { vol: 0.012, type: "sawtooth", filter: "lowpass", ff: 700, attack: 0.2 }]];
+    if (id === "odd") return [["t", 1568 + r * 500, 0.9, { vol: 0.015, type: "sine" }], ["t", 2349, 0.7, { delay: 0.25, vol: 0.01, type: "sine" }]];
+    if (id === "cave") return [["t", 1300 + r * 900, 0.07, { to: 700, vol: 0.03, type: "sine" }], ["t", 900 + r * 500, 0.06, { delay: 0.28, to: 500, vol: 0.012, type: "sine" }], ["n", 1.5, { ff: 120, vol: 0.03, attack: 0.7, filter: "lowpass" }]];
+    return [];
+  };
+  A.bed = function () { return bedId; };
   function startAmbience() {
     if (ambTimer || !ac) return;
     // soft rain bed (gain follows weather)
@@ -311,6 +367,10 @@
     var bq = ac.createBiquadFilter(); bq.type = "lowpass"; bq.frequency.value = 1400;
     rainGain = ac.createGain(); rainGain.gain.value = 0;
     rainSrc.connect(bq); bq.connect(rainGain); rainGain.connect(ambBus); rainSrc.start();
+    var bs = ac.createBufferSource(); bs.buffer = noiseBuf; bs.loop = true;
+    bedF = ac.createBiquadFilter(); bedF.type = "bandpass"; bedF.frequency.value = 1800;
+    bedGain = ac.createGain(); bedGain.gain.value = 0;
+    bs.connect(bedF); bedF.connect(bedGain); bedGain.connect(ambBus); bs.start();
     ambTimer = setInterval(ambTick, 1000);
   }
   var nextCritter = 3, crackleT = 0;
@@ -321,7 +381,17 @@
     var cam = SB.Render && SB.Render.camera;
     var rain = w.weather ? w.weather.rain || 0 : 0, zoomK = cam ? SB.clamp(1.4 - cam.zoom / 40, 0.2, 1) : 1;
     rainGain.gain.setTargetAtTime(ambOn ? 0.06 * rain * zoomK : 0, T(), 1.2);
+    var bid = ambOn ? A.bedOf(g) : "", bd = BEDS[bid];
+    if (bid !== bedId) { bedId = bid; if (bd) { bedF.frequency.setTargetAtTime(bd[0], T(), 1.5); bedF.Q.setTargetAtTime(bd[1], T(), 1.5); } }
+    bedGain.gain.setTargetAtTime(bd ? bd[2] * (bid === "cave" ? 1 : zoomK) * (bid === "sea" ? 0.6 + 0.4 * Math.sin(T() * 0.7) : 1) : 0, T(), 1.2);
     if (!ambOn) return;
+    if (bd && (bedT -= 1) <= 0) {
+      bedT = 5 + Math.random() * 8;
+      A.bedCall(bid).forEach(function (p) {
+        var o = p[p.length - 1]; o.bus = ambBus; o.vol *= bid === "cave" ? 1 : zoomK;
+        if (p[0] === "n") noise(p[1], o); else tone(p[1], p[2], o);
+      });
+    }
     // fires crackle nearby
     if (cam && w.fires && w.fires.some(function (f) { return Math.abs(f.x - cam.x) < cam.halfW && Math.abs(f.z - cam.z) < cam.halfH * 1.5; })) {
       for (var c = 0; c < 4; c++) noise(0.02, { delay: Math.random() * 0.9, ff: 2500 + Math.random() * 2500, q: 3, vol: 0.03 * zoomK, filter: "bandpass", bus: ambBus });
@@ -368,7 +438,7 @@
       if (c.species === "grump") p = -0.5;
       else p = c.genome && c.genome.genes && c.genome.genes.voice != null ? c.genome.genes.voice : 0.5;
       if (c.stage === 0 && p >= 0) p = Math.min(1, p + 0.25);
-      A.voice(e.text, p);
+      A.voice(e.text, p, c.species === "smol" ? { tier: c.tier, stage: c.stage } : null);
     });
     on("hatch", function (e) { at("hatch", e && e.c); });
     on("eat", function (e) { at("eat", e && e.c); });

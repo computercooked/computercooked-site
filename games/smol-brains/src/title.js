@@ -26,6 +26,107 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function sfx(n, v) { if (SB.Audio && SB.Audio.play) try { SB.Audio.play(n, { vol: v == null ? 1 : v }); } catch (e) {} }
   function root() { return document.getElementById("ui") || document.body; }
+  function store(k, v) { try { if (v === undefined) return window.localStorage.getItem(k); window.localStorage.setItem(k, v); } catch (e) {} return null; }
+
+  /* ---------------- language packs (round 3) ----------------
+     One table per language: the english line -> that language's line. SB.Tr.add("xx", "name", {...}) adds or grows
+     a pack, SB.Tr.set("xx") switches (remembered), SB.Tr.t(line) looks one line up, and SB.Tr.sweep(element) puts
+     every line it knows inside an element into the language. With a language on, everything added to the page is
+     swept as it appears, so a pack can cover any screen without the code that draws it changing. A line with a
+     name or a number in it is written with {} where that goes ("{} joined your smols! 🧳"). Lines a pack does not
+     have stay english. */
+  var TR = (SB.Tr = { lang: "en", packs: { en: { _name: "english" } } });
+  var pats = {};
+  TR.add = function (lang, name, table) {
+    var p = TR.packs[lang] || (TR.packs[lang] = {});
+    if (name) p._name = name;
+    for (var k in table || {}) {
+      p[k] = table[k];
+      if (k.indexOf("{}") >= 0) (pats[lang] || (pats[lang] = [])).push([new RegExp("^" + k.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace(/\{\}/g, "(.+?)") + "$"), table[k]]);
+    }
+    return p;
+  };
+  TR.t = function (line) {
+    var p = TR.packs[TR.lang], ps = pats[TR.lang] || [], m, i;
+    if (TR.lang === "en" || !p || typeof line !== "string") return line;
+    if (typeof p[line] === "string") return p[line];
+    for (i = 0; i < ps.length; i++) if ((m = ps[i][0].exec(line))) { var n = 1; return ps[i][1].replace(/\{\}/g, function () { return m[n++]; }); }
+    return line;
+  };
+  TR.count = function (lang) { var n = 0; for (var k in TR.packs[lang] || {}) if (k !== "_name") n++; return n; };
+  TR.sweep = function (el) {
+    if (TR.lang === "en" || !el) return 0;
+    var n = 0, kids = el.childNodes || [], i, t, m;
+    if (el.nodeType === 3) { t = el.nodeValue; m = TR.t(t.trim()); if (m !== t.trim()) { el.nodeValue = t.replace(t.trim(), m); n++; } return n; }
+    if (el.getAttribute) ["placeholder", "title"].forEach(function (a) { var v = el.getAttribute(a); if (v && TR.t(v) !== v) { el.setAttribute(a, TR.t(v)); n++; } });
+    for (i = 0; i < kids.length; i++) n += TR.sweep(kids[i]);
+    return n;
+  };
+  var watching = null;
+  TR.set = function (lang) {
+    TR.lang = TR.packs[lang] ? lang : "en";
+    store("smolbrains-lang", TR.lang);
+    if (TR.lang !== "en" && !watching && typeof MutationObserver !== "undefined" && typeof document !== "undefined" && document.getElementById) {
+      var ui = document.getElementById("ui");
+      if (ui) { watching = new MutationObserver(function (ms) { if (TR.lang === "en") return; ms.forEach(function (m) { for (var i = 0; i < m.addedNodes.length; i++) TR.sweep(m.addedNodes[i]); }); }); watching.observe(ui, { childList: true, subtree: true }); }
+    }
+    return TR.lang;
+  };
+  TR.add("es", "español", {
+    "tiny minds · one island · a whole civilisation": "mentes diminutas · una isla · toda una civilización", "presents": "presenta", "tap to skip": "toca para saltar",
+    "▶ continue": "▶ continuar", "▶ play now": "▶ jugar ya", "🌱 custom island": "🌱 isla a medida", "📂 load game": "📂 cargar partida", "⚙ settings": "⚙ ajustes",
+    "pick the size, shape, climate, grumps…": "elige tamaño, forma, clima, gruñones…", "text size · sound": "tamaño del texto · sonido · idioma", "nothing saved yet": "nada guardado aún",
+    "‹ back": "‹ atrás", "🌱 create world": "🌱 crear mundo", "🌱 new island": "🌱 isla nueva", "create world": "crear mundo", "load game": "cargar partida", "settings": "ajustes",
+    "world name": "nombre del mundo", "world code (seed)": "código del mundo (semilla)", "same code + same settings = the same island. leave it empty for a surprise.": "mismo código + mismos ajustes = la misma isla. déjalo vacío para una sorpresa.",
+    "mode": "modo", "island size": "tamaño de la isla", "island shape": "forma de la isla", "land": "tierra", "mountains": "montañas", "climate": "clima", "food": "comida", "grumps": "gruñones",
+    "weather": "tiempo", "storyteller": "narrador", "seasons": "estaciones", "escape pods": "cápsulas de escape", "island quirk": "rareza de la isla", "landing site": "lugar de aterrizaje",
+    "the founders": "los fundadores", "pip's look": "el aspecto de pip", "a starting critter": "un bichito para empezar", "secret places": "lugares secretos", "island map": "mapa de la isla",
+    "language": "idioma", "volume": "volumen", "text & menu size": "tamaño de texto y menús", "normal": "normal", "small": "pequeña", "medium": "mediana", "large": "grande", "extra large": "enorme",
+    "tiny": "diminuta", "none": "ninguno", "few": "pocos", "lots": "muchos", "mild": "templado", "tropical": "tropical", "frozen": "helado", "dry": "seco", "scarce": "escasa", "plenty": "de sobra",
+    "calm": "calmo", "wild": "salvaje", "gentle": "suave", "balanced": "equilibrado", "short": "cortas", "one pod": "una cápsula", "two pods": "dos cápsulas", "best spot": "el mejor sitio",
+    "woods": "bosque", "shore": "orilla", "dry lands": "tierras secas", "snow": "nieve", "jungle": "selva", "far shore": "la orilla lejana", "strangers": "desconocidos", "sweethearts": "enamorados",
+    "brother & sister": "hermano y hermana", "as it comes": "como salga", "hidden vale": "valle escondido", "waking the island…": "despertando la isla…", "no islands yet. start one!": "aún no hay islas. ¡empieza una!",
+    "🗺 draw the island": "🗺 dibujar la isla", "▾ more world options (land, food, grumps, weather, storyteller, quirks…)": "▾ más opciones (tierra, comida, gruñones, tiempo, narrador, rarezas…)", "▴ fewer options": "▴ menos opciones",
+    "🧳 a stranger approaches": "🧳 se acerca un forastero", "🏠 welcome them": "🏠 darles la bienvenida", "send them away": "que se vayan", "🛏 let them stay a few days": "🛏 que se queden unos días",
+    "spreading things": "cosas que se extienden", "spread": "se extienden", "stay put": "se quedan quietas", "{} joined your smols! 🧳": "¡{} se unió a tus smols! 🧳", "🛏 {} is your guest for {} days": "🛏 {} es tu huésped durante {} días",
+    "{} is waiting to join": "{} espera para unirse", "{} hatched! (gen {}, {})": "¡{} salió del huevo! (gen {}, {})", "day {}": "día {}"
+  });
+  if (store("smolbrains-lang")) TR.lang = TR.packs[store("smolbrains-lang")] ? store("smolbrains-lang") : "en";
+
+  /* ---------------- title screen secrets (round 3) ----------------
+     Three bits of the title answer a tap with a small animation: the logo hops (and lays an egg on the fifth tap),
+     the studio's name fries an egg, and the version number, tapped three times, says who made it. Found ones are
+     remembered on this device; all three found shows a line in the footer. */
+  TI.SECRETS = ["logo", "cooked", "version"];
+  function found() { try { return JSON.parse(store("smolbrains-secrets") || "{}") || {}; } catch (e) { return {}; } }
+  var taps = {};
+  // a tap on one of the secret bits -> { hit: did the secret fire, n: how many are found, all: all three }
+  TI.secret = function (id) {
+    var f = found(), need = id === "logo" ? 5 : id === "version" ? 3 : 1;
+    if (TI.SECRETS.indexOf(id) < 0) return { hit: false, n: Object.keys(f).length, all: false };
+    taps[id] = (taps[id] || 0) + 1;
+    var hit = taps[id] % need === 0;
+    if (hit && !f[id]) { f[id] = 1; store("smolbrains-secrets", JSON.stringify(f)); }
+    var n = TI.SECRETS.filter(function (k) { return f[k]; }).length;
+    return { hit: hit, n: n, all: n === TI.SECRETS.length };
+  };
+  function hop(el) { if (el && el.animate) try { el.animate([{ transform: "translateY(0) rotate(0)" }, { transform: "translateY(-14px) rotate(-3deg)" }, { transform: "translateY(0) rotate(0)" }], { duration: 320 }); } catch (e) {} }
+  // a glyph that pops out of an element, drifts up and fades
+  function pop(el, glyph, dx) {
+    if (!el || !el.getBoundingClientRect || !ts) return;
+    var b = el.getBoundingClientRect(), g = h("span", { style: "position:fixed;z-index:60;pointer-events:none;font-size:26px;left:" + (b.left + b.width / 2 + (dx || 0)) + "px;top:" + b.top + "px;transition:transform .9s ease-out,opacity .9s", text: glyph });
+    document.body.appendChild(g);
+    setTimeout(function () { g.style.transform = "translateY(-70px) rotate(" + ((dx || 0) > 0 ? 40 : -40) + "deg)"; g.style.opacity = "0"; }, 20);
+    setTimeout(function () { g.remove(); }, 1000);
+  }
+  function secretTap(id, el) {
+    var r = TI.secret(id);
+    hop(el);
+    if (id === "logo") { sfx("click", 0.5); if (r.hit) { pop(el, "🥚", 0); setTimeout(function () { pop(el, "🐣", 30); sfx("pop", 0.7); }, 500); } }
+    else if (id === "cooked") { pop(el, "🍳", -20); pop(el, "🍳", 24); sfx("eat", 0.6); }
+    else if (r.hit) { var t0 = el.textContent; el.textContent = "made by tiny minds"; sfx("chime", 0.6); setTimeout(function () { el.textContent = t0; }, 2200); }
+    if (r.all && r.hit && TI.newsEl) TI.newsEl.textContent = "🥚 you found all three title secrets";
+  }
 
   /* ---------------- computer cooked games presents ---------------- */
   // big words fading in and out on black, then the title. Any tap or key skips ahead a step
@@ -156,12 +257,14 @@
     ts = h("div", { class: "ts live" });
     ts.appendChild(h("div", { class: "ts-fade" }));
     var box = h("div", { class: "ts-box" });
-    box.appendChild(h("div", { class: "ts-logo" }, [h("h1", { html: "smol<br><span>brains</span>" }), h("p", { text: "tiny minds · one island · a whole civilisation" })]));
+    box.appendChild(h("div", { class: "ts-logo" }, [h("h1", { html: "smol<br><span>brains</span>", onclick: function () { secretTap("logo", this); } }), h("p", { text: "tiny minds · one island · a whole civilisation" })]));
     var pane = h("div", { class: "ts-pane" });
     box.appendChild(pane);
     ts.appendChild(box);
-    ts.appendChild(h("div", { class: "ts-foot" }, [h("span", { text: "computer cooked games" }), h("span", { class: "ts-news", text: TI.NEWS }), h("span", { text: "v" + (document.documentElement.getAttribute("data-version") || window.SB_VERSION || "3.6") })]));
+    TI.newsEl = h("span", { class: "ts-news", text: TI.NEWS });
+    ts.appendChild(h("div", { class: "ts-foot" }, [h("span", { style: "pointer-events:auto", text: "computer cooked games", onclick: function () { secretTap("cooked", this); } }), TI.newsEl, h("span", { style: "pointer-events:auto", text: "v" + (document.documentElement.getAttribute("data-version") || window.SB_VERSION || "3.6"), onclick: function () { secretTap("version", this); } })]));
     root().appendChild(ts);
+    TR.sweep(ts);
     TI.pane = pane;
     // the first tap anywhere on the title is also what lets the browser start the music
     var music = function () { ts && ts.removeEventListener("pointerdown", music, true); if (SB.Audio && SB.Audio.unlock) try { SB.Audio.unlock(); } catch (e) {} if (SB.Music && !(SB.Music.now && SB.Music.now())) SB.Music.play("smolbrains"); };
@@ -208,6 +311,7 @@
     var p = TI.pane; if (!p) return;
     p.innerHTML = ""; p.className = "ts-pane " + (cls || "");
     (Array.isArray(kids) ? kids : [kids]).forEach(function (k) { if (k) p.appendChild(k); });
+    TR.sweep(p);
     var f = p.querySelector("button, input"); if (f && !("ontouchstart" in window)) try { f.focus({ preventScroll: true }); } catch (e) {}
   }
   function tierName(t) { var d = SB.TIERS[t | 0]; return d ? d.name + "s" : "blobs"; }
@@ -269,29 +373,77 @@
   /* ---------------- create world ---------------- */
   var LABELS = {
     mode: ["mode", [["normal", "normal", ""], ["sandbox", "🧪 sandbox", "spawn smols of any tier, eggs, grumps and food from ✨ magic. miracles are free. not on the leaderboard"]]],
-    size: ["island size", [["small", "small", "quick to explore. best on phones"], ["normal", "medium", "lots to explore"], ["large", "large", "huge. slow to make and to play on phones"], ["huge", "extra large", "enormous. needs a fast computer: phones will struggle"]]],
-    shape: ["island shape", [["surprise", "🎲 surprise", "any of the shapes below"], ["classic", "classic", "one big rolling island"], ["volcano", "volcano", "a huge cone with a crater, black ash and hot vents"], ["twin", "twin isles", "two islands joined by a sandbar"], ["crescent", "crescent bay", "a ring of land around a sheltered bay"], ["mesa", "mesas", "red table-top hills and canyons"], ["delta", "river delta", "flat wet land where rivers fan out"], ["lakes", "lake district", "green hills full of lakes"], ["fjord", "fjord coast", "deep sea inlets between cliffs"]]],
+    size: ["island size", [["tiny", "tiny", "one screenful of land. made for a one-islet start"], ["small", "small", "quick to explore. best on phones"], ["normal", "medium", "lots to explore"], ["large", "large", "huge. slow to make and to play on phones"], ["huge", "extra large", "enormous. needs a fast computer: phones will struggle"]]],
+    shape: ["island shape", [["surprise", "🎲 surprise", "any of the shapes below"], ["classic", "classic", "one big rolling island"], ["volcano", "volcano", "a huge cone with a crater, black ash and hot vents"], ["twin", "twin isles", "two islands joined by a sandbar"], ["crescent", "crescent bay", "a ring of land around a sheltered bay"], ["mesa", "mesas", "red table-top hills and canyons"], ["delta", "river delta", "flat wet land where rivers fan out"], ["lakes", "lake district", "green hills full of lakes"], ["fjord", "fjord coast", "deep sea inlets between cliffs"], ["islet", "one islet", "a single small islet in a wide sea. a hard start"]]],
     land: ["land", [["isles", "little isles", "smaller islands, more sea"], ["island", "one island", ""], ["big", "big land", "more land, fewer beaches"]]],
-    peaks: ["mountains", [["flat", "gentle", "rolling hills"], ["normal", "normal", ""], ["tall", "towering", "big peaks and deep valleys"]]],
+    peaks: ["mountains", [["none", "none", "a level plain from shore to shore"], ["flat", "gentle", "rolling hills"], ["normal", "normal", ""], ["tall", "towering", "big peaks and deep valleys"]]],
     climate: ["climate", [["temperate", "mild", ""], ["tropical", "tropical", "warm and green: jungles, swamps"], ["frozen", "frozen", "snow and taiga: hard winters"], ["dry", "dry", "savanna and desert"]]],
     food: ["food", [["scarce", "scarce", "hungry smols, harder start"], ["normal", "normal", ""], ["plenty", "plenty", "fruit everywhere"]]],
     grumps: ["grumps", [["none", "none", "no grumps at night"], ["few", "few", ""], ["normal", "normal", ""], ["many", "lots", "hard nights"]]],
     storms: ["weather", [["calm", "calm", "few storms"], ["normal", "normal", ""], ["wild", "wild", "storms, lightning, wildfires"]]],
     story: ["storyteller", [["calm", "gentle", "fewer events, more breathing room"], ["balanced", "balanced", ""], ["wild", "wild", "events come thick and fast"]]],
     seasons: ["seasons", [["normal", "normal", "40 minutes each"], ["short", "short", "10 minutes each: a whole year in under an hour"]]],
-    crew: ["escape pods", [["pair", "one pod", "two smols, a girl and a boy"], ["crew", "two pods", "four smols: a faster start"]]]
+    crew: ["escape pods", [["pair", "one pod", "two smols, a girl and a boy"], ["crew", "two pods", "four smols: a faster start"]]],
+    site: ["landing site", [["", "best spot", "the pod finds a mild meadow near fresh water"], ["woods", "woods", "down among the trees"], ["shore", "shore", "on the beach"], ["dunes", "dry lands", "sand and savanna. thirsty"], ["snow", "snow", "the cold end of the island"], ["jungle", "jungle", "hot, wet and green"], ["far", "far shore", "the far side, among the grump lairs. hard"]]],
+    kin: ["the founders", [["", "strangers", "a girl and a boy thrown together"], ["sweethearts", "sweethearts", "partners from the first day"], ["siblings", "brother & sister", "family can't have eggs together: they will need newcomers"]]],
+    pip: ["pip's look", [["", "as it comes", ""], ["sky", "sky blue", ""], ["sun", "sunny", ""], ["rose", "rosy", ""], ["moss", "mossy", ""], ["snow", "snowy", ""]]],
+    critter: ["a starting critter", [["", "none", ""], ["hopper", "🐇 a hopper", "climbs out of the pod with the founders, already tame"], ["beetle", "🪲 a beetle", "climbs out of the pod with the founders, already tame"]]],
+    secret: ["secret places", [["", "none", ""], ["vale", "hidden vale", "somewhere a ring of cliffs hides a glittering valley. find the glow-stone that hops you in"]]],
+    spread: ["spreading things", [["", "spread", "blight goes farm to farm, bug nests bud new nests"], ["off", "stay put", "blight and bug nests stay where they start"]]]
   };
-  var ORDER = ["mode", "size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "seasons", "crew"];
+  var ORDER = ["mode", "size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "seasons", "crew", "site", "kin", "pip", "critter", "secret", "spread"];
+  // tiles across for a size choice ("tiny" is title-only: a 256 island, the size the classic islands were)
+  TI.sizeN = function (k) { return k === "tiny" ? 256 : SB.WORLD_CHOICES.size[k] || SB.WORLD_N_NEW; };
+  // the settings a new island is made from (settings.world). the round-3 choices are only there when picked
+  TI.worldOf = function (st, q) {
+    var w = { gv: SB.WORLD_GV, arch: st.shape === "surprise" ? undefined : st.shape, size: st.size, land: st.land, peaks: st.peaks, climate: st.climate, food: st.food, grumps: st.grumps, storms: st.storms, crew: st.crew, quirks: q || [], surprise: st.quirk === "surprise", mode: st.mode === "sandbox" ? "sandbox" : undefined };
+    ["site", "kin", "pip", "critter", "spread"].forEach(function (k) { if (st[k]) w[k] = st[k]; });
+    if (st.secret === "vale") w.vale = 1;
+    if (st.pod) w.pod = st.pod;
+    if (st.edits && st.edits.length) w.edits = st.edits;
+    return w;
+  };
+  /* the island editor (round 3): draw the island a code and its settings make, then tap the map to choose where the
+     pod lands or to stamp a hill, a lake or a grove on it. Stamps ride in the island's settings, so it reloads the same */
+  TI.TOOLS = [["pod", "🚀 pod"], ["hill", "⛰ hill"], ["lake", "💧 lake"], ["grove", "🌳 grove"]];
+  TI.stamp = function (st, tool, fx, fz) {
+    fx = Math.round(SB.clamp01(fx) * 1000) / 1000; fz = Math.round(SB.clamp01(fz) * 1000) / 1000;
+    if (!st.edits) st.edits = [];
+    if (tool === "undo") { if (st.edits.length) st.edits.pop(); else st.pod = null; }
+    else if (tool === "pod") st.pod = [fx, fz];
+    else if (st.edits.length < 24 && (tool === "hill" || tool === "lake" || tool === "grove")) st.edits.push([tool, fx, fz]);
+    return st;
+  };
+  // the terrain those settings make (nothing else is touched: the island on screen keeps its own size and options)
+  TI.preview = function (st) {
+    var keepN = SB.WORLD_N, keepO = SB.WORLD_OPTS, T = null, w = TI.worldOf(st, []);
+    try { SB.setWorldN(TI.sizeN(st.size)); SB.WORLD_OPTS = SB.worldFx(w); SB.WORLD_OPTS.w = w; T = SB.WorldGen.generate(SB.parseWorldCode(st.seed) || 1); }
+    finally { SB.setWorldN(keepN); SB.WORLD_OPTS = keepO; }
+    return T;
+  };
+  function mapCanvas(T, st, onTap) {
+    var cv = h("canvas", { width: String(T.N), height: String(T.N), style: "width:100%;max-width:340px;display:block;margin:6px auto;border-radius:8px;image-rendering:pixelated;touch-action:manipulation" });
+    try {
+      var g = cv.getContext("2d"), img = g.createImageData(T.N, T.N), k = T.N / 256;
+      img.data.set(SB.WorldGen.minimap(T)); g.putImageData(img, 0, 0);
+      g.font = Math.round(13 * k) + "px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      (st.edits || []).forEach(function (e) { g.fillText(e[0] === "hill" ? "⛰" : e[0] === "lake" ? "💧" : "🌳", e[1] * T.N, e[2] * T.N); });
+      var pd = st.pod ? { x: st.pod[0] * T.N, z: st.pod[1] * T.N } : T.nest;
+      g.fillText("🚀", pd.x, pd.z);
+    } catch (e) {}
+    cv.addEventListener("click", function (e) { var b = cv.getBoundingClientRect(); if (b.width > 0) onTap((e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height); });
+    return cv;
+  }
   function islandName(r) { var w = SB.makeName ? SB.makeName(r) : "smol"; return (r() < 0.5 ? w + " island" : r() < 0.5 ? "isle of " + w : w + " cove").toLowerCase(); }
   function createWorld(pre) {
     var r = SB.rng((Math.random() * 1e9) >>> 0);
-    var st = { mode: pre.mode || "normal", name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", seasons: "normal", crew: "pair", quirk: "surprise" };
-    var more = false;
+    var st = { mode: pre.mode || "normal", name: islandName(r), seed: pre.seed ? SB.worldCode(pre.seed) : "", size: pre.quick && (window.innerWidth || 1000) < 700 ? "small" : "normal", shape: "surprise", land: "island", peaks: "normal", climate: "temperate", food: "normal", grumps: "normal", storms: "normal", story: "balanced", seasons: "normal", crew: "pair", quirk: "surprise", site: "", kin: "", pip: "", critter: "", secret: "", spread: "", pod: null, edits: [], tool: "pod" };
+    var more = false, pv = null;
     function rowFor(k) {
       var L = LABELS[k], cur = L[1].find(function (o) { return o[0] === st[k]; });
       return h("div", { class: "ts-opt" }, [
         h("label", { text: L[0] }),
-        h("div", { class: "ts-seg" + (L[1].length > 4 ? " wrap" : "") }, L[1].map(function (o) { return h("button", { class: o[0] === st[k] ? "on" : "", onclick: function () { sfx("click", 0.6); st[k] = o[0]; draw(); } }, o[1]); })),
+        h("div", { class: "ts-seg" + (L[1].length > 4 ? " wrap" : "") }, L[1].map(function (o) { return h("button", { class: o[0] === st[k] ? "on" : "", onclick: function () { sfx("click", 0.6); st[k] = o[0]; pv = null; draw(); } }, o[1]); })),
         h("small", { text: cur && cur[2] || "" })
       ]);
     }
@@ -305,14 +457,24 @@
         h("small", { text: st.quirk === "surprise" ? "a random quirk you'll discover when you land (or none at all)" : st.quirk === "none" ? "a classic island" : d.desc })
       ]);
     }
+    function mapRow() {
+      var kids = [h("label", { text: "island map" })];
+      if (!pv) kids.push(h("div", { class: "ts-seg" }, [h("button", { onclick: function () { sfx("click", 0.6); if (!st.seed) st.seed = SB.worldCode(SB.newSeed()); try { pv = TI.preview(st); } catch (e) { pv = null; } draw(); } }, "🗺 draw the island")]));
+      else {
+        kids.push(mapCanvas(pv, st, function (fx, fz) { sfx("click", 0.6); TI.stamp(st, st.tool, fx, fz); draw(); }));
+        kids.push(h("div", { class: "ts-seg wrap" }, TI.TOOLS.map(function (t) { return h("button", { class: t[0] === st.tool ? "on" : "", onclick: function () { st.tool = t[0]; draw(); } }, t[1]); }).concat([h("button", { onclick: function () { TI.stamp(st, "undo", 0, 0); draw(); } }, "↩ undo"), h("button", { onclick: function () { try { pv = TI.preview(st); } catch (e) { pv = null; } draw(); } }, "↻ redraw")])));
+      }
+      kids.push(h("small", { text: pv ? "tap the map: 🚀 moves the pod, the others stamp a hill, a lake or a grove (" + st.edits.length + "/24). ↻ shows the result" : "see the island this code makes, pick where the pod lands, and shape it a little" }));
+      return h("div", { class: "ts-opt" }, kids);
+    }
     function draw() {
       var nameIn = h("input", { class: "ts-in", maxlength: "32", value: st.name, "aria-label": "world name", oninput: function () { st.name = this.value; } });
-      var seedIn = h("input", { class: "ts-in mono", maxlength: "16", value: st.seed, placeholder: "random", "aria-label": "world code", oninput: function () { st.seed = this.value; } });
-      var opts2 = h("div", { class: "ts-opts" }, (more ? ORDER : ORDER.slice(0, 4)).map(rowFor).concat([more ? quirkRow() : null]));
+      var seedIn = h("input", { class: "ts-in mono", maxlength: "16", value: st.seed, placeholder: "random", "aria-label": "world code", oninput: function () { st.seed = this.value; pv = null; } });
+      var opts2 = h("div", { class: "ts-opts" }, (more ? ORDER : ORDER.slice(0, 4)).map(rowFor).concat([more ? quirkRow() : null, more ? mapRow() : null]));
       setPane([
         h("h2", { text: "create world" }),
         h("div", { class: "ts-field" }, [h("label", { text: "world name" }), h("div", { class: "ts-inrow" }, [nameIn, h("button", { class: "ts-dice", title: "another name", onclick: function () { sfx("click"); st.name = islandName(r); draw(); } }, "🎲")])]),
-        h("div", { class: "ts-field" }, [h("label", { text: "world code (seed)" }), h("div", { class: "ts-inrow" }, [seedIn, h("button", { class: "ts-dice", title: "random", onclick: function () { sfx("click"); st.seed = SB.worldCode(SB.newSeed()); draw(); } }, "🎲")]), h("small", { text: "same code + same settings = the same island. leave it empty for a surprise." })]),
+        h("div", { class: "ts-field" }, [h("label", { text: "world code (seed)" }), h("div", { class: "ts-inrow" }, [seedIn, h("button", { class: "ts-dice", title: "random", onclick: function () { sfx("click"); st.seed = SB.worldCode(SB.newSeed()); pv = null; draw(); } }, "🎲")]), h("small", { text: "same code + same settings = the same island. leave it empty for a surprise." })]),
         opts2,
         h("button", { class: "ts-more", onclick: function () { more = !more; draw(); } }, more ? "▴ fewer options" : "▾ more world options (land, food, grumps, weather, storyteller, quirks…)"),
         h("div", { class: "ts-row" }, [btn("‹ back", null, "small", mainMenu), btn("🌱 create world", null, "go", go)])
@@ -322,7 +484,7 @@
       SB.Game.quickStart = !!pre.quick; // play now: no opening film, straight to the pod (the menu can show the film)
       var seed = st.seed && SB.parseWorldCode(st.seed) || SB.newSeed();
       var q = st.quirk === "surprise" ? (Math.random() < 0.75 ? [SB.pick ? SB.pick(Object.keys(SB.QUIRKS)) : Object.keys(SB.QUIRKS)[(Math.random() * Object.keys(SB.QUIRKS).length) | 0]] : []) : st.quirk === "none" ? [] : [st.quirk];
-      var world = { gv: SB.WORLD_GV, arch: st.shape === "surprise" ? undefined : st.shape, size: st.size, land: st.land, peaks: st.peaks, climate: st.climate, food: st.food, grumps: st.grumps, storms: st.storms, crew: st.crew, quirks: q, surprise: st.quirk === "surprise", mode: st.mode === "sandbox" ? "sandbox" : undefined };
+      var world = TI.worldOf(st, q);
       var name = (st.name || "").trim().slice(0, 32) || islandName(r);
       setPane([h("div", { class: "ts-wait", html: "growing <b>" + esc(name) + "</b>…<br><small>raising mountains, digging rivers</small>" })]);
       SB.Save.stash().then(function (kept) {
@@ -335,7 +497,7 @@
         return true;
       }).then(function (yes) {
         if (!yes) return;
-        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, seasons: st.seasons, name: name }); }, 60);
+        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: TI.sizeN(st.size), world: world, story: st.story, seasons: st.seasons, name: name }); }, 60);
       });
     }
     if (pre.quick) go(); else draw();
@@ -350,6 +512,7 @@
       h("h2", { text: "settings" }),
       h("div", { class: "ts-opt" }, [h("label", { text: "text & menu size" }), h("div", { class: "ts-seg" }, sizes.map(function (o) { return h("button", { class: o[0] === cur ? "on" : "", onclick: function () { TI.setUiScale(o[0]); settings(); } }, o[1]); })), h("small", { text: "auto makes everything bigger on big screens. you can also change this in the game's settings." })]),
       SB.Audio && SB.Audio.sliders ? h("div", { class: "ts-opt" }, [h("label", { text: "volume" }), SB.Audio.sliders()]) : null,
+      h("div", { class: "ts-opt" }, [h("label", { text: "language" }), h("div", { class: "ts-seg" }, Object.keys(TR.packs).map(function (k) { return h("button", { class: k === TR.lang ? "on" : "", onclick: function () { TR.set(k); settings(); } }, TR.packs[k]._name || k); })), h("small", { text: TR.lang === "en" ? "" : TR.count(TR.lang) + " lines so far. the rest stays english" })]),
       h("div", { class: "ts-row" }, [btn("‹ back", null, "small", mainMenu)])
     ], "wide");
   }

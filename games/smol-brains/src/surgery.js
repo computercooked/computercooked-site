@@ -74,6 +74,11 @@
       if (!(op.drive >= 0 && op.drive < SB.N_DRIVES)) return { ok: false, why: "pick a feeling" };
       var w0 = g.driveW[op.drive] != null ? g.driveW[op.drive] : 1;
       if ((op.dir > 0 && w0 >= 1.9) || (op.dir < 0 && w0 <= 0.3)) return { ok: false, why: "that's as far as it goes" };
+    } else if (op.kind === "rule") {
+      // 4.36: a learning rule, a half-life, a threshold or a reaction rate (genome.js RULES)
+      if (SB.Genome.RULES.indexOf(op.name) < 0) return { ok: false, why: "pick a gene" };
+      var r0 = SB.Genome.rule(g, op.name);
+      if ((op.dir > 0 && r0 >= 1) || (op.dir < 0 && r0 <= 0)) return { ok: false, why: "that's as far as it goes" };
     } else return { ok: false, why: "unknown operation" };
     if (!SB.Game.spend(game, S.cost(game))) return { ok: false, why: "not enough sparks ✨" };
 
@@ -92,6 +97,10 @@
       ins.push(it);
       SB.Brain.dream(c.brain, [it], S.DREAM, rng);
       msg = "new instinct: " + S.text(it);
+    } else if (op.kind === "rule") {
+      SB.Genome.setRule(g, op.name, SB.clamp01(SB.Genome.rule(g, op.name) + op.dir * S.RULE));
+      SB.Brain.retune(c.brain, g);
+      msg = (op.dir > 0 ? "more " : "less ") + SB.Genome.RULE_LABELS[op.name];
     } else {
       var w = g.driveW[op.drive] != null ? g.driveW[op.drive] : 1;
       g.driveW[op.drive] = Math.round(SB.clamp(w + op.dir * S.CARE, 0.3, 1.9) * 100) / 100;
@@ -106,6 +115,46 @@
     SB.bus.emit("surgery", { c: c, op: op, msg: msg });
     return { ok: true, msg: msg };
   };
+
+  /* ---------------- the lab (4.36): look, don't cut. Free. ---------------- */
+
+  S.RULE = 0.15;
+  // everything the lab shows about one smol, as data
+  S.lab = function (c) {
+    var b = c.brain, B = SB.Brain, G = SB.Genome;
+    return { lobes: B.lobes(b, c.genome), situations: B.situations(b, 4), shortTerm: B.shortTerm(b), pruned: b.pruned, regrown: b.regrown,
+      tract: G.TRACTS[b.tract] || "", carried: G.carried(c.genome), reactions: SB.Chem.reactions(c.genome) };
+  };
+  S.sitText = function (s) { return "when " + s.when.join(" + ") + " → " + SB.VERB_EMOJI[s.verb] + " " + SB.VERB_WORDS[s.verb]; };
+  // fire one input by hand: says what that input alone pulls the smol toward, and switches it on for its next 3 thoughts
+  S.fire = function (game, c, i) {
+    var b = c && c.brain;
+    if (!b || !c.alive || !(i >= 0 && i < b.nIn)) return { ok: false, why: "pick an input" };
+    var p = SB.Brain.poke(b, i, 1);
+    SB.Brain.fire(b, i, 1, 3);
+    c.thinkT = Math.min(c.thinkT || 0, 0.2);
+    return { ok: true, verb: p.verb, d: p.d, msg: "\"" + SB.Brain.inputLabel(b, i) + "\" on its own pulls " + c.name + " toward " + SB.VERB_EMOJI[p.verb] + " " + SB.VERB_WORDS[p.verb] + ". it is on for its next 3 thoughts" };
+  };
+  function labHtml(c, dis) {
+    var L = S.lab(c), b = c.brain, G = SB.Genome, h = "<details class='lab'><summary>the lab: lobes, situations, fire an input</summary><div class='lobes'>";
+    L.lobes.forEach(function (l) {
+      h += "<i style='left:" + Math.round(l.x * 100) + "%;top:" + Math.round(l.y * 100) + "%;opacity:" + (0.45 + 0.55 * l.act).toFixed(2) + ";font-size:" + Math.round(8 + 3 * l.size) + "px'>" + esc(l.name) + " " + l.n + "</i>";
+    });
+    h += "</div><p class='note'>each lobe sits where its genes put it, and lights up as it works. " + Math.round(L.shortTerm * 100) + "% of what it knows is still short-term (sleep keeps it). asleep it has pruned " + L.pruned + " weak links and regrown " + L.regrown + "."
+      + (L.tract ? " a tract wires its " + esc(L.tract) + " straight to its actions." : "") + "</p><h4>situations it knows right now</h4>";
+    L.situations.forEach(function (s) { h += "<div class='row'><div class='t'>" + esc(S.sitText(s)) + "</div></div>"; });
+    h += "<h4>fire one input</h4><div class='add'><select data-k='fire'>";
+    for (var i = 0; i < b.nIn; i++) if (i !== SB.IN.BIAS) h += "<option value='" + i + "'>" + esc(SB.Brain.inputLabel(b, i)) + "</option>";
+    h += "</select> <button class='go' data-op='fire'>⚡ fire</button></div></details>";
+    h += "<details class='lab'><summary>rule genes: learning, half-lives, thresholds, reactions</summary>";
+    if (L.carried.length) h += "<p class='note'>hidden copies it carries (a kid may show them): " + L.carried.slice(0, 6).map(function (x) { return esc(x.label) + " " + Math.round(x.v * 100); }).join(" · ") + "</p>";
+    h += "<div class='cares'>";
+    G.RULES.forEach(function (n) {
+      h += "<div class='row'><div class='t'>" + esc(G.RULE_LABELS[n]) + "<small>" + Math.round(G.rule(c.genome, n) * 100) + "</small></div><button data-op='rule' data-n='" + n + "' data-dir='-1'" + dis + ">−</button><button data-op='rule' data-n='" + n + "' data-dir='1'" + dis + ">+</button></div>";
+    });
+    return h + "</div><p class='note'>reactions in its body: " + L.reactions.map(esc).join(" · ") + ".</p></details>";
+  }
+  S.labHtml = labHtml;
 
   /* ---------------- the window ---------------- */
 
@@ -126,6 +175,7 @@
       + ".surg .row .t{flex:1;min-width:0}.surg .row small{display:block;opacity:.7}.surg .bar{height:5px;background:rgba(255,255,255,.1);margin-top:3px}.surg .bar i{display:block;height:100%;background:#c5ff49}"
       + ".surg button{font:700 12px var(--mono,monospace);padding:6px 9px;border:0;background:rgba(255,255,255,.1);color:inherit;cursor:pointer}.surg button.go{background:#c5ff49;color:#101114}.surg button[disabled]{opacity:.4;cursor:default}"
       + ".surg select{font:600 12px var(--mono,monospace);padding:5px;background:#1d1828;color:inherit;border:1px solid rgba(255,255,255,.2);max-width:100%}.surg .add{display:flex;flex-wrap:wrap;gap:6px;align-items:center}"
+      + ".surg .lobes{position:relative;height:170px;margin:6px 0;background:rgba(255,255,255,.04)}.surg .lobes i{position:absolute;transform:translate(-50%,-50%);font-style:normal;white-space:nowrap;padding:2px 4px;background:rgba(197,255,73,.16)}.surg details{margin-top:10px}.surg summary{cursor:pointer;font:700 12px var(--mono,monospace)}"
       + ".surg .cares{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px}.surg .cares .row{margin:0}.surg h4{margin:12px 0 4px;font:700 12px var(--mono,monospace);opacity:.75}</style>";
     h += "<p class='note'>its instincts are the rules it was born with: when it feels something and sees something, it leans toward an action. rewrite them here. the net is retrained on the spot, and its kids inherit the change. each operation costs <b>" + cost + " ✨</b> (you have " + (game.sparks || 0) + "); " + esc(c.name) + " can take " + S.left(game, c) + " more today and wakes up sleepy.</p>";
     if (why) h += "<p class='note' style='color:#ff9a9a'>" + esc(why) + "</p>";
@@ -146,12 +196,21 @@
       h += "<div class='row'><div class='t'>" + SB.DRIVE_EMOJI[i] + " " + SB.DRIVE_WORDS[i] + "<small>×" + w.toFixed(2) + "</small></div><button data-op='care' data-d='" + i + "' data-dir='-1' title='care less'" + dis + ">−</button><button data-op='care' data-d='" + i + "' data-dir='1' title='care more'" + dis + ">+</button></div>";
     });
     h += "</div><p class='note'>caring more about a feeling makes fixing it feel better, so it learns to chase that. caring less lets it shrug it off.</p>";
+    if (c.brain && c.alive) h += labHtml(c, dis);
+    var was = [].map.call(cur.root.querySelectorAll ? cur.root.querySelectorAll("details") : [], function (d) { return d.open; });
     cur.root.innerHTML = h;
+    if (was.length) [].forEach.call(cur.root.querySelectorAll("details"), function (d, i) { if (was[i]) d.open = true; });
   }
   function click(e) {
     var b = e.target.closest && e.target.closest("button[data-op]");
     if (!b || b.disabled || !cur) return;
     var k = b.dataset.op, op = { kind: k };
+    if (k === "fire") {
+      var fs = cur.root.querySelector("select[data-k='fire']"), fr = S.fire(cur.game, cur.c, fs ? +fs.value : -1);
+      if (SB.UI && SB.UI.toast) SB.UI.toast(fr.ok ? "⚡ " + esc(fr.msg) : esc(fr.why));
+      return;
+    }
+    if (k === "rule") { op.name = b.dataset.n; op.dir = +b.dataset.dir; }
     if (k === "up" || k === "down" || k === "cut") op.i = +b.dataset.i;
     else if (k === "care") { op.drive = +b.dataset.d; op.dir = +b.dataset.dir; }
     else if (k === "add") { var sel = function (n) { var s = cur.root.querySelector("select[data-k='" + n + "']"); return s ? +s.value : -1; }; op.drive = sel("drive"); op.noun = sel("noun"); op.verb = sel("verb"); }

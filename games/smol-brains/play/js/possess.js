@@ -643,6 +643,7 @@ swingAnim();
 if(Sv().pileN(it)>1)it=Sv().split(S.game,it);
 SB.World.toss(it,Math.sin(a)*4,Math.cos(a)*4,4);
 if(it.data)it.data.noPick=S.game.time+1.5;
+SB.bus.emit("kick",{c:c,it:it});
 return true;
 }
 function eatItem(it){
@@ -1363,6 +1364,7 @@ cm.pov.x=x;cm.pov.z=z;cm.pov.y=y+eyeH+Math.abs(bob);
 var kick=S.swing>0.6?(S.swing-0.6)*0.02:0,hurt=S.hurtT>0?Math.sin(S.t*60)*S.hurtT*0.012:0;
 cm.pov.yaw=S.yaw+Math.sin(S.bob*Math.PI*0.5)*0.006*S.bobK+hurt;cm.pov.pitch=S.pitch+(c.asleep?-0.25:0)-kick;
 if(c.drownT>0)cm.pov.y=Math.max(SB.World.groundY(S.game.world,x,z)+0.05,cm.pov.y-0.15);
+if(SB.Motion3)SB.Motion3.cam(S,cm.pov,dt);
 if(!S.dead){
 S.aim=P.aimGround(S.game,c);
 S.target=P.look(S.game,c);

@@ -261,15 +261,16 @@ ok:function(game){return!!feudPair(game);},
 start:function(game){
 var p=feudPair(game);
 if(!p)return null;
-var a=p[0],b=p[1],why=SB.Social.reasons(game,a,b)[0];
+var a=p[0],b=p[1],why=SB.Social.reasons(game,a,b)[0],hall=councilHall(game);
 return{
+hall:hall?hall.id:null,
 icon:"💢",title:a.name+" vs "+b.name,x:a.x,z:a.z,a:a.id,b:b.id,warn:0,
 text:[a.name+" and "+b.name+" can't stand each other"+(why?" ("+why.t+")":"")+". the whole village is taking sides.","something has to give."],
 choices:[
 {key:"mend",label:"🤝 make them make up",cost:6,hint:"a nudge from the sky. they'll be civil, maybe even friends"},
 {key:"duel",label:"🥊 let them settle it",hint:"one big fight, then it's over (one way or another)"},
 {key:"exile",label:"🚪 send "+b.name+" away",hint:b.name+" leaves the village for good"}
-]
+].concat(hall?[{key:"council",label:"🏛 settle it at the council hall",hint:"both say their piece in front of the council. it costs nothing, and it sticks"}]:[])
 };
 },
 begin:function(game,inc){
@@ -287,12 +288,25 @@ b.stranger={state:"leaving",t:game.time,x0:away.x,z0:away.z,exiled:true};
 if(b.partner){var pt=SB.Game.byId(game,b.partner);if(pt)SO.remember(game,pt,a,"exiled",-30,"got my partner exiled",3600);}
 return D.end(game,inc,true);
 }
+if(inc.choice==="council"){
+var h=SB.World.structById(game.world,inc.hall)||councilHall(game);
+if(!h)return D.end(game,inc,false);
+inc.hall=h.id;inc.dur=45;
+SB.Creature.sendTo(a,h.x+1.6,h.z+0.8,game,40);SB.Creature.sendTo(b,h.x-1.6,h.z+0.8,game,40);
+return;
+}
 a.grudge={id:b.id,t:game.time};b.grudge={id:a.id,t:game.time};
 SB.Creature.provoke(a,b,game);
 },
 tick:function(game,inc){
 var a=SB.Game.byId(game,inc.a),b=SB.Game.byId(game,inc.b);
 if(!a||!b||!a.alive||!b.alive)return D.end(game,inc,false);
+if(inc.choice==="council"){
+var h=SB.World.structById(game.world,inc.hall);
+if(!h)return D.end(game,inc,false);
+if((SB.dist(a.x,a.z,h.x,h.z)<5&&SB.dist(b.x,b.z,h.x,h.z)<5)||game.time-inc.t1>inc.dur)return D.end(game,inc,true);
+return;
+}
 if(SB.dist(a.x,a.z,b.x,b.z)>2&&!(a.action&&a.action.verb===SB.V.hit))SB.Creature.provoke(a,b,game);
 if(game.time-inc.t1>inc.dur)return D.end(game,inc,true);
 },
@@ -300,6 +314,13 @@ finish:function(game,inc){
 var a=SB.Game.byId(game,inc.a),b=SB.Game.byId(game,inc.b),SO=SB.Social;
 if(!a||!b)return"it doesn't matter any more.";
 if(inc.choice==="mend"){chron(game,"🤝",a.name+" and "+b.name+" buried the hatchet (with a little help from the sky)");diary(game,a,"🤝","made up with "+b.name);diary(game,b,"🤝","made up with "+a.name);return a.name+" and "+b.name+" made up. 🤝";}
+if(inc.choice==="council"){
+[[a,b],[b,a]].forEach(function(p){var r=p[0].ops&&p[0].ops[p[1].id];if(r)r.m.forEach(function(m){if(m[0]<0)m[0]*=0.1;});SO.remember(game,p[0],p[1],"council",35,"the council heard us out",7200);});
+if(game.civ)game.civ.settled=(game.civ.settled||0)+1;
+chron(game,"🏛","the council settled the feud between "+a.name+" and "+b.name);diary(game,a,"🏛","the council settled it with "+b.name);diary(game,b,"🏛","the council settled it with "+a.name);
+SB.bus.emit("peaceCouncil",{a:a,b:b});
+return"the council heard "+a.name+" and "+b.name+" out, and it is settled. 🏛";
+}
 if(inc.choice==="exile"){chron(game,"🚪",b.name+" was sent away after the feud with "+a.name);diary(game,a,"🚪",b.name+" was sent away");return b.name+" walks off into the wild. the village is quieter.";}
 var winner=a.chem.pain<=b.chem.pain?a:b,loser=winner===a?b:a;
 if(game.rng.chance(0.5)){
@@ -312,6 +333,7 @@ chron(game,"🥊",winner.name+" beat "+loser.name+" in a fight the whole village
 return winner.name+" won. "+loser.name+" won't forget it.";
 }
 });
+function councilHall(game){var s=game.world.structures;for(var i=0;i<s.length;i++)if(s[i].kind==="hall"&&s[i].done)return s[i];return null;}
 function feudPair(game){
 if(!SB.Social)return null;
 var cs=smols(game).filter(function(c){return c.stage>=2&&!c.asleep;}),best=null,bv=SB.Social.ENEMY+10;

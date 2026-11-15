@@ -75,6 +75,7 @@
     var PX = SB.Pixel, S = PX.spec(c), lk = S.lk, grump = S.grump, tier = S.tier, up = S.upright;
     var base = S.base, light = S.light, dark = S.dark, second = S.second, belly = S.belly;
     var pat = S.pat, acc = S.acc, classic = S.classic, seed = S.seed || 1;
+    var L = !grump && SB.Wear && SB.Wear.look ? SB.Wear.look(c) : null;
     clear(); VX.clipped = 0;
     var pivots = new Float32Array(NPART * 3);
     function piv(p, x, y, z) { pivots[p * 3] = x; pivots[p * 3 + 1] = y; pivots[p * 3 + 2] = z; }
@@ -112,9 +113,9 @@
       box(-1, ay - aLen + 1, -az - 2, 2, aLen, 2, function (x, y) { return y === ay - aLen + 1 ? light : base; }, P_ARML);
       piv(P_ARMR, 0, ay + 0.5, az + 1); piv(P_ARML, 0, ay + 0.5, -az - 1);
       // what evolution wears: a builder's tool belt
-      if (!grump && tier >= 4) {
+      if (!grump && tier >= 4 && !(L && L.belt === false)) {
         var by = Math.round(bodyCY - bodyRY * 0.3);
-        for (var bz = -OZ; bz < GZ - OZ; bz++) for (var bx = -8; bx < 8; bx++) if (partAt(bx, by, bz) === P_BODY) recolor(bx, by, bz, [120, 80, 45]);
+        for (var bz = -OZ; bz < GZ - OZ; bz++) for (var bx = -8; bx < 8; bx++) if (partAt(bx, by, bz) === P_BODY) recolor(bx, by, bz, L && L.belt || [120, 80, 45]);
         var bfx = -1; for (var fx = 8; fx > -8; fx--) if (get(fx, by, 0)) { bfx = fx; break; }
         recolor(bfx, by, 0, GOLD); recolor(bfx, by, -1, GOLD);
         box(-Math.ceil(bodyRX) - 1, by - 2, -3, 1, 2, 2, [150, 100, 60], P_BODY); // a pouch at the back
@@ -177,11 +178,11 @@
     if (lk.fins) for (var fn = 0; fn < 3; fn++) { var fxx2 = -1 - fn, fy2 = topOf(up ? P_BODY : P_BODY, fxx2, 0); if (up) fy2 = Math.max(fy2, legH + S.th - 1); box(fxx2 - (up ? 1 : 0), fy2 + 1, 0, 1, 3 - fn, 1, second, P_BODY); }
     // ---- tier gear on the head: tribe headband with a feather, thinker brain, ascended halo
     var face = faceGeom(S, headCY, headRY, headRZ);
-    if (up && tier < 6 && !grump) {
-      var hb = Math.max(hTop - 1, face.eyeY + 2);
-      for (var hbz = -OZ; hbz < GZ - OZ; hbz++) for (var hbx = -10; hbx < 10; hbx++) if (partAt(hbx, hb, hbz) === P_HEAD) recolor(hbx, hb, hbz, tier >= 4 ? [220, 80, 70] : [240, 190, 60]);
-      box(-Math.round(headRX) + 1, hb + 1, -Math.ceil(hz) , 1, 3, 1, tier >= 4 ? [90, 190, 240] : [255, 110, 90], P_HEAD);
-      box(-Math.round(headRX), hb + 3, -Math.ceil(hz), 1, 1, 1, tier >= 4 ? [150, 220, 255] : [255, 160, 130], P_HEAD);
+    if (up && tier < 6 && !grump && !(L && L.band === false)) {
+      var hb = Math.max(hTop - 1, face.eyeY + 2), fc = L && L.feather || (tier >= 4 ? [90, 190, 240] : [255, 110, 90]);
+      for (var hbz = -OZ; hbz < GZ - OZ; hbz++) for (var hbx = -10; hbx < 10; hbx++) if (partAt(hbx, hb, hbz) === P_HEAD) recolor(hbx, hb, hbz, L && L.band || (tier >= 4 ? [220, 80, 70] : [240, 190, 60]));
+      box(-Math.round(headRX) + 1, hb + 1, -Math.ceil(hz) , 1, 3, 1, fc, P_HEAD);
+      box(-Math.round(headRX), hb + 3, -Math.ceil(hz), 1, 1, 1, mix(fc, WHITE, 0.35), P_HEAD);
     }
     if (lk.brainy && !grump) { // the thinker's big pink brain, folded
       var bry2 = Math.max(2, headRX - 1.5), brz2 = Math.max(2, headRZ - 1.5);
@@ -201,6 +202,53 @@
     }
     if (acc === "crystal") for (var cr = 0; cr < 3; cr++) { var crx = -1 - cr * 2, cry = topOf(headPart, crx, 0); if (cry < 0) cry = hTop; box(crx, cry + 1, -1, 1, 3 - (cr === 1 ? 0 : 1), 2, [120, 220, 255], headPart); put(crx, cry + 4 - (cr === 1 ? 0 : 1), -1, [220, 250, 255], headPart); }
     if (acc === "moon") { box(2, hTop + 1, Math.ceil(hz) + 2, 2, 2, 2, [235, 230, 255], P_FLOAT, true); }
+    // ---- what it has on (wear.js W.look): a vest or cloak, boots, a hat, a charm, a mask, scars, paint, a mark
+    if (c.leafy && !(L && L.head)) { box(0, hTop + 1, 0, 1, 2, 1, [70, 160, 70], headPart); put(1, hTop + 2, 0, [120, 210, 90], headPart); put(0, hTop + 3, 1, [120, 210, 90], headPart); }
+    if (L) {
+      var u1, u2, u3, ui, uj, e = L.body, BLK = [0, 0, 0];
+      var ring = function (y, prt, fn) { for (var z = bb[4]; z <= bb[5]; z++) for (var x = bb[0]; x <= bb[1]; x++) if (get(x, y, z) && partAt(x, y, z) === prt) { var cc = fn(x, z); if (cc) recolor(x, y, z, cc); } };
+      var side = function (x, y, s, prt, cc) { for (var z = s > 0 ? bb[5] : bb[4]; z * s > 0; z -= s) if (get(x, y, z) && partAt(x, y, z) === prt) { recolor(x, y, z, cc); return; } };
+      if (e) {
+        var y0 = Math.ceil(bodyCY - bodyRY * (up ? 1 : 0.8)), y1 = up ? Math.floor(bodyCY + bodyRY) - 1 : Math.min(Math.floor(bodyCY - bodyRY * 0.2), face.eyeY - face.es - 3), dk = mix(e.col, BLK, 0.22), lt = mix(e.col, WHITE, 0.35);
+        var cloth = function (x, z) {
+          if (u2 === y0 && e.trim) return (x + z) & 1 ? e.trim : dk;
+          return e.pat === 1 ? (u2 & 1 ? dk : e.col) : e.pat === 2 ? (SB.hash(x, u2 * 5 + z, 7) < 0.14 ? lt : e.col) : e.pat === 3 ? ((x + u2 + z) & 1 ? dk : e.col) : e.col;
+        };
+        for (u2 = y0; u2 <= y1; u2++) ring(u2, P_BODY, cloth);
+        if (e.sh === "cloak" && y1 >= y0) { u2 = Math.max(1, y0 - 2); box(back - 1, u2, -Math.floor(bodyRZ) + 1, 1, y1 - u2 + 1, Math.max(1, Math.floor(bodyRZ) * 2 - 2), function (x, y) { return y === u2 && e.trim ? e.trim : dk; }, P_BODY); }
+      }
+      e = L.feet;
+      if (e && legs) for (u2 = 0; u2 < Math.min(2, legH); u2++) for (u3 = bb[4]; u3 <= bb[5]; u3++) for (u1 = bb[0]; u1 <= bb[1]; u1++) { ui = partAt(u1, u2, u3); if ((ui === P_LEGA || ui === P_LEGB) && get(u1, u2, u3)) recolor(u1, u2, u3, u2 ? e.col : mix(e.col, BLK, 0.3)); }
+      e = L.head;
+      if (e) {
+        var hc = e.col, hd = mix(hc, BLK, 0.25), hl = mix(hc, WHITE, 0.4), sh = e.sh, low = Math.min(hTop, face.eyeY + (sh === "helm" ? 2 : 3));
+        var all = function () { return hc; };
+        if (sh === "band") {
+          ring(hTop - 1, headPart, all);
+          [[2, 0], [-3, 0], [0, 2], [0, -3]].forEach(function (p) { var ty = topOf(headPart, p[0], p[1]); if (ty >= 0) put(p[0], ty + 1, p[1], hl, headPart); });
+        } else if (sh === "hood") { for (u2 = Math.round(headCY - headRY * 0.3); u2 <= hTop; u2++) ring(u2, headPart, function (x) { return x < 1 || u2 >= hTop - 1 ? hc : null; }); }
+        else if (sh === "tall") { blob(0, hTop + 0.5, 0, 3.6, 0.5, 3.6, 2, hc, headPart); box(-2, hTop + 1, -2, 4, 4, 4, function (x, y) { return y === hTop + 1 ? hl : hc; }, headPart); }
+        else if (sh === "cone") { for (ui = 0; ui < 5; ui++) { uj = Math.max(1, 4 - ui); box(-(uj >> 1), hTop + 1 + ui, -(uj >> 1), uj, 1, uj, ui & 1 ? WHITE : hc, headPart); } put(0, hTop + 6, 0, GOLD, headPart, true); }
+        else if (sh === "ears") [-1, 1].forEach(function (s) { blob(-0.5, hTop + 1.5, s * headRZ * 0.75, 0.7, 2.2, 2.2, 2, hc, headPart); });
+        else {
+          for (u2 = low; u2 <= hTop; u2++) ring(u2, headPart, all);
+          if (sh === "brim") blob(0, hTop + 0.5, 0, headRX + 2.2, 0.5, headRZ + 2.2, 2, hd, headPart);
+          blob(0, hTop + 1, 0, headRX * 0.8, sh === "brim" ? 1.3 : 1.6, headRZ * 0.8, 2, hc, headPart);
+          if (sh === "helm") box(-2, hTop + 2, 0, 4, 1, 1, hl, headPart); else if (sh === "cap") put(0, hTop + 3, 0, hl, headPart);
+        }
+      }
+      if (L.mask) {
+        ring(Math.min(hTop, face.eyeY + 2), headPart, function (x) { return x >= 0 ? [106, 90, 122] : null; });
+        [-1, 1].forEach(function (s) { box(1, hTop + 1, s > 0 ? ex : -ex - 1, 1, 2, 1, [210, 80, 255], headPart); });
+      }
+      if (L.charm) { u2 = up ? legH + S.th - 2 : Math.round(bodyCY - bodyRY * 0.55); for (u1 = bb[1]; u1 >= 0; u1--) if (get(u1, u2, 0) && partAt(u1, u2, 0) === P_BODY) { put(u1 + 1, u2, 0, L.charm.col, P_BODY, true); break; } }
+      var pc = L.paint ? SB.Wear.PAINTS[L.paint][1] : WHITE, scar = mix(base, [255, 205, 205], 0.65);
+      for (ui = 0; ui < L.scars; ui++) for (uj = 0; uj < 3; uj++) side(-2 + uj + ui * 2, Math.round(headCY - headRY * 0.3) + 1 - uj, 1, headPart, scar);
+      if (L.paint & 1) [-1, 1].forEach(function (s) { for (var q = 0; q < 4; q++) side(2 - (q >> 1) * 2, face.eyeY - 2 - (q & 1), s, headPart, pc); });
+      else if (L.paint) ring(Math.round(up ? bodyCY : bodyCY - bodyRY * 0.5), P_BODY, function (x, z) { return (x + z) & 1 ? pc : null; });
+      // a painted mark (5 by 5) on the back of the head
+      if (L.mark) for (ui = 0; ui < 25; ui++) if (L.mark >> ui & 1) { u2 = Math.round(headCY) + 2 - (ui / 5 | 0); u3 = ui % 5 - 2; for (u1 = bb[0]; u1 < 0; u1++) if (get(u1, u2, u3) && partAt(u1, u2, u3) === headPart) { recolor(u1, u2, u3, pc); break; } }
+    }
     piv(P_FLOAT, 0, hTop + 3, 0);
     piv(P_HEAD, 0, headCY, 0); piv(P_BODY, 0, 0, 0);
     // ---- mesh it: only the faces you can see, with a little ambient occlusion in the corners
@@ -336,8 +384,9 @@
   VX.stats = { built: 0, faces: 0, buildMs: 0, drawn: 0, cache: 0, sprites: 0 };
   // the model for a smol (built now if the frame still has budget; null = draw the sprite this frame)
   VX.modelFor = function (c, force) {
-    var key = c._vxKey && c._vxLook === c.look && c._vxTier === c.tier && c._vxStage === c.stage ? c._vxKey : null;
-    if (!key) { key = lookKey(c); c._vxKey = key; c._vxLook = c.look; c._vxTier = c.tier; c._vxStage = c.stage; }
+    var wl = SB.Wear && SB.Wear.look ? SB.Wear.look(c) : null, wk = (wl ? wl.key : "") + (c.leafy ? "L" : "") + (c.fit ? Math.round(c.fit) : "");
+    var key = c._vxKey && c._vxLook === c.look && c._vxTier === c.tier && c._vxStage === c.stage && c._vxW === wk ? c._vxKey : null;
+    if (!key) { key = lookKey(c) + wk; c._vxKey = key; c._vxLook = c.look; c._vxTier = c.tier; c._vxStage = c.stage; c._vxW = wk; }
     var m = cache[key];
     if (!m) {
       if (!force && budget <= 0) return null;
@@ -511,8 +560,14 @@
     var lean = mo ? mo.ln * 0.9 : 0, P = VX.pose(c, t, moving, legs);
     sq += P.sq; lean += P.lean; hop += P.hop; ear += P.ear; wag += P.wag;
     if (P.arms) { armL = P.arms[0]; armR = P.arms[1]; }
-    list.push({ m: m, f: fm, x: x, y: y + hop * scale, z: z, face: face, s: scale, a: [legSw, wag, flap, ear], arm: [armL, armR], b: [SB.clamp(sq, -0.35, 0.45), SB.clamp(lean, -0.6, 0.6), bob, 0],
-      alpha: alpha, cut: cut, glow: c.look.glow ? 0.35 + c.look.glow * 0.4 : 0, flash: an.flash || 0, grey: c.corpse ? 1 : 0,
+    // 4.36: how this one walks (wear.js W.gait), and the big glow in the colour of its charm
+    var Wr = SB.Wear, G = Wr && Wr.gait && !c.corpse && !c.asleep ? Wr.gait(c, t, walk) : null, roll = 0, big = Wr && Wr.look && Wr.look(c);
+    big = big && big.big;
+    if (G) { hop += G.hop; lean += G.lean; roll = G.roll; legSw *= G.leg; ear += G.ear; if (!P.arms && !hold && !(an.wave > 0)) { armL *= G.arm; armR *= G.arm; } }
+    if (big) { scale *= 1.25; R.light(x, y + 0.6, z, 5, big[0] / 255, big[1] / 255, big[2] / 255); }
+    c._vxH = m.height * scale;
+    list.push({ m: m, f: fm, x: x, y: y + hop * scale, z: z, face: face, s: scale, a: [legSw, wag, flap, ear], arm: [armL, armR], b: [SB.clamp(sq, -0.35, 0.45), SB.clamp(lean, -0.6, 0.6), bob, roll],
+      alpha: alpha, cut: cut, glow: (c.look.glow ? 0.35 + c.look.glow * 0.4 : 0) + (big ? 0.5 : 0), flash: an.flash || 0, grey: c.corpse ? 1 : 0,
       id: (6 + Math.floor(SB.hash(c.id, 3, 9) * 240)) / 255 });
     // where its head is on screen (speech bubbles and names sit above it)
     if (R.project) { var p0 = R.project(x, y, z, pp0), p1 = R.project(x, y + m.height * scale, z, pp1); c._pxH = Math.max(8, p0.y - p1.y + 6); }
@@ -543,6 +598,7 @@
     // squash and stretch from the feet, then lean into the stride
     "  p.y *= 1.0 - uB.x; p.xz *= 1.0 + uB.x * 0.5;",
     "  p = rz(p, -uB.y); n = rz(n, -uB.y);",
+    "  p = rx(p, uB.w); n = rx(n, uB.w);",
     "  vec4 q = vec4(p, 1.0);",
     "  vec3 w = vec3(dot(uM0, q), dot(uM1, q), dot(uM2, q));",
     "  vN = normalize(vec3(dot(uM0.xyz, n), dot(uM1.xyz, n), dot(uM2.xyz, n)));",
