@@ -62,7 +62,7 @@ if(s.state==="guest"&&game.time>s.until)ST.guestOut(game,c);
 });
 var ar=A(game);
 if(ar.fake&&game.time>ar.fake.t)ST.unmask(game);
-if(!game.showcase&&(game.time>=SB.DAY_LENGTH||game.ngPlus)){
+if(!game.showcase&&!(game.settings&&game.settings.noStrangers)&&(game.time>=SB.DAY_LENGTH||game.ngPlus)){
 if(ar.passT==null)ar.passT=420+dice(game)()*300;
 ar.passT-=dt;
 if(ar.passT<=0){ar.passT=540+dice(game)()*600;ST.pass(game);}

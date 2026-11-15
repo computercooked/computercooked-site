@@ -25,6 +25,8 @@ check("no vale, no stamps, and the nest where it always was", !T0.vale && T0._rw
 check("the same seed makes the same island twice", (() => { const g2 = mk(21); const ok = g2.world.T.nest.x === T0.nest.x && g2.world.T.nodes.length === T0.nodes.length; SB.Game.current = base; return ok; })());
 check("every new node has an id in a range of its own, and no two nodes share one", T0.nodes.every(n => (n.id >= WG.ARR_ID0 && n.id < WG.ARR_ID0 + 5000) === (["redshrub", "shelfcap", "iceberg", "glowstone"].indexOf(n.kind) >= 0)) && new Set(T0.nodes.map(n => n.id)).size === T0.nodes.length, T0.nodes.filter(n => n.id >= WG.ARR_ID0).length + " new");
 
+check("the new things join the island as it is made, once, and wait apart on an island made without this file", T0.extra.length > 0 && T0.extra.every(n => T0.nodes.indexOf(n) >= 0 && base.world.nodeById[n.id] === n) && AR.join(base.world) === 0 && (() => { const c2 = load(), T = c2.SB.Game.newGame(21, 256, { gv: 2 }).world.T; return T.extra.length === T0.extra.length && !T.nodes.some(n => n.id >= WG.ARR_ID0 && n.id < WG.ARR_ID0 + 5000); })());
+
 console.log("2. the maple woods: red shrubs and shelf mushrooms");
 const shrubs = T0.nodes.filter(n => n.kind === "redshrub"), caps = T0.nodes.filter(n => n.kind === "shelfcap");
 check("this island's maple woods have both", shrubs.length > 0 && caps.length > 0, shrubs.length + " shrubs, " + caps.length + " shelf mushrooms");
@@ -51,8 +53,8 @@ console.log("4. a flat island, and a one-islet island");
 const flat = mk(21, { gv: 2, peaks: "none" }), hill0 = maxH(T0), hillF = maxH(flat.world.T);
 check("mountains: none makes a level plain", hillF < 1.3 && hill0 > 4, "highest point " + hillF.toFixed(2) + " against " + hill0.toFixed(1));
 check("still an island you can land on", !!flat.world.T.nest && WG.walkable(flat.world.T, flat.world.T.nest.x, flat.world.T.nest.z) && land(flat.world.T) > 0.15);
-const isl = mk(21, { gv: 2, arch: "islet", size: "tiny" }, SB.WORLD_CHOICES.size.tiny);
-check("tiny is a 256 island", SB.WORLD_CHOICES.size.tiny === 256 && isl.world.T.N === 256);
+const isl = mk(21, { gv: 2, arch: "islet", size: "tiny" }, TI.sizeN("tiny"));
+check("tiny is a 256 island, and the other sizes are what they were", TI.sizeN("tiny") === 256 && isl.world.T.N === 256 && TI.sizeN("small") === 384 && TI.sizeN("normal") === 544 && JSON.stringify(SB.WORLD_CHOICES.size) === JSON.stringify({ small: 384, normal: 544, large: 768, huge: 1024 }));
 check("one islet: a little land in a wide sea", land(isl.world.T) < 0.2 && land(isl.world.T) > 0.01 && land(isl.world.T) < land(T0), Math.round(land(isl.world.T) * 100) + "% land against " + Math.round(land(T0) * 100) + "%");
 check("the islet shape is never a surprise pick", WG.ARCHS.indexOf("islet") < 0 && isl.world.T.arch === "islet");
 {
@@ -137,12 +139,12 @@ const st0 = { mode: "normal", size: "normal", shape: "surprise", land: "island",
   for (let i = 0; i < 30; i++) TI.stamp(st, "grove", 0.5, 0.5);
   check("24 stamps at most", st.edits.length === 24);
   const keepN = SB.WORLD_N, keepO = SB.WORLD_OPTS, pst = Object.assign({}, st0, { size: "small", seed: SB.worldCode(33), pod: [0.3, 0.62] });
-  const P = TI.preview(pst), real = mk(33, TI.worldOf(pst, []), SB.WORLD_CHOICES.size.small).world.T;
+  const P = TI.preview(pst), real = mk(33, TI.worldOf(pst, []), TI.sizeN("small")).world.T;
   SB.setWorldN(keepN);
   check("the map preview draws the island those settings make", P.N === 384 && P.nest.x === real.nest.x && P.nest.z === real.nest.z && WG.minimap(P).length === 384 * 384 * 4);
   check("and leaves the island on screen alone", (() => { const n0 = 256; SB.setWorldN(n0); const o = SB.WORLD_OPTS; TI.preview(pst); return SB.WORLD_N === n0 && SB.WORLD_OPTS === o; })());
-  const src = js("title.js");
-  check("every new choice is a row on the custom island page, under more options", ["site", "kin", "pip", "critter", "secret"].every(k => new RegExp('"' + k + '"').test(src.match(/var ORDER = \[[^\]]+\]/)[0])) && /ORDER\.slice\(0, 4\)/.test(src));
+  const src = js("title.js").replace(/\s+/g, ""); // (the packed copies have no spaces)
+  check("every new choice is a row on the custom island page, under more options", ["site", "kin", "pip", "critter", "secret", "spread"].every(k => new RegExp('"' + k + '"').test((src.match(/varORDER=\[[^\]]+\]/) || [""])[0])) && /ORDER\.slice\(0,4\)/.test(src));
 }
 {
   let r = null;
@@ -255,6 +257,8 @@ console.log("11. someone only passing through");
   check("never on the calm first day", !g.creatures.some(c => c.stranger));
   g.time = SB.DAY_LENGTH * 1.2; g.strangerT = 1e9; ST.tick(g, 1); ST.state(g).passT = 0.5; ST.tick(g, 1);
   check("from day two the timer brings them", g.creatures.some(c => c.stranger && c.stranger.state === "passing"));
+  const gq = mk(5); founders(gq); gq.settings.noStrangers = true; gq.time = SB.DAY_LENGTH * 1.2; gq.strangerT = 1e9; ST.tick(gq, 1); ST.state(gq).passT = 0.5; ST.tick(gq, 1);
+  check("unless the island's rule is no strangers", !gq.creatures.some(c => c.stranger));
   SB.Game.current = game;
 }
 
@@ -402,8 +406,8 @@ console.log("17. spreading things: stay put");
   check("with the choice, blight never gets to jump a farm", g.quests.dark.x2.sky.t === 0);
   check("and a bug nest never buds", g.quests.dark.x2.places[0].spread === 1e9 && g.quests.dark.x2.places[1].spread === undefined);
   check("without it, both spread as ever", g0.quests.dark.x2.sky.t === 18 && g0.quests.dark.x2.places[0].spread === undefined);
-  const dsrc = js("dark.js");
-  check("those are the two rules dark.js spreads by", dsrc.indexOf("(s.t = (s.t || 0) + 2) < 20") > 0 && dsrc.indexOf("day(game) - (p.spread || p.day) < 2") > 0);
+  const dsrc = js("dark.js").replace(/\s+/g, "");
+  check("those are the two rules dark.js spreads by", dsrc.indexOf("(s.t=(s.t||0)+2)<20") > 0 && dsrc.indexOf("day(game)-(p.spread||p.day)<2") > 0);
   check("it is a row on the custom island page", TI.worldOf(Object.assign({}, st0, { spread: "off" }), []).spread === "off" && !("spread" in TI.worldOf(st0, [])));
   SB.Game.current = game;
 }

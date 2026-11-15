@@ -44,7 +44,6 @@ var ARCHS=["classic","volcano","twin","crescent","mesa","delta","lakes","fjord"]
 WG.ARCHS=ARCHS;
 WG.ARCH_NAMES={classic:"one big island",volcano:"volcano island",twin:"twin islands",crescent:"crescent bay",mesa:"mesa country",delta:"river delta",lakes:"lake district",fjord:"fjord coast"};
 WG.ARCH_NAMES.islet="one small islet";
-SB.WORLD_CHOICES.size.tiny=256;
 SB.WORLD_CHOICES.peaks.none={mtn:0.02};
 var NK=SB.NODES;
 NK.redshrub={noun:"plant",label:"red shrub",emoji:"🍁",r:0.4,drops:"berry",every:70,desc:"a low red shrub of the maple woods. berries hide under the leaves."};
@@ -669,7 +668,8 @@ cn++;
 }
 }
 var r4=SB.rng((T.seed*71+9973)>>>0),aid=WG.ARR_ID0;
-function add4(kind,x,z,s){var n={id:aid++,kind:kind,x:x,z:z,s:s||1,rot:r4()*6.283,seed:(r4()*1e9)|0};nodes.push(n);mark(x,z,SB.NODES[kind].r*n.s);return n;}
+T.extra=[];
+function add4(kind,x,z,s){var n={id:aid++,kind:kind,x:x,z:z,s:s||1,rot:r4()*6.283,seed:(r4()*1e9)|0};(kind==="oak"?nodes:T.extra).push(n);mark(x,z,SB.NODES[kind].r*n.s);return n;}
 for(var mj=3;mj<Nn-3;mj+=2)for(var mi=3;mi<Nn-3;mi+=2){
 if(T.biome[mj*Nn+mi]!==B.maple)continue;
 var mx=mi+r4()*2,mz=mj+r4()*2,mt=(mz|0)*Nn+(mx|0),mp=r4();

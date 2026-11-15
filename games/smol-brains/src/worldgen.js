@@ -62,7 +62,6 @@
   // round 3 (arrivals): choices only "custom island" can ask for. None is ever part of a surprise pick, and an
   // island made without them comes out exactly as before
   WG.ARCH_NAMES.islet = "one small islet";
-  SB.WORLD_CHOICES.size.tiny = 256;
   SB.WORLD_CHOICES.peaks.none = { mtn: 0.02 };
   var NK = SB.NODES;
   NK.redshrub = { noun: "plant", label: "red shrub", emoji: "🍁", r: 0.4, drops: "berry", every: 70, desc: "a low red shrub of the maple woods. berries hide under the leaves." };
@@ -759,9 +758,12 @@
     }
 
     // round 3, placed last of all from their own stream and their own ids (ARR_ID0), so no older node moves: red shrubs
-    // and shelf mushrooms in the maple woods, winter icebergs off the coast, the editor's groves, the vale's glow-stones
+    // and shelf mushrooms in the maple woods, winter icebergs off the coast, the editor's groves, the vale's glow-stones.
+    // The new kinds wait in T.extra: their models are in arrivals3.js, which puts them on the island as it is made
+    // (so an island made without that file has nothing on it that cannot be drawn)
     var r4 = SB.rng((T.seed * 71 + 9973) >>> 0), aid = WG.ARR_ID0;
-    function add4(kind, x, z, s) { var n = { id: aid++, kind: kind, x: x, z: z, s: s || 1, rot: r4() * 6.283, seed: (r4() * 1e9) | 0 }; nodes.push(n); mark(x, z, SB.NODES[kind].r * n.s); return n; }
+    T.extra = [];
+    function add4(kind, x, z, s) { var n = { id: aid++, kind: kind, x: x, z: z, s: s || 1, rot: r4() * 6.283, seed: (r4() * 1e9) | 0 }; (kind === "oak" ? nodes : T.extra).push(n); mark(x, z, SB.NODES[kind].r * n.s); return n; }
     for (var mj = 3; mj < Nn - 3; mj += 2) for (var mi = 3; mi < Nn - 3; mi += 2) {
       if (T.biome[mj * Nn + mi] !== B.maple) continue;
       var mx = mi + r4() * 2, mz = mj + r4() * 2, mt = (mz | 0) * Nn + (mx | 0), mp = r4();

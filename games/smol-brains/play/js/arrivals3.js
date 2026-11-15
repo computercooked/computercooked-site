@@ -10,6 +10,18 @@ function st(game){var q=game.quests||(game.quests={});return q.arrivals3||(q.arr
 AR.state=st;
 if(SB.KINDS&&!SB.KINDS.beaconlamp)SB.KINDS.beaconlamp={noun:"tool",label:"beacon lamp",emoji:"🏮",r:0.16,color:0xfff0a8,light:1,desc:"a little of the old beacon's light. it clears the fog, calms smols and sends grumps home."};
 if(SB.STRUCTS&&!SB.STRUCTS.skygate)SB.STRUCTS.skygate={noun:"wonder",label:"sky gate",emoji:"🌀",r:0.9,cost:GATE_COST,work:6,desc:"smols from codes and from other islands arrive here. step up to it to make your own smol's code."};
+AR.join=function(world){
+var T=world&&world.T;
+if(!T||!T.extra||T._extraIn)return 0;
+T._extraIn=1;
+T.extra.forEach(function(n){world.nodes.push(n);});
+return T.extra.length;
+};
+if(Sv()&&Sv().placeVines&&!Sv()._arrWrap){
+var vines0=Sv().placeVines;
+Sv()._arrWrap=1;
+Sv().placeVines=function(world){var out=vines0.apply(this,arguments);try{AR.join(world);}catch(e){}return out;};
+}
 AR.gate=function(game){return SB.Strangers&&SB.Strangers.gate?SB.Strangers.gate(game):null;};
 AR.gateWhy=function(game,c){
 if(AR.gate(game))return"there's a sky gate already";

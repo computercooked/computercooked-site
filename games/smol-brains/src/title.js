@@ -392,6 +392,8 @@
     spread: ["spreading things", [["", "spread", "blight goes farm to farm, bug nests bud new nests"], ["off", "stay put", "blight and bug nests stay where they start"]]]
   };
   var ORDER = ["mode", "size", "shape", "climate", "land", "peaks", "food", "grumps", "storms", "story", "seasons", "crew", "site", "kin", "pip", "critter", "secret", "spread"];
+  // tiles across for a size choice ("tiny" is title-only: a 256 island, the size the classic islands were)
+  TI.sizeN = function (k) { return k === "tiny" ? 256 : SB.WORLD_CHOICES.size[k] || SB.WORLD_N_NEW; };
   // the settings a new island is made from (settings.world). the round-3 choices are only there when picked
   TI.worldOf = function (st, q) {
     var w = { gv: SB.WORLD_GV, arch: st.shape === "surprise" ? undefined : st.shape, size: st.size, land: st.land, peaks: st.peaks, climate: st.climate, food: st.food, grumps: st.grumps, storms: st.storms, crew: st.crew, quirks: q || [], surprise: st.quirk === "surprise", mode: st.mode === "sandbox" ? "sandbox" : undefined };
@@ -415,7 +417,7 @@
   // the terrain those settings make (nothing else is touched: the island on screen keeps its own size and options)
   TI.preview = function (st) {
     var keepN = SB.WORLD_N, keepO = SB.WORLD_OPTS, T = null, w = TI.worldOf(st, []);
-    try { SB.setWorldN(SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW); SB.WORLD_OPTS = SB.worldFx(w); SB.WORLD_OPTS.w = w; T = SB.WorldGen.generate(SB.parseWorldCode(st.seed) || 1); }
+    try { SB.setWorldN(TI.sizeN(st.size)); SB.WORLD_OPTS = SB.worldFx(w); SB.WORLD_OPTS.w = w; T = SB.WorldGen.generate(SB.parseWorldCode(st.seed) || 1); }
     finally { SB.setWorldN(keepN); SB.WORLD_OPTS = keepO; }
     return T;
   };
@@ -495,7 +497,7 @@
         return true;
       }).then(function (yes) {
         if (!yes) return;
-        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: SB.WORLD_CHOICES.size[st.size] || SB.WORLD_N_NEW, world: world, story: st.story, seasons: st.seasons, name: name }); }, 60);
+        setTimeout(function () { if (opts.onNew) opts.onNew({ seed: seed, n: TI.sizeN(st.size), world: world, story: st.story, seasons: st.seasons, name: name }); }, 60);
       });
     }
     if (pre.quick) go(); else draw();
