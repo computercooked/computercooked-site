@@ -202,8 +202,8 @@ seeded(3003, () => {
     check("the button and the V key switch it", M.third() === true && SB.Ext.key(g, c, "v", true, {}) === true && s.third === false && M.third(true));
     for (let i = 0; i < 60; i++) { pov.x = c.x; pov.y = c.y + 1; pov.z = c.z; M.cam(s, pov, 0.016); }
     check("the camera sits behind and beside you", pov.third === true && pov.z - c.z > 2 && Math.abs(pov.x - c.x) > 0.3 && pov.y >= W.groundY(g.world, pov.x, pov.z) + 0.29, "back " + (pov.z - c.z).toFixed(2));
-    check("render.js draws your own body then", /own\._pov = false/.test(js("render.js")) && /pov\.third/.test(js("render.js")));
-    check("possess.js hands the camera over each frame", /SB\.Motion3\.cam\(S, cm\.pov, dt\)/.test(js("possess.js")));
+    check("render.js draws your own body then", /own\._pov ?= ?false/.test(js("render.js")) && /pov\.third/.test(js("render.js")));
+    check("possess.js hands the camera over each frame", /SB\.Motion3\.cam\(S, ?cm\.pov, ?dt\)/.test(js("possess.js")));
     M.third(false); for (let i = 0; i < 80; i++) { pov.x = c.x; pov.y = c.y + 1; pov.z = c.z; M.cam(s, pov, 0.016); }
     check("and back to your eyes", pov.third === false && Math.abs(pov.z - c.z) < 0.1);
     SB.bus.emit("spearThrown", { c: c, g: { x: c.x, y: c.y, z: c.z - 9 }, kept: false });
@@ -266,7 +266,7 @@ seeded(3003, () => {
     check("the ground menu now offers done / rub it out", M.menuFor(g, null).map(m => m.label).join("|") === "done sketching|rub it out");
     M.menuFor(g, null)[1].go(); M.menuFor(g, null)[0] && (M.sketching = false);
     check("rubbed out", M.state(g).sketch.length === 0);
-    check("input.js hands pointers over without touching the grab code", /SB\.Motion3\.ptr\("down", local\(e\), e\)/.test(js("input.js")) && /el\.addEventListener\("pointerdown", down\);/.test(js("input.js")));
+    check("input.js hands pointers over without touching the grab code", /SB\.Motion3\.ptr\("down", ?local\(e\), ?e\)/.test(js("input.js")) && /el\.addEventListener\("pointerdown", ?down\);/.test(js("input.js")));
     const a = M.spin("stick", 0, 170), b = M.spin("stick", 1, 170);
     check("the turning model is the item's own mesh", a.length > 3 && a.length === b.length && a.every(t => t.length === 10 && t.slice(0, 6).every(v => v > -40 && v < 210)));
     check("and it turns", a.some((t, i) => Math.abs(t[0] - b[i][0]) > 1));
