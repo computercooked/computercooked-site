@@ -1330,7 +1330,10 @@
     updateCamera(dt);
     for (var k in frameDyn) { frameDyn[k].n = 0; frameDyn[k].hi = false; }
     shadowN = 0; lightList.length = 0;
-    for (var h = 0; h < hooks.length; h++) hooks[h](game, alpha || 0, dt);
+    // round 3: over the shoulder (cam.pov.third), your own body is drawn like anyone's
+    var own = cam.pov && cam.pov.third && SB.Possess && SB.Possess.c;
+    if (own) own._pov = false;
+    try { for (var h = 0; h < hooks.length; h++) hooks[h](game, alpha || 0, dt); } finally { if (own && SB.Possess.c === own) own._pov = true; }
     if (R.particles) R.particles.update(dt);
 
     // pick the 8 lights nearest the view centre

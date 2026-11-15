@@ -11,6 +11,9 @@ var tickleRub=0;
 IN.init=function(element,g){
 el=element;game=g;
 el.addEventListener("pointerdown",function(){IN.touchedT=performance.now();},true);
+el.addEventListener("pointerdown",function(e){if(SB.Motion3)SB.Motion3.ptr("down",local(e),e);});
+window.addEventListener("pointermove",function(e){if(SB.Motion3&&el)SB.Motion3.ptr("move",local(e),e);});
+window.addEventListener("pointerup",function(e){if(SB.Motion3&&el)SB.Motion3.ptr("up",local(e),e);});
 el.addEventListener("pointerdown",down);
 window.addEventListener("pointermove",move);
 window.addEventListener("pointerup",up);
