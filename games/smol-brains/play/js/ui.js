@@ -223,7 +223,7 @@
     el.saved = h("span", { class: "savedot", title: "saved", "aria-hidden": "true" }, "💾");
     el.hud.appendChild(el.clock); el.hud.appendChild(mid); el.hud.appendChild(el.pray); el.hud.appendChild(el.sparks); el.lantern = h("button", { class: "chipbtn glass live lanternchip", title: "the Lantern: memory embers relight it", onclick: function () { lanternSheet(); } }); el.hud.appendChild(el.lantern); el.hud.appendChild(el.speed); el.hud.appendChild(el.skip); el.hud.appendChild(el.saved); el.hud.appendChild(el.menu);
     root.appendChild(el.hud);
-    el.goals = h("div", { class: "goals glass live", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } var jq = e.target.closest && e.target.closest("[data-j]"); if (jq && SB.Mine) { var jd = SB.Mine.JOB[jq.getAttribute("data-j")]; if (jd) toast(jd.icon + " <b>" + esc(jd.t) + "</b><br>" + esc(jd.how), "", 6500); return; } el.goals.classList.toggle("min"); goalsH(); } });
+    el.goals = h("div", { class: "goals glass live min", onclick: function (e) { var q = e.target.closest && e.target.closest("[data-q]"); if (q) { questHelp(q.getAttribute("data-q")); return; } var jq = e.target.closest && e.target.closest("[data-j]"); if (jq && SB.Mine) { var jd = SB.Mine.JOB[jq.getAttribute("data-j")]; if (jd) toast(jd.icon + " <b>" + esc(jd.t) + "</b><br>" + esc(jd.how), "", 6500); return; } el.goals.classList.toggle("min"); goalKey = ""; updateGoals(); } });
     // 4.25: your smol's chip (mine.js): who, how it feels, what it needs; tap to go to it, 👁 to step in
     el.mine = h("div", { class: "minechip glass live hide" });
     root.appendChild(el.mine);
@@ -401,6 +401,7 @@
   var goalKey = "";
   function updateGoals() {
     if (state.introRunning || (game.tutorial && !game.tutorial.done && !(SB.Quests && SB.Quests.open(game)))) { el.goals.classList.add("hide"); goalKey = ""; goalsH(); return; } // 4.22: the goals show from the free first day on
+    if (coaching() && !tutIs("guide")) { el.goals.classList.add("hide"); goalKey = ""; goalsH(); return; } // 4.32: the coach's lessons ARE the first goals: no second list beside it
     var qb = SB.Quests && !game.showcase ? SB.Quests.board(game) : null;
     var list = goalsList();
     if (qb) list = list.filter(function (g) { return !/first word|tickle a smol/.test(g.t); }).slice(0, 2);
@@ -433,6 +434,13 @@
       if (list.length) html += '<div class="head sub"><span>also</span></div>';
     } else html += '<div class="head"><span>next</span><span>' + (el.goals.classList.contains("min") ? "▾" : "▴") + "</span></div>";
     html += list.map(function (g) { return '<div class="g' + (g.done ? " done" : "") + '"><span class="t">' + esc(g.t) + '</span><span class="p">' + esc(g.p) + "</span></div>"; }).join("");
+    if (el.goals.classList.contains("min")) { // 4.32: folded (the default), the list is ONE line: the next thing. tap it for the rest
+      var top = bigs[0] ? { e: "", t: bigs[0].t } : null, more = bigs.length + list.length;
+      if (jb) { var ju = jb.rows.filter(function (x) { return !x.done; }); more += ju.length; if (!top && ju[0]) top = { e: ju[0].icon, t: ju[0].t, p: ju[0].need > 1 ? ju[0].have + "/" + ju[0].need : "" }; }
+      if (qb) { var qu = qb.quests.filter(function (x) { return !x.done; }); more += qu.length; if (!top && qu[0]) top = { e: qu[0].q.icon, t: qu[0].q.t, p: qu[0].need > 1 ? qu[0].have + "/" + qu[0].need : "" }; }
+      if (!top && list[0]) top = { e: "🎯", t: list[0].t };
+      if (top) html = '<div class="g one"><span class="e">' + (top.e || "🎯") + '</span><span class="t">' + esc(top.t) + '</span><span class="p">' + esc(top.p || "") + '</span><span class="r">' + (more > 1 ? "+" + (more - 1) + " " : "") + "▾</span></div>";
+    }
     el.goals.innerHTML = html;
     goalsH();
   }
@@ -483,7 +491,12 @@
     modal("🏮 the Lantern", body);
   }
   UI.lanternSheet = lanternSheet;
+  // 4.32: while the coach is teaching, it is the only voice. Firsts and embers still land; everything else waits its turn
+  // by simply not being said (the goals list, the day card and the chatter all come back when the lessons are done)
+  function coaching() { return !!el.coach && state.tutStep >= 2 && !!game && !!game.tutorial && !game.tutorial.done; }
+  UI.coaching = coaching;
   function toast(html, cls, ms, at) { // at (4.22): a smol or a spot. the toast can then be tapped to fly there
+    if (coaching() && cls !== "ach" && cls !== "ember" && cls !== "night" && !/^🧪/.test(html)) return;
     if (game && SB.FirstNight && SB.FirstNight.active(game) && !SB.FirstNight.free(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
     if (live.some(function (t) { return t._html === html; }) || toastQ.some(function (q) { return q[0] === html; })) return;
@@ -767,7 +780,7 @@
     // 4.24: the three things you do with a smol sit right under its mood, not at the bottom of a long card
     if (c.species === "smol") el.sheet.appendChild(h("div", { class: "btnrow main3" }, [
       SB.Possess ? h("button", { class: "btn go", title: "see the world through its eyes and use its hands (costs " + SB.Possess.COST + " sparks)", onclick: function () { SB.Possess.enter(game, c); } }, "👁 possess" + (SB.Possess.cost && SB.Possess.cost(game, c) === 0 ? " · free" : "")) : null,
-      SB.Tricks ? h("button", { class: "btn go", title: "train it: every bar is read from its brain", onclick: function () { openSheet("tricks"); } }, "🎓 tricks " + SB.Tricks.count(c) + "/" + SB.Tricks.LIST.length) : null,
+      SB.Tricks ? h("button", { class: "btn go" + (tutIs("trick") ? " tutglow" : ""), title: "train it: every bar is read from its brain", onclick: function () { openSheet("tricks"); } }, "🎓 tricks " + SB.Tricks.count(c) + "/" + SB.Tricks.LIST.length) : null,
       h("button", { class: "btn go", title: "teach it words", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk")
     ]));
     if (c.species === "smol") el.sheet.appendChild(el.cWho = h("div", { class: "who note" })); else el.cWho = null;
@@ -2023,20 +2036,21 @@
   }
   UI.askTutorial = askTutorial;
   // after the first night: the god's tools (reward, words, tricks) as the next lessons
-  UI.afterNight = function () { if (game.selectedId != null) { SB.Game.select(game, null); closeSheet(); } var held = nightHeld; nightHeld = []; held.forEach(function (t, k) { setTimeout(function () { toast(t[0], t[1], t[2]); }, 2500 + k * 1500); }); var st = game.tutorial; if (st.done) return; var i = TUT.map(function (d) { return d.id; }).indexOf("why"); st.step = i >= 0 ? i : st.step; tutShow(); };
+  UI.afterNight = function () { if (game.selectedId != null) { SB.Game.select(game, null); closeSheet(); } var held = nightHeld; nightHeld = []; if (held.length) setTimeout(function () { toast(held[0][0] + (held.length > 1 ? " <small>(+" + (held.length - 1) + " more firsts last night: ☰ → goals)</small>" : ""), "ach", 6000); }, 2500); var st = game.tutorial; if (st.done) return; var i = TUT.map(function (d) { return d.id; }).indexOf("why"); st.step = i >= 0 ? i : st.step; tutShow(); };
   function guideOn() { return !game.settings || game.settings.guide !== false; }
   // the tutorial walks through every mechanic. "do" steps wait for you to try the thing; "read" steps
   // have a next button. it never blocks taps on the island, and it can be skipped at any point.
   var TUT = [
     { id: "pod", t: "tap the crashed pod", s: "something's moving in that pod. tap it a few times to open it." },
     { id: "name", t: "they're out!", s: "" },
-    { id: "why", read: 1, t: "who you are", s: "you're <b>the Lantern</b>: the ark's guiding light. the ship is gone, so you have no body of your own. you just played as Pip by lending it your light, and you can do that with any smol (tap one → 👁 possess). from up here you look after all of them at once. the long sleep took everything they knew, so <b>teach them again</b>, keep them alive, and help them build a beacon tall enough to call the other pods home." },
-    { id: "look", t: "the sky view", s: "this is the island from above. your smols carry on by themselves down there, doing what you showed them. drag to move (with a mouse: wasd or middle-drag), pinch or scroll to zoom. <b>tap one of your smols</b> to pick it: it stops still for a few seconds so you can teach it, and its card shows what it's thinking." },
-    { id: "food", t: "it's hungry", s: "smols learn by trying things and remembering what felt good. they find food on their own, but you can help: with ✋ grab, <b>drag the apple next to a smol</b>." },
-    { id: "tickle", t: "reward it", hl: '[data-tool="tickle"]', s: "🪶 tickle means “yes, more of that”. pick tickle and <b>tap a smol</b> while it eats. 👆 tap means “no, stop that”. rewards and scoldings are how you shape its brain." },
-    { id: "word", t: "teach it a word", hl: '[data-tool="talk"]', s: "💬 talk opens the word book at the side. pick “food”, then <b>tap the apple</b> while your smol can see it. one lesson every few seconds. words the whole tribe knows make everyone smarter." },
-    { id: "trick", t: "teach it a trick", s: "tap a smol, then <b>🎓 tricks</b> on its card. every bar is read straight from its brain (a real neural network: 🧠 shows it). pick a trick without a ⭐, press <b>set it up</b>, then 🪶 tickle or 👆 tap at the right moment." },
-    { id: "guide", read: 1, t: "that's the basics", hl: ".goals", s: "you'll learn the rest as it happens: eggs, evolution, prayers and magic, ideas, buildings, crashed pods, raids, seasons. whenever something new turns up, i'll pop up and explain it. the <b>next</b> list (top left) always shows your next goal, and if you're ever stuck, a tip appears down here with a <b>show me</b> button." }
+    // 4.32: each step is one thing to do, said in two lines, with an arrow on the thing itself (pt: what the arrow points at)
+    { id: "why", read: 1, t: "you are the Lantern", s: "the ark's guiding light. you have no body of your own: you just lent Pip your light, and you can step into any smol again. from up here you look after them all. the long sleep took what they knew, so <b>teach them again</b>." },
+    { id: "look", pt: "smol", t: "pick a smol", s: "drag to move, pinch or scroll to zoom. <b>tap the smol under the arrow.</b>" },
+    { id: "food", pt: "food", t: "feed it", s: "with ✋ grab, <b>drag the food under the arrow to your smol.</b> smols learn from what feels good." },
+    { id: "tickle", pt: "smol", t: "say “yes”", hl: '[data-tool="tickle"]', s: "pick 🪶 tickle and <b>tap your smol.</b> a tickle means “more of that”; 👆 tap means “stop that”." },
+    { id: "word", pt: "food", t: "teach a word", hl: '[data-tool="talk"]', s: "pick 💬 talk, then <b>tap the food under the arrow</b> while your smol can see it." },
+    { id: "trick", pt: "trick", t: "teach a trick", s: "tap your smol, then <b>🎓 tricks</b> on its card. pick one, press <b>set it up</b>, and tickle at the right moment." },
+    { id: "guide", read: 1, t: "that's the basics", hl: ".goals", s: "the line at the top left is always <b>your next thing</b>: tap it for the rest. everything else, i'll show you when it turns up." }
   ];
   function tutIs(id) { var d = TUT[state.tutStep]; return !!d && d.id === id && !game.tutorial.done; }
   function tutDone(id) { if (tutIs(id)) tutAdvance(); }
@@ -2065,6 +2079,40 @@
     ]);
     root.appendChild(el.coach);
     if (d.hl) [].forEach.call(document.querySelectorAll(d.hl), function (n) { n.classList.add("tutglow"); });
+    if (d.pt && R.flyTo && !(SB.Possess && SB.Possess.active)) { var tm = tutSmol(); if (tm) R.flyTo(tm.x, tm.z, Math.min(R.camera.tZoom || 8, 8), 0.8); }
+  }
+  // 4.32: the coach points. A bouncing arrow sits on the smol, the food or the button the step is about, so the words
+  // can be short and nobody has to work out which apple. If there is no food about, one is put down beside the smol.
+  var tutFoodId = null, tutFlyT = 0;
+  function tutSmol() { var m = SB.Mine && SB.Mine.get ? SB.Mine.get(game) : null; if (m && m.alive) return m; return SB.Game.smols(game).filter(function (k) { return k.alive && !k.stranger; })[0] || null; }
+  function tutTarget() {
+    var d = TUT[state.tutStep];
+    if (!el.coach || !d || !d.pt || game.tutorial.done || el.modal || (SB.Possess && SB.Possess.active)) return null;
+    var me = tutSmol(); if (!me) return null;
+    var smolAt = { x: me.x, y: (me.y || SB.World.groundY(game.world, me.x, me.z)) + 1.7, z: me.z };
+    if (d.pt === "smol") return d.id === "look" && game.selectedId === me.id ? null : smolAt;
+    if (d.pt === "trick") return state.sheet === "smol" || state.sheet === "tricks" ? null : smolAt;
+    if (d.pt === "food") {
+      var K = SB.KINDS, best = null, bd = 5; // close by, or one is put down
+      game.world.items.forEach(function (o) { var k = K[o.kind]; if (!k || !k.food || k.noun !== "food" || o.heldBy != null || (o.data && (o.data.pod || o.data.rotten))) return; var dd = SB.dist(o.x, o.z, me.x, me.z); if (o.id === tutFoodId) dd -= 6; if (dd < bd) { bd = dd; best = o; } });
+      if (!best && SB.World.add) { best = SB.World.add(game.world, game, "apple", me.x + 1.3, me.z - 1.5); }
+      if (!best) return smolAt;
+      tutFoodId = best.id;
+      return { x: best.x, y: SB.World.groundY(game.world, best.x, best.z) + 0.9, z: best.z };
+    }
+    return null;
+  }
+  UI.tutTarget = tutTarget;
+  function tutPoint() {
+    var t = tutTarget();
+    if (!t || !R.project) { if (el.tutpt) el.tutpt.classList.remove("on"); return; }
+    if (!el.tutpt) { el.tutpt = h("div", { class: "tutpt" }, "▼"); root.appendChild(el.tutpt); }
+    var p = R.project(t.x, t.y, t.z), W = window.innerWidth, H = window.innerHeight;
+    el.tutpt.classList.add("on");
+    el.tutpt.classList.toggle("off", !p.on);
+    el.tutpt.style.left = SB.clamp(p.x, 20, W - 20) + "px"; el.tutpt.style.top = SB.clamp(p.y, 70, H - 150) + "px";
+    var off = !p.on || p.x < 20 || p.x > W - 20 || p.y < 70 || p.y > H - 150, nowT = Date.now(); // the thing has wandered off the screen: bring the camera to it (at most every four seconds, so a drag is not fought)
+    if (off && R.flyTo && nowT - tutFlyT > 4000 && !(game.hand && game.hand.held)) { tutFlyT = nowT; R.flyTo(t.x, t.z, Math.min(R.camera.tZoom || 8, 8), 0.8); }
   }
   function tutAdvance(to) {
     var st = game.tutorial;
@@ -2767,6 +2815,8 @@
     updateMine(dt);
     updateAlert(dt);
     if (el.coach && game.tutorial.done) { el.coach.remove(); el.coach = null; }
+    if (!el.coach && game.tutorial && !game.tutorial.done && game.tutorial.step >= 2 && state.tutStep !== game.tutorial.step && !state.introRunning && !el.modal && !(SB.Possess && SB.Possess.active)) tutShow(); // 4.32: an island loaded part-way through the lessons gets its coach back
+    tutPoint();
     if (!el.coach) updateGuide(dt); else if (el.guide) { el.guide.remove(); el.guide = null; guideKey = ""; }
     drawMinimap(dt);
     updateOrdersUI(dt);

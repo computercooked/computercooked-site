@@ -157,9 +157,11 @@
     "#pov .quest .st b{width:14px;flex:none;font-family:var(--mono,monospace)}#pov .quest .st.done{opacity:.55;text-decoration:line-through}#pov .quest .st.now{opacity:1;color:#fff}",
     "#pov .quest .tip{margin:8px 0 0;padding:8px 10px;font-size:14px;line-height:1.45;background:rgba(197,255,73,.12);box-shadow:inset 2px 0 0 var(--lime)}",
     "#pov .quest.mini .st:not(.now){display:none}",
+    "#pov .quest.mini{width:auto;max-width:300px;padding:7px 10px;cursor:pointer}#pov .quest.mini h4{float:right;margin:0 0 0 10px}#pov .quest.mini h4 span{display:none}#pov .quest.mini .st{margin:0;font-size:14px}#pov .quest.tipoff .tip{display:none}#pov .quest.mini .tip{clear:both;margin-top:7px;font-size:13px}",
+    "#pov.fn .who{display:none}", // 4.32: on the first day you know who you are
     "#pov .qmark{position:absolute;width:0;height:0;display:none}#pov .qmark.on{display:block}",
     "#pov .qmark i{position:absolute;left:-9px;top:-22px;width:18px;height:18px;background:var(--lime);transform:rotate(45deg);box-shadow:0 0 0 2px var(--px);animation:povbob 1s ease-in-out infinite}",
-    "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 11px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
+    "#pov .qmark span{position:absolute;left:50%;top:2px;transform:translateX(-50%);font:700 13px var(--mono,monospace);white-space:nowrap;text-shadow:1px 1px 0 #000;color:var(--lime)}",
     "#pov .qmark.edge i{animation:none;clip-path:polygon(0 0,100% 0,0 100%)}",
     "#pov .qmark.home i{width:28px;height:28px;left:-14px;top:-34px;box-shadow:0 0 0 3px #000,0 0 18px var(--lime)}#pov .qmark.home span{font:800 15px system-ui,Arial,sans-serif;top:4px;background:rgba(0,0,0,.6);padding:2px 6px}",
     "#pov .gmark i{background:#ff4f5e}#pov .gmark span{color:#ff4f5e}#pov .gmark.home i{background:var(--lime)}",
@@ -324,7 +326,7 @@
     var fns = s.firstNight && SB.FirstNight && SB.FirstNight.state(s.game), fnChase = !!fns && (fns.s === "lurk" || fns.s === "chase" || fns.s === "dusk");
     if (fnChase || s.nightChase) setTimeout(function () { HUD.beat("you are " + c.name, fnChase ? (fns.lit ? "get back to the fire!" : "run! grab sticks, light the nest") : "run for light: a fire, a torch, the nest", true); }, 400); // the first night and night chases: a beat, not a card over the grump
     else {
-    var introP = s.firstNight ? "your pod came down hard, and you were thrown clear. you've slept longer than anyone can count, and you're starving. <b>the list on the right says what to do.</b>"
+    var introP = s.firstNight ? "your pod came down hard, and you were thrown clear. you slept longer than anyone can count, and you're starving. <b>follow the marker.</b>"
       : "no miracles down here. keep your hearts and drumsticks up, stay warm, and be somewhere safe when night comes.";
     hud.intro = root.appendChild(el("div", "intro", "<h2>you are " + esc(c.name) + "</h2><p>" + introP + "</p><p style='font-size:13px;line-height:2.1'>" + intro + "</p>"));
     hud.intro.addEventListener("pointerdown", function () { fadeIntro(); });
@@ -424,14 +426,21 @@
       html += "<div class='st " + cls + "'><b>" + (i < q.i ? "✓" : i === q.i ? "▸" : "·") + "</b><span>" + esc(txt) + "</span></div>";
     });
     html += "<div class='tip'>" + esc(hud.phone ? phoneWords(cur.tip || "") : cur.tip) + "</div>";
+    // 4.32: one guide line. The how-to shows for the first seconds of a step, then folds away; tap the line to see it again
+    var qk = q.kind + ":" + q.i + ":" + cur.text;
+    if (hud.tipKey !== qk) { hud.tipKey = qk; hud.tipUntil = Date.now() + HUD.TIP_MS; hud.tipOpen = false; }
+    var tipOn = !!hud.tipOpen || Date.now() < hud.tipUntil;
     if (hud.questKey !== html) {
       hud.questKey = html;
       hud.quest.innerHTML = html;
       var b = hud.quest.querySelector(".skip");
       if (b) { b.addEventListener("pointerdown", function (e) { e.stopPropagation(); }); b.addEventListener("click", function (e) { e.stopPropagation(); P().skipQuest(); }); }
     }
-    hud.quest.classList.toggle("mini", !!hud.phone);
+    hud.quest.classList.add("mini");
+    hud.quest.classList.toggle("tipoff", !tipOn);
+    hud.quest.onclick = function () { hud.tipOpen = !(hud.tipOpen || Date.now() < hud.tipUntil); hud.tipUntil = 0; HUD.quest(); };
   };
+  HUD.TIP_MS = 9000;
   var qQ = [], qBusy = false;
   HUD.questStep = function (done, next) {
     if (!hud) return;
@@ -501,6 +510,7 @@
     mark(hud.qmark, t, d, 1.4);
     if (s.goal) { var sp = hud.qmark.querySelector("span"), lb = s.goal.label + " " + Math.round(d) + "m"; if (sp.textContent !== lb) sp.textContent = lb; }
     else if (lair) { var sp2 = hud.qmark.querySelector("span"), lb2 = lair.boss.icon + " " + lair.boss.name + " " + Math.round(d) + "m"; if (sp2 && sp2.textContent !== lb2) sp2.textContent = lb2; }
+    else if (q && q.target && !s.sniff && !s.night) { var sp3 = hud.qmark.querySelector("span"), lb3 = P().questText().text.replace(/ \(.*$/, "") + " " + Math.round(d) + "m"; if (sp3 && sp3.textContent !== lb3) sp3.textContent = lb3; } // 4.32: the marker says what it is for, not just how far
     keepLabel(hud.qmark);
   }
   // a marker's label never runs off the screen edge (K-0048: "o sticks 2m")
@@ -844,9 +854,9 @@
     game.creatures.forEach(function (o) { if (o.alive && o.species === "grump") { var d = SB.dist(o.x, o.z, c.x, c.z); if (d < gd) { gd = d; g = o; } } });
     hud.edge.classList.toggle("red", ch.health < 0.3 || (!!g && gd < 7));
     hud.edge.classList.toggle("blue", cold > 0.45 && ch.health >= 0.3);
-    if (g && !s.grumpWarned) { s.grumpWarned = true; HUD.say("👺 a grump! left click it with a weapon, run (shift), or get near a fire"); }
+    if (g && !s.grumpWarned) { s.grumpWarned = true; if (!s.firstNight && !g.boss && !s.nightChase) HUD.say(hud.phone ? "👺 a grump! hit it with a weapon, run, or get near a fire" : "👺 a grump! left click it with a weapon, run (shift), or get near a fire"); } // 4.32: not on the first night (only light works there), not for a captain or a night chase (they have their own banner)
     if (!g) s.grumpWarned = false;
-    if (w.night && !s.nightWarned) { s.nightWarned = true; HUD.say("🌙 night. grumps come out: find a fire or a roof"); }
+    if (w.night && !s.nightWarned) { s.nightWarned = true; if (!s.firstNight) HUD.say("🌙 night. grumps come out: find a fire or a roof"); }
     if (!w.night) s.nightWarned = false;
     if (ch.hunger > 0.75 && !s.hungryWarned) { s.hungryWarned = true; if (!s.firstNight) HUD.say("🍗 so hungry… hold food and right click to eat"); }
     if (ch.hunger > 0.78 && (s.lowT = (s.lowT || 0) - 0.1) <= 0) { s.lowT = 6; if (SB.Audio && SB.Audio.play) SB.Audio.play("sick", { vol: 0.7 }); } // a tummy rumble every few seconds while it's nearly empty
@@ -855,6 +865,7 @@
     if (cold < 0.3) s.coldWarned = false;
     hotbar(force);
     who(c, s);
+    hud.root.classList.toggle("fn", !!s.firstNight);
     clockCompass(c, s, w, game);
     target(s);
     if (hud.lockhint) hud.lockhint.style.display = locked() || hud.phone || bag || hud.looked ? "none" : "";
@@ -910,6 +921,8 @@
     var part = w.night ? "night 🌙" : tday < 0.27 ? "dawn 🌅" : tday < 0.45 ? "morning ☀️" : tday < 0.58 ? "midday ☀️" : tday < 0.74 ? "afternoon 🌤" : "dusk 🌇";
     var wx = w.weather.rain > 0.3 ? (w.weather.snow || SB.World.tempAt(w, c.x, c.z) < 0.25 ? " · snowing ❄️" : " · raining 🌧") : w.weather.wind > 0.7 ? " · windy 💨" : "";
     var pf = SB.Render && SB.Render.perf, ct = ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2) + " · " + part + wx + (pf && pf.show && pf.ft ? " · " + Math.round(1000 / pf.ft) + " fps" : "");
+    var fnl = s.firstNight && SB.FirstNight && SB.FirstNight.state ? SB.FirstNight.state(game) : null; // 4.32: the night's countdown, in the body too (it was only in the sky)
+    if (fnl && (fnl.s === "sticks" || fnl.s === "dusk")) { var left = Math.max(0, Math.ceil(SB.FirstNight.left(game) / Math.max(0.1, (game.speed || 1) * (SB.Game.pace ? SB.Game.pace(game) : 1)))); ct = "🌙 night in " + Math.floor(left / 60) + ":" + (left % 60 < 10 ? "0" : "") + left % 60; }
     if (hud.clock.textContent !== ct) hud.clock.textContent = ct;
     var head = ((-s.yaw * 180 / Math.PI) % 360 + 360) % 360, wpx = hud.compass.clientWidth || 300, span = 120, html = "";
     DIRS.forEach(function (d) {

@@ -264,7 +264,7 @@
       if (!s || s.done || s.s !== "wake" || !d || !d.c || d.c.id !== s.pip) return;
       d.c.chem.hunger = Math.min(d.c.chem.hunger, 0.4);
       go(game, "pod");
-      if (inBody(game) && SB.PovHud && SB.PovHud.beat) SB.PovHud.beat("😋 better", "now wake the others: back to the pod", true);
+      // (4.32: the "now wake the others" beat is gone: the step banner and the guide line already say it)
     }
     SB.bus.on("eat", ate); SB.bus.on("nibble", ate); SB.bus.on("povEat", ate);
     SB.bus.on("hatch", function (d) { // the founders climb out hungry, and copy Pip: smols learn from each other

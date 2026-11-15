@@ -813,7 +813,7 @@
   P.nightGoal = function () { return S ? S.night : null; };
   function nightTick(c, game) {
     var w = game.world, night = w.night, day = Math.floor(game.time / SB.DAY_LENGTH);
-    if (!night) { S.night = null; return; }
+    if (!night || S.firstNight) { S.night = null; return; } // 4.32: the first night has its own goal and its own words
     var safeDay = (game.settings || {}).povSafeNight;
     if (safeDay === day && !S.night) return;
     var t = P.shelterFor(game, c);
