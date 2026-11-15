@@ -667,3 +667,86 @@ body.titling #overlay { opacity: 0; }
 #ui:has(.lendbtn.on) .guide { display: none; }
 .ts-news { color: #ffd36a; text-align: center; padding: 0 8px; }
 @media (max-width: 600px) { .ts-foot .ts-news { display: none; } }
+
+/* ---------- 4.35 skin: one look for every panel, button, tab and toast ----------
+   Panels are lit from above (a soft gradient and a lilac hairline inside the ink edge). Anything you can press is a
+   raised key: it has a lip underneath, lifts a little when you point at it and goes down when you press. Windows
+   have a title bar. Toasts carry a colour stripe that says what kind of news it is. */
+:root { --key: #3a3158; --key2: #4a3f70; --lip: #1f1a31; --limelip: #8fc22c; --limehi: #e6ffa6; --hair: rgba(181, 154, 255, 0.22); }
+.glass, .glass2, .px {
+  background: linear-gradient(180deg, rgba(49, 40, 76, 0.97) 0, rgba(31, 25, 48, 0.97) 46px, rgba(24, 19, 38, 0.97) 100%);
+  box-shadow: 0 -3px 0 var(--ink), 0 3px 0 var(--ink), -3px 0 0 var(--ink), 3px 0 0 var(--ink),
+    inset 0 0 0 1px var(--hair), inset 0 2px 0 1px rgba(255, 255, 255, 0.06), 0 9px 0 rgba(0, 0, 0, 0.25), 0 14px 26px rgba(0, 0, 0, 0.35);
+}
+.btn, .ibtn, .tab, .chip[role="button"], button.chip {
+  background: var(--key); color: var(--paper);
+  box-shadow: 0 0 0 2px var(--ink), inset 0 -3px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, 0.09);
+  transition: transform 0.06s steps(2), filter 0.12s, background 0.12s;
+}
+.btn { padding: 9px 13px 11px; }
+.tab { padding: 7px 11px 9px; color: var(--dim); }
+.btn:hover, .ibtn:hover, .tab:hover { background: var(--key2); transform: translateY(-1px); }
+.btn:active, .ibtn:active, .tab:active, .tool:active { transform: translateY(2px); box-shadow: 0 0 0 2px var(--ink), inset 0 2px 0 rgba(0, 0, 0, 0.3); }
+.btn.go, .tab.on, .chip.on { background: var(--lime); color: var(--ink); box-shadow: 0 0 0 2px var(--ink), inset 0 -3px 0 var(--limelip), inset 0 2px 0 var(--limehi); }
+.btn.go:hover, .tab.on:hover { background: #d4ff73; }
+.btn.go:active { box-shadow: 0 0 0 2px var(--ink), inset 0 2px 0 var(--limelip); }
+.btn.warn { background: #5a2440; color: #ffc2dc; box-shadow: 0 0 0 2px var(--ink), inset 0 -3px 0 #3a1528, inset 0 2px 0 rgba(255, 255, 255, 0.1); }
+.btn.warn:hover { background: #73304f; }
+.btn.on { color: var(--lime); box-shadow: 0 0 0 2px var(--lime), inset 0 -3px 0 var(--lip); }
+.btn:disabled, .btn[disabled], .ibtn:disabled { opacity: 0.42; transform: none; filter: saturate(0.4); cursor: default; box-shadow: 0 0 0 2px var(--ink); }
+.btn.detbtn { background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px var(--hair); color: var(--dim); }
+.chipbtn { transition: transform 0.06s steps(2), filter 0.12s; }
+button.chipbtn:hover { filter: brightness(1.18); transform: translateY(-1px); }
+button.chipbtn:active { transform: translateY(2px); }
+.tool { transition: transform 0.06s steps(2); }
+.tool:hover:not(.on) { transform: translateY(-2px); }
+.tool.on { animation: toolpop 0.18s steps(3); }
+@keyframes toolpop { 0% { transform: translateY(3px); } 60% { transform: translateY(-3px); } 100% { transform: none; } }
+/* windows */
+.modal-wrap { background: radial-gradient(ellipse at 50% 40%, rgba(12, 9, 22, 0.35) 0, rgba(6, 4, 12, 0.78) 100%); animation: fade 0.18s ease-out; }
+.modal { animation: modalin 0.2s steps(5); }
+@keyframes modalin { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+.modal .mh { padding: 11px 12px 10px 16px; background: linear-gradient(180deg, rgba(197, 255, 73, 0.1), rgba(197, 255, 73, 0.02)); box-shadow: inset 0 -3px 0 var(--ink), inset 0 -4px 0 var(--hair); margin-bottom: 8px; }
+.modal .mh h2 { font-size: 17px; letter-spacing: 0.02em; text-shadow: 0 2px 0 var(--ink); }
+.tabs { padding: 2px 12px 10px; gap: 6px; }
+/* toasts: a stripe says what kind of news */
+.toast { padding: 8px 12px 9px 15px; position: relative; animation: sin 0.22s steps(5); }
+.toast::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--lilac); }
+.toast.ach::before { background: var(--lime); } .toast.ember::before { background: #ffb347; } .toast.bad::before, .toast.warn::before { background: var(--pink); } .toast.go::before { background: var(--sky); }
+.toast b { color: #fff; }
+/* small things: bars, chips, cards, inputs, scrollbars */
+.era .bar, .jbar { box-shadow: 0 0 0 2px var(--ink); background: #120e1c; }
+.era .bar i { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35); }
+.chip { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); padding: 5px 9px 6px; }
+.card { background: rgba(8, 6, 16, 0.38); border: 0; box-shadow: inset 0 0 0 1px var(--hair), inset 0 3px 0 rgba(0, 0, 0, 0.25); }
+.card.got { box-shadow: inset 0 0 0 2px rgba(197, 255, 73, 0.45), inset 0 3px 0 rgba(0, 0, 0, 0.25); }
+.goals .head { text-shadow: 0 2px 0 var(--ink); }
+.sheet::-webkit-scrollbar, .modal .mb::-webkit-scrollbar, .wordbook::-webkit-scrollbar { width: 10px; }
+.sheet::-webkit-scrollbar-thumb, .modal .mb::-webkit-scrollbar-thumb, .wordbook::-webkit-scrollbar-thumb { background: var(--key2); box-shadow: inset 0 0 0 2px var(--ink); }
+.sheet::-webkit-scrollbar-track, .modal .mb::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
+@media (prefers-reduced-motion: reduce) { .modal, .toast, .tool.on, .modal-wrap { animation: none; } .btn, .ibtn, .tab, .tool, .chipbtn { transition: none; } }
+/* 4.35: a card on the side is only as tall as what it shows (a campfire's three lines used to hang a panel down the whole screen) */
+@media (min-width: 900px) and (min-height: 560px) { .sheet.side { bottom: auto; max-height: calc(100% - 136px - var(--sat) - var(--sab)); } }
+/* 4.35 skin, inside a body: the bag and the hint boxes get the same lit panel and raised keys as the sky's windows
+   (these rules are written with "body" in front so they win over the ones povhud.js adds at run time) */
+body #pov .panel { background: linear-gradient(180deg, rgba(49, 40, 76, 0.9) 0, rgba(28, 22, 44, 0.9) 40px, rgba(22, 18, 34, 0.9) 100%); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 1px var(--hair), inset 0 2px 0 1px rgba(255, 255, 255, 0.06), 0 7px 0 rgba(0, 0, 0, 0.3); }
+body #pov .bag { background: radial-gradient(ellipse at 50% 45%, rgba(12, 9, 22, 0.45) 0, rgba(6, 4, 12, 0.82) 100%); animation: fade 0.15s ease-out; }
+body #pov .bag .win.panel { background: linear-gradient(180deg, rgba(49, 40, 76, 0.98) 0, rgba(31, 25, 48, 0.98) 46px, rgba(24, 19, 38, 0.98) 100%); animation: modalin 0.18s steps(4); }
+body #pov .bag h3 { text-shadow: 0 2px 0 var(--ink); padding-bottom: 8px; box-shadow: inset 0 -2px 0 var(--hair); }
+body #pov .bag .tabs { gap: 6px; margin-bottom: 10px; }
+body #pov .bag .tabs button, body #pov .bag .btn { background: var(--key); box-shadow: 0 0 0 2px var(--ink), inset 0 -3px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, 0.09); padding: 7px 11px 9px; transition: transform 0.06s steps(2), background 0.12s; }
+body #pov .bag .tabs button.ico { padding: 6px 7px 8px; }
+body #pov .bag .tabs button:hover, body #pov .bag .btn:hover { background: var(--key2); transform: translateY(-1px); }
+body #pov .bag .tabs button:active, body #pov .bag .btn:active { transform: translateY(2px); box-shadow: 0 0 0 2px var(--ink), inset 0 2px 0 rgba(0, 0, 0, 0.3); }
+body #pov .bag .tabs button.on, body #pov .bag .btn.go { background: var(--lime); color: var(--ink); box-shadow: 0 0 0 2px var(--ink), inset 0 -3px 0 var(--limelip), inset 0 2px 0 var(--limehi); }
+body #pov .bag .btn.go:hover { background: #d4ff73; }
+body #pov .bag .btn[disabled], body #pov .bag .btn[disabled]:hover { background: #2c2640; color: #8a8496; transform: none; box-shadow: 0 0 0 2px var(--ink); }
+body #pov .slot { background: rgba(8, 6, 16, 0.6); box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px var(--hair), inset 0 3px 0 rgba(0, 0, 0, 0.3); }
+body #pov .rc { background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); padding: 7px; }
+body #pov .rc:hover { background: rgba(255, 255, 255, 0.08); }
+body #pov .rlist { gap: 4px; }
+body #pov .rlist::-webkit-scrollbar, body #pov .bag .win::-webkit-scrollbar { width: 10px; }
+body #pov .rlist::-webkit-scrollbar-thumb, body #pov .bag .win::-webkit-scrollbar-thumb { background: var(--key2); box-shadow: inset 0 0 0 2px var(--ink); }
+body #pov .detail { box-shadow: inset 0 0 0 1px var(--hair); }
+body #pov .bag .lbl { color: var(--lilac); opacity: 0.9; letter-spacing: 0.06em; text-transform: uppercase; margin: 8px 0 5px; }
+@media (prefers-reduced-motion: reduce) { body #pov .bag, body #pov .bag .win.panel { animation: none; } }
