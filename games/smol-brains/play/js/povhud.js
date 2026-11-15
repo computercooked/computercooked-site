@@ -621,8 +621,9 @@
     html += "</div>";
     if (bag.detail >= 0 && v.s[bag.detail]) html += detailHtml(v.s[bag.detail], bag.detail);
     html += (c.tier >= 2 && Sv().cap(c) ? "<div class='help'>a basket adds 9 slots, and a chest at home holds 12 more</div>" : "") + "</div>";
-    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + (SB.Home && c.tier >= 2 ? "<button data-tab='home' class='" + (bag.tab === "home" ? "on" : "") + "'>🏠 home</button>" : "") + (SB.Loot && (bag.tab === "trade" || SB.Loot.partner(s.game, c)) ? "<button data-tab='trade' class='" + (bag.tab === "trade" ? "on" : "") + "'>" + SB.Loot.moneyIcon(s.game) + " trade</button>" : "") + "</div>";
-    html += bag.tab === "build" ? buildHtml() : bag.tab === "trade" && SB.Loot ? SB.Loot.html(s.game, c, icon) : bag.tab === "home" && SB.Home ? SB.Home.html(s.game, c, icon) : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
+    html += "<div class='side'><div class='tabs'><button data-tab='make' class='" + (bag.tab === "make" ? "on" : "") + "'>🛠 make</button><button data-tab='build' class='" + (bag.tab === "build" ? "on" : "") + "'>🏕 build</button>" + (SB.Body ? "<button data-tab='you' class='" + (bag.tab === "you" ? "on" : "") + "'>🐾 you</button>" : "") + (SB.Home && c.tier >= 2 ? "<button data-tab='home' class='" + (bag.tab === "home" ? "on" : "") + "'>🏠 home</button>" : "") + (SB.Loot && (bag.tab === "trade" || SB.Loot.partner(s.game, c)) ? "<button data-tab='trade' class='" + (bag.tab === "trade" ? "on" : "") + "'>" + SB.Loot.moneyIcon(s.game) + " trade</button>" : "") + (SB.Ext ? SB.Ext.shownTabs(s.game, c).map(function (t) { return "<button data-tab='" + t.id + "' class='" + (bag.tab === t.id ? "on" : "") + "'>" + (typeof t.label === "function" ? t.label(s.game, c) : t.label) + "</button>"; }).join("") : "") + "</div>";
+    var xt = SB.Ext ? SB.Ext.tabById(bag.tab) : null;
+    html += xt ? xt.html(s.game, c, icon) : bag.tab === "build" ? buildHtml() : bag.tab === "trade" && SB.Loot ? SB.Loot.html(s.game, c, icon) : bag.tab === "home" && SB.Home ? SB.Home.html(s.game, c, icon) : bag.tab === "you" && SB.Body ? youHtml() : makeHtml();
     html += "<div style='display:flex;justify-content:flex-end;margin-top:10px'><button class='btn' data-close>close " + (hud.phone ? "" : "(Tab)") + "</button></div></div></div>";
     bag.el.innerHTML = html;
     wireBag();
@@ -727,6 +728,7 @@
     if (SB.Wilds) SB.Wilds.wire(root, s.game, drawBag);
     if (SB.Home) SB.Home.wire(root, s.game, c, drawBag, HUD.say);
     if (SB.Loot) SB.Loot.wire(root, s.game, c, drawBag, HUD.say);
+    var xw = SB.Ext ? SB.Ext.tabById(bag.tab) : null; if (xw && xw.wire) xw.wire(root, s.game, c, drawBag, HUD.say);
     root.querySelectorAll("[data-make]").forEach(function (b) { b.addEventListener("click", function () { P().craft(b.getAttribute("data-make")); drawBag(); }); });
     root.querySelectorAll("[data-build]").forEach(function (b) { b.addEventListener("click", function () { P().startBuild(b.getAttribute("data-build")); }); });
     var cb = root.querySelector("[data-combine]");
@@ -846,7 +848,10 @@
     vrow("warm", warm, cold > 0.35 ? "cold" : "warm", warm < 0.3);
     vrow("pep", s.stam, "pep", s.stam < 0.2);
     if (SB.Body) {
-      var bd = SB.Body.of(c), sts = SB.Body.status(c, game).concat(SB.Wilds ? SB.Wilds.chips(game, c, s) : []), sk = sts.map(function (x) { return x.k + x.label; }).join("|");
+      var bd = SB.Body.of(c), sts = SB.Body.status(c, game).concat(SB.Wilds ? SB.Wilds.chips(game, c, s) : []);
+      if (SB.Loot && SB.Loot.hp(c)) sts.push({ k: "hp", e: "💗", label: "+" + SB.Loot.hp(c), tip: "a bigger heart: every hurt costs less" });
+      if (SB.Ext) SB.Ext.vitals(game, c).forEach(function (v, vi) { sts.push({ k: "x" + vi, e: v.icon || "", label: v.text, bad: !!v.bad, tip: v.tip || "" }); });
+      var sk = sts.map(function (x) { return x.k + x.label; }).join("|");
       vrow("water", 1 - bd.thirst, "water", bd.thirst > 0.72);
       if (sk !== hud.statKey) { hud.statKey = sk; hud.stat.innerHTML = sts.filter(function (x) { return x.k !== "thirst"; }).map(function (x) { return "<span class='" + (x.bad ? "bad" : "good") + "' title='" + esc(x.tip) + "'>" + x.e + " " + x.label + "</span>"; }).join(""); }
     } else hud.rows.water.el.style.display = "none";
@@ -1022,6 +1027,7 @@
         if (k === "tab" || k === "i" || k === "c") { e.preventDefault(); HUD.openBag(); return; }
         if (k === "b") { e.preventDefault(); HUD.openBag("build"); return; }
         if (bag) return;
+        if (!e.repeat && SB.Ext && SB.Ext.key(s.game, s.c, k, true, e)) { e.preventDefault(); return; } // 4.33: plug-ins may take a key
         keys[k] = true;
         if (k >= "1" && k <= "9") { P().select(+k - 1); return; }
         if (k === " ") { P().input.jump = true; e.preventDefault(); }
@@ -1033,7 +1039,7 @@
         else if (k === "g") P().sniff();
         if (k.indexOf("arrow") === 0) e.preventDefault();
       },
-      keyup: function (e) { keys[e.key.toLowerCase()] = false; },
+      keyup: function (e) { keys[e.key.toLowerCase()] = false; var su = S(); if (su && !su.dead && SB.Ext) SB.Ext.key(su.game, su.c, e.key.toLowerCase(), false, e); },
       blur: function () { keys = {}; P().input.use = false; blurAt = performance.now(); },
       down: function (e) {
         var s = S();

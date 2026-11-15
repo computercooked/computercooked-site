@@ -565,6 +565,7 @@
       }
     }
     if (!o.use && !r && held && K[hk] && K[hk].tool) o.use = op("swing your " + kl(hk), function () { swingAnim(); return true; }, null);
+    if (SB.Ext) SB.Ext.options(game, c, r, o, { op: op, no: no, say: say, audio: audio, held: held, hk: hk, kl: kl, swing: swingAnim, openBag: function (tab) { if (H()) H().openBag(tab); }, state: S }); // 4.33: plug-ins (ext.js)
     o.ctx = o.pick && !o.pick.locked ? o.pick : o.use && !o.use.locked && o.use.label !== "cancel" ? o.use : o.place && !o.place.locked ? o.place : null;
     if (o.use && o.use.nestLine) o.ctx = o.use;
     var hungryNose = tier < 2 && c.chem.hunger > 0.5 && !(o.ctx && o.ctx.verb === V.eat); // a hungry blob's big button is its nose, even by water (K-0027 phone)
@@ -652,7 +653,7 @@
     }
     if (o.species === "grump" && pw.dmg > 0 && o.alive) {
       SB.Chem.apply(o.chem, o.boss ? { pain: 0.05 } : { pain: 0.35 * pw.dmg / (o.tough || 1), fear: 0.5 * pw.dmg / (o.tough || 1) }); // (a captain doesn't scare)
-      o.whacked = (o.whacked || 0) + pw.dmg * (1 + skill("fight")) * (o.boss && SB.Bosses && SB.Bosses.reeling(o) ? SB.Bosses.REEL : 1); xp("fight", 1);
+      o.whacked = (o.whacked || 0) + pw.dmg * (SB.Ext ? SB.Ext.damage(game, c, o, { hk: hk, dmg: pw.dmg }) : 1) * (1 + skill("fight")) * (o.boss && SB.Bosses && SB.Bosses.reeling(o) ? SB.Bosses.REEL : 1); xp("fight", 1);
       if (o.whacked >= (SB.Threats ? SB.Threats.whacksNeeded(o) : 3)) {
         o.alive = false; o.gone = true; o.dying = false;
         if (SB.FX && SB.FX.burst) SB.FX.burst("crumbs", o.x, o.y + 0.5, o.z, 14, { col: [0.5, 0.3, 0.6] });

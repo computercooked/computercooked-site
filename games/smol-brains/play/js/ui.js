@@ -330,6 +330,7 @@
       else if (hn) add("🏠 your home could use " + hn.name + ": " + SB.Home.costText(hn) + ", made at your door", SB.Home.count(g) + "/" + SB.Home.THINGS.length);
     }
     if (SB.Loot && SB.Loot.unopened) { var nch = SB.Loot.unopened(g); if (nch) add("🧰 " + nch + (nch === 1 ? " chest is" : " chests are") + " waiting to be opened: step into a smol and go and look", ""); } // 4.33
+    if (SB.Ext) SB.Ext.goals(g, add); // 4.33: plug-ins
     var bn = SB.Bosses && SB.Bosses.next ? SB.Bosses.next(g) : null; // 4.26: the next grump captain
     if (bn) add(bn.boss.icon + " " + bn.boss.name + ", a grump captain, " + (bn.found ? "lairs to the " + bn.where : "is dug in somewhere to the " + bn.where) + ". f\u200cight it as a smol, with " + bn.boss.needs, bn.tries ? "tries: " + bn.tries : "", false, 1);
     if (!A.hatch) add(g.world.items.some(function (o) { return o.data && o.data.pod; }) ? "tap the crashed pod to open it" : "tap the glowing egg to warm it 🥚", "");
