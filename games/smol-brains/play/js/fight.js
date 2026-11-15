@@ -423,7 +423,7 @@
     for (var i = 0; i < its.length; i++) { var it = its[i]; if (it.gone || it.heldBy != null || !K[it.kind] || K[it.kind].critter !== "hop") continue; consider("critter", it, it.x, gy(game, it.x, it.z) + 0.2, it.z, 0.3); }
     var ss = w.structures;
     for (i = 0; i < ss.length; i++) if (ss[i].kind === "dummy") consider("dummy", ss[i], ss[i].x, gy(game, ss[i].x, ss[i].z) + 0.6, ss[i].z, 0.4);
-    if (best) for (var k2 = 1; k2 < best.d - 1; k2 += 0.75) if (ey + fy * k2 < gy(game, ex + fx * k2, ez + fz * k2) - 0.15) { best = null; break; } // a hill in the way
+    if (best) for (var k2 = 1; k2 < best.d - 1; k2 += 0.75) if (ey + fy * k2 < gy(game, ex + fx * k2, ez + fz * k2) - 0.35) { best = null; break; } // a hill in the way
     aimC = { c: c.id, t: now, r: range, v: best };
     return best;
   };

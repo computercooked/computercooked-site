@@ -24,7 +24,7 @@ seeded(4340, () => {
   function gone(g) { g.alive = false; g.gone = true; }
   function wield(k, q) { const v = Surv.inv(me); v.s[0] = k ? { k, n: 1, w: q == null ? Surv.uses(k) : F.wearFor(k, q) } : null; v.sel = 0; return v.s[0]; }
   function clearBag() { me.inv = null; Surv.inv(me); }
-  function hit(g) { S().swingT = 0; const b = B.bonus(me, "fight"), w0 = g.whacked || 0; const r = P.act("use", ref(g)); return { r, d: (g.whacked || 0) - w0, b }; }
+  function hit(g, keep) { S().swingT = 0; if (!keep) { g.x = me.x + 1.2; g.z = me.z; } const b = B.bonus(me, "fight"), w0 = g.whacked || 0; const r = P.act("use", ref(g)); return { r, d: (g.whacked || 0) - w0, b }; }
 
   console.log("1. the new things exist, and nothing throws with nobody in a body");
   check("bow, arrows, sling, shield, maul, crystal blade and grump teeth are real items", ["bow", "arrow", "tootharrow", "ironarrow", "sling", "shield", "maul", "crystalblade", "tooth"].every(k => !!SB.KINDS[k] && !!SB.KINDS[k].label && !!SB.KINDS[k].desc));
@@ -98,9 +98,9 @@ seeded(4340, () => {
   g = grump(1.2, 0, 1); wield("blade", 1); hit(g); const blT = S().swingT; gone(g);
   check("a hammer stuns more than its small hit, and swings slowly; a blade is quick", hamStg > 1 && hamT > P.SWING * 1.2 && blT < P.SWING * 0.8, hamStg.toFixed(2) + " " + hamT.toFixed(2) + " " + blT.toFixed(2));
   const far = C.radius(me) + C.radius(grump(50, 0)) + 1.2 + 0.6;
-  g = grump(far, 0); wield("club", 1); h = hit(g);
+  g = grump(far, 0); wield("club", 1); h = hit(g, true);
   check("a club falls short from a spear's length away", h.d === 0);
-  wield("spear", 1); h = hit(g);
+  wield("spear", 1); h = hit(g, true);
   check("a spear reaches", h.d > 0 && !!h.r, h.d.toFixed(2));
   gone(g);
   g = grump(1.2, 0); wield("torch", 1); hit(g); const w1 = g.whacked; tick(0.25, 24);
@@ -112,7 +112,6 @@ seeded(4340, () => {
   console.log("5. the big swing: hold, wind up, let go");
   g = grump(1.2, 0); wield("club", 1); F.lookAt(game, me, g); S().stam = 1;
   P.input.use = true; tick(0.1, 12);
-  check("holding the button on a grump winds up", F.charge(me) === 0 || true);
   P.options(game, me, ref(g));
   check("the chip says it is ready", F.charge(me) === 1 && F.vitals(game, me).some(v => /big swing ready/.test(v.text)));
   S().swingT = 0; const wBefore = g.whacked || 0, heldRes = P.act("use", ref(g), true);
@@ -123,7 +122,7 @@ seeded(4340, () => {
   check("letting go lands a big swing", !!ph && ph.charge === 1 && !!pk && pk.power === 1 && pk.notes[0] === "big swing");
   check("it hits two and a half times as hard", Math.abs((g.whacked - wBefore) - pk.k * (1 + bn)) < 1e-6 && pk.k >= F.POWER_MAX - 1e-9, (g.whacked - wBefore).toFixed(2));
   check("and costs pep", S().stam < 1 - F.POWER_PEP + 0.001 && S().stam > 0.6, S().stam.toFixed(2));
-  check("a full-power club staggers at once", F.staggered(g) || g.tough > 2);
+  check("and it shoves and rattles the grump twice as much", pk.notes.length >= 1 && F.staggerOf(g) >= 3 - 1e-9, F.staggerOf(g).toFixed(2));
   S().stam = 0.05; g.x = me.x + 1.2; g.z = me.z; F.lookAt(game, me, g); const wB2 = g.whacked;
   const puffed = F.release(game, me, 2);
   check("too puffed: no big swing", puffed === null && g.whacked === wB2 && /puffed/.test(S().lastSay));
@@ -153,7 +152,7 @@ seeded(4340, () => {
   check("a tap starts the draw", F.drawing() === 0);
   tick(0.016);
   let shot = lastEv("shot");
-  check("and the arrow flies when the button comes up: one arrow used, the grump hurt", !!shot && shot.hit && shot.target === "grump" && Surv.count(me, "arrow", true) + ev.filter(e => e.k === "shot").length * 0 <= 4 && g.whacked > 0, (g.whacked || 0).toFixed(2));
+  check("and the arrow flies when the button comes up: one arrow used, the grump hurt", !!shot && shot.hit && shot.target === "grump" && Surv.count(me, "arrow", true) === 3 && g.whacked > 0, (g.whacked || 0).toFixed(2));
   const quick = g.whacked;
   Surv.add(me, "arrow", 20); g.whacked = 0; g._stg = 0; g._stun = 0; g._fSeen = F._now(); S().swingT = 0;
   P.input.use = true; P.act("use", null); tick(0.1, 10);
@@ -162,9 +161,13 @@ seeded(4340, () => {
   const full = g.whacked / (F.last && F.last.crit ? F.CRIT_MUL : 1);
   check("a full draw hits harder than a quick shot", full > quick * 1.2 || (F.last && F.last.crit), quick.toFixed(2) + " -> " + full.toFixed(2));
   // distance
-  function shootAt(dist, ammoN) { gone(g); g = grump(dist, 0); g._fSeen = F._now(); F.lookAt(game, me, g); S().swingT = 0; return F.shoot(game, me, 1); }
+  function shootAt(dist) { // down a line with no hill in the way
+    gone(g);
+    for (let a = 0; a < 6.3; a += 0.2) { g = grump(Math.sin(a) * dist, Math.cos(a) * dist); g._fSeen = F._now(); F.lookAt(game, me, g); const t = F.aim(game, me, 99, true); if (t && t.ref === g) break; gone(g); }
+    S().swingT = 0; return F.shoot(game, me, 1);
+  }
   let near = shootAt(4), tries = 0, farShot = null;
-  while (tries++ < 30) { farShot = shootAt(15); if (farShot.hit) break; }
+  while (tries++ < 30) { Surv.add(me, "arrow", 1); farShot = shootAt(15); if (farShot.hit) break; }
   check("the hit falls with distance", near.hit && near.fall === 1 && farShot.hit && farShot.fall < 0.55 && farShot.fall >= 0.4, near.fall + " vs " + (farShot.fall || 0).toFixed(2));
   check("and a far shot is not certain", farShot.odds < 1 && near.odds === 1, farShot.odds.toFixed(2));
   const a0 = Surv.count(me, "arrow", true), miss = shootAt(40);
@@ -312,7 +315,7 @@ seeded(4340, () => {
   check("level 2 says what it unlocked", me.body.sk.fight.l === 2 && /quick paws/.test(S().lastSay) && F.has(me, "quick"), S().lastSay);
   g = grump(1.2, 0); wield("club", 1); hit(g);
   check("quick paws: the next swing comes sooner", Math.abs(S().swingT - P.SWING * 0.85) < 1e-6, S().swingT.toFixed(3));
-  me.body.sk.fight = { l: 3, x: 0 }; S().stam = 1; F.lookAt(game, me, g); g.x = me.x + 1.2; g.z = me.z; F.release(game, me, 2);
+  me.body.sk.fight = { l: 3, x: 0 }; S().stam = 1; g.x = me.x + 1.2; g.z = me.z; F.lookAt(game, me, g); F.release(game, me, 2);
   check("steady breath: a big swing costs a quarter less pep", Math.abs(S().stam - (1 - F.POWER_PEP * 0.75)) < 1e-6, S().stam.toFixed(3));
   me.body.sk.fight = { l: 8, x: 0 }; me.chem.health = 1; tick(4); me.chem.health = 0.8; tick(0.016);
   check("thick hide: a bite costs 10% less, guard or no guard", !F.guarding(me) && Math.abs(me.chem.health - 0.82) < 1e-6, me.chem.health.toFixed(3));
@@ -383,7 +386,7 @@ seeded(4340, () => {
   check("offline, it sleeps", !threw3);
   check("the state saves as plain data", JSON.stringify(JSON.parse(JSON.stringify(game.quests.fight))) === JSON.stringify(game.quests.fight) && JSON.stringify(me.body.fp) === "{}");
   const src = js("fight.js");
-  check("old-phone javascript only, and the island's own dice are never touched", !/=>|\blet\s|\bconst\s|`|\?\.|\bclass\s/.test(src) && !/game\.rng/.test(src.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")));
+  check("old-phone javascript only, and the island's own dice are never touched", !/=>|^\s*(let|const|class)\s|[;{(]\s*(let|const)\s|`|\?\.[a-zA-Z_(]/m.test(src) && !/game\.rng/.test(src.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")));
 });
 
 // the models build (the game's own mesh builder, no screen needed)
@@ -393,10 +396,10 @@ seeded(4340, () => {
   const before = Object.keys(ctx.SB.Meshes.STRUCT_BUILDERS).length;
   vm.runInContext(js("fight.js"), ctx, { filename: "fight.js" });
   const ME = ctx.SB.Meshes; let ok = true, sizes = [];
-  ["bow", "arrow", "tootharrow", "ironarrow", "sling", "shield", "maul", "crystalblade", "tooth"].forEach(k => { const m = ME.itemMesh(k), d = ME.itemMesh("apple"); sizes.push(m.length); if (!(m.length > 100) || m.length % 12 !== 0 || (k !== "tooth" && m.length === ME.itemMesh("mote").length)) ok = false; for (let i = 0; i < m.length; i++) if (!isFinite(m[i])) ok = false; if (!d.length) ok = false; });
+  ["bow", "arrow", "tootharrow", "ironarrow", "sling", "shield", "maul", "crystalblade", "tooth"].forEach(k => { const m = ME.itemMesh(k).data, d = ME.itemMesh("apple").data; sizes.push(m.length); if (!(m.length > 100) || m.length % 12 !== 0 || (k !== "tooth" && m.length === ME.itemMesh("mote").data.length)) ok = false; for (let i = 0; i < m.length; i++) if (!isFinite(m[i])) ok = false; if (!d.length) ok = false; });
   console.log("15. models");
   check("every new item has a model of its own", ok, sizes.join(","));
-  check("and so do the traps and the dummy", ["snare", "pittrap", "dummy"].every(k => typeof ME.STRUCT_BUILDERS[k] === "function" && ME.STRUCT_BUILDERS[k]().length > 100) && Object.keys(ME.STRUCT_BUILDERS).length === before + 3);
+  check("and so do the traps and the dummy", ["snare", "pittrap", "dummy"].every(k => typeof ME.STRUCT_BUILDERS[k] === "function" && ME.STRUCT_BUILDERS[k]().data.length > 100 && ME.STRUCT_BUILDERS[k]().maxY < 1.3) && Object.keys(ME.STRUCT_BUILDERS).length === before + 3);
 })();
 
 console.log(failed ? "\n" + failed + " of " + n + " failed" : "\nall " + n + " passed");
