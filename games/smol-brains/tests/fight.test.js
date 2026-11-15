@@ -417,7 +417,7 @@ seeded(4341, () => {
   function heal() { me.chem.health = 1; me.chem.pain = 0; S().stam = 1; tick(0.05); }
 
   console.log("16. round 2: the new things exist");
-  const NEW = ["crossbow", "boomerang", "flail", "flashstick", "horn", "firearrow", "glowarrow", "brewarrow", "firepot", "thunderpot", "stinkpot", "smokepot", "sickbrew", "oddbrew", "lightflask", "musk", "tuft", "nightpearl", "arkflare", "crystalseed", "thoughtsap", "furhat", "furboots", "barkhat", "barkvest", "barkboots", "copperhat", "coppervest", "copperboots", "spinecloak", "mosscloak", "guardhelm", "fisherhat", "farmerhat", "charm_fight", "charm_fish"];
+  const NEW = ["crossbow", "boomerang", "flail", "flashstick", "horn", "firearrow", "glowarrow", "brewarrow", "firepot", "thunderpot", "stinkpot", "smokepot", "sickbrew", "oddbrew", "lightflask", "musk", "tuft", "nightpearl", "arkflare", "crystalseed", "thoughtsap", "furhat", "furgreaves", "barkhat", "barkvest", "barkboots", "copperhat", "coppervest", "copperboots", "spinecloak", "mosscloak", "guardhelm", "anglerhat", "farmerhat", "charm_fight", "charm_fish"];
   check("every new thing is a real item with a name and a line about it", NEW.every(k => !!SB.KINDS[k] && !!SB.KINDS[k].label && !!SB.KINDS[k].desc && SB.KINDS[k].desc.length > 10), NEW.filter(k => !SB.KINDS[k]).join(","));
   check("the helpers are things you can look at", ["wardpost", "clayguard", "flinger", "guardpost", "crystaltree"].every(k => !!SB.STRUCTS[k] && !!F.TRAPS[k]));
   check("every recipe and every helper names real things", F.RECIPES.length > 40 && F.RECIPES.every(r => !!SB.KINDS[r.out] && Object.keys(r.cost).every(k => k.split("|").every(x => !!SB.KINDS[x]))) && Object.keys(F.TRAPS).every(t => Object.keys(F.TRAPS[t].cost).every(k => k.split("|").every(x => !!SB.KINDS[x]))));
@@ -442,8 +442,8 @@ seeded(4341, () => {
   let g = grump(2, 0);
   heal();
   check("a bite costs 5% less in a fur hat", near(bite(0.2), 0.2 * 0.95, 1e-4));
-  F.make(game, me, "furboots"); Surv.add(me, "cloak", 1);
-  F.wear(game, me, "furboots"); const w3 = F.wear(game, me, "cloak");
+  F.make(game, me, "furgreaves"); Surv.add(me, "cloak", 1);
+  F.wear(game, me, "furgreaves"); const w3 = F.wear(game, me, "cloak");
   check("hat, cloak and boots of one kind are a set", F.setOf(me) === "fur" && /whole fur set/.test(w3.msg) && near(F.armour(game, me), 0.15), w3.msg);
   check("the fur set is quick on its paws", near(F.speedMul(me), 1.1));
   me.chem.cold = 0.5; tick(0.1, 10);
@@ -482,7 +482,7 @@ seeded(4341, () => {
   gone(g); clearBag(); me.body.wear = {};
   Surv.add(me, "mosscloak", 1); const see0 = F.sneakSee(me); F.wear(game, me, "mosscloak");
   check("a moss cloak: grumps notice you later", F.sneakSee(me) < see0);
-  Surv.add(me, "fisherhat", 1); F.wear(game, me, "fisherhat");
+  Surv.add(me, "anglerhat", 1); F.wear(game, me, "anglerhat");
   check("a fisher's hat: fishing is learned half as fast again", near(F.xpMul(me, "fish"), 1.5) && near(F.xpMul(me, "chop"), 1));
   Surv.add(me, "guardhelm", 1); F.wear(game, me, "guardhelm");
   const pal = smol("Bo", -3, 0);
@@ -959,7 +959,7 @@ seeded(4341, () => {
   const before = Object.keys(ctx.SB.Meshes.STRUCT_BUILDERS).length;
   vm.runInContext(js("fight.js"), ctx, { filename: "fight.js" });
   const ME = ctx.SB.Meshes; let ok = true, sizes = [];
-  ["bow", "arrow", "tootharrow", "ironarrow", "sling", "shield", "maul", "crystalblade", "tooth", "crossbow", "boomerang", "flail", "flashstick", "horn", "firearrow", "glowarrow", "brewarrow", "firepot", "thunderpot", "stinkpot", "smokepot", "sickbrew", "oddbrew", "lightflask", "musk", "tuft", "nightpearl", "arkflare", "crystalseed", "thoughtsap", "furhat", "furboots", "barkhat", "barkvest", "barkboots", "copperhat", "coppervest", "copperboots", "spinecloak", "mosscloak", "guardhelm", "fisherhat", "farmerhat"].forEach(k => { const m = ME.itemMesh(k).data, d = ME.itemMesh("apple").data; sizes.push(m.length); if (!(m.length > 100) || m.length % 12 !== 0 || (k !== "tooth" && m.length === ME.itemMesh("mote").data.length)) ok = false; for (let i = 0; i < m.length; i++) if (!isFinite(m[i])) ok = false; if (!d.length) ok = false; });
+  ["bow", "arrow", "tootharrow", "ironarrow", "sling", "shield", "maul", "crystalblade", "tooth", "crossbow", "boomerang", "flail", "flashstick", "horn", "firearrow", "glowarrow", "brewarrow", "firepot", "thunderpot", "stinkpot", "smokepot", "sickbrew", "oddbrew", "lightflask", "musk", "tuft", "nightpearl", "arkflare", "crystalseed", "thoughtsap", "furhat", "furgreaves", "barkhat", "barkvest", "barkboots", "copperhat", "coppervest", "copperboots", "spinecloak", "mosscloak", "guardhelm", "anglerhat", "farmerhat"].forEach(k => { const m = ME.itemMesh(k).data, d = ME.itemMesh("apple").data; sizes.push(m.length); if (!(m.length > 100) || m.length % 12 !== 0 || (k !== "tooth" && m.length === ME.itemMesh("mote").data.length)) ok = false; for (let i = 0; i < m.length; i++) if (!isFinite(m[i])) ok = false; if (!d.length) ok = false; });
   console.log("15. models");
   check("every new item has a model of its own", ok, sizes.join(","));
   check("and so do the traps and the dummy", ["snare", "pittrap", "dummy"].every(k => typeof ME.STRUCT_BUILDERS[k] === "function" && ME.STRUCT_BUILDERS[k]().data.length > 100 && ME.STRUCT_BUILDERS[k]().maxY < 1.3) && Object.keys(ME.STRUCT_BUILDERS).length === before + 8);

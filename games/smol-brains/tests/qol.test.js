@@ -36,7 +36,7 @@ seeded(4350, () => {
   check("and for the sky (no smol at all)", ["places", "island", "smols", "more"].every(p => { Q.ui.page = p; const h = Q.html(game, null, null); return h.length > 80 && !/tripped over/.test(h); }));
   check("the sky's book leaves out the pages that need paws", (() => { Q.ui.page = "bag"; const h = Q.html(game, null, null); return !/data-qolpage='bag'/.test(h) && /data-qolpage='island'/.test(h); })());
   check("a save from before the book has nothing and nothing breaks", (() => { delete game.quests.qol; delete game.settings.qol; Q.tick(game, 2); return Q.pins(game).length === 0 && Q.log(game).length >= 0; })());
-  check("the new things are real items with recipes", !!SB.KINDS.drum && !!SB.KINDS.flute && !!SB.KINDS.pouch && ["drum", "flute", "pouch"].every(id => Surv.allRecipes().some(r => r.id === id && Object.keys(r.in).every(k => !!SB.KINDS[k]))));
+  check("the new things are real items with recipes", !!SB.KINDS.drum && !!SB.KINDS.flute && !!SB.KINDS.beltpouch && ["drum", "flute", "beltpouch"].every(id => Surv.allRecipes().some(r => r.id === id && Object.keys(r.in).every(k => !!SB.KINDS[k]))));
   check("a chime stone is a building nobody plans", !!SB.STRUCTS.chimestone && !SB.Ideas.LIST.some(d => d.build === "chimestone"));
   check("ui.js asks the book before a pop-up, and has the book as a menu tab", /SB\.Qol\.hush\(html, cls\)/.test(js("ui.js")) && /SB\.Qol\.menu\(b\)/.test(js("ui.js")) && /"📖 book"/.test(js("ui.js")));
   check("es5 only: no arrows, let, const, backticks or classes", !/=>|\blet [A-Za-z_$]+ =|\bconst [A-Za-z_$]+ =|`/.test(js("qol.js").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")));
@@ -116,7 +116,7 @@ seeded(4350, () => {
 
   console.log("5. a pouch");
   check("no pouch, no tucking", !Q.tuck(game, me, kinds().indexOf("apple")).ok);
-  Surv.add(me, "pouch", 1);
+  Surv.add(me, "beltpouch", 1);
   check("tuck a small handful away", Q.tuck(game, me, kinds().indexOf("apple")).ok && Surv.count(me, "apple", true) === 0 && Q.pouch(me).length === 1);
   check("tools don't go in", !Q.tuck(game, me, kinds().indexOf("stonepick")).ok);
   check("the page shows what's in it", /👝 pouch · 1 of 4/.test(html("bag")) && /data-qol='untuck'/.test(html("bag")));
@@ -309,14 +309,14 @@ seeded(4350, () => {
   console.log("16. recipes");
   me.ideas = me.ideas || {}; ["lashing", "fire"].forEach(id => { me.ideas[id] = 1; });
   const rl = Q.recipes(game, me, "", "");
-  check("only what this smol knows", rl.length > 0 && rl.every(r => r.make || r.build) && rl.some(r => r.id === "pouch") && !rl.some(r => r.id === "drum"), rl.map(r => r.id).join());
-  check("search by name", Q.recipes(game, me, "pouch", "").length === 1);
-  check("search by what it's made from", Q.recipes(game, me, SB.KINDS.fiber.label, "").some(r => r.id === "pouch"));
+  check("only what this smol knows", rl.length > 0 && rl.every(r => r.make || r.build) && rl.some(r => r.id === "beltpouch") && !rl.some(r => r.id === "drum"), rl.map(r => r.id).join());
+  check("search by name", Q.recipes(game, me, "beltpouch", "").length === 1);
+  check("search by what it's made from", Q.recipes(game, me, SB.KINDS.fiber.label, "").some(r => r.id === "beltpouch"));
   check("by kind", Q.recipes(game, me, "", "materials").every(r => r.cat === "materials") && Q.recipes(game, me, "", "buildings").every(r => r.build));
   check("buildings are in the same list", Q.recipes(game, me, "", "buildings").length > 0);
   check("“what uses this?” jumps to the list", press("uses", "fiber").ok && Q.ui.page === "recipes" && Q.ui.rq === SB.KINDS.fiber.label);
   const rpg = html("recipes");
-  check("the page has make and plan buttons the bag already wires", /data-make='pouch'/.test(rpg) && /data-qolin='rq'/.test(rpg) && !/tripped/.test(rpg));
+  check("the page has make and plan buttons the bag already wires", /data-make='beltpouch'/.test(rpg) && /data-qolin='rq'/.test(rpg) && !/tripped/.test(rpg));
   check("no match says so", (() => { Q.typed(game, me, "rq", null, "zzzz"); const h = html("recipes"); Q.typed(game, me, "rq", null, ""); return /nothing you know matches/.test(h); })());
   check("a blob is told it needs hands", (() => { me.tier = 1; const h = html("recipes"); me.tier = 2; return /take hands/.test(h); })());
 

@@ -1116,7 +1116,7 @@
   F.GEAR = {
     furhat: { slot: "hat", set: "fur", arm: 0.05, cost: { fur: 2 }, label: "fur hat", e: "🧢", col: 0xc8b48a },
     cloak: { slot: "cloak", set: "fur", arm: 0.05 }, // the fur cloak the island already has
-    furboots: { slot: "boots", set: "fur", arm: 0.05, cost: { fur: 2, "vine|fiber": 1 }, label: "fur boots", e: "🥾", col: 0xc8b48a },
+    furgreaves: { slot: "boots", set: "fur", arm: 0.05, cost: { fur: 2, "vine|fiber": 1 }, label: "fur boots", e: "🥾", col: 0xc8b48a },
     barkhat: { slot: "hat", set: "bark", arm: 0.08, cost: { log: 1, "vine|fiber": 1 }, label: "bark hat", e: "🪖", col: 0x7a5230 },
     barkvest: { slot: "cloak", set: "bark", arm: 0.1, heart: 1, cost: { log: 2, "vine|fiber": 2 }, label: "bark vest", e: "🦺", col: 0x7a5230 },
     barkboots: { slot: "boots", set: "bark", arm: 0.07, cost: { log: 1, "vine|fiber": 1 }, label: "bark boots", e: "🥾", col: 0x7a5230 },
@@ -1126,7 +1126,7 @@
     spinecloak: { slot: "cloak", arm: 0.04, thorns: 0.5, cost: { pricklypear: 2, "vine|fiber": 1 }, label: "spine cloak", e: "🌵", col: 0x6aa84a },
     mosscloak: { slot: "cloak", arm: 0.03, quiet: 1, cost: { leaves: 4, "vine|fiber": 1 }, label: "moss cloak", e: "🍃", col: 0x4f8a40 },
     guardhelm: { slot: "hat", arm: 0.08, taunt: 1, melee: 0.1, tier: 3, cost: { "plank|log": 1, tooth: 1 }, label: "guard's helm", e: "🪖", col: 0x8a8a92 },
-    fisherhat: { slot: "hat", arm: 0.02, xp: "fish", cost: { leaves: 2, "vine|fiber": 1 }, label: "fisher's hat", e: "👒", col: 0x8fb8d8 },
+    anglerhat: { slot: "hat", arm: 0.02, xp: "fish", cost: { leaves: 2, "vine|fiber": 1 }, label: "fisher's hat", e: "👒", col: 0x8fb8d8 },
     farmerhat: { slot: "hat", arm: 0.02, xp: "forage", cost: { leaves: 2, stick: 1 }, label: "farmer's hat", e: "👒", col: 0xe0c060 }
   };
   F.SETS = {

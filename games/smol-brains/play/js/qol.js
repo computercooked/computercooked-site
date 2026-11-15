@@ -228,8 +228,8 @@
   Q.pouch = function (c) { if (!Array.isArray(c.pouch)) c.pouch = []; return c.pouch; };
   Q.tuck = function (game, c, i) {
     var S = Sv(), v = S.inv(c), sl = v.s[i], p = Q.pouch(c);
-    if (!S.has(c, "pouch")) return { ok: false, msg: "you need a pouch (fibre and something bendy)" };
-    if (!sl || sl.k === "pouch" || sl.k === "plans" || (KK()[sl.k] && KK()[sl.k].tool)) return { ok: false, msg: "that won't go in a pouch" };
+    if (!S.has(c, "beltpouch")) return { ok: false, msg: "you need a pouch (fibre and something bendy)" };
+    if (!sl || sl.k === "beltpouch" || sl.k === "plans" || (KK()[sl.k] && KK()[sl.k].tool)) return { ok: false, msg: "that won't go in a pouch" };
     if (sl.n > Q.POUCH_STACK) return { ok: false, msg: "too many: a pouch takes small handfuls (" + Q.POUCH_STACK + " or fewer)" };
     if (p.length >= Q.POUCH) return { ok: false, msg: "the pouch is full" };
     p.push({ k: sl.k, n: sl.n }); v.s[i] = null;
@@ -1172,11 +1172,11 @@
     var it = ui.info >= 0 ? v.s[ui.info] : null;
     if (it && it.k !== "plans") {
       out += "<div class='detail'><b>" + icon(it.k, 20) + " " + esc(Q.nameOf(it)) + "</b>" + Q.itemInfo(game, it.k, it).map(function (t) { return line(esc(t)); }).join("") + "<div class='row'>" +
-        btn("star", Q.starred(game, it.k) ? "take the star off" : "⭐ star it", it.k) + btn("trash", "🗑 bin it", ui.info, Q.starred(game, it.k)) + (S.has(c, "pouch") && it.k !== "pouch" ? btn("tuck", "👝 into the pouch", ui.info) : "") + btn("uses", "what uses this?", it.k) + "</div>" +
+        btn("star", Q.starred(game, it.k) ? "take the star off" : "⭐ star it", it.k) + btn("trash", "🗑 bin it", ui.info, Q.starred(game, it.k)) + (S.has(c, "beltpouch") && it.k !== "beltpouch" ? btn("tuck", "👝 into the pouch", ui.info) : "") + btn("uses", "what uses this?", it.k) + "</div>" +
         (S.stackOf(it.k) === 1 ? "<input type='text' data-qolin='item' maxlength='20' placeholder='give it a name' value='" + esc(it.nm || "") + "'>" : "") + "</div>";
     }
     var p = Q.pouch(c);
-    if (p.length || S.has(c, "pouch")) out += lbl("👝 pouch · " + p.length + " of " + Q.POUCH) + "<div class='row'>" + (p.length ? p.map(function (x, j) { return btn("untuck", icon(x.k, 16) + " " + esc(label(x.k)) + (x.n > 1 ? " ×" + x.n : ""), j); }).join("") : "<span class='help'>tap a small thing above, then “into the pouch”</span>") + "</div>";
+    if (p.length || S.has(c, "beltpouch")) out += lbl("👝 pouch · " + p.length + " of " + Q.POUCH) + "<div class='row'>" + (p.length ? p.map(function (x, j) { return btn("untuck", icon(x.k, 16) + " " + esc(label(x.k)) + (x.n > 1 ? " ×" + x.n : ""), j); }).join("") : "<span class='help'>tap a small thing above, then “into the pouch”</span>") + "</div>";
     if (hn > 1) out += lbl("hands · remember what you hold, and swap back to it") + "<div class='row'>" + [1, 2, 3].map(function (n) { return btn("lsave", "keep " + n, n) + btn("luse", "use " + n, n, !s.load[n]); }).join("") + "</div>";
     var pt = SB.Loot && SB.Loot.partner ? SB.Loot.partner(game, c) : null;
     if (pt && pt.stall) out += "<div class='row'>" + btn("buyall", "🛒 buy the stall's whole stock") + "</div>";
@@ -1490,14 +1490,14 @@
   if (K) {
     if (!K.drum) K.drum = { noun: "toy", label: "drum", emoji: "🥁", r: 0.2, color: 0xb9814a, desc: "a log with a skin on it. bang it and everyone close by dances." };
     if (!K.flute) K.flute = { noun: "toy", label: "flute", emoji: "🎶", r: 0.14, color: 0xd9c08a, desc: "a hollow stick with holes. play it and smols stop being bored." };
-    if (!K.pouch) K.pouch = { noun: "material", label: "pouch", emoji: "👝", r: 0.14, color: 0xa9825a, mat: 1, desc: "holds four small handfuls of different things in one slot. see the book." };
+    if (!K.beltpouch) K.beltpouch = { noun: "material", label: "beltpouch", emoji: "👝", r: 0.14, color: 0xa9825a, mat: 1, desc: "holds four small handfuls of different things in one slot. see the book." };
   }
   if (SK && !SK.chimestone) SK.chimestone = { noun: "wonder", label: "chime stone", emoji: "🎐", r: 0.4, cost: { stone: 2, stick: 1 }, work: 1, desc: "it rings when a smol walks past." };
   var EX = Sv() && Sv().EXTRA;
   if (EX && !EX.some(function (r) { return r.id === "drum"; })) {
     EX.push({ id: "drum", name: "drum", icon: "🥁", in: { log: 1, fur: 1 }, out: "drum", idea: "song", hint: "a log, and something to stretch over it" });
     EX.push({ id: "flute", name: "flute", icon: "🎶", in: { stick: 2, vine: 1 }, out: "flute", idea: "song", hint: "two sticks and something bendy" });
-    EX.push({ id: "pouch", name: "pouch", icon: "👝", in: { fiber: 3, vine: 1 }, out: "pouch", idea: "lashing", hint: "fibre and something bendy" });
+    EX.push({ id: "beltpouch", name: "beltpouch", icon: "👝", in: { fiber: 3, vine: 1 }, out: "beltpouch", idea: "lashing", hint: "fibre and something bendy" });
   }
   var ME = SB.Meshes || SB.ME;
   if (ME && ME.STRUCT_BUILDERS && ME.builder) {

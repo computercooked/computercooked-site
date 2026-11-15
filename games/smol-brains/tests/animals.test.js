@@ -393,7 +393,7 @@ seeded(4350, () => {
   game.time += 3 * SB.DAY_LENGTH;
 
   console.log("15. thirty more kinds");
-  const kinds2 = ["stalker", "puffbug", "glimmer", "firelizard", "skypuff", "natter", "chirper", "nipper", "frog", "shelly", "minnow", "inkling", "finback", "rammer", "snuffler", "roller", "cinderleg", "bobber", "grunter", "tusker", "sneak", "bambear", "pondpup", "lugger", "humper", "shroomsnail", "bigbeetle", "biggun", "weaver", "thornling"];
+  const kinds2 = ["stalker", "puffbug", "glimmer", "firelizard", "skypuff", "natter", "chirper", "nipper", "frog", "shelly", "minnows", "inkling", "finback", "rammer", "snuffler", "roller", "cinderleg", "bobber", "grunter", "tusker", "sneak", "bambear", "pondpup", "lugger", "humper", "shroomsnail", "bigbeetle", "biggun", "weaver", "thornling"];
   check("thirty new kinds of animal, each a real critter", kinds2.every(k => A.SP[k] && K[k] && K[k].critter && K[k].an && K[k].an.sp === k) && Object.keys(A.SP).length >= 38, Object.keys(A.SP).length + " kinds");
   const animals = Object.keys(K).filter(k => K[k].an && !K[k].an.kid && K[k].an.sp !== "grump" && !/_(red|blue|green|gold)$/.test(k) || k === "clucker_blue" || k === "clucker_gold");
   check("more than forty animals to meet, counting coats", animals.length >= 44, animals.length + "");
@@ -533,7 +533,7 @@ seeded(4350, () => {
   check("a mount jumps higher than you do", had("mountJump") && vy1 > 7 && times("mountJump") === 1);
   me.onGround = true; me.vy = 0; tick(0.1); A.dismount(game);
   const fishP = deepP || seaP;
-  const fish = fishP ? A.spawnWild(game, "minnow", fishP.x, fishP.z, "", false) : null, fx0 = fish && { x: fish.x, z: fish.z };
+  const fish = fishP ? A.spawnWild(game, "minnows", fishP.x, fishP.z, "", false) : null, fx0 = fish && { x: fish.x, z: fish.z };
   if (fish) { A.sync(game); step(6); }
   check("fish swim in the water now, and stay in it", !!fish && !fish.gone && W.depthAt(game.world, fish.x, fish.z) >= 0.3 && SB.dist(fish.x, fish.z, fx0.x, fx0.z) > 0.3 && fish.y < W.groundY(game.world, fish.x, fish.z));
   if (fish) hold("spear", 1);
