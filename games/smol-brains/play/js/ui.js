@@ -497,7 +497,7 @@
   // by simply not being said (the goals list, the day card and the chatter all come back when the lessons are done)
   function coaching() { return !!el.coach && state.tutStep >= 2 && !!game && !!game.tutorial && !game.tutorial.done; }
   UI.coaching = coaching;
-  function toast(html, cls, ms, at) { // at (4.22): a smol or a spot. the toast can then be tapped to fly there
+  function toast(html, cls, ms, at) { if (SB.Qol && SB.Qol.hush && SB.Qol.hush(html, cls)) return; // at (4.22): a smol or a spot. the toast can then be tapped to fly there
     if (coaching() && cls !== "ach" && cls !== "ember" && cls !== "night" && !/^🧪/.test(html)) return;
     if (game && SB.FirstNight && SB.FirstNight.active(game) && !SB.FirstNight.free(game) && cls !== "night" && !/^🧪/.test(html)) { if (cls === "ach") nightHeld.push([html, cls, ms]); return; } // the first night speaks through the island; achievements wait for dawn
     var live = [].filter.call(el.toasts.children, function (t) { return !t.classList.contains("out"); });
@@ -1466,10 +1466,10 @@
   function openMenu(tab, arg) {
     state.menuTab = tab || "goals";
     var tabs = h("div", { class: "tabs" });
-    TABS.forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
+    (SB.Qol ? TABS.slice(0, 9).concat([["book", "📖 book"]], TABS.slice(9)) : TABS).forEach(function (t) { tabs.appendChild(h("button", { class: "tab" + (t[0] === state.menuTab ? " on" : ""), onclick: function () { openMenu(t[0]); } }, t[1])); });
     var body = h("div");
     modal("menu", body, { tabs: tabs, big: true });
-    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, civ: tabCiv, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp })[state.menuTab](body, arg);
+    ({ evolution: tabEvolution, tree: tabTree, ideas: tabIdeas, civ: tabCiv, smols: tabSmols, family: tabFamily, dex: tabDex, chronicle: tabChronicle, goals: tabGoals, world: tabWorld, settings: tabSettings, help: tabHelp, book: function (b) { SB.Qol.menu(b); } })[state.menuTab](body, arg);
   }
   UI.openMenu = openMenu;
 
