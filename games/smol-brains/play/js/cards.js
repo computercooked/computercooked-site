@@ -155,6 +155,7 @@ else toast(code);
 g.stats.exported=(g.stats.exported||0)+1;
 SB.Game.unlock(g,"share");
 }
+Cards.copyCode=copyCode;
 Cards.render=function(c){
 var info=CX.info(c),W=600,H=860,cv=document.createElement("canvas");
 cv.width=W;cv.height=H;

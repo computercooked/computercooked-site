@@ -175,6 +175,8 @@
     SB.Game.unlock(g, "share");
   }
 
+  Cards.copyCode = copyCode; // the sky gate makes codes too (arrivals3.js)
+
   /* ---------------- the share card (a PNG) ---------------- */
 
   Cards.render = function (c) {
