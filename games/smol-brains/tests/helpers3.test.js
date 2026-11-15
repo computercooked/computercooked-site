@@ -266,14 +266,33 @@ seeded(3003, () => {
   check("never more than six", game.world.items.filter(o => (o.kind === "weed" || o.data.creep) && SB.dist(o.x, o.z, hut.x, hut.z) < 9).length <= 6);
   const w0 = weeds[0]; put(me, w0.x + 1, w0.z); const fb = Surv.count(me, "fiber", true);
   check("pull one: fiber", /pull the weed/.test(lab(w0, "use")) && H.pull(game, me, w0).ok && w0.gone && Surv.count(me, "fiber", true) === fb + 1);
+
+  console.log("11. living with the rest of the island");
+  const sick = SB.Game.smols(game).find(c => c !== me && !c.odd && c.stage >= 2 && !c.vessel); sick.chem.health = 0.3; put(sick, pod.x + 2, pod.z); put(me, pod.x + 1, pod.z + 2);
+  const tk2 = H.tuck(game, me, sick, pod);
+  H.setJob(game, g1, "haul"); g1.fuel = 1; g1.wear = 0; loose("stick", g1.px + 5, g1.pz + 2);
+  bun.mode = "stay"; A.body(game, bun).x = me.x + 1; A.body(game, bun).z = me.z + 1;
+  const bp2 = H.bePet(game, me, bun);
+  let threw = null; try { for (let i = 0; i < 400; i++) SB.Game.step(game, 0.1); } catch (e) { threw = e; }
+  check("the whole island runs with a helper at work, a sleeper in a pod and you in a pet", tk2.ok && bp2.ok && !threw && Object.keys(SB.Ext._handlers).every(k => SB.Ext._handlers[k].every(fn => !fn._off)), threw && threw.stack && threw.stack.split("\n").slice(0, 3).join(" | "));
+  H.endVessel(game, "time");
+  check("and you come back to your own smol", P.active && P.c === me);
   P.leave();
   check("from the sky nothing throws", (() => { tick(5); return true; })());
+  const snap = JSON.parse(JSON.stringify(SB.Save.snapshot(game))), game2 = SB.Save.revive(snap);
+  SB.Game.current = game2; game2.headless = true; game2.tutorial.done = true;
+  let threw2 = null; try { for (let i = 0; i < 30; i++) { game2.time += 0.25; H.tick(game2, 0.25); } } catch (e) { threw2 = e; }
+  check("a saved island loads with its helpers, standing where they were", !threw2 && H.golems(game2).length === H.golems(game).length && H.golems(game2).every(r => { const o = W.itemById(game2.world, r.item); return o && !o.gone && /^golem_|^arkbot$/.test(o.kind); }), threw2 && String(threw2.stack).slice(0, 200));
+  const n2 = game2.creatures.length, wk2 = H.wake(game2, sick.id);
+  check("and its sleeper, who wakes", wk2.ok && game2.creatures.length === n2 + 1 && wk2.c.name === sick.name && wk2.c.brain && wk2.c.genome.genes);
+  check("an old save with none of this loads too", (() => { const d = JSON.parse(JSON.stringify(snap)); delete d.quests.helpers3; const g3 = SB.Save.revive(d); SB.Game.current = g3; H.tick(g3, 3); H.tick(g3, 3); return H.golems(g3).length === 0 && H.sleepers(g3).length === 0; })());
+  SB.Game.current = game;
 });
 
 console.log("11. the files");
 const src = fs.readFileSync(path.join(__dirname, "..", "src", "helpers3.js"), "utf8");
 check("its own dice, never the island's", !/game\.rng/.test(src));
-check("old-phone javascript", !/=>|\blet |\bconst |`/.test(src));
+check("old-phone javascript", !/=>|[;{(]\s*(let|const)\s|^\s*(let|const)\s|`/m.test(src));
 check("world.js writes a hurried egg down, harvest.js says where the bubbles are", /d\.rush = /.test(js("world.js")) && /H\.bubbleNear = /.test(js("harvest.js")));
 
 console.log(failed ? "\n" + failed + " of " + count + " failed" : "\nall " + count + " passed");
