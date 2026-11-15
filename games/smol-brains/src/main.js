@@ -890,7 +890,7 @@
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) {
         try { SB.Save.save(Game.current); } catch (e) {}
-        if (window.cc && cc.end && !Game.current.showcase) try { cc.end({ score: Game.score(Game.current) }); } catch (e) {}
+        if (window.cc && cc.end && Game.current && !Game.current.showcase) try { cc.end({ score: Game.score(Game.current) }); } catch (e) {} // 4.37: no island yet (the title screen): nothing to report
       }
     });
     window.addEventListener("pagehide", function () { try { SB.Save.save(Game.current); } catch (e) {} });

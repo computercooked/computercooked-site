@@ -777,7 +777,7 @@ hooked=true;
 document.addEventListener("visibilitychange",function(){
 if(document.hidden){
 try{SB.Save.save(Game.current);}catch(e){}
-if(window.cc&&cc.end&&!Game.current.showcase)try{cc.end({score:Game.score(Game.current)});}catch(e){}
+if(window.cc&&cc.end&&Game.current&&!Game.current.showcase)try{cc.end({score:Game.score(Game.current)});}catch(e){}
 }
 });
 window.addEventListener("pagehide",function(){try{SB.Save.save(Game.current);}catch(e){}});
