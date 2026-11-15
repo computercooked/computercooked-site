@@ -57,6 +57,7 @@ else if(pal==="midnight"){sat=Math.min(1,sat*0.7+0.2);lig=0.3;hue2=hue+180;}
 else if(pal==="shiny"){hue+=150;hue2+=150;sat=Math.min(1,sat+0.15);}
 if(pat==="galaxy"){hue=252;sat=0.55;lig=0.24;hue2=300;}
 else if(pat==="gold"){hue2=45;}
+if(c.leafy&&!grump){hue=104;sat=Math.max(0.45,sat);}
 var base=hsl(hue,sat,lig),light=hsl(hue-6,sat*0.85,Math.min(0.9,lig+0.14)),dark=hsl(hue+8,sat,Math.max(0.12,lig-0.17));
 var second=hsl(hue2,Math.min(1,sat+0.1),Math.min(0.85,lig+(pal==="midnight"?0.3:0.1))),belly=mix(base,[255,250,240],0.55);
 var outline=grump?[20,12,24]:pat==="galaxy"?[16,10,40]:hsl(hue+10,sat*0.6,Math.max(0.08,lig-0.45));
@@ -93,6 +94,8 @@ var clamp=function(v,a,b){return Math.max(a,Math.min(b,v));};
 var tw=clamp(Math.round(bw*0.55)+(grown?1:0),5,grown?9:8),th=clamp(Math.round(bh*0.45)+(grown?1:0),4,grown?8:7);
 var hr=clamp(Math.round(bw*0.36)+(tier>=5?1:0),4,grown&&tier<5?5:6),hry=hr*0.9;
 if(grown&&hr>=6&&lk.ears===2)legH--;
+var fit=!grump&&c.fit?Math.round(c.fit):0;
+if(fit){bw+=fit;tw=clamp(tw+fit,4,10);}
 return{lk:lk,grump:grump,tier:tier,st:st,elder:elder,pat:pat,eyeT:eyeT,acc:acc,pal:pal,fluffF:fluffF,hue:hue,hue2:hue2,sat:sat,lig:lig,
 base:base,light:light,dark:dark,second:second,belly:belly,outline:outline,seed:seed,special:special,patternAt:patternAt,classic:classic,
 bw:bw,bh:bh,upright:upright,grown:grown,face:face,legs:legs,legH:legH,hasArms:hasArms,tw:tw,th:th,hr:hr,hry:hry};
@@ -102,7 +105,7 @@ function paint(c,faceIn){
 var S=spec(c,faceIn),lk=S.lk,grump=S.grump,tier=S.tier,elder=S.elder,pat=S.pat,eyeT=S.eyeT,acc=S.acc,pal=S.pal,fluffF=S.fluffF;
 var base=S.base,light=S.light,dark=S.dark,second=S.second,belly=S.belly,outline=S.outline,special=S.special,patternAt=S.patternAt,classic=S.classic;
 var bw=S.bw,bh=S.bh,upright=S.upright,grown=S.grown,face=S.face,legs=S.legs,legH=S.legH,hasArms=S.hasArms,tw=S.tw,th=S.th,hr=S.hr,hry=S.hry;
-var headAt=null;
+var headAt=null,L=!grump&&SB.Wear&&SB.Wear.look?SB.Wear.look(c):null;
 var frames=[];
 for(var fi=0;fi<NF;fi++){
 var f=new Frame();
@@ -181,10 +184,10 @@ var e1=Math.round(cx+rx*0.05),e2=Math.round(cx+rx*0.55),eyeC=grump?[255,70,70]:I
 var mouthX=Math.round((e1+e2)/2+0.5),mouthY=ey+es+1;
 if(fi===0)headAt={x:cx,y:cy,r:rx,ey:ey};
 if(upright){
-if(tier<6){
+if(tier<6&&!(L&&L.band===false)){
 var hb=Math.min(Math.round(top+2),ey-2);
-for(var hx=Math.ceil(cx-rx);hx<=cx+rx;hx++)if(f.on(hx,hb))f.px(hx,hb,tier>=4?[220,80,70]:[240,190,60]);
-f.rect(Math.round(cx-rx+1),hb-3,1,3,tier>=4?[90,190,240]:[255,110,90]);
+for(var hx=Math.ceil(cx-rx);hx<=cx+rx;hx++)if(f.on(hx,hb))f.px(hx,hb,L&&L.band||(tier>=4?[220,80,70]:[240,190,60]));
+f.rect(Math.round(cx-rx+1),hb-3,1,3,L&&L.feather||(tier>=4?[90,190,240]:[255,110,90]));
 }
 paintFace(faceInk(f),fi,{e1:e1,e2:e2,ey:ey,es:es,mx:mouthX,my:mouthY,grown:grown,face:face,eyeT:eyeT,elder:elder,cheeks:lk.cheeks,dark:dark,outline:outline,glasses:tier===5});
 }else cuteFace(faceInk(f),fi,{e1:e1,e2:e2,ey:ey,es:es,mx:mouthX,my:mouthY,grump:grump,eyeT:eyeT,elder:elder,cheeks:lk.cheeks,dark:dark,outline:outline});
@@ -199,10 +202,43 @@ var ax=bcx+brx-1.5,ay2=bcy+(hold?-1:0);
 if(hold)f.rect(ax,ay2,3,2,base);else f.rect(ax,ay2+(walk>=0?(walk%2):0),2,3,base);
 }
 }
-if(!grump&&tier>=4){
+if(!grump&&tier>=4&&!(L&&L.belt===false)){
 var by=Math.round(bcy+bry*0.3);
-for(var bx=Math.ceil(bcx-brx);bx<=bcx+brx;bx++)if(f.on(bx,by))f.px(bx,by,[120,80,45]);
+for(var bx=Math.ceil(bcx-brx);bx<=bcx+brx;bx++)if(f.on(bx,by))f.px(bx,by,L&&L.belt||[120,80,45]);
 f.px(Math.round(bcx+brx*0.3),by,GOLD);
+}
+if(c.leafy&&!(L&&L.head)){f.px(cx,top-1,[70,160,70]);f.px(cx,top-2,[70,160,70]);f.px(cx+1,top-3,[120,210,90]);f.px(cx-1,top-2,[120,210,90]);}
+if(L){
+var we=L.body,wx,wy,wl=Math.ceil(cx-rx),wr=Math.floor(cx+rx),wt=Math.round(top);
+if(we){
+var wy0=upright?Math.round(bcy-bry+2):mouthY+2,wy1=Math.round(bcy+bry-0.5),wx0=Math.floor(bcx-brx)-(upright?1:0),wx1=Math.ceil(bcx+brx)+(upright?1:0),wdk=mix(we.col,INK,0.25);
+for(wy=wy0;wy<=wy1;wy++)for(wx=wx0;wx<=wx1;wx++)if(f.on(wx,wy))f.px(wx,wy,wy===wy1&&we.trim?we.trim:(we.pat===1&&(wy&1))||(we.pat===3&&((wx+wy)&1))?wdk:we.pat===2&&SB.hash(wx,wy,7)<0.14?WHITE:wx<bcx-brx*0.5?wdk:we.col);
+if(we.sh==="cloak"&&wy1>=wy0)f.rect(wx0-1,wy0,1,wy1-wy0+2,wdk);
+}
+we=L.feet;
+if(we&&legs)for(wx=0;wx<F;wx++)for(wy=Math.max(29,bot+1);wy<=30;wy++)if(f.on(wx,wy))f.px(wx,wy,we.col);
+we=L.head;
+if(we){
+var wc=we.col,wsh=we.sh,wlt=mix(wc,WHITE,0.4);
+if(wsh==="band"){for(wx=wl;wx<=wr;wx++)if(f.on(wx,wt+1))f.px(wx,wt+1,wc);f.px(cx-2,wt-1,wlt);f.px(cx,wt-1,wlt);f.px(cx+2,wt-1,wlt);}
+else if(wsh==="tall"){f.rect(cx-2,wt-4,5,5,wc);f.rect(cx-2,wt-1,5,1,wlt);f.rect(cx-4,wt,9,1,wc);}
+else if(wsh==="cone"){for(wy=0;wy<5;wy++)f.rect(cx-2+(wy>>1),wt-wy,5-wy,1,wy&1?WHITE:wc);f.px(cx,wt-5,GOLD);}
+else if(wsh==="ears"){f.oval(cx-rx*0.6,wt-1,2.2,2.2,wc);f.oval(cx+rx*0.6,wt-1,2.2,2.2,wc);}
+else{
+var wdeep=wsh==="hood"?Math.round(cy):wsh==="helm"?ey-2:wt+1;
+for(wy=wt;wy<=wdeep;wy++)for(wx=wl-1;wx<=wr+1;wx++)if(f.on(wx,wy)&&(wy<=wt+1||wsh!=="hood"||wx<cx-1))f.px(wx,wy,wc);
+f.rect(Math.round(cx-rx*0.6),wt-1,Math.max(2,Math.round(rx*1.2)),1,wc);
+if(wsh==="brim")f.rect(wl-2,wt+1,wr-wl+5,1,mix(wc,INK,0.25));else if(wsh==="cap")f.px(cx,wt-2,wlt);
+}
+}
+if(L.mask){for(wx=Math.round(cx);wx<=wr;wx++)if(f.on(wx,ey-2))f.px(wx,ey-2,[106,90,122]);f.px(cx-2,wt-1,[210,80,255]);f.px(cx+2,wt-1,[210,80,255]);}
+if(L.charm)f.px(Math.round(bcx+brx*0.35),upright?Math.round(bcy-bry+2):mouthY+2,L.charm.col);
+for(wy=0;wy<L.scars;wy++){wx=Math.round(cx-rx*0.45)-wy*2;if(f.on(wx-1,Math.round(cy))){f.px(wx,Math.round(cy)-1,mix(base,[255,205,205],0.65));f.px(wx-1,Math.round(cy),mix(base,[255,205,205],0.65));}}
+if(L.paint){
+var wpc=SB.Wear.PAINTS[L.paint][1];
+if(L.paint&1){if(f.on(e1-3,ey+es)){f.px(e1-2,ey+es-1,wpc);f.px(e1-3,ey+es,wpc);}}
+else for(wx=Math.floor(bcx-brx);wx<=bcx+brx;wx++)if((wx&1)&&f.on(wx,Math.round(bcy)))f.px(wx,Math.round(bcy),wpc);
+}
 }
 if(!grump&&tier===5)glasses(faceInk(f),e1,e2,ey,es);
 f.outline(outline);
@@ -350,10 +386,11 @@ return sheet;
 }
 PX.hdify=hdify;
 var atlas=null,tex=null,slots={},slotUse=[],frameNo=0,glctx=null;
+function wearKey(c){var l=SB.Wear&&SB.Wear.look?SB.Wear.look(c):null;return(l?l.key:"")+(c.leafy?"L":"")+(c.fit?Math.round(c.fit):"");}
 function sheetKey(c){
 var lk=c.look;
 return[c.species,lk.hue,lk.hue2,lk.sat|0,lk.light|0,lk.pattern,lk.ears,(lk.eyes*10)|0,lk.tail,(lk.body*10)|0,lk.legs,(lk.legLen*10)|0,lk.arms?1:0,
-lk.head>0.4?1:0,lk.fins?1:0,lk.fluff?1:0,lk.horns?1:0,lk.wings?1:0,lk.antenna?1:0,lk.cheeks?1:0,c.tier,Math.min(4,c.stage||0),c.holding!=null?1:0,lk.spotsSeed,lk.cxKey||"",(lk.size*20)|0,faceOf(c)].join(",");
+lk.head>0.4?1:0,lk.fins?1:0,lk.fluff?1:0,lk.horns?1:0,lk.wings?1:0,lk.antenna?1:0,lk.cheeks?1:0,c.tier,Math.min(4,c.stage||0),c.holding!=null?1:0,lk.spotsSeed,lk.cxKey||"",(lk.size*20)|0,faceOf(c),wearKey(c)].join(",");
 }
 function ensureAtlas(ctx){
 if(tex&&glctx===ctx)return;
@@ -364,8 +401,9 @@ atlas=document.createElement("canvas");atlas.width=F*NF;atlas.height=F;
 }
 function sheetFor(c,ctx){
 var face=faceOf(c);
-var key=c._pxKey&&c._pxLook===c.look&&c._pxTier===c.tier&&c._pxStage===c.stage&&c._pxHold===(c.holding!=null)&&c._pxFace===face?c._pxKey:null;
-if(!key){key=sheetKey(c);c._pxKey=key;c._pxLook=c.look;c._pxTier=c.tier;c._pxStage=c.stage;c._pxHold=c.holding!=null;c._pxFace=face;}
+var wk=wearKey(c);
+var key=c._pxKey&&c._pxLook===c.look&&c._pxTier===c.tier&&c._pxStage===c.stage&&c._pxHold===(c.holding!=null)&&c._pxFace===face&&c._pxW===wk?c._pxKey:null;
+if(!key){key=sheetKey(c);c._pxW=wk;c._pxKey=key;c._pxLook=c.look;c._pxTier=c.tier;c._pxStage=c.stage;c._pxHold=c.holding!=null;c._pxFace=face;}
 var s=slots[key];
 if(s){slotUse[s.i]=frameNo;return s;}
 var idx=-1,oldest=Infinity;
@@ -434,6 +472,8 @@ if(!dot&&!c.corpse&&!c.asleep&&fr!==FR.sleep)sq+=Math.sin(c.anim.bob*1.3)*0.03;
 if(mo){if(mo.flip>=0&&mo.flip!==flip&&!dot)mo.turn=1;mo.flip=flip;}
 var turnK=mo&&mo.turn>0?1-Math.sin(mo.turn*Math.PI)*0.45:1;
 inst[o+3]=F*k*(1+sq*0.5)*turnK;inst[o+4]=(F-cutPx)*k*(1-sq);
+var gt=!dot&&SB.Wear&&SB.Wear.gait&&!c.asleep&&!c.corpse?SB.Wear.gait(c,t,fr>=FR.walk0&&fr<=FR.walk3?c.anim.walk:0):null;
+if(gt){lean+=gt.lean+gt.roll;inst[o+1]=y+Math.max(0,gt.hop)*0.03;}
 inst[o+13]=(flip?-1:1)*lean*9*k;
 inst[o+5]=(s.ox+fr*F)/AW;inst[o+6]=s.oy/AH;inst[o+7]=(s.ox+(fr+1)*F)/AW;inst[o+8]=(s.oy+F-cutPx)/AH;
 inst[o+9]=flip;inst[o+10]=lk.glow?0.35+lk.glow*0.4:0;inst[o+11]=c.anim.flash||0;inst[o+12]=c.corpse?2:c.dying?1-c.fade:1;

@@ -206,12 +206,28 @@ if(an.wave>0){rA=-2.6+wave;lA=-2.6-wave;}
 part("p:limb",0.8*sxz,cy+0.05,0.05,0,rA,0.25,ar,armL,ar,cols.body,ext);
 part("p:limb",-0.8*sxz,cy+0.05,0.05,0,lA,-0.25,ar,armL,ar,cols.body,ext);
 }
+var WL=!grump&&SB.Wear&&SB.Wear.look?SB.Wear.look(c):null;
+if(WL&&WL.head){var wsh=WL.head.sh,wtall=wsh==="cone"||wsh==="tall";part(wsh==="band"?"p:ring":wtall?"p:cone":"p:ball",0,top-(wtall?0.05:0.12),0,0,0,0,wtall?0.3:0.52*bw,wtall?0.6:wsh==="band"?0.8:0.3,wtall?0.3:0.52*bw,c01(WL.head.col),ext);}
+if(WL&&WL.body)part("p:ring",0,cy-0.1*sy,0,0,0,0,0.97*sxz,2.4,0.97*sxz,c01(WL.body.col),ext);
 if(lk.halo)part("p:halo",0,top+0.35+Math.sin(t*2+c.id)*0.05,0,t*0.5,0.15,0,0.42,0.42,0.42,[1,0.92,0.55],[0,1,0]);
 if(tierGlow>0.5&&!c.far)R.light(x,y+Rr*2,z,3+Rr*4,0.6,0.55,1);
 if(game.selectedId===c.id){
 setBase(x,GY(game.world,x,z)+0.03,z,t*0.6,1);
 part("p:ring",0,0,0,0,0,0,Rr*1.6,Rr*0.6,Rr*1.6,SEL,[0,0.9,0]);
 }else if(game.hand.hoverId===c.id)hoverRing(c,x,z,Rr,t,game);
+}
+function c01(v){return[v[0]/255,v[1]/255,v[2]/255];}
+var MOODC={smile:[0.35,0.95,0.35],neutral:[0.75,0.95,0.3],tired:[0.45,0.6,1],sad:[0.3,0.45,1],worried:[1,0.7,0.2],angry:[1,0.25,0.2],sick:[0.7,0.4,0.9]};
+B.moodCol=function(c){
+var ch=c.chem||{},f=c.asleep?"tired":(c.anim&&c.anim.face)||(ch.fear>0.5?"worried":ch.sick>0.5?"sick":ch.hunger>0.75?"sad":ch.tired>0.8?"tired":"smile");
+return MOODC[f]||MOODC.neutral;
+};
+B.markerAt=function(c,t){var m=c._mo;return[m?m.x:c.x,(m?m.y:c.y)+(c._vxH||SB.Creature.radius(c)*3)+0.3+Math.sin(t*2.4)*0.03,m?m.z:c.z];};
+function marker(c,t){
+var p=B.markerAt(c,t),col=B.moodCol(c);
+setBase(p[0],p[1],p[2],t*1.4,1);
+part("p:cone",0,0,0,0,0,0,0.09,0.14,0.09,col,[0,0.7,0]);
+part("p:cone",0,0,0,0,Math.PI,0,0.09,0.14,0.09,col,[0,0.7,0]);
 }
 function hoverRing(c,x,z,Rr,t,game){
 var k=2.1+Math.sin(t*6)*0.18;
@@ -276,6 +292,8 @@ if(def.critter==="fly")rx=Math.sin(t*18+o.id)*0.4;
 if(o.onBelt){ry=o.rot;rz=1.2;}
 setBase(o.x,y,o.z,ry,1);
 if(!(R.hd&&SB.HD.item(o,o.x,y,o.z,s,o.data.rotten?[0.55,0.6,0.4]:null,ext[1])))part("i:"+o.kind,0,0,0,0,rx,rz,s,s,s,o.data.rotten?[0.55,0.6,0.4]:null,ext);
+var ph=o.data.hat&&SB.Wear&&SB.Wear.HATS[o.data.hat];
+if(ph)part(ph[1]==="band"?"p:ring":"p:cone",0,(o.r||0.15)*1.7*s,0,0,0,0,0.09,ph[1]==="band"?0.5:0.15,0.09,c01(SB.Wear.rgb(ph[2])),EXT);
 }
 if(!o.heldBy&&cam.zoom<26)R.shadow(o.x,o.z,(o.r||0.15)*1.25*s,0.26);
 if(o.kind==="torch")R.light(o.x,y+0.5,o.z,4.5,1,0.6,0.25);
@@ -302,6 +320,15 @@ for(var k in SK[s.kind].cost){tot+=SK[s.kind].cost[k];left+=s.need[k]||0;}
 var prog=(tot?(1-left/tot)*0.6:0.6)+Math.min(1,s.work/SK[s.kind].work)*0.4;
 if(prog>0.02){setBase(s.x,gy,s.z,s.rot||0,1);part("s:"+s.kind,0,0,0,0,0,0,1,0.1+prog*0.9,1,[0.85,0.8,0.7],EXT);}
 continue;
+}
+var dx=SB.Wardrobe&&SB.Wardrobe.deco?SB.Wardrobe.deco(game,s):null;
+if(dx){
+setBase(s.x,gy,s.z,s.rot||0,s.s||1);
+for(var di=0;di<dx.length;di++){
+var q=dx[di];
+if(q[0]==="light"){if(SB.Render.env.night>0.3)R.light(s.x,gy+q[1],s.z,q[2],q[3],q[4],q[5]);}
+else if(!q[11]||SB.Render.env.night>0.3)part(q[0],q[1],q[2],q[3],q[4],q[5],0,q[6],q[7],q[8],q[9],q[10]?EXT_GLOW:EXT);
+}
 }
 if((s.kind==="campfire"||s.kind==="kiln")&&s.data.lit){
 var f=0.55+s.data.fuel*0.6,fl=1+Math.sin(t*13+s.id)*0.12+Math.sin(t*7.3)*0.08;
@@ -334,7 +361,18 @@ var t=R.time();
 drawStructures(game,t);
 drawItems(game,t);
 var cs=game.creatures;
-for(var i=0;i<cs.length;i++)if(cs[i].alive||cs[i].dying)drawCreature(cs[i],alpha,t,game);
+var Mi=SB.Mine;
+for(var i=0;i<cs.length;i++)if(cs[i].alive||cs[i].dying){
+drawCreature(cs[i],alpha,t,game);
+if(Mi&&Mi.is&&cs[i].alive&&Mi.is(game,cs[i])&&!(cs[i]._pov&&R.camera.pov)&&SB.World.isSeen(game.world,cs[i].x,cs[i].z))marker(cs[i],t);
+}
+var Hv=SB.Harvest,ln=Hv&&Hv.line&&Hv.line();
+if(ln&&ln.wx!=null&&Hv.RODS&&Hv.RODS[ln.tool]){
+var bs=SB.Wardrobe&&SB.Wardrobe.bobber?SB.Wardrobe.bobber(game):null,bite=ln.phase==="bite";
+setBase(ln.wx,SB.World.groundY(game.world,ln.wx,ln.wz)+(bite?-0.05+Math.sin(t*20)*0.03:Math.sin(t*2)*0.015),ln.wz,0,1);
+part("p:ball",0,0.03,0,0,0,0,0.07,0.07,0.07,bs?bs[1]:[0.9,0.25,0.2],bs&&bs[2]?EXT_GLOW:EXT);
+part("p:ball",0,0.09,0,0,0,0,0.04,0.04,0.04,[1,1,1],EXT);
+}
 var bd=game.bodies;if(bd)for(var bi=0;bi<bd.length;bi++)if(!bd[bi].gone2&&!bd[bi].away)drawCreature(bd[bi],alpha,t,game);
 var h=game.hand;
 if(h.visible&&h.marker){

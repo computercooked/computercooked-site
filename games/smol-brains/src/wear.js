@@ -99,7 +99,9 @@
     if (!r) return { ok: false, msg: "nobody knows how to make that" };
     var why = W.whyNot(game, c, r);
     if (why) return { ok: false, msg: why };
-    return r.sys === "powers" ? P().make2(game, c, r.id) : r.sys === "harvest" ? H().make(game, c, r.id) : F().make(game, c, r.id);
+    var res = r.sys === "powers" ? P().make2(game, c, r.id) : r.sys === "harvest" ? H().make(game, c, r.id) : F().make(game, c, r.id);
+    if (res && res.ok && SB.Wardrobe) SB.Wardrobe.bump(game, "made");
+    return res;
   };
   /* ---------------- the page ---------------- */
   var showAll = false, group = "head", page = "on";
