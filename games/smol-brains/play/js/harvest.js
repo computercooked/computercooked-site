@@ -260,7 +260,8 @@
     if (!GROUPS[want]) return Sv().take(c, want, n);
     var v = Sv().inv(c), idx = [], out = [];
     for (var i = 0; i < v.s.length; i++) if (v.s[i] && GROUPS[want].is(v.s[i].k)) idx.push(i);
-    idx.sort(function (a, b) { var fa = FISH_BY[v.s[a].k], fb = FISH_BY[v.s[b].k]; return (fa ? fa.rare : 0) - (fb ? fb.rare : 0); });
+    function rank(k) { return FISH_BY[k] ? FISH_BY[k].rare : k === "oldboot" || k === "pondweed" || k === "seaweed" ? -1 : 0; } // junk before supper, a minnow before a great fish
+    idx.sort(function (a, b) { return rank(v.s[a].k) - rank(v.s[b].k); });
     for (var j = 0; j < idx.length && n > 0; j++) { var sl = v.s[idx[j]]; while (sl.n > 0 && n > 0) { sl.n--; n--; out.push(sl.k); } if (sl.n <= 0) v.s[idx[j]] = null; }
     return out;
   }
@@ -486,7 +487,7 @@
     var d0 = r + 1.1, sx = ag && !ag.far ? ag.x : c.x + Math.sin(c.facing || 0) * d0, sz = ag && !ag.far ? ag.z : c.z + Math.cos(c.facing || 0) * d0;
     function good(x, z) { return free(game, x, z, r, c) && (!needWater || !!waterNear(game, x, z, needWater)); }
     if (good(sx, sz)) return { x: sx, z: sz };
-    for (var rr = 0.7; rr <= (needWater ? 6 : 3); rr += 0.7) for (var k = 0; k < 8; k++) { var a = k * 0.785, x = sx + Math.sin(a) * rr, z = sz + Math.cos(a) * rr; if (SB.dist(x, z, c.x, c.z) < 7 && good(x, z)) return { x: x, z: z }; }
+    for (var rr = 0.7; rr <= (needWater ? 6 : 4.2); rr += 0.7) for (var k = 0; k < 8; k++) { var a = k * 0.785, x = sx + Math.sin(a) * rr, z = sz + Math.cos(a) * rr; if (SB.dist(x, z, c.x, c.z) < 7 && good(x, z)) return { x: x, z: z }; }
     return null;
   };
   function put(game, c, kindId, x, z, data) {
