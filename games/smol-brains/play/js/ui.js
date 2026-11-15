@@ -761,7 +761,7 @@
   }
 
   /* ---- the smol card ---- */
-  var cardMore = false;
+  var cardMore = false; var cardDet = false;
   function cardMini() { return !!(game.settings && game.settings.cardMini); }
   function renderSmol(force) {
     var c = SB.Game.byId(game, game.selectedId);
@@ -786,21 +786,26 @@
       h("button", { class: "btn go", title: "teach it words", onclick: function () { setTool("talk", true); UI.talkTo(c); } }, "💬 talk")
     ]));
     if (c.species === "smol") el.sheet.appendChild(el.cWho = h("div", { class: "who note" })); else el.cWho = null;
-    if (c.species !== "grump") el.sheet.appendChild(el.cPeople = h("div", { class: "chips people" }));
-    el.sheet.appendChild(el.cDrives = h("div", { class: "drives" }));
-    if (c.species === "smol" && SB.FirstHour) { el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "what its kids will inherit"), h("span", { class: "dim" }, "💫 echoes")])); el.sheet.appendChild(el.cKids = h("div", { class: "fhkids" })); }
+    // 4.34: the card is who it is, how it feels and the three things you do with it. Everything else (who it knows, its
+    // needs, what its kids inherit, ideas, words, the other buttons) folds away under one line until you ask.
+    var det = el.cDet = h("div", { class: "carddet" + (cardDet || c.species === "grump" ? "" : " hide") });
+    if (c.species !== "grump") el.sheet.appendChild(h("button", { class: "btn detbtn", onclick: function () { cardDet = !cardDet; det.classList.toggle("hide", !cardDet); this.textContent = cardDet ? "less ▴" : "needs, family, ideas and words ▾"; } }, cardDet ? "less ▴" : "needs, family, ideas and words ▾"));
+    el.sheet.appendChild(det);
+    if (c.species !== "grump") det.appendChild(el.cPeople = h("div", { class: "chips people" }));
+    det.appendChild(el.cDrives = h("div", { class: "drives" }));
+    if (c.species === "smol" && SB.FirstHour) { det.appendChild(h("div", { class: "sec" }, [h("span", null, "what its kids will inherit"), h("span", { class: "dim" }, "💫 echoes")])); det.appendChild(el.cKids = h("div", { class: "fhkids" })); }
     else el.cKids = null;
-    el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "ideas"), el.cIdeaN = h("span", { class: "dim" })]));
-    el.sheet.appendChild(el.cIdeas = h("div", { class: "chips" }));
-    el.sheet.appendChild(h("div", { class: "sec" }, [h("span", null, "words"), el.cWordN = h("span", { class: "dim" })]));
-    el.sheet.appendChild(el.cWords = h("div", { class: "chips" }));
-    el.sheet.appendChild(el.cMore = h("div", { class: cardMore ? "" : "hide" }));
+    det.appendChild(h("div", { class: "sec" }, [h("span", null, "ideas"), el.cIdeaN = h("span", { class: "dim" })]));
+    det.appendChild(el.cIdeas = h("div", { class: "chips" }));
+    det.appendChild(h("div", { class: "sec" }, [h("span", null, "words"), el.cWordN = h("span", { class: "dim" })]));
+    det.appendChild(el.cWords = h("div", { class: "chips" }));
+    det.appendChild(el.cMore = h("div", { class: cardMore ? "" : "hide" }));
     if (c.species === "grump") { // grumps get a short card: no words, no family, no code
-      el.sheet.appendChild(h("div", { class: "note" }, c.boss && SB.Bosses && SB.Bosses.of(c) ? SB.Bosses.of(c).name + ", a grump captain. " + SB.Bosses.of(c).line + " it won't leave its lair: step into a smol and f\u200cight it, with " + SB.Bosses.of(c).needs + "." : "a grump. they came down with the warship and never stopped being grumpy. a club or a spear chases them off; fire and palisades keep them out."));
+      det.appendChild(h("div", { class: "note" }, c.boss && SB.Bosses && SB.Bosses.of(c) ? SB.Bosses.of(c).name + ", a grump captain. " + SB.Bosses.of(c).line + " it won't leave its lair: step into a smol and f\u200cight it, with " + SB.Bosses.of(c).needs + "." : "a grump. they came down with the warship and never stopped being grumpy. a club or a spear chases them off; fire and palisades keep them out."));
       updateSmol(c, true);
       return;
     }
-    el.sheet.appendChild(h("div", { class: "btnrow" }, [
+    det.appendChild(h("div", { class: "btnrow" }, [
       h("button", { class: "btn", title: "watch its neural net think and learn, live (b)", onclick: function () { openBrain(c); } }, "🧠 brain"),
       h("button", { class: "btn", onclick: function () { cardMore = !cardMore; el.cMore.classList.toggle("hide", !cardMore); this.textContent = cardMore ? "less ▴" : "genes & more ▾"; } }, cardMore ? "less ▴" : "genes & more ▾"),
       h("button", { class: "btn", onclick: function () { openStory(c); } }, "📜 story"),
