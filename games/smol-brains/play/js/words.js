@@ -79,6 +79,7 @@ all.forEach(function(c){if(c.stage===0&&all.length>3)return;n++;k+=Math.min(1,c.
 return n?k/n:0;
 };
 WD.update=function(game){
+WD.sync(game);
 var cul=game.culture||(game.culture={words:{}}),n=0;
 BOOK.forEach(function(b){if(WD.share(game,b.w)>=0.5)n++;});
 if(n>(cul.sharedMax||0)){
@@ -156,5 +157,77 @@ SB.Creature.hear(c,w,game,{call:true,x:x,z:z});
 n++;
 });
 return n;
+};
+function st(game){var q=game.quests||(game.quests={});var s=q.brains3||(q.brains3={});if(!s.words)s.words={};return s;}
+function clean(s){return String(s||"").toLowerCase().replace(/[^a-zü']/g,"").slice(0,10);}
+var applied={},appliedSig=null,tabbed=false;
+WD.sync=function(game){
+if(!tabbed&&SB.Ext&&SB.Ext.tab){tabbed=true;SB.Ext.tab({id:"words",label:function(){return"💬 words";},html:WD.html,wire:WD.wire});}
+var ws=game&&game.quests&&game.quests.brains3&&game.quests.brains3.words,sig=ws?JSON.stringify(ws):"",k;
+if(sig===appliedSig)return;
+for(k in applied)if(SB.SYNONYMS[k]===applied[k])delete SB.SYNONYMS[k];
+applied={};appliedSig=sig;
+for(k in ws||{})if(WD.byWord[k]&&ws[k]&&!SB.LEXICON[ws[k]]&&!SB.SYNONYMS[ws[k]]){SB.SYNONYMS[ws[k]]=k;applied[ws[k]]=k;}
+};
+WD.mine=function(game,w){var s=game&&game.quests&&game.quests.brains3;return(s&&s.words&&s.words[w])||null;};
+WD.label=function(game,w){return WD.mine(game,w)||w;};
+WD.setWord=function(game,w,mine){
+if(!WD.byWord[w])return{ok:false,msg:"that word isn't in the book"};
+var s=st(game),m=clean(mine),k;
+if(!m){delete s.words[w];WD.sync(game);return{ok:true,msg:"\""+w+"\" is just \""+w+"\" again"};}
+if(m.length<2)return{ok:false,msg:"a word needs two letters or more"};
+if(m===w)return{ok:false,msg:"that's already the word"};
+for(k in s.words)if(k!==w&&s.words[k]===m)return{ok:false,msg:"\""+m+"\" already means "+k};
+if(SB.LEXICON[m]||(SB.SYNONYMS[m]&&SB.SYNONYMS[m]!==w))return{ok:false,msg:"\""+m+"\" already means something"};
+s.words[w]=m;
+WD.sync(game);
+return{ok:true,msg:"on this island, \""+w+"\" is \""+m+"\""};
+};
+WD.say=function(game,text,x,z){
+WD.sync(game);
+var toks=String(text||"").toLowerCase().replace(/[^a-zü' ]/g," ").split(/\s+/).filter(Boolean).slice(0,8);
+var out={ok:false,words:[],heard:0,to:null,msg:""},C=SB.Creature,all=smols(game);
+if(!toks.length){out.msg="type a word";return out;}
+toks.forEach(function(t){all.forEach(function(c){if(!out.to&&c.name&&c.name.toLowerCase()===t)out.to=c;});});
+var me=SB.Possess&&SB.Possess.active&&SB.Possess.state?SB.Possess.state().c:null;
+var hs=out.to?[out.to]:hearers(game,x,z,16).filter(function(c){return c!==me;});
+hs.sort(function(a,b){return SB.dist(a.x,a.z,x,z)-SB.dist(b.x,b.z,x,z);});
+out.heard=hs.length;
+if(!hs.length){out.msg="no smol close enough to hear";return out;}
+toks.forEach(function(t){
+if(out.to&&t===out.to.name.toLowerCase()){C.hear(out.to,t,game,{});out.ok=true;return;}
+var w=SB.LEXICON[t]||t==="good"||t==="bad"?t:SB.SYNONYMS[t];
+if(w==="good"||w==="bad"){C.hear(hs[0],w,game,{});out.words.push(w);return;}
+if(!w||!SB.LEXICON[w])return;
+out.words.push(w);
+hs.forEach(function(c){C.hear(c,w,game,{call:true,x:x,z:z});});
+});
+if(out.words.length)out.ok=true;
+if(!out.ok){out.msg="they don't know any of those words";hs[0].speech={text:"?",t:1.2,kind:"think"};}
+else out.msg=(out.to?out.to.name:hs.length+(hs.length===1?" smol":" smols"))+" heard: "+(out.words.join(" ")||out.to.name.toLowerCase());
+return out;
+};
+if(SB.bus)SB.bus.on("learnWord",function(e){
+var g=SB.Game&&SB.Game.current,m=g&&e&&e.c&&WD.mine(g,e.word);
+if(m)e.c.speech={text:m+"!",t:1.6,kind:"say"};
+});
+function esc(s){return String(s).replace(/[&<>"']/g,function(m){return"&#"+m.charCodeAt(0)+";";});}
+WD.html=function(game){
+var mine=st(game).words,named=Object.keys(mine).map(function(k){return esc(k)+" = <b>"+esc(mine[k])+"</b>";});
+return"<div class='lbl'>say something to the smols near you</div><div class='row' style='display:flex;gap:4px'><input class='inp' data-wdin='say' maxlength='40' placeholder='come · food · a name · good' style='flex:1;min-width:0'><button class='btn go' data-wd='say'>say</button></div>"
++"<div class='lbl'>your own word for one of theirs</div><div class='row' style='display:flex;gap:4px'><select class='inp' data-wdin='w'>"
++BOOK.filter(function(b){return WD.unlocked(game,b);}).map(function(b){return"<option>"+b.w+"</option>";}).join("")
++"</select><input class='inp' data-wdin='mine' maxlength='10' placeholder='your word' style='flex:1;min-width:0'><button class='btn' data-wd='name'>name it</button></div>"
++(named.length?"<div class='lbl'>"+named.join(" · ")+"</div>":"");
+};
+WD.wire=function(root,game,c,redraw,say){
+function val(k){var e=root.querySelector("[data-wdin='"+k+"']");return e?e.value:"";}
+root.querySelectorAll("[data-wd]").forEach(function(b){
+b.addEventListener("click",function(){
+var r=b.getAttribute("data-wd")==="say"?WD.say(game,val("say"),c.x,c.z):WD.setWord(game,val("w"),val("mine"));
+if(r.msg&&say)say(r.msg);
+redraw();
+});
+});
 };
 })();

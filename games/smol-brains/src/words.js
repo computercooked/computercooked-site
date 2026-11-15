@@ -227,7 +227,7 @@
     if (!hs.length) { out.msg = "no smol close enough to hear"; return out; }
     toks.forEach(function (t) {
       if (out.to && t === out.to.name.toLowerCase()) { C.hear(out.to, t, game, {}); out.ok = true; return; }
-      var w = SB.LEXICON[t] ? t : SB.SYNONYMS[t];
+      var w = SB.LEXICON[t] || t === "good" || t === "bad" ? t : SB.SYNONYMS[t];
       if (w === "good" || w === "bad") { C.hear(hs[0], w, game, {}); out.words.push(w); return; }
       if (!w || !SB.LEXICON[w]) return;
       out.words.push(w);
