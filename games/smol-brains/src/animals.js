@@ -1416,7 +1416,7 @@
      sunroot on a stick), speed that passes to the young, eggs to hatch in a pen's straw, a bug net and a bug house,
      dyes, a look to pick on the day you tame, wants shown as small signs, a small grave and a little light, a
      herder who sells animals, a spare queen for a bee box, and a pen that keeps only so many. */
-  A.FIN = 0.02; A.COMPANION = 1.15; A.UNIQUE_AT = 6;
+  A.FIN = 0.02; A.RIDE_WADE = 1.5; A.COMPANION = 1.15; A.UNIQUE_AT = 6;
   A.TRAITS.playful = "playful: rolls about by itself, and cheers smols up";
   A.TRAITS.lazy = "lazy: sleeps in. hunger comes slowly";
   A.EGGS = { lizardegg: "firelizard", oldegg: "snuffler", wetpuff: "skypuff" };
@@ -1974,14 +1974,16 @@
   /* ---------------- riding: water, air, and a jump ---------------- */
   function unfin(game, c) {
     var s = st(game), sh;
-    if (c && c.look && c.look.fins === A.FIN) c.look.fins = s.finsWas || 0;
+    if (c && c.look && c.look.fins === A.FIN) c.look.fins = s.finsWas || 0; // a save from before round 4
+    if (c && s.fins === c.id && !(c.wade > A.RIDE_WADE)) c.wade = 0;
     s.fins = null; s.finsWas = null;
     if (c && c.alive && SB.World.depthAt(game.world, c.x, c.z) > 0.5 && !(c.look && c.look.fins) && (sh = shore(game, c.x, c.z, 60))) { place(c, sh.x, sh.z); c.drownT = 0; }
   }
   function tick2(game, dt, me) {
     if (!me) return;
     var s = st(game), m = A.mount(game), sp = m ? A.SP[m.k] : null;
-    if (sp && sp.over && me.look) { if (!me.look.fins) { s.finsWas = me.look.fins || 0; me.look.fins = A.FIN; s.fins = me.id; } if (me.drownT) me.drownT = 0; }
+    // round 4: the rider no longer gets a fin (the body drew it): c.wade is what the swim check in creature.js reads
+    if (sp && sp.over && me.look) { if (me.look.fins === A.FIN) me.look.fins = s.finsWas || 0; if (!me.look.fins) { if (!(me.wade > A.RIDE_WADE)) me.wade = A.RIDE_WADE; s.fins = me.id; } if (me.drownT) me.drownT = 0; }
     if (m && me.onGround === false) { if (!me._rj && me.vy > 4) { me.vy *= 1.3; me._rj = 1; SB.bus.emit("mountJump", { c: me, rec: m }); } }
     else me._rj = 0;
   }
