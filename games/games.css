@@ -3172,3 +3172,13 @@ html.is-crt .player-stage::before { content: ""; position: absolute; inset: 0; z
 @keyframes cc-slot-tick { from { transform: translateY(-22%); } to { transform: none; } }
 @keyframes cc-slot-land { 0% { transform: scale(1); } 35% { transform: scale(1.04); box-shadow: 0 0 0 3px var(--accent), 0 0 32px rgb(var(--phosphor, 184 242 58) / .55); } 100% { transform: scale(1); } }
 @keyframes cc-slot-go { from { transform: scale(.92); opacity: .4; } to { transform: none; opacity: 1; } }
+
+/* game pages on phones (moved from player-plus.css, Nov 16): the cabinet runs almost edge to edge, a few more
+   pixels of game; on touch screens fullscreen is the thumb's main button, so it's easy to find */
+@media (max-width: 599px) {
+  .player-layout > .player:not(.is-pseudo-fs) { margin-inline: calc(4px - var(--s-3)); }
+  .crumbs { margin-bottom: var(--s-2); }
+}
+@media (pointer: coarse) and (max-width: 859px) {
+  #btn-fs:not(.is-exit) { min-width: 52px; border-color: rgb(var(--phosphor) / 0.6); color: var(--lime); }
+}
