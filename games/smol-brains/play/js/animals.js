@@ -1317,7 +1317,7 @@ redraw();
 });
 });
 };
-A.FIN=0.02;A.COMPANION=1.15;A.UNIQUE_AT=6;
+A.FIN=0.02;A.RIDE_WADE=1.5;A.COMPANION=1.15;A.UNIQUE_AT=6;
 A.TRAITS.playful="playful: rolls about by itself, and cheers smols up";
 A.TRAITS.lazy="lazy: sleeps in. hunger comes slowly";
 A.EGGS={lizardegg:"firelizard",oldegg:"snuffler",wetpuff:"skypuff"};
@@ -1843,13 +1843,14 @@ A.companion=function(game){for(var i=0;i<live.length;i++){var r=live[i].rec,sp=A
 function unfin(game,c){
 var s=st(game),sh;
 if(c&&c.look&&c.look.fins===A.FIN)c.look.fins=s.finsWas||0;
+if(c&&s.fins===c.id&&!(c.wade>A.RIDE_WADE))c.wade=0;
 s.fins=null;s.finsWas=null;
 if(c&&c.alive&&SB.World.depthAt(game.world,c.x,c.z)>0.5&&!(c.look&&c.look.fins)&&(sh=shore(game,c.x,c.z,60))){place(c,sh.x,sh.z);c.drownT=0;}
 }
 function tick2(game,dt,me){
 if(!me)return;
 var s=st(game),m=A.mount(game),sp=m?A.SP[m.k]:null;
-if(sp&&sp.over&&me.look){if(!me.look.fins){s.finsWas=me.look.fins||0;me.look.fins=A.FIN;s.fins=me.id;}if(me.drownT)me.drownT=0;}
+if(sp&&sp.over&&me.look){if(me.look.fins===A.FIN)me.look.fins=s.finsWas||0;if(!me.look.fins){if(!(me.wade>A.RIDE_WADE))me.wade=A.RIDE_WADE;s.fins=me.id;}if(me.drownT)me.drownT=0;}
 if(m&&me.onGround===false){if(!me._rj&&me.vy>4){me.vy*=1.3;me._rj=1;SB.bus.emit("mountJump",{c:me,rec:m});}}
 else me._rj=0;
 }

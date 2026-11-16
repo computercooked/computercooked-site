@@ -710,14 +710,17 @@ return D.heatwave(game)||((b===bid("desert")||b===bid("mesa")||b===bid("ash"))&&
 var haz={},hazT=0,lastPos=null,saidT={},raft=null,raftWet=0;
 D.hazards=function(){return haz;};
 function once(game,key,msg,gap){if(saidT[key]&&game.time-saidT[key]<(gap||25)&&game.time>=saidT[key])return;saidT[key]=game.time;say(msg);}
-function unraft(){if(raft&&raft.c&&raft.c.look){raft.c.look.fins=false;if(raft.c.dp)raft.c.dp.rf=0;}raft=null;}
+var RAFT_WADE=1.5;
+D.RAFT_WADE=RAFT_WADE;
+function unraft(){if(raft&&raft.c){if(raft.fin){if(raft.c.look)raft.c.look.fins=false;if(raft.c.dp)raft.c.dp.rf=0;}else if(!(raft.c.wade>RAFT_WADE))raft.c.wade=0;}raft=null;}
 D.afloat=function(){return!!haz.raft;};
 function bodyTick(game,S,dt){
 var c=S.c,w=game.world,s=st(game),Bd=SB.Body;
 var ice=D.frozen(game,c.x,c.z),boat=ice||(c.tier>=2&&hasBoat(c));
 if(!raft&&c.dp&&c.dp.rf&&c.look){c.look.fins=false;c.dp.rf=0;}
-if(boat&&c.look&&!c.look.fins){c.look.fins=true;raft={c:c};dp(c).rf=1;}
-if(raft&&(!boat||raft.c!==c))unraft();
+if(raft&&((raft.fin&&!ice)||(!raft.fin&&ice)||!boat||raft.c!==c))unraft();
+if(ice&&c.look&&!c.look.fins){c.look.fins=true;raft={c:c,fin:1};dp(c).rf=1;}
+else if(!ice&&boat&&c.look&&(!c.look.fins||(raft&&!raft.fin))){if(!raft)raft={c:c};if(!(c.wade>RAFT_WADE))c.wade=RAFT_WADE;}
 var wd0=W().depthAt(w,c.x,c.z),deep=wd0>0.5,afloat=!!(raft&&deep),onIce=ice&&wd0>0.05;
 if(onIce&&!afloat&&Bd){var bi0=Bd.of(c);if(bi0.wet>raftWet)bi0.wet=raftWet;}
 if(onIce){
@@ -740,7 +743,7 @@ if(g==="mud"&&!haz.mud)once(game,"mud","🟤 sucking mud! it slows you to half. 
 if(g==="drift"&&!haz.drift)once(game,"drift","❄️ a deep snow drift! slow going, and cold. go round");
 }
 var quick=!slow&&c._povMove&&lastPos&&lastPos.c===c?(onIce&&has(c,"wraps")?0.4:!afloat&&!onIce&&D.onRoad(game,c.x,c.z)?0.3:0):0;
-if(quick){var qx=c.x-lastPos.x,qz=c.z-lastPos.z,qnx=c.x+qx*quick,qnz=c.z+qz*quick;if(qx*qx+qz*qz<4&&W().walkable(w,qnx,qnz,!!(c.look&&c.look.fins))){c.x=qnx;c.z=qnz;}}
+if(quick){var qx=c.x-lastPos.x,qz=c.z-lastPos.z,qnx=c.x+qx*quick,qnz=c.z+qz*quick;if(qx*qx+qz*qz<4&&W().walkable(w,qnx,qnz,!!(SB.Creature&&SB.Creature.canSwim?SB.Creature.canSwim(c):c.look&&c.look.fins))){c.x=qnx;c.z=qnz;}}
 haz.road=quick===0.3;
 haz.mud=g==="mud"&&slow;haz.drift=g==="drift"&&slow;haz.thorns=g==="thorns";
 lastPos={c:c,x:c.x,z:c.z};
