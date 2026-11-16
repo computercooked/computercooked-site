@@ -168,7 +168,7 @@ if(gain>bv){bv=gain;best=s;}
 });
 if(!best||game.rng()>0.35)return;
 c._shop={id:best.id,t:game.time};
-SB.Creature.sendTo(c,best.x+(game.rng()-0.5),best.z+(game.rng()-0.5),game,30);
+SB.Creature.sendTo(c,best.x+(game.rng()-0.5),best.z+(game.rng()-0.5),game,30,!!(SB.KINDS[best.data.good]&&SB.KINDS[best.data.good].noun==="food"));
 });
 }
 E.MARKET_EVERY=2;

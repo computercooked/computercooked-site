@@ -103,7 +103,7 @@
       if (pip.chem.hunger < 0.7) pip.chem.hunger = 0.8; // Pip is starving until it eats
       var b = bush(game, pip);
       if (b && (s.pulseT = (s.pulseT || 0) - dt) <= 0) { s.pulseT = 1.2; if (SB.FX) SB.FX.burst("sparkle", b.x, W().groundY(w, b.x, b.z) + 0.9, b.z, 6); }
-      if (!me && s.t > FN.FALLBACK && b && !s.fallback) { s.fallback = true; SB.Creature.sendTo(pip, b.x, b.z, game, 20); } // it finds them itself in the end
+      if (!me && s.t > FN.FALLBACK && b && !s.fallback) { s.fallback = true; SB.Creature.sendTo(pip, b.x, b.z, game, 20, true); } // it finds them itself in the end
     } else if (s.s === "pod") {
       clampTod(game, FN.TOD.wake, FN.TOD.pod);
       var pod = FN.pod(game);
@@ -274,7 +274,7 @@
       SB.Game.smols(game).forEach(function (o) {
         if (o.id === s.pip || !o.alive) return;
         o.chem.hunger = Math.max(o.chem.hunger, 0.6);
-        if (b) SB.Creature.sendTo(o, b.x, b.z, game, 15);
+        if (b) SB.Creature.sendTo(o, b.x, b.z, game, 15, true);
         o.speech = { text: "pip!", t: 2, kind: "say" };
       });
     });
