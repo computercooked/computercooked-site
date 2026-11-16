@@ -239,6 +239,24 @@ const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/)
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
+// launch SEO (read-only): bare game builds are noindex, game share cards carry alt text, the hub and homepage list
+// every game as ItemList JSON-LD, and every public page has a share card
+ok(/noindex/.test(r.headers.get("x-robots-tag") || ""), "game builds under /play/ are noindex", r.headers.get("x-robots-tag"));
+ok(/property="og:image:alt" content="fathom: /.test(page) && /name="twitter:image:alt"/.test(page) && /property="og:image:width" content="1200"/.test(page), "game page share card has size and alt text");
+{
+  const ours = JSON.parse(readFileSync(new URL("../games/games.json", import.meta.url), "utf8")).games.filter((g) => g.made_by === "computer-cooked");
+  for (const u of ["/", "/games/"]) {
+    const html = await (await get(u)).text();
+    const list = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => { try { return JSON.parse(m[1]); } catch (e) { return null; } }).find((d) => d && d["@type"] === "ItemList");
+    ok(list && list.itemListElement.length === ours.length && list.itemListElement.every((x) => x.item?.["@type"] === "VideoGame" && x.item.url.startsWith("https://computercooked.com/games/")), u + " has an ItemList of every game", list && list.itemListElement.length);
+  }
+  const lacking = [];
+  for (const u of ["/", "/games/", "/games/daily/", "/lab/", "/log/", "/champs/", "/about/", "/support/", "/merch/", "/surf/", "/privacy/", "/terms/"]) {
+    const html = await (await get(u)).text();
+    if (!/property="og:image" content="https:\/\//.test(html) || !/name="twitter:card" content="summary_large_image"/.test(html) || !/rel="canonical"/.test(html) || !/property="og:image:alt"/.test(html)) lacking.push(u);
+  }
+  ok(lacking.length === 0, "every public page has canonical, og:image (+alt) and a large twitter card", lacking);
+}
 // installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
 // manifest + pwa.js on the hub and every game page
 {
