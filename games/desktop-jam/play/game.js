@@ -425,7 +425,10 @@
     $('endTitle').textContent = r.won ? (r.mode === 'daily' ? 'daily: cleared' : allDone ? 'all ' + LEVELS + ' cleared' : 'desktop cleared') : (r.jammed ? 'jammed' : 'cooked');
     $('endTitle').className = r.won ? '' : 'bad';
     $('endStars').innerHTML = r.mode === 'level' && r.won ? [1, 2, 3].map((i) => `<span class="${i <= r.stars ? '' : 'off'}">&#9733;</span>`).join('') : '';
-    $('endMsg').innerHTML = !r.won && r.jammed ? 'jammed. every spinner was pointing at something. order matters here.' : allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose);
+    // fewer than 3 stars: say how to get them and offer a one-tap retry (the replay hook)
+    const miss3 = r.mode === 'level' && r.won && r.stars < 3;
+    $('bStar3').hidden = !miss3;
+    $('endMsg').innerHTML = (miss3 ? `<span class="goal3">0 bonks = &#9733;&#9733;&#9733;.</span> ` : '') + (!r.won && r.jammed ? 'jammed. every spinner was pointing at something. order matters here.' : allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose));
     $('endStats').innerHTML = [[fmt(r.ms), 'time'], [r.bonks, 'bonks'], [r.mode === 'daily' ? '#' + r.day : (r.idx + 1) + '/' + LEVELS, r.mode === 'daily' ? 'daily' : 'level']]
       .map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
     $('bNext').textContent = r.mode === 'daily' ? 'play levels' : r.won ? (allDone ? 'replay all' : 'next') : 'retry';
@@ -793,6 +796,7 @@
     startLevel('level', r.idx + 1 >= LEVELS ? 0 : r.idx + 1);
   });
   on('bShare', share);
+  on('bStar3', () => { if (performance.now() - endAt < 800 || !lastResult) return; audio(); sfx.tap(); startLevel('level', lastResult.idx); });
   on('bEndMenu', () => { sfx.tap(); toTitle(); });
   on('bRestart', () => { $('bRestart').blur(); if (ui === 'play') restart(); });
   on('bMenu', () => { $('bMenu').blur(); sfx.tap(); toTitle(); });
