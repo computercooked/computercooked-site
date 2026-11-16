@@ -584,7 +584,7 @@
     function build() {
       box = document.createElement("div");
       box.className = "ccr"; box.hidden = true;
-      box.setAttribute("role", "dialog"); box.setAttribute("aria-labelledby", "ccr-kicker"); box.setAttribute("aria-describedby", "ccr-gary");
+      box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-labelledby", "ccr-kicker"); box.setAttribute("aria-describedby", "ccr-gary");
       box.innerHTML =
         '<div class="ccr-card">' +
           '<button type="button" class="ccr-x" aria-label="close results (esc)">×</button>' +

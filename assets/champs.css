@@ -34,10 +34,10 @@
 .most-n { flex: none; margin-left: auto; color: var(--text-dim); font-size: var(--fs-12); }
 
 /* ---------- sort ---------- */
-.wall-tools { margin-top: var(--s-6); min-height: 36px; }
+.wall-tools { margin-top: var(--s-6); min-height: 40px; }
 .wall-tools:not(.is-ready) { visibility: hidden; }
 .wall-sort { display: flex; flex-wrap: wrap; gap: var(--s-2); }
-.wall-sort button { min-height: 36px; padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface);
+.wall-sort button { min-height: 40px; padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface);
   color: var(--text-dim); font-family: var(--mono); font-size: var(--fs-12); cursor: pointer; }
 .wall-sort button:hover { color: var(--text); border-color: rgb(255 207 64 / .5); }
 .wall-sort button[aria-pressed="true"] { background: #ffcf40; border-color: #ffcf40; color: #14110a; font-weight: 700; }

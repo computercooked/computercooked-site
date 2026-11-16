@@ -70,9 +70,15 @@
       var w = track.firstChild.offsetWidth || 2400;
       track.style.setProperty("--news-t", Math.round(w / 55) + "s");
     }
-    build();
-    box.classList.add("is-on");
-    if (reduce) swapT = setInterval(function () { if (document.hidden || box.classList.contains("is-breaking")) return; at = (at + 1) % lines.length; track.firstChild.textContent = lines[at]; }, 7000);
+    // speed pass: built when the browser is idle, not during start-up (it measures the strip, a forced layout); the
+    // static headline in the HTML holds the same 28px row until then, so nothing moves.
+    function go() {
+      build();
+      box.classList.add("is-on");
+      if (reduce) swapT = setInterval(swap, 7000);
+    }
+    if ("requestIdleCallback" in window) requestIdleCallback(go, { timeout: 3000 }); else setTimeout(go, 1500);
+    function swap() { if (document.hidden || box.classList.contains("is-breaking")) return; at = (at + 1) % lines.length; track.firstChild.textContent = lines[at]; }
     api.sync = function () { box.classList.toggle("is-off", !deskOn); };
     var flashT = 0;
     api.flash = function (t, ms) {
