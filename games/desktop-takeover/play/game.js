@@ -37,7 +37,7 @@
       nodes: [[110, 310, 1, 1, 14], [270, 150, 1, 0, 6], [270, 470, 1, 0, 6], [500, 120, 2, 0, 13], [500, 500, 2, 0, 13], [500, 310, 3, 0, 22], [730, 150, 1, 0, 6], [730, 470, 1, 0, 6], [890, 310, 1, 2, 25]] },
     { name: "downloads (4,812)", think: 1.25, grow: 0.85, nuke: true, delay: 4, need: 4,
       nodes: [[500, 540, 1, 1, 15], [300, 420, 1, 0, 6], [700, 420, 1, 0, 6], [500, 330, 2, 0, 13], [320, 200, 1, 0, 8], [680, 200, 1, 0, 8], [500, 110, 3, 0, 26], [120, 400, 1, 0, 8], [880, 400, 1, 0, 8], [140, 120, 2, 3, 25], [860, 120, 1, 4, 22]] },
-    { name: "the whole desktop", think: 1.3, grow: 0.9, nuke: true, delay: 3, need: 4,
+    { name: "the whole desktop", think: 1.3, grow: 0.78, nuke: true, delay: 6, need: 4, // was grow 0.9 / delay 3: the auto-player won 1 in 3, a slower one 1 in 4. now about 1 in 2
       nodes: [[500, 310, 2, 1, 26], [300, 200, 1, 0, 6], [700, 200, 1, 0, 6], [300, 420, 1, 0, 6], [700, 420, 1, 0, 6], [500, 110, 1, 0, 10], [500, 510, 1, 0, 10], [260, 310, 2, 0, 14], [740, 310, 2, 0, 14], [110, 90, 1, 2, 12], [890, 90, 1, 3, 12], [110, 530, 1, 4, 12], [890, 530, 1, 5, 12]] },
   ];
 
@@ -455,7 +455,7 @@
   const pos = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   function doSend(srcs, t) {
     let n = 0; for (const s of srcs) if (s.o === 1 && s !== t) n += send(G, s, t);
-    if (n) { play("send"); const [x, y] = toS(t.x, t.y); ring(x, y, "#b6ff3c", rad(t) * 2, 0.35); if (G.coach) { G.coach = false; S.coach = true; save(); say("yes. like that. now take the rest.", "happy", 3); } }
+    if (n) { play("send"); const [x, y] = toS(t.x, t.y); ring(x, y, "#b6ff3c", rad(t) * 2, 0.35); floatText(x, y - rad(t) - 10, "+" + n, "#b6ff3c"); if (G.coach) { G.coach = false; S.coach = true; save(); say("yes. like that. now take the rest.", "happy", 3); } }
     else if (srcs.length) say("that folder needs 2 cursors to send.", "worry", 2);
   }
   cv.addEventListener("pointerdown", (e) => {
@@ -493,6 +493,14 @@
 
   // ---------- what the sim reports -> what you see ----------
   const INTRO = ["that slow one is do_not_delete. grab the empty folders first.", "click here!! never stops clicking. don't click back.", "virus nanny thinks YOU are the virus. she's fast.", "stuff i saved hoards, then dumps it all at once.", "everyone at once. you're in the middle. good luck."];
+  const LOSE_TIPS = [
+    ["take the grey folders first. they don't fight back.", "only half a folder's cursors go each drag. wait for it to refill."],
+    ["click here!! attacks a lot but each hit is small. take the big middle folder early.", "drag across two of your folders on the way to send from both at once."],
+    ["virus nanny is fast. grab the folders near you before you go near her.", "when her bin flashes 'incoming', send those cursors to a folder outside the circle."],
+    ["take the big folder at the top: it grows cursors twice as fast.", "save the bin for when two bot folders sit close together."],
+    ["you start in the middle. take the 4 folders around you in the first 10 seconds.", "let the bots fight each other. hit whoever is weakest.", "the bin wipes a whole corner. use it on the strongest bot."],
+    ["bigger folders grow cursors faster. take them first.", "you need more cursors to land than the folder holds. count before you drag.", "tap one of your folders, then tap a target: same as a drag."],
+  ];
   function present(g) {
     for (const e of g.events) {
       if (e.k === "cap") {
@@ -590,7 +598,7 @@
     $("endTb").textContent = won ? "takeover_complete.txt" : "deleted.txt";
     $("endIn").innerHTML = `<h2 class="${won ? "" : "lost"}">${won ? `you took over <em>${o.pct}%</em>` : `<em>deleted.</em> you held ${o.pct}%`}</h2>
       ${camp && won ? `<div class="stars">${"★".repeat(g.stars)}<s>${"★".repeat(3 - g.stars)}</s></div>` : ""}
-      <p>${line}</p>${g.mode === "daily" ? `<p class="small">new desktop in ${untilTomorrow()}</p>` : camp && won && g.stars < 3 ? `<p class="small">win faster for more stars</p>` : ""}
+      <p>${line}</p>${g.mode === "daily" ? `<p class="small">new desktop in ${untilTomorrow()}</p>` : camp && won && g.stars < 3 ? `<p class="small">${g.stars < 2 ? "★★ under 2:50 · " : ""}★★★ under 1:50</p>` : !won ? `<p class="small tip">tip: ${pick(LOSE_TIPS[g.mode === "campaign" ? g.level - 1 : 5] || LOSE_TIPS[5])}</p>` : ""}
       <img class="share" id="eImg" alt="share card: i took over ${o.pct}% of the desktop">
       <div class="row"><button class="btn go big" id="eNext" type="button">${next}</button><button class="btn big" id="eShare" type="button">share</button></div>
       <div class="row" style="margin-top:6px">${won || g.mode === "daily" ? (g.mode === "daily" ? "" : `<button class="btn" id="eAgain" type="button">replay</button>`) : ""}<button class="btn" id="eMenu" type="button">menu</button></div>
