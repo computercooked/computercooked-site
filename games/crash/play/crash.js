@@ -213,6 +213,7 @@
   /* ---------- game state ---------- */
   var state = "title"; // title | play | paused | cooking | over
   var t, heat, score, pickups, hits, spawnT, pickT, warnT, cookT, overAt = 0;
+  var streak = 0, topStreak = 0; // v2.3: tasks dodged in a row (a hit resets it)
   // the first seconds teach the loop (dodge, grab coffee): 1 at the start, 0 from 25 s on, so the late game is as before
   var EASE_T = 25;
   function ease() { return Math.max(0, 1 - t / EASE_T); }
@@ -228,7 +229,7 @@
 
   function reset() {
     ban = null; beatBestTold = false; runGoal = bestTime >= 5 ? bestTime : 30;
-    t = 0; heat = 8; score = 0; pickups = 0; hits = 0;
+    t = 0; heat = 8; score = 0; pickups = 0; hits = 0; streak = 0; topStreak = 0;
     spawnT = 0.6; pickT = 1.2; warnT = 0; cookT = 0;
     shake = 0; glitch = 0; flash = 0;
     crash.x = W / 2; crash.vx = 0; crash.tilt = 0; crash.squash = 0; crash.hurt = 0;
@@ -379,6 +380,8 @@
         var burn = Math.round((k.big ? 22 : 15) * (1 - 0.5 * ease()));
         heat += burn;
         hits++;
+        if (streak >= 5) floatText(crash.x, crash.y - crash.h - 28, "streak lost (" + streak + ")", "#B59AFF");
+        streak = 0;
         crash.hurt = 0.45;
         crash.squash = 1;
         shake = Math.min(1, shake + 0.65);
@@ -402,7 +405,18 @@
           tone(990, 1480, 0.05, "square", 0.05);
         }
       }
-      if (k.y > H + 10) { tasks.splice(i, 1); score += 2; }
+      if (k.y > H + 10) {
+        tasks.splice(i, 1); score += 2;
+        // v2.3: a dodge streak, so every clean dodge counts toward something you can see
+        streak++; if (streak > topStreak) topStreak = streak;
+        if (streak % 10 === 0) {
+          var sb = Math.min(30, streak);
+          score += sb;
+          floatText(crash.x, crash.y - crash.h - 28, "streak " + streak + "! +" + sb, "#C5FF49");
+          puff(crash.x, crash.y - crash.h, 12, "#C5FF49", 140, 0.45);
+          tone(660, 1320, 0.08, "square", 0.06); tone(990, 1980, 0.08, "square", 0.05, 0.07);
+        }
+      }
     }
 
     // milestones: a goal on screen from the first second, and a cheer when you pass your best time
@@ -714,9 +728,10 @@
     ctx.textAlign = "right";
     ctx.fillStyle = "#C5FF49";
     ctx.fillText(String(Math.floor(score)).padStart(5, "0"), W - 12, 34);
-    ctx.font = "800 9px 'JetBrains Mono', monospace";
+    ctx.font = "800 10px 'JetBrains Mono', monospace";
     ctx.fillStyle = "#b9b7b0";
     ctx.fillText("BEST " + best, W - 12, 52);
+    if (streak >= 3) { ctx.fillStyle = streak >= 10 ? "#C5FF49" : "#F5F3ED"; ctx.fillText("STREAK " + streak, W - 12, 65); }
     // the run's goal, always in view: beat your best time (or reach 30 s on a first run)
     var goal = runGoal;
     ctx.textAlign = "left";
@@ -742,7 +757,7 @@
       // arrow over the first cooling pickup on screen
       for (var ii = 0; ii < items.length; ii++) {
         var it = items[ii];
-        if (it.y < 40 || it.y > FLOOR - 40) continue;
+        if (it.y < 110 || it.y > FLOOR - 40) continue; // v2.3: not up in the HUD (it covered "GOAL 30s")
         var by2 = it.y - 34 + Math.sin(t * 8) * 3;
         ctx.fillStyle = it.kind === "fan" ? "#B59AFF" : "#C5FF49";
         ctx.beginPath(); ctx.moveTo(it.x - 7, by2); ctx.lineTo(it.x + 7, by2); ctx.lineTo(it.x, by2 + 9); ctx.fill();
@@ -858,7 +873,8 @@
     if (newBest) { best = final; save("cc-crash-best", String(best)); }
     if (secs > bestTime) { bestTime = secs; save("cc-crash-best-time", String(bestTime)); }
     // one concrete target for the next run
-    var nextGoal = prevBestTime < 5 ? "next run: beat " + (secs < 30 ? 30 : secs) + "s"
+    // v2.3: matches the GOAL the next run's HUD will show (it said "beat 30s" while the HUD said 15s)
+    var nextGoal = prevBestTime < 5 ? "next run: beat " + (bestTime >= 5 ? bestTime : 30) + "s"
       : secs > prevBestTime ? "new best time! next run: beat " + bestTime + "s"
       : prevBestTime - secs <= 5 ? "so close. " + (prevBestTime - secs + 1) + "s more beats your best (" + prevBestTime + "s)"
       : "next run: beat " + prevBestTime + "s";
@@ -866,7 +882,7 @@
     document.getElementById("go-time").textContent = secs + "s";
     document.getElementById("go-score").textContent = final;
     document.getElementById("go-best").textContent = newBest ? "new best!" : "best " + best;
-    document.getElementById("go-stats").textContent = hits + (hits === 1 ? " task" : " tasks") + " took the hit · " +
+    document.getElementById("go-stats").textContent = (topStreak >= 5 ? "best streak " + topStreak + " · " : "") + hits + (hits === 1 ? " task" : " tasks") + " took the hit · " +
       pickups + (pickups === 1 ? " coffee or fan" : " coffees & fans");
     document.getElementById("go-next").textContent = nextGoal;
     document.getElementById("go-share-text").textContent = "i lasted " + secs + "s before getting cooked. computercooked.com/games";
@@ -1042,7 +1058,7 @@
   });
 
   // read-only test hook for ?cctest runs
-  window.__crash = { state: function () { return { state: state, t: t, heat: heat, score: Math.floor(score), hits: hits, pickups: pickups, tasks: tasks.length, items: items.length }; } };
+  window.__crash = { state: function () { return { state: state, t: t, heat: heat, score: Math.floor(score), hits: hits, streak: streak, topStreak: topStreak, pickups: pickups, tasks: tasks.length, items: items.length }; } };
 
   /* ---------- boot ---------- */
   document.getElementById("title-best").textContent = best ? "best: " + best + (bestTime ? " · " + bestTime + "s" : "") : "no high score yet. be the first casualty.";
