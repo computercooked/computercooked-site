@@ -545,7 +545,7 @@
     var bearing = Math.atan2(-(t.x - c.x), -(t.z - c.z)), diff = SB.angDiff(s.yaw, bearing);
     var p = R.project(t.x, t.y, t.z), W = window.innerWidth, H = window.innerHeight, x, y, edge = false;
     if (Math.abs(diff) < 0.75 && p.on) { x = SB.clamp(p.x, 24, W - 24); y = SB.clamp(p.y, 60, H - 140); }
-    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * 0.5 + (m === hud.gmark ? 46 : m === hud.nmark ? -52 : 0); } // arrows on one side: stacked
+    else { edge = true; x = diff > 0 ? 26 : W - 26; y = H * (H < 520 && phone() ? 0.27 : 0.5) + (m === hud.gmark ? 46 : m === hud.nmark ? -52 : 0); } // arrows on one side: stacked
     m.classList.add("on");
     m.classList.toggle("edge", edge);
     m.style.left = x + "px"; m.style.top = y + "px";

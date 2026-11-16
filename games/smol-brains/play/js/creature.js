@@ -777,7 +777,7 @@ if(!c.path)c.noPath={x:tx,z:tz,t:game.time};
 if(c.path&&c.wBestT>8){c.path=null;c.lost=true;}
 if(c.path){
 var wp=c.path[c.pathI];
-while(wp&&Math.hypot(wp.x-c.x,wp.z-c.z)<0.7&&c.pathI<c.path.length-1)wp=c.path[++c.pathI];
+while(wp&&Math.hypot(wp.x-c.x,wp.z-c.z)<0.7&&c.pathI<c.path.length-1){wp=c.path[++c.pathI];c.wBestT=0;c.pathAt=game.time;}
 if(wp)return stepToward(c,wp.x,wp.z,dt,sp,game,c.pathI>=c.path.length-1?arriveR:0.3)&&c.pathI>=c.path.length-1;
 }
 return stepToward(c,tx,tz,dt,sp,game,arriveR);
@@ -847,6 +847,7 @@ walkToward(c,gx,gz,dt,speedOf(c,a),game,0.05);
 }
 dist=SB.dist(tgt.x,tgt.z,c.x,c.z);
 if(a.best==null||dist<a.best-0.25){a.best=dist;a.bestT=a.t;}
+if(c.path&&c.pathAt===game.time)a.bestT=a.t;
 if(dist<=reach+0.05){
 a.phase="do";a.doT=0;
 c.facing=Math.atan2(tgt.x-c.x,tgt.z-c.z);
