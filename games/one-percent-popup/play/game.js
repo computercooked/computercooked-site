@@ -409,7 +409,7 @@
   function startRun() {
     if (state === 'over' && performance.now() - overAt < 800) return;
     closeOverlay();
-    level = 0; runStart = performance.now(); shuffleOrder();
+    level = 0; runStart = performance.now(); shuffleOrder(); prevBest = best;
     sdk((c) => c.start && c.start());
     startLevel();
   }
@@ -477,7 +477,7 @@
   }
 
   // restarts are ignored for 0.8 s after the end card shows, so a held/mashed key doesn't skip it
-  let overAt = 0;
+  let overAt = 0, prevBest = best;
   function gameOver(won, why) {
     state = 'over'; overAt = performance.now(); clearLevel();
     const reached = won ? 30 : level + 1;
@@ -492,7 +492,7 @@
       : `<div class="bigc"></div><h1>cooked on <em>level ${reached}</em></h1><p>only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
          <p class="why">${why || 'too slow. the pop-up outlasted you.'}</p>
          <p>lasted ${(dur / 1000).toFixed(1)}s. new pop-up order every run.</p>
-         <p>best: level ${Math.min(best + 1, 30)}</p>
+         ${level > prevBest ? `<p class="why">new best! ${level - prevBest} level${level - prevBest === 1 ? '' : 's'} further than ever.</p>` : `<p>best: level ${Math.min(best + 1, 30)} · ${best + 1 - level} to beat it</p>`}
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
     o.querySelector('#again').addEventListener('click', () => { audio(); startRun(); });
     o.querySelector('#share').addEventListener('click', () => share(reached, won));

@@ -6,7 +6,7 @@
   "made_by": "computer-cooked",
   "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
   "size_kb": 40,
-  "version": "2.1",
+  "version": "2.2",
   "tags": [
     "arcade",
     "stacking",
@@ -14,7 +14,7 @@
     "high score",
     "casual"
   ],
-  "changelog": "v2: points with a perfect-streak multiplier (up to 5x), width regrow, 5 power-up tabs (perfect = double), lag spikes late, share card, mute/pause/cc hooks, slider kept on screen, thin-tab and restart fixes.",
+  "changelog": "v2.2: alignment guides show the stack edges and light up in the perfect window, shorter how-to on the title. v2: points with a perfect-streak multiplier (up to 5x), width regrow, 5 power-up tabs (perfect = double), lag spikes late, share card, mute/pause/cc hooks, slider kept on screen, thin-tab and restart fixes.",
   "playtest": {
     "before": 5.5,
     "after": 6.4
