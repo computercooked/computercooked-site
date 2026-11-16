@@ -168,10 +168,16 @@
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
     U = Math.max(0.75, Math.min(1.6, Math.min(W / 420, H / 720)));
-    const mw = Math.min(W * 0.94, 620, H * 1.25), mh = mw * 0.62, mx = (W - mw) / 2, my = Math.max(120 * U, H * 0.5 - mh / 2);
+    // review16 r3: a tall phone sits the microwave a little higher, so the counter under it has room for the START pad
+    const tall = H > W * 1.6;
+    const mw = Math.min(W * 0.94, 620, H * 1.25), mh = mw * 0.62, mx = (W - mw) / 2, my = Math.max(120 * U, H * (tall ? 0.43 : 0.5) - mh / 2);
     const ww = mw * 0.64;
     M = { mx, my, mw, mh, wx: mx + mw * 0.05, wy: my + mh * 0.1, ww, wh: mh * 0.8, px: mx + mw * 0.05 + ww + mw * 0.04 };
     M.pw = mx + mw - M.px - mw * 0.04;
+    // the pad only where the counter has the room (a tall phone, a big desktop window); never in a short player frame
+    const below = H - (my + mh + 8);
+    M.pad = null;
+    if (below >= 190) { const pw = Math.min(W * 0.76, 360), ph = Math.min(118, below * 0.34); M.pad = { x: W / 2 - pw / 2, y: my + mh + 8 + below * 0.56 - ph / 2, w: pw, h: ph }; }
   }
   window.addEventListener("resize", layout);
   layout();
@@ -208,6 +214,7 @@
   let item = null, phase = "ready", phaseT = 0, cookT = 0, holding = false, parts = [], fx = [], line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, popAcc = 0, verdict = null;
   // K-0060: the burn moment ({ t, v, boom, word } while it plays), its smoke, and the press that owns the hold
   let burn = null, smoke = [], owner = null;
+  let tally = []; // review16 r3: this run's verdicts, shown as a row of tickets under the START pad
   // K-0063: a press made while no item waits (the burn moment, the result) and still held. It never cooks the item that
   // burnt, but once the next item has landed and sat a beat it takes over the hold, so a long hold cooks through
   let held = null;
@@ -233,7 +240,7 @@
   }
   function start() {
     state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null; scare = null;
-    burn = null; smoke = []; owner = null; held = null; // K-0060
+    burn = null; smoke = []; owner = null; held = null; tally = []; // K-0060
     startAt = performance.now(); say("hello", true); react("happy", 0.8); syncHaunt();
     sdk((c) => c.start && c.start());
     if (haunted) sdk((c) => c.event && c.event("haunted_run", {}));
@@ -268,6 +275,7 @@
     bestStreak = Math.max(bestStreak, streak);
     score += pts;
     verdict = { v, pts };
+    tally.push(v);
     if (v === "burnt" || v === "sparks") { startBurn(v); sdkScore(score); return; }
     say(v === "good" ? "good" : v, true);
     verdictFx(v, pts, cur ? null : d);
@@ -583,10 +591,13 @@
       if (f.sub) { text(f.sub, f.x + 1, y + sz * 0.95 + 1, Math.max(11, sz * 0.6), INK, "center", 800); text(f.sub, f.x, y + sz * 0.95, Math.max(11, sz * 0.6), PAPER, "center", 800); }
     }
     cx.globalAlpha = 1;
+    drawPad(time);
     cx.restore();
     // hud
     text(String(score), 14, 22, 22, CASE, "left", 800);
     text("round " + round + (streak > 1 ? " · streak x" + streak : ""), 14, 44, 12, streak > 1 ? LIME2 : "#8a8e80", "left", 700);
+    // review16 r3: the best to beat, all run long (it used to show only on the end card)
+    if (best > 0 && state !== "title") text(state === "play" && score > best ? "new best!" : "best " + best, 14, 62, 12, state === "play" && score > best ? LIME2 : "#8a8e80", "left", 700);
     for (let i = 0; i < 3; i++) { const fxp = W - 28 - i * 22, on2 = i < strikes; R(on2 ? BAD : "#3a3d33", fxp, 54, 14, 14); if (on2) R(WARN, fxp + 4, 58, 6, 8); }
     text("strikes", W - 14, 80, 11, "#8a8e80", "right", 700);
     if (state === "play" && item) {
@@ -607,6 +618,34 @@
     tipY = -1;
     if (state === "title" || state === "over") overlay();
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
+  }
+  // review16 r3: the START pad on the counter (tall screens only). The whole screen still cooks; the pad shows where a
+  // thumb goes, sinks while you hold, flashes red on metal, and lights up in the verdict's colour after each release
+  const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+  function drawPad(time) {
+    const P = M.pad;
+    if (!P || state !== "play" || !item) return;
+    const cook = phase === "cook", cur = ITEMS[item.kind].cursed, v = verdict && verdict.v;
+    let col = LIME, label = "HOLD", sub = coarse ? "hold anywhere to cook" : "hold space or the mouse";
+    if (cook) { col = cur ? (Math.sin(time * 28) > 0 ? BAD : WARN) : LIME2; label = cur ? "LET GO!" : "COOKING"; sub = cur ? "that's metal!" : "let go when it's done"; }
+    else if (phase === "burn" || v === "burnt" || v === "sparks") { col = BAD; label = v === "sparks" ? "ZZZAP" : "BURNT"; sub = "strike!"; }
+    else if (phase === "result" && v) { col = v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : "#9fc3e0"; label = v === "perfect" ? "PERFECT" : v === "good" ? "GOOD" : v === "safe" ? "GOOD CALL" : "COLD"; sub = v === "cold" ? "streak lost" : streak > 1 ? "streak x" + streak : "+" + verdict.pts; }
+    const press = cook ? 7 : 0, x = P.x, y = P.y + press, w = P.w, h = P.h - press;
+    R("#24180f", P.x - 6, P.y - 4, P.w + 12, P.h + 12); // its well in the counter
+    R(INK, x - 3, y - 3, w + 6, h + 6);
+    R(col, x, y, w, h);
+    cx.globalAlpha = 0.3; R(INK, x, y + h - (cook ? 3 : 10), w, cook ? 3 : 10); R("#ffffff", x, y, w, 4); cx.globalAlpha = 1;
+    if (cook && !reduce) { cx.globalAlpha = 0.12 + 0.1 * Math.sin(time * 12); R(PAPER, x, y, w, h); cx.globalAlpha = 1; }
+    let n = 0; for (const ch of label) n += pfGlyph(ch).w + 1;
+    const sz = Math.min(h * 0.36, (w * 0.86) / Math.max(1, n - 1) * 10);
+    text(label, x + w / 2, y + h * 0.42, sz, INK, "center", 900);
+    text(sub, x + w / 2, y + h * 0.76, Math.max(11, Math.min(14, h * 0.14)), INK, "center", 800);
+    // the run so far, one ticket per item (newest on the right): lime perfect, green good, blue cold, red burnt
+    const ty = P.y + P.h + 26, cs = 12, gap = 5, fit = Math.max(1, Math.floor((P.w + gap) / (cs + gap))), list = tally.slice(-fit);
+    if (ty + cs < H - 4) list.forEach((t, i) => {
+      const tx = W / 2 - (list.length * (cs + gap) - gap) / 2 + i * (cs + gap);
+      R(INK, tx - 1, ty - 1, cs + 2, cs + 2); R(t === "perfect" || t === "safe" ? LIME2 : t === "good" ? LIME : t === "cold" ? "#9fc3e0" : BAD, tx, ty, cs, cs);
+    });
   }
   // K-0059: shared tip button (assets/tip.js)
   // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
