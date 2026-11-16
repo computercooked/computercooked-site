@@ -25,6 +25,8 @@
   const zoneAt = (x) => { for (let i = ZONES.length - 1; i >= 0; i--) if (x >= ZONES[i].x0) return i; return 0; };
   const rOf = (v) => 7 * Math.pow(Math.max(1, v), 0.36);
   const BIG = 1.1;   // something must be 10% bigger than you to eat you
+  const CALM = 8;    // v1.1: first 8 s of a run nothing hunts you, so a new player can learn the stick
+  const calmOf = (R) => !R.demo && R.t < CALM;
   const speedOf = (r) => 160 * Math.pow(r / 7, 0.5);
   const relSpeed = (R, r) => R.pspd * clamp(Math.pow(R.p.r / r, 0.35), 0.55, 1.25);
   const fmt = (v) => { v = Math.floor(v); return v < 1000 ? '' + v : v < 1e6 ? (v / 1000).toFixed(v < 1e4 ? 1 : 0) + 'k' : (v / 1e6).toFixed(v < 1e7 ? 2 : 1) + 'm'; };
@@ -126,7 +128,7 @@
     const zi = zoneAt(pos.x), z = ZONES[zi];
     // values cluster around yours: mostly snacks, some threats
     let v = R.p.v * Math.pow(2, rnd(-3.4, R.t < 20 ? 1.2 : 1.7));
-    if (v > R.p.v && Math.hypot(pos.x - R.p.x, pos.y - R.p.y) < viewR(R) * 0.9) v = R.p.v * rnd(0.1, 0.7);
+    if (v > R.p.v && (calmOf(R) || Math.hypot(pos.x - R.p.x, pos.y - R.p.y) < viewR(R) * 0.9)) v = R.p.v * rnd(0.1, 0.7);
     v = Math.round(clamp(v, z.min, z.max));
     if (v < 1) v = 1;
     const r = rOf(v);
@@ -254,6 +256,9 @@
       if (uz > R.unlocked) { R.unlocked = uz; if (!R.demo) { R.banner = { t: 2.6, a: 'firewall down', b: ZONES[uz].name + ' is open →' }; SFX.unlock(); ccEvent('zone_unlocked', { zone: uz, t: Math.round(R.t) }); } }
     }
     const magR = p.r * (1.6 + 0.6 * (R.demo ? 1 : lvl('magnet'))) + 30;
+    const calm = calmOf(R);
+    if (!R.demo && R.calmWas && !calm && !R.dead) { R.banner = { t: 2, a: 'threats online', b: 'red = bigger. it bites. steer away.' }; SFX.warn(); }
+    R.calmWas = calm;
     // creatures
     let danger = 0;
     for (const c of R.creatures) {
@@ -266,7 +271,7 @@
       c.dirT -= dt; if (c.dirT <= 0) { c.dir += rnd(-1.4, 1.4); c.dirT = rnd(1, 3); }
       if (c.cool > 0) c.cool -= dt;
       if (!R.dead && d < sense) {
-        if (c.v > p.v * BIG && p.inv <= 0) {   // hunt you (for a while)
+        if (c.v > p.v * BIG && p.inv <= 0 && !calm) {   // hunt you (for a while)
           if (c.chase <= 0 && c.cool <= 0) c.chase = rnd(2, 3.5);
           if (c.chase > 0) { c.chase -= dt; ix = dx / d; iy = dy / d; sp = 0.8; if (c.chase <= 0) c.cool = rnd(2, 4); if (d < p.r + c.r + 160) danger = Math.max(danger, 1 - (d - p.r - c.r) / 160); }
         } else if (c.v < p.v) {   // flee, and the magnet drags it in
@@ -302,7 +307,7 @@
         };
         for (const c of R.creatures) consider(c);
         for (const o of R.rivals) consider(o);
-        if (!R.dead && p.inv <= 0) consider(p);
+        if (!R.dead && p.inv <= 0 && !calm) consider(p);
         if (best) { const dx = best.x - rv.x, dy = best.y - rv.y, d = Math.hypot(dx, dy) || 1; fx += dx / d * 1.4; fy += dy / d * 1.4; }
         if (unlockedFor(rv.v) > zoneAt(rv.x)) fx += 0.6;
         const l = Math.hypot(fx, fy);
@@ -352,6 +357,7 @@
     if (R.shake > 0) R.shake -= dt;
     if (R.banner) { R.banner.t -= dt; if (R.banner.t <= 0) R.banner = null; }
     if (p.faceT > 0) { p.faceT -= dt; if (p.faceT <= 0) p.face = 'idle'; }
+    if (p.pulse > 0) p.pulse = Math.max(0, p.pulse - dt * 1.6);
     // camera
     const z = targetZoom(p.r);
     R.cam.z += (z - R.cam.z) * Math.min(1, dt * 2);
@@ -368,6 +374,7 @@
     if (a.me) {
       R.kills++;
       const k = b.v / a.v;
+      a.pulse = Math.min(0.28, (a.pulse || 0) + 0.06 + Math.min(0.2, k * 0.3));
       SFX.eat(k);
       if (b.rival) { R.rivalKills++; SFX.big(); R.shake = 0.25; R.pops.push({ x: b.x, y: b.y, t: 1.4, txt: 'ate ' + b.name, big: 1 }); ccEvent('ate_rival', { v: Math.round(b.v) }); }
       else R.pops.push({ x: a.x + rnd(-0.4, 0.4) * a.r, y: a.y - a.r * 1.25, t: 0.7, txt: '+' + fmt(gain) });
@@ -420,6 +427,8 @@
     lastResult = { score, t: R.t, zone: R.zoneMax, kills: R.kills, rivalKills: R.rivalKills, killer: R.killer ? (R.killer.rival ? R.killer.name : 'a ' + R.killer.kind + ' (' + fmt(R.killer.v) + ')') : null, isBest };
     $('overTitle').textContent = completed === false ? 'run ended.' : R.killer && R.killer.rival ? 'eaten by ' + R.killer.name + '.' : 'process terminated.';
     $('overSub').textContent = isBest ? 'new best. the task manager is concerned.' : 'best: ' + mb(save.best) + '. so close. relatively.';
+    $('overWhy').textContent = completed === false ? '' : R.killer ? (R.killer.rival ? R.killer.name + ' was ' + mb(R.killer.v) + '. you were ' + mb(R.p.v) + '.' : 'a ' + R.killer.kind + ' (' + mb(R.killer.v) + ') bit you at ' + mb(R.p.v) + '. red ring = bigger than you.') : '';
+    $('overGoal').textContent = nextGoal(score);
     const st = (v, l) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
     $('stats').innerHTML = st(mb(score), 'max ram') + st(fmtT(R.t), 'uptime') + st(ZONES[R.zoneMax].name.replace('the ', ''), 'deepest zone') + st(R.kills, 'eaten') + st(R.rivalKills, 'rivals eaten') + st('#' + rank, 'final rank');
     $('earnTxt').textContent = earned;
@@ -427,8 +436,18 @@
     show('over', true);
     // K-0059: shared tip button (assets/tip.js)
     if (window.ccTip) window.ccTip.mount($('overTip'), { game: 'plus-one-ram', slot: 'game-over' });
+    syncMeta();
   }
   const fmtT = (t) => Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2);
+  // v1.1: one clear target for the next run, and how many upgrades the cache buys right now
+  function nextGoal(score) {
+    let g = '';
+    for (let i = 1; i < ZONES.length; i++) if (save.best < ZONES[i].need) { g = 'next: reach ' + ZONES[i].name + ' (' + mb(ZONES[i].need) + ')'; break; }
+    if (!g) g = 'next: beat ' + mb(save.best);
+    const n = affordable();
+    return g + (n ? ' · ' + n + ' upgrade' + (n > 1 ? 's' : '') + ' ready' : '');
+  }
+  const affordable = () => UPS.filter((u) => lvl(u.id) < u.max && save.cache >= cost(u)).length;
   function setPause(on) {
     if (on && screen === 'play') { screen = 'pause'; show('pause', true); keys.clear(); joy.active = false; joy.id = null; }
     else if (!on && screen === 'pause') { screen = 'play'; show('pause', false); last = performance.now(); }
@@ -595,6 +614,7 @@
   }
   function drawPlayer(p, z, R) {
     ctx.save(); ctx.translate(p.x, p.y);
+    if (p.pulse > 0) { const k = 1 + p.pulse * 0.5; ctx.scale(k, k); }
     if (p.inv > 0 && ((R.t * 12) | 0) % 2 === 0) ctx.globalAlpha = 0.5;
     ctx.fillStyle = 'rgba(197,255,73,0.18)'; ctx.beginPath(); ctx.arc(0, 0, p.r * 1.25, 0, TAU); ctx.fill();
     ctx.fillStyle = C.lime; ctx.beginPath(); ctx.arc(0, 0, p.r, 0, TAU); ctx.fill();
@@ -659,8 +679,8 @@
       ctx.globalAlpha = 1;
     }
     // first-run hint
-    if (R.t < 6 && save.runs <= 2) {
-      ctx.globalAlpha = Math.min(1, (6 - R.t) / 1.5);
+    if (R.t < CALM && save.runs <= 3) {
+      ctx.globalAlpha = Math.min(1, (CALM - R.t) / 1.5);
       ctx.fillStyle = 'rgba(16,17,20,0.8)'; const tw = Math.min(vw - 24, 360 * s); rr(ctx, vw / 2 - tw / 2, vh - 92 * s, tw, 40 * s, 10 * s); ctx.fill();
       ctx.fillStyle = C.paper; ctx.font = `700 ${Math.round(13 * s)}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('eat green. flee red. you grow every second.', vw / 2, vh - 72 * s);
@@ -708,6 +728,8 @@
     $('sndBtn').textContent = s; $('pSndBtn').textContent = s;
     $('spookBtn').textContent = 'spooky: ' + (spooky ? 'on' : 'off');
     $('meta').textContent = save.runs ? `best ${mb(save.best)} · ${save.cache} cache to spend` : '';
+    const n = affordable();
+    ['shopBtn', 'overShopBtn'].forEach((id) => { $(id).textContent = n ? 'upgrades (' + n + ')' : 'upgrades'; $(id).classList.toggle('ready', n > 0); });
   }
   function toggleSound() { save.mute = !save.mute; applyMute(); persist(); syncMeta(); }
   $('playBtn').addEventListener('click', startRun);
