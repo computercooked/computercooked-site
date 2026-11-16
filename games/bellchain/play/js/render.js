@@ -29,7 +29,7 @@ export class Stage {
     this.cx = this.w / 2; this.cy = top + avail / 2;
     this.bs = Math.max(20, Math.min(46, avail * 0.2, this.w * 0.09));
     this.Ry = Math.max(30, avail / 2 - this.bs * 0.55);
-    this.Rx = Math.max(this.Ry, Math.min(this.w * 0.4, this.Ry * 1.6));
+    this.Rx = Math.max(this.Ry, Math.min(this.w * 0.4, this.Ry * 2.2));
     this.R = this.Ry;
     this.gs = Math.max(34, Math.min(92, this.Ry * 0.55));
   }
