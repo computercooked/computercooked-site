@@ -128,7 +128,7 @@
         if (queued) return;
         queued = true;
         setTimeout(function () { queued = false; scan(); }, 50);
-      }).observe(root, { childList: true, subtree: true });
+      }).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-clip"] }); // a clip added later (home.js, from games.json)
     }
     if (!fine) return;
     var wait = 0;
@@ -161,7 +161,7 @@
   });
   window.addEventListener("resize", function () {
     if (playing && playing._ccClip) { var a = art(playing); if (a) place(playing._ccClip, a); }
-  });
+  }, { passive: true });
 
   window.ccPreview = { attach: attach, enabled: !off };
 })();

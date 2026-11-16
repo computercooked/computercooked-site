@@ -79,8 +79,15 @@
   });
 
   // t: visible seconds this visit (sessionStorage); cc-golden-day: shown today, last shown (any tab)
-  var t = rd("cc-golden-t", null, 1) || { s: 0, due: Math.round(rnd(40, 90)) };
-  setInterval(function () {
+  // the 1 s clock only runs while the tab is visible (speed pass: no wake-ups in a background tab); the count is saved
+  // every 5 s and when the tab hides or the page goes, not on every tick
+  var t = rd("cc-golden-t", null, 1) || { s: 0, due: Math.round(rnd(40, 90)) }, clk = 0;
+  function save() { wr("cc-golden-t", t, 1); }
+  function run() { if (!clk && !D.hidden) clk = setInterval(tick, 1000); }
+  D.addEventListener("visibilitychange", function () { if (D.hidden) { clearInterval(clk); clk = 0; save(); } else run(); });
+  addEventListener("pagehide", save);
+  run();
+  function tick() {
     if (D.hidden) return;
     t.s++;
     if (!btn && t.s >= t.due) {
@@ -91,7 +98,7 @@
       else if (D.querySelector("dialog[open], .is-boss") || !spawn(null)) t.due = t.s + 15;
       else { d.n++; d.t = now; wr("cc-golden-day", d); t.due = t.s + Math.round(rnd(180, 300)); }
     }
-    wr("cc-golden-t", t, 1);
-  }, 1000);
+    if (t.s % 5 === 0) save();
+  }
   window.ccGolden = { spawn: function (c) { return spawn(c == null ? null : !!c); } };
 })();

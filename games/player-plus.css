@@ -160,7 +160,7 @@
 
 .ccr-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 10px; margin: 8px 0 0; font-size: var(--fs-12); }
 .ccr-more {
-  min-height: 36px;
+  min-height: 40px;
   padding: 0;
   border: 0;
   background: none;

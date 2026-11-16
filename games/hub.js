@@ -50,6 +50,8 @@
         try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: g.slug, t: Date.now() })); } catch (e) {}
       });
       card.querySelector(".cc-landing-more").addEventListener("click", function () { card.remove(); off(); window.scrollTo(0, 0); });
+      // Esc does what "more games" does (it's a modal card: keyboard users need a way out besides the button)
+      card.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); card.querySelector(".cc-landing-more").click(); } });
       document.body.appendChild(card);
       root.setAttribute("data-landing-ready", "");
       try { card.querySelector(".cc-landing-play").focus({ preventScroll: true }); } catch (e) {}

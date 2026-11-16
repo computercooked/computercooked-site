@@ -214,7 +214,7 @@
   }
   function heat(n) { temp = Math.min(100, temp + n); showTemp(); }
   // cools back to 58 and then leaves the DOM alone: an idle page does no style or layout work for the meter
-  setInterval(function () { if (temp > 58) { temp = Math.max(58, temp - 0.8); showTemp(); } }, 250);
+  setInterval(function () { if (temp > 58 && !document.hidden) { temp = Math.max(58, temp - 0.8); showTemp(); } }, 250);
   var lastX = 0, lastY = 0;
   desk.addEventListener("pointermove", function (e) {
     var d = Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY); lastX = e.clientX; lastY = e.clientY;
@@ -507,18 +507,17 @@
   /* ---------- shelf cards: clip on hover, tilt toward the pointer ----------
      Launch: the shared card preview (assets/preview.js, window.ccPreview.attach(root, selector)) plays the clips on the
      home shelves when it's there; it reads data-slug and data-clip, so each card gets data-clip from the clip the server
-     already put in it (its <video data-src>). Without preview.js (missing, failed, older cache) the code below still
-     plays them as before. The card pictures (the gameplay poster when games.json has one, else the cover) are chosen
-     by the server (src/pages.js card2), so nothing here swaps them: the browser downloads one picture per card. */
+     already put in it (its <video data-src>). index.html loads preview.js (deferred, before this file), so the old
+     copy of the hover / phone clip player that lived here is gone (speed pass, Nov 16): one player, one observer.
+     Without preview.js the cards just show their art. The card pictures (the gameplay poster when games.json has one,
+     else the cover) are chosen by the server (src/pages.js card2), so nothing here swaps them. */
   var cards = [].slice.call(document.querySelectorAll(".card2"));
-  var shared = false;
   cards.forEach(function (c) { var v = c.querySelector("video[data-src]"); if (v && !c.dataset.clip) c.dataset.clip = v.dataset.src; });
   try {
     if (window.ccPreview && typeof window.ccPreview.attach === "function") {
       ["home-shelf", "home-new", "desk-strip"].forEach(function (id) { var r = document.getElementById(id); if (r) window.ccPreview.attach(r, ".card2"); });
-      shared = true;
     }
-  } catch (e) { shared = false; }
+  } catch (e) {}
   if (window.fetch) (window.ccGamesJson = window.ccGamesJson || fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }))
     .then(function (d) {
       var by = {};
@@ -529,33 +528,14 @@
         if (g && g.clip && !c.dataset.clip) c.dataset.clip = g.clip;
       });
     }).catch(function () {});
-  function play(card, on) {
-    var v = card.querySelector("video");
-    if (!v || reduce || shared) return;
-    if (on) { if (!v.src) v.src = v.dataset.src; card.classList.add("is-playing"); v.play().catch(function () {}); }
-    else { card.classList.remove("is-playing"); try { v.pause(); } catch (e) {} }
-  }
-  cards.forEach(function (card) {
-    card.addEventListener("pointerenter", function () { if (fine) play(card, true); });
-    card.addEventListener("pointerleave", function () { play(card, false); card.style.removeProperty("--rx"); card.style.removeProperty("--ry"); });
-    card.addEventListener("focus", function () { play(card, true); });
-    card.addEventListener("blur", function () { play(card, false); });
-    if (fine && !reduce) card.addEventListener("pointermove", function (e) {
+  // the tilt toward the pointer (mouse only, not with reduced motion)
+  if (fine && !reduce) cards.forEach(function (card) {
+    card.addEventListener("pointerleave", function () { card.style.removeProperty("--rx"); card.style.removeProperty("--ry"); });
+    card.addEventListener("pointermove", function (e) {
       var r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
       card.style.setProperty("--ry", (x * 8).toFixed(2) + "deg"); card.style.setProperty("--rx", (-y * 8).toFixed(2) + "deg");
-    });
+    }, { passive: true });
   });
-  // phones: the card nearest the middle of the screen plays
-  if (!fine && !reduce && "IntersectionObserver" in window && cards.length) {
-    var vis = new Map(), cur = null;
-    var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting && e.intersectionRatio > 0.75) vis.set(e.target, e.boundingClientRect.top); else vis.delete(e.target); });
-      var best = null, bd = 1e9, mid = innerHeight / 2;
-      vis.forEach(function (top, el) { var d = Math.abs(top + el.offsetHeight / 2 - mid); if (d < bd) { bd = d; best = el; } });
-      if (best !== cur) { if (cur) play(cur, false); cur = best; if (cur) play(cur, true); }
-    }, { threshold: [0, 0.75, 1] });
-    cards.forEach(function (c) { io.observe(c); });
-  }
 })();
 
 // the tip jar in the footer (K-0059): the shared button from assets/tip.js, only while TIP_URL is a Stripe link

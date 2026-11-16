@@ -99,7 +99,7 @@
   </nav>
   <script src="/assets/deck.js" defer></script>
   <script src="/assets/daily3.js"></script>
-  <script src="/assets/daily-card.js"></script>
+  <script src="/assets/daily-card.js" defer></script>
   <script src="/assets/weekly.js" defer></script>
   <script>document.addEventListener("DOMContentLoaded", function () { if (window.ccWeekly) window.ccWeekly(document.getElementById("d3-week")); });</script>
   <script>
@@ -175,14 +175,19 @@
       }
     }
     // the clocks: to local midnight (the same reset daily3.js uses for "today"); the board refreshes when the day turns
-    var clocks = [].slice.call(document.querySelectorAll("[data-dly-clock]"));
+    var clocks = [].slice.call(document.querySelectorAll("[data-dly-clock]")), spoken = "", clockT = 0;
     function p2(n) { return (n < 10 ? "0" : "") + n; }
     function tick() {
       if (d.day() !== shownDay) render();
       var s = Math.max(0, Math.floor(d.msToReset() / 1000));
       var txt = p2(Math.floor(s / 3600)) + ":" + p2(Math.floor(s / 60) % 60) + ":" + p2(s % 60);
-      clocks.forEach(function (c) { c.textContent = txt; c.setAttribute("aria-label", Math.floor(s / 3600) + " hours " + (Math.floor(s / 60) % 60) + " minutes"); });
+      var say = Math.floor(s / 3600) + " hours " + (Math.floor(s / 60) % 60) + " minutes";
+      clocks.forEach(function (c) { c.textContent = txt; if (say !== spoken) c.setAttribute("aria-label", say); });
+      spoken = say;
     }
+    // speed pass: the 1 s clock runs only while the tab is visible (the board catches up when it comes back)
+    function clockOn() { if (!clockT && !document.hidden) clockT = setInterval(tick, 1000); }
+    function clockOff() { clearInterval(clockT); clockT = 0; }
     // posters from games.json ("poster", else "thumbnail"); the page already names the current ones
     function posters() {
       if (!window.fetch) return;
@@ -257,10 +262,10 @@
 
     render();
     tick();
-    setInterval(tick, 1000);
+    clockOn();
     posters();
     // coming back from a game (back button / tab switch): pick up the new progress
-    document.addEventListener("visibilitychange", function () { if (!document.hidden) { render(); tick(); } });
+    document.addEventListener("visibilitychange", function () { if (document.hidden) clockOff(); else { render(); tick(); clockOn(); } });
     window.addEventListener("pageshow", function (e) { if (e.persisted) { render(); tick(); } });
     if (demo) toast("demo: fake numbers, nothing saved");
   })();

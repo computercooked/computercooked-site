@@ -38,7 +38,8 @@
     });
   };
   tickHeld();
-  setInterval(tickHeld, 60000);
+  setInterval(function () { if (!document.hidden) tickHeld(); }, 60000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) tickHeld(); });
 
   // 2. your best, from this device's history
   var hist = {};
@@ -67,7 +68,9 @@
   var box = document.querySelector("[data-champ-says]");
   var lines = Array.prototype.map.call(document.querySelectorAll("[data-says-lines] li"), function (li) { return li.textContent; });
   if (says && poke && lines.length) {
-    var at = 0, timer = 0, paused = false;
+    var at = 0, timer = 0, paused = false, seen = true;
+    // speed pass: no turning over while Gary is scrolled away (the interval checks this, the tab's visibility and hover)
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { seen = es[es.length - 1].isIntersecting; }).observe(says);
     var show = function (n, loud) {
       at = (n + lines.length) % lines.length;
       if (box) box.setAttribute("aria-live", loud ? "polite" : "off");
@@ -77,7 +80,7 @@
     var auto = function () {
       clearInterval(timer);
       if (calm || lines.length < 2) return;
-      timer = setInterval(function () { if (!paused && !document.hidden) show(at + 1, false); }, 9000);
+      timer = setInterval(function () { if (!paused && seen && !document.hidden) show(at + 1, false); }, 9000);
     };
     poke.addEventListener("click", function () {
       show(at + 1, true);

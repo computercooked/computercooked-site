@@ -1,7 +1,10 @@
 /* 404 page: three games the computer found instead (assets/lost.js fills them). */
 /* the "catch the missing page" mini-game (assets/lost-game.js); hidden until that script runs */
 .lost-game { max-width: 520px; margin: var(--s-6) auto 0; padding: 0 var(--gutter); text-align: center; }
-.lost-game[hidden] { display: none; }
+/* speed pass (CLS): the box keeps its space while it waits for lost-game.js, so showing it moves nothing below it.
+   The message and button rows hold their height too (the end-of-round message is up to 3 lines on a phone, and the
+   button hides during a round), and reduced motion gets its own (shorter) layout straight from CSS, not from JS. */
+.lost-game[hidden] { display: block; visibility: hidden; }
 .lost-game-hud { display: flex; justify-content: space-between; gap: var(--s-3); margin: var(--s-3) 0 var(--s-2); font-family: var(--mono, monospace); font-size: var(--fs-12); color: var(--text-dim); }
 .lost-game-hud b { color: var(--accent); font-variant-numeric: tabular-nums; }
 .lost-game-hud[hidden] { display: none; }
@@ -10,10 +13,15 @@
 .lost-game-cv[hidden] { display: none; }
 .lost-game-cv:focus-visible, .lost-game.is-on .lost-game-cv { border-color: var(--accent); }
 .lost-game.is-on .lost-game-cv { cursor: none; }
-.lost-game-msg { min-height: 1.5em; margin: var(--s-3) 0 0; font-size: var(--fs-14); color: var(--text-dim); }
-.lost-game-go { margin: var(--s-3) 0 0; }
+.lost-game-msg { min-height: 3em; margin: var(--s-3) 0 0; font-size: var(--fs-14); line-height: 1.5; color: var(--text-dim); }
+@media (max-width: 559px) { .lost-game-msg { min-height: 4.5em; } }
+.lost-game-go { min-height: 48px; margin: var(--s-3) 0 0; }
 .lost-game-btn[hidden] { display: none; }
 .lost-game .lost-fix { min-width: 160px; height: auto; padding: var(--s-3) var(--s-6); font-family: var(--display); font-size: 48px; line-height: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .lost-game-hud, .lost-game-cv { display: none; }
+  .lost-game .lost-game-btn { min-width: 160px; height: auto; padding: var(--s-3) var(--s-6); font-family: var(--display); font-size: 48px; line-height: 1; }
+}
 .lost-picks { max-width: 760px; margin: var(--s-6) auto 0; padding: 0 var(--gutter); text-align: center; }
 .lost-picks[hidden] { display: none; }
 .lost-pick-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); margin: var(--s-4) 0 0; padding: 0; list-style: none; text-align: left; }

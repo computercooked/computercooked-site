@@ -217,8 +217,7 @@ a.now-card:hover, a.now-card:focus-visible { transform: translate(-2px, -2px); b
 /* gameplay posters (src/pages.js art(): class is-poster, 320x180 frames of the clip) and the clip itself scale smoothly,
    like the hub's .game-thumb.is-poster (games/games.css); the pixel-art covers stay pixelated */
 .card2 .thumb img.is-poster, .card2 .thumb img[src*="/posters/"], .card2 .thumb video { image-rendering: auto; }
-.card2 .thumb video { opacity: 0; transition: opacity .2s; }
-.card2.is-playing .thumb video { opacity: 1; }
+.card2 .thumb video { opacity: 0; transition: opacity .2s; } /* the server's placeholder <video>; assets/preview.js plays its own */
 .card2 .thumb::after { content: "▶ play"; position: absolute; right: 8px; bottom: 8px; padding: 3px 8px; border: 2px solid #000; border-radius: 4px; background: var(--accent); color: var(--on-accent); font: 800 12px var(--mono); opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; }
 .card2:hover .thumb::after, .card2:focus-visible .thumb::after { opacity: 1; transform: none; }
 .card2 .meta { display: block; padding: var(--s-3) var(--s-3) var(--s-4); }
