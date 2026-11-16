@@ -18,6 +18,8 @@ const out = xml.replace(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmo
   const files = path === "/" ? ["index.html", "src/pages.js"]
     : /^\/games\/[a-z0-9-]+\/$/.test(path) ? ["." + path]
     : path === "/games/" ? ["games/index.html", "games/games.json", "src/hub.js"]
+    // Worker-rendered pages: the template changes with its renderer too
+    : path === "/champs/" ? ["champs/index.html", "src/champs.js"]
     : ["." + path + "index.html", "." + path];
   const d = dateOf(files);
   if (!d || d === old) return all;

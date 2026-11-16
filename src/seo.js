@@ -53,7 +53,7 @@ function jsonLd(g) {
         thumbnailUrl: g.thumbnail && g.thumbnail.startsWith("/") ? SITE + g.thumbnail : undefined,
         genre: (g.tags || []).filter((t) => t !== "halloween"),
         gamePlatform: ["Web browser", "Mobile web browser"],
-        operatingSystem: "Any (plays in the browser)",
+        operatingSystem: "Any",
         applicationCategory: "Game",
         playMode: "SinglePlayer",
         isAccessibleForFree: true,
@@ -75,8 +75,47 @@ function jsonLd(g) {
       },
     ],
   };
-  // "<" can't appear raw inside a script tag
-  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+  return ldScript(data);
+}
+
+// "<" can't appear raw inside a script tag
+const ldScript = (data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+
+// The game list as schema.org ItemList (the hub and the homepage both carry it). Production URLs always, so a
+// local or preview copy never tells search engines about localhost.
+export function gamesItemList(list, name = "Computer Cooked games") {
+  return ldScript({
+    "@context": "https://schema.org", "@type": "ItemList", name, numberOfItems: list.length,
+    itemListElement: list.map((g, i) => ({
+      "@type": "ListItem", position: i + 1,
+      item: {
+        "@type": "VideoGame", name: g.title, description: g.pitch, url: `${SITE}/games/${g.slug}/`,
+        image: g.thumbnail && g.thumbnail.startsWith("/") ? SITE + g.thumbnail : `${SITE}/games/${g.slug}/og.png?v=5`,
+        genre: (g.tags || []).filter((t) => t !== "halloween").slice(0, 3), gamePlatform: "Web browser", applicationCategory: "Game",
+        operatingSystem: "Any", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      },
+    })),
+  });
+}
+
+// Share-card extras (og:image size + alt, twitter:image:alt) added at the end of <head>, each only if the static
+// page doesn't already carry it. Every og.png we serve is 1200x630 (scripts/make-og.mjs, assets/og.png).
+export function imageMeta(rw, alt) {
+  const seen = new Set();
+  const mark = (k) => ({ element() { seen.add(k); } });
+  return rw
+    .on('meta[property="og:image:width"]', mark("w"))
+    .on('meta[property="og:image:height"]', mark("h"))
+    .on('meta[property="og:image:alt"]', mark("a"))
+    .on('meta[name="twitter:image:alt"]', mark("t"))
+    .on("head", { element(e) { e.onEndTag((end) => {
+      const add = [];
+      if (!seen.has("w")) add.push('<meta property="og:image:width" content="1200">');
+      if (!seen.has("h")) add.push('<meta property="og:image:height" content="630">');
+      if (!seen.has("a")) add.push(`<meta property="og:image:alt" content="${esc(alt)}">`);
+      if (!seen.has("t")) add.push(`<meta name="twitter:image:alt" content="${esc(alt)}">`);
+      if (add.length) end.before(add.join(""), { html: true });
+    }); } });
 }
 
 function howTo(g) {
@@ -133,14 +172,18 @@ export async function gamePage(req, env, url, slug) {
   if (dare) {
     const title = `can you beat ${dare.score} on ${g.title}?${dare.from ? ` from ${dare.from}` : ""}`;
     const set = (v) => ({ element(e) { e.setAttribute("content", v); } });
+    const alt = `dare card: ${title}. ${g.title}, a free browser game from Computer Cooked.`;
     rw.on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
       .on('meta[property="og:title"], meta[name="twitter:title"]', set(title))
       .on('meta[property="og:description"], meta[name="twitter:description"]', set("a friend dared you. free browser game: no download, plays on your phone."))
-      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png?v=5`));
+      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png?v=5`))
+      .on('meta[property="og:image:alt"], meta[name="twitter:image:alt"]', set(alt));
+    imageMeta(rw, alt);
     cache = "public, max-age=300";
   } else {
     // search-intent title: what people type ("<game> online free no download")
     rw.on("title", { element(e) { e.setInnerContent(`${g.title}: play online free, no download — Computer Cooked`); } });
+    imageMeta(rw, `${g.title}: ${String(g.pitch || "").replace(/[.!?\s]+$/, "")}. a free browser game from Computer Cooked.`);
   }
   const headers = new Headers(page.headers);
   headers.delete("content-length");

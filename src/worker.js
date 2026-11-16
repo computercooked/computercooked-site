@@ -67,6 +67,13 @@ export default {
     // the same bare player for the homepage's "play it here" window (only our own pages may frame it)
     const wn = /^\/games\/([a-z0-9-]+)\/window\/?$/.exec(url.pathname);
     if (wn) return embedPage(env, url, wn[1], true);
+    // the bare game builds the players frame (/games/<slug>/play/) stay out of search results: the game page is the
+    // one to index. indexifembedded lets Google still count them as part of the page that frames them.
+    if (/^\/games\/[a-z0-9-]+\/play\/(index\.html)?$/.test(url.pathname)) {
+      const r = await env.ASSETS.fetch(req), out = new Response(r.body, r);
+      out.headers.set("x-robots-tag", "noindex, indexifembedded");
+      return out;
+    }
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
       return await api(req, env, url);

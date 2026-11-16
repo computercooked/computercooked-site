@@ -5,7 +5,7 @@
 // (stats, hearts, "new" badges), so this only has to match its markup.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { pickFeatured } from "./featured.js";
-import { vibesOf, VIBE_NAMES } from "./seo.js";
+import { vibesOf, VIBE_NAMES, gamesItemList, imageMeta } from "./seo.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -40,17 +40,9 @@ export async function hubPage(req, env, url) {
   const txt = (v) => ({ element(e) { e.setInnerContent(v); } });
   const fresh = ours.map((g, i) => [g, i]).filter(([g]) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
     .sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map(([g]) => g).slice(0, 6);
-  // structured data: the hub as an ItemList of VideoGames (rich results), "<" escaped so a title can't close the script
-  const ld = JSON.stringify({
-    "@context": "https://schema.org", "@type": "ItemList", name: "Computer Cooked Games",
-    itemListElement: ours.map((g, i) => ({
-      "@type": "ListItem", position: i + 1, url: `${url.origin}/games/${g.slug}/`,
-      item: { "@type": "VideoGame", name: g.title, description: g.pitch, url: `${url.origin}/games/${g.slug}/`, image: url.origin + g.thumbnail,
-        genre: (g.tags || []).slice(0, 3), gamePlatform: "Web browser", applicationCategory: "Game", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" } },
-    })),
-  }).replace(/</g, String.fromCharCode(92) + "u003c"); // "<" as its JSON escape
+  // structured data: the hub as an ItemList of VideoGames (src/seo.js, shared with the homepage)
   const rw = new HTMLRewriter()
-    .on("head", { element(e) { e.append(`<script type="application/ld+json">${ld}</script>`, { html: true }); } })
+    .on("head", { element(e) { e.append(gamesItemList(ours, "Computer Cooked Games"), { html: true }); } })
     .on("title", txt("free online games, no download — Computer Cooked Games"))
     .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map(hubCard).join(""), { html: true }); } })
     // "just cooked" (K-0050 item 5) on the server too, picked as games/hub.js picks it: it used to appear only after
@@ -72,6 +64,8 @@ export async function hubPage(req, env, url) {
       .on('meta[property="og:description"], meta[name="twitter:description"], meta[name="description"]', set(`${match.length} free ${name} from a computer that is not handling it well: ${match.slice(0, 4).map((g) => g.title).join(", ")}${match.length > 4 ? " and more" : ""}. no download, plays on your phone.`))
       .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map((g, i) => keep.has(g) ? hubCard(g, i) : hubCard(g, i).replace('<li class="game-card">', '<li class="game-card" hidden>')).join(""), { html: true }); } });
   }
+  // the hub's share card: games/index.html carries og:image but not its size or alt text
+  imageMeta(rw, "Computer Cooked: a tired beige pixel computer melting lime goo, next to the words computer cooked. the computer is not handling it well.");
   if (feat) {
     const href = `/games/${encodeURIComponent(feat.slug)}/`;
     rw.on("a.spotlight", { element(e) { e.setAttribute("href", href); e.setAttribute("aria-label", `featured game: ${feat.title}. ${feat.pitch}`); } })
