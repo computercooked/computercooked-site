@@ -356,6 +356,7 @@
     if (shake > 0) shake = Math.max(0, shake - dt * 2.5);
     if (msgT > 0) msgT -= dt;
     if (shareMsgT > 0) shareMsgT -= dt;
+    if (hudFlash > 0) hudFlash -= dt;
     for (const s of shadows) { s.x += s.v * dt; if (s.x < -0.1) s.x = 1.1; if (s.x > 1.1) s.x = -0.1; }
     for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.life -= dt; f.y -= 30 * S * dt; if (f.life <= 0) floats.splice(i, 1); }
     for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 420 * S * dt; if (p.life <= 0) parts.splice(i, 1); }
@@ -687,6 +688,7 @@
     }
   }
 
+  let hudScore = 0, hudFlash = 0;
   function drawHUD() {
     const pad = 12 * S;
     // time bar
@@ -695,7 +697,8 @@
     ctx.fillStyle = timeLeft <= 10 && Math.sin(t * 10) > 0 ? COL.red : COL.lime; ctx.fillRect(pad, pad, bw * k, bh);
     text(Math.ceil(timeLeft) + 's', pad, pad + bh + 16 * S, 13 * S, COL.paper, 'left');
     if (SLOWBITE > 1) text('test: slow bite x' + SLOWBITE, pad, pad + bh + 32 * S, 10 * S, COL.gold, 'left');
-    text(String(score), W - pad, pad + bh + 26 * S, 26 * S, COL.lime, 'right', '900');
+    if (score !== hudScore) { if (score > hudScore) hudFlash = 0.5; hudScore = score; }
+    text(String(score), W - pad, pad + bh + 26 * S, 26 * S, hudFlash > 0 && Math.sin(hudFlash * 25) > -0.3 ? COL.gold : COL.lime, 'right', '900');
     if (streak >= 2) text('x' + mult().toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' streak ' + streak, W - pad, pad + bh + 44 * S, 12 * S, COL.lilac, 'right');
     // mute toggle
     const ms = 26 * S; btns.mute = { x: pad, y: pad + bh + 24 * S, w: ms, h: ms };
@@ -839,7 +842,9 @@
     roundRect(cx, cy, cw, ch, 14 * S); ctx.fillStyle = '#16171c'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = COL.lime; ctx.stroke();
     text("time's up", W / 2, cy + 30 * S, 14 * S, COL.lilac, 'center', '900');
     text(String(score), W / 2, cy + 82 * S, 52 * S, COL.lime, 'center', '900');
-    text(newBest ? 'new personal best!' : 'best: ' + best, W / 2, cy + 104 * S, 12 * S, newBest ? COL.gold : COL.dim, 'center', '700');
+    // 2.4: a reason for one more run: the gap to the best, and whether today's rare is still out there
+    const gap = newBest ? 'new personal best!' : best > score && score > 0 ? (best - score) + ' short of your best (' + best + ')' : 'best: ' + best;
+    text(gap, W / 2, cy + 104 * S, 12 * S, newBest ? COL.gold : best > score && score > 0 ? COL.paper : COL.dim, 'center', '700');
     const top = bestCatch();
     if (top) {
       drawSprite(ctx, top.it, W / 2, cy + 160 * S + Math.sin(t * 3) * 3 * S, 72 * S);
@@ -849,7 +854,7 @@
       text('caught: nothing. the pond wins.', W / 2, cy + 214 * S, 13 * S, COL.dim, 'center', '900');
     }
     text(catches.length + (catches.length === 1 ? ' catch' : ' catches') + ' · best streak ' + bestStreak + ' · ' + newOnes + ' new', W / 2, cy + 236 * S, 11 * S, COL.paper, 'center', '700');
-    text('book ' + bookCount() + '/' + ITEMS.length, W / 2, cy + 254 * S, 11 * S, COL.dim, 'center', '700');
+    text('book ' + bookCount() + '/' + ITEMS.length + (book[daily.id] ? " · today's rare: caught" : " · today's rare: still out there"), W / 2, cy + 254 * S, 11 * S, book[daily.id] ? COL.dim : TIERS[daily.tier].col, 'center', '700');
     const bw = (cw - 48 * S) / 2, bx = cx + 16 * S, by = cy + 272 * S;
     button('again', 'again (space)', bx, by, cw - 32 * S, 40 * S, COL.lime);
     button('share', shareMsgT > 0 ? shareMsg : 'share (s)', bx, by + 50 * S, bw, 34 * S, COL.lilac);
@@ -983,4 +988,6 @@
     items: () => ITEMS.map((it) => ({ id: it.id, tier: it.tier })), press: (x, y) => { down = true; press(x, y); }, release: () => up(),
     card: () => card().toDataURL('image/png'), poster: (w, h) => poster(w || 640, h || 360).toDataURL('image/png')
   };
+  // 2.4, test mode only (?cctest=1 here or on the page around it): end the run now, to check the results card
+  try { if (/[?&]cctest=1/.test(location.search + (parent !== window ? parent.location.search : ''))) window.RW.end = () => { if (isActive()) endRun(); }; } catch (e) { /* cross-origin embed */ }
 })();
