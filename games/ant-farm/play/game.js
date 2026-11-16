@@ -790,13 +790,14 @@
     for (const a of ants) {
       const px = wx + a.x * ts, py = a.y * ts - camY;
       if (py < -ts || py > H + ts) continue;
-      const sz = ts * (a.sol ? 1.15 : 0.9);
+      const sz = ts * (a.sol ? 1.15 : 0.9) * (phone ? 1.3 : 1); // r2: phones draw ants 30% bigger, on a pale halo, so they read in a dark tunnel
+      if (phone) { cx.fillStyle = "rgba(255,236,190,.2)"; cx.beginPath(); cx.arc(px, py + (a.cy === SURF ? ts * 0.15 : 0), sz * 0.62, 0, 6.3); cx.fill(); }
       drawAnt(px, py + (a.cy === SURF ? ts * 0.15 : 0), a.ang, sz, a.heat > 0.3 ? "#5a2a1a" : "#161210", a.ph, a.sol);
       if (a.carry) { cx.fillStyle = "#f1d39a"; cx.beginPath(); cx.arc(px + Math.cos(a.ang) * sz * 0.55, py + Math.sin(a.ang) * sz * 0.55, sz * (0.16 + 0.04 * a.carry), 0, 6.3); cx.fill(); }
       if (a.dirt) { cx.fillStyle = "#a07650"; cx.fillRect(px + Math.cos(a.ang) * sz * 0.55 - sz * 0.16, py + Math.sin(a.ang) * sz * 0.55 - sz * 0.16, sz * 0.32, sz * 0.32); }
       if (a === sel) { cx.strokeStyle = "#c5ff49"; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(px, py, sz * 0.9, 0, 6.3); cx.stroke(); }
     }
-    for (const r of reds) drawAnt(wx + r.x * ts, r.y * ts - camY + (r.cy === SURF ? ts * 0.15 : 0), r.ang, ts * 0.95, "#c8322b", r.ph, false);
+    for (const r of reds) drawAnt(wx + r.x * ts, r.y * ts - camY + (r.cy === SURF ? ts * 0.15 : 0), r.ang, ts * 0.95 * (phone ? 1.3 : 1), "#c8322b", r.ph, false);
     if (spider) drawSpider();
     // particles
     for (let k = fx.length - 1; k >= 0; k--) {
@@ -925,6 +926,7 @@
   function miniRect() { const w = miniW(), h = Math.min(H - 150, phone ? 320 : 260), x = W - w - 6, y = 58; return { x, y, w, h }; }
   function drawMini() {
     const m = miniRect(), sy = m.h / ROWS, sx = m.w / COLS;
+    if (phone && !(drag && drag.k === "mini")) cx.globalAlpha = 0.5; // r2: see-through on phones (it sits over the last 2 columns) until you grab it
     cx.fillStyle = "rgba(0,0,0,.55)"; cx.fillRect(m.x - 2, m.y - 2, m.w + 4, m.h + 4);
     cx.fillStyle = "#6b4a2b"; cx.fillRect(m.x, m.y + SKY * sy, m.w, (ROWS - SKY) * sy);
     cx.fillStyle = "#c5ff49";
@@ -932,6 +934,7 @@
     for (let y = SKY; y < ROWS; y++) if (drawMini.rows[y - SKY]) cx.fillRect(m.x + 2, m.y + y * sy, m.w - 4, Math.max(1, sy));
     const vy = m.y + (camY / (ROWS * ts)) * m.h, vh = (H / (ROWS * ts)) * m.h;
     cx.strokeStyle = "#fff"; cx.lineWidth = 1; cx.strokeRect(m.x - 1.5, Math.max(m.y - 1.5, vy), m.w + 3, Math.min(vh, m.h));
+    cx.globalAlpha = 1;
   }
 
   // ---------- fx helpers ----------
