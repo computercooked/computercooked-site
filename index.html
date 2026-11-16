@@ -126,6 +126,8 @@
         <a class="desk-start" id="desk-start" href="/games/" aria-controls="desk-menu"><img src="/assets/logo.svg" alt="" width="18" height="18"> start<span class="visually-hidden"> menu</span></a>
         <span class="desk-chip" aria-hidden="true">cpu <b id="desk-cpu" class="num">61°C</b><i class="cpu-meter"><i id="desk-cpu-bar"></i></i></span>
         <span class="desk-chip desk-cooked" aria-hidden="true">cooked <b id="desk-cooked" class="num">0</b>×</span>
+        <!-- cooked news: the taskbar ticker (assets/eggs.js fills and scrolls it; one static headline without JS; hidden on narrow phones) -->
+        <div class="desk-news" id="desk-news" aria-hidden="true"><span class="news-tag">news</span><span class="news-win"><span class="news-track"><span class="news-run">BREAKING: local computer still cooked. more at 11.</span></span></span></div>
         <button type="button" class="desk-snd" id="desk-snd" aria-pressed="false" hidden><span aria-hidden="true">♪</span><span class="visually-hidden">desktop sounds</span></button>
         <span class="desk-clock num" id="desk-clock" aria-hidden="true">--:--</span>
       </div>
@@ -260,7 +262,9 @@
   <script src="/assets/mascot.js" defer></script>
   <script src="/assets/tip.js" defer></script>
   <script src="/assets/daily3.js" defer></script>
+  <script src="/assets/preview.js" defer></script>
   <script src="/assets/home.js" defer></script>
+  <script src="/assets/eggs.js" defer></script>
   <script src="/assets/signup.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
