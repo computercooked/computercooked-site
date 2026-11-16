@@ -21,13 +21,19 @@ export class Stage {
     const r = this.cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
     this.w = Math.max(1, r.width); this.h = Math.max(1, r.height); this.dpr = dpr;
     this.cv.width = Math.round(this.w * dpr); this.cv.height = Math.round(this.h * dpr);
-    const top = 64, bottom = 58;
-    this.cx = this.w / 2; this.cy = top + (this.h - top - bottom) / 2;
-    this.R = Math.max(60, Math.min(this.w * 0.4, (this.h - top - bottom) * 0.43));
-    this.bs = Math.max(20, Math.min(46, this.R * 0.26));
-    this.gs = Math.max(34, Math.min(92, this.R * 0.5));
+    // r2: the ring starts below the hud (score, rate, theme line), so the top bell never sits under the text, and it
+    // is an oval that uses the width: in the 540 px player frame the bells were 20 px on a 64 px circle
+    let top = 64; const bottom = 58;
+    try { const L = document.getElementById('hud').firstElementChild.getBoundingClientRect(); if (L.height) top = Math.max(52, Math.min(this.h * 0.32, L.bottom - r.top + 4)); } catch (e) {}
+    const avail = Math.max(80, this.h - top - bottom);
+    this.cx = this.w / 2; this.cy = top + avail / 2;
+    this.bs = Math.max(20, Math.min(46, avail * 0.2, this.w * 0.09));
+    this.Ry = Math.max(30, avail / 2 - this.bs * 0.55);
+    this.Rx = Math.max(this.Ry, Math.min(this.w * 0.4, this.Ry * 1.6));
+    this.R = this.Ry;
+    this.gs = Math.max(34, Math.min(92, this.Ry * 0.55));
   }
-  bellPos(i) { const a = -Math.PI / 2 + (i / 8) * TAU; return { x: this.cx + Math.cos(a) * this.R, y: this.cy + Math.sin(a) * this.R }; }
+  bellPos(i) { const a = -Math.PI / 2 + (i / 8) * TAU; return { x: this.cx + Math.cos(a) * this.Rx, y: this.cy + Math.sin(a) * this.Ry }; }
 
   // a note sounded (from the band or a tap)
   ring(deg, instr, vel, strong) {
@@ -75,7 +81,7 @@ export class Stage {
     }
     // ring line
     c.strokeStyle = th.acc + '33'; c.lineWidth = 2; c.setLineDash([3, 8]);
-    c.beginPath(); c.arc(this.cx, this.cy, this.R, 0, TAU); c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.ellipse(this.cx, this.cy, this.Rx, this.Ry, 0, 0, TAU); c.stroke(); c.setLineDash([]);
     // chain arc
     if (this.chain) { this.chain.t += dt; if (this.chain.t > 1.2) this.chain = null; }
     // bells
@@ -144,12 +150,23 @@ export class Stage {
       const B = this.banner; B.t += dt;
       if (B.t > B.life) this.banner = null;
       else {
-        const a = Math.min(1, B.t * 5, (B.life - B.t) * 3), y = this.cy - this.R - 6 > 70 ? this.cy - this.R * 0.55 : this.cy - this.gs * 1.6;
-        c.globalAlpha = a; c.textAlign = 'center';
-        c.font = `800 ${Math.round(Math.min(28, this.w * 0.065))}px ${MONO}`; c.lineWidth = 5; c.strokeStyle = '#101114';
+        // r2: sized to fit inside the ring, on a dark plate, in the gap above the great bell (or over it when the
+        // stage is short), so it never runs into the bells or the hud
+        const a = Math.min(1, B.t * 5, (B.life - B.t) * 3), maxW = Math.max(140, Math.min(this.w - 24, this.Rx * 1.41 - this.bs * 1.1));
+        let fs = Math.round(Math.min(28, this.w * 0.065)); c.font = `800 ${fs}px ${MONO}`;
+        const tw = c.measureText(B.text).width; if (tw > maxW) { fs = Math.max(13, Math.floor(fs * maxW / tw)); c.font = `800 ${fs}px ${MONO}`; }
+        const gapTop = this.cy - this.Ry + this.bs * 0.6, gapBot = this.cy - this.gs * 0.75, sub = gapBot - gapTop >= fs + 26 ? B.sub : '';
+        let subFs = 12; if (sub) { c.font = `700 12px ${MONO}`; const sw = c.measureText(sub).width; if (sw > maxW) subFs = Math.max(10, Math.floor(12 * maxW / sw)); c.font = `800 ${fs}px ${MONO}`; }
+        const hh = fs + (sub ? subFs + 8 : 0), y = Math.max(gapTop + fs * 0.5, (gapTop + gapBot) / 2 - hh / 2 + fs * 0.5);
+        let pw = c.measureText(B.text).width; if (sub) { c.font = `700 ${subFs}px ${MONO}`; pw = Math.max(pw, c.measureText(sub).width); }
+        pw = Math.min(this.w - 8, pw + 22);
+        c.globalAlpha = a * 0.72; c.fillStyle = '#101114';
+        if (c.roundRect) { c.beginPath(); c.roundRect(this.cx - pw / 2, y - fs * 0.62 - 5, pw, hh + 12, 10); c.fill(); } else c.fillRect(this.cx - pw / 2, y - fs * 0.62 - 5, pw, hh + 12);
+        c.globalAlpha = a; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = `800 ${fs}px ${MONO}`; c.lineWidth = 5; c.strokeStyle = '#101114';
         c.strokeText(B.text, this.cx, y); c.fillStyle = B.color || th.acc; c.fillText(B.text, this.cx, y);
-        if (B.sub) { c.font = `700 12px ${MONO}`; c.strokeText(B.sub, this.cx, y + 20); c.fillStyle = '#F5F3ED'; c.fillText(B.sub, this.cx, y + 20); }
-        c.globalAlpha = 1;
+        if (sub) { const sy = y + fs * 0.5 + 4 + subFs * 0.5; c.font = `700 ${subFs}px ${MONO}`; c.strokeText(sub, this.cx, sy); c.fillStyle = '#F5F3ED'; c.fillText(sub, this.cx, sy); }
+        c.textBaseline = 'alphabetic'; c.globalAlpha = 1;
       }
     }
     // golden shockwaves (K-0038)
