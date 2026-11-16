@@ -39,7 +39,9 @@
     return order.map(function (g, i) {
       var href = "/games/" + encodeURIComponent(g.slug) + "/";
       return {
-        slug: g.slug, title: g.title, pitch: g.pitch || "", art: g.thumbnail, href: href,
+        // the gameplay poster (games.json "poster", 320x180) when there is one, else the cover; src/hub.js server-renders
+        // the same choice for the first slide, so the picture isn't swapped once this runs
+        slug: g.slug, title: g.title, pitch: g.pitch || "", art: g.poster || g.thumbnail, href: href,
         tag: i === 0 ? (feat && g.slug === feat.game ? "game of the week" : "featured") : (newest.indexOf(g) >= 0 ? "new" : "featured"),
         cta: { href: href, label: "play " + g.title }
       };
@@ -180,6 +182,10 @@
       spot.classList.remove("is-swapping");
       img.src = s.art;
       img.classList.toggle("is-svg", /\.svg$/.test(s.art || ""));
+      // posters are 320x180, covers 320x200: the box is a fixed 16:9 in CSS, so this only keeps the attributes true
+      var isPoster = /\/posters\//.test(s.art || "");
+      img.classList.toggle("is-poster", isPoster);
+      img.width = 320; img.height = isPoster ? 180 : 200;
       name.textContent = s.title;
       pitch.textContent = s.pitch;
       tag.textContent = s.tag;
@@ -288,7 +294,9 @@
     if (!pick.length || !list || list.children.length) return; // the Worker already put "games like X" there
     list.innerHTML = pick.map(function (g) {
       return '<li class="game-card"><a class="game-card-inner game-link" href="/games/' + encodeURIComponent(g.slug) + '/">' +
-        '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="400" loading="lazy" decoding="async">' +
+        // the same picture the Worker's cards use (src/hub.js hubCard): the poster when there is one, else the cover
+        (g.poster ? '<img class="game-thumb is-poster" src="' + esc(g.poster) + '" alt="" width="320" height="180" loading="lazy" decoding="async">'
+          : '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="320" height="200" loading="lazy" decoding="async">') +
         '<span class="game-body"><h3 class="game-name">' + esc(g.title) + "</h3>" +
         '<span class="game-pitch">' + esc(g.pitch) + "</span>" +
         "</span></a></li>";
