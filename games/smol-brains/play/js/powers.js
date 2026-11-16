@@ -780,7 +780,7 @@ if(!styled&&document.createElement&&document.head){
 styled=true;
 try{
 var el=document.createElement("style");
-el.textContent="body.sb-bigmarks #pov .qmark span{font-size:17px;font-weight:800}body.sb-bigmarks #pov .qmark i{width:18px;height:18px;box-shadow:0 0 0 3px rgba(255,255,255,.7)}body.sb-noflash #pov .hurt,body.sb-noflash #pov .flash{animation:none!important;opacity:0!important}";
+el.textContent="body.sb-bigmarks #pov .qmark span{font-size:17px;font-weight:800}body.sb-bigmarks #pov .qmark i{width:26px;height:26px;left:-13px;top:-32px;box-shadow:0 0 0 3px rgba(255,255,255,.7)}body.sb-bigmarks #pov .qmark.home i{width:36px;height:36px;left:-18px;top:-44px}body.sb-bigmarks #pov .qmark.home span{font-size:19px}body.sb-noflash #pov .ouch{animation:none!important;background:none!important}body.sb-noflash #pov .edge.hit:not(.red):not(.blue){box-shadow:none!important}body.sb-noflash #pov .edge.hit.red{box-shadow:inset 0 0 130px rgba(255,40,60,.5)!important}body.sb-noflash #pov .edge.hit.blue{box-shadow:inset 0 0 140px rgba(90,170,255,.55)!important}body.sb-noflash #pov .vrow.flash i{filter:none!important}body.sb-noflash #pov .vrow.low i{animation:none!important}";
 document.head.appendChild(el);
 }catch(e){}
 }
@@ -2306,7 +2306,7 @@ if(a.gift)founders(game).forEach(function(c){m2(c).gift[a.gift]=1;});
 U.bump();
 return ok("📜 the island heard you: "+out.join(", ")+". the founders take after your answers");
 };
-function applyHue(c){var p=c.pw;if(p&&p.hue!=null&&c.look&&typeof c.look==="object"){c.look.hue=p.hue;c.look.hue2=(p.hue+30)%360;}}
+function applyHue(c){var p=c.pw;if(p&&p.hue!=null&&c.look&&typeof c.look==="object"){if(c.look.hue===p.hue&&c.look.hue2===(p.hue+30)%360)return;var lk={},k;for(k in c.look)lk[k]=c.look[k];lk.hue=p.hue;lk.hue2=(p.hue+30)%360;c.look=lk;c._cols=null;if(SB.Wear&&SB.Wear.fresh)SB.Wear.fresh(c);}}
 PW.reroll=function(game){
 var s=s2(game),n=0;
 if(!PW.startOpen(game))return fail("that was for the first two days");
