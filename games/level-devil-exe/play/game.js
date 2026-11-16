@@ -212,6 +212,7 @@ function kill(msg) {
   const p = L.p;
   for (let i = 0; i < 24; i++) { const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200; parts.push({ x: p.x + PW / 2, y: p.y + PH / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 100, life: 0.6, max: 0.6, s: 2 + Math.random() * 3, col: i % 3 ? '#d9c9a3' : LIME }); }
   sfx('die');
+  if (isTouch && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { if (navigator.vibrate) navigator.vibrate(35); } catch (e) {} }   // 2.2: a short buzz on death (phones that support it)
   if (L.deaths === 10) ccEvent('rage', { lv: lvIndex + 1 });
 }
 
@@ -415,9 +416,9 @@ function layout() {
     if (portrait) {
       const ay = V.y + WH * s + 10, ah = H - ay - 18;
       const bs = Math.min(96, ah * 0.75, W * 0.24);
-      const by = ay + (ah - bs) / 2;
+      const by = ay + (ah - bs) * 0.62;   // a little below centre: closer to where thumbs rest on tall phones
       pad.l = { x: 14, y: by, w: bs, h: bs }; pad.r = { x: 14 + bs + 12, y: by, w: bs, h: bs };
-      const js = Math.min(118, ah * 0.9, W * 0.3); pad.j = { x: W - js - 16, y: ay + (ah - js) / 2, w: js, h: js };
+      const js = Math.min(118, ah * 0.9, W * 0.3); pad.j = { x: W - js - 16, y: by + bs / 2 - js / 2, w: js, h: js };
     } else {
       const bs = Math.min(84, H * 0.2);
       pad.l = { x: 12, y: H - bs - 12, w: bs, h: bs }; pad.r = { x: 24 + bs, y: H - bs - 12, w: bs, h: bs };
@@ -494,6 +495,7 @@ function draw() {
   ctx.save();
   ctx.translate(V.x, V.y); ctx.scale(V.s, V.s);
   ctx.beginPath(); ctx.rect(0, 0, V.vw, WH); ctx.clip();
+  if (mode === 'dead' && deadT < 0.12) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);   // 2.2: a jolt on the death frame, before the blue screen
   if (V.vw < WW) { const want = Math.max(0, Math.min(WW - V.vw, L.p.x + PW / 2 - V.vw / 2)); V.cam += (want - V.cam) * 0.18; if (Math.abs(want - V.cam) > WW / 2) V.cam = want; } else V.cam = 0;
   ctx.translate(-V.cam, 0);
   ctx.fillStyle = P.bg; ctx.fillRect(0, 0, WW, WH);
@@ -583,11 +585,13 @@ function button(x, y, w, h, label, fn, o) {
 }
 function drawHud() {
   const h = V.top; ctx.fillStyle = '#101114'; ctx.fillRect(0, 0, W, h);
-  const bs = 26, by = 4;
+  // 2.2: on touch the top buttons are 30 px and each one's tap area is the full bar height (they were 26 px targets)
+  const bs = pad.show ? 30 : 26, by = (h - bs) / 2, gap = pad.show ? 8 : 5;
+  const grow = () => { if (pad.show) { const b = btns[btns.length - 1]; b.y = 0; b.h = h; b.x -= gap / 2; b.w += gap; } };
   let bx = W - bs - 6;
-  button(bx, by, bs, bs, muted ? '×' : '♪', () => setMuted(!muted), { fs: 13 }); bx -= bs + 5;
-  button(bx, by, bs, bs, '↻', () => { if (mode === 'play') kill('MANUAL_RESTART (respect)'); }, { fs: 14 }); bx -= bs + 5;
-  button(bx, by, bs, bs, '≡', openMenu, { fs: 14 });
+  button(bx, by, bs, bs, muted ? '×' : '♪', () => setMuted(!muted), { fs: 13 }); grow(); bx -= bs + gap;
+  button(bx, by, bs, bs, '↻', () => { if (mode === 'play') kill('MANUAL_RESTART (respect)'); }, { fs: 14 }); grow(); bx -= bs + gap;
+  button(bx, by, bs, bs, '≡', openMenu, { fs: 14 }); grow();
   const narrow = W < 430;
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.font = 'bold ' + (narrow ? 11 : 13) + 'px ' + FONT;
   ctx.fillStyle = LIME; const lv = 'lvl ' + (lvIndex + 1); ctx.fillText(lv, 8, h / 2);
@@ -759,7 +763,7 @@ window.addEventListener('blur', () => { keys.l = keys.r = keys.j = false; });
 // ---------- loop ----------
 let last = performance.now();
 function frame(now) {
-  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  let dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;   // 2.2: never negative (a slow first frame could start behind the clock)
   if (!paused) { const n = dt > 1 / 90 ? 2 : 1; for (let i = 0; i < n; i++) update(dt / n); }
   draw();
   requestAnimationFrame(frame);

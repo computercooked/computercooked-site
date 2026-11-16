@@ -1,7 +1,7 @@
 {
   "slug": "desktop-jam",
   "title": "desktop jam",
-  "version": "2.3",
+  "version": "2.4",
   "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
@@ -15,7 +15,7 @@
     "mobile",
     "halloween"
   ],
-  "changelog": "v2: 50 levels in 5 worlds (system files, 2-cell windows, locks + admin.key, spinning .exe that can jam you), solver-checked levels, harder one-shot daily, restart/pause end-delay fixes.",
+  "changelog": "v2.4: cards fit short screens (player frame), idle hint pulses a free icon on the first desktops, floating streak/bonk text, star progress on the title. v2: 50 levels in 5 worlds (system files, 2-cell windows, locks + admin.key, spinning .exe that can jam you), solver-checked levels, harder one-shot daily, restart/pause end-delay fixes.",
   "playtest": {
     "before": 5.1,
     "after": 6.4,

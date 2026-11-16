@@ -589,6 +589,15 @@
     }
     // active tab
     if (cur && state !== 'over') {
+      // alignment guides: the top tab's edges, carried up through the moving tab. they light up inside the perfect window
+      if (state === 'play' && !paused) {
+        const tp = topTab(), hit = Math.abs(cur.x - tp.x) <= PERFECT || cur.power === 'pin';
+        worldTransform(sh, shy);
+        ctx.fillStyle = hit ? 'rgba(197,255,73,0.85)' : 'rgba(245,243,237,0.16)';
+        const y0 = -(cur.y + TAB_H + 8), hh = TAB_H + 8;
+        ctx.fillRect(tp.x - tp.w / 2 - 1, y0, 2, hh); ctx.fillRect(tp.x + tp.w / 2 - 1, y0, 2, hh);
+        if (hit) { ctx.globalAlpha = 0.18 + 0.12 * Math.sin(t * 30); ctx.fillRect(tp.x - tp.w / 2, y0, tp.w, hh); ctx.globalAlpha = 1; }
+      }
       worldTransform(sh, shy);
       ctx.translate(cur.x, -cur.y);
       // drop shadow guide
@@ -697,7 +706,7 @@
     text('computer cooked games presents', cx, y - 34 * u, Math.round(10 * u), 'rgba(245,243,237,0.55)', 'center', 'normal');
     text('tab hoarder', cx, y + 10 * u, Math.round(46 * u), COL.lime, 'center');
     y += 44 * u;
-    const lines = wrap('drop browser tabs onto crash. overhang gets cut. perfect drops grow the tab back and stack a multiplier. colored tabs are power-ups. miss once and you\'re cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
+    const lines = wrap('tap to drop each tab on the stack. overhang gets cut. line it up for a perfect: the tab grows back and points multiply. colored tabs are power-ups. miss once: cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
     for (const ln of lines) { text(ln, cx, y, Math.round(13 * u), COL.paper, 'center', 'normal'); y += 19 * u; }
     y += 18 * u;
     const blink = Math.sin(t * 5) > -0.3;

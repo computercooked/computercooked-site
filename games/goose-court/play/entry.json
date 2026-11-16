@@ -7,7 +7,7 @@
   "controls": "swipe left = guilty, right = not guilty, or tap the buttons. arrow keys or g / n. tap an OBJECTION to overrule it (o or space). m mutes.",
   "size_kb": 26,
   "tags": ["reflex", "judgement", "short", "funny", "mobile"],
-  "version": "1.0",
+  "version": "1.1",
   "max_score_per_sec": 10,
   "max_score": 3000
 }

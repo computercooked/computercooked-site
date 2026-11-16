@@ -45,6 +45,9 @@
   .go-meta { display: flex; justify-content: center; gap: 14px; margin: 8px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.9rem; color: var(--paper); }
   .go-meta b { color: var(--lime); }
   .go-stats { margin: 4px 0 0; font-size: 0.78rem; color: var(--paper-dim); }
+  .go-next { margin: 8px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.82rem; color: var(--lime); }
+  .go-next:empty { display: none; }
+  #ov-title { cursor: pointer; }
   .go-share { margin: 12px 0 0; padding: 10px 12px; border: 1px dashed #3a3c44; border-radius: 10px; font-family: var(--mono); font-weight: 800; font-size: 0.8rem; color: var(--paper); }
   .go-rank { margin: 6px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.8rem; color: var(--lilac); }
   .credit { margin: 12px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.68rem; color: var(--paper-dim); }
@@ -88,6 +91,7 @@
       <p class="go-time" id="go-time">0s</p>
       <p class="go-meta"><span>score <b id="go-score">0</b></span><span id="go-best"></span></p>
       <p class="go-stats" id="go-stats"></p>
+      <p class="go-next" id="go-next"></p>
       <p class="go-rank" id="go-rank" hidden></p>
       <p class="go-share" id="go-share-text">i lasted 0s before getting cooked. computercooked.com/games</p>
       <div class="ov-actions">

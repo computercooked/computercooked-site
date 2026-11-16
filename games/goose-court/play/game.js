@@ -81,7 +81,7 @@
   const pick = (a) => a[(Math.random() * a.length) | 0];
 
   // ---------- sound ----------
-  let actx = null, muted = false;
+  let actx = null, muted = false, hostMuted = false, paused = false;
   try { muted = localStorage.getItem("gc-muted") === "1"; } catch (e) {}
   const muteBtn = document.getElementById("mute");
   function syncMute() { muteBtn.textContent = muted ? "sound off" : "sound on"; muteBtn.setAttribute("aria-pressed", muted ? "true" : "false"); }
@@ -90,7 +90,7 @@
   muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
   muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
   function tone(freq, dur, type, vol, slide, delay) {
-    if (muted) return;
+    if (muted || hostMuted) return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === "suspended") actx.resume();
@@ -136,7 +136,7 @@
 
   // ---------- state ----------
   let state = "title", elapsed = 0, score = 0, best = 0, prevBest = 0, combo = 0, mult = 1, strikes = 0, judged = 0, correct = 0, docket = 0;
-  let kase = null, fb = null, fx = [], line = pick(LINES.hello), lineT = 0, face = "stern", faceT = 0, shake = 0, startAt = 0, endAt = 0;
+  let kase = null, fb = null, fx = [], line = pick(LINES.hello), lineT = 0, face = "stern", faceT = 0, shake = 0, startAt = 0, endAt = 0, flash = 0, flashCol = BAD, strikeT = 0;
   try { best = +localStorage.getItem("gc-best") || 0; } catch (e) {}
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
   function say(kind, force) { if (force || lineT <= 0.5) { line = pick(LINES[kind]); lineT = 2.2; } }
@@ -197,20 +197,31 @@
       correct++; combo++; mult = Math.min(4, 1 + Math.floor(combo / 5));
       const fast = c.t < c.dur * 0.4 ? 1 : 0;
       score += mult + fast;
-      sfx.right(mult); say(isGuilty ? "guilty" : "free"); react("happy", 0.5);
+      sfx.right(mult); say(isGuilty ? "guilty" : "free", true); react("happy", 0.5);
+      burst(isGuilty ? BAD : GOOD, 10 + mult * 3); flash = 0.12; flashCol = isGuilty ? BAD : GOOD;
       fx.push({ type: "text", x: L.gooseX, y: L.gooseY - L.goose * 1.25, s: "+" + (mult + fast) + (fast ? " quick" : ""), col: LIME2, life: 0.7, max: 0.7 });
       if (combo > 0 && combo % 5 === 0 && mult <= 4) fx.push({ type: "text", x: W / 2, y: L.timerY + 34 * U, s: "x" + mult + " streak", col: LIME, life: 1, max: 1, big: true });
       sdkScore(score);
     } else {
       strikes++; combo = 0; mult = 1;
-      sfx.wrong(); say("wrong", true); react("shock", 0.9); shake = reduce ? 0 : 0.35;
+      sfx.wrong(); say("wrong", true); react("shock", 0.9); shake = reduce ? 0 : 0.35; flash = 0.3; flashCol = BAD; strikeT = 0.6;
     }
     fb = { call: guiltyCall, ok, guilty: isGuilty, t: 0 };
   }
   function timeout() {
     judged++; strikes++; combo = 0; mult = 1;
-    sfx.wrong(); say("late", true); react("sad", 0.9);
+    sfx.wrong(); say("late", true); react("sad", 0.9); flash = 0.3; flashCol = "#ffb340"; strikeT = 0.6; shake = reduce ? 0 : 0.25;
     fb = { call: null, ok: false, guilty: kase.charges.includes(finalItem(kase)), t: 0, late: true };
+  }
+
+  // feathers (and confetti in the verdict colour) off the goose on a right call
+  function burst(col, n) {
+    if (reduce) return;
+    const ox = L.gooseX, oy = L.gooseY - L.goose * 0.55;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = (120 + Math.random() * 220) * U;
+      fx.push({ type: "bit", x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120 * U, col: i % 3 ? "#f7f5ee" : col, sz: (3 + Math.random() * 4) * U, life: 0.6 + Math.random() * 0.3, max: 0.9 });
+    }
   }
 
   // ---------- input ----------
@@ -227,6 +238,7 @@
   cv.addEventListener("pointerdown", (e) => {
     e.preventDefault(); try { window.focus(); } catch (err) {}
     const x = e.clientX, y = e.clientY;
+    if (paused) { paused = false; return; }
     if (state !== "play") { if (state === "over" && performance.now() - endAt < 700) return; start(); return; }
     if (onObjection(x, y)) { kase.objection.cleared = true; say("overruled", true); sfx.gavel(); react("stern", 0.6); fx.push({ type: "text", x, y: y - 20, s: "overruled", col: LIME2, life: 0.7, max: 0.7 }); sdk((c) => c.event && c.event("objection_overruled", {})); return; }
     const b = inButton(x, y);
@@ -244,6 +256,7 @@
     if (k === "m" || k === "M") { toggleMute(); return; }
     if (k === " " || k === "Enter" || /^Arrow/.test(k)) e.preventDefault();
     if (e.repeat) return;
+    if (paused) { paused = false; return; }
     if (state !== "play") { if (k === " " || k === "Enter") { if (state === "over" && performance.now() - endAt < 700) return; start(); } return; }
     if (k === "ArrowLeft" || k === "g" || k === "G") verdict(true);
     else if (k === "ArrowRight" || k === "n" || k === "N") verdict(false);
@@ -263,8 +276,9 @@
 
   // ---------- update ----------
   function update(dt) {
-    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt);
-    for (const f of fx) f.life -= dt;
+    if (paused) return;
+    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt); strikeT = Math.max(0, strikeT - dt);
+    for (const f of fx) { f.life -= dt; if (f.type === "bit") { f.vy += 700 * U * dt; f.x += f.vx * dt; f.y += f.vy * dt; } }
     fx = fx.filter((f) => f.life > 0);
     if (faceT <= 0 && state === "play") face = strikes >= 2 ? "sad" : "stern";
     if (state !== "play") return;
@@ -316,7 +330,7 @@
     cx.fillStyle = WOOD2; cx.fillRect(bx + bw * 0.4, by + 10 * U, bw * 0.2, bh - 16 * U);
     // speech bubble to the left of the bench
     const tw = Math.min(bx - 24, 260 * U);
-    if (tw > 90) {
+    if (tw > 90 && state !== "title") {
       const size = Math.max(11, Math.min(15, 13 * U));
       cx.font = "700 " + size + "px " + MONO;
       const lines = wrap(line, tw - 16);
@@ -360,11 +374,15 @@
     text(String(score), 14, 24, 22, CASE, "left", 800);
     const sw = cx.measureText(String(score)).width;
     if (mult > 1) text("x" + mult, 14 + sw + 10, 25, 14, LIME2, "left", 800);
-    // strikes: three gavels, struck ones red
+    // strikes: three gavels, struck ones red; the newest one swells when it lands
     for (let i = 0; i < 3; i++) {
-      const x = W / 2 - 36 + i * 26, y = 16;
-      cx.fillStyle = i < strikes ? BAD : "#3a3d33"; cx.fillRect(x, y, 16, 8); cx.fillRect(x + 6, y + 8, 4, 10);
+      const pop = i === strikes - 1 && strikeT > 0 ? 1 + strikeT * 1.2 : 1;
+      const x = W / 2 - 39 + i * 30 + 10, y = 22;
+      cx.save(); cx.translate(x, y); cx.scale(pop, pop);
+      cx.fillStyle = i < strikes ? BAD : "#4a4d43"; cx.fillRect(-10, -9, 20, 9); cx.fillRect(-2.5, 0, 5, 12);
+      cx.restore();
     }
+    if (strikes) text(strikes + "/3", W / 2 + 54, 24, 12, strikes >= 2 ? BAD : "#8a8e80", "left", 800);
   }
   function drawGoose(time) {
     const c = kase; if (!c) return;
@@ -418,7 +436,13 @@
       const col = fb.ok ? (fb.call ? BAD : GOOD) : "#ffb340";
       cx.save(); cx.translate(W / 2, L.gooseY - s * 0.55); cx.rotate(-0.12); cx.scale(sc, sc);
       text(label, 0, 0, Math.max(26, s * 0.34), col, "center", 900);
-      if (!fb.ok) text(fb.guilty ? "it was guilty" : "it was innocent", 0, Math.max(26, s * 0.34) * 0.9, Math.max(12, s * 0.12), PAPER, "center", 700);
+      if (!fb.ok) {
+        // the correction sits on a dark tag so it reads over the white goose
+        const ts = Math.max(13, s * 0.12), ty = Math.max(26, s * 0.34) * 0.95, msg = fb.guilty ? "it was GUILTY" : "it was innocent";
+        cx.font = "800 " + Math.round(ts) + "px " + MONO; const tw = cx.measureText(msg).width + 16;
+        cx.fillStyle = "rgba(11, 12, 14, 0.88)"; cx.fillRect(-tw / 2, ty - ts * 0.8, tw, ts * 1.6);
+        text(msg, 0, ty, ts, PAPER, "center", 800);
+      }
       cx.restore();
     }
   }
@@ -437,6 +461,7 @@
     for (const f of fx) {
       const k = 1 - f.life / f.max;
       if (f.type === "text") { cx.globalAlpha = 1 - k; text(f.s, f.x, f.y - k * 24, f.big ? 22 : 15, f.col, "center", 900); cx.globalAlpha = 1; }
+      else if (f.type === "bit") { cx.globalAlpha = Math.min(1, f.life / f.max * 1.5); cx.fillStyle = f.col; cx.fillRect(Math.round(f.x), Math.round(f.y), Math.ceil(f.sz), Math.ceil(f.sz)); cx.globalAlpha = 1; }
       else if (f.type === "poof") { cx.globalAlpha = 1 - k; cx.fillStyle = PAPER; const s = L.goose; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; cx.fillRect(L.gooseX + s * 0.4 + Math.cos(a) * k * s * 0.4, L.gooseY - s * 0.72 + Math.sin(a) * k * s * 0.4, 5, 5); } cx.globalAlpha = 1; }
     }
   }
@@ -506,6 +531,8 @@
     drawFx();
     if (state === "play") drawHud();
     cx.restore();
+    if (flash > 0 && !reduce) { cx.globalAlpha = Math.min(0.35, flash * 1.2); cx.fillStyle = flashCol; cx.fillRect(0, 0, W, 6); cx.fillRect(0, H - 6, W, 6); cx.fillRect(0, 0, 6, H); cx.fillRect(W - 6, 0, 6, H); cx.globalAlpha = Math.min(0.12, flash * 0.4); cx.fillRect(0, 0, W, H); cx.globalAlpha = 1; }
+    if (paused && state === "play") { cx.fillStyle = "rgba(8, 9, 7, 0.75)"; cx.fillRect(0, 0, W, H); text("court in recess", W / 2, H * 0.42, 26, CASE, "center", 900); text("tap to resume", W / 2, H * 0.42 + 34, 16, LIME, "center", 800); }
     tipY = -1;
     if (state !== "play") overlay(time);
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
@@ -526,6 +553,14 @@
   const wakeLater = () => setTimeout(wake, 3000);
   if (document.readyState === "complete") wakeLater(); else window.addEventListener("load", wakeLater);
   requestAnimationFrame(frame);
+
+  // player page hooks: its mute button, its restart button, and a pause while a menu covers the game
+  window.addEventListener("message", (e) => {
+    const d = e.data; if (!d || typeof d !== "object") return;
+    if (d.type === "cc-mute") hostMuted = !!d.muted;
+    else if (d.type === "cc-restart") { wake(); paused = false; start(); }
+    else if (d.type === "cc-pause") { if (state === "play") { paused = typeof d.paused === "boolean" ? d.paused : true; wake(); } }
+  });
 
   // read-only hooks for the test scripts
   window.__gc = { state: () => ({ state, score, strikes, judged, correct, elapsed, kase: kase && { charges: kase.charges, item: finalItem(kase), objection: !!(kase && objectionUp(kase)), fb: !!fb } }) };

@@ -1103,7 +1103,7 @@
   // ---------- loop ----------
   let last = performance.now(), timeScale = 1;
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; // rAF time can trail performance.now(): never step backwards
     if (!paused) update(dt * timeScale);
     render();
     requestAnimationFrame(frame);

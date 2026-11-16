@@ -90,8 +90,9 @@
   function toggleMute() { muted = !muted; try { localStorage.setItem("st-muted", muted ? "1" : "0"); } catch (e) {} syncMute(); }
   muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
   muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  let hostMuted = false; // the player page's own sound button (cc-mute)
   function tone(freq, dur, type, vol, slide, delay) {
-    if (muted) return;
+    if (muted || hostMuted) return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === "suspended") actx.resume();
@@ -155,6 +156,7 @@
 
   // ---------- state ----------
   let state = "title", t = 0, score = 0, best = 0, prevBest = 0, layers = 0, combo = 0, bestCombo = 0, orders = 0;
+  let paused = false, crumbs = []; // 1.1: pause (cc-pause / tab hidden); crumbs fly off every landing
   let stack = [], debris = [], fx = [], mover = null, camOff = 0, line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, endT = 0, sinceCursed = 0;
   try { best = +localStorage.getItem("st-best") || 0; } catch (e) {}
   function say(kind, force) { if (force || lineT <= 0.5) { line = pick(LINES[kind]); lineT = 2; } }
@@ -182,7 +184,7 @@
     if (CURSED.includes(kind)) { say(kind, true); react("shock", 0.8); sfx.cursed(); }
   }
   function start() {
-    state = "play"; t = 0; score = 0; layers = 0; combo = 0; bestCombo = 0; orders = 0; debris = []; fx = []; sinceCursed = 0;
+    state = "play"; t = 0; score = 0; layers = 0; combo = 0; bestCombo = 0; orders = 0; debris = []; fx = []; sinceCursed = 0; paused = false; crumbs = [];
     // the bottom slice of bread sits on the plate
     stack = [{ kind: "bread", x: W / 2 - BASEW / 2, w: BASEW, y: -KIND.bread.h * LH, h: KIND.bread.h * LH, wob: 0 }];
     camOff = targetCam();
@@ -215,13 +217,15 @@
       combo++; bestCombo = Math.max(bestCombo, combo); nx = tp.x; nw = tp.w;
       if (combo >= 3) { const g = Math.min(BASEW - nw, BASEW * 0.06); nw += g; nx -= g / 2; }
       score += 1 + Math.min(5, combo); sfx.perfect(combo); say("perfect"); react("happy", 0.6);
+      crumble(nx, y, nw, LIME2, combo >= 3 ? 22 : 12); flashT = 0.18;
       fx.push({ s: combo >= 3 ? "perfect x" + combo + (combo >= 3 ? " · grows" : "") : "perfect" + (combo > 1 ? " x" + combo : ""), x: tp.x + tp.w / 2, y: y - 10, col: LIME2, life: 0.9, max: 0.9, world: true });
     } else {
       combo = 0; score += 1; sfx.slice(); sfx.plop();
       const cut = m.w - ov;
       if (m.x < tp.x) debris.push({ kind: m.kind, x: m.x, y, w: cut, h: m.h, vx: -60, vy: -40, rot: 0, vr: -2.5 });
       else debris.push({ kind: m.kind, x: r, y, w: cut, h: m.h, vx: 60, vy: -40, rot: 0, vr: 2.5 });
-      if (cut > tp.w * 0.35) { say("big"); react("shock", 0.6); } else { say("trim"); }
+      if (cut > tp.w * 0.35) { say("big"); react("shock", 0.6); shake = reduce ? 0 : Math.max(shake, 0.15); } else { say("trim"); }
+      crumble(m.x < tp.x ? l : r, y, 2, SLABCOL[m.kind] || PAPER, 8);
     }
     stack.push({ kind: m.kind, x: nx, w: nw, y, h: m.h, wob: 0.25 });
     layers++;
@@ -233,8 +237,17 @@
     spawnMover();
   }
 
+  // 1.1: a few crumbs off the edge of each landing (perfects throw lime sparks along the whole top)
+  const SLABCOL = { bread: "#d9a35b", lettuce: "#6fbf3a", tomato: "#e5484d", cheese: "#f6c945", ham: "#f29bb0", pickle: "#4f8a32", sock: "#e5484d", phone: "#3d6be0", fish: "#9fb3c8", key: PAPER };
+  let flashT = 0;
+  function crumble(x, y, w, col, n) {
+    if (reduce) return;
+    for (let i = 0; i < n; i++) { const life = 0.35 + Math.random() * 0.35; crumbs.push({ x: x + Math.random() * w, y, vx: (Math.random() - 0.5) * 320, vy: -80 - Math.random() * 220, life, max: life, col }); }
+  }
+
   // ---------- input ----------
   function press() {
+    if (paused) { setPause(false); return; }
     if (state === "title" || (state === "over" && performance.now() - endAt > 700)) { start(); return; }
     // the tap that started the run (or a double-fired one right behind it) never also drops the first layer
     if (state === "play" && mover && !mover.drop && performance.now() - startAt > 220) { mover.drop = true; mover.vy = LH * 30; }
@@ -246,6 +259,18 @@
     if (e.key === " " || e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat) press(); }
   }
   window.addEventListener("keydown", onKey);
+  // 1.1: the player page's buttons (sound, restart) and its pause when a menu opens; the tab going away pauses too
+  function setPause(on) {
+    if (on && state === "play" && !paused) paused = true;
+    else if (!on && paused) { paused = false; last = performance.now(); }
+  }
+  window.addEventListener("message", (e) => {
+    const d = e.data; if (!d || typeof d !== "object") return;
+    if (d.type === "cc-mute") hostMuted = !!d.muted;
+    else if (d.type === "cc-restart") { wake(); start(); }
+    else if (d.type === "cc-pause") setPause(d.paused !== false);
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) setPause(true); });
   try {
     const host = window.parent !== window && window.frameElement ? window.parent : null;
     if (host) host.document.addEventListener("keydown", (e) => {
@@ -259,7 +284,9 @@
   // ---------- update ----------
   const targetCam = () => Math.max(H - 70 * U, H * 0.6 - topY());
   function update(dt) {
-    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt);
+    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flashT = Math.max(0, flashT - dt);
+    for (const c of crumbs) { c.life -= dt; c.vy += H * 1.8 * dt; c.x += c.vx * dt; c.y += c.vy * dt; }
+    crumbs = crumbs.filter((c) => c.life > 0);
     for (const f of fx) f.life -= dt;
     fx = fx.filter((f) => f.life > 0);
     for (const d of debris) { d.vy += H * 2.4 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt; }
@@ -359,6 +386,9 @@
       const wob = s.wob > 0 && !reduce ? Math.sin(s.wob * 40) * s.wob * 6 : 0;
       drawSlab(s.kind, s.x + wob, sy, s.w, s.h);
     }
+    if (flashT > 0 && stack.length > 1) { const s = top(); cx.globalAlpha = flashT / 0.18 * 0.7; cx.fillStyle = PAPER; cx.fillRect(s.x - 3, s.y + o - 3, s.w + 6, s.h + 6); cx.globalAlpha = 1; }
+    for (const c of crumbs) { cx.globalAlpha = Math.min(1, c.life / c.max * 1.5); cx.fillStyle = c.col; cx.fillRect(c.x - 2, c.y + o - 2, 4, 4); }
+    cx.globalAlpha = 1;
     // the falling ones
     for (const d of debris) {
       cx.save(); cx.translate(d.x + d.w / 2, d.y + o + d.h / 2); cx.rotate(d.rot);
@@ -380,6 +410,11 @@
     drawHud(time);
     tipY = -1;
     if (state === "title" || state === "over") overlay();
+    if (paused && state === "play") {
+      cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, 0, W, H);
+      text("paused", W / 2, H * 0.42, Math.max(28, Math.min(48, W / 9)), CASE, "center", 900);
+      text("tap or press space to keep going", W / 2, H * 0.42 + 40, 15, LIME, "center", 800);
+    }
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
   }
   function drawHud(time) {
@@ -430,6 +465,7 @@
       text("tap to drop. whatever hangs over gets sliced off.", W / 2, mid + 92, Math.max(11, Math.min(15, W / 31)), LIME2, "center", 800);
       text("land it dead on: perfect. miss: lunch is over.", W / 2, mid + 116, Math.max(11, Math.min(14, W / 33)), "#ffb340", "center", 700);
       text("tap to start cooking", W / 2, Math.min(H - 40, mid + 166), 18, LIME, "center", 900);
+      if (best > 0) text("your best: " + best, W / 2, Math.min(H - 16, mid + 192), 13, "#c9c4a8", "center", 700);
     } else {
       text("lunch is over", W / 2, mid - big * 1.6, big, BAD, "center", 900);
       text(layers + " layers tall", W / 2, mid - big * 0.7, Math.round(big * 0.6), PAPER, "center", 800);
@@ -446,7 +482,7 @@
   let last = performance.now(), frames = 0, awake = false, running = true;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; frames++;
-    update(dt); draw(now / 1000);
+    if (!paused) update(dt); draw(now / 1000);
     if (!awake && state === "title" && frames > 1) { running = false; return; }
     requestAnimationFrame(frame);
   }
@@ -457,5 +493,5 @@
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__st = { state: () => ({ state, t, score, layers, combo, orders, mover: mover && { x: mover.x, w: mover.w, kind: mover.kind, drop: mover.drop }, top: stack.length ? { x: top().x, w: top().w } : null }) };
+  window.__st = { state: () => ({ state, t, score, layers, combo, orders, paused, mover: mover && { x: mover.x, w: mover.w, kind: mover.kind, drop: mover.drop }, top: stack.length ? { x: top().x, w: top().w } : null }) };
 })();

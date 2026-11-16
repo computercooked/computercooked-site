@@ -21,7 +21,7 @@
   const portal = () => {};
   // cc-sdk (injected by the site, missing elsewhere): one start/end pair per run, score = gnomes yeeted
   const ccCall = (fn) => { try { if (window.cc) fn(window.cc); } catch (err) { /* never break the game */ } };
-  let ccLive = false;
+  let ccLive = false, ccScoreSent = 0, ccScoreAt = 0;
   function ccEnd(g, completed) {
     if (!ccLive || !g) return;
     ccLive = false;
@@ -203,6 +203,7 @@
     $('pauseBtn').style.display = 'block';
     save.runs++; persist();
     track('level_start', { level: game.wave + 1, mode: m, run: save.runs, daily: game.daily || 0 });
+    ccScoreSent = 0;
     if (!game.debug) { ccLive = true; ccCall((c) => c.start && c.start()); }
     portal((p) => p.gameplayStart());
   }
@@ -388,6 +389,8 @@
           else showUpgrade();
         }
         if (game.state === 'over') { overT += dt; if (overT > 0.15) showSummary(); }
+        // review16: live score for the player page (was only sent at the end), at most every 0.5 s
+        if (ccLive && game.stats.yeets !== ccScoreSent && now - ccScoreAt > 500) { ccScoreSent = game.stats.yeets; ccScoreAt = now; ccCall((c) => c.score && c.score(ccScoreSent)); }
       } else if (screen === 'summary' || screen === 'upgrade' || screen === 'pause') {
         game.tickReal(dt);
       }
@@ -405,6 +408,7 @@
     if (!d || typeof d !== 'object') return;
     if (d.type === 'cc-mute') { hostMuted = !!d.muted; applyMute(); }
     else if (d.type === 'cc-restart') startRun(screen === 'title' ? 'run' : mode);
+    else if (d.type === 'cc-pause') { if (d.paused === false) setPause(false); else setPause(true); }   // review16: the player page's deck opening now pauses the run
   });
 
   if (params.get('autostart') === '1' || botName) startRun(params.get('daily') === '1' ? 'daily' : 'run');

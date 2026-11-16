@@ -289,8 +289,8 @@ ok(r.ok && (await r.text()).includes('src="/games/crash/play/"'), "CRASH embeds 
 r = await get("/games/crash/play/");
 ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors *" && (await r.text()).includes("crash.js"), "CRASH /play/ is served and frameable");
 page = await (await get("/games/crash/")).text();
-ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play crash/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && page.includes('data-version="2"'),
-  "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2");
+ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play crash/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && /data-version="2(\.\d+)*"/.test(page),
+  "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2.x");
 r = await get("/games/crash/crash.js");
 ok(r.status === 404, "the old inline CRASH script is gone", r.status);
 r = await get("/games/crash/window/");
