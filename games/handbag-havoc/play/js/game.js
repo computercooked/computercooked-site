@@ -1171,9 +1171,9 @@
     // kills + time
     ctx.textAlign = 'right';
     outlined(ctx, `${this.stats.yeets}`, vw - pad, pad + 12 * s, '#fff', 20 * s, 900, 'right');
-    outlined(ctx, 'gnomes yeeted', vw - pad, pad + 30 * s, '#F5F3ED', 11 * s, 700, 'right');
+    outlined(ctx, 'gnomes yeeted', vw - pad, pad + 31 * s, '#F5F3ED', Math.max(10.5, 11 * s), 700, 'right');   // review16r2: floor so it reads on phones
     ctx.textAlign = 'left';
-    outlined(ctx, fmtTime(this.t), pad, pad + 38 * s, '#fff', 13 * s, 800, 'left');
+    outlined(ctx, fmtTime(this.t), pad, pad + 38 * s, '#fff', Math.max(12.5, 13 * s), 800, 'left');
     // live chain counter
     if (this.hudChain.t > 0 && this.hudChain.n >= 3) {
       const n = this.hudChain.n, a = clamp(this.hudChain.t / 0.4, 0, 1), pulse = 1 + Math.max(0, this.hudChain.t - 1.3) * 1.2;

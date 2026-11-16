@@ -142,7 +142,7 @@
       floorB: H - 16,
     };
     L.doorL = W * 0.32; L.doorR = W * 0.68; L.doorT = L.backT + carH * 0.07;
-    L.fish = Math.round(Math.max(40, Math.min(84, W / 7.5)));
+    L.fish = Math.round(Math.max(44, Math.min(84, W / 6.2))); // review16r2: fish were tiny on phones (W / 7.5); same 84 cap on desktop
   }
   window.addEventListener("resize", layout);
   layout();
@@ -239,8 +239,10 @@
   // finger lands where the eye saw it). Puffed puffers (unflingable) only take the tap if nothing else is there, and
   // among close calls the fish drawn on top (lowest on screen) wins.
   const TOUCH = 26;
+  // review16r2: depth: fish near the front of the car (lower on screen) draw bigger, ones by the doors smaller
+  const depth = (f) => 0.85 + 0.3 * Math.max(0, Math.min(1, (f.y - L.doorT) / Math.max(1, L.floorB - L.doorT)));
   function hitR(f) {
-    const k = KINDS[f.kind], s = L.fish * f.size * (f.puffT > 0 ? 1.4 : 1) * (0.8 + 0.3 * f.rest);
+    const k = KINDS[f.kind], s = L.fish * f.size * (f.puffT > 0 ? 1.4 : 1) * (0.8 + 0.3 * f.rest) * depth(f);
     const hw = s * (k.spr.width / 16) / 2, hh = hw * k.spr.height / k.spr.width;
     return [Math.max(hw * 1.15, TOUCH), Math.max(hh * 1.9, TOUCH)];
   }
@@ -386,13 +388,13 @@
       if (door <= 0) {
         phase = "travel"; phaseT = 0; sfx.up(); say("up");
         // 1.4: a reason to clear the car, not just get under the limit
-        if (!fish.some((f) => !f.out)) { cleanFloors++; score += 5; react("happy", 0.8); fx.push({ type: "text", x: W / 2, y: L.backT + L.carH * 0.42, s: "empty car +5", col: LIME2, life: 1, max: 1 }); sdkScore(score); }
+        if (!fish.some((f) => !f.out)) { cleanFloors++; score += 5; react("happy", 0.8); fx.push({ type: "text", x: W / 2, y: L.backT + L.carH * 0.42, s: "empty car +5", col: LIME2, life: 1.2, max: 1.2, size: 20 }); sdkScore(score); }
       }
     } else if (phase === "travel") {
       travel += dt;
       if (phaseT >= 0.8) {
         floor++; score += 10; phase = "open"; phaseT = 0; sfx.ding(); say("open"); react("happy", 0.5);
-        fx.push({ type: "text", x: W / 2, y: L.backT + 24, s: "+10 floor " + floor, col: LIME2, life: 0.9, max: 0.9 });
+        fx.push({ type: "text", x: W / 2, y: L.backT + 24, s: "+10 floor " + floor, col: LIME2, life: 1.1, max: 1.1, size: 20 });
         if (floor === GOAL && !reachedGoal) { reachedGoal = true; score += 50; sfx.goal(); say("goal", true); fx.push({ type: "text", x: W / 2, y: L.backT + L.carH * 0.25, s: "FLOOR 9! +50", col: LIME2, life: 1.8, max: 1.8, big: true }); }
         spawnFish();
         sdkScore(score);
@@ -542,7 +544,7 @@
     const list = fish.filter((f) => f.delay <= 0).sort((a, b) => a.y - b.y);
     for (const f of list) {
       const k = KINDS[f.kind];
-      let s = L.fish * f.size * (f.puffT > 0 ? 1.4 : 1) * (0.8 + 0.3 * f.rest), x = f.x, y = f.y, alpha = 1;
+      let s = L.fish * f.size * (f.puffT > 0 ? 1.4 : 1) * (0.8 + 0.3 * f.rest) * depth(f), x = f.x, y = f.y, alpha = 1;
       if (f.out) { const p = Math.min(1, f.outT / 0.45); x = lerp(f.ox, W / 2, p); y = lerp(f.oy, L.doorT + (L.backB - L.doorT) * 0.6, p) - Math.sin(p * Math.PI) * 80; s *= 1 - p * 0.75; alpha = 1 - p * 0.6; }
       const sw = s * (k.spr.width / 16), sh = sw * k.spr.height / k.spr.width;
       cx.globalAlpha = alpha;
@@ -556,10 +558,12 @@
   }
   function drawFx() {
     for (const f of fx) {
-      const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k;
+      const k = 1 - f.life / f.max; cx.globalAlpha = f.type === "text" ? Math.min(1, (1 - k) * 2) : 1 - k;
       if (f.type === "spark") { cx.fillStyle = f.col || (k < 0.4 ? LIME2 : "#ffb340"); cx.fillRect(f.x - 2, f.y - 2, 4, 4); continue; }
       if (f.type === "ring") { const r = 10 + k * 60; cx.strokeStyle = f.col; cx.lineWidth = 3; cx.beginPath(); cx.arc(f.x, f.y, r, 0, Math.PI * 2); cx.stroke(); continue; }
-      text(f.s, Math.max(40, Math.min(W - 40, f.x)), f.y - k * 24, f.big ? 26 : 15, f.col, "center", 900); }
+      // review16r2: score pops hold before fading and get a dark shadow so they read over the doors and the carpet
+      const fs = f.big ? 26 : f.size || 16, tx = Math.max(fs * 3, Math.min(W - fs * 3, f.x)), ty = f.y - k * 24;
+      text(f.s, tx + 2, ty + 2, fs, INK, "center", 900); text(f.s, tx, ty, fs, f.col, "center", 900); }
     cx.globalAlpha = 1;
   }
   // K-0059: shared tip button (assets/tip.js)
