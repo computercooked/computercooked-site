@@ -39,16 +39,14 @@ seeded(4400, () => {
   const text = css.join("");
   const pov = fs.readFileSync(path.join(__dirname, "..", "src", "povhud.js"), "utf8");
   check("the style sheet went in and both body classes are on", text.length > 0 && cls["sb-bigmarks"] === true && cls["sb-noflash"] === true);
-  check("povhud still draws the things the rules name", /"qmark"/.test(pov) && /"ouch"/.test(pov) && /classList.add("hit")/.test(pov) && /#pov .vrow.flash i/.test(pov));
-  const base = /#pov .qmark i{[^}]*width:(d+)px/.exec(pov), big = /sb-bigmarks #pov .qmark i{[^}]*width:(d+)px/.exec(text);
+  check("povhud still draws the things the rules name", /"qmark"/.test(pov) && /"ouch"/.test(pov) && /classList\.add\("hit"\)/.test(pov) && /#pov \.vrow\.flash i/.test(pov));
+  const base = /#pov \.qmark i\{[^}]*width:(\d+)px/.exec(pov), big = /sb-bigmarks #pov \.qmark i\{[^}]*width:(\d+)px/.exec(text);
   check("the big marker is really bigger than the plain one", !!base && !!big && +big[1] > +base[1], base && big ? base[1] + " -> " + big[1] : "");
-  const home = /#pov .qmark.home i{[^}]*width:(d+)px/.exec(pov), bigHome = /sb-bigmarks #pov .qmark.home i{[^}]*width:(d+)px/.exec(text);
+  const home = /#pov \.qmark\.home i\{[^}]*width:(\d+)px/.exec(pov), bigHome = /sb-bigmarks #pov \.qmark\.home i\{[^}]*width:(\d+)px/.exec(text);
   check("the home marker does not shrink with bigger markers on", !!home && !!bigHome && +bigHome[1] > +home[1]);
-  check("reduce flashing stills the red OUCH wash, the hit edge and the heart flash", /sb-noflash #pov .ouch{/.test(text) && /sb-noflash #pov .edge.hit/.test(text) && /sb-noflash #pov .vrow.flash i{filter:none/.test(text));
-  check("reduce flashing no longer hides the whole heart row (the old #pov .flash rule)", !/#pov .flash{/.test(text) && !/#pov .hurt/.test(text) && !/opacity:0/.test(text));
+  check("reduce flashing stills the red OUCH wash, the hit edge and the heart flash", /sb-noflash #pov \.ouch\{/.test(text) && /sb-noflash #pov \.edge\.hit/.test(text) && /sb-noflash #pov \.vrow\.flash i\{filter:none/.test(text));
+  check("reduce flashing no longer hides the whole heart row (the old #pov .flash rule)", !/#pov \.flash\{/.test(text) && !/#pov \.hurt/.test(text) && !/opacity:0/.test(text));
 });
 
-if (failed) { console.log("
-" + failed + " FAILED"); process.exit(1); }
-console.log("
-all ok");
+if (failed) { console.log("\n" + failed + " FAILED"); process.exit(1); }
+console.log("\nall ok");
