@@ -410,7 +410,12 @@
      The share card, the clip, the leaderboard and the "play next" row are still below (games/platform.js);
      "more ↓" scrolls to them. Shown for SDK games only (they fire cc:end), never for idle/sim games, never for a
      quit run. Best scores for Gary's lines are kept per game on this device (localStorage "cc-best-here").
-     Test from the console: ccResults.test(1840) or ccResults.test(2500, { best: true }). */
+     Test from the console: ccResults.test(1840) or ccResults.test(2500, { best: true }).
+     A dare link (?vs=<score>&from=<name>&d=<id>) adds the friend's side: an intro card before the first run
+     (ccResults.intro() shows it again), a "target" chip on the game, and the results card says beat it or how far
+     short. The dare banner, the ?open=1 count and POST /api/dare/:id/beat stay in platform.js; this reads the
+     same query params, and the banner's score and "is-beaten" class (the server's answer), never the API.
+     Local test, no server calls: /games/<slug>/?cctest=1&vs=1840&from=pat, then ccResults.test(2000) / (900). */
   (function () {
     var m = /\/games\/([a-z0-9-]+)\//.exec(location.pathname);
     var stage = player.querySelector(".player-stage");
@@ -448,6 +453,134 @@
 
     var box = null, last = null, timer = 0, openedAt = 0, dareP = null, dare = null;
 
+    /* ---------- the dare, from the friend's side ---------- */
+    var testMode = /[?&]cctest=1(&|$)/.test(location.search);
+    // the same params and cleaning as platform.js; with a dare id the URL holds the server's own score and name
+    // (src/dares.js dareUrl), and the banner's numbers replace them once platform.js has checked (syncBanner)
+    var vs = (function () {
+      var q = new URLSearchParams(location.search), s = parseFloat(q.get("vs"));
+      if (!(s > 0) || !isFinite(s)) return null;
+      var from = (q.get("from") || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 24).trim();
+      return { score: s, from: from || "a friend", beaten: false, counted: false };
+    })();
+    var chip = null, intro = null, introShown = false;
+    function lc(s) { return String(s).toLowerCase(); }
+
+    // "target 1,840" on the game, top centre, out of the way of thumbs and taps (pointer-events: none)
+    function showChip() {
+      if (!vs) return;
+      if (!chip) {
+        chip = document.createElement("div"); chip.className = "ccr-target"; chip.setAttribute("aria-hidden", "true"); // the banner above says it for screen readers
+        stage.appendChild(chip);
+      }
+      chip.classList.toggle("is-beaten", vs.beaten);
+      chip.innerHTML = vs.beaten ? '<span>beaten ✓</span> <b></b>' : '<span>target:</span> <b></b> <i></i>';
+      chip.querySelector("b").textContent = fmt(vs.score);
+      var i = chip.querySelector("i"); if (i) i.textContent = "· " + vs.from;
+    }
+
+    // platform.js's banner: the checked score once the dare id is looked up, and "is-beaten" once
+    // POST /api/dare/:id/beat says so. Read only; the banner itself is platform.js's.
+    function syncBanner() {
+      var lay = document.querySelector(".player-layout"), host = lay && lay.parentNode;
+      if (!vs || !host || !window.MutationObserver) return;
+      var watched = null, mo = new MutationObserver(read), co = new MutationObserver(read);
+      function read() {
+        var b = host.querySelector(".dare");
+        if (b && b !== watched) { watched = b; co.disconnect(); co.observe(b, { attributes: true, attributeFilter: ["class"] }); }
+        if (!b) return;
+        if (b.classList.contains("is-beaten")) {
+          if (!vs.counted) { vs.counted = vs.beaten = true; showChip(); var ok = box && box.querySelector(".ccr-vs-ok"); if (ok && last && last.v && last.v.won) ok.textContent = "✓ counted"; }
+          return;
+        }
+        var n = b.querySelector(".dare-text b"), f = b.querySelector(".dare-text i"), s = n && parseFloat(n.textContent.replace(/,/g, ""));
+        var changed = false;
+        if (s > 0 && s !== vs.score) { vs.score = s; changed = true; }
+        if (f && f.textContent && f.textContent !== vs.from) { vs.from = f.textContent; changed = true; }
+        if (changed) { showChip(); if (intro && intro.open) fillIntro(); }
+      }
+      mo.observe(host, { childList: true });
+      read();
+    }
+
+    // before the first run: who dared you, the number, the game's poster, one line of how to play, and one big button
+    function buildIntro() {
+      intro = document.createElement("dialog");
+      intro.className = "ccd"; intro.setAttribute("aria-labelledby", "ccd-t"); intro.setAttribute("aria-describedby", "ccd-how");
+      intro.innerHTML =
+        '<div class="ccd-card">' +
+          '<button type="button" class="ccd-x" aria-label="close (esc)">×</button>' +
+          '<img class="ccd-poster" alt="" width="640" height="360" hidden>' +
+          '<div class="ccd-row">' +
+            '<div class="ccd-gary" aria-hidden="true"><img src="/assets/mascot/happy.svg" alt="" width="64" height="83"><span class="ccd-sign"><small>beat</small><b></b></span></div>' +
+            '<div class="ccd-words"><p class="ccd-kick">you’ve been dared</p><h2 class="ccd-t" id="ccd-t"></h2></div>' +
+          '</div>' +
+          '<button type="button" class="ccd-go">accept <span aria-hidden="true">▶</span>' + (fine ? ' <kbd>enter</kbd>' : "") + '</button>' +
+          '<p class="ccd-how" id="ccd-how"><b>how to play</b> <span></span></p>' +
+        '</div>';
+      document.body.appendChild(intro);
+      intro.querySelector(".ccd-go").addEventListener("click", function () { closeIntro(true); });
+      intro.querySelector(".ccd-x").addEventListener("click", function () { closeIntro(false); });
+      intro.addEventListener("cancel", function (e) { e.preventDefault(); closeIntro(false); }); // esc
+      intro.addEventListener("click", function (e) { if (e.target === intro) closeIntro(false); }); // the dimmed backdrop
+      intro.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && document.activeElement !== intro.querySelector(".ccd-x")) { e.preventDefault(); closeIntro(true); }
+      });
+    }
+    function fillIntro() {
+      var t = intro.querySelector(".ccd-t"), b = document.createElement("b");
+      b.textContent = fmt(vs.score);
+      t.textContent = "";
+      t.appendChild(document.createTextNode(vs.from + " scored "));
+      t.appendChild(b);
+      t.appendChild(document.createTextNode(" on " + lc(title) + ". beat it."));
+      intro.querySelector(".ccd-sign b").textContent = fmt(vs.score);
+      var how = intro.querySelector(".ccd-how");
+      how.hidden = true;
+      games().then(function (list) {
+        var g = list.filter(function (x) { return x.slug === slug; })[0];
+        if (!g || !intro) return;
+        var p = intro.querySelector(".ccd-poster"), src = g.poster || g.thumbnail;
+        if (src) { p.onerror = function () { p.hidden = true; }; p.src = src; p.hidden = false; }
+        // how_to[0] where the game has one; otherwise the first sentence of its controls
+        var line = (g.how_to && g.how_to[0]) || (g.controls ? String(g.controls).split(/\.\s/)[0].replace(/\.$/, "") + "." : "");
+        if (line) { how.querySelector("span").textContent = line; how.hidden = false; }
+      });
+    }
+    function openIntro(force) {
+      if (!vs || (introShown && !force) || !window.HTMLDialogElement) return;
+      if (!force && window.cc && window.cc._active && window.cc._active()) return; // already playing: the chip says it
+      introShown = true;
+      if (!intro) buildIntro();
+      fillIntro();
+      if (intro.open) return;
+      try { intro.showModal(); } catch (e) { return; }
+      var go = intro.querySelector(".ccd-go");
+      try { go.focus({ preventScroll: true }); } catch (e) { go.focus(); }
+    }
+    function closeIntro(accepted) {
+      if (!intro || !intro.open) return;
+      intro.close();
+      if (!frame.src && frame.dataset.src) frame.src = frame.dataset.src; // the page's own loader may not have started it yet
+      if (accepted) {
+        var r = player.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > window.innerHeight) player.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+      }
+      try { frame.focus({ preventScroll: true }); frame.contentWindow.focus(); } catch (e) {}
+    }
+
+    // the run against the dare: null without a dare or a score
+    function versus(o) {
+      if (!vs || !o.scored) return null;
+      var diff = Math.round((o.score - vs.score) * 10) / 10;
+      return { won: diff > 0, tie: diff === 0, by: Math.abs(diff) };
+    }
+    // a link for a run that has no server dare (no board, or not counted): the hand-made kind platform.js shows
+    // as "beat <score> from a friend" (nothing verified or rewarded, same as a typed ?vs=)
+    function handDare(score) {
+      return location.origin + "/games/" + slug + "/?vs=" + encodeURIComponent(Math.round(score * 10) / 10) + "&utm_source=share&utm_medium=player&utm_campaign=" + slug;
+    }
+
     function build() {
       box = document.createElement("div");
       box.className = "ccr"; box.hidden = true;
@@ -459,6 +592,7 @@
             '<p class="ccr-kicker" id="ccr-kicker"></p><p class="ccr-gary" id="ccr-gary"></p></div></div>' +
           '<p class="ccr-score"><b class="ccr-num"></b><span class="ccr-sub"></span></p>' +
           '<div class="ccr-bar" aria-hidden="true"></div>' +
+          '<p class="ccr-vs" hidden><span class="ccr-vs-tag">dare</span> <span class="ccr-vs-line"></span> <span class="ccr-vs-ok"></span></p>' +
           '<div class="ccr-acts">' +
             '<button type="button" class="ccr-again"><span aria-hidden="true">▶</span> play again' + (fine ? ' <kbd>enter</kbd>' : "") + '</button>' +
             '<button type="button" class="ccr-share"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg> <span>share score</span></button>' +
@@ -535,11 +669,24 @@
     function open(d, o) {
       if (!box) build();
       o = o || judge(d);
-      last = { d: d, o: o };
+      var v = versus(o);
+      last = { d: d, o: o, v: v };
       dare = null; dareP = null;
-      box.classList.toggle("is-best", o.kind === "best");
-      box.querySelector(".ccr-face").src = "/assets/mascot/" + FACE[o.kind] + ".svg";
-      box.querySelector(".ccr-kicker").textContent = o.kind === "best" ? "new best!" : o.kind === "first" ? "first run" : o.scored ? "run over" : "game over";
+      if (v && v.won) { vs.beaten = true; showChip(); }
+      box.classList.toggle("is-best", o.kind === "best" || !!(v && v.won));
+      box.classList.toggle("is-vs-won", !!(v && v.won));
+      box.querySelector(".ccr-face").src = "/assets/mascot/" + (v && v.won ? "trophy" : FACE[o.kind]) + ".svg";
+      box.querySelector(".ccr-kicker").textContent = v && v.won ? "dare beaten!" : o.kind === "best" ? "new best!" : o.kind === "first" ? "first run" : o.scored ? "run over" : "game over";
+      // the dare line: beat it (and by how much), a tie, or how far short
+      var vsEl = box.querySelector(".ccr-vs");
+      vsEl.hidden = !v;
+      vsEl.classList.toggle("is-won", !!(v && v.won));
+      if (v) {
+        vsEl.querySelector(".ccr-vs-line").textContent = v.won ? "you beat " + vs.from + ". by " + fmt(v.by) + ". tell them."
+          : v.tie ? "tied " + vs.from + " at " + fmt(vs.score) + ". exactly. one more point. go."
+          : fmt(v.by) + " short of " + vs.from + "'s " + fmt(vs.score) + ". the computer believes in you. barely.";
+        vsEl.querySelector(".ccr-vs-ok").textContent = v.won && vs.counted ? "✓ counted" : "";
+      }
       var tie = o.scored && o.kind !== "best" && o.kind !== "first" && o.best === o.score;
       box.querySelector(".ccr-gary").textContent = tie ? "tied your best. the computer doesn't know how to feel." : pick(LINES[o.kind]).replace("{off}", o.scored && o.best != null ? fmt(Math.abs(o.best - o.score)) : "");
       var num = box.querySelector(".ccr-num"), sub = box.querySelector(".ccr-sub");
@@ -554,11 +701,11 @@
       var bar = box.querySelector(".ccr-bar"), n = cells(o), h = "";
       for (var i = 0; i < 10; i++) h += '<i class="' + (i < n ? "on" : "") + '" style="--i:' + i + '"></i>';
       bar.innerHTML = h; bar.hidden = !o.scored;
-      box.querySelector(".ccr-share span").textContent = o.scored ? "share score" : "share game";
+      box.querySelector(".ccr-share span").textContent = v && v.won ? "dare them back" : o.scored ? "share score" : "share game";
       box.querySelector(".ccr-say").textContent = "";
       nextTile();
       // a new best on the board already gets platform.js's confetti; this covers the rest (no board, run not counted)
-      if (o.kind === "best" && !(o.r && o.r.prev_best != null && o.score > o.r.prev_best)) confetti();
+      if ((o.kind === "best" && !(o.r && o.r.prev_best != null && o.score > o.r.prev_best)) || (v && v.won)) confetti();
       box.hidden = false;
       openedAt = performance.now();
       requestAnimationFrame(function () { box.classList.add("is-on"); });
@@ -609,9 +756,10 @@
     }
 
     // the brag: one line, an emoji bar, the dare link (a run that counted) or the game's link
-    function shareText(o) {
+    function shareText(o, v) {
       var gt = String(title).toLowerCase();
       if (!o.scored) return "i played " + gt + " on computer cooked. " + pick(QUIPS);
+      if (v && v.won) return "i beat " + vs.from + "'s " + fmt(vs.score) + " on " + gt + " with " + fmt(o.score) + ". your move.\n" + emojiBar(o);
       return "i scored " + fmt(o.score) + " on " + gt + ". " + pick(QUIPS) + "\n" + emojiBar(o);
     }
     function scoredRun() { return !!(last && last.o.scored && last.o.r && last.d.playId && window.cc); }
@@ -625,6 +773,7 @@
     }
     function gameUrl() { return location.origin + "/games/" + slug + "/?utm_source=share&utm_medium=player&utm_campaign=" + slug; }
     function sent(how) {
+      if (testMode) return; // ?cctest=1: nothing counted
       if (dare) api("/api/dare/" + dare.id + "/shared", { how: how });
       else api("/api/share", { game: slug, how: how, anon: window.cc && window.cc._anon });
     }
@@ -652,13 +801,14 @@
     }
     function share() {
       if (!last) return;
-      var o = last.o, text = shareText(o);
-      if (!scoredRun()) { deliver(text, gameUrl(), "play: "); return; }
+      var o = last.o, text = shareText(o, last.v);
+      // a dared player's run with no server dare to send still goes back as a dare (a hand-made ?vs= link)
+      if (!scoredRun()) { if (last.v) deliver(text, handDare(o.score), "beat it: "); else deliver(text, gameUrl(), "play: "); return; }
       if (dare) { deliver(text, dare.url, "beat it: "); return; }
       say("making your link…");
       (warm() || Promise.resolve(null)).then(function (d) {
         say("");
-        deliver(text, d ? d.url : gameUrl(), d ? "beat it: " : "play: ");
+        deliver(text, d ? d.url : last.v ? handDare(o.score) : gameUrl(), d || last.v ? "beat it: " : "play: ");
       });
     }
     // the bar's share button, after a run: share the run (true), not just the game
@@ -704,8 +854,15 @@
         if (opt.best) { var all = bests(); all[slug] = Math.max(0, (typeof score === "number" ? score : 1) - 1); try { localStorage.setItem("cc-best-here", JSON.stringify(all)); } catch (e) {} }
         open({ game: slug, playId: null, score: typeof score === "number" ? score : null, result: null, completed: true });
       },
-      close: function () { close(true); }
+      close: function () { close(true); },
+      // the dare intro again (only on a page opened with ?vs=)
+      intro: function () { openIntro(true); }
     };
+    if (vs) {
+      showChip();
+      syncBanner();
+      openIntro(false);
+    }
   })();
 
   setMuted(muted);

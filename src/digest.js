@@ -9,7 +9,7 @@ const PLAYER = "COALESCE('u' || user_id, 'a' || anon_id)";
 // game over (K-0065): runs that ended, their average length, and the average / best score of ended runs that had one
 const OVER = `SUM(ended_at IS NOT NULL) ended, AVG(CASE WHEN ended_at IS NOT NULL THEN duration_ms END) ms,
        AVG(CASE WHEN ended_at IS NOT NULL THEN score END) avg_score, MAX(CASE WHEN ended_at IS NOT NULL THEN score END) best_score`;
-const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "other", "direct", "internal", "app", "embed", "portal"];
+const CHANNELS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "short", "other", "direct", "internal", "app", "embed", "portal"];
 
 // ms offset of Pacific time from UTC at instant t (negative: -7h or -8h)
 const fmt = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });

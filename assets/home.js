@@ -687,6 +687,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
       (reel && reel.matches(":hover")); // someone is watching the reel's clip
   }
   function arm() { clearTimeout(timer); if (!box) timer = setTimeout(function () { if (busy()) arm(); else start(); }, IDLE); }
+  function art(g) { return g.poster || g.thumbnail; }
   function stop() {
     if (!box) return;
     cancelAnimationFrame(raf); box.remove(); box = null;
@@ -701,7 +702,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
     box = document.createElement("div"); box.className = "saver"; box.tabIndex = -1;
     box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "screensaver. press any key to go back.");
     var tile = document.createElement("a"); tile.className = "saver-tile";
-    var img = document.createElement("img"); img.alt = ""; img.width = 320; img.height = 200;
+    var img = document.createElement("img"); img.alt = ""; img.width = 320; img.height = 180;
     var name = document.createElement("b"), go = document.createElement("span"); go.textContent = "play ▶";
     tile.appendChild(img); tile.appendChild(name); tile.appendChild(go);
     var hint = document.createElement("p"); hint.className = "saver-hint";
@@ -712,11 +713,13 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
     function next() {
       at = (at + 1) % list.length;
       var g = list[at];
-      img.src = g.thumbnail; name.textContent = g.title;
+      // the gameplay poster (games.json "poster", 320x180) when there is one, else the cover; the tile's picture box is
+      // a fixed 16:9 in home.css, so a cover in between doesn't change the tile's size mid-bounce
+      img.src = art(g); img.classList.toggle("is-poster", !!g.poster); name.textContent = g.title;
       tile.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=saver";
       tile.setAttribute("aria-label", "play " + g.title);
       tile.style.setProperty("--saver-accent", (g.theme && /^#[0-9a-f]{3,8}$/i.test(g.theme.accent || "")) ? g.theme.accent : "");
-      var pre = new Image(); pre.src = list[(at + 1) % list.length].thumbnail;
+      var pre = new Image(); pre.src = art(list[(at + 1) % list.length]);
     }
     next();
     var W = innerWidth, H = innerHeight, w = tile.offsetWidth, h = tile.offsetHeight || w * .9;

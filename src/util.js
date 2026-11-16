@@ -117,7 +117,8 @@ export function deviceOf(ua = "") {
   return "desktop";
 }
 
-const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "portal", "other"];
+// "short": /g/ promo short links (src/short.js tags them ref=short when they carry no channel of their own)
+const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "portal", "short", "other"];
 export const refOk = (r) => (REFS.includes(r) ? r : "other");
 // utm_campaign from our posted links: lowercase [a-z0-9_.-], max 40, else none
 export const campaignOk = (c) => {

@@ -71,9 +71,13 @@ export async function hubPage(req, env, url) {
   if (feat) {
     const href = `/games/${encodeURIComponent(feat.slug)}/`;
     rw.on("a.spotlight", { element(e) { e.setAttribute("href", href); e.setAttribute("aria-label", `featured game: ${feat.title}. ${feat.pitch}`); } })
-      // stays on the cover: assets/fx.js re-renders the spotlight from games.json "thumbnail" (and the smoke test checks
-      // that), so a poster here would be downloaded and then swapped for the cover. Switch both together.
-      .on(".spot-screen img", { element(e) { e.setAttribute("src", feat.thumbnail); } })
+      // the gameplay poster when there is one, else the cover: the same pick as assets/fx.js spotSlides (art), which
+      // re-renders the spotlight, so the first slide's picture is never downloaded twice. Change both together.
+      .on(".spot-screen img", { element(e) {
+        e.setAttribute("src", feat.poster || feat.thumbnail);
+        e.setAttribute("width", "320"); e.setAttribute("height", feat.poster ? "180" : "200");
+        if (feat.poster) e.setAttribute("class", "is-poster");
+      } })
       .on(".spot-name", txt(feat.title))
       .on(".spot-pitch", txt(feat.pitch))
       .on("a.hero-play", { element(e) { e.setAttribute("href", href); e.setInnerContent(`play ${feat.title}`); } });

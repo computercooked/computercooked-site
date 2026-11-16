@@ -8,7 +8,8 @@
   // outside referrer (so tiktok.com → hub → game still counts as tiktok). Tags come off the URL once read.
   (function () {
     var TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
-      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal" };
+      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal",
+      short: "short" }; // ref=short: our /g/ promo short links (src/short.js) with no channel tag of their own
     try {
       var u = new URL(location.href), q = u.searchParams;
       var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();

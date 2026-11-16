@@ -145,6 +145,10 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const catalog = (await (await get("/games/games.json")).json()).games;
   const byTitle = (t) => catalog.find((g) => g.title === t);
   ok(spotHref && spotHref === ctaHref && byTitle(spotName) && spotHref === "/games/" + byTitle(spotName).slug + "/", "hub spotlight (static): art link, title and play button are the same game", { spotHref, ctaHref, spotName });
+  // the server-rendered picture is that game's poster (or its cover when it has none), the same pick as fx.js below
+  const spotImg = (hubHtml.match(/<span class="spot-screen">\s*<img[^>]*\ssrc="([^"]+)"/) || [])[1];
+  const spotGame = byTitle(spotName);
+  ok(spotGame && spotImg === (spotGame.poster || spotGame.thumbnail), "hub spotlight (static): the picture is the featured game's poster or cover", { spotImg, want: spotGame && (spotGame.poster || spotGame.thumbnail) });
   const sandbox = { window: { matchMedia: () => ({ matches: false }) }, document: { addEventListener() {}, getElementById: () => null, querySelector: () => null }, location: { pathname: "/" } };
   sandbox.window.window = sandbox.window;
   vm.runInNewContext(await (await get("/assets/fx.js")).text(), { ...sandbox, ...sandbox.window, window: sandbox.window });
@@ -155,7 +159,7 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slides = typeof build === "function" ? build(ours, newest, feat) : [];
   const bad = slides.filter((s) => {
     const g = byTitle(s.title);
-    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title || s.art !== g.thumbnail;
+    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title || s.art !== (g.poster || g.thumbnail);
   });
   ok(slides.length >= 2 && bad.length === 0 && (!feat || slides[0].slug === feat.game), "hub spotlight: each slide's button href, link and art match its title's game", { slides: slides.map((s) => s.slug), bad: bad.map((s) => s.title) });
 }
@@ -919,10 +923,10 @@ if (admin) {
   // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
   const logHtml = await (await get("/log/")).text();
   ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
-  // the wall of epic gamers: served by the Worker, with the list (or its empty state) in place
+  // the wall of epic gamers: served by the Worker, with the plaques (or its empty state) in place
   const champs = await get("/champs/");
   const champsHtml = await champs.text();
-  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="champ-(card|empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
+  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="(plaque|champ-empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
   // channel surf: the static page with its tv, and the catalogue it reads has clips
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
