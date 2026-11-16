@@ -34,6 +34,7 @@
   // smols who talk (tribe and on) have fewer eggs and live longer: grown-up for longer, and two-fifths more life
   C.TALKER_LIFE = 1.4;
   C.HUNGRY_AWAKE = 0.7; // 4.36: this hungry, a smol wakes, will not lie down, and its nose takes over
+  C.STARVING = 0.85; // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
   function stageFor(age, c) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from * (i === 4 ? lifeK(c) : 1)) s = i; return s; }
@@ -307,6 +308,7 @@
       if (smol && ((o.data && o.data.forbid) || (see && !see(o.x, o.z, o)))) return;
       if (o.hid != null && M() && !M().canSee(c, o)) return; // hidden food: only its owner and whoever watched know it's there
       if (c.unreach && isUnreachable(c, o.id, game)) return;
+      if (smol && o.noun === "food" && o.heldBy == null && cannotStand(c, o, game)) return; // 4.39: fruit in a pond or on a cliff face
       var d = Math.sqrt(d2);
       if (o.heldBy === "hand") d *= 0.4;
       else if (o.heldBy != null) d += 3;
@@ -356,7 +358,7 @@
   function think(c, game) {
     var ch = c.chem, rng = game.rng, w = game.world;
     if (c.convo) { startAction(c, game, V.idle, null, null, null); c.action.dur = 1.2; return; } // mid-conversation
-    if (c.tantrum && c.species === "smol") { // lashing out: shove whoever's nearest, or stomp about
+    if (c.tantrum && c.species === "smol" && ch.hunger <= C.STARVING) { // lashing out: shove whoever's nearest, or stomp about
       var vic = null, vd = 4;
       game.creatures.forEach(function (o) { if (o !== c && o.alive && o.species === "smol" && !o.heldBy && o.stage >= 1 && !o.asleep) { var dd = SB.dist(o.x, o.z, c.x, c.z); if (dd < vd) { vd = dd; vic = o; } } });
       if (vic && rng.chance(0.45)) { var vt = { type: "creature", id: vic.id }, vr = resolve(game, vt); if (vr) { startAction(c, game, V.hit, vt, vr, "smol"); return; } }
@@ -365,28 +367,28 @@
       return;
     }
     // hit just now: brave smols hit back (a shove becomes a scuffle)
-    if (c.grudge && c.species === "smol" && game.time - c.grudge.t < 6 && ch.pain < 0.6 && rng.chance(0.35 + gene(c.genome, "bravery", 0.5) * 0.5)) {
+    if (c.grudge && c.species === "smol" && game.time - c.grudge.t < 6 && ch.pain < 0.6 && ch.hunger <= C.STARVING && rng.chance(0.35 + gene(c.genome, "bravery", 0.5) * 0.5)) {
       var foe = SB.Game.byId(game, c.grudge.id);
       if (foe && foe.alive && SB.dist(foe.x, foe.z, c.x, c.z) < 4 && C.provoke(c, foe, game)) return;
     }
     // the god's orders (see director.js): the sick keep apart, everyone shelters at home
     if (c.quarantine && c.species === "smol") {
       if (ch.sick < 0.15 && ch.antigen < 0.1) c.quarantine = null;
-      else if (SB.dist(c.x, c.z, c.quarantine.x, c.quarantine.z) > 2.5) { C.sendTo(c, c.quarantine.x, c.quarantine.z, game, 12); return; }
+      else if (SB.dist(c.x, c.z, c.quarantine.x, c.quarantine.z) > 2.5) { C.sendTo(c, c.quarantine.x, c.quarantine.z, game, 12, true); return; }
     }
     if (c.captive != null && c.species === "smol") { // held at a grump camp (threats.js): huddled in the cage
       var cs0 = game.sites && game.sites[c.captive];
-      if (cs0 && SB.dist(c.x, c.z, cs0.x, cs0.z) > 1.8) { C.sendTo(c, cs0.x + rng.range(-1, 1), cs0.z + rng.range(-1, 1), game, 10); return; }
+      if (cs0 && SB.dist(c.x, c.z, cs0.x, cs0.z) > 1.8) { C.sendTo(c, cs0.x + rng.range(-1, 1), cs0.z + rng.range(-1, 1), game, 10, true); return; }
       startAction(c, game, V.idle, null, null, null); c.action.dur = 3; if (!c.far && rng.chance(0.1)) say(c, rng.pick(["let me go!", "i want to go home", "...", "help?"]), game); return;
     }
     if (c.hideAt && c.species === "smol") { // grumps or a disaster: kids and elders hide in a hut
       if (game.time > c.hideAt.t) c.hideAt = null;
-      else if (SB.dist(c.x, c.z, c.hideAt.x, c.hideAt.z) > 0.9) { C.sendTo(c, c.hideAt.x, c.hideAt.z, game, 10); return; }
+      else if (SB.dist(c.x, c.z, c.hideAt.x, c.hideAt.z) > 0.9) { C.sendTo(c, c.hideAt.x, c.hideAt.z, game, 10, true); return; }
       else { startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return; }
     }
     if (c.shelterT > 0 && c.species === "smol" && !c.quarantine && ch.hunger <= 0.85) { // 4.37: starving beats sheltering: they sat the storm out beside food and died
       var hm = SB.Society.home(game, c.tribe || 0);
-      if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12); return; }
+      if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12, true); return; }
       startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return;
     }
     if (c.stranger && SB.Strangers) { // a stranger walks up to the village and waits for your answer (or walks away)
@@ -477,7 +479,7 @@
       if (sf) {
         var st = sf.kind && K[sf.kind] && K[sf.kind].noun === "food" && sf.heldBy !== undefined ? { type: "item", id: sf.id } : { type: "node", id: sf.id };
         var sr = resolve(game, st);
-        if (sr) { startAction(c, game, st.type === "item" ? V.eat : NIBBLE[sf.kind] ? V.eat : V.play, st, sr, st.type === "item" ? "food" : "plant"); return; }
+        if (sr) { startAction(c, game, st.type === "item" ? V.eat : NIBBLE[sf.kind] ? V.eat : V.play, st, sr, st.type === "item" ? "food" : "plant"); if (st.type === "item") claimFood(c, sf, game); return; }
       }
     }
 
@@ -517,6 +519,7 @@
       if (!(noun in CUDDLY)) mask[V.cuddle] = false;
       if (c.species === "grump" && noun === "egg") mask[V.pickup] = false;
       if (!(noun in EDIBLE) || tt !== "item") mask[V.eat] = false;
+      if (obj && obj.starveFor && obj.starveFor.id !== c.id && game.time - obj.starveFor.t < 25 && ch.hunger <= C.STARVING) { mask[V.eat] = false; mask[V.pickup] = false; } // 4.39: someone starving is on its way to that
       if ((noun === "plant" && NIBBLE[target.kind]) || (noun === "water" && c.chem.hot > 0.25)) mask[V.eat] = true; // drinking only cools you down
       if (tt === "creature" || tt === "hand") mask[V.use] = false;
       if (target.type !== "creature" || target.ref.species !== "smol" || target.ref.asleep) { mask[V.teach] = false; mask[V.give] = false; }
@@ -550,6 +553,7 @@
     }
     if (mask[V.sleep] && (ch.sleepy > 0.85 || ch.tired > 0.9)) { bias[V.sleep] += 0.3; useBias = true; }
     if (ch.hunger > 0.8 && c.species === "smol") mask[V.sleep] = false; // too hungry to sleep
+    if (ch.hunger > C.STARVING && c.species === "smol" && noun === "smol") mask[V.hit] = false; // 4.39: too hungry to pick a fight (shoving matches beside food)
     // smol on smol: hit back when hit, rivals pick fights, friends and family mostly don't,
     // and everyone else shoves each other about now and then (it's funny)
     if (noun === "smol" && c.species === "smol" && mask[V.hit] && target.ref) {
@@ -657,8 +661,13 @@
     return true;
   };
   // walk somewhere on the god's say-so (everyone home!, a search party): drops whatever the brain was doing
-  C.sendTo = function (c, x, z, game, dur) {
+  // 4.39: a starving smol (hunger past C.STARVING) turns every call down unless the caller forces it, and goes on
+  // looking for food. One island lost five smols beside "the shiny cube", which pulled the nearest four to it every
+  // second; about 120 places call sendTo, so the rule lives here. Forced: its own think (quarantine, cage, hiding),
+  // the first night, and a walk to a food stall.
+  C.sendTo = function (c, x, z, game, dur, force) {
     if (!c.alive || c.heldBy) return false;
+    if (!force && c.species === "smol" && !c._pov && c.chem && c.chem.hunger > C.STARVING) return false;
     if (c.plan && SB.Ideas) C.dropPlan(c, game);
     c.asleep = false; c.inBed = false;
     startAction(c, game, V.wander, null, null, null);
@@ -776,7 +785,7 @@
   function sniffFood(c, game) {
     // the hungrier, the further a smol's nose reaches (a starving one will cross the island)
     var reach = 32 + Math.max(0, c.chem.hunger - 0.6) * 110;
-    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && (o.data.rotten || o.data.forbid)) && !(c.diet && c.diet[o.kind]) && !isUnreachable(c, o.id, game); });
+    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && (o.data.rotten || o.data.forbid)) && !(c.diet && c.diet[o.kind]) && !isUnreachable(c, o.id, game) && !cannotStand(c, o, game) && !(o.starveFor && o.starveFor.id !== c.id && game.time - o.starveFor.t < 25); });
     if (it) return it;
     // a plant only smells of food when it's nearly ready to drop some
     return SB.World.nearestNode(game.world, c.x, c.z, reach, function (n) { var d = NK[n.kind]; return d.drops && K[d.drops] && K[d.drops].noun === "food" && n.state === "ok" && n.kind !== "palm" && !d.stings && (n.dropT == null || n.dropT < d.every * 0.5) && !isUnreachable(c, n.id, game); });
@@ -788,6 +797,11 @@
   }
   function isUnreachable(c, id, game) { return c.unreach && c.unreach[id] != null && c.unreach[id] > game.time; }
   C.unreachable = unreachable;
+  // 4.39: food lying where this smol cannot stand (water deeper than it can wade, a slope too steep). Starving smols
+  // smelled it, walked to the bank, stalled and gave up, again and again (two died at one pond)
+  function cannotStand(c, o, game) { return !SB.World.walkable(game.world, o.x, o.z, swim(c)); }
+  // 4.39: a starving smol on its way to some food: smols that are not starving leave that one alone (they kept eating it first)
+  function claimFood(c, o, game) { if (o) o.starveFor = { id: c.id, t: game.time }; }
 
   function findBed(c, game) {
     var w = game.world, best = null, bd = 1e9;
@@ -963,6 +977,7 @@
       }
       dist = SB.dist(tgt.x, tgt.z, c.x, c.z);
       if (a.best == null || dist < a.best - 0.25) { a.best = dist; a.bestT = a.t; }
+      if (starvingFor(c, a) && tgt.type === "item" && dist < reach + 1.1 && a.t - a.bestT > 1.2) reach = dist; // 4.39: stuck an arm's length off: it stretches
       if (dist <= reach + 0.05) {
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
