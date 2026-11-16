@@ -15,6 +15,9 @@
   #hud { position: fixed; left: 0; right: 0; top: 0; padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: linear-gradient(#17120dee, #17120d00); pointer-events: none; z-index: 2; }
   .chip { background: #0008; border: 1px solid #ffffff22; border-radius: 6px; padding: 4px 7px; white-space: nowrap; }
   .chip b { color: #c5ff49; }
+  .chip.up { animation: chipUp .35s ease-out; } .chip.dn { animation: chipDn .35s ease-out; }
+  @keyframes chipUp { 40% { transform: scale(1.12); border-color: #c5ff49; } }
+  @keyframes chipDn { 40% { transform: scale(.94); border-color: #ff5a4a; } }
   #hud .grow { flex: 1; }
   #hud button { pointer-events: auto; background: #0008; border: 1px solid #ffffff33; border-radius: 6px; padding: 4px 8px; }
   #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; justify-content: center; background: linear-gradient(#17120d00, #17120df0 40%); z-index: 2; }

@@ -462,6 +462,7 @@
         const a = newAnt(e.x, e.y, e.sol);
         assign(a);
         G.life.hatched++; sfx("hatch");
+        sparkle(a.x, a.y); if (fx.length < 300) fx.push({ k: "txt", x: a.x, y: a.y - 0.8, s: "+1 ant", life: 1.1 });
         if (G.life.hatched === 1) ach("first_hatch");
         if (R() < 0.12) bubbleOn(a, pick(["hello world", "i'm new here", "where's the break room", "i was born 1 second ago. i'm ready"]));
       }
@@ -803,7 +804,7 @@
       if (f.life <= 0) { fx.splice(k, 1); continue; }
       if (f.k === "p") { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 6 * dt; cx.globalAlpha = Math.min(1, f.life * 2); cx.fillStyle = f.c; cx.fillRect(wx + f.x * ts, f.y * ts - camY, ts * 0.22, ts * 0.22); cx.globalAlpha = 1; }
       else if (f.k === "s") { f.y -= dt * 0.8; cx.globalAlpha = Math.min(1, f.life); cx.fillStyle = f.c; const s = ts * 0.25 * (1 + Math.sin(f.life * 20) * 0.4); cx.fillRect(wx + f.x * ts - s / 2, f.y * ts - camY - s / 2, s, s); cx.globalAlpha = 1; }
-      else if (f.k === "fall") { f.vy += 30 * dt; f.y = Math.min(SURF + 0.6, f.y + f.vy * dt); cx.fillStyle = "#f1d39a"; cx.fillRect(wx + f.x * ts - ts * 0.2, f.y * ts - camY, ts * 0.4, ts * 0.3); if (f.y >= SURF + 0.6) f.life = 0; }
+      else if (f.k === "fall") { f.vy += 30 * dt; f.y = Math.min(SURF + 0.6, f.y + f.vy * dt); cx.fillStyle = "#f1d39a"; cx.fillRect(wx + f.x * ts - ts * 0.2, f.y * ts - camY, ts * 0.4, ts * 0.3); if (f.y >= SURF + 0.6) { f.life = 0; puff(f.x, SURF + 0.5, "#f1d39a", 5); } }
       else if (f.k === "txt") { f.y -= dt * 0.7; label(f.s, wx + f.x * ts, f.y * ts - camY, f.life < 0.4 ? f.life / 0.4 : 1, "#fff"); }
     }
     // rain
@@ -909,6 +910,7 @@
   }
   function label(s, x, y, a, col) {
     cx.globalAlpha = a; cx.font = `800 ${Math.max(10, Math.round(ts * 1.1))}px ui-monospace, Menlo, Consolas, monospace`; cx.textAlign = "center"; cx.textBaseline = "middle";
+    const hw = cx.measureText(s).width / 2 + 4; x = clamp(x, hw, W - hw); // keep labels on screen (the lens label hung off the left edge on phones)
     cx.fillStyle = "#000"; cx.fillText(s, x + 1, y + 1); cx.fillStyle = col; cx.fillText(s, x, y); cx.globalAlpha = 1;
   }
   function speech(s, x, y, a) {
@@ -992,9 +994,11 @@
   // ---------- ui ----------
   const toastBox = $("toast");
   function toast(s, cls) {
+    for (const o of [...toastBox.children]) if (o.textContent === s) o.remove(); // no stacked repeats
     const d = document.createElement("div"); d.textContent = s; if (cls) d.className = cls;
     toastBox.appendChild(d);
-    while (toastBox.children.length > 3) toastBox.firstChild.remove();
+    const cap = H < 700 ? 2 : 3; // short screens (the player frame is ~430-590 px): keep the colony visible
+    while (toastBox.children.length > cap) toastBox.firstChild.remove();
     setTimeout(() => d.remove(), cls === "coach" ? 7000 : 3600);
   }
   const fmt = (n) => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(1) + "m" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : String(n); };
@@ -1007,8 +1011,9 @@
   $("tSpeed").onclick = () => { spd = spd === 1 ? 2 : spd === 2 ? 3 : 1; $("tSpeed").querySelector("small").textContent = spd + "x"; };
   $("tColony").onclick = () => openSheet();
   function updHud() {
-    $("hFood").textContent = fmt(G.food);
-    $("hAnts").textContent = ants.length;
+    const fs = fmt(G.food), as = String(ants.length);
+    if ($("hFood").textContent !== fs) { if (Math.abs(G.food - hudFood) >= 10) bump($("hFood"), G.food > hudFood); hudFood = G.food; $("hFood").textContent = fs; } // only big swings (curios, buys) bump
+    if ($("hAnts").textContent !== as) { bump($("hAnts"), ants.length > hudAnts); hudAnts = ants.length; $("hAnts").textContent = as; }
     $("hCap").textContent = "/" + capacity();
     $("hEggs").textContent = eggs.length;
     $("hJellyC").hidden = !G.jelly; $("hJelly").textContent = G.jelly;
@@ -1019,7 +1024,9 @@
     $("upN").hidden = !n; $("upN").textContent = n;
     if (n && sheet.hidden && G.food >= 150 && simT - nudgeT > 90) { nudgeT = simT; toast(`${fmt(G.food)} food banked. spend it in ⬆ upgrades.`, "coach"); }
   }
-  let nudgeT = -60;
+  let nudgeT = -60, hudFood = 0, hudAnts = 0;
+  // HUD chips bump green when a number goes up, red when it drops
+  function bump(el, upw) { const c = el.parentNode; c.classList.remove("up", "dn"); void c.offsetWidth; c.classList.add(upw ? "up" : "dn"); }
   const avail = (u) => (G.up[u.id] || 0) < u.max && (!u.need || G.up[u.need]);
 
   // colony sheet
@@ -1130,7 +1137,7 @@
     if (ptrs.size === 2) { drag = { k: "pan2", y: avgY(), cam: camY }; return; }
     const sx = e.clientX, sy = e.clientY;
     camGo = null;
-    if (hitLens(sx, sy)) { lens.hp--; lens.shake = 1; sfx("shoo"); fx.push({ k: "txt", x: lens.x, y: SURF - 5.5, s: pick(["hey!", "stop it", "go away kid", "shoo!"]), life: 0.9 }); drag = { k: "none" }; return; }
+    if (hitLens(sx, sy)) { lens.hp--; lens.shake = 1; sfx("shoo"); sparkle(lens.x, SURF - 4.5); fx.push({ k: "txt", x: lens.x, y: SURF - 5.5, s: pick(["hey!", "stop it", "go away kid", "shoo!"]), life: 0.9 }); drag = { k: "none" }; return; }
     if (inMini(sx, sy)) { drag = { k: "mini" }; miniScroll(sy); return; }
     if (tool === "dig") { const c = cellAt(sx, sy); const i = c.x >= 0 && c.x < COLS && c.y >= 0 && c.y < ROWS ? ix(c.x, c.y) : -1; const erase = i >= 0 && !!mark[i]; drag = { k: "paint", erase }; paint(sx, sy, erase); return; }
     drag = { k: "tap", sx, sy, cam: camY, moved: false };

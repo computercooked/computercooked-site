@@ -33,6 +33,8 @@
   .iconbtn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: #000a; display: grid; place-items: center; cursor: pointer; font: 800 15px var(--mono); }
   #credit { position: absolute; right: 12px; top: calc(52px + env(safe-area-inset-top, 0px)); font: 800 13px var(--mono); color: var(--muted); opacity: .9; pointer-events: none; }
   #credit b { color: var(--acc); }
+  /* phones: the credit sat on top of the theme line and the lucky/golden-bell pops; it's in the menu tab too */
+  @media (max-width: 639px) { #credit { display: none; } }
   #toast { position: absolute; left: 50%; top: calc(88px + env(safe-area-inset-top, 0px)); width: max-content; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--acc); padding: 7px 12px; border-radius: 10px; font: 700 12px var(--mono); z-index: 5; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 24px); text-align: center; }
   #toast.on { opacity: 1; }
 
@@ -144,7 +146,7 @@
     <div id="toast" role="status" aria-live="polite"></div>
     <div id="undoBar" hidden><span>fresh start. the old save is one tap away.</span><button class="cta" id="undoGo">undo restart</button></div>
     <div id="dare" hidden><small>new song. dare a friend:</small><b id="dareLine"></b><span class="two"><button class="cta" id="dareGo">send the dare</button><button class="cta ghost" id="dareX">nah</button></span></div>
-    <div id="credit">computer cooked <b>games</b> · v2.9.2</div>
+    <div id="credit">computer cooked <b>games</b> · v2.9.3</div>
   </div>
   <div id="panel">
     <div id="tabs">
@@ -190,7 +192,7 @@
       <textarea id="code" placeholder="your save code shows up here. paste one in to import." spellcheck="false"></textarea>
       <button class="cta danger" id="resetBtn">erase everything</button>
       <button class="cta ghost" id="undoBtn" hidden>undo restart (bring my old save back)</button>
-      <div class="cc">bellchain v2.9.2 · made by computer cooked <b>games</b></div>
+      <div class="cc">bellchain v2.9.3 · made by computer cooked <b>games</b></div>
     </div>
   </div>
 </div>

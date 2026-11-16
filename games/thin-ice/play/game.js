@@ -270,7 +270,7 @@
       n, t: TEST ? nightLen() * 0.42 : 0, len: nightLen(), bucket: [], lure: { m: 0, mode: "up" }, biteT: 0, fight: null,
       c: 0, thick: thickFor(n), cracks: newCracks((R() * 1e5) | 0), hot: -1, haul: null, drill: null, dunk: null,
       best: 0, caught: 0, hauledLb: 0, earned: 0, news: 0, lost: 0, warned: 0, endWarn: false, otT: [], fx: [], amb: [], warden: false,
-      lastFind: null, breath: 1.5, lineEndSaid: false, ottersEarned: 0, scar: 0, forceWarden: false
+      lastFind: null, breath: 1.5, lineEndSaid: false, ottersEarned: 0, scar: 0, forceWarden: false, prevBest: S.best || 0
     };
     for (let k = 0; k < lv("otter"); k++) N.otT.push(rr(8, 20));
     state = "night";
@@ -340,7 +340,7 @@
     }
     F.wob += dt * (F.run ? 22 : 9);
     N.lure.m = Math.max(0, F.d);
-    if (F.ten >= 1) { toast(`snap! the ${F.f === WARDEN ? "line" : F.f.n} broke free.`, "bad"); N.fx.push({ k: "snap", life: 0.6 }); N.fight = null; N.lure.mode = "reel"; return; }
+    if (F.ten >= 1) { toast(`snap! the ${F.f === WARDEN ? "line" : F.f.n} broke free.`, "bad"); N.fx.push({ k: "snap", life: 0.6 }); shake = Math.max(shake, 0.8); N.fight = null; N.lure.mode = "reel"; return; }
     if (F.d > maxLine() + 4) { toast("it took all your line and kept going.", "bad"); N.fight = null; N.lure.mode = "reel"; return; }
     if (F.d <= 0.4) land({ fish: F.f, w: F.w });
   }
@@ -360,6 +360,7 @@
     if (!got.weird && w > S.best) S.best = w;
     // the ice feels it
     N.c = Math.min(0.999, N.c + 0.015 + 0.12 * Math.min(1, w / iceCap()));
+    shake = Math.max(shake, 0.25 + 0.5 * Math.min(1, w / iceCap())); // the catch thumps onto the ice
     play("splash", 0.5);
     showCatch(it, w, isNew, !got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8);
     ach("first_catch");
@@ -530,6 +531,10 @@
     const best = N.best ? `${N.best.toFixed(1)} lb` : "none";
     const rows = [["fish caught", N.caught], ["heaviest", best], ["hauled to shore", N.hauledLb.toFixed(1) + " lb"], ["earned", "$" + N.earned], ["new in the log", N.news]];
     if (N.ottersEarned) rows.push(["your otters", "$" + N.ottersEarned]);
+    // a reason for one more night: the all-time record and what's left in the log
+    const rec = N.best > 0 && N.best > (N.prevBest || 0);
+    rows.push(["heaviest ever", rec ? `<span class="rec">new record!</span> ${N.best.toFixed(1)} lb` : (S.best ? S.best.toFixed(1) + " lb" : "none yet")]);
+    rows.push(["fish log", `${Object.keys(S.log).length}/${FISH.length + WEIRD.length + 1} found`]);
     if (!dawn) rows.splice(3, 0, ["lost with the bucket", `${N.lost} (${(N.lostLb || 0).toFixed(1)} lb)`]);
     panel("end", (dawn
       ? `<h2>dawn</h2><p>${soldLb ? `you walked the bucket in at sunrise: ${soldLb.toFixed(1)} lb for $${soldV}.` : "the sun comes up over the lake."}<br>night ${night} is done.</p>`
