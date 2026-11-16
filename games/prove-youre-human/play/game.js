@@ -614,7 +614,7 @@
   function showEnd(denied, h, newDiary) {
     const verdict = verdictOf(h, denied), card = shareCard(h, denied, verdict), daily = mode === "daily";
     $("endTb").textContent = denied ? "ACCESS_DENIED.txt" : "verdict.txt";
-    $("endIn").innerHTML = `${denied ? `<div class="denied"><div class="stampbig">ACCESS DENIED: BOT DETECTED</div></div>` : ""}
+    $("endIn").innerHTML = `${denied ? `<div class="denied"><div class="stampbig"><span>ACCESS DENIED</span><span>BOT DETECTED</span><small>${h}% HUMAN</small></div></div>` : ""}
       ${denied ? "" : `<h2>I am ${h}% human</h2>`}
       <p class="verdict">"${verdict}"</p>
       <div id="cardSlot"></div>
