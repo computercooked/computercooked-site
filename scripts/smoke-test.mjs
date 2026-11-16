@@ -931,6 +931,26 @@ if (admin) {
   const lost = await get("/no-such-page-" + Date.now());
   const lostHtml = await lost.text();
   ok(lost.status === 404 && lostHtml.includes('id="lost-pick-list"') && lostHtml.includes("/assets/lost.js"), "404 page offers three games to play", lost.status);
+  // 404 mini-game: "catch the missing page", a deferred script that keeps its best in cc-404-best
+  ok(/<section class="lost-game" id="lost-game"[^>]*hidden/.test(lostHtml) && /<script src="\/assets\/lost-game\.js" defer><\/script>/.test(lostHtml), "404 page has the catch-the-missing-page game (deferred)");
+  const lostGame = await get("/assets/lost-game.js"), lostGameJs = await lostGame.text();
+  ok(lostGame.ok && lostGameJs.length < 8192 && lostGameJs.includes("cc-404-best") && lostGameJs.includes("prefers-reduced-motion") && lostGameJs.includes("visibilitychange"), "404 game script: small, keeps a best, honours reduced motion, pauses when hidden", lostGameJs.length);
+  // promo short links: /g/<alias> → the game page, tagged; unknown → the hub; read-only (redirects only)
+  const sh = async (p) => { const r = await fetch(base + p, { redirect: "manual" }); return { status: r.status, to: r.headers.get("location") && new URL(r.headers.get("location"), base), cache: r.headers.get("cache-control") || "" }; };
+  let s = await sh("/g/microwave");
+  ok(s.status === 302 && s.to.pathname === "/games/microwave-panic/" && s.to.searchParams.get("ref") === "short" && s.to.searchParams.get("utm_medium") === "short" && /max-age=300/.test(s.cache), "/g/microwave → microwave-panic, tagged ref=short", s.to && s.to.href);
+  s = await sh("/g/Goose/?utm_source=tiktok&utm_campaign=bio&junk=1");
+  ok(s.status === 302 && s.to.pathname === "/games/goose-court/" && s.to.searchParams.get("utm_source") === "tiktok" && s.to.searchParams.get("utm_campaign") === "bio" && !s.to.searchParams.has("ref") && !s.to.searchParams.has("junk"), "/g/ keeps utm tags (no ref=short over a utm_source), drops other params", s.to && s.to.href);
+  s = await sh("/g/devil?ref=tiktok");
+  ok(s.status === 302 && s.to.pathname === "/games/level-devil-exe/" && s.to.searchParams.get("ref") === "tiktok", "/g/devil keeps a passed ref", s.to && s.to.href);
+  s = await sh("/g/level-devil");
+  ok(s.status === 302 && s.to.pathname === "/games/level-devil-exe/", "/g/<slug without -exe> works", s.to && s.to.href);
+  s = await sh("/g/daily");
+  ok(s.status === 302 && s.to.pathname === "/games/daily/", "/g/daily → the daily", s.to && s.to.href);
+  s = await sh("/g/no-such-game-" + Date.now() % 1000);
+  ok(s.status === 302 && s.to.pathname === "/games/" && s.to.searchParams.get("ref") === "short", "unknown /g/ alias → the hub, tagged", s.to && s.to.href);
+  s = await sh("/g/");
+  ok(s.status === 302 && s.to.pathname === "/games/" && !s.to.search, "/g/ alone → /games/", s.to && s.to.href);
   const deckJs = await (await get("/assets/deck.js")).text();
   ok(deckJs.includes("KONAMI_CODE_ACCEPTED") && deckJs.includes('"arrowup", "arrowup", "arrowdown"'), "deck.js has the konami code easter egg");
   ok(deckJs.includes('e.key === "?"') && deckJs.includes("keys-list"), "deck.js lists every keyboard shortcut on ?");

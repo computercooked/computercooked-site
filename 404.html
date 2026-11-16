@@ -29,6 +29,14 @@
 
     <p class="see-all"><a class="play-btn" href="/">take me home</a></p>
 
+    <section class="lost-game" id="lost-game" aria-labelledby="lost-game-heading" hidden>
+      <h2 id="lost-game-heading" class="section-label">catch the missing page</h2>
+      <p class="lost-game-hud"><span>score <b data-s>0</b></span><span>best <b data-b>0</b></span><span><b data-t>20</b>s left</span></p>
+      <canvas class="lost-game-cv" width="240" height="150" tabindex="0" role="img" aria-label="catch the missing page: a melting beige computer catches falling 4s, 0s and pages. arrow keys move it, space starts."></canvas>
+      <p class="lost-game-msg" aria-live="polite">20 seconds. mouse, finger or arrow keys. avoid the bugs.</p>
+      <p class="lost-game-go"><button type="button" class="play-btn lost-game-btn">catch it</button></p>
+    </section>
+
     <section class="lost-picks" id="lost-picks" aria-labelledby="lost-picks-heading" hidden>
       <h2 id="lost-picks-heading" class="section-label">the computer found these instead</h2>
       <ul class="lost-pick-list" id="lost-pick-list"></ul>
@@ -62,6 +70,7 @@
   </nav>
   <script src="/assets/deck.js" defer></script>
   <script src="/assets/lost.js" defer></script>
+  <script src="/assets/lost-game.js" defer></script>
   
 </body>
 </html>
