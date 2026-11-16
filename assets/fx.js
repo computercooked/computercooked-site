@@ -107,9 +107,25 @@
     track.innerHTML = names + names;
   }
 
+  /* the collection: a sticker on every card of a game this device has played (cc-history, kept by games/platform.js):
+     "your best: 1,840" once there's a best score, else "✓ played". Read-only; first visits see the hub as before. */
+  function history() {
+    try { return JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { return {}; }
+  }
+  function playedMark(card, h) {
+    var body = card.querySelector(".game-body");
+    if (!h || !(h.n > 0) || !body || card.querySelector(".game-played")) return;
+    var tag = document.createElement("span");
+    tag.className = "game-played";
+    tag.textContent = typeof h.b === "number" && h.b > 0 ? "your best: " + Math.round(h.b).toLocaleString("en-US") : "✓ played";
+    body.appendChild(tag);
+    card.classList.add("is-played");
+  }
+
   /* hub cards are re-rendered by hub.js; badge them whenever that happens */
   function badges(isNew) {
     var shelves = document.querySelectorAll(".card-grid");
+    var hist = history();
     function apply() {
       document.querySelectorAll(".game-card").forEach(function (card) {
         var slug = slugOfCard(card);
@@ -122,6 +138,7 @@
         if (isNew[slug] && body && !card.querySelector(".game-new")) {
           body.insertAdjacentHTML("afterbegin", '<span class="game-new">new</span>');
         }
+        playedMark(card, hist[slug]);
       });
     }
     apply();
@@ -333,16 +350,18 @@
       b.setAttribute("aria-pressed", String(c.id === "all"));
       row.appendChild(b);
     });
-    // 🎲: a random game, picked from the ones the current filter shows (audit P1 #17)
-    var dice = el('<button type="button" class="chip chip-random" aria-label="play a random game">random</button>');
+    // 🎲 surprise me: a random game, picked from the ones the current filter shows (audit P1 #17). The slot machine in
+    // games/hub.js spins and lands on it; without that, straight to the game. First in the row, so phones see it unscrolled.
+    var dice = el('<button type="button" class="chip chip-random chip-surprise" aria-label="surprise me: spin for a random game" aria-haspopup="dialog">surprise me</button>');
     dice.addEventListener("click", function () {
       var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
+      if (window.ccSurprise && window.ccSurprise.ready()) { window.ccSurprise.open(shown); return; }
       var pool = shown.length ? shown : games.map(function (g) { return g.slug; });
       var fresh = pool.filter(function (x) { return !(hist[x] && hist[x].n > 0); }); // a game you haven't tried, while there is one
       if (fresh.length) pool = fresh;
       location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
     });
-    row.appendChild(dice);
+    row.insertBefore(dice, row.firstChild);
     // three random games back to back, from the ones the current filter shows (assets/deck.js runs it)
     var triple = el('<button type="button" class="chip chip-random chip-triple" aria-label="triple feature: three random games in a row">3 in a row</button>');
     triple.addEventListener("click", function () {
@@ -437,13 +456,7 @@
         var ok = !info || ((vibe === "all" || (vibe === "unplayed" ? !was : info.vibes.indexOf(vibe) >= 0)) && (!term || info.text.indexOf(term) >= 0));
         card.hidden = !ok;
         if (ok) shown++;
-        if (was && info && !card.querySelector(".game-played")) {
-          var tag = document.createElement("span");
-          tag.className = "game-played";
-          tag.textContent = typeof h.b === "number" && h.b > 0 ? "\u2713 best " + Math.round(h.b).toLocaleString("en-US") : "\u2713 played";
-          var body = card.querySelector(".game-body");
-          if (body) { body.appendChild(tag); card.classList.add("is-played"); }
-        }
+        if (info) playedMark(card, h);
       });
       // put the cards in the chosen order (moved in the page itself, so keyboard and screen readers follow it too)
       var cards = [].slice.call(grid.children), want = cards.slice().sort(function (a, b) {
@@ -534,6 +547,8 @@
       var slug = slugOfCard(card);
       var thumb = card.querySelector(".game-thumb");
       if (!slug || !thumb || slug === "crash") return; // CRASH runs inline on its page, its svg thumb is already animated
+      // a card with a clip plays that instead (assets/preview.js): far lighter than booting the whole game in a frame
+      if (card.getAttribute("data-clip") && window.ccPreview && window.ccPreview.enabled) return;
       current = card;
       timer = setTimeout(function () {
         var box = el('<div class="card-preview" aria-hidden="true"><iframe tabindex="-1" title="" loading="eager"></iframe><span class="preview-tag">live preview</span></div>');
