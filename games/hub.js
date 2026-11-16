@@ -37,7 +37,8 @@
         '<div class="cc-landing-inner">' +
           '<p class="cc-landing-k"><span class="cc-landing-dot" aria-hidden="true"></span>from the clip · free · no download</p>' +
           '<a class="cc-landing-play" href="' + esc(href) + '">' +
-            '<span class="cc-landing-art"><img src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" fetchpriority="high"></span>' +
+            // the gameplay poster (320x180) when there is one: it fills the 16:9 art box exactly
+            '<span class="cc-landing-art"><img src="' + esc(art(g)) + '" alt="" width="' + (g.poster ? "320" : "640") + '" height="' + (g.poster ? "180" : "360") + '" fetchpriority="high"></span>' +
             '<span class="cc-landing-title" id="cc-landing-title">' + esc(g.title) + "</span>" +
             '<span class="cc-landing-go">tap to play</span>' +
           "</a>" +
@@ -342,7 +343,7 @@
       else if (l) meta = "saved on this device · " + ago(l);
       else meta = "played " + ago(seen[slug]);
       return '<li><a class="continue-card' + cls + '" href="/games/' + encodeURIComponent(slug) + '/">' +
-        '<img src="' + esc(g.thumbnail) + '" alt="" width="96" height="72" loading="lazy">' +
+        '<img src="' + esc(art(g)) + '" alt="" width="96" height="72" loading="lazy">' + // CSS fixes it at 72x54, object-fit cover
         '<span class="continue-body"><b>' + esc(g.title) + "</b><small>" + esc(meta) + '</small></span><span class="continue-go" aria-hidden="true">▶</span></a></li>';
     }).join("");
     document.getElementById("hub-continue").hidden = false;
