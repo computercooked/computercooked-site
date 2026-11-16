@@ -208,7 +208,7 @@
       });
       if (!best || game.rng() > 0.35) return;
       c._shop = { id: best.id, t: game.time };
-      SB.Creature.sendTo(c, best.x + (game.rng() - 0.5), best.z + (game.rng() - 0.5), game, 30, !!(SB.KINDS[best.data.good] && SB.KINDS[best.data.good].noun === "food")); // 4.39: a walk to a food stall wins over starving
+      SB.Creature.sendTo(c, best.x + (game.rng() - 0.5), best.z + (game.rng() - 0.5), game, 30, best.data.good === "food" || !!(SB.KINDS[best.data.good] && SB.KINDS[best.data.good].noun === "food")); // 4.39: a walk to a food stall wins over starving
     });
   }
 

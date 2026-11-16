@@ -887,15 +887,11 @@
     var goalMoved = !c.pathGoal || Math.abs(c.pathGoal.x - tx) + Math.abs(c.pathGoal.z - tz) > 1.5;
     if (goalMoved) { c.path = null; c.pathGoal = { x: tx, z: tz }; c.wBest = d0; c.wBestT = 0; c.pathTried = false; }
     c.wBestT = (c.wBestT || 0) + dt;
-    // 4.39: on a route, progress is the distance left along the route (one that first leads round a cliff, away from
-    // the goal, was dropped after eight seconds as "getting nowhere"); off a route, the straight line
-    var dp = c.path ? routeLeft(c) : d0;
-    if (c.path && c.wBestP == null) c.wBestP = dp + 0.3;
-    if (c.path ? dp < c.wBestP - 0.2 : d0 < c.wBest - 0.2) { if (c.path) c.wBestP = dp; else c.wBest = d0; c.wBestT = 0; }
+    if (d0 < c.wBest - 0.2) { c.wBest = d0; c.wBestT = 0; }
     if (!c.path && !c.pathTried && (c.wBestT > 0.8 || c.stuckT > 0.4) && d0 > 1.5) {
       c.pathTried = true;
       c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, swim(c), 5000);
-      c.pathI = 0; c.wBestP = null;
+      c.pathI = 0;
       if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
     }
     // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground
@@ -908,11 +904,6 @@
     return stepToward(c, tx, tz, dt, sp, game, arriveR);
   }
   C.pathing = function (c) { return !!c.path; };
-  function routeLeft(c) {
-    var p = c.path, i = Math.min(c.pathI || 0, p.length - 1), d = Math.hypot(p[i].x - c.x, p[i].z - c.z);
-    for (; i < p.length - 1; i++) d += Math.hypot(p[i + 1].x - p[i].x, p[i + 1].z - p[i].z);
-    return d;
-  }
 
   // palisades: grumps won't walk through pointy sticks. A raid party pushes through after a while
   var wallsT = -1, walls = [];
@@ -986,7 +977,6 @@
       }
       dist = SB.dist(tgt.x, tgt.z, c.x, c.z);
       if (a.best == null || dist < a.best - 0.25) { a.best = dist; a.bestT = a.t; }
-      if (c.path) { if (a.route !== c.path) { a.route = c.path; a.bestP = null; } var left = routeLeft(c); if (a.bestP == null || left < a.bestP - 0.25) { a.bestP = left; a.bestT = a.t; } } // 4.39: progress along a route counts
       if (starvingFor(c, a) && tgt.type === "item" && dist < reach + 1.1 && a.t - a.bestT > 1.2) reach = dist; // 4.39: stuck an arm's length off: it stretches
       if (dist <= reach + 0.05) {
         a.phase = "do"; a.doT = 0;
