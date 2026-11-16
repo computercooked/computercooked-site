@@ -147,6 +147,7 @@
   let course = null, p = null, cam = { x: 0, y: 0 }, runT = 0, speed = 0, topSpeed = 0, falls = 0, keysHit = 0;
   let booting = 0, shake = 0, flash = 0, popups = [], parts = [], lastScoreSent = 0, scoreDirty = false, idleT = 0;
   let jumpBuf = 0, holding = false, title = { t: 0 }, tierIdx = 0, perfect = 0, banner = null, wz = 1;
+  let furthest = 0, fwTold = false, fwJust = false;   // 1.5: furthest point this run (a tick on the progress bar) + the firewall explainer, once a run
 
   function newPlayer() { return { x: -60, y: -PH, vx: 0, vy: 0, ground: null, coyote: 0, knock: 0, face: 'idle', faceT: 0, spin: 0 }; }
   let carry = 0;
@@ -157,7 +158,7 @@
   function startRun(keepSpeed) {
     audioInit();
     course = buildCourse(save.loop, save.mult);
-    p = newPlayer(); runT = 0; falls = 0; keysHit = 0; popups = []; parts = [];
+    p = newPlayer(); runT = 0; falls = 0; keysHit = 0; popups = []; parts = []; furthest = 0; fwTold = false;
     if (!keepSpeed) { speed = carry; topSpeed = carry; carry = 0; }
     runBase = speed;
     tierIdx = TIERS.filter((t) => speed >= t).length; perfect = 0;
@@ -170,8 +171,9 @@
   function backToBoot() {
     falls++;
     for (const k of course.keys) { k.hit = 0; k.gone = 0; k.press = 0; k.crumble = 0; k.passed = 0; }
-    p = newPlayer(); booting = 0.4; flash = 0.5;
-    if (screen === 'play') toast(['back to boot. speed kept. dignity not.', 'have you tried turning it off and on again', 'rebooting… your speed survived', 'that gap was a feature'][falls % 4]);
+    p = newPlayer(); booting = 0.4; flash = 0.5; shake = Math.max(shake, 0.3);
+    if (screen === 'play' && fwJust) { fwJust = false; toast('firewall: you need more speed. every lap banks more. go again.'); }
+    else if (screen === 'play') toast(['back to boot. speed kept. dignity not.', 'have you tried turning it off and on again', 'rebooting… your speed survived', 'that gap was a feature'][falls % 4]);
   }
   function manualBoot() { if (screen !== 'play' || !course) return; SFX.fall(); backToBoot(); falls--; }   // a voluntary reboot doesn't count as a fall
   let winLock = 0;
@@ -231,6 +233,8 @@
       if (k.type === 'key' && off < 0.28) {   // stuck the landing near the middle: bonus + streak
         perfect++; addSpeed(); if (perfect % 5 === 0) addSpeed();   // +1 per perfect, +1 more every 5 in a row
         popups.push({ x: p.x + PW / 2, y: p.y - 40, t: 0.9, txt: 'perfect x' + perfect, big: 1 });
+        for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283; parts.push({ x: p.x + PW / 2, y: k.y - 4, vx: Math.cos(a) * 320, vy: Math.sin(a) * 200 - 120, t: 0.45, c: C.lilac }); }
+        shake = Math.max(shake, 0.12); tone(660 + Math.min(perfect, 10) * 60, 0.09, 'triangle', 0.05);
       } else if (k.type === 'key') perfect = 0;
       popups.push({ x: p.x + PW / 2, y: p.y - 10, t: 0.8, txt: '+' + save.mult });
       const ti = TIERS.filter((t) => speed >= t).length;
@@ -300,9 +304,10 @@
       const gx = k.x + k.w + 62;   // the firewall stands just past the takeoff key
       if (px + PW <= gx && p.x + PW > gx) {
         if (speed >= k.gateNeed) { k.passed = 1; banner = { t: 1.2, txt: 'access granted' }; shake = 0.25; }
-        else { p.x = k.x + k.w + 6; p.vx = 0; p.knock = 0; p.vy = Math.max(p.vy, 250); p.ground = null; jumpBuf = 0; p.coyote = 0; p.face = 'cooked'; p.faceT = 0.8; SFX.bonk(); popups.push({ x: gx, y: p.y - 30, t: 1.1, txt: 'firewall: need ' + k.gateNeed, big: 1 }); }
+        else { p.x = k.x + k.w + 6; p.vx = 0; p.knock = 0; p.vy = Math.max(p.vy, 250); p.ground = null; jumpBuf = 0; p.coyote = 0; p.face = 'cooked'; p.faceT = 0.8; SFX.bonk(); shake = Math.max(shake, 0.3); popups.push({ x: gx, y: p.y - 30, t: 1.1, txt: 'firewall: need ' + k.gateNeed, big: 1 }); if (!fwTold) { fwTold = true; fwJust = true; } }
       }
     }
+    if (screen === 'play' && p.x > furthest) furthest = p.x;
     if (p.faceT > 0) { p.faceT -= dt; if (p.faceT <= 0) p.face = 'idle'; }
     if (!p.ground && p.vy > 200 && p.face === 'idle') p.face = 'hit';
     if (p.ground && p.face === 'hit') p.face = 'idle';
@@ -645,6 +650,8 @@
       ctx.fillStyle = 'rgba(245,243,237,0.12)'; rr(ctx, bx, by, bw, 8 * s, 4 * s); ctx.fill();
       const pr = Math.max(0, Math.min(1, p.x / course.len));
       ctx.fillStyle = C.lime; rr(ctx, bx, by, Math.max(8 * s, bw * pr), 8 * s, 4 * s); ctx.fill();
+      const fr = Math.max(0, Math.min(1, furthest / course.len));
+      if (falls > 0 && fr > pr + 0.01) { ctx.fillStyle = C.lilac; ctx.fillRect(bx + bw * fr - 1.5 * s, by - 4 * s, 3 * s, 16 * s); }   // furthest so far this run: something to beat after a fall
       pxText(ctx, 'esc', bx + bw + 6 * s, by + 4 * s, Math.round(11 * s), C.lilac, 'left', 'middle');
     }
     pxText(ctx, fmt(runT * 1000), 14 * s, top, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
@@ -655,7 +662,7 @@
     ctx.fillStyle = `rgba(16,17,20,${0.7 * a})`; ctx.fillRect(0, 0, vw, vh);
     ctx.globalAlpha = a;
     pxText(ctx, falls ? 'back to boot…' : 'booting crash os…', vw / 2, vh * 0.5, Math.round(Math.min(26, vw / 18)), C.lime, 'center', 'middle');
-    pxText(ctx, falls ? 'speed kept: ' + Math.round(speed) : 'tap to jump. that\'s the whole job.', vw / 2, vh * 0.5 + 34, Math.round(Math.min(15, vw / 28)), C.paper, 'center', 'middle');
+    pxText(ctx, falls ? 'speed kept: ' + Math.round(speed) : 'tap to jump. hold it to jump further.', vw / 2, vh * 0.5 + 34, Math.round(Math.min(15, vw / 28)), C.paper, 'center', 'middle');
     ctx.globalAlpha = 1;
   }
 
