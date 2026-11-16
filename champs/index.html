@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
+  <link rel="stylesheet" href="/assets/champs.css">
 </head>
 <body>
   <main class="page champs-page">
@@ -38,12 +39,24 @@
       <h1>who's #1 on every game</h1>
       <p class="lede">one crown per game. it goes to the highest score ever. beat it and the crown is yours until someone takes it back.</p>
       <p class="champ-count" data-champ-count></p>
+      <div class="champ-gary">
+        <button class="champ-gary-btn" type="button" data-gary-poke aria-controls="champ-says" aria-label="poke gary for another take"><img src="/assets/mascot/trophy.svg" alt="" width="62" height="72"></button>
+        <p class="champ-says" id="champ-says" data-champ-says><span class="champ-says-who">gary:</span> <span data-says-text>the wall is warming up. any score takes a crown.</span></p>
+        <ul class="champ-says-lines" data-says-lines hidden></ul>
+      </div>
     </header>
     <section id="champ-most" class="champ-most" aria-labelledby="most-heading" hidden>
       <h2 id="most-heading" class="section-label">most crowns</h2>
       <ol id="champ-most-list" class="champ-most-list"></ol>
     </section>
-    <ol class="champ-list" id="champ-list">
+    <div class="wall-tools" data-wall-tools>
+      <div class="wall-sort" role="group" aria-label="sort the wall">
+        <button type="button" data-sort="new" aria-pressed="true">newest crowns</button>
+        <button type="button" data-sort="old" aria-pressed="false">longest reigns</button>
+        <button type="button" data-sort="free" aria-pressed="false">free crowns first</button>
+      </div>
+    </div>
+    <ol class="champ-list wall" id="champ-list" aria-label="one crown per game">
       <li class="champ-empty">no crowns on the wall yet. <a href="/games/">play any game</a> and post a score: the first one takes it.</li>
     </ol>
     <p class="champ-foot">the wall updates every few minutes. scores come from each game's all time leaderboard. <a href="/games/">all games →</a></p>
