@@ -505,7 +505,7 @@
   const ATLAS = 1024, atlas = document.createElement('canvas'); atlas.width = atlas.height = ATLAS;
   const atx = atlas.getContext('2d');
   let ax = 0, ay = 0, arow = 0;
-  const textCache = new Map(); let textDpr = 0, textBudget = 1;
+  const textCache = new Map(); let textDpr = 0, textBudget = 1, frameT0 = 0;
   function resetAtlas() { atx.setTransform(1, 0, 0, 1, 0, 0); atx.clearRect(0, 0, ATLAS, ATLAS); ax = ay = arow = 0; textCache.clear(); }
   function alloc(w, h) {
     w = Math.ceil(w) + 2; h = Math.ceil(h) + 2;
@@ -522,7 +522,9 @@
     const key = (weight || '800') + '|' + size + '|' + col + '|' + s;
     let t = textCache.get(key);
     if (!t) {
-      if (textBudget <= 0) return;
+      // 2.4: at least one new string a frame, and more while the frame has used under 6 ms. A fast phone gets the whole
+      // title in its first frame; a slow one still spreads it out (the title buttons were blank for 2.5 s on a slow load)
+      if (textBudget <= 0 && performance.now() - frameT0 > 6) return;
       textBudget--;
       const font = (weight || '800') + ' ' + size + 'px ' + FONT, pad = Math.ceil(size * 0.25);
       atx.setTransform(1, 0, 0, 1, 0, 0); atx.font = font;
@@ -908,7 +910,7 @@
     if (!isActive() && !paused && now - last < 30) { requestAnimationFrame(frame); return; }
     frames++;
     const dt = Math.min(0.05, (now - last) / 1000);
-    last = now; textBudget = 1; spriteBudget = 2;
+    last = now; textBudget = 1; spriteBudget = 2; frameT0 = performance.now();
     update(dt);
     btns = { mute: btns.mute };
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
