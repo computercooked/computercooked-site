@@ -269,7 +269,7 @@
   const cv = $('board'), ctx = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, cs = 40, ox = 0, oy = 0;
   let L = null;          // current level { mode, idx, cols, rows, grid, lives, bonks, start, total, done }
-  let anims = [], parts = [], shake = 0, flash = 0, cursor = -1, combo = 0, lastClearAt = 0, crashTimer = 0;
+  let anims = [], parts = [], pops = [], lastActAt = 0, shake = 0, flash = 0, cursor = -1, combo = 0, lastClearAt = 0, crashTimer = 0;
   let paused = false, ui = 'title';
   let level = Math.min(LEVELS - 1, store.get('level', 0));
   const stars = store.get('stars', {});
@@ -292,7 +292,7 @@
       total++;
     });
     L = { mode, idx, removed: 0, cols: spec.cols, rows: spec.rows, grid: spec.grid, pieces, keyGone: !pieces.some((pc) => pc.key), lives: mode === 'daily' ? Infinity : LIVES, bonks: 0, start: performance.now(), total, done: false };
-    anims = []; parts = []; combo = 0; cursor = -1; L.bornAt = performance.now();
+    anims = []; parts = []; pops = []; combo = 0; cursor = -1; L.bornAt = performance.now(); lastActAt = L.bornAt;
     hideAll(); ui = 'play';
     layout(); hud();
     const world = WORLDS[Math.floor(idx / 10)];
@@ -349,7 +349,7 @@
     if (!L || L.done || paused) return;
     const pc = L.grid[c];
     if (!pc || anims.some((a) => a.ic === pc)) return;
-    audio();
+    audio(); lastActAt = performance.now();
     if (pc.wall) { pc.wob = 1; sfx.nope(); caption(`<em>${esc(pc.name)}</em> is a system file. it lives here now.`); return; }
     if (pc.locked && !L.keyGone) { pc.wob = 1; sfx.nope(); caption('locked. get <em>admin.key</em> off the desktop first.'); return; }
     const dir = dirOf(pc, L.removed);
@@ -361,6 +361,7 @@
       L.bonks++; combo = 0;
       if (L.mode !== 'daily') L.lives--;
       sfx.bonk(); shake = 9; flash = 1; vibrate(60);
+      { const [px, py] = cellXY(x, y); pop(px, py - cs * 0.35, L.mode === 'daily' ? 'bonk' : 'bonk -1', '#B59AFF'); }
       setCrash(L.lives <= 0 ? 'cooked' : 'hit', L.lives <= 0 ? 0 : 700);
       caption(pickLine(LINES.bonk, blocker ? blocker.name : ''));
       hud();
@@ -376,6 +377,7 @@
     L.removed++;
     for (const q of L.pieces) if (q.spin && !q.gone) q.turn = 1;
     sfx.whoosh(1 + Math.min(combo, 8) * 0.07); vibrate(12);
+    if (combo >= 1) { const [px, py] = cellXY(x, y); pop(px, py, 'x' + (combo + 1), combo >= 3 ? '#ffd84a' : '#C5FF49'); }
     if (pc.key) {
       L.keyGone = true; sfx.unlock();
       for (const q of L.pieces) if (q.locked && !q.gone) { q.wob = 1; const [qx, qy] = cellXY(...center(q)); spark(qx, qy, '#ffd84a', 10); }
@@ -642,6 +644,17 @@
       }
       g.globalAlpha = 1;
     }
+    // floating text (streaks, bonks)
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const p of pops) { const t = 1 - p.life; g.globalAlpha = Math.min(1, p.life * 2.5); g.font = `900 ${Math.round(Math.max(14, cs * 0.32) * (1 + 0.25 * Math.max(0, 1 - t * 5)))}px ui-monospace, Menlo, Consolas, monospace`;
+      g.lineWidth = 4; g.strokeStyle = '#101114'; g.strokeText(p.text, p.x, p.y - t * cs * 0.6); g.fillStyle = p.col; g.fillText(p.text, p.x, p.y - t * cs * 0.6); }
+    g.globalAlpha = 1; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    // idle hint on the first desktops: after a few quiet seconds, pulse one icon that is free to go
+    if (L.mode === 'level' && L.idx < 3 && !L.done && !paused && !anims.length && now - lastActAt > 5000) {
+      const hp = L.pieces.find((pc) => !pc.gone && movable(pc, L.keyGone) && !block(L.grid, L.cols, L.rows, pc, dirOf(pc, L.removed)).k);
+      if (hp) { const [hx, hy] = cellXY(...center(hp)), k = 0.5 + 0.5 * Math.sin(now / 180), hw = hp.w * cs - 6 + k * 6, hh = hp.h * cs - 6 + k * 6;
+        g.strokeStyle = `rgba(197,255,73,${0.35 + 0.5 * k})`; g.lineWidth = 3; g.setLineDash([7, 5]); g.strokeRect(hx - hw / 2, hy - hh / 2, hw, hh); g.setLineDash([]); }
+    }
     // particles
     for (const p of parts) { g.globalAlpha = Math.max(0, p.life); g.fillStyle = p.col; g.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); }
     g.globalAlpha = 1;
@@ -669,7 +682,10 @@
     anims = anims.filter((a) => !a.dead);
     for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.0009 * dt; p.life -= dt / p.ttl; }
     parts = parts.filter((p) => p.life > 0);
+    for (const p of pops) p.life -= dt / 700;
+    pops = pops.filter((p) => p.life > 0);
   }
+  function pop(x, y, text, col) { pops.push({ x, y, text, col, life: 1 }); if (pops.length > 8) pops.shift(); }
   function spark(x, y, col, n) {
     for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = 0.05 + Math.random() * 0.2; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.08, s: 3 + Math.random() * 4, col, life: 1, ttl: 420 + Math.random() * 300 }); }
   }
@@ -726,6 +742,8 @@
     hideAll(); ui = 'title'; L = null; paused = false; setGain();
     $('title').classList.add('on');
     $('bPlay').textContent = level > 0 ? `play · level ${level + 1}` : 'play';
+    const got = Object.values(stars).reduce((a, b) => a + (+b || 0), 0), w = WORLDS[Math.floor(level / 10)];
+    $('prog').innerHTML = got ? `&#9733; <b>${got}</b>/${LEVELS * 3} stars · next up: ${esc(w ? w.name : '')}` : 'clear desktops, earn stars, unlock 5 worlds.';
     const done = store.get('daily2-' + dayNo(), null);
     $('bDaily').textContent = done ? `daily #${dayNo()} ✓` : `daily desktop #${dayNo()}`;
     $('bSpooky').classList.toggle('on', spooky);
