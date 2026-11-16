@@ -113,13 +113,13 @@
     "#pov .leave:hover{background:var(--lime);color:#101114}#pov .leave kbd{margin:0 0 0 6px}",
     // the bottom: vitals rows over the hotbar
     "#pov .bottom{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}",
-    "#pov .vit{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:24px;row-gap:2px;width:100%;justify-content:space-between}",
+    "#pov .vit{display:grid;grid-template-columns:auto auto;column-gap:24px;row-gap:2px;width:100%;justify-content:space-between}",
     "#pov .vrow{display:flex;gap:0;height:clamp(26px,3.8vh,40px);align-items:center}#pov .vrow.r{flex-direction:row-reverse}",
     "#pov .vrow b{font:800 clamp(18px,3vh,26px)/1 system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#fff;text-shadow:2px 2px 0 #000;margin:0 8px;min-width:3em;padding:2px 6px;text-align:center}#pov .vrow.low b{background:#c8233a;text-shadow:none}",
     "#pov .vrow i{width:clamp(26px,3.8vh,40px);height:clamp(26px,3.8vh,40px);background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}", // K-0033: big enough to read at a glance
     "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
     "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
-    "#pov .vstat{display:flex;gap:4px;justify-content:flex-end;align-items:center;min-height:16px;font:700 11px/1 var(--mono,monospace);color:#fff;white-space:nowrap;min-width:0;overflow:hidden}#pov .vstat span{background:rgba(16,17,20,.78);padding:2px 5px;box-shadow:0 0 0 1px var(--px);flex:none}#pov .vstat span i{font-style:normal}@media(max-width:700px){#pov .vstat.many span i{display:none}}#pov .vstat span.bad{color:#ffb3bd}#pov .vstat span.good{color:#c5ff49}",
+    "#pov .vstat{display:flex;gap:4px;justify-content:flex-end;align-items:center;min-height:16px;font:700 11px/1 var(--mono,monospace);color:#fff;white-space:nowrap;width:0;min-width:100%;overflow:hidden}#pov .vstat span{background:rgba(16,17,20,.78);padding:2px 5px;box-shadow:0 0 0 1px var(--px);flex:none}#pov .vstat span i{font-style:normal}#pov .vstat.many span i{display:none}#pov .vstat span.bad{color:#ffb3bd}#pov .vstat span.good{color:#c5ff49}",
     "#pov .you .st{display:flex;gap:8px;align-items:flex-start;margin:0 0 6px;font-size:12px;line-height:1.35}#pov .you .st b{white-space:nowrap}#pov .you .st.bad b{color:#ffb3bd}#pov .you .st.good b{color:#c5ff49}",
     "#pov .sk{display:grid;grid-template-columns:22px 74px 1fr 34px;gap:6px;align-items:center;font-size:12px;margin:3px 0}#pov .sk .bar{height:8px;background:rgba(255,255,255,.1);box-shadow:0 0 0 1px var(--px)}#pov .sk .bar b{display:block;height:100%;background:var(--lime)}#pov .sk em{font-style:normal;text-align:right;opacity:.85}#pov .sk.zero{opacity:.55}",
     "#pov .you .tally{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;opacity:.9}",
@@ -866,7 +866,7 @@
       if (SB.Ext) SB.Ext.vitals(game, c).forEach(function (v, vi) { sts.push({ k: "x" + vi, e: v.icon || "", label: v.text, bad: !!v.bad, tip: v.tip || "" }); });
       var sk = sts.map(function (x) { return x.k + x.label; }).join("|");
       vrow("water", 1 - bd.thirst, "water", bd.thirst > 0.72);
-      if (sk !== hud.statKey) { hud.statKey = sk; hud.stat.innerHTML = sts.filter(function (x) { return x.k !== "thirst"; }).map(function (x) { return "<span class='" + (x.bad ? "bad" : "good") + "' title='" + esc(x.tip) + "'>" + x.e + "<i> " + x.label + "</i></span>"; }).join(""); hud.stat.classList.toggle("many", hud.stat.children.length > 2); } // 4.40: on a narrow screen more than two chips show as icons only (their words pushed the food row off a phone)
+      if (sk !== hud.statKey) { hud.statKey = sk; hud.stat.innerHTML = sts.filter(function (x) { return x.k !== "thirst"; }).map(function (x) { return "<span class='" + (x.bad ? "bad" : "good") + "' title='" + esc(x.tip) + "'>" + x.e + "<i> " + x.label + "</i></span>"; }).join(""); hud.stat.classList.remove("many"); var sw = 0, sk2 = hud.stat.children; for (var si = 0; si < sk2.length; si++) sw += sk2[si].offsetWidth + 4; if (hud.stat.clientWidth > 0 && sw - 4 > hud.stat.clientWidth) hud.stat.classList.add("many"); } // 4.40: the chips take the width of the meters above them and no more (their words pushed the food row off a phone); when they do not fit they show as icons only
     } else hud.rows.water.el.style.display = "none";
     // the screen edge: red when hurt or hunted, blue when freezing
     var g = null, gd = 12;
@@ -972,7 +972,8 @@
       lines.push({ k: k, label: op.label, locked: op.locked });
     });
     if (s.ghost) lines.push({ k: "r", label: "turn it", raw: "<kbd>R</kbd>" });
-    var html = lines.map(function (l) { return "<div class='" + (l.locked ? "lk" : "") + "'>" + (l.raw || (l.locked ? (hud.phone ? "" : "🔒 ") : kc(l.k))) + esc(l.label) + "</div>"; }).join("");
+    // 4.40: on a touch screen the buttons already say all of this, so the list by the crosshair is left out (one text box fewer); the hint stays
+    var html = hud.phone ? "" : lines.map(function (l) { return "<div class='" + (l.locked ? "lk" : "") + "'>" + (l.raw || (l.locked ? (hud.phone ? "" : "🔒 ") : kc(l.k))) + esc(l.label) + "</div>"; }).join("");
     if (o.hint) html += "<div class='lk'>" + esc(o.hint) + "</div>";
     if (hud.promptKey !== html) { hud.promptKey = html; hud.prompt.innerHTML = html; }
     var tn = s.ghost ? SK[s.ghost.kind].label + " (ghost)" : r ? P().label(r) : "", extra = "";

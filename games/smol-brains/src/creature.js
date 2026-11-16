@@ -35,6 +35,7 @@
   C.TALKER_LIFE = 1.4;
   C.HUNGRY_AWAKE = 0.7; // 4.36: this hungry, a smol wakes, will not lie down, and its nose takes over
   C.STARVING = 0.85;
+  C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
   C.PECKISH = 0.5; // 4.40: a smol starts looking for food here (it was 0.6 to 0.65, so a fed island sat half hungry) // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
@@ -1338,7 +1339,10 @@
     if (pop >= room) { if (!a.far) say(a, a.tier >= 3 ? "no room for a baby. we need a hut" : "no room", game); a.eggCooldown = b.eggCooldown = 90; SB.bus.emit("noRoom", { a: a, b: b, room: room }); return; }
     // hard times: when the colony is going hungry, nobody starts a family
     // (and a big colony needs food lying around to raise another: about one bite per smol, more in winter)
-    if (SB.Game.colonyHunger && (SB.Game.colonyHunger(game) > 0.55 || (pop > 6 && SB.Game.foodPerSmol(game) < (game.world.season === 3 ? 1.2 : 0.7)))) { say(a, "not now. hungry", game); return; }
+    // 4.40: hunger alone is not hard times. Smols sleep until hunger wakes them, so an island with food lying everywhere
+    // still averages near 0.5; the old rule (mean hunger over 0.55) stopped pairs on fed islands. Now: hungry AND under
+    // two bites of food each on the ground, or very hungry whatever is lying about
+    if (SB.Game.colonyHunger) { var cH = SB.Game.colonyHunger(game), fPS = SB.Game.foodPerSmol(game); if ((cH > C.HARD_HUNGER && fPS < C.HARD_FOOD) || cH > C.HARD_HUNGER_MAX || (pop > 6 && fPS < (game.world.season === 3 ? 1.2 : 0.7))) { say(a, "not now. hungry", game); return; } }
     if (Math.min(a.tier, b.tier) >= 3 && !payEgg(game, a, b)) { say(a, "not now. hungry", game); return; } // (blobs, critters and tool-users just have them)
     SB.Game.layEgg(game, a, b, (a.x + b.x) / 2, (a.z + b.z) / 2);
     a.chem.love = 0; b.chem.love = 0;
