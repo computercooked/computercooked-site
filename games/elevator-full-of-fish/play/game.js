@@ -93,8 +93,9 @@
   function toggleMute() { muted = !muted; try { localStorage.setItem("eff-muted", muted ? "1" : "0"); } catch (e) {} syncMute(); }
   muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
   muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  let hostMuted = false; // the player page's own sound button (cc-mute)
   function tone(freq, dur, type, vol, slide, delay) {
-    if (muted) return;
+    if (muted || hostMuted) return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === "suspended") actx.resume();
@@ -120,7 +121,7 @@
   const FILES = { snap: "" };
   const fileCache = {};
   function play(name) {
-    const url = FILES[name]; if (!url || muted) return;
+    const url = FILES[name]; if (!url || muted || hostMuted) return;
     try { const a = fileCache[name] || (fileCache[name] = new Audio(url)); a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
   }
 
@@ -152,7 +153,8 @@
   // the crash at the buzzer: shudder, the cables snap, the car drops, the fish fly, a stamp, then the card
   const FAIL = reduce ? 1.2 : 1.7, SNAP = 0.4;
   let failT = 0, failAt = 0, failWhy = "time", fallen = false, snapped = false, flashT = 0;
-  try { best = +localStorage.getItem("eff-best") || 0; } catch (e) {}
+  let bestFloor = 0, prevBestFloor = 0, paused = false, cleanFloors = 0; // 1.4: best floor kept beside the best score; pause (cc-pause / tab hidden)
+  try { best = +localStorage.getItem("eff-best") || 0; bestFloor = +localStorage.getItem("eff-best-floor") || 0; } catch (e) {}
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
   function say(kind, force) { if (force || lineT <= 0.4) { line = pick(LINES[kind]); lineT = 2.2; } }
   function react(f, s) { face = f; faceT = s; }
@@ -180,7 +182,7 @@
   }
 
   function start() {
-    state = "play"; t = 0; floor = 1; score = 0; flung = 0; fish = []; fx = []; overloads = 0; reachedGoal = false; travel = 0;
+    state = "play"; t = 0; floor = 1; score = 0; flung = 0; fish = []; fx = []; overloads = 0; reachedGoal = false; travel = 0; paused = false; cleanFloors = 0;
     phase = "open"; phaseT = 0; overT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
     startAt = performance.now(); say("hello", true); react("happy", 0.6); sfx.ding();
     sdk((c) => c.start && c.start());
@@ -191,6 +193,8 @@
     state = "fail"; failT = 0; failAt = performance.now(); fallen = true; snapped = false; prevBest = best;
     failWhy = weight() > CAP ? "over" : reachedGoal ? "goal" : "time";
     if (score > best) { best = score; try { localStorage.setItem("eff-best", String(best)); } catch (e) {} }
+    prevBestFloor = bestFloor;
+    if (floor > bestFloor) { bestFloor = floor; try { localStorage.setItem("eff-best-floor", String(bestFloor)); } catch (e) {} }
     say("end", true); react(failWhy === "over" ? "shock" : "cooked", 99); sfx.end();
     fish = fish.filter((f) => f.delay <= 0 && !f.out);
     shake = reduce ? 0 : 0.5;
@@ -257,6 +261,14 @@
     for (const e of pool) if (e.d <= bd + 0.2 && (!best || e.f.y > best.f.y)) best = e;
     return best.f;
   }
+  // 1.4: a burst of drops where a fish leaves (or gets slapped); reuses the spark physics
+  function splash(x, y, col, n) {
+    if (reduce) return;
+    for (let i = 0; i < n; i++) {
+      const life = 0.3 + Math.random() * 0.3, a = Math.random() * Math.PI * 2, v = 120 + Math.random() * 260;
+      fx.push({ type: "spark", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 160, life, max: life, col });
+    }
+  }
   function tapFish(f) {
     const k = KINDS[f.kind];
     if (f.kind === "puffer") {
@@ -270,13 +282,17 @@
       return;
     }
     f.hits++;
-    if (f.hits < k.taps) { f.vy = -H * 0.14; f.vx *= 0.3; /* a small hop: the shark stays under the finger */ sfx.slap(); fx.push({ type: "text", x: f.x, y: f.y - 30, s: (k.taps - f.hits) + " more", col: PAPER, life: 0.5, max: 0.5 }); return; }
+    if (f.hits < k.taps) { f.vy = -H * 0.14; f.vx *= 0.3; /* a small hop: the shark stays under the finger */ sfx.slap(); splash(f.x, f.y, PAPER, 5);fx.push({ type: "text", x: f.x, y: f.y - 30, s: (k.taps - f.hits) + " more", col: PAPER, life: 0.5, max: 0.5 }); return; }
     f.out = true; f.outT = 0; f.ox = f.x; f.oy = f.y;
     flung++; score += k.pts; sfx.fling();
     fx.push({ type: "text", x: f.x, y: f.y - 30, s: "+" + k.pts, col: f.kind === "golden" ? "#f6d84a" : LIME2, life: 0.6, max: 0.6 });
+    splash(f.x, f.y, f.kind === "golden" ? "#f6d84a" : f.kind === "shark" ? PAPER : "#8fd3ff", f.kind === "shark" ? 18 : 9);
+    if (!reduce) fx.push({ type: "ring", x: f.x, y: f.y, col: f.kind === "golden" ? "#f6d84a" : LIME2, life: 0.3, max: 0.3 });
+    if (f.kind === "shark" && !reduce) shake = Math.max(shake, 0.22);
     sdkScore(score);
   }
   function press(px, py) {
+    if (paused) { setPause(false); return; }
     if (state === "fail") return; // the crash is playing; the card comes next
     if (state !== "play") { if (state === "over" && performance.now() - endAt < 700) return; start(); return; }
     const f = fishAt(px, py);
@@ -294,13 +310,25 @@
     if (e.key === "m" || e.key === "M") { toggleMute(); return; }
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault(); if (e.repeat) return;
-      if (state !== "play") { press(-1, -1); return; }
+      if (state !== "play" || paused) { press(-1, -1); return; }
       let pickF = null, bd = Infinity;
       for (const f of fish) { if (f.out || f.delay > 0 || f.puffT > 0) continue; const d = Math.abs(f.x - W / 2) + Math.abs(f.y - L.backB); if (d < bd) { bd = d; pickF = f; } }
       if (pickF) tapFish(pickF);
     }
   }
   window.addEventListener("keydown", onKey);
+  // 1.4: the player page's buttons (sound, restart) and its pause when a menu opens; the tab going away pauses too
+  function setPause(on) {
+    if (on && state === "play" && !paused) { paused = true; }
+    else if (!on && paused) { paused = false; last = performance.now(); }
+  }
+  window.addEventListener("message", (e) => {
+    const d = e.data; if (!d || typeof d !== "object") return;
+    if (d.type === "cc-mute") hostMuted = !!d.muted;
+    else if (d.type === "cc-restart") { wake(); start(); }
+    else if (d.type === "cc-pause") setPause(d.paused !== false);
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) setPause(true); });
   try {
     const host = window.parent !== window && window.frameElement ? window.parent : null;
     if (host) host.document.addEventListener("keydown", (e) => {
@@ -355,7 +383,11 @@
       if (phaseT >= 1) { if (weight() > CAP) { phaseT = 0; sfx.over(); say("over"); } else { phase = "close"; phaseT = 0; overT = 0; } }
     } else if (phase === "close") {
       door = Math.max(0, door - dt * 3);
-      if (door <= 0) { phase = "travel"; phaseT = 0; sfx.up(); say("up"); }
+      if (door <= 0) {
+        phase = "travel"; phaseT = 0; sfx.up(); say("up");
+        // 1.4: a reason to clear the car, not just get under the limit
+        if (!fish.some((f) => !f.out)) { cleanFloors++; score += 5; react("happy", 0.8); fx.push({ type: "text", x: W / 2, y: L.backT + L.carH * 0.42, s: "empty car +5", col: LIME2, life: 1, max: 1 }); sdkScore(score); }
+      }
     } else if (phase === "travel") {
       travel += dt;
       if (phaseT >= 0.8) {
@@ -484,7 +516,10 @@
     text(String(score), 14, 22, 22, CASE, "left", 800);
     text("goal: floor " + GOAL + (reachedGoal ? " ✓" : ""), 14, 46, 12, reachedGoal ? LIME2 : "#8a8e80", "left", 700);
     const left = Math.max(0, RIDE - t);
-    text(Math.ceil(left) + "s", W - 14, 64, 14, left < 10 ? BAD : "#c9c4a8", "right", 800);
+    // 1.4: the clock was small and grey under the mute button; bigger, and it pulses in the last 10 s
+    const warnT = left < 10 && state === "play", tsz = warnT && !reduce ? 20 + 3 * Math.abs(Math.sin(time * 6)) : 20;
+    text(Math.ceil(left) + "s", W - 14, 64, tsz, warnT ? BAD : PAPER, "right", 900);
+    text("left", W - 14, 84, 10, "#8a8e80", "right", 700);
     // speech line under the display
     if (lineT > 0 || state === "play") {
       const isWarn = /[A-Z]{4}/.test(line);
@@ -522,7 +557,8 @@
   function drawFx() {
     for (const f of fx) {
       const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k;
-      if (f.type === "spark") { cx.fillStyle = k < 0.4 ? LIME2 : "#ffb340"; cx.fillRect(f.x - 2, f.y - 2, 4, 4); continue; }
+      if (f.type === "spark") { cx.fillStyle = f.col || (k < 0.4 ? LIME2 : "#ffb340"); cx.fillRect(f.x - 2, f.y - 2, 4, 4); continue; }
+      if (f.type === "ring") { const r = 10 + k * 60; cx.strokeStyle = f.col; cx.lineWidth = 3; cx.beginPath(); cx.arc(f.x, f.y, r, 0, Math.PI * 2); cx.stroke(); continue; }
       text(f.s, Math.max(40, Math.min(W - 40, f.x)), f.y - k * 24, f.big ? 26 : 15, f.col, "center", 900); }
     cx.globalAlpha = 1;
   }
@@ -556,11 +592,13 @@
       text("tap fish to fling them out the open doors.", W / 2, mid + s * 0.9 + 10, Math.max(12, Math.min(15, W / 30)), LIME2, "center", 800);
       text("over " + CAP + " kg of fish and the car won't move.", W / 2, mid + s * 0.9 + 34, Math.max(11, Math.min(14, W / 32)), "#ffb340", "center", 700);
       text("tap to press the button", W / 2, Math.min(H - 40, mid + s * 0.9 + 84), 18, LIME, "center", 900);
+      if (best > 0) text("your best: " + best + "  ·  floor " + bestFloor, W / 2, Math.min(H - 16, mid + s * 0.9 + 110), 13, "#c9c4a8", "center", 700);
     } else {
       text(reachedGoal ? "you made it" : failWhy === "over" ? "overloaded" : "out of time", W / 2, mid - big * 1.6, big, reachedGoal ? LIME : BAD, "center", 900);
-      text("floor " + floor, W / 2, mid - big * 0.7, Math.round(big * 0.7), PAPER, "center", 800);
+      const rec = floor > prevBestFloor && prevBestFloor > 0;
+      text("floor " + floor + (rec ? " · record" : ""), W / 2, mid - big * 0.7, Math.round(big * 0.7), rec ? LIME2 : PAPER, "center", 800);
       text(String(score), W / 2, mid + big * 0.35, Math.round(big * 1.3), CASE, "center", 900);
-      text("best " + best + "  ·  " + flung + " fish flung  ·  " + overloads + " overloads", W / 2, mid + big * 1.25, 14, "#c9c4a8", "center", 700);
+      text("best " + best + "  ·  " + flung + " fish flung  ·  " + cleanFloors + " empty cars", W / 2, mid + big * 1.25, 14, "#c9c4a8", "center", 700);
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first ride logged. now beat it.")
         : score === prevBest ? "tied your best. one more floor next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
@@ -628,6 +666,11 @@
     }
     tipY = -1;
     if (state !== "play" && state !== "fail") overlay();
+    if (paused && state === "play") {
+      cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, 0, W, H);
+      text("paused", W / 2, H * 0.42, Math.max(26, Math.min(44, W / 10)), CASE, "center", 900);
+      text("tap or press space to keep going", W / 2, H * 0.42 + 40, 15, LIME, "center", 800);
+    }
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
   }
 
@@ -635,7 +678,7 @@
   let last = performance.now(), frames = 0, awake = false, running = true;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; frames++;
-    update(dt); draw(now / 1000);
+    if (!paused) update(dt); draw(now / 1000);
     if (!awake && state === "title" && frames > 1) { running = false; return; }
     requestAnimationFrame(frame);
   }
@@ -646,5 +689,5 @@
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__eff = { state: () => ({ state, t, floor, score, flung, weight: weight(), phase, overT, door, overloads, reachedGoal, fish: fish.filter((f) => !f.out && f.delay <= 0).map((f) => ({ x: Math.round(f.x), y: Math.round(f.y), kind: f.kind, puff: f.puffT > 0 })) }) };
+  window.__eff = { state: () => ({ state, t, floor, score, flung, weight: weight(), phase, overT, door, overloads, reachedGoal, paused, cleanFloors, bestFloor, fish: fish.filter((f) => !f.out && f.delay <= 0).map((f) => ({ x: Math.round(f.x), y: Math.round(f.y), kind: f.kind, puff: f.puffT > 0 })) }) };
 })();
