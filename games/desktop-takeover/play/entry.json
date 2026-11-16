@@ -7,7 +7,7 @@
   "controls": "drag from your folder to another folder. drag the bin onto theirs.",
   "size_kb": 60,
   "tags": ["strategy", "campaign", "daily"],
-  "version": "1.1.0",
+  "version": "1.2.0",
   "added": "2026-11-09",
   "theme": { "accent": "#b6ff3c", "bg": "#0d1030" },
   "max_score_per_sec": 120,
