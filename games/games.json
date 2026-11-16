@@ -31,6 +31,7 @@
     {
       "slug": "handbag-havoc",
       "clip": "/assets/clips/handbag-havoc.mp4",
+      "poster": "/assets/posters/handbag-havoc.webp",
       "title": "handbag havoc",
       "pitch": "granny on a mobility scooter bowls garden gnomes into each other with her purse. it's self-defence.",
       "thumbnail": "/games/handbag-havoc/cover.png?v=4",
@@ -54,6 +55,7 @@
     {
       "slug": "one-percent-popup",
       "clip": "/assets/clips/one-percent-popup.mp4",
+      "poster": "/assets/posters/one-percent-popup.webp",
       "featured_rank": 2,
       "title": "only 1% can close this pop-up",
       "pitch": "30 fake pop-ups, 5 seconds each. the x runs away. so will your confidence.",
@@ -80,6 +82,7 @@
     {
       "slug": "keyboard-escape",
       "clip": "/assets/clips/keyboard-escape.mp4",
+      "poster": "/assets/posters/keyboard-escape.webp",
       "featured_rank": 3,
       "title": "+1 speed keyboard escape",
       "pitch": "every key is +1 speed. esc is further than you think.",
@@ -106,6 +109,7 @@
     {
       "slug": "desktop-jam",
       "clip": "/assets/clips/desktop-jam.mp4",
+      "poster": "/assets/posters/desktop-jam.webp",
       "title": "desktop jam",
       "pitch": "tap your desktop icons until they leave. final_FINAL_v3.docx is in the way. it always is.",
       "thumbnail": "/games/desktop-jam/cover.png?v=4",
@@ -132,6 +136,7 @@
     {
       "slug": "fathom",
       "clip": "/assets/clips/fathom.mp4",
+      "poster": "/assets/posters/fathom.webp",
       "title": "fathom",
       "pitch": "submarine duel against a computer with opinions. every miss tells you how close you were. decoys lie.",
       "thumbnail": "/games/fathom/cover.png?v=4",
@@ -180,6 +185,7 @@
     {
       "slug": "crash-test-daily",
       "clip": "/assets/clips/crash-test-daily.mp4",
+      "poster": "/assets/posters/crash-test-daily.webp",
       "title": "crash test (daily)",
       "pitch": "a new sliding puzzle every day, the same for everyone. get the hot air out of crash in as few moves as possible, then flex your 🟩🟨🟥 grid.",
       "thumbnail": "/games/crash-test-daily/cover.png?v=4",
@@ -205,6 +211,7 @@
     {
       "slug": "bellchain",
       "clip": "/assets/clips/bellchain.mp4",
+      "poster": "/assets/posters/bellchain.webp",
       "title": "bellchain",
       "pitch": "an idle game that plays actual music. buy a cowbell. then 200 more.",
       "thumbnail": "/games/bellchain/cover.png?v=4",
@@ -228,6 +235,7 @@
     {
       "slug": "level-devil-exe",
       "clip": "/assets/clips/level-devil-exe.mp4",
+      "poster": "/assets/posters/level-devil-exe.webp",
       "featured_rank": 5,
       "title": "level devil.exe",
       "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
@@ -261,6 +269,7 @@
     {
       "slug": "pixel-purge",
       "clip": "/assets/clips/pixel-purge.mp4",
+      "poster": "/assets/posters/pixel-purge.webp",
       "title": "pixel purge",
       "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
       "thumbnail": "/games/pixel-purge/cover.png?v=4",
@@ -293,6 +302,7 @@
     {
       "slug": "crash-cheats",
       "clip": "/assets/clips/crash-cheats.mp4",
+      "poster": "/assets/posters/crash-cheats.webp",
       "featured_rank": 4,
       "title": "crash cheats at tic tac toe",
       "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
@@ -320,6 +330,7 @@
     {
       "slug": "overdue-notice",
       "clip": "/assets/clips/overdue-notice.mp4",
+      "poster": "/assets/posters/overdue-notice.webp",
       "title": "overdue notice",
       "pitch": "smash popups and piggy banks for cash, pay rent and wi-fi before the late fees stack up, and keep the debt collector out. an incremental about being broke.",
       "thumbnail": "/games/overdue-notice/cover.png?v=4",
@@ -346,6 +357,7 @@
     {
       "slug": "plus-one-ram",
       "clip": "/assets/clips/plus-one-ram.mp4",
+      "poster": "/assets/posters/plus-one-ram.webp",
       "title": "+1 ram every second",
       "pitch": "you gain +1 mb every second. eat smaller processes. run from bigger ones. become the kernel.",
       "thumbnail": "/games/plus-one-ram/cover.png?v=4",
@@ -410,6 +422,7 @@
     {
       "slug": "reel-weird",
       "clip": "/assets/clips/reel-weird.mp4",
+      "poster": "/assets/posters/reel-weird.webp",
       "featured_rank": 1,
       "title": "reel weird",
       "pitch": "a 60-second fishing run in a cursed pond. cast far for weirder stuff: a toaster, a shark in sunglasses, the cursed fish. fill the book.",
@@ -444,6 +457,7 @@
     {
       "slug": "haunted-self-checkout",
       "clip": "/assets/clips/haunted-self-checkout.mp4",
+      "poster": "/assets/posters/haunted-self-checkout.webp",
       "title": "haunted self-checkout",
       "pitch": "scan the groceries. never scan the ones with eyes. a 60-second shift at the cursed till.",
       "thumbnail": "/games/haunted-self-checkout/cover.png?v=4",
@@ -469,6 +483,7 @@
     {
       "slug": "cooked-sweeper",
       "clip": "/assets/clips/cooked-sweeper.mp4",
+      "poster": "/assets/posters/cooked-sweeper.webp",
       "title": "cooked sweeper",
       "pitch": "minesweeper.exe has a virus. the numbers are virus power, every virus is a fight, and KERNEL PANIC is waiting.",
       "thumbnail": "/games/cooked-sweeper/cover.png?v=4",
@@ -500,6 +515,7 @@
     {
       "slug": "goose-court",
       "clip": "/assets/clips/goose-court.mp4",
+      "poster": "/assets/posters/goose-court.webp",
       "title": "goose court",
       "pitch": "a goose is on trial. you are the judge. guilty if the beak holds the evidence. the goose has a lawyer.",
       "thumbnail": "/games/goose-court/cover.png?v=4",
@@ -525,6 +541,7 @@
     {
       "slug": "elevator-full-of-fish",
       "clip": "/assets/clips/elevator-full-of-fish.mp4",
+      "poster": "/assets/posters/elevator-full-of-fish.webp",
       "title": "elevator full of fish",
       "pitch": "get to floor 9. at every floor the doors open and fish leap in. fling them out before the car gets too heavy to move.",
       "thumbnail": "/games/elevator-full-of-fish/cover.png?v=4",
@@ -550,6 +567,7 @@
     {
       "slug": "sandwich-tower",
       "clip": "/assets/clips/sandwich-tower.mp4",
+      "poster": "/assets/posters/sandwich-tower.webp",
       "title": "sandwich tower",
       "pitch": "the computer is cooking. tap to drop each ingredient on the stack. whatever hangs over gets sliced off. the fridge sometimes hands over a sock.",
       "thumbnail": "/games/sandwich-tower/cover.png?v=4",
@@ -575,6 +593,7 @@
     {
       "slug": "microwave-panic",
       "clip": "/assets/clips/microwave-panic.mp4",
+      "poster": "/assets/posters/microwave-panic.webp",
       "title": "microwave panic",
       "pitch": "the computer is a microwave now. hold to cook, let go when it's done. read the popcorn, the egg, the burrito. never microwave the fork.",
       "thumbnail": "/games/microwave-panic/cover.png?v=4",
@@ -600,6 +619,7 @@
     {
       "slug": "ant-farm",
       "clip": "/assets/clips/ant-farm.mp4",
+      "poster": "/assets/posters/ant-farm.webp",
       "title": "ant farm",
       "pitch": "a glass ant farm on your screen. drop crumbs, plan tunnels, raise a colony that digs itself deeper. watch out for the kid with the magnifying glass.",
       "thumbnail": "/games/ant-farm/cover.png?v=1",
@@ -696,6 +716,7 @@
     {
       "slug": "thin-ice",
       "clip": "/assets/clips/thin-ice.mp4",
+      "poster": "/assets/posters/thin-ice.webp",
       "title": "thin ice",
       "pitch": "cozy ice fishing under the aurora. fight the fish, fill the bucket, and haul it to shore before the ice gives out.",
       "thumbnail": "/games/thin-ice/cover.png?v=1",
@@ -785,6 +806,7 @@
     {
       "slug": "prove-youre-human",
       "clip": "/assets/clips/prove-youre-human.mp4",
+      "poster": "/assets/posters/prove-youre-human.webp",
       "title": "prove you're human",
       "pitch": "the arcade's security computer got cooked and now it thinks you're a bot. pass its absurd captchas, but not too perfectly: humans hesitate.",
       "thumbnail": "/games/prove-youre-human/cover.png?v=1",
@@ -838,6 +860,7 @@
     {
       "slug": "desktop-takeover",
       "clip": "/assets/clips/desktop-takeover.mp4",
+      "poster": "/assets/posters/desktop-takeover.webp",
       "title": "desktop takeover",
       "pitch": "you're a rogue folder. drag cursors at other folders and take the whole desktop from the bot programs. you get to empty the bin on them once.",
       "thumbnail": "/games/desktop-takeover/cover.png?v=1",

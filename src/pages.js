@@ -6,7 +6,7 @@ import { ensureSchema, games as catalogOf } from "./db.js";
 import { themeAttr, now, dayOf, REAL } from "./util.js";
 import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
-import { vibesOf } from "./seo.js";
+import { vibesOf, gamesItemList } from "./seo.js";
 import { champsData } from "./champs.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -152,7 +152,9 @@ export async function homePage(req, env, url) {
     // K-0062: a game on "just cooked" isn't repeated on the shelf right under it (it read as a duplicate link)
     const onNew = new Set(fresh.map((g) => g.slug));
     const rest = order.filter((g) => !onNew.has(g.slug));
-    rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
+    // structured data: every game as an ItemList (src/seo.js; the static page keeps its WebSite + Organization block)
+    rw.on("head", { element(e) { e.append(gamesItemList(order), { html: true }); } })
+      .on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
       .on("#home-shelf", { element(e) { e.setInnerContent((rest.length ? rest : order).map((g) => card2(g)).join(""), { html: true }); } });
     // pick a mood: each tile gets three covers and its count (the cover strip's height is reserved, so nothing moves)
     let mood = [];

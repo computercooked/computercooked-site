@@ -129,35 +129,77 @@
   }
 
   // ---------------------------------------------------------------- boot-in
-  // only what is still below the fold: nothing already on screen ever blinks out
+  // only what is still below the fold: nothing already on screen ever blinks out.
+  // Launch fix (home showed big black gaps under the desk): a booted block used to wait for the observer to see it 6% *inside*
+  // the screen, then for an animation frame, then for a stagger of up to 440ms. Anything that broke that chain left it at
+  // opacity 0 for good: a renderer that wasn't painting frames (rAF never ran), a fast fling or an anchor jump that skipped
+  // a block between two observer checks, or cards in a sideways strip that never "intersect" until you swipe. Now:
+  //  - it powers on in the observer callback itself (no frame needed), a little *before* it scrolls in (+12% margin);
+  //  - a cheap sweep on scroll, and on a slow timer, shows anything that is on screen or already above it, whatever the
+  //    observer did (it reads positions only; it stops once nothing is waiting);
+  //  - if anything here throws, every block is shown.
   if (!("IntersectionObserver" in window)) return;
-  var queue = [], flushing = false;
-  var io = new IntersectionObserver(function (list) {
-    list.forEach(function (en) { if (en.isIntersecting) { io.unobserve(en.target); queue.push(en.target); } });
-    if (!flushing) { flushing = true; requestAnimationFrame(flush); }
-  }, { rootMargin: "0px 0px -6% 0px" });
-  function flush() {
-    queue.forEach(function (el, k) {
-      el.style.transitionDelay = Math.min(k, 8) * 55 + "ms";
+  var waiting = [], sweepT = 0, tickT = 0;
+  function show(list) {
+    list.forEach(function (el, k) {
+      var at = waiting.indexOf(el);
+      if (at < 0) return;
+      waiting.splice(at, 1);
+      io.unobserve(el);
+      var d = Math.min(k, 6) * 40;
+      el.style.transitionDelay = d + "ms";
       el.classList.add("cc-in");
-      setTimeout(function () { el.classList.remove("cc-boot", "cc-in"); el.style.transitionDelay = ""; }, 700 + Math.min(k, 8) * 55);
+      setTimeout(function () { el.classList.remove("cc-boot", "cc-in"); el.style.transitionDelay = ""; }, 600 + d);
     });
-    queue = []; flushing = false;
+    if (!waiting.length) { removeEventListener("scroll", soon); clearInterval(tickT); tickT = 0; }
+  }
+  var io = new IntersectionObserver(function (list) {
+    var hit = [];
+    list.forEach(function (en) {
+      var r = en.rootBounds, bottom = r ? r.bottom : innerHeight;
+      if (en.isIntersecting || en.boundingClientRect.top < bottom) hit.push(en.target);
+    });
+    if (hit.length) show(hit);
+  }, { rootMargin: "0px 0px 12% 0px" });
+  function sweep() {
+    sweepT = 0;
+    var line = innerHeight * 1.1, hit = [];
+    for (var i = 0; i < waiting.length; i++) {
+      var el = waiting[i];
+      if (!el.isConnected || el.getBoundingClientRect().top < line) hit.push(el);
+    }
+    if (hit.length) show(hit);
+  }
+  function soon() { if (!sweepT) sweepT = setTimeout(sweep, 120); }
+  function arm() {
+    if (tickT) return;
+    addEventListener("scroll", soon, { passive: true });
+    tickT = setInterval(sweep, 1500);
+  }
+  function release() { // the escape hatch: show everything, stop watching
+    waiting.slice().forEach(function (el) { el.classList.remove("cc-boot", "cc-in"); el.style.transitionDelay = ""; });
+    waiting = []; try { io.disconnect(); } catch (e) {}
+    removeEventListener("scroll", soon); clearInterval(tickT); tickT = 0;
   }
   function watch(root) {
-    var vh = innerHeight;
-    (root.querySelectorAll ? root.querySelectorAll(REVEAL) : []).forEach(function (el) {
-      if (el.dataset.ccSeen) return;
-      el.dataset.ccSeen = "1";
-      if (el.getBoundingClientRect().top < vh) return;
-      el.classList.add("cc-boot");
-      io.observe(el);
-    });
+    try {
+      var vh = innerHeight;
+      (root.querySelectorAll ? root.querySelectorAll(REVEAL) : []).forEach(function (el) {
+        if (el.dataset.ccSeen) return;
+        el.dataset.ccSeen = "1";
+        if (el.getBoundingClientRect().top < vh * 1.05) return;
+        el.classList.add("cc-boot");
+        waiting.push(el);
+        io.observe(el);
+      });
+      if (waiting.length) arm();
+    } catch (e) { release(); }
   }
   watch(document);
   // hub, lab and profile fill in cards after load
   new MutationObserver(function (ms) {
     ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) watch(n.parentNode || n); }); });
   }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  addEventListener("pagehide", release);
   }
 })();
