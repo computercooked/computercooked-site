@@ -923,10 +923,10 @@ if (admin) {
   // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
   const logHtml = await (await get("/log/")).text();
   ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
-  // the wall of epic gamers: served by the Worker, with the list (or its empty state) in place
+  // the wall of epic gamers: served by the Worker, with the plaques (or its empty state) in place
   const champs = await get("/champs/");
   const champsHtml = await champs.text();
-  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="champ-(card|empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
+  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="(plaque|champ-empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
   // channel surf: the static page with its tv, and the catalogue it reads has clips
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
