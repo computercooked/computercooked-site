@@ -18,6 +18,7 @@ import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { hubPage } from "./hub.js";
+import { collectionPage, isMood } from "./collections.js";
 import { shortLink } from "./short.js";
 import { champsPage } from "./champs.js";
 import { embedPage } from "./embed.js";
@@ -63,8 +64,12 @@ export default {
     // promo short links: /g/<alias> → the game page, tagged ref=short / utm_medium=short (src/short.js)
     const sl = /^\/g(?:\/([A-Za-z0-9_-]{0,40}))?\/?$/.exec(url.pathname);
     if (sl) return shortLink(env, url, sl[1]);
+    // mood collections (/games/arcade/, /puzzle/, /chill/, /quick/, /rage/): server-rendered pages (src/collections.js).
+    // Without the slash (or with index.html) they 301 to the slash form; any other word stays a game page (or a 404).
+    const mm = /^\/games\/([a-z]+)(\/index\.html)?$/.exec(url.pathname);
+    if (mm && isMood(mm[1])) return Response.redirect(`${url.origin}/games/${mm[1]}/${url.search}`, 301);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
-    if (gm) return gamePage(req, env, url, gm[1]);
+    if (gm) return (isMood(gm[1]) && (await collectionPage(req, env, url, gm[1]))) || gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe
     const em = /^\/games\/([a-z0-9-]+)\/embed\/?$/.exec(url.pathname);
     if (em) return embedPage(env, url, em[1]);

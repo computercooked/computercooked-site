@@ -16,6 +16,8 @@ let changed = 0;
 const out = xml.replace(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g, (all, loc, old) => {
   const path = loc.replace(SITE, "");
   const files = path === "/" ? ["index.html", "src/pages.js"]
+    // mood collections (/games/arcade/ ...) have no file of their own: src/collections.js draws them from games.json
+    : /^\/games\/(arcade|puzzle|chill|quick|rage)\/$/.test(path) ? ["src/collections.js", "games/games.json"]
     : /^\/games\/[a-z0-9-]+\/$/.test(path) ? ["." + path]
     : path === "/games/" ? ["games/index.html", "games/games.json", "src/hub.js"]
     // Worker-rendered pages: the template changes with its renderer too
