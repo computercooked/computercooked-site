@@ -544,7 +544,7 @@
   // ---------- loop ----------
   let last = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; t += dt; // never step backwards
     if (G) {
       for (let i = 0; i < anim.length; i++) if (!drag || drag.i !== i) anim[i] += (G.st[i] - anim[i]) * Math.min(1, dt * 18);
       if (G.solved) G.solveT += dt;
