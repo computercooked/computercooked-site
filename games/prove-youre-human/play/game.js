@@ -516,6 +516,7 @@
   function untilTomorrow() { const n = new Date(), m = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1) - n.getTime(); const h = Math.floor(m / 36e5), mi = Math.floor((m % 36e5) / 6e4); return `${h}h ${mi}m`; }
   const doneToday = () => S.daily && S.daily.date === dayKey();
 
+  let newBest = false;
   function finish(denied) {
     if (state !== "play") return;
     state = "end"; endRound();
@@ -530,7 +531,7 @@
       ev("daily_complete", { humanity: h, denied: denied ? 1 : 0 }, true);
       ev("streak_day", { streak: S.streak.n }, true);
     }
-    if (mode === "endless") S.bestEndless = Math.max(S.bestEndless || 0, score());
+    newBest = mode === "endless" && passes > 0 && score() > (S.bestEndless || 0); if (mode === "endless") S.bestEndless = Math.max(S.bestEndless || 0, score());
     if (!TEST) sdk((c) => { if (!c.achieve) return; if (denied) c.achieve("bot_detected"); else if (h >= 90) c.achieve("so_human"); if (S.streak.n >= 3) c.achieve("three_days"); });
     save();
     ev("run_end", { humanity: h, rounds: round, mode, denied: denied ? 1 : 0 }, true);
@@ -617,7 +618,7 @@
       ${denied ? "" : `<h2>I am ${h}% human</h2>`}
       <p class="verdict">"${verdict}"</p>
       <div id="cardSlot"></div>
-      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? ` · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : ` · score ${score()}`}</p>
+      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? ` · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : ` · score ${score()}${newBest ? ` · <b class="best">new best!</b>` : S.bestEndless ? ` · best ${S.bestEndless}` : ""}`}</p>
       ${newDiary ? `<div class="diary"><b>NEW DIARY ENTRY · DAY ${newDiary[0]}</b>${newDiary[1]}</div>` : ""}
       <div class="row"><button class="btn go big" id="eShare" type="button">share my humanity</button><button class="btn big" id="eAgain" type="button">${daily ? "play endless" : "again"}</button></div>
       <p class="note" id="eNote" role="status" aria-live="polite"></p>
