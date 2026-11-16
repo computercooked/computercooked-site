@@ -59,7 +59,7 @@ export async function pickFeatured(env, catalog, t = now(), preview = false) {
     best = { game: list[wk % list.length].slug, reason: "fresh out of the oven" };
   }
   const g = catalog.get(best.game);
-  const pick = { week: weekOf(t), game: g.slug, title: g.title, pitch: g.pitch, thumbnail: g.thumbnail, reason: best.reason, basis: "score" in best ? "metrics" : "rotation" };
+  const pick = { week: weekOf(t), game: g.slug, title: g.title, pitch: g.pitch, thumbnail: g.thumbnail, poster: g.poster || null, reason: best.reason, basis: "score" in best ? "metrics" : "rotation" };
   cached = { key, pick };
   return pick;
 }

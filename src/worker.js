@@ -18,6 +18,7 @@ import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { hubPage } from "./hub.js";
+import { shortLink } from "./short.js";
 import { champsPage } from "./champs.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
@@ -59,6 +60,9 @@ export default {
     // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
     const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
     if (dl) return dareLink(env, url, dl[1]);
+    // promo short links: /g/<alias> → the game page, tagged ref=short / utm_medium=short (src/short.js)
+    const sl = /^\/g(?:\/([A-Za-z0-9_-]{0,40}))?\/?$/.exec(url.pathname);
+    if (sl) return shortLink(env, url, sl[1]);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe

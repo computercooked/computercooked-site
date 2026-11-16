@@ -147,6 +147,10 @@
     { name: "bluesky", hint: "computercooked.bsky.social", href: "https://bsky.app/profile/computercooked.bsky.social", ext: true },
     { name: "screen colour", hint: "green, amber, ice or pink. enter flips to the next", tint: true, keys: "theme color colour tint accent skin amber ice pink green dark mode" },
     { name: "keyboard shortcuts", hint: "every key the computer knows (or press ?)", help: true, keys: "hotkeys keys keyboard ?" },
+    // golden gary (assets/golden.js): the count is read when it's picked
+    { name: "golden gary", hint: "he peeks in now and then. catch him for xp", keys: "gold golden cookie secret collectible rare bonus xp catch",
+      get say() { var n = 0; try { n = +(JSON.parse(localStorage.getItem("cc-golden")) || {}).caught || 0; } catch (e) {}
+        return n ? "golden garys caught on this device: " + n + ". he keeps coming back. he doesn’t know why." : "none caught yet. he peeks in from the edge of the screen now and then. click him."; } },
     { name: "help", hint: "list everything", say: "type a page name. tab completes, enter goes, esc leaves. press ? for every shortcut." }
   ];
   /* every game in games.json becomes a "play <title>" command (tags are searchable too) */
@@ -188,7 +192,8 @@
     "hello": "hi. the fans are loud today, sorry.",
     "ls": "home  games  daily  me  regrets/",
     "konami": "up up down down left right left right b a. on the keyboard, not in here.",
-    "cheats": "there is one. it involves a lot of arrow keys."
+    "cheats": "there is one. it involves a lot of arrow keys.",
+    "golden": "a gold gary peeks in from the edge of the screen now and then. click him. he's worth xp. he doesn't know that."
   };
 
   /* ---------- active page ---------- */
@@ -461,6 +466,18 @@
     document.head.appendChild(s);
   }
   function idle() { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 2500 }) : setTimeout(go, 1200); }
+  document.readyState === "complete" ? idle() : addEventListener("load", idle);
+})();
+
+// Golden gary (assets/golden.js): a rare gold gary that peeks in and is worth a little xp. Loaded when idle like the stage,
+// but also under reduced motion (he fades in place there). Never in embeds or game players: the game is the show.
+(function () {
+  if (window.self !== window.top || document.getElementById("game-frame")) return;
+  function go() {
+    var s = document.createElement("script"); s.src = "/assets/golden.js"; s.async = true;
+    document.head.appendChild(s);
+  }
+  function idle() { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 4000 }) : setTimeout(go, 2000); }
   document.readyState === "complete" ? idle() : addEventListener("load", idle);
 })();
 
@@ -1164,7 +1181,7 @@
     var days = {}; (g.days || []).forEach(function (d) { days[d] = 1; });
     var total = (games || []).length;
     return { tried: tried, total: total, runs: Math.max(runs, +g.runs || 0), bests: bests, secs: secs, top: top.slice(0, 3).map(function (x) { return [nm(x[0]), x[1]]; }),
-      longest: longest, xp: xp, level: L, title: title, badges: Object.keys(g.badges || {}).length, days: days };
+      longest: longest, xp: xp, level: L, title: title, badges: Object.keys(g.badges || {}).length, days: days, golden: +read("cc-golden", {}).caught || 0 };
   }
   function draw() {
     var s = gather();
@@ -1186,6 +1203,7 @@
       [s.bests, "games with a best"], [s.badges, "badges"], [s.longest ? (Math.floor(s.longest / 60000) + ":" + String(Math.floor(s.longest / 1000) % 60).padStart(2, "0")) : "off", "longest speedrun"]];
     dlg.querySelector(".stats-body").innerHTML =
       '<p class="stats-lvl"><b>level ' + s.level + "</b> " + esc(s.title) + ' <span class="num">' + s.xp + " xp</span></p>" +
+      (s.golden ? '<p class="stats-h">golden garys caught: <span class="num">' + s.golden + "</span></p>" : "") +
       (s.total ? '<div class="stats-bar" role="img" aria-label="' + pct + '% of the games tried"><span style="width:' + pct + '%"></span></div>' : "") +
       '<div class="stats-grid">' + nums.map(function (n) { return '<div><b class="num">' + esc(n[0]) + "</b><span>" + n[1] + "</span></div>"; }).join("") + "</div>" +
       (s.top.length ? '<p class="stats-h">most played</p><ol class="stats-top">' + s.top.map(function (t) { return "<li><span>" + esc(t[0]) + '</span><b class="num">' + span(t[1]) + "</b></li>"; }).join("") + "</ol>" : "") +

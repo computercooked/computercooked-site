@@ -29,30 +29,61 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/games/games.css">
+  <link rel="stylesheet" href="/assets/daily3.css">
 </head>
 <body>
-  <main class="games-page" style="max-width:720px">
+  <main class="games-page dly-page">
     <header class="games-hero">
       <p class="eyebrow">new puzzles every midnight</p>
       <h1 class="games-title">daily 3 <span>(one streak, three games)</span></h1>
     </header>
-    <div class="about-card d3">
-      <p class="d3-streak" id="d3-streak"><b class="num">0</b> day streak</p>
-      <p class="d3-sub" id="d3-sub">play all three once today to keep it going.</p>
-      <ul class="d3-list">
-        <li><a class="d3-card" href="/games/crash-test-daily/" data-d3="crash-test-daily"><img src="/games/crash-test-daily/cover.png" alt="" width="160" height="100"><span class="d3-name">crash test (daily)</span><span class="d3-state" aria-label="not played today">○</span></a></li>
-        <li><a class="d3-card" href="/games/desktop-jam/" data-d3="desktop-jam"><img src="/games/desktop-jam/cover.png" alt="" width="160" height="100"><span class="d3-name">desktop jam</span><span class="d3-state" aria-label="not played today">○</span></a></li>
-        <li><a class="d3-card" href="/games/fathom/" data-d3="fathom"><img src="/games/fathom/cover.png" alt="" width="160" height="100"><span class="d3-name">fathom</span><span class="d3-state" aria-label="not played today">○</span></a></li>
-      </ul>
-      <div class="d3-share"><button class="play-btn" type="button" id="d3-share">share today</button><span id="d3-said" role="status"></span></div>
-      <figure class="d3-card-preview" id="d3-preview" hidden>
-        <img id="d3-preview-img" alt="your daily 3 result card" width="540" height="540">
-        <figcaption><a class="ghost-btn" id="d3-save" download="computer-cooked-daily-3.png" href="#">save image</a> <button class="ghost-btn" type="button" id="d3-copy">copy text</button></figcaption>
+    <section class="about-card dly-board" id="dly-board" aria-labelledby="dly-board-h">
+      <h2 class="dly-sr" id="dly-board-h">today's three</h2>
+      <div class="dly-top">
+        <div class="dly-progress" id="dly-progress" role="img" aria-label="0 of 3 done today"><i></i><i></i><i></i></div>
+        <p class="dly-count" id="dly-count">0 of 3 done</p>
+        <p class="dly-streak" id="dly-streak"><b>0</b> day streak</p>
+      </div>
+      <p class="dly-sub" id="dly-sub">play all three once today to keep it going.</p>
+      <ol class="dly-list">
+        <li><a class="dly-card" href="/games/crash-test-daily/" data-d3="crash-test-daily"><span class="dly-poster"><img src="/assets/posters/crash-test-daily.webp" alt="" width="320" height="180"></span><span class="dly-num" aria-hidden="true">1</span><span class="dly-info"><span class="dly-name">crash test (daily)</span><span class="dly-state">not played yet</span></span><span class="dly-go" aria-hidden="true">play →</span></a></li>
+        <li><a class="dly-card" href="/games/desktop-jam/" data-d3="desktop-jam"><span class="dly-poster"><img src="/assets/posters/desktop-jam.webp" alt="" width="320" height="180"></span><span class="dly-num" aria-hidden="true">2</span><span class="dly-info"><span class="dly-name">desktop jam</span><span class="dly-state">not played yet</span></span><span class="dly-go" aria-hidden="true">play →</span></a></li>
+        <li><a class="dly-card" href="/games/fathom/" data-d3="fathom"><span class="dly-poster"><img src="/assets/posters/fathom.webp" alt="" width="320" height="180"></span><span class="dly-num" aria-hidden="true">3</span><span class="dly-info"><span class="dly-name">fathom</span><span class="dly-state">not played yet</span></span><span class="dly-go" aria-hidden="true">play →</span></a></li>
+      </ol>
+      <div class="dly-foot">
+        <p class="dly-next">new ones in <span class="dly-clock" role="timer" data-dly-clock>--:--:--</span></p>
+        <button class="ghost-btn dly-mini" type="button" id="dly-share-part" hidden>share progress</button>
+      </div>
+    </section>
+    <section class="about-card dly-done" id="dly-done" aria-labelledby="dly-done-h" hidden>
+      <div class="dly-gary">
+        <img src="/assets/mascot-happy.svg" alt="" width="46" height="66">
+        <p class="dly-bubble" id="dly-line">come back tomorrow. i'll be here. melting.</p>
+      </div>
+      <h2 class="dly-done-h" id="dly-done-h">you did today's 3</h2>
+      <dl class="dly-stats">
+        <div><dt>streak</dt><dd id="dly-st-cur">0</dd></div>
+        <div><dt>best streak</dt><dd id="dly-st-best">0</dd></div>
+        <div><dt>days done</dt><dd id="dly-st-days">0</dd></div>
+      </dl>
+      <div class="dly-week-wrap">
+        <p class="dly-week-h">last 7 days</p>
+        <ol class="dly-week" id="dly-week" role="img" aria-label="last 7 days"></ol>
+      </div>
+      <div class="dly-actions">
+        <button class="play-btn dly-share" type="button" id="dly-share">share</button>
+        <button class="ghost-btn" type="button" id="dly-image">make an image</button>
+      </div>
+      <p class="dly-next">new ones in <span class="dly-clock" role="timer" data-dly-clock>--:--:--</span>. come back tomorrow.</p>
+      <figure class="dly-preview" id="dly-preview" hidden>
+        <img id="dly-preview-img" alt="your daily 3 result card" width="540" height="540">
+        <figcaption><a class="ghost-btn" id="dly-save" download="computer-cooked-daily-3.png" href="#">save image</a></figcaption>
       </figure>
-      <p class="d3-note">finish all three today: <b>+60 xp</b>. your streak lives on this device for now.</p>
-    </div>
+    </section>
+    <p class="dly-note">finish all three today: <b>+60 xp</b>. your streak lives on this device for now. miss a day and it starts over. no freezes. the computer is strict.</p>
     <section class="about-card wk" id="d3-week" aria-label="this week's top xp" hidden></section>
   </main>
+  <div class="dly-toast" id="dly-toast" role="status" aria-live="polite"></div>
   <footer class="footer"><p>© 2026 Computer Cooked · <span class="made-by">made by <a href="https://bushgrowth.com/projects">Bush Development &amp; Growth</a></span> · <a href="/about/">about</a> · <a href="/support/">support</a> · <a href="/merch/">merch</a> · <a href="/terms/">terms</a> · <a href="/privacy/">privacy</a></p></footer>
   <nav class="deck" aria-label="main">
     <div class="deck-inner">
@@ -72,46 +103,166 @@
   <script src="/assets/weekly.js" defer></script>
   <script>document.addEventListener("DOMContentLoaded", function () { if (window.ccWeekly) window.ccWeekly(document.getElementById("d3-week")); });</script>
   <script>
+  /* the daily 3 board (assets/daily3.js has the data). Test hook: ?dailydemo=done | half | none shows fake data and
+     writes nothing (share and the image still work, with the fake numbers). */
   (function () {
+    "use strict";
     var d = window.ccDaily3; if (!d) return;
-    var t = d.today(), s = d.streak();
-    document.querySelector("#d3-streak b").textContent = s;
-    var left = d.GAMES.length - t.length;
-    document.getElementById("d3-sub").textContent = left ? left + " to go today. play all three to keep the streak." : "all three done. see you after midnight.";
-    document.querySelectorAll("[data-d3]").forEach(function (a) {
-      var on = t.indexOf(a.getAttribute("data-d3")) >= 0, st = a.querySelector(".d3-state");
-      a.classList.toggle("is-done", on); st.textContent = on ? "✓" : "○"; st.setAttribute("aria-label", on ? "played today" : "not played today");
-    });
-    var said = document.getElementById("d3-said");
-    function copyText() {
-      var text = d.share();
-      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { said.textContent = "copied. paste it anywhere."; }, function () { said.textContent = text; });
+    var $ = function (id) { return document.getElementById(id); };
+    var demo = (/[?&]dailydemo=(done|half|none)(&|$)/.exec(location.search) || [])[1];
+    var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var LINES_DONE = [
+      "come back tomorrow. i'll be here. melting.",
+      "that's all three. go drink some water. i can't.",
+      "new ones at midnight. i'm making them now. it's going badly.",
+      "you did it. i didn't. i'm a computer.",
+      "see you tomorrow. same time. same fan noise.",
+      "three for three. i'm writing this down. on my hard drive. which is melting."
+    ];
+    var LINES_TODO = ["three games. one streak. no pressure. some pressure.", "the streak is watching.", "one down is still one down."];
+    function pick(list) { var k = d.day(), h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0; return list[h % list.length]; }
+    function fmt(n) { return Number(n).toLocaleString("en-US"); }
+    function fake() {
+      var out = { of: 3, week: [], scores: {} };
+      var n = demo === "done" ? 3 : demo === "half" ? 2 : 0;
+      out.done = d.GAMES.slice(0, n);
+      out.streak = demo === "done" ? 4 : 3; out.best = 9; out.days = 23;
+      if (n > 0) out.scores[d.GAMES[0]] = 14;
+      if (n > 1) out.scores[d.GAMES[1]] = 4200;
+      if (n > 2) out.scores[d.GAMES[2]] = 1840;
+      var pat = [3, 1, 3, 3, 3, 3, n];
+      for (var i = 0; i < 7; i++) { var t = new Date(); t.setDate(t.getDate() - 6 + i); out.week.push({ key: d.day(t), n: pat[i] }); }
+      return out;
     }
-    document.getElementById("d3-copy").addEventListener("click", copyText);
-    // the result card (assets/daily-card.js): shared as an image where the browser can, otherwise shown to save
-    document.getElementById("d3-share").addEventListener("click", function () {
-      var text = d.share();
-      if (!window.ccDailyCard) { copyText(); return; }
-      said.textContent = "making your card…";
+    var st, shownDay;
+    function render() {
+      st = demo ? fake() : d.stats();
+      shownDay = d.day();
+      var done = st.done.length, of = st.of, all = done >= of;
+      var bar = $("dly-progress"), sq = bar.querySelectorAll("i");
+      for (var i = 0; i < sq.length; i++) sq[i].classList.toggle("on", i < done);
+      bar.setAttribute("aria-label", done + " of " + of + " done today");
+      $("dly-count").textContent = all ? "all " + of + " done" : done + " of " + of + " done";
+      $("dly-streak").innerHTML = "<b>" + st.streak + "</b> day streak";
+      $("dly-sub").textContent = all ? "that's today. see you after midnight."
+        : done ? (of - done) + " to go. " + pick(LINES_TODO)
+        : st.streak ? st.streak + "-day streak on the line. play all three today to keep it."
+        : "play all three once today to start a streak.";
+      [].forEach.call(document.querySelectorAll("[data-d3]"), function (a) {
+        var g = a.getAttribute("data-d3"), on = st.done.indexOf(g) >= 0, sc = st.scores[g];
+        a.classList.toggle("is-done", on);
+        a.querySelector(".dly-state").textContent = on ? "✓ done" + (typeof sc === "number" ? " · " + fmt(sc) : "") : "not played yet";
+        a.querySelector(".dly-go").textContent = on ? "again →" : "play →";
+        a.setAttribute("aria-label", a.querySelector(".dly-name").textContent + ": " + (on ? "done today" + (typeof sc === "number" ? ", score " + fmt(sc) : "") : "not played yet"));
+      });
+      $("dly-share-part").hidden = !(done && !all);
+      var box = $("dly-done"), was = !box.hidden;
+      box.hidden = !all;
+      if (all) {
+        $("dly-st-cur").textContent = st.streak;
+        $("dly-st-best").textContent = Math.max(st.best, st.streak);
+        $("dly-st-days").textContent = st.days;
+        $("dly-line").textContent = pick(LINES_DONE);
+        var full = 0, wk = $("dly-week");
+        wk.innerHTML = st.week.map(function (w, j) {
+          var p = w.key.split("-"), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+          var lab = dt.toLocaleDateString("en-US", { weekday: "short" }).toLowerCase().slice(0, 2);
+          if (w.n >= of) full++;
+          return '<li class="' + (w.n >= of ? "is-full" : w.n ? "is-part" : "") + (j === 6 ? " is-today" : "") + '"><i></i><span>' + lab + "</span></li>";
+        }).join("");
+        wk.setAttribute("aria-label", "last 7 days: all three done on " + full + " of 7");
+        if (!was && !reduce) { box.classList.remove("is-new"); void box.offsetWidth; box.classList.add("is-new"); }
+      }
+    }
+    // the clocks: to local midnight (the same reset daily3.js uses for "today"); the board refreshes when the day turns
+    var clocks = [].slice.call(document.querySelectorAll("[data-dly-clock]"));
+    function p2(n) { return (n < 10 ? "0" : "") + n; }
+    function tick() {
+      if (d.day() !== shownDay) render();
+      var s = Math.max(0, Math.floor(d.msToReset() / 1000));
+      var txt = p2(Math.floor(s / 3600)) + ":" + p2(Math.floor(s / 60) % 60) + ":" + p2(s % 60);
+      clocks.forEach(function (c) { c.textContent = txt; c.setAttribute("aria-label", Math.floor(s / 3600) + " hours " + (Math.floor(s / 60) % 60) + " minutes"); });
+    }
+    // posters from games.json ("poster", else "thumbnail"); the page already names the current ones
+    function posters() {
+      if (!window.fetch) return;
+      fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        var list = j && (j.games || j);
+        if (!Array.isArray(list)) return;
+        list.forEach(function (g) {
+          var a = g && document.querySelector('[data-d3="' + g.slug + '"] img'), src = g && (g.poster || g.thumbnail);
+          if (a && src && a.getAttribute("src") !== src) a.src = src;
+        });
+      }).catch(function () {});
+    }
+    [].forEach.call(document.querySelectorAll(".dly-poster img"), function (im) {
+      im.addEventListener("error", function () {
+        var g = im.closest("[data-d3]").getAttribute("data-d3"), fb = "/games/" + g + "/cover.png";
+        if (im.getAttribute("src") !== fb) im.src = fb;
+      });
+    });
+
+    var toastT;
+    function toast(msg) {
+      var t = $("dly-toast");
+      t.textContent = msg; t.classList.add("on");
+      clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove("on"); }, 2600);
+    }
+    function copy(text) {
+      function legacy() {
+        var ta = document.createElement("textarea"), ok = false;
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { ok = document.execCommand("copy"); } catch (e) {}
+        ta.remove();
+        toast(ok ? "copied. paste it anywhere." : "couldn't copy. the computer is sorry.");
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast("copied. paste it anywhere."); }, legacy);
+      else legacy();
+    }
+    // phones get the share sheet; desktops get the clipboard (a share dialog on a desktop is mostly in the way)
+    function share() {
+      var text = d.share({ done: st.done, streak: st.streak });
+      var phone = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+      if (navigator.share && phone) {
+        navigator.share({ text: text }).catch(function (e) { if (!e || e.name !== "AbortError") copy(text); });
+        return;
+      }
+      copy(text);
+    }
+    $("dly-share").addEventListener("click", share);
+    $("dly-share-part").addEventListener("click", share);
+    // the result card as an image (assets/daily-card.js)
+    $("dly-image").addEventListener("click", function () {
+      if (!window.ccDailyCard) { share(); return; }
+      toast("making your card…");
       var date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
-      window.ccDailyCard({ games: d.GAMES, done: d.today(), streak: d.streak(), date: date }).then(function (blob) {
-        if (!blob) { copyText(); return; }
-        var file = new File([blob], "computer-cooked-daily-3.png", { type: "image/png" });
+      window.ccDailyCard({ games: d.GAMES, done: st.done, streak: st.streak, date: date }).then(function (blob) {
+        if (!blob) { toast("couldn't draw it. the share button still works."); return; }
+        var file = window.File ? new File([blob], "computer-cooked-daily-3.png", { type: "image/png" }) : null;
         function preview() {
           var url = URL.createObjectURL(blob);
-          document.getElementById("d3-preview-img").src = url;
-          document.getElementById("d3-save").href = url;
-          document.getElementById("d3-preview").hidden = false;
-          said.textContent = "here's your card. save it, or copy the text.";
+          $("dly-preview-img").src = url;
+          $("dly-save").href = url;
+          $("dly-preview").hidden = false;
+          toast("here's your card.");
         }
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          said.textContent = "";
-          navigator.share({ files: [file], text: text }).catch(function (e) { if (!e || e.name !== "AbortError") preview(); });
+        if (file && navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) {
+          navigator.share({ files: [file], text: d.share({ done: st.done, streak: st.streak }) }).catch(function (e) { if (!e || e.name !== "AbortError") preview(); });
           return;
         }
         preview();
-      }, copyText);
+      }, function () { toast("couldn't draw it. the share button still works."); });
     });
+
+    render();
+    tick();
+    setInterval(tick, 1000);
+    posters();
+    // coming back from a game (back button / tab switch): pick up the new progress
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) { render(); tick(); } });
+    window.addEventListener("pageshow", function (e) { if (e.persisted) { render(); tick(); } });
+    if (demo) toast("demo: fake numbers, nothing saved");
   })();
   </script>
 </body>

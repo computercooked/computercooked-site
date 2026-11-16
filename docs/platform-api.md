@@ -419,9 +419,49 @@ Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the c
 
 `assets/deck.js` adds a Speculation Rules block on every page: resting on or pressing a same-site link prefetches that page (prefetch only, so no page script runs early and nothing is counted). `/api/*`, `/admin/*`, `/d/*`, download and new-tab links are left out; add `data-no-prefetch` to a link to opt it out. Skipped in embeds and under Save-Data. Browsers without the API navigate as before.
 
+## Short links (`/g/<alias>`, for bios and ads)
+
+`computercooked.com/g/<alias>` answers a **302** to the game page (`src/short.js`, `/g` and `/g/*` in `run_worker_first`), cached 5 minutes (`cache-control: public, max-age=300`).
+
+- **Tags:** `ref` and `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` / `utm_term` on the short link are carried over (other params are dropped). `ref=short` is added only when the link has neither `ref` nor `utm_source` (so `/g/goose?ref=tiktok` still counts as `tiktok`), and `utm_medium=short` when no `utm_medium` is given. So every short-link visit shows up in `/api/admin/utm` with medium `short`; a bare `ref=short` lands in the `other` channel bucket (`top_referrers`), since `short` isn't one of the channel tags.
+- **Best for a TikTok bio:** `computercooked.com/g/microwave?ref=tiktok` (channel = tiktok, medium = short). For an ad, add `utm_campaign=<post id>`.
+- `/g/` or `/g` → `/games/`. An unknown alias → `/games/?ref=short&utm_medium=short`. Aliases are case-insensitive; a trailing `/` is fine.
+- Aliases are built from `games.json` on each request: **every full slug**, **the slug without a trailing `-exe` / `-daily`** (`level-devil`, `crash-test`), and the hand map below (an entry is skipped if its game leaves the catalog). A new game gets `/g/<slug>` with no code change; add a short name to `HAND` in `src/short.js`.
+
+| alias | goes to |
+|---|---|
+| `microwave` | microwave-panic |
+| `popup` | one-percent-popup |
+| `keyboard` | keyboard-escape |
+| `goose` | goose-court |
+| `fish`, `elevator` | elevator-full-of-fish |
+| `checkout` | haunted-self-checkout |
+| `devil`, `level-devil` | level-devil-exe |
+| `takeover` | desktop-takeover |
+| `smol` | smol-brains |
+| `handbag`, `granny` | handbag-havoc |
+| `sweeper` | cooked-sweeper |
+| `ants` | ant-farm |
+| `ram` | plus-one-ram |
+| `tabs` | tab-hoarder |
+| `ice` | thin-ice |
+| `human`, `captcha` | prove-youre-human |
+| `sandwich` | sandwich-tower |
+| `bells` | bellchain |
+| `purge` | pixel-purge |
+| `jam` | desktop-jam |
+| `reel` | reel-weird |
+| `overdue` | overdue-notice |
+| `cheats` | crash-cheats |
+| `crash-test` | crash-test-daily |
+| `daily` | `/games/daily/` |
+| `games`, `all` | `/games/` |
+
 ## 404 page picks
 
 `404.html` shows three games "the computer found instead" (`assets/lost.js`, `assets/lost.css`): picked at random from `/games/games.json`, games this device hasn't played first (`cc-history`), cover plus the 3 second clip on hover, links tagged `?ref=404`, and a link to `/surf/`. Hidden without JavaScript; the plain links underneath stay.
+
+Above them, **"catch the missing page"** (`assets/lost-game.js`, deferred, under 8 KB): pixel 4s, 0s and pages fall, the melting computer catches them (+1; a red bug is −2). Mouse, finger or arrow keys on the focused canvas; space / enter starts. 20 second rounds, best kept in localStorage `cc-404-best`, ends on "your page is still lost. but you scored N." No sound, nothing sent, pauses when the tab is hidden, sets `window.ccGameActive` while running so the deck's single-key shortcuts stay quiet. With `prefers-reduced-motion` it's a static "click the 404 to fix it" button instead. Hidden without JavaScript.
 
 ## Channel surf (`/surf/`)
 
