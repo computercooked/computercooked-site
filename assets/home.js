@@ -145,20 +145,57 @@
     });
   }
   document.addEventListener("cc:sfx", function (e) { sfx(e.detail); }); // the game window (below) asks from its own block
-  var POKES = ["ow.", "that's a fan, not a button.", "please. i have 3 tabs open.", "i'm at 98°C, kevin.", "stop. ok one more.", "you're cooking me.", "error: feelings.exe", "i felt that in my ram."];
+  /* Launch: poking the computer escalates (Cookie Clicker rules). Clicks less than 5s apart build a streak: annoyed
+     (1-3), overheating (4-7, the desk glows red), critical (8-11, it wobbles), and at 12 it melts into a puddle and
+     reboots. The lifetime count is the taskbar's "cooked N×" (localStorage "cc-cooked"); round numbers get their own
+     line. Reduced motion: the same lines and faces, no wobble or melt. assets/eggs.js uses window.ccDesk for its own. */
+  var POKES = ["ow.", "that's a fan, not a button.", "please. i have 3 tabs open.", "stop. ok one more.", "error: feelings.exe", "i felt that in my ram."];
+  var HOT = ["i'm at 98°C, kevin.", "you're cooking me.", "my fans are screaming. that's the noise.", "smells like toast in here. it's me.", "thermal paste: gone."];
+  var CRIT = ["CRITICAL. i can see the bios.", "please. i have a family. (a printer.)", "my pixels are sliding off.", "this is how the toaster went."];
+  var MILES = { 10: "10 cooks. that's a habit now.", 25: "25. i've joined a support group.", 50: "50 cooks. achievement unlocked: microwave.", 100: "100. you need a hobby. play a game.",
+    250: "250 cooks. i'm legally soup.", 500: "500. i've made peace with it.", 1000: "1000 cooks. you win. nothing. you win nothing." };
   var IDLE = ["hover a game. i'll show you.", "press surprise me. i dare you.", "click a game. it takes 3 seconds.", "is it hot in here or is it me. it's me."];
-  var cooked = +ls("cc-cooked") || 0, cookedEl = $("#desk-cooked");
+  var cooked = +ls("cc-cooked") || 0, cookedEl = $("#desk-cooked"), streak = 0, streakT = 0, melting = false;
   if (cookedEl) cookedEl.textContent = cooked;
+  function pick(a, n) { return a[n % a.length]; }
+  function calm() { streak = 0; desk.classList.remove("gary-hot", "gary-crit"); }
+  function poked() {
+    cooked++; ls("cc-cooked", String(cooked));
+    if (cookedEl) { cookedEl.textContent = cooked; cookedEl.parentNode.classList.remove("is-bump"); void cookedEl.offsetWidth; cookedEl.parentNode.classList.add("is-bump"); }
+    sfx("poke");
+    if (melting) { say(pick(["i'm busy melting.", "a puddle can't feel. ow.", "please hold."], cooked), 1400); return; }
+    streak++; clearTimeout(streakT); streakT = setTimeout(calm, 5000);
+    var line;
+    if (streak >= 12) { melt(); return; }
+    if (streak >= 8) { heat(18); desk.classList.add("gary-hot", "gary-crit"); line = pick(CRIT, streak); }
+    else if (streak >= 4) { heat(14); desk.classList.add("gary-hot"); line = pick(HOT, streak); }
+    else { heat(9); line = pick(POKES, cooked - 1); }
+    say(MILES[cooked] || line, MILES[cooked] ? 3200 : 1800);
+  }
+  // the meltdown: a puddle, a reboot, a computer that is fine (it is not fine). Also the konami code (assets/eggs.js).
+  function melt(big) {
+    if (melting) return;
+    melting = true; clearTimeout(streakT); calm();
+    heat(30); // first: if that trips the thermal warning, the lines below still win
+    if (pc) pc.react("cooked", 4200);
+    desk.classList.add("gary-melt"); if (big) desk.classList.add("desk-meltdown");
+    say(big ? "FULLY COOKED. this is not a drill. it's a microwave." : "ok. i'm melting. this is on you.", 2600); sfx("off");
+    document.dispatchEvent(new CustomEvent("cc:melt", { detail: big ? "konami" : "poke" }));
+    setTimeout(function () { desk.classList.add("gary-reboot"); say("C:\\COOKED> reboot gary.exe", 1800); }, 2600);
+    setTimeout(function () {
+      desk.classList.remove("gary-melt", "gary-reboot", "desk-meltdown");
+      melting = false; temp = 64; showTemp();
+      if (pc) pc.react("happy", 1800);
+      say(big ? "rebooted. i remember nothing. i remember everything." : "ok. i'm back. i'm fine. i'm not fine.", 3000); sfx("on");
+    }, 4400);
+  }
   function mountPc() {
     if (!window.ccMascot) return;
     pc = window.ccMascot.mount($("#desk-mascot"), { mood: "sad", label: "the computer cooked computer. click it, if you must." });
-    $("#desk-mascot").addEventListener("ccm:cooked", function () {
-      cooked++; ls("cc-cooked", String(cooked));
-      if (cookedEl) cookedEl.textContent = cooked;
-      heat(14);
-      say(POKES[(cooked - 1) % POKES.length], 1800); sfx("poke");
-    });
+    $("#desk-mascot").addEventListener("ccm:cooked", poked);
   }
+  window.ccDesk = { say: say, melt: function () { melt(true); }, react: function (m, ms) { if (pc) pc.react(m, ms); }, sfx: function (n) { sfx(n); },
+    busy: function () { return melting; }, cooked: function () { return cooked; } };
   if (window.ccMascot) mountPc(); else addEventListener("load", mountPc);
   setTimeout(function () { say("hi. please don't click me.", 3200); }, 700);
   var idleN = 0;
@@ -212,14 +249,53 @@
     peek.style.left = Math.max(8, Math.min(desk.clientWidth - 268, r.left - d.left + r.width / 2 - 130)) + "px";
     peek.style.top = Math.max(8, top - peek.offsetHeight - 44) + "px";
     peek.classList.add("on");
-    if (pc) { pc.react("happy", 1600); }
-    if (a.dataset.line) say(a.dataset.line, 2200);
   }
   function hidePeek() { peek.classList.remove("on"); try { pv.pause(); } catch (e) {} }
+  /* Launch: the computer has an opinion on every game you point at (also with reduced motion, as text, and on small
+     screens where the peek window doesn't open). The server's line for the game (data-line) comes first, then these,
+     taking turns; a game with no lines here gets a generic one with its name. */
+  var MORE = {
+    crash: ["it's autobiographical. please be gentle.", "i made this one in a fever. literally."],
+    "level-devil-exe": ["the floor moves. trust nothing. especially me.", "rage quit counter: yes."],
+    "one-percent-popup": ["i made the x button tiny. on purpose.", "close it. i dare you. you can't."],
+    "keyboard-escape": ["the keyboard is faster than you. it's faster than me.", "don't press anything. you'll press something."],
+    "tab-hoarder": ["i have 412 tabs open right now. i'm fine.", "close one tab. ok two. ok none."],
+    "desktop-jam": ["my desktop looks like this. don't look.", "drag the icons. they bite."],
+    fathom: ["deep water. i'm not waterproof.", "it's dark down there. like my fan."],
+    bellchain: ["ding. ding. that's music, apparently.", "my speakers are crying. happily."],
+    "pixel-purge": ["my selfies got corrupted. help.", "purge the pixels. not my pixels."],
+    "crash-cheats": ["i will cheat. i'm telling you now.", "x's and o's and lies."],
+    "overdue-notice": ["the bills are chasing me. relatable.", "pay nothing. smash everything."],
+    "plus-one-ram": ["i feel bloated just looking at it.", "more ram. more problems."],
+    "smol-brains": ["tiny guys. tiny brains. big feelings.", "i'd adopt one. i can't keep a plant alive."],
+    "reel-weird": ["fishing. but the fish fish back.", "the pond has opinions."],
+    "haunted-self-checkout": ["please place the item in the bagging area. please.", "the scanner is haunted. so am i."],
+    "goose-court": ["the goose will win. the goose always wins.", "objection. honk."],
+    "elevator-full-of-fish": ["going up. smells like down.", "fish, but in an elevator. it's art."],
+    "sandwich-tower": ["stack it high. eat it never.", "structural lettuce."],
+    "microwave-panic": ["this one's personal.", "i know what the microwave did."],
+    "cooked-sweeper": ["minesweeper, but i'm the mines.", "click carefully. i'm fragile."],
+    "handbag-havoc": ["granny trains every morning.", "the handbag is a weapon. legally."],
+    "crash-test-daily": ["new every day. like my problems.", "one puzzle. 24 hours. no pressure."],
+    "ant-farm": ["they live in my motherboard now.", "ants. in a computer. on purpose."],
+    "thin-ice": ["crack. that was the ice. or me.", "step lightly. i'm also thin ice."],
+    "prove-youre-human": ["are you human? i'm asking for me.", "click the traffic lights. all of them. forever."],
+    "desktop-takeover": ["this is a hostage situation.", "the desktop is taken. i was in it."]
+  };
+  var GENERIC = ["ooh. %. bold choice.", "% runs great on me. (it doesn't.)", "i've seen %. i'm still not over it.", "click it. i'll wait. i'm always waiting."];
+  var turns = {};
+  function comment(a) {
+    if (spinning || melting) return;
+    var s = a.dataset.slug || "", name = (a.querySelector(".lbl") || a).textContent.replace(/\.exe$/, "");
+    var pool = (a.dataset.line ? [a.dataset.line] : []).concat(MORE[s] || GENERIC.map(function (g) { return g.replace("%", name); }));
+    var n = turns[s] = (turns[s] === undefined ? 0 : turns[s] + 1);
+    if (pc) pc.react("happy", 1600);
+    say(pool[n % pool.length], 2400);
+  }
   icons.forEach(function (a) {
-    a.addEventListener("pointerenter", function () { showPeek(a); });
+    a.addEventListener("pointerenter", function () { showPeek(a); comment(a); });
     a.addEventListener("pointerleave", hidePeek);
-    a.addEventListener("focus", function () { showPeek(a); });
+    a.addEventListener("focus", function () { showPeek(a); comment(a); });
     a.addEventListener("blur", hidePeek);
     a.addEventListener("dragstart", function (e) { e.preventDefault(); });
   });
@@ -428,11 +504,34 @@
     document.addEventListener("visibilitychange", function () { if (!document.hidden && on && !raf) { last = performance.now(); raf = requestAnimationFrame(frame); } });
   })();
 
-  /* ---------- shelf cards: clip on hover, tilt toward the pointer ---------- */
+  /* ---------- shelf cards: clip on hover, tilt toward the pointer ----------
+     Launch: the shared card preview (assets/preview.js, window.ccPreview.attach(root, selector)) plays the clips on the
+     home shelves when it's there; it reads data-slug and data-clip, so each card gets data-clip from the clip the server
+     already put in it (its <video data-src>). Without preview.js (missing, failed, older cache) the code below still
+     plays them as before. Cards whose game has a "poster" in games.json show it instead of the cover. */
   var cards = [].slice.call(document.querySelectorAll(".card2"));
+  var shared = false;
+  cards.forEach(function (c) { var v = c.querySelector("video[data-src]"); if (v && !c.dataset.clip) c.dataset.clip = v.dataset.src; });
+  try {
+    if (window.ccPreview && typeof window.ccPreview.attach === "function") {
+      ["home-shelf", "home-new", "desk-strip"].forEach(function (id) { var r = document.getElementById(id); if (r) window.ccPreview.attach(r, ".card2"); });
+      shared = true;
+    }
+  } catch (e) { shared = false; }
+  if (window.fetch) (window.ccGamesJson = window.ccGamesJson || fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }))
+    .then(function (d) {
+      var by = {};
+      ((d && d.games) || []).forEach(function (g) { if (g && g.slug) by[g.slug] = g; });
+      cards.forEach(function (c) {
+        var g = by[c.dataset.slug], img = c.querySelector(".thumb img");
+        if (!g) return;
+        if (g.clip && !c.dataset.clip) c.dataset.clip = g.clip;
+        if (img && g.poster && /^\/[^\s"'<>]*$/.test(g.poster) && img.getAttribute("src") !== g.poster) img.src = g.poster;
+      });
+    }).catch(function () {});
   function play(card, on) {
     var v = card.querySelector("video");
-    if (!v || reduce) return;
+    if (!v || reduce || shared) return;
     if (on) { if (!v.src) v.src = v.dataset.src; card.classList.add("is-playing"); v.play().catch(function () {}); }
     else { card.classList.remove("is-playing"); try { v.pause(); } catch (e) {} }
   }
@@ -512,7 +611,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
     arm();
   }
   function start() {
-    fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
+    (window.ccGamesJson || fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })).then(function (d) {
       var games = ((d && d.games) || []).filter(function (g) { return g && g.slug && g.title && g.clip; });
       var head = games.filter(function (g) { return g.slug === first; }), rest = games.filter(function (g) { return g.slug !== first; });
       for (var i = rest.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = rest[i]; rest[i] = rest[j]; rest[j] = t; }
@@ -649,7 +748,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
   function start() {
     if (box) return;
     if (games) { run(games); return; }
-    fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
+    (window.ccGamesJson || fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })).then(function (d) {
       games = ((d && d.games) || []).filter(function (g) { return g && g.slug && g.title && g.thumbnail; });
       if (!busy() || document.querySelector(".saver")) run(games);
     }).catch(function () { arm(); });
