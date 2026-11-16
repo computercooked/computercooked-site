@@ -669,6 +669,19 @@
       ctx.globalAlpha = a; ctx.fillStyle = C.lime; ctx.font = `800 ${Math.round(16 * s)}px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillText(ZONES[zi + 1].name + ' →', vw - 14, vh / 2); ctx.globalAlpha = 1;
     }
+    // v1.1: hunters you can't see yet get a red marker on the screen edge
+    if (!R.dead) {
+      const z = R.cam.z, m = 22;
+      for (const c of R.creatures) {
+        if (c.dead || !(c.chase > 0) || c.v <= p.v * BIG) continue;
+        const sx = vw / 2 + (c.x - R.cam.x) * z, sy = vh / 2 + (c.y - R.cam.y) * z, cr = c.r * z;
+        if (sx > -cr && sx < vw + cr && sy > -cr && sy < vh + cr) continue;
+        const ex = clamp(sx, m, vw - m), ey = clamp(sy, m + 40 * s, vh - m), a = Math.atan2(sy - vh / 2, sx - vw / 2);
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.globalAlpha = 0.8 + 0.2 * Math.sin(R.t * 10);
+        ctx.fillStyle = C.red; ctx.strokeStyle = C.paper; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-10, -13); ctx.lineTo(-10, 13); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore(); ctx.globalAlpha = 1;
+      }
+    }
     // banner
     if (R.banner) {
       const b = R.banner; ctx.globalAlpha = Math.min(1, b.t * 2);
