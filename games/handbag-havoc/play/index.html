@@ -88,6 +88,15 @@
   #toast.show { opacity: 1; }
   #safe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
   @media (max-height: 560px) { .panel { padding: 14px 16px 12px; } .how { margin: 4px auto 8px; } .tag { margin-top: 8px; } }
+  /* review16r2: the player frame on a phone is ~430-590 px tall; keep "one more run" and the menu row on screen without scrolling */
+  @media (max-height: 640px) {
+    #summary .share, #summary .credit { display: none; }
+    #summary .sum-sub { margin: 4px 0 6px; font-size: 13px; }
+    #summary .squares { margin: 2px 0 4px; } #summary .sq { width: 20px; height: 20px; }
+    #summary .stats { margin: 6px 0; gap: 6px; } #summary .stat { padding: 7px 6px; } #summary .stat .v { font-size: 20px; }
+    #summary .btn.big { padding: 11px 24px; min-height: 46px; }
+    #upgrade .up-title { margin-bottom: 8px; }
+  }
   @media (prefers-reduced-motion: reduce) { .card, .stat .nb { animation: none; } .btn, .card { transition: none; } }
 </style>
 <script src="/games/cc-sdk.js"></script>

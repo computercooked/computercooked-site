@@ -6,7 +6,7 @@
   "made_by": "computer-cooked",
   "controls": "wasd / arrows or drag anywhere to steer. turn hard to power up the purse. 1 2 3 picks upgrades. r restart, p pause, m mute.",
   "size_kb": 119,
-  "version": "1.2",
+  "version": "1.3",
   "max_score_per_sec": 12,
   "tags": [
     "arcade",

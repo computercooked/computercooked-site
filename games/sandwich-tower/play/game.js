@@ -218,7 +218,7 @@
       if (combo >= 3) { const g = Math.min(BASEW - nw, BASEW * 0.06); nw += g; nx -= g / 2; }
       score += 1 + Math.min(5, combo); sfx.perfect(combo); say("perfect"); react("happy", 0.6);
       crumble(nx, y, nw, LIME2, combo >= 3 ? 22 : 12); flashT = 0.18;
-      fx.push({ s: combo >= 3 ? "perfect x" + combo + (combo >= 3 ? " · grows" : "") : "perfect" + (combo > 1 ? " x" + combo : ""), x: tp.x + tp.w / 2, y: y - 10, col: LIME2, life: 0.9, max: 0.9, world: true });
+      fx.push({ s: combo >= 3 ? "perfect x" + combo + " · grows" : "perfect" + (combo > 1 ? " x" + combo : ""), x: tp.x + tp.w / 2, y: y - 14, col: LIME2, life: 1.1, max: 1.1, world: true, size: combo >= 3 ? 20 : 18 });
     } else {
       combo = 0; score += 1; sfx.slice(); sfx.plop();
       const cut = m.w - ov;
@@ -282,7 +282,9 @@
   } catch (e) { /* another origin: keys reach the game once it has focus */ }
 
   // ---------- update ----------
-  const targetCam = () => Math.max(H - 70 * U, H * 0.6 - topY());
+  // review16r2: the plate used to sit at the very bottom, leaving a big empty wall between the chef and the stack for
+  // the first layers. It now starts two thirds of the way down (the counter fills the rest) and climbs as before.
+  const targetCam = () => Math.max(Math.min(H - 70 * U, H * 0.66), H * 0.52 - topY());
   function update(dt) {
     lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flashT = Math.max(0, flashT - dt);
     for (const c of crumbs) { c.life -= dt; c.vy += H * 1.8 * dt; c.x += c.vx * dt; c.y += c.vy * dt; }
@@ -374,6 +376,9 @@
     if (plateY < H + 40) {
       cx.fillStyle = "#3b2a1c"; cx.fillRect(0, plateY + 10, W, H);
       cx.fillStyle = "#5a4029"; cx.fillRect(0, plateY + 10, W, 6);
+      // review16r2: cupboard doors under the counter, so the bigger counter reads as a kitchen, not a brown block
+      if (H - plateY > 90) { const dw = W / Math.max(2, Math.round(W / 150)), dy = plateY + 34, dh = Math.min(H - dy - 14, 220);
+        for (let x = 0; x < W - 1; x += dw) { cx.fillStyle = "#33241a"; cx.fillRect(x + 10, dy, dw - 20, dh); cx.fillStyle = "#47331f"; cx.fillRect(x + 14, dy + 4, dw - 28, dh - 8); cx.fillStyle = "#c9a35b"; cx.fillRect(x + dw / 2 - 12, dy + 16, 24, 5); } }
       cx.fillStyle = INK; cx.fillRect(W / 2 - BASEW * 0.68, plateY - 1, BASEW * 1.36, 10);
       cx.fillStyle = "#e9e6dc"; cx.fillRect(W / 2 - BASEW * 0.66, plateY, BASEW * 1.32, 6);
       cx.fillStyle = "#c9c4b4"; cx.fillRect(W / 2 - BASEW * 0.5, plateY + 6, BASEW, 3);
@@ -402,8 +407,10 @@
       if (!m.drop && CURSED.includes(m.kind)) text(KIND[m.kind].name, Math.max(70, Math.min(W - 70, m.x + m.w / 2)), m.y + o - 14, 13, "#ffb340", "center", 800);
     }
     for (const f of fx) {
-      const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k;
-      text(f.s, Math.max(60, Math.min(W - 60, f.x)), (f.world ? f.y + o : f.y) - k * 26, f.big ? 24 : 15, f.col, "center", 900);
+      const k = 1 - f.life / f.max; cx.globalAlpha = Math.min(1, (1 - k) * 2.2);
+      // review16r2: bigger, with a dark drop shadow, and it holds before fading (it was faint and gone at once)
+      const fs = f.big ? 24 : f.size || 15, fx0 = Math.max(fs * 5, Math.min(W - fs * 5, f.x)), fy0 = (f.world ? f.y + o : f.y) - k * 26;
+      text(f.s, fx0 + 2, fy0 + 2, fs, INK, "center", 900); text(f.s, fx0, fy0, fs, f.col, "center", 900);
     }
     cx.globalAlpha = 1;
     cx.restore();
@@ -431,7 +438,8 @@
     drawFace(px + 7 + (pw - 20 - fw) / 2, py + 7 + (ph - 16 - fh) / 2, fw, fh, face);
     text(String(score), 14, 22, 22, CASE, "left", 800);
     text(layers + " layers" + (orders ? " · " + orders + " order" + (orders > 1 ? "s" : "") : ""), 14, 44, 12, "#8a8e80", "left", 700);
-    if (combo >= 2 && state === "play") text("perfect x" + combo, W - 14, 64, 13, LIME2, "right", 800);
+    // review16r2: says what the streak does (3 in a row grows the sandwich back), bigger
+    if (combo >= 1 && state === "play") { const cs = combo >= 3 ? "streak x" + combo + " · growing" : "streak x" + combo + " · " + (3 - combo) + " more grows it"; text(cs, W / 2, py + ph + 40, Math.max(12, Math.min(15, W / 28)), combo >= 2 ? LIME2 : "#8a8e80", "center", 800); }
     if (lineT > 0 || state === "play") text(line, W / 2, py + ph + 16, Math.max(11, Math.min(15, W / 30)), PAPER, "center", 700);
   }
   // K-0059: shared tip button (assets/tip.js)

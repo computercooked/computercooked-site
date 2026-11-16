@@ -235,6 +235,7 @@
     });
     selIdx = 0; selectCard(0, true);
     upLock = performance.now() + 380;
+    $('pauseBtn').style.display = 'none';   // review16r2: the pause button did nothing over the cards
     show('upgrade', true);
   }
   function selectCard(i, silent) {
@@ -247,6 +248,7 @@
     if (screen !== 'upgrade' || !game.offers || !game.offers[i]) return;
     game.choose(game.offers[i]);
     show('upgrade', false);
+    $('pauseBtn').style.display = 'block';
     screen = 'play'; last = performance.now(); acc = 0;
     portal((p) => p.gameplayStart());
   }
