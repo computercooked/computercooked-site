@@ -3090,3 +3090,85 @@ html.is-crt .player-stage::before { content: ""; position: absolute; inset: 0; z
 .qrbox-code svg { display: block; width: 100%; height: auto; }
 .qrbox-say { margin: 12px 0; opacity: .85; font: 500 13px/1.4 var(--mono); }
 .qrbox-close { min-height: 44px; padding: 0 22px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: #0b0d0a; font: 700 14px/1 var(--mono); cursor: pointer; }
+
+/* ---------- launch hub pass: posters, hot badge, press feedback, surprise me (games/hub.js, assets/preview.js) ---------- */
+/* gameplay posters (games.json "poster": a frame of the game's clip) scale smoothly, like the clip that fades in over them,
+   so the swap from still to loop doesn't pop. The pixel-art covers stay pixelated (styles.css). */
+.game-thumb.is-poster { image-rendering: auto; }
+/* "hot": the top 3 by plays this week (from /api/stats). Top right of the cover; it steps left of the favourite heart. */
+.game-card .game-hot {
+  position: absolute;
+  z-index: 2;
+  top: var(--s-2);
+  right: var(--s-2);
+  padding: 2px var(--s-2);
+  border-radius: var(--r-sm);
+  background: #ff5a4f;
+  color: #0b0c0e;
+  font-size: var(--fs-12);
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+}
+.game-heart + .game-card-inner .game-hot { right: 46px; }
+#shelf-computer-cooked.is-list .game-hot { top: 4px; right: 4px; padding: 0 4px; }
+/* touch: a card dips when pressed (there's no hover on phones, so this is the "yes, you hit it") */
+.game-card-inner { -webkit-tap-highlight-color: transparent; }
+@media (hover: none) {
+  .game-card-inner:active { border-color: var(--accent); }
+}
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  .game-card-inner:active { transform: scale(.97); transition-duration: 60ms; }
+}
+
+/* surprise me: the hero button and the first chip in the filter bar */
+.chip.chip-surprise { border-style: dashed; border-color: var(--accent); color: var(--accent); }
+.chip.chip-surprise:hover, .chip.chip-surprise:focus-visible { background: rgb(var(--phosphor, 184 242 58) / .12); }
+.hub-surprise { cursor: pointer; border-style: dashed; }
+.hub-surprise:hover, .hub-surprise:focus-visible { border-color: var(--accent); color: var(--accent); }
+.hub-surprise-die { display: inline-block; font-size: 1.25em; line-height: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .hub-surprise:hover .hub-surprise-die, .hub-surprise:focus-visible .hub-surprise-die { animation: cc-die-roll .6s var(--ease-spring, ease-out); }
+}
+@keyframes cc-die-roll { 0% { transform: rotate(0); } 60% { transform: rotate(380deg) scale(1.15); } 100% { transform: rotate(360deg); } }
+
+/* the slot machine window (a <dialog>, built by games/hub.js on first use) */
+.cc-slot { width: min(92vw, 440px); max-width: none; max-height: none; margin: auto; padding: 0; overflow: visible; border: 2px solid #3a3f2a; border-radius: 10px;
+  background: #0b0c0e; color: var(--text); box-shadow: 0 0 0 1px #000, 10px 10px 0 rgb(0 0 0 / .6); }
+.cc-slot::backdrop { background: rgb(5 6 5 / .72); }
+.cc-slot-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); height: 38px; padding: 0 10px 0 14px;
+  border-bottom: 2px solid #3a3f2a; background: #17181c; border-radius: 8px 8px 0 0; }
+.cc-slot-h { margin: 0; font: 700 12px var(--mono); color: var(--text-dim); }
+.cc-slot-x { width: 26px; height: 22px; padding: 0; border: 2px solid #6d2620; border-radius: 4px; background: #ff5a4f; color: #0b0c0e; font: 800 12px/1 var(--mono); cursor: pointer; }
+.cc-slot-x:hover, .cc-slot-x:focus-visible { filter: brightness(1.2); }
+.cc-slot-inner > :not(.cc-slot-bar) { margin-left: 14px; margin-right: 14px; }
+/* the reel window, with a payline mark either side */
+.cc-slot-win { position: relative; margin-top: 14px; aspect-ratio: 16 / 9; overflow: hidden; border: 2px solid #3a3f2a; border-radius: 6px; background: #07080a; }
+.cc-slot-win::before, .cc-slot-win::after { content: ""; position: absolute; z-index: 2; top: 50%; width: 0; height: 0; margin-top: -8px; border: 8px solid transparent; }
+.cc-slot-win::before { left: 0; border-left-color: var(--accent); }
+.cc-slot-win::after { right: 0; border-right-color: var(--accent); }
+.cc-slot-reel { position: absolute; inset: 0; }
+.cc-slot-reel img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; background: #07080a; }
+.cc-slot-reel img.is-poster { image-rendering: auto; }
+.cc-slot-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 12px 8px; background: linear-gradient(transparent, rgb(0 0 0 / .88));
+  color: #fff; font: 700 var(--fs-16)/1.15 var(--display); text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cc-slot.is-spinning .cc-slot-reel img { filter: blur(.6px) saturate(1.3); }
+.cc-slot.is-landed .cc-slot-win { border-color: var(--accent); }
+.cc-slot-say { min-height: 4.2em; margin-top: 10px; margin-bottom: 0; font: 600 var(--fs-14)/1.4 var(--mono); color: var(--text-dim);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.cc-slot-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; margin-bottom: 14px; }
+.cc-slot-go { flex: 1 1 100%; min-height: 56px; font-size: var(--fs-18, 18px); font-weight: 800; text-align: center; }
+.cc-slot.is-spinning .cc-slot-go { visibility: hidden; } /* keeps its space: nothing jumps when it appears */
+.cc-slot-again { flex: 1 1 auto; cursor: pointer; }
+.cc-slot-again[disabled] { opacity: .5; cursor: default; }
+@media (prefers-reduced-motion: no-preference) {
+  .cc-slot[open] { animation: qp-in .22s cubic-bezier(.2, .9, .3, 1.2); }
+  .cc-slot-reel.is-tick { animation: cc-slot-tick .09s ease-out; }
+  .cc-slot.is-landed .cc-slot-win { animation: cc-slot-land .5s ease-out; }
+  .cc-slot.is-landed .cc-slot-go { animation: cc-slot-go .35s ease-out; }
+}
+@keyframes cc-slot-tick { from { transform: translateY(-22%); } to { transform: none; } }
+@keyframes cc-slot-land { 0% { transform: scale(1); } 35% { transform: scale(1.04); box-shadow: 0 0 0 3px var(--accent), 0 0 32px rgb(var(--phosphor, 184 242 58) / .55); } 100% { transform: scale(1); } }
+@keyframes cc-slot-go { from { transform: scale(.92); opacity: .4; } to { transform: none; opacity: 1; } }
