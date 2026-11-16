@@ -105,7 +105,7 @@
   const pick = (a) => a[(Math.random() * a.length) | 0];
 
   // ---------- sound ----------
-  let actx = null, muted = false, hum = null;
+  let actx = null, muted = false, hum = null, hostMuted = false; // hostMuted: the player page's mute button (cc-mute)
   try { muted = localStorage.getItem("mp-muted") === "1"; } catch (e) {}
   const muteBtn = document.getElementById("mute");
   function syncMute() { muteBtn.textContent = muted ? "sound off" : "sound on"; muteBtn.setAttribute("aria-pressed", muted ? "true" : "false"); }
@@ -124,7 +124,7 @@
   if (hauntBtn) { hauntBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHaunt(); hauntBtn.blur(); }); hauntBtn.addEventListener("pointerdown", (e) => e.stopPropagation()); }
   function ac() { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
   function tone(freq, dur, type, vol, slide, delay) {
-    if (muted) return;
+    if (muted || hostMuted) return;
     try {
       const a = ac(), o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (delay || 0);
       o.type = type || "square"; o.frequency.setValueAtTime(freq, t);
@@ -134,7 +134,7 @@
     } catch (e) {}
   }
   function humOn() {
-    if (muted || hum) return;
+    if (muted || hostMuted || hum) return;
     try { const a = ac(), o = a.createOscillator(), g = a.createGain(); o.type = "sawtooth"; o.frequency.value = 60; g.gain.value = 0.018; o.connect(g); g.connect(a.destination); o.start(); hum = { o, g }; } catch (e) {}
   }
   function humOff() { if (!hum) return; try { hum.o.stop(); } catch (e) {} hum = null; }
@@ -142,7 +142,7 @@
   // recorded files later: put each file's URL in FILES ("boom" = it blew up, "char" = it burnt) and it plays, at once.
   const FILES = { boom: "", char: "" };
   function play(name, vol) {
-    if (muted || !FILES[name]) return;
+    if (muted || hostMuted || !FILES[name]) return;
     try { const a = new Audio(FILES[name]); a.volume = vol; a.play().catch(() => {}); } catch (e) {}
   }
   const sfx = {
@@ -270,7 +270,8 @@
     verdict = { v, pts };
     if (v === "burnt" || v === "sparks") { startBurn(v); sdkScore(score); return; }
     say(v === "good" ? "good" : v, true);
-    verdictFx(v, pts);
+    verdictFx(v, pts, cur ? null : d);
+    if (v === "perfect" || v === "good" || v === "safe") cheer(v === "perfect" ? (reduce ? 8 : 18) : (reduce ? 4 : 8)); // review16: a pay-off for a good release
     phase = "result"; phaseT = 0;
     sdkScore(score);
   }
@@ -302,9 +303,19 @@
     verdictFx(v, 0);
     phase = "result"; phaseT = 0;
   }
-  function verdictFx(v, pts) {
-    fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy - 18,
+  // review16: the verdict sits inside the dark window (it used to sit on the cream case, hard to read), and under it how
+  // far off the release was ("0.4s early", "0.2s late", "right on time"), so every item teaches the next one
+  function verdictFx(v, pts, d) {
+    const sub = d == null || v === "burnt" || v === "sparks" ? (v === "burnt" ? "held too long" : "") : Math.abs(d) < 0.05 ? "right on time" : Math.abs(d).toFixed(1) + "s " + (d < 0 ? "early" : "late");
+    fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy + Math.max(26, M.wh * 0.2), sub,
       col: v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : v === "cold" ? "#9fc3e0" : BAD, life: 1.1, max: 1.1, big: v === "perfect" });
+  }
+  // review16: confetti out of the window and a quick lime glow on a good release (the burn moment had all the juice)
+  let glow = 0;
+  function cheer(n) {
+    glow = 0.35;
+    const x0 = M.wx + M.ww / 2, y0 = M.wy + M.wh * 0.6;
+    for (let i = 0; i < n; i++) parts.push({ x: x0 + (Math.random() - 0.5) * 40, y: y0, vx: (Math.random() - 0.5) * 520, vy: -260 - Math.random() * 380, life: 0.7 + Math.random() * 0.4, c: i % 3 === 0 ? PAPER : i % 3 === 1 ? LIME2 : LIME, s: (3 + Math.random() * 3) * U });
   }
 
   // ---------- input ----------
@@ -352,11 +363,23 @@
       host.document.addEventListener("keydown", relay); host.document.addEventListener("keyup", relay);
     }
   } catch (e) { /* another origin: keys reach the game once it has focus */ }
+  // review16: the player page's restart / mute buttons and its pause (the deck opening) did nothing in this game
+  window.addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || typeof d !== "object" || (e.origin && e.origin !== location.origin)) return;
+    if (d.type === "cc-mute") { hostMuted = !!d.muted; if (hostMuted) humOff(); }
+    else if (d.type === "cc-pause") { held = null; if (owner) up(owner); }
+    else if (d.type === "cc-restart") {
+      held = null; owner = null; holding = false; humOff();
+      if (state === "play") sdk((c) => c.end && c.end({ score, durationMs: Math.round(performance.now() - startAt), completed: false }));
+      wake(); start();
+    }
+  });
 
   // ---------- update ----------
   function popRate(p) { return p < 0.25 ? 0 : p < 0.8 ? 3 + (p - 0.25) / 0.55 * 12 : p < 1 ? 15 - (p - 0.8) / 0.2 * 13 : p < 1.15 ? 1 : 0; }
   function update(dt) {
-    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt);
+    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); glow = Math.max(0, glow - dt);
     for (const f of fx) f.life -= dt;
     fx = fx.filter((f) => f.life > 0);
     if (scare && (scare.t += dt) > 0.75) scare = null;
@@ -510,6 +533,7 @@
     const on = state === "play" && phase === "cook", hot = state === "play" && phase === "burn" && burn; // K-0060
     R(on ? "#3a3418" : hot ? "#2a0f08" : "#14140f", M.wx, M.wy, M.ww, M.wh);
     if (on) { cx.globalAlpha = 0.25 + 0.05 * Math.sin(time * 20); R(haunted ? "#b89aff" : "#ffe9a0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
+    if (glow > 0 && state === "play") { cx.globalAlpha = glow * (reduce ? 0.5 : 1); R(LIME2, M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; } // review16
     if (hot) { cx.globalAlpha = reduce ? 0.35 : 0.3 + 0.35 * (1 - burn.t / BURN_T) + 0.08 * Math.sin(time * 45); R(burn.v === "sparks" ? "#3d8bd0" : "#e0461e", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
     // the turntable
     const ty = M.wy + M.wh * 0.86;
@@ -552,7 +576,12 @@
       drawFace(dx + 5, dy + (dh - fh) / 2, fw, fh, face);
       text(secs.toFixed(1), dx + dw - 6, dy + dh / 2, Math.min(dh * 0.42, dw * 0.13), on ? LIME2 : LIME, "right", 800);
     }
-    for (const f of fx) { const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k; text(f.s, f.x, f.y - k * 24, f.big ? 24 : 18, f.col, "center", 900); }
+    for (const f of fx) {
+      const k = 1 - f.life / f.max, sz = (f.big ? 24 : 18) * Math.min(1.3, Math.max(0.9, U)), pop = reduce ? 1 : Math.min(1, 0.6 + k * 6), y = f.y - k * 18;
+      cx.globalAlpha = Math.min(1, (1 - k) * 1.6);
+      text(f.s, f.x + 2, y + 2, sz * pop, INK, "center", 900); text(f.s, f.x, y, sz * pop, f.col, "center", 900);
+      if (f.sub) { text(f.sub, f.x + 1, y + sz * 0.95 + 1, Math.max(11, sz * 0.6), INK, "center", 800); text(f.sub, f.x, y + sz * 0.95, Math.max(11, sz * 0.6), PAPER, "center", 800); }
+    }
     cx.globalAlpha = 1;
     cx.restore();
     // hud
