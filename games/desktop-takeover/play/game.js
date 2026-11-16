@@ -12,7 +12,8 @@
   const ev = (name, data) => sdk((c) => c.event && c.event(name, data || {}));
   // audio: silent hooks only. drop a file url next to a name and it plays; nothing is synthesized.
   const FILES = { send: "", capture: "", lost: "", nuke: "", warn: "", win: "", lose: "" };
-  const play = (name) => { const u = FILES[name]; if (!u) return; try { const a = new Audio(u); a.volume = 0.6; a.play().catch(() => {}); } catch (e) {} };
+  let muted = false; // the player page's mute button (cc-mute); only matters once a sound file is dropped in
+  const play = (name) => { const u = FILES[name]; if (!u || muted) return; try { const a = new Audio(u); a.volume = 0.6; a.play().catch(() => {}); } catch (e) {} };
 
   // ---------- the cast ----------
   // owner 0 = nobody, 1 = you, 2+ = bot programs. need = how sure a bot wants to be before it attacks.
@@ -33,10 +34,10 @@
       nodes: [[130, 330, 1, 1, 12], [300, 205, 1, 0, 3], [310, 465, 1, 0, 3], [500, 330, 2, 0, 8], [685, 200, 1, 0, 4], [690, 470, 1, 0, 4], [870, 330, 1, 5, 12]] },
     { name: "pop-up season", think: 1.7, grow: 0.7, nuke: false, delay: 6, need: 4,
       nodes: [[120, 480, 1, 1, 12], [280, 300, 1, 0, 6], [330, 520, 1, 0, 5], [520, 520, 1, 0, 8], [500, 310, 2, 0, 14], [480, 110, 1, 0, 8], [670, 100, 1, 0, 5], [720, 320, 1, 0, 6], [880, 140, 1, 4, 15]] },
-    { name: "full scan", think: 1.35, grow: 0.8, nuke: true, delay: 4, need: 4,
-      nodes: [[110, 310, 1, 1, 14], [270, 150, 1, 0, 6], [270, 470, 1, 0, 6], [500, 120, 2, 0, 13], [500, 500, 2, 0, 13], [500, 310, 3, 0, 22], [730, 150, 1, 0, 6], [730, 470, 1, 0, 6], [890, 310, 1, 2, 25]] },
-    { name: "downloads (4,812)", think: 1.25, grow: 0.85, nuke: true, delay: 4, need: 4,
-      nodes: [[500, 540, 1, 1, 15], [300, 420, 1, 0, 6], [700, 420, 1, 0, 6], [500, 330, 2, 0, 13], [320, 200, 1, 0, 8], [680, 200, 1, 0, 8], [500, 110, 3, 0, 26], [120, 400, 1, 0, 8], [880, 400, 1, 0, 8], [140, 120, 2, 3, 25], [860, 120, 1, 4, 22]] },
+    { name: "full scan", think: 1.5, grow: 0.72, nuke: true, delay: 5, need: 4, // r2: was think 1.35 / grow 0.8 / delay 4 / nanny 25: auto-player won 85%, under level 4's 100%. now ~96%
+      nodes: [[110, 310, 1, 1, 14], [270, 150, 1, 0, 6], [270, 470, 1, 0, 6], [500, 120, 2, 0, 13], [500, 500, 2, 0, 13], [500, 310, 3, 0, 22], [730, 150, 1, 0, 6], [730, 470, 1, 0, 6], [890, 310, 1, 2, 22]] },
+    { name: "downloads (4,812)", think: 0.95, grow: 1.15, nuke: true, delay: 3, need: 4, // r2: was think 1.25 / grow 0.85 / delay 4 / bots 25+22: a 100% walkover in 79 s. now ~97%, about 2:10
+      nodes: [[500, 540, 1, 1, 15], [300, 420, 1, 0, 6], [700, 420, 1, 0, 6], [500, 330, 2, 0, 13], [320, 200, 1, 0, 8], [680, 200, 1, 0, 8], [500, 110, 3, 0, 26], [120, 400, 1, 0, 8], [880, 400, 1, 0, 8], [140, 120, 2, 3, 27], [860, 120, 1, 4, 23]] },
     { name: "the whole desktop", think: 1.3, grow: 0.78, nuke: true, delay: 6, need: 4, // was grow 0.9 / delay 3: the auto-player won 1 in 3, a slower one 1 in 4. now about 1 in 2
       nodes: [[500, 310, 2, 1, 26], [300, 200, 1, 0, 6], [700, 200, 1, 0, 6], [300, 420, 1, 0, 6], [700, 420, 1, 0, 6], [500, 110, 1, 0, 10], [500, 510, 1, 0, 10], [260, 310, 2, 0, 14], [740, 310, 2, 0, 14], [110, 90, 1, 2, 12], [890, 90, 1, 3, 12], [110, 530, 1, 4, 12], [890, 530, 1, 5, 12]] },
   ];
@@ -195,7 +196,7 @@
   const cv = $("cv"), cx = cv.getContext("2d");
   const FONT = '"Pixelify", ui-monospace, Menlo, Consolas, monospace'; const NUM = 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace';
   let W = 0, H = 0, DPR = 1, PX = 0, PY = 0, PW = 1, PH = 1, TB = 46, PORT = false, KR = 1, wall = null;
-  let G = null, DEMO = null, state = "title", now = 0;
+  let G = null, DEMO = null, state = "title", now = 0, paused = false;
   let drag = null, sel = [], ptr = { x: 0, y: 0 };
   const fx = { parts: [], rings: [], floats: [], shake: 0, flash: 0, flashCol: "#fff" };
   const mascot = { mood: "idle", say: "", t: 0 };
@@ -212,7 +213,7 @@
   }
   const toS = (x, y) => (PORT ? [PX + (y / WH) * PW, PY + (x / WW) * PH] : [PX + (x / WW) * PW, PY + (y / WH) * PH]);
   const toW = (sx, sy) => (PORT ? [((sy - PY) / PH) * WW, ((sx - PX) / PW) * WH] : [((sx - PX) / PW) * WW, ((sy - PY) / PH) * WH]);
-  const rad = (n) => Math.max(15, T[n.t].r * KR * 0.92);
+  const rad = (n) => Math.max(15, T[n.t].r * KR * 0.92) * (PORT ? 1.22 : 1); // r2: phones (portrait) get bigger folders; the board has room for them
   const blast = (R) => (PORT ? [R * PW / WH, R * PH / WW] : [R * PW / WW, R * PH / WH]); // a world circle is an ellipse on screen
   const binPos = () => ({ x: W - TB * 0.62, y: H - TB / 2, r: TB * 0.34 });
 
@@ -459,7 +460,8 @@
     else if (srcs.length) say("that folder needs 2 cursors to send.", "worry", 2);
   }
   cv.addEventListener("pointerdown", (e) => {
-    ptr = pos(e); if (state !== "play" || !G || G.over || G.auto) return;
+    ptr = pos(e); if (paused) { e.preventDefault(); setPause(false); return; }
+    if (state !== "play" || !G || G.over || G.auto) return;
     e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     const b = binPos();
     if (!G.bin.used && G.bin.charge >= G.bin.need && Math.hypot(ptr.x - b.x, ptr.y - b.y) < Math.max(32, b.r * 2)) { drag = { kind: "bin" }; return; }
@@ -524,7 +526,7 @@
   // ---------- flow ----------
   function clearScreen() { sel = []; drag = null; fx.parts.length = fx.rings.length = fx.floats.length = 0; fx.shake = fx.flash = 0; tintS.fill(0); tintA.fill(0); mascot.say = ""; mascot.t = 0; mascot.mood = "idle"; warned = false; }
   function start(mode, o) {
-    o = o || {}; clearScreen();
+    o = o || {}; clearScreen(); paused = false;
     if (mode === "endless" && !o.keep) run = { wave: 1, score: 0 };
     G = newMatch(mode, mode === "campaign" ? { level: o.level } : mode === "daily" ? { date: o.date || today() } : { wave: run.wave });
     G.coach = mode === "campaign" && G.level === 1 && !S.coach && !(TEST && flag("nuke"));
@@ -613,7 +615,7 @@
   }
 
   function showTitle() {
-    state = "title"; G = null; clearScreen(); $("end").hidden = true; $("menu").hidden = true;
+    state = "title"; G = null; paused = false; clearScreen(); $("end").hidden = true; $("menu").hidden = true;
     DEMO = newMatch("demo", { auto: true, demo: true, wave: 4 });
     const d = S.daily && S.daily.date === today() ? S.daily : null, st = S.streak, live = st.n && (st.last === today() || st.last === yesterday()), nextL = Math.min(5, S.unlocked);
     $("titleIn").innerHTML = `<h1>desktop takeover</h1><p class="hide-short">you're a rogue folder. drag from your folders to send cursors. take the whole desktop.</p>
@@ -626,23 +628,48 @@
   }
   $("menu").onclick = () => { if (state === "play") { ev("dt_quit", { mode: G.mode, secs: Math.round(G.t) }); showTitle(); } };
 
+  // ---------- pause (the player page's cc-pause, a hidden tab, or P / esc) ----------
+  function setPause(on) {
+    if (on && state === "play" && G && !G.over && !paused) { paused = true; drag = null; sel = []; ev("dt_pause", { mode: G.mode, secs: Math.round(G.t) }); }
+    else if (!on && paused) { paused = false; acc = 0; last = performance.now(); }
+  }
+  function drawPaused() {
+    cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.fillStyle = "#0d1030b8"; cx.fillRect(0, 0, W, H);
+    label("paused", W / 2, H / 2 - 18, Math.max(30, Math.min(52, W / 9)), "#b6ff3c");
+    label("tap anywhere to keep going", W / 2, H / 2 + 22, Math.max(14, Math.min(18, W / 24)), "#fff");
+  }
+  addEventListener("message", (e) => {
+    const d = e.data; if (!d || typeof d !== "object") return;
+    if (d.type === "cc-mute") muted = !!d.muted;
+    else if (d.type === "cc-pause") setPause(d.paused !== false);
+    else if (d.type === "cc-restart") { // same level / same daily; endless starts a fresh run
+      if (!G || state === "title" || state === "shot") return;
+      start(G.mode, G.mode === "campaign" ? { level: G.level } : G.mode === "daily" ? { date: G.date } : {});
+    }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) setPause(true); });
+  addEventListener("keydown", (e) => {
+    if (e.key === "p" || e.key === "P" || e.key === "Escape") { if (paused) setPause(false); else setPause(true); }
+    else if (paused && (e.key === " " || e.key === "Enter")) { e.preventDefault(); setPause(false); }
+  });
+
   // ---------- loop ----------
   const STEP = 1 / 30; let last = 0, acc = 0;
   function frame(t) {
     now = t; const dt = Math.min(0.1, (t - last) / 1000 || 0); last = t; const g = G || DEMO;
     if (g) {
-      acc += dt; while (acc >= STEP) { step(g, STEP); acc -= STEP; }
+      if (paused && g === G) acc = 0; else { acc += dt; while (acc >= STEP) { step(g, STEP); acc -= STEP; } }
       present(g); tickTint(g, dt);
       if (g === DEMO && g.over) { g.overT = (g.overT || 0) + dt; if (g.overT > 2.5) { tintS.fill(0); tintA.fill(0); DEMO = newMatch("demo", { auto: true, demo: true, wave: 4 }); } }
     }
-    tickFx(dt); draw(); requestAnimationFrame(frame);
+    if (!paused) tickFx(dt); draw(); if (paused) drawPaused(); requestAnimationFrame(frame);
   }
 
   // ---------- boot + test links ----------
   addEventListener("resize", resize); resize();
   const headless = (mode, o, runs) => { let wins = 0, tt = 0, pp = 0; for (let i = 0; i < runs; i++) { const g = newMatch(mode, Object.assign({ auto: true, salt: i * 7919, seed: i * 104729 + 1 }, o)); while (!g.over) { step(g, STEP); g.events.length = 0; } if (g.over.won) wins++; tt += g.over.t; pp += g.over.pct; } return { wins, runs, avgT: Math.round(tt / runs), avgPct: Math.round(pp / runs) }; };
   if (TEST) window.__dt = {
-    state: () => ({ state, mode: G && G.mode, level: G && G.level, t: G && G.t, over: G && G.over, pct: G ? Math.round(pct(G, 1) * 100) : 0, units: G ? G.units.length : 0, bin: G ? Object.assign({ charge: G.bin.charge, need: G.bin.need, used: G.bin.used }, binPos()) : null, nodes: G ? G.nodes.map((n) => { const [sx, sy] = toS(n.x, n.y); return { i: n.i, o: n.o, n: Math.floor(n.n), sx, sy }; }) : [] }),
+    state: () => ({ state, paused, mode: G && G.mode, level: G && G.level, t: G && G.t, over: G && G.over, pct: G ? Math.round(pct(G, 1) * 100) : 0, units: G ? G.units.length : 0, bin: G ? Object.assign({ charge: G.bin.charge, need: G.bin.need, used: G.bin.used }, binPos()) : null, nodes: G ? G.nodes.map((n) => { const [sx, sy] = toS(n.x, n.y); return { i: n.i, o: n.o, n: Math.floor(n.n), sx, sy }; }) : [] }),
     win: () => { if (G) { for (const n of G.nodes) if (n.o >= 2) n.o = 1; G.units = G.units.filter((u) => u.o === 1); G.streams = G.streams.filter((s) => s.o === 1); } },
     lose: () => { if (G) { const b = G.bots[0].o; for (const n of G.nodes) if (n.o === 1) n.o = b; G.units = G.units.filter((u) => u.o !== 1); G.streams = G.streams.filter((s) => s.o !== 1); } },
     auto: (v) => { if (G) { G.auto = v !== false; G.me = G.auto ? { o: 1, next: 0, charge: 0, used: true } : null; } },
