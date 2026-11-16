@@ -191,7 +191,7 @@
         case 'surprise': toast('surprise bill: ' + e.name, true); sfx.late(); break;
         case 'windfall': toast(e.name + '! +' + fmt(e.amt)); sfx.coin(); break;
         case 'late': toast(e.b.name + ' is late. +15% late fee.', true); sfx.late(); shake(1); break;
-        case 'paid': sfx.pay(); break;
+        case 'paid': sfx.pay(); paidPop(e); break;
         case 'warn': toast(e.lvl === 1 ? 'the debt collector found your street.' : 'he\'s knocking. pay something.', true); sfx.knock(); break;
         case 'cryptoEvent': if (e.moon) { toast('$CRASHCOIN to the moon 🚀 (briefly)'); ccEvent('crypto_moon'); } else toast('$CRASHCOIN rug pulled. devs are "on vacation".', true); break;
         case 'canceled': toast('canceled ' + e.def.name + '. cancellation fee: ' + fmt(e.fee)); break;
@@ -206,6 +206,17 @@
   let crept = false;
   let bumpT = 0;
   function shake(lvl) { const a = el.field.closest('#app') || el.field; a.classList.remove('shk1', 'shk2'); void a.offsetWidth; a.classList.add(lvl > 1 ? 'shk2' : 'shk1'); clearTimeout(shake.t); shake.t = setTimeout(() => a.classList.remove('shk1', 'shk2'), 400); }
+  // every paid bill gets a stamp under the cash counter (pay all stacks them), so paying feels like a win, not a chore
+  let paidN = 0, paidT = 0;
+  function paidPop(e) {
+    const now = performance.now(); paidN = now - paidT < 700 ? Math.min(paidN + 1, 4) : 0; paidT = now;
+    const r = el.cash.getBoundingClientRect();
+    const p = document.createElement('div'); p.className = 'paidpop' + (e.fee > 0 ? ' late' : '');
+    p.textContent = '✓ ' + (e.b.icon || '') + ' ' + e.b.name + ' paid' + (e.auto ? ' (autopay)' : '');
+    p.style.left = Math.max(6, r.left) + 'px'; p.style.top = (r.bottom + 4 + paidN * 24) + 'px';
+    document.body.appendChild(p); setTimeout(() => p.remove(), 1300);
+    bumpCash();
+  }
   function bumpCash() { const n = performance.now(); if (n - bumpT < 90) return; bumpT = n; el.cash.classList.add('bump'); setTimeout(() => el.cash.classList.remove('bump'), 80); }
   let hintHidden = false;
   function hideHint() { if (!hintHidden && S.popsClosed > 3) { hintHidden = true; el.hint.style.opacity = 0; } }

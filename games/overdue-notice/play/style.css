@@ -125,6 +125,9 @@ canvas.spark{width:100%;height:40px;display:block;margin-top:6px}
 .box .acts{position:sticky;bottom:0;background:var(--carbon);padding:8px 0 6px;z-index:1}
 .box .best{font-weight:800;color:var(--lilac);margin:-2px 0 6px}
 .box .best.new{color:var(--gold);animation:hintPulse 1s ease-in-out infinite}
+.paidpop{position:fixed;z-index:26;pointer-events:none;background:var(--lime);color:var(--carbon);font-weight:800;font-size:12px;padding:3px 9px;border-radius:6px;white-space:nowrap;box-shadow:0 3px 0 rgba(0,0,0,.45);animation:paidup 1.25s ease-out forwards}
+.paidpop.late{background:var(--gold)}
+@keyframes paidup{0%{opacity:0;transform:translateY(8px) scale(.7) rotate(-4deg)}14%{opacity:1;transform:translateY(0) scale(1.12) rotate(-2deg)}28%{transform:scale(1) rotate(-2deg)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px) rotate(-2deg)}}
 #app.shk1{animation:shk .28s}
 #app.shk2{animation:shk2 .4s}
 @keyframes shk{20%{transform:translate(-3px,1px)}40%{transform:translate(3px,-1px)}60%{transform:translate(-2px,0)}80%{transform:translate(2px,1px)}}
@@ -142,3 +145,4 @@ canvas.spark{width:100%;height:40px;display:block;margin-top:6px}
   #cash{font-size:32px}
   .pop{width:168px;font-size:12px}
 }
+@media (prefers-reduced-motion:reduce){#app.shk1,#app.shk2{animation:none}.paidpop{animation-duration:.01s;animation-delay:1s}}
