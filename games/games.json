@@ -3,6 +3,7 @@
     {
       "slug": "crash",
       "clip": "/assets/clips/crash.mp4",
+      "poster": "/assets/posters/crash.webp",
       "title": "crash",
       "pitch": "dodge the tasks, drink the coffee, don't get cooked.",
       "thumbnail": "/games/crash/cover.png?v=4",
@@ -161,6 +162,7 @@
     {
       "slug": "tab-hoarder",
       "clip": "/assets/clips/tab-hoarder.mp4",
+      "poster": "/assets/posters/tab-hoarder.webp",
       "title": "tab hoarder",
       "pitch": "stack browser tabs on a tired computer. perfect drops stack a multiplier. free_ram_download.exe is a trap.",
       "thumbnail": "/games/tab-hoarder/cover.png?v=4",
@@ -383,6 +385,7 @@
       "title": "smol brains",
       "pitch": "an island of tiny pixel creatures with real neural-network brains. they crash-land, evolve, invent fire, build villages and pray to you. they will learn the wrong things.",
       "thumbnail": "/games/smol-brains/cover.png?v=5",
+      "poster": "/assets/posters/smol-brains.webp",
       "theme": {
         "accent": "#7fd96a",
         "bg": "#0b1708"

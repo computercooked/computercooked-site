@@ -508,7 +508,8 @@
      Launch: the shared card preview (assets/preview.js, window.ccPreview.attach(root, selector)) plays the clips on the
      home shelves when it's there; it reads data-slug and data-clip, so each card gets data-clip from the clip the server
      already put in it (its <video data-src>). Without preview.js (missing, failed, older cache) the code below still
-     plays them as before. Cards whose game has a "poster" in games.json show it instead of the cover. */
+     plays them as before. The card pictures (the gameplay poster when games.json has one, else the cover) are chosen
+     by the server (src/pages.js card2), so nothing here swaps them: the browser downloads one picture per card. */
   var cards = [].slice.call(document.querySelectorAll(".card2"));
   var shared = false;
   cards.forEach(function (c) { var v = c.querySelector("video[data-src]"); if (v && !c.dataset.clip) c.dataset.clip = v.dataset.src; });
@@ -522,11 +523,10 @@
     .then(function (d) {
       var by = {};
       ((d && d.games) || []).forEach(function (g) { if (g && g.slug) by[g.slug] = g; });
+      // a card whose server markup had no <video> still gets its clip from games.json
       cards.forEach(function (c) {
-        var g = by[c.dataset.slug], img = c.querySelector(".thumb img");
-        if (!g) return;
-        if (g.clip && !c.dataset.clip) c.dataset.clip = g.clip;
-        if (img && g.poster && /^\/[^\s"'<>]*$/.test(g.poster) && img.getAttribute("src") !== g.poster) img.src = g.poster;
+        var g = by[c.dataset.slug];
+        if (g && g.clip && !c.dataset.clip) c.dataset.clip = g.clip;
       });
     }).catch(function () {});
   function play(card, on) {

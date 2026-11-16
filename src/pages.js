@@ -55,10 +55,15 @@ export function deskIcon(g) {
     `${g.clip ? ` data-clip="${esc(g.clip)}"` : ""} data-line="${esc(LINES[g.slug] || "ooh. " + g.title + ".")}">` +
     `<span class="ico"><img src="${esc(g.thumbnail)}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
 }
+// a card's picture: the gameplay poster (games.json "poster", a 320x180 frame of the game's clip) when there is one,
+// else the cover (320x200). The boxes they sit in keep their own aspect ratio in CSS, so neither one shifts the page,
+// and the browser only ever downloads the one picture.
+export const art = (g) => g.poster ? { src: g.poster, w: 320, h: 180, cls: " is-poster" } : { src: g.thumbnail, w: 320, h: 200, cls: "" };
 export function card2(g, ref = "shelf") {
   // data-slug / data-added: the "your desk" row (assets/home.js, K-0064) builds its cards from these
+  const a = art(g);
   return `<li><a class="card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=${ref}" data-slug="${esc(g.slug)}"${g.added ? ` data-added="${esc(g.added)}"` : ""}>${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
-    `<span class="thumb"><img src="${esc(g.thumbnail)}" alt="" width="320" height="200" loading="lazy" decoding="async">` +
+    `<span class="thumb"><img${a.cls ? ` class="${a.cls.trim()}"` : ""} src="${esc(a.src)}" alt="" width="${a.w}" height="${a.h}" loading="lazy" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="meta"><b>${esc(g.title)}</b><small>${esc(g.pitch)}</small></span></a></li>`;
 }
@@ -113,8 +118,9 @@ function chartRow(r, g, i) {
 
 function featuredCard(g) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
+  const a = art(g);
   return `<a class="feature-card card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
-    `<span class="thumb"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" decoding="async">` +
+    `<span class="thumb"><img class="game-thumb${a.cls}" src="${esc(a.src)}" alt="" width="${a.w}" height="${a.h}" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">${esc(g.title)}</h3>` +
     `<span class="feature-pitch">${esc(g.pitch)}</span>${tags ? `<span class="game-tags">${tags}</span>` : ""}</span></a>`;
@@ -136,7 +142,7 @@ export async function homePage(req, env, url) {
     rw.on("#home-featured", { element(e) { e.setInnerContent(featuredCard(feat), { html: true }); } })
       .on("a#home-play", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=landing`); e.setInnerContent(`play ${feat.title} ▶`); } })
       .on("a#desk-reel", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=reel`); } })
-      .on("#reel-cover", { element(e) { e.setAttribute("src", feat.thumbnail); } })
+      .on("#reel-cover", { element(e) { const a = art(feat); e.setAttribute("src", a.src); e.setAttribute("width", String(a.w)); e.setAttribute("height", String(a.h)); } })
       .on("#reel-title", { element(e) { e.setInnerContent(feat.title); } })
       .on("#reel-pitch", { element(e) { e.setInnerContent(feat.pitch || ""); } });
   }

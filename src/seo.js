@@ -141,8 +141,10 @@ function vibeLinks(g) {
           <p class="how-vibes"><span>more like this:</span> ${links.join(" ")}</p>` : "";
 }
 
+// "games like X": the gameplay poster (320x180) when the game has one, else the cover; .game-thumb keeps its 16:10 box
 function card(g) {
-  return `<li class="game-card"><a class="game-card-inner game-link"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
+  const img = g.poster ? `<img class="game-thumb is-poster" src="${esc(g.poster)}" alt="" width="320" height="180"` : `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400"`;
+  return `<li class="game-card"><a class="game-card-inner game-link"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/">${img} loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
 }
 
 const PWA = `<link rel="manifest" href="/manifest.webmanifest"><script src="/assets/pwa.js" defer></script>`;

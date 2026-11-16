@@ -14,7 +14,9 @@ export function hubCard(g, i) {
   const isNew = g.added && Date.now() - Date.parse(g.added) < 14 * 86400000;
   // K-0031: the whole card is the link; no per-card button
   return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/">` +
-    `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
+    // the gameplay poster (games.json "poster", 320x180) when there is one, as games/hub.js draws it; .game-thumb keeps a 16:10 box
+    (g.poster ? `<img class="game-thumb is-poster" src="${esc(g.poster)}" alt="" width="320" height="180"` : `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400"`) +
+    ` loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
     `<span class="game-body">` + (isNew ? `<span class="game-new">new</span>` : "") +
     `<h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span>` +
     (tags ? `<span class="game-tags">${tags}</span>` : "") +
@@ -69,6 +71,8 @@ export async function hubPage(req, env, url) {
   if (feat) {
     const href = `/games/${encodeURIComponent(feat.slug)}/`;
     rw.on("a.spotlight", { element(e) { e.setAttribute("href", href); e.setAttribute("aria-label", `featured game: ${feat.title}. ${feat.pitch}`); } })
+      // stays on the cover: assets/fx.js re-renders the spotlight from games.json "thumbnail" (and the smoke test checks
+      // that), so a poster here would be downloaded and then swapped for the cover. Switch both together.
       .on(".spot-screen img", { element(e) { e.setAttribute("src", feat.thumbnail); } })
       .on(".spot-name", txt(feat.title))
       .on(".spot-pitch", txt(feat.pitch))
