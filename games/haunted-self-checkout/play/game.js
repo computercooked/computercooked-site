@@ -4,7 +4,10 @@
    A shift is 60 seconds. Space / Enter scans the item nearest the bag that isn't looking at you (and starts / retries), M mutes.
    1.2 (K-0071): misses fill the meter less (and the intro and meter say so); Space skips open-eyed items and flashes them;
    closed lanes say what opens them (scanned-item milestones) and unlock with a flash; streak counter + "perfect" bursts
-   every 10 in a row; possessed items pulse harder as the belt speeds up. Test link: ?cctest=1 (the platform's test mode). */
+   every 10 in a row; possessed items pulse harder as the belt speeds up. Test link: ?cctest=1 (the platform's test mode).
+   1.3 (Nov 16 review): the player page's sound / restart / pause buttons work (cc-mute, cc-restart, cc-pause) and a hidden
+   tab pauses; closed lanes are thin strips that grow as they open; bigger groceries on tall phones; a job rank with the
+   next one to chase on the end card and title; "got away" pops, bag squash, score pop; __hsc.target() for bots. */
 (function () {
   "use strict";
   // ---------- platform sdk: optional, every call guarded ----------
@@ -75,7 +78,7 @@
   muteBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
   muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
   function tone(freq, dur, type, vol, slide) {
-    if (muted) return;
+    if (muted || hostMuted) return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === "suspended") actx.resume();
@@ -96,20 +99,27 @@
   };
 
   // ---------- layout ----------
-  let W = 0, H = 0, DPR = 1, S = 64, top = 0, lanesY = [], belt = { y0: 0, y1: 0 }, bag = { x: 0, y: 0 };
+  let W = 0, H = 0, DPR = 1, S = 64, top = 0, lanesY = [0, 0, 0], belt = { y0: 0, y1: 0 }, bag = { x: 0, y: 0 };
+  // 1.3: a closed lane is a thin strip (weight 0.4) and grows to full height when it opens, so early on the open
+  // belt gets the room instead of two empty lanes taking half a phone screen. laneK eases 0 (closed) -> 1 (open).
+  const laneK = [1, 0, 0];
+  function placeLanes() {
+    const room = H - top - 30;
+    const wts = laneK.map((k) => 0.4 + 0.6 * k), sum = wts[0] + wts[1] + wts[2];
+    const unit = Math.min(S * (H > W * 1.5 ? 2 : 1.6), room / sum);
+    let y = top + 18 + (room - unit * sum) * 0.22;
+    for (let i = 0; i < 3; i++) { lanesY[i] = y + unit * wts[i] * (0.3 + 0.2 * laneK[i]); y += unit * wts[i]; }
+    belt = { gap: unit };
+  }
   function layout() {
     DPR = Math.min(2, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
     top = Math.round(Math.min(H * 0.34, 230));
-    S = Math.round(Math.max(46, Math.min(84, W / 6.5, (H - top) / 4.6)));
-    const room = H - top - 30;
-    const n = 3;
-    const gap = Math.min(S * 1.6, room / n);
-    const y0 = top + 18 + (room - gap * n) / 2;
-    lanesY = [0, 1, 2].map((i) => y0 + gap * (i + 0.5));
-    belt = { gap };
+    // tall phones get bigger groceries (easier to tap); the belt speed is screen-width based, so timing is unchanged
+    S = Math.round(Math.max(46, Math.min(84, W / (H > W * 1.5 ? 5.6 : 6.5), (H - top) / 4.6)));
+    placeLanes();
     bag = { x: W - Math.max(40, S * 0.75), y: top - 26 };
   }
   window.addEventListener("resize", layout);
@@ -117,6 +127,7 @@
 
   // ---------- state ----------
   let state = "title", t = 0, items = [], fx = [], meter = 0, score = 0, combo = 0, mult = 1, spawnIn = 0, best = 0, line = pick(LINES.hello), lineT = 0;
+  let paused = false, hostMuted = false, bagT = 0, scoreT = 0;
   let bestStreak = 0, prevBest = 0, warnT = 0, face = "sad", faceT = 0, shake = 0, flash = 0, flashCol = BAD, startAt = 0, endAt = 0, scanned = 0, wrongs = 0, misses = 0, won = false, total = 0;
   try { best = +localStorage.getItem("hsc-best") || 0; } catch (e) {}
   const LANE_AT = [0, 10, 25], LANE_T = [0, 24, 42]; let lanes = 1;
@@ -129,6 +140,8 @@
       flash = 0.3; flashCol = LIME;
     }
   }
+  const RANKS = [[0, "bagging trainee"], [25, "cashier"], [60, "shift lead"], [110, "night manager"], [170, "store exorcist"], [230, "the till's favourite"]];
+  const rankOf = (n) => { let r = 0; while (r + 1 < RANKS.length && n >= RANKS[r + 1][0]) r++; return r; };
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
 
   function bump(n) {
@@ -181,6 +194,7 @@
       scanned++; combo++; mult = Math.min(4, 1 + Math.floor(combo / 5));
       score += mult; total += PRICE[it.kind] || 1;
       sfx.beep(mult); if (Math.random() < 0.18) say("scan"); if (faceT <= 0) react("happy", 260);
+      bagT = 0.7; scoreT = 0.22;
       fx.push({ type: "laser", x: cxp, y: cyp, life: 0.18, max: 0.18 });
       fx.push({ type: "fly", kind: it.kind, x: it.x, y: cyp - S / 2, life: 0.45, max: 0.45 });
       fx.push({ type: "text", x: cxp, y: cyp - S * 0.65, s: mult > 1 ? "+" + mult : "beep", col: mult > 1 ? LIME2 : CASE, life: 0.6, max: 0.6 });
@@ -208,6 +222,7 @@
   }
 
   function press(px, py) {
+    if (paused) { paused = false; return; } // the first tap after a pause only resumes
     if (state !== "play") {
       if (state === "over" && performance.now() - endAt < 1200) return;
       start(); return;
@@ -222,7 +237,7 @@
     if (e.code === "Space" || e.key === " " || e.key === "Enter") {
       e.preventDefault(); // Space must never scroll the page around the game
       if (e.repeat) return;
-      if (state !== "play") { press(-1, -1); return; }
+      if (paused || state !== "play") { press(-1, -1); return; }
       const now = performance.now() / 1000;
       let r = null, eyed = null;
       for (const it of items) {
@@ -250,10 +265,22 @@
     });
   } catch (e) { /* another origin (a portal): keys reach the game once it has focus */ }
   cv.addEventListener("pointerdown", () => { try { window.focus(); } catch (e) {} });
+  // 1.3: the player page's sound, restart and pause (menu open) buttons, plus a pause when the tab is hidden
+  window.addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || typeof d !== "object") return;
+    if (d.type === "cc-mute") hostMuted = !!d.muted;
+    else if (d.type === "cc-restart") { paused = false; start(); }
+    else if (d.type === "cc-pause") { if (state === "play") paused = d.paused === undefined ? true : !!d.paused; }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden && state === "play") paused = true; });
 
   // ---------- update ----------
   function update(dt) {
-    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt);
+    if (paused) return;
+    for (let i = 0; i < 3; i++) { const goal = i < (state === "play" ? lanes : 1) ? 1 : 0; laneK[i] += (goal - laneK[i]) * Math.min(1, dt * 5); }
+    placeLanes();
+    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt); bagT = Math.max(0, bagT - dt); scoreT = Math.max(0, scoreT - dt);
     for (const f of fx) f.life -= dt;
     fx = fx.filter((f) => f.life > 0);
     if (state !== "play") return;
@@ -273,6 +300,7 @@
         if (!it.possessed) {
           misses++; combo = 0; mult = 1;
           react("sad", 500); say("miss"); sfx.miss(); flash = 0.2; flashCol = "#ffb340";
+          fx.push({ type: "text", x: W - Math.max(56, S * 0.9), y: lanesY[it.lane] - S * 0.55, s: "got away", col: "#ffb340", life: 0.9, max: 0.9 });
           bump(9);
           if (state !== "play") return;
         }
@@ -365,7 +393,7 @@
     cx.font = "700 12px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = mult > 1 ? LIME2 : "#8a8e80";
     cx.fillText(info, W - 14, my - 3);
     const iw = cx.measureText(info).width;
-    cx.font = "800 22px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = CASE;
+    cx.font = "800 " + Math.round(22 + (reduce ? 0 : scoreT * 30)) + "px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = scoreT > 0 ? LIME2 : CASE;
     cx.fillText(String(score), W - 14 - iw - 10, my - 1);
     // combo badge: big and on the belt side, so it's seen while tapping
     if (combo >= 3 && mult === 1) {
@@ -401,7 +429,9 @@
       }
     }
     // the bag at the end
-    const bw = S * 0.7, bh2 = S * 0.62, bx = W - bw - 10, by = top - 4;
+    // the bag squashes a little as each scanned item lands in it
+    const bk = !reduce && bagT > 0 && bagT < 0.25 ? Math.sin((bagT / 0.25) * Math.PI) : 0;
+    const bw = S * 0.7 + bk * 6, bh2 = S * 0.62 - bk * 5, bx = W - bw - 10 + bk * 3, by = top - 4 + bk * 5;
     cx.fillStyle = INK; cx.fillRect(bx - 2, by - 2, bw + 4, bh2 + 4);
     cx.fillStyle = "#c9a36a"; cx.fillRect(bx, by, bw, bh2);
     cx.fillStyle = "#a9844d"; cx.fillRect(bx, by, bw, 6); cx.fillRect(bx + bw * 0.7, by + 6, bw * 0.3, bh2 - 6);
@@ -505,10 +535,10 @@
       // the end card fits above the tip pill (tipSync keeps it at least 112px off the bottom): in a short player frame
       // it climbs over the till and tightens up, and every line shrinks to the width (K-0071)
       let b = big, c = 1, y0 = top;
-      const need = (bb, cc) => 3.1 * bb + 100 * cc + 4;
+      const need = (bb, cc) => 3.1 * bb + 122 * cc + 4;
       if (need(b, 1) > H - 112 - y0) { y0 = 8; c = 0.8; }
-      if (need(b, c) > H - 112 - y0) b = Math.max(18, Math.floor((H - 112 - y0 - 4 - 100 * c) / 3.1));
-      const m = Math.max(y0 + 2.15 * b + 4, Math.min(y0 + (H - y0) * 0.42, H - 112 - 0.95 * b - 100 * c));
+      if (need(b, c) > H - 112 - y0) b = Math.max(18, Math.floor((H - 112 - y0 - 4 - 122 * c) / 3.1));
+      const m = Math.max(y0 + 2.15 * b + 4, Math.min(y0 + (H - y0) * 0.42, H - 112 - 0.95 * b - 122 * c));
       if (y0 < top) { cx.fillStyle = "rgba(8, 9, 7, 0.86)"; cx.fillRect(0, 0, W, top - 4); }
       const fit = (wt, size, s) => { let f = size; do { cx.font = wt + " " + f + "px ui-monospace, Menlo, Consolas, monospace"; } while (cx.measureText(s).width > W - 16 && --f > 9); };
       const head = won ? "shift survived" : "till cooked";
@@ -521,12 +551,24 @@
       cx.fillText(s1, W / 2, m + b * 0.95); cx.fillText(s2, W / 2, m + b * 0.95 + 22 * c);
       // the nudge: how far from the best, or how far past it
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first shift logged. now beat it.")
-        : score === prevBest ? "tied your best. one more scan next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
+        : prevBest === 0 ? "every normal grocery scanned is a point. go again." : score === prevBest ? "tied your best. one more scan next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       fit(800, 15, nudge); cx.fillStyle = score > prevBest ? LIME2 : "#ffb340";
       cx.fillText(nudge, W / 2, m + b * 0.95 + 46 * c);
-      if (performance.now() - endAt > 1200) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, m + b * 0.95 + 76 * c); tipY = m + b * 0.95 + 100 * c; }
+      // 1.3: a job title for the shift and the next one to chase
+      const rk = rankOf(score), nx = RANKS[rk + 1], rs = "rank: " + RANKS[rk][1] + (nx ? "  ·  " + nx[1] + " at " + nx[0] : "  ·  top of the till");
+      fit(700, 14, rs); cx.fillStyle = GHOST; cx.fillText(rs, W / 2, m + b * 0.95 + 68 * c);
+      if (performance.now() - endAt > 1200) { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to work another shift", W / 2, m + b * 0.95 + 98 * c); tipY = m + b * 0.95 + 122 * c; }
     }
-    if (state === "title") { cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to start your shift", W / 2, Math.min(H - 34, mid + big * 0.6 + 62 + Math.max(26, Math.min(S, 60, H - 34 - 40 - (mid + big * 0.6 + 62))) + 40)); }
+    if (state === "title") {
+      const ty = Math.min(H - 34, mid + big * 0.6 + 62 + Math.max(26, Math.min(S, 60, H - 34 - 40 - (mid + big * 0.6 + 62))) + 40);
+      const pulse = reduce ? 1 : 0.75 + 0.25 * Math.sin(time * 4);
+      cx.globalAlpha = pulse; cx.fillStyle = LIME; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to start your shift", W / 2, ty); cx.globalAlpha = 1;
+      if (best > 0 && ty + 24 < H - 8) { // a returning player sees what to beat
+        const nx = RANKS[rankOf(best) + 1];
+        cx.fillStyle = GHOST; cx.font = "700 13px ui-monospace, Menlo, Consolas, monospace";
+        cx.fillText("best " + best + " · " + RANKS[rankOf(best)][1] + (nx ? " · next: " + nx[1] + " at " + nx[0] : ""), W / 2, ty + 24);
+      }
+    }
   }
   function draw(time) {
     cx.save();
@@ -541,6 +583,12 @@
     if (state !== "over") for (const it of items) drawItem(it, time);
     drawFx();
     if (state === "play") drawHud();
+    if (paused && state === "play") {
+      cx.fillStyle = "rgba(8, 9, 7, 0.72)"; cx.fillRect(0, top + 4, W, H - top - 4);
+      cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillStyle = CASE; cx.font = "800 26px ui-monospace, Menlo, Consolas, monospace";
+      cx.fillText("paused", W / 2, lanesY[0]);
+      cx.fillStyle = LIME; cx.font = "800 16px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("tap to carry on", W / 2, lanesY[0] + 34);
+    }
     tipY = -1;
     if (state !== "play") overlay(time);
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
@@ -561,5 +609,8 @@
   if (/[?&]cctest=1/.test(location.search + (() => { try { return parent.location.search; } catch (e) { return ""; } })())) Object.assign(window.__hsc, {
     pop: () => { fx.push({ type: "text", x: W - 20, y: lanesY[0] - S * 1.1, s: "PERFECT 10", col: LIME2, life: 1.4, max: 1.4, big: true }); fx.push({ type: "text", x: W / 2, y: lanesY[lanesY.length - 1] - S * 0.7, s: "eyes! skipped", col: "#ff4d5e", life: 1.1, max: 1.1, mid: true }); },
     end: (w) => { if (state === "play") end(!!w); },
+    // 1.3: where to tap for the safe item nearest the bag (null if none), and the lane layout, for playtest bots
+    target: () => { let r = null; for (const it of items) if (!it.gone && !it.possessed && it.x > -S * 0.3 && it.x < W - S && (!r || it.x > r.x)) r = it; return r ? [Math.round(r.x + S / 2), Math.round(lanesY[r.lane])] : null; },
+    lanes: () => ({ S, lanesY: lanesY.map(Math.round), laneK: laneK.slice(), paused }),
   });
 })();
