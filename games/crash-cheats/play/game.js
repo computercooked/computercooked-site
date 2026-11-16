@@ -16,6 +16,7 @@
   const CRASH_TO_WIN = 3, YOU_TO_WIN = 3, MAX_TOKENS = 3;
   // suspicion each cheat adds. at 100 the anticheat catches him and the round is yours.
   const SUS = { delete: 22, swap: 26, lag: 22, coffee: 18, rules: 28, bsod: 34 };
+  const SUS_KEEP = 0.5;
   const VERB = { delete: 'delete your x', swap: 'recolor your x', lag: 'lag-move twice', coffee: 'spill coffee', rules: 'rewrite the rules', bsod: 'blue-screen the board' };
   const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 
@@ -169,6 +170,7 @@
   let toast = { text: '', life: 0 };
   let sus = 0, susFlash = 0, tokens = 1, firewall = false, undoSnap = null, caughtN = 0;
   let buttons = [];
+  let cheatLog = []; // v2.3: every cheat this match, shown in the empty column on wide screens
 
   function resetBoard() {
     cells = Array(9).fill(''); blocked = Array(9).fill(false); anims = Array(9).fill(null);
@@ -181,7 +183,7 @@
     round = 1; youPts = 0; crashPts = 0; draws = 0; cheats = 0; result = null; overT = 0;
     confetti = []; floaters = []; fx.melt = 0; fx.bsod = 0; fx.boot = 0; fx.popup = null; fx.lag = 0;
     crashFace = 0; idleT = 0; idleSaid = false;
-    sus = 0; tokens = 1; firewall = false; caughtN = 0;
+    sus = 0; tokens = 1; firewall = false; caughtN = 0; cheatLog = [];
     resetBoard();
     phase = 'player';
     matchStart = performance.now();
@@ -219,6 +221,22 @@
       if (corners.length) return corners[(Math.random() * corners.length) | 0];
     }
     return e[(Math.random() * e.length) | 0];
+  }
+  // v2.3: a cheat may never end the round before you get to answer it.
+  // fairAfter(i, v): would setting cell i to v leave crash without a finished line and with at most one open threat?
+  function fairAfter(i, v) {
+    const old = cells[i]; cells[i] = v;
+    const ok = !lineFor('O') && threats('O').length < 2;
+    cells[i] = old; return ok;
+  }
+  // crash's move right after a cheat: blocks you if it can, but never wins on the spot and never forks. -1 = he passes.
+  function fairMove() {
+    const ok = empties().filter((i) => fairAfter(i, 'O'));
+    if (!ok.length) return -1;
+    const blk = threats('X').filter((i) => ok.includes(i));
+    if (blk.length) return blk[0];
+    if (ok.includes(4)) return 4;
+    return ok[(Math.random() * ok.length) | 0];
   }
 
   function place(i, m) {
@@ -259,10 +277,12 @@
   async function cheatGate(kind, g, evidence) {
     undoSnap = { cells: cells.slice(), blocked: blocked.slice(), diagBan };
     cheats++;
-    sus = Math.min(100, sus + (SUS[kind] || 20) + (evidence || 0)); susFlash = 1;
-    if (sus >= 100) return 'caught';
+    const add = (SUS[kind] || 20) + (evidence || 0);
+    sus = Math.min(100, sus + add); susFlash = 1;
+    const entry = { kind, round, add, res: 'ok' }; cheatLog.push(entry); if (cheatLog.length > 30) cheatLog.shift();
+    if (sus >= 100) { entry.res = 'caught'; return 'caught'; }
     if (firewall) {
-      firewall = false; undoSnap = null;
+      firewall = false; undoSnap = null; entry.res = 'blocked';
       fx.popup = { title: 'firewall.exe', body: 'blocked: crash.exe tried to ' + VERB[kind] + '. connection refused.', t: 0 };
       sfx.popup(); fx.shake = Math.max(fx.shake, 5); crashFace = 2; crashFaceT = 1.4; say(pick('blocked'));
       sdk('event', 'blocked', { kind, round });
@@ -294,6 +314,7 @@
       if (!undoSnap) { sfx.error(); showToast('nothing to undo. ctrl+z his next cheat.'); return; }
       tokens--;
       cells = undoSnap.cells; blocked = undoSnap.blocked; diagBan = undoSnap.diagBan; anims = Array(9).fill(null); undoSnap = null;
+      if (cheatLog.length) cheatLog[cheatLog.length - 1].res = 'undone';
       sfx.glitch(); fx.shake = 8; crashFace = 1; crashFaceT = 1.2; say(pick('undone'));
       for (let i = 0; i < 9; i++) if (cells[i]) anims[i] = { kind: 'in', t: 0.15 };
       const ln = lineFor('X');
@@ -314,7 +335,7 @@
     if (Math.random() < diff(CHEAT_FAIL)) {
       fx.popup = { title: 'cheat.exe', body: 'cheat.exe has stopped responding.', t: 0 };
       sfx.error(); say('wait. no. hold on.');
-      cheats++;
+      cheats++; cheatLog.push({ kind: 'crashed', round, add: 0, res: 'crashed' });
       await wait(1500); if (g !== gen) return;
       fx.popup = null;
       fx.winLine = line; fx.winT = 0;
@@ -323,7 +344,8 @@
     }
     const diag = LINES.indexOf(line) >= 6;
     const opts = ['delete', 'delete'];
-    if (round >= 2) opts.push('swap');
+    const swapOk = line.filter((i) => fairAfter(i, 'O'));
+    if (round >= 2 && swapOk.length) opts.push('swap');
     if (round >= 2 && diag && !diagBan) opts.push('rules', 'rules', 'rules');
     if (round >= 3 || crashPts === CRASH_TO_WIN - 1) opts.push('bsod');
     if (round >= 4) opts.push('bsod');
@@ -342,15 +364,17 @@
       await wait(2100); if (g !== gen) return;
       fx.popup = null;
     } else if (kind === 'swap') {
-      const j = line[(Math.random() * 3) | 0];
+      const j = swapOk[(Math.random() * swapOk.length) | 0];
       await swapCell(j, g); if (g !== gen) return;
       say(pick('swap'));
-      if (lineFor('O')) { await wait(500); if (g !== gen) return; await endRound('loss', g); return; }
     } else {
       // delete the cell shared by every finished line if there is one
       const all = LINES.filter((k) => k.every((i) => cells[i] === 'X'));
       const shared = line.filter((i) => all.every((k) => k.includes(i)));
-      const j = shared.length ? shared[(Math.random() * shared.length) | 0] : line[(Math.random() * 3) | 0];
+      let pool = shared.length ? shared : line;
+      const fairPool = pool.filter((i) => fairAfter(i, ''));
+      if (fairPool.length) pool = fairPool;
+      const j = pool[(Math.random() * pool.length) | 0];
       await deleteCell(j, g); if (g !== gen) return;
       say(pick('delete'));
     }
@@ -398,15 +422,18 @@
   async function crashTurn(g, afterCheat) {
     phase = 'busy';
     crashTurns++;
+    let cheated = false;
     await wait(afterCheat ? 250 : 420 + Math.random() * 380); if (g !== gen) return;
     // proactive cheat? guaranteed at least once per round by crash's 2nd turn
     const canPro = proUsed < diff(PRO_MAX) && !afterCheat;
     const force = canPro && proUsed === 0 && crashTurns >= 2 && round <= 2;
     if (canPro && (force || Math.random() < diff(PRO_CHANCE))) {
-      const xs = []; for (let i = 0; i < 9; i++) if (cells[i] === 'X') xs.push(i);
+      // only x's he can touch without opening a line he wins on the spot (v2.3)
+      const xs = []; for (let i = 0; i < 9; i++) if (cells[i] === 'X' && fairAfter(i, '')) xs.push(i);
+      const swapXs = xs.filter((i) => fairAfter(i, 'O'));
       const opts = ['lag', 'coffee'];
       if (xs.length) opts.push('delete');
-      if (round >= 3 && xs.length) opts.push('swap');
+      if (round >= 3 && swapXs.length) opts.push('swap');
       if (empties().length < 2) { const k = opts.indexOf('lag'); if (k >= 0) opts.splice(k, 1); }
       if (empties().length < 2) { const k = opts.indexOf('coffee'); if (k >= 0) opts.splice(k, 1); }
       if (opts.length) {
@@ -424,7 +451,8 @@
           await wait(950); if (g !== gen) return;
           fx.lag = 0;
           for (let k = 0; k < 2; k++) {
-            const m = aiMove(); if (m < 0) break;
+            // the first o is his normal move. the bonus lag o can't win or fork (v2.3): you always get to answer it
+            const m = k === 0 ? aiMove() : fairMove(); if (m < 0) break;
             place(m, 'O'); float(String(k + 1), m, COL.paper);
             if (lineFor('O')) break;
             await wait(180); if (g !== gen) return;
@@ -439,25 +467,25 @@
           say(pick('coffee'));
           await wait(600); if (g !== gen) return;
         } else if (kind === 'delete') {
-          const th = threats('X');
+          const th = threats('X'); cheated = true;
           let j = xs[(Math.random() * xs.length) | 0];
           // prefer an x that is part of a threat
-          for (const k of LINES) { const xsIn = k.filter((i) => cells[i] === 'X'); if (xsIn.length === 2 && k.some((i) => !cells[i] && !blocked[i])) { j = xsIn[0]; break; } }
+          for (const k of LINES) { const xsIn = k.filter((i) => cells[i] === 'X' && xs.includes(i)); if (xsIn.length && k.filter((i) => cells[i] === 'X').length === 2 && k.some((i) => !cells[i] && !blocked[i])) { j = xsIn[0]; break; } }
           void th;
           await deleteCell(j, g); if (g !== gen) return;
           say(pick('delete'));
           await wait(300); if (g !== gen) return;
         } else if (kind === 'swap') {
-          const j = xs[(Math.random() * xs.length) | 0];
+          const j = swapXs[(Math.random() * swapXs.length) | 0]; cheated = true;
           await swapCell(j, g); if (g !== gen) return;
           say(pick('swap'));
-          if (lineFor('O')) return afterCrashMove(g);
           await wait(300); if (g !== gen) return;
         }
         }
       }
     }
-    const m = aiMove();
+    // after he deletes or recolors your x (or right after a reactive cheat) his move can't win or fork (v2.3)
+    const m = (afterCheat || cheated) ? fairMove() : aiMove();
     if (m >= 0) {
       const wasBlock = threats('X').includes(m);
       place(m, 'O');
@@ -501,6 +529,8 @@
     await wait(1700); if (g !== gen) return;
     round++;
     sdk('event', 'round', { round });
+    // v2.3: half his suspicion cools off between rounds, so a report can't turn the forced cheat into a free round
+    if (sus > 0) { sus = Math.round(sus * SUS_KEEP); susFlash = 0.6; }
     resetBoard();
     say(pick('round'));
     phase = 'player';
@@ -778,8 +808,16 @@
     { k: 'undo', label: 'ctrl+z', key: 'w', tip: 'undo cheat' },
     { k: 'report', label: 'report', key: 'e', tip: '+34% sus' }
   ];
+  // biggest font (from size down to 9px) that fits str in maxW; 0 if even 9px doesn't fit
+  function fitFont(str, size, maxW, weight) {
+    for (let s = Math.round(size); s >= 9; s--) { ctx.font = (weight || 'bold') + ' ' + s + 'px ' + FONT; if (ctx.measureText(str).width <= maxW) return s; }
+    return 0;
+  }
   function drawTools() {
-    const b = lay.board, gap = 8, y = b.y + b.s + 10 * u, h = 36 * u;
+    const gap = 8, h = 36 * u;
+    // portrait: the row uses the full width, not just the board's (chips were cramped in short phone frames)
+    const b = lay.land ? lay.board : { x: 16, y: lay.board.y, s: W - 32 };
+    const y = lay.board.y + lay.board.s + 10 * u;
     // token pips
     const pipW = 54 * u;
     for (let i = 0; i < MAX_TOKENS; i++) {
@@ -789,6 +827,10 @@
     }
     text('tokens', b.x + 4, y + h / 2 + 16 * u, Math.max(10, Math.round(9 * u)), COL.dim, 'left', 'normal');
     const x0 = b.x + pipW, cw = (b.s - pipW - gap * 2) / 3;
+    // one sub-label size for all three chips; drop the key hints, then the sub-labels, before they spill (v2.3)
+    const subSize = Math.max(10, Math.round(8.5 * u)), fitAll = (keys) => Math.min(...TOOLS.map((tl) => fitFont((keys ? '[' + tl.key + '] ' : '') + tl.tip, subSize, cw - 8, 'normal')));
+    let subKeys = !COARSE, subF = fitAll(subKeys);
+    if (!subF && subKeys) { subKeys = false; subF = fitAll(false); }
     TOOLS.forEach((tl, i) => {
       const x = x0 + i * (cw + gap);
       const armed = tl.k === 'firewall' && firewall;
@@ -798,14 +840,39 @@
       ctx.fillStyle = armed ? 'rgba(197,255,73,0.25)' : ok ? (glow ? 'rgba(181,154,255,' + (0.25 + 0.15 * Math.sin(t * 8)) + ')' : 'rgba(245,243,237,0.1)') : 'rgba(245,243,237,0.04)';
       ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = armed ? COL.lime : ok ? 'rgba(245,243,237,0.35)' : 'rgba(245,243,237,0.1)'; ctx.stroke();
       const fg = armed ? COL.lime : ok ? COL.paper : 'rgba(245,243,237,0.3)';
-      text(armed ? 'firewall: up' : tl.label, x + cw / 2, y + h * 0.45, Math.round(12 * u), fg, 'center');
-      // phones: no keyboard hint, and never smaller than 10px (it was ~8px at 375 wide)
-      text(armed ? 'armed' : (COARSE ? '' : '[' + tl.key + '] ') + tl.tip, x + cw / 2, y + h * 0.8, Math.max(10, Math.round(8.5 * u)), armed ? COL.lime : 'rgba(245,243,237,' + (ok ? 0.55 : 0.25) + ')', 'center', 'normal');
+      const lab = armed ? 'firewall: up' : tl.label, inW = cw - 8;
+      text(lab, x + cw / 2, y + h * 0.45, fitFont(lab, 12 * u, inW) || 9, fg, 'center');
+      // sub-label: drop the key hint, then the label itself, before it can spill into the next chip (v2.3)
+      const sub = armed ? 'armed' : (subKeys ? '[' + tl.key + '] ' : '') + tl.tip;
+      if (subF) text(sub, x + cw / 2, y + h * 0.8, subF, armed ? COL.lime : 'rgba(245,243,237,' + (ok ? 0.55 : 0.25) + ')', 'center', 'normal');
       buttons.push({ x, y, w: cw, h, fn: () => useTool(tl.k) });
     });
     if (record.w + record.l < 3 && round <= 2) {
-      text('+1 token per draw or lost round · fill his sus · first to 3', b.x + b.s / 2, y + h + 15 * u, Math.round(9.5 * u), 'rgba(245,243,237,0.5)', 'center', 'normal');
+      let hint = '+1 token per draw or lost round · fill his sus · first to 3', hs = fitFont(hint, 9.5 * u, b.s, 'normal');
+      if (!hs) { hint = '+1 token per draw or lost round'; hs = fitFont(hint, 9.5 * u, b.s, 'normal'); }
+      if (hs) text(hint, b.x + b.s / 2, Math.min(y + h + 15 * u, H - 22), hs, 'rgba(245,243,237,0.5)', 'center', 'normal');
     }
+  }
+
+  // v2.3: wide screens had an empty column under crash. it now keeps his rap sheet for the match.
+  const LOGTXT = { delete: 'deleted your x', swap: 'recolored your x', lag: 'moved twice (lag)', coffee: 'spilled coffee', rules: 'banned diagonals', bsod: 'blue-screened', crashed: 'cheat.exe crashed' };
+  function drawCheatLog() {
+    if (!lay.land || phase === 'over') return;
+    const x = 16 + 8, w = lay.board.x - 48, size = Math.round(Math.min(12, 10 * u)), lh = size * 1.55;
+    const top = lay.bubble.y + 64 * u, bottom = H - 30;
+    const n = Math.floor((bottom - top - lh * 1.4) / lh);
+    if (n < 2 || w < 180) return;
+    const rows = cheatLog.slice(-n);
+    let y = bottom - rows.length * lh - lh * 0.4;
+    text('crash.exe cheat log' + (cheatLog.length ? ' (' + cheats + ')' : ''), x, y, size, COL.dim, 'left', 'bold');
+    if (!rows.length) { text('empty. for now.', x, y + lh, size, 'rgba(245,243,237,0.35)', 'left', 'normal'); return; }
+    rows.forEach((e, i) => {
+      const yy = y + (i + 1) * lh, fresh = i === rows.length - 1 && phase === 'busy';
+      const tag = e.res === 'blocked' ? 'blocked' : e.res === 'undone' ? 'undone' : e.res === 'caught' ? 'CAUGHT' : e.res === 'crashed' ? 'free round' : '+' + e.add + '% sus';
+      const good = e.res !== 'ok';
+      text('r' + e.round + ' ' + LOGTXT[e.kind], x, yy, size, fresh ? COL.paper : 'rgba(245,243,237,0.6)', 'left', 'normal');
+      text(tag, x + w, yy, size, good ? COL.lime : COL.lilac, 'right', 'bold');
+    });
   }
 
   function drawCrash() {
@@ -1118,6 +1185,7 @@
     if (phase !== 'over') drawTools();
     drawCrash();
     drawSus();
+    drawCheatLog();
     drawBubble();
     drawPopup();
     drawMelt();
