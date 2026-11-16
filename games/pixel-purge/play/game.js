@@ -777,6 +777,11 @@ function tipSync(at) {
 function tipHeight(w) { if (!tipBox || !tipBox.firstChild) return 0; tipBox.style.width = w + 'px'; return tipBox.offsetHeight; }
 function drawCard(title, lines, btns) {
   const r = cardRect(tipHeight(L.cw - 2 * L.pad - 28)); // K-0059: a taller card makes room for the tip button
+  { // short frames (the site player is ~430-590px tall): grow the card upward so its buttons never fall off the bottom
+    ctx.font = 'bold 13px ' + FONT; let need = 14 + 28 + 4 + 12 + (btns.length > 2 ? 2 * 34 + 8 : 34);
+    for (const ln of lines) need += wrap(ctx, ln.t, r.w - 28).length * 18 + 3;
+    if (r.h < need) { const ny = Math.max(8, H - 16 - need); r.h += r.y - ny; r.y = ny; }
+  }
   ctx.fillStyle = 'rgba(16,17,20,0.94)'; rr(ctx, r.x, r.y, r.w, r.h, 14); ctx.fill();
   ctx.strokeStyle = mode === 'lose' ? 'rgba(255,79,160,0.7)' : LIME; ctx.lineWidth = 2; ctx.stroke();
   let y = r.y + 14;

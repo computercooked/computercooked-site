@@ -167,6 +167,7 @@
           const n = nodes.get(e.p.id);
           if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt) + (e.combo >= 1.2 ? ' ×' + e.combo.toFixed(1) : ''), e.p.kind === 'gold' || e.combo >= 2.5 ? 'var(--gold)' : null); if (e.p.kind === 'gold') coins(c.x, c.y, 14); else if (e.combo >= 2) coins(c.x, c.y, 4); }
           removeNode(e.p.id, true); e.auto ? null : sfx.pop(); sfx.coin(); bumpCash();
+          if (e.p.kind === 'gold') shake(1);
           if (e.p.kind === 'gold') toast('the 1,000,000th visitor thing was real?? +' + fmt(e.amt));
           hideHint(); break;
         }
@@ -176,7 +177,7 @@
           if (n) { n.classList.remove('hit'); void n.offsetWidth; n.classList.add('hit'); n.querySelector('i').style.width = (100 * e.pig.hp / e.pig.max) + '%'; }
           sfx.thud(); break;
         }
-        case 'pigDie': { const n = nodes.get(e.pig.id); if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt), 'var(--gold)'); coins(c.x, c.y, 16); } removeNode(e.pig.id, true); sfx.smash(); bumpCash(); break; }
+        case 'pigDie': { const n = nodes.get(e.pig.id); if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt), 'var(--gold)'); coins(c.x, c.y, 16); } removeNode(e.pig.id, true); sfx.smash(); bumpCash(); shake(1); break; }
         case 'pigGone': { const n = nodes.get(e.pig.id); if (n) { const c = centerOf(n); floatText(c.x, c.y, 'piggy left', 'var(--dim)'); } removeNode(e.pig.id, true); break; }
         case 'gig': showGig(e.g); sfx.gig(); break;
         case 'gigStart': if (gigNode) { gigNode.querySelector('.row').innerHTML = '<span style="color:var(--dim)">working on it...</span>'; } break;
@@ -189,7 +190,7 @@
         case 'creep': crept = true; toast(e.name + ' went up. you can afford it now, apparently.', true); break;
         case 'surprise': toast('surprise bill: ' + e.name, true); sfx.late(); break;
         case 'windfall': toast(e.name + '! +' + fmt(e.amt)); sfx.coin(); break;
-        case 'late': toast(e.b.name + ' is late. +15% late fee.', true); sfx.late(); break;
+        case 'late': toast(e.b.name + ' is late. +15% late fee.', true); sfx.late(); shake(1); break;
         case 'paid': sfx.pay(); break;
         case 'warn': toast(e.lvl === 1 ? 'the debt collector found your street.' : 'he\'s knocking. pay something.', true); sfx.knock(); break;
         case 'cryptoEvent': if (e.moon) { toast('$CRASHCOIN to the moon 🚀 (briefly)'); ccEvent('crypto_moon'); } else toast('$CRASHCOIN rug pulled. devs are "on vacation".', true); break;
@@ -204,6 +205,7 @@
   }
   let crept = false;
   let bumpT = 0;
+  function shake(lvl) { const a = el.field.closest('#app') || el.field; a.classList.remove('shk1', 'shk2'); void a.offsetWidth; a.classList.add(lvl > 1 ? 'shk2' : 'shk1'); clearTimeout(shake.t); shake.t = setTimeout(() => a.classList.remove('shk1', 'shk2'), 400); }
   function bumpCash() { const n = performance.now(); if (n - bumpT < 90) return; bumpT = n; el.cash.classList.add('bump'); setTimeout(() => el.cash.classList.remove('bump'), 80); }
   let hintHidden = false;
   function hideHint() { if (!hintHidden && S.popsClosed > 3) { hintHidden = true; el.hint.style.opacity = 0; } }
@@ -461,7 +463,7 @@
   function clearFieldForDay() { /* keep popups between days: it's the same messy desktop */ }
 
   function showRepo(e) {
-    sfx.knock(); setTimeout(sfx.bad, 400);
+    sfx.knock(); setTimeout(sfx.bad, 400); shake(2);
     ccEvent('repo', { strike: e.strike, day: S.day });
     openModal(`<div class="tb"><span>repossession · strike ${e.strike}/3</span><span>🕴️</span></div><div class="in">
       <h2>he got in.</h2>the debt collector "settled" your late bills by taking ${fmt(e.cashTaken)} in cash${e.took.length ? ' and ' + esc(e.took.join(', ')) : ''}.
@@ -501,8 +503,11 @@
     cc('end', { score: S.day, durationMs: Math.round(performance.now() - runClock), completed: true });
     save();
     shareCanvas = drawCard();
+    const isBest = typeof S.startBest === 'number' && S.day > S.startBest && S.startBest > 0;
+    const bestLine = isBest ? `<div class="best new">new best: day ${S.day}! (old best: day ${S.startBest})</div>` : `<div class="best">best: day ${meta.bestDay}${meta.bestDay > S.day ? ' · ' + (meta.bestDay - S.day) + ' more day' + (meta.bestDay - S.day === 1 ? '' : 's') + ' to beat it' : ''}</div>`;
+    if (bank) shake(2);
     openModal(`<div class="tb"><span>${bank ? 'final notice' : 'fresh start filed'}</span><span>${bank ? '🕴️' : '📝'}</span></div><div class="in">
-      <h2>${bank ? 'repossessed.' : 'clean slate.'}</h2>${bank ? 'the debt collector took the couch' + (S.hustles.lemon ? ', the lemonade stand' : '') + (S.hustles.video ? ', the ring light' : '') + ' and your dignity.' : 'the paperwork was 40 pages. you signed all of them.'}
+      <h2>${bank ? 'repossessed.' : 'clean slate.'}</h2>${bestLine}${bank ? 'the debt collector took the couch' + (S.hustles.lemon ? ', the lemonade stand' : '') + (S.hustles.video ? ', the ring light' : '') + ' and your dignity.' : 'the paperwork was 40 pages. you signed all of them.'}
       <div id="cardSlot"></div>
       <div class="stats"><span>days survived</span><b>${S.day}</b><span>earned this run</span><b>${fmt(S.runEarned)}</b><span>late fees</span><b>${fmt(S.lateFees)}</b><span>best combo</span><b>×${(S.comboBest || 1).toFixed(1)}</b><span>popups closed</span><b>${S.popsClosed}</b><span>credit points</span><b>+${o.gain}</b></div>
       <div class="acts"><button class="btn alt" data-m="share">share</button><button class="btn" data-m="again">new run</button></div></div>`, bank ? 'bad' : 'lilac', () => modalHandlers.again());
@@ -559,7 +564,7 @@
   let runClock = performance.now();
   function newRun() {
     clearField();
-    S = ON.newRun(meta); S.spooky = spookyOn();
+    S = ON.newRun(meta); S.spooky = spookyOn(); S.startBest = meta.bestDay || 0;
     runClock = performance.now(); ccEvents = 0;
     cc('start'); save(); renderPanel();
   }
@@ -624,7 +629,7 @@
   // ---------- boot ----------
   meta = ON.newMeta();
   const resumed = load();
-  if (!resumed) { S = ON.newRun(meta); }
+  if (!resumed) { S = ON.newRun(meta); S.startBest = meta.bestDay || 0; }
   applySpooky();
   if (resumed) hideHint();
   if (resumed) {
