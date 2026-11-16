@@ -57,7 +57,7 @@
   .c { position: relative; display: grid; place-items: center; font-size: calc(var(--t) * .5); font-weight: 800; line-height: 1; cursor: pointer; background: var(--cream); border: calc(max(2px, var(--t) * .08)) solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); }
   .c.h:hover { background: #fff6e0; }
   .c.cur { box-shadow: inset 0 0 0 2px var(--hot); z-index: 2; }
-  .c.o { background: #dccfae; border: 1px solid #b9aa86; cursor: default; }
+  .c.o { background: #d4c6a2; border: 1px solid #b3a37e; box-shadow: inset 1px 1px 0 rgba(90, 70, 40, .18); cursor: default; }
   .c.o.n { cursor: pointer; }
   .c.pop { animation: pop .22s cubic-bezier(.3, 1.6, .5, 1) both; }
   @keyframes pop { 0% { transform: scale(.55); filter: brightness(1.6); } 100% { transform: scale(1); } }
@@ -164,6 +164,9 @@
   .short .status .tm, .short #mute { order: 2; }
   .short #rules .card { font-size: 12px; padding: 6px 10px; }
   .short .tb { display: none; }
+  /* a narrow window (the player frame on a phone): the xp count stays readable, the label goes */
+  .narrow .lcd .xl { display: none; }
+  .narrow .lcd { padding-left: 4px; padding-right: 4px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important; } .puff { display: none; } }
 </style>
 <script src="/games/cc-sdk.js"></script>
@@ -180,7 +183,7 @@
     <div class="hud">
       <div class="lcd hp" id="hp" aria-live="polite">hp <b id="hpv">5/5</b><div class="meter" id="hpm"><i></i></div></div>
       <button id="face" type="button" aria-label="new run"><canvas id="mascot" width="24" height="24"></canvas></button>
-      <div class="lcd xp">lv <b id="lvv">1</b> · xp <b id="xpv">0/3</b><div class="meter" id="xpm"><i></i></div><button id="lvl" type="button">level up ▲</button></div>
+      <div class="lcd xp">lv <b id="lvv">1</b> · <span class="xl">xp </span><b id="xpv">0/3</b><div class="meter" id="xpm"><i></i></div><button id="lvl" type="button">level up ▲</button></div>
     </div>
     <div class="bwrap">
       <div class="board" id="board" role="grid" aria-label="fried memory: tap a tile to reveal it" tabindex="0"></div>

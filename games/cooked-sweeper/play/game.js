@@ -198,7 +198,8 @@
       apply(CS.reveal(run, start), start);
       quip("today's disk: same board for everyone." + (att.date === today() && att.tries ? " attempt " + (att.tries + 1) + "." : " boot sector recovered."), "good");
     } else {
-      quip(store.get("runs", 0) ? "tap any tile. numbers = total virus power touching it." : "tap any tile to boot. numbers = total virus power nearby. popups are free xp.");
+      const best = store.get("best", 0);
+      quip(best ? "best: " + best + ". beat it. numbers = total virus power touching a tile." : store.get("runs", 0) ? "tap any tile. numbers = total virus power touching it." :"tap any tile to boot. numbers = total virus power nearby. popups are free xp.");
       if (!store.get("rules", false)) showRules();
     }
     hud();
@@ -227,11 +228,13 @@
     if (!run) return;
     const W = window.innerWidth, H = window.innerHeight;
     document.body.classList.toggle("short", H < 470);
+    document.body.classList.remove("narrow");
     // the window's chrome (title, hud, status) measured, so the board takes whatever is left; the board sets the width
     const chromeH = win.offsetHeight - board.offsetHeight;
     const t = Math.floor(Math.max(18, Math.min(64, (W - 22) / run.cols, (H - chromeH - 10) / run.rows)));
     document.documentElement.style.setProperty("--t", t + "px");
     win.style.width = t * run.cols + 6 + 10 + "px";
+    document.body.classList.toggle("narrow", t * run.cols < 340);
     win.style.visibility = "visible";
   }
   window.addEventListener("resize", () => {
