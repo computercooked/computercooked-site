@@ -711,6 +711,18 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.87 What v4.38.0 changed: the winding path, and three more languages
+
+**The last island that starved.** Island 23 still lost two smols to hunger in three days. A count of why starving smols gave up a walk to food showed one reason above all: "no closer for seven seconds". Closeness is measured in a straight line, so a smol following a path round a hill, which takes it further off before it brings it nearer, was "going in circles" after seven seconds and marked the meal unreachable. A starving smol that has a path now gets twenty (creature.js, beside the 4.37 rules). Island 23: nobody starves in 3.3 days. Nine islands, three days each: seven lose nobody; islands 5 and 42 each lose one (one pinned in place with a path it cannot follow, one a hundred steps from home with food forty off). What "starving beside food" looked like in the 4.37 trace turned out to be smols in the middle of eating it.
+
+**Languages.** French, German and Portuguese packs join the Spanish one in title.js, each with the same 93 lines (title, new island, settings, strangers, a few notes). The settings screen already lists a button per pack. The game's own words (thousands of lines across fifty files) stay English: four full tables would not fit under 5 MB. The ledger's "language support" row is closed on that basis.
+
+**Looked at and left.** `SB.Minds` luck in collect.js: collect's rolls are seeded from a smol's genes so that a smol code always gives the same traits; luck there would break that. `director.test.js` takes seven minutes alone; it took as long before 4.37 (timed on an older checkout), so the bigger tribes did not slow the game.
+
+`tests/play438.test.js` holds the rule, the three packs (every Spanish line covered, blanks in place) and island 23 for three days.
+
+**Still open.** One smol on each of islands 5 and 42; phone layouts; movement, camera and sound by hand; the thin rows the builders flagged.
+
 ## 0.86 What v4.37.0 changed: the hand playtest, and smols that reach their food
 
 **How it was played.** In the browser, by hand where the hidden pane allowed (the first-day walk, the bush, the founders, the sky card), then with a fully grown smol and a full bag: every one of the twenty bag pages opened, and every button on them pressed once (185 presses). No page threw and no plug-in switched itself off. What it turned up is below. Not played: movement and camera feel, sound, and phone sizes (the pane freezes page timers at phone size while hidden).

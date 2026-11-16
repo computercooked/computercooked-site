@@ -91,6 +91,64 @@
     "spreading things": "cosas que se extienden", "spread": "se extienden", "stay put": "se quedan quietas", "{} joined your smols! 🧳": "¡{} se unió a tus smols! 🧳", "🛏 {} is your guest for {} days": "🛏 {} es tu huésped durante {} días",
     "{} is waiting to join": "{} espera para unirse", "{} hatched! (gen {}, {})": "¡{} salió del huevo! (gen {}, {})", "day {}": "día {}"
   });
+  // 4.38: three more packs, the same lines the spanish one covers
+  TR.add("fr", "français", {
+    "tiny minds · one island · a whole civilisation": "de petits esprits · une île · toute une civilisation", "presents": "présente", "tap to skip": "touche pour passer",
+    "▶ continue": "▶ continuer", "▶ play now": "▶ jouer", "🌱 custom island": "🌱 île sur mesure", "📂 load game": "📂 charger une partie", "⚙ settings": "⚙ réglages",
+    "pick the size, shape, climate, grumps…": "choisis la taille, la forme, le climat, les grognons…", "text size · sound": "taille du texte · son · langue", "nothing saved yet": "rien d'enregistré pour l'instant",
+    "‹ back": "‹ retour", "🌱 create world": "🌱 créer le monde", "🌱 new island": "🌱 nouvelle île", "create world": "créer le monde", "load game": "charger une partie", "settings": "réglages",
+    "world name": "nom du monde", "world code (seed)": "code du monde (graine)", "same code + same settings = the same island. leave it empty for a surprise.": "même code + mêmes réglages = la même île. laisse vide pour une surprise.",
+    "mode": "mode", "island size": "taille de l'île", "island shape": "forme de l'île", "land": "terre", "mountains": "montagnes", "climate": "climat", "food": "nourriture", "grumps": "grognons",
+    "weather": "météo", "storyteller": "conteur", "seasons": "saisons", "escape pods": "capsules de secours", "island quirk": "bizarrerie de l'île", "landing site": "lieu d'atterrissage",
+    "the founders": "les fondateurs", "pip's look": "l'allure de pip", "a starting critter": "une bestiole pour commencer", "secret places": "lieux secrets", "island map": "carte de l'île",
+    "language": "langue", "volume": "volume", "text & menu size": "taille du texte et des menus", "normal": "normale", "small": "petite", "medium": "moyenne", "large": "grande", "extra large": "très grande",
+    "tiny": "minuscule", "none": "aucun", "few": "peu", "lots": "beaucoup", "mild": "doux", "tropical": "tropical", "frozen": "glacé", "dry": "sec", "scarce": "rare", "plenty": "abondante",
+    "calm": "calme", "wild": "sauvage", "gentle": "tranquille", "balanced": "équilibré", "short": "courtes", "one pod": "une capsule", "two pods": "deux capsules", "best spot": "le meilleur endroit",
+    "woods": "bois", "shore": "rivage", "dry lands": "terres sèches", "snow": "neige", "jungle": "jungle", "far shore": "le rivage lointain", "strangers": "inconnus", "sweethearts": "amoureux",
+    "brother & sister": "frère et sœur", "as it comes": "au hasard", "hidden vale": "vallon caché", "waking the island…": "l'île se réveille…", "no islands yet. start one!": "pas encore d'île. commences-en une !",
+    "🗺 draw the island": "🗺 dessiner l'île", "▾ more world options (land, food, grumps, weather, storyteller, quirks…)": "▾ plus d'options (terre, nourriture, grognons, météo, conteur, bizarreries…)", "▴ fewer options": "▴ moins d'options",
+    "🧳 a stranger approaches": "🧳 un étranger approche", "🏠 welcome them": "🏠 l'accueillir", "send them away": "le renvoyer", "🛏 let them stay a few days": "🛏 le laisser rester quelques jours",
+    "spreading things": "ce qui se propage", "spread": "se propage", "stay put": "reste en place", "{} joined your smols! 🧳": "{} a rejoint tes smols ! 🧳", "🛏 {} is your guest for {} days": "🛏 {} est ton invité pour {} jours",
+    "{} is waiting to join": "{} attend de vous rejoindre", "{} hatched! (gen {}, {})": "{} a éclos ! (gén {}, {})", "day {}": "jour {}"
+  });
+  TR.add("de", "deutsch", {
+    "tiny minds · one island · a whole civilisation": "winzige köpfe · eine insel · eine ganze zivilisation", "presents": "präsentiert", "tap to skip": "tippen zum überspringen",
+    "▶ continue": "▶ weiter", "▶ play now": "▶ jetzt spielen", "🌱 custom island": "🌱 eigene insel", "📂 load game": "📂 spiel laden", "⚙ settings": "⚙ einstellungen",
+    "pick the size, shape, climate, grumps…": "wähle größe, form, klima, grummel…", "text size · sound": "textgröße · ton · sprache", "nothing saved yet": "noch nichts gespeichert",
+    "‹ back": "‹ zurück", "🌱 create world": "🌱 welt erschaffen", "🌱 new island": "🌱 neue insel", "create world": "welt erschaffen", "load game": "spiel laden", "settings": "einstellungen",
+    "world name": "name der welt", "world code (seed)": "weltcode (seed)", "same code + same settings = the same island. leave it empty for a surprise.": "gleicher code + gleiche einstellungen = dieselbe insel. leer lassen für eine überraschung.",
+    "mode": "modus", "island size": "inselgröße", "island shape": "inselform", "land": "land", "mountains": "berge", "climate": "klima", "food": "nahrung", "grumps": "grummel",
+    "weather": "wetter", "storyteller": "erzähler", "seasons": "jahreszeiten", "escape pods": "rettungskapseln", "island quirk": "eigenart der insel", "landing site": "landeplatz",
+    "the founders": "die gründer", "pip's look": "pips aussehen", "a starting critter": "ein tierchen zum start", "secret places": "geheime orte", "island map": "inselkarte",
+    "language": "sprache", "volume": "lautstärke", "text & menu size": "text- und menügröße", "normal": "normal", "small": "klein", "medium": "mittel", "large": "groß", "extra large": "sehr groß",
+    "tiny": "winzig", "none": "keine", "few": "wenige", "lots": "viele", "mild": "mild", "tropical": "tropisch", "frozen": "eisig", "dry": "trocken", "scarce": "knapp", "plenty": "reichlich",
+    "calm": "ruhig", "wild": "wild", "gentle": "sanft", "balanced": "ausgewogen", "short": "kurz", "one pod": "eine kapsel", "two pods": "zwei kapseln", "best spot": "der beste platz",
+    "woods": "wald", "shore": "ufer", "dry lands": "trockenes land", "snow": "schnee", "jungle": "dschungel", "far shore": "das ferne ufer", "strangers": "fremde", "sweethearts": "verliebte",
+    "brother & sister": "bruder und schwester", "as it comes": "wie es kommt", "hidden vale": "verstecktes tal", "waking the island…": "die insel erwacht…", "no islands yet. start one!": "noch keine inseln. fang eine an!",
+    "🗺 draw the island": "🗺 insel zeichnen", "▾ more world options (land, food, grumps, weather, storyteller, quirks…)": "▾ mehr optionen (land, nahrung, grummel, wetter, erzähler, eigenarten…)", "▴ fewer options": "▴ weniger optionen",
+    "🧳 a stranger approaches": "🧳 ein fremder nähert sich", "🏠 welcome them": "🏠 willkommen heißen", "send them away": "wegschicken", "🛏 let them stay a few days": "🛏 ein paar tage bleiben lassen",
+    "spreading things": "was sich ausbreitet", "spread": "breitet sich aus", "stay put": "bleibt, wo es ist", "{} joined your smols! 🧳": "{} gehört jetzt zu deinen smols! 🧳", "🛏 {} is your guest for {} days": "🛏 {} ist {} tage dein gast",
+    "{} is waiting to join": "{} wartet darauf, dazuzukommen", "{} hatched! (gen {}, {})": "{} ist geschlüpft! (gen {}, {})", "day {}": "tag {}"
+  });
+  TR.add("pt", "português", {
+    "tiny minds · one island · a whole civilisation": "mentes pequeninas · uma ilha · uma civilização inteira", "presents": "apresenta", "tap to skip": "toque para pular",
+    "▶ continue": "▶ continuar", "▶ play now": "▶ jogar agora", "🌱 custom island": "🌱 ilha sob medida", "📂 load game": "📂 carregar jogo", "⚙ settings": "⚙ ajustes",
+    "pick the size, shape, climate, grumps…": "escolha tamanho, forma, clima, ranzinzas…", "text size · sound": "tamanho do texto · som · idioma", "nothing saved yet": "nada salvo ainda",
+    "‹ back": "‹ voltar", "🌱 create world": "🌱 criar mundo", "🌱 new island": "🌱 ilha nova", "create world": "criar mundo", "load game": "carregar jogo", "settings": "ajustes",
+    "world name": "nome do mundo", "world code (seed)": "código do mundo (semente)", "same code + same settings = the same island. leave it empty for a surprise.": "mesmo código + mesmos ajustes = a mesma ilha. deixe vazio para uma surpresa.",
+    "mode": "modo", "island size": "tamanho da ilha", "island shape": "forma da ilha", "land": "terra", "mountains": "montanhas", "climate": "clima", "food": "comida", "grumps": "ranzinzas",
+    "weather": "tempo", "storyteller": "narrador", "seasons": "estações", "escape pods": "cápsulas de fuga", "island quirk": "esquisitice da ilha", "landing site": "local de pouso",
+    "the founders": "os fundadores", "pip's look": "o visual do pip", "a starting critter": "um bichinho para começar", "secret places": "lugares secretos", "island map": "mapa da ilha",
+    "language": "idioma", "volume": "volume", "text & menu size": "tamanho do texto e dos menus", "normal": "normal", "small": "pequena", "medium": "média", "large": "grande", "extra large": "enorme",
+    "tiny": "minúscula", "none": "nenhum", "few": "poucos", "lots": "muitos", "mild": "ameno", "tropical": "tropical", "frozen": "gelado", "dry": "seco", "scarce": "escassa", "plenty": "farta",
+    "calm": "calmo", "wild": "selvagem", "gentle": "suave", "balanced": "equilibrado", "short": "curtas", "one pod": "uma cápsula", "two pods": "duas cápsulas", "best spot": "o melhor lugar",
+    "woods": "bosque", "shore": "praia", "dry lands": "terras secas", "snow": "neve", "jungle": "selva", "far shore": "a praia distante", "strangers": "desconhecidos", "sweethearts": "namorados",
+    "brother & sister": "irmão e irmã", "as it comes": "como vier", "hidden vale": "vale escondido", "waking the island…": "acordando a ilha…", "no islands yet. start one!": "nenhuma ilha ainda. comece uma!",
+    "🗺 draw the island": "🗺 desenhar a ilha", "▾ more world options (land, food, grumps, weather, storyteller, quirks…)": "▾ mais opções (terra, comida, ranzinzas, tempo, narrador, esquisitices…)", "▴ fewer options": "▴ menos opções",
+    "🧳 a stranger approaches": "🧳 um forasteiro se aproxima", "🏠 welcome them": "🏠 dar as boas-vindas", "send them away": "mandar embora", "🛏 let them stay a few days": "🛏 deixar ficar uns dias",
+    "spreading things": "coisas que se espalham", "spread": "se espalham", "stay put": "ficam onde estão", "{} joined your smols! 🧳": "{} se juntou aos seus smols! 🧳", "🛏 {} is your guest for {} days": "🛏 {} é seu hóspede por {} dias",
+    "{} is waiting to join": "{} está esperando para entrar", "{} hatched! (gen {}, {})": "{} saiu do ovo! (gen {}, {})", "day {}": "dia {}"
+  });
   if (store("smolbrains-lang")) TR.lang = TR.packs[store("smolbrains-lang")] ? store("smolbrains-lang") : "en";
 
   /* ---------------- title screen secrets (round 3) ----------------
