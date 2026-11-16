@@ -1,0 +1,86 @@
+/* golden gary (assets/golden.js): a gold gary that peeks or drifts in from a screen edge for ~8 s. position: fixed only,
+   so nothing shifts. Sits under the scanlines (z 70) and over the page; never over the nav (golden.js keeps him clear). */
+.gg {
+  position: fixed;
+  z-index: 60;
+  width: 48px;
+  height: 53px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gg img {
+  display: block;
+  width: 48px;
+  height: 53px;
+  image-rendering: pixelated;
+  filter: sepia(1) saturate(5) hue-rotate(-12deg) brightness(1.08) drop-shadow(0 0 6px rgb(255 200 40 / .75));
+  animation: gg-bob .9s steps(3) infinite alternate;
+  pointer-events: none;
+}
+.gg-cursed img { filter: invert(1) sepia(1) saturate(6) hue-rotate(-50deg) brightness(.75) drop-shadow(0 0 7px rgb(255 90 78 / .85)); }
+.gg:focus-visible { outline: 2px solid var(--accent, #b8f23a); outline-offset: 4px; }
+
+/* peek: slides in from the side, tilted, and back out */
+.gg-peek { animation: gg-peek 8s cubic-bezier(.2, .8, .2, 1) both; }
+.gg-peek.gg-l { left: -10px; --off: -72px; --r: 14deg; }
+.gg-peek.gg-r { right: -10px; --off: 72px; --r: -14deg; }
+@keyframes gg-peek {
+  0% { transform: translateX(var(--off)) rotate(var(--r)); }
+  9%, 88% { transform: translateX(0) rotate(var(--r)); }
+  100% { transform: translateX(var(--off)) rotate(var(--r)); }
+}
+/* drift: floats across the screen once (--dx set by golden.js) */
+.gg-drift { animation: gg-drift 9s linear both; }
+.gg-drift.gg-l { left: -60px; }
+.gg-drift.gg-r { right: -60px; }
+@keyframes gg-drift { to { transform: translateX(var(--dx)); } }
+@keyframes gg-bob { to { translate: 0 -4px; } }
+
+/* reduced motion: no movement, just a fade in place */
+.gg-still, .gg-still img { animation: none; }
+.gg-still { animation: gg-fade 8s linear both; }
+.gg-still.gg-l { left: 12px; }
+.gg-still.gg-r { right: 12px; }
+@keyframes gg-fade { 0%, 100% { opacity: 0; } 6%, 92% { opacity: 1; } }
+
+.gg-paused, .gg-paused img { animation-play-state: paused; }
+.gg.gg-caught { animation: gg-pop .45s ease-out forwards; pointer-events: none; }
+.gg.gg-shoo, .gg-still.gg-caught { animation: gg-out .3s linear forwards; pointer-events: none; }
+@keyframes gg-pop { to { transform: translateY(-28px) scale(1.6); opacity: 0; } }
+@keyframes gg-out { to { opacity: 0; } }
+
+/* the sparkle burst: a dozen pixels thrown out from where he was caught */
+.gg-burst { position: fixed; z-index: 61; width: 0; height: 0; pointer-events: none; }
+.gg-burst i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; background: #ffd84a; animation: gg-spark .7s steps(6) forwards; }
+.gg-burst i:nth-child(3n) { background: var(--accent, #b8f23a); }
+.gg-burst.gg-cursed i { background: #ff5a4e; }
+.gg-burst.gg-cursed i:nth-child(3n) { background: #7a2cff; }
+@keyframes gg-spark { to { transform: translate(var(--x), var(--y)); opacity: 0; } }
+
+/* the toast: bottom centre, above the phone tab bar */
+.gg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 2147481000;
+  max-width: min(92vw, 440px);
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #f5c542;
+  border-radius: var(--r-sm, 6px);
+  background: var(--surface, #17181c);
+  color: var(--text, #f3f1ea);
+  font: 500 13px/1.4 var(--mono, monospace);
+  box-shadow: 0 0 18px rgb(245 197 66 / .25);
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+}
+.gg-toast:empty { display: none; }
+.gg-toast.on { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 767px) { .gg-toast { bottom: calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 12px); } }
+@media (prefers-reduced-motion: reduce) { .gg-toast { transition: opacity .2s; transform: translateX(-50%); } }
