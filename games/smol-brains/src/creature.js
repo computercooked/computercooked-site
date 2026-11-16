@@ -34,7 +34,8 @@
   // smols who talk (tribe and on) have fewer eggs and live longer: grown-up for longer, and two-fifths more life
   C.TALKER_LIFE = 1.4;
   C.HUNGRY_AWAKE = 0.7; // 4.36: this hungry, a smol wakes, will not lie down, and its nose takes over
-  C.STARVING = 0.85; // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
+  C.STARVING = 0.85;
+  C.PECKISH = 0.5; // 4.40: a smol starts looking for food here (it was 0.6 to 0.65, so a fed island sat half hungry) // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
   function stageFor(age, c) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from * (i === 4 ? lifeK(c) : 1)) s = i; return s; }
@@ -544,7 +545,7 @@
       if (hd && SB.Ideas.known(c, hd.id)) { var hv = hd.kind === "build" ? V.build : hd.kind === "craft" ? V.make : V.use; if (mask[hv]) { bias[hv] += 0.25; useBias = true; } }
     }
     // hard-wired reflexes for emergencies (the net still decides everything else)
-    if (noun === "food" && mask[V.eat] && ch.hunger > 0.65) { bias[V.eat] += (ch.hunger - 0.55) * 1.4; useBias = true; }
+    if (noun === "food" && mask[V.eat] && ch.hunger > C.PECKISH) { bias[V.eat] += (ch.hunger - C.PECKISH + 0.1) * 1.4; useBias = true; }
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
     // armed and brave: stand up to grumps (a club or spear chases them off for good)
     if (noun === "grump" && mask[V.hit] && c.species === "smol" && SB.Ideas) {
@@ -568,7 +569,7 @@
     if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
     if (c.prio && SB.Orders && SB.Orders.bias(c, game, noun, mask, bias)) useBias = true; // job interests you nudged
     if (c.species === "smol" && Mn() && Mn().bias(c, game, noun, mask, bias)) useBias = true; // a food way, a standing "keep making"
-    if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
+    if (ch.hunger > C.PECKISH + 0.05 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - C.PECKISH + 0.1) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
     if (noun === "smol" && mask[V.cuddle] && c.species === "smol" && target.ref && SB.Social) {
@@ -716,7 +717,7 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.2, 0.2);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8;
-        } else if (c.chem.hunger > 0.6 && (sniff = sniffFood(c, game))) {
+        } else if (c.chem.hunger > C.PECKISH && (sniff = sniffFood(c, game))) {
           // hungry and nothing in sight: follow your nose toward the nearest food (or a fruit tree)
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.25, 0.25);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
@@ -726,7 +727,7 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z);
           dist = Math.min(14, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8; a.why = sniff.why;
-        } else if (c.foodSpot && c.chem.hunger > 0.55 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
+        } else if (c.foodSpot && c.chem.hunger > C.PECKISH - 0.05 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
           ang = Math.atan2(c.foodSpot.x - c.x, c.foodSpot.z - c.z) + rng.range(-0.3, 0.3);
           dist = Math.min(10, SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z));
         } else if (rng.chance(0.4)) {
@@ -1985,7 +1986,7 @@
       if (c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
       if (ch.hunger > 0.45 && !c.plan && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
         c.foodT = 0.5;
-        var snack = SB.World.nearestItem(w, c.x, c.z, ch.hunger > 0.7 ? 4 : 1.5, function (o) { return o.noun === "food" && o.heldBy !== "hand" && o.kind !== "nut"; });
+        var snack = SB.World.nearestItem(w, c.x, c.z, ch.hunger > 0.7 ? 4 : ch.hunger > C.PECKISH ? 3 : 1.5, function (o) { return o.noun === "food" && o.heldBy !== "hand" && o.kind !== "nut"; });
         if (snack && c.action.noun !== "food") { c.action = null; c.thinkT = 0; }
       }
     }
