@@ -918,6 +918,36 @@
           "secret": false
         }
       ]
+    },
+    {
+      "slug": "garage-sale-goblin",
+      "title": "garage sale goblin",
+      "pitch": "buy a haunted lamp for $9, sell it to a ghost for $70, pay rent to a bigger goblin.",
+      "thumbnail": "/games/garage-sale-goblin/play/thumb.png",
+      "made_by": "computer-cooked",
+      "tags": [
+        "haggling",
+        "shop sim",
+        "roguelite",
+        "goblin",
+        "comedy",
+        "one-thumb"
+      ],
+      "controls": "tap or click items and buttons; drag the slider or tap - / + to set your price. keyboard: 1-5 pick an item, arrows or -/+ nudge the price (shift = 5), enter = main button, t = take their offer, esc = back / no sale, 1/2 = pick a street. sound on/off button in the top bar (saved).",
+      "size_kb": 208,
+      "version": "1.0",
+      "added": "2026-11-16",
+      "theme": {
+        "accent": "#ffc83d",
+        "bg": "#2b2140"
+      },
+      "max_score_per_sec": 4.0,
+      "how_to": [
+        "buy junk at yard sales. drag the slider and watch the seller's face before you offer.",
+        "back at the shop, haggle each customer up. push too hard and they walk.",
+        "rare items glow purple. cursed ones bite overnight unless you sell them fast.",
+        "pay rent every few days or the bigger goblin evicts you."
+      ]
     }
   ]
 }
