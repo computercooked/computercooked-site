@@ -44,7 +44,7 @@ console.log("1. the orders tool: rally, home and no-go for blobs once the tutori
 }
 
 console.log("1b. a rally flag is a go-there for blobs");
-{
+seeded(13, () => {
   const { SB, game, cs, h } = tribe(13, 0, 8, 0.95);
   const p = spotAway(SB, game, h, 14);
   check("found a spot", !!p);
@@ -52,10 +52,10 @@ console.log("1b. a rally flag is a go-there for blobs");
   runFed(SB, game, 40);
   const near = cs.filter(c => c.alive && SB.dist(c.x, c.z, p.x, p.z) < 5).length;
   check("trusting blobs go there", near >= 4, near + "/8");
-}
+});
 
 console.log("1c. K-0022: the first rally works even for blobs who barely trust you, and says why for the rest");
-{
+seeded(14, () => {
   const { SB, game, cs, h } = tribe(14, 0, 8, 0.2);
   const p = spotAway(SB, game, h, 14);
   const res = SB.Orders.place(game, "rally", p.x, p.z);
@@ -67,7 +67,7 @@ console.log("1c. K-0022: the first rally works even for blobs who barely trust y
   const o2 = SB.Orders.place(game, "rally", p.x + 3, p.z).o;
   cs.forEach(c => SB.Orders.decide(c, game, o2));
   check("a starving blob's no comes with a reason", o2.whys && o2.whys["😋 hungry"] >= 1, JSON.stringify(o2.whys));
-}
+});
 
 console.log("2. a rally gathers the willing");
 let highNear = 0, lowNear = 0;
@@ -186,7 +186,7 @@ function zoneTime(seed, withZone) { return seeded(seed, () => {
 }
 
 console.log("7. work marks, the stockpile and job interests");
-{
+seeded(41, () => {
   const { SB, game, cs, h } = tribe(41, 3, 6, 0.95);
   const rock = SB.World.nearestNode(game.world, h.x, h.z, 40, n => n.kind === "boulder" && n.state === "ok");
   check("found a boulder", !!rock);
@@ -206,7 +206,7 @@ console.log("7. work marks, the stockpile and job interests");
   check("priorities nudge the brain", SB.Orders.bias(c, game, "stick", mask, bias) && bias[SB.V.wander] > 0.1);
   SB.Orders.setPrio(c, "explore", 0);
   check("and clear back to normal", c.prio == null);
-}
+});
 
 console.log("8. orders save and load");
 {
