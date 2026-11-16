@@ -67,6 +67,10 @@
   .credit { margin-top: 18px; font-size: 11px; opacity: .55; }
   .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; text-align: left; margin: 10px auto; max-width: 300px; font-weight: 500; }
   .stats b { color: #9ae6ff; text-align: right; }
+  .stats .rec { color: #ffb35a; animation: recPop .6s ease-out 2; display: inline-block; }
+  @keyframes recPop { 50% { transform: scale(1.18); } }
+  /* short screens (the player frame is ~430-590 px): keep the end card's buttons in view */
+  @media (max-height: 600px) { #plate { width: 200px; margin: 2px auto 6px; } .stats { gap: 1px 12px; margin: 6px auto; } .over p { line-height: 1.3; margin: 6px 0; } .over h2 { margin-bottom: 4px; } }
   /* the bait shop */
   .keeper { display: flex; gap: 10px; align-items: flex-start; text-align: left; margin: 4px 0 12px; }
   .keeper img { width: 56px; height: 80px; flex: none; image-rendering: pixelated; }
