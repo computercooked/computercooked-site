@@ -121,6 +121,7 @@
     if (!G || G.solved) return;
     if (!G.started) { G.started = true; G.t0 = performance.now(); cc('start'); }
     const merge = viaKb && G.kbRun === p && G.keys.length > 1;
+    const old = G.st[p];
     G.st[p] = np;
     const k = CT.encode(G.st);
     if (merge) {
@@ -129,12 +130,28 @@
     } else G.keys.push(k);
     if (viaKb) G.kbRun = p; else G.kbRun = -1;
     sfx.slide();
+    // landing feedback: the part flashes, a puff of dust at the edge it slid into
+    G.flash = { i: p, t: 0.3 };
+    const R = pieceRect(p, np), pc = G.P.pieces[p], fwd = np > old ? 1 : -1;
+    const ex = pc.dir === 'h' ? (fwd > 0 ? R.x + R.w : R.x) : R.x + R.w / 2, ey = pc.dir === 'h' ? R.y + R.h / 2 : (fwd > 0 ? R.y + R.h : R.y);
+    puff(ex, ey, 6, pc.dir === 'h' ? -fwd : 0, pc.dir === 'h' ? 0 : -fwd, 'rgba(245,243,237,');
     afterMove();
   }
   function afterMove() {
     quip();
+    const m = movesCount();
+    if (!G.practice && !G.solved && m === G.P.par + 1 && !CT.isGoal(G.st)) { say.classList.remove('nudge'); say.textContent = 'that\'s past par (' + G.P.par + '). no star today, but i still want out.'; }
     saveProgress(); updateUI();
+    const mv = $('moves'); mv.classList.remove('pop'); void mv.offsetWidth; mv.classList.add('pop');
     if (CT.isGoal(G.st)) solve();
+  }
+  // ---------- juice: particles + shake ----------
+  let parts = [], shakeT = 0;
+  function puff(x, y, n, dx, dy, col) {
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * 6.28, sp = 20 + Math.random() * 50;
+      parts.push({ x, y, vx: Math.cos(a) * sp + dx * 60, vy: Math.sin(a) * sp + dy * 60, life: 0.35 + Math.random() * 0.25, t: 0, r: 2 + Math.random() * 3, col });
+    }
   }
   function undo() {
     if (!G || G.solved || G.keys.length < 2) return;
@@ -168,9 +185,12 @@
   // ---------- solving ----------
   function solve() {
     G.solved = true; G.solveT = 0; sfx.win();
-    say.textContent = 'ahh. airflow. i can feel my capacitors again.';
     const moves = movesCount(), ms = Math.round(performance.now() - G.t0);
     const over = moves - G.P.par;
+    say.classList.remove('nudge');
+    say.textContent = over <= 0 ? 'PAR! ahh. airflow. i can feel my capacitors again.' : 'ahh. airflow. i can feel my capacitors again.';
+    shakeT = 0.35; G.steam = 1.4;
+    try { if (navigator.vibrate && matchMedia('(pointer:coarse)').matches) navigator.vibrate(over <= 0 ? [30, 40, 60] : 40); } catch (e) { /* no buzz */ }
     cc('end', { score: Math.max(1, 100 - 5 * Math.max(0, over)) + (G.gm === 'hard' ? 50 : 0), durationMs: ms, completed: true });
     ccEvent('solve', { mode: G.practice ? 'practice' : G.gm, over });
     if (G.key && !G.practice) {
@@ -202,13 +222,21 @@
     const moves = keys.length - 1, par = G.P.par, over = moves - par;
     const grid = await gridFor(keys);
     const hard = G.gm === 'hard';
-    const title = 'crash test #' + G.no + (hard ? ' (hard)' : '') + (G.practice ? ' · practice' : '');
-    const text = `${title} 🔧 ${moves}/${par}${over <= 0 ? ' ⭐' : ''}\n${rows(grid)}\n${URL_TEXT}`;
+    const title = 'crash test ' + (G.no ? '#' + G.no : 'random board') + (hard ? ' (hard)' : '') + (G.practice ? ' · practice' : '');
+    const cur = G.practice ? 0 : statsFor(G.gm).cur;
+    const text = `${title} 🔧 ${moves}/${par}${over <= 0 ? ' ⭐' : ''}${cur > 1 ? ' 🔥' + cur : ''}\n${rows(grid)}\n${URL_TEXT}`;
     lastShare = { text, grid, moves, par, title, over };
+    // reason to come back: the streak, and a goal for tomorrow
+    let streak = '';
+    if (!G.practice) {
+      const s = statsFor(G.gm);
+      streak = `<div class="streak"><b>🔥 ${s.cur}</b> day streak${s.max > s.cur ? ' · best ' + s.max : ''}<br><span>${over <= 0 ? 'flawless. come back tomorrow and defend it.' : 'tomorrow: hit par for a ⭐ and keep the streak.'}</span></div>`;
+    }
     const cd = G.practice ? '' : `<div class="cd" id="cd"></div>`;
     modal(`<div class="tb"><span>${title}</span><button data-m="x">×</button></div><div class="in">
-      <h2>${rating(over)}</h2>
+      <h2>${over <= 0 ? '⭐ ' : ''}${rating(over)}</h2>
       <p>fixed in <b>${moves}</b> moves. the fewest possible was <b>${par}</b>.</p>
+      ${streak}
       <div class="grid">${rows(grid).replace(/\n/g, '<br>')}</div>
       <p style="color:var(--dim);font-size:11px">🟩 got closer · 🟨 sideways · 🟥 made it worse</p>
       ${cd}
@@ -348,8 +376,9 @@
   function updateUI() {
     $('pno').textContent = G.practice ? (G.no ? '#' + G.no : 'random') : '#' + G.no;
     $('moves').textContent = movesCount();
-    const showPar = G.practice || G.solved;
-    $('par').textContent = showPar ? G.P.par : '?'; $('par').classList.toggle('known', showPar);
+    // par is the target from the first second: a clear goal beats a mystery number
+    $('par').textContent = G.P.par; $('par').classList.add('known');
+    $('moves').classList.toggle('over', !G.solved && movesCount() > G.P.par);
     $('bUndo').disabled = G.solved || G.keys.length < 2; $('bReset').disabled = G.solved;
     $('bHint').hidden = !G.practice;
     for (const b of $('modes').children) {
@@ -379,6 +408,7 @@
   function draw() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, S, S);
+    if (shakeT > 0) { const m = shakeT * 14; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
     const spooky = spookyOn();
     // crash's case
     rr(2, 2, S - 4, S - 4, 16); ctx.fillStyle = '#D8CBA6'; ctx.fill();
@@ -441,10 +471,28 @@
         decorate(p, R);
       }
       if (G.sel === i && kbMode && !G.solved) { rr(R.x + 1, R.y + 1, R.w - 2, R.h - 2, 9); ctx.strokeStyle = '#C5FF49'; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
+      if (G.flash && G.flash.i === i && G.flash.t > 0) { rr(R.x + 2, R.y + 2, R.w - 4, R.h - 4, 8); ctx.fillStyle = 'rgba(255,255,255,' + (G.flash.t * 1.4).toFixed(2) + ')'; ctx.fill(); }
       ctx.restore();
     });
+    // the goal, before the first move: a pulsing lane from the hot air to the vent (it runs over whatever blocks it)
+    if (!G.started && !G.solved && movesCount() === 0) {
+      const R = pieceRect(0, anim[0]), y = R.y + R.h / 2, x0 = R.x + R.w + 4, x1 = ox + N * cell + 2;
+      if (x1 - x0 > cell * 0.5) {
+        ctx.globalAlpha = 0.55 + 0.35 * Math.sin(t * 4);
+        ctx.strokeStyle = '#C5FF49'; ctx.lineWidth = 3; ctx.setLineDash([8, 7]); ctx.lineDashOffset = -t * 30;
+        ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1 - 10, y); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        ctx.fillStyle = '#C5FF49'; ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 - 14, y - 9); ctx.lineTo(x1 - 14, y + 9); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
     if (G.solved) {
       ctx.fillStyle = 'rgba(197,255,73,' + Math.max(0, 0.25 - G.solveT * 0.1) + ')'; ctx.fillRect(ox - 6, oy - 6, cell * N + 12, cell * N + 12);
+    }
+    // steam out of the vent while crash cools down
+    if (G.steam > 0 && Math.random() < 0.8) { const vx = ox + N * cell + 4 + cell * 0.25, vy = oy + CT.EXIT_ROW * cell + cell / 2; puff(vx, vy + (Math.random() - 0.5) * cell * 0.6, 2, -0.5, -1.3, 'rgba(255,226,200,'); for (let k = parts.length - 2; k < parts.length; k++) { parts[k].r *= 2.4; parts[k].life *= 1.7; } }
+    for (const q of parts) {
+      const a = Math.max(0, 1 - q.t / q.life);
+      ctx.fillStyle = q.col + (a * 0.9).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1 + q.t * 2), 0, 7); ctx.fill();
     }
   }
   function decorate(p, R) {
@@ -549,7 +597,12 @@
       for (let i = 0; i < anim.length; i++) if (!drag || drag.i !== i) anim[i] += (G.st[i] - anim[i]) * Math.min(1, dt * 18);
       if (G.solved) G.solveT += dt;
       if (G.hintT > 0) G.hintT -= dt;
+      if (G.flash) G.flash.t -= dt;
+      if (G.steam > 0) G.steam -= dt;
     }
+    if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
+    for (const q of parts) { q.t += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.94; q.vy *= 0.94; }
+    if (parts.length) parts = parts.filter((q) => q.t < q.life);
     draw(); drawFace();
     requestAnimationFrame(frame);
   }
