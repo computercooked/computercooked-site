@@ -25,6 +25,7 @@ return BODY_R*st.scale*((c.look&&c.look.size)||1)*(c.species==="grump"?1.1:1)*(1
 C.TALKER_LIFE=1.4;
 C.HUNGRY_AWAKE=0.7;
 C.STARVING=0.85;
+C.HARD_HUNGER=0.55;C.HARD_FOOD=2;C.HARD_HUNGER_MAX=0.7;
 C.PECKISH=0.5;
 function lifeK(c){return c&&c.species==="smol"&&(c.tier||0)>=3?C.TALKER_LIFE:1;}
 C.lifeK=lifeK;
@@ -1169,7 +1170,7 @@ var pop=SB.Game.smols(game).length+game.world.items.filter(function(o){return o.
 if(pop>=SB.Game.POP_CAP){say(a,"too many smols",game);return;}
 var room=SB.Civ&&SB.Civ.room?SB.Civ.room(game):Infinity;
 if(pop>=room){if(!a.far)say(a,a.tier>=3?"no room for a baby. we need a hut":"no room",game);a.eggCooldown=b.eggCooldown=90;SB.bus.emit("noRoom",{a:a,b:b,room:room});return;}
-if(SB.Game.colonyHunger&&(SB.Game.colonyHunger(game)>0.55||(pop>6&&SB.Game.foodPerSmol(game)<(game.world.season===3?1.2:0.7)))){say(a,"not now. hungry",game);return;}
+if(SB.Game.colonyHunger){var cH=SB.Game.colonyHunger(game),fPS=SB.Game.foodPerSmol(game);if((cH>C.HARD_HUNGER&&fPS<C.HARD_FOOD)||cH>C.HARD_HUNGER_MAX||(pop>6&&fPS<(game.world.season===3?1.2:0.7))){say(a,"not now. hungry",game);return;}}
 if(Math.min(a.tier,b.tier)>=3&&!payEgg(game,a,b)){say(a,"not now. hungry",game);return;}
 SB.Game.layEgg(game,a,b,(a.x+b.x)/2,(a.z+b.z)/2);
 a.chem.love=0;b.chem.love=0;

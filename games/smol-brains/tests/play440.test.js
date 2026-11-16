@@ -69,5 +69,33 @@ console.log("3. a touch screen: the list by the crosshair is left out, the butto
 check("no list of actions by the crosshair on a phone", /var html ?= ?hud\.phone ?\? ?"" ?: ?lines\.map/.test(js("povhud.js")));
 check("an empty list is not drawn", /#pov \.prompt:empty\{display:none\}/.test(js("povhud.js")));
 
+console.log("4. one thing at a time: no story card under the pod map; no broken fi in any font");
+{
+  const uj = fs.readFileSync(path.join(__dirname, "..", "src", "ui.js"), "utf8");
+  check("event cards wait while the pod map is up", /if ?\(UI\._podUp\) ?return false;/.test(uj) && /root\.appendChild\(wrap\); ?UI\._podUp ?= ?true;/.test(uj) && /closed ?= ?true; ?UI\._podUp ?= ?false;/.test(uj));
+  const css = fs.readFileSync(path.join(__dirname, "..", "play", "style.css"), "utf8");
+  check("ligatures are off for every element, whatever font: shorthand it uses", /\*, ?\*::before, ?\*::after ?\{ ?font-variant-ligatures: ?none ?!important; ?font-feature-settings: ?"liga" 0, ?"clig" 0, ?"calt" 0 ?!important; ?\}/.test(css));
+}
+
+console.log("5. hard times: hungry AND short of food (hunger alone stopped pairs on fed islands)");
+seeded(4405, () => {
+  const { SB, game } = island(4405), C = SB.Creature, W = SB.World, w = game.world;
+  for (let i = 0; i < 4; i++) SB.Game.spawnSmol(game, { x: w.T.spawn.x + i, z: w.T.spawn.z - 2, age: 560 });
+  const sm = SB.Game.smols(game);
+  let pair = null;
+  for (const a of sm) for (const b of sm) if (!pair && a !== b && a.sex !== b.sex && a.stage === 3 && b.stage === 3 && a.tier < 3 && b.tier < 3 && !(SB.Game.related && SB.Game.related(game, a, b)) && (!SB.Species || SB.Species.compatible(a, b))) pair = [a, b];
+  check("there is a pair to try", !!pair, sm.length + " smols");
+  if (pair) {
+    const [a, b] = pair, eggs = () => w.items.filter(o => o.kind === "egg").length;
+    const setFood = n => { w.items.filter(o => o.noun === "food").forEach(o => W.remove(w, o)); for (let i = 0; i < n; i++) W.add(w, game, "apple", a.x + 3 + (i % 8), a.z + 3 + Math.floor(i / 8), {}); };
+    const tryIt = (hunger, food) => { w.items.filter(o => o.kind === "egg").forEach(o => W.remove(w, o)); sm.forEach(c => { c.chem.hunger = hunger; }); setFood(food); game._chT = null; a.chem.love = b.chem.love = 0.9; a.eggCooldown = b.eggCooldown = 0; a.partner = b.partner = null; const e0 = eggs(); C._tryBreed(a, b, game, 0.9); return eggs() - e0; };
+    check("the numbers: hungry from 0.55, short under two bites each, very hungry from 0.7", C.HARD_HUNGER === 0.55 && C.HARD_FOOD === 2 && C.HARD_HUNGER_MAX === 0.7);
+    check("fed and food about: an egg", tryIt(0.3, sm.length * 4) === 1);
+    check("hungry (0.6) but four bites each on the ground: an egg (4.39 said no)", tryIt(0.6, sm.length * 4) === 1);
+    check("hungry and under two bites each: not now", tryIt(0.6, sm.length) === 0);
+    check("very hungry (0.75), whatever is lying about: not now", tryIt(0.75, sm.length * 4) === 0);
+  }
+});
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);
