@@ -132,10 +132,10 @@ function howTo(g) {
           <p class="how-facts">${facts.filter(Boolean).map(esc).join(" · ")}</p>${vibeLinks(g)}`;
 }
 
-// "more like this": the game's vibes as links to the hub with that filter on (/games/?vibe=puzzle, read by assets/fx.js)
+// "more like this": the game's vibes as links to the mood collection pages (/games/puzzle/, src/collections.js)
 export const VIBE_NAMES = { arcade: "arcade games", puzzle: "puzzle games", chill: "chill games", quick: "60 second games", rage: "rage games" };
 function vibeLinks(g) {
-  const links = vibesOf(g).map((v) => `<a class="vibe-link" href="/games/?vibe=${v}">${VIBE_NAMES[v]}</a>`);
+  const links = vibesOf(g).map((v) => `<a class="vibe-link" href="/games/${v}/">${VIBE_NAMES[v]}</a>`);
   if (tagsOf(g).includes("daily")) links.push(`<a class="vibe-link" href="/games/daily/">daily games</a>`);
   return links.length ? `
           <p class="how-vibes"><span>more like this:</span> ${links.join(" ")}</p>` : "";
