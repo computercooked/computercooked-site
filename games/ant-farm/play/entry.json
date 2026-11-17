@@ -7,11 +7,14 @@
   "controls": "feed: tap the grass to drop crumbs. dig: drag on dirt to plan a tunnel; ants dig a path to it. look: tap an ant to meet it. drag or scroll to move. tap the magnifying glass to shoo the kid. 1/2/3 tools, c colony, m mutes.",
   "size_kb": 90,
   "tags": ["idle", "sim", "ants", "builder", "deep", "mobile"],
-  "version": "1.4",
+  "version": "1.5",
   "theme": { "accent": "#c5ff49", "bg": "#17120d" },
-  "max_score_per_sec": 100,
+  "max_score_per_sec": 250,
+  "results": "quiet",
+  "restart": true,
   "how_to": [
     "food becomes eggs, eggs become ants",
+    "follow the 🎯 goal at the top",
     "more tunnel = more room for ants",
     "plan tunnels toward the buried curios",
     "at 50 ants, send a new queen flying for royal jelly"
