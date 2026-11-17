@@ -794,3 +794,24 @@ No cookies, no third-party analytics, no player id stored on these rows.
 - **Reading it:** `GET /api/admin/metrics?since=YYYY-MM-DD` (admin token) → `pageviews`, `tips`, `plays_by_ref`, `campaigns`, alongside the existing game numbers.
 - **Team test visits:** open any page with `?cctest=1` to put that browser in test mode. It gets a `smoke-team-…` anonymous id, so its page views, tips, plays, feedback and scores are left out of every count like other smoke traffic, and a small "test mode: not counted" badge shows. `?cctest=0` turns it off. Signed-in plays still count (the filter is on anonymous ids).
 - **Flagging earlier test visits:** `POST /api/admin/test-traffic` (admin token). `{from, to}` (ms, up to 6h apart) lists the page-view/tip rows and plays in that window. `{flag: {events: [id], plays: [id]}}` renames those hit rows `test:cc:<kind>` and gives those plays a `smoke-flag-` anon id; `{unflag: …}` undoes it. Nothing is deleted. Flagged hit rows show in metrics `test_traffic.site_hits`.
+
+## The show page: /show/ (round 26)
+
+The site's door back to TikTok. A static page (no worker route): the cast cards, every **posted** episode as a plain
+link to its TikTok post with our own still, and two big "follow @computercooked" buttons. **No TikTok embed or script**
+(privacy and speed): each episode opens on tiktok.com.
+
+- **Kept in step with posting:** `node scripts/sync-show.mjs ["<Computer Cooked project folder>"]` reads
+  `Posting\posting-log.md` (the one posted file) and rewrites `show/episodes.json`, `show/img/` and the two marked
+  lists in `show/index.html`. Only TikTok lines in the log's agreed format count, so an unposted episode can't appear.
+  The still comes from the posted video named on the log's queue line (`STILL_AT` picks the second; default 55%).
+  Run it after each post, then PR the result.
+- **Cast:** a character's card appears once a posted episode features them (their label in that episode's brief or
+  storyboard). Sunny's card is ready and appears with her first posted episode. Cards say who someone is, never the
+  name: names are internal labels (`Content\characters\README.md`).
+- **Counted:** a click on `a[data-tt-out]` (the follow buttons: slot `follow` / `follow-end`; an episode: slot
+  `episode` + `ep`) sends `POST /api/hit {kind: "tiktok_out"}` (assets/deck.js) → `cc:tiktok_out`. The digest
+  (`/api/admin/digest`) has `tiktok_out` per day and for the window: `show_follow`, `show_episode`,
+  `follow_elsewhere` (the site's other TikTok follow buttons, `cc:follow_click`), `total`, plus `by_episode` for the window.
+- **Linked from:** the homepage (under "follow the meltdown") and the games hub (after "did you know") by a
+  `.show-strip`, and the footer of home, the hub and /show/.

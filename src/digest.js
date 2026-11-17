@@ -142,9 +142,21 @@ export async function digest(url, env) {
   // pick-up card), per day and per game opened
   const outs = (await db.prepare(
     `SELECT ${dayOf("ts")} d, name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events
-     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
+     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click', 'cc:tiktok_out') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
   ).bind(start, end).all()).results;
   const outN = (f) => outs.filter(f).reduce((s, r) => s + r.n, 0);
+  // round 26: link-outs to TikTok. show_follow / show_episode = clicks on /show/ (cc:tiktok_out); follow_elsewhere = the
+  // site's other TikTok follow buttons (cc:follow_click, platform tiktok); total = all three
+  const ttOut = (f, dayF) => {
+    const show_follow = outN((r) => f(r) && r.name === "cc:tiktok_out" && /^follow/.test(r.slot || ""));
+    const show_episode = outN((r) => f(r) && r.name === "cc:tiktok_out" && r.slot === "episode");
+    const follow_elsewhere = follows.filter((r) => dayF(r) && r.p === "tiktok").reduce((s, r) => s + r.n, 0);
+    return { show_follow, show_episode, follow_elsewhere, total: show_follow + show_episode + follow_elsewhere };
+  };
+  const ttEps = (await db.prepare(
+    `SELECT json_extract(data, '$.ep') ep, COUNT(*) n FROM events WHERE name = 'cc:tiktok_out' AND json_extract(data, '$.slot') = 'episode'
+     AND ts >= ? AND ts < ? GROUP BY 1 ORDER BY 2 DESC`
+  ).bind(start, end).all()).results;
   const deskOf = (f) => ({ shown: outN((r) => f(r) && r.name === "cc:desk_shown"), clicks: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot !== "nudge"),
     nudge: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "nudge"),
     resume: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "resume") });
@@ -215,6 +227,7 @@ export async function digest(url, env) {
       runs_ended: p.ended || 0,
       game_shares: at(shares, i).n || 0,
       tip_clicks: outN((r) => r.d === i && r.name === "cc:tip_click"),
+      tiktok_out: ttOut((r) => r.d === i, (r) => r.d === i),
       desk: deskOf((r) => r.d === i),
       votes: at(votes, i).n || 0,
       follow_clicks: Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, follows.filter((r) => r.d === i && r.p === p).reduce((s, r) => s + r.n, 0)])),
@@ -233,5 +246,6 @@ export async function digest(url, env) {
       tiktok_landing_pages: Object.entries(ttPages).sort((a, b) => b[1] - a[1]).map(([path, n]) => ({ path, n })) },
     utm: Object.values(utmRows).sort((a, b) => b.plays - a.plays || b.page_views - a.page_views),
     desk: { ...deskOf(() => true), by_game: Object.fromEntries(Object.entries(deskGames).sort((a, b) => b[1] - a[1])) },
+    tiktok_out: { ...ttOut(() => true, () => true), by_episode: Object.fromEntries(ttEps.filter((r) => r.ep).map((r) => [r.ep, r.n])) },
     game_pages: Object.values(pages).sort((a, b) => b.views - a.views).map((g) => ({ game: g.game, views: g.views, avg_time_s: secs(g.timed ? g.ms : null) })) });
 }

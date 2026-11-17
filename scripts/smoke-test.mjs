@@ -933,6 +933,8 @@ if (admin) {
     dg.games.every((g) => "runs_ended" in g && "avg_session_s" in g && "best_score" in g),
     "admin digest v2: tip clicks, desk row, game-over stats per game", { version: dg.version, desk: dg.desk });
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
+  ok(dRow.tiktok_out && ["show_follow", "show_episode", "follow_elsewhere", "total"].every((k) => typeof dRow.tiktok_out[k] === "number") &&
+    dg.tiktok_out && typeof dg.tiktok_out.by_episode === "object", "admin digest: tiktok_out (round 26: /show/ follow + episode link-outs, other follow buttons)", dg.tiktok_out);
   ok(dg.cook_vote && dg.cook_vote.poll && /^\d{4}-W\d{2}$/.test(dg.cook_vote.week) && Object.keys(dg.cook_vote.counts).length === 4 && typeof dg.cook_vote.total === "number" && typeof dRow.votes === "number",
     "admin digest: cook vote totals (read only) and votes per day", dg.cook_vote);
   // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
@@ -1129,6 +1131,32 @@ if (admin) {
   ok(clipGames.length >= 20 && !clipBad.length && ["desktop-takeover", "smol-brains", "keyboard-escape", "ant-farm", "elevator-full-of-fish", "reel-weird", "overdue-notice", "pixel-purge"].every((s) => clipGames.some((g) => g.slug === s)), "card clips: all served as mp4 under 150 KB, round 20's eight included", clipBad.join(" ") || clipGames.length);
   const prevJs = await (await get("/assets/preview.js")).text();
   ok(prevJs.includes('preload = "none"') && prevJs.includes('document.readyState !== "complete"') && prevJs.includes("prefers-reduced-motion") && prevJs.includes("saveData"), "preview.js: clips on demand only, after load on phones, off for reduced motion and Save-Data");
+  // round 26: /show/, the site's door back to TikTok. Posted episodes only (show/episodes.json, kept in step with
+  // Posting\posting-log.md by scripts/sync-show.mjs), each a plain link out with our own still; no TikTok embed or
+  // script; the follow buttons and episode links count tiktok_out; home and the hub link to it.
+  {
+    const showRes = await get("/show/"), showHtml = await showRes.text();
+    const eps = JSON.parse(readFileSync(new URL("../show/episodes.json", import.meta.url), "utf8")).episodes;
+    const listed = [...showHtml.matchAll(/<li class="show-ep"><a href="([^"]+)"[^>]*data-tt-out data-slot="episode" data-ep="([^"]+)"/g)];
+    ok(showRes.status === 200 && listed.length === eps.length && eps.every((e) => listed.some((m) => m[1] === e.url && m[2] === e.slug)) &&
+      eps.every((e) => /^https:\/\/www\.tiktok\.com\/@computercooked\/video\/\d+$/.test(e.url)),
+      "/show/ lists exactly the posted episodes in show/episodes.json, each a link to its TikTok post", { listed: listed.length, json: eps.length });
+    const scripts = [...showHtml.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]);
+    ok(!/tiktok\.com\/embed|embed\.js|tiktok\.com\/[^"]*\.js/i.test(showHtml) && scripts.every((s) => s === "<script>" || /src="\/assets\/deck\.js"/.test(s)),
+      "/show/: no TikTok embed or third-party script (plain links, our own images)", scripts);
+    ok((showHtml.match(/data-tt-out data-slot="follow(-end)?"/g) || []).length === 2 && showHtml.includes("https://www.tiktok.com/@computercooked?"),
+      "/show/: two follow @computercooked buttons, both counted");
+    const stills = await Promise.all(eps.filter((e) => e.still).map(async (e) => (await get(e.still)).status));
+    ok(stills.every((s) => s === 200) && !/\b(tryhard|chaos|sunny)\b/i.test(showHtml.replace(/<[^>]+>/g, " ")),
+      "/show/: every still is served, and no character's internal label is on the page", stills);
+    const home = await (await get("/")).text(), hub = await (await get("/games/")).text();
+    ok(home.includes('href="/show/"') && hub.includes('href="/show/"'), "home and the games hub link to /show/");
+    const tto = await post("/api/hit", { kind: "tiktok_out", path: "/show/", slot: "episode", ep: "2026-11-08-first-night", ref: "direct", anon });
+    ok(tto.status === 200 && (await tto.json()).test === true, "tiktok_out hit accepted (smoke traffic answered, not stored)");
+    const deckJs = await (await get("/assets/deck.js")).text();
+    ok(/a\[data-tt-out\][\s\S]{0,120}hit\("tiktok_out"/.test(deckJs), "deck.js counts a[data-tt-out] clicks as tiktok_out");
+  }
+
   // round 22: ad-ready, switched off. ads.js CONFIG.on is false, so no ad network code can load; /ads.txt names no seller;
   // the consent banner declines by default (EU: no answer = no ads); the results card's ad strip is hidden (a labelled
   // placeholder only with ?adpreview=1); the privacy page says there are no ads and how they would work
