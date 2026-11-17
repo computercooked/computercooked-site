@@ -622,12 +622,22 @@ The card is drawn while the recap shows, so the share sheet opens from the tap (
 
 The recap now also lists the week's challenge: "weekly challenge done ✓" when finished, and this week's goal while it's still open.
 
+## "What should we cook next?" vote
+
+A card on the home page ("happening now", full width) and on the games hub (after the main shelf) lets anyone vote on the next game to prototype. The four choices are the unbuilt pitches in `Games\Ideas\pitches-2026-11-16.md` (raccoon heist, fort knight, tiny volcano, pond merge); each has a small pixel poster drawn in-house (`assets/cook/<id>.svg`).
+- **One tap, one vote per device a week.** The device's guest id (`cc-anon`) votes once per UTC week (Monday to Sunday); a second tap that week changes nothing. Next week it can vote again, so the split is every week added up.
+- **After voting** the buttons lock and show the live split (the leader's bar in lime) with a Gary line for the pick, whether it's winning, and when the next vote opens.
+- **Server:** `src/cook.js`. `GET /api/cook?anon=` and `POST /api/cook {anon, option}` both answer `{ok, poll, week, options, counts, total, week_total, mine}` (the POST adds `counted`). Votes are rows in `lab_votes` with poll `cook1:<week>` and voter `a<anon>`. No free text; 12 votes an hour per IP, 600 an hour for the site. Smoke ids are stored but never counted.
+- **Measured:** each counted vote writes one `cc:vote` event `{poll, week, option}`. `/api/admin/digest` has `votes` per day and a read-only `cook_vote {poll, week, counts, total, week_counts, week_total, leader}`; `scripts/digest.mjs` prints it as a table.
+- **To change the choices** (after a winner is built): edit `COOK_OPTIONS` and bump `COOK_POLL` (e.g. `cook2`) in `src/cook.js`, the four buttons in `index.html` and `games/index.html`, the Gary lines in `assets/cook.js`, and add the posters.
+
 ## Public endpoints
 
 | method | path | what |
 |---|---|---|
 | GET | `/api/health` | `{ok, db}` |
 | POST | `/api/events` | SDK batches: `{anon, tester, ref, name, events:[{t:"start"/"end"/"event", id, game, …}]}` |
+| GET / POST | `/api/cook` | "what should we cook next?" vote: `?anon=` / `{anon, option}` → `{ok, week, options, counts, total, week_total, mine}`; one vote per device per UTC week |
 | GET | `/api/leaderboard?game=&period=day/week/all[&friends=1]` | top 10, one row per player: `{rank, name, u, score, id, me}`, plus `you: {rank, score} | null`: your own rank and best on the same board when you are not in the rows (from the login, or `player=a:<anon>`). The game page shows it under a ⋯ row. Account rows use the current display name and carry `u` (username, for `/u/<u>` links); guest rows have no `u`. `friends=1` (login needed) is you plus your friends, up to 50 rows |
 | POST | `/api/feedback` | `{game, version, rating: 1/-1/0, text, tester, anon, play_id}` |
 | GET | `/api/stats` | play counts per game (total, this week, last week) for the hub |
