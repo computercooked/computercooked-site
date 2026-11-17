@@ -239,7 +239,7 @@
     startAt = performance.now();
     sdk((c) => c.start && c.start());
     board(); say("hello", true); react("happy", 0.8);
-    if (career.orders === 0) line = "10 layers = one order. go.";
+    if (career.orders === 0) line = "10 layers fill one order. go.";
   }
   function end() {
     state = "over"; endAt = performance.now(); prevBest = best;
@@ -456,7 +456,7 @@
         break;
       case "mug":
         R("#bdb7a5", x, y, w, h); R(PAPER, x + 1, y, w - 2, h - 2); R("#6b4a2e", x + 2, y, w - 4, h * 0.14);
-        if (w > 30) text(w > 70 ? "best chef" : "#1", x + w / 2, y + h * 0.56, Math.min(h * 0.45, 12), BAD, "center", 800);
+        if (w > 30) text(w > 70 ? "best chef" : "chef", x + w / 2, y + h * 0.56, Math.min(h * 0.45, 12), BAD, "center", 800);
         break;
       case "remote":
         R("#121316", x, y, w, h); R("#26282e", x + 1, y + 1, w - 2, h - 3);
