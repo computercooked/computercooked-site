@@ -445,7 +445,7 @@
     if (!list.length) return null;
     c = list[Math.floor(Math.random() * list.length)];
     var rain = w.weather && w.weather.rain > 0.3, s = w.season || 0;
-    var m = rain ? ["💦", "hopped in every puddle it could find"] : s === 3 ? ["❄", "rolled in the snow until it was a snowball"] : s === 2 ? ["🍂", "jumped into a pile of leaves"] : s === 0 ? ["🦋", "chased a butterfly in circles"] : ["☀", "flopped in the sun and wiggled"];
+    var m = rain ? ["💦", "hopped in every puddle it could find"] : s === 3 ? ["❄", "rolled in the snow until it was a snowball"] : s === 2 ? ["🍂", "jumped into a pile of leaves"] : s === 0 ? (w.night ? ["✨", "chased a firefly in circles"] : ["🦋", "chased a butterfly in circles"]) : w.night ? ["🌙", "flopped in the moonlight and wiggled"] : ["☀", "flopped in the sun and wiggled"]; // 4.40: no sun or butterflies at 3 in the morning
     speak(c, "wheee!", 2); emote(c, "happy", 2.4);
     F.mood(game, c, "moment"); if (c.stage < 3) bump(c, "play");
     diary(game, c, m[0], m[1]);

@@ -711,6 +711,43 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.89 What v4.40.0 changed: a fed island has eggs again, and a tidier phone
+
+**Why births fell in 4.39.** A smol sleeps until hunger wakes it at 0.7 and a meal takes off about 0.4, so the mean hunger of an island sits between 0.32 and 0.51 even with four or five bites of food lying about for each smol (`smol-brains-handover/tools/island-breed-diag.js`, eight tuning islands). The "hard times" rule stopped eggs when that mean passed 0.55. Hunger alone was the wrong test: the islands it stopped were fed.
+
+**Two changes.**
+- **Peckish at 0.5** (`C.PECKISH`). A smol looked for food from 0.6 to 0.65 (five places in creature.js: food in sight, its nose, the walk back to where food was, the idle snack, the wander when nothing is in sight). All five now start from one number, 0.5, so a smol with food round it eats before it is half hungry.
+- **Hard times means hungry and short of food.** No eggs when the island's mean hunger is over 0.55 (`C.HARD_HUNGER`) and there are fewer than two bites of food a smol on the ground (`C.HARD_FOOD`), or when the mean is over 0.7 whatever is lying about (`C.HARD_HUNGER_MAX`). The older rule for a bare island (more than six smols and under 0.7 bites each, 1.2 in winter) stays.
+
+**Island 23, three more ways to starve beside food.** The suite's island 23 test (`tests/play438.test.js`: three days, nobody starves) failed on the changes above with one death, and failed twice more as each cause was fixed, because any change replays an island differently. `island-starve-detail.js` each time:
+- **The wade came five seconds late.** Food across a stream. 4.37 lets a starving smol that is cut off wade after three meals it could not walk to; its third try ended five seconds before it died. Two is enough now (`C.WADE_AFTER`).
+- **The long way round.** With that fixed, the route finder found a way round the water, over a minute's walk to an apple twelve steps off, and it died on the way. A starving smol whose route is over 25 steps and over twice the straight line wades straight for it (`C.WADE_DETOUR`, in `walkToward`).
+- **A stranger sent on and on.** A visiting stranger is given its next spot every 12 seconds by `Strangers.think`. One stood stuck for its last three and a half minutes, a berry twelve steps off, and never looked for food. A starving stranger (over `C.STARVING`) now thinks for itself until it has eaten.
+
+**Measured** as 4.39 was: tuned on seeds 101 to 112 and on island 23, totals only. Judged on 18 islands never touched (seeds 601 to 618), three days each, live 4.38 and 4.39 against this: **alive at the end 249, 241 and 278; born 235, 218 and 252; starved 9, 12 and 8.** Births and the head count are well past 4.38. Starvation is level with 4.38 and under 4.39, but 4.39's figure is mostly one island that lost ten, and a starved smol or two per island moves with any change, so on 18 islands that line says "no worse", not "better". The table is in `smol-brains-handover/tools/starvation-440-measure.txt`.
+
+**Phones** (found in the screenshot pass, portrait 390 by 844):
+- **Status chips pushed the food and stamina row off the screen.** "soaked" and "very hungry" side by side were wider than the meters. The chips now take the width of the meters and no more; when they do not fit they show as icons only.
+- **The goal box sat over the clock.** It starts 10 px lower.
+- **The list of actions by the crosshair is gone on a touch screen.** The buttons say the same thing. That is one text box fewer.
+- **The small "place" button repeated the big one** ("crouch and sneak" twice). When they would say the same, the small one says "place", dimmed.
+
+**One thing at a time.** A story card no longer opens under the pod-landing map; it waits for it to close (`UI._podUp`).
+
+**"Afty memories."** The pixel font's "fi" ligature is broken, and a story film read "Afty" for "fifty". Ligatures are off for every element in `play/style.css`.
+
+**From the builders** (round 4, three branches):
+- powers.js: "new coat" recolours without a reload; "bigger markers" and "reduce flashing" now reach the markers and flashes they were meant to.
+- world3.js: ground that changes biome is baked again in every chunk the patch reaches (it marked one point, and 1,540 of 2,304 patches missed a chunk).
+- deep.js, animals.js: a smol carrying a raft, or riding an animal over water, no longer grows fins. It wades (`c.wade`) instead.
+- orders.test.js: the three parts that failed about one run in 24 now have a fixed seed.
+
+**Seen in a browser** (localhost, 390 by 844 with touch, in a smol's body): the status chips showed as icons inside the width of the meters and the page stayed 390 wide (it was 407 on 4.39); the goal box began at 68 px, under the clock; nothing was drawn by the crosshair but the name of the thing; at a pond the buttons read "drink", a dimmed "place" and "gaze into the water" (both small ones read "drink"); the buttons ended at 740 px and the meters began at 744. Held sideways (740 by 360, and by sum at 667 by 375 and 568 by 320) the meters ended 97 px short of the buttons and a toast sat at 70 px, under the clock. A campfire at night from four steps off: a pointed flame and a warm patch of grass. The pane this was seen in is not on anyone's screen; cc-lead looks at it in a visible one before release.
+
+`tests/play440.test.js`: the peckish number and a scene (a smol held at 0.56 hunger, an apple twelve steps off: it goes and eats), the hard-times rule through `C._tryBreed` (fed, hungry with food about, hungry and short, very hungry), the chip, goal box, crosshair list and button rules, the pod map, the ligature rule. `tests/round4-powers.test.js` and `tests/round4-world.test.js` are the builders'.
+
+**Still open.** 8 smols still starve on 18 islands in three days (seven islands lose one or two; not traced, they are judging islands). One smol drowned on them; wading smols count as swimmers, so this is likely the old kind (a smol dropped or wandering into deep water), but it was not traced. Deaths from sickness went from 1 or 2 to 7, with more smols alive to catch it; worth a trace on tuning islands next. A stranger that is stuck still stands where it is once it has eaten: only the starving are let off the script. On a phone, when the thing under the crosshair has one action, "use" and the big button still say the same. From the screenshot pass, art that reads badly: the healer (a flat green disc from above), the shop, the great glowshroom, the 27 trophies that all look alike, most dishes and tonics. Sound is still unheard by anyone.
+
 ## 0.88 What v4.39.0 changed: starving smols eat
 
 **Measured properly this time.** 4.36 to 4.38 were tuned and judged on the same nine islands, and twelve new ones showed the numbers were too kind. This round was tuned on thirteen islands (seeds 101 to 112 and 201) and judged on forty-eight it never touched (401 to 424 and 501 to 524), three days each, totals only (one small change reshuffles an island, so single islands rank nothing). Smols starved, live 4.38 against 4.39: 26 and 10 on the first twenty-four, 38 and 16 on the second. Together: 26 and 10LL. The table is in `smol-brains-handover/tools/starvation-439-measure.txt`.

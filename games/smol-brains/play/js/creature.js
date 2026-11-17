@@ -25,6 +25,10 @@ return BODY_R*st.scale*((c.look&&c.look.size)||1)*(c.species==="grump"?1.1:1)*(1
 C.TALKER_LIFE=1.4;
 C.HUNGRY_AWAKE=0.7;
 C.STARVING=0.85;
+C.HARD_HUNGER=0.55;C.HARD_FOOD=2;C.HARD_HUNGER_MAX=0.7;
+C.WADE_DETOUR=25;
+C.WADE_AFTER=2;
+C.PECKISH=0.5;
 function lifeK(c){return c&&c.species==="smol"&&(c.tier||0)>=3?C.TALKER_LIFE:1;}
 C.lifeK=lifeK;
 function stageFor(age,c){var s=0;for(var i=0;i<SB.STAGES.length;i++)if(age>=SB.STAGES[i].from*(i===4?lifeK(c):1))s=i;return s;}
@@ -347,7 +351,7 @@ var hm=SB.Society.home(game,c.tribe||0);
 if(SB.dist(c.x,c.z,hm.x,hm.z)>4){C.sendTo(c,hm.x+rng.range(-2,2),hm.z+rng.range(-2,2),game,12,true);return;}
 startAction(c,game,V.idle,null,null,null);c.action.dur=2;return;
 }
-if(c.stranger&&SB.Strangers){
+if(c.stranger&&SB.Strangers&&!(c.species==="smol"&&ch.hunger>C.STARVING)){
 var sg=SB.Strangers.think(c,game);
 if(sg&&sg.wait){startAction(c,game,V.idle,null,null,null);c.action.dur=2.5;if(!c.far&&rng.chance(0.15))say(c,rng.pick(["hello?","me friend","pls?","..."]),game);return;}
 if(sg){startAction(c,game,V.wander,null,null,null);c.action.tx=sg.x;c.action.tz=sg.z;c.action.dur=12;c.action.called=c.stranger.state!=="leaving";return;}
@@ -480,7 +484,7 @@ if(recent&&c.heard.idea&&SB.Ideas){
 var hd=SB.Ideas.BY_ID[c.heard.idea];
 if(hd&&SB.Ideas.known(c,hd.id)){var hv=hd.kind==="build"?V.build:hd.kind==="craft"?V.make:V.use;if(mask[hv]){bias[hv]+=0.25;useBias=true;}}
 }
-if(noun==="food"&&mask[V.eat]&&ch.hunger>0.65){bias[V.eat]+=(ch.hunger-0.55)*1.4;useBias=true;}
+if(noun==="food"&&mask[V.eat]&&ch.hunger>C.PECKISH){bias[V.eat]+=(ch.hunger-C.PECKISH+0.1)*1.4;useBias=true;}
 if(noun==="grump"&&mask[V.flee]&&ch.fear>0.6){bias[V.flee]+=(ch.fear-0.5)*0.8;useBias=true;}
 if(noun==="grump"&&mask[V.hit]&&c.species==="smol"&&SB.Ideas){
 var wpn=SB.Ideas.heldKind(c,game)||SB.Ideas.toolKind(c,game);
@@ -501,7 +505,7 @@ else if(ch.anger<0.45&&rng.chance(0.7))mask[V.hit]=false;
 if(goal&&M().goalBias(c,noun,mask,bias))useBias=true;
 if(c.prio&&SB.Orders&&SB.Orders.bias(c,game,noun,mask,bias))useBias=true;
 if(c.species==="smol"&&Mn()&&Mn().bias(c,game,noun,mask,bias))useBias=true;
-if(ch.hunger>0.65&&nearestOf[N.food]==null&&c.species==="smol"){bias[V.wander]+=(ch.hunger-0.5)*0.9;useBias=true;}
+if(ch.hunger>C.PECKISH+0.05&&nearestOf[N.food]==null&&c.species==="smol"){bias[V.wander]+=(ch.hunger-C.PECKISH+0.1)*0.9;useBias=true;}
 if(noun==="smol"&&mask[V.cuddle]&&ch.love>0.6&&c.stage===3&&c.species==="smol"&&target.ref&&(target.ref.sex===c.sex||SB.Game.related(game,c,target.ref))){mask[V.cuddle]=false;if(mask[V.wander]){bias[V.wander]+=0.4;useBias=true;}}
 if(noun==="smol"&&mask[V.cuddle]&&c.species==="smol"&&target.ref&&SB.Social){
 var mine=SB.Social.intimate(game,c,target.ref),suit=!mine&&ch.love>0.3&&!SB.Social.partnerOf(game,c)&&SB.Social.eligible(game,c,target.ref)&&!SB.Social.partnerOf(game,target.ref);
@@ -627,7 +631,7 @@ if(prey){ang=Math.atan2(prey.x-c.x,prey.z-c.z)+rng.range(-0.4,0.4);dist=Math.min
 ang=Math.atan2(sniff.x-c.x,sniff.z-c.z)+rng.range(-0.2,0.2);
 dist=Math.min(12,SB.dist(c.x,c.z,sniff.x,sniff.z));
 a.dur=8;
-}else if(c.chem.hunger>0.6&&(sniff=sniffFood(c,game))){
+}else if(c.chem.hunger>C.PECKISH&&(sniff=sniffFood(c,game))){
 ang=Math.atan2(sniff.x-c.x,sniff.z-c.z)+rng.range(-0.25,0.25);
 dist=Math.min(12,SB.dist(c.x,c.z,sniff.x,sniff.z));
 a.dur=8;
@@ -635,7 +639,7 @@ a.dur=8;
 ang=Math.atan2(sniff.x-c.x,sniff.z-c.z);
 dist=Math.min(14,SB.dist(c.x,c.z,sniff.x,sniff.z));
 a.dur=8;a.why=sniff.why;
-}else if(c.foodSpot&&c.chem.hunger>0.55&&SB.dist(c.x,c.z,c.foodSpot.x,c.foodSpot.z)>2){
+}else if(c.foodSpot&&c.chem.hunger>C.PECKISH-0.05&&SB.dist(c.x,c.z,c.foodSpot.x,c.foodSpot.z)>2){
 ang=Math.atan2(c.foodSpot.x-c.x,c.foodSpot.z-c.z)+rng.range(-0.3,0.3);
 dist=Math.min(10,SB.dist(c.x,c.z,c.foodSpot.x,c.foodSpot.z));
 }else if(rng.chance(0.4)){
@@ -780,6 +784,10 @@ c.pathTried=true;
 c.path=SB.World.findPath(game.world,c.x,c.z,tx,tz,swim(c),5000);
 c.pathI=0;
 if(!c.path)c.noPath={x:tx,z:tz,t:game.time};
+else if(starvingFor(c,c.action)&&c.chem.hunger>0.95&&!swim(c)){
+var pl=0,plx=c.x,plz=c.z;for(var pi=0;pi<c.path.length;pi++){pl+=Math.hypot(c.path[pi].x-plx,c.path[pi].z-plz);plx=c.path[pi].x;plz=c.path[pi].z;}
+if(pl>C.WADE_DETOUR&&pl>d0*2){c.wade=60;c.path=SB.World.findPath(game.world,c.x,c.z,tx,tz,true,5000);c.pathI=0;}
+}
 }
 if(c.path&&c.wBestT>8){c.path=null;c.lost=true;}
 if(c.path){
@@ -862,7 +870,7 @@ beginDo(c,game,a,tgt);
 }else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>(c.path&&starvingFor(c,a)?20:7)||(c.noPath&&game.time-c.noPath.t<0.2)){
 c.stuckT=0;
 if(a.target&&a.target.id!=null)unreachable(c,a.target.id,game);
-if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=3){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
+if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=C.WADE_AFTER){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
 finish(c,game);
 }
 return;
@@ -1168,7 +1176,7 @@ var pop=SB.Game.smols(game).length+game.world.items.filter(function(o){return o.
 if(pop>=SB.Game.POP_CAP){say(a,"too many smols",game);return;}
 var room=SB.Civ&&SB.Civ.room?SB.Civ.room(game):Infinity;
 if(pop>=room){if(!a.far)say(a,a.tier>=3?"no room for a baby. we need a hut":"no room",game);a.eggCooldown=b.eggCooldown=90;SB.bus.emit("noRoom",{a:a,b:b,room:room});return;}
-if(SB.Game.colonyHunger&&(SB.Game.colonyHunger(game)>0.55||(pop>6&&SB.Game.foodPerSmol(game)<(game.world.season===3?1.2:0.7)))){say(a,"not now. hungry",game);return;}
+if(SB.Game.colonyHunger){var cH=SB.Game.colonyHunger(game),fPS=SB.Game.foodPerSmol(game);if((cH>C.HARD_HUNGER&&fPS<C.HARD_FOOD)||cH>C.HARD_HUNGER_MAX||(pop>6&&fPS<(game.world.season===3?1.2:0.7))){say(a,"not now. hungry",game);return;}}
 if(Math.min(a.tier,b.tier)>=3&&!payEgg(game,a,b)){say(a,"not now. hungry",game);return;}
 SB.Game.layEgg(game,a,b,(a.x+b.x)/2,(a.z+b.z)/2);
 a.chem.love=0;b.chem.love=0;
@@ -1747,7 +1755,7 @@ if(c.plan&&(ch.fear>0.65||ch.hunger>0.78||ch.pain>0.6||(ch.sleepy>0.9&&c.stage<3
 if(c.action&&c.action.verb!==V.flee&&ch.fear>0.6&&c.action.phase==="go")c.thinkT=0;
 if(ch.hunger>0.45&&!c.plan&&c.action&&(c.action.verb===V.idle||c.action.verb===V.wander||c.action.verb===V.talk||c.action.verb===V.approach)&&(c.foodT=(c.foodT||0)-dt)<=0){
 c.foodT=0.5;
-var snack=SB.World.nearestItem(w,c.x,c.z,ch.hunger>0.7?4:1.5,function(o){return o.noun==="food"&&o.heldBy!=="hand"&&o.kind!=="nut";});
+var snack=SB.World.nearestItem(w,c.x,c.z,ch.hunger>0.7?4:ch.hunger>C.PECKISH?3:1.5,function(o){return o.noun==="food"&&o.heldBy!=="hand"&&o.kind!=="nut";});
 if(snack&&c.action.noun!=="food"){c.action=null;c.thinkT=0;}
 }
 }

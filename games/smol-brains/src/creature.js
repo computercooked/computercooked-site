@@ -34,7 +34,11 @@
   // smols who talk (tribe and on) have fewer eggs and live longer: grown-up for longer, and two-fifths more life
   C.TALKER_LIFE = 1.4;
   C.HUNGRY_AWAKE = 0.7; // 4.36: this hungry, a smol wakes, will not lie down, and its nose takes over
-  C.STARVING = 0.85; // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
+  C.STARVING = 0.85;
+  C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
+  C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
+  C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
+  C.PECKISH = 0.5; // 4.40: a smol starts looking for food here (it was 0.6 to 0.65, so a fed island sat half hungry) // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
   function stageFor(age, c) { var s = 0; for (var i = 0; i < SB.STAGES.length; i++) if (age >= SB.STAGES[i].from * (i === 4 ? lifeK(c) : 1)) s = i; return s; }
@@ -391,7 +395,7 @@
       if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12, true); return; }
       startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return;
     }
-    if (c.stranger && SB.Strangers) { // a stranger walks up to the village and waits for your answer (or walks away)
+    if (c.stranger && SB.Strangers && !(c.species === "smol" && ch.hunger > C.STARVING)) { // a stranger walks up to the village and waits for your answer (or walks away). 4.40: a starving one eats first (island 23: one was sent on every 12 seconds for its last three and a half minutes, a berry 12 steps off)
       var sg = SB.Strangers.think(c, game);
       if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
       if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
@@ -544,7 +548,7 @@
       if (hd && SB.Ideas.known(c, hd.id)) { var hv = hd.kind === "build" ? V.build : hd.kind === "craft" ? V.make : V.use; if (mask[hv]) { bias[hv] += 0.25; useBias = true; } }
     }
     // hard-wired reflexes for emergencies (the net still decides everything else)
-    if (noun === "food" && mask[V.eat] && ch.hunger > 0.65) { bias[V.eat] += (ch.hunger - 0.55) * 1.4; useBias = true; }
+    if (noun === "food" && mask[V.eat] && ch.hunger > C.PECKISH) { bias[V.eat] += (ch.hunger - C.PECKISH + 0.1) * 1.4; useBias = true; }
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
     // armed and brave: stand up to grumps (a club or spear chases them off for good)
     if (noun === "grump" && mask[V.hit] && c.species === "smol" && SB.Ideas) {
@@ -568,7 +572,7 @@
     if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
     if (c.prio && SB.Orders && SB.Orders.bias(c, game, noun, mask, bias)) useBias = true; // job interests you nudged
     if (c.species === "smol" && Mn() && Mn().bias(c, game, noun, mask, bias)) useBias = true; // a food way, a standing "keep making"
-    if (ch.hunger > 0.65 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - 0.5) * 0.9; useBias = true; }
+    if (ch.hunger > C.PECKISH + 0.05 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - C.PECKISH + 0.1) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
     if (noun === "smol" && mask[V.cuddle] && c.species === "smol" && target.ref && SB.Social) {
@@ -716,7 +720,7 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.2, 0.2);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8;
-        } else if (c.chem.hunger > 0.6 && (sniff = sniffFood(c, game))) {
+        } else if (c.chem.hunger > C.PECKISH && (sniff = sniffFood(c, game))) {
           // hungry and nothing in sight: follow your nose toward the nearest food (or a fruit tree)
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.25, 0.25);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
@@ -726,7 +730,7 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z);
           dist = Math.min(14, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8; a.why = sniff.why;
-        } else if (c.foodSpot && c.chem.hunger > 0.55 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
+        } else if (c.foodSpot && c.chem.hunger > C.PECKISH - 0.05 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
           ang = Math.atan2(c.foodSpot.x - c.x, c.foodSpot.z - c.z) + rng.range(-0.3, 0.3);
           dist = Math.min(10, SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z));
         } else if (rng.chance(0.4)) {
@@ -893,6 +897,11 @@
       c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, swim(c), 5000);
       c.pathI = 0;
       if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
+      // 4.40: starving, and the way round the water is long (island 23: an apple 12 steps off across a stream, over a minute's walk round; it died on the way): it wades straight for it
+      else if (starvingFor(c, c.action) && c.chem.hunger > 0.95 && !swim(c)) {
+        var pl = 0, plx = c.x, plz = c.z; for (var pi = 0; pi < c.path.length; pi++) { pl += Math.hypot(c.path[pi].x - plx, c.path[pi].z - plz); plx = c.path[pi].x; plz = c.path[pi].z; }
+        if (pl > C.WADE_DETOUR && pl > d0 * 2) { c.wade = 60; c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, true, 5000); c.pathI = 0; }
+      }
     }
     // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground
     if (c.path && c.wBestT > 8) { c.path = null; c.lost = true; }
@@ -987,7 +996,7 @@
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
         // 4.37: marooned (a patch cut off by a stream) and starving: after a few meals it could not walk to, it wades
-        if (starvingFor(c, a) && c.chem.hunger > 0.95 && !(c.wade > 0)) { var un = 0, uk; for (uk in c.unreach) if (c.unreach[uk] > game.time) un++; if (un >= 3) { c.wade = 60; c.unreach = {}; c.path = null; c.pathTried = false; } }
+        if (starvingFor(c, a) && c.chem.hunger > 0.95 && !(c.wade > 0)) { var un = 0, uk; for (uk in c.unreach) if (c.unreach[uk] > game.time) un++; if (un >= C.WADE_AFTER) { c.wade = 60; c.unreach = {}; c.path = null; c.pathTried = false; } }
         finish(c, game);
       }
       return;
@@ -1337,7 +1346,10 @@
     if (pop >= room) { if (!a.far) say(a, a.tier >= 3 ? "no room for a baby. we need a hut" : "no room", game); a.eggCooldown = b.eggCooldown = 90; SB.bus.emit("noRoom", { a: a, b: b, room: room }); return; }
     // hard times: when the colony is going hungry, nobody starts a family
     // (and a big colony needs food lying around to raise another: about one bite per smol, more in winter)
-    if (SB.Game.colonyHunger && (SB.Game.colonyHunger(game) > 0.55 || (pop > 6 && SB.Game.foodPerSmol(game) < (game.world.season === 3 ? 1.2 : 0.7)))) { say(a, "not now. hungry", game); return; }
+    // 4.40: hunger alone is not hard times. Smols sleep until hunger wakes them, so an island with food lying everywhere
+    // still averages near 0.5; the old rule (mean hunger over 0.55) stopped pairs on fed islands. Now: hungry AND under
+    // two bites of food each on the ground, or very hungry whatever is lying about
+    if (SB.Game.colonyHunger) { var cH = SB.Game.colonyHunger(game), fPS = SB.Game.foodPerSmol(game); if ((cH > C.HARD_HUNGER && fPS < C.HARD_FOOD) || cH > C.HARD_HUNGER_MAX || (pop > 6 && fPS < (game.world.season === 3 ? 1.2 : 0.7))) { say(a, "not now. hungry", game); return; } }
     if (Math.min(a.tier, b.tier) >= 3 && !payEgg(game, a, b)) { say(a, "not now. hungry", game); return; } // (blobs, critters and tool-users just have them)
     SB.Game.layEgg(game, a, b, (a.x + b.x) / 2, (a.z + b.z) / 2);
     a.chem.love = 0; b.chem.love = 0;
@@ -1985,7 +1997,7 @@
       if (c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
       if (ch.hunger > 0.45 && !c.plan && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
         c.foodT = 0.5;
-        var snack = SB.World.nearestItem(w, c.x, c.z, ch.hunger > 0.7 ? 4 : 1.5, function (o) { return o.noun === "food" && o.heldBy !== "hand" && o.kind !== "nut"; });
+        var snack = SB.World.nearestItem(w, c.x, c.z, ch.hunger > 0.7 ? 4 : ch.hunger > C.PECKISH ? 3 : 1.5, function (o) { return o.noun === "food" && o.heldBy !== "hand" && o.kind !== "nut"; });
         if (snack && c.action.noun !== "food") { c.action = null; c.thinkT = 0; }
       }
     }
