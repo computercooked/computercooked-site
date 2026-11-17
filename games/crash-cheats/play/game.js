@@ -16,7 +16,7 @@
   const CRASH_TO_WIN = 3, YOU_TO_WIN = 3, MAX_TOKENS = 3;
   // suspicion each cheat adds. at 100 the anticheat catches him and the round is yours.
   const SUS = { delete: 22, swap: 26, lag: 22, coffee: 18, rules: 28, bsod: 34 };
-  const SUS_MUL = [1, 1, 0.95, 0.9, 0.8]; // by crash version: newer ones hide their cheats better
+  const SUS_MUL = [1, 1, 0.95, 0.93, 0.88]; // by crash version: newer ones hide their cheats better
   const SUS_KEEP = [0.5, 0.4, 0.3, 0.25, 0.2]; // by crash version: newer ones clear their logs faster
   const VERB = { delete: 'delete your x', swap: 'recolor your x', lag: 'lag-move twice', coffee: 'spill coffee', rules: 'rewrite the rules', bsod: 'blue-screen the board' };
   const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
@@ -204,7 +204,7 @@
   let crashFace = 0, crashFaceT = 0;
   let toast = { text: '', life: 0 };
   let sus = 0, susFlash = 0, tokens = 1, firewall = false, undoSnap = null, caughtN = 0;
-  let buttons = [], footerOff = false;
+  let buttons = [], footerOff = false, undoHinted = false;
   let cheatLog = []; // v2.3: every cheat this match, shown in the empty column on wide screens
 
   function resetBoard() {
@@ -544,6 +544,8 @@
     if (ln) { fx.winLine = ln; fx.winT = 0; await wait(500); if (g !== gen) return; await endRound('loss', g); return; }
     if (!empties().length) { await wait(300); if (g !== gen) return; await endRound('draw', g); return; }
     phase = 'player';
+    // v2.4: a new player's first chance to answer a cheat gets pointed at the button that does it
+    if (undoSnap && tokens > 0 && record.w + record.l < 2 && !undoHinted) { undoHinted = true; showToast('psst: ctrl+z undoes his cheat', 3.2, true); }
   }
 
   // ---------- round / match ----------
@@ -650,7 +652,7 @@
       showToast(copied ? 'text copied + card saved. go post it.' : 'card saved. go post it.');
     } else showToast(copied ? 'copied. go post it.' : 'couldn\'t copy. screenshot it.');
   }
-  function showToast(s) { toast = { text: s, life: 2 }; }
+  function showToast(s, life, low) { toast = { text: s, life: life || 2, low: !!low }; }
 
   // ---------- input ----------
   function cellRect(i) {
@@ -922,7 +924,7 @@
     const room = H - 26 - y0, x = 16, w = W - 32, small = Math.max(10, Math.round(10 * u));
     if (room < 78 * u) { // short frame (the phone player frame): just the goal, on the footer's line if it must
       const g = nextGoal(true), s = fitFont(g, 10.5 * u, w, 'normal');
-      if (s && H - 10 >= y0 + s - 2) { text(g, W / 2, Math.min(H - 10, y0 + s + 4), s, 'rgba(197,255,73,0.8)', 'center', 'normal'); footerOff = H - 10 < y0 + s + 18; }
+      if (s && H - 10 >= y0) { const gy = Math.min(H - 10, y0 + s + 4); text(g, W / 2, gy, s, 'rgba(197,255,73,0.8)', 'center', 'normal'); footerOff = gy > H - 24; }
       return;
     }
     text('crash versions', x, y0 + small, small, COL.dim, 'left', 'bold');
@@ -1279,7 +1281,7 @@
     if (toast.life <= 0) return;
     ctx.globalAlpha = Math.min(1, toast.life * 3);
     const size = Math.round(13 * u); ctx.font = 'bold ' + size + 'px ' + FONT;
-    const w = ctx.measureText(toast.text).width + 28, h = size + 20, x = (W - w) / 2, y = lay.board.y + 36 * u;
+    const w = ctx.measureText(toast.text).width + 28, h = size + 20, x = (W - w) / 2, y = toast.low ? lay.board.y + lay.board.s - h - 6 * u : lay.board.y + 36 * u;
     rr(x, y, w, h, 8); ctx.fillStyle = COL.paper; ctx.fill();
     text(toast.text, W / 2, y + h * 0.66, size, COL.carbon, 'center');
     ctx.globalAlpha = 1;
