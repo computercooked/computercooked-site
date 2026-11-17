@@ -68,6 +68,41 @@
   function loadBest() { try { return parseInt(localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) { return 0; } }
   function saveBest(v) { try { localStorage.setItem(BEST_KEY, String(v)); } catch (e) { /* ignore */ } }
 
+  // ---------- career (v2.4): lifetime tabs -> rank, goals -> skins, a daily height. its own key; the best key is untouched ----------
+  const CAREER_KEY = 'cc-tab-hoarder-career';
+  const RANKS = [[0, 'one tab person'], [25, 'tab collector'], [100, 'tab goblin'], [300, 'ram eater'], [700, 'browser landlord'], [1500, 'the cloud'], [3000, 'legally a server farm']];
+  const GOALS = [
+    ['t10', 'stack 10 tabs', (r) => r.tabs >= 10], ['p3', '3 perfects in a row', (r) => r.combo >= 3], ['pw', 'use a power-up tab', (r) => r.powers >= 1],
+    ['t20', 'stack 20 tabs', (r) => r.tabs >= 20], ['s50', 'score 50 pts', (r) => r.score >= 50], ['vir', 'survive free_ram_download.exe', (r) => r.virus >= 1],
+    ['p5', '5 perfects in a row', (r) => r.combo >= 5], ['t30', 'stack 30 tabs', (r) => r.tabs >= 30], ['dbl', 'land a power-up perfect', (r) => r.dbl >= 1],
+    ['s100', 'score 100 pts', (r) => r.score >= 100], ['t40', 'stack 40 tabs', (r) => r.tabs >= 40], ['p8', '8 perfects in a row', (r) => r.combo >= 8],
+    ['s200', 'score 200 pts', (r) => r.score >= 200], ['t60', 'stack 60 tabs', (r) => r.tabs >= 60], ['s400', 'score 400 pts', (r) => r.score >= 400]
+  ];
+  // tab skins, unlocked by goals done. a/b = stacked tab fills, ink = text, act = the moving tab
+  const SKINS = [
+    { id: 'classic', name: 'classic', need: 0, a: '#F5F3ED', b: '#E6E1D3', ink: '#1b1c21', act: '#C5FF49', actInk: '#1b1c21' },
+    { id: 'dark', name: 'dark mode', need: 2, a: '#2b2d35', b: '#363944', ink: '#F5F3ED', act: '#C5FF49', actInk: '#1b1c21' },
+    { id: 'incog', name: 'incognito', need: 5, a: '#3d2f63', b: '#4a3a75', ink: '#F5F3ED', act: '#B59AFF', actInk: '#1b1c21' },
+    { id: 'retro', name: 'retro 98', need: 9, a: '#c3c3c3', b: '#b4b4b4', ink: '#000000', act: '#2c3fa8', actInk: '#ffffff' },
+    { id: 'gold', name: 'gold tabs', need: 13, a: '#ffe27a', b: '#f2c933', ink: '#1b1c21', act: '#C5FF49', actInk: '#1b1c21' }
+  ];
+  function dayKey(off) { const d = new Date(Date.now() + (off || 0) * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function dailyTarget() { let h = 7; for (const ch of dayKey()) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return 12 + (h % 15); } // 12-26 tabs, same for everyone today
+  function loadCareer() {
+    let c = null;
+    try { c = JSON.parse(localStorage.getItem(CAREER_KEY)); } catch (e) { c = null; }
+    if (!c || typeof c !== 'object') c = {};
+    const n = (v) => (typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0);
+    return { v: 1, tabs: n(c.tabs), runs: n(c.runs), perfects: n(c.perfects), bestTabs: n(c.bestTabs), goals: Array.isArray(c.goals) ? c.goals.filter((g) => typeof g === 'string') : [],
+      skin: typeof c.skin === 'string' ? c.skin : 'classic', dayDone: typeof c.dayDone === 'string' ? c.dayDone : '', streak: n(c.streak) };
+  }
+  function saveCareer() { try { localStorage.setItem(CAREER_KEY, JSON.stringify(career)); } catch (e) { /* ignore */ } }
+  const career = loadCareer();
+  const rankOf = (n) => { let i = 0; while (i + 1 < RANKS.length && n >= RANKS[i + 1][0]) i++; return i; };
+  const activeGoals = () => GOALS.filter((g) => career.goals.indexOf(g[0]) < 0).slice(0, 3);
+  const skinsOpen = () => SKINS.filter((s) => career.goals.length >= s.need);
+  const skin = () => skinsOpen().find((s) => s.id === career.skin) || SKINS[0];
+
   // ---------- audio (procedural) ----------
   let ac = null, master = null, muted = false, noiseBuf = null;
   let fanGain, fanFilter, whine, whineGain;
@@ -136,6 +171,8 @@
   let tabs = [], cur = null, debris = [], parts = [], toasts = [];
   let score = 0, best = loadBest(), combo = 0, newBest = false, lastTitle = '';
   let tabsN = 0, bestCombo = 0, slowLeft = 0, nextPower = 6, powersUsed = 0, paused = false, runStart = 0, lastScoreSent = 0;
+  // armed: false after a hub autostart until the first tap (the clock and cc.start wait for it). saves: one free miss before tab 10
+  let armed = true, saves = 1, runGoals = [], runVirus = 0, runDbl = 0, runRankUp = '', runSkin = '', passedBestH = false, prevBestTabs = 0, flashT = 0, banner = null;
   const mult = () => Math.min(5, 1 + Math.floor(combo / 3));
   // ---------- power-up tabs ----------
   const POWERS = {
@@ -175,6 +212,7 @@
     tabs[0].fav = COL.lime;
     debris = []; parts = []; toasts = [];
     passedBest = false; score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
+    saves = 1; runGoals = []; runVirus = 0; runDbl = 0; runRankUp = ''; runSkin = ''; passedBestH = false; prevBestTabs = career.bestTabs; flashT = 0; banner = null;
     state = toState;
     hideTip(); // K-0059: shared tip button (assets/tip.js)
     spawn();
@@ -198,8 +236,37 @@
     initAudio();
     reset('play');
     sfx.start();
-    paused = false; runStart = performance.now();
+    paused = false; runStart = performance.now(); armed = true;
     cc('start');
+  }
+  // a hub "tap to play" landing card sent the player: skip the title, but the run (clock + cc.start) begins at the first tap,
+  // since the player page may still cover the game with "tap to play full screen"
+  function autostartRun() {
+    if (state !== 'menu') return;
+    reset('play');
+    paused = false; armed = false;
+  }
+  function arm() { if (armed) return; armed = true; runStart = performance.now(); sfx.start(); cc('start'); }
+  function tryAutostart() { try { if (state === 'menu' && window.cc && typeof window.cc.autostart === 'function' && window.cc.autostart()) autostartRun(); } catch (e) { /* sdk optional */ } }
+  if (document.readyState === 'complete') setTimeout(tryAutostart, 0); else window.addEventListener('load', tryAutostart);
+  function bigBanner(text, color) { banner = { text, color, life: 1.6, max: 1.6 }; flashT = 0.35; }
+  // goals, rank and daily are checked after every drop
+  function checkCareer() {
+    const r = { tabs: tabsN, combo, score, powers: powersUsed, virus: runVirus, dbl: runDbl };
+    let guard = 0;
+    for (let g = activeGoals().find((x) => x[2](r)); g && guard < 5; g = activeGoals().find((x) => x[2](r)), guard++) {
+      const before = skinsOpen().length;
+      career.goals.push(g[0]); runGoals.push(g[1]);
+      toast('goal done: ' + g[1], '#ffd84a', 1.8, false); sfx.milestone();
+      if (skinsOpen().length > before) { const s = skinsOpen()[skinsOpen().length - 1]; career.skin = s.id; runSkin = s.name; bigBanner('new skin: ' + s.name, '#ffd84a'); }
+      saveCareer();
+    }
+    if (tabsN === dailyTarget() && career.dayDone !== dayKey()) {
+      career.streak = career.dayDone === dayKey(-1) ? career.streak + 1 : 1;
+      career.dayDone = dayKey(); saveCareer();
+      bigBanner('daily done · streak ' + career.streak, COL.lilac); sfx.milestone();
+    }
+    if (!passedBestH && prevBestTabs >= 5 && tabsN === prevBestTabs + 1) { passedBestH = true; bigBanner('new best height', COL.lime); shake = Math.max(shake, 6); }
   }
   function curSpeed() {
     let sp = speedFor(tabsN);
@@ -224,8 +291,14 @@
     const ov = r - l;
     const pw = cur.power;
     if (ov <= 0.5 && !(Math.abs(off) <= perfWin())) { // missed completely
-      lastTitle = cur.joke || cur.title;
       debris.push(Object.assign(cur, { vx: cur.dir * curSpeed() * 0.4, vy: 40, rot: 0, vr: cur.dir * 2.5 }));
+      if (saves > 0 && tabsN < 10) { // one free miss early on: the stack stays, a fresh tab comes in
+        saves--; combo = 0; cur = null; shake = Math.max(shake, 7); crashHit = 0.5;
+        bigBanner('missed! tab restored', '#7fd8ff'); toast('free save used. the next miss is real.', COL.paper, 1.8, true);
+        sfx.slice(); spawn();
+        return;
+      }
+      lastTitle = cur.joke || cur.title;
       cur = null;
       gameOver();
       return;
@@ -260,7 +333,8 @@
     placed.flash = 1;
     if (pw) { placed.power = pw; powersUsed++; }
     const dbl = pw && pw !== 'pin' && Math.abs(off) <= perfWin() ? 2 : 1;
-    if (dbl > 1) toast('perfect power-up: double', COL.lime, 1, true);
+    if (dbl > 1) { toast('perfect power-up: double', COL.lime, 1, true); runDbl++; }
+    if (pw === 'virus') runVirus++;
     if (pw === 'reopen') { const nw = Math.min(BASE_W, placed.w + 70 * dbl); toast('tab restored. +' + Math.round(nw - placed.w) + ' width', COL.lilac, 1.2, true); placed.w = nw; burst(placed.x, cur.y + TAB_H / 2, nw, COL.lilac, 18); sfx.powerup(); }
     if (pw === 'slow') { slowLeft = 6 * dbl; toast('low power mode: ' + slowLeft + ' slow tabs', '#7fd8ff', 1.2, true); sfx.powerup(); }
     if (pw === 'star') { addPoints(10 * dbl); toast('bookmarked. +' + 10 * dbl, '#ffd84a', 1.2, true); burst(placed.x, cur.y + TAB_H / 2, placed.w, '#ffd84a', 18); sfx.powerup(); }
@@ -272,6 +346,11 @@
     addPoints(mult());
     const m = MILESTONES[tabsN];
     if (m) { toast(m, COL.lilac, 1.8, false); sfx.milestone(); }
+    const rk = rankOf(career.tabs);
+    career.tabs++; if (placed.perfect) career.perfects++;
+    if (rankOf(career.tabs) > rk) { runRankUp = RANKS[rankOf(career.tabs)][1]; bigBanner('rank up: ' + runRankUp, COL.lilac); saveCareer(); }
+    if (tabsN % 10 === 0) saveCareer();
+    checkCareer();
     updateFan();
     spawn();
   }
@@ -282,8 +361,9 @@
     crashHit = 0;
     shake = 10;
     if (score > best) { best = score; newBest = score > 0; saveBest(best); }
+    career.runs++; career.bestTabs = Math.max(career.bestTabs, tabsN); saveCareer();
     sfx.cooked();
-    cc('end', { score, durationMs: Math.round(performance.now() - runStart) });
+    cc('end', { score, durationMs: Math.round(performance.now() - runStart), completed: true });
     cc('event', 'run_over', { tabs: tabsN, bestCombo, powersUsed });
     updateFan();
     showTip();
@@ -338,8 +418,11 @@
     initAudio();
     if (x !== undefined && inRect(btns.mute, x, y)) { userMuted = !userMuted; applyMute(); return; }
     if (paused) { setPause(false); return; }
-    if (state === 'menu') startGame();
-    else if (state === 'play') drop();
+    if (state === 'menu') {
+      if (x !== undefined && inRect(btns.skin, x, y)) { const o = skinsOpen(), i = o.findIndex((s) => s.id === skin().id); career.skin = o[(i + 1) % o.length].id; saveCareer(); sfx.place(); return; }
+      startGame();
+    }
+    else if (state === 'play') { arm(); drop(); }
     else if (state === 'over' && overT > 1.1) {
       if (x !== undefined && inRect(btns.share, x, y)) { share(); return; }
       startGame();
@@ -402,7 +485,8 @@
     try { const a = document.createElement('a'); a.href = card().toDataURL('image/png'); a.download = 'tab-hoarder-' + score + '.png'; document.body.appendChild(a); a.click(); a.remove(); saved = true; } catch (e) { saved = false; }
     shareMsg = saved ? (ok ? 'image saved + text copied' : 'image saved') : ok ? 'text copied' : 'screenshot it'; shareMsgT = 2.5;
   }
-  window.TH = { state: () => state, score: () => score, tabs: () => tabsN, combo: () => combo, cur: () => cur && { x: cur.x, power: cur.power || null }, top: () => ({ x: topTab().x, w: topTab().w }), card: () => card().toDataURL(), drop: () => press() };
+  window.TH = { state: () => state, score: () => score, tabs: () => tabsN, combo: () => combo, cur: () => cur && { x: cur.x, power: cur.power || null }, top: () => ({ x: topTab().x, w: topTab().w }), card: () => card().toDataURL(), drop: () => press(),
+    career: () => JSON.parse(JSON.stringify(career)), armed: () => armed, saves: () => saves, paused: () => paused, daily: () => dailyTarget(), autostart: () => autostartRun() };
   document.addEventListener('visibilitychange', () => {
     if (!ac) return;
     if (document.hidden) ac.suspend(); else ac.resume();
@@ -446,6 +530,8 @@
       parts.push({ x: (Math.random() - 0.5) * 150, y: CRASH_TOP - 20, vx: (Math.random() - 0.5) * 40, vy: 60 + Math.random() * 60, life: 0.9, color: COL.lilac, sz: 4 + Math.random() * 4, steam: true });
     }
     for (let i = toasts.length - 1; i >= 0; i--) { toasts[i].life -= dt; if (toasts[i].life <= 0) toasts.splice(i, 1); }
+    if (banner) { banner.life -= dt; if (banner.life <= 0) banner = null; }
+    flashT = Math.max(0, flashT - dt);
     shake = Math.max(0, shake - dt * 25);
     crashHit = Math.max(0, crashHit - dt);
 
@@ -492,9 +578,10 @@
 
   // draws a tab in world space (ctx already transformed, y flipped so we draw at -y)
   function drawTab(tb, active, idx) {
-    const l = -tb.w / 2, top = -TAB_H, w = tb.w;
-    let fill = active ? COL.lime : (idx % 2 ? COL.paper : COL.paper2);
-    if (tb.power) fill = active ? POWERS[tb.power].color : (idx % 2 ? '#e9e2ff' : '#ddd3ff');
+    const l = -tb.w / 2, top = -TAB_H, w = tb.w, sk = skin();
+    let fill = active ? sk.act : (idx % 2 ? sk.a : sk.b);
+    let ink = active ? sk.actInk : sk.ink;
+    if (tb.power) { fill = active ? POWERS[tb.power].color : (idx % 2 ? '#e9e2ff' : '#ddd3ff'); ink = COL.ink; }
     tabPath(l, top, w, TAB_H - 2, tb.cut);
     ctx.fillStyle = fill; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = COL.carbon; ctx.stroke();
@@ -519,12 +606,12 @@
     }
     const hasX = w > 80;
     if (hasX) {
-      ctx.strokeStyle = COL.ink; ctx.lineWidth = 1.8;
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.8;
       const cx = l + w - 14, cy = top + 14;
       ctx.beginPath(); ctx.moveTo(cx - 4, cy - 4); ctx.lineTo(cx + 4, cy + 4); ctx.moveTo(cx + 4, cy - 4); ctx.lineTo(cx - 4, cy + 4); ctx.stroke();
     }
     const txt = fitTitle(tb.title, w - 28 - (hasX ? 24 : 6));
-    if (txt) { ctx.fillStyle = COL.ink; ctx.fillText(txt, l + 26, top + 18.5); }
+    if (txt) { ctx.fillStyle = ink; ctx.fillText(txt, l + 26, top + 18.5); }
   }
 
   function worldTransform(sx, sy) {
@@ -589,6 +676,23 @@
       worldTransform(sh, shy);
       ctx.translate(tb.x, -tb.y);
       drawTab(tb, false, i);
+    }
+    // height lines: your best tower and today's daily target, so the next goal is on screen while you stack
+    if (state === 'play') {
+      const half = (W / S) / 2;
+      const line = (n, label, color, beat, right) => {
+        const y = CRASH_TOP + (n + 1) * TAB_H;
+        if (y > viewTop || y < viewBot) return;
+        worldTransform(sh, shy);
+        ctx.fillStyle = color; ctx.globalAlpha = beat ? 0.35 : 0.8;
+        for (let x = -half; x < half; x += 14) ctx.fillRect(x, -y - 1, 8, 2);
+        ctx.font = 'bold 11px ' + FONT; ctx.textAlign = right ? 'right' : 'left';
+        ctx.fillText(label + (beat ? ' ✓' : ''), right ? half - 8 : -half + 8, -y - 5);
+        ctx.globalAlpha = 1; ctx.textAlign = 'left';
+      };
+      const dt = dailyTarget(), dDone = career.dayDone === dayKey();
+      if (prevBestTabs >= 5) line(prevBestTabs, 'your best: ' + prevBestTabs + ' tabs', COL.lime, tabsN > prevBestTabs, true);
+      if (!dDone || tabsN >= dt) { if (dt !== prevBestTabs) line(dt, 'daily: ' + dt + ' tabs', COL.lilac, tabsN >= dt, false); }
     }
     // active tab
     if (cur && state !== 'over') {
@@ -667,6 +771,10 @@
       const rpm = (1200 + tabsN * 95).toLocaleString('en-US');
       text('cpu ' + temp + '°c · fan ' + rpm + ' rpm', pad, by + 20 * u, Math.round(10 * u), 'rgba(245,243,237,0.6)', 'left', 'normal');
       text('best ' + best, W - pad - 44, pad + 18 * u, Math.round(13 * u), COL.paper, 'right');
+      // the next goal, top right under best (what this run can unlock)
+      const ng = activeGoals()[0];
+      if (ng) text('goal: ' + ng[1], W - pad, pad + 54 * u, Math.round(11 * u), '#ffd84a', 'right', 'normal');
+      if (saves > 0 && tabsN < 10) text('1 free miss until tab 10', W - pad, pad + 70 * u, Math.round(10 * u), '#7fd8ff', 'right', 'normal');
     }
     // mute button (top right)
     const mb = { x: W - 44, y: 10, w: 34, h: 34 };
@@ -697,6 +805,27 @@
       ty += 6;
     }
     ctx.globalAlpha = 1;
+    // big banner (new best height, daily done, rank up, new skin, saved miss): reads with the sound off
+    if (flashT > 0 && state === 'play') { ctx.globalAlpha = flashT * 0.5; ctx.fillStyle = banner ? banner.color : COL.lime; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+    if (banner && state === 'play') {
+      const k = 1 - banner.life / banner.max, pop = k < 0.12 ? 0.6 + k / 0.12 * 0.5 : k < 0.2 ? 1.1 - (k - 0.12) / 0.08 * 0.1 : 1;
+      const size = Math.round(Math.min(30 * u, (W - 30) / Math.max(8, banner.text.length) * 1.6) * pop);
+      ctx.globalAlpha = Math.min(1, banner.life / 0.35);
+      ctx.font = '900 ' + size + 'px ' + FONT; ctx.textAlign = 'center';
+      const by = H * 0.2;
+      ctx.lineWidth = 7; ctx.strokeStyle = COL.carbon; ctx.strokeText(banner.text, W / 2, by);
+      ctx.fillStyle = banner.color; ctx.fillText(banner.text, W / 2, by);
+      ctx.globalAlpha = 1;
+    }
+    // first runs: point at the stack until the first couple of drops
+    if (state === 'play' && !paused && cur && tabsN < 2 && career.runs < 3) {
+      const tp = topTab(), sy = H + camY * S - (tp.y + TAB_H) * S - (TAB_H + 12) * S;
+      const a = 0.55 + 0.45 * Math.sin(t * 6);
+      ctx.globalAlpha = a;
+      text(armed && tabsN === 0 ? 'tap when it lines up' : tabsN === 0 ? 'tap to drop the tab' : 'again: line it up', W / 2, sy - 52 * S, Math.round(16 * u), COL.lime, 'center');
+      text('▼', W / 2 + tp.x * S, sy - 30 * S, Math.round(18 * u), COL.lime, 'center');
+      ctx.globalAlpha = 1;
+    }
     // credit
     text('computer cooked games', pad, H - 12, Math.round(10 * u), 'rgba(245,243,237,0.45)', 'left', 'normal');
   }
@@ -709,12 +838,39 @@
     text('computer cooked games presents', cx, y - 34 * u, Math.round(10 * u), 'rgba(245,243,237,0.55)', 'center', 'normal');
     text('tab hoarder', cx, y + 10 * u, Math.round(46 * u), COL.lime, 'center');
     y += 44 * u;
-    const lines = wrap('tap to drop each tab on the stack. overhang gets cut. line it up for a perfect: the tab grows back and points multiply. colored tabs are power-ups. miss once: cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
+    const lines = wrap('tap to drop each tab on the stack. overhang gets cut. line it up for a perfect: the tab grows back and points multiply. miss: cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
     for (const ln of lines) { text(ln, cx, y, Math.round(13 * u), COL.paper, 'center', 'normal'); y += 19 * u; }
     y += 18 * u;
     const blink = Math.sin(t * 5) > -0.3;
     if (blink) text('tap / click / space to start', cx, y, Math.round(14 * u), COL.lilac, 'center');
-    if (best > 0) text('best: ' + best + ' pts', cx, y + 26 * u, Math.round(12 * u), 'rgba(245,243,237,0.7)', 'center', 'normal');
+    if (best > 0) text('best: ' + best + ' pts' + (career.bestTabs ? ' · ' + career.bestTabs + ' tabs' : ''), cx, y + 26 * u, Math.round(12 * u), 'rgba(245,243,237,0.7)', 'center', 'normal');
+    y += (best > 0 ? 54 : 36) * u;
+    // career: rank, the next goals, today's daily, skin. drawn only while there is room above the demo tab
+    const room = H + camY * S - (cur ? cur.y + TAB_H : CRASH_TOP + TAB_H) * S - 16;
+    const lh = 17 * u, fs = Math.round(11 * u);
+    const ri = rankOf(career.tabs), nx = RANKS[ri + 1];
+    const items = [];
+    items.push(() => { // rank + bar
+      text('rank: ' + RANKS[ri][1] + (nx ? '  ·  ' + career.tabs + '/' + nx[0] + ' tabs' : ''), cx, y, fs, COL.lilac, 'center');
+      if (nx) { const bw = Math.min(W - 80, 220 * u), p = (career.tabs - RANKS[ri][0]) / (nx[0] - RANKS[ri][0]); ctx.fillStyle = 'rgba(245,243,237,0.12)'; ctx.fillRect(cx - bw / 2, y + 5 * u, bw, 4 * u); ctx.fillStyle = COL.lilac; ctx.fillRect(cx - bw / 2, y + 5 * u, bw * Math.max(0.02, p), 4 * u); }
+      y += lh + 6 * u;
+    });
+    const dDone = career.dayDone === dayKey();
+    items.push(() => { text(dDone ? 'daily done ✓ · streak ' + career.streak + ' · back tomorrow' : 'daily: stack ' + dailyTarget() + ' tabs' + (career.streak && career.dayDone === dayKey(-1) ? ' · keep your ' + career.streak + '-day streak' : ''), cx, y, fs, dDone ? 'rgba(245,243,237,0.6)' : COL.lilac, 'center', 'normal'); y += lh; });
+    const ag = activeGoals();
+    ag.forEach((g, i) => items.push(() => { text((i ? '' : 'goals ' + career.goals.length + '/' + GOALS.length + ': ') + '□ ' + g[1], cx, y, fs, '#ffd84a', 'center', 'normal'); y += lh; }));
+    const open = skinsOpen();
+    btns.skin = null;
+    if (open.length > 1) items.push(() => {
+      const label = 'skin: ' + skin().name + '  ▸', bw = Math.min(W - 60, 200 * u), bh = 26 * u;
+      const r = { x: cx - bw / 2, y: y - 4 * u, w: bw, h: bh };
+      ctx.strokeStyle = 'rgba(255,216,74,0.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(r.x, r.y, r.w, r.h);
+      text(label, cx, r.y + bh * 0.68, fs, '#ffd84a', 'center');
+      btns.skin = { x: r.x, y: r.y - 6, w: r.w, h: r.h + 12 };
+      y += bh + 4 * u;
+    });
+    else if (SKINS[open.length]) items.push(() => { text('next skin: ' + SKINS[open.length].name + ' at ' + SKINS[open.length].need + ' goals', cx, y, fs, 'rgba(245,243,237,0.55)', 'center', 'normal'); y += lh; });
+    for (const f of items) { if (y + lh > room) break; f(); }
   }
 
   function roundRect(x, y, w, h, r) {
@@ -732,7 +888,10 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const u = Math.max(0.85, Math.min(1.4, S * 1.1));
     const cw = Math.min(W - 32, 400 * u);
-    const ch = 372 * u;
+    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + (score === 1 ? ' pt, ' : ' pts, ') + streakText() + ') before getting cooked.';
+    const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
+    const cod = wrap('cause of death: "' + lastTitle + '"', Math.round(11 * u), cw - 36 * u);
+    const ch = (30 + 122 + lines.length * 22 + 4 + cod.length * 16 + 8 + 20 + 20 + 16 + 112) * u; // grows with the text, so the career lines never touch the buttons
     const cx = (W - cw) / 2;
     const cy = Math.max(12, Math.min(H * 0.1, (H - ch) * 0.35)) + (1 - e) * 30;
     ctx.globalAlpha = e;
@@ -752,14 +911,21 @@
     let y = cy + 30 * u;
     text(String(score), mid, y + 96 * u, Math.round(96 * u), COL.lime, 'center');
     y += 122 * u;
-    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + (score === 1 ? ' pt, ' : ' pts, ') + streakText() + ') before getting cooked.';
-    const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
     for (const ln of lines) { text(ln, mid, y, Math.round(16 * u), COL.paper, 'center'); y += 22 * u; }
     y += 4 * u;
-    const cod = wrap('cause of death: "' + lastTitle + '"', Math.round(11 * u), cw - 36 * u);
     for (const ln of cod) { text(ln, mid, y, Math.round(11 * u), 'rgba(245,243,237,0.55)', 'center', 'normal'); y += 16 * u; }
     y += 8 * u;
     text(newBest ? 'new personal best' : 'best: ' + best + (best > score ? '  ·  ' + (best - score + 1) + ' pts to beat it' : ''), mid, y, Math.round(12 * u), newBest ? COL.lilac : 'rgba(245,243,237,0.6)', 'center', newBest ? 'bold' : 'normal');
+    // career: what this run unlocked, else the next goal; then the rank bar (a reason for one more run)
+    y += 20 * u;
+    const ng = activeGoals()[0];
+    const gl = runSkin ? 'new skin: ' + runSkin + ' (pick it on the title)' : runGoals.length ? 'goal done: ' + runGoals[0] + (runGoals.length > 1 ? ' +' + (runGoals.length - 1) + ' more' : '') : ng ? 'next goal: ' + ng[1] : 'every goal done. legend.';
+    ctx.font = 'bold ' + Math.round(12 * u) + 'px ' + FONT;
+    text(fitTitle(gl, cw - 30 * u), mid, y, Math.round(12 * u), '#ffd84a', 'center', runGoals.length ? 'bold' : 'normal');
+    y += 20 * u;
+    const ri = rankOf(career.tabs), nx = RANKS[ri + 1];
+    text((runRankUp ? 'rank up! ' : 'rank: ') + RANKS[ri][1] + (nx ? ' · ' + (nx[0] - career.tabs) + ' tabs to ' + nx[1] : ''), mid, y, Math.round(11 * u), COL.lilac, 'center', runRankUp ? 'bold' : 'normal');
+    if (nx) { const bw2 = cw - 80 * u, p = (career.tabs - RANKS[ri][0]) / (nx[0] - RANKS[ri][0]); ctx.fillStyle = 'rgba(245,243,237,0.12)'; ctx.fillRect(mid - bw2 / 2, y + 6 * u, bw2, 4 * u); ctx.fillStyle = COL.lilac; ctx.fillRect(mid - bw2 / 2, y + 6 * u, bw2 * Math.max(0.02, Math.min(1, p)), 4 * u); }
     y = cy + ch - 24 * u;
     ctx.fillStyle = 'rgba(245,243,237,0.15)'; ctx.fillRect(cx + 18 * u, y - 20 * u, cw - 36 * u, 1);
     text('computercooked.com/games', mid, y, Math.round(13 * u), COL.lilac, 'center');
