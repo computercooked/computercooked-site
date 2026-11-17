@@ -117,6 +117,10 @@
       d.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(a) * dist}px), calc(-50% + ${Math.sin(a) * dist}px)) scale(.3)`, opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => d.remove();
     }
   }
+  function quip(x, y, msg) {
+    const q = el('b', 'quip', msg); q.style.left = x + 'px'; q.style.top = y + 'px'; stage.appendChild(q);
+    q.animate([{ transform: 'translate(-50%,-50%) scale(.6)', opacity: 1 }, { transform: 'translate(-50%,-160%) scale(1.1)', opacity: 1, offset: .6 }, { transform: 'translate(-50%,-200%) scale(1)', opacity: 0 }], { duration: 900, easing: 'ease-out' }).onfinish = () => q.remove();
+  }
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 1600); }
 
   // a pop-up whose X jumps away n times before it can be hit
@@ -124,6 +128,9 @@
     let left = n; p.x.classList.add('ok');
     const jump = () => {
       left--; sfx.nope();
+      // the dodge shows with the sound off: a word pops where the x was
+      const r = stage.getBoundingClientRect(), xr = p.x.getBoundingClientRect();
+      quip(xr.left + xr.width / 2 - r.left, xr.top + xr.height / 2 - r.top, pick(['nope!', 'missed!', 'too slow!', 'lol', 'nah']));
       if (moveWhole === false) return;
       const ox = p.offsetLeft, oy = p.offsetTop;
       let tries = 0, nx, ny;
@@ -529,9 +536,9 @@
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">dare a friend</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`
       : `<div class="bigc"></div><h1><em>${level}</em>/30 closed</h1><p class="why">${why || 'the pop-up outlasted you.'}</p>${trail}
          <p>cooked on level ${reached}. only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
-         ${level > prevBest ? `<p class="why nb">new best! ${level - prevBest} further than ever.</p>` : best ? `<p>your best: ${best} · ${best + 1 - level} more to beat it</p>` : '<p>close one pop-up to set a best.</p>'}
+         ${level > prevBest ? `<p class="why nb">new best! ${level - prevBest} further than ever.</p>` : best ? `<p>your best: ${best} closed · ${best + 1 - level} more to beat it</p>` : '<p>close one pop-up to set a best.</p>'}
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">dare a friend</button></div>
-         <p class="day">same 30 for everyone today. new order tomorrow.</p><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
+         <p class="day">same 30 pop-ups for everyone today, so now you know level ${reached}'s trick.</p><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
     o.querySelector('#again').addEventListener('click', () => { audio(); startRun(); });
     o.querySelector('#share').addEventListener('click', () => share(level, won));
     try { o.querySelector('#cardImg').src = drawCard(level, won).toDataURL('image/png'); } catch (e) { o.querySelector('#cardImg').remove(); }
