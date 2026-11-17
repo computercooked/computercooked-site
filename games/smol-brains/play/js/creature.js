@@ -26,6 +26,7 @@ C.TALKER_LIFE=1.4;
 C.HUNGRY_AWAKE=0.7;
 C.STARVING=0.85;
 C.HARD_HUNGER=0.55;C.HARD_FOOD=2;C.HARD_HUNGER_MAX=0.7;
+C.WADE_AFTER=2;
 C.PECKISH=0.5;
 function lifeK(c){return c&&c.species==="smol"&&(c.tier||0)>=3?C.TALKER_LIFE:1;}
 C.lifeK=lifeK;
@@ -864,7 +865,7 @@ beginDo(c,game,a,tgt);
 }else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>(c.path&&starvingFor(c,a)?20:7)||(c.noPath&&game.time-c.noPath.t<0.2)){
 c.stuckT=0;
 if(a.target&&a.target.id!=null)unreachable(c,a.target.id,game);
-if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=3){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
+if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=C.WADE_AFTER){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
 finish(c,game);
 }
 return;

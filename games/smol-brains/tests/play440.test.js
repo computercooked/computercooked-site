@@ -5,7 +5,7 @@
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const load = require("./_load.js"), seeded = load.seeded;
-let failed = 0;
+let failed = 0; const SB_WADE = {};
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra != null && extra !== "" ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 const dir = path.join(__dirname, "..", "play", "js");
 const html = fs.readFileSync(path.join(__dirname, "..", "play", "index.html"), "utf8");
@@ -38,7 +38,7 @@ console.log("1. peckish: the point where a smol starts looking for food");
 }
 seeded(4402, () => {
   // a smol held at 0.56 hunger (over peckish, under the old 0.6 to 0.65), one apple twelve steps off and nothing nearer
-  const { SB, game } = island(4402), me = SB.Game.smols(game)[0];
+  const { SB, game } = island(4402), me = SB.Game.smols(game)[0]; SB_WADE.C = SB.Creature;
   clearFood(SB, game, me.x, me.z, 40);
   let spot = null;
   for (let a = 0; a < 24 && !spot; a++) { const x = me.x + Math.cos(a * 0.27) * 12, z = me.z + Math.sin(a * 0.27) * 12; if (SB.World.walkable(game.world, x, z, false) && SB.World.depthAt(game.world, x, z) < 0.05) spot = { x, z }; }
@@ -55,6 +55,8 @@ seeded(4402, () => {
     check("a peckish smol goes and gets it (it used to wait until 0.6 and over)", ate || best < 2.5, ate ? "ate it" : "nearest " + best.toFixed(1) + " of " + d0.toFixed(1));
   }
 });
+
+check("cut off by water and starving, it wades after two meals it could not reach (it was three), or at once when the walk round is long", SB_WADE.C.WADE_AFTER === 2 && SB_WADE.C.WADE_DETOUR === 25 && /if ?\(pl ?> ?C\.WADE_DETOUR ?&& ?pl ?> ?d0 ?\* ?2\) ?\{ ?c\.wade ?= ?60;/.test(js("creature.js")) && /if ?\(un ?>= ?C\.WADE_AFTER\) ?\{ ?c\.wade ?= ?60;/.test(js("creature.js")));
 
 console.log("2. a portrait phone: status chips do not push the food row off the screen");
 {

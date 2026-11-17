@@ -36,6 +36,8 @@
   C.HUNGRY_AWAKE = 0.7; // 4.36: this hungry, a smol wakes, will not lie down, and its nose takes over
   C.STARVING = 0.85;
   C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
+  C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
+  C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
   C.PECKISH = 0.5; // 4.40: a smol starts looking for food here (it was 0.6 to 0.65, so a fed island sat half hungry) // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
@@ -895,6 +897,11 @@
       c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, swim(c), 5000);
       c.pathI = 0;
       if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
+      // 4.40: starving, and the way round the water is long (island 23: an apple 12 steps off across a stream, over a minute's walk round; it died on the way): it wades straight for it
+      else if (starvingFor(c, c.action) && c.chem.hunger > 0.95 && !swim(c)) {
+        var pl = 0, plx = c.x, plz = c.z; for (var pi = 0; pi < c.path.length; pi++) { pl += Math.hypot(c.path[pi].x - plx, c.path[pi].z - plz); plx = c.path[pi].x; plz = c.path[pi].z; }
+        if (pl > C.WADE_DETOUR && pl > d0 * 2) { c.wade = 60; c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, true, 5000); c.pathI = 0; }
+      }
     }
     // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground
     if (c.path && c.wBestT > 8) { c.path = null; c.lost = true; }
@@ -989,7 +996,7 @@
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
         // 4.37: marooned (a patch cut off by a stream) and starving: after a few meals it could not walk to, it wades
-        if (starvingFor(c, a) && c.chem.hunger > 0.95 && !(c.wade > 0)) { var un = 0, uk; for (uk in c.unreach) if (c.unreach[uk] > game.time) un++; if (un >= 3) { c.wade = 60; c.unreach = {}; c.path = null; c.pathTried = false; } }
+        if (starvingFor(c, a) && c.chem.hunger > 0.95 && !(c.wade > 0)) { var un = 0, uk; for (uk in c.unreach) if (c.unreach[uk] > game.time) un++; if (un >= C.WADE_AFTER) { c.wade = 60; c.unreach = {}; c.path = null; c.pathTried = false; } }
         finish(c, game);
       }
       return;
