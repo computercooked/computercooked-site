@@ -488,7 +488,8 @@
     shareMsg = saved ? (ok ? 'image saved + text copied' : 'image saved') : ok ? 'text copied' : 'screenshot it'; shareMsgT = 2.5;
   }
   window.TH = { state: () => state, score: () => score, tabs: () => tabsN, combo: () => combo, cur: () => cur && { x: cur.x, power: cur.power || null }, top: () => ({ x: topTab().x, w: topTab().w }), card: () => card().toDataURL(), drop: () => press(),
-    career: () => JSON.parse(JSON.stringify(career)), armed: () => armed, saves: () => saves, paused: () => paused, daily: () => dailyTarget(), autostart: () => autostartRun() };
+    career: () => JSON.parse(JSON.stringify(career)), armed: () => armed, saves: () => saves, paused: () => paused, daily: () => dailyTarget(), autostart: () => autostartRun(),
+    miss: () => { if (state === 'play' && cur) { arm(); cur.x = topTab().x + topTab().w + cur.w; drop(); } } };
   document.addEventListener('visibilitychange', () => {
     if (!ac) return;
     if (document.hidden) ac.suspend(); else ac.resume();
@@ -687,10 +688,11 @@
         const y = CRASH_TOP + (n + 1) * TAB_H;
         if (y > viewTop || y < viewBot) return;
         worldTransform(sh, shy);
-        ctx.fillStyle = color; ctx.globalAlpha = beat ? 0.35 : 0.8;
+        const hud = H + camY * S - y * S < 150 * Math.max(0.8, Math.min(1.4, S * 1.1)); // up under the score/goal text: faint, no label
+        ctx.fillStyle = color; ctx.globalAlpha = beat || hud ? 0.3 : 0.8;
         for (let x = -half; x < half; x += 14) ctx.fillRect(x, -y - 1, 8, 2);
         ctx.font = 'bold 11px ' + FONT; ctx.textAlign = right ? 'right' : 'left';
-        ctx.fillText(label + (beat ? ' ✓' : ''), right ? half - 8 : -half + 8, -y - 5);
+        if (!hud) ctx.fillText(label + (beat ? ' ✓' : ''), right ? half - 8 : -half + 8, -y - 5);
         ctx.globalAlpha = 1; ctx.textAlign = 'left';
       };
       const dt = dailyTarget(), dDone = career.dayDone === dayKey();
@@ -713,7 +715,9 @@
       // drop shadow guide
       ctx.fillStyle = 'rgba(197,255,73,0.10)';
       ctx.fillRect(-cur.w / 2, 0, cur.w, 3);
+      if (mult() > 1 && state === 'play') { ctx.shadowColor = mult() >= 4 ? '#ffd84a' : COL.lilac; ctx.shadowBlur = (8 + mult() * 3) * dpr * (0.8 + 0.2 * Math.sin(t * 12)); } // streak glow
       drawTab(cur, true, 0);
+      ctx.shadowBlur = 0;
     }
     // debris
     for (const d of debris) {
