@@ -80,6 +80,10 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
     "portal.js: ad-portal shares and copies carry no link", cg);
   ok(itch.shared[0] && itch.shared[0].url === "https://computercooked.com/games/keyboard-escape/" && /computercooked\.com/.test(itch.copied[0]) && /computercooked/.test(itch.ta),
     "portal.js: itch.io shares keep their link", itch);
+  // round 24: phones have no esc key; the fullscreen toast tells a touch-only device to tap the button
+  const playerJs = readFileSync(new URL("../games/player.js", import.meta.url), "utf8");
+  ok(/touchOnly \? "tap exit fullscreen to leave" : "hold esc/.test(playerJs) && playerJs.includes('(any-pointer: fine)'),
+    "player.js: the fullscreen toast doesn't say esc on a touch-only device");
 }
 
 const anon = "smoke" + rid();
