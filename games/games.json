@@ -918,6 +918,35 @@
           "secret": false
         }
       ]
+    },
+    {
+      "slug": "knight-shift",
+      "title": "knight shift",
+      "pitch": "you are one knight in a hard hat. everyone else is management. land in an L, take their stuff, don't stand on red.",
+      "thumbnail": "/games/knight-shift/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "chess",
+        "roguelite",
+        "turn-based",
+        "strategy"
+      ],
+      "controls": "tap or click a green dot to jump there. keyboard: arrows pick a move, enter jumps, 1-9 jump straight to a numbered move, d toggles danger tint, b/c use abilities, m or esc opens the menu (daily shift lives there), p pauses.",
+      "size_kb": 146,
+      "version": "1.0",
+      "added": "2026-11-16",
+      "theme": {
+        "accent": "#ffd23f",
+        "bg": "#1b1f3b"
+      },
+      "max_score_per_sec": 40.0,
+      "how_to": [
+        "you are the knight: tap a green dot to jump in an L. land on a piece to take it.",
+        "red squares are where management hits back. landing on one costs a heart.",
+        "take half the pieces (or outlast the shift clock) to open the stairs. take everyone for a bigger bonus.",
+        "every 5th floor is a boss with a pattern. pick a perk after each floor; the vending machine opens every 3rd."
+      ]
     }
   ]
 }

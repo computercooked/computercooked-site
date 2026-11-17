@@ -695,12 +695,111 @@ def antfarm(c):
     c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
 
 
+KS_KNIGHT = """
+.....YYYY...
+....YYYYYY..
+...YYYYYYYY.
+..YYYYYYYYYY
+....KCCCCK..
+...KCCWKCCK.
+..KCCCCCCCK.
+.KCCCCCCCCK.
+KCCCCCCCCCK.
+KKKKKCCCCCK.
+....KCCCCK..
+...KCCCCCK..
+..KCCCCCCCK.
+.KKKKKKKKKK.
+"""
+KS_PAWN = """
+...KKK...
+..KPPPK..
+..KPWKK..
+..KPPPK..
+...KPK...
+..KPPPK..
+.KPPPPPK.
+.KKKKKKK.
+"""
+KS_ROOK = """
+.K.K.K.K.
+.KRKRKRK.
+.KRRRRRK.
+..KRWKK..
+..KRRRK..
+..KRRRK..
+.KRRRRRK.
+.KKKKKKK.
+"""
+KS_BISH = """
+....K....
+...KBK...
+..KBBBK..
+..KBWKK..
+...KBK...
+..KBBBK..
+.KBBBBBK.
+.KKKKKKK.
+"""
+KS_QUEEN = """
+.K.K.K.K.
+.KQKQKQK.
+.KQQQQQK.
+.KQWKWKK.
+..KQQQK..
+..KQQQK..
+.KQQQQQK.
+.KKKKKKK.
+"""
+KS_PAL = {"K": "#1b1f3b", "C": "#5ce1ff", "W": "#ffffff", "Y": "#ffd23f", "P": "#ff7b6b", "R": "#ff9f1c", "B": "#a879ff", "Q": "#ff5fa2"}
+
+
+def knight(c):
+    # a chess board on the night shift: the hard-hat knight mid-jump onto a pawn, red danger squares, management watching
+    c.rect(0, 0, c.W, c.H, "#1b1f3b")
+    for i in range(0, c.W, 2): c.px(i, (i * 37) % 23, "#2b3160")
+    t, n = 13, 6
+    bx, by = c.cx - 52, c.H - n * t - 6
+    c.rect(bx - 3, by - 3, n * t + 6, n * t + 6, "#2b3160")
+    danger = {(1, 1), (3, 1), (5, 1), (0, 3), (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (2, 5), (4, 5)}
+    for j in range(n):
+        for i in range(n):
+            dark = (i + j) % 2 == 1
+            col = ("#ef6f7f" if dark else "#ff9aa5") if (i, j) in danger else ("#7fd1c1" if dark else "#fdf3dc")
+            c.rect(bx + i * t, by + j * t, t, t, col)
+    # stairs top right, open (pale green, green frame)
+    sx, sy = bx + 5 * t, by
+    c.rect(sx, sy, t, t, "#d9fbe4"); c.box(sx + 1, sy + 1, t - 2, t - 2, "#2bd96b")
+    for k in range(3): c.rect(sx + 3, sy + 3 + k * 3, t - 6 - k * 2, 2, "#7a64d6" if k % 2 else "#5b4a9e")
+    # management
+    c.sprite(KS_ROOK, bx + 0 * t + 2, by + 3 * t + 3, KS_PAL)
+    c.sprite(KS_BISH, bx + 4 * t + 2, by + 4 * t + 3, KS_PAL)
+    c.sprite(KS_QUEEN, bx + 3 * t + 2, by + 0 * t + 3, KS_PAL)
+    c.sprite(KS_PAWN, bx + 1 * t + 2, by + 0 * t + 3, KS_PAL)
+    # green safe dots
+    for (i, j) in [(0, 4), (4, 0)]: c.disc(bx + i * t + 6, by + j * t + 6, 2, "#2bd96b")
+    # the pawn just taken flies off, with a burst + yellow take ring
+    px_, py_ = bx + 2 * t, by + 2 * t
+    c.ring(px_ + 6, py_ + 6, 6, "#ffd23f")
+    for (dx, dy, col) in [(-9, -6, "#ffd23f"), (10, -8, "#fff8ec"), (-11, 3, "#ff7b6b"), (12, 4, "#ffd23f"), (0, -11, "#5ce1ff"), (-5, 11, "#fff8ec"), (8, 10, "#ff7b6b")]:
+        c.rect(px_ + 6 + dx, py_ + 6 + dy, 2, 2, col)
+    c.sprite(KS_PAWN, bx + n * t + 8, by + 2, KS_PAL, scale=2)
+    # the dotted L the knight just jumped
+    fx, fy = bx + 1 * t + 6, by + 4 * t + 6
+    pts = [(fx + (px_ + 6 - fx) * s // 10, fy + (py_ + 6 - fy) * s // 10 - (s * (10 - s)) // 2) for s in range(0, 11)]
+    for (x, y) in pts[1:-2]: c.rect(x, y, 2, 2, "#1b1f3b")
+    # the knight, big, landing
+    c.sprite(KS_KNIGHT, px_ - 6, py_ - 17, KS_PAL, scale=2)
+    # the computer, on the clipboard side, supervising
+    c.mascot(c.W - 22, c.H - 6, 40, flip=True)
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
-    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
+    "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm, "knight-shift": knight,
 }
 
 

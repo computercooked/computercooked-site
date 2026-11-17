@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>knight shift - computer cooked</title>
+<meta name="description" content="a chess roguelite. you are one knight. everyone else is management.">
+<link rel="stylesheet" href="style.css">
+<script src="/games/cc-sdk.js"></script>
+</head>
+<body>
+<div id="app">
+  <div id="brand"><b>knight</b> <i>shift</i><small>computer cooked games</small></div>
+  <div id="hud">
+    <span id="h-hearts" class="pill hearts"></span>
+    <span id="h-floor" class="pill"></span>
+    <span id="h-score" class="pill score"></span>
+    <span id="h-coins" class="pill coins"></span>
+    <span id="h-combo" class="pill combo"></span>
+  </div>
+  <div id="sub"></div>
+  <div id="stage"><canvas id="cv" aria-label="game board"></canvas></div>
+  <div id="msg" aria-live="polite"></div>
+  <div id="info"><span class="lg"><i class="dot g"></i>safe</span><span class="lg"><i class="ring y"></i>take</span><span class="lg"><i class="dot r"></i>you get hit</span><span class="lg"><i class="sq"></i>danger</span><div id="perks"></div></div>
+  <div id="bar">
+    <button id="b-ab1" class="btn ab hidden" type="button" title="ability (b)"></button>
+    <button id="b-ab2" class="btn ab hidden" type="button" title="ability (c)"></button>
+    <span class="grow"></span>
+    <button id="b-snd" class="btn" type="button" title="sound (s)">sound on</button>
+    <button id="b-danger" class="btn" type="button" title="danger tint (d)">danger on</button>
+    <button id="b-menu" class="btn" type="button" title="menu (m)">menu</button>
+    <button id="b-pause" class="btn" type="button" title="pause (p)">ll</button>
+  </div>
+  <div id="ov" class="hidden"></div>
+</div>
+<script src="/assets/tip.js" defer></script>
+<script src="game.js"></script>
+</body>
+</html>
