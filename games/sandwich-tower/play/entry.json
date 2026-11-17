@@ -8,7 +8,7 @@
   "size_kb": 53,
   "tags": ["stacking", "one-tap", "timing", "funny", "mobile"],
   "version": "1.3",
-  "max_score_per_sec": 25,
+  "max_score_per_sec": 75,
   "max_score": 10000,
   "results": "quiet",
   "restart": true
