@@ -1080,6 +1080,42 @@ if (admin) {
   ok(clipGames.length >= 20 && !clipBad.length && ["desktop-takeover", "smol-brains", "keyboard-escape", "ant-farm", "elevator-full-of-fish", "reel-weird", "overdue-notice", "pixel-purge"].every((s) => clipGames.some((g) => g.slug === s)), "card clips: all served as mp4 under 150 KB, round 20's eight included", clipBad.join(" ") || clipGames.length);
   const prevJs = await (await get("/assets/preview.js")).text();
   ok(prevJs.includes('preload = "none"') && prevJs.includes('document.readyState !== "complete"') && prevJs.includes("prefers-reduced-motion") && prevJs.includes("saveData"), "preview.js: clips on demand only, after load on phones, off for reduced motion and Save-Data");
+  // round 22: ad-ready, switched off. ads.js CONFIG.on is false, so no ad network code can load; /ads.txt names no seller;
+  // the consent banner declines by default (EU: no answer = no ads); the results card's ad strip is hidden (a labelled
+  // placeholder only with ?adpreview=1); the privacy page says there are no ads and how they would work
+  const adsJs = await (await get("/assets/ads.js")).text(), consentJs = await (await get("/assets/consent.js")).text();
+  const adsTxt = await get("/ads.txt"), adsTxtBody = await adsTxt.text();
+  ok(/\bon: false,/.test(adsJs) && /client: "",/.test(adsJs) && adsTxt.ok && /text\/plain/.test(adsTxt.headers.get("content-type") || "") && !/^\s*google\.com\s*,/m.test(adsTxtBody),
+    "ads: switched off (no publisher id) and /ads.txt is a placeholder with no seller", adsTxtBody.split("\n")[1]);
+  const adPage = (o) => {
+    const ls = {}, ss = {}, heads = [], banners = [];
+    const mk = (t) => ({ tagName: t, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; }, addEventListener(e, f) { this["on" + e] = f; }, remove() {}, querySelector: () => ({ focus() {} }), classList: { add() {} } });
+    const w = { location: { search: o.search || "" }, navigator: {}, Promise, Date, Math, JSON, String, RegExp, encodeURIComponent, setTimeout,
+      document: { head: { appendChild: (e) => heads.push(e) }, body: { appendChild: (e) => banners.push(e) }, createElement: mk, querySelector: () => null },
+      localStorage: { getItem: (k) => ls[k] ?? null, setItem: (k, v) => { ls[k] = v; }, removeItem: (k) => { delete ls[k]; } },
+      sessionStorage: { getItem: (k) => ss[k] ?? null, setItem: (k, v) => { ss[k] = v; }, removeItem: (k) => { delete ss[k]; } },
+      fetch: async () => ({ ok: true, json: async () => ({ consent_required: o.eu !== false }) }) };
+    w.window = w; vm.createContext(w);
+    vm.runInContext(consentJs, w);
+    vm.runInContext(o.on ? adsJs.replace("on: false,", "on: true,").replace('client: "",', 'client: "ca-pub-1234567890123456",').replace('slot: "",', 'slot: "1",') : adsJs, w);
+    return { w, ls, heads, banners };
+  };
+  const strip = () => ({ hidden: false, className: "", innerHTML: "", classList: { add() {} }, appendChild() {} });
+  const offP = adPage({}), offEl = strip();
+  for (let i = 0; i < 4; i++) await offP.w.ccAds.runEnded("crash");
+  ok((await offP.w.ccConsent.ads()) === false && offP.banners.length === 0 && offP.w.ccAds.provider === null && offP.w.ccAds.slot(offEl, "crash") === false && offEl.hidden && offP.heads.length === 0,
+    "ads off: no banner, no provider, no ad strip, nothing loaded after 4 runs");
+  const prevEl = strip(), prevP = adPage({ search: "?adpreview=1" });
+  ok(prevP.w.ccAds.slot(prevEl, "crash") === true && !prevEl.hidden && /ads are off/.test(prevEl.innerHTML) && prevP.heads.length === 0, "ads preview: a labelled placeholder in the results card, nothing loaded");
+  const euP = adPage({ on: true }), euA = euP.w.ccConsent.ads();
+  await new Promise((r) => setTimeout(r, 10));
+  euP.banners[0]?.onclick({ target: { getAttribute: () => "denied" } });
+  ok(euP.banners.length === 1 && (await euA) === false && euP.ls["cc-consent-ads"] === "denied" && (await adPage({ on: true, eu: false }).w.ccConsent.personalised()) === false,
+    "consent: EU visitors are asked and closing means no ads; personalised is no unless offered and accepted");
+  const priv = await (await get("/privacy/")).text();
+  ok(priv.includes('id="ads"') && priv.includes("there are no ads yet") && priv.includes('id="ad-choices"') && /never while you play/.test(priv), "privacy page: no ads yet, how ads would work, and 'your ad choices'");
+  const playerJs = await (await get("/games/player.js")).text(), siteCss = await (await get("/styles.css")).text();
+  ok(playerJs.includes('class="ccr-ad" hidden') && playerJs.includes("ccAds.slot") && siteCss.includes(".cc-consent {"), "results card has the hidden ad strip; the consent banner styles are site-wide");
   // 404 page: the picks the computer "found instead"
   const lost = await get("/no-such-page-" + Date.now());
   const lostHtml = await lost.text();
