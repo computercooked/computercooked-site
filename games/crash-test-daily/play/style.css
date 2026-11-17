@@ -65,3 +65,21 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:8px
 .streak{margin:10px 0 4px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px}
 .streak b{color:var(--gold);font-size:16px}
 .streak span{color:var(--dim);font-size:11px}
+.box .sc{margin:4px 0 2px;font-size:13px}.box .sc b{color:var(--lime);font-size:17px}.box .sc span{color:var(--dim);font-size:11px}
+/* tall phones (more than ~340 px of height beyond the width): bigger crash, bigger numbers and buttons, a today line */
+#today{display:none;text-align:center;font-size:12px;color:var(--dim);padding:2px 0 4px}
+#today b{color:var(--gold)}
+body.tall #app{padding:0 8px}
+body.tall #crashRow{min-height:112px;gap:12px}
+body.tall #face{width:104px;height:104px}
+body.tall #say{font-size:14px;padding:11px 13px}
+body.tall #today{display:block;min-height:46px}
+#today .pips{display:flex;gap:3px;justify-content:center;margin:2px auto 7px;max-width:380px}
+#today .pips i{flex:1;max-width:24px;height:12px;border-radius:3px;background:var(--panel2);border:1px solid var(--line)}
+#today .pips i.u{background:var(--lime);border-color:var(--lime)}
+#today .pips i.x{background:var(--red);border-color:var(--red)}
+#today .pips em{font-style:normal;font-size:11px;color:var(--red);font-weight:800;line-height:12px;margin-left:3px}
+body.tall .counts{gap:18px;font-size:14px;align-items:baseline}
+body.tall .counts b{font-size:30px}
+body.tall footer{padding:10px 0 26px}
+body.tall .ghost{padding:13px 14px;font-size:14px}
