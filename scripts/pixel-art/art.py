@@ -694,6 +694,85 @@ def antfarm(c):
     for j in range(fh): c.px(fx + 6 + (j // 10) % 2, fy + j, "#ffffff") if j % 9 == 0 else None
     c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
 
+GB_GHOST = """
+.GGGGG.
+GGGGGGG
+GKGGKGG
+GKGGKGG
+GGGGGGG
+GGGMGGG
+GGGGGGG
+G.GG.GG
+"""
+
+
+def ghostbus(c):
+    # the last bus at night: a yellow bus with ghosts in its windows drives a dark street, headlights on,
+    # a ghost waits at the bus stop next to the computer, lit houses and a full moon behind
+    import random
+    rnd = random.Random(13)
+    W, H = c.W, c.H
+    for j in range(H): c.rect(0, j, W, 1, "#0b0a1f" if j < H * 0.3 else "#120f2e" if j < H * 0.55 else "#1a1740")
+    for i in range(45):
+        x, y = rnd.randrange(W), rnd.randrange(2, int(H * 0.45))
+        c.px(x, y, "#fff4c9" if i % 3 else "#b9b2f0")
+    mx, my = W - 22, 15
+    c.disc(mx, my, 9, "#3a3466"); c.disc(mx, my, 8, "#fff2c4"); c.disc(mx - 3, my - 2, 2, "#efe0a8"); c.disc(mx + 3, my + 3, 1, "#efe0a8")
+    road = H - 26  # pavement line
+    # houses along the back, lit windows
+    x = -4
+    while x < W:
+        w = rnd.choice((18, 22, 26)); h = rnd.choice((18, 22, 26, 30)); top = road - h
+        body = rnd.choice(("#2b2462", "#33296e", "#261f57"))
+        c.rect(x, top, w, h, body)
+        for k in range(w // 2 + 2):  # roof
+            c.rect(x - 1 + k, top - k // 2 - 1, max(0, w + 2 - 2 * k), 1, "#1b173f") if k < w // 2 + 1 else None
+        for wx in range(x + 3, x + w - 4, 7):
+            for wy in range(top + 4, road - 6, 8):
+                c.rect(wx, wy, 3, 4, "#ffd84d" if rnd.random() < 0.6 else "#151236")
+        x += w + rnd.choice((2, 4, 6))
+    # a little graveyard fence + crosses at the far left
+    for gx in (6, 13):
+        c.rect(gx, road - 7, 1, 7, "#6a64a8"); c.rect(gx - 2, road - 5, 5, 1, "#6a64a8")
+    # pavement and road
+    c.rect(0, road, W, 3, "#3b3772"); c.rect(0, road + 3, W, H - road - 3, "#201c48")
+    lane = road + 13
+    for x in range(2, W, 10): c.rect(x, lane, 5, 1, "#6a64a8")
+    # headlight beam on the road, in front of the bus (bus faces right)
+    bx, bw, bh = int(W * 0.18), 62, 24
+    by = road + 15 - bh  # bus bottom sits on the road
+    for k in range(26):
+        c.rect(bx + bw + k, by + bh - 8 - k // 4, 1, 6 + k // 2, "#3d3770" if k < 18 else "#2c2860")
+    # the bus
+    c.rect(bx, by + 2, bw, bh - 4, "#ffc93c"); c.rect(bx + 2, by, bw - 4, 2, "#ffd84d")
+    c.rect(bx, by + bh - 8, bw, 4, "#e09a1a"); c.rect(bx, by + 2, bw, 1, "#ffe48a")
+    c.rect(bx + bw - 1, by + 3, 1, bh - 7, "#e09a1a")
+    c.rect(bx + bw - 3, by + bh - 9, 3, 3, "#fff6c4")  # headlight
+    c.rect(bx + 1, by + bh - 10, 2, 2, "#ff5a4e")  # tail light
+    # windows with ghosts riding
+    cols = ("#7CFFCB", "#FF8AD8", "#7DD3FF", None)
+    for i in range(4):
+        wx = bx + 4 + i * 12; wy = by + 4
+        c.rect(wx, wy, 10, 9, "#1b1440")
+        g = cols[i]
+        if g:
+            c.rect(wx + 2, wy + 2, 6, 7, g); c.rect(wx + 3, wy + 1, 4, 1, g)
+            c.px(wx + 3, wy + 4, "#120f2e"); c.px(wx + 6, wy + 4, "#120f2e")
+    # driver's window at the front, the door
+    c.rect(bx + bw - 11, by + 4, 9, 9, "#7DD3FF"); c.rect(bx + bw - 10, by + 5, 3, 3, "#c8f0ff")
+    c.rect(bx + 51 - 4, by + 14, 1, 6, "#e09a1a")
+    # wheels
+    for wx in (bx + 12, bx + bw - 14):
+        c.disc(wx, by + bh - 2, 5, "#0b0a1f"); c.disc(wx, by + bh - 2, 2, "#8f86d6")
+    # dust puffs behind
+    for (dx, dy, r) in ((-4, bh - 4, 2), (-9, bh - 6, 1), (-12, bh - 3, 1)): c.ring(bx + dx, by + dy, r, "#6a64a8")
+    # the bus stop on the right: pole + sign, a waiting ghost, the computer
+    sx = int(W * 0.78)
+    c.rect(sx, road - 26, 1, 26, "#8f86d6"); c.rect(sx - 3, road - 30, 7, 6, "#ffd84d"); c.rect(sx - 2, road - 29, 5, 1, "#2a1a00")
+    c.sprite(GB_GHOST, sx - 17, road - 17, {"G": "#7CFFCB", "K": "#120f2e", "M": "#2f9c7a"}, scale=2)
+    c.mascot(sx + 13, road + 1, 30)
+    # a speech dot over the ghost
+    c.rect(sx - 20, road - 26, 6, 5, "#ffffff"); c.rect(sx - 19, road - 25, 1, 3, "#120f2e"); c.rect(sx - 16, road - 25, 1, 3, "#120f2e"); c.px(sx - 15, road - 21, "#ffffff")  # "!!" bubble
 
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
@@ -701,6 +780,7 @@ SCENES = {
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
     "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
+    "ghost-bus": ghostbus,
 }
 
 
