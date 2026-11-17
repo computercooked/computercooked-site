@@ -74,8 +74,8 @@
         "halloween"
       ],
       "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
-      "size_kb": 49,
-      "version": "1.5",
+      "size_kb": 58,
+      "version": "1.6",
       "added": "2026-10-19",
       "max_score_per_sec": 2,
       "max_score": 30
@@ -205,10 +205,12 @@
         "halloween"
       ],
       "controls": "drag parts · tab + arrows · u undo · r restart",
-      "size_kb": 95,
-      "version": "1.3",
+      "size_kb": 109,
+      "version": "1.4",
       "added": "2026-10-19",
-      "max_score_per_sec": 20
+      "max_score_per_sec": 20,
+      "max_score": 1549,
+      "score_slack": 1600
     },
     {
       "slug": "bellchain",
@@ -613,8 +615,8 @@
         "mobile"
       ],
       "controls": "hold anywhere (or hold space / enter) to cook, let go when the food is done. popcorn pops slow down, the egg wobbles, the fish stinks. metal: let go at once. m mutes.",
-      "size_kb": 33,
-      "version": "1.3.0",
+      "size_kb": 71,
+      "version": "1.4.0",
       "added": "2026-10-30",
       "max_score_per_sec": 15.0,
       "max_score": 6000.0
