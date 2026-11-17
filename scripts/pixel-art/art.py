@@ -695,12 +695,82 @@ def antfarm(c):
     c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
 
 
+GSG_GOB = """
+.K............K.
+KGK..KKKKKK..KGK
+KGGKKGGGGGGKKGGK
+.KGGGGGGGGGGGGK.
+..KKGGGGGGGGKK..
+...KGWWGGWWGK...
+...KGWKGGWKGK...
+...KGGGGGGGGK...
+...KGGRRRRGGK...
+....KGGWWGGK....
+...KBBBBBBBBK...
+..KBBBBYBBBBBK..
+..KBBBBBBBBBBK..
+...KBBBBBBBBK...
+...KGGK..KGGK...
+"""
+GSG_PAL = {"K": "#2b2140", "G": "#4fb83a", "W": "#fff6e0", "R": "#c0392b", "B": "#7a4a24", "Y": "#ffc83d"}
+GSG_DUCK = """
+..YYY...
+.YYKYO..
+.YYYY...
+YYYYYYY.
+YYYYYYYY
+.YYYYYY.
+"""
+
+
+def goblin(c):
+    # dawn over maple st: a goblin haggling at a yard sale table, the computer selling, a rare glowing purple
+    for y in range(c.H):
+        t = y / c.H
+        c.rect(0, y, c.W, 1, "#%02x%02x%02x" % (int(255 - 70 * t), int(190 - 80 * t), int(120 - 40 * t)))
+    c.disc(c.W - 30, 20, 9, "#ffe08a")
+    # houses
+    c.rect(8, 34, 40, 34, "#8c6a9c"); c.line(4, 36, 28, 20, "#2b2140"); c.line(28, 20, 52, 36, "#2b2140")
+    for x in range(6, 51):
+        for y in range(21, 36):
+            if y >= 36 - (x - 4) * 16 // 24 and y >= 36 - (52 - x) * 16 // 24: c.px(x, y, "#5b3f6b")
+    c.rect(16, 46, 8, 8, "#ffe08a"); c.rect(32, 52, 9, 16, "#3d2a4a")
+    c.rect(c.W - 46, 40, 34, 28, "#c76b4a"); c.rect(c.W - 48, 36, 38, 5, "#7a3b2a"); c.rect(c.W - 40, 48, 8, 8, "#ffe08a")
+    # lawn
+    c.rect(0, 66, c.W, c.H - 66, "#4f8a32"); c.rect(0, 66, c.W, 2, "#6fbf3a")
+    for x in range(3, c.W, 9): c.px(x, 70 + (x * 7) % 20, "#6fbf3a")
+    # the table and the junk
+    tx, ty, tw = 66, 62, 70
+    c.rect(tx - 1, ty - 1, tw + 2, 6, "#2b2140"); c.rect(tx, ty, tw, 4, "#fff6e0")
+    for k in range(0, tw, 6): c.rect(tx + k, ty, 3, 4, "#ff5a5f")
+    c.rect(tx + 4, ty + 5, 2, 14, "#2b2140"); c.rect(tx + tw - 6, ty + 5, 2, 14, "#2b2140")
+    # lamp
+    c.rect(tx + 6, ty - 3, 6, 3, "#2b2140"); c.rect(tx + 8, ty - 10, 2, 7, "#2b2140")
+    c.rect(tx + 3, ty - 16, 12, 6, "#2b2140"); c.rect(tx + 4, ty - 15, 10, 4, "#ffc83d")
+    # rubber duck, the rare: purple ring + gold star
+    c.disc(tx + 30, ty - 5, 7, "#9b5de5"); c.disc(tx + 30, ty - 5, 5, "#c9a8f2")
+    c.sprite(GSG_DUCK, tx + 26, ty - 9, {"Y": "#ffd23f", "K": "#2b2140", "O": "#ff8c1a"})
+    c.px(tx + 36, ty - 12, "#ffc83d"); c.rect(tx + 35, ty - 11, 3, 1, "#ffc83d"); c.px(tx + 36, ty - 10, "#ffc83d")
+    # a framed painting
+    c.rect(tx + 44, ty - 14, 13, 14, "#2b2140"); c.rect(tx + 45, ty - 13, 11, 12, "#d9a35b"); c.rect(tx + 47, ty - 11, 7, 8, "#3f9cff"); c.disc(tx + 50, ty - 6, 2, "#4fb83a")
+    # price tags
+    for (x, y) in [(tx + 15, ty - 7), (tx + 58, ty - 6)]:
+        c.rect(x, y, 5, 4, "#fff6e0"); c.box(x, y, 5, 4, "#2b2140"); c.px(x + 2, y + 1, "#4fb83a"); c.px(x + 2, y + 2, "#4fb83a")
+    # the computer runs the sale
+    c.mascot(tx + tw - 2, ty - 1, 30, flip=True)
+    # the goblin, holding up coins
+    c.sprite(GSG_GOB, 14, c.H - 46, GSG_PAL, scale=3)
+    for (x, y) in [(60, 50), (56, 44), (63, 40)]:
+        c.disc(x, y, 2, "#2b2140"); c.disc(x, y, 1, "#ffc83d")
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
     "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
+    "garage-sale-goblin": goblin,
 }
 
 
