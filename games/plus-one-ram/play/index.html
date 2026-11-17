@@ -64,6 +64,9 @@
   @media (max-width: 380px) { .shop { grid-template-columns: 1fr; } }
   @media (max-height: 560px) { .panel { padding: 10px 14px 8px; } .how { margin: 4px auto 6px; } #card { display: none; } .stats { margin: 6px 0; } }
   @media (max-height: 760px) and (min-height: 561px) { #card { max-width: 130px; } }
+  /* v1.2: the player frame can be 430 px tall: the end card fits without scrolling */
+  @media (max-height: 480px) { #over h2 { font-size: 26px; } #over .sub { margin-top: 3px; } #over .stats { margin: 6px 0 4px; gap: 5px; } #over .stat { padding: 5px 4px; } #over .stat .v { font-size: 16px; } #over .btn { margin: 3px 4px; } #over .btn.big { font-size: 20px; padding: 8px 18px; min-height: 44px; } #over .credit { display: none; } }
+  @media (max-height: 480px) and (min-width: 520px) { #over .stats { grid-template-columns: repeat(6, 1fr); } }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
 <script src="/assets/tip.js" defer></script>

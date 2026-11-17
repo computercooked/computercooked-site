@@ -4,22 +4,26 @@
 (function () {
   "use strict";
   var box = document.getElementById("lost-picks"), list = document.getElementById("lost-pick-list");
-  if (!box || !list || !window.fetch) return;
+  if (!box || !list) return;
+  if (!window.fetch) { box.style.display = "none"; return; }
   var still = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   var hist = {};
   try { hist = JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { hist = {}; }
   var shuffle = function (a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
 
+  // the box holds its space while hidden (lost.css); if there's nothing to show, give the space back
+  var none = function () { box.style.display = "none"; };
   fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (d) {
     var games = ((d && d.games) || []).filter(function (g) { return g && g.slug && g.title && g.thumbnail; });
-    if (games.length < 3) return;
+    if (games.length < 3) return none();
+    list.innerHTML = ""; // drop the three placeholders from 404.html
     var fresh = shuffle(games.filter(function (g) { return !hist[g.slug]; })), old = shuffle(games.filter(function (g) { return hist[g.slug]; }));
     fresh.concat(old).slice(0, 3).forEach(function (g) {
       var a = document.createElement("a");
       a.className = "lost-pick"; a.href = "/games/" + encodeURIComponent(g.slug) + "/?ref=404";
       if (g.theme && /^#[0-9a-f]{3,8}$/i.test(g.theme.accent || "")) a.style.setProperty("--pick-accent", g.theme.accent);
       var shot = document.createElement("span"); shot.className = "lost-pick-shot";
-      var im = document.createElement("img"); im.src = g.thumbnail; im.alt = ""; im.width = 320; im.height = 200;
+      var im = document.createElement("img"); im.src = g.poster || g.thumbnail; im.alt = ""; im.width = 320; im.height = g.poster ? 180 : 200;
       shot.appendChild(im);
       if (g.clip && !still) {
         var v = document.createElement("video");
@@ -36,5 +40,5 @@
       var li = document.createElement("li"); li.appendChild(a); list.appendChild(li);
     });
     box.hidden = false;
-  }).catch(function () { /* the plain links stay */ });
+  }).catch(none); // the plain links stay
 })();

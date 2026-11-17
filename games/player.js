@@ -688,7 +688,9 @@
         vsEl.querySelector(".ccr-vs-ok").textContent = v.won && vs.counted ? "✓ counted" : "";
       }
       var tie = o.scored && o.kind !== "best" && o.kind !== "first" && o.best === o.score;
-      box.querySelector(".ccr-gary").textContent = tie ? "tied your best. the computer doesn't know how to feel." : pick(LINES[o.kind]).replace("{off}", o.scored && o.best != null ? fmt(Math.abs(o.best - o.score)) : "");
+      // a beaten dare is the headline: Gary celebrates that instead of talking about your own best
+      box.querySelector(".ccr-gary").textContent = v && v.won ? pick(["the computer saw that. it's telling everyone.", "a dare, beaten. gary is printing it out.", "that's going on the fridge. the computer has a fridge now."])
+        : tie ? "tied your best. the computer doesn't know how to feel." : pick(LINES[o.kind]).replace("{off}", o.scored && o.best != null ? fmt(Math.abs(o.best - o.score)) : "");
       var num = box.querySelector(".ccr-num"), sub = box.querySelector(".ccr-sub");
       num.textContent = o.scored ? fmt(o.score) : "";
       num.hidden = !o.scored;

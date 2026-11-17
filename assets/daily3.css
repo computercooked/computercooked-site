@@ -57,6 +57,14 @@
 .dly-week i { display: block; width: 100%; aspect-ratio: 1; border: 2px solid var(--line); border-radius: 4px; background: var(--bg); }
 .dly-week .is-part i { border-color: var(--beige); background: rgb(232 217 181 / .35); }
 .dly-week .is-full i { border-color: var(--accent); background: var(--accent); }
+/* a day the streak freeze covered: ice, dashed, with a flake, so it reads apart from done and half even in the ice tint */
+.dly-week .is-frozen i { position: relative; border-style: dashed; border-color: var(--dly-ice); background: rgb(159 227 255 / .2); }
+.dly-week .is-frozen i::after { content: "❄"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--dly-ice); font-size: 13px; line-height: 1; }
+
+/* the streak freeze line (board, and the stats panel once all three are done) */
+.dly-page { --dly-ice: #9fe3ff; }
+.about-card p.dly-freeze { margin: calc(var(--s-2) * -1) 0 var(--s-4); color: var(--text-dim); font-family: var(--mono); font-size: var(--fs-14); }
+.about-card p.dly-freeze.is-used { color: var(--dly-ice); }
 .dly-week .is-today span { color: var(--text); font-weight: 800; }
 .dly-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-3); }
 .dly-actions .play-btn, .dly-actions .ghost-btn { flex: 1 1 140px; cursor: pointer; }

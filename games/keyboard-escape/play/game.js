@@ -744,6 +744,7 @@
   $('againBtn').addEventListener('click', () => startRun(false));
   $('shareBtn').addEventListener('click', share);
   syncToggles();
+  if (window.__keGo && screen === 'title') startRun(false);   // 1.6: a run tap made before this script loaded
 
   // QA hook (read-only state peek)
   window.__ke = { get screen() { return screen; }, get p() { return p; }, get speed() { return speed; }, get course() { return course; }, get falls() { return falls; }, step: (dt) => step(dt), draw: (dt) => render(dt), bot: (e) => botThink(e || 0), jump: () => { jumpBuf = 0.13; holding = true; }, release: () => { holding = false; }, G, CUT, PW, PH, vxOf, AIR };

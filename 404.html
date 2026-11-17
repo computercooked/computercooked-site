@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/assets/deck.css">
   <link rel="stylesheet" href="/assets/lost.css">
+  <noscript><style>.lost-picks, .lost-game { display: none !important; }</style></noscript>
 </head>
 <body class="is-404">
   <main class="page">
@@ -39,7 +40,12 @@
 
     <section class="lost-picks" id="lost-picks" aria-labelledby="lost-picks-heading" hidden>
       <h2 id="lost-picks-heading" class="section-label">the computer found these instead</h2>
-      <ul class="lost-pick-list" id="lost-pick-list"></ul>
+      <!-- three same-shape placeholders hold the space until assets/lost.js swaps in the picks, so nothing below moves -->
+      <ul class="lost-pick-list" id="lost-pick-list">
+        <li aria-hidden="true"><span class="lost-pick is-ph"><span class="lost-pick-shot"></span><b class="lost-pick-title">&nbsp;</b><span class="lost-pick-pitch">&nbsp;</span></span></li>
+        <li aria-hidden="true"><span class="lost-pick is-ph"><span class="lost-pick-shot"></span><b class="lost-pick-title">&nbsp;</b><span class="lost-pick-pitch">&nbsp;</span></span></li>
+        <li aria-hidden="true"><span class="lost-pick is-ph"><span class="lost-pick-shot"></span><b class="lost-pick-title">&nbsp;</b><span class="lost-pick-pitch">&nbsp;</span></span></li>
+      </ul>
       <p class="lost-surf"><a class="text-link" href="/surf/">none of these? channel surf →</a></p>
     </section>
 
