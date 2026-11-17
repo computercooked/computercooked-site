@@ -353,7 +353,7 @@
       items.push({
         key: 'b' + b.uid, icon: b.icon, name: b.name, sub,
         bar: b.late ? 1 : 1 - Math.max(0, left) / Math.max(1, b.due - b.shown),
-        cls: b.late ? 'late' : left < 10 ? 'soon' : '',
+        cls: b.late ? 'late' : left < 10 ? 'soon' + (S.cash >= b.amount ? ' can' : '') : '', // can: affordable and nearly late, the pay button pulses
         btn: { label: 'pay ' + fmt(b.amount), act: 'pay:' + b.uid, dis: S.cash < b.amount },
         btn2: def && def.sub ? { label: 'cancel', act: 'cancel:' + b.type } : null
       });
