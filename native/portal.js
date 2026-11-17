@@ -12,7 +12,11 @@
    this device and never calls our API (it works offline).
    K-0030 step 7: on itch.io and Newgrounds (outside links allowed), a small card after the 1st run and then every 5th
    offers xp, levels and boards on computercooked.com. It opens in a new tab, never blocks play, and can be closed for
-   the session. Ad portals (CrazyGames, GameDistribution, Poki) don't allow outside links, so they never see it. */
+   the session. Ad portals (CrazyGames, GameDistribution, Poki) don't allow outside links, so they never see it.
+   Round 24: on ad portals a share carries no link either (CrazyGames bans cross-promotion; GD and Poki ban links out).
+   Every game builds its own share text, so the adapter cleans it where it leaves: navigator.share (url dropped, links
+   taken out of title and text), navigator.clipboard.writeText and document.execCommand("copy") (links taken out of the
+   copied text). itch.io and Newgrounds shares are left as they are. ccPortal.scrub(text) is the cleaner. */
 (function () {
   "use strict";
   var cfg = window.CC_PORTAL || { name: "none" };
@@ -43,6 +47,52 @@
   var keyBlock = function (e) { if (shield) { e.stopPropagation(); e.preventDefault(); } };
   window.addEventListener("keydown", keyBlock, true);
   window.addEventListener("keyup", keyBlock, true);
+
+  // ---- round 24: shares carry no link on ad portals ----
+  var LINK_PORTALS = { itch: 1, newgrounds: 1 };
+  var LINK_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9.-]*computercooked\.com[^\s<>"']*/gi;
+  function scrub(s) {
+    if (typeof s !== "string") return s;
+    return s.replace(LINK_RE, "")
+      .replace(/[ \t]*[\u00b7|:\u2192\u2013\u2014-]+[ \t]*(?=\n|$)/g, "") // a separator the link used to follow ("go → ", "x · ")
+      .replace(/[ \t]+(\n|$)/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  if (!LINK_PORTALS[site]) {
+    var nav = window.navigator;
+    if (nav && typeof nav.share === "function") {
+      var share0 = nav.share;
+      try {
+        nav.share = function (d) {
+          d = d || {};
+          var o = {}, t = scrub(d.title || ""), x = scrub(d.text || "");
+          if (t) o.title = t;
+          if (x) o.text = x;
+          if (d.files) o.files = d.files;
+          if (!o.title && !o.text && !o.files) o.text = "computer cooked";
+          return share0.call(nav, o);
+        };
+      } catch (e) {}
+    }
+    var clip = nav && nav.clipboard;
+    if (clip && typeof clip.writeText === "function") {
+      var write0 = clip.writeText;
+      try { clip.writeText = function (t) { return write0.call(clip, scrub(String(t))); }; } catch (e) {}
+    }
+    if (typeof document.execCommand === "function") {
+      var exec0 = document.execCommand;
+      document.execCommand = function (cmd) {
+        if (String(cmd).toLowerCase() === "copy") {
+          var el = document.activeElement;
+          if (el && typeof el.value === "string" && LINK_RE.test(el.value)) {
+            el.value = scrub(el.value);
+            try { el.select(); } catch (e) {}
+          }
+          LINK_RE.lastIndex = 0;
+        }
+        return exec0.apply(document, arguments);
+      };
+    }
+  }
 
   // no links out of the game
   if (name !== "none") document.addEventListener("click", function (e) {
@@ -114,7 +164,6 @@
   var ready = d.init().catch(function () {});
 
   // ---- K-0030 step 7: "play on computercooked.com" (itch.io and Newgrounds only) ----
-  var LINK_PORTALS = { itch: 1, newgrounds: 1 };
   function siteCard() {
     if (!LINK_PORTALS[site] || !/^[a-z0-9-]{1,40}$/.test(cfg.slug || "")) return;
     try { if (sessionStorage.getItem("cc-portal-card-off")) return; } catch (e) {}
@@ -164,5 +213,5 @@
   }
   wrap(window.cc);
   if (!window.cc) document.addEventListener("DOMContentLoaded", function () { wrap(window.cc); });
-  window.ccPortal = { name: name, portal: site, state: function () { return { runs: runs, playing: playing, holding: !!shield }; } };
+  window.ccPortal = { name: name, portal: site, scrub: scrub, state: function () { return { runs: runs, playing: playing, holding: !!shield }; } };
 })();

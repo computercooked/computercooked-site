@@ -100,7 +100,10 @@
     if (player.classList.contains("is-pseudo-fs")) { pseudoFs(false); return; }
     if (!document.fullscreenEnabled || !player.requestFullscreen) { pseudoFs(true); return; }
     player.requestFullscreen().then(function () {
-      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).then(function () { toast("hold esc (or tap exit fullscreen) to leave"); }, function () {});
+      // round 24: a phone has no esc key, so a touch-only device (no mouse or trackpad anywhere) is told the button only
+      var touchOnly = false;
+      try { touchOnly = matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches; } catch (e) {}
+      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).then(function () { toast(touchOnly ? "tap exit fullscreen to leave" : "hold esc (or tap exit fullscreen) to leave"); }, function () {});
       var f = document.getElementById("game-frame");
       if (f && f.contentWindow) try { f.contentWindow.focus(); } catch (e) {}
     }, function () { pseudoFs(true); });
