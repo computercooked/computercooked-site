@@ -109,7 +109,12 @@
   // ?mpday=YYYY-MM-DD plays another day's menu (tests).
   const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   function dayKey(off) { const d = new Date(); d.setDate(d.getDate() + (off || 0)); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  const dayParam = (/[?&]mpday=(\d{4}-\d\d-\d\d)/.exec(location.search) || [])[1];
+  // r4 follow-up: a dare link carries its menu's day (&mpday=, read from the player page's URL too, like vs), so a friend
+  // plays the same menu on another day or in another timezone
+  const parentQ = (() => { try { return window.parent !== window ? window.parent.location.search : ""; } catch (e) { return ""; } })();
+  const dayParam = (/[?&]mpday=(\d{4}-\d\d-\d\d)/.exec(parentQ + "&" + location.search.slice(1)) || [])[1];
+  // framed by the player page: it shows the dare score in its own "target" pill, so ours stays off there
+  const inPlayer = (() => { try { return !!(window.frameElement && window.frameElement.id === "game-frame"); } catch (e) { return false; } })();
   const dayLabel = (k) => { const p = k.split("-"); return MON[+p[1] - 1] + " " + +p[2]; };
   function seeded(str) {
     let h = 2166136261;
@@ -121,7 +126,9 @@
   // this device's days: today's best, runs today, and the streak of days in a row with a shift (save key mp-daily)
   let daily = { d: "", best: 0, runs: 0, streak: 0 };
   try { const o = JSON.parse(localStorage.getItem("mp-daily")); if (o && typeof o === "object") daily = Object.assign(daily, o); } catch (e) {}
-  const todayBest = () => (daily.d === today ? daily.best : 0);
+  const offDay = () => today !== dayKey(); // playing another day's menu (a dare from that day)
+  const todayBest = () => (!offDay() && daily.d === today ? daily.best : 0);
+  const menuNote = () => (dareFrom ? dareFrom + "'s" : "dare") + " menu from " + dayLabel(today);
   const dayStreak = () => (daily.d === today || daily.d === dayKey(-1) ? daily.streak : 0);
   function logDay() {
     if (daily.d !== today) { daily.streak = daily.d === dayKey(-1) ? daily.streak + 1 : 1; daily.d = today; daily.best = 0; daily.runs = 0; }
@@ -130,7 +137,7 @@
   }
   // a dare link (/games/microwave-panic/?vs=87&from=pat, made by the site's dare box or our own share line): the score to
   // beat sits in the corner all run, and passing it is a moment
-  const vsQ = (() => { try { return window.parent !== window ? window.parent.location.search : ""; } catch (e) { return ""; } })() + "&" + location.search.slice(1);
+  const vsQ = parentQ + "&" + location.search.slice(1);
   const dareScore = Math.max(0, Math.round(+((/[?&]vs=(\d+(?:\.\d+)?)/.exec(vsQ) || [])[1] || 0))) || 0;
   let dareFrom = "";
   try { dareFrom = decodeURIComponent(((/[?&]from=([^&]*)/.exec(vsQ) || [])[1] || "").replace(/\+/g, " ")).replace(/[^A-Za-z0-9 .-]/g, "").trim().slice(0, 14); } catch (e) {}
@@ -282,7 +289,7 @@
   function end() {
     state = "over"; endAt = performance.now(); prevBest = best; prevDay = todayBest(); humOff(); syncHaunt();
     if (score > best) { best = score; try { localStorage.setItem("mp-best", String(best)); } catch (e) {} }
-    logDay(); shareSaid = ""; // review16 r4
+    if (!offDay()) logDay(); shareSaid = ""; // review16 r4 (a dare on another day's menu leaves today's best and streak alone)
     say("end", true); react("cooked", 99); sfx.end();
     const dur = Math.round(performance.now() - startAt);
     sdk((c) => c.score && c.score(score));
@@ -672,7 +679,7 @@
     text("round " + round + (streak > 1 ? " · streak x" + streak : ""), 14, 44, 12, streak > 1 ? LIME2 : "#8a8e80", "left", 700);
     // review16 r3: the best to beat, all run long (it used to show only on the end card)
     if (best > 0 && state !== "title") text(state === "play" && score > best ? "new best!" : "best " + best, 14, 62, 12, state === "play" && score > best ? LIME2 : "#8a8e80", "left", 700);
-    if (dareScore && state !== "title") text((dareFrom ? dareFrom + ": " : "dare: ") + dareScore + (dareBeat ? " ✓" : ""), 14, best > 0 ? 80 : 62, 12, dareBeat ? LIME2 : WARN, "left", 800); // review16 r4
+    if (dareScore && !inPlayer && state !== "title") text((dareFrom ? dareFrom + ": " : "dare: ") + dareScore + (dareBeat ? " ✓" : ""), 14, best > 0 ? 80 : 62, 12, dareBeat ? LIME2 : WARN, "left", 800); // review16 r4
     for (let i = 0; i < 3; i++) { const fxp = W - 28 - i * 22, on2 = i < strikes; R(on2 ? BAD : "#3a3d33", fxp, 54, 14, 14); if (on2) R(WARN, fxp + 4, 58, 6, 8); }
     text("strikes", W - 14, 80, 11, "#8a8e80", "right", 700);
     if (state === "play" && item) {
@@ -770,7 +777,7 @@
       text("burnt = strike. never microwave the fork.", W / 2, mid + 80, Math.max(11, Math.min(14, W / 34)), WARN, "center", 700);
       // review16 r4: today's menu, and a friend's dare when the link has one
       const tb = todayBest(), ds = dayStreak();
-      text("today's menu · " + dayLabel(today) + (tb ? " · best " + tb : "") + (ds > 1 ? " · day " + ds : ""), W / 2, mid + 108, 13, CASE, "center", 800);
+      text(offDay() ? menuNote() : "today's menu · " + dayLabel(today) + (tb ? " · best " + tb : "") + (ds > 1 ? " · day " + ds : ""), W / 2, mid + 108, 13, CASE, "center", 800);
       if (dareScore) text("beat " + dareScore + (dareFrom ? " from " + dareFrom : "") + "!", W / 2, mid + 134, 18, WARN, "center", 900);
       if (!M.pad) text(coarse ? "press and hold to cook" : "hold the mouse or space to cook", W / 2, Math.min(H - 40, mid + (dareScore ? 164 : 140)), 18, LIME, "center", 900);
       if (hauntSeason) text(haunted ? "🎃 haunted mode · H to turn it off" : "🎃 H for the haunted microwave", W / 2, Math.min(H - 14, mid + (dareScore ? 190 : 166)), 13, "#ff9a2e", "center", 700);
@@ -794,13 +801,13 @@
     text("fire alarm", W / 2, y, big, BAD, "center", 900);
     if (!compact) { y += big * 0.95; text(round + " things microwaved", W / 2, y, Math.round(big * 0.55), PAPER, "center", 800); }
     y += big * 1.05; text(String(score), W / 2, y, Math.round(big * 1.3), CASE, "center", 900);
-    y += big * 0.9; text("today's best " + todayBest() + "  ·  all-time " + best, W / 2, y, 14, "#c9c4a8", "center", 700);
+    y += big * 0.9; text((offDay() ? menuNote() : "today's best " + todayBest()) + "  ·  all-time " + best, W / 2, y, 14, "#c9c4a8", "center", 700);
     let nudge, good;
     if (dareScore) { good = score > dareScore; nudge = good ? "you beat " + (dareFrom || "the dare") + "'s " + dareScore + " by " + (score - dareScore) + "!" : (dareScore - score) + " short of " + (dareFrom ? dareFrom + "'s " : "") + dareScore + ". again?"; }
     else {
       good = score > prevBest;
       nudge = good ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first shift logged. now beat it.")
-        : score === prevBest ? "tied your best. one more perfect next time." : prevDay > 0 && score > prevDay ? "today's best. " + (prevBest - score) + " off your all-time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
+        : score === prevBest ? "tied your best. one more perfect next time." : !offDay() && prevDay > 0 && score > prevDay ? "today's best. " + (prevBest - score) + " off your all-time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
     }
     y += 24; text(nudge, W / 2, y, 15, good ? LIME2 : WARN, "center", 800);
     y += 20; if (rows) tickets(tally.slice(0, per * 3), y - 6, cs, per);
@@ -810,7 +817,7 @@
     y += shareH + 22;
     if (ready) { text("tap to cook again", W / 2, y, 18, LIME, "center", 900); tipY = y + 20; }
     y += 20 + tipH + 24;
-    if (!compact && y < H - 6) text("new menu tomorrow" + (dayStreak() > 1 ? " · " + dayStreak() + "-day streak" : ""), W / 2, y - 10, 12, "#8a8e80", "center", 700);
+    if (!compact && !offDay() && y < H - 6) text("new menu tomorrow" + (dayStreak() > 1 ? " · " + dayStreak() + "-day streak" : ""), W / 2, y - 10, 12, "#8a8e80", "center", 700);
   }
   // review16 r4: "dare a friend": a share line that reads well in a group chat (the score, today's menu, a grid of this
   // run's tickets) and a link that opens the game with the score to beat (?vs=, which the player page also shows as a
@@ -828,7 +835,7 @@
   function shareLine() {
     const em = { perfect: "🟩", safe: "🟩", good: "🟨", cold: "🧊", burnt: "🔥", sparks: "⚡" };
     const grid = tally.slice(0, 30).map((v) => em[v] || "⬜").join("");
-    const url = location.origin + "/games/microwave-panic/?vs=" + score + "&utm_source=share&utm_medium=game&utm_campaign=microwave-panic";
+    const url = location.origin + "/games/microwave-panic/?vs=" + score + "&mpday=" + today + "&utm_source=share&utm_medium=game&utm_campaign=microwave-panic";
     return { text: "microwave panic · " + dayLabel(today) + "\n" + score + " pts " + grid + "\ncan you beat " + score + "?", url };
   }
   function shareRun() {
@@ -870,6 +877,6 @@
   // read-only hooks for the test scripts
   window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, burn: burn && burn.word, owner, held, holding, smoke: smoke.length, // K-0060
  kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed),
- today, daily: Object.assign({}, daily), dareScore, dareFrom, dareBeat, stamp: stamp && stamp.s, guide: guideNow(), tally: tally.slice() }), // review16 r4
+ today, daily: Object.assign({}, daily), dareScore, dareFrom, dareBeat, offDay: offDay(), inPlayer, stamp: stamp && stamp.s, guide: guideNow(), tally: tally.slice() }), // review16 r4
  share: () => shareLine() };
 })();
