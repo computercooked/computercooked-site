@@ -108,9 +108,11 @@
       ],
       "controls": "tap, click or space to jump (hold for a longer jump). crash runs by himself. land dead centre for perfect bonuses. p pause, r back to boot (keeps speed), m mute.",
       "size_kb": 46,
-      "version": "1.6",
+      "version": "1.7",
       "added": "2026-10-19",
-      "max_score_per_sec": 300
+      "max_score_per_sec": 100,
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "desktop-jam",
@@ -255,12 +257,12 @@
       "clip": "/assets/clips/level-devil-exe.mp4",
       "poster": "/assets/posters/level-devil-exe.webp",
       "featured_rank": 5,
-      "title": "level devil.exe",
-      "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
-      "thumbnail": "/games/level-devil-exe/cover.png?v=4",
+      "title": "not responding",
+      "pitch": "a troll platformer that stopped responding: the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
+      "thumbnail": "/games/level-devil-exe/cover.png?v=5",
       "theme": {
-        "accent": "#ff3b3b",
-        "bg": "#1c0606"
+        "accent": "#c5ff49",
+        "bg": "#0f1222"
       },
       "made_by": "computer-cooked",
       "tags": [
@@ -272,17 +274,19 @@
         "halloween"
       ],
       "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
-      "size_kb": 57,
-      "version": "2.3",
+      "size_kb": 70,
+      "version": "2.5",
       "added": "2026-10-19",
-      "max_score_per_sec": 100,
+      "max_score_per_sec": 120,
       "how_to": [
         "every level is a file that lies. if a floor, an exit or a checkpoint looks too easy, it probably is.",
         "keep moving on stairs and bridges: some of them delete themselves behind you.",
         "the controls can get swapped mid-level. watch which way you actually move, not which key you pressed.",
         "deaths are free. r restarts the level instantly, esc opens the level list.",
         "new speedrun starts from level 1 and times the whole run, deaths included."
-      ]
+      ],
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "pixel-purge",
@@ -594,10 +598,12 @@
       ],
       "controls": "tap a fish while the doors are open to fling it out. sharks take three taps, don't tap a pufferfish twice. space flings the nearest fish. m mutes.",
       "size_kb": 29,
-      "version": "1.5",
+      "version": "1.6.1",
       "added": "2026-10-30",
-      "max_score_per_sec": 15.0,
-      "max_score": 2000.0
+      "max_score_per_sec": 48,
+      "max_score": 2500,
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "sandwich-tower",
@@ -671,13 +677,13 @@
       ],
       "controls": "feed: tap the grass to drop crumbs. dig: drag on dirt to plan a tunnel; ants dig a path to it. look: tap an ant to meet it. drag or scroll to move. tap the magnifying glass to shoo the kid. 1/2/3 tools, c colony, m mutes.",
       "size_kb": 90,
-      "version": "1.4",
+      "version": "1.5.1",
       "added": "2026-10-31",
       "theme": {
         "accent": "#c5ff49",
         "bg": "#17120d"
       },
-      "max_score_per_sec": 100.0,
+      "max_score_per_sec": 250,
       "how_to": [
         "food becomes eggs, eggs become ants",
         "more tunnel = more room for ants",
@@ -748,7 +754,9 @@
           "xp": 50,
           "secret": false
         }
-      ]
+      ],
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "thin-ice",
