@@ -258,6 +258,8 @@ ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.leng
   const mpg = cat.find((x) => x.slug === "microwave-panic"), fresh = mpg && Date.now() - Date.parse(mpg.added) < 14 * 86400000;
   ok(/aria-current="page">microwave panic</.test(mp) && /player-new/.test(mp) === !!fresh, "game page breadcrumb names the game; the new chip follows the 14-day rule", fresh);
   const pjs = await (await get("/games/player.js")).text(), gcss = await (await get("/games/games.css")).text();
+  const fxHub = await (await get("/assets/fx.js")).text();
+  ok(!/[^.\w]history\.replaceState/.test(fxHub), "fx.js writes the hub filter to the address through window.history (its own history() reader shadows the global)");
   ok(pjs.includes("fs-tap-go") && pjs.includes("cc-fs-here") && /\(vs\|d\)=/.test(pjs) && gcss.includes(".fs-tap {"), "phones get 'tap to play full screen' (not on dare links)");
 }
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];

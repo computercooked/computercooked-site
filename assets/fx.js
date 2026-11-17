@@ -509,7 +509,8 @@
         var u = new URL(location.href), term = q.value.trim();
         if (vibe === "all") u.searchParams.delete("vibe"); else u.searchParams.set("vibe", vibe);
         if (term) u.searchParams.set("q", term); else u.searchParams.delete("q");
-        if (u.href !== location.href) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+        // window.history: inside this file "history" is the played-games reader above, so the bare name would throw
+        if (u.href !== location.href) window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
       } catch (e) {}
     }
     row.addEventListener("click", function (e) {
