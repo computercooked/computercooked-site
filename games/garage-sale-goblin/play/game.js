@@ -5,8 +5,8 @@
 const FILES={coin:"sfx/coin.mp3",stamp:"sfx/stamp.mp3",door:"sfx/door.mp3",huff:"sfx/huff.mp3",rent:"sfx/rent.mp3",page:"sfx/page.mp3",haggle:"sfx/haggle.mp3",nope:"sfx/nope.mp3",rare:"sfx/rare.mp3",curse:"sfx/curse.mp3",walk:""};
 // volumes levelled from measured loudness (ffmpeg, Nov 16): frequent sounds land near -21 to -25 LUFS, big moments near -18 to -19.
 const VOL={coin:.49,stamp:.72,door:.38,huff:.62,rent:.57,page:.42,haggle:.4,nope:.27,rare:.76,curse:.54};
-let muted=false,ccMuted=false;const _aud={};
-function sfx(n){if(muted||ccMuted)return;const u=FILES[n];if(!u)return;try{const pool=_aud[n]||(_aud[n]={i:0,a:[]});let p=pool.a.find(x=>x.paused||x.ended);if(!p){if(pool.a.length<3){p=new Audio(u);p.preload='auto';pool.a.push(p);}else{p=pool.a[pool.i%3];pool.i++;}}p.volume=VOL[n]||.5;p.currentTime=0;const r=p.play();if(r&&r.catch)r.catch(()=>{});}catch(e){}}
+let muted=false,ccMuted=false,FAST=false;const _aud={};
+function sfx(n){if(muted||ccMuted||FAST)return;const u=FILES[n];if(!u)return;try{const pool=_aud[n]||(_aud[n]={i:0,a:[]});let p=pool.a.find(x=>x.paused||x.ended);if(!p){if(pool.a.length<3){p=new Audio(u);p.preload='auto';pool.a.push(p);}else{p=pool.a[pool.i%3];pool.i++;}}p.volume=VOL[n]||.5;p.currentTime=0;const r=p.play();if(r&&r.catch)r.catch(()=>{});}catch(e){}}
 
 // ---------- helpers ----------
 const $=s=>document.querySelector(s);
@@ -106,7 +106,7 @@ const UNLOCKS=[[2,"start with +$15"],[4,"start with a sign"],[6,"start with the 
 
 // ---------- round 2 data ----------
 const SALES_N=[3,3,3,4,4,4,4,5];
-function rentFor(k){const t=[25,70,125,210];if(k<=4)return t[k-1];return Math.round(210*Math.pow(1.85,k-4)/5)*5;}
+function rentFor(k){const t=[25,45,110,300];if(k<=4)return t[k-1];return Math.round(300*Math.pow(2,k-4)/5)*5;}
 const UPS={
  shelf:{n:"more shelves",d:"+3 shelf space, +1 shopper",cost:l=>[40,85,150][l],max:3},
  sign:{n:"a sign",d:"'goblin's: we have things'. +1 shopper, +patience",cost:()=>45,max:1},
@@ -351,7 +351,7 @@ function nextCust(){
  const max=Math.max(1,Math.round(base*m));
  let pat=(t.pat+(S.ups.sign?12:0)+(c.mem>0?25:0)+(c.mem<0?-25:0))*(S.ups.neon?.8:1)*(S.day<=3?1.2:1);
  pat=Math.max(20,Math.round(pat));
- const open=Math.max(1,Math.round(max*(t.open||R(.5,.66))));
+ const open=Math.max(1,Math.round(max*(t.open||R(.42,.58))));
  H={mode:'sell',it,c,max,pat,pat0:pat,their:open,n:0,react:null,val:Math.max(open+1,Math.round((it.hi||it.cost*1.5)*1.15)),fuzz:R(-.12,.12),status:'',stCls:''};
  let g=pick(t.greet).replace('{item}',it.name.replace(/^(a |an |the )/,'').replace(/^'|'$/g,''));
  if(c.returning){g=(c.mem>0?pick(["you again! the good goblin! ","hey, it's my goblin! "]):c.mem<0?pick(["hmph. you. ","we meet again, robber. "]):"back again. ")+g;}
@@ -490,7 +490,7 @@ function gameOver(why){
 // ---------- juice ----------
 function rectOf(sel){const e=$(sel),a=$('#app');if(!e||!a)return null;const r=e.getBoundingClientRect(),b=a.getBoundingClientRect();return {x:r.left-b.left+r.width/2,y:r.top-b.top+r.height*.45};}
 function coinFly(from,to,n){
- if(!from||!to)return;const app=$('#app');
+ if(FAST||!from||!to)return;const app=$('#app');
  for(let i=0;i<n;i++){const c=document.createElement('div');c.className='coin';const x0=from.x+R(-22,22),y0=from.y+R(-18,18);
   c.style.left=x0+'px';c.style.top=y0+'px';app.appendChild(c);
   setTimeout(()=>{c.style.transform=`translate(${to.x-x0}px,${to.y-y0}px) scale(.55)`;c.style.opacity='.3';},30+i*45);
@@ -565,8 +565,9 @@ function gobSvg(){const o=Object.assign({},GOB);if(museumCount()>=8)o.hat='crown
 
 // ---------- render ----------
 function render(enter){
- const app=$('#app');app.classList.toggle('short',app.clientHeight<540);
+ if(FAST)return;const app=$('#app');app.classList.toggle('short',app.clientHeight<540);
  renderHud();renderScene(enter);renderPanel();renderModal();
+ const tt=$('#toast');if(tt&&tt.classList.contains('on'))placeToast();
 }
 function renderHud(){
  if(!S)return;
@@ -793,7 +794,8 @@ async function share(){
 
 // ---------- tips / toast ----------
 let toastT=0;
-function toast(s){const t=$('#toast');t.textContent=s;const sc=$('#scene');if(sc){t.style.top=Math.max(40,sc.offsetTop+sc.offsetHeight-t.offsetHeight-30)+'px';}t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600);}
+function placeToast(){const t=$('#toast'),sc=$('#scene');if(!t||!sc)return;t.style.top=Math.max(sc.offsetTop+4,sc.offsetTop+sc.offsetHeight-t.offsetHeight-30)+'px';}
+function toast(s){const t=$('#toast');t.textContent=s;placeToast();t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600);}
 function tip(k,s){if(META.seen[k])return;META.seen[k]=1;saveMeta();toast(s);}
 
 // ---------- input ----------
@@ -849,7 +851,7 @@ if(TEST){
   sellAll:()=>{S.inv.slice().forEach(it=>{const p=it.tv;S.cash+=p;S.profit+=p-it.cost;S.soldN++;});S.inv=[];shownCash=S.cash;render();},
   setVal:(v,q)=>{if(H){H.val=v;if(!q)render();}},mood:pureMood,act:(n,a)=>ACT[n]&&ACT[n](a),endDay:()=>endDay(),
   addItem:kind=>{const it=makeItem(pick(BYKIND(kind||'rare')));S.inv.push(it);render();},event:e=>{S.event=e;},
-  meta:()=>META,resetMeta:()=>{META={best:{day:0,profit:0,score:0},runs:0,lifeProfit:0,museum:{},seen:{}};saveMeta();}
+  fast:on=>{FAST=!!on;if(!FAST)render();},meta:()=>META,resetMeta:()=>{META={best:{day:0,profit:0,score:0},runs:0,lifeProfit:0,museum:{},seen:{}};saveMeta();}
  };
 }
 
