@@ -172,6 +172,9 @@ window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at mos
 - With no `max_score_per_sec`, the game gets no leaderboard; plays and feedback still work.
 - Games without hooks still get basic plays (time played, no score) logged by the player page.
 - The player page also sends `{type:"cc-mute", muted}`, `{type:"cc-restart"}` and `{type:"cc-pause"}` messages to the game iframe.
+- **The results card** (`games/player.js`) pops up over the game 0.7 s after every `cc.end` with `completed` not `false`. It never shows for games tagged idle, sim or incremental, or for a quit run (`completed: false`). Two optional games.json fields change it:
+  - `"results": "quiet"` is for games that send `cc.end` per level, day or season and show their own "next" screen. The card never covers the game: a lime **results** (or **new best**) button lights up in the bar under it, opens the card, and goes away when the next run starts. Ghost bus and soup witch are quiet even before their entries merge (`QUIET` in player.js).
+  - `"restart": true` means the game restarts a run on `{type:"cc-restart"}`, so the card's **play again** sends that instead of reloading the game back to its start screen. Games already listed in `RESTARTS` in player.js (all six new games included) don't need it.
 
 ### XP, levels and achievements (slice B)
 

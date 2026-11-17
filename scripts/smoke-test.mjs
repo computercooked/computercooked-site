@@ -273,6 +273,7 @@ ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.leng
   const pjs = await (await get("/games/player.js")).text(), gcss = await (await get("/games/games.css")).text();
   const fxHub = await (await get("/assets/fx.js")).text();
   ok(!/[^.\w]history\.replaceState/.test(fxHub), "fx.js writes the hub filter to the address through window.history (its own history() reader shadows the global)");
+  ok(/RESTARTS = \/\^\([^)]*ghost-bus/.test(pjs) && pjs.includes("function quiet()") && pjs.includes('entry.results === "quiet"') && gcss.includes(".tool-results"), "results card: quiet games get a bar button, and play again restarts ghost bus");
   ok(pjs.includes("fs-tap-go") && pjs.includes("cc-fs-here") && /\(vs\|d\)=/.test(pjs) && gcss.includes(".fs-tap {"), "phones get 'tap to play full screen' (not on dare links)");
   const fxJs = await (await get("/assets/fx.js")).text();
   ok(fxJs.includes("hub-gary") && fxJs.includes("function garyLine") && gcss.includes(".hub-gary {"), "searching gary on the games hub gets an answer from gary");
