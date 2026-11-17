@@ -514,7 +514,7 @@
         if (e.o === 1) { play("capture"); const left = g.nodes.filter((n) => n.o !== 1).length;
           if (e.was >= 2 && !g.nodes.some((n) => n.o === e.was)) { // r5: that bot's last folder: delete it, by name
             floatText(x, y - rad(e.n) - 28, F[e.was].name + ".exe deleted", F[e.was].col, true);
-            say(e.was === 5 ? "we deleted do_not_delete. it literally said not to." : F[e.was].name + ": deleted. who's next?", "smug", 3.5);
+            g.delSay = e.was === 5 ? "we deleted do_not_delete. it literally said not to." : F[e.was].name + ": deleted. who's next?"; say(g.delSay, "smug", 3.5);
           } else if (!g.firstCap) { g.firstCap = true; say("mine now. " + left + " folder" + (left > 1 ? "s" : "") + " to go.", "happy", 2.6); }
           else if (g.bin.charge === g.bin.need && !g.bin.used && !g.binSaid) { g.binSaid = true; say("the bin is full. drag it onto their folders. once.", "smug", 4.5); } else if (left <= 3) say(left + " to go. " + pick(["finish it.", "almost all of it.", "the desktop can feel it."]), "happy", 2); else if (Math.random() < 0.45) say(pick(["mine now.", "nice folder. ours.", "drag. take. repeat.", "the wallpaper likes you.", "ours ours ours."]), "happy", 1.8); }
         else if (e.was === 1) { play("lost"); fx.shake = Math.max(fx.shake, 5); say(pick(["hey! that was ours.", F[e.o].name + " took one. take it back.", "rude."]), "worry", 2); }
@@ -560,7 +560,7 @@
     // r5: every finished match is a real ending (a loss too); endless sends the run's total score over the run's total time
     sdk((c) => c.end && c.end({ score: total, durationMs: Math.round(dur * 1000), completed: true }));
     if (o.won) { sdk((c) => c.achieve && c.achieve("first_takeover")); if (o.pct >= 100) sdk((c) => c.achieve && c.achieve("clean_sweep")); }
-    play(o.won ? "win" : "lose"); say(o.won ? "the desktop is ours." : "they deleted us. again?", o.won ? "happy" : "dead", 6);
+    play(o.won ? "win" : "lose"); say(o.won ? (g.delSay && g.delSay.indexOf("next") < 0 ? g.delSay : "the desktop is ours.") : "they deleted us. again?", o.won ? "happy" : "dead", 6);
     if (o.won) for (let i = 0; i < 5; i++) setTimeout(() => burst(W * (0.15 + Math.random() * 0.7), H * (0.2 + Math.random() * 0.4), pick(["#b6ff3c", "#fff", "#e6d9b4"]), 26, 260), i * 160);
     else { fx.flash = 0.5; fx.flashCol = "#d42b2b"; fx.shake = 10; }
     state = "end"; $("menu").hidden = true; setTimeout(() => { if (G === g && state === "end") showEnd(g); }, 1200);
