@@ -205,9 +205,23 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   // shown on that visit's pages, never on game pages, the hook game or under the hub's landing card, and gone once hidden
   const deckSrc = await (await get("/assets/deck.js")).text();
   const ttLine = (deckSrc.match(/\n\s*if \(tag === "tiktok"[^\n]*/) || [])[0];
-  const marks = (tag, rh, um, camp) => { const ss = {}; vm.runInNewContext(ttLine || "", { tag, rh, um, camp, sessionStorage: { setItem: (k, v) => { ss[k] = v; } } }); return ss["cc-tt"] === "1"; };
+  const marks = (tag, rh, um, camp, ttApp = false) => { const ss = {}; vm.runInNewContext(ttLine || "", { tag, rh, um, camp, ttApp, sessionStorage: { setItem: (k, v) => { ss[k] = v; } } }); return ss["cc-tt"] === "1"; };
   ok(ttLine && marks("tiktok", "", "", "") && marks(null, "www.tiktok.com", "", "") && marks("short", "", "short", "bio") && !marks("youtube", "", "", "") && !marks("instagram", "", "", "") &&
-    !marks(null, "www.google.com", "", "") && !marks("short", "", "short", "") && !marks(null, "tiktok.com.example", "", ""), "tiktok welcome strip: marked for tiktok tags, tiktok.com and bio short links only");
+    !marks(null, "www.google.com", "", "") && !marks("short", "", "short", "") && !marks(null, "tiktok.com.example", "", "") && marks(null, "", "", "", true) && !marks("youtube", "", "", "", true),
+    "tiktok welcome strip: marked for tiktok tags, tiktok.com, bio short links and the TikTok app's browser only");
+  // round 21: TikTok's in-app browser sends no referrer, so its user agent marks the visit as tiktok (an untagged link
+  // from TikTok counted as "direct" before); a tag on the link still wins
+  const uaLine = (deckSrc.match(/var ttApp = [^\n]*/) || [])[0], refLine = (deckSrc.match(/if \(!tag && !from && ttApp\)[^\n]*/) || [])[0];
+  const isTT = (ua) => vm.runInNewContext((uaLine || "") + "; ttApp", { navigator: { userAgent: ua } });
+  const UAS = {
+    ios: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 musical_ly_35.1.0 JsSdk/2.0 NetType/WIFI Channel/App Store ByteLocale/en Region/US",
+    android: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.230 Mobile Safari/537.36 trill_350102 JsSdk/1.0 NetType/WIFI Channel/googleplay AppName/trill app_version/35.1.2 ByteLocale/en BytedanceWebview/d8a21c6",
+    safari: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    insta: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.25.84 (iPhone15,3; iOS 17_5; en_US)",
+  };
+  const refFor = (tag, from, ttApp) => vm.runInNewContext((refLine || "") + "; from", { tag, from, ttApp });
+  ok(uaLine && refLine && isTT(UAS.ios) && isTT(UAS.android) && !isTT(UAS.safari) && !isTT(UAS.insta) && refFor(null, null, true) === "tiktok" && refFor("youtube", null, true) === null && refFor(null, "search", true) === "search",
+    "tiktok app browser: its user agent counts the visit as tiktok when the link has no tag or referrer", { uaLine: !!uaLine, refLine: !!refLine });
   const hiSrc = (deckSrc.match(/\/\/ Welcome strip for TikTok arrivals[\s\S]*?\n  \}\)\(\);/) || [])[0];
   const strip = (o) => {
     let added = null;
@@ -1128,6 +1142,30 @@ if (local && process.env.SMOKE_OLD_RULES === "1") {
   const ob = await (await post("/api/dare/oldrul3s/beat", { play_id: op, anon: oa })).json();
   ok(ob.ok && ob.retired && ob.beaten === false, "board season: an old dare can't be beaten", ob);
 } else console.log("skip  board season checks (CI seeds them: SMOKE_OLD_RULES=1)");
+
+// round 21 TikTok funnel in the digest. Local only and never live: these rows use a normal (not smoke) id so they count.
+// CI seeds one TikTok person 3 days ago who played two games and came back a day later (scripts/smoke-seed.sql); then a
+// test visit today lands from TikTok and plays two games, and today's funnel must move by exactly one at each step.
+if (local && admin && process.env.SMOKE_FUNNEL === "1") {
+  const fd = async () => (await (await get("/api/admin/digest?days=7", { authorization: "Bearer " + admin })).json());
+  // the seed is "3 days ago": row 3, or row 2 if Pacific midnight passed between seeding and now
+  const f0 = await fd(), t0 = f0.rows[6].funnel?.tiktok, s3 = [3, 2].map((i) => f0.rows[i].funnel?.tiktok).find((t) => t && t.played >= 1) || f0.rows[3].funnel?.tiktok;
+  ok(t0 && ["landed", "played", "second_game", "back_7d", "still_open"].every((k) => typeof t0[k] === "number") && f0.funnel?.tiktok && Array.isArray(f0.funnel.tiktok_landing_pages),
+    "funnel: every digest day has a tiktok funnel (landed, played, 2nd game, back in 7 days)", t0);
+  ok(s3 && s3.landed >= 1 && s3.played >= 1 && s3.second_game >= 1 && s3.back_7d >= 1, "funnel: the seeded TikTok person 3 days ago landed, played 2 games and came back", s3);
+  const tp = "ttcheck-" + rid(), g1 = rid(), g2 = rid();
+  await post("/api/hit", { kind: "pageview", path: "/games/desktop-takeover/", ref: "tiktok", campaign: "bio", src: null, medium: "short", land: 1, vis: "new", anon: tp });
+  await post("/api/hit", { kind: "pageview", path: "/games/", ref: "tiktok", anon: tp }); // a second page: not a new landing
+  await post("/api/events", { anon: tp, ref: "tiktok", campaign: "bio", events: [{ t: "start", id: g1, game: "desktop-takeover", v: "1" }] });
+  await post("/api/events", { anon: tp, ref: "tiktok", campaign: "bio", events: [{ t: "start", id: g2, game: "keyboard-escape", v: "1" }] });
+  const f1 = await fd(), t1 = f1.rows[6].funnel.tiktok;
+  ok(t1.landed === t0.landed + 1 && t1.played === t0.played + 1 && t1.second_game === t0.second_game + 1 && t1.still_open === t0.still_open + 1 && t1.back_7d === t0.back_7d,
+    "funnel: a test visit from a TikTok link shows up once at each step today", { before: t0, after: t1 });
+  ok(f1.funnel.tiktok_landing_pages.some((x) => x.path === "/games/desktop-takeover/"), "funnel: the TikTok landing page is listed", f1.funnel.tiktok_landing_pages);
+  await post("/api/events", { anon: tp, ref: "direct", events: [{ t: "start", id: rid(), game: "fathom", v: "1" }] });
+  const t2 = (await fd()).rows[6].funnel.tiktok;
+  ok(t2.played === t1.played && t2.second_game === t1.second_game, "funnel: a later play by the same person isn't a second arrival", t2);
+} else console.log("skip  tiktok funnel checks (local, with the admin token and CI's seed: SMOKE_FUNNEL=1)");
 
 // email signup (K-0031): local only, so no smoke address ever lands in the live list
 if (local) {
