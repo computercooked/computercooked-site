@@ -61,6 +61,13 @@
   .goal3 { color: var(--lime); font-weight: 900; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
   .stat { background: #22242a; padding: 8px 2px; } .stat b { display: block; font-size: 18px; } .stat span { font-size: 10px; color: var(--dim); letter-spacing: .08em; }
+  .goal { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12px; color: var(--dim); letter-spacing: .03em; }
+  .goal:empty { display: none; }
+  .goal b { color: var(--lime); }
+  .pips { display: flex; gap: 4px; }
+  .pips i { width: 18px; height: 10px; background: var(--line); display: block; }
+  .pips i.s1 { background: #5d7a22; } .pips i.s2 { background: #8fbf2e; } .pips i.s3 { background: var(--lime); }
+  .pips i.cur { box-shadow: 0 0 0 2px var(--paper); }
   .tog { font-size: 12px; background: transparent; color: var(--dim); box-shadow: inset 0 0 0 2px var(--line); padding: 8px 12px; min-height: 40px; }
   .tog.on { color: var(--carbon); background: #ff8a1f; box-shadow: none; }
   #levels .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; }
@@ -85,6 +92,13 @@
     .p { font-size: 12px; line-height: 1.4; }
     .hud { height: 46px; }
     #cap { height: 40px; font-size: 13px; }
+  }
+  /* the smallest frames (~430 px): every pixel of height goes to the board */
+  @media (max-height: 480px) {
+    .hud { height: 42px; } .crash { width: 36px; height: 36px; } .ib { width: 36px; height: 36px; font-size: 16px; }
+    #cap { height: 34px; font-size: 12px; line-height: 1.3; padding-top: 2px; }
+    .goal { gap: 3px; font-size: 11px; }
+    #bSpooky:not(.on) { display: none; } /* halloween's over: its toggle gives its row to the title text */
   }
   @media (max-width: 440px) { #lvl { font-size: 13px; } }
 </style>
@@ -136,6 +150,7 @@
     <div class="stars" id="endStars"></div>
     <p class="p" id="endMsg"></p>
     <div class="stats" id="endStats"></div>
+    <div class="goal" id="endGoal"></div>
     <div class="row">
       <button class="btn" id="bNext">next</button>
       <button class="btn alt" id="bShare">share</button>
