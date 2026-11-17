@@ -16,7 +16,9 @@
    Round 24: on ad portals a share carries no link either (CrazyGames bans cross-promotion; GD and Poki ban links out).
    Every game builds its own share text, so the adapter cleans it where it leaves: navigator.share (url dropped, links
    taken out of title and text), navigator.clipboard.writeText and document.execCommand("copy") (links taken out of the
-   copied text). itch.io and Newgrounds shares are left as they are. ccPortal.scrub(text) is the cleaner. */
+   copied text). itch.io and Newgrounds shares are left as they are. ccPortal.scrub(text) is the cleaner.
+   Nov 17: a build made with --no-links (CC_PORTAL.links === false) treats itch.io / Newgrounds like an ad portal: no
+   "play on computercooked.com" card, and shares and copies lose their links. */
 (function () {
   "use strict";
   var cfg = window.CC_PORTAL || { name: "none" };
@@ -50,6 +52,7 @@
 
   // ---- round 24: shares carry no link on ad portals ----
   var LINK_PORTALS = { itch: 1, newgrounds: 1 };
+  var linksOk = !!LINK_PORTALS[site] && cfg.links !== false; // --no-links builds: none at all
   var LINK_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9.-]*computercooked\.com[^\s<>"']*/gi;
   function scrub(s) {
     if (typeof s !== "string") return s;
@@ -57,7 +60,7 @@
       .replace(/[ \t]*[\u00b7|:\u2192\u2013\u2014-]+[ \t]*(?=\n|$)/g, "") // a separator the link used to follow ("go → ", "x · ")
       .replace(/[ \t]+(\n|$)/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
   }
-  if (!LINK_PORTALS[site]) {
+  if (!linksOk) {
     var nav = window.navigator;
     if (nav && typeof nav.share === "function") {
       var share0 = nav.share;
@@ -165,7 +168,7 @@
 
   // ---- K-0030 step 7: "play on computercooked.com" (itch.io and Newgrounds only) ----
   function siteCard() {
-    if (!LINK_PORTALS[site] || !/^[a-z0-9-]{1,40}$/.test(cfg.slug || "")) return;
+    if (!linksOk || !/^[a-z0-9-]{1,40}$/.test(cfg.slug || "")) return;
     try { if (sessionStorage.getItem("cc-portal-card-off")) return; } catch (e) {}
     if (document.getElementById("cc-site-card")) return;
     var url = "https://computercooked.com/games/" + cfg.slug + "/?ref=portal&utm_campaign=portal-" + site;
