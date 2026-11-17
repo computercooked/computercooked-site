@@ -109,9 +109,17 @@
     ["s180", "score 180 in one trial", (r) => r.score >= 180],
   ];
   const RANKS = [[0, "law student"], [2, "court clerk"], [4, "bailiff"], [6, "magistrate"], [8, "judge"], [11, "chief judge"], [14, "goose justice"], [16, "supreme honker"]];
-  let done = [], bestCourt = 0;
-  try { const v = JSON.parse(localStorage.getItem("gc-career") || "{}"); if (Array.isArray(v.done)) done = v.done.filter((id) => GOALS.some((g) => g[0] === id)); bestCourt = Math.max(0, Math.min(COURTS.length - 1, v.court | 0)); } catch (e) {}
-  function saveCareer() { try { localStorage.setItem("gc-career", JSON.stringify({ done, court: bestCourt })); } catch (e) {} }
+  let done = [], bestCourt = 0, day = "", streakDays = 0;
+  try {
+    const v = JSON.parse(localStorage.getItem("gc-career") || "{}");
+    if (Array.isArray(v.done)) done = v.done.filter((id) => GOALS.some((g) => g[0] === id));
+    bestCourt = Math.max(0, Math.min(COURTS.length - 1, v.court | 0));
+    if (typeof v.day === "string") { day = v.day; streakDays = Math.max(0, v.days | 0); }
+  } catch (e) {}
+  function saveCareer() { try { localStorage.setItem("gc-career", JSON.stringify({ done, court: bestCourt, day, days: streakDays })); } catch (e) {} }
+  // days on the bench in a row (a finished trial on a day counts that day)
+  function dayKey(off) { const d = new Date(Date.now() - (off || 0) * 864e5); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function benchDay() { const t = dayKey(0); if (day === t) return; streakDays = day === dayKey(1) ? streakDays + 1 : 1; day = t; saveCareer(); }
   const activeGoals = () => GOALS.filter((g) => !done.includes(g[0])).slice(0, 3);
   function rankOf(n) { let r = RANKS[0], nx = null; for (const x of RANKS) { if (n >= x[0]) r = x; else { nx = x; break; } } return { name: r[1], next: nx }; }
 
@@ -234,7 +242,8 @@
   function end() {
     state = "over"; endAt = performance.now(); prevBest = best; promo = null;
     if (score > best) { best = score; try { localStorage.setItem("gc-best", String(best)); } catch (e) {} }
-    if (court > bestCourt) { bestCourt = court; saveCareer(); }
+    if (court > bestCourt) bestCourt = court;
+    benchDay(); saveCareer();
     say("over", true); react("cooked", 99); sfx.over();
     const dur = Math.round(performance.now() - startAt);
     sdk((c) => c.score && c.score(score));
@@ -646,6 +655,8 @@
         ty += 26; text("rank: " + rankOf(done.length).name + "  ·  best " + best + (bestCourt ? "  ·  " + COURTS[bestCourt].name : ""), W / 2, ty, small, CASE, "center", 800);
       }
       if (g) { ty += 22; text((done.length ? "next goal: " : "first goal: ") + g[1], W / 2, ty, small, LIME2, "center", 800); }
+      const today = day === dayKey(0), alive = today || day === dayKey(1);
+      if (alive && streakDays >= 2) { ty += 22; text(today ? "on the bench " + streakDays + " days running" : "one trial today keeps your " + streakDays + "-day streak", W / 2, ty, small, "#ffb340", "center", 800); }
       text("tap to open court", W / 2, Math.max(ty + 34, Math.min(L.btnY - 24, gy + s + 96)), 18, LIME, "center", 900);
     } else {
       // review16 r4: the end card also says how far up the courts you got, your rank, and the goals (done now, or next)
@@ -728,12 +739,13 @@
   window.addEventListener("message", (e) => {
     const d = e.data; if (!d || typeof d !== "object") return;
     if (d.type === "cc-mute") hostMuted = !!d.muted;
-    else if (d.type === "cc-restart") { wake(); paused = false; start(); }
+    // a restart in the beat between the third strike and the end card still ends (and saves) that trial first
+    else if (d.type === "cc-restart") { wake(); paused = false; if (state === "play" && strikes >= 3) end(); start(); }
     else if (d.type === "cc-pause") { if (state === "play") { paused = typeof d.paused === "boolean" ? d.paused : true; wake(); } }
   });
 
   // read-only hooks for the test scripts
   window.__gc = { state: () => ({ state, score, strikes, judged, correct, elapsed, kase: kase && { charges: kase.charges, item: finalItem(kase), objection: !!(kase && objectionUp(kase)), fb: !!fb, swap: !!kase.swap, t: kase.t },
-    court, promo: !!promo, bestCourt, goalsDone: done.slice(), gotNow: gotNow.slice(), best,
+    court, promo: !!promo, bestCourt, day, streakDays, goalsDone: done.slice(), gotNow: gotNow.slice(), best,
     layout: { W, H, btnY: L.btnY, btnH: L.btnH, gooseX: L.gooseX, gooseY: L.gooseY, goose: L.goose } }) };
 })();
