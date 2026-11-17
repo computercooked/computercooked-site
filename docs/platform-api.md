@@ -586,6 +586,13 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 - **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
 - It works for every game in the shared player. A game with no thumbnail gets the card without art.
 
+## Phone speed (round 19)
+
+Launch traffic is TikTok phones, so the pages are measured with Lighthouse in mobile emulation (simulated slow 4G, 4x CPU). The before/after numbers are in `Website/HANDOFF.md`.
+- **Game pages start the game once the page is done:** after the load event and an idle moment (3 s at most), at once on a touch or key in the player, or at once when the visitor tapped the hub's "tap to play" card (`cc-autostart`). The inline script after `#game-frame` in every `games/<slug>/index.html` and `scripts/player-template.html` does this. Before, the game's download, startup and title animation ran inside the page load.
+- **Small thumbnails for heavy covers:** `scripts/make-thumbs.py` writes `assets/thumbs/<slug>.webp` (192x120) for covers of 8 KB or more and lists them in `src/thumbs.js`. `small(g)` in `src/pages.js` uses them in the small slots (desk icons, "happening now", the chart, crowns), and the cover for every other game. Re-run it after adding a game or changing a cover.
+- **The first card image is fetched first** (`fetchpriority="high"`) on the hub and the mood pages: on a phone it's the LCP image.
+
 ## Board seasons (a game's scoring changed)
 
 When a game's scoring changes so much that old and new scores can't share a board, its boards start fresh. Add the game to `BOARD_FROM` in `src/boards.js` with the time its new scoring went live (its PR's merge time).
