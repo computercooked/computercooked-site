@@ -15,6 +15,7 @@
   const CRASH_TOP = CRASH_W - 13 * (CRASH_W / 128); // monitor top edge in world y
   const RANGE = 175;                       // slider travels +-RANGE around center
   const PERFECT = 5;                       // world units of forgiveness that snap to perfect
+  const perfWin = () => (tabsN < 3 ? 9 : PERFECT); // the first 3 drops are kinder, so new players feel a perfect early
   const BEST_KEY = 'cc-tab-hoarder-best-pts'; // v2: best is points, not tabs
 
   const TITLES = [
@@ -173,7 +174,7 @@
     tabs = [makeTab(0, BASE_W, CRASH_TOP, 'new tab')];
     tabs[0].fav = COL.lime;
     debris = []; parts = []; toasts = [];
-    score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
+    passedBest = false; score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
     state = toState;
     hideTip(); // K-0059: shared tip button (assets/tip.js)
     spawn();
@@ -206,8 +207,10 @@
     if (cur && cur.power === 'virus') sp *= 1.45;
     return sp;
   }
+  let passedBest = false;
   function addPoints(n) {
     score += n;
+    if (!passedBest && best > 0 && score > best && state === 'play') { passedBest = true; toast('new best! keep going', COL.lilac, 1.6, false); sfx.milestone(); shake = Math.max(shake, 4); }
     const now = performance.now();
     if (now - lastScoreSent > 400) { lastScoreSent = now; cc('score', score); }
   }
@@ -220,7 +223,7 @@
     const r = Math.min(cur.x + cur.w / 2, top.x + top.w / 2);
     const ov = r - l;
     const pw = cur.power;
-    if (ov <= 0.5 && !(Math.abs(off) <= PERFECT)) { // missed completely
+    if (ov <= 0.5 && !(Math.abs(off) <= perfWin())) { // missed completely
       lastTitle = cur.joke || cur.title;
       debris.push(Object.assign(cur, { vx: cur.dir * curSpeed() * 0.4, vy: 40, rot: 0, vr: cur.dir * 2.5 }));
       cur = null;
@@ -228,7 +231,7 @@
       return;
     }
     let placed;
-    if (Math.abs(off) <= PERFECT || pw === 'pin') {
+    if (Math.abs(off) <= perfWin() || pw === 'pin') {
       combo++;
       bestCombo = Math.max(bestCombo, combo);
       let w = cur.w;
@@ -256,7 +259,7 @@
     }
     placed.flash = 1;
     if (pw) { placed.power = pw; powersUsed++; }
-    const dbl = pw && pw !== 'pin' && Math.abs(off) <= PERFECT ? 2 : 1;
+    const dbl = pw && pw !== 'pin' && Math.abs(off) <= perfWin() ? 2 : 1;
     if (dbl > 1) toast('perfect power-up: double', COL.lime, 1, true);
     if (pw === 'reopen') { const nw = Math.min(BASE_W, placed.w + 70 * dbl); toast('tab restored. +' + Math.round(nw - placed.w) + ' width', COL.lilac, 1.2, true); placed.w = nw; burst(placed.x, cur.y + TAB_H / 2, nw, COL.lilac, 18); sfx.powerup(); }
     if (pw === 'slow') { slowLeft = 6 * dbl; toast('low power mode: ' + slowLeft + ' slow tabs', '#7fd8ff', 1.2, true); sfx.powerup(); }
@@ -591,7 +594,7 @@
     if (cur && state !== 'over') {
       // alignment guides: the top tab's edges, carried up through the moving tab. they light up inside the perfect window
       if (state === 'play' && !paused) {
-        const tp = topTab(), hit = Math.abs(cur.x - tp.x) <= PERFECT || cur.power === 'pin';
+        const tp = topTab(), hit = Math.abs(cur.x - tp.x) <= perfWin() || cur.power === 'pin';
         worldTransform(sh, shy);
         ctx.fillStyle = hit ? 'rgba(197,255,73,0.85)' : 'rgba(245,243,237,0.16)';
         const y0 = -(cur.y + TAB_H + 8), hh = TAB_H + 8;
