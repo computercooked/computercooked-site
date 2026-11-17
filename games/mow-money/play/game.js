@@ -139,7 +139,7 @@ const DOUG_SAY = ["i've done this before", 'nice day for it', 'doug.', 'see thes
 const SAVE_KEY = 'mm-save';
 function fresh() {
   return {
-    v: 1, cash: 0, runEarned: 0, lifeEarned: 0, playT: 0, offT: 0, lvl: {}, lawn: 0, owned: 1,
+    v: 1, cash: 0, runEarned: 0, lifeEarned: 0, playT: 0, offT: 0, lifeT: 0, lvl: {}, lawn: 0, owned: 1,
     compost: 0, compostTotal: 0, lastSale: 0, perks: {}, gnomes: {}, prestiges: 0, muted: false, t: 0, offRate: 0,
     started: false, best: 0, newG: 0, sellSeen: 0, tut: 0,
   };
@@ -148,7 +148,14 @@ let S = fresh();
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) { const o = JSON.parse(raw); if (o && o.v === 1) S = Object.assign(fresh(), o); }
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o && o.v === 1) {
+        S = Object.assign(fresh(), o);
+        // saves from before lifetime time was kept: this run's time plus 10 min for every past sale (a sale takes 14+ min the first two times)
+        if (typeof o.lifeT !== 'number') S.lifeT = (S.playT || 0) + (S.offT || 0) + 600 * (S.prestiges || 0);
+      }
+    }
   } catch (e) { /* no storage */ }
 }
 function save() {
@@ -409,7 +416,7 @@ function earn(v, isPlayer) {
 /* ---------------- update ---------------- */
 function update(dt) {
   timeNow += dt;
-  S.playT += dt;
+  S.playT += dt; S.lifeT += dt;
   G += dt * growRate();
   if (S.started) updPlayer(dt);
   updHelpers(dt);
@@ -1425,8 +1432,8 @@ function sellBusiness(fromTest) {
   const c = compostFor(S.runEarned);
   if (c < 1 && !fromTest) return;
   const runStats = { earned: S.runEarned, t: S.playT, lawn: S.owned, gnomes: uniqueGnomes(), compost: c };
-  // the run's time includes the offline time it was paid for, so score / duration stays within the board's max_score_per_sec
-  try { window.cc && cc.end({ score: Math.max(1, boardScore(S.prestiges + 1)), durationMs: Math.round((S.playT + (S.offT || 0)) * 1000), completed: true }); } catch (e) { }
+  // the board score is cumulative (lifetime cash, all sales), so the duration is lifetime too: all play time plus paid offline time
+  try { window.cc && cc.end({ score: Math.max(1, boardScore(S.prestiges + 1)), durationMs: Math.round(S.lifeT * 1000), completed: true }); } catch (e) { }
   evt('sold_business', { compost: c, n: S.prestiges + 1 });
   S.compost += c; S.compostTotal += c; S.prestiges++; if (c > 0) S.lastSale = c;
   newRun();
@@ -1580,9 +1587,9 @@ addEventListener('pagehide', save);
 function offline(ms, quiet) {
   const secs = Math.min(offCap(), ms / 1000);
   const gain = (S.offRate || 0) * secs;
-  if (quiet) { if (gain > 0 && S.started) { earn(gain, false); S.offT = (S.offT || 0) + secs; G += secs * growRate(); } return; }
+  if (quiet) { if (gain > 0 && S.started) { earn(gain, false); S.offT = (S.offT || 0) + secs; S.lifeT += secs; G += secs * growRate(); } return; }
   if (gain < 1 || secs < 30) return;
-  earn(gain, false); S.offT = (S.offT || 0) + secs;
+  earn(gain, false); S.offT = (S.offT || 0) + secs; S.lifeT += secs;
   G += secs * growRate(); // the lawn grows back while you're away
   const who = lv('doug') ? 'doug' : lv('robot') ? 'the robot' : lv('goat') ? 'the goats' : 'the lawn, somehow,';
   showModal(`<h2>welcome back.</h2><p>you were gone <b>${fmtTime(ms / 1000)}</b>${ms / 1000 > offCap() ? ' (the shed only holds ' + fmtTime(offCap()) + ')' : ''}. ${who} kept going and made <b>$${fmt(gain)}</b>.</p><button class="big" id="okbtn">collect</button>`);
@@ -1643,7 +1650,7 @@ function skip(secs) {
 let autoBuy = false; const __log = [];
 if (TEST) {
   window.__mm = {
-    state: () => ({ score: boardScore(S.prestiges), lastSale: S.lastSale, cash: S.cash, runEarned: S.runEarned, lifeEarned: S.lifeEarned, playT: S.playT, lvl: Object.assign({}, S.lvl), lawn: S.lawn, owned: S.owned, compost: S.compost, compostTotal: S.compostTotal, prestiges: S.prestiges, gnomes: uniqueGnomes(), rate: rateEMA, rateH, fps, W, H, cs, cellVal: cellVal(), compostNow: compostFor(S.runEarned), parts: parts.length, imm: immCount, mowed: mowedFrac, workMs, stripes, goal: document.querySelector('#goaltxt').textContent, paused, muted: isMuted() }),
+    state: () => ({ score: boardScore(S.prestiges), lastSale: S.lastSale, lifeT: S.lifeT, cash: S.cash, runEarned: S.runEarned, lifeEarned: S.lifeEarned, playT: S.playT, lvl: Object.assign({}, S.lvl), lawn: S.lawn, owned: S.owned, compost: S.compost, compostTotal: S.compostTotal, prestiges: S.prestiges, gnomes: uniqueGnomes(), rate: rateEMA, rateH, fps, W, H, cs, cellVal: cellVal(), compostNow: compostFor(S.runEarned), parts: parts.length, imm: immCount, mowed: mowedFrac, workMs, stripes, goal: document.querySelector('#goaltxt').textContent, paused, muted: isMuted() }),
     cash: n => { S.cash += n; S.runEarned += n; S.lifeEarned += n; dirtyUI = true; return S.cash; },
     lawn: n => { S.owned = Math.max(S.owned, n + 1); goLawn(n); return S.lawn; },
     prestige: () => { const c = compostFor(S.runEarned); sellBusiness(true); return c; },
