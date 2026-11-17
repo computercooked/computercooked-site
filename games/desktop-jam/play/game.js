@@ -497,6 +497,7 @@
     g.fillText(r.won ? `cleared in ${fmt(r.ms)}` : 'cooked.', 60, 320);
     g.fillStyle = '#F5F3ED';
     g.fillText(`${r.bonks} bonk${r.bonks === 1 ? '' : 's'} · ${r.total} icons`, 60, 380);
+    if (r.mode === 'daily' && r.won) { g.fillStyle = '#ffd84a'; g.fillText(r.streak > 1 ? `${r.streak}-day streak. your turn.` : 'your turn. same desktop.', 60, 440); }
     g.font = '800 26px ui-monospace, Menlo, Consolas, monospace'; g.fillStyle = '#77756e';
     g.fillText(SLUG_URL, 60, 560);
     return c;
