@@ -16,7 +16,7 @@
   const CRASH_TO_WIN = 3, YOU_TO_WIN = 3, MAX_TOKENS = 3;
   // suspicion each cheat adds. at 100 the anticheat catches him and the round is yours.
   const SUS = { delete: 22, swap: 26, lag: 22, coffee: 18, rules: 28, bsod: 34 };
-  const SUS_MUL = [1, 1, 0.95, 0.93, 0.88]; // by crash version: newer ones hide their cheats better
+  const SUS_MUL = [1, 1, 0.95, 0.97, 0.88]; // by crash version: newer ones hide their cheats better
   const SUS_KEEP = [0.5, 0.4, 0.3, 0.25, 0.2]; // by crash version: newer ones clear their logs faster
   const VERB = { delete: 'delete your x', swap: 'recolor your x', lag: 'lag-move twice', coffee: 'spill coffee', rules: 'rewrite the rules', bsod: 'blue-screen the board' };
   const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
@@ -38,7 +38,7 @@
   ];
   const off = () => Math.min(3, lvl - 1);
   const er = () => round + off();
-  const REPORT = [34, 30, 26, 22, 20]; // by crash version: newer ones have better lawyers
+  const REPORT = [34, 30, 26, 25, 20]; // 2.4.1: v4 eased a step (22 -> 25, sus x0.93 -> x0.97) // by crash version: newer ones have better lawyers
   const report = () => REPORT[lvl - 1];
   const diff = (arr) => arr[Math.min(arr.length - 1, round - 1 + off())];
 
