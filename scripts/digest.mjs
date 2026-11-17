@@ -74,3 +74,9 @@ if (d.game_pages && d.game_pages.length) {
   console.log("\ngame pages (whole window)");
   table(["game", "page views", "avg time s"], d.game_pages.map((g) => [g.game, g.views, dash(g.avg_time_s)]));
 }
+if (d.cook_vote) {
+  const c = d.cook_vote;
+  console.log(`\n"what should we cook next?" vote (one per device per week; all weeks / this week ${c.week})`);
+  table(["option", "votes", "this week"], Object.keys(c.counts).sort((a, b) => c.counts[b] - c.counts[a]).map((k) => [k + (k === c.leader ? " (leading)" : ""), c.counts[k], c.week_counts[k]]));
+  console.log(`total ${c.total}, this week ${c.week_total}; votes per day: ${d.rows.map((r) => r.votes || 0).join(" ")}`);
+}

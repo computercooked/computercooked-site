@@ -161,6 +161,8 @@
           <span class="now-tag">top this week</span>
           <ol class="now-chart" id="home-chart"></ol>
         </div>
+        <!-- "what should we cook next?": one tap, one vote per device a week (assets/cook.js, src/cook.js) -->
+        <section class="now-card cook-card" data-cook aria-labelledby="home-cook-q"><span class="now-tag cook-tag">vote</span><strong class="now-title cook-q" id="home-cook-q">what should we cook next?</strong><span class="now-meta cook-sub">one tap. the winner gets built next. one vote per device a week.</span><ul class="cook-opts"><li><button type="button" class="cook-opt" data-option="raccoon-heist" aria-pressed="false"><img src="/assets/cook/raccoon-heist.svg" alt="" width="64" height="40" decoding="async" loading="lazy"><span class="cook-name">raccoon heist</span><span class="cook-pitch">sneak a raccoon past the sight cones. grab the best trash.</span><span class="cook-bar" aria-hidden="true"><span></span></span><span class="cook-n num" aria-hidden="true"></span></button></li><li><button type="button" class="cook-opt" data-option="fort-knight" aria-pressed="false"><img src="/assets/cook/fort-knight.svg" alt="" width="64" height="40" decoding="async" loading="lazy"><span class="cook-name">fort knight</span><span class="cook-pitch">close off castles with odd wall pieces, then cannon the ships.</span><span class="cook-bar" aria-hidden="true"><span></span></span><span class="cook-n num" aria-hidden="true"></span></button></li><li><button type="button" class="cook-opt" data-option="tiny-volcano" aria-pressed="false"><img src="/assets/cook/tiny-volcano.svg" alt="" width="64" height="40" decoding="async" loading="lazy"><span class="cook-name">tiny volcano</span><span class="cook-pitch">shape an island with lava. the villagers worship or flee.</span><span class="cook-bar" aria-hidden="true"><span></span></span><span class="cook-n num" aria-hidden="true"></span></button></li><li><button type="button" class="cook-opt" data-option="pond-merge" aria-pressed="false"><img src="/assets/cook/pond-merge.svg" alt="" width="64" height="40" decoding="async" loading="lazy"><span class="cook-name">pond merge</span><span class="cook-pitch">drop pond creatures that merge up. don't overflow the pond.</span><span class="cook-bar" aria-hidden="true"><span></span></span><span class="cook-n num" aria-hidden="true"></span></button></li></ul><p class="cook-say" role="status" aria-live="polite"></p></section>
       </div>
       <div class="now-crowns" id="home-crowns" hidden>
         <span class="now-tag">latest crowns</span>
@@ -267,6 +269,7 @@
   <script src="/assets/home.js" defer></script>
   <script src="/assets/eggs.js" defer></script>
   <script src="/assets/signup.js" defer></script>
+  <script src="/assets/cook.js" defer></script>
   <script src="/assets/deck.js" defer></script>
 </body>
 </html>

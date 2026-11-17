@@ -4,6 +4,7 @@
 import { subscribe, unsubscribe } from "./subscribe.js";
 import { labVotes, labVote } from "./lab.js";
 import { postIdea, listIdeas } from "./ideas.js";
+import { cookVotes, cookVote } from "./cook.js";
 import { utmReport } from "./utm.js";
 import { homePage, labPage, logPage } from "./pages.js";
 import { json, bad, HttpError, tipUrl } from "./util.js";
@@ -137,6 +138,8 @@ async function api(req, env, url) {
     case "GET /api/lab/votes": return labVotes(url, env, user);
     case "POST /api/lab/vote": return labVote(req, env, url, ip, user);
     case "POST /api/ideas": return postIdea(req, env, ip);
+    case "GET /api/cook": return cookVotes(url, env);
+    case "POST /api/cook": return cookVote(req, env, ip);
     case "GET /api/stats": return stats(env);
     case "POST /api/report": return report(req, env, ip, user);
     case "GET /api/community": return listCommunity(env);

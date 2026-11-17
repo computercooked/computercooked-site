@@ -1221,3 +1221,30 @@ a.champ-who { text-decoration: underline; text-decoration-color: rgb(255 207 64 
   .champ-card { transition: none; }
   .champ-card:hover, .champ-card:focus-within { transform: none; }
 }
+
+/* "what should we cook next?" vote (assets/cook.js): a full-width card in the home page's "happening now" grid, and
+   on its own on the games hub. Four poster buttons (2 across on a phone, 4 on wider screens); the split shows after a vote. */
+.cook-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; }
+.now-grid > .cook-card { grid-column: 1 / -1; align-items: stretch; }
+.cook-solo { margin: var(--s-6) 0; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.cook-card .cook-tag { font: 800 12px var(--mono); color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
+.cook-card .cook-q { max-width: none; font: 800 var(--fs-18, 18px)/1.25 var(--sans, inherit); }
+.cook-card .cook-sub { color: var(--text-dim); font-size: var(--fs-14, 14px); }
+.cook-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); margin: var(--s-2) 0 0; padding: 0; list-style: none; }
+@media (min-width: 760px) { .cook-opts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.cook-opt { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; height: 100%; min-width: 0; padding: 8px 8px 10px; border: 2px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: transform var(--fast, .16s) ease, border-color var(--fast, .16s) ease, box-shadow var(--fast, .16s) ease; }
+.cook-opt:hover:not(:disabled), .cook-opt:focus-visible { transform: translate(-2px, -2px); border-color: var(--accent); box-shadow: 4px 4px 0 #000; outline: none; }
+.cook-opt:disabled { cursor: default; }
+.cook-opt img { display: block; width: 100%; height: auto; aspect-ratio: 64 / 40; border: 2px solid #000; border-radius: 6px; image-rendering: pixelated; }
+.cook-name { font: 800 15px/1.2 var(--mono); overflow-wrap: anywhere; }
+.cook-pitch { color: var(--text-dim); font-size: 13px; line-height: 1.35; }
+.cook-bar { display: none; height: 8px; margin-top: auto; border-radius: 4px; background: var(--line); overflow: hidden; }
+.cook-bar span { display: block; width: 0; height: 100%; background: var(--text-dim); transition: width .5s var(--ease-out, ease); }
+.cook-n { display: none; font: 800 13px var(--mono); }
+.has-voted .cook-bar, .has-voted .cook-n { display: block; }
+.has-voted .cook-opt[aria-pressed="true"] { border-color: var(--accent); }
+.has-voted .cook-opt[aria-pressed="true"] .cook-name::after { content: " ✓"; color: var(--accent); }
+.cook-opt.is-lead .cook-bar span { background: var(--accent); }
+.cook-say { min-height: 1.4em; margin: 4px 0 0; color: var(--text); font-size: var(--fs-14, 14px); }
+.cook-say:empty { min-height: 0; }
+@media (prefers-reduced-motion: reduce) { .cook-opt, .cook-bar span { transition: none; } .cook-opt:hover:not(:disabled) { transform: none; } }

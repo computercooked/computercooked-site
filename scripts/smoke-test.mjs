@@ -853,6 +853,8 @@ if (admin) {
     dg.games.every((g) => "runs_ended" in g && "avg_session_s" in g && "best_score" in g),
     "admin digest v2: tip clicks, desk row, game-over stats per game", { version: dg.version, desk: dg.desk });
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
+  ok(dg.cook_vote && dg.cook_vote.poll && /^\d{4}-W\d{2}$/.test(dg.cook_vote.week) && Object.keys(dg.cook_vote.counts).length === 4 && typeof dg.cook_vote.total === "number" && typeof dRow.votes === "number",
+    "admin digest: cook vote totals (read only) and votes per day", dg.cook_vote);
   // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
   const ur = await (await get("/api/admin/utm?days=7", { authorization: "Bearer " + admin })).json();
   ok(ur.ok && ur.days === 7 && Array.isArray(ur.rows) && Array.isArray(ur.sources) && typeof ur.site?.sessions === "number", "admin utm report", ur.site);
@@ -1011,6 +1013,11 @@ if (admin) {
     "homepage: one play button, featured game, lab strip, cooked desktop with dock and start menu, happening now, no gary");
   const labHtml = await (await get("/lab/")).text();
   ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");
+  // "what should we cook next?" (round 17): the vote card on home and the hub, with the four in-house posters
+  const hubHtml = await (await get("/games/")).text();
+  ok([home, hubHtml].every((h) => (h.match(/class="cook-opt" data-option="[a-z-]+"/g) || []).length === 4 && h.includes("data-cook") && h.includes('src="/assets/cook.js"')), "home and hub show the cook-next vote (4 options)");
+  const posters = await Promise.all(["raccoon-heist", "fort-knight", "tiny-volcano", "pond-merge"].map((id) => get("/assets/cook/" + id + ".svg").then((r) => r.ok && /svg/.test(r.headers.get("content-type") || ""))));
+  ok(posters.every(Boolean), "cook-next posters are served", posters);
   // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
   const logHtml = await (await get("/log/")).text();
   ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
@@ -1075,6 +1082,20 @@ if (local) {
   const v2 = await (await post("/api/lab/vote", { anon: voter, option: "checkout" })).json();
   ok(v0.ok && v0.mine === null && v1.ok && v1.mine === "microwave" && v2.mine === "checkout" && v2.total === v0.total, "lab vote: changeable, smoke votes not counted", { v0: v0.total, v2: v2.total });
   ok((await post("/api/lab/vote", { anon: voter, option: "nope" })).status === 400, "lab vote rejects an unknown option");
+  // "what should we cook next?": one vote per device a week; smoke votes stored, never counted
+  const c0 = await (await get("/api/cook?anon=" + voter)).json();
+  const c1 = await (await post("/api/cook", { anon: voter, option: "pond-merge" })).json();
+  const c2 = await (await post("/api/cook", { anon: voter, option: "fort-knight" })).json();
+  ok(c0.ok && c0.options.length === 4 && c0.mine === null && c1.mine === "pond-merge" && c2.mine === "pond-merge" && !c1.counted && !c2.counted && c2.total === c0.total,
+    "cook vote: one per device a week, smoke votes not counted", { c0: c0.total, c2: c2.total, mine: c2.mine });
+  // local only: a non-smoke device counts once, and its second tap that week changes nothing
+  const dev = "cooktest" + rid();
+  const r1 = await (await post("/api/cook", { anon: dev, option: "tiny-volcano" })).json();
+  const r2 = await (await post("/api/cook", { anon: dev, option: "raccoon-heist" })).json();
+  ok(r1.counted && r1.total === c2.total + 1 && r1.counts["tiny-volcano"] === c2.counts["tiny-volcano"] + 1 && !r2.counted && r2.total === r1.total && r2.mine === "tiny-volcano",
+    "cook vote: a real device counts once a week", { r1: r1.total, r2: r2.total, mine: r2.mine });
+  ok((await post("/api/cook", { anon: voter, option: "nope" })).status === 400 && (await post("/api/cook", { anon: "x", option: "pond-merge" })).status === 400,
+    "cook vote rejects an unknown option or a bad device id");
   // "what should we make next?" (K-0050a): checked like a real idea, never stored for smoke ids
   const idea = (o) => post("/api/ideas", { text: "a game where the printer fights back", handle: "", page: "lab", ms: 5000, website: "", anon: voter, ...o });
   const i1 = await (await idea({})).json();
