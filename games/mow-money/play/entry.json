@@ -26,5 +26,7 @@
     "comedy",
     "one-thumb"
   ],
-  "max_score_per_sec": 3100
+  "max_score_per_sec": 250,
+  "score_slack": 40000,
+  "max_score": 100000
 }
