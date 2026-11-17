@@ -625,6 +625,10 @@
 
 /* the "new" chip beside a new game's title (src/seo.js gamePage, first 14 days) */
 .player-title .player-new { flex: none; padding: 1px 6px; font-family: var(--mono); font-size: 11px; line-height: 1.4; }
+/* game of the day (src/gotd.js): gold, like the weekly challenge's xp */
+.player-title .player-gotd, .game-card .game-gotd { background: #ffcf40; color: #14110a; }
+/* on hub cards it sits in the text, above the name (games/hub.js), so it never fights the corner badges */
+.game-card .game-gotd { justify-self: start; padding: 2px var(--s-2); border-radius: var(--r-sm); font-family: var(--mono); font-size: var(--fs-12); font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
 
 .player-title::before {
   content: "";

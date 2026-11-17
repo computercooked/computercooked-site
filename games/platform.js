@@ -50,6 +50,10 @@
      preview kept in localStorage: at sign-up or log-in the server replays their plays for the real XP
      (src/xp.js replayGuest), so nothing here can be faked into an account. Keep the numbers in step with xp.js. */
   var DAILY3 = ["crash-test-daily", "desktop-jam", "fathom"], DAILY3_XP = 60;
+  // game of the day (src/gotd.js): is this page's game today's pick? Then a run pays its play xp twice, as the server
+  // does for accounts (and will for this device's runs when they move to an account).
+  var GOTD = false;
+  api("/api/gotd").then(function (d) { GOTD = !!(d && d.ok && d.game === game); });
   var XP = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
   var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
   var BADGES = { first_run: ["boot sequence", 10], play_5: ["sampler platter", 50], play_10: ["tab hopper", 75], play_15: ["the whole arcade", 150],
@@ -89,6 +93,7 @@
     var k = day + "|" + d.game, playXp = Math.min(XP.base + pct, Math.max(0, XP.perGameDayCap - (s.used[k] || 0)));
     var used = {}; used[k] = (s.used[k] || 0) + playXp; s.used = used; // only today's caps matter
     if (playXp) parts.push({ kind: "play", xp: playXp });
+    if (playXp && GOTD && d.game === game) parts.push({ kind: "gotd", xp: playXp });
     if (playXp < XP.base + pct) parts.push({ kind: "cap", xp: 0 });
     if (!s.games[d.game]) { s.games[d.game] = 1; parts.push({ kind: "first", xp: XP.first }); }
     var firstToday = s.days.indexOf(day) < 0;
@@ -910,6 +915,7 @@
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
       if (x.parts && x.parts.some(function (p) { return p.kind === "daily3"; })) say("daily 3 done: +" + DAILY3_XP + " xp");
+      x.parts && x.parts.forEach(function (p) { if (p.kind === "gotd") say("2x xp: game of the day +" + p.xp); });
       if (x.guest) (x.achievements || []).forEach(function (a) { say("unlocked: " + a.name + " · +" + a.xp + " xp"); });
       if (x.leveled_up) levelUp(x);
       if (x.guest) {

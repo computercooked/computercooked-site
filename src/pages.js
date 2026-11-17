@@ -4,6 +4,7 @@
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { themeAttr, now, dayOf, REAL, isNewGame } from "./util.js";
+import { gotdFor, gotdEnds } from "./gotd.js";
 import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
 import { vibesOf, gamesItemList } from "./seo.js";
@@ -192,6 +193,19 @@ export async function homePage(req, env, url) {
     rw.on("a#home-ch", { element(e) {
       e.removeAttribute("hidden"); e.setAttribute("href", `/games/${encodeURIComponent(g.slug)}/?ref=now`);
       e.setInnerContent(challengeCard(live.ch, g), { html: true });
+    } });
+  }
+  // game of the day (src/gotd.js): 2x play xp on one game until midnight UTC
+  let gd = null;
+  try { if (env.DB && catalog.size) gd = await gotdFor(env, now(), catalog); } catch (e) { /* the card stays hidden */ }
+  const gg = gd && catalog.get(gd.game);
+  if (gg) {
+    rw.on("a#home-gotd", { element(e) {
+      e.removeAttribute("hidden"); e.setAttribute("href", `/games/${encodeURIComponent(gg.slug)}/?ref=gotd`);
+      e.setInnerContent(`<img class="now-thumb" src="${esc(gg.thumbnail)}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
+        `<span class="now-tag">game of the day <b>2x xp</b></span><strong class="now-title">${esc(gg.title)}</strong>` +
+        `<span class="now-meta">every run pays double xp today. the quiet games get a turn.</span>` +
+        `<span class="now-count">ends in <b class="num" data-until="${esc(gotdEnds(now()))}">today</b></span>`, { html: true });
     } });
   }
   if (live && live.top.length) {

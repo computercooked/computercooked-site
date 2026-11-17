@@ -250,6 +250,19 @@ cc.autostart()       // -> true once if the player came from the hub's "tap to p
 - **Install card:** on the hub, `#install-card` appears when the browser offers an install prompt (Chrome, Edge, Android) or on iPhone/iPad Safari (share → add to home screen). It can be dismissed for good.
 - **Metrics:** plays from the installed app are referrer `app` (cc-sdk.js checks display-mode standalone, plus a `cc-app` sessionStorage flag set by pwa.js for the game frame). Offline runs are not recorded: the SDK doesn't queue events, and the server bounds a run by when it saw the start.
 
+## Game of the day (2x XP)
+
+One of our games each UTC day pays double play XP (`src/gotd.js`; plan in `Website\Ideas\game-of-the-day-2x-xp-plan-2026-11-16.md`).
+- **Pool:** our games, minus the week's challenge and featured games, the daily 3, games in their first 14 days, and anything picked in the last 7 days (that rule gives way if nothing is left).
+- **Pick:** the fewest unique players over the last 7 days, so the quiet games get a turn. Ties go to the game picked longest ago, then catalog order.
+- **Storage:** stored once a day in the `gotd` table (`migrations/0020_gotd.sql`, `INSERT OR IGNORE`, first writer wins). `gotdFor(env, t, catalog)` creates today's pick if needed; without a catalog it only reads, so guest replay never creates a past day's pick.
+- **XP:** `awardPlay` grants a `gotd` event (ref = play id) equal to the play XP it just granted, shown as its own part (`{kind: "gotd", xp}`). Play XP is capped at 150 per game per day, so the bonus is too. `replayGuest` pays the same from the stored row of the day each play ended. `games/platform.js` mirrors it for guests (fetches `/api/gotd` once) and says "2x xp: game of the day +N" after a run.
+- **Where it shows:**
+  - the home card `#home-gotd`;
+  - a gold "2x xp today" chip beside the title on its game page;
+  - a "2x xp today" label on its hub card (`games/hub.js`).
+- `GET /api/gotd` → `{ok, day, game, title, pitch, thumbnail, poster, ends_at}` (`game: null` if there's no pick), cached 5 minutes.
+
 ## New games ("new" badges and "just cooked")
 
 A game is new for 14 days from its games.json `added` day: `isNewGame` / `NEW_MS` in `src/util.js` (games/hub.js uses the same 14 days on the client). While it's new it gets the "new" tag on home cards (`card2`), the "new" badge on hub cards, a place in the "just cooked" shelves on home and the hub (newest first, up to 6), and a "new" chip beside its title on its game page (`src/seo.js` gamePage). Nothing is listed ahead of time: a game waiting on its merge isn't in games.json, so all of this switches on by itself the day it lands. **When merging a new game, set `added` to that day**, or its 14 days start from whenever the PR was written.
@@ -278,8 +291,9 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Quick launch dock** (`index.html` `#desk-dock`, `assets/home.js`): the hero's game icons sit in one row under the welcome window, not scattered around it. Hover or focus shows a peek window with the game's cover. On phones the row scrolls sideways. Dock links carry `?ref=desk`.
 - **surprise me.exe** (`#desk-dice`): spins through the dock like a slot machine and opens a game, preferring ones this browser hasn't played (`cc-history`). With reduced motion it opens the game straight away.
 - **Start menu** (`#desk-start` opens `#desk-menu`): all games, today's dailies, surprise me, search, the lab, the cooked log, my account, and "shut down…" (a joke CRT power-off; a click or key brings the page back). Esc and a click outside close it; arrow keys move through it.
-- **Happening now** (`#home-now`, above game of the week): three cards.
+- **Happening now** (`#home-now`, above game of the week): four cards.
   - *Weekly challenge* (`#home-ch`): this week's game, goal, XP and how many players have done it, with a countdown to the week's end. Filled on the server.
+  - *Game of the day* (`#home-gotd`): today's 2x XP game (see "Game of the day" below), with a countdown to midnight UTC. Filled on the server.
   - *Daily 3* (`#home-daily`): three dots for today's three games and the streak, from `window.ccDaily3` in the browser, with a countdown to local midnight.
   - *Top this week* (`#home-top`): the 5 games with the most players over the last 7 days, with places moved against the 7 days before ("new" for a game that wasn't on the chart). Hidden until 3 games have plays. No play counts are shown.
 - **Pick a mood** (`#home-moods`, under game of the week): five tiles (60 seconds, arcade, puzzle, chill, rage) that open the hub with that filter on (`/games/?vibe=<id>&ref=mood`). `homePage()` adds three covers and the game count to each from the same vibe rules as the hub (`vibesOf` in `src/seo.js`); a mood with no games is hidden. On the hub, the pressed chip scrolls into view on phones.
@@ -583,6 +597,7 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 | POST | `/api/follow` | `{platform: tiktok/youtube/instagram/x, slot: hub-card/hub-footer/post-run, game?, anon}` → `{ok}`. A follow button click (see "Follow loop"); one `cc:follow_click` event, no player id; smoke not stored |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
+| GET | `/api/gotd` | `{ok, day, game, title, pitch, thumbnail, poster, ends_at}`: today's game of the day (2x play XP until `ends_at`, midnight UTC); `game: null` if there's no pick. See "Game of the day". |
 | GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total} \| null}`. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |
 | GET | `/api/me/feed` | `{items: [{kind: game/achievement/challenge, game, title, text, ts}]}`, newest first, up to 30 |
 | GET | `/api/me/friends` | `{friends, incoming, outgoing, blocked}`, each `[{username, name, avatar, level}]` |

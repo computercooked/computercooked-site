@@ -5,6 +5,7 @@
 import { dareTags } from "./dares.js";
 import { embeddable, embedCard } from "./embed.js";
 import { themeAttr, themeVars, isNewGame } from "./util.js";
+import { gotdFor } from "./gotd.js";
 
 const SITE = "https://computercooked.com";
 // keep in step with VIBES / FALLBACK in assets/fx.js (the hub filter chips)
@@ -201,6 +202,9 @@ export async function gamePage(req, env, url, slug) {
   if (!g) return page;
 
   const faq = faqOf(g);
+  // game of the day (src/gotd.js): a "2x xp today" chip beside the title
+  let gotd = false;
+  try { if (env.DB) gotd = (await gotdFor(env, Date.now(), new Map(games.map((x) => [x.slug, x]))))?.game === slug; } catch (e) { /* no chip */ }
   const rw = new HTMLRewriter()
     // installable web app: every game page links the manifest and registers the offline service worker (assets/pwa.js)
     .on("head", { element(e) { e.append(jsonLd(g, faq) + PWA + (themeVars(g) ? `<style>:root{${themeVars(g)}}</style>` : ""), { html: true }); } })
@@ -210,7 +214,10 @@ export async function gamePage(req, env, url, slug) {
     // the breadcrumb's last step: the game's name, not its slug ("microwave-panic" wrapped badly on phones)
     .on('.crumbs [aria-current="page"]', { element(e) { e.setInnerContent(g.title); } })
     // a "new" chip beside the title for the game's first 14 days (isNewGame, the same rule as every other NEW badge)
-    .on("h1.player-title", { element(e) { if (isNewGame(g)) e.append('<span class="game-new player-new">new</span>', { html: true }); } })
+    .on("h1.player-title", { element(e) {
+      if (isNewGame(g)) e.append('<span class="game-new player-new">new</span>', { html: true });
+      if (gotd) e.append('<span class="game-new player-new player-gotd" title="game of the day: every run pays double xp until midnight UTC">2x xp today</span>', { html: true });
+    } })
     .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${faqHtml(g, faq)}${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })

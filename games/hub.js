@@ -76,6 +76,7 @@
   function art(g) { return g.poster || g.thumbnail; }
   function clipOf(g) { return typeof g.clip === "string" && /^\/assets\/clips\/[a-z0-9-]+\.mp4$/.test(g.clip) ? g.clip : ""; }
   var hot = {}; // the top 3 by plays this week (from /api/stats), badged "hot"
+  var gotd = null; // game of the day (/api/gotd, src/gotd.js): its card says "2x xp today"
   // i: position in its grid. The first row loads straight away (it's what you see first); the rest wait until scrolled to.
   function card(g, i) {
     var tags = (g.tags || []).slice(0, 3).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
@@ -90,6 +91,7 @@
       '<span class="game-body">' +
         (isNew ? '<span class="game-new">new</span>' : "") +
         (hot[g.slug] ? '<span class="game-hot" title="one of the most played games this week">hot</span>' : "") +
+        (gotd === g.slug ? '<span class="game-gotd" title="game of the day: every run pays double xp until midnight UTC">2x xp today</span>' : "") +
         '<h3 class="game-name">' + esc(g.title) + "</h3>" +
         '<span class="game-pitch">' + esc(g.pitch) + "</span>" +
         (tags ? '<span class="game-tags">' + tags + "</span>" : "") + count +
@@ -142,9 +144,11 @@
   Promise.all([
     fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }),
     live.then(function (up) { return up ? api("/api/stats") : null; }),
-    live.then(function (up) { return up ? api("/api/me") : null; })
+    live.then(function (up) { return up ? api("/api/me") : null; }),
+    live.then(function (up) { return up ? api("/api/gotd") : null; }).catch(function () { return null; })
   ]).then(function (res) {
-    var data = res[0], st = res[1], who = res[2];
+    var data = res[0], st = res[1], who = res[2], gd = res[3];
+    gotd = gd && gd.ok && gd.game || null;
     if (st && st.ok) st.games.forEach(function (g) { stats[g.game] = g; });
     me = who && who.user;
     var chip = document.getElementById("hub-chip");

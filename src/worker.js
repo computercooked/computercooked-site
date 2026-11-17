@@ -14,6 +14,7 @@ import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
+import { gotdApi } from "./gotd.js";
 import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
@@ -122,6 +123,7 @@ async function api(req, env, url) {
     case "GET /api/leaderboard": return leaderboard(url, env, user);
     case "GET /api/featured": return featured(env, await catalogOf(env, origin));
     case "GET /api/challenge": return challenge(env, user, await catalogOf(env, origin));
+    case "GET /api/gotd": return gotdApi(env, await catalogOf(env, origin));
     case "POST /api/feedback": return feedback(req, env, ip, user);
     case "POST /api/subscribe": return subscribe(req, env, ip);
     case "GET /api/unsubscribe": return unsubscribe(url, env);
