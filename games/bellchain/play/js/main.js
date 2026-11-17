@@ -92,7 +92,7 @@ function bump(id) { const el = $(id); el.classList.remove('bump'); void el.offse
 // r5: a x10 resonance milestone (1K, 10K, 1M...): shockwaves and a big number off the great bell, a banner, a chime
 function milestone(n, name) {
   bump('res');
-  stage.goldBurst(E.fmt(n) + '!', stage.theme && stage.theme.acc);
+  stage.goldBurst('', stage.theme && stage.theme.acc); // the banner says the number
   stage.showBanner(`${E.fmt(n)} resonance`, `${name} · +1% forever`, null, 2.4);
   [0, 2, 4, 7].forEach((d, i) => music.play('crystal', d + 7, now() + i * 0.07, 0.8));
   buzz(20);
@@ -272,17 +272,18 @@ function pulseNext() {
   document.querySelectorAll('#pane-shop .pulse').forEach((el) => { if (el !== best) el.classList.remove('pulse'); });
   if (best) best.classList.add('pulse');
   // r5: the thing to buy pulses, but on a phone it can be under the fold of the panel (the handbell was, in the
-  // player page). Bring it into view once per new target, unless the player has touched the panel in the last 3 s.
-  if (best !== pulseNext.last) { pulseNext.last = best; if (best) showInPane(best); }
+  // player page). Bring it into view once per target, once the player hasn't touched the panel for 3 s.
+  if (best && pulseNext.shown !== best && showInPane(best)) pulseNext.shown = best;
 }
 let paneTouched = 0;
 ['pointerdown', 'wheel', 'touchmove'].forEach((ev) => $('pane-shop').addEventListener(ev, () => { paneTouched = Date.now(); }, { passive: true }));
 function showInPane(el) {
   const pane = $('pane-shop');
-  if (pane.hidden || Date.now() - paneTouched < 3000) return;
+  if (pane.hidden || Date.now() - paneTouched < 3000) return false;
   const pr = pane.getBoundingClientRect(), r = el.getBoundingClientRect();
   const dy = r.bottom > pr.bottom - 4 ? r.bottom - pr.bottom + 10 : r.top < pr.top + 4 ? r.top - pr.top - 10 : 0;
   if (dy) pane.scrollTo({ top: pane.scrollTop + dy, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  return true;
 }
 // K-0034: always something to aim for. The two cheapest things you can't afford yet (an upgrade in the slots, a bell
 // you've seen, or the next mallet / acoustics upgrade before it unlocks), with how close you are.

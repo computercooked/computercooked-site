@@ -51,7 +51,7 @@ export class Stage {
     const x = this.cx, y = this.cy;
     this.great.vel += 22; this.great.pulse = 1; this.shake = 0.5;
     for (let k = 0; k < 3; k++) this.waves.push({ x, y, t: -k * 0.18, life: 1.4, col });
-    this.pops.push({ x, y: y - this.gs * 0.6, text, t: 0, life: 2.6, big: true });
+    if (text) this.pops.push({ x, y: y - this.gs * 0.6, text, t: 0, life: 2.6, big: true });
     if (!this.lite) for (let k = 0; k < 28; k++) { const a = Math.random() * TAU, s = 120 + Math.random() * 260; this.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.9, t: 0 }); }
   }
   tapGreat(x, y, text, big) {
