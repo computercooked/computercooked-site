@@ -13,12 +13,15 @@
 //                slot "nudge" (no game) = the hero's "your desk is warm" link down to the row (K-0066)
 //   tiktok_out   a link out to TikTok on /show/ (round 26): slot "follow" / "follow-end" (the two follow buttons) or
 //                "episode", with ep = the episode's slug from show/episodes.json
+//   next_shown   the results card showed its "try this next" tile (round 27, games/player.js), game = the game just played,
+//                to = the game offered, slot "touch" (a touch-only device) or "fine"
+//   next_tap     that tile was tapped (or n pressed), same fields. A tap that reaches a started run is cc:next (src/games.js)
 // Stored as events rows named cc:<kind>, data {path, ref, campaign, src, medium, slot}; src / medium are the visit's raw
 // utm_source / utm_medium. Read in /api/admin/metrics and /api/admin/digest.
 // Smoke traffic is answered but not stored, like /api/follow.
 import { json, bad, readJson, now, limited, slugOk, refOk, campaignOk, isTestAnon } from "./util.js";
 
-const KINDS = ["pageview", "tip_click", "tip_success", "ad_slot", "leave", "desk_shown", "desk_click", "tiktok_out"];
+const KINDS = ["pageview", "tip_click", "tip_success", "ad_slot", "leave", "desk_shown", "desk_click", "tiktok_out", "next_shown", "next_tap"];
 export const TT_OUT_SLOTS = ["follow", "follow-end", "episode"];
 export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run", "post-best", "support", "home-footer", "game-over", "smol-death", "smol-ending"];
 
@@ -51,6 +54,10 @@ export async function hit(req, env, ip) {
   if (b.kind === "tiktok_out") {
     data.slot = TT_OUT_SLOTS.includes(b.slot) ? b.slot : "other";
     if (typeof b.ep === "string" && /^[a-z0-9-]{3,60}$/.test(b.ep)) data.ep = b.ep;
+  }
+  if (b.kind === "next_shown" || b.kind === "next_tap") {
+    data.slot = b.slot === "touch" ? "touch" : "fine";
+    if (slugOk(b.to)) data.to = b.to;
   }
   const game = slugOk(b.game) ? b.game : "site";
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, ?, ?, ?)")

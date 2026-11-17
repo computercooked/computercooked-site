@@ -642,6 +642,14 @@
       stage.appendChild(box);
       box.querySelector(".ccr-x").addEventListener("click", function () { close(true); });
       box.querySelector(".ccr-again").addEventListener("click", again);
+      // round 27: the "try this next" tap counts as the next game's start tap (games that read cc.autostart() skip their
+      // title screen, as from the hub's landing card), and is counted: next_tap, next to next_shown (src/hits.js)
+      box.querySelector(".ccr-next").addEventListener("click", function () {
+        var to = this.getAttribute("data-to");
+        if (!to) return;
+        try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: to, t: Date.now() })); } catch (e) {}
+        if (window.ccHit) window.ccHit("next_tap", { game: slug, to: to, slot: touchDev() });
+      });
       var sh = box.querySelector(".ccr-share");
       // the dare link is made on the press (pointerdown), so it's usually ready by the click and the share sheet
       // can open inside the tap (iOS needs that). Nothing is made just for looking at the card.
@@ -788,6 +796,9 @@
       }
     } catch (e) {}
 
+    function touchDev() {
+      try { return matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches ? "touch" : "fine"; } catch (e) { return "fine"; }
+    }
     // one game to go to next: most tags in common, not played on this device first, a little luck for ties
     function nextTile() {
       var a = box.querySelector(".ccr-next");
@@ -808,7 +819,9 @@
         a.querySelector("b").textContent = String(best.title).toLowerCase();
         a.querySelector("i").textContent = best.pitch || "";
         a.setAttribute("aria-label", "try this next: " + best.title + (fine ? " (n)" : ""));
+        a.setAttribute("data-to", best.slug);
         a.hidden = false;
+        if (window.ccHit) window.ccHit("next_shown", { game: slug, to: best.slug, slot: touchDev() });
       });
     }
 
