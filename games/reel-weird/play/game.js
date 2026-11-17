@@ -144,10 +144,10 @@
   // 2.5: rods, earned by catches over every run (no new save key: the count comes from the book). Each one helps a bit.
   const RODS = [
     { name: 'twig rod', at: 0, col: '#c8a46a', perk: 'it bends. a lot.' },
-    { name: 'bamboo rod', at: 6, col: '#a8d66a', perk: 'bites wait a bit longer' },
-    { name: 'carbon rod', at: 18, col: '#7fd8ff', perk: 'line 10% tougher' },
-    { name: 'cursed rod', at: 40, col: '#B59AFF', perk: 'more epic + legendary bites' },
-    { name: 'golden rod', at: 80, col: '#ffd84a', perk: 'legendaries 2x as likely' }
+    { name: 'bamboo rod', at: 5, col: '#a8d66a', perk: 'bites wait a bit longer' },
+    { name: 'carbon rod', at: 15, col: '#7fd8ff', perk: 'line 10% tougher' },
+    { name: 'cursed rod', at: 35, col: '#B59AFF', perk: 'more epic + legendary bites' },
+    { name: 'golden rod', at: 70, col: '#ffd84a', perk: 'legendaries 2x as likely' }
   ];
   const rodIdx = (n) => { let i = 0; while (i + 1 < RODS.length && n >= RODS[i + 1].at) i++; return i; };
   const rodNow = () => rodIdx(lifetime());
@@ -824,7 +824,8 @@
       const g = rodGoal();
       text(g || RODS[rodNow()].name + ': the best there is', W / 2, yy + 240 * S, 11 * S, RODS[Math.min(RODS.length - 1, rodNow() + 1)].col, 'center', '700');
     }
-    if (revealT > 0.35) text('tap to cast again', W / 2, yy + ch - 8 * S, 10 * S, COL.dim, 'center', '700');
+    if (reveal.newRod) text(reveal.newRod.perk, W / 2, yy + ch - 8 * S, 11 * S, COL.paper, 'center', '700'); // what it does
+    else if (revealT > 0.35) text('tap to cast again', W / 2, yy + ch - 8 * S, 10 * S, COL.dim, 'center', '700');
     ctx.globalAlpha = 1;
   }
 
