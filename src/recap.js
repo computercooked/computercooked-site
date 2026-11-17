@@ -2,6 +2,7 @@
 // "last" is the most recent full week (Mon 00:00 to Mon 00:00 UTC), shown on /me all of the week after;
 // "this" is the current week so far. Nothing is stored: every number is a query over plays, xp_events,
 // scores and achievements, so deleting an account deletes its recap too.
+import { FRESH } from "./boards.js";
 import { json, now, dayOf, weekOf } from "./util.js";
 import { levelOf, SITE_ACH } from "./xp.js";
 import { eventDef, weekChallenge } from "./social.js";
@@ -41,10 +42,10 @@ export async function weekRecap(env, userId, catalog, which = "last", t = now())
   // best moments: games where this week's best beat everything before it (or was the first score there);
   // beaten old bests come first, biggest jump first
   const week = (await env.DB.prepare(
-    "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 AND ts >= ? AND ts < ? GROUP BY game"
+    `SELECT game, MAX(score) best FROM scores WHERE ${FRESH} AND user_id = ? AND hidden = 0 AND ts >= ? AND ts < ? GROUP BY game`
   ).bind(userId, start, end).all()).results;
   const before = new Map((await env.DB.prepare(
-    "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 AND ts < ? GROUP BY game"
+    `SELECT game, MAX(score) best FROM scores WHERE ${FRESH} AND user_id = ? AND hidden = 0 AND ts < ? GROUP BY game`
   ).bind(userId, start).all()).results.map((r) => [r.game, r.best]));
   const title = (g) => catalog.get(g)?.title || g;
   const bests = week.filter((r) => !(before.get(r.game) >= r.best))

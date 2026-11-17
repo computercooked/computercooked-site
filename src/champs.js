@@ -6,6 +6,7 @@
 // assets/champs.js then puts the dates in the visitor's time zone, keeps "held 3 days" current, adds "your best" from
 // this device's history, sorts the wall, cycles Gary's lines and powers plaques on as they scroll in.
 // ?champsdemo=1 renders made-up demo data (names start with "demo"): nothing is read from or written to the database.
+import { FRESH } from "./boards.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { now, weekOf, themeAttr } from "./util.js";
 import { people } from "./friends.js";
@@ -16,7 +17,7 @@ const dateOf = (ms) => { const d = new Date(ms); return `${MONTHS[d.getUTCMonth(
 const fmt = (n) => Math.round(n).toLocaleString("en-US");
 const DAY = 86400000, HOUR = 3600000;
 const TOP = (where) => `SELECT game, player, user_id, name, score, ts FROM (SELECT game, player, user_id, name, score, ts,
-  ROW_NUMBER() OVER (PARTITION BY game ORDER BY score DESC, ts ASC) rn FROM scores WHERE hidden = 0${where}) WHERE rn = 1`;
+  ROW_NUMBER() OVER (PARTITION BY game ORDER BY score DESC, ts ASC) rn FROM scores WHERE ${FRESH} AND hidden = 0${where}) WHERE rn = 1`;
 const ours = (g) => g && g.made_by === "computer-cooked";
 // the games nobody holds yet, newest game first
 const freeOf = (catalog, held) => [...catalog.values()].filter((g) => ours(g) && !held.has(g.slug))

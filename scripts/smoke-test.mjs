@@ -1090,6 +1090,25 @@ if (admin) {
   ok((await get("/assets/daily-card.js")).ok, "daily 3 result card script is served");
 }
 
+// board seasons (src/boards.js): crash test daily's 1.4 scoring started fresh boards. CI seeds a pre-1.4 score, a
+// pre-1.4 smoke best and a pre-1.4 dare (scripts/smoke-seed.sql); none of them may count any more, and nothing is deleted.
+if (local && process.env.SMOKE_OLD_RULES === "1") {
+  const bd = await (await get("/api/leaderboard?game=crash-test-daily&period=all")).json();
+  ok(bd.ok && !bd.rows.some((x) => x.name === "oldrules") && !(bd.epic && bd.epic.name === "oldrules"), "board season: old-rules scores are off the crash test daily board", bd.rows);
+  const od = await get("/api/dare/oldrul3s");
+  const odb = await od.json();
+  ok(od.status === 410 && odb.retired === true && /scoring/.test(odb.error || ""), "board season: an old-rules dare is retired with a note", { status: od.status, odb });
+  const ol = await fetch(base + "/d/oldrul3s", { redirect: "manual" });
+  ok(ol.status === 302 && /\/games\/crash-test-daily\/\?d=oldrul3s$/.test(ol.headers.get("location") || ""), "board season: an old dare link lands on its game page (the note shows there)", ol.headers.get("location"));
+  const oa = "smoke-oldrules", op = rid();
+  await post("/api/events", { anon: oa, events: [{ t: "start", id: op, game: "crash-test-daily", v: "1.4" }] });
+  await new Promise((s) => setTimeout(s, 1200));
+  const or = (await (await post("/api/events", { anon: oa, events: [{ t: "end", id: op, game: "crash-test-daily", score: 900, dur: 1200, completed: true }] })).json()).results?.[op];
+  ok(or && or.accepted && or.best === 900 && or.prev_best === null, "board season: a new run's best ignores the old-rules 1500", or);
+  const ob = await (await post("/api/dare/oldrul3s/beat", { play_id: op, anon: oa })).json();
+  ok(ob.ok && ob.retired && ob.beaten === false, "board season: an old dare can't be beaten", ob);
+} else console.log("skip  board season checks (CI seeds them: SMOKE_OLD_RULES=1)");
+
 // email signup (K-0031): local only, so no smoke address ever lands in the live list
 if (local) {
   // /lab vote: one per player, changeable; smoke voters are never counted

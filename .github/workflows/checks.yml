@@ -33,6 +33,9 @@ jobs:
           echo "ADMIN_TOKEN=$TOKEN" > .dev.vars
           echo "ADMIN_TOKEN=$TOKEN" >> "$GITHUB_ENV"
           npx --yes wrangler@4 d1 migrations apply DB --local > "$OUT/migrations.log" 2>&1
+          # rows from before a scoring change (src/boards.js), for the smoke test's board-season checks
+          npx --yes wrangler@4 d1 execute DB --local --file=scripts/smoke-seed.sql >> "$OUT/migrations.log" 2>&1
+          echo "SMOKE_OLD_RULES=1" >> "$GITHUB_ENV"
           npx --yes wrangler@4 dev --local --port 8787 > "$OUT/wrangler.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf -m 5 http://127.0.0.1:8787/api/health && break; sleep 2; done
           curl -sf -m 5 http://127.0.0.1:8787/api/health || { tail -40 "$OUT/wrangler.log"; exit 1; }

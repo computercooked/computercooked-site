@@ -1,6 +1,7 @@
 // Weekly challenge, seasonal events and the /me activity feed (slice D2).
 //   GET /api/challenge   this week's challenge + any live event, with your progress when logged in
 //   GET /api/me/feed     your recent activity: allow-listed game events, achievements, challenges
+import { FRESH } from "./boards.js";
 import { json, now, dayOf, weekOf, textClean, REAL } from "./util.js";
 import { SITE_ACH, levelOf } from "./xp.js";
 import { friendIds, people } from "./friends.js";
@@ -80,10 +81,10 @@ export async function autoPick(env, t, catalog) {
   }
   if (!game) return null;
   const g = catalog.get(game);
-  const n = await env.DB.prepare("SELECT COUNT(*) n FROM scores WHERE game = ? AND hidden = 0").bind(game).first("n");
+  const n = await env.DB.prepare(`SELECT COUNT(*) n FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0`).bind(game).first("n");
   let target;
   if (n >= 10) {
-    target = await env.DB.prepare("SELECT score FROM scores WHERE game = ? AND hidden = 0 ORDER BY score LIMIT 1 OFFSET ?")
+    target = await env.DB.prepare(`SELECT score FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0 ORDER BY score LIMIT 1 OFFSET ?`)
       .bind(game, Math.floor(0.6 * (n - 1))).first("score");
   }
   target = nice(target > 0 ? target : g.max_score_per_sec * 30);
@@ -107,7 +108,7 @@ export async function challenge(env, user, catalog) {
     out = { week: c.week, game: c.game, title: g.title, thumbnail: g.thumbnail, goal: c.goal, target: c.target, xp: c.xp, auto: !!c.auto, ends_at: new Date(weekEnd(t)).toISOString(), finishers };
     if (user) {
       out.done = !!(await env.DB.prepare("SELECT 1 FROM xp_events WHERE user_id = ? AND kind = 'challenge' AND ref = ?").bind(user.id, c.week).first());
-      out.best = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE user_id = ? AND game = ? AND week = ? AND hidden = 0").bind(user.id, c.game, c.week).first("b");
+      out.best = await env.DB.prepare(`SELECT MAX(score) b FROM scores WHERE ${FRESH} AND user_id = ? AND game = ? AND week = ? AND hidden = 0`).bind(user.id, c.game, c.week).first("b");
     }
   }
   const events = [];
@@ -214,8 +215,8 @@ export async function friendsFeed(env, user, catalog) {
   for (const c of chs) items.push({ uid: c.user_id, kind: "challenge", game: c.game, text: "finished the weekly challenge", ts: c.ts });
   // a run that is (still) that friend's best on the game
   const bests = (await env.DB.prepare(
-    `SELECT s.user_id, s.game, s.score, MAX(s.ts) ts FROM scores s WHERE s.user_id IN (${q2}) AND s.hidden = 0 AND s.ts >= ?
-       AND s.score = (SELECT MAX(score) FROM scores t WHERE t.user_id = s.user_id AND t.game = s.game AND t.hidden = 0)
+    `SELECT s.user_id, s.game, s.score, MAX(s.ts) ts FROM scores s WHERE ${FRESH} AND s.user_id IN (${q2}) AND s.hidden = 0 AND s.ts >= ?
+       AND s.score = (SELECT MAX(score) FROM scores t WHERE ${FRESH} AND t.user_id = s.user_id AND t.game = s.game AND t.hidden = 0)
      GROUP BY s.user_id, s.game ORDER BY ts DESC LIMIT 40`
   ).bind(...open, since).all()).results;
   for (const b of bests) items.push({ uid: b.user_id, kind: "best", game: b.game, text: `new best: ${Math.round(b.score * 10) / 10}`, ts: b.ts });
