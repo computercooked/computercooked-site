@@ -54,7 +54,9 @@
   @media (max-height: 520px) { .panel { padding: 12px 16px 10px; } .how { margin: 6px auto 8px; } .stats { margin: 6px 0; } }
   /* 1.7: the goals box made the end card taller; in short frames the share-card preview goes (share still works) so reboot stays in view */
   @media (max-height: 720px) { #card { display: none; } }
-  @media (max-width: 360px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 360px) { .stat .v { font-size: 16px; } .stat .l { font-size: 9.5px; } }
+  /* short frames (the smallest player frame is ~430 px): reboot and share first, the goals box after them (scroll to it) */
+  @media (max-height: 520px) { #win .panel { display: flex; flex-direction: column; } #goalsW { order: 5; } #win .credit { order: 6; } #win h2 { font-size: 22px; } #win .sub { margin-top: 2px; } }
 </style>
 </head>
 <body>

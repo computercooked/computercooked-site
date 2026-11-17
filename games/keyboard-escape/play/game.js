@@ -726,6 +726,12 @@
       }
     }
     if (screen !== 'title') drawHud();
+    if (screen === 'win' && winT) {   // 1.7: the 0.65 s before the end card: a big stamp that reads with the sound off
+      const fs = Math.round(Math.min(72, vw / 6.5));
+      ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(0, vh * 0.42 - fs, vw, fs * 2);
+      pxText(ctx, 'ESCAPED.', vw / 2 + 4, vh * 0.42 + 4, fs, C.carbon, 'center', 'middle');
+      pxText(ctx, 'ESCAPED.', vw / 2, vh * 0.42, fs, C.lime, 'center', 'middle');
+    }
     if (booting > 0 && screen === 'play') drawBoot();
     if (screen === 'title' && autoReady) {   // 1.7: came from a hub "tap to play" card: no title card, one tap starts
       ctx.fillStyle = 'rgba(16,17,20,0.72)'; ctx.fillRect(0, vh * 0.5 - 56, vw, 112);
