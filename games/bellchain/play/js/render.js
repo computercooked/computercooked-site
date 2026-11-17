@@ -46,10 +46,11 @@ export class Stage {
     }
   }
   // K-0038: a golden bell's payout. Three gold shockwaves roll out from the great bell and a long "+N" floats up.
-  goldBurst(text) {
+  // r5: col gives the same burst in another colour (the x10 resonance milestones use the scale's accent)
+  goldBurst(text, col) {
     const x = this.cx, y = this.cy;
     this.great.vel += 22; this.great.pulse = 1; this.shake = 0.5;
-    for (let k = 0; k < 3; k++) this.waves.push({ x, y, t: -k * 0.18, life: 1.4 });
+    for (let k = 0; k < 3; k++) this.waves.push({ x, y, t: -k * 0.18, life: 1.4, col });
     this.pops.push({ x, y: y - this.gs * 0.6, text, t: 0, life: 2.6, big: true });
     if (!this.lite) for (let k = 0; k < 28; k++) { const a = Math.random() * TAU, s = 120 + Math.random() * 260; this.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.9, t: 0 }); }
   }
@@ -174,7 +175,7 @@ export class Stage {
     for (const w of this.waves) {
       if (w.t < 0) continue;
       const k = w.t / w.life;
-      c.globalAlpha = (1 - k) * 0.9; c.strokeStyle = '#ffe14a'; c.lineWidth = 10 * (1 - k) + 2;
+      c.globalAlpha = (1 - k) * 0.9; c.strokeStyle = w.col || '#ffe14a'; c.lineWidth = 10 * (1 - k) + 2;
       c.beginPath(); c.arc(w.x, w.y, this.gs * (0.8 + k * 4), 0, TAU); c.stroke();
     }
     c.globalAlpha = 1;
