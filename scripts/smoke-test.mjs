@@ -239,6 +239,11 @@ page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
 ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
 ok(/how to play fathom/.test(page) && /class="vibe-link" href="\/games\/puzzle\/"/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
+// "questions about X": the visible <details> and the FAQPage JSON-LD say the same number of things
+const faqLd = (ld["@graph"] || []).find((x) => x["@type"] === "FAQPage");
+const faqBox = (page.match(/<section class="about-card game-faq"[\s\S]*?<\/section>/) || [""])[0];
+const faqN = (faqBox.match(/<details/g) || []).length;
+ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.length === faqN && /is fathom free\?/.test(faqBox), "game page has a questions block matching its FAQPage JSON-LD", faqN + "/" + faqLd?.mainEntity?.length);
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
