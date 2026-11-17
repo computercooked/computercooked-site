@@ -112,6 +112,16 @@ A "new games drop on our tiktok first / follow **@computercooked**" house card w
 
 Version 2 (K-0065) added `runs_ended`, `tip_clicks` and `desk` to the rows, game-over stats to `games`, and the whole-window `desk`. Admin metrics has the same `desk` block.
 
+**Channel funnels (round 21: TikTok to the site, end to end).** Each row has `funnel: { tiktok: {...}, <other channels that landed or played in the window>: {...} }`, and the top level has the same for the whole window plus `funnel.tiktok_landing_pages` (`[{path, n}]`, where TikTok visits arrived). Each channel's funnel:
+- `landed`: visits that arrived from the channel (the first page of a tab, `cc:pageview` with `land: 1`). Visits, not people: page views store no id.
+- `played`: people whose first-ever play from that channel was that day (first touch, so a person counts once).
+- `second_game`: of those, how many played 2+ different games that day.
+- `back_7d`: of those, how many played again on one of the next 7 Pacific days, from anywhere (a return from the home screen counts as `direct`, so returns are matched by person, not by channel).
+- `still_open`: of those not back yet, how many still have days left in their 7 (today counts as not over).
+- Smoke traffic is left out like everywhere else. CI seeds one TikTok person (`scripts/smoke-seed.sql`) and the smoke test sends a test TikTok visit and checks that each step moves by exactly one (`SMOKE_FUNNEL=1`, local only).
+
+**TikTok line for cc-social:** each export also writes `tiktok-funnel.txt` next to the JSON: one line per Pacific day for the last 15 days, newest first, e.g. `2026-11-17 (today so far) · landed 14 · played 6 (43%) · 2nd game 2 (33%) · back within 7 days 0 of 6 (6 still have days left)`, a 15-day total, and the top landing pages.
+
 **Daily file for readers without the token:** `node scripts/export-analytics.mjs https://computercooked.com <token file> <folder> [days]` saves the digest as `cc-analytics-latest.json` and `cc-analytics-<date>.json` in that folder (counts only: no player ids, names or feedback text). The token is read from the file and never printed or written.
 
 **As a table:** `node scripts/digest.mjs https://computercooked.com "$TOKEN" [days] [--json]`. It prints the day rows (today is marked `*`), the totals (plays, plays from social, game shares, dares sent, new accounts) and the per-game table. The token goes only in the Authorization header and is never printed; a failed request prints the HTTP status and exits 1.
@@ -131,7 +141,7 @@ Version 2 (K-0065) added `runs_ended`, `tip_clicks` and `desk` to the rows, game
 | anything else (e.g. `reddit`) | `other` |
 
 - `utm_source=` works the same when there's no `ref`. `utm_medium`, `utm_campaign`, `utm_content` and `utm_term` are accepted and dropped; they aren't stored.
-- **First touch wins for the session (browser tab).** The first page of the visit decides, whether it's the hub, the home page or a game: its tag, else an outside referrer (so tiktok.com → hub → game counts as `tiktok`). With neither, a game opened from the hub counts as `internal`, as before. `assets/deck.js` (every page) and `games/cc-sdk.js` (game pages) both do this, into sessionStorage `cc-ref`.
+- **First touch wins for the session (browser tab).** The first page of the visit decides, whether it's the hub, the home page or a game: its tag, else an outside referrer (so tiktok.com → hub → game counts as `tiktok`), else (round 21) the TikTok app's own browser, recognised by its user agent (`musical_ly`, `trill_`, `BytedanceWebview`, `TikTok`): an untagged link opened inside TikTok counts as `tiktok`, not `direct`. With neither, a game opened from the hub counts as `internal`, as before. `assets/deck.js` (every page) and `games/cc-sdk.js` (game pages) both do this, into sessionStorage `cc-ref`.
 - The tags come off the address bar once read, so a copied or reloaded link doesn't carry them on. Other params (`vs`, `d`, `tester` …) stay.
 - `?ref=app` is the installed web app's start URL. It's left alone; app plays count as `app`.
 - The play-next rail still marks its plays `internal` (with a `cc:next` event).
@@ -143,7 +153,7 @@ A hub link with a social tag **and** a game hint skips the hero. The visitor get
 - **Caption link for a clip:** `https://computercooked.com/games?ref=<platform>&game=<slug>`, e.g. `https://computercooked.com/games?ref=tiktok&game=smol-brains`. Slugs are the folder names under `/games/` (see `games.json`).
 - **Bio link:** `https://computercooked.com/games?ref=tiktok`. With no `game=`, the platform's default is used: `LANDING_DEFAULT` in `games/index.html` (today only `tiktok → desktop-takeover`, the hook game; change it when the pinned clip changes). Platforms without a default get the normal hub.
 - **Welcome strip for TikTok arrivals (everywhere else):** a visit that came from TikTok gets a slim bar at the bottom of the screen: "came from @computercooked? start here: desktop takeover →", plus × to hide it.
-  - **What counts as TikTok:** a `ref`/`utm_source` of `tiktok` or `tt`, a tiktok.com referrer, or a `/g/` short link tagged `utm_campaign=bio`. `assets/deck.js` marks the visit (sessionStorage `cc-tt`). Other referrers never see it.
+  - **What counts as TikTok:** a `ref`/`utm_source` of `tiktok` or `tt`, a tiktok.com referrer, a `/g/` short link tagged `utm_campaign=bio`, or an untagged visit inside the TikTok app's browser. `assets/deck.js` marks the visit (sessionStorage `cc-tt`). Other referrers never see it.
   - **Where it shows:** every page of that visit, except game pages (they came to play that one), embeds, the hook game itself, and the hub while its own "from the clip" card is up.
   - **Remembered:** × or following the link hides it for good on that browser (localStorage `cc-tt-hi`).
   - **The hook game** is `HOOK` in the strip's code, next to `LANDING_DEFAULT`. Change both together.

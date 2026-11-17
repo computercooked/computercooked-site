@@ -14,6 +14,9 @@
       var u = new URL(location.href), q = u.searchParams;
       var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
       var tag = v && v !== "app" ? TAGS[v] || "other" : null;
+      // TikTok's in-app browser (where a bio, comment or DM link opens) usually sends no referrer, so an untagged link
+      // from TikTok looked "direct". Its user agent names the app (musical_ly / BytedanceWebview / trill_ / TikTok).
+      var ttApp = /musical_ly|bytedancewebview|trill_\d|tiktok/i.test(navigator.userAgent || "");
       if (!sessionStorage.getItem("cc-ref")) {
         var from = null;
         if (!tag && document.referrer) {
@@ -24,6 +27,7 @@
               : /google|bing|duckduckgo|yahoo|ecosia|brave/.test(h) ? "search" : "other";
           }
         }
+        if (!tag && !from && ttApp) from = "tiktok";
         if (tag || from) sessionStorage.setItem("cc-ref", tag || from);
       }
       // the campaign of the first tagged link this visit (utm_campaign), sent with page views, plays and tips
@@ -38,7 +42,7 @@
       // "came from @computercooked? start here" strip for the rest of this visit (the welcome strip below)
       var rh = "";
       try { rh = document.referrer ? new URL(document.referrer).hostname : ""; } catch (err) {}
-      if (tag === "tiktok" || /(^|\.)tiktok\.com$/.test(rh) || ((tag === "short" || um === "short") && camp === "bio")) sessionStorage.setItem("cc-tt", "1");
+      if (tag === "tiktok" || (!tag && ttApp) || /(^|\.)tiktok\.com$/.test(rh) || ((tag === "short" || um === "short") && camp === "bio")) sessionStorage.setItem("cc-tt", "1");
       // team test mode: ?cctest=1 gives this browser a "smoke-" anonymous id, which every count already leaves out
       // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. ?cctest=1 stays in
       // the address (K-0057: it vanished on arrival, so test runs looked counted); ?cctest=0 comes off.
