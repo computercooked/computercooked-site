@@ -454,7 +454,7 @@
     sdkScore(level);
     if (level >= LEVELS.length) { sfx.big(); return gameOver(true); }
     sfx.win(); poof();
-    const f = $('flash'); f.textContent = pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
+    const f = $('flash'); f.textContent = prevBest > 0 && level === prevBest + 1 ? 'new best!' : pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
     f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
     setTimeout(() => { if (state === 'between') startLevel(); }, 300);
   }
