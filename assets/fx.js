@@ -357,6 +357,7 @@
       '<input type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>' +
       '<div class="chip-row" role="group" aria-label="filter by vibe"></div>' +
       '<p class="hub-empty" hidden>nothing matches. the computer looked everywhere. <button type="button" class="hub-reset">show all</button></p>' +
+      '<p class="hub-gary" hidden aria-live="polite"><img src="/assets/mascot-happy.svg" alt="" width="34" height="48" decoding="async"><span></span> <button type="button" class="hub-reset">show all</button></p>' +
       '<p class="visually-hidden" role="status" aria-live="polite"></p></div>');
     var q = bar.querySelector("input");
     q.placeholder = "search " + games.length + " games";
@@ -488,7 +489,32 @@
       }
       tally();
       empty.hidden = shown > 0;
+      garyLine(term, shown);
       live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
+    }
+    // search for the computer itself ("gary", "computer", "cooked") and gary pops up over the grid with a line (and,
+    // for "gary", the "you know my name" secret in assets/deck.js). A new word gets a new line and one hop; the same
+    // word typed on (or a re-sort) leaves it be. With no matching games it stands in for "nothing matches".
+    var GARY = {
+      gary: ["you searched for me? i'm not a game. i'm the computer. hi.", "gary.exe has responded. i run all " + games.length + " of these.", "that's me. 61% fan noise. pick one, i'll warm up."],
+      computer: ["the computer is me. gary. i'm doing my best."],
+      "the computer": ["the computer is me. gary. i'm doing my best."],
+      cooked: ["cooked? me. always. the games are fine though."],
+      "computer cooked": ["that's the whole place. you're in it. welcome."],
+    };
+    var gary = bar.querySelector(".hub-gary"), garyWas = "", garyN = 0;
+    function garyLine(term, shown) {
+      var key = term.replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim(), lines = GARY[key];
+      if (!lines) { gary.hidden = true; garyWas = ""; return; }
+      if (key !== garyWas) {
+        garyWas = key;
+        gary.querySelector("span").textContent = lines[garyN++ % lines.length];
+        gary.hidden = false;
+        gary.classList.remove("hop"); void gary.offsetWidth; gary.classList.add("hop");
+        if (key === "gary") document.dispatchEvent(new CustomEvent("cc:secret", { detail: "gary" }));
+      }
+      gary.querySelector(".hub-reset").hidden = shown > 0;
+      if (!shown) empty.hidden = true;
     }
     function pick(id) {
       vibe = id;
@@ -521,7 +547,8 @@
     });
     var typing = 0;
     q.addEventListener("input", function () { apply(); clearTimeout(typing); typing = setTimeout(remember, 400); });
-    bar.querySelector(".hub-reset").addEventListener("click", function () {
+    bar.addEventListener("click", function (e) {
+      if (!e.target.closest(".hub-reset")) return; // "nothing matches" and gary's line both have one
       q.value = ""; pick("all");
       apply(); remember(); q.focus();
     });

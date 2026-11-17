@@ -3,7 +3,7 @@
 //   GET  /api/dare/:id[?open=1]                -> {game, title, score, from, beats}   (open=1 counts a visit)
 //   POST /api/dare/:id/beat   {play_id, anon}  -> {beaten, ...}    your run beat it: the sender earns XP
 //   POST /api/dare/:id/shared {how}            -> {ok}             the sender sent it (share sheet / copied)
-import { json, bad, readJson, now, dayOf, idOk, limited, randomToken, slugOk, isTestAnon } from "./util.js";
+import { json, bad, readJson, now, dayOf, idOk, limited, randomToken, slugOk, isTestAnon, nameClean } from "./util.js";
 import { grant, unlock } from "./xp.js";
 import { people } from "./friends.js";
 
@@ -18,6 +18,27 @@ async function ownRun(env, user, playId, anon) {
   // smoke-test runs are stored hidden but still make and beat (test) dares; admin metrics leave those dares out
   const s = await env.DB.prepare("SELECT score, player, user_id, name FROM scores WHERE play_id = ? AND (hidden = 0 OR player LIKE 'a:smoke%')").bind(playId).first();
   return s ? { ...s, game: p.game } : null;
+}
+
+// A dare as the public sees it, under the leaderboard's name rules (src/games.js leaderboard): the sender's run must
+// still be on the boards (not hidden by reports or an admin; smoke runs pass, as in ownRun), and the name is the one
+// the boards show today: an account's current display name (banned accounts: gone), else the run's own name (both
+// went through nameClean when they were set). null = no such dare; {gone: true} = the dare is off the boards.
+export async function publicDare(env, id) {
+  const d = await env.DB.prepare(
+    "SELECT d.id, d.game, d.score, s.name, s.user_id, s.hidden, s.player FROM dares d LEFT JOIN scores s ON s.play_id = d.play_id WHERE d.id = ?"
+  ).bind(id).first();
+  if (!d) return null;
+  const gone = { id: d.id, game: d.game, gone: true };
+  if (d.hidden == null || (d.hidden && !String(d.player).startsWith("a:smoke"))) return gone;
+  let from = d.name;
+  if (d.user_id) {
+    const p = (await people(env, [d.user_id])).get(d.user_id);
+    if (!p) return gone;
+    from = p.name;
+  }
+  if (!from || !nameClean(from)) return gone;
+  return { id: d.id, game: d.game, score: d.score, from };
 }
 
 export async function makeDare(req, env, user, ip, catalog, origin) {
@@ -40,8 +61,9 @@ export async function makeDare(req, env, user, ip, catalog, origin) {
     row = await env.DB.prepare("SELECT id, from_name FROM dares WHERE play_id = ?").bind(b.play_id).first();
     if (user) await unlock(env, user.id, "site", "dare_maker");
   }
+  const pub = await publicDare(env, row.id), fromName = pub && !pub.gone ? pub.from : "a friend"; // a re-made dare: today's name
   const url = `${origin}/d/${row.id}`; // short; /d/<id> redirects to dareUrl()
-  return json({ ok: true, id: row.id, url, long_url: origin + dareUrl({ id: row.id, game: run.game, score: run.score, from_name: row.from_name }), text: `can you beat ${nice(run.score)} on ${g.title}? from ${row.from_name}` });
+  return json({ ok: true, id: row.id, url, long_url: origin + dareUrl({ id: row.id, game: run.game, score: run.score, from_name: fromName }), text: `can you beat ${nice(run.score)} on ${g.title}? from ${fromName}` });
 }
 
 // where a dare link lands: the game page with the dare banner (platform.js) and dare preview tags (seo.js), tagged
@@ -54,8 +76,8 @@ export function dareUrl(d) {
 export async function dareLink(env, url, id) {
   let to = "/games/";
   try {
-    const d = env.DB && await env.DB.prepare("SELECT id, game, score, from_name FROM dares WHERE id = ?").bind(id).first();
-    if (d) to = dareUrl(d);
+    const d = env.DB && await publicDare(env, id);
+    if (d && !d.gone) to = dareUrl({ ...d, from_name: d.from });
   } catch (e) { /* no table yet: the hub */ }
   return new Response(null, { status: 302, headers: { location: url.origin + to, "cache-control": "public, max-age=300" } });
 }
@@ -80,15 +102,15 @@ export async function sharedDare(req, env, ip, id) {
 
 export async function getDare(url, env, id, catalog) {
   if (typeof id !== "string" || !/^[A-Za-z0-9_-]{6,16}$/.test(id)) return bad("no such dare", 404);
-  const d = await env.DB.prepare("SELECT id, game, score, from_name, beats FROM dares WHERE id = ?").bind(id).first();
-  if (!d || !catalog.has(d.game)) return bad("no such dare", 404);
+  const d = await publicDare(env, id);
+  if (!d || d.gone || !catalog.has(d.game)) return bad("no such dare", 404);
   if (url.searchParams.get("open") === "1") {
     await env.DB.batch([
       env.DB.prepare("UPDATE dares SET opens = opens + 1 WHERE id = ?").bind(id),
       env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, 'cc:dare_opened', ?, ?)").bind(d.game, JSON.stringify({ dare: d.id }), now()),
     ]);
   }
-  return json({ ok: true, id: d.id, game: d.game, title: catalog.get(d.game).title, score: d.score, from: d.from_name, beats: d.beats });
+  return json({ ok: true, id: d.id, game: d.game, title: catalog.get(d.game).title, score: d.score, from: d.from, beats: await env.DB.prepare("SELECT beats FROM dares WHERE id = ?").bind(id).first("beats") });
 }
 
 export async function beatDare(req, env, user, id) {
@@ -113,7 +135,8 @@ export async function beatDare(req, env, user, id) {
     }
   }
   const badge = user ? await unlock(env, user.id, "site", "dare_beat") : null;
-  return json({ ok: true, beaten: true, first, from: d.from_name, score: d.score, sender_xp: senderXp, achievement: badge });
+  const pub = await publicDare(env, id);
+  return json({ ok: true, beaten: true, first, from: pub && !pub.gone ? pub.from : "a friend", score: d.score, sender_xp: senderXp, achievement: badge });
 }
 
 // Link previews for dare links: seo.js rewrites the preview tags of /games/<slug>/?vs=…&from=…&d=… to
@@ -122,13 +145,18 @@ export async function beatDare(req, env, user, id) {
 export async function dareTags(env, url, slug) {
   let score = parseFloat(url.searchParams.get("vs")), from = (url.searchParams.get("from") || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 24);
   const id = url.searchParams.get("d");
+  let stored = null; // the dare id, when the server found it (src/darecard.js draws its share card)
   if (env.DB && id && /^[A-Za-z0-9_-]{6,16}$/.test(id)) {
     try {
-      const d = await env.DB.prepare("SELECT game, score, from_name FROM dares WHERE id = ?").bind(id).first();
-      if (d && d.game === slug) { score = d.score; from = d.from_name; }
+      const d = await publicDare(env, id);
+      if (d && d.game === slug) {
+        if (d.gone) return null; // off the boards: the plain game preview, not the URL's words
+        score = d.score; from = d.from; stored = id;
+      }
     } catch (e) { /* table missing before the migration: fall back to the URL */ }
   }
-  return score > 0 ? { score: nice(score), from } : null;
+  if (!stored && from && !nameClean(from)) from = ""; // a URL-only name gets the boards' filter too ("from a friend")
+  return score > 0 ? { score: nice(score), from, id: stored } : null;
 }
 
 // POST /api/share {game, how: share|copy|card|download, anon}: "share this game" after a run with no score (no
