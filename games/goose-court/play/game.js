@@ -80,6 +80,41 @@
   };
   const pick = (a) => a[(Math.random() * a.length) | 0];
 
+  // review16 r4: a ladder of courts inside every trial. Each new court brings one new trick and stops the clock for a
+  // banner that says what it is (before, the lawyer, disguises, swaps and double charges just appeared unexplained)
+  const COURTS = [
+    { at: 0, name: "traffic court", tip: "judge the beak." },
+    { at: 12, name: "district court", tip: "the goose hired a lawyer. tap OBJECTION to clear it." },
+    { at: 22, name: "appeals court", tip: "disguises now. ignore the shades. judge the beak." },
+    { at: 32, name: "high court", tip: "sleight of beak: it swaps. judge what it ends up holding." },
+    { at: 46, name: "supreme goose court", tip: "two charges. holding either one = guilty." },
+  ];
+  // review16 r4: a career that lasts between visits: three goals at a time, done in any trial, and a rank that climbs
+  const GOALS = [
+    ["s10", "score 10 in one trial", (r) => r.score >= 10],
+    ["obj1", "overrule an objection", (r) => r.over >= 1],
+    ["app", "reach appeals court", (r) => r.court >= 2],
+    ["st10", "get a 10-verdict streak", (r) => r.streak >= 10],
+    ["swap", "catch a sleight of beak", (r) => r.swaps >= 1],
+    ["s40", "score 40 in one trial", (r) => r.score >= 40],
+    ["sup", "reach supreme goose court", (r) => r.court >= 4],
+    ["obj5", "overrule 5 objections in one trial", (r) => r.over >= 5],
+    ["q8", "8 quick verdicts in one trial", (r) => r.quick >= 8],
+    ["st20", "get a 20-verdict streak", (r) => r.streak >= 20],
+    ["s80", "score 80 in one trial", (r) => r.score >= 80],
+    ["jail15", "convict 15 geese in one trial", (r) => r.jail >= 15],
+    ["r40", "40 right calls in one trial", (r) => r.right >= 40],
+    ["s120", "score 120 in one trial", (r) => r.score >= 120],
+    ["st35", "get a 35-verdict streak", (r) => r.streak >= 35],
+    ["s180", "score 180 in one trial", (r) => r.score >= 180],
+  ];
+  const RANKS = [[0, "law student"], [2, "court clerk"], [4, "bailiff"], [6, "magistrate"], [8, "judge"], [11, "chief judge"], [14, "goose justice"], [16, "supreme honker"]];
+  let done = [], bestCourt = 0;
+  try { const v = JSON.parse(localStorage.getItem("gc-career") || "{}"); if (Array.isArray(v.done)) done = v.done.filter((id) => GOALS.some((g) => g[0] === id)); bestCourt = Math.max(0, Math.min(COURTS.length - 1, v.court | 0)); } catch (e) {}
+  function saveCareer() { try { localStorage.setItem("gc-career", JSON.stringify({ done, court: bestCourt })); } catch (e) {} }
+  const activeGoals = () => GOALS.filter((g) => !done.includes(g[0])).slice(0, 3);
+  function rankOf(n) { let r = RANKS[0], nx = null; for (const x of RANKS) { if (n >= x[0]) r = x; else { nx = x; break; } } return { name: r[1], next: nx }; }
+
   // ---------- sound ----------
   let actx = null, muted = false, hostMuted = false, paused = false;
   try { muted = localStorage.getItem("gc-muted") === "1"; } catch (e) {}
@@ -143,13 +178,28 @@
   let state = "title", elapsed = 0, score = 0, best = 0, prevBest = 0, combo = 0, mult = 1, strikes = 0, judged = 0, correct = 0, docket = 0;
   let kase = null, fb = null, fx = [], line = pick(LINES.hello), lineT = 0, face = "stern", faceT = 0, shake = 0, startAt = 0, endAt = 0, flash = 0, flashCol = BAD, strikeT = 0;
   try { best = +localStorage.getItem("gc-best") || 0; } catch (e) {}
+  let court = 0, promo = null, freshCourt = false, R = null, gotNow = [], prevBestCourt = 0, prevRank = "";
+  function runStats() { return { score: 0, over: 0, court: 0, streak: 0, swaps: 0, quick: 0, jail: 0, right: 0 }; }
+  // a goal done mid-trial pops a card at once (and is saved at once, so a closed tab keeps it)
+  function checkGoals() {
+    if (!R) return;
+    R.score = score; R.court = court; R.streak = Math.max(R.streak, combo); R.right = correct;
+    for (const g of activeGoals()) if (g[2](R)) {
+      done.push(g[0]); gotNow.push(g[1]); saveCareer();
+      fx.push({ type: "goal", s: g[1], life: 2.2, max: 2.2 });
+      tone(660, 0.08, "square", 0.04); tone(990, 0.12, "square", 0.04, 0, 0.08);
+      sdk((c) => c.event && c.event("goal_done", { id: g[0], n: done.length }));
+    }
+  }
   const lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k));
   function say(kind, force) { if (force || lineT <= 0.5) { line = pick(LINES[kind]); lineT = 2.2; } }
   function react(f, s) { face = f; faceT = s; }
 
   function newCase() {
     const k = Math.min(1, elapsed / 75);
-    const doubleCharge = elapsed > 45 && Math.random() < 0.35;
+    // the first case in a new court always shows that court's new trick
+    const fresh = freshCourt ? court : 0; freshCourt = false;
+    const doubleCharge = court >= 4 && (fresh === 4 || Math.random() < 0.35);
     const c1 = pick(ITEMS);
     let charges = [c1];
     if (doubleCharge) { let c2 = pick(ITEMS); while (c2 === c1) c2 = pick(ITEMS); charges.push(c2); }
@@ -158,14 +208,16 @@
     if (guilty) item = pick(charges);
     else item = Math.random() < 0.25 ? null : pick(ITEMS.filter((i) => !charges.includes(i)));
     const dur = lerp(3.4, 1.45, k) + (doubleCharge ? 0.4 : 0);
-    const c = { charges, item, dur, t: 0, n: ++docket, disguise: elapsed > 15 && Math.random() < 0.3, swap: null, objection: null, enter: 0 };
+    const c = { charges, item, dur, t: 0, n: ++docket, disguise: court >= 2 && (fresh === 2 || Math.random() < 0.3), swap: null, objection: null, enter: 0 };
     // sleight of beak: the goose swaps what it's holding partway through (judge the final item)
-    if (elapsed > 30 && Math.random() < 0.25) {
-      const target = Math.random() < 0.5 ? pick(charges) : (Math.random() < 0.3 ? null : pick(ITEMS.filter((i) => !charges.includes(i))));
+    if (court >= 3 && (fresh === 3 || Math.random() < 0.25)) {
+      let target = Math.random() < 0.5 ? pick(charges) : (Math.random() < 0.3 ? null : pick(ITEMS.filter((i) => !charges.includes(i))));
+      // the first swap flips the verdict, so it's worth watching for
+      if (fresh === 3) target = guilty ? pick(ITEMS.filter((i) => !charges.includes(i))) : pick(charges);
       if (target !== item) { c.swap = { at: dur * 0.35, to: target, done: false }; c.dur += 0.35; }
     }
     // the lawyer objects: a card over the beak for a moment, tap it to overrule
-    if (elapsed > 12 && Math.random() < 0.3) c.objection = { at: dur * 0.12, len: 0.95, cleared: false };
+    if (court >= 1 && (fresh === 1 || Math.random() < 0.3)) c.objection = { at: dur * 0.12, len: 0.95, cleared: false };
     kase = c;
     sfx.honk();
   }
@@ -174,17 +226,19 @@
 
   function start() {
     state = "play"; elapsed = 0; score = 0; combo = 0; mult = 1; strikes = 0; judged = 0; correct = 0; docket = 0; fx = []; fb = null;
+    court = 0; promo = null; freshCourt = false; kase = null; R = runStats(); gotNow = []; prevBestCourt = bestCourt; prevRank = rankOf(done.length).name;
     startAt = performance.now(); say("hello", true); react("stern", 0.8); sfx.gavel();
     sdk((c) => c.start && c.start());
     newCase();
   }
   function end() {
-    state = "over"; endAt = performance.now(); prevBest = best;
+    state = "over"; endAt = performance.now(); prevBest = best; promo = null;
     if (score > best) { best = score; try { localStorage.setItem("gc-best", String(best)); } catch (e) {} }
+    if (court > bestCourt) { bestCourt = court; saveCareer(); }
     say("over", true); react("cooked", 99); sfx.over();
     const dur = Math.round(performance.now() - startAt);
     sdk((c) => c.score && c.score(score));
-    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: false }));
+    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: true }));
   }
 
   function verdict(guiltyCall) {
@@ -202,8 +256,9 @@
       correct++; combo++; mult = Math.min(4, 1 + Math.floor(combo / 5));
       const fast = c.t < c.dur * 0.4 ? 1 : 0;
       score += mult + fast;
+      if (R) { R.quick += fast; if (isGuilty) R.jail++; if (c.swap && c.swap.done) R.swaps++; }
       sfx.right(mult); say(isGuilty ? "guilty" : "free", true); react("happy", 0.5);
-      burst(isGuilty ? BAD : GOOD, 10 + mult * 3); flash = 0.12; flashCol = isGuilty ? BAD : GOOD;
+      burst(isGuilty ? BAD : GOOD, 10 + mult * 3); flash = 0.12; flashCol = isGuilty ? BAD : GOOD; if (isGuilty && !reduce) shake = 0.08;
       fx.push({ type: "text", x: L.gooseX, y: L.gooseY - L.goose * 1.25, s: "+" + (mult + fast) + (fast ? " quick" : ""), col: LIME2, life: 0.7, max: 0.7 });
       if (combo > 0 && combo % 5 === 0 && mult <= 4) fx.push({ type: "text", x: W / 2, y: L.timerY + 34 * U, s: "x" + mult + " streak", col: LIME, life: 1, max: 1, big: true });
       sdkScore(score);
@@ -212,6 +267,7 @@
       sfx.wrong(); say("wrong", true); react("shock", 0.9); shake = reduce ? 0 : 0.35; flash = 0.3; flashCol = BAD; strikeT = 0.6;
     }
     fb = { call: guiltyCall, ok, guilty: isGuilty, t: 0 };
+    checkGoals();
   }
   function timeout() {
     judged++; strikes++; combo = 0; mult = 1;
@@ -220,9 +276,9 @@
   }
 
   // feathers (and confetti in the verdict colour) off the goose on a right call
-  function burst(col, n) {
+  function burst(col, n) { burstAt(L.gooseX, L.gooseY - L.goose * 0.55, col, n); }
+  function burstAt(ox, oy, col, n) {
     if (reduce) return;
-    const ox = L.gooseX, oy = L.gooseY - L.goose * 0.55;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, v = (120 + Math.random() * 220) * U;
       fx.push({ type: "bit", x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120 * U, col: i % 3 ? "#f7f5ee" : col, sz: (3 + Math.random() * 4) * U, life: 0.6 + Math.random() * 0.3, max: 0.9 });
@@ -245,7 +301,8 @@
     const x = e.clientX, y = e.clientY;
     if (paused) { paused = false; return; }
     if (state !== "play") { if (state === "over" && performance.now() - endAt < 700) return; start(); return; }
-    if (onObjection(x, y)) { kase.objection.cleared = true; say("overruled", true); sfx.gavel(); react("stern", 0.6); fx.push({ type: "text", x, y: y - 20, s: "overruled", col: LIME2, life: 0.7, max: 0.7 }); sdk((c) => c.event && c.event("objection_overruled", {})); return; }
+    if (promo) { if (promo.t > 0.6) promo.t = promo.len; return; }
+    if (onObjection(x, y)) { overrule(x, y - 20); return; }
     const b = inButton(x, y);
     if (b) { verdict(b === "guilty"); return; }
     downAt = { x, y };
@@ -255,6 +312,12 @@
     const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y; downAt = null;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) verdict(dx < 0);
   });
+  function overrule(x, y) {
+    kase.objection.cleared = true; say("overruled", true); sfx.gavel(); react("stern", 0.6);
+    fx.push({ type: "text", x, y, s: "overruled", col: LIME2, life: 0.7, max: 0.7 });
+    if (R) { R.over++; checkGoals(); }
+    sdk((c) => c.event && c.event("objection_overruled", {}));
+  }
   function onKey(e) {
     if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     const k = e.key;
@@ -263,9 +326,10 @@
     if (e.repeat) return;
     if (paused) { paused = false; return; }
     if (state !== "play") { if (k === " " || k === "Enter") { if (state === "over" && performance.now() - endAt < 700) return; start(); } return; }
+    if (promo) { if (promo.t > 0.6) promo.t = promo.len; return; }
     if (k === "ArrowLeft" || k === "g" || k === "G") verdict(true);
     else if (k === "ArrowRight" || k === "n" || k === "N") verdict(false);
-    else if ((k === " " || k === "Enter" || k === "o" || k === "O") && kase && objectionUp(kase)) { kase.objection.cleared = true; say("overruled", true); sfx.gavel(); }
+    else if ((k === " " || k === "Enter" || k === "o" || k === "O") && kase && objectionUp(kase)) overrule(L.gooseX + L.goose * 0.35, L.gooseY - L.goose * 1.1);
   }
   window.addEventListener("keydown", onKey);
   // on the player page the focus is usually the page itself: same origin, so listen there too while the game is on screen
@@ -287,10 +351,23 @@
     fx = fx.filter((f) => f.life > 0);
     if (faceT <= 0 && state === "play") face = strikes >= 2 ? "sad" : "stern";
     if (state !== "play") return;
+    if (promo) { promo.t += dt; if (promo.t >= promo.len) { promo = null; freshCourt = true; newCase(); } return; }
     elapsed += dt;
     if (fb) {
       fb.t += dt;
-      if (fb.t > (fb.ok ? 0.42 : 0.75)) { fb = null; if (strikes >= 3) { end(); return; } newCase(); }
+      if (fb.t > (fb.ok ? 0.42 : 0.75)) {
+        fb = null; if (strikes >= 3) { end(); return; }
+        // time for the next court? the clock stops while its banner says what's new
+        if (court < COURTS.length - 1 && elapsed >= COURTS[court + 1].at) {
+          court++; kase = null; promo = { t: 0, len: court > prevBestCourt ? 2.4 : 1.5 };
+          sfx.gavel(); tone(523, 0.1, "square", 0.045, 0, 0.05); tone(784, 0.16, "square", 0.045, 0, 0.15);
+          burstAt(W / 2, H * 0.4, LIME, 26); shake = reduce ? 0 : 0.15; say("hello", true); react("happy", 1);
+          sdk((cc) => cc.event && cc.event("court", { n: court }));
+          checkGoals();
+          return;
+        }
+        newCase();
+      }
       return;
     }
     const c = kase;
@@ -357,8 +434,10 @@
     cx.fillStyle = INK; cx.fillRect(px - 3, py - 3, pw + 6, ph + 6);
     cx.fillStyle = "#1d1f18"; cx.fillRect(px, py, pw, ph);
     cx.fillStyle = WOOD3; cx.fillRect(px, py, pw, 4);
-    if (!kase) return;
-    text("the people vs. goose #" + kase.n, px + 10, py + ph * 0.22, Math.max(10, 11 * U), "#8a8e80", "left", 700);
+    if (!kase || promo) return;
+    text(COURTS[court].name + " · goose #" + kase.n, px + 10, py + ph * 0.22, Math.max(10, 11 * U), "#8a8e80", "left", 700);
+    // the ladder: one pip per court, lit up to this one
+    for (let i = 0; i < COURTS.length; i++) { cx.fillStyle = i <= court ? LIME : "#3a3d33"; cx.fillRect(px + pw - 10 - (COURTS.length - i) * 11, py + ph * 0.22 - 3, 8, 6); }
     const charges = kase.charges, isz = Math.round(ph * 0.5);
     let x = px + 10;
     text("charge:", x, py + ph * 0.64, Math.max(13, 16 * U), CASE, "left", 800);
@@ -442,6 +521,14 @@
     const it = finalItem(c);
     if (it) { const sp = SPR[it], ik = k * 0.8; cx.drawImage(sp, Math.round(gx + 15 * k), Math.round(gy + bob + 4 * k - sp.height * ik / 2), Math.round(sp.width * ik), Math.round(sp.height * ik)); }
     cx.restore();
+    // review16 r4: a right GUILTY slams cell bars down over the goose (reads with the sound off)
+    if (fb && fb.call === true && fb.ok) {
+      const p = Math.min(1, fb.t / 0.13), top = L.gooseY - s * 1.12, bot = L.floorY - s * 0.38, bw = s * 1.3, x0 = L.gooseX - bw / 2, n = 6;
+      const yb = top - (1 - p) * (bot - top), hgt = bot - top;
+      cx.fillStyle = INK; cx.fillRect(x0 - 3, yb - 3, bw + 6, Math.max(6, s * 0.05) + 6);
+      for (let i = 0; i < n; i++) { const bx = x0 + i * (bw - Math.max(4, s * 0.04)) / (n - 1); cx.fillStyle = INK; cx.fillRect(bx - 2, yb, Math.max(4, s * 0.04) + 4, hgt); cx.fillStyle = "#8a8e98"; cx.fillRect(bx, yb, Math.max(4, s * 0.04), hgt); }
+      cx.fillStyle = "#5c606a"; cx.fillRect(x0, yb, bw, Math.max(6, s * 0.05));
+    }
     // dock rail (in front)
     cx.fillStyle = WOOD; cx.fillRect(L.gooseX - s * 0.75, L.floorY - s * 0.38, s * 1.5, s * 0.38);
     cx.fillStyle = WOOD3; cx.fillRect(L.gooseX - s * 0.75, L.floorY - s * 0.38, s * 1.5, 4);
@@ -499,6 +586,13 @@
         text(f.s, f.x, f.y - k * 24, f.big ? 22 : 15, f.col, "center", 900); cx.globalAlpha = 1;
       }
       else if (f.type === "bit") { cx.globalAlpha = Math.min(1, f.life / f.max * 1.5); cx.fillStyle = f.col; cx.fillRect(Math.round(f.x), Math.round(f.y), Math.ceil(f.sz), Math.ceil(f.sz)); cx.globalAlpha = 1; }
+      else if (f.type === "goal") {
+        const a = Math.min(1, (f.max - f.life) * 6, f.life * 3), w = Math.min(W - 20, 380), h = 40, x = (W - w) / 2, y = Math.min(L.floorY - h - 4, H - h - 4) + (1 - a) * 16;
+        cx.globalAlpha = a; cx.fillStyle = INK; cx.fillRect(x - 2, y - 2, w + 4, h + 4); cx.fillStyle = "#24301a"; cx.fillRect(x, y, w, h);
+        cx.fillStyle = LIME; cx.fillRect(x, y, 6, h);
+        text("GOAL DONE", x + 16, y + 12, 11, LIME, "left", 900);
+        text(f.s, x + 16, y + 28, Math.min(15, (w - 24) / (f.s.length * 0.62)), PAPER, "left", 800); cx.globalAlpha = 1;
+      }
       else if (f.type === "poof") { cx.globalAlpha = 1 - k; cx.fillStyle = PAPER; const s = L.goose; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; cx.fillRect(L.gooseX + s * 0.4 + Math.cos(a) * k * s * 0.4, L.gooseY - s * 0.72 + Math.sin(a) * k * s * 0.4, 5, 5); } cx.globalAlpha = 1; }
     }
   }
@@ -532,7 +626,7 @@
     cx.fillStyle = "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
     const mid = H * 0.42, big = Math.round(Math.max(28, Math.min(52, W / 9)));
     if (state === "title") {
-      const y0 = H * 0.16, sub = Math.max(12, Math.min(16, W / 28)), s = Math.min(96, W * 0.22);
+      const y0 = H * 0.16, sub = Math.max(12, Math.min(16, W / 28)), s = Math.min(96, W * 0.22, H * 0.17);
       text("goose court", W / 2, y0, big, CASE, "center", 900);
       text("a goose is on trial. you are the judge.", W / 2, y0 + big * 0.95, sub, "#c9c4a8", "center", 700);
       // the rule, shown: guilty if the beak holds the charge
@@ -546,16 +640,53 @@
       text("GUILTY", g1 + s / 2, gy + s + 16, 15, BAD, "center", 900);
       text("NOT GUILTY", g2 + s / 2, gy + s + 16, 15, GOOD, "center", 900);
       text("judge the beak. swipe ← guilty, → not guilty.", W / 2, gy + s + 50, Math.max(11, Math.min(14, W / 32)), "#c9c4a8", "center", 700);
-      text("tap to open court", W / 2, Math.min(L.btnY - 24, gy + s + 96), 18, LIME, "center", 900);
+      let ty = gy + s + 50;
+      const g = activeGoals()[0], small = Math.max(11, Math.min(14, W / 32));
+      if (best > 0 || done.length) {
+        ty += 26; text("rank: " + rankOf(done.length).name + "  ·  best " + best + (bestCourt ? "  ·  " + COURTS[bestCourt].name : ""), W / 2, ty, small, CASE, "center", 800);
+      }
+      if (g) { ty += 22; text((done.length ? "next goal: " : "first goal: ") + g[1], W / 2, ty, small, LIME2, "center", 800); }
+      text("tap to open court", W / 2, Math.max(ty + 34, Math.min(L.btnY - 24, gy + s + 96)), 18, LIME, "center", 900);
     } else {
-      text("disbarred", W / 2, mid - big * 1.4, big, BAD, "center", 900);
-      text(String(score), W / 2, mid - big * 0.1, Math.round(big * 1.4), CASE, "center", 900);
-      text("best " + best + "  ·  " + correct + "/" + judged + " right  ·  " + (judged ? Math.round(correct / judged * 100) : 0) + "% accuracy", W / 2, mid + big * 0.85, 14, "#c9c4a8", "center", 700);
+      // review16 r4: the end card also says how far up the courts you got, your rank, and the goals (done now, or next)
+      let y = Math.max(40, H * 0.1);
+      text("disbarred", W / 2, y, Math.round(big * 0.85), BAD, "center", 900);
+      y += big * 1.2; text(String(score), W / 2, y, Math.round(big * 1.3), CASE, "center", 900);
+      y += big * 0.95; text("best " + best + "  ·  " + correct + "/" + judged + " right  ·  " + (judged ? Math.round(correct / judged * 100) : 0) + "% accuracy", W / 2, y, 14, "#c9c4a8", "center", 700);
+      // "to beat" means one more than your best (a tie isn't a beat)
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first trial logged. now beat it.")
-        : score === prevBest ? "tied your best. one more verdict next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
-      text(nudge, W / 2, mid + big * 0.85 + 26, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
-      if (performance.now() - endAt > 700) { text("tap to take another case", W / 2, mid + big * 0.85 + 70, 18, LIME, "center", 900); tipY = mid + big * 0.85 + 90; }
+        : score === prevBest ? "tied your best. one more verdict next time." : (prevBest - score + 1) + " more to beat your best (" + prevBest + ").";
+      y += 22; text(nudge, W / 2, y, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
+      const newCourt = court > prevBestCourt;
+      y += 22; text("reached " + COURTS[court].name + (newCourt ? "  ·  new highest!" : ""), W / 2, y, 14, newCourt ? LIME2 : "#c9c4a8", "center", 800);
+      const rk = rankOf(done.length), up = rk.name !== prevRank, togo = rk.next ? rk.next[0] - done.length : 0;
+      y += 30; text("rank: " + rk.name + (up ? "  (promoted!)" : rk.next ? "  ·  " + togo + " goal" + (togo > 1 ? "s" : "") + " to " + rk.next[1] : ""), W / 2, y, 15, up ? LIME2 : CASE, "center", 900);
+      const rows = gotNow.slice(-2).map((t) => [t, true]).concat(activeGoals().map((g) => [g[1], false])).slice(0, 3);
+      const gw = Math.min(W - 40, 330), gx = (W - gw) / 2;
+      for (const [t, ok] of rows) {
+        y += 20;
+        cx.fillStyle = ok ? LIME : "#6a6d60";
+        if (ok) cx.fillRect(gx, y - 5, 10, 10); else { cx.fillRect(gx, y - 5, 10, 2); cx.fillRect(gx, y + 3, 10, 2); cx.fillRect(gx, y - 5, 2, 10); cx.fillRect(gx + 8, y - 5, 2, 10); }
+        text(t, gx + 18, y, 13, ok ? LIME2 : "#c9c4a8", "left", ok ? 800 : 700);
+      }
+      if (performance.now() - endAt > 700) { y += 36; text("tap to take another case", W / 2, y, 18, LIME, "center", 900); tipY = y + 20; }
     }
+  }
+  // the banner between courts: what court you're in now and its one new trick
+  function drawPromo() {
+    if (!promo || state !== "play") return;
+    const a = Math.min(1, promo.t * 5, (promo.len - promo.t) * 5), p = Math.min(1, promo.t / 0.18), cy = H * 0.42;
+    const big = Math.round(Math.max(24, Math.min(40, W / 11))), first = court > prevBestCourt;
+    cx.globalAlpha = a * 0.85; cx.fillStyle = "#08090a"; cx.fillRect(0, 0, W, H); cx.globalAlpha = a;
+    const bh = big * 4.4; cx.fillStyle = INK; cx.fillRect(0, cy - bh / 2 - 3, W, bh + 6); cx.fillStyle = "#1d1f18"; cx.fillRect(0, cy - bh / 2, W, bh);
+    cx.fillStyle = LIME; cx.fillRect(0, cy - bh / 2, W, 4); cx.fillRect(0, cy + bh / 2 - 4, W, 4);
+    text(first ? "PROMOTED · NEW COURT" : "PROMOTED", W / 2, cy - big * 1.35, 13, LIME, "center", 900);
+    cx.save(); cx.translate(W / 2, cy - big * 0.3); const sc = 1.5 - 0.5 * p; cx.scale(sc, sc);
+    text(COURTS[court].name, 0, 0, Math.min(big, (W - 30) / (COURTS[court].name.length * 0.62)), CASE, "center", 900); cx.restore();
+    cx.font = "800 15px " + MONO; const ls = wrap(COURTS[court].tip, W - 40);
+    ls.forEach((l, i) => text(l, W / 2, cy + big * 0.65 + i * 19, 15, PAPER, "center", 800));
+    for (let i = 0; i < COURTS.length; i++) { cx.fillStyle = i <= court ? LIME : "#3a3d33"; cx.fillRect(W / 2 - COURTS.length * 9 + i * 18 + 3, cy + bh / 2 - 16, 12, 6); }
+    cx.globalAlpha = 1;
   }
   function draw(time) {
     cx.save();
@@ -566,6 +697,7 @@
     drawJury(time);
     drawGoose(time);
     drawButtons();
+    drawPromo();
     drawFx();
     if (state === "play") drawHud();
     cx.restore();
@@ -601,5 +733,7 @@
   });
 
   // read-only hooks for the test scripts
-  window.__gc = { state: () => ({ state, score, strikes, judged, correct, elapsed, kase: kase && { charges: kase.charges, item: finalItem(kase), objection: !!(kase && objectionUp(kase)), fb: !!fb } }) };
+  window.__gc = { state: () => ({ state, score, strikes, judged, correct, elapsed, kase: kase && { charges: kase.charges, item: finalItem(kase), objection: !!(kase && objectionUp(kase)), fb: !!fb, swap: !!kase.swap, t: kase.t },
+    court, promo: !!promo, bestCourt, goalsDone: done.slice(), gotNow: gotNow.slice(), best,
+    layout: { W, H, btnY: L.btnY, btnH: L.btnH, gooseX: L.gooseX, gooseY: L.gooseY, goose: L.goose } }) };
 })();
