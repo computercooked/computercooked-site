@@ -487,7 +487,7 @@ o.use=tier>=2?op("study the "+nm,function(){return creatureAct(V.use,t);},V.use)
 }
 }else if(r&&r.type==="water"){
 if(tier>=2&&(hk==="rod"||hk==="spear"))o.use=op("fish",function(){return fish(hk);},V.use);
-o.place=op("drink",function(){var ok=creatureAct(V.eat,t);if(ok&&SB.Body){var th=SB.Body.of(c).thirst;SB.Body.drink(c);if(th>0.25)say("💧 ahh. that's better");}return ok;},V.eat);
+o.place=op("drink",function(){var ok=creatureAct(V.eat,t);if(ok&&SB.Body){var th=SB.Body.of(c).thirst;SB.Body.drink(c);say(th>0.25?"💧 ahh. that's better":"💧 a sip. you're not thirsty");}return ok;},V.eat);
 if(!o.use)o.use=o.place;
 }
 if(held&&!o.place){

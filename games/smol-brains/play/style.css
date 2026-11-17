@@ -499,6 +499,7 @@ body.titling #overlay { opacity: 0; }
 .ts-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .ts-row .ts-btn { flex: 1; }
 .ts-foot { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; padding: 10px 16px calc(10px + var(--sab)); font: 600 11px var(--mono); color: rgba(245, 243, 237, 0.5); pointer-events: none; text-shadow: 0 1px 0 #000; }
+@media (max-height: 500px) { .ts-foot { position: static; align-self: stretch; margin-top: auto; flex: none; } } /* 4.41: on a phone held sideways the fixed footer lay over the bottom of the "play now" card: it goes after the menu instead */
 .ts-wait { text-align: center; padding: 30px 10px; font: 700 18px var(--sans); color: var(--paper); text-shadow: 0 2px 0 #000; }
 .ts-wait small { font-weight: 500; color: var(--dim); }
 .ts-note { margin: 4px 0; font: 500 13px var(--sans); color: var(--dim); }

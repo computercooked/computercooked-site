@@ -218,7 +218,9 @@ var CSS=[
 +"#pov .bag .tabs{position:sticky;top:-10px;z-index:1;background:rgba(22,18,34,.96);padding:6px 0;margin:-6px 0 6px}#pov .rlist{max-height:none}}",
 "@media (max-width:380px){#pov .compass,#pov.phone .compass{width:40vw}}",
 "@media (max-height:500px){#pov.phone .quest{display:none}#pov.phone .pbtns{bottom:70px;grid-template-rows:repeat(2,50px);grid-template-columns:repeat(3,50px)}#pov.phone .pbtns button{width:50px;height:50px}#pov.phone .pbtns button.act{height:108px}"
-+"#pov.phone .bottom{left:calc((100vw - 176px) / 2)}#pov.phone .vrow,#pov.phone .vrow i{height:12px}#pov.phone .vrow i{width:12px}#pov.phone .vit{column-gap:4px}#pov.phone .toast{top:70px}}"
++"#pov.phone .bottom{left:calc((100vw - 176px) / 2)}#pov.phone .vrow,#pov.phone .vrow i{height:12px}#pov.phone .vrow i{width:12px}#pov.phone .vit{column-gap:4px}#pov.phone .toast{top:70px}"
++"#pov.phone .threat{top:68px;white-space:normal;width:max-content;max-width:calc(100vw - 390px);text-align:center;font-size:12px;padding:4px 9px}#pov.phone:has(.threat.on) .toast{top:118px}"
++"#pov.phone .ouch{justify-content:flex-start;padding-top:62px}#pov.phone .ouch b{font-size:38px}#pov.phone .ouch span{font-size:17px}}"
 ].join("\n");
 HUD.build=function(s){
 escLock(true);
@@ -329,7 +331,7 @@ if(hud&&hud.root)hud.root.remove();
 hud=null;keys={};
 };
 var toastT=null;
-var PHONE_WORDS=[[/(and |to )?press F\b/g,"$1tap the big button"],[/, then F\b/g,", then tap the big button"],[/with F\b/g,"with the big button"],[/\s*\((B|1–9)\)/g,""],[/[(]G sniffs, G again walks there[)]/g,"(tap sniff, then tap it again to walk there)"],[/press G again/g,"tap sniff again"],[/press G to sniff/g,"tap sniff"],[/\(?hold left click\)?/g,"(hold use)"],[/hold right click/g,"hold the big button"],[/right[- ]click/g,"tap the big button"],[/left[- ]click/g,"tap use"],[/press (E|e)\b/g,"tap the big button"],[/\s*\((Q|E|F|R|Z|G|Tab|Esc|shift)\)/g,""],[/press Z\b/g,"tap 💤"],[/press R\b/g,"tap ↻"],[/press Q\b/g,"open the bag"],[/press Tab\b/g,"tap 🎒"],[/press Esc\b/g,"tap leave body"],[/shift-click/g,"tap"]];
+var PHONE_WORDS=[[/(and |to )?press F\b/g,"$1tap the big button"],[/, then F\b/g,", then tap the big button"],[/with F\b/g,"with the big button"],[/\s*\((B|1–9)\)/g,""],[/[(]G sniffs, G again walks there[)]/g,"(tap sniff, then tap it again to walk there)"],[/press G again/g,"tap sniff again"],[/press G to sniff/g,"tap sniff"],[/\(?hold left click\)?/g,"(hold use)"],[/hold right click/g,"hold the big button"],[/right[- ]click/g,"tap the big button"],[/left[- ]click/g,"tap use"],[/press (E|e)\b/g,"tap the big button"],[/\s*\((Q|E|F|R|Z|G|Tab|Esc|shift)\)/g,""],[/press Z\b/g,"tap 💤"],[/press R\b/g,"tap ↻"],[/press Q\b/g,"open the bag"],[/press Tab\b/g,"tap 🎒"],[/press Esc\b/g,"tap leave body"],[/shift-click/g,"tap"],[/\bclick it\b/g,"tap the big button"],[/\bclick\b/g,"tap"]];
 function phoneWords(msg){PHONE_WORDS.forEach(function(p){msg=msg.replace(p[0],p[1]);});return msg;}
 HUD._phoneWords=phoneWords;
 HUD.say=function(msg){
@@ -566,7 +568,7 @@ function inGrid(kind){var n=0;bag.grid.forEach(function(k){if(k===kind)n++;});re
 function drawBag(){
 var s=S(),c=s.c,v=Sv().inv(c),hn=Sv().hotN(c),bn=Sv().bagN(c),html="";
 html+="<div class='win panel'><div class='inv'>";
-html+="<h3>"+esc(c.name)+(bn?"'s bag":c.tier<2?"'s mouth":"'s hands")+(bn||hn>1?" <small>"+(hud.phone?"tap a thing, then tap where it goes · hold for details":"drag to move · shift-click to craft with · right click to split")+"</small>":"")+"</h3>";
+html+="<h3>"+esc(c.name)+(bn?"'s bag":c.tier<2?"'s mouth":"'s hands")+(bn||hn>1?" <small>"+(hud.phone?"tap a thing, then tap where it goes · hold for details":"drag to move · shift-click to craft with · right click to split")+"</small>":"")+(hud.phone?"<button class='btn' data-close style='margin-left:auto'>✕ close</button>":"")+"</h3>";
 if(bn){
 html+="<div class='grid'>";
 for(var i=hn;i<hn+bn;i++)html+=slotHtml(v.s[i],i,hn);
@@ -682,7 +684,7 @@ function wireBag(){
 var root=bag.el,s=S(),c=s.c;
 root.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){bag.tab=b.getAttribute("data-tab");drawBag();});});
 root.querySelectorAll(".tabs:not(.sub) button[data-tab]").forEach(function(b){var tx=(b.textContent||"").trim(),sp=tx.indexOf(" ");if(sp>0){b.title=tx.slice(sp+1);if(!b.classList.contains("on")){b.textContent=tx.slice(0,sp);b.classList.add("ico");}}});
-var cl=root.querySelector("[data-close]");if(cl)cl.addEventListener("click",closeBag);
+Array.prototype.forEach.call(root.querySelectorAll("[data-close]"),function(cl){cl.addEventListener("click",closeBag);});
 if(SB.Wilds)SB.Wilds.wire(root,s.game,drawBag);
 if(SB.Home)SB.Home.wire(root,s.game,c,drawBag,HUD.say);
 if(SB.Loot)SB.Loot.wire(root,s.game,c,drawBag,HUD.say);
@@ -1025,6 +1027,7 @@ if(d>mx){dx*=mx/d;dy*=mx/d;}
 hud.knob.style.transform="translate("+dx+"px,"+dy+"px)";
 P().input.side=dx/mx;P().input.fwd=-dy/mx;
 },
+resize:function(){if(!stick&&hud&&hud.stick){hud.stick.style.left="";hud.stick.style.top="";}},
 stickUp:function(e){if(!stick||e.pointerId!==stick.id)return;stick=null;hud.knob.style.transform="";P().input.side=P().input.fwd=0;P().input.run=false;},
 lookDown:function(e){e.preventDefault();lookP={id:e.pointerId,x:e.clientX,y:e.clientY,t:performance.now(),moved:0};try{hud.lookZone.setPointerCapture(e.pointerId);}catch(er){}},
 lookMove:function(e){if(!lookP||e.pointerId!==lookP.id)return;var dx=e.clientX-lookP.x,dy=e.clientY-lookP.y;lookP.x=e.clientX;lookP.y=e.clientY;lookP.moved+=Math.abs(dx)+Math.abs(dy);P().look2(dx*1.6,dy*1.6);},
@@ -1054,6 +1057,7 @@ if(cv){cv.addEventListener("pointerdown",h.down);cv.addEventListener("contextmen
 document.addEventListener("contextmenu",h.ctx);
 window.addEventListener("pointermove",h.move);
 window.addEventListener("pointerup",h.up);
+window.addEventListener("resize",h.resize);window.addEventListener("orientationchange",h.resize);
 hud.stickZone.addEventListener("pointerdown",h.stickDown);hud.stickZone.addEventListener("pointermove",h.stickMove);
 hud.stickZone.addEventListener("pointerup",h.stickUp);hud.stickZone.addEventListener("pointercancel",h.stickUp);
 hud.lookZone.addEventListener("pointerdown",h.lookDown);hud.lookZone.addEventListener("pointermove",h.lookMove);
@@ -1071,6 +1075,7 @@ window.removeEventListener("blur",h.blur);
 if(cv){cv.removeEventListener("pointerdown",h.down);cv.removeEventListener("contextmenu",h.ctx);cv.removeEventListener("wheel",h.wheel);}
 document.removeEventListener("contextmenu",h.ctx);
 window.removeEventListener("pointermove",h.move);
+window.removeEventListener("resize",h.resize);window.removeEventListener("orientationchange",h.resize);
 window.removeEventListener("pointerup",h.up);
 bound=null;
 if(bag){bag=null;}
