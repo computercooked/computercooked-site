@@ -8,7 +8,8 @@
    Test links: ?cctest=1&round=N (start on captcha type N, 1-11) or &type=<id> (soup, slider, checkbox, word, human,
    fish, sigh, lights, circle, wait, question), &hold=1 (that first check's timer waits for your first touch), &daily=reset (clear the streak and today's run),
    &end=daily (a finished daily gauntlet: straight to its end card; it counts as today's run, so add &daily=reset to replay),
-   &deny=1 (straight to the bot-detected ending), ?shot=1 (the cover scene). */
+   &deny=1 (straight to the bot-detected ending), &fresh=1 (a brand-new player's save), ?shot=1 (the cover scene).
+   1.1: clearance ranks from lifetime clean passes, a case file of check types, endless best round, run pips. */
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
