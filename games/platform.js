@@ -336,11 +336,12 @@
   /* ---------- this week on this device (cc-week), for "share my week" in the player card (assets/deck.js) ----------
      {wk: local Monday "YYYY-MM-DD", runs, ms, g: {slug: [runs, title, the week's best score]}, d: [days played], xp, l0/l1/lt: level at the
      week's first run / now / its title, b: {slug: [new best, the best before it or null, title]}, ch: {g, t} when a
-     run met this week's challenge target, last: the week before, same shape}. Runs of 3 s or more. Nothing is sent. */
+     run met this week's challenge target, last: the week before, same shape}. A run counts when the board accepted its
+     score (as the bests do) or it lasted 3 s or more; shorter unscored starts are left out. Nothing is sent. */
   var chNow = null; // this week's challenge, when it's this game (loadChallenge)
   function mondayOf(t) { var d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
   function weekLog(d, x) {
-    if (!d || !((d.durationMs || 0) >= 3000)) return;
+    if (!d || !((d.result && d.result.accepted) || (d.durationMs || 0) >= 3000)) return;
     try {
       var w = JSON.parse(localStorage.getItem("cc-week") || "null") || {}, mon = mondayOf(Date.now()), wk = dayKey(mon);
       if (w.wk !== wk) {
@@ -350,7 +351,7 @@
         w = { wk: wk, runs: 0, ms: 0, g: {}, d: [], xp: 0, b: {}, ch: null, last: last };
       }
       var title = (info && info.title) || game, r = d.result, day = dayKey(new Date());
-      w.runs++; w.ms += d.durationMs;
+      w.runs++; w.ms += d.durationMs || 0;
       var gg = w.g[game] || [0, title, null];
       gg[0] = (gg[0] || 0) + 1; gg[1] = title;
       if (typeof d.score === "number" && isFinite(d.score) && (gg[2] == null || d.score > gg[2])) gg[2] = d.score;
