@@ -54,6 +54,11 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
     const head = existsSync(zip) ? readFileSync(zip).subarray(0, 2).toString("latin1") : "";
     ok(r.status === 0 && head === "PK" && existsSync(new URL("portal.js", dir)) && existsSync(new URL("cc-sdk.js", dir)),
       `portal build ${portal}/${slug}: zip + adapter + sdk`, r.status === 0 ? head : (r.stderr || "").slice(0, 200));
+    // the zip's own file names (central directory): index.html sits at the root, with no "./" or "/" in front of any path
+    const zb = existsSync(zip) ? readFileSync(zip) : Buffer.alloc(0), zNames = [];
+    for (let i = zb.indexOf("PK\x01\x02", 0, "latin1"); i >= 0; i = zb.indexOf("PK\x01\x02", i + 46, "latin1"))
+      zNames.push(zb.subarray(i + 46, i + 46 + zb.readUInt16LE(i + 28)).toString("utf8"));
+    ok(zNames.includes("index.html") && zNames.every((n) => !/^\.?\//.test(n)), `portal build ${portal}/${slug}: index.html at the zip's root, no "./" paths`, zNames.slice(0, 4));
     ok(!/<script[^>]*\/assets\/tip\.js/.test(html) && !/(src|href)="\//.test(html) && html.includes(`"portal":"${portal}"`) &&
       html.includes("crazygames-sdk-v3.js") === (portal === "crazygames"),
       `portal build ${portal}/${slug}: no tip jar, relative paths only, CC_PORTAL set`);

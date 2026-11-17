@@ -78,7 +78,9 @@ const zip = out + ".zip";
 rmSync(zip, { force: true });
 // Windows' own tar.exe (bsdtar) writes zips; Git Bash's GNU tar on the PATH can't, so name it outright. Elsewhere use
 // zip: GNU tar's -a doesn't know .zip and would quietly write a plain tar with a .zip name.
-if (process.platform === "win32") execFileSync(join(process.env.SystemRoot || "C:/Windows", "System32", "tar.exe"), ["-a", "-cf", zip, "."], { cwd: out });
+// Name the top-level entries rather than "." so bsdtar doesn't prefix every path with "./" (a zip whose index.html is
+// "./index.html" may not count as "index.html at the root" on itch.io or CrazyGames).
+if (process.platform === "win32") execFileSync(join(process.env.SystemRoot || "C:/Windows", "System32", "tar.exe"), ["-a", "-cf", zip, ...readdirSync(out)], { cwd: out });
 else execFileSync("zip", ["-qr", zip, "."], { cwd: out });
 if (portal === "gamedistribution" && !gdId) console.warn("note: GameDistribution needs --gd-id <gameId> from their control panel before it can serve ads");
 console.log(`built ${slug} for ${portal} → ${zip}`);
