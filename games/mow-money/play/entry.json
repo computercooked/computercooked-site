@@ -26,5 +26,5 @@
     "comedy",
     "one-thumb"
   ],
-  "max_score_per_sec": 2000000000
+  "max_score_per_sec": 1e24
 }

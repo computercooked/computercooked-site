@@ -50,12 +50,12 @@ const maxLawns = () => { let n = 0; while (n < LAWNS.length && lawnReq(n) <= S.p
 const UPS = [
   { id: 'blade', name: 'a wider blade', base: 10, k: 1.6, max: 25, ds: 'more lawn per lawn.' },
   { id: 'speed', name: 'more horsepower', base: 18, k: 1.6, max: 25, ds: 'it was a one-horse mower. it is now more horses.' },
-  { id: 'value', name: 'fancier grass', base: 40, k: 1.9, max: 80, ds: 'same grass. better marketing.' },
+  { id: 'value', name: 'fancier grass', base: 40, k: 1.85, max: 80, ds: 'same grass. better marketing.' },
   { id: 'sprinkler', name: 'sprinklers', base: 150, k: 2.0, max: 30, ds: 'grass grows back faster. the water bill is not our problem.' },
   { id: 'goat', name: 'a goat', base: 120, k: 1.5, max: 12, ds: 'eats grass for free. does not do stripes.' },
   { id: 'robot', name: 'robot mower', base: 5000, k: 1.9, max: 6, ds: 'bad at its job. spends a lot of time "thinking".' },
   { id: 'doug', name: 'a guy named doug', base: 4e5, k: 2.1, max: 5, ds: "doug has done this before. perfect stripes. doug." },
-  { id: 'whetstone', name: 'whetstone subscription', base: 5e6, k: 2.2, max: 8, ds: 'your blade sharpens itself. moon rocks hate this.', req: 3 },
+  { id: 'whetstone', name: 'whetstone subscription', base: 1.5e6, k: 2.2, max: 8, ds: 'your blade sharpens itself. moon rocks hate this.', req: 3 },
 ];
 const UPI = {}; UPS.forEach(u => UPI[u.id] = u);
 
