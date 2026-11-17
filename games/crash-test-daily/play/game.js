@@ -104,7 +104,7 @@
     updateUI();
     say.textContent = G.locked ? 'already fixed today. come back tomorrow. or practice.' : practice ? (seedOverride ? 'random practice board. par is ' + P.par + '. hints allowed.' : 'archive #' + no + (gm === 'hard' ? ' (hard)' : '') + '. par is ' + P.par + '.') : gm === 'hard' ? 'hard mode. more parts. screws don\'t move. good luck.' : 'crash is overheating. slide the parts. get the hot air out the vent →';
     // opened from a dare link (/games/crash-test-daily/?vs=1039&from=ash): say what that number means in moves
-    if (DARE && !G.practice && !G.locked && movesCount() === 0) {
+    if (DARE && !G.practice && !G.locked && movesCount() === 0 && (DARE.vs > 1049) === (gm === 'hard')) {
       const hard = DARE.vs > 1049, rest = DARE.vs - (hard ? 500 : 0), over = Math.max(0, Math.floor((1049 - rest) / 50));
       say.textContent = DARE.from + '\'s score: ' + DARE.vs.toLocaleString('en-US') + (hard ? ' (hard)' : '') + '. ' + (over === 0 ? 'that\'s par, fast. hit par (' + P.par + ' moves) quicker to beat it.' : 'that\'s ' + over + ' over par. today, ' + (P.par + over - 1) + ' moves or fewer beats it.');
       say.classList.add('nudge'); DARE.short = ' to beat ' + DARE.from + ': ' + (over === 0 ? 'par, faster.' : (P.par + over - 1) + ' moves or fewer.');
@@ -112,7 +112,7 @@
     if (G.locked) setTimeout(() => showResult(true), 300);
     // first-run hint goes in crash's own bubble, once the board exists (it used to be a toast on a fixed
     // timer from boot, which sat on top of the bubble at 375px and never fired if the board built late)
-    if (!DB.helped && !G.locked) { const g = G; setTimeout(() => { if (G === g && movesCount() === 0 && $('modal').hidden) { say.textContent = 'drag a part to slide it. free the hot air →.' + (DARE && DARE.short && !g.practice ? DARE.short : ' tap ? for rules.'); say.classList.add('nudge'); } }, DARE && !g.practice ? 3500 : 1200); }
+    if (!DB.helped && !G.locked) { const g = G; setTimeout(() => { if (G === g && movesCount() === 0 && $('modal').hidden) { say.textContent = 'drag a part to slide it. free the hot air →.' + (DARE && DARE.short && !g.practice && (DARE.vs > 1049) === (g.gm === 'hard') ? DARE.short : ' tap ? for rules.'); say.classList.add('nudge'); } }, DARE && !g.practice ? 3500 : 1200); }
   }
   let loadToken = null;
   let DARE = null;
@@ -415,7 +415,7 @@
     // and a move budget: one pip per par move, lime as you use them, red past par (reads in a clip with no sound)
     const mc = movesCount(), par = G.P.par, extra = Math.max(0, mc - par);
     let pips = ''; for (let i = 0; i < par + Math.min(extra, 8); i++) pips += '<i class="' + (i < Math.min(mc, par) ? 'u' : i >= par ? 'x' : '') + '"></i>';
-    $('today').innerHTML = '<div class="pips">' + pips + (extra > 8 ? '<em>+' + (extra - 8) + '</em>' : '') + '</div>' + (G.practice ? 'practice: undo is free, hints on, streak untouched'
+    $('today').innerHTML = '<div class="big' + (mc > par && !G.solved ? ' over' : '') + '"><b>' + mc + '</b><span>moves</span><i>/</i><b class="p">' + par + '</b><span>par</span></div><div class="pips">' + pips + (extra > 8 ? '<em>+' + (extra - 8) + '</em>' : '') + '</div>' + (G.practice ? 'practice: undo is free, hints on, streak untouched'
       : 'same board for everyone today · fewest moves wins' + (s.cur ? ' · <b>🔥 ' + s.cur + '</b>' : ''));
     for (const b of $('modes').children) {
       const m = b.dataset.mode; b.classList.toggle('done', m !== 'practice' && !!(DB.results[pkey(today, m)] || {}).solved);

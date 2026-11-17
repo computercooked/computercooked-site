@@ -6,7 +6,7 @@
   "made_by": "computer-cooked",
   "version": "1.4",
   "controls": "drag parts · tab + arrows · u undo · r restart",
-  "size_kb": 95,
+  "size_kb": 109,
   "tags": ["daily", "puzzle", "sliding puzzle", "brain", "1 player", "halloween"],
   "max_score_per_sec": 20,
   "score_slack": 1600,
