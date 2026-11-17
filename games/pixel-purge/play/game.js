@@ -37,6 +37,17 @@ let muted = !!save.muted;
 function cc() { return window.cc; }
 function ccCall(fn, ...a) { try { const c = cc(); if (c && typeof c[fn] === 'function') c[fn](...a); } catch (e) {} }
 let eventsSent = 0;
+// a dare link (?vs=<score> on the player page around us, same origin): the site's results card stays quiet for this game
+// ("results": "quiet"), so the game says how the run stands against the dare itself
+let DARE = 0;
+try { if (window.parent !== window) { const v = parseFloat(new URLSearchParams(window.parent.location.search).get('vs')); if (isFinite(v) && v > 0) DARE = Math.round(v); } } catch (e) {}
+function levelMax() { return Math.round(S.total * 1.25 + (S.cfg.daily ? 300 : Math.min(600, 25 * S.cfg.lv)) + 200 + SPEED_PTS * parSec() * 0.7); }
+function dareLine(score) {
+  if (!DARE) return null;
+  if (score > DARE) return { t: 'dare beaten: ' + score + ' vs ' + DARE + '. send it back: results ▸ under the game', c: '#FFD93D' };
+  if (DARE > levelMax()) return { t: 'dare: ' + DARE + '. that came from a higher level: clear levels to get there', c: '#FFD93D' };
+  return { t: 'dare: ' + DARE + (score ? ' · ' + (DARE - score + 1) + ' more to beat it. go faster' : ''), c: '#FFD93D' };
+}
 function ccEvent(name, data) { if (eventsSent >= 18) return; eventsSent++; ccCall('event', name, data || {}); }
 
 // ---------- pictures (64x64, drawn in code) ----------
@@ -289,7 +300,8 @@ const L = {};
 
 function scramble(name, amt, seed) { const r = rng(seed); const glyph = '#@%&$!?01'; return name.split('').map(ch => ch !== '.' && ch !== '_' && r() < amt ? glyph[Math.floor(r() * glyph.length)] : ch).join(''); }
 
-function say(text, dur, face) { quip = text; quipT = dur || 3.2; if (face !== undefined) { crashFace = face; crashFaceT = dur || 2; } }
+let quipShort = '';
+function say(text, dur, face, short) { quip = text; quipShort = short || ''; quipT = dur || 3.2; if (face !== undefined) { crashFace = face; crashFaceT = dur || 2; } }
 
 function loadLevel(cfg) {
   closeRun(false, mode !== 'lose');
@@ -304,8 +316,8 @@ function loadLevel(cfg) {
   mode = 'play'; paused = false; parts = []; eventsSent = 0;
   if (cfg.daily) say('daily picture #' + dailyNum() + '. same one for everybody. no pressure.', 4);
   else if (cfg.hard) say('hard level. crash recommends prayer and ctrl+z.', 4, 1);
-  else if (cfg.lv === 1) say('tap a floppy with a number badge. it shoots its color.', 6);
-  else if (cfg.lv === 2) say('disks hit the bottom pixel of a column. dig up.', 5);
+  else if (cfg.lv === 1) say('tap a floppy with a number badge. it shoots its color.', 6, undefined, 'tap a disk with a green number.');
+  else if (cfg.lv === 2) say('disks hit the bottom pixel of a column. dig up.', 5, undefined, 'clear from the bottom up.');
   else if (cfg.lv === 4) say('3 lanes now. plan ahead. or panic. both work sometimes.', 4);
   else if (cfg.k >= 6 && cfg.lv === 19) say('six colors. my gpu is sweating.', 4);
   else say(['restoring ' + b.im.def.file + '...', 'another corrupted file. great.', 'pixels go brrr.', 'do not let the bench fill up. i mean it.'][cfg.lv % 4], 3);
@@ -660,7 +672,7 @@ function draw() {
   // particles
   for (const p of parts) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col; const s = p.flash ? p.s * (1 + (1 - p.life / p.max)) : p.s; ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s); }
   ctx.globalAlpha = 1;
-  for (const f of S.floats) { ctx.globalAlpha = clamp(f.life / 0.4, 0, 1); ctx.font = 'bold ' + (f.big ? 22 : 14) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = CARBON; ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y); }
+  for (const f of S.floats) { ctx.globalAlpha = clamp(f.life / 0.4, 0, 1); ctx.font = 'bold ' + (f.big ? 22 : 14) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = CARBON; const hw2 = ctx.measureText(f.text).width / 2 + 4, fx = clamp(f.x, hw2, W - hw2); ctx.strokeText(f.text, fx, f.y); ctx.fillStyle = f.col; ctx.fillText(f.text, fx, f.y); }
   ctx.globalAlpha = 1;
   if (mode === 'play' && S.chainPts) { ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = LIME; ctx.fillText('chains +' + S.chainPts, L.cx + L.cw - L.pad, L.benchY - 2); }
   ctx.restore();
@@ -683,6 +695,7 @@ function draw() {
   ctx.fillStyle = 'rgba(245,243,237,0.32)'; ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillText('computer cooked games', W / 2, H - 3);
 
+  if (mode === 'lose' && S.endMs) { const lt = (performance.now() - S.endMs) / 450; if (lt < 1) { ctx.fillStyle = 'rgba(255,79,90,' + (0.28 * (1 - lt)) + ')'; ctx.fillRect(0, 0, W, H); } }
   tipWant = null;
   if (mode === 'win') drawWin();
   else if (mode === 'lose') drawLose();
@@ -715,6 +728,7 @@ function drawHud() {
     ctx.beginPath(); ctx.moveTo(tx, byy + bh * 0.45); ctx.lineTo(tx - 6, byy + bh * 0.6); ctx.lineTo(tx + 1, byy + bh * 0.68); ctx.fill();
     let fs = 12; ctx.font = 'bold ' + fs + 'px ' + FONT; let lines = wrap(ctx, text, bw - 12);
     if (lines.length > 2) { fs = 10.5; ctx.font = 'bold ' + fs + 'px ' + FONT; lines = wrap(ctx, text, bw - 10); }
+    if (lines.length > 3 && quipT > 0 && quipShort) lines = wrap(ctx, quipShort, bw - 10);
     lines = lines.slice(0, 3);
     ctx.fillStyle = CARBON; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const lh = fs + 1.5, y0 = byy + bh / 2 - (lines.length - 1) * lh / 2;
@@ -810,15 +824,16 @@ function drawGoals() {
   const secs = runSecs(), par = parSec(), left = Math.max(0, Math.round(SPEED_PTS * (par - secs)));
   ctx.font = 'bold 12px ' + FONT;
   const started = S.runOpen || S.won || S.endMs;
-  const t2 = started ? fmtTime(secs * 1000) + ' / par ' + fmtTime(par * 1000) + (S.won ? '' : ' · speed +' + left) : 'par ' + fmtTime(par * 1000) + ' · the clock starts on your first tap';
+  const t2 = started ? fmtTime(secs * 1000) + ' / par ' + fmtTime(par * 1000) + (S.won || mode === 'lose' ? '' : ' · speed +' + left) : 'par ' + fmtTime(par * 1000) + ' · the clock starts on your first tap';
   ctx.fillStyle = !started ? 'rgba(245,243,237,0.5)' : left > 0 || S.won ? PAPER : 'rgba(245,243,237,0.45)';
   ctx.fillText(t2, x + w / 2, y + rh * 1.45);
   if (rows === 3) { // row 3: the next thing to chase
     const b = S.cfg.daily ? 0 : save.best[S.cfg.lv] || 0, st = dailyStreak();
     const t3 = S.cfg.daily ? (st > 1 ? 'streak ' + st + ' days · ' : '') + 'same picture for everyone today'
       : (b ? 'best ' + b + ' · ' : '') + 'next: lvl ' + (S.cfg.lv + 1) + ' · ★ ' + starTotal() + ' collected';
+    const t3d = DARE ? 'dare: beat ' + DARE + (S.cfg.daily ? '' : ' · this level tops out near ' + levelMax()) : '';
     ctx.font = 'bold 11px ' + FONT; ctx.fillStyle = 'rgba(181,154,255,0.85)';
-    ctx.fillText(t3, x + w / 2, y + rh * 2.35);
+    ctx.fillText(t3d || t3, x + w / 2, y + rh * 2.35);
   }
 }
 function cardRect(lift = 0) { const x = L.cx + L.pad, w = L.cw - 2 * L.pad; if (mode === 'lose') { const y = Math.max(8, L.gy - 4), h = L.benchY - 10 - y; if (h >= 190) return { x, y, w, h }; } const y = Math.max(8, Math.max(L.benchY - 4, H * 0.42) - lift), h = H - y - 16; return { x, y, w, h }; }
@@ -875,6 +890,7 @@ function drawWin() {
     { t: (S.undoUsed ? '☆ used ctrl+z' : '★ no ctrl+z') + ' · ' + (S.maxBench <= lowBench() ? '★' : '☆') + ' bench peak ' + S.maxBench + '/' + lowBench() + (S.chainBest > 1 ? ' · best chain x' + S.chainBest : ''), c: PAPER }];
   const bd = S.breakdown;
   if (bd) lines.push({ t: bd.px + ' px + ' + bd.chain + ' chains + ' + bd.bonus + ' bonus + ' + bd.speed + ' speed (par ' + fmtTime(parSec() * 1000) + ')', c: 'rgba(245,243,237,0.55)' });
+  { const dl = dareLine(S.score); if (dl) lines.push(dl); }
   if (d.daily && S.practice) lines.push({ t: 'practice run: your first try is the one that counts.', c: 'rgba(245,243,237,0.5)' });
   if (d.daily) { const st = dailyStreak(); lines.push({ t: (st > 1 ? 'daily streak: ' + st + ' days · ' : '') + 'new picture in ' + untilTomorrow(), c: '#FFD93D' }); }
   else if (!save.dailyTry[dateKey(NOW)] && d.lv >= 2) lines.push({ t: 'daily picture #' + dailyNum() + ' is up: same board for everyone. ≡ menu', c: '#FFD93D' });
@@ -885,12 +901,13 @@ function drawWin() {
     else if (pb && S.score < pb) lines.push({ t: 'best ' + pb + ' · ' + (pb - S.score) + ' pts to beat it', c: 'rgba(245,243,237,0.8)' });
     else lines.push({ t: 'best ' + save.best[d.lv] + (S.stars < 3 ? ' · replay for ' + (3 - S.stars) + ' more ★' : ''), c: 'rgba(245,243,237,0.8)' });
   }
-  drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.unlocked, f: () => loadLevel(levelCfg(save.unlocked)) }] : [{ l: 'next ▸', f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
+  drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.unlocked, f: () => loadLevel(levelCfg(save.unlocked)) }] : [{ l: 'next ▸  ' + scramble(IMGS[levelCfg(d.lv + 1).img].def.file, 0.45, d.lv * 31 + 7), f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
 }
 function drawLose() {
   const pct = Math.floor(100 * S.cleared / S.total);
   const lines = [{ t: 'all 5 slots full and nobody has a clear shot.' }, { t: pct + '% restored · ' + S.cleared + ' pixels', c: PAPER },
     { t: 'tip: send a disk only when its color is at the bottom of a column.', c: 'rgba(245,243,237,0.6)' }];
+  { const dl = dareLine(0); if (dl) lines.push(dl); }
   if (S.cfg.daily && !S.practice) lines.push({ t: 'only your first try counts' + (dailyStreak() > 1 ? ' · streak ' + dailyStreak() + ' days kept' : '') + '. new picture in ' + untilTomorrow(), c: '#FFD93D' });
   const b = S.undo > 0 ? [{ l: 'ctrl+z (1 left)', f: doUndo }, { l: 'retry', f: restart }, { l: 'share', f: share }] : [{ l: 'retry', f: restart }, { l: 'share', f: share }, { l: 'levels', f: openMenu }];
   drawCard('out of slots. classic.', lines, b);
@@ -1043,5 +1060,5 @@ try { const c = cc(); if (c && c.autostart) c.autostart(); } catch (e) {}
 requestAnimationFrame(frame);
 
 // test hooks (harmless outside dev)
-window.__pp = { get S() { return S; }, get mode() { return mode; }, get L() { return L; }, pickLane, doUndo, loadLevel, levelCfg, dailyCfg, buildLevel, setSpeed(v) { speed = v; }, setSeeds(o) { LV_SEED = o; }, step(dt) { update(dt); }, makeCard, makeThumb, refreshExposure };
+window.__pp = { get S() { return S; }, get mode() { return mode; }, get L() { return L; }, get dare() { return DARE; }, pickLane, doUndo, loadLevel, levelCfg, dailyCfg, buildLevel, setSpeed(v) { speed = v; }, setSeeds(o) { LV_SEED = o; }, step(dt) { update(dt); }, makeCard, makeThumb, refreshExposure };
 })();
