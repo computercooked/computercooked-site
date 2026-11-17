@@ -610,3 +610,14 @@ body:has(.desk-bar) .ptimer-done { bottom: 56px; }
   opacity: 0; transform: translateY(-8px); transition: opacity .2s, transform .2s; pointer-events: none; }
 .secret-toast.on { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .secret-toast { transition: opacity .2s; transform: none; } }
+/* welcome strip for TikTok arrivals (assets/deck.js, round 18): slim, at the bottom, so nothing on the page moves */
+.tt-hi { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 9000; display: flex; align-items: center; gap: 4px; max-width: 560px; margin: 0 auto; padding: 2px 2px 2px 14px; border: 2px solid #000; border-radius: 12px; background: var(--accent); color: var(--on-accent); box-shadow: 4px 4px 0 #000; font: 700 14px/1.3 var(--mono); animation: tt-hi-in .3s var(--ease-out, ease) both; }
+.tt-hi-go { flex: 1; min-width: 0; padding: 8px 0; color: inherit; text-decoration: none; }
+.tt-hi-k { opacity: .8; }
+.tt-hi-go b { white-space: nowrap; }
+.tt-hi-go:hover b, .tt-hi-go:focus-visible b { text-decoration: underline; }
+.tt-hi-go:focus-visible { outline: none; }
+.tt-hi-x { flex: none; width: 44px; height: 44px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: 800 22px/1 var(--mono); cursor: pointer; }
+.tt-hi-x:hover, .tt-hi-x:focus-visible { background: rgb(0 0 0 / .14); outline: none; }
+@keyframes tt-hi-in { from { transform: translateY(150%); } }
+@media (prefers-reduced-motion: reduce) { .tt-hi { animation: none; } }
