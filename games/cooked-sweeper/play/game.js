@@ -40,7 +40,7 @@
   // the one thing to aim for next run: the weakest virus kind you've never beaten, else KERNEL PANIC, else the next rank
   function nextGoal(c) {
     const miss = DEX.filter((p) => c.dex.indexOf(p) < 0);
-    if (miss.length && miss[0] !== CS.BOSS) return "quarantine a " + CS.VIRUSES[miss[0]].name + " (" + miss[0] + ")";
+    if (miss.length && miss[0] !== CS.BOSS) { const nm = CS.VIRUSES[miss[0]].name; return "quarantine " + (/^[aeiou]/.test(nm) ? "an " : "a ") + nm + " (" + miss[0] + ")"; }
     if (!c.wins) return "beat KERNEL PANIC (13): reach 14 hp first";
     const r = rankOf(c.xp);
     return r.next ? (r.next[0] - c.xp) + " xp to " + r.next[1] : "beat your best";
@@ -350,7 +350,7 @@
   function flash(kind) {
     if (reduce) return;
     win.classList.remove("fl-lv", "fl-win"); void win.offsetWidth; win.classList.add("fl-" + kind);
-    clearTimeout(flashT); flashT = setTimeout(() => win.classList.remove("fl-lv", "fl-win"), 1300); // the wobble and shake come back after
+    clearTimeout(flashT); flashT = setTimeout(() => win.classList.remove("fl-lv", "fl-win"), kind === "lv" ? 650 : 1250); // the wobble and shake come back after
   }
   let puffAcc = 0;
   function steam(dt) {
