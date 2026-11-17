@@ -12,9 +12,10 @@ body.spooky #app{background:radial-gradient(ellipse at 50% 0%,#2a1838 0%,var(--c
 /* top bar */
 #top{padding:8px 12px 6px;border-bottom:1px solid var(--line);background:rgba(16,17,20,.9);z-index:3}
 .row1{display:flex;align-items:center;gap:10px}
-#cash{font-size:26px;font-weight:800;color:var(--lime);letter-spacing:-.5px;flex:1;white-space:nowrap;transition:transform .08s;transform-origin:left center;font-variant-numeric:tabular-nums}
+#cash{font-size:26px;font-weight:800;color:var(--lime);letter-spacing:-.5px;flex:none;white-space:nowrap;transition:transform .08s;transform-origin:left center;font-variant-numeric:tabular-nums}
 #cash.bump{transform:scale(1.08)}
 #cash.neg{color:var(--red)}
+#rate{flex:1;align-self:flex-end;padding-bottom:5px;margin-left:-4px;font-size:12px;font-weight:800;color:var(--lime);opacity:.75;white-space:nowrap;overflow:hidden}
 #clock{display:flex;flex-direction:column;align-items:flex-end;font-size:12px;line-height:1.25}
 #day{font-weight:800;color:var(--lilac)}
 #time{color:var(--dim)}
@@ -52,7 +53,7 @@ body.spooky #app{background:radial-gradient(ellipse at 50% 0%,#2a1838 0%,var(--c
 @keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes hit{50%{transform:scale(.94) rotate(-2deg)}}
 @keyframes die{to{transform:scale(1.15);opacity:0}}
-.pig{position:absolute;width:74px;height:74px;font-size:56px;line-height:74px;text-align:center;cursor:pointer;animation:popIn .2s ease-out,wob 1.4s ease-in-out infinite;touch-action:none;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.4))}
+.pig{position:absolute;z-index:4;width:74px;height:74px;font-size:56px;line-height:74px;text-align:center;cursor:pointer;animation:popIn .2s ease-out,wob 1.4s ease-in-out infinite;touch-action:none;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.4))}
 .pig .hp{position:absolute;left:8px;right:8px;bottom:-4px;height:5px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden}
 .pig .hp i{display:block;height:100%;background:var(--lime)}
 .pig.hit{animation:hit .1s}
@@ -166,7 +167,7 @@ canvas.spark{width:100%;height:40px;display:block;margin-top:6px}
 /* big moments (they read with the sound off) */
 .banner{position:absolute;left:0;right:0;top:38%;z-index:10;text-align:center;pointer-events:none;animation:bannerIn 2.2s ease-out forwards}
 .banner b{display:inline-block;background:var(--lilac);color:var(--carbon);font-size:34px;font-weight:900;padding:2px 18px;border-radius:8px;box-shadow:4px 4px 0 rgba(0,0,0,.5);transform:rotate(-3deg)}
-.banner small{display:block;margin-top:8px;font-size:14px;font-weight:800;color:var(--gold);text-shadow:0 2px 0 #000}
+.banner small{display:table;margin:8px auto 0;font-size:14px;font-weight:800;color:var(--gold);background:rgba(16,17,20,.88);padding:3px 10px;border-radius:6px}
 @keyframes bannerIn{0%{opacity:0;transform:scale(2.2)}12%{opacity:1;transform:scale(.95)}18%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-16px)}}
 .float.big{font-size:26px;z-index:9}
 #field.fl-bad{box-shadow:inset 0 0 0 4px var(--red),inset 0 0 60px rgba(255,92,122,.45)}

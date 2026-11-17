@@ -215,7 +215,10 @@
         case 'bought': sfx.buy(); break;
         case 'dayEnd': showDayEnd(e); break;
         case 'repo': showRepo(e); break;
-        case 'dayStart': sfx.day(); banner('day ' + e.day, S.startBest && e.day > S.startBest ? 'new best!' : S.startBest && e.day === S.startBest ? 'your best is day ' + S.startBest + '. beat it.' : e.day === 3 ? 'perks and fresh starts unlock' : ''); if (!crept) toast('day ' + e.day + '. ' + S.bills.length + (S.bills.length === 1 ? ' bill' : ' bills') + ' arrived.'); crept = false; if (e.day <= 15) ccEvent('day', { day: e.day }); cc('score', e.day); break;
+        case 'dayStart': { // one stamp says it all (it replaced the "N bills arrived" toast, which sat on top of it)
+          const nb = S.bills.length + (S.bills.length === 1 ? ' bill' : ' bills') + ' arrived';
+          sfx.day(); banner('day ' + e.day, S.startBest > 1 && e.day > S.startBest ? 'new best! ' + nb : S.startBest > 1 && e.day === S.startBest ? 'your best is day ' + S.startBest + '. beat it.' : e.day === 3 ? nb + ' · fresh start unlocked' : nb);
+          crept = false; if (e.day <= 15) ccEvent('day', { day: e.day }); cc('score', e.day); break; }
         case 'over': showOver(); break;
       }
     }
@@ -264,9 +267,8 @@
     if (!S || S.over || S.dayDone) return null;
     const order = S.bills.slice().sort((a, b) => (b.late - a.late) || a.due - b.due);
     const b = order[0];
-    if (b && (b.late || b.due - S.t < 20)) {
-      return { act: 'pay:' + b.uid, tab: 'bills', icon: b.icon, name: (b.late ? 'LATE: pay ' : 'pay ') + b.name, why: b.late ? 'the debt collector is coming' : 'due in ' + secs(b.due - S.t), cost: b.amount, bad: b.late };
-    }
+    const billGoal = () => ({ act: 'pay:' + b.uid, tab: 'bills', icon: b.icon, name: (b.late ? 'LATE: pay ' : 'pay ') + b.name, why: b.late ? 'the debt collector is coming' : 'due in ' + secs(b.due - S.t), cost: b.amount, bad: b.late });
+    if (b && (b.late || b.due - S.t < 20)) return billGoal();
     const opts = [], fresh = ON.HUSTLES.find((x) => !S.hustles[x.id]);
     for (const h of ON.HUSTLES) {
       const n = S.hustles[h.id] || 0;
@@ -281,6 +283,9 @@
       opts.push({ act: 'up:' + u.id, tab: 'upgrades', icon: u.icon, name: nm, why: u.desc(l), cost: ON.upCost(S, u) });
     }
     opts.sort((a, b) => a.cost - b.cost);
+    // never steer you into a late fee: if buying it would leave too little for bills due in the next 30 s, pay first
+    const reserve = S.bills.reduce((a, x) => a + (!x.late && x.due - S.t < 30 ? x.amount : 0), 0);
+    if (b && reserve > 0 && (!opts[0] || S.cash - opts[0].cost < reserve)) return billGoal();
     return opts[0] || null;
   }
   function renderGoal() {
@@ -322,12 +327,14 @@
 
   // ---------- top bar ----------
   let lastStatus = '';
-  const comboEl = $('combo');
+  const comboEl = $('combo'), rateEl = $('rate');
   function renderTop() {
     const live = S.combo > 1.15 && S.t - (S.lastTap || -9) < 1.1;
     comboEl.classList.toggle('on', !!live);
     if (live) comboEl.textContent = 'combo ×' + S.combo.toFixed(1);
     el.cash.textContent = fmt(S.cash);
+    const rt = ON.incomeRate(S), rtxt = rt > 0 ? '+' + fmt(rt) + '/s' : '';
+    if (rateEl.textContent !== rtxt) rateEl.textContent = rtxt;
     el.cash.classList.toggle('neg', S.cash < 0);
     el.day.textContent = 'day ' + S.day + (S.startBest > 1 ? (S.day > S.startBest ? ' · best!' : ' · best ' + S.startBest) : '');
     el.time.textContent = clockText() + (S.crypto.coins > 0 ? '' : '');
