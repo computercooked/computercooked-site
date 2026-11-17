@@ -1,5 +1,5 @@
 // Game pages (/games/<slug>/) pass through here so search engines get more than an iframe:
-// JSON-LD (VideoGame + breadcrumbs), a "how to play" card built from games.json, and a server-rendered
+// JSON-LD (VideoGame + breadcrumbs + FAQPage), a "how to play" card and "questions about X" built from games.json, and a server-rendered
 // "games like X" row of internal links. Dare links (?vs=/&d=) also get their preview tags here.
 // Everything comes from games.json, so a game added with add-game.ps1 gets it with no extra step.
 import { dareTags } from "./dares.js";
@@ -39,7 +39,42 @@ export function related(games, slug, n = 3) {
     .map((x) => x.g);
 }
 
-function jsonLd(g) {
+// "questions about X": 4-6 short Q&As under the how-to, built only from games.json facts, so every answer is true for
+// every game (no per-game copy to go stale). The same list feeds the FAQPage JSON-LD, word for word.
+const NO_CARD = ["idle", "sim", "incremental"]; // keep in step with NO_CARD in games/player.js (no results card, no "share score")
+// how you play on a touchscreen, read from the controls text ("hold space" is a key, not a touch)
+const TOUCH = [["tap", /\btap/], ["drag", /\bdrag/], ["swipe", /\bswipe/], ["hold", /\bhold\b(?!\s+(?:space|enter|shift|esc))/], ["long-press", /\blong-press/], ["pinch", /\bpinch/]];
+const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}` : a[0] || "");
+export function faqOf(g) {
+  const t = g.title, tags = tagsOf(g), c = String(g.controls || "").toLowerCase();
+  const ours = g.made_by === "computer-cooked";
+  const daily = tags.includes("daily"), board = !!g.max_score_per_sec;
+  const out = [{ q: `is ${t} free?`, a: "yes. free to play in your browser: no download, no sign-up." }];
+  const touch = TOUCH.filter(([, re]) => re.test(c)).map(([w]) => w);
+  if (/touch buttons|on-screen buttons/.test(c)) touch.push("on-screen buttons");
+  out.push({ q: `can i play ${t} on my phone?`, a: touch.length
+    ? `yes. it runs in your phone's browser, no app. touch controls: ${andList(touch)}. the full list is under how to play.`
+    : "it opens in a phone browser, but it's played with keys, so it's best with a keyboard." });
+  if (tags.includes("60s runs")) out.push({ q: `how long is a game of ${t}?`, a: "about 60 seconds a run. long enough to get cooked, short enough to go again." });
+  else if (tags.includes("short") || tags.includes("quick")) out.push({ q: `how long is a game of ${t}?`, a: "short. a run is over fast, so one more go is always right there." });
+  if (board) out.push({ q: `does ${t} have a leaderboard?`, a: "yes. scores go on the leaderboard on this page: today, this week and all time. no account needed, play as a guest under any name." + (daily ? " there's also a new daily round at midnight, the same for everyone." : "") });
+  else if (daily) out.push({ q: `is there a daily ${t}?`, a: "yes. a new daily round at midnight, the same for everyone." });
+  // the results card's button reads "share score" only for a scored run, so only games with a board get this one
+  if (ours && board && !tags.some((x) => NO_CARD.includes(x))) out.push({ q: `how do i challenge a friend at ${t}?`, a: "finish a run, then tap share score on the results card. it sends your score and a link, and they get dared to beat it." });
+  if (ours) out.push({ q: `who made ${t}?`, a: "Computer Cooked. we make free, silly browser games. more about us on the about page.", link: ["about page", "/about/"] });
+  out.push({ q: `can i play ${t} full screen?`, a: "yes. tap fullscreen in the bar under the game, and exit fullscreen to come back." });
+  return out.slice(0, 6);
+}
+function faqHtml(g, list) {
+  const item = ({ q, a, link }) => {
+    let html = esc(a);
+    if (link) html = html.replace(esc(link[0]), `<a href="${link[1]}">${esc(link[0])}</a>`);
+    return `<details class="how-more"><summary>${esc(q)}</summary><p>${html}</p></details>`;
+  };
+  return `<section class="about-card game-faq" aria-labelledby="faq-heading"><h2 id="faq-heading">questions about ${esc(g.title)}</h2>${list.map(item).join("")}</section>`;
+}
+
+function jsonLd(g, faq = []) {
   const url = `${SITE}/games/${g.slug}/`;
   const data = {
     "@context": "https://schema.org",
@@ -73,6 +108,12 @@ function jsonLd(g) {
           { "@type": "ListItem", position: 3, name: g.title, item: url },
         ],
       },
+      // the visible "questions about X" block, same words (link text kept as plain text)
+      ...(faq.length ? [{
+        "@type": "FAQPage",
+        url,
+        mainEntity: faq.map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
+      }] : []),
     ],
   };
   return ldScript(data);
@@ -159,12 +200,14 @@ export async function gamePage(req, env, url, slug) {
   const g = games.find((x) => x.slug === slug);
   if (!g) return page;
 
+  const faq = faqOf(g);
   const rw = new HTMLRewriter()
     // installable web app: every game page links the manifest and registers the offline service worker (assets/pwa.js)
-    .on("head", { element(e) { e.append(jsonLd(g) + PWA + (themeVars(g) ? `<style>:root{${themeVars(g)}}</style>` : ""), { html: true }); } })
-    // K-0031: the sidebar keeps only the leaderboard and rating; how-to (and the folded embed code) go under the game
+    .on("head", { element(e) { e.append(jsonLd(g, faq) + PWA + (themeVars(g) ? `<style>:root{${themeVars(g)}}</style>` : ""), { html: true }); } })
+    // K-0031: the sidebar keeps only the leaderboard and rating; how-to, questions (and the folded embed code) go under
+    // the game. Questions sit second, so on desktop they take the narrow column beside the how-to.
     .on("aside [data-how-to]", { element(e) { e.remove(); } })
-    .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
+    .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${faqHtml(g, faq)}${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })
     .on("[data-more-games] ul", { element(e) { e.setInnerContent(related(games, slug).map(card).join(""), { html: true }); } });
