@@ -49,7 +49,7 @@ for (const u of ["/assets/deck.js", "/games/cc-sdk.js"]) {
 }
 // secrets: deck.js collects them, and every script that finds one sends cc:secret
 {
-  const srcs = await Promise.all(["/assets/deck.js", "/assets/eggs.js", "/assets/golden.js", "/assets/home.js", "/assets/lost-game.js"].map(async (u) => [u, await (await get(u)).text()]));
+  const srcs = await Promise.all(["/assets/deck.js", "/assets/eggs.js", "/assets/golden.js", "/assets/home.js", "/assets/lost-game.js", "/assets/fx.js"].map(async (u) => [u, await (await get(u)).text()]));
   const deckJs = srcs[0][1];
   ok(deckJs.includes("window.ccSecrets") && deckJs.includes('"cc-secrets"') && deckJs.includes("stats-secrets") && srcs.slice(1).every(([, s]) => s.includes('"cc:secret"')),
     "secrets: deck.js collects them and the egg scripts send cc:secret", srcs.filter(([, s]) => !s.includes("cc:secret")).map(([u]) => u).join(" "));
@@ -116,6 +116,19 @@ r = await (await post("/api/dare", { play_id: p1, anon })).json();
 ok(r.id === dare.id, "one dare per run");
 r = await (await get("/api/dare/" + dare.id + "?open=1")).json();
 ok(r.ok && r.game === "crash" && r.score === 40 && r.from === "smokey", "open a dare", r);
+// its share card (src/darecard.js): a real 1200x630 PNG, and the dare link's preview points at it
+{
+  const card = await get("/games/crash/dare/" + dare.id + ".png"), buf = new Uint8Array(await card.arrayBuffer());
+  const dv = new DataView(buf.buffer), png = buf[0] === 137 && buf[1] === 80 && buf[2] === 78 && buf[3] === 71;
+  ok(card.ok && /image\/png/.test(card.headers.get("content-type")) && png && dv.getUint32(16) === 1200 && dv.getUint32(20) === 630, "dare share card is a 1200x630 png", card.status + " " + buf.length);
+  const pg = await (await get("/games/crash/?vs=40&from=smokey&d=" + dare.id)).text();
+  ok(pg.includes(`/games/crash/dare/${dare.id}.png`), "dare link preview uses its own card");
+  // a URL-only dare (no stored id) gets the leaderboard's name filter: a rude "from" is dropped
+  const rude = await (await get("/games/crash/?vs=40&from=porn99")).text();
+  ok(/og:title" content="can you beat 40 on crash\?"/.test(rude), "a URL-only dare's name goes through the name filter", rude.match(/og:title" content="[^"]*"/));
+  const wrong = await fetch(base + "/games/fathom/dare/" + dare.id + ".png", { redirect: "manual" });
+  ok(wrong.status === 302 && /og-vs\.png/.test(wrong.headers.get("location") || ""), "a dare card only draws for its own game", wrong.status);
+}
 r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p1, anon })).json();
 ok(r.ok && r.beaten === false && r.self, "your own run can't beat your own dare", r);
 const anon2 = "smoke2" + rid(), p5 = rid();
@@ -235,7 +248,7 @@ ok(r.ok, "a downloaded share card counts as a send method");
 let page = await (await get("/games/crash/")).text();
 ok(/\/games\/crash\/og\.png(\?v=\d+)?"/.test(page) && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
-ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && /\/games\/crash\/og-vs\.png(\?v=\d+)?"/.test(page), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && page.includes("/games/crash/dare/" + dare.id + ".png\""), "dare link preview uses the verified score (and the dare's own card)", page.match(/og:title" content="[^"]*"/));
 // filter links: /games/?vibe=puzzle arrives filtered, with its own title and link preview
 page = await (await get("/games/?vibe=puzzle")).text();
 ok(/<title>puzzle games: free online/.test(page) && /property="og:title" content="\d+ free puzzle games/.test(page) && /<li class="game-card" hidden><a class="game-card-inner game-link" href="\/games\/crash\/"/.test(page) && /<li class="game-card"><a class="game-card-inner game-link" href="\/games\/fathom\/"/.test(page), "hub filter link is filtered on the server");
@@ -259,6 +272,8 @@ ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.leng
   ok(/aria-current="page">microwave panic</.test(mp) && /player-new/.test(mp) === !!fresh, "game page breadcrumb names the game; the new chip follows the 14-day rule", fresh);
   const pjs = await (await get("/games/player.js")).text(), gcss = await (await get("/games/games.css")).text();
   ok(pjs.includes("fs-tap-go") && pjs.includes("cc-fs-here") && /\(vs\|d\)=/.test(pjs) && gcss.includes(".fs-tap {"), "phones get 'tap to play full screen' (not on dare links)");
+  const fxJs = await (await get("/assets/fx.js")).text();
+  ok(fxJs.includes("hub-gary") && fxJs.includes("function garyLine") && gcss.includes(".hub-gary {"), "searching gary on the games hub gets an answer from gary");
 }
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");

@@ -445,13 +445,17 @@ Typing up up down down left right left right b a on any page with `assets/deck.j
 |---|---|---|---|
 | `melt` | meltdown | poking the home computer until it melts | `cc:melt` (poke) from `assets/home.js` |
 | `konami` | cheat code | the konami code, desk or crash screen | `cc:melt` (konami), and the crash screen in `assets/deck.js` |
-| `gary` | you know my name | typing "gary" on the home page | `assets/eggs.js` |
+| `gary` | you know my name | typing "gary" on the home page, or searching it on the games hub | `assets/eggs.js`, `assets/fx.js` |
 | `golden` | struck gold | catching a golden gary | `assets/golden.js` |
 | `cursed` | cursed | catching a cursed golden gary | `assets/golden.js` |
 | `off` | no off switch | "shut down" in the start menu | `assets/home.js` |
 | `wall` | redecorated | changing the desktop wallpaper | `assets/home.js` |
 | `corner` | the corner | the home screensaver hitting a corner | `assets/home.js` |
 | `lost` | lost and found | scoring in the 404 game | `assets/lost-game.js` |
+
+## Search "gary" (the hub talks back)
+
+Searching the games hub for `gary`, `computer`, `the computer`, `cooked` or `computer cooked` (any case, punctuation ignored) makes gary pop up over the grid with a line (`.hub-gary`, `assets/fx.js` `garyLine()`, styles in `games/games.css`). "gary" has three lines that take turns and finds the `gary` secret. A new word gets a new line and one hop (none under reduced motion); typing on or re-sorting leaves it be. When no game matches, gary's line stands in for "nothing matches" and carries the same **show all** button. The words never filter anything differently: the grid shows what the search matches as before.
 
 ## Keyboard shortcuts list
 
@@ -574,6 +578,15 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 - **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
 - It works for every game in the shared player. A game with no thumbnail gets the card without art.
 
+## Dare link previews (dare share cards)
+
+A dare link pasted into a chat (iMessage, Discord, WhatsApp, X) unfurls with its own picture: "CAN YOU BEAT 1,840 / ON MICROWAVE PANIC / FROM PAT" with Gary in the corner, in the game's theme colours. `src/darecard.js` draws it on the server at `GET /games/<slug>/dare/<id>.png` (1200x630 indexed PNG, about 9 KB, no packages: a 5x7 pixel font and the Worker's own `CompressionStream`). `src/seo.js` points `og:image` / `twitter:image` of `/games/<slug>/?vs=…&d=<id>` at it.
+
+- Only stored dares get a card: the score comes from the `dares` table, never the URL, so nobody can put their own words on an image served from our domain.
+- **Names follow the leaderboard's rules** (`publicDare()` in `src/dares.js`, used by the card, the preview tags, `/d/<id>`, `GET /api/dare/:id` and the beat reply): the name is the one the boards show today (an account's current display name, else the run's own name; both passed `nameClean` when set). Once the sender's run is off the boards (hidden by 3 reports or an admin, or a banned account) the dare is gone: no card, plain game preview tags, `/d/` goes to the hub. A URL-only dare's `from` goes through `nameClean` too (a rude one becomes no name). A missing dare, a dare for another game or a dare with no score answers **302** to the game's `og-vs.png`, and a URL-only dare (no `d`) keeps `og-vs.png` in its tags.
+- Cached an hour at the edge per URL, so a hide or rename shows within the hour (chat apps keep their own copy of an unfurl). Long names and titles are trimmed with "...", and a long score is drawn smaller.
+- Smoke test: the card is a 1200x630 PNG, the dare page's tags point at it, and a wrong-game card redirects.
+
 ## Public endpoints
 
 | method | path | what |
@@ -615,7 +628,8 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 | GET | `/games/:slug/` (questions) | `src/seo.js` `faqOf(g)` adds "questions about X": 4-6 `<details>` Q&As built only from games.json facts (free, phone controls read from `controls`, run length from the `60s runs`/`short`/`quick` tags, leaderboard if `max_score_per_sec`, daily if tagged, challenge a friend for scored games without idle/sim/incremental tags, who made it, full screen), plus a `FAQPage` JSON-LD with the same words. Smoke test checks the count matches. |
 | GET | `/games/:slug/play/` | the bare game build the players frame. Served from the assets unchanged, plus `X-Robots-Tag: noindex, indexifembedded` (`src/worker.js`) so search results land on the game page, not the raw build |
 | GET | `/games/:slug/embed/` | the embed player (`src/embed.js`): the game's `/play/` iframe plus a slim bar (title linking to the game page, restart, sound, fullscreen, "more free games"). Any site may frame it (`frame-ancestors *`, no X-Frame-Options); `noindex`, canonical = the game page. Plays from it carry ref `embed`. 404 for unknown and community games. CRASH embeds its standalone build in `games/crash/play/` (its own page still runs the inline copy). Game pages show an "embed this game" card with the snippet: an iframe to this URL plus a "Play X free on Computer Cooked Games" credit link |
-| GET | `/games/:slug/?vs=&from=[&d=]` | the game page with link-preview tags for a dare: `<title>`, og/twitter title "can you beat 1,240 on CRASH? from datz", a dare description, and `og-vs.png`. With a valid `d` the score and name come from the dare, not the URL. Plain game pages carry `og.png`. Both cards are 1200x630, made by `scripts/make-og.mjs` (see its header; `add-game.ps1` runs it) |
+| GET | `/games/:slug/?vs=&from=[&d=]` | the game page with link-preview tags for a dare: `<title>`, og/twitter title "can you beat 1,240 on CRASH? from datz", a dare description, and `og-vs.png`. With a valid `d` the score and name come from the dare, not the URL, and the image is that dare's own card (below). Plain game pages carry `og.png`. Both cards are 1200x630, made by `scripts/make-og.mjs` (see its header; `add-game.ps1` runs it) |
+| GET | `/games/:slug/dare/:id.png` | the share card of a stored dare (1200x630 PNG, `src/darecard.js`, cached an hour; names by the leaderboard's rules); 302 to `og-vs.png` for a missing or other-game dare |
 | GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |
 | GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |
 | GET · PUT · DELETE | `/api/saves/:game/:slot` | PUT `{data, updated_at, version}`. Errors: 413 over 512 KB, 409 at 5 slots, 429 over ~1 write/10 s. An older `updated_at` returns `{stale:true}` and changes nothing. Needs login (401) |

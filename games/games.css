@@ -1883,7 +1883,34 @@
   cursor: pointer;
 }
 
+/* search "gary": the computer answers (assets/fx.js) */
+.hub-gary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  border: 2px solid #000;
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--carbon);
+  box-shadow: 4px 4px 0 #000;
+  font-weight: 800;
+}
+.hub-gary span { flex: 1 1 12em; }
+.hub-gary img { flex: none; width: 34px; height: 48px; image-rendering: pixelated; }
+.hub-gary .hub-reset { margin-left: 0; }
+.hub-gary.hop img { animation: hub-gary-hop .55s var(--ease-out) 2; }
+@keyframes hub-gary-hop {
+  0%, 100% { transform: none; }
+  40% { transform: translateY(-8px) rotate(-6deg); }
+  70% { transform: rotate(4deg); }
+}
+@media (prefers-reduced-motion: reduce) { .hub-gary.hop img { animation: none; } }
+
 @media (min-width: 720px) {
+  .hub-gary { grid-column: 1 / -1; }
   .hub-filters {
     grid-template-columns: minmax(220px, 300px) 1fr;
     align-items: center;
