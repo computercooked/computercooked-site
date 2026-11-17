@@ -192,7 +192,7 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
     vm.runInNewContext(boot || "", { location: { search }, URLSearchParams, document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } } } });
     return attrs["data-landing"] ? attrs["data-landing"] + "@" + attrs["data-landing-ref"] : "hub";
   };
-  const cases = { "?ref=tiktok&game=smol-brains": "smol-brains@tiktok", "?ref=TT&game=Fathom": "fathom@tiktok", "?ref=tiktok": "smol-brains@tiktok",
+  const cases = { "?ref=tiktok&game=smol-brains": "smol-brains@tiktok", "?ref=TT&game=Fathom": "fathom@tiktok", "?ref=tiktok": "desktop-takeover@tiktok",
     "?ref=ig&game=crash": "crash@instagram", "?utm_source=yt&game=bellchain": "bellchain@youtube", "?ref=ig": "hub", "?ref=reddit&game=crash": "hub",
     "?game=crash": "hub", "": "hub", "?ref=x&game=../../etc": "hub", "?ref=app": "hub" };
   const got = Object.fromEntries(Object.keys(cases).map((k) => [k, land(k)]));
@@ -201,6 +201,23 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slugs = new Set(((await (await get("/games/games.json")).json()).games || []).map((g) => g.slug));
   ok([...def.matchAll(/"([a-z0-9-]+)"/g)].every((m) => slugs.has(m[1])), "social landing: every platform default is a real game", def.trim());
   ok(!/window\.open|target="_blank"/.test((await (await get("/games/hub.js")).text()).match(/function landing\(\)[\s\S]*?\}\)\(\);/)?.[0] || "x"), "social landing: the card opens the game in the same tab (no popups or new windows)");
+  // round 18: the TikTok welcome strip (assets/deck.js). Marked only for tiktok tags, a tiktok.com referrer or a /g/ bio link;
+  // shown on that visit's pages, never on game pages, the hook game or under the hub's landing card, and gone once hidden
+  const deckSrc = await (await get("/assets/deck.js")).text();
+  const ttLine = (deckSrc.match(/\n\s*if \(tag === "tiktok"[^\n]*/) || [])[0];
+  const marks = (tag, rh, um, camp) => { const ss = {}; vm.runInNewContext(ttLine || "", { tag, rh, um, camp, sessionStorage: { setItem: (k, v) => { ss[k] = v; } } }); return ss["cc-tt"] === "1"; };
+  ok(ttLine && marks("tiktok", "", "", "") && marks(null, "www.tiktok.com", "", "") && marks("short", "", "short", "bio") && !marks("youtube", "", "", "") && !marks("instagram", "", "", "") &&
+    !marks(null, "www.google.com", "", "") && !marks("short", "", "short", "") && !marks(null, "tiktok.com.example", "", ""), "tiktok welcome strip: marked for tiktok tags, tiktok.com and bio short links only");
+  const hiSrc = (deckSrc.match(/\/\/ Welcome strip for TikTok arrivals[\s\S]*?\n  \}\)\(\);/) || [])[0];
+  const strip = (o) => {
+    let added = null;
+    const ss = { "cc-tt": o.tt ? "1" : null }, ls = { "cc-tt-hi": o.hid ? "1" : null }, el = { setAttribute() {}, querySelector: () => ({ addEventListener() {} }) };
+    vm.runInNewContext(hiSrc || "", { sessionStorage: { getItem: (k) => ss[k] }, localStorage: { getItem: (k) => ls[k], setItem() {} }, location: { pathname: o.path || "/" },
+      document: { querySelector: (q) => (q === ".player-page" && o.game ? {} : null), documentElement: { hasAttribute: () => !!o.landing }, body: { appendChild: (e) => { added = e; } }, createElement: () => el } });
+    return !!added && /desktop-takeover/.test(added.innerHTML || "");
+  };
+  ok(hiSrc && strip({ tt: 1 }) && strip({ tt: 1, path: "/games/" }) && !strip({}) && !strip({ tt: 1, hid: 1 }) && !strip({ tt: 1, game: 1, path: "/games/crash/" }) &&
+    !strip({ tt: 1, path: "/games/desktop-takeover/" }) && !strip({ tt: 1, landing: 1 }), "tiktok welcome strip: only on a tiktok visit, not after hiding, not on game pages, the hook game or under the landing card");
   // one tap to playing: the card leaves a flag, cc.autostart() reads it once for that game only (smol-brains honors it)
   const sdkSrc = await (await get("/games/cc-sdk.js")).text();
   const autoFn = (sdkSrc.match(/function autostart\(\) \{[\s\S]*?\n  \}/) || [])[0];

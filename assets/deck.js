@@ -34,6 +34,11 @@
       var us = (q.get("utm_source") || "").trim().toLowerCase(), um = (q.get("utm_medium") || "").trim().toLowerCase();
       var tagOk = function (v) { return /^[a-z0-9_.-]{1,40}$/.test(v) ? v : null; };
       if ((tagOk(us) || tagOk(um)) && !sessionStorage.getItem("cc-utm")) sessionStorage.setItem("cc-utm", JSON.stringify({ s: tagOk(us), m: tagOk(um) }));
+      // a TikTok arrival (a tiktok/tt tag, a tiktok.com referrer, or a /g/ short link tagged utm_campaign=bio) gets the
+      // "came from @computercooked? start here" strip for the rest of this visit (the welcome strip below)
+      var rh = "";
+      try { rh = document.referrer ? new URL(document.referrer).hostname : ""; } catch (err) {}
+      if (tag === "tiktok" || /(^|\.)tiktok\.com$/.test(rh) || ((tag === "short" || um === "short") && camp === "bio")) sessionStorage.setItem("cc-tt", "1");
       // team test mode: ?cctest=1 gives this browser a "smoke-" anonymous id, which every count already leaves out
       // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. ?cctest=1 stays in
       // the address (K-0057: it vanished on arrival, so test runs looked counted); ?cctest=0 comes off.
@@ -105,6 +110,28 @@
       });
       if (thanks && !sessionStorage.getItem("cc-tipped")) { sessionStorage.setItem("cc-tipped", "1"); hit("tip_success"); window.ccTipThanks = true; }
     } catch (e) {}
+  })();
+
+  // Welcome strip for TikTok arrivals (round 18): a slim bar at the bottom pointing at the hook game, the one most of
+  // TikTok's plays go to. Shown for the visit once deck.js above marked it (cc-tt); never for other referrers. Not on
+  // game pages (they came to play that one), embeds, the hook game itself, or while the hub's own "from the clip"
+  // card is up. The x hides it for good on this browser (cc-tt-hi); so does following it.
+  (function () {
+    var HOOK = { slug: "desktop-takeover", title: "desktop takeover" };
+    try { if (sessionStorage.getItem("cc-tt") !== "1" || localStorage.getItem("cc-tt-hi")) return; } catch (e) { return; }
+    var p = location.pathname;
+    if (document.querySelector(".player-page") || /\/embed\/?$/.test(p) || p.indexOf("/games/" + HOOK.slug + "/") === 0 ||
+      document.documentElement.hasAttribute("data-landing") || !document.body) return;
+    var bar = document.createElement("div");
+    bar.className = "tt-hi";
+    bar.setAttribute("role", "region");
+    bar.setAttribute("aria-label", "welcome from tiktok");
+    bar.innerHTML = '<a class="tt-hi-go" href="/games/' + HOOK.slug + '/"><span class="tt-hi-k">came from @computercooked?</span> ' +
+      "<b>start here: " + HOOK.title + ' →</b></a><button type="button" class="tt-hi-x" aria-label="hide this">×</button>';
+    function keep() { try { localStorage.setItem("cc-tt-hi", "1"); } catch (e) {} }
+    bar.querySelector(".tt-hi-x").addEventListener("click", function () { keep(); bar.remove(); });
+    bar.querySelector(".tt-hi-go").addEventListener("click", keep);
+    document.body.appendChild(bar);
   })();
 
   var deck = document.querySelector(".deck");
