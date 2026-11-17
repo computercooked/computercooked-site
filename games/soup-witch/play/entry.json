@@ -5,6 +5,7 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "version": "1.0",
+  "results": "quiet",
   "theme": {
     "accent": "#ffd84a",
     "bg": "#150f24"
