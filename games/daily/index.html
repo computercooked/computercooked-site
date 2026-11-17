@@ -45,6 +45,7 @@
         <p class="dly-streak" id="dly-streak"><b>0</b> day streak</p>
       </div>
       <p class="dly-sub" id="dly-sub">play all three once today to keep it going.</p>
+      <p class="dly-freeze" data-dly-freeze>🧊 1 freeze ready this week</p>
       <ol class="dly-list">
         <li><a class="dly-card" href="/games/crash-test-daily/" data-d3="crash-test-daily"><span class="dly-poster"><img src="/assets/posters/crash-test-daily.webp" alt="" width="320" height="180"></span><span class="dly-num" aria-hidden="true">1</span><span class="dly-info"><span class="dly-name">crash test (daily)</span><span class="dly-state">not played yet</span></span><span class="dly-go" aria-hidden="true">play →</span></a></li>
         <li><a class="dly-card" href="/games/desktop-jam/" data-d3="desktop-jam"><span class="dly-poster"><img src="/assets/posters/desktop-jam.webp" alt="" width="320" height="180"></span><span class="dly-num" aria-hidden="true">2</span><span class="dly-info"><span class="dly-name">desktop jam</span><span class="dly-state">not played yet</span></span><span class="dly-go" aria-hidden="true">play →</span></a></li>
@@ -66,6 +67,7 @@
         <div><dt>best streak</dt><dd id="dly-st-best">0</dd></div>
         <div><dt>days done</dt><dd id="dly-st-days">0</dd></div>
       </dl>
+      <p class="dly-freeze" data-dly-freeze>🧊 1 freeze ready this week</p>
       <div class="dly-week-wrap">
         <p class="dly-week-h">last 7 days</p>
         <ol class="dly-week" id="dly-week" role="img" aria-label="last 7 days"></ol>
@@ -80,7 +82,7 @@
         <figcaption><a class="ghost-btn" id="dly-save" download="computer-cooked-daily-3.png" href="#">save image</a></figcaption>
       </figure>
     </section>
-    <p class="dly-note">finish all three today: <b>+60 xp</b>. your streak lives on this device for now. miss a day and it starts over. no freezes. the computer is strict.</p>
+    <p class="dly-note">finish all three today: <b>+60 xp</b>. your streak lives on this device for now. <span aria-hidden="true">🧊</span> miss a day, the computer covers you once a week. it's not proud of it.</p>
     <section class="about-card wk" id="d3-week" aria-label="this week's top xp" hidden></section>
   </main>
   <div class="dly-toast" id="dly-toast" role="status" aria-live="polite"></div>
@@ -103,13 +105,14 @@
   <script src="/assets/weekly.js" defer></script>
   <script>document.addEventListener("DOMContentLoaded", function () { if (window.ccWeekly) window.ccWeekly(document.getElementById("d3-week")); });</script>
   <script>
-  /* the daily 3 board (assets/daily3.js has the data). Test hook: ?dailydemo=done | half | none shows fake data and
-     writes nothing (share and the image still work, with the fake numbers). */
+  /* the daily 3 board (assets/daily3.js has the data). Test hook: ?dailydemo=done | half | none | frozen shows fake
+     data and writes nothing (share and the image still work, with the fake numbers). frozen: all three done, with a
+     streak freeze used 3 days ago. */
   (function () {
     "use strict";
     var d = window.ccDaily3; if (!d) return;
     var $ = function (id) { return document.getElementById(id); };
-    var demo = (/[?&]dailydemo=(done|half|none)(&|$)/.exec(location.search) || [])[1];
+    var demo = (/[?&]dailydemo=(done|half|none|frozen)(&|$)/.exec(location.search) || [])[1];
     var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var LINES_DONE = [
       "come back tomorrow. i'll be here. melting.",
@@ -124,15 +127,27 @@
     function fmt(n) { return Number(n).toLocaleString("en-US"); }
     function fake() {
       var out = { of: 3, week: [], scores: {} };
-      var n = demo === "done" ? 3 : demo === "half" ? 2 : 0;
+      var ice = demo === "frozen", n = demo === "done" || ice ? 3 : demo === "half" ? 2 : 0;
       out.done = d.GAMES.slice(0, n);
-      out.streak = demo === "done" ? 4 : 3; out.best = 9; out.days = 23;
+      out.streak = ice ? 6 : demo === "done" ? 4 : 3; out.best = 9; out.days = 23;
       if (n > 0) out.scores[d.GAMES[0]] = 14;
       if (n > 1) out.scores[d.GAMES[1]] = 4200;
       if (n > 2) out.scores[d.GAMES[2]] = 1840;
-      var pat = [3, 1, 3, 3, 3, 3, n];
-      for (var i = 0; i < 7; i++) { var t = new Date(); t.setDate(t.getDate() - 6 + i); out.week.push({ key: d.day(t), n: pat[i] }); }
+      var pat = ice ? [3, 3, 3, 0, 3, 3, 3] : [3, 1, 3, 3, 3, 3, n];
+      for (var i = 0; i < 7; i++) { var t = new Date(); t.setDate(t.getDate() - 6 + i); out.week.push({ key: d.day(t), n: pat[i], frozen: ice && i === 3 }); }
+      out.freeze = ice ? { ready: false, usedOn: out.week[3].key, held: true, days: [out.week[3].key] }
+        : { ready: true, usedOn: "", held: false, days: [] };
       return out;
+    }
+    function wday(k, len) {
+      var p = k.split("-");
+      return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-US", { weekday: "short" }).toLowerCase().slice(0, len || 3);
+    }
+    // the streak freeze line (board and stats panel): one a week, see assets/daily3.js
+    function freezeLine(f) {
+      if (!f) return "";
+      if (f.ready) return "🧊 1 freeze ready this week";
+      return "🧊 freeze used on " + wday(f.usedOn) + (f.held ? ". it held." : ". a new one comes monday.");
     }
     var st, shownDay;
     function render() {
@@ -155,6 +170,11 @@
         a.querySelector(".dly-go").textContent = on ? "again →" : "play →";
         a.setAttribute("aria-label", a.querySelector(".dly-name").textContent + ": " + (on ? "done today" + (typeof sc === "number" ? ", score " + fmt(sc) : "") : "not played yet"));
       });
+      var fl = freezeLine(st.freeze);
+      [].forEach.call(document.querySelectorAll("[data-dly-freeze]"), function (p) {
+        p.textContent = fl; p.hidden = !fl || (all && !!p.closest("#dly-board")); // once all three are done, the stats panel has it
+        p.classList.toggle("is-used", !!st.freeze && !st.freeze.ready);
+      });
       $("dly-share-part").hidden = !(done && !all);
       var box = $("dly-done"), was = !box.hidden;
       box.hidden = !all;
@@ -163,14 +183,15 @@
         $("dly-st-best").textContent = Math.max(st.best, st.streak);
         $("dly-st-days").textContent = st.days;
         $("dly-line").textContent = pick(LINES_DONE);
-        var full = 0, wk = $("dly-week");
+        var full = 0, ices = [], wk = $("dly-week");
         wk.innerHTML = st.week.map(function (w, j) {
-          var p = w.key.split("-"), dt = new Date(+p[0], +p[1] - 1, +p[2]);
-          var lab = dt.toLocaleDateString("en-US", { weekday: "short" }).toLowerCase().slice(0, 2);
+          var lab = wday(w.key, 2), ice = !!w.frozen && w.n < of;
           if (w.n >= of) full++;
-          return '<li class="' + (w.n >= of ? "is-full" : w.n ? "is-part" : "") + (j === 6 ? " is-today" : "") + '"><i></i><span>' + lab + "</span></li>";
+          if (ice) ices.push(wday(w.key));
+          return '<li class="' + (w.n >= of ? "is-full" : ice ? "is-frozen" : w.n ? "is-part" : "") + (j === 6 ? " is-today" : "") +
+            '"' + (ice ? ' title="frozen: the streak freeze covered it"' : "") + '><i></i><span>' + lab + "</span></li>";
         }).join("");
-        wk.setAttribute("aria-label", "last 7 days: all three done on " + full + " of 7");
+        wk.setAttribute("aria-label", "last 7 days: all three done on " + full + " of 7" + (ices.length ? ", frozen on " + ices.join(" and ") + " (the streak freeze covered it)" : ""));
         if (!was && !reduce) { box.classList.remove("is-new"); void box.offsetWidth; box.classList.add("is-new"); }
       }
     }
