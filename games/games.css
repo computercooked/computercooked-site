@@ -669,6 +669,12 @@
   color: var(--lime);
 }
 
+/* quiet games (games/player.js): the last run's results wait here instead of covering the game */
+.tool-results { border-color: var(--lime); color: var(--lime); }
+.tool-results.is-new { animation: tool-results-pop .5s var(--ease-spring) 2; }
+@keyframes tool-results-pop { 50% { transform: scale(1.08); box-shadow: 0 0 0 4px rgba(197, 255, 73, .25); } }
+@media (prefers-reduced-motion: reduce) { .tool-results.is-new { animation: none; } }
+
 .tool:active {
   transform: scale(0.94);
 }

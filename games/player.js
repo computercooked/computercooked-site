@@ -444,8 +444,17 @@
     var stage = player.querySelector(".player-stage");
     if (!m || !stage) return;
     var slug = m[1];
-    // games that restart a run on {type:"cc-restart"}; the rest are reloaded (back to their start screen)
-    var RESTARTS = /^(ant-farm|bellchain|cooked-sweeper|crash|crash-cheats|crash-test-daily|desktop-jam|fathom|handbag-havoc|keyboard-escape|level-devil-exe|one-percent-popup|overdue-notice|pixel-purge|plus-one-ram|prove-youre-human|reel-weird|smol-brains|tab-hoarder)$/;
+    // games that restart a run on {type:"cc-restart"}; the rest are reloaded (back to their start screen). A games.json
+    // entry can also say "restart": true. The new games are listed ahead of their merge (their PRs handle cc-restart).
+    var RESTARTS = /^(ant-farm|bellchain|cooked-sweeper|crash|crash-cheats|crash-test-daily|desktop-jam|fathom|garage-sale-goblin|ghost-bus|handbag-havoc|keyboard-escape|knight-shift|level-devil-exe|mow-money|one-percent-popup|overdue-notice|pixel-purge|plus-one-ram|prove-youre-human|reel-weird|smol-brains|soup-witch|tab-hoarder|typo-wizard)$/;
+    // how the card arrives. "run" (the default): it pops up over the game after every run. "quiet": it never covers the
+    // game, for games that send cc.end per level, day or season and show their own "next" screen; a "results" button
+    // lights up in the bar under the game instead and opens the card. Set with "results": "quiet" in games.json;
+    // QUIET covers games whose entries aren't merged yet.
+    var QUIET = /^(ghost-bus|soup-witch)$/;
+    var entry = null; // this game's games.json entry, once loaded
+    function restarts() { return RESTARTS.test(slug) || !!(entry && entry.restart === true); }
+    function quiet() { return QUIET.test(slug) || !!(entry && entry.results === "quiet"); }
     var NO_CARD = ["idle", "sim", "incremental"]; // no "run over" moment in these
     var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var fine = window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -749,7 +758,7 @@
       if (performance.now() - openedAt < 450) return; // a key still held from the run doesn't count
       close(false);
       try { frame.focus({ preventScroll: true }); } catch (e) {}
-      if (RESTARTS.test(slug)) send({ type: "cc-restart" });
+      if (restarts()) send({ type: "cc-restart" });
       else {
         try { frame.contentWindow.location.reload(); } catch (e) { frame.src = frame.dataset.src || frame.src; }
         frame.addEventListener("load", function f() { frame.removeEventListener("load", f); try { frame.focus({ preventScroll: true }); frame.contentWindow.focus(); } catch (e) {} });
@@ -856,15 +865,35 @@
       setTimeout(function () { layer.remove(); }, 3600);
     }
 
-    document.addEventListener("cc:start", function () { close(false); shareLastRun = null; games(); });
+    // quiet games: the bar's "results" button holds the last run's card until the next run starts
+    var resBtn = null, pending = null;
+    function quietResult(d, o) {
+      pending = { d: d, o: o };
+      if (!resBtn) {
+        resBtn = document.createElement("button");
+        resBtn.className = "tool tool-results"; resBtn.id = "btn-results"; resBtn.type = "button";
+        resBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg><span class="tool-text"></span>';
+        resBtn.addEventListener("click", function () { if (pending) open(pending.d, pending.o); });
+        var rs = document.getElementById("btn-restart");
+        if (rs && rs.parentNode) rs.parentNode.insertBefore(resBtn, rs.nextSibling);
+      }
+      var label = o.kind === "best" ? "new best" : "results";
+      resBtn.querySelector(".tool-text").textContent = label;
+      resBtn.setAttribute("aria-label", label + ": " + (typeof d.score === "number" ? fmt(d.score) : "see the run") + ". opens the results card");
+      resBtn.hidden = false;
+      resBtn.classList.remove("is-new"); void resBtn.offsetWidth; resBtn.classList.add("is-new");
+    }
+    document.addEventListener("cc:start", function () { close(false); shareLastRun = null; games(); pending = null; if (resBtn) resBtn.hidden = true; });
     document.addEventListener("cc:end", function (e) {
       var d = e.detail || {};
       if (d.completed === false || (d.game && d.game !== slug)) return;
       clearTimeout(timer);
       games().then(function (list) {
         var me = list.filter(function (g) { return g.slug === slug; })[0];
+        entry = me || null;
         if (me && (me.tags || []).some(function (t) { return NO_CARD.indexOf(t) >= 0; })) return;
         var o = judge(d); // the best on this device moves even if the card ends up not showing
+        if (quiet()) { quietResult(d, o); return; }
         // a beat for the game's own "game over" to land first
         timer = setTimeout(function () {
           if ((window.cc && window.cc._active()) || player.classList.contains("is-mini") || document.querySelector("dialog[open]")) return;
