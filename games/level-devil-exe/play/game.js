@@ -934,9 +934,10 @@ window.addEventListener('blur', () => { keys.l = keys.r = keys.j = false; });
 
 // ---------- loop ----------
 let last = performance.now();
+let testHold = false;   // tests only (__ld.hold): freeze the world, keep drawing
 function frame(now) {
   let dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;   // 2.2: never negative (a slow first frame could start behind the clock)
-  if (!paused) { const n = dt > 1 / 90 ? 2 : 1; for (let i = 0; i < n; i++) update(dt / n); }
+  if (!paused && !testHold) { const n = dt > 1 / 90 ? 2 : 1; for (let i = 0; i < n; i++) update(dt / n); }
   draw();
   requestAnimationFrame(frame);
 }
@@ -952,5 +953,5 @@ requestAnimationFrame(frame);
 
 window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; }, get pad() { return pad; }, get V() { return V; }, get deadT() { return deadT; },
   // 2.4 (tests): run score, records, goals, the daily file
-  get run() { return run; }, get save() { return save; }, get lvClock() { return lvClock; }, get pops() { return pops; }, win, nextGoal, dailyLv, checkGoals, GOALS };
+  get run() { return run; }, get save() { return save; }, get lvClock() { return lvClock; }, get pops() { return pops; }, win, nextGoal, dailyLv, checkGoals, GOALS, set hold(v) { testHold = !!v; }, kill: (m) => kill(m || 'TEST') };
 })();
