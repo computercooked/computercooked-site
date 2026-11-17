@@ -863,7 +863,7 @@
     const px = (W - pw) / 2, py = Math.max(10 * S, (H - ph) / 2);
     btns.bookPanel = { x: px, y: py, w: pw, h: ph };
     text('collection book', px, py + 26 * S, 20 * S, COL.lime, 'left', '900');
-    text(bookCount() + '/' + ITEMS.length + ' found', px, py + 46 * S, 12 * S, COL.dim, 'left', '700');
+    text(bookCount() + '/' + ITEMS.length + ' found · ' + lifetime() + ' caught · ' + RODS[rodNow()].name, px, py + 46 * S, 12 * S, COL.dim, 'left', '700');
     button('close', 'close', px + pw - 70 * S, py + 8 * S, 70 * S, 30 * S, COL.paper);
     btns.tiles = [];
     ITEMS.forEach((it, i) => {
