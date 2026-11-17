@@ -1587,7 +1587,7 @@ function tabWorld(body){
 var code=SB.worldCode(game.seed),s=game.stats;
 var url="https://computercooked.com/games/smol-brains/play/?world="+code;
 body.appendChild(h("div",{class:"sec"},"this world"));
-body.appendChild(h("div",{class:"row wrap"},[h("span",{class:"chip lime mono",style:"font-size:14px"},"🌱 "+code),h("button",{class:"btn",onclick:function(){copy(url,"world link copied. friends who open it get the same island.");SB.Game.unlock(game,"seed");}},"copy world link"),h("button",{class:"btn go",onclick:function(){civCard();}},"🪪 civilisation card")]));
+body.appendChild(h("div",{class:"row wrap"},[h("span",{class:"chip lime mono",style:"font-size:14px"},"🌱 "+code),adPortal()?null:h("button",{class:"btn",onclick:function(){copy(url,"world link copied. friends who open it get the same island.");SB.Game.unlock(game,"seed");}},"copy world link"),h("button",{class:"btn go",onclick:function(){civCard();}},"🪪 civilisation card")].filter(Boolean)));
 var tribe=game.tribes&&game.tribes[0];
 var stats=[
 ["tribe",tribe&&tribe.name?tribe.name:"(not named yet)"],["highest tier",SB.TIERS[s.maxTier||0].icon+" "+SB.TIERS[s.maxTier||0].name],["generations",s.maxGen],
@@ -1643,6 +1643,8 @@ var code=SB.Save.exportSmol(c);
 var body=h("div",null,[h("p",{class:"note"},"this code is "+c.name+": genes, trained brain, words and ideas. paste it into any world (smolpedia → world)."),h("div",{class:"code"},code),h("div",{class:"btnrow"},[h("button",{class:"btn go",onclick:function(){copy(code,"smol code copied");game.stats.exported++;SB.Game.unlock(game,"share");}},"copy code")])]);
 modal("📤 "+c.name+"'s code",body);
 }
+function adPortal(){var p=typeof window!=="undefined"?window.CC_PORTAL:null;return!!(p&&p.name&&p.name!=="none");}
+UI.adPortal=adPortal;
 function copy(text,msg){
 try{
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(function(){toast(msg);},function(){toast(text);});
@@ -2249,14 +2251,14 @@ ctx.fillStyle="#c5ff49";ctx.font="800 40px ui-monospace, monospace";ctx.fillText
 ctx.fillStyle="rgba(245,243,237,0.6)";ctx.font="600 24px system-ui";ctx.fillText(r[2],x+90,y+100);
 });
 ctx.fillStyle="#b59aff";ctx.font="800 26px ui-monospace, monospace";
-ctx.fillText("computercooked.com/games/smol-brains",60,1300);
+if(!adPortal())ctx.fillText("computercooked.com/games/smol-brains",60,1300);
 var url=cv.toDataURL("image/png");
 var im=h("img",{src:url,style:"width:100%;border-radius:14px;display:block"});
 var body=h("div",null,[im,h("div",{class:"btnrow"},[
 h("button",{class:"btn go",onclick:function(){shareCard(cv);}},"📤 share"),
 h("a",{class:"btn",href:url,download:"smol-civilisation.png"},"⬇ download"),
-h("button",{class:"btn",onclick:function(){copy("https://computercooked.com/games/smol-brains/play/?world="+SB.worldCode(game.seed),"world link copied");}},"🌱 copy world link")
-])]);
+adPortal()?null:h("button",{class:"btn",onclick:function(){copy("https://computercooked.com/games/smol-brains/play/?world="+SB.worldCode(game.seed),"world link copied");}},"🌱 copy world link")
+].filter(Boolean))]);
 modal("🪪 my civilisation",body);
 }
 }

@@ -367,6 +367,7 @@ var ch=c.chem||{};
 return[["💗","heart",c01(ch.health==null?1:ch.health)],["🍖","belly",c01(1-(ch.hunger||0))],["🍯","blood sugar",c01(ch.glucose)],["🧈","fat",c01(ch.fat)],["😴","rest",c01(1-Math.max(ch.tired||0,ch.sleepy||0))],["🛡","antibodies",c01((ch.antibody||0)*2)],["🦠","germs",c01(ch.antigen),true],["☠","poison",c01(ch.toxin),true]];
 };
 Q.eggLine=function(game,c){
+if(c.stage>3)return"past the age for eggs";
 if(c.stage!==3)return"not grown up yet";
 var pt=c.partner!=null?SB.Game.byId(game,c.partner):null;
 if(!pt||!pt.alive)return"no partner";
@@ -947,7 +948,7 @@ var fps={t:0,n:0,v:0};
 Q.debug=function(game,c){
 var w=game.world,out=[];
 out.push("island "+(SB.worldCode?SB.worldCode(game.seed):game.seed)+" · seed "+game.seed);
-out.push("time "+Math.round(game.time)+"s · speed "+game.speed+"× · "+(fps.v?fps.v+" frames a second":"frames not counted yet"));
+out.push("time "+Math.round(game.time)+"s · speed "+game.speed+"× · "+(fps.v?fps.v+(fps.v===1?" frame a second":" frames a second"):"frames not counted yet"));
 out.push("smols "+SB.Game.smols(game).length+" · grumps "+SB.Game.grumps(game).length+" · things "+(w.items||[]).length+" · buildings "+(w.structures||[]).length+" · plants and rocks "+(w.nodes||[]).length);
 if(c)out.push("you: x "+r2(c.x)+" z "+r2(c.z)+" · facing "+(Q.facing()||"?")+" · tier "+c.tier);
 out.push("book: "+st(game).pins.length+" pins · "+st(game).log.length+" log lines · "+Q.album().length+" pictures · "+Q.bin().length+" on the shelf");
