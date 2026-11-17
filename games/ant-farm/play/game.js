@@ -440,7 +440,8 @@
     if (c.jelly && isNew) G.jelly += c.jelly;
     sparkle((i % COLS) + 0.5, ((i / COLS) | 0) + 0.5);
     sfx("treasure");
-    toast(isNew ? `new curio: ${c.name}! +${c.food} food${c.jelly ? `, +${c.jelly} royal jelly` : ""}` : `${c.name} again. +${c.food} food`);
+    if (isNew && started) { banner(`new curio · ${nCur()} of ${CURIOS.length}`, c.name, `+${c.food} food${c.jelly ? ` · +${c.jelly} royal jelly` : ""}`, c.spr); shake(0.5); } // r5: a clip moment, readable with the sound off
+    else toast(isNew ? `new curio: ${c.name}! +${c.food} food${c.jelly ? `, +${c.jelly} royal jelly` : ""}` : `${c.name} again. +${c.food} food`);
     if (Object.keys(G.curios).length >= 6) ach("curio_6");
     if (c.id === "floppy") bubbleOn(nearestAnt(i), "is this... the computer?");
   }
@@ -533,7 +534,7 @@
     G.goal++; G.gToday = (G.gToday || 0) + 1; goalCd = simT + 3.5;
     G.food += g.r;
     sparkle(QX + 0.5, QY - 1); sparkle(QX - 1.5, QY - 0.5); sparkle(QX + 2.5, QY - 0.5);
-    sfx("goal");
+    sfx("goal"); shake(0.3);
     const nx = goalNow();
     banner(`goal ${G.goal} of ${GOALS.length} ✓`, g.s, `+${g.r} food${!nx ? "" : G.gToday >= GOALS_A_DAY ? " · next goal opens tomorrow" : " · next: " + nx.s}`);
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) try { navigator.vibrate(30); } catch (e) { /* fine */ }
@@ -595,8 +596,8 @@
       lens.x += clamp(tx - lens.x, -1, 1) * dt * 2.2 + Math.sin(lens.t * 3) * dt * 0.6;
       lens.x = clamp(lens.x, 1, COLS - 1);
       for (const a of surf) if (!a.sol && Math.abs(a.x - lens.x) < 2.5 && a.heat > 0.25 && a.task !== "flee") a.task = "flee"; // K-0060: scorched ants run for it
-      for (const a of surf) if (Math.abs(a.x - lens.x) < 0.9) { a.heat += dt; if (a.heat > 1.1) { a.hp = 0; puff(a.x, a.y, "#444", 6); fx.push({ k: "txt", x: a.x, y: a.y - 1, s: "toasted", life: 1.4 }); sfx("sizzle"); } } else a.heat = Math.max(0, a.heat - dt);
-      if (lens.t > 16 || lens.hp <= 0) { if (lens.hp <= 0) { toast("the kid got bored. good job."); ach("shoo"); } lens = null; for (const a of ants) if (a.task === "flee" && rain <= 0 && !spider) assign(a); if (camY < -topPad()) camGo = -topPad(); }
+      for (const a of surf) if (Math.abs(a.x - lens.x) < 0.9) { a.heat += dt; if (a.heat > 1.1) { a.hp = 0; puff(a.x, a.y, "#444", 6); shake(0.6); fx.push({ k: "txt", x: a.x, y: a.y - 1, s: "toasted", life: 1.4 }); sfx("sizzle"); } } else a.heat = Math.max(0, a.heat - dt);
+      if (lens.t > 16 || lens.hp <= 0) { if (lens.hp <= 0) { banner("shoo!", "the kid got bored", "the colony is safe. for now."); shake(0.4); ach("shoo"); } lens = null; for (const a of ants) if (a.task === "flee" && rain <= 0 && !spider) assign(a); if (camY < -topPad()) camGo = -topPad(); }
     }
     // spider
     if (spider) {
@@ -616,8 +617,8 @@
       const mv = clamp(tx - s.x, -1, 1);
       s.x += mv * dt * sp; s.ph += dt * 8 * Math.abs(mv) + dt;
       if (Math.abs(mv) > 0.2) s.dir = mv > 0 ? 1 : -1;
-      if (s.cd <= 0) for (const a of surf) if (Math.abs(a.x - s.x) < 1) { a.hp -= a.sol ? 4 : 99; s.cd = 3; sfx("bite"); fx.push({ k: "txt", x: s.x, y: SURF - 1.5, s: "chomp", life: 0.9 }); if (a.hp <= 0) puff(a.x, a.y, "#222", 5); break; }
-      if (s.hp <= 0) { toast("the spider is now a buffet. +60 food (on the grass)"); spawnPile("spider", clamp(Math.round(s.x - 0.5), 0, COLS - 1), 60); ach("spider_slayer"); G.life.kills++; spider = null; dirty.food = true; }
+      if (s.cd <= 0) for (const a of surf) if (Math.abs(a.x - s.x) < 1) { a.hp -= a.sol ? 4 : 99; s.cd = 3; sfx("bite"); shake(0.5); fx.push({ k: "txt", x: s.x, y: SURF - 1.5, s: "chomp", life: 0.9 }); if (a.hp <= 0) puff(a.x, a.y, "#222", 5); break; }
+      if (s.hp <= 0) { banner("spider down!", "it's a buffet now", "+60 food on the grass"); shake(0.8); puff(s.x, SURF, "#222", 14); spawnPile("spider", clamp(Math.round(s.x - 0.5), 0, COLS - 1), 60); ach("spider_slayer"); G.life.kills++; spider = null; dirty.food = true; }
       else if (s.t >= s.stay && (s.x < -3 || s.x > COLS + 3)) { spider = null; dirty.food = true; for (const a of ants) if (a.task === "flee" && rain <= 0) assign(a); }
       if (Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) dirty.food = true;
     }
@@ -626,7 +627,7 @@
       const sp = 2.5 * dt;
       for (let k = reds.length - 1; k >= 0; k--) {
         const r = reds[k];
-        if (r.hp <= 0) { reds.splice(k, 1); G.food += 3; puff(r.x, r.y, "#c8322b", 5); G.life.kills++; if (!reds.length) { toast("raid over. the colony holds."); ach("raid_survivor"); } continue; }
+        if (r.hp <= 0) { reds.splice(k, 1); G.food += 3; puff(r.x, r.y, "#c8322b", 5); G.life.kills++; if (!reds.length) { banner("raid over!", "the colony holds", "the queen says thanks"); shake(0.5); ach("raid_survivor"); } continue; }
         r.ph += dt * 14; if (r.cd > 0) r.cd -= dt;
         // fight anything adjacent
         let foe = null;
@@ -807,11 +808,14 @@
   // ---------- drawing ----------
   let flyFx = null, clouds = [{ x: 0.1, y: 0.25, s: 1 }, { x: 0.55, y: 0.12, s: 0.8 }, { x: 0.85, y: 0.35, s: 1.2 }];
   function draw(dt) {
-    cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    cx.fillStyle = "#17120d"; cx.fillRect(0, 0, W, H);
+    // r5: screen shake (spider bites, toasted ants, curios, wins)
+    let shx = 0, shy = 0;
+    if (shakeT > 0) { shx = (R() - 0.5) * shakeT * 9; shy = (R() - 0.5) * shakeT * 9; shakeT = Math.max(0, shakeT - Math.max(dt, 1 / 60) * 2.5); }
+    cx.setTransform(DPR, 0, 0, DPR, shx * DPR, shy * DPR);
+    cx.fillStyle = "#17120d"; cx.fillRect(-10, -10, W + 20, H + 20);
     const wx = offX, ww = COLS * ts, top = -camY, skyH = SKY * ts;
     // wall behind the farm
-    cx.fillStyle = "#211a13"; cx.fillRect(0, 0, W, H);
+    cx.fillStyle = "#211a13"; cx.fillRect(-10, -10, W + 20, H + 20);
     // sky
     const sg = cx.createLinearGradient(0, top, 0, top + skyH);
     if (rain > 0) { sg.addColorStop(0, "#5d6a78"); sg.addColorStop(1, "#8d9aa6"); }
@@ -1116,8 +1120,11 @@
   const goalEl = $("goal"), bannerEl = $("banner");
   let hudH = 0;
   goalEl.onclick = () => { const g = goalNow(); if (g && goalLocked()) coach(`that's today's ${GOALS_A_DAY} goals. the colony keeps digging marked tiles while you're away. next: ${g.s}.`); else if (g) coach(`${g.s}: ${g.hint}`); else coach("that's every goal. now beat your best colony."); };
-  function banner(a, b, c) {
-    bannerEl.innerHTML = `<small>${a}</small><b>${b}</b><span>${c}</span>`;
+  let shakeT = 0;
+  function shake(a) { shakeT = Math.max(shakeT, a); }
+  function sprURL(spr) { const c = document.createElement("canvas"); c.width = c.height = 8; const g = c.getContext("2d"); for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const ch = spr[y][x]; if (ch !== ".") { g.fillStyle = PAL[ch]; g.fillRect(x, y, 1, 1); } } return c.toDataURL(); }
+  function banner(a, b, c, spr) {
+    bannerEl.innerHTML = `${spr ? `<img alt="" src="${sprURL(spr)}">` : ""}<small>${a}</small><b>${b}</b><span>${c}</span>`;
     bannerEl.hidden = false; bannerEl.classList.remove("go"); void bannerEl.offsetWidth; bannerEl.classList.add("go");
     clearTimeout(banner.t); banner.t = setTimeout(() => { bannerEl.hidden = true; }, 2900);
   }
@@ -1441,11 +1448,11 @@
   function ach(id) { if (G.ach[id]) return; G.ach[id] = 1; sdk((c) => c.achieve && c.achieve(id)); }
 
   // ---------- loop ----------
-  let last = performance.now(), acc = 0, hudT = 0;
+  let last = performance.now(), acc = 0, hudT = 0, waitTouch = false;
   const STEP = 1 / 30;
   function frame(t) {
     const raw = Math.min(0.25, Math.max(0, (t - last) / 1000)); last = t;
-    if (G && started && !over && !paused && !document.hidden) { // G: a start that beats the save load waits for it
+    if (G && started && !waitTouch && !over && !paused && !document.hidden) { // G: a start that beats the save load waits for it
       acc += raw * spd;
       let n = 0;
       while (acc >= STEP && n < 12) { sim(STEP); acc -= STEP; n++; }
@@ -1500,10 +1507,16 @@
     }
     camY = clampCam(-topPad());
     recount(); for (const a of ants) assign(a);
-    if (window.cc && cc.autostart && cc.autostart()) begin();
+    if (window.cc && cc.autostart && cc.autostart()) {
+      // r5: sent by the hub's "tap to play": skip the title, but the farm waits for the first touch or key (the player
+      // page may still cover it with "tap to play full screen"), so nobody misses the opening seconds
+      begin(); waitTouch = true;
+      const wake = () => { if (!waitTouch) return; waitTouch = false; last = performance.now(); sessStart = performance.now(); };
+      addEventListener("pointerdown", wake, { capture: true }); addEventListener("keydown", wake, { capture: true });
+    }
     if (qs.get("shot") === "1") setTimeout(() => {
       // thumbnail mode: a grown colony with no chrome
-      ["hud", "bar", "title", "toast"].forEach((id) => ($(id).style.display = "none"));
+      ["hud", "bar", "title", "toast", "banner"].forEach((id) => ($(id).style.display = "none"));
       started = true; muted = true; G.tut = 9; G.food = 2000; setZoom(1, W / 2, H / 2, true);
       [[8, 17, 28, 17], [8, 18, 8, 26], [28, 18, 28, 30], [9, 26, 20, 26], [20, 27, 20, 34], [21, 30, 27, 30]].forEach((r) => window.__af.mark(...r));
       window.__af.ff(240);
