@@ -18,8 +18,8 @@
         "60s runs"
       ],
       "controls": "drag / arrows / A D",
-      "size_kb": 268,
-      "version": "2.3",
+      "size_kb": 303,
+      "version": "2.4",
       "added": "2026-10-19",
       "max_score_per_sec": 60,
       "how_to": [
@@ -27,7 +27,9 @@
         "coffee −11°, fans −24°.",
         "heat creeps up on its own. it gets worse. like real life.",
         "score = time alive + dodges + pickups."
-      ]
+      ],
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "handbag-havoc",
@@ -131,11 +133,13 @@
         "halloween"
       ],
       "controls": "tap or click an icon to slide it off in its arrow's direction. keyboard: arrows move the cursor, enter/space taps, r restarts, p pauses, m mutes.",
-      "size_kb": 61,
-      "version": "2.5",
+      "size_kb": 67,
+      "version": "2.6",
       "added": "2026-10-19",
       "max_score_per_sec": 1000,
-      "max_score": 5500
+      "max_score": 5500,
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "fathom",
@@ -331,10 +335,11 @@
       ],
       "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
       "size_kb": 116,
-      "version": "2.3",
+      "version": "2.4",
       "added": "2026-10-19",
       "max_score_per_sec": 120,
-      "max_score": 950
+      "max_score": 1500,
+      "restart": true
     },
     {
       "slug": "overdue-notice",
