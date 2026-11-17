@@ -918,6 +918,38 @@
           "secret": false
         }
       ]
+    },
+    {
+      "slug": "ghost-bus",
+      "title": "ghost bus",
+      "pitch": "drive the last bus through a haunted town. draw the route, pick up the ghosts, drop them home before dawn. the divorced couple won't ride together and the vampire can smell the garlic chef.",
+      "thumbnail": "/games/ghost-bus/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "puzzle",
+        "route-planning",
+        "logic",
+        "levels",
+        "daily",
+        "spooky",
+        "comedy",
+        "one-thumb"
+      ],
+      "controls": "drag from the bus along the streets to draw its route (or tap a corner to drive there), then press go. undo and clear fix mistakes. keyboard: arrow keys draw, backspace undoes, enter drives, r clears, ? for a hint, m = sound, p = pause.",
+      "size_kb": 174,
+      "version": "1.0",
+      "added": "2026-11-16",
+      "theme": {
+        "accent": "#ffd84d",
+        "bg": "#0b0a1f"
+      },
+      "max_score_per_sec": 150.0,
+      "how_to": [
+        "drag from the bus along the streets to draw its route, then press go. ghosts board at their stop and get off at theirs.",
+        "the bus has only so many seats. drive past a waiting ghost you can't take and they go grumpy.",
+        "you can't draw past the dawn bar. three stars: everyone home, at or under par, and nobody grumpy.",
+        "each neighbourhood adds a rule: feuding ghosts, one-way streets and rickety bridges, then sleepy ghosts who only board after a honk."
+      ]
     }
   ]
 }
