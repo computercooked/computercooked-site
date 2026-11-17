@@ -174,7 +174,7 @@ window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at mos
 - The player page also sends `{type:"cc-mute", muted}`, `{type:"cc-restart"}` and `{type:"cc-pause"}` messages to the game iframe.
 - **The results card** (`games/player.js`) pops up over the game 0.7 s after every `cc.end` with `completed` not `false`. It never shows for games tagged idle, sim or incremental, or for a quit run (`completed: false`). Two optional games.json fields change it:
   - `"results": "quiet"` is for games that send `cc.end` per level, day or season and show their own "next" screen. The card never covers the game: a lime **results** (or **new best**) button lights up in the bar under it, opens the card, and goes away when the next run starts. Ghost bus and soup witch are quiet even before their entries merge (`QUIET` in player.js).
-  - `"restart": true` means the game restarts a run on `{type:"cc-restart"}`, so the card's **play again** sends that instead of reloading the game back to its start screen. Games already listed in `RESTARTS` in player.js (all six new games included) don't need it.
+  - `"restart": true` means the game restarts a run on `{type:"cc-restart"}`, so the card's **play again** sends that instead of reloading the game back to its start screen. Games already listed in `RESTARTS` in player.js (all six new games included) don't need it. Put either field in the game's `entry.json`: `scripts/add-game.ps1` copies both into games.json. If entry.json leaves a field out, the script keeps the value already in games.json. `"results": "run"` or `"restart": false` drops it.
 
 ### XP, levels and achievements (slice B)
 
