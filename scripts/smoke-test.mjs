@@ -1035,6 +1035,15 @@ if (admin) {
   ok([home, hubHtml].every((h) => (h.match(/class="cook-opt" data-option="[a-z-]+"/g) || []).length === 4 && h.includes("data-cook") && h.includes('src="/assets/cook.js"')), "home and hub show the cook-next vote (4 options)");
   const posters = await Promise.all(["raccoon-heist", "fort-knight", "tiny-volcano", "pond-merge"].map((id) => get("/assets/cook/" + id + ".svg").then((r) => r.ok && /svg/.test(r.headers.get("content-type") || ""))));
   ok(posters.every(Boolean), "cook-next posters are served", posters);
+  // round 19 (phone speed): game pages start the game once the page is done (or on a touch), heavy covers have small
+  // thumbnails for the small slots, and the hub's first card image is asked for first (the phone's LCP image)
+  const tko = await (await get("/games/desktop-takeover/")).text();
+  ok(tko.includes("r19, phone speed") && tko.includes("cc-autostart") && !tko.includes("start the game only once the page has painted"), "game page: the game starts after the page load, on a touch, or at once from the hub's tap-to-play");
+  const { THUMBS } = await import(new URL("../src/thumbs.js", import.meta.url));
+  const thumbs = await Promise.all([...THUMBS].map((t) => get("/assets/thumbs/" + t + ".webp").then((r) => r.ok && /webp/.test(r.headers.get("content-type") || ""))));
+  ok(THUMBS.size > 0 && thumbs.every(Boolean), "small card thumbnails are served", [...THUMBS]);
+  ok(/<li class="game-card"><a class="game-card-inner game-link" href="\/games\/[a-z0-9-]+\/"><img [^>]*fetchpriority="high"/.test(hubHtml), "hub: the first card image is fetched first (fetchpriority)");
+
   // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
   const logHtml = await (await get("/log/")).text();
   ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");

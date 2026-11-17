@@ -2,6 +2,7 @@
 // so editing them updates every page: /lab/lab.json (pipeline + the vote) and /log/log.json (the cooked log, the
 // computer's own). K-0048: /gary/ now 301s to /log/; gary/log.json and garyEntry/garyPage stay, unused.
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
+import { THUMBS } from "./thumbs.js";
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { themeAttr, now, dayOf, REAL, isNewGame } from "./util.js";
 import { gotdFor, gotdEnds } from "./gotd.js";
@@ -55,12 +56,15 @@ export const newest = (list, n = 6) => list.filter((g) => isNewGame(g))
 export function deskIcon(g) {
   return `<li><a class="desk-icon"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=desk" data-slug="${esc(g.slug)}" data-pitch="${esc(g.pitch)}"` +
     `${g.clip ? ` data-clip="${esc(g.clip)}"` : ""} data-line="${esc(LINES[g.slug] || "ooh. " + g.title + ".")}">` +
-    `<span class="ico"><img src="${esc(g.thumbnail)}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
+    `<span class="ico"><img src="${esc(small(g))}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
 }
 // a card's picture: the gameplay poster (games.json "poster", a 320x180 frame of the game's clip) when there is one,
 // else the cover (320x200). The boxes they sit in keep their own aspect ratio in CSS, so neither one shifts the page,
 // and the browser only ever downloads the one picture.
 export const art = (g) => g.poster ? { src: g.poster, w: 320, h: 180, cls: " is-poster" } : { src: g.thumbnail, w: 320, h: 200, cls: "" };
+// small slots (desk icons, "happening now", the chart, crowns): the 192x120 thumbnail for games whose cover is heavy
+// (scripts/make-thumbs.py, round 19), the cover itself for the rest (tiny pixel-art PNGs). Keeps the cover's ?v= cache key.
+export const small = (g) => (THUMBS.has(g.slug) ? `/assets/thumbs/${g.slug}.webp${(/\?.*$/.exec(g.thumbnail || "") || [""])[0]}` : g.thumbnail);
 export function card2(g, ref = "shelf") {
   // data-slug / data-added: the "your desk" row (assets/home.js, K-0064) builds its cards from these
   const a = art(g);
@@ -103,7 +107,7 @@ export function chart(rows, n = 5) {
 }
 const nf = (n) => Number(n).toLocaleString("en-US");
 function challengeCard(c, g) {
-  return `<img class="now-thumb" src="${esc(g.thumbnail)}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
+  return `<img class="now-thumb" src="${esc(small(g))}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
     `<span class="now-tag">weekly challenge <b>+${nf(c.xp)} xp</b></span>` +
     `<strong class="now-title">${esc(g.title)}: ${esc(c.goal)}</strong>` +
     `<span class="now-meta">${c.finishers ? `${nf(c.finishers)} ${c.finishers === 1 ? "player has" : "players have"} done it.` : "nobody has done it yet. be first."}</span>` +
@@ -115,7 +119,7 @@ function chartRow(r, g, i) {
     : m < 0 ? `<span class="mv mv-down"><span aria-hidden="true">▼</span><span class="visually-hidden">down </span>${-m}</span>`
     : '<span class="mv" aria-hidden="true">–</span>';
   return `<li><a${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=now"><span class="rank num">${i + 1}</span>` +
-    `<img src="${esc(g.thumbnail)}" alt="" width="48" height="30" loading="lazy" decoding="async"><span class="nm">${esc(g.title)}</span>${mv}</a></li>`;
+    `<img src="${esc(small(g))}" alt="" width="48" height="30" loading="lazy" decoding="async"><span class="nm">${esc(g.title)}</span>${mv}</a></li>`;
 }
 
 function featuredCard(g) {
@@ -177,7 +181,7 @@ export async function homePage(req, env, url) {
       .on("a.mood .mood-art", { element(e) {
         const pick = mood.filter((g) => !shown.has(g.slug)).concat(mood.filter((g) => shown.has(g.slug))).slice(0, 3);
         pick.forEach((g) => shown.add(g.slug));
-        e.setInnerContent(pick.map((g) => `<img src="${esc(g.thumbnail)}" alt="" width="64" height="40" loading="lazy" decoding="async">`).join(""), { html: true });
+        e.setInnerContent(pick.map((g) => `<img src="${esc(small(g))}" alt="" width="64" height="40" loading="lazy" decoding="async">`).join(""), { html: true });
       } })
       .on("a.mood .mood-n", { element(e) { if (mood.length) e.setInnerContent(`${mood.length} game${mood.length === 1 ? "" : "s"} ▶`); } });
     if (fresh.length) {
@@ -202,7 +206,7 @@ export async function homePage(req, env, url) {
   if (gg) {
     rw.on("a#home-gotd", { element(e) {
       e.removeAttribute("hidden"); e.setAttribute("href", `/games/${encodeURIComponent(gg.slug)}/?ref=gotd`);
-      e.setInnerContent(`<img class="now-thumb" src="${esc(gg.thumbnail)}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
+      e.setInnerContent(`<img class="now-thumb" src="${esc(small(gg))}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
         `<span class="now-tag">game of the day <b>2x xp</b></span><strong class="now-title">${esc(gg.title)}</strong>` +
         `<span class="now-meta">every run pays double xp today. the quiet games get a turn.</span>` +
         `<span class="now-count">ends in <b class="num" data-until="${esc(gotdEnds(now()))}">today</b></span>`, { html: true });
