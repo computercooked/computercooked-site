@@ -65,7 +65,13 @@
     golden: { spr: build(BODY, PAL.G, PAL.g), w: 1, pts: 5, size: 0.9, taps: 1 },
     puffer: { spr: build(BODY, PAL.U, PAL.u), w: 2, pts: 2, size: 0.95, taps: 1 },
     shark: { spr: build(SHARK, PAL.X, PAL.x), w: 6, pts: 6, size: 1.9, taps: 3 },
+    // r5: rare fish for the collection, only on the deep floors
+    clown: { spr: build(BODY, "#ff8a3d", "#f4f1e6"), w: 1, pts: 4, size: 0.85, taps: 1, name: "clownfish", from: 10 },
+    angler: { spr: build(BODY, "#6a4f9a", "#3a2b57"), w: 2, pts: 6, size: 1.05, taps: 1, name: "anglerfish", from: 14 },
+    ghost: { spr: build(BODY, "#d8f3ff", "#9cc7d8"), w: 1, pts: 10, size: 0.9, taps: 1, name: "ghost fish", from: 20 },
   };
+  const DEX = ["sardine", "trout", "salmon", "golden", "puffer", "shark", "clown", "angler", "ghost"];
+  const kindName = (k) => KINDS[k].name || (k === "golden" ? "golden fish" : k === "puffer" ? "pufferfish" : k);
   // the floor display's face (the brand computer's screen), 16x10
   const FACES = {
     sad: ["................", ".##..........##.", "...##......##...", "................", "..###......###..", "..###......###..", "................", ".....######.....", "....#......#....", "................"],
@@ -73,7 +79,7 @@
     shock: ["................", "..###......###..", ".#...#....#...#.", ".#...#....#...#.", "..###......###..", "................", "......####......", ".....#....#.....", "......####......", "................"],
     cooked: ["................", "..#...#..#...#..", "...#.#....#.#...", "....#......#....", "...#.#....#.#...", "..#...#..#...#..", "................", "..#.#.#.#.#.#.#.", ".#.#.#.#.#.#.#..", "................"],
   };
-  const FLOORS = ["lobby", "accounting", "the aquarium", "sushi bar", "dentist", "a pond, somehow", "fish market", "hr (fish)", "the roof", "the ocean", "more ocean", "fish heaven", "the sun", "floor ∞"];
+  const FLOORS = ["lobby", "accounting", "the aquarium", "sushi bar", "dentist", "a pond, somehow", "fish market", "hr (fish)", "the roof", "the ocean", "more ocean", "fish heaven", "the sun", "space", "the moon", "a fish planet", "the fish council", "the void", "the void (wet)", "the fish dimension", "floor ∞"];
   const LINES = {
     hello: ["going up. with fish.", "please fling responsibly."],
     open: ["ding.", "doors opening. brace.", "more fish. great.", "this floor smells."],
@@ -166,8 +172,11 @@
     let sharks = fish.filter((f) => f.kind === "shark" && !f.out).length;
     for (let i = 0; i < n; i++) {
       let kind = "trout";
-      const r = Math.random();
-      if (floor >= 6 && r < 0.12 && sharks < 2) { kind = "shark"; sharks++; }
+      const r = Math.random(), r2 = Math.random();
+      if (floor >= 20 && r2 < 0.05) kind = "ghost";
+      else if (floor >= 14 && r2 < 0.09) kind = "angler";
+      else if (floor >= 10 && r2 < 0.12) kind = "clown";
+      else if (floor >= 6 && r < 0.12 && sharks < 2) { kind = "shark"; sharks++; }
       else if (r < 0.2) kind = "golden";
       else if (floor >= 3 && r < 0.38) kind = "puffer";
       else if (r < 0.6) kind = "sardine";
@@ -200,7 +209,7 @@
     shake = reduce ? 0 : 0.5;
     const dur = Math.round(failAt - startAt);
     sdk((c) => c.score && c.score(score));
-    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: reachedGoal }));
+    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: true })); // r5: every real ending is a finished ride (time, overload, goal); only cc-restart / leaving mid-ride is a quit
   }
   function showCard() {
     state = "over"; endAt = performance.now(); react("cooked", 99);
@@ -369,13 +378,15 @@
     for (const f of fx) { f.life -= dt; if (f.type === "spark") { f.vy += H * 2 * dt; f.x += f.vx * dt; f.y += f.vy * dt; } }
     fx = fx.filter((f) => f.life > 0);
     if (state === "fail") { updateFail(dt); return; }
-    if (state !== "play") { updateFish(dt); door = Math.max(0, door - dt * 3); return; }
+    if (state !== "play") { updateFish(dt); if (state !== "ready") door = Math.max(0, door - dt * 3); return; }
     t += dt;
     if (t >= RIDE) { end(); return; }
     phaseT += dt;
     if (phase === "open") {
       door = Math.min(1, door + dt * 3);
-      if (phaseT >= openTime()) {
+      // r5: express: once every fish is out, the doors shut early (quick floors reward fast flinging; no dead wait on floor 1)
+      const express = door >= 1 && phaseT >= 0.45 && !fish.some((f) => !f.out);
+      if (phaseT >= openTime() || express) {
         if (weight() > CAP) { phase = "over"; phaseT = 0; overT = 0; overloads++; say("over", true); react("shock", 0.9); sfx.over(); shake = reduce ? 0 : 0.25; }
         else { phase = "close"; phaseT = 0; }
       }
@@ -587,6 +598,7 @@
   function overlay() {
     cx.fillStyle = "rgba(8, 9, 7, 0.82)"; cx.fillRect(0, 0, W, H);
     const big = Math.round(Math.max(26, Math.min(48, W / 10))), mid = H * 0.42;
+    if (state === "ready") return;
     if (state === "title") {
       text("elevator", W / 2, mid - big * 2.4, big, CASE, "center", 900);
       text("full of fish", W / 2, mid - big * 1.4, big, LIME, "center", 900);
@@ -608,6 +620,13 @@
       text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
       if (performance.now() - endAt > 700) { text("tap to ride again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
     }
+  }
+  // r5: sent by the hub's "tap to play" card (cc.autostart): no title, the car is waiting; the clock starts on the first touch or key
+  function drawReady(time) {
+    const y = L.backT + (L.backB - L.backT) * 0.55, s = Math.max(20, Math.min(34, W / 13)), pulse = reduce ? 1 : 0.75 + 0.25 * Math.abs(Math.sin(time * 4));
+    cx.fillStyle = "rgba(8, 9, 7, 0.86)"; cx.fillRect(0, y - s * 1.3, W, s * 3.4);
+    cx.globalAlpha = pulse; text("tap to go up", W / 2, y, s, LIME, "center", 900); cx.globalAlpha = 1;
+    text("fling fish out the doors. get to floor " + GOAL + ".", W / 2, y + s * 1.2, Math.max(12, Math.min(15, W / 30)), PAPER, "center", 700);
   }
   // the empty shaft the car falls down
   function drawShaft() {
@@ -669,7 +688,8 @@
       drawStamp();
     }
     tipY = -1;
-    if (state !== "play" && state !== "fail") overlay();
+    if (state === "ready") drawReady(time);
+    else if (state !== "play" && state !== "fail") overlay();
     if (paused && state === "play") {
       cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, 0, W, H);
       text("paused", W / 2, H * 0.42, Math.max(26, Math.min(44, W / 10)), CASE, "center", 900);
@@ -690,6 +710,8 @@
   ["pointerdown", "keydown"].forEach((ev) => window.addEventListener(ev, wake, true));
   try { if (window.frameElement) window.parent.document.addEventListener("keydown", wake, true); } catch (e) {}
   window.addEventListener("resize", () => { if (!running) draw(performance.now() / 1000); });
+  // r5: the hub's "tap to play" card: skip the title; the ride starts on the first touch or key (the player page may still be covering the game)
+  try { if (window.cc && cc.autostart && cc.autostart()) { state = "ready"; awake = true; door = 1; } } catch (e) {}
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
