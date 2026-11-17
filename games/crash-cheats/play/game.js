@@ -323,7 +323,7 @@
     if (sus >= 100) { entry.res = 'caught'; return 'caught'; }
     if (firewall) {
       firewall = false; undoSnap = null; entry.res = 'blocked'; countered++;
-      fx.popup = { title: 'firewall.exe', body: 'blocked: crash.exe tried to ' + VERB[kind] + '. connection refused.', t: 0 };
+      fx.popup = { title: 'firewall.exe', body: 'blocked: crash.exe tried to ' + VERB[kind] + '. connection refused.' + (countered <= 6 ? ' (+25 score)' : ''), t: 0 };
       sfx.popup(); fx.shake = Math.max(fx.shake, 5); crashFace = 2; crashFaceT = 1.4; say(pick('blocked'));
       sdk('event', 'blocked', { kind, round });
       await wait(1400); if (g !== gen) return 'gone';
