@@ -188,7 +188,7 @@
         tap(b, () => (ok ? L.win() : L.fail(`that said "${t}". reading is free.`)));
       });
     } },
-    { say: 'close it.', setup(L) {
+    { say: 'close it.', time: 6, setup(L) {   // always level 2 now: a first-timer gets an extra second to chase it
       const p = pop({ title: 'hot singles in your router', w: 260, body: 'they are 2 meters away and want to talk about your extended warranty.' });
       runaway(p, 3, L.win);
     } },
