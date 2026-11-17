@@ -35,6 +35,9 @@
   .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
   .toggles { margin-top: 8px; }
   .bests { font-family: var(--mono); font-size: 12px; color: rgba(245, 243, 237, 0.6); margin-top: 10px; min-height: 16px; }
+  .goal { font-family: var(--mono); font-size: 13px; font-weight: 800; color: var(--lime); margin-top: 6px; line-height: 1.35; }
+  .goal:empty, .dsub:empty { display: none; }
+  .dsub { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--lilac); margin: 0 0 2px; }
   .kbd { display: inline-block; background: rgba(16, 17, 20, 0.18); border-radius: 5px; padding: 1px 6px; font-size: 11px; font-weight: 800; margin-left: 8px; vertical-align: middle; }
   .credit { margin-top: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: rgba(245, 243, 237, 0.45); }
   .credit b { color: var(--lime); font-weight: 700; }
@@ -87,7 +90,9 @@
   #toast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--carbon); border: 1px solid var(--lime); color: var(--lime); font-family: var(--mono); padding: 10px 16px; border-radius: 10px; font-weight: 700; z-index: 9; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
   #toast.show { opacity: 1; }
   #safe { position: fixed; inset: 0; visibility: hidden; pointer-events: none; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
-  @media (max-height: 560px) { .panel { padding: 14px 16px 12px; } .how { margin: 4px auto 8px; } .tag { margin-top: 8px; } }
+  @media (max-height: 560px) { .panel { padding: 14px 16px 12px; } .how { margin: 4px auto 8px; } .tag { margin-top: 8px; }
+    /* 1.4: short player frames (~480-560 px): keep the next goal on screen without scrolling */
+    #title .credit, #title .tag { display: none; } #title .how { font-size: 13px; } #title .toggles { margin-top: 2px; } #title .bests { margin-top: 6px; } }
   /* review16r2: the player frame on a phone is ~430-590 px tall; keep "one more run" and the menu row on screen without scrolling */
   @media (max-height: 640px) {
     #summary .share, #summary .credit { display: none; }
@@ -96,6 +101,7 @@
     #summary .stats { margin: 6px 0; gap: 6px; } #summary .stat { padding: 7px 6px; } #summary .stat .v { font-size: 20px; }
     #summary .btn.big { padding: 11px 24px; min-height: 46px; }
     #upgrade .up-title { margin-bottom: 8px; }
+    #summary .goal { font-size: 12px; margin-top: 2px; }
   }
   @media (prefers-reduced-motion: reduce) { .card, .stat .nb { animation: none; } .btn, .card { transition: none; } }
 </style>
@@ -119,12 +125,14 @@
     <div class="row">
       <button class="btn pink" id="dailyBtn">daily garden</button>
     </div>
+    <div class="dsub" id="dailySub"></div>
     <div class="row toggles">
       <button class="btn ghost" id="sndBtn">sound: on</button>
       <button class="btn ghost" id="shakeBtn">shake: on</button>
     </div>
     <div class="how" style="margin:10px auto 0;font-size:12.5px">move: <span class="desk"><b>wasd</b> / <b>arrows</b> / </span><b>drag anywhere</b><span class="desk"> · upgrades: <b>1 2 3</b> · restart: <b>r</b> · mute: <b>m</b></span></div>
     <div class="bests" id="bests"></div>
+    <div class="goal" id="goal"></div>
     <div class="credit"><b>computer cooked</b> games</div>
   </div>
 </div>
@@ -144,6 +152,7 @@
     <div class="squares" id="squares"></div>
     <div class="stats" id="stats"></div>
     <div class="build" id="build"></div>
+    <div class="goal" id="sumGoal"></div>
     <div class="share" id="shareText"></div>
     <div class="row">
       <button class="btn big" id="againBtn">one more run<span class="kbd">r</span></button>
