@@ -9,6 +9,8 @@
 // staging, a preview) those sections are skipped and print "SKIP (live: no accounts)"; only the anonymous
 // checks run. There is deliberately no flag to override this.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 const base = process.argv[2] || "http://127.0.0.1:8787";
 const admin = process.argv[3] || "";
@@ -35,6 +37,49 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
     return files(play).some((f) => SENDS.test(readFileSync(f, "utf8")));
   }).map((g) => g.slug);
   ok(missing.length === 0, "every game that reports scores has a board (max_score_per_sec)", missing);
+}
+
+// repo check (round 24): portal builds are clean. The first candidates build for CrazyGames (and one for itch.io) with
+// no tip jar, no site-only paths and a real zip; portal.js takes links out of shares on ad portals only. Builds go to
+// the git-ignored dist/portals/; nothing is uploaded.
+{
+  const repo = fileURLToPath(new URL("..", import.meta.url));
+  const builds = [["smol-brains", "crazygames"], ["keyboard-escape", "crazygames"], ["bellchain", "crazygames"],
+    ["pixel-purge", "crazygames"], ["overdue-notice", "crazygames"], ["keyboard-escape", "itch"]];
+  for (const [slug, portal] of builds) {
+    const r = spawnSync(process.execPath, ["scripts/package-portal.mjs", slug, portal], { cwd: repo, encoding: "utf8" });
+    const dir = new URL(`../dist/portals/${portal}/${slug}/`, import.meta.url);
+    const zip = new URL(`../dist/portals/${portal}/${slug}.zip`, import.meta.url);
+    const html = existsSync(new URL("index.html", dir)) ? readFileSync(new URL("index.html", dir), "utf8") : "";
+    const head = existsSync(zip) ? readFileSync(zip).subarray(0, 2).toString("latin1") : "";
+    ok(r.status === 0 && head === "PK" && existsSync(new URL("portal.js", dir)) && existsSync(new URL("cc-sdk.js", dir)),
+      `portal build ${portal}/${slug}: zip + adapter + sdk`, r.status === 0 ? head : (r.stderr || "").slice(0, 200));
+    ok(!/<script[^>]*\/assets\/tip\.js/.test(html) && !/(src|href)="\//.test(html) && html.includes(`"portal":"${portal}"`) &&
+      html.includes("crazygames-sdk-v3.js") === (portal === "crazygames"),
+      `portal build ${portal}/${slug}: no tip jar, relative paths only, CC_PORTAL set`);
+    ok(!/site-only paths|site paths still/.test((r.stdout || "") + (r.stderr || "")), `portal build ${portal}/${slug}: no site-only paths in game code`,
+      ((r.stderr || "").match(/^\s+\S.*$/gm) || []).slice(0, 5));
+  }
+  const src = readFileSync(new URL("../native/portal.js", import.meta.url), "utf8");
+  const portalVm = async (portal) => {
+    const shared = [], copied = [];
+    const ta = { value: "beat 9 www.computercooked.com/games/x/ yes", select() {} };
+    const nav = { share(d) { shared.push(d); return Promise.resolve(); }, clipboard: { writeText(t) { copied.push(t); return Promise.resolve(); } } };
+    const doc = { addEventListener() {}, createElement() { return { style: {}, addEventListener() {} }; }, activeElement: ta, execCommand() { return true; } };
+    const win = { CC_PORTAL: { name: portal === "itch" ? "none" : portal, portal, slug: "keyboard-escape" }, navigator: nav, addEventListener() {} };
+    const ctx = vm.createContext({ window: win, document: doc, navigator: nav, setTimeout, Promise, Date, sessionStorage: { getItem() { return null; }, setItem() {} } });
+    vm.runInContext(src, ctx);
+    await nav.share({ title: "keyboard escape · computercooked.com", text: "i hit +1,240 speed → https://computercooked.com/games/keyboard-escape/?ref=share", url: "https://computercooked.com/games/keyboard-escape/" });
+    await nav.clipboard.writeText("beat my 1,240\nhttps://computercooked.com/games/keyboard-escape/");
+    doc.execCommand("copy");
+    return { shared: JSON.parse(JSON.stringify(shared)), copied, ta: ta.value };
+  };
+  const cg = await portalVm("crazygames"), itch = await portalVm("itch");
+  const s = cg.shared[0] || {};
+  ok(!("url" in s) && s.title === "keyboard escape" && s.text === "i hit +1,240 speed" && cg.copied[0] === "beat my 1,240" && cg.ta === "beat 9 yes",
+    "portal.js: ad-portal shares and copies carry no link", cg);
+  ok(itch.shared[0] && itch.shared[0].url === "https://computercooked.com/games/keyboard-escape/" && /computercooked\.com/.test(itch.copied[0]) && /computercooked/.test(itch.ta),
+    "portal.js: itch.io shares keep their link", itch);
 }
 
 const anon = "smoke" + rid();
