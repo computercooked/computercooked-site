@@ -606,6 +606,15 @@ The "your week in numbers" box on `/me` has a **share my week ↗** button. `me/
 
 The card is drawn while the recap shows, so the share sheet opens from the tap (iOS). Where files can be shared it opens the share sheet with the image plus `computercooked.com/games/?utm_source=share&utm_medium=recap`; elsewhere the image is downloaded. Nothing is uploaded and no public URL holds anyone's week.
 
+**Guests (no account):** the player card ("my stats" in the command bar) has the same **share my week ↗** button. It builds the week from this device only. `games/platform.js` `weekLog()` keeps localStorage `cc-week` after every run of 3 s or more:
+- `wk` (that week's local Monday), `runs`, `ms`, `g {slug: [runs, title]}` and `d` (days played);
+- `xp` gained, and `l0` / `l1` / `lt` (the level at the week's first run, the level now, and its title);
+- `b {slug: [new best, the best before, title]}`;
+- `ch`, set when an accepted run met this week's challenge target on the challenge game;
+- `last` (the week before).
+
+`assets/deck.js` turns it into the `/api/me/recap` shape and draws it with the same `me/recap-card.js`. It uses this week if there are runs, else last week. It starts counting from the first run after this shipped (Nov 16 2026). Nothing is sent.
+
 The recap now also lists the week's challenge: "weekly challenge done ✓" when finished, and this week's goal while it's still open.
 
 ## Public endpoints

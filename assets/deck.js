@@ -1198,7 +1198,8 @@
    cc-guest-xp (xp, level, badges and the days played; the level maths copies games/platform.js xpFor/TITLES) and
    cc-watch-best (longest speedrun). Shows a grid of numbers, the top three games by time and the last 8 weeks of
    play days. "copy" puts a short text summary on the clipboard. window.ccStats.open(). Styled in assets/deck.css
-   (.stats). Nothing is sent: the only request is /games/games.json for the titles. */
+   (.stats). Nothing is sent: the only request is /games/games.json for the titles. "share my week" draws this device's
+   week (cc-week) as a picture with me/recap-card.js. */
 (function () {
   "use strict";
   var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
@@ -1243,7 +1244,63 @@
         return x.at ? '<li class="is-found"><b>' + esc(x.name) + "</b></li>" : '<li><b aria-hidden="true">???</b> <span>' + esc(x.hint) + "</span></li>";
       }).join("") + "</ul>";
   }
+  // "share my week": this device's week (cc-week, kept by games/platform.js) in the shape of GET /api/me/recap, drawn
+  // by me/recap-card.js (loaded on first use) ahead of the tap, so the share sheet opens from the tap (iOS). This
+  // week if it has runs, else last week. Share sheet with the image where files can be shared, else a download.
+  function weekRecap() {
+    var w = read("cc-week", null), mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    if (!w || !w.wk) return null;
+    var prev = new Date(mon); prev.setDate(prev.getDate() - 7);
+    var cur = w.wk === dayKey(mon) && w.runs ? w : null, old = w.wk === dayKey(prev) && w.runs ? w : w.last && w.last.wk === dayKey(prev) && w.last.runs ? w.last : null;
+    var x = cur || old;
+    if (!x) return null;
+    var end = new Date(x.wk + "T12:00:00"); end.setDate(end.getDate() + 6);
+    var g = x.g || {}, top = Object.keys(g).sort(function (a, b) { return g[b][0] - g[a][0]; })[0];
+    var bests = Object.keys(x.b || {}).map(function (k) { var o = x.b[k]; return { game: k, title: o[2] || k, score: o[0], prev: o[1] }; })
+      .sort(function (a, b) { return (a.prev === null) - (b.prev === null) || b.score / (b.prev || 1) - a.score / (a.prev || 1); });
+    return { week: x.wk, which: cur ? "this" : "last", from: x.wk, to: dayKey(end), complete: !cur,
+      runs: x.runs, minutes: Math.round((x.ms || 0) / 60000), games: Object.keys(g).length, days: (x.d || []).length, xp: x.xp || 0,
+      level: { from: x.l0 || x.l1 || 1, to: x.l1 || 1, title: x.lt || "" }, top: top ? { game: top, title: g[top][1] || top } : null,
+      bests: bests.slice(0, 3), bests_total: bests.length, achievements: [], achievements_total: 0,
+      challenge: x.ch ? { game: x.ch.g, title: x.ch.t, done: true } : null };
+  }
+  var weekCard = null, weekKey = "";
+  function weekCardFor(r) {
+    var key = JSON.stringify(r);
+    if (!weekCard || weekKey !== key) {
+      weekKey = key;
+      weekCard = new Promise(function (ok, bad) {
+        if (window.ccRecapCard) return ok();
+        var sc = document.createElement("script"); sc.src = "/me/recap-card.js"; sc.onload = function () { ok(); }; sc.onerror = bad;
+        document.head.appendChild(sc);
+      }).then(function () { return window.ccRecapCard(r); });
+      weekCard.catch(function () { weekCard = null; });
+    }
+    return weekCard;
+  }
+  function shareWeek(btn) {
+    var r = weekRecap();
+    if (!r) return;
+    weekCardFor(r).then(function (blob) {
+      var url = "https://computercooked.com/games/?utm_source=share&utm_medium=recap";
+      var file = typeof File === "function" ? new File([blob], "my-week-" + r.week + ".png", { type: "image/png" }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], text: "my week on computer cooked games. your turn: " + url }).catch(function (e) {
+          if (e && e.name === "NotAllowedError") btn.textContent = "tap again to share ↗";
+        });
+      }
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "my-week-" + r.week + ".png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      btn.textContent = "saved ✓"; setTimeout(function () { btn.textContent = "share my week ↗"; }, 1800);
+    }, function () { btn.textContent = "couldn’t make it"; });
+  }
   function draw() {
+    var wr = weekRecap(), wb = dlg.querySelector(".stats-week");
+    wb.hidden = !wr;
+    wb.textContent = "share my week ↗";
+    if (wr) weekCardFor(wr).catch(function () {}); // draw it now, while the card is read
     var s = gather(), found = s.secrets.filter(function (x) { return x.at; }).length;
     if (!s.tried && !s.secs && !s.xp && !found) {
       dlg.querySelector(".stats-body").innerHTML = '<p class="stats-empty">nothing here yet. play a game and this card fills itself in.</p>';
@@ -1276,7 +1333,8 @@
     if (!dlg) {
       dlg = document.createElement("dialog"); dlg.className = "stats"; dlg.setAttribute("aria-labelledby", "stats-tag");
       dlg.innerHTML = '<p class="stats-tag" id="stats-tag">your player card</p><div class="stats-body"></div><p class="stats-note">kept on this device only.</p>' +
-        '<div class="stats-row"><button type="button" class="stats-copy">copy</button><button type="button" class="stats-close">done</button></div>';
+        '<div class="stats-row"><button type="button" class="stats-week" hidden>share my week</button><button type="button" class="stats-copy">copy</button><button type="button" class="stats-close">done</button></div>';
+      dlg.querySelector(".stats-week").addEventListener("click", function () { shareWeek(this); });
       dlg.querySelector(".stats-close").addEventListener("click", function () { dlg.close(); });
       dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
       dlg.querySelector(".stats-copy").addEventListener("click", function () {

@@ -332,11 +332,43 @@
     if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); loadChallenge(); prefetchFriends(); }
   }).catch(function () {});
 
+  /* ---------- this week on this device (cc-week), for "share my week" in the player card (assets/deck.js) ----------
+     {wk: local Monday "YYYY-MM-DD", runs, ms, g: {slug: [runs, title]}, d: [days played], xp, l0/l1/lt: level at the
+     week's first run / now / its title, b: {slug: [new best, the best before it or null, title]}, ch: {g, t} when a
+     run met this week's challenge target, last: the week before, same shape}. Runs of 3 s or more. Nothing is sent. */
+  var chNow = null; // this week's challenge, when it's this game (loadChallenge)
+  function mondayOf(t) { var d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
+  function weekLog(d, x) {
+    if (!d || !((d.durationMs || 0) >= 3000)) return;
+    try {
+      var w = JSON.parse(localStorage.getItem("cc-week") || "null") || {}, mon = mondayOf(Date.now()), wk = dayKey(mon);
+      if (w.wk !== wk) {
+        var prev = new Date(mon); prev.setDate(prev.getDate() - 7);
+        var last = w.wk === dayKey(prev) && w.runs ? w : null;
+        if (last) delete last.last;
+        w = { wk: wk, runs: 0, ms: 0, g: {}, d: [], xp: 0, b: {}, ch: null, last: last };
+      }
+      var title = (info && info.title) || game, r = d.result, day = dayKey(new Date());
+      w.runs++; w.ms += d.durationMs;
+      w.g[game] = [((w.g[game] || [])[0] || 0) + 1, title];
+      if (w.d.indexOf(day) < 0) w.d.push(day);
+      if (x && x.gained > 0) w.xp += x.gained;
+      if (x && x.level) { if (w.l0 == null) w.l0 = Math.max(1, x.level - (x.leveled_up ? 1 : 0)); w.l1 = x.level; w.lt = x.title; }
+      if (r && r.accepted && typeof d.score === "number" && isFinite(d.score) && (r.prev_best == null || d.score > r.prev_best)) {
+        var o = w.b[game];
+        if (!o || d.score > o[0]) w.b[game] = [d.score, o ? o[1] : (r.prev_best == null ? null : r.prev_best), title];
+      }
+      if (chNow && chNow.game === game && r && r.accepted && typeof d.score === "number" && d.score >= chNow.target) w.ch = { g: game, t: title };
+      localStorage.setItem("cc-week", JSON.stringify(w));
+    } catch (err) {}
+  }
+
   /* ---------- weekly challenge line on the featured game (slice D2) ---------- */
   function loadChallenge() {
     api("/api/challenge").then(function (r) {
       var c = r && r.ok && r.challenge, p = panel.querySelector(".cc-challenge");
       if (!c || c.game !== game) return;
+      chNow = c;
       p.innerHTML = "<b>weekly challenge</b> · " + esc(c.goal) + " · " + (c.done ? "done ✓" : "+" + c.xp + " xp" + (me ? "" : ' · <a href="/me/">log in</a> to earn it')) +
         ' <button type="button" class="cc-ch-share">share ↗</button>';
       p.hidden = false;
@@ -926,6 +958,7 @@
     var x = r && r.xp;
     if (!x && !me) x = guestAward(e.detail); // K-0030 step 1: guests earn xp on this device
     if (x && x.level) showLevel(x, !!x.guest);
+    weekLog(e.detail, x);
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
