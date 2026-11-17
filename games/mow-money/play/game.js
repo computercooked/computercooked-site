@@ -1426,7 +1426,7 @@ function sellBusiness(fromTest) {
   if (c < 1 && !fromTest) return;
   const runStats = { earned: S.runEarned, t: S.playT, lawn: S.owned, gnomes: uniqueGnomes(), compost: c };
   // the run's time includes the offline time it was paid for, so score / duration stays within the board's max_score_per_sec
-  try { window.cc && cc.end({ score: Math.max(1, Math.round(S.runEarned)), durationMs: Math.round((S.playT + (S.offT || 0)) * 1000), completed: true }); } catch (e) { }
+  try { window.cc && cc.end({ score: Math.max(1, boardScore(S.prestiges + 1)), durationMs: Math.round((S.playT + (S.offT || 0)) * 1000), completed: true }); } catch (e) { }
   evt('sold_business', { compost: c, n: S.prestiges + 1 });
   S.compost += c; S.compostTotal += c; S.prestiges++; if (c > 0) S.lastSale = c;
   newRun();
@@ -1492,6 +1492,9 @@ function hideModal() { $('#modal').classList.add('hide'); paused = false; last =
 /* ---------------- analytics ---------------- */
 let ccStarted = false;
 function ccStart() { try { window.cc && cc.start(); } catch (e) { } ccStarted = true; }
+// the leaderboard score is bounded (it stays in the thousands): 100 per power of ten of lifetime cash, plus 500 per sale.
+// the end card and share text keep the big cash number; only cc.score / cc.end use this.
+const boardScore = sales => Math.round(100 * Math.log10(Math.max(0, S.lifeEarned) + 1)) + 500 * sales;
 function evt(name, data) { if (evCount >= 18 || SKIPPING) return; evCount++; try { window.cc && cc.event(name, data || {}); } catch (e) { } }
 
 /* ---------------- input ---------------- */
@@ -1614,7 +1617,7 @@ function frame(now) {
   if (uiT <= 0) { uiT = 0.2; if (dirtyUI && (wide || sheetOpen)) buildSheet(); else refreshUI(false); }
   updEngine();
   saveT += dt; if (saveT > 5) { saveT = 0; save(); }
-  scoreT += dt; if (scoreT > 5 && S.started) { scoreT = 0; try { window.cc && cc.score(Math.round(S.runEarned)); } catch (e) { } }
+  scoreT += dt; if (scoreT > 5 && S.started) { scoreT = 0; try { window.cc && cc.score(boardScore(S.prestiges)); } catch (e) { } }
 }
 
 /* ---------------- test hooks ---------------- */
@@ -1640,7 +1643,7 @@ function skip(secs) {
 let autoBuy = false; const __log = [];
 if (TEST) {
   window.__mm = {
-    state: () => ({ cash: S.cash, runEarned: S.runEarned, lifeEarned: S.lifeEarned, playT: S.playT, lvl: Object.assign({}, S.lvl), lawn: S.lawn, owned: S.owned, compost: S.compost, compostTotal: S.compostTotal, prestiges: S.prestiges, gnomes: uniqueGnomes(), rate: rateEMA, rateH, fps, W, H, cs, cellVal: cellVal(), compostNow: compostFor(S.runEarned), parts: parts.length, imm: immCount, mowed: mowedFrac, workMs, stripes, goal: document.querySelector('#goaltxt').textContent, paused, muted: isMuted() }),
+    state: () => ({ score: boardScore(S.prestiges), lastSale: S.lastSale, cash: S.cash, runEarned: S.runEarned, lifeEarned: S.lifeEarned, playT: S.playT, lvl: Object.assign({}, S.lvl), lawn: S.lawn, owned: S.owned, compost: S.compost, compostTotal: S.compostTotal, prestiges: S.prestiges, gnomes: uniqueGnomes(), rate: rateEMA, rateH, fps, W, H, cs, cellVal: cellVal(), compostNow: compostFor(S.runEarned), parts: parts.length, imm: immCount, mowed: mowedFrac, workMs, stripes, goal: document.querySelector('#goaltxt').textContent, paused, muted: isMuted() }),
     cash: n => { S.cash += n; S.runEarned += n; S.lifeEarned += n; dirtyUI = true; return S.cash; },
     lawn: n => { S.owned = Math.max(S.owned, n + 1); goLawn(n); return S.lawn; },
     prestige: () => { const c = compostFor(S.runEarned); sellBusiness(true); return c; },

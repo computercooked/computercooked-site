@@ -942,7 +942,7 @@
         "accent": "#c5ff49",
         "bg": "#101114"
       },
-      "max_score_per_sec": 1e30,
+      "max_score_per_sec": 270,
       "how_to": [
         "drag, point or use wasd to steer the mower. cut grass pays cash; long straight passes build a streak.",
         "spend it on upgrades: a wider blade, more speed, sprinklers, goats, robots and doug.",
