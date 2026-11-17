@@ -67,6 +67,10 @@ export const DRIVE = {
   "prove-youre-human": () => { const go = () => { const s = window.__pyh && window.__pyh.state(); if (s && s.state === "play") window.__pyh.solve(); }; setTimeout(go, 300); setInterval(go, 2400); },
   // the auto-player takes level 4, joined 14 seconds in so every program is already fighting
   "desktop-takeover": () => { const d = window.__dt; if (d && d.state().state === "play") { d.auto(true); d.skip(14); } },
+  // not responding (was level devil.exe, 2.5): level 1 is live with no title screen; hold right and hop every 0.9 s
+  // through the game's own key state (window.__ld.keys), so the clip runs into the level's traps instead of standing still
+  "level-devil-exe": () => { const k = window.__ld && window.__ld.keys; if (!k) return; k.r = true;
+    setInterval(() => { k.j = true; setTimeout(() => { k.j = false; }, 260); }, 900); },
 };
 // extra wait after load before the clip starts (ms; default 1200): smol brains builds its island first
 export const WAIT = { "smol-brains": 7000 };
