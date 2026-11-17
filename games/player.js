@@ -115,6 +115,29 @@
   document.addEventListener("cc:deck-open", function () { send({ type: "cc-pause" }); });
   window.ccToast = toast;
 
+  /* Phones: "tap to play full screen" (launch research: most launch traffic is phones from TikTok, and Poki opens a game
+     on a phone with one big play-fullscreen button). On a touch screen under 768px wide, a big button sits over the
+     game until it's tapped: it presses the fullscreen button (so an iPhone gets the CSS fallback, as it does today) and
+     hands focus to the game. "or play here" removes it, and is remembered for this tab (sessionStorage cc-fs-here).
+     Never on a dare link (the dare's own intro card comes first), never inside a frame. The game loads underneath
+     as before, so nothing waits on the tap. Styled in games/games.css (.fs-tap). */
+  (function () {
+    var stage = player.querySelector(".player-stage");
+    if (!stage || !btnFs || self !== top || !window.matchMedia || !matchMedia("(pointer: coarse) and (max-width: 767px)").matches) return;
+    if (/[?&](vs|d)=/.test(location.search)) return;
+    try { if (sessionStorage.getItem("cc-fs-here")) return; } catch (e) {}
+    var box = document.createElement("div");
+    box.className = "fs-tap";
+    box.innerHTML = '<button type="button" class="fs-tap-go"><span aria-hidden="true">▶</span> tap to play full screen</button>' +
+      '<button type="button" class="fs-tap-here">or play here</button>';
+    stage.appendChild(box);
+    function gone() { box.remove(); var f = document.getElementById("game-frame"); if (f && f.contentWindow) try { f.contentWindow.focus(); } catch (e) {} }
+    box.querySelector(".fs-tap-go").addEventListener("click", function () { gone(); btnFs.click(); });
+    box.querySelector(".fs-tap-here").addEventListener("click", function () { try { sessionStorage.setItem("cc-fs-here", "1"); } catch (e) {} gone(); });
+    // already fullscreen some other way (the bar's own button): the prompt has done its job
+    document.addEventListener("fullscreenchange", function () { if (document.fullscreenElement && box.isConnected) box.remove(); });
+  })();
+
   /* Mini player: scroll down past the game (to the scores, the how-to, more games) and the cabinet shrinks into the
      bottom right corner, still running, so you can keep an eye on it. Click it to go back up; the x sends it away until
      you scroll back to the game. Only the styles change (.player.is-mini in games.css), so the game never reloads; a

@@ -3189,3 +3189,12 @@ html.is-crt .player-stage::before { content: ""; position: absolute; inset: 0; z
 @media (pointer: coarse) and (max-width: 859px) {
   #btn-fs:not(.is-exit) { min-width: 52px; border-color: rgb(var(--phosphor) / 0.6); color: var(--lime); }
 }
+/* phones: "tap to play full screen" over the game (games/player.js). The game boots underneath; the veil only
+   darkens it a little, so the boot screen and the game's first frame still show through. */
+.fs-tap { position: absolute; inset: 0; z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 16px; background: rgb(7 8 10 / .55); }
+.fs-tap-go { min-height: 56px; padding: 0 22px; border: 2px solid #000; border-radius: 12px; background: var(--lime); color: #0b0d0a;
+  font: 800 17px/1 var(--mono); box-shadow: 4px 4px 0 #000; cursor: pointer; }
+.fs-tap-go:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+.fs-tap-here { min-height: 40px; padding: 0 12px; border: 0; background: none; color: var(--text); font: 600 14px var(--mono); text-decoration: underline; cursor: pointer; }
+.player.is-mini .fs-tap, .player.is-pseudo-fs .fs-tap, .player:fullscreen .fs-tap { display: none; }
