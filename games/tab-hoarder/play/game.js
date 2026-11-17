@@ -87,7 +87,7 @@
     { id: 'gold', name: 'gold tabs', need: 13, a: '#ffe27a', b: '#f2c933', ink: '#1b1c21', act: '#C5FF49', actInk: '#1b1c21' }
   ];
   function dayKey(off) { const d = new Date(Date.now() + (off || 0) * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-  function dailyTarget() { let h = 7; for (const ch of dayKey()) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return 12 + (h % 15); } // 12-26 tabs, same for everyone today
+  function dailyTarget() { let h = 7; for (const ch of dayKey()) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return 10 + (h % 13); } // 10-22 tabs, same for everyone today
   function loadCareer() {
     let c = null;
     try { c = JSON.parse(localStorage.getItem(CAREER_KEY)); } catch (e) { c = null; }
@@ -168,7 +168,7 @@
 
   // ---------- game state ----------
   let state = 'menu';             // menu | play | over
-  let tabs = [], cur = null, debris = [], parts = [], toasts = [];
+  let tabs = [], cur = null, debris = [], parts = [], toasts = [], floats = [];
   let score = 0, best = loadBest(), combo = 0, newBest = false, lastTitle = '';
   let tabsN = 0, bestCombo = 0, slowLeft = 0, nextPower = 6, powersUsed = 0, paused = false, runStart = 0, lastScoreSent = 0;
   // armed: false after a hub autostart until the first tap (the clock and cc.start wait for it). saves: one free miss before tab 10
@@ -210,7 +210,7 @@
   function reset(toState) {
     tabs = [makeTab(0, BASE_W, CRASH_TOP, 'new tab')];
     tabs[0].fav = COL.lime;
-    debris = []; parts = []; toasts = [];
+    debris = []; parts = []; toasts = []; floats = [];
     passedBest = false; score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
     saves = 1; runGoals = []; runVirus = 0; runDbl = 0; runRankUp = ''; runSkin = ''; passedBestH = false; prevBestTabs = career.bestTabs; flashT = 0; banner = null;
     state = toState;
@@ -344,6 +344,8 @@
     tabs.push(placed);
     tabsN++;
     addPoints(mult());
+    floats.push({ x: placed.x + placed.w / 2 + 8, y: placed.y + 8, text: '+' + mult() + (mult() > 1 ? ' x' + mult() : ''), color: mult() > 1 ? COL.lilac : COL.lime, life: 0.9, max: 0.9 });
+    if (floats.length > 6) floats.shift();
     const m = MILESTONES[tabsN];
     if (m) { toast(m, COL.lilac, 1.8, false); sfx.milestone(); }
     const rk = rankOf(career.tabs);
@@ -531,6 +533,7 @@
     }
     for (let i = toasts.length - 1; i >= 0; i--) { toasts[i].life -= dt; if (toasts[i].life <= 0) toasts.splice(i, 1); }
     if (banner) { banner.life -= dt; if (banner.life <= 0) banner = null; }
+    for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.life -= dt; f.y += 36 * dt; if (f.life <= 0) floats.splice(i, 1); }
     flashT = Math.max(0, flashT - dt);
     shake = Math.max(0, shake - dt * 25);
     crashHit = Math.max(0, crashHit - dt);
@@ -720,6 +723,11 @@
       ctx.translate(0, TAB_H / 2);
       drawTab(d, false, 1);
     }
+    // points floats beside the tab that earned them
+    worldTransform(sh, shy);
+    ctx.font = '900 15px ' + FONT; ctx.textAlign = 'left'; ctx.lineWidth = 4; ctx.strokeStyle = COL.carbon;
+    for (const f of floats) { ctx.globalAlpha = Math.min(1, f.life / 0.3); const fx = Math.min(f.x, (W / S) / 2 - 50); ctx.strokeText(f.text, fx, -f.y); ctx.fillStyle = f.color; ctx.fillText(f.text, fx, -f.y); }
+    ctx.globalAlpha = 1;
     // particles
     worldTransform(sh, shy);
     for (const p of parts) {
@@ -846,31 +854,40 @@
     if (best > 0) text('best: ' + best + ' pts' + (career.bestTabs ? ' · ' + career.bestTabs + ' tabs' : ''), cx, y + 26 * u, Math.round(12 * u), 'rgba(245,243,237,0.7)', 'center', 'normal');
     y += (best > 0 ? 54 : 36) * u;
     // career: rank, the next goals, today's daily, skin. drawn only while there is room above the demo tab
-    const room = H + camY * S - (cur ? cur.y + TAB_H : CRASH_TOP + TAB_H) * S - 16;
+    // wide frames (desktop): two columns beside the computer; narrow: one list above the demo tab
+    const side = W / 2 - 110 * S, wide = side >= 250;
+    const room = wide ? H - 40 : H + camY * S - (cur ? cur.y + TAB_H : CRASH_TOP + TAB_H) * S - 16;
+    let ix = wide ? side / 2 : cx;
     const lh = 17 * u, fs = Math.round(11 * u);
     const ri = rankOf(career.tabs), nx = RANKS[ri + 1];
     const items = [];
     items.push(() => { // rank + bar
-      text('rank: ' + RANKS[ri][1] + (nx ? '  ·  ' + career.tabs + '/' + nx[0] + ' tabs' : ''), cx, y, fs, COL.lilac, 'center');
-      if (nx) { const bw = Math.min(W - 80, 220 * u), p = (career.tabs - RANKS[ri][0]) / (nx[0] - RANKS[ri][0]); ctx.fillStyle = 'rgba(245,243,237,0.12)'; ctx.fillRect(cx - bw / 2, y + 5 * u, bw, 4 * u); ctx.fillStyle = COL.lilac; ctx.fillRect(cx - bw / 2, y + 5 * u, bw * Math.max(0.02, p), 4 * u); }
+      text('rank: ' + RANKS[ri][1] + (nx ? '  ·  ' + career.tabs + '/' + nx[0] + ' tabs' : ''), ix, y, fs, COL.lilac, 'center');
+      if (nx) { const bw = Math.min(W - 80, 220 * u), p = (career.tabs - RANKS[ri][0]) / (nx[0] - RANKS[ri][0]); ctx.fillStyle = 'rgba(245,243,237,0.12)'; ctx.fillRect(ix - bw / 2, y + 5 * u, bw, 4 * u); ctx.fillStyle = COL.lilac; ctx.fillRect(ix - bw / 2, y + 5 * u, bw * Math.max(0.02, p), 4 * u); }
       y += lh + 6 * u;
     });
     const dDone = career.dayDone === dayKey();
-    items.push(() => { text(dDone ? 'daily done ✓ · streak ' + career.streak + ' · back tomorrow' : 'daily: stack ' + dailyTarget() + ' tabs' + (career.streak && career.dayDone === dayKey(-1) ? ' · keep your ' + career.streak + '-day streak' : ''), cx, y, fs, dDone ? 'rgba(245,243,237,0.6)' : COL.lilac, 'center', 'normal'); y += lh; });
+    items.push(() => { text(dDone ? 'daily done ✓ · streak ' + career.streak + ' · back tomorrow' : 'daily: stack ' + dailyTarget() + ' tabs' + (career.streak && career.dayDone === dayKey(-1) ? ' · keep your ' + career.streak + '-day streak' : ''), ix, y, fs, dDone ? 'rgba(245,243,237,0.6)' : COL.lilac, 'center', 'normal'); y += lh; });
+    const nLeft = items.length;
     const ag = activeGoals();
-    ag.forEach((g, i) => items.push(() => { text((i ? '' : 'goals ' + career.goals.length + '/' + GOALS.length + ': ') + '□ ' + g[1], cx, y, fs, '#ffd84a', 'center', 'normal'); y += lh; }));
+    if (wide && ag.length) items.push(() => { text('goals ' + career.goals.length + '/' + GOALS.length, ix, y, fs, '#ffd84a', 'center'); y += lh; });
+    ag.forEach((g, i) => items.push(() => { text((i || wide ? '' : 'goals ' + career.goals.length + '/' + GOALS.length + ': ') + '□ ' + g[1], ix, y, fs, '#ffd84a', 'center', 'normal'); y += lh; }));
     const open = skinsOpen();
     btns.skin = null;
     if (open.length > 1) items.push(() => {
       const label = 'skin: ' + skin().name + '  ▸', bw = Math.min(W - 60, 200 * u), bh = 26 * u;
-      const r = { x: cx - bw / 2, y: y - 4 * u, w: bw, h: bh };
+      const r = { x: ix - bw / 2, y: y - 4 * u, w: bw, h: bh };
       ctx.strokeStyle = 'rgba(255,216,74,0.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(r.x, r.y, r.w, r.h);
-      text(label, cx, r.y + bh * 0.68, fs, '#ffd84a', 'center');
+      text(label, ix, r.y + bh * 0.68, fs, '#ffd84a', 'center');
       btns.skin = { x: r.x, y: r.y - 6, w: r.w, h: r.h + 12 };
       y += bh + 4 * u;
     });
-    else if (SKINS[open.length]) items.push(() => { text('next skin: ' + SKINS[open.length].name + ' at ' + SKINS[open.length].need + ' goals', cx, y, fs, 'rgba(245,243,237,0.55)', 'center', 'normal'); y += lh; });
-    for (const f of items) { if (y + lh > room) break; f(); }
+    else if (SKINS[open.length]) items.push(() => { text('next skin: ' + SKINS[open.length].name + ' at ' + SKINS[open.length].need + ' goals', ix, y, fs, 'rgba(245,243,237,0.55)', 'center', 'normal'); y += lh; });
+    if (wide) {
+      const y0 = Math.max(y, H * 0.42);
+      y = y0; for (let i = 0; i < nLeft; i++) { if (y + lh > room) break; items[i](); }
+      y = y0; ix = W - side / 2; for (let i = nLeft; i < items.length; i++) { if (y + lh > room) break; items[i](); }
+    } else for (const f of items) { if (y + lh > room) break; f(); }
   }
 
   function roundRect(x, y, w, h, r) {
@@ -919,7 +936,7 @@
     // career: what this run unlocked, else the next goal; then the rank bar (a reason for one more run)
     y += 20 * u;
     const ng = activeGoals()[0];
-    const gl = runSkin ? 'new skin: ' + runSkin + ' (pick it on the title)' : runGoals.length ? 'goal done: ' + runGoals[0] + (runGoals.length > 1 ? ' +' + (runGoals.length - 1) + ' more' : '') : ng ? 'next goal: ' + ng[1] : 'every goal done. legend.';
+    const gl = runSkin ? 'new skin: ' + runSkin + ' (pick it on the title)' : runGoals.length ? 'goal done: ' + runGoals[0] + (runGoals.length > 1 ? ' +' + (runGoals.length - 1) + ' more' : '') : tabsN < 5 ? 'tip: tap when the edge lines turn green' : ng ? 'next goal: ' + ng[1] : 'every goal done. legend.';
     ctx.font = 'bold ' + Math.round(12 * u) + 'px ' + FONT;
     text(fitTitle(gl, cw - 30 * u), mid, y, Math.round(12 * u), '#ffd84a', 'center', runGoals.length ? 'bold' : 'normal');
     y += 20 * u;
