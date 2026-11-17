@@ -719,7 +719,7 @@
 
   // ---------- view ----------
   let W = 0, H = 0, DPR = 1, P = 8, ts = 8, offX = 0, camY = 0, phone = false, camGo = null, offGo = null;
-  // r5: zoom. 1 = the whole glass fits the width (ants ~10 px on a phone); phones start zoomed in on the nest and can
+  // r5: zoom. 1 = the whole glass fits the width (ants ~10 px on a phone); small screens start zoomed in on the nest and can
   // pinch or tap the zoom button. P (the terrain cache's pixels per tile) catches up with ts when a pinch ends.
   let fitTs = 8, zoom = 1, zoomSet = false;
   try { const z = parseFloat(localStorage.getItem("antfarm-zoom")); if (z >= 1 && z <= 3) { zoom = z; zoomSet = true; } } catch (e) { /* fine */ }
@@ -732,7 +732,7 @@
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     const np = clamp(Math.floor((W * DPR - (phone ? 0 : 40 * DPR)) / COLS), 5, Math.round(20 * DPR));
     fitTs = np / DPR;
-    if (!zoomSet) zoom = phone ? 1.7 : 1;
+    if (!zoomSet) zoom = clamp(19 / fitTs, 1, 2); // small screens start zoomed so a tile is ~19 px (a phone: ~1.7x); a big frame stays at 1
     const midX = resize.done ? (W / 2 - offX) / ts : QX + 0.5; resize.done = 1; // keep the same column in the middle (the nest at first)
     setZoom(zoom, W / 2, H / 2, true);
     if (zoom > 1.01 && isFinite(midX) && midX > 0) { offX = W / 2 - midX * ts; clampView(); }
@@ -1373,6 +1373,7 @@
     try { if (window.cc && cc.load) return await cc.load("main"); } catch (e) { /* fall through */ }
     try { return JSON.parse(localStorage.getItem("antfarm-save")); } catch (e) { return null; }
   }
+  let awayS = "";
   function restore(d) {
     G = d.G;
     if (G.evN == null) { G.evN = 0; G.nextEv = Math.min(G.nextEv || 60, 60); }
@@ -1394,7 +1395,7 @@
     if (G.goal == null) { G.goal = 0; while (goalNow() && goalNow().v() >= goalNow().n) G.goal++; }
     // offline progress (capped at 4 hours)
     const away = Math.min(4 * 3600, Math.max(0, (Date.now() - (d.t || Date.now())) / 1000));
-    let dugAway = 0;
+    let dugAway = 0; awayS = "";
     if (away > 120) {
       // r5: diggers keep working the marked tiles while you're away (nearest the tunnels first; walking and hauling
       // dirt eat most of their time, hence the 0.2)
@@ -1416,7 +1417,7 @@
       let born = 0;
       while (G.lay !== false && net >= EGG_COST && ants.length + eggs.length < capacity() && born < 200) { net -= EGG_COST; born++; const a = newAnt(QX + Math.round((R() - 0.5) * 6), QY); a.cx = clamp(a.cx, QX - 3, QX + 3); a.x = a.cx + 0.5; }
       G.food += net;
-      const awayS = `while you were away (${away > 3600 ? (away / 3600).toFixed(1) + "h" : Math.round(away / 60) + "m"}): +${fmt(Math.max(0, gain - eat))} food, ${born} new ants${dugAway ? `, ${dugAway} tiles dug` : ""}`;
+      awayS = `while you were away (${away > 3600 ? (away / 3600).toFixed(1) + "h" : Math.round(away / 60) + "m"}): +${fmt(Math.max(0, gain - eat))} food, ${born} new ants${dugAway ? `, ${dugAway} tiles dug` : ""}`;
       setTimeout(() => { toast(awayS); if (!dugAway && !mark.some((m) => m)) setTimeout(() => coach("tip: paint ⛏ dig marks before you leave. the ants dig them while you're away."), 4000); }, 600);
     }
     // r5: a new day, a donut on the grass
@@ -1424,6 +1425,8 @@
     if (G.day && G.day !== today) { spawnPile("donut", QX + (R() < 0.5 ? -7 : 7), 40); setTimeout(() => toast("a new day. someone dropped a donut on the grass (+40). see you tomorrow?"), 1400); }
     G.day = today;
     for (const a of ants) assign(a);
+    if (ants.length > G.gs.peak) G.gs.peak = ants.length; // ants born while away count toward the best
+    if (G.gs.peak > G.best.peak) G.best.peak = G.gs.peak;
     paintAll();
   }
 
@@ -1495,7 +1498,7 @@
       try {
         restore(d); $("start").textContent = `continue · generation ${G.gen}`;
         const g = goalNow(); // r5: the title says what's next
-        $("title").querySelector("p").innerHTML = `welcome back. ${ants.length} ants and counting.<br>${g ? `${goalLocked() ? "tomorrow's goal" : "next goal"}: ${g.s}.` : "every goal done. beat your best colony."}<br>best colony: ${bestPeak()} ants, ${bestDepth()} deep.`;
+        $("title").querySelector("p").innerHTML = `welcome back. ${ants.length} ants and counting.<br>${awayS ? `<b style="color:#c5ff49">${awayS}</b><br>` : ""}${g ? `${goalLocked() ? "tomorrow's goal" : "next goal"}: ${g.s}.` : "every goal done. beat your best colony."}<br>best colony: ${bestPeak()} ants, ${bestDepth()} deep.`;
       }
       catch (e) { G = null; }
     }
