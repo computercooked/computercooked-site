@@ -604,7 +604,7 @@
   // ---------- panels ----------
   function showEnd(g) {
     const o = g.over, won = o.won, camp = g.mode === "campaign";
-    const next = camp ? (won ? (g.level < 5 ? "next level ▶" : "play endless ▶") : "try again") : g.mode === "endless" ? (won ? "next desktop ▶" : "new run") : "play it again";
+    const next = camp ? (won ? (g.level < 5 ? `level ${g.level + 1}: ${LEVELS[g.level].name.replace(/ \(.*\)$/, "")} ▶` : "play endless ▶") : "try again") : g.mode === "endless" ? (won ? "next desktop ▶" : "new run") : "play it again";
     // r5: the card shows the same score the site gets (cc.end), so a dare or the board never disagrees with it
     const scoreLine = `score <b>${Number(g.total).toLocaleString("en-US")}</b>`, dailyOpen = g.mode !== "daily" && !(S.daily && S.daily.date === today());
     const line = camp ? `level ${g.level} · ${g.name} · ${clock(o.t)} · ${scoreLine}` : g.mode === "endless" ? `desktop #${g.wave} · run ${scoreLine}` : `daily desktop ${g.date} · ${scoreLine}` + (S.streak.n && g.date === today() ? ` · streak <b>${S.streak.n}</b> day${S.streak.n > 1 ? "s" : ""}` : "");
@@ -614,7 +614,7 @@
       <p>${line}</p>${g.mode === "daily" ? `<p class="small">new desktop in ${untilTomorrow()}</p>` : camp && won && g.stars < 3 ? `<p class="small">${g.stars < 2 ? "★★ under 2:50 · " : ""}★★★ under 1:50</p>` : !won ? `<p class="small tip">tip: ${pick(LOSE_TIPS[g.mode === "campaign" ? g.level - 1 : 5] || LOSE_TIPS[5])}</p>` : ""}
       <img class="share" id="eImg" alt="share card: i took over ${o.pct}% of the desktop">
       <div class="row"><button class="btn go big" id="eNext" type="button">${next}</button><button class="btn big" id="eShare" type="button">share</button></div>
-      <div class="row" style="margin-top:6px">${won || g.mode === "daily" ? (g.mode === "daily" ? "" : `<button class="btn" id="eAgain" type="button">replay</button>`) : ""}${dailyOpen ? `<button class="btn" id="eDaily" type="button">daily desktop</button>` : ""}<button class="btn" id="eMenu" type="button">menu</button></div>
+      <div class="row" style="margin-top:6px">${won || g.mode === "daily" ? (g.mode === "daily" ? `<button class="btn" id="eAgain" type="button">endless</button>` : `<button class="btn" id="eAgain" type="button">replay</button>`) : ""}${dailyOpen ? `<button class="btn" id="eDaily" type="button">daily desktop</button>` : ""}<button class="btn" id="eMenu" type="button">menu</button></div>
       <p class="note" id="eNote" role="status" aria-live="polite"></p><div id="tipSlot"></div>`;
     try { $("eImg").src = card(g).toDataURL("image/png"); } catch (e) {}
     $("eNext").onclick = () => { if (camp) { if (won && g.level === 5) start("endless"); else start("campaign", { level: won ? g.level + 1 : g.level }); } else if (g.mode === "endless") { if (won) { run.wave++; start("endless", { keep: true }); } else start("endless"); } else start("daily", { date: g.date }); };
