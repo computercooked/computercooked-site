@@ -711,6 +711,24 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.90 What v4.41.0 changed: seven small things on a phone
+
+4.40 was looked at in a visible browser at 390 by 844 and 740 by 360 before it shipped (cc-lead, Nov 16). It passed, with seven notes. All seven are here; nothing else changed, and no smol behaves differently.
+
+- **The stick after you turn the phone.** The stick rests where your thumb last came down, kept as a spot in px from the corner of its zone. Turn the phone sideways and that spot could be below the screen (y 415 on a 360 screen) until the next touch. A resize or a turn now puts it back in its corner, unless you are holding it.
+- **A drink when you are not thirsty.** Drinking with a full water bar showed nothing at all. It says "a sip. you're not thirsty".
+- **"Tap", not "click".** Two goals ("find something to eat", "wake the others") said "click it" on a touch screen. The table that swaps mouse and key words for phone ones (`PHONE_WORDS`) now ends with "click it" to "tap the big button" and any other "click" to "tap". The test runs the real table over every goal's tip and finds no "click" left.
+- **Held sideways, the red chase banner** ran under the button grid, and the name of the thing you are looking at sat on its text. It sits under the clock now (68 px), wraps, and is no wider than the room between the stick and the buttons. A toast drops to 118 px while the banner is up.
+- **Held sideways, the "OUCH!" card** covered the top two rows of buttons for a second. It is smaller (38 px) and at the top.
+- **The bag on a phone** had its only close button at the bottom, a scroll away on a tall bag. There is a "✕ close" in the heading as well.
+- **The title screen held sideways:** the footer line (computer cooked games, the news, the version) is fixed to the bottom of the screen and lay over the "play now" card. On a short screen it comes after the menu instead.
+
+**Seen in a browser** (localhost, touch; the pane is not on anyone's screen, so cc-lead looks again before release): at 740 by 360 the footer sat at the end of the menu, the banner ran from 207 to 533 px with the buttons from 564, a toast sat at 118 px under it, and "OUCH!" was at the top centre; a stick spot set to 415 px went back to its corner on a resize. At 390 by 844 the bag had "✕ close" at 82 px and it closed the bag; the berry goal's tip read "tap the big button".
+
+`tests/play441.test.js`: the phone words run over every goal's tip, the sip, the resize rule and its listeners, the sideways rules (with the sum at 740, 667 and 568 wide), the bag's close, the footer.
+
+**Still open** (from 4.40, unchanged): sickness deaths (7 on the eighteen judging islands against 2), one drowning, a stuck stranger once it has eaten, "use" repeating the big button when a thing has one action, the art notes from the screenshot pass, and sound, which nobody has heard.
+
 ## 0.89 What v4.40.0 changed: a fed island has eggs again, and a tidier phone
 
 **Why births fell in 4.39.** A smol sleeps until hunger wakes it at 0.7 and a meal takes off about 0.4, so the mean hunger of an island sits between 0.32 and 0.51 even with four or five bites of food lying about for each smol (`smol-brains-handover/tools/island-breed-diag.js`, eight tuning islands). The "hard times" rule stopped eggs when that mean passed 0.55. Hunger alone was the wrong test: the islands it stopped were fed.
