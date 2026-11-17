@@ -492,6 +492,8 @@
       '<div class="row tot"><span>SCORE</span><span></span><span>' + score + "</span></div>" +
       '<div class="row"><span>best</span><span></span><span>' + Math.max(prev, score) + "</span></div>" +
       '<div class="nudge' + (score > prev ? " best" : "") + '">' + esc(nudge) + ' <span id="rank"></span></div>' +
+      // an early cook usually means tapping blind: one line on how to read the board, for the next run
+      (!won && cleared < 3 ? '<div class="nudge" style="font-size:11px;opacity:.8;margin-top:2px">tip: numbers add up the virus power touching a tile. start next to small numbers, eat the weak ones, level up.</div>' : "") +
       '<div class="btns"><button class="go" id="r-again" type="button">' + (won ? "play again" : "reboot") + "</button>" +
       '<button id="r-mode" type="button">' + (mode === "daily" ? "endless run" : "today's disk") + "</button>" +
       '<button id="r-share" type="button">share card</button>' +
@@ -620,7 +622,11 @@
 
   // ---------- input: tap, right-click, long-press ----------
   let press = null;
-  const LONG = 380;
+  // long-press flags. 450 ms (the usual phone long-press), and judged by the touch's own timestamps, not by when the
+  // timer happened to run: on a slow phone a busy frame can hold back a quick tap's lift until after the timer fired,
+  // which used to pop the flag picker on a plain tap (and a held press whose timer ran late used to fight the tile).
+  const LONG = 450;
+  const stamp = (e) => (e && e.timeStamp > 0 ? e.timeStamp : performance.now());
   function cellAt(e) { const el = e.target.closest && e.target.closest(".c"); return el ? +el.dataset.i : -1; }
   board.addEventListener("pointerdown", (e) => {
     focusMe();
@@ -628,15 +634,22 @@
     const i = cellAt(e); if (i < 0) return;
     e.preventDefault();
     const timer = e.pointerType !== "mouse" ? setTimeout(() => { if (press && press.i === i) { press.long = true; if (navigator.vibrate) try { navigator.vibrate(18); } catch (er) {} openPicker(i); } }, LONG) : 0;
-    press = { i, x: e.clientX, y: e.clientY, long: false, timer };
+    press = { i, x: e.clientX, y: e.clientY, long: false, timer, t0: stamp(e), touch: e.pointerType !== "mouse" };
   });
   board.addEventListener("pointermove", (e) => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 14) { clearTimeout(press.timer); press = null; } });
   board.addEventListener("pointerup", (e) => {
     if (!press) return;
     clearTimeout(press.timer);
     const p = press; press = null;
-    if (p.long) return;
+    const held = stamp(e) - p.t0;
+    if (p.long) {
+      // the timer opened the picker, but the finger had already lifted well before LONG: it was a tap
+      if (held >= 0 && held < LONG - 60 && pickerFor === p.i) { closePicker(); cursor = -1; tap(p.i); }
+      return;
+    }
     if (cellAt(e) !== p.i && e.pointerType === "mouse") return;
+    // a real long hold whose timer never got to run: flag, don't fight
+    if (p.touch && held >= LONG + 60) { openPicker(p.i); return; }
     cursor = -1;
     tap(p.i);
   });

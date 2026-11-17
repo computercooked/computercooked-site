@@ -130,6 +130,11 @@
       goose: Math.max(48, Math.round(Math.min(W * 0.34, room * 0.75) / 8) * 8),
     };
     L.gooseX = W * 0.56; L.gooseY = L.floorY - L.goose * 0.3;
+    // review16 r3: on a phone the goose (and the evidence in its beak, the whole game) was small, under a big empty
+    // band. Now it's bigger and centred, and on a tall phone the jury sits in that band
+    if (W < 600) { L.goose = Math.max(48, Math.round(Math.min(W * 0.48, room * 0.75) / 8) * 8); L.gooseX = W * 0.5; L.gooseY = L.floorY - L.goose * 0.3; }
+    const benchBot = judgeTop + judgeH - 4 + benchH, gooseTop = L.gooseY - L.goose * 1.12, js = Math.round(Math.min(46, W / 8.5));
+    L.jury = W < 600 && gooseTop - benchBot >= js * 1.9 + 30 ? { y: (benchBot + gooseTop) / 2 + js * 0.45, s: js } : null;
   }
   window.addEventListener("resize", layout);
   layout();
@@ -384,6 +389,33 @@
     }
     if (strikes) text(strikes + "/3", W / 2 + 54, 24, 12, strikes >= 2 ? BAD : "#8a8e80", "left", 800);
   }
+  // review16 r3: the jury (tall phones only). It bobs while it waits, hops and honks at a right call, shakes and boos a
+  // wrong one or a timeout, so every verdict gets a crowd
+  function drawJury(time) {
+    const J = L.jury;
+    if (!J || state !== "play") return; // not behind the title or the end card's text
+    const n = 5, s = J.s, k = s / 16, gap = s * 0.3, tot = n * s + (n - 1) * gap, x0 = (W - tot) / 2;
+    const cheer = fb && fb.ok, boo = fb && !fb.ok, ft = fb ? fb.t : 0;
+    cx.imageSmoothingEnabled = false;
+    for (let i = 0; i < n; i++) {
+      let dx = 0, dy = reduce ? 0 : Math.round(Math.sin(time * 3 + i * 1.3) * k * 0.6);
+      if (cheer && !reduce) dy = -Math.abs(Math.sin(ft * 13 + i * 0.9)) * s * 0.32;
+      if (boo && !reduce) dx = Math.sin(ft * 42 + i * 2) * k * 1.4;
+      const x = Math.round(x0 + i * (s + gap) + dx), y = Math.round(J.y - s * 0.8 + dy);
+      if (i % 2 === 0) { cx.save(); cx.translate(x + s, 0); cx.scale(-1, 1); cx.drawImage(SPR.goose, 0, y, s, s); cx.restore(); }
+      else cx.drawImage(SPR.goose, x, y, s, s);
+    }
+    const rx = x0 - s * 0.3, rw = tot + s * 0.6, rh = s * 0.5;
+    cx.fillStyle = INK; cx.fillRect(rx - 2, J.y - 2, rw + 4, rh + 4);
+    cx.fillStyle = WOOD; cx.fillRect(rx, J.y, rw, rh);
+    cx.fillStyle = WOOD3; cx.fillRect(rx, J.y, rw, 3);
+    text("the jury", W / 2, J.y + rh * 0.58, Math.max(10, s * 0.24), "#c9a06a", "center", 800);
+    if (fb) {
+      cx.globalAlpha = Math.max(0, 1 - ft / 0.7);
+      for (let i = boo ? 0 : 1; i < n; i += 2) text(boo ? "boo" : "honk!", x0 + i * (s + gap) + s / 2, J.y - s * 0.95 - ft * 20, Math.max(11, s * 0.28), boo ? BAD : LIME2, "center", 900);
+      cx.globalAlpha = 1;
+    }
+  }
   function drawGoose(time) {
     const c = kase; if (!c) return;
     const s = L.goose, k = s / 16;
@@ -460,7 +492,12 @@
   function drawFx() {
     for (const f of fx) {
       const k = 1 - f.life / f.max;
-      if (f.type === "text") { cx.globalAlpha = 1 - k; text(f.s, f.x, f.y - k * 24, f.big ? 22 : 15, f.col, "center", 900); cx.globalAlpha = 1; }
+      if (f.type === "text") {
+        cx.globalAlpha = 1 - k;
+        // review16 r3: the streak call sits on a dark tag (it was lime on the judge's white speech bubble)
+        if (f.big) { cx.font = "900 22px " + MONO; const tw = cx.measureText(f.s).width + 18; cx.fillStyle = "rgba(11, 12, 14, 0.9)"; cx.fillRect(f.x - tw / 2, f.y - k * 24 - 16, tw, 32); }
+        text(f.s, f.x, f.y - k * 24, f.big ? 22 : 15, f.col, "center", 900); cx.globalAlpha = 1;
+      }
       else if (f.type === "bit") { cx.globalAlpha = Math.min(1, f.life / f.max * 1.5); cx.fillStyle = f.col; cx.fillRect(Math.round(f.x), Math.round(f.y), Math.ceil(f.sz), Math.ceil(f.sz)); cx.globalAlpha = 1; }
       else if (f.type === "poof") { cx.globalAlpha = 1 - k; cx.fillStyle = PAPER; const s = L.goose; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; cx.fillRect(L.gooseX + s * 0.4 + Math.cos(a) * k * s * 0.4, L.gooseY - s * 0.72 + Math.sin(a) * k * s * 0.4, 5, 5); } cx.globalAlpha = 1; }
     }
@@ -525,7 +562,8 @@
     if (shake > 0) cx.translate((Math.random() - 0.5) * 12 * shake, (Math.random() - 0.5) * 12 * shake);
     drawRoom();
     drawPlacard();
-    drawJudge(time);
+    if (state !== "title") drawJudge(time); // review16 r3: on a phone the judge showed through the title text
+    drawJury(time);
     drawGoose(time);
     drawButtons();
     drawFx();
