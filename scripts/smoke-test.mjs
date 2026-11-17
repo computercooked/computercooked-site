@@ -116,6 +116,16 @@ r = await (await post("/api/dare", { play_id: p1, anon })).json();
 ok(r.id === dare.id, "one dare per run");
 r = await (await get("/api/dare/" + dare.id + "?open=1")).json();
 ok(r.ok && r.game === "crash" && r.score === 40 && r.from === "smokey", "open a dare", r);
+// its share card (src/darecard.js): a real 1200x630 PNG, and the dare link's preview points at it
+{
+  const card = await get("/games/crash/dare/" + dare.id + ".png"), buf = new Uint8Array(await card.arrayBuffer());
+  const dv = new DataView(buf.buffer), png = buf[0] === 137 && buf[1] === 80 && buf[2] === 78 && buf[3] === 71;
+  ok(card.ok && /image\/png/.test(card.headers.get("content-type")) && png && dv.getUint32(16) === 1200 && dv.getUint32(20) === 630, "dare share card is a 1200x630 png", card.status + " " + buf.length);
+  const pg = await (await get("/games/crash/?vs=40&from=smokey&d=" + dare.id)).text();
+  ok(pg.includes(`/games/crash/dare/${dare.id}.png`), "dare link preview uses its own card");
+  const wrong = await fetch(base + "/games/fathom/dare/" + dare.id + ".png", { redirect: "manual" });
+  ok(wrong.status === 302 && /og-vs\.png/.test(wrong.headers.get("location") || ""), "a dare card only draws for its own game", wrong.status);
+}
 r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p1, anon })).json();
 ok(r.ok && r.beaten === false && r.self, "your own run can't beat your own dare", r);
 const anon2 = "smoke2" + rid(), p5 = rid();

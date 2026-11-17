@@ -122,13 +122,14 @@ export async function beatDare(req, env, user, id) {
 export async function dareTags(env, url, slug) {
   let score = parseFloat(url.searchParams.get("vs")), from = (url.searchParams.get("from") || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 24);
   const id = url.searchParams.get("d");
+  let stored = null; // the dare id, when the server found it (src/darecard.js draws its share card)
   if (env.DB && id && /^[A-Za-z0-9_-]{6,16}$/.test(id)) {
     try {
       const d = await env.DB.prepare("SELECT game, score, from_name FROM dares WHERE id = ?").bind(id).first();
-      if (d && d.game === slug) { score = d.score; from = d.from_name; }
+      if (d && d.game === slug) { score = d.score; from = d.from_name; stored = id; }
     } catch (e) { /* table missing before the migration: fall back to the URL */ }
   }
-  return score > 0 ? { score: nice(score), from } : null;
+  return score > 0 ? { score: nice(score), from, id: stored } : null;
 }
 
 // POST /api/share {game, how: share|copy|card|download, anon}: "share this game" after a run with no score (no

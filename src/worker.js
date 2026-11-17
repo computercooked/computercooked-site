@@ -15,6 +15,7 @@ import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { gotdApi } from "./gotd.js";
+import { dareCard } from "./darecard.js";
 import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
@@ -69,6 +70,9 @@ export default {
     // Without the slash (or with index.html) they 301 to the slash form; any other word stays a game page (or a 404).
     const mm = /^\/games\/([a-z]+)(\/index\.html)?$/.exec(url.pathname);
     if (mm && isMood(mm[1])) return Response.redirect(`${url.origin}/games/${mm[1]}/${url.search}`, 301);
+    // a stored dare's share card (src/darecard.js): the link preview image of /games/<slug>/?…&d=<id>
+    const dc = /^\/games\/([a-z0-9-]+)\/dare\/([A-Za-z0-9_-]{6,16})\.png$/.exec(url.pathname);
+    if (dc) return dareCard(req, env, url, dc[1], dc[2]);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return (isMood(gm[1]) && (await collectionPage(req, env, url, gm[1]))) || gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe

@@ -232,7 +232,8 @@ export async function gamePage(req, env, url, slug) {
     rw.on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
       .on('meta[property="og:title"], meta[name="twitter:title"]', set(title))
       .on('meta[property="og:description"], meta[name="twitter:description"]', set("a friend dared you. free browser game: no download, plays on your phone."))
-      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png?v=5`))
+      // a stored dare gets its own card with the score and name on it (src/darecard.js); a URL-only dare keeps the game's og-vs.png
+      .on('meta[property="og:image"], meta[name="twitter:image"]', set(dare.id ? `${url.origin}/games/${slug}/dare/${dare.id}.png` : `${url.origin}/games/${slug}/og-vs.png?v=5`))
       .on('meta[property="og:image:alt"], meta[name="twitter:image:alt"]', set(alt));
     imageMeta(rw, alt);
     cache = "public, max-age=300";
