@@ -25,6 +25,7 @@
   const pick = (a) => a[(R() * a.length) | 0];
   const rr = (a, b) => a + R() * (b - a);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const FINE = matchMedia("(hover: hover) and (pointer: fine)").matches; // r5d: desktop wording for the HOLD prompt
   let SHOT = false; // the cover / hover clip scene: a frozen moment, no UI
 
   // ---------- the lake ----------
@@ -956,7 +957,7 @@
       cx.strokeStyle = `rgba(255,179,90,${1 - q})`; cx.lineWidth = 3; cx.beginPath(); cx.arc(W / 2, hy, 16 + q * 26, 0, 6.3); cx.stroke();
       cx.fillStyle = "#ffb35a"; cx.beginPath(); cx.arc(W / 2, hy, 13 - Math.sin(q * Math.PI) * 3, 0, 6.3); cx.fill();
       cx.textAlign = "center"; cx.font = `800 26px ${mono}`; cx.fillStyle = "#fff"; cx.fillText("HOLD", W / 2, hy + 50);
-      cx.font = `700 13px ${mono}`; cx.fillStyle = "#e8f6ffcc"; cx.fillText("anywhere: the line drops", W / 2, hy + 72);
+      cx.font = `700 13px ${mono}`; cx.fillStyle = "#e8f6ffcc"; cx.fillText(FINE ? "mouse or space: the line drops" : "anywhere: the line drops", W / 2, hy + 72);
       for (let k = 0; k < 3; k++) { const a = ((simT * 1.5 + k / 3) % 1); cx.fillStyle = `rgba(154,230,255,${0.9 * (1 - a)})`; cx.fillText("▼", W / 2, hy + 88 + a * 26); }
     }
     for (const f of N.fx) {
@@ -1107,7 +1108,7 @@
     }).join("");
     panel("shop", `<h2 class="warm">the bait shop</h2>
       <div class="keeper"><img src="/assets/mascot-happy.svg" alt="the shopkeeper, a beige crt with a green face"><div class="say">${awayNote || keeperSays()}</div></div>
-      <div style="margin-bottom:8px">you have <b class="cash">$${Math.floor(S.cash)}</b></div>${ups}
+      <div style="margin-bottom:8px">you have <b class="cash">$${Math.floor(S.cash)}</b>${S.best ? ` · record ${S.best.toFixed(1)} lb` : ""}</div>${dailyDone() ? "" : `<div class="next" style="margin:-4px 0 8px">today's fish: ${DAILY.n} (${LAYERS[DAILY.L].n}) · the first one pays a bonus</div>`}${ups}
       <button class="go" id="sGo" type="button">start night ${S.night}</button><br><button class="alt" id="sLog" type="button">📖 fish log</button><button class="alt" id="sNew" type="button">new save</button>`);
     awayNote = "";
     $("sGo").onclick = () => { $("shop").hidden = true; startNight(); };
