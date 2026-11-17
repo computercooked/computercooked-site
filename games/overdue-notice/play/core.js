@@ -152,7 +152,7 @@
     for (const b of S.bills) if (b.late) s += (BILL[b.type] ? BILL[b.type].w : 0.7);
     return 0.65 * s * Math.pow(0.87, lvl(S, 'headphones')) * (1 - 0.1 * perk(S, 'lawyer')) * mod(S, 'col');
   }
-  function freshGain(S, bankrupt) { const g = Math.max(0, S.day - 3); return bankrupt ? Math.floor(g / 2) : g; } // one point per day survived past day 3
+  function freshGain(S, bankrupt) { const g = Math.max(0, S.day - 3); return bankrupt ? (S.day >= 3 ? Math.max(1, Math.floor(g / 2)) : 0) : g; } // one point per day survived past day 3 (bankrupt: half, but reaching day 3 always pays 1, so a first run is never for nothing)
 
   // ---------- money ----------
   function earn(S, amt, src) {

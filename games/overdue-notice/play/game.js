@@ -506,7 +506,7 @@
   function freshItems() {
     const items = [];
     const gain = ON.freshGain(S, false);
-    items.push({ key: 'fx', big: `filing for a fresh start ends this run and turns what you earned into <b>credit points</b>. every point you've ever earned = <b>+8% income</b> (it compounds), and spending them on perks doesn't take that away. you earn 1 point per day survived past day 3.<br><br>you have <b>${meta.cp} cp</b>. filing now: <b>+${gain} cp</b>.<br><span style="color:var(--dim);font-size:11px">getting bankrupted by the collector only gives half.</span>` });
+    items.push({ key: 'fx', big: `filing for a fresh start ends this run and turns what you earned into <b>credit points</b>. every point you've ever earned = <b>+8% income</b> (it compounds), and spending them on perks doesn't take that away. you earn 1 point per day survived past day 3.<br><br>you have <b>${meta.cp} cp</b>. filing now: <b>+${gain} cp</b>.<br><span style="color:var(--dim);font-size:11px">getting bankrupted by the collector only gives half (but at least 1 once you reach day 3).</span>` });
     items.push({ key: 'fbtn', icon: '📝', name: 'file for a fresh start', sub: S.day < 3 ? 'available from day 3' : 'ends the run · +' + gain + ' cp', btn: { label: 'file', act: 'fresh', dis: S.day < 3 || gain < 1, cls: 'alt' } });
     items.push({ key: 'ps', sect: 'perks (permanent)' });
     for (const p of ON.PERKS) {
