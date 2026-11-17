@@ -55,7 +55,7 @@
   // v1.3: jobs. three small goals at a time, each pays cache when you hit it. a done job comes back harder next run,
   // so there is always a next thing to do (and a reason to come back). progress is per run.
   const JOBS = {
-    eat: { at: [12, 30, 60, 110, 180, 260], pay: [8, 14, 22, 32, 45, 60], txt: (n) => 'eat ' + n + ' things', of: (R) => R.kills },
+    eat: { at: [30, 80, 150, 250, 400, 600], pay: [8, 14, 22, 32, 45, 60], txt: (n) => 'eat ' + n + ' things', of: (R) => R.kills },
     zone: { at: [1, 2, 3], pay: [15, 35, 70], txt: (n) => 'reach ' + ZONES[n].name, of: (R) => R.zoneMax },
     up: { at: [45, 90, 150, 240, 360], pay: [8, 15, 25, 40, 60], txt: (n) => 'stay up ' + fmtT(n), of: (R) => R.t },
     rival: { at: [1, 2, 4, 7, 12], pay: [12, 20, 32, 50, 75], txt: (n) => n > 1 ? 'eat ' + n + ' rivals' : 'eat a rival process', of: (R) => R.rivalKills },
@@ -156,7 +156,7 @@
     const z0 = ZONES[0];
     const p = { me: true, name: 'you', v: v0, x: 700, y: WH / 2, vx: 0, vy: 0, r: rOf(v0), inv: 1.5, col: C.lime, face: 'idle', faceT: 0 };
     const R = {
-      demo: !!demo, safe: !demo, t: 0, p, creatures: [], rivals: [], parts: [], pops: [], maxV: v0, kills: 0, rivalKills: 0,
+      demo: !!demo, safe: demo ? 0 : save.runs < 3 ? 2 : 1, newb: !demo && save.runs < 3, t: 0, p, creatures: [], rivals: [], parts: [], pops: [], maxV: v0, kills: 0, rivalKills: 0,
       rate: 1 + (demo ? 2 : lvl('growth')), backups: demo ? 0 : lvl('backup'), zoneMax: 0, unlocked: 0, cam: { x: p.x, y: p.y, z: 1 },
       pspd: 160, shake: 0, banner: null, spawnT: 0, danger: 0, killer: null, lastScore: 0, z0,
       jobsDone: [], jobPay: 0, best0: demo ? 0 : save.best, passedBest: false,
@@ -341,7 +341,7 @@
       if (!R.dead && d < sense) {
         if (c.v > p.v * BIG && p.inv <= 0 && !calm) {   // hunt you (for a while)
           if (c.chase <= 0 && c.cool <= 0) c.chase = rnd(2, 3.5);
-          if (c.chase > 0) { c.chase -= dt; ix = dx / d; iy = dy / d; sp = 0.8; if (c.chase <= 0) c.cool = rnd(2, 4); if (d < p.r + c.r + 160) danger = Math.max(danger, 1 - (d - p.r - c.r) / 160); }
+          if (c.chase > 0) { c.chase -= dt; ix = dx / d; iy = dy / d; sp = R.newb && R.t < 30 ? 0.62 : 0.8; if (c.chase <= 0) c.cool = rnd(2, 4); if (d < p.r + c.r + 160) danger = Math.max(danger, 1 - (d - p.r - c.r) / 160); }
         } else if (c.v < p.v) {   // flee, and the magnet drags it in
           ix = -dx / d; iy = -dy / d; sp = 0.55;
           if (d < magR + c.r) { const pull = (1 - d / (magR + c.r)) * 900 * dt; c.x += dx / d * pull; c.y += dy / d * pull; }
@@ -371,7 +371,7 @@
           const dx = e.x - rv.x, dy = e.y - rv.y, d = Math.hypot(dx, dy) || 1;
           if (d > sense + e.r) return;
           if (e.v > rv.v * BIG) { const w = Math.pow(sense / Math.max(20, d - e.r - rv.r), 2); fx -= dx / d * w; fy -= dy / d * w; }
-          else if (e.v * BIG < rv.v || (!e.rival && !e.me && e.v < rv.v)) { const s = e.v / (d + 60) * (e.me ? 1.4 : 1); if (s > bestS) { bestS = s; best = e; } }
+          else if (e.v * BIG < rv.v || (!e.rival && !e.me && e.v < rv.v)) { const s = e.v / (d + 60) * (e.me ? (R.newb && R.t < 30 ? 0.6 : 1.4) : 1); if (s > bestS) { bestS = s; best = e; } }
         };
         for (const c of R.creatures) consider(c);
         for (const o of R.rivals) consider(o);
@@ -468,11 +468,12 @@
   function bitten(R, by) {
     const p = R.p;
     if (R.dead || p.inv > 0) return;
-    const safe = R.safe && R.t < 25;
+    // v1.3: a new player's first 3 runs get two free bites in the first 30 s (was one in 25 s) and slower early hunters
+    const safe = R.safe > 0 && R.t < (R.newb ? 30 : 25);
     if (safe || R.backups > 0) {
-      if (safe) R.safe = false; else R.backups--;
+      if (safe) R.safe--; else R.backups--;
       p.v = Math.max(1, p.v * (safe ? 0.7 : 0.5)); p.r = rOf(p.v); p.inv = 2.5; p.face = 'hit'; p.faceT = 1;
-      R.shake = 0.4; SFX.hurt(); R.banner = safe ? { t: 2.2, a: 'safe mode', b: 'first bite is free. red = bigger. run.' } : { t: 2, a: 'system restore', b: 'you lost half. you are alive. ish.' };
+      R.shake = 0.4; SFX.hurt(); R.banner = safe ? { t: 2.2, a: 'safe mode', b: R.safe > 0 ? 'free bite. 1 more left. red = bigger. run.' : R.newb ? 'last free bite. red = bigger. run.' : 'first bite is free. red = bigger. run.' } : { t: 2, a: 'system restore', b: 'you lost half. you are alive. ish.' };
       ccEvent('backup_used', { v: Math.round(p.v) });
       // shove away from the biter
       const dx = p.x - by.x, dy = p.y - by.y, d = Math.hypot(dx, dy) || 1; p.x += dx / d * (by.r + p.r); p.y += dy / d * (by.r + p.r);
