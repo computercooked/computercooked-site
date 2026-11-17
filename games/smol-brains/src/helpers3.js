@@ -296,7 +296,7 @@
     c.vessel = o.kind; c.chem.hunger = 0.1;
     game.creatures.push(c);
     if (P.active) P.leave("vessel");
-    if (!P.enter(game, c, { free: true })) { c.alive = false; c.gone = true; return null; }
+    if (!P.enter(game, c, { free: true })) { c.alive = false; c.gone = true; if (back && back.alive && !P.active) P.enter(game, back, { free: true }); return null; } // 4.40: it did not take: back into the body you left
     s.v = { id: c.id, kind: o.kind, until: game.time + o.life, back: back ? back.id : null, pet: o.pet, task: o.task || null, name: o.name };
     emit("vessel", { c: c, kind: o.kind });
     return c;

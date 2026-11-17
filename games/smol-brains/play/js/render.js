@@ -557,6 +557,7 @@ if(!T||!gl)return;
 var nc=T.N/SB.CHUNK,c=chunks[SB.clamp((z/SB.CHUNK)|0,0,nc-1)*nc+SB.clamp((x/SB.CHUNK)|0,0,nc-1)];
 if(!c)return;
 for(var s in c.lod)if(c.lod[s]){gl.deleteBuffer(c.lod[s].buf);c.lod[s]=null;}
+for(var s2 in c.wat)if(c.wat[s2]){gl.deleteBuffer(c.wat[s2].buf);c.wat[s2]=null;}
 c.dirty=true;
 };
 var aoMap=null;

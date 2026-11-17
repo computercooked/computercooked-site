@@ -6,6 +6,7 @@
 // node games/smol-brains/tests/round4-world.test.js
 "use strict";
 const fs = require("fs"), path = require("path");
+require("./_src.js"); // read the readable sources unless SB_COMPACT=1, as every other test does
 let failed = 0, passed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra ? "  (" + extra + ")" : "")); if (ok) passed++; else failed++; }
 const js = f => fs.readFileSync(path.join(__dirname, "..", "play", "js", f), "utf8");

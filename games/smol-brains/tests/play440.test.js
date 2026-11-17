@@ -61,13 +61,17 @@ console.log("2. a portrait phone: status chips do not push the food row off the 
   const pj = js("povhud.js");
   check("the chips take the width of the meters and no more", /#pov \.vstat\{[^}]*width:0;min-width:100%;overflow:hidden\}/.test(pj));
   check("chips that do not fit are marked", /sw ?- ?4 ?> ?hud\.stat\.clientWidth\) ?hud\.stat\.classList\.add\("many"\)/.test(pj));
-  check("and show as icons only", /#pov \.vstat\.many span i\{display:none\}/.test(pj));
+  check("and show as icons only", /#pov \.vstat\.many span i:not\(\.pxi\)\{display:none\}/.test(pj)); // the icon is an <i class=pxi> too: only the words go
   check("a chip's words sit in their own tag", /x\.e ?\+ ?"<i> " ?\+ ?x\.label ?\+ ?"<\/i><\/span>"/.test(pj));
 }
 
 console.log("3. a touch screen: the list by the crosshair is left out, the buttons say it");
 check("no list of actions by the crosshair on a phone", /var html ?= ?hud\.phone ?\? ?"" ?: ?lines\.map/.test(js("povhud.js")));
 check("an empty list is not drawn", /#pov \.prompt:empty\{display:none\}/.test(js("povhud.js")));
+check("the goal box sits under the clock, not over it (the clock ends at 64px)", /#pov\.phone \.quest\{top:68px;/.test(js("povhud.js")));
+check("the small button does not repeat what the big one says", /said ?= ?!!\(ctx ?&& ?o\.place ?&& ?!o\.place\.locked ?&& ?short\(o\.place\.label\) ?=== ?short\(ctx\.label\)\)/.test(js("povhud.js")) && /setBtn\(hud\.bPlace, ?o\.place ?&& ?!o\.place\.locked ?&& ?!said ?\?/.test(js("povhud.js")));
+
+check("held sideways, the meters keep clear of the buttons and a toast keeps clear of the meters", /#pov\.phone \.bottom\{left:calc\(\(100vw - 176px\) \/ 2\)\}#pov\.phone \.vrow,#pov\.phone \.vrow i\{height:12px\}#pov\.phone \.vrow i\{width:12px\}#pov\.phone \.vit\{column-gap:4px\}#pov\.phone \.toast\{top:70px\}\}/.test(js("povhud.js")));
 
 console.log("4. one thing at a time: no story card under the pod map; no broken fi in any font");
 {
@@ -82,6 +86,7 @@ seeded(4405, () => {
   const { SB, game } = island(4405), C = SB.Creature, W = SB.World, w = game.world;
   for (let i = 0; i < 4; i++) SB.Game.spawnSmol(game, { x: w.T.spawn.x + i, z: w.T.spawn.z - 2, age: 560 });
   const sm = SB.Game.smols(game);
+  const grown = sm.filter(c => c.stage === 3); if (grown.length > 1) { grown[0].sex = "f"; grown[1].sex = "m"; } // the seed must not decide whether there is a pair
   let pair = null;
   for (const a of sm) for (const b of sm) if (!pair && a !== b && a.sex !== b.sex && a.stage === 3 && b.stage === 3 && a.tier < 3 && b.tier < 3 && !(SB.Game.related && SB.Game.related(game, a, b)) && (!SB.Species || SB.Species.compatible(a, b))) pair = [a, b];
   check("there is a pair to try", !!pair, sm.length + " smols");

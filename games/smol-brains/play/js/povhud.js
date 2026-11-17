@@ -100,7 +100,7 @@ var CSS=[
 "#pov .vrow i{width:clamp(26px,3.8vh,40px);height:clamp(26px,3.8vh,40px);background-size:100% 100%;image-rendering:pixelated;display:block;margin-right:-1px}",
 "#pov .vrow.small{height:16px}#pov .vrow.small i{width:16px;height:16px}",
 "#pov .vrow.drop i{filter:brightness(2.4) saturate(.2)}",
-"#pov .vstat{display:flex;gap:4px;justify-content:flex-end;align-items:center;min-height:16px;font:700 11px/1 var(--mono,monospace);color:#fff;white-space:nowrap;width:0;min-width:100%;overflow:hidden}#pov .vstat span{background:rgba(16,17,20,.78);padding:2px 5px;box-shadow:0 0 0 1px var(--px);flex:none}#pov .vstat span i{font-style:normal}#pov .vstat.many span i{display:none}#pov .vstat span.bad{color:#ffb3bd}#pov .vstat span.good{color:#c5ff49}",
+"#pov .vstat{display:flex;gap:4px;justify-content:flex-end;align-items:center;min-height:16px;font:700 11px/1 var(--mono,monospace);color:#fff;white-space:nowrap;width:0;min-width:100%;overflow:hidden}#pov .vstat span{background:rgba(16,17,20,.78);padding:2px 5px;box-shadow:0 0 0 1px var(--px);flex:none}#pov .vstat span i{font-style:normal}#pov .vstat.many span i:not(.pxi){display:none}#pov .vstat span.bad{color:#ffb3bd}#pov .vstat span.good{color:#c5ff49}",
 "#pov .you .st{display:flex;gap:8px;align-items:flex-start;margin:0 0 6px;font-size:12px;line-height:1.35}#pov .you .st b{white-space:nowrap}#pov .you .st.bad b{color:#ffb3bd}#pov .you .st.good b{color:#c5ff49}",
 "#pov .sk{display:grid;grid-template-columns:22px 74px 1fr 34px;gap:6px;align-items:center;font-size:12px;margin:3px 0}#pov .sk .bar{height:8px;background:rgba(255,255,255,.1);box-shadow:0 0 0 1px var(--px)}#pov .sk .bar b{display:block;height:100%;background:var(--lime)}#pov .sk em{font-style:normal;text-align:right;opacity:.85}#pov .sk.zero{opacity:.55}",
 "#pov .you .tally{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;opacity:.9}",
@@ -199,7 +199,7 @@ var CSS=[
 "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:min(38px,calc((100vw - 34px) / 9));height:min(38px,calc((100vw - 34px) / 9))}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
 "#pov.phone .vrow i{width:min(17px,3.4vw);height:min(17px,3.4vw)}#pov.phone .vrow{height:min(17px,3.4vw)}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
 "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
-"#pov.phone .quest{top:58px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
+"#pov.phone .quest{top:68px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
 "#pov.phone .prompt{font-size:12px;top:calc(50% + 24px)}#pov.phone .prompt kbd{display:none}#pov.phone .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}",
 "#pov.phone .toast{top:226px;bottom:auto;max-width:84vw;font-size:13px}#pov.phone:has(.threat.on) .quest{display:none}#pov.phone .gains{left:10px;bottom:auto;top:110px}#pov.phone .iname{bottom:84px}",
 "#pov.phone .bag .grid{grid-template-columns:repeat(9,34px);gap:3px}#pov.phone .bag .slot{width:34px;height:34px}#pov.phone .bag .slot .ic{width:24px!important;height:24px!important}#pov.phone .bag h3{flex-wrap:wrap;gap:4px}#pov.phone .bag .win{flex-direction:column;padding:10px;gap:8px}#pov.phone .side{width:auto}",
@@ -217,7 +217,8 @@ var CSS=[
 +"#pov .bag .grid{grid-template-columns:repeat(9,minmax(0,34px));gap:3px}#pov .bag .slot{width:auto;max-width:34px;aspect-ratio:1;height:auto}#pov .bag .slot .ic{width:24px!important;height:24px!important}"
 +"#pov .bag .tabs{position:sticky;top:-10px;z-index:1;background:rgba(22,18,34,.96);padding:6px 0;margin:-6px 0 6px}#pov .rlist{max-height:none}}",
 "@media (max-width:380px){#pov .compass,#pov.phone .compass{width:40vw}}",
-"@media (max-height:500px){#pov.phone .quest{display:none}#pov.phone .pbtns{bottom:70px;grid-template-rows:repeat(2,50px);grid-template-columns:repeat(3,50px)}#pov.phone .pbtns button{width:50px;height:50px}#pov.phone .pbtns button.act{height:108px}}"
+"@media (max-height:500px){#pov.phone .quest{display:none}#pov.phone .pbtns{bottom:70px;grid-template-rows:repeat(2,50px);grid-template-columns:repeat(3,50px)}#pov.phone .pbtns button{width:50px;height:50px}#pov.phone .pbtns button.act{height:108px}"
++"#pov.phone .bottom{left:calc((100vw - 176px) / 2)}#pov.phone .vrow,#pov.phone .vrow i{height:12px}#pov.phone .vrow i{width:12px}#pov.phone .vit{column-gap:4px}#pov.phone .toast{top:70px}}"
 ].join("\n");
 HUD.build=function(s){
 escLock(true);
@@ -935,10 +936,10 @@ if(!need.length)nh+="<div class='ok'>ready: "+(hud.phone?"hold use":"hold left c
 }
 if(hud.needsKey!==nh){hud.needsKey=nh;hud.needs.innerHTML=nh;}
 if(hud.phone){
-var ctx=o.ctx;
+var ctx=o.ctx,said=!!(ctx&&o.place&&!o.place.locked&&short(o.place.label)===short(ctx.label));
 setBtn(hud.bAct,ctx?ctx.label:"…",!ctx);
 setBtn(hud.bUse,o.use&&!o.use.locked?short(o.use.label):"use",!o.use||o.use.locked);
-setBtn(hud.bPlace,o.place&&!o.place.locked?short(o.place.label):"place",!o.place||o.place.locked);
+setBtn(hud.bPlace,o.place&&!o.place.locked&&!said?short(o.place.label):"place",!o.place||o.place.locked||said);
 if(hud.bTurn)hud.bTurn.classList.toggle("off",!(P().state()&&P().state().ghost));
 }
 }
