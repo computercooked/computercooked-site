@@ -4,7 +4,7 @@
 // scores and achievements, so deleting an account deletes its recap too.
 import { json, now, dayOf, weekOf } from "./util.js";
 import { levelOf, SITE_ACH } from "./xp.js";
-import { eventDef } from "./social.js";
+import { eventDef, weekChallenge } from "./social.js";
 
 const DAY = 86400000, WEEK = 7 * DAY;
 
@@ -56,6 +56,9 @@ export async function weekRecap(env, userId, catalog, which = "last", t = now())
     const d = a.game === "site" ? SITE_ACH[a.ach_id] || eventDef(a.ach_id) : (catalog.get(a.game)?.achievements || []).find((x) => x.id === a.ach_id);
     return { game: a.game, id: a.ach_id, name: d?.name || a.ach_id };
   });
+  // that week's challenge: done (its xp event, ref = the week) or not, for the recap and its share card
+  const wk = weekOf(start), ch = await weekChallenge(env, wk);
+  const chDone = !!(ch && await env.DB.prepare("SELECT 1 FROM xp_events WHERE user_id = ? AND kind = 'challenge' AND ref = ?").bind(userId, wk).first());
   const from = levelOf(xpBefore), to = levelOf(xpBefore + xp);
   return {
     week: weekOf(start), which, from: dayOf(start), to: dayOf(end - DAY), complete: which !== "this",
@@ -65,6 +68,7 @@ export async function weekRecap(env, userId, catalog, which = "last", t = now())
     top: top && { game: top.game, title: title(top.game), runs: top.runs, minutes: Math.round(top.ms / 60000) },
     bests: bests.slice(0, 3), bests_total: bests.length,
     achievements: achs.slice(0, 3), achievements_total: achs.length,
+    challenge: ch && catalog.has(ch.game) ? { game: ch.game, title: title(ch.game), goal: ch.goal, done: chDone } : null,
   };
 }
 

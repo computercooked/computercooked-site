@@ -207,6 +207,7 @@
 .me-recap-stats i.is-up { color: var(--lime); }
 .me-recap-line { margin: 0 0 4px; font-size:var(--fs-14); overflow-wrap: anywhere; }
 .me-recap-line a { color: var(--lilac); font-family: var(--sans); font-weight: 800; text-decoration: none; }
+.me-recap-share { margin: 12px 0 0; }
 .me-recap .me-feed { padding: 0; }
 .me-recap .me-feed li { margin: 0; }
 

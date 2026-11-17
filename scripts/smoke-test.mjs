@@ -584,6 +584,9 @@ else {
   r = await (await get("/api/me/recap?week=this", { cookie })).json();
   const rc = r.recap;
   ok(rc?.runs > 0 && rc.xp > 0 && rc.complete === false && rc.days >= 1 && rc.top?.game && rc.achievements_total >= 1 && rc.achievements.length >= 1, "weekly recap: this week so far", rc && { runs: rc.runs, xp: rc.xp, top: rc.top });
+  ok(rc && "challenge" in rc && (rc.challenge === null || (typeof rc.challenge.done === "boolean" && rc.challenge.game && rc.challenge.title)), "weekly recap carries the week's challenge result", rc && rc.challenge);
+  const meHtml = await (await get("/me/")).text(), meJs = await (await get("/me/me.js")).text(), rcJs = await (await get("/me/recap-card.js")).text();
+  ok(meHtml.includes('id="recap-share"') && meJs.includes("/me/recap-card.js") && rcJs.includes("window.ccRecapCard"), "/me has 'share my week' and its card drawer");
   r = await (await get("/api/me/recap", { cookie })).json();
   ok(r.ok && r.recap === null, "weekly recap: empty for the week before the account existed", r.recap);
   ok((await get("/api/me/recap")).status === 401, "weekly recap needs a login");
