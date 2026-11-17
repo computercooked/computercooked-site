@@ -1,9 +1,10 @@
-// level devil.exe · computer cooked games
+// not responding · computer cooked games (2.5: renamed from "level devil.exe"; the slug, folder and save key stay level-devil-exe / cc-level-devil)
 // a troll platformer: the floor, the exit, the cursor and the taskbar all want you dead.
 (() => {
 'use strict';
 
 const URL_TXT = 'computercooked.com/games/level-devil-exe';
+const NAME = 'not responding';
 const CARBON = '#101114', LIME = '#C5FF49', LILAC = '#B59AFF', PAPER = '#F5F3ED', PINK = '#FF4FA0', BSOD = '#1e5bd6';
 const FONT = 'ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace';
 const T = 20, COLS = 24, ROWS = 13, WW = COLS * T, WH = ROWS * T;
@@ -53,7 +54,7 @@ const LEVELS = [
   { n: 'cloud_sync.dll', sign: 'syncing your files to the cloud. they are coming back down.', map: M({ 1: '#.......d..d..d........#', 5: '#..E...............K...#', 6: '####################...#', 11: '#.S......k.......h...p.#', 12: '##########CCCCCC########' }), fullSpring: true },
   { n: 'antivirus.exe', sign: 'antivirus is scanning your floor. do not stand still.', map: M({ 7: '#...............###....#', 11: '#.S....^.....^.......pE#', 12: '#zzzzzzzzzzzzzzzzzzzz###' }), run: [[17, 6]], chase: { x: 3, speed: 64 }, fullSpring: true, alt: [{ d: 3, chase: { x: 3, speed: 50 } }] },
   { n: 'safe_mode.sys', sign: 'safe mode: upside down, controls swapped. for your safety.', map: M({ 1: '#.......rrrvrrr....g...#', 2: '#.......rrrrrrr........#', 3: '#.......rrrrrrr........#', 4: '#.......rrrrrrr........#', 11: '#.S.g^^^^^^^^^^^^^^..E.#' }), popups: [{ x: 19, r: [19, 9, 4, 3], t: 'restart now?' }] },
-  { n: 'uninstall.exe', sign: 'uninstalling level devil.exe. please do not climb.', map: M({ 1: '#.................E....#', 2: '#.................######', 4: '#.............ccc......#', 6: '#.........ccc..........#', 8: '#.....###..............#', 10: '#.###..................#', 11: '#S.....................#' }), taskbar: { x: 3, speed: 14 }, run: [[22, 1]], R: { c: 0.9 }, shake: 0.45 },
+  { n: 'uninstall.exe', sign: 'uninstalling not_responding.exe. please do not climb.', map: M({ 1: '#.................E....#', 2: '#.................######', 4: '#.............ccc......#', 6: '#.........ccc..........#', 8: '#.....###..............#', 10: '#.###..................#', 11: '#S.....................#' }), taskbar: { x: 3, speed: 14 }, run: [[22, 1]], R: { c: 0.9 }, shake: 0.45 },
   { n: 'credits.txt', sign: 'thanks for playing. crash is proud of you. kind of.', map: M({ 11: '#.S..................E.#' }), run: [[2, 11]], credits: true },
 ];
 
@@ -309,6 +310,7 @@ function stepPlayer(dt) {
     p.vy = 0;
   }
   if (p.ground) p.coyote = COYOTE;
+  p.still = inp.dir || inp.jump || !p.ground ? 0 : (p.still || 0) + dt;   // 2.5: idle -> busy ring on crash's screen
   p.sq = Math.max(0, p.sq - dt * 6);
   // still stuck inside something (popup/wall appeared)? squish
   if (overlapSolid(p.x + 2, p.y + 2, PW - 4, PH - 4)) kill('CRUSHED_BY_A_SURPRISE_WALL');
@@ -521,7 +523,7 @@ function wrapText(txt, x, y, maxW, lh) {
 }
 function fmt(t) { const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0'); }
 
-const PAL = () => hw ? { face: '#e58a3a', hi: '#ffc27a', lo: '#8a3f12', bg: '#160f22', grid: 'rgba(255,138,42,0.05)', spike: '#b59aff' } : { face: '#c3c3c3', hi: '#f2f2f2', lo: '#6d6d6d', bg: CARBON, grid: 'rgba(197,255,73,0.04)', spike: PINK };
+const PAL = () => hw ? { face: '#e58a3a', hi: '#ffc27a', lo: '#8a3f12', bg: '#160f22', grid: 'rgba(255,138,42,0.05)', spike: '#b59aff' } : { face: '#3d5a80', hi: '#98c1d9', lo: '#1b2a41', bg: '#0f1222', grid: 'rgba(152,193,217,0.06)', spike: PINK };
 
 function block(x, y, P, shake) {
   const ox = shake ? (Math.random() - 0.5) * 2.5 : 0;
@@ -550,7 +552,8 @@ function drawPlayer(p) {
   ctx.fillStyle = '#b09f7a'; ctx.fillRect(PW - 2, 0, 2, 11); ctx.fillRect(3, 11, 6, 2); ctx.fillRect(1, 13, 10, 3);
   ctx.fillStyle = LIME; ctx.fillRect(2, 2, 8, 6);
   ctx.fillStyle = CARBON; const ex = p.face > 0 ? 1 : -1;
-  ctx.fillRect(4 + ex, 4, 1, 2); ctx.fillRect(7 + ex, 4, 1, 2);
+  if ((p.still || 0) > 1.2 && mode === 'play') { const a0 = clock * 7; ctx.strokeStyle = CARBON; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(6, 5, 2.2, a0, a0 + 4.4); ctx.stroke(); }
+  else { ctx.fillRect(4 + ex, 4, 1, 2); ctx.fillRect(7 + ex, 4, 1, 2); }
   if (hw) { ctx.fillStyle = '#2a1846'; ctx.beginPath(); ctx.moveTo(1, 0); ctx.lineTo(11, 0); ctx.lineTo(7, -8); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#FF8A2A'; ctx.fillRect(0, -1, 12, 1.5); }
   ctx.restore();
 }
@@ -663,7 +666,7 @@ function draw() {
     const a = Math.min(1, (L.signT - 3) * 3), rec = save.lb[L.def.n], daily = lvIndex === dailyLv() && !save.daily.done;
     const sub = daily ? '★ daily file: clear it with 0 deaths' : rec ? 'best ' + rec.t.toFixed(2) + 's · ' + (rec.d === 0 ? 'clean ★' : 'fewest deaths ' + rec.d) : '';
     const th = sub ? 58 : 44;
-    ctx.globalAlpha = a; ctx.fillStyle = '#1c2a8c'; const tw = 240; rr(VC - tw / 2, WH / 2 - 22, tw, th, 4); ctx.fill(); ctx.fillStyle = PAPER; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('level ' + (lvIndex + 1) + ' / ' + LEVELS.length + ' · folder ' + (Math.floor(lvIndex / 6) + 1) + ': ' + FOLDERS[Math.floor(lvIndex / 6)], VC, WH / 2 - 9); ctx.fillStyle = LIME; ctx.font = 'bold 12px ' + FONT; ctx.fillText(L.def.n, VC, WH / 2 + 8);
+    ctx.globalAlpha = a; ctx.fillStyle = '#1c2a8c'; const tw = 300; rr(VC - tw / 2, WH / 2 - 22, tw, th, 4); ctx.fill(); ctx.fillStyle = PAPER; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('level ' + (lvIndex + 1) + ' / ' + LEVELS.length + ' · folder ' + (Math.floor(lvIndex / 6) + 1) + ': ' + FOLDERS[Math.floor(lvIndex / 6)], VC, WH / 2 - 9); ctx.fillStyle = LIME; ctx.font = 'bold 11px ' + FONT; ctx.fillText(L.def.n + ' (not responding)', VC, WH / 2 + 8);
     if (sub) { ctx.fillStyle = daily ? LILAC : 'rgba(245,243,237,0.8)'; ctx.font = 'bold 8px ' + FONT; ctx.fillText(sub, VC, WH / 2 + 25); }
     ctx.globalAlpha = 1;
   }
@@ -720,10 +723,17 @@ function drawHud() {
   if (L && L.deaths > 0) { ctx.fillStyle = 'rgba(255,79,160,0.7)'; const dh = '(' + L.deaths + ' here)'; ctx.fillText(dh, x, h / 2); x += ctx.measureText(dh + ' ').width; }
   x += ctx.measureText(' ').width;
   ctx.fillStyle = PAPER; ctx.fillText(speedrun.on ? fmt(speedrun.t) : '--:--.--', x, h / 2); x += ctx.measureText('00:00.00  ').width;
-  if (!narrow && L) { ctx.fillStyle = 'rgba(245,243,237,0.5)'; ctx.fillText(L.def.n, x, h / 2); }
-  ctx.fillStyle = 'rgba(245,243,237,0.3)'; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  if (!narrow && L) { ctx.fillStyle = 'rgba(245,243,237,0.5)'; ctx.fillText(L.def.n, x, h / 2); x += ctx.measureText(L.def.n).width; }
+  // 2.4: the next goal: in the top bar when there's room (wide frames), else in the strip under the level
   const ng = nextGoal(), gy = V.y + WH * V.s + 15;
-  if (ng && L && (mode === 'play' || mode === 'dead' || mode === 'win') && gy < H - 14 && (!pad.show || V.band) && !(pad.show && pad.l && gy + 8 > pad.l.y)) {
+  let inBar = false;
+  if (ng && L && !narrow) {
+    const [a, b] = ng.p(), txt = 'next: ' + ng.t + (b > 1 ? ' · ' + a + '/' + b : '');
+    ctx.font = 'bold 11px ' + FONT; const tw = ctx.measureText(txt).width, right = bx - 12;
+    if (right - tw > x + 24) { inBar = true; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(197,255,73,0.75)'; ctx.fillText(txt, right, h / 2); }
+  }
+  ctx.fillStyle = 'rgba(245,243,237,0.3)'; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  if (ng && L && !inBar && (mode === 'play' || mode === 'dead' || mode === 'win') && gy < H - 14 && (!pad.show || V.band) && !(pad.show && pad.l && gy + 8 > pad.l.y)) {
     const [a, b] = ng.p(); ctx.font = 'bold ' + (W < 430 ? 10 : 11) + 'px ' + FONT; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(197,255,73,0.75)';
     ctx.fillText('next goal: ' + ng.t + (b > 1 ? ' · ' + a + '/' + b : ''), W / 2, gy); ctx.font = 'bold 9px ' + FONT; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(245,243,237,0.3)';
   }
@@ -735,11 +745,35 @@ function drawPad() {
   draw1(pad.l, '◀', touch.l); draw1(pad.r, '▶', touch.r); draw1(pad.j, 'jump', touch.j);
 }
 function panel() { const w = Math.min(W - 24, 420), h = Math.min(H - 24, 470); const x = (W - w) / 2, y = (H - h) / 2; ctx.fillStyle = 'rgba(10,11,13,0.9)'; ctx.fillRect(0, 0, W, H); rr(x, y, w, h, 14); ctx.fillStyle = CARBON; ctx.fill(); ctx.strokeStyle = LIME; ctx.lineWidth = 2; ctx.stroke(); return { x, y, w, h }; }
+let menuView = 'levels';   // 2.4: 'levels' | 'goals'
+function drawGoals(p) {
+  let y = p.y + 16;
+  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('goals ' + goalsDone() + '/' + GOALS.length, p.x + 16, y);
+  button(p.x + p.w - 44, y - 4, 32, 30, '×', () => { menuView = 'levels'; }, { fs: 18 });
+  y += 34;
+  const D = save.daily, rh = Math.max(16, Math.min(24, (p.y + p.h - y - 40) / GOALS.length));
+  ctx.font = 'bold ' + (rh < 19 ? 10 : 12) + 'px ' + FONT; ctx.textBaseline = 'middle';
+  for (const g of GOALS) {
+    const done = save.goals[g.id], [a, b] = g.p();
+    ctx.textAlign = 'left'; ctx.fillStyle = done ? LIME : 'rgba(245,243,237,0.75)'; ctx.fillText((done ? '✓ ' : '· ') + g.t, p.x + 16, y + rh / 2);
+    ctx.textAlign = 'right'; ctx.fillStyle = done ? 'rgba(197,255,73,0.6)' : 'rgba(245,243,237,0.45)'; ctx.fillText(done ? '' : b > 1 ? a + '/' + b : '', p.x + p.w - 16, y + rh / 2);
+    y += rh;
+  }
+  ctx.textAlign = 'left'; ctx.fillStyle = LILAC; ctx.font = 'bold 11px ' + FONT;
+  ctx.fillText(D.done ? 'daily file done · streak ' + D.streak + ' · a new one tomorrow' : 'daily file today: lvl ' + (dailyLv() + 1) + ' · clear it with 0 deaths', p.x + 16, Math.min(y + 14, p.y + p.h - 14));
+}
+function logo(x, y) {
+  const a0 = clock * 5; ctx.strokeStyle = 'rgba(152,193,217,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x + 9, y + 10, 7, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = LIME; ctx.beginPath(); ctx.arc(x + 9, y + 10, 7, a0, a0 + 1.8); ctx.stroke();
+  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(NAME, x + 24, y);
+}
 function drawMenu() {
   btns = [];
   const p = panel(); let y = p.y + 16;
-  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('level devil.exe', p.x + 16, y);
+  if (menuView === 'goals') { drawGoals(p); return; }
+  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; logo(p.x + 16, y);
   button(p.x + p.w - 44, y - 4, 32, 30, '×', closeMenu, { fs: 18 });
+  button(p.x + p.w - 128, y - 4, 76, 30, 'goals ▸', () => { menuView = 'goals'; }, { fs: 12, color: LIME });
   const nm = nemesis();
   y += 30; ctx.fillStyle = 'rgba(245,243,237,0.6)'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'left'; ctx.fillText('deaths: ' + save.deaths + (nm ? ' · nemesis: lvl ' + nm.lv + ' (☠ ' + nm.n + ')' : '') + (save.best ? ' · best run ' + fmt(save.best) : ''), p.x + 16, y); y += 22;
   // 2.4: goals + clean files, the next goal, and the daily file
@@ -788,7 +822,7 @@ function drawEnd() {
   btns = [];
   const p = panel(); let y = p.y + 22;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.fillText('you beat level devil.exe', W / 2, y); y += 40;
+  ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.fillText('you beat ' + NAME, W / 2, y); ctx.fillStyle = 'rgba(245,243,237,0.55)'; ctx.font = 'bold 12px ' + FONT; ctx.fillText('(it is responding now. barely.)', W / 2, y + 26); y += 46;
   ctx.fillStyle = PAPER; ctx.font = 'bold 15px ' + FONT;
   ctx.fillText('time ' + fmt(speedrun.t) + (speedrun.valid ? '' : ' (level-select run)'), W / 2, y); y += 26;
   ctx.fillText('deaths this run: ' + speedrun.deaths + ' · score ' + runScore(), W / 2, y); y += 26;
@@ -803,7 +837,7 @@ function drawEnd() {
   button(p.x + 20, y, p.w - 40, bh, 'levels', openMenu);
   tipWant = { x: p.x + 20, y: y + bh, w: p.w - 40 }; // K-0059: shared tip button (assets/tip.js)
 }
-function openMenu() { if (mode === 'menu') return; menuFrom = mode === 'end' ? 'end' : 'play'; mode = 'menu'; }
+function openMenu() { if (mode === 'menu') return; menuView = 'levels'; menuFrom = mode === 'end' ? 'end' : 'play'; mode = 'menu'; }
 function closeMenu() { mode = menuFrom === 'end' ? 'end' : 'play'; }
 
 // ---------- share ----------
@@ -812,7 +846,7 @@ function makeCard() {
   g.fillStyle = hw ? '#3a1458' : BSOD; g.fillRect(0, 0, 1080, 1080);
   g.fillStyle = PAPER; g.textAlign = 'left'; g.textBaseline = 'top';
   g.font = 'bold 220px ' + FONT; g.fillText(':(', 90, 70);
-  g.font = 'bold 54px ' + FONT; g.fillText('level devil.exe killed me', 90, 360);
+  g.font = 'bold 54px ' + FONT; g.fillText(NAME + ' killed me', 90, 360);
   g.fillStyle = LIME; g.font = 'bold 150px ' + FONT; g.fillText(save.deaths + 'x', 90, 440);
   g.fillStyle = PAPER; g.font = 'bold 44px ' + FONT;
   const done = mode === 'end';
@@ -829,8 +863,8 @@ function makeCard() {
 }
 function shareText() {
   const nm = nemesis(), nmTxt = nm && nm.n >= 3 ? ' level ' + nm.lv + ' alone got me ' + nm.n + ' times.' : '';
-  return mode === 'end' ? 'i beat level devil.exe in ' + fmt(speedrun.t) + ' and only died ' + speedrun.deaths + ' times.' + nmTxt + ' ' + URL_TXT
-    : 'level devil.exe has killed me ' + save.deaths + ' times.' + nmTxt + ' i am on level ' + Math.min(LEVELS.length, save.cleared + 1) + '. ' + URL_TXT;
+  return mode === 'end' ? 'i beat ' + NAME + ' in ' + fmt(speedrun.t) + ' and only died ' + speedrun.deaths + ' times.' + nmTxt + ' ' + URL_TXT
+    : NAME + ' has killed me ' + save.deaths + ' times.' + nmTxt + ' i am on level ' + Math.min(LEVELS.length, save.cleared + 1) + '. ' + URL_TXT;
 }
 const toastQ = [];
 function toast(m) { if (toastT > 0) { if (toastQ.length < 4) toastQ.push(m); } else { toastMsg = m; toastT = 2.4; } }
@@ -839,8 +873,8 @@ async function share() {
   const text = shareText(); let blob = null;
   try { blob = await new Promise(r => makeCard().toBlob(r, 'image/png')); } catch (e) {}
   try {
-    if (blob && navigator.canShare) { const file = new File([blob], 'level-devil.png', { type: 'image/png' }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, title: 'level devil.exe' }); return; } }
-    if (navigator.share) { await navigator.share({ text, title: 'level devil.exe' }); return; }
+    if (blob && navigator.canShare) { const file = new File([blob], 'not-responding.png', { type: 'image/png' }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, title: NAME }); return; } }
+    if (navigator.share) { await navigator.share({ text, title: NAME }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
   try { if (blob && navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob, 'text/plain': new Blob([text], { type: 'text/plain' }) })]); toast('card + text copied'); return; } } catch (e) {}
   try { await navigator.clipboard.writeText(text); toast('copied to clipboard'); } catch (e) { toast('could not copy. screenshot it.'); }
