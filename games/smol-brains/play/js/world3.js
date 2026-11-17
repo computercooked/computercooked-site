@@ -73,8 +73,8 @@ W3.center=function(game,c){var R=rt(game);return{x:(c%G+0.5)*R.cs,z:((c/G|0)+0.5
 function paint(R,c,idx){
 var T=R.w.T,N=T.N,i0=Math.floor((c%G)*R.cs),j0=Math.floor((c/G|0)*R.cs),i1=Math.floor((c%G+1)*R.cs),j1=Math.floor(((c/G|0)+1)*R.cs);
 for(var j=j0;j<j1&&j<N;j++)for(var i=i0;i<i1&&i<N;i++){var t=j*N+i,b=SB.BIOMES[R.b0[t]];if(b&&b.id!=="ocean"&&b.id!=="reef")T.biome[t]=idx<0?R.b0[t]:idx;}
-var Rn=SB.Render,x=(c%G+0.5)*R.cs,z=((c/G|0)+0.5)*R.cs;
-if(Rn&&Rn.markGround)Rn.markGround(x,z);else if(Rn&&Rn.markDirty)Rn.markDirty(x,z);
+var Rn=SB.Render,mk=Rn&&(Rn.markGround||Rn.markDirty),xs=[i0-2,i1+2],zs=[j0-2,j1+2];
+if(mk)for(var a=0;a<2;a++)for(var q=0;q<2;q++)mk.call(Rn,Math.max(0,Math.min(N-1,xs[a])),Math.max(0,Math.min(N-1,zs[q])));
 }
 function b0id(R,c){var p={x:(c%G+0.5)*R.cs,z:((c/G|0)+0.5)*R.cs},b=SB.BIOMES[R.b0[(p.z|0)*R.w.T.N+(p.x|0)]];return b?b.id:"ocean";}
 W3.wet=function(game,x,z){var w=game.world,T=w.T;return Wd().depthAt(w,x,z)>0.02?1:T.moist?T.moist[SB.clamp(z|0,0,T.N-1)*T.N+SB.clamp(x|0,0,T.N-1)]:0.4;};

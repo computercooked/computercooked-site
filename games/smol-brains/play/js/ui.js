@@ -16,6 +16,7 @@ UI.eventReady=function(){
 var t=now();
 if(el.modal||pointerDown)return false;
 if(SB.Lantern&&SB.Lantern.running)return false;
+if(UI._podUp)return false;
 if(SB.Possess&&SB.Possess.active)return false;
 if(SB.Director&&SB.Director.danger&&SB.Director.danger(game))return false;
 if(UI.armed&&t-armT<UI.ARM_HOLD||t-lastCast<UI.CAST_GRACE)return false;
@@ -1834,10 +1835,10 @@ var dir=["north","north-east","east","south-east","south","south-west","west","n
 var cap=h("div",{class:"podcap"},[h("b",null,"🛸 pod "+(s.n||"")+" came down here"),h("span",null,d+" steps "+dir+" of the village. it's marked on your map."),first?h("span",{class:"podwhy"},"the ark's other escape pods still fall now and then. survivors inside aren't family, so they can start new families. pods carry supplies too."):null]);
 var ok=h("button",{class:"btn go"},"ok");
 var wrap=h("div",{class:"podmap"},[cv,cap,ok]);
-root.appendChild(wrap);
+root.appendChild(wrap);UI._podUp=true;
 if(!mini.base){mini.base=document.createElement("canvas");mini.base.width=mini.base.height=N;var bx=mini.base.getContext("2d"),img=bx.createImageData(N,N);img.data.set(SB.WorldGen.minimap(T));bx.putImageData(img,0,0);}
 var x=cv.getContext("2d"),k=cv.width/N,t0=performance.now(),closed=false,raf=0;
-function close(){if(closed)return;closed=true;cancelAnimationFrame(raf);wrap.classList.add("out");setTimeout(function(){wrap.remove();},400);done();}
+function close(){if(closed)return;closed=true;UI._podUp=false;cancelAnimationFrame(raf);wrap.classList.add("out");setTimeout(function(){wrap.remove();},400);done();}
 ok.onclick=function(e){e.stopPropagation();close();};
 wrap.onclick=close;
 (function frame(){
