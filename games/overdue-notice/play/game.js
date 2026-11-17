@@ -79,11 +79,12 @@
   let paused = false, modalOpen = false;
   function toast(text, bad) {
     el.toast.textContent = text; el.toast.className = bad ? 'bad' : ''; el.toast.hidden = false;
+    el.toast.style.top = Math.round(el.field.getBoundingClientRect().top + 46) + 'px'; // under the goal chip, never over it
     clearTimeout(toast.t); toast.t = setTimeout(() => { el.toast.hidden = true; }, 2300);
   }
-  function floatText(x, y, text, color) {
+  function floatText(x, y, text, color, big) {
     if (el.field.childElementCount > 60) return;
-    const f = document.createElement('div'); f.className = 'float'; f.textContent = text;
+    const f = document.createElement('div'); f.className = 'float' + (big ? ' big' : ''); f.textContent = text;
     f.style.left = (x - 20) + 'px'; f.style.top = (y - 10) + 'px'; f.style.color = color || 'var(--lime)';
     el.field.appendChild(f); setTimeout(() => f.remove(), 900);
   }
@@ -107,11 +108,24 @@
 
   // ---------- field ----------
   const nodes = new Map(); // entity id -> element
+  // try a dozen spots and keep the one that covers the least of what's already on the desk (popups, piggy, gig offer),
+  // so a new popup doesn't land square on top of another one. below the goal chip, above the credit line.
   function placeRandom(node) {
     const fw = el.field.clientWidth, fh = el.field.clientHeight;
     const w = node.offsetWidth || 140, h = node.offsetHeight || 70;
-    node.style.left = Math.round(4 + Math.random() * Math.max(0, fw - w - 8)) + 'px';
-    node.style.top = Math.round(24 + Math.random() * Math.max(0, fh - h - 50)) + 'px';
+    const top0 = 40, spanX = Math.max(0, fw - w - 8), spanY = Math.max(0, fh - h - top0 - 18);
+    const others = [];
+    for (const n of nodes.values()) if (n !== node && n.isConnected && !n.classList.contains('die')) others.push([n.offsetLeft, n.offsetTop, n.offsetWidth, n.offsetHeight]);
+    if (gigNode) others.push([gigNode.offsetLeft, gigNode.offsetTop, gigNode.offsetWidth, gigNode.offsetHeight]);
+    let best = null, bestCov = Infinity;
+    for (let k = 0; k < 12 && bestCov > 0; k++) {
+      const x = Math.round(4 + Math.random() * spanX), y = Math.round(top0 + Math.random() * spanY);
+      let cov = 0;
+      for (const [ox, oy, ow, oh] of others) cov += Math.max(0, Math.min(x + w, ox + ow) - Math.max(x, ox)) * Math.max(0, Math.min(y + h, oy + oh) - Math.max(y, oy));
+      if (cov < bestCov) { bestCov = cov; best = [x, y]; }
+    }
+    node.style.left = best[0] + 'px';
+    node.style.top = best[1] + 'px';
   }
   function addPop(p) {
     const n = document.createElement('div');
@@ -147,6 +161,9 @@
   el.field.addEventListener('pointerdown', (e) => {
     initAudio();
     if (modalOpen || paused || !S || S.over) return;
+    begin();
+    const gl = e.target.closest('#goal');
+    if (gl) { e.preventDefault(); goalTap(); return; }
     const gb = e.target.closest('[data-gig]');
     if (gb) { if (gb.dataset.gig === 'yes') { ON.acceptGig(S); sfx.gig(); } else ON.declineGig(S); return; }
     const pig = e.target.closest('.pig');
@@ -177,7 +194,7 @@
           if (n) { n.classList.remove('hit'); void n.offsetWidth; n.classList.add('hit'); n.querySelector('i').style.width = (100 * e.pig.hp / e.pig.max) + '%'; }
           sfx.thud(); break;
         }
-        case 'pigDie': { const n = nodes.get(e.pig.id); if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt), 'var(--gold)'); coins(c.x, c.y, 16); } removeNode(e.pig.id, true); sfx.smash(); bumpCash(); shake(1); break; }
+        case 'pigDie': { const n = nodes.get(e.pig.id); if (n) { const c = centerOf(n); floatText(c.x, c.y, '+' + fmt(e.amt), 'var(--gold)', true); coins(c.x, c.y, 16); } removeNode(e.pig.id, true); sfx.smash(); bumpCash(); shake(2); flashField('gold'); break; }
         case 'pigGone': { const n = nodes.get(e.pig.id); if (n) { const c = centerOf(n); floatText(c.x, c.y, 'piggy left', 'var(--dim)'); } removeNode(e.pig.id, true); break; }
         case 'gig': showGig(e.g); sfx.gig(); break;
         case 'gigStart': if (gigNode) { gigNode.querySelector('.row').innerHTML = '<span style="color:var(--dim)">working on it...</span>'; } break;
@@ -190,7 +207,7 @@
         case 'creep': crept = true; toast(e.name + ' went up. you can afford it now, apparently.', true); break;
         case 'surprise': toast('surprise bill: ' + e.name, true); sfx.late(); break;
         case 'windfall': toast(e.name + '! +' + fmt(e.amt)); sfx.coin(); break;
-        case 'late': toast(e.b.name + ' is late. +15% late fee.', true); sfx.late(); shake(1); break;
+        case 'late': toast(e.b.name + ' is late. +15% late fee.', true); sfx.late(); shake(1); flashField('bad'); break;
         case 'paid': sfx.pay(); paidPop(e); break;
         case 'warn': toast(e.lvl === 1 ? 'the debt collector found your street.' : 'he\'s knocking. pay something.', true); sfx.knock(); break;
         case 'cryptoEvent': if (e.moon) { toast('$CRASHCOIN to the moon 🚀 (briefly)'); ccEvent('crypto_moon'); } else toast('$CRASHCOIN rug pulled. devs are "on vacation".', true); break;
@@ -198,7 +215,10 @@
         case 'bought': sfx.buy(); break;
         case 'dayEnd': showDayEnd(e); break;
         case 'repo': showRepo(e); break;
-        case 'dayStart': sfx.day(); if (!crept) toast('day ' + e.day + '. ' + S.bills.length + (S.bills.length === 1 ? ' bill' : ' bills') + ' arrived.'); crept = false; if (e.day <= 15) ccEvent('day', { day: e.day }); cc('score', e.day); break;
+        case 'dayStart': { // one stamp says it all (it replaced the "N bills arrived" toast, which sat on top of it)
+          const nb = S.bills.length + (S.bills.length === 1 ? ' bill' : ' bills') + ' arrived';
+          sfx.day(); banner('day ' + e.day, S.startBest > 1 && e.day > S.startBest ? 'new best! ' + nb : S.startBest > 1 && e.day === S.startBest ? 'your best is day ' + S.startBest + '. beat it.' : e.day === 3 ? nb + ' · fresh start unlocked' : nb);
+          crept = false; if (e.day <= 15) ccEvent('day', { day: e.day }); cc('score', e.day); break; }
         case 'over': showOver(); break;
       }
     }
@@ -221,16 +241,102 @@
   let hintHidden = false;
   function hideHint() { if (!hintHidden && S.popsClosed > 3) { hintHidden = true; el.hint.style.opacity = 0; } }
 
+  // ---------- first tap ----------
+  // the day's clock waits for your first tap (or key). the player page loads the game under its "tap to play" prompt,
+  // so without this, wi-fi went late before a phone player had touched anything.
+  let started = false;
+  function begin() {
+    if (started || !S) return;
+    started = true; el.field.classList.remove('wait');
+    if (!hintHidden) el.hint.textContent = 'tap popups for cash. pay bills before they\'re late.';
+  }
+  function hold() { // a fresh page or run: wait for the player. a couple of popups are already up to tap.
+    started = false;
+    if (!S || S.over) return;
+    for (let k = 0; k < 40 && S.pops.length < 2 && !S.dayDone; k++) ON.tick(S, 0.1);
+    el.field.classList.add('wait');
+    if (!hintHidden) el.hint.textContent = 'tap a popup to start the day';
+  }
+
+  // ---------- next goal ----------
+  // one chip at the top of the desk: the bill that's about to go late, or else the cheapest thing that makes the
+  // number go up faster. a bar fills toward it; once you can afford it, tapping the chip pays or buys it.
+  const goalEl = $('goal');
+  let goalT = 0, goal = null;
+  function nextGoal() {
+    if (!S || S.over || S.dayDone) return null;
+    const order = S.bills.slice().sort((a, b) => (b.late - a.late) || a.due - b.due);
+    const b = order[0];
+    const billGoal = () => ({ act: 'pay:' + b.uid, tab: 'bills', icon: b.icon, name: (b.late ? 'LATE: pay ' : 'pay ') + b.name, why: b.late ? 'the debt collector is coming' : 'due in ' + secs(b.due - S.t), cost: b.amount, bad: b.late });
+    if (b && (b.late || b.due - S.t < 20)) return billGoal();
+    const opts = [], fresh = ON.HUSTLES.find((x) => !S.hustles[x.id]);
+    for (const h of ON.HUSTLES) {
+      const n = S.hustles[h.id] || 0;
+      if (!n && h !== fresh) continue; // only the next new hustle
+      if (h.needs && !ON.utilOk(S, h.needs)) continue;
+      opts.push({ act: 'hus:' + h.id, tab: 'hustles', icon: h.icon, name: (n ? 'another ' : 'start a ') + h.name, why: 'earns money while you tap', cost: ON.hustleCost(S, h) });
+    }
+    for (const u of ON.UPGRADES) {
+      const l = ON.lvl(S, u.id);
+      if (l >= u.max || S.day < u.unlock || u.id === 'budget' || u.id === 'autopay') continue;
+      const nm = u.id === 'mouse' ? 'better mouse' : u.max === 1 ? u.names[1] : u.names[Math.min(u.names.length - 1, l + 1)] || u.id;
+      opts.push({ act: 'up:' + u.id, tab: 'upgrades', icon: u.icon, name: nm, why: u.desc(l), cost: ON.upCost(S, u) });
+    }
+    opts.sort((a, b) => a.cost - b.cost);
+    // never steer you into a late fee: if buying it would leave too little for bills due in the next 30 s, pay first
+    const reserve = S.bills.reduce((a, x) => a + (!x.late && x.due - S.t < 30 ? x.amount : 0), 0);
+    if (b && reserve > 0 && (!opts[0] || S.cash - opts[0].cost < reserve)) return billGoal();
+    return opts[0] || null;
+  }
+  function renderGoal() {
+    goal = nextGoal();
+    if (!goal || modalOpen) { goalEl.hidden = true; return; }
+    const can = S.cash >= goal.cost, pct = Math.max(0, Math.min(1, S.cash / goal.cost));
+    const key = goal.act + '|' + goal.name + '|' + goal.why + '|' + fmt(goal.cost) + '|' + can;
+    if (goalEl.hidden) goalEl.hidden = false;
+    if (goalEl._k !== key) {
+      goalEl._k = key;
+      goalEl.className = (can ? 'can' : '') + (goal.bad ? ' bad' : '');
+      goalEl.innerHTML = `<span class="gi">${goal.icon}</span><span class="gt"><b>${esc(goal.name)}</b> <span class="gc">${fmt(goal.cost)}</span><small>${can ? 'tap here to ' + (goal.act.startsWith('pay') ? 'pay' : 'buy') + ' · ' : 'next: '}${esc(goal.why)}</small></span><i></i>`;
+    }
+    goalEl.lastChild.style.width = Math.round(pct * 100) + '%';
+  }
+  function goalTap() {
+    if (!goal) return;
+    if (S.cash < goal.cost) { goalEl.classList.remove('no'); void goalEl.offsetWidth; goalEl.classList.add('no'); sfx.thud(); return; }
+    const before = S.cash, g = goal;
+    act(g.act);
+    if (S.cash < before) {
+      const r = goalEl.getBoundingClientRect(), f = el.field.getBoundingClientRect();
+      floatText(r.left - f.left + r.width / 2, r.bottom - f.top + 4, g.act.startsWith('pay') ? 'paid ✓' : 'bought ✓', 'var(--lime)');
+      if (tab !== g.tab) setTab(g.tab); else renderPanel();
+    }
+    goalEl._k = ''; renderGoal();
+  }
+
+  // ---------- big moments that read with the sound off ----------
+  function banner(big, small) {
+    const b = document.createElement('div'); b.className = 'banner';
+    b.innerHTML = '<b>' + esc(big) + '</b>' + (small ? '<small>' + esc(small) + '</small>' : '');
+    el.field.appendChild(b); setTimeout(() => b.remove(), 2200);
+  }
+  function flashField(kind) {
+    el.field.classList.remove('fl-bad', 'fl-gold'); void el.field.offsetWidth; el.field.classList.add('fl-' + kind);
+    clearTimeout(flashField.t); flashField.t = setTimeout(() => el.field.classList.remove('fl-bad', 'fl-gold'), 500);
+  }
+
   // ---------- top bar ----------
   let lastStatus = '';
-  const comboEl = $('combo');
+  const comboEl = $('combo'), rateEl = $('rate');
   function renderTop() {
     const live = S.combo > 1.15 && S.t - (S.lastTap || -9) < 1.1;
     comboEl.classList.toggle('on', !!live);
     if (live) comboEl.textContent = 'combo ×' + S.combo.toFixed(1);
     el.cash.textContent = fmt(S.cash);
+    const rt = ON.incomeRate(S), rtxt = rt > 0 ? '+' + fmt(rt) + '/s' : '';
+    if (rateEl.textContent !== rtxt) rateEl.textContent = rtxt;
     el.cash.classList.toggle('neg', S.cash < 0);
-    el.day.textContent = 'day ' + S.day;
+    el.day.textContent = 'day ' + S.day + (S.startBest > 1 ? (S.day > S.startBest ? ' · best!' : ' · best ' + S.startBest) : '');
     el.time.textContent = clockText() + (S.crypto.coins > 0 ? '' : '');
     el.dayBar.style.width = (100 * Math.min(1, (S.t - S.dayStart) / S.dayLen)) + '%';
     const c = Math.min(100, S.collector), w = el.lane.clientWidth;
@@ -400,7 +506,7 @@
   function freshItems() {
     const items = [];
     const gain = ON.freshGain(S, false);
-    items.push({ key: 'fx', big: `filing for a fresh start ends this run and turns what you earned into <b>credit points</b>. every point you've ever earned = <b>+8% income</b> (it compounds), and spending them on perks doesn't take that away. you earn 1 point per day survived past day 3.<br><br>you have <b>${meta.cp} cp</b>. filing now: <b>+${gain} cp</b>.<br><span style="color:var(--dim);font-size:11px">getting bankrupted by the collector only gives half.</span>` });
+    items.push({ key: 'fx', big: `filing for a fresh start ends this run and turns what you earned into <b>credit points</b>. every point you've ever earned = <b>+8% income</b> (it compounds), and spending them on perks doesn't take that away. you earn 1 point per day survived past day 3.<br><br>you have <b>${meta.cp} cp</b>. filing now: <b>+${gain} cp</b>.<br><span style="color:var(--dim);font-size:11px">getting bankrupted by the collector only gives half (but at least 1 once you reach day 3).</span>` });
     items.push({ key: 'fbtn', icon: '📝', name: 'file for a fresh start', sub: S.day < 3 ? 'available from day 3' : 'ends the run · +' + gain + ' cp', btn: { label: 'file', act: 'fresh', dis: S.day < 3 || gain < 1, cls: 'alt' } });
     items.push({ key: 'ps', sect: 'perks (permanent)' });
     for (const p of ON.PERKS) {
@@ -419,6 +525,7 @@
   el.list.addEventListener('click', (e) => {
     initAudio();
     const b = e.target.closest('[data-act]'); if (!b || b.disabled || !S || S.over) return;
+    begin();
     act(b.dataset.act);
     renderPanel(); renderTop();
   });
@@ -453,11 +560,16 @@
     sfx.day();
     const owed = S.bills.reduce((a, b) => a + b.amount, 0);
     const next = ON.BILLS.filter((d) => d.unlock === S.day + 1).map((d) => d.icon + ' ' + d.name);
+    // what tomorrow unlocks, so there's always a reason to start the next day
+    const ups = ON.UPGRADES.filter((u) => u.unlock === S.day + 1).map((u) => u.icon + ' ' + u.names[1]);
+    if (S.day + 1 === 2) ups.push('📱 gig offers');
+    if (S.day + 1 === 3) ups.push('📝 fresh start + perks', '🪙 investments', '🎲 daily situations');
     const lines = ['you survived. barely. probably.', 'another day, another overdraft.', 'the landlord says hi. and also pay.', 'you\'re doing great (financially, no).', 'sleep is free. for now.'];
     openModal(`<div class="tb"><span>day ${e.day} complete</span><span>☑</span></div><div class="in">
       <h2>day ${e.day} survived</h2>${lines[(Math.random() * lines.length) | 0]}
       <div class="stats"><span>earned today</span><b>${fmt(e.earned)}${S.prevDayEarned > 0 ? ' <small style="color:' + (e.earned >= S.prevDayEarned ? 'var(--lime)' : 'var(--red)') + '">' + (e.earned >= S.prevDayEarned ? '+' : '') + Math.round(100 * (e.earned / S.prevDayEarned - 1)) + '%</small>' : ''}</b><span>hustle income</span><b>${fmt(ON.incomeRate(S))}/s</b><span>still owed</span><b>${fmt(owed)}</b><span>late fees so far</span><b>${fmt(S.lateFees)}</b>${S.autoFees ? '<span>autopay fees</span><b>' + fmt(S.autoFees) + '</b>' : ''}</div>
-      ${next.length ? '<div style="color:var(--lilac)">new tomorrow: ' + esc(next.join(', ')) + '</div>' : ''}
+      ${ups.length ? '<div style="color:var(--lime);font-weight:800">unlocks tomorrow: ' + esc(ups.join(', ')) + '</div>' : ''}
+      ${next.length ? '<div style="color:var(--lilac)">new bills tomorrow: ' + esc(next.join(', ')) + '</div>' : ''}
       <div style="color:var(--dim);font-size:11px;margin-top:4px">bills grow every day, and with whatever you earned today. lifestyle creep.</div>
       <div class="acts"><button class="btn" data-m="next">start day ${e.day + 1}</button></div></div>`, '', () => modalHandlers.next());
     modalHandlers.next = () => { closeModal(); ON.nextDay(S); clearFieldForDay(); save(); const ev = ON.rollEvent(S); if (ev) showEvent(ev); };
@@ -577,8 +689,9 @@
     clearField();
     S = ON.newRun(meta); S.spooky = spookyOn(); S.startBest = meta.bestDay || 0;
     runClock = performance.now(); ccEvents = 0;
-    cc('start'); save(); renderPanel();
+    cc('start'); ccStarted = true; save(); hold(); renderPanel();
   }
+  let ccStarted = false;
   function applySpooky() {
     const on = spookyOn();
     document.body.classList.toggle('spooky', on); el.spooky.classList.toggle('on', on);
@@ -600,6 +713,7 @@
       return;
     }
     if (!S || S.over) return;
+    if (e.code === 'Space' || (e.key.length === 1 && 'pPgG'.includes(e.key))) begin();
     if (e.code === 'Space') { e.preventDefault(); ON.tapAny(S); }
     else if (e.key === 'p' || e.key === 'P') { ON.payAll(S); renderPanel(); }
     else if (e.key === 'g' || e.key === 'G') { if (S.gig && !S.gig.active) { ON.acceptGig(S); sfx.gig(); } }
@@ -630,9 +744,10 @@
     requestAnimationFrame(frame);
   }
   function step(dt) {
-    if (!paused && !modalOpen && S && !S.over) ON.tick(S, dt);
+    if (!paused && !modalOpen && S && !S.over && started) ON.tick(S, dt);
     handleEvents();
     renderTop();
+    goalT -= dt; if (goalT <= 0) { goalT = 0.15; renderGoal(); }
     panelT -= dt; if (panelT <= 0) { panelT = 0.12; renderPanel(); }
     saveT -= dt; if (saveT <= 0) { saveT = 5; save(); }
   }
@@ -654,7 +769,8 @@
     }
   }
   if (window.matchMedia && window.matchMedia('(min-width:820px)').matches) { /* desktop shows bills by default too */ }
-  cc('start');
+  if (!ccStarted) cc('start');
+  hold();
   renderPanel();
   if (/[?&]debug/.test(location.search)) window.__on = { get S() { return S; }, ON, step, act, newRun, meta: () => meta, fast(sec, bot) { for (let i = 0; i < sec * 20; i++) { if (S.dayDone) { S.ev = []; ON.nextDay(S); } if (bot) bot(S, ON, i); ON.tick(S, 0.05); S.ev = []; } clearField(); S.pops = []; S.pig = null; S.gig = null; renderTop(); renderPanel(); } };
   requestAnimationFrame(frame);
