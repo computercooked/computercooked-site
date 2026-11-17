@@ -749,25 +749,32 @@
     let y = cy + 30 * u;
     text(String(score), mid, y + 96 * u, Math.round(96 * u), COL.lime, 'center');
     y += 122 * u;
-    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + ' pts, ' + streakText() + ') before getting cooked.';
+    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + (score === 1 ? ' pt, ' : ' pts, ') + streakText() + ') before getting cooked.';
     const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
     for (const ln of lines) { text(ln, mid, y, Math.round(16 * u), COL.paper, 'center'); y += 22 * u; }
     y += 4 * u;
     const cod = wrap('cause of death: "' + lastTitle + '"', Math.round(11 * u), cw - 36 * u);
     for (const ln of cod) { text(ln, mid, y, Math.round(11 * u), 'rgba(245,243,237,0.55)', 'center', 'normal'); y += 16 * u; }
     y += 8 * u;
-    text(newBest ? 'new personal best' : 'best: ' + best, mid, y, Math.round(12 * u), newBest ? COL.lilac : 'rgba(245,243,237,0.6)', 'center', newBest ? 'bold' : 'normal');
+    text(newBest ? 'new personal best' : 'best: ' + best + (best > score ? '  ·  ' + (best - score + 1) + ' pts to beat it' : ''), mid, y, Math.round(12 * u), newBest ? COL.lilac : 'rgba(245,243,237,0.6)', 'center', newBest ? 'bold' : 'normal');
     y = cy + ch - 24 * u;
     ctx.fillStyle = 'rgba(245,243,237,0.15)'; ctx.fillRect(cx + 18 * u, y - 20 * u, cw - 36 * u, 1);
     text('computercooked.com/games', mid, y, Math.round(13 * u), COL.lilac, 'center');
-    // share button
-    const sb = { w: 200 * u, h: 30 * u }; sb.x = mid - sb.w / 2; sb.y = cy + ch - 104 * u;
+    // a real "again" button (tap anywhere else still retries) next to share
+    const bw = (cw - 46 * u) / 2, bh = 38 * u, by = cy + ch - 112 * u;
+    const ab = { x: mid - bw - 5 * u, y: by, w: bw, h: bh }, sb = { x: mid + 5 * u, y: by, w: bw, h: bh };
     btns.share = sb;
+    const ready = overT > 1.1;
+    ctx.globalAlpha = e * (ready ? 1 : 0.45);
+    const pulse = ready ? 1 + Math.max(0, Math.sin(t * 4)) * 0.035 : 1;
+    ctx.save(); ctx.translate(ab.x + ab.w / 2, ab.y + ab.h / 2); ctx.scale(pulse, pulse);
+    ctx.fillStyle = COL.lime; ctx.fillRect(-ab.w / 2, -ab.h / 2, ab.w, ab.h);
+    ctx.restore();
+    text('again', ab.x + ab.w / 2, ab.y + ab.h * 0.66, Math.round(16 * u), COL.carbon, 'center');
+    ctx.globalAlpha = e;
     ctx.fillStyle = COL.lilac; ctx.fillRect(sb.x, sb.y, sb.w, sb.h);
-    text(shareMsgT > 0 ? shareMsg : 'share (s)', mid, sb.y + sb.h * 0.68, Math.round(13 * u), COL.carbon, 'center');
-    if (overT > 1.1 && Math.sin(t * 5) > -0.3) {
-      text('tap anywhere else / space to go again', mid, cy + ch - 56 * u, Math.round(12 * u), COL.lime, 'center');
-    }
+    text(shareMsgT > 0 ? shareMsg : 'share (s)', sb.x + sb.w / 2, sb.y + sb.h * 0.66, Math.round(shareMsgT > 0 ? 10 * u : 14 * u), COL.carbon, 'center');
+    text('or tap anywhere / space', mid, cy + ch - 56 * u, Math.round(11 * u), 'rgba(245,243,237,0.45)', 'center', 'normal');
     ctx.globalAlpha = 1;
   }
 
