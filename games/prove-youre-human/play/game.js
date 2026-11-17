@@ -576,9 +576,10 @@
   function untilTomorrow() { const n = new Date(), m = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1) - n.getTime(); const h = Math.floor(m / 36e5), mi = Math.floor((m % 36e5) / 6e4); return `${h}h ${mi}m`; }
   const doneToday = () => S.daily && S.daily.date === dayKey();
 
-  let newBest = false, prevRound = 0;
+  let newBest = false, prevRound = 0, newDailyBest = false;
   function finish(denied) {
     if (state !== "play") return;
+    newDailyBest = false;
     state = "end"; endRound();
     const h = humanity(); lastHumanity = h;
     let newDiary = null;
@@ -593,7 +594,7 @@
     }
     newBest = mode === "endless" && passes > 0 && score() > (S.bestEndless || 0); if (mode === "endless") S.bestEndless = Math.max(S.bestEndless || 0, score());
     prevRound = S.bestRound; if (mode === "endless") S.bestRound = Math.max(S.bestRound || 0, round);
-    if (mode === "daily" && S.daily && S.daily.date === dayKey() && !S.daily.score) { S.daily.score = score(); S.dailyBest = Math.max(S.dailyBest || 0, score()); }
+    if (mode === "daily" && S.daily && S.daily.date === dayKey() && !S.daily.score) { S.daily.score = score(); newDailyBest = S.dailyBest > 0 && score() > S.dailyBest; S.dailyBest = Math.max(S.dailyBest || 0, score()); }
     if (!TEST) sdk((c) => { if (!c.achieve) return; if (denied) c.achieve("bot_detected"); else if (h >= 90) c.achieve("so_human"); if (S.streak.n >= 3) c.achieve("three_days"); });
     save();
     ev("run_end", { humanity: h, rounds: round, mode, denied: denied ? 1 : 0 }, true);
@@ -665,7 +666,7 @@
     $("titleIn").innerHTML = `<h1>prove you're human</h1>
       <p>the arcade's security computer got cooked. now it thinks everyone is a bot. pass its captchas, but not too perfectly: <b>humans hesitate.</b></p>
       <div class="row"><button class="btn go big" id="tDaily" type="button">${done ? "today: " + d.humanity + "% human ✓" : "daily gauntlet"}</button><button class="btn big" id="tEndless" type="button">endless</button></div>
-      <p class="small">${done ? "next gauntlet in " + untilTomorrow() + ". same 10 checks for everyone." : "10 checks, the same for everyone today."}${st.n ? ` · streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}` : ""}${!done && st.n && st.last === yesterday() ? ` · <b class="risk">streak at risk: play today to keep it</b>` : ""}${S.bestEndless ? " · endless best " + S.bestEndless + (S.bestRound ? " (round " + S.bestRound + ")" : "") : ""}</p>
+      <p class="small">${done ? "next gauntlet in " + untilTomorrow() + ". same 10 checks for everyone." : "10 checks, the same for everyone today."}${st.n ? ` · streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}` : ""}${!done && st.n && st.last === yesterday() ? ` · <b class="risk">streak at risk: play today to keep it</b>` : ""}${S.dailyBest ? " · daily best " + S.dailyBest : ""}${S.bestEndless ? " · endless best " + S.bestEndless + (S.bestRound ? " (round " + S.bestRound + ")" : "") : ""}</p>
       <div class="goal"><div class="gl"><b>CLEARANCE: ${rl.name}</b><span class="gbar"><i style="width:${rl.pct}%"></i></span></div><div class="gs">${rl.next || "top clearance. the crt trusts you. mostly."}</div>${caseFile()}</div>
       ${diary ? `<div class="diary"><b>CRT DIARY · ${diary[0]}</b>${diary[1]}</div>` : ""}`;
     $("tDaily").onclick = () => {
@@ -687,7 +688,7 @@
     return `<div class="goal">
       <div class="gl"><b class="${promo ? "promo" : ""}">${promo ? "PROMOTED: " : "CLEARANCE: "}${rl.name}</b><span class="gbar"><i style="width:${rl.pct}%"></i></span></div>
       <div class="gs">+${gained} clean pass${gained === 1 ? "" : "es"}${rl.next ? " · " + rl.next : " · top clearance"}</div>
-      <div class="gs">case file ${got}/${TYPES.length}${newFile.length ? ` · new: ${newFile.map((id) => ICON[id]).join(" ")}` : ""}${rec ? " · " + rec : ""}</div>
+      <div class="gs">case file ${got}/${TYPES.length}${newFile.length ? ` · new: ${newFile.map((id) => ICON[id]).join(" ")}` : ""}${!S.file.question && !daily && round <= 10 ? " · the last check hides past round 10" : ""}${rec ? " · " + rec : ""}</div>
     </div>`;
   }
   function showEnd(denied, h, newDiary) {
@@ -698,7 +699,7 @@
       <p class="verdict">"${verdict}"</p>
       <div class="pips" aria-label="this run">${runLog.slice(-20).map((r) => `<i class="${r}"></i>`).join("")}</div>
       <div id="cardSlot"></div>
-      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""} · score <b>${score()}</b>${daily ? ` · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : `${newBest ? ` · <b class="best">new best!</b>` : S.bestEndless ? ` · best ${S.bestEndless}` : ""}`}</p>
+      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""} · score <b>${score()}</b>${daily ? `${newDailyBest ? ` · <b class="best">best daily yet!</b>` : S.dailyBest > score() ? ` · daily best ${S.dailyBest}` : ""} · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : `${newBest ? ` · <b class="best">new best!</b>` : S.bestEndless ? ` · best ${S.bestEndless}` : ""}`}</p>
       ${endGoal(daily)}
       ${newDiary ? `<div class="diary"><b>NEW DIARY ENTRY · DAY ${newDiary[0]}</b>${newDiary[1]}</div>` : ""}
       <div class="row"><button class="btn go big" id="eShare" type="button">share my humanity</button><button class="btn big" id="eAgain" type="button">${daily ? "play endless" : "again"}</button></div>
