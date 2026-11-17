@@ -77,13 +77,13 @@
   // v2.4: a career. every run's score is banked; promotions unlock a perk that helps every run after.
   // old saves start with their best score already banked.
   var RANKS = [
-    { at: 0, name: "intern", perk: "" },
-    { at: 400, name: "junior dev", perk: "a firewall blocks 1 hit per run" },
-    { at: 1200, name: "senior dev", perk: "coffee cools 14° (was 11°)" },
-    { at: 2500, name: "tech lead", perk: "half of all drops are fans" },
-    { at: 4500, name: "manager", perk: "2 firewalls per run" },
-    { at: 7500, name: "cto", perk: "streak bonuses x2" },
-    { at: 12000, name: "the cloud", perk: "every run starts at 0°" }
+    { at: 0, name: "intern", short: "intern", perk: "" },
+    { at: 400, name: "junior dev", short: "junior", perk: "a firewall blocks 1 hit per run" },
+    { at: 1200, name: "senior dev", short: "senior", perk: "coffee cools 14° (was 11°)" },
+    { at: 2500, name: "tech lead", short: "lead", perk: "half of all drops are fans" },
+    { at: 4500, name: "manager", short: "mgr", perk: "2 firewalls per run" },
+    { at: 7500, name: "cto", short: "cto", perk: "streak bonuses x2" },
+    { at: 12000, name: "the cloud", short: "cloud", perk: "every run starts at 0°" }
   ];
   var career = +load("cc-crash-career", -1);
   if (!(career >= 0)) { career = best; save("cc-crash-career", String(career)); }
@@ -242,7 +242,8 @@
   function perks() {
     runRank = rankOf(career);
     EASE_T = runRank === 0 ? 34 : 25;
-    firewalls = runRank >= 4 ? 2 : runRank >= 1 ? 1 : 0;
+    // an intern's first two runs get a trial firewall, so the first hit teaches the perk instead of just hurting
+    firewalls = runRank >= 4 ? 2 : runRank >= 1 ? 1 : runs < 2 ? 1 : 0;
   }
   var shake, glitch, flash;
   var shield = 0, promo = 0, autoArmed = false; // v2.4: firewall ring, promotion stamp, clip arrival (title skipped)
@@ -826,7 +827,7 @@
     // v2.4: points to the next promotion, live (career + this run)
     var nxr = RANKS[promoShown + 1];
     if (nxr) { ctx.fillStyle = "#B59AFF"; ctx.fillText(nxr.name.toUpperCase() + " IN " + Math.max(1, Math.ceil(nxr.at - career - score)), W - 12, streak >= 3 ? 78 : 65); }
-    if (firewalls > 0) { ctx.textAlign = "left"; ctx.fillStyle = "#B59AFF"; ctx.fillText("FIREWALL " + (firewalls > 1 ? "x" + firewalls : "ON"), 12, 65); }
+    if (firewalls > 0) { ctx.textAlign = "left"; ctx.fillStyle = "#B59AFF"; ctx.fillText("FIREWALL " + (firewalls > 1 ? "x" + firewalls : runRank === 0 ? "ON (trial)" : "ON"), 12, 65); }
     // the run's goal, always in view: beat your best time (or reach 30 s on a first run)
     var goal = runGoal;
     ctx.textAlign = "left";
@@ -994,7 +995,7 @@
   }
 
   /* ---------- career box (title + end card) ---------- */
-  function careerBox(el, prefix) {
+  function careerBox(el, prefix, ladder) {
     if (!el) return;
     var r = rankOf(career), nx = RANKS[r + 1];
     var pct = nx ? Math.max(0, Math.min(1, (career - RANKS[r].at) / (nx.at - RANKS[r].at))) : 1;
@@ -1006,6 +1007,17 @@
     var b = document.createElement("p"); b.className = "cr-next";
     b.textContent = nx ? "next: " + nx.name + " in " + (nx.at - career) + " pts · " + nx.perk : "top rank. the cloud answers to no one.";
     el.appendChild(a); el.appendChild(bar); el.appendChild(b);
+    if (ladder) {
+      // the whole ladder, so a new player sees there are 7 ranks to climb
+      var l = document.createElement("p"); l.className = "cr-ladder";
+      RANKS.forEach(function (k, i) {
+        var sp = document.createElement("span");
+        sp.textContent = (i ? "› " : "") + k.short;
+        if (i <= r) sp.className = "on";
+        l.appendChild(sp);
+      });
+      el.appendChild(l);
+    }
   }
 
   /* ---------- game over ---------- */
@@ -1221,7 +1233,7 @@
 
   /* ---------- boot ---------- */
   document.getElementById("title-best").textContent = (DARE ? "dare: beat " + DARE + " points. " : "") + (best ? "best: " + best + (bestTime ? " · " + bestTime + "s" : "") : "no high score yet. be the first casualty.");
-  careerBox(document.getElementById("title-career"));
+  careerBox(document.getElementById("title-career"), "", true);
   // clip arrivals ("tap to play" on the hub) skip the title card; the clock still waits for the first touch or key
   function autoBoot() { try { if (state === "title" && window.cc && cc.autostart && cc.autostart()) { autoArmed = true; ovTitle.hidden = true; } } catch (e) {} }
   setMuted(muted);
