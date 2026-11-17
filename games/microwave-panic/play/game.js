@@ -104,6 +104,37 @@
   };
   const pick = (a) => a[(Math.random() * a.length) | 0];
 
+  // review16 r4: today's menu. Every run today serves the same items with the same cook times (seeded by the local date),
+  // so a score is a fair "beat this" for a friend and tomorrow brings a new menu. Looks (pops, sparks) stay random.
+  // ?mpday=YYYY-MM-DD plays another day's menu (tests).
+  const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  function dayKey(off) { const d = new Date(); d.setDate(d.getDate() + (off || 0)); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  const dayParam = (/[?&]mpday=(\d{4}-\d\d-\d\d)/.exec(location.search) || [])[1];
+  const dayLabel = (k) => { const p = k.split("-"); return MON[+p[1] - 1] + " " + +p[2]; };
+  function seeded(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return () => { h = (h + 0x6d2b79f5) | 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  let today = dayParam || dayKey(), rng = Math.random;
+  const pickR = (a) => a[(rng() * a.length) | 0];
+  // this device's days: today's best, runs today, and the streak of days in a row with a shift (save key mp-daily)
+  let daily = { d: "", best: 0, runs: 0, streak: 0 };
+  try { const o = JSON.parse(localStorage.getItem("mp-daily")); if (o && typeof o === "object") daily = Object.assign(daily, o); } catch (e) {}
+  const todayBest = () => (daily.d === today ? daily.best : 0);
+  const dayStreak = () => (daily.d === today || daily.d === dayKey(-1) ? daily.streak : 0);
+  function logDay() {
+    if (daily.d !== today) { daily.streak = daily.d === dayKey(-1) ? daily.streak + 1 : 1; daily.d = today; daily.best = 0; daily.runs = 0; }
+    daily.runs++; daily.best = Math.max(daily.best, score);
+    try { localStorage.setItem("mp-daily", JSON.stringify(daily)); } catch (e) {}
+  }
+  // a dare link (/games/microwave-panic/?vs=87&from=pat, made by the site's dare box or our own share line): the score to
+  // beat sits in the corner all run, and passing it is a moment
+  const vsQ = (() => { try { return window.parent !== window ? window.parent.location.search : ""; } catch (e) { return ""; } })() + "&" + location.search.slice(1);
+  const dareScore = Math.max(0, Math.round(+((/[?&]vs=(\d+(?:\.\d+)?)/.exec(vsQ) || [])[1] || 0))) || 0;
+  let dareFrom = "";
+  try { dareFrom = decodeURIComponent(((/[?&]from=([^&]*)/.exec(vsQ) || [])[1] || "").replace(/\+/g, " ")).replace(/[^A-Za-z0-9 .-]/g, "").trim().slice(0, 14); } catch (e) {}
+
   // ---------- sound ----------
   let actx = null, muted = false, hum = null, hostMuted = false; // hostMuted: the player page's mute button (cc-mute)
   try { muted = localStorage.getItem("mp-muted") === "1"; } catch (e) {}
@@ -214,6 +245,7 @@
   let item = null, phase = "ready", phaseT = 0, cookT = 0, holding = false, parts = [], fx = [], line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, popAcc = 0, verdict = null;
   // K-0060: the burn moment ({ t, v, boom, word } while it plays), its smoke, and the press that owns the hold
   let burn = null, smoke = [], owner = null;
+  let stamp = null, rain = [], dareBeat = false, prevDay = 0, shareSaid = ""; // review16 r4: the big stamp moment, the end sprinklers
   let tally = []; // review16 r3: this run's verdicts, shown as a row of tickets under the START pad
   // K-0063: a press made while no item waits (the burn moment, the result) and still held. It never cooks the item that
   // burnt, but once the next item has landed and sat a beat it takes over the hold, so a long hold cooks through
@@ -229,9 +261,9 @@
     round++;
     let kind;
     if (round === 1) kind = "popcorn";
-    else if (round >= 4 && Math.random() < (haunted ? 0.2 : 0.16)) kind = haunted && Math.random() < 0.5 ? "doll" : Math.random() < 0.65 ? "fork" : "phone";
-    else { do { kind = pick(haunted ? SPOOKY : NORMAL); } while (item && kind === item.kind); }
-    const T = kind === "popcorn" && round === 1 ? 2.6 : 1.5 + Math.random() * 2.6;
+    else if (round >= 4 && rng() < (haunted ? 0.2 : 0.16)) kind = haunted && rng() < 0.5 ? "doll" : rng() < 0.65 ? "fork" : "phone";
+    else { do { kind = pickR(haunted ? SPOOKY : NORMAL); } while (item && kind === item.kind); }
+    const T = kind === "popcorn" && round === 1 ? 2.6 : 1.5 + rng() * 2.6; // review16 r4: today's menu (seeded)
     const hw = Math.max(0.22, 0.6 - round * 0.02);
     item = { kind, T, hw, slide: 1 };
     phase = "ready"; phaseT = 0; cookT = 0; popAcc = 0; parts = []; verdict = null;
@@ -241,14 +273,16 @@
   function start() {
     state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null; scare = null;
     burn = null; smoke = []; owner = null; held = null; tally = []; // K-0060
+    today = dayParam || dayKey(); rng = seeded("mp|" + today + (haunted ? "|h" : "")); stamp = null; rain = []; dareBeat = false; // review16 r4
     startAt = performance.now(); say("hello", true); react("happy", 0.8); syncHaunt();
     sdk((c) => c.start && c.start());
     if (haunted) sdk((c) => c.event && c.event("haunted_run", {}));
     nextItem();
   }
   function end() {
-    state = "over"; endAt = performance.now(); prevBest = best; humOff(); syncHaunt();
+    state = "over"; endAt = performance.now(); prevBest = best; prevDay = todayBest(); humOff(); syncHaunt();
     if (score > best) { best = score; try { localStorage.setItem("mp-best", String(best)); } catch (e) {} }
+    logDay(); shareSaid = ""; // review16 r4
     say("end", true); react("cooked", 99); sfx.end();
     const dur = Math.round(performance.now() - startAt);
     sdk((c) => c.score && c.score(score));
@@ -273,6 +307,7 @@
     else if (v === "cold") { streak = 0; pts = 1; sfx.cold(); react("sad", 0.9); }
     else streak = 0; // K-0060: burnt / sparks: the burn moment plays first, the strike lands in finishBurn
     bestStreak = Math.max(bestStreak, streak);
+    milestone(score, score + pts, v);
     score += pts;
     verdict = { v, pts };
     tally.push(v);
@@ -302,6 +337,7 @@
     }
     for (let i = 0; i < (reduce ? 4 : 10); i++) puff(0.8);
   }
+  const guideNow = () => state === "play" && round === 1 && phase === "cook" && item && !ITEMS[item.kind].cursed && cookT >= item.T - 0.3; // review16 r4
   function puff(a) { smoke.push({ x: M.wx + M.ww * (0.36 + Math.random() * 0.28), y: M.wy + M.wh * 0.7, vx: (Math.random() - 0.5) * 50, vy: -70 - Math.random() * 100, r: (6 + Math.random() * 9) * U, life: 1 + Math.random() * 0.5, max: 1.5, a }); }
   function finishBurn() {
     const v = burn.v; burn = null;
@@ -326,6 +362,28 @@
     for (let i = 0; i < n; i++) parts.push({ x: x0 + (Math.random() - 0.5) * 40, y: y0, vx: (Math.random() - 0.5) * 520, vy: -260 - Math.random() * 380, life: 0.7 + Math.random() * 0.4, c: i % 3 === 0 ? PAPER : i % 3 === 1 ? LIME2 : LIME, s: (3 + Math.random() * 3) * U });
   }
 
+  // review16 r4: the clip moments. Passing a friend's dare, passing your best, and a hot streak each slam a big tilted
+  // stamp over the microwave with a burst of confetti (big enough to read in a phone clip with the sound off)
+  function milestone(a, b, v) {
+    let s = null, col = LIME2;
+    if (dareScore > 0 && !dareBeat && a <= dareScore && b > dareScore) { dareBeat = true; s = dareFrom ? "BEAT " + dareFrom.toUpperCase() + "!" : "DARE BEATEN!"; col = WARN; sdk((c) => c.event && c.event("dare_passed", { vs: dareScore })); }
+    else if (best > 0 && a <= best && b > best) s = "NEW BEST!";
+    else if ((v === "perfect" || v === "good") && (streak === 5 || streak === 10 || streak === 15)) { s = streak + " IN A ROW!"; col = "#7fd4ff"; }
+    if (!s) return;
+    stamp = { s, col, t: 0, rot: (Math.random() < 0.5 ? -1 : 1) * 0.09 };
+    cheer(reduce ? 10 : 30); sfx.perfect(10);
+  }
+  function drawStamp() {
+    if (!stamp) return;
+    const k = stamp.t / 1.5, n = [...stamp.s].reduce((a, ch) => a + pfGlyph(ch).w + 1, 0) - 1;
+    const sz = Math.min(W * 0.84 / n * 10, 56) * (reduce ? 1 : Math.max(1, 1.6 - stamp.t * 6)), w = n * sz / 10 + sz * 0.9, h = sz * 1.5;
+    cx.save(); cx.globalAlpha = k > 0.75 ? Math.max(0, (1 - k) / 0.25) : 1;
+    cx.translate(W / 2, M.my + M.mh * 0.64); if (!reduce) cx.rotate(stamp.rot);
+    R(INK, -w / 2 - 4, -h / 2 - 4, w + 8, h + 8); R(stamp.col, -w / 2, -h / 2, w, h); R(INK, -w / 2 + 4, -h / 2 + 4, w - 8, h - 8);
+    text(stamp.s, 3, 3, sz, "#000000", "center", 900); text(stamp.s, 0, 0, sz, stamp.col, "center", 900);
+    cx.restore();
+  }
+
   // ---------- input ----------
   // K-0060: src names the press ("p<pointerId>", "k " for Space, "kEnter"). The press that starts a hold owns it and
   // only its release lets go. A press only counts while an item waits (phase "ready"); one made as the item slides in
@@ -334,7 +392,8 @@
   function beginCook() { holding = true; phase = "cook"; humOn(); }
   function down(src) {
     if (src === owner) return; // a release we missed: still the same hold
-    if (state === "title" || (state === "over" && performance.now() - endAt > 700)) { start(); return; }
+    // review16 r4: the press that starts a run is already the hold: keep it down and the popcorn cooks as it lands
+    if (state === "title" || (state === "over" && performance.now() - endAt > 700)) { start(); owner = src; return; }
     if (state === "play" && phase === "ready" && !owner) { owner = src; if (item.slide <= 0) beginCook(); }
     else if (state === "play" && !owner) held = src;
   }
@@ -352,7 +411,7 @@
   window.addEventListener("pointerup", pUp); // if capture failed and the finger left the canvas
   cv.addEventListener("contextmenu", (e) => e.preventDefault());
   function onKey(e) {
-    if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
+    if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable || e.target.id === "mp-share")) return;
     if (e.type === "keydown" && (e.key === "m" || e.key === "M")) { toggleMute(); return; }
     if (e.type === "keydown" && (e.key === "h" || e.key === "H")) { toggleHaunt(); return; }
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (e.repeat) return; if (e.type === "keydown") down("k" + e.key); else up("k" + e.key); }
@@ -391,6 +450,14 @@
     for (const f of fx) f.life -= dt;
     fx = fx.filter((f) => f.life > 0);
     if (scare && (scare.t += dt) > 0.75) scare = null;
+    if (stamp && (stamp.t += dt) > 1.5) stamp = null; // review16 r4
+    // review16 r4: the fire alarm's sprinklers rain on the end card (a downpour, then a drizzle)
+    if (state === "over") {
+      const age = (performance.now() - endAt) / 1000, n = (age < 2.2 ? 160 : 22) * (reduce ? 0.3 : 1) * dt * W / 400;
+      for (let i = 0; i < n || (i < 1 && Math.random() < n); i++) rain.push({ x: Math.random() * W, y: -10 - Math.random() * 40, v: 520 + Math.random() * 380 });
+      for (const r of rain) r.y += r.v * dt;
+      rain = rain.filter((r) => r.y < H + 10);
+    }
     for (const q of parts) { q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; if (q.y > M.wy + M.wh * 0.86) { q.y = M.wy + M.wh * 0.86; q.vy *= -0.3; q.vx *= 0.6; } }
     parts = parts.filter((q) => q.life > 0);
     for (const m of smoke) { m.x += m.vx * dt; m.y += m.vy * dt; m.vy *= 1 - dt * 0.7; m.r += dt * 16 * U; m.life -= dt; } // K-0060
@@ -591,13 +658,21 @@
       if (f.sub) { text(f.sub, f.x + 1, y + sz * 0.95 + 1, Math.max(11, sz * 0.6), INK, "center", 800); text(f.sub, f.x, y + sz * 0.95, Math.max(11, sz * 0.6), PAPER, "center", 800); }
     }
     cx.globalAlpha = 1;
+    // review16 r4: the first item of every run teaches the release with no reading: "LET GO!" flashes in the window
+    // just before the perfect moment (allowing for a thumb's reaction time). From the second item on, only the food tells.
+    if (guideNow()) {
+      const gs = Math.min(M.ww * 0.16, 50) * (reduce ? 1 : 1 + 0.08 * Math.sin(time * 18)), gy = M.wy + M.wh * 0.3;
+      text("LET GO!", M.wx + M.ww / 2 + 3, gy + 3, gs, INK, "center", 900); text("LET GO!", M.wx + M.ww / 2, gy, gs, Math.sin(time * 24) > 0 ? LIME2 : PAPER, "center", 900);
+    }
     drawPad(time);
+    drawStamp();
     cx.restore();
     // hud
     text(String(score), 14, 22, 22, CASE, "left", 800);
     text("round " + round + (streak > 1 ? " · streak x" + streak : ""), 14, 44, 12, streak > 1 ? LIME2 : "#8a8e80", "left", 700);
     // review16 r3: the best to beat, all run long (it used to show only on the end card)
     if (best > 0 && state !== "title") text(state === "play" && score > best ? "new best!" : "best " + best, 14, 62, 12, state === "play" && score > best ? LIME2 : "#8a8e80", "left", 700);
+    if (dareScore && state !== "title") text((dareFrom ? dareFrom + ": " : "dare: ") + dareScore + (dareBeat ? " ✓" : ""), 14, best > 0 ? 80 : 62, 12, dareBeat ? LIME2 : WARN, "left", 800); // review16 r4
     for (let i = 0; i < 3; i++) { const fxp = W - 28 - i * 22, on2 = i < strikes; R(on2 ? BAD : "#3a3d33", fxp, 54, 14, 14); if (on2) R(WARN, fxp + 4, 58, 6, 8); }
     text("strikes", W - 14, 80, 11, "#8a8e80", "right", 700);
     if (state === "play" && item) {
@@ -615,19 +690,26 @@
       text("BOO", M.wx + M.ww / 2, M.wy + M.wh * 0.45 + Math.min(W, H) * 0.26 * grow, 26 * grow, BAD, "center", 900);
       cx.globalAlpha = 1;
     }
-    tipY = -1;
+    tipY = -1; shareY = -1;
     if (state === "title" || state === "over") overlay();
+    if (state === "title") drawPad(time, true); // review16 r4: the start button
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
+    shareSync(); // review16 r4
   }
   // review16 r3: the START pad on the counter (tall screens only). The whole screen still cooks; the pad shows where a
   // thumb goes, sinks while you hold, flashes red on metal, and lights up in the verdict's colour after each release
   const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
-  function drawPad(time) {
+  function drawPad(time, title) {
     const P = M.pad;
-    if (!P || state !== "play" || !item) return;
-    const cook = phase === "cook", cur = ITEMS[item.kind].cursed, v = verdict && verdict.v;
+    if (!P || !(title || (state === "play" && item))) return;
+    const cook = !title && phase === "cook", cur = !title && ITEMS[item.kind].cursed, v = !title && verdict && verdict.v;
     let col = LIME, label = "HOLD", sub = coarse ? "hold anywhere to cook" : "hold space or the mouse";
-    if (cook) { col = cur ? (Math.sin(time * 28) > 0 ? BAD : WARN) : LIME2; label = cur ? "LET GO!" : "COOKING"; sub = cur ? "that's metal!" : "let go when it's done"; }
+    if (title) { col = reduce || Math.sin(time * 5) > -0.3 ? LIME : LIME2; sub = coarse ? "press and hold to cook" : "hold the mouse or space"; } // review16 r4: the title's start button
+    else if (cook) {
+      col = cur ? (Math.sin(time * 28) > 0 ? BAD : WARN) : LIME2; label = cur ? "LET GO!" : "COOKING"; sub = cur ? "that's metal!" : "let go when it's done";
+      if (guideNow()) { col = Math.sin(time * 24) > 0 ? LIME2 : PAPER; label = "LET GO!"; sub = "now!"; } // review16 r4
+      else if (round === 1 && !cur) sub = "wait for it...";
+    }
     else if (phase === "burn" || v === "burnt" || v === "sparks") { col = BAD; label = v === "sparks" ? "ZZZAP" : "BURNT"; sub = "strike!"; }
     else if (phase === "result" && v) { col = v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : "#9fc3e0"; label = v === "perfect" ? "PERFECT" : v === "good" ? "GOOD" : v === "safe" ? "GOOD CALL" : "COLD"; sub = v === "cold" ? "streak lost" : streak > 1 ? "streak x" + streak : "+" + verdict.pts; }
     const press = cook ? 7 : 0, x = P.x, y = P.y + press, w = P.w, h = P.h - press;
@@ -660,7 +742,7 @@
   let tipBox = null, tipY = -1;
   function tipSync(y) {
     const show = y >= 0;
-    if (show && !tipBox && window.ccTip) {
+    if ((show || state === "over") && !tipBox && window.ccTip) { // review16 r4: mounted as the card opens, so its height is known by the time it shows
       tipBox = document.createElement("div"); tipBox.id = "cc-tip-box"; tipBox.hidden = true;
       document.body.appendChild(tipBox);
       // after a click the link would keep focus and swallow Space/Enter; hand the keys back to the game
@@ -673,33 +755,98 @@
   }
   function overlay() {
     R("rgba(8, 9, 7, 0.82)", 0, 0, W, H);
-    const big = Math.round(Math.max(28, Math.min(52, W / 9))), tipH = (tipBox && tipBox.offsetHeight) || 64;
-    const mid = state === "over" ? Math.max(big * 1.6 + 96, Math.min(H * 0.42, H - big * 1.25 - 86 - tipH - 8)) : H * 0.42; // K-0066
+    const big = Math.round(Math.max(28, Math.min(52, W / 9)));
+    // review16 r4: the end card's tip gap. It kept 64 px for the tip button even when there was none (tips off, or not
+    // loaded yet); now it keeps the button's real height, and nothing when there is no button
+    if (tipBox && tipBox.offsetHeight) tipHc = tipBox.offsetHeight;
+    const tipH = tipBox && tipBox.firstElementChild ? tipHc || 52 : 0;
     if (state === "title") {
+      const mid = H * 0.42;
       text(haunted ? "haunted" : "microwave", W / 2, mid - big * 2.2, big, haunted ? "#ff9a2e" : CASE, "center", 900);
       text(haunted ? "microwave" : "panic", W / 2, mid - big * 1.1, big, haunted ? "#b89aff" : LIME, "center", 900);
       text(haunted ? "something is in the microwave. it's hungry." : "the computer is a microwave now.", W / 2, mid - big * 0.2, Math.max(12, Math.min(16, W / 30)), "#c9c4a8", "center", 700);
       text("hold to cook. let go when it's done.", W / 2, mid + 30, Math.max(13, Math.min(17, W / 26)), LIME2, "center", 800);
       text("popcorn slows down. the egg wobbles. the fish stinks.", W / 2, mid + 56, Math.max(11, Math.min(14, W / 36)), "#c9c4a8", "center", 700);
       text("burnt = strike. never microwave the fork.", W / 2, mid + 80, Math.max(11, Math.min(14, W / 34)), WARN, "center", 700);
-      text("tap to plug it in", W / 2, Math.min(H - 40, mid + 132), 18, LIME, "center", 900);
-      if (hauntSeason) text(haunted ? "🎃 haunted mode · H to turn it off" : "🎃 H for the haunted microwave", W / 2, Math.min(H - 14, mid + 160), 13, "#ff9a2e", "center", 700);
-    } else {
-      text("fire alarm", W / 2, mid - big * 1.6, big, BAD, "center", 900);
-      text(round + " things microwaved", W / 2, mid - big * 0.7, Math.round(big * 0.55), PAPER, "center", 800);
-      text(String(score), W / 2, mid + big * 0.35, Math.round(big * 1.3), CASE, "center", 900);
-      text("best " + best + "  ·  " + perfects + " perfect  ·  best streak " + bestStreak, W / 2, mid + big * 1.25, 14, "#c9c4a8", "center", 700);
-      const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first shift logged. now beat it.")
-        : score === prevBest ? "tied your best. one more perfect next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
-      text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : WARN, "center", 800);
-      if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
-      // review16 r3: the shift at a glance, one ticket per item, where the screen has the room (a tall phone, desktop)
-      const sy = mid + big * 1.25 + 86 + tipH + 22, cs = 14, per = Math.max(1, Math.floor((Math.min(W - 32, 420) + 6) / (cs + 6))), rows = Math.ceil(tally.length / per);
-      if (M.pad && tally.length && sy + 18 + rows * (cs + 6) < H - 8) {
-        text("your shift", W / 2, sy, 12, "#8a8e80", "center", 700);
-        tickets(tally, sy + 16, cs, per);
-      }
+      // review16 r4: today's menu, and a friend's dare when the link has one
+      const tb = todayBest(), ds = dayStreak();
+      text("today's menu · " + dayLabel(today) + (tb ? " · best " + tb : "") + (ds > 1 ? " · day " + ds : ""), W / 2, mid + 108, 13, CASE, "center", 800);
+      if (dareScore) text("beat " + dareScore + (dareFrom ? " from " + dareFrom : "") + "!", W / 2, mid + 134, 18, WARN, "center", 900);
+      if (!M.pad) text(coarse ? "press and hold to cook" : "hold the mouse or space to cook", W / 2, Math.min(H - 40, mid + (dareScore ? 164 : 140)), 18, LIME, "center", 900);
+      if (hauntSeason) text(haunted ? "🎃 haunted mode · H to turn it off" : "🎃 H for the haunted microwave", W / 2, Math.min(H - 14, mid + (dareScore ? 190 : 166)), 13, "#ff9a2e", "center", 700);
+      return;
     }
+    // review16 r4: the fire alarm's sprinklers (behind the words), and two red pulses as it goes off
+    const age = (performance.now() - endAt) / 1000;
+    if (!reduce && (age < 0.15 || (age > 0.32 && age < 0.47))) { cx.globalAlpha = 0.22; R(BAD, 0, 0, W, H); cx.globalAlpha = 1; }
+    cx.fillStyle = "#7fb8ff"; cx.globalAlpha = 0.55;
+    for (const r of rain) cx.fillRect(r.x, r.y, 2, 9);
+    cx.globalAlpha = 1;
+    // the card, top to bottom: fire alarm, things microwaved, the score, today's / all-time best, the nudge (or the
+    // dare's result), this run's tickets (the share grid), the dare button (DOM, #mp-share), tap again, the tip button,
+    // and tomorrow's menu. Short frames drop the second and last lines.
+    const cs = 12, gap = 5, per = Math.max(1, Math.floor((Math.min(W - 32, 420) + gap) / (cs + gap))), rows = Math.min(3, Math.ceil(tally.length / per));
+    const tH = rows * (cs + gap), shareH = shareBtn() ? 44 : 0;
+    let total = big * 0.5 + big * 0.95 + big * 1.05 + big * 0.9 + 24 + 20 + tH + 12 + shareH + 22 + 20 + tipH + 24;
+    const compact = total > H - 40;
+    if (compact) total -= big * 0.95 + 24;
+    let y = Math.max(compact ? 30 : 70, (H - total) / 2) + big * 0.5;
+    text("fire alarm", W / 2, y, big, BAD, "center", 900);
+    if (!compact) { y += big * 0.95; text(round + " things microwaved", W / 2, y, Math.round(big * 0.55), PAPER, "center", 800); }
+    y += big * 1.05; text(String(score), W / 2, y, Math.round(big * 1.3), CASE, "center", 900);
+    y += big * 0.9; text("today's best " + todayBest() + "  ·  all-time " + best, W / 2, y, 14, "#c9c4a8", "center", 700);
+    let nudge, good;
+    if (dareScore) { good = score > dareScore; nudge = good ? "you beat " + (dareFrom || "the dare") + "'s " + dareScore + " by " + (score - dareScore) + "!" : (dareScore - score) + " short of " + (dareFrom ? dareFrom + "'s " : "") + dareScore + ". again?"; }
+    else {
+      good = score > prevBest;
+      nudge = good ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first shift logged. now beat it.")
+        : score === prevBest ? "tied your best. one more perfect next time." : prevDay > 0 && score > prevDay ? "today's best. " + (prevBest - score) + " off your all-time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
+    }
+    y += 24; text(nudge, W / 2, y, 15, good ? LIME2 : WARN, "center", 800);
+    y += 20; if (rows) tickets(tally.slice(0, per * 3), y - 6, cs, per);
+    y += tH + 12;
+    const ready = performance.now() - endAt > 700;
+    shareY = ready && shareH ? y : -1;
+    y += shareH + 22;
+    if (ready) { text("tap to cook again", W / 2, y, 18, LIME, "center", 900); tipY = y + 20; }
+    y += 20 + tipH + 24;
+    if (!compact && y < H - 6) text("new menu tomorrow" + (dayStreak() > 1 ? " · " + dayStreak() + "-day streak" : ""), W / 2, y - 10, 12, "#8a8e80", "center", 700);
+  }
+  // review16 r4: "dare a friend": a share line that reads well in a group chat (the score, today's menu, a grid of this
+  // run's tickets) and a link that opens the game with the score to beat (?vs=, which the player page also shows as a
+  // challenge banner). Uses the phone's share sheet, else copies it. #mp-share is styled in index.html.
+  let shareEl = null, shareY = -1, tipHc = 0;
+  function shareBtn() {
+    if (!shareEl) {
+      shareEl = document.getElementById("mp-share");
+      if (!shareEl) return null;
+      shareEl.addEventListener("pointerdown", (e) => e.stopPropagation());
+      shareEl.addEventListener("click", (e) => { e.stopPropagation(); shareRun(); shareEl.blur(); });
+    }
+    return shareEl;
+  }
+  function shareLine() {
+    const em = { perfect: "🟩", safe: "🟩", good: "🟨", cold: "🧊", burnt: "🔥", sparks: "⚡" };
+    const grid = tally.slice(0, 30).map((v) => em[v] || "⬜").join("");
+    const url = location.origin + "/games/microwave-panic/?vs=" + score + "&utm_source=share&utm_medium=game&utm_campaign=microwave-panic";
+    return { text: "microwave panic · " + dayLabel(today) + "\n" + score + " pts " + grid + "\ncan you beat " + score + "?", url };
+  }
+  function shareRun() {
+    const L = shareLine(), said = (s) => { shareSaid = s; setTimeout(() => { if (shareSaid === s) shareSaid = ""; }, 2200); };
+    const copy = () => { try { navigator.clipboard.writeText(L.text + "\n" + L.url).then(() => { said("copied ✓"); sdk((c) => c.event && c.event("share", { how: "copy" })); }, () => said("couldn't copy")); } catch (e) { said("couldn't copy"); } };
+    if (navigator.share) {
+      try { navigator.share({ title: "microwave panic", text: L.text, url: L.url }).then(() => { said("sent ✓"); sdk((c) => c.event && c.event("share", { how: "share" })); }, () => {}); } catch (e) { copy(); }
+    } else copy();
+  }
+  function shareSync() {
+    const el = shareBtn();
+    if (!el) return;
+    const show = state === "over" && shareY >= 0;
+    if (el.hidden === show) el.hidden = !show;
+    if (!show) return;
+    const t = Math.round(shareY) + "px", lab = shareSaid || "dare a friend: beat " + score + " ↗";
+    if (el.style.top !== t) el.style.top = t;
+    if (el.textContent !== lab) el.textContent = lab;
   }
 
   // the title draws one frame, then waits for a tap or key (no demo running while the page loads); play always runs
@@ -716,8 +863,13 @@
   window.addEventListener("resize", () => { if (!running) draw(performance.now() / 1000); });
   syncHaunt();
   requestAnimationFrame(frame);
+  // review16 r4: one tap on the hub's "tap to play" card (from a clip) already started us: skip the title, the popcorn
+  // is in and the HOLD pad is waiting
+  try { if (window.cc && cc.autostart && cc.autostart()) { wake(); start(); } } catch (e) {}
 
   // read-only hooks for the test scripts
   window.__mp = { haunt: toggleHaunt, state: () => ({ haunted, scare: !!scare, state, score, round, streak, strikes, phase, cookT, burn: burn && burn.word, owner, held, holding, smoke: smoke.length, // K-0060
- kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed) }) };
+ kind: item && item.kind, T: item && item.T, hw: item && item.hw, slide: item && item.slide, cursed: !!(item && ITEMS[item.kind].cursed),
+ today, daily: Object.assign({}, daily), dareScore, dareFrom, dareBeat, stamp: stamp && stamp.s, guide: guideNow(), tally: tally.slice() }), // review16 r4
+ share: () => shareLine() };
 })();
