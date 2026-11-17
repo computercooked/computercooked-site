@@ -39,6 +39,12 @@
 /* one line that never wraps (it scrolls sideways if it must), so hiding a button can't change its height (CLS) */
 .wall-sort { display: flex; flex-wrap: nowrap; gap: var(--s-2); overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
 .wall-sort::-webkit-scrollbar { display: none; }
+/* phones: the row scrolls sideways, so its right edge fades to say "more this way"; the end padding lets the last
+   button scroll clear of the fade. The plaque titles get a taller tap area without moving anything. */
+@media (max-width: 560px) {
+  .wall-sort { padding-right: 36px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+  .plaque-game a { display: inline-block; padding-block: 7px; margin-block: -7px; }
+}
 .wall-sort button { flex: none; white-space: nowrap; min-height: 40px; padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface);
   color: var(--text-dim); font-family: var(--mono); font-size: var(--fs-12); cursor: pointer; }
 .wall-sort button:hover { color: var(--text); border-color: rgb(255 207 64 / .5); }

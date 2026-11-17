@@ -21,6 +21,10 @@
     { id: "rage", label: "rage", tags: ["rage", "trick", "hard", "funny"] }
   ];
   var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"], "smol-brains": ["chill"] };
+  // "works on phone": the game has touch controls, read from games.json "controls" exactly as the game page's
+  // "can i play X on my phone?" answer does (TOUCH in src/seo.js; keep the two in step). "hold space" is a key, not a touch.
+  var TOUCH = /\btap|\bdrag|\bswipe|\blong-press|\bpinch|touch buttons|on-screen buttons|\bhold\b(?!\s+(?:space|enter|shift|esc))/;
+  function onPhone(g) { return TOUCH.test(String(g.controls || "").toLowerCase()); }
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -80,7 +84,10 @@
       if (!games.length) return;
       var bySlug = {};
       games.forEach(function (g) { bySlug[g.slug] = g; });
-      var newest = games.filter(function (g) { return g.slug !== "crash"; }).slice(-NEW_COUNT).reverse();
+      // new = added in the last 14 days (the site-wide rule, isNewGame in src/util.js), and at most the newest
+      // NEW_COUNT of those, so a batch that lands on one day doesn't tag the whole grid
+      var newest = games.filter(function (g) { return g.slug !== "crash" && g.added && Date.now() - Date.parse(g.added) < 14 * 86400000; })
+        .slice(-NEW_COUNT).reverse();
       var isNew = {};
       newest.forEach(function (g) { isNew[g.slug] = true; });
 
@@ -326,13 +333,16 @@
     var meta = {};
     games.forEach(function (g) {
       meta[g.slug] = {
-        vibes: vibesOf(g).concat(isNew[g.slug] ? ["new"] : []),
+        vibes: vibesOf(g).concat(isNew[g.slug] ? ["new"] : [], onPhone(g) ? ["phone"] : []),
         text: [g.title, g.pitch, (g.tags || []).join(" ")].join(" ").toLowerCase()
       };
     });
-    var chips = [{ id: "all", label: "all" }, { id: "new", label: "new" }].concat(VIBES, [{ id: "daily", label: "daily" }])
+    var chips = [{ id: "all", label: "all" }, { id: "new", label: "new" }].concat(VIBES, [{ id: "daily", label: "daily" }, { id: "phone", label: "works on phone" }])
       .filter(function (c) {
-        return c.id === "all" || games.some(function (g) { return meta[g.slug].vibes.indexOf(c.id) >= 0; });
+        var n = games.filter(function (g) { return meta[g.slug].vibes.indexOf(c.id) >= 0; }).length;
+        // "works on phone" only when it narrows the list: today every game has touch controls, so it waits
+        // (hidden) for the first keyboard-only game
+        return c.id === "all" || (n > 0 && !(c.id === "phone" && n === games.length));
       });
     // the collection: games this device has played (cc-history, kept by games/platform.js) get a "played" sticker,
     // the heading counts them, and a "not played" chip shows the rest. First visits see the hub exactly as before.

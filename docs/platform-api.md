@@ -250,6 +250,10 @@ cc.autostart()       // -> true once if the player came from the hub's "tap to p
 - **Install card:** on the hub, `#install-card` appears when the browser offers an install prompt (Chrome, Edge, Android) or on iPhone/iPad Safari (share → add to home screen). It can be dismissed for good.
 - **Metrics:** plays from the installed app are referrer `app` (cc-sdk.js checks display-mode standalone, plus a `cc-app` sessionStorage flag set by pwa.js for the game frame). Offline runs are not recorded: the SDK doesn't queue events, and the server bounds a run by when it saw the start.
 
+## New games ("new" badges and "just cooked")
+
+A game is new for 14 days from its games.json `added` day: `isNewGame` / `NEW_MS` in `src/util.js` (games/hub.js uses the same 14 days on the client). While it's new it gets the "new" tag on home cards (`card2`), the "new" badge on hub cards, a place in the "just cooked" shelves on home and the hub (newest first, up to 6), and a "new" chip beside its title on its game page (`src/seo.js` gamePage). Nothing is listed ahead of time: a game waiting on its merge isn't in games.json, so all of this switches on by itself the day it lands. **When merging a new game, set `added` to that day**, or its 14 days start from whenever the PR was written.
+
 ## Play next rail
 
 After every run (scored or not), the shared player (`games/platform.js`) shows **// play next** below the dare box: three game cards.

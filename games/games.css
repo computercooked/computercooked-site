@@ -623,6 +623,9 @@
   text-overflow: ellipsis;
 }
 
+/* the "new" chip beside a new game's title (src/seo.js gamePage, first 14 days) */
+.player-title .player-new { flex: none; padding: 1px 6px; font-family: var(--mono); font-size: 11px; line-height: 1.4; }
+
 .player-title::before {
   content: "";
   flex: none;
