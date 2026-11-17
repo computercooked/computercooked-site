@@ -96,9 +96,9 @@ function floorName(f) { return FLOOR_NAMES[f] || (f % 5 === 0 ? 'another boss. g
 
 const BOSSES = [
   { t: 'q', name: "the queen's accountant", hp: 3, look: 'acct', period: 2, plan: 'audits diagonals only, 3 squares, every other turn.' },
-  { t: 'k', name: 'a king who is mostly tax', hp: 4, look: 'tax', period: 1, summon: 3, plan: 'levies a pawn every 3 turns. the gold $ square shows where.' },
-  { t: 'b', name: 'two bishops in a trenchcoat', hp: 4, look: 'coat', period: 2, twice: true, plan: 'moves twice, then argues with itself for a turn.' },
-  { t: 'r', name: 'the rook of all evil', hp: 5, look: 'evil', period: 2, plan: 'slides every other turn. watch the "moves next" tag.' }
+  { t: 'k', name: 'a king who is mostly tax', hp: 4, look: 'tax', period: 1, summon: 3, plan: 'steps like a king every turn and levies a pawn every 3 turns. the gold $ square shows where.' },
+  { t: 'b', name: 'two bishops in a trenchcoat', hp: 4, look: 'coat', period: 2, twice: true, plan: 'slides like a bishop twice, then argues with itself for a turn.' },
+  { t: 'r', name: 'the rook of all evil', hp: 5, look: 'evil', period: 2, plan: 'slides like a rook every other turn. watch the "moves next" tag.' }
 ];
 
 const PERKS = {
@@ -472,9 +472,15 @@ function takePiece(e, safe, byPlayer) {
 function comboMult() { return Math.min(5, 1 + 0.5 * Math.max(0, G.combo - 1)); }
 
 /* ---------- enemy turn ---------- */
+// called for every candidate square of every enemy each turn, so it builds one threat map and only re-checks the
+// capture squares (where the taken piece no longer blocks or attacks); same answer as attackersOf per move, far fewer passes
 function countSafeKnight() {
+  const tm = threatMap();
   let c = 0;
-  for (const m of baseMoves(G.kx, G.ky)) { if (!attackersOf(m.x, m.y, enemyAt(m.x, m.y)).length) c++; }
+  for (const m of baseMoves(G.kx, G.ky)) {
+    const on = enemyAt(m.x, m.y);
+    if (on ? !attackersOf(m.x, m.y, on).length : !tm[m.y * G.N + m.x]) c++;
+  }
   return c;
 }
 function enemyMoves(e) {
@@ -519,6 +525,10 @@ function enemyPhase() {
   const activeP = f <= 4 ? 0.45 + (f - 1) * 0.02 : Math.min(0.9, 0.5 + f * 0.04);
   const r = G.rng;
   const list = G.enemies.slice();
+  // fair squeeze: if the square you jumped to still has a safe way out, the movers don't close the last one, so a hit
+  // comes from your own jump (onto red, or into a dead end). from floor 9 that mercy fades 12% a floor (88% of turns on 9,
+  // 52% on 12, gone from 17) so the late floors still bite; before this, a careful player past floor 9 only ever took forced hits
+  const hadOut = countSafeKnight() > 0 && (f <= 8 || r() < 1 - (f - 8) * 0.12);
   for (const e of list) {
     if (G.enemies.indexOf(e) < 0) continue;
     if (e.frozen) { e.frozen--; continue; }
@@ -550,7 +560,8 @@ function enemyPhase() {
         // would the knight take me for free?
         let hang = 0;
         for (const m of baseMoves(G.kx, G.ky)) if (m.x === e.x && m.y === e.y && !attackersOf(m.x, m.y, e).length) { hang = 1; break; }
-        const s = safeN * 1.0 + (safeN === 0 ? (f <= 4 ? 4 : f <= 8 ? 1.6 : 0.4) : 0) + hang * 4 * smart + cheb(e.x, e.y, G.kx, G.ky) * 0.22 + r() * 2.2 * (1 - smart) + (c[0] === ox && c[1] === oy ? 0.15 : 0);
+        // 0 safe moves means a forced hit: not allowed under the squeeze (hadOut); otherwise the round-3 cost by floor
+        const s = safeN * 1.0 + (safeN === 0 ? (hadOut ? 50 : f <= 4 ? 4 : f <= 8 ? 1.6 : 0.4) : 0) + hang * 4 * smart + cheb(e.x, e.y, G.kx, G.ky) * 0.22 + r() * 2.2 * (1 - smart) + (c[0] === ox && c[1] === oy ? 0.15 : 0);
         if (s < bestS) { bestS = s; best = c; }
       }
       e.x = best[0]; e.y = best[1];
@@ -1095,23 +1106,9 @@ function render(now) {
   if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
   // board frame
   ctx.fillStyle = '#2b3160'; rr(ctx, bx - 6, by - 6, cs * N + 12, cs * N + 12, 12); ctx.fill();
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    ctx.fillStyle = (x + y) % 2 ? '#7fd1c1' : '#fdf3dc';
-    ctx.fillRect(bx + x * cs, by + y * cs, cs, cs);
-  }
   const playing = G.phase === 'play';
-  // danger tint
-  if (dangerOn && (playing || SHOT)) {
-    const tm = threatMap();
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const v = tm[y * N + x]; if (!v) continue;
-      const p = cellXY(x, y);
-      ctx.fillStyle = (x + y) % 2 ? (v > 1 ? '#ef6f7f' : '#f4919c') : (v > 1 ? '#ff9aa5' : '#ffc0c5'); ctx.fillRect(p[0], p[1], cs, cs);
-      ctx.strokeStyle = 'rgba(160,0,30,.2)'; ctx.lineWidth = Math.max(1, cs * 0.05);
-      ctx.save(); ctx.beginPath(); ctx.rect(p[0], p[1], cs, cs); ctx.clip();
-      ctx.beginPath(); for (let s = -cs; s < cs * 2; s += cs / 3) { ctx.moveTo(p[0] + s, p[1]); ctx.lineTo(p[0] + s - cs, p[1] + cs); } ctx.stroke(); ctx.restore();
-    }
-  }
+  // squares + danger tint (cached, see boardLayer)
+  ctx.drawImage(boardLayer(N, dangerOn && (playing || SHOT)), bx, by, cs * N, cs * N);
   // stairs
   if (G.stairs) {
     const p = cellXY(G.stairs.x, G.stairs.y), open = stairsOpen();
@@ -1267,6 +1264,37 @@ function render(now) {
   if (SHOT) drawShotTitle();
   if (paused) { ctx.fillStyle = 'rgba(17,20,40,.7)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#fff8ec'; ctx.font = '900 28px system-ui'; ctx.fillText('paused', W / 2, H / 2 - 10); ctx.font = '700 14px system-ui'; ctx.fillText('tap to clock back in', W / 2, H / 2 + 18); }
 }
+// the squares and the danger tint only change when a piece moves, so they are drawn into an offscreen canvas once per
+// change instead of every frame (the striped tint, with a clip per red square, was the costliest part of a busy frame)
+let boardCv = null, boardKey = '';
+function boardLayer(N, tint) {
+  let sig = 0;
+  for (let i = 0; i < G.enemies.length; i++) { const e = G.enemies[i]; sig = (sig * 31 + e.x * 97 + e.y * 13 + e.t.charCodeAt(0) + (e.range || 0) * 7 + (e.mv ? 3 : 0)) | 0; }
+  const key = N + '|' + cs + '|' + dpr + '|' + (tint ? 1 : 0) + '|' + G.enemies.length + '|' + sig;
+  if (boardCv && key === boardKey) return boardCv;
+  boardKey = key;
+  if (!boardCv) boardCv = document.createElement('canvas');
+  const px = Math.max(1, Math.round(cs * N * dpr));
+  if (boardCv.width !== px || boardCv.height !== px) { boardCv.width = px; boardCv.height = px; }
+  const c = boardCv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    c.fillStyle = (x + y) % 2 ? '#7fd1c1' : '#fdf3dc';
+    c.fillRect(x * cs, y * cs, cs, cs);
+  }
+  if (tint) {
+    const tm = threatMap();
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const v = tm[y * N + x]; if (!v) continue;
+      const p0 = x * cs, p1 = y * cs;
+      c.fillStyle = (x + y) % 2 ? (v > 1 ? '#ef6f7f' : '#f4919c') : (v > 1 ? '#ff9aa5' : '#ffc0c5'); c.fillRect(p0, p1, cs, cs);
+      c.strokeStyle = 'rgba(160,0,30,.2)'; c.lineWidth = Math.max(1, cs * 0.05);
+      c.save(); c.beginPath(); c.rect(p0, p1, cs, cs); c.clip();
+      c.beginPath(); for (let s = -cs; s < cs * 2; s += cs / 3) { c.moveTo(p0 + s, p1); c.lineTo(p0 + s - cs, p1 + cs); } c.stroke(); c.restore();
+    }
+  }
+  return boardCv;
+}
 function heroDraw() {
   const t = G.hop < 1 ? easeOut(G.hop) : 1;
   const f = G.hopFrom || { x: G.kx, y: G.ky };
@@ -1332,7 +1360,7 @@ cv.addEventListener('pointerdown', function (ev) {
   }
   if (G.mode && !(c[0] === G.kx && c[1] === G.ky)) { /* keep mode */ }
   const e = G.enemies.find(function (q) { return q.x === c[0] && q.y === c[1]; });
-  if (e) toast(e.boss ? e.boss.name + ' (' + e.hp + ' hp). ' + (e.mv ? 'audits diagonals only, up to 3 squares, every other turn.' : T[e.t].info) : T[e.t].info, 3000);
+  if (e) toast(e.boss ? e.boss.name + ' (' + e.hp + ' hp). ' + e.boss.plan : T[e.t].info, 3500);
   else if (c[0] === G.kx && c[1] === G.ky) toast(G.hero === 'bishop' ? 'you: diagonal, up to 3. a bishop in a hard hat.' : 'you: the L. only the L. always the L.', 2000);
 });
 window.addEventListener('keydown', function (ev) {
