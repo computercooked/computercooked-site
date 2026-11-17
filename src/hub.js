@@ -5,13 +5,14 @@
 // (stats, hearts, "new" badges), so this only has to match its markup.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { pickFeatured } from "./featured.js";
+import { isNewGame } from "./util.js";
 import { vibesOf, VIBE_NAMES, gamesItemList, imageMeta } from "./seo.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 export function hubCard(g, i) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
-  const isNew = g.added && Date.now() - Date.parse(g.added) < 14 * 86400000;
+  const isNew = isNewGame(g);
   // K-0031: the whole card is the link; no per-card button
   return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/">` +
     // the gameplay poster (games.json "poster", 320x180) when there is one, as games/hub.js draws it; .game-thumb keeps a 16:10 box
@@ -40,7 +41,7 @@ export async function hubPage(req, env, url) {
   if (!ours.length) return page;
 
   const txt = (v) => ({ element(e) { e.setInnerContent(v); } });
-  const fresh = ours.map((g, i) => [g, i]).filter(([g]) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
+  const fresh = ours.map((g, i) => [g, i]).filter(([g]) => isNewGame(g))
     .sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map(([g]) => g).slice(0, 6);
   // structured data: the hub as an ItemList of VideoGames (src/seo.js, shared with the homepage)
   const rw = new HTMLRewriter()

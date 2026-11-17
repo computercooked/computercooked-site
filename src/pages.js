@@ -3,7 +3,7 @@
 // computer's own). K-0048: /gary/ now 301s to /log/; gary/log.json and garyEntry/garyPage stay, unused.
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
 import { ensureSchema, games as catalogOf } from "./db.js";
-import { themeAttr, now, dayOf, REAL } from "./util.js";
+import { themeAttr, now, dayOf, REAL, isNewGame } from "./util.js";
 import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
 import { vibesOf, gamesItemList } from "./seo.js";
@@ -48,8 +48,8 @@ const LINES = {
   "crash-cheats": "i cheat at tic tac toe. sue me.", "overdue-notice": "smash the bills. i can't pay them either.", "plus-one-ram": "+1 mb a second. i'm gaining.",
   "smol-brains": "tiny creatures. tinier brains.", "reel-weird": "the pond keeps the rod.", "haunted-self-checkout": "unexpected item in bagging area.", "goose-court": "the goose has a lawyer.", "elevator-full-of-fish": "please fling responsibly.", "sandwich-tower": "the fridge gave me a sock.", "microwave-panic": "never microwave the fork.", "cooked-sweeper": "minesweeper has a virus. so do i.", "handbag-havoc": "granny is faster than you.", "crash-test-daily": "a new puzzle every day.",
 };
-const isNew = (g) => g.added && Date.now() - Date.parse(g.added) < 7 * 86400000;
-export const newest = (list, n = 6) => list.filter((g) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
+const isNew = (g) => isNewGame(g);
+export const newest = (list, n = 6) => list.filter((g) => isNewGame(g))
   .map((g, i) => [g, i]).sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map((x) => x[0]).slice(0, n);
 export function deskIcon(g) {
   return `<li><a class="desk-icon"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=desk" data-slug="${esc(g.slug)}" data-pitch="${esc(g.pitch)}"` +
