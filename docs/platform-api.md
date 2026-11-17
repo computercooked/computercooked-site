@@ -586,6 +586,19 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 - **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
 - It works for every game in the shared player. A game with no thumbnail gets the card without art.
 
+## Board seasons (a game's scoring changed)
+
+When a game's scoring changes so much that old and new scores can't share a board, its boards start fresh. Add the game to `BOARD_FROM` in `src/boards.js` with the time its new scoring went live (its PR's merge time).
+- **What leaves rows out:** every board, rank, best ("new best" / "first score"), champion, the wall of epic gamers, the weekly challenge target, the friends feed, the /me and profile bests and the weekly recap. They all filter with the `FRESH` SQL condition.
+- **Nothing is deleted:** the old rows stay in `scores` and in each player's `/api/me/export`.
+- **Dares made before the cutoff are retired:**
+  - `GET /api/dare/:id` answers 410 `{retired: true, error: <note>}`;
+  - `/d/<id>` goes to the game page, which shows an "old dare" note;
+  - `games/player.js` drops the target chip and the intro card;
+  - `POST /api/dare/:id/beat` answers `{retired: true, beaten: false}`.
+- **Today:** crash test daily, from 2026-11-17 07:43 UTC (1.4: par 1000, -50 a move, speed bonus, +500 hard, max 1549; PR #368).
+- **Tests:** CI seeds pre-cutoff rows into its local D1 (`scripts/smoke-seed.sql`) and the smoke test checks them (`SMOKE_OLD_RULES=1`).
+
 ## Dare link previews (dare share cards)
 
 A dare link pasted into a chat (iMessage, Discord, WhatsApp, X) unfurls with its own picture: "CAN YOU BEAT 1,840 / ON MICROWAVE PANIC / FROM PAT" with Gary in the corner, in the game's theme colours. `src/darecard.js` draws it on the server at `GET /games/<slug>/dare/<id>.png` (1200x630 indexed PNG, about 9 KB, no packages: a 5x7 pixel font and the Worker's own `CompressionStream`). `src/seo.js` points `og:image` / `twitter:image` of `/games/<slug>/?vs=…&d=<id>` at it.
