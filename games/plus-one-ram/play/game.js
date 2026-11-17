@@ -669,9 +669,13 @@
     ctx.fillText('max ' + mb(R.maxV), 12, 12 + 16 * s);
     // arrow toward an open zone you haven't entered
     if (R.unlocked > zi && !R.dead) {
-      const a = 0.6 + 0.4 * Math.sin(R.t * 6);
-      ctx.globalAlpha = a; ctx.fillStyle = C.lime; ctx.font = `800 ${Math.round(16 * s)}px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-      ctx.fillText(ZONES[zi + 1].name + ' →', vw - 14, vh / 2); ctx.globalAlpha = 1;
+      // v1.2: a solid pill that nudges right, so the way out of the desktop is hard to miss
+      const txt = ZONES[zi + 1].name + ' →', bob = Math.sin(R.t * 5) * 4 * s;
+      ctx.font = `800 ${Math.round(17 * s)}px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(txt).width, ph = 34 * s, px = vw - 10 - tw - 24 * s + bob, py = vh / 2 - ph / 2;
+      ctx.fillStyle = 'rgba(16,17,20,0.8)'; rr(ctx, px, py, tw + 24 * s, ph, ph / 2); ctx.fill();
+      ctx.strokeStyle = C.lime; ctx.lineWidth = 2; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(R.t * 6); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.lime; ctx.fillText(txt, vw - 10 - 12 * s + bob, vh / 2 + 1);
     }
     // v1.1: hunters you can't see yet get a red marker on the screen edge
     if (!R.dead) {
