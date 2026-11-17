@@ -447,7 +447,7 @@
       SFX.eat(k);
       if (b.rival) { R.rivalKills++; SFX.big(); R.shake = 0.25; R.pops.push({ x: b.x, y: b.y, t: 1.4, txt: 'ate ' + b.name, big: 1 }); ccEvent('ate_rival', { v: Math.round(b.v) }); }
       else R.pops.push({ x: a.x + rnd(-0.4, 0.4) * a.r, y: a.y - a.r * 1.25, t: 0.7, txt: '+' + fmt(gain) });
-      for (let i = 0; i < 6; i++) { const ang = Math.random() * TAU, s = rnd(40, 160) / R.cam.z * 0.6; R.parts.push({ x: b.x, y: b.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s, t: 0.35, c: b.rival ? b.col : ZONES[zoneAt(b.x)].tint, s: Math.max(2, b.r * 0.25) }); }
+      for (let i = 0, n = b.rival ? 18 : 6; i < n; i++) { const ang = Math.random() * TAU, s = rnd(40, b.rival ? 320 : 160) / R.cam.z * 0.6; R.parts.push({ x: b.x, y: b.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s, t: 0.35, c: b.rival ? b.col : ZONES[zoneAt(b.x)].tint, s: Math.max(2, b.r * 0.25) }); }
     }
   }
   function checkJobs(R) {
@@ -480,6 +480,8 @@
       return;
     }
     R.dead = true; R.killer = by; p.face = 'cooked'; R.shake = 0.5; SFX.die();
+    // v1.3: you burst into lime bits, so the death reads in a clip with the sound off
+    for (let i = 0; i < 22; i++) { const ang = Math.random() * TAU, s = rnd(80, 340) / R.cam.z * 0.6; R.parts.push({ x: p.x, y: p.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s, t: 0.35, c: i % 3 ? C.lime : C.paper, s: Math.max(3 / R.cam.z, p.r * 0.22) }); }
     R.deadT = 1.2;
   }
 
