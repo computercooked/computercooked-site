@@ -31,10 +31,10 @@ console.log("1. peckish: the point where a smol starts looking for food");
   const { SB } = island(4401), C = SB.Creature;
   check("there is one number for it, under the hard-times line", C.PECKISH >= 0.45 && C.PECKISH <= 0.52 && C.PECKISH < 0.55, C.PECKISH);
   check("it is well under starving and under 'too hungry to sleep'", C.PECKISH < C.HUNGRY_AWAKE && C.HUNGRY_AWAKE < C.STARVING);
-  check("food in sight pulls from there", /mask\[V\.eat\] ?&& ?ch\.hunger ?> ?C\.PECKISH\)/.test(cj));
-  check("its nose takes over from there", /c\.chem\.hunger ?> ?C\.PECKISH ?&& ?\(sniff ?= ?sniffFood/.test(cj));
-  check("it walks back to where food was from just under it", /c\.foodSpot ?&& ?c\.chem\.hunger ?> ?C\.PECKISH ?- ?0\.05/.test(cj));
-  check("it stops an idle moment for food three steps off", /ch\.hunger ?> ?0\.7 ?\? ?4 ?: ?ch\.hunger ?> ?C\.PECKISH ?\? ?3 ?: ?1\.5/.test(cj));
+  check("food in sight pulls from there", /mask\[V\.eat\] ?&& ?ch\.hunger ?> ?peckish\(game\)\)/.test(cj));
+  check("its nose takes over from there", /c\.chem\.hunger ?> ?peckish\(game\) ?&& ?\(sniff ?= ?sniffFood/.test(cj));
+  check("it walks back to where food was from just under it", /c\.foodSpot ?&& ?c\.chem\.hunger ?> ?peckish\(game\) ?- ?0\.05/.test(cj));
+  check("it stops an idle moment for food three steps off", /ch\.hunger ?> ?0\.7 ?\? ?4 ?: ?ch\.hunger ?> ?peckish\(game\) ?\? ?3 ?: ?1\.5/.test(cj));
 }
 seeded(4402, () => {
   // a smol held at 0.56 hunger (over peckish, under the old 0.6 to 0.65), one apple twelve steps off and nothing nearer
