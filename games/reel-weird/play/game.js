@@ -883,6 +883,9 @@
       text(TIERS[bookSel.tier].name + (got ? ' · caught x' + got : ' · not caught yet'), px, sy + 18 * S, 11 * S, COL.dim, 'left', '700');
       if (got) wrap('"' + bookSel.line + '"', 11 * S, pw).slice(0, 2).forEach((ln, i) => text(ln, px, sy + 36 * S + i * 15 * S, 11 * S, COL.paper, 'left', '700'));
     } else wrap('tap a tile. ★ = today\'s rare. legendaries live in the ??? zone.', 11 * S, pw).forEach((ln, i) => text(ln, px, sy + i * 15 * S, 11 * S, COL.dim, 'left', '700'));
+    // 2.5: the rod ladder (earned ones ticked, the rest at their catch count)
+    const n = lifetime(), ladder = 'rods: ' + RODS.map((r) => r.name.replace(' rod', '') + (n >= r.at ? ' ✓' : ' ' + r.at)).join(' · ');
+    wrap(ladder, 11 * S, pw).forEach((ln, i) => text(ln, px, sy + 68 * S + i * 15 * S, 11 * S, RODS[Math.min(RODS.length - 1, rodNow() + 1)].col, 'left', '700'));
   }
 
   // K-0059: shared tip button (assets/tip.js)
