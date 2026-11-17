@@ -693,6 +693,73 @@ def antfarm(c):
     # glass glare
     for j in range(fh): c.px(fx + 6 + (j // 10) % 2, fy + j, "#ffffff") if j % 9 == 0 else None
     c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
+MM_MOWER = """
+....hh........
+.....hh.......
+......hh......
+..RRRRRRRRR...
+.RRRRRRRRRRRg.
+RRRrrrrrrRRRgg
+RRRRRRRRRRRRgg
+.KK.......KKg.
+.KK.......KK..
+"""
+MM_PAL = {"R": "#e63946", "r": "#ff8a8a", "h": "#c9ced6", "g": "#9aa0aa", "K": "#0b0c0e"}
+MM_BILL = """
+KKKKKKKKK
+KGGGGGGGK
+KGgGGGgGK
+KGGGGGGGK
+KKKKKKKKK
+"""
+MM_BPAL = {"G": "#d8f5b0", "g": "#3d6b2a", "K": "#101114"}
+
+
+def mowmoney(c):
+    # a pro-striped lawn being mowed lane by lane: the computer pushes a red mower into the long grass, cash flies off it
+    import random
+    rnd = random.Random(7)
+    W, H = c.W, c.H
+    top = 18
+    c.rect(0, 0, W, top, "#101114")
+    for x in range(1, W, 7):  # picket fence
+        c.rect(x, 5, 4, top - 5, "#e9dcbc"); c.rect(x + 1, 4, 2, 1, "#e9dcbc"); c.rect(x + 3, 6, 1, top - 6, "#c9b791")
+    c.rect(0, 9, W, 2, "#c9b791")
+    lane = 11
+    rows = (H - top) // lane
+    cur = rows - 3  # the lane being mown now
+    mx = int(W * 0.58)  # mower front edge
+    for k in range(rows + 1):
+        y = top + k * lane
+        if k < cur:
+            c.rect(0, y, W, lane, "#86d260" if k % 2 == 0 else "#52a040")
+        else:
+            c.rect(0, y, W, lane, "#2f7d34")
+            if k == cur: c.rect(0, y, mx, lane, "#86d260" if k % 2 == 0 else "#52a040")
+    # long-grass tufts in the uncut part
+    for i in range(int(W * H / 14)):
+        x, y = rnd.randrange(W), rnd.randrange(top + cur * lane, H)
+        if y < top + (cur + 1) * lane and x < mx + 2: continue
+        col = rnd.choice(["#46a346", "#1f5e26", "#3c9a3c"])
+        c.rect(x, y - 2, 1, 3, col)
+    # the mower and the computer pushing it
+    my = top + cur * lane - 8
+    c.sprite(MM_MOWER, mx - 28, my, MM_PAL, scale=2)
+    c.mascot(mx - 38, my + 17, 30)
+    # clippings out of the side chute
+    for i in range(26):
+        a, d = rnd.uniform(-0.3, 1.2), rnd.uniform(3, 20)
+        c.px(mx + 1 + int(d * 0.5), my + 12 + int(d * a), rnd.choice(["#b9f07a", "#8bd450", "#c5ff49"]))
+    # money flying off toward the top right
+    for (bx, by) in ((mx + 6, my - 10), (mx + 20, my - 24), (mx - 10, my - 22), (mx + 34, my - 6)):
+        c.sprite(MM_BILL, bx, by, MM_BPAL)
+    for (bx, by) in ((mx + 22, my - 2), (mx + 36, my - 20), (mx + 4, my - 30)):
+        c.sprite(COIN, bx, by, {"A": "accent"})
+    # a gnome hiding in the long grass, and a goat eating it
+    c.sprite(GNOME, W - 26, H - 21, GPAL, scale=3)
+    gx, gy = 14, H - 14
+    c.rect(gx, gy, 12, 6, "#f3f1ea"); c.rect(gx + 10, gy - 4, 5, 5, "#f3f1ea"); c.px(gx + 13, gy - 3, "#0b0c0e")
+    c.rect(gx + 9, gy - 6, 1, 2, "#a3a09a"); c.rect(gx + 1, gy + 6, 2, 3, "#a3a09a"); c.rect(gx + 9, gy + 6, 2, 3, "#a3a09a")
 
 
 SCENES = {
@@ -701,6 +768,7 @@ SCENES = {
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
     "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
+    "mow-money": mowmoney,
 }
 
 

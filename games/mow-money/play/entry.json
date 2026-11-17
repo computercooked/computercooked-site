@@ -1,0 +1,32 @@
+{
+  "slug": "mow-money",
+  "title": "mow money",
+  "pitch": "mow the lawn, get paid, hire a goat, mow the moon, sell the business to a guy named doug.",
+  "thumbnail": "thumb.png",
+  "made_by": "computer-cooked",
+  "version": "1.0",
+  "theme": {
+    "accent": "#c5ff49",
+    "bg": "#101114"
+  },
+  "how_to": [
+    "drag, point or use wasd to steer the mower. cut grass pays cash; long straight passes build a streak.",
+    "spend it on upgrades: a wider blade, more speed, sprinklers, goats, robots and doug.",
+    "buy the next lawn for a bigger cash multiplier. mow into gnomes for a bonus.",
+    "sell the business for compost: permanent perks, and new lawns open up."
+  ],
+  "controls": "drag or tap on the lawn to steer the mower (touch), or just point with the mouse (desktop), or wasd / arrow keys. tabs: upgrades, lawns, gnomes, sell. keys: u / l / g open tabs, esc closes, m = sound, p = pause. sound button top right (saved).",
+  "size_kb": 244,
+  "tags": [
+    "incremental",
+    "idle",
+    "lawn mowing",
+    "satisfying",
+    "goats",
+    "comedy",
+    "one-thumb"
+  ],
+  "max_score_per_sec": 250,
+  "score_slack": 40000,
+  "max_score": 100000
+}
