@@ -513,10 +513,11 @@ function mainAction() {
 }
 
 // ---------------------------------------------------------------- day end / market
-// rent: tuned Nov 16 2026 to about 25-35% of a human-ish night's take; scales with the day and the stall (x1.4 castle, x1.8 moon).
+// rent: tuned Nov 16 2026 to about 25-35% of a human-ish night's take; scales with the day and the stall (x1.5 castle, x1.9 moon).
 // missing it is not game over: the tax goblin takes what you have and locks tonight's market.
 const RENT_DAY = 18, RENT_BASE = 17; // swamp: 35, 53, 71, 89, 107
-function rentFor(day) { return Math.ceil((RENT_DAY * day + RENT_BASE) * regionObj().mult * (S.decor.spike ? 0.5 : 1)); }
+const RENT_MULT = { swamp: 1, castle: 1.5, moon: 1.9 }; // rent only (pay uses the stall's mult); set by castle/moon bot seasons
+function rentFor(day) { return Math.ceil((RENT_DAY * day + RENT_BASE) * (RENT_MULT[S.region] || regionObj().mult) * (S.decor.spike ? 0.5 : 1)); }
 function endDay() {
   S.phase = 'night'; clearPot(true); $('#bubble').classList.add('hide'); $('#coach').classList.add('hide');
   const rent = rentFor(S.day);
