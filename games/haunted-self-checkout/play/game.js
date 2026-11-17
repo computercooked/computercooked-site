@@ -151,7 +151,7 @@
   const quotaOf = (n) => (n <= QUOTA.length ? QUOTA[n - 1] : QUOTA[QUOTA.length - 1] + (n - QUOTA.length) * 10);
   const RANKS = [[0, "bagging trainee"], [2, "cashier"], [4, "shift lead"], [6, "night manager"], [8, "store exorcist"], [10, "the till's favourite"]];
   const rankOf = (cleared) => { let r = 0; while (r + 1 < RANKS.length && cleared >= RANKS[r + 1][0]) r++; return r; };
-  let night = 1, nightRun = 1, quotaHit = false, promoted = false;
+  let night = 1, nightRun = 1, quotaHit = false, promoted = false, runBest = 0, bestPopped = false;
   try {
     const v = parseInt(localStorage.getItem("hsc-night"), 10);
     if (v >= 1) night = v;
@@ -168,7 +168,7 @@
 
   function start() {
     state = "play"; t = 0; items = []; fx = []; meter = 0; score = 0; combo = 0; mult = 1; spawnIn = 0.35; scanned = 0; wrongs = 0; misses = 0; won = false; total = 0; lanes = 1; bestStreak = 0;
-    nightRun = night; quotaHit = false; promoted = false;
+    nightRun = night; quotaHit = false; promoted = false; runBest = best; bestPopped = false;
     startAt = performance.now(); say("hello", true); react("happy", 700); sfx.start();
     sdk((c) => c.start && c.start());
   }
@@ -226,6 +226,11 @@
       }
       checkLanes();
       if (!quotaHit && score >= quotaOf(nightRun)) quotaMet();
+      else if (!bestPopped && runBest > 0 && score > runBest) { // 1.4: passing your best mid-shift gets its own moment
+        bestPopped = true;
+        fx.push({ type: "text", x: W / 2, y: lanesY[0] - S * 0.2, s: "NEW BEST", col: GHOST, life: 1.4, max: 1.4, big: true });
+        fx.push({ type: "burst", x: W / 2, y: lanesY[0] - S * 0.2, life: 0.8, max: 0.8, col: GHOST });
+      }
       sdkScore(score);
     }
   }
@@ -569,7 +574,8 @@
     cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, top - 4, W, H - top + 4);
     cx.textAlign = "center"; cx.textBaseline = "middle";
     const big = Math.round(Math.max(24, Math.min(44, W / 11)));
-    const mid = top + (H - top) * 0.42;
+    // 1.4: in a short frame the title block climbs so its last lines (quota, best) clear the sound button
+    const mid = Math.max(top + big * 2.2, Math.min(top + (H - top) * 0.42, H - 40 - 84 - Math.min(S, 60) - 62 - big * 0.6));
     if (state === "title") {
       cx.fillStyle = CASE; cx.font = "800 " + big + "px ui-monospace, Menlo, Consolas, monospace";
       cx.fillText("haunted", W / 2, mid - big * 1.6); cx.fillText("self-checkout", W / 2, mid - big * 0.55);
@@ -582,7 +588,10 @@
       cx.imageSmoothingEnabled = false;
       const d = Math.max(26, Math.min(S, 60, H - 34 - 40 - (mid + big * 0.6 + 62)));
       cx.drawImage(sprites.banana, W / 2 - d * 1.4, mid + big * 0.6 + 62, d, d);
-      drawItem({ kind: "apple", lane: 0, x: W / 2 + d * 0.3, y: mid + big * 0.6 + 62 - (S - d) / 2, possessed: true, sneaky: false, seed: 1 }, time);
+      // 1.4: drawn at the demo size (it used to be full grocery size, so in a short landscape frame it sat on the text)
+      const S0 = S; S = d;
+      drawItem({ kind: "apple", lane: 0, x: W / 2 + d * 0.3, y: mid + big * 0.6 + 62, possessed: true, sneaky: false, seed: 1 }, time);
+      S = S0;
     } else {
       // the end card fits above the tip pill (tipSync keeps it at least 112px off the bottom): in a short player frame
       // it climbs over the till and tightens up, and every line shrinks to the width (K-0071)
@@ -622,6 +631,17 @@
         const s1 = "night " + night + " · quota: " + quotaOf(night) + " points in one shift";
         cx.fillStyle = GHOST; fit(s1, 13); cx.fillText(s1, W / 2, ty + 24);
         if (best > 0 && ty + 44 < H - 6) { const s2 = "best " + best + " · " + RANKS[rankOf(night - 1)][1]; cx.fillStyle = "#8a8e80"; fit(s2, 12); cx.fillText(s2, W / 2, ty + 43); }
+        // the ladder: ten nights, cleared ones lit, tonight outlined (past ten it just says "overtime")
+        const py = ty + (best > 0 ? 64 : 46), pw = Math.min(22, (W - 60) / 10), gap = 4;
+        if (py + 8 < H - 44) {
+          const x0 = W / 2 - (pw * 10 + gap * 9) / 2;
+          for (let i = 0; i < 10; i++) {
+            const x = x0 + i * (pw + gap);
+            if (i + 1 < night) { cx.fillStyle = LIME; cx.fillRect(x, py, pw, 8); }
+            else { cx.fillStyle = "#23261d"; cx.fillRect(x, py, pw, 8); if (i + 1 === night) { cx.strokeStyle = GHOST; cx.lineWidth = 2; cx.strokeRect(x - 1, py - 1, pw + 2, 10); } }
+          }
+          if (night > 10) { cx.fillStyle = LIME2; cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.fillText("overtime: night " + night, W / 2, py + 22); }
+        }
       }
     }
   }
