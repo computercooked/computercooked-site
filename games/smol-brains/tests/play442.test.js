@@ -61,5 +61,17 @@ console.log("3. three buildings from the sky");
   check("the shop: a striped awning", /for ?\(var aw ?= ?0; ?aw ?< ?5; ?aw\+\+\) ?b\.color\(aw ?% ?2 ?\? ?0xf2ead8 ?: ?0x5fa04a, ?1\)/.test(sh));
 }
 
+console.log("4. the broken fi and fl: the rule that turns ligatures off outranks every font shorthand");
+{
+  const css = fs.readFileSync(path.join(__dirname, "..", "play", "style.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = css.match(/[^{}]+\{[^{}]*\}/g) || [];
+  const off = rules.filter(r => /font-variant-ligatures: ?none ?!important/.test(r))[0] || "";
+  const ids = sel => Math.max.apply(null, sel.split(",").map(s => (s.match(/#/g) || []).length));
+  check("the rule is there and weighs three ids", ids(off.split("{")[0]) === 3 && /"liga" 0, ?"clig" 0, ?"calt" 0 ?!important/.test(off));
+  const shorthands = rules.filter(r => /(^|[;{\s])font: ?[^;}]*!important/.test(r.slice(r.indexOf("{"))));
+  check("there are font shorthands marked important (the film captions are two of them)", shorthands.length >= 2 && shorthands.some(r => /\.introcap \.sub/.test(r)), shorthands.length);
+  check("and none of them weighs as much", shorthands.every(r => ids(r.split("{")[0]) < 3), shorthands.filter(r => ids(r.split("{")[0]) >= 3).length + " would win");
+}
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);

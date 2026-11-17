@@ -84,7 +84,7 @@ console.log("4. one thing at a time: no story card under the pod map; no broken 
   const uj = fs.readFileSync(path.join(__dirname, "..", "src", "ui.js"), "utf8");
   check("event cards wait while the pod map is up", /if ?\(UI\._podUp\) ?return false;/.test(uj) && /root\.appendChild\(wrap\); ?UI\._podUp ?= ?true;/.test(uj) && /closed ?= ?true; ?UI\._podUp ?= ?false;/.test(uj));
   const css = fs.readFileSync(path.join(__dirname, "..", "play", "style.css"), "utf8");
-  check("ligatures are off for every element, whatever font: shorthand it uses", /\*, ?\*::before, ?\*::after ?\{ ?font-variant-ligatures: ?none ?!important; ?font-feature-settings: ?"liga" 0, ?"clig" 0, ?"calt" 0 ?!important; ?\}/.test(css));
+  check("ligatures are off for every element, whatever font: shorthand it uses", /\*:not\(#_a\):not\(#_b\):not\(#_c\), ?\*:not\(#_a\):not\(#_b\):not\(#_c\)::before, ?\*:not\(#_a\):not\(#_b\):not\(#_c\)::after ?\{ ?font-variant-ligatures: ?none ?!important; ?font-feature-settings: ?"liga" 0, ?"clig" 0, ?"calt" 0 ?!important; ?\}/.test(css));
 }
 
 console.log("5. hard times: hungry AND short of food (hunger alone stopped pairs on fed islands)");
