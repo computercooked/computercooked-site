@@ -502,7 +502,7 @@
     if (paused) return;
     if (cur) {
       const sp = state === 'menu' ? 110 : curSpeed();
-      const cx0 = state === 'menu' ? 0 : topTab().x, R = sweep(cur.w);
+      const cx0 = state === 'menu' ? 0 : topTab().x, R = state === 'menu' ? Math.min(70, sweep(cur.w)) : sweep(cur.w); // the title demo stays clear of the career columns
       if (cur.lag && cur.lag.left > 0 && Math.abs(cur.x - cur.lag.at) < 6) { cur.lag.left -= dt; if (!cur.lag.shown) { cur.lag.shown = true; toast('lag spike', '#7fd8ff', 0.6, true); } }
       else cur.x += cur.dir * sp * dt;
       if (cur.x > cx0 + R) { cur.x = cx0 + R; cur.dir = -1; }
@@ -878,14 +878,15 @@
     ag.forEach((g, i) => items.push(() => { text((i || wide ? '' : 'goals ' + career.goals.length + '/' + GOALS.length + ': ') + '□ ' + g[1], ix, y, fs, '#ffd84a', 'center', 'normal'); y += lh; }));
     const open = skinsOpen();
     btns.skin = null;
-    if (open.length > 1) items.push(() => {
-      const label = 'skin: ' + skin().name + '  ▸', bw = Math.min(W - 60, 200 * u), bh = 26 * u;
-      const r = { x: ix - bw / 2, y: y - 4 * u, w: bw, h: bh };
-      ctx.strokeStyle = 'rgba(255,216,74,0.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(r.x, r.y, r.w, r.h);
-      text(label, ix, r.y + bh * 0.68, fs, '#ffd84a', 'center');
-      btns.skin = { x: r.x, y: r.y - 6, w: r.w, h: r.h + 12 };
-      y += bh + 4 * u;
-    });
+    if (open.length > 1) { // skin picker: top-left corner, out of the middle of the screen where people tap to start
+      const label = 'skin: ' + skin().name + ' ▸';
+      ctx.font = 'bold 12px ' + FONT;
+      const r = { x: 10, y: 10, w: ctx.measureText(label).width + 20, h: 34 };
+      ctx.fillStyle = 'rgba(255,216,74,0.10)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = 'rgba(255,216,74,0.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+      text(label, r.x + r.w / 2, r.y + 22, 12, '#ffd84a', 'center');
+      btns.skin = { x: r.x, y: r.y, w: r.w, h: r.h + 6 };
+    }
     else if (SKINS[open.length]) items.push(() => { text('next skin: ' + SKINS[open.length].name + ' at ' + SKINS[open.length].need + ' goals', ix, y, fs, 'rgba(245,243,237,0.55)', 'center', 'normal'); y += lh; });
     if (wide) {
       const y0 = Math.max(y, H * 0.42);
@@ -912,7 +913,7 @@
     const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + (score === 1 ? ' pt, ' : ' pts, ') + streakText() + ') before getting cooked.';
     const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
     const cod = wrap('cause of death: "' + lastTitle + '"', Math.round(11 * u), cw - 36 * u);
-    const ch = (30 + 122 + lines.length * 22 + 4 + cod.length * 16 + 8 + 20 + 20 + 16 + 112) * u; // grows with the text, so the career lines never touch the buttons
+    const ch = (30 + 122 + lines.length * 22 + 4 + cod.length * 16 + 8 + 20 + 20 + 24 + 112) * u; // grows with the text, so the career lines never touch the buttons
     const cx = (W - cw) / 2;
     const cy = Math.max(12, Math.min(H * 0.1, (H - ch) * 0.35)) + (1 - e) * 30;
     ctx.globalAlpha = e;
