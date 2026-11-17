@@ -641,10 +641,16 @@
     text(label, x + w / 2, y + h * 0.42, sz, INK, "center", 900);
     text(sub, x + w / 2, y + h * 0.76, Math.max(11, Math.min(14, h * 0.14)), INK, "center", 800);
     // the run so far, one ticket per item (newest on the right): lime perfect, green good, blue cold, red burnt
-    const ty = P.y + P.h + 26, cs = 12, gap = 5, fit = Math.max(1, Math.floor((P.w + gap) / (cs + gap))), list = tally.slice(-fit);
-    if (ty + cs < H - 4) list.forEach((t, i) => {
-      const tx = W / 2 - (list.length * (cs + gap) - gap) / 2 + i * (cs + gap);
-      R(INK, tx - 1, ty - 1, cs + 2, cs + 2); R(t === "perfect" || t === "safe" ? LIME2 : t === "good" ? LIME : t === "cold" ? "#9fc3e0" : BAD, tx, ty, cs, cs);
+    const ty = P.y + P.h + 26, fit = Math.max(1, Math.floor((P.w + 5) / 17));
+    if (ty + 12 < H - 4) tickets(tally.slice(-fit), ty, 12, fit);
+  }
+  // a row (or rows) of tickets, centred, cs px each
+  function tickets(list, y, cs, perRow) {
+    const gap = Math.round(cs * 0.42);
+    list.forEach((t, i) => {
+      const row = Math.floor(i / perRow), inRow = Math.min(perRow, list.length - row * perRow), col = i % perRow;
+      const tx = W / 2 - (inRow * (cs + gap) - gap) / 2 + col * (cs + gap), yy = y + row * (cs + gap);
+      R(INK, tx - 1, yy - 1, cs + 2, cs + 2); R(t === "perfect" || t === "safe" ? LIME2 : t === "good" ? LIME : t === "cold" ? "#9fc3e0" : BAD, tx, yy, cs, cs);
     });
   }
   // K-0059: shared tip button (assets/tip.js)
@@ -687,6 +693,12 @@
         : score === prevBest ? "tied your best. one more perfect next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : WARN, "center", 800);
       if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
+      // review16 r3: the shift at a glance, one ticket per item, where the screen has the room (a tall phone, desktop)
+      const sy = mid + big * 1.25 + 86 + tipH + 22, cs = 14, per = Math.max(1, Math.floor((Math.min(W - 32, 420) + 6) / (cs + 6))), rows = Math.ceil(tally.length / per);
+      if (M.pad && tally.length && sy + 18 + rows * (cs + 6) < H - 8) {
+        text("your shift", W / 2, sy, 12, "#8a8e80", "center", 700);
+        tickets(tally, sy + 16, cs, per);
+      }
     }
   }
 
