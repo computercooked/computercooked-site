@@ -196,7 +196,7 @@ x.fillStyle="rgba(255,255,255,0.12)";x.fillRect(sx,y+46,bw,6);
 x.fillStyle=rc;x.fillRect(sx,y+46,bw*Math.min(1,s[1]/s[2]),6);
 });
 x.textAlign="center";x.fillStyle="#6f6884";x.font="700 15px "+font;
-x.fillText("smol brains · computercooked.com",W/2,H-44);
+x.fillText(SB.UI&&SB.UI.adPortal&&SB.UI.adPortal()?"smol brains":"smol brains · computercooked.com",W/2,H-44);
 return cv;
 };
 Cards.share=function(c){
