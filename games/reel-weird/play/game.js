@@ -139,6 +139,24 @@
   let book = {};
   try { book = JSON.parse(store.get(BOOK_KEY, '{}')) || {}; } catch (e) { book = {}; }
   const bookCount = () => ITEMS.filter((it) => book[it.id]).length;
+  // every catch ever (the book already counts each item), so the rods below work for old saves too
+  const lifetime = () => ITEMS.reduce((s, it) => s + (+book[it.id] || 0), 0);
+  // 2.5: rods, earned by catches over every run (no new save key: the count comes from the book). Each one helps a bit.
+  const RODS = [
+    { name: 'twig rod', at: 0, col: '#c8a46a', perk: 'it bends. a lot.' },
+    { name: 'bamboo rod', at: 6, col: '#a8d66a', perk: 'bites wait a bit longer' },
+    { name: 'carbon rod', at: 18, col: '#7fd8ff', perk: 'line 10% tougher' },
+    { name: 'cursed rod', at: 40, col: '#B59AFF', perk: 'more epic + legendary bites' },
+    { name: 'golden rod', at: 80, col: '#ffd84a', perk: 'legendaries 2x as likely' }
+  ];
+  const rodIdx = (n) => { let i = 0; while (i + 1 < RODS.length && n >= RODS[i + 1].at) i++; return i; };
+  const rodNow = () => rodIdx(lifetime());
+  function rodGoal() { // "3 catches to the bamboo rod", or null at the top
+    const n = lifetime(), i = rodIdx(n);
+    if (i + 1 >= RODS.length) return null;
+    const left = RODS[i + 1].at - n;
+    return left + (left === 1 ? ' catch' : ' catches') + ' to the ' + RODS[i + 1].name;
+  }
 
   // today's rare: one rare/epic catch per day (same for everyone), 3x as likely and worth 2x
   const today = (() => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); })();
@@ -212,16 +230,31 @@
   let bobX = 0, bobY = 0, bobDip = 0;
   let waitT = 0, nibbles = [], biteT = 0, biteWin = 0;
   let hooked = null, perfectHook = false;
-  let tension = 0, progress = 0, slackT = 0, surgeT = 0, surgeLeft = 0, tickT = 0;
+  let tension = 0, progress = 0, slackT = 0, surgeT = 0, surgeLeft = 0, tickT = 0, strainT = 0, warnOn = false;
+  // 2.5: each surge is telegraphed SURGE_WARN s ahead (the fish thrashes, an amber "!"), and the line holds STRAIN_GRACE s
+  // at full tension before it snaps. Simulated with a 250 ms reaction (agents/r4d/reel_sim.mjs): a careful player landed
+  // 42% of commons and 0% of epics before; now commons to rares land every time, epics/legendaries still need a light touch.
+  const SURGE_WARN = 0.4, STRAIN_GRACE = 0.1;
   let reveal = null, revealT = 0, overAt = 0, newBest = false, lastCall = false;
   let t = 0, shake = 0, msg = '', msgT = 0, msgCol = COL.paper;
-  let floats = [], parts = [];
+  let floats = [], parts = [], flashT = 0, flashCol = '255,255,255';
+  const REDUCE = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); // no screen flashes then
   let bookSel = null, btns = {}, shareMsg = '', shareMsgT = 0;
   const shadows = Array.from({ length: 6 }, (_, i) => ({ x: Math.random(), d: 0.15 + i * 0.14, v: (Math.random() < 0.5 ? -1 : 1) * (0.02 + Math.random() * 0.04), s: 0.6 + Math.random() * 0.8 }));
   const stars = Array.from({ length: 40 }, () => ({ x: Math.random(), y: Math.random(), s: Math.random() }));
 
   function say(text, col, life) { msg = text; msgCol = col || COL.paper; msgT = life || 1.2; }
-  function floatText(x, y, text, col) { floats.push({ x, y, text, col, life: 1.1 }); }
+  function floatText(x, y, text, col, size) { floats.push({ x, y, text, col, life: 1.1, size }); }
+  // 2.5: a snap reads with the sound off: the line flies apart in bits along its length, a big red SNAP!, a white flash
+  function snapFx() {
+    for (let i = 0; i < 18; i++) {
+      const k = i / 17, x = tipX + (bobX - tipX) * k, y = tipY + (waterY - tipY) * k;
+      parts.push({ x, y, vx: (Math.random() - 0.5) * 160 * S, vy: (-60 - Math.random() * 120) * S, life: 0.8, max: 0.8, col: i % 3 ? COL.paper : COL.red, size: 2.5 * S });
+    }
+    splash(bobX, waterY, 10, COL.paper);
+    floatText((tipX + bobX) / 2, waterY - 50 * S, 'SNAP!', COL.red, 30);
+    flashT = 0.18; flashCol = '255,255,255';
+  }
   function splash(x, y, n, col) {
     for (let i = 0; i < n; i++) { const a = -Math.PI * (0.15 + Math.random() * 0.7); const v = (60 + Math.random() * 120) * S; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6, max: 0.6, col: col || '#9fd6e8', size: (2 + Math.random() * 2) * S }); }
   }
@@ -277,6 +310,9 @@
   function rollItem(d) {
     const wts = [60 - 45 * d, 28 - 6 * d, 9 + 16 * d, 2.6 + 9 * d, 0.2 + 1.8 * d];
     wts[daily.tier] *= 1.15;
+    const rod = rodNow();
+    if (rod >= 3) { wts[3] *= 1.3; wts[4] *= 1.5; }
+    if (rod >= 4) wts[4] *= 2;
     let r = Math.random() * wts.reduce((s, v) => s + v, 0), tier = 0;
     for (; tier < 4; tier++) { r -= wts[tier]; if (r < 0) break; }
     const pool = ITEMS.filter((it) => it.tier === tier);
@@ -289,7 +325,7 @@
     hooked = rollItem(cast.d);
     state = 'bite';
     // generous on the first casts (~0.95s), tighter as the streak grows; deeper (rarer) things are a bit quicker
-    biteWin = Math.max(0.45, 0.95 - streak * 0.07 - hooked.tier * 0.05) * SLOWBITE;
+    biteWin = (Math.max(0.45, 0.95 - streak * 0.07 - hooked.tier * 0.05) + (rodNow() >= 1 ? 0.1 : 0)) * SLOWBITE;
     biteT = 0;
     bobDip = 1;
     splash(bobX, waterY, 10, '#cfefff');
@@ -299,7 +335,7 @@
   function hook() {
     perfectHook = biteT <= Math.min(0.28, biteWin * 0.45); // "perfect" stays as tight as before
     state = 'reel';
-    tension = 0.3; progress = 0; slackT = 0; surgeT = 0.5 + Math.random() * 0.8; surgeLeft = 0; tickT = 0;
+    tension = 0.3; progress = 0; slackT = 0; surgeT = 0.8 + Math.random() * 0.7; surgeLeft = 0; tickT = 0; strainT = 0; warnOn = false;
     sfx.hook();
     if (perfectHook) floatText(bobX, waterY - 40 * S, 'perfect hook!', COL.lime);
   }
@@ -312,7 +348,9 @@
   function landCatch() {
     const it = hooked, tier = TIERS[it.tier];
     const isNew = !book[it.id];
+    const rodBefore = rodNow();
     book[it.id] = (book[it.id] || 0) + 1;
+    const newRod = rodNow() > rodBefore ? RODS[rodNow()] : null;
     store.set(BOOK_KEY, JSON.stringify(book));
     streak++; bestStreak = Math.max(bestStreak, streak);
     const isDaily = it === daily;
@@ -320,13 +358,17 @@
     score += pts;
     if (isNew) newOnes++;
     catches.push({ it, pts });
-    reveal = { it, pts, isNew, isDaily, perfect: perfectHook, mult: mult() };
+    reveal = { it, pts, isNew, isDaily, perfect: perfectHook, mult: mult(), newRod };
     revealT = 0;
     state = 'catch';
     sfx.catch(it.tier);
     splash(bobX, waterY, 14, tier.col);
-    if (it.tier >= 3) shake = Math.max(shake, 0.5);
-    cc('event', 'catch', { item: it.id, tier: tier.name, depth: Math.round(cast.d * 100) / 100 });
+    // 2.5: the catch leaps out of the water: a ring of its tier's colour, and a flash for epic and up
+    for (let i = 0; i < 16; i++) { const a = Math.PI * 2 * i / 16; parts.push({ x: bobX, y: waterY, vx: Math.cos(a) * 150 * S, vy: Math.sin(a) * 150 * S - 60 * S, life: 0.7, max: 0.7, col: tier.col, size: 3 * S }); }
+    if (it.tier >= 3) { shake = Math.max(shake, 0.5); flashT = 0.25; flashCol = it.tier === 4 ? '255,216,74' : '181,154,255'; }
+    if (newRod) { shake = Math.max(shake, 0.4); flashT = 0.3; flashCol = '255,216,74'; sfx.catch(4); cc('event', 'rod', { rod: newRod.name }); }
+    // the sdk keeps 20 events a play: leave room for run_over and share_clicked
+    if (catches.length <= 14) cc('event', 'catch', { item: it.id, tier: tier.name, depth: Math.round(cast.d * 100) / 100 });
     if (performance.now() - lastScoreSent > 400) { lastScoreSent = performance.now(); cc('score', score); }
   }
   function afterAttempt() {
@@ -357,6 +399,7 @@
     if (msgT > 0) msgT -= dt;
     if (shareMsgT > 0) shareMsgT -= dt;
     if (hudFlash > 0) hudFlash -= dt;
+    if (flashT > 0) flashT -= dt;
     for (const s of shadows) { s.x += s.v * dt; if (s.x < -0.1) s.x = 1.1; if (s.x > 1.1) s.x = -0.1; }
     for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.life -= dt; f.y -= 30 * S * dt; if (f.life <= 0) floats.splice(i, 1); }
     for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 420 * S * dt; if (p.life <= 0) parts.splice(i, 1); }
@@ -394,7 +437,7 @@
       const surging = surgeLeft > 0;
       if (surging) surgeLeft -= dt;
       if (down) {
-        tension += (0.85 + 0.6 * pull + (surging ? 1.6 + 1.4 * pull : 0)) * dt;
+        tension += (0.85 + 0.6 * pull + (surging ? 1.6 + 1.4 * pull : 0)) * dt * (rodNow() >= 2 ? 0.9 : 1);
         progress += (0.72 - 0.34 * pull) * dt * (tension > 0.88 ? 0.5 : 1);
         tickT -= dt; if (tickT <= 0) { tickT = 0.08; sfx.tick(); }
       } else {
@@ -402,13 +445,18 @@
         progress -= 0.06 * dt;
       }
       tension = Math.max(0, tension); progress = Math.max(0, progress);
-      if (tension >= 1) { shake = 0.7; sfx.snap(); splash(bobX, waterY, 10, COL.paper); fail('snap! the line broke'); return; }
+      if (tension >= 1) {
+        tension = 1; strainT += dt;
+        if (strainT > STRAIN_GRACE) { shake = 0.8; sfx.snap(); snapFx(); fail('snap! the line broke'); return; }
+      } else strainT = 0;
+      if (!surging && surgeT <= SURGE_WARN && !warnOn) { warnOn = true; if (down) bobDip = 0.6; }
+      if (surging || surgeT > SURGE_WARN) warnOn = false;
       if (tension <= 0.02 && !down) slackT += dt; else slackT = 0;
       if (slackT > 1.3) { sfx.away(); fail('slack line. it swam off'); return; }
       if (progress >= 1) landCatch();
     } else if (state === 'catch') {
       revealT += dt;
-      if (revealT > 1.9) nextAfterReveal();
+      if (revealT > (reveal && reveal.newRod ? 2.6 : 1.9)) nextAfterReveal();
     }
   }
   function nextAfterReveal() { reveal = null; afterAttempt(); }
@@ -425,7 +473,10 @@
         startRun(); return;
       case 'book': pressBook(x, y); return;
       case 'aim': charging = true; chargeT = 0; power = 0; return;
-      case 'wait': sfx.away(); fail('too early. it saw you'); return;
+      case 'wait':
+        // 2.5: a new angler (under 3 catches ever) gets a lesson instead of a lost cast: most first-timers tap a fake
+        if (lifetime() < 3) { say('not yet! that was a fake. wait for the big !', COL.gold, 1.8); sfx.nibble(); return; }
+        sfx.away(); fail('too early. it saw you'); return;
       case 'bite': hook(); return;
       case 'catch': if (revealT > 0.35) nextAfterReveal(); return;
       case 'over':
@@ -654,7 +705,7 @@
     const hx = crashX + crashSize * 0.42, hy = crashY + bob + crashSize * 0.25;
     const bend = state === 'reel' ? (0.15 + tension * 0.5) : state === 'bite' ? 0.2 : 0;
     const rtx = tipX, rty = tipY + bend * 40 * S;
-    ctx.strokeStyle = '#c8a46a'; ctx.lineWidth = 3 * S; ctx.lineCap = 'round';
+    ctx.strokeStyle = RODS[rodNow()].col; ctx.lineWidth = 3 * S; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + rtx) / 2, (hy + rty) / 2 - 10 * S + bend * 20 * S, rtx, rty); ctx.stroke();
     // line + bobber
     let bx = rtx, by = rty + 26 * S;
@@ -677,10 +728,13 @@
     // the catch coming up from its depth while reeling
     if (state === 'reel' && hooked) {
       const fromY = depthY(cast.d), y = fromY + (waterY + 16 * S - fromY) * progress;
-      const wob = Math.sin(t * 14) * (surgeLeft > 0 ? 7 : 2) * S;
-      ctx.strokeStyle = 'rgba(245,243,237,0.4)'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + wob, y); ctx.stroke();
+      const wob = Math.sin(t * (warnOn ? 30 : 14)) * (surgeLeft > 0 ? 7 : warnOn ? 5 : 2) * S;
+      ctx.strokeStyle = surgeLeft > 0 ? 'rgba(255,90,90,0.8)' : warnOn ? 'rgba(255,216,74,0.8)' : 'rgba(245,243,237,0.4)'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + wob, y); ctx.stroke();
       drawSprite(ctx, hooked, bx + wob, y + 14 * S, 40 * S, 's');
-      if (surgeLeft > 0) text('!!', bx + 26 * S, y, 16 * S, COL.red, 'center');
+      // 2.5: the warning before a surge (amber "!", the catch thrashes) and the surge itself (red "!!")
+      const ex = bx + (bx + 44 * S > W ? -30 : 30) * S; // left of the catch when it's near the right edge
+      if (surgeLeft > 0) text('!!', ex, y + 6 * S, 24 * S, COL.red, 'center', '900');
+      else if (warnOn) text('!', ex, y + 6 * S, Math.round((16 + 10 * (1 - Math.max(0, surgeT) / SURGE_WARN)) * S), COL.gold, 'center', '900');
     }
     if (state === 'bite') {
       const k = 1 - biteT / biteWin;
@@ -696,6 +750,9 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(pad, pad, bw, bh);
     ctx.fillStyle = timeLeft <= 10 && Math.sin(t * 10) > 0 ? COL.red : COL.lime; ctx.fillRect(pad, pad, bw * k, bh);
     text(Math.ceil(timeLeft) + 's', pad, pad + bh + 16 * S, 13 * S, COL.paper, 'left');
+    // 2.5: the next goal stays on screen during the run: today's rare until it's caught, then the next rod
+    const goal = !book[daily.id] ? '★ today: ??? (' + TIERS[daily.tier].name + ') · cast far' : rodGoal();
+    if (goal) text(goal, W / 2, pad + bh + 16 * S, 11 * S, !book[daily.id] ? TIERS[daily.tier].col : RODS[Math.min(RODS.length - 1, rodNow() + 1)].col, 'center', '700');
     if (SLOWBITE > 1) text('test: slow bite x' + SLOWBITE, pad, pad + bh + 32 * S, 10 * S, COL.gold, 'left');
     if (score !== hudScore) { if (score > hudScore) hudFlash = 0.5; hudScore = score; }
     text(String(score), W - pad, pad + bh + 26 * S, 26 * S, hudFlash > 0 && Math.sin(hudFlash * 25) > -0.3 ? COL.gold : COL.lime, 'right', '900');
@@ -728,7 +785,9 @@
       ctx.fillStyle = tension > 0.88 ? COL.red : COL.paper; ctx.fillRect(x + w * Math.min(1, tension) - 2 * S, y - 4 * S, 4 * S, h + 8 * S);
       text('line tension', x, y - 6 * S, 10 * S, COL.dim, 'left', '700');
       text(Math.round(progress * 100) + '% reeled', x + w, y - 6 * S, 10 * S, COL.lime, 'right', '700');
-      text(down ? 'reeling… ease off before the red' : 'hold to reel · let go to ease', W / 2, cy, 13 * S, COL.paper, 'center');
+      if (surgeLeft > 0) text(down ? 'it\'s PULLING! let go!' : 'it\'s pulling… wait', W / 2, cy, 15 * S, COL.red, 'center', '900');
+      else if (warnOn) text(down ? '! it\'s about to pull. let go!' : '! it\'s about to pull…', W / 2, cy, 15 * S, COL.gold, 'center', '900');
+      else text(down ? 'reeling… ease off before the red' : 'hold to reel · let go to ease', W / 2, cy, 13 * S, COL.paper, 'center');
     }
     if (msgT > 0 && state !== 'over' && state !== 'title') {
       ctx.globalAlpha = Math.min(1, msgT * 2);
@@ -741,7 +800,7 @@
     if (!reveal) return;
     const it = reveal.it, tier = TIERS[it.tier];
     const k = Math.min(1, revealT / 0.25), e = 1 - Math.pow(1 - k, 3);
-    const cw = Math.min(W - 32 * S, 320 * S), ch = 250 * S, cx = (W - cw) / 2, cy = Math.max(60 * S, waterY - ch * 0.62);
+    const cw = Math.min(W - 32 * S, 320 * S), ch = 270 * S, cx = (W - cw) / 2, cy = Math.max(60 * S, waterY - ch * 0.62);
     ctx.globalAlpha = e;
     roundRect(cx, cy + (1 - e) * 20 * S, cw, ch, 14 * S); ctx.fillStyle = 'rgba(16,17,20,0.94)'; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = tier.col; ctx.stroke();
@@ -757,7 +816,15 @@
     if (reveal.perfect) bits.push('perfect hook');
     if (reveal.mult > 1) bits.push('x' + reveal.mult.toFixed(2).replace(/0$/, '').replace(/\.0$/, ''));
     text(bits.join(' · '), W / 2, yy + 216 * S, 15 * S, reveal.isNew ? COL.gold : COL.lime, 'center', '900');
-    if (revealT > 0.35) text('tap to cast again', W / 2, yy + ch - 10 * S, 10 * S, COL.dim, 'center', '700');
+    // 2.5: the next goal, every catch: a new rod (big), else how close the next one is
+    if (reveal.newRod) {
+      const pulse = 1 + 0.06 * Math.sin(t * 10);
+      text('NEW ROD: ' + reveal.newRod.name + '!', W / 2, yy + 240 * S, Math.round(15 * S * pulse), reveal.newRod.col, 'center', '900');
+    } else {
+      const g = rodGoal();
+      text(g || RODS[rodNow()].name + ': the best there is', W / 2, yy + 240 * S, 11 * S, RODS[Math.min(RODS.length - 1, rodNow() + 1)].col, 'center', '700');
+    }
+    if (revealT > 0.35) text('tap to cast again', W / 2, yy + ch - 8 * S, 10 * S, COL.dim, 'center', '700');
     ctx.globalAlpha = 1;
   }
 
@@ -780,9 +847,11 @@
     const bw = Math.min(260 * S, W - 40 * S);
     button('start', 'cast off ▶', W / 2 - bw / 2, by, bw, 40 * S, COL.lime);
     button('book', 'collection book ' + bookCount() + '/' + ITEMS.length + ' (b)', W / 2 - bw / 2, by + 50 * S, bw, 34 * S, COL.lilac);
-    text('best: ' + best, W / 2, by + 106 * S, 12 * S, COL.dim, 'center', '700');
-    const tips = 'hold to charge, let go to cast. far = deep = weird. tap on the BIG bite. hold to reel, let go before the line snaps.';
-    wrap(tips, 11 * S, Math.min(W - 40 * S, 360 * S)).forEach((ln, i) => text(ln, W / 2, by + 130 * S + i * 16 * S, 11 * S, 'rgba(245,243,237,0.5)', 'center', '700'));
+    text('best: ' + best + ' · ' + RODS[rodNow()].name, W / 2, by + 104 * S, 12 * S, COL.dim, 'center', '700');
+    const goal = rodGoal(); // 2.5: the next rod, always on show
+    if (goal) text(goal + ' (' + RODS[rodNow() + 1].perk + ')', W / 2, by + 121 * S, 11 * S, RODS[rodNow() + 1].col, 'center', '700');
+    const tips = 'hold to charge, let go to cast. far = deep = weird. tap on the BIG bite. hold to reel. it thrashes (!) = let go.';
+    wrap(tips, 11 * S, Math.min(W - 40 * S, 360 * S)).forEach((ln, i) => text(ln, W / 2, by + 143 * S + i * 16 * S, 11 * S, 'rgba(245,243,237,0.5)', 'center', '700'));
   }
 
   function drawBook() {
@@ -838,7 +907,7 @@
     const k = Math.min(1, (performance.now() - overAt) / 300), e = 1 - Math.pow(1 - k, 3);
     ctx.fillStyle = 'rgba(16,17,20,' + (0.7 * e) + ')'; ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = e;
-    const cw = Math.min(W - 28 * S, 360 * S), ch = 410 * S, cx = (W - cw) / 2, cy = Math.max(10 * S, (H - ch) / 2) + (1 - e) * 24 * S;
+    const cw = Math.min(W - 28 * S, 360 * S), ch = 428 * S, cx = (W - cw) / 2, cy = Math.max(10 * S, (H - ch) / 2) + (1 - e) * 24 * S;
     roundRect(cx, cy, cw, ch, 14 * S); ctx.fillStyle = '#16171c'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = COL.lime; ctx.stroke();
     text("time's up", W / 2, cy + 30 * S, 14 * S, COL.lilac, 'center', '900');
     text(String(score), W / 2, cy + 82 * S, 52 * S, COL.lime, 'center', '900');
@@ -855,7 +924,9 @@
     }
     text(catches.length + (catches.length === 1 ? ' catch' : ' catches') + ' · best streak ' + bestStreak + ' · ' + newOnes + ' new', W / 2, cy + 236 * S, 11 * S, COL.paper, 'center', '700');
     text('book ' + bookCount() + '/' + ITEMS.length + (book[daily.id] ? " · today's rare: caught" : " · today's rare: still out there"), W / 2, cy + 254 * S, 11 * S, book[daily.id] ? COL.dim : TIERS[daily.tier].col, 'center', '700');
-    const bw = (cw - 48 * S) / 2, bx = cx + 16 * S, by = cy + 272 * S;
+    const rg = rodGoal(), ri = Math.min(RODS.length - 1, rodNow() + 1); // 2.5: the next rod
+    text(rg ? RODS[rodNow()].name + ' · ' + rg : RODS[rodNow()].name + ': every rod earned', W / 2, cy + 272 * S, 11 * S, RODS[ri].col, 'center', '700');
+    const bw = (cw - 48 * S) / 2, bx = cx + 16 * S, by = cy + 290 * S;
     button('again', 'again (space)', bx, by, cw - 32 * S, 40 * S, COL.lime);
     button('share', shareMsgT > 0 ? shareMsg : 'share (s)', bx, by + 50 * S, bw, 34 * S, COL.lilac);
     button('book', 'book (b)', bx + bw + 16 * S, by + 50 * S, bw, 34 * S, COL.paper);
@@ -886,7 +957,7 @@
     g.fillText(top ? it.name : 'caught nothing', 540, 840);
     g.font = '800 38px ' + FONT; g.fillStyle = COL.dim; g.fillText(top ? TIERS[it.tier].name + ' catch' : 'the pond wins', 540, 896);
     g.font = '900 170px ' + FONT; g.fillStyle = COL.paper; g.fillText(String(score), 540, 1080);
-    g.font = '800 40px ' + FONT; g.fillStyle = COL.lilac; g.fillText(catches.length + ' catches · book ' + bookCount() + '/' + ITEMS.length, 540, 1150);
+    g.font = '800 40px ' + FONT; g.fillStyle = COL.lilac; g.fillText(catches.length + ' catches · book ' + bookCount() + '/' + ITEMS.length + ' · ' + RODS[rodNow()].name, 540, 1150);
     g.font = '800 34px ' + FONT; g.fillStyle = 'rgba(245,243,237,0.55)'; g.fillText('computercooked.com/games/reel-weird', 540, 1270);
     return cvs;
   }
@@ -924,9 +995,10 @@
     drawCrashAndLine();
     for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, p.size, p.size); }
     ctx.globalAlpha = 1;
-    for (const f of floats) { ctx.globalAlpha = Math.min(1, f.life * 2); text(f.text, f.x, f.y, 14 * S, f.col, 'center', '900'); }
+    for (const f of floats) { ctx.globalAlpha = Math.min(1, f.life * 2); text(f.text, f.x, f.y, (f.size || 14) * S, f.col, 'center', '900'); }
     ctx.globalAlpha = 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (flashT > 0 && !REDUCE) { ctx.fillStyle = 'rgba(' + flashCol + ',' + Math.min(0.35, flashT * 2) + ')'; ctx.fillRect(0, 0, W, H); }
     const onTitle = state === 'title' || (state === 'book' && bookFrom === 'title');
     if (!onTitle) drawHUD();
     drawPrompt();
@@ -985,6 +1057,7 @@
   window.RW = {
     slowbite: () => SLOWBITE, biteWin: () => biteWin, state: () => state, score: () => score, time: () => timeLeft, streak: () => streak, catches: () => catches.map((x) => x.it.id),
     power: () => power, tension: () => tension, progress: () => progress, daily: () => daily.id, book: () => ({ ...book }),
+    warn: () => warnOn, surge: () => surgeLeft > 0, msg: () => (msgT > 0 ? msg : ''),
     items: () => ITEMS.map((it) => ({ id: it.id, tier: it.tier })), press: (x, y) => { down = true; press(x, y); }, release: () => up(),
     card: () => card().toDataURL('image/png'), poster: (w, h) => poster(w || 640, h || 360).toDataURL('image/png')
   };
