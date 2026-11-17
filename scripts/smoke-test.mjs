@@ -251,8 +251,7 @@ const faqLd = (ld["@graph"] || []).find((x) => x["@type"] === "FAQPage");
 const faqBox = (page.match(/<section class="about-card game-faq"[\s\S]*?<\/section>/) || [""])[0];
 const faqN = (faqBox.match(/<details/g) || []).length;
 ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.length === faqN && /is fathom free\?/.test(faqBox), "game page has a questions block matching its FAQPage JSON-LD", faqN + "/" + faqLd?.mainEntity?.length);
-// the breadcrumb names the game (not its slug); no game in games.json today is under 14 days old... unless one is, so
-// the "new" chip is checked against games.json's own added dates
+// the breadcrumb names the game (not its slug), and the "new" chip shows exactly when games.json's added date says so
 {
   const mp = await (await get("/games/microwave-panic/")).text();
   const cat = (await (await get("/games/games.json")).json()).games || [];
