@@ -126,7 +126,9 @@
       if (v && typeof v.top === 'number') { const top = cl(v.top); return { top, lvl: Math.min(top, cl(v.lvl || top)), best: Math.max(0, v.best | 0) }; }
     } catch (e) { /* ignore */ }
     const top = record.w > 0 ? 2 : 1;
-    return { top, lvl: top, best: 0 };
+    // start "best" from the site's own best for this game on this device (player.js keeps it), so the two agree
+    let best = 0; try { const b = JSON.parse(localStorage.getItem('cc-best-here')); if (b && typeof b[SLUG] === 'number') best = Math.max(0, Math.round(b[SLUG])); } catch (e) { /* ignore */ }
+    return { top, lvl: top, best };
   }
   function saveLadder() { try { localStorage.setItem(LADDER_KEY, JSON.stringify(ladder)); } catch (e) { /* ignore */ } }
   function loadSpooky() {
