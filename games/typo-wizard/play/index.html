@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>typo wizard</title>
+<meta name="description" content="a word roguelite: spell words, hurt monsters, fight autocorrect.">
+<link rel="stylesheet" href="style.css">
+<script src="/games/cc-sdk.js"></script>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <span id="hp" class="pill hp">40/40</span>
+    <span id="shield" class="pill sh hidden">0</span>
+    <span id="gold" class="pill gd">0</span>
+    <span id="where" class="where">act 1</span>
+    <span id="relics" class="relics"></span>
+    <button id="bagBtn" class="ico" title="your letter bag">bag</button>
+    <button id="muteBtn" class="ico" title="sound on" aria-label="sound on">&#128266;</button>
+  </div>
+
+  <div id="fight" class="screen">
+    <div id="stage">
+      <canvas id="mon"></canvas>
+      <div id="intent" class="intent"></div>
+      <div id="mname" class="mname"></div>
+      <div id="mhpbar" class="hpbar"><i id="mhpfill"></i><b id="mhptext"></b></div>
+      <div id="mstatus" class="mstatus"></div>
+      <div id="bubble" class="bubble hidden"></div>
+      <div id="floats"></div>
+    </div>
+    <div id="wordrow">
+      <div id="word" class="word"><span class="ph">tap letters or type</span></div>
+      <div id="preview" class="preview"></div>
+    </div>
+    <div id="rack" class="rack"></div>
+    <div id="btns">
+      <button id="clearBtn" class="btn ghost">clear</button>
+      <button id="redrawBtn" class="btn ghost">redraw</button>
+      <button id="castBtn" class="btn cast" disabled>cast</button>
+    </div>
+  </div>
+
+  <div id="title" class="screen panel">
+    <h1>typo<br>wizard</h1>
+    <p class="tag">spell words. hurt monsters. survive autocorrect.</p>
+    <ul class="how">
+      <li>tap letters (or type) to spell a word, then <b>cast</b>.</li>
+      <li>longer + rarer letters = more damage. monsters have quirks: read the yellow tag.</li>
+      <li><b class="q">q z</b> burn &middot; <b class="x">x j</b> freeze &middot; <b class="k">k v</b> crit &middot; <b class="d">double letters</b> shield</li>
+    </ul>
+    <div id="starter" class="starter"></div>
+    <button id="startBtn" class="btn cast big">start run</button>
+    <button id="dailyBtn" class="btn ghost daily">daily spell</button>
+    <div id="meta" class="meta"></div>
+    <div class="credit">computer cooked games <button id="muteBtn2" class="ico" title="sound on">&#128266;</button></div>
+  </div>
+
+  <div id="map" class="screen panel">
+    <h2 id="mapTitle">pick your next stop</h2>
+    <div id="mapSteps" class="steps"></div>
+    <div id="mapChoices" class="choices"></div>
+  </div>
+
+  <div id="shop" class="screen panel">
+    <h2>the word shop</h2>
+    <p class="sub" id="shopLine">all sales final. all letters used.</p>
+    <div id="shopItems" class="items"></div>
+    <button id="shopLeave" class="btn cast">leave</button>
+  </div>
+
+  <div id="pick" class="screen panel">
+    <h2 id="pickTitle">pick one</h2>
+    <p class="sub" id="pickSub"></p>
+    <div id="pickItems" class="items"></div>
+    <button id="pickSkip" class="btn ghost">skip</button>
+  </div>
+
+  <div id="end" class="screen panel endp">
+    <div class="pillgap"></div>
+    <h2 id="endTitle">you got cooked</h2>
+    <canvas id="card" width="600" height="340"></canvas>
+    <div class="endbtns">
+      <button id="shareBtn" class="btn ghost">share</button>
+      <button id="againBtn" class="btn cast">again</button>
+    </div>
+    <div id="shareMsg" class="sub"></div>
+    <div id="tip"></div>
+  </div>
+
+  <div id="bagView" class="overlay hidden"><div class="ovbox"><h3>your bag</h3><div id="bagGrid" class="baggrid"></div><p class="sub" id="bagSub"></p><button class="btn ghost" id="bagClose">close</button></div></div>
+  <div id="pause" class="overlay hidden"><div class="ovbox"><h3>paused</h3><p class="sub">the monster is also on break.</p><button class="btn cast" id="resumeBtn">resume</button></div></div>
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="/assets/tip.js" defer></script>
+<script src="words.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
