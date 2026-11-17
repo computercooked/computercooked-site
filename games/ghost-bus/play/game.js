@@ -9,13 +9,26 @@ var cv = $('cv'), ctx = cv.getContext('2d');
 
 /* ---------------- save ---------------- */
 var SAVE_KEY = 'gb-save';
-var save = { stars: {}, best: {}, mute: false, daily: {}, seen: {}, plays: 0 };
+var save = { stars: {}, best: {}, mute: false, daily: {}, seen: {}, plays: 0, order: null };
 function loadSave() {
   if (Q.has('fresh')) return;
   try { var s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s && typeof s === 'object') for (var k in save) if (k in s) save[k] = s[k]; } catch (e) {}
 }
+/* stars, best and seen are kept per level position. save.order records the level names those positions meant, so a
+   save from another level order (the first build, before ship prep reordered levels, has no order) is moved by name. */
+var ORDER_V0 = ["first stop","two's company","the long way round","standing room only","rush hour (dead)","cul-de-sac","everyone wants the cinema","the high street","the one-seater","last orders","the divorce","garlic bread","school run","the mime and the clown","the reunion","neighbours","the dinner party","the long parade","custody weekend","cul-de-sac drama","one way","the roundabout","the old bridge","the rickety mile","the harbour","troll toll","canal street","the towpath","spaghetti junction","the last ferry","wakey wakey","detour to the horn","hill start","the hilltop fair","the switchbacks","bed and breakfast","over the hill","wedding bells","graveyard shift","dawn patrol"];
+function migrateSave() {
+  var names = L.LEVELS.map(function (l) { return l.name; });
+  var from = Array.isArray(save.order) ? save.order : ORDER_V0;
+  if (from.join('|') !== names.join('|')) {
+    var move = function (o, keepOther) { var n = {}; for (var key in o) { if (!/^\d+$/.test(key)) { if (keepOther) n[key] = o[key]; continue; } var j = names.indexOf(from[+key]); if (j >= 0) n[j] = o[key]; } return n; };
+    save.stars = move(save.stars || {}, false); save.best = move(save.best || {}, false); save.seen = move(save.seen || {}, true);
+  }
+  save.order = names;
+}
 function storeSave() { if (NOSAVE) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 loadSave();
+if (!Q.has('fresh')) try { migrateSave(); storeSave(); } catch (e) {}
 
 /* ---------------- sound (real CC0 files, small pool) ---------------- */
 var FILES = { honk: 'sfx/honk.mp3', board: 'sfx/pop.mp3', drop: 'sfx/ding.mp3', win: 'sfx/tada.mp3', fail: 'sfx/fail.mp3',

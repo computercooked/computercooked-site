@@ -943,7 +943,7 @@
         "accent": "#ffd84d",
         "bg": "#0b0a1f"
       },
-      "max_score_per_sec": 150.0,
+      "max_score_per_sec": 180.0,
       "how_to": [
         "drag from the bus along the streets to draw its route, then press go. ghosts board at their stop and get off at theirs.",
         "the bus has only so many seats. drive past a waiting ghost you can't take and they go grumpy.",
