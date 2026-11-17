@@ -16,7 +16,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.BASE || "http://localhost:8798";
 const req = createRequire(process.env.PLAYWRIGHT ? join(resolve(process.env.PLAYWRIGHT), "x.js") : import.meta.url);
 const { chromium } = req("playwright");
-const W = 640, H = 360, FPS = 12, SECS = 3;
+const W = 640, H = 360, FPS = 12, SECS = Number(process.env.CLIP_SECS || 4); // 3-4 s (round 20: 4)
 // Games where random taps and keys make a dull clip get a small in-page player instead (it drives the game through
 // its read-only test hook, so the clip shows the game being played well). Everything else gets the random pokes.
 const DRIVE = {
@@ -54,6 +54,18 @@ const DRIVE = {
   },
   // the colony plays itself: ?shot=1 grows it, hides the chrome and leaves the ants working (K-0058)
   "ant-farm": () => {},
+  // smol brains: its title screen is the showcase (a grown town full of smols, the camera drifting over it); a new
+  // game opens on the story and a tutorial card instead. So the clip stays on the title (ON_TITLE below) with the
+  // title's panels hidden. No taps (one would start the game).
+  "smol-brains": () => { const st = document.createElement("style"); st.textContent = ".ts{opacity:0!important;transition:none!important}"; document.head.appendChild(st); },
+  // the floppy whose colour has a pixel showing (the game's own hint), never past 3 on the bench, so pixels get shot
+  "pixel-purge": () => setInterval(() => {
+    const p = window.__pp, S = p && p.S;
+    if (!S || p.mode !== "play" || S.bench.filter(Boolean).length > 3) return;
+    let li = -1;
+    for (let q = 0; q < S.lanes.length && li < 0; q++) { const fd = S.lanes[q][0]; if (fd && S.exList.some((id) => S.grid[id] === fd.c)) li = q; }
+    p.pickLane(li < 0 ? 0 : li);
+  }, 380),
   // the aurora, a pike on the line and the ice cracking outward in cyan (K-0061)
   // K-0062: the pike fight, reeled in pulses so the line, the fish and the cracking ice visibly move
   "thin-ice": () => { if (!window.__ti) return; window.__ti.clip(); let on = false; setInterval(() => { on = !on; window.__ti.hold(on); }, 380); },
@@ -62,15 +74,21 @@ const DRIVE = {
   // the auto-player takes level 4, joined 14 seconds in so every program is already fighting
   "desktop-takeover": () => { const d = window.__dt; if (d && d.state().state === "play") { d.auto(true); d.skip(14); } },
 };
+// extra wait after load before the clip starts (ms; default 1200): smol brains builds its island first
+const WAIT = { "smol-brains": 7000 };
+// games clipped on their own title screen: no autostart flag, no start tap
+const ON_TITLE = new Set(["smol-brains"]);
 // extra query for a game's clip run
 const QUERY = { "ant-farm": "&shot=1", "prove-youre-human": "&round=1", "desktop-takeover": "&level=4" };
 // a closer frame for games whose action is small in the wide shot (ffmpeg crop on the 640x360 grab: w:h:x:y)
 const CROP = { "thin-ice": "400:225:130:95" };
+// a higher -crf (smaller file) for games whose clip is busy all over: smol brains' moving town is 138 KB at 30, 79 KB at 33
+const CRF = { "smol-brains": 33 };
 
 const gj = join(ROOT, "games/games.json");
 const data = JSON.parse(readFileSync(gj, "utf8"));
 const want = process.argv.slice(2);
-const list = data.games.filter((g) => g.made_by === "computer-cooked" && g.slug !== "smol-brains" && (!want.length || want.includes(g.slug)));
+const list = data.games.filter((g) => g.made_by === "computer-cooked" && (!want.length || want.includes(g.slug)));
 
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 mkdirSync(join(ROOT, "assets/clips"), { recursive: true });
@@ -80,15 +98,15 @@ for (const g of list) {
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
   const page = await browser.newPage({ viewport: { width: W, height: H } });
-  await page.addInitScript((slug) => {
+  if (!ON_TITLE.has(g.slug)) await page.addInitScript((slug) => {
     try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: slug, t: Date.now() })); } catch (e) {}
   }, g.slug);
   try {
     await page.goto(`${BASE}/games/${g.slug}/play/?cctest=1${QUERY[g.slug] || ""}`, { waitUntil: "load", timeout: 90000 });
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(WAIT[g.slug] || 1200);
     // start: a tap in the middle and the usual start keys
     const drive = DRIVE[g.slug];
-    await page.mouse.click(W / 2, H / 2);
+    if (!ON_TITLE.has(g.slug)) await page.mouse.click(W / 2, H / 2);
     if (!drive) { await page.keyboard.press("Space"); await page.keyboard.press("Enter"); } // a driven game starts on the tap alone
     await page.waitForTimeout(900);
     if (drive) await page.evaluate(drive);
@@ -103,7 +121,7 @@ for (const g of list) {
     }
     const out = join(ROOT, "assets/clips", g.slug + ".mp4");
     execFileSync("ffmpeg", ["-v", "error", "-y", "-framerate", String(FPS), "-i", join(tmp, "%03d.png"),
-      "-vf", (CROP[g.slug] ? "crop=" + CROP[g.slug] + "," : "") + "scale=320:180:flags=lanczos,format=yuv420p", "-c:v", "libx264", "-preset", "veryslow", "-crf", "30",
+      "-vf", (CROP[g.slug] ? "crop=" + CROP[g.slug] + "," : "") + "scale=320:180:flags=lanczos,format=yuv420p", "-c:v", "libx264", "-preset", "veryslow", "-crf", String(CRF[g.slug] || 30),
       "-movflags", "+faststart", "-an", out]);
     const kb = Math.round(statSync(out).size / 1024);
     made.push(g.slug);
@@ -116,14 +134,15 @@ for (const g of list) {
 }
 await browser.close();
 // "clip" goes in as a line right under each game's "slug" line, so the rest of games.json stays exactly as it was
-const lines = readFileSync(gj, "utf8").split("\n");
+const raw = readFileSync(gj, "utf8"), EOL = raw.includes("\r\n") ? "\r\n" : "\n"; // keep the file's own line endings
+const lines = raw.split(EOL);
 for (const slug of made) {
   const i = lines.findIndex((l) => l.trim().startsWith(`"slug": "${slug}",`));
   if (i < 0) continue;
   const row = lines[i].slice(0, lines[i].indexOf('"')) + `"clip": "/assets/clips/${slug}.mp4",`;
   if (lines[i + 1].trim().startsWith('"clip":')) lines[i + 1] = row; else lines.splice(i + 1, 0, row);
 }
-const text = lines.join("\n");
+const text = lines.join(EOL);
 JSON.parse(text);
 writeFileSync(gj, text);
 console.log(`clips: ${made.length}/${list.length}`);

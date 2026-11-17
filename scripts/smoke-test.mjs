@@ -1055,6 +1055,17 @@ if (admin) {
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
   ok(surf.status === 200 && surfHtml.includes('id="tv-guide"') && surfHtml.includes('id="tv-auto"') && surfHtml.includes("/assets/surf.js") && home.includes('href="/surf/"'), "/surf/ has the channel surf tv, linked from home", surf.status);
+  // card preview loops (round 20): every clip in games.json is served as a small mp4, the hook games have one, and
+  // preview.js keeps clips off first paint (preload none, phones wait for load) and off under reduced motion/Save-Data
+  const clipGames = (await (await get("/games/games.json")).json()).games.filter((g) => g.clip);
+  const clipBad = [];
+  for (const g of clipGames) {
+    const r = await get(g.clip), b = r.ok ? (await r.arrayBuffer()).byteLength : 0;
+    if (!r.ok || !/video\/mp4/.test(r.headers.get("content-type") || "") || b < 1024 || b > 150 * 1024) clipBad.push(g.slug + ":" + r.status + ":" + b);
+  }
+  ok(clipGames.length >= 20 && !clipBad.length && ["desktop-takeover", "smol-brains", "keyboard-escape", "ant-farm", "elevator-full-of-fish", "reel-weird", "overdue-notice", "pixel-purge"].every((s) => clipGames.some((g) => g.slug === s)), "card clips: all served as mp4 under 150 KB, round 20's eight included", clipBad.join(" ") || clipGames.length);
+  const prevJs = await (await get("/assets/preview.js")).text();
+  ok(prevJs.includes('preload = "none"') && prevJs.includes('document.readyState !== "complete"') && prevJs.includes("prefers-reduced-motion") && prevJs.includes("saveData"), "preview.js: clips on demand only, after load on phones, off for reduced motion and Save-Data");
   // 404 page: the picks the computer "found instead"
   const lost = await get("/no-such-page-" + Date.now());
   const lostHtml = await lost.text();
