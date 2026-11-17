@@ -26,6 +26,7 @@ C.TALKER_LIFE=1.4;
 C.HUNGRY_AWAKE=0.7;
 C.STARVING=0.85;
 C.HARD_HUNGER=0.55;C.HARD_FOOD=2;C.HARD_HUNGER_MAX=0.7;
+C.WADE_DETOUR=25;
 C.WADE_AFTER=2;
 C.PECKISH=0.5;
 function lifeK(c){return c&&c.species==="smol"&&(c.tier||0)>=3?C.TALKER_LIFE:1;}
@@ -350,7 +351,7 @@ var hm=SB.Society.home(game,c.tribe||0);
 if(SB.dist(c.x,c.z,hm.x,hm.z)>4){C.sendTo(c,hm.x+rng.range(-2,2),hm.z+rng.range(-2,2),game,12,true);return;}
 startAction(c,game,V.idle,null,null,null);c.action.dur=2;return;
 }
-if(c.stranger&&SB.Strangers){
+if(c.stranger&&SB.Strangers&&!(c.species==="smol"&&ch.hunger>C.STARVING)){
 var sg=SB.Strangers.think(c,game);
 if(sg&&sg.wait){startAction(c,game,V.idle,null,null,null);c.action.dur=2.5;if(!c.far&&rng.chance(0.15))say(c,rng.pick(["hello?","me friend","pls?","..."]),game);return;}
 if(sg){startAction(c,game,V.wander,null,null,null);c.action.tx=sg.x;c.action.tz=sg.z;c.action.dur=12;c.action.called=c.stranger.state!=="leaving";return;}
@@ -783,6 +784,10 @@ c.pathTried=true;
 c.path=SB.World.findPath(game.world,c.x,c.z,tx,tz,swim(c),5000);
 c.pathI=0;
 if(!c.path)c.noPath={x:tx,z:tz,t:game.time};
+else if(starvingFor(c,c.action)&&c.chem.hunger>0.95&&!swim(c)){
+var pl=0,plx=c.x,plz=c.z;for(var pi=0;pi<c.path.length;pi++){pl+=Math.hypot(c.path[pi].x-plx,c.path[pi].z-plz);plx=c.path[pi].x;plz=c.path[pi].z;}
+if(pl>C.WADE_DETOUR&&pl>d0*2){c.wade=60;c.path=SB.World.findPath(game.world,c.x,c.z,tx,tz,true,5000);c.pathI=0;}
+}
 }
 if(c.path&&c.wBestT>8){c.path=null;c.lost=true;}
 if(c.path){

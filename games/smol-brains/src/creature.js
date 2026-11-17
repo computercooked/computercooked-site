@@ -395,7 +395,7 @@
       if (SB.dist(c.x, c.z, hm.x, hm.z) > 4) { C.sendTo(c, hm.x + rng.range(-2, 2), hm.z + rng.range(-2, 2), game, 12, true); return; }
       startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return;
     }
-    if (c.stranger && SB.Strangers) { // a stranger walks up to the village and waits for your answer (or walks away)
+    if (c.stranger && SB.Strangers && !(c.species === "smol" && ch.hunger > C.STARVING)) { // a stranger walks up to the village and waits for your answer (or walks away). 4.40: a starving one eats first (island 23: one was sent on every 12 seconds for its last three and a half minutes, a berry 12 steps off)
       var sg = SB.Strangers.think(c, game);
       if (sg && sg.wait) { startAction(c, game, V.idle, null, null, null); c.action.dur = 2.5; if (!c.far && rng.chance(0.15)) say(c, rng.pick(["hello?", "me friend", "pls?", "..."]), game); return; }
       if (sg) { startAction(c, game, V.wander, null, null, null); c.action.tx = sg.x; c.action.tz = sg.z; c.action.dur = 12; c.action.called = c.stranger.state !== "leaving"; return; }
