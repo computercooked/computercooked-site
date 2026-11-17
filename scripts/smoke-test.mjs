@@ -47,6 +47,13 @@ for (const u of ["/assets/deck.js", "/games/cc-sdk.js"]) {
   const js = await (await get(u)).text();
   ok(js.includes("utm_source") && js.includes('bsky: "bluesky"') && js.includes('yt: "youtube"'), u + " maps ?ref= link tags");
 }
+// secrets: deck.js collects them, and every script that finds one sends cc:secret
+{
+  const srcs = await Promise.all(["/assets/deck.js", "/assets/eggs.js", "/assets/golden.js", "/assets/home.js", "/assets/lost-game.js"].map(async (u) => [u, await (await get(u)).text()]));
+  const deckJs = srcs[0][1];
+  ok(deckJs.includes("window.ccSecrets") && deckJs.includes('"cc-secrets"') && deckJs.includes("stats-secrets") && srcs.slice(1).every(([, s]) => s.includes('"cc:secret"')),
+    "secrets: deck.js collects them and the egg scripts send cc:secret", srcs.filter(([, s]) => !s.includes("cc:secret")).map(([u]) => u).join(" "));
+}
 const tipRes = await (await get("/api/tip")).json();
 ok(tipRes.ok && (tipRes.url === null || /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]+$/.test(tipRes.url)), "tip jar is off or a Stripe Payment Link", tipRes.url);
 

@@ -393,6 +393,7 @@
     if (w) root.dataset.wall = w; else delete root.dataset.wall;
     try { if (w) localStorage.setItem("cc-wall", w); else localStorage.removeItem("cc-wall"); } catch (e) {}
     say("wallpaper: " + WALL_NAMES[w] + ".", 2000); sfx("wall");
+    if (w) document.dispatchEvent(new CustomEvent("cc:secret", { detail: "wall" }));
   }
 
   /* ---------- right-click the desktop: a little desktop menu ----------
@@ -437,6 +438,7 @@
     addEventListener("scroll", shut, { passive: true }); addEventListener("blur", shut); addEventListener("resize", shut);
   })();
   function shutDown() {
+    document.dispatchEvent(new CustomEvent("cc:secret", { detail: "off" })); // secrets, assets/deck.js
     if (reduce) { say("nice try. i don't have an off switch.", 3000); return; }
     var off = document.createElement("div"); off.className = "desk-off"; desk.appendChild(off); sfx("off");
     setTimeout(function () { off.remove(); if (pc) pc.react("shock", 1400); say("nice try. i don't have an off switch.", 3200); heat(30); }, 1500);
@@ -714,7 +716,7 @@ if (window.ccTip) ccTip.mount(document.getElementById("footer-tip"), { game: "ho
       if (x <= 0) { x = 0; vx = Math.abs(vx); bx = true; } else if (x >= W - w) { x = Math.max(0, W - w); vx = -Math.abs(vx); bx = true; }
       if (y <= 0) { y = 0; vy = Math.abs(vy); by = true; } else if (y >= H - h) { y = Math.max(0, H - h); vy = -Math.abs(vy); by = true; }
       if (bx || by) next();
-      if (bx && by) { hits++; n.textContent = hits; box.classList.remove("is-corner"); void box.offsetWidth; box.classList.add("is-corner"); }
+      if (bx && by) { hits++; n.textContent = hits; if (hits === 1) document.dispatchEvent(new CustomEvent("cc:secret", { detail: "corner" })); box.classList.remove("is-corner"); void box.offsetWidth; box.classList.add("is-corner"); }
       tile.style.transform = "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px,0)";
     }
     raf = requestAnimationFrame(step);

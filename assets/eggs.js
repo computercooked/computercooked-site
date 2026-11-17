@@ -117,6 +117,7 @@
   function wave() {
     var line = HI[hiN++ % HI.length];
     D.react("happy", 2200); D.sfx("fresh");
+    document.dispatchEvent(new CustomEvent("cc:secret", { detail: "gary" })); // collected in assets/deck.js
     if (deskOn) {
       D.say(line, 2800);
       if (!reduce) { desk.classList.remove("gary-wave"); void desk.offsetWidth; desk.classList.add("gary-wave"); setTimeout(function () { desk.classList.remove("gary-wave"); }, 1300); }

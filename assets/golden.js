@@ -59,6 +59,8 @@
     if (typeof g != "object") g = {};
     g.xp = (+g.xp || 0) + (cursed ? 50 : 25); wr("cc-guest-xp", g);
     c.caught = (+c.caught || 0) + 1; c.firstAt = c.firstAt || now; c.lastAt = now; wr("cc-golden", c);
+    D.dispatchEvent(new CustomEvent("cc:secret", { detail: "golden" })); // secrets, assets/deck.js
+    if (cursed) D.dispatchEvent(new CustomEvent("cc:secret", { detail: "cursed" }));
     tst.textContent = l[Math.floor(Math.random() * l.length)];
     tst.classList.add("on"); clearTimeout(tt);
     tt = setTimeout(function () { tst.classList.remove("on"); }, 4200);
