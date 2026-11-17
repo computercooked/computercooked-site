@@ -1169,6 +1169,7 @@
       const bw = 150 * s, bx = vw / 2 - bw / 2, by = pad + 28 * s;
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; roundRect(ctx, bx, by, bw, 8 * s, 4 * s); ctx.fill();
       ctx.fillStyle = left < 4 ? '#C5FF49' : '#ffffff'; roundRect(ctx, bx, by, Math.max(8 * s, bw * (1 - this.waveT / W.dur)), 8 * s, 4 * s); ctx.fill();
+      if (this.daily) outlined(ctx, `daily garden #${this.daily}`, vw / 2, by + 20 * s, '#B59AFF', Math.max(10.5, 11 * s), 800, 'center');   // 1.4: a screenshot or clip says it's the daily
     } else if (this.king) {
       const bw = Math.min(vw - 40, 320 * s), bx = vw / 2 - bw / 2, by = pad + 28 * s;
       ctx.fillStyle = 'rgba(0,0,0,0.45)'; roundRect(ctx, bx, by, bw, 12 * s, 6 * s); ctx.fill();
