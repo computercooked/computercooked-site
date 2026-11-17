@@ -730,7 +730,7 @@
     if (screen === 'title' && autoReady) {   // 1.7: came from a hub "tap to play" card: no title card, one tap starts
       ctx.fillStyle = 'rgba(16,17,20,0.72)'; ctx.fillRect(0, vh * 0.5 - 56, vw, 112);
       pxText(ctx, 'tap to run', vw / 2, vh * 0.5 - 14, Math.round(Math.min(40, vw / 10)), C.lime, 'center', 'middle');
-      pxText(ctx, 'tap = jump. hold = jump further.', vw / 2, vh * 0.5 + 30, Math.round(Math.min(16, vw / 26)), C.paper, 'center', 'middle');
+      pxText(ctx, 'tap: jump. hold it: jump further.', vw / 2, vh * 0.5 + 30, Math.round(Math.min(16, vw / 26)), C.paper, 'center', 'middle');
     }
   }
   function drawCrash(q) {
@@ -790,7 +790,8 @@
       if (falls > 0 && fr > pr + 0.01) { ctx.fillStyle = C.lilac; ctx.fillRect(bx + bw * fr - 1.5 * s, by - 4 * s, 3 * s, 16 * s); }   // furthest so far this run: something to beat after a fall
       pxText(ctx, 'esc', bx + bw + 6 * s, by + 4 * s, Math.round(11 * s), C.lilac, 'left', 'middle');
     }
-    pxText(ctx, fmt(runT * 1000), 14 * s, top, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
+    const bt = save.best[save.loop];   // 1.7: the time to beat on this keyboard, next to the clock (lime while you're ahead of it)
+    pxText(ctx, fmt(runT * 1000) + (bt ? ' / ' + fmt(bt) : ''), 14 * s, top, Math.round(13 * s), bt && runT * 1000 < bt ? C.lime : 'rgba(245,243,237,0.8)', 'left', 'top');
     pxText(ctx, 'kb ' + save.loop + ' · falls ' + falls, 14 * s, top + 18 * s, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
   }
   function drawBoot() {
