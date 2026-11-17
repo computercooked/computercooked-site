@@ -711,6 +711,36 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.91 What v4.42.0 changed: the sickness, and four things that read badly from the sky
+
+**Why more smols died sick in 4.40.** On the eighteen judging islands 4.40 lost 7 smols to sickness where 4.38 and 4.39 lost 2 each. A new tool, `smol-brains-handover/tools/island-sick-diag.js`, watches every smol's antigen each tick and says where each jump came from, using the game's own `eat` event to tell a bad meal from a bite. On six tuning islands (101, 102, 103, 105, 107, 108):
+- **It is not the food.** Rotten meals are about 1% of meals on every version (2 to 8 an island). Raw-food infections are near zero. The storyteller's own sickness fired once in twelve runs.
+- **It is grump bites.** One bite in five infects, adding 0.25 antigen. 4.39 took 26 infecting bites on the six islands; 4.41's code took 58. The biters are the storyteller's raid grumps, by day as well as night.
+- **Two things made it worse.** A raid's size comes from head count and buildings, and is cut by a fifth for every death in the last 900 seconds (`threat` in director.js): 4.40's islands are bigger and lose fewer smols, so they draw bigger raids. And from 0.5 hunger a smol was up and about in the dark looking for food instead of in bed, where a hut cuts a bite to a fifth.
+- **And one thing made a bite deadly.** A bitten smol's fear is still low for the first few bites (most of the bitten stood idle with fear under 0.3), so it takes several, and every infecting one stacked: three in a row and it was dead in a minute.
+
+**Two rules.**
+- **Peckish by day, not by night.** `C.PECKISH_NIGHT` (0.65, the old number): at night a smol only goes looking for food from there. All five places that asked for `C.PECKISH` ask `peckish(game)`. A hungry smol (0.7) still gets up.
+- **A bite does not stack.** `C.BITE_CATCH` (0.2): a grump's bite can only infect a smol whose antigen is under that. A smol that already has it does not catch it again.
+
+The raid sizing is left alone: it is the storyteller working as designed.
+
+**Measured.** Tuning islands first (the same six): infecting bites 26 on 4.39, 58 before the fix, 25 after; smols dead of sickness 3, 2 and 0; alive at the end 67, 74 and 94. Eggs on 101 to 103: 46 (4.38 34, 4.39 29, the early 4.40 40). On the 18 judging islands (seeds 601 to 618, the ones whose totals raised the question, so not a blind test; never traced), 4.38, 4.39, 4.40 and this: **dead of sickness 2, 2, 7 and 2; starved 9, 12, 8 and 6; alive at the end 249, 241, 278 and 271; born 235, 218, 252 and 249.** The table is in `smol-brains-handover/tools/sickness-442-measure.txt`.
+
+**From the sky** (the screenshot pass on 4.39 found these):
+- **Keepsakes.** The 29 keepsakes dropped by big beasts were one gold cup with a gold bead, and the torch god's was drawn as a hat (its name matched an earlier rule). Each now has one of nine colours for its base and topper, one of eight toppers (ball, spike, crystal, horns, flame, block, ring, star) and a gold, silver or bronze cup by how tough the beast is. No two share a colour and a topper.
+- **The great glowshroom** was a square stem under two square slabs: a purple tile from the sky. It is round: a tapering stem, a skirt, a dark underside, a dome, and pale spots that glow.
+- **The healer's hut** was one flat green cone. It has a darker eave, a white band round the roof, a white knob at the peak and a bigger banner.
+- **The shop** was a green rectangle. Its awning is striped green and cream.
+
+**"Ave memories back."** 4.40 said the pixel font's broken "fi" was fixed on every screen. It was not: the opening film's caption still read "Ave memories back." for "five memories back." (and "fluff" would read "Auff"). 4.40's rule used a plain `*`. The captions are styled with `font: ... !important`; a font shorthand puts the ligature settings back to normal, and a class outranks `*`, so the caption's own rule won. The rule now carries three `:not(#id)`, the weight of three ids, and no font shorthand in the stylesheet weighs as much (the test counts them). Seen on a page with the caption's exact style, before and after: "Ave memories back. Afty Arst Auff of Are" became "five memories back. fifty first fluff of fire". Letter-spacing of any size also cures it, which is how it was found.
+
+**Seen in a browser** (localhost; the pane is not on anyone's screen, so cc-lead looks before release): on a fresh island from the sky, the 29 keepsakes laid out in rows each showed its own topper and colour and no two neighbours looked alike (they are small even at the closest zoom); the great glowshroom was a big purple dome with pale spots on a pale stem; the healer's hut showed its darker eave, pale band and knob; the shop showed its stripes.
+
+`tests/play442.test.js`: the two numbers and which applies when, the five places, the bite rule, every keepsake drawn as a keepsake with no pair repeated and all eight toppers building a mesh, the glowshroom's dome and spots, the healer's roof and banner, the shop's stripes.
+
+**Still open.** 6 smols still starve and 2 still die of sickness on the 18 judging islands in three days. A smol still stands for the first bites of a raid (its fear is low until the third or so); the bite rule only stops those bites stacking. The raid sizing is untouched. A stuck stranger still stands where it is once it has eaten. On a phone "use" still repeats the big button when a thing has one action. Look-alike dishes and tonics are untouched. Sound is still unheard by anyone.
+
 ## 0.90 What v4.41.0 changed: seven small things on a phone
 
 4.40 was looked at in a visible browser at 390 by 844 and 740 by 360 before it shipped (cc-lead, Nov 16). It passed, with seven notes. All seven are here; nothing else changed, and no smol behaves differently.
