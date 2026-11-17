@@ -7,7 +7,9 @@
   "controls": "tap, drag, type and hold to pass each captcha, then press verify (enter works too). too fast or too perfect raises suspicion. a full meter is access denied. one new daily gauntlet every day.",
   "size_kb": 66,
   "tags": ["funny", "daily", "short", "reflex", "mobile"],
-  "version": "1.0.6",
+  "version": "1.1.0",
+  "results": "quiet",
+  "restart": true,
   "added": "2026-11-05",
   "theme": { "accent": "#7dff6a", "bg": "#0b120c" },
   "max_score_per_sec": 120,
@@ -15,7 +17,8 @@
     "pass each captcha before the timer runs out",
     "too fast or too perfect makes the computer suspicious: humans hesitate",
     "a full suspicion meter is access denied",
-    "the daily gauntlet is the same 10 checks for everyone, come back tomorrow for a streak"
+    "the daily gauntlet is the same 10 checks for everyone, come back tomorrow for a streak",
+    "every clean pass raises your clearance, from visitor to root, and fills your case file of checks"
   ],
   "achievements": [
     { "id": "so_human", "name": "suspiciously human", "desc": "finish a run at 90% human or more", "xp": 20 },

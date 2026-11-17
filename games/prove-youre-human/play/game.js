@@ -8,7 +8,8 @@
    Test links: ?cctest=1&round=N (start on captcha type N, 1-11) or &type=<id> (soup, slider, checkbox, word, human,
    fish, sigh, lights, circle, wait, question), &hold=1 (that first check's timer waits for your first touch), &daily=reset (clear the streak and today's run),
    &end=daily (a finished daily gauntlet: straight to its end card; it counts as today's run, so add &daily=reset to replay),
-   &deny=1 (straight to the bot-detected ending), ?shot=1 (the cover scene). */
+   &deny=1 (straight to the bot-detected ending), &fresh=1 (a brand-new player's save), ?shot=1 (the cover scene).
+   1.1: clearance ranks from lifetime clean passes, a case file of check types, endless best round, run pips. */
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -30,7 +31,8 @@
     if (e.origin !== location.origin || !e.data) return;
     if (e.data.type === "cc-mute") muted = !!e.data.muted;
     if (e.data.type === "cc-pause") paused = true;
-    if (e.data.type === "cc-restart") { endRound(); showTitle(); }
+    // the player page's restart / "play again": a fresh run straight away (today's daily if it isn't done yet, else endless)
+    if (e.data.type === "cc-restart") { endRound(); state = "title"; start(doneToday() ? "endless" : "daily"); }
   });
 
   // ---------- seeded random ----------
@@ -44,9 +46,22 @@
   // ---------- save ----------
   const KEY = "pyh-save";
   let S = load();
-  function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return s; } catch (e) {} return { v: 1, daily: null, streak: { last: null, n: 0, best: 0 }, bestEndless: 0, runs: 0 }; }
+  // 1.1 adds (same v: 1, old saves just gain them): cleared = lifetime clean passes (clearance level), file = clean
+  // passes per check type (the case file), bestRound = furthest endless round, dailyBest = best daily score
+  function fill(s) { s.cleared = s.cleared || 0; s.file = s.file && typeof s.file === "object" ? s.file : {}; s.bestRound = s.bestRound || 0; s.dailyBest = s.dailyBest || 0; return s; }
+  function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return fill(s); } catch (e) {} return fill({ v: 1, daily: null, streak: { last: null, n: 0, best: 0 }, bestEndless: 0, runs: 0 }); }
   function save() { if (SHOT) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-  if (TEST && param("daily") === "reset") { S = { v: 1, daily: null, streak: { last: null, n: 0, best: 0 }, bestEndless: S.bestEndless, runs: S.runs }; save(); }
+  if (TEST && param("daily") === "reset") { S.daily = null; S.streak = { last: null, n: 0, best: 0 }; save(); }
+  if (TEST && param("fresh") === "1") { S = fill({ v: 1, daily: null, streak: { last: null, n: 0, best: 0 }, bestEndless: 0, runs: 0 }); save(); } // &fresh=1: a brand-new player
+
+  // ---------- clearance: the long game. lifetime clean passes raise your badge; every check type has a case-file entry ----------
+  const RANKS = [[0, "VISITOR"], [8, "GUEST"], [25, "STAFF"], [50, "MANAGER"], [90, "ADMIN"], [150, "ROOT"], [250, "THE CRT'S FRIEND"]];
+  const rankAt = (n) => { let i = 0; while (i + 1 < RANKS.length && n >= RANKS[i + 1][0]) i++; return i; };
+  function rankLine(n) {
+    const i = rankAt(n), nx = RANKS[i + 1];
+    if (!nx) return { i, name: RANKS[i][1], next: "", pct: 100 };
+    return { i, name: RANKS[i][1], next: `${nx[0] - n} more clean pass${nx[0] - n > 1 ? "es" : ""} to ${nx[1]}`, pct: Math.round((n - RANKS[i][0]) / (nx[0] - RANKS[i][0]) * 100) };
+  }
 
   // ---------- the crt: the only mascot ----------
   // 16x10 faces on its screen, in the brand's green
@@ -124,6 +139,12 @@
     { id: "question", T: 6, ask: "", sub: "answer honestly", build: bQuestion, late: true },
   ];
   const BYID = Object.fromEntries(TYPES.map((t) => [t.id, t]));
+  const ICON = { soup: "🍜", slider: "😐", checkbox: "☑️", word: "🔤", human: "📠", fish: "🐟", sigh: "💨", lights: "🚦", circle: "⭕", wait: "⏳", question: "❓" };
+  // the case file: one icon per check type, lit once you've passed it cleanly (the question only shows up past endless round 10)
+  function caseFile() {
+    const got = TYPES.filter((t) => S.file[t.id] > 0).length;
+    return `<div class="file" aria-label="case file: ${got} of ${TYPES.length} checks passed">${TYPES.map((t) => `<i class="${S.file[t.id] > 0 ? "on" : ""}" title="${t.id}">${S.file[t.id] > 0 ? ICON[t.id] : "?"}</i>`).join("")}</div>`;
+  }
 
   const cap = (node, e) => { try { node.setPointerCapture(e.pointerId); } catch (err) { /* a synthetic pointer */ } };
   function el(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
@@ -133,8 +154,11 @@
   function bSoup(api, r) {
     const amb = pickR(r, AMBIG), nSoup = 2 + (r() < 0.5 ? 1 : 0);
     const items = shuffleR(r, [...Array.from({ length: nSoup }, () => ({ e: pickR(r, SOUP), soup: 1 })), { e: amb.e, amb: 1 }, ...shuffleR(r, NOTSOUP).slice(0, 8 - nSoup).map((e) => ({ e }))]);
-    const grid = el(`<div class="grid" style="grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,minmax(0,1fr))"></div>`);
-    items.forEach((it) => { const b = el(`<button class="tile" type="button">${it.e}</button>`); b.onclick = () => { it.sel = !it.sel; b.classList.toggle("sel", it.sel); api.touch(); }; grid.appendChild(b); it.b = b; });
+    // a short, wide frame (the player page on a laptop is ~590x430) gets 5x2 tiles instead of 3x3, so the soup isn't tiny
+    const B = box(), wide = B.width > B.height * 1.7, cols = wide ? 5 : 3, rows = wide ? 2 : 3;
+    const fs = Math.round(clamp(Math.min((B.width - 16) / cols, (B.height - 16) / rows) * 0.6, 22, 60));
+    const grid = el(`<div class="grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},minmax(0,1fr))"></div>`);
+    items.forEach((it) => { const b = el(`<button class="tile" type="button" style="font-size:${fs}px">${it.e}</button>`); b.onclick = () => { it.sel = !it.sel; b.classList.toggle("sel", it.sel); api.touch(); }; grid.appendChild(b); it.b = b; });
     area.appendChild(grid);
     api.verify(() => {
       const wrong = items.filter((it) => !it.amb && !!it.sel !== !!it.soup);
@@ -398,10 +422,38 @@
     const m = $("meter"); m.classList.toggle("hot", susp >= 45 && susp < 75); m.classList.toggle("red", susp >= 75);
     document.body.classList.toggle("g2", susp >= 50 && susp < 80); document.body.classList.toggle("g3", susp >= 80);
   }
-  function hud() { $("rn").textContent = mode === "daily" ? `${Math.min(round, DAILY_N)} / ${DAILY_N}` : "round " + round; }
+  function hud() {
+    if (mode === "daily") { $("rn").textContent = `${Math.min(round, DAILY_N)} / ${DAILY_N}`; return; }
+    // endless: the round to beat sits right next to the round you're on, and lights up once you pass it
+    const rec = S.bestRound > 0 && round > S.bestRound;
+    $("rn").innerHTML = "round " + round + (S.bestRound > 0 ? ` <em class="${rec ? "rec" : ""}">${rec ? "record!" : "best " + S.bestRound}</em>` : "");
+    if (rec && !recordSaid && state === "play") { recordSaid = true; ev("new_record_round", { round }); }
+  }
+  // the run so far as pips in the dialog's title bar (green clean, amber robotic, red wrong); the daily shows all 10 slots
+  const PIP = { p: "🟩", f: "🟨", x: "🟥" };
+  function renderLog() {
+    const lg = $("log"); if (!lg) return;
+    const n = mode === "daily" ? DAILY_N : Math.min(10, runLog.length), from = mode === "daily" ? 0 : Math.max(0, runLog.length - 10);
+    let h = ""; for (let i = 0; i < n; i++) { const r = runLog[from + i]; h += `<i class="${r || ""}${from + i === runLog.length - 1 ? " new" : ""}"></i>`; }
+    lg.innerHTML = h;
+  }
+  // feedback you can see with the sound off: the dialog flashes green, jolts amber, or shakes red
+  function jolt(kind) {
+    const d = $("dlg"); d.classList.remove("j-pass", "j-sus", "j-bad"); void d.offsetWidth; d.classList.add("j-" + kind);
+    clearTimeout(jolt.t); jolt.t = setTimeout(() => d.classList.remove("j-" + kind), 600);
+  }
+  function popSusp(dv) {
+    if (!dv) return;
+    const p = document.createElement("b"); p.className = "pop " + (dv > 0 ? "up" : "down"); p.textContent = (dv > 0 ? "+" : "") + dv;
+    $("meter").appendChild(p); setTimeout(() => p.remove(), 1100);
+    if (dv > 0) { const m = $("meter"); m.classList.remove("bump"); void m.offsetWidth; m.classList.add("bump"); }
+  }
 
+  let runId = 0, clearedAt0 = 0, rankAt0 = 0, newFile = [], recordSaid = false;
   function start(m) {
+    const id = ++runId;
     mode = m; round = 0; passes = 0; fails = 0; robotic = 0; evN = 0; runLog = []; setSusp(m === "daily" ? 0 : 0);
+    clearedAt0 = S.cleared; rankAt0 = rankAt(S.cleared); newFile = []; recordSaid = false; renderLog();
     seed = m === "daily" ? hash("pyh-" + dayKey()) : (Math.random() * 2 ** 32) >>> 0;
     const base = TYPES.filter((t) => !t.late).map((t) => t.id);
     order = m === "daily" ? shuffleR(mulberry(seed), base) : [];
@@ -413,7 +465,7 @@
     say(pickR(Math.random, L.hello), "squint", 1.4);
     if (TEST && flag("deny")) { passes = 2; round = 3; robotic = 1; fails = 2; setSusp(100); return finish(true); }
     if (TEST && m === "daily" && param("end") === "daily") { passes = 8; round = DAILY_N; robotic = 1; fails = 1; setSusp(34); return finish(false); }
-    setTimeout(nextRound, 700);
+    setTimeout(() => { if (runId === id) nextRound(); }, 700);
   }
   let bag = [];
   function nextType() {
@@ -452,24 +504,33 @@
     c.done = true;
     const tooFast = ok && !!(o.fast || o.perfect);
     const st = $("stamp");
+    const s0 = susp;
     if (ok && !tooFast) {
       passes++; setSusp(susp - (o.relief ? 12 : 7) - (round <= WARM_N ? 3 : 0) + (mode === "endless" && round > 10 ? round * 0.35 : 0));
       st.className = "ok"; st.textContent = "VERIFIED"; play("pass");
-      say(o.line || pickR(Math.random, L.pass), "happy", 1.4);
+      // clearance: every clean pass counts for life; a check type's first clean pass goes in the case file
+      if (!SHOT) { S.cleared++; const id = c.type.id; if (!S.file[id]) newFile.push(id); S.file[id] = (S.file[id] || 0) + 1; save(); }
+      const promo = rankAt(S.cleared) > rankAt(S.cleared - 1);
+      say(promo ? `promotion: you are now ${RANKS[rankAt(S.cleared)][1]}. don't let it go to your head.` : o.line || pickR(Math.random, L.pass), "happy", promo ? 2.4 : 1.4);
+      if (promo) { st.textContent = "PROMOTED"; ev("rank_up", { rank: RANKS[rankAt(S.cleared)][1] }, true); }
+      jolt("pass");
       ev("captcha_pass", { type: c.type.id });
     } else if (tooFast) {
       passes++; robotic++; setSusp(susp + (round <= WARM_N ? 10 : 17));
       st.className = "sus"; st.textContent = o.perfect ? "TOO PERFECT" : "TOO FAST"; play("sus");
       say(o.line && (o.perfect || o.why) ? o.line : pickR(Math.random, L.fast), "squint", 2);
+      jolt("sus");
       ev("captcha_fail", { type: c.type.id, reason: "too_fast" });
     } else {
       // a careful human who freezes early should still reach the mean rounds (K-0071)
       fails++; setSusp(susp + (round <= EASY_N ? 12 : round <= WARM_N ? 17 : 26));
       st.className = "bad"; st.textContent = o.reason === "timeout" ? "TIME OUT" : "WRONG"; play("fail");
       say(o.line || pickR(Math.random, o.reason === "timeout" ? L.timeout : L.fail), "shock", 2);
+      jolt("bad");
       ev("captcha_fail", { type: c.type.id, reason: o.reason === "timeout" ? "timeout" : "wrong" });
     }
-    runLog.push(ok ? (tooFast ? "f" : "p") : "x");
+    runLog.push(ok ? (tooFast ? "f" : "p") : "x"); renderLog();
+    popSusp(Math.round(susp - s0));
     st.hidden = false;
     $("verify").hidden = true;
     sdk((cc) => cc.score && cc.score(score()));
@@ -516,9 +577,10 @@
   function untilTomorrow() { const n = new Date(), m = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1) - n.getTime(); const h = Math.floor(m / 36e5), mi = Math.floor((m % 36e5) / 6e4); return `${h}h ${mi}m`; }
   const doneToday = () => S.daily && S.daily.date === dayKey();
 
-  let newBest = false;
+  let newBest = false, prevRound = 0, newDailyBest = false;
   function finish(denied) {
     if (state !== "play") return;
+    newDailyBest = false;
     state = "end"; endRound();
     const h = humanity(); lastHumanity = h;
     let newDiary = null;
@@ -532,10 +594,14 @@
       ev("streak_day", { streak: S.streak.n }, true);
     }
     newBest = mode === "endless" && passes > 0 && score() > (S.bestEndless || 0); if (mode === "endless") S.bestEndless = Math.max(S.bestEndless || 0, score());
+    prevRound = S.bestRound; if (mode === "endless") S.bestRound = Math.max(S.bestRound || 0, round);
+    if (mode === "daily" && S.daily && S.daily.date === dayKey() && !S.daily.score) { S.daily.score = score(); newDailyBest = S.dailyBest > 0 && score() > S.dailyBest; S.dailyBest = Math.max(S.dailyBest || 0, score()); }
     if (!TEST) sdk((c) => { if (!c.achieve) return; if (denied) c.achieve("bot_detected"); else if (h >= 90) c.achieve("so_human"); if (S.streak.n >= 3) c.achieve("three_days"); });
     save();
     ev("run_end", { humanity: h, rounds: round, mode, denied: denied ? 1 : 0 }, true);
-    sdk((c) => c.end && c.end({ score: passes > 0 ? score() : 0, durationMs: Math.round((now() - runT0) * 1000), completed: !denied }));
+    // 1.1: the site gets the same score the end card shows (a 0-pass run is still 1+, from humanity), and every run that
+    // reaches this point counts as completed: endless always ends in ACCESS DENIED, that's its finish line, not a quit
+    sdk((c) => c.end && c.end({ score: score(), durationMs: Math.round((now() - runT0) * 1000), completed: true }));
     if (denied) { play("denied"); say("ACCESS DENIED. BOT DETECTED.", "denied", 99); } else say(h >= 75 ? "fine. you may pass. i'm still watching." : "you may pass. barely.", h >= 75 ? "happy" : "squint", 99);
     const font = document.fonts && document.fonts.load ? document.fonts.load("700 40px Pixelify").catch(() => {}) : null;
     setTimeout(() => Promise.resolve(font).then(() => { if (state === "end") showEnd(denied, h, newDiary); }), denied ? 900 : 500);
@@ -571,7 +637,9 @@
   function wrap(g, text, x, y, w, lh) { let line = ""; for (const word of text.split(" ")) { const t = line ? line + " " + word : word; if (g.measureText(t).width > w && line) { g.fillText(line, x, y); y += lh; line = word; } else line = t; } if (line) g.fillText(line, x, y); }
   async function doShare(card, h, denied) {
     const url = "https://computercooked.com/games/prove-youre-human/";
-    const text = denied ? `the computer says i'm a bot (${h}% human). bet you can't do better:` : mode === "daily" ? `i'm ${h}% human on today's gauntlet. beat that:` : `i am ${h}% human. the computer is still suspicious. prove you're human:`;
+    const pips = runLog.slice(-20).map((r) => PIP[r]).join(""), sc = score();
+    const text = mode === "daily" ? `prove you're human · daily ${dayKey()}\n${denied ? "BOT DETECTED" : h + "% human"} · score ${sc}\n${pips}\nbeat my score:`
+      : denied ? `the computer says i'm a bot. i lasted ${round} rounds (score ${sc}, ${h}% human).\n${pips}\nbet you can't get further:` : `i am ${h}% human (score ${sc}). prove you're human:`;
     let how = "copy", copied = false;
     try {
       const blob = await new Promise((res) => card.toBlob(res, "image/png"));
@@ -594,11 +662,13 @@
   function showTitle() {
     state = "title"; endRound(); area.innerHTML = ""; $("end").hidden = true; setSusp(0); face = "squint";
     $("ask").innerHTML = "waiting for a visitor…<small>&nbsp;</small>"; $("ttl").textContent = "SECURITY CHECK"; $("verify").hidden = true; hud(); $("rn").textContent = "";
-    const d = S.daily, done = doneToday(), st = S.streak, diary = diaryAt(st.n);
+    const d = S.daily, done = doneToday(), st = S.streak, diary = diaryAt(st.n), rl = rankLine(S.cleared);
+    runLog = []; renderLog();
     $("titleIn").innerHTML = `<h1>prove you're human</h1>
       <p>the arcade's security computer got cooked. now it thinks everyone is a bot. pass its captchas, but not too perfectly: <b>humans hesitate.</b></p>
       <div class="row"><button class="btn go big" id="tDaily" type="button">${done ? "today: " + d.humanity + "% human ✓" : "daily gauntlet"}</button><button class="btn big" id="tEndless" type="button">endless</button></div>
-      <p class="small">${done ? "next gauntlet in " + untilTomorrow() + ". same 10 checks for everyone." : "10 checks, the same for everyone today."}${st.n ? ` · streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}` : ""}${!done && st.n && st.last === yesterday() ? ` · <b class="risk">streak at risk: play today to keep it</b>` : ""}${S.bestEndless ? " · endless best " + S.bestEndless : ""}</p>
+      <p class="small">${done ? "next gauntlet in " + untilTomorrow() + ". same 10 checks for everyone." : "10 checks, the same for everyone today."}${st.n ? ` · streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}` : ""}${!done && st.n && st.last === yesterday() ? ` · <b class="risk">streak at risk: play today to keep it</b>` : ""}${S.dailyBest ? " · daily best " + S.dailyBest : ""}${S.bestEndless ? " · endless best " + S.bestEndless + (S.bestRound ? " (round " + S.bestRound + ")" : "") : ""}</p>
+      <div class="goal"><div class="gl"><b>CLEARANCE: ${rl.name}</b><span class="gbar"><i style="width:${rl.pct}%"></i></span></div><div class="gs">${rl.next || "top clearance. the crt trusts you. mostly."}</div>${caseFile()}</div>
       ${diary ? `<div class="diary"><b>CRT DIARY · ${diary[0]}</b>${diary[1]}</div>` : ""}`;
     $("tDaily").onclick = () => {
       if (!doneToday()) return start("daily");
@@ -611,14 +681,27 @@
     say(done ? "back again? suspicious." : pickR(Math.random, L.hello), "squint", 2);
     try { $(done ? "tEndless" : "tDaily").focus({ preventScroll: true }); } catch (e) {}
   }
+  // the next goal: clearance progress (with a promotion banner), new case-file entries, and the endless round to beat
+  function endGoal(daily) {
+    const rl = rankLine(S.cleared), gained = S.cleared - clearedAt0, promo = rl.i > rankAt0;
+    const got = TYPES.filter((t) => S.file[t.id] > 0).length;
+    const rec = daily ? "" : round > prevRound && prevRound > 0 ? `<b class="best">new record: round ${round}!</b>` : prevRound > 0 ? `furthest: round ${prevRound} · reach ${prevRound + 1} for a record` : `next time: get past round ${round}`;
+    return `<div class="goal">
+      <div class="gl"><b class="${promo ? "promo" : ""}">${promo ? "PROMOTED: " : "CLEARANCE: "}${rl.name}</b><span class="gbar"><i style="width:${rl.pct}%"></i></span></div>
+      <div class="gs">+${gained} clean pass${gained === 1 ? "" : "es"}${rl.next ? " · " + rl.next : " · top clearance"}</div>
+      <div class="gs">case file ${got}/${TYPES.length}${newFile.length ? ` · new: ${newFile.map((id) => ICON[id]).join(" ")}` : ""}${!S.file.question && !daily && round <= 10 ? " · the last check hides past round 10" : ""}${rec ? " · " + rec : ""}</div>
+    </div>`;
+  }
   function showEnd(denied, h, newDiary) {
     const verdict = verdictOf(h, denied), card = shareCard(h, denied, verdict), daily = mode === "daily";
     $("endTb").textContent = denied ? "ACCESS_DENIED.txt" : "verdict.txt";
     $("endIn").innerHTML = `${denied ? `<div class="denied"><div class="stampbig"><span>ACCESS DENIED</span><span>BOT DETECTED</span><small>${h}% HUMAN</small></div></div>` : ""}
       ${denied ? "" : `<h2>I am ${h}% human</h2>`}
       <p class="verdict">"${verdict}"</p>
+      <div class="pips" aria-label="this run">${runLog.slice(-20).map((r) => `<i class="${r}"></i>`).join("")}</div>
       <div id="cardSlot"></div>
-      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""}${daily ? ` · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : ` · score ${score()}${newBest ? ` · <b class="best">new best!</b>` : S.bestEndless ? ` · best ${S.bestEndless}` : ""}`}</p>
+      <p class="small">${passes} of ${round} checks passed${robotic ? ` · ${robotic} too robotic` : ""} · score <b>${score()}</b>${daily ? `${newDailyBest ? ` · <b class="best">best daily yet!</b>` : S.dailyBest > score() ? ` · daily best ${S.dailyBest}` : ""} · streak <b>${S.streak.n}</b> · new gauntlet in ${untilTomorrow()}` : `${newBest ? ` · <b class="best">new best!</b>` : S.bestEndless ? ` · best ${S.bestEndless}` : ""}`}</p>
+      ${endGoal(daily)}
       ${newDiary ? `<div class="diary"><b>NEW DIARY ENTRY · DAY ${newDiary[0]}</b>${newDiary[1]}</div>` : ""}
       <div class="row"><button class="btn go big" id="eShare" type="button">share my humanity</button><button class="btn big" id="eAgain" type="button">${daily ? "play endless" : "again"}</button></div>
       <p class="note" id="eNote" role="status" aria-live="polite"></p>
