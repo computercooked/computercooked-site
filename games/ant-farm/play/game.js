@@ -83,10 +83,42 @@
       v: 1, seed: (Math.random() * 1e9) | 0, gen: prev ? prev.gen + 1 : 1, jelly: prev ? prev.jelly : 0, food: 30, lay: true,
       up: {}, digShare: 0.5, solShare: 0.25, curios: prev ? prev.curios : {}, ach: prev ? prev.ach : {},
       life: prev ? prev.life : { hauled: 0, dug: 0, hatched: 0, flights: 0, kills: 0 },
-      gs: { peak: 0, hauled: 0, born: Date.now(), maxDepth: 0 }, tut: prev ? 9 : 0, qhp: 12, nextEv: 100, evN: 0
+      gs: { peak: 0, hauled: 0, born: Date.now(), maxDepth: 0 }, tut: prev ? 9 : 0, qhp: 12, nextEv: prev ? 100 : 45, evN: 0, // r5: a new player meets the kid ~45 s in, not 100
+      goal: prev ? prev.goal || 0 : 0, best: prev ? prev.best : { peak: 0, depth: 0, visit: 0 }, buys: prev ? prev.buys || 0 : 0, day: prev ? prev.day : 0, gDay: prev ? prev.gDay : 0, gToday: prev ? prev.gToday : 0
     };
   }
   const jm = () => 1 + 0.04 * G.jelly;
+
+  // ---------- goals (r5) ----------
+  // One goal at a time on the HUD, kept across generations. The first four or five land in a first visit; the rest
+  // take days (the colony keeps growing and digging while you're away). Each pays food and gets a banner.
+  const nCur = () => Object.keys(G.curios).length;
+  const bestPeak = () => Math.max(G.best.peak || 0, G.gs.peak), bestDepth = () => Math.max(G.best.depth || 0, G.gs.maxDepth);
+  const GOALS = [
+    { s: "hatch a new ant", n: 1, v: () => G.life.hatched, r: 10, hint: "the queen lays an egg for 6 food. drop crumbs on the grass." },
+    { s: "grow to 10 ants", n: 10, v: bestPeak, r: 20, hint: "crumbs on the grass become eggs. tap the grass." },
+    { s: "dig 25 tunnel tiles", n: 25, v: () => G.life.dug, r: 25, hint: "pick ⛏ dig and drag on the dirt. more tunnel = room for more ants." },
+    { s: "shoo the kid away", ev: "lens", n: 1, v: () => (G.ach.shoo ? 1 : 0), r: 30, hint: "when the kid's magnifying glass shows up, tap the glass 5 times." },
+    { s: "buy 3 upgrades", n: 3, v: () => G.buys, r: 30, hint: "open ⬆ upgrades when the badge lights up." },
+    { s: "dig up 3 curios", n: 3, v: nCur, r: 40, hint: "curios are buried in the dirt. dig wide and deep." },
+    { s: "grow to 25 ants", n: 25, v: bestPeak, r: 50, hint: "more tunnel = more room. keep the food coming." },
+    { s: "dig 30 tiles deep", n: 30, v: bestDepth, r: 60, hint: "paint a shaft straight down with ⛏ dig." },
+    { s: "beat a spider", ev: "spider", n: 1, v: () => (G.ach.spider_slayer ? 1 : 0), r: 60, hint: "soldiers (in ⬆ upgrades) chew through spiders." },
+    { s: "grow to 50 ants", n: 50, v: bestPeak, r: 80, hint: "roomier rooms and royal snacks help. so do long tunnels." },
+    { s: "send a queen flying", n: 1, v: () => G.life.flights, r: 100, hint: "at 50 ants, open ⬆ upgrades → queen → fly." },
+    { s: "survive a red ant raid", ev: "raid", n: 1, v: () => (G.ach.raid_survivor ? 1 : 0), r: 80, hint: "raids come once you have 25 ants. soldiers guard the queen." },
+    { s: "dig up 6 curios", n: 6, v: nCur, r: 100, hint: "the curios tab says how deep each one hides." },
+    { s: "dig 60 tiles deep", n: 60, v: bestDepth, r: 120, hint: "deep dirt is hard. sharper mandibles help." },
+    { s: "collect 10 royal jelly", n: 10, v: () => G.jelly, r: 150, hint: "jelly comes from flights, royal feasts and rare curios." },
+    { s: "grow to 100 ants", n: 100, v: bestPeak, r: 200, hint: "a megacolony needs a huge nest. dig, dig, dig." },
+    { s: "dig up all 12 curios", n: 12, v: nCur, r: 300, hint: "the last ones hide 80+ tiles down." },
+    { s: "reach generation 5", n: 5, v: () => G.gen, r: 300, hint: "every nuptial flight starts a new generation." }
+  ];
+  const goalNow = () => GOALS[G.goal] || null;
+  // cc-lead's pace rule (Nov 17): ~5 goals in a first visit, the rest over several days. So at most 5 goals a calendar
+  // day; when today's 5 are done the chip says the next one opens tomorrow (progress still counts, it pays out then).
+  const GOALS_A_DAY = 5;
+  function goalLocked() { const t = new Date().toDateString(); if (G.gDay !== t) { G.gDay = t; G.gToday = 0; } return (G.gToday || 0) >= GOALS_A_DAY; }
   const halloween = (() => { if (qs.get("haunted") === "1") return true; const d = new Date(), m = d.getMonth(), day = d.getDate(); return m === 9 && day >= 24; })();
 
   // ---------- entities ----------
@@ -408,7 +440,8 @@
     if (c.jelly && isNew) G.jelly += c.jelly;
     sparkle((i % COLS) + 0.5, ((i / COLS) | 0) + 0.5);
     sfx("treasure");
-    toast(isNew ? `new curio: ${c.name}! +${c.food} food${c.jelly ? `, +${c.jelly} royal jelly` : ""}` : `${c.name} again. +${c.food} food`);
+    if (isNew && started) { banner(`new curio · ${nCur()} of ${CURIOS.length}`, c.name, `+${c.food} food${c.jelly ? ` · +${c.jelly} royal jelly` : ""}`, c.spr); shake(0.5); } // r5: a clip moment, readable with the sound off
+    else toast(isNew ? `new curio: ${c.name}! +${c.food} food${c.jelly ? `, +${c.jelly} royal jelly` : ""}` : `${c.name} again. +${c.food} food`);
     if (Object.keys(G.curios).length >= 6) ach("curio_6");
     if (c.id === "floppy") bubbleOn(nearestAnt(i), "is this... the computer?");
   }
@@ -489,7 +522,24 @@
     if (ants.length > G.gs.peak) G.gs.peak = ants.length;
     if (ants.length >= 25) ach("pop_25");
     if (ants.length >= 100) ach("pop_100");
+    if (G.gs.peak > G.best.peak) G.best.peak = G.gs.peak;
+    if (G.gs.maxDepth > G.best.depth) G.best.depth = G.gs.maxDepth;
+    goalT -= dt; if (goalT <= 0) { goalT = 0.5; checkGoal(); }
     tutorial();
+  }
+  let goalT = 0, goalCd = 0;
+  function checkGoal() {
+    const g = goalNow();
+    if (!g || simT < goalCd || g.v() < g.n || goalLocked()) return;
+    G.goal++; G.gToday = (G.gToday || 0) + 1; goalCd = simT + 3.5;
+    G.food += g.r;
+    sparkle(QX + 0.5, QY - 1); sparkle(QX - 1.5, QY - 0.5); sparkle(QX + 2.5, QY - 0.5);
+    sfx("goal"); shake(0.3);
+    const nx = goalNow();
+    banner(`goal ${G.goal} of ${GOALS.length} ✓`, g.s, `+${g.r} food${!nx ? "" : G.gToday >= GOALS_A_DAY ? " · next goal opens tomorrow" : " · next: " + nx.s}`);
+    if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) try { navigator.vibrate(30); } catch (e) { /* fine */ }
+    sdk((c) => c.event && c.event("goal", { n: G.goal }));
+    save();
   }
   let queenT = 0, upkeep = 0, starveT = 0;
   function starvedMsg() { if (simT - starveT > 8) { starveT = simT; toast("an ant starved. drop crumbs!", "bad"); sfx("bad"); } }
@@ -546,8 +596,8 @@
       lens.x += clamp(tx - lens.x, -1, 1) * dt * 2.2 + Math.sin(lens.t * 3) * dt * 0.6;
       lens.x = clamp(lens.x, 1, COLS - 1);
       for (const a of surf) if (!a.sol && Math.abs(a.x - lens.x) < 2.5 && a.heat > 0.25 && a.task !== "flee") a.task = "flee"; // K-0060: scorched ants run for it
-      for (const a of surf) if (Math.abs(a.x - lens.x) < 0.9) { a.heat += dt; if (a.heat > 1.1) { a.hp = 0; puff(a.x, a.y, "#444", 6); fx.push({ k: "txt", x: a.x, y: a.y - 1, s: "toasted", life: 1.4 }); sfx("sizzle"); } } else a.heat = Math.max(0, a.heat - dt);
-      if (lens.t > 16 || lens.hp <= 0) { if (lens.hp <= 0) { toast("the kid got bored. good job."); ach("shoo"); } lens = null; for (const a of ants) if (a.task === "flee" && rain <= 0 && !spider) assign(a); if (camY < -topPad()) camGo = -topPad(); }
+      for (const a of surf) if (Math.abs(a.x - lens.x) < 0.9) { a.heat += dt; if (a.heat > 1.1) { a.hp = 0; puff(a.x, a.y, "#444", 6); shake(0.6); fx.push({ k: "txt", x: a.x, y: a.y - 1, s: "toasted", life: 1.4 }); sfx("sizzle"); } } else a.heat = Math.max(0, a.heat - dt);
+      if (lens.t > 16 || lens.hp <= 0) { if (lens.hp <= 0) { banner("shoo!", "the kid got bored", "the colony is safe. for now."); shake(0.4); ach("shoo"); } lens = null; for (const a of ants) if (a.task === "flee" && rain <= 0 && !spider) assign(a); if (camY < -topPad()) camGo = -topPad(); }
     }
     // spider
     if (spider) {
@@ -567,8 +617,8 @@
       const mv = clamp(tx - s.x, -1, 1);
       s.x += mv * dt * sp; s.ph += dt * 8 * Math.abs(mv) + dt;
       if (Math.abs(mv) > 0.2) s.dir = mv > 0 ? 1 : -1;
-      if (s.cd <= 0) for (const a of surf) if (Math.abs(a.x - s.x) < 1) { a.hp -= a.sol ? 4 : 99; s.cd = 3; sfx("bite"); fx.push({ k: "txt", x: s.x, y: SURF - 1.5, s: "chomp", life: 0.9 }); if (a.hp <= 0) puff(a.x, a.y, "#222", 5); break; }
-      if (s.hp <= 0) { toast("the spider is now a buffet. +60 food (on the grass)"); spawnPile("spider", clamp(Math.round(s.x - 0.5), 0, COLS - 1), 60); ach("spider_slayer"); G.life.kills++; spider = null; dirty.food = true; }
+      if (s.cd <= 0) for (const a of surf) if (Math.abs(a.x - s.x) < 1) { a.hp -= a.sol ? 4 : 99; s.cd = 3; sfx("bite"); shake(0.5); fx.push({ k: "txt", x: s.x, y: SURF - 1.5, s: "chomp", life: 0.9 }); if (a.hp <= 0) puff(a.x, a.y, "#222", 5); break; }
+      if (s.hp <= 0) { banner("spider down!", "it's a buffet now", "+60 food on the grass"); shake(0.8); puff(s.x, SURF, "#222", 14); spawnPile("spider", clamp(Math.round(s.x - 0.5), 0, COLS - 1), 60); ach("spider_slayer"); G.life.kills++; spider = null; dirty.food = true; }
       else if (s.t >= s.stay && (s.x < -3 || s.x > COLS + 3)) { spider = null; dirty.food = true; for (const a of ants) if (a.task === "flee" && rain <= 0) assign(a); }
       if (Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) dirty.food = true;
     }
@@ -577,7 +627,7 @@
       const sp = 2.5 * dt;
       for (let k = reds.length - 1; k >= 0; k--) {
         const r = reds[k];
-        if (r.hp <= 0) { reds.splice(k, 1); G.food += 3; puff(r.x, r.y, "#c8322b", 5); G.life.kills++; if (!reds.length) { toast("raid over. the colony holds."); ach("raid_survivor"); } continue; }
+        if (r.hp <= 0) { reds.splice(k, 1); G.food += 3; puff(r.x, r.y, "#c8322b", 5); G.life.kills++; if (!reds.length) { banner("raid over!", "the colony holds", "the queen says thanks"); shake(0.5); ach("raid_survivor"); } continue; }
         r.ph += dt * 14; if (r.cd > 0) r.cd -= dt;
         // fight anything adjacent
         let foe = null;
@@ -621,12 +671,13 @@
         if (ants.length >= 8) opts.push("spider", "spider");
         if (ants.length >= 25) opts.push("raid", "raid", "raid");
         do k = pick(opts); while (k === G.lastEv && R() < 0.8);
+        const gl = goalNow(); if (gl && gl.ev && opts.includes(gl.ev) && R() < 0.6) k = gl.ev; // r5: the event the current goal needs comes sooner
       }
     }
     G.evN = n + 1; G.lastEv = k;
-    if (k === "lens") { lens = { x: R() < 0.5 ? 3 : COLS - 3, t: 0, hp: 5, shake: 0 }; toast("☀ a kid found a magnifying glass. tap the glass 5 times to shoo him!", "bad"); sfx("alert"); camGo = -topPad(); } // K-0060: the camera goes up to watch
+    if (k === "lens") { lens = { x: R() < 0.5 ? 3 : COLS - 3, t: 0, hp: 5, shake: 0 }; toast("☀ a kid found a magnifying glass. tap the glass 5 times to shoo him!", "bad"); sfx("alert"); camGo = -topPad(); lookAtCol(lens.x); } // K-0060: the camera goes up to watch
     if (k === "rain") { rain = 18; piles.length = 0; dirty.food = true; toast("🌧 rain! everyone inside."); for (const a of ants) if (a.cy <= SKY && !a.carry) a.task = "flee"; }
-    if (k === "spider") { const d = R() < 0.5 ? 1 : -1; const hp = (ants.length < 15 ? 14 : 25) + 8 * (G.gen - 1); spider = { x: d > 0 ? -1.5 : COLS + 1.5, dir: d, pd: d, t: 0, stay: 30, hp, max: hp, cd: 1.5, ph: 0 }; toast(G.up.soldier ? "🕷 a spider! soldiers are on it." : "🕷 a spider! (soldiers would help)", "bad"); sfx("alert"); dirty.food = true; }
+    if (k === "spider") { const d = R() < 0.5 ? 1 : -1; const hp = (ants.length < 15 ? 14 : 25) + 8 * (G.gen - 1); spider = { x: d > 0 ? -1.5 : COLS + 1.5, dir: d, pd: d, t: 0, stay: 30, hp, max: hp, cd: 1.5, ph: 0 }; toast(G.up.soldier ? "🕷 a spider! soldiers are on it." : "🕷 a spider! (soldiers would help)", "bad"); sfx("alert"); dirty.food = true; lookAtCol(d > 0 ? 4 : COLS - 5); camGo = -topPad(); }
     if (k === "raid") {
       const n = Math.min(24, 3 + G.gen + Math.floor(ants.length / 15));
       const side = R() < 0.5 ? 0 : COLS - 1;
@@ -638,7 +689,7 @@
     over = true;
     sfx("bad");
     endSession(true);
-    showOver("the colony fell", `${why}.<br>generation ${G.gen} peaked at ${G.gs.peak} ants and hauled ${fmt(G.gs.hauled)} food.<br>royal jelly is kept. a new queen starts over.`, "start a new colony", () => newGeneration());
+    showOver("the colony fell", `${why}.<br>generation ${G.gen} peaked at ${G.gs.peak} ants and hauled ${fmt(G.gs.hauled)} food.<br>royal jelly is kept. a new queen starts over.<br><b style="color:#c5ff49">score this visit: ${fmt(sentScore)} food hauled</b>`, "start a new colony", () => newGeneration());
   }
 
   // ---------- generations ----------
@@ -662,12 +713,17 @@
     endSession(true);
     const prev = G;
     prev.jelly += gain;
-    showOver("nuptial flight", `a new queen flew off with +${gain} royal jelly.<br>generation ${prev.gen}: peak ${prev.gs.peak} ants, ${fmt(prev.gs.hauled)} food hauled, ${prev.gs.maxDepth} deep.<br>every ant is now ${Math.round(4 * prev.jelly)}% better at everything.`, `start generation ${prev.gen + 1}`, () => newGeneration());
+    showOver("nuptial flight", `a new queen flew off with +${gain} royal jelly.<br>generation ${prev.gen}: peak ${prev.gs.peak} ants, ${fmt(prev.gs.hauled)} food hauled, ${prev.gs.maxDepth} deep.<br>every ant is now ${Math.round(4 * prev.jelly)}% better at everything.<br><b style="color:#c5ff49">score this visit: ${fmt(sentScore)} food hauled</b>`, `start generation ${prev.gen + 1}`, () => newGeneration());
     flyFx = { t: 0 };
   }
 
   // ---------- view ----------
-  let W = 0, H = 0, DPR = 1, P = 8, ts = 8, offX = 0, camY = 0, phone = false, camGo = null;
+  let W = 0, H = 0, DPR = 1, P = 8, ts = 8, offX = 0, camY = 0, phone = false, camGo = null, offGo = null;
+  // r5: zoom. 1 = the whole glass fits the width (ants ~10 px on a phone); small screens start zoomed in on the nest and can
+  // pinch or tap the zoom button. P (the terrain cache's pixels per tile) catches up with ts when a pinch ends.
+  let fitTs = 8, zoom = 1, zoomSet = false;
+  try { const z = parseFloat(localStorage.getItem("antfarm-zoom")); if (z >= 1 && z <= 3) { zoom = z; zoomSet = true; } } catch (e) { /* fine */ }
+  const maxZoom = () => (phone ? 3 : 2);
   const tcv = document.createElement("canvas"), tc = tcv.getContext("2d");
   function resize() {
     W = innerWidth; H = innerHeight;
@@ -675,14 +731,34 @@
     DPR = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     const np = clamp(Math.floor((W * DPR - (phone ? 0 : 40 * DPR)) / COLS), 5, Math.round(20 * DPR));
-    const old = ts;
-    P = np; ts = P / DPR;
-    offX = Math.round((W - COLS * ts) / 2);
-    if (tcv.width !== COLS * P) { tcv.width = COLS * P; tcv.height = ROWS * P; if (G) paintAll(); }
-    camY = clampCam(old ? (camY / old) * ts : 0);
+    fitTs = np / DPR;
+    if (!zoomSet) zoom = clamp(19 / fitTs, 1, 2); // small screens start zoomed so a tile is ~19 px (a phone: ~1.7x); a big frame stays at 1
+    const midX = resize.done ? (W / 2 - offX) / ts : QX + 0.5; resize.done = 1; // keep the same column in the middle (the nest at first)
+    setZoom(zoom, W / 2, H / 2, true);
+    if (zoom > 1.01 && isFinite(midX) && midX > 0) { offX = W / 2 - midX * ts; clampView(); }
   }
+  // zoom to z keeping the world point under (ax, ay) where it is; final: re-render the terrain cache at the new size
+  function setZoom(z, ax, ay, final) {
+    const old = ts, wxa = (ax - offX) / old, wya = (ay + camY) / old;
+    zoom = clamp(z, 1, maxZoom());
+    ts = fitTs * zoom;
+    if (final) {
+      P = Math.max(5, Math.round(ts * DPR)); ts = P / DPR;
+      if (tcv.width !== COLS * P) { tcv.width = COLS * P; tcv.height = ROWS * P; if (G) paintAll(); }
+    }
+    offX = ax - wxa * ts; camY = wya * ts - ay;
+    clampView();
+  }
+  function clampView() {
+    const ww = COLS * ts;
+    offX = ww <= W ? Math.round((W - ww) / 2) : clamp(offX, W - ww - 4, 4);
+    camY = clampCam(camY);
+  }
+  function zoomTo(z) { zoomSet = true; setZoom(z, W / 2, H / 2, true); try { localStorage.setItem("antfarm-zoom", String(Math.round(zoom * 100) / 100)); } catch (e) { /* fine */ } updZoomBtn(); }
+  // when something happens off to the side, slide over to it (only matters when zoomed in)
+  function lookAtCol(x) { if (COLS * ts > W) offGo = W / 2 - (x + 0.5) * ts; }
   // K-0060: while the kid is here the camera may rise above the farm so the whole glass and its label fit on screen
-  const topPad = () => 44 + (lens ? Math.max(0, lensR() * 2 + 34 + ts * 4.5 - SKY * ts) : 0), botPad = () => 70;
+  const topPad = () => Math.max(44, hudH + 6) + (lens ? Math.max(0, lensR() * 2 + 34 + ts * 4.5 - SKY * ts) : 0), botPad = () => 70;
   const clampCam = (y) => clamp(y, -topPad(), Math.max(-topPad(), ROWS * ts - H + botPad()));
 
   // terrain cache
@@ -732,11 +808,14 @@
   // ---------- drawing ----------
   let flyFx = null, clouds = [{ x: 0.1, y: 0.25, s: 1 }, { x: 0.55, y: 0.12, s: 0.8 }, { x: 0.85, y: 0.35, s: 1.2 }];
   function draw(dt) {
-    cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    cx.fillStyle = "#17120d"; cx.fillRect(0, 0, W, H);
+    // r5: screen shake (spider bites, toasted ants, curios, wins)
+    let shx = 0, shy = 0;
+    if (shakeT > 0) { shx = (R() - 0.5) * shakeT * 9; shy = (R() - 0.5) * shakeT * 9; shakeT = Math.max(0, shakeT - Math.max(dt, 1 / 60) * 2.5); }
+    cx.setTransform(DPR, 0, 0, DPR, shx * DPR, shy * DPR);
+    cx.fillStyle = "#17120d"; cx.fillRect(-10, -10, W + 20, H + 20);
     const wx = offX, ww = COLS * ts, top = -camY, skyH = SKY * ts;
     // wall behind the farm
-    cx.fillStyle = "#211a13"; cx.fillRect(0, 0, W, H);
+    cx.fillStyle = "#211a13"; cx.fillRect(-10, -10, W + 20, H + 20);
     // sky
     const sg = cx.createLinearGradient(0, top, 0, top + skyH);
     if (rain > 0) { sg.addColorStop(0, "#5d6a78"); sg.addColorStop(1, "#8d9aa6"); }
@@ -763,7 +842,8 @@
     if (halloween) drawPumpkin(wx + ts * 3, top + skyH);
     // terrain
     const y0 = Math.max(0, camY), y1 = Math.min(ROWS * ts, camY + H);
-    if (y1 > y0) cx.drawImage(tcv, 0, Math.round(y0 * DPR), COLS * P, Math.round((y1 - y0) * DPR), wx, y0 - camY, ww, y1 - y0);
+    const kP = P / ts; // terrain cache pixels per screen pixel (DPR, except mid-pinch)
+    if (y1 > y0) cx.drawImage(tcv, 0, Math.round(y0 * kP), COLS * P, Math.round((y1 - y0) * kP), wx, y0 - camY, ww, y1 - y0);
     const r0 = Math.max(0, Math.floor(camY / ts) - 1), r1 = Math.min(ROWS - 1, Math.ceil((camY + H) / ts) + 1);
     // trails, marks, dig progress
     for (let y = Math.max(r0, SURF); y <= r1; y++) for (let x = 0; x < COLS; x++) {
@@ -790,14 +870,14 @@
     for (const a of ants) {
       const px = wx + a.x * ts, py = a.y * ts - camY;
       if (py < -ts || py > H + ts) continue;
-      const sz = ts * (a.sol ? 1.15 : 0.9) * (phone ? 1.3 : 1); // r2: phones draw ants 30% bigger, on a pale halo, so they read in a dark tunnel
+      const sz = ts * (a.sol ? 1.15 : 0.9) * (phone ? (zoom < 1.4 ? 1.3 : 1.1) : 1); // r2: phones draw ants bigger, on a pale halo, so they read in a dark tunnel
       if (phone) { cx.fillStyle = "rgba(255,236,190,.2)"; cx.beginPath(); cx.arc(px, py + (a.cy === SURF ? ts * 0.15 : 0), sz * 0.62, 0, 6.3); cx.fill(); }
       drawAnt(px, py + (a.cy === SURF ? ts * 0.15 : 0), a.ang, sz, a.heat > 0.3 ? "#5a2a1a" : "#161210", a.ph, a.sol);
       if (a.carry) { cx.fillStyle = "#f1d39a"; cx.beginPath(); cx.arc(px + Math.cos(a.ang) * sz * 0.55, py + Math.sin(a.ang) * sz * 0.55, sz * (0.16 + 0.04 * a.carry), 0, 6.3); cx.fill(); }
       if (a.dirt) { cx.fillStyle = "#a07650"; cx.fillRect(px + Math.cos(a.ang) * sz * 0.55 - sz * 0.16, py + Math.sin(a.ang) * sz * 0.55 - sz * 0.16, sz * 0.32, sz * 0.32); }
       if (a === sel) { cx.strokeStyle = "#c5ff49"; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(px, py, sz * 0.9, 0, 6.3); cx.stroke(); }
     }
-    for (const r of reds) drawAnt(wx + r.x * ts, r.y * ts - camY + (r.cy === SURF ? ts * 0.15 : 0), r.ang, ts * 0.95 * (phone ? 1.3 : 1), "#c8322b", r.ph, false);
+    for (const r of reds) drawAnt(wx + r.x * ts, r.y * ts - camY + (r.cy === SURF ? ts * 0.15 : 0), r.ang, ts * 0.95 * (phone ? (zoom < 1.4 ? 1.3 : 1.1) : 1), "#c8322b", r.ph, false);
     if (spider) drawSpider();
     // particles
     for (let k = fx.length - 1; k >= 0; k--) {
@@ -889,7 +969,7 @@
     const w = ts * 2.4; cx.fillStyle = "#0009"; cx.fillRect(px - w / 2, py - z * 1.2, w, 3); cx.fillStyle = "#ff5a4a"; cx.fillRect(px - w / 2, py - z * 1.2, w * Math.max(0, s.hp) / s.max, 3);
   }
   // K-0060: the glass is big (at least 34px across on a phone) and the beam is bright: it's the clip moment
-  const lensR = () => Math.max(ts * 3.2, 34);
+  const lensR = () => Math.max(Math.min(ts, 15) * 3.2, 34);
   function lensPos() { return { x: offX + lens.x * ts + Math.sin(lens.shake * 40) * lens.shake * 10, y: (SURF + 0.7) * ts - camY - lensR() - ts * 4.5 }; }
   function drawLens() {
     const { x, y } = lensPos(), r = lensR(), gy = (SURF + 0.7) * ts - camY, fl = 0.85 + 0.15 * Math.sin(simT * 23);
@@ -923,7 +1003,7 @@
   }
   // K-0060: the depth bar is the way to scroll on a phone, so it's wider there (and its touch zone wider still)
   const miniW = () => (phone ? 18 : 10);
-  function miniRect() { const w = miniW(), h = Math.min(H - 150, phone ? 320 : 260), x = W - w - 6, y = 58; return { x, y, w, h }; }
+  function miniRect() { const w = miniW(), y = Math.max(58, hudH + 12), h = Math.min(H - 92 - y, phone ? 320 : 260), x = W - w - 6; return { x, y, w, h }; }
   function drawMini() {
     const m = miniRect(), sy = m.h / ROWS, sx = m.w / COLS;
     if (phone && !(drag && drag.k === "mini")) cx.globalAlpha = 0.5; // r2: see-through on phones (it sits over the last 2 columns) until you grab it
@@ -988,9 +1068,13 @@
     else if (k === "sizzle") tone(2000, 0.25, "sawtooth", 0.02, 0, 600);
     else if (k === "buy") { tone(784, 0.07, "square", 0.04); tone(1175, 0.1, "square", 0.04, 0.06); }
     else if (k === "shoo") tone(440, 0.08, "square", 0.05, 0, 880);
+    else if (k === "goal") [523, 659, 784, 1046, 1318].forEach((f, j) => tone(f, j === 4 ? 0.3 : 0.1, "triangle", 0.05, j * 0.08));
   }
+  const zoomBtn = $("zoomB");
+  function updZoomBtn() { zoomBtn.textContent = zoom > 1.05 ? "🔍−" : "🔍+"; }
+  zoomBtn.onclick = () => zoomTo(zoom > 1.05 ? 1 : phone ? 2 : 1.8);
   const muteBtn = $("mute");
-  function setMute(m) { muted = m; muteBtn.textContent = muted ? "sound off" : "sound on"; try { localStorage.setItem("antfarm-mute", m ? "1" : "0"); } catch (e) { /* fine */ } }
+  function setMute(m) { muted = m; muteBtn.textContent = muted ? "🔇" : "🔊"; muteBtn.setAttribute("aria-label", muted ? "sound off" : "sound on"); try { localStorage.setItem("antfarm-mute", m ? "1" : "0"); } catch (e) { /* fine */ } }
   try { if (localStorage.getItem("antfarm-mute") === "1") setMute(true); } catch (e) { /* fine */ }
   muteBtn.onclick = () => { ac(); setMute(!muted); };
 
@@ -1026,6 +1110,23 @@
     $("tColony").classList.toggle("ping", n > 0 && (G.tut >= 4 || G.food >= 60) && sheet.hidden);
     $("upN").hidden = !n; $("upN").textContent = n;
     if (n && sheet.hidden && G.food >= 150 && simT - nudgeT > 90) { nudgeT = simT; toast(`${fmt(G.food)} food banked. spend it in ⬆ upgrades.`, "coach"); }
+    // r5: the goal chip (second HUD row) with a progress fill
+    const g = goalNow(), gv = g ? Math.min(g.n, Math.floor(g.v())) : 0;
+    const lk = g && goalLocked();
+    const gt = !g ? `🏆 every goal done · best ${bestPeak()} ants, ${bestDepth()} deep` : lk ? `🌙 next goal opens tomorrow: ${g.s}` : `🎯 ${g.s}${g.n > 1 ? ` · ${gv}/${g.n}` : ""}`;
+    if (goalEl.textContent !== gt) { goalEl.textContent = gt; goalEl.style.setProperty("--p", g ? (gv / g.n).toFixed(3) : 1); }
+    const hh = $("hud").offsetHeight; if (hh && hh !== hudH) { hudH = hh; camY = clampCam(camY); }
+  }
+  const goalEl = $("goal"), bannerEl = $("banner");
+  let hudH = 0;
+  goalEl.onclick = () => { const g = goalNow(); if (g && goalLocked()) coach(`that's today's ${GOALS_A_DAY} goals. the colony keeps digging marked tiles while you're away. next: ${g.s}.`); else if (g) coach(`${g.s}: ${g.hint}`); else coach("that's every goal. now beat your best colony."); };
+  let shakeT = 0;
+  function shake(a) { shakeT = Math.max(shakeT, a); }
+  function sprURL(spr) { const c = document.createElement("canvas"); c.width = c.height = 8; const g = c.getContext("2d"); for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const ch = spr[y][x]; if (ch !== ".") { g.fillStyle = PAL[ch]; g.fillRect(x, y, 1, 1); } } return c.toDataURL(); }
+  function banner(a, b, c, spr) {
+    bannerEl.innerHTML = `${spr ? `<img alt="" src="${sprURL(spr)}">` : ""}<small>${a}</small><b>${b}</b><span>${c}</span>`;
+    bannerEl.hidden = false; bannerEl.classList.remove("go"); void bannerEl.offsetWidth; bannerEl.classList.add("go");
+    clearTimeout(banner.t); banner.t = setTimeout(() => { bannerEl.hidden = true; }, 2900);
   }
   let nudgeT = -60, hudFood = 0, hudAnts = 0;
   // HUD chips bump green when a number goes up, red when it drops
@@ -1065,6 +1166,7 @@
     } else if (tab === "fly") {
       const gain = Math.floor(G.gs.peak / 10) + Math.floor(G.gs.maxDepth / 25), ready = ants.length >= 50;
       h += `<div class="row"><div class="t"><div>generation ${G.gen}</div><div>peak ${G.gs.peak} ants · ${fmt(G.gs.hauled)} food hauled · ${G.gs.maxDepth} deep · queen health ${Math.ceil(G.qhp)}/12</div></div></div>`;
+      h += `<div class="row"><div class="t"><div>score this visit: ${fmt(sessOn ? visitScore() : sentScore)}</div><div>food hauled since you opened the farm. best visit: ${fmt(Math.max(G.best.visit || 0, sessOn ? visitScore() : 0))} · best colony: ${bestPeak()} ants, ${bestDepth()} deep</div></div></div>`;
       h += `<div class="row"><div class="t"><div>royal jelly: ${G.jelly}</div><div>each jelly makes every ant 4% faster at walking, digging and laying. kept forever.</div></div></div>`;
       h += `<div class="row"><div class="t"><div>nuptial flight</div><div>${ready ? `send a new queen off now for +${gain} royal jelly. the farm starts over with a fresh dig.` : `needs 50 ants (you have ${ants.length}). you'd get +${gain} jelly right now.`}</div></div><button type="button" data-fly="1" ${ready && gain > 0 ? "" : "disabled"}>fly</button></div>`;
       h += `<div class="row"><div class="t"><div>lifetime</div><div>${fmt(G.life.hauled)} food hauled · ${fmt(G.life.dug)} tiles dug · ${fmt(G.life.hatched)} ants hatched · ${G.life.flights} flights · ${G.life.kills} enemies bitten</div></div></div>`;
@@ -1073,7 +1175,7 @@
   }
   pane.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.buy) { const u = UPS.find((x) => x.id === b.dataset.buy), c = upCost(u); if (G.food >= c && avail(u)) { G.food -= c; G.up[u.id] = (G.up[u.id] || 0) + 1; sfx("buy"); if (u.id === "drill" || u.id === "rooms") dirty.dig = true; if (u.id === "armor") for (const a of ants) if (a.sol) a.hp = solHp(); if (u.id === "feast") { G.jelly++; sparkle(QX + 0.5, QY - 1); toast(`royal feast: +1 royal jelly (${G.jelly}). every ant is now ${4 * G.jelly}% better.`); } else toast(`${u.name}: ${u.desc}`); save(); } renderPane(); }
+    if (b.dataset.buy) { const u = UPS.find((x) => x.id === b.dataset.buy), c = upCost(u); if (G.food >= c && avail(u)) { G.food -= c; G.up[u.id] = (G.up[u.id] || 0) + 1; G.buys = (G.buys || 0) + 1; sfx("buy"); if (u.id === "drill" || u.id === "rooms") dirty.dig = true; if (u.id === "armor") for (const a of ants) if (a.sol) a.hp = solHp(); if (u.id === "feast") { G.jelly++; sparkle(QX + 0.5, QY - 1); toast(`royal feast: +1 royal jelly (${G.jelly}). every ant is now ${4 * G.jelly}% better.`); } else toast(`${u.name}: ${u.desc}`); save(); } renderPane(); }
     if (b.dataset.lay) { G.lay = G.lay === false; renderPane(); }
     if (b.dataset.clear) { mark.fill(0); dirty.dig = true; toast("marks cleared"); }
     if (b.dataset.fly) { closeSheet(); flight(); }
@@ -1137,38 +1239,50 @@
     ac();
     cv.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 2) { drag = { k: "pan2", y: avgY(), cam: camY }; return; }
+    if (ptrs.size === 2) { const m = mid2(); drag = { k: "pinch", d0: Math.max(20, m.d), z0: zoom, wx: (m.x - offX) / ts, wy: (m.y + camY) / ts }; camGo = offGo = null; return; }
     const sx = e.clientX, sy = e.clientY;
-    camGo = null;
+    camGo = offGo = null;
     if (hitLens(sx, sy)) { lens.hp--; lens.shake = 1; sfx("shoo"); sparkle(lens.x, SURF - 4.5); fx.push({ k: "txt", x: lens.x, y: SURF - 5.5, s: pick(["hey!", "stop it", "go away kid", "shoo!"]), life: 0.9 }); drag = { k: "none" }; return; }
     if (inMini(sx, sy)) { drag = { k: "mini" }; miniScroll(sy); return; }
     if (tool === "dig") { const c = cellAt(sx, sy); const i = c.x >= 0 && c.x < COLS && c.y >= 0 && c.y < ROWS ? ix(c.x, c.y) : -1; const erase = i >= 0 && !!mark[i]; drag = { k: "paint", erase }; paint(sx, sy, erase); return; }
-    drag = { k: "tap", sx, sy, cam: camY, moved: false };
+    drag = { k: "tap", sx, sy, cam: camY, ox: offX, moved: false };
   });
-  const avgY = () => { let s = 0; for (const p of ptrs.values()) s += p.y; return s / ptrs.size; };
+  function mid2() { const [a, b] = [...ptrs.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; }
   cv.addEventListener("pointermove", (e) => {
     if (!ptrs.has(e.pointerId)) return;
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!drag) return;
-    if (drag.k === "pan2") { camY = clampCam(drag.cam - (avgY() - drag.y)); return; }
+    if (drag.k === "pinch") {
+      if (ptrs.size < 2 || drag.done) return;
+      // pinch to zoom, and the two fingers drag the farm along
+      const m = mid2(); zoom = clamp(drag.z0 * m.d / drag.d0, 1, maxZoom()); ts = fitTs * zoom;
+      offX = m.x - drag.wx * ts; camY = drag.wy * ts - m.y; clampView();
+      return;
+    }
     if (drag.k === "mini") { miniScroll(e.clientY); return; }
     if (drag.k === "paint") { paint(e.clientX, e.clientY, drag.erase); return; }
     if (drag.k === "tap") {
       const dy = e.clientY - drag.sy;
       if (Math.abs(dy) > 8 || Math.abs(e.clientX - drag.sx) > 8) drag.moved = true;
-      if (drag.moved) camY = clampCam(drag.cam - dy);
+      if (drag.moved) { camY = clampCam(drag.cam - dy); if (COLS * ts > W) { offX = drag.ox + (e.clientX - drag.sx); clampView(); } }
     }
   });
   function up(e) {
     if (!ptrs.has(e.pointerId)) return;
     ptrs.delete(e.pointerId);
+    if (drag && drag.k === "pinch" && !drag.done) { drag.done = 1; zoomTo(zoom); }
     if (drag && drag.k === "tap" && !drag.moved && ptrs.size === 0) tap(drag.sx, drag.sy);
     if (drag && drag.k === "paint") dirty.dig = true;
     if (ptrs.size === 0) drag = null;
   }
   cv.addEventListener("pointerup", up);
   cv.addEventListener("pointercancel", up);
-  cv.addEventListener("wheel", (e) => { e.preventDefault(); camGo = null; camY = clampCam(camY + e.deltaY); }, { passive: false });
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault(); camGo = offGo = null;
+    if (e.ctrlKey) { zoomSet = true; setZoom(zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY, true); updZoomBtn(); return; } // trackpad pinch / ctrl+wheel
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) { offX -= e.deltaX || e.deltaY; clampView(); return; }
+    camY = clampCam(camY + e.deltaY);
+  }, { passive: false });
   function tap(sx, sy) {
     const c = cellAt(sx, sy);
     if (tool === "feed") {
@@ -1195,6 +1309,9 @@
     else if (k === "c") sheet.hidden ? openSheet() : closeSheet();
     else if (k === "escape") closeSheet();
     else if (k === "arrowdown" || k === "s") camY = clampCam(camY + ts * 4);
+    else if (k === "arrowleft" || k === "a") { offX += ts * 4; clampView(); }
+    else if (k === "arrowright" || k === "d") { offX -= ts * 4; clampView(); }
+    else if (k === "z") zoomTo(zoom > 1.05 ? 1 : phone ? 2 : 1.8);
     else if (k === "arrowup" || k === "w") camY = clampCam(camY - ts * 4);
     else if (k === " ") { ac(); dropCrumb(Math.floor(R() * COLS)); e.preventDefault(); }
   });
@@ -1202,7 +1319,12 @@
     const d = e.data || {};
     if (d.type === "cc-mute") setMute(!!d.muted);
     else if (d.type === "cc-pause") paused = typeof d.paused === "boolean" ? d.paused : !paused;
-    else if (d.type === "cc-restart") { closeSheet(); camY = clampCam((SKY - 7) * ts); }
+    else if (d.type === "cc-restart") {
+      closeSheet();
+      if (!started) begin();
+      else if (over && !overEl.hidden && $("ovGo")) $("ovGo").click(); // r5: the bar's restart on an end card starts the next colony (the run was already reported)
+      else { camY = clampCam((SKY - 7) * ts); if (sessOn) { endSession(false); startSession(); } } // 1.5.1: a restart mid-colony ends the visit as a quit and starts a new one
+    }
   });
 
   // ---------- share ----------
@@ -1251,6 +1373,7 @@
     try { if (window.cc && cc.load) return await cc.load("main"); } catch (e) { /* fall through */ }
     try { return JSON.parse(localStorage.getItem("antfarm-save")); } catch (e) { return null; }
   }
+  let awayS = "";
   function restore(d) {
     G = d.G;
     if (G.evN == null) { G.evN = 0; G.nextEv = Math.min(G.nextEv || 60, 60); }
@@ -1266,8 +1389,26 @@
     rebuildWalk();
     ants = [];
     for (const [x, y, s, name, h] of w.ants || []) { const a = newAnt(x, y, s, name); a.hauled = h || 0; }
+    // r5: saves from before goals: start the ladder past what this colony already did (no rewards for those)
+    if (!G.best) G.best = { peak: G.gs.peak || 0, depth: G.gs.maxDepth || 0, visit: 0 };
+    if (G.buys == null) G.buys = Object.values(G.up).reduce((s, v) => s + (v || 0), 0);
+    if (G.goal == null) { G.goal = 0; while (goalNow() && goalNow().v() >= goalNow().n) G.goal++; }
     // offline progress (capped at 4 hours)
     const away = Math.min(4 * 3600, Math.max(0, (Date.now() - (d.t || Date.now())) / 1000));
+    let dugAway = 0; awayS = "";
+    if (away > 120) {
+      // r5: diggers keep working the marked tiles while you're away (nearest the tunnels first; walking and hauling
+      // dirt eat most of their time, hence the 0.2)
+      const diggers = Math.max(1, Math.round(ants.filter((a) => !a.sol).length * G.digShare));
+      let work = away * diggers * digRate() * 0.2;
+      while (work > 0 && dugAway < 300) {
+        let best = -1;
+        for (let i = SKY * COLS; i < N; i++) if (mark[i] && diggable(i) && nbrs(i).some((n) => walk[n])) { best = i; break; }
+        if (best < 0 || work < hard(best)) break;
+        work -= hard(best); digOut(best, null); dugAway++;
+        mound[(R() * COLS) | 0] += 1;
+      }
+    }
     if (away > 120) {
       const foragers = Math.max(1, Math.round(ants.filter((a) => !a.sol).length * (1 - G.digShare)));
       const gain = Math.floor(away * (foragers * 0.035 * carryN() + (G.up.fungus || 0) * 0.012 * ants.length) * jm());
@@ -1276,32 +1417,68 @@
       let born = 0;
       while (G.lay !== false && net >= EGG_COST && ants.length + eggs.length < capacity() && born < 200) { net -= EGG_COST; born++; const a = newAnt(QX + Math.round((R() - 0.5) * 6), QY); a.cx = clamp(a.cx, QX - 3, QX + 3); a.x = a.cx + 0.5; }
       G.food += net;
-      setTimeout(() => toast(`while you were away (${away > 3600 ? (away / 3600).toFixed(1) + "h" : Math.round(away / 60) + "m"}): +${fmt(Math.max(0, gain - eat))} food, ${born} new ants`), 600);
+      awayS = `while you were away (${away > 3600 ? (away / 3600).toFixed(1) + "h" : Math.round(away / 60) + "m"}): +${fmt(Math.max(0, gain - eat))} food, ${born} new ants${dugAway ? `, ${dugAway} tiles dug` : ""}`;
+      setTimeout(() => { toast(awayS); if (!dugAway && !mark.some((m) => m)) setTimeout(() => coach("tip: paint ⛏ dig marks before you leave. the ants dig them while you're away."), 4000); }, 600);
     }
+    // r5: a new day, a donut on the grass
+    const today = new Date().toDateString();
+    if (G.day && G.day !== today) { spawnPile("donut", QX + (R() < 0.5 ? -7 : 7), 40); setTimeout(() => toast("a new day. someone dropped a donut on the grass (+40). see you tomorrow?"), 1400); }
+    G.day = today;
     for (const a of ants) assign(a);
+    if (ants.length > G.gs.peak) G.gs.peak = ants.length; // ants born while away count toward the best
+    if (G.gs.peak > G.best.peak) G.best.peak = G.gs.peak;
     paintAll();
   }
 
-  // ---------- session score (food hauled this session, never faster than 100 a second) ----------
-  let sentScore = 0, scoreAcc = 0, sessStart = 0, sessOn = false;
-  function startSession() { sessHauled = 0; sentScore = 0; sessStart = performance.now(); sessOn = true; sdk((c) => c.start && c.start()); }
+  // ---------- session score (food hauled this visit, never faster than MAXR a second: entry.json max_score_per_sec) ----------
+  const MAXR = 250; // r5: measured best ~83/s (a greedy bot, 126 ants, at 3x speed)
+  let sentScore = 0, scoreAcc = 0, sessStart = 0, sessOn = false, sessPlay = 0;
+  function startSession() { sessHauled = 0; sentScore = 0; sessPlay = 0; sessStart = performance.now(); sessOn = true; sdk((c) => c.start && c.start()); }
   function pushScore(dt) {
+    if (!sessOn) return;
     scoreAcc += dt;
     if (scoreAcc < 2) return;
-    const next = Math.min(Math.floor(sessHauled), sentScore + Math.ceil(100 * scoreAcc));
+    const next = Math.min(Math.floor(sessHauled), sentScore + Math.ceil(MAXR * scoreAcc));
     scoreAcc = 0;
     if (next > sentScore) { sentScore = next; sdk((c) => c.score && c.score(sentScore)); }
   }
-  function endSession(done) { if (!sessOn) return; sessOn = false; sdk((c) => c.end && c.end({ score: sentScore, durationMs: Math.round(performance.now() - sessStart), completed: !!done })); }
+  function visitScore() { return Math.max(sentScore, Math.min(Math.floor(sessHauled), Math.floor(MAXR * (performance.now() - sessStart) / 1000))); }
+  function endSession(done, direct) {
+    if (!sessOn) return;
+    sessOn = false; sentScore = visitScore(); // r5: the full haul, not the last 2-second push
+    if (sentScore > (G.best.visit || 0)) G.best.visit = sentScore;
+    const o = { score: sentScore, durationMs: Math.round(performance.now() - sessStart), completed: !!done };
+    // leaving: the player page may be unloading and a message relayed through the frame can land after its own pagehide
+    // (which would log a quit), so its sdk is also called directly (same origin, as bellchain 2.10.0 does); the relayed
+    // copy then finds the play already ended and does nothing
+    if (direct) { try { const h = window.parent !== window && window.parent.cc; if (h && h.end && h !== window.cc) h.end(o); } catch (e) { /* other origin */ } }
+    sdk((c) => c.end && c.end(o));
+  }
+  // 1.5.1: in an idle game leaving is the normal ending. A visit with 10 s+ of farm time that ends with the page hidden
+  // or unloaded counts as completed (shorter ones as a quit); coming back, the next touch or key starts a new visit.
+  function goneOut() { if (!G) return; save(); endSession(sessPlay >= 10, true); }
+  const comeBack = () => { if (G && started && !over && !sessOn && !document.hidden) startSession(); };
+  addEventListener("pointerdown", comeBack, true); addEventListener("keydown", comeBack, true);
+  // inside the player page (same origin): hear the page itself going away too, with a capture listener so the visit is
+  // reported before the page's own sdk logs it as a quit on pagehide; unhooked when this frame goes away
+  try {
+    const hw = window.parent !== window && window.parent;
+    if (hw && hw.document) {
+      const hv = () => { if (!window.frameElement) { unhook(); return; } if (hw.document.hidden) goneOut(); };
+      const hp = () => { if (window.frameElement) goneOut(); };
+      const unhook = () => { try { hw.document.removeEventListener("visibilitychange", hv); hw.removeEventListener("pagehide", hp, true); } catch (e) { /* page gone */ } };
+      hw.document.addEventListener("visibilitychange", hv); hw.addEventListener("pagehide", hp, true); addEventListener("pagehide", unhook);
+    }
+  } catch (e) { /* other origin: our own visibilitychange and pagehide still fire */ }
   function ach(id) { if (G.ach[id]) return; G.ach[id] = 1; sdk((c) => c.achieve && c.achieve(id)); }
 
   // ---------- loop ----------
-  let last = performance.now(), acc = 0, hudT = 0;
+  let last = performance.now(), acc = 0, hudT = 0, waitTouch = false;
   const STEP = 1 / 30;
   function frame(t) {
     const raw = Math.min(0.25, Math.max(0, (t - last) / 1000)); last = t;
-    if (started && !over && !paused && !document.hidden) {
-      acc += raw * spd;
+    if (G && started && !waitTouch && !over && !paused && !document.hidden) { // G: a start that beats the save load waits for it
+      acc += raw * spd; if (sessOn) sessPlay += raw;
       let n = 0;
       while (acc >= STEP && n < 12) { sim(STEP); acc -= STEP; n++; }
       if (n >= 12) acc = 0;
@@ -1310,6 +1487,7 @@
       if (performance.now() - lastSave > 30000) save();
     }
     if (camGo != null) { camY = clampCam(camY + (camGo - camY) * Math.min(1, raw * 5)); if (Math.abs(camGo - camY) < 1) camGo = null; } // K-0060
+    if (offGo != null) { const o = offX; offX += (offGo - offX) * Math.min(1, raw * 5); clampView(); if (Math.abs(offGo - offX) < 1 || Math.abs(o - offX) < 0.05) offGo = null; }
     if (G) draw(paused || over ? 0 : raw * spd);
     hudT -= raw;
     if (G && hudT <= 0) { hudT = 0.2; updHud(); if (!sheet.hidden && tab !== "jobs") renderPaneSoft(); }
@@ -1321,8 +1499,8 @@
     const key = tab + "|" + UPS.map((u) => (G.food >= upCost(u) ? 1 : 0) + (G.up[u.id] || 0)).join("") + "|" + ants.length + "|" + Object.keys(G.curios).length;
     if (key !== paneKey) { paneKey = key; renderPane(); }
   }
-  document.addEventListener("visibilitychange", () => { if (document.hidden) save(); else last = performance.now(); });
-  addEventListener("pagehide", () => { save(); endSession(false); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) goneOut(); else last = performance.now(); });
+  addEventListener("pagehide", goneOut);
   addEventListener("resize", resize);
 
   function begin() {
@@ -1335,26 +1513,36 @@
   $("start").onclick = begin;
 
   // ---------- boot ----------
-  resize();
+  resize(); updZoomBtn();
   (async () => {
     const d = qs.get("fresh") === "1" ? null : await load();
     if (d && d.v === 1 && d.G) {
-      try { restore(d); $("start").textContent = `continue · generation ${G.gen}`; }
+      try {
+        restore(d); $("start").textContent = `continue · generation ${G.gen}`;
+        const g = goalNow(); // r5: the title says what's next
+        $("title").querySelector("p").innerHTML = `welcome back. ${ants.length} ants and counting.<br>${awayS ? `<b style="color:#c5ff49">${awayS}</b><br>` : ""}${g ? `${goalLocked() ? "tomorrow's goal" : "next goal"}: ${g.s}.` : "every goal done. beat your best colony."}<br>best colony: ${bestPeak()} ants, ${bestDepth()} deep.`;
+      }
       catch (e) { G = null; }
     }
     if (!G) {
-      G = freshG(null); genWorld(G.seed); ants = [];
+      G = freshG(null); G.day = new Date().toDateString(); genWorld(G.seed); ants = [];
       for (let k = 0; k < 5; k++) newAnt(QX - 2 + k, QY);
       spawnPile("crumb", QX + 6, 5);
       paintAll();
     }
     camY = clampCam(-topPad());
     recount(); for (const a of ants) assign(a);
-    if (window.cc && cc.autostart && cc.autostart()) begin();
+    if (window.cc && cc.autostart && cc.autostart()) {
+      // r5: sent by the hub's "tap to play": skip the title, but the farm waits for the first touch or key (the player
+      // page may still cover it with "tap to play full screen"), so nobody misses the opening seconds
+      begin(); waitTouch = true;
+      const wake = () => { if (!waitTouch) return; waitTouch = false; last = performance.now(); sessStart = performance.now(); };
+      addEventListener("pointerdown", wake, { capture: true }); addEventListener("keydown", wake, { capture: true });
+    }
     if (qs.get("shot") === "1") setTimeout(() => {
       // thumbnail mode: a grown colony with no chrome
-      ["hud", "bar", "title", "toast"].forEach((id) => ($(id).style.display = "none"));
-      started = true; muted = true; G.tut = 9; G.food = 2000;
+      ["hud", "bar", "title", "toast", "banner"].forEach((id) => ($(id).style.display = "none"));
+      started = true; muted = true; G.tut = 9; G.food = 2000; setZoom(1, W / 2, H / 2, true);
       [[8, 17, 28, 17], [8, 18, 8, 26], [28, 18, 28, 30], [9, 26, 20, 26], [20, 27, 20, 34], [21, 30, 27, 30]].forEach((r) => window.__af.mark(...r));
       window.__af.ff(240);
       for (let i = 0; i < 6; i++) dropCrumb(4 + i * 6);
@@ -1366,7 +1554,10 @@
 
   // test hook
   window.__af = {
-    state: () => ({ food: G.food, ants: ants.length, cap: capacity(), eggs: eggs.length, tun: tunCount, gen: G.gen, jelly: G.jelly, depth: G.gs.maxDepth, digSources, foodSources, jobs: jobCounts, piles: piles.length, reds: reds.length, spider: !!spider, spiderX: spider ? +spider.x.toFixed(1) : null, lens: !!lens, rain, over, tut: G.tut, sess: sentScore, curios: Object.keys(G.curios).length, hatched: G.life.hatched }),
+    state: () => ({ food: G.food, ants: ants.length, cap: capacity(), eggs: eggs.length, tun: tunCount, gen: G.gen, jelly: G.jelly, depth: G.gs.maxDepth, digSources, foodSources, jobs: jobCounts, piles: piles.length, reds: reds.length, spider: !!spider, spiderX: spider ? +spider.x.toFixed(1) : null, lens: !!lens, rain, over, tut: G.tut, sess: sentScore, curios: Object.keys(G.curios).length, hatched: G.life.hatched, hauled: Math.floor(G.gs.hauled), visit: Math.floor(sessHauled), goal: G.goal, peak: G.gs.peak, dug: G.life.dug, simT: Math.round(simT) }),
+    view: () => ({ ts, offX, camY: Math.round(camY), W, H, phone, hudH }),
+    buyAll: () => { let n = 0; for (let more = true; more;) { more = false; for (const u of UPS) { if (u.id === "feast") continue; const c = upCost(u); if (avail(u) && G.food >= c) { G.food -= c; G.up[u.id] = (G.up[u.id] || 0) + 1; G.buys = (G.buys || 0) + 1; n++; more = true; if (u.id === "drill" || u.id === "rooms") dirty.dig = true; } } } return n; },
+    fly: () => flight(), goals: () => GOALS.length, raw: () => G, goalText: () => goalEl.textContent,
     ff: (sec) => { for (let k = 0; k < sec * 30; k++) sim(STEP); },
     give: (n) => { G.food += n; },
     event: (k) => startEvent(k),

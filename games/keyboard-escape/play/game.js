@@ -21,12 +21,85 @@
   let save = { mult: 1, loop: 1, best: {}, topSpeed: 0, escapes: 0, mute: false, spooky: null };
   try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && s.mult) save = Object.assign(save, s); } catch (e) { /* storage blocked */ }
   const persist = () => { try { localStorage.setItem(SKEY, JSON.stringify(save)); } catch (e) { /* ignore */ } };
+  // 1.7 fields (older saves just gain them): goals done (id -> day), the hat worn, days with an escape, the daily job
+  if (!save.goals || typeof save.goals !== 'object') save.goals = {};
+  if (!Array.isArray(save.days)) save.days = [];
+  save.hat = typeof save.hat === 'string' ? save.hat : '';
+  save.jobs = save.jobs | 0; save.jobStreak = save.jobStreak | 0; save.jobDay = save.jobDay || ''; save.jobLast = save.jobLast || '';
   const now0 = new Date();
   const spookyDefault = now0 < new Date(2026, 10, 1) && now0 >= new Date(2026, 9, 1);
   let spooky = save.spooky === null ? spookyDefault : save.spooky;
 
   // ------------------------------------------------------------------ cc sdk (optional; game works without it)
   const cc = (fn) => { try { if (window.cc) fn(window.cc); } catch (e) { /* never break the game */ } };
+
+  // ------------------------------------------------------------------ 1.7: goals, hats and a daily job (a reason to come back)
+  // Goal pace (cc-lead, Nov 17): about 4-5 land in a first session (esc, x2, speed 100, maybe 5 perfects or a clean
+  // escape); the rest need more keyboards (5, 10) or more days (2 days, 3 daily jobs, 4 days). Each goal unlocks a hat for crash.
+  const dayKey = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  const TODAY = dayKey(new Date()), YDAY = dayKey(new Date(Date.now() - 864e5));
+  const HATS = { party: 'party hat', cap: 'backwards cap', prop: 'propeller cap', phones: 'headphones', halo: 'halo', antenna: 'antenna', esc: 'esc keycap', wizard: 'wizard hat', crown: 'crown', chef: 'chef hat' };
+  const GOALS = [
+    { id: 'esc', txt: 'reach esc', hat: 'party' },
+    { id: 'x2', txt: 'reboot to x2', hat: 'cap' },
+    { id: 'spd100', txt: 'hit speed 100', hat: 'prop' },
+    { id: 'p5', txt: 'land 5 perfects in a row', hat: 'phones' },
+    { id: 'clean', txt: 'escape with 0 falls', hat: 'halo' },
+    { id: 'days2', txt: 'escape on 2 different days', hat: 'antenna' },
+    { id: 'kb5', txt: 'reach keyboard 5', hat: 'esc' },
+    { id: 'jobs3', txt: 'finish 3 daily jobs', hat: 'wizard' },
+    { id: 'kb10', txt: 'reach keyboard 10', hat: 'crown' },
+    { id: 'days4', txt: 'escape on 4 different days', hat: 'chef' },
+  ];
+  // the daily job: one a day, the same for everyone that day (local date)
+  let runPerf = 0, runGates = 0, runBonks = 0, runLands = 0, runBoings = 0, newGoals = [], jobJust = false;
+  const JOBS = [
+    { txt: 'escape with 2 falls or fewer', esc: 1, ok: () => falls <= 2 },
+    { txt: 'land 4 perfects in a row', ok: () => runPerf >= 4 },
+    { txt: 'break 2 firewalls in one run', ok: () => runGates >= 2 },
+    { txt: 'escape with no caps lock bonks', esc: 1, ok: () => runBonks === 0 },
+    { txt: 'land 40 keys in one run', ok: () => runLands >= 40 },
+    { txt: 'boing off 3 space bars in one run', ok: () => runBoings >= 3 },
+  ];
+  const JOB = JOBS[Math.floor(Date.parse(TODAY + 'T00:00:00Z') / 864e5) % JOBS.length];
+  const goalsDone = () => GOALS.filter((g) => save.goals[g.id]).length;
+  const nextGoal = () => GOALS.find((g) => !save.goals[g.id]) || null;
+  function goalHint(g) { return g.id === 'days2' && save.days.includes(TODAY) ? ' (tomorrow)' : g.id === 'days4' || g.id === 'jobs3' ? ' (one a day)' : ''; }
+  function goalDone(id, quiet) {
+    if (save.goals[id]) return;
+    const g = GOALS.find((x) => x.id === id); if (!g) return;
+    save.goals[id] = TODAY;
+    if (quiet) return;
+    save.hat = g.hat; newGoals.push(g); persist();   // a fresh hat goes straight on, so you see what you won
+    say('goal ✓ ' + g.txt, 'new hat: ' + HATS[g.hat], 2.6);
+    goalBurst(C.lilac);
+    cc((c) => c.event && c.event('goal', { id, n: goalsDone() }));
+  }
+  function checkGoals(atEsc) {
+    if (screen !== 'play' && !atEsc) return;   // never from the title's attract demo
+    if (speed >= 100) goalDone('spd100');
+    if (runPerf >= 5) goalDone('p5');
+    if (save.escapes >= 1) goalDone('esc');
+    if (save.mult >= 2) goalDone('x2');
+    if (save.loop >= 5) goalDone('kb5');
+    if (save.loop >= 10) goalDone('kb10');
+    if (atEsc && falls === 0) goalDone('clean');
+    if (save.days.length >= 2) goalDone('days2');
+    if (save.days.length >= 4) goalDone('days4');
+    if (save.jobDay !== TODAY && (!JOB.esc || atEsc) && JOB.ok()) {
+      save.jobDay = TODAY; save.jobs++; save.jobStreak = save.jobLast === YDAY ? save.jobStreak + 1 : 1; save.jobLast = TODAY; jobJust = true; persist();
+      say('daily job ✓ ' + JOB.txt, save.jobStreak > 1 ? save.jobStreak + ' days in a row' : 'new job tomorrow', 2.6);
+      goalBurst(C.lime);
+      cc((c) => c.event && c.event('daily_job', { jobs: save.jobs, streak: save.jobStreak }));
+      if (save.jobs >= 3) goalDone('jobs3');
+    }
+  }
+  // a save from before 1.7 gets the goals it already earned, without fanfare
+  if (save.escapes >= 1) goalDone('esc', true);
+  if (save.mult >= 2) goalDone('x2', true);
+  if (save.loop >= 5) goalDone('kb5', true);
+  if (save.topSpeed >= 100) goalDone('spd100', true);
+  if (save.loop >= 10) goalDone('kb10', true);
 
   // ------------------------------------------------------------------ audio (synth, no files)
   let actx = null, master = null, hostMuted = false;
@@ -133,13 +206,18 @@
   }
 
   // ------------------------------------------------------------------ state
-  let vw = 0, vh = 0, dpr = 1, scale = 1;
+  let vw = 0, vh = 0, dpr = 1, scale = 1, portrait = false, lookF = 0.2;
   function resize() {
     const phone = window.matchMedia && matchMedia('(pointer: coarse)').matches;
     dpr = Math.min(phone ? 1.5 : 2, window.devicePixelRatio || 1);
     vw = window.innerWidth; vh = window.innerHeight;
     canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
-    scale = Math.min(vh / 520, vw / 560);
+    // 1.7: on an upright phone the world was drawn for a 560-unit-wide view (crash ~59 px). Now it's sized for 460
+    // units and crash sits further left (12% in, the camera leads by his speed so he stays there), so the world is
+    // ~22% bigger and you still see about as far ahead.
+    portrait = vh > vw * 1.05;
+    scale = portrait ? Math.min(vh / 520, vw / 460) : Math.min(vh / 520, vw / 560);
+    lookF = portrait ? 0.12 : 0.2;
   }
   window.addEventListener('resize', resize); resize();
 
@@ -157,8 +235,11 @@
   const runScore = () => Math.max(0, Math.round(topSpeed - runBase));
   function startRun(keepSpeed) {
     audioInit();
+    if (winT) { clearTimeout(winT); winT = 0; }
+    autoReady = false;
     course = buildCourse(save.loop, save.mult);
     p = newPlayer(); runT = 0; falls = 0; keysHit = 0; popups = []; parts = []; furthest = 0; fwTold = false;
+    runPerf = 0; runGates = 0; runBonks = 0; runLands = 0; runBoings = 0; newGoals = []; jobJust = false; banner = null; bannerQ = [];
     if (!keepSpeed) { speed = carry; topSpeed = carry; carry = 0; }
     runBase = speed;
     tierIdx = TIERS.filter((t) => speed >= t).length; perfect = 0;
@@ -176,9 +257,16 @@
     else if (screen === 'play') toast(['back to boot. speed kept. dignity not.', 'have you tried turning it off and on again', 'rebooting… your speed survived', 'that gap was a feature'][falls % 4]);
   }
   function manualBoot() { if (screen !== 'play' || !course) return; SFX.fall(); backToBoot(); falls--; }   // a voluntary reboot doesn't count as a fall
-  let winLock = 0;
+  let winLock = 0, winT = 0, autoReady = false;
   function show(id, on) { $(id).classList.toggle('show', on); }
-  let toastH = 0;
+  let toastH = 0, bannerQ = [], jumpsMade = 0;   // 1.7: jumps this visit (the first-run "tap!" cue stops after 3)
+  // 1.7: banners queue up instead of overwriting each other (a goal and a speed tier can land on the same key)
+  function say(txt, sub, t) { const b = { t: t || 1.6, txt, sub }; if (banner && banner.t > 0.5) { if (bannerQ.length < 4) bannerQ.push(b); } else banner = b; }
+  function goalBurst(col) {
+    if (!p) return;
+    for (let i = 0; i < 30; i++) { const a = Math.random() * 6.283, v = 200 + Math.random() * 380; parts.push({ x: p.x + PW / 2, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 260, t: 0.7 + Math.random() * 0.4, c: i % 3 ? col : C.paper, s: 6 + Math.random() * 6 }); }
+    flash = Math.max(flash, 0.6); shake = Math.max(shake, 0.2);
+  }
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastH); toastH = setTimeout(() => t.classList.remove('show'), 1500); }
 
   // ------------------------------------------------------------------ input
@@ -228,22 +316,24 @@
     p.vy = 0; p.ground = k; p.coyote = 0.1; p.spin = 0;
     k.press = 1;
     if (!k.hit) {
-      k.hit = 1; addSpeed();
+      k.hit = 1; addSpeed(); runLands++;
       const off = Math.abs(p.x + PW / 2 - (k.x + k.w / 2)) / (k.w / 2);
       if (k.type === 'key' && off < 0.28) {   // stuck the landing near the middle: bonus + streak
         perfect++; addSpeed(); if (perfect % 5 === 0) addSpeed();   // +1 per perfect, +1 more every 5 in a row
+        if (perfect > runPerf) runPerf = perfect;
         popups.push({ x: p.x + PW / 2, y: p.y - 40, t: 0.9, txt: 'perfect x' + perfect, big: 1 });
         for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283; parts.push({ x: p.x + PW / 2, y: k.y - 4, vx: Math.cos(a) * 320, vy: Math.sin(a) * 200 - 120, t: 0.45, c: C.lilac }); }
         shake = Math.max(shake, 0.12); tone(660 + Math.min(perfect, 10) * 60, 0.09, 'triangle', 0.05);
       } else if (k.type === 'key') perfect = 0;
       popups.push({ x: p.x + PW / 2, y: p.y - 10, t: 0.8, txt: '+' + save.mult });
       const ti = TIERS.filter((t) => speed >= t).length;
-      if (ti > tierIdx && screen === 'play') { tierIdx = ti; banner = { t: 1.6, txt: 'speed tier ' + ti + ': ' + ['warm', 'brisk', 'zoomy', 'illegal', 'ludicrous', 'plaid', 'cosmic', 'heat death'][ti - 1] }; flash = 0.7; SFX.esc(); cc((c) => c.event && c.event('speed_tier', { tier: ti, speed })); }
+      if (ti > tierIdx && screen === 'play') { tierIdx = ti; say('speed tier ' + ti + ': ' + ['warm', 'brisk', 'zoomy', 'illegal', 'ludicrous', 'plaid', 'cosmic', 'heat death'][ti - 1], '', 1.6); flash = 0.7; SFX.esc(); cc((c) => c.event && c.event('speed_tier', { tier: ti, speed })); }
       SFX.land(speed);
+      checkGoals(false);
     } else SFX.land(speed * 0.5);
     if (vxOf(speed) > 520) shake = Math.max(shake, 0.12);
     for (let i = 0; i < 5; i++) parts.push({ x: p.x + PW / 2, y: k.y, vx: (Math.random() - 0.5) * 240, vy: -Math.random() * 220, t: 0.4, c: C.lime });
-    if (k.type === 'space') { p.vy = -SPACE_VJ; p.ground = null; p.bounce = true; SFX.boing(); popups.push({ x: p.x + PW / 2, y: p.y - 40, t: 0.9, txt: 'boing', big: 1 }); }
+    if (k.type === 'space') { p.vy = -SPACE_VJ; p.ground = null; p.bounce = true; SFX.boing(); runBoings++; checkGoals(false); popups.push({ x: p.x + PW / 2, y: p.y - 40, t: 0.9, txt: 'boing', big: 1 }); }
     if (k.type === 'del' && !k.crumble) k.crumble = 0.55;
     if (k.type === 'esc') escape();
   }
@@ -263,7 +353,7 @@
     // jump
     if (jumpBuf > 0) jumpBuf -= dt;
     if (p.ground) p.coyote = 0.1; else p.coyote -= dt;
-    if (jumpBuf > 0 && p.coyote > 0) { p.vy = -VJ; p.ground = null; p.coyote = 0; jumpBuf = 0; p.bounce = false; SFX.jump(); }
+    if (jumpBuf > 0 && p.coyote > 0) { p.vy = -VJ; p.ground = null; p.coyote = 0; jumpBuf = 0; p.bounce = false; SFX.jump(); if (screen === 'play') jumpsMade++; }
     if (!p.ground && !holding && !p.bounce && p.vy < -CUT) p.vy = -CUT;   // let go early = short hop
     // integrate
     const px = p.x, py = p.y;
@@ -289,7 +379,7 @@
       if (!k.wall || k.gone) continue;
       const wx = k.wall.x, wt = k.y - k.wall.h;
       if (p.x + PW > wx && px + PW <= wx + 2 && p.y + PH > wt + 6 && p.y < k.y) {
-        p.x = wx - PW; p.knock = 0.28; speed = Math.max(0, speed - 4 * save.mult); scoreDirty = true;
+        p.x = wx - PW; p.knock = 0.28; speed = Math.max(0, speed - 4 * save.mult); scoreDirty = true; runBonks++;
         shake = 0.3; p.face = 'cooked'; p.faceT = 0.6; SFX.bonk();
         popups.push({ x: wx, y: wt - 20, t: 1, txt: 'caps lock’d -' + 4 * save.mult, big: 1 });
       }
@@ -303,7 +393,12 @@
       if (!k.gateNeed || k.passed) continue;
       const gx = k.x + k.w + 62;   // the firewall stands just past the takeoff key
       if (px + PW <= gx && p.x + PW > gx) {
-        if (speed >= k.gateNeed) { k.passed = 1; banner = { t: 1.2, txt: 'access granted' }; shake = 0.25; }
+        if (speed >= k.gateNeed) {
+          k.passed = 1; say('access granted', '', 1.2); shake = 0.3; runGates++;
+          // 1.7: the firewall shatters (reads with the sound off)
+          for (let i = 0; i < 26; i++) parts.push({ x: gx + (Math.random() - 0.5) * 10, y: k.y - Math.random() * 420, vx: 200 + Math.random() * 520, vy: (Math.random() - 0.6) * 500, t: 0.6 + Math.random() * 0.3, c: Math.random() < 0.5 ? C.lime : '#ff5a5a', s: 5 + Math.random() * 7 });
+          flash = Math.max(flash, 0.5); checkGoals(false);
+        }
         else { p.x = k.x + k.w + 6; p.vx = 0; p.knock = 0; p.vy = Math.max(p.vy, 250); p.ground = null; jumpBuf = 0; p.coyote = 0; p.face = 'cooked'; p.faceT = 0.8; SFX.bonk(); shake = Math.max(shake, 0.3); popups.push({ x: gx, y: p.y - 30, t: 1.1, txt: 'firewall: need ' + k.gateNeed, big: 1 }); if (!fwTold) { fwTold = true; fwJust = true; } }
       }
     }
@@ -325,20 +420,26 @@
     const isBest = !prev || ms < prev;
     if (isBest) save.best[loop] = ms;
     save.topSpeed = Math.max(save.topSpeed, topSpeed); save.escapes++;
+    if (!save.days.includes(TODAY)) { save.days.push(TODAY); if (save.days.length > 30) save.days.shift(); }
+    checkGoals(true);
     persist();
+    // 1.7: esc pops: keycap confetti (reads with the sound off)
+    for (let i = 0; i < 40; i++) { const a = -Math.random() * 3.14, v = 300 + Math.random() * 600; parts.push({ x: p.x + PW / 2, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0.8 + Math.random() * 0.5, c: [C.lime, C.lilac, C.paper][i % 3], s: 8 + Math.random() * 8 }); }
     cc((c) => c.score && c.score(runScore()));
-    cc((c) => c.end && c.end({ score: runScore(), durationMs: ms }));
+    cc((c) => c.end && c.end({ score: runScore(), durationMs: ms, completed: true }));
     cc((c) => c.event && c.event('escape', { loop, mult: save.mult, ms, falls, speed: Math.round(topSpeed) }));
-    setTimeout(() => showWin(ms, isBest), 650);
+    winT = setTimeout(() => { winT = 0; if (screen === 'win') showWin(ms, isBest); }, 650);   // 1.7: a restart in this gap already has its run reported; don't pop the card over the new run
   }
   function fmt(ms) { const s = ms / 1000; return Math.floor(s / 60) + ':' + ('0' + (s % 60).toFixed(1)).slice(-4); }
   let lastResult = null;
   function showWin(ms, isBest) {
-    lastResult = { ms, isBest, loop: save.loop, mult: save.mult, speed: Math.round(topSpeed), falls };
+    lastResult = { ms, isBest, loop: save.loop, mult: save.mult, speed: Math.round(topSpeed), falls, score: runScore() };
     $('winTitle').textContent = falls === 0 ? 'clean escape. suspicious.' : 'you escaped.';
     $('winSub').textContent = isBest ? 'new best for keyboard ' + save.loop + '. the keyboard is filing a complaint.' : 'best on this keyboard: ' + fmt(save.best[save.loop]) + '. not today.';
     const st = (v, l) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
-    $('stats').innerHTML = st(Math.round(topSpeed), 'top speed') + st(fmt(ms), 'time to esc') + st(falls, falls === 1 ? 'fall' : 'falls') + st('x' + save.mult, 'reboot multiplier');
+    // 1.7: the first stat is the number the site's board gets (speed gained this run; a reboot's carried speed is left out)
+    $('stats').innerHTML = st(lastResult.score, 'score (speed gained)') + st(fmt(ms), 'time to esc') + st(Math.round(topSpeed), 'top speed') + st(falls, (falls === 1 ? 'fall' : 'falls') + ' · x' + save.mult);
+    $('goalsW').innerHTML = goalsHtml(true);
     $('rebootBtn').textContent = 'reboot (x' + (save.mult + 1) + ')';
     try { $('card').src = drawCard(lastResult).toDataURL('image/png'); } catch (e) { /* ignore */ }
     winLock = performance.now() + 600;
@@ -351,6 +452,7 @@
     cc((c) => c.event && c.event('reboot', { mult: save.mult }));
     carry = Math.floor(topSpeed * 0.1);
     startRun(false);
+    checkGoals(false);
     toast('rebooted. x' + save.mult + ' forever. kept ' + speed + ' speed. new keyboard, same problems.');
   }
 
@@ -535,7 +637,7 @@
     const vnow = p ? Math.max(0, p.vx) : 0;
     wz += (Math.max(0.6, Math.min(1, 1 - (vnow - 380) / 1500)) - wz) * Math.min(1, dt * 2);
     const ws = scale * wz;
-    const lookX = vw / ws * 0.2;
+    const lookX = vw / ws * lookF;
     let sx = 0, sy = 0;
     if (shake > 0) { shake -= dt; sx = (Math.random() - 0.5) * 12 * shake * 10; sy = (Math.random() - 0.5) * 12 * shake * 10; }
     // distant parallax keyboard rows
@@ -589,7 +691,7 @@
         if (k.type === 'esc') wtext('↖ the exit. allegedly.', k.x + 8, k.y - 18, 22, C.lime, 'left', 'bottom');
       }
       // particles
-      for (let i = parts.length - 1; i >= 0; i--) { const q = parts[i]; q.t -= dt; if (q.t <= 0) { parts.splice(i, 1); continue; } q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; ctx.globalAlpha = q.t / 0.4; ctx.fillStyle = q.c; ctx.fillRect(q.x - 3, q.y - 3, 6, 6); }
+      for (let i = parts.length - 1; i >= 0; i--) { const q = parts[i]; q.t -= dt; if (q.t <= 0) { parts.splice(i, 1); continue; } q.vy += 900 * dt; q.x += q.vx * dt; q.y += q.vy * dt; ctx.globalAlpha = Math.min(1, q.t / 0.4); ctx.fillStyle = q.c; const qs = q.s || 6; ctx.fillRect(q.x - qs / 2, q.y - qs / 2, qs, qs); }
       ctx.globalAlpha = 1;
       // speed lines
       const v = p ? p.vx : 0;
@@ -599,6 +701,11 @@
       }
       // crash
       if (p) drawCrash(p);
+      // 1.7: a stranger's first run: a "tap!" cue as crash nears the end of a key, for the first 3 jumps
+      if (p && screen === 'play' && !save.escapes && jumpsMade < 3 && booting <= 0 && p.ground && p.ground.type !== 'wall') {
+        const left = p.ground.x + p.ground.w - (p.x + PW);
+        if (left < 150 && left > -PW) { ctx.globalAlpha = 0.65 + 0.35 * Math.sin(runT * 18); wtext('tap!', p.x + PW / 2, p.y - 78, 30, C.lime, 'center', 'middle'); ctx.globalAlpha = 1; }
+      }
       // popups
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = popups.length - 1; i >= 0; i--) { const q = popups[i]; q.t -= dt; if (q.t <= 0) { popups.splice(i, 1); continue; } q.y -= 70 * dt; ctx.globalAlpha = Math.min(1, q.t * 2); wtext(q.txt, q.x, q.y, q.big ? 26 : 22, q.big ? C.lilac : C.lime, 'center', 'middle'); }
@@ -606,13 +713,31 @@
     }
     ctx.restore();
     if (flash > 0) { flash -= dt * 2; ctx.fillStyle = `rgba(197,255,73,${Math.max(0, flash) * 0.25})`; ctx.fillRect(0, 0, vw, vh); }
+    if (!banner && bannerQ.length && screen === 'play') banner = bannerQ.shift();
     if (banner && screen === 'play') {
       banner.t -= dt;
       if (banner.t <= 0) banner = null;
-      else { ctx.globalAlpha = Math.min(1, banner.t * 3); ctx.fillStyle = 'rgba(16,17,20,0.7)'; ctx.fillRect(0, vh * 0.3 - 30, vw, 60); pxText(ctx, banner.txt, vw / 2, vh * 0.3, Math.round(Math.min(34, vw / 14)), C.lime, 'center', 'middle'); ctx.globalAlpha = 1; }
+      else {
+        const bs = Math.round(Math.min(34, vw / 14, (vw - 24) / Math.max(1, pxWidth(banner.txt, 10) / 10))), sub = banner.sub, bh = sub ? 84 : 60;
+        ctx.globalAlpha = Math.min(1, banner.t * 3); ctx.fillStyle = 'rgba(16,17,20,0.78)'; ctx.fillRect(0, vh * 0.3 - 30, vw, bh);
+        pxText(ctx, banner.txt, vw / 2, vh * 0.3, bs, C.lime, 'center', 'middle');
+        if (sub) pxText(ctx, sub, vw / 2, vh * 0.3 + 32, Math.round(Math.min(18, vw / 24)), C.lilac, 'center', 'middle');
+        ctx.globalAlpha = 1;
+      }
     }
     if (screen !== 'title') drawHud();
+    if (screen === 'win' && winT) {   // 1.7: the 0.65 s before the end card: a big stamp that reads with the sound off
+      const fs = Math.round(Math.min(72, vw / 6.5));
+      ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(0, vh * 0.42 - fs, vw, fs * 2);
+      pxText(ctx, 'ESCAPED.', vw / 2 + 4, vh * 0.42 + 4, fs, C.carbon, 'center', 'middle');
+      pxText(ctx, 'ESCAPED.', vw / 2, vh * 0.42, fs, C.lime, 'center', 'middle');
+    }
     if (booting > 0 && screen === 'play') drawBoot();
+    if (screen === 'title' && autoReady) {   // 1.7: came from a hub "tap to play" card: no title card, one tap starts
+      ctx.fillStyle = 'rgba(16,17,20,0.72)'; ctx.fillRect(0, vh * 0.5 - 56, vw, 112);
+      pxText(ctx, 'tap to run', vw / 2, vh * 0.5 - 14, Math.round(Math.min(40, vw / 10)), C.lime, 'center', 'middle');
+      pxText(ctx, 'tap: jump. hold it: jump further.', vw / 2, vh * 0.5 + 30, Math.round(Math.min(16, vw / 26)), C.paper, 'center', 'middle');
+    }
   }
   function drawCrash(q) {
     const s = 80, cx = q.x + PW / 2, by = q.y + PH;
@@ -629,11 +754,28 @@
     ctx.imageSmoothingEnabled = false;
     if (sprite.complete && sprite.naturalWidth) ctx.drawImage(sprite, FR[q.face] || 0, 0, 128, 128, -s / 2, -s / 2 - 12, s, s);
     else { ctx.fillStyle = '#d8ccae'; ctx.fillRect(-22, -30, 44, 44); }
-    if (spooky) { ctx.fillStyle = '#5b2f80'; ctx.beginPath(); ctx.moveTo(-20, -44); ctx.lineTo(20, -44); ctx.lineTo(5, -80); ctx.closePath(); ctx.fill(); ctx.fillRect(-27, -46, 54, 5); ctx.fillStyle = '#ff9a3c'; ctx.fillRect(-15, -51, 30, 5); }
+    if (save.hat) drawHat(save.hat);
+    else if (spooky) { ctx.fillStyle = '#5b2f80'; ctx.beginPath(); ctx.moveTo(-20, -44); ctx.lineTo(20, -44); ctx.lineTo(5, -80); ctx.closePath(); ctx.fill(); ctx.fillRect(-27, -46, 54, 5); ctx.fillStyle = '#ff9a3c'; ctx.fillRect(-15, -51, 30, 5); }
     ctx.restore();
   }
+  // 1.7: hats won from goals. crash's screen top is at y = -44, his sides at x = +-34 (sprite drawn 80 px at -40,-52)
+  function drawHat(h) {
+    const L = C.lime, V = C.lilac, Pp = C.paper, D = '#6f58c4';
+    const tri = (x1, y1, x2, y2, x3, y3, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath(); ctx.fill(); };
+    const dot = (x, y, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.29); ctx.fill(); };
+    if (h === 'party') { tri(-15, -43, 15, -43, 2, -82, L); tri(-9, -55, 9, -55, 4, -66, V); dot(2, -83, 5, Pp); }
+    else if (h === 'cap') { ctx.fillStyle = V; ctx.beginPath(); ctx.arc(2, -43, 19, Math.PI, 0); ctx.fill(); ctx.fillStyle = D; ctx.fillRect(-38, -47, 22, 6); dot(2, -62, 3, L); }
+    else if (h === 'prop') { ctx.fillStyle = L; ctx.beginPath(); ctx.arc(0, -43, 16, Math.PI, 0); ctx.fill(); ctx.fillStyle = Pp; ctx.fillRect(-1.5, -66, 3, 8); const w = Math.cos(runT * 25 + title.t * 25) * 20; ctx.fillStyle = V; ctx.fillRect(-Math.abs(w), -69, Math.abs(w) * 2, 5); }
+    else if (h === 'phones') { ctx.strokeStyle = V; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(0, -36, 34, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); ctx.fillStyle = D; ctx.fillRect(-42, -42, 12, 22); ctx.fillRect(30, -42, 12, 22); ctx.fillStyle = L; ctx.fillRect(-40, -38, 4, 12); ctx.fillRect(36, -38, 4, 12); }
+    else if (h === 'halo') { ctx.strokeStyle = L; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(0, -60 + Math.sin(runT * 4 + title.t * 4) * 3, 20, 6, 0, 0, 6.29); ctx.stroke(); }
+    else if (h === 'antenna') { ctx.strokeStyle = Pp; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-6, -44); ctx.lineTo(-18, -74); ctx.moveTo(6, -44); ctx.lineTo(18, -74); ctx.stroke(); dot(-18, -75, 5, L); dot(18, -75, 5, V); }
+    else if (h === 'esc') { drawKeycap(ctx, -22, -70, 44, 32, null, 2, 0.5); pxText(ctx, 'esc', 0, -60, 12, C.carbon, 'center', 'middle', dpr * scale * wz); }
+    else if (h === 'wizard') { ctx.fillStyle = D; ctx.fillRect(-28, -47, 56, 6); tri(-18, -45, 18, -45, 8, -92, V); dot(-2, -62, 2.5, L); dot(6, -76, 2, Pp); dot(-6, -52, 2, Pp); }
+    else if (h === 'crown') { ctx.fillStyle = L; ctx.beginPath(); ctx.moveTo(-20, -43); ctx.lineTo(-20, -64); ctx.lineTo(-10, -54); ctx.lineTo(0, -68); ctx.lineTo(10, -54); ctx.lineTo(20, -64); ctx.lineTo(20, -43); ctx.closePath(); ctx.fill(); dot(0, -50, 3.5, V); dot(-12, -49, 2.5, V); dot(12, -49, 2.5, V); }
+    else if (h === 'chef') { ctx.fillStyle = Pp; ctx.fillRect(-16, -58, 32, 15); dot(-12, -64, 10, Pp); dot(0, -70, 12, Pp); dot(12, -64, 10, Pp); ctx.fillStyle = '#d9d4c7'; ctx.fillRect(-16, -48, 32, 3); }
+  }
   function drawHud() {
-    const s = Math.max(0.75, Math.min(1.3, Math.min(vw, vh) / 560));
+    const s = portrait ? Math.max(0.75, Math.min(1.3, vw / 400)) : Math.max(0.75, Math.min(1.3, Math.min(vw, vh) / 560));   // 1.7: a bigger HUD on upright phones
     const top = 14 * s;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     // big speed counter
@@ -654,7 +796,8 @@
       if (falls > 0 && fr > pr + 0.01) { ctx.fillStyle = C.lilac; ctx.fillRect(bx + bw * fr - 1.5 * s, by - 4 * s, 3 * s, 16 * s); }   // furthest so far this run: something to beat after a fall
       pxText(ctx, 'esc', bx + bw + 6 * s, by + 4 * s, Math.round(11 * s), C.lilac, 'left', 'middle');
     }
-    pxText(ctx, fmt(runT * 1000), 14 * s, top, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
+    const bt = save.best[save.loop];   // 1.7: the time to beat on this keyboard, next to the clock (lime while you're ahead of it)
+    pxText(ctx, fmt(runT * 1000) + (bt ? ' / ' + fmt(bt) : ''), 14 * s, top, Math.round(13 * s), bt && runT * 1000 < bt ? C.lime : 'rgba(245,243,237,0.8)', 'left', 'top');
     pxText(ctx, 'kb ' + save.loop + ' · falls ' + falls, 14 * s, top + 18 * s, Math.round(13 * s), 'rgba(245,243,237,0.8)', 'left', 'top');
   }
   function drawBoot() {
@@ -663,6 +806,8 @@
     ctx.globalAlpha = a;
     pxText(ctx, falls ? 'back to boot…' : 'booting crash os…', vw / 2, vh * 0.5, Math.round(Math.min(26, vw / 18)), C.lime, 'center', 'middle');
     pxText(ctx, falls ? 'speed kept: ' + Math.round(speed) : 'tap to jump. hold it to jump further.', vw / 2, vh * 0.5 + 34, Math.round(Math.min(15, vw / 28)), C.paper, 'center', 'middle');
+    const ng = nextGoal();   // 1.7: something to aim at on every boot
+    if (ng) pxText(ctx, 'goal: ' + ng.txt, vw / 2, vh * 0.5 + 62, Math.round(Math.min(13, vw / 32)), C.lilac, 'center', 'middle');
     ctx.globalAlpha = 1;
   }
 
@@ -713,7 +858,7 @@
       if (screen === 'title') { booting = 0; titleScene(dt); }
       else if (screen === 'play') step(dt);
       if (p) {
-        const tx = p.x, ty = Math.min(p.y, 120);
+        const tx = p.x + (portrait ? Math.max(0, p.vx) / 12 : 0), ty = Math.min(p.y, 120);   // portrait: lead by the follow lag
         cam.x += (tx - cam.x) * Math.min(1, dt * 12);
         if (Math.abs(tx - cam.x) > 600) cam.x = tx;
         cam.y += (ty - cam.y) * Math.min(1, dt * 4);
@@ -731,11 +876,29 @@
     $('spookBtn').textContent = 'spooky: ' + (spooky ? 'on' : 'off');
     const b = save.best[save.loop];
     $('meta').textContent = save.escapes ? `keyboard ${save.loop} · multiplier x${save.mult} · top speed ${Math.round(save.topSpeed)}` + (b ? ` · best ${fmt(b)}` : '') : '';
+    $('goalsT').innerHTML = goalsHtml(false);
+    const hb = $('hatBtn'), owned = ownedHats();
+    hb.style.display = owned.length ? '' : 'none'; hb.textContent = 'hat: ' + (save.hat ? HATS[save.hat] : 'none');
   }
+  // 1.7: the goals box (title and end card): progress pips, what just got done, the next goal, today's job
+  const esc = (t) => String(t).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+  function goalsHtml(onWin) {
+    const n = goalsDone(), g = nextGoal(), out = [];
+    out.push(`<span class="pips">${GOALS.map((x) => save.goals[x.id] ? '■' : '□').join('')}</span> goals ${n}/${GOALS.length}`);
+    if (onWin) for (const d of newGoals) out.push(`<b>✓ ${esc(d.txt)}</b> · new hat: <span class="k">${esc(HATS[d.hat])}</span>`);
+    if (g) out.push(`next: <b>${esc(g.txt)}</b>${esc(goalHint(g))} → <span class="k">${esc(HATS[g.hat])}</span>`);
+    else out.push('<b>every goal done.</b> the keyboard fears you.');
+    const jd = save.jobDay === TODAY;
+    out.push(jd ? `<b>✓ today's job done</b>${save.jobStreak > 1 ? ' · ' + save.jobStreak + ' days in a row' : ''} · new one tomorrow` : `today's job: <b>${esc(JOB.txt)}</b>`);
+    return out.join('<br>');
+  }
+  function ownedHats() { return GOALS.filter((g) => save.goals[g.id]).map((g) => g.hat); }
+  function cycleHat() { const o = [''].concat(ownedHats()); save.hat = o[(o.indexOf(save.hat) + 1) % o.length]; persist(); syncToggles(); }
   function toggleSound() { save.mute = !save.mute; applyMute(); persist(); syncToggles(); }
   $('playBtn').addEventListener('click', (e) => { e.stopPropagation(); startRun(false); });
   $('sndBtn').addEventListener('click', toggleSound);
   $('pSndBtn').addEventListener('click', toggleSound);
+  $('hatBtn').addEventListener('click', cycleHat);
   $('spookBtn').addEventListener('click', () => { spooky = !spooky; save.spooky = spooky; persist(); syncToggles(); });
   $('pauseBtn').addEventListener('click', () => setPause(true));
   $('resumeBtn').addEventListener('click', () => setPause(false));
@@ -745,7 +908,15 @@
   $('shareBtn').addEventListener('click', share);
   syncToggles();
   if (window.__keGo && screen === 'title') startRun(false);   // 1.6: a run tap made before this script loaded
+  // 1.7: a hub "tap to play" card sent the player (cc.autostart): skip the title card. The run itself waits for the
+  // first tap or key (the player page may still be covering the game), so crash doesn't set off on his own.
+  // cc-sdk.js is deferred, so it runs after this file: ask once the document has parsed.
+  function tryAutostart() {
+    if (screen !== 'title' || window.__keGo) return;
+    cc((c) => { if (c.autostart && c.autostart()) { autoReady = true; show('title', false); wake(); } });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryAutostart); else tryAutostart();
 
   // QA hook (read-only state peek)
-  window.__ke = { get screen() { return screen; }, get p() { return p; }, get speed() { return speed; }, get course() { return course; }, get falls() { return falls; }, step: (dt) => step(dt), draw: (dt) => render(dt), bot: (e) => botThink(e || 0), jump: () => { jumpBuf = 0.13; holding = true; }, release: () => { holding = false; }, G, CUT, PW, PH, vxOf, AIR };
+  window.__ke = { get screen() { return screen; }, get p() { return p; }, get speed() { return speed; }, get course() { return course; }, get falls() { return falls; }, step: (dt) => step(dt), draw: (dt) => render(dt), bot: (e) => botThink(e || 0), jump: () => { jumpBuf = 0.13; holding = true; }, release: () => { holding = false; }, G, CUT, PW, PH, vxOf, AIR, get save() { return save; }, get runScore() { return runScore(); }, get runT() { return runT; }, get job() { return JOB.txt; }, escape: () => { if (screen === 'play' && course) { p.x = course.keys[course.keys.length - 1].x + 40; p.y = course.keys[course.keys.length - 1].y - PH; p.vy = 0; p.ground = null; } } };
 })();
