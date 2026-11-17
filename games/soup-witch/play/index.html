@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>soup witch · computer cooked</title>
+<meta name="description" content="run a witch's soup cart. decode riddles, stir weird soups, fill the recipe book.">
+<link rel="stylesheet" href="style.css">
+<script src="/games/cc-sdk.js"></script>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div id="dayLbl">day 1/5</div>
+    <div id="timer"><div id="timerFill"></div></div>
+    <div id="coins"><i class="coin"></i><span id="coinN">0</span></div>
+    <button id="bookBtn" class="tbtn" aria-label="recipe book"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span id="bookN">0</span></button>
+    <button id="pauseBtn" class="tbtn" aria-label="pause"><svg viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></button>
+    <button id="muteBtn" class="tbtn" aria-label="sound on or off"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="muteWave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path id="muteX" d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"/></svg></button>
+  </header>
+  <div id="main">
+    <div id="sceneWrap">
+      <canvas id="scene"></canvas>
+      <div id="bubble" class="hide"><div id="bName"></div><div id="bText"></div><div id="bHint"></div><div id="pat"><div id="patFill"></div></div></div>
+      <div id="coach" class="hide"></div>
+      <div id="soupCard" class="hide"><div id="soupNew">new recipe!</div><div id="soupName"></div><div id="soupTags"></div><div id="soupNote"></div></div>
+      <div id="fanfare" class="hide"></div>
+      <div id="toast" class="hide"></div>
+      <div class="credit">computer cooked games</div>
+    </div>
+    <div id="side">
+      <div id="shelf"></div>
+      <div id="info"></div>
+      <div id="actions"><button id="dumpBtn" class="btn ghost">dump</button><button id="mainBtn" class="btn">stir</button></div>
+    </div>
+  </div>
+  <div id="modal" class="hide"><div id="modalBox"></div></div>
+  <div id="pauseOv" class="hide"><div>paused<br><small>tap to keep stirring</small></div></div>
+</div>
+<script src="/assets/tip.js" defer></script>
+<script src="game.js"></script>
+</body>
+</html>

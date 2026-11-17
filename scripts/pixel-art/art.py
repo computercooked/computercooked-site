@@ -695,12 +695,95 @@ def antfarm(c):
     c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
 
 
+SW_FROG = """
+.GG...GG.
+GWKG.GWKG
+GGGGGGGGG
+GGGGGGGGG
+GRRRRRRRG
+.GGGGGGG.
+GG.ggg.GG
+"""
+SW_FPAL = {"G": "#5fbf4a", "g": "#9fe07a", "W": "#ffffff", "K": "#0b0c0e", "R": "#2f6e2a"}
+
+
+def soupwitch(c):
+    # a witch's soup cart at night: the computer in a witch hat stirs a glowing cauldron, ingredients drop in,
+    # a frog customer orders with a bubble of taste pills, striped awning on top, moon and stars behind
+    import random
+    rnd = random.Random(5)
+    W, H = c.W, c.H
+    for j in range(H): c.rect(0, j, W, 1, "#150f24" if j < H * 0.35 else "#1d1433" if j < H * 0.6 else "#241a3a")
+    for i in range(40):
+        x, y = rnd.randrange(W), rnd.randrange(12, int(H * 0.6))
+        c.px(x, y, "#fff4c9" if i % 3 else "#b9a6e6")
+    c.disc(16, 22, 7, "#fff2c4"); c.disc(19, 20, 6, "#1d1433")  # crescent moon
+    # awning with scallops
+    aw = 9
+    for x in range(0, W, 10):
+        col = "#7b4fd0" if (x // 10) % 2 == 0 else "#ffd84a"
+        c.rect(x, 0, 10, aw, col); c.disc(x + 5, aw, 4, col)
+    c.rect(0, 0, W, 2, "#3a2a5c")
+    # counter
+    cy = H - 20
+    c.rect(0, cy, W, H - cy, "#5a3a24"); c.rect(0, cy, W, 2, "#8a6239")
+    for x in range(6, W, 14): c.rect(x, cy + 5, 1, H - cy - 5, "#4a2f1d")
+    # cauldron with fire under it
+    kx, kr = c.cx + 4, 20
+    ky = cy - 12
+    for i in range(7):
+        fx = kx - 14 + i * 4
+        c.rect(fx, cy - 4 - (i % 3) * 2, 3, 6 + (i % 3) * 2, "#ff8a2a"); c.rect(fx + 1, cy - 2 - (i % 2) * 2, 1, 3, "#ffe14a")
+    c.disc(kx, ky, kr, "#0b0c0e"); c.disc(kx, ky, kr - 1, "#2b2140")
+    c.rect(kx - kr + 3, ky - 6, 4, 10, "#3d3060")  # shine
+    c.rect(kx - 14, ky + kr - 3, 4, 4, "#0b0c0e"); c.rect(kx + 10, ky + kr - 3, 4, 4, "#0b0c0e")  # feet
+    # rim and glowing soup
+    rw, ry = kr + 3, ky - kr + 7
+    c.rect(kx - rw, ry - 2, rw * 2, 5, "#0b0c0e"); c.rect(kx - rw + 1, ry - 1, rw * 2 - 2, 3, "#4a3872")
+    c.rect(kx - rw + 3, ry - 3, rw * 2 - 6, 3, "#8dff6a"); c.rect(kx - rw + 6, ry - 4, rw * 2 - 12, 2, "#b6ff94")
+    for (bx, by, br) in ((-8, -7, 2), (5, -9, 3), (12, -6, 1), (-2, -12, 1), (9, -15, 1)):
+        c.ring(kx + bx, ry + by, br, "#b6ff94")
+    # sparkles and steam over the pot
+    for (sx, sy) in ((-12, -20), (8, -24), (16, -16), (-3, -28)):
+        X, Y = kx + sx, ry + sy
+        c.px(X, Y, "#ffd84a"); c.px(X - 1, Y, "#ffd84a"); c.px(X + 1, Y, "#ffd84a"); c.px(X, Y - 1, "#ffd84a"); c.px(X, Y + 1, "#ffd84a")
+    for k in range(3):
+        for j in range(7): c.px(kx - 9 + k * 8 + (1 if (j // 2) % 2 else 0), ry - 9 - j * 2 - k * 2, "#8f7fbf")
+    # ladle sticking out
+    c.line(kx + 6, ry - 2, kx + 15, ry - 22, "#8a6239"); c.line(kx + 7, ry - 2, kx + 16, ry - 22, "#6b4a2b")
+    # ingredients dropping in: a lemon, a toadstool, an ember pepper
+    lx, ly = kx - 16, ry - 30
+    c.rect(lx, ly, 6, 4, "#ffe14a"); c.px(lx - 1, ly + 1, "#ffe14a"); c.px(lx + 6, ly + 2, "#c9b02e"); c.rect(lx + 1, ly, 2, 1, "#fff6a8")
+    mx, my = kx + 2, ry - 40
+    c.rect(mx, my, 7, 3, "#e2483d"); c.rect(mx + 1, my - 1, 5, 1, "#e2483d"); c.px(mx + 2, my, "#ffffff"); c.px(mx + 5, my + 1, "#ffffff"); c.rect(mx + 2, my + 3, 3, 3, "#f1e2c8")
+    px_, py_ = kx + 20, ry - 34
+    c.rect(px_, py_, 3, 6, "#ff5a1f"); c.px(px_ + 1, py_ + 6, "#ff5a1f"); c.rect(px_ + 1, py_ - 2, 1, 2, "#4f9a37")
+    # the frog customer at the counter, with a bubble of taste pills
+    fx, fy = 10 if W < 180 else 18, cy - 7
+    c.sprite(SW_FROG, fx, fy, SW_FPAL, scale=2)
+    bx, by = fx - 2, fy - 22
+    c.rect(bx, by, 26, 13, "#22163a"); c.rect(bx + 1, by + 1, 24, 11, "#ffffff")
+    c.rect(bx + 6, by + 13, 3, 2, "#22163a"); c.px(bx + 7, by + 13, "#ffffff")
+    c.rect(bx + 3, by + 4, 9, 5, "#c79a63"); c.rect(bx + 14, by + 4, 9, 5, "#ff6070")
+    # the computer in a witch hat, behind the counter on the right
+    wx = kx + kr + 18
+    c.mascot(wx, cy, 30, flip=True)
+    hb = cy - 24
+    c.rect(wx - 12, hb, 24, 2, "#3a2a5c"); c.rect(wx - 12, hb + 1, 24, 1, "#22163a")
+    for j in range(15):
+        w = max(1, 15 - j)
+        c.rect(wx - w // 2 + j // 3, hb - 1 - j, w, 1, "#7b4fd0")
+    c.rect(wx - 7, hb - 3, 14, 2, "#ffd84a")
+    c.px(wx + 5, hb - 16, "#7b4fd0"); c.px(wx + 6, hb - 16, "#7b4fd0"); c.px(wx + 7, hb - 15, "#7b4fd0")
+
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
     "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
+    "soup-witch": soupwitch,
 }
 
 
