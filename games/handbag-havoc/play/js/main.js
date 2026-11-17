@@ -53,6 +53,7 @@
   let screen = 'title';           // title | play | upgrade | summary | pause
   let game = null, demo = null, demoMem = {}, mode = 'run';
   let acc = 0, last = performance.now(), overT = 0, upLock = 0, selIdx = 0;
+  let holdStart = false;   // 1.4: an autostarted run waits for the first touch or key (the player page may still have its full-screen prompt over the game)
   const botName = params.get('autoplay');   // random | skilled: lets a bot drive (attract/QA)
   const speed = Math.max(1, Math.min(8, +params.get('speed') || 1));
   const dailyNo = () => { const d = new Date(); return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2026, 9, 1)) / 86400000) + 1; };
@@ -80,6 +81,7 @@
   }
   window.addEventListener('keydown', (e) => {
     HH.SFX.init();
+    holdStart = false;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     keys.add(e.code);
     if (e.repeat) return;
@@ -110,6 +112,7 @@
 
   canvas.addEventListener('pointerdown', (e) => {
     HH.SFX.init();
+    holdStart = false;
     if (screen !== 'play' || joy.id !== null) return;
     joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; joy.active = true;
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -142,7 +145,7 @@
 
   // first-run hint: what to touch, until the player has steered once (cleared on first real input)
   function drawSteerHint(now) {
-    if (!game || game.moved || game.t > 12 || save.runs > 3 || game.state !== 'play') return;
+    if (!game || game.state !== 'play' || (!holdStart && (game.moved || game.t > 12 || save.runs > 3))) return;
     const s = Math.max(0.8, Math.min(1.3, Math.min(vw, vh) / 600));
     const y = vh - safe.b - 120 * s, a = 0.75 + 0.25 * Math.sin(now / 180);
     const txt = coarse ? 'drag in circles. turning powers the purse' : 'steer in circles. turning powers the purse';
@@ -202,7 +205,7 @@
     game.debug = skip > 1;   // test jumps never write bests
     for (let i = 1; i < skip; i++) { game.state = 'upgrade'; game.offers = game.makeOffers(); game.choose(HH.Bots.skilled.pick(game)); }
     window.__hh.botMem = {};
-    acc = 0; overT = 0; joy.active = false; joy.id = null;
+    acc = 0; overT = 0; joy.active = false; joy.id = null; holdStart = false;
     screen = 'play';
     show('title', false); show('summary', false); show('upgrade', false); show('pause', false);
     $('pauseBtn').style.display = 'block';
@@ -401,7 +404,7 @@
           const v = HH.Bots[botName].move(game, window.__hh.botMem, dt, botRnd);
           game.input.x = v.x; game.input.y = v.y;
         } else { const v = inputVec(); game.input.x = v.x; game.input.y = v.y; if (!game.moved && Math.hypot(v.x, v.y) > 0.3) game.moved = true; }
-        if (game.tickReal(dt)) {
+        if (!holdStart && game.tickReal(dt)) {
           acc += dt * game.timeScale() * speed;
           let n = 0;
           while (acc >= STEP && n < 6 * speed) { game.update(STEP); acc -= STEP; n++; }
@@ -439,6 +442,6 @@
     // 1.4: one tap from a clip (the hub's "tap to play" landing card) counts as the play tap: straight into a run, no title card
     let auto = false;
     try { auto = !!(window.cc && window.cc.autostart && window.cc.autostart()); } catch (e) { /* never break the game */ }
-    if (auto) startRun('run');
+    if (auto) { startRun('run'); holdStart = true; }
   }
 })();
