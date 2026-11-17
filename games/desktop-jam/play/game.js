@@ -405,7 +405,7 @@
     if (!L) return;
     const ms = performance.now() - L.start;
     const st = won ? starsFor(L.bonks) : 0;
-    lastResult = { mode: L.mode, idx: L.idx, won, ms, bonks: L.bonks, total: L.total, stars: st, day: dayNo(), jammed: !!L.jammed };
+    lastResult = { mode: L.mode, idx: L.idx, won, ms, bonks: L.bonks, total: L.total, left: remaining(), stars: st, day: dayNo(), jammed: !!L.jammed };
     cc.call('end', L.mode === 'daily' ? { durationMs: Math.round(ms) } : { score: (won ? L.idx + 1 : L.idx) * 100 + (L.total - remaining()), durationMs: Math.round(ms) });
     if (won) { sfx.win(); burstConfetti(); } else sfx.lose();
     if (L.mode === 'level' && won) {
@@ -425,8 +425,12 @@
     $('endTitle').textContent = r.won ? (r.mode === 'daily' ? 'daily: cleared' : allDone ? 'all ' + LEVELS + ' cleared' : 'desktop cleared') : (r.jammed ? 'jammed' : 'cooked');
     $('endTitle').className = r.won ? '' : 'bad';
     $('endStars').innerHTML = r.mode === 'level' && r.won ? [1, 2, 3].map((i) => `<span class="${i <= r.stars ? '' : 'off'}">&#9733;</span>`).join('') : '';
-    $('endMsg').innerHTML = !r.won && r.jammed ? 'jammed. every spinner was pointing at something. order matters here.' : allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose);
-    $('endStats').innerHTML = [[fmt(r.ms), 'time'], [r.bonks, 'bonks'], [r.mode === 'daily' ? '#' + r.day : (r.idx + 1) + '/' + LEVELS, r.mode === 'daily' ? 'daily' : 'level']]
+    // fewer than 3 stars: say how to get them and offer a one-tap retry (the replay hook)
+    const miss3 = r.mode === 'level' && r.won && r.stars < 3;
+    $('bStar3').hidden = !miss3;
+    $('endMsg').innerHTML = (miss3 ? `<span class="goal3">0 bonks = &#9733;&#9733;&#9733;.</span> ` : '') + (!r.won && r.jammed ? 'jammed. every spinner was pointing at something. order matters here.' : allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose));
+    // a loss shows how close it was (bonks is always 3 there): "22/30 cleared" makes the retry tempting
+    $('endStats').innerHTML = [[fmt(r.ms), 'time'], r.won || r.mode === 'daily' ? [r.bonks, 'bonks'] : [(r.total - r.left) + '/' + r.total, 'cleared'], [r.mode === 'daily' ? '#' + r.day : (r.idx + 1) + '/' + LEVELS, r.mode === 'daily' ? 'daily' : 'level']]
       .map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
     $('bNext').textContent = r.mode === 'daily' ? 'play levels' : r.won ? (allDone ? 'replay all' : 'next') : 'retry';
     $('end').classList.add('on');
@@ -793,6 +797,7 @@
     startLevel('level', r.idx + 1 >= LEVELS ? 0 : r.idx + 1);
   });
   on('bShare', share);
+  on('bStar3', () => { if (performance.now() - endAt < 800 || !lastResult) return; audio(); sfx.tap(); startLevel('level', lastResult.idx); });
   on('bEndMenu', () => { sfx.tap(); toTitle(); });
   on('bRestart', () => { $('bRestart').blur(); if (ui === 'play') restart(); });
   on('bMenu', () => { $('bMenu').blur(); sfx.tap(); toTitle(); });
