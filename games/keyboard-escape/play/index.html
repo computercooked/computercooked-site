@@ -35,17 +35,26 @@
   .meta { font-family: var(--mono); font-size: 12px; color: rgba(245, 243, 237, 0.6); margin-top: 8px; min-height: 16px; }
   .credit { margin-top: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: rgba(245, 243, 237, 0.45); }
   .credit b { color: var(--lime); }
-  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0; }
-  .stat { background: rgba(245, 243, 237, 0.07); border-radius: 10px; padding: 10px 8px; }
-  .stat .v { font-family: var(--mono); font-size: 24px; font-weight: 800; line-height: 1; }
-  .stat .l { font-family: var(--mono); font-size: 11px; color: rgba(245, 243, 237, 0.55); margin-top: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0; }
+  .stat { background: rgba(245, 243, 237, 0.07); border-radius: 10px; padding: 8px 4px; }
+  .stat .v { font-family: var(--mono); font-size: 20px; font-weight: 800; line-height: 1; }
+  .stat .l { font-family: var(--mono); font-size: 10.5px; color: rgba(245, 243, 237, 0.55); margin-top: 4px; line-height: 1.2; }
+  .stat:first-child .v { color: var(--lime); }
   .sub { color: rgba(245, 243, 237, 0.8); font-size: 14px; margin-top: 6px; }
-  #card { width: 100%; max-width: 240px; border-radius: 10px; display: block; margin: 4px auto 6px; }
+  .goals { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: rgba(245, 243, 237, 0.82); background: rgba(181, 154, 255, 0.08); border: 1px solid rgba(181, 154, 255, 0.28); border-radius: 10px; padding: 7px 10px; margin: 8px auto 2px; max-width: 400px; text-align: left; }
+  .goals:empty { display: none; }
+  .goals b { color: var(--lime); }
+  .goals .k { color: var(--lilac); }
+  .goals .pips { letter-spacing: 1px; color: var(--lilac); }
+  #card { width: 100%; max-width: 170px; border-radius: 10px; display: block; margin: 4px auto 6px; }
   #pauseBtn { position: fixed; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); z-index: 4; width: 44px; height: 44px; border-radius: 10px; border: 2px solid rgba(197, 255, 73, 0.5); background: rgba(16, 17, 20, 0.6); color: var(--lime); font-weight: 800; font-size: 14px; display: none; font-family: var(--mono); cursor: pointer; }
   #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--carbon); border: 1px solid var(--lime); color: var(--lime); font-family: var(--mono); padding: 10px 16px; border-radius: 10px; font-weight: 700; z-index: 9; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
   #toast.show { opacity: 1; }
   @media (hover: none) and (pointer: coarse) { .desk { display: none; } }
-  @media (max-height: 520px) { .panel { padding: 12px 16px 10px; } .how { margin: 6px auto 8px; } .stats { margin: 6px 0; } #card { max-width: 150px; } }
+  @media (max-height: 520px) { .panel { padding: 12px 16px 10px; } .how { margin: 6px auto 8px; } .stats { margin: 6px 0; } }
+  /* 1.7: the goals box made the end card taller; in short frames the share-card preview goes (share still works) so reboot stays in view */
+  @media (max-height: 720px) { #card { display: none; } }
+  @media (max-width: 360px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
 <body>
@@ -55,9 +64,10 @@
 <div id="title" class="overlay show">
   <div class="panel">
     <h1><small>+1 speed</small>keyboard escape</h1>
-    <div class="how">crash runs by himself. you just <b>jump</b> (hold for a bigger one). every key he lands on is <b>+1 speed</b>. fall in a gap and it's back to boot, but the speed stays. some gaps need more speed than you have. so: fall on purpose. land dead centre for <b>perfect</b> bonuses. reach <b>esc</b>, reboot, get faster.</div>
+    <div class="how">crash runs by himself. you just <b>jump</b>. every key he lands on is <b>+1 speed</b>. fall and he's back to boot but keeps his speed, so a firewall that stops you now won't later. land dead centre for <b>perfect</b>. reach <b>esc</b>.</div>
     <div class="row"><button class="btn big" id="playBtn">run</button></div>
-    <div class="row"><button class="btn ghost" id="sndBtn">sound: on</button><button class="btn ghost" id="spookBtn">spooky: off</button></div>
+    <div class="row"><button class="btn ghost" id="sndBtn">sound: on</button><button class="btn ghost" id="spookBtn">spooky: off</button><button class="btn ghost" id="hatBtn" style="display:none">hat: none</button></div>
+    <div class="goals" id="goalsT"></div>
     <div class="how" style="margin:8px auto 0;font-size:12.5px">jump: <b>tap</b> (hold = further)<span class="desk"> / <b>space</b> / <b>click</b> · pause: <b>p</b> · back to boot: <b>r</b> · mute: <b>m</b></span></div>
     <div class="meta" id="meta"></div>
     <div class="credit"><b>computer cooked</b> games</div>
@@ -79,6 +89,7 @@
     <div class="sub" id="winSub"></div>
     <img id="card" alt="result card">
     <div class="stats" id="stats"></div>
+    <div class="goals" id="goalsW"></div>
     <div class="row"><button class="btn big" id="rebootBtn">reboot (x2)</button></div>
     <div class="row"><button class="btn lilac" id="shareBtn">share</button><button class="btn ghost" id="againBtn">time trial (speed 0)</button></div>
     <div class="credit"><b>computer cooked</b> games</div>
