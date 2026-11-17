@@ -66,12 +66,12 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
       ((r.stderr || "").match(/^\s+\S.*$/gm) || []).slice(0, 5));
   }
   const src = readFileSync(new URL("../native/portal.js", import.meta.url), "utf8");
-  const portalVm = async (portal) => {
+  const portalVm = async (portal, extra = {}) => {
     const shared = [], copied = [];
     const ta = { value: "beat 9 www.computercooked.com/games/x/ yes", select() {} };
     const nav = { share(d) { shared.push(d); return Promise.resolve(); }, clipboard: { writeText(t) { copied.push(t); return Promise.resolve(); } } };
     const doc = { addEventListener() {}, createElement() { return { style: {}, addEventListener() {} }; }, activeElement: ta, execCommand() { return true; } };
-    const win = { CC_PORTAL: { name: portal === "itch" ? "none" : portal, portal, slug: "keyboard-escape" }, navigator: nav, addEventListener() {} };
+    const win = { CC_PORTAL: { name: portal === "itch" ? "none" : portal, portal, slug: "keyboard-escape", ...extra }, navigator: nav, addEventListener() {} };
     const ctx = vm.createContext({ window: win, document: doc, navigator: nav, setTimeout, Promise, Date, sessionStorage: { getItem() { return null; }, setItem() {} } });
     vm.runInContext(src, ctx);
     await nav.share({ title: "keyboard escape · computercooked.com", text: "i hit +1,240 speed → https://computercooked.com/games/keyboard-escape/?ref=share", url: "https://computercooked.com/games/keyboard-escape/" });
@@ -85,6 +85,16 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
     "portal.js: ad-portal shares and copies carry no link", cg);
   ok(itch.shared[0] && itch.shared[0].url === "https://computercooked.com/games/keyboard-escape/" && /computercooked\.com/.test(itch.copied[0]) && /computercooked/.test(itch.ta),
     "portal.js: itch.io shares keep their link", itch);
+  // Nov 17: an itch build made with --no-links (CC_PORTAL.links false) cleans links like an ad portal
+  const itchNo = await portalVm("itch", { links: false }), sn = itchNo.shared[0] || {};
+  ok(!("url" in sn) && sn.text === "i hit +1,240 speed" && itchNo.copied[0] === "beat my 1,240" && itchNo.ta === "beat 9 yes",
+    "portal.js: an itch.io --no-links build carries no link in shares and copies", itchNo);
+  {
+    const r = spawnSync(process.execPath, ["scripts/package-portal.mjs", "keyboard-escape", "itch", "--no-links"], { cwd: repo, encoding: "utf8" });
+    const h = readFileSync(new URL("../dist/portals/itch/keyboard-escape/index.html", import.meta.url), "utf8");
+    ok(r.status === 0 && h.includes('"links":false'), "package-portal --no-links: CC_PORTAL.links is false in the build", (r.stderr || "").slice(0, 160));
+    spawnSync(process.execPath, ["scripts/package-portal.mjs", "keyboard-escape", "itch"], { cwd: repo, encoding: "utf8" }); // back to the normal build
+  }
   // round 25: portal store text, ready ahead. One section per first candidate, a 200-500 character description
   // (GameDistribution's range), and no URL anywhere except the itch.io lines (ad portals ban links out)
   const storeTxt = readFileSync(new URL("../docs/portal-store-text.md", import.meta.url), "utf8").replace(/\r\n/g, "\n");
