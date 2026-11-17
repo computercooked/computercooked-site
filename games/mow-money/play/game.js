@@ -72,6 +72,8 @@ const PERKS = [
   { id: 'flow', tier: 2, name: 'flow state', ds: 'your streak goes 0.25 higher, per level. you are one with the lawn.', cost: l => 5 + 3 * l, max: 4 },
   { id: 'insure', tier: 2, name: 'hazard insurance', ds: 'dogs, rocks, fines, windmills and wind hurt 25% less, per level.', cost: l => 3 + 2 * l, max: 3 },
   { id: 'intern', tier: 2, name: 'an intern', ds: 'buys the cheapest upgrade for you every 4s. unpaid. (that is the perk.)', cost: l => 8, max: 1 },
+  // the endless compost sink: never maxes, so late compost always has somewhere to go
+  { id: 'goldgnome', tier: 3, name: 'a golden gnome', ds: 'cash x1.5 forever, per level. solid gold. very heavy. nobody knows where they come from.', cost: l => Math.ceil(40 * Math.pow(1.7, l)), max: Infinity },
 ];
 const hurt = () => Math.max(0.2, 1 - 0.25 * (S.perks.insure | 0));
 
@@ -138,7 +140,7 @@ const SAVE_KEY = 'mm-save';
 function fresh() {
   return {
     v: 1, cash: 0, runEarned: 0, lifeEarned: 0, playT: 0, offT: 0, lvl: {}, lawn: 0, owned: 1,
-    compost: 0, compostTotal: 0, perks: {}, gnomes: {}, prestiges: 0, muted: false, t: 0, offRate: 0,
+    compost: 0, compostTotal: 0, lastSale: 0, perks: {}, gnomes: {}, prestiges: 0, muted: false, t: 0, offRate: 0,
     started: false, best: 0, newG: 0, sellSeen: 0, tut: 0,
   };
 }
@@ -169,13 +171,18 @@ const shortH = () => Math.min(0.8, 0.5 * Math.sqrt(sprF() * (1 + 0.15 * pk('thum
 const helperMul = () => 1 + 0.2 * pk('goats');
 const uniqueGnomes = () => Object.keys(S.gnomes).length;
 function valueMul() {
-  return Math.pow(1.25, lv('value')) * (1 + 0.05 * S.compostTotal) * (1 + 0.2 * pk('soil')) * (1 + 0.03 * uniqueGnomes());
+  return Math.pow(1.25, lv('value')) * (1 + 0.05 * S.compostTotal) * (1 + 0.2 * pk('soil')) * (1 + 0.03 * uniqueGnomes()) * Math.pow(1.5, pk('goldgnome'));
 }
 const cellVal = () => CELL_BASE * L().mult * valueMul();
 const upCost = id => { const u = UPI[id]; return u.base * Math.pow(u.k, lv(id)); };
 const lawnCost = i => LAWNS[i].cost * Math.pow(0.6, pk('realtor'));
-const COMPOST_DIV = 4e6;
-const compostFor = e => Math.floor(Math.pow(Math.max(0, e) / COMPOST_DIV, 0.45));
+// compost (Nov 16 ship prep): a sale pays (cash earned this run / $1m) ^ 0.3, and doug never pays more than 2.5x your
+// last sale. the old curve (^0.45, uncapped) snowballed: 28 -> 2.4k -> 918k -> 55m compost by the 4th sale.
+const COMPOST_DIV = 1e6, COMPOST_Q = 0.3, COMPOST_CAP = 2.5;
+const compostRaw = () => Math.floor(Math.pow(Math.max(0, S.runEarned) / COMPOST_DIV, COMPOST_Q));
+const compostCap = () => S.lastSale > 0 ? Math.floor(S.lastSale * COMPOST_CAP) : Infinity;
+const compostFor = () => Math.min(compostRaw(), compostCap()); // what selling now pays
+const compostMore = () => Math.max(0, COMPOST_DIV * Math.pow(compostRaw() + 1, 1 / COMPOST_Q) - S.runEarned); // cash until one more
 const offCap = () => 3600 * (1 + pk('shed'));
 
 /* ---------------- grid ---------------- */
@@ -184,6 +191,7 @@ const gc = document.createElement('canvas'), gx = gc.getContext('2d');
 let DPR = 1, VW = 300, VH = 300;
 let W = 0, H = 0, N = 0, cs = 6, ox = 0, oy = 0;
 let gcut = null, dir = null, type = null, noiseA = null, noiseB = null, img = null;
+let rowDirty = null, grassFull = true, grassPhase = 0; // grass bitmap cache: rows to redraw
 let G = 0; // growth clock: a cell is h = min(1, G - gcut[i]) tall
 let layout = null; // normalized lawn features
 const SH = new Float32Array(256); // stripe shade per heading byte
@@ -315,6 +323,7 @@ function setupGrid(force) {
   layout = makeLayout(S.lawn);
   makeNoise(); applyLayout();
   gc.width = W * 2; gc.height = H * 2; img = gx.createImageData(W * 2, H * 2);
+  rowDirty = new Uint8Array(H); grassFull = true;
   layoutPx();
 }
 function layoutPx() {
@@ -372,6 +381,7 @@ function cut(cx, cy, r, a, messy) {
   const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(W - 1, Math.ceil(cx + r));
   const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(H - 1, Math.ceil(cy + r));
   const r2 = r * r; let db = angB(a), e = 0; CT = 0; CG = 0; CE = 0;
+  if (rowDirty) for (let y = y0, ye = Math.min(H - 1, y1 + 1); y <= ye; y++) rowDirty[y] = 1; // (+1: the row below shades off this one)
   for (let y = y0; y <= y1; y++) {
     const dy = y + 0.5 - cy;
     for (let x = x0; x <= x1; x++) {
@@ -490,7 +500,7 @@ function updPlayer(dt) {
       }
     }
     puffT -= dt;
-    if (puffT <= 0 && !SKIPPING) {
+    if (puffT <= 0 && !SKIPPING && parts.length < PMAX) {
       puffT = 0.12;
       const bx = P.x - Math.cos(P.a) * r * 0.75 + Math.sin(P.a) * r * 0.4, by = P.y - Math.sin(P.a) * r * 0.75 - Math.cos(P.a) * r * 0.4;
       parts.push({ puff: true, x: sx(bx), y: sy(by), vx: -Math.cos(P.a) * 25 + rnd(-8, 8), vy: -Math.sin(P.a) * 25 + rnd(-8, 8) - 10, z: 0, vz: 0, life: 0.6, max: 0.6, c: '#c9ced6', s: clamp(r * cs * 0.1, 2.5, 6) });
@@ -508,7 +518,7 @@ function updPlayer(dt) {
     if (!SKIPPING) {
       addPop(P.x, P.y - 1, '+$' + fmt(pend), P.streak > 1.6 ? '#ffd23f' : '#c5ff49', 0.7 + Math.min(0.6, P.streak - 1));
       play('pop', 0.25, rnd(0.85, 1.35));
-      if (parts.length < 300) for (let k = 0; k < 2; k++) parts.push({ home: true, x0: sx(P.x) + rnd(-8, 8), y0: sy(P.y) + rnd(-8, 8), x: 0, y: 0, t: -k * 0.08, life: 9, c: k ? '#c5ff49' : '#8bd450', s: 5 });
+      if (parts.length < PMAX) for (let k = 0; k < 2; k++) parts.push({ home: true, x0: sx(P.x) + rnd(-8, 8), y0: sy(P.y) + rnd(-8, 8), x: 0, y: 0, t: -k * 0.08, life: 9, c: k ? '#c5ff49' : '#8bd450', s: 5 });
     }
     pend = 0;
   }
@@ -614,7 +624,7 @@ function updObjects(dt) {
     for (let y = Math.floor(cy - rr); y <= cy + rr; y++) for (let x = Math.floor(cx - rr); x <= cx + rr; x++) {
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const i = y * W + x; if (type[i] !== 0) continue;
-      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= rr) { type[i] = 1; gcut[i] = G - 1.5; }
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= rr) { type[i] = 1; gcut[i] = G - 1.5; grassFull = true; }
     }
   }
   // dog
@@ -684,7 +694,7 @@ function tutorial() {
   if (S.tut === 0 && tutT > 1.5) { S.tut = 1; noteT = Math.max(noteT, 14); note('cut grass = <b>cash</b>. long grass pays more. keep cutting for a <b>streak</b>.'); }
   else if (S.tut === 1 && S.cash >= upCost('blade') && !lv('blade')) { S.tut = 2; noteT = Math.max(noteT, 14); note('you can afford <b>a wider blade</b>. ' + (wide ? 'it is on the right.' : 'tap <b>upgrades</b> down below.')); }
   else if (S.tut === 2 && S.owned === 1 && S.cash >= lawnCost(1) * 0.4) { S.tut = 3; noteT = Math.max(noteT, 14); note('the bar up top is your next lawn. <b>' + LAWNS[1].name + '</b> pays 5x.'); }
-  else if (S.tut === 3 && S.owned >= 3 && S.runEarned >= COMPOST_DIV * 0.6) { S.tut = 4; note('when the lawns run out, <b>sell</b> the business for compost. compost is forever.'); }
+  else if (S.tut === 3 && S.owned >= 3 && compostFor() >= 1) { S.tut = 4; note('when the lawns run out, <b>sell</b> the business for compost. compost is forever.'); }
 }
 function immaculate() {
   immReady = false; immCount++;
@@ -711,6 +721,7 @@ function fullLawn() {
   evt('full_lawn');
 }
 function confetti(n) {
+  n = Math.min(n, Math.max(0, PMAX + 40 - parts.length));
   const cols = ['#c5ff49', '#b59aff', '#ffd23f', '#ff5d8f', '#4cc9f0', '#f5f3ed'];
   for (let i = 0; i < n; i++) parts.push({ fall: true, x: rnd(0, VW), y: rnd(-40, VH * 0.2), vx: rnd(-40, 40), vy: rnd(20, 120), z: 0, vz: 0, life: rnd(1.6, 2.6), c: pick(cols), s: rnd(3, 6) });
 }
@@ -732,8 +743,9 @@ function collectGnome() {
 /* ---------------- particles / pops ---------------- */
 const sx = x => ox + x * cs, sy = y => oy + y * cs;
 function spawnClippings(n, gold) { spawnClipAt(P.x, P.y, P.a, n, gold); }
+const PMAX = 220; // particle cap (clippings, bills, confetti, puffs) so busy late lawns stay smooth on phones
 function spawnClipAt(x, y, a, n, gold) {
-  if (parts.length > 280) return;
+  if (parts.length > PMAX - 40) return;
   const L0 = L();
   const moon = S.lawn === 3;
   for (let i = 0; i < n; i++) {
@@ -751,7 +763,11 @@ function renderGrass() {
   const d = img.data, L0 = L(), W2 = W * 2;
   const [tr0, tg0, tb0] = L0.tall, [lr, lg, lb] = L0.cl, [dr, dg, db] = L0.cd, [pr, pg, pb] = L0.spec;
   const shimmer = timeNow * 5;
+  // growth is slow, so untouched rows only refresh every 3rd frame; cut rows refresh at once
+  grassPhase = (grassPhase + 1) % 3;
   for (let y = 0; y < H; y++) {
+    if (!grassFull && !rowDirty[y] && y % 3 !== grassPhase) continue;
+    rowDirty[y] = 0;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, t = type[i];
       let r, g, b, amp;
@@ -786,6 +802,7 @@ function renderGrass() {
       n = noiseB[q + 3] * amp; d[p2 + 4] = r + n; d[p2 + 5] = g + n; d[p2 + 6] = b + n * 0.6; d[p2 + 7] = 255;
     }
   }
+  grassFull = false;
   gx.putImageData(img, 0, 0);
 }
 let stars = null;
@@ -831,7 +848,9 @@ function render(dt) {
   if (layout.mills) layout.mills.forEach((m, k) => drawMill(sx(m.x * W), sy(m.y * H), timeNow * 1.4 + k * 0.7));
   if (gnome) drawGnome(ctx, sx(gnome.x), sy(gnome.y) + Math.sin(gnome.t * 4) * 1.5, Math.max(22, cs * 3.4) * (SHOT ? 1.8 : 1), gnome.id, gnome.life < 5 ? (gnome.life * 4 % 1 > 0.5 ? 0.35 : 1) : 1, true);
   if (dog) drawDog();
-  for (const h of helpers) drawHelper(h);
+  // at most 12 helpers get the full drawing each frame (dougs and robots first); extra goats get a cheap two-ellipse goat
+  let nFull = 0;
+  for (const k of ['doug', 'robot', 'goat']) for (const h of helpers) if (h.k === k) { if (nFull < 12) { drawHelper(h); nFull++; } else drawGoatLite(h); }
   if (S.started || SHOT) drawPlayer();
   // particles
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -906,7 +925,7 @@ function render(dt) {
   }
   ctx.globalAlpha = 1;
   // bubbles
-  for (const h of helpers) if (h.bubT > 0 && h.bub) bubble(sx(h.x), sy(h.y) - Math.max(16, cs * 2.6), h.bub);
+  let nBub = 0; for (const h of helpers) if (h.bubT > 0 && h.bub && nBub++ < 4) bubble(sx(h.x), sy(h.y) - Math.max(16, cs * 2.6), h.bub);
   // idle hint
   if (S.started && P.idle > 7 && !paused) {
     const a = 0.5 + 0.5 * Math.sin(timeNow * 5);
@@ -983,6 +1002,11 @@ function drawMower(c, x, y, a, size, body, cap, dizzy, deckW) {
   }
   c.restore();
   if (dizzy) { c.fillStyle = '#ffd23f'; c.font = '900 14px monospace'; c.textAlign = 'center'; for (let i = 0; i < 3; i++) { const t = timeNow * 6 + i * 2.1; c.fillText('*', x + Math.cos(t) * size * 0.6, y - size * 0.6 + Math.sin(t) * 4); } }
+}
+function drawGoatLite(h) {
+  const x = sx(h.x), y = sy(h.y), s = Math.max(16, cs * 2.6), c = Math.cos(h.a), n = Math.sin(h.a);
+  ctx.fillStyle = '#f8f9fa'; ctx.beginPath(); ctx.ellipse(x, y, s * 0.55, s * 0.33, h.a, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#e9ecef'; ctx.beginPath(); ctx.arc(x + c * s * 0.6, y + n * s * 0.6, s * 0.2, 0, TAU); ctx.fill();
 }
 function drawHelper(h) {
   const x = sx(h.x), y = sy(h.y), st = H_STATS[h.k];
@@ -1260,14 +1284,15 @@ function buildSheet() {
     });
     b.appendChild(grid);
   } else if (tab === 'sell') {
-    const c = compostFor(S.runEarned);
-    const nextAt = Math.pow(c + 1, 1 / 0.45) * COMPOST_DIV;
+    const c = compostFor();
+    const more = compostMore(), capped = compostRaw() > compostCap();
     b.insertAdjacentHTML('beforeend', `<div class="sec">sell everything (cash, upgrades, helpers, lawns) for <b>compost</b>. every compost you ever earn is <b>+5% cash forever</b>, and you can spend it on perks below. gnomes stay.</div>
-      <div class="sec">this business has earned <b>$${fmt(S.runEarned)}</b>. selling now gets <b id="cpnow">${c} compost</b>. next one at $${fmt(nextAt)}.</div>
-      <button class="big" id="sellbtn" ${c < 1 ? 'disabled' : ''}>${c < 1 ? 'earn $' + fmt(COMPOST_DIV) + ' first' : 'sell for ' + c + ' compost'}</button>
+      <div class="sec">this business has earned <b>$${fmt(S.runEarned)}</b>. selling now gets <b id="cpnow">${c} compost</b>. ${capped ? 'that is doug\'s limit: he never pays more than ' + COMPOST_CAP + 'x your last sale (' + S.lastSale + ').' : 'the next one comes at $' + fmt(S.runEarned + more) + '.'}</div>
+      <button class="big" id="sellbtn" ${c < 1 ? 'disabled' : ''}>${c < 1 ? 'earn $' + fmt(more) + ' more first' : 'sell for ' + c + ' compost'}</button>
       <div class="sec">compost: <b>${S.compostTotal}</b> earned (+${S.compostTotal * 5}% cash) · <b>${S.compost}</b> to spend</div>`);
     PERKS.forEach(p => {
       if (p.tier === 2 && p.id === 'nitro') b.insertAdjacentHTML('beforeend', '<div class="sec"><b>the back shed</b> · fancier compost perks. they stay forever.</div>');
+      if (p.tier === 3) b.insertAdjacentHTML('beforeend', '<div class="sec"><b>the vault</b> · no max. for when you have too much compost.</div>');
       const l = pk(p.id), cost = p.cost(l), mx = l >= p.max;
       const el = document.createElement('button'); el.className = 'item' + (mx ? ' max' : S.compost >= cost ? '' : ' no'); el.dataset.perk = p.id;
       el.innerHTML = `<div class="txt"><div class="nm">${p.name}<small>lv ${l}</small></div><div class="ds">${p.ds}</div></div><div class="pr">${mx ? 'max' : cost + ' compost'}</div>`;
@@ -1323,8 +1348,8 @@ function refreshUI(force) {
       el.querySelector('.fill').style.width = !own && i === S.owned ? Math.min(100, S.cash / c * 100) + '%' : '0';
     });
   } else if (tab === 'sell') {
-    const c = compostFor(S.runEarned), btn = $('#sellbtn');
-    if (btn) { btn.disabled = c < 1; btn.textContent = c < 1 ? 'earn $' + fmt(COMPOST_DIV) + ' first' : 'sell for ' + c + ' compost'; }
+    const c = compostFor(), btn = $('#sellbtn');
+    if (btn) { btn.disabled = c < 1; btn.textContent = c < 1 ? 'earn $' + fmt(compostMore()) + ' more first' : 'sell for ' + c + ' compost'; }
     const cp = $('#cpnow'); if (cp) cp.textContent = c + ' compost';
   }
 }
@@ -1403,7 +1428,7 @@ function sellBusiness(fromTest) {
   // the run's time includes the offline time it was paid for, so score / duration stays within the board's max_score_per_sec
   try { window.cc && cc.end({ score: Math.max(1, Math.round(S.runEarned)), durationMs: Math.round((S.playT + (S.offT || 0)) * 1000), completed: true }); } catch (e) { }
   evt('sold_business', { compost: c, n: S.prestiges + 1 });
-  S.compost += c; S.compostTotal += c; S.prestiges++;
+  S.compost += c; S.compostTotal += c; S.prestiges++; if (c > 0) S.lastSale = c;
   newRun();
   if (!fromTest) showEndCard(runStats);
 }
@@ -1544,13 +1569,15 @@ addEventListener('message', e => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { save(); hiddenAt = Date.now(); updEngine(); }
   else if (hiddenAt && Date.now() - hiddenAt > 60000) { offline(Date.now() - hiddenAt); hiddenAt = 0; }
+  else if (hiddenAt) { offline(Date.now() - hiddenAt, true); hiddenAt = 0; } // a short switch-away: paid quietly
 });
 let hiddenAt = 0;
 addEventListener('pagehide', save);
 
-function offline(ms) {
+function offline(ms, quiet) {
   const secs = Math.min(offCap(), ms / 1000);
   const gain = (S.offRate || 0) * secs;
+  if (quiet) { if (gain > 0 && S.started) { earn(gain, false); S.offT = (S.offT || 0) + secs; G += secs * growRate(); } return; }
   if (gain < 1 || secs < 30) return;
   earn(gain, false); S.offT = (S.offT || 0) + secs;
   G += secs * growRate(); // the lawn grows back while you're away
@@ -1574,6 +1601,7 @@ addEventListener('resize', () => { clearTimeout(relayout._t); relayout._t = setT
 let workMs = 0, last = performance.now(), saveT = 0, fpsN = 0, fpsT = 0, fps = 60, scoreT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (document.hidden) { last = now; return; } // hidden: skip all work (the time away is paid on return)
   let dt = (now - last) / 1000; last = now;
   if (dt > 0.1) dt = 0.1; if (dt < 0) dt = 0;
   fpsN++; fpsT += dt; if (fpsT >= 1) { fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
@@ -1613,7 +1641,7 @@ let autoBuy = false; const __log = [];
 if (TEST) {
   window.__mm = {
     state: () => ({ cash: S.cash, runEarned: S.runEarned, lifeEarned: S.lifeEarned, playT: S.playT, lvl: Object.assign({}, S.lvl), lawn: S.lawn, owned: S.owned, compost: S.compost, compostTotal: S.compostTotal, prestiges: S.prestiges, gnomes: uniqueGnomes(), rate: rateEMA, rateH, fps, W, H, cs, cellVal: cellVal(), compostNow: compostFor(S.runEarned), parts: parts.length, imm: immCount, mowed: mowedFrac, workMs, stripes, goal: document.querySelector('#goaltxt').textContent, paused, muted: isMuted() }),
-    cash: n => { S.cash += n; S.runEarned += n; dirtyUI = true; return S.cash; },
+    cash: n => { S.cash += n; S.runEarned += n; S.lifeEarned += n; dirtyUI = true; return S.cash; },
     lawn: n => { S.owned = Math.max(S.owned, n + 1); goLawn(n); return S.lawn; },
     prestige: () => { const c = compostFor(S.runEarned); sellBusiness(true); return c; },
     sellCard: () => showEndCard({ earned: S.runEarned || 1234567, t: S.playT || 960, lawn: S.owned, gnomes: uniqueGnomes(), compost: compostFor(S.runEarned) || 7 }),
