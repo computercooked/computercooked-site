@@ -635,32 +635,37 @@
     cx.fillStyle = "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
     const mid = H * 0.42, big = Math.round(Math.max(28, Math.min(52, W / 9)));
     if (state === "title") {
-      const y0 = H * 0.16, sub = Math.max(12, Math.min(16, W / 28)), s = Math.min(96, W * 0.22, H * 0.17);
+      const tight = H < 600, y0 = tight ? Math.max(big * 0.75, H * 0.11) : H * 0.16, sub = Math.max(12, Math.min(16, W / 28)), s = Math.min(96, W * 0.22, H * (tight ? 0.15 : 0.17));
       text("goose court", W / 2, y0, big, CASE, "center", 900);
-      text("a goose is on trial. you are the judge.", W / 2, y0 + big * 0.95, sub, "#c9c4a8", "center", 700);
+      text("a goose is on trial. you are the judge.", W / 2, y0 + big * (tight ? 0.85 : 0.95), sub, "#c9c4a8", "center", 700);
       // the rule, shown: guilty if the beak holds the charge
-      const cy = y0 + big * 0.95 + 44;
+      const cy = y0 + big * (tight ? 0.85 : 0.95) + (tight ? 30 : 44);
       text("charge: bread theft", W / 2, cy, sub + 2, LIME, "center", 800);
-      const gy = cy + 22;
+      const gy = cy + (tight ? 14 : 22);
       cx.imageSmoothingEnabled = false;
       const g1 = W / 2 - s - 30, g2 = W / 2 + 10;
       cx.drawImage(SPR.goose, g1, gy, s, s); cx.drawImage(SPR.bread, g1 + s * 0.94, gy + s * 0.25 - s * 0.15, s * 0.45, s * 0.3);
       cx.drawImage(SPR.goose, g2, gy, s, s); cx.drawImage(SPR.phone, g2 + s * 0.94, gy + s * 0.25 - s * 0.17, s * 0.35, s * 0.35);
       text("GUILTY", g1 + s / 2, gy + s + 16, 15, BAD, "center", 900);
       text("NOT GUILTY", g2 + s / 2, gy + s + 16, 15, GOOD, "center", 900);
-      text("judge the beak. swipe ← guilty, → not guilty.", W / 2, gy + s + 50, Math.max(11, Math.min(14, W / 32)), "#c9c4a8", "center", 700);
-      let ty = gy + s + 50;
+      let ty = gy + s + (tight ? 38 : 50);
+      text("judge the beak. swipe ← guilty, → not guilty.", W / 2, ty, Math.max(11, Math.min(14, W / 32)), "#c9c4a8", "center", 700);
       const g = activeGoals()[0], small = Math.max(11, Math.min(14, W / 32));
       if (best > 0 || done.length) {
-        ty += 26; text("rank: " + rankOf(done.length).name + "  ·  best " + best + (bestCourt ? "  ·  " + COURTS[bestCourt].name : ""), W / 2, ty, small, CASE, "center", 800);
+        ty += tight ? 22 : 26; text("rank: " + rankOf(done.length).name + "  ·  best " + best + (bestCourt ? "  ·  " + COURTS[bestCourt].name : ""), W / 2, ty, small, CASE, "center", 800);
       }
-      if (g) { ty += 22; text((done.length ? "next goal: " : "first goal: ") + g[1], W / 2, ty, small, LIME2, "center", 800); }
+      if (g) { ty += tight ? 20 : 22; text((done.length ? "next goal: " : "first goal: ") + g[1], W / 2, ty, small, LIME2, "center", 800); }
       const today = day === dayKey(0), alive = today || day === dayKey(1);
-      if (alive && streakDays >= 2) { ty += 22; text(today ? "on the bench " + streakDays + " days running" : "one trial today keeps your " + streakDays + "-day streak", W / 2, ty, small, "#ffb340", "center", 800); }
-      text("tap to open court", W / 2, Math.max(ty + 34, Math.min(L.btnY - 24, gy + s + 96)), 18, LIME, "center", 900);
+      if (alive && streakDays >= 2) { ty += tight ? 20 : 22; text(today ? "on the bench " + streakDays + " days running" : "one trial today keeps your " + streakDays + "-day streak", W / 2, ty, small, "#ffb340", "center", 800); }
+      text("tap to open court", W / 2, Math.max(ty + (tight ? 30 : 34), Math.min(L.btnY - 24, gy + s + 96)), 18, LIME, "center", 900);
     } else {
       // review16 r4: the end card also says how far up the courts you got, your rank, and the goals (done now, or next)
       let y = Math.max(40, H * 0.1);
+      const nRows = Math.min(3, gotNow.slice(-2).length + activeGoals().length);
+      const panH = big * 0.6 + big * 1.2 + big * 0.95 + 22 + 22 + 30 + nRows * 20 + 36 + 22, panW = Math.min(W - 16, 470);
+      cx.fillStyle = INK; cx.fillRect((W - panW) / 2 - 3, y - big * 0.6 - 3, panW + 6, panH + 6);
+      cx.fillStyle = "rgba(24, 25, 20, 0.97)"; cx.fillRect((W - panW) / 2, y - big * 0.6, panW, panH);
+      cx.fillStyle = BAD; cx.fillRect((W - panW) / 2, y - big * 0.6, panW, 4);
       text("disbarred", W / 2, y, Math.round(big * 0.85), BAD, "center", 900);
       y += big * 1.2; text(String(score), W / 2, y, Math.round(big * 1.3), CASE, "center", 900);
       y += big * 0.95; text("best " + best + "  ·  " + correct + "/" + judged + " right  ·  " + (judged ? Math.round(correct / judged * 100) : 0) + "% accuracy", W / 2, y, 14, "#c9c4a8", "center", 700);
