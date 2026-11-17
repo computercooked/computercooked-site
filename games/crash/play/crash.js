@@ -823,6 +823,9 @@
     ctx.fillStyle = "#b9b7b0";
     ctx.fillText("BEST " + best, W - 12, 52);
     if (streak >= 3) { ctx.fillStyle = streak >= 10 ? "#C5FF49" : "#F5F3ED"; ctx.fillText("STREAK " + streak, W - 12, 65); }
+    // v2.4: points to the next promotion, live (career + this run)
+    var nxr = RANKS[promoShown + 1];
+    if (nxr) { ctx.fillStyle = "#B59AFF"; ctx.fillText(nxr.name.toUpperCase() + " IN " + Math.max(1, Math.ceil(nxr.at - career - score)), W - 12, streak >= 3 ? 78 : 65); }
     if (firewalls > 0) { ctx.textAlign = "left"; ctx.fillStyle = "#B59AFF"; ctx.fillText("FIREWALL " + (firewalls > 1 ? "x" + firewalls : "ON"), 12, 65); }
     // the run's goal, always in view: beat your best time (or reach 30 s on a first run)
     var goal = runGoal;
@@ -934,9 +937,9 @@
       var pa = 0.75 + Math.sin(performance.now() / 260) * 0.25;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillStyle = "rgba(16,17,20,0.88)";
-      rr(W / 2 - 150, H * 0.34, 300, 92, 14); ctx.fill();
+      rr(W / 2 - 156, H * 0.34, 312, 92, 14); ctx.fill();
       ctx.strokeStyle = "#C5FF49"; ctx.lineWidth = 2;
-      rr(W / 2 - 150, H * 0.34, 300, 92, 14); ctx.stroke();
+      rr(W / 2 - 156, H * 0.34, 312, 92, 14); ctx.stroke();
       ctx.globalAlpha = pa;
       ctx.fillStyle = "#C5FF49";
       ctx.font = "800 22px 'JetBrains Mono', monospace";
@@ -944,7 +947,7 @@
       ctx.globalAlpha = 1;
       ctx.fillStyle = "#F5F3ED";
       ctx.font = "800 12px 'JetBrains Mono', monospace";
-      ctx.fillText("dodge tasks · grab coffee · don't overheat", W / 2, H * 0.34 + 64);
+      ctx.fillText("dodge tasks · grab coffee · stay cool", W / 2, H * 0.34 + 64);
     }
     if (promo > 0) {
       // promotion: the whole screen gets a lime frame for a beat (reads with the sound off)
@@ -1214,7 +1217,7 @@
   });
 
   // read-only test hook for ?cctest runs
-  window.__crash = { state: function () { return { state: state, t: t, heat: heat, score: Math.floor(score), hits: hits, streak: streak, topStreak: topStreak, pickups: pickups, tasks: tasks.length, items: items.length }; } };
+  window.__crash = { state: function () { return { state: state, t: t, heat: heat, score: Math.floor(score), hits: hits, streak: streak, topStreak: topStreak, pickups: pickups, tasks: tasks.length, items: items.length, career: career, rank: promoShown, firewalls: firewalls, blocked: blocked }; } };
 
   /* ---------- boot ---------- */
   document.getElementById("title-best").textContent = (DARE ? "dare: beat " + DARE + " points. " : "") + (best ? "best: " + best + (bestTime ? " · " + bestTime + "s" : "") : "no high score yet. be the first casualty.");
