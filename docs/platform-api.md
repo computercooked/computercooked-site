@@ -317,6 +317,14 @@ On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), poi
 
 "my stats" in the command bar (also a did-you-know tip) opens a player card for this device (`dialog.stats`, styled in `assets/deck.css`): level, title and xp, a bar for how many games have been tried out of all of them, six numbers (games tried, runs, time played, games with a best, badges, longest speedrun), the top three games by time and a grid of the last 8 weeks of play days. It reads only what the site already keeps in localStorage: `cc-history`, `cc-time`, `cc-guest-xp` (its level maths copies `xpFor`/`TITLES` from `games/platform.js`, so change both together) and `cc-watch-best`. "Games tried" counts a game with a run started (`cc-history`), time on the clock (`cc-time`) or a run in `cc-guest-xp`, out of the listed games. A logged-in player's account xp isn't in it. "copy" puts a one-line summary on the clipboard. `assets/deck.js` owns it: `window.ccStats.open()`. Nothing is sent; the only request is `/games/games.json` for titles.
 
+## Tap to play full screen (phones)
+
+On a touch screen under 768px wide, `games/player.js` puts a big "▶ tap to play full screen" button over the game (`.fs-tap`, styled in `games/games.css`), with "or play here" under it.
+- **The big button:** presses the bar's fullscreen button (real fullscreen, or the CSS fallback on iPhones) and hands focus to the game.
+- **"Or play here":** removes the prompt and is remembered for the tab (sessionStorage `cc-fs-here`).
+- **Never shown:** on a dare link (`?vs=` / `?d=`; the dare's intro card comes first), inside a frame, in the mini player or once in fullscreen.
+- **Loading:** the game boots underneath as before, so nothing waits on the tap.
+
 ## Play on your phone
 
 On screens 900px and wider, the game bar has a phone button (`#btn-phone`, added by `games/player.js`) that shows a QR code of the game's page tagged `?ref=qr` (`dialog.qrbox`, styled in `games/games.css`), so a phone camera can pick the game up there. The code is drawn in the page by `assets/qr.js` (`window.ccQr(text)` returns an SVG; byte mode, level L, versions 1 to 5, about 100 characters at most), which loads on the first click. Narrower screens (phones) don't get the button. Nothing is sent.
