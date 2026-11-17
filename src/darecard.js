@@ -2,9 +2,12 @@
 // MICROWAVE PANIC / FROM PAT"), used as the link preview of dare links (src/seo.js) in place of the game's generic
 // og-vs.png. Drawn here with no packages: a 5x7 pixel font, the game's games.json theme colours and a little
 // cooked computer, written as an indexed-colour PNG and compressed with the Worker's own CompressionStream.
-// Only stored dares get a card (the id is looked up; the score and name come from the dares table), so nobody can
-// put their own words on an image served from our domain. Cached for a day per URL (a dare never changes).
+// Only stored dares get a card (the id is looked up; the score comes from the dares table), so nobody can put their
+// own words on an image served from our domain. The name follows the leaderboard's rules (publicDare in
+// src/dares.js): the board's current name, and no card once the run is off the boards. Cached for an hour per URL,
+// so a hide or a rename shows within the hour.
 import { games as catalogOf } from "./db.js";
+import { publicDare } from "./dares.js";
 
 const W = 1200, H = 630;
 
@@ -112,11 +115,11 @@ export async function dareCard(req, env, url, slug, id) {
   const notFound = () => Response.redirect(`${url.origin}/games/${slug}/og-vs.png?v=5`, 302);
   if (!env.DB) return notFound();
   let d = null;
-  try { d = await env.DB.prepare("SELECT game, score, from_name FROM dares WHERE id = ?").bind(id).first(); } catch (e) { /* no table */ }
-  const g = d && d.game === slug && (await catalogOf(env, url.origin)).get(slug);
+  try { d = await publicDare(env, id); } catch (e) { /* no table */ }
+  const g = d && !d.gone && d.game === slug && (await catalogOf(env, url.origin)).get(slug);
   if (!g || !(d.score > 0)) return notFound();
-  const png = await encodePng(drawCard({ title: g.title, score: nice(d.score), from: d.from_name, theme: g.theme }));
-  const res = new Response(png, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" } });
+  const png = await encodePng(drawCard({ title: g.title, score: nice(d.score), from: d.from, theme: g.theme }));
+  const res = new Response(png, { headers: { "content-type": "image/png", "cache-control": "public, max-age=3600" } });
   if (cache) await cache.put(req, res.clone());
   return res;
 }

@@ -123,6 +123,9 @@ ok(r.ok && r.game === "crash" && r.score === 40 && r.from === "smokey", "open a 
   ok(card.ok && /image\/png/.test(card.headers.get("content-type")) && png && dv.getUint32(16) === 1200 && dv.getUint32(20) === 630, "dare share card is a 1200x630 png", card.status + " " + buf.length);
   const pg = await (await get("/games/crash/?vs=40&from=smokey&d=" + dare.id)).text();
   ok(pg.includes(`/games/crash/dare/${dare.id}.png`), "dare link preview uses its own card");
+  // a URL-only dare (no stored id) gets the leaderboard's name filter: a rude "from" is dropped
+  const rude = await (await get("/games/crash/?vs=40&from=porn99")).text();
+  ok(/og:title" content="can you beat 40 on crash\?"/.test(rude), "a URL-only dare's name goes through the name filter", rude.match(/og:title" content="[^"]*"/));
   const wrong = await fetch(base + "/games/fathom/dare/" + dare.id + ".png", { redirect: "manual" });
   ok(wrong.status === 302 && /og-vs\.png/.test(wrong.headers.get("location") || ""), "a dare card only draws for its own game", wrong.status);
 }
