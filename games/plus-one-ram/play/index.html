@@ -49,7 +49,7 @@
   .cache { font-family: var(--mono); font-weight: 800; color: var(--lilac); font-size: 15px; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
   .stat { background: rgba(245, 243, 237, 0.07); border-radius: 10px; padding: 8px 6px; }
-  .stat .v { font-family: var(--mono); font-size: 20px; font-weight: 800; line-height: 1; }
+  .stat .v { font-family: var(--mono); font-size: clamp(15px, 4.6vw, 20px); font-weight: 800; line-height: 1; white-space: nowrap; }
   .stat .l { font-family: var(--mono); font-size: 10px; color: rgba(245, 243, 237, 0.55); margin-top: 4px; }
   .sub { color: rgba(245, 243, 237, 0.8); font-size: 14px; margin-top: 6px; }
   #card { width: 100%; max-width: 200px; border-radius: 10px; display: block; margin: 4px auto 4px; }
@@ -60,13 +60,24 @@
   .goal { font-family: var(--mono); font-size: 13px; font-weight: 800; color: var(--lime); margin: 4px 0 2px; }
   .btn.ready { animation: readyPulse 1.2s ease-in-out infinite; }
   @keyframes readyPulse { 50% { box-shadow: 0 4px 0 #6f58c4, 0 0 0 5px rgba(181, 154, 255, 0.35); } }
+  /* v1.3: jobs, three small goals that pay cache */
+  .jobs { font-family: var(--mono); font-size: 12px; text-align: left; max-width: 340px; margin: 6px auto 2px; }
+  .jobs:empty { display: none; }
+  .jobs .jh { font-size: 10px; color: rgba(245, 243, 237, 0.5); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; text-align: center; }
+  .job { display: flex; align-items: center; gap: 7px; padding: 2px 4px; color: rgba(245, 243, 237, 0.85); }
+  .job i { flex: none; width: 11px; height: 11px; border: 2px solid rgba(181, 154, 255, 0.7); border-radius: 3px; font-style: normal; font-size: 10px; line-height: 8px; text-align: center; }
+  .job b { margin-left: auto; color: var(--lilac); padding-left: 8px; }
+  .job.done { color: var(--lime); font-weight: 800; }
+  .job.done i { border-color: var(--lime); background: var(--lime); color: var(--carbon); }
+  @media (max-height: 560px) { .jobs { margin: 3px auto 0; font-size: 11px; } .jobs .jh { display: none; } .job { padding: 1px 4px; } #over .job:not(.done) ~ .job:not(.done) { display: none; } #title .job:not(.done) ~ .job:not(.done) ~ .job { display: none; } }
   @media (hover: none) and (pointer: coarse) { .desk { display: none; } }
   @media (max-width: 380px) { .shop { grid-template-columns: 1fr; } }
   @media (max-height: 560px) { .panel { padding: 10px 14px 8px; } .how { margin: 4px auto 6px; } #card { display: none; } .stats { margin: 6px 0; } }
   @media (max-height: 760px) and (min-height: 561px) { #card { max-width: 130px; } }
   /* v1.2: the player frame can be 430 px tall: the end card fits without scrolling */
   @media (max-height: 480px) { #over h2 { font-size: 26px; } #over .sub { margin-top: 3px; } #over .stats { margin: 6px 0 4px; gap: 5px; } #over .stat { padding: 5px 4px; } #over .stat .v { font-size: 16px; } #over .btn { margin: 3px 4px; } #over .btn.big { font-size: 20px; padding: 8px 18px; min-height: 44px; } #over .credit { display: none; } }
-  @media (max-height: 480px) and (min-width: 520px) { #over .stats { grid-template-columns: repeat(6, 1fr); } }
+  @media (max-height: 480px) and (min-width: 520px) { #over .stats { grid-template-columns: repeat(6, 1fr); } #over .stat .v { font-size: 13px; } }
+  @media (max-height: 480px) { #title .job:not(.done) ~ .job { display: none; } }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
 <script src="/assets/tip.js" defer></script>
@@ -80,9 +91,10 @@
     <h1><small>+1 every second</small>+1 ram</h1>
     <div class="how">you are a tiny process. you gain <b>+1 mb</b> every second. eat anything with a <b>smaller number</b>. run from anything <span class="bad">bigger</span>. grow enough and the firewalls let you into the recycle bin, the cloud, and finally the kernel.</div>
     <div class="row"><button class="btn big" id="playBtn">boot up</button></div>
-    <div class="row"><button class="btn lilac" id="shopBtn">upgrades</button><button class="btn ghost" id="sndBtn">sound: on</button><button class="btn ghost" id="spookBtn">spooky: off</button></div>
+    <div class="row"><button class="btn lilac" id="shopBtn">upgrades</button><button class="btn ghost" id="sndBtn">sound: on</button><button class="btn ghost" id="spookBtn">spooky: off</button><button class="btn ghost" id="trailBtn" style="display:none">trail: none</button></div>
     <div class="how" style="margin:6px auto 0;font-size:12.5px">steer: <b>drag anywhere</b><span class="desk"> / <b>mouse</b> / <b>wasd</b> · pause: <b>p</b> · mute: <b>m</b></span></div>
     <div class="meta" id="meta"></div>
+    <div class="jobs" id="titleJobs"></div>
     <div class="credit"><b>computer cooked</b> games</div>
   </div>
 </div>
@@ -106,6 +118,7 @@
     <div class="stats" id="stats"></div>
     <div class="sub">+<span class="cache" id="earnTxt">0</span> cache earned</div>
     <div class="goal" id="overGoal"></div>
+    <div class="jobs" id="overJobs"></div>
     <div class="row"><button class="btn big" id="againBtn">reboot</button></div>
     <div class="row"><button class="btn lilac" id="overShopBtn">upgrades</button><button class="btn ghost" id="shareBtn">share</button></div>
     <div id="overTip"></div><!-- K-0059: shared tip button (assets/tip.js) -->

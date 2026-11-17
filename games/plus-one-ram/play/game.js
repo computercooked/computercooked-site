@@ -30,7 +30,8 @@
   const speedOf = (r) => 160 * Math.pow(r / 7, 0.5);
   const relSpeed = (R, r) => R.pspd * clamp(Math.pow(R.p.r / r, 0.35), 0.55, 1.25);
   const fmt = (v) => { v = Math.floor(v); return v < 1000 ? '' + v : v < 1e6 ? (v / 1000).toFixed(v < 1e4 ? 1 : 0) + 'k' : (v / 1e6).toFixed(v < 1e7 ? 2 : 1) + 'm'; };
-  const mb = (v) => { v = Math.floor(v); return v < 1024 ? v + ' mb' : v < 1048576 ? (v / 1024).toFixed(v < 10240 ? 1 : 0) + ' gb' : (v / 1048576).toFixed(2) + ' tb'; };
+  // v1.3: whole mb up to 100,000 so the game says the same number as the site's results card and dare target (1,536 mb, not 1.5 gb)
+  const mb = (v) => { v = Math.floor(v); return v < 100000 ? v.toLocaleString('en-US') + ' mb' : v < 1048576 ? (v / 1024).toFixed(0) + ' gb' : (v / 1048576).toFixed(2) + ' tb'; };
 
   // ------------------------------------------------------------------ save
   const SKEY = 'cc-plus-one-ram.v1';
@@ -50,6 +51,55 @@
   ];
   const lvl = (id) => save.up[id] || 0;
   const cost = (u) => Math.round(u.base * Math.pow(2.1, lvl(u.id)));
+
+  // v1.3: jobs. three small goals at a time, each pays cache when you hit it. a done job comes back harder next run,
+  // so there is always a next thing to do (and a reason to come back). progress is per run.
+  const JOBS = {
+    eat: { at: [12, 30, 60, 110, 180, 260], pay: [8, 14, 22, 32, 45, 60], txt: (n) => 'eat ' + n + ' things', of: (R) => R.kills },
+    zone: { at: [1, 2, 3], pay: [15, 35, 70], txt: (n) => 'reach ' + ZONES[n].name, of: (R) => R.zoneMax },
+    up: { at: [45, 90, 150, 240, 360], pay: [8, 15, 25, 40, 60], txt: (n) => 'stay up ' + fmtT(n), of: (R) => R.t },
+    rival: { at: [1, 2, 4, 7, 12], pay: [12, 20, 32, 50, 75], txt: (n) => n > 1 ? 'eat ' + n + ' rivals' : 'eat a rival process', of: (R) => R.rivalKills },
+    ram: { at: [250, 800, 2500, 8000, 30000, 100000], pay: [8, 16, 28, 45, 70, 100], txt: (n) => 'hit ' + mb(n), of: (R) => R.maxV },
+  };
+  const JOB_ORDER = ['eat', 'zone', 'up', 'rival', 'ram'];
+  if (!save.jobLv || typeof save.jobLv !== 'object') save.jobLv = {};
+  if (!Array.isArray(save.jobs)) save.jobs = [];
+  const jobLv = (k) => save.jobLv[k] || 0;
+  const jobOpen = (k) => JOBS[k] && jobLv(k) < JOBS[k].at.length;
+  function fillJobs() {
+    save.jobs = save.jobs.filter((k, i, a) => jobOpen(k) && a.indexOf(k) === i);
+    for (const k of JOB_ORDER) { if (save.jobs.length >= 3) break; if (jobOpen(k) && save.jobs.indexOf(k) < 0) save.jobs.push(k); }
+  }
+  fillJobs();
+  const jobTxt = (k) => JOBS[k].txt(JOBS[k].at[jobLv(k)]);
+  const jobPay = (k) => JOBS[k].pay[jobLv(k)];
+  // after a run: done jobs make room for a different kind, so the list keeps changing
+  function rotateJobs(doneKinds) {
+    save.jobs = save.jobs.filter((k) => doneKinds.indexOf(k) < 0);
+    for (const k of JOB_ORDER) { if (save.jobs.length >= 3) break; if (jobOpen(k) && save.jobs.indexOf(k) < 0 && doneKinds.indexOf(k) < 0) save.jobs.push(k); }
+    fillJobs();
+  }
+  // v1.3: trails, a cosmetic you earn with jobs. the newest one is put on for you; tap the title button to switch.
+  const TRAILS = [
+    { name: 'none', at: 0 },
+    { name: 'lime bits', at: 1, col: () => C.lime },
+    { name: 'lilac dust', at: 3, col: () => C.lilac },
+    { name: 'packet loss', at: 5, col: () => ZONES[(Math.random() * 4) | 0].tint },
+    { name: 'overheating', at: 8, col: () => (Math.random() < 0.5 ? '#ff9f43' : C.red) },
+    { name: 'rgb gamer', at: 12, col: (t) => 'hsl(' + ((t * 240) % 360) + ',100%,62%)' },
+  ];
+  const jobsTotal = () => JOB_ORDER.reduce((n, k) => n + jobLv(k), 0);
+  const trailsOpen = () => TRAILS.filter((x) => jobsTotal() >= x.at).length;
+  if (typeof save.trail !== 'number') save.trail = 0;
+  const trailNow = () => TRAILS[clamp(save.trail, 0, trailsOpen() - 1)];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function jobsHtml(done) {
+    let h = '';
+    for (const d of done || []) h += `<div class="job done"><i>✓</i>${esc(d.txt)}<b>+${d.pay}</b></div>`;
+    for (const k of save.jobs) h += `<div class="job"><i></i>${esc(jobTxt(k))}<b>+${jobPay(k)}</b></div>`;
+    const nt = TRAILS[trailsOpen()], left = nt ? nt.at - jobsTotal() : 0;
+    return h ? '<div class="jh">jobs pay cache' + (nt ? ' · new trail in ' + left + ' job' + (left > 1 ? 's' : '') : '') + '</div>' + h : '';
+  }
 
   // ------------------------------------------------------------------ cc sdk (optional)
   const cc = (fn) => { try { if (window.cc) fn(window.cc); } catch (e) { /* never break the game */ } };
@@ -109,6 +159,7 @@
       demo: !!demo, safe: !demo, t: 0, p, creatures: [], rivals: [], parts: [], pops: [], maxV: v0, kills: 0, rivalKills: 0,
       rate: 1 + (demo ? 2 : lvl('growth')), backups: demo ? 0 : lvl('backup'), zoneMax: 0, unlocked: 0, cam: { x: p.x, y: p.y, z: 1 },
       pspd: 160, shake: 0, banner: null, spawnT: 0, danger: 0, killer: null, lastScore: 0, z0,
+      jobsDone: [], jobPay: 0, best0: demo ? 0 : save.best, passedBest: false,
     };
     R.cam.z = targetZoom(p.r);
     // v1.2: a fast-boot start already owns the zones its size opens, so no free "firewall down" at 0:00
@@ -257,6 +308,20 @@
       const zi = zoneAt(p.x); if (zi > R.zoneMax) R.zoneMax = zi;
       const uz = unlockedFor(p.v);
       if (uz > R.unlocked) { R.unlocked = uz; if (!R.demo) { R.banner = { t: 2.6, a: 'firewall down', b: ZONES[uz].name + ' is open →' }; R.shake = Math.max(R.shake, 0.3); R.flash = 0.5; p.pulse = 0.28; SFX.unlock(); ccEvent('zone_unlocked', { zone: uz, t: Math.round(R.t) }); } }
+      if (!R.demo) {
+        const tr = trailNow(), sp = Math.hypot(p.vx, p.vy);
+        R.trailT = (R.trailT || 0) - dt;
+        if (tr.col && sp > spd * 0.3 && R.trailT <= 0) {
+          R.trailT = 0.035;
+          const bx = p.x - p.vx / sp * p.r * 0.9 + rnd(-0.3, 0.3) * p.r, by = p.y - p.vy / sp * p.r * 0.9 + rnd(-0.3, 0.3) * p.r;
+          R.parts.push({ x: bx, y: by, vx: -p.vx * 0.15 + rnd(-20, 20) / R.cam.z, vy: -p.vy * 0.15 + rnd(-20, 20) / R.cam.z, t: 0.35, c: tr.col(R.t), s: Math.max(2.5 / R.cam.z, p.r * rnd(0.12, 0.22)) });
+        }
+        checkJobs(R);
+        // v1.3: passing your best mid-run is a moment, not a number on the end card
+        if (!R.passedBest && R.best0 >= 50 && R.maxV > R.best0) {
+          R.passedBest = true; R.banner = { t: 2.4, a: 'new best!', b: 'past ' + mb(R.best0) + '. keep growing.' }; R.flash = 0.4; R.shake = Math.max(R.shake, 0.2); p.pulse = 0.28; SFX.unlock(); ccEvent('passed_best', { t: Math.round(R.t) });
+        }
+      }
     }
     const magR = p.r * (1.6 + 0.6 * (R.demo ? 1 : lvl('magnet'))) + 30;
     const calm = calmOf(R);
@@ -385,6 +450,21 @@
       for (let i = 0; i < 6; i++) { const ang = Math.random() * TAU, s = rnd(40, 160) / R.cam.z * 0.6; R.parts.push({ x: b.x, y: b.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s, t: 0.35, c: b.rival ? b.col : ZONES[zoneAt(b.x)].tint, s: Math.max(2, b.r * 0.25) }); }
     }
   }
+  function checkJobs(R) {
+    for (const k of save.jobs) {
+      if (!jobOpen(k) || R.jobsDone.some((j) => j.k === k)) continue;
+      const J = JOBS[k];
+      if (J.of(R) < J.at[jobLv(k)]) continue;
+      const pay = jobPay(k), txt = jobTxt(k), open0 = trailsOpen();
+      R.jobsDone.push({ k, txt, pay }); R.jobPay += pay;
+      save.jobLv[k] = jobLv(k) + 1; save.cache += pay;
+      if (trailsOpen() > open0) { save.trail = trailsOpen() - 1; R.newTrail = TRAILS[save.trail].name; }
+      persist();
+      R.banner = { t: 2.4, a: 'job done · +' + pay + ' cache', b: R.newTrail && save.trail === trailsOpen() - 1 && open0 < trailsOpen() ? txt + ' · new trail: ' + R.newTrail : txt }; R.flash = Math.max(R.flash || 0, 0.3); R.p.pulse = 0.28; SFX.big();
+      R.pops.push({ x: R.p.x, y: R.p.y - R.p.r * 1.6, t: 1.4, txt: '+' + pay + ' cache', big: 1 });
+      ccEvent('job_done', { job: k, lv: jobLv(k) });
+    }
+  }
   function bitten(R, by) {
     const p = R.p;
     if (R.dead || p.inv > 0) return;
@@ -435,7 +515,9 @@
     $('overGoal').textContent = nextGoal(score);
     const st = (v, l) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
     $('stats').innerHTML = st(mb(score), 'max ram') + st(fmtT(R.t), 'uptime') + st(ZONES[R.zoneMax].name.replace('the ', ''), 'deepest zone') + st(R.kills, 'eaten') + st(R.rivalKills, 'rivals eaten') + st('#' + rank, 'final rank');
-    $('earnTxt').textContent = earned;
+    $('earnTxt').textContent = earned + R.jobPay;
+    rotateJobs(R.jobsDone.map((j) => j.k)); persist();
+    $('overJobs').innerHTML = jobsHtml(R.jobsDone) + (R.newTrail ? `<div class="job done"><i>★</i>new trail unlocked: ${esc(R.newTrail)}</div>` : '');
     try { $('card').src = drawCard(lastResult).toDataURL('image/png'); } catch (e) { /* ignore */ }
     show('over', true);
     // K-0059: shared tip button (assets/tip.js)
@@ -634,7 +716,9 @@
   function drawHud(R) {
     const s = Math.max(0.8, Math.min(1.25, Math.min(vw, vh) / 600)), p = R.p;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.font = `800 ${Math.round(40 * s)}px ${MONO}`; ctx.fillStyle = C.carbon; ctx.fillText(mb(p.v), vw / 2 + 2, 12 + 2);
+    ctx.font = `800 ${Math.round(40 * s)}px ${MONO}`;
+    { const avail = vw - 2 * (150 * s + 14), w0 = ctx.measureText(mb(p.v)).width; if (w0 > avail) ctx.font = `800 ${Math.max(20, Math.floor(40 * s * avail / w0))}px ${MONO}`; }
+    ctx.fillStyle = C.carbon; ctx.fillText(mb(p.v), vw / 2 + 2, 12 + 2);
     ctx.fillStyle = C.lime; ctx.fillText(mb(p.v), vw / 2, 12);
     ctx.font = `700 ${Math.round(12 * s)}px ${MONO}`; ctx.fillStyle = C.paper;
     const zi = zoneAt(p.x);
@@ -666,7 +750,25 @@
     // time
     ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(245,243,237,0.75)'; ctx.font = `700 ${Math.round(12 * s)}px ${MONO}`;
     ctx.fillText(fmtT(R.t), 12, 12);
-    ctx.fillText('max ' + mb(R.maxV), 12, 12 + 16 * s);
+    // v1.3: the number to beat, then the closest job, so there's always a next goal on screen
+    if (R.best0 >= 50 && !R.passedBest) ctx.fillText('best ' + mb(R.best0), 12, 12 + 16 * s);
+    else { ctx.fillStyle = R.passedBest ? C.lime : 'rgba(245,243,237,0.75)'; ctx.fillText((R.passedBest ? 'new best ' : 'max ') + mb(R.maxV), 12, 12 + 16 * s); }
+    const jw = vw - 80;
+    let jk = null, jf = -1;
+    for (const k of save.jobs) {
+      if (!jobOpen(k) || R.jobsDone.some((j) => j.k === k)) continue;
+      const f = JOBS[k].of(R) / JOBS[k].at[jobLv(k)]; if (f > jf) { jf = f; jk = k; }
+    }
+    if (jk && jw > 90 && R.t > CALM - 1) {
+      const n = JOBS[jk].at[jobLv(jk)], have = Math.min(n, Math.floor(JOBS[jk].of(R)));
+      const prog = jk === 'up' ? '' : jk === 'zone' ? '' : jk === 'ram' ? ' ' + Math.round(jf * 100) + '%' : ' ' + have + '/' + n;
+      ctx.font = `800 ${Math.round(12 * s)}px ${MONO}`;
+      let txt = 'job: ' + jobTxt(jk) + prog;
+      while (txt.length > 8 && ctx.measureText(txt).width > jw) txt = txt.slice(0, -2) + '…';
+      const tw = ctx.measureText(txt).width, jy = vh - 14 - 22 * s;
+      ctx.fillStyle = 'rgba(16,17,20,0.6)'; rr(ctx, 6, jy - 4 * s, tw + 14, 22 * s, 6 * s); ctx.fill();
+      ctx.fillStyle = C.lilac; ctx.fillText(txt, 13, jy);
+    }
     // arrow toward an open zone you haven't entered
     if (R.unlocked > zi && !R.dead) {
       // v1.2: a solid pill that nudges right, so the way out of the desktop is hard to miss
@@ -751,6 +853,8 @@
     $('sndBtn').textContent = s; $('pSndBtn').textContent = s;
     $('spookBtn').textContent = 'spooky: ' + (spooky ? 'on' : 'off');
     $('meta').textContent = save.runs ? `best ${mb(save.best)} · ${save.cache} cache to spend` : '';
+    $('titleJobs').innerHTML = save.runs ? jobsHtml(null) : '';
+    const tb = $('trailBtn'); tb.style.display = trailsOpen() > 1 ? '' : 'none'; tb.textContent = 'trail: ' + trailNow().name;
     const n = affordable();
     ['shopBtn', 'overShopBtn'].forEach((id) => { $(id).textContent = n ? 'upgrades (' + n + ')' : 'upgrades'; $(id).classList.toggle('ready', n > 0); });
   }
@@ -764,11 +868,15 @@
   $('sndBtn').addEventListener('click', toggleSound);
   $('pSndBtn').addEventListener('click', toggleSound);
   $('spookBtn').addEventListener('click', () => { spooky = !spooky; save.spooky = spooky; persist(); syncMeta(); });
+  $('trailBtn').addEventListener('click', () => { save.trail = (clamp(save.trail, 0, trailsOpen() - 1) + 1) % trailsOpen(); persist(); syncMeta(); });
   $('pauseBtn').addEventListener('click', () => setPause(true));
   $('resumeBtn').addEventListener('click', () => setPause(false));
   $('quitBtn').addEventListener('click', () => { if (screen !== 'pause') return; show('pause', false); run.dead = true; endRun(false); });
   $('shareBtn').addEventListener('click', share);
   syncMeta();
+  // v1.3: one tap on the hub's "tap to play" card (from a clip) already chose this game: skip the title.
+  // cc-sdk.js loads with defer, after this file, so wait for it.
+  document.addEventListener('DOMContentLoaded', () => cc((c) => { if (screen === 'title' && c.autostart && c.autostart()) startRun(); }));
 
   // QA hook
   window.__ram = { get screen() { return screen; }, get run() { return run; }, step: (dt, v) => step(run, dt, v || botVec(run)), bot: () => botVec(run), draw: () => render(run, 1 / 60), newRun, startRun, endRun, save: () => save, ZONES, rOf, speedOf };
