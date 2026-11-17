@@ -695,12 +695,77 @@ def antfarm(c):
     c.mascot(c.W - 14 if c.W > 170 else c.W - 13, c.H - 6, 30, flip=True)
 
 
+TW_PHONE = """
+.kkkkkkkkkkkkkk.
+kCCCCCCCCCCCCCCk
+kCkkkkkkkkkkkkCk
+kCkkkkkkkkkkkkCk
+kCkCCkkkkkkCCkCk
+kCkkCCkkkkCCkkCk
+kCkkkkkkkkkkkkCk
+kCkkCCkkkkCCkkCk
+kCkkCCkkkkCCkkCk
+kCkkkkkkkkkkkkCk
+kCkkkkkkkkkkkkCk
+kCkkkCCCCCCkkkCk
+kCkkCkkkkkkCkkCk
+kCkkkkkkkkkkkkCk
+kCkkkkkkkkkkkkCk
+kCkkkkkkkkkkkkCk
+kCkkkkkkkkkkkkCk
+kCkkkkkkkkkkkkCk
+kCCCCCCCCCCCCCCk
+kCCCCCCkkCCCCCCk
+kCCCCCCCCCCCCCCk
+.kkkkkkkkkkkkkk.
+"""
+TW_PAL = {"k": "#120c2e", "C": "#5cd6ff"}
+
+
+def typowiz(c):
+    c.rect(0, 0, c.W, c.H, "#1d1446")
+    for i in range(26): c.px((i * 37 + 11) % c.W, (i * 23 + 5) % (c.H - 26), "#3b2a8c" if i % 3 else "#8f7fe0")
+    by = c.H - 16
+    c.rect(0, by, c.W, c.H - by, "#2a1f5e"); c.rect(0, by, c.W, 1, "#3b2a8c")
+    wx = c.cx - 50
+    c.mascot(wx, by, 40)
+    # wizard hat on the computer
+    top = by - 28
+    for j in range(22):
+        w = max(1, 13 - j * 13 // 22)
+        x0 = wx - w + j // 4
+        c.rect(x0, top - j, w * 2, 1, "#7a4dd6")
+    c.rect(wx - 16, top - 1, 33, 3, "#5b36a8")
+    c.rect(wx - 16, top - 1, 33, 1, "#9b74f0")
+    for (sx, sy) in ((-6, -6), (3, -11), (0, -16), (-3, -3)): c.px(wx + sx, top + sy, "#ffd23f")
+    c.px(wx + 5, top - 21, "#ffd23f"); c.px(wx + 6, top - 22, "#ffd23f")
+    # wand with a spark
+    c.line(wx + 18, by - 14, wx + 28, by - 26, "#c9a36a"); c.line(wx + 19, by - 14, wx + 29, by - 26, "#a9844d")
+    c.disc(wx + 29, by - 27, 2, "#ffd23f")
+    for (sx, sy) in ((33, -31), (26, -33), (35, -24)): c.px(wx + sx, by + sy, "#fff8e7")
+    # letter tiles flying from the wand to the monster (marks, not letters)
+    tiles = [(wx + 36, by - 40, "#fff8e7"), (wx + 50, by - 47, "#ffd23f"), (wx + 64, by - 49, "#fff8e7"), (wx + 78, by - 45, "#fff8e7")]
+    for k, (tx, ty, col) in enumerate(tiles):
+        c.rect(tx, ty + 2, 10, 11, "#b9a77c"); c.rect(tx, ty, 10, 11, col)
+        c.rect(tx + 3, ty + 2, 4, 1, "#1d1446"); c.rect(tx + 4, ty + 3, 2, 5, "#1d1446"); c.rect(tx + 3, ty + 8, 4, 1, "#1d1446") if k % 2 else c.rect(tx + 6, ty + 6, 2, 2, "#1d1446")
+        c.px(tx + 8, ty + 9, "#8c7f63")
+    for i in range(6): c.px(wx + 34 + i * 9, by - 30 - (i * 7) % 11, "#ffd23f")
+    # the red squiggle under the spell
+    for x in range(wx + 36, wx + 88):
+        c.px(x, by - 30 + (0 if (x // 2) % 2 else 1), "#ff3355")
+    # AUTOCORRECT: an angry phone, flinching from the hit
+    px_, py_ = c.cx + 40, by - 44
+    c.sprite(TW_PHONE, px_, py_, TW_PAL, scale=2)
+    for (sx, sy) in ((-6, 8), (-9, 14), (-5, 20), (36, 4), (38, 30)): c.rect(px_ + sx, py_ + sy, 2, 2, "#ffd23f")
+    c.rect(px_ - 10, py_ + 2, 3, 1, "#ff5c7a"); c.rect(px_ - 12, py_ + 6, 4, 1, "#ff5c7a")
+
 SCENES = {
     "crash": crash, "handbag-havoc": handbag, "one-percent-popup": popup, "keyboard-escape": keyboard,
     "desktop-jam": desktop, "fathom": fathom, "tab-hoarder": tabs, "crash-test-daily": slide, "bellchain": bells,
     "level-devil-exe": devil, "pixel-purge": purge, "crash-cheats": cheats, "overdue-notice": overdue,
     "plus-one-ram": ram, "smol-brains": smol, "reel-weird": reel, "haunted-self-checkout": checkout, "goose-court": goosecourt,
     "cooked-sweeper": sweeper, "elevator-full-of-fish": elevator, "sandwich-tower": sandwich, "microwave-panic": microwave, "ant-farm": antfarm,
+    "typo-wizard": typowiz,
 }
 
 

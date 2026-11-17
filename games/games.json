@@ -918,6 +918,37 @@
           "secret": false
         }
       ]
+    },
+    {
+      "slug": "typo-wizard",
+      "title": "typo wizard",
+      "pitch": "spell words at monsters until autocorrect ruins your life. again.",
+      "thumbnail": "/games/typo-wizard/cover.png?v=1",
+      "made_by": "computer-cooked",
+      "tags": [
+        "word",
+        "roguelite",
+        "spelling",
+        "turn-based",
+        "deckbuilder",
+        "puzzle",
+        "daily"
+      ],
+      "controls": "tap letter tiles or type on a keyboard to spell a word, tap cast or press enter. backspace removes a letter, space redraws.",
+      "size_kb": 313,
+      "version": "1.0",
+      "added": "2026-11-16",
+      "theme": {
+        "accent": "#ffd23f",
+        "bg": "#1d1446"
+      },
+      "max_score_per_sec": 25.0,
+      "how_to": [
+        "spell a word from your 8 letter tiles (tap or type), then cast it at the monster.",
+        "longer words and rare letters hit harder: q z burn, x j freeze, k v crit, double letters shield.",
+        "read what the monster does next and its yellow quirk tag. pick fights, shops and rests between them.",
+        "beat 3 acts and their bosses, ending with autocorrect. the daily spell is the same 5 fights for everyone."
+      ]
     }
   ]
 }
