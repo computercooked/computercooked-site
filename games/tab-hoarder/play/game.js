@@ -70,21 +70,23 @@
 
   // ---------- career (v2.4): lifetime tabs -> rank, goals -> skins, a daily height. its own key; the best key is untouched ----------
   const CAREER_KEY = 'cc-tab-hoarder-career';
-  const RANKS = [[0, 'one tab person'], [25, 'tab collector'], [100, 'tab goblin'], [300, 'ram eater'], [700, 'browser landlord'], [1500, 'the cloud'], [3000, 'legally a server farm']];
+  const RANKS = [[0, 'one tab person'], [25, 'tab collector'], [150, 'tab goblin'], [500, 'ram eater'], [1200, 'browser landlord'], [2500, 'the cloud'], [5000, 'legally a server farm']];
+  // v2.4.1 pace: the first few land in minute one, a first session clears about 4-5, the rest need more days (daily heights,
+  // a streak, lifetime totals). 4th field true = needs another day. old ids that left the list stay in a save and still count for skins
   const GOALS = [
     ['t10', 'stack 10 tabs', (r) => r.tabs >= 10], ['p3', '3 perfects in a row', (r) => r.combo >= 3], ['pw', 'use a power-up tab', (r) => r.powers >= 1],
-    ['t20', 'stack 20 tabs', (r) => r.tabs >= 20], ['s50', 'score 50 pts', (r) => r.score >= 50], ['vir', 'survive free_ram_download.exe', (r) => r.virus >= 1],
-    ['p5', '5 perfects in a row', (r) => r.combo >= 5], ['t30', 'stack 30 tabs', (r) => r.tabs >= 30], ['dbl', 'land a power-up perfect', (r) => r.dbl >= 1],
-    ['s100', 'score 100 pts', (r) => r.score >= 100], ['t40', 'stack 40 tabs', (r) => r.tabs >= 40], ['p8', '8 perfects in a row', (r) => r.combo >= 8],
-    ['s200', 'score 200 pts', (r) => r.score >= 200], ['t60', 'stack 60 tabs', (r) => r.tabs >= 60], ['s400', 'score 400 pts', (r) => r.score >= 400]
+    ['t20', 'stack 20 tabs', (r) => r.tabs >= 20], ['dly', 'clear a daily height', (r) => r.days >= 1], ['d2', 'dailies on 2 different days', (r) => r.days >= 2, true],
+    ['l600', 'hoard 600 tabs in total', (r) => r.life >= 600], ['st3', '3-day daily streak', (r) => r.streak >= 3, true], ['t30', 'stack 30 tabs', (r) => r.tabs >= 30],
+    ['p5', '5 perfects in a row', (r) => r.combo >= 5], ['d4', 'dailies on 4 different days', (r) => r.days >= 4, true], ['l1500', 'hoard 1,500 tabs in total', (r) => r.life >= 1500],
+    ['vir', 'survive free_ram_download.exe', (r) => r.virus >= 1], ['dbl', 'land a power-up perfect', (r) => r.dbl >= 1], ['t40', 'stack 40 tabs', (r) => r.tabs >= 40]
   ];
   // tab skins, unlocked by goals done. a/b = stacked tab fills, ink = text, act = the moving tab
   const SKINS = [
     { id: 'classic', name: 'classic', need: 0, a: '#F5F3ED', b: '#E6E1D3', ink: '#1b1c21', act: '#C5FF49', actInk: '#1b1c21' },
     { id: 'dark', name: 'dark mode', need: 2, a: '#2b2d35', b: '#363944', ink: '#F5F3ED', act: '#C5FF49', actInk: '#1b1c21' },
-    { id: 'incog', name: 'incognito', need: 5, a: '#3d2f63', b: '#4a3a75', ink: '#F5F3ED', act: '#B59AFF', actInk: '#1b1c21' },
-    { id: 'retro', name: 'retro 98', need: 9, a: '#c3c3c3', b: '#b4b4b4', ink: '#000000', act: '#2c3fa8', actInk: '#ffffff' },
-    { id: 'gold', name: 'gold tabs', need: 13, a: '#ffe27a', b: '#f2c933', ink: '#1b1c21', act: '#C5FF49', actInk: '#1b1c21' }
+    { id: 'incog', name: 'incognito', need: 6, a: '#3d2f63', b: '#4a3a75', ink: '#F5F3ED', act: '#B59AFF', actInk: '#1b1c21' },
+    { id: 'retro', name: 'retro 98', need: 10, a: '#c3c3c3', b: '#b4b4b4', ink: '#000000', act: '#2c3fa8', actInk: '#ffffff' },
+    { id: 'gold', name: 'gold tabs', need: 14, a: '#ffe27a', b: '#f2c933', ink: '#1b1c21', act: '#C5FF49', actInk: '#1b1c21' }
   ];
   function dayKey(off) { const d = new Date(Date.now() + (off || 0) * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function dailyTarget() { let h = 7; for (const ch of dayKey()) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return 10 + (h % 13); } // 10-22 tabs, same for everyone today
@@ -94,13 +96,15 @@
     if (!c || typeof c !== 'object') c = {};
     const n = (v) => (typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0);
     return { v: 1, tabs: n(c.tabs), runs: n(c.runs), perfects: n(c.perfects), bestTabs: n(c.bestTabs), goals: Array.isArray(c.goals) ? c.goals.filter((g) => typeof g === 'string') : [],
-      skin: typeof c.skin === 'string' ? c.skin : 'classic', dayDone: typeof c.dayDone === 'string' ? c.dayDone : '', streak: n(c.streak) };
+      skin: typeof c.skin === 'string' ? c.skin : 'classic', dayDone: typeof c.dayDone === 'string' ? c.dayDone : '', streak: n(c.streak), days: n(c.days) || (typeof c.dayDone === 'string' && c.dayDone ? Math.max(1, n(c.streak)) : 0) }; // 2.4 saves had no day count: a streak of n means n days
   }
   function saveCareer() { try { localStorage.setItem(CAREER_KEY, JSON.stringify(career)); } catch (e) { /* ignore */ } }
   const career = loadCareer();
   const rankOf = (n) => { let i = 0; while (i + 1 < RANKS.length && n >= RANKS[i + 1][0]) i++; return i; };
   const activeGoals = () => GOALS.filter((g) => career.goals.indexOf(g[0]) < 0).slice(0, 3);
   const skinsOpen = () => SKINS.filter((s) => career.goals.length >= s.need);
+  const goalsDone = () => GOALS.filter((g) => career.goals.indexOf(g[0]) >= 0).length;
+  const nextGoal = () => { const a = activeGoals(); return a.find((g) => !g[3]) || a[0]; }; // one this run can clear, if any
   const skin = () => skinsOpen().find((s) => s.id === career.skin) || SKINS[0];
 
   // ---------- audio (procedural) ----------
@@ -252,7 +256,12 @@
   function bigBanner(text, color) { banner = { text, color, life: 1.6, max: 1.6 }; flashT = 0.35; }
   // goals, rank and daily are checked after every drop
   function checkCareer() {
-    const r = { tabs: tabsN, combo, score, powers: powersUsed, virus: runVirus, dbl: runDbl };
+    if (tabsN === dailyTarget() && career.dayDone !== dayKey()) {
+      career.streak = career.dayDone === dayKey(-1) ? career.streak + 1 : 1;
+      career.dayDone = dayKey(); career.days++; saveCareer();
+      bigBanner('daily done · streak ' + career.streak, COL.lilac); sfx.milestone();
+    }
+    const r = { tabs: tabsN, combo, score, powers: powersUsed, virus: runVirus, dbl: runDbl, life: career.tabs, days: career.days, streak: career.streak };
     let guard = 0;
     for (let g = activeGoals().find((x) => x[2](r)); g && guard < 5; g = activeGoals().find((x) => x[2](r)), guard++) {
       const before = skinsOpen().length;
@@ -260,11 +269,6 @@
       toast('goal done: ' + g[1], '#ffd84a', 1.8, false); sfx.milestone();
       if (skinsOpen().length > before) { const s = skinsOpen()[skinsOpen().length - 1]; career.skin = s.id; runSkin = s.name; bigBanner('new skin: ' + s.name, '#ffd84a'); }
       saveCareer();
-    }
-    if (tabsN === dailyTarget() && career.dayDone !== dayKey()) {
-      career.streak = career.dayDone === dayKey(-1) ? career.streak + 1 : 1;
-      career.dayDone = dayKey(); saveCareer();
-      bigBanner('daily done · streak ' + career.streak, COL.lilac); sfx.milestone();
     }
     if (!passedBestH && prevBestTabs >= 5 && tabsN === prevBestTabs + 1) { passedBestH = true; bigBanner('new best height', COL.lime); shake = Math.max(shake, 6); }
   }
@@ -784,7 +788,7 @@
       text('cpu ' + temp + '°c · fan ' + rpm + ' rpm', pad, by + 20 * u, Math.round(10 * u), 'rgba(245,243,237,0.6)', 'left', 'normal');
       text('best ' + best, W - pad - 44, pad + 18 * u, Math.round(13 * u), COL.paper, 'right');
       // the next goal, top right under best (what this run can unlock)
-      const ng = activeGoals()[0];
+      const ng = nextGoal();
       if (ng) text('goal: ' + ng[1], W - pad, pad + 54 * u, Math.round(11 * u), '#ffd84a', 'right', 'normal');
       if (saves > 0 && tabsN < 10) text('1 free miss until tab 10', W - pad, pad + 70 * u, Math.round(10 * u), '#7fd8ff', 'right', 'normal');
     }
@@ -874,8 +878,8 @@
     items.push(() => { text(dDone ? 'daily done ✓ · streak ' + career.streak + ' · back tomorrow' : 'daily: stack ' + dailyTarget() + ' tabs' + (career.streak && career.dayDone === dayKey(-1) ? ' · keep your ' + career.streak + '-day streak' : ''), ix, y, fs, dDone ? 'rgba(245,243,237,0.6)' : COL.lilac, 'center', 'normal'); y += lh; });
     const nLeft = items.length;
     const ag = activeGoals();
-    if (wide && ag.length) items.push(() => { text('goals ' + career.goals.length + '/' + GOALS.length, ix, y, fs, '#ffd84a', 'center'); y += lh; });
-    ag.forEach((g, i) => items.push(() => { text((i || wide ? '' : 'goals ' + career.goals.length + '/' + GOALS.length + ': ') + '□ ' + g[1], ix, y, fs, '#ffd84a', 'center', 'normal'); y += lh; }));
+    if (wide && ag.length) items.push(() => { text('goals ' + goalsDone() + '/' + GOALS.length, ix, y, fs, '#ffd84a', 'center'); y += lh; });
+    ag.forEach((g, i) => items.push(() => { text((i || wide ? '' : 'goals ' + goalsDone() + '/' + GOALS.length + ': ') + '□ ' + g[1], ix, y, fs, '#ffd84a', 'center', 'normal'); y += lh; }));
     const open = skinsOpen();
     btns.skin = null;
     if (open.length > 1) { // skin picker: top-left corner, out of the middle of the screen where people tap to start
@@ -940,8 +944,8 @@
     text(newBest ? 'new personal best' : 'best: ' + best + (best > score ? '  ·  ' + (best - score + 1) + ' pts to beat it' : ''), mid, y, Math.round(12 * u), newBest ? COL.lilac : 'rgba(245,243,237,0.6)', 'center', newBest ? 'bold' : 'normal');
     // career: what this run unlocked, else the next goal; then the rank bar (a reason for one more run)
     y += 20 * u;
-    const ng = activeGoals()[0];
-    const gl = runSkin ? 'new skin: ' + runSkin + ' (pick it on the title)' : runGoals.length ? 'goal done: ' + runGoals[0] + (runGoals.length > 1 ? ' +' + (runGoals.length - 1) + ' more' : '') : tabsN < 5 ? 'tip: tap when the edge lines turn green' : ng ? 'next goal: ' + ng[1] : 'every goal done. legend.';
+    const ng = nextGoal();
+    const gl = runSkin ? 'new skin: ' + runSkin + ' (pick it on the title)' : runGoals.length ? 'goal done: ' + runGoals[0] + (runGoals.length > 1 ? ' +' + (runGoals.length - 1) + ' more' : '') : tabsN < 5 ? 'tip: tap when the edge lines turn green' : ng ? 'next goal: ' + ng[1] + (ng[3] && career.dayDone === dayKey() ? ' (back tomorrow)' : '') : 'every goal done. legend.';
     ctx.font = 'bold ' + Math.round(12 * u) + 'px ' + FONT;
     text(fitTitle(gl, cw - 30 * u), mid, y, Math.round(12 * u), '#ffd84a', 'center', runGoals.length ? 'bold' : 'normal');
     y += 20 * u;
