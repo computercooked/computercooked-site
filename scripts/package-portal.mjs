@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Build one game for one web portal (docs/portals.md): a folder and a zip with index.html at the root.
-//   node scripts/package-portal.mjs <slug> <itch|newgrounds|crazygames|gamedistribution|poki> [--gd-id <gameId>]
+//   node scripts/package-portal.mjs <slug> <itch|newgrounds|crazygames|gamedistribution|poki> [--gd-id <gameId>] [--no-links]
+// --no-links (Nov 17, for itch.io / Newgrounds if Ashton says "no outside links" there too): no "play on
+// computercooked.com" card, and shares and copies lose their links, as on the ad portals. Ad portals are always like that.
 // Makes dist/portals/<portal>/<slug>/ and dist/portals/<portal>/<slug>.zip:
 //   the game's play/ folder + cc-sdk.js + native/portal.js (the adapter), relative paths only, plus the portal's
 //   own SDK script for CrazyGames and Poki (GameDistribution's is loaded by portal.js, after its options).
@@ -40,7 +42,8 @@ cpSync(join(ROOT, "games/cc-sdk.js"), join(out, "cc-sdk.js"));
 cpSync(join(ROOT, "native/portal.js"), join(out, "portal.js"));
 
 let html = readFileSync(join(out, "index.html"), "utf8");
-const cfg = JSON.stringify({ name: DRIVER[portal], portal, slug, gdGameId: gdId || undefined });
+const noLinks = process.argv.includes("--no-links");
+const cfg = JSON.stringify({ name: DRIVER[portal], portal, slug, gdGameId: gdId || undefined, links: noLinks ? false : undefined });
 const sdkTag = html.match(/<script src="\/games\/cc-sdk\.js"([^>]*)><\/script>/);
 if (!sdkTag) { console.error("index.html doesn't load /games/cc-sdk.js; check it by hand"); process.exit(1); }
 // the adapter loads the same way the SDK did (defer or not), straight after it, so the game sees both in order
