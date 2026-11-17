@@ -19,7 +19,7 @@
     "halloween"
   ],
   "max_score_per_sec": 0.02,
-  "changelog": "v2.5: the day waits for your first tap, a next-goal chip (tap it to pay or buy), first popup pays for your first upgrade, popups stop stacking, day banners and unlocks-tomorrow list. v2: lifestyle creep (bills track what you earned yesterday), taps scale with income plus x3 combo, daily situation cards with tradeoffs, autopay fee, space never skips summaries, offline capped at 1h, honest late-fee stats, perks no longer a trap, repo never cheaper than paying, css/jitter/reflow fixes.",
+  "changelog": "v2.5: the day waits for your first tap, a next-goal chip (tap it to pay or buy), first popup pays for your first upgrade, popups stop stacking, day stamps, $/s by your cash, unlocks-tomorrow list, reaching day 3 always earns a credit point. v2: lifestyle creep (bills track what you earned yesterday), taps scale with income plus x3 combo, daily situation cards with tradeoffs, autopay fee, space never skips summaries, offline capped at 1h, honest late-fee stats, perks no longer a trap, repo never cheaper than paying, css/jitter/reflow fixes.",
   "playtest": {
     "before": 5.3,
     "after": 6.5
