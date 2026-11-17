@@ -922,6 +922,7 @@
     {
       "slug": "knight-shift",
       "title": "knight shift",
+      "results": "quiet",
       "pitch": "you are one knight in a hard hat. everyone else is management. land in an L, take their stuff, don't stand on red.",
       "thumbnail": "/games/knight-shift/cover.png?v=1",
       "made_by": "computer-cooked",

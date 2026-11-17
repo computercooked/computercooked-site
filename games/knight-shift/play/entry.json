@@ -5,6 +5,7 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "version": "1.0",
+  "results": "quiet",
   "controls": "tap or click a green dot to jump there. keyboard: arrows pick a move, enter jumps, 1-9 jump straight to a numbered move, d toggles danger tint, b/c use abilities, m or esc opens the menu (daily shift lives there), p pauses.",
   "size_kb": 146,
   "tags": [
