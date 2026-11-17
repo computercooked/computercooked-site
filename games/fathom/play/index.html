@@ -112,6 +112,13 @@
   .score { font-size: 13px; font-weight: 800; letter-spacing: .06em; color: var(--ink); margin-top: -4px; }
   .score b { color: var(--lime); } .score i { color: var(--warm); font-style: normal; }
   .score.best b { animation: pulse .8s 4; }
+  /* v2.3 career: rank, stars, medals */
+  .career { width: 100%; max-width: 380px; font-size: 12px; color: var(--muted); letter-spacing: .04em; line-height: 1.55; text-align: center; }
+  .career b { color: var(--ink); }
+  .career .up { color: var(--lime); font-weight: 800; animation: pulse .8s 4; }
+  .career .md { color: var(--lilac); font-weight: 800; }
+  .rbar { display: block; height: 6px; background: var(--panel2); margin: 4px auto 4px; max-width: 240px; box-shadow: inset 0 0 0 1px var(--line); }
+  .rbar i { display: block; height: 100%; width: 0; background: var(--lime); transition: width .9s cubic-bezier(.2,1,.3,1) .25s; }
   /* K-0059: shared tip button (assets/tip.js) */
   #over .cc-tipjar { margin: 0; }
   .hide { display: none !important; }
@@ -166,6 +173,7 @@
       <b style="color:var(--decoy)">decoys</b> echo like subs. shoot one and it pops. hide yours where they'll waste shots.<br>
       <b style="color:var(--sonar)">sonar</b>, once per game, scans a 3&times;3 area. subs and decoys look the same on it.
     </div>
+    <div class="career" id="titleCareer"></div>
     <div class="record" id="record"></div>
     <div class="row"><button id="btnMuteT" class="btn icon" aria-label="Sound">&#9834;</button></div>
     <div class="credit">a <b>computer cooked games</b> joint</div>
@@ -209,6 +217,7 @@
     <canvas id="overTitle" class="px"></canvas>
     <div class="sub" id="overSub"></div>
     <div class="score" id="overScore"></div>
+    <div class="career" id="overCareer"></div>
     <div class="stats" id="overStats"></div>
     <pre id="grid"></pre>
     <div class="row">
@@ -234,14 +243,61 @@
   // computer cooked sdk (leaderboard). window.cc is missing outside the site, so every call is guarded.
   function CC(fn, ...a) { try { if (window.cc && typeof window.cc[fn] === 'function') return window.cc[fn](...a); } catch (e) { /* ignore */ } return null; }
   const RIVAL_BONUS = { easy: 0, normal: 250, hard: 500 };
-  // win: 1000 + 20 per unused cell of the 64 (fewer shots is better) + 3 per accuracy point + rival bonus (daily counts as hard).
-  // loss: 40 per hit + 100 per sub you sank. perfect 9-shot win vs root = 2900.
+  // win: 1000 + 20 per unused cell of the 64 (fewer shots is better) + 3 per accuracy point + rival bonus (daily counts as hard)
+  // + v2.3 speed tie-breaker (up to 60: 1 per 3 s under 3 min), so a perfect hunt can still be beaten by a faster one.
+  // loss: 40 per hit + 100 per sub you sank + v2.3 how long you held out (1 per enemy shot past 8, max 39, never 0).
+  // perfect 9-shot win vs root ~2950.
   function runScore(won) {
-    const me = G.state.players[0], turns = me.stats.shots + me.stats.sonar;
-    if (!won) return me.stats.hits * 40 + me.sunk.length * 100;
+    const me = G.state.players[0], them = G.state.players[1], turns = me.stats.shots + me.stats.sonar;
+    if (!won) return me.stats.hits * 40 + me.sunk.length * 100 + Math.min(39, Math.max(1, them.stats.shots + them.stats.sonar - 8));
     const acc = me.stats.shots ? Math.round((me.stats.hits / me.stats.shots) * 100) : 0;
-    return 1000 + Math.max(0, 64 - turns) * 20 + acc * 3 + (G.daily ? 500 : RIVAL_BONUS[G.level] || 0);
+    const secs = Math.max(0, ((G.endedAt || performance.now()) - (G.startedAt || G.endedAt || performance.now())) / 1000);
+    return 1000 + Math.max(0, 64 - turns) * 20 + acc * 3 + (G.daily ? 500 : RIVAL_BONUS[G.level] || 0) + Math.max(0, 60 - Math.floor(secs / 3));
   }
+  // ---------------------------------------------------------------- v2.3 career: a rank from your wins, medals that set the next goal
+  const RANKS = [[0, 'deckhand'], [2, 'cadet'], [5, 'ensign'], [10, 'lieutenant'], [18, 'commander'], [30, 'captain'], [45, 'commodore'], [65, 'admiral'], [90, 'fleet admiral'], [130, 'root of the sea']];
+  const STARS = { easy: 1, normal: 2, hard: 3, daily: 3 }; // stars per win (salvo wins add 1 more, kept in 'salvoStars')
+  function careerStars() { const rec = store.get('record', {}); let s = 0; for (const k in STARS) s += ((rec[k] && rec[k].w) || 0) * STARS[k]; return s + (store.get('salvoStars', 0) || 0); }
+  function rankOf(s) { let i = 0; while (i + 1 < RANKS.length && s >= RANKS[i + 1][0]) i++; return { i, name: RANKS[i][1], at: RANKS[i][0], next: RANKS[i + 1] || null }; }
+  function rankPct(s) { const r = rankOf(s); return r.next ? Math.round(((s - r.at) / (r.next[0] - r.at)) * 100) : 100; }
+  const MEDALS = [
+    ['first', 'win a dive', (r) => r.won],
+    ['decoy', 'win while your decoy fools it', (r) => r.won && r.fooled > 0],
+    ['s30', 'win in 30 shots or fewer', (r) => r.won && r.turns <= 30],
+    ['normal', 'beat screensaver (normal)', (r) => r.won && r.lv === 'normal'],
+    ['salvo', 'win a salvo dive', (r) => r.won && r.salvo],
+    ['daily', 'win a daily dive', (r) => r.won && r.lv === 'daily'],
+    ['clean', 'win without losing a sub', (r) => r.won && r.lost === 0],
+    ['hard', 'beat root (hard)', (r) => r.won && r.lv === 'hard'],
+    ['s20', 'win in 20 shots or fewer', (r) => r.won && r.turns <= 20],
+    ['acc', 'win with 60% hits or better', (r) => r.won && r.acc >= 60],
+    ['hardsalvo', 'beat root in salvo', (r) => r.won && r.lv === 'hard' && r.salvo],
+    ['s15', 'win in 15 shots or fewer', (r) => r.won && r.turns <= 15],
+  ];
+  function medals() {
+    let m = store.get('medals', null);
+    if (!m || typeof m !== 'object') { // first look since v2.3: credit what the old win record already proves
+      const rec = store.get('record', {}), w = (k) => !!(rec[k] && rec[k].w > 0);
+      m = {};
+      if (w('easy') || w('normal') || w('hard') || w('daily')) m.first = 1;
+      if (w('normal')) m.normal = 1; if (w('hard')) m.hard = 1; if (w('daily')) m.daily = 1;
+      store.set('medals', m);
+    }
+    return m;
+  }
+  function nextMedal(m) { return MEDALS.find((x) => !m[x[0]]) || null; }
+  function medalCount(m) { return MEDALS.filter((x) => m[x[0]]).length; }
+  function careerHtml(s, gained, rankUp, newMedals) {
+    const r = rankOf(s), m = medals(), nx = nextMedal(m);
+    let h = (rankUp ? '<span class="up">rank up: ' + r.name + '</span>' : 'rank <b>' + r.name + '</b>') + ' · ★' + s + (gained ? ' <span class="up">+' + gained + '</span>' : '') +
+      (r.next ? ' · ' + (r.next[0] - s) + ' to ' + r.next[1] : '');
+    h += '<span class="rbar"><i></i></span>';
+    const got = (newMedals || []).map((id) => MEDALS.find((x) => x[0] === id)).filter(Boolean);
+    if (got.length) h += '<span class="md">' + (got.length > 1 ? got.length + ' medals: ' : 'medal: ') + got.slice(0, 2).map((x) => x[1]).join(' · ') + (got.length > 2 ? ' +' + (got.length - 2) + ' more' : '') + '</span><br>';
+    h += nx ? 'next medal (' + medalCount(m) + '/' + MEDALS.length + '): <b>' + nx[1] + '</b>' : 'all ' + MEDALS.length + ' medals. the sea is yours.';
+    return h;
+  }
+  function fillBar(el, from, to) { const i = el.querySelector('.rbar i'); if (!i) return; i.style.transition = 'none'; i.style.width = from + '%'; void i.offsetWidth; requestAnimationFrame(() => { i.style.transition = ''; i.style.width = to + '%'; }); }
   function J() {}
   function HL() {}
   const Q = new URLSearchParams(location.search);
@@ -477,7 +533,10 @@
     const r = rec[level] || { w: 0, l: 0 };
     const streak = store.get('streak', 0);
     const best = store.get('best', {})[level + (gameMode === 'salvo' ? '-salvo' : '')];
-    $('record').textContent = (r.w + r.l) ? `${level}: ${r.w} won / ${r.l} lost${streak > 1 ? ' · streak ' + streak : ''}${best ? ' · best ' + best.toLocaleString('en-US') : ''}` : '';
+    { const s = careerStars(); $('titleCareer').innerHTML = careerHtml(s, 0, false, null); fillBar($('titleCareer'), rankPct(s), rankPct(s)); }
+    const ds = dailyStreak();
+    $('record').textContent = ((r.w + r.l) ? `${level}: ${r.w} won / ${r.l} lost${streak > 1 ? ' · streak ' + streak : ''}${best ? ' · best ' + best.toLocaleString('en-US') : ''}` : '') +
+      (ds > 0 ? ((r.w + r.l) ? ' · ' : '') + 'daily streak ' + ds + (ds > 1 ? ' days' : ' day') : '');
     const done = dailyDone(), prog = !done && dailyProgress();
     $('btnDaily').textContent = done ? 'daily #' + dayNo() + ' \u2713' : prog ? 'daily #' + dayNo() + ' \u00b7 resume' : 'daily dive #' + dayNo();
     updateMute();
@@ -543,7 +602,9 @@
     G.selected = null;
     show('battle');
     renderPips();
-    G.startedAt = performance.now();
+    // v2.3: after a hub "tap to play" autostart the player page may still cover the game, so the clock (and the run)
+    // waits for the first touch or key inside the game
+    G.startedAt = clockHold ? 0 : performance.now();
     $('enemyLbl').textContent = (G.daily ? 'enemy sea \u00b7 daily' : RIVALS[G.level].name + '\'s sea') + (G.state.rules.salvo ? ' \u00b7 salvo' : '');
     setTimeout(() => say('start', true), 900);
     status(G.state.rules.salvo ? 'your salvo: ' + rules.fleet.length + ' shots' : 'your turn');
@@ -554,10 +615,18 @@
     else if (G.daily) toast('daily dive #' + dayNo() + ': everyone hunts the same fleet today. no pressure.', 2600);
     else toast('<b>tap the enemy sea to fire</b>', 1800);
     A.track('level_start', { mode: G.daily ? 'daily' : 'quick', level: G.daily ? 'daily' : G.level });
-    G.ccLive = true; CC('start');
+    if (!clockHold) { G.ccLive = true; CC('start'); }
     P.gameplayStart();
     saveDaily();
   }
+  let clockHold = false;
+  function releaseClock() {
+    if (!clockHold) return;
+    clockHold = false;
+    if (G && ui === 'battle' && !G.startedAt && !G.endedAt) { G.startedAt = performance.now(); G.ccLive = true; CC('start'); }
+  }
+  window.addEventListener('pointerdown', releaseClock, true);
+  window.addEventListener('keydown', releaseClock, true);
 
   // ---------------------------------------------------------------- placement input
   function shipAt(layout, c) {
@@ -888,17 +957,26 @@
       store.set('daily-progress', null);
     }
     A.track('level_end', { mode, level: G.daily ? 'daily' : G.level, result: won ? 'win' : 'lose', reason, turns: me.stats.shots + me.stats.sonar, ms: Math.round(time) });
-    if (G.ccLive) { G.ccLive = false; const sc = runScore(won); G.ccScore = sc; CC('score', sc); CC('end', { score: sc, durationMs: Math.round(time), completed: true }); }
+    const runSc = runScore(won); G.ccScore = runSc; // one number for the site and the end card
+    if (G.ccLive) { G.ccLive = false; CC('score', runSc); CC('end', { score: runSc, durationMs: Math.round(time), completed: true }); }
     if (won) P.happytime();
     status(won ? 'victory' : 'cooked', !won);
     clearToasts();
     // record (before any wait, so leaving during the end animation still counts the game)
+    const starsBefore = careerStars(), med = medals();
     const rec = store.get('record', {});
     const key = mode === 'quick' ? G.level : mode;
     rec[key] = rec[key] || { w: 0, l: 0 };
     rec[key][won ? 'w' : 'l']++;
     store.set('record', rec);
     if (!G.online) store.set('streak', won ? store.get('streak', 0) + 1 : 0);
+    // v2.3 career: stars, rank and medals move before any wait too
+    if (won && G.state.rules.salvo) store.set('salvoStars', (store.get('salvoStars', 0) || 0) + 1);
+    const starsAfter = careerStars();
+    const runFacts = { won, fooled: them.stats.decoys, turns: me.stats.shots + me.stats.sonar, lv: G.daily ? 'daily' : G.level, salvo: !!G.state.rules.salvo, lost: them.sunk.length, acc };
+    const newMedals = MEDALS.filter((x) => !med[x[0]] && x[2](runFacts)).map((x) => x[0]);
+    if (newMedals.length) { newMedals.forEach((id) => { med[id] = 1; }); store.set('medals', med); }
+    const rankUp = rankOf(starsAfter).i > rankOf(starsBefore).i;
     await wait(300);
     G.revealed = true;
     say(won ? 'lose' : 'win', true);
@@ -906,6 +984,11 @@
     else { SFX.lose(); J('fail', 1); home.banner('COOKED', '#B59AFF', 2, 1600); }
 
     await wait(1500);
+    if (rankUp || newMedals.length) { // v2.3: a moment that reads with the sound off
+      attack.banner(rankUp ? 'RANK UP!' : 'MEDAL!', rankUp ? '#C5FF49' : '#d9a6ff', 2, 1000);
+      attack.flash(rankUp ? '#C5FF49' : '#d9a6ff', 180); screenShake(5); SFX.yourTurn();
+      await wait(950);
+    }
     drawOverTitle(won ? 'VICTORY' : 'COOKED', won ? '#C5FF49' : '#B59AFF');
     const oppName = G.online ? oppLabel() : 'They';
     $('overSub').textContent = reason === 'left' ? (won ? `${oppName} left the match. The win is yours.` : 'You left the match.')
@@ -913,8 +996,9 @@
       : won
         ? (them.stats.decoys ? `your decoys fooled the computer ${them.stats.decoys}×. it's embarrassed.` : 'clean hunt. no notes.') + (!G.online && store.get('streak', 0) > 1 ? ` win streak: ${store.get('streak', 0)}.` : '')
         : `${rival().name} found you in ${them.stats.shots + them.stats.sonar} shots. its fleet is shown, for closure.`;
+    if (G.daily) { const ds = dailyStreak(); $('overSub').textContent += ` daily streak: ${ds} day${ds > 1 ? 's' : ''}. next dive in ${untilTomorrow()}.`; }
     { // v2.1: score + best for this mode, and how close a loss was
-      const sc = runScore(won), bk = G.daily ? 'daily' : G.level + (G.state.rules.salvo ? '-salvo' : '');
+      const sc = runSc, bk =G.daily ? 'daily' : G.level + (G.state.rules.salvo ? '-salvo' : '');
       const bests = store.get('best', {}), prev = bests[bk] || 0, isBest = sc > prev;
       if (isBest) { bests[bk] = sc; store.set('best', bests); }
       const total = rules.fleet.reduce((a, f) => a + f.len, 0), left = Math.max(0, total - me.stats.hits);
@@ -922,6 +1006,7 @@
         (!won && left > 0 && left <= 4 ? '<br><i>' + left + ' hit' + (left > 1 ? 's' : '') + ' from a win.</i>' : '');
       $('overScore').classList.toggle('best', isBest && !!prev);
     }
+    $('overCareer').innerHTML = careerHtml(starsAfter, starsAfter - starsBefore, rankUp, newMedals);
     $('overStats').innerHTML = [
       [fmtTime(time), 'time'], [me.stats.shots + me.stats.sonar, 'shots'], [acc + '%', 'hits'], [me.stats.bestStreak, 'streak'],
     ].map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
@@ -932,6 +1017,7 @@
     setRematchButtons();
     $('over').classList.add('on');
     show('over');
+    fillBar($('overCareer'), rankUp ? 0 : rankPct(starsBefore), rankPct(starsAfter));
     mountTip();
   }
   function cap(s) { return s[0].toUpperCase() + s.slice(1); }
@@ -1052,6 +1138,14 @@
   // ---------------------------------------------------------------- Daily Dive: once per day
   let overMode = 'game'; // 'game' | 'daily-done' (the over card is showing a finished Daily Dive)
   function dailyDone() { return store.get('daily-' + dayKey(), null); }
+  /** v2.3: days in a row with a finished Daily Dive, counting back from today (or yesterday, if today's is still to do). */
+  function dailyStreak() {
+    const d = new Date(); let n = 0;
+    const key = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+    if (!store.get('daily-' + key(d), null)) d.setDate(d.getDate() - 1);
+    while (n < 400 && store.get('daily-' + key(d), null)) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
   function dailyProgress() {
     const p = store.get('daily-progress', null);
     return p && p.key === dayKey() && p.state && p.state.phase === 'battle' && p.state.players ? p : null;
@@ -1071,6 +1165,7 @@
     $('enemyLbl').textContent = 'enemy sea · daily';
     $('hint').innerHTML = '';
     A.track('level_start', { mode: 'daily', level: 'daily', resumed: true });
+    G.ccLive = true; CC('start'); // v2.3: a resumed daily is a run too (it used to finish without reaching the site)
     P.gameplayStart();
     toast('daily dive #' + dayNo() + ' resumed where you left it.', 2200);
     if (G.state.turn === 1) { G.busy = true; enemyTurn(); } else status('your turn');
@@ -1084,9 +1179,10 @@
     overMode = 'daily-done';
     shareText = done.share || '';
     drawOverTitle(done.won ? 'VICTORY' : 'COOKED', done.won ? '#C5FF49' : '#B59AFF');
-    $('overSub').textContent = `you already did daily dive #${dayNo()}. next one in ${untilTomorrow()}.`;
+    { const ds = dailyStreak(); $('overSub').textContent = `you already did daily dive #${dayNo()}.${ds > 1 ? ' streak: ' + ds + ' days.' : ''} next one in ${untilTomorrow()}.`; }
     $('overScore').innerHTML = '';
-    const v = (x, f) => (x === undefined || x === null ? '-' : f ? f(x) : x);
+    { const s = careerStars(); $('overCareer').innerHTML = careerHtml(s, 0, false, null); fillBar($('overCareer'), rankPct(s), rankPct(s)); }
+    const v =(x, f) => (x === undefined || x === null ? '-' : f ? f(x) : x);
     $('overStats').innerHTML = [
       [v(done.ms, fmtTime), 'time'], [v(done.turns !== undefined ? done.turns : done.shots), 'turns'], [v(done.acc, (a) => a + '%'), 'hits'], [v(done.best), 'streak'],
     ].map(([a, k]) => `<div class="stat"><b>${a}</b><span>${k}</span></div>`).join('');
@@ -1132,11 +1228,15 @@
     const m = e.data;
     if (!m || typeof m !== 'object') return;
     if (m.type === 'cc-mute') { hostMuted = !!m.muted; SFX.setPortalMuted(hostMuted); updateMute(); }
-    else if (m.type === 'cc-restart') { $('over').classList.remove('on'); toTitle(); }
+    // v2.3: the bar's restart and the results card's "play again" start a new dive (a dive in progress is forfeited,
+    // reported as a quit; a finished one was already reported when it ended)
+    else if (m.type === 'cc-restart') { $('over').classList.remove('on'); toTitle(); startFlow(false); }
   });
 
   renderTitle();
   show('title');
+  // v2.3: a hub "tap to play" landing card sent the player: skip the title, straight into a dive
+  if (CC('autostart') === true) { clockHold = true; startFlow(false); }
   requestAnimationFrame(frame);
 })();
 </script>
