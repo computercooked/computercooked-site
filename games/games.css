@@ -2152,6 +2152,8 @@
 .weekly-event b { font-family: var(--sans); color: #ffb84d; }
 .cc-challenge { margin: 0 0 8px; font-size:var(--fs-12); color: var(--paper-dim); }
 .cc-challenge b { font-family: var(--sans); color: var(--lime); }
+.cc-ch-share { margin-left: 4px; padding: 2px 10px; border: 1px solid var(--lime); border-radius: var(--r-sm); background: none; color: var(--lime); font: inherit; font-weight: 800; cursor: pointer; }
+.cc-ch-share:hover, .cc-ch-share:focus-visible { background: var(--lime); color: var(--carbon); }
 @media (max-width: 420px) {
   .weekly-card img { width: 88px; height: 66px; }
 }

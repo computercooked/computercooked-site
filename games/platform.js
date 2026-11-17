@@ -337,8 +337,23 @@
     api("/api/challenge").then(function (r) {
       var c = r && r.ok && r.challenge, p = panel.querySelector(".cc-challenge");
       if (!c || c.game !== game) return;
-      p.innerHTML = "<b>weekly challenge</b> · " + esc(c.goal) + " · " + (c.done ? "done ✓" : "+" + c.xp + " xp" + (me ? "" : ' · <a href="/me/">log in</a> to earn it'));
+      p.innerHTML = "<b>weekly challenge</b> · " + esc(c.goal) + " · " + (c.done ? "done ✓" : "+" + c.xp + " xp" + (me ? "" : ' · <a href="/me/">log in</a> to earn it')) +
+        ' <button type="button" class="cc-ch-share">share ↗</button>';
       p.hidden = false;
+      // the challenge link unfurls with its own card (/games/<slug>/challenge/<week>.png, src/darecard.js via src/seo.js)
+      p.querySelector(".cc-ch-share").addEventListener("click", function () {
+        var url = location.origin + "/games/" + encodeURIComponent(game) + "/?wc=" + encodeURIComponent(c.week) +
+          "&utm_source=share&utm_medium=challenge&utm_campaign=" + encodeURIComponent(game);
+        var text = "this week's challenge: " + c.goal + " on " + c.title + ". can you?";
+        if (navigator.share) {
+          navigator.share({ title: c.title, text: text, url: url }).then(function () { cc.event("challenge_share", { how: "share", week: c.week }); }, function () {});
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(text + " " + url).then(function () {
+            cc.event("challenge_share", { how: "copy", week: c.week });
+            if (window.ccToast) window.ccToast("challenge link copied.");
+          }, function () {});
+        }
+      });
     });
   }
 

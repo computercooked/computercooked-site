@@ -15,7 +15,7 @@ import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
 import { gotdApi } from "./gotd.js";
-import { dareCard } from "./darecard.js";
+import { dareCard, challengeCard } from "./darecard.js";
 import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
@@ -73,6 +73,9 @@ export default {
     // a stored dare's share card (src/darecard.js): the link preview image of /games/<slug>/?…&d=<id>
     const dc = /^\/games\/([a-z0-9-]+)\/dare\/([A-Za-z0-9_-]{6,16})\.png$/.exec(url.pathname);
     if (dc) return dareCard(req, env, url, dc[1], dc[2]);
+    // the weekly challenge's share card: the link preview image of /games/<slug>/?wc=<week>
+    const wc = /^\/games\/([a-z0-9-]+)\/challenge\/(\d{4}-W\d{2})\.png$/.exec(url.pathname);
+    if (wc) return challengeCard(req, env, url, wc[1], wc[2]);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
     if (gm) return (isMood(gm[1]) && (await collectionPage(req, env, url, gm[1]))) || gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe

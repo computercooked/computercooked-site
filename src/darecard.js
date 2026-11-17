@@ -8,6 +8,8 @@
 // so a hide or a rename shows within the hour.
 import { games as catalogOf } from "./db.js";
 import { publicDare } from "./dares.js";
+import { weekChallenge, weekEndOf } from "./social.js";
+import { weekOf } from "./util.js";
 
 const W = 1200, H = 630;
 
@@ -37,7 +39,8 @@ const GARY = [
 const C = { bg: 0, accent: 1, text: 2, dim: 3, k: 4, b: 5, d: 6, s: 7, g: 8 };
 const hex = (h, fb) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); const n = parseInt(m ? m[1] : fb, 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 
-export function drawCard({ title, score, from, theme }) {
+// head: small accent line; lead: big white line; big: the number; line1 white, line2 grey
+export function drawCard({ head, lead, big, line1, line2, theme }) {
   const pal = [hex(theme?.bg, "101114"), hex(theme?.accent, "b6f03c"), [243, 241, 234], [168, 166, 156], [0, 0, 0],
     [232, 220, 176], [185, 171, 127], [20, 22, 15], [182, 240, 60]];
   const px = new Uint8Array(W * H); // all bg (index 0)
@@ -62,13 +65,15 @@ export function drawCard({ title, score, from, theme }) {
 
   // frame
   rect(28, 28, W - 56, 10, C.accent); rect(28, H - 38, W - 56, 10, C.accent); rect(28, 28, 10, H - 56, C.accent); rect(W - 38, 28, 10, H - 56, C.accent);
-  text("COMPUTER COOKED - A DARE", 80, 76, 4, C.accent);
-  text("CAN YOU BEAT", 80, 140, 9, C.text);
-  const [sTxt, sSc] = fit(score, 740, 20, 6);
-  text(sTxt, 80, 228 + Math.round((140 - 7 * sSc) / 2), sSc, C.accent); // a long score at a smaller size sits mid-band
-  const [tTxt, tSc] = fit("ON " + title, 1040, 6, 3);
+  const [hTxt, hSc] = fit(head, 780, 4, 2);
+  text(hTxt, 80, 76 + Math.round((28 - 7 * hSc) / 2), hSc, C.accent);
+  const [lTxt, lSc] = fit(lead, 780, 9, 5);
+  text(lTxt, 80, 140 + Math.round((63 - 7 * lSc) / 2), lSc, C.text);
+  const [sTxt, sSc] = fit(big, 740, 20, 6);
+  text(sTxt, 80, 228 + Math.round((140 - 7 * sSc) / 2), sSc, C.accent); // a long number at a smaller size sits mid-band
+  const [tTxt, tSc] = fit(line1, 1040, 6, 3);
   text(tTxt, 80, 392, tSc, C.text);
-  const [fTxt, fSc] = fit("FROM " + (from || "A FRIEND"), 1040, 5, 3);
+  const [fTxt, fSc] = fit(line2, 1040, 5, 3);
   text(fTxt, 80, 452, fSc, C.dim);
   text("PLAY FREE: COMPUTERCOOKED.COM", 80, 530, 4, C.text);
   // gary, top right
@@ -118,8 +123,35 @@ export async function dareCard(req, env, url, slug, id) {
   try { d = await publicDare(env, id); } catch (e) { /* no table */ }
   const g = d && !d.gone && d.game === slug && (await catalogOf(env, url.origin)).get(slug);
   if (!g || !(d.score > 0)) return notFound();
-  const png = await encodePng(drawCard({ title: g.title, score: nice(d.score), from: d.from, theme: g.theme }));
-  const res = new Response(png, { headers: { "content-type": "image/png", "cache-control": "public, max-age=3600" } });
+  return send(req, cache, drawCard({ head: "COMPUTER COOKED - A DARE", lead: "CAN YOU BEAT", big: nice(d.score), line1: "ON " + g.title, line2: "FROM " + (d.from || "A FRIEND"), theme: g.theme }));
+}
+
+async function send(req, cache, card) {
+  const res = new Response(await encodePng(card), { headers: { "content-type": "image/png", "cache-control": "public, max-age=3600" } });
   if (cache) await cache.put(req, res.clone());
   return res;
+}
+
+// GET /games/<slug>/challenge/<week>.png: the weekly challenge's card ("CAN YOU SCORE 1,200+ ON CRASH IN ONE RUN?"),
+// the link preview of challenge links (/games/<slug>/?wc=<week>, src/seo.js). Only for the game that week's challenge
+// really is (weekChallenge in src/social.js: the hand pick or the stored automatic pick; nothing is picked here);
+// anything else 302s to the game's og.png. A past week's card says it has ended. Cached an hour.
+const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"], MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+export async function challengeCard(req, env, url, slug, week) {
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const hit = cache && await cache.match(req);
+  if (hit) return hit;
+  const plain = () => Response.redirect(`${url.origin}/games/${slug}/og.png`, 302);
+  let c = null;
+  try { c = env.DB && await weekChallenge(env, week); } catch (e) { /* no table */ }
+  const g = c && c.game === slug && (await catalogOf(env, url.origin)).get(slug);
+  if (!g || !(c.target > 0)) return plain();
+  const last = new Date(weekEndOf(week) - 86400000); // the sunday the week ends on (UTC)
+  const over = weekOf(Date.now()) > week;
+  return send(req, cache, drawCard({
+    head: "COMPUTER COOKED - WEEKLY CHALLENGE", lead: "CAN YOU SCORE", big: c.target.toLocaleString("en-US") + "+",
+    line1: "ON " + g.title + " IN ONE RUN?",
+    line2: over ? "THIS ONE HAS ENDED - A NEW ONE EVERY MONDAY" : `+${c.xp} XP - ENDS ${DAYS[last.getUTCDay()]} ${MONTHS[last.getUTCMonth()]} ${last.getUTCDate()}`,
+    theme: g.theme,
+  }));
 }

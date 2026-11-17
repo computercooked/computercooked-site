@@ -372,6 +372,22 @@ r = await (await get("/api/featured")).json();
 const chNow = (await (await get("/api/challenge")).json()).challenge;
 ok(r.ok && r.featured?.game && r.featured.title && r.featured.game !== chNow?.game && ["metrics", "rotation"].includes(r.featured.basis), "game of the week (not the challenge game)", r.featured && { game: r.featured.game, basis: r.featured.basis, reason: r.featured.reason, challenge: chNow?.game });
 
+// weekly challenge share card: /games/<game>/challenge/<week>.png, and ?wc=<week> links point their preview at it
+if (chNow?.week && chNow.game) {
+  const cc = await get(`/games/${chNow.game}/challenge/${chNow.week}.png`), cb = new Uint8Array(await cc.arrayBuffer());
+  const cdv = new DataView(cb.buffer);
+  ok(cc.status === 200 && cc.headers.get("content-type") === "image/png" && cdv.getUint32(16) === 1200 && cdv.getUint32(20) === 630, "the weekly challenge share card is a 1200x630 png", cc.status + " " + cb.length);
+  const wp = await (await get(`/games/${chNow.game}/?wc=${chNow.week}`)).text();
+  ok(wp.includes(`/games/${chNow.game}/challenge/${chNow.week}.png"`) && /og:title" content="weekly challenge: score [\d,.]+\+ on /.test(wp), "a challenge link's preview uses the challenge card", wp.match(/og:title" content="[^"]*"/));
+  const other = chNow.game === "fathom" ? "crash" : "fathom";
+  const wr = await fetch(base + `/games/${other}/challenge/${chNow.week}.png`, { redirect: "manual" });
+  ok(wr.status === 302 && /\/og\.png$/.test(wr.headers.get("location") || ""), "a challenge card only draws for that week's game", wr.status);
+  const np = await (await get(`/games/${other}/?wc=${chNow.week}`)).text();
+  ok(!np.includes("/challenge/"), "a challenge link for the wrong game gets the plain preview");
+  const pjs2 = await (await get("/games/platform.js")).text();
+  ok(pjs2.includes("cc-ch-share") && pjs2.includes("utm_medium=challenge"), "the challenge line has a share button");
+} else ok(false, "this week's challenge for the share card check", chNow);
+
 if (!local) console.log("SKIP (live: no accounts) signup, login, xp, profiles, saves, friends, dares by accounts, referrals, delete account");
 else {
   let u = "smoke" + Math.floor(Math.random() * 1e6);
