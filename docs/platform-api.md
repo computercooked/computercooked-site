@@ -595,6 +595,19 @@ The weekly challenge line on the challenge game's page (`games/platform.js` `loa
 - A past week's card says "THIS ONE HAS ENDED - A NEW ONE EVERY MONDAY", and its description says so too. Cached an hour.
 - The home "happening now" card is a link itself, so it has no share button.
 
+## Share my week (recap card)
+
+The "your week in numbers" box on `/me` has a **share my week ↗** button. `me/me.js` loads `me/recap-card.js` and calls `window.ccRecapCard(recap)`, which draws a 1080x1920 PNG on the device in the run card's look. The card shows:
+- "my week" and the dates;
+- runs, as the big number;
+- tiles for minutes, games, days played and xp;
+- up to 4 highlights: weekly challenge done, the biggest new best (+n more), a level-up, and the most played game;
+- "your turn." and computercooked.com/games.
+
+The card is drawn while the recap shows, so the share sheet opens from the tap (iOS). Where files can be shared it opens the share sheet with the image plus `computercooked.com/games/?utm_source=share&utm_medium=recap`; elsewhere the image is downloaded. Nothing is uploaded and no public URL holds anyone's week.
+
+The recap now also lists the week's challenge: "weekly challenge done ✓" when finished, and this week's goal while it's still open.
+
 ## Public endpoints
 
 | method | path | what |
@@ -627,7 +640,7 @@ The weekly challenge line on the challenge game's page (`games/platform.js` `loa
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
 | GET | `/api/gotd` | `{ok, day, game, title, pitch, thumbnail, poster, ends_at}`: today's game of the day (2x play XP until `ends_at`, midnight UTC); `game: null` if there's no pick. See "Game of the day". |
-| GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total} \| null}`. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |
+| GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total, challenge: {game, title, goal, done} \| null} \| null}`. `challenge` is that week's weekly challenge (read only) and whether this player finished it. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |
 | GET | `/api/me/feed` | `{items: [{kind: game/achievement/challenge, game, title, text, ts}]}`, newest first, up to 30 |
 | GET | `/api/me/friends` | `{friends, incoming, outgoing, blocked}`, each `[{username, name, avatar, level}]` |
 | GET | `/api/me/friends/feed` | `{friends, items: [{kind: achievement/challenge/best/level/friend, game, title, text, ts, who: {username, name, avatar, level}}]}`: your friends from the last 14 days (badges, weekly challenge wins, new bests, level-ups, new friendships). Level-ups are worked out from xp_events (the running total crossing a level), one per friend per day at the highest level reached; "is now your friend" uses the later of the two friendship rows. Friends with a private profile are left out, and game moments (smol words etc.) never appear here |

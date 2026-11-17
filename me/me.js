@@ -571,6 +571,11 @@
     top.hidden = !r.top;
     if (r.top) top.innerHTML = 'most played: <a href="/games/' + encodeURIComponent(r.top.game) + '/">' + esc(r.top.title) + "</a> · " + r.top.runs + (r.top.runs === 1 ? " run" : " runs") + " · " + mins(r.top.minutes * 60000);
     var lines = [];
+    if (r.challenge) {
+      var cg = '<a href="/games/' + encodeURIComponent(r.challenge.game) + '/">' + esc(r.challenge.title) + "</a>";
+      if (r.challenge.done) lines.push('<li class="is-best"><span>weekly challenge done ✓ · ' + cg + "</span></li>");
+      else if (!r.complete) lines.push("<li><span>this week's challenge: " + esc(r.challenge.goal) + " on " + cg + "</span></li>");
+    }
     if (r.level.to > r.level.from) lines.push('<li class="is-achievement"><span>levelled up: ' + r.level.from + " → " + r.level.to + " (" + esc(r.level.title) + ")</span></li>");
     r.bests.forEach(function (b) {
       var g = '<a href="/games/' + encodeURIComponent(b.game) + '/">' + esc(b.title) + "</a>";
@@ -583,6 +588,47 @@
     });
     if (r.achievements_total > r.achievements.length) lines.push("<li><span>+" + (r.achievements_total - r.achievements.length) + " more badges</span></li>");
     $("#recap-moments").innerHTML = lines.join("");
+    recapShare(r);
+  }
+  // "share my week": a story-size card of the shown week (me/recap-card.js, loaded on first use), drawn ahead of the
+  // tap so the share sheet can open from the tap itself (iOS). Share sheet with the image where files can be shared,
+  // else the image is downloaded. Nothing is uploaded.
+  var recapCards = {}, recapNow = null;
+  function recapCardFor(r) {
+    var key = r.week + ":" + r.which;
+    if (!recapCards[key]) {
+      recapCards[key] = new Promise(function (ok, bad) {
+        if (window.ccRecapCard) return ok();
+        var sc = document.createElement("script");
+        sc.src = "/me/recap-card.js"; sc.onload = function () { ok(); }; sc.onerror = bad;
+        document.head.appendChild(sc);
+      }).then(function () { return window.ccRecapCard(r); });
+      recapCards[key].catch(function () { delete recapCards[key]; });
+    }
+    return recapCards[key];
+  }
+  function recapShare(r) {
+    recapNow = r;
+    var btn = $("#recap-share");
+    btn.textContent = "share my week ↗";
+    btn.hidden = !r.runs;
+    if (r.runs) recapCardFor(r).catch(function () {}); // draw it now, while the player reads
+    btn.onclick = function () {
+      var cur = recapNow, url = "https://computercooked.com/games/?utm_source=share&utm_medium=recap";
+      recapCardFor(cur).then(function (blob) {
+        var file = typeof File === "function" ? new File([blob], "my-week-" + cur.week + ".png", { type: "image/png" }) : null;
+        if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+          return navigator.share({ files: [file], text: "my week on computer cooked games. your turn: " + url }).catch(function (e) {
+            if (e && e.name === "NotAllowedError") btn.textContent = "tap again to share ↗"; // the card took too long: the next tap shares at once
+          });
+        }
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = "my-week-" + cur.week + ".png";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        if (window.ccToast) window.ccToast("saved your week as a picture.");
+      }, function () { if (window.ccToast) window.ccToast("couldn't make the picture. try again?"); });
+    };
   }
   function showXp(s) {
     var x = s.xp, span = Math.max(1, x.next - x.floor), pct = Math.min(100, Math.round(100 * (x.xp - x.floor) / span));
