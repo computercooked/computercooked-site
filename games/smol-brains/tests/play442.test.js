@@ -27,6 +27,10 @@ check("food in sight", /mask\[V\.eat\] ?&& ?ch\.hunger ?> ?peckish\(game\)\)/.te
 check("the walk when nothing is in sight", /ch\.hunger ?> ?peckish\(game\) ?\+ ?0\.05 ?&& ?nearestOf\[N\.food\] ?== ?null/.test(cj));
 check("its nose, the spot where food was, the idle snack", /c\.chem\.hunger ?> ?peckish\(game\) ?&& ?\(sniff ?= ?sniffFood/.test(cj) && /c\.foodSpot ?&& ?c\.chem\.hunger ?> ?peckish\(game\) ?- ?0\.05/.test(cj) && /ch\.hunger ?> ?peckish\(game\) ?\? ?3 ?: ?1\.5/.test(cj));
 
+console.log("1b. a bite does not stack the sickness");
+check("only a smol that does not have it can catch it from a bite", C.BITE_CATCH === 0.2 && /game\.rng\.chance\(0\.2\) ?&& ?oc\.antigen ?< ?C\.BITE_CATCH\) ?oc\.antigen ?= ?Math\.min\(1, ?oc\.antigen ?\+ ?0\.25\)/.test(cj));
+check("a rotten meal (0.25) or a first bite (0.25) is over the line, so the next bite adds nothing", 0.25 >= C.BITE_CATCH);
+
 console.log("2. keepsakes you can tell apart");
 {
   const ks = Object.keys(SB.KINDS).filter(k => /^trophy_/.test(k));

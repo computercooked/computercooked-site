@@ -38,6 +38,7 @@
   C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
   C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
   C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
+  C.BITE_CATCH = 0.2; // 4.42: a grump's bite can only infect a smol whose antigen is under this
   C.PECKISH_NIGHT = 0.65; // 4.42: at night a smol is only peckish from here (the old number). from 0.5 it was up and about in the dark looking for food, and the grumps found it: three times the infecting bites on the same islands
   function peckish(game) { return game && game.world && game.world.night ? C.PECKISH_NIGHT : C.PECKISH; }
   C.peckish = peckish;
@@ -1235,7 +1236,7 @@
       SB.Chem.apply(oc, { pain: hard, fear: 0.18, anger: 0.15 });
       o.anim.squash = 0.35; emote(o, "ouch", 1.5);
       if (o.species === "smol") say(o, knows(o, "ouch") ? "ouch!" : "eek!", game);
-      if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2)) oc.antigen = Math.min(1, oc.antigen + 0.25);
+      if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2) && oc.antigen < C.BITE_CATCH) oc.antigen = Math.min(1, oc.antigen + 0.25); // 4.42: a bite gives the sickness to a smol that does not have it. it stacked: three infecting bites in a row (a smol stands for the first few, its fear still low) and it was dead in a minute
       if (c.species === "grump" && o.species === "smol" && SB.Threats) SB.Threats.wound(game, c, o);
       if (c.species === "smol" && o.species === "grump") {
         habit(c, "fight", 1); SB.Chem.apply(oc, { fear: 0.2 });
