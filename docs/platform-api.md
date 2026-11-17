@@ -480,6 +480,15 @@ Above them, **"catch the missing page"** (`assets/lost-game.js`, deferred, under
 - "Most crowns" lists players holding more than one. Games with no scores are left off. No play counts are shown.
 - With no database or no scores the static page (`champs/index.html`) shows its empty state. Linked from the homepage "happening now" heading and the command bar ("epic gamers").
 
+## Mood collections (`/games/arcade/`, `/puzzle/`, `/chill/`, `/quick/`, `/rage/`)
+
+- One server-rendered page per mood, so each can rank on its own search ("free arcade games online, no download"). Drawn whole by `src/collections.js` (no static file); the Worker routes them ahead of game pages, and `/games/<mood>` or `/games/<mood>/index.html` 301 to the slash form.
+- The games come from games.json through `vibesOf()` in `src/seo.js` (the same VIBES/FALLBACK map as the hub chips and the home mood tiles), Computer Cooked games only, in the hub's order (`featured_rank`, then file order). A new game lands in its moods with no extra step.
+- Each page: its own title, description, canonical, og/twitter tags (`/assets/og.png`, with size and alt), an ItemList of its games and a BreadcrumbList (games › arcade games). The body is the hub shell (deck, footer, `games.css` cards with posters, `data-slug`/`data-clip` so `assets/preview.js` plays the clips) plus a brand-voice heading, a short intro and links to the other moods and all games. Page-head styles: `assets/collections.css`.
+- The intro copy lives in `MOODS` in `src/collections.js`. A `{slug}` in a sentence becomes a link to that game; a sentence naming a game no longer in the mood is dropped, so the copy can't point at the wrong game.
+- The home mood tiles link here (`/games/<mood>/?ref=mood`, set by `homePage()` in `src/pages.js`). The hub's `?vibe=` filter still works and still serves a filtered `/games/`.
+- If a game is ever given one of these slugs, or a mood has no games, the path falls back to a normal game page (or the 404). Any other `/games/<word>/` is a 404 as before. The 5 pages are in `sitemap.xml`; `scripts/sitemap-dates.mjs` dates them from `src/collections.js` and games.json.
+
 ## Hub: your collection
 
 All in the browser, from `cc-history` (`assets/fx.js` `filters()`); a first visit sees the hub exactly as before.

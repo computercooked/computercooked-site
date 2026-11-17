@@ -163,6 +163,7 @@
   }, { rootMargin: "0px 0px 12% 0px" });
   function sweep() {
     sweepT = 0;
+    if (document.hidden) return; // a background tab: nothing to show yet (the scroll / timer sweeps pick it up after)
     var line = innerHeight * 1.1, hit = [];
     for (var i = 0; i < waiting.length; i++) {
       var el = waiting[i];

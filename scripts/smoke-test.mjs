@@ -238,7 +238,7 @@ ok(/<title>free online games/.test(page) && !/<li class="game-card" hidden>/.tes
 page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
 ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
-ok(/how to play fathom/.test(page) && /class="vibe-link" href="\/games\/\?vibe=puzzle"/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
+ok(/how to play fathom/.test(page) && /class="vibe-link" href="\/games\/puzzle\/"/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
@@ -261,6 +261,22 @@ ok(/property="og:image:alt" content="fathom: /.test(page) && /name="twitter:imag
   }
   ok(lacking.length === 0, "every public page has canonical, og:image (+alt) and a large twitter card", lacking);
 }
+// mood collections (src/collections.js, read-only): one server-rendered page per mood, each with its own canonical,
+// an ItemList of its games (at least 2) and breadcrumbs; the slashless form redirects; other words still 404
+for (const v of ["arcade", "puzzle", "chill", "quick", "rage"]) {
+  r = await get(`/games/${v}/`);
+  const html = await r.text();
+  const lds = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => { try { return JSON.parse(m[1]); } catch (e) { return null; } });
+  const list = lds.find((d) => d && d["@type"] === "ItemList"), crumbs = lds.find((d) => d && d["@type"] === "BreadcrumbList");
+  const cards = (html.match(/<li class="game-card" data-slug="[a-z0-9-]+"/g) || []).length;
+  ok(r.status === 200 && html.includes(`<link rel="canonical" href="https://computercooked.com/games/${v}/">`) && list && list.itemListElement.length >= 2 && list.itemListElement.length === cards &&
+    crumbs?.itemListElement?.[2]?.item === `https://computercooked.com/games/${v}/` && /<title>free [a-z]+ games online/.test(html) && /property="og:image:alt"/.test(html) && html.includes("ccPreview.attach"),
+    `/games/${v}/ is a mood page: 200, canonical, ItemList of 2+ games, breadcrumbs`, { status: r.status, games: list && list.itemListElement.length, cards });
+}
+r = await fetch(base + "/games/arcade", { redirect: "manual" });
+ok(r.status === 301 && new URL(r.headers.get("location"), base).pathname === "/games/arcade/", "/games/arcade redirects to /games/arcade/", r.status);
+r = await get("/games/notamood/");
+ok(r.status === 404, "an unknown /games/<word>/ is still a 404", r.status);
 // installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
 // manifest + pwa.js on the hub and every game page
 {
@@ -916,7 +932,7 @@ if (admin) {
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
-  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/\?vibe=quick&amp;ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('id="home-crown-list"') && home.includes('class="card2') && !home.includes("gary-entry"),
+  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/quick\/\?ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('id="home-crown-list"') && home.includes('class="card2') && !home.includes("gary-entry"),
     "homepage: one play button, featured game, lab strip, cooked desktop with dock and start menu, happening now, no gary");
   const labHtml = await (await get("/lab/")).text();
   ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");

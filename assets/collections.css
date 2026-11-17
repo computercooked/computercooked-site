@@ -1,0 +1,82 @@
+/* mood collection pages (/games/arcade/, /puzzle/, /chill/, /quick/, /rage/), drawn by src/collections.js.
+   Cards, shelves, .vibe-link and .about-card come from /games/games.css; this is only the page head. */
+
+.mood-crumbs {
+  margin: 0 0 var(--s-4);
+  font-size: var(--fs-14);
+  color: var(--paper-dim);
+}
+
+.mood-crumbs a {
+  color: var(--paper-dim);
+  text-decoration: none;
+}
+
+.mood-crumbs a:hover,
+.mood-crumbs a:focus-visible {
+  color: var(--lime);
+}
+
+.mood-crumbs [aria-current] {
+  color: var(--paper);
+}
+
+.mood-hero {
+  padding: var(--s-2) 0 0;
+}
+
+.mood-eyebrow {
+  margin: 0 0 var(--s-3);
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: var(--fs-12);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lilac);
+}
+
+.mood-title {
+  margin: 0;
+  max-width: 16em;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(var(--fs-28), 7vw, var(--fs-40));
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--lime);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.mood-hero .games-sub a {
+  color: var(--paper);
+  text-decoration-color: var(--lime);
+  text-underline-offset: 3px;
+}
+
+.mood-hero .games-sub a:hover,
+.mood-hero .games-sub a:focus-visible {
+  color: var(--lime);
+}
+
+.mood-page .shelf {
+  margin-top: var(--s-6);
+}
+
+.mood-more {
+  margin-top: var(--s-7);
+}
+
+.mood-other-kind {
+  margin-left: var(--s-1);
+  font-weight: 400;
+  color: var(--paper-dim);
+}
+
+.mood-more .mood-all {
+  margin-top: var(--s-4);
+}
+
+.mood-more .ghost-btn {
+  flex: none;
+}

@@ -8,6 +8,7 @@ import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
 import { vibesOf, gamesItemList } from "./seo.js";
 import { champsData } from "./champs.js";
+import { isMood } from "./collections.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const STAGE = { building: "building", next: "up next", shipped: "shipped" };
@@ -169,6 +170,8 @@ export async function homePage(req, env, url) {
       const v = e.getAttribute("data-mood");
       mood = order.filter((g) => vibesOf(g).includes(v));
       if (!mood.length) e.setAttribute("hidden", "");
+      // each tile opens its mood's own page (src/collections.js) rather than the filtered hub
+      else if (isMood(v)) e.setAttribute("href", `/games/${v}/?ref=mood`);
     } })
       .on("a.mood .mood-art", { element(e) {
         const pick = mood.filter((g) => !shown.has(g.slug)).concat(mood.filter((g) => shown.has(g.slug))).slice(0, 3);
