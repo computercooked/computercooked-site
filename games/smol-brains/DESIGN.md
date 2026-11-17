@@ -711,6 +711,24 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.92 What v4.43.0 changed: no site address on an ad portal
+
+**Why.** The portal builds (CrazyGames, GameDistribution, Poki) are made by `scripts/package-portal.mjs`, which sets `window.CC_PORTAL = { name: ... }`. Those portals count our own address on the screen as cross-promotion. Smol Brains had two "copy world link" buttons, on the world tab and on the civilisation card. With the clipboard blocked, as it can be inside a portal's frame, the fallback toast showed the link itself: a computercooked.com URL on screen.
+
+**What changed.**
+- `adPortal()` in ui.js (also `UI.adPortal`): true when `CC_PORTAL.name` is set and is not "none" (a plain copy, such as itch, is "none").
+- On an ad portal both "copy world link" buttons are left out. The world code chip stays: it is a code, not an address.
+- On an ad portal the two share pictures lose the address too: the civilisation card ("computercooked.com/games/smol-brains") and the smol card ("smol brains · computercooked.com" becomes "smol brains"). cc-lead asked for the buttons; the pictures fall under the same rule, so they went with them.
+- On the site itself nothing changes.
+
+**Two small things from the proof pass** (`smol-brains-handover/PROOF-PASS.md`): an elder's page said "not grown up yet" on its egg line (it says "past the age for eggs"), and the debug page said "1 frames a second".
+
+**Seen in a browser** (localhost; the pane is not on anyone's screen): on a fresh island, sky menu, world tab. With no flag: the world code, "copy world link" and "civilisation card". After `window.CC_PORTAL = { name: "crazygames" }` and opening the tab again: the world code and "civilisation card" only, and no computercooked.com anywhere in the page's text. The card itself then had "share" and "download" and no third button, and the bottom of the picture ended at the six stat tiles with no address line under them. The share text never held an address ("smol brains on computer cooked games"). Three screenshots are in `smol-brains-handover` (`4.43-look-*.jpg`). The smol card's line was not looked at on screen; its test is a text check only.
+
+`tests/play443.test.js`: `adPortal()` run against no flag, "none", the three portal names and an empty flag; both buttons guarded and only two such buttons in the file; both pictures guarded; every line of code in `src/` that holds the address either asks `adPortal()` or is the one line that only builds the link for the guarded button, so a new line with the address fails until it is guarded; the game's page shows no address in its own text; the egg line for an elder, a youngster and a grown smol; the frame wording.
+
+**Still open.** The proof pass has 232 of its 240 sampled rows still to try. A toast raised from the book in the sky menu may sit under the open menu (copy and paste of job rules gave no visible word back); not confirmed. From 4.42: a smol still stands for the first bites of a raid; a stuck stranger; "use" repeating the big button; look-alike dishes and tonics; sound unheard.
+
 ## 0.91 What v4.42.0 changed: the sickness, and four things that read badly from the sky
 
 **Why more smols died sick in 4.40.** On the eighteen judging islands 4.40 lost 7 smols to sickness where 4.38 and 4.39 lost 2 each. A new tool, `smol-brains-handover/tools/island-sick-diag.js`, watches every smol's antigen each tick and says where each jump came from, using the game's own `eat` event to tell a bad meal from a bite. On six tuning islands (101, 102, 103, 105, 107, 108):
