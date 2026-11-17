@@ -293,7 +293,7 @@
       ],
       "controls": "tap / click a floppy (keys 1-3), z = ctrl+z, r = restart. badges show how many pixels each front disk can hit.",
       "size_kb": 96,
-      "version": "2.3",
+      "version": "2.4",
       "added": "2026-10-19",
       "max_score_per_sec": 200,
       "how_to": [
@@ -302,7 +302,9 @@
         "empty disks leave. anything with shots left sits on the 5-slot bench, and a full bench means you are cooked.",
         "z is ctrl+z: one undo per level. save it for when the bench is nearly full.",
         "the daily picture is the same for everyone, and only your first try counts."
-      ]
+      ],
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "crash-cheats",
@@ -355,9 +357,11 @@
       ],
       "controls": "tap / click popups and bills · space smashes (fast taps build a combo) · p pays all · g takes a gig · 1–4 tabs · 1/2 pick the daily situation",
       "size_kb": 164,
-      "version": "2.4",
+      "version": "2.5",
       "added": "2026-10-19",
-      "max_score_per_sec": 0.02
+      "max_score_per_sec": 0.02,
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "plus-one-ram",
@@ -448,7 +452,7 @@
       ],
       "controls": "hold tap / click / space to charge, let go to cast. tap on the big bite. hold to reel, let go to ease. b opens the book, m mutes, p pauses.",
       "size_kb": 112,
-      "version": "2.4",
+      "version": "2.5",
       "added": "2026-10-28",
       "max_score_per_sec": 200.0,
       "score_slack": 3000.0,
@@ -458,7 +462,9 @@
         "hold to reel, let go before the tension hits the red.",
         "catches in a row stack a streak multiplier (up to 3x).",
         "today's rare is worth 2x. new book entries pay 1.5x."
-      ]
+      ],
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "haunted-self-checkout",
