@@ -10,7 +10,8 @@
 
   // ---------------------------------------------------------- storage (per-viewer conveniences only)
   const SKEY = 'handbag-havoc.v1';
-  let save = { best: { wave: 0, time: 0, yeets: 0, chain: 0, mph: 0 }, wins: 0, runs: 0, daily: {}, settings: { mute: false, shake: true } };
+  // streak (1.4): consecutive daily gardens played, by daily number. Older saves have no streak key and get this default.
+  let save = { best: { wave: 0, time: 0, yeets: 0, chain: 0, mph: 0 }, wins: 0, runs: 0, daily: {}, streak: { n: 0, last: 0 }, settings: { mute: false, shake: true } };
   try { const s = JSON.parse(localStorage.getItem(SKEY) || 'null'); if (s && s.best) save = Object.assign(save, s); } catch (e) { /* storage blocked */ }
   function persist() { try { localStorage.setItem(SKEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
   if (params.get('mute') === '1') save.settings.mute = true;
@@ -52,6 +53,7 @@
   let screen = 'title';           // title | play | upgrade | summary | pause
   let game = null, demo = null, demoMem = {}, mode = 'run';
   let acc = 0, last = performance.now(), overT = 0, upLock = 0, selIdx = 0;
+  let holdStart = false;   // 1.4: an autostarted run waits for the first touch or key (the player page may still have its full-screen prompt over the game)
   const botName = params.get('autoplay');   // random | skilled: lets a bot drive (attract/QA)
   const speed = Math.max(1, Math.min(8, +params.get('speed') || 1));
   const dailyNo = () => { const d = new Date(); return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2026, 9, 1)) / 86400000) + 1; };
@@ -79,6 +81,7 @@
   }
   window.addEventListener('keydown', (e) => {
     HH.SFX.init();
+    holdStart = false;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     keys.add(e.code);
     if (e.repeat) return;
@@ -109,6 +112,7 @@
 
   canvas.addEventListener('pointerdown', (e) => {
     HH.SFX.init();
+    holdStart = false;
     if (screen !== 'play' || joy.id !== null) return;
     joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; joy.active = true;
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -141,7 +145,7 @@
 
   // first-run hint: what to touch, until the player has steered once (cleared on first real input)
   function drawSteerHint(now) {
-    if (!game || game.moved || game.t > 12 || save.runs > 3 || game.state !== 'play') return;
+    if (!game || game.state !== 'play' || (!holdStart && (game.moved || game.t > 12 || save.runs > 3))) return;
     const s = Math.max(0.8, Math.min(1.3, Math.min(vw, vh) / 600));
     const y = vh - safe.b - 120 * s, a = 0.75 + 0.25 * Math.sin(now / 180);
     const txt = coarse ? 'drag in circles. turning powers the purse' : 'steer in circles. turning powers the purse';
@@ -189,15 +193,19 @@
     beginRun(m);
   }
   function beginRun(m) {
+    if (ccLive && game) ccEnd(game, false);   // 1.4: a cc-restart from the upgrade cards used to start a new run without ending the old one
     mode = m;
     const seed = m === 'daily' ? dailySeed() : (+params.get('seed') || 0);
     game = new HH.Game({ seed, daily: m === 'daily' ? dailyNo() : 0, sfx: HH.SFX });
+    // 1.4: the number to beat, on the HUD all run ("best 87"), with a NEW BEST! moment when it's passed
+    const today = m === 'daily' && save.daily[dailyNo()];
+    game.bestYeets = today && today.yeets >= 5 ? today.yeets : save.best.yeets >= 5 ? save.best.yeets : 0;
     // debug: ?wave=N starts at wave N with sensible upgrades already picked
     const skip = Math.min(5, +params.get('wave') || 1);
     game.debug = skip > 1;   // test jumps never write bests
     for (let i = 1; i < skip; i++) { game.state = 'upgrade'; game.offers = game.makeOffers(); game.choose(HH.Bots.skilled.pick(game)); }
     window.__hh.botMem = {};
-    acc = 0; overT = 0; joy.active = false; joy.id = null;
+    acc = 0; overT = 0; joy.active = false; joy.id = null; holdStart = false;
     screen = 'play';
     show('title', false); show('summary', false); show('upgrade', false); show('pause', false);
     $('pauseBtn').style.display = 'block';
@@ -258,7 +266,7 @@
     const sq = [0, 1, 2, 3, 4].map((w) => (g.win ? '🟩' : w < g.wave ? '🟩' : w === g.wave ? '🟥' : '⬛')).join('') + (g.win ? '👑' : '');
     const head = g.daily ? `handbag havoc · daily garden #${g.daily}` : 'handbag havoc';
     const res = g.win ? `toppled the gnome king in ${HH.fmtTime(s.time)}` : `wave ${g.wave + 1}/5 · ${HH.fmtTime(s.time)}`;
-    return `${head}\n${sq} ${res}\n${s.yeets} gnomes yeeted · best bowl x${s.bestChain} · purse hit ${mph} mph\ncomputercooked.com/games/handbag-havoc`;
+    return `${head}\n${sq} ${res}\n${s.yeets} gnomes yeeted · best bowl x${s.bestChain} · purse hit ${mph} mph\nbeat that: computercooked.com/games/handbag-havoc`;
   }
 
   function showSummary() {
@@ -278,6 +286,7 @@
     if (mph > B.mph) { nb.mph = 1; B.mph = mph; }
     if (g.win && !g.debug) save.wins++;
     if (g.daily) { const d = save.daily[g.daily] || { yeets: 0 }; if (s.yeets > d.yeets) save.daily[g.daily] = { yeets: s.yeets, win: g.win }; }
+    if (g.daily && !g.debug) { const st = save.streak; if (st.last !== g.daily) { st.n = st.last === g.daily - 1 ? st.n + 1 : 1; st.last = g.daily; } }
     persist();
     const first = save.runs <= 1;
     $('sumTitle').textContent = g.win ? 'the king has fallen.' : 'granny got gnomed.';
@@ -292,6 +301,10 @@
     $('stats').innerHTML = stat(s.yeets, 'gnomes yeeted', 'yeets') + stat('x' + s.bestChain, 'best bowl', 'chain') + stat(HH.fmtTime(s.time), 'survived', 'time') + stat(mph + ' mph', 'purse top speed', 'mph');
     const counts = {}; s.picks.forEach((p) => (counts[p] = (counts[p] || 0) + 1));
     $('build').innerHTML = Object.keys(counts).map((id) => `<img alt="${HH.UP_BY_ID[id].name}" title="${HH.UP_BY_ID[id].name} x${counts[id]}" src="${icon(id, 30)}">`).join('');
+    // 1.4: a reason for the next run (and, on the daily, for tomorrow)
+    $('sumGoal').textContent = g.daily
+      ? `daily #${g.daily} · streak ${save.streak.n} day${save.streak.n === 1 ? '' : 's'} · same garden for everyone. new one tomorrow.`
+      : 'next goal: ' + nextGoal();
     $('shareText').textContent = shareLine(g);
     $('shareBtn').style.display = navigator.share && (!P || P.allowShare) ? 'inline-block' : 'none';
     upLock = performance.now() + 300;
@@ -307,13 +320,24 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => toast('copied. go brag.'), fallback); else fallback();
   }
 
-  function renderBests() {
+  // 1.4: one clear thing to aim for, from the bests (shown on the title and the summary)
+  function nextGoal() {
     const B = save.best;
-    if (!save.runs) { $('bests').textContent = ''; return; }
+    if (B.wave < 2) return 'survive wave 1. it\'s only 20 seconds.';
+    if (B.wave < 5) return `reach wave ${B.wave + 1}. your best is wave ${B.wave}.`;
+    if (B.wave < 6) return 'topple the gnome king. bowl his own gnomes into him.';
+    return `beat ${B.yeets} gnomes in one run.`;
+  }
+  function renderBests() {
+    const B = save.best, no = dailyNo(), st = save.streak, d = save.daily[no];
+    $('dailyBtn').textContent = `daily garden #${no}`;
+    const alive = st.n > 0 && (st.last === no || st.last === no - 1);
+    $('dailySub').textContent = d ? `today: ${d.yeets} gnomes${alive ? ` · streak ${st.n}` : ''} · beat it or come back tomorrow`
+      : alive ? `play today to keep your ${st.n}-day streak` : 'same garden and cards for everyone today';
+    if (!save.runs) { $('bests').textContent = ''; $('goal').textContent = ''; return; }
     const w = B.wave >= 6 ? 'king toppled' : `best wave ${B.wave}`;
-    const d = save.daily[dailyNo()];
-    $('bests').textContent = `${w} · ${B.yeets} gnomes · best bowl x${B.chain} · ${B.mph} mph` + (d ? ` · today: ${d.yeets} gnomes` : '');
-    $('dailyBtn').textContent = `daily garden #${dailyNo()}`;
+    $('bests').textContent = `${w} · ${B.yeets} gnomes · best bowl x${B.chain} · ${B.mph} mph`;
+    $('goal').textContent = 'next goal: ' + nextGoal();
   }
 
   function toggleSound() { save.settings.mute = !save.settings.mute; applyMute(); persist(); syncToggles(); }
@@ -380,7 +404,7 @@
           const v = HH.Bots[botName].move(game, window.__hh.botMem, dt, botRnd);
           game.input.x = v.x; game.input.y = v.y;
         } else { const v = inputVec(); game.input.x = v.x; game.input.y = v.y; if (!game.moved && Math.hypot(v.x, v.y) > 0.3) game.moved = true; }
-        if (game.tickReal(dt)) {
+        if (!holdStart && game.tickReal(dt)) {
           acc += dt * game.timeScale() * speed;
           let n = 0;
           while (acc >= STEP && n < 6 * speed) { game.update(STEP); acc -= STEP; n++; }
@@ -414,4 +438,10 @@
   });
 
   if (params.get('autostart') === '1' || botName) startRun(params.get('daily') === '1' ? 'daily' : 'run');
+  else {
+    // 1.4: one tap from a clip (the hub's "tap to play" landing card) counts as the play tap: straight into a run, no title card
+    let auto = false;
+    try { auto = !!(window.cc && window.cc.autostart && window.cc.autostart()); } catch (e) { /* never break the game */ }
+    if (auto) { startRun('run'); holdStart = true; }
+  }
 })();

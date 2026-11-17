@@ -1,7 +1,7 @@
 {
   "slug": "pixel-purge",
   "title": "pixel purge",
-  "version": "2.3",
+  "version": "2.4",
   "pitch": "crash's pictures got corrupted. load floppy-disk turrets onto a 5-slot bench and shoot every pixel back into place. fill the bench and you're cooked.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
@@ -16,7 +16,9 @@
     "halloween"
   ],
   "max_score_per_sec": 200,
-  "changelog": "v2: wake chains (idle disks firing again within 3s build a combo), per-lane hit-count badges, 3 stars per level (clear, no undo, low bench), daily counts first try only, bench stays visible on the lose card, timer pauses in menus, warning re-arms, shorter tutorial.",
+  "results": "quiet",
+  "restart": true,
+  "changelog": "v2.4: live goals panel under the lanes on tall phones (the 3 stars, clock vs par, what's next), speed points for every second under par so a score can always be beaten, daily streak and countdown, 25/50/75% and restored stamps. v2: wake chains (idle disks firing again within 3s build a combo), per-lane hit-count badges, 3 stars per level (clear, no undo, low bench), daily counts first try only, bench stays visible on the lose card, timer pauses in menus, warning re-arms, shorter tutorial.",
   "playtest": {
     "before": 5,
     "after": 6.5
@@ -26,6 +28,7 @@
     "the badge is how many pixels that front disk can hit right now. sleepy disks have nothing to shoot yet.",
     "empty disks leave. anything with shots left sits on the 5-slot bench, and a full bench means you are cooked.",
     "z is ctrl+z: one undo per level. save it for when the bench is nearly full.",
+    "the clock starts on your first tap: every second under par is worth 4 points.",
     "the daily picture is the same for everyone, and only your first try counts."
   ]
 }

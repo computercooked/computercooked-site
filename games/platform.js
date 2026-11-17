@@ -425,10 +425,22 @@
     layout.insertAdjacentElement("beforebegin", dareBanner);
     if (window.ccToast) window.ccToast("beat " + fmt(score) + " from " + (from || "a friend"));
   }
+  function showRetired(text) {
+    var layout = document.querySelector(".player-layout");
+    if (!layout) return;
+    if (dareBanner) dareBanner.remove();
+    dareBanner = el('<div class="dare is-retired" role="note"><span class="dare-tag">old dare</span><span class="dare-text"></span>' +
+      '<button type="button" class="dare-x" aria-label="dismiss">✕</button></div>');
+    dareBanner.querySelector(".dare-text").textContent = text || "this dare is from the old rules, so it's retired.";
+    dareBanner.querySelector(".dare-x").addEventListener("click", function () { dareBanner.remove(); });
+    layout.insertAdjacentElement("beforebegin", dareBanner);
+  }
   if (/^[A-Za-z0-9_-]{6,16}$/.test(qs.get("d") || "")) {
     var did = qs.get("d"), seenKey = "cc-dare-open:" + did, first = true;
     try { first = !sessionStorage.getItem(seenKey); sessionStorage.setItem(seenKey, "1"); } catch (e) {}
     api("/api/dare/" + did + (first ? "?open=1" : "")).then(function (r) {
+      // a dare from before the game's scoring changed (src/boards.js): a note instead of "beat 100"
+      if (r && r.retired && r.game === game) { showRetired(r.error); return; }
       if (!r || !r.ok || r.game !== game) return;
       dare = r;
       showDare(r.score, r.from);

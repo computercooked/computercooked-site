@@ -3,6 +3,7 @@
 //   GET  /api/dare/:id[?open=1]                -> {game, title, score, from, beats}   (open=1 counts a visit)
 //   POST /api/dare/:id/beat   {play_id, anon}  -> {beaten, ...}    your run beat it: the sender earns XP
 //   POST /api/dare/:id/shared {how}            -> {ok}             the sender sent it (share sheet / copied)
+import { FRESH, isOldRules, OLD_RULES_NOTE } from "./boards.js";
 import { json, bad, readJson, now, dayOf, idOk, limited, randomToken, slugOk, isTestAnon, nameClean } from "./util.js";
 import { grant, unlock } from "./xp.js";
 import { people } from "./friends.js";
@@ -16,7 +17,7 @@ async function ownRun(env, user, playId, anon) {
   const p = await env.DB.prepare("SELECT id, game, anon_id, user_id FROM plays WHERE id = ?").bind(playId).first();
   if (!p || !((user && p.user_id === user.id) || (p.anon_id && p.anon_id === anon))) return null;
   // smoke-test runs are stored hidden but still make and beat (test) dares; admin metrics leave those dares out
-  const s = await env.DB.prepare("SELECT score, player, user_id, name FROM scores WHERE play_id = ? AND (hidden = 0 OR player LIKE 'a:smoke%')").bind(playId).first();
+  const s = await env.DB.prepare(`SELECT score, player, user_id, name FROM scores WHERE ${FRESH} AND play_id = ? AND (hidden = 0 OR player LIKE 'a:smoke%')`).bind(playId).first();
   return s ? { ...s, game: p.game } : null;
 }
 
@@ -26,10 +27,12 @@ async function ownRun(env, user, playId, anon) {
 // went through nameClean when they were set). null = no such dare; {gone: true} = the dare is off the boards.
 export async function publicDare(env, id) {
   const d = await env.DB.prepare(
-    "SELECT d.id, d.game, d.score, s.name, s.user_id, s.hidden, s.player FROM dares d LEFT JOIN scores s ON s.play_id = d.play_id WHERE d.id = ?"
+    "SELECT d.id, d.game, d.score, d.created_at, s.name, s.user_id, s.hidden, s.player FROM dares d LEFT JOIN scores s ON s.play_id = d.play_id WHERE d.id = ?"
   ).bind(id).first();
   if (!d) return null;
   const gone = { id: d.id, game: d.game, gone: true };
+  // made before the game's current scoring (src/boards.js): retired, with a note on the game page
+  if (isOldRules(d.game, d.created_at)) return { ...gone, retired: true };
   if (d.hidden == null || (d.hidden && !String(d.player).startsWith("a:smoke"))) return gone;
   let from = d.name;
   if (d.user_id) {
@@ -78,6 +81,7 @@ export async function dareLink(env, url, id) {
   try {
     const d = env.DB && await publicDare(env, id);
     if (d && !d.gone) to = dareUrl({ ...d, from_name: d.from });
+    else if (d && d.retired) to = `/games/${encodeURIComponent(d.game)}/?d=${encodeURIComponent(d.id)}`;
   } catch (e) { /* no table yet: the hub */ }
   return new Response(null, { status: 302, headers: { location: url.origin + to, "cache-control": "public, max-age=300" } });
 }
@@ -103,6 +107,7 @@ export async function sharedDare(req, env, ip, id) {
 export async function getDare(url, env, id, catalog) {
   if (typeof id !== "string" || !/^[A-Za-z0-9_-]{6,16}$/.test(id)) return bad("no such dare", 404);
   const d = await publicDare(env, id);
+  if (d && d.retired && catalog.has(d.game)) return json({ ok: false, retired: true, id: d.id, game: d.game, error: OLD_RULES_NOTE }, 410);
   if (!d || d.gone || !catalog.has(d.game)) return bad("no such dare", 404);
   if (url.searchParams.get("open") === "1") {
     await env.DB.batch([
@@ -115,8 +120,9 @@ export async function getDare(url, env, id, catalog) {
 
 export async function beatDare(req, env, user, id) {
   const b = await readJson(req, 1024);
-  const d = await env.DB.prepare("SELECT id, game, score, from_user, from_player, from_name FROM dares WHERE id = ?").bind(id).first();
+  const d = await env.DB.prepare("SELECT id, game, score, from_user, from_player, from_name, created_at FROM dares WHERE id = ?").bind(id).first();
   if (!d) return bad("no such dare", 404);
+  if (isOldRules(d.game, d.created_at)) return json({ ok: true, beaten: false, retired: true, error: OLD_RULES_NOTE });
   const run = await ownRun(env, user, b.play_id, typeof b.anon === "string" ? b.anon : null);
   if (!run || run.game !== d.game) return bad("that run doesn't count for this dare.", 400);
   if (run.player === d.from_player || (user && user.id === d.from_user)) return json({ ok: true, beaten: false, self: true });

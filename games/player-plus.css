@@ -364,6 +364,16 @@
 .ccr-target.is-beaten span { color: var(--lime); }
 html.cc-playing .ccr-target { opacity: 0.75; }
 .player.is-mini .ccr-target { display: none; }
+/* phones (up to 480 px): top centre covers the game's own top bar (crash test daily's "#48"), so the chip sits in the
+   player's title row under the game, at the right end, smaller and without the name (the dare banner shows it).
+   The widest title ends about 260 px in at 390 px wide; this chip starts about 265 px in. Fullscreen has no title
+   row, so there it goes back to the top. */
+@media (max-width: 480px) {
+  .ccr-target { top: calc(100% + 9px); left: auto; right: 8px; max-width: 42%; padding: 2px 8px; font-size: 11px; transform: none; }
+  .ccr-target b { font-size: 12px; }
+  .ccr-target i { display: none; }
+  .player:fullscreen .ccr-target, .player.is-pseudo-fs .ccr-target { top: 6px; bottom: auto; }
+}
 
 /* the results card against the dare */
 .ccr-vs {

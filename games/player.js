@@ -446,7 +446,7 @@
     var slug = m[1];
     // games that restart a run on {type:"cc-restart"}; the rest are reloaded (back to their start screen). A games.json
     // entry can also say "restart": true. The new games are listed ahead of their merge (their PRs handle cc-restart).
-    var RESTARTS = /^(ant-farm|bellchain|cooked-sweeper|crash|crash-cheats|crash-test-daily|desktop-jam|fathom|garage-sale-goblin|ghost-bus|handbag-havoc|keyboard-escape|knight-shift|level-devil-exe|mow-money|one-percent-popup|overdue-notice|pixel-purge|plus-one-ram|prove-youre-human|reel-weird|smol-brains|soup-witch|tab-hoarder|typo-wizard)$/;
+    var RESTARTS = /^(ant-farm|bellchain|cooked-sweeper|crash|crash-cheats|crash-test-daily|desktop-jam|fathom|garage-sale-goblin|ghost-bus|handbag-havoc|keyboard-escape|knight-shift|level-devil-exe|microwave-panic|mow-money|one-percent-popup|overdue-notice|pixel-purge|plus-one-ram|prove-youre-human|reel-weird|smol-brains|soup-witch|tab-hoarder|typo-wizard)$/;
     // how the card arrives. "run" (the default): it pops up over the game after every run. "quiet": it never covers the
     // game, for games that send cc.end per level, day or season and show their own "next" screen; a "results" button
     // lights up in the bar under the game instead and opens the card. Set with "results": "quiet" in games.json;
@@ -518,9 +518,12 @@
       if (!vs || !host || !window.MutationObserver) return;
       var watched = null, mo = new MutationObserver(read), co = new MutationObserver(read);
       function read() {
+        if (!vs) return;
         var b = host.querySelector(".dare");
         if (b && b !== watched) { watched = b; co.disconnect(); co.observe(b, { attributes: true, attributeFilter: ["class"] }); }
         if (!b) return;
+        // a dare from before the game's scoring changed (platform.js says so): no target, no intro, no beat-it line
+        if (b.classList.contains("is-retired")) { vs = null; if (chip) { chip.remove(); chip = null; } closeIntro(false); mo.disconnect(); co.disconnect(); return; }
         if (b.classList.contains("is-beaten")) {
           if (!vs.counted) { vs.counted = vs.beaten = true; showChip(); var ok = box && box.querySelector(".ccr-vs-ok"); if (ok && last && last.v && last.v.won) ok.textContent = "✓ counted"; }
           return;

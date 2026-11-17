@@ -17,7 +17,8 @@ export function hubCard(g, i) {
   return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/">` +
     // the gameplay poster (games.json "poster", 320x180) when there is one, as games/hub.js draws it; .game-thumb keeps a 16:10 box
     (g.poster ? `<img class="game-thumb is-poster" src="${esc(g.poster)}" alt="" width="320" height="180"` : `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400"`) +
-    ` loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
+    // the first card is the phone's LCP image (round 19): ask for it first
+    ` loading="${i < 4 ? "eager" : "lazy"}"${i === 0 ? ' fetchpriority="high"' : ""} decoding="async">` +
     `<span class="game-body">` + (isNew ? `<span class="game-new">new</span>` : "") +
     `<h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span>` +
     (tags ? `<span class="game-tags">${tags}</span>` : "") +

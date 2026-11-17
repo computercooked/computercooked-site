@@ -192,7 +192,7 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
     vm.runInNewContext(boot || "", { location: { search }, URLSearchParams, document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } } } });
     return attrs["data-landing"] ? attrs["data-landing"] + "@" + attrs["data-landing-ref"] : "hub";
   };
-  const cases = { "?ref=tiktok&game=smol-brains": "smol-brains@tiktok", "?ref=TT&game=Fathom": "fathom@tiktok", "?ref=tiktok": "smol-brains@tiktok",
+  const cases = { "?ref=tiktok&game=smol-brains": "smol-brains@tiktok", "?ref=TT&game=Fathom": "fathom@tiktok", "?ref=tiktok": "desktop-takeover@tiktok",
     "?ref=ig&game=crash": "crash@instagram", "?utm_source=yt&game=bellchain": "bellchain@youtube", "?ref=ig": "hub", "?ref=reddit&game=crash": "hub",
     "?game=crash": "hub", "": "hub", "?ref=x&game=../../etc": "hub", "?ref=app": "hub" };
   const got = Object.fromEntries(Object.keys(cases).map((k) => [k, land(k)]));
@@ -201,6 +201,23 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slugs = new Set(((await (await get("/games/games.json")).json()).games || []).map((g) => g.slug));
   ok([...def.matchAll(/"([a-z0-9-]+)"/g)].every((m) => slugs.has(m[1])), "social landing: every platform default is a real game", def.trim());
   ok(!/window\.open|target="_blank"/.test((await (await get("/games/hub.js")).text()).match(/function landing\(\)[\s\S]*?\}\)\(\);/)?.[0] || "x"), "social landing: the card opens the game in the same tab (no popups or new windows)");
+  // round 18: the TikTok welcome strip (assets/deck.js). Marked only for tiktok tags, a tiktok.com referrer or a /g/ bio link;
+  // shown on that visit's pages, never on game pages, the hook game or under the hub's landing card, and gone once hidden
+  const deckSrc = await (await get("/assets/deck.js")).text();
+  const ttLine = (deckSrc.match(/\n\s*if \(tag === "tiktok"[^\n]*/) || [])[0];
+  const marks = (tag, rh, um, camp) => { const ss = {}; vm.runInNewContext(ttLine || "", { tag, rh, um, camp, sessionStorage: { setItem: (k, v) => { ss[k] = v; } } }); return ss["cc-tt"] === "1"; };
+  ok(ttLine && marks("tiktok", "", "", "") && marks(null, "www.tiktok.com", "", "") && marks("short", "", "short", "bio") && !marks("youtube", "", "", "") && !marks("instagram", "", "", "") &&
+    !marks(null, "www.google.com", "", "") && !marks("short", "", "short", "") && !marks(null, "tiktok.com.example", "", ""), "tiktok welcome strip: marked for tiktok tags, tiktok.com and bio short links only");
+  const hiSrc = (deckSrc.match(/\/\/ Welcome strip for TikTok arrivals[\s\S]*?\n  \}\)\(\);/) || [])[0];
+  const strip = (o) => {
+    let added = null;
+    const ss = { "cc-tt": o.tt ? "1" : null }, ls = { "cc-tt-hi": o.hid ? "1" : null }, el = { setAttribute() {}, querySelector: () => ({ addEventListener() {} }) };
+    vm.runInNewContext(hiSrc || "", { sessionStorage: { getItem: (k) => ss[k] }, localStorage: { getItem: (k) => ls[k], setItem() {} }, location: { pathname: o.path || "/" },
+      document: { querySelector: (q) => (q === ".player-page" && o.game ? {} : null), documentElement: { hasAttribute: () => !!o.landing }, body: { appendChild: (e) => { added = e; } }, createElement: () => el } });
+    return !!added && /desktop-takeover/.test(added.innerHTML || "");
+  };
+  ok(hiSrc && strip({ tt: 1 }) && strip({ tt: 1, path: "/games/" }) && !strip({}) && !strip({ tt: 1, hid: 1 }) && !strip({ tt: 1, game: 1, path: "/games/crash/" }) &&
+    !strip({ tt: 1, path: "/games/desktop-takeover/" }) && !strip({ tt: 1, landing: 1 }), "tiktok welcome strip: only on a tiktok visit, not after hiding, not on game pages, the hook game or under the landing card");
   // one tap to playing: the card leaves a flag, cc.autostart() reads it once for that game only (smol-brains honors it)
   const sdkSrc = await (await get("/games/cc-sdk.js")).text();
   const autoFn = (sdkSrc.match(/function autostart\(\) \{[\s\S]*?\n  \}/) || [])[0];
@@ -1018,6 +1035,15 @@ if (admin) {
   ok([home, hubHtml].every((h) => (h.match(/class="cook-opt" data-option="[a-z-]+"/g) || []).length === 4 && h.includes("data-cook") && h.includes('src="/assets/cook.js"')), "home and hub show the cook-next vote (4 options)");
   const posters = await Promise.all(["raccoon-heist", "fort-knight", "tiny-volcano", "pond-merge"].map((id) => get("/assets/cook/" + id + ".svg").then((r) => r.ok && /svg/.test(r.headers.get("content-type") || ""))));
   ok(posters.every(Boolean), "cook-next posters are served", posters);
+  // round 19 (phone speed): game pages start the game once the page is done (or on a touch), heavy covers have small
+  // thumbnails for the small slots, and the hub's first card image is asked for first (the phone's LCP image)
+  const tko = await (await get("/games/desktop-takeover/")).text();
+  ok(tko.includes("r19, phone speed") && tko.includes("cc-autostart") && !tko.includes("start the game only once the page has painted"), "game page: the game starts after the page load, on a touch, or at once from the hub's tap-to-play");
+  const { THUMBS } = await import(new URL("../src/thumbs.js", import.meta.url));
+  const thumbs = await Promise.all([...THUMBS].map((t) => get("/assets/thumbs/" + t + ".webp").then((r) => r.ok && /webp/.test(r.headers.get("content-type") || ""))));
+  ok(THUMBS.size > 0 && thumbs.every(Boolean), "small card thumbnails are served", [...THUMBS]);
+  ok(/<li class="game-card"><a class="game-card-inner game-link" href="\/games\/[a-z0-9-]+\/"><img [^>]*fetchpriority="high"/.test(hubHtml), "hub: the first card image is fetched first (fetchpriority)");
+
   // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
   const logHtml = await (await get("/log/")).text();
   ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
@@ -1072,6 +1098,25 @@ if (admin) {
   ok(cat.every((g) => /\/cover\.png(\?v=\d+)?$/.test(g.thumbnail)) && covers.every(Boolean), "every game uses its pixel-art cover", cat.length);
   ok((await get("/assets/daily-card.js")).ok, "daily 3 result card script is served");
 }
+
+// board seasons (src/boards.js): crash test daily's 1.4 scoring started fresh boards. CI seeds a pre-1.4 score, a
+// pre-1.4 smoke best and a pre-1.4 dare (scripts/smoke-seed.sql); none of them may count any more, and nothing is deleted.
+if (local && process.env.SMOKE_OLD_RULES === "1") {
+  const bd = await (await get("/api/leaderboard?game=crash-test-daily&period=all")).json();
+  ok(bd.ok && !bd.rows.some((x) => x.name === "oldrules") && !(bd.epic && bd.epic.name === "oldrules"), "board season: old-rules scores are off the crash test daily board", bd.rows);
+  const od = await get("/api/dare/oldrul3s");
+  const odb = await od.json();
+  ok(od.status === 410 && odb.retired === true && /scoring/.test(odb.error || ""), "board season: an old-rules dare is retired with a note", { status: od.status, odb });
+  const ol = await fetch(base + "/d/oldrul3s", { redirect: "manual" });
+  ok(ol.status === 302 && /\/games\/crash-test-daily\/\?d=oldrul3s$/.test(ol.headers.get("location") || ""), "board season: an old dare link lands on its game page (the note shows there)", ol.headers.get("location"));
+  const oa = "smoke-oldrules", op = rid();
+  await post("/api/events", { anon: oa, events: [{ t: "start", id: op, game: "crash-test-daily", v: "1.4" }] });
+  await new Promise((s) => setTimeout(s, 1200));
+  const or = (await (await post("/api/events", { anon: oa, events: [{ t: "end", id: op, game: "crash-test-daily", score: 900, dur: 1200, completed: true }] })).json()).results?.[op];
+  ok(or && or.accepted && or.best === 900 && or.prev_best === null, "board season: a new run's best ignores the old-rules 1500", or);
+  const ob = await (await post("/api/dare/oldrul3s/beat", { play_id: op, anon: oa })).json();
+  ok(ob.ok && ob.retired && ob.beaten === false, "board season: an old dare can't be beaten", ob);
+} else console.log("skip  board season checks (CI seeds them: SMOKE_OLD_RULES=1)");
 
 // email signup (K-0031): local only, so no smoke address ever lands in the live list
 if (local) {

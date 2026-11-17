@@ -12,9 +12,10 @@ body.spooky #app{background:radial-gradient(ellipse at 50% 0%,#2a1838 0%,var(--c
 /* top bar */
 #top{padding:8px 12px 6px;border-bottom:1px solid var(--line);background:rgba(16,17,20,.9);z-index:3}
 .row1{display:flex;align-items:center;gap:10px}
-#cash{font-size:26px;font-weight:800;color:var(--lime);letter-spacing:-.5px;flex:1;white-space:nowrap;transition:transform .08s;transform-origin:left center;font-variant-numeric:tabular-nums}
+#cash{font-size:26px;font-weight:800;color:var(--lime);letter-spacing:-.5px;flex:none;white-space:nowrap;transition:transform .08s;transform-origin:left center;font-variant-numeric:tabular-nums}
 #cash.bump{transform:scale(1.08)}
 #cash.neg{color:var(--red)}
+#rate{flex:1;align-self:flex-end;padding-bottom:5px;margin-left:-4px;font-size:12px;font-weight:800;color:var(--lime);opacity:.75;white-space:nowrap;overflow:hidden}
 #clock{display:flex;flex-direction:column;align-items:flex-end;font-size:12px;line-height:1.25}
 #day{font-weight:800;color:var(--lilac)}
 #time{color:var(--dim)}
@@ -36,9 +37,9 @@ body.spooky #app{background:radial-gradient(ellipse at 50% 0%,#2a1838 0%,var(--c
   linear-gradient(rgba(197,255,73,.04) 1px,transparent 1px) 0 0/28px 28px,
   linear-gradient(90deg,rgba(197,255,73,.04) 1px,transparent 1px) 0 0/28px 28px;touch-action:none}
 #field.dark::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.35),rgba(0,0,0,.85));pointer-events:none;z-index:5}
-#status{position:absolute;left:8px;top:6px;right:8px;display:flex;flex-wrap:wrap;gap:4px;z-index:6;pointer-events:none}
+#status{position:absolute;left:8px;top:46px;right:8px;display:flex;flex-wrap:wrap;gap:4px;z-index:6;pointer-events:none}
 #status span{font-size:11px;background:rgba(255,92,122,.18);color:var(--red);border:1px solid var(--red);padding:2px 6px;border-radius:5px;font-weight:700}
-#hint{position:absolute;left:8px;right:8px;bottom:20px;text-align:center;font-size:15px;font-weight:800;color:var(--lime);text-shadow:0 1px 0 #000;pointer-events:none;transition:opacity .5s;animation:hintPulse 1.6s ease-in-out infinite}
+#hint{position:absolute;z-index:6;left:8px;right:8px;bottom:20px;background:rgba(16,17,20,.82);border-radius:8px;padding:4px 6px;text-align:center;font-size:15px;font-weight:800;color:var(--lime);text-shadow:0 1px 0 #000;pointer-events:none;transition:opacity .5s;animation:hintPulse 1.6s ease-in-out infinite}
 @keyframes hintPulse{50%{transform:translateY(-2px)}}
 .pop{position:absolute;width:150px;background:var(--paper);color:var(--carbon);border:2px solid var(--carbon);border-radius:7px;box-shadow:3px 3px 0 rgba(0,0,0,.45);cursor:pointer;animation:popIn .14s ease-out;touch-action:none;font-size:12px}
 .pop .tb{display:flex;align-items:center;justify-content:space-between;background:var(--lilac);padding:3px 6px;border-radius:4px 4px 0 0;font-weight:800;font-size:12px}
@@ -52,7 +53,7 @@ body.spooky #app{background:radial-gradient(ellipse at 50% 0%,#2a1838 0%,var(--c
 @keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes hit{50%{transform:scale(.94) rotate(-2deg)}}
 @keyframes die{to{transform:scale(1.15);opacity:0}}
-.pig{position:absolute;width:74px;height:74px;font-size:56px;line-height:74px;text-align:center;cursor:pointer;animation:popIn .2s ease-out,wob 1.4s ease-in-out infinite;touch-action:none;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.4))}
+.pig{position:absolute;z-index:4;width:74px;height:74px;font-size:56px;line-height:74px;text-align:center;cursor:pointer;animation:popIn .2s ease-out,wob 1.4s ease-in-out infinite;touch-action:none;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.4))}
 .pig .hp{position:absolute;left:8px;right:8px;bottom:-4px;height:5px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden}
 .pig .hp i{display:block;height:100%;background:var(--lime)}
 .pig.hit{animation:hit .1s}
@@ -135,9 +136,42 @@ canvas.spark{width:100%;height:40px;display:block;margin-top:6px}
 #app.shk2{animation:shk2 .4s}
 @keyframes shk{20%{transform:translate(-3px,1px)}40%{transform:translate(3px,-1px)}60%{transform:translate(-2px,0)}80%{transform:translate(2px,1px)}}
 @keyframes shk2{15%{transform:translate(-7px,2px)}30%{transform:translate(6px,-3px)}45%{transform:translate(-5px,2px)}60%{transform:translate(4px,-1px)}80%{transform:translate(-2px,1px)}}
-#toast{position:fixed;left:50%;top:92px;transform:translateX(-50%);background:var(--paper);color:var(--carbon);font-weight:800;font-size:12px;padding:8px 12px;border-radius:8px;z-index:25;max-width:90%;text-align:center;box-shadow:0 4px 0 rgba(0,0,0,.4)}
+#toast{position:fixed;pointer-events:none;left:50%;top:92px;transform:translateX(-50%);background:var(--paper);color:var(--carbon);font-weight:800;font-size:12px;padding:8px 12px;border-radius:8px;z-index:25;max-width:90%;text-align:center;box-shadow:0 4px 0 rgba(0,0,0,.4)}
 #toast.bad{background:var(--red)}
 #toast[hidden]{display:none}
+
+/* next goal chip (top of the desk) */
+#goal{position:absolute;left:8px;right:8px;max-width:460px;top:6px;z-index:9;display:flex;align-items:center;gap:8px;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:4px 9px 6px;color:var(--paper);font-size:12px;line-height:1.2;overflow:hidden;touch-action:none;min-height:34px}
+#goal[hidden]{display:none}
+#goal .gi{font-size:18px;flex:none}
+#goal .gt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#goal .gt b{font-weight:800}
+#goal .gc{color:var(--lime);font-weight:800}
+#goal small{display:block;color:var(--dim);font-size:11px;overflow:hidden;text-overflow:ellipsis}
+#goal i{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--lilac);transition:width .15s linear}
+#goal.can{border-color:var(--lime);background:#26301a;animation:goalGo .8s ease-in-out infinite alternate}
+#goal.can i{background:var(--lime)}
+#goal.can small{color:var(--lime)}
+#goal.bad{border-color:var(--red)}
+#goal.bad .gc{color:var(--red)}
+#goal.bad.can{background:#3a1a22}
+#goal.no{animation:no .25s}
+@keyframes goalGo{to{box-shadow:0 0 0 3px rgba(197,255,73,.35)}}
+@keyframes no{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+/* before the first tap: the desk waits, the popups pulse */
+#field.wait .pop,#field.wait .pig{animation:popIn .14s ease-out,waitPulse 1s ease-in-out infinite alternate}
+#field.wait #hint{font-size:17px}
+@keyframes waitPulse{to{transform:scale(1.06);box-shadow:0 0 0 4px rgba(197,255,73,.55)}}
+/* short desks (the player frame on a phone): smaller popups so five of them fit with less stacking */
+@media (max-height:700px) and (max-width:819px){.pop{width:132px;font-size:11px}.pop .tb{font-size:11px;padding:2px 5px}.pop .bd{padding:4px 6px 5px}.pop .tb b{width:20px;height:20px;line-height:20px;flex-basis:20px}}
+/* big moments (they read with the sound off) */
+.banner{position:absolute;left:0;right:0;top:38%;z-index:10;text-align:center;pointer-events:none;animation:bannerIn 2.2s ease-out forwards}
+.banner b{display:inline-block;background:var(--lilac);color:var(--carbon);font-size:34px;font-weight:900;padding:2px 18px;border-radius:8px;box-shadow:4px 4px 0 rgba(0,0,0,.5);transform:rotate(-3deg)}
+.banner small{display:table;margin:8px auto 0;font-size:14px;font-weight:800;color:var(--gold);background:rgba(16,17,20,.88);padding:3px 10px;border-radius:6px}
+@keyframes bannerIn{0%{opacity:0;transform:scale(2.2)}12%{opacity:1;transform:scale(.95)}18%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-16px)}}
+.float.big{font-size:26px;z-index:9}
+#field.fl-bad{box-shadow:inset 0 0 0 4px var(--red),inset 0 0 60px rgba(255,92,122,.45)}
+#field.fl-gold{box-shadow:inset 0 0 0 4px var(--gold),inset 0 0 60px rgba(255,210,74,.4)}
 
 /* desktop / landscape */
 @media (min-width:820px) and (min-aspect-ratio:1/1){
@@ -148,4 +182,5 @@ canvas.spark{width:100%;height:40px;display:block;margin-top:6px}
   #cash{font-size:32px}
   .pop{width:168px;font-size:12px}
 }
-@media (prefers-reduced-motion:reduce){#app.shk1,#app.shk2,.card.soon.can .btn{animation:none}.paidpop{animation-duration:.01s;animation-delay:1s}}
+@media (prefers-reduced-motion:reduce){#app.shk1,#app.shk2,.card.soon.can .btn,#goal.can,#field.wait .pop,#field.wait .pig{animation:none}.banner{animation-duration:2.2s;animation-name:fadeOut}.paidpop{animation-duration:.01s;animation-delay:1s}}
+@keyframes fadeOut{0%,80%{opacity:1}100%{opacity:0}}

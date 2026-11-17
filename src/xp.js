@@ -1,5 +1,6 @@
 // XP, levels and achievements (slice B). Only the server grants XP, and only for validated plays:
 // a logged-in player's completed run of 10s+, whose score (if the game has a board) passed the bounds check.
+import { FRESH } from "./boards.js";
 import { now, dayOf, streakFrom } from "./util.js";
 import { challengeFor, eventsLive, eventDef } from "./social.js";
 import { unlocksBetween } from "./cosmetics.js";
@@ -96,7 +97,7 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
   // base + how good the run was against everyone on the board, capped per game per day so one game isn't a grind
   let pct = 0;
   if (scoreRes && scoreRes.accepted) {
-    const players = await env.DB.prepare("SELECT COUNT(DISTINCT player) n FROM scores WHERE game = ? AND hidden = 0").bind(play.game).first("n");
+    const players = await env.DB.prepare(`SELECT COUNT(DISTINCT player) n FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0`).bind(play.game).first("n");
     pct = Math.round(RULES.pctMax * (1 - (scoreRes.rank - 1) / Math.max(1, players)));
   }
   const used = await env.DB.prepare("SELECT COALESCE(SUM(amount), 0) x FROM xp_events WHERE user_id = ? AND day = ? AND game = ? AND kind = 'play'")
@@ -189,7 +190,7 @@ export async function replayGuest(env, userId, playIds) {
   // boards (all players' bests) for the games involved, to rank each replayed score
   const boards = {};
   for (const g of [...new Set(plays.map((p) => p.game))]) {
-    const { results } = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player").bind(g).all();
+    const { results } = await env.DB.prepare(`SELECT MAX(score) b FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0 GROUP BY player`).bind(g).all();
     boards[g] = results.map((r) => r.b);
   }
   const scored = new Set();

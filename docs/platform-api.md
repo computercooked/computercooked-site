@@ -141,7 +141,12 @@ Version 2 (K-0065) added `runs_ended`, `tip_clicks` and `desk` to the rows, game
 A hub link with a social tag **and** a game hint skips the hero. The visitor gets a full-screen "tap to play <game>" card instead. One tap opens that game in the same tab, scrolled to the player, and a small "more games ↓" link drops them on the normal hub.
 
 - **Caption link for a clip:** `https://computercooked.com/games?ref=<platform>&game=<slug>`, e.g. `https://computercooked.com/games?ref=tiktok&game=smol-brains`. Slugs are the folder names under `/games/` (see `games.json`).
-- **Bio link:** `https://computercooked.com/games?ref=tiktok`. With no `game=`, the platform's default is used: `LANDING_DEFAULT` in `games/index.html` (today only `tiktok → smol-brains`; change it when the pinned clip changes). Platforms without a default get the normal hub.
+- **Bio link:** `https://computercooked.com/games?ref=tiktok`. With no `game=`, the platform's default is used: `LANDING_DEFAULT` in `games/index.html` (today only `tiktok → desktop-takeover`, the hook game; change it when the pinned clip changes). Platforms without a default get the normal hub.
+- **Welcome strip for TikTok arrivals (everywhere else):** a visit that came from TikTok gets a slim bar at the bottom of the screen: "came from @computercooked? start here: desktop takeover →", plus × to hide it.
+  - **What counts as TikTok:** a `ref`/`utm_source` of `tiktok` or `tt`, a tiktok.com referrer, or a `/g/` short link tagged `utm_campaign=bio`. `assets/deck.js` marks the visit (sessionStorage `cc-tt`). Other referrers never see it.
+  - **Where it shows:** every page of that visit, except game pages (they came to play that one), embeds, the hook game itself, and the hub while its own "from the clip" card is up.
+  - **Remembered:** × or following the link hides it for good on that browser (localStorage `cc-tt-hi`).
+  - **The hook game** is `HOOK` in the strip's code, next to `LANDING_DEFAULT`. Change both together.
 - Only the social tags in the table above trigger it (`reddit`, `app` and untagged visits get the normal hub). An unknown slug also falls back to the hub.
 - Attribution is kept: the card's link carries `?ref=` on to the game, so the play counts under that platform. The card never opens a popup or a new window, which matters inside TikTok's and Instagram's in-app browsers.
 - **One tap to playing:** the card's tap counts as the game's start tap. It leaves a one-shot flag (sessionStorage `cc-autostart`, `{game, t}`), and a game that calls `cc.autostart()` skips its own title screen. `cc.autostart()` is true once, only on that game, and only within 2 minutes of the tap; otherwise it's false. smol-brains honors it (a new island skips the "tap to begin" gate and opening story and goes straight to the fly-in and tutorial). pixel-purge and level-devil-exe call it too, but they have no title screen: they open straight into level 1, so they were already one tap from the clip. Any other game with a title screen still shows it until it adds the call:
@@ -580,6 +585,26 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 - **Phones (Web Share with files):** the tap opens the share sheet with the image plus the dare text and link; it counts as `how: card`. The card and the dare link are made while the player looks at their score, so the tap shares straight away (iOS only allows sharing from the tap itself). If the browser still asks for a fresh tap, the box says "tap share card again".
 - **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
 - It works for every game in the shared player. A game with no thumbnail gets the card without art.
+
+## Phone speed (round 19)
+
+Launch traffic is TikTok phones, so the pages are measured with Lighthouse in mobile emulation (simulated slow 4G, 4x CPU). The before/after numbers are in `Website/HANDOFF.md`.
+- **Game pages start the game once the page is done:** after the load event and an idle moment (3 s at most), at once on a touch or key in the player, or at once when the visitor tapped the hub's "tap to play" card (`cc-autostart`). The inline script after `#game-frame` in every `games/<slug>/index.html` and `scripts/player-template.html` does this. Before, the game's download, startup and title animation ran inside the page load.
+- **Small thumbnails for heavy covers:** `scripts/make-thumbs.py` writes `assets/thumbs/<slug>.webp` (192x120) for covers of 8 KB or more and lists them in `src/thumbs.js`. `small(g)` in `src/pages.js` uses them in the small slots (desk icons, "happening now", the chart, crowns), and the cover for every other game. Re-run it after adding a game or changing a cover.
+- **The first card image is fetched first** (`fetchpriority="high"`) on the hub and the mood pages: on a phone it's the LCP image.
+
+## Board seasons (a game's scoring changed)
+
+When a game's scoring changes so much that old and new scores can't share a board, its boards start fresh. Add the game to `BOARD_FROM` in `src/boards.js` with the time its new scoring went live (its PR's merge time).
+- **What leaves rows out:** every board, rank, best ("new best" / "first score"), champion, the wall of epic gamers, the weekly challenge target, the friends feed, the /me and profile bests and the weekly recap. They all filter with the `FRESH` SQL condition.
+- **Nothing is deleted:** the old rows stay in `scores` and in each player's `/api/me/export`.
+- **Dares made before the cutoff are retired:**
+  - `GET /api/dare/:id` answers 410 `{retired: true, error: <note>}`;
+  - `/d/<id>` goes to the game page, which shows an "old dare" note;
+  - `games/player.js` drops the target chip and the intro card;
+  - `POST /api/dare/:id/beat` answers `{retired: true, beaten: false}`.
+- **Today:** crash test daily, from 2026-11-17 07:43 UTC (1.4: par 1000, -50 a move, speed bonus, +500 hard, max 1549; PR #368).
+- **Tests:** CI seeds pre-cutoff rows into its local D1 (`scripts/smoke-seed.sql`) and the smoke test checks them (`SMOKE_OLD_RULES=1`).
 
 ## Dare link previews (dare share cards)
 
