@@ -59,6 +59,14 @@ if ($old -and $old.clip) { $item.clip = "$($old.clip)" }
 if ($entry.max_score_per_sec) { $item.max_score_per_sec = [double]$entry.max_score_per_sec }
 if ($entry.max_score) { $item.max_score = [double]$entry.max_score }
 if ($entry.score_slack) { $item.score_slack = [double]$entry.score_slack }
+# the results card (games/player.js): "results": "quiet" for games that end a run per level, day or season (a bar
+# button instead of a card over the game); "restart": true when the game restarts a run on {type:"cc-restart"}.
+# From entry.json when it says, else whatever games.json already had (re-running this never drops them).
+$hasProp = { param($o, $n) $o -and ($o.PSObject.Properties.Name -contains $n) }
+$res = if (& $hasProp $entry "results") { "$($entry.results)" } elseif (& $hasProp $old "results") { "$($old.results)" } else { "" }
+if ($res -eq "quiet") { $item.results = "quiet" } elseif ($res -and $res -ne "run") { Write-Warning "results '$res' isn't a known mode (quiet or run); left out" }
+$rst = if (& $hasProp $entry "restart") { $entry.restart } elseif (& $hasProp $old "restart") { $old.restart } else { $false }
+if ($rst -eq $true) { $item.restart = $true }
 # optional tips for the "how to play" card on the game page (plain text, one short line each)
 if ($entry.how_to) { $item.how_to = @($entry.how_to | Where-Object { $_ } | ForEach-Object { "$_" }) }
 # achievements the game can unlock with cc.achieve(id); the server only accepts ids listed here
