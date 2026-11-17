@@ -595,3 +595,17 @@ body:has(.desk-bar) .ptimer-done { bottom: 56px; }
 .stats-row { display: flex; gap: 8px; justify-content: flex-end; }
 .stats-row button { min-height: 44px; padding: 0 18px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: #0b0d0a; font: 700 14px/1 var(--mono); cursor: pointer; }
 .stats-row .stats-copy { background: none; color: var(--paper); border-color: var(--line); }
+.stats-secrets { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font: 500 12px/1.35 var(--mono); }
+.stats-secrets li { padding: 5px 8px; border: 1px dashed var(--line); border-radius: 6px; }
+.stats-secrets li span { opacity: .7; }
+.stats-secrets li.is-found { border-style: solid; border-color: var(--accent); }
+.stats-secrets li.is-found b { color: var(--accent); }
+.stats-secrets li.is-found b::before { content: "\2605  "; }
+
+/* secrets (assets/deck.js): "secret found" toast, top centre, so it never sits on golden gary's (bottom centre) */
+.secret-toast { position: fixed; left: 0; right: 0; top: 16px; z-index: 2147483600; width: fit-content; max-width: min(92vw, 440px); margin: 0 auto; padding: 10px 14px;
+  border: 1px solid var(--accent); border-radius: var(--r-sm, 6px); background: var(--surface); color: var(--paper);
+  font: 600 13px/1.4 var(--mono); box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
+  opacity: 0; transform: translateY(-8px); transition: opacity .2s, transform .2s; pointer-events: none; }
+.secret-toast.on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .secret-toast { transition: opacity .2s; transform: none; } }

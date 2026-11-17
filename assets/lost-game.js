@@ -86,6 +86,7 @@
     state = "over"; window.ccGameActive = false; box.classList.remove("is-on");
     var nb = score > best;
     if (nb) { best = score; try { localStorage.setItem("cc-404-best", String(best)); } catch (e) {} }
+    if (score > 0) document.dispatchEvent(new CustomEvent("cc:secret", { detail: "lost" })); // secrets, assets/deck.js
     msg.textContent = "your page is still lost. but you scored " + score + "." +
       (nb && score ? " new best. the computer is unreasonably proud." : score ? "" : " the computer is staring at the floor.");
     btn.textContent = "again"; btn.hidden = false; hudUp(); draw(run);

@@ -411,6 +411,22 @@ After 60 seconds with no mouse, key, touch or scroll on the homepage, `assets/ho
 
 Typing up up down down left right left right b a on any page with `assets/deck.js` opens a fake blue crash screen ("your computer is cooked") with a link to channel surf and a button back. It is a modal `<dialog class="cooked">`, so esc closes it. Ignored while typing in a field and while a game is running. The command bar answers `konami` and `cheats` with a hint. It is left out of the `?` list on purpose.
 
+## Secrets (the eggs, collected)
+
+`assets/deck.js` keeps a list of 9 site secrets. Any script finds one by sending `document.dispatchEvent(new CustomEvent("cc:secret", { detail: id }))`; the first time, it's stored in localStorage `cc-secrets` (`{id: time found}`) and a toast at the top centre says "secret found: <name> (n/9)" (`.secret-toast` in `assets/deck.css`; it waits while a modal dialog is open). The player card ("my stats", or "secrets" in the command bar) lists the found ones by name and the rest as "???" with a hint, and "copy" adds "n of 9 secrets found". Nothing is sent and no xp is given (guest xp is replayed by the server, which doesn't know these). `window.ccSecrets.list()` returns `[{id, name, hint, at}]`. Test: `?secret=<id>` on any page with the deck.
+
+| id | name | found by | sent from |
+|---|---|---|---|
+| `melt` | meltdown | poking the home computer until it melts | `cc:melt` (poke) from `assets/home.js` |
+| `konami` | cheat code | the konami code, desk or crash screen | `cc:melt` (konami), and the crash screen in `assets/deck.js` |
+| `gary` | you know my name | typing "gary" on the home page | `assets/eggs.js` |
+| `golden` | struck gold | catching a golden gary | `assets/golden.js` |
+| `cursed` | cursed | catching a cursed golden gary | `assets/golden.js` |
+| `off` | no off switch | "shut down" in the start menu | `assets/home.js` |
+| `wall` | redecorated | changing the desktop wallpaper | `assets/home.js` |
+| `corner` | the corner | the home screensaver hitting a corner | `assets/home.js` |
+| `lost` | lost and found | scoring in the 404 game | `assets/lost-game.js` |
+
 ## Keyboard shortcuts list
 
 Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the command bar) opens a small dialog listing every key that works there. `assets/deck.js` builds it on first open from the deck's own `data-key` links, plus the channel surf keys on `/surf/`. It stays out of the way while a game is running (`window.ccGameActive`) and while typing in a field.
