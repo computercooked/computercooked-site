@@ -901,7 +901,7 @@ function drawWin() {
     else if (pb && S.score < pb) lines.push({ t: 'best ' + pb + ' · ' + (pb - S.score) + ' pts to beat it', c: 'rgba(245,243,237,0.8)' });
     else lines.push({ t: 'best ' + save.best[d.lv] + (S.stars < 3 ? ' · replay for ' + (3 - S.stars) + ' more ★' : ''), c: 'rgba(245,243,237,0.8)' });
   }
-  drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.unlocked, f: () => loadLevel(levelCfg(save.unlocked)) }] : [{ l: 'next ▸  ' + scramble(IMGS[levelCfg(d.lv + 1).img].def.file, 0.45, d.lv * 31 + 7), f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
+  drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.unlocked, f: () => loadLevel(levelCfg(save.unlocked)) }] : [{ l: 'next ▸  ' + scramble(IMGS[levelCfg(d.lv + 1).img].file, 0.45, d.lv * 31 + 7), f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
 }
 function drawLose() {
   const pct = Math.floor(100 * S.cleared / S.total);
