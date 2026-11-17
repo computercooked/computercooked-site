@@ -245,7 +245,7 @@ ok(r.ok, "a downloaded share card counts as a send method");
 let page = await (await get("/games/crash/")).text();
 ok(/\/games\/crash\/og\.png(\?v=\d+)?"/.test(page) && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
-ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && /\/games\/crash\/og-vs\.png(\?v=\d+)?"/.test(page), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && page.includes("/games/crash/dare/" + dare.id + ".png\""), "dare link preview uses the verified score (and the dare's own card)", page.match(/og:title" content="[^"]*"/));
 // filter links: /games/?vibe=puzzle arrives filtered, with its own title and link preview
 page = await (await get("/games/?vibe=puzzle")).text();
 ok(/<title>puzzle games: free online/.test(page) && /property="og:title" content="\d+ free puzzle games/.test(page) && /<li class="game-card" hidden><a class="game-card-inner game-link" href="\/games\/crash\/"/.test(page) && /<li class="game-card"><a class="game-card-inner game-link" href="\/games\/fathom\/"/.test(page), "hub filter link is filtered on the server");
