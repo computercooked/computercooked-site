@@ -238,7 +238,9 @@
     const [title, body] = list[(rnd() * list.length) | 0];
     const r = rnd();
     let kind = 'norm', hp = 1, reward = 0.8 + rnd() * 1.2; // a multiplier on tapValue, applied when it's closed
-    if (r < 0.025 && S.day >= 2) { kind = 'gold'; reward *= 15; }
+    // the first popup of a run is the gold one: one tap and you can afford your first upgrade
+    const first = !S.goldFirst && S.day === 1; if (first) S.goldFirst = true;
+    if (first || (r < 0.025 && S.day >= 2)) { kind = 'gold'; reward = first ? 16 : reward * 15; }
     else if (r < 0.15) { kind = 'tough'; hp = 3; reward *= 3.6; }
     if (lvl(S, 'monitor')) reward *= 1.25;
     const p = { id: popId++, kind, hp, max: hp, reward, title: kind === 'gold' ? 'you are the 1,000,000th visitor' : title, body: kind === 'gold' ? 'this one actually pays' : body, born: S.t };
