@@ -17,69 +17,8 @@ const BASE = process.env.BASE || "http://localhost:8798";
 const req = createRequire(process.env.PLAYWRIGHT ? join(resolve(process.env.PLAYWRIGHT), "x.js") : import.meta.url);
 const { chromium } = req("playwright");
 const W = 640, H = 360, FPS = 12, SECS = Number(process.env.CLIP_SECS || 4); // 3-4 s (round 20: 4)
-// Games where random taps and keys make a dull clip get a small in-page player instead (it drives the game through
-// its read-only test hook, so the clip shows the game being played well). Everything else gets the random pokes.
-const DRIVE = {
-  "elevator-full-of-fish": () => setInterval(() => {
-    const s = window.__eff && window.__eff.state();
-    if (!s || s.state !== "play" || s.door < 0.6 || !s.fish.length) return;
-    const f = s.fish[(Math.random() * s.fish.length) | 0];
-    document.getElementById("c").dispatchEvent(new PointerEvent("pointerdown", { clientX: f.x, clientY: f.y, bubbles: true }));
-  }, 170),
-  "sandwich-tower": () => {
-    let want = null, last = -1;
-    const tick = () => {
-      const s = window.__st && window.__st.state();
-      if (s && s.state === "play" && s.mover && !s.mover.drop) {
-        if (s.layers !== last) { last = s.layers; want = s.top.x + (Math.random() - 0.5) * 16; }
-        if (Math.abs(s.mover.x - want) < 10) window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
-      }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  },
-  "microwave-panic": () => {
-    let target = null, last = -1;
-    const key = (type) => window.dispatchEvent(new KeyboardEvent(type, { key: " " }));
-    const tick = () => {
-      const s = window.__mp && window.__mp.state();
-      if (s && s.state === "play") {
-        if (s.round !== last) { last = s.round; target = s.cursed ? 0.25 : s.T + (Math.random() - 0.5) * 0.2; }
-        if (s.phase === "ready" && s.slide <= 0) key("keydown");
-        if (s.phase === "cook" && s.cookT >= target) key("keyup");
-      }
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  },
-  // the colony plays itself: ?shot=1 grows it, hides the chrome and leaves the ants working (K-0058)
-  "ant-farm": () => {},
-  // smol brains: its title screen is the showcase (a grown town full of smols, the camera drifting over it); a new
-  // game opens on the story and a tutorial card instead. So the clip stays on the title (ON_TITLE below) with the
-  // title's panels hidden. No taps (one would start the game).
-  "smol-brains": () => { const st = document.createElement("style"); st.textContent = ".ts{opacity:0!important;transition:none!important}"; document.head.appendChild(st); },
-  // the floppy whose colour has a pixel showing (the game's own hint), never past 3 on the bench, so pixels get shot
-  "pixel-purge": () => setInterval(() => {
-    const p = window.__pp, S = p && p.S;
-    if (!S || p.mode !== "play" || S.bench.filter(Boolean).length > 3) return;
-    let li = -1;
-    for (let q = 0; q < S.lanes.length && li < 0; q++) { const fd = S.lanes[q][0]; if (fd && S.exList.some((id) => S.grid[id] === fd.c)) li = q; }
-    p.pickLane(li < 0 ? 0 : li);
-  }, 380),
-  // the aurora, a pike on the line and the ice cracking outward in cyan (K-0061)
-  // K-0062: the pike fight, reeled in pulses so the line, the fish and the cracking ice visibly move
-  "thin-ice": () => { if (!window.__ti) return; window.__ti.clip(); let on = false; setInterval(() => { on = !on; window.__ti.hold(on); }, 380); },
-  // a soup check solved on camera (VERIFIED), then the next captcha (solve() works in test mode only)
-  "prove-youre-human": () => { const go = () => { const s = window.__pyh && window.__pyh.state(); if (s && s.state === "play") window.__pyh.solve(); }; setTimeout(go, 300); setInterval(go, 2400); },
-  // the auto-player takes level 4, joined 14 seconds in so every program is already fighting
-  "desktop-takeover": () => { const d = window.__dt; if (d && d.state().state === "play") { d.auto(true); d.skip(14); } },
-};
-// extra wait after load before the clip starts (ms; default 1200): smol brains builds its island first
-const WAIT = { "smol-brains": 7000 };
-// games clipped on their own title screen: no autostart flag, no start tap
-const ON_TITLE = new Set(["smol-brains"]);
-// extra query for a game's clip run
-const QUERY = { "ant-farm": "&shot=1", "prove-youre-human": "&round=1", "desktop-takeover": "&level=4" };
+// how each game is played on camera (DRIVE, WAIT, ON_TITLE, QUERY) is shared with scripts/portal-assets.mjs
+import { DRIVE, WAIT, ON_TITLE, QUERY } from "./clip-drivers.mjs";
 // a closer frame for games whose action is small in the wide shot (ffmpeg crop on the 640x360 grab: w:h:x:y)
 const CROP = { "thin-ice": "400:225:130:95" };
 // a higher -crf (smaller file) for games whose clip is busy all over: smol brains' moving town is 138 KB at 30, 79 KB at 33

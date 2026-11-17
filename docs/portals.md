@@ -103,7 +103,7 @@ contract, tax form and upload below is Ashton's decision and Ashton's to do.
 
 - `native/portal.js`: the adapter. Our SDK's run start/end become the portal's gameplayStart/Stop. A midroll goes between runs (never before the first run, at most every 3 runs and 3 minutes). Web Audio is suspended and input is blocked while an ad shows. Outside links are off on the ad portals. `cc.rewarded()` is available for games that offer a reward. Drivers: none (itch.io, Newgrounds), CrazyGames v3, GameDistribution and Poki v2. Tested against a stand-in Poki SDK.
 - `node scripts/package-portal.mjs <slug> <itch|newgrounds|crazygames|gamedistribution|poki> [--gd-id id]` writes `dist/portals/<portal>/<slug>.zip` with `index.html` at the root and relative paths only. GameDistribution needs its game id from their control panel, so that build waits for the account.
-- `node scripts/portal-assets.mjs <slug> [base]` makes the asset kit from the running game into `dist/portal-assets/<slug>/`: covers 1920×1080, 1280×720, 1280×550, 800×1200, 800×800 and 630×500, GD 512×512, 512×384 and 200×120 (the game's og art over blurred gameplay), a 628×628 gameplay square with no title, a 1280×720 gameplay still and a silent 15 s H.264 hover clip. Games with `?autoplay=skilled` (handbag havoc) play themselves for the clip. Made and checked for handbag havoc. The portrait 800×1200 cover is weak (the og art is landscape), so a hand-made portrait is worth it for the first submission. The square shows the in-game HUD.
+- *(replaced in round 25, see "Asset kits" below)* `node scripts/portal-assets.mjs <slug> [base]` made the asset kit from the running game into `dist/portal-assets/<slug>/`: covers 1920×1080, 1280×720, 1280×550, 800×1200, 800×800 and 630×500, GD 512×512, 512×384 and 200×120 (the game's og art over blurred gameplay), a 628×628 gameplay square with no title, a 1280×720 gameplay still and a silent 15 s H.264 hover clip. Games with `?autoplay=skilled` (handbag havoc) play themselves for the clip. Made and checked for handbag havoc. The portrait 800×1200 cover is weak (the og art is landscape), so a hand-made portrait is worth it for the first submission. The square shows the in-game HUD.
 - Still to do: a 2:3 clip, and a CrazyGames check that no game draws its own fullscreen button (only crash does, Nov 17).
 
 ## Clean portal builds (round 24, 2026-11-17)
@@ -115,6 +115,29 @@ contract, tax form and upload below is Ashton's decision and Ashton's to do.
 - **Leftover check:** after each build, every html/js/css/json file is scanned for paths that only exist on computercooked.com (`/api/`, `/games/`, `/assets/`…), and the packager lists them. On Nov 17 the 5 candidates (smol brains, keyboard escape, bellchain, pixel purge, overdue notice) had none. thin-ice (`/assets/mascot-happy.svg`) and cooked-sweeper (`/games/games.json`) have some in game code, which cc-games would fix before either goes to a portal.
 - **Zip on Linux:** uses `zip` (GNU tar's `-a` would write a plain tar named .zip). Windows still uses its own tar.exe.
 - **CI:** the smoke test builds keyboard escape for crazygames and itch and checks each zip and folder. It also runs `portal.js` in a vm with a stand-in share and clipboard.
+
+## Asset kits, ready ahead (round 25, 2026-11-17)
+
+- **Made for the 5 candidates** (smol brains, keyboard escape, bellchain, pixel purge, overdue notice) in
+  `dist/portal-assets/<slug>/` (git-ignored; its `README.md` says which portal wants which file). Nothing uploaded.
+- **`node scripts/portal-assets.mjs <slug> [slug ...]`** (BASE = the static preview on 8814 by default; ffmpeg +
+  Playwright) plays each game twice in Chrome (landscape 1920x1080, and a phone at 1080x1620), recorded from Chrome's own
+  frame stream:
+  - the same play drivers as the card clips (`scripts/clip-drivers.mjs`, now shared; keyboard escape plays with its
+    own bot);
+  - a finished level is skipped past ("next" / "play again"; pixel purge through its hook).
+- **Each kit holds:**
+  - covers in every portal size, with the **game title only** in the site font over a late gameplay frame (no URL, no
+    "play free", no other branding: CrazyGames' rule);
+  - Poki's 628x628 gameplay square with no text;
+  - 4 landscape and 2 portrait screenshots;
+  - 15 s silent previews in 16:9 1080p and 2:3 (capped at 6 Mbps, so ≤ ~11 MB);
+  - `store.md`.
+- **Store text:** `docs/portal-store-text.md`:
+  - per game: title, short line, a 200–500 character description, controls, CrazyGames category, tags, itch.io genre
+    and tags, orientation, size, content notes and the first ad moments;
+  - the AI line used on every page;
+  - no URLs in any ad-portal text.
 
 ## What we build once (code, no accounts)
 
