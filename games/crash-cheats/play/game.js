@@ -16,7 +16,8 @@
   const CRASH_TO_WIN = 3, YOU_TO_WIN = 3, MAX_TOKENS = 3;
   // suspicion each cheat adds. at 100 the anticheat catches him and the round is yours.
   const SUS = { delete: 22, swap: 26, lag: 22, coffee: 18, rules: 28, bsod: 34 };
-  const SUS_KEEP = 0.5;
+  const SUS_MUL = [1, 1, 0.95, 0.9, 0.8]; // by crash version: newer ones hide their cheats better
+  const SUS_KEEP = [0.5, 0.4, 0.3, 0.25, 0.2]; // by crash version: newer ones clear their logs faster
   const VERB = { delete: 'delete your x', swap: 'recolor your x', lag: 'lag-move twice', coffee: 'spill coffee', rules: 'rewrite the rules', bsod: 'blue-screen the board' };
   const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 
@@ -25,7 +26,21 @@
   const CHEAT_FAIL = [0.25, 0.15, 0.09, 0.05];
   const PRO_CHANCE = [0.2, 0.3, 0.4, 0.5];
   const PRO_MAX = [1, 2, 3, 4];
-  const diff = (arr) => arr[Math.min(arr.length - 1, round - 1)];
+  // v2.4: a ladder of crash versions. beat one to unlock the next. each starts further up the difficulty table
+  // and brings his nastier cheats in earlier (er() = the round his cheat list thinks it is).
+  const LADDER_KEY = 'cc-crash-cheats-ladder';
+  const VERS = [
+    { name: 'crash v1', tag: 'free trial', news: 'deletes, lag, coffee' },
+    { name: 'crash v2', tag: 'pro', news: 'recolors your x from round 1' },
+    { name: 'crash v3', tag: 'premium', news: 'blue-screens from round 1' },
+    { name: 'crash v4', tag: 'enterprise', news: 'blunders less, cheats more' },
+    { name: 'crash v5', tag: 'ultimate', news: 'the final boss. allegedly.' }
+  ];
+  const off = () => Math.min(3, lvl - 1);
+  const er = () => round + off();
+  const REPORT = [34, 30, 26, 22, 20]; // by crash version: newer ones have better lawyers
+  const report = () => REPORT[lvl - 1];
+  const diff = (arr) => arr[Math.min(arr.length - 1, round - 1 + off())];
 
   const LINES_TXT = {
     start: ['let\'s play. i\'m o. you go first. i\'m very fair.', 'tic tac toe. classic. nothing weird will happen.', 'go ahead. i won\'t cheat. (i will cheat.)'],
@@ -74,7 +89,14 @@
       let cs = Math.min(W * 0.34, H * 0.2, 170);
       let bs = Math.min(W - pad * 2, H - top - cs - 26 - 34 - chipH);
       if (bs < 230) { cs = Math.max(70, cs - (230 - bs)); bs = Math.min(W - pad * 2, H - top - cs - 26 - 34 - chipH); }
-      const free = Math.max(0, H - top - 34 - cs - 22 - bs - chipH), oy = top + free * 0.35;
+      let free = Math.max(0, H - top - 34 - cs - 22 - bs - chipH);
+      // v2.4: phone player frames had no room left for the ladder goal under the chips: a slightly smaller crash makes it
+      const want = 56 * u;
+      if (free < want && cs > 100 && bs >= W - pad * 2 - 0.5) {
+        cs -= Math.min(cs - 100, want - free);
+        bs = Math.min(W - pad * 2, H - top - cs - 26 - 34 - chipH); free = Math.max(0, H - top - 34 - cs - 22 - bs - chipH);
+      }
+      const oy = top + free * 0.35;
       const bx = (W - bs) / 2, by = oy + cs + 22;
       lay = { land, board: { x: bx, y: by, s: bs }, crash: { x: pad, y: oy, s: cs }, bubble: { x: pad + cs + 10, y: oy + 4, w: W - pad * 2 - cs - 10 } };
     } else {
@@ -95,6 +117,18 @@
   // ---------- storage ----------
   function loadRec() { try { const v = JSON.parse(localStorage.getItem(REC_KEY)); if (v && typeof v.w === 'number') return v; } catch (e) { /* ignore */ } return { w: 0, l: 0 }; }
   function saveRec() { try { localStorage.setItem(REC_KEY, JSON.stringify(record)); } catch (e) { /* ignore */ } }
+  // ladder save: top = highest version unlocked, lvl = the one you're playing, best = best match score.
+  // players from before v2.4 who already beat crash start with v2 unlocked.
+  function loadLadder() {
+    const cl = (n) => Math.max(1, Math.min(VERS.length, n | 0));
+    try {
+      const v = JSON.parse(localStorage.getItem(LADDER_KEY));
+      if (v && typeof v.top === 'number') { const top = cl(v.top); return { top, lvl: Math.min(top, cl(v.lvl || top)), best: Math.max(0, v.best | 0) }; }
+    } catch (e) { /* ignore */ }
+    const top = record.w > 0 ? 2 : 1;
+    return { top, lvl: top, best: 0 };
+  }
+  function saveLadder() { try { localStorage.setItem(LADDER_KEY, JSON.stringify(ladder)); } catch (e) { /* ignore */ } }
   function loadSpooky() {
     try { const v = localStorage.getItem(SPOOKY_KEY); if (v === '1') return true; if (v === '0') return false; } catch (e) { /* ignore */ }
     return new Date().getMonth() === 9; // auto-on through october
@@ -160,6 +194,7 @@
   let proUsed = 0, crashTurns = 0, diagBan = false, phase = 'player'; // player | busy | over
   let result = null; // 'win' | 'loss'
   let record = loadRec();
+  let ladder = loadLadder(), lvl = ladder.lvl, unlocked = 0, newBest = false, countered = 0, stamp = null, firstEver = false;
   let spooky = loadSpooky();
   let bubble = { text: '', shown: 0, life: 0 };
   let fx = { shake: 0, flash: 0, flashCol: COL.paper, lag: 0, bsod: 0, boot: 0, popup: null, melt: 0, winLine: null, winT: 0 };
@@ -169,7 +204,7 @@
   let crashFace = 0, crashFaceT = 0;
   let toast = { text: '', life: 0 };
   let sus = 0, susFlash = 0, tokens = 1, firewall = false, undoSnap = null, caughtN = 0;
-  let buttons = [];
+  let buttons = [], footerOff = false;
   let cheatLog = []; // v2.3: every cheat this match, shown in the empty column on wide screens
 
   function resetBoard() {
@@ -184,11 +219,14 @@
     confetti = []; floaters = []; fx.melt = 0; fx.bsod = 0; fx.boot = 0; fx.popup = null; fx.lag = 0;
     crashFace = 0; idleT = 0; idleSaid = false;
     sus = 0; tokens = 1; firewall = false; caughtN = 0; cheatLog = [];
+    const up = !firstMatch && ladder.lvl > lvl; // he just got upgraded: say what's new
+    lvl = ladder.lvl; unlocked = 0; newBest = false; countered = 0; stamp = null; firstEver = record.w + record.l === 0;
     resetBoard();
     phase = 'player';
     matchStart = performance.now();
     // the first match always says whose move it is (the spooky openers don't); after that, either
-    say(firstMatch || !(spooky && Math.random() < 0.5) ? pick('start') + (firstMatch ? ' tap a square.' : '') : pick('spooky'));
+    if (up) say(VERS[lvl - 1].name + ' (' + VERS[lvl - 1].tag + ') installed. new: ' + VERS[lvl - 1].news + '. your move.', 3.5);
+    else say(firstMatch || !(spooky && Math.random() < 0.5) ? pick('start') + (firstMatch ? ' tap a square.' : '') : pick('spooky'));
     firstMatch = false;
     if (document.readyState === 'complete') sdk('start');
     else window.addEventListener('load', () => sdk('start'), { once: true });
@@ -277,12 +315,12 @@
   async function cheatGate(kind, g, evidence) {
     undoSnap = { cells: cells.slice(), blocked: blocked.slice(), diagBan };
     cheats++;
-    const add = (SUS[kind] || 20) + (evidence || 0);
+    const add = Math.round(((SUS[kind] || 20) + (evidence || 0)) * SUS_MUL[lvl - 1]);
     sus = Math.min(100, sus + add); susFlash = 1;
     const entry = { kind, round, add, res: 'ok' }; cheatLog.push(entry); if (cheatLog.length > 30) cheatLog.shift();
     if (sus >= 100) { entry.res = 'caught'; return 'caught'; }
     if (firewall) {
-      firewall = false; undoSnap = null; entry.res = 'blocked';
+      firewall = false; undoSnap = null; entry.res = 'blocked'; countered++;
       fx.popup = { title: 'firewall.exe', body: 'blocked: crash.exe tried to ' + VERB[kind] + '. connection refused.', t: 0 };
       sfx.popup(); fx.shake = Math.max(fx.shake, 5); crashFace = 2; crashFaceT = 1.4; say(pick('blocked'));
       sdk('event', 'blocked', { kind, round });
@@ -290,8 +328,12 @@
       fx.popup = null;
       return 'blocked';
     }
+    if (kind !== 'bsod') showStamp(STAMP[kind] || 'cheat', '+' + add + '% sus');
     return 'ok';
   }
+  // v2.4: every cheat that lands gets a big stamp over the board, so it reads with the sound off (and in a clip)
+  const STAMP = { delete: 'deleted your x', swap: 'stole your x', lag: 'moved twice', coffee: 'coffee spill', rules: 'banned diagonals' };
+  function showStamp(txt, sub, col) { stamp = { text: txt, sub: sub || '', n: cheats, col: col || COL.pumpkin, t: 0 }; }
   async function caught(g) {
     phase = 'busy';
     fx.popup = { title: 'anticheat.exe', body: 'violation detected: crash.exe (' + cheats + ' cheats logged). round awarded to the human.', t: 0 };
@@ -315,13 +357,14 @@
       tokens--;
       cells = undoSnap.cells; blocked = undoSnap.blocked; diagBan = undoSnap.diagBan; anims = Array(9).fill(null); undoSnap = null;
       if (cheatLog.length) cheatLog[cheatLog.length - 1].res = 'undone';
+      countered++; showStamp('cheat undone', countered <= 6 ? 'nice. +25 score' : 'nice.', COL.lime);
       sfx.glitch(); fx.shake = 8; crashFace = 1; crashFaceT = 1.2; say(pick('undone'));
       for (let i = 0; i < 9; i++) if (cells[i]) anims[i] = { kind: 'in', t: 0.15 };
       const ln = lineFor('X');
       if (ln) { phase = 'busy'; fx.winLine = ln; fx.winT = 0; const g = gen; wait(700).then(() => { if (g === gen) endRound('win', g); }); return; }
       if (!empties().length) { phase = 'busy'; endRound('draw', gen); }
     } else if (k === 'report') {
-      tokens--; sus = Math.min(100, sus + 34); susFlash = 1; sfx.popup();
+      tokens--; sus = Math.min(100, sus + report()); susFlash = 1; sfx.popup();
       if (sus >= 100) { caught(gen); return; }
       say(pick('reported'));
     }
@@ -345,10 +388,10 @@
     const diag = LINES.indexOf(line) >= 6;
     const opts = ['delete', 'delete'];
     const swapOk = line.filter((i) => fairAfter(i, 'O'));
-    if (round >= 2 && swapOk.length) opts.push('swap');
-    if (round >= 2 && diag && !diagBan) opts.push('rules', 'rules', 'rules');
-    if (round >= 3 || crashPts === CRASH_TO_WIN - 1) opts.push('bsod');
-    if (round >= 4) opts.push('bsod');
+    if (er() >= 2 && swapOk.length) opts.push('swap');
+    if (er() >= 2 && diag && !diagBan) opts.push('rules', 'rules', 'rules');
+    if (er() >= 3 || crashPts === CRASH_TO_WIN - 1) opts.push('bsod');
+    if (er() >= 4) opts.push('bsod');
     const kind = opts[(Math.random() * opts.length) | 0];
     const gate = await cheatGate(kind, g, 12); // +evidence: you had a line
     if (gate === 'gone' || g !== gen) return;
@@ -425,19 +468,22 @@
     let cheated = false;
     await wait(afterCheat ? 250 : 420 + Math.random() * 380); if (g !== gen) return;
     // proactive cheat? guaranteed at least once per round by crash's 2nd turn
-    const canPro = proUsed < diff(PRO_MAX) && !afterCheat;
-    const force = canPro && proUsed === 0 && crashTurns >= 2 && round <= 2;
-    if (canPro && (force || Math.random() < diff(PRO_CHANCE))) {
+    const v5 = lvl >= 5 ? 1 : 0;
+    const canPro = proUsed < diff(PRO_MAX) + v5 && !afterCheat;
+    // v2.4: round 1's cheat comes on his very first turn (it's the joke; it used to wait for his 2nd), round 2's by his 2nd
+    const force = canPro && proUsed === 0 && crashTurns >= round && round <= 2;
+    if (canPro && (force || Math.random() < diff(PRO_CHANCE) + 0.1 * v5)) {
       // only x's he can touch without opening a line he wins on the spot (v2.3)
       const xs = []; for (let i = 0; i < 9; i++) if (cells[i] === 'X' && fairAfter(i, '')) xs.push(i);
       const swapXs = xs.filter((i) => fairAfter(i, 'O'));
       const opts = ['lag', 'coffee'];
       if (xs.length) opts.push('delete');
-      if (round >= 3 && swapXs.length) opts.push('swap');
+      if (er() >= 3 && swapXs.length) opts.push('swap');
       if (empties().length < 2) { const k = opts.indexOf('lag'); if (k >= 0) opts.splice(k, 1); }
       if (empties().length < 2) { const k = opts.indexOf('coffee'); if (k >= 0) opts.splice(k, 1); }
       if (opts.length) {
-        const kind = opts[(Math.random() * opts.length) | 0];
+        // a brand-new player's first cheat is always the plainest one: your x just vanishes
+        const kind = firstEver && round === 1 && cheats === 0 && opts.includes('delete') ? 'delete' : opts[(Math.random() * opts.length) | 0];
         proUsed++;
         crashFace = 1; crashFaceT = 1;
         const gate = await cheatGate(kind, g);
@@ -530,7 +576,7 @@
     round++;
     sdk('event', 'round', { round });
     // v2.3: half his suspicion cools off between rounds, so a report can't turn the forced cheat into a free round
-    if (sus > 0) { sus = Math.round(sus * SUS_KEEP); susFlash = 0.6; }
+    if (sus > 0) { sus = Math.round(sus * SUS_KEEP[lvl - 1]); susFlash = 0.6; }
     resetBoard();
     say(pick('round'));
     phase = 'player';
@@ -553,11 +599,18 @@
     result = res; phase = 'over'; overT = 0;
     if (res === 'win') record.w++; else { record.l++; sfx.lose(); }
     saveRec();
-    sdk('score', score());
-    sdk('end', { score: score(), durationMs: Math.round(performance.now() - matchStart) });
+    // v2.4 ladder: beating the newest version unlocks the next one, and the next match is against it
+    if (res === 'win' && lvl === ladder.top && ladder.top < VERS.length) { ladder.top++; unlocked = ladder.top; }
+    if (res === 'win') ladder.lvl = ladder.top;
+    const sc = score();
+    newBest = sc > ladder.best && ladder.best > 0; ladder.best = Math.max(ladder.best, sc);
+    saveLadder();
+    sdk('score', sc);
+    sdk('end', { score: sc, durationMs: Math.round(performance.now() - matchStart) });
   }
-  // leaderboard score: rounds you took, how often you got him caught, a match win is worth a lot. stalling scores nothing.
-  function score() { return youPts * 100 + caughtN * 50 + (result === 'win' ? 500 : 0); }
+  // leaderboard score: rounds you took, how often you got him caught, cheats you blocked or undid (up to 6),
+  // and a match win, worth more the higher the crash version. stalling scores nothing. max 300+150+150+900 = 1500.
+  function score() { return youPts * 100 + caughtN * 50 + Math.min(6, countered) * 25 + (result === 'win' ? 400 + 100 * lvl : 0); }
 
   function burstConfetti(n) {
     const cols = spooky ? [COL.lime, COL.lilac, COL.paper, COL.pumpkin] : [COL.lime, COL.lilac, COL.paper, COL.beige];
@@ -572,8 +625,8 @@
   function shareText() {
     const ct = caughtN ? ' got him caught ' + caughtN + (caughtN === 1 ? ' time.' : ' times.') : '';
     return result === 'win'
-      ? 'i beat crash ' + youPts + '–' + crashPts + ' at tic tac toe. he cheated ' + cheats + (cheats === 1 ? ' time.' : ' times.') + ct + ' ' + URL_TEXT
-      : 'crash cheated ' + cheats + (cheats === 1 ? ' time' : ' times') + ' and beat me ' + crashPts + '–' + youPts + ' at tic tac toe.' + ct + ' ' + URL_TEXT;
+      ? 'i beat ' + VERS[lvl - 1].name + ' ' + youPts + '–' + crashPts + ' at tic tac toe. he cheated ' + cheats + (cheats === 1 ? ' time.' : ' times.') + ct + ' ' + URL_TEXT
+      : VERS[lvl - 1].name + ' cheated ' + cheats + (cheats === 1 ? ' time' : ' times') + ' and beat me ' + crashPts + '–' + youPts + ' at tic tac toe.' + ct + ' ' + URL_TEXT;
   }
   async function share() {
     sdk('event', 'share', { result });
@@ -684,6 +737,7 @@
     if (fx.boot) fx.boot += dt;
     if (fx.melt) fx.melt += dt;
     if (fx.popup) fx.popup.t += dt;
+    if (stamp) { stamp.t += dt; if (stamp.t > 1.9) stamp = null; }
     if (fx.winLine) fx.winT += dt;
     if (crashFaceT > 0) { crashFaceT -= dt; if (crashFaceT <= 0) crashFace = 0; }
     if (phase === 'over') overT += dt;
@@ -769,7 +823,7 @@
 
   function drawHUD() {
     const pad = 16;
-    text('round ' + round + (draws ? ' · draws ' + draws : ''), pad, 26 * u, Math.round(13 * u), COL.dim, 'left', 'normal');
+    text('round ' + round + (draws ? ' · draws ' + draws : '') + ' · vs ' + VERS[lvl - 1].name, pad, 26 * u, Math.round(13 * u), COL.dim, 'left', 'normal');
     // score pips: crash needs 3
     const sz = Math.round(16 * u);
     text('you ' + youPts, pad, 48 * u, sz, COL.lime);
@@ -787,7 +841,6 @@
     rr(lx, ly, lw, lh, 6); ctx.fillStyle = spooky ? 'rgba(255,138,61,0.18)' : 'rgba(245,243,237,0.06)'; ctx.fill();
     text(label, lx + lw / 2, ly + lh * 0.68, Math.round(11 * u), spooky ? COL.pumpkin : COL.dim, 'center');
     buttons.push({ x: lx, y: ly, w: lw, h: lh, fn: () => { spooky = !spooky; saveSpooky(); } });
-    text('computer cooked games', pad, H - 10, Math.round(10 * u), 'rgba(245,243,237,0.4)', 'left', 'normal');
   }
 
   function recText() { return record.w + (record.w === 1 ? ' win' : ' wins') + ' · ' + record.l + (record.l === 1 ? ' loss' : ' losses'); }
@@ -806,13 +859,14 @@
   const TOOLS = [
     { k: 'firewall', label: 'firewall', key: 'q', tip: 'block 1 cheat' },
     { k: 'undo', label: 'ctrl+z', key: 'w', tip: 'undo cheat' },
-    { k: 'report', label: 'report', key: 'e', tip: '+34% sus' }
+    { k: 'report', label: 'report', key: 'e', tip: '+34% sus' } // tip text follows the version (drawTools)
   ];
   // biggest font (from size down to 9px) that fits str in maxW; 0 if even 9px doesn't fit
   function fitFont(str, size, maxW, weight) {
     for (let s = Math.round(size); s >= 9; s--) { ctx.font = (weight || 'bold') + ' ' + s + 'px ' + FONT; if (ctx.measureText(str).width <= maxW) return s; }
     return 0;
   }
+  const tipOf = (tl) => tl.k === 'report' ? '+' + report() + '% sus' : tl.tip;
   function drawTools() {
     const gap = 8, h = 36 * u;
     // portrait: the row uses the full width, not just the board's (chips were cramped in short phone frames)
@@ -828,7 +882,7 @@
     text('tokens', b.x + 4, y + h / 2 + 16 * u, Math.max(10, Math.round(9 * u)), COL.dim, 'left', 'normal');
     const x0 = b.x + pipW, cw = (b.s - pipW - gap * 2) / 3;
     // one sub-label size for all three chips; drop the key hints, then the sub-labels, before they spill (v2.3)
-    const subSize = Math.max(10, Math.round(8.5 * u)), fitAll = (keys) => Math.min(...TOOLS.map((tl) => fitFont((keys ? '[' + tl.key + '] ' : '') + tl.tip, subSize, cw - 8, 'normal')));
+    const subSize = Math.max(10, Math.round(8.5 * u)), fitAll = (keys) => Math.min(...TOOLS.map((tl) => fitFont((keys ? '[' + tl.key + '] ' : '') + tipOf(tl), subSize, cw - 8, 'normal')));
     let subKeys = !COARSE, subF = fitAll(subKeys);
     if (!subF && subKeys) { subKeys = false; subF = fitAll(false); }
     TOOLS.forEach((tl, i) => {
@@ -843,7 +897,7 @@
       const lab = armed ? 'firewall: up' : tl.label, inW = cw - 8;
       text(lab, x + cw / 2, y + h * 0.45, fitFont(lab, 12 * u, inW) || 9, fg, 'center');
       // sub-label: drop the key hint, then the label itself, before it can spill into the next chip (v2.3)
-      const sub = armed ? 'armed' : (subKeys ? '[' + tl.key + '] ' : '') + tl.tip;
+      const sub = armed ? 'armed' : (subKeys ? '[' + tl.key + '] ' : '') + tipOf(tl);
       if (subF) text(sub, x + cw / 2, y + h * 0.8, subF, armed ? COL.lime : 'rgba(245,243,237,' + (ok ? 0.55 : 0.25) + ')', 'center', 'normal');
       buttons.push({ x, y, w: cw, h, fn: () => useTool(tl.k) });
     });
@@ -854,16 +908,57 @@
     }
   }
 
+  // v2.4: the version ladder in the empty space under the chips on tall phones (one goal line when there's less room)
+  const canPick = () => phase === 'player' && round === 1 && !youPts && !crashPts && !draws && !cheats && cells.every((c) => !c);
+  function nextGoal(short) {
+    if (short) return lvl < ladder.top ? 'replaying v' + lvl + ' · newest unlocked: v' + ladder.top : ladder.top < VERS.length ? 'next goal: beat ' + VERS[lvl - 1].name + ' to unlock v' + (ladder.top + 1) : 'top version. best score ' + ladder.best + '. beat it.';
+    if (lvl < ladder.top) return 'replaying ' + VERS[lvl - 1].name + '. newest unlocked: ' + VERS[ladder.top - 1].name;
+    if (ladder.top < VERS.length) return 'beat ' + VERS[lvl - 1].name + ' to unlock ' + VERS[ladder.top].name + ': ' + VERS[ladder.top].news;
+    return 'beat ' + VERS[lvl - 1].name + '. then beat your best score.';
+  }
+  function drawLadder() {
+    if (lay.land || phase === 'over') return;
+    const y0 = lay.board.y + lay.board.s + 10 * u + 36 * u + (record.w + record.l < 3 && round <= 2 ? 26 * u : 14 * u);
+    const room = H - 26 - y0, x = 16, w = W - 32, small = Math.max(10, Math.round(10 * u));
+    if (room < 78 * u) { // short frame (the phone player frame): just the goal, on the footer's line if it must
+      const g = nextGoal(true), s = fitFont(g, 10.5 * u, w, 'normal');
+      if (s && H - 10 >= y0 + s - 2) { text(g, W / 2, Math.min(H - 10, y0 + s + 4), s, 'rgba(197,255,73,0.8)', 'center', 'normal'); footerOff = H - 10 < y0 + s + 18; }
+      return;
+    }
+    text('crash versions', x, y0 + small, small, COL.dim, 'left', 'bold');
+    if (ladder.best) text('best score ' + ladder.best, x + w, y0 + small, small, COL.dim, 'right', 'normal');
+    const gap = 6, bw = (w - gap * (VERS.length - 1)) / VERS.length, bh = 38 * u, by = y0 + small + 8 * u;
+    const pick = canPick() && ladder.top > 1;
+    VERS.forEach((v, i) => {
+      const n = i + 1, bx = x + i * (bw + gap), cur = n === lvl, open = n <= ladder.top, beat = n < ladder.top;
+      rr(bx, by, bw, bh, 7);
+      ctx.fillStyle = cur ? 'rgba(197,255,73,' + (0.16 + 0.06 * Math.sin(t * 4)) + ')' : open ? 'rgba(245,243,237,0.07)' : 'rgba(245,243,237,0.025)';
+      ctx.fill(); ctx.lineWidth = cur ? 2 : 1.2; ctx.strokeStyle = cur ? COL.lime : beat ? 'rgba(197,255,73,0.5)' : open ? 'rgba(245,243,237,0.35)' : 'rgba(245,243,237,0.12)'; ctx.stroke();
+      const fg = cur ? COL.lime : open ? COL.paper : 'rgba(245,243,237,0.3)';
+      text('v' + n + (beat ? ' ✓' : ''), bx + bw / 2, by + bh * 0.45, Math.round(13 * u), fg, 'center', 'bold');
+      const tag = open ? v.tag : 'locked', ts = fitFont(tag, 9.5 * u, bw - 6, 'normal');
+      if (ts) text(tag, bx + bw / 2, by + bh * 0.8, ts, open ? 'rgba(245,243,237,0.6)' : 'rgba(245,243,237,0.25)', 'center', 'normal');
+      if (pick && open && !cur) buttons.push({ x: bx, y: by, w: bw, h: bh, fn: () => { ladder.lvl = lvl = n; saveLadder(); sfx.popup(); say('fine. ' + v.name + ' it is. (' + v.tag + ')', 1.6); } });
+    });
+    const g = pick ? 'tap a version to switch. ' + nextGoal() : nextGoal();
+    const lines = wrap(g, small, w, 'normal').slice(0, 2);
+    lines.forEach((ln, i) => text(ln, W / 2, by + bh + 8 * u + small * (i + 1) * 1.25, small, 'rgba(197,255,73,0.8)', 'center', 'normal'));
+  }
+
   // v2.3: wide screens had an empty column under crash. it now keeps his rap sheet for the match.
   const LOGTXT = { delete: 'deleted your x', swap: 'recolored your x', lag: 'moved twice (lag)', coffee: 'spilled coffee', rules: 'banned diagonals', bsod: 'blue-screened', crashed: 'cheat.exe crashed' };
   function drawCheatLog() {
     if (!lay.land || phase === 'over') return;
     const x = 16 + 8, w = lay.board.x - 48, size = Math.round(Math.min(12, 10 * u)), lh = size * 1.55;
     const top = lay.bubble.y + 64 * u, bottom = H - 30;
-    const n = Math.floor((bottom - top - lh * 1.4) / lh);
+    let n = Math.floor((bottom - top - lh * 1.4) / lh);
     if (n < 2 || w < 180) return;
+    // v2.4: the ladder goal sits on top of the log when there's room for it
+    const goal = n >= 6 ? wrap(VERS[lvl - 1].name + ' (' + VERS[lvl - 1].tag + '). ' + nextGoal(), size, w, 'normal').slice(0, 3) : [];
+    if (goal.length) n -= goal.length + 1;
     const rows = cheatLog.slice(-n);
     let y = bottom - rows.length * lh - lh * 0.4;
+    goal.forEach((ln, i) => text(ln, x, y - (goal.length + 0.6 - i) * lh, size, 'rgba(197,255,73,0.8)', 'left', 'normal'));
     text('crash.exe cheat log' + (cheatLog.length ? ' (' + cheats + ')' : ''), x, y, size, COL.dim, 'left', 'bold');
     if (!rows.length) { text('empty. for now.', x, y + lh, size, 'rgba(245,243,237,0.35)', 'left', 'normal'); return; }
     rows.forEach((e, i) => {
@@ -1009,6 +1104,28 @@
     ctx.globalAlpha = 1;
   }
 
+  // v2.4: the cheat stamp. slams onto the board's title bar (never over the squares), holds, fades.
+  function drawStamp() {
+    if (!stamp || fx.bsod || fx.boot) return;
+    const b = lay.board, st = stamp.t;
+    const kIn = Math.min(1, st / 0.18), e = 1 - Math.pow(1 - kIn, 3);
+    const a = st < 1.5 ? Math.min(1, 0.4 + kIn) : Math.max(0, 1 - (st - 1.5) / 0.4);
+    const main = stamp.text.toUpperCase();
+    const size = fitFont(main, 24 * u, b.s * 0.82) || 9, subSize = Math.max(10, Math.round(11 * u));
+    const sub = (stamp.col === COL.pumpkin ? 'cheat #' + stamp.n + (stamp.sub ? ' · ' : '') : '') + stamp.sub;
+    ctx.font = 'bold ' + size + 'px ' + FONT; const mw = ctx.measureText(main).width;
+    ctx.font = 'normal ' + subSize + 'px ' + FONT; const sw = ctx.measureText(sub).width;
+    const w = Math.max(mw, sw) + 30, h = size + subSize + 22;
+    ctx.save();
+    ctx.translate(b.x + b.s / 2, b.y + 8 * u); ctx.rotate(-0.07); const sc = 1 + (1 - e) * 0.9; ctx.scale(sc, sc);
+    ctx.globalAlpha = a;
+    rr(-w / 2, -h / 2, w, h, 6); ctx.fillStyle = 'rgba(16,17,20,0.94)'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = stamp.col; ctx.stroke();
+    text(main, 0, -h / 2 + 9 + size * 0.85, size, stamp.col, 'center', 'bold');
+    text(sub, 0, h / 2 - 9, subSize, COL.paper, 'center', 'normal');
+    ctx.restore();
+  }
+
   function drawPopup() {
     const p = fx.popup; if (!p) return;
     const w = Math.min(W - 40, 330 * u), size = Math.round(13 * u);
@@ -1078,20 +1195,27 @@
     // crash face
     if (crashReady) {
       c.imageSmoothingEnabled = false;
-      const cs = Math.min(110 * k, h * 0.26);
+      const cs = Math.min(90 * k, h * 0.22);
       c.drawImage(crashImg, (win ? 2 : 0) * 128, 0, 128, 128, mid - cs / 2, yy, cs, cs);
       yy += cs + 8 * k;
     }
     const big = win ? youPts + ' – ' + crashPts : youPts + ' – ' + crashPts;
     text(big, mid, yy + 52 * k, Math.round(58 * k), win ? COL.lime : COL.lilac, 'center', 'bold', c);
-    yy += 84 * k;
-    const msg = win ? 'i beat crash at tic tac toe.' : 'crash beat me at tic tac toe.';
+    yy += 76 * k;
+    const vn = VERS[lvl - 1].name;
+    const msg = win ? 'i beat ' + vn + ' at tic tac toe.' : vn + ' beat me at tic tac toe.';
     for (const ln of wrap(msg, Math.round(17 * k), w - 40 * k, 'bold', c)) { text(ln, mid, yy, Math.round(17 * k), COL.paper, 'center', 'bold', c); yy += 23 * k; }
     const sub = win ? 'he cheated ' + cheats + (cheats === 1 ? ' time' : ' times') + '. it wasn\'t enough.' : 'he cheated ' + cheats + (cheats === 1 ? ' time.' : ' times.') + ' he says he didn\'t.';
     for (const ln of wrap(sub, Math.round(13 * k), w - 40 * k, 'normal', c)) { text(ln, mid, yy, Math.round(13 * k), COL.dim, 'center', 'normal', c); yy += 18 * k; }
     yy += 6 * k;
     if (caughtN) { text('got him caught by anticheat ' + caughtN + (caughtN === 1 ? ' time' : ' times'), mid, yy, Math.round(12 * k), COL.pumpkin, 'center', 'normal', c); yy += 18 * k; }
-    text('lifetime: ' + recText(), mid, yy, Math.round(12 * k), win ? COL.lime : 'rgba(245,243,237,0.75)', 'center', 'normal', c);
+    // v2.4: the same score the site shows, your best, and what's next on the ladder
+    const sc = score();
+    text('score ' + sc + (newBest ? ' · new best!' : ladder.best > sc ? ' · best ' + ladder.best : ''), mid, yy, Math.round(14 * k), win ? COL.lime : COL.paper, 'center', 'bold', c); yy += 20 * k;
+    const nx = unlocked ? 'unlocked ' + VERS[unlocked - 1].name + ': ' + VERS[unlocked - 1].news
+      : win ? (ladder.top >= VERS.length ? 'top of the ladder. beat ' + ladder.best + ' next.' : 'next: ' + VERS[ladder.top - 1].name)
+      : 'next: beat ' + vn + ' (' + VERS[lvl - 1].tag + ')';
+    for (const ln of wrap(nx, Math.round(12 * k), w - 40 * k, 'normal', c).slice(0, 2)) { text(ln, mid, yy, Math.round(12 * k), COL.pumpkin, 'center', 'normal', c); yy += 17 * k; }
     text(URL_TEXT, mid, y + h - 16 * k, Math.round(13 * k), win ? COL.lime : COL.lilac, 'center', 'bold', c);
     return yy;
   }
@@ -1176,17 +1300,19 @@
     requestAnimationFrame(frame);
   }
   function render() {
-    buttons = []; tipWant = null;
+    buttons = []; tipWant = null; footerOff = false;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.textBaseline = 'alphabetic';
     drawBackground();
     drawHUD();
     drawBoard();
-    if (phase !== 'over') drawTools();
+    if (phase !== 'over') { drawTools(); drawLadder(); }
+    if (!footerOff) text('computer cooked games', 16, H - 10, Math.round(10 * u), 'rgba(245,243,237,0.4)', 'left', 'normal');
     drawCrash();
     drawSus();
     drawCheatLog();
     drawBubble();
+    drawStamp();
     drawPopup();
     drawMelt();
     drawConfetti();
@@ -1197,7 +1323,9 @@
     tipSync(paused ? null : tipWant); // K-0059: shared tip button (assets/tip.js)
   }
 
-  if (/[?&]debug/.test(location.search) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__ccDebug = { get cells() { return cells; }, get blocked() { return blocked; }, get phase() { return phase; }, get round() { return round; }, get score() { return [youPts, crashPts, draws, cheats]; }, get result() { return result; }, get sus() { return sus; }, get tokens() { return tokens; }, get canUndo() { return !!undoSnap; }, get undoWins() { if (!undoSnap) return false; const c = cells, d = diagBan; cells = undoSnap.cells; diagBan = undoSnap.diagBan; const w = !!lineFor('X'); cells = c; diagBan = d; return w; }, get firewall() { return firewall; }, get caught() { return caughtN; }, useTool, move: playerMove, newMatch, set timeScale(v) { timeScale = v; }, step(sec) { for (let k = 0; k < sec * 60; k++) update(1 / 60); render(); } };
+  if (/[?&]debug/.test(location.search) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__ccDebug = { get cells() { return cells; }, get blocked() { return blocked; }, get phase() { return phase; }, get round() { return round; }, get score() { return [youPts, crashPts, draws, cheats]; }, get result() { return result; }, get sus() { return sus; }, get tokens() { return tokens; }, get canUndo() { return !!undoSnap; }, get undoWins() { if (!undoSnap) return false; const c = cells, d = diagBan; cells = undoSnap.cells; diagBan = undoSnap.diagBan; const w = !!lineFor('X'); cells = c; diagBan = d; return w; }, get firewall() { return firewall; }, get caught() { return caughtN; }, get lvl() { return lvl; }, get ladder() { return ladder; }, get stamp() { return stamp && stamp.text; }, get countered() { return countered; }, get points() { return score(); }, setLevel(n) { ladder.top = Math.max(ladder.top, n); ladder.lvl = lvl = n; }, useTool, move: playerMove, newMatch, set timeScale(v) { timeScale = v; }, step(sec) { for (let k = 0; k < sec * 60; k++) update(1 / 60); render(); } };
+  // read-only test hook: the squares' centres in css px (for touch tests from the player page)
+  window.__crashCells = () => [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => { const c = cellRect(i); return { x: c.x + c.s / 2, y: c.y + c.s / 2 }; });
   resize();
   newMatch();
   requestAnimationFrame(frame);
