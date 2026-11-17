@@ -45,6 +45,16 @@
   #flash { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font: 800 44px var(--mono); color: var(--acc); opacity: 0; z-index: 40; }
   #flash.on { animation: flash .45s ease-out; }
   @keyframes flash { 0% { opacity: 1; transform: scale(.8); } 60% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; transform: scale(1.1); } }
+  #flash small { display: block; margin-top: 8px; font: 800 14px var(--mono); color: var(--paper); text-align: center; }
+  #flash.nb { color: var(--lilac); font-size: 52px; text-shadow: 0 4px 0 #000, 0 0 30px #b59aff88; background: #0b0c0ecc; }
+  #flash.nb.on { animation: flash .9s ease-out; }
+  /* the loss stamp: big enough to read in a muted clip */
+  #stamp { position: absolute; left: 50%; top: 12px; z-index: 45; pointer-events: none; width: max-content; max-width: min(340px, calc(100% - 28px)); text-align: center; font: 900 40px/1 var(--mono); color: var(--bad); border: 4px solid var(--bad); border-radius: 12px; padding: 8px 16px 10px; background: #101114ee; box-shadow: 0 10px 30px #000c; opacity: 0; transform: translateX(-50%) rotate(-4deg) scale(1.7); }
+  #stamp.on { animation: stamp .28s cubic-bezier(.2,1.5,.4,1) forwards; }
+  #stamp b { white-space: nowrap; font: inherit; }
+  #stamp small { display: block; margin-top: 6px; font: 800 14px/1.25 var(--mono); color: var(--paper); }
+  #stamp small:empty { display: none; }
+  @keyframes stamp { to { opacity: 1; transform: translateX(-50%) rotate(-4deg) scale(1); } }
   #credit { position: absolute; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); font: 800 11px var(--mono); color: var(--muted); opacity: .7; pointer-events: none; z-index: 1; }
   #credit b { color: var(--lime); }
 
@@ -98,6 +108,8 @@
   .card h1 em { font-style: normal; color: var(--acc); }
   .card p { margin: 6px 0; color: var(--muted); font: 600 14px/1.35 var(--sans); }
   .card .why { color: var(--lilac); font: 700 13px var(--mono); }
+  .card .why.nb { color: var(--acc); font-size: 15px; }
+  .card .day { font: 700 11px var(--mono); color: #77738a; margin-top: 8px; }
   .card .bigc { width: 96px; height: 96px; margin: 4px auto; background: url(crash.png) -192px 0 / 288px 96px no-repeat; image-rendering: pixelated; }
   .card .bigc.idle { background-position: 0 0; }
   .card .cta { display: block; width: 100%; margin-top: 10px; padding: 13px; border-radius: 10px; border: 0; background: var(--acc); color: var(--carbon); font: 800 16px var(--mono); cursor: pointer; }
@@ -116,7 +128,8 @@
   #stage.short .xgrid { gap: 6px; } #stage.short .xgrid .xbtn { height: 36px; }
   #stage.short .pop .bar { min-height: 34px; padding: 4px 4px 4px 10px; }
   /* a loss shows the way out: the right target pulses for half a second before the end card */
-  .reveal .ok { outline: 3px solid var(--lime); outline-offset: 2px; animation: okp .5s ease-in-out infinite alternate; }
+  .reveal .ok { outline: 4px solid var(--lime); outline-offset: 2px; box-shadow: 0 0 0 9px #101114cc; animation: okp .5s ease-in-out infinite alternate; }
+  .reveal .ad .real.ok { display: inline-block; padding: 0 6px; border-radius: 6px; background: var(--carbon); color: var(--lime); }
   .reveal .pop .x.ok, .reveal .xbtn.ok { background: var(--lime); color: var(--carbon); }
   @keyframes okp { to { outline-color: #C5FF4955; outline-offset: 5px; } }
   .trail { display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; margin: 8px 0 6px; }
@@ -151,6 +164,7 @@
   </div>
   <div id="stage">
     <div id="flash">closed.</div>
+    <div id="stamp" aria-hidden="true"></div>
     <div id="credit">computer cooked <b>games</b></div>
   </div>
   <div id="toast" role="status"></div>

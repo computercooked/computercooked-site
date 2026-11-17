@@ -143,8 +143,9 @@
       const row = p.querySelector('.row');
       const ba = el('div', 'btn big', a), bb = el('div', 'btn alt', b);
       row.append(ba, bb); (aRight ? ba : bb).classList.add('ok');
-      tap(ba, () => { p.remove(); aRight ? next() : fail(); });
-      tap(bb, () => { p.remove(); aRight ? fail() : next(); });
+      // a wrong answer leaves the dialog up, so the loss can light the right button
+      tap(ba, () => { if (aRight) { p.remove(); next(); } else fail(); });
+      tap(bb, () => { if (aRight) fail(); else { p.remove(); next(); } });
     };
     next();
   }
@@ -237,15 +238,16 @@
     } },
     { say: 'close all 3.', time: 6, setup(L) {
       let n = 3;
-      ['subscribe!!', 'rate us 5 stars', 'allow notifications?'].forEach((t, i) => {
-        const p = pop({ title: t, w: 250, body: pick(['you have not subscribed in 4 minutes.', 'stars are free. like your time, apparently.', 'we will notify you about notifications.']) });
+      [['subscribe!!', 'you have not subscribed in 4 minutes. are you ok?'], ['rate us 5 stars', 'stars are free. like your time, apparently.'], ['allow notifications?', 'we will notify you about notifications.']].forEach(([t, b], i) => {
+        const p = pop({ title: t, w: 250, body: b });
         place(p, (W() - p.offsetWidth) / 2 + (i - 1) * Math.min(40, W() * 0.08), (H() - p.offsetHeight) / 2 + (i - 1) * 46);
-        tap(p.x, () => { p.remove(); if (--n === 0) L.win(); });
+        p.x.classList.add('ok'); tap(p.x, () => { p.remove(); if (--n === 0) L.win(); });
       });
     } },
     { say: 'hold to close.', setup(L) {
-      const p = pop({ title: 'security check', x: false, body: '<h4>prove you are patient</h4><div class="btn holdbtn"><i class="holdfill"></i><b>hold to close</b></div>' });
+      const p = pop({ title: 'are you a robot?', x: false, body: '<h4>robots cannot hold things. prove it.</h4><div class="btn holdbtn"><i class="holdfill"></i><b>hold to close</b></div>' });
       const b = p.querySelector('.holdbtn'), fill = b.querySelector('.holdfill');
+      b.classList.add('ok');
       let held = 0, down = false;
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (state === 'play') { down = true; sfx.tap(); try { b.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } } });
       const up = () => { if (down && held < 1.2) { held = 0; toast('hold. not tap. hold.'); } down = false; };
@@ -255,6 +257,7 @@
     { say: 'slide to close.', setup(L) {
       const p = pop({ title: 'unlock to close', x: false, body: '<h4>slide like it is 2007</h4><div class="track"><span>slide to close →</span><i class="knob"></i></div>' });
       const tr = p.querySelector('.track'), k = p.querySelector('.knob');
+      k.classList.add('ok');
       let drag = false, sx = 0, kx = 0;
       k.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (state !== 'play') return; drag = true; sx = e.clientX - kx; sfx.tap(); try { k.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } });
       k.addEventListener('pointermove', (e) => {
@@ -273,17 +276,20 @@
     } },
     { say: 'spell it to close it.', time: 6, setup(L) {
       const word = 'close';
-      const p = pop({ title: 'captcha', x: false, body: '<h4>type "close"</h4><div class="typed">_</div><div class="tiles"></div>' });
+      const p = pop({ title: 'captcha', x: false, body: '<h4>spell "close" to close</h4><span style="font-size:12px">letters shuffled. like your priorities.</span><div class="typed">_</div><div class="tiles"></div>' });
       const typed = p.querySelector('.typed'), tiles = p.querySelector('.tiles');
       let i = 0;
+      // the next right letter carries .ok, so a loss lights it up
+      const mark = () => tiles.querySelectorAll('.tile').forEach((t) => t.classList.toggle('ok', t.textContent === word[i]));
       shuffle(word.split('')).forEach((ch) => {
         const t = el('div', 'tile', ch); tiles.appendChild(t);
         tap(t, () => {
           if (t.classList.contains('used')) return;
-          if (ch === word[i]) { t.classList.add('used'); i++; typed.textContent = word.slice(0, i) || '_'; if (i === word.length) L.win(); }
-          else { sfx.nope(); i = 0; typed.textContent = '_'; tiles.querySelectorAll('.used').forEach((u) => u.classList.remove('used')); toast('wrong letter. from the top.'); }
+          if (ch === word[i]) { t.classList.add('used'); i++; typed.textContent = word.slice(0, i) || '_'; mark(); if (i === word.length) L.win(); }
+          else { sfx.nope(); i = 0; typed.textContent = '_'; tiles.querySelectorAll('.used').forEach((u) => u.classList.remove('used')); mark(); toast('wrong letter. from the top.'); }
         });
       });
+      mark();
     } },
     { say: 'close it.', setup(L) {
       const p = pop({ title: 'flash sale', body: '<h4>the x is shrinking</h4>much like your attention span.' });
@@ -305,7 +311,7 @@
     } },
     { say: 'close it.', setup(L) {
       const p = pop({ title: 'are you still watching?', body: '<h4>autoplay is on</h4>the x needs convincing.' });
-      let n = 8; p.x.innerHTML = '<span class="stub">8</span>'; p.x.style.width = '44px'; p.x.style.height = '44px';
+      let n = 8; p.x.classList.add('ok'); p.x.innerHTML = '<span class="stub">8</span>'; p.x.style.width = '44px'; p.x.style.height = '44px';
       tap(p.x, () => { n--; p.x.innerHTML = n ? `<span class="stub">${n}</span>` : '×'; p.x.animate([{ transform: 'scale(.8)' }, { transform: 'none' }], 90); if (!n) L.win(); });
     } },
     { say: 'close it.', setup(L) {
@@ -320,6 +326,7 @@
     { say: 'stop the emails.', time: 6, setup(L) {
       const p = pop({ title: 'email preferences', x: false, body: '<div class="check" data-k="a"><i>✓</i>keep sending me emails</div><div class="check" data-k="b"><i></i>i do not not want emails</div><div class="row"><div class="btn big">save</div></div>' });
       const st = { a: true, b: false };
+      p.querySelector('.check').classList.add('ok');
       p.querySelectorAll('.check').forEach((c) => tap(c, () => { const k = c.dataset.k; st[k] = !st[k]; c.querySelector('i').textContent = st[k] ? '✓' : ''; }));
       tap(p.querySelector('.btn'), () => {
         if (st.a) L.fail('you kept "keep sending me emails" ticked. 400 emails a day now.');
@@ -331,7 +338,7 @@
       let n = 3;
       const make = (scale) => {
         const p = pop({ title: n === 3 ? 'newsletter' : pick(['lol no', 'still here', 'miss me?']), w: 240 * scale, at: n === 3 ? 'center' : 'random', body: n === 3 ? 'join 0 happy subscribers.' : 'you cannot get rid of me that easily.' });
-        tap(p.x, () => { p.remove(); if (--n === 0) L.win(); else { sfx.nope(); make(scale * 1.12); } });
+        p.x.classList.add('ok'); tap(p.x, () => { p.remove(); if (--n === 0) L.win(); else { sfx.nope(); make(scale * 1.12); } });
       };
       make(1);
     } },
@@ -347,7 +354,7 @@
     { say: 'throw it off the screen.', setup(L) {
       const p = pop({ title: 'drag me', x: false, w: 220, body: '<h4>i have no x</h4>but i do have weak boundaries.' });
       let drag = false, ox = 0, oy = 0;
-      p.style.cursor = 'grab';
+      p.style.cursor = 'grab'; p.classList.add('ok');
       p.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (state !== 'play') return; drag = true; ox = e.clientX - p.offsetLeft; oy = e.clientY - p.offsetTop; sfx.tap(); try { p.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } });
       p.addEventListener('pointermove', (e) => {
         if (!drag) return;
@@ -362,14 +369,14 @@
     { say: 'close it.', setup(L) {
       const p = pop({ title: 'please wait', body: '<h4>loading close button…</h4>the x only works when it is lime.' });
       let t = 0, on = false;
-      p.x.style.width = '44px'; p.x.style.height = '44px';
+      p.x.style.width = '44px'; p.x.style.height = '44px'; p.x.classList.add('ok');
       L.tick((dt) => { t += dt; on = (t % 1.3) > 0.75; p.x.style.background = on ? '#C5FF49' : '#101114'; p.x.style.color = on ? '#101114' : '#5b5966'; p.x.textContent = on ? '×' : '…'; });
       tap(p.x, () => (on ? L.win() : L.fail('it said please wait. you did not wait.')));
     } },
     { say: 'close everything.', time: 6, setup(L) {
       let n = 2;
       const p = pop({ title: 'cool blog', dy: -50, body: '<h4>read 1 article</h4>after 9 pop-ups.' });
-      tap(p.x, () => { p.remove(); if (--n === 0) L.win(); });
+      p.x.classList.add('ok'); tap(p.x, () => { p.remove(); if (--n === 0) L.win(); });
       cookieBanner({}, () => { if (--n === 0) L.win(); }, () => L.fail('you accepted the cookies. in front of everyone.'));
     } },
     { say: 'close it.', time: 6, setup(L) {
@@ -382,7 +389,7 @@
         if (y < 4 || y > H() - p.offsetHeight - 4) vy *= -1;
         place(p, x, y);
       });
-      tap(p.x, () => { moving = false; p.remove(); const flip = Math.random() < 0.5; sureChain([['leave without saving?', flip ? 'stay' : 'leave', flip ? 'leave' : 'stay', !flip]], L.win, () => L.fail('you stayed. the pop-up wins.')); });
+      p.x.classList.add('ok'); tap(p.x, () => { moving = false; p.remove(); const flip = Math.random() < 0.5; sureChain([['leave without saving?', flip ? 'stay' : 'leave', flip ? 'leave' : 'stay', !flip]], L.win, () => L.fail('you stayed. the pop-up wins.')); });
     } },
     { say: 'the final pop-up.', time: 8, setup(L) {
       // phase 1: x runs away. phase 2: are you sure. phase 3: the prize (do not touch it)
@@ -397,11 +404,17 @@
   ];
 
   // ---------- run state ----------
+  // today's order: the same 30 for everyone today (so a dare is a fair fight), a new order tomorrow (utc).
+  // a first run opens fast: an easy one, then the x that runs away, then a trap (which trap changes daily).
   let order = LEVELS.map((_, i) => i);
+  const dayNum = () => Math.floor(Date.now() / 864e5);
+  function seeded(a) { return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function shuffleOrder() {
-    const seg = (a, b) => shuffle(order.slice(a, b));
-    order = LEVELS.map((_, i) => i);
-    order = [0, ...seg(1, 10), ...seg(10, 20), ...seg(20, 29), 29];   // same difficulty tiers, new order every run
+    const r = seeded(dayNum() * 2654435761);
+    const sh = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const range = (a, b) => Array.from({ length: b - a }, (_, i) => a + i);
+    const trap = [8, 7, 2][Math.floor(r() * 3)];   // "closes itself if you don't touch", the × in the ad, the honest button
+    order = [0, 3, trap, ...sh(range(1, 10).filter((i) => i !== 3 && i !== trap)), ...sh(range(10, 20)), ...sh(range(20, 29)), 29];   // same difficulty tiers
   }
   const DEF = (l) => LEVELS[order[l]];
   let state = 'title'; // title | play | between | over | paused
@@ -416,7 +429,7 @@
     $('pct').textContent = level === 0 ? 'everyone sees level 1' : `~${fmtPct(level + 1)} get here (est.)`;
     $('say').textContent = DEF(level).say;
   }
-  function clearLevel() { layer.innerHTML = ''; layer.classList.remove('reveal'); ticks.length = 0; stageHandler = null; }
+  function clearLevel() { layer.innerHTML = ''; layer.classList.remove('reveal'); $('stamp').classList.remove('on'); ticks.length = 0; stageHandler = null; }
 
   function startRun() {
     if (state === 'over' && performance.now() - overAt < 800) return;
@@ -454,18 +467,26 @@
     sdkScore(level);
     if (level >= LEVELS.length) { sfx.big(); return gameOver(true); }
     sfx.win(); poof();
-    const f = $('flash'); f.textContent = prevBest > 0 && level === prevBest + 1 ? 'new best!' : pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
-    f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
-    setTimeout(() => { if (state === 'between') startLevel(); }, 300);
+    // passing your best mid-run gets its own beat: a bigger flash, a jingle and a short pause before the next pop-up
+    const nb = prevBest > 0 && level === prevBest + 1;
+    const f = $('flash'); f.innerHTML = nb ? `<span>new best!<small>${level} closed. keep going.</small></span>` : pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
+    f.classList.remove('on', 'nb'); void f.offsetWidth; f.classList.add('on'); f.classList.toggle('nb', nb);
+    if (nb) { sfx.big(); stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }
+    setTimeout(() => { if (state === 'between') startLevel(); }, nb ? 750 : 300);
   }
-  function fail(why) {
+  function fail(why, slow) {
     if (state !== 'play') return;
     state = 'between';
     sfx.fail(); setCrash('hit');
     layer.classList.add('reveal');
+    // a big stamp + the reason, so a muted clip still gets the joke
+    const st = $('stamp');
+    st.innerHTML = '<b>' + (slow ? 'too slow.' : pick(['nope.', 'gotcha.', 'wrong.', 'cooked.'])) + '</b><small></small>';
+    st.querySelector('small').textContent = why || '';
+    st.classList.remove('on'); void st.offsetWidth; st.classList.add('on');
     stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
     if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) try { navigator.vibrate(120); } catch (e) { /* not supported */ }
-    setTimeout(() => gameOver(false, why), 850);   // long enough to see the lit-up way out
+    setTimeout(() => gameOver(false, why), 1000);   // long enough to read the stamp and see the lit-up way out
   }
 
   // ---------- overlays ----------
@@ -480,8 +501,8 @@
     $('pct').textContent = '';
     $('timer').firstChild.style.transform = 'scaleX(1)';
     const o = overlay(`<div class="bigc idle"></div><h1>only <em>1%</em> can close this pop-up</h1>
-      <p>30 fake pop-ups. about 5 seconds each. one mistake and you start over.</p>
-      ${best ? `<p class="why">your best: level ${Math.min(best + 1, 30)}${best >= 30 ? ' (you won. go outside.)' : ''}</p>` : ''}
+      <p>30 fake pop-ups. 5 seconds each. one mistake and you start over.</p>
+      ${best ? `<p class="why">your best: ${Math.min(best, 30)}/30 closed${best >= 30 ? ' (you won. go outside.)' : ''}</p>` : ''}
       <button class="cta" id="go">start</button>
       <button class="opt" id="spk">halloween mode: ${spooky ? 'on' : 'off'}</button>
       <div class="cc">computer cooked <b>games</b></div>`);
@@ -505,22 +526,23 @@
     const o = overlay(won
       ? `<div class="bigc idle"></div><h1>you closed <em>all 30</em>.</h1>${trail}<p>you are the 1%. this means nothing. congratulations.</p>
          <p class="why">${(dur / 1000).toFixed(1)}s total</p>
-         <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`
-      : `<div class="bigc"></div><h1>cooked on <em>level ${reached}</em></h1>${trail}<p>only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
-         <p class="why">${why || 'too slow. the pop-up outlasted you.'}</p>
-         <p>lasted ${(dur / 1000).toFixed(1)}s. new pop-up order every run.</p>
-         ${level > prevBest ? `<p class="why">new best! ${level - prevBest} level${level - prevBest === 1 ? '' : 's'} further than ever.</p>` : best ? `<p>best: level ${Math.min(best + 1, 30)} · ${best + 1 - level} to beat it</p>` : '<p>close one pop-up to set a best.</p>'}
-         <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
+         <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">dare a friend</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`
+      : `<div class="bigc"></div><h1><em>${level}</em>/30 closed</h1><p class="why">${why || 'the pop-up outlasted you.'}</p>${trail}
+         <p>cooked on level ${reached}. only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
+         ${level > prevBest ? `<p class="why nb">new best! ${level - prevBest} further than ever.</p>` : best ? `<p>your best: ${best} · ${best + 1 - level} more to beat it</p>` : '<p>close one pop-up to set a best.</p>'}
+         <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">dare a friend</button></div>
+         <p class="day">same 30 for everyone today. new order tomorrow.</p><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
     o.querySelector('#again').addEventListener('click', () => { audio(); startRun(); });
-    o.querySelector('#share').addEventListener('click', () => share(reached, won));
-    try { o.querySelector('#cardImg').src = drawCard(reached, won).toDataURL('image/png'); } catch (e) { o.querySelector('#cardImg').remove(); }
+    o.querySelector('#share').addEventListener('click', () => share(level, won));
+    try { o.querySelector('#cardImg').src = drawCard(level, won).toDataURL('image/png'); } catch (e) { o.querySelector('#cardImg').remove(); }
     // K-0059: shared tip button (assets/tip.js)
     if (window.ccTip) window.ccTip.mount(o.querySelector('.card'), { game: 'one-percent-popup', slot: 'game-over' });
   }
 
   // ---------- share card ----------
   const crashImg = new Image(); crashImg.src = 'crash.png';
-  function drawCard(reached, won) {
+  // closed = pop-ups closed this run: the score sent to cc.end, so it matches the site's results card and dares
+  function drawCard(closed, won) {
     const c = document.createElement('canvas'); c.width = 1080; c.height = 1080;
     const g = c.getContext('2d');
     const acc = spooky ? '#ff8a3d' : '#C5FF49';
@@ -535,13 +557,13 @@
     rr(g, 900, 172, 60, 52, 10); g.fill(); g.fillStyle = '#F5F3ED'; g.fillText('×', 916, 199);
     g.fillStyle = '#101114'; g.textBaseline = 'alphabetic';
     g.font = '800 64px Consolas, Menlo, monospace';
-    g.fillText(won ? 'i closed all 30.' : 'i got cooked on', 140, 370, 800);
+    g.fillText(won ? 'i closed all 30.' : 'i closed', 140, 370, 800);
     g.font = '800 170px Consolas, Menlo, monospace'; g.fillStyle = '#101114';
-    g.fillText(won ? 'top 1%' : 'level ' + reached, 132, 540, 820);
+    g.fillText(won ? 'top 1%' : closed + '/30', 132, 540, 820);
     g.font = '700 40px Consolas, Menlo, monospace'; g.fillStyle = '#6b5bb5';
-    g.fillText(won ? 'only 1% of players finish.' : `only ${fmtPct(reached)} of players get this far.`, 140, 640, 610);
+    g.fillText(won ? 'only 1% of players finish.' : `pop-ups. only ${fmtPct(closed + 1)} get this far.`, 140, 640, 610);
     g.fillStyle = '#8a8794'; g.font = '700 34px Consolas, Menlo, monospace';
-    g.fillText('can you close it?', 140, 720);
+    g.fillText(won ? 'can you close them all?' : 'bet you can\'t beat it.', 140, 720, 610);
     try { g.imageSmoothingEnabled = false; g.drawImage(crashImg, won ? 0 : 256, 0, 128, 128, 790, 600, 170, 170); } catch (e) { /* image not loaded yet */ }
     g.fillStyle = acc; g.font = '800 40px Consolas, Menlo, monospace';
     g.fillText(URL_TXT, 90, 900, 900);
@@ -550,11 +572,11 @@
     return c;
   }
   function rr(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
-  function share(reached, won) {
-    sdk((c) => c.event && c.event('share_clicked', { level: reached }));
+  function share(closed, won) {
+    sdk((c) => c.event && c.event('share_clicked', { level: closed + 1 }));
     const text = won
-      ? `i closed all 30 pop-ups. only 1% can. ${URL_TXT}`
-      : `i got cooked on level ${reached}/30 of "only 1% can close this pop-up". only ${fmtPct(reached)} get that far. ${URL_TXT}`;
+      ? `i closed all 30 pop-ups. only 1% can. your turn: ${URL_TXT}`
+      : `i closed ${closed}/30 pop-ups on "only 1% can close this pop-up". only ${fmtPct(closed + 1)} get that far. beat that: ${URL_TXT}`;
     const copy = () => {
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast('copied. go humble someone.'), () => toast(text));
@@ -562,7 +584,7 @@
       } catch (e) { toast(text); }
     };
     if (!navigator.share) return copy();
-    drawCard(reached, won).toBlob((blob) => {
+    drawCard(closed, won).toBlob((blob) => {
       let data = { text };
       try {
         const file = blob && new File([blob], SLUG + '.png', { type: 'image/png' });
@@ -617,7 +639,7 @@
         const s = Math.ceil(tLeft);
         if (s < lastTickSec && s <= 2 && s >= 0 && !L.timeoutWins) sfx.tick();
         lastTickSec = s;
-        if (tLeft <= 0) { tLeft = 0; if (L.timeoutWins) win(); else fail(pick(['too slow. the pop-up outlasted you.', 'time\'s up. the pop-up has tenure now.', 'you hesitated. pop-ups can smell fear.'])); }
+        if (tLeft <= 0) { tLeft = 0; if (L.timeoutWins) win(); else fail(pick(['the pop-up outlasted you.', 'time\'s up. the pop-up has tenure now.', 'you hesitated. pop-ups can smell fear.']), true); }
       }
       $('timer').firstChild.style.transform = `scaleX(${Math.max(0, tLeft / tMax)})`;
       $('timer').classList.toggle('late', !L.timeoutWins && tLeft < 1.2);
@@ -630,5 +652,5 @@
   titleScreen();
 
   // tiny test surface for qa (harmless)
-  window.__popup = { get level() { return level; }, get state() { return state; }, jump: (n) => { closeOverlay(); level = n; startLevel(); }, LEVELS };
+  window.__popup = { get level() { return level; }, get state() { return state; }, jump: (n) => { closeOverlay(); level = n; startLevel(); }, win: () => win(), fail: (why) => fail(why), LEVELS };
 })();
