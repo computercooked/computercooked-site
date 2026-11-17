@@ -80,6 +80,16 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
     "portal.js: ad-portal shares and copies carry no link", cg);
   ok(itch.shared[0] && itch.shared[0].url === "https://computercooked.com/games/keyboard-escape/" && /computercooked\.com/.test(itch.copied[0]) && /computercooked/.test(itch.ta),
     "portal.js: itch.io shares keep their link", itch);
+  // round 25: portal store text, ready ahead. One section per first candidate, a 200-500 character description
+  // (GameDistribution's range), and no URL anywhere except the itch.io lines (ad portals ban links out)
+  const storeTxt = readFileSync(new URL("../docs/portal-store-text.md", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const storeBad = ["smol-brains", "keyboard-escape", "bellchain", "pixel-purge", "overdue-notice"].filter((slug) => {
+    const sec = (storeTxt.split(/^## /m).find((s) => s.startsWith(slug + "\n")) || "");
+    const desc = (/\*\*Description:\*\* (.*)/.exec(sec) || [])[1] || "";
+    const urls = sec.split("\n").filter((l) => !/\*\*itch\.io:\*\*/.test(l) && /https?:\/\/|computercooked\.com|www\./i.test(l));
+    return !sec || desc.length < 200 || desc.length > 500 || urls.length > 0;
+  });
+  ok(!storeBad.length, "portal store text: 5 candidates, 200-500 char descriptions, no URLs in ad-portal text", storeBad);
   // round 24: phones have no esc key; the fullscreen toast tells a touch-only device to tap the button
   const playerJs = readFileSync(new URL("../games/player.js", import.meta.url), "utf8");
   ok(/touchOnly \? "tap exit fullscreen to leave" : "hold esc/.test(playerJs) && playerJs.includes('(any-pointer: fine)'),
