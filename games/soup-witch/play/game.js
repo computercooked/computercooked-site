@@ -245,7 +245,7 @@ function newSeason(region) {
   S = {
     day: 1, coins: 0, earned: 0, region: M.region, owned: {}, upg: {}, decor: {},
     pot: [], soup: null, stirT: 0, last: null, cur: null, line: [], leaving: [], spawnT: 0, time: 70, dayLen: 70, closing: false, phase: 'day',
-    streak: 0, stats: { served: 0, delight: 0, perfect: 0, spit: 0, walked: 0, newR: 0, dayEarn: 0, dayServed: 0, dayDelight: 0 },
+    streak: 0, stats: { served: 0, delight: 0, perfect: 0, spit: 0, walked: 0, newR: 0, missed: 0, dayEarn: 0, dayServed: 0, dayDelight: 0 },
     made: [], weird: null, lastRid: null, playT: 0, t0: performance.now(),
   };
   ING.forEach(g => { if (g.r === 'start') S.owned[g.id] = true; });
@@ -513,21 +513,36 @@ function mainAction() {
 }
 
 // ---------------------------------------------------------------- day end / market
+// rent: tuned Nov 16 2026 to about 25-35% of a human-ish night's take; scales with the day and the stall (x1.4 castle, x1.8 moon).
+// missing it is not game over: the tax goblin takes what you have and locks tonight's market.
+const RENT_DAY = 18, RENT_BASE = 17; // swamp: 35, 53, 71, 89, 107
+function rentFor(day) { return Math.ceil((RENT_DAY * day + RENT_BASE) * regionObj().mult * (S.decor.spike ? 0.5 : 1)); }
 function endDay() {
   S.phase = 'night'; clearPot(true); $('#bubble').classList.add('hide'); $('#coach').classList.add('hide');
-  const rent = Math.ceil(S.day * 5 * (S.decor.spike ? 0.5 : 1));
-  const broke = S.coins < rent;
+  const rent = rentFor(S.day);
+  const short = S.coins < rent, had = S.coins;
   try { window.cc && cc.score(Math.max(1, S.earned)); } catch (e) { }
-  evt('day_end', { day: S.day, earned: S.stats.dayEarn });
-  if (broke) { S.coins = 0; endSeason(true, rent); return; }
-  S.coins -= rent; updTop(); sfx('ding');
+  evt('day_end', { day: S.day, earned: S.stats.dayEarn, missed: short ? 1 : 0 });
+  if (short) { S.coins = 0; S.stats.missed++; sfx('fail'); } else { S.coins -= rent; sfx('ding'); }
+  updTop();
   if (S.day >= SEASON_DAYS) { endSeason(false, rent); return; }
-  showMarket(rent);
+  if (short) showLocked(rent, had); else showMarket(rent);
+}
+const LOCKED = ["\"rent's rent,\" he said, pocketing the market key.", 'he took the coins, the market key and, for some reason, a spoon.', "\"no rent, no shopping. i don't make the rules. i do make the rules.\"", "he stamped your hand. it says \"owes soup money\". it won't wash off."];
+function showLocked(rent, had) {
+  const st = S.stats;
+  let h = `<h2>night ${S.day} · the market is locked</h2>
+  <div class="report">served <b>${st.dayServed}</b> · delighted <b>${st.dayDelight}</b> · earned <b>${st.dayEarn}</b><br>season so far <b>${S.earned}</b> ${starHTML(starsFor(S.earned, S.region))}</div>
+  <p>rent was <b>${rent}</b>. you had <b>${had}</b>. the tax goblin took all of it. ${pick(LOCKED)}</p>
+  <p style="font-size:12px;opacity:.75;margin-top:6px">no shopping tonight. tomorrow's rent: ${rentFor(S.day + 1)}. the cart is still yours.</p>
+  <div class="mbtns"><button class="btn" id="nextDay">open for day ${S.day + 1}</button><button class="btn ghost" id="mBook">recipe book</button></div>`;
+  openModal(h);
+  $('#nextDay').onclick = nextDay; $('#mBook').onclick = () => showBook(() => showLocked(rent, had));
 }
 function showMarket(rent) {
   const st = S.stats;
   let h = `<h2>night ${S.day} · the weird market</h2>
-  <div class="report">served <b>${st.dayServed}</b> · delighted <b>${st.dayDelight}</b> · earned <b>${st.dayEarn}</b><br>season so far <b>${S.earned}</b> ${starHTML(starsFor(S.earned, S.region))} ${(() => { const nx = starLine(S.region).find(v => S.earned < v); return nx ? '<span style="opacity:.7">next star at ' + nx + '</span>' : '<span style="color:#8dff6a">all stars!</span>'; })()}<br>rent: <b>-${rent}</b> <span style="opacity:.7">(the tax goblin insists)</span><br>you have <b id="mCoins">${S.coins}</b> coins · tomorrow's rent: ${Math.ceil((S.day + 1) * 5 * (S.decor.spike ? .5 : 1))}</div>`;
+  <div class="report">served <b>${st.dayServed}</b> · delighted <b>${st.dayDelight}</b> · earned <b>${st.dayEarn}</b><br>season so far <b>${S.earned}</b> ${starHTML(starsFor(S.earned, S.region))} ${(() => { const nx = starLine(S.region).find(v => S.earned < v); return nx ? '<span style="opacity:.7">next star at ' + nx + '</span>' : '<span style="color:#8dff6a">all stars!</span>'; })()}<br>rent: <b>-${rent}</b> <span style="opacity:.7">(the tax goblin insists)</span><br>you have <b id="mCoins">${S.coins}</b> coins · tomorrow's rent: ${rentFor(S.day + 1)}</div>`;
   h += '<h3>ingredients</h3><div class="items">';
   const regs = M.regions;
   const ings = ING.filter(g => g.p && regs.includes(g.r));
@@ -574,15 +589,15 @@ function endSeason(broke, rent) {
 function showEnd() {
   const { broke, rent, score, isBest } = S.endInfo;
   const w = S.weird;
-  let h = `<h2>${broke ? 'the tax goblin took the cart' : 'season over'}</h2>
+  let h = `<div class="ecols"><div class="ec1"><h2>${broke ? 'the tax goblin took the cart' : 'season over'}</h2>
   <p>${broke ? `rent was ${rent}. you had less. he was polite about it.` : 'five days of soup. the cauldron needs a lie down.'}</p>
   <div style="font-size:30px;letter-spacing:4px">${starHTML(starsFor(score, S.region))}</div><div style="font-size:12px;opacity:.7">stars at ${starLine(S.region).join(' / ')} coins at ${regionObj().n}</div>
   <div class="row" style="margin:10px 0;gap:14px"><div class="score">${score}</div><div style="font-size:13px;opacity:.85">coins earned${isBest ? '<br><b style="color:#8dff6a">new best!</b>' : '<br>best: ' + M.best}</div></div>
-  <div class="report">bowls served <b>${S.stats.served}</b> · delights <b>${S.stats.delight}</b> · perfect <b>${S.stats.perfect}</b> · spit-takes <b>${S.stats.spit}</b><br>new recipes this season <b>${S.stats.newR}</b> · book <b>${Object.keys(M.book).length}/${NREC}</b>${w ? '<br>weirdest soup: <b>' + esc(w.name) + '</b>' : ''}</div>
-  <canvas id="shareCv" width="640" height="640"></canvas>
+  <div class="report">bowls served <b>${S.stats.served}</b> · delights <b>${S.stats.delight}</b> · perfect <b>${S.stats.perfect}</b> · spit-takes <b>${S.stats.spit}</b><br>new recipes this season <b>${S.stats.newR}</b> · book <b>${Object.keys(M.book).length}/${NREC}</b>${S.stats.missed ? '<br>rent missed <b>' + S.stats.missed + '</b> · the tax goblin sends his regards' : ''}${w ? '<br>weirdest soup: <b>' + esc(w.name) + '</b>' : ''}</div></div>
+  <div class="ec2"><canvas id="shareCv" width="640" height="640"></canvas>
   <div class="mbtns"><button class="btn serve" id="shareBtn">share</button><button class="btn ghost" id="eBook">recipe book</button></div>
   <h3>new season · pick a stall</h3><div class="regions">${REGIONS.map(r => { const ok = M.regions.includes(r.id); return `<button class="btn ${ok ? '' : 'locked'}" data-reg="${r.id}" ${ok ? '' : 'disabled'}>${ok ? r.n + ' <small>' + starHTML(M.stars[r.id] || 0) + '</small>' : r.n + ' · ' + r.need + ' recipes'}</button>`; }).join('')}</div>
-  <div id="tipslot" style="margin-top:12px"></div>`;
+  <div id="tipslot" style="margin-top:12px"></div></div></div>`;
   openModal(h, true);
   drawShare($('#shareCv'), score);
   $('#shareBtn').onclick = () => share(score);

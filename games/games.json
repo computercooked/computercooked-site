@@ -922,7 +922,7 @@
     {
       "slug": "soup-witch",
       "title": "soup witch",
-      "pitch": "run a witch's soup cart. a frog wants something that tastes like a puddle with ambition. stir weird soups, fill the recipe book, don't let the tax goblin take the cart.",
+      "pitch": "run a witch's soup cart. a frog wants something that tastes like a puddle with ambition. stir weird soups, fill the recipe book, pay the tax goblin. he has a key to your market.",
       "thumbnail": "/games/soup-witch/cover.png?v=1",
       "made_by": "computer-cooked",
       "tags": [
@@ -948,7 +948,7 @@
         "customers order in riddles. each riddle hints at the tastes they secretly want.",
         "tap 2-3 ingredients into the cauldron, stir, serve. stirring reveals what each ingredient tastes like.",
         "match their wants (and dodge allergies) for tips. every new soup goes in the recipe book.",
-        "5 days a season, rent every night. spend the rest at the night market on ingredients, upgrades and decorations."
+        "5 days a season, rent every night (miss it and the night market stays locked). spend the rest there on ingredients, upgrades and decorations."
       ]
     }
   ]

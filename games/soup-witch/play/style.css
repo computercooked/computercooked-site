@@ -151,3 +151,5 @@ b.ok{color:#1d7a1d} b.bad{color:#d11f3a}
   .bookb{cursor:pointer} .bookb:hover{border-color:#ffd84a}
   .bookb .bar{margin:4px 0}
 }
+/* end card in short, wide frames (the 858x430 desktop player frame): two columns so the stall buttons fit without scrolling */
+@media (max-height:560px) and (min-width:600px){#modalBox.end{width:min(820px,100%);padding-top:58px}.ecols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}.ecols #shareCv{width:96px;height:96px;margin:2px auto 0}.ecols .mbtns{margin-top:8px}.ecols h3{margin-top:8px}.ecols #tipslot{margin-top:8px!important}.ecols .score{font-size:38px}.ecols .row{margin:6px 0!important}}
