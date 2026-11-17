@@ -38,6 +38,10 @@
   C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
   C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
   C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
+  C.BITE_CATCH = 0.2; // 4.42: a grump's bite can only infect a smol whose antigen is under this
+  C.PECKISH_NIGHT = 0.65; // 4.42: at night a smol is only peckish from here (the old number). from 0.5 it was up and about in the dark looking for food, and the grumps found it: three times the infecting bites on the same islands
+  function peckish(game) { return game && game.world && game.world.night ? C.PECKISH_NIGHT : C.PECKISH; }
+  C.peckish = peckish;
   C.PECKISH = 0.5; // 4.40: a smol starts looking for food here (it was 0.6 to 0.65, so a fed island sat half hungry) // 4.39: past this, a smol turns down every call that isn't forced (C.sendTo)
   function lifeK(c) { return c && c.species === "smol" && (c.tier || 0) >= 3 ? C.TALKER_LIFE : 1; }
   C.lifeK = lifeK;
@@ -548,7 +552,7 @@
       if (hd && SB.Ideas.known(c, hd.id)) { var hv = hd.kind === "build" ? V.build : hd.kind === "craft" ? V.make : V.use; if (mask[hv]) { bias[hv] += 0.25; useBias = true; } }
     }
     // hard-wired reflexes for emergencies (the net still decides everything else)
-    if (noun === "food" && mask[V.eat] && ch.hunger > C.PECKISH) { bias[V.eat] += (ch.hunger - C.PECKISH + 0.1) * 1.4; useBias = true; }
+    if (noun === "food" && mask[V.eat] && ch.hunger > peckish(game)) { bias[V.eat] += (ch.hunger - peckish(game) + 0.1) * 1.4; useBias = true; }
     if (noun === "grump" && mask[V.flee] && ch.fear > 0.6) { bias[V.flee] += (ch.fear - 0.5) * 0.8; useBias = true; }
     // armed and brave: stand up to grumps (a club or spear chases them off for good)
     if (noun === "grump" && mask[V.hit] && c.species === "smol" && SB.Ideas) {
@@ -572,7 +576,7 @@
     if (goal && M().goalBias(c, noun, mask, bias)) useBias = true;
     if (c.prio && SB.Orders && SB.Orders.bias(c, game, noun, mask, bias)) useBias = true; // job interests you nudged
     if (c.species === "smol" && Mn() && Mn().bias(c, game, noun, mask, bias)) useBias = true; // a food way, a standing "keep making"
-    if (ch.hunger > C.PECKISH + 0.05 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - C.PECKISH + 0.1) * 0.9; useBias = true; }
+    if (ch.hunger > peckish(game) + 0.05 && nearestOf[N.food] == null && c.species === "smol") { bias[V.wander] += (ch.hunger - peckish(game) + 0.1) * 0.9; useBias = true; }
     // in love, but not with family (or the same sex): go and find someone else instead
     if (noun === "smol" && mask[V.cuddle] && ch.love > 0.6 && c.stage === 3 && c.species === "smol" && target.ref && (target.ref.sex === c.sex || SB.Game.related(game, c, target.ref))) { mask[V.cuddle] = false; if (mask[V.wander]) { bias[V.wander] += 0.4; useBias = true; } }
     if (noun === "smol" && mask[V.cuddle] && c.species === "smol" && target.ref && SB.Social) {
@@ -720,7 +724,7 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.2, 0.2);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8;
-        } else if (c.chem.hunger > C.PECKISH && (sniff = sniffFood(c, game))) {
+        } else if (c.chem.hunger > peckish(game) && (sniff = sniffFood(c, game))) {
           // hungry and nothing in sight: follow your nose toward the nearest food (or a fruit tree)
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z) + rng.range(-0.25, 0.25);
           dist = Math.min(12, SB.dist(c.x, c.z, sniff.x, sniff.z));
@@ -730,7 +734,7 @@
           ang = Math.atan2(sniff.x - c.x, sniff.z - c.z);
           dist = Math.min(14, SB.dist(c.x, c.z, sniff.x, sniff.z));
           a.dur = 8; a.why = sniff.why;
-        } else if (c.foodSpot && c.chem.hunger > C.PECKISH - 0.05 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
+        } else if (c.foodSpot && c.chem.hunger > peckish(game) - 0.05 && SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z) > 2) {
           ang = Math.atan2(c.foodSpot.x - c.x, c.foodSpot.z - c.z) + rng.range(-0.3, 0.3);
           dist = Math.min(10, SB.dist(c.x, c.z, c.foodSpot.x, c.foodSpot.z));
         } else if (rng.chance(0.4)) {
@@ -1232,7 +1236,7 @@
       SB.Chem.apply(oc, { pain: hard, fear: 0.18, anger: 0.15 });
       o.anim.squash = 0.35; emote(o, "ouch", 1.5);
       if (o.species === "smol") say(o, knows(o, "ouch") ? "ouch!" : "eek!", game);
-      if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2)) oc.antigen = Math.min(1, oc.antigen + 0.25);
+      if (c.species === "grump" && o.species === "smol" && game.rng.chance(0.2) && oc.antigen < C.BITE_CATCH) oc.antigen = Math.min(1, oc.antigen + 0.25); // 4.42: a bite gives the sickness to a smol that does not have it. it stacked: three infecting bites in a row (a smol stands for the first few, its fear still low) and it was dead in a minute
       if (c.species === "grump" && o.species === "smol" && SB.Threats) SB.Threats.wound(game, c, o);
       if (c.species === "smol" && o.species === "grump") {
         habit(c, "fight", 1); SB.Chem.apply(oc, { fear: 0.2 });
@@ -1997,7 +2001,7 @@
       if (c.action && c.action.verb !== V.flee && ch.fear > 0.6 && c.action.phase === "go") c.thinkT = 0;
       if (ch.hunger > 0.45 && !c.plan && c.action && (c.action.verb === V.idle || c.action.verb === V.wander || c.action.verb === V.talk || c.action.verb === V.approach) && (c.foodT = (c.foodT || 0) - dt) <= 0) {
         c.foodT = 0.5;
-        var snack = SB.World.nearestItem(w, c.x, c.z, ch.hunger > 0.7 ? 4 : ch.hunger > C.PECKISH ? 3 : 1.5, function (o) { return o.noun === "food" && o.heldBy !== "hand" && o.kind !== "nut"; });
+        var snack = SB.World.nearestItem(w, c.x, c.z, ch.hunger > 0.7 ? 4 : ch.hunger > peckish(game) ? 3 : 1.5, function (o) { return o.noun === "food" && o.heldBy !== "hand" && o.kind !== "nut"; });
         if (snack && c.action.noun !== "food") { c.action = null; c.thinkT = 0; }
       }
     }

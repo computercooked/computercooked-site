@@ -1097,11 +1097,14 @@ var b=ME.builder();
 b.color(STONE).cyl(10,0.9,0.88,0.12);
 b.color(PLASTER).push().translate(0,0.12,0).cyl(10,0.8,0.78,0.75,false).pop();
 b.color(0x5fa04a,1).push().translate(0,0.82,0).cyl(10,0.98,0.06,0.9).pop();
+b.color(0x3f7a34,1).push().translate(0,0.8,0).cyl(10,1.04,0.86,0.14).pop();
+b.color(0xffffff,1).push().translate(0,1.2,0).cyl(10,0.62,0.5,0.12).pop();
+b.color(0xffffff,1).push().translate(0,1.7,0).scale(0.09).sphere(1).pop();
 door(b,0,0.78);
 b.sides(true).color(LEAF);for(var i=0;i<3;i++)b.push().translate(0.36+i*0.1,0.62,0.74).rotX(3.14).leaf(0.07,0.2,0.02).pop();
 b.sides(false).color(DARK).push().translate(-0.55,0,0.7).cyl(4,0.03,0.03,1.2).pop();
-b.color(0xffffff,1).push().translate(-0.4,0.95,0.7).box(0.26,0.22,0.02).pop();
-b.color(0x5fa04a,1).push().translate(-0.4,1.0,0.715).box(0.06,0.14,0.01).pop().push().translate(-0.4,1.04,0.715).box(0.14,0.06,0.01).pop();
+b.color(0xffffff,1).push().translate(-0.36,0.86,0.7).box(0.36,0.34,0.02).pop();
+b.color(0x3f9a3a,1).push().translate(-0.36,0.93,0.715).box(0.08,0.2,0.01).pop().push().translate(-0.36,0.99,0.715).box(0.2,0.08,0.01).pop();
 return b.finish();
 }
 };
@@ -2987,7 +2990,7 @@ shop:function(){
 var b=ME.builder();
 b.color(WOOD).push().box(1.0,0.42,0.45).pop();
 b.color(DARK).push().translate(-0.48,0,-0.2).cyl(4,0.03,0.03,1.1).pop().push().translate(0.48,0,-0.2).cyl(4,0.03,0.03,1.1).pop();
-b.color(0x5fa04a,1).push().translate(0,1.05,0.05).rotX(-0.35).box(1.15,0.04,0.7).pop();
+for(var aw=0;aw<5;aw++)b.color(aw%2?0xf2ead8:0x5fa04a,1).push().translate(-0.46+aw*0.23,1.05,0.05).rotX(-0.35).box(0.23,0.04,0.7).pop();
 b.color(0xd9614a).push().translate(-0.25,0.42,0).scale(0.07).sphere(0).pop().color(0xe0b85a).push().translate(0.05,0.42,0).box(0.14,0.08,0.12).pop().color(0x7fb4d8).push().translate(0.3,0.42,0).cyl(6,0.06,0.05,0.12).pop();
 return b.finish();
 },

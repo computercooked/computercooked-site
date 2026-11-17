@@ -31,10 +31,10 @@ console.log("1. peckish: the point where a smol starts looking for food");
   const { SB } = island(4401), C = SB.Creature;
   check("there is one number for it, under the hard-times line", C.PECKISH >= 0.45 && C.PECKISH <= 0.52 && C.PECKISH < 0.55, C.PECKISH);
   check("it is well under starving and under 'too hungry to sleep'", C.PECKISH < C.HUNGRY_AWAKE && C.HUNGRY_AWAKE < C.STARVING);
-  check("food in sight pulls from there", /mask\[V\.eat\] ?&& ?ch\.hunger ?> ?C\.PECKISH\)/.test(cj));
-  check("its nose takes over from there", /c\.chem\.hunger ?> ?C\.PECKISH ?&& ?\(sniff ?= ?sniffFood/.test(cj));
-  check("it walks back to where food was from just under it", /c\.foodSpot ?&& ?c\.chem\.hunger ?> ?C\.PECKISH ?- ?0\.05/.test(cj));
-  check("it stops an idle moment for food three steps off", /ch\.hunger ?> ?0\.7 ?\? ?4 ?: ?ch\.hunger ?> ?C\.PECKISH ?\? ?3 ?: ?1\.5/.test(cj));
+  check("food in sight pulls from there", /mask\[V\.eat\] ?&& ?ch\.hunger ?> ?peckish\(game\)\)/.test(cj));
+  check("its nose takes over from there", /c\.chem\.hunger ?> ?peckish\(game\) ?&& ?\(sniff ?= ?sniffFood/.test(cj));
+  check("it walks back to where food was from just under it", /c\.foodSpot ?&& ?c\.chem\.hunger ?> ?peckish\(game\) ?- ?0\.05/.test(cj));
+  check("it stops an idle moment for food three steps off", /ch\.hunger ?> ?0\.7 ?\? ?4 ?: ?ch\.hunger ?> ?peckish\(game\) ?\? ?3 ?: ?1\.5/.test(cj));
 }
 seeded(4402, () => {
   // a smol held at 0.56 hunger (over peckish, under the old 0.6 to 0.65), one apple twelve steps off and nothing nearer
@@ -84,7 +84,7 @@ console.log("4. one thing at a time: no story card under the pod map; no broken 
   const uj = fs.readFileSync(path.join(__dirname, "..", "src", "ui.js"), "utf8");
   check("event cards wait while the pod map is up", /if ?\(UI\._podUp\) ?return false;/.test(uj) && /root\.appendChild\(wrap\); ?UI\._podUp ?= ?true;/.test(uj) && /closed ?= ?true; ?UI\._podUp ?= ?false;/.test(uj));
   const css = fs.readFileSync(path.join(__dirname, "..", "play", "style.css"), "utf8");
-  check("ligatures are off for every element, whatever font: shorthand it uses", /\*, ?\*::before, ?\*::after ?\{ ?font-variant-ligatures: ?none ?!important; ?font-feature-settings: ?"liga" 0, ?"clig" 0, ?"calt" 0 ?!important; ?\}/.test(css));
+  check("ligatures are off for every element, whatever font: shorthand it uses", /\*:not\(#_a\):not\(#_b\):not\(#_c\), ?\*:not\(#_a\):not\(#_b\):not\(#_c\)::before, ?\*:not\(#_a\):not\(#_b\):not\(#_c\)::after ?\{ ?font-variant-ligatures: ?none ?!important; ?font-feature-settings: ?"liga" 0, ?"clig" 0, ?"calt" 0 ?!important; ?\}/.test(css));
 }
 
 console.log("5. hard times: hungry AND short of food (hunger alone stopped pairs on fed islands)");

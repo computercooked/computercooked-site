@@ -1318,7 +1318,8 @@ B("echogloom","Gloom's echo","🌑","is Gloom again, and tougher. it was your id
 B("echomurk","Murk's echo","🌘","is Murk again, and tougher",6.5,0.23,0.95,1.9,22,3,{big:1,echo:"murk",armour:1,sparks:18,call:{cinder:2}}),
 B("echonight","the Long Night's echo","🌚","is the Long Night again, and tougher",11,0.26,1.05,2.3,32,4,{big:1,echo:"night",armour:1.25,sparks:30,call:{starmetal:1}})
 ];
-D.BEAST_BY={};D.BEASTS.forEach(function(d){D.BEAST_BY[d.id]=d;if(d.big)toy("trophy_"+d.id,d.name.replace(/^(the|a|an|one of the|old) /,"")+" keepsake","🏆",0xd8b84a,"you chased off "+d.name+". proof.");});
+D.KEEP_COLORS=[0xe0564a,0x4a9ae0,0x5ac86a,0xb07ae0,0xf08a3a,0x4ac8c0,0xe07ab0,0xf0e06a,0xa8b0c4];
+D.BEAST_BY={};var keepN=0;D.BEASTS.forEach(function(d){D.BEAST_BY[d.id]=d;if(d.big){toy("trophy_"+d.id,d.name.replace(/^(the|a|an|one of the|old) /,"")+" keepsake","🏆",D.KEEP_COLORS[keepN%9],"you chased off "+d.name+". proof.",{top:keepN%8,metal:d.tough>=4.5?0:d.tough>=3.5?1:2});keepN++;}});
 D.BIGS=D.BEASTS.filter(function(d){return d.big&&!d.only&&!d.child;});
 D.beastDef=function(p){var d=D.BEAST_BY[p.bid]||D.BEAST_BY.boggrump;return{name:p.name||d.name,icon:d.icon,twist:d.twist,tough:r2(d.tough*(p.k||1)),dmg:d.dmg,speed:d.speed,size:d.size,pay:d.pay,def:d};};
 function beastPosts(game){return st(game).posts.filter(function(p){return p.kind==="beast";});}

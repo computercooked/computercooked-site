@@ -3021,12 +3021,17 @@
   var ME = SB.Meshes || SB.ME;
   function shroomMesh() {
     var b = ME.builder();
-    b.color(0xe8e0d0).push().translate(0, 1.3, 0).box(0.5, 2.6, 0.5).pop();
-    b.color(0x8c70c4).push().translate(0, 2.8, 0).box(2.4, 0.5, 2.4).pop();
-    b.color(0x9c82d8).push().translate(0, 3.2, 0).box(1.6, 0.4, 1.6).pop();
-    b.color(0xc9f0ff).push().translate(0.7, 2.9, 1.21).box(0.3, 0.2, 0.02).pop();
-    b.color(0xc9f0ff).push().translate(-0.6, 2.9, 1.21).box(0.25, 0.18, 0.02).pop();
-    b.color(0xc9f0ff).push().translate(1.21, 2.9, -0.4).box(0.02, 0.2, 0.3).pop();
+    // 4.42: round. it was a square stem under two square slabs, which from the sky was a purple tile
+    b.color(0xe8e0d0).cyl(9, 0.36, 0.26, 2.7);
+    b.color(0xd8cdb8).push().translate(0, 2.1, 0).cyl(9, 0.3, 0.52, 0.12).pop(); // the skirt under the cap
+    b.color(0x5a4690).push().translate(0, 2.55, 0).cyl(12, 1.42, 1.5, 0.12).pop(); // the dark underside
+    b.smoothShade(true).color(0x8c70c4).push().translate(0, 2.66, 0).scale(1.5, 0.95, 1.5).sphere(1, function (x, y) { return y < 0 ? 0.01 : 1; }).pop().smoothShade(false); // the dome
+    b.color(0xc9f0ff).glow(0.7); // pale spots that glow, sitting on the dome
+    [[0.75, 0.5, 0.2], [-0.6, 0.55, 0.17], [0.15, -0.1, 0.24], [-0.85, -0.5, 0.16], [0.6, -0.8, 0.18], [-0.1, 0.98, 0.14], [1.1, -0.1, 0.13]].forEach(function (sp) {
+      var sy = 2.66 + 0.95 * Math.sqrt(Math.max(0, 1 - (sp[0] * sp[0] + sp[1] * sp[1]) / 2.25));
+      b.push().translate(sp[0], sy - 0.02, sp[1]).scale(sp[2], sp[2] * 0.4, sp[2]).sphere(1).pop();
+    });
+    b.glow(0);
     return b.finish();
   }
   function helperMesh() {

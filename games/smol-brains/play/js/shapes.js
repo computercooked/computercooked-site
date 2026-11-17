@@ -41,6 +41,22 @@ dye:function(b,c){b.color(0xb08a5a).cyl(8,0.07,0.09,0.09,false);b.color(c).glow(
 seeds:function(b,c){b.color(0xc9a36a).push().translate(0,0.04,0).scale(0.085,0.06,0.085).sphere(1).pop();b.color(0x8a6a44).push().translate(0,0.095,0).torus(0.03,0.01,8,3).pop();b.color(c);for(var s=0;s<3;s++)b.push().translate(0.1+Math.cos(s*2.1)*0.03,0.012,Math.sin(s*2.1)*0.03).scale(0.02,0.012,0.02).sphere(0).pop();},
 sprout:function(b,c){b.color(0x7a5a3a).push().scale(0.08,0.035,0.08).sphere(0).pop();b.color(LEAF).push().cyl(4,0.01,0.008,0.14).pop();b.sides(true).color(c).push().translate(0,0.13,0).rotZ(0.9).leaf(0.06,0.1).pop().push().translate(0,0.13,0).rotZ(-0.9).leaf(0.06,0.1).pop().sides(false);},
 trophy:function(b,c){b.color(0x6a4a2e).push().translate(0,0.02,0).box(0.14,0.04,0.14).pop();b.color(0xffc83a).push().translate(0,0.04,0).cyl(6,0.02,0.02,0.07).pop().push().translate(0,0.11,0).cyl(8,0.03,0.085,0.11,false).pop();b.push().translate(0.095,0.17,0).rotX(1.5708).torus(0.03,0.01,8,3).pop().push().translate(-0.095,0.17,0).rotX(1.5708).torus(0.03,0.01,8,3).pop();b.color(c).glow(0.4).push().translate(0,0.235,0).scale(0.045).sphere(1).pop().glow(0);},
+keepsake:function(b,c,o,k){
+var top=k&&k.top!=null?k.top%8:0,metal=[0xffc83a,0xc8ccd6,0xc07a3a][k&&k.metal!=null?k.metal%3:0];
+b.color(shade(c,0.7)).push().translate(0,0.02,0).box(0.15,0.04,0.15).pop();
+b.color(metal).push().translate(0,0.04,0).cyl(6,0.02,0.02,0.07).pop().push().translate(0,0.11,0).cyl(8,0.03,0.085,0.11,false).pop();
+b.push().translate(0.095,0.17,0).rotX(1.5708).torus(0.03,0.01,8,3).pop().push().translate(-0.095,0.17,0).rotX(1.5708).torus(0.03,0.01,8,3).pop();
+b.color(c).glow(0.45);
+if(top===0)b.push().translate(0,0.25,0).scale(0.06).sphere(1).pop();
+else if(top===1)b.push().translate(0,0.21,0).cone(4,0.05,0.13).pop();
+else if(top===2){b.push().translate(0,0.26,0).cone(5,0.045,0.08).pop().push().translate(0,0.26,0).rotX(3.1416).cone(5,0.045,0.05).pop();}
+else if(top===3){b.push().translate(0.03,0.21,0).rotZ(-0.5).cone(5,0.028,0.12).pop().push().translate(-0.03,0.21,0).rotZ(0.5).cone(5,0.028,0.12).pop();}
+else if(top===4){b.push().translate(0,0.21,0).cone(6,0.055,0.07).pop().push().translate(0.012,0.25,0).cone(5,0.036,0.07).pop().push().translate(-0.008,0.29,0).cone(4,0.02,0.06).pop();}
+else if(top===5)b.push().translate(0,0.26,0).rotZ(0.7854).rotY(0.6).box(0.075,0.075,0.075).pop();
+else if(top===6)b.push().translate(0,0.27,0).rotX(1.5708).torus(0.045,0.016,10,4).pop();
+else{b.push().translate(0,0.26,0).box(0.13,0.03,0.03).pop().push().translate(0,0.26,0).box(0.03,0.13,0.03).pop().push().translate(0,0.26,0).box(0.03,0.03,0.13).pop();}
+b.glow(0);
+},
 fish:function(b,c,o){var f=o&&o.fat?1.5:1;b.smoothShade(true).color(c).push().translate(0,0.07,0).scale(0.19,0.075*f,0.055*f).sphere(1).pop().smoothShade(false);b.sides(true).push().translate(-0.19,0.07,0).rotZ(1.5708).leaf(0.13,0.1).pop();b.color(shade(c,0.7)).push().translate(0,0.13*(f>1?1.2:1),0).rotZ(-0.5).leaf(0.05,0.08).pop().sides(false);b.color(0x1a1a22).push().translate(0.12,0.085,0.045*f).scale(0.013).sphere(0).pop().push().translate(0.12,0.085,-0.045*f).scale(0.013).sphere(0).pop();},
 scroll:function(b,c){b.color(c).push().translate(-0.13,0.035,0).rotZ(-1.5708).cyl(8,0.035,0.035,0.26).pop();b.color(shade(c,0.7)).push().translate(-0.14,0.035,0).rotZ(-1.5708).cyl(6,0.012,0.012,0.28).pop();b.color(0xff4f5e).push().translate(0,0.035,0).rotZ(1.5708).torus(0.037,0.008,8,3).pop();},
 slab:function(b,c){b.color(c).push().translate(0,0.02,0).box(0.2,0.04,0.26).pop();b.color(shade(c,0.6));for(var i=0;i<3;i++)b.push().translate(0,0.042,-0.07+i*0.07).box(0.13,0.004,0.014).pop();},
@@ -89,6 +105,7 @@ puff:function(b,c){b.smoothShade(true).color(c);[[0,0.07,0,0.085],[0.075,0.06,0.
 pebble:function(b,c){b.smoothShade(true).color(c).shadeY(0,0.14,0.25).push().translate(0,0.065,0).scale(0.1,0.075,0.09).blob(1,0.2,3).pop().shadeY(null).smoothShade(false);b.color(shade(c,1.35)).push().translate(-0.02,0.125,0.015).scale(0.04,0.012,0.035).sphere(0).pop();}
 };
 var RULES=[
+[/^trophy_/,"keepsake"],
 [/arrow/,"arrow"],[/\b(cross)?bow\b/,"bow"],[/sickle/,"sickle"],[/shears/,"sickle"],
 [/lightblade|starblade|crystalblade|glassblade/,"blade",{long:1,glow:1}],[/sword|cutter/,"blade",{long:1}],[/blade|sharpstone|knife/,"blade"],
 [/\bhoe\b/,"hoe"],[/pick\b/,"pick"],[/axe\b/,"axe"],[/maul|hammer|primtool/,"maul"],[/flail/,"flail"],[/boomerang/,"sickle"],
@@ -131,7 +148,7 @@ return["pebble",null];
 ME.generic=function(kind,k,b){
 var sh=ME.shapeOf(kind,k);
 if(!sh||!S[sh[0]])return false;
-S[sh[0]](b,k.color||0xffffff,sh[1]);
+S[sh[0]](b,k.color||0xffffff,sh[1],k);
 return true;
 };
 })();
