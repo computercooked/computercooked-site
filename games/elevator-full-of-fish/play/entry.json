@@ -8,7 +8,7 @@
   "size_kb": 29,
   "tags": ["reflex", "tapping", "short", "funny", "mobile"],
   "version": "1.6",
-  "max_score_per_sec": 50,
+  "max_score_per_sec": 52,
   "max_score": 2500,
   "results": "quiet",
   "restart": true
