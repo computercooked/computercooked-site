@@ -74,6 +74,25 @@
   var muted = load("cc-crash-muted", "0") === "1";
   var extMuted = false; // host page mute (cc-mute postMessage); never persisted
 
+  // v2.4: a career. every run's score is banked; promotions unlock a perk that helps every run after.
+  // old saves start with their best score already banked.
+  var RANKS = [
+    { at: 0, name: "intern", perk: "" },
+    { at: 400, name: "junior dev", perk: "a firewall blocks 1 hit per run" },
+    { at: 1200, name: "senior dev", perk: "coffee cools 14° (was 11°)" },
+    { at: 2500, name: "tech lead", perk: "half of all drops are fans" },
+    { at: 4500, name: "manager", perk: "2 firewalls per run" },
+    { at: 7500, name: "cto", perk: "streak bonuses x2" },
+    { at: 12000, name: "the cloud", perk: "every run starts at 0°" }
+  ];
+  var career = +load("cc-crash-career", -1);
+  if (!(career >= 0)) { career = best; save("cc-crash-career", String(career)); }
+  var runs = +load("cc-crash-runs", 0) || 0;
+  function rankOf(c) { var r = 0; for (var i = 1; i < RANKS.length; i++) if (c >= RANKS[i].at) r = i; return r; }
+  // a dare link (?vs=<score> on the player page around us, same origin): the site's results card is quiet for this game
+  var DARE = 0;
+  try { if (window.parent !== window) { var dv = parseFloat(new URLSearchParams(window.parent.location.search).get("vs")); if (isFinite(dv) && dv > 0) DARE = Math.round(dv); } } catch (e) {}
+
   /* ---------- sprites ---------- */
   var img = {};
   Object.keys(SPRITES).forEach(function (k) {
@@ -215,9 +234,18 @@
   var t, heat, score, pickups, hits, spawnT, pickT, warnT, cookT, overAt = 0;
   var streak = 0, topStreak = 0; // v2.3: tasks dodged in a row (a hit resets it)
   // the first seconds teach the loop (dodge, grab coffee): 1 at the start, 0 from 25 s on, so the late game is as before
+  // v2.4: an intern's runs ease in for longer (careless first runs were cooked at 12-19 s)
   var EASE_T = 25;
   function ease() { return Math.max(0, 1 - t / EASE_T); }
+  // perks for this run come from the rank it started at (a mid-run promotion pays out next run)
+  var runRank = 0, firewalls = 0, blocked = 0, promoShown = 0;
+  function perks() {
+    runRank = rankOf(career);
+    EASE_T = runRank === 0 ? 34 : 25;
+    firewalls = runRank >= 4 ? 2 : runRank >= 1 ? 1 : 0;
+  }
   var shake, glitch, flash;
+  var shield = 0, promo = 0, autoArmed = false; // v2.4: firewall ring, promotion stamp, clip arrival (title skipped)
   var crash = { x: W / 2, y: FLOOR, vx: 0, w: 64, h: 56, tilt: 0, step: 0, squash: 0, hurt: 0 };
   var tasks = [], items = [], parts = [], floats = [];
   var keys = { left: false, right: false };
@@ -229,9 +257,10 @@
 
   function reset() {
     ban = null; beatBestTold = false; runGoal = bestTime >= 5 ? bestTime : 30;
-    t = 0; heat = 8; score = 0; pickups = 0; hits = 0; streak = 0; topStreak = 0;
+    perks(); blocked = 0; promoShown = runRank;
+    t = 0; heat = runRank >= 6 ? 0 : 8; score = 0; pickups = 0; hits = 0; streak = 0; topStreak = 0;
     spawnT = 0.6; pickT = 1.2; warnT = 0; cookT = 0;
-    shake = 0; glitch = 0; flash = 0;
+    shake = 0; glitch = 0; flash = 0; shield = 0; promo = 0;
     crash.x = W / 2; crash.vx = 0; crash.tilt = 0; crash.squash = 0; crash.hurt = 0;
     tasks.length = 0; items.length = 0; parts.length = 0; floats.length = 0;
   }
@@ -248,6 +277,9 @@
   function start() {
     // ignore restarts for 0.8 s after game over, so a held/mashed key doesn't skip the end card
     if (state === "over" && performance.now() - overAt < 800) return;
+    // v2.4: a restart (site button) during the 1.4 s meltdown still banks and reports the run that just overheated
+    if (state === "cooking") gameOver();
+    autoArmed = false;
     audio();
     reset();
     setState("play");
@@ -297,7 +329,7 @@
     return "popup";
   }
   function spawnItem() {
-    var fan = Math.random() < 0.3;
+    var fan = Math.random() < (runRank >= 3 ? 0.5 : 0.3);
     items.push({ kind: fan ? "fan" : "coffee", x: 24 + Math.random() * (W - 48), y: -20, r: 15, vy: 130 + Math.random() * 40, spin: 0 });
   }
 
@@ -357,7 +389,7 @@
     crash.hurt = Math.max(0, crash.hurt - dt);
 
     // heat rises on its own, faster over time
-    heat += (0.9 + t * 0.032) * dt;
+    heat += (0.9 + t * 0.032) * (1 - 0.4 * ease()) * dt;
 
     // spawns
     spawnT -= dt;
@@ -377,6 +409,19 @@
       k.x += k.vx * dt;
       if (k.x < 4 || k.x + k.w > W - 4) k.vx = -k.vx;
       if (crash.hurt <= 0 && overlap(hb, { x: k.x + 3, y: k.y + 3, w: k.w - 6, h: k.h - 6 })) {
+        if (firewalls > 0) {
+          // v2.4 perk: the firewall eats the task. no heat, the streak lives on
+          firewalls--; blocked++;
+          crash.hurt = 0.45;
+          shake = Math.min(1, shake + 0.3);
+          shield = 0.5;
+          puff(k.x + k.w / 2, k.y + k.h, 16, "#B59AFF", 170, 0.5);
+          floatText(crash.x, crash.y - crash.h - 10, "BLOCKED", "#B59AFF");
+          if (firewalls === 0) floatText(crash.x, crash.y - crash.h - 28, "firewall down", "#b9b7b0");
+          tone(520, 260, 0.14, "square", 0.12);
+          tasks.splice(i, 1);
+          continue;
+        }
         var burn = Math.round((k.big ? 22 : 15) * (1 - 0.5 * ease()));
         heat += burn;
         hits++;
@@ -410,7 +455,7 @@
         // v2.3: a dodge streak, so every clean dodge counts toward something you can see
         streak++; if (streak > topStreak) topStreak = streak;
         if (streak % 10 === 0) {
-          var sb = Math.min(30, streak);
+          var sb = Math.min(30, streak) * (runRank >= 5 ? 2 : 1);
           score += sb;
           floatText(crash.x, crash.y - crash.h - 28, "streak " + streak + "! +" + sb, "#C5FF49");
           puff(crash.x, crash.y - crash.h, 12, "#C5FF49", 140, 0.45);
@@ -429,13 +474,22 @@
       var mi = Math.floor(t / 15) - 1;
       banner(MILESTONES[Math.min(mi, MILESTONES.length - 1)] + " · " + Math.floor(t) + "s", "#B59AFF", 1.3);
     }
+    // v2.4: promoted mid-run (career + this run's score crossed the next rank)
+    var liveRank = rankOf(career + score);
+    if (liveRank > promoShown) {
+      promoShown = liveRank;
+      banner("PROMOTED: " + RANKS[liveRank].name.toUpperCase(), "#C5FF49", 2.2);
+      promo = 1.2;
+      puff(W / 2, H * 0.36, 26, "#C5FF49", 220, 0.8);
+      tone(523, 1046, 0.12, "square", 0.08); tone(784, 1568, 0.16, "square", 0.07, 0.1);
+    }
 
     for (var j = items.length - 1; j >= 0; j--) {
       var it = items[j];
       it.y += it.vy * dt;
       it.spin += dt * (it.kind === "fan" ? 18 : 2);
       if (overlap(hb, { x: it.x - it.r, y: it.y - it.r, w: it.r * 2, h: it.r * 2 })) {
-        var cool = it.kind === "fan" ? 24 : 11;
+        var cool = it.kind === "fan" ? 24 : runRank >= 2 ? 14 : 11;
         heat -= cool;
         pickups++;
         score += it.kind === "fan" ? 40 : 25;
@@ -476,6 +530,8 @@
     shake = Math.max(0, shake - dt * 2.2);
     glitch = Math.max(0, glitch - dt);
     flash = Math.max(0, flash - dt);
+    shield = Math.max(0, shield - dt);
+    promo = Math.max(0, promo - dt);
     for (var i = parts.length - 1; i >= 0; i--) {
       var p = parts[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -696,6 +752,41 @@
         ctx.beginPath(); ctx.arc(x + 3, y + 10 + sy, 2.6, 0, Math.PI * 2); ctx.fill();
       }
     }
+    drawHat(img.crash ? -68 : -bh, melt);
+    ctx.restore();
+  }
+
+  // v2.4: crash wears his rank (changes the moment he's promoted, mid-run included)
+  function drawHat(top, melt) {
+    var r = promoShown;
+    if (!r) return;
+    ctx.save();
+    ctx.translate(0, top + melt * 20);
+    if (r === 1) { // propeller beanie
+      ctx.fillStyle = "#B59AFF"; ctx.beginPath(); ctx.arc(0, 2, 15, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#C5FF49"; ctx.fillRect(-15, 0, 30, 3);
+      ctx.fillStyle = "#101114"; ctx.fillRect(-1, -19, 2, 7);
+      var pw = Math.cos(performance.now() / 60) * 11;
+      ctx.fillStyle = "#ff6b5b"; ctx.fillRect(-Math.abs(pw), -21, Math.abs(pw) * 2, 3);
+    } else if (r === 2) { // headphones
+      ctx.strokeStyle = "#2c2f38"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 14, 34, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      ctx.fillStyle = "#B59AFF"; rr(-38, 4, 9, 18, 3); ctx.fill(); rr(29, 4, 9, 18, 3); ctx.fill();
+    } else if (r === 3) { // backwards cap
+      ctx.fillStyle = "#C5FF49"; ctx.beginPath(); ctx.arc(0, 2, 16, Math.PI, 0); ctx.fill();
+      ctx.fillRect(-26, -1, 14, 4);
+      ctx.fillStyle = "#101114"; ctx.fillRect(-2, -14, 4, 3);
+    } else if (r === 4) { // manager's top hat
+      ctx.fillStyle = "#101114"; ctx.fillRect(-20, -1, 40, 4); ctx.fillRect(-12, -24, 24, 24);
+      ctx.fillStyle = "#ff6b5b"; ctx.fillRect(-12, -7, 24, 4);
+    } else if (r === 5) { // cto crown
+      ctx.fillStyle = "#ffcf3f";
+      ctx.beginPath(); ctx.moveTo(-17, 2); ctx.lineTo(-17, -14); ctx.lineTo(-9, -6); ctx.lineTo(0, -18); ctx.lineTo(9, -6); ctx.lineTo(17, -14); ctx.lineTo(17, 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ff6b5b"; ctx.fillRect(-2, -6, 4, 4);
+    } else { // the cloud: halo
+      ctx.strokeStyle = "#C5FF49"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, -10 + Math.sin(performance.now() / 300) * 2, 18, 5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -732,6 +823,7 @@
     ctx.fillStyle = "#b9b7b0";
     ctx.fillText("BEST " + best, W - 12, 52);
     if (streak >= 3) { ctx.fillStyle = streak >= 10 ? "#C5FF49" : "#F5F3ED"; ctx.fillText("STREAK " + streak, W - 12, 65); }
+    if (firewalls > 0) { ctx.textAlign = "left"; ctx.fillStyle = "#B59AFF"; ctx.fillText("FIREWALL " + (firewalls > 1 ? "x" + firewalls : "ON"), 12, 65); }
     // the run's goal, always in view: beat your best time (or reach 30 s on a first run)
     var goal = runGoal;
     ctx.textAlign = "left";
@@ -771,7 +863,7 @@
       var p = 1 - ban.life / ban.max, pop = p < 0.15 ? 0.6 + p / 0.15 * 0.4 : 1;
       ctx.save();
       ctx.globalAlpha = Math.min(1, ban.life * 3);
-      ctx.translate(W / 2, H * 0.36);
+      ctx.translate(W / 2, H * 0.36 + (state === "play" && t < 7 ? 56 : 0)); // below the coach text while it shows
       ctx.scale(pop, pop);
       ctx.font = "800 18px 'JetBrains Mono', monospace";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -807,6 +899,17 @@
     for (var i = 0; i < items.length; i++) drawItem(items[i]);
     for (var j = 0; j < tasks.length; j++) drawTask(tasks[j]);
     drawCrash(melt);
+    // v2.4: firewall up = a lilac ring around crash; a block bursts it outward
+    if ((firewalls > 0 && state === "play") || shield > 0) {
+      ctx.save();
+      ctx.strokeStyle = "#B59AFF";
+      var sr = 46 + (shield > 0 ? (0.5 - shield) * 60 : Math.sin(t * 4) * 1.5);
+      ctx.globalAlpha = shield > 0 ? shield * 2 : 0.35;
+      ctx.lineWidth = shield > 0 ? 4 : 2;
+      ctx.setLineDash(shield > 0 ? [] : [6, 5]);
+      ctx.beginPath(); ctx.arc(crash.x, crash.y - crash.h / 2 - 4, sr, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     for (var p = 0; p < parts.length; p++) {
       var q = parts[p];
       ctx.globalAlpha = Math.max(0, q.life / q.max);
@@ -826,6 +929,29 @@
     ctx.restore();
 
     if (state !== "title") drawHud();
+    else if (autoArmed) {
+      // v2.4: arrived from a clip ("tap to play" on the hub): no title card, one big prompt
+      var pa = 0.75 + Math.sin(performance.now() / 260) * 0.25;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(16,17,20,0.88)";
+      rr(W / 2 - 150, H * 0.34, 300, 92, 14); ctx.fill();
+      ctx.strokeStyle = "#C5FF49"; ctx.lineWidth = 2;
+      rr(W / 2 - 150, H * 0.34, 300, 92, 14); ctx.stroke();
+      ctx.globalAlpha = pa;
+      ctx.fillStyle = "#C5FF49";
+      ctx.font = "800 22px 'JetBrains Mono', monospace";
+      ctx.fillText(document.documentElement.classList.contains("has-touch") ? "TAP TO BOOT" : "PRESS ← → TO BOOT", W / 2, H * 0.34 + 32);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#F5F3ED";
+      ctx.font = "800 12px 'JetBrains Mono', monospace";
+      ctx.fillText("dodge tasks · grab coffee · don't overheat", W / 2, H * 0.34 + 64);
+    }
+    if (promo > 0) {
+      // promotion: the whole screen gets a lime frame for a beat (reads with the sound off)
+      ctx.strokeStyle = "rgba(197,255,73," + Math.min(1, promo * 1.5).toFixed(3) + ")";
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, W - 8, H - 8);
+    }
 
     // heat haze tint + cooking burn
     if (hot > 0.6) {
@@ -864,6 +990,21 @@
     ctx.fillRect(0, 0, W, H);
   }
 
+  /* ---------- career box (title + end card) ---------- */
+  function careerBox(el, prefix) {
+    if (!el) return;
+    var r = rankOf(career), nx = RANKS[r + 1];
+    var pct = nx ? Math.max(0, Math.min(1, (career - RANKS[r].at) / (nx.at - RANKS[r].at))) : 1;
+    el.innerHTML = "";
+    var a = document.createElement("p"); a.className = "cr-line";
+    a.textContent = (prefix || "") + "rank: " + RANKS[r].name;
+    var bar = document.createElement("div"); bar.className = "cr-bar";
+    var fill = document.createElement("i"); fill.style.width = Math.round(pct * 100) + "%"; bar.appendChild(fill);
+    var b = document.createElement("p"); b.className = "cr-next";
+    b.textContent = nx ? "next: " + nx.name + " in " + (nx.at - career) + " pts · " + nx.perk : "top rank. the cloud answers to no one.";
+    el.appendChild(a); el.appendChild(bar); el.appendChild(b);
+  }
+
   /* ---------- game over ---------- */
   function gameOver() {
     var secs = Math.floor(t);
@@ -872,6 +1013,10 @@
     var prevBestTime = bestTime;
     if (newBest) { best = final; save("cc-crash-best", String(best)); }
     if (secs > bestTime) { bestTime = secs; save("cc-crash-best-time", String(bestTime)); }
+    var rankBefore = rankOf(career);
+    career += final; runs++;
+    save("cc-crash-career", String(career)); save("cc-crash-runs", String(runs));
+    var rankNow = rankOf(career);
     // one concrete target for the next run
     // v2.3: matches the GOAL the next run's HUD will show (it said "beat 30s" while the HUD said 15s)
     var nextGoal = prevBestTime < 5 ? "next run: beat " + (bestTime >= 5 ? bestTime : 30) + "s"
@@ -883,9 +1028,16 @@
     document.getElementById("go-score").textContent = final;
     document.getElementById("go-best").textContent = newBest ? "new best!" : "best " + best;
     document.getElementById("go-stats").textContent = (topStreak >= 5 ? "best streak " + topStreak + " · " : "") + hits + (hits === 1 ? " task" : " tasks") + " took the hit · " +
-      pickups + (pickups === 1 ? " coffee or fan" : " coffees & fans");
+      (blocked ? blocked + " blocked · " : "") + pickups + (pickups === 1 ? " coffee or fan" : " coffees & fans");
+    // a dare (?vs=) is judged here, since the site's card stays quiet for crash
+    if (DARE) nextGoal = final > DARE ? "dare beaten: " + final + " vs " + DARE + ". send one back ↗" : "dare: " + DARE + " to beat. " + (DARE - final + 1) + " more points";
     document.getElementById("go-next").textContent = nextGoal;
-    document.getElementById("go-share-text").textContent = "i lasted " + secs + "s before getting cooked. computercooked.com/games";
+    // v2.4: career progress, and the perk a promotion just unlocked
+    var promoEl = document.getElementById("go-promo");
+    promoEl.hidden = rankNow === rankBefore;
+    if (rankNow > rankBefore) promoEl.textContent = "PROMOTED → " + RANKS[rankNow].name + ". unlocked: " + RANKS[rankNow].perk;
+    careerBox(document.getElementById("go-career"), "+" + final + " career pts · ");
+    document.getElementById("go-share-text").textContent = "i lasted " + secs + "s and scored " + final + " before getting cooked" + (DARE && final > DARE ? " (beat your " + DARE + ")" : "") + ". rank: " + RANKS[rankNow].name + ". beat that: computercooked.com/games/crash";
     setState("over");
     overAt = performance.now();
     document.getElementById("btn-again").focus({ preventScroll: true });
@@ -954,6 +1106,7 @@
     if (tg && /^(input|textarea|select)$/i.test(tg.tagName)) return;
     if (document.querySelector("dialog[open]")) return;
     // a quick tap still nudges CRASH; holding accelerates
+    if (autoArmed && state === "title" && (LEFT[e.key] || RIGHT[e.key])) start();
     if (LEFT[e.key]) { keys.left = true; if (state === "play") { e.preventDefault(); if (!e.repeat) crash.vx = Math.min(crash.vx, -260); } }
     else if (RIGHT[e.key]) { keys.right = true; if (state === "play") { e.preventDefault(); if (!e.repeat) crash.vx = Math.max(crash.vx, 260); } }
     else if (e.key === " " || e.key === "Enter") {
@@ -1020,12 +1173,13 @@
   window.ccToast = toast;
 
   var GAME_URL = "https://computercooked.com/games/crash/";
-  function share(text) {
+  function share(text, url) {
+    url = url || GAME_URL;
     if (navigator.share) {
-      navigator.share({ title: "CRASH — Computer Cooked Games", text: text, url: GAME_URL }).catch(function () {});
+      navigator.share({ title: "CRASH — Computer Cooked Games", text: text, url: url }).catch(function () {});
       return;
     }
-    var full = text.indexOf("computercooked.com") >= 0 ? text : text + " " + GAME_URL;
+    var full = text + " " + url;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(full).then(function () { toast("copied. go brag."); }, function () { toast(full); });
     } else {
@@ -1037,7 +1191,9 @@
   });
   on("btn-share-score", function () {
     try { if (window.cc && cc.event) cc.event("share_clicked", { score: Math.floor(score) }); } catch (e) {}
-    share(document.getElementById("go-share-text").textContent);
+    // v2.4: the shared link is a dare (?vs=score): the friend's run is judged against it
+    var fs = Math.floor(score);
+    share("i lasted " + Math.floor(t) + "s in CRASH and scored " + fs + ". dare you to beat it:", GAME_URL + "?vs=" + fs);
   });
 
   var btnFs = document.getElementById("btn-fs");
@@ -1061,7 +1217,10 @@
   window.__crash = { state: function () { return { state: state, t: t, heat: heat, score: Math.floor(score), hits: hits, streak: streak, topStreak: topStreak, pickups: pickups, tasks: tasks.length, items: items.length }; } };
 
   /* ---------- boot ---------- */
-  document.getElementById("title-best").textContent = best ? "best: " + best + (bestTime ? " · " + bestTime + "s" : "") : "no high score yet. be the first casualty.";
+  document.getElementById("title-best").textContent = (DARE ? "dare: beat " + DARE + " points. " : "") + (best ? "best: " + best + (bestTime ? " · " + bestTime + "s" : "") : "no high score yet. be the first casualty.");
+  careerBox(document.getElementById("title-career"));
+  // clip arrivals ("tap to play" on the hub) skip the title card; the clock still waits for the first touch or key
+  function autoBoot() { try { if (state === "title" && window.cc && cc.autostart && cc.autostart()) { autoArmed = true; ovTitle.hidden = true; } } catch (e) {} }
   setMuted(muted);
   reset();
   heat = 30;
@@ -1070,5 +1229,6 @@
   resize();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { draw(0); });
   setState("title");
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoBoot); else autoBoot();
   requestAnimationFrame(frame);
 })();
