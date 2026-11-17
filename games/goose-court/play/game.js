@@ -635,7 +635,7 @@
     cx.fillStyle = "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
     const mid = H * 0.42, big = Math.round(Math.max(28, Math.min(52, W / 9)));
     if (state === "title") {
-      const tight = H < 600, y0 = tight ? Math.max(big * 0.75, H * 0.11) : H * 0.16, sub = Math.max(12, Math.min(16, W / 28)), s = Math.min(96, W * 0.22, H * (tight ? 0.15 : 0.17));
+      const tight = H < 600, y0 = tight ? Math.max(56, H * 0.11) : H * 0.16, sub = Math.max(12, Math.min(16, W / 28)), s = Math.min(96, W * 0.22, H * (tight ? 0.15 : 0.17));
       text("goose court", W / 2, y0, big, CASE, "center", 900);
       text("a goose is on trial. you are the judge.", W / 2, y0 + big * (tight ? 0.85 : 0.95), sub, "#c9c4a8", "center", 700);
       // the rule, shown: guilty if the beak holds the charge
@@ -660,7 +660,7 @@
       text("tap to open court", W / 2, Math.max(ty + (tight ? 30 : 34), Math.min(L.btnY - 24, gy + s + 96)), 18, LIME, "center", 900);
     } else {
       // review16 r4: the end card also says how far up the courts you got, your rank, and the goals (done now, or next)
-      let y = Math.max(40, H * 0.1);
+      let y = Math.max(44 + big * 0.6, H * 0.1);
       const nRows = Math.min(3, gotNow.slice(-2).length + activeGoals().length);
       const panH = big * 0.6 + big * 1.2 + big * 0.95 + 22 + 22 + 30 + nRows * 20 + 36 + 22, panW = Math.min(W - 16, 470);
       cx.fillStyle = INK; cx.fillRect((W - panW) / 2 - 3, y - big * 0.6 - 3, panW + 6, panH + 6);
