@@ -100,7 +100,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
   #top{min-height:32px;padding:4px 8px}
   .btn{padding:8px 8px;font-size:15px}
   .word{min-height:34px}.word .wl{height:30px;width:26px;font-size:17px}
-  .rack{padding-bottom:6px;gap:4px}.tile{max-height:48px}
+  .rack{padding-bottom:6px;gap:6px;grid-template-columns:repeat(8,minmax(0,44px));justify-content:center}.tile{max-height:48px}
   .panel{gap:6px}.panel h1{font-size:40px}.how{font-size:12px}
   .pillgap{height:64px}#card{max-width:300px}
   .card{min-height:84px;padding:8px}

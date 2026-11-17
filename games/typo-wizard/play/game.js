@@ -99,18 +99,18 @@ var MON = {
   boldf:    { n: "bold font", hp: 40, c: "#ff5c3d", sh: "box", eyes: 2, g: "cap", gt: "max 14 damage per word", p: [["a",7],["a",8],["b",5]], lines: ["**unbothered**", "i am very thick"] },
   e404:     { n: "error 404", hp: 44, c: "#a0a8c8", sh: "box", eyes: 2, g: "phase", gt: "404", p: [["a",10],["m",[3,3]],["a",12]], lines: ["monster not found", "have you tried refreshing"] },
   cookie:   { n: "the cookie banner", hp: 46, c: "#ffb36b", sh: "blob", eyes: 2, g: "lock", gt: "locks one of your tiles each turn", p: [["a",9],["b",10],["a",11]], lines: ["accept all?", "we value your privacy (we don't)"] },
-  scroll:   { n: "infinite scroll", hp: 48, c: "#4dd6a0", sh: "worm", eyes: 2, g: "regen", gt: "regen: heals 3 every turn", p: [["a",9],["a",10],["m",[3,3]]], lines: ["there's always more", "you've been here 4 hours"] },
+  scroll:   { n: "infinite scroll", hp: 44, c: "#4dd6a0", sh: "worm", eyes: 2, g: "regen", gt: "regen: heals 3 every turn", p: [["a",9],["a",10],["m",[3,3]]], lines: ["there's always more", "you've been here 4 hours"] },
   police:   { n: "grammar police", hp: 34, c: "#4d7cff", sh: "box", eyes: 2, elite: 1, p: [["a",6],["b",8],["a",11]], lines: ["it's whom, actually", "you have the right to remain correct"] },
   squiggle: { n: "the red squiggle", hp: 32, c: "#ff3355", sh: "worm", eyes: 2, elite: 1, p: [["m",[3,3]],["a",9],["h",6]], lines: ["did you mean: lose?", "i live under your words"] },
   capslock: { n: "CAPS LOCK", hp: 38, c: "#ffd23f", sh: "box", eyes: 2, elite: 1, p: [["a",12],["b",8],["a",5]], lines: ["WHY ARE WE YELLING", "I AM NOT YELLING YOU ARE"] },
-  bee:      { n: "the spelling bee", hp: 55, c: "#ffd23f", sh: "bee", eyes: 2, boss: 1, p: [["m",[2,2]],["a",7],["s","buzz"]], lines: ["spell 'defeat'. d-e-f-e-a-t. thank you.", "can you use 'ouch' in a sentence?", "b. e. e. bee."] },
+  bee:      { n: "the spelling bee", hp: 55, c: "#ffd23f", sh: "bee", eyes: 2, boss: 1, p: [["m",[2,2]],["a",8],["s","buzz"]], lines: ["spell 'defeat'. d-e-f-e-a-t. thank you.", "can you use 'ouch' in a sentence?", "b. e. e. bee."] },
   thes:     { n: "the thesaurus", hp: 82, c: "#4dd6a0", sh: "book", eyes: 2, boss: 1, gt: "repeat a word: 0 damage", p: [["a",11],["b",12],["m",[4,4]],["h",10]], lines: ["hit, strike, smack, wallop, you", "repeat a word and i ignore it. ignore, disregard, snub.", "i'm not big. i'm voluminous."] },
   auto:     { n: "AUTOCORRECT", hp: 96, c: "#5cd6ff", sh: "phone", eyes: 2, boss: 1, gt: "changes one of your letters every turn", p: [["a",11],["m",[4,3]],["b",12],["a",15]], lines: ["did you mean: ducking", "i know what you meant. i don't care.", "your k is now an e. you're welcome."] }
 };
 var POOL = { 1: ["gremlin","lorem","semi","spam","comma","cactus","hashtag","ehater"], 2: ["passive","runon","apos","click","tldr","mirror","boldf"], 3: ["replyall","captcha","fine","dolor","e404","cookie","scroll"] };
 var ELITES = { 1: ["police","capslock"], 2: ["police","squiggle","capslock"], 3: ["squiggle","capslock","police"] };
 var BOSS = { 1: "bee", 2: "thes", 3: "auto" };
-var SCALE = { 1: [1, 1], 2: [0.95, 1.0], 3: [1.0, 1.1] };
+var SCALE = { 1: [1, 1], 2: [0.95, 1.0], 3: [1.0, 1.0] }; // act 3 hits were x1.1: a typed-word pass died to the first regular fight
 var STEPS = 6; // 5 stops + boss
 
 // ---------- save ----------
