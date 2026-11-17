@@ -3,6 +3,7 @@
 // "games like X" row of internal links. Dare links (?vs=/&d=) also get their preview tags here.
 // Everything comes from games.json, so a game added with add-game.ps1 gets it with no extra step.
 import { dareTags } from "./dares.js";
+import { weekChallenge, weekEndOf } from "./social.js";
 import { embeddable, embedCard } from "./embed.js";
 import { themeAttr, themeVars, isNewGame } from "./util.js";
 import { gotdFor } from "./gotd.js";
@@ -225,6 +226,7 @@ export async function gamePage(req, env, url, slug) {
 
   let cache = page.headers.get("cache-control");
   const dare = (url.searchParams.has("vs") || url.searchParams.has("d")) && (await dareTags(env, url, slug));
+  let ch = null;
   if (dare) {
     const title = `can you beat ${dare.score} on ${g.title}?${dare.from ? ` from ${dare.from}` : ""}`;
     const set = (v) => ({ element(e) { e.setAttribute("content", v); } });
@@ -234,6 +236,20 @@ export async function gamePage(req, env, url, slug) {
       .on('meta[property="og:description"], meta[name="twitter:description"]', set("a friend dared you. free browser game: no download, plays on your phone."))
       // a stored dare gets its own card with the score and name on it (src/darecard.js); a URL-only dare keeps the game's og-vs.png
       .on('meta[property="og:image"], meta[name="twitter:image"]', set(dare.id ? `${url.origin}/games/${slug}/dare/${dare.id}.png` : `${url.origin}/games/${slug}/og-vs.png?v=5`))
+      .on('meta[property="og:image:alt"], meta[name="twitter:image:alt"]', set(alt));
+    imageMeta(rw, alt);
+    cache = "public, max-age=300";
+  } else if ((ch = await challengeTags(env, url, slug))) {
+    // a weekly challenge link (/games/<slug>/?wc=<week>, shared from the challenge line): its own card (src/darecard.js)
+    const title = `weekly challenge: score ${ch.target.toLocaleString("en-US")}+ on ${g.title} in one run`;
+    const desc = ch.over ? "that week's challenge has ended. a new one every monday. free browser game: no download, plays on your phone."
+      : `+${ch.xp} xp for the run that does it, until sunday. free browser game: no download, plays on your phone.`;
+    const set = (v) => ({ element(e) { e.setAttribute("content", v); } });
+    const alt = `challenge card: ${title}. ${g.title}, a free browser game from Computer Cooked.`;
+    rw.on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
+      .on('meta[property="og:title"], meta[name="twitter:title"]', set(title))
+      .on('meta[property="og:description"], meta[name="twitter:description"]', set(desc))
+      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/challenge/${ch.week}.png`))
       .on('meta[property="og:image:alt"], meta[name="twitter:image:alt"]', set(alt));
     imageMeta(rw, alt);
     cache = "public, max-age=300";
@@ -247,4 +263,15 @@ export async function gamePage(req, env, url, slug) {
   headers.delete("etag"); // the body changes, so the asset's etag no longer describes it
   if (cache) headers.set("cache-control", cache);
   return rw.transform(new Response(page.body, { status: page.status, headers }));
+}
+
+// ?wc=<week> on a game page: that week's challenge, if it really was this game (read only, src/social.js)
+async function challengeTags(env, url, slug) {
+  const week = url.searchParams.get("wc");
+  if (!env.DB || !week || !/^\d{4}-W\d{2}$/.test(week)) return null;
+  try {
+    const c = await weekChallenge(env, week);
+    if (!c || c.game !== slug || !(c.target > 0)) return null;
+    return { week, target: c.target, xp: c.xp, over: Date.now() >= weekEndOf(week) };
+  } catch (e) { return null; }
 }

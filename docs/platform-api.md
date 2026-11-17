@@ -587,6 +587,14 @@ A dare link pasted into a chat (iMessage, Discord, WhatsApp, X) unfurls with its
 - Cached an hour at the edge per URL, so a hide or rename shows within the hour (chat apps keep their own copy of an unfurl). Long names and titles are trimmed with "...", and a long score is drawn smaller.
 - Smoke test: the card is a 1200x630 PNG, the dare page's tags point at it, and a wrong-game card redirects.
 
+## Weekly challenge share cards
+
+The weekly challenge line on the challenge game's page (`games/platform.js` `loadChallenge()`) has a **share ↗** button. It sends `/games/<slug>/?wc=<week>&utm_source=share&utm_medium=challenge&utm_campaign=<slug>` through the share sheet, or copies it with the goal text, and logs a `challenge_share` event (`how: share|copy`). That link unfurls with its own picture: "CAN YOU SCORE 1,200+ / ON CRASH IN ONE RUN? / +100 XP - ENDS SUN NOV 22", from `GET /games/<slug>/challenge/<week>.png` (`challengeCard()` in `src/darecard.js`, the same pixel-font drawer as the dare cards). `src/seo.js` gives `?wc=` pages the title "weekly challenge: score 1,200+ on crash in one run" and that image.
+
+- Only for the game that week's challenge really is. `weekChallenge()` in `src/social.js` reads the hand pick or the stored automatic pick and never makes a pick. Anything else answers **302** to the game's `og.png`, and a `?wc=` link for the wrong game keeps the plain preview.
+- A past week's card says "THIS ONE HAS ENDED - A NEW ONE EVERY MONDAY", and its description says so too. Cached an hour.
+- The home "happening now" card is a link itself, so it has no share button.
+
 ## Public endpoints
 
 | method | path | what |
@@ -630,6 +638,7 @@ A dare link pasted into a chat (iMessage, Discord, WhatsApp, X) unfurls with its
 | GET | `/games/:slug/embed/` | the embed player (`src/embed.js`): the game's `/play/` iframe plus a slim bar (title linking to the game page, restart, sound, fullscreen, "more free games"). Any site may frame it (`frame-ancestors *`, no X-Frame-Options); `noindex`, canonical = the game page. Plays from it carry ref `embed`. 404 for unknown and community games. CRASH embeds its standalone build in `games/crash/play/` (its own page still runs the inline copy). Game pages show an "embed this game" card with the snippet: an iframe to this URL plus a "Play X free on Computer Cooked Games" credit link |
 | GET | `/games/:slug/?vs=&from=[&d=]` | the game page with link-preview tags for a dare: `<title>`, og/twitter title "can you beat 1,240 on CRASH? from datz", a dare description, and `og-vs.png`. With a valid `d` the score and name come from the dare, not the URL, and the image is that dare's own card (below). Plain game pages carry `og.png`. Both cards are 1200x630, made by `scripts/make-og.mjs` (see its header; `add-game.ps1` runs it) |
 | GET | `/games/:slug/dare/:id.png` | the share card of a stored dare (1200x630 PNG, `src/darecard.js`, cached an hour; names by the leaderboard's rules); 302 to `og-vs.png` for a missing or other-game dare |
+| GET | `/games/:slug/challenge/:week.png` | that ISO week's (`2026-W47`) weekly challenge card (1200x630 PNG, cached an hour); 302 to `og.png` when that week's challenge isn't this game |
 | GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |
 | GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |
 | GET · PUT · DELETE | `/api/saves/:game/:slot` | PUT `{data, updated_at, version}`. Errors: 413 over 512 KB, 409 at 5 slots, 429 over ~1 write/10 s. An older `updated_at` returns `{stale:true}` and changes nothing. Needs login (401) |

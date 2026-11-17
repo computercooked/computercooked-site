@@ -46,6 +46,18 @@ export async function challengeFor(env, t, catalog = null) {
   return row || null;
 }
 
+// A given week's challenge ("2026-W47"), read only: the hand pick, else the stored automatic pick, else null (share
+// cards and challenge links never make a pick). weekEndOf: Monday 00:00 UTC after that ISO week.
+export async function weekChallenge(env, week) {
+  if (!/^\d{4}-W\d{2}$/.test(week)) return null;
+  return CHALLENGES.find((c) => c.week === week)
+    || await env.DB.prepare("SELECT week, game, target, goal, xp FROM challenges WHERE week = ?").bind(week).first() || null;
+}
+export function weekEndOf(week) {
+  const [y, w] = week.split("-W").map(Number), jan4 = Date.UTC(y, 0, 4);
+  return jan4 - ((new Date(jan4).getUTCDay() || 7) - 1) * 86400000 + w * WEEK;
+}
+
 // 2 significant figures: 1234 -> 1200, 0.0372 -> 0.037
 const nice = (x) => Number(Number(x).toPrecision(2));
 
