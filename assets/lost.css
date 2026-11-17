@@ -23,7 +23,11 @@
   .lost-game .lost-game-btn { min-width: 160px; height: auto; padding: var(--s-3) var(--s-6); font-family: var(--display); font-size: 48px; line-height: 1; }
 }
 .lost-picks { max-width: 760px; margin: var(--s-6) auto 0; padding: 0 var(--gutter); text-align: center; }
-.lost-picks[hidden] { display: none; }
+/* CLS: like the game box, the picks keep their space while they wait for lost.js (404.html has three same-shape
+   placeholders), so showing them moves nothing below. No JS or a failed fetch: lost.js / the noscript rule hide it. */
+.lost-picks[hidden] { display: block; visibility: hidden; }
+.lost-pick.is-ph { pointer-events: none; }
+.lost-pick-pitch { min-height: 2.9em; line-height: 1.45; }
 .lost-pick-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); margin: var(--s-4) 0 0; padding: 0; list-style: none; text-align: left; }
 .lost-pick { --pick-accent: var(--accent); display: block; height: 100%; padding: 0 0 var(--s-3); border: 2px solid var(--line); border-radius: var(--r-md); overflow: hidden;
   background: var(--surface); color: var(--text); text-decoration: none; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
