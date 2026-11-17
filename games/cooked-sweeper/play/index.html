@@ -147,6 +147,22 @@
   .paper .cc-tipjar a:hover, .paper .cc-tipjar a:focus-visible { background: #d8ff7a; box-shadow: none; outline-color: var(--hot); }
   .paper .cc-tipjar small { color: #6b5a3a; opacity: 1; }
   .paper .foot { text-align: center; color: #8a7b5a; font-size: 11px; margin-top: 8px; }
+  /* the career: rank bar, the quarantine strip (every virus kind you've ever beaten), the next goal */
+  .paper .car { margin: 0 0 10px; padding: 6px 8px 7px; background: #160a06; color: #ffd2a8; border: 1px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+  .paper .rk { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+  .paper .rk b { color: #ff8a3a; font-size: 13px; }
+  .paper .rk em { font-style: normal; color: #1a0d08; background: #ffe14a; padding: 0 4px; animation: pulse .6s ease-in-out 4 alternate; }
+  .paper .rk .gx { margin-left: auto; color: #b9e85a; }
+  .paper .rkm { height: 5px; margin: 3px 0 5px; background: #1f2a0c; } .paper .rkm i { display: block; height: 100%; background: var(--lime); }
+  .paper .dex { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+  .paper .dex .s { display: block; aspect-ratio: 1; image-rendering: pixelated; background-size: contain; background-repeat: no-repeat; background-position: center; }
+  .paper .dex .s.no { filter: brightness(0) invert(.35); opacity: .45; }
+  .paper .dex .s.nw { outline: 2px solid #ffe14a; animation: pulse .5s ease-in-out 6 alternate; }
+  .paper .nx { margin-top: 5px; font-size: 11.5px; color: #b9e85a; }
+  .float.big { font-size: 17px; z-index: 26; animation-duration: 1.5s; }
+  .win.fl-lv { animation: flv .6s ease-out; } .win.fl-win { animation: fwin 1.2s ease-out; }
+  @keyframes flv { 0% { box-shadow: 0 0 0 1px #000, 0 0 0 6px rgba(168, 213, 51, .95), 0 0 50px rgba(168, 213, 51, .9); } 100% { box-shadow: 0 0 0 1px #000; } }
+  @keyframes fwin { 0%, 30% { box-shadow: 0 0 0 1px #000, 0 0 0 8px #ffe14a, 0 0 80px #ffe14a; filter: brightness(1.3); } 100% { box-shadow: 0 0 0 1px #000; } }
   /* short screens (a phone on its side, small embeds): slimmer chrome, the mode switch moves into the title bar */
   #m-toggle { display: none; font: inherit; font-size: 11px; color: var(--ink); background: var(--cream); border: 1px solid; border-color: var(--hi) var(--ink) var(--ink) var(--hi); padding: 0 5px; height: 16px; cursor: pointer; white-space: nowrap; }
   .short .menu { display: none; }
