@@ -335,7 +335,7 @@
       ],
       "controls": "tap / click a square · keys 1–9 or arrows + space · q firewall, w ctrl+z, e report (costs a token)",
       "size_kb": 116,
-      "version": "2.4",
+      "version": "2.4.1",
       "added": "2026-10-19",
       "max_score_per_sec": 120,
       "max_score": 1500,
@@ -496,10 +496,12 @@
       ],
       "controls": "tap / click an item to scan it. space or enter scans the item nearest the bag, and starts or retries. m mutes.",
       "size_kb": 24,
-      "version": "1.3.0",
+      "version": "1.4.0",
       "added": "2026-10-29",
       "max_score_per_sec": 8.0,
-      "max_score": 480.0
+      "max_score": 480.0,
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "cooked-sweeper",
@@ -556,10 +558,12 @@
       ],
       "controls": "swipe left = guilty, right = not guilty, or tap the buttons. arrow keys or g / n. tap an OBJECTION to overrule it (o or space). m mutes.",
       "size_kb": 26,
-      "version": "1.2",
+      "version": "1.3",
       "added": "2026-10-29",
       "max_score_per_sec": 10.0,
-      "max_score": 3000.0
+      "max_score": 3000.0,
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "elevator-full-of-fish",
@@ -843,7 +847,7 @@
       ],
       "controls": "tap, drag, type and hold to pass each captcha, then press verify (enter works too). too fast or too perfect raises suspicion. a full meter is access denied. one new daily gauntlet every day.",
       "size_kb": 66,
-      "version": "1.0.6",
+      "version": "1.1.0",
       "added": "2026-11-05",
       "theme": {
         "accent": "#7dff6a",
@@ -878,7 +882,9 @@
           "xp": 5,
           "secret": true
         }
-      ]
+      ],
+      "results": "quiet",
+      "restart": true
     },
     {
       "slug": "desktop-takeover",
