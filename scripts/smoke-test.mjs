@@ -49,7 +49,7 @@ for (const u of ["/assets/deck.js", "/games/cc-sdk.js"]) {
 }
 // secrets: deck.js collects them, and every script that finds one sends cc:secret
 {
-  const srcs = await Promise.all(["/assets/deck.js", "/assets/eggs.js", "/assets/golden.js", "/assets/home.js", "/assets/lost-game.js"].map(async (u) => [u, await (await get(u)).text()]));
+  const srcs = await Promise.all(["/assets/deck.js", "/assets/eggs.js", "/assets/golden.js", "/assets/home.js", "/assets/lost-game.js", "/assets/fx.js"].map(async (u) => [u, await (await get(u)).text()]));
   const deckJs = srcs[0][1];
   ok(deckJs.includes("window.ccSecrets") && deckJs.includes('"cc-secrets"') && deckJs.includes("stats-secrets") && srcs.slice(1).every(([, s]) => s.includes('"cc:secret"')),
     "secrets: deck.js collects them and the egg scripts send cc:secret", srcs.filter(([, s]) => !s.includes("cc:secret")).map(([u]) => u).join(" "));
@@ -269,6 +269,8 @@ ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.leng
   ok(/aria-current="page">microwave panic</.test(mp) && /player-new/.test(mp) === !!fresh, "game page breadcrumb names the game; the new chip follows the 14-day rule", fresh);
   const pjs = await (await get("/games/player.js")).text(), gcss = await (await get("/games/games.css")).text();
   ok(pjs.includes("fs-tap-go") && pjs.includes("cc-fs-here") && /\(vs\|d\)=/.test(pjs) && gcss.includes(".fs-tap {"), "phones get 'tap to play full screen' (not on dare links)");
+  const fxJs = await (await get("/assets/fx.js")).text();
+  ok(fxJs.includes("hub-gary") && fxJs.includes("function garyLine") && gcss.includes(".hub-gary {"), "searching gary on the games hub gets an answer from gary");
 }
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");

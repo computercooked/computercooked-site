@@ -445,13 +445,17 @@ Typing up up down down left right left right b a on any page with `assets/deck.j
 |---|---|---|---|
 | `melt` | meltdown | poking the home computer until it melts | `cc:melt` (poke) from `assets/home.js` |
 | `konami` | cheat code | the konami code, desk or crash screen | `cc:melt` (konami), and the crash screen in `assets/deck.js` |
-| `gary` | you know my name | typing "gary" on the home page | `assets/eggs.js` |
+| `gary` | you know my name | typing "gary" on the home page, or searching it on the games hub | `assets/eggs.js`, `assets/fx.js` |
 | `golden` | struck gold | catching a golden gary | `assets/golden.js` |
 | `cursed` | cursed | catching a cursed golden gary | `assets/golden.js` |
 | `off` | no off switch | "shut down" in the start menu | `assets/home.js` |
 | `wall` | redecorated | changing the desktop wallpaper | `assets/home.js` |
 | `corner` | the corner | the home screensaver hitting a corner | `assets/home.js` |
 | `lost` | lost and found | scoring in the 404 game | `assets/lost-game.js` |
+
+## Search "gary" (the hub talks back)
+
+Searching the games hub for `gary`, `computer`, `the computer`, `cooked` or `computer cooked` (any case, punctuation ignored) makes gary pop up over the grid with a line (`.hub-gary`, `assets/fx.js` `garyLine()`, styles in `games/games.css`). "gary" has three lines that take turns and finds the `gary` secret. A new word gets a new line and one hop (none under reduced motion); typing on or re-sorting leaves it be. When no game matches, gary's line stands in for "nothing matches" and carries the same **show all** button. The words never filter anything differently: the grid shows what the search matches as before.
 
 ## Keyboard shortcuts list
 
