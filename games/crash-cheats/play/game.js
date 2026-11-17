@@ -958,7 +958,8 @@
     let n = Math.floor((bottom - top - lh * 1.4) / lh);
     if (n < 2 || w < 180) return;
     // v2.4: the ladder goal sits on top of the log when there's room for it
-    const goal = n >= 6 ? wrap(VERS[lvl - 1].name + ' (' + VERS[lvl - 1].tag + '). ' + nextGoal(), size, w, 'normal').slice(0, 3) : [];
+    let goal = n >= 6 ? wrap(VERS[lvl - 1].name + ' (' + VERS[lvl - 1].tag + '). ' + nextGoal(), size, w, 'normal').slice(0, 3) : [];
+    if (!goal.length && n >= 3) { const g = nextGoal(true); ctx.font = 'normal ' + size + 'px ' + FONT; if (ctx.measureText(g).width <= w) goal = [g]; } // short frames: one line
     if (goal.length) n -= goal.length + 1;
     const rows = cheatLog.slice(-n);
     let y = bottom - rows.length * lh - lh * 0.4;
