@@ -411,3 +411,12 @@ html.cc-playing .ccr-target { opacity: 0.75; }
 /* ---------- 2. phones ----------
    the edge-to-edge cabinet and the bigger fullscreen button live in games/games.css (loaded in <head>), so they
    apply before first paint instead of shifting the game once this file arrives */
+
+/* round 22: the results card's ad strip (assets/ads.js ccAds.slot; B3 in Core\AD-SPEND.md). Hidden and taking no space while
+   ads are off. When it shows it sits below every button, labelled, and its 100px is reserved before anything loads. */
+.ccr-ad { position: relative; margin-top: 10px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.ccr-ad[hidden] { display: none; }
+.ccr-ad-tag { position: absolute; top: 1px; left: 0; font-size: var(--fs-12); color: var(--text-dim); }
+.ccr-ad-fill { display: grid; place-items: center; width: 100%; height: 100px; overflow: hidden; border-radius: var(--r-sm); background: var(--surface); }
+.ccr-ad.is-preview .ccr-ad-fill { box-sizing: border-box; border: 2px dashed var(--lilac); color: var(--lilac); font-size: var(--fs-12); line-height: 1.4; text-align: center; }
+.ccr-ad.is-preview i { font-style: normal; color: var(--text-dim); }

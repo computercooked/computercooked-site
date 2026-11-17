@@ -33,7 +33,7 @@
 <body>
   <main class="games-page" style="max-width:720px">
     <header class="games-hero">
-      <p class="eyebrow">last updated 2026-10-28</p>
+      <p class="eyebrow">last updated 2026-11-17</p>
       <h1 class="games-title">privacy <span>(the short version)</span></h1>
     </header>
     <div class="about-card legal">
@@ -52,8 +52,17 @@
       <p>games you upload are checked by a person before anyone else can see them, and run in a locked-down sandbox on a separate site.</p>
       <h2>deleting stuff</h2>
       <p>want a copy of your data, or your account gone? on <a href="/me/">your profile</a> you can download everything we store about you, or delete your account and all of it for good (challenge links you already shared stop working as dares, though a name typed into a link stays in that link). forgot your password? use one of your recovery codes on <a href="/me/">your profile</a> page. no codes left? email <a href="mailto:hello@computercooked.com">hello@computercooked.com</a> with your username and we'll help. clearing your browser's site data removes your guest id.</p>
-      <h2>ads</h2>
-      <p>there are no ads yet. if that changes, this page changes first, and any ads will use child-safe settings.</p>
+      <h2 id="ads">ads</h2>
+      <!-- B3 (Core\AD-SPEND.md): when ads are switched on, the first sentence changes from "there are no ads yet" -->
+      <p><b>there are no ads yet.</b> if we switch them on, this page changes first, and this is how they will work:</p>
+      <ul>
+        <li><b>never while you play.</b> only after a run ends: a small strip marked "ad" at the bottom of the results card, and now and then a full-screen ad between runs (at most once every 3 runs and 3 minutes, never after your first run).</li>
+        <li><b>from Google</b> (AdSense and its ads for web games). Google's own policy covers what it does with data: <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">how Google uses information from sites that use its services</a>.</li>
+        <li><b>not personalised.</b> ads are picked from the page and your rough location, not from a profile of you (child-safe settings). if we ever offer personalised ads, you'll be asked, and no answer means no.</li>
+        <li><b>in the EU, the UK and Switzerland you're asked first,</b> and no answer means no ads.</li>
+        <li>Google may use cookies or similar storage to show ads, cap how often you see the same one and stop fraud. we still don't sell your data, and our own counts stay as described above.</li>
+      </ul>
+      <p class="ad-choices"><button type="button" class="btn" id="ad-choices">your ad choices</button> <span id="ad-choices-now" role="status" aria-live="polite"></span> <small>(kept only in this browser)</small></p>
       <h2>tips</h2>
       <p>if a "tip the computer" link shows, it opens Stripe's own payment page in a new tab. tips are for adults (18+, or ask a parent). we never see card details. we count taps on the link and returns from a finished tip (which page, where the visit came from), but not who tapped or how much.</p>
     </div>
@@ -72,5 +81,22 @@
     </div>
   </nav>
   <script src="/assets/deck.js" defer></script>
+  <script>
+    // "your ad choices" (round 22): opens the consent banner (assets/consent.js) so a choice can be made or changed now
+    (function () {
+      var btn = document.getElementById("ad-choices"), now = document.getElementById("ad-choices-now");
+      if (!btn) return;
+      function say() {
+        var st = window.ccConsent ? window.ccConsent.state() : {};
+        now.textContent = !st.ads && !st.personalised ? "no choice made: that means no." : "now: " + (st.ads === "denied" ? "no ads" : "ads ok") + (st.personalised ? ", personalised: " + (st.personalised === "granted" ? "yes" : "no") : "");
+      }
+      function ready(cb) {
+        if (window.ccConsent) return cb();
+        var sc = document.createElement("script"); sc.src = "/assets/consent.js"; sc.onload = cb; document.head.appendChild(sc);
+      }
+      ready(say);
+      btn.addEventListener("click", function () { ready(function () { window.ccConsent.choices().then(say); }); });
+    })();
+  </script>
 </body>
 </html>

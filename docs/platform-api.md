@@ -611,6 +611,27 @@ A game card plays a short muted loop of its game so the joke shows before the ta
 - **Off** under `prefers-reduced-motion` and Save-Data: the posters just stay.
 - **Round 20's eight:** desktop takeover, smol brains, keyboard escape, ant farm, elevator full of fish (the hook games), and reel weird, overdue notice, pixel purge (re-recorded after batch 2).
 
+## Ads (round 22: ready, switched off)
+
+Everything an ad network needs is built and **off**. Nothing loads from any ad network until `CONFIG.on` in `assets/ads.js` is true **and** it has a real publisher id. Going live needs Ashton's yes and his own AdSense / H5 Games Ads sign-up. The plan, the numbers and his to-do list are format B3 in `Core\AD-SPEND.md`.
+- **The switch:** `CONFIG` at the top of `assets/ads.js` (`on`, `client` = `ca-pub-…`, `slot` = the results-card ad unit, `h5`, `test` = Google's test ads for the first live check, `personalised`).
+- **Where ads would show:**
+  - Never during a run.
+  - A full-screen H5 Games Ads break between runs (`adBreak({type: "next"})`): never after the first run, at most once every 3 runs and 3 minutes. Google's own frequency control comes on top (`data-ad-frequency-hint` 180 s).
+  - A rewarded break only when a game asks (`ccAds.rewarded`).
+  - A labelled 100 px strip at the bottom of the results card (`.ccr-ad`, below every button, space reserved), from the 2nd run.
+  - Never for team test ids (`smoke-`) or `window.ccAdFree`.
+- **Consent (`assets/consent.js`), declines by default:**
+  - **EU/EEA, UK, Switzerland** (`/api/geo`): asked first, and closing the banner or no answer means no ads. With Google's certified consent message on (`window.__tcfapi`), that message decides instead.
+  - **Elsewhere:** non-personalised ads with no banner (`requestNonPersonalizedAds = 1`, the child-safe B3.0 setup).
+  - **Personalised ads:** offered only when `CONFIG.personalised` is on (a later B3.x), and no answer means no.
+  - **"Your ad choices"** on `/privacy/#ads` opens the banner to make or change a choice, kept in localStorage (`cc-consent-ads`, `cc-consent-pers`).
+- **`/ads.txt`:** a placeholder with no seller. The `google.com, pub-…, DIRECT, f08c47fec0942fa0` line is added at go-live.
+- **Privacy page:** "there are no ads yet", plus how they would work. The first sentence changes at go-live.
+- **Preview with nothing loaded:** open a game page with `?adpreview=1` (this tab; `?adpreview=0` ends it). The results card shows a dashed "ad space" placeholder from the first card, e.g. after `ccResults.test(1200)`. `ccConsent.preview()` shows the banner without storing anything.
+- **Counted already:** each moment a full-screen, rewarded or results-strip ad would show is a `cc:ad_slot` event (`interstitial` / `rewarded` / `display`), so the decision can use real numbers.
+- **Smoke test:** ads off (no publisher id, ads.txt has no seller), nothing loads after 4 runs, the preview placeholder, EU no answer = no ads, the privacy page and the hidden strip.
+
 ## Board seasons (a game's scoring changed)
 
 When a game's scoring changes so much that old and new scores can't share a board, its boards start fresh. Add the game to `BOARD_FROM` in `src/boards.js` with the time its new scoring went live (its PR's merge time).

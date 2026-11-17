@@ -1,0 +1,4 @@
+# ads.txt for computercooked.com
+# No ad sellers are authorised yet: ads are switched off.
+# When the site's AdSense account is approved, its line goes here, in this form:
+#   google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

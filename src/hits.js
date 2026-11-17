@@ -43,7 +43,7 @@ export async function hit(req, env, ip) {
     if (!(ms >= 0)) return bad("ms?", 400);
     data.ms = Math.min(ms, 30 * 60000);
   }
-  if (b.kind === "ad_slot") data.slot = b.slot === "rewarded" ? "rewarded" : "interstitial";
+  if (b.kind === "ad_slot") data.slot = b.slot === "rewarded" || b.slot === "display" ? b.slot : "interstitial"; // display = the results-card strip (round 22)
   if (b.kind === "desk_click") data.slot = b.slot === "resume" || b.slot === "nudge" ? b.slot : "card";
   const game = slugOk(b.game) ? b.game : "site";
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, ?, ?, ?)")
