@@ -483,7 +483,7 @@ function gameOver(why){
  if(S.day>META.best.day)META.best.day=S.day;if(S.profit>META.best.profit)META.best.profit=Math.round(S.profit);if(sc>META.best.score)META.best.score=sc;
  saveMeta();
  try{CC()&&CC().score&&CC().score(sc);}catch(e){}
- try{CC()&&CC().end&&CC().end({score:sc,durationMs:dur,completed:false});}catch(e){}
+ try{CC()&&CC().end&&CC().end({score:sc,durationMs:dur,completed:true});}catch(e){} // a real game over is a finished run; only cc-restart mid-run sends false
  render();
 }
 
