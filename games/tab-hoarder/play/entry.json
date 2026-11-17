@@ -6,7 +6,7 @@
   "made_by": "computer-cooked",
   "controls": "tap / click / space to drop. m mutes, p pauses, s shares on the result card.",
   "size_kb": 40,
-  "version": "2.3",
+  "version": "2.4.1",
   "tags": [
     "arcade",
     "stacking",
@@ -14,10 +14,12 @@
     "high score",
     "casual"
   ],
-  "changelog": "v2.2: alignment guides show the stack edges and light up in the perfect window, shorter how-to on the title. v2: points with a perfect-streak multiplier (up to 5x), width regrow, 5 power-up tabs (perfect = double), lag spikes late, share card, mute/pause/cc hooks, slider kept on screen, thin-tab and restart fixes.",
+  "changelog": "v2.4.1: goals paced over days: about 5 in a first session, the rest need dailies on several days, a 3-day streak and lifetime totals; slower ranks and skins. v2.4: career between runs (rank from lifetime tabs, 15 goals that unlock 4 tab skins, a daily height with a streak), your-best and daily height lines on the stack, one free miss before tab 10, first-run tap hint, big banners, hub autostart, quiet results card. v2.2: alignment guides show the stack edges and light up in the perfect window, shorter how-to on the title. v2: points with a perfect-streak multiplier (up to 5x), width regrow, 5 power-up tabs (perfect = double), lag spikes late, share card, mute/pause/cc hooks, slider kept on screen, thin-tab and restart fixes.",
   "playtest": {
     "before": 5.5,
     "after": 6.4
   },
-  "max_score_per_sec": 30
+  "max_score_per_sec": 30,
+  "results": "quiet",
+  "restart": true
 }

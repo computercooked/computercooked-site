@@ -226,7 +226,7 @@ export async function metrics(url, env, origin) {
     "SELECT json_extract(data, '$.slot') slot, COUNT(*) n FROM events WHERE name = 'cc:ad_slot' AND ts >= ? GROUP BY 1"
   ).bind(Date.parse(since)).all()).results;
   const adN = (k) => (ad.find((r) => r.slot === k) || {}).n || 0;
-  const ad_slots = { interstitial: adN("interstitial"), rewarded: adN("rewarded") };
+  const ad_slots = { interstitial: adN("interstitial"), rewarded: adN("rewarded"), display: adN("display") }; // display: the results-card strip (round 22)
   const site_funnel = {
     landed: pageviews.total, played: out.reduce((n, g) => n + g.plays, 0), finished: sum("finished"),
     shared: dares.sent + game_shares.sent, dares_opened: opened || 0,

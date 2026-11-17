@@ -5,18 +5,21 @@
   "thumbnail": "/games/crash/thumb.svg",
   "made_by": "computer-cooked",
   "controls": "drag / arrows / A D",
-  "size_kb": 877,
+  "size_kb": 303,
   "tags": [
     "arcade",
     "dodge",
     "60s runs"
   ],
-  "version": "2.3",
+  "version": "2.4",
   "max_score_per_sec": 60,
   "how_to": [
     "tasks fall. touching one = +15° heat. big ones hurt more.",
     "coffee −11°, fans −24°.",
     "heat creeps up on its own. it gets worse. like real life.",
-    "score = time alive + dodges + pickups."
-  ]
+    "score = time alive + dodges + pickups.",
+    "every run's score goes into your career: promotions unlock perks (firewalls, stronger coffee, more fans)."
+  ],
+  "results": "quiet",
+  "restart": true
 }

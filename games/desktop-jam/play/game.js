@@ -221,6 +221,15 @@
     return { cols, rows, grid: pickLevel(cols, rows, 0.62 + 0.28 * t, seed, 0.66 - 0.3 * t, 0.3 + 0.6 * t, o) };
   }
   function dayNo() { const d = new Date(); return Math.max(1, Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - DAY0) / 86400000) + 1); }
+  // daily streak: days in a row with the daily cleared, read from the saved daily2-<day> results (no new save format).
+  // Today not played yet keeps yesterday's streak alive.
+  function dailyStreak() {
+    let n = dayNo(), s = 0;
+    if (!store.get('daily2-' + n, null)) n--;
+    for (; n >= 1 && s < 999; n--) { const r = store.get('daily2-' + n, null); if (!r || !r.won) break; s++; }
+    return s;
+  }
+  function untilTomorrow() { const d = new Date(), t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); const m = Math.max(1, Math.round((t - d) / 60000)); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm'; }
   function dailySpec() {
     const n = dayNo();
     return { cols: 6, rows: 8, grid: spinLevel(6, 8, 0.8, hash('desktop-jam-daily-' + n), 0.7, { walls: 3, win: 0.15, locks: 2 }, 5, 0.5) };
@@ -293,6 +302,7 @@
     });
     L = { mode, idx, removed: 0, cols: spec.cols, rows: spec.rows, grid: spec.grid, pieces, keyGone: !pieces.some((pc) => pc.key), lives: mode === 'daily' ? Infinity : LIVES, bonks: 0, start: performance.now(), total, done: false };
     anims = []; parts = []; pops = []; combo = 0; cursor = -1; L.bornAt = performance.now(); lastActAt = L.bornAt;
+    stampT = null; paused = false; setGain(); // a restart from the player bar while paused used to leave the new level frozen
     hideAll(); ui = 'play';
     layout(); hud();
     const world = WORLDS[Math.floor(idx / 10)];
@@ -308,11 +318,13 @@
     W = Math.max(100, r.width); H = Math.max(100, r.height);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     if (!L) return;
-    const pad = 14;
-    cs = Math.floor(Math.min((W - pad * 2) / L.cols, (H - pad * 2 - 30) / L.rows, 110));
+    // short frames (the player frame on a phone is ~430 px tall): thinner taskbar and margins so late 7x9 boards get bigger cells
+    const pad = H < 420 ? 6 : 14, tb = taskbarH();
+    cs = Math.floor(Math.min((W - pad * 2) / L.cols, (H - pad * 2 - tb) / L.rows, 110));
     ox = Math.round((W - cs * L.cols) / 2);
-    oy = Math.round((H - 30 - cs * L.rows) / 2);
+    oy = Math.round((H - tb - cs * L.rows) / 2);
   }
+  function taskbarH() { return H < 420 ? 20 : 30; }
   window.addEventListener('resize', layout);
   if (window.ResizeObserver) new ResizeObserver(layout).observe(cv);
 
@@ -366,7 +378,7 @@
       caption(pickLine(LINES.bonk, blocker ? blocker.name : ''));
       hud();
       cc.call('event', 'bonk', { mode: L.mode, level: L.idx + 1 });
-      if (L.lives <= 0) { L.done = true; const LL = L; setTimeout(() => { if (L === LL) endLevel(false); }, 700); }
+      if (L.lives <= 0) { L.done = true; stamp('cooked.', '#B59AFF'); const LL = L; setTimeout(() => { if (L === LL) endLevel(false); }, 700); }
       return;
     }
     for (const cc2 of pc.cells) L.grid[cc2] = null;
@@ -387,11 +399,11 @@
     // only level mode goes on the board: a finished daily always scores the same (every piece), so it isn't ranked
     if (L.mode !== 'daily') cc.score(L.idx * 100 + (L.total - remaining()));
     const LL = L;
-    if (!remaining()) { L.done = true; setTimeout(() => { if (L === LL) endLevel(true); }, 650); }
+    if (!remaining()) { L.done = true; stamp(L.bonks ? 'clean.' : 'spotless.', L.bonks ? '#C5FF49' : '#ffd84a'); setTimeout(() => { if (L === LL) endLevel(true); }, 650); }
     else if (!L.pieces.some((q) => !q.gone && movable(q, L.keyGone) && !block(L.grid, L.cols, L.rows, q, dirOf(q, L.removed)).k)) {
       // jammed: nothing can leave any more (only possible with spinners)
       L.done = true; L.jammed = true; setCrash('cooked');
-      setTimeout(() => { if (L === LL) { caption('<b>jammed.</b> nothing can move. the spinners got you.'); sfx.bonk(); shake = 10; } }, 350);
+      setTimeout(() => { if (L === LL) { caption('<b>jammed.</b> nothing can move. the spinners got you.'); sfx.bonk(); shake = 10; stamp('jammed.', '#B59AFF'); } }, 350);
       setTimeout(() => { if (L === LL) endLevel(false); }, 1300);
     }
   }
@@ -399,6 +411,9 @@
 
   // ---------------------------------------------------------------- end of level
   let lastResult = null;
+  // the site's score for a level run (same number on the end card): 100 per desktop cleared before this one, +100 for
+  // clearing it, +1 per icon off. Higher = further along, so a friend's dare is beaten by getting one desktop further.
+  function runScore(r) { return (r.won ? r.idx + 1 : r.idx) * 100 + (r.total - r.left); }
   function starsFor(bonks) { return bonks === 0 ? 3 : bonks === 1 ? 2 : 1; }
   function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
   function endLevel(won) {
@@ -406,7 +421,7 @@
     const ms = performance.now() - L.start;
     const st = won ? starsFor(L.bonks) : 0;
     lastResult = { mode: L.mode, idx: L.idx, won, ms, bonks: L.bonks, total: L.total, left: remaining(), stars: st, day: dayNo(), jammed: !!L.jammed };
-    cc.call('end', L.mode === 'daily' ? { durationMs: Math.round(ms) } : { score: (won ? L.idx + 1 : L.idx) * 100 + (L.total - remaining()), durationMs: Math.round(ms) });
+    cc.call('end', L.mode === 'daily' ? { durationMs: Math.round(ms) } : { score: runScore(lastResult), durationMs: Math.round(ms) });
     if (won) { sfx.win(); burstConfetti(); } else sfx.lose();
     if (L.mode === 'level' && won) {
       stars[L.idx] = Math.max(stars[L.idx] || 0, st); store.set('stars', stars);
@@ -414,8 +429,23 @@
       if (L.idx + 1 >= LEVELS) store.set('level', LEVELS - 1);
       cc.call('event', 'level_reached', { level: L.idx + 2 });
     }
-    if (L.mode === 'daily') { store.set('daily2-' + dayNo(), lastResult); cc.call('event', 'daily_done', { day: dayNo(), bonks: L.bonks, ms: Math.round(ms) }); }
+    if (L.mode === 'daily') { store.set('daily2-' + dayNo(), lastResult); const sk = dailyStreak(); lastResult.streak = sk; if (sk > store.get('dailyBest', 0)) store.set('dailyBest', sk); cc.call('event', 'daily_done', { day: dayNo(), bonks: L.bonks, ms: Math.round(ms) }); }
     setTimeout(() => showEnd(lastResult), won ? 500 : 200);
+  }
+  // the visible next goal on the end card: this world's 10 desktops as star pips plus what's next (a new world's rules
+  // are the hook), or for the daily, the streak and when the next one opens
+  function goalHtml(r, allDone) {
+    if (r.mode === 'daily') {
+      const s = dailyStreak(), best = Math.max(s, store.get('dailyBest', 0));
+      return `<span class="gl">${s ? `streak <b>${s}</b> day${s === 1 ? '' : 's'}` : 'streak <b>0</b>'}${best > s ? ' · best ' + best : ''}</span><span class="gl">new desktop in <b>${untilTomorrow()}</b></span>`;
+    }
+    const w = Math.floor(r.idx / 10), got = Object.values(stars).reduce((a, b) => a + (+b || 0), 0);
+    const pips = Array.from({ length: 10 }, (_, k) => { const i = w * 10 + k, st = stars[i] || 0; return `<i class="s${st}${i === r.idx ? ' cur' : ''}" title="level ${i + 1}"></i>`; }).join('');
+    const nx = r.won ? r.idx + 1 : r.idx, nw = WORLDS[Math.floor(nx / 10)];
+    const next = allDone ? `every desktop cleared · &#9733; ${got}/${LEVELS * 3}`
+      : r.won && nx % 10 === 0 && nw ? `next: <b>world ${Math.floor(nx / 10) + 1} · ${esc(nw.name)}</b>. new rules.`
+      : `${r.won ? 'next: level ' + (nx + 1) : 'level ' + (nx + 1)} · ${10 - (nx % 10)} to ${w + 1 < WORLDS.length ? 'world ' + (w + 2) : 'the end'} · &#9733; ${got}`;
+    return `<span class="gl">level ${r.idx + 1}/${LEVELS} · world ${w + 1}: ${esc(WORLDS[w].name)}</span><span class="pips">${pips}</span><span class="gl">${next}</span>`;
   }
   let endAt = 0; // the end card's buttons ignore input for 0.8 s (bNext is focused, so a held key would retry)
   function showEnd(r) {
@@ -430,8 +460,9 @@
     $('bStar3').hidden = !miss3;
     $('endMsg').innerHTML = (miss3 ? `<span class="goal3">0 bonks = &#9733;&#9733;&#9733;.</span> ` : '') + (!r.won && r.jammed ? 'jammed. every spinner was pointing at something. order matters here.' : allDone ? 'you beat every desktop. crash is proud and a little scared of you. try the daily.' : r.won ? pickLine(LINES.win) : pickLine(LINES.lose));
     // a loss shows how close it was (bonks is always 3 there): "22/30 cleared" makes the retry tempting
-    $('endStats').innerHTML = [[fmt(r.ms), 'time'], r.won || r.mode === 'daily' ? [r.bonks, 'bonks'] : [(r.total - r.left) + '/' + r.total, 'cleared'], [r.mode === 'daily' ? '#' + r.day : (r.idx + 1) + '/' + LEVELS, r.mode === 'daily' ? 'daily' : 'level']]
+    $('endStats').innerHTML = [[fmt(r.ms), 'time'], r.won || r.mode === 'daily' ? [r.bonks, 'bonks'] : [(r.total - r.left) + '/' + r.total, 'cleared'], r.mode === 'daily' ? ['#' + r.day, 'daily'] : [runScore(r), 'score']]
       .map(([v, k]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
+    $('endGoal').innerHTML = goalHtml(r, allDone);
     $('bNext').textContent = r.mode === 'daily' ? 'play levels' : r.won ? (allDone ? 'replay all' : 'next') : 'retry';
     $('end').classList.add('on');
     // K-0059: shared tip button (assets/tip.js)
@@ -443,7 +474,7 @@
   function shareText(r) {
     const head = r.mode === 'daily' ? `desktop jam · daily #${r.day}` : `desktop jam · level ${r.idx + 1}`;
     const body = r.won ? `cleared ${r.total} icons in ${fmt(r.ms)} with ${r.bonks} bonk${r.bonks === 1 ? '' : 's'}` : `got cooked by a desktop (${r.total} icons)`;
-    const bar = r.mode === 'daily' ? '\n' + (r.bonks ? '💥'.repeat(Math.min(r.bonks, 10)) : '✨ zero bonks') : r.won ? '\n' + '⭐'.repeat(r.stars) : '';
+    const bar = r.mode === 'daily' ? '\n' + (r.bonks ? '💥'.repeat(Math.min(r.bonks, 10)) : '✨ zero bonks') + (r.won && r.streak > 1 ? ` · 🔥 ${r.streak}-day streak` : '') + (r.won ? '\nsame desktop for everyone today. beat that.' : '') : r.won ? '\n' + '⭐'.repeat(r.stars) : '';
     return `${head}\n${body}${bar}\n${SLUG_URL}`;
   }
   function drawCard(r) {
@@ -466,6 +497,7 @@
     g.fillText(r.won ? `cleared in ${fmt(r.ms)}` : 'cooked.', 60, 320);
     g.fillStyle = '#F5F3ED';
     g.fillText(`${r.bonks} bonk${r.bonks === 1 ? '' : 's'} · ${r.total} icons`, 60, 380);
+    if (r.mode === 'daily' && r.won) { g.fillStyle = '#ffd84a'; g.fillText(r.streak > 1 ? `${r.streak}-day streak. your turn.` : 'your turn. same desktop.', 60, 440); }
     g.font = '800 26px ui-monospace, Menlo, Consolas, monospace'; g.fillStyle = '#77756e';
     g.fillText(SLUG_URL, 60, 560);
     return c;
@@ -548,8 +580,13 @@
     g.fillStyle = '#B59AFF'; g.fillRect(x0, y0, ww, bar);
     g.fillStyle = '#101114'; g.fillRect(x0 + ww - bar * 0.9, y0 + bar * 0.25, bar * 0.5, bar * 0.5);
     g.strokeStyle = '#101114'; g.lineWidth = 2; g.strokeRect(x0, y0, ww, hh);
-    g.fillStyle = '#101114'; g.font = `800 ${Math.max(8, Math.round(s * 0.16))}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
     const words = name.split(' '), maxW = ww - 8; let lines = [], line = '';
+    // shrink the label until its longest word fits (tall 1-wide windows clipped "available" to "availabl")
+    let fpx = Math.max(8, Math.round(s * 0.16));
+    g.font = `800 ${fpx}px ui-monospace, Menlo, Consolas, monospace`;
+    const wide = Math.max(...words.map((wd) => g.measureText(wd.length > 14 ? wd.slice(0, 13) + '…' : wd).width));
+    if (wide > maxW) fpx = Math.max(6, Math.floor(fpx * maxW / wide));
+    g.fillStyle = '#101114'; g.font = `800 ${fpx}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
     for (const wd of words) { const t = line ? line + ' ' + wd : wd; if (g.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t; }
     lines.push(line); lines = lines.slice(0, hh > ww ? 4 : 2);
     const lh = Math.max(9, s * 0.2), ty = y0 + bar + (hh - bar) / 2 - (lines.length - 1) * lh / 2;
@@ -593,10 +630,10 @@
       }
     }
     // taskbar
-    const tb = 30;
+    const tb = taskbarH();
     g.fillStyle = '#0b0b0e'; g.fillRect(0, H - tb, W, tb);
-    g.fillStyle = spooky ? '#ff8a1f' : '#C5FF49'; g.fillRect(6, H - tb + 5, 58, tb - 10);
-    g.fillStyle = '#101114'; g.font = '900 12px ui-monospace, Menlo, Consolas, monospace'; g.textBaseline = 'middle'; g.fillText(spooky ? 'boo' : 'start', 14, H - tb / 2 + 1);
+    g.fillStyle = spooky ? '#ff8a1f' : '#C5FF49'; g.fillRect(6, H - tb + (tb > 24 ? 5 : 3), 58, tb - (tb > 24 ? 10 : 6));
+    g.fillStyle = '#101114'; g.font = (tb > 24 ? '900 12px' : '900 10px') + ' ui-monospace, Menlo, Consolas, monospace'; g.textBaseline = 'middle'; g.fillText(spooky ? 'boo' : 'start', 14, H - tb / 2 + 1);
     const d = new Date();
     g.fillStyle = '#77756e'; g.textAlign = 'right'; g.fillText(d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'), W - 10, H - tb / 2 + 1); g.textAlign = 'left';
   }
@@ -663,6 +700,7 @@
     for (const p of parts) { g.globalAlpha = Math.max(0, p.life); g.fillStyle = p.col; g.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); }
     g.globalAlpha = 1;
     g.restore();
+    drawStamp(g, now);
     if (flash > 0) { g.fillStyle = `rgba(181,154,255,${flash * 0.18})`; g.fillRect(0, 0, W, H); flash = Math.max(0, flash - dt / 250); }
   }
   function bonkCurve(t) { return t < 0.35 ? easeOut(t / 0.35) : 1 - easeOut((t - 0.35) / 0.65) * 1; }
@@ -688,6 +726,22 @@
     parts = parts.filter((p) => p.life > 0);
     for (const p of pops) p.life -= dt / 700;
     pops = pops.filter((p) => p.life > 0);
+  }
+  // a big tilted word over the board when a desktop ends (reads with the sound off, and in a clip)
+  let stampT = null;
+  function stamp(text, col) { stampT = { text, col, at: performance.now() }; }
+  function drawStamp(g, now) {
+    if (!stampT) return;
+    const t = now - stampT.at; if (t > 1600) { stampT = null; return; }
+    const sc = easeBack(Math.min(1, t / 240)), a = t < 1250 ? 1 : 1 - (t - 1250) / 350;
+    const fs = Math.round(Math.min(W * 0.15, 76));
+    g.save(); g.globalAlpha = Math.max(0, a); g.translate(W / 2, oy + cs * L.rows / 2); g.rotate(-0.13); g.scale(sc, sc);
+    g.font = `900 ${fs}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const tw = g.measureText(stampT.text).width + fs * 0.6, th = fs * 1.25;
+    g.fillStyle = 'rgba(16,17,20,.82)'; g.fillRect(-tw / 2, -th / 2, tw, th);
+    g.strokeStyle = stampT.col; g.lineWidth = Math.max(3, fs * 0.07); g.strokeRect(-tw / 2, -th / 2, tw, th);
+    g.fillStyle = '#5e4a9e'; g.fillText(stampT.text, fs * 0.05, fs * 0.07); g.fillStyle = stampT.col; g.fillText(stampT.text, 0, 0);
+    g.restore(); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   }
   function pop(x, y, text, col) { pops.push({ x, y, text, col, life: 1 }); if (pops.length > 8) pops.shift(); }
   function spark(x, y, col, n) {
@@ -747,14 +801,23 @@
     $('title').classList.add('on');
     $('bPlay').textContent = level > 0 ? `play · level ${level + 1}` : 'play';
     const got = Object.values(stars).reduce((a, b) => a + (+b || 0), 0), w = WORLDS[Math.floor(level / 10)];
-    $('prog').innerHTML = got ? `&#9733; <b>${got}</b>/${LEVELS * 3} stars · next up: ${esc(w ? w.name : '')}` : 'clear desktops, earn stars, unlock 5 worlds.';
+    $('prog').innerHTML = got ? `&#9733; <b>${got}</b>/${LEVELS * 3} stars · next up: ${esc(w ? w.name : '')}` : 'clear desktops, earn stars, unlock 5 worlds.<br>plus one daily desktop, the same for everyone.';
     const done = store.get('daily2-' + dayNo(), null);
-    $('bDaily').textContent = done ? `daily #${dayNo()} ✓` : `daily desktop #${dayNo()}`;
+    const sk = dailyStreak();
+    $('bDaily').textContent = `daily #${dayNo()}` + (done ? ' ✓' : '') + (sk ? ` · ${sk}🔥` : '');
+    $('bDaily').title = sk ? `${sk}-day daily streak` : 'one new desktop a day, the same for everyone';
     $('bSpooky').classList.toggle('on', spooky);
     $('bSpooky').textContent = spooky ? '🎃 spooky mode: on' : 'spooky mode: off';
     caption('');
   }
   function restart() { if (!L || L.done) return; if (L.mode === 'daily') { toast('no take-backs on the daily.'); return; } startLevel(L.mode, L.idx); sfx.tap(); }
+  // the player page's restart button / "play again": replay what's on screen. On the end card restart() used to do
+  // nothing (the level is done), so the bar's restart button was dead there.
+  function hostRestart() {
+    if (ui === 'play' && L && !L.done) { restart(); return; }
+    if (ui === 'end' && lastResult) { audio(); sfx.tap(); startLevel('level', lastResult.mode === 'daily' ? level : lastResult.idx); return; }
+    if (!L && ui !== 'levels') toTitle();
+  }
   function setPause(p) {
     if ((ui !== 'play' || (L && L.done)) && p) return;
     if (p === paused) return;
@@ -776,7 +839,7 @@
   on('bDaily', () => {
     audio(); sfx.tap();
     const done = store.get('daily2-' + dayNo(), null);
-    if (done) { lastResult = done; hideAll(); showEnd(done); $('endMsg').innerHTML = 'you already did today\'s desktop. it\'s still clean. come back tomorrow.'; return; }
+    if (done) { lastResult = done; done.streak = dailyStreak(); hideAll(); showEnd(done); $('endMsg').innerHTML = 'you already did today\'s desktop. it\'s still clean. come back tomorrow.'; return; }
     if (store.get('daily2-started-' + dayNo(), 0)) { // left mid-attempt: the daily is one shot
       const r = { mode: 'daily', idx: 0, won: false, ms: 0, bonks: 0, total: 0, stars: 0, day: dayNo(), jammed: false };
       store.set('daily2-' + dayNo(), r); lastResult = r; hideAll(); showEnd(r); $('endMsg').innerHTML = 'you left today\'s desktop mid-clean. the daily is one shot. tomorrow.'; return;
@@ -809,7 +872,7 @@
   window.addEventListener('message', (e) => {
     const m = e.data; if (!m || typeof m !== 'object') return;
     if (m.type === 'cc-mute') { hostMuted = !!m.muted; setGain(); updateMute(); }
-    else if (m.type === 'cc-restart') { if (L) restart(); else toTitle(); }
+    else if (m.type === 'cc-restart') hostRestart();
     else if (m.type === 'cc-pause') setPause(m.paused === undefined ? true : !!m.paused);
   });
 

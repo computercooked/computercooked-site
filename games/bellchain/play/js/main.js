@@ -87,6 +87,17 @@ function tapAt(x, y) {
     pending.push([t0 + 7 * gap, () => { stage.showBanner('perfect peal', 'x3, the whole chain', null, 1.6); stage.flash = 0.35; stage.shake = 0.4; buzz(30); }]);
   }
 }
+// r5: a HUD line pops (scale + accent colour) when its number jumps
+function bump(id) { const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+// r5: a x10 resonance milestone (1K, 10K, 1M...): shockwaves and a big number off the great bell, a banner, a chime
+function milestone(n, name) {
+  bump('res');
+  stage.goldBurst('', stage.theme && stage.theme.acc); // the banner says the number
+  stage.showBanner(`${E.fmt(n)} resonance`, `${name} · +1% forever`, null, 2.4);
+  [0, 2, 4, 7].forEach((d, i) => music.play('crystal', d + 7, now() + i * 0.07, 0.8));
+  buzz(20);
+  sdk((c) => c.event && c.event('milestone', { n }));
+}
 const buzz = (ms) => { try { if (!S.muted && navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(ms); } catch (e) { /* no */ } };
 $('cv').addEventListener('pointerdown', (e) => {
   if (paused) return;
@@ -94,6 +105,7 @@ $('cv').addEventListener('pointerdown', (e) => {
   tapAt(e.clientX - r.left, e.clientY - r.top);
 });
 function onKey(e) {
+  playStart();
   if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
   // K-0029: Space and the scroll keys are the game's; a page around it (the embed's host) must not scroll
   if (e.code === 'Space' || /^(Arrow(Up|Down|Left|Right)|PageUp|PageDown)$/.test(e.key)) e.preventDefault();
@@ -120,8 +132,10 @@ try {
     if (fr.height < 50 || fr.bottom < 50 || fr.top > host.innerHeight - 50) return;
     onKey(e);
   };
-  const unhook = () => { try { hostDoc.removeEventListener('keydown', hostKey); } catch (e) { /* page already gone */ } };
-  if (hostDoc) { hostDoc.addEventListener('keydown', hostKey); window.addEventListener('pagehide', unhook); }
+  // r5: the page going out of sight (tab or app switch, leaving) ends the play before the page's own sdk sees pagehide
+  const hostVis = () => { if (!window.frameElement) { unhook(); return; } if (hostDoc.hidden) goneOut(); };
+  const unhook = () => { try { hostDoc.removeEventListener('keydown', hostKey); hostDoc.removeEventListener('visibilitychange', hostVis); } catch (e) { /* page already gone */ } };
+  if (hostDoc) { hostDoc.addEventListener('keydown', hostKey); hostDoc.addEventListener('visibilitychange', hostVis); window.addEventListener('pagehide', unhook); }
 } catch (e) { /* other origin: keys only reach the game once it has focus */ }
 
 // ---------- golden bells ----------
@@ -175,6 +189,7 @@ function toast(msg, ms) {
   toast.h = setTimeout(() => t.classList.remove('on'), ms || 2200);
 }
 
+$('goalFar').addEventListener('click', () => document.querySelector('#tabs [data-tab=recast]').click());
 // shop
 const bldEls = {};
 for (const b of E.BUILDINGS) {
@@ -184,10 +199,16 @@ for (const b of E.BUILDINGS) {
   el.addEventListener('click', () => {
     if (el.classList.contains('mystery')) return;
     music.unlock();
+    const before = E.baseRps(S);
     if (E.buyBld(S, b.id, S.buyAmt)) {
       const first = S.owned[b.id] === S.buyAmt;
+      // r5: a buy shows on the belfry too (it reads with the sound off): "+N/s" under the great bell (the banner has the space above it), the rate line pops
+      stage.tapGreat(stage.cx, stage.cy + stage.gs * 0.95, `${ICON[b.id]} +${E.fmt(E.baseRps(S) - before)}/s`, first);
+      bump('rps');
       music.play(b.id === 'cowbell' ? 'cowbell' : b.id in { choir: 1 } ? 'choir' : 'tap', 4 + Math.floor(Math.random() * 3), now(), 0.7, 4);
       if (first) stage.showBanner(`${b.name} joined the band`, b.desc, null, 2.6);
+      // r5: a reason to come back, said once, on the first bell of the first run
+      if (first && b.id === 'handbell' && !S.ascensions) setTimeout(() => toast('the band keeps playing while you are away. come back to collect.', 3200), 2800);
       refreshShop(true);
     } else { el.animate([{ transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'none' }], 160); }
   });
@@ -205,6 +226,7 @@ for (let i = 0; i < UP_SLOTS; i++) {
     music.unlock();
     if (E.buyUpgrade(S, u.id)) {
       music.play('glock', 7, now(), 0.8); music.play('glock', 9, now() + 0.07, 0.8);
+      stage.great.pulse = 1; bump('rps');
       stage.showBanner(u.name, u.id === 'mallet_0' ? 'taps x2. feel that?' : u.desc, null, 1.8);
       refreshShop(true);
     } else toast(`need ${E.fmt(u.cost - S.res)} more.`);
@@ -249,6 +271,19 @@ function pulseNext() {
   }
   document.querySelectorAll('#pane-shop .pulse').forEach((el) => { if (el !== best) el.classList.remove('pulse'); });
   if (best) best.classList.add('pulse');
+  // r5: the thing to buy pulses, but on a phone it can be under the fold of the panel (the handbell was, in the
+  // player page). Bring it into view once per target, once the player hasn't touched the panel for 3 s.
+  if (best && pulseNext.shown !== best && showInPane(best)) pulseNext.shown = best;
+}
+let paneTouched = 0;
+['pointerdown', 'wheel', 'touchmove'].forEach((ev) => $('pane-shop').addEventListener(ev, () => { paneTouched = Date.now(); }, { passive: true }));
+function showInPane(el) {
+  const pane = $('pane-shop');
+  if (pane.hidden || Date.now() - paneTouched < 3000) return false;
+  const pr = pane.getBoundingClientRect(), r = el.getBoundingClientRect();
+  const dy = r.bottom > pr.bottom - 4 ? r.bottom - pr.bottom + 10 : r.top < pr.top + 4 ? r.top - pr.top - 10 : 0;
+  if (dy) pane.scrollTo({ top: pane.scrollTop + dy, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  return true;
 }
 // K-0034: always something to aim for. The two cheapest things you can't afford yet (an upgrade in the slots, a bell
 // you've seen, or the next mallet / acoustics upgrade before it unlocks), with how close you are.
@@ -262,6 +297,10 @@ function refreshGoals() {
     if (u) cands.push({ name: u.name, cost: u.cost });
   }
   const next = cands.filter((x) => x.cost > S.res).sort((a, b) => a.cost - b.cost).slice(0, 2);
+  // r5: the big goal, always in view: the next recast (overtones are cube-root of all-time resonance / 3M)
+  const far = $('goalFar'), og = E.otGain(S);
+  far.textContent = og > 0 ? `recast ready: +${og} ✦` : `big goal: recast at ${E.fmt(E.nextOtAt(S))} · ${Math.floor((100 * S.earnedAll) / E.nextOtAt(S))}%`;
+  far.classList.toggle('ready', og > 0);
   goalEls.forEach((el, i) => {
     const g = next[i];
     el.style.visibility = g ? '' : 'hidden';
@@ -345,6 +384,7 @@ function renderStats() {
     ['from taps', E.fmt(S.tapEarned)], ['best chain', S.bestChain], ['perfect peals', E.fmt(S.perfects)], ['golden bells', S.goldenClicks],
     ['bells owned', Object.values(S.owned).reduce((a, b) => a + b, 0)], ['recasts', S.ascensions], ['scale', `${th.name} · ${th.mode}`],
     ['production bonus', '+' + Math.round((E.globalMult(S) - 1) * 100) + '%'], ['time played', E.fmtTime(S.playSec)], ['this run', E.fmtTime(S.runSec)],
+    ['board score (100 per x10 resonance, all time)', boardScore()],
   ].map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('');
   const got = Object.keys(S.ach).length;
   $('achCount').textContent = `${got}/${E.ACH.length}`;
@@ -396,8 +436,10 @@ function openRecast(test) {
 }
 $('recastNo').addEventListener('click', closeModals);
 $('recastGo').addEventListener('click', () => {
+  if (E.otGain(S) >= 1) playEnd(true); // r5: a recast is the end of a run
   const g = E.ascend(S); closeModals();
   if (!g) { if (testCard) toast('test card: not enough resonance for a real recast. nothing changed.'); return; }
+  playStart();
   buffs = []; stage.golden = null; goldenIn = 30;
   applySong();
   const th = themeFor(S.ascensions);
@@ -430,14 +472,16 @@ $('resetBtn').addEventListener('click', () => {
 // a true reset (K-0023): the pending offline gain used to be written back into the save by the next autosave, so
 // "erase" left resonance behind and the away popup came back. The old save is kept once, for "undo restart".
 function hardReset() {
+  playEnd(false); // r5: an erase or a player-bar restart abandons this play; the next one starts right after
   // the run as it is right now (the stored copy can be up to 10 s old, or missing before the first autosave)
   if (S.earnedAll > 0 || S.taps > 0) store.set(UNDO_KEY, E.serialize(S));
   store.del(SAVE_KEY);
   pendingAway = null;
   document.querySelectorAll('.modal').forEach((m) => m.classList.remove('open'));
-  S = E.newState(); buffs = []; sentScore = 0; scoreAcc = 0; stage.golden = null; goldenIn = goldenStart();
+  S = E.newState(); buffs = []; stage.golden = null; goldenIn = goldenStart();
   upSlots.forEach((el) => setSlot(el, null));
   applySong(); applyVolume(); refreshShop(true); renderTab(true); save(); showUndo();
+  playStart();
 }
 function showUndo() { $('undoBtn').hidden = !store.get(UNDO_KEY); }
 // after a restart a clickable bar offers the old save back for 10 s (menu → undo restart keeps it after that)
@@ -513,18 +557,43 @@ window.addEventListener('message', (e) => {
   }
 });
 
-// ---------- site score: monotonic, never faster than 100 points a second ----------
-let sentScore = 0, scoreAcc = 0;
+// ---------- site score + plays (r5) ----------
+// The board score is 100 points per x10 of lifetime resonance (log10), capped at BOARD.max (entry.json max_score); the
+// stats tab shows it, so the game and the site show the same number. A play starts on the first tap or key (the player
+// page can cover the game with "tap to play" first) and ends with completed: true on a recast (the end of a run) or
+// when the game goes out of sight after 10+ s (an idle session's normal end); a restart or an erase ends it as
+// abandoned and starts the next one. What a play reports is bounded the way the server checks it:
+// entry.json score_slack + max_score_per_sec x this play's seconds (only a lifetime past 1e25 ever waits on it).
+const BOARD = { slack: 2500, perSec: 30, max: 6000 };
+const boardScore = () => Math.min(BOARD.max, E.siteScore(S));
+let play = null, scoreAcc = 0; // play: { t0 (ms), sent }
 function pushScore(dt) {
-  scoreAcc += dt;
-  if (scoreAcc < 2) return;
-  const target = E.siteScore(S), next = Math.min(target, sentScore + Math.ceil(100 * scoreAcc));
-  scoreAcc = 0;
-  if (next > sentScore) { sentScore = next; sdk((c) => c.score && c.score(sentScore)); }
+  if (!play) return;
+  scoreAcc += dt; if (scoreAcc < 2) return; scoreAcc = 0;
+  const sec = (performance.now() - play.t0) / 1000, next = Math.min(boardScore(), Math.floor(BOARD.slack + BOARD.perSec * sec * 0.9));
+  if (next > play.sent) { play.sent = next; sdk((c) => c.score && c.score(next)); }
 }
-const sessionStart = performance.now();
-let ended = false;
-const endSession = () => { if (ended) return; ended = true; sdk((c) => c.end && c.end({ score: sentScore, durationMs: Math.round(performance.now() - sessionStart) })); };
+function playStart() {
+  if (play || paused) return;
+  play = { t0: performance.now(), sent: 0 };
+  sdk((c) => c.start && c.start());
+  scoreAcc = 2; pushScore(0);
+}
+// out of sight, the player page may be unloading, and a message relayed through the frame can land after it's gone:
+// then the page's own sdk is called directly (same origin), as well as through the relay (which also tells the page
+// the run is over; by then it's a no-op for the score)
+function playEnd(completed, direct) {
+  if (!play) return;
+  scoreAcc = 2; pushScore(0);
+  const p = play; play = null;
+  const o = { score: p.sent, durationMs: Math.round(performance.now() - p.t0), completed: !!completed };
+  if (direct) { try { const h = window.parent !== window && window.parent.cc; if (h && h.end && h !== window.cc) h.end(o); } catch (e) { /* other origin */ } }
+  sdk((c) => c.end && c.end(o));
+}
+const playedLong = () => !!play && performance.now() - play.t0 > 10000 && play.sent > 0;
+function goneOut() { save(); playEnd(playedLong(), true); }
+window.addEventListener('pointerdown', () => playStart(), true);
+window.addEventListener('keydown', () => playStart(), true);
 
 // ---------- main loop ----------
 let last = performance.now(), uiAcc = 0, achAcc = 0, saveAcc = 0;
@@ -547,7 +616,14 @@ function frame(tms) {
     achAcc += dt;
     if (achAcc > 0.5) {
       achAcc = 0;
-      for (const a of E.checkAch(S, buffs)) { toast(`achievement: ${a.name} (+1%)`); music.play('crystal', 9, now(), 0.7); }
+      // r5: a resonance milestone (100, 1K, 10K...) is a moment on the bell itself, not just a toast: it reads with the
+      // sound off. Several at once (an import, a big offline collect) show only the biggest.
+      let top = null;
+      for (const a of E.checkAch(S, buffs)) {
+        if (/^earn_/.test(a.id)) { if (!top || +a.id.slice(5) > +top.id.slice(5)) top = a; }
+        else { toast(`achievement: ${a.name} (+1%)`); music.play('crystal', 9, now(), 0.7); }
+      }
+      if (top) milestone(+top.id.slice(5), top.name);
     }
     saveAcc += dt; if (saveAcc > 10) { saveAcc = 0; save(); }
     pushScore(dt);
@@ -574,16 +650,15 @@ function frame(tms) {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) save();
+  if (document.hidden) goneOut();
   else { handleReturn(); last = performance.now(); }
 });
-window.addEventListener('pagehide', () => { save(); endSession(); });
+window.addEventListener('pagehide', goneOut);
 window.addEventListener('resize', () => stage.resize());
 if (window.ResizeObserver) new ResizeObserver(() => stage.resize()).observe($('stage'));
 
 // ---------- boot ----------
-sdk((c) => c.start && c.start());
-window.addEventListener('load', () => sdk((c) => c.start && !sentScore && c.score && c.score(0)), { once: true });
+// r5: the play starts on the first tap or key (playStart), not here
 handleReturn();
 refreshShop(true); renderTab(true);
 if (firstVisit) {
@@ -606,4 +681,4 @@ save();
 requestAnimationFrame((t) => { last = t; frame(t); });
 
 // tiny test surface (qa + balance checks; harmless for players)
-window.bellchain = { get state() { return S; }, E, music, stage, tapAt, get buffs() { return buffs; }, catchGolden, spawnGolden, save };
+window.bellchain = { get state() { return S; }, E, music, stage, tapAt, get buffs() { return buffs; }, catchGolden, spawnGolden, save, get play() { return play; }, boardScore, BOARD };

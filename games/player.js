@@ -100,7 +100,10 @@
     if (player.classList.contains("is-pseudo-fs")) { pseudoFs(false); return; }
     if (!document.fullscreenEnabled || !player.requestFullscreen) { pseudoFs(true); return; }
     player.requestFullscreen().then(function () {
-      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).then(function () { toast("hold esc (or tap exit fullscreen) to leave"); }, function () {});
+      // round 24: a phone has no esc key, so a touch-only device (no mouse or trackpad anywhere) is told the button only
+      var touchOnly = false;
+      try { touchOnly = matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches; } catch (e) {}
+      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).then(function () { toast(touchOnly ? "tap exit fullscreen to leave" : "hold esc (or tap exit fullscreen) to leave"); }, function () {});
       var f = document.getElementById("game-frame");
       if (f && f.contentWindow) try { f.contentWindow.focus(); } catch (e) {}
     }, function () { pseudoFs(true); });
@@ -633,11 +636,20 @@
             '<button type="button" class="ccr-share"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg> <span>share score</span></button>' +
           '</div>' +
           '<a class="ccr-next" hidden><img alt="" width="96" height="54" loading="lazy"><span><small>try this next</small><b></b><i></i></span></a>' +
+          '<div class="ccr-ad" hidden></div>' + // round 22: the ad strip, below everything you'd tap (assets/ads.js ccAds.slot; off)
           '<p class="ccr-foot"><button type="button" class="ccr-more">share card, clip &amp; leaderboard ↓</button><span class="ccr-say" role="status" aria-live="polite"></span></p>' +
         '</div>';
       stage.appendChild(box);
       box.querySelector(".ccr-x").addEventListener("click", function () { close(true); });
       box.querySelector(".ccr-again").addEventListener("click", again);
+      // round 27: the "try this next" tap counts as the next game's start tap (games that read cc.autostart() skip their
+      // title screen, as from the hub's landing card), and is counted: next_tap, next to next_shown (src/hits.js)
+      box.querySelector(".ccr-next").addEventListener("click", function () {
+        var to = this.getAttribute("data-to");
+        if (!to) return;
+        try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: to, t: Date.now() })); } catch (e) {}
+        if (window.ccHit) window.ccHit("next_tap", { game: slug, to: to, slot: touchDev() });
+      });
       var sh = box.querySelector(".ccr-share");
       // the dare link is made on the press (pointerdown), so it's usually ready by the click and the share sheet
       // can open inside the tap (iOS needs that). Nothing is made just for looking at the card.
@@ -741,6 +753,7 @@
       box.querySelector(".ccr-share span").textContent = v && v.won ? "dare them back" : o.scored ? "share score" : "share game";
       box.querySelector(".ccr-say").textContent = "";
       nextTile();
+      adStrip();
       // a new best on the board already gets platform.js's confetti; this covers the rest (no board, run not counted)
       if ((o.kind === "best" && !(o.r && o.r.prev_best != null && o.score > o.r.prev_best)) || (v && v.won)) confetti();
       box.hidden = false;
@@ -768,6 +781,24 @@
       }
     }
 
+    // the results card's ad strip (round 22, B3 in Core\AD-SPEND.md): assets/ads.js decides; with ads off it stays hidden
+    // and takes no space. ?adpreview=1 loads the ad layer at once so the placeholder shows from the first card.
+    function adStrip() {
+      var el = box.querySelector(".ccr-ad");
+      if (window.ccAds && window.ccAds.slot) window.ccAds.slot(el, slug); else el.hidden = true;
+    }
+    try {
+      if (/[?&]adpreview=1/.test(location.search) || sessionStorage.getItem("cc-adpreview") === "1") {
+        ["/assets/consent.js", "/assets/ads.js"].forEach(function (src) {
+          if (document.querySelector('script[src="' + src + '"]')) return;
+          var sc = document.createElement("script"); sc.src = src; document.head.appendChild(sc);
+        });
+      }
+    } catch (e) {}
+
+    function touchDev() {
+      try { return matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches ? "touch" : "fine"; } catch (e) { return "fine"; }
+    }
     // one game to go to next: most tags in common, not played on this device first, a little luck for ties
     function nextTile() {
       var a = box.querySelector(".ccr-next");
@@ -788,7 +819,9 @@
         a.querySelector("b").textContent = String(best.title).toLowerCase();
         a.querySelector("i").textContent = best.pitch || "";
         a.setAttribute("aria-label", "try this next: " + best.title + (fine ? " (n)" : ""));
+        a.setAttribute("data-to", best.slug);
         a.hidden = false;
+        if (window.ccHit) window.ccHit("next_shown", { game: slug, to: best.slug, slot: touchDev() });
       });
     }
 

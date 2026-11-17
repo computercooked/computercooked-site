@@ -63,12 +63,23 @@
 
   // ---------- ingredients (h = thickness in layer units) ----------
   const FOOD = ["lettuce", "tomato", "cheese", "ham", "pickle", "lettuce", "cheese", "ham"];
-  const CURSED = ["sock", "phone", "fish", "key"];
+  // 1.3: the fridge's finds. The first four are in the fridge from the start; each chef rank puts one more in it.
+  const CURSED = ["sock", "phone", "fish", "key", "duck", "floppy", "mug", "remote"];
+  const FIND_RANK = { duck: 1, floppy: 2, mug: 3, remote: 4 };
   const KIND = {
     bread: { h: 1.3, name: "bread" }, lettuce: { h: 0.7, name: "lettuce" }, tomato: { h: 0.8, name: "tomato" }, cheese: { h: 0.6, name: "cheese" },
     ham: { h: 0.7, name: "ham" }, pickle: { h: 0.6, name: "pickles" }, sock: { h: 0.9, name: "a sock?" }, phone: { h: 0.6, name: "someone's phone" },
     fish: { h: 0.9, name: "the fish from the elevator" }, key: { h: 1.0, name: "a keyboard key" },
+    duck: { h: 1.0, name: "a rubber duck" }, floppy: { h: 0.6, name: "a floppy disk" }, mug: { h: 1.1, name: "a 'best chef' mug" }, remote: { h: 0.7, name: "the tv remote" },
   };
+  // 1.3: chef career. Every layer you ever stack counts; ranks put new finds in the fridge.
+  const RANKS = [[0, "dishwasher"], [25, "sandwich intern"], [80, "line cook"], [180, "sous chef"], [350, "head chef"], [600, "michelin computer"], [1000, "sandwich god"]];
+  const rankOf = (n) => { let i = 0; while (i + 1 < RANKS.length && n >= RANKS[i + 1][0]) i++; return i; };
+  // the orders: every 10 layers the chef closes one with bread, and the tickets get sillier
+  const ORDERS = ["the blt", "the club", "the triple decker", "the dagwood", "the leaning tower", "the health violation", "the skyscraper", "the forbidden stack", "the one they write about"];
+  const orderName = (n) => ORDERS[Math.min(ORDERS.length - 1, n)];
+  // how tall the sandwich is, said like a person would say it (2 cm per layer unit)
+  const TALL = [[0, "a coaster"], [8, "a phone"], [18, "a cat sitting down"], [32, "a bowling pin"], [48, "a toddler"], [75, "a golden retriever"], [110, "the fridge"], [160, "chef computer"], [240, "a giraffe's neck"]];
   const LINES = {
     hello: ["chef computer is cooking.", "one sandwich. tall."],
     perfect: ["perfect.", "chef's kiss.", "that's the one.", "michelin star (fake)."],
@@ -77,6 +88,9 @@
     order: ["order up!", "ding. sandwich done. keep going."],
     sock: ["that's a sock.", "the fridge gave me a sock."], phone: ["is that my phone.", "it has 3% battery."],
     fish: ["the fish again.", "he escaped the elevator."], key: ["a keyboard key. crunchy.", "it's the any key."],
+    duck: ["a rubber duck. squeak.", "the duck is load-bearing now."], floppy: ["a floppy disk. 1.44 mb of lunch.", "it says 'taxes 1997'."],
+    mug: ["a 'best chef' mug. he bought it himself.", "the mug is not food. stack it."], remote: ["the tv remote. so that's where it was.", "found the remote. in the fridge."],
+    special: ["today's special: done.", "special served. see you tomorrow."], rank: ["promotion!", "new hat. same chef."],
     end: ["lunch is over.", "it fell off. like my career.", "the sandwich has left the plate."],
   };
   const pick = (a) => a[(Math.random() * a.length) | 0];
@@ -159,6 +173,31 @@
   let paused = false, crumbs = []; // 1.1: pause (cc-pause / tab hidden); crumbs fly off every landing
   let stack = [], debris = [], fx = [], mover = null, camOff = 0, line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, endT = 0, sinceCursed = 0;
   try { best = +localStorage.getItem("st-best") || 0; } catch (e) {}
+  // 1.3: the career save (st-career, new; st-best and st-muted are untouched): lifetime layers, runs and orders, the
+  // fridge finds you have stacked, and today's special (one goal a day, the same for everyone, with a day streak)
+  let career = { layers: 0, runs: 0, orders: 0, finds: {}, day: "", done: false, streak: 0, last: "" };
+  try { const c = JSON.parse(localStorage.getItem("st-career")); if (c && typeof c === "object") Object.assign(career, c); } catch (e) {}
+  if (!career.finds || typeof career.finds !== "object") career.finds = {};
+  ["layers", "runs", "orders", "streak"].forEach((k) => { career[k] = Math.max(0, +career[k] || 0); });
+  const saveCareer = () => { try { localStorage.setItem("st-career", JSON.stringify(career)); } catch (e) {} };
+  const dayKey = (d) => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const NOW = new Date(), TODAY = dayKey(NOW), YDAY = dayKey(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1));
+  if (career.day !== TODAY) { career.day = TODAY; career.done = false; }
+  let runFinds = 0, runPerfects = 0, notes = [], missKind = "", missPiece = null;
+  const SPECIALS = [
+    ["stack 15 layers in one run", () => layers >= 15], ["land 4 perfects in a row", () => bestCombo >= 4],
+    ["stack 2 fridge finds in one run", () => runFinds >= 2], ["fill 2 orders in one run", () => orders >= 2],
+    ["score 40 in one run", () => score >= 40], ["land 6 perfects in one run", () => runPerfects >= 6], ["stack 25 layers in one run", () => layers >= 25],
+  ];
+  const SPECIAL = SPECIALS[Math.floor(Date.UTC(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()) / 864e5) % SPECIALS.length];
+  const dayStreak = () => (career.last === TODAY || career.last === YDAY ? career.streak : 0);
+  function checkSpecial() {
+    if (career.done || !SPECIAL[1]()) return;
+    career.done = true; career.streak = career.last === YDAY ? career.streak + 1 : career.last === TODAY ? career.streak : 1; career.last = TODAY;
+    saveCareer(); say("special", true); react("happy", 1.2); sfx.order();
+    notes.push("today's special: done ✓ · " + career.streak + " day streak");
+    fx.push({ s: "today's special: done!", x: W / 2, y: H * 0.3, col: "#ffb340", life: 1.8, max: 1.8, big: true });
+  }
   function say(kind, force) { if (force || lineT <= 0.5) { line = pick(LINES[kind]); lineT = 2; } }
   function react(f, s) { face = f; faceT = s; }
   const topY = () => (stack.length ? stack[stack.length - 1].y : 0);
@@ -167,7 +206,13 @@
   function nextKind() {
     if (layers > 0 && (layers + 1) % 10 === 0) return "bread";
     sinceCursed++;
-    if (layers >= 4 && sinceCursed > 4 && Math.random() < 0.28) { sinceCursed = 0; return pick(CURSED); }
+    if (layers >= 4 && sinceCursed > 4 && Math.random() < 0.28) {
+      sinceCursed = 0;
+      const r = rankOf(career.layers), pool = CURSED.filter((k) => !FIND_RANK[k] || r >= FIND_RANK[k]);
+      // a find you've never stacked turns up more often, so the collection fills
+      const fresh = pool.filter((k) => !career.finds[k]);
+      return fresh.length && Math.random() < 0.5 ? pick(fresh) : pick(pool);
+    }
     let k; do { k = pick(FOOD); } while (stack.length && k === top().kind);
     return k;
   }
@@ -183,22 +228,28 @@
     mover = { kind, w: tp.w, h, x, y: tp.y - h - LH * 1.8, vx: fromLeft ? speed : -speed, drop: false, vy: 0 };
     if (CURSED.includes(kind)) { say(kind, true); react("shock", 0.8); sfx.cursed(); }
   }
-  function start() {
-    state = "play"; t = 0; score = 0; layers = 0; combo = 0; bestCombo = 0; orders = 0; debris = []; fx = []; sinceCursed = 0; paused = false; crumbs = [];
+  function board() {
     // the bottom slice of bread sits on the plate
     stack = [{ kind: "bread", x: W / 2 - BASEW / 2, w: BASEW, y: -KIND.bread.h * LH, h: KIND.bread.h * LH, wob: 0 }];
-    camOff = targetCam();
-    startAt = performance.now(); say("hello", true); react("happy", 0.8);
+    camOff = targetCam(); spawnMover();
+  }
+  function start() {
+    state = "play"; t = 0; score = 0; layers = 0; combo = 0; bestCombo = 0; orders = 0; debris = []; fx = []; sinceCursed = 0; paused = false; crumbs = [];
+    runFinds = 0; runPerfects = 0; notes = []; missKind = ""; missPiece = null; stamp = null;
+    startAt = performance.now();
     sdk((c) => c.start && c.start());
-    spawnMover();
+    board(); say("hello", true); react("happy", 0.8);
+    if (career.orders === 0) line = "10 layers fill one order. go.";
   }
   function end() {
     state = "over"; endAt = performance.now(); prevBest = best;
     if (score > best) { best = score; try { localStorage.setItem("st-best", String(best)); } catch (e) {} }
+    career.runs++; saveCareer();
     say("end", true); react("cooked", 99); sfx.end();
     const dur = Math.round(performance.now() - startAt);
     sdk((c) => c.score && c.score(score));
-    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: orders > 0 }));
+    // review r5: a run that ends by missing the sandwich is a finished run (it was only "completed" after an order)
+    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: true }));
   }
 
   // ---------- dropping ----------
@@ -208,13 +259,15 @@
     const y = tp.y - m.h;
     if (ov <= 0) { // missed the sandwich
       debris.push({ kind: m.kind, x: m.x, y, w: m.w, h: m.h, vx: m.vx * 0.3, vy: 0, rot: 0, vr: (m.x < tp.x ? -1 : 1) * 3 });
-      mover = null; shake = reduce ? 0 : 0.3; endT = 0.9; state = "falling";
+      mover = null; shake = reduce ? 0 : 0.3; endT = 0.9; state = "falling"; missKind = m.kind;
+      missPiece = { kind: m.kind, w: m.w, h: m.h, side: m.x < tp.x ? -1 : 1 };
       return;
     }
-    const tol = Math.max(3, tp.w * 0.035);
+    // r5: a kinder perfect window for the first six layers (a stranger learns what "dead on" means), then 4%
+    const tol = Math.max(4, tp.w * (layers < 6 ? 0.07 : 0.04));
     let nx = l, nw = ov;
     if (Math.abs(m.x - tp.x) <= tol) {
-      combo++; bestCombo = Math.max(bestCombo, combo); nx = tp.x; nw = tp.w;
+      combo++; runPerfects++; bestCombo = Math.max(bestCombo, combo); nx = tp.x; nw = tp.w;
       if (combo >= 3) { const g = Math.min(BASEW - nw, BASEW * 0.06); nw += g; nx -= g / 2; }
       score += 1 + Math.min(5, combo); sfx.perfect(combo); say("perfect"); react("happy", 0.6);
       crumble(nx, y, nw, LIME2, combo >= 3 ? 22 : 12); flashT = 0.18;
@@ -225,20 +278,39 @@
       if (m.x < tp.x) debris.push({ kind: m.kind, x: m.x, y, w: cut, h: m.h, vx: -60, vy: -40, rot: 0, vr: -2.5 });
       else debris.push({ kind: m.kind, x: r, y, w: cut, h: m.h, vx: 60, vy: -40, rot: 0, vr: 2.5 });
       if (cut > tp.w * 0.35) { say("big"); react("shock", 0.6); shake = reduce ? 0 : Math.max(shake, 0.15); } else { say("trim"); }
+      // r5: a near miss reads with the sound off
+      if (ov < tp.w * 0.15) fx.push({ s: "barely!", x: l + ov / 2, y: y - 16, col: "#ff8a5e", life: 1, max: 1, world: true, size: 18 });
       crumble(m.x < tp.x ? l : r, y, 2, SLABCOL[m.kind] || PAPER, 8);
     }
     stack.push({ kind: m.kind, x: nx, w: nw, y, h: m.h, wob: 0.25 });
-    layers++;
+    layers++; career.layers++;
     if (m.kind === "bread" && layers > 1) {
-      orders++; score += 10; sfx.order(); say("order", true); react("happy", 1);
-      fx.push({ s: "order up! +10", x: W / 2, y: H * 0.34, col: LIME2, life: 1.4, max: 1.4, big: true });
+      // r5: each order is a named ticket and pays a little more than the last (10, 15, 20 ... 40)
+      const bonus = Math.min(40, 10 + 5 * orders);
+      orders++; career.orders++; score += bonus; sfx.order(); say("order", true); react("happy", 1);
+      stamp = { s: orderName(orders - 1), n: bonus, life: 1.6, max: 1.6 }; shake = reduce ? 0 : Math.max(shake, 0.12);
+      crumble(nx, y, nw, LIME2, 26);
+      line = "next ticket: " + orderName(orders) + "."; lineT = 2.4;
     }
+    if (CURSED.includes(m.kind)) {
+      runFinds++;
+      if (!career.finds[m.kind]) { career.finds[m.kind] = 1; notes.push("new fridge find: " + KIND[m.kind].name); fx.push({ s: "new find!", x: nx + nw / 2, y: y - 34, col: "#ffb340", life: 1.4, max: 1.4, world: true, size: 18 }); }
+    }
+    const rk = rankOf(career.layers);
+    if (rk > rankOf(career.layers - 1)) {
+      notes.push("promoted: " + RANKS[rk][1] + "!" + (CURSED.find((k) => FIND_RANK[k] === rk) ? " the fridge has a new find." : ""));
+      say("rank", true); react("happy", 1.2); sfx.order();
+      fx.push({ s: "promoted: " + RANKS[rk][1], x: W / 2, y: H * 0.26, col: LIME2, life: 1.8, max: 1.8, big: true });
+    }
+    checkSpecial();
     sdkScore(score);
     spawnMover();
   }
+  // r5: the ORDER UP stamp (drawn over the scene): slams in big, then settles
+  let stamp = null;
 
   // 1.1: a few crumbs off the edge of each landing (perfects throw lime sparks along the whole top)
-  const SLABCOL = { bread: "#d9a35b", lettuce: "#6fbf3a", tomato: "#e5484d", cheese: "#f6c945", ham: "#f29bb0", pickle: "#4f8a32", sock: "#e5484d", phone: "#3d6be0", fish: "#9fb3c8", key: PAPER };
+  const SLABCOL = { bread: "#d9a35b", lettuce: "#6fbf3a", tomato: "#e5484d", cheese: "#f6c945", ham: "#f29bb0", pickle: "#4f8a32", sock: "#e5484d", phone: "#3d6be0", fish: "#9fb3c8", key: PAPER, duck: "#f6d84a", floppy: "#26357a", mug: PAPER, remote: "#26282e" };
   let flashT = 0;
   function crumble(x, y, w, col, n) {
     if (reduce) return;
@@ -267,10 +339,20 @@
   window.addEventListener("message", (e) => {
     const d = e.data; if (!d || typeof d !== "object") return;
     if (d.type === "cc-mute") hostMuted = !!d.muted;
-    else if (d.type === "cc-restart") { wake(); start(); }
+    // r5: a restart while the missed slice is still falling reports that finished run first (it used to be thrown away)
+    else if (d.type === "cc-restart") { wake(); if (state === "falling") end(); start(); }
     else if (d.type === "cc-pause") setPause(d.paused !== false);
   });
-  document.addEventListener("visibilitychange", () => { if (document.hidden) setPause(true); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { setPause(true); saveCareer(); } });
+  // r5: a resize mid-run (going full screen, turning the phone) keeps the sandwich centred instead of stranding it
+  let shiftW = W;
+  window.addEventListener("resize", () => {
+    const dx = (W - shiftW) / 2; shiftW = W;
+    if (!dx || state === "title") return;
+    for (const s of stack) s.x += dx;
+    for (const d of debris) d.x += dx;
+    if (mover) mover.x += dx;
+  });
   try {
     const host = window.parent !== window && window.frameElement ? window.parent : null;
     if (host) host.document.addEventListener("keydown", (e) => {
@@ -287,6 +369,7 @@
   const targetCam = () => Math.max(Math.min(H - 70 * U, H * 0.66), H * 0.52 - topY());
   function update(dt) {
     lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flashT = Math.max(0, flashT - dt);
+    if (stamp && (stamp.life -= dt) <= 0) stamp = null;
     for (const c of crumbs) { c.life -= dt; c.vy += H * 1.8 * dt; c.x += c.vx * dt; c.y += c.vy * dt; }
     crumbs = crumbs.filter((c) => c.life > 0);
     for (const f of fx) f.life -= dt;
@@ -363,7 +446,29 @@
         R("#9b978a", x, y, w, h); R(PAPER, x + 3, y, Math.max(0, w - 6), h * 0.7);
         if (w > 18) text(w > 60 ? "any" : "Q", x + w / 2, y + h * 0.36, Math.min(h * 0.55, 14), INK, "center", 800);
         break;
+      case "duck":
+        R("#c9a21e", x, y + h * 0.4, w, h * 0.6); R("#f6d84a", x, y + h * 0.4, w, h * 0.45);
+        if (w > 16) { const hx = x + w * 0.62, hw = Math.min(w * 0.3, h * 0.9); R("#f6d84a", hx, y, hw, h * 0.5); R(INK, hx + hw * 0.55, y + h * 0.12, Math.max(1, hw * 0.16), Math.max(1, hw * 0.16)); R("#f08a24", hx + hw, y + h * 0.22, Math.min(hw * 0.4, 8), h * 0.16); }
+        break;
+      case "floppy":
+        R("#16204a", x, y, w, h); R("#26357a", x + 1, y + 1, w - 2, h - 3);
+        if (w > 20) { R("#b7bcc6", x + w * 0.3, y, w * 0.32, h * 0.45); R(PAPER, x + w * 0.12, y + h * 0.55, w * 0.76, h * 0.35); }
+        break;
+      case "mug":
+        R("#bdb7a5", x, y, w, h); R(PAPER, x + 1, y, w - 2, h - 2); R("#6b4a2e", x + 2, y, w - 4, h * 0.14);
+        if (w > 30) text(w > 70 ? "best chef" : "chef", x + w / 2, y + h * 0.56, Math.min(h * 0.45, 12), BAD, "center", 800);
+        break;
+      case "remote":
+        R("#121316", x, y, w, h); R("#26282e", x + 1, y + 1, w - 2, h - 3);
+        if (w > 14) { R(BAD, x + 4, y + h * 0.3, 4, 4); for (let i = 14; i < w - 6; i += 10) R(i % 20 ? "#9fb3c8" : "#5f7387", x + i, y + h * 0.3, 5, 4); }
+        break;
     }
+  }
+  // r5: every order's top slice gets a toothpick with a little lime flag, so a tall tower shows its orders
+  function flag(x, y, k) {
+    cx.fillStyle = "#e9e1c0"; cx.fillRect(x - Math.max(1, k), y - 14 * k, Math.max(1, 2 * k), 16 * k);
+    cx.fillStyle = INK; cx.fillRect(x + k, y - 14 * k - 1, 11 * k + 1, 7 * k + 2);
+    cx.fillStyle = LIME; cx.fillRect(x + k, y - 14 * k, 11 * k, 7 * k);
   }
   function draw(time) {
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -390,6 +495,7 @@
       if (sy + s.h < -40) continue;
       const wob = s.wob > 0 && !reduce ? Math.sin(s.wob * 40) * s.wob * 6 : 0;
       drawSlab(s.kind, s.x + wob, sy, s.w, s.h);
+      if (i > 0 && s.kind === "bread") flag(s.x + wob + s.w / 2, sy, 1);
     }
     if (flashT > 0 && stack.length > 1) { const s = top(); cx.globalAlpha = flashT / 0.18 * 0.7; cx.fillStyle = PAPER; cx.fillRect(s.x - 3, s.y + o - 3, s.w + 6, s.h + 6); cx.globalAlpha = 1; }
     for (const c of crumbs) { cx.globalAlpha = Math.min(1, c.life / c.max * 1.5); cx.fillStyle = c.col; cx.fillRect(c.x - 2, c.y + o - 2, 4, 4); }
@@ -414,6 +520,20 @@
     }
     cx.globalAlpha = 1;
     cx.restore();
+    // r5: ORDER UP stamp: slams down from big, a ticket with the order's name and its bonus
+    if (stamp && state !== "over") {
+      const k = 1 - stamp.life / stamp.max, sc = reduce ? 1 : k < 0.12 ? 1.8 - k / 0.12 * 0.8 : 1, a = Math.min(1, stamp.life / 0.35);
+      // under the chef's lines (it used to cover the streak line)
+      const cpw = Math.min(150 * U, W * 0.34), below = cpw * 0.24 + 12 + cpw * 0.6 + 52;
+      const sw = Math.min(W * 0.8, 300) * sc, sh = 74 * sc, sx = W / 2 - sw / 2, sy = below + 37 - sh / 2;
+      cx.globalAlpha = a;
+      cx.fillStyle = INK; cx.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
+      cx.fillStyle = PAPER; cx.fillRect(sx, sy, sw, sh);
+      cx.fillStyle = "#d8d3c4"; for (let x = sx; x < sx + sw; x += 10) cx.fillRect(x, sy + sh - 4, 5, 4);
+      text("order up!", W / 2, sy + sh * 0.32, Math.round(26 * sc), BAD, "center", 900);
+      text(stamp.s + "  +" + stamp.n, W / 2, sy + sh * 0.7, Math.round(14 * sc), INK, "center", 800);
+      cx.globalAlpha = 1;
+    }
     drawHud(time);
     tipY = -1;
     if (state === "title" || state === "over") overlay();
@@ -437,7 +557,12 @@
     const fw = (pw - 20) * 0.7, fh = fw * 10 / 16;
     drawFace(px + 7 + (pw - 20 - fw) / 2, py + 7 + (ph - 16 - fh) / 2, fw, fh, face);
     text(String(score), 14, 22, 22, CASE, "left", 800);
-    text(layers + " layers" + (orders ? " · " + orders + " order" + (orders > 1 ? "s" : "") : ""), 14, 44, 12, "#8a8e80", "left", 700);
+    // r5: the order ticket: which order you're on and ten pips to the bread that closes it (a goal from the first tap)
+    if (state !== "title") {
+      const on = layers % 10, pw2 = Math.max(5, Math.min(8, (px - 30) / 10 - 1));
+      text("order " + (orders + 1), 14, 42, 12, "#c9c4a8", "left", 700);
+      for (let i = 0; i < 10; i++) { cx.fillStyle = i < on ? (i === 9 ? "#d9a35b" : LIME) : i === 9 ? "#5a4029" : "#34372f"; cx.fillRect(14 + i * (pw2 + 2), 53, pw2, pw2); }
+    }
     // review16r2: says what the streak does (3 in a row grows the sandwich back), bigger
     if (combo >= 1 && state === "play") { const cs = combo >= 3 ? "streak x" + combo + " · growing" : "streak x" + combo + " · " + (3 - combo) + " more grows it"; text(cs, W / 2, py + ph + 40, Math.max(12, Math.min(15, W / 28)), combo >= 2 ? LIME2 : "#8a8e80", "center", 800); }
     if (lineT > 0 || state === "play") text(line, W / 2, py + ph + 16, Math.max(11, Math.min(15, W / 30)), PAPER, "center", 700);
@@ -460,29 +585,90 @@
     if (tipBox.hidden === show) tipBox.hidden = !show;
     if (show) { const t = Math.round(Math.max(0, Math.min(y, H - 72))) + "px"; if (tipBox.style.top !== t) tipBox.style.top = t; }
   }
+  // r5: the career bar (rank, layers to the next one), used on the title and the end card
+  function rankBar(y, size) {
+    const r = rankOf(career.layers), nx = RANKS[r + 1], bw = Math.min(W - 60, 280), bx = W / 2 - bw / 2;
+    text(nx ? "rank: " + RANKS[r][1] + " · " + (nx[0] - career.layers) + " layers to " + nx[1] : "rank: " + RANKS[r][1] + ". no higher hat exists.", W / 2, y, size, "#c9c4a8", "center", 700);
+    const k = nx ? (career.layers - RANKS[r][0]) / (nx[0] - RANKS[r][0]) : 1;
+    cx.fillStyle = "#34372f"; cx.fillRect(bx, y + size * 0.8, bw, 6);
+    cx.fillStyle = LIME; cx.fillRect(bx, y + size * 0.8, Math.round(bw * Math.max(0, Math.min(1, k))), 6);
+  }
+  // r5: the fridge-finds shelf: every find you've stacked, a dark "?" for the rest
+  function findsRow(y) {
+    const n = CURSED.filter((k) => career.finds[k]).length, cw = Math.min(34, (W - 40) / CURSED.length - 6), gap = 6;
+    text("fridge finds " + n + "/" + CURSED.length, W / 2, y, 12, "#ffb340", "center", 800);
+    let x = W / 2 - (CURSED.length * (cw + gap) - gap) / 2;
+    for (const k of CURSED) {
+      if (career.finds[k]) drawSlab(k, x, y + 12, cw, 12);
+      else { cx.fillStyle = "#26282a"; cx.fillRect(x, y + 12, cw, 12); text("?", x + cw / 2, y + 18, 9, "#6b6e64", "center", 800); }
+      x += cw + gap;
+    }
+  }
+  // r5: the whole sandwich, zoomed out to fit a box (the end card's picture: the camera only ever shows the top)
+  function miniTower(top0, bot) {
+    if (stack.length < 1 || bot - top0 < 70) return;
+    const tall = -top().y + 16, k = Math.min(1, (bot - top0 - 8) / tall, (W * 0.86) / (BASEW * 1.36)), py = bot - 6;
+    const X = (x) => W / 2 + (x - W / 2) * k;
+    cx.fillStyle = INK; cx.fillRect(W / 2 - BASEW * 0.7 * k, py - 1, BASEW * 1.4 * k, 6);
+    cx.fillStyle = "#e9e6dc"; cx.fillRect(W / 2 - BASEW * 0.68 * k, py, BASEW * 1.36 * k, 4);
+    for (let i = 0; i < stack.length; i++) {
+      const s = stack[i];
+      drawSlab(s.kind, X(s.x), py + s.y * k, s.w * k, Math.max(1, s.h * k));
+      if (i > 0 && s.kind === "bread") flag(X(s.x + s.w / 2), py + s.y * k, Math.max(0.5, k));
+    }
+    // the one that missed, lying on the counter beside the plate
+    if (missPiece) {
+      const w = missPiece.w * k, h = Math.max(2, missPiece.h * k), side = missPiece.side;
+      const x = Math.max(4, Math.min(W - w - 4, side < 0 ? W / 2 - BASEW * 0.7 * k - w - 6 : W / 2 + BASEW * 0.7 * k + 6));
+      cx.save(); cx.translate(x + w / 2, py - h / 2); cx.rotate(side * 0.18); drawSlab(missPiece.kind, -w / 2, -h / 2, w, h); cx.restore();
+    }
+  }
   function overlay() {
-    cx.fillStyle = "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
-    const big = Math.round(Math.max(28, Math.min(52, W / 9))), mid = H * 0.44;
+    const over = state === "over";
+    cx.fillStyle = over ? "rgba(8, 9, 7, 0.94)" : "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
+    const big = Math.round(Math.max(26, Math.min(52, W / 9, H / 12))), small = Math.max(11, Math.min(13, W / 34)), roomy = H >= 560;
     if (state === "title") {
-      text("sandwich", W / 2, mid - big * 2.2, big, CASE, "center", 900);
-      text("tower", W / 2, mid - big * 1.1, big, LIME, "center", 900);
-      text("the computer is cooking. you are stacking.", W / 2, mid - big * 0.2, Math.max(12, Math.min(16, W / 30)), "#c9c4a8", "center", 700);
-      const sw = Math.min(150, W * 0.4), sx = W / 2 - sw / 2;
-      let y = mid + 64;
-      [["bread", 0], ["tomato", 6], ["cheese", -4], ["lettuce", 3], ["bread", 0]].forEach(([k, dx]) => { const h = KIND[k].h * 14; y -= h; drawSlab(k, sx + dx, y, sw, h); });
-      text("tap to drop. whatever hangs over gets sliced off.", W / 2, mid + 92, Math.max(11, Math.min(15, W / 31)), LIME2, "center", 800);
-      text("land it dead on: perfect. miss: lunch is over.", W / 2, mid + 116, Math.max(11, Math.min(14, W / 33)), "#ffb340", "center", 700);
-      text("tap to start cooking", W / 2, Math.min(H - 40, mid + 166), 18, LIME, "center", 900);
-      if (best > 0) text("your best: " + best, W / 2, Math.min(H - 16, mid + 192), 13, "#c9c4a8", "center", 700);
+      // laid out top-down from a block height, so it fits a 430 px player frame as well as a tall phone
+      const block = big * 2.4 + 30 + (roomy ? 96 : 0) + 56 + 26 + (best > 0 ? 20 : 0) + 24 + 32 + 30;
+      let y = Math.max(big * 0.6 + 6, (H - block) / 2 + big * 0.5);
+      text("sandwich", W / 2, y, big, CASE, "center", 900); y += big * 1.1;
+      text("tower", W / 2, y, big, LIME, "center", 900); y += big * 0.75 + 8;
+      text("the computer is cooking. you are stacking.", W / 2, y, Math.max(12, Math.min(16, W / 30)), "#c9c4a8", "center", 700); y += 22;
+      if (roomy) {
+        const sw = Math.min(150, W * 0.4), sx = W / 2 - sw / 2;
+        let yy = y + 86;
+        [["bread", 0], ["tomato", 6], ["cheese", -4], ["lettuce", 3], ["bread", 0]].forEach(([k, dx]) => { const h = KIND[k].h * 14; yy -= h; drawSlab(k, sx + dx, yy, sw, h); });
+        flag(W / 2, yy, 1); y += 96;
+      }
+      text("tap to drop. whatever hangs over gets sliced off.", W / 2, y, Math.max(11, Math.min(15, W / 31)), LIME2, "center", 800); y += 22;
+      text("10 layers fill an order. miss: lunch is over.", W / 2, y, Math.max(11, Math.min(14, W / 33)), "#ffb340", "center", 700); y += 34;
+      text("tap to start cooking", W / 2, y, 18, LIME, "center", 900); y += 26;
+      if (best > 0) { text("your best: " + best + (dayStreak() > 1 ? " · " + dayStreak() + " day streak" : ""), W / 2, y, small, PAPER, "center", 700); y += 20; }
+      text("today's special: " + SPECIAL[0] + (career.done ? " ✓" : ""), W / 2, y, small, career.done ? LIME2 : "#ffb340", "center", 700); y += 24;
+      rankBar(y, small); y += 32;
+      if (roomy || career.runs > 0) findsRow(y);
     } else {
-      text("lunch is over", W / 2, mid - big * 1.6, big, BAD, "center", 900);
-      text(layers + " layers tall", W / 2, mid - big * 0.7, Math.round(big * 0.6), PAPER, "center", 800);
-      text(String(score), W / 2, mid + big * 0.35, Math.round(big * 1.3), CASE, "center", 900);
-      text("best " + best + "  ·  best streak " + bestCombo + "  ·  " + orders + " order" + (orders === 1 ? "" : "s") + " up", W / 2, mid + big * 1.25, 14, "#c9c4a8", "center", 700);
+      // r5: the end card: what fell, the score, how tall it got (in real things), the career bar, what you unlocked,
+      // and the whole sandwich zoomed out under it. Worth a screenshot.
+      let y = Math.max(big * 0.6 + 6, H * 0.06 + big * 0.5);
+      text("lunch is over", W / 2, y, big, BAD, "center", 900); y += big * 0.8;
+      text(missKind ? (missKind === "bread" ? "the bread missed. the order was right there." : KIND[missKind].name.replace(/\?$/, "") + " missed the sandwich.") : "the sandwich has left the plate.", W / 2, y, small, "#c9c4a8", "center", 700); y += big * 0.5 + 14;
+      text(String(score), W / 2, y, Math.round(big * 1.25), CASE, "center", 900); y += big * 0.9 + 6;
+      const units = stack.reduce((a, s) => a + s.h, 0) / LH, cm = Math.round(units * 2);
+      let ti = 0; while (ti + 1 < TALL.length && cm >= TALL[ti + 1][0]) ti++;
+      text(layers + " layers · " + cm + " cm · " + (cm < TALL[1][0] ? "shorter than a phone" : "taller than " + TALL[ti][1]), W / 2, y, Math.max(11, Math.min(14, W / 33)), PAPER, "center", 800); y += 22;
+      text(orders + " order" + (orders === 1 ? "" : "s") + " up · best streak " + bestCombo + " · best " + best, W / 2, y, small, "#c9c4a8", "center", 700); y += 24;
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first sandwich logged. now beat it.")
         : score === prevBest ? "tied your best. one more layer next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
-      text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
-      if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
+      text(nudge, W / 2, y, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800); y += 26;
+      rankBar(y, small); y += 30;
+      const showNotes = notes.slice(0, roomy ? 3 : 1);
+      if (!showNotes.length && !career.done) showNotes.push("today's special: " + SPECIAL[0]);
+      for (const n of showNotes) { text(n, W / 2, y, small, n.startsWith("today") && !career.done ? "#ffb340" : LIME2, "center", 800); y += 20; }
+      // the tip pill (when the site has one) sits under "tap to cook again"; tipSync keeps it above H - 72
+      const tapY = H - (tipBox || window.ccTip ? 96 : 26);
+      miniTower(y + 4, tapY - 18);
+      if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, tapY, 18, LIME, "center", 900); tipY = tapY + 18; }
     }
   }
 
@@ -499,7 +685,11 @@
   try { if (window.frameElement) window.parent.document.addEventListener("keydown", wake, true); } catch (e) {}
   window.addEventListener("resize", () => { if (!running) draw(performance.now() / 1000); });
   requestAnimationFrame(frame);
+  // r5: one tap from a clip (the hub's "tap to play" card): skip the title. Nothing moves toward you until you tap
+  // (the slice just slides), so a "tap to play full screen" cover over the game costs nothing; a resize re-centres.
+  try { if (window.cc && cc.autostart && cc.autostart()) { wake(); start(); } } catch (e) {}
 
   // read-only hooks for the test scripts
-  window.__st = { state: () => ({ state, t, score, layers, combo, orders, paused, mover: mover && { x: mover.x, w: mover.w, kind: mover.kind, drop: mover.drop }, top: stack.length ? { x: top().x, w: top().w } : null }) };
+  window.__st = { state: () => ({ state, t, score, layers, combo, orders, paused, mover: mover && { x: mover.x, w: mover.w, kind: mover.kind, drop: mover.drop }, top: stack.length ? { x: top().x, w: top().w } : null }),
+    career: () => JSON.parse(JSON.stringify(career)), special: () => SPECIAL[0] };
 })();

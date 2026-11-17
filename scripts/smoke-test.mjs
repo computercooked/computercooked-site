@@ -9,6 +9,8 @@
 // staging, a preview) those sections are skipped and print "SKIP (live: no accounts)"; only the anonymous
 // checks run. There is deliberately no flag to override this.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 const base = process.argv[2] || "http://127.0.0.1:8787";
 const admin = process.argv[3] || "";
@@ -35,6 +37,63 @@ const get = (p, h = {}) => fetch(base + p, { headers: h });
     return files(play).some((f) => SENDS.test(readFileSync(f, "utf8")));
   }).map((g) => g.slug);
   ok(missing.length === 0, "every game that reports scores has a board (max_score_per_sec)", missing);
+}
+
+// repo check (round 24): portal builds are clean. The first candidates build for CrazyGames (and one for itch.io) with
+// no tip jar, no site-only paths and a real zip; portal.js takes links out of shares on ad portals only. Builds go to
+// the git-ignored dist/portals/; nothing is uploaded.
+{
+  const repo = fileURLToPath(new URL("..", import.meta.url));
+  const builds = [["smol-brains", "crazygames"], ["keyboard-escape", "crazygames"], ["bellchain", "crazygames"],
+    ["pixel-purge", "crazygames"], ["overdue-notice", "crazygames"], ["keyboard-escape", "itch"]];
+  for (const [slug, portal] of builds) {
+    const r = spawnSync(process.execPath, ["scripts/package-portal.mjs", slug, portal], { cwd: repo, encoding: "utf8" });
+    const dir = new URL(`../dist/portals/${portal}/${slug}/`, import.meta.url);
+    const zip = new URL(`../dist/portals/${portal}/${slug}.zip`, import.meta.url);
+    const html = existsSync(new URL("index.html", dir)) ? readFileSync(new URL("index.html", dir), "utf8") : "";
+    const head = existsSync(zip) ? readFileSync(zip).subarray(0, 2).toString("latin1") : "";
+    ok(r.status === 0 && head === "PK" && existsSync(new URL("portal.js", dir)) && existsSync(new URL("cc-sdk.js", dir)),
+      `portal build ${portal}/${slug}: zip + adapter + sdk`, r.status === 0 ? head : (r.stderr || "").slice(0, 200));
+    ok(!/<script[^>]*\/assets\/tip\.js/.test(html) && !/(src|href)="\//.test(html) && html.includes(`"portal":"${portal}"`) &&
+      html.includes("crazygames-sdk-v3.js") === (portal === "crazygames"),
+      `portal build ${portal}/${slug}: no tip jar, relative paths only, CC_PORTAL set`);
+    ok(!/site-only paths|site paths still/.test((r.stdout || "") + (r.stderr || "")), `portal build ${portal}/${slug}: no site-only paths in game code`,
+      ((r.stderr || "").match(/^\s+\S.*$/gm) || []).slice(0, 5));
+  }
+  const src = readFileSync(new URL("../native/portal.js", import.meta.url), "utf8");
+  const portalVm = async (portal) => {
+    const shared = [], copied = [];
+    const ta = { value: "beat 9 www.computercooked.com/games/x/ yes", select() {} };
+    const nav = { share(d) { shared.push(d); return Promise.resolve(); }, clipboard: { writeText(t) { copied.push(t); return Promise.resolve(); } } };
+    const doc = { addEventListener() {}, createElement() { return { style: {}, addEventListener() {} }; }, activeElement: ta, execCommand() { return true; } };
+    const win = { CC_PORTAL: { name: portal === "itch" ? "none" : portal, portal, slug: "keyboard-escape" }, navigator: nav, addEventListener() {} };
+    const ctx = vm.createContext({ window: win, document: doc, navigator: nav, setTimeout, Promise, Date, sessionStorage: { getItem() { return null; }, setItem() {} } });
+    vm.runInContext(src, ctx);
+    await nav.share({ title: "keyboard escape · computercooked.com", text: "i hit +1,240 speed → https://computercooked.com/games/keyboard-escape/?ref=share", url: "https://computercooked.com/games/keyboard-escape/" });
+    await nav.clipboard.writeText("beat my 1,240\nhttps://computercooked.com/games/keyboard-escape/");
+    doc.execCommand("copy");
+    return { shared: JSON.parse(JSON.stringify(shared)), copied, ta: ta.value };
+  };
+  const cg = await portalVm("crazygames"), itch = await portalVm("itch");
+  const s = cg.shared[0] || {};
+  ok(!("url" in s) && s.title === "keyboard escape" && s.text === "i hit +1,240 speed" && cg.copied[0] === "beat my 1,240" && cg.ta === "beat 9 yes",
+    "portal.js: ad-portal shares and copies carry no link", cg);
+  ok(itch.shared[0] && itch.shared[0].url === "https://computercooked.com/games/keyboard-escape/" && /computercooked\.com/.test(itch.copied[0]) && /computercooked/.test(itch.ta),
+    "portal.js: itch.io shares keep their link", itch);
+  // round 25: portal store text, ready ahead. One section per first candidate, a 200-500 character description
+  // (GameDistribution's range), and no URL anywhere except the itch.io lines (ad portals ban links out)
+  const storeTxt = readFileSync(new URL("../docs/portal-store-text.md", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const storeBad = ["smol-brains", "keyboard-escape", "bellchain", "pixel-purge", "overdue-notice"].filter((slug) => {
+    const sec = (storeTxt.split(/^## /m).find((s) => s.startsWith(slug + "\n")) || "");
+    const desc = (/\*\*Description:\*\* (.*)/.exec(sec) || [])[1] || "";
+    const urls = sec.split("\n").filter((l) => !/\*\*itch\.io:\*\*/.test(l) && /https?:\/\/|computercooked\.com|www\./i.test(l));
+    return !sec || desc.length < 200 || desc.length > 500 || urls.length > 0;
+  });
+  ok(!storeBad.length, "portal store text: 5 candidates, 200-500 char descriptions, no URLs in ad-portal text", storeBad);
+  // round 24: phones have no esc key; the fullscreen toast tells a touch-only device to tap the button
+  const playerJs = readFileSync(new URL("../games/player.js", import.meta.url), "utf8");
+  ok(/touchOnly \? "tap exit fullscreen to leave" : "hold esc/.test(playerJs) && playerJs.includes('(any-pointer: fine)'),
+    "player.js: the fullscreen toast doesn't say esc on a touch-only device");
 }
 
 const anon = "smoke" + rid();
@@ -197,6 +256,11 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
     "?game=crash": "hub", "": "hub", "?ref=x&game=../../etc": "hub", "?ref=app": "hub" };
   const got = Object.fromEntries(Object.keys(cases).map((k) => [k, land(k)]));
   ok(boot && Object.keys(cases).every((k) => got[k] === cases[k]), "social landing: only a social ?ref with a game hint (or the platform default) gets the tap-to-play card", got);
+  const fromOf = (search) => { const attrs = {}; vm.runInNewContext(boot || "", { location: { search }, URLSearchParams, document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } } } }); return attrs["data-landing-from"] || "clip"; };
+  ok(fromOf("?ref=tiktok&utm_campaign=bio") === "bio" && fromOf("?ref=tiktok&utm_campaign=BIO") === "bio" && fromOf("?ref=tiktok") === "clip" &&
+    fromOf("?ref=tiktok&game=crash&utm_campaign=bio") === "clip" && fromOf("?ref=tiktok&utm_campaign=clip7") === "clip",
+    "social landing (round 27): the bio link's card says from @computercooked, a clip's says from the clip");
+  ok(/"from @computercooked" : "from the clip"/.test(await (await get("/games/hub.js")).text()), "hub.js: the landing card's line follows data-landing-from");
   const def = (boot.match(/LANDING_DEFAULT = \{([^}]*)\}/) || [])[1] || "";
   const slugs = new Set(((await (await get("/games/games.json")).json()).games || []).map((g) => g.slug));
   ok([...def.matchAll(/"([a-z0-9-]+)"/g)].every((m) => slugs.has(m[1])), "social landing: every platform default is a real game", def.trim());
@@ -205,9 +269,23 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   // shown on that visit's pages, never on game pages, the hook game or under the hub's landing card, and gone once hidden
   const deckSrc = await (await get("/assets/deck.js")).text();
   const ttLine = (deckSrc.match(/\n\s*if \(tag === "tiktok"[^\n]*/) || [])[0];
-  const marks = (tag, rh, um, camp) => { const ss = {}; vm.runInNewContext(ttLine || "", { tag, rh, um, camp, sessionStorage: { setItem: (k, v) => { ss[k] = v; } } }); return ss["cc-tt"] === "1"; };
+  const marks = (tag, rh, um, camp, ttApp = false) => { const ss = {}; vm.runInNewContext(ttLine || "", { tag, rh, um, camp, ttApp, sessionStorage: { setItem: (k, v) => { ss[k] = v; } } }); return ss["cc-tt"] === "1"; };
   ok(ttLine && marks("tiktok", "", "", "") && marks(null, "www.tiktok.com", "", "") && marks("short", "", "short", "bio") && !marks("youtube", "", "", "") && !marks("instagram", "", "", "") &&
-    !marks(null, "www.google.com", "", "") && !marks("short", "", "short", "") && !marks(null, "tiktok.com.example", "", ""), "tiktok welcome strip: marked for tiktok tags, tiktok.com and bio short links only");
+    !marks(null, "www.google.com", "", "") && !marks("short", "", "short", "") && !marks(null, "tiktok.com.example", "", "") && marks(null, "", "", "", true) && !marks("youtube", "", "", "", true),
+    "tiktok welcome strip: marked for tiktok tags, tiktok.com, bio short links and the TikTok app's browser only");
+  // round 21: TikTok's in-app browser sends no referrer, so its user agent marks the visit as tiktok (an untagged link
+  // from TikTok counted as "direct" before); a tag on the link still wins
+  const uaLine = (deckSrc.match(/var ttApp = [^\n]*/) || [])[0], refLine = (deckSrc.match(/if \(!tag && !from && ttApp\)[^\n]*/) || [])[0];
+  const isTT = (ua) => vm.runInNewContext((uaLine || "") + "; ttApp", { navigator: { userAgent: ua } });
+  const UAS = {
+    ios: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 musical_ly_35.1.0 JsSdk/2.0 NetType/WIFI Channel/App Store ByteLocale/en Region/US",
+    android: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.230 Mobile Safari/537.36 trill_350102 JsSdk/1.0 NetType/WIFI Channel/googleplay AppName/trill app_version/35.1.2 ByteLocale/en BytedanceWebview/d8a21c6",
+    safari: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    insta: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.25.84 (iPhone15,3; iOS 17_5; en_US)",
+  };
+  const refFor = (tag, from, ttApp) => vm.runInNewContext((refLine || "") + "; from", { tag, from, ttApp });
+  ok(uaLine && refLine && isTT(UAS.ios) && isTT(UAS.android) && !isTT(UAS.safari) && !isTT(UAS.insta) && refFor(null, null, true) === "tiktok" && refFor("youtube", null, true) === null && refFor(null, "search", true) === "search",
+    "tiktok app browser: its user agent counts the visit as tiktok when the link has no tag or referrer", { uaLine: !!uaLine, refLine: !!refLine });
   const hiSrc = (deckSrc.match(/\/\/ Welcome strip for TikTok arrivals[\s\S]*?\n  \}\)\(\);/) || [])[0];
   const strip = (o) => {
     let added = null;
@@ -870,6 +948,10 @@ if (admin) {
     dg.games.every((g) => "runs_ended" in g && "avg_session_s" in g && "best_score" in g),
     "admin digest v2: tip clicks, desk row, game-over stats per game", { version: dg.version, desk: dg.desk });
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
+  ok(dRow.tiktok_out && ["show_follow", "show_episode", "follow_elsewhere", "total"].every((k) => typeof dRow.tiktok_out[k] === "number") &&
+    dg.tiktok_out && typeof dg.tiktok_out.by_episode === "object", "admin digest: tiktok_out (round 26: /show/ follow + episode link-outs, other follow buttons)", dg.tiktok_out);
+  ok(["shown", "taps", "plays"].every((k) => typeof dRow.next[k] === "number" && typeof dg.next?.[k] === "number") && dRow.next.touch && typeof dg.next.touch.taps === "number" && "per_run" in dg.next,
+    "admin digest (round 27): the try-this-next tile's shown, taps and plays, per day and for the window", dg.next);
   ok(dg.cook_vote && dg.cook_vote.poll && /^\d{4}-W\d{2}$/.test(dg.cook_vote.week) && Object.keys(dg.cook_vote.counts).length === 4 && typeof dg.cook_vote.total === "number" && typeof dRow.votes === "number",
     "admin digest: cook vote totals (read only) and votes per day", dg.cook_vote);
   // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
@@ -1055,6 +1137,92 @@ if (admin) {
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
   ok(surf.status === 200 && surfHtml.includes('id="tv-guide"') && surfHtml.includes('id="tv-auto"') && surfHtml.includes("/assets/surf.js") && home.includes('href="/surf/"'), "/surf/ has the channel surf tv, linked from home", surf.status);
+  // card preview loops (round 20): every clip in games.json is served as a small mp4, the hook games have one, and
+  // preview.js keeps clips off first paint (preload none, phones wait for load) and off under reduced motion/Save-Data
+  const clipGames = (await (await get("/games/games.json")).json()).games.filter((g) => g.clip);
+  const clipBad = [];
+  for (const g of clipGames) {
+    const r = await get(g.clip), b = r.ok ? (await r.arrayBuffer()).byteLength : 0;
+    if (!r.ok || !/video\/mp4/.test(r.headers.get("content-type") || "") || b < 1024 || b > 150 * 1024) clipBad.push(g.slug + ":" + r.status + ":" + b);
+  }
+  ok(clipGames.length >= 20 && !clipBad.length && ["desktop-takeover", "smol-brains", "keyboard-escape", "ant-farm", "elevator-full-of-fish", "reel-weird", "overdue-notice", "pixel-purge"].every((s) => clipGames.some((g) => g.slug === s)), "card clips: all served as mp4 under 150 KB, round 20's eight included", clipBad.join(" ") || clipGames.length);
+  const prevJs = await (await get("/assets/preview.js")).text();
+  ok(prevJs.includes('preload = "none"') && prevJs.includes('document.readyState !== "complete"') && prevJs.includes("prefers-reduced-motion") && prevJs.includes("saveData"), "preview.js: clips on demand only, after load on phones, off for reduced motion and Save-Data");
+  // round 26: /show/, the site's door back to TikTok. Posted episodes only (show/episodes.json, kept in step with
+  // Posting\posting-log.md by scripts/sync-show.mjs), each a plain link out with our own still; no TikTok embed or
+  // script; the follow buttons and episode links count tiktok_out; home and the hub link to it.
+  {
+    const showRes = await get("/show/"), showHtml = await showRes.text();
+    const eps = JSON.parse(readFileSync(new URL("../show/episodes.json", import.meta.url), "utf8")).episodes;
+    const listed = [...showHtml.matchAll(/<li class="show-ep"><a href="([^"]+)"[^>]*data-tt-out data-slot="episode" data-ep="([^"]+)"/g)];
+    ok(showRes.status === 200 && listed.length === eps.length && eps.every((e) => listed.some((m) => m[1] === e.url && m[2] === e.slug)) &&
+      eps.every((e) => /^https:\/\/www\.tiktok\.com\/@computercooked\/video\/\d+$/.test(e.url)),
+      "/show/ lists exactly the posted episodes in show/episodes.json, each a link to its TikTok post", { listed: listed.length, json: eps.length });
+    const scripts = [...showHtml.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]);
+    ok(!/tiktok\.com\/embed|embed\.js|tiktok\.com\/[^"]*\.js/i.test(showHtml) && scripts.every((s) => s === "<script>" || /src="\/assets\/deck\.js"/.test(s)),
+      "/show/: no TikTok embed or third-party script (plain links, our own images)", scripts);
+    ok((showHtml.match(/data-tt-out data-slot="follow(-end)?"/g) || []).length === 2 && showHtml.includes("https://www.tiktok.com/@computercooked?"),
+      "/show/: two follow @computercooked buttons, both counted");
+    const stills = await Promise.all(eps.filter((e) => e.still).map(async (e) => (await get(e.still)).status));
+    ok(stills.every((s) => s === 200) && !/\b(tryhard|chaos|sunny)\b/i.test(showHtml.replace(/<[^>]+>/g, " ")),
+      "/show/: every still is served, and no character's internal label is on the page", stills);
+    const home = await (await get("/")).text(), hub = await (await get("/games/")).text();
+    ok(home.includes('href="/show/"') && hub.includes('href="/show/"'), "home and the games hub link to /show/");
+    const tto = await post("/api/hit", { kind: "tiktok_out", path: "/show/", slot: "episode", ep: "2026-11-08-first-night", ref: "direct", anon });
+    ok(tto.status === 200 && (await tto.json()).test === true, "tiktok_out hit accepted (smoke traffic answered, not stored)");
+    const deckJs = await (await get("/assets/deck.js")).text();
+    ok(/a\[data-tt-out\][\s\S]{0,120}hit\("tiktok_out"/.test(deckJs), "deck.js counts a[data-tt-out] clicks as tiktok_out");
+  }
+  // round 27: the results card's "try this next" tile. Its tap is the next game's start tap (cc-autostart, as the hub's
+  // landing card does), and showing and tapping it are counted (next_shown / next_tap)
+  {
+    for (const kind of ["next_shown", "next_tap"]) {
+      const h = await post("/api/hit", { kind, path: "/games/crash/", game: "crash", to: "keyboard-escape", slot: "touch", ref: "direct", anon });
+      ok(h.status === 200 && (await h.json()).test === true, kind + " hit accepted (smoke traffic answered, not stored)");
+    }
+    const pj = await (await get("/games/player.js")).text();
+    const tap = (pj.match(/querySelector\("\.ccr-next"\)\.addEventListener\("click", function \(\) \{[\s\S]*?\n      \}\);/) || [])[0] || "";
+    ok(/sessionStorage\.setItem\("cc-autostart", JSON\.stringify\(\{ game: to, t: Date\.now\(\) \}\)\)/.test(tap) && /ccHit\("next_tap"/.test(tap) &&
+      /a\.setAttribute\("data-to", best\.slug\)/.test(pj) && /ccHit\("next_shown"/.test(pj),
+      "player.js: the try-this-next tap sets cc-autostart for that game and counts next_tap; showing it counts next_shown");
+  }
+
+  // round 22: ad-ready, switched off. ads.js CONFIG.on is false, so no ad network code can load; /ads.txt names no seller;
+  // the consent banner declines by default (EU: no answer = no ads); the results card's ad strip is hidden (a labelled
+  // placeholder only with ?adpreview=1); the privacy page says there are no ads and how they would work
+  const adsJs = await (await get("/assets/ads.js")).text(), consentJs = await (await get("/assets/consent.js")).text();
+  const adsTxt = await get("/ads.txt"), adsTxtBody = await adsTxt.text();
+  ok(/\bon: false,/.test(adsJs) && /client: "",/.test(adsJs) && adsTxt.ok && /text\/plain/.test(adsTxt.headers.get("content-type") || "") && !/^\s*google\.com\s*,/m.test(adsTxtBody),
+    "ads: switched off (no publisher id) and /ads.txt is a placeholder with no seller", adsTxtBody.split("\n")[1]);
+  const adPage = (o) => {
+    const ls = {}, ss = {}, heads = [], banners = [];
+    const mk = (t) => ({ tagName: t, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; }, addEventListener(e, f) { this["on" + e] = f; }, remove() {}, querySelector: () => ({ focus() {} }), classList: { add() {} } });
+    const w = { location: { search: o.search || "" }, navigator: {}, Promise, Date, Math, JSON, String, RegExp, encodeURIComponent, setTimeout,
+      document: { head: { appendChild: (e) => heads.push(e) }, body: { appendChild: (e) => banners.push(e) }, createElement: mk, querySelector: () => null },
+      localStorage: { getItem: (k) => ls[k] ?? null, setItem: (k, v) => { ls[k] = v; }, removeItem: (k) => { delete ls[k]; } },
+      sessionStorage: { getItem: (k) => ss[k] ?? null, setItem: (k, v) => { ss[k] = v; }, removeItem: (k) => { delete ss[k]; } },
+      fetch: async () => ({ ok: true, json: async () => ({ consent_required: o.eu !== false }) }) };
+    w.window = w; vm.createContext(w);
+    vm.runInContext(consentJs, w);
+    vm.runInContext(o.on ? adsJs.replace("on: false,", "on: true,").replace('client: "",', 'client: "ca-pub-1234567890123456",').replace('slot: "",', 'slot: "1",') : adsJs, w);
+    return { w, ls, heads, banners };
+  };
+  const strip = () => ({ hidden: false, className: "", innerHTML: "", classList: { add() {} }, appendChild() {} });
+  const offP = adPage({}), offEl = strip();
+  for (let i = 0; i < 4; i++) await offP.w.ccAds.runEnded("crash");
+  ok((await offP.w.ccConsent.ads()) === false && offP.banners.length === 0 && offP.w.ccAds.provider === null && offP.w.ccAds.slot(offEl, "crash") === false && offEl.hidden && offP.heads.length === 0,
+    "ads off: no banner, no provider, no ad strip, nothing loaded after 4 runs");
+  const prevEl = strip(), prevP = adPage({ search: "?adpreview=1" });
+  ok(prevP.w.ccAds.slot(prevEl, "crash") === true && !prevEl.hidden && /ads are off/.test(prevEl.innerHTML) && prevP.heads.length === 0, "ads preview: a labelled placeholder in the results card, nothing loaded");
+  const euP = adPage({ on: true }), euA = euP.w.ccConsent.ads();
+  await new Promise((r) => setTimeout(r, 10));
+  euP.banners[0]?.onclick({ target: { getAttribute: () => "denied" } });
+  ok(euP.banners.length === 1 && (await euA) === false && euP.ls["cc-consent-ads"] === "denied" && (await adPage({ on: true, eu: false }).w.ccConsent.personalised()) === false,
+    "consent: EU visitors are asked and closing means no ads; personalised is no unless offered and accepted");
+  const priv = await (await get("/privacy/")).text();
+  ok(priv.includes('id="ads"') && priv.includes("there are no ads yet") && priv.includes('id="ad-choices"') && /never while you play/.test(priv), "privacy page: no ads yet, how ads would work, and 'your ad choices'");
+  const playerJs = await (await get("/games/player.js")).text(), siteCss = await (await get("/styles.css")).text();
+  ok(playerJs.includes('class="ccr-ad" hidden') && playerJs.includes("ccAds.slot") && siteCss.includes(".cc-consent {"), "results card has the hidden ad strip; the consent banner styles are site-wide");
   // 404 page: the picks the computer "found instead"
   const lost = await get("/no-such-page-" + Date.now());
   const lostHtml = await lost.text();
@@ -1117,6 +1285,30 @@ if (local && process.env.SMOKE_OLD_RULES === "1") {
   const ob = await (await post("/api/dare/oldrul3s/beat", { play_id: op, anon: oa })).json();
   ok(ob.ok && ob.retired && ob.beaten === false, "board season: an old dare can't be beaten", ob);
 } else console.log("skip  board season checks (CI seeds them: SMOKE_OLD_RULES=1)");
+
+// round 21 TikTok funnel in the digest. Local only and never live: these rows use a normal (not smoke) id so they count.
+// CI seeds one TikTok person 3 days ago who played two games and came back a day later (scripts/smoke-seed.sql); then a
+// test visit today lands from TikTok and plays two games, and today's funnel must move by exactly one at each step.
+if (local && admin && process.env.SMOKE_FUNNEL === "1") {
+  const fd = async () => (await (await get("/api/admin/digest?days=7", { authorization: "Bearer " + admin })).json());
+  // the seed is "3 days ago": row 3, or row 2 if Pacific midnight passed between seeding and now
+  const f0 = await fd(), t0 = f0.rows[6].funnel?.tiktok, s3 = [3, 2].map((i) => f0.rows[i].funnel?.tiktok).find((t) => t && t.played >= 1) || f0.rows[3].funnel?.tiktok;
+  ok(t0 && ["landed", "played", "second_game", "back_7d", "still_open"].every((k) => typeof t0[k] === "number") && f0.funnel?.tiktok && Array.isArray(f0.funnel.tiktok_landing_pages),
+    "funnel: every digest day has a tiktok funnel (landed, played, 2nd game, back in 7 days)", t0);
+  ok(s3 && s3.landed >= 1 && s3.played >= 1 && s3.second_game >= 1 && s3.back_7d >= 1, "funnel: the seeded TikTok person 3 days ago landed, played 2 games and came back", s3);
+  const tp = "ttcheck-" + rid(), g1 = rid(), g2 = rid();
+  await post("/api/hit", { kind: "pageview", path: "/games/desktop-takeover/", ref: "tiktok", campaign: "bio", src: null, medium: "short", land: 1, vis: "new", anon: tp });
+  await post("/api/hit", { kind: "pageview", path: "/games/", ref: "tiktok", anon: tp }); // a second page: not a new landing
+  await post("/api/events", { anon: tp, ref: "tiktok", campaign: "bio", events: [{ t: "start", id: g1, game: "desktop-takeover", v: "1" }] });
+  await post("/api/events", { anon: tp, ref: "tiktok", campaign: "bio", events: [{ t: "start", id: g2, game: "keyboard-escape", v: "1" }] });
+  const f1 = await fd(), t1 = f1.rows[6].funnel.tiktok;
+  ok(t1.landed === t0.landed + 1 && t1.played === t0.played + 1 && t1.second_game === t0.second_game + 1 && t1.still_open === t0.still_open + 1 && t1.back_7d === t0.back_7d,
+    "funnel: a test visit from a TikTok link shows up once at each step today", { before: t0, after: t1 });
+  ok(f1.funnel.tiktok_landing_pages.some((x) => x.path === "/games/desktop-takeover/"), "funnel: the TikTok landing page is listed", f1.funnel.tiktok_landing_pages);
+  await post("/api/events", { anon: tp, ref: "direct", events: [{ t: "start", id: rid(), game: "fathom", v: "1" }] });
+  const t2 = (await fd()).rows[6].funnel.tiktok;
+  ok(t2.played === t1.played && t2.second_game === t1.second_game, "funnel: a later play by the same person isn't a second arrival", t2);
+} else console.log("skip  tiktok funnel checks (local, with the admin token and CI's seed: SMOKE_FUNNEL=1)");
 
 // email signup (K-0031): local only, so no smoke address ever lands in the live list
 if (local) {

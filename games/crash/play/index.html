@@ -54,6 +54,20 @@
   .credit b { color: var(--lime); }
   .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 120; translate: -50% 0; padding: 10px 16px; border-radius: 10px; background: var(--lime); color: var(--carbon); font-family: var(--mono); font-weight: 800; font-size: 0.85rem; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; max-width: calc(100% - 32px); text-align: center; }
   .toast.show { opacity: 1; }
+  /* v2.4: career rank + progress to the next promotion */
+  .career { margin: 10px auto 0; max-width: 290px; text-align: left; }
+  .career:empty { display: none; }
+  .cr-line { margin: 0; font-family: var(--mono); font-weight: 800; font-size: 0.78rem; color: var(--paper); }
+  .cr-bar { height: 8px; margin: 4px 0 0; border-radius: 4px; background: #24262d; overflow: hidden; }
+  .cr-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--lilac), var(--lime)); }
+  .cr-next { margin: 4px 0 0; font-size: 0.72rem; line-height: 1.25; color: var(--paper-dim); }
+  .cr-ladder { margin: 4px 0 0; font-family: var(--mono); font-weight: 800; font-size: 0.64rem; line-height: 1.4; color: #5d5f68; }
+  .cr-ladder span { margin-right: 2px; white-space: nowrap; display: inline-block; }
+  .cr-ladder .on { color: var(--lime); }
+  .go-promo { margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--lime); color: var(--carbon); font-family: var(--mono); font-weight: 800; font-size: 0.8rem; animation: promo-in 0.5s cubic-bezier(.2, 1.6, .4, 1) 0.2s both; }
+  .go-promo[hidden] { display: none; }
+  @keyframes promo-in { from { transform: scale(0.6) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  #ov-over .go-share { display: none; } /* the share button sends it; the box only cost height in short frames */
   @media (max-height: 520px) { .ov-card { padding: 14px 16px; } .ov-title { font-size: 2.6rem; } .go-time { font-size: 3.2rem; } .ov-btn { min-height: 44px; margin-top: 10px; } }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
@@ -72,6 +86,7 @@
       <p class="ov-controls"><span class="only-touch">drag anywhere to move</span><span class="only-keys"><kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> · <kbd>P</kbd> pause · <kbd>M</kbd> mute</span></p>
       <button class="ov-btn" id="btn-start" type="button">boot up ▶</button>
       <p class="ov-best" id="title-best"></p>
+      <div class="career" id="title-career"></div>
       <p class="credit">computer cooked <b>games</b></p>
     </div>
   </div>
@@ -92,6 +107,8 @@
       <p class="go-meta"><span>score <b id="go-score">0</b></span><span id="go-best"></span></p>
       <p class="go-stats" id="go-stats"></p>
       <p class="go-next" id="go-next"></p>
+      <p class="go-promo" id="go-promo" hidden></p>
+      <div class="career" id="go-career"></div>
       <p class="go-rank" id="go-rank" hidden></p>
       <p class="go-share" id="go-share-text">i lasted 0s before getting cooked. computercooked.com/games</p>
       <div class="ov-actions">

@@ -14,6 +14,9 @@
       var u = new URL(location.href), q = u.searchParams;
       var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
       var tag = v && v !== "app" ? TAGS[v] || "other" : null;
+      // TikTok's in-app browser (where a bio, comment or DM link opens) usually sends no referrer, so an untagged link
+      // from TikTok looked "direct". Its user agent names the app (musical_ly / BytedanceWebview / trill_ / TikTok).
+      var ttApp = /musical_ly|bytedancewebview|trill_\d|tiktok/i.test(navigator.userAgent || "");
       if (!sessionStorage.getItem("cc-ref")) {
         var from = null;
         if (!tag && document.referrer) {
@@ -24,6 +27,7 @@
               : /google|bing|duckduckgo|yahoo|ecosia|brave/.test(h) ? "search" : "other";
           }
         }
+        if (!tag && !from && ttApp) from = "tiktok";
         if (tag || from) sessionStorage.setItem("cc-ref", tag || from);
       }
       // the campaign of the first tagged link this visit (utm_campaign), sent with page views, plays and tips
@@ -38,7 +42,7 @@
       // "came from @computercooked? start here" strip for the rest of this visit (the welcome strip below)
       var rh = "";
       try { rh = document.referrer ? new URL(document.referrer).hostname : ""; } catch (err) {}
-      if (tag === "tiktok" || /(^|\.)tiktok\.com$/.test(rh) || ((tag === "short" || um === "short") && camp === "bio")) sessionStorage.setItem("cc-tt", "1");
+      if (tag === "tiktok" || (!tag && ttApp) || /(^|\.)tiktok\.com$/.test(rh) || ((tag === "short" || um === "short") && camp === "bio")) sessionStorage.setItem("cc-tt", "1");
       // team test mode: ?cctest=1 gives this browser a "smoke-" anonymous id, which every count already leaves out
       // (page views, plays, feedback, scores). ?cctest=0 drops it so the next game makes a normal id. ?cctest=1 stays in
       // the address (K-0057: it vanished on arrival, so test runs looked counted); ?cctest=0 comes off.
@@ -100,6 +104,12 @@
           fetch("/api/follow", { method: "POST", keepalive: true, headers: { "content-type": "application/json" },
             body: JSON.stringify({ platform: a.dataset.follow, slot: a.dataset.slot, game: gm ? gm[1] : null, anon: localStorage.getItem("cc-anon") }) }).catch(function () {});
         } catch (err) {}
+      });
+      // round 26: a link out to TikTok on /show/ (a[data-tt-out]: the follow buttons and each episode) counts one
+      // tiktok_out {slot, ep}, read as tiktok_out in /api/admin/digest
+      document.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[data-tt-out]");
+        if (a) hit("tiktok_out", { slot: a.dataset.slot || "other", ep: a.dataset.ep || null });
       });
       // time on page: visible time only, sent once when the tab is hidden or closed
       var shown = document.visibilityState === "visible" ? Date.now() : 0, seen = 0, left = false;

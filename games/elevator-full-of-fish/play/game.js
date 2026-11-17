@@ -45,6 +45,18 @@
     ".KK22222222222KKK.K1K",
     "...KKKKKKKKKKK.....K",
   ];
+  // r5: the pufferfish had the same body as the golden fish in nearly the same yellow; now it has spikes and spots
+  const PUFF = [
+    "...K..K..K......",
+    "....KKKKKK....K.",
+    "..KK1K11K1KK.K1K",
+    ".K1w11111111K11K",
+    "K1ee11K11K1111K.",
+    "K11111222222K11K",
+    ".K12K2222K2K.K1K",
+    "..KK222222KK..K.",
+    "...K.KKKKK.K....",
+  ];
   function build(rows, a, b) {
     const h = rows.length, w = Math.max(...rows.map((r) => r.length));
     const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -63,9 +75,21 @@
     trout: { spr: build(BODY, PAL.T, PAL.t), w: 2, pts: 1, size: 1, taps: 1 },
     salmon: { spr: build(BODY, PAL.P, PAL.p), w: 3, pts: 2, size: 1.2, taps: 1 },
     golden: { spr: build(BODY, PAL.G, PAL.g), w: 1, pts: 5, size: 0.9, taps: 1 },
-    puffer: { spr: build(BODY, PAL.U, PAL.u), w: 2, pts: 2, size: 0.95, taps: 1 },
+    puffer: { spr: build(PUFF, "#e3a35a", "#a8703a"), w: 2, pts: 2, size: 0.95, taps: 1 },
     shark: { spr: build(SHARK, PAL.X, PAL.x), w: 6, pts: 6, size: 1.9, taps: 3 },
+    // r5: rare fish for the collection, only on the deep floors
+    clown: { spr: build(BODY, "#ff8a3d", "#f4f1e6"), w: 1, pts: 4, size: 0.85, taps: 1, name: "clownfish", from: 10 },
+    angler: { spr: build(BODY, "#6a4f9a", "#3a2b57"), w: 2, pts: 6, size: 1.05, taps: 1, name: "anglerfish", from: 14 },
+    ghost: { spr: build(BODY, "#d8f3ff", "#9cc7d8"), w: 1, pts: 10, size: 0.9, taps: 1, name: "ghost fish", from: 20 },
   };
+  // r5: dark silhouettes for fish not found yet (the collection row on the title)
+  for (const k of Object.keys(KINDS)) {
+    const sp = KINDS[k].spr, c = document.createElement("canvas"); c.width = sp.width; c.height = sp.height;
+    const g = c.getContext("2d"); g.drawImage(sp, 0, 0); g.globalCompositeOperation = "source-in"; g.fillStyle = "#3a3d44"; g.fillRect(0, 0, c.width, c.height);
+    KINDS[k].sil = c;
+  }
+  const DEX = ["sardine", "trout", "salmon", "golden", "puffer", "shark", "clown", "angler", "ghost"];
+  const kindName = (k) => KINDS[k].name || (k === "golden" ? "golden fish" : k === "puffer" ? "pufferfish" : k);
   // the floor display's face (the brand computer's screen), 16x10
   const FACES = {
     sad: ["................", ".##..........##.", "...##......##...", "................", "..###......###..", "..###......###..", "................", ".....######.....", "....#......#....", "................"],
@@ -73,7 +97,7 @@
     shock: ["................", "..###......###..", ".#...#....#...#.", ".#...#....#...#.", "..###......###..", "................", "......####......", ".....#....#.....", "......####......", "................"],
     cooked: ["................", "..#...#..#...#..", "...#.#....#.#...", "....#......#....", "...#.#....#.#...", "..#...#..#...#..", "................", "..#.#.#.#.#.#.#.", ".#.#.#.#.#.#.#..", "................"],
   };
-  const FLOORS = ["lobby", "accounting", "the aquarium", "sushi bar", "dentist", "a pond, somehow", "fish market", "hr (fish)", "the roof", "the ocean", "more ocean", "fish heaven", "the sun", "floor ∞"];
+  const FLOORS = ["lobby", "accounting", "the aquarium", "sushi bar", "dentist", "a pond, somehow", "fish market", "hr (fish)", "the roof", "the ocean", "more ocean", "fish heaven", "the sun", "space", "the moon", "a fish planet", "the fish council", "the void", "the void (wet)", "the fish dimension", "floor ∞"];
   const LINES = {
     hello: ["going up. with fish.", "please fling responsibly."],
     open: ["ding.", "doors opening. brace.", "more fish. great.", "this floor smells."],
@@ -161,13 +185,82 @@
   const weight = () => fish.reduce((s, f) => s + (f.out ? 0 : KINDS[f.kind].w * (f.puffT > 0 ? 2 : 1)), 0);
   const openTime = () => Math.max(1.7, 3.3 - floor * 0.11);
 
+  // ---------- r5: the career between rides: medals, a daily order, the fish collection, cars to unlock ----------
+  // Saved under "eff-career" (the old eff-best / eff-best-floor keys stay as they were). Medals are paced so a first
+  // session earns about four or five; the rest need more days (lifetime fish, days ridden, daily orders, deep floors).
+  const MEDALS = [
+    { id: "f5", name: "going up", desc: "reach floor 5", ok: (r) => r.floor >= 5 },
+    { id: "f9", name: "made it", desc: "reach floor 9", ok: (r) => r.floor >= 9 },
+    { id: "shark", name: "shark tamer", desc: "fling a shark", ok: (r) => r.sharks >= 1 },
+    { id: "clean", name: "clean freak", desc: "6 empty cars in one ride", ok: (r) => r.clean >= 6 },
+    { id: "fish100", name: "fish mover", desc: "fling 100 fish (all rides)", ok: (r, c) => c.fish >= 100 },
+    { id: "order", name: "on the clock", desc: "finish a daily order", ok: (r, c) => c.orders >= 1 },
+    { id: "f15", name: "moon shot", desc: "reach floor 15", ok: (r) => r.floor >= 15 },
+    { id: "days3", name: "regular", desc: "ride on 3 different days", ok: (r, c) => c.days >= 3 },
+    { id: "s500", name: "big ride", desc: "score 500 in one ride", ok: (r) => r.score >= 500 },
+    { id: "orders5", name: "employee of the month", desc: "finish 5 daily orders", ok: (r, c) => c.orders >= 5 },
+    { id: "fish1000", name: "fish logistics", desc: "fling 1000 fish (all rides)", ok: (r, c) => c.fish >= 1000 },
+    { id: "dex", name: "collector", desc: "fling all 9 kinds of fish", ok: (r, c) => DEX.every((k) => c.kinds[k]) },
+  ];
+  // one order a day, the same for everyone on that date
+  const ORDERS = [
+    { d: "fling 6 golden fish in one ride", ok: (r) => r.golden >= 6, p: (r) => r.golden + "/6 golden" },
+    { d: "5 empty cars in one ride", ok: (r) => r.clean >= 5, p: (r) => r.clean + "/5 empty" },
+    { d: "reach floor 11", ok: (r) => r.floor >= 11, p: (r) => "floor " + r.floor + "/11" },
+    { d: "fling 2 sharks in one ride", ok: (r) => r.sharks >= 2, p: (r) => r.sharks + "/2 sharks" },
+    { d: "reach floor 8 with no overload", ok: (r) => r.overloads === 0 && r.floor >= 8, p: (r) => r.overloads ? "overloaded" : "floor " + r.floor + "/8 calm" },
+    { d: "fling 60 fish in one ride", ok: (r) => r.flung >= 60, p: (r) => r.flung + "/60 fish" },
+    { d: "score 300 in one ride", ok: (r) => r.score >= 300, p: (r) => r.score + "/300" },
+  ];
+  // cars: a new look for the car every 3 medals
+  const SKINS = [
+    { id: "office", name: "office lift", at: 0, steel: STEEL, steel2: STEEL2, back: STEEL3, carpet: CARPET, carpet2: CARPET2, rail: BRASS },
+    { id: "hotel", name: "hotel lift", at: 3, steel: "#5a3a26", steel2: "#45291a", back: "#6b4630", carpet: "#8c1f2c", carpet2: "#6e1520", rail: "#e0b84a", pat: "panel" },
+    { id: "aquarium", name: "aquarium lift", at: 6, steel: "#1f4a63", steel2: "#163a4f", back: "#2b6c8c", carpet: "#c9b27a", carpet2: "#b09a62", rail: "#9fe3ff", pat: "bubbles" },
+    { id: "gold", name: "golden lift", at: 9, steel: "#8a6a1c", steel2: "#6e5414", back: "#b08a2a", carpet: "#1d1d1d", carpet2: "#2c2c2c", rail: "#fff1a8", pat: "stars" },
+  ];
+  const dayKey = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+  const dayNum = () => { const d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5); };
+  const order = () => ORDERS[dayNum() % ORDERS.length];
+  let car = { v: 1, rides: 0, fish: 0, kinds: {}, medals: [], days: 0, lastDay: "", orders: 0, orderDay: "", skin: "" };
+  try { const o = JSON.parse(localStorage.getItem("eff-career")); if (o && typeof o === "object") car = Object.assign(car, o, { kinds: Object.assign({}, o.kinds), medals: Array.isArray(o.medals) ? o.medals.slice() : [] }); } catch (e) {}
+  // players from before 1.6: what the old saves already prove counts
+  if (!car.rides && (bestFloor > 0 || best > 0)) {
+    if (bestFloor >= 5 && !car.medals.includes("f5")) car.medals.push("f5");
+    if (bestFloor >= 9 && !car.medals.includes("f9")) car.medals.push("f9");
+    if (bestFloor >= 15 && !car.medals.includes("f15")) car.medals.push("f15");
+    if (best >= 500 && !car.medals.includes("s500")) car.medals.push("s500");
+  }
+  function saveCareer() { try { localStorage.setItem("eff-career", JSON.stringify(car)); } catch (e) {} }
+  const unlocked = () => SKINS.filter((k) => car.medals.length >= k.at);
+  const skin = () => { const u = unlocked(); return u.find((k) => k.id === car.skin) || u[u.length - 1]; };
+  const nextSkin = () => SKINS.find((k) => car.medals.length < k.at);
+  const nextMedal = () => MEDALS.find((m) => !car.medals.includes(m.id));
+  let rs = { sharks: 0, golden: 0 }, rideMedals = [], rideOrder = false, rideSkin = null, rideFish = [], recordShown = false, banners = [];
+  const rideStats = () => ({ floor, score, clean: cleanFloors, sharks: rs.sharks, golden: rs.golden, flung, overloads });
+  function banner(s, col) { if (banners.length < 6) banners.push({ s, col, t: 0 }); }
+  // checked live (after every fling and floor), so a medal or the order lands mid-ride as a banner
+  function checkCareer() {
+    const r = rideStats(), before = car.medals.length;
+    if (car.orderDay !== dayKey() && order().ok(r)) { car.orders++; car.orderDay = dayKey(); rideOrder = true; banner("DAILY ORDER DONE ✓", "#f6d84a"); }
+    for (const m of MEDALS) if (!car.medals.includes(m.id) && m.ok(r, car)) { car.medals.push(m.id); rideMedals.push(m); banner("MEDAL: " + m.name, LIME2); }
+    if (car.medals.length !== before) {
+      const nk = SKINS.find((k) => k.at > before && k.at <= car.medals.length);
+      if (nk) { car.skin = nk.id; rideSkin = nk; banner("NEW CAR: " + nk.name, "#9fe3ff"); }
+      saveCareer();
+    }
+  }
+
   function spawnFish() {
     const n = Math.min(9, 2 + Math.floor(floor / 1.6) + (Math.random() < 0.4 ? 1 : 0) - (floor <= 3 ? 1 : 0)); // floors 1-3: one fish fewer (K-0066)
     let sharks = fish.filter((f) => f.kind === "shark" && !f.out).length;
     for (let i = 0; i < n; i++) {
       let kind = "trout";
-      const r = Math.random();
-      if (floor >= 6 && r < 0.12 && sharks < 2) { kind = "shark"; sharks++; }
+      const r = Math.random(), r2 = Math.random();
+      if (floor >= 20 && r2 < 0.05) kind = "ghost";
+      else if (floor >= 14 && r2 < 0.09) kind = "angler";
+      else if (floor >= 10 && r2 < 0.12) kind = "clown";
+      else if (floor >= 6 && r < 0.12 && sharks < 2) { kind = "shark"; sharks++; }
       else if (r < 0.2) kind = "golden";
       else if (floor >= 3 && r < 0.38) kind = "puffer";
       else if (r < 0.6) kind = "sardine";
@@ -183,7 +276,10 @@
 
   function start() {
     state = "play"; t = 0; floor = 1; score = 0; flung = 0; fish = []; fx = []; overloads = 0; reachedGoal = false; travel = 0; paused = false; cleanFloors = 0;
-    phase = "open"; phaseT = 0; overT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
+    lastKey = -9; phase = "open"; phaseT = 0; overT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
+    rs = { sharks: 0, golden: 0 }; rideMedals = []; rideOrder = false; rideSkin = null; rideFish = []; recordShown = false; banners = [];
+    if (car.lastDay !== dayKey()) { car.days++; car.lastDay = dayKey(); }
+    car.rides++; saveCareer();
     startAt = performance.now(); say("hello", true); react("happy", 0.6); sfx.ding();
     sdk((c) => c.start && c.start());
     spawnFish();
@@ -196,11 +292,12 @@
     prevBestFloor = bestFloor;
     if (floor > bestFloor) { bestFloor = floor; try { localStorage.setItem("eff-best-floor", String(bestFloor)); } catch (e) {} }
     say("end", true); react(failWhy === "over" ? "shock" : "cooked", 99); sfx.end();
+    checkCareer(); saveCareer(); banners = [];
     fish = fish.filter((f) => f.delay <= 0 && !f.out);
     shake = reduce ? 0 : 0.5;
     const dur = Math.round(failAt - startAt);
     sdk((c) => c.score && c.score(score));
-    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: reachedGoal }));
+    sdk((c) => c.end && c.end({ score, durationMs: dur, completed: true })); // r5: every real ending is a finished ride (time, overload, goal); only cc-restart / leaving mid-ride is a quit
   }
   function showCard() {
     state = "over"; endAt = performance.now(); react("cooked", 99);
@@ -287,6 +384,10 @@
     if (f.hits < k.taps) { f.vy = -H * 0.14; f.vx *= 0.3; /* a small hop: the shark stays under the finger */ sfx.slap(); splash(f.x, f.y, PAPER, 5);fx.push({ type: "text", x: f.x, y: f.y - 30, s: (k.taps - f.hits) + " more", col: PAPER, life: 0.5, max: 0.5 }); return; }
     f.out = true; f.outT = 0; f.ox = f.x; f.oy = f.y;
     flung++; score += k.pts; sfx.fling();
+    car.fish++; if (f.kind === "shark") rs.sharks++; if (f.kind === "golden") rs.golden++;
+    if (!car.kinds[f.kind]) { if (car.rides > 1 || DEX.indexOf(f.kind) > 5) { rideFish.push(f.kind); banner("NEW FISH: " + kindName(f.kind), "#ffb340"); } }
+    car.kinds[f.kind] = (car.kinds[f.kind] || 0) + 1;
+    checkCareer();
     fx.push({ type: "text", x: f.x, y: f.y - 30, s: "+" + k.pts, col: f.kind === "golden" ? "#f6d84a" : LIME2, life: 0.6, max: 0.6 });
     splash(f.x, f.y, f.kind === "golden" ? "#f6d84a" : f.kind === "shark" ? PAPER : "#8fd3ff", f.kind === "shark" ? 18 : 9);
     if (!reduce) fx.push({ type: "ring", x: f.x, y: f.y, col: f.kind === "golden" ? "#f6d84a" : LIME2, life: 0.3, max: 0.3 });
@@ -296,6 +397,9 @@
   function press(px, py) {
     if (paused) { setPause(false); return; }
     if (state === "fail") return; // the crash is playing; the card comes next
+    if (state === "title" && skinBtn && px >= skinBtn.x - 6 && px <= skinBtn.x + skinBtn.w + 6 && py >= skinBtn.y - 8 && py <= skinBtn.y + skinBtn.h + 8) {
+      const u = unlocked(), i = u.indexOf(skin()); car.skin = u[(i + 1) % u.length].id; saveCareer(); sfx.slap(); draw(performance.now() / 1000); return;
+    }
     if (state !== "play") { if (state === "over" && performance.now() - endAt < 700) return; start(); return; }
     const f = fishAt(px, py);
     if (f) tapFish(f);
@@ -307,6 +411,7 @@
     const px = r.width ? (e.clientX - r.left) * W / r.width : e.clientX, py = r.height ? (e.clientY - r.top) * H / r.height : e.clientY;
     press(px, py);
   });
+  let lastKey = -9; const KEYGAP = 0.55;
   function onKey(e) {
     if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     if (e.key === "m" || e.key === "M") { toggleMute(); return; }
@@ -315,7 +420,8 @@
       if (state !== "play" || paused) { press(-1, -1); return; }
       let pickF = null, bd = Infinity;
       for (const f of fish) { if (f.out || f.delay > 0 || f.puffT > 0) continue; const d = Math.abs(f.x - W / 2) + Math.abs(f.y - L.backB); if (d < bd) { bd = d; pickF = f; } }
-      if (pickF) tapFish(pickF);
+      // 1.6.1: Space aims for you, so it is paced like a good thumb (one fling per KEYGAP s of ride time), not a 10/s mash
+      if (pickF && t - lastKey >= KEYGAP) { lastKey = t; tapFish(pickF); }
     }
   }
   window.addEventListener("keydown", onKey);
@@ -330,7 +436,7 @@
     else if (d.type === "cc-restart") { wake(); start(); }
     else if (d.type === "cc-pause") setPause(d.paused !== false);
   });
-  document.addEventListener("visibilitychange", () => { if (document.hidden) setPause(true); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { setPause(true); saveCareer(); } });
   try {
     const host = window.parent !== window && window.frameElement ? window.parent : null;
     if (host) host.document.addEventListener("keydown", (e) => {
@@ -368,14 +474,17 @@
     lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); flashT = Math.max(0, flashT - dt);
     for (const f of fx) { f.life -= dt; if (f.type === "spark") { f.vy += H * 2 * dt; f.x += f.vx * dt; f.y += f.vy * dt; } }
     fx = fx.filter((f) => f.life > 0);
+    if (banners.length) { banners[0].t += dt; if (banners[0].t > 1.8) banners.shift(); }
     if (state === "fail") { updateFail(dt); return; }
-    if (state !== "play") { updateFish(dt); door = Math.max(0, door - dt * 3); return; }
+    if (state !== "play") { updateFish(dt); if (state !== "ready") door = Math.max(0, door - dt * 3); return; }
     t += dt;
     if (t >= RIDE) { end(); return; }
     phaseT += dt;
     if (phase === "open") {
       door = Math.min(1, door + dt * 3);
-      if (phaseT >= openTime()) {
+      // r5: express: once every fish is out, the doors shut early (quick floors reward fast flinging; no dead wait on floor 1)
+      const express = door >= 1 && phaseT >= 0.45 && !fish.some((f) => !f.out);
+      if (phaseT >= openTime() || express) {
         if (weight() > CAP) { phase = "over"; phaseT = 0; overT = 0; overloads++; say("over", true); react("shock", 0.9); sfx.over(); shake = reduce ? 0 : 0.25; }
         else { phase = "close"; phaseT = 0; }
       }
@@ -395,9 +504,11 @@
       if (phaseT >= 0.8) {
         floor++; score += 10; phase = "open"; phaseT = 0; sfx.ding(); say("open"); react("happy", 0.5);
         fx.push({ type: "text", x: W / 2, y: L.backT + 24, s: "+10 floor " + floor, col: LIME2, life: 1.1, max: 1.1, size: 20 });
-        if (floor === GOAL && !reachedGoal) { reachedGoal = true; score += 50; sfx.goal(); say("goal", true); fx.push({ type: "text", x: W / 2, y: L.backT + L.carH * 0.25, s: "FLOOR 9! +50", col: LIME2, life: 1.8, max: 1.8, big: true }); }
+        if (floor === GOAL && !reachedGoal) { reachedGoal = true; score += 50; sfx.goal(); say("goal", true); fx.push({ type: "text", x: W / 2, y: L.backT + L.carH * 0.25, s: "FLOOR 9! +50", col: LIME2, life: 1.8, max: 1.8, big: true }); splash(W / 2, L.backT + L.carH * 0.25, LIME2, 22); splash(W / 2, L.backT + L.carH * 0.25, "#f6d84a", 18); shake = reduce ? 0 : 0.3; }
         spawnFish();
         sdkScore(score);
+        if (!recordShown && bestFloor >= 3 && floor > bestFloor) { recordShown = true; banner("NEW RECORD: FLOOR " + floor, LIME2); }
+        checkCareer();
       }
     }
     if (faceT <= 0) face = weight() > CAP ? "shock" : "sad";
@@ -450,7 +561,7 @@
   // the car's walls, rails, carpet and back wall never change for a given size: painted once, then blitted
   let carCache = null, carKey = "";
   function carShell() {
-    const key = W + "x" + H + "@" + DPR;
+    const sk = skin(), key = W + "x" + H + "@" + DPR + sk.id;
     if (carCache && carKey === key) return carCache;
     carKey = key; carCache = carCache || document.createElement("canvas");
     carCache.width = Math.max(1, Math.round(W * DPR)); carCache.height = Math.max(1, Math.round(H * DPR));
@@ -458,18 +569,31 @@
     g.setTransform(DPR, 0, 0, DPR, 0, 0);
     g.fillStyle = "#121315"; g.fillRect(0, 0, W, H);
     // walls in perspective
-    g.fillStyle = STEEL2; g.fillRect(0, L.top, W, H - L.top);
-    g.fillStyle = STEEL; g.beginPath(); g.moveTo(0, L.top); g.lineTo(L.backL, L.backT); g.lineTo(L.backL, L.backB); g.lineTo(0, H); g.fill();
+    g.fillStyle = sk.steel2; g.fillRect(0, L.top, W, H - L.top);
+    g.fillStyle = sk.steel; g.beginPath(); g.moveTo(0, L.top); g.lineTo(L.backL, L.backT); g.lineTo(L.backL, L.backB); g.lineTo(0, H); g.fill();
     g.beginPath(); g.moveTo(W, L.top); g.lineTo(L.backR, L.backT); g.lineTo(L.backR, L.backB); g.lineTo(W, H); g.fill();
     // handrails
-    g.fillStyle = BRASS;
+    g.fillStyle = sk.rail;
     g.beginPath(); g.moveTo(0, L.top + L.carH * 0.5); g.lineTo(L.backL, L.backT + (L.backB - L.backT) * 0.62); g.lineTo(L.backL, L.backT + (L.backB - L.backT) * 0.62 + 3); g.lineTo(0, L.top + L.carH * 0.5 + 6); g.fill();
     g.beginPath(); g.moveTo(W, L.top + L.carH * 0.5); g.lineTo(L.backR, L.backT + (L.backB - L.backT) * 0.62); g.lineTo(L.backR, L.backT + (L.backB - L.backT) * 0.62 + 3); g.lineTo(W, L.top + L.carH * 0.5 + 6); g.fill();
     // floor (carpet)
-    g.fillStyle = CARPET; g.beginPath(); g.moveTo(0, H); g.lineTo(L.backL, L.backB); g.lineTo(L.backR, L.backB); g.lineTo(W, H); g.fill();
-    g.fillStyle = CARPET2; for (let i = 1; i < 6; i++) { const y = L.backB + (H - L.backB) * (i / 6) ** 1.4; g.fillRect(0, y, W, 2); }
+    g.fillStyle = sk.carpet; g.beginPath(); g.moveTo(0, H); g.lineTo(L.backL, L.backB); g.lineTo(L.backR, L.backB); g.lineTo(W, H); g.fill();
+    g.fillStyle = sk.carpet2; for (let i = 1; i < 6; i++) { const y = L.backB + (H - L.backB) * (i / 6) ** 1.4; g.fillRect(0, y, W, 2); }
     // back wall
-    g.fillStyle = STEEL3; g.fillRect(L.backL, L.backT, L.backR - L.backL, L.backB - L.backT);
+    g.fillStyle = sk.back; g.fillRect(L.backL, L.backT, L.backR - L.backL, L.backB - L.backT);
+    // r5: each unlocked car has its own trim (round 2: "car art plain")
+    const bw = L.backR - L.backL, bh = L.backB - L.backT;
+    if (sk.pat === "panel") { // wood panels and a picture rail
+      g.fillStyle = "rgba(0,0,0,0.22)"; for (let x = L.backL + bw / 6; x < L.backR - 2; x += bw / 6) g.fillRect(Math.round(x), L.backT, 2, bh);
+      g.fillStyle = sk.rail; g.fillRect(L.backL, L.backT + bh * 0.12, bw, 2);
+    } else if (sk.pat === "bubbles") { // a fish tank wall
+      g.strokeStyle = "rgba(200,240,255,0.35)"; g.lineWidth = 2;
+      for (let i = 0; i < 14; i++) { const bx = L.backL + ((i * 37) % 100) / 100 * bw, by = L.backT + ((i * 61) % 100) / 100 * bh, r = 3 + (i % 4) * 2; g.beginPath(); g.arc(bx, by, r, 0, Math.PI * 2); g.stroke(); }
+      g.fillStyle = "rgba(120,200,120,0.35)"; for (let i = 0; i < 6; i++) { const wx = L.backL + bw * (0.08 + i * 0.17); g.fillRect(wx, L.backB - bh * (0.15 + (i % 3) * 0.08), 4, bh * (0.15 + (i % 3) * 0.08)); }
+    } else if (sk.pat === "stars") { // gold leaf and glints
+      g.fillStyle = "rgba(255,241,168,0.5)"; for (let i = 0; i < 12; i++) { const sx = L.backL + ((i * 43) % 100) / 100 * bw, sy = L.backT + ((i * 29) % 100) / 100 * bh; g.fillRect(sx - 1, sy - 4, 2, 8); g.fillRect(sx - 4, sy - 1, 8, 2); }
+      g.fillStyle = "rgba(0,0,0,0.18)"; g.fillRect(L.backL, L.backT, bw, 3); g.fillRect(L.backL, L.backB - 3, bw, 3);
+    }
     return carCache;
   }
   function drawCar(time) {
@@ -517,6 +641,8 @@
     // hud: score, clock, goal
     text(String(score), 14, 22, 22, CASE, "left", 800);
     text("goal: floor " + GOAL + (reachedGoal ? " ✓" : ""), 14, 46, 12, reachedGoal ? LIME2 : "#8a8e80", "left", 700);
+    // r5: today's order, live
+    if (state === "play" || state === "fail") { const od = car.orderDay === dayKey(), os = od ? "order done ✓" : "order: " + order().p(rideStats()); text(os, 14, 64, Math.min(11, (W * 0.3 - 14) / (os.length * 0.6)), od ? "#f6d84a" : "#8a8e80", "left", 700); }
     const left = Math.max(0, RIDE - t);
     // 1.4: the clock was small and grey under the mute button; bigger, and it pulses in the last 10 s
     const warnT = left < 10 && state === "play", tsz = warnT && !reduce ? 20 + 3 * Math.abs(Math.sin(time * 6)) : 20;
@@ -524,8 +650,10 @@
     text("left", W - 14, 84, 10, "#8a8e80", "right", 700);
     // speech line under the display
     if (lineT > 0 || state === "play") {
-      const isWarn = /[A-Z]{4}/.test(line);
-      text(line, W / 2, py + ph + 18, Math.max(11, Math.min(15, W / 30)), isWarn ? BAD : PAPER, "center", 700);
+      // r5: warn before the doors shut on a heavy car, instead of an old "going up."
+      const ln = state === "play" && phase === "open" && lineT <= 0 && weight() > CAP ? "TOO HEAVY. fling fish!" : line;
+      const isWarn = /[A-Z]{4}/.test(ln);
+      text(ln, W / 2, py + ph + 18, Math.max(11, Math.min(15, W / 30)), isWarn ? BAD : PAPER, "center", 700);
     }
     if (phase === "over" && state === "play") {
       const pulse = reduce ? 1 : 0.6 + 0.4 * Math.abs(Math.sin(time * 8));
@@ -566,6 +694,20 @@
       text(f.s, tx + 2, ty + 2, fs, INK, "center", 900); text(f.s, tx, ty, fs, f.col, "center", 900); }
     cx.globalAlpha = 1;
   }
+  // r5: medal / order / new fish / record banners, one at a time, over the top of the car (they read with the sound off)
+  function drawBanner() {
+    const b = banners[0]; if (!b || state !== "play") return;
+    const k = b.t, a = Math.min(1, k / 0.15, (1.8 - k) / 0.3), pop = reduce ? 1 : 1 + 0.25 * Math.max(0, 1 - k / 0.18);
+    const fs = Math.min(Math.max(16, Math.min(24, W / 17)), (W - 28) / (b.s.length * 0.6)), y = L.backT + L.carH * 0.2;
+    cx.save(); cx.globalAlpha = Math.max(0, a); cx.translate(W / 2, y); cx.scale(pop, pop);
+    cx.fillStyle = "rgba(8,9,7,0.88)"; cx.fillRect(-W / 2, -fs * 0.95, W, fs * 1.9);
+    cx.fillStyle = b.col; cx.fillRect(-W / 2, -fs * 0.95, W, 3); cx.fillRect(-W / 2, fs * 0.95 - 3, W, 3);
+    text(b.s, 0, 0, fs, b.col, "center", 900);
+    cx.restore(); cx.globalAlpha = 1;
+  }
+  // a text size that fits the width
+  const fit = (str, size, pad) => Math.min(size, (W - (pad || 24)) / Math.max(1, String(str).length * 0.6));
+  let skinBtn = null;
   // K-0059: shared tip button (assets/tip.js)
   // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
   // index.html) placed just under the "tap to ... again" line, shown only while that line is, hidden once a run starts.
@@ -587,27 +729,86 @@
   function overlay() {
     cx.fillStyle = "rgba(8, 9, 7, 0.82)"; cx.fillRect(0, 0, W, H);
     const big = Math.round(Math.max(26, Math.min(48, W / 10))), mid = H * 0.42;
+    if (state === "ready") return;
+    skinBtn = null;
+    const sm = Math.max(12, Math.min(15, W / 30)), compact = H < 600, tiny = H < 480;
+    const rows = []; // [height, draw(centre y)]
+    const R = (h, fn) => rows.push([h, fn]);
+    const layoutRows = (top) => { const tot = rows.reduce((a, r) => a + r[0], 0); let y = top == null ? Math.max(6, (H - tot) / 2) : top; for (const r of rows) { r[1](y + r[0] / 2); y += r[0]; } return y; };
     if (state === "title") {
-      text("elevator", W / 2, mid - big * 2.4, big, CASE, "center", 900);
-      text("full of fish", W / 2, mid - big * 1.4, big, LIME, "center", 900);
-      text("get to floor 9. the elevator is full of fish.", W / 2, mid - big * 0.4, Math.max(12, Math.min(16, W / 30)), "#c9c4a8", "center", 700);
-      const s = Math.min(70, W * 0.16); cx.imageSmoothingEnabled = false;
-      cx.drawImage(KINDS.trout.spr, W / 2 - s * 1.6, mid + 4, s, s * 9 / 16); cx.drawImage(KINDS.golden.spr, W / 2 - s * 0.5, mid - 6, s, s * 9 / 16); cx.drawImage(KINDS.salmon.spr, W / 2 + s * 0.6, mid + 6, s, s * 9 / 16);
-      text("tap fish to fling them out the open doors.", W / 2, mid + s * 0.9 + 10, Math.max(12, Math.min(15, W / 30)), LIME2, "center", 800);
-      text("over " + CAP + " kg of fish and the car won't move.", W / 2, mid + s * 0.9 + 34, Math.max(11, Math.min(14, W / 32)), "#ffb340", "center", 700);
-      text("tap to press the button", W / 2, Math.min(H - 40, mid + s * 0.9 + 84), 18, LIME, "center", 900);
-      if (best > 0) text("your best: " + best + "  ·  floor " + bestFloor, W / 2, Math.min(H - 16, mid + s * 0.9 + 110), 13, "#c9c4a8", "center", 700);
+      const s = Math.min(70, W * 0.16);
+      R(big * 1.05, (y) => text("elevator", W / 2, y, big, CASE, "center", 900));
+      R(big * 1.1, (y) => text("full of fish", W / 2, y, big, LIME, "center", 900));
+      R(sm + 8, (y) => text("get to floor 9. the elevator is full of fish.", W / 2, y, fit("get to floor 9. the elevator is full of fish.", sm), "#c9c4a8", "center", 700));
+      if (!compact) R(s * 0.62 + 12, (y) => { cx.imageSmoothingEnabled = false; const h = s * 9 / 16; cx.drawImage(KINDS.trout.spr, W / 2 - s * 1.6, y - h / 2 + 4, s, h); cx.drawImage(KINDS.golden.spr, W / 2 - s * 0.5, y - h / 2 - 6, s, h); cx.drawImage(KINDS.salmon.spr, W / 2 + s * 0.6, y - h / 2 + 6, s, h); });
+      R(sm + 7, (y) => text("tap fish to fling them out the open doors.", W / 2, y, fit("tap fish to fling them out the open doors.", sm), LIME2, "center", 800));
+      R(sm + 7, (y) => text("over " + CAP + " kg of fish and the car won't move.", W / 2, y, fit("over 10 kg of fish and the car won't move.", sm - 1), "#ffb340", "center", 700));
+      R(tiny ? 30 : 40, (y) => text("tap to press the button", W / 2, y, 18, LIME, "center", 900));
+      if (best > 0) R(18, (y) => text("your best: " + best + "  ·  floor " + bestFloor, W / 2, y, 13, "#c9c4a8", "center", 700));
+      // r5: the career card: today's order, the next medal, the fish found, the car
+      const od = car.orderDay === dayKey(), os = "today's order: " + order().d + (od ? " ✓" : "");
+      const nm = nextMedal(), ms = "medals " + car.medals.length + "/" + MEDALS.length + (nm ? "  ·  next: " + nm.desc : "  ·  all done");
+      const found = DEX.filter((k) => car.kinds[k]).length, rw = Math.min(W - 40, 430), d = Math.min(36, rw / DEX.length * 0.86);
+      R(tiny ? 6 : 12, () => {});
+      R(sm + 6, (y) => text(os, W / 2, y, fit(os, 13), od ? LIME2 : "#f6d84a", "center", 800));
+      R(sm + 6, (y) => text(ms, W / 2, y, fit(ms, 13), "#c9c4a8", "center", 700));
+      R(d * 9 / 16 + 12, (y) => {
+        cx.imageSmoothingEnabled = false; const gap = rw / DEX.length, x0 = (W - rw) / 2;
+        DEX.forEach((k, i) => { const sp = car.kinds[k] ? KINDS[k].spr : KINDS[k].sil, w = d * (k === "shark" ? 1.15 : 1), h = w * sp.height / sp.width; cx.drawImage(sp, x0 + gap * (i + 0.5) - w / 2, y - h / 2, w, h); });
+      });
+      if (!tiny) R(14, (y) => text("fish found " + found + "/" + DEX.length, W / 2, y, 11, "#8a8e80", "center", 700));
+      const u = unlocked(), sk = skin(), nx = nextSkin();
+      R(30, (y) => {
+        if (u.length > 1) {
+          const str = "car: " + sk.name + "  →", fs = 13, w = str.length * 0.6 * fs + 22, h = 24;
+          skinBtn = { x: W / 2 - w / 2, y: y - h / 2, w, h };
+          cx.fillStyle = "#1c1e18"; cx.fillRect(skinBtn.x, skinBtn.y, w, h); cx.fillStyle = sk.rail; cx.fillRect(skinBtn.x, skinBtn.y + h - 2, w, 2);
+          text(str, W / 2, y, fs, PAPER, "center", 800);
+        } else if (nx) text("new car at " + nx.at + " medals", W / 2, y, 12, "#8a8e80", "center", 700);
+      });
+      layoutRows();
     } else {
-      text(reachedGoal ? "you made it" : failWhy === "over" ? "overloaded" : "out of time", W / 2, mid - big * 1.6, big, reachedGoal ? LIME : BAD, "center", 900);
-      const rec = floor > prevBestFloor && prevBestFloor > 0;
-      text("floor " + floor + (rec ? " · record" : ""), W / 2, mid - big * 0.7, Math.round(big * 0.7), rec ? LIME2 : PAPER, "center", 800);
-      text(String(score), W / 2, mid + big * 0.35, Math.round(big * 1.3), CASE, "center", 900);
-      text("best " + best + "  ·  " + flung + " fish flung  ·  " + cleanFloors + " empty cars", W / 2, mid + big * 1.25, 14, "#c9c4a8", "center", 700);
+      // r5: the ride report: a card worth a screenshot, with what this ride earned and the next goal
+      const rec = floor > prevBestFloor && prevBestFloor > 0, cw = Math.min(W - 16, 460), fitc = (str, size) => Math.min(size, (cw - 24) / Math.max(1, String(str).length * 0.6));
+      const head = reachedGoal ? "you made it" : failWhy === "over" ? "overloaded" : "out of time";
+      R(14, (y) => text("ride report", W / 2, y, 11, "#8a8e80", "center", 700));
+      R(big * 1.1, (y) => text(head, W / 2, y, big, reachedGoal ? LIME : BAD, "center", 900));
+      const fl = "floor " + floor + "  " + FLOORS[Math.min(FLOORS.length - 1, floor - 1)] + (rec ? "  · record" : "");
+      R(big * 0.62 + 6, (y) => text(fl, W / 2, y, fitc(fl, Math.round(big * 0.55)), rec ? LIME2 : PAPER, "center", 800));
+      R(big * 1.35, (y) => text(String(score), W / 2, y, Math.round(big * 1.3), CASE, "center", 900));
+      const st = "best " + best + "  ·  " + flung + " fish flung  ·  " + cleanFloors + " empty cars";
+      R(20, (y) => text(st, W / 2, y, fitc(st, 14), "#c9c4a8", "center", 700));
       const nudge = score > prevBest ? (prevBest > 0 ? "new best. you beat it by " + (score - prevBest) + "." : "first ride logged. now beat it.")
         : score === prevBest ? "tied your best. one more floor next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
-      text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : "#ffb340", "center", 800);
-      if (performance.now() - endAt > 700) { text("tap to ride again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
+      R(22, (y) => text(nudge, W / 2, y, fitc(nudge, 15), score > prevBest ? LIME2 : "#ffb340", "center", 800));
+      const ex = [];
+      for (const m of rideMedals) ex.push(["medal: " + m.name + " ✓", LIME2]);
+      if (rideOrder) ex.push(["daily order done ✓  (" + car.orders + " so far)", "#f6d84a"]);
+      if (rideSkin) ex.push(["new car: " + rideSkin.name, "#9fe3ff"]);
+      if (rideFish.length) ex.push(["new fish: " + rideFish.map(kindName).join(", "), "#ffb340"]);
+      const cap = tiny ? 2 : compact ? 3 : 5;
+      if (ex.length > cap) { const more = ex.length - cap + 1; ex.length = cap - 1; ex.push(["+" + more + " more on the title screen", "#c9c4a8"]); }
+      if (ex.length) R(6, () => {});
+      for (const [str, col] of ex) R(19, (y) => text(str, W / 2, y, fitc(str, 14), col, "center", 800));
+      const nm = nextMedal(), nx = nm ? "next medal: " + nm.desc + "  (" + car.medals.length + "/" + MEDALS.length + ")" : "every medal won. the fish salute you.";
+      R(20, (y) => text(nx, W / 2, y, fitc(nx, 13), "#8a8e80", "center", 700));
+      const ready = performance.now() - endAt > 700;
+      R(34, (y) => { if (ready) { text("tap to ride again", W / 2, y + 2, 18, LIME, "center", 900); tipY = y + 22; } });
+      R(46, () => {}); // room for the tip button under the card
+      // the card behind the rows
+      const tot = rows.reduce((a, r) => a + r[0], 0), top = Math.max(6, (H - tot) / 2), bottom = top + tot - 46;
+      cx.fillStyle = "rgba(14,15,17,0.92)"; cx.fillRect(W / 2 - cw / 2, top - 6, cw, bottom - top + 8);
+      cx.fillStyle = reachedGoal ? LIME : BAD; cx.fillRect(W / 2 - cw / 2, top - 6, cw, 3);
+      cx.fillStyle = "#2a2c26"; cx.fillRect(W / 2 - cw / 2, bottom - 1, cw, 2);
+      layoutRows(top);
     }
+  }
+  // r5: sent by the hub's "tap to play" card (cc.autostart): no title, the car is waiting; the clock starts on the first touch or key
+  function drawReady(time) {
+    const y = L.backT + (L.backB - L.backT) * 0.55, s = Math.max(20, Math.min(34, W / 13)), pulse = reduce ? 1 : 0.75 + 0.25 * Math.abs(Math.sin(time * 4));
+    cx.fillStyle = "rgba(8, 9, 7, 0.86)"; cx.fillRect(0, y - s * 1.3, W, s * 3.4);
+    cx.globalAlpha = pulse; text("tap to go up", W / 2, y, s, LIME, "center", 900); cx.globalAlpha = 1;
+    text("fling fish out the doors. get to floor " + GOAL + ".", W / 2, y + s * 1.2, Math.max(12, Math.min(15, W / 30)), PAPER, "center", 700);
   }
   // the empty shaft the car falls down
   function drawShaft() {
@@ -662,6 +863,7 @@
     if (snapped) drawCables(time, "sky");
     if (flying) drawFish();
     drawFx();
+    drawBanner();
     cx.restore();
     if (state === "fail") {
       if (failT < SNAP && !reduce) { cx.fillStyle = "rgba(255,77,94," + (0.1 + 0.1 * Math.sin(time * 40)).toFixed(3) + ")"; cx.fillRect(0, 0, W, H); }
@@ -669,7 +871,8 @@
       drawStamp();
     }
     tipY = -1;
-    if (state !== "play" && state !== "fail") overlay();
+    if (state === "ready") drawReady(time);
+    else if (state !== "play" && state !== "fail") overlay();
     if (paused && state === "play") {
       cx.fillStyle = "rgba(8, 9, 7, 0.78)"; cx.fillRect(0, 0, W, H);
       text("paused", W / 2, H * 0.42, Math.max(26, Math.min(44, W / 10)), CASE, "center", 900);
@@ -690,8 +893,12 @@
   ["pointerdown", "keydown"].forEach((ev) => window.addEventListener(ev, wake, true));
   try { if (window.frameElement) window.parent.document.addEventListener("keydown", wake, true); } catch (e) {}
   window.addEventListener("resize", () => { if (!running) draw(performance.now() / 1000); });
+  // r5: the hub's "tap to play" card: skip the title; the ride starts on the first touch or key (the player page may still be covering the game)
+  try { if (window.cc && cc.autostart && cc.autostart()) { state = "ready"; awake = true; door = 1; } } catch (e) {}
   requestAnimationFrame(frame);
 
   // read-only hooks for the test scripts
-  window.__eff = { state: () => ({ state, t, floor, score, flung, weight: weight(), phase, overT, door, overloads, reachedGoal, paused, cleanFloors, bestFloor, fish: fish.filter((f) => !f.out && f.delay <= 0).map((f) => ({ x: Math.round(f.x), y: Math.round(f.y), kind: f.kind, puff: f.puffT > 0 })) }) };
+  window.__eff = { career: () => JSON.parse(JSON.stringify(car)), state: () => ({ state, t, floor, score, flung, weight: weight(), phase, overT, door, overloads, reachedGoal, paused, cleanFloors, bestFloor, fish: fish.filter((f) => !f.out && f.delay <= 0).map((f) => ({ x: Math.round(f.x), y: Math.round(f.y), kind: f.kind, puff: f.puffT > 0 })) }) };
+  // r5: test-only helpers (?cctest=1): end the ride now, or jump to a floor
+  if (/[?&]cctest=1/.test(location.search)) { window.__eff.finish = () => { if (state === "play") end(); }; window.__eff.jump = (n) => { if (state === "play") floor = Math.max(1, n | 0); }; window.__eff.carButton = () => skinBtn; }
 })();

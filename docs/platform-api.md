@@ -112,6 +112,16 @@ A "new games drop on our tiktok first / follow **@computercooked**" house card w
 
 Version 2 (K-0065) added `runs_ended`, `tip_clicks` and `desk` to the rows, game-over stats to `games`, and the whole-window `desk`. Admin metrics has the same `desk` block.
 
+**Channel funnels (round 21: TikTok to the site, end to end).** Each row has `funnel: { tiktok: {...}, <other channels that landed or played in the window>: {...} }`, and the top level has the same for the whole window plus `funnel.tiktok_landing_pages` (`[{path, n}]`, where TikTok visits arrived). Each channel's funnel:
+- `landed`: visits that arrived from the channel (the first page of a tab, `cc:pageview` with `land: 1`). Visits, not people: page views store no id.
+- `played`: people whose first-ever play from that channel was that day (first touch, so a person counts once).
+- `second_game`: of those, how many played 2+ different games that day.
+- `back_7d`: of those, how many played again on one of the next 7 Pacific days, from anywhere (a return from the home screen counts as `direct`, so returns are matched by person, not by channel).
+- `still_open`: of those not back yet, how many still have days left in their 7 (today counts as not over).
+- Smoke traffic is left out like everywhere else. CI seeds one TikTok person (`scripts/smoke-seed.sql`) and the smoke test sends a test TikTok visit and checks that each step moves by exactly one (`SMOKE_FUNNEL=1`, local only).
+
+**TikTok line for cc-social:** each export also writes `tiktok-funnel.txt` next to the JSON: one line per Pacific day for the last 15 days, newest first, e.g. `2026-11-17 (today so far) · landed 14 · played 6 (43%) · 2nd game 2 (33%) · back within 7 days 0 of 6 (6 still have days left)`, a 15-day total, and the top landing pages.
+
 **Daily file for readers without the token:** `node scripts/export-analytics.mjs https://computercooked.com <token file> <folder> [days]` saves the digest as `cc-analytics-latest.json` and `cc-analytics-<date>.json` in that folder (counts only: no player ids, names or feedback text). The token is read from the file and never printed or written.
 
 **As a table:** `node scripts/digest.mjs https://computercooked.com "$TOKEN" [days] [--json]`. It prints the day rows (today is marked `*`), the totals (plays, plays from social, game shares, dares sent, new accounts) and the per-game table. The token goes only in the Authorization header and is never printed; a failed request prints the HTTP status and exits 1.
@@ -131,7 +141,7 @@ Version 2 (K-0065) added `runs_ended`, `tip_clicks` and `desk` to the rows, game
 | anything else (e.g. `reddit`) | `other` |
 
 - `utm_source=` works the same when there's no `ref`. `utm_medium`, `utm_campaign`, `utm_content` and `utm_term` are accepted and dropped; they aren't stored.
-- **First touch wins for the session (browser tab).** The first page of the visit decides, whether it's the hub, the home page or a game: its tag, else an outside referrer (so tiktok.com → hub → game counts as `tiktok`). With neither, a game opened from the hub counts as `internal`, as before. `assets/deck.js` (every page) and `games/cc-sdk.js` (game pages) both do this, into sessionStorage `cc-ref`.
+- **First touch wins for the session (browser tab).** The first page of the visit decides, whether it's the hub, the home page or a game: its tag, else an outside referrer (so tiktok.com → hub → game counts as `tiktok`), else (round 21) the TikTok app's own browser, recognised by its user agent (`musical_ly`, `trill_`, `BytedanceWebview`, `TikTok`): an untagged link opened inside TikTok counts as `tiktok`, not `direct`. With neither, a game opened from the hub counts as `internal`, as before. `assets/deck.js` (every page) and `games/cc-sdk.js` (game pages) both do this, into sessionStorage `cc-ref`.
 - The tags come off the address bar once read, so a copied or reloaded link doesn't carry them on. Other params (`vs`, `d`, `tester` …) stay.
 - `?ref=app` is the installed web app's start URL. It's left alone; app plays count as `app`.
 - The play-next rail still marks its plays `internal` (with a `cc:next` event).
@@ -143,7 +153,7 @@ A hub link with a social tag **and** a game hint skips the hero. The visitor get
 - **Caption link for a clip:** `https://computercooked.com/games?ref=<platform>&game=<slug>`, e.g. `https://computercooked.com/games?ref=tiktok&game=smol-brains`. Slugs are the folder names under `/games/` (see `games.json`).
 - **Bio link:** `https://computercooked.com/games?ref=tiktok`. With no `game=`, the platform's default is used: `LANDING_DEFAULT` in `games/index.html` (today only `tiktok → desktop-takeover`, the hook game; change it when the pinned clip changes). Platforms without a default get the normal hub.
 - **Welcome strip for TikTok arrivals (everywhere else):** a visit that came from TikTok gets a slim bar at the bottom of the screen: "came from @computercooked? start here: desktop takeover →", plus × to hide it.
-  - **What counts as TikTok:** a `ref`/`utm_source` of `tiktok` or `tt`, a tiktok.com referrer, or a `/g/` short link tagged `utm_campaign=bio`. `assets/deck.js` marks the visit (sessionStorage `cc-tt`). Other referrers never see it.
+  - **What counts as TikTok:** a `ref`/`utm_source` of `tiktok` or `tt`, a tiktok.com referrer, a `/g/` short link tagged `utm_campaign=bio`, or an untagged visit inside the TikTok app's browser. `assets/deck.js` marks the visit (sessionStorage `cc-tt`). Other referrers never see it.
   - **Where it shows:** every page of that visit, except game pages (they came to play that one), embeds, the hook game itself, and the hub while its own "from the clip" card is up.
   - **Remembered:** × or following the link hides it for good on that browser (localStorage `cc-tt-hi`).
   - **The hook game** is `HOOK` in the strip's code, next to `LANDING_DEFAULT`. Change both together.
@@ -283,6 +293,8 @@ After every run (scored or not), the shared player (`games/platform.js`) shows *
 - **you haven't tried:** a random game not in this device's `cc-recent` list. If there's no challenge card or you've played everything, more games like this one fill the rail, labelled "play again" when already played.
 
 Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that page, `cc-sdk.js` counts its plays as referrer `internal`, tags its first run's start event with `src: "next", slot`, and takes the params off the URL, so a reload doesn't count again. The server stores one `events` row per play, `name = 'cc:next'`, `data = {"slot": …}` (no migration). `cc:*` event names are reserved for the platform: `cc.event` calls using them are dropped. Admin metrics `next` gives plays started from the rail per run ended, by slot.
+
+**The results card's "try this next" tile (round 27).** The pop-up after a run (`games/player.js`) offers one game, linked the same way (`?src=next&slot=similar`). Its tap also leaves `cc-autostart` for that game in sessionStorage, as the hub's landing card does, so games that read `cc.autostart()` skip their title screen. Showing the tile and tapping it (or pressing n) send `POST /api/hit` `next_shown` / `next_tap` with `game` (the game just played), `to` (the game offered) and `slot` `touch` (a touch-only device) or `fine`. The digest's `next` (per day and for the window) has `shown`, `taps`, `plays` (taps that reached a started run, `cc:next`), `per_run` and `touch: {shown, taps}`.
 
 ## "Your desk" (returning players, K-0064)
 
@@ -593,6 +605,35 @@ Launch traffic is TikTok phones, so the pages are measured with Lighthouse in mo
 - **Small thumbnails for heavy covers:** `scripts/make-thumbs.py` writes `assets/thumbs/<slug>.webp` (192x120) for covers of 8 KB or more and lists them in `src/thumbs.js`. `small(g)` in `src/pages.js` uses them in the small slots (desk icons, "happening now", the chart, crowns), and the cover for every other game. Re-run it after adding a game or changing a cover.
 - **The first card image is fetched first** (`fetchpriority="high"`) on the hub and the mood pages: on a phone it's the LCP image.
 
+## Card preview loops (round 20)
+
+A game card plays a short muted loop of its game so the joke shows before the tap: on hover or keyboard focus with a mouse, and on the one card most in view on a phone. `assets/preview.js` does it for the home page, the hub and the mood pages; a card gets it when games.json has a `clip` for the game (the card's `data-clip`).
+- **The clips:** `assets/clips/<slug>.mp4`, 4 s, 320x180, H.264, no sound, about 8-80 KB (keep each under 150 KB; `CRF` in the script shrinks a busy one). `scripts/make-clips.mjs <slug>` records one from the game's `play/` page in test mode (`?cctest=1`) and writes `clip` into games.json. Games that need help to look like themselves get a driver (`DRIVE`), a URL flag (`QUERY`), a longer wait (`WAIT`), a crop (`CROP`) or their title screen (`ON_TITLE`: smol brains' title is its grown-town showcase) there. Record one game per run, on the CPU slot.
+- **Never on first paint:** nothing downloads until a card asks. The `<video>` is made on first use with `preload="none"`, and on phones the first pick waits for the page's load event. The poster stays underneath as the fallback and the clip fades in only once it is playing.
+- **Off** under `prefers-reduced-motion` and Save-Data: the posters just stay.
+- **Round 20's eight:** desktop takeover, smol brains, keyboard escape, ant farm, elevator full of fish (the hook games), and reel weird, overdue notice, pixel purge (re-recorded after batch 2).
+
+## Ads (round 22: ready, switched off)
+
+Everything an ad network needs is built and **off**. Nothing loads from any ad network until `CONFIG.on` in `assets/ads.js` is true **and** it has a real publisher id. Going live needs Ashton's yes and his own AdSense / H5 Games Ads sign-up. The plan, the numbers and his to-do list are format B3 in `Core\AD-SPEND.md`.
+- **The switch:** `CONFIG` at the top of `assets/ads.js` (`on`, `client` = `ca-pub-…`, `slot` = the results-card ad unit, `h5`, `test` = Google's test ads for the first live check, `personalised`).
+- **Where ads would show:**
+  - Never during a run.
+  - A full-screen H5 Games Ads break between runs (`adBreak({type: "next"})`): never after the first run, at most once every 3 runs and 3 minutes. Google's own frequency control comes on top (`data-ad-frequency-hint` 180 s).
+  - A rewarded break only when a game asks (`ccAds.rewarded`).
+  - A labelled 100 px strip at the bottom of the results card (`.ccr-ad`, below every button, space reserved), from the 2nd run.
+  - Never for team test ids (`smoke-`) or `window.ccAdFree`.
+- **Consent (`assets/consent.js`), declines by default:**
+  - **EU/EEA, UK, Switzerland** (`/api/geo`): asked first, and closing the banner or no answer means no ads. With Google's certified consent message on (`window.__tcfapi`), that message decides instead.
+  - **Elsewhere:** non-personalised ads with no banner (`requestNonPersonalizedAds = 1`, the child-safe B3.0 setup).
+  - **Personalised ads:** offered only when `CONFIG.personalised` is on (a later B3.x), and no answer means no.
+  - **"Your ad choices"** on `/privacy/#ads` opens the banner to make or change a choice, kept in localStorage (`cc-consent-ads`, `cc-consent-pers`).
+- **`/ads.txt`:** a placeholder with no seller. The `google.com, pub-…, DIRECT, f08c47fec0942fa0` line is added at go-live.
+- **Privacy page:** "there are no ads yet", plus how they would work. The first sentence changes at go-live.
+- **Preview with nothing loaded:** open a game page with `?adpreview=1` (this tab; `?adpreview=0` ends it). The results card shows a dashed "ad space" placeholder from the first card, e.g. after `ccResults.test(1200)`. `ccConsent.preview()` shows the banner without storing anything.
+- **Counted already:** each moment a full-screen, rewarded or results-strip ad would show is a `cc:ad_slot` event (`interstitial` / `rewarded` / `display`), so the decision can use real numbers.
+- **Smoke test:** ads off (no publisher id, ads.txt has no seller), nothing loads after 4 runs, the preview placeholder, EU no answer = no ads, the privacy page and the hidden strip.
+
 ## Board seasons (a game's scoring changed)
 
 When a game's scoring changes so much that old and new scores can't share a board, its boards start fresh. Add the game to `BOARD_FROM` in `src/boards.js` with the time its new scoring went live (its PR's merge time).
@@ -755,3 +796,24 @@ No cookies, no third-party analytics, no player id stored on these rows.
 - **Reading it:** `GET /api/admin/metrics?since=YYYY-MM-DD` (admin token) → `pageviews`, `tips`, `plays_by_ref`, `campaigns`, alongside the existing game numbers.
 - **Team test visits:** open any page with `?cctest=1` to put that browser in test mode. It gets a `smoke-team-…` anonymous id, so its page views, tips, plays, feedback and scores are left out of every count like other smoke traffic, and a small "test mode: not counted" badge shows. `?cctest=0` turns it off. Signed-in plays still count (the filter is on anonymous ids).
 - **Flagging earlier test visits:** `POST /api/admin/test-traffic` (admin token). `{from, to}` (ms, up to 6h apart) lists the page-view/tip rows and plays in that window. `{flag: {events: [id], plays: [id]}}` renames those hit rows `test:cc:<kind>` and gives those plays a `smoke-flag-` anon id; `{unflag: …}` undoes it. Nothing is deleted. Flagged hit rows show in metrics `test_traffic.site_hits`.
+
+## The show page: /show/ (round 26)
+
+The site's door back to TikTok. A static page (no worker route): the cast cards, every **posted** episode as a plain
+link to its TikTok post with our own still, and two big "follow @computercooked" buttons. **No TikTok embed or script**
+(privacy and speed): each episode opens on tiktok.com.
+
+- **Kept in step with posting:** `node scripts/sync-show.mjs ["<Computer Cooked project folder>"]` reads
+  `Posting\posting-log.md` (the one posted file) and rewrites `show/episodes.json`, `show/img/` and the two marked
+  lists in `show/index.html`. Only TikTok lines in the log's agreed format count, so an unposted episode can't appear.
+  The still comes from the posted video named on the log's queue line (`STILL_AT` picks the second; default 55%).
+  Run it after each post, then PR the result.
+- **Cast:** a character's card appears once a posted episode features them (their label in that episode's brief or
+  storyboard). Sunny's card is ready and appears with her first posted episode. Cards say who someone is, never the
+  name: names are internal labels (`Content\characters\README.md`).
+- **Counted:** a click on `a[data-tt-out]` (the follow buttons: slot `follow` / `follow-end`; an episode: slot
+  `episode` + `ep`) sends `POST /api/hit {kind: "tiktok_out"}` (assets/deck.js) → `cc:tiktok_out`. The digest
+  (`/api/admin/digest`) has `tiktok_out` per day and for the window: `show_follow`, `show_episode`,
+  `follow_elsewhere` (the site's other TikTok follow buttons, `cc:follow_click`), `total`, plus `by_episode` for the window.
+- **Linked from:** the homepage (under "follow the meltdown") and the games hub (after "did you know") by a
+  `.show-strip`, and the footer of home, the hub and /show/.

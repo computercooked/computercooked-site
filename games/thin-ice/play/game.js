@@ -25,6 +25,7 @@
   const pick = (a) => a[(R() * a.length) | 0];
   const rr = (a, b) => a + R() * (b - a);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const FINE = matchMedia("(hover: hover) and (pointer: fine)").matches; // r5d: desktop wording for the HOLD prompt
   let SHOT = false; // the cover / hover clip scene: a frozen moment, no UI
 
   // ---------- the lake ----------
@@ -137,6 +138,29 @@
   if (!S.tut) S.tut = Object.keys(S.log).length ? { cast: 1, fight: 1, ice: 1 } : {}; // 1.0 saves: old hands skip the coach
   const lv = (id) => S.up[id] || 0;
   function ach(id) { if (S.ach[id]) return; S.ach[id] = 1; sdk((c) => c.achieve && c.achieve(id)); }
+
+  // r5d: today's fish. One common species from the shallows or the weed bed (any line reaches it), the same for
+  // everyone on a given date; it bites a bit more often, and the first one each day pays a bonus and builds a streak.
+  // S.daily = { last: day it was last caught, streak } (optional field: old saves just start without it)
+  const DAY = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
+  const DAILY_POOL = FISH.filter((f) => f.L <= 1 && f.rar >= 5);
+  const DAILY = DAILY_POOL[Math.floor(hash(DAY * 7919 + 17) * DAILY_POOL.length) % DAILY_POOL.length];
+  const dailyDone = () => !!(S.daily && S.daily.last === DAY);
+  const dailyStreak = () => (S.daily && S.daily.last >= DAY - 1 ? S.daily.streak || 0 : 0);
+  function dailyLine() {
+    if (dailyDone()) return "";
+    const st = dailyStreak();
+    return `today's fish: ${DAILY.n} (${LAYERS[DAILY.L].n}). first one pays a bonus${st ? `, streak ${st} → ${st + 1}` : ""}.`;
+  }
+  function dailyCatch() { // returns the bonus paid (0 when today's is already in)
+    if (dailyDone()) return 0;
+    const st = dailyStreak() + 1;
+    S.daily = { last: DAY, streak: st };
+    const bonus = 20 + 10 * Math.min(st - 1, 6);
+    S.cash += bonus; if (N) N.earned += bonus;
+    sdk((c) => c.event && c.event("daily", { fish: DAILY.id, streak: st }));
+    return bonus;
+  }
 
   // ---------- view ----------
   let W = 0, H = 0, DPR = 1, PS = 2, BW = 0, BH = 0;
@@ -270,7 +294,9 @@
       n, t: TEST ? nightLen() * 0.42 : 0, len: nightLen(), bucket: [], lure: { m: 0, mode: "up" }, biteT: 0, fight: null,
       c: 0, thick: thickFor(n), cracks: newCracks((R() * 1e5) | 0), hot: -1, haul: null, drill: null, dunk: null,
       best: 0, caught: 0, hauledLb: 0, earned: 0, news: 0, lost: 0, warned: 0, endWarn: false, otT: [], fx: [], amb: [], warden: false,
-      lastFind: null, breath: 1.5, lineEndSaid: false, ottersEarned: 0, scar: 0, forceWarden: false, prevBest: S.best || 0
+      lastFind: null, breath: 1.5, lineEndSaid: false, ottersEarned: 0, scar: 0, forceWarden: false, prevBest: S.best || 0,
+      // r5d: the night's clock waits for the first hold (a player page "tap to play" or a coach card never eats the night)
+      go: !!(TEST && !T_RESET), flash: 0
     };
     for (let k = 0; k < lv("otter"); k++) N.otT.push(rr(8, 20));
     state = "night";
@@ -278,9 +304,10 @@
     if (!SHOT) { sdk((c) => c.start && c.start()); sdk((c) => c.event && c.event("night_start", { night: n })); }
     if (TEST && !T_DUNK && !T_RESET) { N.lure.m = Math.min(38, LINE_M[lv("line")]); N.lure.mode = "wait"; N.biteT = 2; }
     loopsOn();
-    toast(n === 1 ? "night 1. hold anywhere to drop your line." : `night ${n}. the ice is ${N.thick >= 27 ? "thick" : "thinner"} tonight.`);
+    // r5d: no text wall before the first cast; the lake shows a pulsing HOLD at the hole instead (drawOverlay)
+    toast(n === 1 && !S.best ? "night 1. hold anywhere to drop your line." : `night ${n}. ${S.best ? `beat your ${S.best.toFixed(1)} lb record.` : `the ice is ${N.thick >= 27 ? "thick" : "thinner"} tonight.`}`);
+    const dl = Object.keys(S.log).length ? dailyLine() : ""; if (dl && !SHOT) toast(dl, "warm"); // not before the very first fish
     if (!SHOT) save();
-    if (!SHOT && (!TEST || T_RESET) && !S.tut.cast) coach("cast");
   }
 
   // ---------- fishing ----------
@@ -298,7 +325,7 @@
     if (Object.keys(S.log).length && odd.length && R() < (odd.some((w) => !S.log[w.id]) ? 0.07 : 0.02)) return { weird: pick(odd) };
     let pool = FISH.filter((f) => f.L === L);
     if (!Object.keys(S.log).length) pool = pool.filter((f) => f.pow <= 3); // the very first fish is a gentle one to learn on
-    const boost = (f) => f.rar * (f.rar < 3 ? 1 + 0.5 * lv("lantern") + (N.hot === L ? 1 : 0) : 1);
+    const boost = (f) => f.rar * (f.rar < 3 ? 1 + 0.5 * lv("lantern") + (N.hot === L ? 1 : 0) : 1) * (f === DAILY && !dailyDone() ? 2 : 1);
     let tot = 0; for (const f of pool) tot += boost(f);
     let r = R() * tot, f = pool[0];
     for (const p of pool) { r -= boost(p); if (r <= 0) { f = p; break; } }
@@ -318,7 +345,11 @@
     N.fight = { f, w: got.w, d: N.lure.m, S: st, Smax: st, ten: 0, run: false, warn: false, ph: rr(1.2, 2.2), wob: 0 };
     N.lure.mode = "fight";
     if (big) { shake = 1; toast("something enormous took the bait.", "warm"); sdk((c) => c.event && c.event("warden_hooked", {})); }
-    if (!S.tut.fight) { N.fight.ph = 3; coach("fight"); } // the first fish waits for the coach, then gives a calm few seconds
+    // r5d: the first fights teach on the lake itself (big HOLD / LET GO prompts, drawOverlay), no card in the way;
+    // the very first fish gives a calm few seconds before its first run
+    shake = Math.max(shake, 0.35);
+    if (!S.tut.fight) { N.fight.ph = 3.5; N.fight.S = N.fight.Smax = st * 0.5; } // the very first fish tires fast
+    N.fight.teach = (S.tut.fights != null ? S.tut.fights : S.tut.fight ? 3 : 0) < 3; // old saves that fought before skip it
   }
   function stepFight(dt) {
     const F = N.fight, tired = F.S <= 0, pw = tired ? F.f.pow * 0.3 : F.f.pow;
@@ -342,7 +373,7 @@
     N.lure.m = Math.max(0, F.d);
     if (F.ten >= 1) { toast(`snap! the ${F.f === WARDEN ? "line" : F.f.n} broke free.`, "bad"); N.fx.push({ k: "snap", life: 0.6 }); shake = Math.max(shake, 0.8); N.fight = null; N.lure.mode = "reel"; return; }
     if (F.d > maxLine() + 4) { toast("it took all your line and kept going.", "bad"); N.fight = null; N.lure.mode = "reel"; return; }
-    if (F.d <= 0.4) land({ fish: F.f, w: F.w });
+    if (F.d <= 0.4) { S.tut.fights = (S.tut.fights != null ? S.tut.fights : S.tut.fight ? 3 : 0) + 1; S.tut.fight = 1; land({ fish: F.f, w: F.w }); }
   }
   function land(got) {
     N.fight = null; N.lure.mode = "up"; N.lure.m = 0; N.biteT = 0;
@@ -364,7 +395,16 @@
     shake = Math.max(shake, 0.25 + 0.5 * Math.min(1, w / iceCap())); // the catch thumps onto the ice
     play("splash", 0.5);
     // review16 r3: a record says so the moment it lands, not only on the end card
-    const rec = got.weird ? "" : ab > 0 && w > ab ? `heaviest ever! (was ${ab.toFixed(1)} lb)` : !isNew && w > pb ? `your biggest ${it.n} yet (was ${pb.toFixed(1)} lb)` : "";
+    let rec = got.weird ? "" : ab > 0 && w > ab ? `heaviest ever! (was ${ab.toFixed(1)} lb)` : !isNew && w > pb ? `your biggest ${it.n} yet (was ${pb.toFixed(1)} lb)` : "";
+    // r5d: today's fish pays a bonus once a day
+    const dBonus = it === DAILY ? dailyCatch() : 0;
+    if (dBonus) rec = `today's fish! +$${dBonus} · streak ${S.daily.streak}` + (rec ? `<br>${rec}` : "");
+    // r5d juice that reads with the sound off: the catch leaps out of the hole into the bucket, a splash, the weight floats up
+    const cx0 = hx();
+    N.fx.push({ k: "leap", id: it.id, len: got.weird ? 0 : clamp(10 + Math.sqrt(w) * 4, 10, 30), life: 0.75 });
+    for (let k = 0; k < 14; k++) N.fx.push({ k: "p", x: cx0 + rr(-3, 3), y: -4, vx: rr(-26, 26), vy: rr(-46, -14), c: pick(["#e8f8ff", "#9ae6ff", "#ffffff"]), life: rr(0.4, 0.9) });
+    N.fx.push({ k: "float", s: got.weird ? it.n.replace(/^an? /, "") : `${w.toFixed(1)} lb`, c: rec ? "#ffd27a" : "#e8f6ff", life: 1.4 });
+    if (rec && !reduce) N.flash = 0.5;
     showCatch(it, w, isNew, !got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8, rec);
     ach("first_catch");
     if (!got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8) ach("trophy");
@@ -468,6 +508,7 @@
     if (SHOT) { if (N) { stepFx(dt); if (N.grow) N.c = Math.min(0.97, N.c + dt * 0.2); if (N.fight) N.fight.wob += dt * 14; } return; }
     if (state === "dunk") { N.dunk.t += dt; stepFx(dt); if (N.dunk.t > 2.8) endNight("ice"); return; }
     if (state !== "night" || coachOn) return;
+    if (!N.go) { stepFx(dt); if (!hold) return; N.go = true; } // r5d: the clock starts with the first hold
     N.t += dt;
     stepFx(dt);
     stepOtters(dt);
@@ -501,6 +542,7 @@
     if (N.t >= N.len && !N.fight) endNight("dawn");
   }
   function stepFx(dt) {
+    if (N.flash > 0) N.flash = Math.max(0, N.flash - dt);
     for (let k = N.fx.length - 1; k >= 0; k--) {
       const f = N.fx[k]; f.life -= dt;
       if (f.k === "escape") { f.x += f.vx * dt; f.y += f.vy * dt; }
@@ -520,6 +562,22 @@
   }
 
   // ---------- end of a night ----------
+  // r5d: one or two "next" lines for the end card: the next thing the bait shop sells, what's left to find, today's fish
+  function nextGoal() {
+    const out = [];
+    const open = UPS.filter((u) => lv(u.id) < u.cost.length).map((u) => ({ u, c: u.cost[lv(u.id)] }));
+    const line = open.find((o) => o.u.id === "line");
+    const want = line && (S.cash >= line.c || !open.some((o) => o.c <= S.cash)) ? line : open.filter((o) => o.c <= S.cash).sort((p, q) => p.c - q.c)[0] || open.sort((p, q) => p.c - q.c)[0];
+    if (want) {
+      const what = want.u.id === "line" ? `longer line (reach ${LINE_M[lv("line") + 1]} m: the ${LAYERS[layerOf(LINE_M[lv("line") + 1] - 0.1)].n})` : want.u.n;
+      out.push(S.cash >= want.c ? `next: you can buy the ${what} for $${want.c}` : `next: $${want.c - Math.floor(S.cash)} more for the ${what}`);
+    }
+    if (!dailyDone()) out.push(`today's fish: ${DAILY.n} (bonus + streak)`);
+    else if (S.daily) out.push(`today's fish caught · streak ${S.daily.streak}. new fish tomorrow`);
+    const reach = layerOf(maxLine() - 0.1), left = FISH.filter((f) => f.L <= reach && !S.log[f.id]).length;
+    if (left) out.push(`${left} fish you can reach still aren't in your log`);
+    return out.slice(0, 2).join("<br>");
+  }
   function endNight(why) {
     if (state === "end") return;
     const dawn = why === "dawn";
@@ -539,10 +597,13 @@
     rows.push(["heaviest ever", rec ? `<span class="rec">new record!</span> ${N.best.toFixed(1)} lb` : (S.best ? S.best.toFixed(1) + " lb" : "none yet")]);
     rows.push(["fish log", `${Object.keys(S.log).length}/${FISH.length + WEIRD.length + 1} found`]);
     if (!dawn) rows.splice(3, 0, ["lost with the bucket", `${N.lost} (${(N.lostLb || 0).toFixed(1)} lb)`]);
+    // r5d: the site's results card shows the score sent above (heaviest × 10), so the game's card shows the same number
+    const sc = Math.round(N.best * 10);
+    const scoreLine = sc > 0 ? `<div class="score">score <b>${sc}</b> <small>your heaviest fish (${N.best.toFixed(1)} lb) × 10</small></div>` : "";
     panel("end", (dawn
-      ? `<h2>dawn</h2><p>${soldLb ? `you walked the bucket in at sunrise: ${soldLb.toFixed(1)} lb for $${soldV}.` : "the sun comes up over the lake."}<br>night ${night} is done.</p>`
-      : `<h2 class="warm">the ice broke</h2><canvas id="plate" width="160" height="72" role="img" aria-label="the hut tipped into the hole, the bucket floating, the shopkeeper shaking its head"></canvas><p>the hut went in with a crunch and a sploosh.<br>you climbed out soaked. your gear's fine. the bucket is gone.</p>`) +
-      `<div class="stats">${rows.map((r) => `<span>${r[0]}</span><b>${r[1]}</b>`).join("")}</div>` +
+      ? `<h2>dawn</h2>${scoreLine}<p class="story">${soldLb ? `you walked the bucket in at sunrise: ${soldLb.toFixed(1)} lb for $${soldV}.` : "the sun comes up over the lake."}<br>night ${night} is done.</p>`
+      : `<h2 class="warm">the ice broke</h2>${scoreLine}<canvas id="plate" width="160" height="72" role="img" aria-label="the hut tipped into the hole, the bucket floating, the shopkeeper shaking its head"></canvas><p class="story">the hut went in with a crunch and a sploosh.<br>you climbed out soaked. your gear's fine. the bucket is gone.</p>`) +
+      `<div class="stats">${rows.map((r) => `<span>${r[0]}</span><b>${r[1]}</b>`).join("")}</div>` + `<div class="next">${nextGoal()}</div>` +
       `<button class="go" id="eGo" type="button">to the bait shop</button>${dawn ? "" : `<br><button class="alt" id="eAgain" type="button">fish again: night ${night + 1}, skip the shop</button>`}<div id="tipSlot"></div><div class="credit">computer cooked games</div>`);
     $("eGo").onclick = () => { $("end").hidden = true; openShop(); };
     if (!dawn) { $("eAgain").onclick = () => { $("end").hidden = true; startNight(); }; plate($("plate"), N.lost); }
@@ -829,6 +890,11 @@
       if (f.k === "p") { b.fillStyle = f.c; b.fillRect(f.x | 0, f.y | 0, 1, 1); }
       else if (f.k === "puff") { b.globalAlpha = Math.min(0.6, f.life * 0.5); b.fillStyle = "#e8f6ff"; b.fillRect(f.x | 0, f.y | 0, 2, 1); b.fillRect((f.x + 1) | 0, (f.y - 1) | 0, 1, 1); b.globalAlpha = 1; }
       else if (f.k === "escape") { const sp = fishSprite(BYID[f.id], 10); b.globalAlpha = Math.min(1, f.life); b.save(); b.translate(f.x, f.y); if (f.vx < 0) b.scale(-1, 1); b.drawImage(sp, -sp.width / 2, -sp.height / 2); b.restore(); b.globalAlpha = 1; }
+      else if (f.k === "leap") { // r5d: out of the hole, over the hut's side, into the bucket
+        const it = BYID[f.id], q = clamp(1 - f.life / 0.75, 0, 1), sp = it.weird ? weirdSprite(f.id) : fishSprite(it, f.len);
+        const x = lerp(cx0, cx0 + 14, q), y = lerp(4, -9, q) - Math.sin(q * Math.PI) * 24;
+        b.save(); b.translate(x | 0, y | 0); b.rotate(-1.2 + q * 2.2); b.drawImage(sp, -sp.width / 2, -sp.height / 2); b.restore();
+      }
     }
   }
   function drawHut(x, y, tilt, lit) {
@@ -877,19 +943,30 @@
       if (y < 60 || y > H - (N.fight ? 150 : 90)) continue;
       cx.fillStyle = "#9ae6ff88"; cx.fillText(`${Ly.n} · ${Ly.a} m`, 8, y);
     }
-    const lim = depthY(maxLine());
-    if (px(lim) > 60 && px(lim) < H - 80) { cx.fillStyle = "#ffb35a66"; cx.fillRect(W / 2 - 40, px(lim), 80, 1); cx.textAlign = "center"; cx.fillText("end of your line", W / 2, px(lim) + 9); }
+    const lim = depthY(maxLine()), L = N.lure, F = N.fight;
+    const holdUp = state === "night" && L.mode === "up" && !F && !N.haul && !N.drill && !coachOn && (!N.go || (!N.caught && N.n === 1));
+    if (!holdUp && px(lim) > 60 && px(lim) < H - 80) { cx.fillStyle = "#ffb35a66"; cx.fillRect(W / 2 - 40, px(lim), 80, 1); cx.textAlign = "center"; cx.fillText("end of your line", W / 2, px(lim) + 9); }
     // depth by the lure
-    const L = N.lure, F = N.fight;
     if (L.m > 0.5 && !N.haul) {
       cx.textAlign = "left"; cx.fillStyle = "#e8f6ff"; cx.fillText(`${L.m.toFixed(0)} m`, W / 2 + 14, px(depthY(L.m)));
       if (L.mode === "wait") { cx.fillStyle = "#e8f6ffaa"; cx.fillText("…", W / 2 + 14, px(depthY(L.m)) + 12); }
     }
+    // r5d: the first cast of a night (and every cast until the first catch) shows a pulsing HOLD at the hole, no card
+    if (holdUp) {
+      const q = (simT * 1.1) % 1, hy = clamp(px(depthY(4)), 150, H - 170), mono = "ui-monospace, Menlo, Consolas, monospace";
+      cx.strokeStyle = `rgba(255,179,90,${1 - q})`; cx.lineWidth = 3; cx.beginPath(); cx.arc(W / 2, hy, 16 + q * 26, 0, 6.3); cx.stroke();
+      cx.fillStyle = "#ffb35a"; cx.beginPath(); cx.arc(W / 2, hy, 13 - Math.sin(q * Math.PI) * 3, 0, 6.3); cx.fill();
+      cx.textAlign = "center"; cx.font = `800 26px ${mono}`; cx.fillStyle = "#fff"; cx.fillText("HOLD", W / 2, hy + 50);
+      cx.font = `700 13px ${mono}`; cx.fillStyle = "#e8f6ffcc"; cx.fillText(FINE ? "mouse or space: the line drops" : "anywhere: the line drops", W / 2, hy + 72);
+      for (let k = 0; k < 3; k++) { const a = ((simT * 1.5 + k / 3) % 1); cx.fillStyle = `rgba(154,230,255,${0.9 * (1 - a)})`; cx.fillText("▼", W / 2, hy + 88 + a * 26); }
+    }
     for (const f of N.fx) {
-      if (f.k === "bang") { cx.textAlign = "center"; cx.font = "800 26px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#ffb35a"; cx.fillText("!", W / 2 + 10, px(depthY(L.m)) - 18 - (0.7 - f.life) * 20); }
+      if (f.k === "bang") { cx.textAlign = "center"; cx.font = "800 30px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#ffb35a"; cx.fillText("BITE!", W / 2, px(depthY(L.m)) - 22 - (0.7 - f.life) * 24); }
+      if (f.k === "float") { cx.textAlign = "center"; cx.font = "800 22px ui-monospace, Menlo, Consolas, monospace"; cx.globalAlpha = Math.min(1, f.life * 2); cx.fillStyle = "#06101e"; cx.fillText(f.s, W / 2 + 2, px(-30) - (1.4 - f.life) * 26 + 2); cx.fillStyle = f.c; cx.fillText(f.s, W / 2, px(-30) - (1.4 - f.life) * 26); cx.globalAlpha = 1; }
       if (f.k === "snap") { cx.textAlign = "center"; cx.font = "800 22px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#ff6a4a"; cx.fillText("SNAP", W / 2, H * 0.4); }
       if (f.k === "otter") { const k = f.i, ox = hx() + (k % 2 ? 1 : -1) * (30 + ((k / 2) | 0) * 22) + 5; cx.textAlign = "center"; cx.font = "700 11px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#ffb35a"; cx.fillText(f.s, ox * PS, px(-20 - ((k / 2) | 0) * 6) - (1.6 - f.life) * 14); }
     }
+    if (N.flash > 0) { cx.fillStyle = `rgba(255,210,122,${N.flash * 0.45})`; cx.fillRect(0, 0, W, H); }
     if (N.dunk && N.dunk.t > 0.4) { cx.textAlign = "center"; cx.font = "800 34px ui-monospace, Menlo, Consolas, monospace"; cx.fillStyle = "#9ae6ff"; cx.globalAlpha = Math.min(1, (N.dunk.t - 0.4) * 3); cx.fillText("SPLOOSH", W / 2, H * 0.3); cx.globalAlpha = 1; }
     // the fight: big tension and stamina bars, just above the buttons (K-0062: bigger, with the danger zone in red)
     if (F) {
@@ -917,8 +994,13 @@
       cx.textAlign = "left"; cx.fillStyle = "#0b1430"; cx.font = "800 10px ui-monospace, Menlo, Consolas, monospace";
       if (F.S / F.Smax > 0.3) cx.fillText("fish stamina", x + 4, sy + sh / 2 + 1);
       else { cx.fillStyle = "#c5ff49"; cx.fillText("fish stamina", x + w * clamp(F.S / F.Smax, 0, 1) + 4, sy + sh / 2 + 1); }
-      cx.textAlign = "center"; cx.font = "800 17px ui-monospace, Menlo, Consolas, monospace";
-      if (F.warn || F.run) { cx.fillStyle = F.run ? "#ff6a4a" : "#ffb35a"; cx.fillText(F.run ? "it's running! let go" : "it's about to run…", W / 2, y - 46); }
+      cx.textAlign = "center"; cx.font = `800 ${F.teach ? 24 : 17}px ui-monospace, Menlo, Consolas, monospace`;
+      // r5d: the first fights say what to do at every moment, big enough to read on a phone with the sound off
+      if (F.teach && F.run) { cx.fillStyle = (simT * 6) % 2 < 1 ? "#ff6a4a" : "#ffd0c4"; cx.fillText("LET GO! it's running", W / 2, y - 48); }
+      else if (F.teach && F.warn) { cx.fillStyle = "#ffb35a"; cx.fillText("it's about to run…", W / 2, y - 48); }
+      else if (F.teach && F.ten > 0.75) { cx.fillStyle = "#ff6a4a"; cx.fillText("too tight! let go", W / 2, y - 48); }
+      else if (F.teach) { cx.fillStyle = hold ? "#c5ff49" : "#ffffff"; cx.fillText(hold ? "reeling it up ↑" : "HOLD to reel ↑", W / 2, y - 48); }
+      else if (F.warn || F.run) { cx.fillStyle = F.run ? "#ff6a4a" : "#ffb35a"; cx.fillText(F.run ? "it's running! let go" : "it's about to run…", W / 2, y - 46); }
       else if (F.S <= 0) { cx.fillStyle = "#c5ff49"; cx.fillText("it's tired. reel!", W / 2, y - 46); }
       else if (F.ten > 0.75) { cx.fillStyle = "#ff6a4a"; cx.fillText("too tight! let go a moment", W / 2, y - 46); }
     }
@@ -982,10 +1064,9 @@
 
   // the coach: three one-time cards (first cast, first bite, first creak). The night waits while one is up.
   let coachOn = null;
+  // r5d: the cast and fight cards are gone (the lake shows HOLD / LET GO itself); only the ice card is left, short
   const COACH = {
-    cast: ["drop your line", `<b>hold anywhere</b> (or space) and the line spools down. <b>let go</b> to stop at that depth and wait for a bite.<br>tonight your line reaches <b>${LINE_M[0]} m</b>: one short hold is enough. deeper water has bigger fish; the bait shop sells longer line.`],
-    fight: ["a bite! the fight", `<b>hold to reel</b> the fish up. when it shouts <b class="r">it's running</b>, <b>let go</b>: reeling against a run fills the <b>tension</b> bar, and in the red zone the line snaps.<br>the green bar is the fish's <b>stamina</b>. every run tires it out. when it's empty, just reel.`],
-    ice: ["the ice is talking", `every pound in your bucket loads the ice. watch the <b>ice</b> meter up top: it creaks, then groans, then breaks, and the bucket goes in the lake.<br><b>🛷 haul to shore</b> sells the bucket and lets the ice settle. or push your luck.`]
+    ice: ["the ice is talking", `every lb in your 🪣 loads the <b>ice</b> meter (top right). if it breaks, <b class="r">the bucket sinks</b>.<br><b>🛷 haul to shore</b> sells it and the ice settles. or push your luck.`]
   };
   function coach(k) {
     if (coachOn || S.tut[k]) return;
@@ -1027,7 +1108,7 @@
     }).join("");
     panel("shop", `<h2 class="warm">the bait shop</h2>
       <div class="keeper"><img src="/assets/mascot-happy.svg" alt="the shopkeeper, a beige crt with a green face"><div class="say">${awayNote || keeperSays()}</div></div>
-      <div style="margin-bottom:8px">you have <b class="cash">$${Math.floor(S.cash)}</b></div>${ups}
+      <div style="margin-bottom:8px">you have <b class="cash">$${Math.floor(S.cash)}</b>${S.best ? ` · record ${S.best.toFixed(1)} lb` : ""}</div>${dailyDone() ? "" : `<div class="next" style="margin:-4px 0 8px">today's fish: ${DAILY.n} (${LAYERS[DAILY.L].n}) · the first one pays a bonus</div>`}${ups}
       <button class="go" id="sGo" type="button">start night ${S.night}</button><br><button class="alt" id="sLog" type="button">📖 fish log</button><button class="alt" id="sNew" type="button">new save</button>`);
     awayNote = "";
     $("sGo").onclick = () => { $("shop").hidden = true; startNight(); };
@@ -1103,7 +1184,21 @@
     const d = e.data || {};
     if (d.type === "cc-mute") setMute(!!d.muted);
     else if (d.type === "cc-pause") paused = typeof d.paused === "boolean" ? d.paused : !paused;
+    else if (d.type === "cc-restart") restartRun();
   });
+  // r5d: the player bar's restart (and the results card's "play again") starts a night straight away. Mid-night it
+  // starts the same night over (cc.start reports the old one as not finished); during the dunk the night was already
+  // lost, so it is reported as finished first; from the end card, the shop or the title it starts the next night.
+  function restartRun() {
+    if (SHOT) return;
+    hold = false; holdPtr = null; keyHold = false;
+    if (coachOn) coachDone();
+    ["log", "shop"].forEach((id) => ($(id).hidden = true));
+    if (state === "dunk") endNight("ice");
+    $("end").hidden = true;
+    if (state === "title") { begin(); if (state !== "shop") return; $("shop").hidden = true; }
+    startNight();
+  }
 
   // ---------- start ----------
   let paused = false;
@@ -1131,6 +1226,13 @@
     if (S.night === 1 && !Object.keys(S.log).length) startNight(); else openShop();
   }
   $("start").onclick = begin;
+  // r5d: a returning player sees where they stand on the title: the night, the record to beat, today's fish
+  try {
+    const sub = [];
+    if (S.best || S.night > 1) sub.push(`night ${S.night} · record ${S.best ? S.best.toFixed(1) + " lb" : "none yet"} · log ${Object.keys(S.log).length}/${FISH.length + WEIRD.length + 1}`);
+    sub.push(dailyDone() ? `today's fish is in · streak ${S.daily.streak}` : `today's fish: ${DAILY.n}${dailyStreak() ? ` · streak ${dailyStreak()}` : ""}`);
+    $("tSub").innerHTML = sub.join("<br>");
+  } catch (e) { /* fine */ }
   addEventListener("resize", resize);
   resize();
   camY = surfCam();

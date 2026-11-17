@@ -139,8 +139,51 @@
   .denied .stampbig small { display: block; font-size: .6em; letter-spacing: 2px; opacity: .85; }
   @media (max-height: 520px) { .denied .stampbig { margin: 4px 0 8px; font-size: 20px; border-width: 4px; } }
   #tipSlot .cc-tipjar { margin-top: 12px; }
+  /* 1.1: the run as pips in the title bar, feedback that reads with the sound off, clearance + case file */
+  #dlg .tb #log { width: auto; height: auto; background: none; border: 0; box-shadow: none; display: flex; gap: 2px; flex: none; }
+  #log i, .pips i { display: block; width: 8px; height: 10px; background: #0d1a0e66; border: 1px solid #f4f8e866; }
+  #log i.p, .pips i.p { background: #7dff6a; border-color: #14140f; }
+  #log i.f, .pips i.f { background: #ffb33b; border-color: #14140f; }
+  #log i.x, .pips i.x { background: var(--red); border-color: #14140f; }
+  #log i.new { animation: pipIn .35s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pipIn { from { transform: scale(2.2); } }
+  .pips { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; margin: 4px 0 2px; }
+  .pips i { width: 14px; height: 14px; }
+  #meter { position: relative; }
+  #meter .rn em { font-style: normal; opacity: .7; }
+  #meter .rn em.rec { opacity: 1; color: #ffe066; text-shadow: 0 0 6px #ffe06688; }
+  #meter .pop { position: absolute; right: 30%; top: -4px; font-size: 15px; font-weight: 700; pointer-events: none; animation: popUp 1.1s ease-out forwards; z-index: 5; }
+  #meter .pop.up { color: var(--red); text-shadow: 0 0 6px #ff3b3b88; }
+  #meter .pop.down { color: var(--green); text-shadow: 0 0 6px var(--glow); }
+  @keyframes popUp { from { transform: translateY(6px) scale(1.4); opacity: 1; } to { transform: translateY(-16px); opacity: 0; } }
+  #meter.bump .bar { animation: bump .35s; }
+  @keyframes bump { 30% { transform: scaleY(1.6); box-shadow: 0 0 10px var(--red); } }
+  #dlg.j-pass #area { animation: flashOk .45s; }
+  @keyframes flashOk { 0% { background: #c9f5b6; } }
+  #dlg.j-sus #area { animation: flashSus .45s; }
+  @keyframes flashSus { 0% { background: #ffe1a8; } }
+  body #dlg.j-bad { animation: shake .4s; }
+  #dlg.j-bad #area { animation: flashBad .45s; }
+  @keyframes flashBad { 0% { background: #ffc4c4; } }
+  @keyframes shake { 15% { transform: translate(-7px, 2px) rotate(-.6deg); } 35% { transform: translate(6px, -2px) rotate(.5deg); } 55% { transform: translate(-4px, 1px); } 75% { transform: translate(3px, 0); } }
+  .goal { margin: 8px 0 0; padding: 6px 8px; background: #0d1a0e; color: var(--green); border: 2px solid var(--green2); text-align: left; font-size: 12px; }
+  .goal .gl { display: flex; align-items: center; gap: 8px; }
+  .goal .gl b { flex: none; letter-spacing: 1px; font-size: 12px; }
+  .goal .gl b.promo { color: #ffe066; animation: noteIn .5s cubic-bezier(.2, 1.6, .4, 1); }
+  .goal .gbar { flex: 1; height: 8px; border: 1px solid var(--green2); background: #050a05; position: relative; }
+  .goal .gbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--green); }
+  .goal .gs { opacity: .85; margin-top: 2px; font-weight: 500; }
+  .goal .gs .best { color: #ffe066; }
+  .file { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; }
+  .file i { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 13px; border: 1px solid #3fbf3a66; color: #3fbf3a99; }
+  .file i.on { border-color: var(--green); background: #16301a; }
+  @media (max-height: 640px) { .goal { margin-top: 5px; padding: 4px 7px; } .file i { width: 19px; height: 19px; font-size: 11px; } }
+  @media (max-height: 520px) { .file { display: none; } .pips i { width: 10px; height: 10px; } }
+  @media (prefers-reduced-motion: reduce) { #dlg.j-bad, #meter.bump .bar, #meter .pop, #log i.new { animation: none; } }
   @media (prefers-reduced-motion: reduce) { body.g2 #dlg, body.g3 #dlg, .bait, #stamp, .denied .stampbig { animation: none; } }
   @media (min-height: 760px) { #ask { font-size: 19px; } }
+  /* tall phones: a bigger crt (the mascot) instead of more empty dialog */
+  @media (min-height: 800px) and (max-width: 700px) { #crt { width: 144px; height: 132px; } #say { min-height: 80px; font-size: 15px; } #say::before { top: 32px; } }
 </style>
 <script src="/games/cc-sdk.js"></script>
 <script src="/assets/tip.js" defer></script>
@@ -150,7 +193,7 @@
   <div id="top"><canvas id="crt" width="48" height="44" role="img" aria-label="the security computer: a beige crt with a green face"></canvas><div id="say" aria-live="polite">…</div></div>
   <div id="meter" aria-label="suspicion"><span class="lab">SUSPICION</span><span class="bar"><i id="susp"></i></span><span class="rn" id="rn"></span></div>
   <section id="dlg" aria-label="security check">
-    <div class="tb"><b id="ttl">SECURITY CHECK</b><span aria-hidden="true">_</span><span aria-hidden="true">×</span></div>
+    <div class="tb"><b id="ttl">SECURITY CHECK</b><span id="log" aria-hidden="true"></span><span aria-hidden="true">_</span><span aria-hidden="true">×</span></div>
     <div id="ask"></div>
     <div id="area"></div>
     <div id="foot"><div id="tbar" aria-hidden="true"><i></i></div><button class="btn go" id="verify" type="button" hidden>VERIFY</button></div>

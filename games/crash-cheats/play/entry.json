@@ -1,7 +1,7 @@
 {
   "slug": "crash-cheats",
   "title": "crash cheats at tic tac toe",
-  "version": 2.3,
+  "version": "2.4.1",
   "pitch": "beat crash at tic tac toe. he deletes your x's, fakes lag, spills coffee and blue-screens when he's losing. good luck.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
@@ -15,11 +15,12 @@
     "1 player",
     "halloween"
   ],
-  "changelog": "v2.3: no more unanswerable losses (a cheat can never win the round on the spot: lag's bonus o, and his move after a delete or recolor, can't win or fork), chip labels fit short screens, cheat log on wide screens. v2: first to 3 for both sides, suspicion meter (100% = anticheat catches him and you take the round), counter-cheat tokens (firewall, ctrl+z, report), double-line bug fixed, \"you had it\" beat, numbered lag moves, share downloads the card, score rewards wins not stalling.",
+  "changelog": "v2.4.1: crash v4 (enterprise) eased a step: reports hit him harder and his cheats raise more suspicion. v2.4: a ladder of five crash versions (beat one to unlock the next, each starts harder and brings his worse cheats in earlier, and wins against newer versions score more), his first cheat lands on his first turn with a big stamp that reads with the sound off, the end card shows the same score as the site plus your best and what's next, blocked or undone cheats score +25. v2.3: no more unanswerable losses (a cheat can never win the round on the spot: lag's bonus o, and his move after a delete or recolor, can't win or fork), chip labels fit short screens, cheat log on wide screens. v2: first to 3 for both sides, suspicion meter (100% = anticheat catches him and you take the round), counter-cheat tokens (firewall, ctrl+z, report), double-line bug fixed, \"you had it\" beat, numbered lag moves, share downloads the card, score rewards wins not stalling.",
   "playtest": {
     "before": 5,
     "after": 6.9
   },
   "max_score_per_sec": 120,
-  "max_score": 950
+  "max_score": 1500,
+  "restart": true
 }

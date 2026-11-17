@@ -64,6 +64,47 @@ export async function digest(url, env) {
     `SELECT DISTINCT ${PLAYER} p, ${dayOf("started_at")} d FROM plays WHERE started_at >= ? AND started_at < ? AND ${REAL} AND ${PLAYER} IS NOT NULL`
   ).bind(start, end).all()).results.map((r) => r.p + "|" + r.d));
 
+  // channel funnels (round 21: TikTok to the site, end to end). landed = the first page of a tab (cc:pageview land 1)
+  // that came from the channel; played = people whose first-ever play from that channel fell on the day (first touch,
+  // so each person counts once); second_game = of those, played 2+ different games that day; back_7d = of those,
+  // played again (from anywhere: a return from the home screen is "direct") on one of the next 7 Pacific days;
+  // still_open = not back yet and their 7 days aren't over (today counts as not over).
+  const lands = (await db.prepare(
+    `SELECT ${dayOf("ts")} d, json_extract(data, '$.ref') r, json_extract(data, '$.path') path, COUNT(*) n FROM events
+     WHERE name = 'cc:pageview' AND json_extract(data, '$.land') = 1 AND ts >= ? AND ts < ? GROUP BY 1, 2, 3`
+  ).bind(start, end).all()).results;
+  const touch = (await db.prepare(
+    `SELECT ${PLAYER} p, referrer r, MIN(started_at) t FROM plays
+     WHERE ${REAL} AND ${PLAYER} IS NOT NULL AND referrer IS NOT NULL GROUP BY p, r HAVING t >= ? AND t < ?`
+  ).bind(start, end).all()).results;
+  const dayGames = (await db.prepare(
+    `SELECT DISTINCT ${PLAYER} p, ${dayOf("started_at")} d, game FROM plays
+     WHERE started_at >= ? AND started_at < ? AND ${REAL} AND ${PLAYER} IS NOT NULL`
+  ).bind(start, end).all()).results;
+  const chan = (r) => (CHANNELS.includes(r) ? r : "other");
+  const gamesOn = {};
+  for (const r of dayGames) (gamesOn[r.p + "|" + r.d] ||= new Set()).add(r.game);
+  const dayIdx = (t) => bounds.findIndex((b, i) => i < dates.length && t < bounds[i + 1]);
+  const cohorts = touch.map((c) => ({ p: c.p, r: chan(c.r), d: dayIdx(c.t) }));
+  const lastDay = dates.length - 1;
+  function funnel(ch, days) {
+    const on = new Set(days);
+    const landed = lands.filter((l) => on.has(l.d) && chan(l.r) === ch).reduce((s, l) => s + l.n, 0);
+    const co = cohorts.filter((c) => c.r === ch && on.has(c.d));
+    let back = 0, open = 0;
+    for (const c of co) {
+      let b = false;
+      for (let k = c.d + 1; k <= Math.min(c.d + 7, lastDay) && !b; k++) b = seen.has(c.p + "|" + k);
+      if (b) back++; else if (c.d + 7 >= lastDay) open++;
+    }
+    return { landed, played: co.length, second_game: co.filter((c) => (gamesOn[c.p + "|" + c.d]?.size || 0) >= 2).length, back_7d: back, still_open: open };
+  }
+  // tiktok always, plus every channel that landed or played in the window
+  const funnelChannels = ["tiktok", ...CHANNELS.filter((c) => c !== "tiktok" && (lands.some((l) => chan(l.r) === c) || cohorts.some((x) => x.r === c)))];
+  const allDays = dates.map((_, i) => i);
+  const ttPages = {};
+  for (const l of lands) if (chan(l.r) === "tiktok") ttPages[l.path || "?"] = (ttPages[l.path || "?"] || 0) + l.n;
+
   const next = (await db.prepare(
     `SELECT ${dayOf("p.started_at")} d, COUNT(*) n FROM events e JOIN plays p ON p.id = e.play_id
      WHERE e.name = 'cc:next' AND p.started_at >= ? AND p.started_at < ? AND ${REAL} GROUP BY 1`
@@ -101,12 +142,31 @@ export async function digest(url, env) {
   // pick-up card), per day and per game opened
   const outs = (await db.prepare(
     `SELECT ${dayOf("ts")} d, name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events
-     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
+     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click', 'cc:tiktok_out', 'cc:next_shown', 'cc:next_tap') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
   ).bind(start, end).all()).results;
   const outN = (f) => outs.filter(f).reduce((s, r) => s + r.n, 0);
+  // round 26: link-outs to TikTok. show_follow / show_episode = clicks on /show/ (cc:tiktok_out); follow_elsewhere = the
+  // site's other TikTok follow buttons (cc:follow_click, platform tiktok); total = all three
+  const ttOut = (f, dayF) => {
+    const show_follow = outN((r) => f(r) && r.name === "cc:tiktok_out" && /^follow/.test(r.slot || ""));
+    const show_episode = outN((r) => f(r) && r.name === "cc:tiktok_out" && r.slot === "episode");
+    const follow_elsewhere = follows.filter((r) => dayF(r) && r.p === "tiktok").reduce((s, r) => s + r.n, 0);
+    return { show_follow, show_episode, follow_elsewhere, total: show_follow + show_episode + follow_elsewhere };
+  };
+  const ttEps = (await db.prepare(
+    `SELECT json_extract(data, '$.ep') ep, COUNT(*) n FROM events WHERE name = 'cc:tiktok_out' AND json_extract(data, '$.slot') = 'episode'
+     AND ts >= ? AND ts < ? GROUP BY 1 ORDER BY 2 DESC`
+  ).bind(start, end).all()).results;
   const deskOf = (f) => ({ shown: outN((r) => f(r) && r.name === "cc:desk_shown"), clicks: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot !== "nudge"),
     nudge: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "nudge"),
     resume: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "resume") });
+  // round 27: the results card's "try this next" tile. shown / taps = cc:next_shown / cc:next_tap (touch = on touch-only
+  // devices); plays = taps that reached a started run (cc:next, by the run's start day); per_run = plays per ended run
+  const nextOf = (f, plays, ended) => ({
+    shown: outN((r) => f(r) && r.name === "cc:next_shown"), taps: outN((r) => f(r) && r.name === "cc:next_tap"), plays,
+    per_run: ended ? Math.round((plays / ended) * 1000) / 1000 : null,
+    touch: { shown: outN((r) => f(r) && r.name === "cc:next_shown" && r.slot === "touch"), taps: outN((r) => f(r) && r.name === "cc:next_tap" && r.slot === "touch") },
+  });
   const deskGames = {};
   for (const r of outs) if (r.name === "cc:desk_click" && r.slot !== "nudge") deskGames[r.game] = (deskGames[r.game] || 0) + r.n;
   // per game page, whole window: views and average visible time
@@ -169,10 +229,12 @@ export async function digest(url, env) {
       returning_players: Math.max(0, (p.players || 0) - newbies.length),
       d1_return: d1Known ? { back, of: newbies.length, pct: newbies.length ? Math.round((back / newbies.length) * 100) : null } : null,
       ref,
-      next: { plays: nextPlays, per_run: p.ended ? Math.round((nextPlays / p.ended) * 1000) / 1000 : null },
+      funnel: Object.fromEntries(funnelChannels.map((c) => [c, funnel(c, [i])])),
+      next: nextOf((r) => r.d === i, nextPlays, p.ended || 0),
       runs_ended: p.ended || 0,
       game_shares: at(shares, i).n || 0,
       tip_clicks: outN((r) => r.d === i && r.name === "cc:tip_click"),
+      tiktok_out: ttOut((r) => r.d === i, (r) => r.d === i),
       desk: deskOf((r) => r.d === i),
       votes: at(votes, i).n || 0,
       follow_clicks: Object.fromEntries(FOLLOW_PLATFORMS.map((p) => [p, follows.filter((r) => r.d === i && r.p === p).reduce((s, r) => s + r.n, 0)])),
@@ -187,7 +249,11 @@ export async function digest(url, env) {
   });
 
   return json({ ok: true, version: 2, tz: TZ, days: n, from: dates[0], to: dates[dates.length - 1], generated_at: new Date().toISOString(), rows, games: gameTotals.map(shape), cook_vote: cook,
+    funnel: { ...Object.fromEntries(funnelChannels.map((c) => [c, funnel(c, allDays)])),
+      tiktok_landing_pages: Object.entries(ttPages).sort((a, b) => b[1] - a[1]).map(([path, n]) => ({ path, n })) },
     utm: Object.values(utmRows).sort((a, b) => b.plays - a.plays || b.page_views - a.page_views),
     desk: { ...deskOf(() => true), by_game: Object.fromEntries(Object.entries(deskGames).sort((a, b) => b[1] - a[1])) },
+    next: nextOf(() => true, next.reduce((s, r) => s + r.n, 0), plays.reduce((s, r) => s + (r.ended || 0), 0)),
+    tiktok_out: { ...ttOut(() => true, () => true), by_episode: Object.fromEntries(ttEps.filter((r) => r.ep).map((r) => [r.ep, r.n])) },
     game_pages: Object.values(pages).sort((a, b) => b.views - a.views).map((g) => ({ game: g.game, views: g.views, avg_time_s: secs(g.timed ? g.ms : null) })) });
 }
