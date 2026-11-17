@@ -5,7 +5,7 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
-  "size_kb": 49,
+  "size_kb": 58,
   "tags": [
     "reflex",
     "trick",
@@ -13,7 +13,7 @@
     "short",
     "halloween"
   ],
-  "version": "1.5",
+  "version": "1.6",
   "max_score_per_sec": 2,
   "max_score": 30
 }
