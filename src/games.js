@@ -1,4 +1,5 @@
 // Plays/events, leaderboards, feedback, hub stats, /me data.
+import { FRESH } from "./boards.js";
 import { json, bad, readJson, now, dayOf, weekOf, str, num, slugOk, idOk, refOk, campaignOk, deviceOf, limited, nameClean, streakFrom, isTestPlayer, REAL } from "./util.js";
 import { games } from "./db.js";
 import { awardPlay, unlock, totalXp, progress, levelOf, SITE_ACH } from "./xp.js";
@@ -92,22 +93,22 @@ async function recordScore(env, game, play, score, dur, user, anon, guest, t) {
   const player = playerKey(user && play.user_id === user.id ? user : null, play.anon_id || anon);
   // smoke-test runs are stored hidden (never on a board); their own best and rank still come back as for anyone
   const test = isTestPlayer(player) ? 1 : 0;
-  const prevBest = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND (hidden = 0 OR ?)").bind(play.game, player, test).first("b");
+  const prevBest = await env.DB.prepare(`SELECT MAX(score) b FROM scores WHERE ${FRESH} AND game = ? AND player = ? AND (hidden = 0 OR ?)`).bind(play.game, player, test).first("b");
   const name = user ? user.username : cleanGuest(guest, play.anon_id || anon);
   await env.DB.prepare(
     "INSERT OR IGNORE INTO scores (game, play_id, player, user_id, name, score, day, week, ts, hidden) VALUES (?,?,?,?,?,?,?,?,?,?)"
   ).bind(play.game, play.id, player, user ? user.id : null, name, score, dayOf(t), weekOf(t), t, test).run();
-  const best = await env.DB.prepare("SELECT MAX(score) b FROM scores WHERE game = ? AND player = ? AND (hidden = 0 OR ?)").bind(play.game, player, test).first("b");
+  const best = await env.DB.prepare(`SELECT MAX(score) b FROM scores WHERE ${FRESH} AND game = ? AND player = ? AND (hidden = 0 OR ?)`).bind(play.game, player, test).first("b");
   const rank = await env.DB.prepare(
-    "SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0 GROUP BY player) WHERE b > ?"
+    `SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0 GROUP BY player) WHERE b > ?`
   ).bind(play.game, best).first("n");
   // today's board too, for "#3 of 41 today" after a run (audit P1 #23): your best today vs everyone's best today
   const today = await env.DB.prepare(
-    `SELECT SUM(b > (SELECT MAX(score) FROM scores WHERE game = ?1 AND player = ?2 AND day = ?3)) above, COUNT(*) players
-     FROM (SELECT player, MAX(score) b FROM scores WHERE game = ?1 AND day = ?3 AND hidden = 0 GROUP BY player)`
+    `SELECT SUM(b > (SELECT MAX(score) FROM scores WHERE ${FRESH} AND game = ?1 AND player = ?2 AND day = ?3)) above, COUNT(*) players
+     FROM (SELECT player, MAX(score) b FROM scores WHERE ${FRESH} AND game = ?1 AND day = ?3 AND hidden = 0 GROUP BY player)`
   ).bind(play.game, player, dayOf(t)).first();
   // how many players are on the all-time board: guests work out their XP on the device from rank / players (K-0030 step 1)
-  const players = await env.DB.prepare("SELECT COUNT(DISTINCT player) n FROM scores WHERE game = ? AND hidden = 0").bind(play.game).first("n");
+  const players = await env.DB.prepare(`SELECT COUNT(DISTINCT player) n FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0`).bind(play.game).first("n");
   return { accepted: true, best, prev_best: prevBest, rank: rank + 1, players: players || 1, name,
     today: { rank: (today && today.above || 0) + 1, of: Math.max(today && today.players || 0, 1) } };
 }
@@ -129,7 +130,7 @@ export async function leaderboard(url, env, user) {
     args.push(...keys);
   }
   const { results } = await env.DB.prepare(
-    `SELECT player, name, MAX(score) AS score, id, user_id FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player ORDER BY score DESC LIMIT ${friendsOnly ? 50 : 10}`
+    `SELECT player, name, MAX(score) AS score, id, user_id FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0${where} GROUP BY player ORDER BY score DESC LIMIT ${friendsOnly ? 50 : 10}`
   ).bind(...args).all();
   let me = url.searchParams.get("player");
   if (user) me = "u:" + user.id;
@@ -138,17 +139,17 @@ export async function leaderboard(url, env, user) {
   if (me && typeof me === "string" && me.length <= 80 && !results.some((r) => r.player === me)) {
     // a smoke-test player's own (hidden) runs still give it a rank row, so the checks can read them
     const own = isTestPlayer(me) ? "" : " AND hidden = 0";
-    const mine = await env.DB.prepare(`SELECT MAX(score) s FROM scores WHERE game = ?${own}${where} AND player = ?`).bind(...args, me).first("s");
+    const mine = await env.DB.prepare(`SELECT MAX(score) s FROM scores WHERE ${FRESH} AND game = ?${own}${where} AND player = ?`).bind(...args, me).first("s");
     if (mine != null) {
       const above = await env.DB.prepare(
-        `SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE game = ? AND hidden = 0${where} GROUP BY player) WHERE b > ?`
+        `SELECT COUNT(*) n FROM (SELECT player, MAX(score) b FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0${where} GROUP BY player) WHERE b > ?`
       ).bind(...args, mine).first("n");
       you = { rank: above + 1, score: mine };
     }
   }
   // EPIC GAMER (K-0053): whoever holds the all-time #1 on this game, worked out from the live board every time so the
   // title moves on its own when someone passes them. A tie goes to whoever set that score first.
-  const champ = await env.DB.prepare("SELECT player, user_id, name, score FROM scores WHERE game = ? AND hidden = 0 ORDER BY score DESC, ts ASC LIMIT 1").bind(game).first();
+  const champ = await env.DB.prepare(`SELECT player, user_id, name, score FROM scores WHERE ${FRESH} AND game = ? AND hidden = 0 ORDER BY score DESC, ts ASC LIMIT 1`).bind(game).first();
   if (champ && period === "all" && !friendsOnly) {
     // the all-time board lists the champion first even when someone has tied their score since
     const at = results.findIndex((r) => r.player === champ.player);
@@ -219,7 +220,7 @@ export async function meSummary(env, user, origin) {
     "SELECT game, MAX(started_at) last, COUNT(*) plays, COALESCE(SUM(duration_ms), 0) ms FROM plays WHERE user_id = ? GROUP BY game ORDER BY last DESC LIMIT 30"
   ).bind(user.id).all()).results;
   const bests = (await env.DB.prepare(
-    "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 GROUP BY game"
+    `SELECT game, MAX(score) best FROM scores WHERE ${FRESH} AND user_id = ? AND hidden = 0 GROUP BY game`
   ).bind(user.id).all()).results;
   const favs = (await env.DB.prepare("SELECT game FROM favorites WHERE user_id = ? ORDER BY ts DESC").bind(user.id).all()).results.map((r) => r.game);
   // newest cloud save per game, for "jump back in" on the hub

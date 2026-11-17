@@ -4,6 +4,7 @@
 //   POST /api/me/email              {email, news}   stored unverified; "" removes it
 //   GET  /api/me/export             everything stored about you, as a JSON download
 //   GET  /api/u/:username           public profile (or {private:true})
+import { FRESH } from "./boards.js";
 import { json, bad, readJson, now, slugOk, nameClean, textClean, dayOf } from "./util.js";
 import { games } from "./db.js";
 import { levelOf, totalXp, SITE_ACH } from "./xp.js";
@@ -159,7 +160,7 @@ export async function publicProfile(env, username, origin, viewer) {
     return d ? { game: g, id, name: d.name, desc: d.desc || "" } : null;
   }).filter(Boolean);
   const highs = (await env.DB.prepare(
-    "SELECT game, MAX(score) best FROM scores WHERE user_id = ? AND hidden = 0 GROUP BY game ORDER BY best DESC LIMIT 6"
+    `SELECT game, MAX(score) best FROM scores WHERE ${FRESH} AND user_id = ? AND hidden = 0 GROUP BY game ORDER BY best DESC LIMIT 6`
   ).bind(u.id).all()).results.filter((h) => catalog.has(h.game));
   const achCount = await env.DB.prepare("SELECT COUNT(*) n FROM achievements WHERE user_id = ?").bind(u.id).first("n");
   return json({

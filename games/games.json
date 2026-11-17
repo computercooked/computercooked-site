@@ -76,6 +76,7 @@
       "controls": "tap / click to close, drag where it says drag. enter or space starts and retries, m mutes.",
       "size_kb": 58,
       "version": "1.6",
+      "results": "quiet",
       "added": "2026-10-19",
       "max_score_per_sec": 2,
       "max_score": 30
