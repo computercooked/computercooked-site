@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>mow money</title>
+<meta name="description" content="a grass-cutting money game. mow the lawn, get paid, buy a goat.">
+<link rel="stylesheet" href="style.css">
+<script src="/games/cc-sdk.js"></script>
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div class="cashbox">
+      <div id="cash">$0</div>
+      <div id="rate">$0/s</div>
+    </div>
+    <div id="lawninfo">
+      <div id="lawnname">the backyard</div>
+      <button id="goal"><i id="goalfill"></i><span id="goaltxt"></span></button>
+    </div>
+    <button id="mute" aria-label="sound on or off" title="sound (m)"></button>
+  </header>
+  <main id="stage">
+    <canvas id="cv"></canvas>
+    <div id="note" class="hide"></div>
+    <div id="intro">
+      <div class="t1">mow money</div>
+      <div class="t2"><span class="kb">drag</span>, <span class="kb">point</span> or <span class="kb">wasd</span> to mow</div>
+      <div class="t3">computer cooked games</div>
+    </div>
+    <div id="pausecover" class="hide"><div>paused<br><small>tap to keep mowing</small></div></div>
+  </main>
+  <aside id="panel">
+    <div id="nudge"></div>
+    <nav id="tabs">
+      <button data-tab="shop" class="on">upgrades<i class="badge"></i></button>
+      <button data-tab="lawns">lawns<i class="badge"></i></button>
+      <button data-tab="gnomes">gnomes<i class="badge"></i></button>
+      <button data-tab="sell">sell<i class="badge"></i></button>
+    </nav>
+    <div id="sheet">
+      <div id="sheethead"><span id="sheettitle">upgrades</span><button id="sheetclose" aria-label="close">close</button></div>
+      <div id="sheetbody"></div>
+    </div>
+  </aside>
+  <div id="modal" class="hide"><div id="modalbox"></div></div>
+</div>
+<script src="/assets/tip.js" defer></script>
+<script src="game.js"></script>
+</body>
+</html>
