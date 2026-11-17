@@ -800,7 +800,7 @@
     $('title').classList.add('on');
     $('bPlay').textContent = level > 0 ? `play · level ${level + 1}` : 'play';
     const got = Object.values(stars).reduce((a, b) => a + (+b || 0), 0), w = WORLDS[Math.floor(level / 10)];
-    $('prog').innerHTML = got ? `&#9733; <b>${got}</b>/${LEVELS * 3} stars · next up: ${esc(w ? w.name : '')}` : 'clear desktops, earn stars, unlock 5 worlds.';
+    $('prog').innerHTML = got ? `&#9733; <b>${got}</b>/${LEVELS * 3} stars · next up: ${esc(w ? w.name : '')}` : 'clear desktops, earn stars, unlock 5 worlds.<br>plus one daily desktop, the same for everyone.';
     const done = store.get('daily2-' + dayNo(), null);
     const sk = dailyStreak();
     $('bDaily').textContent = `daily #${dayNo()}` + (done ? ' ✓' : '') + (sk ? ` · ${sk}🔥` : '');
