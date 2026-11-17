@@ -1323,7 +1323,7 @@
       closeSheet();
       if (!started) begin();
       else if (over && !overEl.hidden && $("ovGo")) $("ovGo").click(); // r5: the bar's restart on an end card starts the next colony (the run was already reported)
-      else camY = clampCam((SKY - 7) * ts);
+      else { camY = clampCam((SKY - 7) * ts); if (sessOn) { endSession(false); startSession(); } } // 1.5.1: a restart mid-colony ends the visit as a quit and starts a new one
     }
   });
 
@@ -1432,9 +1432,10 @@
 
   // ---------- session score (food hauled this visit, never faster than MAXR a second: entry.json max_score_per_sec) ----------
   const MAXR = 250; // r5: measured best ~83/s (a greedy bot, 126 ants, at 3x speed)
-  let sentScore = 0, scoreAcc = 0, sessStart = 0, sessOn = false;
-  function startSession() { sessHauled = 0; sentScore = 0; sessStart = performance.now(); sessOn = true; sdk((c) => c.start && c.start()); }
+  let sentScore = 0, scoreAcc = 0, sessStart = 0, sessOn = false, sessPlay = 0;
+  function startSession() { sessHauled = 0; sentScore = 0; sessPlay = 0; sessStart = performance.now(); sessOn = true; sdk((c) => c.start && c.start()); }
   function pushScore(dt) {
+    if (!sessOn) return;
     scoreAcc += dt;
     if (scoreAcc < 2) return;
     const next = Math.min(Math.floor(sessHauled), sentScore + Math.ceil(MAXR * scoreAcc));
@@ -1442,12 +1443,33 @@
     if (next > sentScore) { sentScore = next; sdk((c) => c.score && c.score(sentScore)); }
   }
   function visitScore() { return Math.max(sentScore, Math.min(Math.floor(sessHauled), Math.floor(MAXR * (performance.now() - sessStart) / 1000))); }
-  function endSession(done) {
+  function endSession(done, direct) {
     if (!sessOn) return;
     sessOn = false; sentScore = visitScore(); // r5: the full haul, not the last 2-second push
     if (sentScore > (G.best.visit || 0)) G.best.visit = sentScore;
-    sdk((c) => c.end && c.end({ score: sentScore, durationMs: Math.round(performance.now() - sessStart), completed: !!done }));
+    const o = { score: sentScore, durationMs: Math.round(performance.now() - sessStart), completed: !!done };
+    // leaving: the player page may be unloading and a message relayed through the frame can land after its own pagehide
+    // (which would log a quit), so its sdk is also called directly (same origin, as bellchain 2.10.0 does); the relayed
+    // copy then finds the play already ended and does nothing
+    if (direct) { try { const h = window.parent !== window && window.parent.cc; if (h && h.end && h !== window.cc) h.end(o); } catch (e) { /* other origin */ } }
+    sdk((c) => c.end && c.end(o));
   }
+  // 1.5.1: in an idle game leaving is the normal ending. A visit with 10 s+ of farm time that ends with the page hidden
+  // or unloaded counts as completed (shorter ones as a quit); coming back, the next touch or key starts a new visit.
+  function goneOut() { if (!G) return; save(); endSession(sessPlay >= 10, true); }
+  const comeBack = () => { if (G && started && !over && !sessOn && !document.hidden) startSession(); };
+  addEventListener("pointerdown", comeBack, true); addEventListener("keydown", comeBack, true);
+  // inside the player page (same origin): hear the page itself going away too, with a capture listener so the visit is
+  // reported before the page's own sdk logs it as a quit on pagehide; unhooked when this frame goes away
+  try {
+    const hw = window.parent !== window && window.parent;
+    if (hw && hw.document) {
+      const hv = () => { if (!window.frameElement) { unhook(); return; } if (hw.document.hidden) goneOut(); };
+      const hp = () => { if (window.frameElement) goneOut(); };
+      const unhook = () => { try { hw.document.removeEventListener("visibilitychange", hv); hw.removeEventListener("pagehide", hp, true); } catch (e) { /* page gone */ } };
+      hw.document.addEventListener("visibilitychange", hv); hw.addEventListener("pagehide", hp, true); addEventListener("pagehide", unhook);
+    }
+  } catch (e) { /* other origin: our own visibilitychange and pagehide still fire */ }
   function ach(id) { if (G.ach[id]) return; G.ach[id] = 1; sdk((c) => c.achieve && c.achieve(id)); }
 
   // ---------- loop ----------
@@ -1456,7 +1478,7 @@
   function frame(t) {
     const raw = Math.min(0.25, Math.max(0, (t - last) / 1000)); last = t;
     if (G && started && !waitTouch && !over && !paused && !document.hidden) { // G: a start that beats the save load waits for it
-      acc += raw * spd;
+      acc += raw * spd; if (sessOn) sessPlay += raw;
       let n = 0;
       while (acc >= STEP && n < 12) { sim(STEP); acc -= STEP; n++; }
       if (n >= 12) acc = 0;
@@ -1477,8 +1499,8 @@
     const key = tab + "|" + UPS.map((u) => (G.food >= upCost(u) ? 1 : 0) + (G.up[u.id] || 0)).join("") + "|" + ants.length + "|" + Object.keys(G.curios).length;
     if (key !== paneKey) { paneKey = key; renderPane(); }
   }
-  document.addEventListener("visibilitychange", () => { if (document.hidden) save(); else last = performance.now(); });
-  addEventListener("pagehide", () => { save(); endSession(false); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) goneOut(); else last = performance.now(); });
+  addEventListener("pagehide", goneOut);
   addEventListener("resize", resize);
 
   function begin() {
