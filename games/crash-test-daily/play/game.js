@@ -103,12 +103,23 @@
     anim = G.st.map((v) => v);
     updateUI();
     say.textContent = G.locked ? 'already fixed today. come back tomorrow. or practice.' : practice ? (seedOverride ? 'random practice board. par is ' + P.par + '. hints allowed.' : 'archive #' + no + (gm === 'hard' ? ' (hard)' : '') + '. par is ' + P.par + '.') : gm === 'hard' ? 'hard mode. more parts. screws don\'t move. good luck.' : 'crash is overheating. slide the parts. get the hot air out the vent →';
+    // opened from a dare link (/games/crash-test-daily/?vs=1039&from=ash): say what that number means in moves
+    if (DARE && !G.practice && !G.locked && movesCount() === 0 && (DARE.vs > 1049) === (gm === 'hard')) {
+      const hard = DARE.vs > 1049, rest = DARE.vs - (hard ? 500 : 0), over = Math.max(0, Math.floor((1049 - rest) / 50));
+      say.textContent = DARE.from + '\'s score: ' + DARE.vs.toLocaleString('en-US') + (hard ? ' (hard)' : '') + '. ' + (over === 0 ? 'that\'s par, fast. hit par (' + P.par + ' moves) quicker to beat it.' : 'that\'s ' + over + ' over par. today, ' + (P.par + over - 1) + ' moves or fewer beats it.');
+      say.classList.add('nudge'); DARE.short = ' to beat ' + DARE.from + ': ' + (over === 0 ? 'par, faster.' : (P.par + over - 1) + ' moves or fewer.');
+    }
     if (G.locked) setTimeout(() => showResult(true), 300);
     // first-run hint goes in crash's own bubble, once the board exists (it used to be a toast on a fixed
     // timer from boot, which sat on top of the bubble at 375px and never fired if the board built late)
-    if (!DB.helped && !G.locked) { const g = G; setTimeout(() => { if (G === g && movesCount() === 0 && $('modal').hidden) { say.textContent = 'drag a part to slide it. free the hot air →. tap ? for rules.'; say.classList.add('nudge'); } }, 1200); }
+    if (!DB.helped && !G.locked) { const g = G; setTimeout(() => { if (G === g && movesCount() === 0 && $('modal').hidden) { say.textContent = 'drag a part to slide it. free the hot air →.' + (DARE && DARE.short && !g.practice && (DARE.vs > 1049) === (g.gm === 'hard') ? DARE.short : ' tap ? for rules.'); say.classList.add('nudge'); } }, DARE && !g.practice ? 3500 : 1200); }
   }
   let loadToken = null;
+  let DARE = null;
+  try {
+    const q = new URLSearchParams(window.parent !== window ? window.parent.location.search : location.search), vs = Math.round(+q.get('vs'));
+    if (vs >= 50 && vs <= 1549) DARE = { vs, from: (q.get('from') || 'your friend').replace(/[^\w .'-]/g, '').slice(0, 20) || 'your friend' };
+  } catch (e) { /* cross-origin host: no dare line */ }
 
   function saveProgress() {
     if (!G || G.practice || !G.key || G.solved) return;
@@ -196,17 +207,23 @@
     say.textContent = over <= 0 ? 'PAR! ahh. airflow. i can feel my capacitors again.' : 'ahh. airflow. i can feel my capacitors again.';
     shakeT = 0.35; G.steam = 1.4;
     try { if (navigator.vibrate && matchMedia('(pointer:coarse)').matches) navigator.vibrate(over <= 0 ? [30, 40, 60] : 40); } catch (e) { /* no buzz */ }
-    cc('end', { score: Math.max(1, 100 - 5 * Math.max(0, over)) + (G.gm === 'hard' ? 50 : 0), durationMs: ms, completed: true });
+    // score (higher is better): moves first (1000 at par, -50 per move over), then speed breaks ties (+0..49),
+    // so a friend who also hits par can still beat a dare. hard +500. needs score_slack in entry.json (a puzzle
+    // score doesn't grow with time, so the per-second cap alone would reject a quick par).
+    const speed = Math.round(49 * 20 / (20 + ms / 1000)), base = Math.max(50, 1000 - 50 * Math.max(0, over));
+    const score = base + speed + (G.gm === 'hard' ? 500 : 0);
+    G.score = { score, base, speed };
+    setTimeout(() => cc('end', { score, durationMs: ms, completed: true }), 900); // let the stamp land before the site's results card covers it
     ccEvent('solve', { mode: G.practice ? 'practice' : G.gm, over });
     if (G.key && !G.practice) {
-      DB.results[G.key] = { moves, par: G.P.par, solved: true, onDay: G.no === CT.todayNo(), endKey: CT.encode(G.st), keys: G.keys, ms };
+      DB.results[G.key] = { moves, par: G.P.par, solved: true, onDay: G.no === CT.todayNo(), endKey: CT.encode(G.st), keys: G.keys, ms, score };
       delete DB.progress[G.key]; persist();
     } else if (G.key && G.practice && !DB.results[G.key]) {
       DB.results[G.key] = { moves, par: G.P.par, solved: true, onDay: false, endKey: CT.encode(G.st), keys: G.keys, ms };
       persist();
     }
     updateUI();
-    setTimeout(() => showResult(false), 1100);
+    setTimeout(() => showResult(false), 1500); // long enough for the stamp to read in a clip
   }
   async function gridFor(keys) {
     if (!G.P.dist) G.P.dist = (await G.full).dist;
@@ -229,7 +246,10 @@
     const hard = G.gm === 'hard';
     const title = 'crash test ' + (G.no ? '#' + G.no : 'random board') + (hard ? ' (hard)' : '') + (G.practice ? ' · practice' : '');
     const cur = G.practice ? 0 : statsFor(G.gm).cur;
-    const text = `${title} 🔧 ${moves}/${par}${over <= 0 ? ' ⭐' : ''}${cur > 1 ? ' 🔥' + cur : ''}\n${rows(grid)}\n${URL_TEXT}`;
+    const secs = res && res.ms && !G.practice ? Math.max(1, Math.round(res.ms / 1000)) : 0;
+    // the dare line: at par the only way to beat it is speed; over par, it's moves
+    const dare = over <= 0 ? (secs ? `par in ${secs}s. faster?` : 'par. can you?') : `beat my ${moves} moves:`;
+    const text = `${title} 🔧 ${moves}/${par}${over <= 0 ? ' ⭐' : ''}${cur > 1 ? ' 🔥' + cur : ''}\n${rows(grid)}\n${dare} https://${URL_TEXT}/?utm_source=share&utm_medium=grid&utm_campaign=${SLUG}`;
     lastShare = { text, grid, moves, par, title, over };
     // reason to come back: the streak, and a goal for tomorrow
     let streak = '';
@@ -238,9 +258,13 @@
       streak = `<div class="streak"><b>🔥 ${s.cur}</b> day streak${s.max > s.cur ? ' · best ' + s.max : ''}<br><span>${over <= 0 ? 'flawless. come back tomorrow and defend it.' : 'tomorrow: hit par for a ⭐ and keep the streak.'}</span></div>`;
     }
     const cd = G.practice ? '' : `<div class="cd" id="cd"></div>`;
+    // the number the site's dare box and leaderboard show, explained (it used to be a mystery 100)
+    const S0 = !fromLock && G.score ? G.score : res && res.score ? { score: res.score } : null;
+    const scoreLine = S0 ? `<p class="sc">score <b>${S0.score.toLocaleString('en-US')}</b>${S0.base ? ` <span>= ${S0.base} for moves + ${S0.speed} speed${hard ? ' + 500 hard' : ''}</span>` : ''}</p>` : '';
     modal(`<div class="tb"><span>${title}</span><button data-m="x">×</button></div><div class="in">
       <h2>${over <= 0 ? '⭐ ' : ''}${rating(over)}</h2>
       <p>fixed in <b>${moves}</b> moves. the fewest possible was <b>${par}</b>.</p>
+      ${scoreLine}
       ${streak}
       <div class="grid">${rows(grid).replace(/\n/g, '<br>')}</div>
       <p style="color:var(--dim);font-size:11px">🟩 got closer · 🟨 sideways · 🟥 made it worse</p>
@@ -386,6 +410,13 @@
     $('moves').classList.toggle('over', !G.solved && movesCount() > G.P.par);
     $('bUndo').disabled = G.solved || G.keys.length < 2; $('bReset').disabled = G.solved;
     $('bHint').hidden = !G.practice;
+    // the today line (tall phones): what makes it a daily, and the streak riding on it
+    const s = G.practice ? null : statsFor(G.gm);
+    // and a move budget: one pip per par move, lime as you use them, red past par (reads in a clip with no sound)
+    const mc = movesCount(), par = G.P.par, extra = Math.max(0, mc - par);
+    let pips = ''; for (let i = 0; i < par + Math.min(extra, 8); i++) pips += '<i class="' + (i < Math.min(mc, par) ? 'u' : i >= par ? 'x' : '') + '"></i>';
+    $('today').innerHTML = '<div class="big' + (mc > par && !G.solved ? ' over' : '') + '"><b>' + mc + '</b><span>moves</span><i>/</i><b class="p">' + par + '</b><span>par</span></div><div class="pips">' + pips + (extra > 8 ? '<em>+' + (extra - 8) + '</em>' : '') + '</div>' + (G.practice ? 'practice: undo is free, hints on, streak untouched'
+      : 'same board for everyone today · fewest moves wins' + (s.cur ? ' · <b>🔥 ' + s.cur + '</b>' : ''));
     for (const b of $('modes').children) {
       const m = b.dataset.mode; b.classList.toggle('done', m !== 'practice' && !!(DB.results[pkey(today, m)] || {}).solved);
     }
@@ -394,6 +425,8 @@
   // ---------- board geometry + drawing ----------
   let S = 300, cell = 40, ox = 0, oy = 0, dpr = 1;
   function resize() {
+    // tall phones had ~140 px of nothing above and below the board: give crash, the counter and the buttons that room
+    document.body.classList.toggle('tall', innerWidth < 700 && innerHeight - Math.min(innerWidth, 560) > 340);
     const wrap = $('boardWrap'), w = wrap.clientWidth, h = wrap.clientHeight - 12;
     S = Math.max(220, Math.min(w, h, 520)); dpr = Math.min(2, window.devicePixelRatio || 1);
     cv.style.width = S + 'px'; cv.style.height = S + 'px'; cv.width = Math.round(S * dpr); cv.height = Math.round(S * dpr);
@@ -469,6 +502,9 @@
             ctx.stroke();
           }
           if (!G.solved) { ctx.shadowColor = '#FF5C7A'; ctx.shadowBlur = 12 + 6 * Math.sin(t * 5); rr(R.x + pad, R.y + pad, R.w - pad * 2, R.h - pad * 2, 9); ctx.strokeStyle = 'rgba(255,92,122,.6)'; ctx.stroke(); ctx.shadowBlur = 0; }
+          // name it: strangers (and clip viewers) need to know which block is the one that has to get out
+          ctx.font = '900 ' + Math.round(cell * 0.27) + 'px ui-monospace,Menlo,Consolas,monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(16,17,20,.82)'; ctx.fillText('HOT AIR', R.x + R.w / 2, R.y + R.h / 2 + 1); ctx.textBaseline = 'alphabetic';
         }
       } else {
         rr(R.x + pad, R.y + pad, R.w - pad * 2, R.h - pad * 2, 7); ctx.fillStyle = KCOL[p.kind] || '#ccc'; ctx.fill();
@@ -499,6 +535,33 @@
       const a = Math.max(0, 1 - q.t / q.life);
       ctx.fillStyle = q.col + (a * 0.9).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1 + q.t * 2), 0, 7); ctx.fill();
     }
+    drawTemp();
+    if (G.solved) drawStamp();
+  }
+  // crash's temperature, top right of the case: climbs past par, drops to cool on the solve (reads with the sound off)
+  function drawTemp() {
+    const over = Math.max(0, movesCount() - G.P.par), hot = 94 + Math.min(9, over);
+    const k = G.solved ? Math.min(1, G.solveT / 0.9) : 0, temp = Math.round(hot - (hot - 41) * (1 - Math.pow(1 - k, 3)));
+    ctx.font = 'bold ' + Math.round(cell * 0.26) + 'px ui-monospace,Menlo,Consolas,monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = k >= 1 ? '#2e7d32' : G.solved ? '#7d7056' : 'rgba(214,40,70,' + (0.75 + 0.25 * Math.sin(t * (4 + over))) + ')';
+    ctx.fillText((k >= 1 ? 'cool · ' : 'cpu ') + temp + '°C', ox + N * cell, oy * 0.66);
+  }
+  // the solve stamp: big enough to read in a phone clip with the sound off
+  function drawStamp() {
+    const st = G.solveT, over = movesCount() - G.P.par, par = over <= 0;
+    const e = Math.min(1, st / 0.22), sc = 1 + 1.3 * Math.pow(1 - e, 3), a = Math.min(1, st / 0.12);
+    const cx = ox + N * cell / 2, cy = oy + N * cell / 2;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.13); ctx.scale(sc, sc); ctx.globalAlpha = a;
+    const big = par ? 'PAR!' : 'FIXED', small = movesCount() + ' moves' + (par ? ' ⭐' : ' · par ' + G.P.par);
+    ctx.font = '900 ' + Math.round(cell * 1.15) + 'px ui-monospace,Menlo,Consolas,monospace';
+    const w = Math.max(ctx.measureText(big).width, cell * 3.2) + cell * 0.8, h = cell * 2.1;
+    rr(-w / 2, -h / 2, w, h, 12); ctx.fillStyle = 'rgba(16,17,20,.88)'; ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = par ? '#C5FF49' : '#F5F3ED'; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = par ? '#C5FF49' : '#F5F3ED'; ctx.fillText(big, 0, -h * 0.13);
+    ctx.font = 'bold ' + Math.round(cell * 0.36) + 'px ui-monospace,Menlo,Consolas,monospace'; ctx.fillStyle = par ? '#FFD24A' : '#B59AFF';
+    ctx.fillText(small, 0, h * 0.3);
+    ctx.restore(); ctx.textBaseline = 'alphabetic';
   }
   function decorate(p, R) {
     const h = p.dir === 'h', L = h ? R.w : R.h;
@@ -590,7 +653,13 @@
   window.addEventListener('message', (e) => {
     const d = e.data; if (!d || typeof d !== 'object') return;
     if (d.type === 'cc-mute') { muted = !!d.muted; if (master) master.gain.value = muted ? 0 : 0.4; }
-    else if (d.type === 'cc-restart') { closeModal(); if (G && !G.solved) restart(); }
+    else if (d.type === 'cc-restart') {
+      closeModal(); if (!G) return;
+      if (!G.solved) { restart(); return; }
+      // "play again" after a solve: a daily can't be replayed, so go to today's hard one (if not done) or a practice board
+      if (!G.practice && G.gm === 'normal' && !(DB.results[pkey(today, 'hard')] || {}).solved) { setMode('hard'); toast('today\'s daily is done. here\'s the hard one.'); }
+      else { playRandom(); toast('daily done. a random practice board.'); }
+    }
     else if (d.type === 'cc-pause') { /* turn-based puzzle: nothing ticks, nothing to pause */ }
   });
 

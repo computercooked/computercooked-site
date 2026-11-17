@@ -5,9 +5,9 @@
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "hold anywhere (or hold space / enter) to cook, let go when the food is done. popcorn pops slow down, the egg wobbles, the fish stinks. metal: let go at once. m mutes.",
-  "size_kb": 33,
+  "size_kb": 71,
   "tags": ["timing", "hold-and-release", "short", "funny", "mobile"],
-  "version": "1.3.0",
+  "version": "1.4.0",
   "max_score_per_sec": 15,
   "max_score": 6000
 }
