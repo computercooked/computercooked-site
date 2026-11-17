@@ -1,12 +1,12 @@
 {
   "slug": "level-devil-exe",
-  "title": "level devil.exe",
-  "pitch": "a troll platformer where the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
+  "title": "not responding",
+  "pitch": "a troll platformer that stopped responding: the floor, the exit, the cursor and the taskbar all want you dead. 36 levels, a blue screen every death, infinite retries.",
   "thumbnail": "thumb.png",
   "made_by": "computer-cooked",
   "controls": "←→ / a d move · ↑ / w / space jump · r restart · esc levels · touch buttons on mobile",
-  "size_kb": 57,
-  "version": "2.3",
+  "size_kb": 70,
+  "version": "2.5",
   "tags": [
     "platformer",
     "troll",
@@ -15,12 +15,15 @@
     "1 player",
     "halloween"
   ],
-  "max_score_per_sec": 100,
+  "max_score_per_sec": 120,
+  "results": "quiet",
+  "restart": true,
   "how_to": [
     "every level is a file that lies. if a floor, an exit or a checkpoint looks too easy, it probably is.",
     "keep moving on stairs and bridges: some of them delete themselves behind you.",
     "the controls can get swapped mid-level. watch which way you actually move, not which key you pressed.",
-    "deaths are free. r restarts the level instantly, esc opens the level list.",
+    "deaths are free. r restarts the level instantly, esc opens the level list. stuck? after 3 deaths the blue screen gives a hint.",
+    "clear a level with 0 deaths for a clean file ★. each day one daily file: clean it to keep your streak.",
     "new speedrun starts from level 1 and times the whole run, deaths included."
   ]
 }

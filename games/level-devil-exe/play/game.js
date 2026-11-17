@@ -1,9 +1,10 @@
-// level devil.exe · computer cooked games
+// not responding · computer cooked games (2.5: renamed from "level devil.exe"; the slug, folder and save key stay level-devil-exe / cc-level-devil)
 // a troll platformer: the floor, the exit, the cursor and the taskbar all want you dead.
 (() => {
 'use strict';
 
 const URL_TXT = 'computercooked.com/games/level-devil-exe';
+const NAME = 'not responding';
 const CARBON = '#101114', LIME = '#C5FF49', LILAC = '#B59AFF', PAPER = '#F5F3ED', PINK = '#FF4FA0', BSOD = '#1e5bd6';
 const FONT = 'ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace';
 const T = 20, COLS = 24, ROWS = 13, WW = COLS * T, WH = ROWS * T;
@@ -53,9 +54,22 @@ const LEVELS = [
   { n: 'cloud_sync.dll', sign: 'syncing your files to the cloud. they are coming back down.', map: M({ 1: '#.......d..d..d........#', 5: '#..E...............K...#', 6: '####################...#', 11: '#.S......k.......h...p.#', 12: '##########CCCCCC########' }), fullSpring: true },
   { n: 'antivirus.exe', sign: 'antivirus is scanning your floor. do not stand still.', map: M({ 7: '#...............###....#', 11: '#.S....^.....^.......pE#', 12: '#zzzzzzzzzzzzzzzzzzzz###' }), run: [[17, 6]], chase: { x: 3, speed: 64 }, fullSpring: true, alt: [{ d: 3, chase: { x: 3, speed: 50 } }] },
   { n: 'safe_mode.sys', sign: 'safe mode: upside down, controls swapped. for your safety.', map: M({ 1: '#.......rrrvrrr....g...#', 2: '#.......rrrrrrr........#', 3: '#.......rrrrrrr........#', 4: '#.......rrrrrrr........#', 11: '#.S.g^^^^^^^^^^^^^^..E.#' }), popups: [{ x: 19, r: [19, 9, 4, 3], t: 'restart now?' }] },
-  { n: 'uninstall.exe', sign: 'uninstalling level devil.exe. please do not climb.', map: M({ 1: '#.................E....#', 2: '#.................######', 4: '#.............ccc......#', 6: '#.........ccc..........#', 8: '#.....###..............#', 10: '#.###..................#', 11: '#S.....................#' }), taskbar: { x: 3, speed: 14 }, run: [[22, 1]], R: { c: 0.9 }, shake: 0.45 },
+  { n: 'uninstall.exe', sign: 'uninstalling not_responding.exe. please do not climb.', map: M({ 1: '#.................E....#', 2: '#.................######', 4: '#.............ccc......#', 6: '#.........ccc..........#', 8: '#.....###..............#', 10: '#.###..................#', 11: '#S.....................#' }), taskbar: { x: 3, speed: 14 }, run: [[22, 1]], R: { c: 0.9 }, shake: 0.45 },
   { n: 'credits.txt', sign: 'thanks for playing. crash is proud of you. kind of.', map: M({ 11: '#.S..................E.#' }), run: [[2, 11]], credits: true },
 ];
+
+// 2.4: after 3 deaths on a level the blue screen adds a hint, so a stuck player learns the trick instead of quitting
+const HINTS = ['hold jump for the tall step.', 'the floor by the exit crumbles. long jump off the step.', 'a spike pops up mid-floor. jump a tile early.',
+  'the exit runs. follow it up the tower.', "blocks drop when you get close. don't stop under them.", 'the middle floor is fake. take the high ledge.',
+  'the stairs are invisible, not missing. hop up and right.', 'the checkpoint is the trap. jump over the flag.', 'flip at the pad, walk the ceiling, hop its spike.',
+  'pop-ups are walls. jump onto the [x] to close them.', 'the bridge gets deleted. hop along the little pillars.', 'spring #2 is the bad one. stay off it.',
+  'in the purple zone, left is right.', "the taskbar rises. climb, don't wait.", 'the exit runs back to the start. so do you.', 'walls pop up as you get near. jump early.',
+  'the close exit is malware. climb to the real one.', 'keep moving. blocks land where you stand.', "the stairs crumble. don't stop on them.",
+  'someone drags the exit. chase it.', 'tiny taps on jump. the ceiling is low.', 'there is an invisible ceiling. short hops.', "the pop-ups are the stairs. don't close them.",
+  "climb fast. some steps crumble.", 'flip, flip back. watch the ceiling spikes.', 'the exit runs up. the spring follows it.', 'the floor gets deleted behind you. never stop.',
+  'this flag is real. the falling files are not friendly.', 'left is right and the bridge is leaving. hold the wrong way.', 'everything at once. the exit runs to the top left.',
+  'the floor is fake again. take the ledge.', 'the first flag lies. the spring takes you up.', 'the floor gets deleted. the spring at the end saves you.',
+  'upside down, controls swapped. flip at the pad.', "climb fast. some steps crumble.", 'the exit runs back. go get it.'];
 
 // ---------- save ----------
 let save = { unlocked: 1, deaths: 0, best: 0, bestDeaths: 0, muted: false, hw: null, cleared: 0 };
@@ -67,18 +81,62 @@ let patchNews = false;
 if (!save.v) { if (save.cleared >= 30) { patchNews = true; save.cleared = 30; save.unlocked = Math.max(save.unlocked, 31); } save.v = 2; persist(); }
 // deaths per level, keyed by level name so inserting levels never shuffles them
 if (!save.lvd || typeof save.lvd !== 'object') save.lvd = {};
+// 2.4: per-level records (best clear time incl. deaths, fewest deaths in a clear), keyed by name like lvd.
+// a "clean file" = a level cleared with 0 deaths. goals: id -> day hit. daily file: one level a day, clear it clean.
+if (!save.lb || typeof save.lb !== 'object') save.lb = {};
+if (!save.goals || typeof save.goals !== 'object') save.goals = {};
+if (!save.daily || typeof save.daily !== 'object') save.daily = { day: '', done: false, streak: 0, last: '' };
+function cleanCount() { let n = 0; for (const d of LEVELS) { const r = save.lb[d.n]; if (r && r.d === 0) n++; } return n; }
 function nemesis() { let best = null; LEVELS.forEach((d, i) => { const n = save.lvd[d.n] || 0; if (n > 0 && (!best || n > best.n)) best = { lv: i + 1, name: d.n, n }; }); return best; }
 const NOW = new Date();
 let hw = save.hw === null || save.hw === undefined ? NOW.getMonth() === 9 : !!save.hw;
 let muted = !!save.muted;
 
+// ---------- 2.4: folders, goals, daily file ----------
+const FOLDERS = ['hello', 'system32', 'downloads', 'temp', 'boss', 'patch 2.0'];   // 6 levels each
+const dayKey = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const TODAY = dayKey(NOW), YDAY = dayKey(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1));
+const bestT = () => { let b = 0; for (const d of LEVELS) { const r = save.lb[d.n]; if (r && r.t && (!b || r.t < b)) b = r.t; } return b; };
+// pace (cc-lead, nov 17): ~4-5 land in a first sitting, the rest take days (daily streak, later folders, all clean)
+const GOALS = [
+  { id: 'hello', t: 'clear level 1', p: () => [Math.min(1, save.cleared), 1] },
+  { id: 'bsod10', t: 'see 10 blue screens', p: () => [Math.min(10, save.deaths), 10] },
+  { id: 'clean3', t: '3 clean files (0 deaths)', p: () => [Math.min(3, cleanCount()), 3] },
+  { id: 'f1', t: 'clear folder 1 (lvl 1-6)', p: () => [Math.min(6, save.cleared), 6] },
+  { id: 'fast4', t: 'clear a level in under 4s', p: () => { const b = bestT(); return [b && b < 4 ? 1 : 0, 1]; } },
+  { id: 'daily1', t: 'clean the daily file', p: () => [save.daily.streak > 0 || save.daily.last ? 1 : 0, 1] },
+  { id: 'f2', t: 'clear folder 2 (lvl 7-12)', p: () => [Math.max(0, Math.min(6, save.cleared - 6)), 6] },
+  { id: 'clean12', t: '12 clean files', p: () => [Math.min(12, cleanCount()), 12] },
+  { id: 'streak3', t: 'daily file 3 days in a row', p: () => [Math.min(3, save.daily.streak || 0), 3] },
+  { id: 'boss', t: 'beat final_boss.exe (lvl 30)', p: () => [Math.min(30, save.cleared), 30] },
+  { id: 'all', t: 'beat all 36 levels', p: () => [Math.min(36, save.cleared), 36] },
+  { id: 'streak7', t: 'daily file 7 days in a row', p: () => [Math.min(7, save.daily.streak || 0), 7] },
+  { id: 'clean36', t: 'all 36 clean', p: () => [cleanCount(), 36] },
+  { id: 'sub10', t: 'full speedrun under 10:00', p: () => [save.best && save.best < 600 ? 1 : 0, 1] },
+];
+const goalsDone = () => GOALS.filter(g => save.goals[g.id]).length;
+function nextGoal() { for (const g of GOALS) if (!save.goals[g.id]) return g; return null; }
+// returns the goals newly hit (marked with today's date); the caller toasts them
+function checkGoals() { const hit = []; for (const g of GOALS) if (!save.goals[g.id]) { const [a, b] = g.p(); if (a >= b) { save.goals[g.id] = TODAY; hit.push(g); } } if (hit.length) persist(); return hit; }
+// daily file: picked once per day from the levels you've already cleared (level 1 for a brand-new player)
+function dailyLv() {
+  const D = save.daily;
+  if (D.day !== TODAY) { let h = 7; for (const ch of TODAY) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const pool = Math.max(1, Math.min(LEVELS.length - 1, save.cleared)); D.day = TODAY; D.done = false; D.lv = h % pool; if (D.last !== TODAY && D.last !== YDAY) D.streak = 0; persist(); }
+  return D.lv;
+}
+// the old saves get their goals quietly (no toast storm on the first load after the update)
+checkGoals();
+
 // ---------- sdk ----------
 function ccCall(fn, ...a) { try { const c = window.cc; if (c && typeof c[fn] === 'function') c[fn](...a); } catch (e) {} }
 let eventsSent = 0;
 function ccEvent(n, d) { if (eventsSent >= 18) return; eventsSent++; ccCall('event', n, d || {}); }
-const run = { open: false, startMs: 0, cleared: 0, deaths: 0 };
-function runStart() { if (run.open) return; run.open = true; run.startMs = performance.now(); run.cleared = 0; run.deaths = 0; ccCall('start'); }
-function runScore() { return Math.max(0, run.cleared * 100 - run.deaths * 2); }
+const run = { open: false, startMs: 0, cleared: 0, deaths: 0, pts: 0 };
+function runStart() { if (run.open) return; run.open = true; run.startMs = performance.now(); run.cleared = 0; run.deaths = 0; run.pts = 0; ccCall('start'); }
+// 2.4: each clear scores 100, minus 2 per death on that level (at most -50), plus a speed bonus (up to +20, 1 per
+// second under 20 s). So a clear is always 50+, and two clean runs no longer tie: the faster one wins a dare.
+function clearPts(deaths, t) { return 100 - Math.min(50, deaths * 2) + Math.max(0, 20 - Math.floor(t)); }
+function runScore() { return run.pts; }
 // A run is one sitting: first move → finishing level 36, a new speedrun, or leaving the tab/app. It counts as
 // completed (not a quit) once it cleared at least one level, so the weekly "levels in one run" goal and
 // completion rate see real sessions.
@@ -136,12 +194,15 @@ let paused = false;
 let clock = 0;
 let speedrun = { t: 0, valid: true, deaths: 0, on: false };
 let deadT = 0, deathMsg = '', winT = 0;
+let lvClock = 0;        // 2.4: time on this level since it was opened fresh, deaths included (counts once a run is open)
+let pops = [];          // 2.4: floating text in world space (+points, clean!, new best)
 let parts = [];
 let toastMsg = '', toastT = 0;
 const keys = { l: false, r: false, j: false };
 const touch = { l: false, r: false, j: false };
 let jumpHeldPrev = false;
 let isTouch = false;
+let anyInput = false;
 try { isTouch = window.matchMedia && matchMedia('(pointer: coarse)').matches; } catch (e) {}
 
 function hdirAt(g, x, y) { const below = y + 1 < ROWS ? g[y + 1][x] : '.'; return below === '#' || below === 'c' || below === 'z' ? 1 : -1; }
@@ -177,7 +238,7 @@ function loadLevel(i, keepCheckpoint) {
   mode = 'play';
 }
 
-function startLevel(i, fresh) { loadLevel(i, false); L.signT = 4; if (fresh) L.deaths = 0; }
+function startLevel(i, fresh) { loadLevel(i, false); L.signT = 4; if (fresh) L.deaths = 0; lvClock = 0; }
 
 // ---------- collision ----------
 function solidTile(x, y) {
@@ -249,6 +310,7 @@ function stepPlayer(dt) {
     p.vy = 0;
   }
   if (p.ground) p.coyote = COYOTE;
+  p.still = inp.dir || inp.jump || !p.ground ? 0 : (p.still || 0) + dt;   // 2.5: idle -> busy ring on crash's screen
   p.sq = Math.max(0, p.sq - dt * 6);
   // still stuck inside something (popup/wall appeared)? squish
   if (overlapSolid(p.x + 2, p.y + 2, PW - 4, PH - 4)) kill('CRUSHED_BY_A_SURPRISE_WALL');
@@ -260,13 +322,16 @@ function rectHit(ax, ay, aw, ah, bx, by, bw, bh) { return ax < bx + bw && ax + a
 
 function update(dt) {
   clock += dt;
-  if (toastT > 0) toastT -= dt;
+  if (toastT > 0) toastT -= dt; else if (toastQ.length) { toastMsg = toastQ.shift(); toastT = 2.4; }
+  for (const q of pops) { q.life -= dt; q.y -= 16 * dt; }
+  if (pops.length) pops = pops.filter(q => q.life > 0);
   for (const q of parts) { q.life -= dt; q.vy += 700 * dt; q.x += q.vx * dt; q.y += q.vy * dt; }
   if (parts.length) parts = parts.filter(q => q.life > 0);
   if (!L || mode === 'menu' || mode === 'end') return;
   if (speedrun.on && mode !== 'win') speedrun.t += dt;
-  if (L.signT > 0) L.signT -= dt;
+  if (L.signT > 0 && (anyInput || L.signT > 3.6)) L.signT -= dt;   // 2.4: the first level's title card waits for the first key or touch (the player page may still cover the game)
   if (L.msgT > 0) L.msgT -= dt;
+  if (run.open && (mode === 'play' || mode === 'dead')) lvClock += dt;
   if (mode === 'dead') { deadT += dt; if (deadT > 0.55) loadLevel(lvIndex, true); return; }
   if (mode === 'win') { winT += dt; if (winT > 0.55) nextLevel(); return; }
   L.t += dt;
@@ -375,12 +440,25 @@ function win() {
   const ex = L.exit;
   for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, v = 50 + Math.random() * 160; parts.push({ x: ex.x + T / 2, y: ex.y + T / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 140, life: 0.7, max: 0.7, s: 2 + Math.random() * 3, col: i % 3 ? LIME : LILAC }); }
   L.msg = L.deaths ? 'cleared. only ' + L.deaths + (L.deaths === 1 ? ' death.' : ' deaths.') : 'first try?! suspicious.'; L.msgT = 1;
-  run.cleared++;
-  const n = lvIndex + 1;
-  save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, n + 1)); save.cleared = Math.max(save.cleared, n); persist();
+  if (!run.open) runStart();
+  const n = lvIndex + 1, d = L.deaths, t = Math.round(lvClock * 100) / 100, nm = L.def.n;
+  // 2.4: points, per-level records, clean files, the daily file and goals
+  const pts = clearPts(d, t); run.cleared++; run.pts += pts;
+  const rec = save.lb[nm], newBest = rec && rec.t && t < rec.t, firstClean = d === 0 && !(rec && rec.d === 0);
+  save.lb[nm] = { t: rec && rec.t ? Math.min(rec.t, t) : t, d: rec ? Math.min(rec.d, d) : d };
+  pop(ex.x + T / 2, ex.y - 14, '+' + pts, LIME, 1.1);
+  if (firstClean) pop(ex.x + T / 2, ex.y - 34, 'CLEAN ✓', LIME, 1.6, true);
+  else if (newBest) pop(ex.x + T / 2, ex.y - 34, 'new best ' + t.toFixed(2) + 's', LILAC, 1.6, true);
+  if (d === 0 && rec && rec.d !== 0) L.msg = 'clean file. you learned.';
+  save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, n + 1)); save.cleared = Math.max(save.cleared, n);
+  const D = save.daily;
+  if (lvIndex === dailyLv() && !D.done && d === 0) { D.done = true; D.streak = D.last === YDAY ? (D.streak || 0) + 1 : 1; D.last = TODAY; toast('daily file clean ✓ streak ' + D.streak + ' · new file tomorrow'); ccEvent('daily', { lv: n, streak: D.streak }); }
+  persist();
+  for (const g of checkGoals()) { if (g.id !== 'daily1') toast('goal ✓ ' + g.t); ccEvent('goal', { id: g.id }); }   // (the daily has its own toast)
   if ([5, 10, 20, 30, 35].includes(n)) ccEvent('milestone', { lv: n, deaths: speedrun.deaths });
   ccCall('score', runScore());
 }
+function pop(x, y, txt, col, life, big) { pops.push({ x, y, txt, col, life, max: life, big: !!big }); }
 function nextLevel() {
   if (lvIndex + 1 >= LEVELS.length) { finishGame(); return; }
   startLevel(lvIndex + 1, true);
@@ -418,7 +496,7 @@ function layout() {
   if (pad.show && portrait) availH = Math.max(140, H - top - Math.min(260, Math.max(170, H * 0.34)));
   // phones in portrait: zoom in and follow crash horizontally (about 16 tiles visible)
   const s = Math.min(Math.max(W / WW, portrait ? W / (16 * T) : 0), availH / WH);
-  V.s = s; V.vw = Math.min(WW, W / s); V.x = (W - V.vw * s) / 2; V.y = top + (portrait && pad.show ? 4 : Math.max(0, (availH - WH * s) / 2));
+  V.s = s; V.band = pad.show && portrait; V.vw = Math.min(WW, W / s); V.x = (W - V.vw * s) / 2; V.y = top + (portrait && pad.show ? 4 : Math.max(0, (availH - WH * s) / 2));
   if (pad.show) {
     if (portrait) {
       const ay = V.y + WH * s + 10, ah = H - ay - 18;
@@ -437,9 +515,15 @@ function layout() {
 // ---------- drawing ----------
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 function rr(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function wrapText(txt, x, y, maxW, lh) {
+  let line = '';
+  for (const w of txt.split(' ')) { const t2 = line ? line + ' ' + w : w; if (line && ctx.measureText(t2).width > maxW) { ctx.fillText(line, x, y); y += lh; line = w; } else line = t2; }
+  if (line) { ctx.fillText(line, x, y); y += lh; }
+  return y;
+}
 function fmt(t) { const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0'); }
 
-const PAL = () => hw ? { face: '#e58a3a', hi: '#ffc27a', lo: '#8a3f12', bg: '#160f22', grid: 'rgba(255,138,42,0.05)', spike: '#b59aff' } : { face: '#c3c3c3', hi: '#f2f2f2', lo: '#6d6d6d', bg: CARBON, grid: 'rgba(197,255,73,0.04)', spike: PINK };
+const PAL = () => hw ? { face: '#e58a3a', hi: '#ffc27a', lo: '#8a3f12', bg: '#160f22', grid: 'rgba(255,138,42,0.05)', spike: '#b59aff' } : { face: '#3d5a80', hi: '#98c1d9', lo: '#1b2a41', bg: '#0f1222', grid: 'rgba(152,193,217,0.06)', spike: PINK };
 
 function block(x, y, P, shake) {
   const ox = shake ? (Math.random() - 0.5) * 2.5 : 0;
@@ -468,7 +552,8 @@ function drawPlayer(p) {
   ctx.fillStyle = '#b09f7a'; ctx.fillRect(PW - 2, 0, 2, 11); ctx.fillRect(3, 11, 6, 2); ctx.fillRect(1, 13, 10, 3);
   ctx.fillStyle = LIME; ctx.fillRect(2, 2, 8, 6);
   ctx.fillStyle = CARBON; const ex = p.face > 0 ? 1 : -1;
-  ctx.fillRect(4 + ex, 4, 1, 2); ctx.fillRect(7 + ex, 4, 1, 2);
+  if ((p.still || 0) > 1.2 && mode === 'play') { const a0 = clock * 7; ctx.strokeStyle = CARBON; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(6, 5, 2.2, a0, a0 + 4.4); ctx.stroke(); }
+  else { ctx.fillRect(4 + ex, 4, 1, 2); ctx.fillRect(7 + ex, 4, 1, 2); }
   if (hw) { ctx.fillStyle = '#2a1846'; ctx.beginPath(); ctx.moveTo(1, 0); ctx.lineTo(11, 0); ctx.lineTo(7, -8); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#FF8A2A'; ctx.fillRect(0, -1, 12, 1.5); }
   ctx.restore();
 }
@@ -536,12 +621,28 @@ function draw() {
   // exits
   for (const fe of L.fakeExits) door(fe.x, fe.y, true);
   door(L.exit.x, L.exit.y, false);
+  // 2.4: on phones the exit can start off screen: a pulsing chip at the edge says where it is
+  if (V.vw < WW && mode === 'play' && !L.fakeExits.length) {   // (not on shortcut.lnk: pointing past the fake door would spoil it)
+    const ex = L.exit, left = ex.x + T < V.cam + 4, right = ex.x > V.cam + V.vw - 4;
+    if (left || right) {
+      ctx.globalAlpha = 0.65 + 0.35 * Math.sin(clock * 6); ctx.font = 'bold 8px ' + FONT; ctx.textBaseline = 'middle';
+      const lbl = left ? '◀ EXIT' : 'EXIT ▶', w = ctx.measureText(lbl).width + 8, cx = left ? V.cam + 3 : V.cam + V.vw - 3 - w, cy = Math.max(8, Math.min(WH - 8, ex.y + T / 2));
+      ctx.fillStyle = LIME; rr(cx, cy - 6, w, 12, 3); ctx.fill(); ctx.fillStyle = CARBON; ctx.textAlign = 'center'; ctx.fillText(lbl, cx + w / 2, cy + 0.5); ctx.globalAlpha = 1;
+    }
+  }
   for (const pp of L.popups) if (pp.state === 1) drawPopup(pp);
   if (L.exitAnim && L.def.drag) drawCursor(L.exit.x + 12, L.exit.y + 4, 1);
   // player
   if (mode !== 'dead') drawPlayer(L.p);
   for (const q of parts) { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.col; ctx.fillRect(q.x - q.s / 2, q.y - q.s / 2, q.s, q.s); }
   ctx.globalAlpha = 1;
+  // 2.4: floating +points / CLEAN / new best (big ones pop in, all fade out; dark outline so they read over anything)
+  for (const q of pops) {
+    const k = 1 - q.life / q.max, a = Math.min(1, q.life / q.max * 3), sc = q.big ? (k < 0.12 ? 0.6 + k / 0.12 * 0.6 : 1.2 - Math.min(0.2, (k - 0.12))) : 1;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(Math.max(30, Math.min(WW - 30, q.x)), Math.max(10, q.y)); ctx.scale(sc, sc);
+    ctx.font = 'bold ' + (q.big ? 13 : 11) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3; ctx.strokeStyle = CARBON; ctx.strokeText(q.txt, 0, 0); ctx.fillStyle = q.col; ctx.fillText(q.txt, 0, 0); ctx.restore();
+  }
   // cursor
   const cu = L.cursor;
   if (cu && cu.state > 0 && cu.state < 4) {
@@ -560,18 +661,33 @@ function draw() {
   // message
   if (L.msgT > 0) { ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(L.msg).width + 14; const mx = Math.max(w / 2 + 4, Math.min(WW - w / 2 - 4, L.p.x + PW / 2)), my = Math.max(14, L.p.y - 16 * (L.gs > 0 ? 1 : -1) + (L.gs < 0 ? 24 : 0)); ctx.fillStyle = 'rgba(245,243,237,0.95)'; rr(mx - w / 2, my - 8, w, 16, 4); ctx.fill(); ctx.fillStyle = CARBON; ctx.fillText(L.msg, mx, my + 0.5); }
   // level title card
-  if (L.signT > 3) { const a = Math.min(1, (L.signT - 3) * 3); ctx.globalAlpha = a; ctx.fillStyle = '#1c2a8c'; const tw = 240; rr(VC - tw / 2, WH / 2 - 22, tw, 44, 4); ctx.fill(); ctx.fillStyle = PAPER; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('level ' + (lvIndex + 1) + ' / ' + LEVELS.length, VC, WH / 2 - 9); ctx.fillStyle = LIME; ctx.font = 'bold 12px ' + FONT; ctx.fillText(L.def.n, VC, WH / 2 + 8); ctx.globalAlpha = 1; }
+  if (L.signT > 3) {
+    // 2.4: the card also names the folder and shows this level's record (or that it's today's daily file)
+    const a = Math.min(1, (L.signT - 3) * 3), rec = save.lb[L.def.n], daily = lvIndex === dailyLv() && !save.daily.done;
+    const sub = daily ? '★ daily file: clear it with 0 deaths' : rec ? 'best ' + rec.t.toFixed(2) + 's · ' + (rec.d === 0 ? 'clean ★' : 'fewest deaths ' + rec.d) : '';
+    const th = sub ? 58 : 44;
+    ctx.globalAlpha = a; ctx.fillStyle = '#1c2a8c'; const tw = 300; rr(VC - tw / 2, WH / 2 - 22, tw, th, 4); ctx.fill(); ctx.fillStyle = PAPER; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('level ' + (lvIndex + 1) + ' / ' + LEVELS.length + ' · folder ' + (Math.floor(lvIndex / 6) + 1) + ': ' + FOLDERS[Math.floor(lvIndex / 6)], VC, WH / 2 - 9); ctx.fillStyle = LIME; ctx.font = 'bold 11px ' + FONT; ctx.fillText(L.def.n + ' (not responding)', VC, WH / 2 + 8);
+    if (sub) { ctx.fillStyle = daily ? LILAC : 'rgba(245,243,237,0.8)'; ctx.font = 'bold 8px ' + FONT; ctx.fillText(sub, VC, WH / 2 + 25); }
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
 
   // blue screen of death
   if (mode === 'dead' && deadT > 0.12) {
     ctx.fillStyle = hw ? '#3a1458' : BSOD; ctx.fillRect(V.x, V.y, V.vw * V.s, WH * V.s);
     ctx.fillStyle = PAPER; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const fs = Math.max(11, 16 * V.s), x = V.x + 18 * V.s; let y = V.y + 22 * V.s;
-    ctx.font = 'bold ' + Math.round(fs * 2.4) + 'px ' + FONT; ctx.fillText(hw ? 'boo.' : ':(', x, y); y += fs * 3.2;
-    ctx.font = 'bold ' + Math.round(fs * 0.85) + 'px ' + FONT; ctx.fillText('crash ran into a problem and died.', x, y); y += fs * 1.3;
-    ctx.fillText('stop code: ' + deathMsg, x, y); y += fs * 1.3;
-    ctx.fillStyle = 'rgba(245,243,237,0.7)'; ctx.fillText('deaths on this level: ' + L.deaths + ' · total: ' + save.deaths, x, y); y += fs * 1.3;
+    // 2.4: lines wrap to the blue screen's width (on phones the stop code ran off the right edge)
+    const fs = Math.max(11, 16 * V.s), x = V.x + 18 * V.s, bw = V.vw * V.s - 36 * V.s; let y = V.y + 22 * V.s;
+    ctx.font = 'bold ' + Math.round(fs * 2.4) + 'px ' + FONT; const face = hw ? 'boo.' : ':('; ctx.fillText(face, x, y);
+    // 2.4: from the 3rd death on a level the count sits next to the face, big enough to read in a muted clip
+    if (L.deaths >= 3) { const fx = x + ctx.measureText(face + ' ').width; ctx.fillStyle = L.deaths >= 10 ? PINK : 'rgba(245,243,237,0.85)'; ctx.font = 'bold ' + Math.round(fs * 1.6) + 'px ' + FONT; ctx.fillText('×' + L.deaths, fx, y + fs * 0.6); ctx.fillStyle = PAPER; }
+    y += fs * 3.2;
+    const lf = Math.round(Math.min(fs * 0.85, bw / 39 / 0.6)), lh = lf * 1.4;
+    ctx.font = 'bold ' + lf + 'px ' + FONT;
+    y = wrapText('crash ran into a problem and died.', x, y, bw, lh);
+    y = wrapText('stop code: ' + deathMsg, x, y, bw, lh);
+    ctx.fillStyle = 'rgba(245,243,237,0.7)'; y = wrapText('deaths on this level: ' + L.deaths + ' · total: ' + save.deaths, x, y, bw, lh);
+    if (L.deaths >= 3 && HINTS[lvIndex]) { ctx.fillStyle = LIME; y = wrapText('hint: ' + HINTS[lvIndex], x, y, bw, lh); ctx.fillStyle = 'rgba(245,243,237,0.7)'; }
     ctx.fillText('restarting...', x, y);
   }
   drawHud();
@@ -581,7 +697,7 @@ function draw() {
   else if (mode === 'end') drawEnd();
   tipSync(paused ? null : tipWant); // K-0059: shared tip button (assets/tip.js)
   if (paused && mode !== 'menu') { ctx.fillStyle = 'rgba(16,17,20,0.75)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('paused', W / 2, H / 2 - 10); ctx.fillStyle = PAPER; ctx.font = 'bold 13px ' + FONT; ctx.fillText('tap or press a key', W / 2, H / 2 + 16); }
-  if (toastT > 0) { ctx.font = 'bold 13px ' + FONT; const tw = ctx.measureText(toastMsg).width + 28; rr(W / 2 - tw / 2, H * 0.4, tw, 34, 10); ctx.fillStyle = LILAC; ctx.fill(); ctx.fillStyle = CARBON; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(toastMsg, W / 2, H * 0.4 + 17); }
+  if (toastT > 0) { let fs = 13; ctx.font = 'bold ' + fs + 'px ' + FONT; let tw = ctx.measureText(toastMsg).width + 28; if (tw > W - 16) { fs = Math.max(9, Math.floor(fs * (W - 44) / (tw - 28))); ctx.font = 'bold ' + fs + 'px ' + FONT; tw = ctx.measureText(toastMsg).width + 28; } const ty = mode === 'play' || mode === 'win' || mode === 'dead' ? V.y + 6 : H * 0.4, a = Math.min(1, toastT * 4); ctx.globalAlpha = a; rr(W / 2 - tw / 2, ty, tw, 30, 10); ctx.fillStyle = LILAC; ctx.fill(); ctx.fillStyle = CARBON; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(toastMsg, W / 2, ty + 15.5); ctx.globalAlpha = 1; }
 }
 
 function button(x, y, w, h, label, fn, o) {
@@ -607,8 +723,20 @@ function drawHud() {
   if (L && L.deaths > 0) { ctx.fillStyle = 'rgba(255,79,160,0.7)'; const dh = '(' + L.deaths + ' here)'; ctx.fillText(dh, x, h / 2); x += ctx.measureText(dh + ' ').width; }
   x += ctx.measureText(' ').width;
   ctx.fillStyle = PAPER; ctx.fillText(speedrun.on ? fmt(speedrun.t) : '--:--.--', x, h / 2); x += ctx.measureText('00:00.00  ').width;
-  if (!narrow && L) { ctx.fillStyle = 'rgba(245,243,237,0.5)'; ctx.fillText(L.def.n, x, h / 2); }
+  if (!narrow && L) { ctx.fillStyle = 'rgba(245,243,237,0.5)'; ctx.fillText(L.def.n, x, h / 2); x += ctx.measureText(L.def.n).width; }
+  // 2.4: the next goal: in the top bar when there's room (wide frames), else in the strip under the level
+  const ng = nextGoal(), gy = V.y + WH * V.s + 15;
+  let inBar = false;
+  if (ng && L && !narrow) {
+    const [a, b] = ng.p(), txt = 'next: ' + ng.t + (b > 1 ? ' · ' + a + '/' + b : '');
+    ctx.font = 'bold 11px ' + FONT; const tw = ctx.measureText(txt).width, right = bx - 12;
+    if (right - tw > x + 24) { inBar = true; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(197,255,73,0.75)'; ctx.fillText(txt, right, h / 2); }
+  }
   ctx.fillStyle = 'rgba(245,243,237,0.3)'; ctx.font = 'bold 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  if (ng && L && !inBar && (mode === 'play' || mode === 'dead' || mode === 'win') && gy < H - 14 && (!pad.show || V.band) && !(pad.show && pad.l && gy + 8 > pad.l.y)) {
+    const [a, b] = ng.p(); ctx.font = 'bold ' + (W < 430 ? 10 : 11) + 'px ' + FONT; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(197,255,73,0.75)';
+    ctx.fillText('next goal: ' + ng.t + (b > 1 ? ' · ' + a + '/' + b : ''), W / 2, gy); ctx.font = 'bold 9px ' + FONT; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(245,243,237,0.3)';
+  }
   if (!pad.show || H > W * 1.15) ctx.fillText('computer cooked games', W / 2, H - 2);
 }
 function drawPad() {
@@ -617,25 +745,57 @@ function drawPad() {
   draw1(pad.l, '◀', touch.l); draw1(pad.r, '▶', touch.r); draw1(pad.j, 'jump', touch.j);
 }
 function panel() { const w = Math.min(W - 24, 420), h = Math.min(H - 24, 470); const x = (W - w) / 2, y = (H - h) / 2; ctx.fillStyle = 'rgba(10,11,13,0.9)'; ctx.fillRect(0, 0, W, H); rr(x, y, w, h, 14); ctx.fillStyle = CARBON; ctx.fill(); ctx.strokeStyle = LIME; ctx.lineWidth = 2; ctx.stroke(); return { x, y, w, h }; }
+let menuView = 'levels';   // 2.4: 'levels' | 'goals'
+function drawGoals(p) {
+  let y = p.y + 16;
+  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('goals ' + goalsDone() + '/' + GOALS.length, p.x + 16, y);
+  button(p.x + p.w - 44, y - 4, 32, 30, '×', () => { menuView = 'levels'; }, { fs: 18 });
+  y += 34;
+  const D = save.daily, rh = Math.max(16, Math.min(24, (p.y + p.h - y - 40) / GOALS.length));
+  ctx.font = 'bold ' + (rh < 19 ? 10 : 12) + 'px ' + FONT; ctx.textBaseline = 'middle';
+  for (const g of GOALS) {
+    const done = save.goals[g.id], [a, b] = g.p();
+    ctx.textAlign = 'left'; ctx.fillStyle = done ? LIME : 'rgba(245,243,237,0.75)'; ctx.fillText((done ? '✓ ' : '· ') + g.t, p.x + 16, y + rh / 2);
+    ctx.textAlign = 'right'; ctx.fillStyle = done ? 'rgba(197,255,73,0.6)' : 'rgba(245,243,237,0.45)'; ctx.fillText(done ? '' : b > 1 ? a + '/' + b : '', p.x + p.w - 16, y + rh / 2);
+    y += rh;
+  }
+  ctx.textAlign = 'left'; ctx.fillStyle = LILAC; ctx.font = 'bold 11px ' + FONT;
+  ctx.fillText(D.done ? 'daily file done · streak ' + D.streak + ' · a new one tomorrow' : 'daily file today: lvl ' + (dailyLv() + 1) + ' · clear it with 0 deaths', p.x + 16, Math.min(y + 14, p.y + p.h - 14));
+}
+function logo(x, y) {
+  const a0 = clock * 5; ctx.strokeStyle = 'rgba(152,193,217,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x + 9, y + 10, 7, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = LIME; ctx.beginPath(); ctx.arc(x + 9, y + 10, 7, a0, a0 + 1.8); ctx.stroke();
+  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(NAME, x + 24, y);
+}
 function drawMenu() {
   btns = [];
   const p = panel(); let y = p.y + 16;
-  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('level devil.exe', p.x + 16, y);
+  if (menuView === 'goals') { drawGoals(p); return; }
+  ctx.fillStyle = LIME; ctx.font = 'bold 20px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; logo(p.x + 16, y);
   button(p.x + p.w - 44, y - 4, 32, 30, '×', closeMenu, { fs: 18 });
+  button(p.x + p.w - 128, y - 4, 76, 30, 'goals ▸', () => { menuView = 'goals'; }, { fs: 12, color: LIME });
   const nm = nemesis();
   y += 30; ctx.fillStyle = 'rgba(245,243,237,0.6)'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'left'; ctx.fillText('deaths: ' + save.deaths + (nm ? ' · nemesis: lvl ' + nm.lv + ' (☠ ' + nm.n + ')' : '') + (save.best ? ' · best run ' + fmt(save.best) : ''), p.x + 16, y); y += 22;
-  const cols = 8, gap = 5, bw = (p.w - 32 - gap * (cols - 1)) / cols, bh = Math.min(30, bw);
+  // 2.4: goals + clean files, the next goal, and the daily file
+  const ng = nextGoal(), dl = dailyLv(), D = save.daily;
+  ctx.fillStyle = PAPER; ctx.fillText('goals ' + goalsDone() + '/' + GOALS.length + ' · clean files ' + cleanCount() + '/' + LEVELS.length + (run.open && run.pts ? ' · this run ' + run.pts : ''), p.x + 16, y); y += 17;
+  if (ng) { const [a, b] = ng.p(); ctx.fillStyle = LIME; ctx.fillText('next: ' + ng.t + (b > 1 ? ' · ' + a + '/' + b : ''), p.x + 16, y); y += 19; }
+  const cols = 8, gap = 5, bw = (p.w - 32 - gap * (cols - 1)) / cols, bh = Math.min(30, bw, Math.max(20, (p.h - (y - p.y) - 100) / 5 - gap));
   for (let i = 0; i < LEVELS.length; i++) {
     const r = Math.floor(i / cols), c = i % cols, bx = p.x + 16 + c * (bw + gap), byy = y + r * (bh + gap);
-    if (i < save.unlocked) button(bx, byy, bw, bh, String(i + 1), () => { speedrun.valid = false; speedrun.on = true; startLevel(i, true); }, { fs: 11, color: i < save.cleared ? LIME : PAPER });
-    else { rr(bx, byy, bw, bh, 6); ctx.fillStyle = 'rgba(245,243,237,0.03)'; ctx.fill(); ctx.fillStyle = 'rgba(245,243,237,0.2)'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), bx + bw / 2, byy + bh / 2); }
+    if (i < save.unlocked) {
+      button(bx, byy, bw, bh, String(i + 1), () => { speedrun.valid = false; speedrun.on = true; startLevel(i, true); }, { fs: 11, color: i < save.cleared ? LIME : PAPER });
+      const rec = save.lb[LEVELS[i].n];
+      if (rec && rec.d === 0) { ctx.fillStyle = LIME; ctx.font = 'bold 8px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillText('★', bx + bw - 2, byy + 1); }
+    } else { rr(bx, byy, bw, bh, 6); ctx.fillStyle = 'rgba(245,243,237,0.03)'; ctx.fill(); ctx.fillStyle = 'rgba(245,243,237,0.2)'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), bx + bw / 2, byy + bh / 2); }
+    if (i === dl) { rr(bx - 1.5, byy - 1.5, bw + 3, bh + 3, 7); ctx.strokeStyle = D.done ? 'rgba(181,154,255,0.5)' : LILAC; ctx.lineWidth = 2; ctx.stroke(); }
   }
-  y += Math.ceil(LEVELS.length / cols) * (bh + gap) + 8;
-  const hb = Math.min(40, (p.y + p.h - y - 16 - 3 * 8) / 4);
-  button(p.x + 16, y, p.w - 32, hb, 'new speedrun (from level 1)', newRun, { primary: true, fs: 13 }); y += hb + 8;
-  const half = (p.w - 40) / 2;
-  button(p.x + 16, y, half, hb, 'share deaths', share, { fs: 12 }); button(p.x + 24 + half, y, half, hb, muted ? 'sound: off' : 'sound: on', () => setMuted(!muted), { fs: 12 }); y += hb + 8;
-  button(p.x + 16, y, p.w - 32, hb, 'spooky mode: ' + (hw ? 'on 🎃' : 'off'), () => { hw = !hw; save.hw = hw; persist(); }, { fs: 12 }); y += hb + 8;
+  y += Math.ceil(LEVELS.length / cols) * (bh + gap) + 6;
+  const hb = Math.max(26, Math.min(40, (p.y + p.h - y - 30) / 2)), half = (p.w - 40) / 2, third = (p.w - 48) / 3;
+  button(p.x + 16, y, half, hb, 'new speedrun', newRun, { primary: true, fs: 12 });
+  button(p.x + 24 + half, y, half, hb, D.done ? 'daily ✓ streak ' + D.streak : 'daily file: lvl ' + (dl + 1), () => { speedrun.valid = false; speedrun.on = true; startLevel(dl, true); toast(D.done ? 'daily done. new file tomorrow.' : 'daily file: clear it with 0 deaths'); }, { fs: 11, color: LILAC }); y += hb + 7;
+  button(p.x + 16, y, third, hb, 'share', share, { fs: 12 }); button(p.x + 24 + third, y, third, hb, muted ? 'sound off' : 'sound on', () => setMuted(!muted), { fs: 12 });
+  button(p.x + 32 + third * 2, y, third, hb, hw ? 'spooky 🎃' : 'spooky off', () => { hw = !hw; save.hw = hw; persist(); }, { fs: 12 }); y += hb + 8;
   ctx.fillStyle = 'rgba(245,243,237,0.45)'; ctx.font = 'bold 10px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText('keys: ←→/a d move · ↑/w/space jump · r restart · esc menu', p.x + 16, Math.min(y, p.y + p.h - 18));
 }
@@ -662,10 +822,10 @@ function drawEnd() {
   btns = [];
   const p = panel(); let y = p.y + 22;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.fillText('you beat level devil.exe', W / 2, y); y += 40;
+  ctx.fillStyle = LIME; ctx.font = 'bold 22px ' + FONT; ctx.fillText('you beat ' + NAME, W / 2, y); ctx.fillStyle = 'rgba(245,243,237,0.55)'; ctx.font = 'bold 12px ' + FONT; ctx.fillText('(it is responding now. barely.)', W / 2, y + 26); y += 46;
   ctx.fillStyle = PAPER; ctx.font = 'bold 15px ' + FONT;
   ctx.fillText('time ' + fmt(speedrun.t) + (speedrun.valid ? '' : ' (level-select run)'), W / 2, y); y += 26;
-  ctx.fillText('deaths this run: ' + speedrun.deaths, W / 2, y); y += 26;
+  ctx.fillText('deaths this run: ' + speedrun.deaths + ' · score ' + runScore(), W / 2, y); y += 26;
   ctx.fillStyle = 'rgba(245,243,237,0.6)'; ctx.font = 'bold 12px ' + FONT;
   ctx.fillText('all-time deaths: ' + save.deaths + (save.best ? ' · best ' + fmt(save.best) : ''), W / 2, y); y += 24;
   const nm = nemesis();
@@ -677,7 +837,7 @@ function drawEnd() {
   button(p.x + 20, y, p.w - 40, bh, 'levels', openMenu);
   tipWant = { x: p.x + 20, y: y + bh, w: p.w - 40 }; // K-0059: shared tip button (assets/tip.js)
 }
-function openMenu() { if (mode === 'menu') return; menuFrom = mode === 'end' ? 'end' : 'play'; mode = 'menu'; }
+function openMenu() { if (mode === 'menu') return; menuView = 'levels'; menuFrom = mode === 'end' ? 'end' : 'play'; mode = 'menu'; }
 function closeMenu() { mode = menuFrom === 'end' ? 'end' : 'play'; }
 
 // ---------- share ----------
@@ -686,7 +846,7 @@ function makeCard() {
   g.fillStyle = hw ? '#3a1458' : BSOD; g.fillRect(0, 0, 1080, 1080);
   g.fillStyle = PAPER; g.textAlign = 'left'; g.textBaseline = 'top';
   g.font = 'bold 220px ' + FONT; g.fillText(':(', 90, 70);
-  g.font = 'bold 54px ' + FONT; g.fillText('level devil.exe killed me', 90, 360);
+  g.font = 'bold 54px ' + FONT; g.fillText(NAME + ' killed me', 90, 360);
   g.fillStyle = LIME; g.font = 'bold 150px ' + FONT; g.fillText(save.deaths + 'x', 90, 440);
   g.fillStyle = PAPER; g.font = 'bold 44px ' + FONT;
   const done = mode === 'end';
@@ -703,17 +863,18 @@ function makeCard() {
 }
 function shareText() {
   const nm = nemesis(), nmTxt = nm && nm.n >= 3 ? ' level ' + nm.lv + ' alone got me ' + nm.n + ' times.' : '';
-  return mode === 'end' ? 'i beat level devil.exe in ' + fmt(speedrun.t) + ' and only died ' + speedrun.deaths + ' times.' + nmTxt + ' ' + URL_TXT
-    : 'level devil.exe has killed me ' + save.deaths + ' times.' + nmTxt + ' i am on level ' + Math.min(LEVELS.length, save.cleared + 1) + '. ' + URL_TXT;
+  return mode === 'end' ? 'i beat ' + NAME + ' in ' + fmt(speedrun.t) + ' and only died ' + speedrun.deaths + ' times.' + nmTxt + ' ' + URL_TXT
+    : NAME + ' has killed me ' + save.deaths + ' times.' + nmTxt + ' i am on level ' + Math.min(LEVELS.length, save.cleared + 1) + '. ' + URL_TXT;
 }
-function toast(m) { toastMsg = m; toastT = 2.2; }
+const toastQ = [];
+function toast(m) { if (toastT > 0) { if (toastQ.length < 4) toastQ.push(m); } else { toastMsg = m; toastT = 2.4; } }
 async function share() {
   ccEvent('share', { deaths: save.deaths });
   const text = shareText(); let blob = null;
   try { blob = await new Promise(r => makeCard().toBlob(r, 'image/png')); } catch (e) {}
   try {
-    if (blob && navigator.canShare) { const file = new File([blob], 'level-devil.png', { type: 'image/png' }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, title: 'level devil.exe' }); return; } }
-    if (navigator.share) { await navigator.share({ text, title: 'level devil.exe' }); return; }
+    if (blob && navigator.canShare) { const file = new File([blob], 'not-responding.png', { type: 'image/png' }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, title: NAME }); return; } }
+    if (navigator.share) { await navigator.share({ text, title: NAME }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
   try { if (blob && navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob, 'text/plain': new Blob([text], { type: 'text/plain' }) })]); toast('card + text copied'); return; } } catch (e) {}
   try { await navigator.clipboard.writeText(text); toast('copied to clipboard'); } catch (e) { toast('could not copy. screenshot it.'); }
@@ -722,7 +883,7 @@ async function share() {
 // ---------- input ----------
 const KEYMAP = { arrowleft: 'l', a: 'l', arrowright: 'r', d: 'r', arrowup: 'j', w: 'j', ' ': 'j', z: 'j' };
 window.addEventListener('keydown', (e) => {
-  ensureAudio();
+  ensureAudio(); anyInput = true;
   const k = e.key.toLowerCase();
   if (paused) { paused = false; return; }
   if (KEYMAP[k]) { keys[KEYMAP[k]] = true; e.preventDefault(); if (!speedrun.on && mode === 'play') speedrun.on = true; }
@@ -740,7 +901,7 @@ function refreshTouch() {
   for (const [, q] of ptrs) { if (inRect(pad.l, q.x, q.y)) touch.l = true; else if (inRect(pad.r, q.x, q.y)) touch.r = true; else if (inRect(pad.j, q.x, q.y)) touch.j = true; else if (q.zone) touch[q.zone] = true; }
 }
 cv.addEventListener('pointerdown', (e) => {
-  e.preventDefault(); ensureAudio(); cv.focus();
+  e.preventDefault(); ensureAudio(); cv.focus(); anyInput = true;
   const rc = cv.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
   if (e.pointerType === 'touch' && !isTouch) { isTouch = true; layout(); }
   if (paused) { paused = false; return; }
@@ -759,7 +920,11 @@ cv.addEventListener('pointerup', ptrUp); cv.addEventListener('pointercancel', pt
 window.addEventListener('message', (e) => {
   const d = e.data; if (!d || typeof d !== 'object') return;
   if (d.type === 'cc-mute') setMuted(!!d.muted);
-  else if (d.type === 'cc-restart') { newRun(); }
+  else if (d.type === 'cc-restart') {
+    paused = false;
+    if (mode === 'win' && lvIndex + 1 >= LEVELS.length) finishGame();   // report the finished game before anything else
+    if (mode === 'end' || (mode === 'menu' && menuFrom === 'end')) newRun(); else startLevel(lvIndex, true);
+  }
   else if (d.type === 'cc-pause') paused = true;
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { if (mode === 'play') paused = true; runEnd(false); } });
@@ -769,9 +934,10 @@ window.addEventListener('blur', () => { keys.l = keys.r = keys.j = false; });
 
 // ---------- loop ----------
 let last = performance.now();
+let testHold = false;   // tests only (__ld.hold): freeze the world, keep drawing
 function frame(now) {
   let dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;   // 2.2: never negative (a slow first frame could start behind the clock)
-  if (!paused) { const n = dt > 1 / 90 ? 2 : 1; for (let i = 0; i < n; i++) update(dt / n); }
+  if (!paused && !testHold) { const n = dt > 1 / 90 ? 2 : 1; for (let i = 0; i < n; i++) update(dt / n); }
   draw();
   requestAnimationFrame(frame);
 }
@@ -779,10 +945,13 @@ layout();
 startLevel(save.cleared > 0 && save.cleared < LEVELS.length ? save.cleared : 0, true);
 speedrun = { t: 0, valid: save.cleared === 0, deaths: 0, on: false };
 if (patchNews) { toastMsg = 'patch 2.0: 5 new levels'; toastT = 3.5; }
+else if (save.cleared > 0 && dailyLv() !== lvIndex && !save.daily.done) toast('daily file: lvl ' + (save.daily.lv + 1) + ' · ' + (isTouch ? 'tap ≡' : 'esc') + ' to play it' + (save.daily.streak ? ' · streak ' + save.daily.streak : ''));
 // from the hub's "tap to play" card (cc.autostart): there's no title screen, level 1 is already live, so the
 // flag is just used up here. If a title screen is ever added, skip it when this is true.
 ccCall('autostart');
 requestAnimationFrame(frame);
 
-window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; }, get pad() { return pad; }, get V() { return V; }, get deadT() { return deadT; } };
+window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; }, get pad() { return pad; }, get V() { return V; }, get deadT() { return deadT; },
+  // 2.4 (tests): run score, records, goals, the daily file
+  get run() { return run; }, get save() { return save; }, get lvClock() { return lvClock; }, get pops() { return pops; }, win, nextGoal, dailyLv, checkGoals, GOALS, set hold(v) { testHold = !!v; }, kill: (m) => kill(m || 'TEST') };
 })();
