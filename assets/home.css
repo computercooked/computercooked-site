@@ -2,6 +2,13 @@
 .home2 { overflow-x: clip; }
 .home2 > .home-sec, .home2 > .links { max-width: var(--max); margin: var(--s-8) auto 0; padding: 0 var(--gutter); }
 .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4); margin-bottom: var(--s-4); }
+/* phones: a head's link (or buttons) keeps to one line and drops under the heading when they don't fit side by
+   side, instead of both squeezing into 2-3 line columns ("my / stats", "can't pick? / channel / surf →") */
+@media (max-width: 560px) {
+  .sec-head { flex-wrap: wrap; row-gap: 2px; column-gap: var(--s-3); }
+  .sec-head > :not(h2) { white-space: nowrap; }
+  .sec-head > a.text-link, .desk-row-acts button { padding-block: 6px; }
+}
 
 /* ---------- the desktop ---------- */
 .desk {

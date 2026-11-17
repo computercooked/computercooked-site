@@ -251,6 +251,14 @@ const faqLd = (ld["@graph"] || []).find((x) => x["@type"] === "FAQPage");
 const faqBox = (page.match(/<section class="about-card game-faq"[\s\S]*?<\/section>/) || [""])[0];
 const faqN = (faqBox.match(/<details/g) || []).length;
 ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.length === faqN && /is fathom free\?/.test(faqBox), "game page has a questions block matching its FAQPage JSON-LD", faqN + "/" + faqLd?.mainEntity?.length);
+// the breadcrumb names the game (not its slug); no game in games.json today is under 14 days old... unless one is, so
+// the "new" chip is checked against games.json's own added dates
+{
+  const mp = await (await get("/games/microwave-panic/")).text();
+  const cat = (await (await get("/games/games.json")).json()).games || [];
+  const mpg = cat.find((x) => x.slug === "microwave-panic"), fresh = mpg && Date.now() - Date.parse(mpg.added) < 14 * 86400000;
+  ok(/aria-current="page">microwave panic</.test(mp) && /player-new/.test(mp) === !!fresh, "game page breadcrumb names the game; the new chip follows the 14-day rule", fresh);
+}
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");

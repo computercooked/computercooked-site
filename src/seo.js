@@ -207,6 +207,8 @@ export async function gamePage(req, env, url, slug) {
     // K-0031: the sidebar keeps only the leaderboard and rating; how-to, questions (and the folded embed code) go under
     // the game. Questions sit second, so on desktop they take the narrow column beside the how-to.
     .on("aside [data-how-to]", { element(e) { e.remove(); } })
+    // the breadcrumb's last step: the game's name, not its slug ("microwave-panic" wrapped badly on phones)
+    .on('.crumbs [aria-current="page"]', { element(e) { e.setInnerContent(g.title); } })
     // a "new" chip beside the title for the game's first 14 days (isNewGame, the same rule as every other NEW badge)
     .on("h1.player-title", { element(e) { if (isNewGame(g)) e.append('<span class="game-new player-new">new</span>', { html: true }); } })
     .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${faqHtml(g, faq)}${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
