@@ -278,6 +278,8 @@
       if (m.x < tp.x) debris.push({ kind: m.kind, x: m.x, y, w: cut, h: m.h, vx: -60, vy: -40, rot: 0, vr: -2.5 });
       else debris.push({ kind: m.kind, x: r, y, w: cut, h: m.h, vx: 60, vy: -40, rot: 0, vr: 2.5 });
       if (cut > tp.w * 0.35) { say("big"); react("shock", 0.6); shake = reduce ? 0 : Math.max(shake, 0.15); } else { say("trim"); }
+      // r5: a near miss reads with the sound off
+      if (ov < tp.w * 0.15) fx.push({ s: "barely!", x: l + ov / 2, y: y - 16, col: "#ff8a5e", life: 1, max: 1, world: true, size: 18 });
       crumble(m.x < tp.x ? l : r, y, 2, SLABCOL[m.kind] || PAPER, 8);
     }
     stack.push({ kind: m.kind, x: nx, w: nw, y, h: m.h, wob: 0.25 });
@@ -521,7 +523,9 @@
     // r5: ORDER UP stamp: slams down from big, a ticket with the order's name and its bonus
     if (stamp && state !== "over") {
       const k = 1 - stamp.life / stamp.max, sc = reduce ? 1 : k < 0.12 ? 1.8 - k / 0.12 * 0.8 : 1, a = Math.min(1, stamp.life / 0.35);
-      const sw = Math.min(W * 0.8, 300) * sc, sh = 74 * sc, sx = W / 2 - sw / 2, sy = H * 0.3 - sh / 2;
+      // under the chef's lines (it used to cover the streak line)
+      const cpw = Math.min(150 * U, W * 0.34), below = cpw * 0.24 + 12 + cpw * 0.6 + 52;
+      const sw = Math.min(W * 0.8, 300) * sc, sh = 74 * sc, sx = W / 2 - sw / 2, sy = below + 37 - sh / 2;
       cx.globalAlpha = a;
       cx.fillStyle = INK; cx.fillRect(sx - 3, sy - 3, sw + 6, sh + 6);
       cx.fillStyle = PAPER; cx.fillRect(sx, sy, sw, sh);
@@ -621,7 +625,7 @@
   }
   function overlay() {
     const over = state === "over";
-    cx.fillStyle = over ? "rgba(8, 9, 7, 0.88)" : "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
+    cx.fillStyle = over ? "rgba(8, 9, 7, 0.94)" : "rgba(8, 9, 7, 0.8)"; cx.fillRect(0, 0, W, H);
     const big = Math.round(Math.max(26, Math.min(52, W / 9, H / 12))), small = Math.max(11, Math.min(13, W / 34)), roomy = H >= 560;
     if (state === "title") {
       // laid out top-down from a block height, so it fits a 430 px player frame as well as a tall phone
