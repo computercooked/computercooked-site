@@ -256,6 +256,11 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
     "?game=crash": "hub", "": "hub", "?ref=x&game=../../etc": "hub", "?ref=app": "hub" };
   const got = Object.fromEntries(Object.keys(cases).map((k) => [k, land(k)]));
   ok(boot && Object.keys(cases).every((k) => got[k] === cases[k]), "social landing: only a social ?ref with a game hint (or the platform default) gets the tap-to-play card", got);
+  const fromOf = (search) => { const attrs = {}; vm.runInNewContext(boot || "", { location: { search }, URLSearchParams, document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } } } }); return attrs["data-landing-from"] || "clip"; };
+  ok(fromOf("?ref=tiktok&utm_campaign=bio") === "bio" && fromOf("?ref=tiktok&utm_campaign=BIO") === "bio" && fromOf("?ref=tiktok") === "clip" &&
+    fromOf("?ref=tiktok&game=crash&utm_campaign=bio") === "clip" && fromOf("?ref=tiktok&utm_campaign=clip7") === "clip",
+    "social landing (round 27): the bio link's card says from @computercooked, a clip's says from the clip");
+  ok(/"from @computercooked" : "from the clip"/.test(await (await get("/games/hub.js")).text()), "hub.js: the landing card's line follows data-landing-from");
   const def = (boot.match(/LANDING_DEFAULT = \{([^}]*)\}/) || [])[1] || "";
   const slugs = new Set(((await (await get("/games/games.json")).json()).games || []).map((g) => g.slug));
   ok([...def.matchAll(/"([a-z0-9-]+)"/g)].every((m) => slugs.has(m[1])), "social landing: every platform default is a real game", def.trim());
@@ -945,6 +950,8 @@ if (admin) {
   ok((await get("/api/admin/digest")).status === 401, "admin digest needs the token");
   ok(dRow.tiktok_out && ["show_follow", "show_episode", "follow_elsewhere", "total"].every((k) => typeof dRow.tiktok_out[k] === "number") &&
     dg.tiktok_out && typeof dg.tiktok_out.by_episode === "object", "admin digest: tiktok_out (round 26: /show/ follow + episode link-outs, other follow buttons)", dg.tiktok_out);
+  ok(["shown", "taps", "plays"].every((k) => typeof dRow.next[k] === "number" && typeof dg.next?.[k] === "number") && dRow.next.touch && typeof dg.next.touch.taps === "number" && "per_run" in dg.next,
+    "admin digest (round 27): the try-this-next tile's shown, taps and plays, per day and for the window", dg.next);
   ok(dg.cook_vote && dg.cook_vote.poll && /^\d{4}-W\d{2}$/.test(dg.cook_vote.week) && Object.keys(dg.cook_vote.counts).length === 4 && typeof dg.cook_vote.total === "number" && typeof dRow.votes === "number",
     "admin digest: cook vote totals (read only) and votes per day", dg.cook_vote);
   // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
@@ -1165,6 +1172,19 @@ if (admin) {
     ok(tto.status === 200 && (await tto.json()).test === true, "tiktok_out hit accepted (smoke traffic answered, not stored)");
     const deckJs = await (await get("/assets/deck.js")).text();
     ok(/a\[data-tt-out\][\s\S]{0,120}hit\("tiktok_out"/.test(deckJs), "deck.js counts a[data-tt-out] clicks as tiktok_out");
+  }
+  // round 27: the results card's "try this next" tile. Its tap is the next game's start tap (cc-autostart, as the hub's
+  // landing card does), and showing and tapping it are counted (next_shown / next_tap)
+  {
+    for (const kind of ["next_shown", "next_tap"]) {
+      const h = await post("/api/hit", { kind, path: "/games/crash/", game: "crash", to: "keyboard-escape", slot: "touch", ref: "direct", anon });
+      ok(h.status === 200 && (await h.json()).test === true, kind + " hit accepted (smoke traffic answered, not stored)");
+    }
+    const pj = await (await get("/games/player.js")).text();
+    const tap = (pj.match(/querySelector\("\.ccr-next"\)\.addEventListener\("click", function \(\) \{[\s\S]*?\n      \}\);/) || [])[0] || "";
+    ok(/sessionStorage\.setItem\("cc-autostart", JSON\.stringify\(\{ game: to, t: Date\.now\(\) \}\)\)/.test(tap) && /ccHit\("next_tap"/.test(tap) &&
+      /a\.setAttribute\("data-to", best\.slug\)/.test(pj) && /ccHit\("next_shown"/.test(pj),
+      "player.js: the try-this-next tap sets cc-autostart for that game and counts next_tap; showing it counts next_shown");
   }
 
   // round 22: ad-ready, switched off. ads.js CONFIG.on is false, so no ad network code can load; /ads.txt names no seller;

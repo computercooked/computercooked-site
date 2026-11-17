@@ -294,6 +294,8 @@ After every run (scored or not), the shared player (`games/platform.js`) shows *
 
 Card links are `/games/<slug>/?src=next&slot=challenge|similar|new`. On that page, `cc-sdk.js` counts its plays as referrer `internal`, tags its first run's start event with `src: "next", slot`, and takes the params off the URL, so a reload doesn't count again. The server stores one `events` row per play, `name = 'cc:next'`, `data = {"slot": …}` (no migration). `cc:*` event names are reserved for the platform: `cc.event` calls using them are dropped. Admin metrics `next` gives plays started from the rail per run ended, by slot.
 
+**The results card's "try this next" tile (round 27).** The pop-up after a run (`games/player.js`) offers one game, linked the same way (`?src=next&slot=similar`). Its tap also leaves `cc-autostart` for that game in sessionStorage, as the hub's landing card does, so games that read `cc.autostart()` skip their title screen. Showing the tile and tapping it (or pressing n) send `POST /api/hit` `next_shown` / `next_tap` with `game` (the game just played), `to` (the game offered) and `slot` `touch` (a touch-only device) or `fine`. The digest's `next` (per day and for the window) has `shown`, `taps`, `plays` (taps that reached a started run, `cc:next`), `per_run` and `touch: {shown, taps}`.
+
 ## "Your desk" (returning players, K-0064)
 
 The homepage shows a **your desk** row above game of the week, but only to a browser that has played something.

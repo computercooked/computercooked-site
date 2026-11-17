@@ -50,6 +50,8 @@
         var root = document.documentElement;
         root.setAttribute("data-landing", game);
         root.setAttribute("data-landing-ref", ref);
+        // the profile's bio link (no game hint) didn't come from a clip: the card says where it did come from
+        if (!q.get("game") && (q.get("utm_campaign") || "").toLowerCase() === "bio") root.setAttribute("data-landing-from", "bio");
       } catch (e) {}
     })();
   </script>

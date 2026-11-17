@@ -142,7 +142,7 @@ export async function digest(url, env) {
   // pick-up card), per day and per game opened
   const outs = (await db.prepare(
     `SELECT ${dayOf("ts")} d, name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events
-     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click', 'cc:tiktok_out') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
+     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click', 'cc:tiktok_out', 'cc:next_shown', 'cc:next_tap') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
   ).bind(start, end).all()).results;
   const outN = (f) => outs.filter(f).reduce((s, r) => s + r.n, 0);
   // round 26: link-outs to TikTok. show_follow / show_episode = clicks on /show/ (cc:tiktok_out); follow_elsewhere = the
@@ -160,6 +160,13 @@ export async function digest(url, env) {
   const deskOf = (f) => ({ shown: outN((r) => f(r) && r.name === "cc:desk_shown"), clicks: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot !== "nudge"),
     nudge: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "nudge"),
     resume: outN((r) => f(r) && r.name === "cc:desk_click" && r.slot === "resume") });
+  // round 27: the results card's "try this next" tile. shown / taps = cc:next_shown / cc:next_tap (touch = on touch-only
+  // devices); plays = taps that reached a started run (cc:next, by the run's start day); per_run = plays per ended run
+  const nextOf = (f, plays, ended) => ({
+    shown: outN((r) => f(r) && r.name === "cc:next_shown"), taps: outN((r) => f(r) && r.name === "cc:next_tap"), plays,
+    per_run: ended ? Math.round((plays / ended) * 1000) / 1000 : null,
+    touch: { shown: outN((r) => f(r) && r.name === "cc:next_shown" && r.slot === "touch"), taps: outN((r) => f(r) && r.name === "cc:next_tap" && r.slot === "touch") },
+  });
   const deskGames = {};
   for (const r of outs) if (r.name === "cc:desk_click" && r.slot !== "nudge") deskGames[r.game] = (deskGames[r.game] || 0) + r.n;
   // per game page, whole window: views and average visible time
@@ -223,7 +230,7 @@ export async function digest(url, env) {
       d1_return: d1Known ? { back, of: newbies.length, pct: newbies.length ? Math.round((back / newbies.length) * 100) : null } : null,
       ref,
       funnel: Object.fromEntries(funnelChannels.map((c) => [c, funnel(c, [i])])),
-      next: { plays: nextPlays, per_run: p.ended ? Math.round((nextPlays / p.ended) * 1000) / 1000 : null },
+      next: nextOf((r) => r.d === i, nextPlays, p.ended || 0),
       runs_ended: p.ended || 0,
       game_shares: at(shares, i).n || 0,
       tip_clicks: outN((r) => r.d === i && r.name === "cc:tip_click"),
@@ -246,6 +253,7 @@ export async function digest(url, env) {
       tiktok_landing_pages: Object.entries(ttPages).sort((a, b) => b[1] - a[1]).map(([path, n]) => ({ path, n })) },
     utm: Object.values(utmRows).sort((a, b) => b.plays - a.plays || b.page_views - a.page_views),
     desk: { ...deskOf(() => true), by_game: Object.fromEntries(Object.entries(deskGames).sort((a, b) => b[1] - a[1])) },
+    next: nextOf(() => true, next.reduce((s, r) => s + r.n, 0), plays.reduce((s, r) => s + (r.ended || 0), 0)),
     tiktok_out: { ...ttOut(() => true, () => true), by_episode: Object.fromEntries(ttEps.filter((r) => r.ep).map((r) => [r.ep, r.n])) },
     game_pages: Object.values(pages).sort((a, b) => b.views - a.views).map((g) => ({ game: g.game, views: g.views, avg_time_s: secs(g.timed ? g.ms : null) })) });
 }
