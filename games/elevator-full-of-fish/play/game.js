@@ -276,7 +276,7 @@
 
   function start() {
     state = "play"; t = 0; floor = 1; score = 0; flung = 0; fish = []; fx = []; overloads = 0; reachedGoal = false; travel = 0; paused = false; cleanFloors = 0;
-    phase = "open"; phaseT = 0; overT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
+    lastKey = -9; phase = "open"; phaseT = 0; overT = 0; door = 0; failT = 0; failAt = 0; fallen = false; snapped = false; flashT = 0; shake = 0;
     rs = { sharks: 0, golden: 0 }; rideMedals = []; rideOrder = false; rideSkin = null; rideFish = []; recordShown = false; banners = [];
     if (car.lastDay !== dayKey()) { car.days++; car.lastDay = dayKey(); }
     car.rides++; saveCareer();
@@ -411,6 +411,7 @@
     const px = r.width ? (e.clientX - r.left) * W / r.width : e.clientX, py = r.height ? (e.clientY - r.top) * H / r.height : e.clientY;
     press(px, py);
   });
+  let lastKey = -9; const KEYGAP = 0.55;
   function onKey(e) {
     if (e.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable)) return;
     if (e.key === "m" || e.key === "M") { toggleMute(); return; }
@@ -419,7 +420,8 @@
       if (state !== "play" || paused) { press(-1, -1); return; }
       let pickF = null, bd = Infinity;
       for (const f of fish) { if (f.out || f.delay > 0 || f.puffT > 0) continue; const d = Math.abs(f.x - W / 2) + Math.abs(f.y - L.backB); if (d < bd) { bd = d; pickF = f; } }
-      if (pickF) tapFish(pickF);
+      // 1.6.1: Space aims for you, so it is paced like a good thumb (one fling per KEYGAP s of ride time), not a 10/s mash
+      if (pickF && t - lastKey >= KEYGAP) { lastKey = t; tapFish(pickF); }
     }
   }
   window.addEventListener("keydown", onKey);
