@@ -593,6 +593,14 @@ Launch traffic is TikTok phones, so the pages are measured with Lighthouse in mo
 - **Small thumbnails for heavy covers:** `scripts/make-thumbs.py` writes `assets/thumbs/<slug>.webp` (192x120) for covers of 8 KB or more and lists them in `src/thumbs.js`. `small(g)` in `src/pages.js` uses them in the small slots (desk icons, "happening now", the chart, crowns), and the cover for every other game. Re-run it after adding a game or changing a cover.
 - **The first card image is fetched first** (`fetchpriority="high"`) on the hub and the mood pages: on a phone it's the LCP image.
 
+## Card preview loops (round 20)
+
+A game card plays a short muted loop of its game so the joke shows before the tap: on hover or keyboard focus with a mouse, and on the one card most in view on a phone. `assets/preview.js` does it for the home page, the hub and the mood pages; a card gets it when games.json has a `clip` for the game (the card's `data-clip`).
+- **The clips:** `assets/clips/<slug>.mp4`, 4 s, 320x180, H.264, no sound, about 8-80 KB (keep each under 150 KB; `CRF` in the script shrinks a busy one). `scripts/make-clips.mjs <slug>` records one from the game's `play/` page in test mode (`?cctest=1`) and writes `clip` into games.json. Games that need help to look like themselves get a driver (`DRIVE`), a URL flag (`QUERY`), a longer wait (`WAIT`), a crop (`CROP`) or their title screen (`ON_TITLE`: smol brains' title is its grown-town showcase) there. Record one game per run, on the CPU slot.
+- **Never on first paint:** nothing downloads until a card asks. The `<video>` is made on first use with `preload="none"`, and on phones the first pick waits for the page's load event. The poster stays underneath as the fallback and the clip fades in only once it is playing.
+- **Off** under `prefers-reduced-motion` and Save-Data: the posters just stay.
+- **Round 20's eight:** desktop takeover, smol brains, keyboard escape, ant farm, elevator full of fish (the hook games), and reel weird, overdue notice, pixel purge (re-recorded after batch 2).
+
 ## Board seasons (a game's scoring changed)
 
 When a game's scoring changes so much that old and new scores can't share a board, its boards start fresh. Add the game to `BOARD_FROM` in `src/boards.js` with the time its new scoring went live (its PR's merge time).

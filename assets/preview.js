@@ -97,8 +97,14 @@
     }, { threshold: [0, 0.3, SHOW, 0.8, 1] });
     return io;
   }
-  // touch: the card most in view plays; a tie goes to the one nearest the middle of the screen
+  // touch: the card most in view plays; a tie goes to the one nearest the middle of the screen. Never before the page's
+  // load event (round 20): the first screen on a phone is the page itself, the clip comes after
+  var loadWait = false;
   function pick() {
+    if (document.readyState !== "complete") {
+      if (!loadWait) { loadWait = true; window.addEventListener("load", function () { setTimeout(pick, SCROLL_WAIT); }, { once: true }); }
+      return;
+    }
     var best = null, bestR = 0, bestD = 1e9, mid = (window.innerHeight || 0) / 2;
     ratio = ratio.filter(function (c) { return c.isConnected; });
     ratio.forEach(function (c) {
