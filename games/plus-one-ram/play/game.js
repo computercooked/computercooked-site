@@ -18,7 +18,7 @@
   const WH = 9000;   // world height
   const ZONES = [
     { name: 'desktop', x0: 0, x1: 3400, need: 0, min: 1, max: 400, bg: '#1d3b5c', bg2: '#16304d', tint: '#5ec8ff' },
-    { name: 'recycle bin', x0: 3400, x1: 8600, need: 150, min: 40, max: 5000, bg: '#2c3a1f', bg2: '#243119', tint: '#9be36a' },
+    { name: 'recycle bin', x0: 3400, x1: 8600, need: 300, min: 40, max: 5000, bg: '#2c3a1f', bg2: '#243119', tint: '#9be36a' },
     { name: 'the cloud', x0: 8600, x1: 17500, need: 1500, min: 500, max: 70000, bg: '#3b3466', bg2: '#312b58', tint: '#c9b8ff' },
     { name: 'the kernel', x0: 17500, x1: 34000, need: 15000, min: 6000, max: 3e6, bg: '#4a1f24', bg2: '#3d191d', tint: '#ff8a7a' },
   ];
@@ -111,6 +111,9 @@
       pspd: 160, shake: 0, banner: null, spawnT: 0, danger: 0, killer: null, lastScore: 0, z0,
     };
     R.cam.z = targetZoom(p.r);
+    // v1.2: a fast-boot start already owns the zones its size opens, so no free "firewall down" at 0:00
+    R.unlocked = demo ? 0 : unlockedFor(v0);
+    if (R.unlocked > 0) R.banner = { t: 2.4, a: 'fast boot', b: ZONES[R.unlocked].name + ' already open →' };
     for (let i = 0; i < 6; i++) R.rivals.push(makeRival(R, true));
     for (let i = 0; i < 50; i++) spawnCreature(R, true);
     return R;
@@ -253,7 +256,7 @@
       if (p.v > R.maxV) R.maxV = p.v;
       const zi = zoneAt(p.x); if (zi > R.zoneMax) R.zoneMax = zi;
       const uz = unlockedFor(p.v);
-      if (uz > R.unlocked) { R.unlocked = uz; if (!R.demo) { R.banner = { t: 2.6, a: 'firewall down', b: ZONES[uz].name + ' is open →' }; SFX.unlock(); ccEvent('zone_unlocked', { zone: uz, t: Math.round(R.t) }); } }
+      if (uz > R.unlocked) { R.unlocked = uz; if (!R.demo) { R.banner = { t: 2.6, a: 'firewall down', b: ZONES[uz].name + ' is open →' }; R.shake = Math.max(R.shake, 0.3); R.flash = 0.5; p.pulse = 0.28; SFX.unlock(); ccEvent('zone_unlocked', { zone: uz, t: Math.round(R.t) }); } }
     }
     const magR = p.r * (1.6 + 0.6 * (R.demo ? 1 : lvl('magnet'))) + 30;
     const calm = calmOf(R);
@@ -355,6 +358,7 @@
     for (let i = R.parts.length - 1; i >= 0; i--) { const q = R.parts[i]; q.t -= dt; if (q.t <= 0) { R.parts.splice(i, 1); continue; } q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.9; q.vy *= 0.9; }
     for (let i = R.pops.length - 1; i >= 0; i--) { const q = R.pops[i]; q.t -= dt; q.y -= 40 * dt / R.cam.z; if (q.t <= 0) R.pops.splice(i, 1); }
     if (R.shake > 0) R.shake -= dt;
+    if (R.flash > 0) R.flash -= dt;
     if (R.banner) { R.banner.t -= dt; if (R.banner.t <= 0) R.banner = null; }
     if (p.faceT > 0) { p.faceT -= dt; if (p.faceT <= 0) p.face = 'idle'; }
     if (p.pulse > 0) p.pulse = Math.max(0, p.pulse - dt * 1.6);
@@ -665,9 +669,13 @@
     ctx.fillText('max ' + mb(R.maxV), 12, 12 + 16 * s);
     // arrow toward an open zone you haven't entered
     if (R.unlocked > zi && !R.dead) {
-      const a = 0.6 + 0.4 * Math.sin(R.t * 6);
-      ctx.globalAlpha = a; ctx.fillStyle = C.lime; ctx.font = `800 ${Math.round(16 * s)}px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-      ctx.fillText(ZONES[zi + 1].name + ' →', vw - 14, vh / 2); ctx.globalAlpha = 1;
+      // v1.2: a solid pill that nudges right, so the way out of the desktop is hard to miss
+      const txt = ZONES[zi + 1].name + ' →', bob = Math.sin(R.t * 5) * 4 * s;
+      ctx.font = `800 ${Math.round(17 * s)}px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(txt).width, ph = 34 * s, px = vw - 10 - tw - 24 * s + bob, py = vh / 2 - ph / 2;
+      ctx.fillStyle = 'rgba(16,17,20,0.8)'; rr(ctx, px, py, tw + 24 * s, ph, ph / 2); ctx.fill();
+      ctx.strokeStyle = C.lime; ctx.lineWidth = 2; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(R.t * 6); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = C.lime; ctx.fillText(txt, vw - 10 - 12 * s + bob, vh / 2 + 1);
     }
     // v1.1: hunters you can't see yet get a red marker on the screen edge
     if (!R.dead) {
@@ -682,6 +690,8 @@
         ctx.restore(); ctx.globalAlpha = 1;
       }
     }
+    // v1.2: a firewall going down lights the screen up
+    if (R.flash > 0) { ctx.globalAlpha = Math.min(0.35, R.flash * 0.7); ctx.fillStyle = C.lime; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1; }
     // banner
     if (R.banner) {
       const b = R.banner; ctx.globalAlpha = Math.min(1, b.t * 2);

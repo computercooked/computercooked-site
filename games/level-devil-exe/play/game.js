@@ -371,6 +371,10 @@ function popupCovering(ex) { for (const pp of L.popups) if (pp.state === 1) { co
 
 function win() {
   mode = 'win'; winT = 0; sfx('win');
+  // 2.3: a clear used to be just a sound: now the door bursts and crash says how it went
+  const ex = L.exit;
+  for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, v = 50 + Math.random() * 160; parts.push({ x: ex.x + T / 2, y: ex.y + T / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 140, life: 0.7, max: 0.7, s: 2 + Math.random() * 3, col: i % 3 ? LIME : LILAC }); }
+  L.msg = L.deaths ? 'cleared. only ' + L.deaths + (L.deaths === 1 ? ' death.' : ' deaths.') : 'first try?! suspicious.'; L.msgT = 1;
   run.cleared++;
   const n = lvIndex + 1;
   save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, n + 1)); save.cleared = Math.max(save.cleared, n); persist();
@@ -405,8 +409,11 @@ function layout() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   const top = V.top = 34;
-  const portrait = H > W * 1.15;
   pad.show = isTouch;
+  // 2.3: "portrait" means the pads go in their own band under the level. That used to need H > 1.15 W, so a
+  // phone's player frame (about 414 x 430-470) fell into the landscape layout and the jump button sat on top of
+  // the floor and the exit door. Now any touch screen with room for a pad band below the level stacks too.
+  const portrait = H > W * 1.15 || (isTouch && H - top - (W / WW) * WH >= 130);
   let availH = H - top;
   if (pad.show && portrait) availH = Math.max(140, H - top - Math.min(260, Math.max(170, H * 0.34)));
   // phones in portrait: zoom in and follow crash horizontally (about 16 tiles visible)
@@ -777,5 +784,5 @@ if (patchNews) { toastMsg = 'patch 2.0: 5 new levels'; toastT = 3.5; }
 ccCall('autostart');
 requestAnimationFrame(frame);
 
-window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; } };
+window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; }, get pad() { return pad; }, get V() { return V; }, get deadT() { return deadT; } };
 })();

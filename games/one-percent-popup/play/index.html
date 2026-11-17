@@ -26,11 +26,11 @@
   #crash { width: 44px; height: 44px; grid-row: 1 / span 2; background: url(crash.png) 0 0 / 132px 44px no-repeat; image-rendering: pixelated; }
   #crash.hit { background-position: -44px 0; }
   #crash.cooked { background-position: -88px 0; }
-  #lvl { font: 800 20px/1 var(--mono); color: var(--acc); letter-spacing: -0.5px; }
+  #lvl { grid-row: 1; grid-column: 2; font: 800 20px/1 var(--mono); color: var(--acc); letter-spacing: -0.5px; }
   #lvl small { color: var(--muted); font-size: 13px; }
-  #pct { font: 700 12px var(--mono); color: var(--lilac); text-align: right; }
+  #pct { grid-row: 1; grid-column: 2 / 4; justify-self: end; font: 700 12px var(--mono); color: var(--lilac); text-align: right; white-space: nowrap; }
   #muteBtn { grid-row: 2; grid-column: 3; justify-self: end; background: none; border: 1px solid var(--line); color: var(--muted); font: 700 12px var(--mono); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-  #say { grid-column: 2; font: 800 15px/1.15 var(--mono); color: var(--paper); }
+  #say { grid-row: 2; grid-column: 2; font: 800 15px/1.15 var(--mono); color: var(--paper); }
   #timer { grid-column: 1 / -1; height: 8px; background: #23242b; border-radius: 4px; overflow: hidden; margin-top: 6px; }
   #timer i { display: block; height: 100%; width: 100%; background: var(--acc); transform-origin: left; }
   #timer.late i { background: var(--bad); }
@@ -110,6 +110,20 @@
   /* K-0059: shared tip button (assets/tip.js) */
   .card .cc-tipjar { margin: 12px 0 0; font: 12px/1.4 var(--mono); color: var(--muted); }
   .card .cc-tipjar img { display: inline; width: 22px; height: 32px; max-height: none; margin: 0; border: 0; border-radius: 0; }
+  /* short frames: tighter pop-ups so the 16-x grid, cookie stacks and dialogs fit a ~340 px stage */
+  #stage.short .pop .body { padding: 8px 10px 10px; }
+  #stage.short .pop .body h4 { font-size: 16px; margin-bottom: 4px; }
+  #stage.short .xgrid { gap: 6px; } #stage.short .xgrid .xbtn { height: 36px; }
+  #stage.short .pop .bar { min-height: 34px; padding: 4px 4px 4px 10px; }
+  /* a loss shows the way out: the right target pulses for half a second before the end card */
+  .reveal .ok { outline: 3px solid var(--lime); outline-offset: 2px; animation: okp .5s ease-in-out infinite alternate; }
+  .reveal .pop .x.ok, .reveal .xbtn.ok { background: var(--lime); color: var(--carbon); }
+  @keyframes okp { to { outline-color: #C5FF4955; outline-offset: 5px; } }
+  .trail { display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; margin: 8px 0 6px; }
+  .trail i { height: 10px; border-radius: 2px; background: #2a2c35; }
+  .trail i.got { background: var(--acc); }
+  .trail i.dead { background: var(--bad); }
+  .trail i.best { box-shadow: 0 0 0 2px var(--lilac); }
   #toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); background: var(--paper); color: var(--carbon); font: 800 13px var(--mono); padding: 8px 12px; border-radius: 8px; z-index: 80; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
   #toast.on { opacity: 1; }
   @media (max-height: 620px) {

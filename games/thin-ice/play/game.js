@@ -350,6 +350,7 @@
     const it = got.weird || got.fish, w = got.weird ? got.weird.w : got.w;
     const isNew = !S.log[it.id];
     const e = S.log[it.id] || (S.log[it.id] = { n: 0, best: 0 });
+    const pb = e.best || 0, ab = S.best || 0; // review16 r3: the records before this catch, for the catch card
     e.n++; if (w > e.best) e.best = w;
     const v = got.weird ? got.weird.cash : Math.max(1, Math.round(w * it.val * 0.6));
     if (it.id !== "eye") N.bucket.push({ id: it.id, w, v });
@@ -362,7 +363,9 @@
     N.c = Math.min(0.999, N.c + 0.015 + 0.12 * Math.min(1, w / iceCap()));
     shake = Math.max(shake, 0.25 + 0.5 * Math.min(1, w / iceCap())); // the catch thumps onto the ice
     play("splash", 0.5);
-    showCatch(it, w, isNew, !got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8);
+    // review16 r3: a record says so the moment it lands, not only on the end card
+    const rec = got.weird ? "" : ab > 0 && w > ab ? `heaviest ever! (was ${ab.toFixed(1)} lb)` : !isNew && w > pb ? `your biggest ${it.n} yet (was ${pb.toFixed(1)} lb)` : "";
+    showCatch(it, w, isNew, !got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8, rec);
     ach("first_catch");
     if (!got.weird && w >= it.w[0] + (it.w[1] - it.w[0]) * 0.8) ach("trophy");
     if (Object.keys(S.log).filter((k) => !BYID[k].weird).length >= 12) ach("log_12");
@@ -528,7 +531,7 @@
     const night = N.n;
     S.night = night + 1;
     save();
-    const best = N.best ? `${N.best.toFixed(1)} lb` : "none";
+    const best = N.best ? `${N.best.toFixed(1)} lb` : N.caught ? "no fish, just finds" : "none";
     const rows = [["fish caught", N.caught], ["heaviest", best], ["hauled to shore", N.hauledLb.toFixed(1) + " lb"], ["earned", "$" + N.earned], ["new in the log", N.news]];
     if (N.ottersEarned) rows.push(["your otters", "$" + N.ottersEarned]);
     // a reason for one more night: the all-time record and what's left in the log
@@ -960,9 +963,9 @@
     $("hint").textContent = h;
   }
   let catchT = 0;
-  function showCatch(f, w, isNew, trophy) {
+  function showCatch(f, w, isNew, trophy, rec) {
     const c = $("catch");
-    c.innerHTML = `${isNew ? '<div class="new">new in the log</div>' : ""}<canvas width="80" height="32"></canvas><div class="nm">${f.n}</div><div class="wt">${f.weird ? "bycatch · a weird find, no fight" : w.toFixed(1) + " lb"}${trophy ? " · trophy!" : ""}</div><div class="ln">${f.t}</div>`;
+    c.innerHTML = `${isNew ? '<div class="new">new in the log</div>' : ""}<canvas width="80" height="32"></canvas><div class="nm">${f.n}</div><div class="wt">${f.weird ? "bycatch · a weird find, no fight" : w.toFixed(1) + " lb"}${trophy ? " · trophy!" : ""}</div>${rec ? `<div class="rec">${rec}</div>` : ""}<div class="ln">${f.t}</div>`;
     const g = c.querySelector("canvas").getContext("2d");
     g.imageSmoothingEnabled = false;
     const sp = f.weird ? weirdSprite(f.id) : fishSprite(f, f === WARDEN ? 64 : clamp(10 + Math.sqrt(w) * 4, 12, 44));
