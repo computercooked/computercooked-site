@@ -492,6 +492,8 @@
       '<div class="row tot"><span>SCORE</span><span></span><span>' + score + "</span></div>" +
       '<div class="row"><span>best</span><span></span><span>' + Math.max(prev, score) + "</span></div>" +
       '<div class="nudge' + (score > prev ? " best" : "") + '">' + esc(nudge) + ' <span id="rank"></span></div>' +
+      // an early cook usually means tapping blind: one line on how to read the board, for the next run
+      (!won && cleared < 3 ? '<div class="nudge" style="font-size:11px;opacity:.8;margin-top:2px">tip: numbers add up the virus power touching a tile. start next to small numbers, eat the weak ones, level up.</div>' : "") +
       '<div class="btns"><button class="go" id="r-again" type="button">' + (won ? "play again" : "reboot") + "</button>" +
       '<button id="r-mode" type="button">' + (mode === "daily" ? "endless run" : "today's disk") + "</button>" +
       '<button id="r-share" type="button">share card</button>' +
