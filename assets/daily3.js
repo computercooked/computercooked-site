@@ -5,12 +5,21 @@
                        (so neither is lost when the 60-day log rolls over; seeded from the log the first time)
      cc-daily3-scores  { d: { "YYYY-MM-DD": { slug: score } }, sig: { slug: "..." } }, the last 14 days. The score is
                        the newest accepted run in cc-history (games/platform.js writes it just before mark() runs)
+     cc-daily3-freeze  { weekUsed: "YYYY-Www", days: ["YYYY-MM-DD", ...] }: the missed days a streak freeze covered
+   Streak freeze: one per ISO week (monday to sunday, local), never banked. It covers one missed day, in its own week,
+   that sits right after a complete day (so never before the first one, and never two misses in a row). Today is never
+   frozen: today still needs playing. It's applied lazily, the first time the streak is worked out after the miss,
+   and saved, so a day once frozen stays frozen. A frozen day keeps the streak going but doesn't add to it.
    window.ccDaily3:
      GAMES                     the three slugs, in order
      mark(slug)                a finished run in one of them today (games/platform.js calls this on every run end)
      today()                   slugs done today
-     streak()                  days in a row with all three done (today counts once it's complete; one missed day ends it)
-     stats()                   { done, of, streak, best, days, week: [{ key, n }] x7 oldest first, scores: { slug: n } }
+     streak()                  days in a row with all three done (today counts once it's complete; a frozen day is
+                               stepped over; any other missed day ends it). Still a number.
+     freeze()                  { ready: this week's freeze unused, usedOn: "YYYY-MM-DD" this week or "", held: that
+                               day is part of the current streak, days: frozen days in the current streak }
+     stats()                   { done, of, streak, best, days, week: [{ key, n, frozen }] x7 oldest first,
+                                 scores: { slug: n }, freeze: freeze() }
      msToReset()               ms until the next set (local midnight)
      share([st])               "computer cooked daily 3 · nov 16\n🟩🟩🟩 streak 4\ncomputercooked.com/g/daily"
                                (st = { done: [slugs], streak } to share something other than the real today)
@@ -18,7 +27,7 @@
 (function () {
   "use strict";
   var GAMES = ["crash-test-daily", "desktop-jam", "fathom"];
-  var KEY = "cc-daily3", SKEY = "cc-daily3-stats", PKEY = "cc-daily3-scores";
+  var KEY = "cc-daily3", SKEY = "cc-daily3-stats", PKEY = "cc-daily3-scores", FKEY = "cc-daily3-freeze";
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function day(d) {
     d = d || new Date();
@@ -35,11 +44,50 @@
   }
   function count(o, k) { var l = o[k] || []; return GAMES.filter(function (g) { return l.indexOf(g) >= 0; }).length; }
   function doneOn(o, k) { return count(o, k) === GAMES.length; }
-  function streakOf(o) {
-    var k = day(), n = 0;
+  function next(k) { var p = k.split("-"); return day(new Date(+p[0], +p[1] - 1, +p[2] + 1)); }
+  // ISO week of a date key, "2026-W47": weeks start on monday, and a week belongs to the year its thursday is in
+  function week(k) {
+    var p = k.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]), wd = (d.getDay() + 6) % 7;
+    var th = new Date(d.getFullYear(), d.getMonth(), d.getDate() - wd + 3), y = th.getFullYear();
+    var w = 1 + Math.floor(Math.round((th - new Date(y, 0, 1)) / 864e5) / 7);
+    return y + "-W" + pad(w);
+  }
+  function fzRead() {
+    var f = get(FKEY, {}), l = Array.isArray(f.days) ? f.days : [];
+    return { weekUsed: typeof f.weekUsed === "string" ? f.weekUsed : "",
+      days: l.filter(function (x) { return typeof x === "string" && /^\d{4}-\d\d-\d\d$/.test(x); }) };
+  }
+  function frozenOn(f, k) { return f.days.indexOf(k) >= 0; }
+  // a missed day the freeze can cover: before today, right after a complete day, not followed by another frozen
+  // day, and its week's freeze not spent yet
+  function canFreeze(o, f, k) {
+    if (k >= day() || doneOn(o, k) || frozenOn(f, k) || !doneOn(o, prev(k)) || frozenOn(f, next(k))) return false;
+    var w = week(k);
+    return !f.days.some(function (x) { return week(x) === w; });
+  }
+  // the streak, walking back from today (from yesterday while today isn't finished). Complete days count, frozen days
+  // are stepped over, a missed day the freeze can cover gets frozen (and saved), anything else ends it.
+  function walk(o) {
+    var f = fzRead(), k = day(), n = 0, held = [], ch = false, i;
     if (!doneOn(o, k)) k = prev(k); // today not finished yet: count up to yesterday
-    while (doneOn(o, k)) { n++; k = prev(k); }
-    return n;
+    for (i = 0; i < 400; i++) {
+      if (doneOn(o, k)) n++;
+      else if (frozenOn(f, k)) held.push(k);
+      else if (canFreeze(o, f, k)) { f.days.push(k); held.push(k); ch = true; }
+      else break;
+      k = prev(k);
+    }
+    if (ch) {
+      f.days = f.days.sort().slice(-30);
+      f.weekUsed = week(f.days[f.days.length - 1]);
+      put(FKEY, f);
+    }
+    return { n: n, held: held, f: f };
+  }
+  function streakOf(o) { return walk(o).n; }
+  function freezeOf(r) {
+    var w = week(day()), mine = r.f.days.filter(function (x) { return week(x) === w; })[0] || "";
+    return { ready: !mine, usedOn: mine, held: !!mine && r.held.indexOf(mine) >= 0, days: r.held.slice().sort() };
   }
   function longest(o) {
     var best = 0, run = 0, last = "";
@@ -86,13 +134,14 @@
     },
     today: function () { return (read()[day()] || []).slice(); },
     streak: function () { return streakOf(read()); },
+    freeze: function () { return freezeOf(walk(read())); },
     stats: function () {
-      var o = read(), s = sync(o), k = day(), week = [], x = k, i;
-      for (i = 0; i < 7; i++) { week.unshift({ key: x, n: count(o, x) }); x = prev(x); }
+      var o = read(), s = sync(o), r = walk(o), k = day(), wk = [], x = k, i;
+      for (i = 0; i < 7; i++) { wk.unshift({ key: x, n: count(o, x), frozen: frozenOn(r.f, x) }); x = prev(x); }
       var sc = (get(PKEY, {}).d || {})[k] || {}, scores = {};
       GAMES.forEach(function (g) { if ((o[k] || []).indexOf(g) >= 0 && typeof sc[g] === "number") scores[g] = sc[g]; });
       return { done: GAMES.filter(function (g) { return (o[k] || []).indexOf(g) >= 0; }), of: GAMES.length,
-        streak: streakOf(o), best: s.best, days: s.days, week: week, scores: scores };
+        streak: r.n, best: s.best, days: s.days, week: wk, scores: scores, freeze: freezeOf(r) };
     },
     msToReset: function () {
       var t = new Date();
