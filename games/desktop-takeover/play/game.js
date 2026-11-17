@@ -70,7 +70,7 @@
   // ---------- a match (pure sim: no drawing in here, so it can run headless) ----------
   function newMatch(mode, o) {
     o = o || {};
-    const g = { mode, level: o.level || 0, wave: o.wave || 0, date: o.date || "", t: 0, units: [], streams: [], warn: [], events: [], over: null, caps: 0, lost: 0, nukeHits: 0, sent: 0, auto: !!o.auto, demo: !!o.demo, dirty: true };
+    const g = { mode, level: o.level || 0, wave: o.wave || 0, date: o.date || "", t: 0, units: [], streams: [], warn: [], events: [], over: null, caps: 0, lost: 0, nukeHits: 0, sent: 0, peak: 0, auto: !!o.auto, demo: !!o.demo, dirty: true };
     let def;
     if (mode === "campaign") { def = LEVELS[g.level - 1]; g.rng = mulberry(hash("dt-level-" + g.level) + (o.salt || 0)); g.name = def.name; }
     else if (mode === "daily") { g.rng = mulberry(hash("dt-daily-" + g.date)); def = { nodes: genMap(g.rng, 2), think: 1.2, grow: 0.85, nuke: true, delay: 4, need: 4 }; g.name = "daily desktop · " + g.date.slice(5); }
@@ -146,7 +146,7 @@
     if (full.length && front.n < capOf(front) * 1.4) send(g, full[0], front);
   }
 
-  function finish(g, won) { g.over = { won, pct: Math.round(pct(g, 1) * 100), t: g.t }; g.events.push({ k: "over", won }); }
+  function finish(g, won) { g.over = { won, pct: Math.round(pct(g, 1) * 100), peak: Math.round(g.peak * 100), t: g.t }; g.events.push({ k: "over", won }); }
 
   function step(g, dt) {
     if (g.over) return;
@@ -183,13 +183,14 @@
       g.units = g.units.filter((u) => u.o !== 1 || Math.hypot(u.x - w.x, u.y - w.y) > BOT_NUKE_R);
       g.dirty = true; g.events.push({ k: "botnuke", x: w.x, y: w.y, o: w.o, hits });
     }
+    const mp = pct(g, 1); if (mp > g.peak) g.peak = mp; // r5: a loss scores the most desktop you ever held, so it's never 0
     const alive = new Set(); for (const n of g.nodes) alive.add(n.o); for (const u of g.units) alive.add(u.o); for (const s of g.streams) alive.add(s.o);
     if (!alive.has(1)) finish(g, false);
     else if (![2, 3, 4, 5].some((o) => alive.has(o))) finish(g, true);
     else if (g.t >= LIMIT) { const me = pct(g, 1); finish(g, g.bots.every((b) => pct(g, b.o) < me)); }
   }
 
-  const scoreOf = (g) => (g.over.won ? Math.round(400 + (g.level || g.wave || 3) * 100 + g.over.pct * 4 + Math.max(0, LIMIT - g.over.t) * 2) : Math.round(g.over.pct * 2));
+  const scoreOf = (g) => (g.over.won ? Math.round(400 + (g.level || g.wave || 3) * 100 + g.over.pct * 4 + Math.max(0, LIMIT - g.over.t) * 2) : Math.max(1, Math.round(g.peak * 200 + Math.min(50, g.caps) * 3))); // a loss: peak share + folders taken (always under a win's 500+)
   const starsOf = (g) => (g.over.won ? 1 + (g.over.t < 170 ? 1 : 0) + (g.over.t < 110 ? 1 : 0) : 0);
 
   // ---------- screen ----------
@@ -248,7 +249,7 @@
     for (let i = fx.rings.length - 1; i >= 0; i--) { fx.rings[i].life -= dt; if (fx.rings[i].life <= 0) fx.rings.splice(i, 1); }
     for (let i = fx.floats.length - 1; i >= 0; i--) { const f = fx.floats[i]; f.life -= dt; f.y -= dt * 22; if (f.life <= 0) fx.floats.splice(i, 1); }
     fx.shake = Math.max(0, fx.shake - dt * 30); fx.flash = Math.max(0, fx.flash - dt * 1.8);
-    if (mascot.t > 0) { mascot.t -= dt; if (mascot.t <= 0) { mascot.say = ""; mascot.mood = "idle"; } }
+    if (mascot.t > 0 && !(G && G.hold)) { mascot.t -= dt; if (mascot.t <= 0) { mascot.say = ""; mascot.mood = "idle"; } }
   }
 
   function tickTint(g, dt) {
@@ -425,6 +426,7 @@
   function drawHints(g) {
     const b = binPos();
     if (g.bin.charge >= g.bin.need && !g.bin.used && !drag) label("bin's full! drag it onto them ▶", b.x - b.r - 10, H - TB - 14, W < 520 ? 13 : 15, "#b6ff3c", "right");
+    if (g.hold && !g.coach) label("your move. the clock starts when you drag.", W / 2, PORT ? PY + 4 : H - TB - 40, Math.max(13, Math.min(18, W / 26)), "#fff");
     if (g.coach && g.sent === 0 && !drag) { // level 1: a hand shows the first drag
       const a = g.nodes.find((n) => n.o === 1); if (!a) return;
       const t = g.nodes.filter((n) => n.o !== 1).sort((p, q) => dist(p, a) - dist(q, a))[0], k = (now % 1800) / 1800, e = Math.min(1, k * 1.5);
@@ -445,7 +447,7 @@
   const untilTomorrow = () => { const d = new Date(), m = Math.ceil(((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1) - d) / 6e4)); return Math.floor(m / 60) + "h " + (m % 60) + "m"; };
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const clock = (t) => Math.floor(t / 60) + ":" + String(Math.floor(t % 60)).padStart(2, "0");
-  let run = { wave: 1, score: 0 }, warned = false;
+  let run = { wave: 1, score: 0, t: 0 }, warned = false;
 
   // ---------- input ----------
   function hitNode(g, sx, sy, own) {
@@ -462,6 +464,7 @@
   cv.addEventListener("pointerdown", (e) => {
     ptr = pos(e); if (paused) { e.preventDefault(); setPause(false); return; }
     if (state !== "play" || !G || G.over || G.auto) return;
+    if (G.hold) { G.hold = false; acc = 0; last = performance.now(); } // r5: an autostarted match waits for the first touch
     e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     const b = binPos();
     if (!G.bin.used && G.bin.charge >= G.bin.need && Math.hypot(ptr.x - b.x, ptr.y - b.y) < Math.max(32, b.r * 2)) { drag = { kind: "bin" }; return; }
@@ -494,7 +497,7 @@
   cv.addEventListener("contextmenu", (e) => e.preventDefault());
 
   // ---------- what the sim reports -> what you see ----------
-  const INTRO = ["that slow one is do_not_delete. grab the empty folders first.", "click here!! never stops clicking. don't click back.", "virus nanny thinks YOU are the virus. she's fast.", "stuff i saved hoards, then dumps it all at once.", "everyone at once. you're in the middle. good luck."];
+  const INTRO = ["you're New Folder (2). the orange one is do_not_delete. delete it.", "click here!! never stops clicking. don't click back.", "virus nanny thinks YOU are the virus. she's fast.", "stuff i saved hoards, then dumps it all at once.", "everyone at once. you're in the middle. good luck."];
   const LOSE_TIPS = [
     ["take the grey folders first. they don't fight back.", "only half a folder's cursors go each drag. wait for it to refill."],
     ["click here!! attacks a lot but each hit is small. take the big middle folder early.", "drag across two of your folders on the way to send from both at once."],
@@ -508,7 +511,12 @@
       if (e.k === "cap") {
         const [x, y] = toS(e.n.x, e.n.y); burst(x, y, F[e.o].col, 16, 150); ring(x, y, F[e.o].col, rad(e.n) * 2.6, 0.45);
         if (g.demo || g.auto) continue;
-        if (e.o === 1) { play("capture"); if (g.bin.charge === g.bin.need && !g.bin.used && !g.binSaid) { g.binSaid = true; say("the bin is full. drag it onto their folders. once.", "smug", 4.5); } else if (Math.random() < 0.45) say(pick(["mine now.", "nice folder. ours.", "drag. take. repeat.", "the wallpaper likes you.", "ours ours ours."]), "happy", 1.8); }
+        if (e.o === 1) { play("capture"); const left = g.nodes.filter((n) => n.o !== 1).length;
+          if (e.was >= 2 && !g.nodes.some((n) => n.o === e.was)) { // r5: that bot's last folder: delete it, by name
+            floatText(x, y - rad(e.n) - 28, F[e.was].name + ".exe deleted", F[e.was].col, true);
+            say(e.was === 5 ? "we deleted do_not_delete. it literally said not to." : F[e.was].name + ": deleted. who's next?", "smug", 3.5);
+          } else if (!g.firstCap) { g.firstCap = true; say("mine now. " + left + " folder" + (left > 1 ? "s" : "") + " to go.", "happy", 2.6); }
+          else if (g.bin.charge === g.bin.need && !g.bin.used && !g.binSaid) { g.binSaid = true; say("the bin is full. drag it onto their folders. once.", "smug", 4.5); } else if (left <= 3) say(left + " to go. " + pick(["finish it.", "almost all of it.", "the desktop can feel it."]), "happy", 2); else if (Math.random() < 0.45) say(pick(["mine now.", "nice folder. ours.", "drag. take. repeat.", "the wallpaper likes you.", "ours ours ours."]), "happy", 1.8); }
         else if (e.was === 1) { play("lost"); fx.shake = Math.max(fx.shake, 5); say(pick(["hey! that was ours.", F[e.o].name + " took one. take it back.", "rude."]), "worry", 2); }
       } else if (e.k === "nuke") {
         const [x, y] = toS(e.x, e.y); boom(x, y, "#b6ff3c"); floatText(x, y - 20, "WIPED ×" + e.hits, "#b6ff3c", true); play("nuke");
@@ -527,7 +535,7 @@
   function clearScreen() { sel = []; drag = null; fx.parts.length = fx.rings.length = fx.floats.length = 0; fx.shake = fx.flash = 0; tintS.fill(0); tintA.fill(0); mascot.say = ""; mascot.t = 0; mascot.mood = "idle"; warned = false; }
   function start(mode, o) {
     o = o || {}; clearScreen(); paused = false;
-    if (mode === "endless" && !o.keep) run = { wave: 1, score: 0 };
+    if (mode === "endless" && !o.keep) run = { wave: 1, score: 0, t: 0 };
     G = newMatch(mode, mode === "campaign" ? { level: o.level } : mode === "daily" ? { date: o.date || today() } : { wave: run.wave });
     G.coach = mode === "campaign" && G.level === 1 && !S.coach && !(TEST && flag("nuke"));
     if (TEST && flag("nuke")) G.bin.charge = G.bin.need;
@@ -537,9 +545,9 @@
   }
 
   function endMatch() {
-    const g = G, o = g.over, sc = scoreOf(g); let total = sc; g.stars = 0; g.firstDaily = false;
+    const g = G, o = g.over, sc = scoreOf(g); let total = sc, dur = o.t; g.stars = 0; g.firstDaily = false;
     if (g.mode === "campaign") { g.stars = starsOf(g); if (o.won) { S.stars[g.level - 1] = Math.max(S.stars[g.level - 1], g.stars); S.unlocked = Math.max(S.unlocked, Math.min(5, g.level + 1)); if (g.level === 5) sdk((c) => c.achieve && c.achieve("whole_desktop")); } }
-    else if (g.mode === "endless") { run.score += sc; total = run.score; if (o.won) S.bestEndless = Math.max(S.bestEndless, run.wave); }
+    else if (g.mode === "endless") { run.score += sc; total = run.score; run.t += o.t; dur = run.t; if (o.won) S.bestEndless = Math.max(S.bestEndless, run.wave); }
     else if (g.mode === "daily") {
       if (g.date === today()) {
         if (!S.daily || S.daily.date !== g.date) { g.firstDaily = true; const st = S.streak; st.n = st.last === yesterday() ? st.n + 1 : 1; st.last = g.date; st.best = Math.max(st.best, st.n); S.daily = { date: g.date, pct: o.pct, won: o.won }; }
@@ -549,7 +557,8 @@
     }
     g.total = total; save();
     ev(o.won ? "dt_level_win" : "dt_level_lose", { mode: g.mode, level: g.level || g.wave || 0, pct: o.pct, secs: Math.round(o.t), stars: g.stars });
-    sdk((c) => c.end && c.end({ score: total, durationMs: Math.round(o.t * 1000), completed: !!o.won }));
+    // r5: every finished match is a real ending (a loss too); endless sends the run's total score over the run's total time
+    sdk((c) => c.end && c.end({ score: total, durationMs: Math.round(dur * 1000), completed: true }));
     if (o.won) { sdk((c) => c.achieve && c.achieve("first_takeover")); if (o.pct >= 100) sdk((c) => c.achieve && c.achieve("clean_sweep")); }
     play(o.won ? "win" : "lose"); say(o.won ? "the desktop is ours." : "they deleted us. again?", o.won ? "happy" : "dead", 6);
     if (o.won) for (let i = 0; i < 5; i++) setTimeout(() => burst(W * (0.15 + Math.random() * 0.7), H * (0.2 + Math.random() * 0.4), pick(["#b6ff3c", "#fff", "#e6d9b4"]), 26, 260), i * 160);
@@ -568,8 +577,8 @@
     x.save(); x.beginPath(); x.rect(mx, my, mw, mh); x.clip();
     for (const n of g.nodes) { const px = mx + n.x / WW * mw, py = my + n.y / WH * mh, r = 16 + n.t * 5; x.fillStyle = "#090a18"; x.fillRect(px - r - 3, py - r * 0.9 - 3, r * 0.9 + 6, r * 0.5); x.fillRect(px - r - 3, py - r * 0.7 - 3, r * 2 + 6, r * 1.4 + 6); x.fillStyle = F[n.o].dark; x.fillRect(px - r, py - r * 0.9, r * 0.9, r * 0.4); x.fillStyle = F[n.o].col; x.fillRect(px - r, py - r * 0.7, r * 2, r * 1.4); }
     x.restore(); x.fillStyle = "#e6d9b4"; x.fillRect(mx, my + mh - 26, mw, 26); x.fillStyle = "#b6ff3c"; x.fillRect(mx + 6, my + mh - 20, (mw - 12) * o.pct / 100, 14);
-    x.textBaseline = "alphabetic"; x.textAlign = "left"; x.fillStyle = "#f4f4ff"; x.font = "700 62px " + FONT; x.fillText(o.won ? "I took over" : "I only took over", 60, 170);
-    x.fillStyle = o.won ? "#b6ff3c" : "#ff4d5e"; x.font = "700 230px " + FONT; x.fillText(o.pct + "%", 50, 380);
+    x.textBaseline = "alphabetic"; x.textAlign = "left"; x.fillStyle = "#f4f4ff"; x.font = "700 62px " + FONT; x.fillText(o.won ? "I took over" : o.pct > 0 ? "I only took over" : "I held", 60, 170);
+    x.fillStyle = o.won ? "#b6ff3c" : "#ff4d5e"; x.font = "700 230px " + FONT; x.fillText((o.won || o.pct > 0 ? o.pct : o.peak || 0) + "%", 50, 380);
     x.fillStyle = "#f4f4ff"; x.font = "700 62px " + FONT; x.fillText("of the desktop", 60, 460);
     x.fillStyle = "#b9c2ff"; x.font = "600 30px " + FONT; x.fillText((g.mode === "daily" ? "daily desktop " + g.date : g.mode === "endless" ? "endless · desktop #" + (g.wave || 1) : "level " + g.level + " · " + g.name) + (o.won ? " · " + clock(o.t) : ""), 640, 470);
     x.fillStyle = "#e6d9b4"; x.fillRect(0, 540, 1200, 90); x.fillStyle = "#14140f"; x.font = "700 40px " + FONT; x.fillText("desktop takeover", 60, 598); x.textAlign = "right"; x.font = "600 32px " + FONT; x.fillText("computercooked.com", 1140, 596);
@@ -577,7 +586,7 @@
   }
   function note(s) { const n = $("eNote"); if (!n || !s) return; n.textContent = s; n.classList.remove("flash"); void n.offsetWidth; n.classList.add("flash"); }
   async function share(g) {
-    const o = g.over, text = g.mode === "daily" ? `i took over ${o.pct}% of today's desktop. beat that:` : o.won ? `i took over ${o.pct}% of the desktop. beat that:` : `the bots deleted me at ${o.pct}% of the desktop. do better:`;
+    const o = g.over, text = g.mode === "daily" ? `i took over ${o.pct}% of today's desktop. beat that:` : o.won ? `i took over ${o.pct}% of the desktop. beat that:` : `i held ${o.pct || o.peak || 0}% of the desktop before the bots deleted me. do better:`;
     let how = "copy", copied = false, blob = null;
     try { blob = await new Promise((r) => card(g).toBlob(r, "image/png")); } catch (e) {}
     const file = blob && new File([blob], "desktop-takeover.png", { type: "image/png" });
@@ -596,19 +605,22 @@
   function showEnd(g) {
     const o = g.over, won = o.won, camp = g.mode === "campaign";
     const next = camp ? (won ? (g.level < 5 ? "next level ▶" : "play endless ▶") : "try again") : g.mode === "endless" ? (won ? "next desktop ▶" : "new run") : "play it again";
-    const line = camp ? `level ${g.level} · ${g.name} · ${clock(o.t)}` : g.mode === "endless" ? `desktop #${g.wave} · run score ${g.total}` : `daily desktop ${g.date}` + (S.streak.n && g.date === today() ? ` · streak <b>${S.streak.n}</b> day${S.streak.n > 1 ? "s" : ""}` : "");
+    // r5: the card shows the same score the site gets (cc.end), so a dare or the board never disagrees with it
+    const scoreLine = `score <b>${Number(g.total).toLocaleString("en-US")}</b>`, dailyOpen = g.mode !== "daily" && !(S.daily && S.daily.date === today());
+    const line = camp ? `level ${g.level} · ${g.name} · ${clock(o.t)} · ${scoreLine}` : g.mode === "endless" ? `desktop #${g.wave} · run ${scoreLine}` : `daily desktop ${g.date} · ${scoreLine}` + (S.streak.n && g.date === today() ? ` · streak <b>${S.streak.n}</b> day${S.streak.n > 1 ? "s" : ""}` : "");
     $("endTb").textContent = won ? "takeover_complete.txt" : "deleted.txt";
-    $("endIn").innerHTML = `<h2 class="${won ? "" : "lost"}">${won ? `you took over <em>${o.pct}%</em>` : `<em>deleted.</em> you held ${o.pct}%`}</h2>
+    $("endIn").innerHTML = `<h2 class="${won ? "" : "lost"}">${won ? `you took over <em>${o.pct}%</em>` : o.pct > 0 ? `<em>deleted.</em> you held ${o.pct}%` : `<em>deleted.</em> you peaked at ${o.peak}%`}</h2>
       ${camp && won ? `<div class="stars">${"★".repeat(g.stars)}<s>${"★".repeat(3 - g.stars)}</s></div>` : ""}
       <p>${line}</p>${g.mode === "daily" ? `<p class="small">new desktop in ${untilTomorrow()}</p>` : camp && won && g.stars < 3 ? `<p class="small">${g.stars < 2 ? "★★ under 2:50 · " : ""}★★★ under 1:50</p>` : !won ? `<p class="small tip">tip: ${pick(LOSE_TIPS[g.mode === "campaign" ? g.level - 1 : 5] || LOSE_TIPS[5])}</p>` : ""}
       <img class="share" id="eImg" alt="share card: i took over ${o.pct}% of the desktop">
       <div class="row"><button class="btn go big" id="eNext" type="button">${next}</button><button class="btn big" id="eShare" type="button">share</button></div>
-      <div class="row" style="margin-top:6px">${won || g.mode === "daily" ? (g.mode === "daily" ? "" : `<button class="btn" id="eAgain" type="button">replay</button>`) : ""}<button class="btn" id="eMenu" type="button">menu</button></div>
+      <div class="row" style="margin-top:6px">${won || g.mode === "daily" ? (g.mode === "daily" ? "" : `<button class="btn" id="eAgain" type="button">replay</button>`) : ""}${dailyOpen ? `<button class="btn" id="eDaily" type="button">daily desktop</button>` : ""}<button class="btn" id="eMenu" type="button">menu</button></div>
       <p class="note" id="eNote" role="status" aria-live="polite"></p><div id="tipSlot"></div>`;
     try { $("eImg").src = card(g).toDataURL("image/png"); } catch (e) {}
     $("eNext").onclick = () => { if (camp) { if (won && g.level === 5) start("endless"); else start("campaign", { level: won ? g.level + 1 : g.level }); } else if (g.mode === "endless") { if (won) { run.wave++; start("endless", { keep: true }); } else start("endless"); } else start("daily", { date: g.date }); };
     $("eShare").onclick = () => share(g);
     if ($("eAgain")) $("eAgain").onclick = () => (camp ? start("campaign", { level: g.level }) : start("endless"));
+    if ($("eDaily")) $("eDaily").onclick = () => start("daily");
     $("eMenu").onclick = showTitle;
     $("end").hidden = false; $("end").scrollTop = 0;
     try { if (window.ccTip) window.ccTip.mount($("tipSlot"), { game: "desktop-takeover", slot: "game-over" }); } catch (e) {}
@@ -625,6 +637,13 @@
     for (const b of $("titleIn").querySelectorAll("[data-l]")) b.onclick = () => start("campaign", { level: +b.dataset.l });
     $("tEndless").onclick = () => start("endless"); $("tDaily").onclick = () => start("daily");
     $("title").hidden = false;
+  }
+  // r5: the next match a player is due, no title: the first level without a star, else today's daily, else endless.
+  // Used by the hub's "tap to play" card (cc.autostart, hold = the clock waits for the first touch) and cc-restart from the title.
+  function quickStart(hold) {
+    const lv = S.stars.findIndex((s, i) => !s && i < S.unlocked);
+    if (lv >= 0) start("campaign", { level: lv + 1 }); else if (!(S.daily && S.daily.date === today())) start("daily"); else start("endless");
+    if (hold && G) G.hold = true;
   }
   $("menu").onclick = () => { if (state === "play") { ev("dt_quit", { mode: G.mode, secs: Math.round(G.t) }); showTitle(); } };
 
@@ -643,12 +662,14 @@
     if (d.type === "cc-mute") muted = !!d.muted;
     else if (d.type === "cc-pause") setPause(d.paused !== false);
     else if (d.type === "cc-restart") { // same level / same daily; endless starts a fresh run
-      if (!G || state === "title" || state === "shot") return;
+      if (state === "shot") return;
+      if (!G || state === "title") { quickStart(false); return; } // r5: from the title, play again = your next match
       start(G.mode, G.mode === "campaign" ? { level: G.level } : G.mode === "daily" ? { date: G.date } : {});
     }
   });
   document.addEventListener("visibilitychange", () => { if (document.hidden) setPause(true); });
   addEventListener("keydown", (e) => {
+    if (G && G.hold && state === "play" && !paused) { G.hold = false; acc = 0; last = performance.now(); }
     if (e.key === "p" || e.key === "P" || e.key === "Escape") { if (paused) setPause(false); else setPause(true); }
     else if (paused && (e.key === " " || e.key === "Enter")) { e.preventDefault(); setPause(false); }
   });
@@ -658,7 +679,7 @@
   function frame(t) {
     now = t; const dt = Math.min(0.1, (t - last) / 1000 || 0); last = t; const g = G || DEMO;
     if (g) {
-      if (paused && g === G) acc = 0; else { acc += dt; while (acc >= STEP) { step(g, STEP); acc -= STEP; } }
+      if ((paused || g.hold) && g === G) acc = 0; else { acc += dt; while (acc >= STEP) { step(g, STEP); acc -= STEP; } }
       present(g); tickTint(g, dt);
       if (g === DEMO && g.over) { g.overT = (g.overT || 0) + dt; if (g.overT > 2.5) { tintS.fill(0); tintA.fill(0); DEMO = newMatch("demo", { auto: true, demo: true, wave: 4 }); } }
     }
@@ -669,7 +690,7 @@
   addEventListener("resize", resize); resize();
   const headless = (mode, o, runs) => { let wins = 0, tt = 0, pp = 0; for (let i = 0; i < runs; i++) { const g = newMatch(mode, Object.assign({ auto: true, salt: i * 7919, seed: i * 104729 + 1 }, o)); while (!g.over) { step(g, STEP); g.events.length = 0; } if (g.over.won) wins++; tt += g.over.t; pp += g.over.pct; } return { wins, runs, avgT: Math.round(tt / runs), avgPct: Math.round(pp / runs) }; };
   if (TEST) window.__dt = {
-    state: () => ({ state, paused, mode: G && G.mode, level: G && G.level, t: G && G.t, over: G && G.over, pct: G ? Math.round(pct(G, 1) * 100) : 0, units: G ? G.units.length : 0, bin: G ? Object.assign({ charge: G.bin.charge, need: G.bin.need, used: G.bin.used }, binPos()) : null, nodes: G ? G.nodes.map((n) => { const [sx, sy] = toS(n.x, n.y); return { i: n.i, o: n.o, n: Math.floor(n.n), sx, sy }; }) : [] }),
+    state: () => ({ state, paused, hold: !!(G && G.hold), mode: G && G.mode, level: G && G.level, t: G && G.t, over: G && G.over, pct: G ? Math.round(pct(G, 1) * 100) : 0, units: G ? G.units.length : 0, bin: G ? Object.assign({ charge: G.bin.charge, need: G.bin.need, used: G.bin.used }, binPos()) : null, nodes: G ? G.nodes.map((n) => { const [sx, sy] = toS(n.x, n.y); return { i: n.i, o: n.o, n: Math.floor(n.n), sx, sy }; }) : [] }),
     win: () => { if (G) { for (const n of G.nodes) if (n.o >= 2) n.o = 1; G.units = G.units.filter((u) => u.o === 1); G.streams = G.streams.filter((s) => s.o === 1); } },
     lose: () => { if (G) { const b = G.bots[0].o; for (const n of G.nodes) if (n.o === 1) n.o = b; G.units = G.units.filter((u) => u.o !== 1); G.streams = G.streams.filter((s) => s.o !== 1); } },
     auto: (v) => { if (G) { G.auto = v !== false; G.me = G.auto ? { o: 1, next: 0, charge: 0, used: true } : null; } },
@@ -683,6 +704,7 @@
     $("title").hidden = true; G = newMatch("campaign", { level: 3 }); G.nodes.forEach((n, i) => { n.o = i === 3 ? 0 : 1; n.n = 12 + i; n.held = 40; }); G.bots = []; G.over = { won: true, pct: 87, t: 142 }; G.stars = 2; G.total = 1244; state = "end"; showEnd(G);
   } else if (TEST && dq && /^\d{4}-\d\d-\d\d$/.test(dq)) start("daily", { date: dq });
   else if (TEST && (lv >= 1 && lv <= 5 || flag("nuke"))) start("campaign", { level: lv >= 1 && lv <= 5 ? lv : 1 });
+  else if ((() => { try { return !!(window.cc && cc.autostart && cc.autostart()); } catch (e) { return false; } })()) quickStart(true);
   else showTitle();
   requestAnimationFrame(frame);
 })();
