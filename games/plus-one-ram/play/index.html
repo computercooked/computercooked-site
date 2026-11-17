@@ -69,6 +69,7 @@
   .job b { margin-left: auto; color: var(--lilac); padding-left: 8px; }
   .job.done { color: var(--lime); font-weight: 800; }
   .job.done i { border-color: var(--lime); background: var(--lime); color: var(--carbon); }
+  #over .job.done ~ .job:not(.done) ~ .job:not(.done) { display: none; } /* after a run with done jobs: the ticks and the next one */
   @media (max-height: 560px) { .jobs { margin: 3px auto 0; font-size: 11px; } .jobs .jh { display: none; } .job { padding: 1px 4px; } #over .job:not(.done) ~ .job:not(.done) { display: none; } #title .job:not(.done) ~ .job:not(.done) ~ .job { display: none; } }
   @media (hover: none) and (pointer: coarse) { .desk { display: none; } }
   @media (max-width: 380px) { .shop { grid-template-columns: 1fr; } }
