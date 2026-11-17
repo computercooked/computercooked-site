@@ -492,7 +492,12 @@
   function drawFx() {
     for (const f of fx) {
       const k = 1 - f.life / f.max;
-      if (f.type === "text") { cx.globalAlpha = 1 - k; text(f.s, f.x, f.y - k * 24, f.big ? 22 : 15, f.col, "center", 900); cx.globalAlpha = 1; }
+      if (f.type === "text") {
+        cx.globalAlpha = 1 - k;
+        // review16 r3: the streak call sits on a dark tag (it was lime on the judge's white speech bubble)
+        if (f.big) { cx.font = "900 22px " + MONO; const tw = cx.measureText(f.s).width + 18; cx.fillStyle = "rgba(11, 12, 14, 0.9)"; cx.fillRect(f.x - tw / 2, f.y - k * 24 - 16, tw, 32); }
+        text(f.s, f.x, f.y - k * 24, f.big ? 22 : 15, f.col, "center", 900); cx.globalAlpha = 1;
+      }
       else if (f.type === "bit") { cx.globalAlpha = Math.min(1, f.life / f.max * 1.5); cx.fillStyle = f.col; cx.fillRect(Math.round(f.x), Math.round(f.y), Math.ceil(f.sz), Math.ceil(f.sz)); cx.globalAlpha = 1; }
       else if (f.type === "poof") { cx.globalAlpha = 1 - k; cx.fillStyle = PAPER; const s = L.goose; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; cx.fillRect(L.gooseX + s * 0.4 + Math.cos(a) * k * s * 0.4, L.gooseY - s * 0.72 + Math.sin(a) * k * s * 0.4, 5, 5); } cx.globalAlpha = 1; }
     }
@@ -557,7 +562,7 @@
     if (shake > 0) cx.translate((Math.random() - 0.5) * 12 * shake, (Math.random() - 0.5) * 12 * shake);
     drawRoom();
     drawPlacard();
-    drawJudge(time);
+    if (state !== "title") drawJudge(time); // review16 r3: on a phone the judge showed through the title text
     drawJury(time);
     drawGoose(time);
     drawButtons();
