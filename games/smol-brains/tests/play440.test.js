@@ -69,7 +69,9 @@ console.log("3. a touch screen: the list by the crosshair is left out, the butto
 check("no list of actions by the crosshair on a phone", /var html ?= ?hud\.phone ?\? ?"" ?: ?lines\.map/.test(js("povhud.js")));
 check("an empty list is not drawn", /#pov \.prompt:empty\{display:none\}/.test(js("povhud.js")));
 check("the goal box sits under the clock, not over it (the clock ends at 64px)", /#pov\.phone \.quest\{top:68px;/.test(js("povhud.js")));
-check("the small button does not repeat what the big one says", /said ?= ?!!\(ctx ?&& ?o\.place ?&& ?!o\.place\.locked ?&& ?short\(o\.place\.label\) ?=== ?short\(ctx\.label\)\)/.test(js("povhud.js")) && /setBtn\(hud\.bPlace, ?o\.place ?&& ?!o\.place\.locked ?&& ?!said ?\?/.test(js("povhud.js")));
+check("the buttons end above the meters (they clipped the stamina number by 4px)", /#pov\.phone \.pbtns\{bottom:104px\}/.test(js("povhud.js")));
+check("the loading screen puts its tip under its words, not beside them", /\.loadveil \{[^}]*flex-direction: column; text-align: center;/.test(fs.readFileSync(path.join(__dirname, "..", "play", "style.css"), "utf8")));
+check("the small button does not repeat what the big one or use says", /said ?= ?!!\(pl ?&& ?\(\(ctx ?&& ?pl ?=== ?short\(ctx\.label\)\) ?\|\| ?\(o\.use ?&& ?!o\.use\.locked ?&& ?pl ?=== ?short\(o\.use\.label\)\)\)\)/.test(js("povhud.js")) && /setBtn\(hud\.bPlace, ?o\.place ?&& ?!o\.place\.locked ?&& ?!said ?\?/.test(js("povhud.js")));
 
 check("held sideways, the meters keep clear of the buttons and a toast keeps clear of the meters", /#pov\.phone \.bottom\{left:calc\(\(100vw - 176px\) \/ 2\)\}#pov\.phone \.vrow,#pov\.phone \.vrow i\{height:12px\}#pov\.phone \.vrow i\{width:12px\}#pov\.phone \.vit\{column-gap:4px\}#pov\.phone \.toast\{top:70px\}\}/.test(js("povhud.js")));
 

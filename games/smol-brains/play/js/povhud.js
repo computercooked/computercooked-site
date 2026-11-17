@@ -199,7 +199,7 @@ var CSS=[
 "#pov.phone .bottom{bottom:6px}#pov.phone .slot{width:min(38px,calc((100vw - 34px) / 9));height:min(38px,calc((100vw - 34px) / 9))}#pov.phone .slot .ic{width:26px!important;height:26px!important}#pov.phone .hot{gap:3px;padding:2px}",
 "#pov.phone .vrow i{width:min(17px,3.4vw);height:min(17px,3.4vw)}#pov.phone .vrow{height:min(17px,3.4vw)}#pov.phone .vrow.small i{width:12px;height:12px}#pov.phone .vrow.small{height:12px}#pov.phone .vit{column-gap:8px}",
 "#pov.phone .who,#pov.phone .paws,#pov.phone .bagbtn{display:none}#pov.phone .compass{top:10px;width:46vw}#pov.phone .clock{top:44px;font-size:11px}",
-"#pov.phone .quest{top:68px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
+"#pov.phone .pbtns{bottom:104px}#pov.phone .quest{top:68px;right:8px;width:190px;padding:7px 9px}#pov.phone .quest .st{font-size:12px}#pov.phone .quest .tip{font-size:11px}",
 "#pov.phone .prompt{font-size:12px;top:calc(50% + 24px)}#pov.phone .prompt kbd{display:none}#pov.phone .needs{left:50%;transform:translateX(-50%);top:calc(50% + 70px)}",
 "#pov.phone .toast{top:226px;bottom:auto;max-width:84vw;font-size:13px}#pov.phone:has(.threat.on) .quest{display:none}#pov.phone .gains{left:10px;bottom:auto;top:110px}#pov.phone .iname{bottom:84px}",
 "#pov.phone .bag .grid{grid-template-columns:repeat(9,34px);gap:3px}#pov.phone .bag .slot{width:34px;height:34px}#pov.phone .bag .slot .ic{width:24px!important;height:24px!important}#pov.phone .bag h3{flex-wrap:wrap;gap:4px}#pov.phone .bag .win{flex-direction:column;padding:10px;gap:8px}#pov.phone .side{width:auto}",
@@ -936,7 +936,7 @@ if(!need.length)nh+="<div class='ok'>ready: "+(hud.phone?"hold use":"hold left c
 }
 if(hud.needsKey!==nh){hud.needsKey=nh;hud.needs.innerHTML=nh;}
 if(hud.phone){
-var ctx=o.ctx,said=!!(ctx&&o.place&&!o.place.locked&&short(o.place.label)===short(ctx.label));
+var ctx=o.ctx,pl=o.place&&!o.place.locked?short(o.place.label):null,said=!!(pl&&((ctx&&pl===short(ctx.label))||(o.use&&!o.use.locked&&pl===short(o.use.label))));
 setBtn(hud.bAct,ctx?ctx.label:"…",!ctx);
 setBtn(hud.bUse,o.use&&!o.use.locked?short(o.use.label):"use",!o.use||o.use.locked);
 setBtn(hud.bPlace,o.place&&!o.place.locked&&!said?short(o.place.label):"place",!o.place||o.place.locked||said);

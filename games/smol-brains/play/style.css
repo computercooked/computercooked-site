@@ -198,7 +198,7 @@ button.chip:hover { background: rgba(245, 243, 237, 0.18); }
 .armtag { position: absolute; top: calc(52px + var(--sat)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; font-size: 12px; white-space: nowrap; pointer-events: auto; z-index: 5; }
 .armtag .ibtn { width: 24px; height: 24px; }
 @media (min-width: 700px) { #ui:has(.sheet.talkside:not(.hide)) .toasts { right: calc(318px + var(--sar)); } } /* 4.22: toasts never cover the word book */
-.loadveil { position: fixed; inset: 0; z-index: 90; background: #07060d; color: var(--paper); display: flex; align-items: center; justify-content: center; font: 700 18px var(--sans); transition: opacity 0.5s; } .loadveil.out { opacity: 0; pointer-events: none; }
+.loadveil { position: fixed; inset: 0; z-index: 90; background: #07060d; color: var(--paper); display: flex; flex-direction: column; text-align: center; padding: 0 24px; align-items: center; justify-content: center; font: 700 18px var(--sans); transition: opacity 0.5s; } .loadveil.out { opacity: 0; pointer-events: none; }
 /* 4.25: your smol's chip, above the minimap */
 .minechip { position: absolute; left: calc(12px + var(--sal)); bottom: calc(154px + var(--sab)); display: flex; align-items: stretch; gap: 4px; padding: 4px; pointer-events: auto; max-width: 210px; }
 .minechip .who { display: flex; align-items: center; gap: 7px; background: none; border: 0; color: var(--paper); cursor: pointer; padding: 2px 4px 2px 2px; text-align: left; min-width: 0; font: inherit; }
