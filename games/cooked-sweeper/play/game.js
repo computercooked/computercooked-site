@@ -19,6 +19,33 @@
   };
   const pick = (a) => a[(Math.random() * a.length) | 0];
 
+  // ---------- the career: what carries over between runs ----------
+  // every run banks its xp into a rank, and every kind of virus you ever beat goes in the quarantine (10 to collect).
+  // Nothing here changes the board or the score, so the daily and the leaderboard stay fair. New key: old saves keep working.
+  const RANKS = [[0, "intern"], [25, "helpdesk"], [75, "tech support"], [150, "the it guy"], [275, "sysadmin"], [450, "netsec"], [700, "antivirus.exe"], [1000, "firewall"], [1400, "kernel whisperer"], [2000, "the computer's therapist"]];
+  const DEX = [1, 2, 3, 4, 5, 6, 7, 8, 9, 13];
+  function career() {
+    let c = store.get("career", null);
+    // a returning player (runs from before 1.4) starts with half their best banked, not from zero
+    if (!c || typeof c.xp !== "number") c = { xp: Math.round(Math.max(0, +store.get("best", 0) || 0, +store.get("bestDaily", 0) || 0) / 2), dex: [], wins: 0 };
+    if (!Array.isArray(c.dex)) c.dex = [];
+    c.wins = c.wins || 0;
+    return c;
+  }
+  function rankOf(xp) {
+    let i = 0;
+    while (i + 1 < RANKS.length && xp >= RANKS[i + 1][0]) i++;
+    return { i, name: RANKS[i][1], from: RANKS[i][0], next: RANKS[i + 1] || null };
+  }
+  // the one thing to aim for next run: the weakest virus kind you've never beaten, else KERNEL PANIC, else the next rank
+  function nextGoal(c) {
+    const miss = DEX.filter((p) => c.dex.indexOf(p) < 0);
+    if (miss.length && miss[0] !== CS.BOSS) { const nm = CS.VIRUSES[miss[0]].name; return "quarantine " + (/^[aeiou]/.test(nm) ? "an " : "a ") + nm + " (" + miss[0] + ")"; }
+    if (!c.wins) return "beat KERNEL PANIC (13): reach 14 hp first";
+    const r = rankOf(c.xp);
+    return r.next ? (r.next[0] - c.xp) + " xp to " + r.next[1] : "beat your best";
+  }
+
   // ---------- pixel sprites (10x10, drawn by hand) ----------
   const PAL = { k: "#120c08", W: "#fffaf0", w: "#c9c2ad", R: "#e5302a", r: "#8e1a14", G: "#5fbf3a", g: "#2f7a1c", B: "#3d6be0", b: "#203f94", Y: "#f6d84a", y: "#b8941c",
     P: "#a35ce0", p: "#5a2a8a", O: "#ff8a2a", o: "#b0501a", S: "#9a9a9a", s: "#555", L: "#a8d533", C: "#57c7e0", E: "#ff2a2a", T: "#d8b25a", K: "#2a2d33" };
@@ -162,7 +189,7 @@
   // ---------- state ----------
   const board = $("board"), win = $("win"), app = $("app");
   let mode = "endless", run = null, tiles = [], startAt = 0, endAt = 0, started = false, cursor = -1, ended = false;
-  let confirmFight = { i: -1, t: 0 }, pickerFor = -1, taps = 0;
+  let confirmFight = { i: -1, t: 0 }, pickerFor = -1, taps = 0, pausedAt = 0, coached = false;
   const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
   const heat = () => (run ? Math.max(0, Math.min(1, 1 - run.hp / run.max)) : 0);
   const portrait = () => window.innerWidth < window.innerHeight * 0.95;
@@ -198,8 +225,9 @@
       apply(CS.reveal(run, start), start);
       quip("today's disk: same board for everyone." + (att.date === today() && att.tries ? " attempt " + (att.tries + 1) + "." : " boot sector recovered."), "good");
     } else {
-      const best = store.get("best", 0);
-      quip(best ? "best: " + best + ". beat it. numbers = total virus power touching a tile." : store.get("runs", 0) ? "tap any tile. numbers = total virus power touching it." :"tap any tile to boot. numbers = total virus power nearby. popups are free xp.");
+      const best = store.get("best", 0), runs = store.get("runs", 0);
+      const c = career(), rk = rankOf(c.xp);
+      quip(runs ? rk.name + " · best " + best + ". next: " + nextGoal(c) + "." : best ? "best: " + best + ". beat it. numbers = total virus power touching a tile." : "tap any tile to boot. numbers = total virus power nearby. popups are free xp.");
       if (!store.get("rules", false)) showRules();
     }
     hud();
@@ -309,11 +337,20 @@
   ];
 
   // ---------- floating text + steam ----------
-  function floatAt(i, text, color) {
-    const r = tiles[i].getBoundingClientRect(), el = document.createElement("div");
-    el.className = "float"; el.textContent = text; el.style.color = color;
-    el.style.left = r.left + r.width / 2 + "px"; el.style.top = r.top - 4 + "px";
-    app.appendChild(el); setTimeout(() => el.remove(), 950);
+  function floatAt(i, text, color, big) {
+    const r = (typeof i === "number" ? tiles[i] : i).getBoundingClientRect(), el = document.createElement("div");
+    el.className = "float" + (big ? " big" : ""); el.textContent = text; el.style.color = color;
+    // a long label stays on screen: its centre never sits closer to the edge than half its likely width
+    const half = big ? Math.min(window.innerWidth / 2, text.length * 5.5) : 0;
+    el.style.left = Math.max(half, Math.min(window.innerWidth - half, r.left + r.width / 2)) + "px"; el.style.top = r.top - 4 + "px";
+    app.appendChild(el); setTimeout(() => el.remove(), big ? 1500 : 950);
+  }
+  // the whole window flashes a colour: a level up, a new kind caught, the boss down (reads with the sound off)
+  let flashT = 0;
+  function flash(kind) {
+    if (reduce) return;
+    win.classList.remove("fl-lv", "fl-win"); void win.offsetWidth; win.classList.add("fl-" + kind);
+    clearTimeout(flashT); flashT = setTimeout(() => win.classList.remove("fl-lv", "fl-win"), kind === "lv" ? 650 : 1250); // the wobble and shake come back after
   }
   let puffAcc = 0;
   function steam(dt) {
@@ -338,7 +375,7 @@
   // ---------- playing ----------
   function begin() {
     if (started) return;
-    started = true; startAt = performance.now(); evCount = 0;
+    started = true; startAt = performance.now(); evCount = 0; if (pausedAt) pausedAt = startAt;
     sdk((c) => c.start && c.start());
     if (mode === "daily") { const a = store.get("daily", {}); store.set("daily", { date: today(), tries: (a.date === today() ? a.tries || 0 : 0) + 1, best: a.date === today() ? a.best || 0 : 0, streak: a.streak || 0, last: a.last || "" }); ccEvent("daily_run", { date: today() }); }
     ac(); loopOn = true; nextT = 0;
@@ -354,7 +391,9 @@
           const el = tiles[o.i];
           if (!reduce) { el.style.animationDelay = Math.min(o.d * 26, 500) + "ms"; el.classList.add("pop"); }
         }
-        if (cells.length > 12) quip(pick(["cascade! fresh memory recovered.", "ooh, clean sectors.", "defrag speedrun."]), "good");
+        // a brand-new player's first patch: one concrete next move instead of a random tip
+        if (!coached && mode === "endless" && !store.get("runs", 0) && run.opened === cells.length) { coached = true; quip(run.cells.some((c) => c.seen && !c.open) ? "the wiggling popups are free: 0 hp, +1 xp. tap one. stay away from big numbers." : "nice. open tiles next to small numbers. big numbers = strong viruses close.", "good"); }
+        else if (cells.length > 12) quip(pick(["cascade! fresh memory recovered.", "ooh, clean sectors.", "defrag speedrun."]), "good");
         else if (!started || performance.now() - quipT > 4000) quip(pick(TIPS));
       } else if (e.type === "fight") {
         const V = CS.VIRUSES[e.p];
@@ -366,6 +405,13 @@
           setTimeout(() => { floatAt(e.i, "+" + e.p + " xp", LIME2); sfx.xp(); }, 260);
           setMood("ouch", 600);
           quip(pick(V.quips), "bad");
+          // a virus kind you've never beaten before goes in the quarantine, for good
+          const car = career();
+          if (car.dex.indexOf(e.p) < 0) {
+            car.dex.push(e.p); car.dex.sort((a, b) => a - b); store.set("career", car);
+            run.newDex = (run.newDex || []).concat(e.p);
+            setTimeout(() => { if (run.over) return; floatAt(e.i, "NEW! " + V.name + " quarantined", "#ffe14a", "big"); quip("new in the quarantine: " + V.name + ". " + car.dex.length + "/" + DEX.length + " kinds caught.", "good"); }, 620);
+          }
           if (CS.canLevel(run) && run.hp <= 3) setTimeout(() => !run.over && quip("you can level up: full heal + 1 max hp. tap level up ▲", "good"), 1200);
         }
       } else if (e.type === "lose") { setTimeout(() => finish(false), 350); }
@@ -411,8 +457,9 @@
 
   function levelUp() {
     if (!run || !CS.levelUp(run)) return;
-    sfx.level(); setMood("happy", 900);
-    quip("level " + run.level + ": full heal, max hp " + run.max + ".", "good");
+    sfx.level(); setMood("happy", 900); flash("lv");
+    floatAt($("face"), "LEVEL " + run.level + "! full heal", LIME2, "big");
+    quip("level " + run.level + ": full heal, max hp " + run.max + "." + (run.max >= 14 ? " you can survive KERNEL PANIC now." : ""), "good");
     if (run.level === 3 || run.level === 6 || run.level === 10) ccEvent("level", { level: run.level });
     hud();
   }
@@ -422,12 +469,20 @@
   function finish(won, quiet) {
     if (ended) return;
     ended = true; endAt = performance.now(); loopOn = false;
+    if (pausedAt) { startAt += endAt - pausedAt; pausedAt = endAt; }
     const secs = Math.round((endAt - startAt) / 1000);
     const score = CS.score(run, secs);
+    // the career banks this run's xp, even a run you walked away from
+    const car = career(), rankBefore = rankOf(car.xp);
+    car.xp += run.xpTotal; if (won) car.wins++;
+    store.set("career", car);
     if (quiet) { sdk((c) => c.end && c.end({ score: score, durationMs: Math.round(endAt - startAt), completed: false })); return; }
     const key = mode === "daily" ? "bestDaily" : "best";
-    const prev = store.get(key, 0);
-    if (score > prev) store.set(key, score);
+    const prevAll = store.get(key, 0);
+    if (score > prevAll) store.set(key, score);
+    // today's disk is a new board every day: the score to beat is today's best on it, not an old disk's
+    const d0 = store.get("daily", {});
+    const prev = mode === "daily" ? (d0.date === today() ? d0.best || 0 : 0) : prevAll;
     store.set("runs", store.get("runs", 0) + 1);
     let streak = 0;
     if (mode === "daily") {
@@ -440,10 +495,10 @@
     ccEvent(won ? "kernel_beaten" : "bluescreen", { power: run.cause || 13, level: run.level, s: secs });
     sdk((c) => c.score && c.score(score));
     const endP = sdk((c) => c.end && c.end({ score: score, durationMs: Math.round(endAt - startAt), completed: true }));
-    const info = { won, score, prev, secs, streak };
+    const info = { won, score, prev, secs, streak, car, rankBefore, gained: run.xpTotal, newDex: run.newDex || [] };
     pending = info;
     if (won) {
-      sfx.win(); setMood("cool"); quip("virus scan complete. 0 threats remain. the computer is less cooked.", "good");
+      sfx.win(); setMood("cool"); flash("win"); quip("virus scan complete. 0 threats remain. the computer is less cooked.", "good");
       app.style.setProperty("--heat", 0); win.classList.remove("hot", "cooking");
       // the rest of the board shows itself
       run.cells.forEach((c, i) => { if (!c.open) { c.open = true; paint(i); if (!reduce) { tiles[i].style.animationDelay = (i % run.cols) * 30 + "ms"; tiles[i].classList.add("pop"); } } });
@@ -478,22 +533,29 @@
       ["mode", mode === "daily" ? "today's disk " + today().slice(5) : "endless"],
       ["viruses cleared", cleared + "/" + total],
       ["KERNEL PANIC", won ? "BEATEN" : "still running"],
-      ["level", String(run.level)],
-      ["time", mmss(secs)],
-      ["ram eaten", String(run.ramUsed)],
+      ["level · time", run.level + " · " + mmss(secs)],
       ["memory recovered", run.opened + "/" + run.safe],
     ];
     if (!won) rows.splice(3, 0, ["cooked by", CS.VIRUSES[run.cause].name + " (" + run.cause + ")"]);
-    if (streak) rows.push(["daily streak", streak + (streak === 1 ? " day" : " days")]);
+    if (streak) rows.push(["daily streak", streak + (streak === 1 ? " day" : " days") + " · new disk tomorrow"]);
     const portal = !!window.CC_PORTAL;
+    // the career: rank bar (this run's xp banked), the quarantine strip, and the one goal for next run
+    const car = info.car || career(), rk = rankOf(car.xp), up = info.rankBefore && rk.i > info.rankBefore.i;
+    const pct = rk.next ? Math.round(100 * (car.xp - rk.from) / (rk.next[0] - rk.from)) : 100;
+    const nd = info.newDex || [];
+    const career_ = '<div class="car"><div class="rk"><span>rank</span><b>' + esc(rk.name) + "</b>" + (up ? '<em>▲ promoted!</em>' : "") + '<span class="gx">+' + (info.gained || 0) + " xp</span></div>" +
+      '<div class="rkm"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="dex" aria-label="quarantine: ' + car.dex.length + " of " + DEX.length + ' virus kinds beaten">' + DEX.map((p) => '<span class="s sp-' + CS.VIRUSES[p].id + (car.dex.indexOf(p) < 0 ? " no" : nd.indexOf(p) >= 0 ? " nw" : "") + '" title="' + esc(CS.VIRUSES[p].name) + '"></span>').join("") + "</div>" +
+      '<div class="nx">quarantine ' + car.dex.length + "/" + DEX.length + " · next: " + esc(nextGoal(car)) + "</div></div>";
     $("receipt").innerHTML = '<div class="paper" role="dialog" aria-label="run receipt">' +
       "<h2>" + (won ? "THREAT REMOVED" : "SYSTEM COOKED") + "</h2><div class='sub'>cooked sweeper · receipt #" + ((Math.random() * 9000 + 1000) | 0) + "</div>" +
       rows.map((r) => '<div class="row"><span>' + esc(r[0]) + "</span><span></span><span>" + esc(r[1]) + "</span></div>").join("") +
       '<div class="row tot"><span>SCORE</span><span></span><span>' + score + "</span></div>" +
-      '<div class="row"><span>best</span><span></span><span>' + Math.max(prev, score) + "</span></div>" +
+      '<div class="row"><span>' + (mode === "daily" ? "today's best" : "best") + '</span><span></span><span>' + Math.max(prev, score) + "</span></div>" +
       '<div class="nudge' + (score > prev ? " best" : "") + '">' + esc(nudge) + ' <span id="rank"></span></div>' +
       // an early cook usually means tapping blind: one line on how to read the board, for the next run
       (!won && cleared < 3 ? '<div class="nudge" style="font-size:11px;opacity:.8;margin-top:2px">tip: numbers add up the virus power touching a tile. start next to small numbers, eat the weak ones, level up.</div>' : "") +
+      career_ +
       '<div class="btns"><button class="go" id="r-again" type="button">' + (won ? "play again" : "reboot") + "</button>" +
       '<button id="r-mode" type="button">' + (mode === "daily" ? "endless run" : "today's disk") + "</button>" +
       '<button id="r-share" type="button">share card</button>' +
@@ -545,18 +607,22 @@
       "level            " + run.level,
       "time             " + mmss(info.secs),
       mode === "daily" ? "today's disk     " + today() : "mode             endless",
+      "rank             " + rankOf(career().xp).name,
     ];
-    lines.forEach((l, i) => g.fillText(l, x + 40, y + 380 + i * 56));
+    lines.forEach((l, i) => g.fillText(l, x + 40, y + 360 + i * 50));
     g.fillStyle = "#b5410d"; g.font = F(800, 40);
-    g.fillText(info.won ? "beat that." : "can you beat KERNEL PANIC?", x + 40, y + h - 80);
+    g.fillText(mode === "daily" ? "same disk for everyone. beat " + info.score + "." : info.won ? "beat " + info.score + ". go." : "can you beat KERNEL PANIC?", x + 40, y + h - 70);
     g.fillStyle = "#a8d533"; g.font = F(800, 40); g.textBaseline = "middle"; g.textAlign = "center";
     g.fillText("computercooked.com/games/cooked-sweeper", S / 2, S - 60);
-    const text = (info.won ? "i beat KERNEL PANIC in cooked sweeper: " : "KERNEL PANIC cooked me in cooked sweeper: ") + info.score + " pts. computercooked.com/games/cooked-sweeper/";
+    // the link is a dare: the player page opens with "beat <score> from a friend" and a target on the game
+    const dareUrl = "https://computercooked.com/games/cooked-sweeper/?vs=" + info.score + "&utm_source=share&utm_medium=game&utm_campaign=cooked-sweeper";
+    const text = (mode === "daily" ? "today's infected disk (" + today().slice(5) + "), same board for everyone: " + info.score + " pts" + (info.won ? ", KERNEL PANIC beaten" : "") + ". beat me: "
+      : (info.won ? "i beat KERNEL PANIC in cooked sweeper: " : "KERNEL PANIC cooked me in cooked sweeper: ") + info.score + " pts. beat me: ") + dareUrl;
     cv.toBlob((blob) => {
       try {
         const file = blob && new File([blob], "cooked-sweeper.png", { type: "image/png" });
         if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], text }).catch(() => {}); ccEvent("share", { via: "card" }); return; }
-        if (navigator.share) { navigator.share({ text, url: "https://computercooked.com/games/cooked-sweeper/" }).catch(() => {}); ccEvent("share", { via: "share" }); return; }
+        if (navigator.share) { navigator.share({ text }).catch(() => {}); ccEvent("share", { via: "share" }); return; }
       } catch (e) {}
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "cooked-sweeper.png"; document.body.appendChild(a); a.click(); a.remove();
       try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (e) {}
@@ -722,7 +788,13 @@
   window.addEventListener("message", (e) => {
     const d = e.data; if (!d || typeof d !== "object") return;
     if (d.type === "cc-mute") setMuted(!!d.muted);
-    else if (d.type === "cc-pause") paused = typeof d.paused === "boolean" ? d.paused : !paused;
+    else if (d.type === "cc-pause") {
+      paused = typeof d.paused === "boolean" ? d.paused : !paused;
+      // the clock stops while the player page has the game paused (a win's time bonus shouldn't pay for a break)
+      const now = performance.now();
+      if (paused && !pausedAt) pausedAt = now;
+      else if (!paused && pausedAt) { if (started && !ended) startAt += now - pausedAt; pausedAt = 0; }
+    }
     else if (d.type === "cc-restart") newRun();
   });
   window.addEventListener("pagehide", () => { if (run && started && !ended) finish(false, true); });
@@ -744,7 +816,7 @@
         const m2 = document.getElementById("melt"); if (m2 && !$("bsod").hidden) drawMascot(m2.getContext("2d"), "melt", mt);
       }
       if (run) {
-        const s = started ? Math.floor(((ended ? endAt : now) - startAt) / 1000) : 0;
+        const s = started ? Math.floor(((ended ? endAt : pausedAt || now) - startAt) / 1000) : 0;
         if (s !== lastSec) { lastSec = s; $("tm").textContent = mmss(s); }
         if (started && !run.over && now - quipT > 9000) quip(pick(TIPS));
       }

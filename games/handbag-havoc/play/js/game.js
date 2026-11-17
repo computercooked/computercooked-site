@@ -524,6 +524,13 @@
       this.stats.kills++; this.stats.yeets++;
       this.juice('reward', 0.2);   // the GNOMES YEETED counter ticks up: the run's score
       if (this.stats.yeets === 1 && !this.headless && !this.demo) this.popups.push({ x: e.x, y: e.y - 40, t: 1.1, max: 1.1, txt: 'YEET!', size: 34 });   // first reward of the run, called out
+      // 1.4: passing your best mid-run is its own moment (main.js sets bestYeets; 0 on a first run)
+      if (this.bestYeets && !this.passedBest && this.stats.yeets > this.bestYeets && this.state === 'play' && !this.headless && !this.demo) {
+        this.passedBest = true;
+        this.popups.push({ x: this.player.x, y: this.player.y - 80, t: 1.8, max: 1.8, txt: 'NEW BEST!', size: 46 });
+        this.sfx.milestone(20); this.addShake(0.25); this.flash = 0.6; this.flashCol = '#C5FF49';
+        this.juice('reward', 0.8); this.highlight('new best');
+      }
       const c = this.chains.get(chainId);
       if (c) {
         c.n++; c.live++; c.x = e.x; c.y = e.y;
@@ -1162,6 +1169,7 @@
       const bw = 150 * s, bx = vw / 2 - bw / 2, by = pad + 28 * s;
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; roundRect(ctx, bx, by, bw, 8 * s, 4 * s); ctx.fill();
       ctx.fillStyle = left < 4 ? '#C5FF49' : '#ffffff'; roundRect(ctx, bx, by, Math.max(8 * s, bw * (1 - this.waveT / W.dur)), 8 * s, 4 * s); ctx.fill();
+      if (this.daily) outlined(ctx, `daily garden #${this.daily}`, vw / 2, by + 20 * s, '#B59AFF', Math.max(10.5, 11 * s), 800, 'center');   // 1.4: a screenshot or clip says it's the daily
     } else if (this.king) {
       const bw = Math.min(vw - 40, 320 * s), bx = vw / 2 - bw / 2, by = pad + 28 * s;
       ctx.fillStyle = 'rgba(0,0,0,0.45)'; roundRect(ctx, bx, by, bw, 12 * s, 6 * s); ctx.fill();
@@ -1172,6 +1180,7 @@
     ctx.textAlign = 'right';
     outlined(ctx, `${this.stats.yeets}`, vw - pad, pad + 12 * s, '#fff', 20 * s, 900, 'right');
     outlined(ctx, 'gnomes yeeted', vw - pad, pad + 31 * s, '#F5F3ED', Math.max(10.5, 11 * s), 700, 'right');   // review16r2: floor so it reads on phones
+    if (this.bestYeets) outlined(ctx, this.passedBest ? 'new best!' : `best ${this.bestYeets}`, vw - pad, pad + 47 * s, this.passedBest ? '#C5FF49' : '#B59AFF', Math.max(10.5, 11 * s), 800, 'right');   // 1.4: the number to beat
     ctx.textAlign = 'left';
     outlined(ctx, fmtTime(this.t), pad, pad + 38 * s, '#fff', Math.max(12.5, 13 * s), 800, 'left');
     // live chain counter

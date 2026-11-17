@@ -7,7 +7,9 @@
   "controls": "tap / click a tile to reveal it. right-click, long-press or the ⚑ flag button flags a guessed power. arrows + space or enter on a keyboard, f or 1-9 flag, l levels up, n new run, d today's disk, m mutes.",
   "size_kb": 60,
   "tags": ["puzzle", "roguelite", "sweeper", "daily", "mobile"],
-  "version": "1.3",
+  "version": "1.4",
+  "restart": true,
+  "results": "quiet",
   "max_score_per_sec": 25,
   "max_score": 1000,
   "how_to": [
