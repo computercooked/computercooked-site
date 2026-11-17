@@ -1,0 +1,403 @@
+/* Player page extras, added by games/player.js (a <link> it injects, so generated game pages need no edit).
+   1. The results card that sits over the game when a run ends (.ccr, built in player.js).
+   2. Phones: more room for the game, a thumb-friendly fullscreen button. */
+
+/* ---------- 1. results card ---------- */
+.ccr {
+  position: absolute;
+  inset: 0;
+  z-index: 8; /* over the game and platform.js's stage share button (z 6) */
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(7, 8, 10, 0.66);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y; /* the stage blocks touch scrolling for the game; the card may need to scroll on short screens */
+  font-family: var(--sans);
+  color: var(--paper);
+  text-align: left;
+}
+.ccr[hidden], .player.is-mini .ccr { display: none; }
+
+.ccr-card {
+  position: relative;
+  box-sizing: border-box;
+  width: min(380px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 14px 16px 10px;
+  border: 2px solid rgb(var(--phosphor) / 0.6);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgb(var(--phosphor) / 0.08), transparent 60%), var(--carbon-2);
+  box-shadow: var(--glow-md), 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+.ccr.is-best .ccr-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgb(var(--phosphor) / 0.4), 0 0 44px -6px rgb(var(--phosphor) / 0.6), 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+.ccr-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--paper-dim);
+  font: 800 24px/1 var(--sans);
+  cursor: pointer;
+}
+.ccr-x:hover { color: var(--lime); }
+
+.ccr-head { display: flex; align-items: center; gap: 10px; padding-right: 34px; }
+.ccr-face { flex: none; width: 40px; height: 52px; image-rendering: pixelated; }
+.ccr-kicker {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: var(--fs-16);
+  color: var(--lime);
+}
+.ccr.is-best .ccr-kicker { color: var(--accent); }
+.ccr-gary { margin: 2px 0 0; font-size: var(--fs-14); line-height: 1.3; color: var(--paper-dim); }
+
+.ccr-score { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 12px 0 8px; }
+.ccr-num {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: clamp(32px, 9vw, 46px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+  text-shadow: var(--text-glow);
+  overflow-wrap: anywhere;
+}
+.ccr-num[hidden] { display: none; }
+.ccr-sub { font-size: var(--fs-12); color: var(--text-dim); }
+
+/* this run against your best: ten pixels */
+.ccr-bar { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; margin: 0 0 12px; }
+.ccr-bar[hidden] { display: none; }
+.ccr-bar i { display: block; height: 10px; border-radius: 2px; background: var(--carbon-3); }
+.ccr-bar i.on { background: var(--lime); }
+.ccr.is-best .ccr-bar i.on { background: var(--accent); }
+
+.ccr-acts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.ccr-again, .ccr-share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border-radius: var(--r-md);
+  font-family: var(--sans);
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter var(--fast, .15s), border-color var(--fast, .15s), transform .12s var(--ease-spring, ease);
+}
+.ccr-again {
+  padding: 0 14px;
+  border: 0;
+  background: var(--lime);
+  color: var(--carbon);
+  font-size: var(--fs-16);
+}
+.ccr-again:hover { filter: brightness(1.08); }
+.ccr-again kbd {
+  padding: 1px 5px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  font: 700 11px/1.3 var(--mono);
+  opacity: 0.7;
+}
+.ccr-share {
+  padding: 0 14px;
+  border: 2px solid var(--line);
+  background: var(--carbon);
+  color: var(--paper);
+  font-size: var(--fs-14);
+}
+.ccr-share:hover { border-color: var(--lime); color: var(--lime); }
+.ccr-again:active, .ccr-share:active { transform: scale(0.96); }
+.ccr-again:focus-visible, .ccr-share:focus-visible, .ccr-x:focus-visible, .ccr-more:focus-visible, .ccr-next:focus-visible {
+  outline: 3px solid var(--lilac);
+  outline-offset: 2px;
+}
+
+.ccr-next {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+.ccr-next[hidden] { display: none; }
+.ccr-next:hover { border-color: var(--lime); }
+.ccr-next img {
+  display: block;
+  width: 96px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  background: var(--bg);
+}
+.ccr-next span { display: grid; min-width: 0; gap: 1px; }
+.ccr-next small { font-size: var(--fs-12); color: var(--lilac); }
+.ccr-next b, .ccr-next i { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ccr-next b { font-size: var(--fs-14); color: var(--paper); }
+.ccr-next i { font-style: normal; font-size: var(--fs-12); color: var(--text-dim); }
+
+.ccr-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 10px; margin: 8px 0 0; font-size: var(--fs-12); }
+.ccr-more {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ccr-more:hover { color: var(--lime); }
+.ccr-say { color: var(--lime); overflow-wrap: anywhere; }
+.ccr-say:empty { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ccr.is-on { animation: ccr-fade .2s ease-out both; }
+  .ccr.is-on .ccr-card { animation: ccr-in .34s var(--ease-boot, ease-out) both; }
+  .ccr.is-on .ccr-bar i.on { animation: ccr-pix .3s steps(3) both; animation-delay: calc(.2s + var(--i) * 45ms); }
+  .ccr.is-on.is-best .ccr-face { animation: ccr-hop .5s steps(4) .25s 2; }
+}
+@keyframes ccr-fade { from { opacity: 0; } }
+@keyframes ccr-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes ccr-pix { from { opacity: 0; transform: scaleY(.2); } }
+@keyframes ccr-hop { 50% { transform: translateY(-6px); } }
+
+/* narrow screens and short game screens (phones in landscape): tighter, still no sideways scroll */
+@media (max-width: 420px) {
+  .ccr { padding: 8px; }
+  .ccr-card { padding: 12px 12px 8px; }
+}
+@media (max-width: 330px) {
+  .ccr-acts { grid-template-columns: 1fr; }
+}
+@media (max-height: 520px) {
+  .ccr { place-items: start center; }
+  .ccr-face { width: 30px; height: 39px; }
+  .ccr-score { margin: 6px 0; }
+  .ccr-bar { margin-bottom: 8px; }
+  .ccr-next { margin-top: 8px; padding: 6px; grid-template-columns: 64px minmax(0, 1fr); }
+  .ccr-next img { width: 64px; height: 36px; }
+  .ccr-again, .ccr-share { min-height: 46px; }
+}
+
+/* ---------- 1b. dares, the friend's side (player.js: the intro dialog .ccd, the target chip, .ccr-vs) ---------- */
+.ccd {
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--paper);
+  overflow: visible;
+}
+.ccd::backdrop { background: rgba(7, 8, 10, 0.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.ccd-card {
+  position: relative;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 16px 14px;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgb(var(--phosphor) / 0.1), transparent 55%), var(--carbon-2);
+  box-shadow: 0 0 0 1px rgb(var(--phosphor) / 0.35), 0 0 48px -8px rgb(var(--phosphor) / 0.55), 0 22px 60px rgba(0, 0, 0, 0.6);
+  font-family: var(--sans);
+  text-align: left;
+}
+.ccd-x {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: rgba(7, 8, 10, 0.7);
+  color: var(--paper);
+  font: 800 24px/1 var(--sans);
+  cursor: pointer;
+}
+.ccd-x:hover { color: var(--lime); }
+.ccd-poster {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  max-height: 170px;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+.ccd-poster[hidden] { display: none; }
+.ccd-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: end; gap: 12px; }
+.ccd-poster:not([hidden]) + .ccd-row { margin-top: -34px; } /* gary stands in front of the poster */
+.ccd-poster[hidden] + .ccd-row { padding-right: 36px; }
+
+/* gary holding up a cardboard sign with the number on it */
+.ccd-gary { position: relative; width: 92px; height: 104px; }
+.ccd-gary img { position: absolute; left: 14px; top: 0; width: 64px; height: 83px; image-rendering: pixelated; }
+.ccd-sign {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  padding: 3px 4px 4px;
+  border: 2px solid #3a2f1c;
+  border-radius: 3px;
+  background: #e8d9b5;
+  color: #1a1408;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  transform: rotate(-4deg);
+  line-height: 1;
+}
+.ccd-sign small { font: 800 10px/1.1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; }
+.ccd-sign b {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 800 19px/1.1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.ccd-words { min-width: 0; padding-bottom: 4px; }
+.ccd-kick { margin: 0 0 2px; font-size: var(--fs-12); font-weight: 800; color: var(--lilac); text-transform: lowercase; }
+.ccd-t {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(19px, 5.4vw, 24px);
+  line-height: 1.15;
+  color: var(--paper);
+  overflow-wrap: anywhere;
+}
+.ccd-t b { color: var(--accent); font-family: var(--mono); font-variant-numeric: tabular-nums; text-shadow: var(--text-glow); }
+.ccd-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  margin: 14px 0 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--lime);
+  color: var(--carbon);
+  font: 800 clamp(20px, 6vw, 26px)/1 var(--sans);
+  cursor: pointer;
+  transition: filter var(--fast, .15s), transform .12s var(--ease-spring, ease);
+}
+.ccd-go:hover { filter: brightness(1.08); }
+.ccd-go:active { transform: scale(0.97); }
+.ccd-go kbd { padding: 1px 6px; border: 1px solid rgba(0, 0, 0, 0.35); border-radius: 4px; font: 700 12px/1.3 var(--mono); opacity: 0.7; }
+.ccd-go:focus-visible, .ccd-x:focus-visible { outline: 3px solid var(--lilac); outline-offset: 3px; }
+.ccd-how { margin: 10px 0 0; font-size: var(--fs-14); line-height: 1.35; color: var(--paper-dim); }
+.ccd-how[hidden] { display: none; }
+.ccd-how b { margin-right: 4px; font-size: var(--fs-12); color: var(--lilac); }
+@media (prefers-reduced-motion: no-preference) {
+  .ccd[open] { animation: ccr-fade .2s ease-out both; }
+  .ccd[open] .ccd-card { animation: ccr-in .34s var(--ease-boot, ease-out) both; }
+  .ccd[open] .ccd-sign { animation: ccd-wave .9s steps(3) .3s 2; }
+  .ccd[open]::backdrop { animation: ccr-fade .2s ease-out both; }
+}
+@keyframes ccd-wave { 50% { transform: rotate(3deg) translateY(-3px); } }
+@media (max-height: 560px) {
+  .ccd-poster { display: none; }
+  .ccd-poster:not([hidden]) + .ccd-row { margin-top: 0; padding-right: 36px; }
+  .ccd-go { min-height: 52px; margin-top: 10px; }
+}
+
+/* the target chip: top centre of the game, small, never takes a tap */
+.ccr-target {
+  position: absolute;
+  z-index: 5;
+  top: 6px;
+  left: 50%;
+  max-width: calc(100% - 120px);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid rgb(var(--phosphor) / 0.55);
+  border-radius: 999px;
+  background: rgba(7, 8, 10, 0.72);
+  color: var(--paper-dim);
+  font: 700 12px/1.3 var(--sans);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity .3s;
+}
+.ccr-target b { font-family: var(--mono); font-size: 13px; color: var(--lime); font-variant-numeric: tabular-nums; }
+.ccr-target i { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-style: normal; color: var(--text-dim); }
+.ccr-target.is-beaten { border-color: var(--lime); }
+.ccr-target.is-beaten span { color: var(--lime); }
+html.cc-playing .ccr-target { opacity: 0.75; }
+.player.is-mini .ccr-target { display: none; }
+
+/* the results card against the dare */
+.ccr-vs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--carbon);
+  font-size: var(--fs-14);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--paper);
+}
+.ccr-vs[hidden] { display: none; }
+.ccr-vs-tag { padding: 1px 6px; border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-12); color: var(--text-dim); text-transform: uppercase; }
+.ccr-vs-line { flex: 1 1 12em; min-width: 0; }
+.ccr-vs-ok { font-size: var(--fs-12); color: var(--lime); }
+.ccr-vs-ok:empty { display: none; }
+.ccr-vs.is-won { border-color: var(--accent); background: rgb(var(--phosphor) / 0.1); }
+.ccr-vs.is-won .ccr-vs-tag { border-color: var(--accent); color: var(--accent); }
+/* beat it: "dare them back" is the big button, play again steps back */
+.ccr.is-vs-won .ccr-acts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ccr.is-vs-won .ccr-share { border-color: var(--accent); background: var(--accent); color: var(--carbon); font-size: var(--fs-16); }
+.ccr.is-vs-won .ccr-share:hover { filter: brightness(1.08); color: var(--carbon); }
+.ccr.is-vs-won .ccr-again { border: 2px solid var(--line); background: var(--carbon); color: var(--paper); }
+.ccr.is-vs-won .ccr-again kbd { border-color: var(--line); }
+@media (max-width: 330px) {
+  .ccr.is-vs-won .ccr-acts { grid-template-columns: 1fr; }
+}
+
+/* ---------- 2. phones ----------
+   the edge-to-edge cabinet and the bigger fullscreen button live in games/games.css (loaded in <head>), so they
+   apply before first paint instead of shifting the game once this file arrives */

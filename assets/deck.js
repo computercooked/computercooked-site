@@ -8,7 +8,8 @@
   // outside referrer (so tiktok.com → hub → game still counts as tiktok). Tags come off the URL once read.
   (function () {
     var TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
-      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal" };
+      x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal",
+      short: "short" }; // ref=short: our /g/ promo short links (src/short.js) with no channel tag of their own
     try {
       var u = new URL(location.href), q = u.searchParams;
       var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
@@ -129,11 +130,11 @@
     { name: "my stats", hint: "your player card: games, time, bests, days", stats: true, keys: "stats profile player card me my report summary wrapped progress collection level xp record history" },
     { name: "time played", hint: "how long you've played here", time: true, keys: "play time playtime hours minutes clock stats how long" },
     { name: "triple feature", hint: "three random games, back to back", feature: true, keys: "three 3 in a row playlist marathon mix gauntlet shuffle back to back" },
-    { name: "arcade games", hint: "dodge, run, shoot", href: "/games/?vibe=arcade" },
-    { name: "puzzle games", hint: "use the brain. sorry.", href: "/games/?vibe=puzzle" },
-    { name: "chill games", hint: "low stakes, low heart rate", href: "/games/?vibe=chill" },
-    { name: "quick games", hint: "60 seconds or less", href: "/games/?vibe=quick" },
-    { name: "rage games", hint: "you will blame the computer", href: "/games/?vibe=rage" },
+    { name: "arcade games", hint: "dodge, run, shoot", href: "/games/arcade/" },
+    { name: "puzzle games", hint: "use the brain. sorry.", href: "/games/puzzle/" },
+    { name: "chill games", hint: "low stakes, low heart rate", href: "/games/chill/" },
+    { name: "quick games", hint: "60 seconds or less", href: "/games/quick/" },
+    { name: "rage games", hint: "you will blame the computer", href: "/games/rage/" },
     { name: "new games", hint: "fresh out of the oven", href: "/games/?vibe=new" },
     { name: "epic gamers", hint: "who holds #1 on every game", href: "/champs/", keys: "champions crowns wall leaderboard high scores hall of fame" },
     { name: "channel surf", hint: "flip through every game like tv", href: "/surf/", keys: "tv channels flip browse clips preview shuffle" },
@@ -147,6 +148,12 @@
     { name: "bluesky", hint: "computercooked.bsky.social", href: "https://bsky.app/profile/computercooked.bsky.social", ext: true },
     { name: "screen colour", hint: "green, amber, ice or pink. enter flips to the next", tint: true, keys: "theme color colour tint accent skin amber ice pink green dark mode" },
     { name: "keyboard shortcuts", hint: "every key the computer knows (or press ?)", help: true, keys: "hotkeys keys keyboard ?" },
+    // golden gary (assets/golden.js): the count is read when it's picked
+    { name: "golden gary", hint: "he peeks in now and then. catch him for xp", keys: "gold golden cookie secret collectible rare bonus xp catch",
+      get say() { var n = 0; try { n = +(JSON.parse(localStorage.getItem("cc-golden")) || {}).caught || 0; } catch (e) {}
+        return n ? "golden garys caught on this device: " + n + ". he keeps coming back. he doesn’t know why." : "none caught yet. he peeks in from the edge of the screen now and then. click him."; } },
+    // secrets (the block above My stats): how many found; enter opens the player card, which lists them with hints
+    { name: "secrets", hint: "the site's hidden eggs. how many have you found?", stats: true, keys: "secret secrets eggs easter egg hidden achievements found hints" },
     { name: "help", hint: "list everything", say: "type a page name. tab completes, enter goes, esc leaves. press ? for every shortcut." }
   ];
   /* every game in games.json becomes a "play <title>" command (tags are searchable too) */
@@ -188,7 +195,8 @@
     "hello": "hi. the fans are loud today, sorry.",
     "ls": "home  games  daily  me  regrets/",
     "konami": "up up down down left right left right b a. on the keyboard, not in here.",
-    "cheats": "there is one. it involves a lot of arrow keys."
+    "cheats": "there is one. it involves a lot of arrow keys.",
+    "golden": "a gold gary peeks in from the edge of the screen now and then. click him. he's worth xp. he doesn't know that."
   };
 
   /* ---------- active page ---------- */
@@ -464,6 +472,18 @@
   document.readyState === "complete" ? idle() : addEventListener("load", idle);
 })();
 
+// Golden gary (assets/golden.js): a rare gold gary that peeks in and is worth a little xp. Loaded when idle like the stage,
+// but also under reduced motion (he fades in place there). Never in embeds or game players: the game is the show.
+(function () {
+  if (window.self !== window.top || document.getElementById("game-frame")) return;
+  function go() {
+    var s = document.createElement("script"); s.src = "/assets/golden.js"; s.async = true;
+    document.head.appendChild(s);
+  }
+  function idle() { "requestIdleCallback" in window ? requestIdleCallback(go, { timeout: 4000 }) : setTimeout(go, 2000); }
+  document.readyState === "complete" ? idle() : addEventListener("load", idle);
+})();
+
 // Instant pages: when a visitor rests on (or presses) a same-site link, the browser fetches that page ahead of the click
 // (Speculation Rules, prefetch only: no page script runs early, so nothing is counted or started). Browsers without it
 // just navigate as before. Skipped inside embeds and when the visitor asked to save data. Never touches /api, /admin or /d links.
@@ -512,6 +532,7 @@
     }
     if (box.open) return;
     box.showModal();
+    document.dispatchEvent(new CustomEvent("cc:secret", { detail: "konami" }));
     clearInterval(timer);
     var n = 0, still = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
     var set = function () { pct.textContent = "cooking: " + n + "% complete" + (n >= 100 ? ". well done." : ""); };
@@ -1126,12 +1147,59 @@
   mount();
 })();
 
+/* Secrets: the site's easter eggs, collected. Any script sends document "cc:secret" (detail: an id from LIST) when one
+   is found; the first time, it's kept in localStorage "cc-secrets" ({id: time found}) and a small toast says
+   "secret found: <name> (3/9)". The player card (below) lists them, with a hint for each one still hidden.
+   window.ccSecrets.list() gives [{id, name, hint, at}] in order. Nothing is sent; no xp (guest xp is replayed by
+   the server, which knows nothing about these). Test: ?secret=<id> finds one. Styled in assets/deck.css (.secret-toast). */
+(function () {
+  "use strict";
+  var LIST = [
+    ["melt", "meltdown", "poke the computer on the home page. then keep going."],
+    ["konami", "cheat code", "an old cheat code works here. up, up, down, down..."],
+    ["gary", "you know my name", "the computer on the home page has a name. type it."],
+    ["golden", "struck gold", "something gold peeks in now and then. catch it."],
+    ["cursed", "cursed", "about 1 in 20 golden garys is... off."],
+    ["off", "no off switch", "try turning the computer off. the start menu has a button."],
+    ["wall", "redecorated", "the desktop has more than one wallpaper."],
+    ["corner", "the corner", "leave the home page alone for a minute. watch the corners."],
+    ["lost", "lost and found", "go to a page that doesn't exist. score something there."]
+  ];
+  function read() { try { var o = JSON.parse(localStorage.getItem("cc-secrets")); return o && typeof o == "object" ? o : {}; } catch (e) { return {}; } }
+  var tst = null, tt = 0;
+  function toast(t) {
+    if (!tst) { tst = document.createElement("p"); tst.className = "secret-toast"; tst.setAttribute("role", "status"); document.body.appendChild(tst); }
+    tst.textContent = t; tst.classList.remove("on"); void tst.offsetWidth; tst.classList.add("on");
+    clearTimeout(tt); tt = setTimeout(function () { tst.classList.remove("on"); }, 4600);
+  }
+  function find(id) {
+    var at = -1;
+    for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === id) at = i;
+    if (at < 0) return;
+    var got = read();
+    if (got[id]) return;
+    got[id] = Date.now();
+    try { localStorage.setItem("cc-secrets", JSON.stringify(got)); } catch (e) { return; }
+    var n = LIST.filter(function (s) { return got[s[0]]; }).length;
+    var msg = "secret found: " + LIST[at][1] + " (" + n + "/" + LIST.length + ")" + (n === LIST.length ? ". all of them. the computer is scared of you." : ". the rest are in my stats.");
+    // a modal (the konami crash screen) sits above everything, so the toast waits until it's closed
+    (function show() { if (document.querySelector("dialog[open]")) setTimeout(show, 600); else toast(msg); })();
+  }
+  document.addEventListener("cc:secret", function (e) { find(String(e.detail || "")); });
+  // assets/home.js already says when the desk melts: from poking, or from the konami code
+  document.addEventListener("cc:melt", function (e) { find(e.detail === "konami" ? "konami" : "melt"); });
+  window.ccSecrets = { list: function () { var got = read(); return LIST.map(function (s) { return { id: s[0], name: s[1], hint: s[2], at: +got[s[0]] || 0 }; }); } };
+  var q = /[?&]secret=([a-z]+)/.exec(location.search);
+  if (q) setTimeout(function () { find(q[1]); }, 600);
+})();
+
 /* My stats: "my stats" in the command bar (or its did-you-know tip) opens a player card for this device, built only from
    what the site already keeps in localStorage: cc-history (games tried, runs, bests), cc-time (seconds per game),
    cc-guest-xp (xp, level, badges and the days played; the level maths copies games/platform.js xpFor/TITLES) and
    cc-watch-best (longest speedrun). Shows a grid of numbers, the top three games by time and the last 8 weeks of
    play days. "copy" puts a short text summary on the clipboard. window.ccStats.open(). Styled in assets/deck.css
-   (.stats). Nothing is sent: the only request is /games/games.json for the titles. */
+   (.stats). Nothing is sent: the only request is /games/games.json for the titles. "share my week" draws this device's
+   week (cc-week) as a picture with me/recap-card.js. */
 (function () {
   "use strict";
   var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
@@ -1164,11 +1232,77 @@
     var days = {}; (g.days || []).forEach(function (d) { days[d] = 1; });
     var total = (games || []).length;
     return { tried: tried, total: total, runs: Math.max(runs, +g.runs || 0), bests: bests, secs: secs, top: top.slice(0, 3).map(function (x) { return [nm(x[0]), x[1]]; }),
-      longest: longest, xp: xp, level: L, title: title, badges: Object.keys(g.badges || {}).length, days: days };
+      longest: longest, xp: xp, level: L, title: title, badges: Object.keys(g.badges || {}).length, days: days, golden: +read("cc-golden", {}).caught || 0,
+      secrets: window.ccSecrets ? window.ccSecrets.list() : [] };
+  }
+  // found ones by name, hidden ones as "???" with their hint
+  function secretsHtml(list) {
+    var n = list.filter(function (x) { return x.at; }).length;
+    if (!n) return "";
+    return '<p class="stats-h">secrets found <span class="num">' + n + " / " + list.length + "</span></p>" +
+      '<ul class="stats-secrets">' + list.map(function (x) {
+        return x.at ? '<li class="is-found"><b>' + esc(x.name) + "</b></li>" : '<li><b aria-hidden="true">???</b> <span>' + esc(x.hint) + "</span></li>";
+      }).join("") + "</ul>";
+  }
+  // "share my week": this device's week (cc-week, kept by games/platform.js) in the shape of GET /api/me/recap, drawn
+  // by me/recap-card.js (loaded on first use) ahead of the tap, so the share sheet opens from the tap (iOS). This
+  // week if it has runs, else last week. Share sheet with the image where files can be shared, else a download.
+  function weekRecap() {
+    var w = read("cc-week", null), mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    if (!w || !w.wk) return null;
+    var prev = new Date(mon); prev.setDate(prev.getDate() - 7);
+    var cur = w.wk === dayKey(mon) && w.runs ? w : null, old = w.wk === dayKey(prev) && w.runs ? w : w.last && w.last.wk === dayKey(prev) && w.last.runs ? w.last : null;
+    var x = cur || old;
+    if (!x) return null;
+    var end = new Date(x.wk + "T12:00:00"); end.setDate(end.getDate() + 6);
+    var g = x.g || {}, top = Object.keys(g).sort(function (a, b) { return g[b][0] - g[a][0]; })[0];
+    var bests = Object.keys(x.b || {}).map(function (k) { var o = x.b[k]; return { game: k, title: o[2] || k, score: o[0], prev: o[1] }; })
+      .sort(function (a, b) { return (a.prev === null) - (b.prev === null) || b.score / (b.prev || 1) - a.score / (a.prev || 1); });
+    return { week: x.wk, which: cur ? "this" : "last", from: x.wk, to: dayKey(end), complete: !cur,
+      runs: x.runs, minutes: Math.round((x.ms || 0) / 60000), games: Object.keys(g).length, days: (x.d || []).length, xp: x.xp || 0,
+      level: { from: x.l0 || x.l1 || 1, to: x.l1 || 1, title: x.lt || "" }, top: top ? { game: top, title: g[top][1] || top } : null,
+      bests: bests.slice(0, 3), bests_total: bests.length, achievements: [], achievements_total: 0,
+      challenge: x.ch ? { game: x.ch.g, title: x.ch.t, done: true } : null };
+  }
+  var weekCard = null, weekKey = "";
+  function weekCardFor(r) {
+    var key = JSON.stringify(r);
+    if (!weekCard || weekKey !== key) {
+      weekKey = key;
+      weekCard = new Promise(function (ok, bad) {
+        if (window.ccRecapCard) return ok();
+        var sc = document.createElement("script"); sc.src = "/me/recap-card.js"; sc.onload = function () { ok(); }; sc.onerror = bad;
+        document.head.appendChild(sc);
+      }).then(function () { return window.ccRecapCard(r); });
+      weekCard.catch(function () { weekCard = null; });
+    }
+    return weekCard;
+  }
+  function shareWeek(btn) {
+    var r = weekRecap();
+    if (!r) return;
+    weekCardFor(r).then(function (blob) {
+      var url = "https://computercooked.com/games/?utm_source=share&utm_medium=recap";
+      var file = typeof File === "function" ? new File([blob], "my-week-" + r.week + ".png", { type: "image/png" }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], text: "my week on computer cooked games. your turn: " + url }).catch(function (e) {
+          if (e && e.name === "NotAllowedError") btn.textContent = "tap again to share ↗";
+        });
+      }
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "my-week-" + r.week + ".png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      btn.textContent = "saved ✓"; setTimeout(function () { btn.textContent = "share my week ↗"; }, 1800);
+    }, function () { btn.textContent = "couldn’t make it"; });
   }
   function draw() {
-    var s = gather();
-    if (!s.tried && !s.secs && !s.xp) {
+    var wr = weekRecap(), wb = dlg.querySelector(".stats-week");
+    wb.hidden = !wr;
+    wb.textContent = "share my week ↗";
+    if (wr) weekCardFor(wr).catch(function () {}); // draw it now, while the card is read
+    var s = gather(), found = s.secrets.filter(function (x) { return x.at; }).length;
+    if (!s.tried && !s.secs && !s.xp && !found) {
       dlg.querySelector(".stats-body").innerHTML = '<p class="stats-empty">nothing here yet. play a game and this card fills itself in.</p>';
       dlg.querySelector(".stats-copy").hidden = true; return;
     }
@@ -1186,18 +1320,21 @@
       [s.bests, "games with a best"], [s.badges, "badges"], [s.longest ? (Math.floor(s.longest / 60000) + ":" + String(Math.floor(s.longest / 1000) % 60).padStart(2, "0")) : "off", "longest speedrun"]];
     dlg.querySelector(".stats-body").innerHTML =
       '<p class="stats-lvl"><b>level ' + s.level + "</b> " + esc(s.title) + ' <span class="num">' + s.xp + " xp</span></p>" +
+      (s.golden ? '<p class="stats-h">golden garys caught: <span class="num">' + s.golden + "</span></p>" : "") +
       (s.total ? '<div class="stats-bar" role="img" aria-label="' + pct + '% of the games tried"><span style="width:' + pct + '%"></span></div>' : "") +
       '<div class="stats-grid">' + nums.map(function (n) { return '<div><b class="num">' + esc(n[0]) + "</b><span>" + n[1] + "</span></div>"; }).join("") + "</div>" +
       (s.top.length ? '<p class="stats-h">most played</p><ol class="stats-top">' + s.top.map(function (t) { return "<li><span>" + esc(t[0]) + '</span><b class="num">' + span(t[1]) + "</b></li>"; }).join("") + "</ol>" : "") +
-      '<p class="stats-h">days played, last 8 weeks <span class="num">' + played + '</span></p><div class="stats-days" role="img" aria-label="played on ' + played + ' of the last 8 weeks of days">' + cells + "</div>";
+      '<p class="stats-h">days played, last 8 weeks <span class="num">' + played + '</span></p><div class="stats-days" role="img" aria-label="played on ' + played + ' of the last 8 weeks of days">' + cells + "</div>" +
+      secretsHtml(s.secrets);
     text = "my computer cooked card: level " + s.level + " " + s.title + ", " + s.tried + (s.total ? " of " + s.total : "") + " games tried, " + s.runs + " runs, " +
-      (s.secs ? span(s.secs) : "0 min") + " played" + (s.top.length ? ", most played: " + s.top[0][0] : "") + ". computercooked.com/games/";
+      (s.secs ? span(s.secs) : "0 min") + " played" + (s.top.length ? ", most played: " + s.top[0][0] : "") + (found ? ", " + found + " of " + s.secrets.length + " secrets found" : "") + ". computercooked.com/games/";
   }
   function open() {
     if (!dlg) {
       dlg = document.createElement("dialog"); dlg.className = "stats"; dlg.setAttribute("aria-labelledby", "stats-tag");
       dlg.innerHTML = '<p class="stats-tag" id="stats-tag">your player card</p><div class="stats-body"></div><p class="stats-note">kept on this device only.</p>' +
-        '<div class="stats-row"><button type="button" class="stats-copy">copy</button><button type="button" class="stats-close">done</button></div>';
+        '<div class="stats-row"><button type="button" class="stats-week" hidden>share my week</button><button type="button" class="stats-copy">copy</button><button type="button" class="stats-close">done</button></div>';
+      dlg.querySelector(".stats-week").addEventListener("click", function () { shareWeek(this); });
       dlg.querySelector(".stats-close").addEventListener("click", function () { dlg.close(); });
       dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
       dlg.querySelector(".stats-copy").addEventListener("click", function () {

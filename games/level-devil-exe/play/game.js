@@ -212,6 +212,7 @@ function kill(msg) {
   const p = L.p;
   for (let i = 0; i < 24; i++) { const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200; parts.push({ x: p.x + PW / 2, y: p.y + PH / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 100, life: 0.6, max: 0.6, s: 2 + Math.random() * 3, col: i % 3 ? '#d9c9a3' : LIME }); }
   sfx('die');
+  if (isTouch && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { if (navigator.vibrate) navigator.vibrate(35); } catch (e) {} }   // 2.2: a short buzz on death (phones that support it)
   if (L.deaths === 10) ccEvent('rage', { lv: lvIndex + 1 });
 }
 
@@ -370,6 +371,10 @@ function popupCovering(ex) { for (const pp of L.popups) if (pp.state === 1) { co
 
 function win() {
   mode = 'win'; winT = 0; sfx('win');
+  // 2.3: a clear used to be just a sound: now the door bursts and crash says how it went
+  const ex = L.exit;
+  for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2, v = 50 + Math.random() * 160; parts.push({ x: ex.x + T / 2, y: ex.y + T / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 140, life: 0.7, max: 0.7, s: 2 + Math.random() * 3, col: i % 3 ? LIME : LILAC }); }
+  L.msg = L.deaths ? 'cleared. only ' + L.deaths + (L.deaths === 1 ? ' death.' : ' deaths.') : 'first try?! suspicious.'; L.msgT = 1;
   run.cleared++;
   const n = lvIndex + 1;
   save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, n + 1)); save.cleared = Math.max(save.cleared, n); persist();
@@ -404,8 +409,11 @@ function layout() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   const top = V.top = 34;
-  const portrait = H > W * 1.15;
   pad.show = isTouch;
+  // 2.3: "portrait" means the pads go in their own band under the level. That used to need H > 1.15 W, so a
+  // phone's player frame (about 414 x 430-470) fell into the landscape layout and the jump button sat on top of
+  // the floor and the exit door. Now any touch screen with room for a pad band below the level stacks too.
+  const portrait = H > W * 1.15 || (isTouch && H - top - (W / WW) * WH >= 130);
   let availH = H - top;
   if (pad.show && portrait) availH = Math.max(140, H - top - Math.min(260, Math.max(170, H * 0.34)));
   // phones in portrait: zoom in and follow crash horizontally (about 16 tiles visible)
@@ -415,9 +423,9 @@ function layout() {
     if (portrait) {
       const ay = V.y + WH * s + 10, ah = H - ay - 18;
       const bs = Math.min(96, ah * 0.75, W * 0.24);
-      const by = ay + (ah - bs) / 2;
+      const by = ay + (ah - bs) * 0.62;   // a little below centre: closer to where thumbs rest on tall phones
       pad.l = { x: 14, y: by, w: bs, h: bs }; pad.r = { x: 14 + bs + 12, y: by, w: bs, h: bs };
-      const js = Math.min(118, ah * 0.9, W * 0.3); pad.j = { x: W - js - 16, y: ay + (ah - js) / 2, w: js, h: js };
+      const js = Math.min(118, ah * 0.9, W * 0.3); pad.j = { x: W - js - 16, y: by + bs / 2 - js / 2, w: js, h: js };
     } else {
       const bs = Math.min(84, H * 0.2);
       pad.l = { x: 12, y: H - bs - 12, w: bs, h: bs }; pad.r = { x: 24 + bs, y: H - bs - 12, w: bs, h: bs };
@@ -494,6 +502,7 @@ function draw() {
   ctx.save();
   ctx.translate(V.x, V.y); ctx.scale(V.s, V.s);
   ctx.beginPath(); ctx.rect(0, 0, V.vw, WH); ctx.clip();
+  if (mode === 'dead' && deadT < 0.12) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);   // 2.2: a jolt on the death frame, before the blue screen
   if (V.vw < WW) { const want = Math.max(0, Math.min(WW - V.vw, L.p.x + PW / 2 - V.vw / 2)); V.cam += (want - V.cam) * 0.18; if (Math.abs(want - V.cam) > WW / 2) V.cam = want; } else V.cam = 0;
   ctx.translate(-V.cam, 0);
   ctx.fillStyle = P.bg; ctx.fillRect(0, 0, WW, WH);
@@ -583,11 +592,13 @@ function button(x, y, w, h, label, fn, o) {
 }
 function drawHud() {
   const h = V.top; ctx.fillStyle = '#101114'; ctx.fillRect(0, 0, W, h);
-  const bs = 26, by = 4;
+  // 2.2: on touch the top buttons are 30 px and each one's tap area is the full bar height (they were 26 px targets)
+  const bs = pad.show ? 30 : 26, by = (h - bs) / 2, gap = pad.show ? 8 : 5;
+  const grow = () => { if (pad.show) { const b = btns[btns.length - 1]; b.y = 0; b.h = h; b.x -= gap / 2; b.w += gap; } };
   let bx = W - bs - 6;
-  button(bx, by, bs, bs, muted ? '×' : '♪', () => setMuted(!muted), { fs: 13 }); bx -= bs + 5;
-  button(bx, by, bs, bs, '↻', () => { if (mode === 'play') kill('MANUAL_RESTART (respect)'); }, { fs: 14 }); bx -= bs + 5;
-  button(bx, by, bs, bs, '≡', openMenu, { fs: 14 });
+  button(bx, by, bs, bs, muted ? '×' : '♪', () => setMuted(!muted), { fs: 13 }); grow(); bx -= bs + gap;
+  button(bx, by, bs, bs, '↻', () => { if (mode === 'play') kill('MANUAL_RESTART (respect)'); }, { fs: 14 }); grow(); bx -= bs + gap;
+  button(bx, by, bs, bs, '≡', openMenu, { fs: 14 }); grow();
   const narrow = W < 430;
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.font = 'bold ' + (narrow ? 11 : 13) + 'px ' + FONT;
   ctx.fillStyle = LIME; const lv = 'lvl ' + (lvIndex + 1); ctx.fillText(lv, 8, h / 2);
@@ -759,7 +770,7 @@ window.addEventListener('blur', () => { keys.l = keys.r = keys.j = false; });
 // ---------- loop ----------
 let last = performance.now();
 function frame(now) {
-  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  let dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;   // 2.2: never negative (a slow first frame could start behind the clock)
   if (!paused) { const n = dt > 1 / 90 ? 2 : 1; for (let i = 0; i < n; i++) update(dt / n); }
   draw();
   requestAnimationFrame(frame);
@@ -773,5 +784,5 @@ if (patchNews) { toastMsg = 'patch 2.0: 5 new levels'; toastT = 3.5; }
 ccCall('autostart');
 requestAnimationFrame(frame);
 
-window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; } };
+window.__ld = { LEVELS, get L() { return L; }, set L(v) { L = v; }, get mode() { return mode; }, set mode(v) { mode = v; }, get jhp() { return jumpHeldPrev; }, set jhp(v) { jumpHeldPrev = v; }, keys, update, draw, layout, set hw(v) { hw = v; }, startLevel, loadLevel, makeCard, get speedrun() { return speedrun; }, get pad() { return pad; }, get V() { return V; }, get deadT() { return deadT; } };
 })();

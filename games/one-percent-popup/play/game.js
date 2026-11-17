@@ -79,17 +79,28 @@
   }
   const center = (e, dy) => place(e, (W() - e.offsetWidth) / 2, (H() - e.offsetHeight) / 2 + (dy || 0));
   const randomPlace = (e) => place(e, rnd(4, W() - e.offsetWidth - 4), rnd(4, H() - e.offsetHeight - 4));
+  // short player frames (about 430-590 px tall) leave a ~340-410 px stage: tighten pop-ups so none spills off
+  const fitStage = () => stage.classList.toggle('short', H() < 430);
   function pop(o) {
+    fitStage();
     const p = el('div', 'pop' + (o.cls ? ' ' + o.cls : ''));
     p.style.width = Math.min(o.w || 300, W() - 24) + 'px';
     p.innerHTML = `<div class="bar"><span class="ttl">${T(o.title || 'notice')}</span>${o.x === false ? '' : '<b class="x">×</b>'}</div><div class="body">${o.body || ''}</div>`;
     layer.appendChild(p);
     p.x = p.querySelector('.x');
     if (o.at === 'random') randomPlace(p); else center(p, o.dy);
+    // levels add buttons/tiles after this, so the pop-up can grow off the bottom of a short stage: settle it next frame
+    const at0 = p.style.left + p.style.top;
+    requestAnimationFrame(() => {
+      if (!p.isConnected) return;
+      if (o.at !== 'random' && p.style.left + p.style.top === at0) center(p, o.dy);
+      else if (p.offsetTop + p.offsetHeight > H() - 4) place(p, p.offsetLeft, p.offsetTop);
+    });
     return p;
   }
   // a tap: pointerdown is instant on phones and mice; only while the level is live
   function tap(e, fn) {
+    if (fn === win) e.classList.add('ok');   // on a loss, the way out lights up
     e.addEventListener('pointerdown', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       if (state !== 'play') return;
@@ -110,7 +121,7 @@
 
   // a pop-up whose X jumps away n times before it can be hit
   function runaway(p, n, onClose, moveWhole) {
-    let left = n;
+    let left = n; p.x.classList.add('ok');
     const jump = () => {
       left--; sfx.nope();
       if (moveWhole === false) return;
@@ -131,7 +142,7 @@
       const p = pop({ title: 'confirm', x: false, w: 280, body: `<h4>${q}</h4><div class="row"></div>` });
       const row = p.querySelector('.row');
       const ba = el('div', 'btn big', a), bb = el('div', 'btn alt', b);
-      row.append(ba, bb);
+      row.append(ba, bb); (aRight ? ba : bb).classList.add('ok');
       tap(ba, () => { p.remove(); aRight ? next() : fail(); });
       tap(bb, () => { p.remove(); aRight ? fail() : next(); });
     };
@@ -139,8 +150,9 @@
   }
   function cookieBanner(opts, onReject, onAccept) {
     const c = el('div', 'cookie', `<b>${T('we value your privacy')}</b><br>${opts.text || 'we use 412 cookies to sell your attention span.'}<div class="row"><div class="btn">accept all</div><div class="btn alt">manage</div><span class="tiny">reject all</span></div>`);
-    c.style.bottom = (opts.bottom != null ? opts.bottom : 8) + 'px';
     layer.appendChild(c);
+    c.style.bottom = Math.max(4, Math.min(H() - c.offsetHeight - 4, opts.bottom != null ? opts.bottom : 8)) + 'px';
+    c.querySelector('.tiny').classList.add('ok');
     const [acc, man] = c.querySelectorAll('.btn');
     tap(acc, () => onAccept(c));
     tap(man, () => { c.animate([{ transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], 160); toast('managing is not allowed.'); });
@@ -164,7 +176,7 @@
       const p = pop({ title: 'one quick survey', x: false, body: '<h4>how was your experience?</h4>pick a button. only one is honest.<div class="row"></div>' });
       const row = p.querySelector('.row');
       shuffle([['close', true], ['c1ose', false], ['clsoe', false]]).forEach(([t, ok]) => {
-        const b = el('div', 'btn', t); row.appendChild(b);
+        const b = el('div', 'btn' + (ok ? ' ok' : ''), t); row.appendChild(b);
         tap(b, () => (ok ? L.win() : L.fail(`that said "${t}". reading is free.`)));
       });
     } },
@@ -257,7 +269,7 @@
     { say: 'close it.', setup(L) {
       const p = pop({ title: 'opposite day', x: false, body: '<h4>everything is backwards today</h4>sorry. management decision.<div class="row"></div>' });
       const row = p.querySelector('.row');
-      shuffle([['close', false], ['open', true]]).forEach(([t, ok]) => { const b = el('div', 'btn' + (t === 'close' ? ' big' : ''), t); row.appendChild(b); tap(b, () => (ok ? L.win() : L.fail('told you. the buttons lie. "open" closes.'))); });
+      shuffle([['close', false], ['open', true]]).forEach(([t, ok]) => { const b = el('div', 'btn' + (t === 'close' ? ' big' : '') + (ok ? ' ok' : ''), t); row.appendChild(b); tap(b, () => (ok ? L.win() : L.fail('told you. the buttons lie. "open" closes.'))); });
     } },
     { say: 'spell it to close it.', time: 6, setup(L) {
       const word = 'close';
@@ -401,15 +413,15 @@
   function setCrash(s) { $('crash').className = s || ''; }
   function hud() {
     $('lvl').innerHTML = `lvl ${level + 1}<small>/30</small>`;
-    $('pct').textContent = level === 0 ? 'everyone sees level 1' : `only ~${fmtPct(level + 1)} reach this (est.)`;
+    $('pct').textContent = level === 0 ? 'everyone sees level 1' : `~${fmtPct(level + 1)} get here (est.)`;
     $('say').textContent = DEF(level).say;
   }
-  function clearLevel() { layer.innerHTML = ''; ticks.length = 0; stageHandler = null; }
+  function clearLevel() { layer.innerHTML = ''; layer.classList.remove('reveal'); ticks.length = 0; stageHandler = null; }
 
   function startRun() {
     if (state === 'over' && performance.now() - overAt < 800) return;
     closeOverlay();
-    level = 0; runStart = performance.now(); shuffleOrder();
+    level = 0; runStart = performance.now(); shuffleOrder(); prevBest = best;
     sdk((c) => c.start && c.start());
     startLevel();
   }
@@ -442,7 +454,7 @@
     sdkScore(level);
     if (level >= LEVELS.length) { sfx.big(); return gameOver(true); }
     sfx.win(); poof();
-    const f = $('flash'); f.textContent = pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
+    const f = $('flash'); f.textContent = prevBest > 0 && level === prevBest + 1 ? 'new best!' : pick(['closed.', 'gone.', 'bye.', 'nice.', 'clean.', 'next.']);
     f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
     setTimeout(() => { if (state === 'between') startLevel(); }, 300);
   }
@@ -450,9 +462,10 @@
     if (state !== 'play') return;
     state = 'between';
     sfx.fail(); setCrash('hit');
+    layer.classList.add('reveal');
     stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
     if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) try { navigator.vibrate(120); } catch (e) { /* not supported */ }
-    setTimeout(() => gameOver(false, why), 520);
+    setTimeout(() => gameOver(false, why), 850);   // long enough to see the lit-up way out
   }
 
   // ---------- overlays ----------
@@ -477,7 +490,7 @@
   }
 
   // restarts are ignored for 0.8 s after the end card shows, so a held/mashed key doesn't skip it
-  let overAt = 0;
+  let overAt = 0, prevBest = best;
   function gameOver(won, why) {
     state = 'over'; overAt = performance.now(); clearLevel();
     const reached = won ? 30 : level + 1;
@@ -485,14 +498,18 @@
     const dur = Math.round(performance.now() - runStart);
     sdk((c) => c.end && c.end({ score: level, durationMs: dur }));
     const pct = fmtPct(reached);
+    // 30 cells: cleared, where you died, and your best, so the next goal is visible at a glance
+    let trail = '<div class="trail" aria-hidden="true">';
+    for (let i = 0; i < 30; i++) trail += `<i class="${i < reached - 1 || won ? 'got' : i === reached - 1 ? 'dead' : ''}${prevBest && i === Math.min(prevBest, 29) && !won ? ' best' : ''}"></i>`;
+    trail += '</div>';
     const o = overlay(won
-      ? `<div class="bigc idle"></div><h1>you closed <em>all 30</em>.</h1><p>you are the 1%. this means nothing. congratulations.</p>
+      ? `<div class="bigc idle"></div><h1>you closed <em>all 30</em>.</h1>${trail}<p>you are the 1%. this means nothing. congratulations.</p>
          <p class="why">${(dur / 1000).toFixed(1)}s total</p>
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`
-      : `<div class="bigc"></div><h1>cooked on <em>level ${reached}</em></h1><p>only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
+      : `<div class="bigc"></div><h1>cooked on <em>level ${reached}</em></h1>${trail}<p>only ${pct} of players get this far.${reached === 1 ? ' (that is everyone.)' : ''}</p>
          <p class="why">${why || 'too slow. the pop-up outlasted you.'}</p>
          <p>lasted ${(dur / 1000).toFixed(1)}s. new pop-up order every run.</p>
-         <p>best: level ${Math.min(best + 1, 30)}</p>
+         ${level > prevBest ? `<p class="why">new best! ${level - prevBest} level${level - prevBest === 1 ? '' : 's'} further than ever.</p>` : best ? `<p>best: level ${Math.min(best + 1, 30)} · ${best + 1 - level} to beat it</p>` : '<p>close one pop-up to set a best.</p>'}
          <div class="two"><button class="cta" id="again">again</button><button class="cta ghost" id="share">share</button></div><img id="cardImg" alt="your result card"><div class="cc">computer cooked <b>games</b></div>`);
     o.querySelector('#again').addEventListener('click', () => { audio(); startRun(); });
     o.querySelector('#share').addEventListener('click', () => share(reached, won));

@@ -105,7 +105,7 @@
   const pick = (a) => a[(Math.random() * a.length) | 0];
 
   // ---------- sound ----------
-  let actx = null, muted = false, hum = null;
+  let actx = null, muted = false, hum = null, hostMuted = false; // hostMuted: the player page's mute button (cc-mute)
   try { muted = localStorage.getItem("mp-muted") === "1"; } catch (e) {}
   const muteBtn = document.getElementById("mute");
   function syncMute() { muteBtn.textContent = muted ? "sound off" : "sound on"; muteBtn.setAttribute("aria-pressed", muted ? "true" : "false"); }
@@ -124,7 +124,7 @@
   if (hauntBtn) { hauntBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHaunt(); hauntBtn.blur(); }); hauntBtn.addEventListener("pointerdown", (e) => e.stopPropagation()); }
   function ac() { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
   function tone(freq, dur, type, vol, slide, delay) {
-    if (muted) return;
+    if (muted || hostMuted) return;
     try {
       const a = ac(), o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (delay || 0);
       o.type = type || "square"; o.frequency.setValueAtTime(freq, t);
@@ -134,7 +134,7 @@
     } catch (e) {}
   }
   function humOn() {
-    if (muted || hum) return;
+    if (muted || hostMuted || hum) return;
     try { const a = ac(), o = a.createOscillator(), g = a.createGain(); o.type = "sawtooth"; o.frequency.value = 60; g.gain.value = 0.018; o.connect(g); g.connect(a.destination); o.start(); hum = { o, g }; } catch (e) {}
   }
   function humOff() { if (!hum) return; try { hum.o.stop(); } catch (e) {} hum = null; }
@@ -142,7 +142,7 @@
   // recorded files later: put each file's URL in FILES ("boom" = it blew up, "char" = it burnt) and it plays, at once.
   const FILES = { boom: "", char: "" };
   function play(name, vol) {
-    if (muted || !FILES[name]) return;
+    if (muted || hostMuted || !FILES[name]) return;
     try { const a = new Audio(FILES[name]); a.volume = vol; a.play().catch(() => {}); } catch (e) {}
   }
   const sfx = {
@@ -168,10 +168,16 @@
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
     U = Math.max(0.75, Math.min(1.6, Math.min(W / 420, H / 720)));
-    const mw = Math.min(W * 0.94, 620, H * 1.25), mh = mw * 0.62, mx = (W - mw) / 2, my = Math.max(120 * U, H * 0.5 - mh / 2);
+    // review16 r3: a tall phone sits the microwave a little higher, so the counter under it has room for the START pad
+    const tall = H > W * 1.6;
+    const mw = Math.min(W * 0.94, 620, H * 1.25), mh = mw * 0.62, mx = (W - mw) / 2, my = Math.max(120 * U, H * (tall ? 0.43 : 0.5) - mh / 2);
     const ww = mw * 0.64;
     M = { mx, my, mw, mh, wx: mx + mw * 0.05, wy: my + mh * 0.1, ww, wh: mh * 0.8, px: mx + mw * 0.05 + ww + mw * 0.04 };
     M.pw = mx + mw - M.px - mw * 0.04;
+    // the pad only where the counter has the room (a tall phone, a big desktop window); never in a short player frame
+    const below = H - (my + mh + 8);
+    M.pad = null;
+    if (below >= 190) { const pw = Math.min(W * 0.76, 360), ph = Math.min(118, below * 0.34); M.pad = { x: W / 2 - pw / 2, y: my + mh + 8 + below * 0.56 - ph / 2, w: pw, h: ph }; }
   }
   window.addEventListener("resize", layout);
   layout();
@@ -208,6 +214,7 @@
   let item = null, phase = "ready", phaseT = 0, cookT = 0, holding = false, parts = [], fx = [], line = pick(LINES.hello), lineT = 0, face = "happy", faceT = 0, shake = 0, startAt = 0, endAt = 0, popAcc = 0, verdict = null;
   // K-0060: the burn moment ({ t, v, boom, word } while it plays), its smoke, and the press that owns the hold
   let burn = null, smoke = [], owner = null;
+  let tally = []; // review16 r3: this run's verdicts, shown as a row of tickets under the START pad
   // K-0063: a press made while no item waits (the burn moment, the result) and still held. It never cooks the item that
   // burnt, but once the next item has landed and sat a beat it takes over the hold, so a long hold cooks through
   let held = null;
@@ -233,7 +240,7 @@
   }
   function start() {
     state = "play"; score = 0; round = 0; streak = 0; bestStreak = 0; strikes = 0; perfects = 0; fx = []; item = null; scare = null;
-    burn = null; smoke = []; owner = null; held = null; // K-0060
+    burn = null; smoke = []; owner = null; held = null; tally = []; // K-0060
     startAt = performance.now(); say("hello", true); react("happy", 0.8); syncHaunt();
     sdk((c) => c.start && c.start());
     if (haunted) sdk((c) => c.event && c.event("haunted_run", {}));
@@ -268,9 +275,11 @@
     bestStreak = Math.max(bestStreak, streak);
     score += pts;
     verdict = { v, pts };
+    tally.push(v);
     if (v === "burnt" || v === "sparks") { startBurn(v); sdkScore(score); return; }
     say(v === "good" ? "good" : v, true);
-    verdictFx(v, pts);
+    verdictFx(v, pts, cur ? null : d);
+    if (v === "perfect" || v === "good" || v === "safe") cheer(v === "perfect" ? (reduce ? 8 : 18) : (reduce ? 4 : 8)); // review16: a pay-off for a good release
     phase = "result"; phaseT = 0;
     sdkScore(score);
   }
@@ -302,9 +311,19 @@
     verdictFx(v, 0);
     phase = "result"; phaseT = 0;
   }
-  function verdictFx(v, pts) {
-    fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy - 18,
+  // review16: the verdict sits inside the dark window (it used to sit on the cream case, hard to read), and under it how
+  // far off the release was ("0.4s early", "0.2s late", "right on time"), so every item teaches the next one
+  function verdictFx(v, pts, d) {
+    const sub = d == null || v === "burnt" || v === "sparks" ? (v === "burnt" ? "held too long" : "") : Math.abs(d) < 0.05 ? "right on time" : Math.abs(d).toFixed(1) + "s " + (d < 0 ? "early" : "late");
+    fx.push({ s: v === "perfect" ? "PERFECT +" + pts : v === "good" ? "good +" + pts : v === "safe" ? "good call +" + pts : v === "cold" ? "cold +1" : v === "sparks" ? "SPARKS! strike" : "BURNT! strike", x: M.wx + M.ww / 2, y: M.wy + Math.max(26, M.wh * 0.2), sub,
       col: v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : v === "cold" ? "#9fc3e0" : BAD, life: 1.1, max: 1.1, big: v === "perfect" });
+  }
+  // review16: confetti out of the window and a quick lime glow on a good release (the burn moment had all the juice)
+  let glow = 0;
+  function cheer(n) {
+    glow = 0.35;
+    const x0 = M.wx + M.ww / 2, y0 = M.wy + M.wh * 0.6;
+    for (let i = 0; i < n; i++) parts.push({ x: x0 + (Math.random() - 0.5) * 40, y: y0, vx: (Math.random() - 0.5) * 520, vy: -260 - Math.random() * 380, life: 0.7 + Math.random() * 0.4, c: i % 3 === 0 ? PAPER : i % 3 === 1 ? LIME2 : LIME, s: (3 + Math.random() * 3) * U });
   }
 
   // ---------- input ----------
@@ -352,11 +371,23 @@
       host.document.addEventListener("keydown", relay); host.document.addEventListener("keyup", relay);
     }
   } catch (e) { /* another origin: keys reach the game once it has focus */ }
+  // review16: the player page's restart / mute buttons and its pause (the deck opening) did nothing in this game
+  window.addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || typeof d !== "object" || (e.origin && e.origin !== location.origin)) return;
+    if (d.type === "cc-mute") { hostMuted = !!d.muted; if (hostMuted) humOff(); }
+    else if (d.type === "cc-pause") { held = null; if (owner) up(owner); }
+    else if (d.type === "cc-restart") {
+      held = null; owner = null; holding = false; humOff();
+      if (state === "play") sdk((c) => c.end && c.end({ score, durationMs: Math.round(performance.now() - startAt), completed: false }));
+      wake(); start();
+    }
+  });
 
   // ---------- update ----------
   function popRate(p) { return p < 0.25 ? 0 : p < 0.8 ? 3 + (p - 0.25) / 0.55 * 12 : p < 1 ? 15 - (p - 0.8) / 0.2 * 13 : p < 1.15 ? 1 : 0; }
   function update(dt) {
-    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt);
+    lineT -= dt; faceT -= dt; shake = Math.max(0, shake - dt); glow = Math.max(0, glow - dt);
     for (const f of fx) f.life -= dt;
     fx = fx.filter((f) => f.life > 0);
     if (scare && (scare.t += dt) > 0.75) scare = null;
@@ -510,6 +541,7 @@
     const on = state === "play" && phase === "cook", hot = state === "play" && phase === "burn" && burn; // K-0060
     R(on ? "#3a3418" : hot ? "#2a0f08" : "#14140f", M.wx, M.wy, M.ww, M.wh);
     if (on) { cx.globalAlpha = 0.25 + 0.05 * Math.sin(time * 20); R(haunted ? "#b89aff" : "#ffe9a0", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
+    if (glow > 0 && state === "play") { cx.globalAlpha = glow * (reduce ? 0.5 : 1); R(LIME2, M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; } // review16
     if (hot) { cx.globalAlpha = reduce ? 0.35 : 0.3 + 0.35 * (1 - burn.t / BURN_T) + 0.08 * Math.sin(time * 45); R(burn.v === "sparks" ? "#3d8bd0" : "#e0461e", M.wx, M.wy, M.ww, M.wh); cx.globalAlpha = 1; }
     // the turntable
     const ty = M.wy + M.wh * 0.86;
@@ -552,12 +584,20 @@
       drawFace(dx + 5, dy + (dh - fh) / 2, fw, fh, face);
       text(secs.toFixed(1), dx + dw - 6, dy + dh / 2, Math.min(dh * 0.42, dw * 0.13), on ? LIME2 : LIME, "right", 800);
     }
-    for (const f of fx) { const k = 1 - f.life / f.max; cx.globalAlpha = 1 - k; text(f.s, f.x, f.y - k * 24, f.big ? 24 : 18, f.col, "center", 900); }
+    for (const f of fx) {
+      const k = 1 - f.life / f.max, sz = (f.big ? 24 : 18) * Math.min(1.3, Math.max(0.9, U)), pop = reduce ? 1 : Math.min(1, 0.6 + k * 6), y = f.y - k * 18;
+      cx.globalAlpha = Math.min(1, (1 - k) * 1.6);
+      text(f.s, f.x + 2, y + 2, sz * pop, INK, "center", 900); text(f.s, f.x, y, sz * pop, f.col, "center", 900);
+      if (f.sub) { text(f.sub, f.x + 1, y + sz * 0.95 + 1, Math.max(11, sz * 0.6), INK, "center", 800); text(f.sub, f.x, y + sz * 0.95, Math.max(11, sz * 0.6), PAPER, "center", 800); }
+    }
     cx.globalAlpha = 1;
+    drawPad(time);
     cx.restore();
     // hud
     text(String(score), 14, 22, 22, CASE, "left", 800);
     text("round " + round + (streak > 1 ? " · streak x" + streak : ""), 14, 44, 12, streak > 1 ? LIME2 : "#8a8e80", "left", 700);
+    // review16 r3: the best to beat, all run long (it used to show only on the end card)
+    if (best > 0 && state !== "title") text(state === "play" && score > best ? "new best!" : "best " + best, 14, 62, 12, state === "play" && score > best ? LIME2 : "#8a8e80", "left", 700);
     for (let i = 0; i < 3; i++) { const fxp = W - 28 - i * 22, on2 = i < strikes; R(on2 ? BAD : "#3a3d33", fxp, 54, 14, 14); if (on2) R(WARN, fxp + 4, 58, 6, 8); }
     text("strikes", W - 14, 80, 11, "#8a8e80", "right", 700);
     if (state === "play" && item) {
@@ -578,6 +618,40 @@
     tipY = -1;
     if (state === "title" || state === "over") overlay();
     tipSync(tipY); // K-0059: shared tip button (assets/tip.js)
+  }
+  // review16 r3: the START pad on the counter (tall screens only). The whole screen still cooks; the pad shows where a
+  // thumb goes, sinks while you hold, flashes red on metal, and lights up in the verdict's colour after each release
+  const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+  function drawPad(time) {
+    const P = M.pad;
+    if (!P || state !== "play" || !item) return;
+    const cook = phase === "cook", cur = ITEMS[item.kind].cursed, v = verdict && verdict.v;
+    let col = LIME, label = "HOLD", sub = coarse ? "hold anywhere to cook" : "hold space or the mouse";
+    if (cook) { col = cur ? (Math.sin(time * 28) > 0 ? BAD : WARN) : LIME2; label = cur ? "LET GO!" : "COOKING"; sub = cur ? "that's metal!" : "let go when it's done"; }
+    else if (phase === "burn" || v === "burnt" || v === "sparks") { col = BAD; label = v === "sparks" ? "ZZZAP" : "BURNT"; sub = "strike!"; }
+    else if (phase === "result" && v) { col = v === "perfect" || v === "safe" ? LIME2 : v === "good" ? LIME : "#9fc3e0"; label = v === "perfect" ? "PERFECT" : v === "good" ? "GOOD" : v === "safe" ? "GOOD CALL" : "COLD"; sub = v === "cold" ? "streak lost" : streak > 1 ? "streak x" + streak : "+" + verdict.pts; }
+    const press = cook ? 7 : 0, x = P.x, y = P.y + press, w = P.w, h = P.h - press;
+    R("#24180f", P.x - 6, P.y - 4, P.w + 12, P.h + 12); // its well in the counter
+    R(INK, x - 3, y - 3, w + 6, h + 6);
+    R(col, x, y, w, h);
+    cx.globalAlpha = 0.3; R(INK, x, y + h - (cook ? 3 : 10), w, cook ? 3 : 10); R("#ffffff", x, y, w, 4); cx.globalAlpha = 1;
+    if (cook && !reduce) { cx.globalAlpha = 0.12 + 0.1 * Math.sin(time * 12); R(PAPER, x, y, w, h); cx.globalAlpha = 1; }
+    let n = 0; for (const ch of label) n += pfGlyph(ch).w + 1;
+    const sz = Math.min(h * 0.36, (w * 0.86) / Math.max(1, n - 1) * 10);
+    text(label, x + w / 2, y + h * 0.42, sz, INK, "center", 900);
+    text(sub, x + w / 2, y + h * 0.76, Math.max(11, Math.min(14, h * 0.14)), INK, "center", 800);
+    // the run so far, one ticket per item (newest on the right): lime perfect, green good, blue cold, red burnt
+    const ty = P.y + P.h + 26, fit = Math.max(1, Math.floor((P.w + 5) / 17));
+    if (ty + 12 < H - 4) tickets(tally.slice(-fit), ty, 12, fit);
+  }
+  // a row (or rows) of tickets, centred, cs px each
+  function tickets(list, y, cs, perRow) {
+    const gap = Math.round(cs * 0.42);
+    list.forEach((t, i) => {
+      const row = Math.floor(i / perRow), inRow = Math.min(perRow, list.length - row * perRow), col = i % perRow;
+      const tx = W / 2 - (inRow * (cs + gap) - gap) / 2 + col * (cs + gap), yy = y + row * (cs + gap);
+      R(INK, tx - 1, yy - 1, cs + 2, cs + 2); R(t === "perfect" || t === "safe" ? LIME2 : t === "good" ? LIME : t === "cold" ? "#9fc3e0" : BAD, tx, yy, cs, cs);
+    });
   }
   // K-0059: shared tip button (assets/tip.js)
   // The game-over card is drawn on the canvas, so the pill lives in a small fixed box (#cc-tip-box, styled in
@@ -619,6 +693,12 @@
         : score === prevBest ? "tied your best. one more perfect next time." : (prevBest - score) + " more to beat your best (" + prevBest + ").";
       text(nudge, W / 2, mid + big * 1.25 + 24, 15, score > prevBest ? LIME2 : WARN, "center", 800);
       if (performance.now() - endAt > 700) { text("tap to cook again", W / 2, mid + big * 1.25 + 66, 18, LIME, "center", 900); tipY = mid + big * 1.25 + 86; }
+      // review16 r3: the shift at a glance, one ticket per item, where the screen has the room (a tall phone, desktop)
+      const sy = mid + big * 1.25 + 86 + tipH + 22, cs = 14, per = Math.max(1, Math.floor((Math.min(W - 32, 420) + 6) / (cs + 6))), rows = Math.ceil(tally.length / per);
+      if (M.pad && tally.length && sy + 18 + rows * (cs + 6) < H - 8) {
+        text("your shift", W / 2, sy, 12, "#8a8e80", "center", 700);
+        tickets(tally, sy + 16, cs, per);
+      }
     }
   }
 

@@ -213,6 +213,7 @@
   /* ---------- game state ---------- */
   var state = "title"; // title | play | paused | cooking | over
   var t, heat, score, pickups, hits, spawnT, pickT, warnT, cookT, overAt = 0;
+  var streak = 0, topStreak = 0; // v2.3: tasks dodged in a row (a hit resets it)
   // the first seconds teach the loop (dodge, grab coffee): 1 at the start, 0 from 25 s on, so the late game is as before
   var EASE_T = 25;
   function ease() { return Math.max(0, 1 - t / EASE_T); }
@@ -222,8 +223,13 @@
   var keys = { left: false, right: false };
   var pointerX = null;
 
+  var MILESTONES = ["survived standup", "inbox zero (lie)", "lunch skipped", "still booting", "legend status", "send help"];
+  var ban = null, beatBestTold = false, runGoal = 30;
+  function banner(text, color, life) { ban = { text: text, color: color, life: life, max: life }; }
+
   function reset() {
-    t = 0; heat = 8; score = 0; pickups = 0; hits = 0;
+    ban = null; beatBestTold = false; runGoal = bestTime >= 5 ? bestTime : 30;
+    t = 0; heat = 8; score = 0; pickups = 0; hits = 0; streak = 0; topStreak = 0;
     spawnT = 0.6; pickT = 1.2; warnT = 0; cookT = 0;
     shake = 0; glitch = 0; flash = 0;
     crash.x = W / 2; crash.vx = 0; crash.tilt = 0; crash.squash = 0; crash.hurt = 0;
@@ -374,6 +380,8 @@
         var burn = Math.round((k.big ? 22 : 15) * (1 - 0.5 * ease()));
         heat += burn;
         hits++;
+        if (streak >= 5) floatText(crash.x, crash.y - crash.h - 28, "streak lost (" + streak + ")", "#B59AFF");
+        streak = 0;
         crash.hurt = 0.45;
         crash.squash = 1;
         shake = Math.min(1, shake + 0.65);
@@ -386,7 +394,40 @@
         tasks.splice(i, 1);
         continue;
       }
-      if (k.y > H + 10) { tasks.splice(i, 1); score += 2; }
+      // close call: a task slips past CRASH's head with only a few px to spare
+      if (!k.near && crash.hurt <= 0 && k.y + k.h > hb.y + hb.h * 0.5 && k.y < hb.y + hb.h) {
+        var gap = Math.max(k.x - (hb.x + hb.w), hb.x - (k.x + k.w));
+        if (gap > 0 && gap < 14) {
+          k.near = true;
+          score += 5;
+          floatText(crash.x + (k.x > crash.x ? 22 : -22), crash.y - crash.h - 4, "close! +5", "#C5FF49");
+          puff(k.x > crash.x ? k.x : k.x + k.w, crash.y - crash.h / 2, 5, "#C5FF49", 90, 0.3);
+          tone(990, 1480, 0.05, "square", 0.05);
+        }
+      }
+      if (k.y > H + 10) {
+        tasks.splice(i, 1); score += 2;
+        // v2.3: a dodge streak, so every clean dodge counts toward something you can see
+        streak++; if (streak > topStreak) topStreak = streak;
+        if (streak % 10 === 0) {
+          var sb = Math.min(30, streak);
+          score += sb;
+          floatText(crash.x, crash.y - crash.h - 28, "streak " + streak + "! +" + sb, "#C5FF49");
+          puff(crash.x, crash.y - crash.h, 12, "#C5FF49", 140, 0.45);
+          tone(660, 1320, 0.08, "square", 0.06); tone(990, 1980, 0.08, "square", 0.05, 0.07);
+        }
+      }
+    }
+
+    // milestones: a goal on screen from the first second, and a cheer when you pass your best time
+    if (!beatBestTold && bestTime >= 5 && t > bestTime) {
+      beatBestTold = true;
+      banner("NEW BEST TIME", "#C5FF49", 1.6);
+      puff(crash.x, crash.y - crash.h, 18, "#C5FF49", 180, 0.6);
+      sfx.coffee();
+    } else if (Math.floor(t / 15) > Math.floor((t - dt) / 15)) {
+      var mi = Math.floor(t / 15) - 1;
+      banner(MILESTONES[Math.min(mi, MILESTONES.length - 1)] + " · " + Math.floor(t) + "s", "#B59AFF", 1.3);
     }
 
     for (var j = items.length - 1; j >= 0; j--) {
@@ -442,6 +483,7 @@
       p.life -= dt;
       if (p.life <= 0) parts.splice(i, 1);
     }
+    if (ban) { ban.life -= dt; if (ban.life <= 0) ban = null; }
     for (var j = floats.length - 1; j >= 0; j--) {
       floats[j].y -= 40 * dt;
       floats[j].life -= dt;
@@ -686,9 +728,63 @@
     ctx.textAlign = "right";
     ctx.fillStyle = "#C5FF49";
     ctx.fillText(String(Math.floor(score)).padStart(5, "0"), W - 12, 34);
-    ctx.font = "800 9px 'JetBrains Mono', monospace";
+    ctx.font = "800 10px 'JetBrains Mono', monospace";
     ctx.fillStyle = "#b9b7b0";
     ctx.fillText("BEST " + best, W - 12, 52);
+    if (streak >= 3) { ctx.fillStyle = streak >= 10 ? "#C5FF49" : "#F5F3ED"; ctx.fillText("STREAK " + streak, W - 12, 65); }
+    // the run's goal, always in view: beat your best time (or reach 30 s on a first run)
+    var goal = runGoal;
+    ctx.textAlign = "left";
+    ctx.fillStyle = t > goal ? "#C5FF49" : "#b9b7b0";
+    ctx.fillText(t > goal ? "GOAL ✓ keep going" : "GOAL " + goal + "s" + (runGoal === bestTime ? " (your best)" : ""), 12, 52);
+
+    // coach for the first seconds: say what to do, then point at the first coffee
+    if (state === "play" && t < 7) {
+      var a = Math.min(1, t * 3, (7 - t) * 2);
+      ctx.globalAlpha = a;
+      ctx.textAlign = "center";
+      ctx.font = "800 14px 'JetBrains Mono', monospace";
+      var line = t < 3.5 ? "dodge the falling tasks" : "grab coffee + fans to cool down";
+      var lw = ctx.measureText(line).width + 24;
+      ctx.fillStyle = "rgba(16,17,20,0.85)";
+      rr(W / 2 - lw / 2, 148, lw, 26, 8); ctx.fill();
+      ctx.fillStyle = t < 3.5 ? "#F5F3ED" : "#C5FF49";
+      ctx.textBaseline = "middle";
+      ctx.fillText(line, W / 2, 161.5);
+      ctx.font = "800 10px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#b9b7b0";
+      ctx.fillText(document.documentElement.classList.contains("has-touch") ? "drag anywhere to move" : "← → or A D to move", W / 2, 184);
+      // arrow over the first cooling pickup on screen
+      for (var ii = 0; ii < items.length; ii++) {
+        var it = items[ii];
+        if (it.y < 110 || it.y > FLOOR - 40) continue; // v2.3: not up in the HUD (it covered "GOAL 30s")
+        var by2 = it.y - 34 + Math.sin(t * 8) * 3;
+        ctx.fillStyle = it.kind === "fan" ? "#B59AFF" : "#C5FF49";
+        ctx.beginPath(); ctx.moveTo(it.x - 7, by2); ctx.lineTo(it.x + 7, by2); ctx.lineTo(it.x, by2 + 9); ctx.fill();
+        ctx.fillText("grab", it.x, by2 - 8);
+        break;
+      }
+      ctx.globalAlpha = 1;
+      ctx.textBaseline = "top";
+    }
+    if (ban) {
+      var p = 1 - ban.life / ban.max, pop = p < 0.15 ? 0.6 + p / 0.15 * 0.4 : 1;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, ban.life * 3);
+      ctx.translate(W / 2, H * 0.36);
+      ctx.scale(pop, pop);
+      ctx.font = "800 18px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      var bw2 = ctx.measureText(ban.text).width + 28;
+      ctx.fillStyle = "rgba(16,17,20,0.88)";
+      rr(-bw2 / 2, -18, bw2, 36, 10); ctx.fill();
+      ctx.strokeStyle = ban.color; ctx.lineWidth = 2;
+      rr(-bw2 / 2, -18, bw2, 36, 10); ctx.stroke();
+      ctx.fillStyle = ban.color;
+      ctx.fillText(ban.text, 0, 1);
+      ctx.restore();
+      ctx.textBaseline = "top";
+    }
     if (heat > 80 && ((t * 4) | 0) % 2 === 0) {
       ctx.textAlign = "center";
       ctx.font = "800 12px 'JetBrains Mono', monospace";
@@ -773,14 +869,22 @@
     var secs = Math.floor(t);
     var final = Math.floor(score);
     var newBest = final > best;
+    var prevBestTime = bestTime;
     if (newBest) { best = final; save("cc-crash-best", String(best)); }
     if (secs > bestTime) { bestTime = secs; save("cc-crash-best-time", String(bestTime)); }
+    // one concrete target for the next run
+    // v2.3: matches the GOAL the next run's HUD will show (it said "beat 30s" while the HUD said 15s)
+    var nextGoal = prevBestTime < 5 ? "next run: beat " + (bestTime >= 5 ? bestTime : 30) + "s"
+      : secs > prevBestTime ? "new best time! next run: beat " + bestTime + "s"
+      : prevBestTime - secs <= 5 ? "so close. " + (prevBestTime - secs + 1) + "s more beats your best (" + prevBestTime + "s)"
+      : "next run: beat " + prevBestTime + "s";
     document.getElementById("go-line").textContent = ONE_LINERS[(Math.random() * ONE_LINERS.length) | 0];
     document.getElementById("go-time").textContent = secs + "s";
     document.getElementById("go-score").textContent = final;
     document.getElementById("go-best").textContent = newBest ? "new best!" : "best " + best;
-    document.getElementById("go-stats").textContent = hits + (hits === 1 ? " task" : " tasks") + " took the hit · " +
+    document.getElementById("go-stats").textContent = (topStreak >= 5 ? "best streak " + topStreak + " · " : "") + hits + (hits === 1 ? " task" : " tasks") + " took the hit · " +
       pickups + (pickups === 1 ? " coffee or fan" : " coffees & fans");
+    document.getElementById("go-next").textContent = nextGoal;
     document.getElementById("go-share-text").textContent = "i lasted " + secs + "s before getting cooked. computercooked.com/games";
     setState("over");
     overAt = performance.now();
@@ -807,7 +911,8 @@
   /* ---------- loop ---------- */
   var last = performance.now();
   function frame(now) {
-    var dt = Math.min(0.05, (now - last) / 1000);
+    // rAF's timestamp can be older than the performance.now() that start()/resume() stored: never step time backwards
+    var dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     if (state === "play") { update(dt); if (state === "play") reportScore(dt); }
     if (state === "cooking") {
@@ -826,7 +931,9 @@
     return ((e.clientX - r.left) / r.width) * W;
   }
   stage.addEventListener("pointerdown", function (e) {
-    if (e.target.closest(".overlay")) return;
+    // the title card boots on a press anywhere (not just the button), and that same finger starts steering right away
+    var onTitle = state === "title" && e.target.closest("#ov-title") && !e.target.closest("a, button");
+    if (e.target.closest(".overlay") && !onTitle) return;
     if (state === "title") { start(); }
     else if (state === "paused") { resume(); return; }
     if (state !== "play") return;
@@ -949,6 +1056,9 @@
     if (btnFs) btnFs.setAttribute("aria-pressed", String(!!document.fullscreenElement));
     setTimeout(resize, 50);
   });
+
+  // read-only test hook for ?cctest runs
+  window.__crash = { state: function () { return { state: state, t: t, heat: heat, score: Math.floor(score), hits: hits, streak: streak, topStreak: topStreak, pickups: pickups, tasks: tasks.length, items: items.length }; } };
 
   /* ---------- boot ---------- */
   document.getElementById("title-best").textContent = best ? "best: " + best + (bestTime ? " · " + bestTime + "s" : "") : "no high score yet. be the first casualty.";

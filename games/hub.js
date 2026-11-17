@@ -37,7 +37,8 @@
         '<div class="cc-landing-inner">' +
           '<p class="cc-landing-k"><span class="cc-landing-dot" aria-hidden="true"></span>from the clip · free · no download</p>' +
           '<a class="cc-landing-play" href="' + esc(href) + '">' +
-            '<span class="cc-landing-art"><img src="' + esc(g.thumbnail) + '" alt="" width="640" height="360" fetchpriority="high"></span>' +
+            // the gameplay poster (320x180) when there is one: it fills the 16:9 art box exactly
+            '<span class="cc-landing-art"><img src="' + esc(art(g)) + '" alt="" width="' + (g.poster ? "320" : "640") + '" height="' + (g.poster ? "180" : "360") + '" fetchpriority="high"></span>' +
             '<span class="cc-landing-title" id="cc-landing-title">' + esc(g.title) + "</span>" +
             '<span class="cc-landing-go">tap to play</span>' +
           "</a>" +
@@ -49,6 +50,8 @@
         try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: g.slug, t: Date.now() })); } catch (e) {}
       });
       card.querySelector(".cc-landing-more").addEventListener("click", function () { card.remove(); off(); window.scrollTo(0, 0); });
+      // Esc does what "more games" does (it's a modal card: keyboard users need a way out besides the button)
+      card.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); card.querySelector(".cc-landing-more").click(); } });
       document.body.appendChild(card);
       root.setAttribute("data-landing-ready", "");
       try { card.querySelector(".cc-landing-play").focus({ preventScroll: true }); } catch (e) {}
@@ -69,16 +72,26 @@
     if (!a || !/^#[0-9a-f]{6}$/i.test(a)) return "";
     return ' style="--accent:' + a + ";--phosphor:" + [1, 3, 5].map(function (i) { return parseInt(a.slice(i, i + 2), 16); }).join(" ") + '"';
   }
-  function card(g) {
+  // the card picture: a gameplay poster (a frame of the game's clip, games.json "poster") when there is one, else the cover
+  function art(g) { return g.poster || g.thumbnail; }
+  function clipOf(g) { return typeof g.clip === "string" && /^\/assets\/clips\/[a-z0-9-]+\.mp4$/.test(g.clip) ? g.clip : ""; }
+  var hot = {}; // the top 3 by plays this week (from /api/stats), badged "hot"
+  var gotd = null; // game of the day (/api/gotd, src/gotd.js): its card says "2x xp today"
+  // i: position in its grid. The first row loads straight away (it's what you see first); the rest wait until scrolled to.
+  function card(g, i) {
     var tags = (g.tags || []).slice(0, 3).map(function (t) { return "<span>" + esc(t) + "</span>"; }).join("");
     var isNew = g.added && (Date.now() - Date.parse(g.added)) < 14 * 86400000;
     var s = stats[g.slug];
     var count = s && s.total > 100 ? '<span class="game-plays">' + plays(s.total) + "</span>" : "";
     var heart = me ? '<button type="button" class="cc-heart game-heart" data-game="' + esc(g.slug) + '" aria-pressed="' + (favs.indexOf(g.slug) >= 0) + '" aria-label="favorite ' + esc(g.title) + '">' + (favs.indexOf(g.slug) >= 0 ? "♥" : "♡") + "</button>" : "";
-    return '<li class="game-card">' + heart + '<a class="game-card-inner game-link"' + theme(g) + ' href="/games/' + encodeURIComponent(g.slug) + '/">' +
-      '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="400" loading="lazy">' +
+    var clip = clipOf(g), first = typeof i === "number" && i < 4;
+    return '<li class="game-card" data-slug="' + esc(g.slug) + '"' + (clip ? ' data-clip="' + esc(clip) + '"' : "") + ">" + heart +
+      '<a class="game-card-inner game-link"' + theme(g) + ' href="/games/' + encodeURIComponent(g.slug) + '/">' +
+      '<img class="game-thumb' + (g.poster ? " is-poster" : "") + '" src="' + esc(art(g)) + '" alt="" width="640" height="400"' + (first ? "" : ' loading="lazy"') + ' decoding="async">' +
       '<span class="game-body">' +
         (isNew ? '<span class="game-new">new</span>' : "") +
+        (hot[g.slug] ? '<span class="game-hot" title="one of the most played games this week">hot</span>' : "") +
+        (gotd === g.slug ? '<span class="game-gotd" title="game of the day: every run pays double xp until midnight UTC">2x xp today</span>' : "") +
         '<h3 class="game-name">' + esc(g.title) + "</h3>" +
         '<span class="game-pitch">' + esc(g.pitch) + "</span>" +
         (tags ? '<span class="game-tags">' + tags + "</span>" : "") + count +
@@ -131,9 +144,11 @@
   Promise.all([
     fetch("/games/games.json").then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }),
     live.then(function (up) { return up ? api("/api/stats") : null; }),
-    live.then(function (up) { return up ? api("/api/me") : null; })
+    live.then(function (up) { return up ? api("/api/me") : null; }),
+    live.then(function (up) { return up ? api("/api/gotd") : null; }).catch(function () { return null; })
   ]).then(function (res) {
-    var data = res[0], st = res[1], who = res[2];
+    var data = res[0], st = res[1], who = res[2], gd = res[3];
+    gotd = gd && gd.ok && gd.game || null;
     if (st && st.ok) st.games.forEach(function (g) { stats[g.game] = g; });
     me = who && who.user;
     var chip = document.getElementById("hub-chip");
@@ -146,51 +161,107 @@
     });
   }).catch(function () { /* keep the static cards */ });
 
-  // animated thumbnails (audit P1 #18): a 3 s muted loop (games.json "clip", made by scripts/make-clips.mjs) plays
-  // over the thumbnail on hover (mouse) or while the card is mostly on screen (touch). Never with reduced motion or
-  // Save-Data; the static thumbnail stays underneath as the fallback, and nothing downloads until a card asks.
-  function clips(grid, games) {
-    var mq = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
-    if (mq("(prefers-reduced-motion: reduce)") || (navigator.connection && navigator.connection.saveData)) return;
-    var bySlug = {};
-    games.forEach(function (g) { if (g.clip) bySlug[g.slug] = g.clip; });
-    var touch = mq("(hover: none)");
-    grid.setAttribute("data-hub-clips", "");
-    var play = function (li) {
-      var img = li.querySelector(".game-thumb"), a = li.querySelector(".game-link");
-      var m = a && /^\/games\/([a-z0-9-]+)\/$/.exec(a.getAttribute("href") || "");
-      var src = m && bySlug[m[1]];
-      if (!img || !src) return;
-      var v = li.querySelector(".game-clip");
-      if (!v) {
-        v = document.createElement("video");
-        v.className = "game-clip"; v.muted = true; v.loop = true; v.playsInline = true; v.preload = "none";
-        v.setAttribute("aria-hidden", "true"); v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
-        v.src = src;
-        img.insertAdjacentElement("afterend", v);
-      }
-      // sit exactly on the thumbnail (cards are a column on desktop and a row on phones)
-      v.style.left = img.offsetLeft + "px"; v.style.top = img.offsetTop + "px";
-      v.style.width = img.offsetWidth + "px"; v.style.height = img.offsetHeight + "px";
-      var p = v.play(); if (p && p.catch) p.catch(function () {});
-      v.classList.add("is-on");
-    };
-    var stop = function (li) { var v = li.querySelector(".game-clip"); if (v) { v.pause(); v.classList.remove("is-on"); } };
-    var items = [].slice.call(grid.querySelectorAll(".game-card"));
-    if (touch && "IntersectionObserver" in window) {
-      var io = new IntersectionObserver(function (es) {
-        es.forEach(function (e) { e.isIntersecting ? play(e.target) : stop(e.target); });
-      }, { threshold: 0.75 });
-      items.forEach(function (li) { io.observe(li); });
-    } else {
-      items.forEach(function (li) {
-        li.addEventListener("mouseenter", function () { play(li); });
-        li.addEventListener("mouseleave", function () { stop(li); });
-        li.addEventListener("focusin", function () { play(li); });
-        li.addEventListener("focusout", function () { stop(li); });
-      });
-    }
+  // animated thumbnails (audit P1 #18): a 3 s muted loop (games.json "clip", made by scripts/make-clips.mjs) plays over
+  // the card art on hover/focus (mouse) or on the one card most in view (touch). assets/preview.js does it, for the home
+  // page too: lazily, one at a time, never with reduced motion or Save-Data. Cards carry data-slug + data-clip for it.
+  function clips(grid) {
+    if (grid && window.ccPreview) window.ccPreview.attach(grid, ".game-card");
   }
+
+  /* ---------- surprise me: a one-second slot machine that lands on a game, then a big play button ----------
+     The hero button ([data-surprise]) and the filter bar's "surprise me" chip (assets/fx.js, which passes the games its
+     filter shows) both open it. It prefers a game this device hasn't played (cc-history, kept by games/platform.js).
+     Reduced motion: no spin, it just shows the pick. */
+  var slotGames = [], slotLast = null, slot = null;
+  var SLOT_SAY = ["the computer has spoken.", "no take-backs.", "the reel is never wrong. mostly.", "certified random. probably.", "fate picked this one, not me.", "it landed. i'm not touching it."];
+  var reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function played() { try { return JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { return {}; } }
+  function any(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function slotBuild() {
+    if (slot) return slot;
+    var d = document.createElement("dialog");
+    d.className = "cc-slot";
+    d.setAttribute("aria-labelledby", "cc-slot-h");
+    d.innerHTML =
+      '<div class="cc-slot-inner">' +
+        '<div class="cc-slot-bar"><h2 class="cc-slot-h" id="cc-slot-h">surprise.exe</h2><button type="button" class="cc-slot-x" aria-label="close">✕</button></div>' +
+        '<div class="cc-slot-win"><div class="cc-slot-reel" aria-hidden="true"><img alt="" width="320" height="180"><span class="cc-slot-name"></span></div></div>' +
+        '<p class="cc-slot-say" role="status" aria-live="polite"></p>' +
+        '<div class="cc-slot-row"><a class="play-btn cc-slot-go" href="/games/"></a><button type="button" class="ghost-btn cc-slot-again">spin again</button></div>' +
+      "</div>";
+    document.body.appendChild(d);
+    d.querySelector(".cc-slot-x").addEventListener("click", function () { d.close(); });
+    d.addEventListener("click", function (e) { if (e.target === d) d.close(); }); // tap outside the window
+    d.querySelector(".cc-slot-again").addEventListener("click", function () { slotSpin(d._pool); });
+    // the play tap counts as the game's start tap: games that read cc.autostart() skip their title screen
+    d.querySelector(".cc-slot-go").addEventListener("click", function () {
+      try { if (d._land) sessionStorage.setItem("cc-autostart", JSON.stringify({ game: d._land.slug, t: Date.now() })); } catch (e) {}
+    });
+    d.addEventListener("close", function () { clearTimeout(d._t); });
+    slot = d;
+    return d;
+  }
+  function slotShow(d, g) {
+    var img = d.querySelector(".cc-slot-reel img");
+    img.src = art(g);
+    img.classList.toggle("is-poster", !!g.poster);
+    d.querySelector(".cc-slot-name").textContent = g.title;
+  }
+  function slotSpin(pool) {
+    var d = slotBuild();
+    var list = slotGames.filter(function (g) { return !pool || pool.indexOf(g.slug) >= 0; });
+    if (!list.length) list = slotGames;
+    if (!list.length) return;
+    var h = played(), fresh = list.filter(function (g) { return !(h[g.slug] && h[g.slug].n > 0); });
+    var from = fresh.length ? fresh : list;
+    if (from.length > 1) from = from.filter(function (g) { return g !== slotLast; });
+    var land = any(from);
+    slotLast = land; d._land = land; d._pool = pool;
+    var go = d.querySelector(".cc-slot-go"), say = d.querySelector(".cc-slot-say"), again = d.querySelector(".cc-slot-again");
+    go.href = "/games/" + encodeURIComponent(land.slug) + "/";
+    go.textContent = "play " + land.title + " ▶";
+    clearTimeout(d._t);
+    function landed() {
+      slotShow(d, land);
+      d.classList.remove("is-spinning");
+      d.classList.add("is-landed");
+      say.textContent = land.title + ". " + any(SLOT_SAY) + (land.pitch ? " " + land.pitch : "");
+      go.removeAttribute("aria-disabled"); go.removeAttribute("tabindex");
+      again.disabled = false;
+      try { go.focus({ preventScroll: true }); } catch (e) { go.focus(); }
+    }
+    d.classList.remove("is-landed");
+    if (!d.open) { try { d.showModal(); } catch (e) { location.href = go.href; return; } }
+    if (reduceMotion || list.length < 2) { landed(); return; }
+    // ~1.1 s of reel: quick ticks that slow down, never the same game twice in a row, then the pick
+    var steps = [45, 45, 50, 55, 60, 70, 80, 95, 115, 140, 170, 215], seq = [], prev = d._shown;
+    steps.forEach(function (x, k) {
+      var g = any(list), tries = 0;
+      while ((g === prev || (g === land && k === steps.length - 1)) && tries++ < 12) g = any(list);
+      seq.push(g); prev = g;
+    });
+    seq.forEach(function (g) { var im = new Image(); im.src = art(g); }); // small posters; most are cached by the grid already
+    d.classList.add("is-spinning");
+    go.setAttribute("aria-disabled", "true"); go.setAttribute("tabindex", "-1");
+    again.disabled = true;
+    say.textContent = "spinning…";
+    var n = 0;
+    (function tick() {
+      if (!d.open) return;
+      if (n >= seq.length) { landed(); return; }
+      var reel = d.querySelector(".cc-slot-reel");
+      slotShow(d, seq[n]); d._shown = seq[n];
+      reel.classList.remove("is-tick"); void reel.offsetWidth; reel.classList.add("is-tick");
+      d._t = setTimeout(tick, steps[n++]);
+    })();
+  }
+  window.ccSurprise = { open: function (pool) { slotSpin(pool && pool.length ? pool : null); }, ready: function () { return slotGames.length > 0; } };
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-surprise]");
+    if (!b || !slotGames.length) return;
+    e.preventDefault();
+    slotSpin(null);
+  });
 
   function render(data) {
     var games = data.games || [];
@@ -201,9 +272,12 @@
       .map(function (x) { return x[2]; });
     var community = games.filter(function (g) { return g.made_by === "community"; });
 
-    // trending: most plays in the last 7 days (needs some data before it shows)
+    // trending: most plays in the last 7 days (needs some data before it shows). Those games wear a "hot" badge everywhere.
     var trending = games.filter(function (g) { return stats[g.slug] && stats[g.slug].week >= 5; })
       .sort(function (a, b) { return stats[b.slug].week - stats[a.slug].week; }).slice(0, 3);
+    hot = {};
+    trending.forEach(function (g) { hot[g.slug] = true; });
+    slotGames = ours.slice();
     shelf("shelf-trending", "trending this week", "", trending);
     var popular = games.filter(function (g) { return stats[g.slug] && stats[g.slug].total >= 20; })
       .sort(function (a, b) { return stats[b.slug].total - stats[a.slug].total; }).slice(0, 3);
@@ -215,10 +289,10 @@
       .sort(function (a, b) { return b[0].added.localeCompare(a[0].added) || a[1] - b[1]; })
       .map(function (x) { return x[0]; }).slice(0, 6);
     shelf("shelf-new", "just cooked", "new this fortnight", fresh);
-    if (fresh.length) clips(document.querySelector("#shelf-new .card-grid"), fresh);
+    if (fresh.length) clips(document.querySelector("#shelf-new .card-grid"));
 
     var mine = document.getElementById("shelf-computer-cooked");
-    if (mine && ours.length) { mine.innerHTML = ours.map(card).join(""); clips(mine, ours); }
+    if (mine && ours.length) { mine.innerHTML = ours.map(card).join(""); clips(mine); }
 
     var cshelf = document.getElementById("shelf-community");
     if (cshelf && community.length) cshelf.insertAdjacentHTML("afterbegin", community.map(card).join(""));
@@ -275,7 +349,7 @@
       else if (l) meta = "saved on this device · " + ago(l);
       else meta = "played " + ago(seen[slug]);
       return '<li><a class="continue-card' + cls + '" href="/games/' + encodeURIComponent(slug) + '/">' +
-        '<img src="' + esc(g.thumbnail) + '" alt="" width="96" height="72" loading="lazy">' +
+        '<img src="' + esc(art(g)) + '" alt="" width="96" height="72" loading="lazy">' + // CSS fixes it at 72x54, object-fit cover
         '<span class="continue-body"><b>' + esc(g.title) + "</b><small>" + esc(meta) + '</small></span><span class="continue-go" aria-hidden="true">▶</span></a></li>';
     }).join("");
     document.getElementById("hub-continue").hidden = false;

@@ -172,6 +172,9 @@ window.cc && cc.event("boss_beaten", { level: 3 });          // optional, at mos
 - With no `max_score_per_sec`, the game gets no leaderboard; plays and feedback still work.
 - Games without hooks still get basic plays (time played, no score) logged by the player page.
 - The player page also sends `{type:"cc-mute", muted}`, `{type:"cc-restart"}` and `{type:"cc-pause"}` messages to the game iframe.
+- **The results card** (`games/player.js`) pops up over the game 0.7 s after every `cc.end` with `completed` not `false`. It never shows for games tagged idle, sim or incremental, or for a quit run (`completed: false`). Two optional games.json fields change it:
+  - `"results": "quiet"` is for games that send `cc.end` per level, day or season and show their own "next" screen. The card never covers the game: a lime **results** (or **new best**) button lights up in the bar under it, opens the card, and goes away when the next run starts. Ghost bus and soup witch are quiet even before their entries merge (`QUIET` in player.js).
+  - `"restart": true` means the game restarts a run on `{type:"cc-restart"}`, so the card's **play again** sends that instead of reloading the game back to its start screen. Games already listed in `RESTARTS` in player.js (all six new games included) don't need it. Put either field in the game's `entry.json`: `scripts/add-game.ps1` copies both into games.json. If entry.json leaves a field out, the script keeps the value already in games.json. `"results": "run"` or `"restart": false` drops it.
 
 ### XP, levels and achievements (slice B)
 
@@ -250,6 +253,23 @@ cc.autostart()       // -> true once if the player came from the hub's "tap to p
 - **Install card:** on the hub, `#install-card` appears when the browser offers an install prompt (Chrome, Edge, Android) or on iPhone/iPad Safari (share → add to home screen). It can be dismissed for good.
 - **Metrics:** plays from the installed app are referrer `app` (cc-sdk.js checks display-mode standalone, plus a `cc-app` sessionStorage flag set by pwa.js for the game frame). Offline runs are not recorded: the SDK doesn't queue events, and the server bounds a run by when it saw the start.
 
+## Game of the day (2x XP)
+
+One of our games each UTC day pays double play XP (`src/gotd.js`; plan in `Website\Ideas\game-of-the-day-2x-xp-plan-2026-11-16.md`).
+- **Pool:** our games, minus the week's challenge and featured games, the daily 3, games in their first 14 days, and anything picked in the last 7 days (that rule gives way if nothing is left).
+- **Pick:** the fewest unique players over the last 7 days, so the quiet games get a turn. Ties go to the game picked longest ago, then catalog order.
+- **Storage:** stored once a day in the `gotd` table (`migrations/0020_gotd.sql`, `INSERT OR IGNORE`, first writer wins). `gotdFor(env, t, catalog)` creates today's pick if needed; without a catalog it only reads, so guest replay never creates a past day's pick.
+- **XP:** `awardPlay` grants a `gotd` event (ref = play id) equal to the play XP it just granted, shown as its own part (`{kind: "gotd", xp}`). Play XP is capped at 150 per game per day, so the bonus is too. `replayGuest` pays the same from the stored row of the day each play ended. `games/platform.js` mirrors it for guests (fetches `/api/gotd` once) and says "2x xp: game of the day +N" after a run.
+- **Where it shows:**
+  - the home card `#home-gotd`;
+  - a gold "2x xp today" chip beside the title on its game page;
+  - a "2x xp today" label on its hub card (`games/hub.js`).
+- `GET /api/gotd` → `{ok, day, game, title, pitch, thumbnail, poster, ends_at}` (`game: null` if there's no pick), cached 5 minutes.
+
+## New games ("new" badges and "just cooked")
+
+A game is new for 14 days from its games.json `added` day: `isNewGame` / `NEW_MS` in `src/util.js` (games/hub.js uses the same 14 days on the client). While it's new it gets the "new" tag on home cards (`card2`), the "new" badge on hub cards, a place in the "just cooked" shelves on home and the hub (newest first, up to 6), and a "new" chip beside its title on its game page (`src/seo.js` gamePage). Nothing is listed ahead of time: a game waiting on its merge isn't in games.json, so all of this switches on by itself the day it lands. **When merging a new game, set `added` to that day**, or its 14 days start from whenever the PR was written.
+
 ## Play next rail
 
 After every run (scored or not), the shared player (`games/platform.js`) shows **// play next** below the dare box: three game cards.
@@ -274,8 +294,9 @@ The homepage shows a **your desk** row above game of the week, but only to a bro
 - **Quick launch dock** (`index.html` `#desk-dock`, `assets/home.js`): the hero's game icons sit in one row under the welcome window, not scattered around it. Hover or focus shows a peek window with the game's cover. On phones the row scrolls sideways. Dock links carry `?ref=desk`.
 - **surprise me.exe** (`#desk-dice`): spins through the dock like a slot machine and opens a game, preferring ones this browser hasn't played (`cc-history`). With reduced motion it opens the game straight away.
 - **Start menu** (`#desk-start` opens `#desk-menu`): all games, today's dailies, surprise me, search, the lab, the cooked log, my account, and "shut down…" (a joke CRT power-off; a click or key brings the page back). Esc and a click outside close it; arrow keys move through it.
-- **Happening now** (`#home-now`, above game of the week): three cards.
+- **Happening now** (`#home-now`, above game of the week): four cards.
   - *Weekly challenge* (`#home-ch`): this week's game, goal, XP and how many players have done it, with a countdown to the week's end. Filled on the server.
+  - *Game of the day* (`#home-gotd`): today's 2x XP game (see "Game of the day" below), with a countdown to midnight UTC. Filled on the server.
   - *Daily 3* (`#home-daily`): three dots for today's three games and the streak, from `window.ccDaily3` in the browser, with a countdown to local midnight.
   - *Top this week* (`#home-top`): the 5 games with the most players over the last 7 days, with places moved against the 7 days before ("new" for a game that wasn't on the chart). Hidden until 3 games have plays. No play counts are shown.
 - **Pick a mood** (`#home-moods`, under game of the week): five tiles (60 seconds, arcade, puzzle, chill, rage) that open the hub with that filter on (`/games/?vibe=<id>&ref=mood`). `homePage()` adds three covers and the game count to each from the same vibe rules as the hub (`vibesOf` in `src/seo.js`); a mood with no games is hidden. On the hub, the pressed chip scrolls into view on phones.
@@ -298,6 +319,14 @@ On the hub (`/games/`), on a computer with a mouse (at least 900 by 560 px), poi
 ## My stats (player card)
 
 "my stats" in the command bar (also a did-you-know tip) opens a player card for this device (`dialog.stats`, styled in `assets/deck.css`): level, title and xp, a bar for how many games have been tried out of all of them, six numbers (games tried, runs, time played, games with a best, badges, longest speedrun), the top three games by time and a grid of the last 8 weeks of play days. It reads only what the site already keeps in localStorage: `cc-history`, `cc-time`, `cc-guest-xp` (its level maths copies `xpFor`/`TITLES` from `games/platform.js`, so change both together) and `cc-watch-best`. "Games tried" counts a game with a run started (`cc-history`), time on the clock (`cc-time`) or a run in `cc-guest-xp`, out of the listed games. A logged-in player's account xp isn't in it. "copy" puts a one-line summary on the clipboard. `assets/deck.js` owns it: `window.ccStats.open()`. Nothing is sent; the only request is `/games/games.json` for titles.
+
+## Tap to play full screen (phones)
+
+On a touch screen under 768px wide, `games/player.js` puts a big "▶ tap to play full screen" button over the game (`.fs-tap`, styled in `games/games.css`), with "or play here" under it.
+- **The big button:** presses the bar's fullscreen button (real fullscreen, or the CSS fallback on iPhones) and hands focus to the game.
+- **"Or play here":** removes the prompt and is remembered for the tab (sessionStorage `cc-fs-here`).
+- **Never shown:** on a dare link (`?vs=` / `?d=`; the dare's intro card comes first), inside a frame, in the mini player or once in fullscreen.
+- **Loading:** the game boots underneath as before, so nothing waits on the tap.
 
 ## Play on your phone
 
@@ -411,6 +440,26 @@ After 60 seconds with no mouse, key, touch or scroll on the homepage, `assets/ho
 
 Typing up up down down left right left right b a on any page with `assets/deck.js` opens a fake blue crash screen ("your computer is cooked") with a link to channel surf and a button back. It is a modal `<dialog class="cooked">`, so esc closes it. Ignored while typing in a field and while a game is running. The command bar answers `konami` and `cheats` with a hint. It is left out of the `?` list on purpose.
 
+## Secrets (the eggs, collected)
+
+`assets/deck.js` keeps a list of 9 site secrets. Any script finds one by sending `document.dispatchEvent(new CustomEvent("cc:secret", { detail: id }))`; the first time, it's stored in localStorage `cc-secrets` (`{id: time found}`) and a toast at the top centre says "secret found: <name> (n/9)" (`.secret-toast` in `assets/deck.css`; it waits while a modal dialog is open). The player card ("my stats", or "secrets" in the command bar) lists the found ones by name and the rest as "???" with a hint, and "copy" adds "n of 9 secrets found". Nothing is sent and no xp is given (guest xp is replayed by the server, which doesn't know these). `window.ccSecrets.list()` returns `[{id, name, hint, at}]`. Test: `?secret=<id>` on any page with the deck.
+
+| id | name | found by | sent from |
+|---|---|---|---|
+| `melt` | meltdown | poking the home computer until it melts | `cc:melt` (poke) from `assets/home.js` |
+| `konami` | cheat code | the konami code, desk or crash screen | `cc:melt` (konami), and the crash screen in `assets/deck.js` |
+| `gary` | you know my name | typing "gary" on the home page, or searching it on the games hub | `assets/eggs.js`, `assets/fx.js` |
+| `golden` | struck gold | catching a golden gary | `assets/golden.js` |
+| `cursed` | cursed | catching a cursed golden gary | `assets/golden.js` |
+| `off` | no off switch | "shut down" in the start menu | `assets/home.js` |
+| `wall` | redecorated | changing the desktop wallpaper | `assets/home.js` |
+| `corner` | the corner | the home screensaver hitting a corner | `assets/home.js` |
+| `lost` | lost and found | scoring in the 404 game | `assets/lost-game.js` |
+
+## Search "gary" (the hub talks back)
+
+Searching the games hub for `gary`, `computer`, `the computer`, `cooked` or `computer cooked` (any case, punctuation ignored) makes gary pop up over the grid with a line (`.hub-gary`, `assets/fx.js` `garyLine()`, styles in `games/games.css`). "gary" has three lines that take turns and finds the `gary` secret. A new word gets a new line and one hop (none under reduced motion); typing on or re-sorting leaves it be. When no game matches, gary's line stands in for "nothing matches" and carries the same **show all** button. The words never filter anything differently: the grid shows what the search matches as before.
+
 ## Keyboard shortcuts list
 
 Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the command bar) opens a small dialog listing every key that works there. `assets/deck.js` builds it on first open from the deck's own `data-key` links, plus the channel surf keys on `/surf/`. It stays out of the way while a game is running (`window.ccGameActive`) and while typing in a field.
@@ -419,9 +468,49 @@ Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the c
 
 `assets/deck.js` adds a Speculation Rules block on every page: resting on or pressing a same-site link prefetches that page (prefetch only, so no page script runs early and nothing is counted). `/api/*`, `/admin/*`, `/d/*`, download and new-tab links are left out; add `data-no-prefetch` to a link to opt it out. Skipped in embeds and under Save-Data. Browsers without the API navigate as before.
 
+## Short links (`/g/<alias>`, for bios and ads)
+
+`computercooked.com/g/<alias>` answers a **302** to the game page (`src/short.js`, `/g` and `/g/*` in `run_worker_first`), cached 5 minutes (`cache-control: public, max-age=300`).
+
+- **Tags:** `ref` and `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` / `utm_term` on the short link are carried over (other params are dropped). `ref=short` is added only when the link has neither `ref` nor `utm_source` (so `/g/goose?ref=tiktok` still counts as `tiktok`), and `utm_medium=short` when no `utm_medium` is given. So every short-link visit shows up in `/api/admin/utm` with medium `short`; a bare `ref=short` lands in the `other` channel bucket (`top_referrers`), since `short` isn't one of the channel tags.
+- **Best for a TikTok bio:** `computercooked.com/g/microwave?ref=tiktok` (channel = tiktok, medium = short). For an ad, add `utm_campaign=<post id>`.
+- `/g/` or `/g` → `/games/`. An unknown alias → `/games/?ref=short&utm_medium=short`. Aliases are case-insensitive; a trailing `/` is fine.
+- Aliases are built from `games.json` on each request: **every full slug**, **the slug without a trailing `-exe` / `-daily`** (`level-devil`, `crash-test`), and the hand map below (an entry is skipped if its game leaves the catalog). A new game gets `/g/<slug>` with no code change; add a short name to `HAND` in `src/short.js`.
+
+| alias | goes to |
+|---|---|
+| `microwave` | microwave-panic |
+| `popup` | one-percent-popup |
+| `keyboard` | keyboard-escape |
+| `goose` | goose-court |
+| `fish`, `elevator` | elevator-full-of-fish |
+| `checkout` | haunted-self-checkout |
+| `devil`, `level-devil` | level-devil-exe |
+| `takeover` | desktop-takeover |
+| `smol` | smol-brains |
+| `handbag`, `granny` | handbag-havoc |
+| `sweeper` | cooked-sweeper |
+| `ants` | ant-farm |
+| `ram` | plus-one-ram |
+| `tabs` | tab-hoarder |
+| `ice` | thin-ice |
+| `human`, `captcha` | prove-youre-human |
+| `sandwich` | sandwich-tower |
+| `bells` | bellchain |
+| `purge` | pixel-purge |
+| `jam` | desktop-jam |
+| `reel` | reel-weird |
+| `overdue` | overdue-notice |
+| `cheats` | crash-cheats |
+| `crash-test` | crash-test-daily |
+| `daily` | `/games/daily/` |
+| `games`, `all` | `/games/` |
+
 ## 404 page picks
 
 `404.html` shows three games "the computer found instead" (`assets/lost.js`, `assets/lost.css`): picked at random from `/games/games.json`, games this device hasn't played first (`cc-history`), cover plus the 3 second clip on hover, links tagged `?ref=404`, and a link to `/surf/`. Hidden without JavaScript; the plain links underneath stay.
+
+Above them, **"catch the missing page"** (`assets/lost-game.js`, deferred, under 8 KB): pixel 4s, 0s and pages fall, the melting computer catches them (+1; a red bug is −2). Mouse, finger or arrow keys on the focused canvas; space / enter starts. 20 second rounds, best kept in localStorage `cc-404-best`, ends on "your page is still lost. but you scored N." No sound, nothing sent, pauses when the tab is hidden, sets `window.ccGameActive` while running so the deck's single-key shortcuts stay quiet. With `prefers-reduced-motion` it's a static "click the 404 to fix it" button instead. Hidden without JavaScript.
 
 ## Channel surf (`/surf/`)
 
@@ -439,6 +528,15 @@ Pressing `?` on any page with the deck (or picking "keyboard shortcuts" in the c
 - `assets/champs.js` shows the dates in the visitor's own time zone ("today", "yesterday", then "nov 9"; the server writes UTC) and, for games this device has played, adds "your best: 1,200. 2,358 to go." from `cc-history`. Nothing is sent or stored.
 - "Most crowns" lists players holding more than one. Games with no scores are left off. No play counts are shown.
 - With no database or no scores the static page (`champs/index.html`) shows its empty state. Linked from the homepage "happening now" heading and the command bar ("epic gamers").
+
+## Mood collections (`/games/arcade/`, `/puzzle/`, `/chill/`, `/quick/`, `/rage/`)
+
+- One server-rendered page per mood, so each can rank on its own search ("free arcade games online, no download"). Drawn whole by `src/collections.js` (no static file); the Worker routes them ahead of game pages, and `/games/<mood>` or `/games/<mood>/index.html` 301 to the slash form.
+- The games come from games.json through `vibesOf()` in `src/seo.js` (the same VIBES/FALLBACK map as the hub chips and the home mood tiles), Computer Cooked games only, in the hub's order (`featured_rank`, then file order). A new game lands in its moods with no extra step.
+- Each page: its own title, description, canonical, og/twitter tags (`/assets/og.png`, with size and alt), an ItemList of its games and a BreadcrumbList (games › arcade games). The body is the hub shell (deck, footer, `games.css` cards with posters, `data-slug`/`data-clip` so `assets/preview.js` plays the clips) plus a brand-voice heading, a short intro and links to the other moods and all games. Page-head styles: `assets/collections.css`.
+- The intro copy lives in `MOODS` in `src/collections.js`. A `{slug}` in a sentence becomes a link to that game; a sentence naming a game no longer in the mood is dropped, so the copy can't point at the wrong game.
+- The home mood tiles link here (`/games/<mood>/?ref=mood`, set by `homePage()` in `src/pages.js`). The hub's `?vibe=` filter still works and still serves a filtered `/games/`.
+- If a game is ever given one of these slugs, or a mood has no games, the path falls back to a normal game page (or the 404). Any other `/games/<word>/` is a 404 as before. The 5 pages are in `sitemap.xml`; `scripts/sitemap-dates.mjs` dates them from `src/collections.js` and games.json.
 
 ## Hub: your collection
 
@@ -483,6 +581,47 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 - **Elsewhere (most desktops):** the card shows inline with **download card** (`how: download`) and **copy link** (`how: copy`).
 - It works for every game in the shared player. A game with no thumbnail gets the card without art.
 
+## Dare link previews (dare share cards)
+
+A dare link pasted into a chat (iMessage, Discord, WhatsApp, X) unfurls with its own picture: "CAN YOU BEAT 1,840 / ON MICROWAVE PANIC / FROM PAT" with Gary in the corner, in the game's theme colours. `src/darecard.js` draws it on the server at `GET /games/<slug>/dare/<id>.png` (1200x630 indexed PNG, about 9 KB, no packages: a 5x7 pixel font and the Worker's own `CompressionStream`). `src/seo.js` points `og:image` / `twitter:image` of `/games/<slug>/?vs=…&d=<id>` at it.
+
+- Only stored dares get a card: the score comes from the `dares` table, never the URL, so nobody can put their own words on an image served from our domain.
+- **Names follow the leaderboard's rules** (`publicDare()` in `src/dares.js`, used by the card, the preview tags, `/d/<id>`, `GET /api/dare/:id` and the beat reply): the name is the one the boards show today (an account's current display name, else the run's own name; both passed `nameClean` when set). Once the sender's run is off the boards (hidden by 3 reports or an admin, or a banned account) the dare is gone: no card, plain game preview tags, `/d/` goes to the hub. A URL-only dare's `from` goes through `nameClean` too (a rude one becomes no name). A missing dare, a dare for another game or a dare with no score answers **302** to the game's `og-vs.png`, and a URL-only dare (no `d`) keeps `og-vs.png` in its tags.
+- Cached an hour at the edge per URL, so a hide or rename shows within the hour (chat apps keep their own copy of an unfurl). Long names and titles are trimmed with "...", and a long score is drawn smaller.
+- Smoke test: the card is a 1200x630 PNG, the dare page's tags point at it, and a wrong-game card redirects.
+
+## Weekly challenge share cards
+
+The weekly challenge line on the challenge game's page (`games/platform.js` `loadChallenge()`) has a **share ↗** button. It sends `/games/<slug>/?wc=<week>&utm_source=share&utm_medium=challenge&utm_campaign=<slug>` through the share sheet, or copies it with the goal text, and logs a `challenge_share` event (`how: share|copy`). That link unfurls with its own picture: "CAN YOU SCORE 1,200+ / ON CRASH IN ONE RUN? / +100 XP - ENDS SUN NOV 22", from `GET /games/<slug>/challenge/<week>.png` (`challengeCard()` in `src/darecard.js`, the same pixel-font drawer as the dare cards). `src/seo.js` gives `?wc=` pages the title "weekly challenge: score 1,200+ on crash in one run" and that image.
+
+- Only for the game that week's challenge really is. `weekChallenge()` in `src/social.js` reads the hand pick or the stored automatic pick and never makes a pick. Anything else answers **302** to the game's `og.png`, and a `?wc=` link for the wrong game keeps the plain preview.
+- A past week's card says "THIS ONE HAS ENDED - A NEW ONE EVERY MONDAY", and its description says so too. Cached an hour.
+- The home "happening now" card is a link itself, so it has no share button.
+
+## Share my week (recap card)
+
+The "your week in numbers" box on `/me` has a **share my week ↗** button. `me/me.js` loads `me/recap-card.js` and calls `window.ccRecapCard(recap)`, which draws a 1080x1920 PNG on the device in the run card's look. The card shows:
+- "my week" and the dates;
+- runs, as the big number;
+- tiles for minutes, games, days played and xp;
+- up to 4 highlights: weekly challenge done, the biggest new best (+n more), a level-up, and the most played game;
+- "your turn." and computercooked.com/games.
+
+The card is drawn while the recap shows, so the share sheet opens from the tap (iOS). Where files can be shared it opens the share sheet with the image plus `computercooked.com/games/?utm_source=share&utm_medium=recap`; elsewhere the image is downloaded. Nothing is uploaded and no public URL holds anyone's week.
+
+**Guests (no account):** the player card ("my stats" in the command bar) has the same **share my week ↗** button. It builds the week from this device only. `games/platform.js` `weekLog()` keeps localStorage `cc-week` after every run the board accepted a score from, or that lasted 3 s or more (shorter unscored starts are left out):
+- `wk` (that week's local Monday), `runs`, `ms`, `g {slug: [runs, title]}` and `d` (days played);
+- `xp` gained, and `l0` / `l1` / `lt` (the level at the week's first run, the level now, and its title);
+- `b {slug: [new best, the best before, title]}`;
+- `ch`, set when an accepted run met this week's challenge target on the challenge game;
+- `last` (the week before).
+
+**Your week here:** each game page's panel shows a line from the same log, "your week here: 7 runs · best 1,240 · last week 3 runs" (`.cc-week-line`, `weekLine()` in `games/platform.js`). It appears from the week's first run on that game; `g[slug]` keeps `[runs, title, the week's best score]`.
+
+`assets/deck.js` turns it into the `/api/me/recap` shape and draws it with the same `me/recap-card.js`. It uses this week if there are runs, else last week. It starts counting from the first run after this shipped (Nov 16 2026). Nothing is sent.
+
+The recap now also lists the week's challenge: "weekly challenge done ✓" when finished, and this week's goal while it's still open.
+
 ## Public endpoints
 
 | method | path | what |
@@ -514,14 +653,19 @@ After any accepted run, the dare box on the game page offers **share card ▶** 
 | POST | `/api/follow` | `{platform: tiktok/youtube/instagram/x, slot: hub-card/hub-footer/post-run, game?, anon}` → `{ok}`. A follow button click (see "Follow loop"); one `cc:follow_click` event, no player id; smoke not stored |
 | GET | `/api/featured` | game of the week for the hub hero: `{featured: {week, game, title, pitch, thumbnail, reason, basis: metrics/rotation}}`. Picked from the 4 weeks before this week (D1 return rate with 8+ new players, plus 0.25 × rating with 5+ ratings), never the weekly challenge's game. With thin data it rotates through the newest games. Cached 5 min |
 | GET | `/api/challenge` | `{challenge: {week, game, title, thumbnail, goal, target, xp, ends_at, finishers, done?, best?} | null, events: [{id, label, name, desc, xp, until, got?}]}`. `done`/`best`/`got` only when logged in |
-| GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total} \| null}`. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |
+| GET | `/api/gotd` | `{ok, day, game, title, pitch, thumbnail, poster, ends_at}`: today's game of the day (2x play XP until `ends_at`, midnight UTC); `game: null` if there's no pick. See "Game of the day". |
+| GET | `/api/me/recap?week=last\|this` | your week in numbers for /me: `{recap: {week, which, from, to, complete, runs, minutes, games, days, xp, prev: {runs, xp}, level: {from, to, title}, top: {game, title, runs, minutes}, bests: [{game, title, score, prev}], bests_total, achievements: [{game, id, name}], achievements_total, challenge: {game, title, goal, done} \| null} \| null}`. `challenge` is that week's weekly challenge (read only) and whether this player finished it. `last` (default) is the last full Mon–Sun week (UTC), shown all of the following week; `this` is the week so far. `bests` are games where the week's best beat every earlier score (`prev: null` for a first score), beaten bests first. Computed from plays, xp_events, scores and achievements, nothing stored. `null` when there were no runs |
 | GET | `/api/me/feed` | `{items: [{kind: game/achievement/challenge, game, title, text, ts}]}`, newest first, up to 30 |
 | GET | `/api/me/friends` | `{friends, incoming, outgoing, blocked}`, each `[{username, name, avatar, level}]` |
 | GET | `/api/me/friends/feed` | `{friends, items: [{kind: achievement/challenge/best/level/friend, game, title, text, ts, who: {username, name, avatar, level}}]}`: your friends from the last 14 days (badges, weekly challenge wins, new bests, level-ups, new friendships). Level-ups are worked out from xp_events (the running total crossing a level), one per friend per day at the highest level reached; "is now your friend" uses the later of the two friendship rows. Friends with a private profile are left out, and game moments (smol words etc.) never appear here |
 | POST | `/api/me/friends` | `{action: add/accept/decline/cancel/remove/block/unblock, username}` → `{status: requested/friends/none/blocked}`. Adding someone who already asked you accepts. 200 friends max, 20 waiting requests, 30 adds/hour. Blocking removes the friendship, and the blocked player gets "no such player" if they try to add you (a block is never revealed) |
-| GET | `/games/:slug/` | every game page runs through `src/seo.js`, which adds VideoGame + BreadcrumbList JSON-LD to `<head>`, fills the `[data-how-to]` card ("how to play X": pitch, controls split into steps, optional `how_to` tips from games.json/entry.json, size and daily facts) and server-renders "games like X" into `[data-more-games]` (3 games by shared vibe, then shared tag, then newest; same vibes as the hub chips in fx.js). Everything comes from games.json |
+| GET | `/games/:slug/` | every game page runs through `src/seo.js`, which adds VideoGame + BreadcrumbList JSON-LD to `<head>`, fills the `[data-how-to]` card ("how to play X": pitch, controls split into steps, optional `how_to` tips from games.json/entry.json, size and daily facts) and server-renders "games like X" into `[data-more-games]` (3 games by shared vibe, then shared tag, then newest; same vibes as the hub chips in fx.js). It also adds any share-card tags the page lacks: `og:image:width`/`height` (1200x630), `og:image:alt` and `twitter:image:alt` (`imageMeta()`). The hub (`src/hub.js`) and homepage (`src/pages.js`) get an ItemList JSON-LD of every Computer Cooked game (`gamesItemList()`, production URLs always). Everything comes from games.json |
+| GET | `/games/:slug/` (questions) | `src/seo.js` `faqOf(g)` adds "questions about X": 4-6 `<details>` Q&As built only from games.json facts (free, phone controls read from `controls`, run length from the `60s runs`/`short`/`quick` tags, leaderboard if `max_score_per_sec`, daily if tagged, challenge a friend for scored games without idle/sim/incremental tags, who made it, full screen), plus a `FAQPage` JSON-LD with the same words. Smoke test checks the count matches. |
+| GET | `/games/:slug/play/` | the bare game build the players frame. Served from the assets unchanged, plus `X-Robots-Tag: noindex, indexifembedded` (`src/worker.js`) so search results land on the game page, not the raw build |
 | GET | `/games/:slug/embed/` | the embed player (`src/embed.js`): the game's `/play/` iframe plus a slim bar (title linking to the game page, restart, sound, fullscreen, "more free games"). Any site may frame it (`frame-ancestors *`, no X-Frame-Options); `noindex`, canonical = the game page. Plays from it carry ref `embed`. 404 for unknown and community games. CRASH embeds its standalone build in `games/crash/play/` (its own page still runs the inline copy). Game pages show an "embed this game" card with the snippet: an iframe to this URL plus a "Play X free on Computer Cooked Games" credit link |
-| GET | `/games/:slug/?vs=&from=[&d=]` | the game page with link-preview tags for a dare: `<title>`, og/twitter title "can you beat 1,240 on CRASH? from datz", a dare description, and `og-vs.png`. With a valid `d` the score and name come from the dare, not the URL. Plain game pages carry `og.png`. Both cards are 1200x630, made by `scripts/make-og.mjs` (see its header; `add-game.ps1` runs it) |
+| GET | `/games/:slug/?vs=&from=[&d=]` | the game page with link-preview tags for a dare: `<title>`, og/twitter title "can you beat 1,240 on CRASH? from datz", a dare description, and `og-vs.png`. With a valid `d` the score and name come from the dare, not the URL, and the image is that dare's own card (below). Plain game pages carry `og.png`. Both cards are 1200x630, made by `scripts/make-og.mjs` (see its header; `add-game.ps1` runs it) |
+| GET | `/games/:slug/dare/:id.png` | the share card of a stored dare (1200x630 PNG, `src/darecard.js`, cached an hour; names by the leaderboard's rules); 302 to `og-vs.png` for a missing or other-game dare |
+| GET | `/games/:slug/challenge/:week.png` | that ISO week's (`2026-W47`) weekly challenge card (1200x630 PNG, cached an hour); 302 to `og.png` when that week's challenge isn't this game |
 | GET | `/u/:username` | the public profile page (the Worker serves `/u/index.html` for it) |
 | GET | `/api/saves/:game` | the logged-in player's slots `[{slot, updated_at, bytes, version}]` |
 | GET · PUT · DELETE | `/api/saves/:game/:slot` | PUT `{data, updated_at, version}`. Errors: 413 over 512 KB, 409 at 5 slots, 429 over ~1 write/10 s. An older `updated_at` returns `{stale:true}` and changes nothing. Needs login (401) |

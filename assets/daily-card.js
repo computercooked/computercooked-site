@@ -63,7 +63,7 @@
       ctx.fillStyle = C.text; ctx.font = "600 40px Inter"; ctx.fillText(st.streak === 1 ? "day" : "days", 96 + sw + 20, 916);
 
       ctx.fillStyle = C.dim; ctx.font = "600 30px Inter"; ctx.textAlign = "right";
-      ctx.fillText("computercooked.com/games/daily", W - 96, 916);
+      ctx.fillText("computercooked.com/g/daily", W - 96, 916);
       ctx.textAlign = "left";
       return new Promise(function (ok) { cv.toBlob(ok, "image/png"); });
     });

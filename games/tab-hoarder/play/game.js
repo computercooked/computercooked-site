@@ -15,6 +15,7 @@
   const CRASH_TOP = CRASH_W - 13 * (CRASH_W / 128); // monitor top edge in world y
   const RANGE = 175;                       // slider travels +-RANGE around center
   const PERFECT = 5;                       // world units of forgiveness that snap to perfect
+  const perfWin = () => (tabsN < 3 ? 9 : PERFECT); // the first 3 drops are kinder, so new players feel a perfect early
   const BEST_KEY = 'cc-tab-hoarder-best-pts'; // v2: best is points, not tabs
 
   const TITLES = [
@@ -173,7 +174,7 @@
     tabs = [makeTab(0, BASE_W, CRASH_TOP, 'new tab')];
     tabs[0].fav = COL.lime;
     debris = []; parts = []; toasts = [];
-    score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
+    passedBest = false; score = 0; tabsN = 0; bestCombo = 0; slowLeft = 0; nextPower = 5 + ((Math.random() * 3) | 0); powersUsed = 0; combo = 0; newBest = false; shake = 0; crashHit = 0; side = Math.random() < 0.5 ? -1 : 1;
     state = toState;
     hideTip(); // K-0059: shared tip button (assets/tip.js)
     spawn();
@@ -206,8 +207,10 @@
     if (cur && cur.power === 'virus') sp *= 1.45;
     return sp;
   }
+  let passedBest = false;
   function addPoints(n) {
     score += n;
+    if (!passedBest && best > 0 && score > best && state === 'play') { passedBest = true; toast('new best! keep going', COL.lilac, 1.6, false); sfx.milestone(); shake = Math.max(shake, 4); }
     const now = performance.now();
     if (now - lastScoreSent > 400) { lastScoreSent = now; cc('score', score); }
   }
@@ -220,7 +223,7 @@
     const r = Math.min(cur.x + cur.w / 2, top.x + top.w / 2);
     const ov = r - l;
     const pw = cur.power;
-    if (ov <= 0.5 && !(Math.abs(off) <= PERFECT)) { // missed completely
+    if (ov <= 0.5 && !(Math.abs(off) <= perfWin())) { // missed completely
       lastTitle = cur.joke || cur.title;
       debris.push(Object.assign(cur, { vx: cur.dir * curSpeed() * 0.4, vy: 40, rot: 0, vr: cur.dir * 2.5 }));
       cur = null;
@@ -228,7 +231,7 @@
       return;
     }
     let placed;
-    if (Math.abs(off) <= PERFECT || pw === 'pin') {
+    if (Math.abs(off) <= perfWin() || pw === 'pin') {
       combo++;
       bestCombo = Math.max(bestCombo, combo);
       let w = cur.w;
@@ -256,7 +259,7 @@
     }
     placed.flash = 1;
     if (pw) { placed.power = pw; powersUsed++; }
-    const dbl = pw && pw !== 'pin' && Math.abs(off) <= PERFECT ? 2 : 1;
+    const dbl = pw && pw !== 'pin' && Math.abs(off) <= perfWin() ? 2 : 1;
     if (dbl > 1) toast('perfect power-up: double', COL.lime, 1, true);
     if (pw === 'reopen') { const nw = Math.min(BASE_W, placed.w + 70 * dbl); toast('tab restored. +' + Math.round(nw - placed.w) + ' width', COL.lilac, 1.2, true); placed.w = nw; burst(placed.x, cur.y + TAB_H / 2, nw, COL.lilac, 18); sfx.powerup(); }
     if (pw === 'slow') { slowLeft = 6 * dbl; toast('low power mode: ' + slowLeft + ' slow tabs', '#7fd8ff', 1.2, true); sfx.powerup(); }
@@ -589,6 +592,15 @@
     }
     // active tab
     if (cur && state !== 'over') {
+      // alignment guides: the top tab's edges, carried up through the moving tab. they light up inside the perfect window
+      if (state === 'play' && !paused) {
+        const tp = topTab(), hit = Math.abs(cur.x - tp.x) <= perfWin() || cur.power === 'pin';
+        worldTransform(sh, shy);
+        ctx.fillStyle = hit ? 'rgba(197,255,73,0.85)' : 'rgba(245,243,237,0.16)';
+        const y0 = -(cur.y + TAB_H + 8), hh = TAB_H + 8;
+        ctx.fillRect(tp.x - tp.w / 2 - 1, y0, 2, hh); ctx.fillRect(tp.x + tp.w / 2 - 1, y0, 2, hh);
+        if (hit) { ctx.globalAlpha = 0.18 + 0.12 * Math.sin(t * 30); ctx.fillRect(tp.x - tp.w / 2, y0, tp.w, hh); ctx.globalAlpha = 1; }
+      }
       worldTransform(sh, shy);
       ctx.translate(cur.x, -cur.y);
       // drop shadow guide
@@ -697,7 +709,7 @@
     text('computer cooked games presents', cx, y - 34 * u, Math.round(10 * u), 'rgba(245,243,237,0.55)', 'center', 'normal');
     text('tab hoarder', cx, y + 10 * u, Math.round(46 * u), COL.lime, 'center');
     y += 44 * u;
-    const lines = wrap('drop browser tabs onto crash. overhang gets cut. perfect drops grow the tab back and stack a multiplier. colored tabs are power-ups. miss once and you\'re cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
+    const lines = wrap('tap to drop each tab on the stack. overhang gets cut. line it up for a perfect: the tab grows back and points multiply. colored tabs are power-ups. miss once: cooked.', Math.round(13 * u), Math.min(W - 40, 360 * u));
     for (const ln of lines) { text(ln, cx, y, Math.round(13 * u), COL.paper, 'center', 'normal'); y += 19 * u; }
     y += 18 * u;
     const blink = Math.sin(t * 5) > -0.3;
@@ -740,25 +752,32 @@
     let y = cy + 30 * u;
     text(String(score), mid, y + 96 * u, Math.round(96 * u), COL.lime, 'center');
     y += 122 * u;
-    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + ' pts, ' + streakText() + ') before getting cooked.';
+    const msg = 'i hoarded ' + tabsN + (tabsN === 1 ? ' tab' : ' tabs') + ' (' + score + (score === 1 ? ' pt, ' : ' pts, ') + streakText() + ') before getting cooked.';
     const lines = wrap(msg, Math.round(16 * u), cw - 36 * u);
     for (const ln of lines) { text(ln, mid, y, Math.round(16 * u), COL.paper, 'center'); y += 22 * u; }
     y += 4 * u;
     const cod = wrap('cause of death: "' + lastTitle + '"', Math.round(11 * u), cw - 36 * u);
     for (const ln of cod) { text(ln, mid, y, Math.round(11 * u), 'rgba(245,243,237,0.55)', 'center', 'normal'); y += 16 * u; }
     y += 8 * u;
-    text(newBest ? 'new personal best' : 'best: ' + best, mid, y, Math.round(12 * u), newBest ? COL.lilac : 'rgba(245,243,237,0.6)', 'center', newBest ? 'bold' : 'normal');
+    text(newBest ? 'new personal best' : 'best: ' + best + (best > score ? '  ·  ' + (best - score + 1) + ' pts to beat it' : ''), mid, y, Math.round(12 * u), newBest ? COL.lilac : 'rgba(245,243,237,0.6)', 'center', newBest ? 'bold' : 'normal');
     y = cy + ch - 24 * u;
     ctx.fillStyle = 'rgba(245,243,237,0.15)'; ctx.fillRect(cx + 18 * u, y - 20 * u, cw - 36 * u, 1);
     text('computercooked.com/games', mid, y, Math.round(13 * u), COL.lilac, 'center');
-    // share button
-    const sb = { w: 200 * u, h: 30 * u }; sb.x = mid - sb.w / 2; sb.y = cy + ch - 104 * u;
+    // a real "again" button (tap anywhere else still retries) next to share
+    const bw = (cw - 46 * u) / 2, bh = 38 * u, by = cy + ch - 112 * u;
+    const ab = { x: mid - bw - 5 * u, y: by, w: bw, h: bh }, sb = { x: mid + 5 * u, y: by, w: bw, h: bh };
     btns.share = sb;
+    const ready = overT > 1.1;
+    ctx.globalAlpha = e * (ready ? 1 : 0.45);
+    const pulse = ready ? 1 + Math.max(0, Math.sin(t * 4)) * 0.035 : 1;
+    ctx.save(); ctx.translate(ab.x + ab.w / 2, ab.y + ab.h / 2); ctx.scale(pulse, pulse);
+    ctx.fillStyle = COL.lime; ctx.fillRect(-ab.w / 2, -ab.h / 2, ab.w, ab.h);
+    ctx.restore();
+    text('again', ab.x + ab.w / 2, ab.y + ab.h * 0.66, Math.round(16 * u), COL.carbon, 'center');
+    ctx.globalAlpha = e;
     ctx.fillStyle = COL.lilac; ctx.fillRect(sb.x, sb.y, sb.w, sb.h);
-    text(shareMsgT > 0 ? shareMsg : 'share (s)', mid, sb.y + sb.h * 0.68, Math.round(13 * u), COL.carbon, 'center');
-    if (overT > 1.1 && Math.sin(t * 5) > -0.3) {
-      text('tap anywhere else / space to go again', mid, cy + ch - 56 * u, Math.round(12 * u), COL.lime, 'center');
-    }
+    text(shareMsgT > 0 ? shareMsg : 'share (s)', sb.x + sb.w / 2, sb.y + sb.h * 0.66, Math.round(shareMsgT > 0 ? 10 * u : 14 * u), COL.carbon, 'center');
+    text('or tap anywhere / space', mid, cy + ch - 56 * u, Math.round(11 * u), 'rgba(245,243,237,0.45)', 'center', 'normal');
     ctx.globalAlpha = 1;
   }
 

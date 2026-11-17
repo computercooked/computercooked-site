@@ -47,6 +47,13 @@ for (const u of ["/assets/deck.js", "/games/cc-sdk.js"]) {
   const js = await (await get(u)).text();
   ok(js.includes("utm_source") && js.includes('bsky: "bluesky"') && js.includes('yt: "youtube"'), u + " maps ?ref= link tags");
 }
+// secrets: deck.js collects them, and every script that finds one sends cc:secret
+{
+  const srcs = await Promise.all(["/assets/deck.js", "/assets/eggs.js", "/assets/golden.js", "/assets/home.js", "/assets/lost-game.js", "/assets/fx.js"].map(async (u) => [u, await (await get(u)).text()]));
+  const deckJs = srcs[0][1];
+  ok(deckJs.includes("window.ccSecrets") && deckJs.includes('"cc-secrets"') && deckJs.includes("stats-secrets") && srcs.slice(1).every(([, s]) => s.includes('"cc:secret"')),
+    "secrets: deck.js collects them and the egg scripts send cc:secret", srcs.filter(([, s]) => !s.includes("cc:secret")).map(([u]) => u).join(" "));
+}
 const tipRes = await (await get("/api/tip")).json();
 ok(tipRes.ok && (tipRes.url === null || /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]+$/.test(tipRes.url)), "tip jar is off or a Stripe Payment Link", tipRes.url);
 
@@ -109,6 +116,19 @@ r = await (await post("/api/dare", { play_id: p1, anon })).json();
 ok(r.id === dare.id, "one dare per run");
 r = await (await get("/api/dare/" + dare.id + "?open=1")).json();
 ok(r.ok && r.game === "crash" && r.score === 40 && r.from === "smokey", "open a dare", r);
+// its share card (src/darecard.js): a real 1200x630 PNG, and the dare link's preview points at it
+{
+  const card = await get("/games/crash/dare/" + dare.id + ".png"), buf = new Uint8Array(await card.arrayBuffer());
+  const dv = new DataView(buf.buffer), png = buf[0] === 137 && buf[1] === 80 && buf[2] === 78 && buf[3] === 71;
+  ok(card.ok && /image\/png/.test(card.headers.get("content-type")) && png && dv.getUint32(16) === 1200 && dv.getUint32(20) === 630, "dare share card is a 1200x630 png", card.status + " " + buf.length);
+  const pg = await (await get("/games/crash/?vs=40&from=smokey&d=" + dare.id)).text();
+  ok(pg.includes(`/games/crash/dare/${dare.id}.png`), "dare link preview uses its own card");
+  // a URL-only dare (no stored id) gets the leaderboard's name filter: a rude "from" is dropped
+  const rude = await (await get("/games/crash/?vs=40&from=porn99")).text();
+  ok(/og:title" content="can you beat 40 on crash\?"/.test(rude), "a URL-only dare's name goes through the name filter", rude.match(/og:title" content="[^"]*"/));
+  const wrong = await fetch(base + "/games/fathom/dare/" + dare.id + ".png", { redirect: "manual" });
+  ok(wrong.status === 302 && /og-vs\.png/.test(wrong.headers.get("location") || ""), "a dare card only draws for its own game", wrong.status);
+}
 r = await (await post("/api/dare/" + dare.id + "/beat", { play_id: p1, anon })).json();
 ok(r.ok && r.beaten === false && r.self, "your own run can't beat your own dare", r);
 const anon2 = "smoke2" + rid(), p5 = rid();
@@ -145,6 +165,10 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const catalog = (await (await get("/games/games.json")).json()).games;
   const byTitle = (t) => catalog.find((g) => g.title === t);
   ok(spotHref && spotHref === ctaHref && byTitle(spotName) && spotHref === "/games/" + byTitle(spotName).slug + "/", "hub spotlight (static): art link, title and play button are the same game", { spotHref, ctaHref, spotName });
+  // the server-rendered picture is that game's poster (or its cover when it has none), the same pick as fx.js below
+  const spotImg = (hubHtml.match(/<span class="spot-screen">\s*<img[^>]*\ssrc="([^"]+)"/) || [])[1];
+  const spotGame = byTitle(spotName);
+  ok(spotGame && spotImg === (spotGame.poster || spotGame.thumbnail), "hub spotlight (static): the picture is the featured game's poster or cover", { spotImg, want: spotGame && (spotGame.poster || spotGame.thumbnail) });
   const sandbox = { window: { matchMedia: () => ({ matches: false }) }, document: { addEventListener() {}, getElementById: () => null, querySelector: () => null }, location: { pathname: "/" } };
   sandbox.window.window = sandbox.window;
   vm.runInNewContext(await (await get("/assets/fx.js")).text(), { ...sandbox, ...sandbox.window, window: sandbox.window });
@@ -155,7 +179,7 @@ ok((await (await get("/games/")).text()).includes("/assets/follow.js"), "hub loa
   const slides = typeof build === "function" ? build(ours, newest, feat) : [];
   const bad = slides.filter((s) => {
     const g = byTitle(s.title);
-    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title || s.art !== g.thumbnail;
+    return !g || s.slug !== g.slug || s.href !== "/games/" + g.slug + "/" || s.cta.href !== s.href || s.cta.label !== "play " + g.title || s.art !== (g.poster || g.thumbnail);
   });
   ok(slides.length >= 2 && bad.length === 0 && (!feat || slides[0].slug === feat.game), "hub spotlight: each slide's button href, link and art match its title's game", { slides: slides.map((s) => s.slug), bad: bad.map((s) => s.title) });
 }
@@ -224,7 +248,7 @@ ok(r.ok, "a downloaded share card counts as a send method");
 let page = await (await get("/games/crash/")).text();
 ok(/\/games\/crash\/og\.png(\?v=\d+)?"/.test(page) && !page.includes("can you beat"), "game page has its og card");
 page = await (await get("/games/crash/?vs=99999&from=liar&d=" + dare.id)).text();
-ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && /\/games\/crash\/og-vs\.png(\?v=\d+)?"/.test(page), "dare link preview uses the verified score", page.match(/og:title" content="[^"]*"/));
+ok(/property="og:title" content="can you beat 40 on crash?\? from smokey"/.test(page) && page.includes("/games/crash/dare/" + dare.id + ".png\""), "dare link preview uses the verified score (and the dare's own card)", page.match(/og:title" content="[^"]*"/));
 // filter links: /games/?vibe=puzzle arrives filtered, with its own title and link preview
 page = await (await get("/games/?vibe=puzzle")).text();
 ok(/<title>puzzle games: free online/.test(page) && /property="og:title" content="\d+ free puzzle games/.test(page) && /<li class="game-card" hidden><a class="game-card-inner game-link" href="\/games\/crash\/"/.test(page) && /<li class="game-card"><a class="game-card-inner game-link" href="\/games\/fathom\/"/.test(page), "hub filter link is filtered on the server");
@@ -234,11 +258,64 @@ ok(/<title>free online games/.test(page) && !/<li class="game-card" hidden>/.tes
 page = await (await get("/games/fathom/")).text();
 const ld = JSON.parse((page.match(/<script type="application\/ld\+json">(.*?)<\/script>/) || [, "{}"])[1]);
 ok(ld["@graph"]?.[0]?.["@type"] === "VideoGame" && ld["@graph"][0].name === "fathom" && ld["@graph"][0].offers?.price === "0", "game page has VideoGame JSON-LD", ld["@graph"]?.[0]?.name);
-ok(/how to play fathom/.test(page) && /class="vibe-link" href="\/games\/\?vibe=puzzle"/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
+ok(/how to play fathom/.test(page) && /class="vibe-link" href="\/games\/puzzle\/"/.test(page) && /<li>tap or click the enemy sea to fire<\/li>/.test(page), "game page has a how-to-play card");
+// "questions about X": the visible <details> and the FAQPage JSON-LD say the same number of things
+const faqLd = (ld["@graph"] || []).find((x) => x["@type"] === "FAQPage");
+const faqBox = (page.match(/<section class="about-card game-faq"[\s\S]*?<\/section>/) || [""])[0];
+const faqN = (faqBox.match(/<details/g) || []).length;
+ok(/questions about fathom/.test(faqBox) && faqN >= 4 && faqLd?.mainEntity?.length === faqN && /is fathom free\?/.test(faqBox), "game page has a questions block matching its FAQPage JSON-LD", faqN + "/" + faqLd?.mainEntity?.length);
+// the breadcrumb names the game (not its slug), and the "new" chip shows exactly when games.json's added date says so
+{
+  const mp = await (await get("/games/microwave-panic/")).text();
+  const cat = (await (await get("/games/games.json")).json()).games || [];
+  const mpg = cat.find((x) => x.slug === "microwave-panic"), fresh = mpg && Date.now() - Date.parse(mpg.added) < 14 * 86400000;
+  ok(/aria-current="page">microwave panic</.test(mp) && /player-new/.test(mp) === !!fresh, "game page breadcrumb names the game; the new chip follows the 14-day rule", fresh);
+  const pjs = await (await get("/games/player.js")).text(), gcss = await (await get("/games/games.css")).text();
+  const fxHub = await (await get("/assets/fx.js")).text();
+  ok(!/[^.\w]history\.replaceState/.test(fxHub), "fx.js writes the hub filter to the address through window.history (its own history() reader shadows the global)");
+  ok(pjs.includes("ghost-bus|") && pjs.includes("tool-results") && pjs.includes('"quiet"') && gcss.includes(".tool-results"), "results card: quiet games get a bar button, and play again restarts ghost bus");
+  ok(pjs.includes("fs-tap-go") && pjs.includes("cc-fs-here") && /\(vs\|d\)=/.test(pjs) && gcss.includes(".fs-tap {"), "phones get 'tap to play full screen' (not on dare links)");
+  const fxJs = await (await get("/assets/fx.js")).text();
+  ok(fxJs.includes("hub-gary") && fxJs.includes("function garyLine") && gcss.includes(".hub-gary {"), "searching gary on the games hub gets an answer from gary");
+}
 const like = (page.match(/<section class="more-games"[^>]*>[\s\S]*?<\/section>/) || [""])[0];
 ok(/games like fathom/.test(like) && (like.match(/class="game-card-inner game-link"(?: style="[^"]*")? href="\/games\/[a-z0-9-]+\/"/g) || []).length === 3 && !like.includes('href="/games/fathom/"') && !/^<section[^>]*hidden/.test(like), "game page links 3 games like it (not itself)");
 r = await get("/games/fathom/play/");
 ok(r.ok && !(await r.text()).includes("ld+json"), "game files under /play/ pass through untouched");
+// launch SEO (read-only): bare game builds are noindex, game share cards carry alt text, the hub and homepage list
+// every game as ItemList JSON-LD, and every public page has a share card
+ok(/noindex/.test(r.headers.get("x-robots-tag") || ""), "game builds under /play/ are noindex", r.headers.get("x-robots-tag"));
+ok(/property="og:image:alt" content="fathom: /.test(page) && /name="twitter:image:alt"/.test(page) && /property="og:image:width" content="1200"/.test(page), "game page share card has size and alt text");
+{
+  const ours = JSON.parse(readFileSync(new URL("../games/games.json", import.meta.url), "utf8")).games.filter((g) => g.made_by === "computer-cooked");
+  for (const u of ["/", "/games/"]) {
+    const html = await (await get(u)).text();
+    const list = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => { try { return JSON.parse(m[1]); } catch (e) { return null; } }).find((d) => d && d["@type"] === "ItemList");
+    ok(list && list.itemListElement.length === ours.length && list.itemListElement.every((x) => x.item?.["@type"] === "VideoGame" && x.item.url.startsWith("https://computercooked.com/games/")), u + " has an ItemList of every game", list && list.itemListElement.length);
+  }
+  const lacking = [];
+  for (const u of ["/", "/games/", "/games/daily/", "/lab/", "/log/", "/champs/", "/about/", "/support/", "/merch/", "/surf/", "/privacy/", "/terms/"]) {
+    const html = await (await get(u)).text();
+    if (!/property="og:image" content="https:\/\//.test(html) || !/name="twitter:card" content="summary_large_image"/.test(html) || !/rel="canonical"/.test(html) || !/property="og:image:alt"/.test(html)) lacking.push(u);
+  }
+  ok(lacking.length === 0, "every public page has canonical, og:image (+alt) and a large twitter card", lacking);
+}
+// mood collections (src/collections.js, read-only): one server-rendered page per mood, each with its own canonical,
+// an ItemList of its games (at least 2) and breadcrumbs; the slashless form redirects; other words still 404
+for (const v of ["arcade", "puzzle", "chill", "quick", "rage"]) {
+  r = await get(`/games/${v}/`);
+  const html = await r.text();
+  const lds = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => { try { return JSON.parse(m[1]); } catch (e) { return null; } });
+  const list = lds.find((d) => d && d["@type"] === "ItemList"), crumbs = lds.find((d) => d && d["@type"] === "BreadcrumbList");
+  const cards = (html.match(/<li class="game-card" data-slug="[a-z0-9-]+"/g) || []).length;
+  ok(r.status === 200 && html.includes(`<link rel="canonical" href="https://computercooked.com/games/${v}/">`) && list && list.itemListElement.length >= 2 && list.itemListElement.length === cards &&
+    crumbs?.itemListElement?.[2]?.item === `https://computercooked.com/games/${v}/` && /<title>free [a-z]+ games online/.test(html) && /property="og:image:alt"/.test(html) && html.includes("ccPreview.attach"),
+    `/games/${v}/ is a mood page: 200, canonical, ItemList of 2+ games, breadcrumbs`, { status: r.status, games: list && list.itemListElement.length, cards });
+}
+r = await fetch(base + "/games/arcade", { redirect: "manual" });
+ok(r.status === 301 && new URL(r.headers.get("location"), base).pathname === "/games/arcade/", "/games/arcade redirects to /games/arcade/", r.status);
+r = await get("/games/notamood/");
+ok(r.status === 404, "an unknown /games/<word>/ is still a 404", r.status);
 // installable web app: manifest, a service worker that's re-checked on every load, the offline page, and the
 // manifest + pwa.js on the hub and every game page
 {
@@ -271,8 +348,8 @@ ok(r.ok && (await r.text()).includes('src="/games/crash/play/"'), "CRASH embeds 
 r = await get("/games/crash/play/");
 ok(r.ok && r.headers.get("content-security-policy") === "frame-ancestors *" && (await r.text()).includes("crash.js"), "CRASH /play/ is served and frameable");
 page = await (await get("/games/crash/")).text();
-ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play crash/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && page.includes('data-version="2"'),
-  "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2");
+ok(page.includes('class="about-card embed-card"') && page.includes('src="/games/crash/play/"') && /how to play crash/.test(page) && page.includes("<li>coffee −11°, fans −24°.</li>") && /data-version="2(\.\d+)*"/.test(page),
+  "CRASH is a standard player page: /play/ iframe, how-to with its tips, embed card, v2.x");
 r = await get("/games/crash/crash.js");
 ok(r.status === 404, "the old inline CRASH script is gone", r.status);
 r = await get("/games/crash/window/");
@@ -295,6 +372,25 @@ ok(r.ok && Array.isArray(r.games) && !r.games.some((g) => /^smoke/i.test(g.anon 
 r = await (await get("/api/featured")).json();
 const chNow = (await (await get("/api/challenge")).json()).challenge;
 ok(r.ok && r.featured?.game && r.featured.title && r.featured.game !== chNow?.game && ["metrics", "rotation"].includes(r.featured.basis), "game of the week (not the challenge game)", r.featured && { game: r.featured.game, basis: r.featured.basis, reason: r.featured.reason, challenge: chNow?.game });
+
+// weekly challenge share card: /games/<game>/challenge/<week>.png, and ?wc=<week> links point their preview at it
+if (chNow?.week && chNow.game) {
+  const cc = await get(`/games/${chNow.game}/challenge/${chNow.week}.png`), cb = new Uint8Array(await cc.arrayBuffer());
+  const cdv = new DataView(cb.buffer);
+  ok(cc.status === 200 && cc.headers.get("content-type") === "image/png" && cdv.getUint32(16) === 1200 && cdv.getUint32(20) === 630, "the weekly challenge share card is a 1200x630 png", cc.status + " " + cb.length);
+  const wp = await (await get(`/games/${chNow.game}/?wc=${chNow.week}`)).text();
+  ok(wp.includes(`/games/${chNow.game}/challenge/${chNow.week}.png"`) && /og:title" content="weekly challenge: score [\d,.]+\+ on /.test(wp), "a challenge link's preview uses the challenge card", wp.match(/og:title" content="[^"]*"/));
+  const other = chNow.game === "fathom" ? "crash" : "fathom";
+  const wr = await fetch(base + `/games/${other}/challenge/${chNow.week}.png`, { redirect: "manual" });
+  ok(wr.status === 302 && /\/og\.png$/.test(wr.headers.get("location") || ""), "a challenge card only draws for that week's game", wr.status);
+  const np = await (await get(`/games/${other}/?wc=${chNow.week}`)).text();
+  ok(!np.includes("/challenge/"), "a challenge link for the wrong game gets the plain preview");
+  const pjs2 = await (await get("/games/platform.js")).text();
+  ok(pjs2.includes("cc-ch-share") && pjs2.includes("utm_medium=challenge"), "the challenge line has a share button");
+  const dk = await (await get("/assets/deck.js")).text();
+  ok(pjs2.includes('"cc-week"') && pjs2.includes("function weekLog") && dk.includes("stats-week") && dk.includes("/me/recap-card.js"), "guests: the week is kept on the device and the player card can share it");
+  ok(pjs2.includes("cc-week-line") && pjs2.includes("your week here"), "game pages show your week on that game");
+} else ok(false, "this week's challenge for the share card check", chNow);
 
 if (!local) console.log("SKIP (live: no accounts) signup, login, xp, profiles, saves, friends, dares by accounts, referrals, delete account");
 else {
@@ -448,6 +544,20 @@ else {
     ok(wk.ok && /^\d{4}-W\d\d$/.test(wk.week) && wk.resets_at > Date.now() && (mine ? mine.xp >= 60 && mine.u === u : wk.you?.xp >= 60), "weekly xp board shows this account", mine || wk.you);
     wk = await (await get("/api/xp/week")).json();
     ok(wk.ok && wk.you === null && wk.rows.every((x) => !x.me && x.u && typeof x.level === "number"), "weekly xp board for guests: rows, no 'you'");
+    // game of the day (src/gotd.js): today's pick pays its play xp twice ("gotd" part); other games don't; home shows it
+    const gd = await (await get("/api/gotd")).json();
+    ok(gd.ok && gd.game && /^\d{4}-\d\d-\d\d$/.test(gd.day) && Date.parse(gd.ends_at) > Date.now() && !["crash-test-daily", "desktop-jam", "fathom"].includes(gd.game),
+      "game of the day: /api/gotd names today's pick (never a daily 3 game)", gd);
+    if (gd.game) {
+      const b = await run(gd.game), bp = (b?.parts || []).find((p) => p.kind === "play"), bg = (b?.parts || []).find((p) => p.kind === "gotd");
+      ok(bp && bg && bg.xp === bp.xp, "game of the day: a run pays its play xp twice", b?.parts);
+      const o = await run(gd.game === "crash" ? "bellchain" : "crash");
+      ok(o && !(o.parts || []).some((p) => p.kind === "gotd"), "game of the day: other games pay no bonus", o?.parts);
+      const again = await (await get("/api/gotd")).json();
+      ok(again.game === gd.game, "game of the day: the pick holds all day");
+      const home = await (await get("/")).text();
+      ok(new RegExp(`id="home-gotd" href="/games/${gd.game}/\\?ref=gotd"`).test(home) && /game of the day <b>2x xp<\/b>/.test(home), "home shows the game of the day card");
+    }
   }
   // XP and levels (slice B): a logged-in 12s run of CRASH
   const ev = (events) => post("/api/events", { anon, events }, { cookie }).then((x) => x.json());
@@ -478,6 +588,9 @@ else {
   r = await (await get("/api/me/recap?week=this", { cookie })).json();
   const rc = r.recap;
   ok(rc?.runs > 0 && rc.xp > 0 && rc.complete === false && rc.days >= 1 && rc.top?.game && rc.achievements_total >= 1 && rc.achievements.length >= 1, "weekly recap: this week so far", rc && { runs: rc.runs, xp: rc.xp, top: rc.top });
+  ok(rc && "challenge" in rc && (rc.challenge === null || (typeof rc.challenge.done === "boolean" && rc.challenge.game && rc.challenge.title)), "weekly recap carries the week's challenge result", rc && rc.challenge);
+  const meHtml = await (await get("/me/")).text(), meJs = await (await get("/me/me.js")).text(), rcJs = await (await get("/me/recap-card.js")).text();
+  ok(meHtml.includes('id="recap-share"') && meJs.includes("/me/recap-card.js") && rcJs.includes("window.ccRecapCard"), "/me has 'share my week' and its card drawer");
   r = await (await get("/api/me/recap", { cookie })).json();
   ok(r.ok && r.recap === null, "weekly recap: empty for the week before the account existed", r.recap);
   ok((await get("/api/me/recap")).status === 401, "weekly recap needs a login");
@@ -894,17 +1007,17 @@ if (admin) {
   ok(/id="desk-snd" aria-pressed="false" hidden/.test(home), "home taskbar has the sounds switch (hidden until home.js allows it, off by default)");
   ok(/id="desk-reel" href="\/games\/[a-z0-9-]+\/\?ref=reel"/.test(home) && home.includes('id="reel-clip"'), "home hero has the reel, linked to a game");
   ok(/id="menu-saver" hidden><button type="button" data-act="saver"/.test(home), "start menu has the screensaver (hidden until home.js allows it)");
-  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/\?vibe=quick&amp;ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('id="home-crown-list"') && home.includes('class="card2') && !home.includes("gary-entry"),
+  ok(/id="home-play" href="\/games\/[a-z0-9-]+\/\?ref=landing">play [^<]+</.test(home) && home.includes('class="feature-card') && home.includes('class="lab-item"') && home.includes('id="desk-icons"') && home.includes('id="desk-dice"') && /class="mood mood-quick" href="\/games\/quick\/\?ref=mood"/.test(home) && /class="mood-n">\d+ games? /.test(home) && home.includes('id="desk-menu"') && /id="home-ch" href="\/games\/[a-z0-9-]+\/\?ref=now"/.test(home) && home.includes('id="home-daily"') && home.includes('id="home-crown-list"') && home.includes('class="card2') && !home.includes("gary-entry"),
     "homepage: one play button, featured game, lab strip, cooked desktop with dock and start menu, happening now, no gary");
   const labHtml = await (await get("/lab/")).text();
   ok((labHtml.match(/class="poll-opt" data-option="/g) || []).length >= 2 && labHtml.includes('class="lab-item"'), "/lab shows the pipeline and the vote");
   // K-0048: gary's disaster log is now the cooked log, the computer's own; /gary/ redirects there
   const logHtml = await (await get("/log/")).text();
   ok((logHtml.match(/class="log-entry/g) || []).length >= 3 && !/gary/i.test(logHtml), "/log shows the cooked log, no gary");
-  // the wall of epic gamers: served by the Worker, with the list (or its empty state) in place
+  // the wall of epic gamers: served by the Worker, with the plaques (or its empty state) in place
   const champs = await get("/champs/");
   const champsHtml = await champs.text();
-  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="champ-(card|empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
+  ok(champs.status === 200 && champsHtml.includes('id="champ-list"') && champsHtml.includes("/assets/champs.js") && /class="(plaque|champ-empty)/.test(champsHtml), "/champs/ shows the wall of epic gamers", champs.status);
   // channel surf: the static page with its tv, and the catalogue it reads has clips
   const surf = await get("/surf/");
   const surfHtml = await surf.text();
@@ -913,6 +1026,26 @@ if (admin) {
   const lost = await get("/no-such-page-" + Date.now());
   const lostHtml = await lost.text();
   ok(lost.status === 404 && lostHtml.includes('id="lost-pick-list"') && lostHtml.includes("/assets/lost.js"), "404 page offers three games to play", lost.status);
+  // 404 mini-game: "catch the missing page", a deferred script that keeps its best in cc-404-best
+  ok(/<section class="lost-game" id="lost-game"[^>]*hidden/.test(lostHtml) && /<script src="\/assets\/lost-game\.js" defer><\/script>/.test(lostHtml), "404 page has the catch-the-missing-page game (deferred)");
+  const lostGame = await get("/assets/lost-game.js"), lostGameJs = await lostGame.text();
+  ok(lostGame.ok && lostGameJs.length < 8192 && lostGameJs.includes("cc-404-best") && lostGameJs.includes("prefers-reduced-motion") && lostGameJs.includes("visibilitychange"), "404 game script: small, keeps a best, honours reduced motion, pauses when hidden", lostGameJs.length);
+  // promo short links: /g/<alias> → the game page, tagged; unknown → the hub; read-only (redirects only)
+  const sh = async (p) => { const r = await fetch(base + p, { redirect: "manual" }); return { status: r.status, to: r.headers.get("location") && new URL(r.headers.get("location"), base), cache: r.headers.get("cache-control") || "" }; };
+  let s = await sh("/g/microwave");
+  ok(s.status === 302 && s.to.pathname === "/games/microwave-panic/" && s.to.searchParams.get("ref") === "short" && s.to.searchParams.get("utm_medium") === "short" && /max-age=300/.test(s.cache), "/g/microwave → microwave-panic, tagged ref=short", s.to && s.to.href);
+  s = await sh("/g/Goose/?utm_source=tiktok&utm_campaign=bio&junk=1");
+  ok(s.status === 302 && s.to.pathname === "/games/goose-court/" && s.to.searchParams.get("utm_source") === "tiktok" && s.to.searchParams.get("utm_campaign") === "bio" && !s.to.searchParams.has("ref") && !s.to.searchParams.has("junk"), "/g/ keeps utm tags (no ref=short over a utm_source), drops other params", s.to && s.to.href);
+  s = await sh("/g/devil?ref=tiktok");
+  ok(s.status === 302 && s.to.pathname === "/games/level-devil-exe/" && s.to.searchParams.get("ref") === "tiktok", "/g/devil keeps a passed ref", s.to && s.to.href);
+  s = await sh("/g/level-devil");
+  ok(s.status === 302 && s.to.pathname === "/games/level-devil-exe/", "/g/<slug without -exe> works", s.to && s.to.href);
+  s = await sh("/g/daily");
+  ok(s.status === 302 && s.to.pathname === "/games/daily/", "/g/daily → the daily", s.to && s.to.href);
+  s = await sh("/g/no-such-game-" + Date.now() % 1000);
+  ok(s.status === 302 && s.to.pathname === "/games/" && s.to.searchParams.get("ref") === "short", "unknown /g/ alias → the hub, tagged", s.to && s.to.href);
+  s = await sh("/g/");
+  ok(s.status === 302 && s.to.pathname === "/games/" && !s.to.search, "/g/ alone → /games/", s.to && s.to.href);
   const deckJs = await (await get("/assets/deck.js")).text();
   ok(deckJs.includes("KONAMI_CODE_ACCEPTED") && deckJs.includes('"arrowup", "arrowup", "arrowdown"'), "deck.js has the konami code easter egg");
   ok(deckJs.includes('e.key === "?"') && deckJs.includes("keys-list"), "deck.js lists every keyboard shortcut on ?");

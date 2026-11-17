@@ -2,6 +2,13 @@
 .home2 { overflow-x: clip; }
 .home2 > .home-sec, .home2 > .links { max-width: var(--max); margin: var(--s-8) auto 0; padding: 0 var(--gutter); }
 .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4); margin-bottom: var(--s-4); }
+/* phones: a head's link (or buttons) keeps to one line and drops under the heading when they don't fit side by
+   side, instead of both squeezing into 2-3 line columns ("my / stats", "can't pick? / channel / surf →") */
+@media (max-width: 560px) {
+  .sec-head { flex-wrap: wrap; row-gap: 2px; column-gap: var(--s-3); }
+  .sec-head > :not(h2) { white-space: nowrap; }
+  .sec-head > a.text-link, .desk-row-acts button { padding-block: 6px; }
+}
 
 /* ---------- the desktop ---------- */
 .desk {
@@ -214,8 +221,10 @@ a.now-card:hover, a.now-card:focus-visible { transform: translate(-2px, -2px); b
 .card2[style] .thumb::after { content: ""; position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 3px; background: var(--accent); }
 .card2 .thumb { position: relative; display: block; aspect-ratio: 16 / 10; background: #000; overflow: hidden; }
 .card2 .thumb img, .card2 .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-.card2 .thumb video { opacity: 0; transition: opacity .2s; }
-.card2.is-playing .thumb video { opacity: 1; }
+/* gameplay posters (src/pages.js art(): class is-poster, 320x180 frames of the clip) and the clip itself scale smoothly,
+   like the hub's .game-thumb.is-poster (games/games.css); the pixel-art covers stay pixelated */
+.card2 .thumb img.is-poster, .card2 .thumb img[src*="/posters/"], .card2 .thumb video { image-rendering: auto; }
+.card2 .thumb video { opacity: 0; transition: opacity .2s; } /* the server's placeholder <video>; assets/preview.js plays its own */
 .card2 .thumb::after { content: "▶ play"; position: absolute; right: 8px; bottom: 8px; padding: 3px 8px; border: 2px solid #000; border-radius: 4px; background: var(--accent); color: var(--on-accent); font: 800 12px var(--mono); opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; }
 .card2:hover .thumb::after, .card2:focus-visible .thumb::after { opacity: 1; transform: none; }
 .card2 .meta { display: block; padding: var(--s-3) var(--s-3) var(--s-4); }
@@ -388,7 +397,7 @@ html.cc-playhere .desk-reel:hover .reel-here, html.cc-playhere .desk-reel:focus-
 @keyframes saver-in { from { opacity: 0; } }
 .saver-tile { --saver-accent: var(--accent); position: absolute; left: 0; top: 0; display: block; width: min(46vw, 240px); border: 2px solid var(--saver-accent); border-radius: 10px; overflow: hidden;
   background: #0b0c0e; color: var(--text); text-decoration: none; box-shadow: 0 0 34px -6px var(--saver-accent); will-change: transform; }
-.saver-tile img { display: block; width: 100%; aspect-ratio: 8 / 5; object-fit: cover; }
+.saver-tile img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #000; }
 .saver-tile b { display: block; padding: 6px 10px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--display); font-size: var(--fs-16); }
 .saver-tile span { display: block; padding: 0 10px 8px; font: 800 12px var(--mono); color: var(--saver-accent); }
 .saver-tile:hover, .saver-tile:focus-visible { filter: brightness(1.15); }
@@ -436,3 +445,78 @@ html[data-wall="hills"] .desk-glow { background: radial-gradient(circle, rgba(25
 /* your desk: "my stats" next to "clear" (opens the player card from assets/deck.js) */
 .desk-row-acts { display: flex; gap: var(--s-4); align-items: baseline; }
 .desk-stats { padding: 4px 0; border: 0; background: none; font: inherit; font-size: var(--fs-14); cursor: pointer; }
+
+/* ---------- launch: cooked news in the taskbar (assets/eggs.js) ----------
+   Decorative (aria-hidden; everything it says is elsewhere on the page). Two copies of the headlines roll left at ~55px
+   a second; hover pauses it, so does scrolling the desk away. No JS: one static headline. Hidden under 600px wide. */
+.desk-news { position: relative; display: none; flex: 1 1 auto; min-width: 0; align-items: center; gap: 8px; height: 28px; overflow: hidden; }
+@media (min-width: 600px) { .desk-news { display: flex; } }
+.news-tag { flex: none; padding: 2px 6px; border-radius: 3px; background: var(--alarm); color: #0b0c0e; font: 800 10px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.news-win { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; height: 100%; overflow: hidden;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 28px), transparent); mask: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 28px), transparent); }
+.news-track { display: flex; flex: none; white-space: nowrap; }
+.news-run { display: inline-flex; flex: none; white-space: nowrap; color: var(--text); font-weight: 700; }
+.news-item { padding-right: 2.4em; }
+.news-item::before { content: "\25AA\00A0"; color: var(--accent); }
+.desk-news:not(.is-on) .news-track { flex: 1; min-width: 0; }
+.desk-news:not(.is-on) .news-run { display: block; overflow: hidden; text-overflow: ellipsis; padding-left: 8px; }
+.desk-news.is-on .news-track { animation: news-roll var(--news-t, 60s) linear infinite; }
+@keyframes news-roll { to { transform: translateX(-50%); } }
+.desk-news:hover .news-track, .desk-news.is-off .news-track, .desk-news.is-breaking .news-track { animation-play-state: paused; }
+.news-flash { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: none; padding: 0 10px; border-radius: 4px; background: var(--alarm); color: #0b0c0e; font: 800 12px/28px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-news.is-breaking .news-flash { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .desk-news .news-track, .desk-news.is-on .news-track { flex: 1; min-width: 0; animation: none; }
+  .desk-news .news-run { display: block; overflow: hidden; text-overflow: ellipsis; padding-left: 8px; }
+}
+
+/* ---------- launch: the computer's moods (assets/home.js poking, assets/eggs.js waving and konami) ----------
+   gary-hot (4+ pokes in a row): a red glow. gary-crit (8+): it wobbles. gary-melt (12, or the konami code): it slumps
+   into a lime puddle, then gary-reboot powers it back on like a CRT. desk-meltdown (konami): the windows sag and the
+   screen edges glow orange. gary-wave: typing "gary". Reduced motion keeps the words and faces, drops all of the motion. */
+.desk-cooked.is-bump b { display: inline-block; }
+.desk.gary-hot .desk-mascot { filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .6)) drop-shadow(0 0 26px rgba(255, 90, 78, .5)); }
+.desk-shadow { transition: transform 2.2s cubic-bezier(.5, 0, .9, .6); }
+.desk.gary-melt .desk-shadow { background: radial-gradient(closest-side, rgb(var(--phosphor) / .8), rgb(var(--phosphor) / .25) 65%, transparent); }
+.desk.desk-meltdown::after { box-shadow: inset 0 0 200px 70px rgba(255, 110, 40, .5); }
+@media (prefers-reduced-motion: no-preference) {
+  .desk::after { transition: box-shadow .5s ease; }
+  .desk-cooked.is-bump b { animation: cooked-bump .3s steps(3); }
+  @keyframes cooked-bump { 50% { transform: translateY(-3px) scale(1.3); color: var(--accent); } }
+  .desk.gary-crit .desk-mascot { animation: gary-wobble .16s steps(2) infinite; }
+  @keyframes gary-wobble { from { transform: translateX(-2px) rotate(-1deg); } to { transform: translateX(2px) rotate(1deg); } }
+  .desk.gary-melt .desk-mascot { animation: none; }
+  .desk.gary-melt .desk-mascot > svg, .desk.gary-melt .desk-mascot > img { transform-origin: 50% 100%; animation: gary-melt 2.6s cubic-bezier(.5, 0, .9, .6) forwards; }
+  .desk.gary-melt .desk-shadow { transform: scale(2.1, 1.7); }
+  @keyframes gary-melt {
+    0% { transform: none; filter: none; }
+    12% { transform: translateX(-3px); }
+    24% { transform: translateX(3px) scaleY(.97); }
+    60% { transform: scale(1.12, .72); filter: saturate(1.5); }
+    100% { transform: scale(1.55, .1); filter: saturate(2) brightness(1.2); }
+  }
+  .desk.gary-melt.gary-reboot .desk-mascot > svg, .desk.gary-melt.gary-reboot .desk-mascot > img { animation: gary-on .8s .5s var(--ease-boot) both; }
+  .desk.gary-melt.gary-reboot .desk-shadow { transform: none; }
+  @keyframes gary-on {
+    0% { transform: scale(1.1, .01); filter: brightness(4); }
+    45% { transform: scale(1, 1.06); filter: brightness(1.8); }
+    100% { transform: none; filter: none; }
+  }
+  .desk.desk-meltdown { animation: desk-quake .1s steps(2) 16; }
+  @keyframes desk-quake { from { transform: translate(-2px, 1px); } to { transform: translate(2px, -1px); } }
+  .desk.desk-meltdown > .desk-win, .desk.desk-meltdown > .desk-dock { transform-origin: 50% 0; animation: desk-drip 2.6s cubic-bezier(.6, 0, .9, .5) forwards; }
+  @keyframes desk-drip { 0% { transform: none; } 25% { transform: skewX(-2deg); } 100% { transform: translateY(28px) skewY(2.5deg) scaleY(1.05); } }
+  .desk.desk-meltdown.gary-reboot > .desk-win, .desk.desk-meltdown.gary-reboot > .desk-dock { animation: desk-unmelt .5s steps(4) both; }
+  @keyframes desk-unmelt { 0% { transform: translateY(28px) skewY(2.5deg) scaleY(1.05); opacity: .3; } 100% { transform: none; opacity: 1; } }
+  .desk.gary-wave .desk-mascot { transform-origin: 50% 90%; animation: gary-wave 1.2s ease-in-out; }
+  @keyframes gary-wave { 0%, 100% { transform: none; } 15% { transform: rotate(-8deg); } 30% { transform: rotate(7deg); } 45% { transform: rotate(-6deg); } 60% { transform: rotate(5deg); } 78% { transform: translateY(-10px); } }
+}
+
+/* "gary" typed while the desk is scrolled away: a little computer in the corner (assets/eggs.js) */
+.gary-toast { position: fixed; z-index: 60; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 10px; max-width: min(320px, calc(100vw - 32px)); padding: 8px 14px 8px 10px;
+  background: var(--text); color: var(--bg); border: 2px solid #000; border-radius: 10px; box-shadow: 4px 4px 0 #000; font: 800 13px/1.3 var(--mono);
+  opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity .2s, transform .2s var(--ease-out), visibility 0s .2s; pointer-events: none; }
+.gary-toast.on { opacity: 1; visibility: visible; transform: none; transition: opacity .2s, transform .2s var(--ease-out); }
+.gary-toast img { flex: none; width: 34px; height: 48px; image-rendering: pixelated; }
+@media (max-width: 767px) { .gary-toast { bottom: calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 12px); } }
+@media (prefers-reduced-motion: reduce) { .gary-toast, .gary-toast.on { transform: none; transition: none; } }

@@ -31,6 +31,7 @@
       '<p class="cc-challenge" hidden></p>' +
       '<ol class="cc-rows" aria-live="polite"><li class="cc-empty">loading…</li></ol>' +
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
+      '<p class="cc-week-line" hidden></p>' +
       '<div class="cc-runs" hidden></div>' +
     "</div>" +
     '<div class="about-card cc-fb" id="cc-feedback">' +
@@ -50,6 +51,10 @@
      preview kept in localStorage: at sign-up or log-in the server replays their plays for the real XP
      (src/xp.js replayGuest), so nothing here can be faked into an account. Keep the numbers in step with xp.js. */
   var DAILY3 = ["crash-test-daily", "desktop-jam", "fathom"], DAILY3_XP = 60;
+  // game of the day (src/gotd.js): is this page's game today's pick? Then a run pays its play xp twice, as the server
+  // does for accounts (and will for this device's runs when they move to an account).
+  var GOTD = false;
+  api("/api/gotd").then(function (d) { GOTD = !!(d && d.ok && d.game === game); });
   var XP = { base: 10, pctMax: 40, first: 25, streakStep: 5, streakMax: 10, perGameDayCap: 150, minMs: 10000 };
   var TITLES = [[1, "fresh install"], [3, "warm boot"], [5, "fan noise"], [8, "tab hoarder"], [12, "overclocked"], [16, "thermal throttled"], [20, "blue screen veteran"], [25, "fully cooked"], [30, "the kernel"]];
   var BADGES = { first_run: ["boot sequence", 10], play_5: ["sampler platter", 50], play_10: ["tab hopper", 75], play_15: ["the whole arcade", 150],
@@ -89,6 +94,7 @@
     var k = day + "|" + d.game, playXp = Math.min(XP.base + pct, Math.max(0, XP.perGameDayCap - (s.used[k] || 0)));
     var used = {}; used[k] = (s.used[k] || 0) + playXp; s.used = used; // only today's caps matter
     if (playXp) parts.push({ kind: "play", xp: playXp });
+    if (playXp && GOTD && d.game === game) parts.push({ kind: "gotd", xp: playXp });
     if (playXp < XP.base + pct) parts.push({ kind: "cap", xp: 0 });
     if (!s.games[d.game]) { s.games[d.game] = 1; parts.push({ kind: "first", xp: XP.first }); }
     var firstToday = s.days.indexOf(day) < 0;
@@ -327,13 +333,80 @@
     if (info && info.max_score_per_sec) { board.hidden = false; loadBoard(); loadChallenge(); prefetchFriends(); }
   }).catch(function () {});
 
+  /* ---------- this week on this device (cc-week), for "share my week" in the player card (assets/deck.js) ----------
+     {wk: local Monday "YYYY-MM-DD", runs, ms, g: {slug: [runs, title, the week's best score]}, d: [days played], xp, l0/l1/lt: level at the
+     week's first run / now / its title, b: {slug: [new best, the best before it or null, title]}, ch: {g, t} when a
+     run met this week's challenge target, last: the week before, same shape}. A run counts when the board accepted its
+     score (as the bests do) or it lasted 3 s or more; shorter unscored starts are left out. Nothing is sent. */
+  var chNow = null; // this week's challenge, when it's this game (loadChallenge)
+  function mondayOf(t) { var d = new Date(t); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
+  function weekLog(d, x) {
+    if (!d || !((d.result && d.result.accepted) || (d.durationMs || 0) >= 3000)) return;
+    try {
+      var w = JSON.parse(localStorage.getItem("cc-week") || "null") || {}, mon = mondayOf(Date.now()), wk = dayKey(mon);
+      if (w.wk !== wk) {
+        var prev = new Date(mon); prev.setDate(prev.getDate() - 7);
+        var last = w.wk === dayKey(prev) && w.runs ? w : null;
+        if (last) delete last.last;
+        w = { wk: wk, runs: 0, ms: 0, g: {}, d: [], xp: 0, b: {}, ch: null, last: last };
+      }
+      var title = (info && info.title) || game, r = d.result, day = dayKey(new Date());
+      w.runs++; w.ms += d.durationMs || 0;
+      var gg = w.g[game] || [0, title, null];
+      gg[0] = (gg[0] || 0) + 1; gg[1] = title;
+      if (typeof d.score === "number" && isFinite(d.score) && (gg[2] == null || d.score > gg[2])) gg[2] = d.score;
+      w.g[game] = gg;
+      if (w.d.indexOf(day) < 0) w.d.push(day);
+      if (x && x.gained > 0) w.xp += x.gained;
+      if (x && x.level) { if (w.l0 == null) w.l0 = Math.max(1, x.level - (x.leveled_up ? 1 : 0)); w.l1 = x.level; w.lt = x.title; }
+      if (r && r.accepted && typeof d.score === "number" && isFinite(d.score) && (r.prev_best == null || d.score > r.prev_best)) {
+        var o = w.b[game];
+        if (!o || d.score > o[0]) w.b[game] = [d.score, o ? o[1] : (r.prev_best == null ? null : r.prev_best), title];
+      }
+      if (chNow && chNow.game === game && r && r.accepted && typeof d.score === "number" && d.score >= chNow.target) w.ch = { g: game, t: title };
+      localStorage.setItem("cc-week", JSON.stringify(w));
+    } catch (err) {}
+    weekLine();
+  }
+  // "your week here": this week's runs and best on this game (cc-week), with last week's runs beside it when there were
+  // any. Shown from the week's first run on this game; a new week starts it again.
+  function weekLine() {
+    var p = panel.querySelector(".cc-week-line"), w = null;
+    try { w = JSON.parse(localStorage.getItem("cc-week") || "null"); } catch (err) {}
+    var mon = mondayOf(Date.now()), prev = new Date(mon); prev.setDate(prev.getDate() - 7);
+    var cur = w && w.wk === dayKey(mon) && w.g && w.g[game];
+    if (!p || !cur || !cur[0]) { if (p) p.hidden = true; return; }
+    var old = w.last && w.last.wk === dayKey(prev) && w.last.g && w.last.g[game];
+    p.innerHTML = "<b>your week here</b> <span>" + cur[0] + (cur[0] === 1 ? " run" : " runs") +
+      (cur[2] != null ? " · best " + esc(fmt(cur[2])) : "") +
+      (old && old[0] ? " · last week " + old[0] + (old[0] === 1 ? " run" : " runs") : "") + "</span>";
+    p.hidden = false;
+  }
+  weekLine();
+
   /* ---------- weekly challenge line on the featured game (slice D2) ---------- */
   function loadChallenge() {
     api("/api/challenge").then(function (r) {
       var c = r && r.ok && r.challenge, p = panel.querySelector(".cc-challenge");
       if (!c || c.game !== game) return;
-      p.innerHTML = "<b>weekly challenge</b> · " + esc(c.goal) + " · " + (c.done ? "done ✓" : "+" + c.xp + " xp" + (me ? "" : ' · <a href="/me/">log in</a> to earn it'));
+      chNow = c;
+      p.innerHTML = "<b>weekly challenge</b> · " + esc(c.goal) + " · " + (c.done ? "done ✓" : "+" + c.xp + " xp" + (me ? "" : ' · <a href="/me/">log in</a> to earn it')) +
+        ' <button type="button" class="cc-ch-share">share ↗</button>';
       p.hidden = false;
+      // the challenge link unfurls with its own card (/games/<slug>/challenge/<week>.png, src/darecard.js via src/seo.js)
+      p.querySelector(".cc-ch-share").addEventListener("click", function () {
+        var url = location.origin + "/games/" + encodeURIComponent(game) + "/?wc=" + encodeURIComponent(c.week) +
+          "&utm_source=share&utm_medium=challenge&utm_campaign=" + encodeURIComponent(game);
+        var text = "this week's challenge: " + c.goal + " on " + c.title + ". can you?";
+        if (navigator.share) {
+          navigator.share({ title: c.title, text: text, url: url }).then(function () { cc.event("challenge_share", { how: "share", week: c.week }); }, function () {});
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(text + " " + url).then(function () {
+            cc.event("challenge_share", { how: "copy", week: c.week });
+            if (window.ccToast) window.ccToast("challenge link copied.");
+          }, function () {});
+        }
+      });
     });
   }
 
@@ -906,10 +979,12 @@
     var x = r && r.xp;
     if (!x && !me) x = guestAward(e.detail); // K-0030 step 1: guests earn xp on this device
     if (x && x.level) showLevel(x, !!x.guest);
+    weekLog(e.detail, x);
     if (x && x.gained > 0) {
       say("+" + x.gained + " xp" + (x.parts && x.parts.some(function (p) { return p.kind === "first"; }) ? " · first time playing" : ""));
       if (x.parts && x.parts.some(function (p) { return p.kind === "challenge"; })) { say("weekly challenge done ✓"); loadChallenge(); }
       if (x.parts && x.parts.some(function (p) { return p.kind === "daily3"; })) say("daily 3 done: +" + DAILY3_XP + " xp");
+      x.parts && x.parts.forEach(function (p) { if (p.kind === "gotd") say("2x xp: game of the day +" + p.xp); });
       if (x.guest) (x.achievements || []).forEach(function (a) { say("unlocked: " + a.name + " · +" + a.xp + " xp"); });
       if (x.leveled_up) levelUp(x);
       if (x.guest) {

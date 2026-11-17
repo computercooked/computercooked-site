@@ -65,7 +65,7 @@ export async function events(req, env, ip, user, origin) {
       await env.DB.prepare("UPDATE plays SET ended_at = ?, duration_ms = ?, score = ?, completed = ? WHERE id = ?")
         .bind(t, Math.round(dur), score, completed, e.id).run();
       const res = await recordScore(env, catalog.get(play.game), play, score, dur, user, anon, b.name, t);
-      if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t, score);
+      if (user) res.xp = await awardPlay(env, user, play, catalog.get(play.game), score == null ? null : res, dur, !!completed, t, score, catalog);
       // a real run by someone a dare brought in pays the dare sender (once)
       if (user && res.xp && res.xp.gained > 0) await settleReferral(env, user.id, play.game, t);
       results[e.id] = res;

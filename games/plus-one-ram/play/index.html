@@ -56,9 +56,17 @@
   #pauseBtn { position: fixed; right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); z-index: 4; width: 44px; height: 44px; border-radius: 10px; border: 2px solid rgba(197, 255, 73, 0.5); background: rgba(16, 17, 20, 0.6); color: var(--lime); font-weight: 800; font-size: 14px; display: none; font-family: var(--mono); cursor: pointer; }
   #toast { position: fixed; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--carbon); border: 1px solid var(--lime); color: var(--lime); font-family: var(--mono); padding: 9px 14px; border-radius: 10px; font-weight: 700; z-index: 9; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; font-size: 14px; }
   #toast.show { opacity: 1; }
+  .why { font-family: var(--mono); font-size: 12px; color: #ff8a8a; margin-top: 4px; min-height: 0; }
+  .goal { font-family: var(--mono); font-size: 13px; font-weight: 800; color: var(--lime); margin: 4px 0 2px; }
+  .btn.ready { animation: readyPulse 1.2s ease-in-out infinite; }
+  @keyframes readyPulse { 50% { box-shadow: 0 4px 0 #6f58c4, 0 0 0 5px rgba(181, 154, 255, 0.35); } }
   @media (hover: none) and (pointer: coarse) { .desk { display: none; } }
   @media (max-width: 380px) { .shop { grid-template-columns: 1fr; } }
-  @media (max-height: 560px) { .panel { padding: 10px 14px 8px; } .how { margin: 4px auto 6px; } #card { max-width: 130px; } }
+  @media (max-height: 560px) { .panel { padding: 10px 14px 8px; } .how { margin: 4px auto 6px; } #card { display: none; } .stats { margin: 6px 0; } }
+  @media (max-height: 760px) and (min-height: 561px) { #card { max-width: 130px; } }
+  /* v1.2: the player frame can be 430 px tall: the end card fits without scrolling */
+  @media (max-height: 480px) { #over h2 { font-size: 26px; } #over .sub { margin-top: 3px; } #over .stats { margin: 6px 0 4px; gap: 5px; } #over .stat { padding: 5px 4px; } #over .stat .v { font-size: 16px; } #over .btn { margin: 3px 4px; } #over .btn.big { font-size: 20px; padding: 8px 18px; min-height: 44px; } #over .credit { display: none; } }
+  @media (max-height: 480px) and (min-width: 520px) { #over .stats { grid-template-columns: repeat(6, 1fr); } }
 </style>
 <script src="/games/cc-sdk.js" defer></script>
 <script src="/assets/tip.js" defer></script>
@@ -93,9 +101,11 @@
   <div class="panel">
     <h2 id="overTitle">process terminated.</h2>
     <div class="sub" id="overSub"></div>
+    <div class="why" id="overWhy"></div>
     <img id="card" alt="result card">
     <div class="stats" id="stats"></div>
     <div class="sub">+<span class="cache" id="earnTxt">0</span> cache earned</div>
+    <div class="goal" id="overGoal"></div>
     <div class="row"><button class="btn big" id="againBtn">reboot</button></div>
     <div class="row"><button class="btn lilac" id="overShopBtn">upgrades</button><button class="btn ghost" id="shareBtn">share</button></div>
     <div id="overTip"></div><!-- K-0059: shared tip button (assets/tip.js) -->

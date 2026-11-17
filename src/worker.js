@@ -14,10 +14,14 @@ import { savesRoute } from "./saves.js";
 import { listFriends, friendAction } from "./friends.js";
 import { challenge, feed, previewChallenge, friendsFeed } from "./social.js";
 import { featured, previewFeatured } from "./featured.js";
+import { gotdApi } from "./gotd.js";
+import { dareCard, challengeCard } from "./darecard.js";
 import { recapRoute } from "./recap.js";
 import { makeDare, getDare, beatDare, sharedDare, sharedGame, dareLink } from "./dares.js";
 import { gamePage } from "./seo.js";
 import { hubPage } from "./hub.js";
+import { collectionPage, isMood } from "./collections.js";
+import { shortLink } from "./short.js";
 import { champsPage } from "./champs.js";
 import { embedPage } from "./embed.js";
 import { levelOf, totalXp } from "./xp.js";
@@ -59,14 +63,34 @@ export default {
     // dare short links: /d/<id> → the game with the dare banner (and its dare preview tags)
     const dl = /^\/d\/([A-Za-z0-9_-]{6,16})\/?$/.exec(url.pathname);
     if (dl) return dareLink(env, url, dl[1]);
+    // promo short links: /g/<alias> → the game page, tagged ref=short / utm_medium=short (src/short.js)
+    const sl = /^\/g(?:\/([A-Za-z0-9_-]{0,40}))?\/?$/.exec(url.pathname);
+    if (sl) return shortLink(env, url, sl[1]);
+    // mood collections (/games/arcade/, /puzzle/, /chill/, /quick/, /rage/): server-rendered pages (src/collections.js).
+    // Without the slash (or with index.html) they 301 to the slash form; any other word stays a game page (or a 404).
+    const mm = /^\/games\/([a-z]+)(\/index\.html)?$/.exec(url.pathname);
+    if (mm && isMood(mm[1])) return Response.redirect(`${url.origin}/games/${mm[1]}/${url.search}`, 301);
+    // a stored dare's share card (src/darecard.js): the link preview image of /games/<slug>/?…&d=<id>
+    const dc = /^\/games\/([a-z0-9-]+)\/dare\/([A-Za-z0-9_-]{6,16})\.png$/.exec(url.pathname);
+    if (dc) return dareCard(req, env, url, dc[1], dc[2]);
+    // the weekly challenge's share card: the link preview image of /games/<slug>/?wc=<week>
+    const wc = /^\/games\/([a-z0-9-]+)\/challenge\/(\d{4}-W\d{2})\.png$/.exec(url.pathname);
+    if (wc) return challengeCard(req, env, url, wc[1], wc[2]);
     const gm = /^\/games\/([a-z0-9-]+)\/$/.exec(url.pathname);
-    if (gm) return gamePage(req, env, url, gm[1]);
+    if (gm) return (isMood(gm[1]) && (await collectionPage(req, env, url, gm[1]))) || gamePage(req, env, url, gm[1]);
     // the embed player other sites can iframe
     const em = /^\/games\/([a-z0-9-]+)\/embed\/?$/.exec(url.pathname);
     if (em) return embedPage(env, url, em[1]);
     // the same bare player for the homepage's "play it here" window (only our own pages may frame it)
     const wn = /^\/games\/([a-z0-9-]+)\/window\/?$/.exec(url.pathname);
     if (wn) return embedPage(env, url, wn[1], true);
+    // the bare game builds the players frame (/games/<slug>/play/) stay out of search results: the game page is the
+    // one to index. indexifembedded lets Google still count them as part of the page that frames them.
+    if (/^\/games\/[a-z0-9-]+\/play\/(index\.html)?$/.test(url.pathname)) {
+      const r = await env.ASSETS.fetch(req), out = new Response(r.body, r);
+      out.headers.set("x-robots-tag", "noindex, indexifembedded");
+      return out;
+    }
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
       return await api(req, env, url);
@@ -106,6 +130,7 @@ async function api(req, env, url) {
     case "GET /api/leaderboard": return leaderboard(url, env, user);
     case "GET /api/featured": return featured(env, await catalogOf(env, origin));
     case "GET /api/challenge": return challenge(env, user, await catalogOf(env, origin));
+    case "GET /api/gotd": return gotdApi(env, await catalogOf(env, origin));
     case "POST /api/feedback": return feedback(req, env, ip, user);
     case "POST /api/subscribe": return subscribe(req, env, ip);
     case "GET /api/unsubscribe": return unsubscribe(url, env);

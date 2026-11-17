@@ -1,10 +1,12 @@
 // Game pages (/games/<slug>/) pass through here so search engines get more than an iframe:
-// JSON-LD (VideoGame + breadcrumbs), a "how to play" card built from games.json, and a server-rendered
+// JSON-LD (VideoGame + breadcrumbs + FAQPage), a "how to play" card and "questions about X" built from games.json, and a server-rendered
 // "games like X" row of internal links. Dare links (?vs=/&d=) also get their preview tags here.
 // Everything comes from games.json, so a game added with add-game.ps1 gets it with no extra step.
 import { dareTags } from "./dares.js";
+import { weekChallenge, weekEndOf } from "./social.js";
 import { embeddable, embedCard } from "./embed.js";
-import { themeAttr, themeVars } from "./util.js";
+import { themeAttr, themeVars, isNewGame } from "./util.js";
+import { gotdFor } from "./gotd.js";
 
 const SITE = "https://computercooked.com";
 // keep in step with VIBES / FALLBACK in assets/fx.js (the hub filter chips)
@@ -39,7 +41,42 @@ export function related(games, slug, n = 3) {
     .map((x) => x.g);
 }
 
-function jsonLd(g) {
+// "questions about X": 4-6 short Q&As under the how-to, built only from games.json facts, so every answer is true for
+// every game (no per-game copy to go stale). The same list feeds the FAQPage JSON-LD, word for word.
+const NO_CARD = ["idle", "sim", "incremental"]; // keep in step with NO_CARD in games/player.js (no results card, no "share score")
+// how you play on a touchscreen, read from the controls text ("hold space" is a key, not a touch)
+const TOUCH = [["tap", /\btap/], ["drag", /\bdrag/], ["swipe", /\bswipe/], ["hold", /\bhold\b(?!\s+(?:space|enter|shift|esc))/], ["long-press", /\blong-press/], ["pinch", /\bpinch/]];
+const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}` : a[0] || "");
+export function faqOf(g) {
+  const t = g.title, tags = tagsOf(g), c = String(g.controls || "").toLowerCase();
+  const ours = g.made_by === "computer-cooked";
+  const daily = tags.includes("daily"), board = !!g.max_score_per_sec;
+  const out = [{ q: `is ${t} free?`, a: "yes. free to play in your browser: no download, no sign-up." }];
+  const touch = TOUCH.filter(([, re]) => re.test(c)).map(([w]) => w);
+  if (/touch buttons|on-screen buttons/.test(c)) touch.push("on-screen buttons");
+  out.push({ q: `can i play ${t} on my phone?`, a: touch.length
+    ? `yes. it runs in your phone's browser, no app. touch controls: ${andList(touch)}. the full list is under how to play.`
+    : "it opens in a phone browser, but it's played with keys, so it's best with a keyboard." });
+  if (tags.includes("60s runs")) out.push({ q: `how long is a game of ${t}?`, a: "about 60 seconds a run. long enough to get cooked, short enough to go again." });
+  else if (tags.includes("short") || tags.includes("quick")) out.push({ q: `how long is a game of ${t}?`, a: "short. a run is over fast, so one more go is always right there." });
+  if (board) out.push({ q: `does ${t} have a leaderboard?`, a: "yes. scores go on the leaderboard on this page: today, this week and all time. no account needed, play as a guest under any name." + (daily ? " there's also a new daily round at midnight, the same for everyone." : "") });
+  else if (daily) out.push({ q: `is there a daily ${t}?`, a: "yes. a new daily round at midnight, the same for everyone." });
+  // the results card's button reads "share score" only for a scored run, so only games with a board get this one
+  if (ours && board && !tags.some((x) => NO_CARD.includes(x))) out.push({ q: `how do i challenge a friend at ${t}?`, a: "finish a run, then tap share score on the results card. it sends your score and a link, and they get dared to beat it." });
+  if (ours) out.push({ q: `who made ${t}?`, a: "Computer Cooked. we make free, silly browser games. more about us on the about page.", link: ["about page", "/about/"] });
+  out.push({ q: `can i play ${t} full screen?`, a: "yes. tap fullscreen in the bar under the game, and exit fullscreen to come back." });
+  return out.slice(0, 6);
+}
+function faqHtml(g, list) {
+  const item = ({ q, a, link }) => {
+    let html = esc(a);
+    if (link) html = html.replace(esc(link[0]), `<a href="${link[1]}">${esc(link[0])}</a>`);
+    return `<details class="how-more"><summary>${esc(q)}</summary><p>${html}</p></details>`;
+  };
+  return `<section class="about-card game-faq" aria-labelledby="faq-heading"><h2 id="faq-heading">questions about ${esc(g.title)}</h2>${list.map(item).join("")}</section>`;
+}
+
+function jsonLd(g, faq = []) {
   const url = `${SITE}/games/${g.slug}/`;
   const data = {
     "@context": "https://schema.org",
@@ -53,7 +90,7 @@ function jsonLd(g) {
         thumbnailUrl: g.thumbnail && g.thumbnail.startsWith("/") ? SITE + g.thumbnail : undefined,
         genre: (g.tags || []).filter((t) => t !== "halloween"),
         gamePlatform: ["Web browser", "Mobile web browser"],
-        operatingSystem: "Any (plays in the browser)",
+        operatingSystem: "Any",
         applicationCategory: "Game",
         playMode: "SinglePlayer",
         isAccessibleForFree: true,
@@ -73,10 +110,55 @@ function jsonLd(g) {
           { "@type": "ListItem", position: 3, name: g.title, item: url },
         ],
       },
+      // the visible "questions about X" block, same words (link text kept as plain text)
+      ...(faq.length ? [{
+        "@type": "FAQPage",
+        url,
+        mainEntity: faq.map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
+      }] : []),
     ],
   };
-  // "<" can't appear raw inside a script tag
-  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+  return ldScript(data);
+}
+
+// "<" can't appear raw inside a script tag
+const ldScript = (data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+
+// The game list as schema.org ItemList (the hub and the homepage both carry it). Production URLs always, so a
+// local or preview copy never tells search engines about localhost.
+export function gamesItemList(list, name = "Computer Cooked games") {
+  return ldScript({
+    "@context": "https://schema.org", "@type": "ItemList", name, numberOfItems: list.length,
+    itemListElement: list.map((g, i) => ({
+      "@type": "ListItem", position: i + 1,
+      item: {
+        "@type": "VideoGame", name: g.title, description: g.pitch, url: `${SITE}/games/${g.slug}/`,
+        image: g.thumbnail && g.thumbnail.startsWith("/") ? SITE + g.thumbnail : `${SITE}/games/${g.slug}/og.png?v=5`,
+        genre: (g.tags || []).filter((t) => t !== "halloween").slice(0, 3), gamePlatform: "Web browser", applicationCategory: "Game",
+        operatingSystem: "Any", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      },
+    })),
+  });
+}
+
+// Share-card extras (og:image size + alt, twitter:image:alt) added at the end of <head>, each only if the static
+// page doesn't already carry it. Every og.png we serve is 1200x630 (scripts/make-og.mjs, assets/og.png).
+export function imageMeta(rw, alt) {
+  const seen = new Set();
+  const mark = (k) => ({ element() { seen.add(k); } });
+  return rw
+    .on('meta[property="og:image:width"]', mark("w"))
+    .on('meta[property="og:image:height"]', mark("h"))
+    .on('meta[property="og:image:alt"]', mark("a"))
+    .on('meta[name="twitter:image:alt"]', mark("t"))
+    .on("head", { element(e) { e.onEndTag((end) => {
+      const add = [];
+      if (!seen.has("w")) add.push('<meta property="og:image:width" content="1200">');
+      if (!seen.has("h")) add.push('<meta property="og:image:height" content="630">');
+      if (!seen.has("a")) add.push(`<meta property="og:image:alt" content="${esc(alt)}">`);
+      if (!seen.has("t")) add.push(`<meta name="twitter:image:alt" content="${esc(alt)}">`);
+      if (add.length) end.before(add.join(""), { html: true });
+    }); } });
 }
 
 function howTo(g) {
@@ -93,17 +175,19 @@ function howTo(g) {
           <p class="how-facts">${facts.filter(Boolean).map(esc).join(" · ")}</p>${vibeLinks(g)}`;
 }
 
-// "more like this": the game's vibes as links to the hub with that filter on (/games/?vibe=puzzle, read by assets/fx.js)
+// "more like this": the game's vibes as links to the mood collection pages (/games/puzzle/, src/collections.js)
 export const VIBE_NAMES = { arcade: "arcade games", puzzle: "puzzle games", chill: "chill games", quick: "60 second games", rage: "rage games" };
 function vibeLinks(g) {
-  const links = vibesOf(g).map((v) => `<a class="vibe-link" href="/games/?vibe=${v}">${VIBE_NAMES[v]}</a>`);
+  const links = vibesOf(g).map((v) => `<a class="vibe-link" href="/games/${v}/">${VIBE_NAMES[v]}</a>`);
   if (tagsOf(g).includes("daily")) links.push(`<a class="vibe-link" href="/games/daily/">daily games</a>`);
   return links.length ? `
           <p class="how-vibes"><span>more like this:</span> ${links.join(" ")}</p>` : "";
 }
 
+// "games like X": the gameplay poster (320x180) when the game has one, else the cover; .game-thumb keeps its 16:10 box
 function card(g) {
-  return `<li class="game-card"><a class="game-card-inner game-link"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
+  const img = g.poster ? `<img class="game-thumb is-poster" src="${esc(g.poster)}" alt="" width="320" height="180"` : `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400"`;
+  return `<li class="game-card"><a class="game-card-inner game-link"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/">${img} loading="lazy" decoding="async"><span class="game-body"><h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span></span></a></li>`;
 }
 
 const PWA = `<link rel="manifest" href="/manifest.webmanifest"><script src="/assets/pwa.js" defer></script>`;
@@ -118,33 +202,76 @@ export async function gamePage(req, env, url, slug) {
   const g = games.find((x) => x.slug === slug);
   if (!g) return page;
 
+  const faq = faqOf(g);
+  // game of the day (src/gotd.js): a "2x xp today" chip beside the title
+  let gotd = false;
+  try { if (env.DB) gotd = (await gotdFor(env, Date.now(), new Map(games.map((x) => [x.slug, x]))))?.game === slug; } catch (e) { /* no chip */ }
   const rw = new HTMLRewriter()
     // installable web app: every game page links the manifest and registers the offline service worker (assets/pwa.js)
-    .on("head", { element(e) { e.append(jsonLd(g) + PWA + (themeVars(g) ? `<style>:root{${themeVars(g)}}</style>` : ""), { html: true }); } })
-    // K-0031: the sidebar keeps only the leaderboard and rating; how-to (and the folded embed code) go under the game
+    .on("head", { element(e) { e.append(jsonLd(g, faq) + PWA + (themeVars(g) ? `<style>:root{${themeVars(g)}}</style>` : ""), { html: true }); } })
+    // K-0031: the sidebar keeps only the leaderboard and rating; how-to, questions (and the folded embed code) go under
+    // the game. Questions sit second, so on desktop they take the narrow column beside the how-to.
     .on("aside [data-how-to]", { element(e) { e.remove(); } })
-    .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
+    // the breadcrumb's last step: the game's name, not its slug ("microwave-panic" wrapped badly on phones)
+    .on('.crumbs [aria-current="page"]', { element(e) { e.setInnerContent(g.title); } })
+    // a "new" chip beside the title for the game's first 14 days (isNewGame, the same rule as every other NEW badge)
+    .on("h1.player-title", { element(e) {
+      if (isNewGame(g)) e.append('<span class="game-new player-new">new</span>', { html: true });
+      if (gotd) e.append('<span class="game-new player-new player-gotd" title="game of the day: every run pays double xp until midnight UTC">2x xp today</span>', { html: true });
+    } })
+    .on(".player-layout", { element(e) { e.after(`<div class="player-below"><section class="about-card how-to">${howTo(g)}</section>${faqHtml(g, faq)}${embeddable(g) ? embedCard(g) : ""}</div>`, { html: true }); } })
     .on("[data-more-games]", { element(e) { e.removeAttribute("hidden"); } })
     .on("#more-heading", { element(e) { e.setInnerContent(`games like ${esc(g.title)} <a class="shelf-link" href="/games/">all games ▶</a>`, { html: true }); } })
     .on("[data-more-games] ul", { element(e) { e.setInnerContent(related(games, slug).map(card).join(""), { html: true }); } });
 
   let cache = page.headers.get("cache-control");
   const dare = (url.searchParams.has("vs") || url.searchParams.has("d")) && (await dareTags(env, url, slug));
+  let ch = null;
   if (dare) {
     const title = `can you beat ${dare.score} on ${g.title}?${dare.from ? ` from ${dare.from}` : ""}`;
     const set = (v) => ({ element(e) { e.setAttribute("content", v); } });
+    const alt = `dare card: ${title}. ${g.title}, a free browser game from Computer Cooked.`;
     rw.on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
       .on('meta[property="og:title"], meta[name="twitter:title"]', set(title))
       .on('meta[property="og:description"], meta[name="twitter:description"]', set("a friend dared you. free browser game: no download, plays on your phone."))
-      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/og-vs.png?v=5`));
+      // a stored dare gets its own card with the score and name on it (src/darecard.js); a URL-only dare keeps the game's og-vs.png
+      .on('meta[property="og:image"], meta[name="twitter:image"]', set(dare.id ? `${url.origin}/games/${slug}/dare/${dare.id}.png` : `${url.origin}/games/${slug}/og-vs.png?v=5`))
+      .on('meta[property="og:image:alt"], meta[name="twitter:image:alt"]', set(alt));
+    imageMeta(rw, alt);
+    cache = "public, max-age=300";
+  } else if ((ch = await challengeTags(env, url, slug))) {
+    // a weekly challenge link (/games/<slug>/?wc=<week>, shared from the challenge line): its own card (src/darecard.js)
+    const title = `weekly challenge: score ${ch.target.toLocaleString("en-US")}+ on ${g.title} in one run`;
+    const desc = ch.over ? "that week's challenge has ended. a new one every monday. free browser game: no download, plays on your phone."
+      : `+${ch.xp} xp for the run that does it, until sunday. free browser game: no download, plays on your phone.`;
+    const set = (v) => ({ element(e) { e.setAttribute("content", v); } });
+    const alt = `challenge card: ${title}. ${g.title}, a free browser game from Computer Cooked.`;
+    rw.on("title", { element(e) { e.setInnerContent(title + " — Computer Cooked Games"); } })
+      .on('meta[property="og:title"], meta[name="twitter:title"]', set(title))
+      .on('meta[property="og:description"], meta[name="twitter:description"]', set(desc))
+      .on('meta[property="og:image"], meta[name="twitter:image"]', set(`${url.origin}/games/${slug}/challenge/${ch.week}.png`))
+      .on('meta[property="og:image:alt"], meta[name="twitter:image:alt"]', set(alt));
+    imageMeta(rw, alt);
     cache = "public, max-age=300";
   } else {
     // search-intent title: what people type ("<game> online free no download")
     rw.on("title", { element(e) { e.setInnerContent(`${g.title}: play online free, no download — Computer Cooked`); } });
+    imageMeta(rw, `${g.title}: ${String(g.pitch || "").replace(/[.!?\s]+$/, "")}. a free browser game from Computer Cooked.`);
   }
   const headers = new Headers(page.headers);
   headers.delete("content-length");
   headers.delete("etag"); // the body changes, so the asset's etag no longer describes it
   if (cache) headers.set("cache-control", cache);
   return rw.transform(new Response(page.body, { status: page.status, headers }));
+}
+
+// ?wc=<week> on a game page: that week's challenge, if it really was this game (read only, src/social.js)
+async function challengeTags(env, url, slug) {
+  const week = url.searchParams.get("wc");
+  if (!env.DB || !week || !/^\d{4}-W\d{2}$/.test(week)) return null;
+  try {
+    const c = await weekChallenge(env, week);
+    if (!c || c.game !== slug || !(c.target > 0)) return null;
+    return { week, target: c.target, xp: c.xp, over: Date.now() >= weekEndOf(week) };
+  } catch (e) { return null; }
 }

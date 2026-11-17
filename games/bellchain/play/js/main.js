@@ -588,7 +588,7 @@ handleReturn();
 refreshShop(true); renderTab(true);
 if (firstVisit) {
   if (S.veteran) toast('welcome back, v1 veteran. here is 500 resonance for your trouble.');
-  else toast('tap anywhere. every tap plays the next note.');
+  // r2: no toast for a new player: it said the same thing as the banner, on top of the top bell
   // first visit: the cue stays up until the first 3 rings instead of fading after 4s
   onboarding = true; stage.showBanner('tap the bell', 'every tap plays the next note', null, 600);
 }

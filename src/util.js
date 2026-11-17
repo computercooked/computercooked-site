@@ -3,6 +3,12 @@
 export const now = () => Date.now();
 export const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// "new": a game is new for 14 days from games.json "added" (a YYYY-MM-DD day). One rule for every NEW badge, the
+// "just cooked" shelves and the game page chip; games/hub.js keeps the same 14 days on the client. A game that isn't
+// in games.json yet shows nowhere, so a game waiting on its merge switches all of this on by itself the day it lands.
+export const NEW_MS = 14 * 86400000;
+export const isNewGame = (g, t = Date.now()) => !!(g && g.added) && t - Date.parse(g.added) < NEW_MS;
+
 // Consecutive played days ending at `from` (YYYY-MM-DD), counting back. Streak saver: one missed day is
 // forgiven when the day before it was played, at most once per 7 days, so one busy day doesn't reset a
 // long streak (a forgiven day doesn't count toward the length). -> {n, savedRecently}
@@ -117,7 +123,8 @@ export function deviceOf(ua = "") {
   return "desktop";
 }
 
-const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "portal", "other"];
+// "short": /g/ promo short links (src/short.js tags them ref=short when they carry no channel of their own)
+const REFS = ["tiktok", "youtube", "instagram", "x", "threads", "bluesky", "search", "internal", "direct", "embed", "app", "portal", "short", "other"];
 export const refOk = (r) => (REFS.includes(r) ? r : "other");
 // utm_campaign from our posted links: lowercase [a-z0-9_.-], max 40, else none
 export const campaignOk = (c) => {

@@ -5,16 +5,19 @@
 // (stats, hearts, "new" badges), so this only has to match its markup.
 import { ensureSchema, games as catalogOf } from "./db.js";
 import { pickFeatured } from "./featured.js";
-import { vibesOf, VIBE_NAMES } from "./seo.js";
+import { isNewGame } from "./util.js";
+import { vibesOf, VIBE_NAMES, gamesItemList, imageMeta } from "./seo.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 export function hubCard(g, i) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
-  const isNew = g.added && Date.now() - Date.parse(g.added) < 14 * 86400000;
+  const isNew = isNewGame(g);
   // K-0031: the whole card is the link; no per-card button
   return `<li class="game-card"><a class="game-card-inner game-link" href="/games/${encodeURIComponent(g.slug)}/">` +
-    `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
+    // the gameplay poster (games.json "poster", 320x180) when there is one, as games/hub.js draws it; .game-thumb keeps a 16:10 box
+    (g.poster ? `<img class="game-thumb is-poster" src="${esc(g.poster)}" alt="" width="320" height="180"` : `<img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400"`) +
+    ` loading="${i < 4 ? "eager" : "lazy"}" decoding="async">` +
     `<span class="game-body">` + (isNew ? `<span class="game-new">new</span>` : "") +
     `<h3 class="game-name">${esc(g.title)}</h3><span class="game-pitch">${esc(g.pitch)}</span>` +
     (tags ? `<span class="game-tags">${tags}</span>` : "") +
@@ -38,19 +41,11 @@ export async function hubPage(req, env, url) {
   if (!ours.length) return page;
 
   const txt = (v) => ({ element(e) { e.setInnerContent(v); } });
-  const fresh = ours.map((g, i) => [g, i]).filter(([g]) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
+  const fresh = ours.map((g, i) => [g, i]).filter(([g]) => isNewGame(g))
     .sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map(([g]) => g).slice(0, 6);
-  // structured data: the hub as an ItemList of VideoGames (rich results), "<" escaped so a title can't close the script
-  const ld = JSON.stringify({
-    "@context": "https://schema.org", "@type": "ItemList", name: "Computer Cooked Games",
-    itemListElement: ours.map((g, i) => ({
-      "@type": "ListItem", position: i + 1, url: `${url.origin}/games/${g.slug}/`,
-      item: { "@type": "VideoGame", name: g.title, description: g.pitch, url: `${url.origin}/games/${g.slug}/`, image: url.origin + g.thumbnail,
-        genre: (g.tags || []).slice(0, 3), gamePlatform: "Web browser", applicationCategory: "Game", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" } },
-    })),
-  }).replace(/</g, String.fromCharCode(92) + "u003c"); // "<" as its JSON escape
+  // structured data: the hub as an ItemList of VideoGames (src/seo.js, shared with the homepage)
   const rw = new HTMLRewriter()
-    .on("head", { element(e) { e.append(`<script type="application/ld+json">${ld}</script>`, { html: true }); } })
+    .on("head", { element(e) { e.append(gamesItemList(ours, "Computer Cooked Games"), { html: true }); } })
     .on("title", txt("free online games, no download — Computer Cooked Games"))
     .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map(hubCard).join(""), { html: true }); } })
     // "just cooked" (K-0050 item 5) on the server too, picked as games/hub.js picks it: it used to appear only after
@@ -72,10 +67,18 @@ export async function hubPage(req, env, url) {
       .on('meta[property="og:description"], meta[name="twitter:description"], meta[name="description"]', set(`${match.length} free ${name} from a computer that is not handling it well: ${match.slice(0, 4).map((g) => g.title).join(", ")}${match.length > 4 ? " and more" : ""}. no download, plays on your phone.`))
       .on("#shelf-computer-cooked", { element(e) { e.setInnerContent(ours.map((g, i) => keep.has(g) ? hubCard(g, i) : hubCard(g, i).replace('<li class="game-card">', '<li class="game-card" hidden>')).join(""), { html: true }); } });
   }
+  // the hub's share card: games/index.html carries og:image but not its size or alt text
+  imageMeta(rw, "Computer Cooked: a tired beige pixel computer melting lime goo, next to the words computer cooked. the computer is not handling it well.");
   if (feat) {
     const href = `/games/${encodeURIComponent(feat.slug)}/`;
     rw.on("a.spotlight", { element(e) { e.setAttribute("href", href); e.setAttribute("aria-label", `featured game: ${feat.title}. ${feat.pitch}`); } })
-      .on(".spot-screen img", { element(e) { e.setAttribute("src", feat.thumbnail); } })
+      // the gameplay poster when there is one, else the cover: the same pick as assets/fx.js spotSlides (art), which
+      // re-renders the spotlight, so the first slide's picture is never downloaded twice. Change both together.
+      .on(".spot-screen img", { element(e) {
+        e.setAttribute("src", feat.poster || feat.thumbnail);
+        e.setAttribute("width", "320"); e.setAttribute("height", feat.poster ? "180" : "200");
+        if (feat.poster) e.setAttribute("class", "is-poster");
+      } })
       .on(".spot-name", txt(feat.title))
       .on(".spot-pitch", txt(feat.pitch))
       .on("a.hero-play", { element(e) { e.setAttribute("href", href); e.setInnerContent(`play ${feat.title}`); } });

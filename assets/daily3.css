@@ -1,0 +1,96 @@
+/* /games/daily/: the daily 3 board, the "you did today's 3" stats and the share. Phone first. Classes are dly-*
+   so the older .d3-* rules in games/games.css (home and elsewhere) don't reach in. */
+.dly-page { max-width: 760px; }
+.dly-page *, .dly-page *::before, .dly-page *::after { box-sizing: border-box; }
+.dly-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* top row: three squares, the count, the streak */
+.dly-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); }
+.dly-progress { display: flex; gap: 6px; }
+.dly-progress i { display: block; width: 30px; height: 30px; border: 2px solid var(--line); border-radius: 4px; background: var(--bg); }
+.dly-progress i.on { border-color: var(--accent); background: var(--accent); box-shadow: var(--glow-sm); animation: dly-pop .32s var(--ease-out) both; }
+.dly-progress i.on:nth-child(2) { animation-delay: .08s; }
+.dly-progress i.on:nth-child(3) { animation-delay: .16s; }
+.about-card p.dly-count { margin: 0; font-family: var(--mono); font-weight: 800; font-size: var(--fs-16); color: var(--text); }
+.about-card p.dly-streak { margin: 0 0 0 auto; font-family: var(--sans); font-weight: 800; font-size: var(--fs-16); color: var(--text); }
+.about-card .dly-streak b { color: var(--accent); font-family: var(--mono); font-size: var(--fs-20); }
+.about-card p.dly-sub { margin: var(--s-2) 0 var(--s-4); color: var(--text-dim); }
+
+/* the three games */
+.dly-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-3); margin: 0; padding: 0; list-style: none; }
+.about-card .dly-list li { margin: 0; }
+.dly-card { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 44px; overflow: hidden; border: 2px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); color: var(--text); text-decoration: none; transition: border-color var(--fast) ease, transform var(--fast) var(--ease-out); }
+.dly-card:hover, .dly-card:focus-visible { border-color: var(--accent); }
+.dly-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.dly-poster { display: block; aspect-ratio: 16 / 9; background: var(--bg); overflow: hidden; }
+.dly-poster img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; transition: filter var(--fast) ease; }
+.dly-num { position: absolute; top: var(--s-2); left: var(--s-2); display: grid; place-items: center; min-width: 32px; height: 32px; padding: 0 6px; border-radius: var(--r-sm); background: rgb(14 15 17 / .82); color: var(--text); font-family: var(--mono); font-weight: 800; }
+.dly-info { display: flex; flex-direction: column; gap: 2px; padding: var(--s-3) var(--s-3) 0; min-width: 0; }
+.dly-name { font-family: var(--sans); font-weight: 800; font-size: var(--fs-16); overflow-wrap: anywhere; }
+.dly-state { color: var(--text-dim); font-family: var(--mono); font-size: var(--fs-14); }
+.dly-go { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; margin: var(--s-2) var(--s-3) var(--s-3); padding: 0 var(--s-4); border-radius: var(--r-sm); background: var(--accent); color: var(--on-accent); font-family: var(--sans); font-weight: 700; }
+.dly-card.is-done { border-color: var(--accent); }
+.dly-card.is-done .dly-poster img { filter: saturate(.55) brightness(.6); }
+.dly-card.is-done .dly-num { background: var(--accent); color: var(--on-accent); }
+.dly-card.is-done .dly-state { color: var(--accent); font-weight: 800; }
+.dly-card.is-done .dly-go { background: none; border: 1px solid var(--line); color: var(--text); }
+
+.dly-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3); margin-top: var(--s-4); }
+.about-card p.dly-next { margin: 0; color: var(--text-dim); font-size: var(--fs-14); }
+.dly-clock { color: var(--text); font-family: var(--mono); font-weight: 800; font-variant-numeric: tabular-nums; }
+.dly-mini { min-height: 44px; padding: 0 var(--s-4); font-size: var(--fs-14); }
+
+/* the stats panel, once all three are done */
+.dly-done { margin-top: var(--s-4); border-color: var(--accent); box-shadow: var(--glow-sm); }
+.dly-done.is-new { animation: dly-rise .42s var(--ease-boot) both; }
+.dly-gary { display: flex; align-items: flex-end; gap: var(--s-3); margin-bottom: var(--s-3); }
+.dly-gary img { flex: none; width: 46px; height: 66px; image-rendering: pixelated; }
+.about-card p.dly-bubble { position: relative; margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--text); font-size: var(--fs-14); }
+.about-card h2.dly-done-h { margin: 0 0 var(--s-3); font-family: var(--display); font-size: var(--fs-28); line-height: 1.1; color: var(--accent); text-shadow: var(--text-glow); }
+.dly-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-2); margin: 0 0 var(--s-4); }
+.dly-stats div { padding: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); text-align: center; }
+.dly-stats dt { color: var(--text-dim); font-size: var(--fs-12); }
+.dly-stats dd { margin: 2px 0 0; font-family: var(--mono); font-weight: 800; font-size: var(--fs-28); color: var(--text); }
+.about-card p.dly-week-h { margin: 0 0 var(--s-2); color: var(--text-dim); font-size: var(--fs-12); }
+.dly-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 0 0 var(--s-4); padding: 0; list-style: none; max-width: 360px; }
+.about-card .dly-week li { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; color: var(--text-dim); font-size: var(--fs-12); }
+.dly-week i { display: block; width: 100%; aspect-ratio: 1; border: 2px solid var(--line); border-radius: 4px; background: var(--bg); }
+.dly-week .is-part i { border-color: var(--beige); background: rgb(232 217 181 / .35); }
+.dly-week .is-full i { border-color: var(--accent); background: var(--accent); }
+/* a day the streak freeze covered: ice, dashed, with a flake, so it reads apart from done and half even in the ice tint */
+.dly-week .is-frozen i { position: relative; border-style: dashed; border-color: var(--dly-ice); background: rgb(159 227 255 / .2); }
+.dly-week .is-frozen i::after { content: "❄"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--dly-ice); font-size: 13px; line-height: 1; }
+
+/* the streak freeze line (board, and the stats panel once all three are done) */
+.dly-page { --dly-ice: #9fe3ff; }
+.about-card p.dly-freeze { margin: calc(var(--s-2) * -1) 0 var(--s-4); color: var(--text-dim); font-family: var(--mono); font-size: var(--fs-14); }
+.about-card p.dly-freeze.is-used { color: var(--dly-ice); }
+.dly-week .is-today span { color: var(--text); font-weight: 800; }
+.dly-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-3); }
+.dly-actions .play-btn, .dly-actions .ghost-btn { flex: 1 1 140px; cursor: pointer; }
+.dly-share { font-weight: 800; }
+.dly-preview { margin: var(--s-4) 0 0; }
+.dly-preview img { display: block; width: 100%; max-width: 540px; height: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+.dly-preview figcaption { margin-top: var(--s-3); }
+.about-card .dly-note, .dly-note { margin: var(--s-3) 0 0; color: var(--text-dim); font-size: var(--fs-12); }
+.dly-note b { color: var(--accent); }
+
+/* the toast (copied, demo, ...) sits above the phone tab bar */
+.dly-toast { position: fixed; left: 50%; bottom: calc(var(--tabbar-h, 64px) + 16px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: calc(100vw - 32px); padding: var(--s-2) var(--s-4); border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font-size: var(--fs-14); opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity var(--fast) ease, transform var(--fast) ease; }
+.dly-toast.on { opacity: 1; transform: translate(-50%, 0); }
+.dly-toast:empty { display: none; }
+
+@keyframes dly-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes dly-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+@media (min-width: 620px) {
+  .dly-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dly-card:hover { transform: translateY(-2px); }
+  .about-card h2.dly-done-h { font-size: var(--fs-40); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dly-progress i.on, .dly-done.is-new { animation: none; }
+  .dly-card, .dly-card:hover, .dly-poster img { transition: none; transform: none; }
+  .dly-toast, .dly-toast.on { transition: none; transform: translate(-50%, 0); }
+}

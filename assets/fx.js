@@ -21,6 +21,10 @@
     { id: "rage", label: "rage", tags: ["rage", "trick", "hard", "funny"] }
   ];
   var FALLBACK = { "tab-hoarder": ["arcade", "quick"], bellchain: ["chill"], "handbag-havoc": ["arcade"], fathom: ["puzzle"], "smol-brains": ["chill"] };
+  // "works on phone": the game has touch controls, read from games.json "controls" exactly as the game page's
+  // "can i play X on my phone?" answer does (TOUCH in src/seo.js; keep the two in step). "hold space" is a key, not a touch.
+  var TOUCH = /\btap|\bdrag|\bswipe|\blong-press|\bpinch|touch buttons|on-screen buttons|\bhold\b(?!\s+(?:space|enter|shift|esc))/;
+  function onPhone(g) { return TOUCH.test(String(g.controls || "").toLowerCase()); }
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -39,7 +43,9 @@
     return order.map(function (g, i) {
       var href = "/games/" + encodeURIComponent(g.slug) + "/";
       return {
-        slug: g.slug, title: g.title, pitch: g.pitch || "", art: g.thumbnail, href: href,
+        // the gameplay poster (games.json "poster", 320x180) when there is one, else the cover; src/hub.js server-renders
+        // the same choice for the first slide, so the picture isn't swapped once this runs
+        slug: g.slug, title: g.title, pitch: g.pitch || "", art: g.poster || g.thumbnail, href: href,
         tag: i === 0 ? (feat && g.slug === feat.game ? "game of the week" : "featured") : (newest.indexOf(g) >= 0 ? "new" : "featured"),
         cta: { href: href, label: "play " + g.title }
       };
@@ -78,7 +84,10 @@
       if (!games.length) return;
       var bySlug = {};
       games.forEach(function (g) { bySlug[g.slug] = g; });
-      var newest = games.filter(function (g) { return g.slug !== "crash"; }).slice(-NEW_COUNT).reverse();
+      // new = added in the last 14 days (the site-wide rule, isNewGame in src/util.js), and at most the newest
+      // NEW_COUNT of those, so a batch that lands on one day doesn't tag the whole grid
+      var newest = games.filter(function (g) { return g.slug !== "crash" && g.added && Date.now() - Date.parse(g.added) < 14 * 86400000; })
+        .slice(-NEW_COUNT).reverse();
       var isNew = {};
       newest.forEach(function (g) { isNew[g.slug] = true; });
 
@@ -107,9 +116,25 @@
     track.innerHTML = names + names;
   }
 
+  /* the collection: a sticker on every card of a game this device has played (cc-history, kept by games/platform.js):
+     "your best: 1,840" once there's a best score, else "✓ played". Read-only; first visits see the hub as before. */
+  function history() {
+    try { return JSON.parse(localStorage.getItem("cc-history") || "{}") || {}; } catch (e) { return {}; }
+  }
+  function playedMark(card, h) {
+    var body = card.querySelector(".game-body");
+    if (!h || !(h.n > 0) || !body || card.querySelector(".game-played")) return;
+    var tag = document.createElement("span");
+    tag.className = "game-played";
+    tag.textContent = typeof h.b === "number" && h.b > 0 ? "your best: " + Math.round(h.b).toLocaleString("en-US") : "✓ played";
+    body.appendChild(tag);
+    card.classList.add("is-played");
+  }
+
   /* hub cards are re-rendered by hub.js; badge them whenever that happens */
   function badges(isNew) {
     var shelves = document.querySelectorAll(".card-grid");
+    var hist = history();
     function apply() {
       document.querySelectorAll(".game-card").forEach(function (card) {
         var slug = slugOfCard(card);
@@ -122,6 +147,7 @@
         if (isNew[slug] && body && !card.querySelector(".game-new")) {
           body.insertAdjacentHTML("afterbegin", '<span class="game-new">new</span>');
         }
+        playedMark(card, hist[slug]);
       });
     }
     apply();
@@ -163,6 +189,10 @@
       spot.classList.remove("is-swapping");
       img.src = s.art;
       img.classList.toggle("is-svg", /\.svg$/.test(s.art || ""));
+      // posters are 320x180, covers 320x200: the box is a fixed 16:9 in CSS, so this only keeps the attributes true
+      var isPoster = /\/posters\//.test(s.art || "");
+      img.classList.toggle("is-poster", isPoster);
+      img.width = 320; img.height = isPoster ? 180 : 200;
       name.textContent = s.title;
       pitch.textContent = s.pitch;
       tag.textContent = s.tag;
@@ -271,7 +301,9 @@
     if (!pick.length || !list || list.children.length) return; // the Worker already put "games like X" there
     list.innerHTML = pick.map(function (g) {
       return '<li class="game-card"><a class="game-card-inner game-link" href="/games/' + encodeURIComponent(g.slug) + '/">' +
-        '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="640" height="400" loading="lazy" decoding="async">' +
+        // the same picture the Worker's cards use (src/hub.js hubCard): the poster when there is one, else the cover
+        (g.poster ? '<img class="game-thumb is-poster" src="' + esc(g.poster) + '" alt="" width="320" height="180" loading="lazy" decoding="async">'
+          : '<img class="game-thumb" src="' + esc(g.thumbnail) + '" alt="" width="320" height="200" loading="lazy" decoding="async">') +
         '<span class="game-body"><h3 class="game-name">' + esc(g.title) + "</h3>" +
         '<span class="game-pitch">' + esc(g.pitch) + "</span>" +
         "</span></a></li>";
@@ -301,13 +333,16 @@
     var meta = {};
     games.forEach(function (g) {
       meta[g.slug] = {
-        vibes: vibesOf(g).concat(isNew[g.slug] ? ["new"] : []),
+        vibes: vibesOf(g).concat(isNew[g.slug] ? ["new"] : [], onPhone(g) ? ["phone"] : []),
         text: [g.title, g.pitch, (g.tags || []).join(" ")].join(" ").toLowerCase()
       };
     });
-    var chips = [{ id: "all", label: "all" }, { id: "new", label: "new" }].concat(VIBES, [{ id: "daily", label: "daily" }])
+    var chips = [{ id: "all", label: "all" }, { id: "new", label: "new" }].concat(VIBES, [{ id: "daily", label: "daily" }, { id: "phone", label: "works on phone" }])
       .filter(function (c) {
-        return c.id === "all" || games.some(function (g) { return meta[g.slug].vibes.indexOf(c.id) >= 0; });
+        var n = games.filter(function (g) { return meta[g.slug].vibes.indexOf(c.id) >= 0; }).length;
+        // "works on phone" only when it narrows the list: today every game has touch controls, so it waits
+        // (hidden) for the first keyboard-only game
+        return c.id === "all" || (n > 0 && !(c.id === "phone" && n === games.length));
       });
     // the collection: games this device has played (cc-history, kept by games/platform.js) get a "played" sticker,
     // the heading counts them, and a "not played" chip shows the rest. First visits see the hub exactly as before.
@@ -322,6 +357,7 @@
       '<input type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>' +
       '<div class="chip-row" role="group" aria-label="filter by vibe"></div>' +
       '<p class="hub-empty" hidden>nothing matches. the computer looked everywhere. <button type="button" class="hub-reset">show all</button></p>' +
+      '<p class="hub-gary" hidden aria-live="polite"><img src="/assets/mascot-happy.svg" alt="" width="34" height="48" decoding="async"><span></span> <button type="button" class="hub-reset">show all</button></p>' +
       '<p class="visually-hidden" role="status" aria-live="polite"></p></div>');
     var q = bar.querySelector("input");
     q.placeholder = "search " + games.length + " games";
@@ -333,16 +369,18 @@
       b.setAttribute("aria-pressed", String(c.id === "all"));
       row.appendChild(b);
     });
-    // 🎲: a random game, picked from the ones the current filter shows (audit P1 #17)
-    var dice = el('<button type="button" class="chip chip-random" aria-label="play a random game">random</button>');
+    // 🎲 surprise me: a random game, picked from the ones the current filter shows (audit P1 #17). The slot machine in
+    // games/hub.js spins and lands on it; without that, straight to the game. First in the row, so phones see it unscrolled.
+    var dice = el('<button type="button" class="chip chip-random chip-surprise" aria-label="surprise me: spin for a random game" aria-haspopup="dialog">surprise me</button>');
     dice.addEventListener("click", function () {
       var shown = [].slice.call(grid.querySelectorAll(".game-card")).filter(function (c) { return !c.hidden; }).map(slugOfCard).filter(Boolean);
+      if (window.ccSurprise && window.ccSurprise.ready()) { window.ccSurprise.open(shown); return; }
       var pool = shown.length ? shown : games.map(function (g) { return g.slug; });
       var fresh = pool.filter(function (x) { return !(hist[x] && hist[x].n > 0); }); // a game you haven't tried, while there is one
       if (fresh.length) pool = fresh;
       location.href = "/games/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]) + "/";
     });
-    row.appendChild(dice);
+    row.insertBefore(dice, row.firstChild);
     // three random games back to back, from the ones the current filter shows (assets/deck.js runs it)
     var triple = el('<button type="button" class="chip chip-random chip-triple" aria-label="triple feature: three random games in a row">3 in a row</button>');
     triple.addEventListener("click", function () {
@@ -437,13 +475,7 @@
         var ok = !info || ((vibe === "all" || (vibe === "unplayed" ? !was : info.vibes.indexOf(vibe) >= 0)) && (!term || info.text.indexOf(term) >= 0));
         card.hidden = !ok;
         if (ok) shown++;
-        if (was && info && !card.querySelector(".game-played")) {
-          var tag = document.createElement("span");
-          tag.className = "game-played";
-          tag.textContent = typeof h.b === "number" && h.b > 0 ? "\u2713 best " + Math.round(h.b).toLocaleString("en-US") : "\u2713 played";
-          var body = card.querySelector(".game-body");
-          if (body) { body.appendChild(tag); card.classList.add("is-played"); }
-        }
+        if (info) playedMark(card, h);
       });
       // put the cards in the chosen order (moved in the page itself, so keyboard and screen readers follow it too)
       var cards = [].slice.call(grid.children), want = cards.slice().sort(function (a, b) {
@@ -457,7 +489,32 @@
       }
       tally();
       empty.hidden = shown > 0;
+      garyLine(term, shown);
       live.textContent = (vibe === "all" && !term) ? "" : shown + (shown === 1 ? " game" : " games");
+    }
+    // search for the computer itself ("gary", "computer", "cooked") and gary pops up over the grid with a line (and,
+    // for "gary", the "you know my name" secret in assets/deck.js). A new word gets a new line and one hop; the same
+    // word typed on (or a re-sort) leaves it be. With no matching games it stands in for "nothing matches".
+    var GARY = {
+      gary: ["you searched for me? i'm not a game. i'm the computer. hi.", "gary.exe has responded. i run all " + games.length + " of these.", "that's me. 61% fan noise. pick one, i'll warm up."],
+      computer: ["the computer is me. gary. i'm doing my best."],
+      "the computer": ["the computer is me. gary. i'm doing my best."],
+      cooked: ["cooked? me. always. the games are fine though."],
+      "computer cooked": ["that's the whole place. you're in it. welcome."],
+    };
+    var gary = bar.querySelector(".hub-gary"), garyWas = "", garyN = 0;
+    function garyLine(term, shown) {
+      var key = term.replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim(), lines = GARY[key];
+      if (!lines) { gary.hidden = true; garyWas = ""; return; }
+      if (key !== garyWas) {
+        garyWas = key;
+        gary.querySelector("span").textContent = lines[garyN++ % lines.length];
+        gary.hidden = false;
+        gary.classList.remove("hop"); void gary.offsetWidth; gary.classList.add("hop");
+        if (key === "gary") document.dispatchEvent(new CustomEvent("cc:secret", { detail: "gary" }));
+      }
+      gary.querySelector(".hub-reset").hidden = shown > 0;
+      if (!shown) empty.hidden = true;
     }
     function pick(id) {
       vibe = id;
@@ -478,7 +535,8 @@
         var u = new URL(location.href), term = q.value.trim();
         if (vibe === "all") u.searchParams.delete("vibe"); else u.searchParams.set("vibe", vibe);
         if (term) u.searchParams.set("q", term); else u.searchParams.delete("q");
-        if (u.href !== location.href) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+        // window.history: inside this file "history" is the played-games reader above, so the bare name would throw
+        if (u.href !== location.href) window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
       } catch (e) {}
     }
     row.addEventListener("click", function (e) {
@@ -489,7 +547,8 @@
     });
     var typing = 0;
     q.addEventListener("input", function () { apply(); clearTimeout(typing); typing = setTimeout(remember, 400); });
-    bar.querySelector(".hub-reset").addEventListener("click", function () {
+    bar.addEventListener("click", function (e) {
+      if (!e.target.closest(".hub-reset")) return; // "nothing matches" and gary's line both have one
       q.value = ""; pick("all");
       apply(); remember(); q.focus();
     });
@@ -534,6 +593,8 @@
       var slug = slugOfCard(card);
       var thumb = card.querySelector(".game-thumb");
       if (!slug || !thumb || slug === "crash") return; // CRASH runs inline on its page, its svg thumb is already animated
+      // a card with a clip plays that instead (assets/preview.js): far lighter than booting the whole game in a frame
+      if (card.getAttribute("data-clip") && window.ccPreview && window.ccPreview.enabled) return;
       current = card;
       timer = setTimeout(function () {
         var box = el('<div class="card-preview" aria-hidden="true"><iframe tabindex="-1" title="" loading="eager"></iframe><span class="preview-tag">live preview</span></div>');

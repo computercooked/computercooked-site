@@ -1,6 +1,33 @@
 /* 404 page: three games the computer found instead (assets/lost.js fills them). */
+/* the "catch the missing page" mini-game (assets/lost-game.js); hidden until that script runs */
+.lost-game { max-width: 520px; margin: var(--s-6) auto 0; padding: 0 var(--gutter); text-align: center; }
+/* speed pass (CLS): the box keeps its space while it waits for lost-game.js, so showing it moves nothing below it.
+   The message and button rows hold their height too (the end-of-round message is up to 3 lines on a phone, and the
+   button hides during a round), and reduced motion gets its own (shorter) layout straight from CSS, not from JS. */
+.lost-game[hidden] { display: block; visibility: hidden; }
+.lost-game-hud { display: flex; justify-content: space-between; gap: var(--s-3); margin: var(--s-3) 0 var(--s-2); font-family: var(--mono, monospace); font-size: var(--fs-12); color: var(--text-dim); }
+.lost-game-hud b { color: var(--accent); font-variant-numeric: tabular-nums; }
+.lost-game-hud[hidden] { display: none; }
+.lost-game-cv { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; border: 2px solid var(--line); border-radius: var(--r-md); background: #07080a;
+  image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; cursor: pointer; }
+.lost-game-cv[hidden] { display: none; }
+.lost-game-cv:focus-visible, .lost-game.is-on .lost-game-cv { border-color: var(--accent); }
+.lost-game.is-on .lost-game-cv { cursor: none; }
+.lost-game-msg { min-height: 3em; margin: var(--s-3) 0 0; font-size: var(--fs-14); line-height: 1.5; color: var(--text-dim); }
+@media (max-width: 559px) { .lost-game-msg { min-height: 4.5em; } }
+.lost-game-go { min-height: 48px; margin: var(--s-3) 0 0; }
+.lost-game-btn[hidden] { display: none; }
+.lost-game .lost-fix { min-width: 160px; height: auto; padding: var(--s-3) var(--s-6); font-family: var(--display); font-size: 48px; line-height: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .lost-game-hud, .lost-game-cv { display: none; }
+  .lost-game .lost-game-btn { min-width: 160px; height: auto; padding: var(--s-3) var(--s-6); font-family: var(--display); font-size: 48px; line-height: 1; }
+}
 .lost-picks { max-width: 760px; margin: var(--s-6) auto 0; padding: 0 var(--gutter); text-align: center; }
-.lost-picks[hidden] { display: none; }
+/* CLS: like the game box, the picks keep their space while they wait for lost.js (404.html has three same-shape
+   placeholders), so showing them moves nothing below. No JS or a failed fetch: lost.js / the noscript rule hide it. */
+.lost-picks[hidden] { display: block; visibility: hidden; }
+.lost-pick.is-ph { pointer-events: none; }
+.lost-pick-pitch { min-height: 2.9em; line-height: 1.45; }
 .lost-pick-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); margin: var(--s-4) 0 0; padding: 0; list-style: none; text-align: left; }
 .lost-pick { --pick-accent: var(--accent); display: block; height: 100%; padding: 0 0 var(--s-3); border: 2px solid var(--line); border-radius: var(--r-md); overflow: hidden;
   background: var(--surface); color: var(--text); text-decoration: none; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }

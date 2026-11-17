@@ -3,11 +3,13 @@
 // computer's own). K-0048: /gary/ now 301s to /log/; gary/log.json and garyEntry/garyPage stay, unused.
 // The homepage also shows the hub's game of the week. Votes themselves are in src/lab.js.
 import { ensureSchema, games as catalogOf } from "./db.js";
-import { themeAttr, now, dayOf, REAL } from "./util.js";
+import { themeAttr, now, dayOf, REAL, isNewGame } from "./util.js";
+import { gotdFor, gotdEnds } from "./gotd.js";
 import { pickFeatured } from "./featured.js";
 import { challengeFor, weekEnd } from "./social.js";
-import { vibesOf } from "./seo.js";
+import { vibesOf, gamesItemList } from "./seo.js";
 import { champsData } from "./champs.js";
+import { isMood } from "./collections.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const STAGE = { building: "building", next: "up next", shipped: "shipped" };
@@ -47,18 +49,23 @@ const LINES = {
   "crash-cheats": "i cheat at tic tac toe. sue me.", "overdue-notice": "smash the bills. i can't pay them either.", "plus-one-ram": "+1 mb a second. i'm gaining.",
   "smol-brains": "tiny creatures. tinier brains.", "reel-weird": "the pond keeps the rod.", "haunted-self-checkout": "unexpected item in bagging area.", "goose-court": "the goose has a lawyer.", "elevator-full-of-fish": "please fling responsibly.", "sandwich-tower": "the fridge gave me a sock.", "microwave-panic": "never microwave the fork.", "cooked-sweeper": "minesweeper has a virus. so do i.", "handbag-havoc": "granny is faster than you.", "crash-test-daily": "a new puzzle every day.",
 };
-const isNew = (g) => g.added && Date.now() - Date.parse(g.added) < 7 * 86400000;
-export const newest = (list, n = 6) => list.filter((g) => g.added && Date.now() - Date.parse(g.added) < 14 * 86400000)
+const isNew = (g) => isNewGame(g);
+export const newest = (list, n = 6) => list.filter((g) => isNewGame(g))
   .map((g, i) => [g, i]).sort((a, b) => b[0].added.localeCompare(a[0].added) || a[1] - b[1]).map((x) => x[0]).slice(0, n);
 export function deskIcon(g) {
   return `<li><a class="desk-icon"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=desk" data-slug="${esc(g.slug)}" data-pitch="${esc(g.pitch)}"` +
     `${g.clip ? ` data-clip="${esc(g.clip)}"` : ""} data-line="${esc(LINES[g.slug] || "ooh. " + g.title + ".")}">` +
     `<span class="ico"><img src="${esc(g.thumbnail)}" alt="" width="96" height="60" decoding="async"></span><span class="lbl">${esc(/\.exe$/.test(g.title) ? g.title : g.title + ".exe")}</span></a></li>`;
 }
+// a card's picture: the gameplay poster (games.json "poster", a 320x180 frame of the game's clip) when there is one,
+// else the cover (320x200). The boxes they sit in keep their own aspect ratio in CSS, so neither one shifts the page,
+// and the browser only ever downloads the one picture.
+export const art = (g) => g.poster ? { src: g.poster, w: 320, h: 180, cls: " is-poster" } : { src: g.thumbnail, w: 320, h: 200, cls: "" };
 export function card2(g, ref = "shelf") {
   // data-slug / data-added: the "your desk" row (assets/home.js, K-0064) builds its cards from these
+  const a = art(g);
   return `<li><a class="card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=${ref}" data-slug="${esc(g.slug)}"${g.added ? ` data-added="${esc(g.added)}"` : ""}>${isNew(g) ? '<span class="tag-new">new</span>' : ""}` +
-    `<span class="thumb"><img src="${esc(g.thumbnail)}" alt="" width="320" height="200" loading="lazy" decoding="async">` +
+    `<span class="thumb"><img${a.cls ? ` class="${a.cls.trim()}"` : ""} src="${esc(a.src)}" alt="" width="${a.w}" height="${a.h}" loading="lazy" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="meta"><b>${esc(g.title)}</b><small>${esc(g.pitch)}</small></span></a></li>`;
 }
@@ -113,8 +120,9 @@ function chartRow(r, g, i) {
 
 function featuredCard(g) {
   const tags = (g.tags || []).slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("");
+  const a = art(g);
   return `<a class="feature-card card2"${themeAttr(g)} href="/games/${encodeURIComponent(g.slug)}/?ref=landing">` +
-    `<span class="thumb"><img class="game-thumb" src="${esc(g.thumbnail)}" alt="" width="640" height="400" decoding="async">` +
+    `<span class="thumb"><img class="game-thumb${a.cls}" src="${esc(a.src)}" alt="" width="${a.w}" height="${a.h}" decoding="async">` +
     `${g.clip ? `<video muted loop playsinline preload="none" data-src="${esc(g.clip)}" aria-hidden="true"></video>` : ""}</span>` +
     `<span class="feature-body"><span class="eyebrow">game of the week</span><h3 class="game-name">${esc(g.title)}</h3>` +
     `<span class="feature-pitch">${esc(g.pitch)}</span>${tags ? `<span class="game-tags">${tags}</span>` : ""}</span></a>`;
@@ -136,7 +144,7 @@ export async function homePage(req, env, url) {
     rw.on("#home-featured", { element(e) { e.setInnerContent(featuredCard(feat), { html: true }); } })
       .on("a#home-play", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=landing`); e.setInnerContent(`play ${feat.title} ▶`); } })
       .on("a#desk-reel", { element(e) { e.setAttribute("href", `/games/${encodeURIComponent(feat.slug)}/?ref=reel`); } })
-      .on("#reel-cover", { element(e) { e.setAttribute("src", feat.thumbnail); } })
+      .on("#reel-cover", { element(e) { const a = art(feat); e.setAttribute("src", a.src); e.setAttribute("width", String(a.w)); e.setAttribute("height", String(a.h)); } })
       .on("#reel-title", { element(e) { e.setInnerContent(feat.title); } })
       .on("#reel-pitch", { element(e) { e.setInnerContent(feat.pitch || ""); } });
   }
@@ -152,7 +160,9 @@ export async function homePage(req, env, url) {
     // K-0062: a game on "just cooked" isn't repeated on the shelf right under it (it read as a duplicate link)
     const onNew = new Set(fresh.map((g) => g.slug));
     const rest = order.filter((g) => !onNew.has(g.slug));
-    rw.on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
+    // structured data: every game as an ItemList (src/seo.js; the static page keeps its WebSite + Organization block)
+    rw.on("head", { element(e) { e.append(gamesItemList(order), { html: true }); } })
+      .on("#desk-icons", { element(e) { e.setInnerContent(desk.map(deskIcon).join(""), { html: true }); } })
       .on("#home-shelf", { element(e) { e.setInnerContent((rest.length ? rest : order).map((g) => card2(g)).join(""), { html: true }); } });
     // pick a mood: each tile gets three covers and its count (the cover strip's height is reserved, so nothing moves)
     let mood = [];
@@ -161,6 +171,8 @@ export async function homePage(req, env, url) {
       const v = e.getAttribute("data-mood");
       mood = order.filter((g) => vibesOf(g).includes(v));
       if (!mood.length) e.setAttribute("hidden", "");
+      // each tile opens its mood's own page (src/collections.js) rather than the filtered hub
+      else if (isMood(v)) e.setAttribute("href", `/games/${v}/?ref=mood`);
     } })
       .on("a.mood .mood-art", { element(e) {
         const pick = mood.filter((g) => !shown.has(g.slug)).concat(mood.filter((g) => shown.has(g.slug))).slice(0, 3);
@@ -181,6 +193,19 @@ export async function homePage(req, env, url) {
     rw.on("a#home-ch", { element(e) {
       e.removeAttribute("hidden"); e.setAttribute("href", `/games/${encodeURIComponent(g.slug)}/?ref=now`);
       e.setInnerContent(challengeCard(live.ch, g), { html: true });
+    } });
+  }
+  // game of the day (src/gotd.js): 2x play xp on one game until midnight UTC
+  let gd = null;
+  try { if (env.DB && catalog.size) gd = await gotdFor(env, now(), catalog); } catch (e) { /* the card stays hidden */ }
+  const gg = gd && catalog.get(gd.game);
+  if (gg) {
+    rw.on("a#home-gotd", { element(e) {
+      e.removeAttribute("hidden"); e.setAttribute("href", `/games/${encodeURIComponent(gg.slug)}/?ref=gotd`);
+      e.setInnerContent(`<img class="now-thumb" src="${esc(gg.thumbnail)}" alt="" width="96" height="60" loading="lazy" decoding="async">` +
+        `<span class="now-tag">game of the day <b>2x xp</b></span><strong class="now-title">${esc(gg.title)}</strong>` +
+        `<span class="now-meta">every run pays double xp today. the quiet games get a turn.</span>` +
+        `<span class="now-count">ends in <b class="num" data-until="${esc(gotdEnds(now()))}">today</b></span>`, { html: true });
     } });
   }
   if (live && live.top.length) {

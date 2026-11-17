@@ -396,7 +396,7 @@ function win() {
   const d = S.cfg;
   S.stars = 1 + (S.undoUsed ? 0 : 1) + (S.maxBench <= lowBench() ? 1 : 0);
   if (d.daily) { const k = dateKey(NOW); const ms = S.endMs - S.startMs; if (!S.practice && !save.daily[k]) save.daily[k] = { t: Math.round(ms), u: S.undoUsed, s: S.score, st: S.stars }; ccEvent('daily_clear', { n: dailyNum() }); }
-  else { save.unlocked = Math.max(save.unlocked, d.lv + 1); save.done[d.lv] = 1; save.stars[d.lv] = Math.max(save.stars[d.lv] || 0, S.stars); if (!save.best[d.lv] || S.score > save.best[d.lv]) save.best[d.lv] = S.score; ccEvent('level_clear', { lv: d.lv, stars: S.stars }); }
+  else { S.prevBest = save.best[d.lv] || 0; save.unlocked = Math.max(save.unlocked, d.lv + 1); save.done[d.lv] = 1; save.stars[d.lv] = Math.max(save.stars[d.lv] || 0, S.stars); if (!save.best[d.lv] || S.score > save.best[d.lv]) save.best[d.lv] = S.score; ccEvent('level_clear', { lv: d.lv, stars: S.stars }); }
   persist();
   const lines = ['picture restored. i feel 4% less corrupted.', 'restored. nobody tell IT.', 'every pixel back where it belongs. unlike my life.', 'file recovered. crash is proud. briefly.'];
   say(lines[(d.lv || dailyNum()) % lines.length], 99, 0);
@@ -777,6 +777,11 @@ function tipSync(at) {
 function tipHeight(w) { if (!tipBox || !tipBox.firstChild) return 0; tipBox.style.width = w + 'px'; return tipBox.offsetHeight; }
 function drawCard(title, lines, btns) {
   const r = cardRect(tipHeight(L.cw - 2 * L.pad - 28)); // K-0059: a taller card makes room for the tip button
+  { // short frames (the site player is ~430-590px tall): grow the card upward so its buttons never fall off the bottom
+    ctx.font = 'bold 13px ' + FONT; let need = 14 + 28 + 4 + 12 + (btns.length > 2 ? 2 * 34 + 8 : 34);
+    for (const ln of lines) need += wrap(ctx, ln.t, r.w - 28).length * 18 + 3;
+    if (r.h < need) { const ny = Math.max(8, H - 16 - need); r.h += r.y - ny; r.y = ny; }
+  }
   ctx.fillStyle = 'rgba(16,17,20,0.94)'; rr(ctx, r.x, r.y, r.w, r.h, 14); ctx.fill();
   ctx.strokeStyle = mode === 'lose' ? 'rgba(255,79,160,0.7)' : LIME; ctx.lineWidth = 2; ctx.stroke();
   let y = r.y + 14;
@@ -803,12 +808,19 @@ function drawWin() {
   const lines = [{ t: '★'.repeat(S.stars) + '☆'.repeat(3 - S.stars) + '  ' + S.score + ' pts · ' + fmtTime(ms), c: LIME },
     { t: (S.undoUsed ? '☆ used ctrl+z' : '★ no ctrl+z') + ' · ' + (S.maxBench <= lowBench() ? '★' : '☆') + ' bench peak ' + S.maxBench + '/' + lowBench() + (S.chainBest ? ' · best chain x' + S.chainBest : ''), c: PAPER }];
   if (d.daily && S.practice) lines.push({ t: 'practice run: your first try is the one that counts.', c: 'rgba(245,243,237,0.5)' });
-  if (!d.daily && save.best[d.lv]) lines.push({ t: 'best ' + save.best[d.lv], c: 'rgba(245,243,237,0.5)' });
+  // the best line is the reason to replay: loud when it's beaten, a target when it isn't
+  if (!d.daily && save.best[d.lv]) {
+    const pb = S.prevBest || 0;
+    if (pb && S.score > pb) lines.push({ t: 'new best! (was ' + pb + ')', c: '#FFD93D' });
+    else if (pb && S.score < pb) lines.push({ t: 'best ' + pb + ' · ' + (pb - S.score) + ' pts to beat it', c: 'rgba(245,243,237,0.8)' });
+    else lines.push({ t: 'best ' + save.best[d.lv] + (S.stars < 3 ? ' · replay for ' + (3 - S.stars) + ' more ★' : ''), c: 'rgba(245,243,237,0.8)' });
+  }
   drawCard('restored: ' + S.im.def.file, lines, d.daily ? [{ l: 'share card', f: share }, { l: 'levels', f: openMenu }, { l: 'play lvl ' + save.unlocked, f: () => loadLevel(levelCfg(save.unlocked)) }] : [{ l: 'next ▸', f: () => loadLevel(levelCfg(d.lv + 1)) }, { l: 'share', f: share }, { l: 'replay', f: restart }]);
 }
 function drawLose() {
   const pct = Math.floor(100 * S.cleared / S.total);
-  const lines = [{ t: 'all 5 slots full and nobody has a clear shot.' }, { t: pct + '% restored · ' + S.cleared + ' pixels', c: PAPER }];
+  const lines = [{ t: 'all 5 slots full and nobody has a clear shot.' }, { t: pct + '% restored · ' + S.cleared + ' pixels', c: PAPER },
+    { t: 'tip: send a disk only when its color is at the bottom of a column.', c: 'rgba(245,243,237,0.6)' }];
   const b = S.undo > 0 ? [{ l: 'ctrl+z (1 left)', f: doUndo }, { l: 'retry', f: restart }, { l: 'share', f: share }] : [{ l: 'retry', f: restart }, { l: 'share', f: share }, { l: 'levels', f: openMenu }];
   drawCard('out of slots. classic.', lines, b);
 }

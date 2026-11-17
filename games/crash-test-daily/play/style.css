@@ -58,3 +58,10 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:8px
 #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--paper);color:var(--carbon);font-weight:800;font-size:12px;padding:8px 12px;border-radius:8px;z-index:25;max-width:90%;text-align:center}
 #toast[hidden]{display:none}
 .cd{color:var(--dim);font-size:12px;margin-top:8px}
+#moves{display:inline-block}
+#moves.pop{animation:mpop .22s ease-out}
+@keyframes mpop{40%{transform:scale(1.35);color:var(--lime)}}
+#moves.over{color:var(--red)}
+.streak{margin:10px 0 4px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px}
+.streak b{color:var(--gold);font-size:16px}
+.streak span{color:var(--dim);font-size:11px}
