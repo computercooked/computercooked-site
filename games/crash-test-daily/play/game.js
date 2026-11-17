@@ -131,7 +131,12 @@
     if (viaKb) G.kbRun = p; else G.kbRun = -1;
     sfx.slide();
     // landing feedback: the part flashes, a puff of dust at the edge it slid into
-    G.flash = { i: p, t: 0.3 };
+    G.flash = { i: p, t: 0.3, col: '255,255,255' };
+    // practice only (hints are allowed there): the flash says if that move got closer, went sideways or made it worse
+    if (G.practice && G.P.dist && G.keys.length > 1) {
+      const a = G.P.dist.get(G.keys[G.keys.length - 2]), b = G.P.dist.get(k);
+      if (a !== undefined && b !== undefined) { G.flash.col = b < a ? '106,220,120' : b === a ? '230,200,90' : '255,92,122'; G.flash.t = 0.55; }
+    }
     const R = pieceRect(p, np), pc = G.P.pieces[p], fwd = np > old ? 1 : -1;
     const ex = pc.dir === 'h' ? (fwd > 0 ? R.x + R.w : R.x) : R.x + R.w / 2, ey = pc.dir === 'h' ? R.y + R.h / 2 : (fwd > 0 ? R.y + R.h : R.y);
     puff(ex, ey, 6, pc.dir === 'h' ? -fwd : 0, pc.dir === 'h' ? 0 : -fwd, 'rgba(245,243,237,');
@@ -332,7 +337,7 @@
     const handlers = { x: closeModal, an: () => showArchive('normal'), ah: () => showArchive('hard'), rand: () => { closeModal(); playRandom(); } };
     for (let no = 1; no <= t; no++) handlers['p' + no] = () => { closeModal(); playArchive(no, gm); };
     modal(`<div class="tb"><span>practice · archive</span><button data-m="x">×</button></div><div class="in">
-      <p>replay any past puzzle. practice doesn't touch your streak, undo is free, and you get hints.</p>
+      <p>replay any past puzzle. practice doesn't touch your streak, undo is free, you get hints, and every move flashes 🟩 closer · 🟨 sideways · 🟥 worse.</p>
       <div class="seg"><button class="btn ${gm === 'normal' ? '' : 'ghost2'}" data-m="an">daily</button><button class="btn ${gm === 'hard' ? '' : 'ghost2'}" data-m="ah">hard</button></div>
       <div class="acts" style="margin-top:0"><button class="btn alt" data-m="rand">random board</button></div>
       <div class="arch">${btns}</div>
@@ -471,7 +476,7 @@
         decorate(p, R);
       }
       if (G.sel === i && kbMode && !G.solved) { rr(R.x + 1, R.y + 1, R.w - 2, R.h - 2, 9); ctx.strokeStyle = '#C5FF49'; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
-      if (G.flash && G.flash.i === i && G.flash.t > 0) { rr(R.x + 2, R.y + 2, R.w - 4, R.h - 4, 8); ctx.fillStyle = 'rgba(255,255,255,' + (G.flash.t * 1.4).toFixed(2) + ')'; ctx.fill(); }
+      if (G.flash && G.flash.i === i && G.flash.t > 0) { rr(R.x + 2, R.y + 2, R.w - 4, R.h - 4, 8); ctx.fillStyle = 'rgba(' + G.flash.col + ',' + (G.flash.t * 1.4).toFixed(2) + ')'; ctx.fill(); }
       ctx.restore();
     });
     // the goal, before the first move: a pulsing lane from the hot air to the vent (it runs over whatever blocks it)
