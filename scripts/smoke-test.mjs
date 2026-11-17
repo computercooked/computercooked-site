@@ -389,6 +389,7 @@ if (chNow?.week && chNow.game) {
   ok(pjs2.includes("cc-ch-share") && pjs2.includes("utm_medium=challenge"), "the challenge line has a share button");
   const dk = await (await get("/assets/deck.js")).text();
   ok(pjs2.includes('"cc-week"') && pjs2.includes("function weekLog") && dk.includes("stats-week") && dk.includes("/me/recap-card.js"), "guests: the week is kept on the device and the player card can share it");
+  ok(pjs2.includes("cc-week-line") && pjs2.includes("your week here"), "game pages show your week on that game");
 } else ok(false, "this week's challenge for the share card check", chNow);
 
 if (!local) console.log("SKIP (live: no accounts) signup, login, xp, profiles, saves, friends, dares by accounts, referrals, delete account");

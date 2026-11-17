@@ -1144,6 +1144,8 @@
 }
 
 /* "your runs": bars for your last 12 scores on this device (games/platform.js showRuns) */
+.cc-week-line { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px var(--s-2); margin: var(--s-3) 0 0; padding-top: var(--s-3); border-top: 1px dashed var(--line); font-size: var(--fs-12); color: var(--paper-dim); }
+.cc-week-line b { color: var(--paper); }
 .cc-runs { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--line); }
 .cc-runs-head { display: flex; justify-content: space-between; gap: var(--s-2); margin: 0 0 var(--s-2); font-size: var(--fs-12); color: var(--paper-dim); }
 .cc-runs-head b { color: var(--paper); }

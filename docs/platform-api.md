@@ -616,6 +616,8 @@ The card is drawn while the recap shows, so the share sheet opens from the tap (
 - `ch`, set when an accepted run met this week's challenge target on the challenge game;
 - `last` (the week before).
 
+**Your week here:** each game page's panel shows a line from the same log, "your week here: 7 runs · best 1,240 · last week 3 runs" (`.cc-week-line`, `weekLine()` in `games/platform.js`). It appears from the week's first run on that game; `g[slug]` keeps `[runs, title, the week's best score]`.
+
 `assets/deck.js` turns it into the `/api/me/recap` shape and draws it with the same `me/recap-card.js`. It uses this week if there are runs, else last week. It starts counting from the first run after this shipped (Nov 16 2026). Nothing is sent.
 
 The recap now also lists the week's challenge: "weekly challenge done ✓" when finished, and this week's goal while it's still open.

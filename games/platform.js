@@ -31,6 +31,7 @@
       '<p class="cc-challenge" hidden></p>' +
       '<ol class="cc-rows" aria-live="polite"><li class="cc-empty">loading…</li></ol>' +
       '<p class="cc-guest" hidden><label>leaderboard name <input type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="guest name"></label> <a href="/me/">or make an account</a></p>' +
+      '<p class="cc-week-line" hidden></p>' +
       '<div class="cc-runs" hidden></div>' +
     "</div>" +
     '<div class="about-card cc-fb" id="cc-feedback">' +
@@ -333,7 +334,7 @@
   }).catch(function () {});
 
   /* ---------- this week on this device (cc-week), for "share my week" in the player card (assets/deck.js) ----------
-     {wk: local Monday "YYYY-MM-DD", runs, ms, g: {slug: [runs, title]}, d: [days played], xp, l0/l1/lt: level at the
+     {wk: local Monday "YYYY-MM-DD", runs, ms, g: {slug: [runs, title, the week's best score]}, d: [days played], xp, l0/l1/lt: level at the
      week's first run / now / its title, b: {slug: [new best, the best before it or null, title]}, ch: {g, t} when a
      run met this week's challenge target, last: the week before, same shape}. Runs of 3 s or more. Nothing is sent. */
   var chNow = null; // this week's challenge, when it's this game (loadChallenge)
@@ -350,7 +351,10 @@
       }
       var title = (info && info.title) || game, r = d.result, day = dayKey(new Date());
       w.runs++; w.ms += d.durationMs;
-      w.g[game] = [((w.g[game] || [])[0] || 0) + 1, title];
+      var gg = w.g[game] || [0, title, null];
+      gg[0] = (gg[0] || 0) + 1; gg[1] = title;
+      if (typeof d.score === "number" && isFinite(d.score) && (gg[2] == null || d.score > gg[2])) gg[2] = d.score;
+      w.g[game] = gg;
       if (w.d.indexOf(day) < 0) w.d.push(day);
       if (x && x.gained > 0) w.xp += x.gained;
       if (x && x.level) { if (w.l0 == null) w.l0 = Math.max(1, x.level - (x.leveled_up ? 1 : 0)); w.l1 = x.level; w.lt = x.title; }
@@ -361,7 +365,23 @@
       if (chNow && chNow.game === game && r && r.accepted && typeof d.score === "number" && d.score >= chNow.target) w.ch = { g: game, t: title };
       localStorage.setItem("cc-week", JSON.stringify(w));
     } catch (err) {}
+    weekLine();
   }
+  // "your week here": this week's runs and best on this game (cc-week), with last week's runs beside it when there were
+  // any. Shown from the week's first run on this game; a new week starts it again.
+  function weekLine() {
+    var p = panel.querySelector(".cc-week-line"), w = null;
+    try { w = JSON.parse(localStorage.getItem("cc-week") || "null"); } catch (err) {}
+    var mon = mondayOf(Date.now()), prev = new Date(mon); prev.setDate(prev.getDate() - 7);
+    var cur = w && w.wk === dayKey(mon) && w.g && w.g[game];
+    if (!p || !cur || !cur[0]) { if (p) p.hidden = true; return; }
+    var old = w.last && w.last.wk === dayKey(prev) && w.last.g && w.last.g[game];
+    p.innerHTML = "<b>your week here</b> <span>" + cur[0] + (cur[0] === 1 ? " run" : " runs") +
+      (cur[2] != null ? " · best " + esc(fmt(cur[2])) : "") +
+      (old && old[0] ? " · last week " + old[0] + (old[0] === 1 ? " run" : " runs") : "") + "</span>";
+    p.hidden = false;
+  }
+  weekLine();
 
   /* ---------- weekly challenge line on the featured game (slice D2) ---------- */
   function loadChallenge() {
