@@ -630,8 +630,12 @@
     state = "title"; G = null; paused = false; clearScreen(); $("end").hidden = true; $("menu").hidden = true;
     DEMO = newMatch("demo", { auto: true, demo: true, wave: 4 });
     const d = S.daily && S.daily.date === today() ? S.daily : null, st = S.streak, live = st.n && (st.last === today() || st.last === yesterday()), nextL = Math.min(5, S.unlocked);
+    // r5: one next goal, in words: the next level to beat, else the next missing star, else the endless record
+    const todo = S.stars.findIndex((s, i) => !s && i < S.unlocked), three = S.stars.findIndex((s) => s < 3);
+    const goal = todo >= 0 ? `next: beat level ${todo + 1} · ${LEVELS[todo].name}` : three >= 0 ? `next: ★★★ on level ${three + 1} (win under 1:50)` : `next: reach desktop #${(S.bestEndless || 0) + 1} in endless`;
     $("titleIn").innerHTML = `<h1>desktop takeover</h1><p class="hide-short">you're a rogue folder. drag from your folders to send cursors. take the whole desktop.</p>
       <div class="lab">campaign</div><div class="lv">${LEVELS.map((l, i) => `<button class="btn${i + 1 === nextL && !S.stars[i] ? " go" : ""}" type="button" data-l="${i + 1}" ${i + 1 > S.unlocked ? "disabled" : ""} aria-label="level ${i + 1}: ${l.name}">${i + 1}<small>${i + 1 > S.unlocked ? "locked" : S.stars[i] ? "★".repeat(S.stars[i]) : "·"}</small></button>`).join("")}</div>
+      <p class="goal">${goal}</p>
       <div class="modes"><button class="btn" id="tEndless" type="button">endless<small>${S.bestEndless ? "best: desktop #" + S.bestEndless : "random desktops"}</small></button><button class="btn" id="tDaily" type="button">daily desktop<small>${d ? "today: " + d.pct + "% ✓" : "new today"}</small></button></div>
       ${live ? `<p class="small">daily streak <b>${st.n}</b> day${st.n > 1 ? "s" : ""}${!d ? ` · <span class="risk">play today to keep it</span>` : ""}</p>` : ""}`;
     for (const b of $("titleIn").querySelectorAll("[data-l]")) b.onclick = () => start("campaign", { level: +b.dataset.l });
