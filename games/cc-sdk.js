@@ -255,7 +255,8 @@
   // Links we post carry ?ref=<channel> (or utm_source=): in-app browsers (TikTok, Instagram) often send no
   // referrer, so the tag decides. Same map as assets/deck.js, which does this on pages without the SDK (the hub).
   var REF_TAGS = { tiktok: "tiktok", tt: "tiktok", youtube: "youtube", yt: "youtube", instagram: "instagram", ig: "instagram",
-    x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal" };
+    x: "x", twitter: "x", threads: "threads", bluesky: "bluesky", bsky: "bluesky", portal: "portal",
+    short: "short" }; // ref=short: our /g/ promo short links (src/short.js), same as assets/deck.js
   function refTag() {
     var v = (q.get("ref") || q.get("utm_source") || "").toLowerCase().trim();
     if (!v || v === "app") return null; // ?ref=app is the installed web app's start URL (isApp below)
