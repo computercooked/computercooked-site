@@ -3,6 +3,7 @@
 import { now, dayOf, streakFrom } from "./util.js";
 import { challengeFor, eventsLive, eventDef } from "./social.js";
 import { unlocksBetween } from "./cosmetics.js";
+import { gotdFor } from "./gotd.js";
 
 // total XP needed to reach level L: 50 * (L-1)^1.6  ->  L2 at 50, L3 at 152, L5 at 459, L10 at 1683, L20 at 5555
 export const xpFor = (L) => Math.round(50 * Math.pow(Math.max(0, L - 1), 1.6));
@@ -84,7 +85,7 @@ async function streakDays(env, userId, today) {
 }
 
 // Called when a play ends. scoreRes is recordScore()'s result (or null when the game sent no score).
-export async function awardPlay(env, user, play, game, scoreRes, durMs, completed, t, score = null) {
+export async function awardPlay(env, user, play, game, scoreRes, durMs, completed, t, score = null, catalog = null) {
   if (!user || !game || !completed || durMs < RULES.minMs) return null;
   if (play.user_id != null && play.user_id !== user.id) return null;
   if (scoreRes && scoreRes.accepted === false && scoreRes.reason === "score out of bounds") return null;
@@ -104,6 +105,16 @@ export async function awardPlay(env, user, play, game, scoreRes, durMs, complete
   let g = await grant(env, user.id, "play", play.game, play.id, playXp, t);
   if (g) parts.push({ kind: "play", xp: g });
   if (playXp < RULES.base + pct) parts.push({ kind: "cap", xp: 0 });
+
+  // game of the day (src/gotd.js): the same play XP again. Play XP is capped at 150 per game per day, so this is too.
+  if (g) {
+    let gd = null;
+    try { gd = await gotdFor(env, t, catalog); } catch (e) { /* no pick today: no bonus */ }
+    if (gd && gd.game === play.game) {
+      const b = await grant(env, user.id, "gotd", play.game, play.id, g, t);
+      if (b) parts.push({ kind: "gotd", xp: b });
+    }
+  }
 
   g = await grant(env, user.id, "first", play.game, play.game, RULES.first, t);
   if (g) parts.push({ kind: "first", xp: g });
@@ -192,6 +203,11 @@ export async function replayGuest(env, userId, playIds) {
   for (const r of (await env.DB.prepare("SELECT day, game, SUM(amount) x FROM xp_events WHERE user_id = ? AND kind = 'play' GROUP BY day, game").bind(userId).all()).results) used[r.day + "|" + r.game] = r.x;
   const hadFirst = new Set((await env.DB.prepare("SELECT ref FROM xp_events WHERE user_id = ? AND kind = 'first'").bind(userId).all()).results.map((r) => r.ref));
 
+  // game of the day for each day these plays ended on (read only: replay never creates a past day's pick)
+  const gotdDay = {};
+  for (const d of [...new Set(plays.map((p) => dayOf(p.ended_at)))]) {
+    try { gotdDay[d] = (await gotdFor(env, Date.parse(d + "T12:00:00Z")))?.game || null; } catch (e) { gotdDay[d] = null; }
+  }
   const rows = [], bests = {};
   let maxStreak = 0, bestRank = Infinity, newBest = false, marathon = false;
   for (const p of plays) {
@@ -208,6 +224,7 @@ export async function replayGuest(env, userId, playIds) {
     const playXp = Math.min(RULES.base + pct, Math.max(0, RULES.perGameDayCap - (used[k] || 0)));
     used[k] = (used[k] || 0) + playXp;
     if (playXp > 0) rows.push(["play", p.game, p.id, playXp, p]);
+    if (playXp > 0 && gotdDay[dayOf(p.ended_at)] === p.game) rows.push(["gotd", p.game, p.id, playXp, p]);
     if (!hadFirst.has(p.game)) { hadFirst.add(p.game); rows.push(["first", p.game, p.game, RULES.first, p]); }
     const streak = streakFrom(days, p.day).n;
     maxStreak = Math.max(maxStreak, streak);

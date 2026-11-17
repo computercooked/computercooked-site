@@ -505,6 +505,20 @@ else {
     ok(wk.ok && /^\d{4}-W\d\d$/.test(wk.week) && wk.resets_at > Date.now() && (mine ? mine.xp >= 60 && mine.u === u : wk.you?.xp >= 60), "weekly xp board shows this account", mine || wk.you);
     wk = await (await get("/api/xp/week")).json();
     ok(wk.ok && wk.you === null && wk.rows.every((x) => !x.me && x.u && typeof x.level === "number"), "weekly xp board for guests: rows, no 'you'");
+    // game of the day (src/gotd.js): today's pick pays its play xp twice ("gotd" part); other games don't; home shows it
+    const gd = await (await get("/api/gotd")).json();
+    ok(gd.ok && gd.game && /^\d{4}-\d\d-\d\d$/.test(gd.day) && Date.parse(gd.ends_at) > Date.now() && !["crash-test-daily", "desktop-jam", "fathom"].includes(gd.game),
+      "game of the day: /api/gotd names today's pick (never a daily 3 game)", gd);
+    if (gd.game) {
+      const b = await run(gd.game), bp = (b?.parts || []).find((p) => p.kind === "play"), bg = (b?.parts || []).find((p) => p.kind === "gotd");
+      ok(bp && bg && bg.xp === bp.xp, "game of the day: a run pays its play xp twice", b?.parts);
+      const o = await run(gd.game === "crash" ? "bellchain" : "crash");
+      ok(o && !(o.parts || []).some((p) => p.kind === "gotd"), "game of the day: other games pay no bonus", o?.parts);
+      const again = await (await get("/api/gotd")).json();
+      ok(again.game === gd.game, "game of the day: the pick holds all day");
+      const home = await (await get("/")).text();
+      ok(new RegExp(`id="home-gotd" href="/games/${gd.game}/\\?ref=gotd"`).test(home) && /game of the day <b>2x xp<\/b>/.test(home), "home shows the game of the day card");
+    }
   }
   // XP and levels (slice B): a logged-in 12s run of CRASH
   const ev = (events) => post("/api/events", { anon, events }, { cookie }).then((x) => x.json());
