@@ -105,6 +105,12 @@
             body: JSON.stringify({ platform: a.dataset.follow, slot: a.dataset.slot, game: gm ? gm[1] : null, anon: localStorage.getItem("cc-anon") }) }).catch(function () {});
         } catch (err) {}
       });
+      // round 26: a link out to TikTok on /show/ (a[data-tt-out]: the follow buttons and each episode) counts one
+      // tiktok_out {slot, ep}, read as tiktok_out in /api/admin/digest
+      document.addEventListener("click", function (e) {
+        var a = e.target.closest && e.target.closest("a[data-tt-out]");
+        if (a) hit("tiktok_out", { slot: a.dataset.slot || "other", ep: a.dataset.ep || null });
+      });
       // time on page: visible time only, sent once when the tab is hidden or closed
       var shown = document.visibilityState === "visible" ? Date.now() : 0, seen = 0, left = false;
       document.addEventListener("visibilitychange", function () {

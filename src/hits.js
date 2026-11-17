@@ -11,12 +11,15 @@
 //   desk_shown   the homepage's "your desk" row was shown to a returning player (K-0064, assets/home.js), once per load
 //   desk_click   a card in that row was opened, with the game's slug; slot "resume" (the pick-up card) or "card";
 //                slot "nudge" (no game) = the hero's "your desk is warm" link down to the row (K-0066)
+//   tiktok_out   a link out to TikTok on /show/ (round 26): slot "follow" / "follow-end" (the two follow buttons) or
+//                "episode", with ep = the episode's slug from show/episodes.json
 // Stored as events rows named cc:<kind>, data {path, ref, campaign, src, medium, slot}; src / medium are the visit's raw
 // utm_source / utm_medium. Read in /api/admin/metrics and /api/admin/digest.
 // Smoke traffic is answered but not stored, like /api/follow.
 import { json, bad, readJson, now, limited, slugOk, refOk, campaignOk, isTestAnon } from "./util.js";
 
-const KINDS = ["pageview", "tip_click", "tip_success", "ad_slot", "leave", "desk_shown", "desk_click"];
+const KINDS = ["pageview", "tip_click", "tip_success", "ad_slot", "leave", "desk_shown", "desk_click", "tiktok_out"];
+export const TT_OUT_SLOTS = ["follow", "follow-end", "episode"];
 export const TIP_SLOTS = ["hub-top", "hub-footer", "post-run", "post-best", "support", "home-footer", "game-over", "smol-death", "smol-ending"];
 
 const pathOk = (p) => {
@@ -45,6 +48,10 @@ export async function hit(req, env, ip) {
   }
   if (b.kind === "ad_slot") data.slot = b.slot === "rewarded" || b.slot === "display" ? b.slot : "interstitial"; // display = the results-card strip (round 22)
   if (b.kind === "desk_click") data.slot = b.slot === "resume" || b.slot === "nudge" ? b.slot : "card";
+  if (b.kind === "tiktok_out") {
+    data.slot = TT_OUT_SLOTS.includes(b.slot) ? b.slot : "other";
+    if (typeof b.ep === "string" && /^[a-z0-9-]{3,60}$/.test(b.ep)) data.ep = b.ep;
+  }
   const game = slugOk(b.game) ? b.game : "site";
   await env.DB.prepare("INSERT INTO events (play_id, game, name, data, ts) VALUES (NULL, ?, ?, ?, ?)")
     .bind(game, "cc:" + b.kind, JSON.stringify(data), now()).run();
