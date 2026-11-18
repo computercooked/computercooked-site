@@ -461,10 +461,12 @@ if(w)Game.skipStop(g,w);
 });
 });
 Game.CARDS_END=2.21;
+Game.CARDS_WAIT=30;
 Game.cardsOver=function(game){
 var st=game&&game.tutorial;
 if(!st||st.done||(st.step||0)<2||(game.time||0)<Game.CARDS_END*SB.DAY_LENGTH)return false;
 if(SB.FirstNight&&SB.FirstNight.active&&SB.FirstNight.active(game))return false;
+if(st.stepT!=null&&(game.time||0)-st.stepT<Game.CARDS_WAIT)return false;
 st.done=true;
 SB.bus.emit("tutorialOver",{auto:true});
 return true;

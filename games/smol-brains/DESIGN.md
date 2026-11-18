@@ -728,12 +728,13 @@ So a player who ignored one card got a much quieter game and could not know why.
 **What changed.**
 - **The cards are put away by themselves at the dawn of day 3.** The first night ends at the dawn of day 2, so the cards get one island day (20 minutes at normal speed). After that `Game.cardsOver` marks the tutorial done, the card comes off the screen and one line says "the basics cards are put away now. ❓ help is in the menu." Everything in the list above then runs as on any island. `Game.CARDS_END` (2.21 island days) is the line.
 - It never happens before the pod is opened (no smol is out yet) and never while the first night is still running: that night ends its own way.
+- A player who is working through the cards when day 3 dawns is not cut off (cc-lead's guard): each time a card moves on, the set waits another half minute (`Game.CARDS_WAIT`, stamped as `tutorial.stepT` by ui.js). It is put away only once a card has sat for 30 seconds.
 - **"Carried home" no longer waits for the cards at all.** It waits only for a taught night: the first night, or a night chase you were lent into (`lesson()` in powers.js, used by `Powers.catchFall` and by the older `downed` rule). A founder hurt too badly while a card is up is carried home like any other smol.
 - An island saved in the middle of the cards and opened after day 3 has them put away on its first moment of play.
 
 **What it does not change.** An island whose player finishes or skips the cards (nearly all of them, within minutes) plays exactly as before. Headless runs and the judging islands start with the tutorial done, so no measured number moves.
 
-**Tests.** `tests/play445.test.js`: a fall while a card is up is caught and no death is announced; a fall in the first night is real unless "nobody is lost" is on; the cards end at the dawn of day 3, once, not a moment before, not before the pod and not during the first night; after that neither friends.js nor powers.js counts the island as in the story; the card comes off with its one line.
+**Tests.** `tests/play445.test.js`: a fall while a card is up is caught and no death is announced; a fall in the first night is real unless "nobody is lost" is on; the cards end at the dawn of day 3, once, not a moment before, not before the pod and not during the first night; a card moved on 10 seconds ago makes the set wait, and half a minute later it goes; after that neither friends.js nor powers.js counts the island as in the story; the card comes off with its one line.
 
 ## 0.93 What v4.44.0 changed: what the proof pass turned up
 

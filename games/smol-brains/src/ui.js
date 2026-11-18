@@ -2168,6 +2168,7 @@
     var st = game.tutorial;
     if (st.done) return;
     st.step = to != null ? to : st.step + 1;
+    st.stepT = game.time || 0; // 4.45: Game.cardsOver does not put the cards away while you are working through them
     if (st.step >= TUT.length) st.done = true;
     tutShow();
   }

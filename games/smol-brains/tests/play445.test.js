@@ -3,7 +3,8 @@
 // it was on a smol was never "carried home", and the storyteller, the night chase, pods, weddings and festivals waited.
 //   1. while a basics card is up, a smol that falls is carried home (only a taught night is left to end its own way)
 //   2. during the first night a fall is still real, unless "nobody is lost" is on
-//   3. the cards are put away by themselves at the dawn of day 3, once, and never before
+//   3. the cards are put away by themselves at the dawn of day 3, once, and never before; a player who moved a card
+//      on in the last half minute is waited for
 //   4. after that nothing counts as the story any more
 //   5. the sky hears of it: the card comes off and one line says where help is
 // node games/smol-brains/tests/play445.test.js
@@ -91,6 +92,16 @@ console.log("3. the cards are put away at the dawn of day 3");
   check("a finished tutorial is left alone", G.cardsOver(game) === false && over.length === 1);
   game.tutorial.done = false; game.time = 2 * D; game.world.time = game.time;
   check("on day 2 the cards stay", G.cardsOver(game) === false && game.tutorial.done === false);
+}
+
+{
+  const { SB, game } = fresh(4456), D = SB.DAY_LENGTH, G = SB.Game;
+  cards(game, 4);
+  game.time = G.CARDS_END * D + 5; game.world.time = game.time; game.tutorial.stepT = game.time - 10;
+  check("a card was moved on 10 s ago: the set waits", G.CARDS_WAIT === 30 && G.cardsOver(game) === false && game.tutorial.done === false);
+  game.time += 25;
+  check("half a minute after the last card moved it is put away", G.cardsOver(game) === true && game.tutorial.done === true);
+  check("the sky stamps the moment a card moves on", /st\.stepT = game\.time \|\| 0;/.test(src("ui.js")));
 }
 
 console.log("4. after that nothing counts as the story");
