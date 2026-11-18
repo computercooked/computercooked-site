@@ -2397,6 +2397,10 @@ for(var tk in T2X)PW.TOGGLES[tk]=T2X[tk];
 PW.onToggle=function(game,key,on){
 var se=set(game),s=s2(game);
 if(key==="calmNights"){if(on)se.nightChase=false;else delete se.nightChase;}
+if((key==="noGoal"||key==="simple")&&on){
+if(SB.FirstNight&&SB.FirstNight.active&&SB.FirstNight.skip&&SB.FirstNight.active(game)){try{SB.FirstNight.skip(game);}catch(e){}}
+if(game.tutorial&&!game.tutorial.done)game.tutorial.done=true;
+}
 if(key==="noGoal"||key==="simple"){if(on)se.guide=false;else if(!se.noGoal&&!se.simple)delete se.guide;emit("guideSet",{on:se.guide!==false});if(SB.PovHud&&SB.PovHud.quest)try{SB.PovHud.quest();}catch(e){}}
 if(key==="simple"){if(on){se.minimap=false;PW.page("light");}else delete se.minimap;}
 if(key==="handsOff"){

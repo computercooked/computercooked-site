@@ -76,8 +76,11 @@ console.log("2. \"no story prompts\"");
 {
   const { SB, game } = fresh(4444);
   let told = null; SB.bus.on("guideSet", d => { told = d; });
+  game.tutorial.done = false;
   SB.Powers.toggle(game, "noGoal");
   check("the switch turns the guide off and says so at once", game.settings.guide === false && told && told.on === false);
+  check("and the tutorial is over: the island is not left in its lesson rules", game.tutorial.done === true);
+  check("switched on in the first lesson, it ends the lesson too", /SB\.FirstNight\.active\(game\)\) ?\{ ?try ?\{ ?SB\.FirstNight\.skip\(game\);/.test(js("powers.js")));
   SB.Powers.toggle(game, "noGoal");
   check("off again: the guide is back", game.settings.guide !== false && told && told.on === true);
   const hud = js("povhud.js"), pos = js("possess.js"), ui = js("ui.js");

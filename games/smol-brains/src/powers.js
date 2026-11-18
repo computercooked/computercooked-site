@@ -2564,6 +2564,12 @@
   PW.onToggle = function (game, key, on) {
     var se = set(game), s = s2(game);
     if (key === "calmNights") { if (on) se.nightChase = false; else delete se.nightChase; }
+    if ((key === "noGoal" || key === "simple") && on) {
+      // 4.44: asked for in the first minutes, it also ends the first day's lesson (the same as that lesson's own "skip")
+      // and the tutorial. left running with nothing on screen, the island stayed in its lesson rules for good
+      if (SB.FirstNight && SB.FirstNight.active && SB.FirstNight.skip && SB.FirstNight.active(game)) { try { SB.FirstNight.skip(game); } catch (e) {} }
+      if (game.tutorial && !game.tutorial.done) game.tutorial.done = true;
+    }
     if (key === "noGoal" || key === "simple") { if (on) se.guide = false; else if (!se.noGoal && !se.simple) delete se.guide; emit("guideSet", { on: se.guide !== false }); if (SB.PovHud && SB.PovHud.quest) try { SB.PovHud.quest(); } catch (e) {} } // 4.44: the quest line, its marker and the tutorial card go at once
     if (key === "simple") { if (on) { se.minimap = false; PW.page("light"); } else delete se.minimap; }
     if (key === "handsOff") {
