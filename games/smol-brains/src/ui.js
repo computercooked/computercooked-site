@@ -1496,8 +1496,8 @@
   function goneList(g) { var out = [], id, f; for (id in g.family) { f = g.family[id]; if (f && f.name && f.died > 0) out.push(f); } return out.sort(function (a, b) { return b.died - a.died; }); }
   UI.goneList = goneList;
   function goneCard(f, open) {
-    var nm = function (id) { var o = game.family[id]; return o && o.name; }, days = f.born > 0 ? (f.died - f.born) / SB.DAY_LENGTH : 0;
-    var line = (GONE_WORD[f.cause] || "was lost") + " · " + when(f.died) + (days > 0 ? " · " + (days < 1 ? "less than a day" : Math.round(days * 10) / 10 + " days") + " on the island" : "");
+    var nm = function (id) { var o = game.family[id]; return o && o.name; }, days = f.age > 0 ? f.age / SB.DAY_LENGTH : 0; // 4.44: days lived, from the age kept when it went. the clock at death minus the clock at birth is wrong on any island whose clock was moved (a sandbox can)
+    var line = (GONE_WORD[f.cause] || "was lost") + " · " + when(f.died) + (days > 0 ? " · lived " + (days < 1 ? "less than a day" : Math.round(days * 10) / 10 + " days") : "");
     var par = (f.parents || []).map(nm).filter(Boolean), kids = (f.kids || []).map(nm).filter(Boolean), more = [];
     if (par.length) more.push("child of " + par.join(" & "));
     if (kids.length) more.push(kids.length + (kids.length === 1 ? " child: " : " children: ") + kids.slice(0, 6).join(", ") + (kids.length > 6 ? "…" : ""));

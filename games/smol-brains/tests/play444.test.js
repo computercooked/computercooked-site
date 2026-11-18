@@ -265,6 +265,7 @@ console.log("8. coming back reads as a generation passing");
     check("a real catch-up hands over the record", !!(rep && rep.away) && rep.away.pop0 === before, rep && rep.away && rep.away.pop0 + " vs " + before);
     check("and it is measured from the moment you left: the newborn is in it, the grown-ups are not", !!(rep && rep.away) && rep.away.born.some(e => e.name === kid.name) && rep.away.born.every(e => e.age <= 202), rep && rep.away && rep.away.born.map(e => e.name + ":" + Math.round(e.age)).join(" "));
   }
+  check("the page says how long a smol lived, from its age and not from the clock", game.family[six[0].id].age === Math.round(six[0].age) && game.family[six[0].id].age >= 560 && /days ?= ?f\.age ?> ?0 ?\? ?f\.age ?\/ ?SB\.DAY_LENGTH ?: ?0/.test(ui) && /" \u00b7 lived "|" · lived "/.test(ui));
   check("the chronicle has the page", /function tabChronicle\(body, ?arg\)/.test(ui) && /UI\.goneList ?= ?goneList;/.test(ui) && /remembered/.test(ui));
 }
 
