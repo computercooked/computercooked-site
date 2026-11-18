@@ -1173,6 +1173,7 @@ function questStart(){
 var game=S.game,c=S.c,st=game.settings||(game.settings={});
 S.quest=null;
 if(!st.povHungry){st.povHungry=1;S.hungerClock=true;if(c.chem.hunger<P.START_HUNGER)c.chem.hunger=P.START_HUNGER;S.lastHun=c.chem.hunger;}
+if(st.guide===false)return;
 if(c.tier<2){
 if(st.povBlobQuest==="done"||st.povBlobQuest==="skipped"||questStore(BKEY)==="done")return;
 S.quest={i:0,kind:"blob",started:game.time,flags:{}};

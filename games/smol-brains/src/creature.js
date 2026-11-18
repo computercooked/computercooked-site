@@ -1712,6 +1712,10 @@
   function die(c, game, cause) {
     if (!c.alive) return;
     if (c._pov && c.species === "smol" && SB.Possess && SB.Possess.ko && SB.Possess.ko(c, cause)) return; // K-0041: a possessed smol is knocked out, not killed
+    // 4.44: a smol that "goes down and is carried home" (powers.js) is asked for before the death is announced. it used
+    // to die first and be raised a moment later, so the farewell card, "died" in the log, the grief and a ghost light all
+    // showed for a smol asleep at home
+    if (c.species === "smol" && SB.Powers && SB.Powers.catchFall && SB.Powers.catchFall(game, c, cause)) { if (c.plan) endPlan(c, game, false); dropAll(c, game); if (c.heldBy === "hand") { game.hand.heldId = null; c.heldBy = null; } return; }
     c.alive = false; c.dying = true; c.fade = 0; c.asleep = false;
     if (c.plan) endPlan(c, game, false);
     dropAll(c, game);

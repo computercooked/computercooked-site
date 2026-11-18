@@ -449,6 +449,13 @@ return walk;
 D.pois=function(game){
 var cch=game._deepPois;
 if(cch&&cch.w===game.world)return cch.list;
+var kept0=st(game).places;
+if(Array.isArray(kept0)&&kept0.length){
+var keptL=[];
+kept0.forEach(function(a){if(!a||!PD(a[1]))return;var o={id:a[0],kind:a[1],x:a[2],z:a[3],b:a[4],h:a[5]};if(a[6])o.boon=a[6];keptL.push(o);});
+game._deepPois={w:game.world,list:keptL};
+return keptL;
+}
 var w=game.world,T=w.T,N=T.N,G=WG(),r=dice(game,"deep-places"),out=[],KK=N/256,sp=T.spawn||T.nest;
 var walk=reach(game),sites=game.sites||[],caves=D.caves(game),far=[];
 for(var fj=5;fj<N-5;fj+=2)for(var fi=5;fi<N-5;fi+=2)if(walk[fj*N+fi]===2&&G.depthAt(T,fi+0.5,fj+0.5)<0.02&&G.slopeAt(T,fi+0.5,fj+0.5)<1)far.push(fj*N+fi);
@@ -483,6 +490,14 @@ if(k==="ring")best.boon=D.BOON_ORDER[ring++%D.BOON_ORDER.length];
 out.push(best);
 }
 });
+(w.structures||[]).forEach(function(sb){
+var pid=sb.data&&sb.data.poi,pp=null,pi;
+if(!pid||String(sb.kind).slice(0,4)!=="poi_")return;
+for(pi=0;pi<out.length;pi++)if(out[pi].id===pid)pp=out[pi];
+if(!pp||SB.dist(pp.x,pp.z,sb.x,sb.z)<1.5)return;
+pp.x=Math.round(sb.x*10)/10;pp.z=Math.round(sb.z*10)/10;pp.b=G.biomeAt(T,sb.x,sb.z);pp.h=G.heightAt(T,sb.x,sb.z);
+});
+st(game).places=out.map(function(p){return[p.id,p.kind,p.x,p.z,p.b,Math.round(p.h*10)/10,p.boon||0];});
 game._deepPois={w:game.world,list:out};
 return out;
 };
@@ -1040,7 +1055,7 @@ D.html=function(game,c,icon){
 icon=icon||function(){return"";};
 var s=st(game),pr=D.progress(game),mn=D.moon(game),out="";
 var more=D.html2(game,c,icon);
-out+="<div class='lbl'>🧭 the island · <b>"+pr.pct+"%</b> explored · <b>"+pr.found+" of "+pr.total+"</b> places found · deepest delve: level <b>"+pr.deepest+"</b> of "+D.MAX+"</div>";
+out+="<div class='lbl'>🧭 the island · <b>"+pr.pct+"%</b> explored · <b>"+pr.found+" of "+pr.total+"</b> places found · deepest delve: level <b>"+pr.deepest+"</b> of "+(D.underOpen(game)?D.UNDER_MAX:D.MAX)+"</div>";
 out+="<p class='help'>"+mn.icon+" "+esc(mn.name)+" · "+(D.lowTide(game)?"🌊 low tide: the tide pools are open":"🌊 the tide is in (low at dawn and dusk)")+(D.heatwave(game)?" · 🥵 heat wave":"")+(D.blizzard(game)?" · 🌨 blizzard":"")+(s.wx.rb?" · 🌈 a rainbow is out":"")+"</p>";
 if(s.boon&&D.BOONS[s.boon])out+="<div class='lbl'>"+D.BOONS[s.boon].icon+" "+esc(D.BOONS[s.boon].name)+": "+esc(D.BOONS[s.boon].perk)+"</div>";
 var ws=D.waystones(game),here=null;
@@ -1959,7 +1974,7 @@ if(D.SHELF.indexOf(k)<0)return fail("the keeping shelf has no place for that");
 if(sh[k])return fail("there is one on the shelf already");
 if(!has(c,k))return fail("you are not carrying one");
 Sv().take(c,k,1);sh[k]=day(game);
-var n=D.shelfCount(game),msg="🏛 a "+label(k)+" goes on the keeping shelf ("+n+" of "+D.SHELF.length+")";
+var n=D.shelfCount(game),msg="🏛 "+(/^[aeiou]/i.test(label(k))?"an ":"a ")+label(k)+" goes on the keeping shelf ("+n+" of "+D.SHELF.length+")";
 D.SHELF_PRIZES.forEach(function(pz){if(n===pz[0]){gives(game,c,pz[1]);msg+=". the hermit sends a thank-you: "+pz[2];}});
 SB.bus.emit("deepShelf",{c:c,kind:k,n:n});
 return ok(msg);

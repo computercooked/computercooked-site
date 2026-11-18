@@ -1922,6 +1922,7 @@ if(el.coach){el.coach.remove();el.coach=null;}
 [].forEach.call(document.querySelectorAll(".tutglow"),function(n){n.classList.remove("tutglow");});
 var st=game.tutorial;
 if(st.done){state.tutStep=-1;return;}
+if(game.settings&&game.settings.guide===false){state.tutStep=-1;return;}
 if(SB.FirstNight&&SB.FirstNight.active(game)&&st.step>=1){state.tutStep=-1;return;}
 state.tutStep=st.step;
 if(st.step===1)return;
@@ -2586,6 +2587,7 @@ on("season",function(d){if(d.season==="winter")storyCard("winter","❄️","wint
 on("incident",function(){setTimeout(function(){if(!game.settings.cards||!game.settings.cards.incident){storyCard("incident","📜","story cards",["every few minutes something happens on the island: raids, storms, sickness, falling stars, feuds, lost kids, visions. the storyteller asks what you want to do.","answers with ✨ cost sparks. if you don't answer in time, the free one happens. you can make the storyteller calmer or wilder in settings."]);}},200);});
 on("lightning",function(){R.flash(0.9);R.camera.shake=Math.max(R.camera.shake,0.3);});
 on("death",function(d){if(game.selectedId===d.c.id)closeSheet();});
+on("guideSet",function(){tutShow();});
 on("orderDone",function(d){if(d.msg)toast(esc(d.msg));});
 on("ordersAnnoyed",function(){var now=performance.now();if(now-annoyT<30000)return;annoyT=now;toast("😤 too many orders: your smols are getting annoyed. they'll listen less for a while");});
 on("grumpArrive",function(){if((game.stats.grumpNights||0)===0&&!game._grumpWarned){game._grumpWarned=true;toast("👺 grumps come out at night. 👆 tap them 3 times to shoo them. fire scares them too.");}});
