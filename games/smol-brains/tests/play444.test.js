@@ -163,5 +163,26 @@ console.log("6. words, and honey island's hives");
   check("once", !again.ok && hives() === h1);
 }
 
+console.log("7. a thing added to the island is still there after a load");
+{
+  // W.addNode used to hand out "the highest id that is not a vine or sea ice, plus one": the id of the first iceberg.
+  // on the next load the iceberg was there first, so the added thing was dropped
+  const { SB, game } = fresh(4448), W = SB.World, w = game.world, sp = w.T.spawn;
+  const taken = new Set(w.nodes.map(n => n.id));
+  const made = [];
+  for (let i = 0; i < 6; i++) { const n = W.addNode(w, game, "hive", sp.x + 3 + i, sp.z + 3); if (n) made.push(n); }
+  check("six things added", made.length === 6);
+  check("each has an id nothing else has", made.every(n => !taken.has(n.id)) && new Set(made.map(n => n.id)).size === 6);
+  check("from the range kept for added things", made.every(n => n.id >= W.ADD_ID0) && W.ADD_ID0 > 3e7 + 1e6, made.map(n => n.id).slice(0, 2).join(" "));
+  const ids = w.nodes.map(n => n.id);
+  check("no two nodes on the island share an id", new Set(ids).size === ids.length, ids.length - new Set(ids).size + " shared");
+  const w2 = W.revive(JSON.parse(JSON.stringify(W.serialize(w))), game);
+  check("all six are there after a save and a load", made.every(n => w2.nodeById[n.id] && w2.nodeById[n.id].kind === "hive" && w2.nodeById[n.id].added), made.filter(n => !(w2.nodeById[n.id] && w2.nodeById[n.id].kind === "hive")).length + " lost");
+  const again = W.addNode(w2, game, "hive", sp.x + 12, sp.z + 3);
+  check("and the next thing added after the load gets a new id again", again && !made.some(n => n.id === again.id) && again.id >= W.ADD_ID0);
+  check("the planting code in world3.js uses the same range", /A0 ?= ?Wd\(\)\.ADD_ID0 ?\|\| ?4e7/.test(js("world3.js")) && /while ?\(w\.nodeById\[id\]\) ?id\+\+;/.test(js("world3.js")));
+  check("a delve's rocks no longer share ids with what worldgen adds last", SB.Deep.NODE_ID0 !== SB.WorldGen.ARR_ID0 && SB.Deep.NODE_ID0 > W.ADD_ID0, SB.Deep.NODE_ID0 + " vs " + SB.WorldGen.ARR_ID0);
+}
+
 console.log(failed ? failed + " FAILED" : "all passed");
 process.exit(failed ? 1 : 0);

@@ -196,7 +196,7 @@
 
   /* ================= delves ================= */
   D.MAX = 6; D.SLOTS = 7; D.REACH = 4.5; D.RING = 11; D.PEP = 0.25; D.SECS = 30; D.TORCH_SECS = 70; D.RESTOCK = 3; D.DARK_SECS = 12;
-  D.NODE_ID0 = 3e7;
+  D.NODE_ID0 = 5e7; // 4.44: was 3e7, the same ids as the red shrubs, shelf mushrooms and icebergs worldgen adds last (WG.ARR_ID0): a delve's rocks took their places in the id table
   D.ZONES = [null,
     { name: "the mouth hall", rule: "daylight reaches here", dark: 0, grump: 0, nodes: [["d_rock", 3], ["d_flint", 2], ["d_copper", 2], ["d_coal", 2]] },
     { name: "the copper galleries", rule: "dark: bring a torch", dark: 1, grump: 0.25, nodes: [["d_copper", 4], ["d_coal", 3], ["d_rock", 1], ["d_bones", 1]] },
