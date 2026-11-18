@@ -25,6 +25,8 @@
 //   9. four small things from rows 121 to 160: seeds that will not grow in this bed now say why on the button; the
 //      parley line no longer says a grump stands where none is drawn; a wave never ends "9 of 7 chased off"; a standing
 //      order's reason is worked out when you look
+//   10. the level "inside the wreck" can be reached: an opened crashed pod counts as the wreck (the slate asked for a
+//      site of kind "wreck", and those are hidden on every island, so it was never offered)
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -440,6 +442,26 @@ seeded(4499, () => {
   check("back at the bench: no reason, and the order is worked", H.orderWhy(game, e) === "" && H.workOrders(game).ok === true);
   check("the bench page asks for the reason when it is drawn", /H\.orderWhy\(game, e\) \? "<small class='no'>"/.test(fs.readFileSync(path.join(__dirname, "..", "src", "harvest.js"), "utf8")));
   P.leave();
+});
+
+console.log("10. the level inside a wreck can be reached");
+seeded(4500, () => {
+  const { SB, game, hm } = island(102), M = SB.Motion3;
+  const me = put(SB, game, hm.x + 3, hm.z + 3, {});
+  const has = () => M.slateFor(game, me).some(x => x[0] === "ark" && x[1] === "inside the wreck");
+  check("a new island's wreck sites are all hidden, and none is found", game.sites.filter(t => t.kind === "wreck").length > 0 && game.sites.filter(t => t.kind === "wreck").every(t => t.gone && !t.found));
+  check("with no opened pod near, the slate does not offer it", !has());
+  const pod = { id: game.sites.length, kind: "pod", x: me.x + 4, z: me.z, rot: 0, found: true, done: false, n: 1 }; game.sites.push(pod);
+  check("a crashed pod nobody has opened yet does not count", !has());
+  pod.done = true;
+  check("standing by an opened pod, the slate offers \"inside the wreck\"", has());
+  me.x = pod.x + 12;
+  check("twelve paces off it does not", !has());
+  me.x = pod.x + 4; pod.gone = true;
+  check("a pod that is gone does not count", !has());
+  pod.gone = false; pod.done = false;
+  const wr = game.sites.filter(t => t.kind === "wreck")[0]; wr.found = true; me.x = wr.x + 3; me.z = wr.z;
+  check("a found wreck (an old save has them) still counts", has());
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

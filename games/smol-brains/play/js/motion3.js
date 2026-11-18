@@ -481,7 +481,7 @@ M.slateFor=function(game,c){
 var out=[["king","acorn king"],["ride","log ride"]],s=q(game);
 if(M.canGrab(game))out.push(["grab","prize grab"]);
 if(c&&SB.Embers&&SB.Embers.count&&SB.Embers.count(game)>(s.dreams||0))out.push(["dream","ember dream"]);
-if(c&&(game.sites||[]).some(function(t){return t.kind==="wreck"&&t.found&&SB.dist(t.x,t.z,c.x,c.z)<8;}))out.push(["ark","inside the wreck"]);
+if(c&&(game.sites||[]).some(function(t){return((t.kind==="wreck"&&t.found)||(t.kind==="pod"&&t.done&&!t.gone))&&SB.dist(t.x,t.z,c.x,c.z)<8;}))out.push(["ark","inside the wreck"]);
 return out;
 };
 M.menuFor=function(game,hit,g,cx,cy){
