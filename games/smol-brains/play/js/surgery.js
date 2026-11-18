@@ -113,7 +113,7 @@ if(!b||!c.alive||!(i>=0&&i<b.nIn))return{ok:false,why:"pick an input"};
 var p=SB.Brain.poke(b,i,1);
 SB.Brain.fire(b,i,1,3);
 c.thinkT=Math.min(c.thinkT||0,0.2);
-return{ok:true,verb:p.verb,d:p.d,msg:"\""+SB.Brain.inputLabel(b,i)+"\" on its own pulls "+c.name+" toward "+SB.VERB_EMOJI[p.verb]+" "+SB.VERB_WORDS[p.verb]+". it is on for its next 3 thoughts"};
+return{ok:true,verb:p.verb,d:p.d,msg:"\""+SB.Brain.inputLabel(b,i)+"\" on its own pulls "+c.name+" toward "+SB.VERB_EMOJI[p.verb]+" "+SB.VERB_WORDS[p.verb]+". it is on for its next 3 thoughts. the island waits while this window is open: close it to watch"};
 };
 function labHtml(c,dis){
 var L=S.lab(c),b=c.brain,G=SB.Genome,h="<details class='lab'><summary>the lab: lobes, situations, fire an input</summary><div class='lobes'>";
@@ -123,7 +123,7 @@ h+="<i style='left:"+Math.round(l.x*100)+"%;top:"+Math.round(l.y*100)+"%;opacity
 h+="</div><p class='note'>each lobe sits where its genes put it, and lights up as it works. "+Math.round(L.shortTerm*100)+"% of what it knows is still short-term (sleep keeps it). asleep it has pruned "+L.pruned+" weak links and regrown "+L.regrown+"."
 +(L.tract?" a tract wires its "+esc(L.tract)+" straight to its actions.":"")+"</p><h4>situations it knows right now</h4>";
 L.situations.forEach(function(s){h+="<div class='row'><div class='t'>"+esc(S.sitText(s))+"</div></div>";});
-h+="<h4>fire one input</h4><div class='add'><select data-k='fire'>";
+h+="<h4>fire one input</h4><p class='note'>the island holds still while this window is open. what you fire starts when you close it.</p><div class='add'><select data-k='fire'>";
 for(var i=0;i<b.nIn;i++)if(i!==SB.IN.BIAS)h+="<option value='"+i+"'>"+esc(SB.Brain.inputLabel(b,i))+"</option>";
 h+="</select> <button class='go' data-op='fire'>⚡ fire</button></div></details>";
 h+="<details class='lab'><summary>rule genes: learning, half-lives, thresholds, reactions</summary>";

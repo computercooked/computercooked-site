@@ -360,7 +360,7 @@ if(rec.kid&&mode==="follow")return{ok:false,msg:rec.name+" is too little to leav
 if(mode==="follow"){
 if(rec.mode==="follow")return{ok:true,msg:rec.name+" is with you"};
 if((rec.hurt||0)>=1)return{ok:false,msg:rec.name+" is hurt and resting until morning"};
-if(A.followers(game).length>=A.followCap(game,c))return{ok:false,msg:"that's too many at your heels. a pet that fully trusts you makes room for one more, and so does a vine lead"};
+if(A.followers(game).length>=A.followCap(game,c)){var fw=A.followers(game)[0];return{ok:false,full:true,msg:"that's too many at your heels: tell "+(fw?nm(fw):"one of them")+" to wait first. (a pet that fully trusts you makes room for one more, and so does a vine lead)"};}
 rec.mode="follow";rec.pen=null;
 return{ok:true,msg:rec.name+" comes with you"};
 }
@@ -1135,12 +1135,17 @@ else if(canRide(rec,c)&&s.ride==null)o.use=x.op("ride "+name,run(A.ride),null);
 else o.use=x.op((rec.k==="grump"?"pat ":"pet ")+name+(wt?" "+wt.e:""),run(A.pet),null);
 if(hk&&hk.indexOf("dye_")===0)o.place=x.op("dye "+name+" "+hk.slice(4),run(A.dye,hk.slice(4)),null);
 else if(hk==="everbud"&&rec.kid)o.place=x.op("give "+name+" the everbud",run(A.everbud),null);
-else if(hk==="collar"||hk==="saddle"||hk==="pad"||hk==="platepad")o.place=x.op(hk==="collar"?"put your collar on "+name:hk==="saddle"?"saddle "+name:"fit your padding on "+name,run(A.fit,hk),null);
+else if(hk==="collar"||hk==="saddle"||((hk==="pad"||hk==="platepad")&&sp.fight))o.place=x.op(hk==="collar"?"put your collar on "+name:hk==="saddle"?"saddle "+name:"fit your padding on "+name,run(A.fit,hk),null);
 else if(hk&&(hk==="feed"||likeOf(sp,hk)||(rec.k==="grump"&&S.edible(hk))))o.place=x.op("feed "+name+" your "+label(hk),run(A.feed),null);
 else if(rec.tricks&&rec.tricks.fetch>=1&&rec.mode==="follow")o.place=x.op(name+", fetch!",run(A.doTrick,"fetch"),null);
 if(rec.mode==="follow")o.pick=x.op("tell "+name+(rec.k==="grump"?" to guard here":" to wait here"),run(A.setMode,"stay"),null);
 else if(!rec.kid)o.pick=x.op("call "+name+" to heel",run(A.setMode,"follow"),null);
 else o.pick=o.use;
+if(!o.place&&rec.mode==="stay"&&s.ride!==rec.id){
+var pn=null,pd=9;
+A.pens(game).forEach(function(b){var q=SB.dist(b.x,b.z,it.x,it.z);if(q<pd&&penOK(b,rec)&&A.penAnimals(game,b).length<A.penCap(b)){pd=q;pn=b;}});
+if(pn)o.place=x.op("put "+name+" in the pen",function(){var r=A.intoPen(game,c,rec,pn);if(r&&r.msg)x.say(r.msg);if(r&&r.ok)x.audio("pop",0.6);return true;},null);
+}
 }
 function penOptions(game,c,b,o,x){
 var hk=x.hk,an=A.penAnimals(game,b),cand=null,g=A.grump(game);

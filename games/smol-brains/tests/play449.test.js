@@ -17,6 +17,9 @@
 //   6. the clock for one food follows its route: 25 seconds (90 starving) as before for a straight walk, and on a route
 //      what the route needs at the smol's own pace, half again, and ten seconds (island 77: a ninety-second walk round
 //      was cut off a few paces short, three times, and the smol starved)
+//   7. three small things from the proof pass: no "fit your padding" button on an animal that does not fight; "call
+//      NAME to heel" with the heels full says who to tell to wait, and a tame animal waiting by a pen can be put in
+//      from its own button; the lab says the island waits while the surgery window is open
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -298,6 +301,55 @@ seeded(4496, () => {
   me.chem.hunger = 0.5; me.path = [{ x: me.x + 5, z: me.z }]; a.routeLen = 60;
   check("a smol that is only hungry gets the route's time too", C.goLimit(me, a) > 25 && Math.abs(C.goLimit(me, a) - (2 + 60 / C.speedOf(me, a) * 1.5 + 10)) < 1e-9, C.goLimit(me, a).toFixed(0) + "s");
   check("the source: the walk to food asks the clock that follows the route", /a\.t ?> ?goLimit\(c, ?a\)/.test(js("creature.js")) && !/a\.t ?> ?\(starvingFor\(c, ?a\) ?\? ?90 ?: ?25\)/.test(js("creature.js")));
+});
+
+console.log("7. three small things from the proof pass");
+seeded(4497, () => {
+  const ctx = load();
+  ["meshes.js", "ext.js", "bosses.js", "body.js", "possess.js", "home.js", "loot.js", "animals.js"].forEach(f => { if (!(f === "bosses.js" && ctx.SB.Bosses) && fs.existsSync(path.join(dir, f))) vm.runInContext(js(f), ctx, { filename: f }); });
+  const SB = ctx.SB, P = SB.Possess, A = SB.Animals, Surv = SB.Surv || SB.Survival, W = SB.World; P.headless = true;
+  const game = SB.Game.newGame(133); SB.Game.current = game; game.tutorial.done = true; game.headless = true;
+  SB.Game.hatch(game, game.world.items.find(o => o.data && o.data.pod));
+  const me = SB.Game.smols(game)[0]; me.tier = 3; me.stage = 3;
+  const flat = (() => { const s = game.world.T.spawn; for (let r = 4; r < 40; r += 2) for (let a = 0; a < 6.28; a += 0.4) { const x = s.x + Math.sin(a) * r, z = s.z + Math.cos(a) * r; if (W.siteFree(game.world, x, z, 2.2) && W.siteFree(game.world, x + 4, z, 1) && W.siteFree(game.world, x - 4, z, 1)) return { x, z }; } return { x: s.x, z: s.z }; })();
+  me.x = flat.x; me.z = flat.z; me.px = flat.x; me.pz = flat.z;
+  P.enter(game, me, { free: true });
+  const hold = (k, n) => { const v = Surv.inv(me); for (let i = 0; i < v.s.length; i++) v.s[i] = null; if (k) { Surv.add(me, k, n || 1); Surv.select(me, v.s.findIndex(x => x && x.k === k)); } else Surv.select(me, 0); };
+  const opts = it => P.options(game, me, { type: "item", id: it.id });
+  const lab = o => o && o.label ? o.label : "";
+  // a grunter (it does not fight) at your heels, and a clucker (it does) that had to wait
+  const gr = A.tame(game, me, A.spawnWild(game, "grunter", me.x + 1.5, me.z, "", false)).rec;
+  const cr = A.tame(game, me, A.spawnWild(game, "clucker", me.x - 1.5, me.z, "", false)).rec;
+  check("set-up: a grunter does not fight and a clucker does; the first follows, the second waits (the heels are full)", !A.SP.grunter.fight && A.SP.clucker.fight > 0 && gr.mode === "follow" && cr.mode === "stay", gr.mode + " / " + cr.mode);
+  hold("pad", 1);
+  const og = opts(A.body(game, gr)), oc = opts(A.body(game, cr));
+  check("padding in the paw: no padding button on the one that does not fight", !/padding/.test(lab(og.place) + lab(og.use) + lab(og.pick)), lab(og.place));
+  check("...and one on the one that does", /^fit your padding on /.test(lab(oc.place)), lab(oc.place));
+  check("the rule itself still refuses a non-fighter and keeps the padding", !A.fit(game, me, gr, "pad").ok && Surv.count(me, "pad") === 1);
+  // called to heel with the heels full
+  const r = A.setMode(game, me, cr, "follow");
+  check("called to heel with the heels full: the answer says who to tell to wait", !r.ok && r.full === true && r.msg.indexOf("tell " + gr.name + " to wait first") >= 0 && cr.mode === "stay", r.msg);
+  // a pen beside them
+  hold("stick", 6); Surv.add(me, "vine", 2);
+  const pen = A.buildPen(game, me).st;
+  check("set-up: a pen within reach of both", !!pen && Math.hypot(pen.x - A.body(game, cr).x, pen.z - A.body(game, cr).z) < 9);
+  if (pen) {
+    hold(null);
+    const o2 = opts(A.body(game, cr));
+    check("the one waiting by the pen: its own button puts it in", lab(o2.place) === "put " + cr.name + " in the pen", lab(o2.place));
+    check("the one at your heels has no such button (the pen's own button offers it)", !/in the pen/.test(lab(opts(A.body(game, gr)).place)) && lab(P.options(game, me, { type: "struct", id: pen.id }).use) === "put " + gr.name + " in the pen", lab(P.options(game, me, { type: "struct", id: pen.id }).use));
+    if (o2.place && o2.place.go) o2.place.go();
+    check("pressed: it is in the pen", cr.mode === "pen" && cr.pen === pen.id, cr.mode);
+    check("once in, the button is gone", !/in the pen/.test(lab(opts(A.body(game, cr)).place)));
+    A.setMode(game, me, gr, "stay");
+    check("told to wait, the other one gets the button too", lab(opts(A.body(game, gr)).place) === "put " + gr.name + " in the pen", lab(opts(A.body(game, gr)).place));
+    hold("carrot", 1);
+    check("with its food in your paw the button is still \"feed\"", /^feed /.test(lab(opts(A.body(game, gr)).place)), lab(opts(A.body(game, gr)).place));
+  }
+  // the lab
+  const f = SB.Surgery.fire(game, me, 1), src = fs.readFileSync(path.join(__dirname, "..", "src", "surgery.js"), "utf8");
+  check("firing an input says the island waits while the window is open", f.ok && /it is on for its next 3 thoughts\. the island waits while this window is open: close it to watch/.test(f.msg), f.msg);
+  check("and the lab says so above the list", /the island holds still while this window is open\. what you fire starts when you close it\./.test(src));
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
