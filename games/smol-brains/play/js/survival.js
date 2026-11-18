@@ -779,7 +779,7 @@ var step=regrowAcc;regrowAcc=0;
 var ns=game.world.nodes;
 for(var i=0;i<ns.length;i++){
 var n=ns[i];
-if(n.state==="gone"||n.state==="picked"){
+if((n.state==="gone"||n.state==="picked")&&n.kind!=="iceberg"){
 n.regrowT=(n.regrowT||300)-step;
 if(n.regrowT<=0){n.state="ok";n.left=null;n.hp=null;SB.World.markNode(game.world,n);}
 }else if(n.left!=null&&n.state==="ok"&&n.hitT!=null&&game.time-n.hitT>600){

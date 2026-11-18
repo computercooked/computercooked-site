@@ -109,7 +109,9 @@
   AR.slow = function (game) {
     var w = game.world, T = w.T, want = w.season === 3 ? "ok" : "gone";
     if (game.settings && game.settings.world && game.settings.world.spread === "off") AR.hold(game);
-    if (T.ice && T._iceS !== want) { T._iceS = want; T.ice.forEach(function (n) { n.state = want; if (SB.World.markNode) SB.World.markNode(w, n); }); }
+    // 4.49: every piece that disagrees with the season is set, each time (it only acted when the season changed, so ice
+    // that anything else had un-hidden stayed out; and an island saved with its ice out now puts it away)
+    if (T.ice) { T._iceS = want; T.ice.forEach(function (n) { if (n.state !== want) { n.state = want; if (SB.World.markNode) SB.World.markNode(w, n); } }); }
     AR.lamps(game).forEach(function (l) {
       if (SB.World.reveal) SB.World.reveal(w, l.x, l.z, 12);
       game.creatures.forEach(function (o) {

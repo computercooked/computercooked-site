@@ -29,6 +29,9 @@
 //      site of kind "wreck", and those are hidden on every island, so it was never offered)
 //   11. the Lantern holds 9,999 sparks and says "sparks full" when a reward will not fit; the slate tells the body
 //      when it has a wreck to walk, and where it is in the bag; a bounty on a beast behind a pack says so
+//   12. sea ice is winter's: hidden in spring and still hidden seven minutes on (the grow-back rule for picked and mined
+//      things was bringing every iceberg back after 300 seconds, on every island, all year), out in winter, away again
+//      in spring
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -504,6 +507,24 @@ seeded(4501, () => {
   D.spawnBeast(game, "hexer", { x: hm.x + 30, z: hm.z });
   const e = D.state(game).board.list.slice(n0).filter(q => q.kind === "beast")[0];
   check("the notice on the board reads so", !!e && e.t === "drive off the grump hexer (see its pack off first)", e && e.t);
+});
+
+console.log("12. sea ice is winter's, and only winter's");
+seeded(4502, () => {
+  const { SB, game, w } = island(102), T = w.T, sd = SB.seasonDays(game), shown = () => T.ice.filter(n => n.state === "ok").length;
+  check("the island has sea ice, and it is made hidden", !!T.ice && T.ice.length > 0 && shown() === 0, (T.ice || []).length + " pieces");
+  step(SB, game, 420);
+  check("spring: none of it shows, and none has grown back seven minutes on", w.season === 0 && shown() === 0, shown() + " of " + T.ice.length + " showing");
+  w.time = sd * 3 * SB.DAY_LENGTH + 5; step(SB, game, 10);
+  check("winter: all of it is out", w.season === 3 && shown() === T.ice.length, shown() + " of " + T.ice.length);
+  step(SB, game, 420);
+  check("and stays out", shown() === T.ice.length);
+  w.time = sd * 4 * SB.DAY_LENGTH + 5; step(SB, game, 10);
+  check("spring again: put away", w.season === 0 && shown() === 0, shown() + " showing");
+  T.ice[0].state = "ok"; step(SB, game, 10);
+  check("a piece anything else brought out is put away within seconds", shown() === 0);
+  step(SB, game, 420);
+  check("and seven minutes on it is all still away", shown() === 0, shown() + " showing");
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

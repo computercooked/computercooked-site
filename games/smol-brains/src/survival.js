@@ -879,7 +879,9 @@
       var ns = game.world.nodes;
       for (var i = 0; i < ns.length; i++) {
         var n = ns[i];
-        if (n.state === "gone" || n.state === "picked") {
+        // 4.49: not sea ice. It is "gone" outside winter on purpose (arrivals3.js AR.slow), and this brought all of it
+        // back five minutes into every island, to stand off the coast all year
+        if ((n.state === "gone" || n.state === "picked") && n.kind !== "iceberg") {
           n.regrowT = (n.regrowT || 300) - step;
           if (n.regrowT <= 0) { n.state = "ok"; n.left = null; n.hp = null; SB.World.markNode(game.world, n); }
         } else if (n.left != null && n.state === "ok" && n.hitT != null && game.time - n.hitT > 600) {
