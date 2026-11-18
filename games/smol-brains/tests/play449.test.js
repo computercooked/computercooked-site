@@ -20,6 +20,8 @@
 //   7. three small things from the proof pass: no "fit your padding" button on an animal that does not fight; "call
 //      NAME to heel" with the heels full says who to tell to wait, and a tame animal waiting by a pen can be put in
 //      from its own button; the lab says the island waits while the surgery window is open
+//   8. the grump with a grudge says what it is when it comes, and once more when it finds you in another body: it
+//      follows whichever smol you play, leaves for good once beaten, and gives up after a couple of days if left alone
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -353,6 +355,36 @@ seeded(4497, () => {
   const f = SB.Surgery.fire(game, me, 1), src = fs.readFileSync(path.join(__dirname, "..", "src", "surgery.js"), "utf8");
   check("firing an input says the island waits while the window is open", f.ok && /it is on for its next 3 thoughts\. the island waits while this window is open: close it to watch/.test(f.msg), f.msg);
   check("and the lab says so above the list", /the island holds still while this window is open\. what you fire starts when you close it\./.test(src));
+});
+
+console.log("8. the grump with a grudge says what it is");
+seeded(4498, () => {
+  const { SB, game, W, w, hm } = island(102), D = SB.Dark, P = SB.Possess;
+  check("the two lines are there, and say how to be rid of it", /follows whichever smol you play/.test(D.GRUDGE_LINE) && /leaves for good/.test(D.GRUDGE_LINE) && /couple of days/.test(D.GRUDGE_LINE) && /in this body too/.test(D.GRUDGE_AGAIN));
+  const a = put(SB, game, hm.x + 2, hm.z + 2, {}), b = put(SB, game, hm.x + 4, hm.z + 2, {});
+  const said = []; const say0 = P.say; P.say = t => { said.push(String(t)); };
+  P.enter(game, a, { free: true });
+  // the game sends one on every twelfth grump a body chases off
+  for (let i = 0; i < 12; i++) SB.bus.emit("grumpChased", { c: a, g: { x: a.x + 3, z: a.z, boss: true } });
+  const posts = () => D.state(game).posts.filter(q => q.bid === "grudge");
+  check("the twelfth chase brings it", posts().length === 1, posts().length + " grudge posts");
+  check("and the game says what it is, once", said.filter(t => t === D.GRUDGE_LINE).length === 1, said.filter(t => /grudge/.test(t)).length + " lines about it");
+  for (let i = 0; i < 20; i++) D.tick(game, 0.5);
+  check("it does not say it again to the same body", said.filter(t => /grudge/.test(t)).length === 1);
+  // another body: it finds that one too, and says so
+  P.leave(); b.x = hm.x + 40; b.z = hm.z + 2; P.enter(game, b, { free: true });
+  for (let i = 0; i < 20; i++) D.tick(game, 0.5);
+  const p = posts()[0];
+  check("in another body it follows, and says so once", !!p && Math.hypot(p.x - b.x, p.z - b.z) < 9 && said.filter(t => t === D.GRUDGE_AGAIN).length === 1, p ? Math.hypot(p.x - b.x, p.z - b.z).toFixed(0) + " paces off, " + said.filter(t => t === D.GRUDGE_AGAIN).length + " time(s)" : "no post");
+  // one put down without a word (as a test or a save from before 4.49 has it) gets the full line the first time it has a body to follow
+  D.state(game).posts.slice().forEach(q => { if (q.bid === "grudge") D.beastDone(game, q, null, "left"); });
+  said.length = 0;
+  D.spawnBeast(game, "grudge", { x: b.x + 6, z: b.z }, { quiet: true });
+  for (let i = 0; i < 6; i++) D.tick(game, 0.5);
+  check("one that came without a word says the whole of it when it first has a body to follow", said.filter(t => t === D.GRUDGE_LINE).length === 1 && said.filter(t => t === D.GRUDGE_AGAIN).length === 0);
+  // what is true of it: beaten, it is gone; left alone, it goes at the second dawn
+  check("the rule behind the last words: an old beast that is not a guard leaves at dawn after two days", /d - p\.day >= \(bd\.big \? 3 : 2\)\) D\.beastDone\(game, p, null, "left"\)/.test(fs.readFileSync(path.join(__dirname, "..", "src", "dark.js"), "utf8")));
+  P.leave(); P.say = say0;
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

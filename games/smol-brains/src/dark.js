@@ -1442,6 +1442,10 @@
   D.cap = function (game) { var x = X2(game); return Math.max(0, D.CAP + (D.skyIs(game, "grumpmoon") || D.skyIs(game, "deepnight") ? 2 : 0) + (x.mono >= 2 ? 1 : 0) - (x.ends.void === "seal" ? 1 : 0) - (D.skyIs(game, "lanternnight") ? 9 : 0)); };
   // danger: rings out from the nest, 0 (home) to 4. beasts out there are tougher and leave more behind
   D.danger = function (game, x, z) { var hm = home(game); return Math.min(4, Math.floor(SB.dist(x, z, hm.x, hm.z) / 25)); };
+  // 4.49: the grump with a grudge says what it is. It used to turn up beside whichever body you were in with no word
+  // of why, or of what would make it go
+  D.GRUDGE_LINE = "😠 a grump with a grudge has come looking for you. it follows whichever smol you play. beat it and it leaves for good (left alone, it gives up after a couple of days)";
+  D.GRUDGE_AGAIN = "😠 the grump with a grudge has found you in this body too. beat it and it leaves for good";
   D.spawnBeast = function (game, id, at, o) {
     var d = D.BEAST_BY[id], x = X2(game); o = o || {};
     if (!d || !at) return null;
@@ -1503,6 +1507,7 @@
       if (!mine) return false;
       var dm = SB.dist(mine.x, mine.z, p.x, p.z), at;
       if (d.follow && dm > 10) { at = spotAt(game, mine.x, mine.z, 5, 7, Math.random, null); if (at) { p.x = at.x; p.z = at.z; } }
+      if (d.follow && p.bid === "grudge" && p.toldC !== mine.id) { var firstTold = p.toldC == null; p.toldC = mine.id; psay(firstTold ? D.GRUDGE_LINE : D.GRUDGE_AGAIN); }
       if (d.unwatched && dm < 30 && dm > 4 && t - (p.look == null ? -99 : p.look) >= 2.5) { var nx = p.x + (mine.x - p.x) / dm * 2, nz = p.z + (mine.z - p.z) / dm * 2; if (SB.World.walkable(game.world, nx, nz)) { p.x = r1(nx); p.z = r1(nz); } }
       if (d.flee && dm < D.AGGRO) {
         p.hops = (p.hops || 0) + 1;
@@ -3103,7 +3108,7 @@
       bump(g, "chased"); if (g.world.night) x.nightWon = 1;
       if (d.g && d.g.dark === "wave" && x.wave && !d.g._wc) { d.g._wc = 1; x.wave.chased++; }
       if (d.g && !d.g.boss && D.placesOf(g, "patch").length < 6 && lucky(g, 0.15)) placeAdd(g, "patch", { x: d.g.x, z: d.g.z }, {});
-      if (d.c && d.c._pov && bump(g, "chasedPov") % 12 === 0 && !st(g).posts.some(function (p) { return p.bid === "grudge"; })) { var at = spotAt(g, d.c.x, d.c.z, 9, 12, Math.random, null); if (at) D.spawnBeast(g, "grudge", at); }
+      if (d.c && d.c._pov && bump(g, "chasedPov") % 12 === 0 && !st(g).posts.some(function (p) { return p.bid === "grudge"; })) { var at = spotAt(g, d.c.x, d.c.z, 9, 12, Math.random, null), gp = at ? D.spawnBeast(g, "grudge", at) : null; if (gp) { gp.toldC = d.c.id; tell(g, D.GRUDGE_LINE); } }
     }));
     on("bountyDone", G0(function (g, d) { bump(g, "seals"); if (D.knack(g) === "pay" && d.c && d.pay) d.c.purse = r2((d.c.purse || 0) + Math.ceil(d.pay / 4)); }));
     on("darkGift", G0(function (g) { bump(g, "gifts"); }));
