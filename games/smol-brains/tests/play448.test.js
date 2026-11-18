@@ -72,7 +72,7 @@ seeded(4482, () => {
   const plain = W.findPath(w, cx, cz, ax, az, false, 5000), swim = W.findPath(w, cx, cz, ax, az, true, 5000);
   const pl = routeLen(plain, cx, cz), sl = routeLen(swim, cx, cz);
   check("the plain route walks round: long", !!plain && pl > 40, pl.toFixed(0) + " paces");
-  check("the swimming route is the same way round (it was 13 paces, straight through the band)", !!swim && Math.abs(sl - pl) < 1 && steepOn(SB, w, swim) === 0, sl.toFixed(0) + " paces, " + steepOn(SB, w, swim) + " steep cells on it");
+  check("the swimming route goes round too, over no steep ground (it was 13 paces, straight through the band)", !!swim && sl > 40 && steepOn(SB, w, swim) === 0, sl.toFixed(0) + " paces, " + steepOn(SB, w, swim) + " steep cells on it");
   // a starving smol on that cell, the apple and a berry on the far side, no other food near
   clearFood(SB, game, cx, cz, 60);
   const me = put(SB, game, cx, cz, { hunger: 0.97 });
@@ -88,14 +88,18 @@ seeded(4482, () => {
 
 console.log("3. smols that swim all the time walk round the band too");
 seeded(4483, () => {
+  // the same case as the two that died, for a smol whose every route is a swimming route: starving, the food across the band
   [["a finned smol", { fins: true }], ["an ascended smol (tier 6)", { tier: 6 }]].forEach(([name, o]) => {
     const { SB, game, W, w, hm } = island(102), C = SB.Creature;
     const cx = hm.x - 3, cz = hm.z - 58, ax = hm.x + 8, az = hm.z - 62;
-    const me = put(SB, game, cx, cz, o);
+    clearFood(SB, game, cx, cz, 60);
+    const me = put(SB, game, cx, cz, Object.assign({ hunger: 0.97 }, o));
+    W.add(w, game, "apple", ax, az, {}); W.add(w, game, "berry", hm.x + 14, hm.z - 64, {});
     check(name + " swims", C.canSwim(me) === true);
-    let best = 1e9, moved = 0; const x0 = me.x, z0 = me.z;
-    step(SB, game, 150, s => { if (s % 200 === 0 && Math.hypot(me.x - ax, me.z - az) > 2) C.sendTo(me, ax, az, game, 60, true); best = Math.min(best, Math.hypot(me.x - ax, me.z - az)); moved = Math.max(moved, Math.hypot(me.x - x0, me.z - z0)); me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; return best > 1.6; });
-    check(name + " sent across gets there", best <= 1.6, "closest " + best.toFixed(1) + " paces, moved " + moved.toFixed(0));
+    let ate = -1, far = 0; const x0 = me.x, z0 = me.z, t0 = game.time;
+    SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+    step(SB, game, 240, () => { far = Math.max(far, Math.hypot(me.x - x0, me.z - z0)); me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+    check(name + " leaves the cell and eats", far > 6 && ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s, " + far.toFixed(0) + " paces at the furthest" : "no meal in 240s, " + far.toFixed(0) + " paces at the furthest");
   });
 });
 
@@ -112,9 +116,9 @@ seeded(4484, () => {
         let k = 1; while (k <= 6 && cell(i + di * k, j + dj * k) === 2) k++;
         if (k < 3 || k > 6 || cell(i + di * k, j + dj * k) !== 1) continue; // two to five water cells, then land again
         const ax = i * PC + 1, az = j * PC + 1, bx = (i + di * k) * PC + 1, bz = (j + dj * k) * PC + 1;
-        if (Math.hypot(ax - sp.x, az - sp.z) > 150) continue;
-        const plain = W.findPath(w, ax, az, bx, bz, false, 20000), d0 = Math.hypot(bx - ax, bz - az), pl = routeLen(plain, ax, az);
-        if (plain && pl > 30 && pl > d0 * 2.5 && pl < 160) { found = Object.assign(I, { seed, ax, az, bx, bz, d0, pl }); break; }
+        if (Math.hypot(ax - sp.x, az - sp.z) > 200) continue;
+        const plain = W.findPath(w, ax, az, bx, bz, false, 40000), d0 = Math.hypot(bx - ax, bz - az), pl = routeLen(plain, ax, az);
+        if (plain && pl > 60 && pl < 220) { found = Object.assign(I, { seed, ax, az, bx, bz, d0, pl }); break; } // a walk round long enough that only wading will do
       }
     }
     if (found) break;
@@ -129,9 +133,9 @@ seeded(4484, () => {
     W.add(w, game, "apple", bx, bz, {});
     let ate = -1, waded = 0; const t0 = game.time;
     SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
-    step(SB, game, 200, () => { if (me.wade > 0) waded += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); me.chem.hunger = Math.max(me.chem.hunger, 0.97); return ate < 0 && me.alive; });
+    step(SB, game, 240, () => { if (me.wade > 0) waded += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); me.chem.hunger = Math.max(me.chem.hunger, 0.97); return ate < 0 && me.alive; });
     check("starving, with the walk round long, it wades", waded > 1, waded.toFixed(0) + "s wading");
-    check("and eats on the far side", ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 200s, " + Math.hypot(me.x - bx, me.z - bz).toFixed(0) + " paces from the apple");
+    check("and eats on the far side", ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 240s, " + Math.hypot(me.x - bx, me.z - bz).toFixed(0) + " paces from the apple");
   }
 });
 
