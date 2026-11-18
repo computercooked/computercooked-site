@@ -27,6 +27,11 @@ C.HUNGRY_AWAKE=0.7;
 C.STARVING=0.85;
 C.HARD_HUNGER=0.55;C.HARD_FOOD=2;C.HARD_HUNGER_MAX=0.7;
 C.WADE_DETOUR=25;
+C.ROUTE_STEP_MAX=60;
+C.ROUTE_STALL=8;
+C.ROUTE_FAR=25;
+C.ROUTE_REACH=2.5;
+C.ROUTE_KEPT=60;
 C.WADE_MOVED=2;C.WADE_REST=180;
 C.WADE_AFTER=2;
 C.BITE_CATCH=0.2;
@@ -598,7 +603,7 @@ if(!force&&c.species==="smol"&&!c._pov&&c.chem&&c.chem.hunger>C.STARVING)return 
 if(c.plan&&SB.Ideas)C.dropPlan(c,game);
 c.asleep=false;c.inBed=false;
 startAction(c,game,V.wander,null,null,null);
-c.action.tx=x;c.action.tz=z;c.action.dur=dur||20;c.action.called=true;
+c.action.tx=x;c.action.tz=z;c.action.dur=dur||20;c.action.called=true;c.action.sent=!force;
 return true;
 };
 C.sendSoft=function(c,x,z,game,dur){
@@ -696,9 +701,23 @@ if(s>bs){bs=s;best=o;}
 return best;
 }
 function starvingFor(c,a){return!!a&&a.verb===V.eat&&c.species==="smol"&&!c._pov&&c.chem.hunger>0.85;}
+function goLimit(c,a){
+var lim=starvingFor(c,a)?90:25;
+if(c.path&&a.routeLen>0)lim=Math.max(lim,(a.routeT||0)+a.routeLen/Math.max(0.3,speedOf(c,a))*1.5+10);
+return lim;
+}
+C.goLimit=goLimit;
+function nose(c){return 32+Math.max(0,c.chem.hunger-0.6)*110;}
+function routeKnown(c,id,game){var r=c.routeOf&&c.routeOf[id];return r&&game.time-r.t<C.ROUTE_KEPT?r.len:0;}
+C.routeKnown=routeKnown;
 function sniffFood(c,game){
-var reach=32+Math.max(0,c.chem.hunger-0.6)*110;
-var it=SB.World.nearestItem(game.world,c.x,c.z,reach,function(o){return o.noun==="food"&&o.heldBy==null&&!(o.data&&(o.data.rotten||o.data.forbid))&&!(c.diet&&c.diet[o.kind])&&!isUnreachable(c,o.id,game)&&!cannotStand(c,o,game)&&!(o.starveFor&&o.starveFor.id!==c.id&&game.time-o.starveFor.t<25);});
+var reach=nose(c);
+function fine(o){return o.noun==="food"&&o.heldBy==null&&!(o.data&&(o.data.rotten||o.data.forbid))&&!(c.diet&&c.diet[o.kind])&&!isUnreachable(c,o.id,game)&&!cannotStand(c,o,game)&&!(o.starveFor&&o.starveFor.id!==c.id&&game.time-o.starveFor.t<25);}
+var it=SB.World.nearestItem(game.world,c.x,c.z,reach,fine);
+if(it){
+var far=routeKnown(c,it.id,game);
+if(far>0){var alt=SB.World.nearestItem(game.world,c.x,c.z,Math.min(reach,far),function(o){return o!==it&&fine(o)&&!(routeKnown(c,o.id,game)>=far);});if(alt)it=alt;}
+}
 if(it)return it;
 return SB.World.nearestNode(game.world,c.x,c.z,reach,function(n){var d=NK[n.kind];return d.drops&&K[d.drops]&&K[d.drops].noun==="food"&&n.state==="ok"&&n.kind!=="palm"&&!d.stings&&(n.dropT==null||n.dropT<d.every*0.5)&&!isUnreachable(c,n.id,game);});
 }
@@ -778,6 +797,7 @@ C.NEST_GLOW=12;
 C.LOCK_BITE=1.05;
 C.LUNGE_AT=2.4;C.LUNGE_WIND=1.5;C.LUNGE_REACH=2.6;C.LUNGE_DMG=0.25;
 var swim=function(c){return(c.look&&(c.look.fins||c.tier>=6))||c.wade>0;};
+function routeLen(path,x,z){var l=0;for(var i=0;i<path.length;i++){l+=Math.hypot(path[i].x-x,path[i].z-z);x=path[i].x;z=path[i].z;}return l;}
 function walkToward(c,tx,tz,dt,sp,game,arriveR){
 var d0=Math.hypot(tx-c.x,tz-c.z);
 if(d0<(arriveR||0.1)){c.path=null;return true;}
@@ -788,21 +808,32 @@ if(d0<c.wBest-0.2){c.wBest=d0;c.wBestT=0;}
 if(!c.path&&!c.pathTried&&(c.wBestT>0.8||c.stuckT>0.4)&&d0>1.5){
 c.pathTried=true;
 c.path=SB.World.findPath(game.world,c.x,c.z,tx,tz,swim(c),5000);
-c.pathI=0;
+c.pathI=0;c.pathLegI=-1;c.pathLegT=0;c.pathLen=null;
 if(!c.path)c.noPath={x:tx,z:tz,t:game.time};
 else if(starvingFor(c,c.action)&&c.chem.hunger>0.95&&!swim(c)){
 var pl=0,plx=c.x,plz=c.z;for(var pi=0;pi<c.path.length;pi++){pl+=Math.hypot(c.path[pi].x-plx,c.path[pi].z-plz);plx=c.path[pi].x;plz=c.path[pi].z;}
 if(pl>C.WADE_DETOUR&&pl>d0*2&&!(c.noWade>game.time)){
 var wp0=SB.World.findPath(game.world,c.x,c.z,tx,tz,true,5000),wl=0,wx=c.x,wz=c.z;
 for(var wi=0;wp0&&wi<wp0.length;wi++){wl+=Math.hypot(wp0[wi].x-wx,wp0[wi].z-wz);wx=wp0[wi].x;wz=wp0[wi].z;}
-if(wp0&&wl<pl*0.7){c.wade=60;c.wadeAt={x:c.x,z:c.z};c.path=wp0;c.pathI=0;}
+if(wp0&&wl<pl*0.7){c.wade=60;c.wadeAt={x:c.x,z:c.z};c.path=wp0;c.pathI=0;c.pathLegI=-1;c.pathLegT=0;c.pathLen=null;}
 }
 }
 }
-if(c.path&&c.wBestT>8){c.path=null;c.lost=true;}
+if(c.path&&c.pathLen==null)c.pathLen=routeLen(c.path,c.x,c.z);
 if(c.path){
 var wp=c.path[c.pathI];
 while(wp&&Math.hypot(wp.x-c.x,wp.z-c.z)<0.7&&c.pathI<c.path.length-1)wp=c.path[++c.pathI];
+if(wp){
+var dw=Math.hypot(wp.x-c.x,wp.z-c.z);
+if(c.pathLegI!==c.pathI){c.pathLegI=c.pathI;c.pathLegBest=dw;c.pathLegT=0;c.pathLegAll=0;c.pathProg=game.time;}
+else{
+c.pathLegAll=(c.pathLegAll||0)+dt;
+if(dw<c.pathLegBest-0.2){c.pathLegBest=dw;c.pathLegT=0;c.pathProg=game.time;}
+else c.pathLegT=(c.pathLegT||0)+dt;
+}
+if(c.pathLegT>C.ROUTE_STALL){c.path=null;c.lost=true;wp=null;}
+else if(c.pathLegAll>C.ROUTE_STEP_MAX){c.path=null;c.pathTried=false;wp=null;}
+}
 if(wp)return stepToward(c,wp.x,wp.z,dt,sp,game,c.pathI>=c.path.length-1?arriveR:0.3)&&c.pathI>=c.path.length-1;
 }
 return stepToward(c,tx,tz,dt,sp,game,arriveR);
@@ -869,15 +900,26 @@ if(dist>reach){
 var gx=tgt.x+(c.x-tgt.x)/(dist||1)*(reach-0.05),gz=tgt.z+(c.z-tgt.z)/(dist||1)*(reach-0.05);
 if(a.bedSeek){gx=tgt.x;gz=tgt.z;}
 walkToward(c,gx,gz,dt,speedOf(c,a),game,0.05);
+if(c.path&&c.pathLen!=null&&a.routeSeen!==c.pathLen&&a.verb===V.eat&&a.target&&a.target.id!=null&&c.species==="smol"&&!c._pov){
+a.routeSeen=c.pathLen;a.routeT=a.t;a.routeLen=c.pathLen;
+if(c.pathLen>C.ROUTE_FAR&&c.pathLen>dist*2&&!(c.wade>0)){
+var knew=routeKnown(c,a.target.id,game),ro=c.routeOf||(c.routeOf={}),rk;
+for(rk in ro)if(game.time-ro[rk].t>=C.ROUTE_KEPT)delete ro[rk];
+ro[a.target.id]={len:c.pathLen,t:game.time};
+if(c.pathLen>nose(c)*C.ROUTE_REACH){unreachable(c,a.target.id,game);c.path=null;c.pathTried=false;finish(c,game);return;}
+if(!knew){c.path=null;c.pathTried=false;finish(c,game);return;}
+}
+}
 }
 dist=SB.dist(tgt.x,tgt.z,c.x,c.z);
 if(a.best==null||dist<a.best-0.25){a.best=dist;a.bestT=a.t;}
+else if(c.path&&c.pathProg!=null&&game.time-c.pathProg<1)a.bestT=a.t;
 if(starvingFor(c,a)&&tgt.type==="item"&&dist<reach+1.1&&a.t-a.bestT>1.2)reach=dist;
 if(dist<=reach+0.05){
 a.phase="do";a.doT=0;
 c.facing=Math.atan2(tgt.x-c.x,tgt.z-c.z);
 beginDo(c,game,a,tgt);
-}else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>(c.path&&starvingFor(c,a)?20:7)||(c.noPath&&game.time-c.noPath.t<0.2)){
+}else if(a.t>goLimit(c,a)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>(c.path&&starvingFor(c,a)?20:7)||(c.noPath&&game.time-c.noPath.t<0.2)){
 c.stuckT=0;
 if(a.target&&a.target.id!=null)unreachable(c,a.target.id,game);
 if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=C.WADE_AFTER&&!(c.noWade>game.time)){c.wade=60;c.wadeAt={x:c.x,z:c.z};c.unreach={};c.path=null;c.pathTried=false;}}
@@ -889,6 +931,7 @@ a.doT+=dt;
 switch(a.verb){
 case V.wander:
 if(a.soft&&c.species==="smol"&&!c._pov&&c.chem.hunger>C.HUNGRY_AWAKE){finish(c,game);return;}
+if(a.sent&&c.species==="smol"&&!c._pov&&c.chem.hunger>C.STARVING){finish(c,game);return;}
 if(walkToward(c,a.tx,a.tz,dt,speedOf(c,a)*(a.called?1:0.8),game,a.called?1.2:0.3)){
 if(a.called){startAction(c,game,V.idle,null,null,null);c.action.dur=3;emote(c,"happy",1.5);return;}
 a.doT=a.dur;

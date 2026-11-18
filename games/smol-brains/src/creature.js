@@ -37,6 +37,11 @@
   C.STARVING = 0.85;
   C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
   C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
+  C.ROUTE_STEP_MAX = 60; // 4.48: seconds on one step of a route, progress or not, before the route is planned again
+  C.ROUTE_STALL = 8; // 4.48: seconds on a route without reaching a step or nearing the next one before it is dropped
+  C.ROUTE_FAR = 25; // 4.49: a route to food over this many paces, and over twice the straight line, is "the long way round"
+  C.ROUTE_REACH = 2.5; // 4.49: the longest way round a smol takes for one food: its nose's reach times this
+  C.ROUTE_KEPT = 60; // 4.49: seconds a smol remembers how long the way to a food was
   C.WADE_MOVED = 2; C.WADE_REST = 180; // 4.48: a minute's wading that moved it under two steps is given up, and not tried again for three minutes
   C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
   C.BITE_CATCH = 0.2; // 4.42: a grump's bite can only infect a smol whose antigen is under this
@@ -684,7 +689,7 @@
     if (c.plan && SB.Ideas) C.dropPlan(c, game);
     c.asleep = false; c.inBed = false;
     startAction(c, game, V.wander, null, null, null);
-    c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
+    c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true; c.action.sent = !force;
     return true;
   };
   // 4.36: the same, for company rather than need (a funeral, a story event, a friend's whim): a hungry smol eats
@@ -795,10 +800,30 @@
   // 4.37: a starving smol on its way to food. its nose reaches across the island, but the walk used to give up after 25
   // seconds (about twelve steps) and any word it overheard made it start again: it died walking between meals it never reached
   function starvingFor(c, a) { return !!a && a.verb === V.eat && c.species === "smol" && !c._pov && c.chem.hunger > 0.85; }
+  // 4.49: how long the walk to one thing may take. It was 25 seconds (90 when starving) however far the way was. On a
+  // route to food it is now what the route needs at this smol's pace, half again, and ten seconds, counted from when
+  // the route was planned
+  function goLimit(c, a) {
+    var lim = starvingFor(c, a) ? 90 : 25;
+    if (c.path && a.routeLen > 0) lim = Math.max(lim, (a.routeT || 0) + a.routeLen / Math.max(0.3, speedOf(c, a)) * 1.5 + 10);
+    return lim;
+  }
+  C.goLimit = goLimit;
+  // the hungrier, the further a smol's nose reaches (a starving one will cross the island)
+  function nose(c) { return 32 + Math.max(0, c.chem.hunger - 0.6) * 110; }
+  // 4.49: how long the way to a food was when this smol last planned a route to it (paces; 0 when it does not know)
+  function routeKnown(c, id, game) { var r = c.routeOf && c.routeOf[id]; return r && game.time - r.t < C.ROUTE_KEPT ? r.len : 0; }
+  C.routeKnown = routeKnown;
   function sniffFood(c, game) {
-    // the hungrier, the further a smol's nose reaches (a starving one will cross the island)
-    var reach = 32 + Math.max(0, c.chem.hunger - 0.6) * 110;
-    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, function (o) { return o.noun === "food" && o.heldBy == null && !(o.data && (o.data.rotten || o.data.forbid)) && !(c.diet && c.diet[o.kind]) && !isUnreachable(c, o.id, game) && !cannotStand(c, o, game) && !(o.starveFor && o.starveFor.id !== c.id && game.time - o.starveFor.t < 25); });
+    var reach = nose(c);
+    function fine(o) { return o.noun === "food" && o.heldBy == null && !(o.data && (o.data.rotten || o.data.forbid)) && !(c.diet && c.diet[o.kind]) && !isUnreachable(c, o.id, game) && !cannotStand(c, o, game) && !(o.starveFor && o.starveFor.id !== c.id && game.time - o.starveFor.t < 25); }
+    var it = SB.World.nearestItem(game.world, c.x, c.z, reach, fine);
+    // 4.49: the nearest food as the crow flies can be a long walk round a pond or a cliff. Once the smol has found that
+    // out, a food that lies nearer than that walk is the better one (unless it knows that one to be as long a walk)
+    if (it) {
+      var far = routeKnown(c, it.id, game);
+      if (far > 0) { var alt = SB.World.nearestItem(game.world, c.x, c.z, Math.min(reach, far), function (o) { return o !== it && fine(o) && !(routeKnown(c, o.id, game) >= far); }); if (alt) it = alt; }
+    }
     if (it) return it;
     // a plant only smells of food when it's nearly ready to drop some
     return SB.World.nearestNode(game.world, c.x, c.z, reach, function (n) { var d = NK[n.kind]; return d.drops && K[d.drops] && K[d.drops].noun === "food" && n.state === "ok" && n.kind !== "palm" && !d.stings && (n.dropT == null || n.dropT < d.every * 0.5) && !isUnreachable(c, n.id, game); });
@@ -894,6 +919,7 @@
 
   // step toward (tx, tz); steer around water and cliffs; returns true when arrived
   // walk toward (tx, tz); if the straight line is blocked for a moment, plan a route around (A*) and follow it
+  function routeLen(path, x, z) { var l = 0; for (var i = 0; i < path.length; i++) { l += Math.hypot(path[i].x - x, path[i].z - z); x = path[i].x; z = path[i].z; } return l; }
   function walkToward(c, tx, tz, dt, sp, game, arriveR) {
     var d0 = Math.hypot(tx - c.x, tz - c.z);
     if (d0 < (arriveR || 0.1)) { c.path = null; return true; }
@@ -904,7 +930,7 @@
     if (!c.path && !c.pathTried && (c.wBestT > 0.8 || c.stuckT > 0.4) && d0 > 1.5) {
       c.pathTried = true;
       c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, swim(c), 5000);
-      c.pathI = 0;
+      c.pathI = 0; c.pathLegI = -1; c.pathLegT = 0; c.pathLen = null;
       if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
       // 4.40: starving, and the way round the water is long (island 23: an apple 12 steps off across a stream, over a minute's walk round; it died on the way): it wades straight for it
       else if (starvingFor(c, c.action) && c.chem.hunger > 0.95 && !swim(c)) {
@@ -914,15 +940,31 @@
           for (var wi = 0; wp0 && wi < wp0.length; wi++) { wl += Math.hypot(wp0[wi].x - wx, wp0[wi].z - wz); wx = wp0[wi].x; wz = wp0[wi].z; }
           // 4.48: only when wading is really the shorter way. Where no water is in the way the two routes are the same
           // one, and it keeps walking the long way round (it used to wade at a ridge with no water near)
-          if (wp0 && wl < pl * 0.7) { c.wade = 60; c.wadeAt = { x: c.x, z: c.z }; c.path = wp0; c.pathI = 0; }
+          if (wp0 && wl < pl * 0.7) { c.wade = 60; c.wadeAt = { x: c.x, z: c.z }; c.path = wp0; c.pathI = 0; c.pathLegI = -1; c.pathLegT = 0; c.pathLen = null; }
         }
       }
     }
-    // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground
-    if (c.path && c.wBestT > 8) { c.path = null; c.lost = true; }
+    if (c.path && c.pathLen == null) c.pathLen = routeLen(c.path, c.x, c.z); // 4.49: worked out once, where the route was planned
     if (c.path) {
       var wp = c.path[c.pathI];
       while (wp && Math.hypot(wp.x - c.x, wp.z - c.z) < 0.7 && c.pathI < c.path.length - 1) wp = c.path[++c.pathI];
+      // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground.
+      // 4.48: "getting somewhere" is reaching a step of the route or getting nearer the next one. It used to be getting
+      // nearer the GOAL in a straight line, and a route round a band of steep ground leads away from the goal first: every
+      // such route was dropped after 8 seconds, for every smol. One starved on island 102 setting off nine times round
+      // a band with apples behind it, never past the second step
+      if (wp) {
+        var dw = Math.hypot(wp.x - c.x, wp.z - c.z);
+        if (c.pathLegI !== c.pathI) { c.pathLegI = c.pathI; c.pathLegBest = dw; c.pathLegT = 0; c.pathLegAll = 0; c.pathProg = game.time; }
+        else {
+          c.pathLegAll = (c.pathLegAll || 0) + dt;
+          if (dw < c.pathLegBest - 0.2) { c.pathLegBest = dw; c.pathLegT = 0; c.pathProg = game.time; }
+          else c.pathLegT = (c.pathLegT || 0) + dt;
+        }
+        if (c.pathLegT > C.ROUTE_STALL) { c.path = null; c.lost = true; wp = null; }
+        // and no single step runs past a minute, however it creeps: the route is planned again from where it stands
+        else if (c.pathLegAll > C.ROUTE_STEP_MAX) { c.path = null; c.pathTried = false; wp = null; }
+      }
       if (wp) return stepToward(c, wp.x, wp.z, dt, sp, game, c.pathI >= c.path.length - 1 ? arriveR : 0.3) && c.pathI >= c.path.length - 1;
     }
     return stepToward(c, tx, tz, dt, sp, game, arriveR);
@@ -998,15 +1040,31 @@
         var gx = tgt.x + (c.x - tgt.x) / (dist || 1) * (reach - 0.05), gz = tgt.z + (c.z - tgt.z) / (dist || 1) * (reach - 0.05);
         if (a.bedSeek) { gx = tgt.x; gz = tgt.z; }
         walkToward(c, gx, gz, dt, speedOf(c, a), game, 0.05);
+        // 4.49: a route was just planned to this food. The smol now knows how long the way is. Island 77: a starving
+        // smol took a ninety-second walk round for the nearest apple as the crow flies, and the clock for one food
+        // ran out a few paces short, three times
+        if (c.path && c.pathLen != null && a.routeSeen !== c.pathLen && a.verb === V.eat && a.target && a.target.id != null && c.species === "smol" && !c._pov) {
+          a.routeSeen = c.pathLen; a.routeT = a.t; a.routeLen = c.pathLen;
+          if (c.pathLen > C.ROUTE_FAR && c.pathLen > dist * 2 && !(c.wade > 0)) {
+            var knew = routeKnown(c, a.target.id, game), ro = c.routeOf || (c.routeOf = {}), rk;
+            for (rk in ro) if (game.time - ro[rk].t >= C.ROUTE_KEPT) delete ro[rk];
+            ro[a.target.id] = { len: c.pathLen, t: game.time };
+            // further than its hunger is worth: left alone for a while, as food it cannot reach is
+            if (c.pathLen > nose(c) * C.ROUTE_REACH) { unreachable(c, a.target.id, game); c.path = null; c.pathTried = false; finish(c, game); return; }
+            // news to it: it thinks again, and its nose now weighs this food by the walk (it may well come back to it)
+            if (!knew) { c.path = null; c.pathTried = false; finish(c, game); return; }
+          }
+        }
       }
       dist = SB.dist(tgt.x, tgt.z, c.x, c.z);
       if (a.best == null || dist < a.best - 0.25) { a.best = dist; a.bestT = a.t; }
+      else if (c.path && c.pathProg != null && game.time - c.pathProg < 1) a.bestT = a.t; // 4.48: getting along its route counts, even while the route leads away
       if (starvingFor(c, a) && tgt.type === "item" && dist < reach + 1.1 && a.t - a.bestT > 1.2) reach = dist; // 4.39: stuck an arm's length off: it stretches
       if (dist <= reach + 0.05) {
         a.phase = "do"; a.doT = 0;
         c.facing = Math.atan2(tgt.x - c.x, tgt.z - c.z);
         beginDo(c, game, a, tgt);
-      } else if (a.t > (starvingFor(c, a) ? 90 : 25) || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > (c.path && starvingFor(c, a) ? 20 : 7) || (c.noPath && game.time - c.noPath.t < 0.2)) {
+      } else if (a.t > goLimit(c, a) || (c.stuckT > 1.5 && !c.path) || (a.t - a.bestT > 2.5 && !c.path) || a.t - a.bestT > (c.path && starvingFor(c, a) ? 20 : 7) || (c.noPath && game.time - c.noPath.t < 0.2)) {
         // can't get there (cliff, water, going round in circles): remember that for a while
         c.stuckT = 0;
         if (a.target && a.target.id != null) unreachable(c, a.target.id, game);
@@ -1020,6 +1078,10 @@
     switch (a.verb) {
       case V.wander:
         if (a.soft && c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) { finish(c, game); return; } // 4.36: called for company, but too hungry now: eat first
+        // 4.48: a starving smol turns a call down unless it is forced (4.39). The same now holds part-way: one that gets
+        // starving on a walk it was sent on (C.sendTo, unforced) breaks it off and eats. Long walks used to be cut short by the route rule,
+        // which hid this: with routes walked to their end, a smol freed from a camp walked home past food and starved
+        if (a.sent && c.species === "smol" && !c._pov && c.chem.hunger > C.STARVING) { finish(c, game); return; }
         if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * (a.called ? 1 : 0.8), game, a.called ? 1.2 : 0.3)) {
           if (a.called) { startAction(c, game, V.idle, null, null, null); c.action.dur = 3; emote(c, "happy", 1.5); return; } // here! waits to see what you want
           a.doT = a.dur;

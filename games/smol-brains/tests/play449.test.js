@@ -3,15 +3,58 @@
 //      AND has more of than the egg has. a smol with nothing like that has nothing to give, the button says so, and
 //      no sparks are spent. no gift ever lowers a gene. (4.48 took the gene furthest from the middle, either way:
 //      on the test island a smol with no affection at all took an egg's affection from 0.62 to 0.)
+//   2. a route is judged by progress along it: one that leads away from the goal first (round a band of steep ground) is
+//      walked to its end. It used to be dropped 8 seconds after the smol last got nearer the goal in a straight line
+//      (smol-brains-handover/4.48-island-102-the-one-that-still-starved.txt). Written for 4.48 and held back
+//   3. the case the old rule was written for still holds: a route whose next step the smol cannot reach (a ledge the
+//      coarse map thinks is fine) is dropped after 8 seconds, and the smol is marked lost so it scrambles back
+//   4. two guards for routes that are now walked to their end: no step of a route runs past a minute (it is planned
+//      again from where the smol stands), and a smol that gets starving on a walk it was sent on breaks it off to eat
+//      (island 77: one walked home from a grump camp past food and starved)
+//   5. food is chosen by the length of the way to it: once a smol has planned a route to the nearest food and found it
+//      a long way round, a food that lies nearer than that walk is the one it goes for; with no such food it takes the
+//      long way; and a way longer than its hunger is worth is left alone like food it cannot reach
+//   6. the clock for one food follows its route: 25 seconds (90 starving) as before for a straight walk, and on a route
+//      what the route needs at the smol's own pace, half again, and ten seconds (island 77: a ninety-second walk round
+//      was cut off a few paces short, three times, and the smol starved)
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const load = require("./_load.js"), seeded = load.seeded;
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra != null && extra !== "" ? "  (" + extra + ")" : "")); if (!ok) failed++; }
-const js = f => fs.readFileSync(path.join(__dirname, "..", "play", "js", f), "utf8");
+const dir = path.join(__dirname, "..", "play", "js");
+const html = fs.readFileSync(path.join(__dirname, "..", "play", "index.html"), "utf8");
+const js = f => fs.readFileSync(path.join(dir, f), "utf8");
+const order = (html.match(/src="js\/([a-z0-9-]+)\.js"/g) || []).map(s => s.slice(8, -4));
+const EXTRA = ["ext", "bosses", "body", "possess", "home", "loot", "friends", "town", "dark", "powers", "fight", "deep", "harvest", "animals", "qol", "wear", "shapes", "wardrobe3", "motion3", "world3", "helpers3", "arrivals3", "minds3"];
+// an island with nobody on it but who the check puts there: no pod hatched, the tutorial done, the storyteller asleep
+function island(seed) {
+  const ctx = load(), SB = ctx.SB;
+  order.filter(n => EXTRA.indexOf(n) >= 0).forEach(n => { if (n === "bosses" && SB.Bosses) return; vm.runInContext(js(n + ".js"), ctx, { filename: n + ".js" }); });
+  if (SB.Possess) SB.Possess.headless = true;
+  const game = SB.Game.newGame(seed); SB.Game.current = game; game.tutorial.done = true;
+  const DR = SB.Director.state(game); DR.active = null; DR.nextT = game.time + 1e7;
+  try { SB.Dark._h.st(game).raid.truce = game.time + 1e7; } catch (e) {}
+  if (!game.world.pathGrid) SB.World.buildPathGrid(game.world);
+  return { SB, game, W: SB.World, w: game.world, hm: game.world.T.spawn };
+}
+function step(SB, game, secs, each) { for (let s = 0; s < secs / SB.TICK; s++) { if (each && each(s) === false) return s * SB.TICK; SB.Game.step(game, SB.TICK); if (SB.Ext) SB.Ext.tick(game, SB.TICK); } return secs; }
+const isFood = (SB, o) => SB.KINDS[o.kind] && SB.KINDS[o.kind].noun === "food";
+function clearFood(SB, game, x, z, r) { game.world.items.filter(o => isFood(SB, o) && Math.hypot(o.x - x, o.z - z) < r).forEach(o => { if (SB.World.remove) SB.World.remove(game.world, o); else o.x += 5000; }); }
+const routeLen = (p, x, z) => { if (!p) return -1; let l = 0; p.forEach(q => { l += Math.hypot(q.x - x, q.z - z); x = q.x; z = q.z; }); return l; };
+const steepOn = (SB, w, p) => (p || []).filter(q => SB.WorldGen.slopeAt(w.T, q.x, q.z) > 2.8).length;
+// a plain grown smol with no fins, put on a spot, awake, with nothing on its mind
+function put(SB, game, x, z, o) {
+  const c = SB.Game.spawnSmol(game, { x: x, z: z, age: 700 }); o = o || {};
+  c.tier = o.tier != null ? o.tier : 3; c.look = c.look || {}; c.look.fins = !!o.fins; c.wade = 0; c.lifespan = 1e7;
+  c.chem.health = 1; c.chem.hunger = o.hunger != null ? o.hunger : 0.3; c.chem.sleepy = 0; c.chem.tired = 0;
+  return c;
+}
+
 const STAND = ["ears", "size", "fluff", "bravery", "playfulness", "learnRate", "toughness", "speed", "curiosity", "affection"];
 
+console.log("1. an egg's gift is a strength the egg lacks");
 seeded(4490, () => {
   const ctx = load();
   ["possess.js", "ext.js", "home.js", "friends.js"].forEach(f => vm.runInContext(js(f), ctx, { filename: f }));
@@ -30,7 +73,6 @@ seeded(4490, () => {
   const label = egg => { F._focus = don.id; const o = P.options(game, me, { type: "item", id: egg.id }); return o && o.place ? o.place : null; };
   game.sparks = 500;
 
-  console.log("1. an egg's gift is a strength the egg lacks");
   // the case from the test island: a smol whose one gene far from the middle is a lack
   let egg = newEgg();
   setAll(don.genome.genes, 0.5); don.genome.genes.affection = 0; setAll(egg.data.genome.genes, 0.5); egg.data.genome.genes.affection = 0.62;
@@ -85,5 +127,178 @@ seeded(4490, () => {
   check("...every gift was a gene over the middle, and only that one gene changed", weak === 0 && wrong === 0 && given > 150, weak + " weak, " + wrong + " wrong");
   check("the old rule (furthest from the middle, either way) is gone from the source", !/Math\.abs\(gene\(c, g\) - 0\.5\)/.test(fs.readFileSync(path.join(__dirname, "..", "src", "friends.js"), "utf8")));
 });
+
+console.log("2. a route that leads away first is still walked");
+seeded(4486, () => {
+  // island 102 again: where the last one starved, south of a band of steep ground, and one of the apples north of it
+  const mk = () => { const I = island(102), { hm } = I; return Object.assign(I, { cx: hm.x + 19, cz: hm.z - 50, ax: hm.x + 25, az: hm.z - 61 }); };
+  {
+    const { SB, game, W, w, cx, cz, ax, az } = mk(), C = SB.Creature;
+    check("both spots can be stood on", W.walkable(w, cx, cz, false) && W.walkable(w, ax, az, false));
+    const line = []; for (let t = 0; t <= 1; t += 0.05) line.push({ x: cx + (ax - cx) * t, z: cz + (az - cz) * t });
+    const plain = W.findPath(w, cx, cz, ax, az, false, 5000), pl = routeLen(plain, cx, cz), d0 = Math.hypot(ax - cx, az - cz);
+    check("steep ground lies between them, and the way round is over twice the straight line", steepOn(SB, w, line) >= 1 && !!plain && pl > d0 * 2, steepOn(SB, w, line) + " steep points; " + d0.toFixed(0) + " paces straight, " + pl.toFixed(0) + " round");
+    check("the route's first leg leads away from the apple", !!plain && Math.hypot(plain[0].x - ax, plain[0].z - az) > d0 - 0.5 || (plain && plain.some(q => Math.hypot(q.x - ax, q.z - az) > d0 + 2)), plain ? plain.slice(0, 4).map(q => Math.hypot(q.x - ax, q.z - az).toFixed(0)).join(", ") + " paces from the apple at its first steps" : "no route");
+    check("the number: 8 seconds on a route with no step reached or neared, and it is dropped", C.ROUTE_STALL === 8);
+    clearFood(SB, game, cx, cz, 70);
+    const me = put(SB, game, cx, cz, { hunger: 0.97 });
+    W.add(w, game, "apple", ax, az, {});
+    let ate = -1, steps = 0; const t0 = game.time;
+    SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+    step(SB, game, 200, () => { if (me.path) steps = Math.max(steps, me.pathI || 0); me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+    check("starving, it walks the route to its end and eats (it set off nine times and never passed the second step)", ate >= 0 && steps >= 3, ate >= 0 ? "after " + Math.round(ate - t0) + "s, " + steps + " steps along" : "no meal in 200s, " + steps + " steps along, " + Math.hypot(me.x - ax, me.z - az).toFixed(0) + " paces from the apple");
+  }
+  {
+    // not only the starving: a smol sent to the far side gets there. (The order is given again every second, and its
+    // homesickness is held at nought: a smol this far from home is sent home by the game after a few seconds.)
+    const { SB, game, cx, cz, ax, az } = mk(), C = SB.Creature;
+    const me = put(SB, game, cx, cz, {});
+    let best = 1e9;
+    step(SB, game, 150, s => { if (s % 20 === 0 && Math.hypot(me.x - ax, me.z - az) > 2) C.sendTo(me, ax, az, game, 90, true); if (me.fr) me.fr.aw = 0; best = Math.min(best, Math.hypot(me.x - ax, me.z - az)); me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; return best > 1.8; });
+    check("a fed smol sent round the band arrives", best <= 1.8, "closest " + best.toFixed(1) + " paces");
+  }
+  check("the source: a route is dropped on its own progress, not the straight line", /c\.pathLegT ?> ?C\.ROUTE_STALL/.test(js("creature.js")) && !/c\.path ?&& ?c\.wBestT ?> ?8/.test(js("creature.js")));
+});
+
+console.log("3. a route it cannot follow is still dropped");
+seeded(4487, () => {
+  const { SB, game, W, w, hm } = island(102), C = SB.Creature;
+  const cx = hm.x - 3, cz = hm.z - 58; // the foot of the steep band north of home
+  // ground it cannot stand on a few paces off, and a goal beyond it
+  let bad = null;
+  for (let r = 2; r <= 6 && !bad; r += 0.5) for (let a = 0; a < 6.28 && !bad; a += 0.2) { const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r; if (SB.WorldGen.slopeAt(w.T, x, z) > 3.4 && !W.walkable(w, x, z, false) && !W.walkable(w, x + Math.sin(a) * 0.6, z + Math.cos(a) * 0.6, false)) bad = { x, z, a, r }; }
+  check("there is ground it cannot stand on a few paces off", !!bad, bad ? bad.r.toFixed(1) + " paces off" : "none");
+  if (!bad) return;
+  const far = { x: cx + Math.sin(bad.a) * (bad.r + 14), z: cz + Math.cos(bad.a) * (bad.r + 14) };
+  const me = put(SB, game, cx, cz, {});
+  C.sendTo(me, far.x, far.z, game, 90, true);
+  // hand it the route a wrong map would: one step onto that ground, then the goal
+  const route = [{ x: bad.x, z: bad.z }, { x: far.x, z: far.z }];
+  me.path = route; me.pathI = 0; me.pathLegI = -1; me.pathLegT = 0; me.pathTried = true; me.pathGoal = { x: me.action.tx, z: me.action.tz }; me.wBest = Math.hypot(far.x - me.x, far.z - me.z); me.wBestT = 0;
+  let held = 0, dropped = -1, wasLost = false, nearest = 1e9; const t0 = game.time;
+  step(SB, game, 40, s => { me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; if (me.fr) me.fr.aw = 0; /* not homesick: see section 2 */ if (me.path === route && (me.pathI || 0) === 0) held += SB.TICK; else if (dropped < 0) { dropped = game.time - t0; wasLost = !!me.lost || wasLost; } if (me.lost) wasLost = true; nearest = Math.min(nearest, Math.hypot(me.x - bad.x, me.z - bad.z)); return dropped < 0; });
+  check("it could not reach the step", nearest > 0.7, "nearest " + nearest.toFixed(1) + " paces");
+  check("the route is dropped: 8 seconds after its last progress, not at once and not never", dropped >= 7.5 && dropped <= 25, dropped >= 0 ? "after " + dropped.toFixed(1) + "s" : "still on it after 40s");
+  check("it is marked lost, so it scrambles back to proper ground", wasLost);
+  check("it never held that one step for a minute", held < 60, held.toFixed(0) + "s on the step");
+});
+
+console.log("4. the two guards");
+seeded(4488, () => {
+  const { SB, game, W, w, hm } = island(102), C = SB.Creature;
+  check("the numbers: a minute on one step at most", C.ROUTE_STEP_MAX === 60 && C.ROUTE_STALL === 8);
+  // open ground near home to walk on: find a spot 30 paces off with a plain straight walk to it
+  let goal = null;
+  for (let a = 0; a < 6.28 && !goal; a += 0.3) { const x = hm.x + Math.sin(a) * 30, z = hm.z + Math.cos(a) * 30; let ok = true; for (let t = 0; t <= 1 && ok; t += 0.05) ok = W.walkable(w, hm.x + (x - hm.x) * t, hm.z + (z - hm.z) * t, false); if (ok) goal = { x, z }; }
+  check("there is open ground by home to walk across", !!goal);
+  if (!goal) return;
+  {
+    // the cap: a smol 59.9 seconds into one step of a route, still creeping nearer
+    const me = put(SB, game, hm.x + 1, hm.z + 1, {});
+    C.sendTo(me, goal.x, goal.z, game, 90, true);
+    const route = [{ x: goal.x, z: goal.z }];
+    step(SB, game, 0.5);
+    me.path = route; me.pathI = 0; me.pathLegI = 0; me.pathLegBest = Math.hypot(goal.x - me.x, goal.z - me.z); me.pathLegT = 0; me.pathLegAll = 59.9; me.pathTried = true; me.pathGoal = { x: me.action.tx, z: me.action.tz };
+    const d0 = Math.hypot(goal.x - me.x, goal.z - me.z);
+    step(SB, game, 0.5, () => { me.chem.hunger = 0.3; });
+    check("past a minute on one step the route is let go, and it is not marked lost", me.path !== route && !me.lost, me.path === route ? "still on it" : "");
+    step(SB, game, 6, () => { me.chem.hunger = 0.3; });
+    check("and it carries on toward the same place", Math.hypot(goal.x - me.x, goal.z - me.z) < d0 - 3, (d0 - Math.hypot(goal.x - me.x, goal.z - me.z)).toFixed(1) + " paces nearer after 6s");
+  }
+  {
+    // sent on a long walk while only peckish; then it gets starving on the way
+    const me = put(SB, game, hm.x - 1, hm.z + 1, { hunger: 0.5 });
+    W.add(w, game, "apple", me.x + 2, me.z + 2, {});
+    const sent = C.sendTo(me, goal.x, goal.z, game, 90);
+    step(SB, game, 2, () => { me.chem.hunger = 0.5; });
+    const walking = () => !!me.action && me.action.verb === SB.V.wander && !!me.action.sent;
+    check("sent, and not forced: it sets off", sent === true && walking());
+    me.chem.hunger = 0.9;
+    step(SB, game, 1, () => { me.chem.hunger = Math.max(me.chem.hunger, 0.9); });
+    check("starving on the way, it breaks the walk off", !walking(), me.action ? SB.VERBS[me.action.verb] : "no action");
+    let ate = -1; const t0 = game.time; SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+    step(SB, game, 40, () => ate < 0);
+    check("and eats", ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 40s");
+    // forced (danger, the player's own word): it keeps walking
+    const me2 = put(SB, game, hm.x + 1, hm.z - 1, { hunger: 0.9 });
+    C.sendTo(me2, goal.x, goal.z, game, 90, true);
+    step(SB, game, 3, () => { me2.chem.hunger = 0.9; });
+    check("a forced walk is not broken off", !!me2.action && me2.action.verb === SB.V.wander && !me2.action.sent && me2.action.called === true);
+  }
+});
+
+console.log("5. food is chosen by the length of the way to it");
+seeded(4495, () => {
+  // island 102, the cell where two smols died: an apple 12 paces off as the crow flies, and some 60 round the steep band
+  const mk = () => { const I = island(102), { hm } = I; return Object.assign(I, { cx: hm.x - 3, cz: hm.z - 58, ax: hm.x + 8, az: hm.z - 62 }); };
+  const here = (w, o) => w.items.indexOf(o) >= 0 && !o.gone;
+  {
+    const { SB, game, W, w, cx, cz, ax, az } = mk(), C = SB.Creature;
+    check("the numbers: over 25 paces and twice the straight line is the long way round; 2.5 noses at most; remembered a minute", C.ROUTE_FAR === 25 && C.ROUTE_REACH === 2.5 && C.ROUTE_KEPT === 60);
+    const d0 = Math.hypot(ax - cx, az - cz), pl = routeLen(W.findPath(w, cx, cz, ax, az, false, 5000), cx, cz);
+    check("the apple is a long way round", pl > C.ROUTE_FAR && pl > d0 * 2, d0.toFixed(0) + " paces straight, " + pl.toFixed(0) + " round");
+    // a second meal on its own side: further off as the crow flies, a plain walk
+    let near = null;
+    for (let r = 18; r <= 26 && !near; r += 2) for (let a = 0; a < 6.28 && !near; a += 0.25) { const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r; let ok = W.walkable(w, x, z, false); for (let t = 0; t <= 1 && ok; t += 0.04) ok = W.walkable(w, cx + (x - cx) * t, cz + (z - cz) * t, false) && W.depthAt(w, cx + (x - cx) * t, cz + (z - cz) * t) < 0.05; if (ok) near = { x, z, r }; }
+    check("there is open ground on its own side, further off than the apple and nearer than the walk round", !!near && near.r > d0 + 4 && near.r < pl - 10, near ? near.r + " paces" : "none");
+    if (near) {
+      clearFood(SB, game, cx, cz, 80);
+      const me = put(SB, game, cx, cz, { hunger: 0.97 });
+      const apple = W.add(w, game, "apple", ax, az, {}), berry = W.add(w, game, "berry", near.x, near.z, {});
+      let ate = -1, walked = 0, px = me.x, pz = me.z, knew = 0; const t0 = game.time;
+      SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+      step(SB, game, 150, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; knew = Math.max(knew, C.routeKnown(me, apple.id, game)); me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+      check("it found out how long the way to the apple is", knew > C.ROUTE_FAR, knew.toFixed(0) + " paces");
+      check("it ate the berry on its own side, and the apple is still there", ate >= 0 && !here(w, berry) && here(w, apple), ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 150s");
+      check("after a walk no longer than the berry is far (and a few paces looking)", walked < near.r + 10, walked.toFixed(0) + " paces walked, the berry " + near.r + " off");
+    }
+  }
+  {
+    // the apple alone: it is the best there is, and it takes the long way and gets there
+    const { SB, game, W, w, cx, cz, ax, az } = mk(), C = SB.Creature;
+    clearFood(SB, game, cx, cz, 80);
+    const me = put(SB, game, cx, cz, { hunger: 0.97 });
+    const apple = W.add(w, game, "apple", ax, az, {});
+    let ate = -1, walked = 0, px = me.x, pz = me.z, given = 0; const t0 = game.time;
+    SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+    step(SB, game, 240, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; if (me.unreach && me.unreach[apple.id] > game.time) given += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+    check("with nothing nearer it walks the long way round and eats the apple", ate >= 0 && !here(w, apple) && walked > 40, ate >= 0 ? "after " + Math.round(ate - t0) + "s and " + walked.toFixed(0) + " paces" : "no meal in 240s, " + walked.toFixed(0) + " paces walked");
+    check("and never gave the apple up on the way", given === 0, given.toFixed(0) + "s with the apple given up");
+  }
+  {
+    // a way longer than its hunger is worth (the limit turned down for the check: half a nose)
+    const { SB, game, W, w, cx, cz, ax, az } = mk(), C = SB.Creature;
+    C.ROUTE_REACH = 0.5;
+    clearFood(SB, game, cx, cz, 80);
+    const me = put(SB, game, cx, cz, { hunger: 0.97 });
+    const apple = W.add(w, game, "apple", ax, az, {});
+    let left = false, walked = 0, px = me.x, pz = me.z;
+    step(SB, game, 12, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; if (me.unreach && me.unreach[apple.id] > game.time) left = true; me.chem.health = Math.max(me.chem.health, 0.5); return !left; });
+    check("a way longer than its hunger is worth is left alone, like food it cannot reach", left && walked < 12, (left ? "left alone" : "still after it") + ", " + walked.toFixed(0) + " paces walked");
+  }
+  check("the source: the nose weighs a food by the walk it knows", /routeKnown\(c, ?it\.id, ?game\)/.test(js("creature.js")) && /routeKnown\(c, ?o\.id, ?game\) ?>= ?far/.test(js("creature.js")));
+});
+
+console.log("6. the clock for one food follows its route");
+seeded(4496, () => {
+  const { SB, game, hm } = island(102), C = SB.Creature;
+  const me = put(SB, game, hm.x + 1, hm.z + 1, { hunger: 0.5 });
+  const a = { verb: SB.V.eat, t: 0, target: { type: "item", id: 1 } };
+  check("a straight walk: 25 seconds, as before", C.goLimit(me, a) === 25);
+  me.chem.hunger = 0.97;
+  check("starving: 90 seconds, as before", C.goLimit(me, a) === 90);
+  const sp = C.speedOf(me, a);
+  me.path = [{ x: me.x + 5, z: me.z }]; a.routeLen = 150; a.routeT = 2;
+  const want = 2 + 150 / sp * 1.5 + 10;
+  check("on a route of 150 paces: what the route needs at its own pace, half again, and ten seconds", Math.abs(C.goLimit(me, a) - want) < 1e-9 && want > 90, C.goLimit(me, a).toFixed(0) + "s at " + sp.toFixed(2) + " paces a second");
+  a.routeLen = 12;
+  check("a short route never makes the clock shorter", C.goLimit(me, a) === 90);
+  me.path = null; a.routeLen = 150;
+  check("off the route it is the plain clock again", C.goLimit(me, a) === 90);
+  me.chem.hunger = 0.5; me.path = [{ x: me.x + 5, z: me.z }]; a.routeLen = 60;
+  check("a smol that is only hungry gets the route's time too", C.goLimit(me, a) > 25 && Math.abs(C.goLimit(me, a) - (2 + 60 / C.speedOf(me, a) * 1.5 + 10)) < 1e-9, C.goLimit(me, a).toFixed(0) + "s");
+  check("the source: the walk to food asks the clock that follows the route", /a\.t ?> ?goLimit\(c, ?a\)/.test(js("creature.js")) && !/a\.t ?> ?\(starvingFor\(c, ?a\) ?\? ?90 ?: ?25\)/.test(js("creature.js")));
+});
+
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
 process.exit(failed ? 1 : 0);
