@@ -23,7 +23,7 @@ function fresh(seed) {
   order.filter(n => EXTRA.indexOf(n) >= 0).forEach(n => { if (n === "bosses" && SB.Bosses) return; vm.runInContext(js(n + ".js"), ctx, { filename: n + ".js" }); });
   if (SB.Possess) SB.Possess.headless = true;
   const game = SB.Game.newGame(seed); SB.Game.current = game; game.tutorial.done = true;
-  return { SB, game };
+  return { SB, game, ctx };
 }
 function trio(SB, game) {
   const sp = game.world.T.spawn, out = [];
@@ -153,6 +153,47 @@ console.log("5. found places stay put");
   }
 }
 
+console.log("5b. a real island from before 4.44: every marker against its place");
+{
+  // tests/places-guix-cove.json: the seed, world settings, sites and every place marker of an island played on 4.42 and
+  // 4.43 to day 20, taken from its save. on 4.43, 33 of its markers did not stand where the game put their place, and
+  // 18 spots carried two markers (a place that drifted onto a found spot was found there a second time)
+  const fx = JSON.parse(fs.readFileSync(path.join(__dirname, "places-guix-cove.json"), "utf8"));
+  const ctx = load(), SB = ctx.SB;
+  order.filter(n => EXTRA.indexOf(n) >= 0).forEach(n => { if (n === "bosses" && SB.Bosses) return; vm.runInContext(js(n + ".js"), ctx, { filename: n + ".js" }); });
+  if (SB.Possess) SB.Possess.headless = true;
+  const game = SB.Game.newGame(fx.seed, fx.n, fx.world); SB.Game.current = game; game.tutorial.done = true;
+  const D = SB.Deep, w = game.world;
+  game.sites = fx.sites.map(s => Object.assign({}, s));
+  const made = D.pois(game), ids = new Set(made.map(p => p.id));
+  check("the island is made the same as it was: it has every place the save has a marker for", fx.markers.every(m => ids.has(m[0])), fx.markers.filter(m => !ids.has(m[0])).map(m => m[0]).join(" "));
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  const off0 = fx.markers.filter(m => { const p = made.find(q => q.id === m[0]); return p && dist(p, { x: m[2], z: m[3] }) > 1.5; }).length;
+  check("as the game made it afresh, markers and places disagree (the bug this fixes)", off0 >= 10, off0 + " of " + fx.markers.length);
+  // now it is the old save: the markers stand, their places are marked found, and there is no kept list
+  let sid = 900000;
+  fx.markers.forEach(m => { w.structures.push({ id: sid++, type: "struct", kind: m[1], noun: "material", x: m[2], z: m[3], rot: 0, s: 1, done: true, work: 0, need: {}, builders: [], data: { poi: m[0] } }); });
+  const sx = game.quests.deep; sx.found = sx.found || {}; fx.markers.forEach(m => { sx.found[m[0]] = 1; });
+  delete sx.places; delete game._deepPois;
+  const places = D.pois(game), left = w.structures.filter(b => b.data && b.data.poi && /^poi_/.test(b.kind));
+  const offNow = left.filter(b => { const p = places.find(q => q.id === b.data.poi); return !p || dist(p, b) > 0.11; });
+  check("every marker left standing is on its place", offNow.length === 0, offNow.map(b => b.data.poi).slice(0, 8).join(" "));
+  const spots = new Set(left.map(b => b.x + "," + b.z));
+  check("no spot carries two markers any more", spots.size === left.length, left.length + " markers on " + spots.size + " spots");
+  check("the 18 second markers are gone, and the older marker kept each spot", left.length === 78 && fx.markers.filter((m, i) => fx.markers.findIndex(o => o[2] === m[2] && o[3] === m[3]) === i).every(m => left.some(b => b.data.poi === m[0])), left.length);
+  const goneIds = fx.markers.map(m => m[0]).filter(id => !left.some(b => b.data.poi === id));
+  check("their places are back on the island, not found yet", goneIds.length === 18 && goneIds.every(id => places.some(p => p.id === id) && !sx.found[id]), goneIds.length);
+  let minD = 1e9, pair = "";
+  for (let i = 0; i < places.length; i++) for (let j = i + 1; j < places.length; j++) { const d = dist(places[i], places[j]); if (d < minD) { minD = d; pair = places[i].id + " " + places[j].id; } }
+  check("no place sits on another", minD > 1.5, minD.toFixed(1) + " (" + pair + ")");
+  check("it still has all its places", places.length === made.length, places.length + " vs " + made.length);
+  const key = l => l.map(p => p.id + "@" + p.x + "," + p.z).join(" "), k1 = key(places);
+  delete game._deepPois;
+  check("and from here on nothing moves: the list is kept with the island", Array.isArray(sx.places) && key(D.pois(game)) === k1);
+  const tomb = left.find(b => b.kind === "poi_tomb"), an = tomb && D.anchor(game, tomb.data.poi);
+  check("a barrow's way in is at its marker", !!an && dist(an, tomb) < 0.11);
+}
+
 console.log("6. words, and honey island's hives");
 {
   const town = js("town.js"), deep = js("deep.js");
@@ -206,13 +247,24 @@ console.log("8. coming back reads as a generation passing");
   check("the head count before and after", rec.pop0 === pop0 && rec.pop1 === pop0 - 3 + 1, rec.pop0 + " to " + rec.pop1);
   check("nothing from before the away time is counted", SB.Game.awayRecord(game, game.time, rec.pop1).old.length === 0 && SB.Game.awayRecord(game, game.time, rec.pop1).born.length === 0);
   const main = js("main.js"), ui = js("ui.js");
-  check("the catch-up hands the card its record", /var before ?= ?snapshotStats\(g\), ?t0 ?= ?g\.time ?\|\| ?0, ?pop0 ?= ?Game\.smols\(g\)\.length;/.test(main) && /rep\.away ?= ?Game\.awayRecord\(g, ?t0, ?pop0\);/.test(main));
+  check("the catch-up hands the card its record", /var before ?= ?snapshotStats\(g\), ?awayT0 ?= ?g\.time ?\|\| ?0, ?awayPop0 ?= ?Game\.smols\(g\)\.length;/.test(main) && /rep\.away ?= ?Game\.awayRecord\(g, ?awayT0, ?awayPop0\);/.test(main) && !/function chunk\(\) ?\{[^}]*awayT0 ?=/.test(main));
   const a = ui.indexOf("UI.awayScreen"), card = ui.slice(a, ui.indexOf("welcome back", a) + 40);
   check("the card leads with who was born, then who grew old", card.indexOf('" born")') > 0 && card.indexOf('" born")') < card.indexOf('" grew old")'));
   check("a name on it opens that smol's page in the chronicle", /openMenu\("chronicle", ?\{ ?memorial: ?e\.id ?\}\)/.test(card));
   check("no skull, and no \"passed on\" count", !/\u{1F480}|☠|passed on|deaths ?\+/u.test(card));
   check("the head count is only spelled out when more than a third are gone", /if ?\(aw\.pop0 ?>= ?3 ?&& ?aw\.pop1 ?< ?aw\.pop0 ?\* ?2 ?\/ ?3\)/.test(card) && /an old generation/.test(card));
   check("a loss that is not old age gets its own plain line", /AWAY_CAUSE\[k\] ?\|\| ?"lost"/.test(card) && /starved: ?"starved"/.test(ui));
+  {
+    // the whole catch-up, run for real: the record the card is handed is about the away time and nothing else
+    const f2 = fresh(4450), S2 = f2.SB, g2 = f2.game, sp2 = g2.world.T.spawn;
+    trio(S2, g2);
+    const kid = S2.Game.spawnSmol(g2, { x: sp2.x + 2, z: sp2.z + 4, age: 0 }); kid.age = 1;
+    const before = S2.Game.smols(g2).length; let rep = null;
+    f2.ctx.setTimeout = fn => fn(); S2.Game.OFFLINE_WALL_MS = Infinity;
+    S2.Game.runOffline(g2, 200, null, r => { rep = r; });
+    check("a real catch-up hands over the record", !!(rep && rep.away) && rep.away.pop0 === before, rep && rep.away && rep.away.pop0 + " vs " + before);
+    check("and it is measured from the moment you left: the newborn is in it, the grown-ups are not", !!(rep && rep.away) && rep.away.born.some(e => e.name === kid.name) && rep.away.born.every(e => e.age <= 202), rep && rep.away && rep.away.born.map(e => e.name + ":" + Math.round(e.age)).join(" "));
+  }
   check("the chronicle has the page", /function tabChronicle\(body, ?arg\)/.test(ui) && /UI\.goneList ?= ?goneList;/.test(ui) && /remembered/.test(ui));
 }
 

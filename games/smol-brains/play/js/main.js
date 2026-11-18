@@ -636,7 +636,7 @@ return Math.min(SB.DAY_LENGTH,Math.min(a,600)+Math.max(0,a-600)/8);
 };
 Game.OFFLINE_WALL_MS=8000;
 Game.runOffline=function(g,simSec,onProgress,cb){
-var before=snapshotStats(g),t0=g.time||0,pop0=Game.smols(g).length;
+var before=snapshotStats(g),awayT0=g.time||0,awayPop0=Game.smols(g).length;
 g.offline=true;g.offlineRunning=true;g.offlineLog=[];
 var done=0,dt=0.5,wallStart=performance.now();
 function chunk(){
@@ -653,7 +653,7 @@ else{
 g.offline=false;g.offlineRunning=false;
 var rep=diffStats(g,before,simSec);
 rep.log=g.offlineLog.slice(-12);g.offlineLog=null;
-rep.away=Game.awayRecord(g,t0,pop0);
+rep.away=Game.awayRecord(g,awayT0,awayPop0);
 Game.unlock(g,"offline");
 cb(rep);
 }

@@ -490,12 +490,36 @@ if(k==="ring")best.boon=D.BOON_ORDER[ring++%D.BOON_ORDER.length];
 out.push(best);
 }
 });
+var held=[],ghosts=[];
 (w.structures||[]).forEach(function(sb){
-var pid=sb.data&&sb.data.poi,pp=null,pi;
+var pid=sb.data&&sb.data.poi,pp=null,pi,hi,at=null;
 if(!pid||String(sb.kind).slice(0,4)!=="poi_")return;
 for(pi=0;pi<out.length;pi++)if(out[pi].id===pid)pp=out[pi];
-if(!pp||SB.dist(pp.x,pp.z,sb.x,sb.z)<1.5)return;
+if(!pp)return;
+for(hi=0;hi<held.length;hi++)if(SB.dist(held[hi].sb.x,held[hi].sb.z,sb.x,sb.z)<1.5)at=held[hi];
+if(at){ghosts.push({sb:sb,pp:pp,at:at});return;}
+var rec={sb:sb,was:null};
+held.push(rec);
+if(SB.dist(pp.x,pp.z,sb.x,sb.z)<1.5)return;
+rec.was={x:pp.x,z:pp.z,b:pp.b,h:pp.h};
 pp.x=Math.round(sb.x*10)/10;pp.z=Math.round(sb.z*10)/10;pp.b=G.biomeAt(T,sb.x,sb.z);pp.h=G.heightAt(T,sb.x,sb.z);
+});
+ghosts.forEach(function(gh){
+var was=gh.at.was,pp=gh.pp,sx=st(game);
+if(was&&!out.some(function(o){return o!==pp&&SB.dist(o.x,o.z,was.x,was.z)<9;})){pp.x=was.x;pp.z=was.z;pp.b=was.b;pp.h=was.h;gh.at.was=null;}
+if(W().removeStructure)W().removeStructure(w,gh.sb);
+if(sx.found)delete sx.found[pp.id];
+});
+ghosts.forEach(function(gh){
+var pp=gh.pp;
+if(!out.some(function(o){return o!==pp&&SB.dist(o.x,o.z,pp.x,pp.z)<1.5;}))return;
+for(var tr=0;tr<400;tr++){
+var a=r()*6.283,d=12+r()*40,x=pp.x+Math.sin(a)*d,z=pp.z+Math.cos(a)*d;
+if(!land(x,z)||G.biomeAt(T,x,z)===bid("ocean")||!(walk[(z|0)*N+(x|0)]&1))continue;
+if(out.some(function(o){return o!==pp&&SB.dist(o.x,o.z,x,z)<9;}))continue;
+pp.x=Math.round(x*10)/10;pp.z=Math.round(z*10)/10;pp.b=G.biomeAt(T,x,z);pp.h=G.heightAt(T,x,z);
+break;
+}
 });
 st(game).places=out.map(function(p){return[p.id,p.kind,p.x,p.z,p.b,Math.round(p.h*10)/10,p.boon||0];});
 game._deepPois={w:game.world,list:out};

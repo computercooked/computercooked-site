@@ -732,7 +732,7 @@
   // run the sim fast (coarse step, chunked so the page stays responsive). cb(report) at the end.
   Game.OFFLINE_WALL_MS = 8000; // real-time cap on the catch-up (tests lift it so a busy machine still sims it all)
   Game.runOffline = function (g, simSec, onProgress, cb) {
-    var before = snapshotStats(g), t0 = g.time || 0, pop0 = Game.smols(g).length;
+    var before = snapshotStats(g), awayT0 = g.time || 0, awayPop0 = Game.smols(g).length; // (not "t0": chunk() below has its own)
     g.offline = true; g.offlineRunning = true; g.offlineLog = [];
     // coarse half-second steps, and never more than ~8 s of real time (slow phones simulate a bit less)
     var done = 0, dt = 0.5, wallStart = performance.now();
@@ -750,7 +750,7 @@
         g.offline = false; g.offlineRunning = false;
         var rep = diffStats(g, before, simSec);
         rep.log = g.offlineLog.slice(-12); g.offlineLog = null;
-        rep.away = Game.awayRecord(g, t0, pop0);
+        rep.away = Game.awayRecord(g, awayT0, awayPop0);
         Game.unlock(g, "offline");
         cb(rep);
       }
