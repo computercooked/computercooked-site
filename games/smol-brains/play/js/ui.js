@@ -2633,6 +2633,7 @@ on("incident",function(){setTimeout(function(){if(!game.settings.cards||!game.se
 on("lightning",function(){R.flash(0.9);R.camera.shake=Math.max(R.camera.shake,0.3);});
 on("death",function(d){if(game.selectedId===d.c.id)closeSheet();});
 on("guideSet",function(){tutShow();});
+on("tutorialOver",function(d){tutShow();if(d&&d.auto)toast("the basics cards are put away now. ❓ help is in the menu.");});
 on("orderDone",function(d){if(d.msg)toast(esc(d.msg));});
 on("ordersAnnoyed",function(){var now=performance.now();if(now-annoyT<30000)return;annoyT=now;toast("😤 too many orders: your smols are getting annoyed. they'll listen less for a while");});
 on("grumpArrive",function(){if((game.stats.grumpNights||0)===0&&!game._grumpWarned){game._grumpWarned=true;toast("👺 grumps come out at night. 👆 tap them 3 times to shoo them. fire scares them too.");}});

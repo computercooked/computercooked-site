@@ -894,6 +894,7 @@ emit("illnessWorse",{c:c,id:ill.id,stage:ill.stage});
 }
 }
 function story(game){var S=PS();return!!(S&&(S.firstNight||S.nightChase))||!!(game.tutorial&&!game.tutorial.done)||!!(SB.FirstNight&&SB.FirstNight.active&&SB.FirstNight.active(game));}
+function lesson(game){var S=PS();return!!(S&&(S.firstNight||S.nightChase))||!!(SB.FirstNight&&SB.FirstNight.active&&SB.FirstNight.active(game));}
 function sendHome(g){if(g.goingHome)return;g.goingHome=true;if(g.chem)g.chem.fear=1;}
 function wardTick(game){
 var s=st(game),t=game.time;
@@ -1290,7 +1291,7 @@ b.color(0xc9a8ff).push().translate(0,0.27,0.16).box(0.22,0.05,0.02).pop();
 b.color(0xc9a8ff).push().translate(0,0.18,0.16).box(0.12,0.05,0.02).pop();
 return b.finish();
 }
-PW._={st:st,me:me,set:set,cur:cur,Sv:Sv,P:P,PS:PS,K:K,label:label,day:day,hashKey:hashKey,clamp:clamp,live:live,burst:burst,snd:snd,emit:emit,inBody:inBody,tell:tell,ground:ground,near:near,roll:roll,give:give,fxOf:fxOf,ok:ok,fail:fail,godOn:godOn,easeIll:easeIll,hasCut:hasCut,wounded:wounded,rc:rc,btn:btn,lbl:lbl,esc:esc,r1:r1,CAST:CAST,shove:shove,sendHome:sendHome,hushScout:hushScout,story:story,skyAt:skyAt,bump:function(){stamp++;},setLast:function(c){if(lastId===c.id)lastH=c.chem.health;}};
+PW._={st:st,me:me,set:set,cur:cur,Sv:Sv,P:P,PS:PS,K:K,label:label,day:day,hashKey:hashKey,clamp:clamp,live:live,burst:burst,snd:snd,emit:emit,inBody:inBody,tell:tell,ground:ground,near:near,roll:roll,give:give,fxOf:fxOf,ok:ok,fail:fail,godOn:godOn,easeIll:easeIll,hasCut:hasCut,wounded:wounded,rc:rc,btn:btn,lbl:lbl,esc:esc,r1:r1,CAST:CAST,shove:shove,sendHome:sendHome,hushScout:hushScout,story:story,lesson:lesson,skyAt:skyAt,bump:function(){stamp++;},setLast:function(c){if(lastId===c.id)lastH=c.chem.health;}};
 if(ME&&ME.STRUCT_BUILDERS&&ME.builder){try{ME.STRUCT_BUILDERS.blessstone=standing;ME.STRUCT_BUILDERS.wordstone=whisper;}catch(e){}}
 })();
 (function(){
@@ -2025,7 +2026,7 @@ return true;
 PW.catchFall=function(game,c,cause){
 if(!game||!game.world||!c||!c.alive||c.species!=="smol"||!c.chem)return false;
 var se=set(game),p=m2(c),pals=0,d=day(game);
-if(cause==="old"||c.stranger||(U.story(game)&&!se.noDeath))return false;
+if(cause==="old"||c.stranger||(U.lesson(game)&&!se.noDeath))return false;
 if(!se.noDeath){
 if(se.oneLife||cause!=="hurt"||p.downDay===d)return false;
 near(game,c.x,c.z,14,function(o){if(o!==c&&o.species==="smol"&&o.alive)pals++;});
@@ -2045,7 +2046,7 @@ return true;
 };
 function downed(game,c,cause){
 var se=set(game),p=m2(c),pals=0,d=day(game);
-if(cause==="old"||c.stranger||(U.story(game)&&!se.noDeath))return false;
+if(cause==="old"||c.stranger||(U.lesson(game)&&!se.noDeath))return false;
 if(!se.noDeath){
 if(se.oneLife||cause!=="hurt"||p.downDay===d)return false;
 near(game,c.x,c.z,14,function(o){if(o!==c&&o.species==="smol"&&o.alive)pals++;});

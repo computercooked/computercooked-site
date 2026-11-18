@@ -711,6 +711,30 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.94 What v4.45.0 changed: the opening story ends on time
+
+**Why.** cc-lead looked at 4.44 on a fresh island and found that a smol was never "carried home" there. The cause was the opening story. The game treats the island as "in the story" through the first night, and after that until the seven basics cards ("pick a smol", "feed it" ... "that's the basics") are finished or skipped. The cards had no time limit. A player who left one sitting stayed in the story for good.
+
+**What the story was holding back.** More than "carried home". While the cards were unfinished:
+- a smol hurt too badly was lost, never carried home (unless "nobody is lost" was on);
+- the storyteller sent nothing (director.js);
+- no night chase was offered (nightchase.js);
+- no crashed pod or other site turned up (sites.js);
+- weddings, festivals and kids' circles waited (friends.js);
+- the first hour's wishes, the guide's tips and the "first night" card stayed away.
+
+So a player who ignored one card got a much quieter game and could not know why.
+
+**What changed.**
+- **The cards are put away by themselves at the dawn of day 3.** The first night ends at the dawn of day 2, so the cards get one island day (20 minutes at normal speed). After that `Game.cardsOver` marks the tutorial done, the card comes off the screen and one line says "the basics cards are put away now. ❓ help is in the menu." Everything in the list above then runs as on any island. `Game.CARDS_END` (2.21 island days) is the line.
+- It never happens before the pod is opened (no smol is out yet) and never while the first night is still running: that night ends its own way.
+- **"Carried home" no longer waits for the cards at all.** It waits only for a taught night: the first night, or a night chase you were lent into (`lesson()` in powers.js, used by `Powers.catchFall` and by the older `downed` rule). A founder hurt too badly while a card is up is carried home like any other smol.
+- An island saved in the middle of the cards and opened after day 3 has them put away on its first moment of play.
+
+**What it does not change.** An island whose player finishes or skips the cards (nearly all of them, within minutes) plays exactly as before. Headless runs and the judging islands start with the tutorial done, so no measured number moves.
+
+**Tests.** `tests/play445.test.js`: a fall while a card is up is caught and no death is announced; a fall in the first night is real unless "nobody is lost" is on; the cards end at the dawn of day 3, once, not a moment before, not before the pod and not during the first night; after that neither friends.js nor powers.js counts the island as in the story; the card comes off with its one line.
+
 ## 0.93 What v4.44.0 changed: what the proof pass turned up
 
 **Why.** Ashton asked that every feature in the plan be shown to work in the game, not only on paper. The proof pass draws ten rows from each of the 24 systems in the ledger and tries each one by hand (`smol-brains-handover/PROOF-PASS.md`). The first four systems (40 rows) gave 37 passes, 3 rows that did not work, and several bugs that sat outside any row. This release fixes all of them.

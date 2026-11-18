@@ -460,6 +460,15 @@ try{w=SKIP_ON[k](d||{});}catch(e){w=null;}
 if(w)Game.skipStop(g,w);
 });
 });
+Game.CARDS_END=2.21;
+Game.cardsOver=function(game){
+var st=game&&game.tutorial;
+if(!st||st.done||(st.step||0)<2||(game.time||0)<Game.CARDS_END*SB.DAY_LENGTH)return false;
+if(SB.FirstNight&&SB.FirstNight.active&&SB.FirstNight.active(game))return false;
+st.done=true;
+SB.bus.emit("tutorialOver",{auto:true});
+return true;
+};
 Game.step=function(game,dt){
 if(game.skip&&game.speed!==16){game.skip=null;SB.bus.emit("skipDone",{why:"⏭ stopped",at:null});}
 else if(game.skip&&game.time>=game.skip.until)Game.skipStop(game,null);
@@ -480,6 +489,7 @@ if(SB.Funeral)SB.Funeral.tick(game,dt);
 if(SB.Orders)SB.Orders.tick(game,dt);
 if(SB.FirstHour)SB.FirstHour.tick(game,dt);
 if(SB.FirstNight)SB.FirstNight.tick(game,dt);
+if(game.tutorial&&!game.tutorial.done)Game.cardsOver(game);
 if(SB.Bosses)SB.Bosses.tick(game,dt);
 if(SB.Home)SB.Home.tick(game,dt);
 if(SB.Loot)SB.Loot.tick(game,dt);
