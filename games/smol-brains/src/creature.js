@@ -1051,8 +1051,18 @@
             ro[a.target.id] = { len: c.pathLen, t: game.time };
             // further than its hunger is worth: left alone for a while, as food it cannot reach is
             if (c.pathLen > nose(c) * C.ROUTE_REACH) { unreachable(c, a.target.id, game); c.path = null; c.pathTried = false; finish(c, game); return; }
-            // news to it: it thinks again, and its nose now weighs this food by the walk (it may well come back to it)
-            if (!knew) { c.path = null; c.pathTried = false; finish(c, game); return; }
+            // news to it. Its nose now weighs this food by the walk: if that turns up a nearer meal it goes for that one at
+            // once; if not, this is the best there is and it takes the long way without stopping to think it over
+            // (a full think here sent starving smols off to wander and chat for half a minute first)
+            if (!knew) {
+              var nf = sniffFood(c, game);
+              if (nf && nf.id !== a.target.id) {
+                c.path = null; c.pathTried = false;
+                var nst = nf.kind && K[nf.kind] && K[nf.kind].noun === "food" && nf.heldBy !== undefined ? { type: "item", id: nf.id } : { type: "node", id: nf.id }, nsr = resolve(game, nst);
+                if (nsr) { startAction(c, game, nst.type === "item" ? V.eat : NIBBLE[nf.kind] ? V.eat : V.play, nst, nsr, nst.type === "item" ? "food" : "plant"); if (nst.type === "item") claimFood(c, nf, game); return; }
+                finish(c, game); return;
+              }
+            }
           }
         }
       }

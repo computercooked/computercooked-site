@@ -37,7 +37,7 @@ seeded(4370, () => {
   me.chem.hunger = 0.3; goEat();
   C.hear(me, verbWord, game, {});
   check("…a fed one still stops to listen, as before", !me.action);
-  check("the walk allows a starving smol ninety seconds, not twenty-five", /a\.t > \(starvingFor\(c, a\) \? 90 : 25\)/.test(js("creature.js").replace(/\s+/g, " ").replace(/a\.t>\(starvingFor\(c,a\)\?90:25\)/, "a.t > (starvingFor(c, a) ? 90 : 25)")));
+  check("the walk allows a starving smol ninety seconds, not twenty-five", (function () { const src = js("creature.js").replace(/\s+/g, ""); return /a\.t>goLimit\(c,a\)/.test(src) && /varlim=starvingFor\(c,a\)\?90:25;/.test(src); })()); // 4.49: the clock is goLimit, which starts from these two numbers and follows a route
   check("a marooned, starving smol wades (c.wade lets it swim for a minute)", C.canSwim(me) === false && ((me.wade = 5), C.canSwim(me)) === true);
   me.wade = 0;
   check("storm shelter gives way to starving", /c\.shelterT ?> ?0 ?&& ?c\.species ?=== ?"smol" ?&& ?!c\.quarantine ?&& ?ch\.hunger ?<= ?0\.85/.test(js("creature.js")));

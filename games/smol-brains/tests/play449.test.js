@@ -42,9 +42,9 @@ function island(seed) {
   if (!game.world.pathGrid) SB.World.buildPathGrid(game.world);
   return { SB, game, W: SB.World, w: game.world, hm: game.world.T.spawn };
 }
-function step(SB, game, secs, each) { for (let s = 0; s < secs / SB.TICK; s++) { if (each && each(s) === false) return s * SB.TICK; SB.Game.step(game, SB.TICK); if (SB.Ext) SB.Ext.tick(game, SB.TICK); } return secs; }
+function step(SB, game, secs, each) { for (let s = 0; s < secs / SB.TICK; s++) { if (each && each(s) === false) return s * SB.TICK; SB.Game.step(game, SB.TICK); } return secs; } // 4.49: Game.step runs the add-on systems itself. The older test files call SB.Ext.tick again after it, which runs them at twice the speed of real play
 const isFood = (SB, o) => SB.KINDS[o.kind] && SB.KINDS[o.kind].noun === "food";
-function clearFood(SB, game, x, z, r) { game.world.items.filter(o => isFood(SB, o) && Math.hypot(o.x - x, o.z - z) < r).forEach(o => { if (SB.World.remove) SB.World.remove(game.world, o); else o.x += 5000; }); }
+function clearFood(SB, game, x, z, r) { game.world.nodes.forEach(n => { if (n && Math.hypot(n.x - x, n.z - z) < r && SB.NODES[n.kind] && SB.NODES[n.kind].drops) n.dropT = 1e9; }); /* and nothing ripens or drops near while the check runs */ game.world.items.filter(o => isFood(SB, o) && Math.hypot(o.x - x, o.z - z) < r).forEach(o => { if (SB.World.remove) SB.World.remove(game.world, o); else o.x += 5000; }); }
 const routeLen = (p, x, z) => { if (!p) return -1; let l = 0; p.forEach(q => { l += Math.hypot(q.x - x, q.z - z); x = q.x; z = q.z; }); return l; };
 const steepOn = (SB, w, p) => (p || []).filter(q => SB.WorldGen.slopeAt(w.T, q.x, q.z) > 2.8).length;
 // a plain grown smol with no fins, put on a spot, awake, with nothing on its mind
@@ -148,7 +148,7 @@ seeded(4486, () => {
     W.add(w, game, "apple", ax, az, {});
     let ate = -1, steps = 0; const t0 = game.time;
     SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
-    step(SB, game, 200, () => { if (me.path) steps = Math.max(steps, me.pathI || 0); me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+    step(SB, game, 200, () => { if (me.path) steps = Math.max(steps, me.pathI || 0); me.chem.health = Math.max(me.chem.health, 0.5); if (ate < 0 && me.chem.hunger < 0.8) ate = game.time; /* fed, whichever way the meal went down */ return ate < 0 && me.alive; });
     check("starving, it walks the route to its end and eats (it set off nine times and never passed the second step)", ate >= 0 && steps >= 3, ate >= 0 ? "after " + Math.round(ate - t0) + "s, " + steps + " steps along" : "no meal in 200s, " + steps + " steps along, " + Math.hypot(me.x - ax, me.z - az).toFixed(0) + " paces from the apple");
   }
   {
@@ -211,7 +211,7 @@ seeded(4488, () => {
   {
     // sent on a long walk while only peckish; then it gets starving on the way
     const me = put(SB, game, hm.x - 1, hm.z + 1, { hunger: 0.5 });
-    W.add(w, game, "apple", me.x + 2, me.z + 2, {});
+    W.add(w, game, "apple", me.x + 5, me.z + 5, {}); // seven paces off: food within three paces of a hungry walker is a snack, and it stops for it
     const sent = C.sendTo(me, goal.x, goal.z, game, 90);
     step(SB, game, 2, () => { me.chem.hunger = 0.5; });
     const walking = () => !!me.action && me.action.verb === SB.V.wander && !!me.action.sent;
@@ -250,7 +250,7 @@ seeded(4495, () => {
       const apple = W.add(w, game, "apple", ax, az, {}), berry = W.add(w, game, "berry", near.x, near.z, {});
       let ate = -1, walked = 0, px = me.x, pz = me.z, knew = 0; const t0 = game.time;
       SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
-      step(SB, game, 150, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; knew = Math.max(knew, C.routeKnown(me, apple.id, game)); me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+      step(SB, game, 150, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; knew = Math.max(knew, C.routeKnown(me, apple.id, game)); me.chem.health = Math.max(me.chem.health, 0.5); if (ate < 0 && me.chem.hunger < 0.8) ate = game.time; /* fed, whichever way the meal went down */ return ate < 0 && me.alive; });
       check("it found out how long the way to the apple is", knew > C.ROUTE_FAR, knew.toFixed(0) + " paces");
       check("it ate the berry on its own side, and the apple is still there", ate >= 0 && !here(w, berry) && here(w, apple), ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 150s");
       check("after a walk no longer than the berry is far (and a few paces looking)", walked < near.r + 10, walked.toFixed(0) + " paces walked, the berry " + near.r + " off");
@@ -264,7 +264,7 @@ seeded(4495, () => {
     const apple = W.add(w, game, "apple", ax, az, {});
     let ate = -1, walked = 0, px = me.x, pz = me.z, given = 0; const t0 = game.time;
     SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
-    step(SB, game, 240, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; if (me.unreach && me.unreach[apple.id] > game.time) given += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+    step(SB, game, 240, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; if (me.unreach && me.unreach[apple.id] > game.time) given += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); if (ate < 0 && me.chem.hunger < 0.8) ate = game.time; /* fed, whichever way the meal went down */ return ate < 0 && me.alive; });
     check("with nothing nearer it walks the long way round and eats the apple", ate >= 0 && !here(w, apple) && walked > 40, ate >= 0 ? "after " + Math.round(ate - t0) + "s and " + walked.toFixed(0) + " paces" : "no meal in 240s, " + walked.toFixed(0) + " paces walked");
     check("and never gave the apple up on the way", given === 0, given.toFixed(0) + "s with the apple given up");
   }
@@ -306,7 +306,7 @@ seeded(4496, () => {
 console.log("7. three small things from the proof pass");
 seeded(4497, () => {
   const ctx = load();
-  ["meshes.js", "ext.js", "bosses.js", "body.js", "possess.js", "home.js", "loot.js", "animals.js"].forEach(f => { if (!(f === "bosses.js" && ctx.SB.Bosses) && fs.existsSync(path.join(dir, f))) vm.runInContext(js(f), ctx, { filename: f }); });
+  ["meshes.js", "ext.js", "bosses.js", "body.js", "possess.js", "home.js", "loot.js", "animals.js", "surgery.js"].forEach(f => { if (!(f === "bosses.js" && ctx.SB.Bosses) && !(f === "surgery.js" && ctx.SB.Surgery) && fs.existsSync(path.join(dir, f))) vm.runInContext(js(f), ctx, { filename: f }); });
   const SB = ctx.SB, P = SB.Possess, A = SB.Animals, Surv = SB.Surv || SB.Survival, W = SB.World; P.headless = true;
   const game = SB.Game.newGame(133); SB.Game.current = game; game.tutorial.done = true; game.headless = true;
   SB.Game.hatch(game, game.world.items.find(o => o.data && o.data.pod));

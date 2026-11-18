@@ -907,7 +907,15 @@ var knew=routeKnown(c,a.target.id,game),ro=c.routeOf||(c.routeOf={}),rk;
 for(rk in ro)if(game.time-ro[rk].t>=C.ROUTE_KEPT)delete ro[rk];
 ro[a.target.id]={len:c.pathLen,t:game.time};
 if(c.pathLen>nose(c)*C.ROUTE_REACH){unreachable(c,a.target.id,game);c.path=null;c.pathTried=false;finish(c,game);return;}
-if(!knew){c.path=null;c.pathTried=false;finish(c,game);return;}
+if(!knew){
+var nf=sniffFood(c,game);
+if(nf&&nf.id!==a.target.id){
+c.path=null;c.pathTried=false;
+var nst=nf.kind&&K[nf.kind]&&K[nf.kind].noun==="food"&&nf.heldBy!==undefined?{type:"item",id:nf.id}:{type:"node",id:nf.id},nsr=resolve(game,nst);
+if(nsr){startAction(c,game,nst.type==="item"?V.eat:NIBBLE[nf.kind]?V.eat:V.play,nst,nsr,nst.type==="item"?"food":"plant");if(nst.type==="item")claimFood(c,nf,game);return;}
+finish(c,game);return;
+}
+}
 }
 }
 }
