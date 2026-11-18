@@ -5,6 +5,9 @@
 //   4. a button on the town tab acts once per press
 //   5. found places stay where they were found, whatever changes on the island
 //   6. words, and honey island's hives
+//   7. a thing added to the island in play is still there after a load
+//   8. the welcome-back card reads as a generation passing
+//   9. the bag drops a handler wired twice to one button, on every tab
 // node games/smol-brains/tests/play444.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -107,7 +110,7 @@ console.log("4. one press, one act on the town tab");
   check("a button already wired is left alone", /if ?\(el\._t2w\) ?return; ?el\._t2w ?= ?1;/.test(w2) && w2.indexOf("_t2w") < w2.indexOf("addEventListener"));
   check("(why it matters: the bag still wires the home buttons on every draw)", /SB\.Home\.wire\(root, ?s\.game, ?c, ?drawBag, ?HUD\.say\)/.test(hud));
   // the same thing, run: two wirings of one fake button, one press
-  const m = town.match(/function wire2\(root, ?game, ?c, ?redraw, ?sayFn\) ?\{[\s\S]*?\n  \}/);
+  const m0 = town.match(/function wire2\(root, ?game, ?c, ?redraw, ?sayFn\) ?\{[\s\S]*?\}\)\(L\[i\]\);\r?\n\s*\}/), m = m0 ? [m0[0]] : null;
   check("wire2 found to run", !!m);
   if (m) {
     let acts = 0;
@@ -185,6 +188,57 @@ console.log("7. a thing added to the island is still there after a load");
   check("and the next thing added after the load gets a new id again", again && !made.some(n => n.id === again.id) && again.id >= W.ADD_ID0);
   check("the planting code in world3.js uses the same range", /A0 ?= ?Wd\(\)\.ADD_ID0 ?\|\| ?4e7/.test(js("world3.js")) && /while ?\(w\.nodeById\[id\]\) ?id\+\+;/.test(js("world3.js")));
   check("a delve's rocks no longer share ids with what worldgen adds last", SB.Deep.NODE_ID0 !== SB.WorldGen.ARR_ID0 && SB.Deep.NODE_ID0 > W.ADD_ID0, SB.Deep.NODE_ID0 + " vs " + SB.WorldGen.ARR_ID0);
+}
+
+console.log("8. coming back reads as a generation passing");
+{
+  const { SB, game } = fresh(4449), sp = game.world.T.spawn;
+  const six = trio(SB, game).concat(trio(SB, game));
+  const t0 = game.time, pop0 = SB.Game.smols(game).length;
+  SB.Creature.die(six[0], game, "old"); SB.Creature.die(six[1], game, "old"); SB.Creature.die(six[2], game, "starved");
+  const baby = SB.Game.spawnSmol(game, { x: sp.x + 2, z: sp.z + 4, age: 0 }); baby.age = 5;
+  game.time += 100;
+  const rec = SB.Game.awayRecord(game, t0, pop0);
+  check("who was born: the baby, and nobody who was already here", rec.born.length === 1 && rec.born[0].name === baby.name, rec.born.map(e => e.name).join(" "));
+  check("who grew old, by name", rec.old.length === 2 && rec.old.map(e => e.name).sort().join() === [six[0].name, six[1].name].sort().join());
+  check("any other loss is kept apart, by its cause", Object.keys(rec.other).join() === "starved" && rec.other.starved.length === 1 && rec.other.starved[0].name === six[2].name);
+  check("the head count before and after", rec.pop0 === pop0 && rec.pop1 === pop0 - 3 + 1, rec.pop0 + " to " + rec.pop1);
+  check("nothing from before the away time is counted", SB.Game.awayRecord(game, game.time, rec.pop1).old.length === 0 && SB.Game.awayRecord(game, game.time, rec.pop1).born.length === 0);
+  const main = js("main.js"), ui = js("ui.js");
+  check("the catch-up hands the card its record", /var before ?= ?snapshotStats\(g\), ?t0 ?= ?g\.time ?\|\| ?0, ?pop0 ?= ?Game\.smols\(g\)\.length;/.test(main) && /rep\.away ?= ?Game\.awayRecord\(g, ?t0, ?pop0\);/.test(main));
+  const a = ui.indexOf("UI.awayScreen"), card = ui.slice(a, ui.indexOf("welcome back", a) + 40);
+  check("the card leads with who was born, then who grew old", card.indexOf('" born")') > 0 && card.indexOf('" born")') < card.indexOf('" grew old")'));
+  check("a name on it opens that smol's page in the chronicle", /openMenu\("chronicle", ?\{ ?memorial: ?e\.id ?\}\)/.test(card));
+  check("no skull, and no \"passed on\" count", !/\u{1F480}|☠|passed on|deaths ?\+/u.test(card));
+  check("the head count is only spelled out when more than a third are gone", /if ?\(aw\.pop0 ?>= ?3 ?&& ?aw\.pop1 ?< ?aw\.pop0 ?\* ?2 ?\/ ?3\)/.test(card) && /an old generation/.test(card));
+  check("a loss that is not old age gets its own plain line", /AWAY_CAUSE\[k\] ?\|\| ?"lost"/.test(card) && /starved: ?"starved"/.test(ui));
+  check("the chronicle has the page", /function tabChronicle\(body, ?arg\)/.test(ui) && /UI\.goneList ?= ?goneList;/.test(ui) && /remembered/.test(ui));
+}
+
+console.log("9. one press, one act, on every tab of the bag");
+{
+  const hud = js("povhud.js");
+  const m = hud.match(/HUD\.onceEach ?= ?function ?\(root\) ?\{[\s\S]*?\}\);\r?\n\s*\};/);
+  check("the bag has its guard", !!m);
+  check("and it runs before anything is wired", /function wireBag\(\) ?\{\r?\n\s*var root ?= ?bag\.el[^\n]*\n\s*HUD\.onceEach\(root\);/.test(hud));
+  if (m) {
+    const HUD = { dupes: {} };
+    vm.runInNewContext(m[0], { HUD });
+    const mkEl = name => ({ ls: [], attrs: [name], getAttributeNames() { return this.attrs; }, addEventListener(t, f) { this.ls.push(t); } });
+    const buy = mkEl("data-t2"), other = mkEl("data-homemake"), root = { querySelectorAll: () => [buy, other] };
+    HUD.onceEach(root);
+    const handler = () => function () { return "act"; }; // two closures of one handler: what two wirings of one module make
+    buy.addEventListener("click", handler()); buy.addEventListener("click", handler());
+    check("the same handler wired twice to one button is kept once", buy.ls.length === 1, buy.ls.length);
+    check("and what was dropped is counted by the button's name", HUD.dupes["data-t2"] === 1, JSON.stringify(HUD.dupes));
+    buy.addEventListener("click", function () { return "something else"; });
+    buy.addEventListener("keydown", handler());
+    check("a different handler, or another kind of event, still goes on", buy.ls.length === 3, buy.ls.join(" "));
+    other.addEventListener("click", handler());
+    check("each button is counted on its own", other.ls.length === 1);
+    HUD.onceEach(root); buy.addEventListener("click", handler());
+    check("guarding the same bag twice changes nothing", buy.ls.length === 3);
+  }
 }
 
 console.log(failed ? failed + " FAILED" : "all passed");

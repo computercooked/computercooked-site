@@ -737,8 +737,30 @@
     h += "</div><div class='help'>you don't need everything to start: place the site, then bring it what it asks for.</div>";
     return h;
   }
+  // 4.44: one press, one act, on every tab of the bag. the bag is drawn fresh each time and then wired by several
+  // modules in a row (wireBag below). when two of them reach the same button with the same handler, the second is
+  // dropped. HUD.dupes counts what was dropped, by the button's data- name, so the module at fault can be found
+  HUD.dupes = {};
+  HUD.onceEach = function (root) {
+    Array.prototype.forEach.call(root.querySelectorAll("*"), function (el) {
+      if (el._once) return;
+      var add = el.addEventListener, seen = {};
+      el._once = 1;
+      el.addEventListener = function (type, fn, opt) {
+        var key = type + ":" + String(fn);
+        if (seen[key]) {
+          var dn = el.getAttributeNames ? el.getAttributeNames().filter(function (a) { return a.slice(0, 5) === "data-"; })[0] : "", nm = dn || el.className || el.tagName || "?";
+          HUD.dupes[nm] = (HUD.dupes[nm] || 0) + 1;
+          return;
+        }
+        seen[key] = 1;
+        return add.call(el, type, fn, opt);
+      };
+    });
+  };
   function wireBag() {
     var root = bag.el, s = S(), c = s.c;
+    HUD.onceEach(root);
     root.querySelectorAll("[data-tab]").forEach(function (b) { b.addEventListener("click", function () { bag.tab = b.getAttribute("data-tab"); drawBag(); }); });
     // 4.33: twelve tabs in words filled four rows. The one you are on keeps its name; the rest are their icon (the name is the tooltip)
     root.querySelectorAll(".tabs:not(.sub) button[data-tab]").forEach(function (b) { var tx = (b.textContent || "").trim(), sp = tx.indexOf(" "); if (sp > 0) { b.title = tx.slice(sp + 1); if (!b.classList.contains("on")) { b.textContent = tx.slice(0, sp); b.classList.add("ico"); } } });

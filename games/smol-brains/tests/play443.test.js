@@ -22,6 +22,9 @@ console.log("1. what counts as an ad portal");
     check("a plain copy with name \"none\" (itch): not an ad portal", run({ name: "none" }) === false);
     check("crazygames, gamedistribution and poki: ad portals", run({ name: "crazygames" }) === true && run({ name: "gamedistribution", gdGameId: "x" }) === true && run({ name: "poki" }) === true);
     check("a CC_PORTAL with no name: not counted", run({}) === false);
+    // 4.44: cc-games site's itch "--no-links" build sets links: false. it hides the same things an ad portal does
+    check("links === false counts as no-address, whatever the name", run({ name: "none", links: false }) === true && run({ name: "itch", links: false }) === true && run({ links: false }) === true);
+    check("links true, or not set, changes nothing", run({ name: "none", links: true }) === false && run({ name: "none" }) === false && run({ name: "crazygames", links: true }) === true && run({ links: true }) === false);
     check("other files can ask (UI.adPortal)", /UI\.adPortal ?= ?adPortal;/.test(ui));
   }
 }
