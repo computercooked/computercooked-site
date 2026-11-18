@@ -161,9 +161,11 @@
     for (var j = 0; j < n; j++) for (var i = 0; i < n; i++) {
       var x = i * PC + PC / 2, z = j * PC + PC / 2;
       // walkable if the centre and most of the cell is walkable
-      var ok = 0;
-      for (var k = 0; k < 5; k++) { var ox = [0, -0.6, 0.6, 0, 0][k], oz = [0, 0, 0, -0.6, 0.6][k]; if (W.walkable(world, x + ox, z + oz, false)) ok++; }
-      g[j * n + i] = ok >= 4 ? 1 : 0;
+      // 4.48: 2 = shut by water alone (a swimmer or a wader could cross it). 0 = shut whoever you are (too steep, off the
+      // island). The grid used to hold only 1 or 0, and a swimming route took every cell as open, cliffs too
+      var ok = 0, okS = 0;
+      for (var k = 0; k < 5; k++) { var ox = [0, -0.6, 0.6, 0, 0][k], oz = [0, 0, 0, -0.6, 0.6][k]; if (W.walkable(world, x + ox, z + oz, false)) ok++; if (W.walkable(world, x + ox, z + oz, true)) okS++; }
+      g[j * n + i] = ok >= 4 ? 1 : okS >= 4 ? 2 : 0;
     }
     world.pathGrid = g; world.pathN = n;
   };
@@ -187,7 +189,10 @@
     var ti = SB.clamp((tx / PC) | 0, 0, n - 1), tj = SB.clamp((tz / PC) | 0, 0, n - 1);
     var start = sj * n + si, goal = tj * n + ti;
     if (start === goal) return [{ x: tx, z: tz }];
-    function open(k) { return swim ? true : g[k] === 1; }
+    // 4.48: a swimmer or a wader crosses water, not cliffs. It used to be `swim ? true`: every cell open. On island 102
+    // three starving smols were switched to wading beside a band of steep ground with no water near; from then on every
+    // route ran straight through the band, their feet could not follow it, and they stood there until they died
+    function open(k) { return swim ? g[k] !== 0 : g[k] === 1; }
     // a goal cell that's blocked (a tree in water, a bush on a cliff edge) is fine if a neighbour is open
     var size = n * n;
     if (!pq || pq.cost.length !== size) pq = { cost: new Float32Array(size), from: new Int32Array(size), seen: new Uint32Array(size), stamp: 0, hk: new Float32Array(size + 1), hv: new Int32Array(size + 1) };

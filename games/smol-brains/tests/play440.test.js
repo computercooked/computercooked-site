@@ -56,7 +56,7 @@ seeded(4402, () => {
   }
 });
 
-check("cut off by water and starving, it wades after two meals it could not reach (it was three), or at once when the walk round is long", SB_WADE.C.WADE_AFTER === 2 && SB_WADE.C.WADE_DETOUR === 25 && /if ?\(pl ?> ?C\.WADE_DETOUR ?&& ?pl ?> ?d0 ?\* ?2\) ?\{ ?c\.wade ?= ?60;/.test(js("creature.js")) && /if ?\(un ?>= ?C\.WADE_AFTER\) ?\{ ?c\.wade ?= ?60;/.test(js("creature.js")));
+check("cut off by water and starving, it wades after two meals it could not reach (it was three), or at once when the walk round is long", SB_WADE.C.WADE_AFTER === 2 && SB_WADE.C.WADE_DETOUR === 25 && /if ?\(pl ?> ?C\.WADE_DETOUR ?&& ?pl ?> ?d0 ?\* ?2 ?&& ?!\(c\.noWade ?> ?game\.time\)\)/.test(js("creature.js")) && /if ?\(un ?>= ?C\.WADE_AFTER ?&& ?!\(c\.noWade ?> ?game\.time\)\) ?\{ ?c\.wade ?= ?60;/.test(js("creature.js")));
 
 check("a starving stranger eats before it walks on to the village", /if ?\(c\.stranger ?&& ?SB\.Strangers ?&& ?!\(c\.species ?=== ?"smol" ?&& ?ch\.hunger ?> ?C\.STARVING\)\)/.test(js("creature.js")));
 
