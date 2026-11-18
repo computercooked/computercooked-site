@@ -967,6 +967,7 @@ if (admin) {
     dg.tiktok_out && typeof dg.tiktok_out.by_episode === "object", "admin digest: tiktok_out (round 26: /show/ follow + episode link-outs, other follow buttons)", dg.tiktok_out);
   ok(["shown", "taps", "plays"].every((k) => typeof dRow.next[k] === "number" && typeof dg.next?.[k] === "number") && dRow.next.touch && typeof dg.next.touch.taps === "number" && "per_run" in dg.next,
     "admin digest (round 27): the try-this-next tile's shown, taps and plays, per day and for the window", dg.next);
+  ok(dRow.next.bar && typeof dRow.next.bar.shown === "number" && typeof dg.next.bar?.taps === "number", "admin digest (round 28): the quiet games' bar line, shown and taps", dg.next.bar);
   ok(dg.cook_vote && dg.cook_vote.poll && /^\d{4}-W\d{2}$/.test(dg.cook_vote.week) && Object.keys(dg.cook_vote.counts).length === 4 && typeof dg.cook_vote.total === "number" && typeof dRow.votes === "number",
     "admin digest: cook vote totals (read only) and votes per day", dg.cook_vote);
   // K-0054 tagged-links report: sources and source/campaign rows for the last 7 days
@@ -1200,6 +1201,15 @@ if (admin) {
     ok(/sessionStorage\.setItem\("cc-autostart", JSON\.stringify\(\{ game: to, t: Date\.now\(\) \}\)\)/.test(tap) && /ccHit\("next_tap"/.test(tap) &&
       /a\.setAttribute\("data-to", best\.slug\)/.test(pj) && /ccHit\("next_shown"/.test(pj),
       "player.js: the try-this-next tap sets cc-autostart for that game and counts next_tap; showing it counts next_shown");
+    // round 28: quiet games get one "try this next" line under the bar after a run, picked like the tile, counted as
+    // place "bar", hidden in fullscreen; the pop-up games are left alone (barNext only runs from quietResult)
+    const gcss = await (await get("/games/games.css")).text();
+    const qr = (pj.match(/function quietResult\(d, o\) \{[\s\S]*?\n    \}/) || [])[0] || "";
+    ok(/barNext\(\);/.test(qr) && (pj.match(/barNext\(\)/g) || []).length === 2 && /function pickNext\(list\)/.test(pj) && /place: "bar"/.test(pj) &&
+      /\.player:fullscreen \.bar-next, \.player\.is-pseudo-fs \.bar-next, \.player\.is-mini \.bar-next \{ display: none; \}/.test(gcss) && /insertAdjacentElement\("afterend", barLine\)/.test(pj),
+      "player.js: quiet games get a counted try-this-next line under the bar (never in fullscreen); pop-up games don't");
+    const hb = await post("/api/hit", { kind: "next_shown", path: "/games/pixel-purge/", game: "pixel-purge", to: "crash", slot: "touch", place: "bar", ref: "direct", anon });
+    ok(hb.status === 200 && (await hb.json()).test === true, "next_shown with place bar accepted (smoke traffic answered, not stored)");
   }
 
   // round 22: ad-ready, switched off. ads.js CONFIG.on is false, so no ad network code can load; /ads.txt names no seller;

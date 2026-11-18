@@ -16,6 +16,7 @@
 //   next_shown   the results card showed its "try this next" tile (round 27, games/player.js), game = the game just played,
 //                to = the game offered, slot "touch" (a touch-only device) or "fine"
 //   next_tap     that tile was tapped (or n pressed), same fields. A tap that reaches a started run is cc:next (src/games.js)
+//                round 28: place "card" (the results card's tile) or "bar" (quiet games' line under the player bar)
 // Stored as events rows named cc:<kind>, data {path, ref, campaign, src, medium, slot}; src / medium are the visit's raw
 // utm_source / utm_medium. Read in /api/admin/metrics and /api/admin/digest.
 // Smoke traffic is answered but not stored, like /api/follow.
@@ -57,6 +58,7 @@ export async function hit(req, env, ip) {
   }
   if (b.kind === "next_shown" || b.kind === "next_tap") {
     data.slot = b.slot === "touch" ? "touch" : "fine";
+    data.place = b.place === "bar" ? "bar" : "card";
     if (slugOk(b.to)) data.to = b.to;
   }
   const game = slugOk(b.game) ? b.game : "site";
