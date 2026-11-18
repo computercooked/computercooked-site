@@ -711,6 +711,57 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.98 What v4.49.0 changed: the long way round, and a dozen things the proof pass turned up
+
+**Why.** 4.48 stopped smols wading at cliffs. One smol on island 102 still starved, turned back by a different rule: a route was dropped when the smol had not got nearer its goal *in a straight line* for 8 seconds, and a route round a band of steep ground leads away first. Fixing that alone cost a smol on another island, so it waited for the rest of the walking rules. The proof pass (rows 81 to 170, `smol-brains-handover/PROOF-PASS.md`) turned up the other things here.
+
+**Walking to food.**
+- A route is judged by progress along it: reaching a step, or getting nearer the next one. Eight seconds without either and it is dropped, as before. No single step of a route runs past a minute; the route is planned again from where the smol stands.
+- A planned route knows its length. When a smol plans a route to the nearest food and finds it a long way round (over 25 paces and over twice the straight line), it remembers that for a minute and its nose weighs that food by the walk: a food lying nearer than the walk is the one it goes for. With nothing nearer it takes the long way at once, without stopping to think it over (a full think sent starving smols off to wander and chat for half a minute first).
+- A way longer than its hunger is worth (two and a half times its nose's reach) is left alone, as food it cannot reach is.
+- The clock for one food follows its route. It was 25 seconds (90 when starving) however far the way was; on a route it is what the route needs at the smol's own pace, half again, and ten seconds.
+- A smol that gets starving on a walk it was sent on (not forced) breaks it off and eats.
+
+**Measured.** Islands with nobody playing, eight days, true stepping (see the last part), one run each, 4.48 against 4.49. A run is one history: any change to what smols do changes every later dice roll, so head counts differ between builds without meaning anything.
+
+| island | build | starved | died hurt | old age | smols at the end | route steps over 60 s while trying to walk | longest |
+|---|---|---|---|---|---|---|---|
+| 102 | 4.46 | 16 | 0 | 27 | 15 | (not counted that way) | |
+| 102 | 4.48 | 0 | 0 | 43 | 14 | (not counted that way; 5 by the older count, longest 299 s) | |
+| 102 | 4.49 | 1 | 0 | 51 | 21 | (not counted that way; 7 by the older count, longest 118 s) | |
+| 101 | 4.49 | 1 | 1 | 32 | 20 | 0 | 36 s |
+PENDING_ISLANDS
+
+The two smols that "starved" on 4.49 were traced second by second (`smol-brains-handover/4.49-the-two-that-starved.txt`); neither is a walking fault, and neither is in code 4.49 changes. On island 102 a defender was bitten five times in a raid, the wound went bad, and it died one pace from an apple (the game names a death "starved" whenever hunger is over 0.9 at the end). On island 101 a sheltering smol was let out to eat and sent home again each time its hunger dipped under the line, six times over. That rule is from 4.37 and is the first thing for 4.50. Island 102 ending on 21 smols against 14 is births (44 eggs against 30), not survival, and an earlier 4.48 run of the same island ended on 18: it is this run's history, not the walking change.
+
+**An egg's gift is a strength.** "Give it NAME's X" copied the donor's gene furthest from the middle, either way: a smol with no affection took an egg's affection from 0.62 to nothing for 3 sparks. Now only a gene over the middle that the donor has more of than the egg. With none, the button says NAME has nothing to give and no sparks are spent.
+
+**The grump with a grudge says what it is.** It comes on every twelfth grump a body chases off, follows whichever body is entered, cannot kill (no bite takes a body under a quarter of its hearts), and already gave up at the second dawn. None of that was said. When it comes, and once more when it finds you in another body: "a grump with a grudge has come looking for you. it follows whichever smol you play. beat it and it leaves for good (left alone, it gives up after a couple of days)".
+
+**The level inside a wreck can be reached.** The slate offered "inside the wreck" at a *found wreck*, and wreck sites are made hidden and never shown: no island ever offered it. An opened crashed pod now counts as the wreck. The slate also says when it has something new for the body and where it is (the foot of the bag's moves tab): a wreck to walk, once for each opened pod; an ember dream, once for the island and again only when a new ember has come.
+
+**Sparks.** The Lantern stopped at 999 and every reward after that was lost without a word. It holds 9,999, and says "sparks full" once an island day when a reward will not fit.
+
+**Sea ice is winter's again.** Every island's sea ice is made hidden and comes out in winter. The rule that grows picked and mined things back (anything "gone" returns after 300 seconds) was bringing all of it out five minutes into an island, and the season switch only acted when the season changed, so it stood off the coast all year, on every island since 4.35. The grow-back rule now leaves sea ice alone, and the switch puts away any piece that disagrees with the season, each time it looks (so an island saved with its ice out is set right on load).
+
+**The glowshroom grove breaks a hunt.** The grove sent every grump in it away once a second. A grump the gloom sends after a body at night drops whatever it is doing every tick to chase, so that did not hold it: on the test island one stood a pace from the tree for 45 seconds with the body beside it. Its hunt now ends when it sets foot in a grove, or comes to the edge of the one its prey is standing in, and the body is told ("the grump will not come among the glowshrooms"). A cave's keeper and the captains are not touched.
+
+**Old islands get their dark altars.** A dark altar is stood up at the moment a captain is beaten (4.34), so an island whose captains were beaten before that had none, and never the ore veins behind it. Checked on a save made by the 4.33.0 code itself (`tests/save-4.33-two-captains.json`). When an island is opened, once: every beaten captain with no altar gets one, less the altars already broken. A broken altar is now noted by its captain.
+
+**Small things.**
+- "Fit your padding on NAME" only shows on an animal that fights.
+- Called to heel with the heels full, the answer names who to tell to wait; a tame animal waiting by a pen can be put in from its own button.
+- The lab says the island waits while the surgery window is open.
+- Seeds that will not grow in this bed now (the wrong season, cocoa outside the jungle) say why on the bed's button, greyed, where it read "sow grain" and did nothing.
+- The parley line no longer says a grump is standing where none is drawn: a white rag is planted, and the grump steps out when you stand by it.
+- A wave never ends "9 of 7 chased off".
+- A standing order's reason is worked out when you look at it; it could say "short of materials" for half a minute after the chest was filled.
+- A bounty on a beast that hides behind a pack (or a heart tree, or the dark, or armour) says what has to be done first.
+
+**How it was measured, and a fault in the measuring.** `SB.Game.step` runs the add-on systems itself. The test files' step helper called `SB.Ext.tick` again after it, and the island tools copied that: for every island run up to 4.48 the storyteller's dark side, animals, crops, friends and town ran at twice the speed of real play. The tools now step as the game does, `tests/play449.test.js` does too, and the numbers above are from true stepping. Island 102 with true stepping, eight days: 16 starved on 4.46, none on 4.48 (`smol-brains-handover/4.48-island-102-true-stepping.txt`).
+
+**Tests.** `tests/play449.test.js`, fourteen sections, one for each part above. The ten older test files whose step helper ran the add-ons twice were each run once with true stepping as well: PENDING_OLDTESTS
+
 ## 0.97 What v4.48.0 changed: a wading route crosses water, not cliffs
 
 **Why.** Three of the ten smols that starved on island 102 in eight days (the 4.47 write-up covers the other seven) died far from home, each flagged "wading" for over 200 seconds. They were not at water. A trace of where each stood and a map of the ground (`smol-brains-handover/4.46-island-102-the-spot-where-three-starved.txt`, made with `tools/island-winter-diag.js ... spot`) shows each in a notch of a band of ground too steep to walk, the food it wanted on the far side, hunger at 1.00, a route of 3 to 15 steps, and no movement.
