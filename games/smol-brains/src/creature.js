@@ -391,6 +391,10 @@
     }
     if (c.hideAt && c.species === "smol") { // grumps or a disaster: kids and elders hide in a hut
       if (game.time > c.hideAt.t) c.hideAt = null;
+      // 4.47: starving beats hiding, as it beats sheltering (4.37). While a grump stands near home the hiding is set
+      // again every tick (threats.js), so an elder sat in the hut with food two steps off until it died: 7 of the 10
+      // that starved on island 102. Now its nose takes over below; fed again, it goes back in if the grump is still close
+      else if (ch.hunger > C.STARVING) { /* out to eat */ }
       else if (SB.dist(c.x, c.z, c.hideAt.x, c.hideAt.z) > 0.9) { C.sendTo(c, c.hideAt.x, c.hideAt.z, game, 10, true); return; }
       else { startAction(c, game, V.idle, null, null, null); c.action.dur = 2; return; }
     }

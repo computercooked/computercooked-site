@@ -968,7 +968,7 @@
       else if (q) out += "<div class='rc'><span class='big'>🐣</span><div class='t'>a " + q + " little one<small>how it's raised decides what it grows up to be</small></div></div>";
       if (lw) out += "<div class='rc'><span class='big'>" + lw.def.icon + "</span><div class='t'>life wish: " + esc(lw.def.t) + "<small>" + esc(F.FOCUS[lw.def.focus] || "") + " · " + (lw.done ? "it came true" : lw.n + "/" + lw.need) + "</small></div>" + (lw.done ? "<span class='ok'>✓</span>" : "") + "</div>";
       if (md.length || keep) out += "<div class='rc'><span class='big'>" + (md.length ? md[md.length - 1].icon : "💒") + "</span><div class='t'>feeling<small>" + md.map(function (m) { return m.icon + " " + esc(m.text); }).join(" · ") + (keep ? (md.length ? " · " : "") + "💒 wed to " + esc(keep.n) + " (a " + esc(keep.q) + " wedding)" : "") + "</small></div></div>";
-      out += "</div><div class='lbl'>ask " + esc(f.name) + "</div>" + row + btn("cmd", "come", "📣 come") + btn("cmd", "stay", "✋ stay") + btn("cmd", "follow", fol ? "🐾 stop following" : "🐾 follow me") + btn("cmd", "home", "🏠 go home");
+      out += "</div><div class='lbl'>ask " + esc(f.name) + "</div>" + row + btn("cmd", "come", "📣 come") + btn("cmd", "stay", "✋ stay") + btn("cmd", "follow", fol ? "🐾 stop following" : "🐾 follow me") + btn("cmd", "home", "🏠 go home") + (SB.Motion3 && SB.Motion3.askCourse && f.tier >= 2 && Sv().has(c, "ball") ? btn("course", "1", "⛳ put up a kick course", !near) : "");
       F.fetchables(game, f).forEach(function (k) { out += btn("get", k, "👉 get " + (icon ? icon(k, 16) + " " : "") + esc(label(k))); });
       out += "</div><div class='lbl'>together" + (near ? "" : " · get closer") + "</div>" + row;
       for (var sk in F.SOCIALS) out += btn("soc", sk, F.SOCIALS[sk][0] + " " + F.SOCIALS[sk][1], !near);
@@ -996,6 +996,7 @@
     each("bless", function () { done(F.bless(game)); });
     each("all", function () { done(F.callAll(game, c)); });
     each("posy", function () { done(F.makePosy(game, c)); });
+    each("course", function () { done(SB.Motion3 && SB.Motion3.askCourse ? SB.Motion3.askCourse(game, c, f()) : null); });
     each("pick", function (v) { F._focus = +v; redraw(); });
     each("call", function (v) { done(F.command(game, c, SB.Game.byId(game, +v), "come")); });
   };

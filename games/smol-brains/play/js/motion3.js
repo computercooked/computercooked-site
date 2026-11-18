@@ -263,6 +263,17 @@ W.addStructure(w,game,"kickflag",x,z,{done:true,rot:0});n++;
 if(n){g.keeper=k.id;g.set=(g.set||0)+1;k.kickKeeper=1;LW=null;emit("kickCourse",{c:k,n:n});}
 return n;
 };
+M.askCourse=function(game,c,k){
+if(!game||!c||!k||k.species!=="smol"||!k.alive)return{ok:false,msg:"nobody to ask"};
+if(!(k.tier>=2))return{ok:false,msg:k.name+" is too little to keep a course"};
+if(!Sv().has(c,"ball"))return{ok:false,msg:"bring a ball first"};
+var g=q(game).golf,d=Math.floor((game.time||0)/SB.DAY_LENGTH);
+if(g.askD===d)return{ok:false,msg:"one new course a day is plenty"};
+var n=M.keeper(game,k,c);
+if(!n)return{ok:false,msg:"no room for a course here"};
+g.askD=d;
+return{ok:true,n:n,msg:k.name+" put up "+n+" flags ⛳ kick a ball to each"};
+};
 function kicked(d){
 var s=ps(),it=d&&d.it;
 if(!s||!it||it.kind!=="ball")return;
@@ -327,7 +338,7 @@ else if(st.kind==="kickflag"){var g=q(game).golf;o.use=x.no("kick a ball here"+(
 if(r&&r.type==="creature"&&!o.pick){
 var cr=r.ref;
 if(cr.species==="grump")o.pick=x.op(x.state&&x.state.m3lock===cr.id?"let go of the lock":"lock on",function(){return M.lock(cr);},null);
-else if(cr.species==="smol"&&cr.tier>=2&&x.hk==="ball")o.pick=x.op("ask "+cr.name+" for a kick course",function(){var n=M.keeper(game,cr,c);x.say(n?cr.name+" put up "+n+" flags ⛳":"no room for a course here");return n>0;},null);
+else if(cr.species==="smol"&&cr.tier>=2&&x.hk==="ball")o.pick=x.op("ask "+cr.name+" for a kick course",function(){var a=M.askCourse(game,c,cr);x.say(a.msg);return a.ok;},null);
 }
 if(x.hk==="cart"&&!(r&&r.type==="creature"))o.place=c.tier>=5?x.op("roll along the trail",function(){var ok=M.roll(game,c,x.state?x.state.yaw:c.facing+Math.PI);if(!ok)x.say("stand on a trail first");return ok;},null):x.no("only a thinker can drive a cart");
 }

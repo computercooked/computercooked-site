@@ -131,6 +131,12 @@
   function emit(name, d) { if (SB.bus) SB.bus.emit(name, d); }
   function sparks(game, n, c) { if (SB.Game.addSparks) SB.Game.addSparks(game, n, c || null); }
   // one line to the player: in a body it is said, and it always goes in the island's log (the sky shows the log)
+  // 4.47: while you live as a smol a storyteller card waits in the sky for you, and no wave can start until it is
+  // answered. the refusal used to say only that the island had its hands full
+  function busyWhy(game) {
+    var DR = SB.Director, a = DR && DR.state ? DR.state(game).active : null;
+    return a && a.phase === "ask" ? "not now: a storyteller card is waiting for you. go back to the sky and answer it" : "not now: the island already has its hands full";
+  }
   function tell(game, text) {
     if (!game || game.offline) return;
     var P = SB.Possess;
@@ -365,7 +371,7 @@
     var DR = SB.Director, s = st(game);
     if (!Sv().count(c, "warhorn", true)) return { ok: false, msg: "no horn" };
     if (!DR || !DR.fire) return { ok: false, msg: "nothing answers" };
-    if (DR.state(game).active) return { ok: false, msg: "not now: the island already has its hands full" };
+    if (DR.state(game).active) return { ok: false, msg: busyWhy(game) };
     s.raid.truce = 0; s.raid.scouts && endScouts(game, true);
     var inc = DR.fire(game, "raid");
     if (!inc) return { ok: false, msg: "the horn echoes off the hills. nothing answers (the grumps are not ready)" };
@@ -664,7 +670,7 @@
     emit("darkScoutsEnd", { raid: true, escaped: left.length });
   }
   D._startScouts = startScouts; D._endScouts = endScouts; D._post = post; // for tests
-  D._h = { st: st, day: day, home: home, tribe: tribe, topTier: topTier, label: label, dice: dice, spotAt: spotAt, drop: drop, give: give, tell: tell, emit: emit, sparks: sparks, me: me, dueling: dueling, addPost: addPost, dropPost: dropPost, postGrump: postGrump, need: need, newcomer: newcomer, putStruct: putStruct, findStruct: findStruct, esc: esc, dirOf: dirOf, looseFood: looseFood, fires: fires, Sv: Sv, payOut: payOut, post: post, has: has, bountyDone: bountyDone, cur: cur, foodSlot: foodSlot, page: page, r1: r1, r2: r2 }; // round 2 (below) builds on these
+  D._h = { busyWhy: busyWhy, st: st, day: day, home: home, tribe: tribe, topTier: topTier, label: label, dice: dice, spotAt: spotAt, drop: drop, give: give, tell: tell, emit: emit, sparks: sparks, me: me, dueling: dueling, addPost: addPost, dropPost: dropPost, postGrump: postGrump, need: need, newcomer: newcomer, putStruct: putStruct, findStruct: findStruct, esc: esc, dirOf: dirOf, looseFood: looseFood, fires: fires, Sv: Sv, payOut: payOut, post: post, has: has, bountyDone: bountyDone, cur: cur, foodSlot: foodSlot, page: page, r1: r1, r2: r2 }; // round 2 (below) builds on these
   var wrapped = false;
   D.wrap = function () {
     var DR = SB.Director;
@@ -1681,7 +1687,7 @@
     var d = D.WAVE_BY[id], DR = SB.Director;
     if (!d) return "no such thing";
     if (X2(game).wave) return "one at a time";
-    if (DR && DR.state && DR.state(game).active) return "not now: the island already has its hands full";
+    if (DR && DR.state && DR.state(game).active) return h.busyWhy(game);
     if ((d.tier || 0) > topTier(game)) return "the island isn't ready for it";
     if (d.season != null && game.world.season !== d.season) return "only in winter";
     if (d.night && d.call && !free && !game.world.night) return "only at night";
