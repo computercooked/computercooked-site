@@ -662,7 +662,10 @@
       return;
     }
     // raiders from a raid that's over (or from before a reload) head home
-    game.creatures.forEach(function (c) { if (c.raider && c.alive && !c.goingHome) c.goingHome = true; });
+    // 4.46: not the grumps of a dark.js wave. they march as raiders too, a wave can only start while no
+    // storyteller event is on, and a wave counts a grump that is going home as gone. so every wave (the old ring, the
+    // fort, the vault, the taunt drum, the dark pillars) was over in under three seconds with nothing chased off
+    game.creatures.forEach(function (c) { if (c.raider && c.alive && !c.goingHome && c.dark !== "wave") c.goingHome = true; });
     if (game.time < d.nextT) return;
     if (game.time < SB.DAY_LENGTH && !game.ngPlus) return; // a calm first day (K-0022): no storms, raids or visitors on day 1
     // at 8–16× the island races, but you still get at least a minute and a half of your own time between cards

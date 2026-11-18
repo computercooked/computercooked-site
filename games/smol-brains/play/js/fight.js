@@ -326,6 +326,11 @@ return true;
 }
 return baseGo();
 };
+F.who=function(g){
+if(!g)return"the grump";
+if(g.boss&&g.name)return g.name;
+return g.name&&g.name!=="grump"?String(g.name).replace(/^an? /,"the "):"the grump";
+};
 F.charge=function(c){
 var s=PS(c);
 if(!s||!P().input.use||hold<=F.TAP||now-tgtT>0.6)return 0;
@@ -704,11 +709,11 @@ if(!s||s.c!==c||s.ghost||lesson(s))return;
 var Surv=Sv(),sl=Surv.held(c),hk=sl?sl.k:null,rw=F.RANGED[hk];
 var g=r&&r.type==="creature"&&r.ref.species==="grump"?r.ref:null;
 if(g)tgtT=now;
-var shootable=!r||g||(r.type==="creature"&&r.ref.species!=="smol")||r.type==="node"||(r.type==="item"&&K[r.kind]&&K[r.kind].critter)||(r.type==="struct"&&r.kind==="dummy");
+var shootable=!r||g||r.type==="water"||(r.type==="creature"&&r.ref.species!=="smol")||r.type==="node"||(r.type==="item"&&K[r.kind]&&K[r.kind].critter)||(r.type==="struct"&&r.kind==="dummy");
 if(rw&&c.tier>=(rw.tier||2)&&shootable){
 if(!F.ammo(c,rw))o.use=x.no(rw.none);
 else{
-var tg=F.aim(game,c,rangeOf(c,rw,1)),what=!tg?null:tg.type==="grump"?(tg.ref.boss&&tg.ref.name?tg.ref.name:"the grump"):tg.type==="critter"?"the "+lab(tg.ref.kind):"the dummy";
+var tg=F.aim(game,c,rangeOf(c,rw,1)),what=!tg?null:tg.type==="grump"?F.who(tg.ref):tg.type==="critter"?"the "+lab(tg.ref.kind):"the dummy";
 o.use=x.op(rw.act?rw.act+(what?" at "+what:""):(hk==="sling"?(what?"sling a stone at "+what:"sling a stone"):(what?"shoot "+what:"loose an arrow"))+" ("+F.ammoN(c,rw)+")",function(){return F.draw(game,c);},null);
 }
 }else if(F.POTS[hk]&&shootable)o.use=x.op("throw the "+lab(hk),function(){return!!F.lob(game,c);},null);
@@ -719,12 +724,13 @@ else if(hk==="stone"&&!r&&F.sneaking(c)&&nearestGrump(game,c,12))o.use=x.op("tos
 else if(hk==="spear"&&!r&&F.farGrump(game,c,8))o.use=x.op("throw your spear at the grump",function(){return!!F.throwSpear(game,c);},null);
 else if(g&&!isTool(hk)&&F.rank(c,"nip"))o.use=x.op("nip the grump",function(){return F.nip(game,c,g);},null);
 else if(g&&o.use&&!o.use.locked){
-var base=o.use,who=g.boss&&g.name?g.name:"the grump";
+var base=o.use,who=F.who(g);
 o.use=x.op("hit "+who+(isTool(hk)?" with your "+F.name(sl):""),function(){return F.swing(game,c,g,base.go);},base.verb);
 }
-if(g&&F.guarding(c)&&F.shieldAt(c)>=0&&(!o.place||o.place.fbrace))o.place=x.op("bash with your shield",function(){return!!F.bash(game,c,g).ok;},null);
-else if(g&&F.lightIn(c)&&F.flashReady(c)&&(!o.place||o.place.fbrace))o.place=x.op("flash your light",function(){return!!F.flash(game,c).ok;},null);
-else if(g&&!o.place)o.place=x.op(F.guarding(c)?"hold your guard":F.shieldAt(c)>=0?"raise your shield":"brace for the bite",function(){return F.brace(game,c);},null,{fbrace:1});
+var freeP=!o.place||o.place.fbrace||/^put down/.test(o.place.label||"");
+if(g&&F.guarding(c)&&F.shieldAt(c)>=0&&freeP)o.place=x.op("bash with your shield",function(){return!!F.bash(game,c,g).ok;},null);
+else if(g&&F.lightIn(c)&&F.flashReady(c)&&freeP)o.place=x.op("flash your light",function(){return!!F.flash(game,c).ok;},null);
+else if(g&&(!o.place||/^put down/.test(o.place.label||"")))o.place=x.op(F.guarding(c)?"hold your guard":F.shieldAt(c)>=0?"raise your shield":"brace for the bite",function(){return F.brace(game,c);},null,{fbrace:1});
 if(g&&!o.pick)o.pick=x.op("hop aside",function(){return!!F.dash(game,c).ok;},null);
 if(r&&r.type==="struct"&&r.kind==="totem"&&r.ref.done&&!o.pick&&!F.hasRead(c,"t"+r.ref.id))o.pick=x.op("study the carvings",function(){return!!F.study(game,c,"t"+r.ref.id).ok;},null);
 if(r&&r.type==="struct"&&F.TRAPS[r.kind]){
@@ -1269,7 +1275,8 @@ F.blast=function(game,c,pk,x,z){
 var T=F.POTS[pk],out={ok:true,hit:0,gone:0,kind:pk,x:x,z:z};
 if(!T)return{ok:false};
 burst("crumbs",x,gy(game,x,z)+0.5,z,18,{col:T.col});audio(T.dmg?"bonk":"tap",0.9);
-if(T.line)say(T.line);
+var ran=0;
+if(T.line&&!T.flee)say(T.line);
 splash(game,x,z,T.r,function(g){
 out.hit++;
 if(T.odd){if(out.hit===1)odd(game,c,g,out);return;}
@@ -1277,9 +1284,10 @@ if(T.dmg&&zap(game,c,g,T.dmg,lab(pk),T.cls)){out.gone++;return;}
 if(!g.alive)return;
 if((T.burn||T.sick)&&!g.boss&&!F.burning(g))dots.push({id:g.id,by:c.id,n:3,at:now+1.2});
 if((T.stun||T.flash)&&!g.boss)F.addStagger(game,g,99);
-if(T.flee)scare(g,x,z,T.flee);
+if(T.flee&&(scare(g,x,z,T.flee)||pinned(g)))ran++;
 if(T.slow)slow(g,T.slow);
 });
+if(T.line&&T.flee)say(out.hit&&!ran?"💨 phew! but a grump on guard or on the hunt won't run from a smell":T.line);
 if(T.crack)out.rocks=crack(game,c,x,z,T.r,T.crack);
 if(T.cloud)clouds.push({x:x,z:z,r:T.r,until:now+T.cloud,kind:pk,by:c.id});
 if(T.flash)reveal(game,c);

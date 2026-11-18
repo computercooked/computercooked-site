@@ -422,6 +422,7 @@ function anyone(game,x,z){var best=null,bd=1e9;tribe(game).forEach(function(c){v
 function postsTick(game){
 var s=st(game),P=SB.Possess,mine=me();
 s.posts.slice().forEach(function(p){
+if(p.off>game.time)return;
 var def=postDef(p),g=postGrump(game,p)||spawnPost(game,p),duel=dueling(g);
 if(!g.scout||g.scout.done)g.scout=holdScout(def,p);
 if(D.beastTick&&D.beastTick(game,p,g,duel,mine))return;
@@ -1609,6 +1610,7 @@ function biomeSpotNear(game,ids,x,z,maxD){var best=null,bd=maxD;for(var t=0;t<30
 function waveTick(game){
 var x=X2(game),w=x.wave;if(!w)return;
 var d=D.WAVE_BY[w.id];if(!d){x.wave=null;return;}
+if(w.i>=0&&game.time<w.until)w.ids.forEach(function(id){var o=SB.Game.byId(game,id);if(o&&o.alive&&o.goingHome&&!o._wc){o._wc=1;w.chased++;}});
 var left=w.i<0?0:waveLeft(game,w);
 if(w.relicDone)return waveEnd(game,true);
 if(left>0&&game.time<w.until)return;
@@ -2922,7 +2924,7 @@ on("dusk",G0(function(g){D.dusk2(g);}));
 on("dawn",G0(function(g){D.dawn2(g);}));
 on("grumpChased",G0(function(g,d,x){
 bump(g,"chased");if(g.world.night)x.nightWon=1;
-if(d.g&&d.g.dark==="wave"&&x.wave)x.wave.chased++;
+if(d.g&&d.g.dark==="wave"&&x.wave&&!d.g._wc){d.g._wc=1;x.wave.chased++;}
 if(d.g&&!d.g.boss&&D.placesOf(g,"patch").length<6&&lucky(g,0.15))placeAdd(g,"patch",{x:d.g.x,z:d.g.z},{});
 if(d.c&&d.c._pov&&bump(g,"chasedPov")%12===0&&!st(g).posts.some(function(p){return p.bid==="grudge";})){var at=spotAt(g,d.c.x,d.c.z,9,12,Math.random,null);if(at)D.spawnBeast(g,"grudge",at);}
 }));
@@ -2939,6 +2941,11 @@ on("darkSky",G0(function(g,d){if(d.def&&d.def.bad)opine(g,"darkSky");}));
 on("fish",G0(function(g,d){bump(g,"fish");if(d.c&&D.skyIs(g,"grumpmoon")&&lucky(g,0.35)){var at=spotAt(g,d.c.x,d.c.z,3,5,Math.random,null);if(at){D.spawnBeast(g,"watergrump",at,{quiet:true});psay("🌊 that is not a fish! a water grump is on your line");}}}));
 on("sneak",function(d){sneaking=!!(d&&d.on);});
 ["chop","fightHit","shot","hit"].forEach(function(n){on(n,G0(function(g,d,x){if(!d.c||!d.c._pov)return;x.noise=Math.max(x.noise||0,g.time+4);if(n!=="chop")x.swingT=g.time+1.5;}));});
+on("arkFlare",G0(function(g){
+var s=st(g),until=g.time+SB.DAY_LENGTH,n=0;
+s.posts.forEach(function(p){p.off=until;n++;});
+if(n)tell(g,"🎇 the grumps' guards and hunters keep off their posts until this time tomorrow.");
+}));
 on("chestOpened",G0(function(g,d,x){
 var c=d.c||me();if(!c||topTier(g)<2)return;
 var keyed=g.world.night&&Sv().has(c,"duskkey");

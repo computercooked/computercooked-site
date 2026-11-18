@@ -711,6 +711,34 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.95 What v4.46.0 changed: waves you can fight, and a flare that holds
+
+**Why.** The proof pass tried the combat and bosses-threats rows by hand on a day-23 island (`smol-brains-handover/PROOF-PASS.md`). Two rows did not work in play, and one of them turned out to block the last act.
+
+**No wave could be won.** At the old ring, "step into the ring" started three waves. All three came within two seconds and the ring was over in under three: "0 of 9 chased off. the rest got bored and went". No medal, no pay, and the day's go was spent. The same by day and by night.
+- The cause was a rule from 3.2. Once a second, when no storyteller event is on, the storyteller sends every grump marked as a raider home (leftovers of a raid that is over). The waves added in 4.34 mark their grumps as raiders so they march on the place, a wave can only start while no event is on, and a wave counts a grump that is going home as gone.
+- So every wave ended at once: the ring, the fort, the vault, the taunt drum, and the four dark pillars of the last act. A wave only counts as won with a medal, so the pillars could not fall.
+- The tests never saw it because they ticked the wave by hand and did not run the storyteller beside it.
+- Now the storyteller leaves the grumps of a dark.js wave alone (director.js). The old rule still sends a plain leftover raider home.
+- **A wave grump that runs home before the time is up counts as chased off**, whoever saw it off: your spear, a villager's, the village fire. Found while fighting the ring for real on the first 4.46 build: the ring stands beside a village where 17 smols carry spears, the whole second wave ran from them inside a second, none of it counted (only a grump you beat yourself did), and the ring ended "2 of 9 chased off". A wave whose time simply runs out still counts for nothing, and a grump is never counted twice.
+- The eclipse was looked at too, because its grumps are marked the same way. It was never broken: the eclipse is a storyteller event itself, and the rule only runs when no event is on. A test now holds that.
+
+**The ark flare did nothing on a grown island.** It cleared every grump, and every posted grump (guards, stalkers, named ones, beasts) was put back on the next tick, because a post whose grump is missing gets a fresh one. By day 20 every grump out on the test island was a posted one.
+- Now the posts that stand when the flare is fired stay empty until the same time the next day (`post.off`, set by dark.js when it hears "arkFlare"), and the log says so: "the grumps' guards and hunters keep off their posts until this time tomorrow."
+- A post made after the flare (a beast that turns up later that night) is not held back. Captains are untouched, as before.
+
+**Smaller things from the same rows.**
+- **The stink pot's line.** It said "phew! grumps can't stand it" even when the grump it hit stood still: a posted or hunting grump does not run from a smell. Now the line waits to see whether anything ran, and otherwise reads "phew! but a grump on guard or on the hunt won't run from a smell".
+- **A shield with a weapon in the paw.** With a club or a pick held, the second button was "put down the club" even face to face with a grump, so a shield could only be raised or bashed with empty paws, and a press meant for it dropped the weapon. Face to face with a grump the second button is now the shield (or bracing). Q still drops.
+- **Wading.** Standing in water, every look read "water: drink", even straight up at the sky, so nothing in the paw could be thrown or fired. Looking well up is no longer looking at water, and water under the crosshair no longer blocks a pot, a flare or a sling.
+- **A beast's name.** The crosshair called every beast "grump". It now shows the beast's own name ("a memory echo"), and the button under it uses the name too: "hit the memory echo with your club", "sling a stone at the ring grump" (`Fight.who`). A plain grump is still "the grump".
+
+**Not changed.** The island's one flare can still be lost on the ground beside a pod opened from the sky. A stink pot still does not move a posted grump: only its line changed.
+
+**Fought for real** on a test island, in a body, every hit through the game's own button (`smol-brains-handover/4.46-look-notes.txt`): the old ring through all three waves, "6 of 9 chased off, silver, +7"; a dark pillar, "7 of 7 chased off, gold, +10" and "a dark pillar is down: 1 of 4"; the flare against 17 posted grumps, none back five seconds later; an eclipse whose grumps stayed to its end.
+
+**Tests.** `tests/play446.test.js`: the ring with the storyteller running beside it (still on its first wave after four seconds, its grumps not sent home; three waves of two, three and four; nine of nine chased off pays a gold medal); a dark pillar broken through its own button: both waves chased off, "a dark pillar is down: 1 of 4", the pillar gone; a wave grump that turns and runs is counted once, a wave that runs out of time counts for nothing; a plain leftover raider still goes home; an eclipse fired through the storyteller keeps its grumps until it ends, then sends them home; a posted beast cleared by the flare is not back three seconds later, is held off for a day, comes back after it, and a beast spawned after the flare is not held; the stink pot's line; a club in the paw and a shield in the bag, face to face with a beast: "raise your shield", then "bash with your shield"; the crosshair names the beast.
+
 ## 0.94 What v4.45.0 changed: the opening story ends on time
 
 **Why.** cc-lead looked at 4.44 on a fresh island and found that a smol was never "carried home" there. The cause was the opening story. The game treats the island as "in the story" through the first night, and after that until the seven basics cards ("pick a smol", "feed it" ... "that's the basics") are finished or skipped. The cards had no time limit. A player who left one sitting stayed in the story for good.
