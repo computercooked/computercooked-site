@@ -680,8 +680,27 @@ h+="<div class='rc'><span class='big'>"+def.emoji+"</span><div class='t'>"+esc(d
 h+="</div><div class='help'>you don't need everything to start: place the site, then bring it what it asks for.</div>";
 return h;
 }
+HUD.dupes={};
+HUD.onceEach=function(root){
+Array.prototype.forEach.call(root.querySelectorAll("*"),function(el){
+if(el._once)return;
+var add=el.addEventListener,seen={};
+el._once=1;
+el.addEventListener=function(type,fn,opt){
+var key=type+":"+String(fn);
+if(seen[key]){
+var dn=el.getAttributeNames?el.getAttributeNames().filter(function(a){return a.slice(0,5)==="data-";})[0]:"",nm=dn||el.className||el.tagName||"?";
+HUD.dupes[nm]=(HUD.dupes[nm]||0)+1;
+return;
+}
+seen[key]=1;
+return add.call(el,type,fn,opt);
+};
+});
+};
 function wireBag(){
 var root=bag.el,s=S(),c=s.c;
+HUD.onceEach(root);
 root.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){bag.tab=b.getAttribute("data-tab");drawBag();});});
 root.querySelectorAll(".tabs:not(.sub) button[data-tab]").forEach(function(b){var tx=(b.textContent||"").trim(),sp=tx.indexOf(" ");if(sp>0){b.title=tx.slice(sp+1);if(!b.classList.contains("on")){b.textContent=tx.slice(0,sp);b.classList.add("ico");}}});
 Array.prototype.forEach.call(root.querySelectorAll("[data-close]"),function(cl){cl.addEventListener("click",closeBag);});

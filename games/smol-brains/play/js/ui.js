@@ -1378,7 +1378,32 @@ modal("menu",body,{tabs:tabs,big:true});
 UI.openMenu=openMenu;
 function tabDex(body){if(SB.Cards)SB.Cards.tabDex(body);else body.appendChild(h("p",{class:"note"},"the smoldex isn't here."));}
 function when(t){var day=Math.floor(t/SB.DAY_LENGTH)+1,hh=(t/SB.DAY_LENGTH%1)*24;return"day "+day+", "+pad(Math.floor(hh))+":"+pad(Math.floor((hh%1)*60));}
-function tabChronicle(body){
+var GONE_WORD={old:"grew old",starved:"starved",sick:"got too sick",hurt:"was hurt too badly",cold:"got too cold",hot:"got too hot",tired:"wore itself out",drowned:"drowned"};
+function goneList(g){var out=[],id,f;for(id in g.family){f=g.family[id];if(f&&f.name&&f.died>0)out.push(f);}return out.sort(function(a,b){return b.died-a.died;});}
+UI.goneList=goneList;
+function goneCard(f,open){
+var nm=function(id){var o=game.family[id];return o&&o.name;},days=f.born>0?(f.died-f.born)/SB.DAY_LENGTH:0;
+var line=(GONE_WORD[f.cause]||"was lost")+" · "+when(f.died)+(days>0?" · "+(days<1?"less than a day":Math.round(days*10)/10+" days")+" on the island":"");
+var par=(f.parents||[]).map(nm).filter(Boolean),kids=(f.kids||[]).map(nm).filter(Boolean),more=[];
+if(par.length)more.push("child of "+par.join(" & "));
+if(kids.length)more.push(kids.length+(kids.length===1?" child: ":" children: ")+kids.slice(0,6).join(", ")+(kids.length>6?"…":""));
+if(f.ideas&&f.ideas.length)more.push("knew "+f.ideas.length+(f.ideas.length===1?" idea":" ideas"));
+return h("div",{class:"relrow",style:open?"outline:2px solid var(--lime);border-radius:8px;padding:8px;margin-bottom:10px":""},[
+avatar(f.look,f.tier,open?44:0),
+h("div",{style:"flex:1;min-width:0"},[h("div",null,[h("b",null,f.name),h("span",{class:"dim"}," · gen "+(f.gen||1))]),h("div",{class:"note"},line),open&&more.length?h("div",{class:"note"},more.join(" · ")):null])]);
+}
+function tabChronicle(body,arg){
+var goneAll=goneList(game),view=arg&&(arg.memorial!=null||arg.view==="gone")?"gone":"all";
+body.appendChild(h("div",{class:"btnrow",style:"justify-content:flex-start;margin-bottom:8px"},[
+h("button",{class:"btn"+(view==="all"?" go":""),onclick:function(){openMenu("chronicle");}},"📜 everything"),
+h("button",{class:"btn"+(view==="gone"?" go":""),onclick:function(){openMenu("chronicle",{view:"gone"});}},"🕊 remembered · "+goneAll.length)]));
+if(view==="gone"){
+var one=arg&&arg.memorial!=null?game.family[arg.memorial]:null;
+body.appendChild(h("p",{class:"note"},goneAll.length?"every smol this island has said goodbye to, the newest first.":"nobody yet. everyone who ever lived here is still here."));
+if(one&&one.died>0)body.appendChild(goneCard(one,true));
+goneAll.slice(0,120).forEach(function(f){if(f!==one)body.appendChild(goneCard(f,false));});
+return;
+}
 var ch=(game.chronicle||[]).slice().reverse();
 body.appendChild(h("p",{class:"note"},"everything that mattered on this island: inventions, firsts, brawls, newcomers, the ones we lost."));
 if(!ch.length){body.appendChild(h("p",{class:"note"},"nothing yet. give it time."));return;}
@@ -1643,7 +1668,7 @@ var code=SB.Save.exportSmol(c);
 var body=h("div",null,[h("p",{class:"note"},"this code is "+c.name+": genes, trained brain, words and ideas. paste it into any world (smolpedia → world)."),h("div",{class:"code"},code),h("div",{class:"btnrow"},[h("button",{class:"btn go",onclick:function(){copy(code,"smol code copied");game.stats.exported++;SB.Game.unlock(game,"share");}},"copy code")])]);
 modal("📤 "+c.name+"'s code",body);
 }
-function adPortal(){var p=typeof window!=="undefined"?window.CC_PORTAL:null;return!!(p&&p.name&&p.name!=="none");}
+function adPortal(){var p=typeof window!=="undefined"?window.CC_PORTAL:null;return!!(p&&((p.name&&p.name!=="none")||p.links===false));}
 UI.adPortal=adPortal;
 function copy(text,msg){
 try{
@@ -2151,14 +2176,34 @@ var inc=game.dir&&game.dir.active,txt=inc?incidentStatus(inc):"";
 if(!el.alert){el.alert=h("button",{class:"alert hide",onclick:function(){var i=game.dir&&game.dir.active;if(i){var p=incidentWhere(i);if(p&&p.x!=null)R.flyTo(p.x,p.z,9,0.8);}}});root.appendChild(el.alert);}
 if(el.alert._t!==txt){el.alert._t=txt;el.alert.textContent=txt;el.alert.classList.toggle("hide",!txt);el.alert.classList.toggle("bad",!!inc&&(inc.id==="raid"||inc.id==="storm"));}
 }
+var AWAY_CAUSE={starved:"starved",sick:"got too sick",hurt:"hurt too badly",cold:"got too cold",hot:"got too hot",tired:"worn out",drowned:"drowned"};
+var AWAY_WHY={starved:"a hungry time",sick:"a sickness went round",hurt:"a hard fight",cold:"a cold spell",hot:"a hot spell",drowned:"the water took some"};
 UI.awayScreen=function(g,awaySec,budget){
 var bar=h("i",{style:"width:0%"});
 var body=h("div",null,[h("p",null,"you were gone "+fmtTime(awaySec)+". the island kept going…"),h("div",{class:"prog"},bar),h("p",{class:"note"},"simulating "+fmtTime(budget)+" of smol life")]);
 modal("🌙 while you were away",body,{sticky:true,now:true});
 SB.Game.runOffline(g,budget,function(p){bar.style.width=Math.round(p*100)+"%";},function(rep){
-var lines=[];
-if(rep.hatched)lines.push("🐣 "+rep.hatched+" hatched");
-if(rep.deaths)lines.push("🕊 "+rep.deaths+" passed on");
+var lines=[],aw=rep.away||{born:[],old:[],other:{},pop0:0,pop1:0},rows=[],gone={},topK="",topN=0,lostN=aw.old.length;
+function who(list,tap){
+var box=h("div",{style:"display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 8px"}),st="display:inline-flex;align-items:center;gap:4px;border:0;font:inherit;color:inherit";
+list.slice(0,6).forEach(function(e){
+var kids=[avatar(e.look,e.tier,18)," "+e.name];
+box.appendChild(tap?h("button",{class:"chip",style:st+";cursor:pointer",title:"remember "+e.name,onclick:function(){closeModal();openMenu("chronicle",{memorial:e.id});}},kids):h("span",{class:"chip",style:st},kids));
+});
+if(list.length>6)box.appendChild(h("span",{class:"chip"},"and "+(list.length-6)+" more"));
+return box;
+}
+var bornN=Math.max(rep.hatched||0,aw.born.length);
+if(bornN)rows.push(h("div",null,[h("b",null,"🐣 "+bornN+" born"),aw.born.length?who(aw.born,false):null]));
+if(aw.old.length)rows.push(h("div",null,[h("b",null,"🕊 "+aw.old.length+" grew old"),h("span",{class:"dim"}," · tap a name to remember them"),who(aw.old,true)]));
+aw.old.forEach(function(e){gone[e.name]=1;});
+Object.keys(aw.other).forEach(function(k){
+var l=aw.other[k];lostN+=l.length;if(l.length>topN){topN=l.length;topK=k;}
+l.forEach(function(e){gone[e.name]=1;});
+rows.push(h("div",{class:"note"},l.length+" "+(AWAY_CAUSE[k]||"lost")+": "+l.slice(0,6).map(function(e){return e.name;}).join(", ")+(l.length>6?" and "+(l.length-6)+" more":"")));
+});
+if(aw.pop0>=3&&aw.pop1<aw.pop0*2/3)rows.push(h("p",{class:"note"},"the colony went "+aw.pop0+" → "+aw.pop1+": "+(aw.old.length*2>=lostN?"an old generation":AWAY_WHY[topK]||"a hard time")+"."));
+if(rep.log)rep.log=rep.log.filter(function(t){var nm=String(t).split(" ")[0];return!gone[nm];});
 if(rep.words)lines.push("💬 "+rep.words+" words learned");
 if(rep.ideas)lines.push("💡 "+rep.ideas+" new ideas");
 if(rep.built)lines.push("🛖 "+rep.built+" things built");
@@ -2167,7 +2212,7 @@ if(rep.villages)lines.push("🏘 "+rep.villages+" new villages");
 if(rep.gens)lines.push("👪 "+rep.gens+" new generations");
 if(rep.tier!=null)lines.push(SB.TIERS[rep.tier].icon+" evolved into "+SB.TIERS[rep.tier].name+"s!");
 if(rep.sparks>0)lines.push("✨ +"+rep.sparks+" sparks");
-var b2=h("div",null,[h("p",null,lines.length?"while you were away:":"a quiet time. everyone napped."),h("div",{class:"chips"},lines.map(function(l){return h("span",{class:"chip lime"},l);})),rep.log&&rep.log.length?h("div",{class:"note",html:rep.log.slice(-6).map(esc).join("<br>")}):null,h("div",{class:"btnrow"},h("button",{class:"btn go",onclick:closeModal},"see them"))]);
+var b2=h("div",null,[h("p",null,lines.length||rows.length?"while you were away:":"a quiet time. everyone napped."),h("div",null,rows),h("div",{class:"chips"},lines.map(function(l){return h("span",{class:"chip lime"},l);})),rep.log&&rep.log.length?h("div",{class:"note",html:rep.log.slice(-6).map(esc).join("<br>")}):null,h("div",{class:"btnrow"},h("button",{class:"btn go",onclick:closeModal},"see them"))]);
 modal("🌅 welcome back",b2);
 });
 };

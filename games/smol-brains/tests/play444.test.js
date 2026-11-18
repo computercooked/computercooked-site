@@ -195,6 +195,7 @@ console.log("8. coming back reads as a generation passing");
   const { SB, game } = fresh(4449), sp = game.world.T.spawn;
   const six = trio(SB, game).concat(trio(SB, game));
   const t0 = game.time, pop0 = SB.Game.smols(game).length;
+  game.time += 1; // the clock moves at the start of every step, so nothing in the away time happens at t0 itself
   SB.Creature.die(six[0], game, "old"); SB.Creature.die(six[1], game, "old"); SB.Creature.die(six[2], game, "starved");
   const baby = SB.Game.spawnSmol(game, { x: sp.x + 2, z: sp.z + 4, age: 0 }); baby.age = 5;
   game.time += 100;
