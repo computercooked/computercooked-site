@@ -141,8 +141,8 @@ export async function digest(url, env) {
   // K-0065: "Tip the chef" clicks, and the homepage "your desk" row (K-0064): times shown, cards opened (resume = the
   // pick-up card), per day and per game opened
   const outs = (await db.prepare(
-    `SELECT ${dayOf("ts")} d, name, game, json_extract(data, '$.slot') slot, COUNT(*) n FROM events
-     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click', 'cc:tiktok_out', 'cc:next_shown', 'cc:next_tap') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4`
+    `SELECT ${dayOf("ts")} d, name, game, json_extract(data, '$.slot') slot, json_extract(data, '$.place') place, COUNT(*) n FROM events
+     WHERE name IN ('cc:tip_click', 'cc:desk_shown', 'cc:desk_click', 'cc:tiktok_out', 'cc:next_shown', 'cc:next_tap') AND ts >= ? AND ts < ? GROUP BY 1, 2, 3, 4, 5`
   ).bind(start, end).all()).results;
   const outN = (f) => outs.filter(f).reduce((s, r) => s + r.n, 0);
   // round 26: link-outs to TikTok. show_follow / show_episode = clicks on /show/ (cc:tiktok_out); follow_elsewhere = the
@@ -166,6 +166,8 @@ export async function digest(url, env) {
     shown: outN((r) => f(r) && r.name === "cc:next_shown"), taps: outN((r) => f(r) && r.name === "cc:next_tap"), plays,
     per_run: ended ? Math.round((plays / ended) * 1000) / 1000 : null,
     touch: { shown: outN((r) => f(r) && r.name === "cc:next_shown" && r.slot === "touch"), taps: outN((r) => f(r) && r.name === "cc:next_tap" && r.slot === "touch") },
+    // round 28: the quiet games' line under the bar (shown and taps above include it)
+    bar: { shown: outN((r) => f(r) && r.name === "cc:next_shown" && r.place === "bar"), taps: outN((r) => f(r) && r.name === "cc:next_tap" && r.place === "bar") },
   });
   const deskGames = {};
   for (const r of outs) if (r.name === "cc:desk_click" && r.slot !== "nudge") deskGames[r.game] = (deskGames[r.game] || 0) + r.n;

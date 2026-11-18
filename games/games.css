@@ -671,6 +671,17 @@
 
 /* quiet games (games/player.js): the last run's results wait here instead of covering the game */
 .tool-results { border-color: var(--lime); color: var(--lime); }
+/* round 28: quiet games' "try this next" line (games/player.js barNext): its own strip right under the bar (outside it,
+   so the buttons never re-flow), one line, never over the game. Hidden in fullscreen (the game keeps the whole screen)
+   and in the mini player. */
+.bar-next { flex: none; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 40px; margin: 0 var(--s-2) var(--s-2); padding: 4px 8px;
+  border: 1px dashed var(--line); border-radius: var(--r-md); color: var(--paper); text-decoration: none; font-family: var(--sans); font-size: var(--fs-14); white-space: nowrap; }
+.bar-next[hidden] { display: none; }
+.bar-next small { flex: none; font-family: var(--mono); font-size: var(--fs-12); color: var(--paper-dim); }
+.bar-next b { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--lime); font-weight: 800; }
+.bar-next span { flex: none; color: var(--lime); }
+.bar-next:hover, .bar-next:focus-visible { border-color: var(--lime); border-style: solid; }
+.player:fullscreen .bar-next, .player.is-pseudo-fs .bar-next, .player.is-mini .bar-next { display: none; }
 .tool-results.is-new { animation: tool-results-pop .5s var(--ease-spring) 2; }
 @keyframes tool-results-pop { 50% { transform: scale(1.08); box-shadow: 0 0 0 4px rgba(197, 255, 73, .25); } }
 @media (prefers-reduced-motion: reduce) { .tool-results.is-new { animation: none; } }

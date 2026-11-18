@@ -648,7 +648,7 @@
         var to = this.getAttribute("data-to");
         if (!to) return;
         try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: to, t: Date.now() })); } catch (e) {}
-        if (window.ccHit) window.ccHit("next_tap", { game: slug, to: to, slot: touchDev() });
+        if (window.ccHit) window.ccHit("next_tap", { game: slug, to: to, slot: touchDev(), place: "card" });
       });
       var sh = box.querySelector(".ccr-share");
       // the dare link is made on the press (pointerdown), so it's usually ready by the click and the share sheet
@@ -800,18 +800,22 @@
       try { return matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches ? "touch" : "fine"; } catch (e) { return "fine"; }
     }
     // one game to go to next: most tags in common, not played on this device first, a little luck for ties
+    function pickNext(list) {
+      var me = list.filter(function (g) { return g.slug === slug; })[0], tags = (me && me.tags) || [];
+      var seen = {};
+      try { JSON.parse(localStorage.getItem("cc-recent") || "[]").forEach(function (x) { if (x && x.g) seen[x.g] = 1; }); } catch (e) {}
+      var best = null, top = -1;
+      list.forEach(function (g) {
+        if (!g || g.slug === slug || !g.title) return;
+        var s = 3 * (g.tags || []).filter(function (t) { return tags.indexOf(t) >= 0; }).length + (seen[g.slug] ? 0 : 2) + Math.random() * 2.5;
+        if (s > top) { top = s; best = g; }
+      });
+      return best;
+    }
     function nextTile() {
       var a = box.querySelector(".ccr-next");
       games().then(function (list) {
-        var me = list.filter(function (g) { return g.slug === slug; })[0], tags = (me && me.tags) || [];
-        var seen = {};
-        try { JSON.parse(localStorage.getItem("cc-recent") || "[]").forEach(function (x) { if (x && x.g) seen[x.g] = 1; }); } catch (e) {}
-        var best = null, top = -1;
-        list.forEach(function (g) {
-          if (!g || g.slug === slug || !g.title) return;
-          var s = 3 * (g.tags || []).filter(function (t) { return tags.indexOf(t) >= 0; }).length + (seen[g.slug] ? 0 : 2) + Math.random() * 2.5;
-          if (s > top) { top = s; best = g; }
-        });
+        var best = pickNext(list);
         if (!best) { a.hidden = true; return; }
         a.href = "/games/" + encodeURIComponent(best.slug) + "/?src=next&slot=similar";
         var img = a.querySelector("img");
@@ -821,7 +825,37 @@
         a.setAttribute("aria-label", "try this next: " + best.title + (fine ? " (n)" : ""));
         a.setAttribute("data-to", best.slug);
         a.hidden = false;
-        if (window.ccHit) window.ccHit("next_shown", { game: slug, to: best.slug, slot: touchDev() });
+        if (window.ccHit) window.ccHit("next_shown", { game: slug, to: best.slug, slot: touchDev(), place: "card" });
+      });
+    }
+
+    // round 28: quiet games never pop the card, so its "try this next" tile was almost never seen (34 of 739 runs in
+    // 30 days ended in a popped card). After the first run ends, one line right under the bar offers one game,
+    // picked like the tile. It's below the game, so it never covers play; hidden in fullscreen and the mini player.
+    // Shown once per page (the same game until the page changes) and counted: next_shown / next_tap, place "bar".
+    var barLine = null;
+    function barNext() {
+      var pbar = player.querySelector(".player-bar");
+      if (barLine || !pbar) return;
+      barLine = document.createElement("a");
+      barLine.className = "bar-next"; barLine.hidden = true;
+      barLine.innerHTML = '<small>try this next</small><b></b><span aria-hidden="true">\u2192</span>';
+      pbar.insertAdjacentElement("afterend", barLine); // its own strip, so the bar's buttons never re-flow
+      barLine.addEventListener("click", function () {
+        var to = barLine.getAttribute("data-to");
+        if (!to) return;
+        try { sessionStorage.setItem("cc-autostart", JSON.stringify({ game: to, t: Date.now() })); } catch (e) {}
+        if (window.ccHit) window.ccHit("next_tap", { game: slug, to: to, slot: touchDev(), place: "bar" });
+      });
+      games().then(function (list) {
+        var best = pickNext(list);
+        if (!best) return;
+        barLine.href = "/games/" + encodeURIComponent(best.slug) + "/?src=next&slot=similar";
+        barLine.setAttribute("data-to", best.slug);
+        barLine.querySelector("b").textContent = String(best.title).toLowerCase();
+        barLine.setAttribute("aria-label", "try this next: " + best.title);
+        barLine.hidden = false;
+        if (window.ccHit) window.ccHit("next_shown", { game: slug, to: best.slug, slot: touchDev(), place: "bar" });
       });
     }
 
@@ -918,6 +952,8 @@
       resBtn.setAttribute("aria-label", label + ": " + (typeof d.score === "number" ? fmt(d.score) : "see the run") + ". opens the results card");
       resBtn.hidden = false;
       resBtn.classList.remove("is-new"); void resBtn.offsetWidth; resBtn.classList.add("is-new");
+      if (player._fitTitle) player._fitTitle(true); // the new button can push the title out of its row
+      barNext();
     }
     document.addEventListener("cc:start", function () { close(false); shareLastRun = null; games(); pending = null; if (resBtn) resBtn.hidden = true; });
     document.addEventListener("cc:end", function (e) {
@@ -971,6 +1007,7 @@
       if (tEl.scrollWidth > tEl.clientWidth + 1) bar.classList.add("title-row");
     };
     fitTitle();
+    player._fitTitle = fitTitle; // round 28: a quiet game's "results" button joins the bar later, so re-check then too
     if (window.ResizeObserver) new ResizeObserver(function () { fitTitle(); }).observe(bar);
     else addEventListener("resize", fitTitle);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fitTitle(true); });
