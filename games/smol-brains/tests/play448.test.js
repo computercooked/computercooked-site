@@ -6,6 +6,9 @@
 //   3. a finned smol and an ascended one (tier 6), who swim all the time, walk round the same band and do not freeze
 //   4. water is still crossed: a starving smol cut off by a strait wades it and eats (4.37, 4.40)
 //   5. the safety net: a minute's wading that left it where it began is given up, and not tried again for three minutes
+//   6. a route is judged by progress along it: one that leads away from the goal first (round a band of steep ground) is
+//      walked to its end. It used to be dropped 8 seconds after the smol last got nearer the goal in a straight line
+//      (smol-brains-handover/4.48-island-102-the-one-that-still-starved.txt)
 // node games/smol-brains/tests/play448.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -153,6 +156,37 @@ seeded(4485, () => {
   const cj = js("creature.js");
   check("neither way into wading opens while it rests", /pl ?> ?C\.WADE_DETOUR ?&& ?pl ?> ?d0 ?\* ?2 ?&& ?!\(c\.noWade ?> ?game\.time\)/.test(cj) && /un ?>= ?C\.WADE_AFTER ?&& ?!\(c\.noWade ?> ?game\.time\)/.test(cj));
   check("the long way round only turns to wading when wading is shorter", /wl ?< ?pl ?\* ?0?\.7/.test(cj));
+});
+
+console.log("6. a route that leads away first is still walked");
+seeded(4486, () => {
+  // island 102 again: where the last one starved, south of a band of steep ground, and one of the apples north of it
+  const mk = () => { const I = island(102), { hm } = I; return Object.assign(I, { cx: hm.x + 19, cz: hm.z - 50, ax: hm.x + 25, az: hm.z - 61 }); };
+  {
+    const { SB, game, W, w, cx, cz, ax, az } = mk(), C = SB.Creature;
+    check("both spots can be stood on", W.walkable(w, cx, cz, false) && W.walkable(w, ax, az, false));
+    const line = []; for (let t = 0; t <= 1; t += 0.05) line.push({ x: cx + (ax - cx) * t, z: cz + (az - cz) * t });
+    const plain = W.findPath(w, cx, cz, ax, az, false, 5000), pl = routeLen(plain, cx, cz), d0 = Math.hypot(ax - cx, az - cz);
+    check("steep ground lies between them, and the way round is over twice the straight line", steepOn(SB, w, line) >= 1 && !!plain && pl > d0 * 2, steepOn(SB, w, line) + " steep points; " + d0.toFixed(0) + " paces straight, " + pl.toFixed(0) + " round");
+    check("the route's first leg leads away from the apple", !!plain && Math.hypot(plain[0].x - ax, plain[0].z - az) > d0 - 0.5 || (plain && plain.some(q => Math.hypot(q.x - ax, q.z - az) > d0 + 2)), plain ? plain.slice(0, 4).map(q => Math.hypot(q.x - ax, q.z - az).toFixed(0)).join(", ") + " paces from the apple at its first steps" : "no route");
+    check("the number: 8 seconds on a route with no step reached or neared, and it is dropped", C.ROUTE_STALL === 8);
+    clearFood(SB, game, cx, cz, 70);
+    const me = put(SB, game, cx, cz, { hunger: 0.97 });
+    W.add(w, game, "apple", ax, az, {});
+    let ate = -1, steps = 0; const t0 = game.time;
+    SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+    step(SB, game, 200, () => { if (me.path) steps = Math.max(steps, me.pathI || 0); me.chem.health = Math.max(me.chem.health, 0.5); return ate < 0 && me.alive; });
+    check("starving, it walks the route to its end and eats (it set off nine times and never passed the second step)", ate >= 0 && steps >= 3, ate >= 0 ? "after " + Math.round(ate - t0) + "s, " + steps + " steps along" : "no meal in 200s, " + steps + " steps along, " + Math.hypot(me.x - ax, me.z - az).toFixed(0) + " paces from the apple");
+  }
+  {
+    // not only the starving: a smol sent to the far side gets there
+    const { SB, game, cx, cz, ax, az } = mk(), C = SB.Creature;
+    const me = put(SB, game, cx, cz, {});
+    let best = 1e9;
+    step(SB, game, 150, s => { if (s % 400 === 0 && Math.hypot(me.x - ax, me.z - az) > 2) C.sendTo(me, ax, az, game, 90, true); best = Math.min(best, Math.hypot(me.x - ax, me.z - az)); me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; return best > 1.8; });
+    check("a fed smol sent round the band arrives", best <= 1.8, "closest " + best.toFixed(1) + " paces");
+  }
+  check("the source: a route is dropped on its own progress, not the straight line", /c\.pathLegT ?> ?C\.ROUTE_STALL/.test(js("creature.js")) && !/c\.path ?&& ?c\.wBestT ?> ?8/.test(js("creature.js")));
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

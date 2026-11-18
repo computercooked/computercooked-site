@@ -37,6 +37,7 @@
   C.STARVING = 0.85;
   C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
   C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
+  C.ROUTE_STALL = 8; // 4.48: seconds on a route without reaching a step or nearing the next one before it is dropped
   C.WADE_MOVED = 2; C.WADE_REST = 180; // 4.48: a minute's wading that moved it under two steps is given up, and not tried again for three minutes
   C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
   C.BITE_CATCH = 0.2; // 4.42: a grump's bite can only infect a smol whose antigen is under this
@@ -904,7 +905,7 @@
     if (!c.path && !c.pathTried && (c.wBestT > 0.8 || c.stuckT > 0.4) && d0 > 1.5) {
       c.pathTried = true;
       c.path = SB.World.findPath(game.world, c.x, c.z, tx, tz, swim(c), 5000);
-      c.pathI = 0;
+      c.pathI = 0; c.pathLegI = -1; c.pathLegT = 0;
       if (!c.path) c.noPath = { x: tx, z: tz, t: game.time };
       // 4.40: starving, and the way round the water is long (island 23: an apple 12 steps off across a stream, over a minute's walk round; it died on the way): it wades straight for it
       else if (starvingFor(c, c.action) && c.chem.hunger > 0.95 && !swim(c)) {
@@ -914,15 +915,24 @@
           for (var wi = 0; wp0 && wi < wp0.length; wi++) { wl += Math.hypot(wp0[wi].x - wx, wp0[wi].z - wz); wx = wp0[wi].x; wz = wp0[wi].z; }
           // 4.48: only when wading is really the shorter way. Where no water is in the way the two routes are the same
           // one, and it keeps walking the long way round (it used to wade at a ridge with no water near)
-          if (wp0 && wl < pl * 0.7) { c.wade = 60; c.wadeAt = { x: c.x, z: c.z }; c.path = wp0; c.pathI = 0; }
+          if (wp0 && wl < pl * 0.7) { c.wade = 60; c.wadeAt = { x: c.x, z: c.z }; c.path = wp0; c.pathI = 0; c.pathLegI = -1; c.pathLegT = 0; }
         }
       }
     }
-    // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground
-    if (c.path && c.wBestT > 8) { c.path = null; c.lost = true; }
     if (c.path) {
       var wp = c.path[c.pathI];
       while (wp && Math.hypot(wp.x - c.x, wp.z - c.z) < 0.7 && c.pathI < c.path.length - 1) wp = c.path[++c.pathI];
+      // following a route but getting nowhere (a ledge the coarse map thinks is fine): scramble back to proper ground.
+      // 4.48: "getting somewhere" is reaching a step of the route or getting nearer the next one. It used to be getting
+      // nearer the GOAL in a straight line, and a route round a band of steep ground leads away from the goal first: every
+      // such route was dropped after 8 seconds, for every smol. One starved on island 102 setting off nine times round
+      // a band with apples behind it, never past the second step
+      if (wp) {
+        var dw = Math.hypot(wp.x - c.x, wp.z - c.z);
+        if (c.pathLegI !== c.pathI || dw < c.pathLegBest - 0.2) { c.pathLegI = c.pathI; c.pathLegBest = dw; c.pathLegT = 0; c.pathProg = game.time; }
+        else c.pathLegT = (c.pathLegT || 0) + dt;
+        if (c.pathLegT > C.ROUTE_STALL) { c.path = null; c.lost = true; wp = null; }
+      }
       if (wp) return stepToward(c, wp.x, wp.z, dt, sp, game, c.pathI >= c.path.length - 1 ? arriveR : 0.3) && c.pathI >= c.path.length - 1;
     }
     return stepToward(c, tx, tz, dt, sp, game, arriveR);
@@ -1001,6 +1011,7 @@
       }
       dist = SB.dist(tgt.x, tgt.z, c.x, c.z);
       if (a.best == null || dist < a.best - 0.25) { a.best = dist; a.bestT = a.t; }
+      else if (c.path && c.pathProg != null && game.time - c.pathProg < 1) a.bestT = a.t; // 4.48: getting along its route counts, even while the route leads away
       if (starvingFor(c, a) && tgt.type === "item" && dist < reach + 1.1 && a.t - a.bestT > 1.2) reach = dist; // 4.39: stuck an arm's length off: it stretches
       if (dist <= reach + 0.05) {
         a.phase = "do"; a.doT = 0;
