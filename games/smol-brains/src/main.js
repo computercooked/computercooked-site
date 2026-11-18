@@ -536,6 +536,20 @@
       if (w) Game.skipStop(g, w);
     });
   });
+  // 4.45: the seven basics cards used to hold the island back for as long as one of them sat unread: no storyteller,
+  // no night chase, no pods, no weddings or festivals, for good. the first night ends at the dawn of day 2; the cards
+  // get one island day after that. at the dawn of day 3 they are put away and the island gets on with its life
+  Game.CARDS_END = 2.21; // in island days: the dawn of day 3
+  Game.CARDS_WAIT = 30;  // seconds: a player who moved a card on this recently is working through them. wait for them
+  Game.cardsOver = function (game) {
+    var st = game && game.tutorial;
+    if (!st || st.done || (st.step || 0) < 2 || (game.time || 0) < Game.CARDS_END * SB.DAY_LENGTH) return false;
+    if (SB.FirstNight && SB.FirstNight.active && SB.FirstNight.active(game)) return false; // the first night ends its own way
+    if (st.stepT != null && (game.time || 0) - st.stepT < Game.CARDS_WAIT) return false; // mid-card: ui.js stamps stepT when a card moves on
+    st.done = true;
+    SB.bus.emit("tutorialOver", { auto: true });
+    return true;
+  };
   Game.step = function (game, dt) {
     if (game.skip && game.speed !== 16) { game.skip = null; SB.bus.emit("skipDone", { why: "⏭ stopped", at: null }); } // you changed the speed yourself: keep yours
     else if (game.skip && game.time >= game.skip.until) Game.skipStop(game, null); // half a day, nothing much
@@ -556,6 +570,7 @@
     if (SB.Orders) SB.Orders.tick(game, dt);
     if (SB.FirstHour) SB.FirstHour.tick(game, dt);
     if (SB.FirstNight) SB.FirstNight.tick(game, dt);
+    if (game.tutorial && !game.tutorial.done) Game.cardsOver(game);
     if (SB.Bosses) SB.Bosses.tick(game, dt);
     if (SB.Home) SB.Home.tick(game, dt);
     if (SB.Loot) SB.Loot.tick(game, dt);
