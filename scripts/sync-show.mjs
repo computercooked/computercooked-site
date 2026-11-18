@@ -45,18 +45,21 @@ const blocks = log.split(/\n(?=- \d{4}-\d{2}-\d{2} )/).filter((b) => /^- \d{4}-\
 const episodes = [];
 for (const b of blocks) {
   const head = b.split("\n")[0];
-  const m = /^- (\d{4}-\d{2}-\d{2}) \d{2}:\d{2} PT · TikTok · ([a-z0-9-]{3,60}) · (https:\/\/www\.tiktok\.com\/@computercooked\/video\/\d{10,25}) · "([^"]*)"/.exec(head);
+  // the slug is the episode's folder under Content\episodes: "2026-11-08-first-night", or "<batch>/<episode>" for a batch
+  // ("minecraft-batch-1/06-cave", Nov 18). On the site it becomes one web-safe slug: "minecraft-batch-1-06-cave".
+  const m = /^- (\d{4}-\d{2}-\d{2}) \d{2}:\d{2} PT · TikTok · ([a-z0-9-]{3,60}(?:\/[a-z0-9-]{1,60})?) · (https:\/\/www\.tiktok\.com\/@computercooked\/video\/\d{10,25}) · "([^"]*)"/.exec(head);
   if (!m) continue; // not a TikTok post line in the agreed format: never guess
-  const [, date, slug, url, caption] = m;
-  if (episodes.some((e) => e.slug === slug)) continue;
+  const [, date, path, url, caption] = m;
+  const slug = path.replace(/\//g, "-");
+  if (slug.length > 60 || episodes.some((e) => e.slug === slug)) continue;
   const title = caption.split(/\s\/\s|\n/)[0].replace(/#\S+/g, "").replace(/\s{2,}/g, " ").trim() || slug.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
-  const file = (/file `([^`]+\.mp4)`/.exec(b) || [])[1];
-  episodes.push({ slug, date, url, title, file: file || null });
+  const file = (/file:? `([^`]+\.mp4)`/i.exec(b) || [])[1];
+  episodes.push({ slug, path, date, url, title, file: file || null });
 }
 
 // ---- which characters each posted episode features (their label in its brief or storyboards) ----
 function featured(ep) {
-  const dir = join(PROJECT, "Content", "episodes", ep.slug);
+  const dir = join(PROJECT, "Content", "episodes", ...ep.path.split("/"));
   if (!existsSync(dir)) return [];
   const text = readdirSync(dir).filter((f) => /^(brief|storyboard[\w-]*)\.md$/i.test(f)).map((f) => readFileSync(join(dir, f), "utf8")).join("\n").toLowerCase();
   return CAST.filter((c) => new RegExp(`\\b${c.id}\\b`).test(text)).map((c) => c.id);
@@ -75,7 +78,14 @@ for (const ep of episodes) {
   const out = join(IMG, `ep-${ep.slug}.jpg`);
   ep.still = existsSync(out) ? `/show/img/ep-${ep.slug}.jpg` : null;
   if (ep.still || !ep.file) continue;
-  const src = /^[A-Za-z]:\\/.test(ep.file) ? ep.file : join(PROJECT, ...ep.file.split("\\"));
+  let src = /^[A-Za-z]:\\/.test(ep.file) ? ep.file : join(PROJECT, ...ep.file.split("\\"));
+  // the upload copy in Posting\ is archived after posting: fall back to the same cut in the episode's final\ folder
+  // ("06-cave-gulpfix-tiktok.mp4" was made from final\06-cave-gulpfix.mp4)
+  if (!existsSync(src)) {
+    const base = ep.file.split(/[\\/]/).pop(), fin = join(PROJECT, "Content", "episodes", ...ep.path.split("/"), "final");
+    const alt = [base, base.replace(/-tiktok(?=\.mp4$)/, "")].map((f) => join(fin, f)).find((f) => existsSync(f));
+    if (alt) src = alt;
+  }
   if (!existsSync(src)) { console.warn(`${ep.slug}: posted video not found (${ep.file}); no still`); continue; }
   const dur = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", src]).toString());
   const t = STILL_AT[ep.slug] ?? dur * 0.55;
