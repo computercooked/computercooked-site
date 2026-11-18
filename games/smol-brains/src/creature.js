@@ -37,7 +37,6 @@
   C.STARVING = 0.85;
   C.HARD_HUNGER = 0.55; C.HARD_FOOD = 2; C.HARD_HUNGER_MAX = 0.7; // 4.40: hard times (no eggs): mean hunger over the first with under HARD_FOOD bites each on the ground, or over the last
   C.WADE_DETOUR = 25; // 4.40: a starving smol wades when the walk round the water is over this many steps and over twice the straight line
-  C.ROUTE_STEP_MAX = 60; // 4.48: seconds on one step of a route, progress or not, before the route is planned again
   C.ROUTE_STALL = 8; // 4.48: seconds on a route without reaching a step or nearing the next one before it is dropped
   C.WADE_MOVED = 2; C.WADE_REST = 180; // 4.48: a minute's wading that moved it under two steps is given up, and not tried again for three minutes
   C.WADE_AFTER = 2; // 4.40: a starving smol wades after two meals it could not walk to (it was three: on island 23 the third try ended five seconds before one died, its food across a stream)
@@ -686,7 +685,7 @@
     if (c.plan && SB.Ideas) C.dropPlan(c, game);
     c.asleep = false; c.inBed = false;
     startAction(c, game, V.wander, null, null, null);
-    c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true; c.action.sent = !force;
+    c.action.tx = x; c.action.tz = z; c.action.dur = dur || 20; c.action.called = true;
     return true;
   };
   // 4.36: the same, for company rather than need (a funeral, a story event, a friend's whim): a hungry smol eats
@@ -930,15 +929,9 @@
       // a band with apples behind it, never past the second step
       if (wp) {
         var dw = Math.hypot(wp.x - c.x, wp.z - c.z);
-        if (c.pathLegI !== c.pathI) { c.pathLegI = c.pathI; c.pathLegBest = dw; c.pathLegT = 0; c.pathLegAll = 0; c.pathProg = game.time; }
-        else {
-          c.pathLegAll = (c.pathLegAll || 0) + dt;
-          if (dw < c.pathLegBest - 0.2) { c.pathLegBest = dw; c.pathLegT = 0; c.pathProg = game.time; }
-          else c.pathLegT = (c.pathLegT || 0) + dt;
-        }
+        if (c.pathLegI !== c.pathI || dw < c.pathLegBest - 0.2) { c.pathLegI = c.pathI; c.pathLegBest = dw; c.pathLegT = 0; c.pathProg = game.time; }
+        else c.pathLegT = (c.pathLegT || 0) + dt;
         if (c.pathLegT > C.ROUTE_STALL) { c.path = null; c.lost = true; wp = null; }
-        // and no single step runs past a minute, however it creeps: the route is planned again from where it stands
-        else if (c.pathLegAll > C.ROUTE_STEP_MAX) { c.path = null; c.pathTried = false; wp = null; }
       }
       if (wp) return stepToward(c, wp.x, wp.z, dt, sp, game, c.pathI >= c.path.length - 1 ? arriveR : 0.3) && c.pathI >= c.path.length - 1;
     }
@@ -1038,10 +1031,6 @@
     switch (a.verb) {
       case V.wander:
         if (a.soft && c.species === "smol" && !c._pov && c.chem.hunger > C.HUNGRY_AWAKE) { finish(c, game); return; } // 4.36: called for company, but too hungry now: eat first
-        // 4.48: a starving smol turns a call down unless it is forced (4.39). The same now holds part-way: one that gets
-        // starving on a walk it was sent on (C.sendTo, unforced) breaks it off and eats. Long walks used to be cut short by the route rule,
-        // which hid this: with routes walked to their end, a smol freed from a camp walked home past food and starved
-        if (a.sent && c.species === "smol" && !c._pov && c.chem.hunger > C.STARVING) { finish(c, game); return; }
         if (walkToward(c, a.tx, a.tz, dt, speedOf(c, a) * (a.called ? 1 : 0.8), game, a.called ? 1.2 : 0.3)) {
           if (a.called) { startAction(c, game, V.idle, null, null, null); c.action.dur = 3; emote(c, "happy", 1.5); return; } // here! waits to see what you want
           a.doT = a.dur;
