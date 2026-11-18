@@ -5,6 +5,7 @@
 //   4. the study line fits the place: carvings on a story pole, a book in a town, neither at a lookout
 //   5. the flare in the first pod says where it lies
 //   6. a wave place says when it is a storyteller card that is in the way
+//   7. a starving kid or elder leaves the hut to eat while a grump stands near home, and goes back in fed (island 102)
 // node games/smol-brains/tests/play447.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -154,6 +155,40 @@ console.log("6. a wave place says when a storyteller card is in the way");
   const w2 = D.waveWhy(game, "arena", c);
   check("an event that is running: the island has its hands full", /hands full/.test(w2 || "") && !/card/.test(w2 || ""), w2);
   DR.active = null;
+}
+
+console.log("7. a starving elder leaves the hut to eat (island 102's winter)");
+{
+  const { SB, game, folk } = fresh(4477), W = SB.World, hm = SB.Society.home(game, 0);
+  W.addStructure(game.world, game, "hut", hm.x + 3, hm.z, { done: true, rot: 0 });
+  const hut = game.world.structures.filter(s => s.kind === "hut" && s.done).sort((a, b) => Math.hypot(a.x - hm.x - 3, a.z - hm.z) - Math.hypot(b.x - hm.x - 3, b.z - hm.z))[0];
+  const old = SB.Game.spawnSmol(game, { x: hut.x + 0.3, z: hut.z + 0.3, age: 3300 }); old.tier = 3; old.lifespan = 1e7;
+  const pin = { x: hm.x + 12, z: hm.z }, g = SB.Game.spawnGrump(game, pin.x, pin.z); // 12 paces from home, about 9 from the hut
+  for (let i = 0; i < 8; i++) SB.Surv.spawn(game, "berry", 1, hut.x - 2 - (i % 4) * 0.8, hut.z + (i < 4 ? 1.5 : -1.5)); // 2 to 5 paces from the hut, away from the grump
+  let ate = 0, firstMeal = -1, hidSecs = 0, backIn = false, grumpNear = true, t0 = 0;
+  SB.bus.on("eat", d => { if (d && d.c === old) { ate++; if (firstMeal < 0) firstMeal = game.time - t0; } });
+  const dHut = () => Math.hypot(old.x - hut.x, old.z - hut.z);
+  const go = (sec, each) => { for (let t = 0; t < sec; t += SB.TICK) {
+    g.x = pin.x; g.z = pin.z; g.vx = g.vz = 0; g.goingHome = false; g.gone = false; g.chem.health = 1; // the grump stands where it is, whatever anyone does to it
+    folk.forEach(c => { c.chem.health = 1; c.chem.hunger = 0.2; });
+    if (each) each();
+    SB.Game.step(game, SB.TICK); if (SB.Ext && SB.Ext.tick) SB.Ext.tick(game, SB.TICK);
+    if (!g.alive || Math.hypot(g.x - hm.x, g.z - hm.z) >= 16) grumpNear = false;
+  } };
+  // fed: it hides, as before
+  go(20, () => { old.chem.hunger = 0.4; old.chem.health = 0.8; });
+  check("the elder is an elder, and the grump stands inside 16 paces of home", old.stage === 4 && g.alive && grumpNear, "stage " + old.stage);
+  check("fed, it is sent to hide by the game itself, and sits in the hut", !!old.hideAt && dHut() < 1.3 && ate === 0, "hiding " + !!old.hideAt + ", " + dHut().toFixed(1) + " paces from the hut");
+  // starving: out to eat, and it lives
+  old.chem.hunger = 0.9; old.chem.health = 0.5; t0 = game.time;
+  let after = false;
+  go(300, () => { if (old.alive && old.hideAt) hidSecs += SB.TICK; if (ate > 0 && old.chem.hunger <= 0.85) after = true; if (after && old.alive && old.hideAt && dHut() < 1.3) backIn = true; });
+  check("the grump never left", grumpNear && g.alive);
+  check("it was still being told to hide the whole time", hidSecs > 250, Math.round(hidSecs) + "s of 300");
+  check("starving, it came out and ate", ate >= 1 && firstMeal >= 0 && firstMeal < 90, ate + " meals, the first after " + Math.round(firstMeal) + "s");
+  check("it lived the five minutes (it used to die in under four)", old.alive === true && old.chem.health > 0.2, "health " + (old.chem.health || 0).toFixed(2) + ", hunger " + (old.chem.hunger || 0).toFixed(2));
+  check("fed again, it went back into the hut", backIn);
+  check("it never got past the point where hunger hurts for long", old.chem.hunger < 0.92, (old.chem.hunger || 0).toFixed(2));
 }
 
 });
