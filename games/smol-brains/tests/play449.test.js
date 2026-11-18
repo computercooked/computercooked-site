@@ -22,6 +22,9 @@
 //      from its own button; the lab says the island waits while the surgery window is open
 //   8. the grump with a grudge says what it is when it comes, and once more when it finds you in another body: it
 //      follows whichever smol you play, leaves for good once beaten, and gives up after a couple of days if left alone
+//   9. four small things from rows 121 to 160: seeds that will not grow in this bed now say why on the button; the
+//      parley line no longer says a grump stands where none is drawn; a wave never ends "9 of 7 chased off"; a standing
+//      order's reason is worked out when you look
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -385,6 +388,56 @@ seeded(4498, () => {
   // what is true of it: beaten, it is gone; left alone, it goes at the second dawn
   check("the rule behind the last words: an old beast that is not a guard leaves at dawn after two days", /d - p\.day >= \(bd\.big \? 3 : 2\)\) D\.beastDone\(game, p, null, "left"\)/.test(fs.readFileSync(path.join(__dirname, "..", "src", "dark.js"), "utf8")));
   P.leave(); P.say = say0;
+});
+
+console.log("9. four small things from rows 121 to 160");
+seeded(4499, () => {
+  const { SB, game, W, w, hm } = island(102), H = SB.Harvest, D = SB.Dark, P = SB.Possess, Surv = SB.Surv || SB.Survival;
+  const me = put(SB, game, hm.x + 3, hm.z + 3, {}); me.tier = 5;
+  P.enter(game, me, { free: true });
+  const hold = (k, n) => { const v = Surv.inv(me); for (let i = 0; i < v.s.length; i++) v.s[i] = null; Surv.add(me, k, n || 1); Surv.select(me, v.s.findIndex(x => x && x.k === k)); };
+  const lab = o => (o && o.label) || "";
+  // open ground near home for a bed
+  let spot = null; for (let r = 5; r < 40 && !spot; r += 2) for (let a = 0; a < 6.28 && !spot; a += 0.4) { const x = hm.x + Math.sin(a) * r, z = hm.z + Math.cos(a) * r; if (W.siteFree(w, x, z, 2.2) && W.depthAt(w, x, z) < 0.01) spot = { x, z }; }
+  me.x = spot.x - 1.5; me.z = spot.z; hold("hoe");
+  const bed = H.till(game, me, spot.x, spot.z).st, bref = { type: "struct", id: bed && bed.id };
+  check("set-up: a bed, in a biome that is not jungle", !!bed && SB.BIOMES[W.biomeAt(w, bed.x, bed.z)].id !== "jungle");
+  const use = () => P.options(game, me, bref).use;
+  w.season = 3; hold("s_grain", 2);
+  check("grain seeds at a bed in winter: the button says why, and cannot be pressed", !!use() && use().locked === true && /grain won't grow in winter/.test(lab(use())) && !bed.data.crop && Surv.count(me, "s_grain") === 2, lab(use()));
+  check("it is the answer sowing itself gives", H.sowWhy(game, bed, "s_grain") === H.sow(game, me, bed, "s_grain").msg);
+  hold("seed", 2);
+  check("wild seeds in winter still sow (a glowcap comes up)", lab(use()) === "sow wild seeds" && !use().locked);
+  w.season = 0; hold("s_cocoa", 2);
+  check("cocoa seeds outside the jungle: the button says why", use().locked === true && /only grows in jungle ground/.test(lab(use())), lab(use()));
+  hold("s_sunroot", 2);
+  check("sunroot in spring: the plain button, and it sows", lab(use()) === "sow sunroot" && !use().locked && use().go() !== false && bed.data.crop === "sunroot");
+  check("a sown bed gives no reason for more seeds", H.sowWhy(game, bed, "s_grain") === "");
+  // the parley line says what is there
+  const pl = D.LINE_BY.parley.steps;
+  check("the parley line no longer says a grump is standing there before one is", !/a grump is waiting/.test(pl[0][1]) && /white rag on a stick/.test(pl[0][1]) && /go and stand by it/.test(pl[0][1]) && /a grump steps out, alone, and speaks/.test(pl[1][1]), pl[0][1]);
+  // a wave's count
+  const dsrc = fs.readFileSync(path.join(__dirname, "..", "src", "dark.js"), "utf8");
+  check("a wave's last line and the tribe tab never count more chased off than came", /Math\.min\(w\.chased, w\.total\) \+ " of " \+ w\.total \+ " chased off"/.test(dsrc) && /Math\.min\(x\.wave\.chased, x\.wave\.total\) \+ " of " \+ x\.wave\.total \+ " chased off"/.test(dsrc) && !/" \+ w\.chased \+ " of " \+ w\.total/.test(dsrc));
+  // a standing order's reason, asked when you look
+  check("no chest: the order says so", (() => { const o = H.order(game, { id: "whetstone", mode: "keep", n: 2 }); return o.ok && H.orderWhy(game, o.order) === "orders need a chest at home"; })());
+  SB.Home.state(game).got.chest = 1; const chest = SB.Home.chest(game); for (let i = 0; i < chest.length; i++) chest[i] = null;
+  const e = H.orders(game)[0];
+  check("a chest and no bench: no workbench", H.orderWhy(game, e) === "no workbench");
+  Surv.add(me, "plank", 4); Surv.add(me, "stone", 2); const mk = H.make(game, me, "workbench"), bench = w.structures.filter(b => b.kind === "workbench").pop();
+  check("set-up: a workbench", !!mk.ok && !!bench);
+  me.x = bench.x + 1.5; me.z = bench.z;
+  check("an empty chest: short of materials", H.orderWhy(game, e) === "short of materials in the chest");
+  SB.Home.put(game, "stone", 20); SB.Home.put(game, "flint", 10);
+  check("materials in and a smol at the bench: no reason, at once (the stored reason is still the old one)", H.orderWhy(game, e) === "" && (e.why === undefined || e.why === "" || /short/.test(e.why || "")));
+  e.who = 424242;
+  check("locked to a smol that is not there: its smol is not near the bench", H.orderWhy(game, e) === "its smol is not near the bench");
+  e.who = me.id; me.x = bench.x + 30;
+  check("locked to me, and me thirty paces off: the same", H.orderWhy(game, e) === "its smol is not near the bench");
+  me.x = bench.x + 1.5;
+  check("back at the bench: no reason, and the order is worked", H.orderWhy(game, e) === "" && H.workOrders(game).ok === true);
+  check("the bench page asks for the reason when it is drawn", /H\.orderWhy\(game, e\) \? "<small class='no'>"/.test(fs.readFileSync(path.join(__dirname, "..", "src", "harvest.js"), "utf8")));
+  P.leave();
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

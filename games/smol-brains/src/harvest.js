@@ -556,6 +556,13 @@
     SB.World.eachNodeNear(game.world, b.x, b.z, 8, function (n) { if (n.kind === "hive" && n.state !== "gone") yes = true; });
     return yes || SB.World.structsNear(game.world, b.x, b.z, 8, function (o) { return o.kind === "beebox"; }).length > 0;
   }
+  // 4.49: why these seeds would not take in this bed right now ("" when they would): the same answers H.sow gives
+  H.sowWhy = function (game, b, seedKind) {
+    var d = b && b.data; if (!isBed(b) || !d || d.crop) return "";
+    var cr = seedKind === "seed" ? wildCrop(game, b) : CROP_SEED[seedKind], se = season(game);
+    if (!cr) return seedKind === "seed" ? "nothing wild will come up in " + SEASON[se] + ". glowcap and snowbulb beds grow in winter" : "";
+    return H.whyNotGrow ? H.whyNotGrow(game, b, cr) : cr.s.indexOf(se) < 0 ? cr.label + " won't grow in " + SEASON[se] + ": sow it in " + seasonsText(cr.s) : "";
+  };
   H.sow = function (game, c, b, seedKind) {
     var d = b && b.data;
     if (!isBed(b) || !d) return { ok: false, msg: "" };
@@ -987,7 +994,8 @@
       if (isBed(b)) {
         var cr = CROP[d.crop];
         if (!cr) {
-          if (hk === "seed" || CROP_SEED[hk]) o.use = op("sow " + (hk === "seed" ? "wild seeds" : CROP_SEED[hk].label), function () { return done(x, H.sow(game, c, b, hk), "build"); }, null);
+          // 4.49: seeds that will not grow here and now say so on the button. It read "sow grain" in winter, and pressing it did nothing you could see
+          if (hk === "seed" || CROP_SEED[hk]) { var sowWhy = H.sowWhy(game, b, hk); o.use = sowWhy ? no(sowWhy) : op("sow " + (hk === "seed" ? "wild seeds" : CROP_SEED[hk].label), function () { return done(x, H.sow(game, c, b, hk), "build"); }, null); }
           else if (hk === "compost" && !d.fert) o.use = op("dig in compost", function () { return done(x, H.feed(game, c, b), "build"); }, null);
           else o.use = no(H.bedText(game, b));
           if (hk === "hoe") o.place = op("rake the bed flat", function () { return done(x, H.remove(game, c, b), "build"); }, null);
@@ -1967,6 +1975,24 @@
   };
   function chestCount(ch, want, spare) { var n = 0; for (var i = 0; i < ch.length; i++) if (ch[i] && (GROUPS[want] ? GROUPS[want].is(ch[i].k) : ch[i].k === want)) n += ch[i].n - (spare ? 1 : 0); return Math.max(0, n); }
   function chestTake(ch, want, n, spare) { for (var i = 0; i < ch.length && n > 0; i++) { var sl = ch[i]; if (!sl || !(GROUPS[want] ? GROUPS[want].is(sl.k) : sl.k === want)) continue; var t = Math.min(n, sl.n - (spare ? 1 : 0)); if (t <= 0) continue; sl.n -= t; n -= t; if (sl.n <= 0) ch[i] = null; } return n; }
+  // 4.49: why an order is not being worked, asked when you look at it. The reason on the bench page was set only when
+  // the orders had their turn (every half minute), so it could say "short of materials" for a while after the chest was
+  // filled and the real reason was that its smol was away
+  H.orderWhy = function (game, e) {
+    var Hm = SB.Home, rc = null, k;
+    if (!e) return "";
+    if (!Hm || !Hm.has || !Hm.has(game, "chest")) return "orders need a chest at home";
+    var benches = game.world.structures.filter(function (b) { return b.kind === "workbench" && b.done; });
+    if (!benches.length) return "no workbench";
+    H.orderable(game).forEach(function (x) { if (x.id === e.id) rc = x; });
+    if (!rc) return "";
+    var ch = Hm.chest(game);
+    if (e.mode === "keep" && chestCount(ch, rc.out) >= e.n) return "";
+    for (k in rc.cost) if (chestCount(ch, k, e.spare) < rc.cost[k]) return "short of materials in the chest";
+    var cs = game.creatures || [];
+    for (var i = 0; i < cs.length; i++) { var o = cs[i]; if (!o || !o.alive || o.species !== "smol" || o.tier < 2 || o.asleep || (e.who && o.id !== e.who)) continue; for (var j = 0; j < benches.length; j++) if (SB.dist(o.x, o.z, benches[j].x, benches[j].z) <= 12) return ""; }
+    return e.who ? "its smol is not near the bench" : "no smol with hands is near the bench";
+  };
   // one turn of the orders: at most one thing made. returns what was made, or why not
   H.workOrders = function (game) {
     var L = H.orders(game), Hm = SB.Home, s = st(game);
@@ -2237,7 +2263,7 @@
     out += "<div class='lbl'>make another</div><div class='row'><button class='btn' data-hvtool='again' " + (s.last && CRAFT[s.last] && !H.whyNotMake(game, c, s.last) ? "" : "disabled") + ">🔁 " + (s.last && CRAFT[s.last] ? esc(label(CRAFT[s.last].out)) + ", while the makings last" : "make something first") + "</button></div>";
     out += "<div class='lbl'>standing orders " + L.length + "/" + H.MAX_ORDERS + (s.ordersMade ? " · made so far " + s.ordersMade : "") + "</div>";
     L.forEach(function (e, i) {
-      out += "<div class='rc'><div class='t'>" + esc(H.orderText(game, e)) + (e.why ? "<small class='no'>" + esc(e.why) + "</small>" : "") + "</div><button class='btn' data-hvord='" + i + ":mode'>mode</button><button class='btn' data-hvord='" + i + ":-'>−</button><button class='btn' data-hvord='" + i + ":+'>+</button><button class='btn' data-hvord='" + i + ":who'>who</button><button class='btn' data-hvord='" + i + ":spare'>spare</button><button class='btn' data-hvord='" + i + ":x'>✕</button></div>";
+      out += "<div class='rc'><div class='t'>" + esc(H.orderText(game, e)) + (H.orderWhy(game, e) ? "<small class='no'>" + esc(H.orderWhy(game, e)) + "</small>" : "") + "</div><button class='btn' data-hvord='" + i + ":mode'>mode</button><button class='btn' data-hvord='" + i + ":-'>−</button><button class='btn' data-hvord='" + i + ":+'>+</button><button class='btn' data-hvord='" + i + ":who'>who</button><button class='btn' data-hvord='" + i + ":spare'>spare</button><button class='btn' data-hvord='" + i + ":x'>✕</button></div>";
     });
     if (L.length < H.MAX_ORDERS) { out += "<div class='row' style='display:flex;gap:4px'><select data-hvordsel='1'>"; H.orderable(game).forEach(function (x) { out += "<option value='" + esc(x.id) + "'>" + esc(x.name) + "</option>"; }); out += "</select><button class='btn go' data-hvordadd='1'>add order</button></div>"; }
     out += "<p class='help'>orders are worked at a workbench by any smol with hands who is near it, out of the chest at home and back into it.</p>";
