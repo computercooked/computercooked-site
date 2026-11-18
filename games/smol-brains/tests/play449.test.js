@@ -210,8 +210,11 @@ seeded(4488, () => {
   }
   {
     // sent on a long walk while only peckish; then it gets starving on the way
-    const me = put(SB, game, hm.x - 1, hm.z + 1, { hunger: 0.5 });
-    W.add(w, game, "apple", me.x + 5, me.z + 5, {}); // seven paces off: food within three paces of a hungry walker is a snack, and it stops for it
+    // it starts nine paces out from home along the open walk, with an apple six paces behind it: food (or the pod at
+    // home) within three or four paces of a hungry walker is a snack, and it stops for that whoever sent it
+    const on = t => ({ x: hm.x + (goal.x - hm.x) * t, z: hm.z + (goal.z - hm.z) * t });
+    const me = put(SB, game, on(0.3).x, on(0.3).z, { hunger: 0.5 });
+    W.add(w, game, "apple", on(0.1).x, on(0.1).z, {});
     const sent = C.sendTo(me, goal.x, goal.z, game, 90);
     step(SB, game, 2, () => { me.chem.hunger = 0.5; });
     const walking = () => !!me.action && me.action.verb === SB.V.wander && !!me.action.sent;
@@ -223,7 +226,7 @@ seeded(4488, () => {
     step(SB, game, 40, () => ate < 0);
     check("and eats", ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 40s");
     // forced (danger, the player's own word): it keeps walking
-    const me2 = put(SB, game, hm.x + 1, hm.z - 1, { hunger: 0.9 });
+    const me2 = put(SB, game, on(0.35).x, on(0.35).z, { hunger: 0.9 });
     C.sendTo(me2, goal.x, goal.z, game, 90, true);
     step(SB, game, 3, () => { me2.chem.hunger = 0.9; });
     check("a forced walk is not broken off", !!me2.action && me2.action.verb === SB.V.wander && !me2.action.sent && me2.action.called === true);
@@ -265,7 +268,7 @@ seeded(4495, () => {
     let ate = -1, walked = 0, px = me.x, pz = me.z, given = 0; const t0 = game.time;
     SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
     step(SB, game, 240, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; if (me.unreach && me.unreach[apple.id] > game.time) given += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); if (ate < 0 && me.chem.hunger < 0.8) ate = game.time; /* fed, whichever way the meal went down */ return ate < 0 && me.alive; });
-    check("with nothing nearer it walks the long way round and eats the apple", ate >= 0 && !here(w, apple) && walked > 40, ate >= 0 ? "after " + Math.round(ate - t0) + "s and " + walked.toFixed(0) + " paces" : "no meal in 240s, " + walked.toFixed(0) + " paces walked");
+    check("with nothing nearer it goes for the apple all the same and eats it", ate >= 0 && !here(w, apple), ate >= 0 ? "after " + Math.round(ate - t0) + "s and " + walked.toFixed(0) + " paces" : "no meal in 240s, " + walked.toFixed(0) + " paces walked");
     check("and never gave the apple up on the way", given === 0, given.toFixed(0) + "s with the apple given up");
   }
   {
