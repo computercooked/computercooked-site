@@ -9,6 +9,8 @@
 //   6. a route is judged by progress along it: one that leads away from the goal first (round a band of steep ground) is
 //      walked to its end. It used to be dropped 8 seconds after the smol last got nearer the goal in a straight line
 //      (smol-brains-handover/4.48-island-102-the-one-that-still-starved.txt)
+//   7. the case the old rule was written for still holds: a route whose next step the smol cannot reach (a ledge the
+//      coarse map thinks is fine) is dropped after 8 seconds, and the smol is marked lost so it scrambles back
 // node games/smol-brains/tests/play448.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -187,6 +189,29 @@ seeded(4486, () => {
     check("a fed smol sent round the band arrives", best <= 1.8, "closest " + best.toFixed(1) + " paces");
   }
   check("the source: a route is dropped on its own progress, not the straight line", /c\.pathLegT ?> ?C\.ROUTE_STALL/.test(js("creature.js")) && !/c\.path ?&& ?c\.wBestT ?> ?8/.test(js("creature.js")));
+});
+
+console.log("7. a route it cannot follow is still dropped");
+seeded(4487, () => {
+  const { SB, game, W, w, hm } = island(102), C = SB.Creature;
+  const cx = hm.x - 3, cz = hm.z - 58; // the foot of the steep band north of home
+  // ground it cannot stand on a few paces off, and a goal beyond it
+  let bad = null;
+  for (let r = 2; r <= 6 && !bad; r += 0.5) for (let a = 0; a < 6.28 && !bad; a += 0.2) { const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r; if (SB.WorldGen.slopeAt(w.T, x, z) > 3.4 && !W.walkable(w, x, z, false) && !W.walkable(w, x + Math.sin(a) * 0.6, z + Math.cos(a) * 0.6, false)) bad = { x, z, a, r }; }
+  check("there is ground it cannot stand on a few paces off", !!bad, bad ? bad.r.toFixed(1) + " paces off" : "none");
+  if (!bad) return;
+  const far = { x: cx + Math.sin(bad.a) * (bad.r + 14), z: cz + Math.cos(bad.a) * (bad.r + 14) };
+  const me = put(SB, game, cx, cz, {});
+  C.sendTo(me, far.x, far.z, game, 90, true);
+  // hand it the route a wrong map would: one step onto that ground, then the goal
+  const route = [{ x: bad.x, z: bad.z }, { x: far.x, z: far.z }];
+  me.path = route; me.pathI = 0; me.pathLegI = -1; me.pathLegT = 0; me.pathTried = true; me.pathGoal = { x: me.action.tx, z: me.action.tz }; me.wBest = Math.hypot(far.x - me.x, far.z - me.z); me.wBestT = 0;
+  let held = 0, dropped = -1, wasLost = false, nearest = 1e9; const t0 = game.time;
+  step(SB, game, 40, () => { me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; if (me.path === route && (me.pathI || 0) === 0) held += SB.TICK; else if (dropped < 0) { dropped = game.time - t0; wasLost = !!me.lost || wasLost; } if (me.lost) wasLost = true; nearest = Math.min(nearest, Math.hypot(me.x - bad.x, me.z - bad.z)); return dropped < 0; });
+  check("it could not reach the step", nearest > 0.7, "nearest " + nearest.toFixed(1) + " paces");
+  check("the route is dropped: 8 seconds after its last progress, not at once and not never", dropped >= 7.5 && dropped <= 25, dropped >= 0 ? "after " + dropped.toFixed(1) + "s" : "still on it after 40s");
+  check("it is marked lost, so it scrambles back to proper ground", wasLost);
+  check("it never held that one step for a minute", held < 60, held.toFixed(0) + "s on the step");
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
