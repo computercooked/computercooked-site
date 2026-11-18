@@ -468,6 +468,7 @@
   function postsTick(game) {
     var s = st(game), P = SB.Possess, mine = me();
     s.posts.slice().forEach(function (p) {
+      if (p.off > game.time) return; // 4.46: the ark flare cleared this post. nobody takes it up again until the day is out
       var def = postDef(p), g = postGrump(game, p) || spawnPost(game, p), duel = dueling(g);
       if (!g.scout || g.scout.done) g.scout = holdScout(def, p);
       if (D.beastTick && D.beastTick(game, p, g, duel, mine)) return;
@@ -3107,6 +3108,14 @@
     on("fish", G0(function (g, d) { bump(g, "fish"); if (d.c && D.skyIs(g, "grumpmoon") && lucky(g, 0.35)) { var at = spotAt(g, d.c.x, d.c.z, 3, 5, Math.random, null); if (at) { D.spawnBeast(g, "watergrump", at, { quiet: true }); psay("🌊 that is not a fish! a water grump is on your line"); } } }));
     on("sneak", function (d) { sneaking = !!(d && d.on); });
     ["chop", "fightHit", "shot", "hit"].forEach(function (n) { on(n, G0(function (g, d, x) { if (!d.c || !d.c._pov) return; x.noise = Math.max(x.noise || 0, g.time + 4); if (n !== "chop") x.swingT = g.time + 1.5; })); });
+    // 4.46: the ark flare. every posted grump (guards, stalkers, named ones, beasts) was put back the tick after it
+    // was cleared, so on an island where the grumps out are posted ones the flare did nothing. now the posts that
+    // stand when it is fired stay empty until this time tomorrow. a post made after that is not held back
+    on("arkFlare", G0(function (g) {
+      var s = st(g), until = g.time + SB.DAY_LENGTH, n = 0;
+      s.posts.forEach(function (p) { p.off = until; n++; });
+      if (n) tell(g, "🎇 the grumps' guards and hunters keep off their posts until this time tomorrow.");
+    }));
     on("chestOpened", G0(function (g, d, x) {
       var c = d.c || me(); if (!c || topTier(g) < 2) return;
       var keyed = g.world.night && Sv().has(c, "duskkey");

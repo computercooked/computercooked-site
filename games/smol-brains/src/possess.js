@@ -392,7 +392,7 @@
         break;
       }
     }
-    if (SB.World.depthAt(w, ex, ez) > 0.12) return { type: "water", x: ex, z: ez };
+    if (fy < 0.35 && SB.World.depthAt(w, ex, ez) > 0.12) return { type: "water", x: ex, z: ez }; // 4.46: not when you look well up: the sky read "water: drink" from the shallows
     return null;
   };
   // where the view ray meets the ground (for planting, putting things down and placing buildings)
@@ -414,7 +414,7 @@
 
   function label(r) {
     if (!r) return "";
-    if (r.type === "creature") return r.ref.species === "smol" || r.ref.boss ? r.ref.name : r.ref.species;
+    if (r.type === "creature") return r.ref.species === "smol" || r.ref.boss || (r.ref.species === "grump" && r.ref.name && r.ref.name !== "grump") ? r.ref.name : r.ref.species; // 4.46: a beast by its name ("a memory echo"), not "grump"
     if (r.type === "water") return "water";
     if (r.type === "item" && r.ref && r.ref.data && r.ref.data.pod) return "the pod";
     var d = r.type === "item" ? K[r.kind] : r.type === "node" ? NK[r.kind] : SK[r.kind];
