@@ -711,6 +711,34 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.96 What v4.47.0 changed: starving beats hiding, a kick course you can ask for, and words where there were none
+
+**Why.** The proof pass tried the skills and social rows by hand on a day-59 island (`smol-brains-handover/PROOF-PASS.md`). One row did not work in play, and five places left the player with no word or the wrong one.
+
+**"Ask for a kick course" could never show.** With a ball in the paw, looking at a grown smol was meant to offer "ask X for a kick course" on the third button. In the full game that button is always "ask X…" on a smol (friends.js), and the course was only offered when the button was empty. It is the same shape as the sandbox's "copy this" in 4.44.
+- Now the bag's friends tab asks. Under "ask X", when the body carries a ball and X is grown (tier 2 or more), there is a button "⛳ put up a kick course". It is greyed when X is more than 7 paces off.
+- X puts up three flags around you and is the keeper, as before (`M.askCourse` in motion3.js, which calls the old `M.keeper`).
+- One asked course per island day ("one new course a day is plenty"), so flags can't be scattered without end. The course a tribe sets up by itself is untouched.
+
+**Words.**
+- **Two numbers were both called "body level".** The lantern tab's body page showed the sum of every skill level under that name, while the grow tab's body level is a third of it. The body page now reads "skill levels in all N · every three make a body level (grow tab)".
+- **A mastery pick arrived with no word.** Practice past level 10 fills the mastery bar, and every 40 earns a reward to pick. Only opening the grow tab and scrolling showed it. Now the body is told "🌟 mastery! a reward to pick, at the foot of your bag's grow tab", and the bus carries "masteryReady".
+- **"The carvings show a trick of…" at a lookout.** The study line was the same at every place. A story pole keeps "the carvings show", a town book reads "the book shows", and any other place (a lookout, a ruin) reads "this place shows you".
+- **The pod's flare landed with no word.** The first crashed pod anyone opens has the island's one ark flare in it, and it is put on the ground beside the pod. Opened from the sky, nothing said so. Now the island's log reads "🎇 an ark flare lay in the pod. it is on the ground by the wreck: the island's only one, so have a smol pick it up".
+- **"The island already has its hands full" when it is a card that is waiting.** While you live as a smol, a storyteller card waits in the sky for you, and no wave can start until it is answered. A wave place (and the war horn) now says "not now: a storyteller card is waiting for you. go back to the sky and answer it". While an event is running the old line stays.
+
+**Starving beats hiding.** On island 102 ten smols starved in eight days, six of them in winter, and cc-lead asked what its winter lacks (`smol-brains-handover/4.46-winter-islands-102-101-traced.txt`, made with `tools/island-winter-diag.js`).
+- It was not food: winter had the most free food near home per smol of any season.
+- Seven of the ten were elders hiding in a hut. While a grump stands within 16 paces of home, kids and elders near it are told to hide, again every tick (threats.js), and a hiding smol sat idle in the hut whatever its hunger. They stood 108 to 532 seconds with food 2 to 5 paces away and died.
+- 4.37 let a starving smol out of *sheltering* from a storm. Hiding from a grump never got the same let-out.
+- Now a hiding smol whose hunger is over the starving line (0.85) is not held: its nose takes over, as for any starving smol. Once fed it goes back into the hut if the grump is still close (creature.js, one line).
+- The other three that starved on island 102 died wading for food at one spot far from home. That is not touched here; it is being traced.
+- Births are not touched either. The same runs show them falling to a quarter after summer (few pairs that could court, and love held down by hunger, grief and winter); that is a design question, not a bug.
+
+**Not changed.** A stink pot still does not move a posted grump (its line was put right in 4.46). Breaking a boulder on a steep face can still drop a rockslide on you; it does say so ("the face above lets go: a rockslide!"), so the proof pass's note about a silent 4% was wrong.
+
+**Tests.** `tests/play447.test.js`: with a ball in the paw the third button on a smol is still "ask…", and the friends tab has the course button only with a ball and only for a grown smol; pressing it puts three flags on dry ground, names the keeper and says so; once a day; greyed from far off. The body page's new line, with the grow tab keeping "body level". A mastery pick is announced once per step, in a body and out of one. The three study lines. The pod's flare line, for the first pod only. A waiting card against a running event at a wave place and at the war horn. Island 102's case: an elder in a hut, a grump pinned 12 paces from home, berries 2 to 5 paces from the hut: fed, it hides; starving, it comes out, eats within 90 seconds, lives five minutes and goes back in.
+
 ## 0.95 What v4.46.0 changed: waves you can fight, and a flare that holds
 
 **Why.** The proof pass tried the combat and bosses-threats rows by hand on a day-23 island (`smol-brains-handover/PROOF-PASS.md`). Two rows did not work in play, and one of them turned out to block the last act.

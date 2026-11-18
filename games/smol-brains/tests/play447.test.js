@@ -186,7 +186,7 @@ console.log("7. a starving elder leaves the hut to eat (island 102's winter)");
   check("the grump never left", grumpNear && g.alive);
   check("it was still being told to hide the whole time", hidSecs > 250, Math.round(hidSecs) + "s of 300");
   check("starving, it came out and ate", ate >= 1 && firstMeal >= 0 && firstMeal < 90, ate + " meals, the first after " + Math.round(firstMeal) + "s");
-  check("it lived the five minutes (it used to die in under four)", old.alive === true && old.chem.health > 0.2, "health " + (old.chem.health || 0).toFixed(2) + ", hunger " + (old.chem.hunger || 0).toFixed(2));
+  check("it is alive and well after five minutes", old.alive === true && old.chem.health > 0.2, "health " + (old.chem.health || 0).toFixed(2) + ", hunger " + (old.chem.hunger || 0).toFixed(2));
   check("fed again, it went back into the hut", backIn);
   check("it never got past the point where hunger hurts for long", old.chem.hunger < 0.92, (old.chem.hunger || 0).toFixed(2));
 }

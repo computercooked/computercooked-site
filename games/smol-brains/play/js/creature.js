@@ -347,6 +347,7 @@ startAction(c,game,V.idle,null,null,null);c.action.dur=3;if(!c.far&&rng.chance(0
 }
 if(c.hideAt&&c.species==="smol"){
 if(game.time>c.hideAt.t)c.hideAt=null;
+else if(ch.hunger>C.STARVING){}
 else if(SB.dist(c.x,c.z,c.hideAt.x,c.hideAt.z)>0.9){C.sendTo(c,c.hideAt.x,c.hideAt.z,game,10,true);return;}
 else{startAction(c,game,V.idle,null,null,null);c.action.dur=2;return;}
 }
