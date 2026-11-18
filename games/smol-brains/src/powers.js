@@ -1239,7 +1239,7 @@
   }
   function youHtml(game, c, icon) {
     var p = me(c), B = SB.Body, out = "", bl = PW.blessingOf(c), offer = PW.offered(game, c), ill = PW.illOf(c);
-    out += lbl("body level <b>" + PW.bodyLevel(c) + "</b> · every skill level counts") + "<div class='rlist'>";
+    out += lbl("skill levels in all <b>" + PW.bodyLevel(c) + "</b> · every three make a body level (grow tab)") + "<div class='rlist'>";
     out += rc(bl ? bl.icon : "🗿", bl ? "blessed by " + esc(bl.name) : "no blessing yet", bl ? esc(bl.desc) : "three blessing stones stand on the island. touch one to pick a blessing");
     offer.forEach(function (b) { out += rc(b.icon, esc(b.name), esc(b.desc), p.bless === b.id ? "<span class='ok'>✓</span>" : btn("pwbless", b.id, p.bless ? "swap" : "take", false, true)); });
     out += "</div>" + lbl("health") + "<div class='rlist'>";

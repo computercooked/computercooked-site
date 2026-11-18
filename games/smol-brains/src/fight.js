@@ -1712,7 +1712,12 @@
       if (game) (b.lu || (b.lu = {}))[id] = day(game);
       b.last = id;
       var s = b.sk[id];
-      if (s && s.l >= Bd.MAX) { b.mx = (b.mx || 0) + n; return 0; } // past the top, practice fills the mastery bar
+      if (s && s.l >= Bd.MAX) { // past the top, practice fills the mastery bar
+        var ml0 = F.masterLeft(c);
+        b.mx = (b.mx || 0) + n;
+        if (F.masterLeft(c) > ml0) { var me0 = PS(c); if (me0) me0.madeSay = "🌟 mastery! a reward to pick, at the foot of your bag's grow tab"; emit("masteryReady", { c: c, left: F.masterLeft(c) }); } // 4.47: it used to arrive with no word
+        return 0;
+      }
       if (c._pov) { var bk = b.bank || (b.bank = {}); bk[id] = Math.min(Bd.need(s ? s.l : 0), (bk[id] || 0) + n * F.BANK); } // and a little of it waits for tonight's sleep
       if (F.passion(c, id) === 2 && c.chem) c.chem.bored = Math.max(0, (c.chem.bored || 0) - 0.02); // it loves doing this
       return xp0.call(Bd, c, id, n);
@@ -1831,11 +1836,12 @@
     var all = F.ALL(), h = game.seed >>> 0, i, sk = null;
     for (i = 0; i < key.length; i++) h = (Math.imul(h, 31) + key.charCodeAt(i)) >>> 0;
     for (i = 0; i < all.length && !sk; i++) { var cand = all[(h + i) % all.length]; if (lv(c, cand.id) < Bd.MAX && F.xpMul(c, cand.id) > 0) sk = cand; }
-    if (!sk) return { ok: true, msg: "old carvings. nothing in them you don't know" };
+    var what = key.charAt(0) === "t" ? "the carvings show" : key.charAt(0) === "r" ? "the book shows" : "this place shows you"; // 4.47: a lookout has no carvings
+    if (!sk) return { ok: true, msg: key.charAt(0) === "t" ? "old carvings. nothing in them you don't know" : "nothing here you don't know" };
     var l0 = lv(c, sk.id), n = Math.ceil(Bd.need(l0) * (1 + bonus(c, "logic")));
     inXp = true; try { xp0.call(Bd, c, sk.id, n); } finally { inXp = false; } // a whole level's worth, whatever its passions
     Bd.xp(c, "logic", 2);
-    var msg = "📖 the carvings show a trick of " + sk.label + ". you'll remember it";
+    var msg = "📖 " + what + " a trick of " + sk.label + ". you'll remember it";
     say(msg);
     emit("studied", { c: c, key: key, skill: sk.id, n: n });
     return { ok: true, skill: sk.id, msg: msg };
@@ -2084,6 +2090,7 @@
       if (!s || s.flare || !d || !d.site || !K.arkflare) return;
       s.flare = day(game);
       Sv().spawn(game, "arkflare", 1, d.site.x + 0.6, d.site.z + 0.4, {});
+      if (SB.Game.note) SB.Game.note(game, "🎇 an ark flare lay in the pod. it is on the ground by the wreck: the island's only one, so have a smol pick it up"); // 4.47: it used to land with no word
       emit("flareFound", { c: d.c || null, site: d.site });
     });
     on("poiUsed", function (d) { var game = pov(d); if (game && d.st && d.st.id != null) F.study(game, d.c, "p" + d.st.id); });
