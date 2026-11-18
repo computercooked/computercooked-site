@@ -477,7 +477,7 @@ seeded(4500, () => {
 
 console.log("11. sparks that fit, a slate that says so, a bounty that says how");
 seeded(4501, () => {
-  const { SB, game, hm } = island(102), M = SB.Motion3, D = SB.Dark, P = SB.Possess, G = SB.Game;
+  const { SB, game, hm } = island(102, ["embers"]), M = SB.Motion3, D = SB.Dark, P = SB.Possess, G = SB.Game;
   // sparks
   check("the Lantern holds 9,999", G.SPARK_CAP === 9999);
   const notes = []; const note0 = G.note; G.note = (g, t) => { notes.push(String(t)); return note0.apply(G, [g, t]); };
@@ -500,6 +500,19 @@ seeded(4501, () => {
   check("the bag's moves tab ends with the slate, a button for each game on it", /<div class='lbl'>the slate<\/div>/.test(html) && M.slateFor(game, me).every(x => html.indexOf("data-m3play='" + x[0] + "'") >= 0) && M.slateFor(game, me).length >= 2, M.slateFor(game, me).map(x => x[1]).join(", "));
   for (let i = 0; i < 6; i++) M._tick(game, 0.5);
   check("with nothing new on it, it says nothing", said.filter(t => /slate/.test(t)).length === 0);
+  if (SB.Embers && SB.Embers.add && SB.Embers.count) {
+    const dreamLines = () => said.filter(t => /an ember holds a dream/.test(t)).length;
+    SB.Embers.add(game, "t449-a", "a test ember", me);
+    for (let i = 0; i < 6; i++) M._tick(game, 0.5);
+    check("an ember with a dream in it: the body is told once, and where the slate is", dreamLines() === 1 && M.slateFor(game, me).some(x => x[0] === "dream"), said.join(" | "));
+    game.time += SB.DAY_LENGTH * 3; for (let i = 0; i < 12; i++) M._tick(game, 0.5);
+    check("three island days on, the dream still waiting: not told again", dreamLines() === 1);
+    SB.Embers.add(game, "t449-b", "another test ember", me);
+    for (let i = 0; i < 6; i++) M._tick(game, 0.5);
+    check("a new ember comes: told once more", dreamLines() === 2);
+    for (let i = 0; i < 12; i++) M._tick(game, 0.5);
+    check("and then quiet again", dreamLines() === 2);
+  } else check("(the embers are loaded for the dream line's check)", false);
   const pod = { id: game.sites.length, kind: "pod", x: me.x + 3, z: me.z, rot: 0, found: true, done: true, n: 1 }; game.sites.push(pod);
   for (let i = 0; i < 6; i++) M._tick(game, 0.5);
   const about = said.filter(t => /inside of this wreck on the slate/.test(t));
