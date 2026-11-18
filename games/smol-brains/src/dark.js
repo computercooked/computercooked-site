@@ -670,7 +670,7 @@
     emit("darkScoutsEnd", { raid: true, escaped: left.length });
   }
   D._startScouts = startScouts; D._endScouts = endScouts; D._post = post; // for tests
-  D._h = { st: st, day: day, home: home, tribe: tribe, topTier: topTier, label: label, dice: dice, spotAt: spotAt, drop: drop, give: give, tell: tell, emit: emit, sparks: sparks, me: me, dueling: dueling, addPost: addPost, dropPost: dropPost, postGrump: postGrump, need: need, newcomer: newcomer, putStruct: putStruct, findStruct: findStruct, esc: esc, dirOf: dirOf, looseFood: looseFood, fires: fires, Sv: Sv, payOut: payOut, post: post, has: has, bountyDone: bountyDone, cur: cur, foodSlot: foodSlot, page: page, r1: r1, r2: r2 }; // round 2 (below) builds on these
+  D._h = { busyWhy: busyWhy, st: st, day: day, home: home, tribe: tribe, topTier: topTier, label: label, dice: dice, spotAt: spotAt, drop: drop, give: give, tell: tell, emit: emit, sparks: sparks, me: me, dueling: dueling, addPost: addPost, dropPost: dropPost, postGrump: postGrump, need: need, newcomer: newcomer, putStruct: putStruct, findStruct: findStruct, esc: esc, dirOf: dirOf, looseFood: looseFood, fires: fires, Sv: Sv, payOut: payOut, post: post, has: has, bountyDone: bountyDone, cur: cur, foodSlot: foodSlot, page: page, r1: r1, r2: r2 }; // round 2 (below) builds on these
   var wrapped = false;
   D.wrap = function () {
     var DR = SB.Director;
@@ -1687,7 +1687,7 @@
     var d = D.WAVE_BY[id], DR = SB.Director;
     if (!d) return "no such thing";
     if (X2(game).wave) return "one at a time";
-    if (DR && DR.state && DR.state(game).active) return busyWhy(game);
+    if (DR && DR.state && DR.state(game).active) return h.busyWhy(game);
     if ((d.tier || 0) > topTier(game)) return "the island isn't ready for it";
     if (d.season != null && game.world.season !== d.season) return "only in winter";
     if (d.night && d.call && !free && !game.world.night) return "only at night";

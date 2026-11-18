@@ -129,7 +129,7 @@ console.log("4. the study line fits the place");
 console.log("5. the pod's flare says where it lies");
 {
   const { SB, game, folk } = fresh(4475), c = folk[0];
-  delete game.quests.fight.flare;
+  delete SB.Fight.state(game).flare;
   const n0 = game.world.items.filter(o => o.kind === "arkflare").length, l0 = game.log.length;
   SB.bus.emit("podOpened", { site: { x: c.x + 3, z: c.z } });
   const lines = game.log.slice(Math.max(0, l0 - 2)).map(e => e.text).join("|");
