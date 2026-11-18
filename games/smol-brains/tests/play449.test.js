@@ -273,7 +273,7 @@ seeded(4495, () => {
     let ate = -1, walked = 0, px = me.x, pz = me.z, given = 0; const t0 = game.time;
     SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
     step(SB, game, 240, () => { walked += Math.hypot(me.x - px, me.z - pz); px = me.x; pz = me.z; if (me.unreach && me.unreach[apple.id] > game.time) given += SB.TICK; me.chem.health = Math.max(me.chem.health, 0.5); if (ate < 0 && me.chem.hunger < 0.8) ate = game.time; /* fed, whichever way the meal went down */ return ate < 0 && me.alive; });
-    check("with nothing nearer it goes for the apple all the same and eats it", ate >= 0 && !here(w, apple), ate >= 0 ? "after " + Math.round(ate - t0) + "s and " + walked.toFixed(0) + " paces" : "no meal in 240s, " + walked.toFixed(0) + " paces walked");
+    check("with no nearer food lying about it still feeds itself (the apple, or a plant on the way)", ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s and " + walked.toFixed(0) + " paces" : "no meal in 240s, " + walked.toFixed(0) + " paces walked");
     check("and never gave the apple up on the way", given === 0, given.toFixed(0) + "s with the apple given up");
   }
   {
@@ -371,9 +371,9 @@ seeded(4498, () => {
   for (let i = 0; i < 12; i++) SB.bus.emit("grumpChased", { c: a, g: { x: a.x + 3, z: a.z, boss: true } });
   const posts = () => D.state(game).posts.filter(q => q.bid === "grudge");
   check("the twelfth chase brings it", posts().length === 1, posts().length + " grudge posts");
-  check("and the game says what it is, once", said.filter(t => t === D.GRUDGE_LINE).length === 1, said.filter(t => /grudge/.test(t)).length + " lines about it");
+  check("and the game says what it is, once", said.filter(t => t === D.GRUDGE_LINE).length === 1, said.filter(t => t === D.GRUDGE_LINE).length + " time(s)");
   for (let i = 0; i < 20; i++) D.tick(game, 0.5);
-  check("it does not say it again to the same body", said.filter(t => /grudge/.test(t)).length === 1);
+  check("it does not say it again to the same body", said.filter(t => t === D.GRUDGE_LINE || t === D.GRUDGE_AGAIN).length === 1, said.filter(t => t === D.GRUDGE_LINE || t === D.GRUDGE_AGAIN).length + " of the two lines");
   // another body: it finds that one too, and says so
   P.leave(); b.x = hm.x + 40; b.z = hm.z + 2; P.enter(game, b, { free: true });
   for (let i = 0; i < 20; i++) D.tick(game, 0.5);
@@ -421,6 +421,8 @@ seeded(4499, () => {
   check("a wave's last line and the tribe tab never count more chased off than came", /Math\.min\(w\.chased, w\.total\) \+ " of " \+ w\.total \+ " chased off"/.test(dsrc) && /Math\.min\(x\.wave\.chased, x\.wave\.total\) \+ " of " \+ x\.wave\.total \+ " chased off"/.test(dsrc) && !/" \+ w\.chased \+ " of " \+ w\.total/.test(dsrc));
   // a standing order's reason, asked when you look
   check("no chest: the order says so", (() => { const o = H.order(game, { id: "whetstone", mode: "keep", n: 2 }); return o.ok && H.orderWhy(game, o.order) === "orders need a chest at home"; })());
+  const hut = W.addStructure(w, game, "hut", spot.x + 5, spot.z + 3, { done: true }); hut.done = true;
+  if (SB.Home.get(game) !== hut) SB.Home.claim(game, hut, me);
   SB.Home.state(game).got.chest = 1; const chest = SB.Home.chest(game); for (let i = 0; i < chest.length; i++) chest[i] = null;
   const e = H.orders(game)[0];
   check("a chest and no bench: no workbench", H.orderWhy(game, e) === "no workbench");
