@@ -116,6 +116,12 @@ contract, tax form and upload below is Ashton's decision and Ashton's to do.
 - **Zip on Linux:** uses `zip` (GNU tar's `-a` would write a plain tar named .zip). Windows still uses its own tar.exe.
 - **CI:** the smoke test builds keyboard escape for crazygames and itch and checks each zip and folder. It also runs `portal.js` in a vm with a stand-in share and clipboard.
 
+### Checking a build (Nov 18)
+- `node scripts/portal-check.mjs dist/portals/<portal>/<slug>` (Playwright; PLAYWRIGHT= / CHROME= as for portal-assets).
+  - It lists every line of game code that holds the site address. Each one must be guarded on that portal (smol brains: `SB.UI.adPortal()`, true on ad portals and on `--no-links` builds).
+  - It loads the build headless at desktop and 390x844. It fails on a page error, the site address or a "copy world link" button on screen, or a request to any host other than the portal's SDK.
+- Run it on the CrazyGames build and the itch `--no-links` build after every rebuild. smol brains is rebuilt from each release, and the no-links copy is kept in `dist/portals/itch-no-links/`.
+
 ## Asset kits, ready ahead (round 25, 2026-11-17)
 
 - **Made for the 5 candidates** (smol brains, keyboard escape, bellchain, pixel purge, overdue notice) in
