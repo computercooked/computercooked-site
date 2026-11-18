@@ -1446,6 +1446,9 @@
   // of why, or of what would make it go
   D.GRUDGE_LINE = "😠 a grump with a grudge has come looking for you. it follows whichever smol you play. beat it and it leaves for good (left alone, it gives up after a couple of days)";
   D.GRUDGE_AGAIN = "😠 the grump with a grudge has found you in this body too. beat it and it leaves for good";
+  // 4.49: what has to be done before a beast can be marked, for its bounty's line (the fight says it too, but the
+  // notice only said "drive off the grump hexer", and 137 hits on it did nothing while its pack stood)
+  D.beastFirst = function (d) { return !d ? "" : d.minions ? " (see its pack off first)" : d.heart ? " (break its heart tree first)" : d.needsLight ? " (bring a light: you can't hit what you can't see)" : d.armour ? " (it takes a real weapon)" : ""; };
   D.spawnBeast = function (game, id, at, o) {
     var d = D.BEAST_BY[id], x = X2(game); o = o || {};
     if (!d || !at) return null;
@@ -1454,7 +1457,7 @@
     var p = h.addPost(game, { key: "beast-" + id + "-" + (x.pid++), kind: "beast", bid: id, name: o.name || d.name, x: at.x, z: at.z, k: r2(k), ring: ring, stolen: [], calls: 0, wave: o.wave || null, guard: o.guard || null, quiet: !!o.quiet, inv: d.unbeatable ? 1 : 0 });
     var g = h.postGrump(game, p); if (g && d.nofear) g.nofear = true;
     (x.seen[id] || (x.seen[id] = { n: 0, beat: 0 })).n++;
-    if (d.pay && !d.child && !o.quiet && st(game).board.list.filter(function (e) { return !e.done; }).length < 6) h.post(game, { kind: "beast", ref: p.key, icon: d.icon, t: "drive off " + d.name, pay: d.pay, x: at.x, z: at.z });
+    if (d.pay && !d.child && !o.quiet && st(game).board.list.filter(function (e) { return !e.done; }).length < 6) h.post(game, { kind: "beast", ref: p.key, icon: d.icon, t: "drive off " + d.name + D.beastFirst(d), pay: d.pay, x: at.x, z: at.z });
     if (d.heart) { var hp = spotAt(game, at.x, at.z, 7, 10, Math.random, null); if (hp) p.heartPl = placeAdd(game, "heart", hp, { post: p.key }).id; else p.heartDone = 1; }
     if (d.smash && SB.Threats && SB.Threats.wreck) { var sm = game.world.structures.filter(function (b) { return b.done && (b.kind === "farm" || b.kind === "wall") && SB.dist(b.x, b.z, at.x, at.z) < 40; })[0]; if (sm) { SB.Threats.wreck(game, sm, "smashed"); bump(game, "smashed"); } }
     emit("darkBeast", { def: d, post: p });

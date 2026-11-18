@@ -1334,6 +1334,7 @@ D.cap=function(game){var x=X2(game);return Math.max(0,D.CAP+(D.skyIs(game,"grump
 D.danger=function(game,x,z){var hm=home(game);return Math.min(4,Math.floor(SB.dist(x,z,hm.x,hm.z)/25));};
 D.GRUDGE_LINE="😠 a grump with a grudge has come looking for you. it follows whichever smol you play. beat it and it leaves for good (left alone, it gives up after a couple of days)";
 D.GRUDGE_AGAIN="😠 the grump with a grudge has found you in this body too. beat it and it leaves for good";
+D.beastFirst=function(d){return!d?"":d.minions?" (see its pack off first)":d.heart?" (break its heart tree first)":d.needsLight?" (bring a light: you can't hit what you can't see)":d.armour?" (it takes a real weapon)":"";};
 D.spawnBeast=function(game,id,at,o){
 var d=D.BEAST_BY[id],x=X2(game);o=o||{};
 if(!d||!at)return null;
@@ -1342,7 +1343,7 @@ if(d.echo&&SB.Bosses&&SB.Bosses.BY[d.echo])k=1+0.3*Math.min(3,game.ngPlus||0);
 var p=h.addPost(game,{key:"beast-"+id+"-"+(x.pid++),kind:"beast",bid:id,name:o.name||d.name,x:at.x,z:at.z,k:r2(k),ring:ring,stolen:[],calls:0,wave:o.wave||null,guard:o.guard||null,quiet:!!o.quiet,inv:d.unbeatable?1:0});
 var g=h.postGrump(game,p);if(g&&d.nofear)g.nofear=true;
 (x.seen[id]||(x.seen[id]={n:0,beat:0})).n++;
-if(d.pay&&!d.child&&!o.quiet&&st(game).board.list.filter(function(e){return!e.done;}).length<6)h.post(game,{kind:"beast",ref:p.key,icon:d.icon,t:"drive off "+d.name,pay:d.pay,x:at.x,z:at.z});
+if(d.pay&&!d.child&&!o.quiet&&st(game).board.list.filter(function(e){return!e.done;}).length<6)h.post(game,{kind:"beast",ref:p.key,icon:d.icon,t:"drive off "+d.name+D.beastFirst(d),pay:d.pay,x:at.x,z:at.z});
 if(d.heart){var hp=spotAt(game,at.x,at.z,7,10,Math.random,null);if(hp)p.heartPl=placeAdd(game,"heart",hp,{post:p.key}).id;else p.heartDone=1;}
 if(d.smash&&SB.Threats&&SB.Threats.wreck){var sm=game.world.structures.filter(function(b){return b.done&&(b.kind==="farm"||b.kind==="wall")&&SB.dist(b.x,b.z,at.x,at.z)<40;})[0];if(sm){SB.Threats.wreck(game,sm,"smashed");bump(game,"smashed");}}
 emit("darkBeast",{def:d,post:p});

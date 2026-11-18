@@ -109,9 +109,15 @@ Game.cultureKnows=function(game,id){
 if(game.culture&&game.culture.alive&&game.culture.alive[id]>0)return true;
 return game.creatures.some(function(c){return c.alive&&c.ideas&&c.ideas[id]>=1;});
 };
+Game.SPARK_CAP=9999;
 Game.addSparks=function(game,n,where){
 if(n>0)n=Math.round(n*SB.wopt(game,"sparks")*10)/10;
-game.sparks=Math.min(999,(game.sparks||0)+n);
+var was=game.sparks||0,cap=Game.SPARK_CAP;
+game.sparks=Math.min(cap,was+n);
+if(n>0&&was+n>cap&&!game.offline){
+var fd=Math.floor((game.time||0)/(SB.DAY_LENGTH||1200));
+if(game.sparkFullDay!==fd){game.sparkFullDay=fd;Game.note(game,"✨ sparks full: the Lantern holds "+cap+". spend some, or what you earn next is lost");SB.bus.emit("sparksFull",{lost:Math.round((was+n-cap)*10)/10});}
+}
 game.stats.sparksEarned=(game.stats.sparksEarned||0)+n;
 if(n>0&&!game.offline)SB.bus.emit("sparks",{n:n,at:where});
 };

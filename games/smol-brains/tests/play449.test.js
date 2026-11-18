@@ -27,6 +27,8 @@
 //      order's reason is worked out when you look
 //   10. the level "inside the wreck" can be reached: an opened crashed pod counts as the wreck (the slate asked for a
 //      site of kind "wreck", and those are hidden on every island, so it was never offered)
+//   11. the Lantern holds 9,999 sparks and says "sparks full" when a reward will not fit; the slate tells the body
+//      when it has a wreck to walk, and where it is in the bag; a bounty on a beast behind a pack says so
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -462,6 +464,46 @@ seeded(4500, () => {
   pod.gone = false; pod.done = false;
   const wr = game.sites.filter(t => t.kind === "wreck")[0]; wr.found = true; me.x = wr.x + 3; me.z = wr.z;
   check("a found wreck (an old save has them) still counts", has());
+});
+
+console.log("11. sparks that fit, a slate that says so, a bounty that says how");
+seeded(4501, () => {
+  const { SB, game, hm } = island(102), M = SB.Motion3, D = SB.Dark, P = SB.Possess, G = SB.Game;
+  // sparks
+  check("the Lantern holds 9,999", G.SPARK_CAP === 9999);
+  const notes = []; const note0 = G.note; G.note = (g, t) => { notes.push(String(t)); return note0.apply(G, [g, t]); };
+  game.sparks = 990; G.addSparks(game, 40);
+  check("a reward past 999 lands (it used to stop there, and the rest was lost)", game.sparks > 1000 && notes.filter(t => /sparks full/.test(t)).length === 0, String(game.sparks));
+  game.sparks = 9990; G.addSparks(game, 40);
+  check("at 9,999 it stops, and says \"sparks full\"", game.sparks === 9999 && notes.filter(t => /sparks full: the Lantern holds 9999/.test(t)).length === 1, notes.join(" | "));
+  G.addSparks(game, 5);
+  check("it says so once an island day, not at every reward", notes.filter(t => /sparks full/.test(t)).length === 1);
+  game.time += SB.DAY_LENGTH; G.addSparks(game, 5);
+  check("and again the next day if it is still full", notes.filter(t => /sparks full/.test(t)).length === 2);
+  game.sparks = 9998; G.addSparks(game, 1);
+  check("a reward that just fits makes no fuss", game.sparks === 9999 && notes.filter(t => /sparks full/.test(t)).length === 2);
+  G.note = note0;
+  // the slate
+  const me = put(SB, game, hm.x + 3, hm.z + 3, {});
+  const said = []; const say0 = P.say; P.say = t => { said.push(String(t)); };
+  P.enter(game, me, { free: true });
+  const html = M.html(game, me);
+  check("the bag's moves tab ends with the slate, a button for each game on it", /<div class='lbl'>the slate<\/div>/.test(html) && M.slateFor(game, me).every(x => html.indexOf("data-m3play='" + x[0] + "'") >= 0) && M.slateFor(game, me).length >= 2, M.slateFor(game, me).map(x => x[1]).join(", "));
+  for (let i = 0; i < 6; i++) M._tick(game, 0.5);
+  check("with nothing new on it, it says nothing", said.filter(t => /slate/.test(t)).length === 0);
+  const pod = { id: game.sites.length, kind: "pod", x: me.x + 3, z: me.z, rot: 0, found: true, done: true, n: 1 }; game.sites.push(pod);
+  for (let i = 0; i < 6; i++) M._tick(game, 0.5);
+  const about = said.filter(t => /inside of this wreck on the slate/.test(t));
+  check("standing by an opened pod: told once that the wreck can be walked, and where the slate is", about.length === 1 && /open your bag, then 💪 body, then 🪜 moves/.test(about[0]), about[0] || said.join(" | "));
+  for (let i = 0; i < 6; i++) M._tick(game, 0.5);
+  check("not told again at the same pod", said.filter(t => /inside of this wreck/.test(t)).length === 1);
+  P.leave(); P.say = say0;
+  // the bounty
+  check("a beast behind a pack: its bounty says to see the pack off first", D.beastFirst(D.BEAST_BY.hexer) === " (see its pack off first)" && D.beastFirst(D.BEAST_BY.boggrump) === "");
+  const n0 = D.state(game).board.list.length; D.state(game).board.list.forEach(e => { e.done = true; });
+  D.spawnBeast(game, "hexer", { x: hm.x + 30, z: hm.z });
+  const e = D.state(game).board.list.slice(n0).filter(q => q.kind === "beast")[0];
+  check("the notice on the board reads so", !!e && e.t === "drive off the grump hexer (see its pack off first)", e && e.t);
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

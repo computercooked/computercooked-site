@@ -323,6 +323,19 @@
   }
 
   var tA = 0, tB = 0;
+  // 4.49: the slate lives at the foot of the bag's moves tab, and nothing said when it had something new. Now the body
+  // is told once: an ember dream once an island day while one waits, the inside of a wreck once for each opened pod
+  M.SLATE_WHERE = "open your bag, then 💪 body, then 🪜 moves: the slate is at the foot";
+  function slateNews(game, c) {
+    var s = q(game), list = M.slateFor(game, c), d = day(game), i, t;
+    for (i = 0; i < list.length; i++) {
+      if (list[i][0] === "dream" && s.dreamTold !== d) { s.dreamTold = d; say("🪨 an ember holds a dream you can walk on the slate. " + M.SLATE_WHERE); emit("slateNews", { c: c, id: "dream" }); return; }
+      if (list[i][0] === "ark") {
+        t = (game.sites || []).filter(function (o) { return ((o.kind === "wreck" && o.found) || (o.kind === "pod" && o.done && !o.gone)) && SB.dist(o.x, o.z, c.x, c.z) < 8; })[0];
+        if (t && !(s.arkTold || (s.arkTold = {}))[t.id]) { s.arkTold[t.id] = 1; say("🪨 you can walk the inside of this wreck on the slate. " + M.SLATE_WHERE); emit("slateNews", { c: c, id: "ark" }); return; }
+      }
+    }
+  }
   function tick(game, dt) {
     if (!game || !game.world) return;
     var s = ps(), c = s && s.game === game ? s.c : null;
@@ -334,6 +347,7 @@
     }
     if ((tA -= dt) <= 0) {
       tA = 0.5;
+      if (c && !s.dead) slateNews(game, c);
       if (q(game).golf.ball != null) golfTick(game);
       if (c) fins(c);
       lists(game.world);
