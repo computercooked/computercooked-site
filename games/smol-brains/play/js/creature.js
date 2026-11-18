@@ -1510,7 +1510,7 @@ if(c.heldBy==="hand"){game.hand.heldId=null;c.heldBy=null;}
 if(c.species==="grump"){c.gone=true;return;}
 game.stats.deaths++;
 var f=game.family[c.id];
-if(f){f.died=game.time;f.cause=cause;f.name=c.name;f.ideas=Object.keys(c.ideas).filter(function(k){return c.ideas[k]>=1;});}
+if(f){f.died=game.time;f.cause=cause;f.name=c.name;f.age=Math.round(c.age||0);f.ideas=Object.keys(c.ideas).filter(function(k){return c.ideas[k]>=1;});}
 var why={starved:"starved 😢",sick:"got too sick",hurt:"got hurt too badly",old:"passed away of old age, surrounded by snacks",cold:"got too cold",hot:"got too hot",tired:"wore itself out",drowned:"drowned. smols without fins can't swim 🌊"}[cause]||"died";
 SB.Game.note(game,c.name+" "+why+".");
 if(cause==="old")SB.Game.unlock(game,"goodbye");
