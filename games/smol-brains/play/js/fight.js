@@ -326,6 +326,11 @@ return true;
 }
 return baseGo();
 };
+F.who=function(g){
+if(!g)return"the grump";
+if(g.boss&&g.name)return g.name;
+return g.name&&g.name!=="grump"?String(g.name).replace(/^an? /,"the "):"the grump";
+};
 F.charge=function(c){
 var s=PS(c);
 if(!s||!P().input.use||hold<=F.TAP||now-tgtT>0.6)return 0;
@@ -708,7 +713,7 @@ var shootable=!r||g||r.type==="water"||(r.type==="creature"&&r.ref.species!=="sm
 if(rw&&c.tier>=(rw.tier||2)&&shootable){
 if(!F.ammo(c,rw))o.use=x.no(rw.none);
 else{
-var tg=F.aim(game,c,rangeOf(c,rw,1)),what=!tg?null:tg.type==="grump"?(tg.ref.boss&&tg.ref.name?tg.ref.name:"the grump"):tg.type==="critter"?"the "+lab(tg.ref.kind):"the dummy";
+var tg=F.aim(game,c,rangeOf(c,rw,1)),what=!tg?null:tg.type==="grump"?F.who(tg.ref):tg.type==="critter"?"the "+lab(tg.ref.kind):"the dummy";
 o.use=x.op(rw.act?rw.act+(what?" at "+what:""):(hk==="sling"?(what?"sling a stone at "+what:"sling a stone"):(what?"shoot "+what:"loose an arrow"))+" ("+F.ammoN(c,rw)+")",function(){return F.draw(game,c);},null);
 }
 }else if(F.POTS[hk]&&shootable)o.use=x.op("throw the "+lab(hk),function(){return!!F.lob(game,c);},null);
@@ -719,7 +724,7 @@ else if(hk==="stone"&&!r&&F.sneaking(c)&&nearestGrump(game,c,12))o.use=x.op("tos
 else if(hk==="spear"&&!r&&F.farGrump(game,c,8))o.use=x.op("throw your spear at the grump",function(){return!!F.throwSpear(game,c);},null);
 else if(g&&!isTool(hk)&&F.rank(c,"nip"))o.use=x.op("nip the grump",function(){return F.nip(game,c,g);},null);
 else if(g&&o.use&&!o.use.locked){
-var base=o.use,who=g.boss&&g.name?g.name:"the grump";
+var base=o.use,who=F.who(g);
 o.use=x.op("hit "+who+(isTool(hk)?" with your "+F.name(sl):""),function(){return F.swing(game,c,g,base.go);},base.verb);
 }
 var freeP=!o.place||o.place.fbrace||/^put down/.test(o.place.label||"");

@@ -731,7 +731,7 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **The stink pot's line.** It said "phew! grumps can't stand it" even when the grump it hit stood still: a posted or hunting grump does not run from a smell. Now the line waits to see whether anything ran, and otherwise reads "phew! but a grump on guard or on the hunt won't run from a smell".
 - **A shield with a weapon in the paw.** With a club or a pick held, the second button was "put down the club" even face to face with a grump, so a shield could only be raised or bashed with empty paws, and a press meant for it dropped the weapon. Face to face with a grump the second button is now the shield (or bracing). Q still drops.
 - **Wading.** Standing in water, every look read "water: drink", even straight up at the sky, so nothing in the paw could be thrown or fired. Looking well up is no longer looking at water, and water under the crosshair no longer blocks a pot, a flare or a sling.
-- **A beast's name.** The crosshair called every beast "grump". It now shows the beast's own name ("a memory echo").
+- **A beast's name.** The crosshair called every beast "grump". It now shows the beast's own name ("a memory echo"), and the button under it uses the name too: "hit the memory echo with your club", "sling a stone at the ring grump" (`Fight.who`). A plain grump is still "the grump".
 
 **Not changed.** The island's one flare can still be lost on the ground beside a pod opened from the sky. A stink pot still does not move a posted grump: only its line changed.
 

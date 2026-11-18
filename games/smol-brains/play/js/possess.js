@@ -389,7 +389,7 @@ return o;
 }
 if(r&&r.type==="creature"){
 var cr=r.ref;
-if(cr.species==="grump")o.use=op("hit "+(cr.boss&&cr.name?cr.name:"the grump")+(toolName?" with your "+toolName:""),function(){return attack(cr);},V.hit);
+if(cr.species==="grump")o.use=op("hit "+(cr.boss&&cr.name?cr.name:cr.name&&cr.name!=="grump"?String(cr.name).replace(/^an? /,"the "):"the grump")+(toolName?" with your "+toolName:""),function(){return attack(cr);},V.hit);
 else if(cr.species!=="smol")o.use=op("pounce on the "+nm,function(){return attack(cr);},V.hit);
 else{
 o.use=op("talk to "+cr.name,function(){return creatureAct(V.talk,t);},V.talk);
