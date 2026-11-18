@@ -9,6 +9,9 @@
 //   6. a route is judged by progress along it: one that leads away from the goal first (round a band of steep ground) is
 //      walked to its end. It used to be dropped 8 seconds after the smol last got nearer the goal in a straight line
 //      (smol-brains-handover/4.48-island-102-the-one-that-still-starved.txt)
+//   8. two guards for routes that are now walked to their end: no step of a route runs past a minute (it is planned
+//      again from where the smol stands), and a smol that gets starving on a walk it was sent on breaks it off to eat
+//      (island 77: one walked home from a grump camp past food and starved)
 //   7. the case the old rule was written for still holds: a route whose next step the smol cannot reach (a ledge the
 //      coarse map thinks is fine) is dropped after 8 seconds, and the smol is marked lost so it scrambles back
 // node games/smol-brains/tests/play448.test.js
@@ -181,11 +184,12 @@ seeded(4486, () => {
     check("starving, it walks the route to its end and eats (it set off nine times and never passed the second step)", ate >= 0 && steps >= 3, ate >= 0 ? "after " + Math.round(ate - t0) + "s, " + steps + " steps along" : "no meal in 200s, " + steps + " steps along, " + Math.hypot(me.x - ax, me.z - az).toFixed(0) + " paces from the apple");
   }
   {
-    // not only the starving: a smol sent to the far side gets there
+    // not only the starving: a smol sent to the far side gets there. (The order is given again every second, and its
+    // homesickness is held at nought: a smol this far from home is sent home by the game after a few seconds.)
     const { SB, game, cx, cz, ax, az } = mk(), C = SB.Creature;
     const me = put(SB, game, cx, cz, {});
     let best = 1e9;
-    step(SB, game, 150, s => { if (s % 400 === 0 && Math.hypot(me.x - ax, me.z - az) > 2) C.sendTo(me, ax, az, game, 90, true); best = Math.min(best, Math.hypot(me.x - ax, me.z - az)); me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; return best > 1.8; });
+    step(SB, game, 150, s => { if (s % 20 === 0 && Math.hypot(me.x - ax, me.z - az) > 2) C.sendTo(me, ax, az, game, 90, true); if (me.fr) me.fr.aw = 0; best = Math.min(best, Math.hypot(me.x - ax, me.z - az)); me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; return best > 1.8; });
     check("a fed smol sent round the band arrives", best <= 1.8, "closest " + best.toFixed(1) + " paces");
   }
   check("the source: a route is dropped on its own progress, not the straight line", /c\.pathLegT ?> ?C\.ROUTE_STALL/.test(js("creature.js")) && !/c\.path ?&& ?c\.wBestT ?> ?8/.test(js("creature.js")));
@@ -207,11 +211,55 @@ seeded(4487, () => {
   const route = [{ x: bad.x, z: bad.z }, { x: far.x, z: far.z }];
   me.path = route; me.pathI = 0; me.pathLegI = -1; me.pathLegT = 0; me.pathTried = true; me.pathGoal = { x: me.action.tx, z: me.action.tz }; me.wBest = Math.hypot(far.x - me.x, far.z - me.z); me.wBestT = 0;
   let held = 0, dropped = -1, wasLost = false, nearest = 1e9; const t0 = game.time;
-  step(SB, game, 40, () => { me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; if (me.path === route && (me.pathI || 0) === 0) held += SB.TICK; else if (dropped < 0) { dropped = game.time - t0; wasLost = !!me.lost || wasLost; } if (me.lost) wasLost = true; nearest = Math.min(nearest, Math.hypot(me.x - bad.x, me.z - bad.z)); return dropped < 0; });
+  step(SB, game, 40, s => { me.chem.hunger = 0.3; me.chem.sleepy = 0; me.chem.tired = 0; if (me.fr) me.fr.aw = 0; /* not homesick: see section 6 */ if (me.path === route && (me.pathI || 0) === 0) held += SB.TICK; else if (dropped < 0) { dropped = game.time - t0; wasLost = !!me.lost || wasLost; } if (me.lost) wasLost = true; nearest = Math.min(nearest, Math.hypot(me.x - bad.x, me.z - bad.z)); return dropped < 0; });
   check("it could not reach the step", nearest > 0.7, "nearest " + nearest.toFixed(1) + " paces");
   check("the route is dropped: 8 seconds after its last progress, not at once and not never", dropped >= 7.5 && dropped <= 25, dropped >= 0 ? "after " + dropped.toFixed(1) + "s" : "still on it after 40s");
   check("it is marked lost, so it scrambles back to proper ground", wasLost);
   check("it never held that one step for a minute", held < 60, held.toFixed(0) + "s on the step");
+});
+
+console.log("8. the two guards");
+seeded(4488, () => {
+  const { SB, game, W, w, hm } = island(102), C = SB.Creature;
+  check("the numbers: a minute on one step at most", C.ROUTE_STEP_MAX === 60 && C.ROUTE_STALL === 8);
+  // open ground near home to walk on: find a spot 30 paces off with a plain straight walk to it
+  let goal = null;
+  for (let a = 0; a < 6.28 && !goal; a += 0.3) { const x = hm.x + Math.sin(a) * 30, z = hm.z + Math.cos(a) * 30; let ok = true; for (let t = 0; t <= 1 && ok; t += 0.05) ok = W.walkable(w, hm.x + (x - hm.x) * t, hm.z + (z - hm.z) * t, false); if (ok) goal = { x, z }; }
+  check("there is open ground by home to walk across", !!goal);
+  if (!goal) return;
+  {
+    // the cap: a smol 59.9 seconds into one step of a route, still creeping nearer
+    const me = put(SB, game, hm.x + 1, hm.z + 1, {});
+    C.sendTo(me, goal.x, goal.z, game, 90, true);
+    const route = [{ x: goal.x, z: goal.z }];
+    step(SB, game, 0.5);
+    me.path = route; me.pathI = 0; me.pathLegI = 0; me.pathLegBest = Math.hypot(goal.x - me.x, goal.z - me.z); me.pathLegT = 0; me.pathLegAll = 59.9; me.pathTried = true; me.pathGoal = { x: me.action.tx, z: me.action.tz };
+    const d0 = Math.hypot(goal.x - me.x, goal.z - me.z);
+    step(SB, game, 0.5, () => { me.chem.hunger = 0.3; });
+    check("past a minute on one step the route is let go, and it is not marked lost", me.path !== route && !me.lost, me.path === route ? "still on it" : "");
+    step(SB, game, 6, () => { me.chem.hunger = 0.3; });
+    check("and it carries on toward the same place", Math.hypot(goal.x - me.x, goal.z - me.z) < d0 - 3, (d0 - Math.hypot(goal.x - me.x, goal.z - me.z)).toFixed(1) + " paces nearer after 6s");
+  }
+  {
+    // sent on a long walk while only peckish; then it gets starving on the way
+    const me = put(SB, game, hm.x - 1, hm.z + 1, { hunger: 0.5 });
+    W.add(w, game, "apple", me.x + 2, me.z + 2, {});
+    const sent = C.sendTo(me, goal.x, goal.z, game, 90);
+    step(SB, game, 2, () => { me.chem.hunger = 0.5; });
+    const walking = () => !!me.action && me.action.verb === SB.V.wander && !!me.action.sent;
+    check("sent, and not forced: it sets off", sent === true && walking());
+    me.chem.hunger = 0.9;
+    step(SB, game, 1, () => { me.chem.hunger = Math.max(me.chem.hunger, 0.9); });
+    check("starving on the way, it breaks the walk off", !walking(), me.action ? SB.VERBS[me.action.verb] : "no action");
+    let ate = -1; const t0 = game.time; SB.bus.on("eat", d => { if (d && d.c === me && ate < 0) ate = game.time; });
+    step(SB, game, 40, () => ate < 0);
+    check("and eats", ate >= 0, ate >= 0 ? "after " + Math.round(ate - t0) + "s" : "no meal in 40s");
+    // forced (danger, the player's own word): it keeps walking
+    const me2 = put(SB, game, hm.x + 1, hm.z - 1, { hunger: 0.9 });
+    C.sendTo(me2, goal.x, goal.z, game, 90, true);
+    step(SB, game, 3, () => { me2.chem.hunger = 0.9; });
+    check("a forced walk is not broken off", !!me2.action && me2.action.verb === SB.V.wander && !me2.action.sent && me2.action.called === true);
+  }
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
