@@ -50,9 +50,9 @@ const js = f => fs.readFileSync(path.join(dir, f), "utf8");
 const order = (html.match(/src="js\/([a-z0-9-]+)\.js"/g) || []).map(s => s.slice(8, -4));
 const EXTRA = ["ext", "bosses", "body", "possess", "home", "loot", "friends", "town", "dark", "powers", "fight", "deep", "harvest", "animals", "qol", "wear", "shapes", "wardrobe3", "motion3", "world3", "helpers3", "arrivals3", "minds3"];
 // an island with nobody on it but who the check puts there: no pod hatched, the tutorial done, the storyteller asleep
-function island(seed) {
+function island(seed, more) { // more: modules a check needs on top of EXTRA (wilds.js for the grove)
   const ctx = load(), SB = ctx.SB;
-  order.filter(n => EXTRA.indexOf(n) >= 0).forEach(n => { if (n === "bosses" && SB.Bosses) return; vm.runInContext(js(n + ".js"), ctx, { filename: n + ".js" }); });
+  order.filter(n => EXTRA.indexOf(n) >= 0 || (more || []).indexOf(n) >= 0).forEach(n => { if (n === "bosses" && SB.Bosses) return; vm.runInContext(js(n + ".js"), ctx, { filename: n + ".js" }); });
   if (SB.Possess) SB.Possess.headless = true;
   const game = SB.Game.newGame(seed); SB.Game.current = game; game.tutorial.done = true;
   const DR = SB.Director.state(game); DR.active = null; DR.nextT = game.time + 1e7;
@@ -521,11 +521,11 @@ seeded(4502, () => {
   check("the island has sea ice, and it is made hidden", !!T.ice && T.ice.length > 0 && shown() === 0, (T.ice || []).length + " pieces");
   step(SB, game, 420);
   check("spring: none of it shows, and none has grown back seven minutes on", w.season === 0 && shown() === 0, shown() + " of " + T.ice.length + " showing");
-  w.time = sd * 3 * SB.DAY_LENGTH + 5; step(SB, game, 10);
+  game.time = w.time = sd * 3 * SB.DAY_LENGTH + 5; step(SB, game, 10);
   check("winter: all of it is out", w.season === 3 && shown() === T.ice.length, shown() + " of " + T.ice.length);
   step(SB, game, 420);
   check("and stays out", shown() === T.ice.length);
-  w.time = sd * 4 * SB.DAY_LENGTH + 5; step(SB, game, 10);
+  game.time = w.time = sd * 4 * SB.DAY_LENGTH + 5; step(SB, game, 10);
   check("spring again: put away", w.season === 0 && shown() === 0, shown() + " showing");
   T.ice[0].state = "ok"; step(SB, game, 10);
   check("a piece anything else brought out is put away within seconds", shown() === 0);
@@ -535,7 +535,7 @@ seeded(4502, () => {
 
 console.log("13. the glowshroom grove breaks a gloom grump's hunt");
 seeded(4503, () => {
-  const { SB, game, W, w, hm } = island(102), Mn = SB.Minds, D = SB.Deep, P = SB.Possess, R = SB.Wilds.GROVE_R;
+  const { SB, game, W, w, hm } = island(102, ["wilds"]), Mn = SB.Minds, D = SB.Deep, P = SB.Possess, R = SB.Wilds.GROVE_R;
   const tree = W.addNode(w, game, "shroomtree", hm.x + 6, hm.z + 6, 1); tree.state = "ok";
   const me = put(SB, game, tree.x + 2, tree.z + 1, {});
   const said = []; const say0 = P.say; P.say = t => { said.push(String(t)); };
