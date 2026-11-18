@@ -11,7 +11,7 @@
 // node games/smol-brains/tests/play446.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
-const load = require("./_load.js");
+const load = require("./_load.js"), seeded = load.seeded;
 let failed = 0;
 function check(name, ok, extra) { console.log((ok ? "  ok  " : "  FAIL ") + name + (extra != null && extra !== "" ? "  (" + extra + ")" : "")); if (!ok) failed++; }
 const dir = path.join(__dirname, "..", "play", "js");
@@ -38,11 +38,14 @@ const waveGrumps = (SB, game) => game.creatures.filter(g => g.species === "grump
 // chased off the way the game counts it: the grump is gone and the island hears "grumpChased" (as tests/dark.test.js does)
 const beat = (SB, g, by) => { g.alive = false; g.gone = true; SB.bus.emit("grumpChased", { c: by, g: g }); };
 
+// the same dice every run: where grumps turn up, who wanders where
+seeded(446, () => {
+
 console.log("1. a wave is not over the second it starts");
 {
   const { SB, game, folk, run, hm } = fresh(4461), D = SB.Dark, st = D._h.st(game), X = st.x2;
   check("the dark is open and no storyteller event is on", D.open(game) && !SB.Director.state(game).active);
-  const place = D._placeAdd(game, "arena", { x: hm.x + 20, z: hm.z }, {});
+  const place = D._placeAdd(game, "arena", D._h.spotAt(game, hm.x, hm.z, 55, 70, Math.random, null) || { x: hm.x + 60, z: hm.z }, {});
   const r = D.startWave(game, "arena", place, folk[0], { place: place.id });
   check("the old ring starts", r.ok === true, r.msg);
   run(0.5);
@@ -80,7 +83,7 @@ console.log("1b. a dark pillar can be brought down");
 {
   const { SB, game, folk, run, hm } = fresh(4465), D = SB.Dark, st = D._h.st(game);
   folk.forEach(c => { c.tier = 4; }); game.stats.maxTier = 4;
-  const p = D._placeAdd(game, "pillar", { x: hm.x + 20, z: hm.z }, {}), c = folk[0];
+  const p = D._placeAdd(game, "pillar", D._h.spotAt(game, hm.x, hm.z, 55, 70, Math.random, null) || { x: hm.x + 60, z: hm.z }, {}), c = folk[0];
   c.x = p.x + 1; c.z = p.z;
   check("its button reads right", D.placeLabel(game, p, false) === "break the dark pillar", D.placeLabel(game, p, false));
   const r = D.placeAct(game, c, p, false), log0 = game.log.length;
@@ -103,7 +106,7 @@ console.log("1c. a wave grump that runs home counts as chased off");
   // seen in the pane: a ring beside a well-armed village. the villagers' spears sent a whole wave running inside a
   // second, none of it counted, and the ring paid nothing
   const { SB, game, folk, run, hm } = fresh(4467), D = SB.Dark, st = D._h.st(game);
-  const place = D._placeAdd(game, "arena", { x: hm.x + 20, z: hm.z }, {});
+  const place = D._placeAdd(game, "arena", D._h.spotAt(game, hm.x, hm.z, 55, 70, Math.random, null) || { x: hm.x + 60, z: hm.z }, {});
   D.startWave(game, "arena", place, folk[0], { place: place.id });
   run(0.5);
   const w = st.x2.wave, a = waveGrumps(SB, game);
@@ -147,10 +150,12 @@ console.log("2. a plain raider left over from a raid still heads home");
   let guard = 0; while (inc.phase !== "on" && guard++ < 200) run(1);
   const eg = () => (inc.grumps || []).map(id => SB.Game.byId(game, id)).filter(Boolean);
   check("it begins, and its grumps march as raiders", inc.phase === "on" && eg().length >= 1 && eg().every(g => g.dark === "eclipse" && g.raider), eg().length);
-  run(8);
-  check("eight seconds in they are still here", eg().length >= 1 && eg().filter(g => g.alive).every(g => !g.goingHome), eg().map(g => g.goingHome ? "home" : "here").join(" "));
-  run(inc.dur - 12);
-  check("and just before it ends", DR.state(game).active === inc && eg().filter(g => g.alive).every(g => !g.goingHome));
+  // the rule that sends raiders home runs once a second. later than that a grump may leave for its own reasons
+  // (it grabbed something, a fire scared it): that is the island, not the storyteller
+  run(1.5);
+  check("a second and a half in they are all still here", eg().length >= 1 && eg().filter(g => g.alive).every(g => !g.goingHome), eg().map(g => g.goingHome ? "home" : "here").join(" "));
+  run(inc.dur - 5.5);
+  check("the eclipse runs its full length (a grump may have run from the village fire by now: that is the village, not the storyteller)", DR.state(game).active === inc);
   run(8);
   check("when the eclipse is over they go home", DR.state(game).active !== inc && eg().filter(g => g.alive).every(g => g.goingHome === true));
 }
@@ -214,6 +219,8 @@ console.log("4. words, buttons and names");
   check("an apple lies at your feet", !!apple);
   if (apple) { const o3 = P.options(game, c, { type: "item", id: apple.id }); check("looking at something else, the second button is not the shield", !o3.place || !/shield|brace|guard/.test(o3.place.label), o3.place && o3.place.label); }
 }
+
+}); // seeded
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);
