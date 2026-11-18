@@ -711,6 +711,31 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - **Day 1 is long enough to learn.** After Pip eats there are 160 s of free day (`FN.DAY1`) before the 40 s sunset. The clock holds at late afternoon until then, even sped up.
 - **The first pod opens in two taps.** Items are picked where they're drawn (the voxel lift, `R.vdy`), and the pod's tap zone is its size: taps used to miss it in the voxel look. Each tap is worth 50% (`SB.World.POD_TAP`).
 
+## 0.97 What v4.48.0 changed: a wading route crosses water, not cliffs
+
+**Why.** Three of the ten smols that starved on island 102 in eight days (the 4.47 write-up covers the other seven) died far from home, each flagged "wading" for over 200 seconds. They were not at water. A trace of where each stood and a map of the ground (`smol-brains-handover/4.46-island-102-the-spot-where-three-starved.txt`, made with `tools/island-winter-diag.js ... spot`) shows each in a notch of a band of ground too steep to walk, the food it wanted on the far side, hunger at 1.00, a route of 3 to 15 steps, and no movement.
+
+**The cause.**
+- The route grid (world.js, 2 paces a cell) marked a cell walkable or not. Water and steep ground looked the same on it.
+- A swimming route took *every* cell as open. That was meant for water; it opened cliffs too.
+- 4.37 and 4.40 let a starving smol "wade": after two meals it could not reach, or at once when the walk round is long. At a steep band the walk round is long, so it was switched to wading with no water near.
+- From then on every route ran straight through the band. Its feet still could not climb it (the slope rule is the same for a swimmer), so it stood at the foot of the route. The wading flag re-armed itself, and it never went back to the plain route that would have walked it round.
+- On island 102's own ground, from the cell where two of them died to the apple they wanted 12 paces off: the plain route is 62 paces round; the old wading route was 13 paces through two steep cells, and its first step could not be stood on.
+- Smols that swim all the time use the same routes. An ascended one (tier 6) put on that cell froze the same way on the old code.
+
+**The fix.**
+- **The route grid remembers why a cell is shut.** 1 is open, 2 is shut by water alone, 0 is shut for everyone (too steep, off the island). A swimming or wading route opens 1 and 2 (`W.buildPathGrid`, `W.findPath`). `W.pathOpen` still means plain walkable ground, and a finished bridge still opens its cells.
+- **The long-way-round rule only turns to wading when wading is the shorter way** (under 0.7 of the plain route). Where no water is in the way the two routes are the same one, and the smol keeps walking round.
+- **A safety net.** A wade that ran its minute and left the smol under two paces from where it began is given up: it goes back to plain routes and does not try wading again for three minutes (`C.WADE_MOVED`, `C.WADE_REST`, `c.noWade`).
+
+**Not changed.** What a smol can stand on, how deep it can wade, and when a starving smol's nose takes over. Water is crossed as before: 4.37's marooned smol and 4.40's stream still wade.
+
+**Seen on whole islands** (`smol-brains-handover/4.48-islands-102-and-23.txt`, eight days each). Island 102: 1 starved, against 10 on 4.46 (seven of those were the elders 4.47 let out of hiding, three were at the steep bands). Nobody died at the two steep spots. Island 23, where 4.40's stream is: 0 starved on this code and 0 on 4.46.
+
+**Not fixed here: a route that leads away from its goal first.** The one smol that still starved on island 102 stood south of a band of steep ground with apples north of it, set off nine times on routes round the band, and was turned back each time (`smol-brains-handover/4.48-island-102-the-one-that-still-starved.txt`, a line every two seconds). While a smol follows a route, the game drops the route when it has not got nearer its goal *in a straight line* for 8 seconds, and a route round a band leads away first. Judging a route by progress along it fixes that case, but tried on island 77 it cost a smol: one committed to a 90-second detour for a single food and ran out of time. That change needs the food choice to weigh the length of the route too, so it is kept on its own branch (`sb-4.49-route-progress`) for the next release.
+
+**Tests.** `tests/play448.test.js`: the grid holds the three kinds on island 102 and each matches the ground under it; from the cell where two died, the swimming route now goes round over no steep ground, and a starving smol put there leaves the cell, eats, and never wades (on the 4.46 code it moved one pace and had no meal in 240 seconds, wading for 226 of them); a finned smol and an ascended one in the same place leave and eat; a starving smol cut off by a strait 10 paces across with 69 paces round still wades it and eats on the far side; the safety net's three cases. `tests/play440.test.js` checks the two ways into wading by their source lines, so its patterns follow the new lines.
+
 ## 0.96 What v4.47.0 changed: starving beats hiding, a kick course you can ask for, and words where there were none
 
 **Why.** The proof pass tried the skills and social rows by hand on a day-59 island (`smol-brains-handover/PROOF-PASS.md`). One row did not work in play, and five places left the player with no word or the wrong one.
