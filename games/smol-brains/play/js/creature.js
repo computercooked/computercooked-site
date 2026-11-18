@@ -27,6 +27,7 @@ C.HUNGRY_AWAKE=0.7;
 C.STARVING=0.85;
 C.HARD_HUNGER=0.55;C.HARD_FOOD=2;C.HARD_HUNGER_MAX=0.7;
 C.WADE_DETOUR=25;
+C.WADE_MOVED=2;C.WADE_REST=180;
 C.WADE_AFTER=2;
 C.BITE_CATCH=0.2;
 C.PECKISH_NIGHT=0.65;
@@ -791,7 +792,11 @@ c.pathI=0;
 if(!c.path)c.noPath={x:tx,z:tz,t:game.time};
 else if(starvingFor(c,c.action)&&c.chem.hunger>0.95&&!swim(c)){
 var pl=0,plx=c.x,plz=c.z;for(var pi=0;pi<c.path.length;pi++){pl+=Math.hypot(c.path[pi].x-plx,c.path[pi].z-plz);plx=c.path[pi].x;plz=c.path[pi].z;}
-if(pl>C.WADE_DETOUR&&pl>d0*2){c.wade=60;c.path=SB.World.findPath(game.world,c.x,c.z,tx,tz,true,5000);c.pathI=0;}
+if(pl>C.WADE_DETOUR&&pl>d0*2&&!(c.noWade>game.time)){
+var wp0=SB.World.findPath(game.world,c.x,c.z,tx,tz,true,5000),wl=0,wx=c.x,wz=c.z;
+for(var wi=0;wp0&&wi<wp0.length;wi++){wl+=Math.hypot(wp0[wi].x-wx,wp0[wi].z-wz);wx=wp0[wi].x;wz=wp0[wi].z;}
+if(wp0&&wl<pl*0.7){c.wade=60;c.wadeAt={x:c.x,z:c.z};c.path=wp0;c.pathI=0;}
+}
 }
 }
 if(c.path&&c.wBestT>8){c.path=null;c.lost=true;}
@@ -875,7 +880,7 @@ beginDo(c,game,a,tgt);
 }else if(a.t>(starvingFor(c,a)?90:25)||(c.stuckT>1.5&&!c.path)||(a.t-a.bestT>2.5&&!c.path)||a.t-a.bestT>(c.path&&starvingFor(c,a)?20:7)||(c.noPath&&game.time-c.noPath.t<0.2)){
 c.stuckT=0;
 if(a.target&&a.target.id!=null)unreachable(c,a.target.id,game);
-if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=C.WADE_AFTER){c.wade=60;c.unreach={};c.path=null;c.pathTried=false;}}
+if(starvingFor(c,a)&&c.chem.hunger>0.95&&!(c.wade>0)){var un=0,uk;for(uk in c.unreach)if(c.unreach[uk]>game.time)un++;if(un>=C.WADE_AFTER&&!(c.noWade>game.time)){c.wade=60;c.wadeAt={x:c.x,z:c.z};c.unreach={};c.path=null;c.pathTried=false;}}
 finish(c,game);
 }
 return;
@@ -1542,7 +1547,10 @@ C.dutyTick=dutyTick;
 C.tick=function(c,dt,game){
 if(c.dying){c.fade+=dt/2.5;if(c.fade>=1)c.gone=true;return;}
 var w=game.world,ch=c.chem,an=c.anim;
-if(c.wade>0)c.wade-=dt;
+if(c.wade>0){
+c.wade-=dt;
+if(c.wade<=0){if(c.wadeAt&&SB.dist(c.x,c.z,c.wadeAt.x,c.wadeAt.z)<C.WADE_MOVED){c.noWade=game.time+C.WADE_REST;c.path=null;c.pathTried=false;c.unreach={};}c.wadeAt=null;}
+}
 c.px=c.x;c.pz=c.z;c.py=c.y;
 c.age+=dt;
 c.moving=false;
