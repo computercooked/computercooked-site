@@ -593,18 +593,36 @@
   };
 
   /* ---------------- the glowshroom grove: no grump sets foot there (wilds.js W.grove) ---------------- */
+  // 4.49: a grump the gloom sent after a body (deep.js D.spawnGrump, above ground) gives its hunt up at the grove. A
+  // hunting grump drops whatever it is doing every tick to chase, so being sent away each second did not hold it: on the
+  // test island one stood a pace from the tree for 45 seconds with the body beside it. Its hunt ends when it sets foot
+  // in a grove, or comes up to the edge of the one its prey is standing in. A cave's keeper and captains are not touched
+  function huntOver(game, g) {
+    if (g.caveGrump == null || g.caveKeeper != null || !g.scout || g.scout.done) return false;
+    if (SB.Deep && SB.Deep.depth && SB.Deep.depth(game)) return false; // down a cave is not the grove's business
+    g.scout.done = true; g.goingHome = true;
+    return true;
+  }
   function grove(game) {
-    var Wi = SB.Wilds, n = 0;
+    var Wi = SB.Wilds, n = 0, broke = 0;
     if (!Wi || !Wi.grove) return 0;
     game.creatures.forEach(function (g) {
       if (!g.alive || g.species !== "grump" || g.heldBy || g.boss) return; // a captain's fight goes on where it stands
       var t = Wi.grove(game, g.x, g.z);
-      if (!t) return;
+      if (!t) {
+        if (g.caveGrump != null && g.scout && !g.scout.done && g.scout.who != null) {
+          var prey = SB.Game.byId(game, g.scout.who), pt = prey && prey.alive ? Wi.grove(game, prey.x, prey.z) : null;
+          if (pt && dist(g.x, g.z, pt.x, pt.z) < Wi.GROVE_R + 2 && huntOver(game, g)) broke++;
+        }
+        return;
+      }
+      if (huntOver(game, g)) broke++;
       var d = dist(g.x, g.z, t.x, t.z) || 1;
       C().sendTo(g, g.x + (g.x - t.x) / d * 9, g.z + (g.z - t.z) / d * 9, game, 5);
       n++;
     });
-    if (n) SB.bus.emit("groveSafe", { n: n });
+    if (broke && pov() && SB.Possess.say) SB.Possess.say("🍄 the grump will not come among the glowshrooms. it gives up the hunt");
+    if (n || broke) SB.bus.emit("groveSafe", { n: n, broke: broke });
     return n;
   }
   Mn._grove = grove;

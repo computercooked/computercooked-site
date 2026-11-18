@@ -32,6 +32,9 @@
 //   12. sea ice is winter's: hidden in spring and still hidden seven minutes on (the grow-back rule for picked and mined
 //      things was bringing every iceberg back after 300 seconds, on every island, all year), out in winter, away again
 //      in spring
+//   13. the glowshroom grove breaks the hunt of a grump the gloom sent after a body: it gives up when it sets foot in a
+//      grove or comes to the edge of the one its prey stands in, and the body in the grove loses no hearts to it. One
+//      hunting a body that is not in a grove hunts on
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -525,6 +528,51 @@ seeded(4502, () => {
   check("a piece anything else brought out is put away within seconds", shown() === 0);
   step(SB, game, 420);
   check("and seven minutes on it is all still away", shown() === 0, shown() + " showing");
+});
+
+console.log("13. the glowshroom grove breaks a gloom grump's hunt");
+seeded(4503, () => {
+  const { SB, game, W, w, hm } = island(102), Mn = SB.Minds, D = SB.Deep, P = SB.Possess, R = SB.Wilds.GROVE_R;
+  const tree = W.addNode(w, game, "shroomtree", hm.x + 6, hm.z + 6, 1); tree.state = "ok";
+  const me = put(SB, game, tree.x + 2, tree.z + 1, {});
+  const said = []; const say0 = P.say; P.say = t => { said.push(String(t)); };
+  P.enter(game, me, { free: true });
+  const hold = () => { me.x = tree.x + 2; me.z = tree.z + 1; me.path = null; me.chem.hunger = 0.2; };
+  check("the body stands among the glowshrooms", !!SB.Wilds.grove(game, me.x, me.z));
+  // one that walks in
+  let g = D.spawnGrump(game, me, 2, null, false, "a grump of the hush");
+  check("the gloom's grump comes hunting the body", !!g && !!g.scout && !g.scout.done && g.scout.who === me.id && g.caveGrump === 2);
+  g.x = tree.x - 3; g.z = tree.z + 2; g.px = g.x; g.pz = g.z;
+  check("it sets foot in the grove: its hunt is over and it is sent out", Mn._grove(game) === 1 && g.scout.done === true && g.goingHome === true && !D.grump(game));
+  check("and the body is told once", said.filter(t => /gives up the hunt/.test(t)).length === 1, said.join(" | "));
+  g.alive = false;
+  // one that stops at the edge
+  g = D.spawnGrump(game, me, 2, null, false, "a grump of the hush");
+  g.x = tree.x - (R + 1); g.z = tree.z; g.px = g.x; g.pz = g.z;
+  check("at the edge of the grove its prey stands in: over too, without setting foot in it", !SB.Wilds.grove(game, g.x, g.z) && Mn._grove(game) === 0 && g.scout.done === true && g.goingHome === true);
+  g.alive = false;
+  // one far off is still coming
+  g = D.spawnGrump(game, me, 2, null, false, "a grump of the hush");
+  g.x = tree.x - (R + 6); g.z = tree.z; g.px = g.x; g.pz = g.z;
+  check("one still a way off hunts on", Mn._grove(game) === 0 && !g.scout.done);
+  // and played out: forty seconds, the body standing in the grove
+  me.chem.health = 1; let near = 99;
+  step(SB, game, 40, () => { hold(); if (g.alive) near = Math.min(near, SB.dist(g.x, g.z, tree.x, tree.z)); });
+  check("forty seconds on it has never been among the glowshrooms, and it is not hunting", near > R - 0.5 && (!g.alive || !g.scout || g.scout.done), "nearest " + near.toFixed(1) + " paces from the tree");
+  check("the body in the grove lost no hearts", me.chem.health > 0.98, me.chem.health.toFixed(2));
+  if (g.alive) g.alive = false;
+  // prey outside any grove: the hunt is the hunt
+  me.x = hm.x - 14; me.z = hm.z - 8; me.path = null;
+  g = D.spawnGrump(game, me, 2, null, false, "a grump of the hush");
+  if (g) { g.x = me.x + 5; g.z = me.z; }
+  check("a body out in the open is hunted as before", !!g && Mn._grove(game) === 0 && !g.scout.done);
+  // the cave's keeper is not the grove's business
+  if (g) g.alive = false;
+  const k = SB.Game.spawnGrump(game, tree.x - 2, tree.z); k.caveGrump = 3; k.caveKeeper = 1; k.scout = { who: me.id, t: 0, hitT: 0, speedK: 0.8, dmg: 0.1 };
+  Mn._grove(game);
+  check("a cave's keeper keeps its hunt", k.scout && !k.scout.done);
+  k.alive = false;
+  P.leave(); P.say = say0;
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");

@@ -540,18 +540,32 @@ if(q.remix&&pool.length)A[i][0]=pool.splice(r.int(pool.length),1)[0];
 A.length=asks0.length;
 return A;
 };
+function huntOver(game,g){
+if(g.caveGrump==null||g.caveKeeper!=null||!g.scout||g.scout.done)return false;
+if(SB.Deep&&SB.Deep.depth&&SB.Deep.depth(game))return false;
+g.scout.done=true;g.goingHome=true;
+return true;
+}
 function grove(game){
-var Wi=SB.Wilds,n=0;
+var Wi=SB.Wilds,n=0,broke=0;
 if(!Wi||!Wi.grove)return 0;
 game.creatures.forEach(function(g){
 if(!g.alive||g.species!=="grump"||g.heldBy||g.boss)return;
 var t=Wi.grove(game,g.x,g.z);
-if(!t)return;
+if(!t){
+if(g.caveGrump!=null&&g.scout&&!g.scout.done&&g.scout.who!=null){
+var prey=SB.Game.byId(game,g.scout.who),pt=prey&&prey.alive?Wi.grove(game,prey.x,prey.z):null;
+if(pt&&dist(g.x,g.z,pt.x,pt.z)<Wi.GROVE_R+2&&huntOver(game,g))broke++;
+}
+return;
+}
+if(huntOver(game,g))broke++;
 var d=dist(g.x,g.z,t.x,t.z)||1;
 C().sendTo(g,g.x+(g.x-t.x)/d*9,g.z+(g.z-t.z)/d*9,game,5);
 n++;
 });
-if(n)SB.bus.emit("groveSafe",{n:n});
+if(broke&&pov()&&SB.Possess.say)SB.Possess.say("🍄 the grump will not come among the glowshrooms. it gives up the hunt");
+if(n||broke)SB.bus.emit("groveSafe",{n:n,broke:broke});
 return n;
 }
 Mn._grove=grove;
