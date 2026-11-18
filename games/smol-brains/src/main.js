@@ -732,7 +732,7 @@
   // run the sim fast (coarse step, chunked so the page stays responsive). cb(report) at the end.
   Game.OFFLINE_WALL_MS = 8000; // real-time cap on the catch-up (tests lift it so a busy machine still sims it all)
   Game.runOffline = function (g, simSec, onProgress, cb) {
-    var before = snapshotStats(g);
+    var before = snapshotStats(g), awayT0 = g.time || 0, awayPop0 = Game.smols(g).length; // (not "t0": chunk() below has its own)
     g.offline = true; g.offlineRunning = true; g.offlineLog = [];
     // coarse half-second steps, and never more than ~8 s of real time (slow phones simulate a bit less)
     var done = 0, dt = 0.5, wallStart = performance.now();
@@ -750,6 +750,7 @@
         g.offline = false; g.offlineRunning = false;
         var rep = diffStats(g, before, simSec);
         rep.log = g.offlineLog.slice(-12); g.offlineLog = null;
+        rep.away = Game.awayRecord(g, awayT0, awayPop0);
         Game.unlock(g, "offline");
         cb(rep);
       }
@@ -757,6 +758,21 @@
     chunk();
   };
   function farAll(g) { for (var i = 0; i < g.creatures.length; i++) g.creatures[i].far = true; }
+  // 4.44: who came and who went since t0, for the "welcome back" card. born: smols alive now that hatched since, the
+  // newest first. old: the ones who grew old. other: every other loss, by cause, so a real problem still shows
+  Game.awayRecord = function (g, t0, pop0) {
+    var born = [], old = [], other = {}, el = (g.time || 0) - t0, id, f, e;
+    g.creatures.forEach(function (c) { if (c.species === "smol" && c.alive && !c.stranger && (c.age || 0) <= el + 1) born.push({ id: c.id, name: c.name, look: c.look, tier: c.tier, age: c.age || 0 }); });
+    born.sort(function (a, b) { return a.age - b.age; });
+    for (id in g.family) {
+      f = g.family[id];
+      if (!f || !f.name || !(f.died > t0)) continue;
+      e = { id: f.id, name: f.name, look: f.look, tier: f.tier, cause: f.cause || "", at: f.died };
+      if (e.cause === "old") old.push(e); else (other[e.cause] = other[e.cause] || []).push(e);
+    }
+    old.sort(function (a, b) { return a.at - b.at; });
+    return { born: born, old: old, other: other, pop0: pop0 | 0, pop1: Game.smols(g).length };
+  };
   function snapshotStats(g) {
     return { hatched: g.stats.hatched, deaths: g.stats.deaths, words: g.stats.wordsTaught, found: Object.keys(g.culture.found).length, built: g.stats.built || 0, species: SB.Species.count(g), villages: g.villages.length, maxGen: g.stats.maxGen, maxTier: g.stats.maxTier || 0, sparks: g.sparks };
   }

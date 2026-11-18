@@ -2022,9 +2022,30 @@ if(W().groundY)c.y=W().groundY(game.world,c.x,c.z);
 emit("raised",{c:c});
 return true;
 };
+PW.catchFall=function(game,c,cause){
+if(!game||!game.world||!c||!c.alive||c.species!=="smol"||!c.chem)return false;
+var se=set(game),p=m2(c),pals=0,d=day(game);
+if(cause==="old"||c.stranger||(U.story(game)&&!se.noDeath))return false;
+if(!se.noDeath){
+if(se.oneLife||cause!=="hurt"||p.downDay===d)return false;
+near(game,c.x,c.z,14,function(o){if(o!==c&&o.species==="smol"&&o.alive)pals++;});
+if(!pals)return false;
+}
+var ch=c.chem;
+c.dying=false;c.fade=0;c.asleep=true;c.drownT=0;
+ch.health=0.35;ch.pain=0.2;ch.hunger=Math.min(ch.hunger,0.5);ch.cold=Math.min(ch.cold||0,0.3);ch.hot=Math.min(ch.hot||0,0.3);ch.sick=Math.min(ch.sick||0,0.3);ch.toxin=0;ch.fear=0;ch.sleepy=1;
+p.downDay=d;p.downs=(p.downs||0)+1;
+PW.hurtPart(game,c,PW.OUTER[(p.downs+c.id)%PW.OUTER.length],0.5);
+var h=PW.homeSpot(game,c);
+if(h){c.x=h.x;c.z=h.z;c.px=c.x;c.pz=c.z;}
+if(W().groundY)c.y=W().groundY(game.world,c.x,c.z);
+note(game,"💤 "+c.name+" went down, and was carried home. it is hurt and needs a day's rest"+(se.noDeath?".":": it won't get up from a second fall today."));
+emit("raised",{c:c});emit("downed",{c:c,cause:cause});
+return true;
+};
 function downed(game,c,cause){
 var se=set(game),p=m2(c),pals=0,d=day(game);
-if(cause==="old"||c.stranger||U.story(game))return false;
+if(cause==="old"||c.stranger||(U.story(game)&&!se.noDeath))return false;
 if(!se.noDeath){
 if(se.oneLife||cause!=="hurt"||p.downDay===d)return false;
 near(game,c.x,c.z,14,function(o){if(o!==c&&o.species==="smol"&&o.alive)pals++;});
@@ -2319,7 +2340,7 @@ U.bump();emit("reroll",{n:n});
 return ok("🎲 the founders shake themselves: new colours, and each a new knack ("+(3-s.rerolls)+" tries left)");
 };
 var QUIRKS2={
-bees:{icon:"🐝",name:"honey island",desc:"hives everywhere and fat bushes. a pot of honey to start.",fx:{critters:1.3,food:1.25},pw:{gifts:{honey:6}}},
+bees:{icon:"🐝",name:"honey island",desc:"hives everywhere and fat bushes. a pot of honey to start.",fx:{critters:1.3,food:1.25},pw:{gifts:{honey:6},hives:40}},
 party:{icon:"🎉",name:"festival island",desc:"prayers pay more, and a present lands by the nest every morning.",fx:{sparks:1.3},pw:{daily:1}},
 worthy:{icon:"☠️",name:"for the worthy",desc:"more grumps, hard bites, and every hazard half again as nasty.",fx:{grumps:1.5},pw:{nasty:1,diff:"hard"}},
 tipsy:{icon:"🥴",name:"tipsy island",desc:"the weather can't make its mind up, and brews fizz twice as long.",fx:{storms:1.5},pw:{tipsy:1}},
@@ -2346,6 +2367,13 @@ var d=SB.QUIRKS&&SB.QUIRKS[q],pw=d&&d.pw,k,i=0;
 if(!pw||s.qdone[q]||!h)return;
 s.qdone[q]=1;
 for(k in pw.gifts||{}){drop(game,k,pw.gifts[k],h.x-1.5-(i%3)*0.7,h.z+1.4);i++;}
+if(pw.hives&&game.world&&W().addNode&&W().walkable){
+var bushes=game.world.nodes.filter(function(n){return n.kind==="bush";}),hr=dice(game,"quirk-hives"),added=0;
+for(var hi=0;bushes.length&&hi<pw.hives*6&&added<pw.hives;hi++){
+var bn=bushes[Math.floor(hr()*bushes.length)],hx=bn.x+(hr()-0.5)*6,hz=bn.z+(hr()-0.5)*6;
+if(W().inBounds(game.world,hx,hz)&&W().walkable(game.world,hx,hz,false)&&W().depthAt(game.world,hx,hz)<0.02&&W().addNode(game.world,game,"hive",hx,hz))added++;
+}
+}
 if(pw.nasty)s.nasty=1;
 if(pw.daily)s.daily=1;
 if(pw.tipsy)s.tipsy=1;
@@ -2369,7 +2397,11 @@ for(var tk in T2X)PW.TOGGLES[tk]=T2X[tk];
 PW.onToggle=function(game,key,on){
 var se=set(game),s=s2(game);
 if(key==="calmNights"){if(on)se.nightChase=false;else delete se.nightChase;}
-if(key==="noGoal"||key==="simple"){if(on)se.guide=false;else if(!se.noGoal&&!se.simple)delete se.guide;}
+if((key==="noGoal"||key==="simple")&&on){
+if(SB.FirstNight&&SB.FirstNight.active&&SB.FirstNight.skip&&SB.FirstNight.active(game)){try{SB.FirstNight.skip(game);}catch(e){}}
+if(game.tutorial&&!game.tutorial.done)game.tutorial.done=true;
+}
+if(key==="noGoal"||key==="simple"){if(on)se.guide=false;else if(!se.noGoal&&!se.simple)delete se.guide;emit("guideSet",{on:se.guide!==false});if(SB.PovHud&&SB.PovHud.quest)try{SB.PovHud.quest();}catch(e){}}
 if(key==="simple"){if(on){se.minimap=false;PW.page("light");}else delete se.minimap;}
 if(key==="handsOff"){
 if(on)s.hands={day:day(game),pop:smols(game).length,deaths:game.stats.deaths||0,sparks:game.sparks||0};
@@ -2782,6 +2814,7 @@ if(sandbox(game)){
 if(moving)o.place=x.op("put the "+(SB.STRUCTS[moving.kind]?SB.STRUCTS[moving.kind].label:"thing")+" here",function(){var res=PW.moveStruct(game,moving,c.x+Math.sin(c.facing||0)*1.6,c.z+Math.cos(c.facing||0)*1.6);moving=null;x.say(res.msg);return res.ok;},null);
 if(tool==="erase"&&r&&(r.type==="item"||r.type==="struct"))o.use=x.op("erase this 🧽",function(){var res=PW.erase(game,r);x.say(res.msg);return res.ok;},null);
 else if(tool==="move"&&r&&r.type==="struct"&&!moving)o.use=x.op("pick this up",function(){moving=r.ref;x.say("carry it where you want it, then put it down");return true;},null);
+else if(tool==="copy"&&r&&r.type==="item"&&K()[r.kind])o.use=x.op("copy this 🧪",function(){give(game,c,r.kind,1);x.say("one "+label(r.kind));return true;},null);
 else if(r&&(r.type==="item"||r.type==="node")&&!o.pick&&K()[r.kind])o.pick=x.op("copy this 🧪",function(){give(game,c,r.kind,1);x.say("one "+label(r.kind));return true;},null);
 }
 });
@@ -3026,7 +3059,7 @@ out+=lbl("the hour and the sky")+"<div class='row' style='display:flex;flex-wrap
 ["dawn","noon","dusk","night"].forEach(function(t){out+=b2("cmd:time "+t,t);});
 ["clear","rain","storm","free"].forEach(function(t){out+="<button class='btn"+((s.wlock||"free")===t?" go":"")+"' data-pw2='cmd:weather "+t+"'>"+t+"</button>";});
 out+="</div>"+lbl("tools")+"<div class='row' style='display:flex;flex-wrap:wrap;gap:4px'>";
-out+="<button class='btn"+(tool==="erase"?" go":"")+"' data-pw2='tool:erase'>🧽 eraser</button><button class='btn"+(tool==="move"?" go":"")+"' data-pw2='tool:move'>✋ move buildings</button>"+b2("reach","🦒 long reach");
+out+="<button class='btn"+(tool==="erase"?" go":"")+"' data-pw2='tool:erase'>🧽 eraser</button><button class='btn"+(tool==="move"?" go":"")+"' data-pw2='tool:move'>✋ move buildings</button><button class='btn"+(tool==="copy"?" go":"")+"' data-pw2='tool:copy'>🧪 copy things</button>"+b2("reach","🦒 long reach");
 ["t0","t3","t5","egg","grump","food"].forEach(function(t){out+=b2("cmd:spawn "+t,"+"+t);});
 out+="</div>";
 if(c){
@@ -3064,7 +3097,7 @@ way:function(g,c,a){return PW.setWay(g,a[0]);},start:function(g,c,a){return PW.s
 quiz:function(g,c,a){quizA[+a[0]]=+a[1];for(var i=0;i<PW.QUIZ.length;i++)if(quizA[i]==null)return ok("");var r=PW.quiz(g,quizA);quizA=[];return r;},
 secret:function(g,c,a,text){return PW.secret(g,text);},sandbox:function(g){return PW.makeSandbox(g);},
 cmd:function(g,c,a){return PW.command(g,c,a.join(":"));},run:function(g,c,a,text){return PW.command(g,c,text);},
-tool:function(g,c,a){PW.sandTool(tool===a[0]?null:a[0]);return ok(tool==="erase"?"🧽 look at a thing and erase it":tool==="move"?"✋ look at a building and pick it up":"tool put away");},
+tool:function(g,c,a){PW.sandTool(tool===a[0]?null:a[0]);return ok(tool==="erase"?"🧽 look at a thing and erase it":tool==="move"?"✋ look at a building and pick it up":tool==="copy"?"🧪 look at a thing on the ground and copy it":"tool put away");},
 reach:function(g){return PW.longReach(g);},cat:function(g,c,a){catGroup=a[0];return ok("");}
 };
 PW.act=function(game,c,v,text){

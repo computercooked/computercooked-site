@@ -874,7 +874,7 @@ out+="<div class='help'>"+esc(def.desc)+"</div><div class='row' style='display:f
 if(!b.done&&T.commissionPrice(b)>0)out+=btn("data-townact","commission","🤝 pay the tribe to bring the rest · "+T.commissionPrice(b)+" "+money(game),(c.purse||0)<T.commissionPrice(b),"go");
 if(b.done)out+=btn("data-townact","name","🪧 name it");
 if(b.done&&dmg>0.05)out+=btn("data-townact","mend","🔨 mend (1 "+label(mendKind(b))+")",!!T.mendWhy(game,c,b));
-if(b.done&&b.data&&b.data.stock>0)out+=btn("data-townact","take","take "+b.data.stock+" "+esc(label(b.data.stockKind)));
+if(b.done&&b.data&&b.data.stock>0&&b.data.stockKind)out+=btn("data-townact","take","take "+b.data.stock+" "+esc(label(b.data.stockKind)));
 if(T.canTakeDown(game,b))out+=btn("data-townact","down",armed===b.id?"🪓 tap again: take it down":"🪓 take it down");
 out+="</div>";
 if(b.done&&m.job){
@@ -2840,10 +2840,10 @@ if(!job&&!wp)return"";
 if(job){
 var r=T.rankOf(c,job),nx=T.RANKS[r+1];
 out+="<div class='lbl'>🧰 "+esc(c.name)+" the "+esc(T.rankName(c,job))+" "+esc(job)+" "+T.badge(c,job)+" · "+T.xpOf(c,job)+" know-how"+(c.spec?" · "+esc(c.spec):"")+"</div>";
-out+="<div class='help'>"+(nx?esc(T.promoteWhy(game,c,job)||"ready to be a "+nx[1]+": work a shift"):"a master. nothing more to prove")+". "+T.tasks(game,c).map(function(t){return(t.done?"☑ ":"☐ ")+esc(t.text)+(t.of>1?" "+t.n+"/"+t.of:"");}).join(" · ")+"</div>";
+out+="<div class='help'>"+(nx?esc(T.promoteWhy(game,c,job)||"ready to be "+(/^[aeiou]/.test(nx[1])?"an ":"a ")+nx[1]+": work a shift"):"a master. nothing more to prove")+". "+T.tasks(game,c).map(function(t){return(t.done?"☑ ":"☐ ")+esc(t.text)+(t.of>1?" "+t.n+"/"+t.of:"");}).join(" · ")+"</div>";
 }
 var acts=[];
-if(wp){var wj=T.jobAt(wp);acts.push(b2("work","","🧰 work a shift at the "+esc(T.nameOf(wp))+" · "+T.wage(game,c,wj)+" "+mi(game),!!T.workWhy(game,c,wp),"go"));if(T.workWhy(game,c,wp))out+="<div class='help'>"+esc(T.workWhy(game,c,wp))+"</div>";}
+if(wp){var wj=T.jobAt(wp);acts.push(b2("work","","🧰 work a shift at "+(/^(your|the|an?) /.test(T.nameOf(wp))?"":"the ")+esc(T.nameOf(wp))+" · "+T.wage(game,c,wj)+" "+mi(game),!!T.workWhy(game,c,wp),"go"));if(T.workWhy(game,c,wp))out+="<div class='help'>"+esc(T.workWhy(game,c,wp))+"</div>";}
 if(job)acts.push(b2("off","",(c.chem.sick>0.4?"🤒 take a sick day":"🏖 take a paid day off"),!(c.chem.sick>0.4)&&(c.leaveN||0)<1));
 if(job&&T.rankOf(c,job)>=4&&!c.spec)T.specsFor(job).forEach(function(sp){acts.push(b2("spec",sp.id,"🧭 be a "+esc(sp.id)+": "+esc(sp.t)));});
 return out+row(acts);
@@ -2913,6 +2913,7 @@ return safe(function(){return T.tradeHtml(game,c,icon);})+safe(function(){return
 function wire2(root,game,c,redraw,sayFn){
 var L=root.querySelectorAll("[data-t2]");
 for(var i=0;i<L.length;i++)(function(el){
+if(el._t2w)return;el._t2w=1;
 el.addEventListener("click",function(){
 var r=T.act(game,c,el.getAttribute("data-t2"),el.getAttribute("data-a"));
 if(r&&r.msg&&sayFn)sayFn(r.msg);

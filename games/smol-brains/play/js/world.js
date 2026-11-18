@@ -5,6 +5,7 @@ var SB=window.SB;
 var W=(SB.World={});
 var WG=SB.WorldGen,K=SB.KINDS,NK=SB.NODES,SK=SB.STRUCTS;
 var NODE_ID0=(W.NODE_ID0=1000000);
+W.ADD_ID0=4e7;
 var CELL=8;
 var CAP_ITEMS=420,CAP_FOOD_NEAR=3;
 var GRAV=18;
@@ -456,7 +457,8 @@ W.nodeById=function(world,id){return world.nodeById[id]||null;};
 W.addNode=function(world,game,kind,x,z,s){
 if(!NK[kind]||!W.inBounds(world,x,z))return null;
 var id=world._nextNode||0;
-if(!id)world.nodes.forEach(function(o){if(o.id>=id&&!(NK[o.kind]&&NK[o.kind].nop))id=o.id+1;});
+if(!id||id<W.ADD_ID0){id=W.ADD_ID0;world.nodes.forEach(function(o){if(o.id>=id)id=o.id+1;});}
+while(world.nodeById[id])id++;
 world._nextNode=id+1;
 var n={id:id,kind:kind,x:x,z:z,s:s||1,rot:game.rng()*6.28,seed:1,added:true,type:"node",noun:NK[kind].noun,dropT:20,alsoT:60,state:"ok"};
 world.nodes.push(n);world.nodeById[id]=n;

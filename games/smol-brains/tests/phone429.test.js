@@ -54,7 +54,7 @@ seeded(4290, () => {
 console.log("5. the story's next step leads the goals list");
 check("captain and beacon lines are marked big", /light the beacon", "", false, 1\)/.test(ui) && /"tries: " \+ bn\.tries : "", false, 1\)/.test(ui));
 check("big lines are drawn before “today”", ui.indexOf('class="g big"') > 0 && ui.indexOf('class="g big"') < ui.indexOf('class="head today"'));
-check("in a body the beacon marker wins over the guide", /var bw = !chased && s && !s\.dead && !s\.goal && !s\.sniff && !s\.night && SB\.Game\.beaconWaiting/.test(ph));
+check("in a body the beacon marker wins over the guide", /var bw = (?:!quiet && )?!chased && s && !s\.dead && !s\.goal && !s\.sniff && !s\.night && SB\.Game\.beaconWaiting/.test(ph));
 
 console.log(failed ? "\n" + failed + " failed" : "\nall passed");
 process.exit(failed ? 1 : 0);

@@ -196,7 +196,7 @@
 
   /* ================= delves ================= */
   D.MAX = 6; D.SLOTS = 7; D.REACH = 4.5; D.RING = 11; D.PEP = 0.25; D.SECS = 30; D.TORCH_SECS = 70; D.RESTOCK = 3; D.DARK_SECS = 12;
-  D.NODE_ID0 = 3e7;
+  D.NODE_ID0 = 5e7; // 4.44: was 3e7, the same ids as the red shrubs, shelf mushrooms and icebergs worldgen adds last (WG.ARR_ID0): a delve's rocks took their places in the id table
   D.ZONES = [null,
     { name: "the mouth hall", rule: "daylight reaches here", dark: 0, grump: 0, nodes: [["d_rock", 3], ["d_flint", 2], ["d_copper", 2], ["d_coal", 2]] },
     { name: "the copper galleries", rule: "dark: bring a torch", dark: 1, grump: 0.25, nodes: [["d_copper", 4], ["d_coal", 3], ["d_rock", 1], ["d_bones", 1]] },
@@ -497,6 +497,16 @@
   D.pois = function (game) {
     var cch = game._deepPois;
     if (cch && cch.w === game.world) return cch.list;
+    // 4.44: the list is kept with the island. it used to be worked out again on every load from things that change in
+    // play (the sites, the caves, where a smol can walk, the water), so places drifted away from the markers already
+    // standing on them: an old barrow's "go in" answered "get closer to the way in"
+    var kept0 = st(game).places;
+    if (Array.isArray(kept0) && kept0.length) {
+      var keptL = [];
+      kept0.forEach(function (a) { if (!a || !PD(a[1])) return; var o = { id: a[0], kind: a[1], x: a[2], z: a[3], b: a[4], h: a[5] }; if (a[6]) o.boon = a[6]; keptL.push(o); });
+      game._deepPois = { w: game.world, list: keptL };
+      return keptL;
+    }
     var w = game.world, T = w.T, N = T.N, G = WG(), r = dice(game, "deep-places"), out = [], KK = N / 256, sp = T.spawn || T.nest;
     var walk = reach(game), sites = game.sites || [], caves = D.caves(game), far = [];
     for (var fj = 5; fj < N - 5; fj += 2) for (var fi = 5; fi < N - 5; fi += 2) if (walk[fj * N + fi] === 2 && G.depthAt(T, fi + 0.5, fj + 0.5) < 0.02 && G.slopeAt(T, fi + 0.5, fj + 0.5) < 1) far.push(fj * N + fi);
@@ -531,6 +541,43 @@
         out.push(best);
       }
     });
+    // an island from before 4.44: where a marker already stands, that is where its place is
+    // the drift also left some spots with two markers: a place that had drifted onto a found spot was "found" there
+    // again. the older marker keeps the spot. the newer one is taken away, and its place goes to the spot the older
+    // one's place had drifted off to (or stays where it is now), not found yet, so the island has every place once
+    var held = [], ghosts = [];
+    (w.structures || []).forEach(function (sb) {
+      var pid = sb.data && sb.data.poi, pp = null, pi, hi, at = null;
+      if (!pid || String(sb.kind).slice(0, 4) !== "poi_") return;
+      for (pi = 0; pi < out.length; pi++) if (out[pi].id === pid) pp = out[pi];
+      if (!pp) return;
+      for (hi = 0; hi < held.length; hi++) if (SB.dist(held[hi].sb.x, held[hi].sb.z, sb.x, sb.z) < 1.5) at = held[hi];
+      if (at) { ghosts.push({ sb: sb, pp: pp, at: at }); return; }
+      var rec = { sb: sb, was: null };
+      held.push(rec);
+      if (SB.dist(pp.x, pp.z, sb.x, sb.z) < 1.5) return;
+      rec.was = { x: pp.x, z: pp.z, b: pp.b, h: pp.h };
+      pp.x = Math.round(sb.x * 10) / 10; pp.z = Math.round(sb.z * 10) / 10; pp.b = G.biomeAt(T, sb.x, sb.z); pp.h = G.heightAt(T, sb.x, sb.z);
+    });
+    ghosts.forEach(function (gh) {
+      var was = gh.at.was, pp = gh.pp, sx = st(game);
+      if (was && !out.some(function (o) { return o !== pp && SB.dist(o.x, o.z, was.x, was.z) < 9; })) { pp.x = was.x; pp.z = was.z; pp.b = was.b; pp.h = was.h; gh.at.was = null; }
+      if (W().removeStructure) W().removeStructure(w, gh.sb);
+      if (sx.found) delete sx.found[pp.id];
+    });
+    // and no place is left sitting on another: one that still is goes to the nearest clear ground the island made for it
+    ghosts.forEach(function (gh) {
+      var pp = gh.pp;
+      if (!out.some(function (o) { return o !== pp && SB.dist(o.x, o.z, pp.x, pp.z) < 1.5; })) return;
+      for (var tr = 0; tr < 400; tr++) {
+        var a = r() * 6.283, d = 12 + r() * 40, x = pp.x + Math.sin(a) * d, z = pp.z + Math.cos(a) * d;
+        if (!land(x, z) || G.biomeAt(T, x, z) === bid("ocean") || !(walk[(z | 0) * N + (x | 0)] & 1)) continue;
+        if (out.some(function (o) { return o !== pp && SB.dist(o.x, o.z, x, z) < 9; })) continue;
+        pp.x = Math.round(x * 10) / 10; pp.z = Math.round(z * 10) / 10; pp.b = G.biomeAt(T, x, z); pp.h = G.heightAt(T, x, z);
+        break;
+      }
+    });
+    st(game).places = out.map(function (p) { return [p.id, p.kind, p.x, p.z, p.b, Math.round(p.h * 10) / 10, p.boon || 0]; });
     game._deepPois = { w: game.world, list: out };
     return out;
   };
@@ -1119,7 +1166,7 @@
     icon = icon || function () { return ""; };
     var s = st(game), pr = D.progress(game), mn = D.moon(game), out = "";
     var more = D.html2(game, c, icon);
-    out += "<div class='lbl'>🧭 the island · <b>" + pr.pct + "%</b> explored · <b>" + pr.found + " of " + pr.total + "</b> places found · deepest delve: level <b>" + pr.deepest + "</b> of " + D.MAX + "</div>";
+    out += "<div class='lbl'>🧭 the island · <b>" + pr.pct + "%</b> explored · <b>" + pr.found + " of " + pr.total + "</b> places found · deepest delve: level <b>" + pr.deepest + "</b> of " + (D.underOpen(game) ? D.UNDER_MAX : D.MAX) + "</div>";
     out += "<p class='help'>" + mn.icon + " " + esc(mn.name) + " · " + (D.lowTide(game) ? "🌊 low tide: the tide pools are open" : "🌊 the tide is in (low at dawn and dusk)") + (D.heatwave(game) ? " · 🥵 heat wave" : "") + (D.blizzard(game) ? " · 🌨 blizzard" : "") + (s.wx.rb ? " · 🌈 a rainbow is out" : "") + "</p>";
     if (s.boon && D.BOONS[s.boon]) out += "<div class='lbl'>" + D.BOONS[s.boon].icon + " " + esc(D.BOONS[s.boon].name) + ": " + esc(D.BOONS[s.boon].perk) + "</div>";
     // travel
@@ -2088,7 +2135,7 @@
     if (sh[k]) return fail("there is one on the shelf already");
     if (!has(c, k)) return fail("you are not carrying one");
     Sv().take(c, k, 1); sh[k] = day(game);
-    var n = D.shelfCount(game), msg = "🏛 a " + label(k) + " goes on the keeping shelf (" + n + " of " + D.SHELF.length + ")";
+    var n = D.shelfCount(game), msg = "🏛 " + (/^[aeiou]/i.test(label(k)) ? "an " : "a ") + label(k) + " goes on the keeping shelf (" + n + " of " + D.SHELF.length + ")";
     D.SHELF_PRIZES.forEach(function (pz) { if (n === pz[0]) { gives(game, c, pz[1]); msg += ". the hermit sends a thank-you: " + pz[2]; } });
     SB.bus.emit("deepShelf", { c: c, kind: k, n: n });
     return ok(msg);

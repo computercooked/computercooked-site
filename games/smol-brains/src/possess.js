@@ -1274,6 +1274,7 @@
     var game = S.game, c = S.c, st = game.settings || (game.settings = {});
     S.quest = null;
     if (!st.povHungry) { st.povHungry = 1; S.hungerClock = true; if (c.chem.hunger < P.START_HUNGER) c.chem.hunger = P.START_HUNGER; S.lastHun = c.chem.hunger; } // per island, any smol, quest or not (K-0027 saw a full bar, K-0037 a tool-user)
+    if (st.guide === false) return; // 4.44: "no story prompts": no lesson line when you step into a smol
     if (c.tier < 2) {
       if (st.povBlobQuest === "done" || st.povBlobQuest === "skipped" || questStore(BKEY) === "done") return;
       S.quest = { i: 0, kind: "blob", started: game.time, flags: {} };

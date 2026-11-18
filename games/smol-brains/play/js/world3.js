@@ -151,8 +151,9 @@ M.wanderTarget=function(c,game){var p=f0(c,game);if(p)return p;try{return W3.fol
 wrapMind();
 function addNode(w,kind,x,z,s){
 if(!NK[kind]||!Wd().inBounds(w,x,z))return null;
-var id=w._nextNode||0;
-if(!id)w.nodes.forEach(function(o){if(o.id>=id&&!(NK[o.kind]&&NK[o.kind].nop))id=o.id+1;});
+var id=w._nextNode||0,A0=Wd().ADD_ID0||4e7;
+if(!id||id<A0){id=A0;w.nodes.forEach(function(o){if(o.id>=id)id=o.id+1;});}
+while(w.nodeById[id])id++;
 w._nextNode=id+1;
 var n={id:id,kind:kind,x:x,z:z,s:s||1,rot:Math.random()*6.28,seed:1,added:true,type:"node",noun:NK[kind].noun,dropT:20,alsoT:60,state:"ok",grow:0};
 w.nodes.push(n);w.nodeById[id]=n;

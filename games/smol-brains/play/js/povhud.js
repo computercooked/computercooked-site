@@ -384,7 +384,7 @@ return out.length?out.join(" · "):"a tool";
 HUD.quest=function(){
 if(!hud)return;
 var s=S(),q=s&&s.quest;
-if(!q){hud.quest.style.display="none";if(!s||(!s.sniff&&!s.night))hud.qmark.classList.remove("on");return;}
+if(!q||(s.game&&s.game.settings&&s.game.settings.guide===false)){hud.quest.style.display="none";if(!s||(!s.sniff&&!s.night))hud.qmark.classList.remove("on");return;}
 hud.quest.style.display="";
 var steps=P().questList(),cur=P().questText(),title=q.kind==="open"?"🌅 the f&zwnj;irst day":q.kind==="blob"?"🫧 a small body's day":"🪨 f&zwnj;irst tool";
 var html="<h4><span>"+title+"</span><button class='skip' title='"+(q.kind==="open"?"skip the first day: straight to morning":"hide the guide for good")+"'>skip ✕</button></h4>";
@@ -464,16 +464,16 @@ hud.nums.textContent="🧪 food "+Math.round((1-c.chem.hunger)*100)+"%  −"+(P(
 function questMarker(){
 testNums();
 var chased=threatMarker();
-var s=S(),q=s&&s.quest,t=(s&&s.goal)||(chased?null:s&&s.sniff?s.sniff:s&&s.night?s.night:q&&q.target),R=SB.Render,lair=null;
-var bw=!chased&&s&&!s.dead&&!s.goal&&!s.sniff&&!s.night&&SB.Game.beaconWaiting?SB.Game.beaconWaiting(s.game):null;
+var s=S(),q=s&&s.quest,quiet=!!(s&&s.game&&s.game.settings&&s.game.settings.guide===false),goal=s&&s.goal&&!(quiet&&!s.goal.small)?s.goal:null,t=goal||(chased?null:s&&s.sniff?s.sniff:s&&s.night?s.night:!quiet&&q&&q.target),R=SB.Render,lair=null;
+var bw=!quiet&&!chased&&s&&!s.dead&&!s.goal&&!s.sniff&&!s.night&&SB.Game.beaconWaiting?SB.Game.beaconWaiting(s.game):null;
 if(bw){lair={boss:{icon:"✨",name:"light the beacon"}};t={x:bw.x,z:bw.z,y:SB.World.groundY(s.game.world,bw.x,bw.z)+3};}
-if(!t&&!chased&&s&&!s.dead&&!s.firstNight&&SB.Bosses&&SB.Bosses.next){var bn=SB.Bosses.next(s.game);if(bn){lair=bn;t={x:bn.x,z:bn.z,y:SB.World.groundY(s.game.world,bn.x,bn.z)+2};}}
+if(!t&&!quiet&&!chased&&s&&!s.dead&&!s.firstNight&&SB.Bosses&&SB.Bosses.next){var bn=SB.Bosses.next(s.game);if(bn){lair=bn;t={x:bn.x,z:bn.z,y:SB.World.groundY(s.game.world,bn.x,bn.z)+2};}}
 if(!t||!R||!R.project||s.dead){hud.qmark.classList.remove("on");return;}
 var c=s.c,d=SB.dist(t.x,t.z,c.x,c.z);
-hud.qmark.classList.toggle("home",!!(s&&s.goal&&!s.goal.small));
+hud.qmark.classList.toggle("home",!!(goal&&!goal.small));
 if(d<1.4){hud.qmark.classList.remove("on");return;}
 mark(hud.qmark,t,d,1.4);
-if(s.goal){var sp=hud.qmark.querySelector("span"),lb=s.goal.label+" "+Math.round(d)+"m";if(sp.textContent!==lb)sp.textContent=lb;}
+if(goal){var sp=hud.qmark.querySelector("span"),lb=goal.label+" "+Math.round(d)+"m";if(sp.textContent!==lb)sp.textContent=lb;}
 else if(lair){var sp2=hud.qmark.querySelector("span"),lb2=lair.boss.icon+" "+lair.boss.name+" "+Math.round(d)+"m";if(sp2&&sp2.textContent!==lb2)sp2.textContent=lb2;}
 else if(q&&q.target&&!s.sniff&&!s.night){var sp3=hud.qmark.querySelector("span"),lb3=P().questText().text.replace(/ \(.*$/,"")+" "+Math.round(d)+"m";if(sp3&&sp3.textContent!==lb3)sp3.textContent=lb3;}
 keepLabel(hud.qmark);
@@ -680,8 +680,27 @@ h+="<div class='rc'><span class='big'>"+def.emoji+"</span><div class='t'>"+esc(d
 h+="</div><div class='help'>you don't need everything to start: place the site, then bring it what it asks for.</div>";
 return h;
 }
+HUD.dupes={};
+HUD.onceEach=function(root){
+Array.prototype.forEach.call(root.querySelectorAll("*"),function(el){
+if(el._once)return;
+var add=el.addEventListener,seen={};
+el._once=1;
+el.addEventListener=function(type,fn,opt){
+var key=type+":"+String(fn);
+if(seen[key]){
+var dn=el.getAttributeNames?el.getAttributeNames().filter(function(a){return a.slice(0,5)==="data-";})[0]:"",nm=dn||el.className||el.tagName||"?";
+HUD.dupes[nm]=(HUD.dupes[nm]||0)+1;
+return;
+}
+seen[key]=1;
+return add.call(el,type,fn,opt);
+};
+});
+};
 function wireBag(){
 var root=bag.el,s=S(),c=s.c;
+HUD.onceEach(root);
 root.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){bag.tab=b.getAttribute("data-tab");drawBag();});});
 root.querySelectorAll(".tabs:not(.sub) button[data-tab]").forEach(function(b){var tx=(b.textContent||"").trim(),sp=tx.indexOf(" ");if(sp>0){b.title=tx.slice(sp+1);if(!b.classList.contains("on")){b.textContent=tx.slice(0,sp);b.classList.add("ico");}}});
 Array.prototype.forEach.call(root.querySelectorAll("[data-close]"),function(cl){cl.addEventListener("click",closeBag);});

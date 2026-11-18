@@ -9,6 +9,7 @@
   var W = (SB.World = {});
   var WG = SB.WorldGen, K = SB.KINDS, NK = SB.NODES, SK = SB.STRUCTS;
   var NODE_ID0 = (W.NODE_ID0 = 1000000);
+  W.ADD_ID0 = 4e7; // 4.44: nodes added in play (W.addNode). 1e6 worldgen, 1e7 vines, 2e7 crystal patches, 3e7 arrivals and delves
   var CELL = 8;
   var CAP_ITEMS = 420, CAP_FOOD_NEAR = 3;
   var GRAV = 18;
@@ -511,8 +512,13 @@
   // a node that wasn't there at worldgen (a fallen star's crystals): saved with the world
   W.addNode = function (world, game, kind, x, z, s) {
     if (!NK[kind] || !W.inBounds(world, x, z)) return null;
+    // 4.44: a thing added after the island is made gets an id from a range of its own (ADD_ID0 up), and never one a
+    // node already has. it used to take "the highest id that is not a vine or sea ice, plus one", which is the id of
+    // the first iceberg or glow-stone: on the next load that one was there first, and the added thing (a planted
+    // sapling, a crystal cluster, a hive) was dropped, with its saved state put on the iceberg
     var id = world._nextNode || 0;
-    if (!id) world.nodes.forEach(function (o) { if (o.id >= id && !(NK[o.kind] && NK[o.kind].nop)) id = o.id + 1; }); // (vines have their own id range)
+    if (!id || id < W.ADD_ID0) { id = W.ADD_ID0; world.nodes.forEach(function (o) { if (o.id >= id) id = o.id + 1; }); }
+    while (world.nodeById[id]) id++;
     world._nextNode = id + 1;
     var n = { id: id, kind: kind, x: x, z: z, s: s || 1, rot: game.rng() * 6.28, seed: 1, added: true, type: "node", noun: NK[kind].noun, dropT: 20, alsoT: 60, state: "ok" };
     world.nodes.push(n); world.nodeById[id] = n;
