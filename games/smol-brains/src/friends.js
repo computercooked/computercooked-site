@@ -2149,14 +2149,23 @@
     return { ok: true, sex: d.frSex, msg: "🥚 you wish for a " + (d.frSex === "f" ? "girl" : "boy") + ". ask again to change your mind" };
   };
   var STAND = ["ears", "size", "fluff", "bravery", "playfulness", "learnRate", "toughness", "speed", "curiosity", "affection"];
-  F.standout = function (c) { var best = STAND[0], bv = -1; STAND.forEach(function (g) { var v = Math.abs(gene(c, g) - 0.5); if (v > bv) { bv = v; best = g; } }); return best; };
+  // 4.49: what stands out is a strength, never a lack: the highest of these genes, and it has to be over the middle.
+  // asked with an egg, only a gene the smol has more of than the egg has counts (a gift never lowers anything).
+  // null: nothing stands out (or nothing the egg lacks)
+  F.standout = function (c, egg) {
+    var best = null, bv = 0.5, eg = egg && egg.data && egg.data.genome && egg.data.genome.genes ? egg.data.genome.genes : null;
+    STAND.forEach(function (g) { var v = gene(c, g); if (v > bv && !(eg && v <= (eg[g] == null ? 0.5 : eg[g]))) { bv = v; best = g; } });
+    return best;
+  };
   function gname(g) { return SB.Genome && SB.Genome.GENE_LABELS && SB.Genome.GENE_LABELS[g] ? SB.Genome.GENE_LABELS[g] : g; }
   // copy the one gene a smol is most itself in, into an egg
   F.geneCopy = function (game, donor, egg) {
     if (!isSmol(donor) || !isEgg(egg) || !egg.data.genome || !egg.data.genome.genes) return { ok: false, msg: "look at an egg, with a smol picked on the friends tab" };
     if (egg.data.frGene) return { ok: false, msg: "this egg has had its gift already" };
+    var g = F.standout(donor, egg);
+    if (!g) return { ok: false, none: true, msg: donor.name + " has nothing to give this egg: " + (F.standout(donor) ? "the egg already has as much of everything " + donor.name + " is strong in" : "nothing about " + donor.name + " stands out") };
     if (!spend(game, 3)) return { ok: false, msg: "that costs 3 ✨" };
-    var g = F.standout(donor); egg.data.genome.genes[g] = gene(donor, g); egg.data.frGene = [g, donor.name];
+    egg.data.genome.genes[g] = gene(donor, g); egg.data.frGene = [g, donor.name];
     emit("geneCopy", { donor: donor, egg: egg, gene: g });
     return { ok: true, gene: g, msg: "🧬 the egg takes " + donor.name + "'s " + gname(g) };
   };
@@ -2727,7 +2736,9 @@
     if (r && r.type === "item" && isEgg(ref)) {
       if (!o.pick || o.pick.locked) o.pick = x.op(ref.data.frSex ? "wish for a " + (ref.data.frSex === "f" ? "boy" : "girl") + " instead" : "wish for a girl (1 ✨)", run(function () { return F.eggSex(game, ref); }), null);
       var don = F._focus != null ? byId(game, F._focus) : null;
-      if (isSmol(don) && !ref.data.frGene && (!o.place || o.place.locked)) o.place = x.op("give it " + don.name + "'s " + gname(F.standout(don)) + " (3 ✨)", run(function () { return F.geneCopy(game, don, ref); }), null);
+      // 4.49: the gift is a strength the egg lacks, named on the button; with none to give the button says so and costs nothing
+      var gg = isSmol(don) && !ref.data.frGene ? F.standout(don, ref) : null;
+      if (isSmol(don) && !ref.data.frGene && (!o.place || o.place.locked)) o.place = x.op(gg ? "give it " + don.name + "'s " + gname(gg) + " (3 ✨)" : don.name + " has nothing to give this egg", run(function () { return F.geneCopy(game, don, ref); }), null);
       return;
     }
     if (r && r.type === "struct" && ref && ref.done && ref.kind === "totem" && (!o.pick || o.pick.locked)) { o.pick = x.op("study the carvings", run(function () { return F.studyPole(game, c); }), null); return; }
