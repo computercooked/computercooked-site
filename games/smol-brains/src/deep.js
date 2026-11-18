@@ -929,11 +929,31 @@
 
   /* ================= every frame ================= */
   var poiT = 0, booted = null;
+  // 4.49: a dark altar is stood up at the moment a captain is beaten (4.34), so an island whose captains were beaten
+  // before that never got one, and never the ore veins behind it. Once for each island, when it is opened: every beaten
+  // captain with no altar standing gets one, less the altars already broken (older saves only counted those; from now
+  // on each is noted by its captain)
+  D.altarRepair = function (game) {
+    var s = st(game), BB = BO(), n = 0, list;
+    if (s.altarFix || !BB || !BB.LIST || !BB.state) return 0;
+    s.altarFix = 1;
+    if (!s.altarDone || typeof s.altarDone !== "object") s.altarDone = {};
+    try { list = BB.state(game).list || {}; } catch (e) { return 0; }
+    var lack = BB.LIST.filter(function (d) {
+      var e = list[d.id];
+      return e && e.beaten && !s.altarDone[d.id] && !game.world.structures.some(function (b) { return b.kind === "poi_altar" && b.data && b.data.boss === d.id; });
+    });
+    var owed = lack.length - Math.max(0, ((s.n && s.n.altars) || 0) - Object.keys(s.altarDone).length);
+    lack.slice(0, Math.max(0, owed)).forEach(function (d) { var e = list[d.id], sp = sideSpot(game, e.x, e.z, "altar:" + d.id); put(game, "poi_altar", sp.x, sp.z, { dyn: 1, boss: d.id }, 0); n++; });
+    if (n && !game.headless) tell("🪨 " + (n === 1 ? "a dark altar stands" : n + " dark altars stand") + " where the beaten captains had their lairs. break one with a pick or a hammer and ore comes up nearby");
+    return n;
+  };
   function boot(game) {
     // a loaded island: the rocks of a delve somebody saved in go back (you start on top), and keep their "skip me" mark
     booted = game;
     grumpId = null; lastPos = null; raft = null; haz = {}; saidT = {}; breath = 0; gloomT = 0; ashT = 0;
     var s = st(game);
+    D.altarRepair(game);
     if (Sv() && Sv().ROCKS && Sv().ROCKS.d_coal) Sv().ROCKS.d_coal.item = D.twin(game) ? "peat" : "coal"; // twin ores: this island's seams are one or the other
     if (SB.Game && SB.Game.smols) SB.Game.smols(game).forEach(function (o) { if (o.dp && o.dp.rf && o.look) { o.look.fins = false; o.dp.rf = 0; } });
     if (s.cur != null || s.nodes.length) D.leave(game, "loaded");
@@ -2090,6 +2110,7 @@
         var r = dice(game, "veins:" + b.data.boss), n = 0;
         for (var i = 0; i < 3; i++) { var at = drySpot(game, r, b.x, b.z, 8, 40); if (at) { put(game, "poi_vein", at.x, at.z, { dyn: 1, t: 0 }, 0); n++; } }
         W().removeStructure(w, b); sparks(game, 2, c); count(game, "altars");
+        if (b.data.boss) (s.altarDone && typeof s.altarDone === "object" ? s.altarDone : (s.altarDone = {}))[b.data.boss] = 1; // 4.49: so the repair on load never stands it up again
         SB.bus.emit("deepAltar", { c: c, veins: n });
         return ok("💥 it cracks from top to bottom, and the ground shivers: " + n + " new ore veins have broken the surface nearby · +2 ✨");
       });

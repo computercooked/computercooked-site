@@ -35,6 +35,9 @@
 //   13. the glowshroom grove breaks the hunt of a grump the gloom sent after a body: it gives up when it sets foot in a
 //      grove or comes to the edge of the one its prey stands in, and the body in the grove loses no hearts to it. One
 //      hunting a body that is not in a grove hunts on
+//   14. an island whose captains were beaten before 4.34 gets its dark altars when it is opened: the save in
+//      tests/save-4.33-two-captains.json was made by the 4.33.0 code itself (two captains beaten, no altar in it).
+//      Once only; an altar that has been broken stays broken; an island that already broke one is not given it twice
 // node games/smol-brains/tests/play449.test.js
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -573,6 +576,49 @@ seeded(4503, () => {
   check("a cave's keeper keeps its hunt", k.scout && !k.scout.done);
   k.alive = false;
   P.leave(); P.say = say0;
+});
+
+console.log("14. captains beaten before 4.34: the dark altars come when the island is opened");
+seeded(4504, () => {
+  const old = () => JSON.parse(fs.readFileSync(path.join(__dirname, "save-4.33-two-captains.json"), "utf8"));
+  const open = snap => {
+    const ctx = load(), SB = ctx.SB;
+    order.filter(n => EXTRA.indexOf(n) >= 0).forEach(n => { if (n === "bosses" && SB.Bosses) return; vm.runInContext(js(n + ".js"), ctx, { filename: n + ".js" }); });
+    if (SB.Possess) SB.Possess.headless = true;
+    const game = SB.Save.revive(snap); SB.Game.current = game;
+    return { SB, game };
+  };
+  const altars = game => game.world.structures.filter(b => b.kind === "poi_altar");
+  let { SB, game } = open(old());
+  const L = SB.Bosses.state(game).list;
+  check("the old save: Gloom and Murk beaten, the Long Night not, and no altar in it", L.gloom.beaten && L.murk.beaten && !L.night.beaten && altars(game).length === 0);
+  step(SB, game, 1);
+  const a = altars(game);
+  check("a second after it is opened an altar stands for each beaten captain, and none for the one still up", a.length === 2 && a.some(b => b.data.boss === "gloom") && a.some(b => b.data.boss === "murk"), a.map(b => b.data.boss).join(","));
+  check("each stands by its captain's old lair", a.every(b => SB.dist(b.x, b.z, L[b.data.boss].x, L[b.data.boss].z) < 4));
+  step(SB, game, 30);
+  check("no more come", altars(game).length === 2);
+  // break Gloom's
+  const D = SB.Deep, ga = a.filter(b => b.data.boss === "gloom")[0];
+  const me = put(SB, game, ga.x + 1, ga.z + 0.5, {}); SB.Surv.add(me, "stonepick", 1);
+  const ops = D.poiOps(game, me, ga, null), res = ops.use && ops.use.go && ops.use.go();
+  check("Gloom's altar broken with a pick: ore veins come up", !!res && res.ok && altars(game).length === 1 && game.world.structures.filter(b => b.kind === "poi_vein").length >= 1, res && res.msg);
+  // saved and opened again
+  const snap2 = JSON.parse(JSON.stringify(SB.Save.snapshot(game)));
+  ({ SB, game } = open(snap2));
+  step(SB, game, 2);
+  check("saved and opened again: the broken altar stays broken, the other still stands", altars(game).length === 1 && altars(game)[0].data.boss === "murk");
+  // an island that broke an altar before breaking was noted by captain (4.34 to 4.48): it only counted them
+  const snap3 = old(); snap3.quests = snap3.quests || {}; snap3.quests.deep = snap3.quests.deep || {}; snap3.quests.deep.n = Object.assign({}, snap3.quests.deep.n, { altars: 1 });
+  ({ SB, game } = open(snap3));
+  step(SB, game, 1);
+  check("an island that had already broken one altar is given one, not two", altars(game).length === 1, String(altars(game).length));
+  // a new island: nothing to repair, and a captain beaten now gets its altar the usual way, once
+  const fresh = island(102), B2 = fresh.SB.Bosses; B2.place(fresh.game);
+  step(fresh.SB, fresh.game, 1);
+  B2.win(fresh.game, B2.BY.gloom, null);
+  step(fresh.SB, fresh.game, 1);
+  check("a captain beaten today has one altar, as before", altars(fresh.game).length === 1);
 });
 
 console.log(failed ? "\n" + failed + " FAILED" : "\nall passed");
