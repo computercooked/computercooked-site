@@ -137,9 +137,9 @@ W.buildPathGrid=function(world){
 var T=world.T,n=T.N/PC,g=new Uint8Array(n*n);
 for(var j=0;j<n;j++)for(var i=0;i<n;i++){
 var x=i*PC+PC/2,z=j*PC+PC/2;
-var ok=0;
-for(var k=0;k<5;k++){var ox=[0,-0.6,0.6,0,0][k],oz=[0,0,0,-0.6,0.6][k];if(W.walkable(world,x+ox,z+oz,false))ok++;}
-g[j*n+i]=ok>=4?1:0;
+var ok=0,okS=0;
+for(var k=0;k<5;k++){var ox=[0,-0.6,0.6,0,0][k],oz=[0,0,0,-0.6,0.6][k];if(W.walkable(world,x+ox,z+oz,false))ok++;if(W.walkable(world,x+ox,z+oz,true))okS++;}
+g[j*n+i]=ok>=4?1:okS>=4?2:0;
 }
 world.pathGrid=g;world.pathN=n;
 };
@@ -161,7 +161,7 @@ var si=SB.clamp((sx/PC)|0,0,n-1),sj=SB.clamp((sz/PC)|0,0,n-1);
 var ti=SB.clamp((tx/PC)|0,0,n-1),tj=SB.clamp((tz/PC)|0,0,n-1);
 var start=sj*n+si,goal=tj*n+ti;
 if(start===goal)return[{x:tx,z:tz}];
-function open(k){return swim?true:g[k]===1;}
+function open(k){return swim?g[k]!==0:g[k]===1;}
 var size=n*n;
 if(!pq||pq.cost.length!==size)pq={cost:new Float32Array(size),from:new Int32Array(size),seen:new Uint32Array(size),stamp:0,hk:new Float32Array(size+1),hv:new Int32Array(size+1)};
 pq.stamp++;
