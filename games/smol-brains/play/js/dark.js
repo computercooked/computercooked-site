@@ -1610,6 +1610,7 @@ function biomeSpotNear(game,ids,x,z,maxD){var best=null,bd=maxD;for(var t=0;t<30
 function waveTick(game){
 var x=X2(game),w=x.wave;if(!w)return;
 var d=D.WAVE_BY[w.id];if(!d){x.wave=null;return;}
+if(w.i>=0&&game.time<w.until)w.ids.forEach(function(id){var o=SB.Game.byId(game,id);if(o&&o.alive&&o.goingHome&&!o._wc){o._wc=1;w.chased++;}});
 var left=w.i<0?0:waveLeft(game,w);
 if(w.relicDone)return waveEnd(game,true);
 if(left>0&&game.time<w.until)return;
@@ -2923,7 +2924,7 @@ on("dusk",G0(function(g){D.dusk2(g);}));
 on("dawn",G0(function(g){D.dawn2(g);}));
 on("grumpChased",G0(function(g,d,x){
 bump(g,"chased");if(g.world.night)x.nightWon=1;
-if(d.g&&d.g.dark==="wave"&&x.wave)x.wave.chased++;
+if(d.g&&d.g.dark==="wave"&&x.wave&&!d.g._wc){d.g._wc=1;x.wave.chased++;}
 if(d.g&&!d.g.boss&&D.placesOf(g,"patch").length<6&&lucky(g,0.15))placeAdd(g,"patch",{x:d.g.x,z:d.g.z},{});
 if(d.c&&d.c._pov&&bump(g,"chasedPov")%12===0&&!st(g).posts.some(function(p){return p.bid==="grudge";})){var at=spotAt(g,d.c.x,d.c.z,9,12,Math.random,null);if(at)D.spawnBeast(g,"grudge",at);}
 }));

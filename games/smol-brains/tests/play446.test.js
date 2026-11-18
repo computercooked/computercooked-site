@@ -1,6 +1,7 @@
 // 4.46: what the proof pass turned up in combat and bosses-threats (smol-brains-handover/PROOF-PASS.md).
 //   1. a wave can be fought: the storyteller no longer sends a wave's grumps home the second they arrive
 //   1b. a dark pillar can be brought down (the last act needs four)
+//   1c. a wave grump that runs home before the time is up counts as chased off, once
 //   2. the old rule still holds for a plain raider left over from a raid, and an eclipse keeps its grumps to the end
 //   3. the ark flare keeps posted grumps off their posts for a day, and a post made later is not held back
 //   4. a stink pot only says grumps can't stand it when one of them ran
@@ -95,6 +96,37 @@ console.log("1b. a dark pillar can be brought down");
   check("the wave is won", !st.x2.wave && lines.some(t => /a dark pillar is over: 7 of 7 chased off/.test(t)), lines.filter(t => /pillar/.test(t)).join(" | ").slice(0, 160));
   check("the pillar is down: one of four", st.x2.pillars === 1 && lines.some(t => /a dark pillar is down: 1 of 4/.test(t)));
   check("and it is gone from the island", !D.placeById(game, p.id));
+}
+
+console.log("1c. a wave grump that runs home counts as chased off");
+{
+  // seen in the pane: a ring beside a well-armed village. the villagers' spears sent a whole wave running inside a
+  // second, none of it counted, and the ring paid nothing
+  const { SB, game, folk, run, hm } = fresh(4467), D = SB.Dark, st = D._h.st(game);
+  const place = D._placeAdd(game, "arena", { x: hm.x + 20, z: hm.z }, {});
+  D.startWave(game, "arena", place, folk[0], { place: place.id });
+  run(0.5);
+  const w = st.x2.wave, a = waveGrumps(SB, game);
+  a[0].goingHome = true; // a villager's spear, or the fire: it turns and runs
+  run(0.2);
+  check("a grump that turns and runs is counted", w.chased === 1, w.chased);
+  run(0.5);
+  check("and only once, however long it takes to get away", w.chased === 1, w.chased);
+  beat(SB, a[0], folk[0]);
+  check("beating it as it runs does not count it again", w.chased === 1, w.chased);
+  beat(SB, a[1], folk[0]);
+  check("the other one, beaten outright, makes two", w.chased === 2, w.chased);
+  run(1.5);
+  const b = waveGrumps(SB, game);
+  check("the second wave comes", st.x2.wave && st.x2.wave.i === 1 && b.length === 3, b.length);
+  st.x2.wave.until = game.time - 1; // nobody saw this wave off: its time runs out
+  run(0.5);
+  check("a wave that only ran out of time counts for nothing", st.x2.wave && st.x2.wave.i === 2 && st.x2.wave.chased === 2, st.x2.wave && st.x2.wave.i + " / " + st.x2.wave.chased);
+  st.x2.wave.until = game.time - 1;
+  const log0 = game.log.length;
+  run(0.5);
+  const line = game.log.slice(log0).map(l => String(l.text || "")).find(t => /the old ring is over/.test(t)) || "";
+  check("two of nine is no medal", !st.x2.wave && /2 of 9 chased off\. the rest got bored and went/.test(line), line.slice(0, 90));
 }
 
 console.log("2. a plain raider left over from a raid still heads home");
