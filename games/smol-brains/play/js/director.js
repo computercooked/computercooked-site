@@ -617,7 +617,7 @@ else if(inc.phase==="warn"&&game.time>=inc.t1){inc.phase="on";D[inc.id].begin(ga
 else if(inc.phase==="on"&&D[inc.id].tick)D[inc.id].tick(game,inc,step);
 return;
 }
-game.creatures.forEach(function(c){if(c.raider&&c.alive&&!c.goingHome)c.goingHome=true;});
+game.creatures.forEach(function(c){if(c.raider&&c.alive&&!c.goingHome&&c.dark!=="wave")c.goingHome=true;});
 if(game.time<d.nextT)return;
 if(game.time<SB.DAY_LENGTH&&!game.ngPlus)return;
 if(game.playTime>0&&game.playTime-(d.realT||-1e9)<90)return;

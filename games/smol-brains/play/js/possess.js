@@ -343,7 +343,7 @@ if(SB.World.depthAt(w,px,pz)>0.1)return{type:"water",x:px,z:pz};
 break;
 }
 }
-if(SB.World.depthAt(w,ex,ez)>0.12)return{type:"water",x:ex,z:ez};
+if(fy<0.35&&SB.World.depthAt(w,ex,ez)>0.12)return{type:"water",x:ex,z:ez};
 return null;
 };
 P.aimGround=function(game,c,maxD){
@@ -362,7 +362,7 @@ return last&&pitch>-0.05?{x:c.x+fx/fl*dd,z:c.z+fz/fl*dd,d:dd,far:true}:last;
 };
 function label(r){
 if(!r)return"";
-if(r.type==="creature")return r.ref.species==="smol"||r.ref.boss?r.ref.name:r.ref.species;
+if(r.type==="creature")return r.ref.species==="smol"||r.ref.boss||(r.ref.species==="grump"&&r.ref.name&&r.ref.name!=="grump")?r.ref.name:r.ref.species;
 if(r.type==="water")return"water";
 if(r.type==="item"&&r.ref&&r.ref.data&&r.ref.data.pod)return"the pod";
 var d=r.type==="item"?K[r.kind]:r.type==="node"?NK[r.kind]:SK[r.kind];

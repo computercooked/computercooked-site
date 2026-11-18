@@ -704,7 +704,7 @@ if(!s||s.c!==c||s.ghost||lesson(s))return;
 var Surv=Sv(),sl=Surv.held(c),hk=sl?sl.k:null,rw=F.RANGED[hk];
 var g=r&&r.type==="creature"&&r.ref.species==="grump"?r.ref:null;
 if(g)tgtT=now;
-var shootable=!r||g||(r.type==="creature"&&r.ref.species!=="smol")||r.type==="node"||(r.type==="item"&&K[r.kind]&&K[r.kind].critter)||(r.type==="struct"&&r.kind==="dummy");
+var shootable=!r||g||r.type==="water"||(r.type==="creature"&&r.ref.species!=="smol")||r.type==="node"||(r.type==="item"&&K[r.kind]&&K[r.kind].critter)||(r.type==="struct"&&r.kind==="dummy");
 if(rw&&c.tier>=(rw.tier||2)&&shootable){
 if(!F.ammo(c,rw))o.use=x.no(rw.none);
 else{
@@ -722,9 +722,10 @@ else if(g&&o.use&&!o.use.locked){
 var base=o.use,who=g.boss&&g.name?g.name:"the grump";
 o.use=x.op("hit "+who+(isTool(hk)?" with your "+F.name(sl):""),function(){return F.swing(game,c,g,base.go);},base.verb);
 }
-if(g&&F.guarding(c)&&F.shieldAt(c)>=0&&(!o.place||o.place.fbrace))o.place=x.op("bash with your shield",function(){return!!F.bash(game,c,g).ok;},null);
-else if(g&&F.lightIn(c)&&F.flashReady(c)&&(!o.place||o.place.fbrace))o.place=x.op("flash your light",function(){return!!F.flash(game,c).ok;},null);
-else if(g&&!o.place)o.place=x.op(F.guarding(c)?"hold your guard":F.shieldAt(c)>=0?"raise your shield":"brace for the bite",function(){return F.brace(game,c);},null,{fbrace:1});
+var freeP=!o.place||o.place.fbrace||/^put down/.test(o.place.label||"");
+if(g&&F.guarding(c)&&F.shieldAt(c)>=0&&freeP)o.place=x.op("bash with your shield",function(){return!!F.bash(game,c,g).ok;},null);
+else if(g&&F.lightIn(c)&&F.flashReady(c)&&freeP)o.place=x.op("flash your light",function(){return!!F.flash(game,c).ok;},null);
+else if(g&&(!o.place||/^put down/.test(o.place.label||"")))o.place=x.op(F.guarding(c)?"hold your guard":F.shieldAt(c)>=0?"raise your shield":"brace for the bite",function(){return F.brace(game,c);},null,{fbrace:1});
 if(g&&!o.pick)o.pick=x.op("hop aside",function(){return!!F.dash(game,c).ok;},null);
 if(r&&r.type==="struct"&&r.kind==="totem"&&r.ref.done&&!o.pick&&!F.hasRead(c,"t"+r.ref.id))o.pick=x.op("study the carvings",function(){return!!F.study(game,c,"t"+r.ref.id).ok;},null);
 if(r&&r.type==="struct"&&F.TRAPS[r.kind]){
@@ -1269,7 +1270,8 @@ F.blast=function(game,c,pk,x,z){
 var T=F.POTS[pk],out={ok:true,hit:0,gone:0,kind:pk,x:x,z:z};
 if(!T)return{ok:false};
 burst("crumbs",x,gy(game,x,z)+0.5,z,18,{col:T.col});audio(T.dmg?"bonk":"tap",0.9);
-if(T.line)say(T.line);
+var ran=0;
+if(T.line&&!T.flee)say(T.line);
 splash(game,x,z,T.r,function(g){
 out.hit++;
 if(T.odd){if(out.hit===1)odd(game,c,g,out);return;}
@@ -1277,9 +1279,10 @@ if(T.dmg&&zap(game,c,g,T.dmg,lab(pk),T.cls)){out.gone++;return;}
 if(!g.alive)return;
 if((T.burn||T.sick)&&!g.boss&&!F.burning(g))dots.push({id:g.id,by:c.id,n:3,at:now+1.2});
 if((T.stun||T.flash)&&!g.boss)F.addStagger(game,g,99);
-if(T.flee)scare(g,x,z,T.flee);
+if(T.flee&&(scare(g,x,z,T.flee)||pinned(g)))ran++;
 if(T.slow)slow(g,T.slow);
 });
+if(T.line&&T.flee)say(out.hit&&!ran?"💨 phew! but a grump on guard or on the hunt won't run from a smell":T.line);
 if(T.crack)out.rocks=crack(game,c,x,z,T.r,T.crack);
 if(T.cloud)clouds.push({x:x,z:z,r:T.r,until:now+T.cloud,kind:pk,by:c.id});
 if(T.flash)reveal(game,c);

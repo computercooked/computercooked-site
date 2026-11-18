@@ -719,7 +719,8 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 - The cause was a rule from 3.2. Once a second, when no storyteller event is on, the storyteller sends every grump marked as a raider home (leftovers of a raid that is over). The waves added in 4.34 mark their grumps as raiders so they march on the place, a wave can only start while no event is on, and a wave counts a grump that is going home as gone.
 - So every wave ended at once: the ring, the fort, the vault, the taunt drum, and the four dark pillars of the last act. A wave only counts as won with a medal, so the pillars could not fall.
 - The tests never saw it because they ticked the wave by hand and did not run the storyteller beside it.
-- Now the storyteller leaves the grumps of a dark.js wave or eclipse alone (director.js). The old rule still sends a plain leftover raider home.
+- Now the storyteller leaves the grumps of a dark.js wave alone (director.js). The old rule still sends a plain leftover raider home.
+- The eclipse was looked at too, because its grumps are marked the same way. It was never broken: the eclipse is a storyteller event itself, and the rule only runs when no event is on. A test now holds that.
 
 **The ark flare did nothing on a grown island.** It cleared every grump, and every posted grump (guards, stalkers, named ones, beasts) was put back on the next tick, because a post whose grump is missing gets a fresh one. By day 20 every grump out on the test island was a posted one.
 - Now the posts that stand when the flare is fired stay empty until the same time the next day (`post.off`, set by dark.js when it hears "arkFlare"), and the log says so: "the grumps' guards and hunters keep off their posts until this time tomorrow."
@@ -733,7 +734,7 @@ Ashton loved the Higgsfield ad's chunky voxel style ("the ad looks better than t
 
 **Not changed.** The island's one flare can still be lost on the ground beside a pod opened from the sky. A stink pot still does not move a posted grump: only its line changed.
 
-**Tests.** `tests/play446.test.js`: the ring with the storyteller running beside it (still on its first wave after four seconds, its grumps not sent home; three waves of two, three and four; nine of nine chased off pays a gold medal); a plain leftover raider still goes home and an eclipse's grump does not; a posted beast cleared by the flare is not back three seconds later, is held off for a day, comes back after it, and a beast spawned after the flare is not held; the stink pot's line; a club in the paw and a shield in the bag, face to face with a beast: "raise your shield", then "bash with your shield"; the crosshair names the beast.
+**Tests.** `tests/play446.test.js`: the ring with the storyteller running beside it (still on its first wave after four seconds, its grumps not sent home; three waves of two, three and four; nine of nine chased off pays a gold medal); a dark pillar broken through its own button: both waves chased off, "a dark pillar is down: 1 of 4", the pillar gone; a plain leftover raider still goes home; an eclipse fired through the storyteller keeps its grumps until it ends, then sends them home; a posted beast cleared by the flare is not back three seconds later, is held off for a day, comes back after it, and a beast spawned after the flare is not held; the stink pot's line; a club in the paw and a shield in the bag, face to face with a beast: "raise your shield", then "bash with your shield"; the crosshair names the beast.
 
 ## 0.94 What v4.45.0 changed: the opening story ends on time
 
